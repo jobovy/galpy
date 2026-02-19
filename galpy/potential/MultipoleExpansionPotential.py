@@ -101,32 +101,44 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         self._rho_cos, self._rho_sin = self._compute_rho_lm(
             dens_func, rgrid, L, M, costheta_order, phi_order
         )
+        # Determine isNonAxi: compare m>0 coefficients to the monopole
+        _max_m0 = numpy.max(numpy.abs(self._rho_cos[:, :, 0]))
+        _tol = 1e-12 * max(_max_m0, 1e-16)
+        self.isNonAxi = M > 1 and (
+            numpy.any(numpy.abs(self._rho_cos[:, :, 1:]) > _tol)
+            or numpy.any(numpy.abs(self._rho_sin[:, :, 1:]) > _tol)
+        )
+        # Truncate to axisymmetric if non-axi terms are negligible
+        if not self.isNonAxi and M > 1:
+            self._M = 1
+            M = 1
+            self._rho_cos = self._rho_cos[:, :, :1]
+            self._rho_sin = self._rho_sin[:, :, :1]
+        # Normalization for angular reconstruction; absorbed into splines
+        beta_lm = sph_harm_normalization(L, M)
         # Create interpolation splines for density reconstruction
+        # with beta_lm absorbed into the spline data
         self._rho_cos_splines = [
             [
-                InterpolatedUnivariateSpline(rgrid, self._rho_cos[:, l, m], k=k)
+                InterpolatedUnivariateSpline(
+                    rgrid, beta_lm[l, m] * self._rho_cos[:, l, m], k=k
+                )
                 for m in range(M)
             ]
             for l in range(L)
         ]
         self._rho_sin_splines = [
             [
-                InterpolatedUnivariateSpline(rgrid, self._rho_sin[:, l, m], k=k)
+                InterpolatedUnivariateSpline(
+                    rgrid, beta_lm[l, m] * self._rho_sin[:, l, m], k=k
+                )
                 for m in range(M)
             ]
             for l in range(L)
         ]
         # Precompute radial integrals for potential
-        self._precompute_radial_integrals()
-        # Normalization for angular reconstruction
-        self._beta_lm = sph_harm_normalization(L, M)
-        # Determine isNonAxi: compare m>0 coefficients to the monopole
-        _max_m0 = numpy.max(numpy.abs(self._rho_cos[:, :, 0]))
-        _tol = 1e-10 * max(_max_m0, 1e-16)
-        self.isNonAxi = M > 1 and (
-            numpy.any(numpy.abs(self._rho_cos[:, :, 1:]) > _tol)
-            or numpy.any(numpy.abs(self._rho_sin[:, :, 1:]) > _tol)
-        )
+        # with -4*pi/(2l+1) * beta_lm absorbed into the spline data
+        self._precompute_radial_integrals(beta_lm)
         self._force_hash = None
         self._2nd_deriv_hash = None
         self.hasC = False
@@ -312,13 +324,21 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         rho_sin *= alpha_lm[numpy.newaxis, :, :]
         return rho_cos, rho_sin
 
-    def _precompute_radial_integrals(self):
+    def _precompute_radial_integrals(self, beta_lm):
         """
         Precompute cumulative radial integrals I_inner and I_outer for the potential.
 
         For each (l, m):
             I_inner(r) = integral_0^r a^{l+2} * rho_lm(a) da
             I_outer(r) = integral_r^inf a^{1-l} * rho_lm(a) da
+
+        The prefactors ``-4*pi/(2l+1) * beta_lm[l, m]`` are absorbed into the
+        spline data so they need not be applied at evaluation time.
+
+        Parameters
+        ----------
+        beta_lm : numpy.ndarray
+            Spherical harmonic normalization coefficients.
 
         Notes
         -----
@@ -330,7 +350,9 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         self._Radial_cos = [[None for _ in range(M)] for _ in range(L)]
         self._Radial_sin = [[None for _ in range(M)] for _ in range(L)]
         for l in range(L):
+            pref = -4.0 * numpy.pi / (2 * l + 1)
             for m in range(min(l + 1, M)):
+                pref_blm = pref * beta_lm[l, m]
                 for rho_arr, Radial in [
                     (self._rho_cos[:, l, m], self._Radial_cos),
                     (self._rho_sin[:, l, m], self._Radial_sin),
@@ -342,8 +364,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     f_outer = rgrid ** (1 - l) * rho_arr
                     cum_outer = cumulative_trapezoid(f_outer, rgrid, initial=0)
                     I_outer_vals = cum_outer[-1] - cum_outer
-                    # Combined radial function: r^{-(l+1)} * I_inner + r^l * I_outer
-                    R_lm_vals = (
+                    # Combined radial function with prefactors absorbed
+                    R_lm_vals = pref_blm * (
                         rgrid ** (-(l + 1)) * I_inner_vals + rgrid**l * I_outer_vals
                     )
                     Radial[l][m] = InterpolatedUnivariateSpline(
@@ -404,24 +426,18 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         if not numpy.isfinite(r):
             return 0.0
         PP = compute_legendre(numpy.cos(theta), L, M)
-        beta_lm = self._beta_lm
         result = 0.0
         if r == 0.0:
             # At r=0, only l=0, m=0 contributes
-            radial_cos = float(self._Radial_cos[0][0](0.0))
-            result = beta_lm[0, 0] * PP[0, 0] * radial_cos
-            return -4.0 * numpy.pi * result
+            return float(self._Radial_cos[0][0](0.0)) * PP[0, 0]
         for l in range(L):
-            prefactor = -4.0 * numpy.pi / (2 * l + 1)
             for m in range(min(l + 1, M)):
                 radial_cos = float(self._Radial_cos[l][m](r))
-                contrib = beta_lm[l, m] * PP[l, m] * numpy.cos(m * phi) * radial_cos
+                contrib = PP[l, m] * numpy.cos(m * phi) * radial_cos
                 if m > 0:
                     radial_sin = float(self._Radial_sin[l][m](r))
-                    contrib += (
-                        beta_lm[l, m] * PP[l, m] * numpy.sin(m * phi) * radial_sin
-                    )
-                result += prefactor * contrib
+                    contrib += PP[l, m] * numpy.sin(m * phi) * radial_sin
+                result += contrib
         return result
 
     def _dens(self, R, z, phi=0.0, t=0.0):
@@ -478,17 +494,14 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         if not numpy.isfinite(r):
             return 0.0
         PP = compute_legendre(numpy.cos(theta), L, M)
-        beta_lm = self._beta_lm
         result = 0.0
         for l in range(L):
             for m in range(min(l + 1, M)):
                 rho_cos_val = self._rho_cos_splines[l][m](r)
-                contrib = beta_lm[l, m] * PP[l, m] * numpy.cos(m * phi) * rho_cos_val
+                contrib = PP[l, m] * numpy.cos(m * phi) * rho_cos_val
                 if m > 0:
                     rho_sin_val = self._rho_sin_splines[l][m](r)
-                    contrib += (
-                        beta_lm[l, m] * PP[l, m] * numpy.sin(m * phi) * rho_sin_val
-                    )
+                    contrib += PP[l, m] * numpy.sin(m * phi) * rho_sin_val
                 result += contrib
         return float(result)
 
@@ -535,53 +548,28 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             self._cached_dPhi_dphi = 0.0
             return 0.0, 0.0, 0.0
         PP, dPP = compute_legendre(numpy.cos(theta), L, M, deriv=True)
-        beta_lm = self._beta_lm
+        sintheta = numpy.sin(theta)
         dPhi_dr = 0.0
         dPhi_dtheta = 0.0
         dPhi_dphi = 0.0
         for l in range(L):
-            prefactor = -4.0 * numpy.pi / (2 * l + 1)
             for m in range(min(l + 1, M)):
                 radial_cos = float(self._Radial_cos[l][m](r))
                 dradial_cos = float(self._Radial_cos[l][m](r, 1))
                 cos_mphi = numpy.cos(m * phi)
                 sin_mphi = numpy.sin(m * phi)
                 # dPhi/dr contribution
-                dPhi_dr += prefactor * beta_lm[l, m] * PP[l, m] * cos_mphi * dradial_cos
+                dPhi_dr += PP[l, m] * cos_mphi * dradial_cos
                 # dPhi/dtheta contribution: dP_l^m/dtheta = dP_l^m/d(costheta) * (-sin(theta))
-                dPhi_dtheta += (
-                    prefactor
-                    * beta_lm[l, m]
-                    * dPP[l, m]
-                    * (-numpy.sin(theta))
-                    * cos_mphi
-                    * radial_cos
-                )
+                dPhi_dtheta += dPP[l, m] * (-sintheta) * cos_mphi * radial_cos
                 # dPhi/dphi contribution
-                dPhi_dphi += (
-                    prefactor * beta_lm[l, m] * PP[l, m] * (-m * sin_mphi) * radial_cos
-                )
+                dPhi_dphi += PP[l, m] * (-m * sin_mphi) * radial_cos
                 if m > 0:
                     radial_sin = float(self._Radial_sin[l][m](r))
                     dradial_sin = float(self._Radial_sin[l][m](r, 1))
-                    dPhi_dr += (
-                        prefactor * beta_lm[l, m] * PP[l, m] * sin_mphi * dradial_sin
-                    )
-                    dPhi_dtheta += (
-                        prefactor
-                        * beta_lm[l, m]
-                        * dPP[l, m]
-                        * (-numpy.sin(theta))
-                        * sin_mphi
-                        * radial_sin
-                    )
-                    dPhi_dphi += (
-                        prefactor
-                        * beta_lm[l, m]
-                        * PP[l, m]
-                        * (m * cos_mphi)
-                        * radial_sin
-                    )
+                    dPhi_dr += PP[l, m] * sin_mphi * dradial_sin
+                    dPhi_dtheta += dPP[l, m] * (-sintheta) * sin_mphi * radial_sin
+                    dPhi_dphi += PP[l, m] * (m * cos_mphi) * radial_sin
         # Negate to match convention: return negative gradient (force components)
         dPhi_dr = -dPhi_dr
         dPhi_dtheta = -dPhi_dtheta
@@ -649,7 +637,6 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             costheta = numpy.sign(costheta) * (1.0 - 1e-7)
             sintheta = numpy.sqrt(1.0 - costheta**2)
         PP, dPP, d2PP = compute_legendre(costheta, L, M, deriv=2)
-        beta_lm = self._beta_lm
         d2Phi_dr2 = 0.0
         d2Phi_dtheta2 = 0.0
         d2Phi_dphi2 = 0.0
@@ -659,14 +646,12 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         dPhi_dr = 0.0
         dPhi_dtheta = 0.0
         for l in range(L):
-            prefactor = -4.0 * numpy.pi / (2 * l + 1)
             for m in range(min(l + 1, M)):
                 radial_cos = float(self._Radial_cos[l][m](r))
                 dradial_cos = float(self._Radial_cos[l][m](r, 1))
                 d2radial_cos = float(self._Radial_cos[l][m](r, 2))
                 cos_mphi = numpy.cos(m * phi)
                 sin_mphi = numpy.sin(m * phi)
-                blm = beta_lm[l, m]
                 Plm = PP[l, m]
                 dPlm_dx = dPP[l, m]
                 d2Plm_dx2 = d2PP[l, m]
@@ -674,42 +659,37 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 dPlm_dtheta = dPlm_dx * (-sintheta)
                 # d²P_l^m/dtheta² = d²P/dx² * sin²theta - dP/dx * costheta
                 d2Plm_dtheta2 = d2Plm_dx2 * sintheta**2 - dPlm_dx * costheta
-                pref_blm = prefactor * blm
                 # --- Cosine terms ---
                 # First derivatives (needed for chain rule)
-                dPhi_dr += pref_blm * Plm * cos_mphi * dradial_cos
-                dPhi_dtheta += pref_blm * dPlm_dtheta * cos_mphi * radial_cos
+                dPhi_dr += Plm * cos_mphi * dradial_cos
+                dPhi_dtheta += dPlm_dtheta * cos_mphi * radial_cos
                 # d²Phi/dr²
-                d2Phi_dr2 += pref_blm * Plm * cos_mphi * d2radial_cos
+                d2Phi_dr2 += Plm * cos_mphi * d2radial_cos
                 # d²Phi/dtheta²
-                d2Phi_dtheta2 += pref_blm * d2Plm_dtheta2 * cos_mphi * radial_cos
+                d2Phi_dtheta2 += d2Plm_dtheta2 * cos_mphi * radial_cos
                 # d²Phi/dphi² : cos(m*phi) -> -m²*cos(m*phi)
-                d2Phi_dphi2 += pref_blm * Plm * (-m * m * cos_mphi) * radial_cos
+                d2Phi_dphi2 += Plm * (-m * m * cos_mphi) * radial_cos
                 # d²Phi/drdtheta
-                d2Phi_drdtheta += pref_blm * dPlm_dtheta * cos_mphi * dradial_cos
+                d2Phi_drdtheta += dPlm_dtheta * cos_mphi * dradial_cos
                 # d²Phi/drdphi
-                d2Phi_drdphi += pref_blm * Plm * (-m * sin_mphi) * dradial_cos
+                d2Phi_drdphi += Plm * (-m * sin_mphi) * dradial_cos
                 # d²Phi/dthetadphi
-                d2Phi_dthetadphi += (
-                    pref_blm * dPlm_dtheta * (-m * sin_mphi) * radial_cos
-                )
+                d2Phi_dthetadphi += dPlm_dtheta * (-m * sin_mphi) * radial_cos
                 if m > 0:
                     radial_sin = float(self._Radial_sin[l][m](r))
                     dradial_sin = float(self._Radial_sin[l][m](r, 1))
                     d2radial_sin = float(self._Radial_sin[l][m](r, 2))
                     # --- Sine terms ---
-                    dPhi_dr += pref_blm * Plm * sin_mphi * dradial_sin
-                    dPhi_dtheta += pref_blm * dPlm_dtheta * sin_mphi * radial_sin
-                    d2Phi_dr2 += pref_blm * Plm * sin_mphi * d2radial_sin
-                    d2Phi_dtheta2 += pref_blm * d2Plm_dtheta2 * sin_mphi * radial_sin
+                    dPhi_dr += Plm * sin_mphi * dradial_sin
+                    dPhi_dtheta += dPlm_dtheta * sin_mphi * radial_sin
+                    d2Phi_dr2 += Plm * sin_mphi * d2radial_sin
+                    d2Phi_dtheta2 += d2Plm_dtheta2 * sin_mphi * radial_sin
                     # sin(m*phi) -> -m²*sin(m*phi)
-                    d2Phi_dphi2 += pref_blm * Plm * (-m * m * sin_mphi) * radial_sin
-                    d2Phi_drdtheta += pref_blm * dPlm_dtheta * sin_mphi * dradial_sin
+                    d2Phi_dphi2 += Plm * (-m * m * sin_mphi) * radial_sin
+                    d2Phi_drdtheta += dPlm_dtheta * sin_mphi * dradial_sin
                     # sin(m*phi) -> m*cos(m*phi) for d/dphi
-                    d2Phi_drdphi += pref_blm * Plm * (m * cos_mphi) * dradial_sin
-                    d2Phi_dthetadphi += (
-                        pref_blm * dPlm_dtheta * (m * cos_mphi) * radial_sin
-                    )
+                    d2Phi_drdphi += Plm * (m * cos_mphi) * dradial_sin
+                    d2Phi_dthetadphi += dPlm_dtheta * (m * cos_mphi) * radial_sin
         self._2nd_deriv_hash = new_hash
         self._cached_2nd_derivs = (
             d2Phi_dr2,
