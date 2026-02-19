@@ -174,14 +174,14 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         # Determine number of parameters
         numOfParam = 0
         try:
-            dens(1.0)
-            numOfParam = 1
+            dens(1.0, 0.0, 0.0)
+            numOfParam = 3
         except TypeError:
             try:
                 dens(1.0, 0.0)
                 numOfParam = 2
             except TypeError:
-                numOfParam = 3
+                numOfParam = 1
         # Handle astropy units
         if _APY_LOADED:
             param = [1.0] * numOfParam
