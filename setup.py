@@ -109,9 +109,13 @@ if "PYODIDE" not in os.environ:
     try:
         # shell=True required on Windows to execute gsl-config.bat
         # (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
-        gsl_cflags = subprocess.check_output(
-            ["gsl-config", "--cflags"], shell=sys.platform.startswith("win")
-        ).decode("utf-8").strip()
+        gsl_cflags = (
+            subprocess.check_output(
+                ["gsl-config", "--cflags"], shell=sys.platform.startswith("win")
+            )
+            .decode("utf-8")
+            .strip()
+        )
         for flag in gsl_cflags.split():
             if flag.startswith("-I"):
                 path = flag[2:].strip('"')
@@ -120,9 +124,13 @@ if "PYODIDE" not in os.environ:
     except (OSError, subprocess.CalledProcessError):
         pass
     try:
-        gsl_libs = subprocess.check_output(
-            ["gsl-config", "--libs"], shell=sys.platform.startswith("win")
-        ).decode("utf-8").strip()
+        gsl_libs = (
+            subprocess.check_output(
+                ["gsl-config", "--libs"], shell=sys.platform.startswith("win")
+            )
+            .decode("utf-8")
+            .strip()
+        )
         for flag in gsl_libs.split():
             if flag.startswith("-L"):
                 path = flag[2:].strip('"')
