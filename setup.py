@@ -88,32 +88,46 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 
 # Use gsl-config to get GSL include and library paths to ensure they can be
 # found by the compiler and linker even if CFLAGS/LDFLAGS are not set;
-# skip paths already present in CFLAGS/LDFLAGS to avoid duplicates
+# skip paths already present in CFLAGS/LDFLAGS (or INCLUDE/LIB on Windows) to avoid duplicates
 gsl_include_dirs = []
 gsl_library_dirs = []
-if not WIN32 and "PYODIDE" not in os.environ:
-    _existing_includes = {
-        f[2:] for f in os.environ.get("CFLAGS", "").split() if f.startswith("-I")
-    }
-    _existing_libdirs = {
-        f[2:] for f in os.environ.get("LDFLAGS", "").split() if f.startswith("-L")
-    }
-    try:
-        gsl_cflags = (
-            subprocess.check_output(["gsl-config", "--cflags"]).decode("utf-8").strip()
+if "PYODIDE" not in os.environ:
+    if WIN32:
+        _existing_includes = set(
+            filter(None, os.environ.get("INCLUDE", "").split(os.pathsep))
         )
+        _existing_libdirs = set(
+            filter(None, os.environ.get("LIB", "").split(os.pathsep))
+        )
+    else:
+        _existing_includes = {
+            f[2:] for f in os.environ.get("CFLAGS", "").split() if f.startswith("-I")
+        }
+        _existing_libdirs = {
+            f[2:] for f in os.environ.get("LDFLAGS", "").split() if f.startswith("-L")
+        }
+    try:
+        # shell=True required on Windows to execute gsl-config.bat
+        # (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
+        gsl_cflags = subprocess.check_output(
+            ["gsl-config", "--cflags"], shell=sys.platform.startswith("win")
+        ).decode("utf-8").strip()
         for flag in gsl_cflags.split():
-            if flag.startswith("-I") and flag[2:] not in _existing_includes:
-                gsl_include_dirs.append(flag[2:])
+            if flag.startswith("-I"):
+                path = flag[2:].strip('"')
+                if path not in _existing_includes:
+                    gsl_include_dirs.append(path)
     except (OSError, subprocess.CalledProcessError):
         pass
     try:
-        gsl_libs = (
-            subprocess.check_output(["gsl-config", "--libs"]).decode("utf-8").strip()
-        )
+        gsl_libs = subprocess.check_output(
+            ["gsl-config", "--libs"], shell=sys.platform.startswith("win")
+        ).decode("utf-8").strip()
         for flag in gsl_libs.split():
-            if flag.startswith("-L") and flag[2:] not in _existing_libdirs:
-                gsl_library_dirs.append(flag[2:])
+            if flag.startswith("-L"):
+                path = flag[2:].strip('"')
+                if path not in _existing_libdirs:
+                    gsl_library_dirs.append(path)
     except (OSError, subprocess.CalledProcessError):
         pass
 
@@ -201,7 +215,7 @@ galpy_c = Extension(
     libraries=galpy_c_libraries,
     include_dirs=galpy_c_include_dirs,
     library_dirs=gsl_library_dirs,
-    runtime_library_dirs=gsl_library_dirs,
+    runtime_library_dirs=[] if WIN32 else gsl_library_dirs,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
 )
@@ -221,7 +235,7 @@ actionAngleTorus_c = Extension(
     libraries=galpy_c_libraries,
     include_dirs=actionAngleTorus_include_dirs,
     library_dirs=gsl_library_dirs,
-    runtime_library_dirs=gsl_library_dirs,
+    runtime_library_dirs=[] if WIN32 else gsl_library_dirs,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
 )

@@ -249,13 +249,24 @@ jobs:
          brew install gsl libomp
          brew info libomp
     - name: Set GSL and OpenMP environment paths (macOS)
-      if: ${{ contains(matrix.os, 'macos') && !(matrix.os == 'macos-15' && contains(matrix.TEST_FILES, 'test_energy_jacobi_conservation or from_name')) }}
+      # Skipped for one job (macos-* with test_energy_jacobi_conservation or from_name)
+      # to test automatic detection of GSL environment paths by setup.py
+      if: ${{ contains(matrix.os, 'macos-') && !contains(matrix.TEST_FILES, 'test_energy_jacobi_conservation or from_name') }}
       run: |
          echo "CFLAGS=-I$(brew --prefix)/include -I$(brew --prefix)/opt/libomp/include" >> $GITHUB_ENV
          echo "CPPFLAGS=-I$(brew --prefix)/include -I$(brew --prefix)/opt/libomp/include" >> $GITHUB_ENV
          echo "LDFLAGS=-L$(brew --prefix)/lib -L$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
          echo "LD_LIBRARY_PATH=$(brew --prefix)/lib:$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
          echo "DYLD_LIBRARY_PATH=$(brew --prefix)/lib:$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
+    - name: Set OpenMP environment paths (macOS, testing GSL auto-detection)
+      # Set only OpenMP paths (not GSL) for the job testing automatic GSL path detection
+      if: ${{ contains(matrix.os, 'macos-') && contains(matrix.TEST_FILES, 'test_energy_jacobi_conservation or from_name') }}
+      run: |
+         echo "CFLAGS=-I$(brew --prefix)/opt/libomp/include" >> $GITHUB_ENV
+         echo "CPPFLAGS=-I$(brew --prefix)/opt/libomp/include" >> $GITHUB_ENV
+         echo "LDFLAGS=-L$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
+         echo "LD_LIBRARY_PATH=$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
+         echo "DYLD_LIBRARY_PATH=$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
     - uses: actions/cache@v5
       with:
         path: ~/.cache/pip
