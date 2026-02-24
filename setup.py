@@ -99,18 +99,18 @@ if not WIN32 and "PYODIDE" not in os.environ:
         f[2:] for f in os.environ.get("LDFLAGS", "").split() if f.startswith("-L")
     }
     try:
-        gsl_cflags = subprocess.check_output(
-            ["gsl-config", "--cflags"]
-        ).decode("utf-8").strip()
+        gsl_cflags = (
+            subprocess.check_output(["gsl-config", "--cflags"]).decode("utf-8").strip()
+        )
         for flag in gsl_cflags.split():
             if flag.startswith("-I") and flag[2:] not in _existing_includes:
                 gsl_include_dirs.append(flag[2:])
     except (OSError, subprocess.CalledProcessError):
         pass
     try:
-        gsl_libs = subprocess.check_output(
-            ["gsl-config", "--libs"]
-        ).decode("utf-8").strip()
+        gsl_libs = (
+            subprocess.check_output(["gsl-config", "--libs"]).decode("utf-8").strip()
+        )
         for flag in gsl_libs.split():
             if flag.startswith("-L") and flag[2:] not in _existing_libdirs:
                 gsl_library_dirs.append(flag[2:])
