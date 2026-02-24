@@ -218,6 +218,7 @@ jobs:
       shell: bash -l {0}
       run: |
         echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+        echo "CONDA_PREFIX=$CONDA_PREFIX" >> $GITHUB_ENV # necessary for gsl-config.bat to find GSL paths
     - name: Set GSL environment variables
       # Skipped for one job (test_actionAngle.py) to test automatic detection of GSL
       # environment paths by setup.py
