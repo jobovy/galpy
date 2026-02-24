@@ -119,7 +119,7 @@ if "PYODIDE" not in os.environ:
         for flag in gsl_cflags.split():
             if flag.startswith("-I"):
                 path = flag[2:].strip('"')
-                if path not in _existing_includes:
+                if path not in _existing_includes and os.path.isdir(path):
                     gsl_include_dirs.append(path)
     except (OSError, subprocess.CalledProcessError):
         pass
@@ -134,7 +134,7 @@ if "PYODIDE" not in os.environ:
         for flag in gsl_libs.split():
             if flag.startswith("-L"):
                 path = flag[2:].strip('"')
-                if path not in _existing_libdirs:
+                if path not in _existing_libdirs and os.path.isdir(path):
                     gsl_library_dirs.append(path)
     except (OSError, subprocess.CalledProcessError):
         pass
