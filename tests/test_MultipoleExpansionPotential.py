@@ -493,3 +493,91 @@ def test_spline_degree_k_parameter():
     for mp in [mp3, mp5]:
         val = mp.R2deriv(1.0, 0.5, use_physical=False)
         assert numpy.isfinite(val)
+
+
+# --- Below/above grid extrapolation tests ---
+
+
+def test_below_grid_potential_force_2ndderiv():
+    """Test that potential, forces, and second derivatives are finite and
+    well-behaved below the grid (r < rmin), covering the constant-density
+    extrapolation in _eval_R_lm, _eval_dR_lm, _eval_d2R_lm."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp,
+        L=4,
+        symmetry="axisymmetric",
+        rgrid=numpy.geomspace(2.0, 20.0, 201),
+    )
+    rmin = mp._rgrid[0]
+    # Evaluate at r < rmin (R=1.0, z=0 gives r=1.0 < rmin=2.0)
+    for R in [0.5, 1.0, 1.5]:
+        val = mp(R, 0.0)
+        rf = mp.Rforce(R, 0.0)
+        r2 = mp.R2deriv(R, 0.0, use_physical=False)
+        z2 = mp.z2deriv(R, 0.0, use_physical=False)
+        assert numpy.isfinite(val), f"Potential not finite at R={R} < rmin"
+        assert numpy.isfinite(rf), f"Rforce not finite at R={R} < rmin"
+        assert rf < 0, f"Rforce should be attractive at R={R} < rmin"
+        assert numpy.isfinite(r2), f"R2deriv not finite at R={R} < rmin"
+        assert numpy.isfinite(z2), f"z2deriv not finite at R={R} < rmin"
+
+
+def test_below_grid_l2_branch():
+    """Test the l=2 special case in _below_grid_integrals (log formula),
+    which requires L >= 3 and evaluation at r < rmin."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=lambda R, z: hp.dens(R, z) * (1 + 1e-8 * z**2),
+        L=4,
+        symmetry="axisymmetric",
+        rgrid=numpy.geomspace(2.0, 20.0, 201),
+    )
+    # Evaluate at r < rmin; L=4 means l goes 0,1,2,3, hitting l=2
+    R, z = 0.5, 0.5
+    val = mp(R, z)
+    rf = mp.Rforce(R, z)
+    r2 = mp.R2deriv(R, z, use_physical=False)
+    assert numpy.isfinite(val), "Potential not finite for l=2 below-grid"
+    assert numpy.isfinite(rf), "Rforce not finite for l=2 below-grid"
+    assert numpy.isfinite(r2), "R2deriv not finite for l=2 below-grid"
+
+
+def test_above_grid_2nd_derivs():
+    """Test that second derivatives are finite and behave as point-mass
+    for r > rmax, covering the r > rmax branch of _eval_d2R_lm."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp,
+        L=2,
+        symmetry="spherical",
+        rgrid=numpy.geomspace(0.01, 5.0, 201),
+    )
+    rmax = mp._rgrid[-1]
+    # Evaluate at r > rmax
+    for R in [6.0, 8.0, 10.0]:
+        r2 = mp.R2deriv(R, 0.0, use_physical=False)
+        z2 = mp.z2deriv(R, 0.0, use_physical=False)
+        assert numpy.isfinite(r2), f"R2deriv not finite at R={R} > rmax"
+        assert numpy.isfinite(z2), f"z2deriv not finite at R={R} > rmax"
+    # Check point-mass behavior: R2deriv should decrease with distance
+    r2_6 = mp.R2deriv(6.0, 0.0, use_physical=False)
+    r2_10 = mp.R2deriv(10.0, 0.0, use_physical=False)
+    assert abs(r2_6) > abs(r2_10), "R2deriv should decrease with distance"
+
+
+def test_below_grid_density_clamped():
+    """Test that density below the grid returns the value at rmin (clamped)."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp,
+        L=2,
+        symmetry="spherical",
+        rgrid=numpy.geomspace(2.0, 20.0, 201),
+    )
+    rmin = mp._rgrid[0]
+    d_at_rmin = mp.dens(rmin, 0.0, use_physical=False)
+    d_below = mp.dens(1.0, 0.0, use_physical=False)
+    assert d_below == d_at_rmin, (
+        f"Density below grid should be clamped to rmin value: {d_below} != {d_at_rmin}"
+    )
