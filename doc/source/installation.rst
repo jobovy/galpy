@@ -108,9 +108,15 @@ If you are reading this, either the simple installation instructions at the top 
 
         Once you have installed the GSL, compile ``galpy`` from source using::
 
+            python -m pip install --no-binary galpy galpy
+
+        Note that ``galpy``'s installation from source should automatically detect the
+        relevant GSL paths, so you shouldn't have to set any environment variables. If
+        you do run into problems with undefined GSL symbols, set the environment variables
+        using::
+
             export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
             export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
-            python -m pip install --no-binary galpy galpy
 
         The commands in this section so far all install the latest release. If you want
         to install the latest bleeding-edge version, you have two options. If the
@@ -164,14 +170,18 @@ If you are reading this, either the simple installation instructions at the top 
 
             conda install -c conda-forge gsl llvm-openmp
 
-        Then set the path and relevant environment variables using::
-
-            export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
-            export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
-
         Once you have installed the GSL and OpenMP, compile ``galpy`` from source using::
 
             python -m pip install --no-binary galpy galpy
+
+        Note that ``galpy``'s installation from source should automatically detect the
+        relevant GSL paths, so you shouldn't have to set any environment variables. If
+        you do run into problems with undefined GSL symbols, set the environment variables
+        using::
+
+            export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
+            export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
+            export DYLD_LIBRARY_PATH="$DYLD_LIBRARY_PATH:`gsl-config --prefix`/lib"
 
         The commands in this section so far all install the latest release. If you want
         to install the latest bleeding-edge version, you have two options. If the
