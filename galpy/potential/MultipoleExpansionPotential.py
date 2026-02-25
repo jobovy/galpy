@@ -6,8 +6,7 @@ import hashlib
 
 import numpy
 from numpy.polynomial.legendre import leggauss
-from scipy.integrate import cumulative_trapezoid
-from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.interpolate import BPoly, InterpolatedUnivariateSpline
 
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -347,29 +346,94 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         rgrid = self._rgrid
         L = self._L
         M = self._M
-        self._Radial_cos = [[None for _ in range(M)] for _ in range(L)]
-        self._Radial_sin = [[None for _ in range(M)] for _ in range(L)]
+        # Store cumulative integral splines; R, dR/dr, d²R/dr² are computed
+        # analytically from these at evaluation time, avoiding dynamic-range
+        # issues with high-l radial functions and ensuring the radial ODE
+        # (and thus Poisson equation) is satisfied by construction.
+        self._I_inner_cos = [[None for _ in range(M)] for _ in range(L)]
+        self._I_inner_sin = [[None for _ in range(M)] for _ in range(L)]
+        self._I_outer_cos = [[None for _ in range(M)] for _ in range(L)]
+        self._I_outer_sin = [[None for _ in range(M)] for _ in range(L)]
         for l in range(L):
             pref = -4.0 * numpy.pi / (2 * l + 1)
             for m in range(min(l + 1, M)):
                 pref_blm = pref * beta_lm[l, m]
-                for rho_arr, Radial in [
-                    (self._rho_cos[:, l, m], self._Radial_cos),
-                    (self._rho_sin[:, l, m], self._Radial_sin),
+                for rho_arr, I_inner_store, I_outer_store in [
+                    (
+                        self._rho_cos[:, l, m],
+                        self._I_inner_cos,
+                        self._I_outer_cos,
+                    ),
+                    (
+                        self._rho_sin[:, l, m],
+                        self._I_inner_sin,
+                        self._I_outer_sin,
+                    ),
                 ]:
                     # Inner integral: integrand = r^{l+2} * rho_lm(r)
                     f_inner = rgrid ** (l + 2) * rho_arr
-                    I_inner_vals = cumulative_trapezoid(f_inner, rgrid, initial=0)
+                    # Use spline integration for higher accuracy than trapezoid
+                    f_inner_spline = InterpolatedUnivariateSpline(
+                        rgrid, f_inner, k=self._k
+                    )
+                    I_inner_vals = numpy.array(
+                        [f_inner_spline.integral(rgrid[0], r) for r in rgrid]
+                    )
                     # Outer integral: integrand = r^{1-l} * rho_lm(r)
                     f_outer = rgrid ** (1 - l) * rho_arr
-                    cum_outer = cumulative_trapezoid(f_outer, rgrid, initial=0)
-                    I_outer_vals = cum_outer[-1] - cum_outer
-                    # Combined radial function with prefactors absorbed
-                    R_lm_vals = pref_blm * (
-                        rgrid ** (-(l + 1)) * I_inner_vals + rgrid**l * I_outer_vals
+                    f_outer_spline = InterpolatedUnivariateSpline(
+                        rgrid, f_outer, k=self._k
                     )
-                    Radial[l][m] = InterpolatedUnivariateSpline(
-                        rgrid, R_lm_vals, k=self._k
+                    total_outer = f_outer_spline.integral(rgrid[0], rgrid[-1])
+                    I_outer_vals = numpy.array(
+                        [
+                            total_outer - f_outer_spline.integral(rgrid[0], r)
+                            for r in rgrid
+                        ]
+                    )
+                    # Compute 2nd derivatives of the integrals at grid points
+                    # d²I_inner/dr² = d/dr[r^{l+2} ρ] = (l+2) r^{l+1} ρ + r^{l+2} ρ'
+                    # d²I_outer/dr² = d/dr[-r^{1-l} ρ] = -(1-l) r^{-l} ρ - r^{1-l} ρ'
+                    # Use IUS of rho_arr to get ρ' (smooth, modest dynamic range)
+                    rho_spline_raw = InterpolatedUnivariateSpline(
+                        rgrid, rho_arr, k=self._k
+                    )
+                    rho_deriv = numpy.asarray(
+                        [float(rho_spline_raw(r, 1)) for r in rgrid]
+                    )
+                    d2I_inner = (l + 2) * rgrid ** (l + 1) * rho_arr + rgrid ** (
+                        l + 2
+                    ) * rho_deriv
+                    d2I_outer = (
+                        -(1 - l) * rgrid ** (-l) * rho_arr
+                        - rgrid ** (1 - l) * rho_deriv
+                    )
+                    # Use BPoly.from_derivatives with 3 constraints:
+                    # value, 1st derivative, 2nd derivative.
+                    # This gives quintic C² piecewise polynomial, ensuring
+                    # spline derivatives match analytical values at grid
+                    # points for consistent R/dR/d²R evaluation.
+                    # Absorb pref_blm into the spline values so it doesn't
+                    # need to be stored/passed separately
+                    I_inner_store[l][m] = BPoly.from_derivatives(
+                        rgrid,
+                        numpy.column_stack(
+                            [
+                                pref_blm * I_inner_vals,
+                                pref_blm * f_inner,
+                                pref_blm * d2I_inner,
+                            ]
+                        ),
+                    )
+                    I_outer_store[l][m] = BPoly.from_derivatives(
+                        rgrid,
+                        numpy.column_stack(
+                            [
+                                pref_blm * I_outer_vals,
+                                pref_blm * (-f_outer),
+                                pref_blm * d2I_outer,
+                            ]
+                        ),
                     )
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
@@ -412,22 +476,129 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             result[idx] = self._evaluate_at_point(R[idx], z[idx], phi[idx])
         return result
 
-    def _eval_radial(self, spline, r, l):
-        """Evaluate radial spline with point-mass extrapolation for r > rmax."""
-        rmax = self._rgrid[-1]
-        if r <= rmax:
-            return float(spline(r))
-        val_at_rmax = float(spline(rmax))
-        return val_at_rmax * (rmax / r) ** (l + 1)
+    def _below_grid_integrals(self, r, l, I_inner_spline, I_outer_spline):
+        """Compute extended I_inner and I_outer for r < rmin.
 
-    def _eval_radial_deriv(self, spline, r, l):
-        """Evaluate radial spline derivative with point-mass extrapolation for r > rmax."""
+        Assumes rho_lm = constant = rho_lm(rmin) for r' < rmin.
+        pref_blm is already absorbed into the splines.
+
+        Returns (I_inner_ext, I_outer_ext, P_rho0) where P_rho0 = pref*rho0.
+        """
+        rmin = self._rgrid[0]
+        # Extract pref*rho0 from the BPoly derivative:
+        # I_inner'(rmin) = pref*rho0 * rmin^{l+2}
+        P_rho0 = float(I_inner_spline(rmin, 1)) / rmin ** (l + 2)
+        # Full inner integral from 0 to r with constant density
+        I_inner_ext = P_rho0 / (l + 3) * r ** (l + 3)
+        # Outer integral: stored I_outer(rmin) + integral from r to rmin
+        I_outer_rmin = float(I_outer_spline(rmin))
+        if l == 2:
+            extra = P_rho0 * numpy.log(rmin / r)
+        else:
+            extra = P_rho0 / (2 - l) * (rmin ** (2 - l) - r ** (2 - l))
+        I_outer_ext = I_outer_rmin + extra
+        return I_inner_ext, I_outer_ext, P_rho0
+
+    def _eval_R_lm(self, r, l, I_inner_spline, I_outer_spline):
+        """Compute R_lm(r) = r^{-(l+1)} * I_inner + r^l * I_outer.
+
+        pref_blm is already absorbed into the I_inner/I_outer splines.
+        Extrapolation:
+        - r < rmin: constant density = rho(rmin) assumed below grid
+        - r > rmax: point-mass (rho=0 above grid, I_outer(rmax)=0)
+        """
+        rmin = self._rgrid[0]
         rmax = self._rgrid[-1]
+        if r < rmin:
+            I_inner_ext, I_outer_ext, _ = self._below_grid_integrals(
+                r, l, I_inner_spline, I_outer_spline
+            )
+            return r ** (-(l + 1)) * I_inner_ext + r**l * I_outer_ext
         if r <= rmax:
-            return float(spline(r, 1))
-        val_at_rmax = float(spline(rmax))
-        radial = val_at_rmax * (rmax / r) ** (l + 1)
-        return -(l + 1) / r * radial
+            I_inner = float(I_inner_spline(r))
+            I_outer = float(I_outer_spline(r))
+            return r ** (-(l + 1)) * I_inner + r**l * I_outer
+        # Above grid: rho=0 so I_outer(rmax)=0, use I_inner(rmax) only
+        I_inner_rmax = float(I_inner_spline(rmax))
+        return I_inner_rmax * r ** (-(l + 1))
+
+    def _eval_dR_lm(self, r, l, I_inner_spline, I_outer_spline):
+        """Compute dR_lm/dr from I_inner/I_outer spline values and derivatives.
+
+        dR/dr = d/dr[r^{-(l+1)} I_inner + r^l I_outer]
+              = -(l+1) r^{-(l+2)} I_inner + r^{-(l+1)} I'_inner
+                + l r^{l-1} I_outer + r^l I'_outer
+
+        pref_blm is already absorbed into the splines.
+        For r < rmin, the dI/dr terms cancel analytically, leaving:
+        dR/dr = -(l+1) r^{-(l+2)} I_inner_ext + l r^{l-1} I_outer_ext
+        """
+        rmin = self._rgrid[0]
+        rmax = self._rgrid[-1]
+        if r < rmin:
+            I_inner_ext, I_outer_ext, _ = self._below_grid_integrals(
+                r, l, I_inner_spline, I_outer_spline
+            )
+            return (
+                -(l + 1) * r ** (-(l + 2)) * I_inner_ext
+                + l * r ** (l - 1) * I_outer_ext
+            )
+        if r <= rmax:
+            I_inner = float(I_inner_spline(r))
+            I_outer = float(I_outer_spline(r))
+            dI_inner = float(I_inner_spline(r, 1))
+            dI_outer = float(I_outer_spline(r, 1))
+            return (
+                -(l + 1) * r ** (-(l + 2)) * I_inner
+                + r ** (-(l + 1)) * dI_inner
+                + l * r ** (l - 1) * I_outer
+                + r**l * dI_outer
+            )
+        I_inner_rmax = float(I_inner_spline(rmax))
+        return (-(l + 1)) * I_inner_rmax * r ** (-(l + 2))
+
+    def _eval_d2R_lm(self, r, l, I_inner_spline, I_outer_spline):
+        """Compute d²R_lm/dr² from I_inner/I_outer spline values and derivatives.
+
+        d²R/dr² = d²/dr²[r^{-(l+1)} I_inner + r^l I_outer]
+                = (l+1)(l+2) r^{-(l+3)} I_inner
+                  - 2(l+1) r^{-(l+2)} I'_inner + r^{-(l+1)} I''_inner
+                  + l(l-1) r^{l-2} I_outer
+                  + 2l r^{l-1} I'_outer + r^l I''_outer
+
+        pref_blm is already absorbed into the splines.
+        For r < rmin, the dI/dr terms simplify to:
+        d²R/dr² = (l+1)(l+2) r^{-(l+3)} I_inner_ext
+                  + l(l-1) r^{l-2} I_outer_ext - (2l+1) * pref*rho0
+        """
+        rmin = self._rgrid[0]
+        rmax = self._rgrid[-1]
+        if r < rmin:
+            I_inner_ext, I_outer_ext, P_rho0 = self._below_grid_integrals(
+                r, l, I_inner_spline, I_outer_spline
+            )
+            return (
+                (l + 1) * (l + 2) * r ** (-(l + 3)) * I_inner_ext
+                + l * (l - 1) * r ** (l - 2) * I_outer_ext
+                - (2 * l + 1) * P_rho0
+            )
+        if r <= rmax:
+            I_inner = float(I_inner_spline(r))
+            I_outer = float(I_outer_spline(r))
+            dI_inner = float(I_inner_spline(r, 1))
+            dI_outer = float(I_outer_spline(r, 1))
+            d2I_inner = float(I_inner_spline(r, 2))
+            d2I_outer = float(I_outer_spline(r, 2))
+            return (
+                (l + 1) * (l + 2) * r ** (-(l + 3)) * I_inner
+                - 2 * (l + 1) * r ** (-(l + 2)) * dI_inner
+                + r ** (-(l + 1)) * d2I_inner
+                + l * (l - 1) * r ** (l - 2) * I_outer
+                + 2 * l * r ** (l - 1) * dI_outer
+                + r**l * d2I_outer
+            )
+        I_inner_rmax = float(I_inner_spline(rmax))
+        return (l + 1) * (l + 2) * I_inner_rmax * r ** (-(l + 3))
 
     def _evaluate_at_point(self, R, z, phi):
         """
@@ -445,14 +616,25 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         PP = compute_legendre(numpy.cos(theta), L, M)
         result = 0.0
         if r == 0.0:
-            # At r=0, only l=0, m=0 contributes
-            return float(self._Radial_cos[0][0](0.0)) * PP[0, 0]
+            # At r=0, only l=0, m=0 contributes: R_00(0) = I_outer(0)
+            R_00 = float(self._I_outer_cos[0][0](self._rgrid[0]))
+            return R_00 * PP[0, 0]
         for l in range(L):
             for m in range(min(l + 1, M)):
-                radial_cos = self._eval_radial(self._Radial_cos[l][m], r, l)
+                radial_cos = self._eval_R_lm(
+                    r,
+                    l,
+                    self._I_inner_cos[l][m],
+                    self._I_outer_cos[l][m],
+                )
                 contrib = PP[l, m] * numpy.cos(m * phi) * radial_cos
                 if m > 0:
-                    radial_sin = self._eval_radial(self._Radial_sin[l][m], r, l)
+                    radial_sin = self._eval_R_lm(
+                        r,
+                        l,
+                        self._I_inner_sin[l][m],
+                        self._I_outer_sin[l][m],
+                    )
                     contrib += PP[l, m] * numpy.sin(m * phi) * radial_sin
                 result += contrib
         return result
@@ -573,8 +755,18 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         dPhi_dphi = 0.0
         for l in range(L):
             for m in range(min(l + 1, M)):
-                radial_cos = self._eval_radial(self._Radial_cos[l][m], r, l)
-                dradial_cos = self._eval_radial_deriv(self._Radial_cos[l][m], r, l)
+                radial_cos = self._eval_R_lm(
+                    r,
+                    l,
+                    self._I_inner_cos[l][m],
+                    self._I_outer_cos[l][m],
+                )
+                dradial_cos = self._eval_dR_lm(
+                    r,
+                    l,
+                    self._I_inner_cos[l][m],
+                    self._I_outer_cos[l][m],
+                )
                 cos_mphi = numpy.cos(m * phi)
                 sin_mphi = numpy.sin(m * phi)
                 # dPhi/dr contribution
@@ -584,8 +776,18 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 # dPhi/dphi contribution
                 dPhi_dphi += PP[l, m] * (-m * sin_mphi) * radial_cos
                 if m > 0:
-                    radial_sin = self._eval_radial(self._Radial_sin[l][m], r, l)
-                    dradial_sin = self._eval_radial_deriv(self._Radial_sin[l][m], r, l)
+                    radial_sin = self._eval_R_lm(
+                        r,
+                        l,
+                        self._I_inner_sin[l][m],
+                        self._I_outer_sin[l][m],
+                    )
+                    dradial_sin = self._eval_dR_lm(
+                        r,
+                        l,
+                        self._I_inner_sin[l][m],
+                        self._I_outer_sin[l][m],
+                    )
                     dPhi_dr += PP[l, m] * sin_mphi * dradial_sin
                     dPhi_dtheta += dPP[l, m] * (-sintheta) * sin_mphi * radial_sin
                     dPhi_dphi += PP[l, m] * (m * cos_mphi) * radial_sin
@@ -666,9 +868,24 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         dPhi_dtheta = 0.0
         for l in range(L):
             for m in range(min(l + 1, M)):
-                radial_cos = float(self._Radial_cos[l][m](r))
-                dradial_cos = float(self._Radial_cos[l][m](r, 1))
-                d2radial_cos = float(self._Radial_cos[l][m](r, 2))
+                radial_cos = self._eval_R_lm(
+                    r,
+                    l,
+                    self._I_inner_cos[l][m],
+                    self._I_outer_cos[l][m],
+                )
+                dradial_cos = self._eval_dR_lm(
+                    r,
+                    l,
+                    self._I_inner_cos[l][m],
+                    self._I_outer_cos[l][m],
+                )
+                d2radial_cos = self._eval_d2R_lm(
+                    r,
+                    l,
+                    self._I_inner_cos[l][m],
+                    self._I_outer_cos[l][m],
+                )
                 cos_mphi = numpy.cos(m * phi)
                 sin_mphi = numpy.sin(m * phi)
                 Plm = PP[l, m]
@@ -695,9 +912,24 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 # d²Phi/dthetadphi
                 d2Phi_dthetadphi += dPlm_dtheta * (-m * sin_mphi) * radial_cos
                 if m > 0:
-                    radial_sin = float(self._Radial_sin[l][m](r))
-                    dradial_sin = float(self._Radial_sin[l][m](r, 1))
-                    d2radial_sin = float(self._Radial_sin[l][m](r, 2))
+                    radial_sin = self._eval_R_lm(
+                        r,
+                        l,
+                        self._I_inner_sin[l][m],
+                        self._I_outer_sin[l][m],
+                    )
+                    dradial_sin = self._eval_dR_lm(
+                        r,
+                        l,
+                        self._I_inner_sin[l][m],
+                        self._I_outer_sin[l][m],
+                    )
+                    d2radial_sin = self._eval_d2R_lm(
+                        r,
+                        l,
+                        self._I_inner_sin[l][m],
+                        self._I_outer_sin[l][m],
+                    )
                     # --- Sine terms ---
                     dPhi_dr += Plm * sin_mphi * dradial_sin
                     dPhi_dtheta += dPlm_dtheta * sin_mphi * radial_sin
