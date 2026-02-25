@@ -214,20 +214,11 @@ jobs:
          create-args: gsl
          cache-environment: true
          cache-environment-key: ${{ runner.os }}-${{ hashFiles('.github/workflows/build_windows.yml') }}
-    - name: Set GSL environment variables (add gsl-config to PATH)
+    - name: Set conda environment variables necessary to run gsl-config.bat and auto-detect GSL paths in setup.py
       shell: bash -l {0}
       run: |
         echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
         echo "CONDA_PREFIX=$CONDA_PREFIX" >> $GITHUB_ENV # necessary for gsl-config.bat to find GSL paths
-    - name: Set GSL environment variables
-      # Skipped for one job (test_actionAngle.py) to test automatic detection of GSL
-      # environment paths by setup.py
-      if: ${{ !contains(matrix.TEST_FILES, 'tests/test_actionAngle.py') }}
-      shell: bash -l {0}
-      run: |
-        echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
-        echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-        echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
