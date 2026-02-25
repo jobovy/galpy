@@ -248,11 +248,12 @@ jobs:
       run: |
          brew install gsl libomp
          brew info libomp
-         echo "CFLAGS=-I$(brew --prefix)/include -I$(brew --prefix)/opt/libomp/include" >> $GITHUB_ENV
-         echo "CPPFLAGS=-I$(brew --prefix)/include -I$(brew --prefix)/opt/libomp/include" >> $GITHUB_ENV
-         echo "LDFLAGS=-L$(brew --prefix)/lib -L$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
-         echo "LD_LIBRARY_PATH=$(brew --prefix)/lib:$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
-         echo "DYLD_LIBRARY_PATH=$(brew --prefix)/lib:$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
+         # We don't setup the GSL env variables here, because they are auto-added by setup.py
+         echo "CFLAGS=-I$(brew --prefix)/opt/libomp/include" >> $GITHUB_ENV
+         echo "CPPFLAGS=-I$(brew --prefix)/opt/libomp/include" >> $GITHUB_ENV
+         echo "LDFLAGS=-L$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
+         echo "LD_LIBRARY_PATH=$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
+         echo "DYLD_LIBRARY_PATH=$(brew --prefix)/opt/libomp/lib" >> $GITHUB_ENV
     - uses: actions/cache@v5
       with:
         path: ~/.cache/pip

@@ -86,6 +86,66 @@ else:
     gsl_version = gsl_version.split(".")
 extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 
+# Use gsl-config to get GSL include and library paths to ensure they can be
+# found by the compiler and linker even if CFLAGS/LDFLAGS are not set;
+# skip paths already present in CFLAGS/LDFLAGS (or INCLUDE/LIB on Windows) to avoid duplicates
+gsl_include_dirs = []
+gsl_library_dirs = []
+if "PYODIDE" not in os.environ:
+    if WIN32:
+        _existing_includes = set(
+            filter(None, os.environ.get("INCLUDE", "").split(os.pathsep))
+        )
+        _existing_libdirs = set(
+            filter(None, os.environ.get("LIB", "").split(os.pathsep))
+        )
+    else:
+        _existing_includes = {
+            f[2:] for f in os.environ.get("CFLAGS", "").split() if f.startswith("-I")
+        }
+        _existing_libdirs = {
+            f[2:] for f in os.environ.get("LDFLAGS", "").split() if f.startswith("-L")
+        }
+    try:
+        # shell=True required on Windows to execute gsl-config.bat
+        # (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
+        gsl_cflags = (
+            subprocess.check_output(
+                ["gsl-config", "--cflags"], shell=sys.platform.startswith("win")
+            )
+            .decode("utf-8")
+            .strip()
+        )
+        for flag in gsl_cflags.split():
+            if flag.startswith("-I"):
+                path = flag[2:].strip('"')
+                # Verify the path actually contains GSL headers before using it
+                if path not in _existing_includes and os.path.isfile(
+                    os.path.join(path, "gsl", "gsl_math.h")
+                ):
+                    gsl_include_dirs.append(path)
+    except (OSError, subprocess.CalledProcessError):
+        pass
+    try:
+        gsl_libs = (
+            subprocess.check_output(
+                ["gsl-config", "--libs"], shell=sys.platform.startswith("win")
+            )
+            .decode("utf-8")
+            .strip()
+        )
+        for flag in gsl_libs.split():
+            if flag.startswith("-L"):
+                path = flag[2:].strip('"')
+                # Verify the path actually contains GSL libraries before using it
+                if path not in _existing_libdirs and (
+                    glob.glob(os.path.join(path, "libgsl*"))
+                    or os.path.isfile(os.path.join(path, "gsl.lib"))
+                ):
+                    gsl_library_dirs.append(path)
+    except (OSError, subprocess.CalledProcessError):
+        pass
+
 # HACK for testing
 # gsl_version= ['0','0']
 
@@ -118,6 +178,7 @@ galpy_c_include_dirs = [
     "galpy/actionAngle/actionAngle_c_ext",
     "xsf/include",
 ]
+galpy_c_include_dirs.extend(gsl_include_dirs)
 
 # actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
 actionAngleTorus_c_src = glob.glob("galpy/actionAngle/actionAngleTorus_c_ext/*.cc")
@@ -150,6 +211,7 @@ actionAngleTorus_include_dirs = [
     "galpy/potential/potential_c_ext",
     "xsf/include",
 ]
+actionAngleTorus_include_dirs.extend(gsl_include_dirs)
 
 if single_ext:  # add the code and libraries for the actionAngleTorus extensions
     if os.path.exists("galpy/actionAngle/actionAngleTorus_c_ext/torus/src"):
@@ -167,6 +229,8 @@ galpy_c = Extension(
     sources=galpy_c_src,
     libraries=galpy_c_libraries,
     include_dirs=galpy_c_include_dirs,
+    library_dirs=gsl_library_dirs,
+    runtime_library_dirs=[] if WIN32 else gsl_library_dirs,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
 )
@@ -185,6 +249,8 @@ actionAngleTorus_c = Extension(
     sources=actionAngleTorus_c_src,
     libraries=galpy_c_libraries,
     include_dirs=actionAngleTorus_include_dirs,
+    library_dirs=gsl_library_dirs,
+    runtime_library_dirs=[] if WIN32 else gsl_library_dirs,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
 )
