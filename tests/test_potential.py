@@ -520,10 +520,6 @@ def test_2ndDeriv_potential():
     tol["AnyAxisymmetricRazorThinDiskPotential"] = -4.5
     tol["mockInterpRZPotential"] = -4.0
     tol["DehnenBarPotential"] = -7.0
-    tol["MultipoleExpansionPotential"] = -5.0
-    tol["mockMultipoleExpansionSphericalPotential"] = -5.0
-    tol["mockMultipoleExpansionAxiPotential"] = -5.0
-    tol["mockMultipoleExpansionPotential"] = -5.0
     for p in pots:
         # if not 'NFW' in p: continue #For testing the test
         # Setup instance of potential
@@ -11017,10 +11013,13 @@ class mockMultipoleExpansionLimitedGridPotential(potential.MultipoleExpansionPot
         hp = potential.HernquistPotential(amp=2.0, a=1.0)
         potential.MultipoleExpansionPotential.__init__(
             self,
-            dens=hp,
-            symmetry="spherical",
+            dens=lambda R, z: hp.dens(R, z) * (1 + 1e-8 * z**2.0),
+            symmetry="axisymmetric",
+            L=10,
             rgrid=numpy.geomspace(0.1, 1.245, 201),
         )
+        # Hack to end up with a very limited grid, but still a reasonable potential
+        self._rgrid = numpy.geomspace(0.98, 1.245, 201)
 
 
 # Test interpSphericalPotential

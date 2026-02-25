@@ -301,7 +301,7 @@ def test_dynamfric_c():
         potential.MultipoleExpansionPotential(
             dens=potential.HernquistPotential(normalize=1.0, a=3.5),
             symmetry="spherical",
-            normalize=1.0,
+            amp=2.5,
             rgrid=numpy.geomspace(6.0045, 43.3, 201),
         ),
         MWPotential3021,
