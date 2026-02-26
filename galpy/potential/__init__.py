@@ -10,6 +10,7 @@ from . import (
     CylindricallySeparablePotentialWrapper,
     DehnenBarPotential,
     DehnenSmoothWrapperPotential,
+    DiskMultipoleExpansionPotential,
     DiskSCFPotential,
     DoubleExponentialDiskPotential,
     EinastoPotential,
@@ -201,6 +202,9 @@ TwoPowerTriaxialPotential = TwoPowerTriaxialPotential.TwoPowerTriaxialPotential
 FerrersPotential = FerrersPotential.FerrersPotential
 SCFPotential = SCFPotential.SCFPotential
 SoftenedNeedleBarPotential = SoftenedNeedleBarPotential.SoftenedNeedleBarPotential
+DiskMultipoleExpansionPotential = (
+    DiskMultipoleExpansionPotential.DiskMultipoleExpansionPotential
+)
 DiskSCFPotential = DiskSCFPotential.DiskSCFPotential
 SpiralArmsPotential = SpiralArmsPotential.SpiralArmsPotential
 HenonHeilesPotential = HenonHeilesPotential.HenonHeilesPotential
