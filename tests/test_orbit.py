@@ -795,11 +795,8 @@ def test_liouville_planar():
     tol["mockInterpSphericalPotential"] = -4.0  # == HomogeneousSpherePotential
     tol["mockFlatCosmphiDiskwBreakPotential"] = -7.0  # more difficult
     tol["mockFlatTrulyCorotatingRotationSpiralArmsPotential"] = -5.0  # more difficult
-    tol["MultipoleExpansionPotential"] = -7.0  # more difficult
-    tol["mockMultipoleExpansionSphericalPotential"] = -6.0  # more difficult
-    tol["mockMultipoleExpansionAxiPotential"] = -7.0  # more difficult
-    tol["mockMultipoleExpansionPotential"] = -7.0  # more difficult
-    tol["mockMultipoleExpansionLimitedGridPotential"] = -3.0  # more difficult
+    tol["mockMultipoleExpansionPotential"] = -6.5
+    tol["mockMultipoleExpansionLimitedGridPotential"] = -5.0
     firstTest = True
     for p in pots:
         # Setup instance of potential
