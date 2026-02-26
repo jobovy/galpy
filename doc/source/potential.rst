@@ -590,7 +590,7 @@ To then initialize an ``SCFPotential`` from these coefficients, do
 
 >>> sp= SCFPotential(Acos=Acos,Asin=Asin,a=2.)
 
-To use the SCF method for disky potentials, we use the trick from
+To use the SCF or multipole methods for disky potentials, we use the trick from
 `Kuijken & Dubinski (1995)
 <http://adsabs.harvard.edu/abs/1995MNRAS.277.1341K>`__. This trick works by approximating the disk density as :math:`\rho_{\mathrm{disk}}(R,\phi,z) \approx \sum_i \Sigma_i(R)\,h_i(z)`, with :math:`h_i(z) = \mathrm{d}^2 H(z) / \mathrm{d} z^2` and searching for solutions of the form
 
@@ -598,7 +598,13 @@ To use the SCF method for disky potentials, we use the trick from
 
        \Phi(R,\phi,z = \Phi_{\mathrm{ME}}(R,\phi,z) + 4\pi G\sum_i \Sigma_i(r)\,H_i(z)\,,
 
-where :math:`r` is the spherical radius :math:`r^2 = R^2+z^2`. The density which gives rise to :math:`\Phi_{\mathrm{ME}}(R,\phi,z)` is not strongly confined to a plane when :math:`\rho_{\mathrm{disk}}(R,\phi,z) \approx \sum_i \Sigma_i(R)\,h_i(z)` and can be obtained using the SCF basis-function-expansion technique discussed above. See the documentation of the :ref:`DiskSCFPotential <disk_scf_potential>` class for more details on this procedure.
+where :math:`r` is the spherical radius :math:`r^2 = R^2+z^2`. The density which gives
+rise to :math:`\Phi_{\mathrm{ME}}(R,\phi,z)` is not strongly confined to a plane when
+:math:`\rho_{\mathrm{disk}}(R,\phi,z) \approx \sum_i \Sigma_i(R)\,h_i(z)` and can be
+obtained using either the SCF basis-function-expansion or multipole expansion techniques
+discussed above. See the documentation of the :ref:`DiskSCFPotential <disk_scf_potential>`
+and :ref:`DiskMultipolePotential <disk_multipole_potential>` classes for more details
+on this procedure.
 
 As an example, consider a double-exponential disk, which we can
 compare to the ``DoubleExponentialDiskPotential`` implementation
@@ -650,7 +656,7 @@ The orbits diverge slightly because the potentials are not quite the
 same, but have very similar properties otherwise (peri- and
 apogalacticons, eccentricity, ...). By increasing the order of the SCF
 approximation, the potential can be gotten closer to the target
-density. Note that orbit integration in the ``DiskSCFPotential`` is
+density. Note that orbit integration in the ``DiskSCFPotential`` (and ``DiskMultipoleExpansionPotential``) is
 much faster than that of the ``DoubleExponentialDisk`` potential
 
 >>> %%timeit
@@ -663,8 +669,10 @@ and
 o.integrate(ts,dscfp)
 # 57.2 ms ± 99.6 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
 
-The :ref:`SCFPotential <scf_potential>` and :ref:`DiskSCFPotential
-<disk_scf_potential>` can be used wherever general potentials can be
+The :ref:`SCFPotential <scf_potential>`, :ref:`DiskSCFPotential
+<disk_scf_potential>`, :ref:`MultipoleExpansionPotential <multipole_potential>`
+and :ref:`DiskMultipoleExpansionPotential
+<disk_multipole_potential>` can be used wherever general potentials can be
 used in galpy.
 
 The potential of N-body simulations

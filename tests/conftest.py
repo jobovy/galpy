@@ -52,6 +52,8 @@ def pytest_generate_tests(metafunc):
         pots.append("sech2DiskSCFPotential")
         pots.append("expwholeDiskSCFPotential")
         pots.append("altExpwholeDiskSCFPotential")
+        pots.append("sech2DiskMultipoleExpansionPotential")
+        pots.append("expwholeDiskMultipoleExpansionPotential")
         pots.append("mockFlatSpiralArmsPotential")
         pots.append("mockRotatingFlatSpiralArmsPotential")
         pots.append("mockSpecialRotatingFlatSpiralArmsPotential")
@@ -96,6 +98,7 @@ def pytest_generate_tests(metafunc):
             "CompositePotential",
             "planarCompositePotential",
             "baseCompositePotential",
+            "KuijkenDubinskiDiskExpansionPotential",
         ]
         rmpots.append("SphericalShellPotential")
         rmpots.append("RingPotential")
@@ -168,6 +171,8 @@ def pytest_generate_tests(metafunc):
         pots.append("sech2DiskSCFPotential")
         pots.append("expwholeDiskSCFPotential")
         pots.append("altExpwholeDiskSCFPotential")
+        pots.append("sech2DiskMultipoleExpansionPotential")
+        pots.append("expwholeDiskMultipoleExpansionPotential")
         pots.append("triaxialLogarithmicHaloPotential")
         pots.append("nestedListPotential")
         pots.append("mockInterpSphericalPotential")
@@ -199,6 +204,7 @@ def pytest_generate_tests(metafunc):
             "CompositePotential",
             "planarCompositePotential",
             "baseCompositePotential",
+            "KuijkenDubinskiDiskExpansionPotential",
         ]
         rmpots.append("SphericalShellPotential")
         rmpots.append("RingPotential")
