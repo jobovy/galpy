@@ -2,11 +2,9 @@
 #   MultipoleExpansionPotential.py: Potential via multipole expansion of a
 #   given density function
 ###############################################################################
-import hashlib
-
 import numpy
 from numpy.polynomial.legendre import leggauss
-from scipy.interpolate import BPoly, InterpolatedUnivariateSpline
+from scipy.interpolate import BPoly, InterpolatedUnivariateSpline, PPoly
 
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -138,8 +136,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         # Precompute radial integrals for potential
         # with -4*pi/(2l+1) * beta_lm absorbed into the spline data
         self._precompute_radial_integrals(beta_lm)
-        self._force_hash = None
-        self._2nd_deriv_hash = None
+        self._force_cache_key = None
+        self._2nd_deriv_cache_key = None
         self.hasC = True
         self.hasC_dxdv = True
         self.hasC_dens = True
@@ -398,9 +396,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     rho_spline_raw = InterpolatedUnivariateSpline(
                         rgrid, rho_arr, k=self._k
                     )
-                    rho_deriv = numpy.asarray(
-                        [float(rho_spline_raw(r, 1)) for r in rgrid]
-                    )
+                    rho_deriv = rho_spline_raw(rgrid, 1)
                     d2I_inner = (l + 2) * rgrid ** (l + 1) * rho_arr + rgrid ** (
                         l + 2
                     ) * rho_deriv
@@ -732,8 +728,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
-        new_hash = hashlib.md5(numpy.array([R, z, phi])).hexdigest()
-        if new_hash == self._force_hash:
+        cache_key = (float(R), float(z), float(phi))
+        if cache_key == self._force_cache_key:
             return (
                 self._cached_dPhi_dr,
                 self._cached_dPhi_dtheta,
@@ -743,7 +739,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         M = self._M
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
         if r == 0.0 or not numpy.isfinite(r):
-            self._force_hash = new_hash
+            self._force_cache_key = cache_key
             self._cached_dPhi_dr = 0.0
             self._cached_dPhi_dtheta = 0.0
             self._cached_dPhi_dphi = 0.0
@@ -796,7 +792,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         dPhi_dtheta = -dPhi_dtheta
         dPhi_dphi = -dPhi_dphi
         # Cache for reuse
-        self._force_hash = new_hash
+        self._force_cache_key = cache_key
         self._cached_dPhi_dr = dPhi_dr
         self._cached_dPhi_dtheta = dPhi_dtheta
         self._cached_dPhi_dphi = dPhi_dphi
@@ -838,14 +834,14 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-18 - Written - Bovy (UofT)
         """
-        new_hash = hashlib.md5(numpy.array([R, z, phi])).hexdigest()
-        if new_hash == self._2nd_deriv_hash:
+        cache_key = (float(R), float(z), float(phi))
+        if cache_key == self._2nd_deriv_cache_key:
             return self._cached_2nd_derivs
         L = self._L
         M = self._M
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
         if r == 0.0 or not numpy.isfinite(r):
-            self._2nd_deriv_hash = new_hash
+            self._2nd_deriv_cache_key = cache_key
             self._cached_2nd_derivs = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
             return self._cached_2nd_derivs
         costheta = numpy.cos(theta)
@@ -941,7 +937,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     # sin(m*phi) -> m*cos(m*phi) for d/dphi
                     d2Phi_drdphi += Plm * (m * cos_mphi) * dradial_sin
                     d2Phi_dthetadphi += dPlm_dtheta * (m * cos_mphi) * radial_sin
-        self._2nd_deriv_hash = new_hash
+        self._2nd_deriv_cache_key = cache_key
         self._cached_2nd_derivs = (
             d2Phi_dr2,
             d2Phi_dtheta2,
@@ -974,3 +970,57 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
 
     def OmegaP(self):
         return 0
+
+    @staticmethod
+    def _serialize_for_c(p):
+        """Serialize MultipoleExpansionPotential data for C consumption.
+
+        I_inner/I_outer BPoly splines are converted to PPoly and their
+        coefficients are passed directly (interval-major order) so C can
+        evaluate them via Horner's method with exact derivative parity.
+        Rho splines are sampled at grid points for GSL cubic interpolation.
+
+        Uses the BPoly breakpoints as the radial grid (not p._rgrid), since
+        the PPoly coefficients are defined relative to these breakpoints.
+
+        Data layout:
+            Nr, L, M, isNonAxi,
+            rgrid (Nr),
+            amp,
+            per (l,m):
+                I_inner_cos PPoly coeffs (6*(Nr-1)),
+                I_outer_cos PPoly coeffs (6*(Nr-1)),
+                rho_cos values (Nr),
+                [if m>0: I_inner_sin, I_outer_sin, rho_sin likewise]
+        """
+        # Use BPoly breakpoints as the grid: PPoly coefficients are defined
+        # relative to these breakpoints, so C must use them for interval lookup
+        rgrid = p._I_inner_cos[0][0].x
+        Nr, L, M = len(rgrid), p._L, p._M
+        args = [Nr, L, M, int(p.isNonAxi)]
+        args.extend(rgrid)
+        args.append(p._amp)
+        for l in range(L):
+            for m in range(min(l + 1, M)):
+                for I_inner, I_outer, rho_sp in [
+                    (
+                        p._I_inner_cos[l][m],
+                        p._I_outer_cos[l][m],
+                        p._rho_cos_splines[l][m],
+                    ),
+                    (
+                        p._I_inner_sin[l][m] if m > 0 else None,
+                        p._I_outer_sin[l][m] if m > 0 else None,
+                        p._rho_sin_splines[l][m] if m > 0 else None,
+                    ),
+                ]:
+                    if I_inner is None:
+                        continue
+                    # Convert BPoly to PPoly and flatten interval-major
+                    pp_inner = PPoly.from_bernstein_basis(I_inner)
+                    args.extend(pp_inner.c.ravel(order="F"))
+                    pp_outer = PPoly.from_bernstein_basis(I_outer)
+                    args.extend(pp_outer.c.ravel(order="F"))
+                    # Rho: sampled values for GSL cubic spline
+                    args.extend(rho_sp(rgrid))
+        return args

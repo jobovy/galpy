@@ -319,21 +319,7 @@ def _parse_pot(pot):
         ) and isinstance(p._Pot, potential.MultipoleExpansionPotential):
             pot_type.append(44)
             pp = p._Pot
-            Nr, L, M = len(pp._rgrid), pp._L, pp._M
-            pot_args.extend([Nr, L, M, int(pp.isNonAxi)])
-            pot_args.extend(pp._rgrid)
-            pot_args.append(pp._amp)  # amplitude, applied in C
-            # Pass spline data: I_inner, I_outer, rho per (l,m)
-            # pref_blm is already absorbed into I_inner/I_outer splines
-            for l in range(L):
-                for m in range(min(l + 1, M)):
-                    pot_args.extend(pp._I_inner_cos[l][m](pp._rgrid))
-                    pot_args.extend(pp._I_outer_cos[l][m](pp._rgrid))
-                    pot_args.extend(pp._rho_cos_splines[l][m](pp._rgrid))
-                    if m > 0:
-                        pot_args.extend(pp._I_inner_sin[l][m](pp._rgrid))
-                        pot_args.extend(pp._I_outer_sin[l][m](pp._rgrid))
-                        pot_args.extend(pp._rho_sin_splines[l][m](pp._rgrid))
+            pot_args.extend(potential.MultipoleExpansionPotential._serialize_for_c(pp))
         elif (
             isinstance(p, planarPotentialFromFullPotential)
             or isinstance(p, planarPotentialFromRZPotential)

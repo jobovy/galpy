@@ -25,7 +25,7 @@ def test_spherical_potential_matches_hernquist():
         dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
     )
     for R in [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]:
-        assert abs(mp(R, 0.0) - hp(R, 0.0)) / abs(hp(R, 0.0)) < 0.01, (
+        assert abs(mp(R, 0.0) - hp(R, 0.0)) / abs(hp(R, 0.0)) < 0.005, (
             f"Potential mismatch at R={R}"
         )
 
@@ -37,7 +37,7 @@ def test_spherical_potential_off_plane():
     )
     pts = [(1.0, 0.5), (0.5, 1.0), (2.0, 1.0)]
     for R, z in pts:
-        assert abs(mp(R, z) - hp(R, z)) / abs(hp(R, z)) < 0.01, (
+        assert abs(mp(R, z) - hp(R, z)) / abs(hp(R, z)) < 0.005, (
             f"Potential mismatch at R={R}, z={z}"
         )
 
@@ -50,7 +50,7 @@ def test_spherical_density_matches_hernquist():
     for R in [0.1, 0.5, 1.0, 2.0, 5.0]:
         d_hp = hp.dens(R, 0.0)
         d_mp = mp.dens(R, 0.0)
-        assert abs(d_mp - d_hp) / abs(d_hp) < 0.01, (
+        assert abs(d_mp - d_hp) / abs(d_hp) < 1e-5, (
             f"Density mismatch at R={R}: hp={d_hp}, mp={d_mp}"
         )
 
@@ -115,7 +115,7 @@ def test_scf_potential_cross_validation():
     for R, z in pts:
         v_scf = scf(R, z)
         v_mp = mp(R, z)
-        assert abs(v_mp - v_scf) / abs(v_scf) < 0.02, (
+        assert abs(v_mp - v_scf) / abs(v_scf) < 0.005, (
             f"Potential mismatch at R={R}, z={z}: scf={v_scf}, mp={v_mp}"
         )
 
@@ -134,7 +134,7 @@ def test_scf_density_cross_validation():
         d_scf = scf.dens(R, z)
         d_mp = mp.dens(R, z)
         if abs(d_scf) > 1e-10:
-            assert abs(d_mp - d_scf) / abs(d_scf) < 0.02, (
+            assert abs(d_mp - d_scf) / abs(d_scf) < 1e-5, (
                 f"Density mismatch at R={R}, z={z}: scf={d_scf}, mp={d_mp}"
             )
 
@@ -154,7 +154,7 @@ def test_spherical_density_reconstruction():
     for R in [0.1, 0.5, 1.0, 2.0, 5.0]:
         d_true = dens(R)
         d_mp = mp.dens(R, 0.0)
-        assert abs(d_mp - d_true) / abs(d_true) < 0.01, (
+        assert abs(d_mp - d_true) / abs(d_true) < 1e-4, (
             f"Density reconstruction failed at R={R}: true={d_true}, mp={d_mp}"
         )
 
@@ -180,7 +180,7 @@ def test_normalize_true():
         L=2, symmetry="spherical", normalize=True, rgrid=_FINE_RGRID
     )
     vc = mp.vcirc(1.0, 0.0)
-    assert abs(vc - 1.0) < 0.02, f"vcirc(1,0) = {vc}, expected ~1.0"
+    assert abs(vc - 1.0) < 1e-10, f"vcirc(1,0) = {vc}, expected ~1.0"
 
 
 def test_normalize_fraction():
@@ -188,7 +188,7 @@ def test_normalize_fraction():
         L=2, symmetry="spherical", normalize=0.5, rgrid=_FINE_RGRID
     )
     vc = mp.vcirc(1.0, 0.0)
-    assert abs(vc - numpy.sqrt(0.5)) < 0.02, (
+    assert abs(vc - numpy.sqrt(0.5)) < 1e-10, (
         f"vcirc(1,0) = {vc}, expected ~{numpy.sqrt(0.5)}"
     )
 
@@ -220,7 +220,7 @@ def test_potential_instance_input():
     mp = MultipoleExpansionPotential(
         dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
     )
-    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.01
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.005
 
 
 def test_2arg_lambda_input():
@@ -235,7 +235,7 @@ def test_2arg_lambda_input():
         rgrid=_FINE_RGRID,
     )
     hp = HernquistPotential(amp=2.0, a=1.0)
-    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.01
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.005
 
 
 def test_1arg_lambda_input():
@@ -247,7 +247,7 @@ def test_1arg_lambda_input():
         rgrid=_FINE_RGRID,
     )
     hp = HernquistPotential(amp=2.0, a=1.0)
-    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.01
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.005
 
 
 # --- Edge cases ---
@@ -262,7 +262,7 @@ def test_r_zero():
 def test_monopole_only():
     mp = MultipoleExpansionPotential(L=1, symmetry="spherical", rgrid=_FINE_RGRID)
     hp = HernquistPotential(amp=2.0, a=1.0)
-    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.01
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.005
 
 
 def test_OmegaP_zero():
@@ -294,7 +294,7 @@ def test_spherical_Rforce():
     for R in [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]:
         rf_mp = mp.Rforce(R, 0.0)
         rf_hp = hp.Rforce(R, 0.0)
-        assert abs(rf_mp - rf_hp) / abs(rf_hp) < 0.02, (
+        assert abs(rf_mp - rf_hp) / abs(rf_hp) < 5e-4, (
             f"Rforce mismatch at R={R}: mp={rf_mp}, hp={rf_hp}"
         )
 
@@ -308,7 +308,7 @@ def test_spherical_zforce():
     for R, z in pts:
         zf_mp = mp.zforce(R, z)
         zf_hp = hp.zforce(R, z)
-        assert abs(zf_mp - zf_hp) / abs(zf_hp) < 0.02, (
+        assert abs(zf_mp - zf_hp) / abs(zf_hp) < 5e-5, (
             f"zforce mismatch at R={R}, z={z}: mp={zf_mp}, hp={zf_hp}"
         )
 
@@ -322,7 +322,7 @@ def test_axisymmetric_Rforce():
     for R, z in pts:
         rf_mp = mp.Rforce(R, z)
         rf_mn = mn.Rforce(R, z)
-        assert abs(rf_mp - rf_mn) / abs(rf_mn) < 0.02, (
+        assert abs(rf_mp - rf_mn) / abs(rf_mn) < 0.01, (
             f"Rforce mismatch at R={R}, z={z}: mp={rf_mp}, mn={rf_mn}"
         )
 
@@ -366,7 +366,7 @@ def test_3arg_callable_density_input():
         rgrid=_DEFAULT_RGRID,
     )
     hp = HernquistPotential(amp=2.0, a=1.0)
-    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.02
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.005
 
 
 def test_dens_phi_none():
@@ -453,7 +453,7 @@ def test_2nd_derivs_on_z_axis_continuity():
     z = 1.0
     R2_axis = mp.R2deriv(0.0, z, use_physical=False)
     R2_near = mp.R2deriv(1e-4, z, use_physical=False)
-    assert abs(R2_axis - R2_near) / abs(R2_near) < 0.01, (
+    assert abs(R2_axis - R2_near) / abs(R2_near) < 0.005, (
         f"R2deriv discontinuous at z-axis: on_axis={R2_axis}, near={R2_near}"
     )
 
@@ -473,7 +473,7 @@ def test_spherical_2nd_derivs_match_hernquist():
         ]:
             val_mp = getattr(mp, func)(R, z, use_physical=False)
             val_hp = getattr(hp, func)(R, z, use_physical=False)
-            assert abs(val_mp - val_hp) / abs(val_hp) < 0.02, (
+            assert abs(val_mp - val_hp) / abs(val_hp) < 5e-5, (
                 f"{name} mismatch at R={R}, z={z}: mp={val_mp}, hp={val_hp}"
             )
 
