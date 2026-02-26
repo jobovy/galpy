@@ -18,7 +18,9 @@ from ..util._optional_deps import _TQDM_LOADED
 from ..util.leung_dop853 import dop853
 from ..util.multi import parallel_map
 from .integratePlanarOrbit import (
+    _parse_disk_approx_pairs,
     _parse_integrator,
+    _parse_multipole_expansion_pot,
     _parse_scf_pot,
     _parse_tol,
     _prep_tfuncs,
@@ -246,22 +248,9 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
                 ]
             )
         elif isinstance(p, potential.MultipoleExpansionPotential):
-            pot_type.append(44)
-            Nr, L, M = len(p._rgrid), p._L, p._M
-            pot_args.extend([Nr, L, M, int(p.isNonAxi)])
-            pot_args.extend(p._rgrid)
-            pot_args.append(p._amp)  # amplitude, applied in C
-            # Pass spline data: I_inner, I_outer, rho per (l,m)
-            # pref_blm is already absorbed into I_inner/I_outer splines
-            for l in range(L):
-                for m in range(min(l + 1, M)):
-                    pot_args.extend(p._I_inner_cos[l][m](p._rgrid))
-                    pot_args.extend(p._I_outer_cos[l][m](p._rgrid))
-                    pot_args.extend(p._rho_cos_splines[l][m](p._rgrid))
-                    if m > 0:
-                        pot_args.extend(p._I_inner_sin[l][m](p._rgrid))
-                        pot_args.extend(p._I_outer_sin[l][m](p._rgrid))
-                        pot_args.extend(p._rho_sin_splines[l][m](p._rgrid))
+            pt, pa = _parse_multipole_expansion_pot(p)
+            pot_type.append(pt)
+            pot_args.extend(pa)
         elif isinstance(p, potential.SCFPotential):
             # Type 24, see stand-alone parser below
             pt, pa, ptf = _parse_scf_pot(p)
@@ -272,43 +261,33 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(25)
             pot_args.extend([p._amp, p._a, p._b, p._c2, p._pa, p._omegab])
             pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # for caching
+        elif isinstance(p, potential.DiskMultipoleExpansionPotential):
+            # Need to pull this apart into: (a) MultipoleExpansion part,
+            # (b) constituent [Sigma_i,h_i] parts
+            # (a) MultipoleExpansion, multiply in any add'l amp
+            pt, pa = _parse_multipole_expansion_pot(p._me, extra_amp=p._amp)
+            pot_type.append(pt)
+            pot_args.extend(pa)
+            # (b) constituent [Sigma_i,h_i] parts
+            dpts, dpa = _parse_disk_approx_pairs(p, extra_amp=p._amp)
+            for dpt in dpts:
+                npot += 1
+                pot_type.append(dpt)
+            pot_args.extend(dpa)
         elif isinstance(p, potential.DiskSCFPotential):
             # Need to pull this apart into: (a) SCF part, (b) constituent
             # [Sigma_i,h_i] parts
             # (a) SCF, multiply in any add'l amp
-            pt, pa, ptf = _parse_scf_pot(p._scf, extra_amp=p._amp)
+            pt, pa, ptf = _parse_scf_pot(p._me, extra_amp=p._amp)
             pot_type.append(pt)
             pot_args.extend(pa)
             pot_tfuncs.extend(ptf)
             # (b) constituent [Sigma_i,h_i] parts
-            for Sigma, hz in zip(p._Sigma_dict, p._hz_dict):
+            dpts, dpa = _parse_disk_approx_pairs(p, extra_amp=p._amp)
+            for dpt in dpts:
                 npot += 1
-                pot_type.append(26)
-                stype = Sigma.get("type", "exp")
-                if stype == "exp" and not "Rhole" in Sigma:
-                    pot_args.extend(
-                        [
-                            3,
-                            0,
-                            4.0 * numpy.pi * Sigma.get("amp", 1.0) * p._amp,
-                            Sigma.get("h", 1.0 / 3.0),
-                        ]
-                    )
-                elif stype == "expwhole" or (stype == "exp" and "Rhole" in Sigma):
-                    pot_args.extend(
-                        [
-                            4,
-                            1,
-                            4.0 * numpy.pi * Sigma.get("amp", 1.0) * p._amp,
-                            Sigma.get("h", 1.0 / 3.0),
-                            Sigma.get("Rhole", 0.5),
-                        ]
-                    )
-                hztype = hz.get("type", "exp")
-                if hztype == "exp":
-                    pot_args.extend([0, hz.get("h", 0.0375)])
-                elif hztype == "sech2":
-                    pot_args.extend([1, hz.get("h", 0.0375)])
+                pot_type.append(dpt)
+            pot_args.extend(dpa)
         elif isinstance(p, potential.SpiralArmsPotential):
             pot_type.append(27)
             pot_args.extend(

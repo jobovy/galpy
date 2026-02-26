@@ -68,6 +68,7 @@ def test_normalize_potential():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -201,6 +202,9 @@ def test_forceAsDeriv_potential():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
@@ -251,6 +255,7 @@ def test_forceAsDeriv_potential():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -454,6 +459,9 @@ def test_2ndDeriv_potential():
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -501,6 +509,7 @@ def test_2ndDeriv_potential():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -856,6 +865,9 @@ def test_poisson_potential():
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -877,7 +889,12 @@ def test_poisson_potential():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
+    # Default DiskMultipoleExpansionPotential uses exp(-27|z|) which has a
+    # derivative discontinuity at z=0 that the multipole expansion cannot
+    # resolve well; the sech2/expwhole/nonaxi test cases test Poisson properly
+    rmpots.append("DiskMultipoleExpansionPotential")
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
         rmpots.append("RazorThinExponentialDiskPotential")
@@ -897,6 +914,7 @@ def test_poisson_potential():
     tol["specialSpiralArmsPotential"] = -4
     tol["SolidBodyRotationSpiralArmsPotential"] = -2.9  # these are more difficult
     tol["nestedListPotential"] = -3  # these are more difficult
+    tol["nonaxiDiskMultipoleExpansionPotential"] = -6.0
     # tol['RazorThinExponentialDiskPotential']= -6.
     for p in pots:
         # if not 'NFW' in p: continue #For testing the test
@@ -1030,6 +1048,7 @@ def test_poisson_surfdens_potential():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1171,6 +1190,9 @@ def test_evaluateAndDerivs_potential():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
@@ -1221,6 +1243,7 @@ def test_evaluateAndDerivs_potential():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1458,6 +1481,9 @@ def test_amp_mult_divide():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
@@ -1505,6 +1531,7 @@ def test_amp_mult_divide():
         "planarCompositePotential",
         "baseCompositePotential",
         "linearCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1828,6 +1855,7 @@ def test_potential_array_input():
         "planarCompositePotential",
         "baseCompositePotential",
         "linearCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("FerrersPotential")
     rmpots.append("PerfectEllipsoidPotential")
@@ -2018,6 +2046,7 @@ def test_toVertical_array():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("FerrersPotential")
     rmpots.append("PerfectEllipsoidPotential")
@@ -2147,6 +2176,9 @@ def test_potential_at_zero():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
@@ -2182,6 +2214,7 @@ def test_potential_at_zero():
         "planarCompositePotential",
         "baseCompositePotential",
         "linearCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("BurkertPotential")  # Need to figure out...
@@ -2308,6 +2341,9 @@ def test_potential_at_infinity():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
@@ -2343,6 +2379,7 @@ def test_potential_at_infinity():
         "planarCompositePotential",
         "baseCompositePotential",
         "linearCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("FerrersPotential")  # Need to figure out...
@@ -3198,6 +3235,7 @@ def test_toVertical_toPlanar():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -10282,6 +10320,7 @@ def test_linearPotential_len_iter():
 # cases of some other potentials
 from galpy.potential import (
     BurkertPotential,
+    DiskMultipoleExpansionPotential,
     DiskSCFPotential,
     FerrersPotential,
     FlattenedPowerPotential,
@@ -10649,6 +10688,72 @@ class nonaxiDiskSCFPotential(DiskSCFPotential):
             * numpy.sign(z)
             * (1.0 - numpy.exp(-27.0 * numpy.fabs(z))),
             N=5,
+            L=5,
+        )
+        return None
+
+
+# DiskMultipoleExpansionPotentials
+class sech2DiskMultipoleExpansionPotential(DiskMultipoleExpansionPotential):
+    def __init__(self):
+        DiskMultipoleExpansionPotential.__init__(
+            self,
+            dens=lambda R, z: numpy.exp(-3.0 * R)
+            * 1.0
+            / numpy.cosh(z / 2.0 * 27.0) ** 2.0
+            / 4.0
+            * 27.0,
+            Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0},
+            hz={"type": "sech2", "h": 1.0 / 27.0},
+            L=5,
+        )
+        return None
+
+
+class expwholeDiskMultipoleExpansionPotential(DiskMultipoleExpansionPotential):
+    def __init__(self):
+        # Add a Hernquist potential because otherwise the density near the
+        # center is zero
+        from galpy.potential import HernquistPotential
+
+        hp = HernquistPotential(normalize=0.5)
+        DiskMultipoleExpansionPotential.__init__(
+            self,
+            dens=lambda R, z: 13.5
+            * numpy.exp(-0.5 / (R + 10.0**-10.0) - 3.0 * R - numpy.fabs(z) * 27.0)
+            + hp.dens(R, z),
+            Sigma={"h": 1.0 / 3.0, "type": "expwhole", "amp": 1.0, "Rhole": 0.5},
+            hz={"type": "exp", "h": 1.0 / 27.0},
+            L=5,
+        )
+        return None
+
+
+class nonaxiDiskMultipoleExpansionPotential(DiskMultipoleExpansionPotential):
+    def __init__(self):
+        thp = triaxialHernquistPotential()
+        DiskMultipoleExpansionPotential.__init__(
+            self,
+            dens=lambda R, z, phi: 13.5
+            * numpy.exp(-3.0 * R)
+            * numpy.exp(-27.0 * numpy.fabs(z))
+            + thp.dens(R, z, phi=phi),
+            Sigma_amp=[0.5, 0.5],
+            Sigma=[lambda R: numpy.exp(-3.0 * R), lambda R: numpy.exp(-3.0 * R)],
+            dSigmadR=[
+                lambda R: -3.0 * numpy.exp(-3.0 * R),
+                lambda R: -3.0 * numpy.exp(-3.0 * R),
+            ],
+            d2SigmadR2=[
+                lambda R: 9.0 * numpy.exp(-3.0 * R),
+                lambda R: 9.0 * numpy.exp(-3.0 * R),
+            ],
+            hz=lambda z: 13.5 * numpy.exp(-27.0 * numpy.fabs(z)),
+            Hz=lambda z: (numpy.exp(-27.0 * numpy.fabs(z)) - 1.0 + 27.0 * numpy.fabs(z))
+            / 54.0,
+            dHzdz=lambda z: 0.5
+            * numpy.sign(z)
+            * (1.0 - numpy.exp(-27.0 * numpy.fabs(z))),
             L=5,
         )
         return None

@@ -13,7 +13,13 @@ from ..util._optional_deps import _TQDM_LOADED
 from ..util.leung_dop853 import dop853
 from ..util.multi import parallel_map
 from .integrateFullOrbit import _parse_pot as _parse_pot_full
-from .integratePlanarOrbit import _parse_integrator, _parse_tol, _prep_tfuncs
+from .integratePlanarOrbit import (
+    _parse_disk_approx_pairs,
+    _parse_integrator,
+    _parse_multipole_expansion_pot,
+    _parse_tol,
+    _prep_tfuncs,
+)
 
 if _TQDM_LOADED:
     import tqdm
@@ -59,47 +65,42 @@ def _parse_pot(pot):
                 ]
             )
         elif isinstance(p, verticalPotential) and isinstance(
+            p._Pot, potential.DiskMultipoleExpansionPotential
+        ):
+            # Need to pull this apart into: (a) MultipoleExpansion part,
+            # (b) constituent [Sigma_i,h_i] parts
+            # (a) MultipoleExpansion, multiply in any add'l amp
+            pt, pa = _parse_multipole_expansion_pot(p._Pot._me, extra_amp=p._Pot._amp)
+            pot_type.append(pt)
+            pot_args.extend(pa)
+            pot_args.extend([p._R, p._phi])
+            # (b) constituent [Sigma_i,h_i] parts
+            dpts, dpa = _parse_disk_approx_pairs(
+                p._Pot, extra_amp=p._Pot._amp, per_pair_suffix=[p._R, p._phi]
+            )
+            for dpt in dpts:
+                npot += 1
+                pot_type.append(dpt)
+            pot_args.extend(dpa)
+        elif isinstance(p, verticalPotential) and isinstance(
             p._Pot, potential.DiskSCFPotential
         ):
-            # Need to do this one separately, because combination of many parts
             # Need to pull this apart into: (a) SCF part, (b) constituent
             # [Sigma_i,h_i] parts
             # (a) SCF, multiply in any add'l amp
-            pt, pa, ptf = _parse_scf_pot(p._Pot._scf, extra_amp=p._Pot._amp)
+            pt, pa, ptf = _parse_scf_pot(p._Pot._me, extra_amp=p._Pot._amp)
             pot_type.append(pt)
             pot_args.extend(pa)
             pot_tfuncs.extend(ptf)
             pot_args.extend([p._R, p._phi])
             # (b) constituent [Sigma_i,h_i] parts
-            for Sigma, hz in zip(p._Pot._Sigma_dict, p._Pot._hz_dict):
+            dpts, dpa = _parse_disk_approx_pairs(
+                p._Pot, extra_amp=p._Pot._amp, per_pair_suffix=[p._R, p._phi]
+            )
+            for dpt in dpts:
                 npot += 1
-                pot_type.append(26)
-                stype = Sigma.get("type", "exp")
-                if stype == "exp" and not "Rhole" in Sigma:
-                    pot_args.extend(
-                        [
-                            3,
-                            0,
-                            4.0 * numpy.pi * Sigma.get("amp", 1.0) * p._Pot._amp,
-                            Sigma.get("h", 1.0 / 3.0),
-                        ]
-                    )
-                elif stype == "expwhole" or (stype == "exp" and "Rhole" in Sigma):
-                    pot_args.extend(
-                        [
-                            4,
-                            1,
-                            4.0 * numpy.pi * Sigma.get("amp", 1.0) * p._Pot._amp,
-                            Sigma.get("h", 1.0 / 3.0),
-                            Sigma.get("Rhole", 0.5),
-                        ]
-                    )
-                hztype = hz.get("type", "exp")
-                if hztype == "exp":
-                    pot_args.extend([0, hz.get("h", 0.0375)])
-                elif hztype == "sech2":
-                    pot_args.extend([1, hz.get("h", 0.0375)])
-                pot_args.extend([p._R, p._phi])
+                pot_type.append(dpt)
+            pot_args.extend(dpa)
         elif isinstance(p, potential.KGPotential):
             pot_type.append(31)
             pot_args.extend([p._amp, p._K, p._D2, 2.0 * p._F])

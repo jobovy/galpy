@@ -24,6 +24,7 @@ from test_potential import (
     MWP14CylindricallySeparablePotentialWrapper,
     NFWTwoPowerTriaxialPotential,
     altExpwholeDiskSCFPotential,
+    expwholeDiskMultipoleExpansionPotential,
     expwholeDiskSCFPotential,
     fullyRotatedTriaxialNFWPotential,
     mockAdiabaticContractionMWP14WrapperPotential,
@@ -69,6 +70,7 @@ from test_potential import (
     oblateNFWPotential,
     prolateJaffePotential,
     prolateNFWPotential,
+    sech2DiskMultipoleExpansionPotential,
     sech2DiskSCFPotential,
     specialFlattenedPowerPotential,
     specialMiyamotoNagaiPotential,
@@ -766,6 +768,7 @@ def test_liouville_planar():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     # rmpots.append('BurkertPotential')
     # Don't have C implementations of the relevant 2nd derivatives
@@ -779,6 +782,7 @@ def test_liouville_planar():
     rmpots.append("DiskSCFPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
+    rmpots.append("DiskMultipoleExpansionPotential")
     for p in rmpots:
         pots.remove(p)
     # tolerances in log10
@@ -1228,6 +1232,7 @@ def test_eccentricity():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1243,6 +1248,7 @@ def test_eccentricity():
     tol["NFWPotential"] = -12.0  # these are more difficult
     tol["TriaxialNFWPotential"] = -12.0  # these are more difficult
     tol["MultipoleExpansionPotential"] = -15.0  # slightly more difficult
+    tol["DiskMultipoleExpansionPotential"] = -6.0  # these are more difficult
     firstTest = True
     for p in pots:
         # Setup instance of potential
@@ -1408,6 +1414,7 @@ def test_pericenter():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1586,6 +1593,7 @@ def test_apocenter():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1764,6 +1772,7 @@ def test_zmax():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1927,6 +1936,7 @@ def test_analytic_ecc_rperi_rap():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1962,6 +1972,7 @@ def test_analytic_ecc_rperi_rap():
     tol["PseudoIsothermalPotential"] = -7.0  # these are more difficult
     tol["KuzminDiskPotential"] = -8.0  # these are more difficult
     tol["DiskSCFPotential"] = -8.0  # these are more difficult
+    tol["DiskMultipoleExpansionPotential"] = -8.0  # these are more difficult
     tol["PowerTriaxialPotential"] = -8.0  # these are more difficult
     for p in pots:
         # Setup instance of potential
@@ -2588,6 +2599,7 @@ def test_analytic_zmax():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -2628,6 +2640,7 @@ def test_analytic_zmax():
     tol["SCFPotential"] = -8.0  # these are more difficult
     tol["DiskSCFPotential"] = -6.0  # these are more difficult
     tol["MultipoleExpansionPotential"] = -8.0
+    tol["DiskMultipoleExpansionPotential"] = -6.0  # these are more difficult
     for p in pots:
         # Setup instance of potential
         if p in list(tol.keys()):

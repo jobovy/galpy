@@ -1,16 +1,16 @@
 ###############################################################################
-#   DiskSCFPotential.py: Potential expansion for disk+halo potentials
+#   DiskMultipoleExpansionPotential.py: Potential expansion for disk+halo
+#   potentials using MultipoleExpansionPotential
 ###############################################################################
 import numpy
 
-from ..util import conversion
 from .KuijkenDubinskiDiskExpansionPotential import (
     KuijkenDubinskiDiskExpansionPotential,
 )
-from .SCFPotential import SCFPotential, scf_compute_coeffs, scf_compute_coeffs_axi
+from .MultipoleExpansionPotential import MultipoleExpansionPotential
 
 
-class DiskSCFPotential(KuijkenDubinskiDiskExpansionPotential):
+class DiskMultipoleExpansionPotential(KuijkenDubinskiDiskExpansionPotential):
     """Class that implements a basis-function-expansion technique for solving the Poisson equation for disk (+halo) systems. We solve the Poisson equation for a given density :math:`\\rho(R,\\phi,z)` by introducing *K* helper function pairs :math:`[\\Sigma_i(R),h_i(z)]`, with :math:`h_i(z) = \\mathrm{d}^2 H(z) / \\mathrm{d} z^2` and search for solutions of the form
 
         .. math::
@@ -23,10 +23,9 @@ class DiskSCFPotential(KuijkenDubinskiDiskExpansionPotential):
 
            \\frac{\\Delta \\Phi_{\\mathrm{ME}}(R,\\phi,z)}{4\\pi G} = \\rho(R,\\phi,z) - \\sum_i\\left\\{ \\Sigma_i(r)\\,h_i(z) + \\frac{\\mathrm{d}^2 \\Sigma_i(r)}{\\mathrm{d} r^2}\\,H_i(z)+\\frac{2}{r}\\,\\frac{\\mathrm{d} \\Sigma_i(r)}{\\mathrm{d} r}\\left[H_i(z)+z\\,\\frac{\\mathrm{d}H_i(z)}{\\mathrm{d} z}\\right]\\right\\}\\,.
 
-    We solve this equation by using the :ref:`SCFPotential <scf_potential>` class and methods (:ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` or :ref:`scf_compute_coeffs <scf_compute_coeffs>` depending on whether :math:`\\rho(R,\\phi,z)` is axisymmetric or not). This technique works very well if the disk portion of the potential can be exactly written as :math:`\\rho_{\\mathrm{disk}} = \\sum_i \\Sigma_i(R)\\,h_i(z)`, because the effective density on the right-hand side of this new Poisson equation is then not 'disky' and can be well represented using spherical harmonics. But the technique is general and can be used to compute the potential of any disk+halo potential; the closer the disk is to :math:`\\rho_{\\mathrm{disk}} \\approx \\sum_i \\Sigma_i(R)\\,h_i(z)`, the better the technique works.
+    We solve this equation by using the :ref:`MultipoleExpansionPotential <multipole_expansion_potential>` class. This technique works very well if the disk portion of the potential can be exactly written as :math:`\\rho_{\\mathrm{disk}} = \\sum_i \\Sigma_i(R)\\,h_i(z)`, because the effective density on the right-hand side of this new Poisson equation is then not 'disky' and can be well represented using spherical harmonics. But the technique is general and can be used to compute the potential of any disk+halo potential; the closer the disk is to :math:`\\rho_{\\mathrm{disk}} \\approx \\sum_i \\Sigma_i(R)\\,h_i(z)`, the better the technique works.
 
-    This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harvard.edu/abs/1995MNRAS.277.1341K>`__ and was popularized by `Dehnen & Binney (1998) <http://adsabs.harvard.edu/abs/1998MNRAS.294..429D>`__. The current implementation is a slight generalization of the technique in those papers and uses the SCF approach of `Hernquist & Ostriker (1992)
-    <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`__ to solve the Poisson equation for :math:`\\Phi_{\\mathrm{ME}}(R,\\phi,z)` rather than solving it on a grid using spherical harmonics and interpolating the solution (as done in `Dehnen & Binney 1998 <http://adsabs.harvard.edu/abs/1998MNRAS.294..429D>`__).
+    This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harvard.edu/abs/1995MNRAS.277.1341K>`__ and was popularized by `Dehnen & Binney (1998) <http://adsabs.harvard.edu/abs/1998MNRAS.294..429D>`__. The current implementation is a slight generalization of the technique in those papers and uses the :ref:`MultipoleExpansionPotential <multipole_expansion_potential>` to solve the Poisson equation for :math:`\\Phi_{\\mathrm{ME}}(R,\\phi,z)`.
 
     """
 
@@ -42,17 +41,17 @@ class DiskSCFPotential(KuijkenDubinskiDiskExpansionPotential):
         d2SigmadR2=None,
         Hz=None,
         dHzdz=None,
-        N=10,
         L=10,
-        a=1.0,
-        radial_order=None,
+        rgrid=numpy.geomspace(1e-3, 30, 1001),
+        symmetry=None,
         costheta_order=None,
         phi_order=None,
+        k=5,
         ro=None,
         vo=None,
     ):
         """
-        Initialize a DiskSCFPotential.
+        Initialize a DiskMultipoleExpansionPotential.
 
         Parameters
         ----------
@@ -62,18 +61,18 @@ class DiskSCFPotential(KuijkenDubinskiDiskExpansionPotential):
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         dens : callable
             Function of R,z[,phi optional] that gives the density [in natural units, cannot return a Quantity currently].
-        N : int, optional
-            Number of radial basis functions to use in the SCF expansion.
         L : int, optional
-            Number of angular basis functions to use in the SCF expansion.
-        a : float or Quantity, optional
-            Scale radius for the SCF expansion.
-        radial_order : int, optional
-            Order of the radial basis functions to use in the SCF expansion.
+            Maximum spherical harmonic degree + 1 (l goes from 0 to L-1).
+        rgrid : numpy.ndarray, optional
+            Radial grid points (1D array). Default: ``numpy.geomspace(1e-3, 30, 1001)``.
+        symmetry : str or None, optional
+            ``'spherical'``, ``'axisymmetric'``, or ``None`` (general). If None and the density is axisymmetric, ``'axisymmetric'`` is used automatically.
         costheta_order : int, optional
-            Order of the angular basis functions to use in the SCF expansion.
+            Gauss-Legendre quadrature order for theta.
         phi_order : int, optional
-            Order of the azimuthal basis functions to use in the SCF expansion.
+            Number of uniform phi points for trapezoidal rule.
+        k : int, optional
+            Spline interpolation degree for radial functions (default: 5).
         Sigma : dict or callable
             Either a dictionary of surface density (example: {'type':'exp','h':1./3.,'amp':1.,'Rhole':0.} for amp x exp(-Rhole/R-R/h) ) or a function of R that gives the surface density.
         hz : dict or callable
@@ -96,7 +95,7 @@ class DiskSCFPotential(KuijkenDubinskiDiskExpansionPotential):
         Notes
         -----
         - Either specify (Sigma,hz) or (Sigma_amp,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz)
-        - Written - Bovy (UofT) - 2016-12-26
+        - 2026-02-22 - Written - Bovy (UofT)
 
         """
         KuijkenDubinskiDiskExpansionPotential.__init__(
@@ -113,27 +112,20 @@ class DiskSCFPotential(KuijkenDubinskiDiskExpansionPotential):
             ro=ro,
             vo=vo,
         )
-        a = conversion.parse_length(a, ro=self._ro)
-        # Solve Poisson equation for Phi_ME using SCF
-        if not self.isNonAxi:
-            Acos, Asin = scf_compute_coeffs_axi(
-                self._phiME_dens_func,
-                N,
-                L,
-                a=a,
-                radial_order=radial_order,
-                costheta_order=costheta_order,
-            )
-        else:
-            Acos, Asin = scf_compute_coeffs(
-                self._phiME_dens_func,
-                N,
-                L,
-                a=a,
-                radial_order=radial_order,
-                costheta_order=costheta_order,
-                phi_order=phi_order,
-            )
-        self._me = SCFPotential(amp=1.0, Acos=Acos, Asin=Asin, a=a, ro=None, vo=None)
+        # Auto-detect symmetry if not specified
+        if symmetry is None and not self.isNonAxi:
+            symmetry = "axisymmetric"
+        self._me = MultipoleExpansionPotential(
+            amp=1.0,
+            dens=self._phiME_dens_func,
+            L=L,
+            rgrid=rgrid,
+            symmetry=symmetry,
+            costheta_order=costheta_order,
+            phi_order=phi_order,
+            k=k,
+            ro=None,
+            vo=None,
+        )
         self._finish_init(normalize)
         return None
