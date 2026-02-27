@@ -258,12 +258,12 @@ try:  # pragma: no cover
             out.extend(_known_objects_collections_original_keys)
             out.extend(_known_objects_synonyms_original_keys)
             out.extend(["ro=", "vo=", "zo=", "solarmotion="])
-        except:
+        except Exception:
             pass
         return out
 
     get_ipython().set_hook("complete_command", name_completer, re_key=".*from_name")
-except:
+except Exception:
     pass
 
 
@@ -5918,7 +5918,7 @@ class Orbit:
                 raise ValueError("Found time value not in the integration time domain")
             try:
                 self._setupOrbitInterp()
-            except:
+            except Exception:
                 out = numpy.zeros((self.phasedim(), nt, self.size))
                 for jj in range(nt):
                     try:
@@ -6078,7 +6078,7 @@ class Orbit:
         try:  # unsort
             self.t = self.t[usindx]
             self.orbit = self.orbit[:, usindx]
-        except:
+        except Exception:
             pass
         return None
 

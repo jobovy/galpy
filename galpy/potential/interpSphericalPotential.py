@@ -59,7 +59,7 @@ class interpSphericalPotential(SphericalPotential):
         # Determine whether rforce is a galpy Potential or a combined potential formed using addition (pot1+pot2+…)
         try:
             _evaluateRforces(rforce, 1.0, 0.0)
-        except:
+        except Exception:
             _rforce = rforce
             Phi0 = 0.0 if Phi0 is None else Phi0
         else:
@@ -98,7 +98,6 @@ class interpSphericalPotential(SphericalPotential):
         self.hasC = True
         self.hasC_dxdv = True
         self.hasC_dens = True
-        return None
 
     def _revaluate(self, r, t=0.0):
         out = numpy.empty_like(r)

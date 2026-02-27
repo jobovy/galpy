@@ -734,10 +734,10 @@ def _prep_tfuncs(pot_tfuncs):
         )  # time
         try:  # using numba
             if not _NUMBA_LOADED:
-                raise
+                raise ImportError("Numba not loaded")
             nb_c_sig = types.double(types.double)
             func_pyarr = [cfunc(nb_c_sig, nopython=True)(a).ctypes for a in pot_tfuncs]
-        except:  # Any Exception, switch to regular ctypes wrapping
+        except Exception:  # Any Exception, switch to regular ctypes wrapping
             func_pyarr = [func_ctype(a) for a in pot_tfuncs]
         pot_tfuncs = (func_ctype * len(func_pyarr))(*func_pyarr)
     return pot_tfuncs

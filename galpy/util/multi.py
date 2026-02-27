@@ -45,7 +45,7 @@ try:
 
     # May raise NotImplementedError
     _ncpus = multiprocessing.cpu_count()
-except:
+except (ImportError, NotImplementedError):
     pass
 
 try:

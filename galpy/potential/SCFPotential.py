@@ -199,7 +199,6 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
             self.normalize(normalize)
-        return None
 
     @classmethod
     def from_density(
@@ -286,11 +285,11 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
             try:
                 dens(0)
                 numOfParam = 1
-            except:
+            except Exception:
                 try:
                     dens(0, 0)
                     numOfParam = 2
-                except:
+                except Exception:
                     numOfParam = 3
             param = [1] * numOfParam
             try:
@@ -793,7 +792,7 @@ def _scf_compute_determine_dens_kwargs(dens, param):
     try:
         param[0] = 1.0
         dens(*param, use_physical=False)
-    except:
+    except Exception:
         dens_kw = {}
     else:
         dens_kw = {"use_physical": False}
@@ -828,11 +827,11 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
     try:
         dens(0)
         numOfParam = 1
-    except:
+    except Exception:
         try:
             dens(0, 0)
             numOfParam = 2
-        except:
+        except Exception:
             numOfParam = 3
     param = [0] * numOfParam
     dens_kw = _scf_compute_determine_dens_kwargs(dens, param)
@@ -960,7 +959,7 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
     try:
         dens(0, 0)
         numOfParam = 2
-    except:
+    except Exception:
         numOfParam = 3
     param = [0] * numOfParam
     dens_kw = _scf_compute_determine_dens_kwargs(dens, param)

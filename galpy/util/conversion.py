@@ -44,7 +44,7 @@ _MyrIn1013Sec = 3.65242198 * 0.24 * 3.6  # use tropical year, like for pms
 _TWOPI = 2.0 * m.pi
 
 
-def dens_in_criticaldens(vo, ro, H=70.0):
+def dens_in_criticaldens(vo: float, ro: float, H: float = 70.0) -> float:
     """
     Convert density to units of the critical density.
 
@@ -70,7 +70,9 @@ def dens_in_criticaldens(vo, ro, H=70.0):
     return vo**2.0 / ro**2.0 * 10.0**6.0 / H**2.0 * 8.0 * numpy.pi / 3.0
 
 
-def dens_in_meanmatterdens(vo, ro, H=70.0, Om=0.3):
+def dens_in_meanmatterdens(
+    vo: float, ro: float, H: float = 70.0, Om: float = 0.3
+) -> float:
     """
     Convert density to units of the mean matter density.
 
@@ -98,7 +100,7 @@ def dens_in_meanmatterdens(vo, ro, H=70.0, Om=0.3):
     return dens_in_criticaldens(vo, ro, H=H) / Om
 
 
-def dens_in_gevcc(vo, ro):
+def dens_in_gevcc(vo: float, ro: float) -> float:
     """
     Convert density to GeV / cm^3.
 
@@ -131,7 +133,7 @@ def dens_in_gevcc(vo, ro):
     )
 
 
-def dens_in_msolpc3(vo, ro):
+def dens_in_msolpc3(vo: float, ro: float) -> float:
     """
     Convert density to Msolar / pc^3.
 
@@ -155,7 +157,7 @@ def dens_in_msolpc3(vo, ro):
     return vo**2.0 / ro**2.0 / _G * 10.0**-6.0
 
 
-def force_in_2piGmsolpc2(vo, ro):
+def force_in_2piGmsolpc2(vo: float, ro: float) -> float:
     """
     Convert a force or acceleration to 2piG x Msolar / pc^2
 
@@ -179,7 +181,7 @@ def force_in_2piGmsolpc2(vo, ro):
     return vo**2.0 / ro / _G * 10.0**-3.0 / _TWOPI
 
 
-def force_in_pcMyr2(vo, ro):
+def force_in_pcMyr2(vo: float, ro: float) -> float:
     """
     Convert a force or acceleration to pc/Myr^2.
 
@@ -419,6 +421,283 @@ def velocity_in_kpcGyr(vo, ro):
     return vo * _kmsInPcMyr
 
 
+class ConversionContext:
+    """
+    A context class for unit conversions that stores ro and vo parameters.
+
+    This class provides a convenient way to perform multiple unit conversions
+    without repeatedly passing ro and vo parameters. Create an instance with
+    your desired ro and vo values, then call conversion methods directly.
+
+    Parameters
+    ----------
+    ro : float
+        Length unit in kpc.
+    vo : float
+        Velocity unit in km/s.
+
+    Examples
+    --------
+    >>> ctx = ConversionContext(ro=8.0, vo=220.0)
+    >>> ctx.dens_in_msolpc3()
+    0.1756...
+    >>> ctx.time_in_Gyr()
+    0.0355...
+    >>> ctx.mass_in_msol()
+    9.0e+10
+
+    Notes
+    -----
+    - 2026-01-06 - Written - Claude Code
+
+    """
+
+    def __init__(self, ro: float, vo: float) -> None:
+        """
+        Initialize a ConversionContext with ro and vo values.
+
+        Parameters
+        ----------
+        ro : float
+            Length unit in kpc.
+        vo : float
+            Velocity unit in km/s.
+
+        """
+        self._ro = ro
+        self._vo = vo
+
+    @property
+    def ro(self) -> float:
+        """Length unit in kpc."""
+        return self._ro
+
+    @property
+    def vo(self) -> float:
+        """Velocity unit in km/s."""
+        return self._vo
+
+    def dens_in_criticaldens(self, H: float = 70.0) -> float:
+        """
+        Convert density to units of the critical density.
+
+        Parameters
+        ----------
+        H : float, optional
+            Hubble constant in km/s/Mpc. Default is 70.0.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1. to units of the critical density.
+
+        """
+        return dens_in_criticaldens(self._vo, self._ro, H=H)
+
+    def dens_in_meanmatterdens(self, H: float = 70.0, Om: float = 0.3) -> float:
+        """
+        Convert density to units of the mean matter density.
+
+        Parameters
+        ----------
+        H : float, optional
+            Hubble constant in km/s/Mpc. Default is 70.0.
+        Om : float, optional
+            Omega matter. Default is 0.3.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1. to units of the mean matter density.
+
+        """
+        return dens_in_meanmatterdens(self._vo, self._ro, H=H, Om=Om)
+
+    def dens_in_gevcc(self) -> float:
+        """
+        Convert density to GeV / cm^3.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1. to GeV/cm^3.
+
+        """
+        return dens_in_gevcc(self._vo, self._ro)
+
+    def dens_in_msolpc3(self) -> float:
+        """
+        Convert density to Msolar / pc^3.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1. to Msolar/pc^3.
+
+        """
+        return dens_in_msolpc3(self._vo, self._ro)
+
+    def force_in_2piGmsolpc2(self) -> float:
+        """
+        Convert a force or acceleration to 2piG x Msolar / pc^2.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return force_in_2piGmsolpc2(self._vo, self._ro)
+
+    def force_in_pcMyr2(self) -> float:
+        """
+        Convert a force or acceleration to pc/Myr^2.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return force_in_pcMyr2(self._vo, self._ro)
+
+    def force_in_kmsMyr(self) -> float:
+        """
+        Convert a force or acceleration to km/s/Myr.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return force_in_kmsMyr(self._vo, self._ro)
+
+    def force_in_10m13kms2(self) -> float:
+        """
+        Convert a force or acceleration to 10^(-13) km/s^2.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return force_in_10m13kms2(self._vo, self._ro)
+
+    def freq_in_Gyr(self) -> float:
+        """
+        Convert a frequency to 1/Gyr.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return freq_in_Gyr(self._vo, self._ro)
+
+    def freq_in_kmskpc(self) -> float:
+        """
+        Convert a frequency to km/s/kpc.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return freq_in_kmskpc(self._vo, self._ro)
+
+    def surfdens_in_msolpc2(self) -> float:
+        """
+        Convert a surface density to Msolar / pc^2.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return surfdens_in_msolpc2(self._vo, self._ro)
+
+    def mass_in_msol(self) -> float:
+        """
+        Convert a mass to Msolar.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return mass_in_msol(self._vo, self._ro)
+
+    def mass_in_1010msol(self) -> float:
+        """
+        Convert a mass to 10^10 x Msolar.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return mass_in_1010msol(self._vo, self._ro)
+
+    def time_in_Gyr(self) -> float:
+        """
+        Convert a time to Gyr.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return time_in_Gyr(self._vo, self._ro)
+
+    def velocity_in_kpcGyr(self) -> float:
+        """
+        Convert a velocity to kpc/Gyr.
+
+        Returns
+        -------
+        float
+            Conversion from units where vo=1. at ro=1.
+
+        """
+        return velocity_in_kpcGyr(self._vo, self._ro)
+
+    @classmethod
+    def from_object(cls, obj: Any) -> "ConversionContext":
+        """
+        Create a ConversionContext from a galpy object.
+
+        Parameters
+        ----------
+        obj : Any
+            A galpy object (e.g., Potential, Orbit, DF) that has _ro and _vo attributes.
+
+        Returns
+        -------
+        ConversionContext
+            A new ConversionContext with ro and vo from the object.
+
+        Examples
+        --------
+        >>> from galpy.potential import MWPotential2014
+        >>> ctx = ConversionContext.from_object(MWPotential2014)
+        >>> ctx.mass_in_msol()
+
+        """
+        phys = get_physical(obj)
+        return cls(ro=phys["ro"], vo=phys["vo"])
+
+    def __repr__(self) -> str:
+        return f"ConversionContext(ro={self._ro}, vo={self._vo})"
+
+
 def get_physical(obj: Any, include_set: bool = False) -> dict:
     """
     Return the velocity and length units for converting between physical and internal units as a dictionary for any galpy object, so they can easily be fed to galpy routines.
@@ -447,7 +726,7 @@ def get_physical(obj: Any, include_set: bool = False) -> dict:
 
     try:
         new_obj = flatten_pot(obj)
-    except:  # pragma: no cover
+    except Exception:  # pragma: no cover
         pass  # hope for the best!
     else:  # only apply flattening for potentials
         if isinstance(new_obj, (Force, planarPotential, linearPotential)) or (
