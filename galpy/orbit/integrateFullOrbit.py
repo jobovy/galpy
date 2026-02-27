@@ -245,6 +245,9 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
                     for ii in range(p._glorder)
                 ]
             )
+        elif isinstance(p, potential.MultipoleExpansionPotential):
+            pot_type.append(44)
+            pot_args.extend(potential.MultipoleExpansionPotential._serialize_for_c(p))
         elif isinstance(p, potential.SCFPotential):
             # Type 24, see stand-alone parser below
             pt, pa, ptf = _parse_scf_pot(p)

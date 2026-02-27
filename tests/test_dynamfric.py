@@ -284,6 +284,26 @@ def test_dynamfric_c():
         ),
         potential.EinastoPotential(normalize=1.0, h=2.2),
         potential.TwoPowerSphericalPotential(normalize=1.0, alpha=1.5, beta=3.5),
+        potential.MultipoleExpansionPotential(
+            dens=potential.HernquistPotential(normalize=1.0, a=3.5),
+            symmetry="spherical",
+            normalize=1.0,
+        ),
+        potential.MultipoleExpansionPotential(
+            dens=lambda R, z, phi: potential.HernquistPotential(
+                normalize=1.0, a=3.5
+            ).dens(R, z)
+            * (1 + 0.01 * (numpy.cos(phi) + numpy.sin(phi))),
+            L=2,
+            normalize=1.0,
+        ),
+        # Out-of-bounds test for MultipoleExpansionPotential, with rgrid that doesn't go to zero
+        potential.MultipoleExpansionPotential(
+            dens=potential.HernquistPotential(normalize=1.0, a=3.5),
+            symmetry="spherical",
+            amp=2.5,
+            rgrid=numpy.geomspace(6.0045, 43.3, 201),
+        ),
         MWPotential3021,
         McMillan17,  # SCF + DiskSCF
     ]
@@ -298,6 +318,7 @@ def test_dynamfric_c():
     tol["MWPotential3021"] = -6.0
     tol["HomogeneousSpherePotential"] = -6.0
     tol["interpSphericalPotential"] = -6.0  # == HomogeneousSpherePotential
+    tol["MultipoleExpansionPotential"] = -6.0
     tol["McMillan17"] = -6.0
     for p in pots:
         if not _check_c(p, dens=True):
@@ -329,6 +350,34 @@ def test_dynamfric_c():
                 GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=p, maxr=500.0 / 8, nr=101
             )
             ttimes = numpy.linspace(0.0, -30.0, 1001)  # ~1 Gyr at the Solar circle
+        elif (
+            pname == "MultipoleExpansionPotential" and p._rgrid[0] > 1.0
+        ):  # Special one to test r out-of-bounds, needs some hacking to work
+            cdf_tmp = potential.ChandrasekharDynamicalFrictionForce(
+                GMs=0.5553870441722593,
+                rhm=5.0 / 8.0,
+                dens=potential.MultipoleExpansionPotential(
+                    dens=potential.HernquistPotential(normalize=1.0, a=3.5),
+                    symmetry="spherical",
+                    normalize=1.0,
+                    rgrid=numpy.geomspace(1e-3, 500.0 / 8.0, 201),
+                ),
+                maxr=500.0 / 8,
+                nr=101,
+            )
+            cdf = potential.ChandrasekharDynamicalFrictionForce(
+                GMs=0.5553870441722593,
+                rhm=5.0 / 8.0,
+                dens=p,
+                # minr=5.7,
+                # maxr=25.0,
+                maxr=500.0 / 8,
+                nr=101,
+                sigmar=cdf_tmp.sigmar_orig,
+            )
+            ttimes = times
+            # This is a more difficult test, because of the r out-of-bounds issue
+            ttol = -2.0
         else:
             cdf = potential.ChandrasekharDynamicalFrictionForce(
                 GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=p, maxr=500.0 / 8, nr=201

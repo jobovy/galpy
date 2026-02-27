@@ -460,6 +460,11 @@ double TriaxialNFWPotentialmdensDeriv(double,double *);
 double TwoPowerTriaxialPotentialpsi(double,double *);
 double TwoPowerTriaxialPotentialmdens(double,double *);
 double TwoPowerTriaxialPotentialmdensDeriv(double,double *);
+// Shared spherical harmonic utilities (defined in SCFPotential.c)
+void cyl_to_spher(double R, double Z, double *r, double *theta);
+int legendre_index(int l, int m, int L);
+void compute_legendre(double x, int L, int M, double *P);
+void compute_legendre_deriv(double x, int L, int M, double *P, double *dP);
 //SCFPotential
 void initSCFPotentialArgs(struct potentialArg *);
 double SCFPotentialEval(double,double,double,double,
@@ -833,6 +838,29 @@ double CylindricallySeparablePotentialWrapperPotentialRforce(double,double,doubl
 double CylindricallySeparablePotentialWrapperPotentialzforce(double,double,double,double,
 					    struct potentialArg *);
 double CylindricallySeparablePotentialWrapperPotentialPlanarRforce(double,double,double,
+						  struct potentialArg *);
+//MultipoleExpansionPotential
+void initMultipoleExpansionPotentialArgs(struct potentialArg *,
+					 double **);
+double MultipoleExpansionPotentialEval(double,double,double,double,
+				       struct potentialArg *);
+double MultipoleExpansionPotentialRforce(double,double,double,double,
+					 struct potentialArg *);
+double MultipoleExpansionPotentialzforce(double,double,double,double,
+					 struct potentialArg *);
+double MultipoleExpansionPotentialphitorque(double,double,double,double,
+					    struct potentialArg *);
+double MultipoleExpansionPotentialPlanarRforce(double,double,double,
+					       struct potentialArg *);
+double MultipoleExpansionPotentialPlanarphitorque(double,double,double,
+						  struct potentialArg *);
+double MultipoleExpansionPotentialDens(double,double,double,double,
+				       struct potentialArg *);
+double MultipoleExpansionPotentialPlanarR2deriv(double,double,double,
+						struct potentialArg *);
+double MultipoleExpansionPotentialPlanarphi2deriv(double,double,double,
+						  struct potentialArg *);
+double MultipoleExpansionPotentialPlanarRphideriv(double,double,double,
 						  struct potentialArg *);
 
 #ifdef __cplusplus

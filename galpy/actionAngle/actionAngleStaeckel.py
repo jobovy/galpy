@@ -1527,6 +1527,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
             "Calling estimateDeltaStaeckel with non-axisymmetric potentials is not supported"
         )
     # We'll special-case delta<0 when the potential includes SCF/DiskSCF components
+    # because their numerical second derivatives can lead to slightly negative delta2
     pot_includes_scf = (
         numpy.any(
             [

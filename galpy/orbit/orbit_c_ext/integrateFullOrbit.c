@@ -563,6 +563,16 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case 44: //MultipoleExpansionPotential
+      potentialArgs->potentialEval= &MultipoleExpansionPotentialEval;
+      potentialArgs->Rforce= &MultipoleExpansionPotentialRforce;
+      potentialArgs->zforce= &MultipoleExpansionPotentialzforce;
+      potentialArgs->phitorque= &MultipoleExpansionPotentialphitorque;
+      potentialArgs->dens= &MultipoleExpansionPotentialDens;
+      potentialArgs->nargs= 0;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
@@ -671,6 +681,7 @@ void parse_leapFuncArgs_Full(int npot,
     // Need to set up the same sigma_r spline for both Chandrasekhar and FDM dynamical friction
     int setupChandrasekharDynamicalFrictionSplines = (*(*pot_type-1) == -7 || *(*pot_type-1) == -11) ? 1 : 0;
     int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
+    int initMultipoleExpansionData = *(*pot_type-1) == 44 ? 1 : 0;
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -684,6 +695,8 @@ void parse_leapFuncArgs_Full(int npot,
       initMovingObjectSplines(potentialArgs, pot_args);
     if (setupChandrasekharDynamicalFrictionSplines )
       initChandrasekharDynamicalFrictionSplines(potentialArgs,pot_args);
+    if ( initMultipoleExpansionData )
+      initMultipoleExpansionPotentialArgs(potentialArgs, pot_args);
     // Now load each potential's parameters
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){

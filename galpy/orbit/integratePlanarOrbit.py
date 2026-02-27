@@ -316,6 +316,13 @@ def _parse_pot(pot):
         elif (
             isinstance(p, planarPotentialFromFullPotential)
             or isinstance(p, planarPotentialFromRZPotential)
+        ) and isinstance(p._Pot, potential.MultipoleExpansionPotential):
+            pot_type.append(44)
+            pp = p._Pot
+            pot_args.extend(potential.MultipoleExpansionPotential._serialize_for_c(pp))
+        elif (
+            isinstance(p, planarPotentialFromFullPotential)
+            or isinstance(p, planarPotentialFromRZPotential)
         ) and isinstance(p._Pot, potential.SCFPotential):
             pt, pa, ptf = _parse_scf_pot(p._Pot)
             pot_type.append(pt)

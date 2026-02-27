@@ -74,7 +74,7 @@ void initSCFPotentialArgs(struct potentialArg *potentialArgs)
 // Utility functions
 // ============================================================================
 
-static inline void cyl_to_spher(double R, double Z, double *r, double *theta)
+inline void cyl_to_spher(double R, double Z, double *r, double *theta)
 {
     *r = sqrt(R * R + Z * Z);
     *theta = atan2(R, Z);
@@ -87,7 +87,7 @@ static inline double calculateXi(double r, double a)
 
 // Index into the Legendre polynomial array for P_l^m(cos theta).
 // The storage layout depends on the GSL version.
-static inline int legendre_index(int l, int m, int L)
+inline int legendre_index(int l, int m, int L)
 {
 #if GSL_MAJOR_VERSION == 2
     // GSL 2: triangle layout P(0,0), P(1,0), P(1,1), P(2,0), ...
@@ -219,7 +219,7 @@ static void compute_d2phiTilde(double r, double a, int N, int L,
 // ============================================================================
 
 // Compute P_l^m(x) for 0 <= l < L, 0 <= m < M
-static void compute_legendre(double x, int L, int M, double *P)
+void compute_legendre(double x, int L, int M, double *P)
 {
     if (M == 1) {
         gsl_sf_legendre_Pl_array(L - 1, x, P);
@@ -237,8 +237,8 @@ static void compute_legendre(double x, int L, int M, double *P)
 }
 
 // Compute P_l^m(x) and dP_l^m/dx for 0 <= l < L, 0 <= m < M
-static void compute_legendre_deriv(double x, int L, int M,
-                                   double *P, double *dP)
+void compute_legendre_deriv(double x, int L, int M,
+                            double *P, double *dP)
 {
     if (M == 1) {
         gsl_sf_legendre_Pl_deriv_array(L - 1, x, P, dP);
