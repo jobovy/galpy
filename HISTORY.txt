@@ -20,9 +20,19 @@ v1.11.2 (expected around 2026-03-01)
   initial conditions. The integration times can be obtained using the time()
   method.
 
+- Added frequencies and angles computation for actionAngleAdiabatic in Python.
+
+- Added C implementation for TwoPowerSphericalPotential (including
+  HernquistPotential, JaffePotential, and NFWPotential) to enable fast
+  orbit integration using the xsf library for hypergeometric functions.
+
 - Added C implementation for TwoPowerTriaxialPotential to enable fast orbit
   integration. The C implementation uses the hyp2f1 hypergeometric function
   and handles the special case where alpha=2.
+
+- Added C implementation of planar second derivatives for
+  EllipsoidalPotential, enabling fast variational-equation integration
+  for triaxial potentials.
 
 - Added automatic time determination for orbit integration. Orbits can now be
   integrated without specifying an explicit time array by calling integrate(pot),
@@ -33,6 +43,25 @@ v1.11.2 (expected around 2026-03-01)
   where some components don't support tdyn, galpy automatically filters to working
   components. The feature uses 101 points per dynamical time for good temporal
   resolution.
+
+- Added CylindricallySeparablePotentialWrapper, a wrapper potential that
+  constructs a cylindrically-separable potential from a given potential's
+  radial and vertical force profiles. Includes a C implementation.
+
+- Added support for Python 3.14.
+
+- Added enhanced ``__repr__`` methods to potential, force, and wrapper
+  classes for better display.
+
+- Fixed spherical distribution function sampling for divergent
+  potentials/densities.
+
+- Fixed missing boundary term in Eddington inversion calculation.
+
+- Fixed handling of Simbad distances in units other than kpc.
+
+- Auto-detect GSL paths in setup.py to fix compilation failures when
+  CFLAGS/LDFLAGS are not set.
 
 - Removed support for Python 3.9 (which has reached its end of life in Oct 2025).
 
