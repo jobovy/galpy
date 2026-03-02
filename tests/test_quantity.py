@@ -10078,11 +10078,13 @@ def test_potential_paramunits():
     ), "KingPotential w/ amp w/ units does not behave as expected"
     # AnyAxisymmetricRazorThinDiskPotential
     pot = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: 1.5
-        * conversion.surfdens_in_msolpc2(vo, ro)
-        * units.Msun
-        / units.pc**2
-        * numpy.exp(-R),
+        surfdens=lambda R: (
+            1.5
+            * conversion.surfdens_in_msolpc2(vo, ro)
+            * units.Msun
+            / units.pc**2
+            * numpy.exp(-R)
+        ),
         ro=ro,
         vo=vo,
     )
@@ -10101,11 +10103,13 @@ def test_potential_paramunits():
     )
     # AnyAxisymmetricRazorThinDiskPotential, r in surfdens also has units
     pot = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: 1.5
-        * conversion.surfdens_in_msolpc2(vo, ro)
-        * units.Msun
-        / units.pc**2
-        * numpy.exp(-R / ro / units.kpc),
+        surfdens=lambda R: (
+            1.5
+            * conversion.surfdens_in_msolpc2(vo, ro)
+            * units.Msun
+            / units.pc**2
+            * numpy.exp(-R / ro / units.kpc)
+        ),
         ro=ro,
         vo=vo,
     )
@@ -10141,12 +10145,14 @@ def test_potential_paramunits():
     )
     # AnySphericalPotential
     pot = potential.AnySphericalPotential(
-        dens=lambda r: 0.64
-        / r
-        / (1 + r) ** 3
-        * conversion.dens_in_msolpc3(vo, ro)
-        * units.Msun
-        / units.pc**3,
+        dens=lambda r: (
+            0.64
+            / r
+            / (1 + r) ** 3
+            * conversion.dens_in_msolpc3(vo, ro)
+            * units.Msun
+            / units.pc**3
+        ),
         ro=ro,
         vo=vo,
     )
@@ -10163,12 +10169,14 @@ def test_potential_paramunits():
     ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
     # AnySphericalPotential, r in dens also has units
     pot = potential.AnySphericalPotential(
-        dens=lambda r: 0.64
-        / (r / ro / units.kpc)
-        / (1 + r / ro / units.kpc) ** 3
-        * conversion.dens_in_msolpc3(vo, ro)
-        * units.Msun
-        / units.pc**3,
+        dens=lambda r: (
+            0.64
+            / (r / ro / units.kpc)
+            / (1 + r / ro / units.kpc) ** 3
+            * conversion.dens_in_msolpc3(vo, ro)
+            * units.Msun
+            / units.pc**3
+        ),
         ro=ro,
         vo=vo,
     )

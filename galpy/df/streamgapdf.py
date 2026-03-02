@@ -269,12 +269,15 @@ class streamgapdf(streamdf.streamdf):
             return self._density_par_approx(dangle, tdisrupt, higherorder=higherorder)
         else:
             return integrate.quad(
-                lambda T: numpy.sqrt(self._sortedSigOEig[2])
-                * (1 + T * T)
-                / (1 - T * T) ** 2.0
-                * self.pOparapar(
-                    T / (1 - T * T) * numpy.sqrt(self._sortedSigOEig[2]) + self._meandO,
-                    dangle,
+                lambda T: (
+                    numpy.sqrt(self._sortedSigOEig[2])
+                    * (1 + T * T)
+                    / (1 - T * T) ** 2.0
+                    * self.pOparapar(
+                        T / (1 - T * T) * numpy.sqrt(self._sortedSigOEig[2])
+                        + self._meandO,
+                        dangle,
+                    )
                 ),
                 -1.0,
                 1.0,
@@ -482,14 +485,18 @@ class streamgapdf(streamdf.streamdf):
         else:
             num = integrate.quad(
                 lambda T: (
-                    T / (1 - T * T) * numpy.sqrt(self._sortedSigOEig[2]) + self._meandO
-                )
-                * numpy.sqrt(self._sortedSigOEig[2])
-                * (1 + T * T)
-                / (1 - T * T) ** 2.0
-                * self.pOparapar(
-                    T / (1 - T * T) * numpy.sqrt(self._sortedSigOEig[2]) + self._meandO,
-                    dangle,
+                    (
+                        T / (1 - T * T) * numpy.sqrt(self._sortedSigOEig[2])
+                        + self._meandO
+                    )
+                    * numpy.sqrt(self._sortedSigOEig[2])
+                    * (1 + T * T)
+                    / (1 - T * T) ** 2.0
+                    * self.pOparapar(
+                        T / (1 - T * T) * numpy.sqrt(self._sortedSigOEig[2])
+                        + self._meandO,
+                        dangle,
+                    )
                 ),
                 -1.0,
                 1.0,

@@ -62,9 +62,11 @@ def test_isotropic_hernquist_dens_massprofile():
     tol = 5 * 1e-3
     check_spherical_massprofile(
         samp,
-        lambda r: pot.mass(r)
-        / pot.mass(
-            numpy.amax(samp.r()),
+        lambda r: (
+            pot.mass(r)
+            / pot.mass(
+                numpy.amax(samp.r()),
+            )
         ),
         tol,
         skip=1000,
@@ -146,9 +148,11 @@ def test_isotropic_hernquist_dens_massprofile_forcemassinterpolation():
     tol = 5 * 1e-3
     check_spherical_massprofile(
         samp,
-        lambda r: pot.mass(r)
-        / pot.mass(
-            numpy.amax(samp.r()),
+        lambda r: (
+            pot.mass(r)
+            / pot.mass(
+                numpy.amax(samp.r()),
+            )
         ),
         tol,
         skip=1000,
@@ -1529,8 +1533,10 @@ def test_eddington_powerspherical_massprofile():
     tol = 5 * 1e-2
     check_spherical_massprofile(
         samp,
-        lambda r: (pot.mass(r) - pot.mass(rmin))
-        / (pot.mass(numpy.amax(samp.r())) - pot.mass(rmin)),
+        lambda r: (
+            (pot.mass(r) - pot.mass(rmin))
+            / (pot.mass(numpy.amax(samp.r())) - pot.mass(rmin))
+        ),
         tol,
         skip=1000,
     )

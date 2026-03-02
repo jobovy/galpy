@@ -79,8 +79,8 @@ class AnySphericalPotential(SphericalPotential):
                 )
         if not hasattr(self, "_rawdens"):  # unitless
             self._rawdens = dens
-        self._rawmass = (
-            lambda r: 4.0
+        self._rawmass = lambda r: (
+            4.0
             * numpy.pi
             * integrate.quad(
                 lambda a: a**2 * self._rawdens(a), 0, numpy.atleast_1d(r).flatten()[0]

@@ -325,16 +325,18 @@ class sphericaldf(df):
             2.0
             * numpy.pi
             * integrate.dblquad(
-                lambda eta, v: v ** (2.0 + m + n)
-                * numpy.sin(eta) ** (1 + m)
-                * numpy.cos(eta) ** n
-                * self(
-                    r,
-                    v * numpy.cos(eta),
-                    v * numpy.sin(eta),
-                    0.0,
-                    0.0,
-                    use_physical=False,
+                lambda eta, v: (
+                    v ** (2.0 + m + n)
+                    * numpy.sin(eta) ** (1 + m)
+                    * numpy.cos(eta) ** n
+                    * self(
+                        r,
+                        v * numpy.cos(eta),
+                        v * numpy.sin(eta),
+                        0.0,
+                        0.0,
+                        use_physical=False,
+                    )
                 ),
                 0.0,
                 self._vmax_at_r(self._pot, r),
@@ -790,8 +792,10 @@ class isotropicsphericaldf(sphericaldf):
             * numpy.array(
                 [
                     integrate.quad(
-                        lambda r: r**2.0
-                        * numpy.sqrt(tE - _evaluatePotentials(self._pot, r, 0.0)),
+                        lambda r: (
+                            r**2.0
+                            * numpy.sqrt(tE - _evaluatePotentials(self._pot, r, 0.0))
+                        ),
                         0.0,
                         self._rphi(tE),
                     )[0]
@@ -812,8 +816,10 @@ class isotropicsphericaldf(sphericaldf):
             2.0
             * numpy.pi
             * integrate.quad(
-                lambda v: v ** (2.0 + m + n)
-                * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0),
+                lambda v: (
+                    v ** (2.0 + m + n)
+                    * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
+                ),
                 0.0,
                 self._vmax_at_r(self._pot, r),
             )[0]
@@ -880,22 +886,24 @@ class anisotropicsphericaldf(sphericaldf):
             * numpy.array(
                 [
                     integrate.quad(
-                        lambda r: r
-                        * integrate.quad(
-                            Lintegrand,
-                            0.0,
-                            numpy.sqrt(
-                                2.0
-                                * r**2.0
-                                * (tE - _evaluatePotentials(self._pot, r, 0.0))
-                            ),
-                            args=(
-                                2.0
-                                * r**2.0
-                                * (tE - _evaluatePotentials(self._pot, r, 0.0)),
-                                tE,
-                            ),
-                        )[0],
+                        lambda r: (
+                            r
+                            * integrate.quad(
+                                Lintegrand,
+                                0.0,
+                                numpy.sqrt(
+                                    2.0
+                                    * r**2.0
+                                    * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                                ),
+                                args=(
+                                    2.0
+                                    * r**2.0
+                                    * (tE - _evaluatePotentials(self._pot, r, 0.0)),
+                                    tE,
+                                ),
+                            )[0]
+                        ),
                         0.0,
                         self._rphi(tE),
                     )[0]

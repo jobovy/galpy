@@ -2258,8 +2258,10 @@ class quasiisothermaldf(df):
                     grid_max_vT[i][j] = numpy.squeeze(
                         optimize.fmin_powell(
                             (
-                                lambda x: -self(
-                                    R, 0.0, x, z, 0.0, log=True, use_physical=False
+                                lambda x: (
+                                    -self(
+                                        R, 0.0, x, z, 0.0, log=True, use_physical=False
+                                    )
                                 )
                             ),
                             1.0,

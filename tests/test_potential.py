@@ -5910,11 +5910,13 @@ def test_DiskSCFPotential_verticalDerivs():
 def test_DiskSCFPotential_nhzNeqnsigmaError():
     with pytest.raises(ValueError) as excinfo:
         dummy = potential.DiskSCFPotential(
-            dens=lambda R, z: numpy.exp(-3.0 * R)
-            * 1.0
-            / numpy.cosh(z / 2.0 * 27.0) ** 2.0
-            / 4.0
-            * 27.0,
+            dens=lambda R, z: (
+                numpy.exp(-3.0 * R)
+                * 1.0
+                / numpy.cosh(z / 2.0 * 27.0) ** 2.0
+                / 4.0
+                * 27.0
+            ),
             Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0},
             hz=[{"type": "sech2", "h": 1.0 / 27.0}, {"type": "sech2", "h": 1.0 / 27.0}],
             a=1.0,
@@ -6493,9 +6495,11 @@ def test_RingPotential_correctPotentialIntegral():
         return (
             -amp
             * integrate.quad(
-                lambda k: special.jv(0, k * R)
-                * special.jv(0, k * a)
-                * numpy.exp(-k * numpy.fabs(z)),
+                lambda k: (
+                    special.jv(0, k * R)
+                    * special.jv(0, k * a)
+                    * numpy.exp(-k * numpy.fabs(z))
+                ),
                 0.0,
                 numpy.inf,
             )[0]
@@ -10535,11 +10539,13 @@ class sech2DiskSCFPotential(DiskSCFPotential):
     def __init__(self):
         DiskSCFPotential.__init__(
             self,
-            dens=lambda R, z: numpy.exp(-3.0 * R)
-            * 1.0
-            / numpy.cosh(z / 2.0 * 27.0) ** 2.0
-            / 4.0
-            * 27.0,
+            dens=lambda R, z: (
+                numpy.exp(-3.0 * R)
+                * 1.0
+                / numpy.cosh(z / 2.0 * 27.0) ** 2.0
+                / 4.0
+                * 27.0
+            ),
             Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0},
             hz={"type": "sech2", "h": 1.0 / 27.0},
             a=1.0,
@@ -10558,9 +10564,11 @@ class expwholeDiskSCFPotential(DiskSCFPotential):
         hp = HernquistPotential(normalize=0.5)
         DiskSCFPotential.__init__(
             self,
-            dens=lambda R, z: 13.5
-            * numpy.exp(-0.5 / (R + 10.0**-10.0) - 3.0 * R - numpy.fabs(z) * 27.0)
-            + hp.dens(R, z),
+            dens=lambda R, z: (
+                13.5
+                * numpy.exp(-0.5 / (R + 10.0**-10.0) - 3.0 * R - numpy.fabs(z) * 27.0)
+                + hp.dens(R, z)
+            ),
             Sigma={"h": 1.0 / 3.0, "type": "expwhole", "amp": 1.0, "Rhole": 0.5},
             hz={"type": "exp", "h": 1.0 / 27.0},
             a=1.0,
@@ -10581,9 +10589,11 @@ class altExpwholeDiskSCFPotential(DiskSCFPotential):
         hp = HernquistPotential(normalize=0.5)
         DiskSCFPotential.__init__(
             self,
-            dens=lambda R, z: 13.5
-            * numpy.exp(-0.5 / (R + 10.0**-10.0) - 3.0 * R - numpy.fabs(z) * 27.0)
-            + hp.dens(R, z),
+            dens=lambda R, z: (
+                13.5
+                * numpy.exp(-0.5 / (R + 10.0**-10.0) - 3.0 * R - numpy.fabs(z) * 27.0)
+                + hp.dens(R, z)
+            ),
             Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0, "Rhole": 0.5},
             hz={"type": "exp", "h": 1.0 / 27.0},
             a=1.0,
@@ -10598,10 +10608,10 @@ class nonaxiDiskSCFPotential(DiskSCFPotential):
         thp = triaxialHernquistPotential()
         DiskSCFPotential.__init__(
             self,
-            dens=lambda R, z, phi: 13.5
-            * numpy.exp(-3.0 * R)
-            * numpy.exp(-27.0 * numpy.fabs(z))
-            + thp.dens(R, z, phi=phi),
+            dens=lambda R, z, phi: (
+                13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
+                + thp.dens(R, z, phi=phi)
+            ),
             Sigma_amp=[0.5, 0.5],
             Sigma=[lambda R: numpy.exp(-3.0 * R), lambda R: numpy.exp(-3.0 * R)],
             dSigmadR=[
@@ -10613,11 +10623,12 @@ class nonaxiDiskSCFPotential(DiskSCFPotential):
                 lambda R: 9.0 * numpy.exp(-3.0 * R),
             ],
             hz=lambda z: 13.5 * numpy.exp(-27.0 * numpy.fabs(z)),
-            Hz=lambda z: (numpy.exp(-27.0 * numpy.fabs(z)) - 1.0 + 27.0 * numpy.fabs(z))
-            / 54.0,
-            dHzdz=lambda z: 0.5
-            * numpy.sign(z)
-            * (1.0 - numpy.exp(-27.0 * numpy.fabs(z))),
+            Hz=lambda z: (
+                (numpy.exp(-27.0 * numpy.fabs(z)) - 1.0 + 27.0 * numpy.fabs(z)) / 54.0
+            ),
+            dHzdz=lambda z: (
+                0.5 * numpy.sign(z) * (1.0 - numpy.exp(-27.0 * numpy.fabs(z)))
+            ),
             N=5,
             L=5,
         )

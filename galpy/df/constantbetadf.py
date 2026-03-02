@@ -85,9 +85,11 @@ class _constantbetadf(anisotropicsphericaldf):
             * numpy.array(
                 [
                     integrate.quad(
-                        lambda r: r ** (2.0 - 2.0 * self._beta)
-                        * (tE - _evaluatePotentials(self._pot, r, 0.0))
-                        ** (0.5 - self._beta),
+                        lambda r: (
+                            r ** (2.0 - 2.0 * self._beta)
+                            * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                            ** (0.5 - self._beta)
+                        ),
                         0.0,
                         self._rphi(tE),
                     )[0]
@@ -135,8 +137,10 @@ class _constantbetadf(anisotropicsphericaldf):
             * numpy.pi
             * r ** (-2.0 * self._beta)
             * integrate.quad(
-                lambda v: v ** (2.0 - 2.0 * self._beta + m + n)
-                * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0),
+                lambda v: (
+                    v ** (2.0 - 2.0 * self._beta + m + n)
+                    * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
+                ),
                 0.0,
                 self._vmax_at_r(self._pot, r),
             )[0]
@@ -226,9 +230,10 @@ class constantbetadf(_constantbetadf):
             ii = self._m - 1
             # Compute d^m (dens x r^2beta) / d Psi^m as successive
             # d / dr ( ...) / F_r
-            func = lambda r: self._denspot._ddenstwobetadr(
-                r, beta=self._beta
-            ) / self._pot._rforce_jax(r)
+            func = lambda r: (
+                self._denspot._ddenstwobetadr(r, beta=self._beta)
+                / self._pot._rforce_jax(r)
+            )
             while ii > 0:
                 func = lambda r, func=func: grad(func)(r) / self._pot._rforce_jax(r)
                 ii -= 1
@@ -248,9 +253,10 @@ class constantbetadf(_constantbetadf):
             if ii == 0:
                 func = lambda r: self._denspot._ddenstwobetadr(r, beta=self._beta)
             else:
-                func = lambda r: self._denspot._ddenstwobetadr(
-                    r, beta=self._beta
-                ) / self._pot._rforce_jax(r)
+                func = lambda r: (
+                    self._denspot._ddenstwobetadr(r, beta=self._beta)
+                    / self._pot._rforce_jax(r)
+                )
             while ii > 0:
                 if ii == 1:
                     func = lambda r, func=func: grad(func)(r)

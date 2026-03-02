@@ -6836,17 +6836,11 @@ class Orbit:
   hovermode: 'closest',
   showlegend: false,
 """.format(xlabel=xlabels[0], ylabel=ylabels[0], xmin=xmin[0], xmax=xmax[0])
-        hovertemplate = (
-            lambda name,
-            xlabel,
-            ylabel,
-            tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        hovertemplate = lambda name, xlabel, ylabel, tlabel: (
+            f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         )
-        hovertemplate_current = (
-            lambda name,
-            xlabel,
-            ylabel,
-            tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        hovertemplate_current = lambda name, xlabel, ylabel, tlabel: (
+            f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         )
         for ii in range(1, nplots):
             layout += """  xaxis{idx}: {{
@@ -7608,19 +7602,11 @@ if ( typeof window.require == 'undefined' ) {{
                     for ii in range(self.size - len(line_colors))
                 ]
             )
-        hovertemplate = (
-            lambda name,
-            xlabel,
-            ylabel,
-            zlabel,
-            tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        hovertemplate = lambda name, xlabel, ylabel, zlabel, tlabel: (
+            f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         )
-        hovertemplate_current = (
-            lambda name,
-            xlabel,
-            ylabel,
-            zlabel,
-            tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        hovertemplate_current = lambda name, xlabel, ylabel, zlabel, tlabel: (
+            f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         )
         layout = """{{
             scene:{{

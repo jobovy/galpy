@@ -600,10 +600,14 @@ class evolveddiskdf(df):
                 _vmomentsurfaceIntegrand,
                 meanvT / sigmaT1 - nsigma,
                 meanvT / sigmaT1 + nsigma,
-                lambda x: meanvR / sigmaR1
-                - numpy.sqrt(nsigma**2.0 - (x - meanvT / sigmaT1) ** 2.0),
-                lambda x: meanvR / sigmaR1
-                + numpy.sqrt(nsigma**2.0 - (x - meanvT / sigmaT1) ** 2.0),
+                lambda x: (
+                    meanvR / sigmaR1
+                    - numpy.sqrt(nsigma**2.0 - (x - meanvT / sigmaT1) ** 2.0)
+                ),
+                lambda x: (
+                    meanvR / sigmaR1
+                    + numpy.sqrt(nsigma**2.0 - (x - meanvT / sigmaT1) ** 2.0)
+                ),
                 (R, az, self, n, m, sigmaR1, sigmaT1, t, initvmoment),
                 epsrel=epsrel,
                 epsabs=epsabs,

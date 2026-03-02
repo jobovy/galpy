@@ -64,9 +64,11 @@ class KingPotential(interpSphericalPotential):
         vo = self._vo if self._voSet else vo
         interpSphericalPotential.__init__(
             self,
-            rforce=lambda r: mass_scale
-            / radius_scale**2.0
-            * numpy.interp(r / radius_scale, sfkdf._r, sfkdf._dWdr),
+            rforce=lambda r: (
+                mass_scale
+                / radius_scale**2.0
+                * numpy.interp(r / radius_scale, sfkdf._r, sfkdf._dWdr)
+            ),
             rgrid=sfkdf._r * radius_scale,
             Phi0=-W0 * mass_scale / radius_scale - M / rt,
             ro=ro,

@@ -2260,8 +2260,10 @@ class streamdf(df):
         )  # assume that this is the peak
         try:
             result = optimize.brentq(
-                lambda x: self.density_par(x, tdisrupt=tdisrupt, **kwargs)
-                - peak_dens * threshold,
+                lambda x: (
+                    self.density_par(x, tdisrupt=tdisrupt, **kwargs)
+                    - peak_dens * threshold
+                ),
                 0.1,
                 self._deltaAngleTrack,
             )

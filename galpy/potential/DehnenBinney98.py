@@ -110,9 +110,10 @@ def define_dehnenbinney98_models(model=1):
     gas_dens = lambda R, z: mwpot_helpers.expexp_dens_with_hole(
         R, z, Rd_ISM, Rm_ISM, zd_ISM, Sigma0_ISM
     )
-    disk_dens = lambda R, z: mwpot_helpers.expexp_dens(
-        R, z, Rd_thin, zd_thin, Sigma0_thin
-    ) + mwpot_helpers.expexp_dens(R, z, Rd_thick, zd_thick, Sigma0_thick)
+    disk_dens = lambda R, z: (
+        mwpot_helpers.expexp_dens(R, z, Rd_thin, zd_thin, Sigma0_thin)
+        + mwpot_helpers.expexp_dens(R, z, Rd_thick, zd_thick, Sigma0_thick)
+    )
     bulge_dens = lambda R, z: mwpot_helpers.pow_dens_with_cut(
         R, z, alpha_bulge, r0_bulge, rc_bulge, rho0_bulge, q_bulge
     )

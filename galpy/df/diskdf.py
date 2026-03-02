@@ -567,8 +567,8 @@ class diskdf(df):
         # First calculate where the maximum is
         if target:
             minR = optimize.fmin_bfgs(
-                lambda x: -self.targetSurfacemassLOS(
-                    x, l, use_physical=False, deg=False
+                lambda x: (
+                    -self.targetSurfacemassLOS(x, l, use_physical=False, deg=False)
                 ),
                 0.0,
                 disp=False,

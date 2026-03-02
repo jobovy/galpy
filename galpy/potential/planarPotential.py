@@ -1246,9 +1246,9 @@ def LinShuReductionFactor(
         (1.0 - s**2.0)
         / numpy.sin(numpy.pi * s)
         * integrate.quad(
-            lambda t: numpy.exp(-chi * (1.0 + numpy.cos(t)))
-            * numpy.sin(s * t)
-            * numpy.sin(t),
+            lambda t: (
+                numpy.exp(-chi * (1.0 + numpy.cos(t))) * numpy.sin(s * t) * numpy.sin(t)
+            ),
             0.0,
             numpy.pi,
         )[0]
