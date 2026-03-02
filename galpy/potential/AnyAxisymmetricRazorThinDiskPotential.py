@@ -101,8 +101,8 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             return self._pot_zero
         elif numpy.isinf(R**2 + z**2):
             return 0.0
-        potint = (
-            lambda a: a
+        potint = lambda a: (
+            a
             * self._sdens(a)
             / numpy.sqrt((R + a) ** 2.0 + z**2.0)
             * special.ellipk(4 * R * a / ((R + a) ** 2.0 + z**2.0))

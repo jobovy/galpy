@@ -160,8 +160,8 @@ class DoubleExponentialDiskPotential(Potential):
             outShape = R.shape  # this code can't do arbitrary shapes
             R = R.flatten()
             z = z.flatten()
-        fun = (
-            lambda x: (self._alpha**2.0 + (x / R[:, numpy.newaxis]) ** 2.0) ** -1.5
+        fun = lambda x: (
+            (self._alpha**2.0 + (x / R[:, numpy.newaxis]) ** 2.0) ** -1.5
             * (
                 self._beta
                 * numpy.exp(-x / R[:, numpy.newaxis] * numpy.fabs(z[:, numpy.newaxis]))
@@ -211,8 +211,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        fun = (
-            lambda x: x
+        fun = lambda x: (
+            x
             * (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * (
                 self._beta * numpy.exp(-x / R * numpy.fabs(z))
@@ -255,8 +255,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        fun = (
-            lambda x: (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
+        fun = lambda x: (
+            (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * x
             / R
             * (
@@ -304,8 +304,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-27 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        fun = (
-            lambda x: x**2
+        fun = lambda x: (
+            x**2
             * (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * (
                 self._beta * numpy.exp(-x / R * numpy.fabs(z))
@@ -350,8 +350,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        fun = (
-            lambda x: (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
+        fun = lambda x: (
+            (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * x
             / R
             * (
@@ -395,8 +395,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2013-08-28 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        fun = (
-            lambda x: (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
+        fun = lambda x: (
+            (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * (x / R) ** 2.0
             * (
                 numpy.exp(-x / R * numpy.fabs(z))

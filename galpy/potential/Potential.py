@@ -648,11 +648,12 @@ class Potential(Force):
                     -self.zforce(R, numpy.fabs(z), phi=phi, t=t, use_physical=False)
                     + self.zforce(R, -numpy.fabs(z), phi=phi, t=t, use_physical=False)
                     + integrate.quad(
-                        lambda x: -self.Rforce(R, x, phi=phi, t=t, use_physical=False)
-                        / R
-                        + self.R2deriv(R, x, phi=phi, t=t, use_physical=False)
-                        + self.phi2deriv(R, x, phi=phi, t=t, use_physical=False)
-                        / R**2.0,
+                        lambda x: (
+                            -self.Rforce(R, x, phi=phi, t=t, use_physical=False) / R
+                            + self.R2deriv(R, x, phi=phi, t=t, use_physical=False)
+                            + self.phi2deriv(R, x, phi=phi, t=t, use_physical=False)
+                            / R**2.0
+                        ),
                         -numpy.fabs(z),
                         numpy.fabs(z),
                     )[0]

@@ -162,20 +162,24 @@ class actionAngleVertical(actionAngle):
                         numpy.pi
                         / 2.0
                         / integrate.quad(
-                            lambda t: 2.0
-                            * t
-                            / (
-                                numpy.sqrt(
-                                    2.0
-                                    * (
-                                        E
-                                        - evaluatelinearPotentials(
-                                            self._pot, xmax - t**2.0, use_physical=False
+                            lambda t: (
+                                2.0
+                                * t
+                                / (
+                                    numpy.sqrt(
+                                        2.0
+                                        * (
+                                            E
+                                            - evaluatelinearPotentials(
+                                                self._pot,
+                                                xmax - t**2.0,
+                                                use_physical=False,
+                                            )
                                         )
                                     )
+                                    if t > 1e-6
+                                    else 1.0
                                 )
-                                if t > 1e-6
-                                else 1.0
                             ),
                             0,
                             numpy.sqrt(xmax),
@@ -245,14 +249,16 @@ class actionAngleVertical(actionAngle):
                         numpy.pi
                         / 2.0
                         / integrate.quad(
-                            lambda t: 2.0
-                            * t
-                            / numpy.sqrt(
+                            lambda t: (
                                 2.0
-                                * (
-                                    E
-                                    - evaluatelinearPotentials(
-                                        self._pot, xmax - t**2.0, use_physical=False
+                                * t
+                                / numpy.sqrt(
+                                    2.0
+                                    * (
+                                        E
+                                        - evaluatelinearPotentials(
+                                            self._pot, xmax - t**2.0, use_physical=False
+                                        )
                                     )
                                 )
                             ),
@@ -261,13 +267,15 @@ class actionAngleVertical(actionAngle):
                         )[0]
                     )
                     angle[ii] = integrate.quad(
-                        lambda xi: 1.0
-                        / numpy.sqrt(
-                            2.0
-                            * (
-                                E
-                                - evaluatelinearPotentials(
-                                    self._pot, xi, use_physical=False
+                        lambda xi: (
+                            1.0
+                            / numpy.sqrt(
+                                2.0
+                                * (
+                                    E
+                                    - evaluatelinearPotentials(
+                                        self._pot, xi, use_physical=False
+                                    )
                                 )
                             )
                         ),
@@ -332,8 +340,9 @@ class actionAngleVertical(actionAngle):
                 xmax = -9999.99
             else:
                 xmax = optimize.brentq(
-                    lambda xm: E
-                    - evaluatelinearPotentials(self._pot, xm, use_physical=False),
+                    lambda xm: (
+                        E - evaluatelinearPotentials(self._pot, xm, use_physical=False)
+                    ),
                     xstart,
                     xend,
                     xtol=1e-14,

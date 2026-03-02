@@ -951,8 +951,9 @@ def estimateBIsochrone(pot, R, z, phi=None):
         )
         try:
             b = optimize.brentq(
-                lambda x: dlvcdlr
-                - (x / numpy.sqrt(r2 + x**2.0) - 0.5 * r2 / (r2 + x**2.0)),
+                lambda x: (
+                    dlvcdlr - (x / numpy.sqrt(r2 + x**2.0) - 0.5 * r2 / (r2 + x**2.0))
+                ),
                 0.01,
                 100.0,
             )

@@ -87,37 +87,41 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             * numpy.array(
                 [
                     integrate.quad(
-                        lambda r: r
-                        * integrate.quad(
-                            Lintegrand,
-                            numpy.sqrt(
-                                numpy.amax(
-                                    [
-                                        (0.0),
-                                        (
-                                            2.0
-                                            * r**2.0
-                                            * (
-                                                tE
-                                                - _evaluatePotentials(self._pot, r, 0.0)
-                                            )
-                                            + 2.0 * tE * self._ra2
-                                        ),
-                                    ]
-                                )
-                            ),
-                            numpy.sqrt(
-                                2.0
-                                * r**2.0
-                                * (tE - _evaluatePotentials(self._pot, r, 0.0))
-                            ),
-                            args=(
-                                2.0
-                                * r**2.0
-                                * (tE - _evaluatePotentials(self._pot, r, 0.0)),
-                                tE,
-                            ),
-                        )[0],
+                        lambda r: (
+                            r
+                            * integrate.quad(
+                                Lintegrand,
+                                numpy.sqrt(
+                                    numpy.amax(
+                                        [
+                                            (0.0),
+                                            (
+                                                2.0
+                                                * r**2.0
+                                                * (
+                                                    tE
+                                                    - _evaluatePotentials(
+                                                        self._pot, r, 0.0
+                                                    )
+                                                )
+                                                + 2.0 * tE * self._ra2
+                                            ),
+                                        ]
+                                    )
+                                ),
+                                numpy.sqrt(
+                                    2.0
+                                    * r**2.0
+                                    * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                                ),
+                                args=(
+                                    2.0
+                                    * r**2.0
+                                    * (tE - _evaluatePotentials(self._pot, r, 0.0)),
+                                    tE,
+                                ),
+                            )[0]
+                        ),
                         0.0,
                         self._rphi(tE),
                     )[0]
@@ -177,8 +181,10 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             2.0
             * numpy.pi
             * integrate.quad(
-                lambda v: v ** (2.0 + m + n)
-                * self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0),
+                lambda v: (
+                    v ** (2.0 + m + n)
+                    * self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0)
+                ),
                 0.0,
                 self._vmax_at_r(self._pot, r),
             )[0]
@@ -257,36 +263,44 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         self._rmin = self._edf._rmin
         self._edf._dnudr = (
             (
-                lambda r: self._denspot._ddensdr(r) * (1.0 + r**2.0 / self._ra2)
-                + 2.0 * self._denspot.dens(r, 0, use_physical=False) * r / self._ra2
+                lambda r: (
+                    self._denspot._ddensdr(r) * (1.0 + r**2.0 / self._ra2)
+                    + 2.0 * self._denspot.dens(r, 0, use_physical=False) * r / self._ra2
+                )
             )
             if not isinstance(self._denspot, list)
             else (
-                lambda r: numpy.sum([p._ddensdr(r) for p in self._denspot])
-                * (1.0 + r**2.0 / self._ra2)
-                + 2.0
-                * evaluateDensities(self._denspot, r, 0, use_physical=False)
-                * r
-                / self._ra2
+                lambda r: (
+                    numpy.sum([p._ddensdr(r) for p in self._denspot])
+                    * (1.0 + r**2.0 / self._ra2)
+                    + 2.0
+                    * evaluateDensities(self._denspot, r, 0, use_physical=False)
+                    * r
+                    / self._ra2
+                )
             )
         )
         self._edf._d2nudr2 = (
             (
-                lambda r: self._denspot._d2densdr2(r) * (1.0 + r**2.0 / self._ra2)
-                + 4.0 * self._denspot._ddensdr(r) * r / self._ra2
-                + 2.0 * self._denspot.dens(r, 0, use_physical=False) / self._ra2
+                lambda r: (
+                    self._denspot._d2densdr2(r) * (1.0 + r**2.0 / self._ra2)
+                    + 4.0 * self._denspot._ddensdr(r) * r / self._ra2
+                    + 2.0 * self._denspot.dens(r, 0, use_physical=False) / self._ra2
+                )
             )
             if not isinstance(self._denspot, list)
             else (
-                lambda r: numpy.sum([p._d2densdr2(r) for p in self._denspot])
-                * (1.0 + r**2.0 / self._ra2)
-                + 4.0
-                * numpy.sum([p._ddensdr(r) for p in self._denspot])
-                * r
-                / self._ra2
-                + 2.0
-                * evaluateDensities(self._denspot, r, 0, use_physical=False)
-                / self._ra2
+                lambda r: (
+                    numpy.sum([p._d2densdr2(r) for p in self._denspot])
+                    * (1.0 + r**2.0 / self._ra2)
+                    + 4.0
+                    * numpy.sum([p._ddensdr(r) for p in self._denspot])
+                    * r
+                    / self._ra2
+                    + 2.0
+                    * evaluateDensities(self._denspot, r, 0, use_physical=False)
+                    / self._ra2
+                )
             )
         )
 

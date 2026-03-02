@@ -960,15 +960,15 @@ def test_arbitraryaxisrotation_omegafunc_nullpotential():
             )
             + potential.NonInertialFrameForce(
                 Omega=[
-                    lambda t: Omega[0]
-                    + Omegadot[0] * t
-                    + Omegadotdot[0] * t**2.0 / 2.0,
-                    lambda t: Omega[1]
-                    + Omegadot[1] * t
-                    + Omegadotdot[1] * t**2.0 / 2.0,
-                    lambda t: Omega[2]
-                    + Omegadot[2] * t
-                    + Omegadotdot[2] * t**2.0 / 2.0,
+                    lambda t: (
+                        Omega[0] + Omegadot[0] * t + Omegadotdot[0] * t**2.0 / 2.0
+                    ),
+                    lambda t: (
+                        Omega[1] + Omegadot[1] * t + Omegadotdot[1] * t**2.0 / 2.0
+                    ),
+                    lambda t: (
+                        Omega[2] + Omegadot[2] * t + Omegadotdot[2] * t**2.0 / 2.0
+                    ),
                 ],
                 Omegadot=[
                     lambda t: Omegadot[0] + Omegadotdot[0] * t,
@@ -1106,15 +1106,15 @@ def test_arbitraryaxisrotation_omegafunc():
             )
             + potential.NonInertialFrameForce(
                 Omega=[
-                    lambda t: Omega[0]
-                    + Omegadot[0] * t
-                    + Omegadotdot[0] * t**2.0 / 2.0,
-                    lambda t: Omega[1]
-                    + Omegadot[1] * t
-                    + Omegadotdot[1] * t**2.0 / 2.0,
-                    lambda t: Omega[2]
-                    + Omegadot[2] * t
-                    + Omegadotdot[2] * t**2.0 / 2.0,
+                    lambda t: (
+                        Omega[0] + Omegadot[0] * t + Omegadotdot[0] * t**2.0 / 2.0
+                    ),
+                    lambda t: (
+                        Omega[1] + Omegadot[1] * t + Omegadotdot[1] * t**2.0 / 2.0
+                    ),
+                    lambda t: (
+                        Omega[2] + Omegadot[2] * t + Omegadotdot[2] * t**2.0 / 2.0
+                    ),
                 ],
                 Omegadot=[
                     lambda t: Omegadot[0] + Omegadotdot[0] * t,
@@ -1201,8 +1201,8 @@ def test_linacc_constantacc_z():
     # numba
     from scipy import special
 
-    intaz = (
-        lambda t: 0.02 * t**2.0 / 2.0 * (special.erf(t) + 2.0) / (special.erf(t) + 2.0)
+    intaz = lambda t: (
+        0.02 * t**2.0 / 2.0 * (special.erf(t) + 2.0) / (special.erf(t) + 2.0)
     )
     framepot = potential.NonInertialFrameForce(a0=[0.0, 0.0, az])
     diskframepot = (
@@ -2023,15 +2023,15 @@ def test_python_vs_c_arbitraryaxisrotation_funcomega():
             diskpot
             + potential.NonInertialFrameForce(
                 Omega=[
-                    lambda t: Omega[0]
-                    + Omegadot[0] * t
-                    + Omegadotdot[0] * t**2.0 / 2.0,
-                    lambda t: Omega[1]
-                    + Omegadot[1] * t
-                    + Omegadotdot[1] * t**2.0 / 2.0,
-                    lambda t: Omega[2]
-                    + Omegadot[2] * t
-                    + Omegadotdot[2] * t**2.0 / 2.0,
+                    lambda t: (
+                        Omega[0] + Omegadot[0] * t + Omegadotdot[0] * t**2.0 / 2.0
+                    ),
+                    lambda t: (
+                        Omega[1] + Omegadot[1] * t + Omegadotdot[1] * t**2.0 / 2.0
+                    ),
+                    lambda t: (
+                        Omega[2] + Omegadot[2] * t + Omegadotdot[2] * t**2.0 / 2.0
+                    ),
                 ],
                 Omegadot=[
                     lambda t: Omegadot[0] + Omegadotdot[0] * t,
@@ -2048,15 +2048,15 @@ def test_python_vs_c_arbitraryaxisrotation_funcomega():
             diskpot
             + potential.NonInertialFrameForce(
                 Omega=[
-                    lambda t: Omega[0]
-                    + Omegadot[0] * t
-                    + Omegadotdot[0] * t**2.0 / 2.0,
-                    lambda t: Omega[1]
-                    + Omegadot[1] * t
-                    + Omegadotdot[1] * t**2.0 / 2.0,
-                    lambda t: Omega[2]
-                    + Omegadot[2] * t
-                    + Omegadotdot[2] * t**2.0 / 2.0,
+                    lambda t: (
+                        Omega[0] + Omegadot[0] * t + Omegadotdot[0] * t**2.0 / 2.0
+                    ),
+                    lambda t: (
+                        Omega[1] + Omegadot[1] * t + Omegadotdot[1] * t**2.0 / 2.0
+                    ),
+                    lambda t: (
+                        Omega[2] + Omegadot[2] * t + Omegadotdot[2] * t**2.0 / 2.0
+                    ),
                 ],
                 Omegadot=[
                     lambda t: Omegadot[0] + Omegadotdot[0] * t,

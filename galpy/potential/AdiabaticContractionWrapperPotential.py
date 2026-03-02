@@ -129,8 +129,8 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
 
 def _contraction_Cautun2020(r, M_DMO, Mbar, fbar):
     # solve for the contracted enclosed DM mass
-    func_M_DM_contract = (
-        lambda M: M_DMO * 1.023 * (M_DMO / (1.0 - fbar) / (M + Mbar)) ** -0.54
+    func_M_DM_contract = lambda M: (
+        M_DMO * 1.023 * (M_DMO / (1.0 - fbar) / (M + Mbar)) ** -0.54
     )
     M_DM = fixed_point(func_M_DM_contract, M_DMO)
     return M_DM / M_DMO * M_DMO / r**2.0
@@ -161,10 +161,8 @@ def _contraction_Gnedin2004(r, M_DMO, M_bar, Rvir, fbar):
     A, w = 0.85, 0.8
     func_r_mean = lambda ri: A * Rvir * (ri / Rvir) ** w
     M_DMO_rmean = func_M_DMO(func_r_mean(r))
-    func_r_contract = (
-        lambda rf: r
-        * (M_DMO_rmean / (1.0 - fbar))
-        / (M_DMO_rmean + func_M_bar(func_r_mean(rf)))
+    func_r_contract = lambda rf: (
+        r * (M_DMO_rmean / (1.0 - fbar)) / (M_DMO_rmean + func_M_bar(func_r_mean(rf)))
     )
     rf = fixed_point(func_r_contract, r)
     # now find how much the enclosed mass increased at r

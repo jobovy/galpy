@@ -228,12 +228,13 @@ class DiskSCFPotential(Potential):
             rm = Sigma.get("Rhole", 0.5)
             ta = Sigma.get("amp", 1.0)
             ts = lambda R, trd=rd, trm=rm: numpy.exp(-trm / R - R / trd)
-            tds = lambda R, trd=rd, trm=rm: (trm / R**2.0 - 1.0 / trd) * numpy.exp(
-                -trm / R - R / trd
+            tds = lambda R, trd=rd, trm=rm: (
+                (trm / R**2.0 - 1.0 / trd) * numpy.exp(-trm / R - R / trd)
             )
             td2s = lambda R, trd=rd, trm=rm: (
-                (trm / R**2.0 - 1.0 / trd) ** 2.0 - 2.0 * trm / R**3.0
-            ) * numpy.exp(-trm / R - R / trd)
+                ((trm / R**2.0 - 1.0 / trd) ** 2.0 - 2.0 * trm / R**3.0)
+                * numpy.exp(-trm / R - R / trd)
+            )
         return (ta, ts, tds, td2s)
 
     def _parse_hz(self, hz, Hz, dHzdz):
@@ -283,23 +284,19 @@ class DiskSCFPotential(Potential):
         if htype == "exp":
             zd = hz.get("h", 0.0375)
             th = lambda z, tzd=zd: 1.0 / 2.0 / tzd * numpy.exp(-numpy.fabs(z) / tzd)
-            tH = (
-                lambda z, tzd=zd: (
-                    numpy.exp(-numpy.fabs(z) / tzd) - 1.0 + numpy.fabs(z) / tzd
-                )
+            tH = lambda z, tzd=zd: (
+                (numpy.exp(-numpy.fabs(z) / tzd) - 1.0 + numpy.fabs(z) / tzd)
                 * tzd
                 / 2.0
             )
-            tdH = (
-                lambda z, tzd=zd: 0.5
-                * numpy.sign(z)
-                * (1.0 - numpy.exp(-numpy.fabs(z) / tzd))
+            tdH = lambda z, tzd=zd: (
+                0.5 * numpy.sign(z) * (1.0 - numpy.exp(-numpy.fabs(z) / tzd))
             )
         elif htype == "sech2":
             zd = hz.get("h", 0.0375)
             # th/tH written so as to avoid overflow in cosh
-            th = (
-                lambda z, tzd=zd: numpy.exp(
+            th = lambda z, tzd=zd: (
+                numpy.exp(
                     -logsumexp(
                         numpy.array(
                             [z / tzd, -z / tzd, numpy.log(2.0) * numpy.ones_like(z)]
@@ -309,9 +306,12 @@ class DiskSCFPotential(Potential):
                 )
                 / tzd
             )
-            tH = lambda z, tzd=zd: tzd * (
-                logsumexp(numpy.array([z / 2.0 / tzd, -z / 2.0 / tzd]), axis=0)
-                - numpy.log(2.0)
+            tH = lambda z, tzd=zd: (
+                tzd
+                * (
+                    logsumexp(numpy.array([z / 2.0 / tzd, -z / 2.0 / tzd]), axis=0)
+                    - numpy.log(2.0)
+                )
             )
             tdH = lambda z, tzd=zd: numpy.tanh(z / 2.0 / tzd) / 2.0
         return (th, tH, tdH)

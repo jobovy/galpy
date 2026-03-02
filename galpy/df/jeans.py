@@ -56,14 +56,16 @@ def sigmar(Pot, r, dens=None, beta=0.0):
         intFactor = lambda x: x ** (2.0 * beta)
     return numpy.sqrt(
         integrate.quad(
-            lambda x: -intFactor(x)
-            * dens(x)
-            * evaluaterforces(
-                Pot,
-                x * _INVSQRTTWO,
-                x * _INVSQRTTWO,
-                phi=numpy.pi / 4.0,
-                use_physical=False,
+            lambda x: (
+                -intFactor(x)
+                * dens(x)
+                * evaluaterforces(
+                    Pot,
+                    x * _INVSQRTTWO,
+                    x * _INVSQRTTWO,
+                    phi=numpy.pi / 4.0,
+                    use_physical=False,
+                )
             ),
             r,
             numpy.inf,
@@ -142,11 +144,13 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
     return numpy.sqrt(
         2.0
         * integrate.quad(
-            lambda x: (1.0 - call_beta(x) * R**2.0 / x**2.0)
-            * x
-            * dens(x)
-            * call_sigma_r(x) ** 2.0
-            / numpy.sqrt(x**2.0 - R**2.0),
+            lambda x: (
+                (1.0 - call_beta(x) * R**2.0 / x**2.0)
+                * x
+                * dens(x)
+                * call_sigma_r(x) ** 2.0
+                / numpy.sqrt(x**2.0 - R**2.0)
+            ),
             R,
             numpy.inf,
         )[0]
