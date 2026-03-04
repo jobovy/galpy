@@ -535,7 +535,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarR2deriv= &MultipoleExpansionPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &MultipoleExpansionPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv= &MultipoleExpansionPotentialPlanarRphideriv;
-      potentialArgs->nargs= 0;
+      potentialArgs->nargs= 0; // arguments handled in the initialization code run for this potential
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;

@@ -569,7 +569,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &MultipoleExpansionPotentialzforce;
       potentialArgs->phitorque= &MultipoleExpansionPotentialphitorque;
       potentialArgs->dens= &MultipoleExpansionPotentialDens;
-      potentialArgs->nargs= 0;
+      potentialArgs->nargs= 0; // arguments handled in the initialization code run for this potential
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
