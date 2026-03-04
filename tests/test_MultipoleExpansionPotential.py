@@ -120,6 +120,48 @@ def test_scf_potential_cross_validation():
         )
 
 
+def test_scf_only_l0_l1_nonzero():
+    """For a density with only l=0 and l=1 harmonics, verify the multipole expansion
+    has negligible l>=2 coefficients and correct l=0, l=1 radial functions."""
+    Acos = numpy.zeros((3, 3, 1))
+    Acos[0, 0, 0] = 1.0
+    Acos[1, 0, 0] = 0.1
+    Acos[0, 1, 0] = 0.05
+    scf = SCFPotential(Acos=Acos, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=scf, L=6, symmetry="axisymmetric", rgrid=_FINE_RGRID
+    )
+    # Only l=0 and l=1 should have non-negligible raw coefficients
+    max_l0 = numpy.max(numpy.abs(mp._rho_cos[:, 0, 0]))
+    max_l1 = numpy.max(numpy.abs(mp._rho_cos[:, 1, 0]))
+    assert max_l0 > 0, "l=0 coefficient must be non-zero"
+    assert max_l1 > 0, "l=1 coefficient must be non-zero"
+    for l in range(2, mp._L):
+        max_lx = numpy.max(numpy.abs(mp._rho_cos[:, l, 0]))
+        assert max_lx < 1e-6 * max_l0, (
+            f"l={l} coefficient should be negligible: {max_lx:.2e} vs l=0 max {max_l0:.2e}"
+        )
+    # Verify l=0 radial function: at z=0, P_1^0(0) = 0 so only l=0 contributes to density.
+    # Therefore mp.dens(R, 0) should equal scf.dens(R, 0) to high precision.
+    for R in [0.5, 1.0, 2.0]:
+        d_mp = mp.dens(R, 0.0, use_physical=False)
+        d_scf = scf.dens(R, 0.0, use_physical=False)
+        assert abs(d_mp - d_scf) / abs(d_scf) < 1e-5, (
+            f"l=0 radial function mismatch at midplane R={R}: mp={d_mp}, scf={d_scf}"
+        )
+    # Verify l=1 radial function: the l=1 term breaks z-symmetry (cos θ changes sign).
+    # The difference dens(R,z) - dens(R,-z) isolates the odd-l (here l=1) contribution.
+    for R, z in [(1.0, 1.0), (0.5, 1.0), (2.0, 0.5)]:
+        diff_mp = mp.dens(R, z, use_physical=False) - mp.dens(R, -z, use_physical=False)
+        diff_scf = scf.dens(R, z, use_physical=False) - scf.dens(
+            R, -z, use_physical=False
+        )
+        assert abs(diff_scf) > 0, "SCF l=1 term should give z-asymmetric density"
+        assert abs(diff_mp - diff_scf) / abs(diff_scf) < 1e-4, (
+            f"l=1 radial function mismatch at R={R}, z={z}: diff_mp={diff_mp}, diff_scf={diff_scf}"
+        )
+
+
 def test_scf_density_cross_validation():
     Acos = numpy.zeros((3, 3, 1))
     Acos[0, 0, 0] = 1.0
@@ -227,9 +269,9 @@ def test_2arg_lambda_input():
     # rho = amp/(4*pi) * a / (r * (r+a)^3) for HernquistPotential(amp=2, a=1)
     coeff = 1.0 / (2.0 * numpy.pi)
     mp = MultipoleExpansionPotential(
-        dens=lambda R, z: coeff
-        / numpy.sqrt(R**2 + z**2)
-        / (1 + numpy.sqrt(R**2 + z**2)) ** 3,
+        dens=lambda R, z: (
+            coeff / numpy.sqrt(R**2 + z**2) / (1 + numpy.sqrt(R**2 + z**2)) ** 3
+        ),
         L=2,
         symmetry="spherical",
         rgrid=_FINE_RGRID,
@@ -358,9 +400,9 @@ def test_3arg_callable_density_input():
     """Test that a 3-argument callable density (R, z, phi) without units works."""
     coeff = 1.0 / (2.0 * numpy.pi)
     mp = MultipoleExpansionPotential(
-        dens=lambda R, z, phi: coeff
-        / numpy.sqrt(R**2 + z**2)
-        / (1 + numpy.sqrt(R**2 + z**2)) ** 3,
+        dens=lambda R, z, phi: (
+            coeff / numpy.sqrt(R**2 + z**2) / (1 + numpy.sqrt(R**2 + z**2)) ** 3
+        ),
         L=4,
         symmetry=None,
         rgrid=_DEFAULT_RGRID,
@@ -422,10 +464,12 @@ def test_2nd_derivs_on_z_axis():
     where dP/d(costheta) diverges for m>0, triggering the pole clamping."""
     coeff = 1.0 / (2.0 * numpy.pi)
     mp = MultipoleExpansionPotential(
-        dens=lambda R, z, phi: coeff
-        / numpy.sqrt(R**2 + z**2)
-        / (1 + numpy.sqrt(R**2 + z**2)) ** 3
-        * (1.0 + 0.1 * numpy.cos(2 * phi)),
+        dens=lambda R, z, phi: (
+            coeff
+            / numpy.sqrt(R**2 + z**2)
+            / (1 + numpy.sqrt(R**2 + z**2)) ** 3
+            * (1.0 + 0.1 * numpy.cos(2 * phi))
+        ),
         L=6,
         symmetry=None,
         rgrid=_FINE_RGRID,
@@ -478,21 +522,14 @@ def test_spherical_2nd_derivs_match_hernquist():
             )
 
 
-def test_spline_degree_k_parameter():
-    """Test that the k parameter is passed through to splines."""
+def test_internal_spline_degree():
+    """Test that the internal spline degree is set to 3."""
     hp = HernquistPotential(amp=2.0, a=1.0)
-    mp3 = MultipoleExpansionPotential(
-        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID, k=3
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
     )
-    mp5 = MultipoleExpansionPotential(
-        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID, k=5
-    )
-    assert mp3._k == 3
-    assert mp5._k == 5
-    # Both should give reasonable results
-    for mp in [mp3, mp5]:
-        val = mp.R2deriv(1.0, 0.5, use_physical=False)
-        assert numpy.isfinite(val)
+    assert mp._k == 3
+    assert numpy.isfinite(mp.R2deriv(1.0, 0.5, use_physical=False))
 
 
 # --- Below/above grid extrapolation tests ---
@@ -581,3 +618,50 @@ def test_below_grid_density_clamped():
     assert d_below == d_at_rmin, (
         f"Density below grid should be clamped to rmin value: {d_below} != {d_at_rmin}"
     )
+
+
+# --- C code coverage ---
+
+
+def test_c_orbit_below_grid_l2():
+    """Cover C code line 255 (l=2 below-grid log formula) via orbit integration in C.
+    Orbit integration uses Rforce/zforce in C, which calls below_grid_integrals
+    for r < rmin.  With L=4, l=2 is included and triggers the log-branch."""
+    from galpy.orbit import Orbit
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp,
+        L=4,  # includes l=0,1,2,3; l=2 hits the log branch in below_grid_integrals
+        symmetry="axisymmetric",
+        rgrid=numpy.geomspace(2.0, 20.0, 201),  # rmin=2 > orbit's minimum r
+    )
+    # Orbit starting at R=1.0 < rmin=2.0 so forces are evaluated below the grid
+    o = Orbit([1.0, 0.1, 1.0, 0.0, 0.1, 0.0])
+    ts = numpy.linspace(0, 10, 101)
+    o.integrate(ts, mp, method="leapfrog_c")
+    assert numpy.all(numpy.isfinite(o.R(ts))), "Orbit R should be finite"
+    assert numpy.all(numpy.isfinite(o.z(ts))), "Orbit z should be finite"
+
+
+def test_c_planar_liouville_below_grid_d2R():
+    """Cover C code lines 286-288 (d²R below-grid via EVAL_DERIV2 mode).
+    A planar orbit.integrate_dxdv with a C integrator calls
+    integratePlanarOrbit_dxdv in C, which calls MultipoleExpansionPotential-
+    PlanarR2deriv → compute_multipole_spher_2nd_derivs → eval_radial_lm with
+    EVAL_DERIV2. With rmin=2 > orbit radius the below-grid branch is hit."""
+    from galpy.orbit import Orbit
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp,
+        L=4,
+        symmetry="axisymmetric",
+        rgrid=numpy.geomspace(2.0, 20.0, 201),  # rmin=2 > orbit's R=1.0
+    )
+    # Planar orbit [R, vR, vT, phi] at R=1.0 < rmin=2.0
+    o = Orbit([1.0, 0.1, 1.0, 0.5])
+    ts = numpy.linspace(0, 5, 51)
+    o.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, mp, method="dopr54_c")
+    result = o.getOrbit_dxdv()
+    assert numpy.all(numpy.isfinite(result)), "integrate_dxdv result should be finite"
