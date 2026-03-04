@@ -10309,7 +10309,6 @@ def test_potential_paramunits():
     coeff = 1.0 / (2.0 * numpy.pi)
     pot = potential.MultipoleExpansionPotential(
         dens=lambda r: coeff / r / (1 + r) ** 3 * dens_scale * units.Msun / units.pc**3,
-        L=2,
         symmetry="spherical",
         rgrid=numpy.geomspace(1e-2, 20, 201),
         ro=ro,
@@ -10317,7 +10316,6 @@ def test_potential_paramunits():
     )
     pot_nounits = potential.MultipoleExpansionPotential(
         dens=lambda r: coeff / r / (1 + r) ** 3,
-        L=2,
         symmetry="spherical",
         rgrid=numpy.geomspace(1e-2, 20, 201),
         ro=ro,
@@ -10340,7 +10338,6 @@ def test_potential_paramunits():
         * dens_scale
         * units.Msun
         / units.pc**3,
-        L=2,
         symmetry="spherical",
         rgrid=numpy.geomspace(1e-2, 20, 201),
         ro=ro,

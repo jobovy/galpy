@@ -17,11 +17,29 @@ if _APY_LOADED:
 
 
 class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
-    """Class that implements a gravitational potential via multipole expansion of a given density function.
+    r"""Class that implements a gravitational potential computed via multipole expansion of an arbitrary density distribution.
 
-    The density is decomposed into real spherical harmonics on a radial grid, and the potential is computed via classical multipole integrals (e.g., Binney & Tremaine eq. 2.20/12.79).
+    This class decomposes a user-supplied density function into real spherical harmonics on a radial grid,
+    then evaluates the gravitational potential using classical multipole integrals (Bovy 2026, `Chapter 12.3.1 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html>`__, equations `12.78 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#mjx-eqn-eq-triaxialgrav-body-decompose-2>`__–`12.79 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#mjx-eqn-eq-triaxialgrav-multipole-potential>`__):
 
-    Forces and second derivatives are computed analytically via ``SphericalHarmonicPotentialMixin``.
+    .. math::
+
+        \rho(a,\phi,\theta) = \sum_{l=0}^{L-1}\sum_{m=-l}^l\,\rho_{lm}(a)\,Y_l^m(\theta,\phi)\,,
+
+        \Phi(r, \theta, \phi) = \sum_{l=0}^{L-1}\sum_{m=-l}^l\,\Phi_{lm}(a)\,Y_l^m(\theta,\phi)\,,
+
+    where the radial potential functions are given by:
+
+    .. math::
+
+        \Phi_{lm}(r) = -\frac{4\pi}{2l+1} \left[r^{-(l+1)} \int_0^r a^{l+2} \rho_{lm}(a) \, da + r^l \int_r^{\infty} a^{1-l} \rho_{lm}(a) \, da\right]
+
+    The spherical harmonic decomposition is performed via Gauss-Legendre quadrature (theta) and trapezoidal
+    rule (phi). Radial integrals are evaluated to high precision using spline integration and precomputed
+    cumulative integrals (I_inner, I_outer), which are stored as Bernstein polynomials to ensure smooth
+    derivatives that satisfy the radial Poisson equation exactly. Outside of the radial grid,
+    below the minimum radius, a constant-density extrapolation is used (with density equal to the value
+    at the minimum grid radius), while above the maximum radius, the density is assumed to be zero.
     """
 
     def __init__(

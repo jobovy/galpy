@@ -267,6 +267,7 @@ General Poisson solvers for disks and halos
 .. toctree::
    :maxdepth: 1
 
+   potentialmultipole.rst
    potentialdiskscf.rst
    potentialscf.rst
 
