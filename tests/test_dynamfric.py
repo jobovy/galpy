@@ -290,10 +290,10 @@ def test_dynamfric_c():
             normalize=1.0,
         ),
         potential.MultipoleExpansionPotential(
-            dens=lambda R, z, phi: potential.HernquistPotential(
-                normalize=1.0, a=3.5
-            ).dens(R, z)
-            * (1 + 0.01 * (numpy.cos(phi) + numpy.sin(phi))),
+            dens=lambda R, z, phi: (
+                potential.HernquistPotential(normalize=1.0, a=3.5).dens(R, z)
+                * (1 + 0.01 * (numpy.cos(phi) + numpy.sin(phi)))
+            ),
             L=2,
             normalize=1.0,
         ),

@@ -45,16 +45,17 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
     def __init__(
         self,
         amp=1.0,
-        dens=lambda R, z: 1.0
-        / (2.0 * numpy.pi)
-        / numpy.sqrt(R**2 + z**2)
-        / (1 + numpy.sqrt(R**2 + z**2)) ** 3,
+        dens=lambda R, z: (
+            1.0
+            / (2.0 * numpy.pi)
+            / numpy.sqrt(R**2 + z**2)
+            / (1 + numpy.sqrt(R**2 + z**2)) ** 3
+        ),
         L=6,
         rgrid=numpy.geomspace(1e-3, 30, 1_001),
         symmetry=None,
         costheta_order=None,
         phi_order=None,
-        k=3,
         normalize=False,
         ro=None,
         vo=None,
@@ -78,8 +79,6 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             Gauss-Legendre quadrature order for theta. Default: ``max(20, L+1)``.
         phi_order : int, optional
             Number of uniform phi points for trapezoidal rule. Default: ``max(20, 2*L+1)``.
-        k : int, optional
-            Spline interpolation degree for radial functions (default: 3). Use k=5 for smoother second derivatives.
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         ro : float or Quantity, optional
@@ -95,7 +94,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         # Parse density function
         dens_func = self._parse_density(dens)
         self._rgrid = rgrid
-        self._k = k
+        self._k = 3
         self._L = L
         # Set M based on symmetry
         if symmetry is not None and symmetry.startswith("spher"):
@@ -136,7 +135,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         self._rho_cos_splines = [
             [
                 InterpolatedUnivariateSpline(
-                    rgrid, beta_lm[l, m] * self._rho_cos[:, l, m], k=k
+                    rgrid, beta_lm[l, m] * self._rho_cos[:, l, m], k=self._k
                 )
                 for m in range(M)
             ]
@@ -145,7 +144,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         self._rho_sin_splines = [
             [
                 InterpolatedUnivariateSpline(
-                    rgrid, beta_lm[l, m] * self._rho_sin[:, l, m], k=k
+                    rgrid, beta_lm[l, m] * self._rho_sin[:, l, m], k=self._k
                 )
                 for m in range(M)
             ]
@@ -374,18 +373,14 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             pref = -4.0 * numpy.pi / (2 * l + 1)
             for m in range(min(l + 1, M)):
                 pref_blm = pref * beta_lm[l, m]
-                for rho_arr, I_inner_store, I_outer_store in [
-                    (
-                        self._rho_cos[:, l, m],
-                        self._I_inner_cos,
-                        self._I_outer_cos,
-                    ),
-                    (
-                        self._rho_sin[:, l, m],
-                        self._I_inner_sin,
-                        self._I_outer_sin,
-                    ),
-                ]:
+                # sin(m*phi) = 0 for m=0, so sin integrals are identically zero
+                # and never accessed; skip their computation.
+                pairs = [(self._rho_cos[:, l, m], self._I_inner_cos, self._I_outer_cos)]
+                if m > 0:
+                    pairs.append(
+                        (self._rho_sin[:, l, m], self._I_inner_sin, self._I_outer_sin)
+                    )
+                for rho_arr, I_inner_store, I_outer_store in pairs:
                     # Inner integral: integrand = r^{l+2} * rho_lm(r)
                     f_inner = rgrid ** (l + 2) * rho_arr
                     # Use spline integration for higher accuracy than trapezoid

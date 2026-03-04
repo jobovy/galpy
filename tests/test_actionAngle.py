@@ -3552,6 +3552,15 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         symmetry="spherical",
         normalize=1.0,
     )
+    mep_nonaxi = potential.MultipoleExpansionPotential(
+        dens=lambda R, z, phi: (
+            potential.HernquistPotential(normalize=1.0).dens(R, z, phi)
+            * (1.0 + 1e-9 * numpy.cos(phi))
+        ),
+        L=2,
+        symmetry=None,
+        normalize=1.0,
+    )
     pots = [
         lp,
         lpb,
@@ -3579,6 +3588,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         tpsp,
         tpsp_beta3,
         mep,
+        mep_nonaxi,
     ]
     for pot in pots:
         aAS = actionAngleStaeckel(pot=pot, c=True, delta=0.01)

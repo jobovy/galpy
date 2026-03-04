@@ -10332,12 +10332,14 @@ def test_potential_paramunits():
     )
     # MultipoleExpansionPotential with density in units (2-arg)
     pot = potential.MultipoleExpansionPotential(
-        dens=lambda R, z: coeff
-        / numpy.sqrt(R**2 + z**2)
-        / (1 + numpy.sqrt(R**2 + z**2)) ** 3
-        * dens_scale
-        * units.Msun
-        / units.pc**3,
+        dens=lambda R, z: (
+            coeff
+            / numpy.sqrt(R**2 + z**2)
+            / (1 + numpy.sqrt(R**2 + z**2)) ** 3
+            * dens_scale
+            * units.Msun
+            / units.pc**3
+        ),
         symmetry="spherical",
         rgrid=numpy.geomspace(1e-2, 20, 201),
         ro=ro,
@@ -10354,12 +10356,14 @@ def test_potential_paramunits():
     )
     # MultipoleExpansionPotential with density in units (3-arg)
     pot = potential.MultipoleExpansionPotential(
-        dens=lambda R, z, phi: coeff
-        / numpy.sqrt(R**2 + z**2)
-        / (1 + numpy.sqrt(R**2 + z**2)) ** 3
-        * dens_scale
-        * units.Msun
-        / units.pc**3,
+        dens=lambda R, z, phi: (
+            coeff
+            / numpy.sqrt(R**2 + z**2)
+            / (1 + numpy.sqrt(R**2 + z**2)) ** 3
+            * dens_scale
+            * units.Msun
+            / units.pc**3
+        ),
         L=4,
         symmetry=None,
         rgrid=numpy.geomspace(1e-2, 20, 201),
