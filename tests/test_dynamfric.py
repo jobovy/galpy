@@ -284,12 +284,12 @@ def test_dynamfric_c():
         ),
         potential.EinastoPotential(normalize=1.0, h=2.2),
         potential.TwoPowerSphericalPotential(normalize=1.0, alpha=1.5, beta=3.5),
-        potential.MultipoleExpansionPotential(
+        potential.MultipoleExpansionPotential.from_density(
             dens=potential.HernquistPotential(normalize=1.0, a=3.5),
             symmetry="spherical",
             normalize=1.0,
         ),
-        potential.MultipoleExpansionPotential(
+        potential.MultipoleExpansionPotential.from_density(
             dens=lambda R, z, phi: (
                 potential.HernquistPotential(normalize=1.0, a=3.5).dens(R, z)
                 * (1 + 0.01 * (numpy.cos(phi) + numpy.sin(phi)))
@@ -298,7 +298,7 @@ def test_dynamfric_c():
             normalize=1.0,
         ),
         # Out-of-bounds test for MultipoleExpansionPotential, with rgrid that doesn't go to zero
-        potential.MultipoleExpansionPotential(
+        potential.MultipoleExpansionPotential.from_density(
             dens=potential.HernquistPotential(normalize=1.0, a=3.5),
             symmetry="spherical",
             amp=2.5,
@@ -356,7 +356,7 @@ def test_dynamfric_c():
             cdf_tmp = potential.ChandrasekharDynamicalFrictionForce(
                 GMs=0.5553870441722593,
                 rhm=5.0 / 8.0,
-                dens=potential.MultipoleExpansionPotential(
+                dens=potential.MultipoleExpansionPotential.from_density(
                     dens=potential.HernquistPotential(normalize=1.0, a=3.5),
                     symmetry="spherical",
                     normalize=1.0,

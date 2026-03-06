@@ -4,4 +4,4 @@ Multipole Expansion Potential
 =============================
 
 .. autoclass:: galpy.potential.MultipoleExpansionPotential
-   :members: __init__
+   :members: __init__, from_density

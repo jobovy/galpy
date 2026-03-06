@@ -3546,13 +3546,13 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     msmlpwtdp = (
         mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential()
     )
-    mep = potential.MultipoleExpansionPotential(
+    mep = potential.MultipoleExpansionPotential.from_density(
         dens=potential.HernquistPotential(normalize=1.0),
         L=6,
         symmetry="spherical",
         normalize=1.0,
     )
-    mep_nonaxi = potential.MultipoleExpansionPotential(
+    mep_nonaxi = potential.MultipoleExpansionPotential.from_density(
         dens=lambda R, z, phi: (
             potential.HernquistPotential(normalize=1.0).dens(R, z, phi)
             * (1.0 + 1e-9 * numpy.cos(phi))
