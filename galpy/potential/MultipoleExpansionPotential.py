@@ -20,19 +20,32 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
     r"""Class that implements a gravitational potential computed via multipole expansion of an arbitrary density distribution.
 
     This class decomposes a user-supplied density function into real spherical harmonics on a radial grid,
-    then evaluates the gravitational potential using classical multipole integrals (Bovy 2026, `Chapter 12.3.1 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html>`__, equations `12.78 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#mjx-eqn-eq-triaxialgrav-body-decompose-2>`__–`12.79 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#mjx-eqn-eq-triaxialgrav-multipole-potential>`__):
+    then evaluates the gravitational potential using classical multipole integrals (the real-valued form of
+    `Bovy 2026 <https://galaxiesbook.org>`__, `Chapter 12.3.1 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html>`__, equations `12.78 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#mjx-eqn-eq-triaxialgrav-body-decompose-2>`__–`12.79 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#mjx-eqn-eq-triaxialgrav-multipole-potential>`__):
 
     .. math::
 
-        \rho(a,\phi,\theta) = \sum_{l=0}^{L-1}\sum_{m=-l}^l\,\rho_{lm}(a)\,Y_l^m(\theta,\phi)\,,
+        \rho(r,\theta,\phi) = \sum_{l=0}^{L-1}\sum_{m=0}^{l}\,\left[\rho^{\cos}_{lm}(r)\,\cos(m\phi) + \rho^{\sin}_{lm}(r)\,\sin(m\phi)\right]\,P_l^m(\cos\theta)\,,
 
-        \Phi(r, \theta, \phi) = \sum_{l=0}^{L-1}\sum_{m=-l}^l\,\Phi_{lm}(a)\,Y_l^m(\theta,\phi)\,,
+    where the radial density coefficients are obtained by projection:
+
+    .. math::
+
+        \rho^{\cos}_{lm}(r) = \alpha_{lm} \int_0^{\pi}\!\int_0^{2\pi} \rho(r,\theta,\phi)\,P_l^m(\cos\theta)\,\cos(m\phi)\,\sin\theta\,\mathrm{d}\phi\,\mathrm{d}\theta\,,
+
+        \rho^{\sin}_{lm}(r) = \alpha_{lm} \int_0^{\pi}\!\int_0^{2\pi} \rho(r,\theta,\phi)\,P_l^m(\cos\theta)\,\sin(m\phi)\,\sin\theta\,\mathrm{d}\phi\,\mathrm{d}\theta\,,
+
+    with :math:`\alpha_{lm} = \sqrt{\frac{2l+1}{4\pi}\,\frac{(l-m)!}{(l+m)!}}`. The gravitational potential has an analogous expansion:
+
+    .. math::
+
+        \Phi(r, \theta, \phi) = \sum_{l=0}^{L-1}\sum_{m=0}^{l}\,\left[\Phi^{\cos}_{lm}(r)\,\cos(m\phi) + \Phi^{\sin}_{lm}(r)\,\sin(m\phi)\right]\,P_l^m(\cos\theta)\,,
 
     where the radial potential functions are given by:
 
     .. math::
 
-        \Phi_{lm}(r) = -\frac{4\pi}{2l+1} \left[r^{-(l+1)} \int_0^r a^{l+2} \rho_{lm}(a) \, da + r^l \int_r^{\infty} a^{1-l} \rho_{lm}(a) \, da\right]
+        \Phi^{\cos,\sin}_{lm}(r) = -\frac{4\pi}{2l+1} \left[r^{-(l+1)} \int_0^r a^{l+2} \rho^{\cos,\sin}_{lm}(a) \, da + r^l \int_r^{\infty} a^{1-l} \rho^{\cos,\sin}_{lm}(a) \, da\right]
 
     The spherical harmonic decomposition is performed via Gauss-Legendre quadrature (theta) and trapezoidal
     rule (phi). Radial integrals are evaluated to high precision using spline integration and precomputed
@@ -45,40 +58,26 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
     def __init__(
         self,
         amp=1.0,
-        dens=lambda R, z: (
-            1.0
-            / (2.0 * numpy.pi)
-            / numpy.sqrt(R**2 + z**2)
-            / (1 + numpy.sqrt(R**2 + z**2)) ** 3
-        ),
-        L=6,
+        rho_cos_splines=None,
+        rho_sin_splines=None,
         rgrid=numpy.geomspace(1e-3, 30, 1_001),
-        symmetry=None,
-        costheta_order=None,
-        phi_order=None,
         normalize=False,
         ro=None,
         vo=None,
     ):
-        """
-        Initialize a MultipoleExpansionPotential from a density function.
+        r"""
+        Initialize a MultipoleExpansionPotential from precomputed density splines (use ``MultipoleExpansionPotential.from_density`` to initialize from a density function).
 
         Parameters
         ----------
         amp : float or Quantity, optional
             Amplitude to be applied to the potential (default: 1).
-        dens : callable or Potential, optional
-            Density function. Can take 1 arg (r), 2 args (R, z), or 3 args (R, z, phi). Can also be a galpy Potential instance. Default is a Hernquist-like density profile.
-        L : int, optional
-            Maximum spherical harmonic degree + 1 (l goes from 0 to L-1). Default: 6.
+        rho_cos_splines : list of list of InterpolatedUnivariateSpline, optional
+            Cosine density coefficient splines with the spherical harmonic normalization absorbed, shape ``[L][M]``. ``rho_cos_splines[l][m]`` is a spline representing :math:`\hat{\rho}^{\cos}_{lm}(r) = \beta_{lm}\,\rho^{\cos}_{lm}(r)` as a function of ``r``, where :math:`\rho^{\cos}_{lm}(r)` are the coefficients in the real spherical-harmonic expansion of the density :math:`\rho(r,\theta,\phi) = \sum_{l,m} [\rho^{\cos}_{lm}(r)\,\cos(m\phi) + \rho^{\sin}_{lm}(r)\,\sin(m\phi)]\,P_l^m(\cos\theta)` (the real-valued form of `Eq. 12.78 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#mjx-eqn-eq-triaxialgrav-body-decompose-2>`__ in `Bovy 2026 <https://galaxiesbook.org>`__) and :math:`\beta_{lm} = (2-\delta_{m0})\,\sqrt{\frac{2l+1}{4\pi}\,\frac{(l-m)!}{(l+m)!}}` is the real spherical harmonic normalization factor. If ``None``, computes a default Hernquist monopole.
+        rho_sin_splines : list of list of InterpolatedUnivariateSpline, optional
+            Like ``rho_cos_splines`` but for the sine coefficients: ``rho_sin_splines[l][m]`` represents :math:`\hat{\rho}^{\sin}_{lm}(r) = \beta_{lm}\,\rho^{\sin}_{lm}(r)`. If ``None``, set to zero splines matching ``rho_cos_splines``.
         rgrid : numpy.ndarray, optional
             Radial grid points (1D array). Default: ``numpy.geomspace(1e-3, 30, 1_001)``.
-        symmetry : str or None, optional
-            ``'spherical'``, ``'axisymmetric'``, or ``None`` (general). Determines M.
-        costheta_order : int, optional
-            Gauss-Legendre quadrature order for theta. Default: ``max(20, L+1)``.
-        phi_order : int, optional
-            Number of uniform phi points for trapezoidal rule. Default: ``max(20, 2*L+1)``.
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         ro : float or Quantity, optional
@@ -89,70 +88,70 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Notes
         -----
         - 2026-02-13 - Written - Bovy (UofT)
+        - 2026-03-06 - Refactored to accept splines; density computation moved to from_density - Bovy (UofT)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
-        # Parse density function
-        dens_func = self._parse_density(dens)
         self._rgrid = rgrid
         self._k = 3
-        self._L = L
-        # Set M based on symmetry
-        if symmetry is not None and symmetry.startswith("spher"):
-            self._L = 1
-            self._M = 1
-        elif symmetry is not None and symmetry.startswith("axi"):
-            self._M = 1
-        else:
-            self._M = L
+        if rho_cos_splines is None:
+            # Default: Hernquist monopole
+            rho_cos_splines, rho_sin_splines = self._default_hernquist_splines(
+                rgrid, self._k
+            )
+        self._rho_cos_splines = rho_cos_splines
+        self._L = len(rho_cos_splines)
+        self._M = len(rho_cos_splines[0])
         L = self._L
         M = self._M
-        # Quadrature orders
-        if costheta_order is None:
-            costheta_order = max(20, L + 1)
-        if phi_order is None:
-            phi_order = max(20, 2 * L + 1)
-        # Compute rho_lm on radial grid
-        self._rho_cos, self._rho_sin = self._compute_rho_lm(
-            dens_func, rgrid, L, M, costheta_order, phi_order
-        )
-        # Determine isNonAxi: compare m>0 coefficients to the monopole
-        _max_m0 = numpy.max(numpy.abs(self._rho_cos[:, :, 0]))
-        _tol = 1e-12 * max(_max_m0, 1e-16)
-        self.isNonAxi = M > 1 and (
-            numpy.any(numpy.abs(self._rho_cos[:, :, 1:]) > _tol)
-            or numpy.any(numpy.abs(self._rho_sin[:, :, 1:]) > _tol)
-        )
+        if rho_sin_splines is None:
+            # Create zero splines matching rho_cos_splines
+            self._rho_sin_splines = [
+                [
+                    InterpolatedUnivariateSpline(
+                        rgrid, numpy.zeros(len(rgrid)), k=self._k
+                    )
+                    for m in range(M)
+                ]
+                for l in range(L)
+            ]
+        else:
+            self._rho_sin_splines = rho_sin_splines
+        # Determine isNonAxi: if M > 1, check whether m > 0 splines are
+        # non-negligible compared to the monopole
+        if M > 1:
+            _max_m0 = numpy.max(
+                numpy.abs(
+                    numpy.column_stack(
+                        [self._rho_cos_splines[l][0](rgrid) for l in range(L)]
+                    )
+                )
+            )
+            _tol = 1e-12 * max(_max_m0, 1e-16)
+            has_nonaxi = False
+            for l in range(L):
+                for m in range(1, min(l + 1, M)):
+                    if numpy.any(
+                        numpy.abs(self._rho_cos_splines[l][m](rgrid)) > _tol
+                    ) or numpy.any(
+                        numpy.abs(self._rho_sin_splines[l][m](rgrid)) > _tol
+                    ):
+                        has_nonaxi = True
+                        break
+                if has_nonaxi:
+                    break
+            self.isNonAxi = has_nonaxi
+        else:
+            self.isNonAxi = False
         # Truncate to axisymmetric if non-axi terms are negligible
         if not self.isNonAxi and M > 1:
             self._M = 1
             M = 1
-            self._rho_cos = self._rho_cos[:, :, :1]
-            self._rho_sin = self._rho_sin[:, :, :1]
-        # Normalization for angular reconstruction; absorbed into splines
-        beta_lm = sph_harm_normalization(L, M)
-        # Create interpolation splines for density reconstruction
-        # with beta_lm absorbed into the spline data
-        self._rho_cos_splines = [
-            [
-                InterpolatedUnivariateSpline(
-                    rgrid, beta_lm[l, m] * self._rho_cos[:, l, m], k=self._k
-                )
-                for m in range(M)
-            ]
-            for l in range(L)
-        ]
-        self._rho_sin_splines = [
-            [
-                InterpolatedUnivariateSpline(
-                    rgrid, beta_lm[l, m] * self._rho_sin[:, l, m], k=self._k
-                )
-                for m in range(M)
-            ]
-            for l in range(L)
-        ]
+            self._rho_cos_splines = [row[:1] for row in self._rho_cos_splines]
+            self._rho_sin_splines = [row[:1] for row in self._rho_sin_splines]
         # Precompute radial integrals for potential
-        # with -4*pi/(2l+1) * beta_lm absorbed into the spline data
-        self._precompute_radial_integrals(beta_lm)
+        # with -4*pi/(2l+1) absorbed into the spline data
+        # (beta_lm is already baked into the density splines)
+        self._precompute_radial_integrals()
         self._force_cache_key = None
         self._2nd_deriv_cache_key = None
         self.hasC = True
@@ -164,7 +163,147 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             self.normalize(normalize)
         return None
 
-    def _parse_density(self, dens):
+    @staticmethod
+    def _default_hernquist_splines(rgrid, k):
+        """Compute default Hernquist monopole splines for the no-argument case."""
+        hernquist_dens = lambda r: 1.0 / (2.0 * numpy.pi) / r / (1 + r) ** 3
+        beta_00 = sph_harm_normalization(1, 1)[0, 0]
+        alpha_00 = beta_00  # same for m=0
+        rho_00 = numpy.array(
+            [alpha_00 * 4.0 * numpy.pi * hernquist_dens(r) for r in rgrid]
+        )
+        rho_cos_splines = [[InterpolatedUnivariateSpline(rgrid, beta_00 * rho_00, k=k)]]
+        rho_sin_splines = [
+            [InterpolatedUnivariateSpline(rgrid, numpy.zeros(len(rgrid)), k=k)]
+        ]
+        return rho_cos_splines, rho_sin_splines
+
+    @classmethod
+    def from_density(
+        cls,
+        dens,
+        L=6,
+        rgrid=numpy.geomspace(1e-3, 30, 1_001),
+        symmetry=None,
+        costheta_order=None,
+        phi_order=None,
+        amp=1.0,
+        normalize=False,
+        ro=None,
+        vo=None,
+    ):
+        """
+        Initialize a MultipoleExpansionPotential from a density function.
+
+        Parameters
+        ----------
+        dens : callable or Potential
+            Density function. Can take 1 arg (r), 2 args (R, z), or 3 args (R, z, phi). Can also be a galpy Potential instance.
+        L : int, optional
+            Maximum spherical harmonic degree + 1 (l goes from 0 to L-1). Default: 6.
+        rgrid : numpy.ndarray, optional
+            Radial grid points (1D array). Default: ``numpy.geomspace(1e-3, 30, 1_001)``.
+        symmetry : str or None, optional
+            ``'spherical'``, ``'axisymmetric'``, or ``None`` (general). Determines M.
+        costheta_order : int, optional
+            Gauss-Legendre quadrature order for theta. Default: ``max(20, L+1)``.
+        phi_order : int, optional
+            Number of uniform phi points for trapezoidal rule. Default: ``max(20, 2*L+1)``.
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1).
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+
+        Returns
+        -------
+        MultipoleExpansionPotential
+            A new MultipoleExpansionPotential instance.
+
+        Notes
+        -----
+        - 2026-03-06 - Written - Bovy (UofT)
+        """
+        # Dummy instance for ro/vo parsing (following SCFPotential pattern)
+        dumm = cls(ro=ro, vo=vo)
+        internal_ro = dumm._ro
+        internal_vo = dumm._vo
+        # Parse density function
+        dens_func = cls._parse_density(dens, internal_ro, internal_vo)
+        # Set L, M based on symmetry
+        if symmetry is not None and symmetry.startswith("spher"):
+            L = 1
+            M = 1
+        elif symmetry is not None and symmetry.startswith("axi"):
+            M = 1
+        else:
+            M = L
+        # Quadrature orders
+        if costheta_order is None:
+            costheta_order = max(20, L + 1)
+        if phi_order is None:
+            phi_order = max(20, 2 * L + 1)
+        # Compute rho_lm on radial grid
+        rho_cos, rho_sin = cls._compute_rho_lm(
+            dens_func, rgrid, L, M, costheta_order, phi_order
+        )
+        # Normalization for angular reconstruction; absorbed into splines
+        k = 3
+        beta_lm = sph_harm_normalization(L, M)
+        rho_cos_splines = [
+            [
+                InterpolatedUnivariateSpline(
+                    rgrid, beta_lm[l, m] * rho_cos[:, l, m], k=k
+                )
+                for m in range(M)
+            ]
+            for l in range(L)
+        ]
+        rho_sin_splines = [
+            [
+                InterpolatedUnivariateSpline(
+                    rgrid, beta_lm[l, m] * rho_sin[:, l, m], k=k
+                )
+                for m in range(M)
+            ]
+            for l in range(L)
+        ]
+        # Handle astropy unit detection (following SCFPotential pattern)
+        if _APY_LOADED:
+            numOfParam = 0
+            try:
+                dens(1.0, 0.0, 0.0)
+                numOfParam = 3
+            except TypeError:
+                try:
+                    dens(1.0, 0.0)
+                    numOfParam = 2
+                except TypeError:
+                    numOfParam = 1
+            if not isinstance(dens, Potential):
+                param = [1.0] * numOfParam
+                try:
+                    dens(*param).to(units.kg / units.m**3)
+                except (AttributeError, units.UnitConversionError):
+                    pass
+                else:
+                    ro = internal_ro
+                    vo = internal_vo
+        return cls(
+            amp=amp,
+            rho_cos_splines=rho_cos_splines,
+            rho_sin_splines=rho_sin_splines,
+            rgrid=rgrid,
+            normalize=normalize,
+            ro=ro,
+            vo=vo,
+        )
+
+    @staticmethod
+    def _parse_density(dens, ro, vo):
         """
         Parse the density input and return a callable taking (R, z, phi).
 
@@ -172,6 +311,10 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         ----------
         dens : callable or Potential
             Density function or galpy Potential instance.
+        ro : float
+            Distance scale for unit conversion.
+        vo : float
+            Velocity scale for unit conversion.
 
         Returns
         -------
@@ -181,6 +324,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Notes
         -----
         - 2026-02-13 - Written - Bovy (UofT)
+        - 2026-03-06 - Made static with explicit ro/vo - Bovy (UofT)
         """
         # Handle galpy Potential instances
         if isinstance(dens, Potential):
@@ -211,16 +355,16 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 if numOfParam == 1:
                     return lambda R, z, phi: conversion.parse_dens(
                         raw_dens(numpy.sqrt(R**2 + z**2)),
-                        ro=self._ro,
-                        vo=self._vo,
+                        ro=ro,
+                        vo=vo,
                     )
                 elif numOfParam == 2:
                     return lambda R, z, phi: conversion.parse_dens(
-                        raw_dens(R, z), ro=self._ro, vo=self._vo
+                        raw_dens(R, z), ro=ro, vo=vo
                     )
                 else:
                     return lambda R, z, phi: conversion.parse_dens(
-                        raw_dens(R, z, phi), ro=self._ro, vo=self._vo
+                        raw_dens(R, z, phi), ro=ro, vo=vo
                     )
         # No units, wrap based on number of params
         if numOfParam == 1:
@@ -230,7 +374,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         else:
             return dens
 
-    def _compute_rho_lm(self, dens_func, rgrid, L, M, costheta_order, phi_order):
+    @staticmethod
+    def _compute_rho_lm(dens_func, rgrid, L, M, costheta_order, phi_order):
         """
         Compute the spherical harmonic coefficients of the density on the radial grid.
 
@@ -338,7 +483,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         rho_sin *= alpha_lm[numpy.newaxis, :, :]
         return rho_cos, rho_sin
 
-    def _precompute_radial_integrals(self, beta_lm):
+    def _precompute_radial_integrals(self):
         """
         Precompute cumulative radial integrals I_inner and I_outer for the potential.
 
@@ -346,17 +491,14 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             I_inner(r) = integral_0^r a^{l+2} * rho_lm(a) da
             I_outer(r) = integral_r^inf a^{1-l} * rho_lm(a) da
 
-        The prefactors ``-4*pi/(2l+1) * beta_lm[l, m]`` are absorbed into the
-        spline data so they need not be applied at evaluation time.
-
-        Parameters
-        ----------
-        beta_lm : numpy.ndarray
-            Spherical harmonic normalization coefficients.
+        The prefactor ``-4*pi/(2l+1)`` is absorbed into the spline data so it
+        need not be applied at evaluation time. The ``beta_lm`` normalization
+        is already baked into the density splines.
 
         Notes
         -----
         - 2026-02-13 - Written - Bovy (UofT)
+        - 2026-03-06 - Refactored to use density splines - Bovy (UofT)
         """
         rgrid = self._rgrid
         L = self._L
@@ -372,15 +514,26 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         for l in range(L):
             pref = -4.0 * numpy.pi / (2 * l + 1)
             for m in range(min(l + 1, M)):
-                pref_blm = pref * beta_lm[l, m]
                 # sin(m*phi) = 0 for m=0, so sin integrals are identically zero
                 # and never accessed; skip their computation.
-                pairs = [(self._rho_cos[:, l, m], self._I_inner_cos, self._I_outer_cos)]
+                pairs = [
+                    (
+                        self._rho_cos_splines[l][m],
+                        self._I_inner_cos,
+                        self._I_outer_cos,
+                    )
+                ]
                 if m > 0:
                     pairs.append(
-                        (self._rho_sin[:, l, m], self._I_inner_sin, self._I_outer_sin)
+                        (
+                            self._rho_sin_splines[l][m],
+                            self._I_inner_sin,
+                            self._I_outer_sin,
+                        )
                     )
-                for rho_arr, I_inner_store, I_outer_store in pairs:
+                for rho_spline, I_inner_store, I_outer_store in pairs:
+                    # Evaluate density spline on grid (beta_lm already baked in)
+                    rho_arr = rho_spline(rgrid)
                     # Inner integral: integrand = r^{l+2} * rho_lm(r)
                     f_inner = rgrid ** (l + 2) * rho_arr
                     # Use spline integration for higher accuracy than trapezoid
@@ -405,11 +558,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     # Compute 2nd derivatives of the integrals at grid points
                     # d²I_inner/dr² = d/dr[r^{l+2} ρ] = (l+2) r^{l+1} ρ + r^{l+2} ρ'
                     # d²I_outer/dr² = d/dr[-r^{1-l} ρ] = -(1-l) r^{-l} ρ - r^{1-l} ρ'
-                    # Use IUS of rho_arr to get ρ' (smooth, modest dynamic range)
-                    rho_spline_raw = InterpolatedUnivariateSpline(
-                        rgrid, rho_arr, k=self._k
-                    )
-                    rho_deriv = rho_spline_raw(rgrid, 1)
+                    # Use density spline derivative for ρ'
+                    rho_deriv = rho_spline(rgrid, 1)
                     d2I_inner = (l + 2) * rgrid ** (l + 1) * rho_arr + rgrid ** (
                         l + 2
                     ) * rho_deriv
@@ -422,15 +572,15 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     # This gives quintic C² piecewise polynomial, ensuring
                     # spline derivatives match analytical values at grid
                     # points for consistent R/dR/d²R evaluation.
-                    # Absorb pref_blm into the spline values so it doesn't
+                    # Absorb pref into the spline values so it doesn't
                     # need to be stored/passed separately
                     I_inner_store[l][m] = BPoly.from_derivatives(
                         rgrid,
                         numpy.column_stack(
                             [
-                                pref_blm * I_inner_vals,
-                                pref_blm * f_inner,
-                                pref_blm * d2I_inner,
+                                pref * I_inner_vals,
+                                pref * f_inner,
+                                pref * d2I_inner,
                             ]
                         ),
                     )
@@ -438,9 +588,9 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                         rgrid,
                         numpy.column_stack(
                             [
-                                pref_blm * I_outer_vals,
-                                pref_blm * (-f_outer),
-                                pref_blm * d2I_outer,
+                                pref * I_outer_vals,
+                                pref * (-f_outer),
+                                pref * d2I_outer,
                             ]
                         ),
                     )

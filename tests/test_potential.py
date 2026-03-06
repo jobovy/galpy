@@ -10988,33 +10988,48 @@ class mockSCFDensityPotential(potential.SCFPotential):
 class mockMultipoleExpansionSphericalPotential(potential.MultipoleExpansionPotential):
     def __init__(self):
         hp = potential.HernquistPotential(amp=2.0, a=1.0)
-        potential.MultipoleExpansionPotential.__init__(
-            self,
+        temp = potential.MultipoleExpansionPotential.from_density(
             dens=hp,
             symmetry="spherical",
             rgrid=numpy.geomspace(1e-3, 50, 401),
+        )
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            rho_cos_splines=temp._rho_cos_splines,
+            rho_sin_splines=temp._rho_sin_splines,
+            rgrid=temp._rgrid,
         )
 
 
 class mockMultipoleExpansionAxiPotential(potential.MultipoleExpansionPotential):
     def __init__(self):
-        potential.MultipoleExpansionPotential.__init__(
-            self,
+        temp = potential.MultipoleExpansionPotential.from_density(
             dens=axi_density2,
             L=10,
             symmetry="axisymmetric",
             rgrid=numpy.geomspace(1e-3, 50, 401),
         )
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            rho_cos_splines=temp._rho_cos_splines,
+            rho_sin_splines=temp._rho_sin_splines,
+            rgrid=temp._rgrid,
+        )
 
 
 class mockMultipoleExpansionPotential(potential.MultipoleExpansionPotential):
     def __init__(self):
-        potential.MultipoleExpansionPotential.__init__(
-            self,
+        temp = potential.MultipoleExpansionPotential.from_density(
             dens=scf_density,
             L=10,
             phi_order=30,
             rgrid=numpy.geomspace(1e-3, 50, 401),
+        )
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            rho_cos_splines=temp._rho_cos_splines,
+            rho_sin_splines=temp._rho_sin_splines,
+            rgrid=temp._rgrid,
         )
 
 
@@ -11022,12 +11037,17 @@ class mockMultipoleExpansionPotential(potential.MultipoleExpansionPotential):
 class mockMultipoleExpansionLimitedGridPotential(potential.MultipoleExpansionPotential):
     def __init__(self):
         hp = potential.HernquistPotential(amp=2.0, a=1.0)
-        potential.MultipoleExpansionPotential.__init__(
-            self,
+        temp = potential.MultipoleExpansionPotential.from_density(
             dens=lambda R, z: hp.dens(R, z) * (1 + 1e-8 * z**2.0),
             symmetry="axisymmetric",
             L=10,
             rgrid=numpy.geomspace(0.1, 1.245, 201),
+        )
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            rho_cos_splines=temp._rho_cos_splines,
+            rho_sin_splines=temp._rho_sin_splines,
+            rgrid=temp._rgrid,
         )
         # Hack to end up with a very limited grid, but still a reasonable potential
         self._rgrid = numpy.geomspace(0.98, 1.245, 201)
