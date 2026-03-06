@@ -438,21 +438,23 @@ you find any problems with this.
 
 .. _scf_potential_docs:
 
-General density/potential pairs with basis-function expansions
---------------------------------------------------------------
+General density/potential pairs with multipole and basis-function expansions
+-----------------------------------------------------------------------------
 
 ``galpy`` allows for the potential and forces of general,
 time-independent density functions to be computed by expanding the
-potential and density in terms of basis functions. This is supported
+potential and density in terms of basis functions or multipoles. This is supported
 for ellipsoidal-ish as well as for disk-y density distributions, in
-both cases using the basis-function expansion of the
+both cases using either a multipole expansion
+(see `Chapter 12.3.1 of Bovy 2026 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#Multipole-expansions>`__)
+or using the basis-function expansion of the
 self-consistent-field (SCF) method of `Hernquist & Ostriker (1992)
-<http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`__. On its own,
-the SCF technique works well for ellipsoidal-ish density
+<http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`__.
+On their own, the multipole and SCF techniques work well for ellipsoidal-ish density
 distributions, but using a trick due to `Kuijken & Dubinski (1995)
-<http://adsabs.harvard.edu/abs/1995MNRAS.277.1341K>`__ it can also be
+<http://adsabs.harvard.edu/abs/1995MNRAS.277.1341K>`__ they can also be
 made to work well for disky potentials. We first describe the basic
-SCF implementation and then discuss how to use it for disky
+multipole and SCF implementations and then discuss how to use them for disky
 potentials.
 
 The basis-function approach in the SCF method is implemented in the
@@ -508,7 +510,44 @@ Near the end of the orbit integration, the slight differences between
 the original potential and the basis-expansion version cause the two
 orbits to deviate from each other.
 
-If you want to know the basis-function coefficients, you can compute them
+Using a multipole expansion instead, we use the :ref:`MultipoleExpansionPotential <multipole_potential>` class:
+
+>>> from galpy.potential import MultipoleExpansionPotential
+>>> mep= MultipoleExpansionPotential.from_density(np.dens,L=40,symmetry='axisymmetry')
+
+Again comparing the densities along the ``R=Z`` line as
+
+>>> xs= numpy.linspace(0.,3.,1001)
+>>> loglog(xs,[np.dens(x,x) for x in xs],'-',label='True density')
+>>> loglog(xs,sp.dens(xs,xs),'-',label='SCF potential')
+>>> loglog(xs,mep.dens(xs,xs),'-',label='Multipole expansion')
+>>> legend(frameon=False, loc='upper right')
+>>> xlabel('R=z')
+>>> ylabel('Density(R,z)')
+
+we get
+
+.. image:: images/scf-multipole-flnfw-dens.png
+   :scale: 100 %
+
+while the orbit integration is now
+
+>>> from galpy.orbit import Orbit
+>>> o= Orbit([1.,0.1,1.1,0.1,0.3,0.])
+>>> ts= numpy.linspace(0.,100.,10001)
+>>> o.integrate(ts,np)
+>>> o.plot()
+>>> o.integrate(ts,mep)
+>>> o.plot(overplot=True)
+
+giving
+
+.. image:: images/scf-multipole-flnfw-orbit.png
+   :scale: 100 %
+
+Orbit integration is again fast, because the multipole expansion is implemented in C.
+
+If you want to know the basis-function coefficients in the SCF expansion, you can compute them
 using the :ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_sphere>` (for
 spherically-symmetric density distribution),
 :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` (for
