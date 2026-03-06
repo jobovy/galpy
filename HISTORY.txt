@@ -1,7 +1,16 @@
 v1.12.0 (expected around 2026-07-01)
 ====================
 
-- Nothing yet!
+- Added MultipoleExpansionPotential, which computes the gravitational potential
+  of an arbitrary density distribution via a real spherical-harmonic multipole
+  expansion. The density is decomposed on a radial grid using Gauss-Legendre
+  (theta) and trapezoidal (phi) quadrature; radial integrals are stored as
+  Bernstein-polynomial splines for smooth derivatives that satisfy Poisson's
+  equation by construction. Both Python and C evaluation are supported,
+  including forces, second derivatives, and density reconstruction. The
+  constructor accepts precomputed density-coefficient splines, while the
+  from_density classmethod handles density decomposition (following the
+  SCFPotential pattern).
 
 v1.11.2 (2026-02-27)
 ====================
