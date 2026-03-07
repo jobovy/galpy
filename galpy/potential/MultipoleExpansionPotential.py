@@ -98,6 +98,25 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             rho_cos_splines, rho_sin_splines = self._default_hernquist_splines(
                 rgrid, self._k
             )
+        for l, row in enumerate(rho_cos_splines):
+            for m, s in enumerate(row):
+                if not isinstance(s, InterpolatedUnivariateSpline):
+                    raise TypeError(
+                        f"rho_cos_splines[{l}][{m}] must be an "
+                        "InterpolatedUnivariateSpline instance; use "
+                        "MultipoleExpansionPotential.from_density to "
+                        "initialize from a density function"
+                    )
+        if rho_sin_splines is not None:
+            for l, row in enumerate(rho_sin_splines):
+                for m, s in enumerate(row):
+                    if not isinstance(s, InterpolatedUnivariateSpline):
+                        raise TypeError(
+                            f"rho_sin_splines[{l}][{m}] must be an "
+                            "InterpolatedUnivariateSpline instance; use "
+                            "MultipoleExpansionPotential.from_density to "
+                            "initialize from a density function"
+                        )
         self._rho_cos_splines = rho_cos_splines
         self._L = len(rho_cos_splines)
         self._M = len(rho_cos_splines[0])

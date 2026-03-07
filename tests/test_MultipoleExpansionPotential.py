@@ -765,6 +765,25 @@ def test_init_with_cos_splines_only():
     assert abs(mp1(1.0, 0.0) - mp2(1.0, 0.0)) < 1e-14
 
 
+def test_init_rejects_non_spline_cos():
+    """Test that passing non-spline rho_cos_splines raises TypeError."""
+    with pytest.raises(TypeError, match=r"rho_cos_splines\[0\]\[0\] must be"):
+        MultipoleExpansionPotential(rho_cos_splines=[[lambda r: 0.0]])
+
+
+def test_init_rejects_non_spline_sin():
+    """Test that passing non-spline rho_sin_splines raises TypeError."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential.from_density(
+        dens=hp, L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID
+    )
+    with pytest.raises(TypeError, match=r"rho_sin_splines\[0\]\[0\] must be"):
+        MultipoleExpansionPotential(
+            rho_cos_splines=mp._rho_cos_splines,
+            rho_sin_splines=[[lambda r: 0.0]],
+        )
+
+
 def test_isNonAxi_auto_detection_from_splines():
     """Pass axisymmetric splines with M > 1 but negligible m > 0, verify truncation."""
     hp = HernquistPotential(amp=2.0, a=1.0)
