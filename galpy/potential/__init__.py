@@ -26,6 +26,7 @@ from . import (
     IsothermalDiskPotential,
     KGPotential,
     KingPotential,
+    LFMPotential,
     KuzminDiskPotential,
     KuzminKutuzovStaeckelPotential,
     KuzminLikeWrapperPotential,
@@ -172,6 +173,7 @@ JaffePotential = TwoPowerSphericalPotential.JaffePotential
 HernquistPotential = TwoPowerSphericalPotential.HernquistPotential
 TwoPowerSphericalPotential = TwoPowerSphericalPotential.TwoPowerSphericalPotential
 KGPotential = KGPotential.KGPotential
+LFMPotential = LFMPotential.LFMPotential
 interpRZPotential = interpRZPotential.interpRZPotential
 DehnenBarPotential = DehnenBarPotential.DehnenBarPotential
 SteadyLogSpiralPotential = SteadyLogSpiralPotential.SteadyLogSpiralPotential
