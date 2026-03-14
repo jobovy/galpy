@@ -4,6 +4,7 @@ Comprehensive test suite for RARPotential.
 Tests cover initialization, force computation, potential evaluation,
 rotation curves, density, composite use, and unit handling.
 """
+
 import numpy
 import pytest
 
@@ -227,9 +228,8 @@ class TestRARComposite:
     def test_disk_plus_bulge(self, disk, bulge):
         rp = RARPotential([disk, bulge])
         F = rp.Rforce(1.0, 0.0, use_physical=False)
-        F_bar = (
-            disk.Rforce(1.0, 0.0, use_physical=False)
-            + bulge.Rforce(1.0, 0.0, use_physical=False)
+        F_bar = disk.Rforce(1.0, 0.0, use_physical=False) + bulge.Rforce(
+            1.0, 0.0, use_physical=False
         )
         assert abs(F) >= abs(F_bar)
 

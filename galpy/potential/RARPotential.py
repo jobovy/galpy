@@ -6,7 +6,6 @@
 #   rotation curves in the low-acceleration regime.
 ###############################################################################
 import numpy
-
 from scipy import integrate
 
 from ..util import conversion
@@ -16,7 +15,6 @@ if _APY_LOADED:
     from astropy import units
 
 from .Potential import Potential
-
 
 # Physical constants (SI)
 _C_KMS = 299792.458  # speed of light [km/s]
@@ -44,7 +42,11 @@ def _a0_natural(ro_kpc, vo_kms, H0=_H0_DEFAULT):
         a0 in natural units (vo^2/ro).
     """
     a0_si = (
-        _C_KMS * _KMS_TO_MS * H0 * _KMS_TO_MS / (_MPC_TO_KPC * _KPC_TO_M)
+        _C_KMS
+        * _KMS_TO_MS
+        * H0
+        * _KMS_TO_MS
+        / (_MPC_TO_KPC * _KPC_TO_M)
         / (2.0 * numpy.pi)
     )
     vo_ms = vo_kms * _KMS_TO_MS
@@ -80,8 +82,14 @@ class RARPotential(Potential):
     normalize = property()  # no intrinsic mass
 
     def __init__(
-        self, pot=None, a0=None, H0=_H0_DEFAULT, method="simple",
-        rmax=1000.0, ro=None, vo=None,
+        self,
+        pot=None,
+        a0=None,
+        H0=_H0_DEFAULT,
+        method="simple",
+        rmax=1000.0,
+        ro=None,
+        vo=None,
     ):
         """
         Initialize a RARPotential.
@@ -140,9 +148,7 @@ class RARPotential(Potential):
         # Validate method
         valid_methods = ("simple", "standard", "exp", "lfm")
         if method not in valid_methods:
-            raise ValueError(
-                f"method must be one of {valid_methods}; got {method!r}"
-            )
+            raise ValueError(f"method must be one of {valid_methods}; got {method!r}")
         self._method = method
         # Acceleration scale
         if method == "lfm":
@@ -236,8 +242,10 @@ class RARPotential(Potential):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if isinstance(R, numpy.ndarray):
             return numpy.array(
-                [self._evaluate(Ri, zi, phi=phi, t=t)
-                 for Ri, zi in zip(R.flat, numpy.broadcast_to(z, R.shape).flat)]
+                [
+                    self._evaluate(Ri, zi, phi=phi, t=t)
+                    for Ri, zi in zip(R.flat, numpy.broadcast_to(z, R.shape).flat)
+                ]
             ).reshape(R.shape)
         r = numpy.sqrt(R**2.0 + z**2.0)
         r = max(r, 1e-12)
@@ -271,10 +279,7 @@ class RARPotential(Potential):
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         boost = self._boost(R, z, phi=phi, t=t)
-        return (
-            sum(p._amp * p._phitorque(R, z, phi=phi, t=t) for p in self._pot)
-            * boost
-        )
+        return sum(p._amp * p._phitorque(R, z, phi=phi, t=t) for p in self._pot) * boost
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         dr = 1e-4 * numpy.maximum(numpy.sqrt(R**2.0 + z**2.0), 0.01)
