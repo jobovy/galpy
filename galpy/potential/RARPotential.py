@@ -5,16 +5,18 @@
 #   Wraps a baryonic potential and boosts forces to match observed
 #   rotation curves in the low-acceleration regime.
 ###############################################################################
+import warnings
+
 import numpy
 from scipy import integrate
 
-from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
+from ..util.conversion import get_physical, physical_compatible
 
 if _APY_LOADED:
     from astropy import units
 
-from .Potential import Potential
+from .Potential import Potential, _isNonAxi
 
 # Physical constants (SI)
 _C_KMS = 299792.458  # speed of light [km/s]
@@ -141,10 +143,20 @@ class RARPotential(Potential):
         Potential.__init__(self, amp=1.0, ro=ro, vo=vo)
         if pot is None:
             self._pot = []
-        elif not isinstance(pot, list):
-            self._pot = [pot]
-        else:
+        elif isinstance(pot, list):
+            warnings.warn(
+                "Passing a list of potentials is deprecated. "
+                "Combine potentials with the + operator instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             self._pot = list(pot)
+        elif not isinstance(pot, Potential):
+            raise TypeError(
+                "pot must be a Potential instance or list of Potential instances"
+            )
+        else:
+            self._pot = [pot]
         # Validate method
         valid_methods = ("simple", "standard", "exp", "lfm")
         if method not in valid_methods:
@@ -178,7 +190,22 @@ class RARPotential(Potential):
         self.hasC = False
         self.hasC_dxdv = False
         self.hasC_dens = False
-        self.isNonAxi = False
+        # Set isNonAxi based on wrapped potentials
+        if self._pot:
+            self.isNonAxi = _isNonAxi(self._pot)
+        else:
+            self.isNonAxi = False
+        # Check ro/vo compatibility with wrapped potentials
+        if self._pot:
+            assert physical_compatible(self, self._pot), (
+                "Physical unit conversion parameters (ro,vo) are not "
+                "compatible between this wrapper and the wrapped potential"
+            )
+            phys_wrapped = get_physical(self._pot, include_set=True)
+            if not self._roSet and phys_wrapped.get("roSet", False):
+                self.turn_physical_on(ro=phys_wrapped["ro"], vo=False)
+            if not self._voSet and phys_wrapped.get("voSet", False):
+                self.turn_physical_on(vo=phys_wrapped["vo"], ro=False)
 
     def __repr__(self):
         if len(self._pot) == 0:
@@ -240,12 +267,12 @@ class RARPotential(Potential):
             return self._nu(g_bar / self._a0)
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        if isinstance(R, numpy.ndarray):
+        if numpy.ndim(R) > 0 or numpy.ndim(z) > 0:
+            R = numpy.atleast_1d(R)
+            z = numpy.broadcast_to(z, R.shape)
             return numpy.array(
-                [
-                    self._evaluate(Ri, zi, phi=phi, t=t)
-                    for Ri, zi in zip(R.flat, numpy.broadcast_to(z, R.shape).flat)
-                ]
+                [self._evaluate(float(Ri), float(zi), phi=phi, t=t)
+                 for Ri, zi in zip(R.flat, z.flat)]
             ).reshape(R.shape)
         r = numpy.sqrt(R**2.0 + z**2.0)
         r = max(r, 1e-12)
@@ -257,8 +284,8 @@ class RARPotential(Potential):
             Rp = rp * cos_theta
             zp = rp * sin_theta
             Rp = max(Rp, 1e-16)
-            FR = self._bar_Rforce(Rp, zp, t=t)
-            Fz = self._bar_zforce(Rp, zp, t=t)
+            FR = self._bar_Rforce(Rp, zp, phi=phi, t=t)
+            Fz = self._bar_zforce(Rp, zp, phi=phi, t=t)
             g_bar = numpy.sqrt(FR * FR + Fz * Fz)
             if g_bar < 1e-20:
                 return 0.0
@@ -279,7 +306,10 @@ class RARPotential(Potential):
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         boost = self._boost(R, z, phi=phi, t=t)
-        return sum(p._amp * p._phitorque(R, z, phi=phi, t=t) for p in self._pot) * boost
+        return (
+            sum(p._phitorque_nodecorator(R, z, phi=phi, t=t) for p in self._pot)
+            * boost
+        )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         dr = 1e-4 * numpy.maximum(numpy.sqrt(R**2.0 + z**2.0), 0.01)

@@ -70,7 +70,8 @@ class TestRARInit:
         assert rp._a0 == pytest.approx(1e-4)
 
     def test_list_of_potentials(self, disk, bulge):
-        rp = RARPotential([disk, bulge])
+        with pytest.warns(DeprecationWarning, match="list of potentials"):
+            rp = RARPotential([disk, bulge])
         assert len(rp._pot) == 2
 
     def test_repr(self, disk):
@@ -226,7 +227,8 @@ class TestRARComposite:
     """Test RAR with composite baryonic potentials."""
 
     def test_disk_plus_bulge(self, disk, bulge):
-        rp = RARPotential([disk, bulge])
+        with pytest.warns(DeprecationWarning, match="list of potentials"):
+            rp = RARPotential([disk, bulge])
         F = rp.Rforce(1.0, 0.0, use_physical=False)
         F_bar = disk.Rforce(1.0, 0.0, use_physical=False) + bulge.Rforce(
             1.0, 0.0, use_physical=False
@@ -234,9 +236,27 @@ class TestRARComposite:
         assert abs(F) >= abs(F_bar)
 
     def test_three_component(self, disk, bulge, halo):
-        rp = RARPotential([disk, bulge, halo])
+        with pytest.warns(DeprecationWarning, match="list of potentials"):
+            rp = RARPotential([disk, bulge, halo])
         F = rp.Rforce(1.0, 0.0, use_physical=False)
         assert numpy.isfinite(F) and F < 0
+
+
+class TestRARPhiTorque:
+    """Test phi torque handling."""
+
+    def test_phitorque_zero_axisymmetric(self, disk):
+        """Wrapping axisymmetric potentials should give zero phi torque."""
+        rp = RARPotential(disk, method="simple")
+        tau = rp.phitorque(1.0, 0.0, use_physical=False)
+        assert tau == 0.0
+
+    def test_phitorque_zero_at_various_R(self, disk):
+        """Phi torque should be zero everywhere for axisymmetric wrap."""
+        rp = RARPotential(disk, method="simple")
+        for R in [0.5, 1.0, 3.0, 10.0]:
+            tau = rp.phitorque(R, 0.0, use_physical=False)
+            assert tau == 0.0
 
 
 # ===================================================================
@@ -247,7 +267,7 @@ class TestUnits:
 
     def test_rar_physical_output(self, disk):
         rp = RARPotential(disk, method="simple", ro=8.0, vo=220.0)
-        F_phys = rp.Rforce(8.0, 0.0)  # in km/s^2/kpc
+        F_phys = rp.Rforce(8.0, 0.0)  # in km/s/Myr
         F_nat = rp.Rforce(1.0, 0.0, use_physical=False)
         assert isinstance(F_phys, float)
         assert isinstance(F_nat, float)
