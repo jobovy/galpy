@@ -271,8 +271,10 @@ class RARPotential(Potential):
             R = numpy.atleast_1d(R)
             z = numpy.broadcast_to(z, R.shape)
             return numpy.array(
-                [self._evaluate(float(Ri), float(zi), phi=phi, t=t)
-                 for Ri, zi in zip(R.flat, z.flat)]
+                [
+                    self._evaluate(float(Ri), float(zi), phi=phi, t=t)
+                    for Ri, zi in zip(R.flat, z.flat)
+                ]
             ).reshape(R.shape)
         r = numpy.sqrt(R**2.0 + z**2.0)
         r = max(r, 1e-12)
@@ -307,8 +309,7 @@ class RARPotential(Potential):
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         boost = self._boost(R, z, phi=phi, t=t)
         return (
-            sum(p._phitorque_nodecorator(R, z, phi=phi, t=t) for p in self._pot)
-            * boost
+            sum(p._phitorque_nodecorator(R, z, phi=phi, t=t) for p in self._pot) * boost
         )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
