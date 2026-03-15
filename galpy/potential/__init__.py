@@ -45,6 +45,7 @@ from . import (
     PowerSphericalPotentialwCutoff,
     PowerTriaxialPotential,
     PseudoIsothermalPotential,
+    RARPotential,
     RazorThinExponentialDiskPotential,
     RingPotential,
     RotateAndTiltWrapperPotential,
@@ -172,6 +173,7 @@ JaffePotential = TwoPowerSphericalPotential.JaffePotential
 HernquistPotential = TwoPowerSphericalPotential.HernquistPotential
 TwoPowerSphericalPotential = TwoPowerSphericalPotential.TwoPowerSphericalPotential
 KGPotential = KGPotential.KGPotential
+RARPotential = RARPotential.RARPotential
 interpRZPotential = interpRZPotential.interpRZPotential
 DehnenBarPotential = DehnenBarPotential.DehnenBarPotential
 SteadyLogSpiralPotential = SteadyLogSpiralPotential.SteadyLogSpiralPotential
