@@ -79,6 +79,33 @@ class TestRARInit:
         assert "standard" in repr(rp)
         assert "RARPotential" in repr(rp)
 
+    def test_init_invalid_pot_type(self):
+        """Passing a non-Potential triggers TypeError."""
+        with pytest.raises(TypeError, match="pot must be a Potential"):
+            RARPotential("not_a_potential")
+
+    def test_a0_astropy_quantity(self, disk):
+        """a0 as an astropy Quantity is converted to natural units."""
+        pytest.importorskip("astropy")
+        from astropy import units as u
+
+        a0_phys = 1.2e-10 * u.m / u.s**2
+        rp = RARPotential(disk, method="simple", a0=a0_phys)
+        # a0 should be stored as a positive float in natural units
+        assert isinstance(rp._a0, float)
+        assert rp._a0 > 0
+
+    def test_H0_astropy_quantity(self, disk):
+        """H0 as an astropy Quantity is converted for lfm method."""
+        pytest.importorskip("astropy")
+        from astropy import units as u
+
+        H0_q = 67.4 * u.km / u.s / u.Mpc
+        rp = RARPotential(disk, method="lfm", H0=H0_q)
+        # Should give same a0 as passing the float
+        rp_float = RARPotential(disk, method="lfm", H0=67.4)
+        assert rp._a0 == pytest.approx(rp_float._a0, rel=1e-10)
+
 
 class TestRARForces:
     """Test that RAR forces are always stronger than baryonic."""
@@ -207,6 +234,68 @@ class TestRARPotentialEval:
         v_s = rp_s(1.0, 0.0, use_physical=False)
         v_std = rp_std(1.0, 0.0, use_physical=False)
         assert v_s != pytest.approx(v_std, rel=1e-6)
+
+
+class TestRARArrayInputs:
+    """Test array (vectorized) inputs for boost, evaluate, and density."""
+
+    def test_boost_array(self, disk):
+        """_boost with ndarray triggers the mask branch."""
+        rp = RARPotential(disk, method="simple")
+        R_arr = numpy.array([0.5, 1.0, 3.0, 10.0])
+        z_arr = numpy.array([0.0, 0.1, 0.2, 0.0])
+        boosts = rp._boost(R_arr, z_arr)
+        assert isinstance(boosts, numpy.ndarray)
+        assert boosts.shape == R_arr.shape
+        # Scalar results should match
+        for i in range(len(R_arr)):
+            b_scalar = rp._boost(float(R_arr[i]), float(z_arr[i]))
+            assert boosts[i] == pytest.approx(b_scalar, rel=1e-10)
+
+    def test_boost_array_with_zero_gbar(self, disk):
+        """Ensure the g_bar < 1e-20 mask returns 1.0 for tiny accelerations."""
+        rp = RARPotential(disk, method="simple")
+        # At extremely large R, baryonic force approaches zero
+        R_arr = numpy.array([1.0, 1e10])
+        z_arr = numpy.array([0.0, 0.0])
+        boosts = rp._boost(R_arr, z_arr)
+        assert boosts[0] > 1.0  # normal boost
+        assert boosts[1] == pytest.approx(1.0)  # fallback for tiny g_bar
+
+    def test_evaluate_array(self, disk):
+        """_evaluate with ndarray R triggers the loop-over-scalars branch."""
+        rp = RARPotential(disk, method="simple")
+        R_arr = numpy.array([0.5, 1.0, 3.0])
+        z_arr = numpy.array([0.0, 0.0, 0.0])
+        vals = rp._evaluate(R_arr, z_arr)
+        assert isinstance(vals, numpy.ndarray)
+        assert vals.shape == R_arr.shape
+        for i in range(len(R_arr)):
+            v_scalar = rp._evaluate(float(R_arr[i]), float(z_arr[i]))
+            assert vals[i] == pytest.approx(v_scalar, rel=1e-10)
+
+    def test_Rforce_array(self, disk):
+        """Rforce with array inputs exercises _boost ndarray path."""
+        rp = RARPotential(disk, method="simple")
+        R_arr = numpy.array([1.0, 2.0, 5.0])
+        z_arr = numpy.zeros(3)
+        forces = numpy.array(
+            [rp.Rforce(R, 0.0, use_physical=False) for R in R_arr]
+        )
+        for i, R in enumerate(R_arr):
+            assert numpy.isfinite(forces[i])
+            assert forces[i] < 0  # attractive
+
+    def test_dens_array(self, disk):
+        """_dens with array inputs exercises numpy.maximum/sqrt branches."""
+        rp = RARPotential(disk, method="simple")
+        R_arr = numpy.array([0.5, 1.0, 3.0])
+        z_arr = numpy.array([0.0, 0.0, 0.0])
+        rhos = numpy.array(
+            [rp.dens(float(R), float(z), use_physical=False)
+             for R, z in zip(R_arr, z_arr)]
+        )
+        assert all(numpy.isfinite(rhos))
 
 
 class TestRARDensity:
