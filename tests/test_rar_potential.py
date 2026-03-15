@@ -279,9 +279,7 @@ class TestRARArrayInputs:
         rp = RARPotential(disk, method="simple")
         R_arr = numpy.array([1.0, 2.0, 5.0])
         z_arr = numpy.zeros(3)
-        forces = numpy.array(
-            [rp.Rforce(R, 0.0, use_physical=False) for R in R_arr]
-        )
+        forces = numpy.array([rp.Rforce(R, 0.0, use_physical=False) for R in R_arr])
         for i, R in enumerate(R_arr):
             assert numpy.isfinite(forces[i])
             assert forces[i] < 0  # attractive
@@ -292,8 +290,10 @@ class TestRARArrayInputs:
         R_arr = numpy.array([0.5, 1.0, 3.0])
         z_arr = numpy.array([0.0, 0.0, 0.0])
         rhos = numpy.array(
-            [rp.dens(float(R), float(z), use_physical=False)
-             for R, z in zip(R_arr, z_arr)]
+            [
+                rp.dens(float(R), float(z), use_physical=False)
+                for R, z in zip(R_arr, z_arr)
+            ]
         )
         assert all(numpy.isfinite(rhos))
 
