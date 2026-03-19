@@ -2160,6 +2160,42 @@ def test_cov_dvrpmllbb_to_vxyz():
     return None
 
 
+def test_cov_dvrpmllbb_to_vxyz_no_inplace_mutation():
+    # Test that cov_dvrpmllbb_to_vxyz does not modify input arrays in-place
+    d = numpy.array([0.5, 1.0, 2.0])  # parallax, since plx=True
+    e_d = numpy.array([0.05, 0.05, 0.05])  # parallax uncertainty
+    e_d_before = e_d.copy()
+    l = numpy.array([0.1, 0.2, 0.3])
+    b = numpy.array([0.1, 0.2, 0.3])
+    l_before = l.copy()
+    b_before = b.copy()
+    e_vr = numpy.array([1.0, 1.0, 1.0])
+    pmll = numpy.array([1.0, 1.0, 1.0])
+    pmbb = numpy.array([1.0, 1.0, 1.0])
+    cov_pmllbb = numpy.array([numpy.eye(2)] * 3)
+    _ = coords.cov_dvrpmllbb_to_vxyz(
+        d, e_d, e_vr, pmll, pmbb, cov_pmllbb, l, b, plx=True, degree=False
+    )
+    assert numpy.all(e_d == e_d_before), (
+        "cov_dvrpmllbb_to_vxyz modified e_d in-place when plx=True"
+    )
+    # Also test with degree=True that l and b are not modified
+    l_deg = numpy.array([10.0, 20.0, 30.0])
+    b_deg = numpy.array([5.0, 10.0, 15.0])
+    l_deg_before = l_deg.copy()
+    b_deg_before = b_deg.copy()
+    _ = coords.cov_dvrpmllbb_to_vxyz(
+        d, e_d, e_vr, pmll, pmbb, cov_pmllbb, l_deg, b_deg, plx=False, degree=True
+    )
+    assert numpy.all(l_deg == l_deg_before), (
+        "cov_dvrpmllbb_to_vxyz modified l in-place when degree=True"
+    )
+    assert numpy.all(b_deg == b_deg_before), (
+        "cov_dvrpmllbb_to_vxyz modified b in-place when degree=True"
+    )
+    return None
+
+
 def test_cov_vxyz_to_galcencyl():
     # test point - system should flip with phi = pi
     cov_vxyz = numpy.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]])
@@ -2298,6 +2334,41 @@ def test_rphi_to_dl_2d():
     )
     assert numpy.all(numpy.fabs(l - 45.0) < 10.0**-10.0), (
         "rphi_to_dl_2d conversion did not work as expected"
+    )
+    return None
+
+
+def test_dl_to_rphi_2d_no_inplace_mutation():
+    # Test that dl_to_rphi_2d does not modify input arrays in-place
+    os = numpy.ones(2)
+    l = os * 45.0
+    l_before = l.copy()
+    _ = coords.dl_to_rphi_2d(os * 2.0, l, degree=True, ro=2.0 * numpy.sqrt(2.0))
+    assert numpy.all(l == l_before), (
+        "dl_to_rphi_2d modified l in-place when degree=True"
+    )
+    return None
+
+
+def test_rphi_to_dl_2d_no_inplace_mutation():
+    # Test that rphi_to_dl_2d does not modify input arrays in-place
+    os = numpy.ones(2)
+    phi = os * 45.0
+    phi_before = phi.copy()
+    _ = coords.rphi_to_dl_2d(
+        os * 2.0, phi, degree=True, ro=2.0 * numpy.sqrt(2.0), phio=0.0
+    )
+    assert numpy.all(phi == phi_before), (
+        "rphi_to_dl_2d modified phi in-place when degree=True"
+    )
+    # Also test phio subtraction
+    phi2 = os * 55.0
+    phi2_before = phi2.copy()
+    _ = coords.rphi_to_dl_2d(
+        os * 2.0, phi2, degree=True, ro=2.0 * numpy.sqrt(2.0), phio=10.0
+    )
+    assert numpy.all(phi2 == phi2_before), (
+        "rphi_to_dl_2d modified phi in-place (phio subtraction)"
     )
     return None
 

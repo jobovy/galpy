@@ -830,10 +830,10 @@ def cov_dvrpmllbb_to_vxyz(
     """
     if plx:
         d = 1.0 / d
-        e_d *= d**2.0
+        e_d = e_d * d**2.0
     if degree:
-        l *= _DEGTORAD
-        b *= _DEGTORAD
+        l = l * _DEGTORAD
+        b = b * _DEGTORAD
     scalar = not hasattr(d, "__iter__")
     if scalar:
         cov_pmllbb = cov_pmllbb[numpy.newaxis, :, :]
@@ -1852,7 +1852,7 @@ def dl_to_rphi_2d(d, l, degree=False, ro=1.0, phio=0.0):
     elif isinstance(l, list):
         l = numpy.array(l)
     if degree:
-        l *= _DEGTORAD
+        l = l * _DEGTORAD
     R = numpy.sqrt(ro**2.0 + d**2.0 - 2.0 * d * ro * numpy.cos(l))
     phi = numpy.arcsin(d / R * numpy.sin(l))
     indx = (ro / numpy.cos(l) < d) * (numpy.cos(l) > 0.0)
@@ -1905,9 +1905,9 @@ def rphi_to_dl_2d(R, phi, degree=False, ro=1.0, phio=0.0):
         phi = numpy.array([phi])
     elif isinstance(phi, list):
         phi = numpy.array(phi)
-    phi -= phio
+    phi = phi - phio
     if degree:
-        phi *= _DEGTORAD
+        phi = phi * _DEGTORAD
     d = numpy.sqrt(R**2.0 + ro**2.0 - 2.0 * R * ro * numpy.cos(phi))
     l = numpy.arcsin(R / d * numpy.sin(phi))
     indx = (ro / numpy.cos(phi) < R) * (numpy.cos(phi) > 0.0)
