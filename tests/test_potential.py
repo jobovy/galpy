@@ -208,6 +208,7 @@ def test_forceAsDeriv_potential():
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockTimeDependentMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -1196,6 +1197,7 @@ def test_evaluateAndDerivs_potential():
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockTimeDependentMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("SolidBodyRotationSpiralArmsPotential")
@@ -1487,6 +1489,7 @@ def test_amp_mult_divide():
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockTimeDependentMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -11163,6 +11166,31 @@ class mockMultipoleExpansionLimitedGridPotential(potential.MultipoleExpansionPot
         self._rgrid = numpy.geomspace(0.98, 1.245, 201)
 
 
+##Mock time-dependent MultipoleExpansionPotential classes
+class mockTimeDependentMultipoleExpansionPotential(
+    potential.MultipoleExpansionPotential
+):
+    def __init__(self):
+        omega = 1.3
+        hp = potential.HernquistPotential(amp=2.0, a=1.0)
+        temp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + 0.1 * numpy.cos(phi + omega * t))
+            ),
+            L=6,
+            rgrid=numpy.geomspace(1e-3, 50, 201),
+            tgrid=numpy.linspace(0, 300, 76),
+        )
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            rho_cos_splines=temp._rho_cos_funcs,
+            rho_sin_splines=temp._rho_sin_funcs,
+            rgrid=temp._rgrid,
+            tgrid=temp._tgrid,
+        )
+
+
 # Test interpSphericalPotential
 class mockInterpSphericalPotential(potential.interpSphericalPotential):
     def __init__(self):
@@ -11848,6 +11876,31 @@ class mockFlatSolidBodyRotationSpiralArmsPotential(testMWPotential):
 
     def OmegaP(self):
         return self._potlist[1].OmegaP()
+
+
+class mockFlatSolidBodyRotationMultipoleExpansionPotential(testMWPotential):
+    def __init__(self):
+        omega = 1.3
+        hp = potential.HernquistPotential(amp=0.02, a=1.0)
+        tdep_mp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + 0.5 * numpy.cos(phi + omega * t))
+            ),
+            L=6,
+            rgrid=numpy.geomspace(1e-3, 50, 101),
+            tgrid=numpy.linspace(0, 300, 76),
+        )
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                tdep_mp,
+            ],
+        )
+
+    def OmegaP(self):
+        return 1.3
 
 
 # Special case to test handling of pure planarWrapper, not necessary for new wrappers
