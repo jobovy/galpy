@@ -11,11 +11,11 @@ class SphericalHarmonicPotentialMixin:
     """Mixin that provides cylindrical force evaluation (_Rforce, _zforce,
     _phitorque) via the chain rule from spherical force components.
 
-    Subclasses must implement ``_compute_spher_forces_at_point(self, R, z, phi)``
+    Subclasses must implement ``_compute_spher_forces_at_point(self, R, z, phi, t=0)``
     returning ``(dPhi_dr, dPhi_dtheta, dPhi_dphi)``.
     """
 
-    def _evaluate_cyl_force(self, dr_dx, dtheta_dx, dphi_dx, R, z, phi):
+    def _evaluate_cyl_force(self, dr_dx, dtheta_dx, dphi_dx, R, z, phi, t=0.0):
         """
         Evaluate a cylindrical force component over an array of coordinates.
 
@@ -36,6 +36,8 @@ class SphericalHarmonicPotentialMixin:
             Vertical height.
         phi : float or numpy.ndarray
             Azimuth.
+        t : float, optional
+            Time. Default: 0.0.
 
         Returns
         -------
@@ -54,7 +56,7 @@ class SphericalHarmonicPotentialMixin:
         shape = (R * z * phi).shape
         if shape == ():
             dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
-                R, z, phi
+                R, z, phi, t=t
             )
             return dr_dx * dPhi_dr + dtheta_dx * dPhi_dtheta + dPhi_dphi * dphi_dx
         R = R * numpy.ones(shape)
@@ -66,7 +68,7 @@ class SphericalHarmonicPotentialMixin:
         dphi_dx = dphi_dx * numpy.ones(shape)
         for idx in numpy.ndindex(*shape):
             dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
-                R[idx], z[idx], phi[idx]
+                R[idx], z[idx], phi[idx], t=t
             )
             force[idx] = (
                 dr_dx[idx] * dPhi_dr
@@ -81,7 +83,7 @@ class SphericalHarmonicPotentialMixin:
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
         dr_dR = numpy.divide(R, r)
         dtheta_dR = numpy.divide(z, r**2)
-        return self._evaluate_cyl_force(dr_dR, dtheta_dR, 0, R, z, phi)
+        return self._evaluate_cyl_force(dr_dR, dtheta_dR, 0, R, z, phi, t=t)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
@@ -89,14 +91,14 @@ class SphericalHarmonicPotentialMixin:
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
         dr_dz = numpy.divide(z, r)
         dtheta_dz = numpy.divide(-R, r**2)
-        return self._evaluate_cyl_force(dr_dz, dtheta_dz, 0, R, z, phi)
+        return self._evaluate_cyl_force(dr_dz, dtheta_dz, 0, R, z, phi, t=t)
 
     def _phitorque(self, R, z, phi=0, t=0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        return self._evaluate_cyl_force(0, 0, 1, R, z, phi)
+        return self._evaluate_cyl_force(0, 0, 1, R, z, phi, t=t)
 
-    def _evaluate_cyl_2nd_deriv(self, deriv_type, R, z, phi):
+    def _evaluate_cyl_2nd_deriv(self, deriv_type, R, z, phi, t=0.0):
         """
         Evaluate a cylindrical second derivative over an array of coordinates.
 
@@ -110,6 +112,8 @@ class SphericalHarmonicPotentialMixin:
             Vertical height.
         phi : float or numpy.ndarray
             Azimuth.
+        t : float, optional
+            Time. Default: 0.0.
 
         Returns
         -------
@@ -125,18 +129,18 @@ class SphericalHarmonicPotentialMixin:
         phi = numpy.array(phi, dtype=float)
         shape = (R * z * phi).shape
         if shape == ():
-            return self._cyl_2nd_deriv_at_point(deriv_type, R, z, phi)
+            return self._cyl_2nd_deriv_at_point(deriv_type, R, z, phi, t=t)
         R = R * numpy.ones(shape)
         z = z * numpy.ones(shape)
         phi = phi * numpy.ones(shape)
         result = numpy.zeros(shape, float)
         for idx in numpy.ndindex(*shape):
             result[idx] = self._cyl_2nd_deriv_at_point(
-                deriv_type, R[idx], z[idx], phi[idx]
+                deriv_type, R[idx], z[idx], phi[idx], t=t
             )
         return result
 
-    def _cyl_2nd_deriv_at_point(self, deriv_type, R, z, phi):
+    def _cyl_2nd_deriv_at_point(self, deriv_type, R, z, phi, t=0.0):
         """
         Compute a single cylindrical second derivative at a point using the chain rule.
 
@@ -153,7 +157,7 @@ class SphericalHarmonicPotentialMixin:
             Phi_tp,
             Phi_r,
             Phi_t,
-        ) = self._compute_spher_2nd_derivs_at_point(R, z, phi)
+        ) = self._compute_spher_2nd_derivs_at_point(R, z, phi, t=t)
         r2 = R * R + z * z
         r = numpy.sqrt(r2)
         if r == 0.0:

@@ -766,18 +766,23 @@ def test_init_with_cos_splines_only():
 
 
 def test_init_rejects_non_spline_cos():
-    """Test that passing non-spline rho_cos_splines raises TypeError."""
-    with pytest.raises(TypeError, match=r"rho_cos_splines\[0\]\[0\] must be"):
+    """Test that passing non-spline rho_cos_splines raises TypeError or ValueError."""
+    # Callables get a helpful ValueError about tgrid
+    with pytest.raises(ValueError, match=r"rho_cos_splines\[0\]\[0\] appears to be"):
         MultipoleExpansionPotential(rho_cos_splines=[[lambda r: 0.0]])
+    # Non-callable non-splines get TypeError
+    with pytest.raises(TypeError, match=r"rho_cos_splines\[0\]\[0\] must be"):
+        MultipoleExpansionPotential(rho_cos_splines=[[42]])
 
 
 def test_init_rejects_non_spline_sin():
-    """Test that passing non-spline rho_sin_splines raises TypeError."""
+    """Test that passing non-spline rho_sin_splines raises TypeError or ValueError."""
     hp = HernquistPotential(amp=2.0, a=1.0)
     mp = MultipoleExpansionPotential.from_density(
         dens=hp, L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID
     )
-    with pytest.raises(TypeError, match=r"rho_sin_splines\[0\]\[0\] must be"):
+    # Callables get a helpful ValueError about tgrid
+    with pytest.raises(ValueError, match=r"rho_sin_splines\[0\]\[0\] appears to be"):
         MultipoleExpansionPotential(
             rho_cos_splines=mp._rho_cos_splines,
             rho_sin_splines=[[lambda r: 0.0]],
@@ -793,3 +798,258 @@ def test_isNonAxi_auto_detection_from_splines():
     # mp_full should have detected axisymmetry and truncated to M=1
     assert not mp_full.isNonAxi
     assert mp_full._M == 1
+
+
+# --- Time-dependent tests ---
+
+
+def test_time_dependent_rotation_from_density():
+    """Compare time-dependent multipole at time t with a freshly-built static multipole at the same rotated density."""
+    omega = 1.3
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    rgrid = numpy.geomspace(1e-3, 50, 201)
+    tgrid = numpy.linspace(0, 10, 51)
+    # Time-dependent density: cos(phi + omega*t)
+    tdep_mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(phi + omega * t))
+        ),
+        L=6,
+        rgrid=rgrid,
+        tgrid=tgrid,
+    )
+    # Compare at various (R, z, phi, t) with a freshly-built static version
+    # at the same time (this tests that the time interpolation is accurate)
+    test_times = [0.0, 0.2, 1.0, 5.0]
+    test_spatial = [(1.0, 0.5, 0.3), (2.0, 0.1, 1.5)]
+    for t in test_times:
+        static_at_t = MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, _t=t: (
+                hp.dens(R, z, use_physical=False)
+                * (1.0 + 0.1 * numpy.cos(phi + omega * _t))
+            ),
+            L=6,
+            rgrid=rgrid,
+        )
+        for R, z, phi in test_spatial:
+            val_static = static_at_t(R, z, phi=phi, use_physical=False)
+            val_tdep = tdep_mp(R, z, phi=phi, t=t, use_physical=False)
+            assert (
+                numpy.abs(val_static - val_tdep) < 1e-10 * numpy.abs(val_static) + 1e-15
+            ), (
+                f"Potential mismatch at (R={R}, z={z}, phi={phi}, t={t}): {val_static} vs {val_tdep}"
+            )
+
+
+def test_time_dependent_rotation_forces():
+    """Compare forces from time-dependent multipole vs freshly-built static at same t."""
+    omega = 1.3
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    rgrid = numpy.geomspace(1e-3, 50, 201)
+    tgrid = numpy.linspace(0, 10, 51)
+    tdep_mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(phi + omega * t))
+        ),
+        L=6,
+        rgrid=rgrid,
+        tgrid=tgrid,
+    )
+    test_times = [0.0, 1.0, 5.0]
+    test_spatial = [(1.0, 0.5, 0.3), (2.0, 0.1, 1.5)]
+    for t in test_times:
+        static_at_t = MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, _t=t: (
+                hp.dens(R, z, use_physical=False)
+                * (1.0 + 0.1 * numpy.cos(phi + omega * _t))
+            ),
+            L=6,
+            rgrid=rgrid,
+        )
+        for R, z, phi in test_spatial:
+            # Compare spherical forces directly (both Python)
+            fr_s = static_at_t._compute_spher_forces_at_point(R, z, phi)
+            fr_t = tdep_mp._compute_spher_forces_at_point(R, z, phi, t=t)
+            for i, name in enumerate(["dPhi_dr", "dPhi_dtheta", "dPhi_dphi"]):
+                assert (
+                    numpy.abs(fr_s[i] - fr_t[i]) < 1e-10 * numpy.abs(fr_s[i]) + 1e-14
+                ), (
+                    f"{name} mismatch at (R={R}, z={z}, phi={phi}, t={t}): {fr_s[i]} vs {fr_t[i]}"
+                )
+
+
+def test_time_dependent_spline_init():
+    """Direct callable (r,t) splines → verify _tdep=True, hasC=False."""
+    rgrid = _DEFAULT_RGRID
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    # Build a static multipole first to get spline shape
+    static = MultipoleExpansionPotential.from_density(
+        dens=hp, symmetry="spherical", rgrid=rgrid
+    )
+    # Make callable versions of the splines
+    cos_func = lambda r, t: static._rho_cos_splines[0][0](r)
+    sin_func = lambda r, t: numpy.zeros_like(r)
+    tgrid = numpy.linspace(0, 10, 11)
+    tdep = MultipoleExpansionPotential(
+        rho_cos_splines=[[cos_func]],
+        rho_sin_splines=[[sin_func]],
+        rgrid=rgrid,
+        tgrid=tgrid,
+    )
+    assert tdep._tdep is True
+    assert tdep.hasC is False
+    assert tdep.hasC_dxdv is False
+    assert tdep.hasC_dens is False
+
+
+def test_time_dependent_reduces_to_static():
+    """Time-independent density passed via tgrid should match static version."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    rgrid = _DEFAULT_RGRID
+    static_mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z: hp.dens(R, z, use_physical=False),
+        L=4,
+        symmetry="axisymmetric",
+        rgrid=rgrid,
+    )
+    # Same density but with a t parameter that it ignores
+    tdep_mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, t=0.0: hp.dens(R, z, use_physical=False),
+        L=4,
+        symmetry="axisymmetric",
+        rgrid=rgrid,
+        tgrid=numpy.linspace(0, 10, 11),
+    )
+    test_points = [(1.0, 0.0), (0.5, 0.3), (2.0, 1.0)]
+    for R, z in test_points:
+        val_s = static_mp(R, z, use_physical=False)
+        val_t = tdep_mp(R, z, t=3.0, use_physical=False)
+        assert numpy.abs(val_s - val_t) < 1e-10 * numpy.abs(val_s) + 1e-15, (
+            f"Static vs time-dep mismatch at (R={R}, z={z}): {val_s} vs {val_t}"
+        )
+
+
+def test_time_dependent_density_reconstruction():
+    """dens() at different times should match input density."""
+    from galpy.potential import evaluateDensities
+
+    omega = 1.3
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    input_dens = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(phi + omega * t))
+    )
+    tdep_mp = MultipoleExpansionPotential.from_density(
+        dens=input_dens,
+        L=6,
+        rgrid=numpy.geomspace(1e-3, 50, 201),
+        tgrid=numpy.linspace(0, 10, 51),
+    )
+    test_points = [
+        (1.0, 0.0, 0.0, 0.0),
+        (1.0, 0.5, 0.3, 2.0),
+        (2.0, 0.1, 1.5, 5.0),
+    ]
+    for R, z, phi, t in test_points:
+        dens_input = input_dens(R, z, phi, t)
+        dens_recon = evaluateDensities(tdep_mp, R, z, phi=phi, t=t)
+        assert (
+            numpy.abs(dens_input - dens_recon) < 0.01 * numpy.abs(dens_input) + 1e-10
+        ), (
+            f"Density mismatch at (R={R}, z={z}, phi={phi}, t={t}): {dens_input} vs {dens_recon}"
+        )
+
+
+def test_time_dependent_isNonAxi_detection():
+    """Test axisymmetry detection for time-dependent case."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    omega = 1.3
+    # Axisymmetric density with tgrid should detect axisymmetry and truncate
+    axi_mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: hp.dens(R, z, use_physical=False),
+        L=4,
+        rgrid=numpy.geomspace(1e-2, 10, 51),
+        tgrid=numpy.linspace(0, 10, 6),
+    )
+    assert axi_mp.isNonAxi is False
+    assert axi_mp._M == 1  # Truncated to axisymmetric
+    # Non-axisymmetric density should remain non-axi
+    nonaxi_mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(phi + omega * t))
+        ),
+        L=4,
+        rgrid=numpy.geomspace(1e-2, 10, 51),
+        tgrid=numpy.linspace(0, 10, 6),
+    )
+    assert nonaxi_mp.isNonAxi is True
+    assert nonaxi_mp._M == 4  # No truncation
+
+
+def test_time_dependent_hasC_false():
+    """All hasC* flags should be False for time-dependent case."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    tdep_mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: hp.dens(R, z, use_physical=False),
+        L=2,
+        rgrid=numpy.geomspace(1e-2, 10, 51),
+        tgrid=numpy.linspace(0, 10, 6),
+    )
+    assert tdep_mp.hasC is False
+    assert tdep_mp.hasC_dxdv is False
+    assert tdep_mp.hasC_dens is False
+
+
+def test_time_dependent_tgrid_required():
+    """ValueError if time-dependent density but no tgrid."""
+    with pytest.raises(ValueError, match="tgrid is required"):
+        MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: 1.0 / (1.0 + R**2 + z**2),
+            L=2,
+            rgrid=_DEFAULT_RGRID,
+        )
+
+
+def test_time_dependent_t_keyword_detection():
+    """Both f(r, t) and f(r, t=0) should be detected; f(r) should not."""
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    # f(R, z, phi, t=0) should require tgrid
+    with pytest.raises(ValueError, match="tgrid is required"):
+        MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: hp.dens(R, z, use_physical=False),
+            L=2,
+            rgrid=_DEFAULT_RGRID,
+        )
+    # f(R, z) without t should NOT require tgrid (static)
+    static_mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z: hp.dens(R, z, use_physical=False),
+        L=2,
+        symmetry="axisymmetric",
+        rgrid=_DEFAULT_RGRID,
+    )
+    assert static_mp._tdep is False
+
+
+def test_time_dependent_potential_instance_with_tgrid():
+    """from_density with Potential instance and tgrid evaluates at each t."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    # Hernquist is static, so with tgrid it should still be time-dependent
+    # but axisymmetric (all m>0 terms zero at all times)
+    mp = MultipoleExpansionPotential.from_density(
+        dens=hp,
+        L=2,
+        symmetry="spherical",
+        rgrid=_DEFAULT_RGRID,
+        tgrid=numpy.linspace(0, 10, 11),
+    )
+    assert mp._tdep is True
+    # Since Hernquist is static, result should match at any t
+    static_mp = MultipoleExpansionPotential.from_density(
+        dens=hp, L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID
+    )
+    for R, z in [(1.0, 0.0), (0.5, 0.3)]:
+        val_s = static_mp(R, z, use_physical=False)
+        val_t = mp(R, z, t=5.0, use_physical=False)
+        assert numpy.abs(val_s - val_t) < 1e-10 * numpy.abs(val_s) + 1e-15, (
+            f"Potential+tgrid mismatch at (R={R}, z={z}): {val_s} vs {val_t}"
+        )

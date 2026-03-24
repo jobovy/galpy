@@ -2,9 +2,16 @@
 #   MultipoleExpansionPotential.py: Potential via multipole expansion of a
 #   given density function
 ###############################################################################
+import inspect
+
 import numpy
 from numpy.polynomial.legendre import leggauss
-from scipy.interpolate import BPoly, InterpolatedUnivariateSpline, PPoly
+from scipy.interpolate import (
+    BPoly,
+    InterpolatedUnivariateSpline,
+    PPoly,
+    make_interp_spline,
+)
 
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -61,6 +68,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         rho_cos_splines=None,
         rho_sin_splines=None,
         rgrid=numpy.geomspace(1e-3, 30, 1_001),
+        tgrid=None,
         normalize=False,
         ro=None,
         vo=None,
@@ -73,11 +81,13 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         amp : float or Quantity, optional
             Amplitude to be applied to the potential (default: 1).
         rho_cos_splines : list of list of InterpolatedUnivariateSpline, optional
-            Cosine density coefficient splines with the spherical harmonic normalization absorbed, shape ``[L][M]``. ``rho_cos_splines[l][m]`` is a spline representing :math:`\hat{\rho}^{\cos}_{lm}(r) = \beta_{lm}\,\rho^{\cos}_{lm}(r)` as a function of ``r``, where :math:`\rho^{\cos}_{lm}(r)` are the coefficients in the real spherical-harmonic expansion of the density :math:`\rho(r,\theta,\phi) = \sum_{l,m} [\rho^{\cos}_{lm}(r)\,\cos(m\phi) + \rho^{\sin}_{lm}(r)\,\sin(m\phi)]\,P_l^m(\cos\theta)` (the real-valued form of `Eq. 12.78 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#mjx-eqn-eq-triaxialgrav-body-decompose-2>`__ in `Bovy 2026 <https://galaxiesbook.org>`__) and :math:`\beta_{lm} = (2-\delta_{m0})\,\sqrt{\frac{2l+1}{4\pi}\,\frac{(l-m)!}{(l+m)!}}` is the real spherical harmonic normalization factor. If ``None``, computes a default Hernquist monopole.
+            Cosine density coefficient splines with the spherical harmonic normalization absorbed, shape ``[L][M]``. ``rho_cos_splines[l][m]`` is a spline representing :math:`\hat{\rho}^{\cos}_{lm}(r) = \beta_{lm}\,\rho^{\cos}_{lm}(r)` as a function of ``r``, where :math:`\rho^{\cos}_{lm}(r)` are the coefficients in the real spherical-harmonic expansion of the density :math:`\rho(r,\theta,\phi) = \sum_{l,m} [\rho^{\cos}_{lm}(r)\,\cos(m\phi) + \rho^{\sin}_{lm}(r)\,\sin(m\phi)]\,P_l^m(\cos\theta)` (the real-valued form of `Eq. 12.78 <https://galaxiesbook.org/chapters/III-01.-Gravitation-in-Elliptical-Galaxies-and-Dark-Matter-Halos_3-Multipole-and-basis-function-expansions.html#mjx-eqn-eq-triaxialgrav-body-decompose-2>`__ in `Bovy 2026 <https://galaxiesbook.org>`__) and :math:`\beta_{lm} = (2-\delta_{m0})\,\sqrt{\frac{2l+1}{4\pi}\,\frac{(l-m)!}{(l+m)!}}` is the real spherical harmonic normalization factor. If ``None``, computes a default Hernquist monopole. For time-dependent potentials, these can be callables ``f(r, t)`` instead of ``InterpolatedUnivariateSpline`` instances; in that case ``tgrid`` must also be provided.
         rho_sin_splines : list of list of InterpolatedUnivariateSpline, optional
-            Like ``rho_cos_splines`` but for the sine coefficients: ``rho_sin_splines[l][m]`` represents :math:`\hat{\rho}^{\sin}_{lm}(r) = \beta_{lm}\,\rho^{\sin}_{lm}(r)`. If ``None``, set to zero splines matching ``rho_cos_splines``.
+            Like ``rho_cos_splines`` but for the sine coefficients: ``rho_sin_splines[l][m]`` represents :math:`\hat{\rho}^{\sin}_{lm}(r) = \beta_{lm}\,\rho^{\sin}_{lm}(r)`. If ``None``, set to zero splines matching ``rho_cos_splines``. For time-dependent potentials, these can be callables ``f(r, t)`` like ``rho_cos_splines``.
         rgrid : numpy.ndarray, optional
             Radial grid points (1D array). Default: ``numpy.geomspace(1e-3, 30, 1_001)``.
+        tgrid : numpy.ndarray or None, optional
+            Time grid for time-dependent potentials. If provided, ``rho_cos_splines`` and ``rho_sin_splines`` are interpreted as callables ``f(r, t)`` and the potential is time-dependent: BPoly radial integrals are precomputed at each time in ``tgrid`` and interpolated in time at evaluation. Default: ``None`` (static potential).
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         ro : float or Quantity, optional
@@ -89,93 +99,173 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         - 2026-03-06 - Refactored to accept splines; density computation moved to from_density - Bovy (UofT)
+        - 2026-03-23 - Added time-dependent support via tgrid - Bovy (UofT)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
         self._rgrid = rgrid
         self._k = 3
+        self._tdep = tgrid is not None
         if rho_cos_splines is None:
             # Default: Hernquist monopole
             rho_cos_splines, rho_sin_splines = self._default_hernquist_splines(
                 rgrid, self._k
             )
-        for l, row in enumerate(rho_cos_splines):
-            for m, s in enumerate(row):
-                if not isinstance(s, InterpolatedUnivariateSpline):
-                    raise TypeError(
-                        f"rho_cos_splines[{l}][{m}] must be an "
-                        "InterpolatedUnivariateSpline instance; use "
-                        "MultipoleExpansionPotential.from_density to "
-                        "initialize from a density function"
-                    )
-        if rho_sin_splines is not None:
-            for l, row in enumerate(rho_sin_splines):
+        if self._tdep:
+            # Time-dependent path: splines are callables f(r, t)
+            self._tgrid = numpy.asarray(tgrid)
+            self._rho_cos_funcs = rho_cos_splines
+            self._L = len(rho_cos_splines)
+            self._M = len(rho_cos_splines[0])
+            L = self._L
+            M = self._M
+            if rho_sin_splines is None:
+                self._rho_sin_funcs = [
+                    [lambda r, t: numpy.zeros_like(r) for _ in range(M)]
+                    for _ in range(L)
+                ]
+            else:
+                self._rho_sin_funcs = rho_sin_splines
+            # Precompute 2D radial integrals and time interpolators
+            self._precompute_radial_integrals_2d()
+            # Determine isNonAxi: check whether m > 0 terms are
+            # non-negligible at any time in tgrid
+            if M > 1:
+                _max_m0 = 0.0
+                for l in range(L):
+                    vals = self._rho_cos_interp[l][0](self._tgrid)
+                    _max_m0 = max(_max_m0, numpy.max(numpy.abs(vals)))
+                _tol = 1e-12 * max(_max_m0, 1e-16)
+                has_nonaxi = False
+                for l in range(L):
+                    for m in range(1, min(l + 1, M)):
+                        cos_vals = self._rho_cos_interp[l][m](self._tgrid)
+                        if numpy.any(numpy.abs(cos_vals) > _tol):
+                            has_nonaxi = True
+                            break
+                        if self._rho_sin_interp[l][m] is not None:
+                            sin_vals = self._rho_sin_interp[l][m](self._tgrid)
+                            if numpy.any(numpy.abs(sin_vals) > _tol):
+                                has_nonaxi = True
+                                break
+                    if has_nonaxi:
+                        break
+                self.isNonAxi = has_nonaxi
+            else:
+                self.isNonAxi = False
+            # Truncate to axisymmetric if non-axi terms are negligible
+            if not self.isNonAxi and M > 1:
+                self._M = 1
+                M = 1
+                self._rho_cos_funcs = [row[:1] for row in self._rho_cos_funcs]
+                self._rho_sin_funcs = [row[:1] for row in self._rho_sin_funcs]
+                self._I_inner_cos_interp = [row[:1] for row in self._I_inner_cos_interp]
+                self._I_inner_sin_interp = [row[:1] for row in self._I_inner_sin_interp]
+                self._I_outer_cos_interp = [row[:1] for row in self._I_outer_cos_interp]
+                self._I_outer_sin_interp = [row[:1] for row in self._I_outer_sin_interp]
+                self._rho_cos_interp = [row[:1] for row in self._rho_cos_interp]
+                self._rho_sin_interp = [row[:1] for row in self._rho_sin_interp]
+            self._force_cache_key = None
+            self._2nd_deriv_cache_key = None
+            self._cached_t = None
+            self.hasC = False
+            self.hasC_dxdv = False
+            self.hasC_dens = False
+            # Populate BPoly attributes for initial state
+            self._ensure_bpolys_for_time(0.0)
+        else:
+            # Static path: validate spline types
+            for l, row in enumerate(rho_cos_splines):
                 for m, s in enumerate(row):
                     if not isinstance(s, InterpolatedUnivariateSpline):
+                        if callable(s):
+                            raise ValueError(
+                                f"rho_cos_splines[{l}][{m}] appears to be a "
+                                "callable rather than an InterpolatedUnivariateSpline. "
+                                "If it is a time-dependent function f(r, t), pass "
+                                "tgrid=... to enable time-dependent evaluation."
+                            )
                         raise TypeError(
-                            f"rho_sin_splines[{l}][{m}] must be an "
+                            f"rho_cos_splines[{l}][{m}] must be an "
                             "InterpolatedUnivariateSpline instance; use "
                             "MultipoleExpansionPotential.from_density to "
                             "initialize from a density function"
                         )
-        self._rho_cos_splines = rho_cos_splines
-        self._L = len(rho_cos_splines)
-        self._M = len(rho_cos_splines[0])
-        L = self._L
-        M = self._M
-        if rho_sin_splines is None:
-            # Create zero splines matching rho_cos_splines
-            self._rho_sin_splines = [
-                [
-                    InterpolatedUnivariateSpline(
-                        rgrid, numpy.zeros(len(rgrid)), k=self._k
-                    )
-                    for m in range(M)
+            if rho_sin_splines is not None:
+                for l, row in enumerate(rho_sin_splines):
+                    for m, s in enumerate(row):
+                        if not isinstance(s, InterpolatedUnivariateSpline):
+                            if callable(s):
+                                raise ValueError(
+                                    f"rho_sin_splines[{l}][{m}] appears to be a "
+                                    "callable rather than an InterpolatedUnivariateSpline. "
+                                    "If it is a time-dependent function f(r, t), pass "
+                                    "tgrid=... to enable time-dependent evaluation."
+                                )
+                            raise TypeError(
+                                f"rho_sin_splines[{l}][{m}] must be an "
+                                "InterpolatedUnivariateSpline instance; use "
+                                "MultipoleExpansionPotential.from_density to "
+                                "initialize from a density function"
+                            )
+            self._rho_cos_splines = rho_cos_splines
+            self._L = len(rho_cos_splines)
+            self._M = len(rho_cos_splines[0])
+            L = self._L
+            M = self._M
+            if rho_sin_splines is None:
+                # Create zero splines matching rho_cos_splines
+                self._rho_sin_splines = [
+                    [
+                        InterpolatedUnivariateSpline(
+                            rgrid, numpy.zeros(len(rgrid)), k=self._k
+                        )
+                        for m in range(M)
+                    ]
+                    for l in range(L)
                 ]
-                for l in range(L)
-            ]
-        else:
-            self._rho_sin_splines = rho_sin_splines
-        # Determine isNonAxi: if M > 1, check whether m > 0 splines are
-        # non-negligible compared to the monopole
-        if M > 1:
-            _max_m0 = numpy.max(
-                numpy.abs(
-                    numpy.column_stack(
-                        [self._rho_cos_splines[l][0](rgrid) for l in range(L)]
+            else:
+                self._rho_sin_splines = rho_sin_splines
+            # Determine isNonAxi: if M > 1, check whether m > 0 splines are
+            # non-negligible compared to the monopole
+            if M > 1:
+                _max_m0 = numpy.max(
+                    numpy.abs(
+                        numpy.column_stack(
+                            [self._rho_cos_splines[l][0](rgrid) for l in range(L)]
+                        )
                     )
                 )
-            )
-            _tol = 1e-12 * max(_max_m0, 1e-16)
-            has_nonaxi = False
-            for l in range(L):
-                for m in range(1, min(l + 1, M)):
-                    if numpy.any(
-                        numpy.abs(self._rho_cos_splines[l][m](rgrid)) > _tol
-                    ) or numpy.any(
-                        numpy.abs(self._rho_sin_splines[l][m](rgrid)) > _tol
-                    ):
-                        has_nonaxi = True
+                _tol = 1e-12 * max(_max_m0, 1e-16)
+                has_nonaxi = False
+                for l in range(L):
+                    for m in range(1, min(l + 1, M)):
+                        if numpy.any(
+                            numpy.abs(self._rho_cos_splines[l][m](rgrid)) > _tol
+                        ) or numpy.any(
+                            numpy.abs(self._rho_sin_splines[l][m](rgrid)) > _tol
+                        ):
+                            has_nonaxi = True
+                            break
+                    if has_nonaxi:
                         break
-                if has_nonaxi:
-                    break
-            self.isNonAxi = has_nonaxi
-        else:
-            self.isNonAxi = False
-        # Truncate to axisymmetric if non-axi terms are negligible
-        if not self.isNonAxi and M > 1:
-            self._M = 1
-            M = 1
-            self._rho_cos_splines = [row[:1] for row in self._rho_cos_splines]
-            self._rho_sin_splines = [row[:1] for row in self._rho_sin_splines]
-        # Precompute radial integrals for potential
-        # with -4*pi/(2l+1) absorbed into the spline data
-        # (beta_lm is already baked into the density splines)
-        self._precompute_radial_integrals()
-        self._force_cache_key = None
-        self._2nd_deriv_cache_key = None
-        self.hasC = True
-        self.hasC_dxdv = True
-        self.hasC_dens = True
+                self.isNonAxi = has_nonaxi
+            else:
+                self.isNonAxi = False
+            # Truncate to axisymmetric if non-axi terms are negligible
+            if not self.isNonAxi and M > 1:
+                self._M = 1
+                M = 1
+                self._rho_cos_splines = [row[:1] for row in self._rho_cos_splines]
+                self._rho_sin_splines = [row[:1] for row in self._rho_sin_splines]
+            # Precompute radial integrals for potential
+            # with -4*pi/(2l+1) absorbed into the spline data
+            # (beta_lm is already baked into the density splines)
+            self._precompute_radial_integrals()
+            self._force_cache_key = None
+            self._2nd_deriv_cache_key = None
+            self.hasC = True
+            self.hasC_dxdv = True
+            self.hasC_dens = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -203,6 +293,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         dens,
         L=6,
         rgrid=numpy.geomspace(1e-3, 30, 1_001),
+        tgrid=None,
         symmetry=None,
         costheta_order=None,
         phi_order=None,
@@ -217,11 +308,13 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Parameters
         ----------
         dens : callable or Potential
-            Density function. Can take 1 arg (r), 2 args (R, z), or 3 args (R, z, phi). Can also be a galpy Potential instance.
+            Density function. Can take 1 arg (r), 2 args (R, z), or 3 args (R, z, phi). Can also be a galpy Potential instance. For time-dependent densities, add a ``t`` keyword argument (e.g., ``dens(R, z, phi, t=0.)``).
         L : int, optional
             Maximum spherical harmonic degree + 1 (l goes from 0 to L-1). Default: 6.
         rgrid : numpy.ndarray, optional
             Radial grid points (1D array). Default: ``numpy.geomspace(1e-3, 30, 1_001)``.
+        tgrid : numpy.ndarray or None, optional
+            Time grid for time-dependent potentials. Required when the density function accepts a ``t`` parameter. Default: ``None``.
         symmetry : str or None, optional
             ``'spherical'``, ``'axisymmetric'``, or ``None`` (general). Determines M.
         costheta_order : int, optional
@@ -245,13 +338,28 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Notes
         -----
         - 2026-03-06 - Written - Bovy (UofT)
+        - 2026-03-23 - Added time-dependent support - Bovy (UofT)
         """
         # Dummy instance for ro/vo parsing (following SCFPotential pattern)
         dumm = cls(ro=ro, vo=vo)
         internal_ro = dumm._ro
         internal_vo = dumm._vo
         # Parse density function
-        dens_func = cls._parse_density(dens, internal_ro, internal_vo)
+        dens_func, has_t = cls._parse_density(dens, internal_ro, internal_vo)
+        # For Potential instances with tgrid, evaluate the density at each
+        # time to create a time-dependent MultipoleExpansionPotential
+        if isinstance(dens, Potential) and tgrid is not None:
+            dens_func = lambda R, z, phi, t: dens.dens(
+                R, z, phi, t=t, use_physical=False
+            )
+            has_t = True
+        # Validate tgrid requirement
+        if has_t and tgrid is None:
+            raise ValueError(
+                "tgrid is required when the density function depends on time "
+                "(has a 't' parameter). Pass tgrid=numpy.linspace(t0, t1, Nt) "
+                "to enable time-dependent evaluation."
+            )
         # Set L, M based on symmetry
         if symmetry is not None and symmetry.startswith("spher"):
             L = 1
@@ -265,34 +373,172 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             costheta_order = max(20, L + 1)
         if phi_order is None:
             phi_order = max(20, 2 * L + 1)
-        # Compute rho_lm on radial grid
-        rho_cos, rho_sin = cls._compute_rho_lm(
-            dens_func, rgrid, L, M, costheta_order, phi_order
-        )
-        # Normalization for angular reconstruction; absorbed into splines
-        k = 3
-        beta_lm = sph_harm_normalization(L, M)
-        rho_cos_splines = [
-            [
-                InterpolatedUnivariateSpline(
-                    rgrid, beta_lm[l, m] * rho_cos[:, l, m], k=k
+        if has_t:
+            # Time-dependent path: compute rho_lm at each t in tgrid,
+            # then build callable rho_cos_funcs/rho_sin_funcs for __init__
+            tgrid = numpy.asarray(tgrid)
+            k = 3
+            beta_lm = sph_harm_normalization(L, M)
+            Nr = len(rgrid)
+            Nt = len(tgrid)
+            # rho_cos_all[t_idx, r_idx, l, m], same for sin
+            rho_cos_all = numpy.zeros((Nt, Nr, L, M))
+            rho_sin_all = numpy.zeros((Nt, Nr, L, M))
+            for it, t in enumerate(tgrid):
+                dens_t = lambda R, z, phi, _t=t: dens_func(R, z, phi, _t)
+                rho_cos_t, rho_sin_t = cls._compute_rho_lm(
+                    dens_t, rgrid, L, M, costheta_order, phi_order
                 )
-                for m in range(M)
+                rho_cos_all[it] = rho_cos_t
+                rho_sin_all[it] = rho_sin_t
+            # Build time-dependent callable splines for each (l, m)
+            # These are callables f(r, t) that return density values
+            rho_cos_funcs = [[None for _ in range(M)] for _ in range(L)]
+            rho_sin_funcs = [[None for _ in range(M)] for _ in range(L)]
+            for l in range(L):
+                for m in range(M):
+                    # beta_lm * rho_cos_all[:, :, l, m] has shape (Nt, Nr)
+                    cos_data = beta_lm[l, m] * rho_cos_all[:, :, l, m]
+                    sin_data = beta_lm[l, m] * rho_sin_all[:, :, l, m]
+                    # Build spline interpolator over t for each (l,m)
+                    cos_t_interp = make_interp_spline(tgrid, cos_data, k=3)
+                    sin_t_interp = make_interp_spline(tgrid, sin_data, k=3)
+                    # Callable f(rgrid_eval, t) that returns density on rgrid
+                    # For _precompute_radial_integrals_2d, this is called with
+                    # the full rgrid and a single t
+                    rho_cos_funcs[l][m] = lambda r, t, _interp=cos_t_interp: _interp(t)
+                    rho_sin_funcs[l][m] = lambda r, t, _interp=sin_t_interp: _interp(t)
+            # Handle astropy unit detection (following SCFPotential pattern)
+            if _APY_LOADED and not isinstance(dens, Potential):
+                try:
+                    sig = inspect.signature(dens)
+                    params = list(sig.parameters.keys())
+                    spatial_params = [p for p in params if p != "t"]
+                    param = [1.0] * len(spatial_params)
+                    dens(*param, t=0.0).to(units.kg / units.m**3)
+                except (AttributeError, units.UnitConversionError, TypeError):
+                    pass
+                else:
+                    ro = internal_ro
+                    vo = internal_vo
+            return cls(
+                amp=amp,
+                rho_cos_splines=rho_cos_funcs,
+                rho_sin_splines=rho_sin_funcs,
+                rgrid=rgrid,
+                tgrid=tgrid,
+                normalize=normalize,
+                ro=ro,
+                vo=vo,
+            )
+        else:
+            # Static path
+            rho_cos, rho_sin = cls._compute_rho_lm(
+                dens_func, rgrid, L, M, costheta_order, phi_order
+            )
+            # Normalization for angular reconstruction; absorbed into splines
+            k = 3
+            beta_lm = sph_harm_normalization(L, M)
+            rho_cos_splines = [
+                [
+                    InterpolatedUnivariateSpline(
+                        rgrid, beta_lm[l, m] * rho_cos[:, l, m], k=k
+                    )
+                    for m in range(M)
+                ]
+                for l in range(L)
             ]
-            for l in range(L)
-        ]
-        rho_sin_splines = [
-            [
-                InterpolatedUnivariateSpline(
-                    rgrid, beta_lm[l, m] * rho_sin[:, l, m], k=k
-                )
-                for m in range(M)
+            rho_sin_splines = [
+                [
+                    InterpolatedUnivariateSpline(
+                        rgrid, beta_lm[l, m] * rho_sin[:, l, m], k=k
+                    )
+                    for m in range(M)
+                ]
+                for l in range(L)
             ]
-            for l in range(L)
-        ]
-        # Handle astropy unit detection (following SCFPotential pattern)
-        if _APY_LOADED:
-            numOfParam = 0
+            # Handle astropy unit detection (following SCFPotential pattern)
+            if _APY_LOADED:
+                numOfParam = 0
+                try:
+                    dens(1.0, 0.0, 0.0)
+                    numOfParam = 3
+                except TypeError:
+                    try:
+                        dens(1.0, 0.0)
+                        numOfParam = 2
+                    except TypeError:
+                        numOfParam = 1
+                if not isinstance(dens, Potential):
+                    param = [1.0] * numOfParam
+                    try:
+                        dens(*param).to(units.kg / units.m**3)
+                    except (AttributeError, units.UnitConversionError):
+                        pass
+                    else:
+                        ro = internal_ro
+                        vo = internal_vo
+            return cls(
+                amp=amp,
+                rho_cos_splines=rho_cos_splines,
+                rho_sin_splines=rho_sin_splines,
+                rgrid=rgrid,
+                normalize=normalize,
+                ro=ro,
+                vo=vo,
+            )
+
+    @staticmethod
+    def _parse_density(dens, ro, vo):
+        """
+        Parse the density input and return a callable taking (R, z, phi) or
+        (R, z, phi, t) plus a flag indicating time-dependence.
+
+        Parameters
+        ----------
+        dens : callable or Potential
+            Density function or galpy Potential instance. May accept a ``t``
+            keyword argument for time-dependent densities.
+        ro : float
+            Distance scale for unit conversion.
+        vo : float
+            Velocity scale for unit conversion.
+
+        Returns
+        -------
+        dens_func : callable
+            Density function taking ``(R, z, phi)`` (static) or
+            ``(R, z, phi, t)`` (time-dependent).
+        has_t : bool
+            Whether the density depends on time.
+
+        Notes
+        -----
+        - 2026-02-13 - Written - Bovy (UofT)
+        - 2026-03-06 - Made static with explicit ro/vo - Bovy (UofT)
+        - 2026-03-23 - Added time-dependence detection - Bovy (UofT)
+        """
+        # Handle galpy Potential instances (always static)
+        if isinstance(dens, Potential):
+            return (
+                lambda R, z, phi: dens.dens(R, z, phi, use_physical=False),
+                False,
+            )
+        # Detect t parameter via inspect.signature
+        has_t = "t" in inspect.signature(dens).parameters
+        # Determine number of spatial parameters via try/except
+        numOfParam = 0
+        if has_t:
+            try:
+                dens(1.0, 0.0, 0.0, t=0.0)
+                numOfParam = 3
+            except TypeError:
+                try:
+                    dens(1.0, 0.0, t=0.0)
+                    numOfParam = 2
+                except TypeError:
+                    numOfParam = 1
+        else:
             try:
                 dens(1.0, 0.0, 0.0)
                 numOfParam = 3
@@ -302,65 +548,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     numOfParam = 2
                 except TypeError:
                     numOfParam = 1
-            if not isinstance(dens, Potential):
-                param = [1.0] * numOfParam
-                try:
-                    dens(*param).to(units.kg / units.m**3)
-                except (AttributeError, units.UnitConversionError):
-                    pass
-                else:
-                    ro = internal_ro
-                    vo = internal_vo
-        return cls(
-            amp=amp,
-            rho_cos_splines=rho_cos_splines,
-            rho_sin_splines=rho_sin_splines,
-            rgrid=rgrid,
-            normalize=normalize,
-            ro=ro,
-            vo=vo,
-        )
-
-    @staticmethod
-    def _parse_density(dens, ro, vo):
-        """
-        Parse the density input and return a callable taking (R, z, phi).
-
-        Parameters
-        ----------
-        dens : callable or Potential
-            Density function or galpy Potential instance.
-        ro : float
-            Distance scale for unit conversion.
-        vo : float
-            Velocity scale for unit conversion.
-
-        Returns
-        -------
-        callable
-            Density function taking (R, z, phi).
-
-        Notes
-        -----
-        - 2026-02-13 - Written - Bovy (UofT)
-        - 2026-03-06 - Made static with explicit ro/vo - Bovy (UofT)
-        """
-        # Handle galpy Potential instances
-        if isinstance(dens, Potential):
-            return lambda R, z, phi: dens.dens(R, z, phi, use_physical=False)
-        # Determine number of parameters
-        numOfParam = 0
-        try:
-            dens(1.0, 0.0, 0.0)
-            numOfParam = 3
-        except TypeError:
-            try:
-                dens(1.0, 0.0)
-                numOfParam = 2
-            except TypeError:
-                numOfParam = 1
-        # Handle astropy units
-        if _APY_LOADED:
+        # Handle astropy units (not supported for time-dependent)
+        if not has_t and _APY_LOADED:
             param = [1.0] * numOfParam
             _dens_unit_output = False
             try:
@@ -372,26 +561,49 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             if _dens_unit_output:
                 raw_dens = dens
                 if numOfParam == 1:
-                    return lambda R, z, phi: conversion.parse_dens(
-                        raw_dens(numpy.sqrt(R**2 + z**2)),
-                        ro=ro,
-                        vo=vo,
+                    return (
+                        lambda R, z, phi: conversion.parse_dens(
+                            raw_dens(numpy.sqrt(R**2 + z**2)),
+                            ro=ro,
+                            vo=vo,
+                        ),
+                        False,
                     )
                 elif numOfParam == 2:
-                    return lambda R, z, phi: conversion.parse_dens(
-                        raw_dens(R, z), ro=ro, vo=vo
+                    return (
+                        lambda R, z, phi: conversion.parse_dens(
+                            raw_dens(R, z), ro=ro, vo=vo
+                        ),
+                        False,
                     )
                 else:
-                    return lambda R, z, phi: conversion.parse_dens(
-                        raw_dens(R, z, phi), ro=ro, vo=vo
+                    return (
+                        lambda R, z, phi: conversion.parse_dens(
+                            raw_dens(R, z, phi), ro=ro, vo=vo
+                        ),
+                        False,
                     )
-        # No units, wrap based on number of params
-        if numOfParam == 1:
-            return lambda R, z, phi: dens(numpy.sqrt(R**2 + z**2))
-        elif numOfParam == 2:
-            return lambda R, z, phi: dens(R, z)
+        # Wrap based on number of spatial params
+        if has_t:
+            if numOfParam == 1:
+                return (
+                    lambda R, z, phi, t: dens(numpy.sqrt(R**2 + z**2), t=t),
+                    True,
+                )
+            elif numOfParam == 2:
+                return lambda R, z, phi, t: dens(R, z, t=t), True
+            else:
+                return lambda R, z, phi, t: dens(R, z, phi, t=t), True
         else:
-            return dens
+            if numOfParam == 1:
+                return (
+                    lambda R, z, phi: dens(numpy.sqrt(R**2 + z**2)),
+                    False,
+                )
+            elif numOfParam == 2:
+                return lambda R, z, phi: dens(R, z), False
+            else:
+                return dens, False
 
     @staticmethod
     def _compute_rho_lm(dens_func, rgrid, L, M, costheta_order, phi_order):
@@ -614,6 +826,170 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                         ),
                     )
 
+    def _precompute_radial_integrals_2d(self):
+        """Precompute BPoly coefficients at each time in tgrid and build
+        time-interpolators for each (l, m) component.
+
+        For each t in tgrid, evaluate the density callables on rgrid, create
+        temporary InterpolatedUnivariateSpline, compute BPoly for I_inner/
+        I_outer (same as static _precompute_radial_integrals), and store
+        the BPoly coefficient arrays. These are then interpolated in t using
+        cubic B-spline interpolation (make_interp_spline).
+
+        Notes
+        -----
+        - 2026-03-23 - Written - Bovy (UofT)
+        """
+        rgrid = self._rgrid
+        tgrid = self._tgrid
+        L = self._L
+        M = self._M
+        Nt = len(tgrid)
+        Nr = len(rgrid)
+        k = self._k
+        # Storage for time-interpolators
+        self._I_inner_cos_interp = [[None for _ in range(M)] for _ in range(L)]
+        self._I_inner_sin_interp = [[None for _ in range(M)] for _ in range(L)]
+        self._I_outer_cos_interp = [[None for _ in range(M)] for _ in range(L)]
+        self._I_outer_sin_interp = [[None for _ in range(M)] for _ in range(L)]
+        self._rho_cos_interp = [[None for _ in range(M)] for _ in range(L)]
+        self._rho_sin_interp = [[None for _ in range(M)] for _ in range(L)]
+        for l in range(L):
+            pref = -4.0 * numpy.pi / (2 * l + 1)
+            for m in range(min(l + 1, M)):
+                pairs = [
+                    (self._rho_cos_funcs[l][m], "cos"),
+                ]
+                if m > 0:
+                    pairs.append((self._rho_sin_funcs[l][m], "sin"))
+                for rho_func, kind in pairs:
+                    # Collect BPoly coefficients and density values at each t
+                    I_inner_coeffs_all = numpy.zeros((Nt, 6, Nr - 1))
+                    I_outer_coeffs_all = numpy.zeros((Nt, 6, Nr - 1))
+                    rho_vals_all = numpy.zeros((Nt, Nr))
+                    for it, t in enumerate(tgrid):
+                        rho_arr = rho_func(rgrid, t)
+                        rho_vals_all[it] = rho_arr
+                        rho_spline = InterpolatedUnivariateSpline(rgrid, rho_arr, k=k)
+                        # Inner integral
+                        f_inner = rgrid ** (l + 2) * rho_arr
+                        f_inner_spline = InterpolatedUnivariateSpline(
+                            rgrid, f_inner, k=k
+                        )
+                        I_inner_vals = numpy.array(
+                            [f_inner_spline.integral(rgrid[0], r) for r in rgrid]
+                        )
+                        # Outer integral
+                        f_outer = rgrid ** (1 - l) * rho_arr
+                        f_outer_spline = InterpolatedUnivariateSpline(
+                            rgrid, f_outer, k=k
+                        )
+                        total_outer = f_outer_spline.integral(rgrid[0], rgrid[-1])
+                        I_outer_vals = numpy.array(
+                            [
+                                total_outer - f_outer_spline.integral(rgrid[0], r)
+                                for r in rgrid
+                            ]
+                        )
+                        # 2nd derivatives
+                        rho_deriv = rho_spline(rgrid, 1)
+                        d2I_inner = (l + 2) * rgrid ** (l + 1) * rho_arr + rgrid ** (
+                            l + 2
+                        ) * rho_deriv
+                        d2I_outer = (
+                            -(1 - l) * rgrid ** (-l) * rho_arr
+                            - rgrid ** (1 - l) * rho_deriv
+                        )
+                        # Build BPoly and extract coefficients
+                        bp_inner = BPoly.from_derivatives(
+                            rgrid,
+                            numpy.column_stack(
+                                [pref * I_inner_vals, pref * f_inner, pref * d2I_inner]
+                            ),
+                        )
+                        bp_outer = BPoly.from_derivatives(
+                            rgrid,
+                            numpy.column_stack(
+                                [
+                                    pref * I_outer_vals,
+                                    pref * (-f_outer),
+                                    pref * d2I_outer,
+                                ]
+                            ),
+                        )
+                        I_inner_coeffs_all[it] = bp_inner.c
+                        I_outer_coeffs_all[it] = bp_outer.c
+                    # Build time-interpolators over flattened coefficient arrays
+                    n_coeffs = 6 * (Nr - 1)
+                    I_inner_flat = I_inner_coeffs_all.reshape(Nt, n_coeffs)
+                    I_outer_flat = I_outer_coeffs_all.reshape(Nt, n_coeffs)
+                    I_inner_interp = make_interp_spline(tgrid, I_inner_flat, k=3)
+                    I_outer_interp = make_interp_spline(tgrid, I_outer_flat, k=3)
+                    rho_interp = make_interp_spline(tgrid, rho_vals_all, k=3)
+                    if kind == "cos":
+                        self._I_inner_cos_interp[l][m] = I_inner_interp
+                        self._I_outer_cos_interp[l][m] = I_outer_interp
+                        self._rho_cos_interp[l][m] = rho_interp
+                    else:
+                        self._I_inner_sin_interp[l][m] = I_inner_interp
+                        self._I_outer_sin_interp[l][m] = I_outer_interp
+                        self._rho_sin_interp[l][m] = rho_interp
+
+    def _ensure_bpolys_for_time(self, t):
+        """Swap cached BPoly splines to match the given time.
+
+        If the potential is not time-dependent, or if ``t`` matches the
+        currently cached time, this is a no-op. Otherwise, interpolate the
+        BPoly coefficients at ``t``, reconstruct BPoly objects, and update
+        density splines.
+
+        Notes
+        -----
+        - 2026-03-23 - Written - Bovy (UofT)
+        """
+        if not self._tdep or self._cached_t == t:
+            return
+        L = self._L
+        M = self._M
+        Nr = len(self._rgrid)
+        rgrid = self._rgrid
+        # Initialize storage on first call
+        if self._cached_t is None:
+            self._I_inner_cos = [[None for _ in range(M)] for _ in range(L)]
+            self._I_inner_sin = [[None for _ in range(M)] for _ in range(L)]
+            self._I_outer_cos = [[None for _ in range(M)] for _ in range(L)]
+            self._I_outer_sin = [[None for _ in range(M)] for _ in range(L)]
+            self._rho_cos_splines = [[None for _ in range(M)] for _ in range(L)]
+            self._rho_sin_splines = [[None for _ in range(M)] for _ in range(L)]
+        for l in range(L):
+            for m in range(min(l + 1, M)):
+                # I_inner_cos
+                coeffs = self._I_inner_cos_interp[l][m](t).reshape(6, Nr - 1)
+                self._I_inner_cos[l][m] = BPoly(coeffs, rgrid)
+                # I_outer_cos
+                coeffs = self._I_outer_cos_interp[l][m](t).reshape(6, Nr - 1)
+                self._I_outer_cos[l][m] = BPoly(coeffs, rgrid)
+                # Density cos spline
+                rho_vals = self._rho_cos_interp[l][m](t)
+                self._rho_cos_splines[l][m] = InterpolatedUnivariateSpline(
+                    rgrid, rho_vals, k=self._k
+                )
+                if m > 0:
+                    # I_inner_sin
+                    coeffs = self._I_inner_sin_interp[l][m](t).reshape(6, Nr - 1)
+                    self._I_inner_sin[l][m] = BPoly(coeffs, rgrid)
+                    # I_outer_sin
+                    coeffs = self._I_outer_sin_interp[l][m](t).reshape(6, Nr - 1)
+                    self._I_outer_sin[l][m] = BPoly(coeffs, rgrid)
+                    # Density sin spline
+                    rho_vals = self._rho_sin_interp[l][m](t)
+                    self._rho_sin_splines[l][m] = InterpolatedUnivariateSpline(
+                        rgrid, rho_vals, k=self._k
+                    )
+        self._force_cache_key = None
+        self._2nd_deriv_cache_key = None
+        self._cached_t = t
+
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the potential at (R, z, phi).
@@ -638,6 +1014,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
+        self._ensure_bpolys_for_time(t)
         if not self.isNonAxi and phi is None:
             phi = 0.0
         R = numpy.array(R, dtype=float)
@@ -841,6 +1218,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
+        self._ensure_bpolys_for_time(t)
         if not self.isNonAxi and phi is None:
             phi = 0.0
         R = numpy.array(R, dtype=float)
@@ -884,7 +1262,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 result += contrib
         return float(result)
 
-    def _compute_spher_forces_at_point(self, R, z, phi):
+    def _compute_spher_forces_at_point(self, R, z, phi, t=0.0):
         """
         Compute spherical force components dPhi/dr, dPhi/dtheta, dPhi/dphi at a single point.
 
@@ -896,6 +1274,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             Vertical height.
         phi : float
             Azimuth.
+        t : float, optional
+            Time. Default: 0.0.
 
         Returns
         -------
@@ -910,6 +1290,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
+        self._ensure_bpolys_for_time(t)
         cache_key = (float(R), float(z), float(phi))
         if cache_key == self._force_cache_key:
             return (
@@ -980,7 +1361,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         self._cached_dPhi_dphi = dPhi_dphi
         return dPhi_dr, dPhi_dtheta, dPhi_dphi
 
-    def _compute_spher_2nd_derivs_at_point(self, R, z, phi):
+    def _compute_spher_2nd_derivs_at_point(self, R, z, phi, t=0.0):
         """
         Compute spherical second derivatives of the potential at a single point.
 
@@ -992,6 +1373,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             Vertical height.
         phi : float
             Azimuth.
+        t : float, optional
+            Time. Default: 0.0.
 
         Returns
         -------
@@ -1016,6 +1399,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-18 - Written - Bovy (UofT)
         """
+        self._ensure_bpolys_for_time(t)
         cache_key = (float(R), float(z), float(phi))
         if cache_key == self._2nd_deriv_cache_key:
             return self._cached_2nd_derivs
@@ -1133,22 +1517,28 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         return self._cached_2nd_derivs
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        return self._evaluate_cyl_2nd_deriv("R2", R, z, phi)
+        self._ensure_bpolys_for_time(t)
+        return self._evaluate_cyl_2nd_deriv("R2", R, z, phi, t=t)
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        return self._evaluate_cyl_2nd_deriv("z2", R, z, phi)
+        self._ensure_bpolys_for_time(t)
+        return self._evaluate_cyl_2nd_deriv("z2", R, z, phi, t=t)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        return self._evaluate_cyl_2nd_deriv("Rz", R, z, phi)
+        self._ensure_bpolys_for_time(t)
+        return self._evaluate_cyl_2nd_deriv("Rz", R, z, phi, t=t)
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        return self._evaluate_cyl_2nd_deriv("phi2", R, z, phi)
+        self._ensure_bpolys_for_time(t)
+        return self._evaluate_cyl_2nd_deriv("phi2", R, z, phi, t=t)
 
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        return self._evaluate_cyl_2nd_deriv("Rphi", R, z, phi)
+        self._ensure_bpolys_for_time(t)
+        return self._evaluate_cyl_2nd_deriv("Rphi", R, z, phi, t=t)
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        return self._evaluate_cyl_2nd_deriv("phiz", R, z, phi)
+        self._ensure_bpolys_for_time(t)
+        return self._evaluate_cyl_2nd_deriv("phiz", R, z, phi, t=t)
 
     def OmegaP(self):
         return 0
@@ -1175,6 +1565,11 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 rho_cos values (Nr),
                 [if m>0: I_inner_sin, I_outer_sin, rho_sin likewise]
         """
+        if p._tdep:
+            raise NotImplementedError(
+                "C backend not yet supported for time-dependent "
+                "MultipoleExpansionPotential"
+            )
         # Use BPoly breakpoints as the grid: PPoly coefficients are defined
         # relative to these breakpoints, so C must use them for interval lookup
         rgrid = p._I_inner_cos[0][0].x

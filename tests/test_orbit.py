@@ -37,6 +37,7 @@ from test_potential import (
     mockFlatEllipticalDiskPotential,
     mockFlatGaussianAmplitudeBarPotential,
     mockFlatLopsidedDiskPotential,
+    mockFlatSolidBodyRotationMultipoleExpansionPotential,
     mockFlatSolidBodyRotationPlanarSpiralArmsPotential,
     mockFlatSolidBodyRotationSpiralArmsPotential,
     mockFlatSpiralArmsPotential,
@@ -162,6 +163,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             and not "Spiral" in pot
             and not "MovingObject" in pot
             and not "Slow" in pot
+            and not "SolidBodyRotationMultipole" in pot
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
@@ -401,7 +403,11 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             o.integrate(ttimes, ptp, method=integrator)
         tEs = o.E(ttimes)
         # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-        if not "Bar" in pot and not "Spiral" in pot:
+        if (
+            not "Bar" in pot
+            and not "Spiral" in pot
+            and not "SolidBodyRotationMultipole" in pot
+        ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
                 % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
@@ -499,7 +505,11 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             o.integrate(ttimes, tp, method=integrator)
         tEs = o.E(ttimes)
         #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-        if not "Bar" in pot and not "Spiral" in pot:
+        if (
+            not "Bar" in pot
+            and not "Spiral" in pot
+            and not "SolidBodyRotationMultipole" in pot
+        ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s"
                 % (pot, integrator)
@@ -599,6 +609,7 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
             and not "Spiral" in pot
             and not "MovingObject" in pot
             and not "Slow" in pot
+            and not "SolidBodyRotationMultipole" in pot
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
