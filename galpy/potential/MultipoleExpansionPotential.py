@@ -8,6 +8,7 @@ import numpy
 from numpy.polynomial.legendre import leggauss
 from scipy.interpolate import (
     BPoly,
+    CubicSpline,
     InterpolatedUnivariateSpline,
     PPoly,
     make_interp_spline,
@@ -167,9 +168,6 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             self._force_cache_key = None
             self._2nd_deriv_cache_key = None
             self._cached_t = None
-            self.hasC = False
-            self.hasC_dxdv = False
-            self.hasC_dens = False
             # Populate BPoly attributes for initial state
             self._ensure_bpolys_for_time(0.0)
         else:
@@ -263,9 +261,9 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             self._precompute_radial_integrals()
             self._force_cache_key = None
             self._2nd_deriv_cache_key = None
-            self.hasC = True
-            self.hasC_dxdv = True
-            self.hasC_dens = True
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dens = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -863,9 +861,10 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 if m > 0:
                     pairs.append((self._rho_sin_funcs[l][m], "sin"))
                 for rho_func, kind in pairs:
-                    # Collect BPoly coefficients and density values at each t
-                    I_inner_coeffs_all = numpy.zeros((Nt, 6, Nr - 1))
-                    I_outer_coeffs_all = numpy.zeros((Nt, 6, Nr - 1))
+                    # Collect PPoly coefficients and density values at each t
+                    n_r_coeffs = 6 * (Nr - 1)
+                    I_inner_flat_all = numpy.zeros((Nt, n_r_coeffs))
+                    I_outer_flat_all = numpy.zeros((Nt, n_r_coeffs))
                     rho_vals_all = numpy.zeros((Nt, Nr))
                     for it, t in enumerate(tgrid):
                         rho_arr = rho_func(rgrid, t)
@@ -900,7 +899,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                             -(1 - l) * rgrid ** (-l) * rho_arr
                             - rgrid ** (1 - l) * rho_deriv
                         )
-                        # Build BPoly and extract coefficients
+                        # Build BPoly, convert to PPoly, flatten interval-major
                         bp_inner = BPoly.from_derivatives(
                             rgrid,
                             numpy.column_stack(
@@ -917,15 +916,16 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                                 ]
                             ),
                         )
-                        I_inner_coeffs_all[it] = bp_inner.c
-                        I_outer_coeffs_all[it] = bp_outer.c
-                    # Build time-interpolators over flattened coefficient arrays
-                    n_coeffs = 6 * (Nr - 1)
-                    I_inner_flat = I_inner_coeffs_all.reshape(Nt, n_coeffs)
-                    I_outer_flat = I_outer_coeffs_all.reshape(Nt, n_coeffs)
-                    I_inner_interp = make_interp_spline(tgrid, I_inner_flat, k=3)
-                    I_outer_interp = make_interp_spline(tgrid, I_outer_flat, k=3)
-                    rho_interp = make_interp_spline(tgrid, rho_vals_all, k=3)
+                        pp_inner = PPoly.from_bernstein_basis(bp_inner)
+                        pp_outer = PPoly.from_bernstein_basis(bp_outer)
+                        I_inner_flat_all[it] = pp_inner.c.ravel(order="F")
+                        I_outer_flat_all[it] = pp_outer.c.ravel(order="F")
+                    # Build CubicSpline time-interpolators over flattened
+                    # PPoly coefficient arrays; CubicSpline is a PPoly
+                    # subclass with breakpoints exactly equal to tgrid
+                    I_inner_interp = CubicSpline(tgrid, I_inner_flat_all)
+                    I_outer_interp = CubicSpline(tgrid, I_outer_flat_all)
+                    rho_interp = CubicSpline(tgrid, rho_vals_all)
                     if kind == "cos":
                         self._I_inner_cos_interp[l][m] = I_inner_interp
                         self._I_outer_cos_interp[l][m] = I_outer_interp
@@ -963,12 +963,14 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             self._rho_sin_splines = [[None for _ in range(M)] for _ in range(L)]
         for l in range(L):
             for m in range(min(l + 1, M)):
-                # I_inner_cos
-                coeffs = self._I_inner_cos_interp[l][m](t).reshape(6, Nr - 1)
-                self._I_inner_cos[l][m] = BPoly(coeffs, rgrid)
+                # I_inner_cos: undo interval-major flatten
+                flat_coeffs = self._I_inner_cos_interp[l][m](t)
+                coeffs_2d = flat_coeffs.reshape(Nr - 1, 6).T
+                self._I_inner_cos[l][m] = PPoly(coeffs_2d, rgrid)
                 # I_outer_cos
-                coeffs = self._I_outer_cos_interp[l][m](t).reshape(6, Nr - 1)
-                self._I_outer_cos[l][m] = BPoly(coeffs, rgrid)
+                flat_coeffs = self._I_outer_cos_interp[l][m](t)
+                coeffs_2d = flat_coeffs.reshape(Nr - 1, 6).T
+                self._I_outer_cos[l][m] = PPoly(coeffs_2d, rgrid)
                 # Density cos spline
                 rho_vals = self._rho_cos_interp[l][m](t)
                 self._rho_cos_splines[l][m] = InterpolatedUnivariateSpline(
@@ -976,11 +978,13 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 )
                 if m > 0:
                     # I_inner_sin
-                    coeffs = self._I_inner_sin_interp[l][m](t).reshape(6, Nr - 1)
-                    self._I_inner_sin[l][m] = BPoly(coeffs, rgrid)
+                    flat_coeffs = self._I_inner_sin_interp[l][m](t)
+                    coeffs_2d = flat_coeffs.reshape(Nr - 1, 6).T
+                    self._I_inner_sin[l][m] = PPoly(coeffs_2d, rgrid)
                     # I_outer_sin
-                    coeffs = self._I_outer_sin_interp[l][m](t).reshape(6, Nr - 1)
-                    self._I_outer_sin[l][m] = BPoly(coeffs, rgrid)
+                    flat_coeffs = self._I_outer_sin_interp[l][m](t)
+                    coeffs_2d = flat_coeffs.reshape(Nr - 1, 6).T
+                    self._I_outer_sin[l][m] = PPoly(coeffs_2d, rgrid)
                     # Density sin spline
                     rho_vals = self._rho_sin_interp[l][m](t)
                     self._rho_sin_splines[l][m] = InterpolatedUnivariateSpline(
@@ -1555,21 +1559,64 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Uses the BPoly breakpoints as the radial grid (not p._rgrid), since
         the PPoly coefficients are defined relative to these breakpoints.
 
-        Data layout:
+        Static data layout (Nt=0):
             Nr, L, M, isNonAxi,
             rgrid (Nr),
-            amp,
+            amp, Nt=0,
             per (l,m):
                 I_inner_cos PPoly coeffs (6*(Nr-1)),
                 I_outer_cos PPoly coeffs (6*(Nr-1)),
                 rho_cos values (Nr),
                 [if m>0: I_inner_sin, I_outer_sin, rho_sin likewise]
+
+        Time-dependent data layout (Nt>0):
+            Nr, L, M, isNonAxi,
+            rgrid (Nr),
+            amp, Nt, tgrid (Nt),
+            per (l,m):
+                I_inner_cos time-PPoly (4*(Nt-1)*6*(Nr-1)),
+                I_outer_cos time-PPoly (4*(Nt-1)*6*(Nr-1)),
+                rho_cos time-PPoly (4*(Nt-1)*Nr),
+                [if m>0: sin components likewise]
+
+        Time-PPoly layout per block: data[i_t * 4 * n + k * n + j]
+        where i_t is the time interval, k is the cubic power (0..3),
+        and j indexes the r-coefficients.
         """
         if p._tdep:
-            raise NotImplementedError(
-                "C backend not yet supported for time-dependent "
-                "MultipoleExpansionPotential"
-            )
+            rgrid = p._rgrid
+            Nr, L, M = len(rgrid), p._L, p._M
+            Nt = len(p._tgrid)
+            args = [Nr, L, M, int(p.isNonAxi)]
+            args.extend(rgrid)
+            args.append(p._amp)
+            args.append(Nt)
+            args.extend(p._tgrid)
+            for l in range(L):
+                for m in range(min(l + 1, M)):
+                    interp_sets = [
+                        (
+                            p._I_inner_cos_interp[l][m],
+                            p._I_outer_cos_interp[l][m],
+                            p._rho_cos_interp[l][m],
+                        ),
+                    ]
+                    if m > 0:
+                        interp_sets.append(
+                            (
+                                p._I_inner_sin_interp[l][m],
+                                p._I_outer_sin_interp[l][m],
+                                p._rho_sin_interp[l][m],
+                            ),
+                        )
+                    for I_inner_cs, I_outer_cs, rho_cs in interp_sets:
+                        # CubicSpline.c has shape (4, Nt-1, n_coeffs)
+                        # Transpose to (Nt-1, 4, n_coeffs) then flatten
+                        args.extend(I_inner_cs.c.transpose(1, 0, 2).ravel())
+                        args.extend(I_outer_cs.c.transpose(1, 0, 2).ravel())
+                        args.extend(rho_cs.c.transpose(1, 0, 2).ravel())
+            return args
+        # Static path (Nt=0)
         # Use BPoly breakpoints as the grid: PPoly coefficients are defined
         # relative to these breakpoints, so C must use them for interval lookup
         rgrid = p._I_inner_cos[0][0].x
@@ -1577,6 +1624,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         args = [Nr, L, M, int(p.isNonAxi)]
         args.extend(rgrid)
         args.append(p._amp)
+        args.append(0)  # Nt=0 for static
         for l in range(L):
             for m in range(min(l + 1, M)):
                 for I_inner, I_outer, rho_sp in [

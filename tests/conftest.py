@@ -78,6 +78,7 @@ def pytest_generate_tests(metafunc):
         pots.append("mockMultipoleExpansionAxiPotential")
         pots.append("mockMultipoleExpansionPotential")
         pots.append("mockFlatSolidBodyRotationMultipoleExpansionPotential")
+        pots.append("mockFlatWeaklyTDMultipoleExpansionPotential")
         rmpots = [
             "Potential",
             "MWPotential",
@@ -130,7 +131,7 @@ def pytest_generate_tests(metafunc):
         ] = -8.0  # these are more difficult (and also not quite conserved)
         jactol[
             "mockFlatSolidBodyRotationMultipoleExpansionPotential"
-        ] = -4.0  # time-dependent, Python-only integration (odeint)
+        ] = -4.0  # time-dependent, C integration
         # Now generate all inputs and run tests
         tols = [tol[p] if p in tol else tol["default"] for p in pots]
         jactols = [jactol[p] if p in jactol else tol["default"] for p in pots]
