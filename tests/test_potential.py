@@ -11903,6 +11903,39 @@ class mockFlatSolidBodyRotationMultipoleExpansionPotential(testMWPotential):
         return 1.3
 
 
+class mockFlatWeaklyTDMultipoleExpansionPotential(testMWPotential):
+    """Weakly time-dependent rotating multipole (epsilon=1e-4).
+
+    Should conserve the Jacobi integral to nearly the same level as a static
+    potential conserves energy, confirming that the C time-reconstruction is
+    not introducing significant error.
+    """
+
+    def __init__(self):
+        omega = 1.3
+        epsilon = 1e-4
+        hp = potential.HernquistPotential(amp=0.02, a=1.0)
+        tdep_mp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + epsilon * numpy.cos(phi + omega * t))
+            ),
+            L=6,
+            rgrid=numpy.geomspace(1e-3, 50, 101),
+            tgrid=numpy.linspace(0, 300, 76),
+        )
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                tdep_mp,
+            ],
+        )
+
+    def OmegaP(self):
+        return 1.3
+
+
 # Special case to test handling of pure planarWrapper, not necessary for new wrappers
 class mockFlatSolidBodyRotationPlanarSpiralArmsPotential(testplanarMWPotential):
     def __init__(self):

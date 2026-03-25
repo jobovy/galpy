@@ -879,7 +879,7 @@ def test_time_dependent_rotation_forces():
 
 
 def test_time_dependent_spline_init():
-    """Direct callable (r,t) splines → verify _tdep=True, hasC=False."""
+    """Direct callable (r,t) splines → verify _tdep=True, hasC=True."""
     rgrid = _DEFAULT_RGRID
     hp = HernquistPotential(amp=2.0, a=1.0)
     # Build a static multipole first to get spline shape
@@ -897,9 +897,9 @@ def test_time_dependent_spline_init():
         tgrid=tgrid,
     )
     assert tdep._tdep is True
-    assert tdep.hasC is False
-    assert tdep.hasC_dxdv is False
-    assert tdep.hasC_dens is False
+    assert tdep.hasC is True
+    assert tdep.hasC_dxdv is True
+    assert tdep.hasC_dens is True
 
 
 def test_time_dependent_reduces_to_static():
@@ -985,8 +985,8 @@ def test_time_dependent_isNonAxi_detection():
     assert nonaxi_mp._M == 4  # No truncation
 
 
-def test_time_dependent_hasC_false():
-    """All hasC* flags should be False for time-dependent case."""
+def test_time_dependent_hasC():
+    """All hasC* flags should be True for time-dependent case (C backend supported)."""
     hp = HernquistPotential(amp=2.0, a=1.0)
     tdep_mp = MultipoleExpansionPotential.from_density(
         dens=lambda R, z, phi, t=0.0: hp.dens(R, z, use_physical=False),
@@ -994,9 +994,9 @@ def test_time_dependent_hasC_false():
         rgrid=numpy.geomspace(1e-2, 10, 51),
         tgrid=numpy.linspace(0, 10, 6),
     )
-    assert tdep_mp.hasC is False
-    assert tdep_mp.hasC_dxdv is False
-    assert tdep_mp.hasC_dens is False
+    assert tdep_mp.hasC is True
+    assert tdep_mp.hasC_dxdv is True
+    assert tdep_mp.hasC_dens is True
 
 
 def test_time_dependent_tgrid_required():
