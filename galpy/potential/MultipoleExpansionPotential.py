@@ -168,8 +168,6 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             self._force_cache_key = None
             self._2nd_deriv_cache_key = None
             self._cached_t = None
-            # Populate BPoly attributes for initial state
-            self._ensure_bpolys_for_time(0.0)
         else:
             # Static path: validate spline types
             for l, row in enumerate(rho_cos_splines):
@@ -372,23 +370,16 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         if phi_order is None:
             phi_order = max(20, 2 * L + 1)
         if has_t:
-            # Time-dependent path: compute rho_lm at each t in tgrid,
-            # then build callable rho_cos_funcs/rho_sin_funcs for __init__
+            # Time-dependent path: compute rho_lm at all t in tgrid
+            # using vectorized angular integration
             tgrid = numpy.asarray(tgrid)
             k = 3
             beta_lm = sph_harm_normalization(L, M)
             Nr = len(rgrid)
             Nt = len(tgrid)
-            # rho_cos_all[t_idx, r_idx, l, m], same for sin
-            rho_cos_all = numpy.zeros((Nt, Nr, L, M))
-            rho_sin_all = numpy.zeros((Nt, Nr, L, M))
-            for it, t in enumerate(tgrid):
-                dens_t = lambda R, z, phi, _t=t: dens_func(R, z, phi, _t)
-                rho_cos_t, rho_sin_t = cls._compute_rho_lm(
-                    dens_t, rgrid, L, M, costheta_order, phi_order
-                )
-                rho_cos_all[it] = rho_cos_t
-                rho_sin_all[it] = rho_sin_t
+            rho_cos_all, rho_sin_all = cls._compute_rho_lm_timedep(
+                dens_func, rgrid, tgrid, L, M, costheta_order, phi_order
+            )
             # Build time-dependent callable splines for each (l, m)
             # These are callables f(r, t) that return density values
             rho_cos_funcs = [[None for _ in range(M)] for _ in range(L)]
@@ -689,10 +680,19 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 sintheta = numpy.sqrt(1.0 - ct**2)
                 R = r * sintheta
                 z = r * ct
-                # Evaluate density at all phi nodes
-                rho_vals = numpy.array(
-                    [dens_func(R, z, p) for p in phi_nodes]
-                )  # (phi_order,)
+                # Evaluate density at all phi nodes (try vectorized first)
+                try:
+                    rho_vals = numpy.atleast_1d(
+                        dens_func(
+                            numpy.full(phi_order, R),
+                            numpy.full(phi_order, z),
+                            phi_nodes,
+                        )
+                    )
+                except (TypeError, ValueError):
+                    rho_vals = numpy.array(
+                        [dens_func(R, z, p) for p in phi_nodes]
+                    )  # (phi_order,)
                 # Trapezoidal phi integrals
                 phi_int_cos = (
                     numpy.sum(rho_vals[:, numpy.newaxis] * cos_mphi, axis=0) * dphi
@@ -711,6 +711,247 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         rho_cos *= alpha_lm[numpy.newaxis, :, :]
         rho_sin *= alpha_lm[numpy.newaxis, :, :]
         return rho_cos, rho_sin
+
+    @staticmethod
+    def _compute_rho_lm_timedep(
+        dens_func, rgrid, tgrid, L, M, costheta_order, phi_order
+    ):
+        """Compute spherical harmonic density coefficients for all timesteps.
+
+        Evaluates the density at all spatial quadrature points for all times,
+        then performs angular integration vectorized over the time axis using
+        numpy broadcasting.
+
+        Parameters
+        ----------
+        dens_func : callable
+            Density function taking (R, z, phi, t).
+        rgrid : numpy.ndarray
+            Radial grid points.
+        tgrid : numpy.ndarray
+            Time grid points.
+        L : int
+            Maximum degree + 1.
+        M : int
+            Maximum order + 1.
+        costheta_order : int
+            Number of Gauss-Legendre quadrature points for cos(theta).
+        phi_order : int
+            Number of uniform phi points for trapezoidal rule.
+
+        Returns
+        -------
+        rho_cos_all : numpy.ndarray
+            Cosine coefficients, shape (Nt, Nr, L, M).
+        rho_sin_all : numpy.ndarray
+            Sine coefficients, shape (Nt, Nr, L, M).
+
+        Notes
+        -----
+        - 2026-03-27 - Written - Bovy (UofT)
+        """
+        Nr = len(rgrid)
+        Nt = len(tgrid)
+        # alpha_lm = normalization without the (2 - delta) factor
+        beta_lm = sph_harm_normalization(L, M)
+        alpha_lm = beta_lm.copy()
+        alpha_lm[:, 1:] /= 2.0
+        # Gauss-Legendre quadrature for cos(theta)
+        ct_nodes, ct_weights = leggauss(costheta_order)
+        # Precompute Legendre polynomials at all quadrature nodes
+        PP_all = numpy.zeros((costheta_order, L, M))
+        for ict, ct in enumerate(ct_nodes):
+            PP_all[ict] = compute_legendre(ct, L, M)
+        if M == 1:
+            # Axisymmetric: no phi integral needed
+            rho_cos_all = numpy.zeros((Nt, Nr, L, 1))
+            rho_sin_all = numpy.zeros((Nt, Nr, L, 1))
+            # Try fully vectorized: evaluate density at all (r, t) at once
+            _vectorized = True
+            try:
+                R_2d = rgrid[:, numpy.newaxis]  # (Nr, 1)
+                z_2d = numpy.zeros((Nr, 1))
+                t_2d = tgrid[numpy.newaxis, :]  # (1, Nt)
+                ct = ct_nodes[0]
+                sintheta = numpy.sqrt(1.0 - ct**2)
+                test = dens_func(R_2d * sintheta, R_2d * ct, 0.0, t_2d)
+                if numpy.shape(test) != (Nr, Nt):
+                    _vectorized = False
+            except (TypeError, ValueError):
+                _vectorized = False
+            for ict in range(costheta_order):
+                ct = ct_nodes[ict]
+                wt = ct_weights[ict]
+                sintheta = numpy.sqrt(1.0 - ct**2)
+                R_col = rgrid[:, numpy.newaxis]  # (Nr, 1)
+                if _vectorized:
+                    # (Nr, Nt) via broadcasting
+                    rho_spatial = dens_func(
+                        R_col * sintheta,
+                        R_col * ct,
+                        0.0,
+                        tgrid[numpy.newaxis, :],
+                    ).T  # -> (Nt, Nr)
+                else:
+                    rho_spatial = numpy.zeros((Nt, Nr))
+                    for it, t in enumerate(tgrid):
+                        for ir, r in enumerate(rgrid):
+                            rho_spatial[it, ir] = dens_func(
+                                r * sintheta, r * ct, 0.0, t
+                            )
+                rho_cos_all[:, :, :, 0] += (
+                    (wt * rho_spatial[:, :, numpy.newaxis] * PP_all[ict, :, 0])
+                    * 2.0
+                    * numpy.pi
+                )
+            rho_cos_all *= alpha_lm[numpy.newaxis, numpy.newaxis, :, :]
+            return rho_cos_all, rho_sin_all
+        # General case: full angular integration
+        phi_nodes = numpy.linspace(0.0, 2.0 * numpy.pi, phi_order, endpoint=False)
+        dphi = 2.0 * numpy.pi / phi_order
+        m_arr = numpy.arange(M)
+        cos_mphi = numpy.cos(numpy.outer(phi_nodes, m_arr))  # (phi_order, M)
+        sin_mphi = numpy.sin(numpy.outer(phi_nodes, m_arr))  # (phi_order, M)
+        rho_cos_all = numpy.zeros((Nt, Nr, L, M))
+        rho_sin_all = numpy.zeros((Nt, Nr, L, M))
+        # Try fully vectorized: evaluate density at all (r, t, phi) at once
+        # per theta node. Shape: (Nr, Nt, phi_order)
+        _vectorized = True
+        try:
+            ct = ct_nodes[0]
+            sintheta = numpy.sqrt(1.0 - ct**2)
+            R_3d = rgrid[:, numpy.newaxis, numpy.newaxis]  # (Nr, 1, 1)
+            t_3d = tgrid[numpy.newaxis, :, numpy.newaxis]  # (1, Nt, 1)
+            phi_3d = phi_nodes[numpy.newaxis, numpy.newaxis, :]  # (1, 1, phi_order)
+            test = dens_func(R_3d * sintheta, R_3d * ct, phi_3d, t_3d)
+            if numpy.shape(test) != (Nr, Nt, phi_order):
+                _vectorized = False
+        except (TypeError, ValueError):
+            _vectorized = False
+        if _vectorized:
+            R_3d = rgrid[:, numpy.newaxis, numpy.newaxis]
+            t_3d = tgrid[numpy.newaxis, :, numpy.newaxis]
+            phi_3d = phi_nodes[numpy.newaxis, numpy.newaxis, :]
+            for ict in range(costheta_order):
+                ct = ct_nodes[ict]
+                wt = ct_weights[ict]
+                sintheta = numpy.sqrt(1.0 - ct**2)
+                # rho_spatial: (Nr, Nt, phi_order)
+                rho_spatial = dens_func(R_3d * sintheta, R_3d * ct, phi_3d, t_3d)
+                # Phi integrals: (Nr, Nt, phi_order) @ (phi_order, M) -> (Nr, Nt, M)
+                phi_int_cos = numpy.einsum("rtp,pm->rtm", rho_spatial, cos_mphi) * dphi
+                phi_int_sin = numpy.einsum("rtp,pm->rtm", rho_spatial, sin_mphi) * dphi
+                # Accumulate: transpose to (Nt, Nr, M) then broadcast with (L, M)
+                rho_cos_all += (
+                    wt
+                    * PP_all[ict, numpy.newaxis, numpy.newaxis, :, :]
+                    * phi_int_cos.transpose(1, 0, 2)[:, :, numpy.newaxis, :]
+                )
+                rho_sin_all += (
+                    wt
+                    * PP_all[ict, numpy.newaxis, numpy.newaxis, :, :]
+                    * phi_int_sin.transpose(1, 0, 2)[:, :, numpy.newaxis, :]
+                )
+        else:
+            for ir, r in enumerate(rgrid):
+                for ict in range(costheta_order):
+                    ct = ct_nodes[ict]
+                    wt = ct_weights[ict]
+                    sintheta = numpy.sqrt(1.0 - ct**2)
+                    R = r * sintheta
+                    z = r * ct
+                    rho_spatial = numpy.zeros((Nt, phi_order))
+                    for it, t in enumerate(tgrid):
+                        try:
+                            rho_spatial[it] = numpy.atleast_1d(
+                                dens_func(
+                                    numpy.full(phi_order, R),
+                                    numpy.full(phi_order, z),
+                                    phi_nodes,
+                                    t,
+                                )
+                            )
+                        except (TypeError, ValueError):
+                            for ip, p in enumerate(phi_nodes):
+                                rho_spatial[it, ip] = dens_func(R, z, p, t)
+                    phi_int_cos = rho_spatial @ cos_mphi * dphi
+                    phi_int_sin = rho_spatial @ sin_mphi * dphi
+                    rho_cos_all[:, ir, :, :] += (
+                        wt * PP_all[ict, :, :] * phi_int_cos[:, numpy.newaxis, :]
+                    )
+                    rho_sin_all[:, ir, :, :] += (
+                        wt * PP_all[ict, :, :] * phi_int_sin[:, numpy.newaxis, :]
+                    )
+        rho_cos_all *= alpha_lm[numpy.newaxis, numpy.newaxis, :, :]
+        rho_sin_all *= alpha_lm[numpy.newaxis, numpy.newaxis, :, :]
+        return rho_cos_all, rho_sin_all
+
+    @staticmethod
+    def _quintic_hermite_ppoly_coeffs(vals, derivs, derivs2, dx):
+        """Compute flattened PPoly coefficients for quintic Hermite interpolation.
+
+        Given function values, first and second derivatives at breakpoints,
+        computes the power-basis coefficients of the quintic C² piecewise
+        polynomial that matches these constraints. This is equivalent to
+        ``PPoly.from_bernstein_basis(BPoly.from_derivatives(...))`` but
+        operates on arrays with an arbitrary leading batch dimension,
+        avoiding per-element Python object construction.
+
+        Parameters
+        ----------
+        vals : numpy.ndarray, shape ``(..., Nr)``
+            Function values at breakpoints.
+        derivs : numpy.ndarray, shape ``(..., Nr)``
+            First derivatives at breakpoints.
+        derivs2 : numpy.ndarray, shape ``(..., Nr)``
+            Second derivatives at breakpoints.
+        dx : numpy.ndarray, shape ``(Nr-1,)``
+            Interval widths (``numpy.diff(rgrid)``).
+
+        Returns
+        -------
+        numpy.ndarray, shape ``(..., 6*(Nr-1))``
+            Flattened PPoly coefficients in interval-major order
+            (matching ``PPoly.c.ravel(order='F')``).
+
+        Notes
+        -----
+        - 2026-03-27 - Written - Bovy (UofT)
+        """
+        from math import comb
+
+        # Extract left/right values for each interval
+        f_L = vals[..., :-1]  # (..., Nr-1)
+        f_R = vals[..., 1:]
+        fp_L = derivs[..., :-1]
+        fp_R = derivs[..., 1:]
+        fpp_L = derivs2[..., :-1]
+        fpp_R = derivs2[..., 1:]
+        h = dx  # (Nr-1,)
+        # Bernstein coefficients for quintic (degree 5) Hermite interpolant
+        b = numpy.empty(f_L.shape[:-1] + (6,) + f_L.shape[-1:])
+        b[..., 0, :] = f_L
+        b[..., 1, :] = f_L + h * fp_L / 5
+        b[..., 2, :] = f_L + 2 * h * fp_L / 5 + h**2 * fpp_L / 20
+        b[..., 3, :] = f_R - 2 * h * fp_R / 5 + h**2 * fpp_R / 20
+        b[..., 4, :] = f_R - h * fp_R / 5
+        b[..., 5, :] = f_R
+        # Convert Bernstein to power basis using the exact same accumulation
+        # as scipy's PPoly.from_bernstein_basis:
+        #   c_s = sum_{a=0}^{s} (-1)^(a+s) C(5,a) C(5-a,s-a) b_a / h^s
+        # where c_s is the coefficient of (x - x_i)^(5-s)
+        c = numpy.zeros_like(b)
+        for a in range(6):
+            sign_a = (-1) ** a * comb(5, a)
+            for s in range(a, 6):
+                sign_as = sign_a * ((-1) ** s) * comb(5 - a, s - a)
+                c[..., 5 - s, :] += sign_as * b[..., a, :] / dx**s
+        # Flatten to interval-major: (..., Nr-1, 6) -> (..., 6*(Nr-1))
+        # Move coefficient axis to last, then reshape
+        # c is (..., 6, Nr-1), need (..., Nr-1, 6) for interval-major
+        c_transposed = numpy.moveaxis(c, -2, -1)  # (..., Nr-1, 6)
+        batch_shape = c_transposed.shape[:-2]
+        return c_transposed.reshape(batch_shape + (6 * (c_transposed.shape[-2]),))
 
     def _precompute_radial_integrals(self):
         """
@@ -825,18 +1066,19 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     )
 
     def _precompute_radial_integrals_2d(self):
-        """Precompute BPoly coefficients at each time in tgrid and build
+        """Precompute PPoly coefficients at each time in tgrid and build
         time-interpolators for each (l, m) component.
 
-        For each t in tgrid, evaluate the density callables on rgrid, create
-        temporary InterpolatedUnivariateSpline, compute BPoly for I_inner/
-        I_outer (same as static _precompute_radial_integrals), and store
-        the BPoly coefficient arrays. These are then interpolated in t using
-        cubic B-spline interpolation (make_interp_spline).
+        For each (l, m, kind) pair, evaluate the density callable at all
+        timesteps, compute cumulative radial integrals via spline
+        integration, then vectorize the quintic Hermite PPoly
+        construction across all timesteps at once using
+        ``_quintic_hermite_ppoly_coeffs``.
 
         Notes
         -----
         - 2026-03-23 - Written - Bovy (UofT)
+        - 2026-03-27 - Vectorized over timesteps - Bovy (UofT)
         """
         rgrid = self._rgrid
         tgrid = self._tgrid
@@ -845,6 +1087,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Nt = len(tgrid)
         Nr = len(rgrid)
         k = self._k
+        dx = numpy.diff(rgrid)
         # Storage for time-interpolators
         self._I_inner_cos_interp = [[None for _ in range(M)] for _ in range(L)]
         self._I_inner_sin_interp = [[None for _ in range(M)] for _ in range(L)]
@@ -861,11 +1104,14 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 if m > 0:
                     pairs.append((self._rho_sin_funcs[l][m], "sin"))
                 for rho_func, kind in pairs:
-                    # Collect PPoly coefficients and density values at each t
-                    n_r_coeffs = 6 * (Nr - 1)
-                    I_inner_flat_all = numpy.zeros((Nt, n_r_coeffs))
-                    I_outer_flat_all = numpy.zeros((Nt, n_r_coeffs))
+                    # Collect density, integrals, and derivatives at each t
                     rho_vals_all = numpy.zeros((Nt, Nr))
+                    I_inner_all = numpy.zeros((Nt, Nr))
+                    I_outer_all = numpy.zeros((Nt, Nr))
+                    f_inner_all = numpy.zeros((Nt, Nr))
+                    f_outer_all = numpy.zeros((Nt, Nr))
+                    d2I_inner_all = numpy.zeros((Nt, Nr))
+                    d2I_outer_all = numpy.zeros((Nt, Nr))
                     for it, t in enumerate(tgrid):
                         rho_arr = rho_func(rgrid, t)
                         rho_vals_all[it] = rho_arr
@@ -875,51 +1121,45 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                         f_inner_spline = InterpolatedUnivariateSpline(
                             rgrid, f_inner, k=k
                         )
-                        I_inner_vals = numpy.array(
+                        I_inner_all[it] = numpy.array(
                             [f_inner_spline.integral(rgrid[0], r) for r in rgrid]
                         )
+                        f_inner_all[it] = f_inner
                         # Outer integral
                         f_outer = rgrid ** (1 - l) * rho_arr
                         f_outer_spline = InterpolatedUnivariateSpline(
                             rgrid, f_outer, k=k
                         )
                         total_outer = f_outer_spline.integral(rgrid[0], rgrid[-1])
-                        I_outer_vals = numpy.array(
+                        I_outer_all[it] = numpy.array(
                             [
                                 total_outer - f_outer_spline.integral(rgrid[0], r)
                                 for r in rgrid
                             ]
                         )
+                        f_outer_all[it] = f_outer
                         # 2nd derivatives
                         rho_deriv = rho_spline(rgrid, 1)
-                        d2I_inner = (l + 2) * rgrid ** (l + 1) * rho_arr + rgrid ** (
-                            l + 2
-                        ) * rho_deriv
-                        d2I_outer = (
+                        d2I_inner_all[it] = (l + 2) * rgrid ** (
+                            l + 1
+                        ) * rho_arr + rgrid ** (l + 2) * rho_deriv
+                        d2I_outer_all[it] = (
                             -(1 - l) * rgrid ** (-l) * rho_arr
                             - rgrid ** (1 - l) * rho_deriv
                         )
-                        # Build BPoly, convert to PPoly, flatten interval-major
-                        bp_inner = BPoly.from_derivatives(
-                            rgrid,
-                            numpy.column_stack(
-                                [pref * I_inner_vals, pref * f_inner, pref * d2I_inner]
-                            ),
-                        )
-                        bp_outer = BPoly.from_derivatives(
-                            rgrid,
-                            numpy.column_stack(
-                                [
-                                    pref * I_outer_vals,
-                                    pref * (-f_outer),
-                                    pref * d2I_outer,
-                                ]
-                            ),
-                        )
-                        pp_inner = PPoly.from_bernstein_basis(bp_inner)
-                        pp_outer = PPoly.from_bernstein_basis(bp_outer)
-                        I_inner_flat_all[it] = pp_inner.c.ravel(order="F")
-                        I_outer_flat_all[it] = pp_outer.c.ravel(order="F")
+                    # Vectorized PPoly construction over all timesteps
+                    I_inner_flat_all = self._quintic_hermite_ppoly_coeffs(
+                        pref * I_inner_all,
+                        pref * f_inner_all,
+                        pref * d2I_inner_all,
+                        dx,
+                    )
+                    I_outer_flat_all = self._quintic_hermite_ppoly_coeffs(
+                        pref * I_outer_all,
+                        pref * (-f_outer_all),
+                        pref * d2I_outer_all,
+                        dx,
+                    )
                     # Build CubicSpline time-interpolators over flattened
                     # PPoly coefficient arrays; CubicSpline is a PPoly
                     # subclass with breakpoints exactly equal to tgrid
@@ -934,65 +1174,6 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                         self._I_inner_sin_interp[l][m] = I_inner_interp
                         self._I_outer_sin_interp[l][m] = I_outer_interp
                         self._rho_sin_interp[l][m] = rho_interp
-
-    def _ensure_bpolys_for_time(self, t):
-        """Swap cached BPoly splines to match the given time.
-
-        If the potential is not time-dependent, or if ``t`` matches the
-        currently cached time, this is a no-op. Otherwise, interpolate the
-        BPoly coefficients at ``t``, reconstruct BPoly objects, and update
-        density splines.
-
-        Notes
-        -----
-        - 2026-03-23 - Written - Bovy (UofT)
-        """
-        if not self._tdep or self._cached_t == t:
-            return
-        L = self._L
-        M = self._M
-        Nr = len(self._rgrid)
-        rgrid = self._rgrid
-        # Initialize storage on first call
-        if self._cached_t is None:
-            self._I_inner_cos = [[None for _ in range(M)] for _ in range(L)]
-            self._I_inner_sin = [[None for _ in range(M)] for _ in range(L)]
-            self._I_outer_cos = [[None for _ in range(M)] for _ in range(L)]
-            self._I_outer_sin = [[None for _ in range(M)] for _ in range(L)]
-            self._rho_cos_splines = [[None for _ in range(M)] for _ in range(L)]
-            self._rho_sin_splines = [[None for _ in range(M)] for _ in range(L)]
-        for l in range(L):
-            for m in range(min(l + 1, M)):
-                # I_inner_cos: undo interval-major flatten
-                flat_coeffs = self._I_inner_cos_interp[l][m](t)
-                coeffs_2d = flat_coeffs.reshape(Nr - 1, 6).T
-                self._I_inner_cos[l][m] = PPoly(coeffs_2d, rgrid)
-                # I_outer_cos
-                flat_coeffs = self._I_outer_cos_interp[l][m](t)
-                coeffs_2d = flat_coeffs.reshape(Nr - 1, 6).T
-                self._I_outer_cos[l][m] = PPoly(coeffs_2d, rgrid)
-                # Density cos spline
-                rho_vals = self._rho_cos_interp[l][m](t)
-                self._rho_cos_splines[l][m] = InterpolatedUnivariateSpline(
-                    rgrid, rho_vals, k=self._k
-                )
-                if m > 0:
-                    # I_inner_sin
-                    flat_coeffs = self._I_inner_sin_interp[l][m](t)
-                    coeffs_2d = flat_coeffs.reshape(Nr - 1, 6).T
-                    self._I_inner_sin[l][m] = PPoly(coeffs_2d, rgrid)
-                    # I_outer_sin
-                    flat_coeffs = self._I_outer_sin_interp[l][m](t)
-                    coeffs_2d = flat_coeffs.reshape(Nr - 1, 6).T
-                    self._I_outer_sin[l][m] = PPoly(coeffs_2d, rgrid)
-                    # Density sin spline
-                    rho_vals = self._rho_sin_interp[l][m](t)
-                    self._rho_sin_splines[l][m] = InterpolatedUnivariateSpline(
-                        rgrid, rho_vals, k=self._k
-                    )
-        self._force_cache_key = None
-        self._2nd_deriv_cache_key = None
-        self._cached_t = t
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
@@ -1018,21 +1199,22 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
-        self._ensure_bpolys_for_time(t)
         if not self.isNonAxi and phi is None:
             phi = 0.0
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
         phi = numpy.array(phi, dtype=float)
-        shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape)
+        t = numpy.array(t, dtype=float)
+        shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
         if shape == ():
-            return self._evaluate_at_point(R, z, phi)
+            return self._evaluate_at_point(R, z, phi, t=t)
         R = R * numpy.ones(shape)
         z = z * numpy.ones(shape)
         phi = phi * numpy.ones(shape)
+        t = t * numpy.ones(shape)
         result = numpy.zeros(shape, float)
         for idx in numpy.ndindex(*shape):
-            result[idx] = self._evaluate_at_point(R[idx], z[idx], phi[idx])
+            result[idx] = self._evaluate_at_point(R[idx], z[idx], phi[idx], t=t[idx])
         return result
 
     def _below_grid_integrals(self, r, l, I_inner_spline, I_outer_spline):
@@ -1159,7 +1341,170 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         I_inner_rmax = float(I_inner_spline(rmax))
         return (l + 1) * (l + 2) * I_inner_rmax * r ** (-(l + 3))
 
-    def _evaluate_at_point(self, R, z, phi):
+    @staticmethod
+    def _fused_ppoly_eval(cs, i_t, dt, i_r, dr, mode=0):
+        """Evaluate PPoly-in-r coefficients at a specific (i_t, i_r) via cubics in t.
+
+        Parameters
+        ----------
+        cs : CubicSpline
+            Time interpolator. cs.c has shape (4, Nt-1, n_r) where n_r = 6*(Nr-1).
+        i_t : int
+            Time interval index.
+        dt : float
+            dt = t - tgrid[i_t].
+        i_r : int
+            Radial interval index.
+        dr : float
+            dr = r - rgrid[i_r].
+        mode : int
+            0=value, 1=value+deriv, 2=value+deriv+2nd deriv.
+
+        Returns
+        -------
+        val : float
+            PPoly value.
+        d1 : float or None
+            First derivative (if mode >= 1).
+        d2 : float or None
+            Second derivative (if mode >= 2).
+        """
+        # cs.c shape: (4, Nt-1, n_r) where n_r = 6*(Nr-1)
+        # Extract 6 PPoly-in-r coefficients for interval i_r
+        tc = cs.c[:, i_t, i_r * 6 : (i_r + 1) * 6]  # shape (4, 6)
+        # Evaluate cubic in t for each of the 6 PPoly coefficients
+        c = ((tc[0] * dt + tc[1]) * dt + tc[2]) * dt + tc[3]  # shape (6,)
+        # Evaluate quintic in r via Horner
+        val = ((((c[0] * dr + c[1]) * dr + c[2]) * dr + c[3]) * dr + c[4]) * dr + c[5]
+        d1 = None
+        d2 = None
+        if mode >= 1:
+            d1 = (
+                ((5 * c[0] * dr + 4 * c[1]) * dr + 3 * c[2]) * dr + 2 * c[3]
+            ) * dr + c[4]
+        if mode >= 2:
+            d2 = ((20 * c[0] * dr + 12 * c[1]) * dr + 6 * c[2]) * dr + 2 * c[3]
+        return val, d1, d2
+
+    def _eval_radial_lm_timedep(self, r, t, l, I_inner_cs, I_outer_cs, mode=0):
+        """Fused time+radial evaluation of R_lm from CubicSpline interpolators.
+
+        Parameters
+        ----------
+        r : float
+            Radial coordinate.
+        t : float
+            Time.
+        l : int
+            Spherical harmonic degree.
+        I_inner_cs : CubicSpline
+            Time interpolator for I_inner PPoly coefficients.
+        I_outer_cs : CubicSpline
+            Time interpolator for I_outer PPoly coefficients.
+        mode : int
+            0=value, 1=value+deriv, 2=value+deriv+2nd deriv.
+
+        Returns
+        -------
+        R_val : float
+            R_lm(r, t).
+        dR : float or None
+            dR_lm/dr (if mode >= 1).
+        d2R : float or None
+            d²R_lm/dr² (if mode >= 2).
+        """
+        rgrid = self._rgrid
+        tgrid = self._tgrid
+        rmin = rgrid[0]
+        rmax = rgrid[-1]
+        Nr = len(rgrid)
+
+        # Find time interval
+        i_t = max(
+            0, min(numpy.searchsorted(tgrid, t, side="right") - 1, len(tgrid) - 2)
+        )
+        dt = t - tgrid[i_t]
+
+        if r < rmin:
+            # Below grid: evaluate at i_r=0, dr=0
+            I_inner_rmin, dI_inner_rmin, _ = self._fused_ppoly_eval(
+                I_inner_cs, i_t, dt, 0, 0.0, mode=1
+            )
+            I_outer_rmin, _, _ = self._fused_ppoly_eval(
+                I_outer_cs, i_t, dt, 0, 0.0, mode=0
+            )
+            P_rho0 = dI_inner_rmin / rmin ** (l + 2)
+            I_inner_ext = P_rho0 / (l + 3) * r ** (l + 3)
+            if l == 2:
+                extra = P_rho0 * numpy.log(rmin / r)
+            else:
+                extra = P_rho0 / (2 - l) * (rmin ** (2 - l) - r ** (2 - l))
+            I_outer_ext = I_outer_rmin + extra
+            r_neg_lp1 = r ** (-(l + 1))
+            r_l = r**l
+            R_val = r_neg_lp1 * I_inner_ext + r_l * I_outer_ext
+            dR = None
+            d2R = None
+            if mode >= 1:
+                dR = -(l + 1) * r_neg_lp1 / r * I_inner_ext + l * r_l / r * I_outer_ext
+            if mode >= 2:
+                d2R = (
+                    (l + 1) * (l + 2) * r_neg_lp1 / (r * r) * I_inner_ext
+                    + l * (l - 1) * r_l / (r * r) * I_outer_ext
+                    - (2 * l + 1) * P_rho0
+                )
+            return R_val, dR, d2R
+
+        if r <= rmax:
+            i_r = max(0, min(numpy.searchsorted(rgrid, r, side="right") - 1, Nr - 2))
+            dr = r - rgrid[i_r]
+            r_neg_lp1 = r ** (-(l + 1))
+            r_l = r**l
+
+            I_inner, dI_inner, d2I_inner = self._fused_ppoly_eval(
+                I_inner_cs, i_t, dt, i_r, dr, mode=mode
+            )
+            I_outer, dI_outer, d2I_outer = self._fused_ppoly_eval(
+                I_outer_cs, i_t, dt, i_r, dr, mode=mode
+            )
+            R_val = r_neg_lp1 * I_inner + r_l * I_outer
+            dR = None
+            d2R = None
+            if mode >= 1:
+                dR = (
+                    -(l + 1) * r_neg_lp1 / r * I_inner
+                    + r_neg_lp1 * dI_inner
+                    + l * r_l / r * I_outer
+                    + r_l * dI_outer
+                )
+            if mode >= 2:
+                d2R = (
+                    (l + 1) * (l + 2) * r_neg_lp1 / (r * r) * I_inner
+                    - 2 * (l + 1) * r_neg_lp1 / r * dI_inner
+                    + r_neg_lp1 * d2I_inner
+                    + l * (l - 1) * r_l / (r * r) * I_outer
+                    + 2 * l * r_l / r * dI_outer
+                    + r_l * d2I_outer
+                )
+            return R_val, dR, d2R
+
+        # r > rmax: evaluate I_inner at last interval endpoint
+        i_r_last = Nr - 2
+        dr_max = rgrid[-1] - rgrid[i_r_last]
+        I_inner_rmax, _, _ = self._fused_ppoly_eval(
+            I_inner_cs, i_t, dt, i_r_last, dr_max, mode=0
+        )
+        r_neg_lp1 = r ** (-(l + 1))
+        R_val = I_inner_rmax * r_neg_lp1
+        dR = None
+        d2R = None
+        if mode >= 1:
+            dR = (-(l + 1)) * I_inner_rmax * r_neg_lp1 / r
+        if mode >= 2:
+            d2R = (l + 1) * (l + 2) * I_inner_rmax * r_neg_lp1 / (r * r)
+        return R_val, dR, d2R
+
+    def _evaluate_at_point(self, R, z, phi, t=0.0):
         """
         Evaluate the potential at a single point.
 
@@ -1175,25 +1520,51 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         PP = compute_legendre(numpy.cos(theta), L, M)
         result = 0.0
         if r == 0.0:
-            # At r=0, only l=0, m=0 contributes: R_00(0) = I_outer(0)
-            R_00 = float(self._I_outer_cos[0][0](self._rgrid[0]))
+            if self._tdep:
+                R_00, _, _ = self._eval_radial_lm_timedep(
+                    self._rgrid[0],
+                    t,
+                    0,
+                    self._I_inner_cos_interp[0][0],
+                    self._I_outer_cos_interp[0][0],
+                )
+            else:
+                R_00 = float(self._I_outer_cos[0][0](self._rgrid[0]))
             return R_00 * PP[0, 0]
         for l in range(L):
             for m in range(min(l + 1, M)):
-                radial_cos = self._eval_R_lm(
-                    r,
-                    l,
-                    self._I_inner_cos[l][m],
-                    self._I_outer_cos[l][m],
-                )
-                contrib = PP[l, m] * numpy.cos(m * phi) * radial_cos
-                if m > 0:
-                    radial_sin = self._eval_R_lm(
+                if self._tdep:
+                    radial_cos, _, _ = self._eval_radial_lm_timedep(
+                        r,
+                        t,
+                        l,
+                        self._I_inner_cos_interp[l][m],
+                        self._I_outer_cos_interp[l][m],
+                    )
+                else:
+                    radial_cos = self._eval_R_lm(
                         r,
                         l,
-                        self._I_inner_sin[l][m],
-                        self._I_outer_sin[l][m],
+                        self._I_inner_cos[l][m],
+                        self._I_outer_cos[l][m],
                     )
+                contrib = PP[l, m] * numpy.cos(m * phi) * radial_cos
+                if m > 0:
+                    if self._tdep:
+                        radial_sin, _, _ = self._eval_radial_lm_timedep(
+                            r,
+                            t,
+                            l,
+                            self._I_inner_sin_interp[l][m],
+                            self._I_outer_sin_interp[l][m],
+                        )
+                    else:
+                        radial_sin = self._eval_R_lm(
+                            r,
+                            l,
+                            self._I_inner_sin[l][m],
+                            self._I_outer_sin[l][m],
+                        )
                     contrib += PP[l, m] * numpy.sin(m * phi) * radial_sin
                 result += contrib
         return result
@@ -1222,7 +1593,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
-        self._ensure_bpolys_for_time(t)
+        if self._tdep:
+            self._ensure_rho_for_time(t)
         if not self.isNonAxi and phi is None:
             phi = 0.0
         R = numpy.array(R, dtype=float)
@@ -1238,6 +1610,33 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         for idx in numpy.ndindex(*shape):
             result[idx] = self._dens_at_point(R[idx], z[idx], phi[idx])
         return result
+
+    def _ensure_rho_for_time(self, t):
+        """Lazy rho spline creation for time-dependent density evaluation.
+
+        Only reconstructs the density splines (not I_inner/I_outer PPoly).
+        """
+        if not self._tdep or self._cached_t == t:
+            return
+        L = self._L
+        M = self._M
+        Nr = len(self._rgrid)
+        rgrid = self._rgrid
+        if self._cached_t is None:
+            self._rho_cos_splines = [[None for _ in range(M)] for _ in range(L)]
+            self._rho_sin_splines = [[None for _ in range(M)] for _ in range(L)]
+        for l in range(L):
+            for m in range(min(l + 1, M)):
+                rho_vals = self._rho_cos_interp[l][m](t)
+                self._rho_cos_splines[l][m] = InterpolatedUnivariateSpline(
+                    rgrid, rho_vals, k=self._k
+                )
+                if m > 0:
+                    rho_vals = self._rho_sin_interp[l][m](t)
+                    self._rho_sin_splines[l][m] = InterpolatedUnivariateSpline(
+                        rgrid, rho_vals, k=self._k
+                    )
+        self._cached_t = t
 
     def _dens_at_point(self, R, z, phi):
         """
@@ -1294,8 +1693,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
-        self._ensure_bpolys_for_time(t)
-        cache_key = (float(R), float(z), float(phi))
+        cache_key = (float(R), float(z), float(phi), float(t))
         if cache_key == self._force_cache_key:
             return (
                 self._cached_dPhi_dr,
@@ -1318,39 +1716,56 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         dPhi_dphi = 0.0
         for l in range(L):
             for m in range(min(l + 1, M)):
-                radial_cos = self._eval_R_lm(
-                    r,
-                    l,
-                    self._I_inner_cos[l][m],
-                    self._I_outer_cos[l][m],
-                )
-                dradial_cos = self._eval_dR_lm(
-                    r,
-                    l,
-                    self._I_inner_cos[l][m],
-                    self._I_outer_cos[l][m],
-                )
+                if self._tdep:
+                    radial_cos, dradial_cos, _ = self._eval_radial_lm_timedep(
+                        r,
+                        t,
+                        l,
+                        self._I_inner_cos_interp[l][m],
+                        self._I_outer_cos_interp[l][m],
+                        mode=1,
+                    )
+                else:
+                    radial_cos = self._eval_R_lm(
+                        r,
+                        l,
+                        self._I_inner_cos[l][m],
+                        self._I_outer_cos[l][m],
+                    )
+                    dradial_cos = self._eval_dR_lm(
+                        r,
+                        l,
+                        self._I_inner_cos[l][m],
+                        self._I_outer_cos[l][m],
+                    )
                 cos_mphi = numpy.cos(m * phi)
                 sin_mphi = numpy.sin(m * phi)
-                # dPhi/dr contribution
                 dPhi_dr += PP[l, m] * cos_mphi * dradial_cos
-                # dPhi/dtheta contribution: dP_l^m/dtheta = dP_l^m/d(costheta) * (-sin(theta))
                 dPhi_dtheta += dPP[l, m] * (-sintheta) * cos_mphi * radial_cos
-                # dPhi/dphi contribution
                 dPhi_dphi += PP[l, m] * (-m * sin_mphi) * radial_cos
                 if m > 0:
-                    radial_sin = self._eval_R_lm(
-                        r,
-                        l,
-                        self._I_inner_sin[l][m],
-                        self._I_outer_sin[l][m],
-                    )
-                    dradial_sin = self._eval_dR_lm(
-                        r,
-                        l,
-                        self._I_inner_sin[l][m],
-                        self._I_outer_sin[l][m],
-                    )
+                    if self._tdep:
+                        radial_sin, dradial_sin, _ = self._eval_radial_lm_timedep(
+                            r,
+                            t,
+                            l,
+                            self._I_inner_sin_interp[l][m],
+                            self._I_outer_sin_interp[l][m],
+                            mode=1,
+                        )
+                    else:
+                        radial_sin = self._eval_R_lm(
+                            r,
+                            l,
+                            self._I_inner_sin[l][m],
+                            self._I_outer_sin[l][m],
+                        )
+                        dradial_sin = self._eval_dR_lm(
+                            r,
+                            l,
+                            self._I_inner_sin[l][m],
+                            self._I_outer_sin[l][m],
+                        )
                     dPhi_dr += PP[l, m] * sin_mphi * dradial_sin
                     dPhi_dtheta += dPP[l, m] * (-sintheta) * sin_mphi * radial_sin
                     dPhi_dphi += PP[l, m] * (m * cos_mphi) * radial_sin
@@ -1403,8 +1818,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-18 - Written - Bovy (UofT)
         """
-        self._ensure_bpolys_for_time(t)
-        cache_key = (float(R), float(z), float(phi))
+        cache_key = (float(R), float(z), float(phi), float(t))
         if cache_key == self._2nd_deriv_cache_key:
             return self._cached_2nd_derivs
         L = self._L
@@ -1416,10 +1830,6 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             return self._cached_2nd_derivs
         costheta = numpy.cos(theta)
         sintheta = numpy.sin(theta)
-        # Clamp costheta slightly away from ±1 to avoid divergence in
-        # dP/d(costheta) and d²P/d(costheta)² for m > 0; the divergent
-        # terms are cancelled by sintheta factors in dP/dtheta and
-        # d²P/dtheta², but inf * 0 = nan numerically
         if M > 1 and abs(1.0 - costheta * costheta) < 1e-14:
             costheta = numpy.sign(costheta) * (1.0 - 1e-7)
             sintheta = numpy.sqrt(1.0 - costheta**2)
@@ -1434,24 +1844,36 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         dPhi_dtheta = 0.0
         for l in range(L):
             for m in range(min(l + 1, M)):
-                radial_cos = self._eval_R_lm(
-                    r,
-                    l,
-                    self._I_inner_cos[l][m],
-                    self._I_outer_cos[l][m],
-                )
-                dradial_cos = self._eval_dR_lm(
-                    r,
-                    l,
-                    self._I_inner_cos[l][m],
-                    self._I_outer_cos[l][m],
-                )
-                d2radial_cos = self._eval_d2R_lm(
-                    r,
-                    l,
-                    self._I_inner_cos[l][m],
-                    self._I_outer_cos[l][m],
-                )
+                if self._tdep:
+                    radial_cos, dradial_cos, d2radial_cos = (
+                        self._eval_radial_lm_timedep(
+                            r,
+                            t,
+                            l,
+                            self._I_inner_cos_interp[l][m],
+                            self._I_outer_cos_interp[l][m],
+                            mode=2,
+                        )
+                    )
+                else:
+                    radial_cos = self._eval_R_lm(
+                        r,
+                        l,
+                        self._I_inner_cos[l][m],
+                        self._I_outer_cos[l][m],
+                    )
+                    dradial_cos = self._eval_dR_lm(
+                        r,
+                        l,
+                        self._I_inner_cos[l][m],
+                        self._I_outer_cos[l][m],
+                    )
+                    d2radial_cos = self._eval_d2R_lm(
+                        r,
+                        l,
+                        self._I_inner_cos[l][m],
+                        self._I_outer_cos[l][m],
+                    )
                 cos_mphi = numpy.cos(m * phi)
                 sin_mphi = numpy.sin(m * phi)
                 Plm = PP[l, m]
@@ -1478,33 +1900,43 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 # d²Phi/dthetadphi
                 d2Phi_dthetadphi += dPlm_dtheta * (-m * sin_mphi) * radial_cos
                 if m > 0:
-                    radial_sin = self._eval_R_lm(
-                        r,
-                        l,
-                        self._I_inner_sin[l][m],
-                        self._I_outer_sin[l][m],
-                    )
-                    dradial_sin = self._eval_dR_lm(
-                        r,
-                        l,
-                        self._I_inner_sin[l][m],
-                        self._I_outer_sin[l][m],
-                    )
-                    d2radial_sin = self._eval_d2R_lm(
-                        r,
-                        l,
-                        self._I_inner_sin[l][m],
-                        self._I_outer_sin[l][m],
-                    )
+                    if self._tdep:
+                        radial_sin, dradial_sin, d2radial_sin = (
+                            self._eval_radial_lm_timedep(
+                                r,
+                                t,
+                                l,
+                                self._I_inner_sin_interp[l][m],
+                                self._I_outer_sin_interp[l][m],
+                                mode=2,
+                            )
+                        )
+                    else:
+                        radial_sin = self._eval_R_lm(
+                            r,
+                            l,
+                            self._I_inner_sin[l][m],
+                            self._I_outer_sin[l][m],
+                        )
+                        dradial_sin = self._eval_dR_lm(
+                            r,
+                            l,
+                            self._I_inner_sin[l][m],
+                            self._I_outer_sin[l][m],
+                        )
+                        d2radial_sin = self._eval_d2R_lm(
+                            r,
+                            l,
+                            self._I_inner_sin[l][m],
+                            self._I_outer_sin[l][m],
+                        )
                     # --- Sine terms ---
                     dPhi_dr += Plm * sin_mphi * dradial_sin
                     dPhi_dtheta += dPlm_dtheta * sin_mphi * radial_sin
                     d2Phi_dr2 += Plm * sin_mphi * d2radial_sin
                     d2Phi_dtheta2 += d2Plm_dtheta2 * sin_mphi * radial_sin
-                    # sin(m*phi) -> -m²*sin(m*phi)
                     d2Phi_dphi2 += Plm * (-m * m * sin_mphi) * radial_sin
                     d2Phi_drdtheta += dPlm_dtheta * sin_mphi * dradial_sin
-                    # sin(m*phi) -> m*cos(m*phi) for d/dphi
                     d2Phi_drdphi += Plm * (m * cos_mphi) * dradial_sin
                     d2Phi_dthetadphi += dPlm_dtheta * (m * cos_mphi) * radial_sin
         self._2nd_deriv_cache_key = cache_key
@@ -1521,34 +1953,27 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         return self._cached_2nd_derivs
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        self._ensure_bpolys_for_time(t)
         return self._evaluate_cyl_2nd_deriv("R2", R, z, phi, t=t)
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        self._ensure_bpolys_for_time(t)
         return self._evaluate_cyl_2nd_deriv("z2", R, z, phi, t=t)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        self._ensure_bpolys_for_time(t)
         return self._evaluate_cyl_2nd_deriv("Rz", R, z, phi, t=t)
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        self._ensure_bpolys_for_time(t)
         return self._evaluate_cyl_2nd_deriv("phi2", R, z, phi, t=t)
 
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        self._ensure_bpolys_for_time(t)
         return self._evaluate_cyl_2nd_deriv("Rphi", R, z, phi, t=t)
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        self._ensure_bpolys_for_time(t)
         return self._evaluate_cyl_2nd_deriv("phiz", R, z, phi, t=t)
 
     def OmegaP(self):
         return 0
 
-    @staticmethod
-    def _serialize_for_c(p):
+    def _serialize_for_c(self):
         """Serialize MultipoleExpansionPotential data for C consumption.
 
         I_inner/I_outer BPoly splines are converted to PPoly and their
@@ -1556,7 +1981,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         evaluate them via Horner's method with exact derivative parity.
         Rho splines are sampled at grid points for GSL cubic interpolation.
 
-        Uses the BPoly breakpoints as the radial grid (not p._rgrid), since
+        Uses the BPoly breakpoints as the radial grid (not self._rgrid), since
         the PPoly coefficients are defined relative to these breakpoints.
 
         Static data layout (Nt=0):
@@ -1583,60 +2008,75 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         where i_t is the time interval, k is the cubic power (0..3),
         and j indexes the r-coefficients.
         """
-        if p._tdep:
-            rgrid = p._rgrid
-            Nr, L, M = len(rgrid), p._L, p._M
-            Nt = len(p._tgrid)
-            args = [Nr, L, M, int(p.isNonAxi)]
-            args.extend(rgrid)
-            args.append(p._amp)
-            args.append(Nt)
-            args.extend(p._tgrid)
+        if self._tdep:
+            rgrid = self._rgrid
+            Nr, L, M = len(rgrid), self._L, self._M
+            Nt = len(self._tgrid)
+            # Use numpy arrays and concatenate for speed (avoids creating
+            # millions of Python float objects)
+            chunks = [
+                numpy.array([Nr, L, M, int(self.isNonAxi)], dtype=numpy.float64),
+                numpy.asarray(rgrid, dtype=numpy.float64),
+                numpy.array([self._amp, Nt], dtype=numpy.float64),
+                numpy.asarray(self._tgrid, dtype=numpy.float64),
+            ]
             for l in range(L):
                 for m in range(min(l + 1, M)):
                     interp_sets = [
                         (
-                            p._I_inner_cos_interp[l][m],
-                            p._I_outer_cos_interp[l][m],
-                            p._rho_cos_interp[l][m],
+                            self._I_inner_cos_interp[l][m],
+                            self._I_outer_cos_interp[l][m],
+                            self._rho_cos_interp[l][m],
                         ),
                     ]
                     if m > 0:
                         interp_sets.append(
                             (
-                                p._I_inner_sin_interp[l][m],
-                                p._I_outer_sin_interp[l][m],
-                                p._rho_sin_interp[l][m],
+                                self._I_inner_sin_interp[l][m],
+                                self._I_outer_sin_interp[l][m],
+                                self._rho_sin_interp[l][m],
                             ),
                         )
                     for I_inner_cs, I_outer_cs, rho_cs in interp_sets:
                         # CubicSpline.c has shape (4, Nt-1, n_coeffs)
-                        # Transpose to (Nt-1, 4, n_coeffs) then flatten
-                        args.extend(I_inner_cs.c.transpose(1, 0, 2).ravel())
-                        args.extend(I_outer_cs.c.transpose(1, 0, 2).ravel())
-                        args.extend(rho_cs.c.transpose(1, 0, 2).ravel())
-            return args
+                        # Transpose to (Nt-1, n_coeffs, 4) for cache-friendly
+                        # fused time+radial evaluation: 4 cubic coefficients
+                        # are contiguous per radial coefficient
+                        chunks.append(
+                            numpy.ascontiguousarray(
+                                I_inner_cs.c.transpose(1, 2, 0)
+                            ).ravel()
+                        )
+                        chunks.append(
+                            numpy.ascontiguousarray(
+                                I_outer_cs.c.transpose(1, 2, 0)
+                            ).ravel()
+                        )
+                        chunks.append(
+                            numpy.ascontiguousarray(rho_cs.c.transpose(1, 2, 0)).ravel()
+                        )
+            return numpy.concatenate(chunks)
         # Static path (Nt=0)
         # Use BPoly breakpoints as the grid: PPoly coefficients are defined
         # relative to these breakpoints, so C must use them for interval lookup
-        rgrid = p._I_inner_cos[0][0].x
-        Nr, L, M = len(rgrid), p._L, p._M
-        args = [Nr, L, M, int(p.isNonAxi)]
+        rgrid = self._I_inner_cos[0][0].x
+        Nr, L, M = len(rgrid), self._L, self._M
+        args = [Nr, L, M, int(self.isNonAxi)]
         args.extend(rgrid)
-        args.append(p._amp)
+        args.append(self._amp)
         args.append(0)  # Nt=0 for static
         for l in range(L):
             for m in range(min(l + 1, M)):
                 for I_inner, I_outer, rho_sp in [
                     (
-                        p._I_inner_cos[l][m],
-                        p._I_outer_cos[l][m],
-                        p._rho_cos_splines[l][m],
+                        self._I_inner_cos[l][m],
+                        self._I_outer_cos[l][m],
+                        self._rho_cos_splines[l][m],
                     ),
                     (
-                        p._I_inner_sin[l][m] if m > 0 else None,
-                        p._I_outer_sin[l][m] if m > 0 else None,
-                        p._rho_sin_splines[l][m] if m > 0 else None,
+                        self._I_inner_sin[l][m] if m > 0 else None,
+                        self._I_outer_sin[l][m] if m > 0 else None,
+                        self._rho_sin_splines[l][m] if m > 0 else None,
                     ),
                 ]:
                     if I_inner is None:

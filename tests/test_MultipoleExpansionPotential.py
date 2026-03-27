@@ -1053,3 +1053,283 @@ def test_time_dependent_potential_instance_with_tgrid():
         assert numpy.abs(val_s - val_t) < 1e-10 * numpy.abs(val_s) + 1e-15, (
             f"Potential+tgrid mismatch at (R={R}, z={z}): {val_s} vs {val_t}"
         )
+
+
+# --- Time-dependent coverage tests ---
+
+# Shared small grids for fast time-dependent tests
+_TDEP_RGRID = numpy.geomspace(1e-2, 10, 21)
+_TDEP_TGRID = numpy.linspace(0, 5, 11)
+
+
+def _make_tdep_axi_mp(L=3, rgrid=_TDEP_RGRID, tgrid=_TDEP_TGRID):
+    """Helper: build a small axisymmetric time-dependent MultipoleExpansionPotential."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    return MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, t=0.0: hp.dens(R, z, use_physical=False) * (1.0 + 0.1 * t),
+        L=L,
+        symmetry="axisymmetric",
+        rgrid=rgrid,
+        tgrid=tgrid,
+    )
+
+
+def _make_tdep_nonaxi_mp(L=3, rgrid=_TDEP_RGRID, tgrid=_TDEP_TGRID):
+    """Helper: build a small non-axisymmetric time-dependent MultipoleExpansionPotential."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    return MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False)
+            * (1.0 + 0.1 * numpy.cos(phi))
+            * (1.0 + 0.05 * t)
+        ),
+        L=L,
+        rgrid=rgrid,
+        tgrid=tgrid,
+    )
+
+
+def test_time_dependent_axi_truncation():
+    """Time-dep potential with axi density but L=4 should truncate M to 1."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False) * (1.0 + 0.01 * t)
+        ),
+        L=4,
+        rgrid=_TDEP_RGRID,
+        tgrid=_TDEP_TGRID,
+    )
+    assert mp._M == 1, f"Expected M=1 after truncation, got {mp._M}"
+    assert mp.isNonAxi is False
+
+
+def test_init_rejects_callable_cos_splines():
+    """Passing a callable as rho_cos_splines should raise ValueError."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    static = MultipoleExpansionPotential.from_density(
+        dens=hp, L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID
+    )
+    bad_cos = [[lambda r: 0.0]]
+    with pytest.raises(ValueError, match="appears to be a callable"):
+        MultipoleExpansionPotential(
+            rho_cos_splines=bad_cos,
+            rgrid=static._rgrid,
+        )
+
+
+def test_init_rejects_callable_sin_splines():
+    """Passing a callable as rho_sin_splines should raise ValueError."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    static = MultipoleExpansionPotential.from_density(
+        dens=hp, L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID
+    )
+    with pytest.raises(ValueError, match="appears to be a callable"):
+        MultipoleExpansionPotential(
+            rho_cos_splines=static._rho_cos_splines,
+            rho_sin_splines=[[lambda r: 0.0]],
+            rgrid=static._rgrid,
+        )
+
+
+def test_time_dependent_below_grid():
+    """Time-dep evaluation at r < rmin should give finite values."""
+    mp = _make_tdep_axi_mp(L=2, rgrid=numpy.geomspace(2.0, 10, 21))
+    t_mid = 2.5
+    rmin = mp._rgrid[0]
+    # R=0.5, z=0 => r=0.5 < rmin=2.0
+    val = mp(0.5, 0.0, t=t_mid, use_physical=False)
+    assert numpy.isfinite(val), "Potential below grid should be finite"
+    rf = mp.Rforce(0.5, 0.0, t=t_mid, use_physical=False)
+    assert numpy.isfinite(rf), "Rforce below grid should be finite"
+    # Continuity: value at rmin should be close to value just inside
+    val_at_rmin = mp(rmin, 0.0, t=t_mid, use_physical=False)
+    val_just_inside = mp(rmin * 1.01, 0.0, t=t_mid, use_physical=False)
+    assert abs(val_at_rmin - val_just_inside) / abs(val_just_inside) < 0.05
+
+
+def test_time_dependent_above_grid():
+    """Time-dep evaluation at r > rmax should give finite point-mass-like values."""
+    mp = _make_tdep_axi_mp(L=2, rgrid=numpy.geomspace(0.01, 5.0, 21))
+    rmax = mp._rgrid[-1]
+    t = 2.0
+    val = mp(8.0, 0.0, t=t, use_physical=False)
+    assert numpy.isfinite(val), "Potential above grid should be finite"
+    rf = mp.Rforce(8.0, 0.0, t=t, use_physical=False)
+    assert numpy.isfinite(rf), "Rforce above grid should be finite"
+    # Point-mass decay: potential should decrease in magnitude further out
+    val_6 = mp(6.0, 0.0, t=t, use_physical=False)
+    val_10 = mp(10.0, 0.0, t=t, use_physical=False)
+    assert abs(val_6) > abs(val_10), "Potential should decay with distance"
+
+
+def test_time_dependent_r_zero():
+    """Time-dep evaluation at r=0 should give finite value."""
+    mp = _make_tdep_axi_mp(L=2)
+    val = mp(0.0, 0.0, t=2.0, use_physical=False)
+    assert numpy.isfinite(val), "Potential at r=0 should be finite"
+
+
+def test_time_dependent_below_grid_l2():
+    """Time-dep below-grid with l=2 log branch (L >= 3 needed)."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, t=0.0: (
+            hp.dens(R, z, use_physical=False) * (1.0 + 1e-8 * z**2) * (1.0 + 0.1 * t)
+        ),
+        L=4,
+        symmetry="axisymmetric",
+        rgrid=numpy.geomspace(2.0, 10, 21),
+        tgrid=_TDEP_TGRID,
+    )
+    # r=sqrt(0.5^2 + 0.5^2) ~ 0.71 < rmin=2.0, L=4 means l=0,1,2,3
+    val = mp(0.5, 0.5, t=2.0, use_physical=False)
+    rf = mp.Rforce(0.5, 0.5, t=2.0, use_physical=False)
+    assert numpy.isfinite(val), "Potential not finite for l=2 below-grid time-dep"
+    assert numpy.isfinite(rf), "Rforce not finite for l=2 below-grid time-dep"
+
+
+def test_time_dependent_2nd_derivs_below_above_grid():
+    """Time-dep 2nd derivs at r < rmin and r > rmax (mode=2 path)."""
+    mp = _make_tdep_axi_mp(L=2, rgrid=numpy.geomspace(2.0, 5.0, 21))
+    t = 2.0
+    # Below grid
+    r2_below = mp.R2deriv(0.5, 0.0, t=t, use_physical=False)
+    z2_below = mp.z2deriv(0.5, 0.0, t=t, use_physical=False)
+    assert numpy.isfinite(r2_below), "R2deriv below grid not finite"
+    assert numpy.isfinite(z2_below), "z2deriv below grid not finite"
+    # Above grid
+    r2_above = mp.R2deriv(8.0, 0.0, t=t, use_physical=False)
+    z2_above = mp.z2deriv(8.0, 0.0, t=t, use_physical=False)
+    assert numpy.isfinite(r2_above), "R2deriv above grid not finite"
+    assert numpy.isfinite(z2_above), "z2deriv above grid not finite"
+
+
+def test_time_dependent_density_at_multiple_times():
+    """Density at different times should differ and update _cached_t."""
+    from galpy.potential import evaluateDensities
+
+    mp = _make_tdep_axi_mp(L=2)
+    t1, t2 = 1.0, 4.0
+    d1 = evaluateDensities(mp, 1.0, 0.0, t=t1)
+    cached_after_t1 = mp._cached_t
+    d2 = evaluateDensities(mp, 1.0, 0.0, t=t2)
+    cached_after_t2 = mp._cached_t
+    assert cached_after_t1 == t1
+    assert cached_after_t2 == t2
+    assert d1 != d2, "Density should differ at different times"
+    # Density should increase with time since factor is (1 + 0.1*t)
+    assert d2 > d1, "Density at t=4 should be larger than at t=1"
+
+
+def test_time_dependent_array_t_evaluate():
+    """Passing array of t values to evaluatePotentials should broadcast correctly."""
+    from galpy.potential import evaluatePotentials
+
+    mp = _make_tdep_axi_mp(L=2)
+    t_arr = numpy.array([0.0, 1.0, 2.5, 5.0])
+    vals = evaluatePotentials(mp, 1.0, 0.0, t=t_arr)
+    assert vals.shape == (4,), f"Expected shape (4,), got {vals.shape}"
+    assert numpy.all(numpy.isfinite(vals))
+    # Values should change with time
+    assert not numpy.all(vals == vals[0])
+
+
+def test_compute_rho_lm_timedep_nonvectorized():
+    """Non-vectorizable density should work via fallback loop (non-axi)."""
+
+    class ScalarDensity:
+        """Density that doesn't support array broadcasting."""
+
+        def __init__(self):
+            self._hp = HernquistPotential(amp=2.0, a=1.0)
+
+        def __call__(self, R, z, phi, t=0.0):
+            R = float(R)
+            z = float(z)
+            phi = float(phi)
+            t = float(t)
+            return float(
+                self._hp.dens(R, z, use_physical=False)
+                * (1.0 + 0.1 * numpy.cos(phi))
+                * (1.0 + 0.05 * t)
+            )
+
+    mp = MultipoleExpansionPotential.from_density(
+        dens=ScalarDensity(),
+        L=3,
+        rgrid=numpy.geomspace(1e-2, 10, 11),
+        tgrid=numpy.linspace(0, 5, 5),
+    )
+    val = mp(1.0, 0.0, phi=0.3, t=2.0, use_physical=False)
+    assert numpy.isfinite(val), "Non-vectorized density should produce finite potential"
+
+
+def test_compute_rho_lm_timedep_axi_nonvectorized():
+    """Non-vectorizable axisymmetric density should work via fallback loop."""
+
+    class ScalarDensityAxi:
+        """Axisymmetric density that doesn't support array broadcasting."""
+
+        def __init__(self):
+            self._hp = HernquistPotential(amp=2.0, a=1.0)
+
+        def __call__(self, R, z, t=0.0):
+            R = float(R)
+            z = float(z)
+            t = float(t)
+            return float(self._hp.dens(R, z, use_physical=False) * (1.0 + 0.05 * t))
+
+    mp = MultipoleExpansionPotential.from_density(
+        dens=ScalarDensityAxi(),
+        L=3,
+        symmetry="axisymmetric",
+        rgrid=numpy.geomspace(1e-2, 10, 11),
+        tgrid=numpy.linspace(0, 5, 5),
+    )
+    val = mp(1.0, 0.0, t=2.0, use_physical=False)
+    assert numpy.isfinite(val), (
+        "Non-vectorized axi density should produce finite potential"
+    )
+
+
+def test_time_dependent_force_cache_across_times():
+    """Force evaluation at different times should give different results (cache invalidation)."""
+    mp = _make_tdep_axi_mp(L=2)
+    t1, t2 = 0.5, 4.0
+    rf1 = mp.Rforce(1.0, 0.5, t=t1, use_physical=False)
+    rf2 = mp.Rforce(1.0, 0.5, t=t2, use_physical=False)
+    assert numpy.isfinite(rf1) and numpy.isfinite(rf2)
+    assert rf1 != rf2, "Forces at different times should differ"
+
+
+def test_time_dependent_2nd_derivs():
+    """Time-dep 2nd derivatives at a normal grid point."""
+    mp = _make_tdep_axi_mp(L=2)
+    t = 2.0
+    r2 = mp.R2deriv(1.0, 0.5, t=t, use_physical=False)
+    z2 = mp.z2deriv(1.0, 0.5, t=t, use_physical=False)
+    assert numpy.isfinite(r2), "R2deriv should be finite"
+    assert numpy.isfinite(z2), "z2deriv should be finite"
+
+
+def test_parse_density_time_dependent_2arg():
+    """from_density with 2-arg time-dependent density f(R_z, t) should work."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, t=0.0: hp.dens(R, z, use_physical=False) * (1.0 + 0.1 * t),
+        L=2,
+        symmetry="axisymmetric",
+        rgrid=_TDEP_RGRID,
+        tgrid=_TDEP_TGRID,
+    )
+    assert mp._tdep is True
+    val = mp(1.0, 0.0, t=2.0, use_physical=False)
+    assert numpy.isfinite(val)
+
+
+def test_time_dependent_forces_r_zero():
+    """Time-dep forces at r=0 should return (0, 0, 0)."""
+    mp = _make_tdep_axi_mp(L=2)
+    dr, dtheta, dphi = mp._compute_spher_forces_at_point(0.0, 0.0, 0.0, t=2.0)
+    assert dr == 0.0 and dtheta == 0.0 and dphi == 0.0

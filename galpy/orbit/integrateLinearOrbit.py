@@ -72,7 +72,10 @@ def _parse_pot(pot):
             # (a) MultipoleExpansion, multiply in any add'l amp
             pt, pa = _parse_multipole_expansion_pot(p._Pot._me, extra_amp=p._Pot._amp)
             pot_type.append(pt)
-            pot_args.extend(pa)
+            if isinstance(pa, numpy.ndarray):
+                pot_args.append(pa)
+            else:
+                pot_args.extend(pa)
             pot_args.extend([p._R, p._phi])
             # (b) constituent [Sigma_i,h_i] parts
             dpts, dpa = _parse_disk_approx_pairs(
@@ -116,7 +119,22 @@ def _parse_pot(pot):
             pot_args.append(p._R)
             pot_args.append(p._phi)
     pot_type = numpy.array(pot_type, dtype=numpy.int32, order="C")
-    pot_args = numpy.array(pot_args, dtype=numpy.float64, order="C")
+    if any(isinstance(a, numpy.ndarray) for a in pot_args):
+        chunks = []
+        scalars = []
+        for a in pot_args:
+            if isinstance(a, numpy.ndarray):
+                if scalars:
+                    chunks.append(numpy.array(scalars, dtype=numpy.float64))
+                    scalars = []
+                chunks.append(a.astype(numpy.float64, copy=False).ravel())
+            else:
+                scalars.append(a)
+        if scalars:
+            chunks.append(numpy.array(scalars, dtype=numpy.float64))
+        pot_args = numpy.ascontiguousarray(numpy.concatenate(chunks))
+    else:
+        pot_args = numpy.array(pot_args, dtype=numpy.float64, order="C")
     return (npot, pot_type, pot_args, pot_tfuncs)
 
 
