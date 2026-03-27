@@ -105,6 +105,7 @@ The following are isotropic distribution functions
    King DF <dfking.rst>
    NFW DF <dfnfw.rst>
    Plummer DF <dfplummer.rst>
+   Power-law DF <dfpowerlawisotropic.rst>
 
 Anisotropic versions also exist:
 
@@ -116,6 +117,8 @@ Anisotropic versions also exist:
    Hernquist DF with constant anisotropy beta <dfhernquistconstantbeta.rst>
    Hernquist DF with Osipkov-Merritt anisotropy <dfhernquistosipkov.rst>
    NFW DF with Osipkov-Merritt anisotropy <dfnfwosipkov.rst>
+   Power-law DF with constant anisotropy beta <dfpowerlawconstantbeta.rst>
+   Power-law DF with Osipkov-Merritt anisotropy <dfpowerlawosipkovmerritt.rst>
 
 Two-dimensional, axisymmetric disk distribution functions
 ----------------------------------------------------------

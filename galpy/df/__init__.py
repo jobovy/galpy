@@ -1,17 +1,20 @@
 from . import (
     constantbetadf,
     constantbetaHernquistdf,
+    constantbetaPowerLawdf,
     diskdf,
     eddingtondf,
     evolveddiskdf,
     isotropicHernquistdf,
     isotropicNFWdf,
     isotropicPlummerdf,
+    isotropicPowerLawdf,
     jeans,
     kingdf,
     osipkovmerrittdf,
     osipkovmerrittHernquistdf,
     osipkovmerrittNFWdf,
+    osipkovmerrittPowerLawdf,
     quasiisothermaldf,
     sphericaldf,
     streamdf,
@@ -66,6 +69,9 @@ isotropicNFWdf = isotropicNFWdf.isotropicNFWdf
 osipkovmerrittdf = osipkovmerrittdf.osipkovmerrittdf
 osipkovmerrittNFWdf = osipkovmerrittNFWdf.osipkovmerrittNFWdf
 constantbetadf = constantbetadf.constantbetadf
+isotropicPowerLawdf = isotropicPowerLawdf.isotropicPowerLawdf
+constantbetaPowerLawdf = constantbetaPowerLawdf.constantbetaPowerLawdf
+osipkovmerrittPowerLawdf = osipkovmerrittPowerLawdf.osipkovmerrittPowerLawdf
 chen24spraydf = streamspraydf.chen24spraydf
 fardal15spraydf = streamspraydf.fardal15spraydf
 streamspraydf = streamspraydf.streamspraydf
