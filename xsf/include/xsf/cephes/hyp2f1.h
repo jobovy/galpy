@@ -438,6 +438,14 @@ namespace cephes {
             return 1.0;
         }
 
+        if (a == -1 && c != 0) {
+            double result = 1 - (b / c) * x; /* hyp2f1(-1, b; c; x) = 1 - (b/c)*x, c != 0 */
+            if (std::abs(result) < 1e-15) {
+                return 0.0;
+            }
+            return result;
+        }
+
         if (a <= 0 && std::abs(a - ia) < detail::hyp2f1_EPS) { /* a is a negative integer */
             neg_int_a = 1;
         }

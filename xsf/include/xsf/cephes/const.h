@@ -62,20 +62,19 @@ namespace xsf {
 namespace cephes {
     namespace detail {
         constexpr std::uint64_t MAXITER = 500;
-        constexpr double MACHEP = 1.11022302462515654042E-16;    // 2**-53
-        constexpr double MAXLOG = 7.09782712893383996732E2;      // log(DBL_MAX)
-        constexpr double MINLOG = -7.451332191019412076235E2;    // log 2**-1022
-        constexpr double SQRT1OPI = 5.64189583547756286948E-1;   // sqrt( 1/pi)
-        constexpr double SQRT2OPI = 7.9788456080286535587989E-1; // sqrt( 2/pi )
-        constexpr double SQRT2PI = 0.79788456080286535587989;    // sqrt(2pi)
-        constexpr double LOGSQ2 = 3.46573590279972654709E-1;     // log(2)/2
-        constexpr double THPIO4 = 2.35619449019234492885;        // 3*pi/4
-        constexpr double SQRT3 = 1.732050807568877293527;        // sqrt(3)
-        constexpr double PI180 = 1.74532925199432957692E-2;      // pi/180
-        constexpr double SQRTPI = 2.50662827463100050242E0;      // sqrt(pi)
-        constexpr double LOGPI = 1.14472988584940017414;         // log(pi)
-        constexpr double MAXGAM = 171.624376956302725;
-        constexpr double LOGSQRT2PI = 0.9189385332046727; // log(sqrt(pi))
+        constexpr double MACHEP = 1.1102230246251565404236316680908203125E-16;      // 2**-53
+        constexpr double MAXLOG = 7.097827128933839730962063185871E2;               // log(DBL_MAX)
+        constexpr double MINLOG = -7.451332191019412076235245305675398106812E2;     // log(2**(-1075))
+        constexpr double SQRT1OPI = 5.641895835477562869480794515607725858441E-1;   // sqrt(1/pi)
+        constexpr double SQRT2OPI = 7.978845608028653558798921198687637369517E-1;   // sqrt(2/pi)
+        constexpr double SQRT2PI = 2.506628274631000502415765284811045253007;       // sqrt(2*pi)
+        constexpr double LOGSQ2 = 3.465735902799726547086160607290882840378E-1;     // log(2)/2
+        constexpr double THPIO4 = 2.356194490192344928846982537459627163148;        // 3*pi/4
+        constexpr double SQRT3 = 1.732050807568877293527446341505872366943;         // sqrt(3)
+        constexpr double PI180 = 1.745329251994329576923690768488612713443E-2;      // pi/180
+        constexpr double LOGPI = 1.144729885849400174143427351353058711647;         // log(pi)
+        constexpr double LOGSQRT2PI = 9.189385332046727417803297364056176398614E-1; // log(sqrt(2*pi))
+        constexpr double MAXGAM = 171.624376956302725; // Largest x such that Gamma(x) is finite
 
         // Following two added by SciPy developers.
         // Euler's constant

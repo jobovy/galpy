@@ -138,7 +138,7 @@ namespace cephes {
             } else {
                 y = std::pow(x, x - 0.5) / y;
             }
-            y = SQRTPI * y * w;
+            y = SQRT2PI * y * w;
             return (y);
         }
     } // namespace detail
