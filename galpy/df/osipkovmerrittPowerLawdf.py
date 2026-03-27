@@ -106,7 +106,9 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
         )
         # Precompute normalization constants
         self._C = pot._amp / (self._alpha_pot - 2.0)
-        denspot_use = self._denspot if not isinstance(self._denspot, list) else self._denspot[0]
+        denspot_use = (
+            self._denspot if not isinstance(self._denspot, list) else self._denspot[0]
+        )
         self._nu0 = denspot_use._amp * (3.0 - self._gamma) / (4.0 * numpy.pi)
         # Exponents for the two terms: nu_aug = nu_0*r^{-gamma} + nu_0/ra^2 * r^{-gamma+2}
         self._s1 = self._gamma / (self._alpha_pot - 2.0)
@@ -150,7 +152,9 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
         Qint = numpy.atleast_1d(conversion.parse_energy(Q, vo=self._vo))
         out = numpy.zeros_like(Qint)
         valid = Qint > 0.0
-        out[valid] = self._A1 * Qint[valid] ** self._n1 + self._A2 * Qint[valid] ** self._n2
+        out[valid] = (
+            self._A1 * Qint[valid] ** self._n1 + self._A2 * Qint[valid] ** self._n2
+        )
         if hasattr(Q, "shape"):
             return out.reshape(Q.shape)
         return out[0]

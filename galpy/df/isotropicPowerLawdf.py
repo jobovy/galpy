@@ -86,7 +86,9 @@ class isotropicPowerLawdf(isotropicsphericaldf):
         # C = Psi(1) = pot._amp / (alpha-2)
         self._C = pot._amp / (self._alpha_pot - 2.0)
         # nu(1) = denspot density at r=1; _dens returns without _amp
-        denspot_use = self._denspot if not isinstance(self._denspot, list) else self._denspot[0]
+        denspot_use = (
+            self._denspot if not isinstance(self._denspot, list) else self._denspot[0]
+        )
         self._nu0 = denspot_use._amp * (3.0 - self._gamma) / (4.0 * numpy.pi)
         # Exponents
         self._s = self._gamma / (self._alpha_pot - 2.0)
@@ -95,7 +97,13 @@ class isotropicPowerLawdf(isotropicsphericaldf):
         self._fEnorm = (
             self._nu0
             * special.gamma(self._s + 1.0)
-            / (2.0 * numpy.sqrt(2.0) * numpy.pi**1.5 * special.gamma(self._s - 0.5) * self._C**self._s)
+            / (
+                2.0
+                * numpy.sqrt(2.0)
+                * numpy.pi**1.5
+                * special.gamma(self._s - 0.5)
+                * self._C**self._s
+            )
         )
         self._potInf = evaluatePotentials(self._pot, self._rmax, 0, use_physical=False)
 
