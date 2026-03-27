@@ -96,7 +96,9 @@ class constantbetaPowerLawdf(_constantbetadf):
         )
         # Precompute normalization constants
         self._C = pot._amp / (self._alpha_pot - 2.0)
-        denspot_use = self._denspot if not isinstance(self._denspot, list) else self._denspot[0]
+        denspot_use = (
+            self._denspot if not isinstance(self._denspot, list) else self._denspot[0]
+        )
         self._nu0 = denspot_use._amp * (3.0 - self._gamma) / (4.0 * numpy.pi)
         # Exponents
         self._p = (self._gamma - 2.0 * self._beta) / (self._alpha_pot - 2.0)
