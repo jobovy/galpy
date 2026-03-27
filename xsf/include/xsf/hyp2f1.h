@@ -521,8 +521,12 @@ namespace detail {
 
 XSF_HOST_DEVICE inline std::complex<double> hyp2f1(double a, double b, double c, std::complex<double> z) {
     /* Special Cases
-     * -----------------------------------------------------------------------
-     * Takes constant value 1 when a = 0 or b = 0, even if c is a non-positive
+     * nan input */
+    if (std::isnan(a) || std::isnan(b) || std::isnan(c) || std::isnan(z.real()) || std::isnan(z.imag())) {
+        return std::complex<double>{std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()};
+    }
+
+    /* Takes constant value 1 when a = 0 or b = 0, even if c is a non-positive
      * integer. This follows mpmath. */
     if (a == 0 || b == 0) {
         return 1.0;
