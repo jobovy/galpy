@@ -1560,7 +1560,7 @@ def test_amp_mult_divide():
             assert numpy.fabs(tp(R) * num - (tp * num)(R)) < 1e-10, (
                 "Multiplying a linearPotential with a number does not behave as expected"
             )
-            assert numpy.fabs(tp(R) / num - (tp / num)(R)) < 1e-10, (
+            assert numpy.allclose(tp(R) / num, (tp / num)(R), rtol=1e-10, atol=0), (
                 "Dividing a linearPotential with a number does not behave as expected"
             )
         elif isinstance(tp, potential.planarPotential):
@@ -1571,9 +1571,9 @@ def test_amp_mult_divide():
             assert numpy.fabs(tp(R, phi=phi) * num - (tp * num)(R, phi=phi)) < 1e-10, (
                 "Multiplying a planarPotential with a number does not behave as expected"
             )
-            assert numpy.fabs(tp(R, phi=phi) / num - (tp / num)(R, phi=phi)) < 1e-10, (
-                "Dividing a planarPotential with a number does not behave as expected"
-            )
+            assert numpy.allclose(
+                tp(R, phi=phi) / num, (tp / num)(R, phi=phi), rtol=1e-10, atol=0
+            ), "Dividing a planarPotential with a number does not behave as expected"
         else:
             assert (
                 numpy.fabs(tp(R, Z, phi=phi) * num - (num * tp)(R, Z, phi=phi)) < 1e-10
@@ -1582,8 +1582,11 @@ def test_amp_mult_divide():
             assert (
                 numpy.fabs(tp(R, Z, phi=phi) * num - (tp * num)(R, Z, phi=phi)) < 1e-10
             ), "Multiplying a Potential with a number does not behave as expected"
-            assert (
-                numpy.fabs(tp(R, Z, phi=phi) / num - (tp / num)(R, Z, phi=phi)) < 1e-10
+            assert numpy.allclose(
+                tp(R, Z, phi=phi) / num,
+                (tp / num)(R, Z, phi=phi),
+                rtol=1e-10,
+                atol=0,
             ), "Dividing a Potential with a number does not behave as expected"
     return None
 
@@ -11191,6 +11194,34 @@ class mockTimeDependentMultipoleExpansionPotential(
         )
 
 
+class mockTDMultipoleExpansionLimitedGridPotential(
+    potential.MultipoleExpansionPotential
+):
+    """Time-dep multipole with a limited grid, to test below/above grid C paths."""
+
+    def __init__(self):
+        hp = potential.HernquistPotential(amp=2.0, a=1.0)
+        temp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + 1e-8 * numpy.cos(phi))
+                * (1 + 1e-8 * t)
+            ),
+            L=3,
+            rgrid=numpy.geomspace(0.1, 1.245, 101),
+            tgrid=numpy.linspace(0, 300, 11),
+        )
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            rho_cos_splines=temp._rho_cos_funcs,
+            rho_sin_splines=temp._rho_sin_funcs,
+            rgrid=temp._rgrid,
+            tgrid=temp._tgrid,
+        )
+        # Hack to end up with a very limited grid
+        self._rgrid = numpy.geomspace(0.98, 1.245, 101)
+
+
 # Test interpSphericalPotential
 class mockInterpSphericalPotential(potential.interpSphericalPotential):
     def __init__(self):
@@ -11923,6 +11954,38 @@ class mockFlatWeaklyTDMultipoleExpansionPotential(testMWPotential):
             L=4,
             rgrid=numpy.geomspace(1e-3, 50, 101),
             tgrid=numpy.linspace(0, 300, 41),
+        )
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                tdep_mp,
+            ],
+        )
+
+    def OmegaP(self):
+        return 1.3
+
+
+class mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential(testMWPotential):
+    """Weakly time-dep, non-axi L=3 (M=3) multipole for actionAngle/liouville tests.
+
+    Exercises the Chebyshev cos/sin recurrence for mm>=2 and the time-dep
+    non-axi potential/force/2nd-deriv C paths.
+    """
+
+    def __init__(self):
+        omega = 1.3
+        epsilon = 1e-4
+        hp = potential.HernquistPotential(amp=0.02, a=1.0)
+        tdep_mp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + epsilon * numpy.cos(phi + omega * t))
+            ),
+            L=3,
+            rgrid=numpy.geomspace(1e-3, 50, 51),
+            tgrid=numpy.linspace(0, 300, 11),
         )
         testMWPotential.__init__(
             self,
