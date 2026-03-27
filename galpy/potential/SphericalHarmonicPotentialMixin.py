@@ -53,7 +53,8 @@ class SphericalHarmonicPotentialMixin:
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
         phi = numpy.array(phi, dtype=float)
-        shape = (R * z * phi).shape
+        t = numpy.array(t, dtype=float)
+        shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
         if shape == ():
             dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
                 R, z, phi, t=t
@@ -62,13 +63,14 @@ class SphericalHarmonicPotentialMixin:
         R = R * numpy.ones(shape)
         z = z * numpy.ones(shape)
         phi = phi * numpy.ones(shape)
+        t = t * numpy.ones(shape)
         force = numpy.zeros(shape, float)
         dr_dx = dr_dx * numpy.ones(shape)
         dtheta_dx = dtheta_dx * numpy.ones(shape)
         dphi_dx = dphi_dx * numpy.ones(shape)
         for idx in numpy.ndindex(*shape):
             dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
-                R[idx], z[idx], phi[idx], t=t
+                R[idx], z[idx], phi[idx], t=t[idx]
             )
             force[idx] = (
                 dr_dx[idx] * dPhi_dr
@@ -127,16 +129,18 @@ class SphericalHarmonicPotentialMixin:
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
         phi = numpy.array(phi, dtype=float)
-        shape = (R * z * phi).shape
+        t = numpy.array(t, dtype=float)
+        shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
         if shape == ():
             return self._cyl_2nd_deriv_at_point(deriv_type, R, z, phi, t=t)
         R = R * numpy.ones(shape)
         z = z * numpy.ones(shape)
         phi = phi * numpy.ones(shape)
+        t = t * numpy.ones(shape)
         result = numpy.zeros(shape, float)
         for idx in numpy.ndindex(*shape):
             result[idx] = self._cyl_2nd_deriv_at_point(
-                deriv_type, R[idx], z[idx], phi[idx], t=t
+                deriv_type, R[idx], z[idx], phi[idx], t=t[idx]
             )
         return result
 

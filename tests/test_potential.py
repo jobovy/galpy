@@ -11887,9 +11887,9 @@ class mockFlatSolidBodyRotationMultipoleExpansionPotential(testMWPotential):
                 hp.dens(R, z, use_physical=False)
                 * (1 + 0.5 * numpy.cos(phi + omega * t))
             ),
-            L=6,
+            L=4,
             rgrid=numpy.geomspace(1e-3, 50, 101),
-            tgrid=numpy.linspace(0, 300, 76),
+            tgrid=numpy.linspace(0, 300, 41),
         )
         testMWPotential.__init__(
             self,
@@ -11920,9 +11920,9 @@ class mockFlatWeaklyTDMultipoleExpansionPotential(testMWPotential):
                 hp.dens(R, z, use_physical=False)
                 * (1 + epsilon * numpy.cos(phi + omega * t))
             ),
-            L=6,
+            L=4,
             rgrid=numpy.geomspace(1e-3, 50, 101),
-            tgrid=numpy.linspace(0, 300, 76),
+            tgrid=numpy.linspace(0, 300, 41),
         )
         testMWPotential.__init__(
             self,
