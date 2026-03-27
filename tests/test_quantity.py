@@ -19041,3 +19041,32 @@ def test_integrate_continuation_orbits_timeAsQuantity():
     )
 
     return None
+
+
+def test_MultipoleExpansionPotential_from_density_timedep_astropy_units_ro_vo():
+    """Time-dep from_density with astropy-unit density sets ro/vo on result."""
+    from galpy.potential import HernquistPotential, MultipoleExpansionPotential
+
+    ro, vo = 8.0, 220.0
+    rgrid = numpy.geomspace(1e-2, 10, 21)
+    tgrid = numpy.linspace(0, 5, 11)
+
+    def dens_with_units(R, z, phi, t=0.0):
+        hp = HernquistPotential(amp=2.0, a=1.0, ro=ro, vo=vo)
+        return hp.dens(R, z, use_physical=True) * (
+            1.0 + 0.05 * t * units.Gyr / units.Gyr
+        )
+
+    mp = MultipoleExpansionPotential.from_density(
+        dens=dens_with_units,
+        L=2,
+        rgrid=rgrid,
+        tgrid=tgrid,
+        ro=ro,
+        vo=vo,
+    )
+    assert mp._tdep is True
+    assert numpy.isclose(mp._ro, ro), f"Expected ro={ro}, got {mp._ro}"
+    assert numpy.isclose(mp._vo, vo), f"Expected vo={vo}, got {mp._vo}"
+    val = mp(1.0, 0.0, t=1.0, use_physical=False)
+    assert numpy.isfinite(val), "Potential should be finite"

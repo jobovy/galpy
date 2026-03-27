@@ -249,11 +249,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             )
         elif isinstance(p, potential.MultipoleExpansionPotential):
             pot_type.append(44)
-            _mep_args = p._serialize_for_c()
-            if isinstance(_mep_args, numpy.ndarray):
-                pot_args.append(_mep_args)
-            else:
-                pot_args.extend(_mep_args)
+            pot_args.extend(p._serialize_for_c())
         elif isinstance(p, potential.SCFPotential):
             # Type 24, see stand-alone parser below
             pt, pa, ptf = _parse_scf_pot(p)
@@ -270,10 +266,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             # (a) MultipoleExpansion, multiply in any add'l amp
             pt, pa = _parse_multipole_expansion_pot(p._me, extra_amp=p._amp)
             pot_type.append(pt)
-            if isinstance(pa, numpy.ndarray):
-                pot_args.append(pa)
-            else:
-                pot_args.extend(pa)
+            pot_args.extend(pa)
             # (b) constituent [Sigma_i,h_i] parts
             dpts, dpa = _parse_disk_approx_pairs(p, extra_amp=p._amp)
             for dpt in dpts:
@@ -594,25 +587,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp, p._Rp, p._refpot])
     pot_type = numpy.array(pot_type, dtype=numpy.int32, order="C")
-    # Fast path: if pot_args contains numpy arrays (e.g., from
-    # MultipoleExpansionPotential), concatenate them efficiently instead
-    # of converting millions of Python floats via numpy.array()
-    if any(isinstance(a, numpy.ndarray) for a in pot_args):
-        chunks = []
-        scalars = []
-        for a in pot_args:
-            if isinstance(a, numpy.ndarray):
-                if scalars:
-                    chunks.append(numpy.array(scalars, dtype=numpy.float64))
-                    scalars = []
-                chunks.append(a.astype(numpy.float64, copy=False).ravel())
-            else:
-                scalars.append(a)
-        if scalars:
-            chunks.append(numpy.array(scalars, dtype=numpy.float64))
-        pot_args = numpy.ascontiguousarray(numpy.concatenate(chunks))
-    else:
-        pot_args = numpy.array(pot_args, dtype=numpy.float64, order="C")
+    pot_args = numpy.array(pot_args, dtype=numpy.float64, order="C")
     return (npot, pot_type, pot_args, pot_tfuncs)
 
 

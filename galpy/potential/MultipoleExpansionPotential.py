@@ -398,18 +398,9 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     rho_cos_funcs[l][m] = lambda r, t, _interp=cos_t_interp: _interp(t)
                     rho_sin_funcs[l][m] = lambda r, t, _interp=sin_t_interp: _interp(t)
             # Handle astropy unit detection (following SCFPotential pattern)
-            if _APY_LOADED and not isinstance(dens, Potential):
-                try:
-                    sig = inspect.signature(dens)
-                    params = list(sig.parameters.keys())
-                    spatial_params = [p for p in params if p != "t"]
-                    param = [1.0] * len(spatial_params)
-                    dens(*param, t=0.0).to(units.kg / units.m**3)
-                except (AttributeError, units.UnitConversionError, TypeError):
-                    pass
-                else:
-                    ro = internal_ro
-                    vo = internal_vo
+            if cls._density_has_units(dens):
+                ro = internal_ro
+                vo = internal_vo
             return cls(
                 amp=amp,
                 rho_cos_splines=rho_cos_funcs,
@@ -447,26 +438,9 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 for l in range(L)
             ]
             # Handle astropy unit detection (following SCFPotential pattern)
-            if _APY_LOADED:
-                numOfParam = 0
-                try:
-                    dens(1.0, 0.0, 0.0)
-                    numOfParam = 3
-                except TypeError:
-                    try:
-                        dens(1.0, 0.0)
-                        numOfParam = 2
-                    except TypeError:
-                        numOfParam = 1
-                if not isinstance(dens, Potential):
-                    param = [1.0] * numOfParam
-                    try:
-                        dens(*param).to(units.kg / units.m**3)
-                    except (AttributeError, units.UnitConversionError):
-                        pass
-                    else:
-                        ro = internal_ro
-                        vo = internal_vo
+            if cls._density_has_units(dens):
+                ro = internal_ro
+                vo = internal_vo
             return cls(
                 amp=amp,
                 rho_cos_splines=rho_cos_splines,
@@ -476,6 +450,41 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 ro=ro,
                 vo=vo,
             )
+
+    @staticmethod
+    def _density_has_units(dens):
+        """
+        Check whether a density callable returns astropy Quantity with density units.
+
+        Parameters
+        ----------
+        dens : callable or Potential
+            Density function.
+
+        Returns
+        -------
+        bool
+            True if the density returns astropy density units, False otherwise.
+
+        Notes
+        -----
+        - 2026-03-31 - Written - Bovy (UofT)
+        """
+        if not _APY_LOADED or isinstance(dens, Potential):
+            return False
+        try:
+            sig = inspect.signature(dens)
+            params = list(sig.parameters.keys())
+            spatial_params = [p for p in params if p != "t"]
+            param = [1.0] * len(spatial_params)
+            has_t = "t" in params
+            if has_t:
+                dens(*param, t=0.0).to(units.kg / units.m**3)
+            else:
+                dens(*param).to(units.kg / units.m**3)
+        except (AttributeError, units.UnitConversionError, TypeError):
+            return False
+        return True
 
     @staticmethod
     def _parse_density(dens, ro, vo):
@@ -2055,7 +2064,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                         chunks.append(
                             numpy.ascontiguousarray(rho_cs.c.transpose(1, 2, 0)).ravel()
                         )
-            return numpy.concatenate(chunks)
+            return numpy.concatenate(chunks).tolist()
         # Static path (Nt=0)
         # Use BPoly breakpoints as the grid: PPoly coefficients are defined
         # relative to these breakpoints, so C must use them for interval lookup

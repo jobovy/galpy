@@ -46,6 +46,7 @@ from test_potential import (
     mockFlatTrulyCorotatingRotationSpiralArmsPotential,
     mockFlatTrulyGaussianAmplitudeBarPotential,
     mockFlatWeaklyTDMultipoleExpansionPotential,
+    mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential,
     mockInterpSphericalPotential,
     mockKuzminLikeWrapperPotential,
     mockMovingObjectLongIntPotential,
@@ -67,6 +68,7 @@ from test_potential import (
     mockSlowFlatEllipticalDiskPotential,
     mockSlowFlatSteadyLogSpiralPotential,
     mockSpecialRotatingFlatSpiralArmsPotential,
+    mockTDMultipoleExpansionLimitedGridPotential,
     nestedListPotential,
     oblateHernquistPotential,
     oblateNFWPotential,
@@ -766,6 +768,8 @@ def test_liouville_planar():
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
     pots.append("mockMultipoleExpansionLimitedGridPotential")
+    pots.append("mockTDMultipoleExpansionLimitedGridPotential")
+    pots.append("mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -820,6 +824,8 @@ def test_liouville_planar():
     tol["mockFlatTrulyCorotatingRotationSpiralArmsPotential"] = -5.0  # more difficult
     tol["mockMultipoleExpansionPotential"] = -6.5
     tol["mockMultipoleExpansionLimitedGridPotential"] = -5.0
+    tol["mockTDMultipoleExpansionLimitedGridPotential"] = -4.0
+    tol["mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential"] = -4.0
     firstTest = True
     for p in pots:
         # Setup instance of potential
