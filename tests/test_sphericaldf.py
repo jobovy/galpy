@@ -3303,15 +3303,20 @@ def test_isotropic_powerlaw_nonself_sigmar_directint():
     )
 
 
-def test_isotropic_powerlaw_gamma_parameter():
+def test_isotropic_powerlaw_nonself_different_amp():
+    # Non-self-consistent with a different amplitude for the tracer
     pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
-    # gamma= and denspot= should give the same DF
-    dfg = isotropicPowerLawdf(pot=pot, gamma=2.8, rmax=100.0, rmin=1e-4)
-    denspot = potential.PowerSphericalPotential(amp=pot._amp, alpha=2.8)
-    dfd = isotropicPowerLawdf(pot=pot, denspot=denspot, rmax=100.0, rmin=1e-4)
-    Es = numpy.linspace(-10.0, -0.1, 21)
-    assert numpy.all(numpy.fabs(dfg.fE(Es) - dfd.fE(Es)) < 1e-10), (
-        "gamma= and denspot= do not give the same isotropic power-law DF"
+    denspot = potential.PowerSphericalPotential(amp=2.0, alpha=2.8)
+    dfp = isotropicPowerLawdf(pot=pot, denspot=denspot, rmax=100.0, rmin=1e-4)
+    tol = 1e-7
+    check_dens_directint(
+        dfp,
+        pot,
+        tol,
+        lambda r: denspot.dens(r, 0),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
     )
 
 
@@ -3438,21 +3443,25 @@ def test_constantbeta_powerlaw_beta0_equals_isotropic():
     )
 
 
-def test_constantbeta_powerlaw_gamma_and_denspot():
-    # Test gamma= parameter path
+def test_constantbeta_powerlaw_nonself_dens_directint():
+    # Non-self-consistent case with denspot
     pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
-    dfg = constantbetaPowerLawdf(pot=pot, beta=0.3, gamma=2.8, rmax=100.0, rmin=1e-4)
-    # Test denspot= parameter path
-    denspot = potential.PowerSphericalPotential(amp=pot._amp, alpha=2.8)
-    dfd = constantbetaPowerLawdf(
+    denspot = potential.PowerSphericalPotential(amp=1.0, alpha=2.8)
+    dfp = constantbetaPowerLawdf(
         pot=pot, denspot=denspot, beta=0.3, rmax=100.0, rmin=1e-4
     )
-    Es = numpy.linspace(-10.0, -0.1, 21)
-    assert numpy.all(numpy.fabs(dfg.fE(Es) - dfd.fE(Es)) < 1e-10), (
-        "gamma= and denspot= do not give the same constantbeta power-law DF"
+    tol = 1e-7
+    check_dens_directint(
+        dfp,
+        pot,
+        tol,
+        lambda r: denspot.dens(r, 0),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
     )
-    # Test scalar fE input (plain float, no .shape — covers the non-array return path)
-    assert numpy.fabs(dfg.fE(-1.0) - dfd.fE(-1.0)) < 1e-10
+    # Also test scalar fE input (plain float, no .shape — covers the non-array return path)
+    assert dfp.fE(-1.0) > 0.0
 
 
 #################### OSIPKOV-MERRITT POWER-LAW DF ############################
@@ -3591,17 +3600,22 @@ def test_osipkovmerritt_powerlaw_large_ra_approaches_isotropic():
         )
 
 
-def test_osipkovmerritt_powerlaw_gamma_parameter():
-    # Test gamma= parameter path (covers gamma branch in __init__)
+def test_osipkovmerritt_powerlaw_nonself_dens_directint():
+    # Non-self-consistent case with denspot
     pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
-    dfg = osipkovmerrittPowerLawdf(pot=pot, ra=2.0, gamma=2.8, rmax=100.0, rmin=1e-4)
-    denspot = potential.PowerSphericalPotential(amp=pot._amp, alpha=2.8)
-    dfd = osipkovmerrittPowerLawdf(
+    denspot = potential.PowerSphericalPotential(amp=1.0, alpha=2.8)
+    dfp = osipkovmerrittPowerLawdf(
         pot=pot, denspot=denspot, ra=2.0, rmax=100.0, rmin=1e-4
     )
-    Qs = numpy.linspace(0.1, 10.0, 21)
-    assert numpy.all(numpy.fabs(dfg.fQ(Qs) - dfd.fQ(Qs)) < 1e-10), (
-        "gamma= and denspot= do not give the same OM power-law DF"
+    tol = 1e-7
+    check_dens_directint(
+        dfp,
+        pot,
+        tol,
+        lambda r: denspot.dens(r, 0),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
     )
 
 

@@ -38,7 +38,6 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
         pot=None,
         denspot=None,
         ra=1.4,
-        gamma=None,
         rmax=1e4,
         rmin=None,
         ro=None,
@@ -52,11 +51,9 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
         pot : PowerSphericalPotential
             Power-law potential with alpha > 2.
         denspot : PowerSphericalPotential, optional
-            Power-law potential representing the tracer density. If None, uses gamma or self-consistent (gamma=alpha).
+            Power-law potential representing the tracer density. If None, self-consistent (tracer = potential-generating density).
         ra : float or Quantity, optional
             Anisotropy radius. Default: 1.4.
-        gamma : float, optional
-            Power-law exponent of the tracer density (nu ~ r^{-gamma}). Ignored if denspot is given.
         rmax : float or Quantity, optional
             Maximum radius for sampling. Default: 1e4.
         rmin : float or Quantity, optional
@@ -81,8 +78,6 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
                 "denspot= must be potential.PowerSphericalPotential"
             )
             self._gamma = denspot.alpha
-        elif gamma is not None:
-            self._gamma = gamma
         else:
             self._gamma = self._alpha_pot
         assert self._gamma > self._alpha_pot / 2.0, (
@@ -90,9 +85,6 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
             "for the Osipkov-Merritt DF to be normalizable"
         )
         assert self._gamma < 3.0, "gamma must be < 3 for finite enclosed mass"
-        # Build denspot if only gamma was given
-        if denspot is None and gamma is not None:
-            denspot = PowerSphericalPotential(amp=pot._amp, alpha=gamma)
         _osipkovmerrittdf.__init__(
             self, pot=pot, denspot=denspot, ra=ra, rmax=rmax, ro=ro, vo=vo
         )
