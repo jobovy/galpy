@@ -25,9 +25,7 @@ class isotropicPowerLawdf(isotropicsphericaldf):
     where :math:`\\mathcal{E} = -E \\geq 0` is the relative energy.
     """
 
-    def __init__(
-        self, pot=None, denspot=None, gamma=None, rmax=1e4, rmin=None, ro=None, vo=None
-    ):
+    def __init__(self, pot=None, denspot=None, rmax=1e4, rmin=None, ro=None, vo=None):
         """
         Initialize an isotropic power-law distribution function.
 
@@ -36,9 +34,7 @@ class isotropicPowerLawdf(isotropicsphericaldf):
         pot : PowerSphericalPotential
             Power-law potential with alpha > 2.
         denspot : PowerSphericalPotential, optional
-            Power-law potential representing the tracer density. If None, uses gamma or self-consistent (gamma=alpha).
-        gamma : float, optional
-            Power-law exponent of the tracer density (nu ~ r^{-gamma}). Ignored if denspot is given.
+            Power-law potential representing the tracer density. If None, self-consistent (tracer = potential-generating density).
         rmax : float or Quantity, optional
             Maximum radius for sampling (required because the total mass is infinite). Default: 1e4.
         rmin : float or Quantity, optional
@@ -63,8 +59,6 @@ class isotropicPowerLawdf(isotropicsphericaldf):
                 "denspot= must be potential.PowerSphericalPotential"
             )
             self._gamma = denspot.alpha
-        elif gamma is not None:
-            self._gamma = gamma
         else:
             self._gamma = self._alpha_pot
         assert self._gamma > (self._alpha_pot - 2.0) / 2.0, (
@@ -72,9 +66,6 @@ class isotropicPowerLawdf(isotropicsphericaldf):
             "for the DF to be normalizable"
         )
         assert self._gamma < 3.0, "gamma must be < 3 for finite enclosed mass"
-        # Build denspot if only gamma was given
-        if denspot is None and gamma is not None:
-            denspot = PowerSphericalPotential(amp=pot._amp, alpha=gamma)
         isotropicsphericaldf.__init__(
             self, pot=pot, denspot=denspot, rmax=rmax, ro=ro, vo=vo
         )

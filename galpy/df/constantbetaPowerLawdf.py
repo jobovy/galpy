@@ -31,7 +31,6 @@ class constantbetaPowerLawdf(_constantbetadf):
         pot=None,
         denspot=None,
         beta=0,
-        gamma=None,
         rmax=1e4,
         rmin=None,
         ro=None,
@@ -45,11 +44,9 @@ class constantbetaPowerLawdf(_constantbetadf):
         pot : PowerSphericalPotential
             Power-law potential with alpha > 2.
         denspot : PowerSphericalPotential, optional
-            Power-law potential representing the tracer density. If None, uses gamma or self-consistent (gamma=alpha).
+            Power-law potential representing the tracer density. If None, self-consistent (tracer = potential-generating density).
         beta : float, optional
             Anisotropy parameter. Must be < 1. Default: 0.
-        gamma : float, optional
-            Power-law exponent of the tracer density (nu ~ r^{-gamma}). Ignored if denspot is given.
         rmax : float or Quantity, optional
             Maximum radius for sampling. Default: 1e4.
         rmin : float or Quantity, optional
@@ -75,14 +72,9 @@ class constantbetaPowerLawdf(_constantbetadf):
                 "denspot= must be potential.PowerSphericalPotential"
             )
             self._gamma = denspot.alpha
-        elif gamma is not None:
-            self._gamma = gamma
         else:
             self._gamma = self._alpha_pot
         assert self._gamma < 3.0, "gamma must be < 3 for finite enclosed mass"
-        # Build denspot if only gamma was given
-        if denspot is None and gamma is not None:
-            denspot = PowerSphericalPotential(amp=pot._amp, alpha=gamma)
         _constantbetadf.__init__(
             self, pot=pot, denspot=denspot, beta=beta, rmax=rmax, ro=ro, vo=vo
         )
