@@ -345,6 +345,6 @@ jobs:
         lcov --capture --base-directory . --directory build/temp.linux-x86_64-`python -c "import sys; print(sys.implementation.cache_tag)"`/galpy/ --no-external --output-file coverage.info
     - name: Upload coverage reports to codecov
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
