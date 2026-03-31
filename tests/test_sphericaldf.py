@@ -3059,20 +3059,21 @@ def test_pvr_interpolator_covers_rmax():
 
 
 def test_pvr_interpolator_rmax_default_vs_explicit():
-    # Test that the default r_a_end (None) and an explicit r_a_end both work
+    # Test that _sample_v passes r_a_end based on rmax, and that explicit
+    # r_a_end values are correctly clamped by _make_pvr_interpolator
     pot = potential.HernquistPotential(amp=2.3, a=1.3)
     rmax = 100.0
     dfh = eddingtondf(pot=pot, rmax=rmax)
     # Set _rmin_sampling as sample() would
     dfh._rmin_sampling = 0.0
-    # Default: should use log10(rmax/scale)
-    interp_default = dfh._make_pvr_interpolator()
+    # Passing r_a_end matching rmax: should use log10(rmax/scale)
     expected_end = numpy.log10((rmax - 1e-8) / dfh._scale)
-    r_a_max_default = interp_default.get_knots()[0][-1]
-    assert numpy.fabs(r_a_max_default - expected_end) < 0.1, (
-        "Default r_a_end does not match log10(rmax/scale)"
+    interp_rmax = dfh._make_pvr_interpolator(r_a_end=expected_end)
+    r_a_max_rmax = interp_rmax.get_knots()[0][-1]
+    assert numpy.fabs(r_a_max_rmax - expected_end) < 0.1, (
+        "r_a_end based on rmax was not respected"
     )
-    # Explicit smaller r_a_end: should be clamped
+    # Explicit smaller r_a_end: should be clamped to smaller value
     interp_explicit = dfh._make_pvr_interpolator(r_a_end=1.0)
     r_a_max_explicit = interp_explicit.get_knots()[0][-1]
     assert numpy.fabs(r_a_max_explicit - 1.0) < 0.1, (

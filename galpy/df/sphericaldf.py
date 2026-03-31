@@ -563,7 +563,12 @@ class sphericaldf(df):
     def _sample_v(self, r, eta, n=1):
         """Generate velocity samples: typically the total velocity, but not for OM"""
         if not hasattr(self, "_v_vesc_pvr_interpolator"):
-            self._v_vesc_pvr_interpolator = self._make_pvr_interpolator()
+            r_a_end = (
+                max(numpy.log10(self._rmax / self._scale), 3)
+                if numpy.isfinite(self._rmax)
+                else 3
+            )
+            self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(r_a_end=r_a_end)
         return self._v_vesc_pvr_interpolator(
             numpy.log10(r / self._scale), numpy.random.uniform(size=n), grid=False
         ) * self._vmax_at_r(self._pot, r)
@@ -587,9 +592,7 @@ class sphericaldf(df):
             )
         )
 
-    def _make_pvr_interpolator(
-        self, r_a_start=-3, r_a_end=None, n_r_a=120, n_v_vesc=100
-    ):
+    def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, n_r_a=120, n_v_vesc=100):
         """
         Calculate a grid of the velocity sampling function v^2*f(E) over many
         radii. The radii are fractional with respect to some scale radius
@@ -604,7 +607,7 @@ class sphericaldf(df):
         r_a_start : float, optional
             Radius grid start location in units of log10(r/a). Default is -3.
         r_a_end : float, optional
-            Radius grid end location in units of log10(r/a). Default is ``None``, which sets the end to ``log10(rmax/a)`` if ``rmax`` is finite, otherwise 3.
+            Radius grid end location in units of log10(r/a). Default is 3.
         n_r_a : int, optional
             Number of radius grid points to use. Default is 120.
         n_v_vesc : int, optional
@@ -632,16 +635,7 @@ class sphericaldf(df):
         r_a_start = numpy.amax(
             [numpy.log10((self._rmin_sampling + 1e-8) / self._scale), r_a_start]
         )
-        if r_a_end is None:
-            r_a_end = (
-                numpy.log10((self._rmax - 1e-8) / self._scale)
-                if numpy.isfinite(self._rmax)
-                else 3
-            )
-        else:
-            r_a_end = numpy.amin(
-                [numpy.log10((self._rmax - 1e-8) / self._scale), r_a_end]
-            )
+        r_a_end = numpy.amin([numpy.log10((self._rmax - 1e-8) / self._scale), r_a_end])
         r_a_values = 10.0 ** numpy.linspace(r_a_start, r_a_end, n_r_a)
         v_vesc_values = numpy.linspace(0, 1, n_v_vesc)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values, v_vesc_values)
@@ -664,6 +658,12 @@ class sphericaldf(df):
         icdf_v_vesc_grid_reg = numpy.zeros((n_new_pvr, len(r_a_values)))
         for i in range(pvr_grid_cml_norm.shape[1]):
             cml_pvr = pvr_grid_cml_norm[:, i]
+            if numpy.all(numpy.isnan(cml_pvr)) or numpy.all(cml_pvr == 0):
+                # No velocity probability at this radius (e.g., near rmax
+                # where vesc ~ 0); set inverse CDF to zero velocity
+                icdf_pvr_grid_reg[:, i] = numpy.linspace(0, 1, n_new_pvr)
+                icdf_v_vesc_grid_reg[:, i] = 0.0
+                continue
             if numpy.any(cml_pvr < 0):
                 warnings.warn(
                     "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!",
