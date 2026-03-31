@@ -3039,6 +3039,81 @@ def test_eddington_jaffe_divergent_sample_massprofile():
     return None
 
 
+def test_pvr_interpolator_covers_rmax():
+    # Test that the p(v|r) interpolator grid extends to cover all radii
+    # up to rmax, even when rmax/scale > 1e3 (the old default r_a_end=3)
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    rmax = 1e4
+    dfh = eddingtondf(pot=pot, rmax=rmax)
+    numpy.random.seed(1)
+    # Trigger interpolator creation via sample
+    dfh.sample(n=10)
+    interp = dfh._v_vesc_pvr_interpolator
+    # The interpolator's radial grid should extend up to log10(rmax/scale)
+    r_a_max_grid = interp.get_knots()[0][-1]
+    assert r_a_max_grid >= numpy.log10((rmax - 1e-8) / dfh._scale) - 0.01, (
+        f"p(v|r) interpolator grid does not extend to rmax: grid ends at "
+        f"10^{r_a_max_grid}*scale but rmax/scale={rmax / dfh._scale}"
+    )
+    return None
+
+
+def test_pvr_interpolator_rmax_default_vs_explicit():
+    # Test that the default r_a_end (None) and an explicit r_a_end both work
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    rmax = 100.0
+    dfh = eddingtondf(pot=pot, rmax=rmax)
+    # Set _rmin_sampling as sample() would
+    dfh._rmin_sampling = 0.0
+    # Default: should use log10(rmax/scale)
+    interp_default = dfh._make_pvr_interpolator()
+    expected_end = numpy.log10((rmax - 1e-8) / dfh._scale)
+    r_a_max_default = interp_default.get_knots()[0][-1]
+    assert numpy.fabs(r_a_max_default - expected_end) < 0.1, (
+        "Default r_a_end does not match log10(rmax/scale)"
+    )
+    # Explicit smaller r_a_end: should be clamped
+    interp_explicit = dfh._make_pvr_interpolator(r_a_end=1.0)
+    r_a_max_explicit = interp_explicit.get_knots()[0][-1]
+    assert numpy.fabs(r_a_max_explicit - 1.0) < 0.1, (
+        "Explicit r_a_end=1.0 was not respected"
+    )
+    return None
+
+
+def test_pvr_interpolator_large_rmax_sampling():
+    # Test that sampling works correctly with large rmax by checking that
+    # velocities at large radii are physical (not extrapolated garbage)
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    rmax = 1e4
+    dfh = eddingtondf(pot=pot, rmax=rmax)
+    numpy.random.seed(42)
+    samp = dfh.sample(n=10000)
+    rs = samp.r()
+    vs = numpy.sqrt(samp.vR() ** 2 + samp.vz() ** 2 + samp.vT() ** 2)
+    # All velocities should be <= escape velocity at their radius
+    vescs = numpy.sqrt(
+        2.0
+        * (
+            potential.evaluatePotentials(pot, rmax, 0.0)
+            - potential.evaluatePotentials(pot, rs, numpy.zeros_like(rs))
+        )
+    )
+    assert numpy.all(vs <= vescs * 1.01), (
+        "Some sampled velocities exceed the escape velocity"
+    )
+    # Check samples at large radii (r > 1e3 * scale) have reasonable velocities
+    large_r_mask = rs > 1e3 * dfh._scale
+    if numpy.sum(large_r_mask) > 0:
+        assert numpy.all(vs[large_r_mask] >= 0), (
+            "Velocities at large radii should be non-negative"
+        )
+        assert numpy.all(vs[large_r_mask] <= vescs[large_r_mask] * 1.01), (
+            "Velocities at large radii exceed escape velocity"
+        )
+    return None
+
+
 # Test that the unit system is correctly transferred
 def test_isotropic_hernquist_unittransfer():
     from galpy.util import conversion

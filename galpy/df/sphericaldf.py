@@ -587,7 +587,9 @@ class sphericaldf(df):
             )
         )
 
-    def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, n_r_a=120, n_v_vesc=100):
+    def _make_pvr_interpolator(
+        self, r_a_start=-3, r_a_end=None, n_r_a=120, n_v_vesc=100
+    ):
         """
         Calculate a grid of the velocity sampling function v^2*f(E) over many
         radii. The radii are fractional with respect to some scale radius
@@ -602,7 +604,7 @@ class sphericaldf(df):
         r_a_start : float, optional
             Radius grid start location in units of log10(r/a). Default is -3.
         r_a_end : float, optional
-            Radius grid end location in units of log10(r/a). Default is 3.
+            Radius grid end location in units of log10(r/a). Default is ``None``, which sets the end to ``log10(rmax/a)`` if ``rmax`` is finite, otherwise 3.
         n_r_a : int, optional
             Number of radius grid points to use. Default is 120.
         n_v_vesc : int, optional
@@ -630,7 +632,16 @@ class sphericaldf(df):
         r_a_start = numpy.amax(
             [numpy.log10((self._rmin_sampling + 1e-8) / self._scale), r_a_start]
         )
-        r_a_end = numpy.amin([numpy.log10((self._rmax - 1e-8) / self._scale), r_a_end])
+        if r_a_end is None:
+            r_a_end = (
+                numpy.log10((self._rmax - 1e-8) / self._scale)
+                if numpy.isfinite(self._rmax)
+                else 3
+            )
+        else:
+            r_a_end = numpy.amin(
+                [numpy.log10((self._rmax - 1e-8) / self._scale), r_a_end]
+            )
         r_a_values = 10.0 ** numpy.linspace(r_a_start, r_a_end, n_r_a)
         v_vesc_values = numpy.linspace(0, 1, n_v_vesc)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values, v_vesc_values)
