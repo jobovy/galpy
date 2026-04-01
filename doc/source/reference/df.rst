@@ -60,7 +60,7 @@ or::
   # 1.0939934290993467
 
 Various spherical DFs are explicitly implemented (e.g., Hernquist, NFW
-using a new approximation, King, Plummer) in isotropic and various
+using a new approximation, King, Plummer, power-law) in isotropic and various
 anisotropic forms. General methods for computing isotropic,
 constant-beta anisotropic, and Osipkov-Merritt anisotropic for any
 potential/density pair are also included. Use of interpolated spherical
