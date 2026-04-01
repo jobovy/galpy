@@ -547,6 +547,54 @@ giving
 
 Orbit integration is again fast, because the multipole expansion is implemented in C.
 
+``MultipoleExpansionPotential`` also supports time-dependent densities.
+To use this, pass a density function that takes ``(R, z, phi, t)`` as
+arguments and supply a ``tgrid=`` array of times over which the density
+varies. The time-dependent coefficients are interpolated using cubic
+splines internally, so ``tgrid`` must sample the time variation of the
+density finely enough (e.g., about 10 points per period if the potential oscillates). As an
+example, we can set up a rotating bar-like perturbation on top of a
+Hernquist halo:
+
+>>> from galpy.potential import HernquistPotential, MultipoleExpansionPotential, SolidBodyRotationWrapperPotential
+>>> hp= HernquistPotential(normalize=1.,a=1.)
+>>> omega= 1.3
+>>> epsilon= 0.125
+>>> tgrid= numpy.linspace(0,60,251)
+>>> mp_tdep= MultipoleExpansionPotential.from_density(lambda R,z,phi,t=0.: hp.dens(R,z,use_physical=False)*(1+epsilon*numpy.cos(2*(phi-omega*t))),L=4,rgrid=numpy.geomspace(1e-3,30,201),tgrid=tgrid)
+
+Integrating an orbit in this potential and comparing to the equivalent
+``SolidBodyRotationWrapperPotential`` approach:
+
+>>> mp_static= MultipoleExpansionPotential.from_density(lambda R,z,phi: hp.dens(R,z,use_physical=False)*(1+epsilon*numpy.cos(2*phi)),L=4,rgrid=numpy.geomspace(1e-3,30,201))
+>>> mp_wrapped= SolidBodyRotationWrapperPotential(pot=mp_static,omega=omega)
+>>> from galpy.orbit import Orbit
+>>> ts= numpy.linspace(0,50,5001)
+>>> o_wrap= Orbit([1.,0.1,1.1,0.,0.05,0.3])
+>>> o_tdep= Orbit([1.,0.1,1.1,0.,0.05,0.3])
+>>> o_wrap.integrate(ts,mp_wrapped)
+>>> o_tdep.integrate(ts,mp_tdep)
+
+and plotting:
+
+>>> fig, axes= plt.subplots(1,2,figsize=(9,4.5))
+>>> axes[0].plot(o_wrap.R(ts),o_wrap.z(ts),lw=1.,label='Wrapper')
+>>> axes[0].plot(o_tdep.R(ts),o_tdep.z(ts),lw=1.,label='Time-dep.')
+>>> axes[0].set_xlabel(r'$R$')
+>>> axes[0].set_ylabel(r'$z$')
+>>> axes[0].legend(fontsize=9)
+>>> axes[1].plot(o_wrap.R(ts)*numpy.cos(o_wrap.phi(ts)),o_wrap.R(ts)*numpy.sin(o_wrap.phi(ts)),lw=1.,label='Wrapper')
+>>> axes[1].plot(o_tdep.R(ts)*numpy.cos(o_tdep.phi(ts)),o_tdep.R(ts)*numpy.sin(o_tdep.phi(ts)),lw=1.,label='Time-dep.')
+>>> axes[1].set_xlabel(r'$x$')
+>>> axes[1].set_ylabel(r'$y$')
+>>> axes[1].legend(fontsize=9)
+>>> axes[1].set_aspect('equal')
+
+shows good agreement:
+
+.. image:: images/multipole-timedep-orbit.png
+    :width: 100 %
+
 If you want to know the basis-function coefficients in the SCF expansion, you can compute them
 using the :ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_sphere>` (for
 spherically-symmetric density distribution),

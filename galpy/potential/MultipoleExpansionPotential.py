@@ -61,6 +61,24 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
     derivatives that satisfy the radial Poisson equation exactly. Outside of the radial grid,
     below the minimum radius, a constant-density extrapolation is used (with density equal to the value
     at the minimum grid radius), while above the maximum radius, the density is assumed to be zero.
+
+    **Time-dependent potentials** are supported in two ways:
+
+    * Via direct initialization: pass ``rho_cos_splines`` (and optionally ``rho_sin_splines``)
+      as lists of callables ``f(r, t)`` instead of ``InterpolatedUnivariateSpline`` instances,
+      together with a ``tgrid`` array. Each callable should return the normalized radial density
+      coefficient at the given radius and time (see the ``rho_cos_splines`` parameter documentation
+      for details on the normalization convention).
+
+    * Via ``from_density``: pass a density function that accepts a ``t`` keyword argument,
+      i.e., ``dens(R, z, phi, t=0.0)``, together with a ``tgrid`` array of time grid points.
+      The density function must be in galpy's internal units (astropy ``Quantity`` output is not
+      supported for time-dependent densities).
+
+    In both cases, the radial multipole integrals are precomputed at each time in ``tgrid``, and
+    the resulting radial functions :math:`\Phi^{\cos,\sin}_{lm}(r, t)` are interpolated in time
+    using piecewise polynomials. This allows efficient evaluation of the potential, forces, and
+    second derivatives at arbitrary times within the ``tgrid`` range during orbit integration.
     """
 
     def __init__(
