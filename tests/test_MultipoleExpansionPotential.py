@@ -1701,3 +1701,116 @@ def test_time_dependent_c_density_dynamical_friction():
     o.integrate(ts, lp + cdf, method="dop853_c")
     assert numpy.all(numpy.isfinite(o.R(ts))), "Orbit R not finite"
     assert numpy.all(numpy.isfinite(o.z(ts))), "Orbit z not finite"
+
+
+def test_finalize_pot_args_trailing_scalars():
+    """Planar orbit with time-dep MEP + simple potential covers trailing-scalar flush in _finalize_pot_args."""
+    from galpy.orbit import Orbit
+    from galpy.potential import PlummerPotential
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False) * (1 + 1e-6 * t)
+        ),
+        L=2,
+        symmetry="spherical",
+        rgrid=numpy.geomspace(1e-2, 20, 51),
+        tgrid=numpy.linspace(0, 10, 11),
+    )
+    pp = PlummerPotential(amp=0.1, b=0.5)
+    o = Orbit([1.0, 0.1, 1.1, 0.3])
+    ts = numpy.linspace(0, 1, 21)
+    o.integrate(ts, mp + pp, method="dop853_c")
+    assert numpy.all(numpy.isfinite(o.R(ts))), "Orbit R not finite"
+
+
+def _make_timedep_disk_mep(amp=1.0):
+    """Helper: DiskMEP with time-dep inner ._me for coverage of ndarray serialization branches."""
+    from galpy.potential import DiskMultipoleExpansionPotential
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    dmep = DiskMultipoleExpansionPotential(
+        amp=amp,
+        dens=lambda R, z: (
+            13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
+            + hp.dens(R, z, use_physical=False)
+        ),
+        Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0},
+        hz={"type": "exp", "h": 1.0 / 27.0},
+        L=3,
+        rgrid=numpy.geomspace(1e-2, 20, 51),
+    )
+    # Replace the static inner MultipoleExpansionPotential with a time-dep one
+    # so that _serialize_for_c() returns ndarray instead of list
+    static_me = dmep._me
+    tdep_me = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            static_me.dens(R, z, use_physical=False) * (1 + 1e-8 * t)
+        ),
+        L=static_me._L,
+        rgrid=numpy.geomspace(1e-2, 20, 51),
+        tgrid=numpy.linspace(0, 10, 11),
+        symmetry="spherical",
+    )
+    dmep._me = tdep_me
+    return dmep
+
+
+def test_diskmep_timedep_parse_pot_full():
+    """_parse_pot for full orbit with time-dep DiskMEP exercises ndarray append branch."""
+    from galpy.orbit.integrateFullOrbit import _parse_pot
+
+    dmep = _make_timedep_disk_mep()
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot([dmep])
+    assert npot >= 2
+    assert pot_args.dtype == numpy.float64
+
+
+def test_diskmep_timedep_parse_pot_planar():
+    """_parse_pot for planar orbit with time-dep DiskMEP exercises ndarray append branch."""
+    from galpy.orbit.integratePlanarOrbit import _parse_pot
+    from galpy.potential.planarPotential import toPlanarPotential
+
+    dmep = _make_timedep_disk_mep()
+    planar = toPlanarPotential(dmep)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot([planar])
+    assert npot >= 2
+    assert pot_args.dtype == numpy.float64
+
+
+def test_diskmep_timedep_parse_pot_linear():
+    """_parse_pot for linear orbit with time-dep DiskMEP exercises ndarray append branch."""
+    from galpy.orbit.integrateLinearOrbit import _parse_pot
+    from galpy.potential.verticalPotential import toVerticalPotential
+
+    dmep = _make_timedep_disk_mep()
+    vert = toVerticalPotential(dmep, 1.0)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot([vert])
+    assert npot >= 2
+    assert pot_args.dtype == numpy.float64
+
+
+def test_diskmep_timedep_extra_amp_parse_pot():
+    """_parse_multipole_expansion_pot with time-dep MEP + extra_amp exercises ndarray copy branch."""
+    from galpy.orbit.integratePlanarOrbit import _parse_multipole_expansion_pot
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    tdep_me = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False) * (1 + 1e-8 * t)
+        ),
+        L=2,
+        symmetry="spherical",
+        rgrid=numpy.geomspace(1e-2, 20, 51),
+        tgrid=numpy.linspace(0, 10, 11),
+    )
+    original = tdep_me._serialize_for_c().copy()
+    pt, pa = _parse_multipole_expansion_pot(tdep_me, extra_amp=2.0)
+    assert pt == 44
+    assert isinstance(pa, numpy.ndarray)
+    # extra_amp should have been applied (amp at index 4+Nr doubled)
+    Nr = int(pa[0])
+    assert pa[4 + Nr] == pytest.approx(original[4 + Nr] * 2.0)
+    # Original should not be mutated
+    assert numpy.array_equal(tdep_me._serialize_for_c(), original)

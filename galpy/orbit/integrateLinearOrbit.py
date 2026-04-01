@@ -14,6 +14,7 @@ from ..util.leung_dop853 import dop853
 from ..util.multi import parallel_map
 from .integrateFullOrbit import _parse_pot as _parse_pot_full
 from .integratePlanarOrbit import (
+    _finalize_pot_args,
     _parse_disk_approx_pairs,
     _parse_integrator,
     _parse_multipole_expansion_pot,
@@ -72,7 +73,10 @@ def _parse_pot(pot):
             # (a) MultipoleExpansion, multiply in any add'l amp
             pt, pa = _parse_multipole_expansion_pot(p._Pot._me, extra_amp=p._Pot._amp)
             pot_type.append(pt)
-            pot_args.extend(pa)
+            if isinstance(pa, numpy.ndarray):
+                pot_args.append(pa)
+            else:
+                pot_args.extend(pa)
             pot_args.extend([p._R, p._phi])
             # (b) constituent [Sigma_i,h_i] parts
             dpts, dpa = _parse_disk_approx_pairs(
@@ -116,7 +120,7 @@ def _parse_pot(pot):
             pot_args.append(p._R)
             pot_args.append(p._phi)
     pot_type = numpy.array(pot_type, dtype=numpy.int32, order="C")
-    pot_args = numpy.array(pot_args, dtype=numpy.float64, order="C")
+    pot_args = _finalize_pot_args(pot_args)
     return (npot, pot_type, pot_args, pot_tfuncs)
 
 

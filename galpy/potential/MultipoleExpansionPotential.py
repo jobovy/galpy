@@ -2064,7 +2064,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                         chunks.append(
                             numpy.ascontiguousarray(rho_cs.c.transpose(1, 2, 0)).ravel()
                         )
-            return numpy.concatenate(chunks).tolist()
+            return numpy.concatenate(chunks)
         # Static path (Nt=0)
         # Use BPoly breakpoints as the grid: PPoly coefficients are defined
         # relative to these breakpoints, so C must use them for interval lookup
