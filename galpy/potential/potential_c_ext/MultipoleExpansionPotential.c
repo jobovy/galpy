@@ -16,9 +16,9 @@
 // PPoly order (quintic from BPoly.from_derivatives with 3 constraints)
 #define PPOLY_K 6
 
-// Maximum L (and M) for stack-allocated precomputation arrays.
-// MSVC does not support VLAs, so we use fixed-size arrays.
-#define MEP_MAX_LM 64
+// r-power and trig precomputation arrays are allocated per evaluation call
+// via malloc/free to be thread-safe under OpenMP (the actionAngle code
+// evaluates potentials from parallel threads sharing the same potentialArgs).
 
 
 // ============================================================================
@@ -67,6 +67,7 @@ struct multipole_data {
     // Preallocated Legendre buffers (avoids malloc/free per evaluation)
     double *P_buf;               // Psize doubles for P_l^m
     double *dP_buf;              // Psize doubles for dP_l^m/d(costheta)
+
 };
 
 static void freeMultipoleData(void *data)
@@ -379,6 +380,7 @@ void initMultipoleExpansionPotentialArgs(struct potentialArg *potentialArgs,
     // For forces/2nd derivs, we need both P and dP (2*Psize)
     d->P_buf = (double *)malloc(d->Psize * sizeof(double));
     d->dP_buf = (double *)malloc(d->Psize * sizeof(double));
+
 
     // Initialize caches
     d->cache_valid = 0;
@@ -726,7 +728,8 @@ double MultipoleExpansionPotentialEval(double R, double Z, double phi, double t,
     int n_r = PPOLY_K * (d->Nr - 1);
 
     // Precompute r powers via recurrence
-    double r_l_arr[MEP_MAX_LM], r_neg_lp1_arr[MEP_MAX_LM];
+    double *r_l_arr = (double *)malloc(L * sizeof(double));
+    double *r_neg_lp1_arr = (double *)malloc(L * sizeof(double));
     {
         double rp = 1.0, rnp = 1.0 / r;
         for (int ll = 0; ll < L; ll++) {
@@ -738,7 +741,8 @@ double MultipoleExpansionPotentialEval(double R, double Z, double phi, double t,
     }
 
     // Precompute cos(m*phi), sin(m*phi) via Chebyshev recurrence
-    double cos_m[MEP_MAX_LM], sin_m[MEP_MAX_LM];
+    double *cos_m = (double *)malloc(M * sizeof(double));
+    double *sin_m = (double *)malloc(M * sizeof(double));
     cos_m[0] = 1.0;
     sin_m[0] = 0.0;
     if (M > 1) {
@@ -802,6 +806,10 @@ double MultipoleExpansionPotentialEval(double R, double Z, double phi, double t,
         }
     }
 
+    free(r_l_arr);
+    free(r_neg_lp1_arr);
+    free(cos_m);
+    free(sin_m);
     return d->amp * result;
 }
 
@@ -860,7 +868,8 @@ static void compute_multipole_spher_forces(struct multipole_data *d,
     int n_r = PPOLY_K * (d->Nr - 1);
 
     // Precompute r powers via recurrence: r^l and r^{-(l+1)}
-    double r_l_arr[MEP_MAX_LM], r_neg_lp1_arr[MEP_MAX_LM];
+    double *r_l_arr = (double *)malloc(L * sizeof(double));
+    double *r_neg_lp1_arr = (double *)malloc(L * sizeof(double));
     {
         double rp = 1.0, rnp = 1.0 / r;
         for (int l = 0; l < L; l++) {
@@ -872,7 +881,8 @@ static void compute_multipole_spher_forces(struct multipole_data *d,
     }
 
     // Precompute cos(m*phi), sin(m*phi) via Chebyshev recurrence
-    double cos_m[MEP_MAX_LM], sin_m[MEP_MAX_LM];
+    double *cos_m = (double *)malloc(M * sizeof(double));
+    double *sin_m = (double *)malloc(M * sizeof(double));
     cos_m[0] = 1.0;
     sin_m[0] = 0.0;
     if (M > 1) {
@@ -959,6 +969,11 @@ static void compute_multipole_spher_forces(struct multipole_data *d,
     d->cached_F[0] = F[0];
     d->cached_F[1] = F[1];
     d->cached_F[2] = F[2];
+
+    free(r_l_arr);
+    free(r_neg_lp1_arr);
+    free(cos_m);
+    free(sin_m);
 }
 
 // ============================================================================
@@ -1113,7 +1128,8 @@ static void compute_multipole_spher_2nd_derivs(struct multipole_data *d,
     int n_r = PPOLY_K * (d->Nr - 1);
 
     // Precompute r powers via recurrence
-    double r_l_arr[MEP_MAX_LM], r_neg_lp1_arr[MEP_MAX_LM];
+    double *r_l_arr = (double *)malloc(L * sizeof(double));
+    double *r_neg_lp1_arr = (double *)malloc(L * sizeof(double));
     {
         double rp = 1.0, rnp = 1.0 / r;
         for (int ll = 0; ll < L; ll++) {
@@ -1125,7 +1141,8 @@ static void compute_multipole_spher_2nd_derivs(struct multipole_data *d,
     }
 
     // Precompute cos(m*phi), sin(m*phi) via Chebyshev recurrence
-    double cos_m[MEP_MAX_LM], sin_m[MEP_MAX_LM];
+    double *cos_m = (double *)malloc(M * sizeof(double));
+    double *sin_m = (double *)malloc(M * sizeof(double));
     cos_m[0] = 1.0;
     sin_m[0] = 0.0;
     if (M > 1) {
@@ -1211,6 +1228,11 @@ static void compute_multipole_spher_2nd_derivs(struct multipole_data *d,
     d->cached_D[0] = F[0];
     d->cached_D[1] = F[1];
     d->cached_D[2] = F[2];
+
+    free(r_l_arr);
+    free(r_neg_lp1_arr);
+    free(cos_m);
+    free(sin_m);
 }
 
 // ============================================================================

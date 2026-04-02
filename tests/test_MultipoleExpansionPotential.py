@@ -1814,3 +1814,60 @@ def test_diskmep_timedep_extra_amp_parse_pot():
     assert pa[4 + Nr] == pytest.approx(original[4 + Nr] * 2.0)
     # Original should not be mutated
     assert numpy.array_equal(tdep_me._serialize_for_c(), original)
+
+
+def test_time_dependent_quantity_density_warning():
+    """Time-dep density returning astropy Quantity should warn about unsupported units."""
+    pytest.importorskip("astropy")
+    import warnings
+
+    from astropy import units
+
+    from galpy.util import galpyWarning
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    dens_with_units = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False) * (1 + 1e-6 * t) * units.Msun / units.pc**3
+    )
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        try:
+            MultipoleExpansionPotential.from_density(
+                dens=dens_with_units,
+                L=2,
+                symmetry="spherical",
+                rgrid=numpy.geomspace(1e-2, 20, 51),
+                tgrid=numpy.linspace(0, 10, 5),
+            )
+        except Exception:
+            pass  # Expected: Quantity density causes downstream errors
+    galpy_warnings = [x for x in w if issubclass(x.category, galpyWarning)]
+    assert len(galpy_warnings) >= 1, "Expected warning about Quantity density"
+    assert "time-dependent" in str(galpy_warnings[0].message).lower()
+
+
+def test_large_L_c_orbit():
+    """Orbit integration with L > 64 verifies no stack buffer overflow from old MEP_MAX_LM limit."""
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatePotentials, evaluateRforces, evaluatezforces
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential.from_density(
+        dens=hp,
+        L=80,
+        symmetry="spherical",
+        rgrid=numpy.geomspace(1e-2, 20, 101),
+    )
+    # Evaluate potential and forces at a test point
+    val = evaluatePotentials(mp, 1.0, 0.5, use_physical=False)
+    rf = evaluateRforces(mp, 1.0, 0.5, use_physical=False)
+    zf = evaluatezforces(mp, 1.0, 0.5, use_physical=False)
+    assert numpy.isfinite(val)
+    assert numpy.isfinite(rf)
+    assert numpy.isfinite(zf)
+    # Integrate orbit
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
+    ts = numpy.linspace(0, 1, 21)
+    o.integrate(ts, mp, method="dop853_c")
+    assert numpy.all(numpy.isfinite(o.R(ts))), "Orbit R not finite"
+    assert numpy.all(numpy.isfinite(o.z(ts))), "Orbit z not finite"

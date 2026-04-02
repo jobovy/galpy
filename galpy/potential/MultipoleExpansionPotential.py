@@ -564,7 +564,26 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     numOfParam = 2
                 except TypeError:
                     numOfParam = 1
-        # Handle astropy units (not supported for time-dependent)
+        # Handle astropy units
+        if has_t and _APY_LOADED:
+            # Check if time-dependent density returns Quantity and warn
+            param = [1.0] * numOfParam
+            try:
+                dens(*param, t=0.0).to(units.kg / units.m**3)
+            except (AttributeError, units.UnitConversionError, TypeError):
+                pass
+            else:
+                import warnings
+
+                from ..util import galpyWarning
+
+                warnings.warn(
+                    "Time-dependent density appears to return an astropy "
+                    "Quantity. Unit conversion is not supported for "
+                    "time-dependent densities; pass the density in internal "
+                    "units (1/ro^3 * vo^2 / (4 pi G)) instead.",
+                    galpyWarning,
+                )
         if not has_t and _APY_LOADED:
             param = [1.0] * numOfParam
             _dens_unit_output = False
