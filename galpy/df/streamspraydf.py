@@ -21,7 +21,8 @@ class basestreamspraydf(df):
         pot=None,
         rtpot=None,
         tdisrupt=None,
-        leading=True,
+        leading=None,
+        tail=None,
         center=None,
         centerpot=None,
         progpot=None,
@@ -44,7 +45,9 @@ class basestreamspraydf(df):
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
         leading : bool, optional
-            If True, model the leading part of the stream. If False, model the trailing part. Default is True.
+            Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
+        tail : str, optional
+            Which tail(s) to model. Can be ``'leading'``, ``'trailing'``, or ``'both'``. Default is ``'leading'``.
         center : galpy.orbit.Orbit, optional
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
         centerpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -63,6 +66,28 @@ class basestreamspraydf(df):
         - 2024-08-11 - Generalized to allow different particle-spray methods - Yingtian Chen (UMich)
         """
         super().__init__(ro=ro, vo=vo)
+        # Handle leading= deprecation
+        if leading is not None:
+            warnings.warn(
+                "The leading= keyword is deprecated since v1.12 and will be "
+                "removed in v1.14. Use tail= instead: tail='leading' or "
+                "tail='trailing'.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            if tail is not None:
+                raise ValueError(
+                    "Cannot specify both leading= and tail=. Use tail= only."
+                )
+            tail = "leading" if leading else "trailing"
+        if tail is None:
+            tail = "leading"
+        if tail not in ("leading", "trailing", "both"):
+            raise ValueError(
+                f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
+            )
+        self._tail = tail
+        self._leading = tail != "trailing"
         self._progenitor_mass = conversion.parse_mass(
             progenitor_mass, ro=self._ro, vo=self._vo
         )
@@ -92,7 +117,6 @@ class basestreamspraydf(df):
         self._progenitor.turn_physical_off()
         self._progenitor_times = numpy.linspace(0.0, -self._tdisrupt, 10001)
         self._progenitor.integrate(self._progenitor_times, self._pot)
-        self._leading = leading
         # Set up center orbit if given
         if not center is None:
             self._centerpot = (
@@ -126,7 +150,7 @@ class basestreamspraydf(df):
         Parameters
         ----------
         n : int
-            Number of points to return.
+            Number of points to return. When ``tail='both'``, ``n`` is the total number of points, split equally between the leading and trailing tails.
         return_orbit : bool, optional
             If True, the output phase-space positions is an orbit.Orbit object. If False, the output is (R,vR,vT,z,vz,phi). Default is True.
         returndt : bool, optional
@@ -137,7 +161,7 @@ class basestreamspraydf(df):
         Returns
         -------
         Orbit, numpy.ndarray, or tuple
-            Orbit instance or (R,vR,vT,z,vz,phi) of points on the stream in 6,N array (set of 6 Quantities when physical output is on); optionally the time is included as well. The ro/vo unit-conversion parameters and the zo/solarmotion parameters as well as whether physical outputs are on, match the settings of the progenitor Orbit given to the class initialization
+            Orbit instance or (R,vR,vT,z,vz,phi) of points on the stream in 6,N array (set of 6 Quantities when physical output is on); optionally the time is included as well. When ``tail='both'``, the leading-tail points come first, followed by the trailing-tail points. The ro/vo unit-conversion parameters and the zo/solarmotion parameters as well as whether physical outputs are on, match the settings of the progenitor Orbit given to the class initialization
 
         Notes
         -----
@@ -145,18 +169,58 @@ class basestreamspraydf(df):
         - 2022-05-18 - Made output Orbit ro/vo/zo/solarmotion/roSet/voSet match that of the progenitor orbit - Bovy (UofT)
         - 2024-08-11 - Include the progenitor's potential - Yingtian Chen (Umich)
         """
+        if self._tail == "both":
+            n_leading = n // 2
+            n_trailing = n - n_leading
+            out_l, dt_l = self._sample_tail(n_leading, integrate, leading=True)
+            out_t, dt_t = self._sample_tail(n_trailing, integrate, leading=False)
+            out = numpy.hstack([out_l, out_t])
+            dt = numpy.concatenate([dt_l, dt_t])
+        else:
+            out, dt = self._sample_tail(n, integrate, leading=self._tail == "leading")
+        if return_orbit:
+            # Output Orbit ro/vo/zo/solarmotion/roSet/voSet match progenitor
+            o = Orbit(
+                vxvv=out.T,
+                ro=self._orig_progenitor._ro,
+                vo=self._orig_progenitor._vo,
+                zo=self._orig_progenitor._zo,
+                solarmotion=self._orig_progenitor._solarmotion,
+            )
+            if not self._orig_progenitor._roSet:
+                o._roSet = False
+            if not self._orig_progenitor._voSet:
+                o._voSet = False
+            out = o
+        elif _APY_UNITS and self._voSet and self._roSet:
+            out = (
+                out[0] * self._ro * units.kpc,
+                out[1] * self._vo * units.km / units.s,
+                out[2] * self._vo * units.km / units.s,
+                out[3] * self._ro * units.kpc,
+                out[4] * self._vo * units.km / units.s,
+                out[5] * units.rad,
+            )
+            dt = dt * conversion.time_in_Gyr(self._vo, self._ro) * units.Gyr
+        if returndt:
+            return (out, dt)
+        else:
+            return out
+
+    def _sample_tail(self, n, integrate, leading=True):
+        """Sample n points from the specified tail."""
         # First sample times
         dt = numpy.random.uniform(size=n) * self._tdisrupt
         # Build all rotation matrices
         rot, rot_inv = self._setup_rot(dt)
         # Compute progenitor position in the instantaneous frame,
         # relative to the center orbit if necessary
-        centerx = self._progenitor.x(-dt)
-        centery = self._progenitor.y(-dt)
-        centerz = self._progenitor.z(-dt)
-        centervx = self._progenitor.vx(-dt)
-        centervy = self._progenitor.vy(-dt)
-        centervz = self._progenitor.vz(-dt)
+        centerx = numpy.atleast_1d(self._progenitor.x(-dt))
+        centery = numpy.atleast_1d(self._progenitor.y(-dt))
+        centerz = numpy.atleast_1d(self._progenitor.z(-dt))
+        centervx = numpy.atleast_1d(self._progenitor.vx(-dt))
+        centervy = numpy.atleast_1d(self._progenitor.vy(-dt))
+        centervz = numpy.atleast_1d(self._progenitor.vz(-dt))
         if not self._center is None:
             centerx -= self._center.x(-dt)
             centery -= self._center.y(-dt)
@@ -172,7 +236,7 @@ class basestreamspraydf(df):
         )
 
         # generate the initial conditions
-        xst, yst, zst, vxst, vyst, vzst = self.spray_df(xyzpt, vxyzpt, dt)
+        xst, yst, zst, vxst, vyst, vzst = self.spray_df(xyzpt, vxyzpt, dt, leading)
 
         xyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([xst, yst, zst]).T)
         vxyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([vxst, vyst, vzst]).T)
@@ -209,42 +273,15 @@ class basestreamspraydf(df):
             out[3] = Zs
             out[4] = vZs
             out[5] = phis
-        if return_orbit:
-            # Output Orbit ro/vo/zo/solarmotion/roSet/voSet match progenitor
-            o = Orbit(
-                vxvv=out.T,
-                ro=self._orig_progenitor._ro,
-                vo=self._orig_progenitor._vo,
-                zo=self._orig_progenitor._zo,
-                solarmotion=self._orig_progenitor._solarmotion,
-            )
-            if not self._orig_progenitor._roSet:
-                o._roSet = False
-            if not self._orig_progenitor._voSet:
-                o._voSet = False
-            out = o
-        elif _APY_UNITS and self._voSet and self._roSet:
-            out = (
-                out[0] * self._ro * units.kpc,
-                out[1] * self._vo * units.km / units.s,
-                out[2] * self._vo * units.km / units.s,
-                out[3] * self._ro * units.kpc,
-                out[4] * self._vo * units.km / units.s,
-                out[5] * units.rad,
-            )
-            dt = dt * conversion.time_in_Gyr(self._vo, self._ro) * units.Gyr
-        if returndt:
-            return (out, dt)
-        else:
-            return out
+        return out, dt
 
     def _setup_rot(self, dt):
         n = len(dt)
-        centerx = self._progenitor.x(-dt)
-        centery = self._progenitor.y(-dt)
-        centerz = self._progenitor.z(-dt)
+        centerx = numpy.atleast_1d(self._progenitor.x(-dt))
+        centery = numpy.atleast_1d(self._progenitor.y(-dt))
+        centerz = numpy.atleast_1d(self._progenitor.z(-dt))
         if self._center is None:
-            L = self._progenitor.L(-dt)
+            L = numpy.atleast_2d(self._progenitor.L(-dt))
         # Compute relative angular momentum to the center orbit
         else:
             centerx -= self._center.x(-dt)
@@ -253,13 +290,15 @@ class basestreamspraydf(df):
             centervx = self._progenitor.vx(-dt) - self._center.vx(-dt)
             centervy = self._progenitor.vy(-dt) - self._center.vy(-dt)
             centervz = self._progenitor.vz(-dt) - self._center.vz(-dt)
-            L = numpy.array(
-                [
-                    centery * centervz - centerz * centervy,
-                    centerz * centervx - centerx * centervz,
-                    centerx * centervy - centery * centervx,
-                ]
-            ).T
+            L = numpy.atleast_2d(
+                numpy.array(
+                    [
+                        centery * centervz - centerz * centervy,
+                        centerz * centervx - centerx * centervz,
+                        centerx * centervy - centery * centervx,
+                    ]
+                ).T
+            )
         Lnorm = L / numpy.tile(numpy.sqrt(numpy.sum(L**2.0, axis=1)), (3, 1)).T
         z_rot = numpy.swapaxes(
             _rotate_to_arbitrary_vector(
@@ -353,7 +392,7 @@ class basestreamspraydf(df):
             )
         return vcs
 
-    def spray_df(self, xyzpt, vxyzpt, dt):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
         """
         Sample the positions and velocities around the progenitor
         Must be implemented in a subclass
@@ -366,6 +405,8 @@ class basestreamspraydf(df):
             Velocities of progenitor in the progenitor coordinates.
         dt : array, shape (N,)
             Time of sampling.
+        leading : bool, optional
+            If True, generate the leading tail. If False, generate the trailing tail. Default is True.
 
         Returns
         -------
@@ -385,7 +426,8 @@ class chen24spraydf(basestreamspraydf):
         pot=None,
         rtpot=None,
         tdisrupt=None,
-        leading=True,
+        leading=None,
+        tail=None,
         center=None,
         centerpot=None,
         progpot=None,
@@ -411,7 +453,9 @@ class chen24spraydf(basestreamspraydf):
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
         leading : bool, optional
-            If True, model the leading part of the stream. If False, model the trailing part. Default is True.
+            Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
+        tail : str, optional
+            Which tail(s) to model. Can be ``'leading'``, ``'trailing'``, or ``'both'``. Default is ``'leading'``.
         center : galpy.orbit.Orbit, optional
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
         centerpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -438,6 +482,7 @@ class chen24spraydf(basestreamspraydf):
             rtpot=rtpot,
             tdisrupt=tdisrupt,
             leading=leading,
+            tail=tail,
             center=center,
             centerpot=centerpot,
             progpot=progpot,
@@ -463,7 +508,7 @@ class chen24spraydf(basestreamspraydf):
             self._cov = cov
         return None
 
-    def spray_df(self, xyzpt, vxyzpt, dt):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
         """
         Sample the positions and velocities around the progenitor
 
@@ -475,6 +520,8 @@ class chen24spraydf(basestreamspraydf):
             Velocities of progenitor in the progenitor coordinates.
         dt : array, shape (N,)
             Time of sampling.
+        leading : bool, optional
+            If True, generate the leading tail. If False, generate the trailing tail. Default is True.
 
         Returns
         -------
@@ -491,7 +538,7 @@ class chen24spraydf(basestreamspraydf):
         Dr = posvel[:, 0] * rtides
         v_esc = numpy.sqrt(2 * self._progenitor_mass / Dr)
         Dv = posvel[:, 3] * v_esc
-        if self._leading:
+        if leading:
             Dr *= -1.0
             Dv *= -1.0
 
@@ -523,7 +570,8 @@ class fardal15spraydf(basestreamspraydf):
         pot=None,
         rtpot=None,
         tdisrupt=None,
-        leading=True,
+        leading=None,
+        tail=None,
         center=None,
         centerpot=None,
         progpot=None,
@@ -549,7 +597,9 @@ class fardal15spraydf(basestreamspraydf):
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
         leading : bool, optional
-            If True, model the leading part of the stream. If False, model the trailing part. Default is True.
+            Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
+        tail : str, optional
+            Which tail(s) to model. Can be ``'leading'``, ``'trailing'``, or ``'both'``. Default is ``'leading'``.
         center : galpy.orbit.Orbit, optional
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
         centerpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -577,6 +627,7 @@ class fardal15spraydf(basestreamspraydf):
             rtpot=rtpot,
             tdisrupt=tdisrupt,
             leading=leading,
+            tail=tail,
             center=center,
             centerpot=centerpot,
             progpot=progpot,
@@ -585,11 +636,9 @@ class fardal15spraydf(basestreamspraydf):
         )
         self._meankvec = numpy.array(meankvec)
         self._sigkvec = numpy.array(sigkvec)
-        if leading:
-            self._meankvec *= -1.0
         return None
 
-    def spray_df(self, xyzpt, vxyzpt, dt):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
         """
         Sample the positions and velocities around the progenitor
 
@@ -601,6 +650,8 @@ class fardal15spraydf(basestreamspraydf):
             Velocities of progenitor in the progenitor coordinates.
         dt : array, shape (N,)
             Time of sampling.
+        leading : bool, optional
+            If True, generate the leading tail. If False, generate the trailing tail. Default is True.
 
         Returns
         -------
@@ -618,7 +669,8 @@ class fardal15spraydf(basestreamspraydf):
             vxyzpt[:, 0], vxyzpt[:, 1], vxyzpt[:, 2], Rpt, phipt, Zpt, cyl=True
         )
         # Sample positions and velocities in the instantaneous frame
-        k = self._meankvec + numpy.random.normal(size=(len(dt), 6)) * self._sigkvec
+        meankvec = -self._meankvec if leading else self._meankvec
+        k = meankvec + numpy.random.normal(size=(len(dt), 6)) * self._sigkvec
 
         RpZst = numpy.array(
             [

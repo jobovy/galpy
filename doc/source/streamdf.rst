@@ -539,27 +539,27 @@ as a simple ``LogarithmicHaloPotential``):
 >>> o= Orbit([1.56148083,0.35081535,-1.15481504,0.88719443,-0.47713334,0.12019596])
 >>> lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
 
-Then, we setup ``chen24spraydf`` and ``fardal15spraydf`` models for the leading
-and trailing arm of the stream. The ``chen24spraydf`` model requires integrating
-the orbits of stream stars with the progenitor's potential. Here, we use a
-Plummer potential for the prognenitor:
+Then, we setup ``chen24spraydf`` and ``fardal15spraydf`` models for both
+arms of the stream using ``tail='both'``, which generates both the leading
+and trailing tails simultaneously. The ``chen24spraydf`` model requires
+integrating the orbits of stream stars with the progenitor's potential. Here,
+we use a Plummer potential for the progenitor:
 
 >>> from astropy import units
 >>> from galpy.df import chen24spraydf, fardal15spraydf
 >>> progpot = PlummerPotential(2*10.**4.*units.Msun, 4.*units.pc)
->>> spdf_c24= chen24spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr, progpot=progpot)
->>> spdft_c24= chen24spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr, progpot=progpot)
->>> spdf_f15= fardal15spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr)
->>> spdft_f15= fardal15spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr)
+>>> spdf_c24= chen24spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr,tail='both', progpot=progpot)
+>>> spdf_f15= fardal15spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr,tail='both')
 
-First, we sample a set of 300 stars in both arms:
+You can also model just the leading or trailing tail using
+``tail='leading'`` (the default) or ``tail='trailing'``.
 
->>> orbs_c24,dt_c24= spdf_c24.sample(n=300,returndt=True,integrate=True)
->>> orbts_c24,dt_c24= spdft_c24.sample(n=300,returndt=True,integrate=True)
->>> orbs_f15,dt= spdf_f15.sample(n=300,returndt=True,integrate=True)
->>> orbts_f15,dt= spdft_f15.sample(n=300,returndt=True,integrate=True)
+First, we sample a set of 600 stars (300 per tail) from both arms:
 
-which returns a ``galpy.orbit.Orbit`` instance with all 300 stars. We can plot
+>>> orbs_c24,dt_c24= spdf_c24.sample(n=600,returndt=True,integrate=True)
+>>> orbs_f15,dt= spdf_f15.sample(n=600,returndt=True,integrate=True)
+
+which returns a ``galpy.orbit.Orbit`` instance with all 600 stars. We can plot
 the ``galpy.orbit.Orbit`` instance in :math:`Z` versus :math:`X`
 and compare to Fig. 1 in Bovy (2014). First, we also integrate the orbit of the
 progenitor forward and backward in time for a brief period to show its location
@@ -573,9 +573,7 @@ Then we plot
 
 >>> o.plot(d1='x',d2='z',color='k',xrange=[0.,2.],yrange=[-0.1,1.45])
 >>> plot(orbs_c24.x(),orbs_c24.z(),'r.', alpha=0.5)
->>> plot(orbts_c24.x(),orbts_c24.z(),'r.', alpha=0.5)
 >>> plot(orbs_f15.x(),orbs_f15.z(),'b.', alpha=0.5)
->>> plot(orbts_f15.x(),orbts_f15.z(),'b.', alpha=0.5)
 
 which gives
 
@@ -602,7 +600,6 @@ Then, we can overplot the track predicted by ``streamdf``:
 >>> o.plot(d1='x',d2='z',color='k',xrange=[0.,2.],yrange=[-0.1,1.45])
 >>> of.plot(d1='x',d2='z',overplot=True,color='k')
 >>> plot(orbs_c24.x(),orbs_c24.z(),'r.',alpha=0.1)
->>> plot(orbts_c24.x(),orbts_c24.z(),'r.',alpha=0.1)
 >>> sdf.plotTrack(d1='x',d2='z',interp=True,color='r',overplot=True,lw=1.)
 >>> sdft.plotTrack(d1='x',d2='z',interp=True,color='b',overplot=True,lw=1.)
 
