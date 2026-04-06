@@ -30,13 +30,13 @@ repos:
   - id: isort
     name: isort (python)
 - repo: https://github.com/codespell-project/codespell
-  rev: "v2.4.1"
+  rev: "v2.4.2"
   hooks:
     - id: codespell
       args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas,floatIn,dOmin,indx,Hese",
       "-x","doc/source/_static/try-galpy.js"]
       exclude: ^xsf/
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.15.4
+  rev: v0.15.9
   hooks:
     - id: ruff-format
