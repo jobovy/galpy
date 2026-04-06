@@ -64,7 +64,10 @@ struct multipole_data {
 
     double *rho_scratch;         // Nr doubles, scratch for rho reconstruction
 
-    // Preallocated Legendre buffers (avoids malloc/free per evaluation)
+    // Preallocated Legendre buffers (allocated once during init, not per-call).
+    // NOTE: these are shared across calls, so they are NOT thread-safe if
+    // multiple threads evaluate this potential concurrently with different
+    // (R, z) coordinates (costheta would differ, causing a race condition).
     double *P_buf;               // Psize doubles for P_l^m
     double *dP_buf;              // Psize doubles for dP_l^m/d(costheta)
 

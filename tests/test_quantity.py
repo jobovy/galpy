@@ -19070,3 +19070,33 @@ def test_MultipoleExpansionPotential_from_density_timedep_astropy_units_ro_vo():
     assert numpy.isclose(mp._vo, vo), f"Expected vo={vo}, got {mp._vo}"
     val = mp(1.0, 0.0, t=1.0, use_physical=False)
     assert numpy.isfinite(val), "Potential should be finite"
+
+
+def test_time_dependent_quantity_density_warning():
+    """Time-dep density returning astropy Quantity should warn about unsupported units."""
+    import warnings
+
+    from astropy import units
+
+    from galpy.potential import HernquistPotential, MultipoleExpansionPotential
+    from galpy.util import galpyWarning
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    dens_with_units = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False) * (1 + 1e-6 * t) * units.Msun / units.pc**3
+    )
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        try:
+            MultipoleExpansionPotential.from_density(
+                dens=dens_with_units,
+                L=2,
+                symmetry="spherical",
+                rgrid=numpy.geomspace(1e-2, 20, 51),
+                tgrid=numpy.linspace(0, 10, 5),
+            )
+        except Exception:
+            pass  # Expected: Quantity density causes downstream errors
+    galpy_warnings = [x for x in w if issubclass(x.category, galpyWarning)]
+    assert len(galpy_warnings) >= 1, "Expected warning about Quantity density"
+    assert "time-dependent" in str(galpy_warnings[0].message).lower()
