@@ -565,59 +565,43 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 except TypeError:
                     numOfParam = 1
         # Handle astropy units
-        if has_t and _APY_LOADED:
-            # Check if time-dependent density returns Quantity and warn
-            param = [1.0] * numOfParam
-            try:
-                dens(*param, t=0.0).to(units.kg / units.m**3)
-            except (AttributeError, units.UnitConversionError, TypeError):
-                pass
-            else:
-                import warnings
+        if has_t and MultipoleExpansionPotential._density_has_units(dens):
+            import warnings
 
-                from ..util import galpyWarning
+            from ..util import galpyWarning
 
-                warnings.warn(
-                    "Time-dependent density appears to return an astropy "
-                    "Quantity. Unit conversion is not supported for "
-                    "time-dependent densities; pass the density in internal "
-                    "units (1/ro^3 * vo^2 / (4 pi G)) instead.",
-                    galpyWarning,
+            warnings.warn(
+                "Time-dependent density appears to return an astropy "
+                "Quantity. Unit conversion is not supported for "
+                "time-dependent densities; pass the density in internal "
+                "units (1/ro^3 * vo^2 / (4 pi G)) instead.",
+                galpyWarning,
+            )
+        if not has_t and MultipoleExpansionPotential._density_has_units(dens):
+            raw_dens = dens
+            if numOfParam == 1:
+                return (
+                    lambda R, z, phi: conversion.parse_dens(
+                        raw_dens(numpy.sqrt(R**2 + z**2)),
+                        ro=ro,
+                        vo=vo,
+                    ),
+                    False,
                 )
-        if not has_t and _APY_LOADED:
-            param = [1.0] * numOfParam
-            _dens_unit_output = False
-            try:
-                dens(*param).to(units.kg / units.m**3)
-            except (AttributeError, units.UnitConversionError):
-                pass
+            elif numOfParam == 2:
+                return (
+                    lambda R, z, phi: conversion.parse_dens(
+                        raw_dens(R, z), ro=ro, vo=vo
+                    ),
+                    False,
+                )
             else:
-                _dens_unit_output = True
-            if _dens_unit_output:
-                raw_dens = dens
-                if numOfParam == 1:
-                    return (
-                        lambda R, z, phi: conversion.parse_dens(
-                            raw_dens(numpy.sqrt(R**2 + z**2)),
-                            ro=ro,
-                            vo=vo,
-                        ),
-                        False,
-                    )
-                elif numOfParam == 2:
-                    return (
-                        lambda R, z, phi: conversion.parse_dens(
-                            raw_dens(R, z), ro=ro, vo=vo
-                        ),
-                        False,
-                    )
-                else:
-                    return (
-                        lambda R, z, phi: conversion.parse_dens(
-                            raw_dens(R, z, phi), ro=ro, vo=vo
-                        ),
-                        False,
-                    )
+                return (
+                    lambda R, z, phi: conversion.parse_dens(
+                        raw_dens(R, z, phi), ro=ro, vo=vo
+                    ),
+                    False,
+                )
         # Wrap based on number of spatial params
         if has_t:
             if numOfParam == 1:
@@ -812,15 +796,15 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             # Axisymmetric: no phi integral needed
             rho_cos_all = numpy.zeros((Nt, Nr, L, 1))
             rho_sin_all = numpy.zeros((Nt, Nr, L, 1))
+            # Preallocate broadcasting arrays for vectorized path
+            R_col = rgrid[:, numpy.newaxis]  # (Nr, 1)
+            t_row = tgrid[numpy.newaxis, :]  # (1, Nt)
             # Try fully vectorized: evaluate density at all (r, t) at once
             _vectorized = True
             try:
-                R_2d = rgrid[:, numpy.newaxis]  # (Nr, 1)
-                z_2d = numpy.zeros((Nr, 1))
-                t_2d = tgrid[numpy.newaxis, :]  # (1, Nt)
                 ct = ct_nodes[0]
                 sintheta = numpy.sqrt(1.0 - ct**2)
-                test = dens_func(R_2d * sintheta, R_2d * ct, 0.0, t_2d)
+                test = dens_func(R_col * sintheta, R_col * ct, 0.0, t_row)
                 if numpy.shape(test) != (Nr, Nt):
                     _vectorized = False
             except (TypeError, ValueError):
@@ -829,14 +813,13 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 ct = ct_nodes[ict]
                 wt = ct_weights[ict]
                 sintheta = numpy.sqrt(1.0 - ct**2)
-                R_col = rgrid[:, numpy.newaxis]  # (Nr, 1)
                 if _vectorized:
                     # (Nr, Nt) via broadcasting
                     rho_spatial = dens_func(
                         R_col * sintheta,
                         R_col * ct,
                         0.0,
-                        tgrid[numpy.newaxis, :],
+                        t_row,
                     ).T  # -> (Nt, Nr)
                 else:
                     rho_spatial = numpy.zeros((Nt, Nr))
@@ -860,24 +843,22 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         sin_mphi = numpy.sin(numpy.outer(phi_nodes, m_arr))  # (phi_order, M)
         rho_cos_all = numpy.zeros((Nt, Nr, L, M))
         rho_sin_all = numpy.zeros((Nt, Nr, L, M))
+        # Preallocate broadcasting arrays for vectorized path
+        R_3d = rgrid[:, numpy.newaxis, numpy.newaxis]  # (Nr, 1, 1)
+        t_3d = tgrid[numpy.newaxis, :, numpy.newaxis]  # (1, Nt, 1)
+        phi_3d = phi_nodes[numpy.newaxis, numpy.newaxis, :]  # (1, 1, phi_order)
         # Try fully vectorized: evaluate density at all (r, t, phi) at once
         # per theta node. Shape: (Nr, Nt, phi_order)
         _vectorized = True
         try:
             ct = ct_nodes[0]
             sintheta = numpy.sqrt(1.0 - ct**2)
-            R_3d = rgrid[:, numpy.newaxis, numpy.newaxis]  # (Nr, 1, 1)
-            t_3d = tgrid[numpy.newaxis, :, numpy.newaxis]  # (1, Nt, 1)
-            phi_3d = phi_nodes[numpy.newaxis, numpy.newaxis, :]  # (1, 1, phi_order)
             test = dens_func(R_3d * sintheta, R_3d * ct, phi_3d, t_3d)
             if numpy.shape(test) != (Nr, Nt, phi_order):
                 _vectorized = False
         except (TypeError, ValueError):
             _vectorized = False
         if _vectorized:
-            R_3d = rgrid[:, numpy.newaxis, numpy.newaxis]
-            t_3d = tgrid[numpy.newaxis, :, numpy.newaxis]
-            phi_3d = phi_nodes[numpy.newaxis, numpy.newaxis, :]
             for ict in range(costheta_order):
                 ct = ct_nodes[ict]
                 wt = ct_weights[ict]
@@ -973,7 +954,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         fp_R = derivs[..., 1:]
         fpp_L = derivs2[..., :-1]
         fpp_R = derivs2[..., 1:]
-        h = dx  # (Nr-1,)
+        h = dx  # (Nr-1,); broadcasts with (..., Nr-1) batch dims via numpy rules
         # Bernstein coefficients for quintic (degree 5) Hermite interpolant
         b = numpy.empty(f_L.shape[:-1] + (6,) + f_L.shape[-1:])
         b[..., 0, :] = f_L
