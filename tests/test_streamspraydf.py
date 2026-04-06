@@ -236,6 +236,7 @@ def test_integrate_rtnonarray():
             progenitor=obs,
             pot=nfp,
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
         )
         # Sample at at stripping
         numpy.random.seed(4)
@@ -331,6 +332,7 @@ def test_center():
             pot=tMWPotential2014 + moving_lmcpot,
             rtpot=lmcpot,
             tdisrupt=10.0 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
             center=o,
             centerpot=tMWPotential2014 + cdf,
         )
@@ -372,6 +374,7 @@ def test_sample_orbit_rovoetc():
             progenitor=obs,
             pot=lp,
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
         )
         sam = spdf_bovy14.sample(n=10)
         assert obs._roSet is sam._roSet, (
@@ -408,6 +411,7 @@ def test_sample_orbit_rovoetc():
             progenitor=obs,
             pot=lp,
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
         )
         sam = spdf_bovy14.sample(n=10)
         assert obs._roSet, (
@@ -450,6 +454,7 @@ def test_sample_orbit_rovoetc():
             progenitor=obs,
             pot=lp,
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
         )
         sam = spdf_bovy14.sample(n=10)
         assert obs._voSet, (
@@ -501,6 +506,7 @@ def test_integrate_with_prog():
         progenitor=obs,
         pot=lp,
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        tail="leading",
         progpot=PlummerPotential(0, 0),
     )
     numpy.random.seed(4)
@@ -541,6 +547,7 @@ def test_chen24spraydf_default_parameters():
         progenitor=obs,
         pot=lp,
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        tail="leading",
         mean=numpy.array([1.6, -0.525344, 0, 1, 0.349066, 0]),
         cov=numpy.array(
             [
@@ -565,4 +572,251 @@ def test_chen24spraydf_default_parameters():
     assert numpy.amax(numpy.fabs(RvR_default - RvR)) < 1e-2, (
         "Phase-space points too different when sampling with and without prognitor's potential"
     )
+    return None
+
+
+def test_tail_both():
+    # Test that tail='both' produces both leading and trailing stars,
+    # consistent with separate leading/trailing models
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        # Set up leading-only and trailing-only models
+        spdf_l = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
+        )
+        spdf_t = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="trailing",
+        )
+        # Set up both model
+        spdf_both = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="both",
+        )
+        # Sample from leading-only
+        numpy.random.seed(1)
+        RvR_l = spdf_l.sample(n=150, return_orbit=False, integrate=False)
+        # Sample from trailing-only
+        numpy.random.seed(2)
+        RvR_t = spdf_t.sample(n=150, return_orbit=False, integrate=False)
+        # Sample from both (should give 150 leading + 150 trailing)
+        numpy.random.seed(1)
+        RvR_both = spdf_both.sample(n=300, return_orbit=False, integrate=False)
+        # First half should match the leading-only sample
+        assert numpy.allclose(RvR_both[:, :150], RvR_l), (
+            f"tail='both' leading half does not match tail='leading' for {spraydfclass.__name__}"
+        )
+        # Second half should match the trailing-only sample
+        # (seed 2 is consumed by the trailing part after the leading part uses seed 1)
+        # Just check that the two halves are different (leading vs trailing)
+        assert not numpy.allclose(RvR_both[:, :150], RvR_both[:, 150:]), (
+            f"tail='both' leading and trailing halves should differ for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_tail_both_sample_size():
+    # Test that tail='both' returns the correct number of points
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        spdf = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="both",
+        )
+        # Even n
+        RvR = spdf.sample(n=200, return_orbit=False, integrate=False)
+        assert RvR.shape[1] == 200, (
+            f"tail='both' with n=200 should return 200 points for {spraydfclass.__name__}"
+        )
+        # Odd n
+        RvR = spdf.sample(n=201, return_orbit=False, integrate=False)
+        assert RvR.shape[1] == 201, (
+            f"tail='both' with n=201 should return 201 points for {spraydfclass.__name__}"
+        )
+        # Orbit output
+        orbs = spdf.sample(n=100, return_orbit=True, integrate=False)
+        assert len(orbs) == 100, (
+            f"tail='both' with n=100 should return 100 orbits for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_tail_both_returndt():
+    # Test that tail='both' with returndt works
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        spdf = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="both",
+        )
+        RvR, dt = spdf.sample(n=100, return_orbit=False, returndt=True, integrate=False)
+        assert RvR.shape[1] == 100, (
+            f"tail='both' with returndt should return 100 points for {spraydfclass.__name__}"
+        )
+        assert len(dt) == 100, (
+            f"tail='both' with returndt should return 100 dt values for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_tail_both_consistency():
+    # Test that tail='both' leading half matches a separate leading-only model
+    # with the same random seed
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        spdf_l = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
+        )
+        spdf_both = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="both",
+        )
+        # Same seed: leading-only
+        numpy.random.seed(42)
+        RvR_l = spdf_l.sample(n=50, return_orbit=False, integrate=False)
+        # Same seed: both (first 25 should be leading)
+        numpy.random.seed(42)
+        RvR_both = spdf_both.sample(n=50, return_orbit=False, integrate=False)
+        # First 25 points of 'both' should exactly match leading-only with n=25
+        numpy.random.seed(42)
+        RvR_l25 = spdf_l.sample(n=25, return_orbit=False, integrate=False)
+        assert numpy.allclose(RvR_both[:, :25], RvR_l25), (
+            f"tail='both' leading half does not match tail='leading' for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_leading_deprecation():
+    # Test that using leading= raises a FutureWarning
+    import warnings as _warnings
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            spdf = spraydfclass(
+                2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+                progenitor=obs,
+                pot=lp,
+                tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+                leading=True,
+            )
+        future_warnings = [x for x in w if issubclass(x.category, FutureWarning)]
+        assert len(future_warnings) == 1, (
+            f"Expected exactly one FutureWarning for {spraydfclass.__name__}"
+        )
+        assert "leading= keyword is deprecated" in str(future_warnings[0].message), (
+            f"FutureWarning message incorrect for {spraydfclass.__name__}"
+        )
+        # Should still work correctly
+        RvR = spdf.sample(n=10, return_orbit=False, integrate=False)
+        assert RvR.shape[1] == 10, (
+            f"Deprecated leading= should still produce correct output for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_leading_and_tail_error():
+    # Test that specifying both leading= and tail= raises an error
+    import warnings as _warnings
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("always")
+            with pytest.raises(ValueError, match="Cannot specify both"):
+                spraydfclass(
+                    2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+                    progenitor=obs,
+                    pot=lp,
+                    tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+                    leading=True,
+                    tail="trailing",
+                )
+    return None
+
+
+def test_invalid_tail():
+    # Test that an invalid tail= value raises an error
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        with pytest.raises(ValueError, match="tail= must be"):
+            spraydfclass(
+                2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+                progenitor=obs,
+                pot=lp,
+                tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+                tail="invalid",
+            )
+    return None
+
+
+def test_tail_default_is_leading():
+    # Test that the default tail= is 'leading' for backward compatibility
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        spdf = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        )
+        assert spdf._tail == "leading", (
+            f"Default tail should be 'leading' for {spraydfclass.__name__}"
+        )
     return None

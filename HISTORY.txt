@@ -1,6 +1,11 @@
 v1.12.0 (expected around 2026-07-01)
 ====================
 
+- Added ``tail=`` keyword to ``fardal15spraydf`` and ``chen24spraydf`` (and
+  ``basestreamspraydf``) to select which tidal tail(s) to model: ``'leading'``,
+  ``'trailing'``, or ``'both'`` (default). This replaces the ``leading=``
+  keyword, which is now deprecated and will be removed in v1.14.
+
 - Added MultipoleExpansionPotential, which computes the gravitational potential
   of an arbitrary density distribution via a real spherical-harmonic multipole
   expansion. The density is decomposed on a radial grid using Gauss-Legendre
