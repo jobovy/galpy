@@ -124,10 +124,7 @@ ogp_social_cards = {
 templates_path = ["_templates"]
 
 # The suffix of source filenames.
-source_suffix = {
-    ".rst": "restructuredtext",
-    ".ipynb": "nbsphinx",
-}
+source_suffix = ".rst"
 
 # Exclude notebook checkpoints from the build
 exclude_patterns = ["_build", "**.ipynb_checkpoints"]
