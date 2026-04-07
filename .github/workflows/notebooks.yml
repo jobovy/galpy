@@ -31,15 +31,17 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install ".[docs]"
-          pip install jupyter nbconvert nbformat astropy
+          pip install jupyter nbconvert nbformat astropy astroquery numexpr
       - name: Run all tutorial notebooks
         run: |
           set -e
           failed=0
+          outdir=$(mktemp -d)
           for nb in $(find doc/source/tutorials -name '*.ipynb' | sort); do
             echo "::group::Running $nb"
+            outname=$(basename "$nb")
             if jupyter nbconvert --to notebook --execute --ExecutePreprocessor.timeout=600 \
-                --ExecutePreprocessor.kernel_name=python3 --output /dev/null "$nb"; then
+                --ExecutePreprocessor.kernel_name=python3 --output-dir="$outdir" "$nb"; then
               echo "PASSED: $nb"
             else
               echo "::error::FAILED: $nb"
@@ -47,6 +49,7 @@ jobs:
             fi
             echo "::endgroup::"
           done
+          rm -rf "$outdir"
           if [ "$failed" -eq 1 ]; then
             echo "::error::Some notebooks failed execution"
             exit 1
