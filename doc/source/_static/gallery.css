@@ -69,3 +69,20 @@ div.desc {
   display: table;
   clear: both;
 }
+
+/* Tutorial gallery cards */
+.tutorial-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.tutorial-gallery .sd-card {
+  transition: box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.tutorial-gallery .sd-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}

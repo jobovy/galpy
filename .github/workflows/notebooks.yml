@@ -1,0 +1,53 @@
+name: Validate notebooks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'doc/source/tutorials/**/*.ipynb'
+      - '.github/workflows/notebooks.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'doc/source/tutorials/**/*.ipynb'
+      - '.github/workflows/notebooks.yml'
+
+jobs:
+  run-notebooks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgsl-dev
+      - name: Install galpy and notebook dependencies
+        run: |
+          pip install --upgrade pip
+          pip install ".[docs]"
+          pip install jupyter nbconvert nbformat astropy
+      - name: Run all tutorial notebooks
+        run: |
+          set -e
+          failed=0
+          for nb in $(find doc/source/tutorials -name '*.ipynb' | sort); do
+            echo "::group::Running $nb"
+            if jupyter nbconvert --to notebook --execute --ExecutePreprocessor.timeout=600 \
+                --ExecutePreprocessor.kernel_name=python3 --output /dev/null "$nb"; then
+              echo "PASSED: $nb"
+            else
+              echo "::error::FAILED: $nb"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          if [ "$failed" -eq 1 ]; then
+            echo "::error::Some notebooks failed execution"
+            exit 1
+          fi

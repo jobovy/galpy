@@ -45,7 +45,22 @@ extensions = [
     "sphinx.ext.linkcode",
     "sphinxext.opengraph",
     "sphinx_design",
+    "nbsphinx",
 ]
+
+# nbsphinx configuration
+nbsphinx_execute = "never"  # notebooks are pre-executed; CI validates them
+nbsphinx_allow_errors = False
+nbsphinx_prolog = """
+{% set docname = env.doc2path(env.docname, base=None) %}
+
+.. raw:: html
+
+    <div class="admonition note">
+    <p>This page was generated from a Jupyter notebook. You can download it
+    <a href="https://github.com/jobovy/galpy/blob/main/{{ docname }}" download>here</a>.</p>
+    </div>
+"""
 
 # from disnake via:
 # https://twitter.com/readthedocs/status/1541830907082022913?s=20&t=eJ293FfjILT7sIxEyz834w
@@ -109,7 +124,13 @@ ogp_social_cards = {
 templates_path = ["_templates"]
 
 # The suffix of source filenames.
-source_suffix = ".rst"
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".ipynb": "nbsphinx",
+}
+
+# Exclude notebook checkpoints from the build
+exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 
 # The encoding of source files.
 # source_encoding = 'utf-8'
