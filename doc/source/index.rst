@@ -79,25 +79,31 @@ Quick-start guide
 -----------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    installation.rst
 
    whatsnew.rst
 
-   getting_started.rst
+Tutorials
+---------
 
-   potential.rst
+.. toctree::
+   :maxdepth: 2
 
-   orbit.rst
+   tutorials/getting_started/index
 
-   basic_df.rst
+   tutorials/potentials/index
 
-   actionAngle.rst
+   tutorials/orbits/index
 
-   diskdf.rst
+   tutorials/distribution_functions/index
 
-   streamdf.rst
+   tutorials/action_angle/index
+
+   tutorials/streams/index
+
+   tutorials/extending/index
 
 Library reference
 -----------------
