@@ -88,7 +88,7 @@ nbsphinx_prolog = f"""
 
     <div class="admonition note">
     <p>This page was generated from a Jupyter notebook. You can download it
-    <a href="https://github.com/jobovy/galpy/blob/{git_ref}/{{{{ docname }}}}" download>here</a>.</p>
+    <a href="https://github.com/jobovy/galpy/blob/{git_ref}/doc/source/{{{{ docname }}}}" download>here</a>.</p>
     </div>
 """
 
