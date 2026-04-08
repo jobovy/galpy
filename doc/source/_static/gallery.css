@@ -86,3 +86,49 @@ div.desc {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
 }
+
+/* Spacing between section headings and card grids */
+.sd-container-fluid {
+  margin-top: 0.75rem;
+}
+
+/* Notebook output: hide execution count / cell numbering */
+.nbinput .prompt,
+.nboutput .prompt,
+div.nbinput div.prompt,
+div.nboutput div.prompt {
+  display: none;
+}
+
+/* Copy button only on input cells, not output */
+.nboutput .highlight .copy-btn,
+div.nboutput .highlight .copy-btn {
+  display: none !important;
+}
+
+/* Responsive card grids for mobile */
+@media only screen and (max-width: 768px) {
+  .sd-row {
+    flex-direction: column !important;
+  }
+  .sd-col {
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+  .sd-card {
+    margin-bottom: 0.75rem;
+  }
+  .sd-card .sd-card-img-top {
+    max-height: 200px;
+    object-fit: contain;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .sd-card .sd-card-body {
+    padding: 0.75rem;
+  }
+  .sd-card .sd-card-body .sd-card-text {
+    font-size: 0.9em;
+  }
+}

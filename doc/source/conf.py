@@ -51,6 +51,7 @@ extensions = [
 # nbsphinx configuration
 nbsphinx_execute = "never"  # notebooks are pre-executed; CI validates them
 nbsphinx_allow_errors = False
+nbsphinx_prompt_width = "0"  # hide input/output prompts ([1]: etc.)
 nbsphinx_prolog = """
 {% set docname = env.doc2path(env.docname, base=None) %}
 
