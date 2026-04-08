@@ -41,3 +41,10 @@ large variety of potentials using multiple methods.
 
       Reverse action-angle transformation: from actions and angles
       to phase-space coordinates using the TorusMapper.
+
+   .. grid-item-card:: 1D Actions and Inverse Transformations
+      :link: vertical_and_inverse
+      :link-type: doc
+
+      One-dimensional action-angle coordinates and their inverse
+      transformations for vertical oscillations.

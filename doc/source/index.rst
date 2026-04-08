@@ -279,6 +279,14 @@ Action-Angle Coordinates
       Compute phase-space coordinates from given actions and angles
       using the Torus Mapper.
 
+   .. grid-item-card:: 1D Actions and Inverse Transformations
+      :img-top: images/tutorials/action_angle_vertical_and_inverse.png
+      :link: tutorials/action_angle/vertical_and_inverse
+      :link-type: doc
+
+      One-dimensional action-angle coordinates for vertical
+      oscillations and their inverse transformations.
+
 Tidal Streams
 ^^^^^^^^^^^^^
 
