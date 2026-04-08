@@ -52,14 +52,14 @@ extensions = [
 nbsphinx_execute = "never"  # notebooks are pre-executed; CI validates them
 nbsphinx_allow_errors = False
 nbsphinx_prompt_width = "0"  # hide input/output prompts ([1]: etc.)
-nbsphinx_prolog = """
-{% set docname = env.doc2path(env.docname, base=None) %}
+nbsphinx_prolog = f"""
+{{% set docname = env.doc2path(env.docname, base=None) %}}
 
 .. raw:: html
 
     <div class="admonition note">
     <p>This page was generated from a Jupyter notebook. You can download it
-    <a href="https://github.com/jobovy/galpy/blob/main/{{ docname }}" download>here</a>.</p>
+    <a href="https://github.com/jobovy/galpy/blob/{git_ref}/{{{{ docname }}}}" download>here</a>.</p>
     </div>
 """
 

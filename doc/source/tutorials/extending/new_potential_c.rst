@@ -13,15 +13,18 @@ To add a C implementation of a potential to galpy:
    ``galpy/potential/potential_c_ext/`` following the template of
    existing potentials.
 
-2. Add the potential to the ``parse_leapfrog_internalPotential``
-   function in ``galpy/potential/potential_c_ext/integrateFullOrbit.c``
-   (and similar files for planar orbits and 1D orbits).
+2. Register the potential in the ``parse_leapFuncArgs_Full`` function in
+   ``galpy/orbit/orbit_c_ext/integrateFullOrbit.c`` (and
+   ``parse_leapFuncArgs`` in ``integratePlanarOrbit.c`` for planar
+   orbits, and in ``integrateLinearOrbit.c`` for 1D orbits if
+   applicable).
 
-3. Add a ``_c`` attribute to the Python class that indicates that the
-   potential has a C implementation.
+3. Register the potential in the Python-side ``_parse_pot`` function
+   in ``galpy/orbit/integrateFullOrbit.py`` (and the corresponding
+   function in ``integratePlanarOrbit.py`` for planar orbits).
 
-4. Add a ``_parse_c`` method to the Python class that translates the
-   Python parameters to C parameters.
+4. Set ``hasC = True`` as a class attribute on the Python potential
+   class.
 
 See the `galpy wiki <https://github.com/jobovy/galpy/wiki/Guide-for-new-contributors>`__
 for detailed step-by-step instructions on adding C potentials.
@@ -31,101 +34,123 @@ Template
 
 A C potential implementation typically needs to provide functions for:
 
-* ``{PotentialName}Potential_evaluate`` - the potential value
-* ``{PotentialName}Potential_Rforce`` - the radial force
-* ``{PotentialName}Potential_zforce`` - the vertical force
-* ``{PotentialName}Potential_phitorque`` - the azimuthal torque (for non-axisymmetric potentials)
-* ``{PotentialName}Potential_dens`` - the density (optional, for ``hasC_dens``)
+* ``{PotentialName}PotentialEval`` -- the potential value
+* ``{PotentialName}PotentialRforce`` -- the radial force
+* ``{PotentialName}Potentialzforce`` -- the vertical force
+* ``{PotentialName}Potentialphitorque`` -- the azimuthal torque (for non-axisymmetric potentials)
+* ``{PotentialName}PotentialDens`` -- the density (optional, for ``hasC_dens``)
+
+For planar (2D) potentials, the naming convention is:
+
+* ``{PotentialName}PotentialPlanarRforce`` -- the planar radial force
+* ``{PotentialName}PotentialPlanarphitorque`` -- the planar azimuthal torque (for non-axisymmetric potentials)
 
 C function signatures
 ---------------------
 
-Each function has the following signature:
+Each 3D function has the following signature (taking a ``struct potentialArg``
+rather than ``nargs``/``args``):
 
 .. code-block:: c
 
-   double MyPotentialPotential_evaluate(double R, double z, double phi,
-                                        double t,
-                                        int nargs, double *args) {
+   double MyPotentialEval(double R, double Z, double phi,
+                          double t,
+                          struct potentialArg * potentialArgs) {
+       double * args = potentialArgs->args;
        // args[0], args[1], ... are the potential parameters
-       double param1 = args[0];
-       double param2 = args[1];
-       // Compute and return the potential value (without amp)
+       double amp = args[0];
+       double param1 = args[1];
+       // Compute and return the potential value
        return ...;
    }
 
-   double MyPotentialPotential_Rforce(double R, double z, double phi,
-                                      double t,
-                                      int nargs, double *args) {
-       // Return -dPhi/dR (without amp)
+   double MyPotentialRforce(double R, double Z, double phi,
+                            double t,
+                            struct potentialArg * potentialArgs) {
+       double * args = potentialArgs->args;
+       // Return -dPhi/dR
        return ...;
    }
 
-   double MyPotentialPotential_zforce(double R, double z, double phi,
-                                      double t,
-                                      int nargs, double *args) {
-       // Return -dPhi/dz (without amp)
+   double MyPotentialzforce(double R, double Z, double phi,
+                            double t,
+                            struct potentialArg * potentialArgs) {
+       double * args = potentialArgs->args;
+       // Return -dPhi/dz
        return ...;
    }
 
-The ``nargs`` parameter gives the number of elements in ``args``, and
-``args`` is a ``double`` array containing the potential parameters passed
-from Python.
+The ``potentialArgs->args`` pointer is a ``double`` array containing the
+potential parameters passed from Python (via ``_parse_pot``). The amplitude
+``amp`` is typically the first element.
 
-Adding to parse_leapfrog_internalPotential
-------------------------------------------
+For planar potentials, the signature omits ``Z``:
+
+.. code-block:: c
+
+   double MyPotentialPlanarRforce(double R, double phi, double t,
+                                  struct potentialArg * potentialArgs) {
+       double * args = potentialArgs->args;
+       // Return -dPhi/dR
+       return ...;
+   }
+
+Registering in parse_leapFuncArgs_Full (C side)
+------------------------------------------------
 
 You need to register the new potential in the orbit integration
-infrastructure. Edit the ``parse_leapfrog_internalPotential`` function in
-``galpy/potential/potential_c_ext/integrateFullOrbit.c`` (and the
-corresponding functions in ``integratePlanarOrbit.c`` and
-``integrateLinearOrbit.c`` if applicable). Add an ``else if`` block
-following the pattern of existing potentials:
+infrastructure. Edit the ``parse_leapFuncArgs_Full`` function in
+``galpy/orbit/orbit_c_ext/integrateFullOrbit.c`` (and
+``parse_leapFuncArgs`` in ``integratePlanarOrbit.c`` and
+``integrateLinearOrbit.c`` if applicable). Add a ``case`` block
+in the ``switch`` statement following the pattern of existing potentials:
 
 .. code-block:: c
 
-   else if ( type == <NEW_POTENTIAL_ID> ) {
-       potentialArgs->potentialEval = &MyPotentialPotential_evaluate;
-       potentialArgs->Rforce = &MyPotentialPotential_Rforce;
-       potentialArgs->zforce = &MyPotentialPotential_zforce;
-       potentialArgs->phitorque = &MyPotentialPotential_phitorque;
+   case <NEW_POTENTIAL_ID>: // MyPotential, N arguments
+       potentialArgs->potentialEval = &MyPotentialEval;
+       potentialArgs->Rforce = &MyPotentialRforce;
+       potentialArgs->zforce = &MyPotentialzforce;
+       potentialArgs->phitorque = &ZeroForce; // or &MyPotentialphitorque
        potentialArgs->nargs = 2;  // number of parameters
-   }
+       potentialArgs->ntfuncs = 0;
+       potentialArgs->requiresVelocity = false;
+       break;
 
-The ``type`` integer ID must match the value used in the Python
-``_parse_c`` method.
+The integer ``<NEW_POTENTIAL_ID>`` must match the value used in the Python
+``_parse_pot`` function.
 
-Python-side attributes and methods
-----------------------------------
+Registering in _parse_pot (Python side)
+---------------------------------------
 
-On the Python class, you need to:
+On the Python side, edit the ``_parse_pot`` function in
+``galpy/orbit/integrateFullOrbit.py``. Add an ``elif`` block that maps
+your potential class to its C integer type ID and parameter list:
 
-1. Set ``hasC = True`` as a class attribute to indicate that a C
-   implementation is available:
+.. code-block:: python
 
-   .. code-block:: python
+   elif isinstance(p, potential.MyPotential):
+       pot_type.append(N)  # must match the C switch case ID
+       pot_args.extend([p._amp, p._param1, p._param2])
 
-      class MyPotential(Potential):
-          hasC = True
-          ...
+The parameters in ``pot_args`` are passed as the ``args`` array in C,
+so they must appear in the same order that the C code expects.
 
-2. Optionally set ``hasC_dxdv = True`` if you implement the phase-space
-   derivative functions (for variational orbit integration), and
-   ``hasC_dens = True`` if you implement the C density function.
+Python-side attributes
+----------------------
 
-3. Implement a ``_parse_c`` method that returns the integer potential-type
-   identifier and a list of parameters to pass to C:
+On the Python class, set ``hasC = True`` as a class attribute to indicate
+that a C implementation is available:
 
-   .. code-block:: python
+.. code-block:: python
 
-      def _parse_c(self, ro=None, vo=None):
-          return (self._parse_c_type_id,
-                  [self._param1, self._param2])
+   class MyPotential(Potential):
+       hasC = True
+       ...
 
-   The type ID is an integer that identifies this potential in the C
-   ``parse_leapfrog_internalPotential`` function. Look at the existing
-   potentials in ``galpy/potential/`` for the convention used to assign
-   these IDs.
+Optionally set ``hasC_dxdv = True`` if you implement the phase-space
+derivative functions (for variational orbit integration), and
+``hasC_dens = True`` if you implement the C density function.
 
 Existing implementations as templates
 --------------------------------------
@@ -133,12 +158,10 @@ Existing implementations as templates
 The best way to get started is to look at an existing potential that is
 similar to yours. Good starting points include:
 
-* ``LogarithmicHaloPotential`` -- a simple axisymmetric potential
-  (``LogarithmicHaloPotential.c`` and ``LogarithmicHaloPotential.py``)
-* ``MiyamotoNagaiPotential`` -- another straightforward example
-* ``SpiralArmsPotential`` -- an example of a non-axisymmetric potential
+* ``LogarithmicHaloPotential.c`` -- a 3D axisymmetric potential with
+  optional non-axisymmetry
+* ``LopsidedDiskPotential.c`` -- a 2D non-axisymmetric potential
+* ``MiyamotoNagaiPotential.c`` -- a straightforward 3D example
+* ``SpiralArmsPotential.c`` -- a non-axisymmetric potential
 
 All C implementations live in ``galpy/potential/potential_c_ext/``.
-
-See existing implementations in ``galpy/potential/potential_c_ext/`` for
-examples.
