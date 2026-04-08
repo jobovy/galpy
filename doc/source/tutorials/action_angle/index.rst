@@ -35,16 +35,16 @@ large variety of potentials using multiple methods.
       General method for any static potential using orbit integration
       in an auxiliary isochrone potential.
 
-   .. grid-item-card:: Reverse Transformations (actionAngleTorus)
-      :link: torus
-      :link-type: doc
-
-      Reverse action-angle transformation: from actions and angles
-      to phase-space coordinates using the TorusMapper.
-
    .. grid-item-card:: 1D Actions and Inverse Transformations
       :link: vertical_and_inverse
       :link-type: doc
 
       One-dimensional action-angle coordinates and their inverse
       transformations for vertical oscillations.
+
+   .. grid-item-card:: Inverse Transformations (TorusMapping)
+      :link: torus
+      :link-type: doc
+
+      Inverse action-angle transformation: from actions and angles
+      to phase-space coordinates using the TorusMapper.

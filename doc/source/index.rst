@@ -201,6 +201,14 @@ Orbits
       Quickly compute eccentricity, peri/apocenter, and zmax using
       the Staeckel approximation without orbit integration.
 
+   .. grid-item-card:: Orbit Examples
+      :img-top: images/tutorials/orbits_examples.png
+      :link: tutorials/orbits/examples
+      :link-type: doc
+
+      Detailed examples: LMC orbit with dynamical friction,
+      barycentric acceleration from the LMC, and more.
+
 Distribution Functions
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -271,14 +279,6 @@ Action-Angle Coordinates
       General action-angle calculation by integrating the orbit and
       using a best-fit isochrone potential.
 
-   .. grid-item-card:: Reverse Transformations (Torus)
-      :img-top: images/tutorials/action_angle_torus.png
-      :link: tutorials/action_angle/torus
-      :link-type: doc
-
-      Compute phase-space coordinates from given actions and angles
-      using the Torus Mapper.
-
    .. grid-item-card:: 1D Actions and Inverse Transformations
       :img-top: images/tutorials/action_angle_vertical_and_inverse.png
       :link: tutorials/action_angle/vertical_and_inverse
@@ -286,6 +286,14 @@ Action-Angle Coordinates
 
       One-dimensional action-angle coordinates for vertical
       oscillations and their inverse transformations.
+
+   .. grid-item-card:: Inverse Transformations (TorusMapping)
+      :img-top: images/tutorials/action_angle_torus.png
+      :link: tutorials/action_angle/torus
+      :link-type: doc
+
+      Compute phase-space coordinates from given actions and angles
+      using the Torus Mapper.
 
 Tidal Streams
 ^^^^^^^^^^^^^

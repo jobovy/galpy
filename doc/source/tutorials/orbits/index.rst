@@ -45,3 +45,10 @@ computation for large numbers of orbits.
       Quickly compute eccentricity, peri/apocenter, and
       zmax using the Staeckel approximation without orbit
       integration.
+
+   .. grid-item-card:: Orbit Examples
+      :link: examples
+      :link-type: doc
+
+      Detailed examples: LMC orbit with dynamical friction,
+      barycentric acceleration from the LMC, and more.
