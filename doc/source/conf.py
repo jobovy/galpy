@@ -52,16 +52,6 @@ extensions = [
 nbsphinx_execute = "never"  # notebooks are pre-executed; CI validates them
 nbsphinx_allow_errors = False
 nbsphinx_prompt_width = "0"  # hide input/output prompts ([1]: etc.)
-nbsphinx_prolog = f"""
-{{% set docname = env.doc2path(env.docname, base=None) %}}
-
-.. raw:: html
-
-    <div class="admonition note">
-    <p>This page was generated from a Jupyter notebook. You can download it
-    <a href="https://github.com/jobovy/galpy/blob/{git_ref}/{{{{ docname }}}}" download>here</a>.</p>
-    </div>
-"""
 
 # from disnake via:
 # https://twitter.com/readthedocs/status/1541830907082022913?s=20&t=eJ293FfjILT7sIxEyz834w
@@ -86,6 +76,17 @@ if not git_ref or re.search(r"[\^~]", git_ref):
         git_ref = git("rev-parse", "HEAD")
     except Exception:
         git_ref = "main"
+
+nbsphinx_prolog = f"""
+{{% set docname = env.doc2path(env.docname, base=None) %}}
+
+.. raw:: html
+
+    <div class="admonition note">
+    <p>This page was generated from a Jupyter notebook. You can download it
+    <a href="https://github.com/jobovy/galpy/blob/{git_ref}/{{{{ docname }}}}" download>here</a>.</p>
+    </div>
+"""
 
 
 def linkcode_resolve(domain, info):
