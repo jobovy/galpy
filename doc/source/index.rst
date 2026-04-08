@@ -85,24 +85,198 @@ Quick-start guide
 
    whatsnew.rst
 
-Tutorials
----------
+Getting started
+^^^^^^^^^^^^^^^
+
+.. grid:: 1 2 2 3
+   :gutter: 4
+
+   .. grid-item-card:: Rotation Curves, Units, and First Orbits
+      :link: tutorials/getting_started/rotation_curves_and_units
+      :link-type: doc
+
+      Set up basic potentials, plot rotation curves, understand
+      galpy's natural and physical unit systems, and integrate
+      a simple orbit.
+
+Potentials
+^^^^^^^^^^
+
+.. grid:: 1 2 2 3
+   :gutter: 4
+
+   .. grid-item-card:: Introduction to Potentials
+      :link: tutorials/potentials/introduction
+      :link-type: doc
+
+      Evaluate potentials, forces, densities. Combine potentials.
+      Plot rotation curves and potential contours.
+
+   .. grid-item-card:: Milky Way-like Potentials
+      :link: tutorials/potentials/milky_way_potentials
+      :link-type: doc
+
+      Use built-in Milky Way potentials like MWPotential2014,
+      McMillan17, and others.
+
+   .. grid-item-card:: Potential Wrappers
+      :link: tutorials/potentials/wrappers
+      :link-type: doc
+
+      Modify potentials: grow bars, add rotation, tilt
+      and offset potentials using wrappers.
+
+   .. grid-item-card:: SCF and Multipole Expansions
+      :link: tutorials/potentials/scf_and_multipole
+      :link-type: doc
+
+      Represent arbitrary density distributions using
+      basis-function or multipole expansions.
+
+   .. grid-item-card:: Dissipative Forces
+      :link: tutorials/potentials/dissipative
+      :link-type: doc
+
+      Use velocity-dependent forces like dynamical friction
+      for orbit integration.
+
+Orbits
+^^^^^^
+
+.. grid:: 1 2 2 3
+   :gutter: 4
+
+   .. grid-item-card:: Orbit Initialization
+      :link: tutorials/orbits/initialization
+      :link-type: doc
+
+      Initialize orbits in cylindrical coordinates, with physical
+      units, from observed coordinates, or from astropy SkyCoord.
+
+   .. grid-item-card:: Multiple Orbits
+      :link: tutorials/orbits/multiple_orbits
+      :link-type: doc
+
+      Work with multiple orbits at once: array initialization,
+      slicing, reshaping, and parallel integration.
+
+   .. grid-item-card:: Orbits of Known Objects
+      :link: tutorials/orbits/known_objects
+      :link-type: doc
+
+      Initialize orbits from object names, load collections of
+      globular clusters, satellite galaxies, or the solar system.
+
+   .. grid-item-card:: Integration and Plotting
+      :link: tutorials/orbits/integration_and_plotting
+      :link-type: doc
+
+      Integrate orbits, display various projections, access
+      orbital quantities, and check energy conservation.
+
+   .. grid-item-card:: Fast Orbit Characterization
+      :link: tutorials/orbits/fast_characterization
+      :link-type: doc
+
+      Quickly compute eccentricity, peri/apocenter, and
+      zmax using the Staeckel approximation.
+
+Distribution Functions
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. grid:: 1 2 2 3
+   :gutter: 4
+
+   .. grid-item-card:: Two-dimensional Disk DFs
+      :link: tutorials/distribution_functions/disk_df_2d
+      :link-type: doc
+
+      Dehnen, Shu, and Schwarzschild distribution functions
+      for razor-thin disks.
+
+   .. grid-item-card:: Three-dimensional Disk DFs
+      :link: tutorials/distribution_functions/disk_df_3d
+      :link-type: doc
+
+      Quasi-isothermal distribution function for 3D disk
+      populations using action-angle variables.
+
+   .. grid-item-card:: Spherical DFs
+      :link: tutorials/distribution_functions/spherical_dfs
+      :link-type: doc
+
+      Isotropic and anisotropic distribution functions for
+      spherical systems.
+
+Action-Angle Coordinates
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. grid:: 1 2 2 3
+   :gutter: 4
+
+   .. grid-item-card:: Introduction to Action-Angle Coordinates
+      :link: tutorials/action_angle/introduction
+      :link-type: doc
+
+      Overview of action-angle variables, using the Orbit interface,
+      and calculating actions for simple potentials.
+
+   .. grid-item-card:: Action-Angle Methods
+      :link: tutorials/action_angle/methods
+      :link-type: doc
+
+      Detailed guide to different methods: Staeckel, adiabatic,
+      orbit integration-based, and reverse transformations.
+
+Tidal Streams
+^^^^^^^^^^^^^
+
+.. grid:: 1 2 2 3
+   :gutter: 4
+
+   .. grid-item-card:: Stream Modeling with streamdf
+      :link: tutorials/streams/streamdf
+      :link-type: doc
+
+      Model tidal streams in action-angle coordinates,
+      predict stream tracks, and compute stream properties.
+
+   .. grid-item-card:: Particle-spray with streamspraydf
+      :link: tutorials/streams/streamspraydf
+      :link-type: doc
+
+      Generate tidal streams using particle-spray techniques
+      with chen24spraydf and fardal15spraydf.
+
+Extending galpy
+^^^^^^^^^^^^^^^
+
+.. grid:: 1 2 2 3
+   :gutter: 4
+
+   .. grid-item-card:: New Potentials in Python
+      :link: tutorials/extending/new_potential_python
+      :link-type: doc
+
+      Define a custom potential class in Python by
+      implementing force and potential evaluation methods.
+
+   .. grid-item-card:: New Potentials in C
+      :link: tutorials/extending/new_potential_c
+      :link-type: doc
+
+      Add C implementations of potentials for fast orbit
+      integration and action-angle calculations.
 
 .. toctree::
-   :maxdepth: 2
+   :hidden:
 
    tutorials/getting_started/index
-
    tutorials/potentials/index
-
    tutorials/orbits/index
-
    tutorials/distribution_functions/index
-
    tutorials/action_angle/index
-
    tutorials/streams/index
-
    tutorials/extending/index
 
 Library reference
