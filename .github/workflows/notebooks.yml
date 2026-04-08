@@ -27,6 +27,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgsl-dev
+      - name: Clone Torus code for actionAngleTorus
+        run: |
+          git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+          cd galpy/actionAngle/actionAngleTorus_c_ext/torus
+          git checkout galpy
+          cd -
       - name: Install galpy and notebook dependencies
         run: |
           pip install --upgrade pip

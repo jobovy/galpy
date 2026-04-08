@@ -14,9 +14,30 @@ large variety of potentials using multiple methods.
       Overview of action-angle variables, using the Orbit interface,
       and calculating actions for simple potentials.
 
-   .. grid-item-card:: Action-Angle Methods
-      :link: methods
+   .. grid-item-card:: Staeckel Approximation
+      :link: staeckel
       :link-type: doc
 
-      Detailed guide to different methods: Staeckel, adiabatic,
-      orbit integration-based, and reverse transformations.
+      The most accurate general method for computing actions in
+      axisymmetric potentials, including grid-based interpolation.
+
+   .. grid-item-card:: Adiabatic Approximation
+      :link: adiabatic
+      :link-type: doc
+
+      Fast but approximate method for thin-disk orbits, including
+      grid-based interpolation and comparison with Staeckel.
+
+   .. grid-item-card:: Orbit Integration-based (IsochroneApprox)
+      :link: isochroneapprox
+      :link-type: doc
+
+      General method for any static potential using orbit integration
+      in an auxiliary isochrone potential.
+
+   .. grid-item-card:: Reverse Transformations (actionAngleTorus)
+      :link: torus
+      :link-type: doc
+
+      Reverse action-angle transformation: from actions and angles
+      to phase-space coordinates using the TorusMapper.
