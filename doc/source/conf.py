@@ -65,11 +65,15 @@ def git(*args):
 
 
 git_ref = None
-try:
-    git_ref = git("name-rev", "--name-only", "--no-undefined", "HEAD")
-    git_ref = re.sub(r"^(remotes/[^/]+|tags)/", "", git_ref)
-except Exception:
-    pass
+# On RTD, use the commit hash directly (name-rev returns e.g. "external-84" for PRs)
+if os.environ.get("READTHEDOCS"):
+    git_ref = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH")
+if not git_ref:
+    try:
+        git_ref = git("name-rev", "--name-only", "--no-undefined", "HEAD")
+        git_ref = re.sub(r"^(remotes/[^/]+|tags)/", "", git_ref)
+    except Exception:
+        pass
 # (if no name found or relative ref, use commit hash instead)
 if not git_ref or re.search(r"[\^~]", git_ref):
     try:
