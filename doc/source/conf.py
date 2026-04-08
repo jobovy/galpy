@@ -65,8 +65,8 @@ def git(*args):
 
 
 git_ref = None
-# On RTD, use the commit hash directly (name-rev returns e.g. "external-84" for PRs)
-if os.environ.get("READTHEDOCS"):
+# On RTD PR builds, name-rev returns e.g. "external-84"; use commit hash instead
+if os.environ.get("READTHEDOCS_VERSION_TYPE") == "external":
     git_ref = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH")
 if not git_ref:
     try:
