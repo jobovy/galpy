@@ -41,3 +41,17 @@ evaluate them, combine them, and use them for orbit integration and more.
 
       Use velocity-dependent forces like dynamical friction
       for orbit integration.
+
+   .. grid-item-card:: N-body Simulation Potentials
+      :link: nbody_snapshots
+      :link-type: doc
+
+      Use frozen N-body simulation potentials in galpy
+      with pynbody for orbits and analysis.
+
+   .. grid-item-card:: Using Potentials in Other Codes
+      :link: other_codes
+      :link-type: doc
+
+      Export galpy potentials to NEMO, AMUSE, AGAMA, and gala
+      for use in other simulation frameworks.

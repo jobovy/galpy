@@ -152,6 +152,20 @@ Potentials
       Use velocity-dependent forces like Chandrasekhar dynamical
       friction and non-inertial frame forces for orbit integration.
 
+   .. grid-item-card:: N-body Simulation Potentials
+      :link: tutorials/potentials/nbody_snapshots
+      :link-type: doc
+
+      Use frozen N-body simulation potentials in galpy
+      with pynbody for orbits and analysis.
+
+   .. grid-item-card:: Using Potentials in Other Codes
+      :link: tutorials/potentials/other_codes
+      :link-type: doc
+
+      Export galpy potentials to NEMO, AMUSE, AGAMA, and gala
+      for use in other simulation frameworks.
+
 Orbits
 ^^^^^^
 
