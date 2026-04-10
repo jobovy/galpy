@@ -4308,6 +4308,31 @@ def test_dissipativeforce_method_returntype():
     return None
 
 
+def test_dissipativeforce_method_returnunit():
+    from galpy.potential import ChandrasekharDynamicalFrictionForce
+
+    pot = ChandrasekharDynamicalFrictionForce(GMs=0.1, rhm=1.2 / 8.0, ro=8.0, vo=220.0)
+    try:
+        pot.phitorque(1.1, 0.1, phi=2.0, v=[0.1, 1.2, 0.3]).to(units.km**2 / units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "DissipativeForce method phitorque does not return Quantity with the right units (expected energy units km^2/s^2)"
+        )
+    try:
+        pot.Rforce(1.1, 0.1, phi=2.0, v=[0.1, 1.2, 0.3]).to(units.km / units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "DissipativeForce method Rforce does not return Quantity with the right units"
+        )
+    try:
+        pot.zforce(1.1, 0.1, phi=2.0, v=[0.1, 1.2, 0.3]).to(units.km / units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "DissipativeForce method zforce does not return Quantity with the right units"
+        )
+    return None
+
+
 def test_planarPotential_method_returntype():
     from galpy.potential import PlummerPotential
 
