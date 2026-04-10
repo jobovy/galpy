@@ -1,28 +1,37 @@
-name: Validate notebooks
+name: Validate documentation notebooks
 
 on:
   push:
-    branches: [main]
     paths:
+      - '**'
+      - '!*'
+      - '*.py'
+      - '*.c'
+      - '*.cpp'
+      - '*.h'
+      - '!doc/**'
       - 'doc/source/tutorials/**/*.ipynb'
+      - '!.github/**'
       - '.github/workflows/notebooks.yml'
   pull_request:
-    branches: [main]
     paths:
+      - '**'
+      - '!doc/**'
       - 'doc/source/tutorials/**/*.ipynb'
-      - '.github/workflows/notebooks.yml'
 
 jobs:
   run-notebooks:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      matrix:
+        python-version: [3.10, 3.11, 3.12, 3.13, 3.14]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '${{ matrix.python-version }}'
       - name: Install system dependencies
         run: |
           sudo apt-get update
