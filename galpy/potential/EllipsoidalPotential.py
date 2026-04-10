@@ -14,7 +14,7 @@ import numpy
 from scipy import integrate
 
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
-from .Potential import Potential, check_potential_inputs_not_arrays
+from .Potential import Potential
 
 
 class EllipsoidalPotential(Potential):
@@ -131,13 +131,15 @@ class EllipsoidalPotential(Potential):
             self._glw *= 0.5
         return None
 
-    @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
-        if numpy.isinf(R):
-            y = 0.0
+        if numpy.ndim(R) == 0:
+            if numpy.isinf(R):
+                y = 0.0
+        else:
+            y = numpy.where(numpy.isinf(R), 0.0, y)
         if self._aligned:
             return self._evaluate_xyz(x, y, z)
         else:
@@ -157,7 +159,6 @@ class EllipsoidalPotential(Potential):
             )
         )
 
-    @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -186,7 +187,6 @@ class EllipsoidalPotential(Potential):
             Fx, Fy = Fxyz[0], Fxyz[1]
         return numpy.cos(phi) * Fx + numpy.sin(phi) * Fy
 
-    @check_potential_inputs_not_arrays
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -215,7 +215,6 @@ class EllipsoidalPotential(Potential):
             Fx, Fy = Fxyz[0], Fxyz[1]
         return R * (-numpy.sin(phi) * Fx + numpy.cos(phi) * Fy)
 
-    @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -264,7 +263,6 @@ class EllipsoidalPotential(Potential):
             )
         )
 
-    @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -282,7 +280,6 @@ class EllipsoidalPotential(Potential):
             + 2.0 * numpy.cos(phi) * numpy.sin(phi) * phixy
         )
 
-    @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -295,7 +292,6 @@ class EllipsoidalPotential(Potential):
         phiyz = self._2ndderiv_xyz(x, y, z, 1, 2)
         return numpy.cos(phi) * phixz + numpy.sin(phi) * phiyz
 
-    @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -306,7 +302,6 @@ class EllipsoidalPotential(Potential):
             )
         return self._2ndderiv_xyz(x, y, z, 2, 2)
 
-    @check_potential_inputs_not_arrays
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -326,7 +321,6 @@ class EllipsoidalPotential(Potential):
             - 2.0 * numpy.cos(phi) * numpy.sin(phi) * phixy
         ) + R * (numpy.cos(phi) * Fx + numpy.sin(phi) * Fy)
 
-    @check_potential_inputs_not_arrays
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -347,7 +341,6 @@ class EllipsoidalPotential(Potential):
             - numpy.cos(phi) * Fy
         )
 
-    @check_potential_inputs_not_arrays
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -383,7 +376,6 @@ class EllipsoidalPotential(Potential):
             )
         )
 
-    @check_potential_inputs_not_arrays
     def _dens(self, R, z, phi=0.0, t=0.0):
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if self._aligned:
@@ -421,7 +413,16 @@ def _potInt(x, y, z, psi, b2, c2, glx=None, glw=None):
     if glx is None:
         return integrate.quad(integrand, 0.0, 1.0)[0]
     else:
-        return numpy.sum(glw * integrand(glx))
+        # Support array inputs for x, y, z using broadcasting.
+        # glx/glw have shape (G,); expand to (G,1) when x is an array so that
+        # broadcasting produces shape (G,N), and the sum over axis=0 gives (N,).
+        if numpy.ndim(x) > 0:
+            glx_e = glx[:, numpy.newaxis]
+            glw_e = glw[:, numpy.newaxis]
+        else:
+            glx_e = glx
+            glw_e = glw
+        return numpy.sum(glw_e * integrand(glx_e), axis=0)
 
 
 def _forceInt(x, y, z, dens, b2, c2, i, glx=None, glw=None):
@@ -442,7 +443,16 @@ def _forceInt(x, y, z, dens, b2, c2, i, glx=None, glw=None):
     if glx is None:
         return integrate.quad(integrand, 0.0, 1.0)[0]
     else:
-        return numpy.sum(glw * integrand(glx))
+        # Support array inputs for x, y, z using broadcasting.
+        # glx/glw have shape (G,); expand to (G,1) when x is an array so that
+        # broadcasting produces shape (G,N), and the sum over axis=0 gives (N,).
+        if numpy.ndim(x) > 0:
+            glx_e = glx[:, numpy.newaxis]
+            glw_e = glw[:, numpy.newaxis]
+        else:
+            glx_e = glx
+            glw_e = glw
+        return numpy.sum(glw_e * integrand(glx_e), axis=0)
 
 
 def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j, glx=None, glw=None):
@@ -476,4 +486,13 @@ def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j, glx=None, glw=None):
     if glx is None:
         return integrate.quad(integrand, 0.0, 1.0)[0]
     else:
-        return numpy.sum(glw * integrand(glx))
+        # Support array inputs for x, y, z using broadcasting.
+        # glx/glw have shape (G,); expand to (G,1) when x is an array so that
+        # broadcasting produces shape (G,N), and the sum over axis=0 gives (N,).
+        if numpy.ndim(x) > 0:
+            glx_e = glx[:, numpy.newaxis]
+            glw_e = glw[:, numpy.newaxis]
+        else:
+            glx_e = glx
+            glw_e = glw
+        return numpy.sum(glw_e * integrand(glx_e), axis=0)

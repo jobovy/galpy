@@ -1864,19 +1864,12 @@ def test_potential_array_input():
         "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("FerrersPotential")
-    rmpots.append("PerfectEllipsoidPotential")
-    rmpots.append("TriaxialHernquistPotential")
-    rmpots.append("TriaxialJaffePotential")
-    rmpots.append("TriaxialNFWPotential")
-    rmpots.append("TwoPowerTriaxialPotential")
     rmpots.append("DoubleExponentialDiskPotential")
     rmpots.append("RazorThinExponentialDiskPotential")
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
     rmpots.append("AnySphericalPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("HomogeneousSpherePotential")
-    rmpots.append("TriaxialGaussianPotential")
-    rmpots.append("PowerTriaxialPotential")
     # These cannot be setup without arguments
     rmpots.append("MovingObjectPotential")
     rmpots.append("SnapshotRZPotential")
@@ -2055,19 +2048,12 @@ def test_toVertical_array():
         "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("FerrersPotential")
-    rmpots.append("PerfectEllipsoidPotential")
-    rmpots.append("TriaxialHernquistPotential")
-    rmpots.append("TriaxialJaffePotential")
-    rmpots.append("TriaxialNFWPotential")
-    rmpots.append("TwoPowerTriaxialPotential")
     rmpots.append("DoubleExponentialDiskPotential")
     rmpots.append("RazorThinExponentialDiskPotential")
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
     rmpots.append("AnySphericalPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("HomogeneousSpherePotential")
-    rmpots.append("TriaxialGaussianPotential")
-    rmpots.append("PowerTriaxialPotential")
     # These cannot be setup without arguments
     rmpots.append("MovingObjectPotential")
     rmpots.append("SnapshotRZPotential")
