@@ -363,13 +363,6 @@ Extending galpy
 
    installation.rst
    whatsnew.rst
-   tutorials/getting_started/index
-   tutorials/potentials/index
-   tutorials/orbits/index
-   tutorials/distribution_functions/index
-   tutorials/action_angle/index
-   tutorials/streams/index
-   tutorials/extending/index
 
 Library reference
 -----------------
