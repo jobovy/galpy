@@ -160,6 +160,7 @@ Potentials
       with pynbody for orbits and analysis.
 
    .. grid-item-card:: Using Potentials in Other Codes
+      :img-top: images/potential-amuse-example.png
       :link: tutorials/potentials/other_codes
       :link-type: doc
 
