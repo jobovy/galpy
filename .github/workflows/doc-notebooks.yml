@@ -46,7 +46,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install ".[docs]"
-          pip install jupyter nbconvert nbformat astropy astroquery numexpr pynbody rebound
+          pip install jupyter nbconvert nbformat papermill astropy astroquery numexpr pynbody rebound
       - name: Cache pynbody test snapshot
         id: cache-snapshot
         uses: actions/cache@v4
@@ -60,6 +60,11 @@ jobs:
           curl -L -o gasoline.tar.gz "https://zenodo.org/records/12687409/files/gasoline.tar.gz?download=1"
           tar -xzf gasoline.tar.gz gasoline_ahf/
           rm gasoline.tar.gz
+      - name: Strip notebook outputs
+        run: |
+          for nb in $(find doc/source/tutorials -name '*.ipynb'); do
+            jupyter nbconvert --clear-output --inplace "$nb"
+          done
       - name: Run all tutorial notebooks
         run: |
           set -e
@@ -68,8 +73,8 @@ jobs:
           for nb in $(find doc/source/tutorials -name '*.ipynb' | sort); do
             echo "::group::Running $nb"
             outname=$(basename "$nb")
-            if jupyter nbconvert --to notebook --execute --ExecutePreprocessor.timeout=600 \
-                --ExecutePreprocessor.kernel_name=python3 --output-dir="$outdir" "$nb"; then
+            if papermill --request-save-on-cell-execute --log-output \
+                "$nb" "$outdir/$outname"; then
               echo "PASSED: $nb"
             else
               echo "::error::FAILED: $nb"
