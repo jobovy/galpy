@@ -40,7 +40,8 @@ evaluate them, combine them, and use them for orbit integration and more.
       :link-type: doc
 
       Use velocity-dependent forces like dynamical friction
-      for orbit integration.
+      for orbit integration. Includes the Schwarzschild
+      precession of S2 around Sgr A*.
 
    .. grid-item-card:: N-body Simulation Potentials
       :link: nbody_snapshots

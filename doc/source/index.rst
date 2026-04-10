@@ -151,6 +151,7 @@ Potentials
 
       Use velocity-dependent forces like Chandrasekhar dynamical
       friction and non-inertial frame forces for orbit integration.
+      Includes the Schwarzschild precession of S2 around Sgr A*.
 
    .. grid-item-card:: N-body Simulation Potentials
       :img-top: images/tutorials/potentials_nbody_snapshots.png
