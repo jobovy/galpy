@@ -153,6 +153,7 @@ Potentials
       friction and non-inertial frame forces for orbit integration.
 
    .. grid-item-card:: N-body Simulation Potentials
+      :img-top: images/tutorials/potentials_nbody_snapshots.png
       :link: tutorials/potentials/nbody_snapshots
       :link-type: doc
 

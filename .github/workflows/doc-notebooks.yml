@@ -46,7 +46,20 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install ".[docs]"
-          pip install jupyter nbconvert nbformat astropy astroquery numexpr
+          pip install jupyter nbconvert nbformat astropy astroquery numexpr pynbody
+      - name: Cache pynbody test snapshot
+        id: cache-snapshot
+        uses: actions/cache@v4
+        with:
+          path: doc/source/tutorials/potentials/gasoline_ahf
+          key: pynbody-g15784-v1
+      - name: Download pynbody test snapshot
+        if: steps.cache-snapshot.outputs.cache-hit != 'true'
+        run: |
+          cd doc/source/tutorials/potentials
+          curl -L -o gasoline.tar.gz "https://zenodo.org/records/12687409/files/gasoline.tar.gz?download=1"
+          tar -xzf gasoline.tar.gz gasoline_ahf/
+          rm gasoline.tar.gz
       - name: Run all tutorial notebooks
         run: |
           set -e
