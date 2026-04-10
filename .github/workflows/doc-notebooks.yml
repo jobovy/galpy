@@ -72,8 +72,9 @@ jobs:
           for nb in $(find doc/source/tutorials -name '*.ipynb' | sort); do
             echo "::group::Running $nb"
             outname=$(basename "$nb")
+            nbdir=$(dirname "$nb")
             if papermill --request-save-on-cell-execute --log-output \
-                "$nb" "$outdir/$outname"; then
+                --cwd "$nbdir" "$nb" "$outdir/$outname"; then
               echo "PASSED: $nb"
             else
               echo "::error file=$nb::FAILED: $nb"
