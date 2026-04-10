@@ -414,7 +414,7 @@ def _potInt(x, y, z, psi, b2, c2, glx=None, glw=None):
         return integrate.quad(integrand, 0.0, 1.0)[0]
     else:
         # Support array inputs for x, y, z using broadcasting.
-        # glx/glw have shape (G,); expand to (G,1) when x is an array so that
+        # glx/glw have shape (G,); expand to (G,1) when x has ndim > 0 so that
         # broadcasting produces shape (G,N), and the sum over axis=0 gives (N,).
         if numpy.ndim(x) > 0:
             glx_e = glx[:, numpy.newaxis]
@@ -444,7 +444,7 @@ def _forceInt(x, y, z, dens, b2, c2, i, glx=None, glw=None):
         return integrate.quad(integrand, 0.0, 1.0)[0]
     else:
         # Support array inputs for x, y, z using broadcasting.
-        # glx/glw have shape (G,); expand to (G,1) when x is an array so that
+        # glx/glw have shape (G,); expand to (G,1) when x has ndim > 0 so that
         # broadcasting produces shape (G,N), and the sum over axis=0 gives (N,).
         if numpy.ndim(x) > 0:
             glx_e = glx[:, numpy.newaxis]
@@ -487,7 +487,7 @@ def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j, glx=None, glw=None):
         return integrate.quad(integrand, 0.0, 1.0)[0]
     else:
         # Support array inputs for x, y, z using broadcasting.
-        # glx/glw have shape (G,); expand to (G,1) when x is an array so that
+        # glx/glw have shape (G,); expand to (G,1) when x has ndim > 0 so that
         # broadcasting produces shape (G,N), and the sum over axis=0 gives (N,).
         if numpy.ndim(x) > 0:
             glx_e = glx[:, numpy.newaxis]
