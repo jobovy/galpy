@@ -8083,8 +8083,8 @@ def test_CompositePotential_all_methods():
     val_on = MWPotential2014(R, z)
     assert val_on is not None, "turn_physical_on failed"
 
-    # Reset to default state
-    MWPotential2014.turn_physical_on()
+    # Reset to default state (MWPotential2014 has physical units off by default)
+    MWPotential2014.turn_physical_off()
 
     return None
 
