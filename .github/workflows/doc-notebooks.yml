@@ -52,7 +52,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: doc/source/tutorials/potentials/gasoline_ahf
-          key: pynbody-g15784-v1
+          key: pynbody-g15784-v2
       - name: Download pynbody test snapshot
         if: steps.cache-snapshot.outputs.cache-hit != 'true'
         run: |
