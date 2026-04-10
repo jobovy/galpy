@@ -67,8 +67,7 @@ jobs:
           done
       - name: Run all tutorial notebooks
         run: |
-          set -e
-          failed=0
+          failed_nbs=()
           outdir=$(mktemp -d)
           for nb in $(find doc/source/tutorials -name '*.ipynb' | sort); do
             echo "::group::Running $nb"
@@ -77,13 +76,16 @@ jobs:
                 "$nb" "$outdir/$outname"; then
               echo "PASSED: $nb"
             else
-              echo "::error::FAILED: $nb"
-              failed=1
+              echo "::error file=$nb::FAILED: $nb"
+              failed_nbs+=("$nb")
             fi
             echo "::endgroup::"
           done
           rm -rf "$outdir"
-          if [ "$failed" -eq 1 ]; then
-            echo "::error::Some notebooks failed execution"
+          if [ "${#failed_nbs[@]}" -gt 0 ]; then
+            echo "::error::The following notebooks failed execution:"
+            for nb in "${failed_nbs[@]}"; do
+              echo "::error file=$nb::$nb"
+            done
             exit 1
           fi
