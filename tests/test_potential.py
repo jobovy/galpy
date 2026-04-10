@@ -8280,6 +8280,95 @@ def test_planarCompositePotential_explicit_units():
     return None
 
 
+def test_CompositePotential_turn_physical():
+    # Test that turn_physical_on/off propagates to component potentials
+    # This is the behavior described in the issue:
+    # https://github.com/jobovy/galpy/issues/XXXX
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    ro, vo = 8.0, 220.0
+    combo_pot = NFWPotential() + HernquistPotential()
+
+    # Turn physical off - should propagate to components
+    combo_pot.turn_physical_off()
+    assert not combo_pot._roSet, "CompositePotential should have roSet=False"
+    assert not combo_pot[0]._roSet, "Component should have roSet=False after turn_physical_off"
+    assert not combo_pot[1]._roSet, "Component should have roSet=False after turn_physical_off"
+    val_off = combo_pot[0](1, 1, 1)
+
+    # Turn physical on - should propagate to components
+    combo_pot.turn_physical_on(ro=ro, vo=vo)
+    assert combo_pot._roSet, "CompositePotential should have roSet=True"
+    assert combo_pot[0]._roSet, "Component should have roSet=True after turn_physical_on"
+    assert combo_pot[1]._roSet, "Component should have roSet=True after turn_physical_on"
+    val_on = combo_pot[0](1, 1, 1)
+
+    # Physical output should scale by vo^2 relative to internal units
+    assert numpy.fabs(val_on / val_off / vo**2 - 1.0) < 1e-10, (
+        "Component output should be in physical units (scaled by vo^2) after turn_physical_on"
+    )
+
+    return None
+
+
+def test_planarCompositePotential_turn_physical():
+    # Test that turn_physical_on/off propagates to component potentials
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    ro, vo = 8.0, 220.0
+    planar_combo = NFWPotential().toPlanar() + HernquistPotential().toPlanar()
+
+    # Turn physical off - should propagate to components
+    planar_combo.turn_physical_off()
+    assert not planar_combo._roSet, "planarCompositePotential should have roSet=False"
+    assert not planar_combo[0]._roSet, "Component should have roSet=False after turn_physical_off"
+    assert not planar_combo[1]._roSet, "Component should have roSet=False after turn_physical_off"
+    val_off = planar_combo[0](1, 1)
+
+    # Turn physical on - should propagate to components
+    planar_combo.turn_physical_on(ro=ro, vo=vo)
+    assert planar_combo._roSet, "planarCompositePotential should have roSet=True"
+    assert planar_combo[0]._roSet, "Component should have roSet=True after turn_physical_on"
+    assert planar_combo[1]._roSet, "Component should have roSet=True after turn_physical_on"
+    val_on = planar_combo[0](1, 1)
+
+    # Physical output should scale by vo^2 relative to internal units
+    assert numpy.fabs(val_on / val_off / vo**2 - 1.0) < 1e-10, (
+        "Component output should be in physical units (scaled by vo^2) after turn_physical_on"
+    )
+
+    return None
+
+
+def test_linearCompositePotential_turn_physical():
+    # Test that turn_physical_on/off propagates to component potentials
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    ro, vo = 8.0, 220.0
+    lin_combo = NFWPotential().toVertical(1.0) + HernquistPotential().toVertical(1.0)
+
+    # Turn physical off - should propagate to components
+    lin_combo.turn_physical_off()
+    assert not lin_combo._roSet, "linearCompositePotential should have roSet=False"
+    assert not lin_combo[0]._roSet, "Component should have roSet=False after turn_physical_off"
+    assert not lin_combo[1]._roSet, "Component should have roSet=False after turn_physical_off"
+    val_off = lin_combo[0](1)
+
+    # Turn physical on - should propagate to components
+    lin_combo.turn_physical_on(ro=ro, vo=vo)
+    assert lin_combo._roSet, "linearCompositePotential should have roSet=True"
+    assert lin_combo[0]._roSet, "Component should have roSet=True after turn_physical_on"
+    assert lin_combo[1]._roSet, "Component should have roSet=True after turn_physical_on"
+    val_on = lin_combo[0](1)
+
+    # Physical output should scale by vo^2 relative to internal units
+    assert numpy.fabs(val_on / val_off / vo**2 - 1.0) < 1e-10, (
+        "Component output should be in physical units (scaled by vo^2) after turn_physical_on"
+    )
+
+    return None
+
+
 def test_CompositePotential_setitem_error():
     # Test that __setitem__ raises TypeError for non-Potential values
     from galpy.potential import CompositePotential, LogarithmicHaloPotential
