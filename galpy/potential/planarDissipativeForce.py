@@ -62,7 +62,7 @@ class planarDissipativeForce(planarForce):
         return self._Rforce_nodecorator(R, phi=phi, t=t, v=v)
 
     @potential_physical_input
-    @physical_conversion("force", pop=True)
+    @physical_conversion("energy", pop=True)
     def phitorque(self, R, phi=0.0, t=0.0, v=None):
         """
         Evaluate the azimuthal torque F_phi (R, phi, t, v).

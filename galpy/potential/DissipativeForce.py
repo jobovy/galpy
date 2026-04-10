@@ -105,7 +105,7 @@ class DissipativeForce(Force):
         return self._zforce_nodecorator(R, z, phi=phi, t=t, v=v)
 
     @potential_physical_input
-    @physical_conversion("force", pop=True)
+    @physical_conversion("energy", pop=True)
     def phitorque(self, R, z, phi=0.0, t=0.0, v=None):
         """
         Evaluate the azimuthal torque F_phi  (R,z,phi,t,v).
