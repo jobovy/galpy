@@ -8308,9 +8308,10 @@ def test_CompositePotential_turn_physical():
     force_off = combo_pot[0].Rforce(1.0, 0.0)
 
     # Force output scales by force_in_kmsMyr(vo, ro) which depends on both ro and vo
-    assert numpy.fabs(
-        force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
-    ) < 1e-10, "Component Rforce should scale correctly after turn_physical_off"
+    assert (
+        numpy.fabs(force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0)
+        < 1e-10
+    ), "Component Rforce should scale correctly after turn_physical_off"
 
     # Turn physical on - should propagate to components
     combo_pot.turn_physical_on(ro=ro, vo=vo)
@@ -8324,9 +8325,12 @@ def test_CompositePotential_turn_physical():
     force_on_again = combo_pot[0].Rforce(1.0, 0.0)
 
     # Should be back to physical units
-    assert numpy.fabs(
-        force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
-    ) < 1e-10, "Component Rforce should be in physical units after turn_physical_on"
+    assert (
+        numpy.fabs(
+            force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
+        )
+        < 1e-10
+    ), "Component Rforce should be in physical units after turn_physical_on"
 
     return None
 
@@ -8362,9 +8366,10 @@ def test_planarCompositePotential_turn_physical():
     force_off = planar_combo[0].Rforce(1.0, 0.0)
 
     # Force output scales by force_in_kmsMyr(vo, ro) which depends on both ro and vo
-    assert numpy.fabs(
-        force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
-    ) < 1e-10, "Component Rforce should scale correctly after turn_physical_off"
+    assert (
+        numpy.fabs(force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0)
+        < 1e-10
+    ), "Component Rforce should scale correctly after turn_physical_off"
 
     # Turn physical on - should propagate to components
     planar_combo.turn_physical_on(ro=ro, vo=vo)
@@ -8378,9 +8383,12 @@ def test_planarCompositePotential_turn_physical():
     force_on_again = planar_combo[0].Rforce(1.0, 0.0)
 
     # Should be back to physical units
-    assert numpy.fabs(
-        force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
-    ) < 1e-10, "Component Rforce should be in physical units after turn_physical_on"
+    assert (
+        numpy.fabs(
+            force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
+        )
+        < 1e-10
+    ), "Component Rforce should be in physical units after turn_physical_on"
 
     return None
 
@@ -8415,9 +8423,10 @@ def test_linearCompositePotential_turn_physical():
     force_off = lin_combo[0].force(1.0)
 
     # Force output scales by force_in_kmsMyr(vo, ro) which depends on both ro and vo
-    assert numpy.fabs(
-        force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
-    ) < 1e-10, "Component force should scale correctly after turn_physical_off"
+    assert (
+        numpy.fabs(force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0)
+        < 1e-10
+    ), "Component force should scale correctly after turn_physical_off"
 
     # Turn physical on - should propagate to components
     lin_combo.turn_physical_on(ro=ro, vo=vo)
@@ -8431,9 +8440,12 @@ def test_linearCompositePotential_turn_physical():
     force_on_again = lin_combo[0].force(1.0)
 
     # Should be back to physical units
-    assert numpy.fabs(
-        force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
-    ) < 1e-10, "Component force should be in physical units after turn_physical_on"
+    assert (
+        numpy.fabs(
+            force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
+        )
+        < 1e-10
+    ), "Component force should be in physical units after turn_physical_on"
 
     return None
 
