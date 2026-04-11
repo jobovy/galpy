@@ -8282,12 +8282,17 @@ def test_planarCompositePotential_explicit_units():
 
 def test_CompositePotential_turn_physical():
     # Test that turn_physical_on/off propagates to component potentials
-    # This is the behavior described in the issue:
-    # https://github.com/jobovy/galpy/issues/XXXX
+    # This is the behavior described in issue
+    # https://github.com/jobovy/galpy/issues/854
     from galpy.potential import HernquistPotential, NFWPotential
 
     ro, vo = 8.0, 220.0
-    combo_pot = NFWPotential() + HernquistPotential()
+    # Initialize with physical units ON so turn_physical_off has something to do
+    combo_pot = NFWPotential(ro=ro, vo=vo) + HernquistPotential(ro=ro, vo=vo)
+
+    # Components should start with physical on
+    assert combo_pot[0]._roSet, "Component should have roSet=True initially"
+    val_on = combo_pot[0](1, 1, 1)
 
     # Turn physical off - should propagate to components
     combo_pot.turn_physical_off()
@@ -8300,6 +8305,11 @@ def test_CompositePotential_turn_physical():
     )
     val_off = combo_pot[0](1, 1, 1)
 
+    # Physical output scales by vo^2 relative to internal units
+    assert numpy.fabs(val_on / val_off / vo**2 - 1.0) < 1e-10, (
+        "Component output should have changed by vo^2 after turn_physical_off"
+    )
+
     # Turn physical on - should propagate to components
     combo_pot.turn_physical_on(ro=ro, vo=vo)
     assert combo_pot._roSet, "CompositePotential should have roSet=True"
@@ -8309,10 +8319,10 @@ def test_CompositePotential_turn_physical():
     assert combo_pot[1]._roSet, (
         "Component should have roSet=True after turn_physical_on"
     )
-    val_on = combo_pot[0](1, 1, 1)
+    val_on_again = combo_pot[0](1, 1, 1)
 
-    # Physical output should scale by vo^2 relative to internal units
-    assert numpy.fabs(val_on / val_off / vo**2 - 1.0) < 1e-10, (
+    # Should be back to physical units
+    assert numpy.fabs(val_on_again / val_off / vo**2 - 1.0) < 1e-10, (
         "Component output should be in physical units (scaled by vo^2) after turn_physical_on"
     )
 
@@ -8321,10 +8331,19 @@ def test_CompositePotential_turn_physical():
 
 def test_planarCompositePotential_turn_physical():
     # Test that turn_physical_on/off propagates to component potentials
+    # This is the behavior described in issue
+    # https://github.com/jobovy/galpy/issues/854
     from galpy.potential import HernquistPotential, NFWPotential
 
     ro, vo = 8.0, 220.0
-    planar_combo = NFWPotential().toPlanar() + HernquistPotential().toPlanar()
+    # Initialize with physical units ON so turn_physical_off has something to do
+    planar_combo = NFWPotential(ro=ro, vo=vo).toPlanar() + HernquistPotential(
+        ro=ro, vo=vo
+    ).toPlanar()
+
+    # Components should start with physical on
+    assert planar_combo[0]._roSet, "Component should have roSet=True initially"
+    val_on = planar_combo[0](1, 1)
 
     # Turn physical off - should propagate to components
     planar_combo.turn_physical_off()
@@ -8337,6 +8356,11 @@ def test_planarCompositePotential_turn_physical():
     )
     val_off = planar_combo[0](1, 1)
 
+    # Physical output scales by vo^2 relative to internal units
+    assert numpy.fabs(val_on / val_off / vo**2 - 1.0) < 1e-10, (
+        "Component output should have changed by vo^2 after turn_physical_off"
+    )
+
     # Turn physical on - should propagate to components
     planar_combo.turn_physical_on(ro=ro, vo=vo)
     assert planar_combo._roSet, "planarCompositePotential should have roSet=True"
@@ -8346,10 +8370,10 @@ def test_planarCompositePotential_turn_physical():
     assert planar_combo[1]._roSet, (
         "Component should have roSet=True after turn_physical_on"
     )
-    val_on = planar_combo[0](1, 1)
+    val_on_again = planar_combo[0](1, 1)
 
-    # Physical output should scale by vo^2 relative to internal units
-    assert numpy.fabs(val_on / val_off / vo**2 - 1.0) < 1e-10, (
+    # Should be back to physical units
+    assert numpy.fabs(val_on_again / val_off / vo**2 - 1.0) < 1e-10, (
         "Component output should be in physical units (scaled by vo^2) after turn_physical_on"
     )
 
@@ -8358,10 +8382,19 @@ def test_planarCompositePotential_turn_physical():
 
 def test_linearCompositePotential_turn_physical():
     # Test that turn_physical_on/off propagates to component potentials
+    # This is the behavior described in issue
+    # https://github.com/jobovy/galpy/issues/854
     from galpy.potential import HernquistPotential, NFWPotential
 
     ro, vo = 8.0, 220.0
-    lin_combo = NFWPotential().toVertical(1.0) + HernquistPotential().toVertical(1.0)
+    # Initialize with physical units ON so turn_physical_off has something to do
+    lin_combo = NFWPotential(ro=ro, vo=vo).toVertical(1.0) + HernquistPotential(
+        ro=ro, vo=vo
+    ).toVertical(1.0)
+
+    # Components should start with physical on
+    assert lin_combo[0]._roSet, "Component should have roSet=True initially"
+    val_on = lin_combo[0](1)
 
     # Turn physical off - should propagate to components
     lin_combo.turn_physical_off()
@@ -8374,6 +8407,11 @@ def test_linearCompositePotential_turn_physical():
     )
     val_off = lin_combo[0](1)
 
+    # Physical output scales by vo^2 relative to internal units
+    assert numpy.fabs(val_on / val_off / vo**2 - 1.0) < 1e-10, (
+        "Component output should have changed by vo^2 after turn_physical_off"
+    )
+
     # Turn physical on - should propagate to components
     lin_combo.turn_physical_on(ro=ro, vo=vo)
     assert lin_combo._roSet, "linearCompositePotential should have roSet=True"
@@ -8383,10 +8421,10 @@ def test_linearCompositePotential_turn_physical():
     assert lin_combo[1]._roSet, (
         "Component should have roSet=True after turn_physical_on"
     )
-    val_on = lin_combo[0](1)
+    val_on_again = lin_combo[0](1)
 
-    # Physical output should scale by vo^2 relative to internal units
-    assert numpy.fabs(val_on / val_off / vo**2 - 1.0) < 1e-10, (
+    # Should be back to physical units
+    assert numpy.fabs(val_on_again / val_off / vo**2 - 1.0) < 1e-10, (
         "Component output should be in physical units (scaled by vo^2) after turn_physical_on"
     )
 
