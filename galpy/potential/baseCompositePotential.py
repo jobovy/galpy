@@ -160,7 +160,7 @@ class baseCompositePotential:
 
         Notes
         -----
-        - 2016-01-30 - Written - Bovy (UofT)
+        - 2026-04-10 - Written - Bovy (UofT)
 
         """
         super().turn_physical_off()
@@ -187,7 +187,7 @@ class baseCompositePotential:
 
         Notes
         -----
-        - 2016-01-30 - Written - Bovy (UofT)
+        - 2026-04-10 - Written - Bovy (UofT)
 
         """
         super().turn_physical_on(ro=ro, vo=vo)
