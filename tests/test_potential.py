@@ -8337,9 +8337,10 @@ def test_planarCompositePotential_turn_physical():
 
     ro, vo = 8.0, 220.0
     # Initialize with physical units ON so turn_physical_off has something to do
-    planar_combo = NFWPotential(ro=ro, vo=vo).toPlanar() + HernquistPotential(
-        ro=ro, vo=vo
-    ).toPlanar()
+    planar_combo = (
+        NFWPotential(ro=ro, vo=vo).toPlanar()
+        + HernquistPotential(ro=ro, vo=vo).toPlanar()
+    )
 
     # Components should start with physical on
     assert planar_combo[0]._roSet, "Component should have roSet=True initially"
