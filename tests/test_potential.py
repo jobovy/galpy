@@ -8083,8 +8083,8 @@ def test_CompositePotential_all_methods():
     val_on = MWPotential2014(R, z)
     assert val_on is not None, "turn_physical_on failed"
 
-    # Reset to default state
-    MWPotential2014.turn_physical_on()
+    # Reset to default state (MWPotential2014 has physical units off by default)
+    MWPotential2014.turn_physical_off()
 
     return None
 
@@ -8276,6 +8276,176 @@ def test_planarCompositePotential_explicit_units():
     comp_vo = planarCompositePotential(pot1, pot2, vo=230.0)
     assert comp_vo._vo == 230.0, "Explicit vo not set correctly"
     assert comp_vo._voSet, "voSet should be True when vo is explicitly provided"
+
+    return None
+
+
+def test_CompositePotential_turn_physical():
+    # Test that turn_physical_on/off propagates to component potentials
+    # This is the behavior described in issue
+    # https://github.com/jobovy/galpy/issues/854
+    from galpy.potential import HernquistPotential, NFWPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    # Initialize with physical units ON so turn_physical_off has something to do
+    combo_pot = NFWPotential(ro=ro, vo=vo) + HernquistPotential(ro=ro, vo=vo)
+
+    # Components should start with physical on
+    assert combo_pot[0]._roSet, "Component should have roSet=True initially"
+    # Use Rforce: depends on both ro and vo (scales as force_in_kmsMyr(vo,ro))
+    force_on = combo_pot[0].Rforce(1.0, 0.0)
+
+    # Turn physical off - should propagate to components
+    combo_pot.turn_physical_off()
+    assert not combo_pot._roSet, "CompositePotential should have roSet=False"
+    assert not combo_pot[0]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    assert not combo_pot[1]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    force_off = combo_pot[0].Rforce(1.0, 0.0)
+
+    # Force output scales by force_in_kmsMyr(vo, ro) which depends on both ro and vo
+    assert (
+        numpy.fabs(force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0)
+        < 1e-10
+    ), "Component Rforce should scale correctly after turn_physical_off"
+
+    # Turn physical on - should propagate to components
+    combo_pot.turn_physical_on(ro=ro, vo=vo)
+    assert combo_pot._roSet, "CompositePotential should have roSet=True"
+    assert combo_pot[0]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    assert combo_pot[1]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    force_on_again = combo_pot[0].Rforce(1.0, 0.0)
+
+    # Should be back to physical units
+    assert (
+        numpy.fabs(
+            force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
+        )
+        < 1e-10
+    ), "Component Rforce should be in physical units after turn_physical_on"
+
+    return None
+
+
+def test_planarCompositePotential_turn_physical():
+    # Test that turn_physical_on/off propagates to component potentials
+    # This is the behavior described in issue
+    # https://github.com/jobovy/galpy/issues/854
+    from galpy.potential import HernquistPotential, NFWPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    # Initialize with physical units ON so turn_physical_off has something to do
+    planar_combo = (
+        NFWPotential(ro=ro, vo=vo).toPlanar()
+        + HernquistPotential(ro=ro, vo=vo).toPlanar()
+    )
+
+    # Components should start with physical on
+    assert planar_combo[0]._roSet, "Component should have roSet=True initially"
+    # Use Rforce: depends on both ro and vo (scales as force_in_kmsMyr(vo,ro))
+    force_on = planar_combo[0].Rforce(1.0, 0.0)
+
+    # Turn physical off - should propagate to components
+    planar_combo.turn_physical_off()
+    assert not planar_combo._roSet, "planarCompositePotential should have roSet=False"
+    assert not planar_combo[0]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    assert not planar_combo[1]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    force_off = planar_combo[0].Rforce(1.0, 0.0)
+
+    # Force output scales by force_in_kmsMyr(vo, ro) which depends on both ro and vo
+    assert (
+        numpy.fabs(force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0)
+        < 1e-10
+    ), "Component Rforce should scale correctly after turn_physical_off"
+
+    # Turn physical on - should propagate to components
+    planar_combo.turn_physical_on(ro=ro, vo=vo)
+    assert planar_combo._roSet, "planarCompositePotential should have roSet=True"
+    assert planar_combo[0]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    assert planar_combo[1]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    force_on_again = planar_combo[0].Rforce(1.0, 0.0)
+
+    # Should be back to physical units
+    assert (
+        numpy.fabs(
+            force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
+        )
+        < 1e-10
+    ), "Component Rforce should be in physical units after turn_physical_on"
+
+    return None
+
+
+def test_linearCompositePotential_turn_physical():
+    # Test that turn_physical_on/off propagates to component potentials
+    # This is the behavior described in issue
+    # https://github.com/jobovy/galpy/issues/854
+    from galpy.potential import HernquistPotential, NFWPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    # Initialize with physical units ON so turn_physical_off has something to do
+    lin_combo = NFWPotential(ro=ro, vo=vo).toVertical(1.0) + HernquistPotential(
+        ro=ro, vo=vo
+    ).toVertical(1.0)
+
+    # Components should start with physical on
+    assert lin_combo[0]._roSet, "Component should have roSet=True initially"
+    # Use force: depends on both ro and vo (scales as force_in_kmsMyr(vo,ro))
+    force_on = lin_combo[0].force(1.0)
+
+    # Turn physical off - should propagate to components
+    lin_combo.turn_physical_off()
+    assert not lin_combo._roSet, "linearCompositePotential should have roSet=False"
+    assert not lin_combo[0]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    assert not lin_combo[1]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    force_off = lin_combo[0].force(1.0)
+
+    # Force output scales by force_in_kmsMyr(vo, ro) which depends on both ro and vo
+    assert (
+        numpy.fabs(force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0)
+        < 1e-10
+    ), "Component force should scale correctly after turn_physical_off"
+
+    # Turn physical on - should propagate to components
+    lin_combo.turn_physical_on(ro=ro, vo=vo)
+    assert lin_combo._roSet, "linearCompositePotential should have roSet=True"
+    assert lin_combo[0]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    assert lin_combo[1]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    force_on_again = lin_combo[0].force(1.0)
+
+    # Should be back to physical units
+    assert (
+        numpy.fabs(
+            force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
+        )
+        < 1e-10
+    ), "Component force should be in physical units after turn_physical_on"
 
     return None
 

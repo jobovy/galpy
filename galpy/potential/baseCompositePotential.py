@@ -148,6 +148,53 @@ class baseCompositePotential:
 
     __truediv__ = __div__
 
+    def turn_physical_off(self):
+        """
+        Turn off automatic returning of outputs in physical units.
+
+        Propagates to all component potentials.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        - 2026-04-10 - Written - Bovy (UofT)
+
+        """
+        super().turn_physical_off()
+        for pot in self._potlist:
+            pot.turn_physical_off()
+        return None
+
+    def turn_physical_on(self, ro=None, vo=None):
+        """
+        Turn on automatic returning of outputs in physical units.
+
+        Propagates to all component potentials.
+
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Reference distance in kpc. Default is None.
+        vo : float or Quantity, optional
+            Reference velocity in km/s. Default is None.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        - 2026-04-10 - Written - Bovy (UofT)
+
+        """
+        super().turn_physical_on(ro=ro, vo=vo)
+        for pot in self._potlist:
+            pot.turn_physical_on(ro=ro, vo=vo)
+        return None
+
     def __repr__(self):
         """
         Return a string representation of the (planar)CompositePotential.
