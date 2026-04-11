@@ -13,7 +13,7 @@ from galpy.potential import (
     MovingObjectPotential,
     MWPotential2014,
     PlummerPotential,
-    TriaxialNFWPotential,
+    RotateAndTiltWrapperPotential,
 )
 from galpy.util import conversion  # for unit conversions
 from galpy.util import coords
@@ -224,7 +224,10 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
 def test_integrate_rtnonarray():
     # Test that sampling at stripping + integrate == sampling at the end
     # For a potential that doesn't support array inputs
-    nfp = TriaxialNFWPotential(normalize=1.0, b=0.9, c=0.8)
+    nfp = RotateAndTiltWrapperPotential(
+        pot=LogarithmicHaloPotential(normalize=1.0, q=0.9),
+        zvec=[0.0, numpy.sin(0.3), numpy.cos(0.3)],
+    )
     obs = Orbit(
         [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
     )
