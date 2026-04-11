@@ -2410,7 +2410,6 @@ def test_potential_at_infinity():
         # Also for arrays
         if (
             p == "HomogeneousSpherePotential"
-            or p == "PerfectEllipsoidPotential"
             or p == "SphericalShellPotential"
             or p == "AnyAxisymmetricRazorThinDiskPotential"
             or p == "AnySphericalPotential"
@@ -2419,9 +2418,7 @@ def test_potential_at_infinity():
             or p == "mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination"
             or p == "mockRotatedTiltedOffsetMWP14WrapperPotential"
             or p == "mockOffsetMWP14WrapperPotential"
-            or "riaxial" in p
-            or "oblate" in p
-            or "prolate" in p
+            or "noGL" in p  # EllipsoidalPotential using scipy.quad: no array support
         ):
             continue
         assert not numpy.any(
