@@ -4854,6 +4854,74 @@ def test_NFW_virialsetup_wrtcrit():
     return None
 
 
+def test_EllipsoidalPotential_integration_scalar_and_array():
+    # Test that the GL integration helpers for EllipsoidalPotential work
+    # correctly for both scalar and array inputs; this ensures that the
+    # scalar Python path is covered even when C extensions handle scalar
+    # calls in the main potential evaluation.
+    from galpy.potential.EllipsoidalPotential import (
+        _2ndDerivInt,
+        _forceInt,
+        _potInt,
+    )
+
+    tp = potential.TriaxialNFWPotential(normalize=1.0, b=0.7, c=0.5)
+    glx, glw = tp._glx, tp._glw
+    b2, c2 = tp._b2, tp._c2
+    # Scalar inputs
+    x_s, y_s, z_s = 1.0, 0.5, 0.3
+    pot_s = _potInt(x_s, y_s, z_s, tp._psi, b2, c2, glx=glx, glw=glw)
+    force_s = _forceInt(x_s, y_s, z_s, tp._mdens, b2, c2, 0, glx=glx, glw=glw)
+    deriv_s = _2ndDerivInt(
+        x_s, y_s, z_s, tp._mdens, tp._mdens_deriv, b2, c2, 0, 0, glx=glx, glw=glw
+    )
+    # Array inputs
+    x_a = numpy.array([1.0, 2.0])
+    y_a = numpy.array([0.5, 1.0])
+    z_a = numpy.array([0.3, 0.6])
+    pot_a = _potInt(x_a, y_a, z_a, tp._psi, b2, c2, glx=glx, glw=glw)
+    force_a = _forceInt(x_a, y_a, z_a, tp._mdens, b2, c2, 0, glx=glx, glw=glw)
+    deriv_a = _2ndDerivInt(
+        x_a, y_a, z_a, tp._mdens, tp._mdens_deriv, b2, c2, 0, 0, glx=glx, glw=glw
+    )
+    # Scalar result should match first element of array result
+    assert numpy.fabs(pot_s - pot_a[0]) < 1e-10, (
+        "Scalar and array _potInt results disagree"
+    )
+    assert numpy.fabs(force_s - force_a[0]) < 1e-10, (
+        "Scalar and array _forceInt results disagree"
+    )
+    assert numpy.fabs(deriv_s - deriv_a[0]) < 1e-10, (
+        "Scalar and array _2ndDerivInt results disagree"
+    )
+    return None
+
+
+def test_EllipsoidalPotential_evaluate_array_inf():
+    # Test that _evaluate handles array inputs with inf correctly
+    tp = potential.PerfectEllipsoidPotential(normalize=1.0, b=0.7, c=0.5)
+    # Scalar inf
+    val_inf = tp._evaluate(numpy.inf, 0.0)
+    # Array with inf
+    R_arr = numpy.array([numpy.inf, 1.0])
+    z_arr = numpy.array([0.0, 0.1])
+    val_arr = tp._evaluate(R_arr, z_arr)
+    assert numpy.fabs(val_inf - val_arr[0]) < 1e-10, (
+        "Scalar and array inf _evaluate results disagree"
+    )
+    # Non-aligned with finite array
+    tp2 = potential.PerfectEllipsoidPotential(
+        normalize=1.0, b=0.7, c=0.5, zvec=[0.0, numpy.sin(0.3), numpy.cos(0.3)]
+    )
+    R_fin = numpy.array([0.5, 1.0, 2.0])
+    z_fin = numpy.array([0.1, 0.2, 0.3])
+    val_na = tp2._evaluate(R_fin, z_fin, phi=0.5)
+    assert not numpy.any(numpy.isnan(val_na)), (
+        "Non-aligned array _evaluate returned NaN"
+    )
+    return None
+
+
 def test_TriaxialNFW_virialsetup_wrtmeanmatter():
     H, Om, overdens, wrtcrit = 71.0, 0.32, 201.0, False
     ro, vo = 220.0, 8.0
