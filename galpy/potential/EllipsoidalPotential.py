@@ -223,26 +223,6 @@ class EllipsoidalPotential(Potential):
             Fz = Fxyz[2]
         return Fz
 
-    def _force_xyz(self, x, y, z, i):
-        """Evaluation of the i-th force component as a function of (x,y,z)"""
-        return (
-            -4.0
-            * numpy.pi
-            * self._b
-            * self._c
-            * _forceInt(
-                x,
-                y,
-                z,
-                lambda m: self._mdens(m),
-                self._b2,
-                self._c2,
-                i,
-                glx=self._glx,
-                glw=self._glw,
-            )
-        )
-
     def _compute_2ndderivs(self, x, y, z):
         """Compute and cache all six unique 2nd-derivative components in the
         aligned frame"""
@@ -365,29 +345,6 @@ class EllipsoidalPotential(Potential):
         phixz = self._cached_2nd_xz
         phiyz = self._cached_2nd_yz
         return R * (numpy.cos(phi) * phiyz - numpy.sin(phi) * phixz)
-
-    def _2ndderiv_xyz(self, x, y, z, i, j):
-        """General 2nd derivative of the potential as a function of (x,y,z)
-        in the aligned coordinate frame"""
-        return (
-            4.0
-            * numpy.pi
-            * self._b
-            * self._c
-            * _2ndDerivInt(
-                x,
-                y,
-                z,
-                lambda m: self._mdens(m),
-                lambda m: self._mdens_deriv(m),
-                self._b2,
-                self._c2,
-                i,
-                j,
-                glx=self._glx,
-                glw=self._glw,
-            )
-        )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         x, y, z = coords.cyl_to_rect(R, phi, z)

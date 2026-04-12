@@ -4922,19 +4922,6 @@ def test_EllipsoidalPotential_evaluate_array_inf():
     return None
 
 
-def test_EllipsoidalPotential_force_xyz_and_2ndderiv_xyz():
-    tp = potential.TriaxialNFWPotential(normalize=1.0, a=2.0, b=0.8, c=0.6)
-    x, y, z = 1.0, 0.5, 0.3
-    for i in range(3):
-        fi = tp._force_xyz(x, y, z, i)
-        assert numpy.isfinite(fi), "_force_xyz returned non-finite value"
-    for i in range(3):
-        for j in range(i, 3):
-            dij = tp._2ndderiv_xyz(x, y, z, i, j)
-            assert numpy.isfinite(dij), "_2ndderiv_xyz returned non-finite value"
-    return None
-
-
 def test_TriaxialNFW_virialsetup_wrtmeanmatter():
     H, Om, overdens, wrtcrit = 71.0, 0.32, 201.0, False
     ro, vo = 220.0, 8.0
