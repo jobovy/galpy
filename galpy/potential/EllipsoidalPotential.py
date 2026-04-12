@@ -272,7 +272,7 @@ class EllipsoidalPotential(Potential):
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if not self._aligned:
             raise NotImplementedError(
-                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)"
+                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead"
             )
         self._compute_2ndderivs(x, y, z)
         phixz = self._cached_2nd_xz
@@ -285,7 +285,7 @@ class EllipsoidalPotential(Potential):
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if not self._aligned:
             raise NotImplementedError(
-                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead"
+                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead"
             )
         self._compute_2ndderivs(x, y, z)
         return self._cached_2nd_zz
