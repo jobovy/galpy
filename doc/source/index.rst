@@ -224,8 +224,9 @@ Orbits
       :link: tutorials/orbits/examples
       :link-type: doc
 
-      Detailed examples: LMC orbit with dynamical friction,
-      barycentric acceleration from the LMC, and more.
+      Detailed examples: thick-disk eccentricity distribution,
+      LMC orbit with dynamical friction,
+      and barycentric acceleration from the LMC.
 
 Action-Angle Coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -248,6 +249,7 @@ Action-Angle Coordinates
 
       The most accurate general method for computing actions in
       axisymmetric potentials, with grid-based interpolation for speed.
+      Includes a Gaia example showing Lindblad resonances.
 
    .. grid-item-card:: Adiabatic Approximation
       :img-top: images/tutorials/action_angle_adiabatic.png
