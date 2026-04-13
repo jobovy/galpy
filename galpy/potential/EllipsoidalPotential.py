@@ -398,8 +398,9 @@ def _potInt(x, y, z, psi, b2, c2, glx=None, glw=None):
         return numpy.sum(glw * integrand(glx))
 
 
-def _forceInt(x, y, z, dens, b2, c2, i, glx=None, glw=None):
-    """Integral that gives the force in x,y,z"""
+def _forceInt(x, y, z, dens, b2, c2, i):
+    """Force integral fallback using scipy.integrate.quad (scalar inputs only).
+    Used by _forceInt_all when glorder is None."""
 
     def integrand(s):
         t = 1 / s**2.0 - 1.0
@@ -413,25 +414,7 @@ def _forceInt(x, y, z, dens, b2, c2, i, glx=None, glw=None):
             / numpy.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
         )
 
-    if glx is None:
-        return integrate.quad(integrand, 0.0, 1.0)[0]
-    elif numpy.ndim(x) > 0:
-        result = numpy.zeros(len(x))
-        x2 = x**2
-        y2 = y**2
-        z2 = z**2
-        coord = [x, y, z][i]
-        denom_shift = [1.0, b2, c2][i]
-        for k in range(len(glx)):
-            s = glx[k]
-            w = glw[k]
-            t = 1.0 / s**2 - 1.0
-            m = numpy.sqrt(x2 / (1.0 + t) + y2 / (b2 + t) + z2 / (c2 + t))
-            denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
-            result += w * dens(m) * coord / (denom_shift + t) / denom
-        return result
-    else:
-        return numpy.sum(glw * integrand(glx))
+    return integrate.quad(integrand, 0.0, 1.0)[0]
 
 
 def _forceInt_all(x, y, z, dens, b2, c2, glx=None, glw=None):
@@ -484,8 +467,9 @@ def _forceInt_all(x, y, z, dens, b2, c2, glx=None, glw=None):
         return Fx, Fy, Fz
 
 
-def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j, glx=None, glw=None):
-    """Integral that gives the 2nd derivative of the potential in x,y,z"""
+def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j):
+    """2nd-derivative integral fallback using scipy.integrate.quad (scalar inputs
+    only). Used by _2ndDerivInt_all when glorder is None."""
 
     def integrand(s):
         t = 1 / s**2.0 - 1.0
@@ -512,40 +496,7 @@ def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j, glx=None, glw=None):
             )
         ) / numpy.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
 
-    if glx is None:
-        return integrate.quad(integrand, 0.0, 1.0)[0]
-    elif numpy.ndim(x) > 0:
-        result = numpy.zeros(len(x))
-        x2 = x**2
-        y2 = y**2
-        z2 = z**2
-        coord_i = [x, y, z][i]
-        coord_j = [x, y, z][j]
-        shift_i = [1.0, b2, c2][i]
-        shift_j = [1.0, b2, c2][j]
-        diag = float(i == j)
-        for k in range(len(glx)):
-            s = glx[k]
-            w = glw[k]
-            t = 1.0 / s**2 - 1.0
-            inv1t = 1.0 / (1.0 + t)
-            invb2t = 1.0 / (b2 + t)
-            invc2t = 1.0 / (c2 + t)
-            m = numpy.sqrt(x2 * inv1t + y2 * invb2t + z2 * invc2t)
-            denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
-            inv_si = 1.0 / (shift_i + t)
-            inv_sj = 1.0 / (shift_j + t)
-            result += (
-                w
-                * (
-                    densDeriv(m) * coord_i * inv_si * coord_j * inv_sj / m
-                    + diag * dens(m) * inv_si
-                )
-                / denom
-            )
-        return result
-    else:
-        return numpy.sum(glw * integrand(glx))
+    return integrate.quad(integrand, 0.0, 1.0)[0]
 
 
 def _2ndDerivInt_all(x, y, z, dens, densDeriv, b2, c2, glx=None, glw=None):

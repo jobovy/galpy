@@ -4854,45 +4854,22 @@ def test_NFW_virialsetup_wrtcrit():
     return None
 
 
-def test_EllipsoidalPotential_integration_scalar_and_array():
-    # Test that the GL integration helpers for EllipsoidalPotential work
-    # correctly for both scalar and array inputs; this ensures that the
-    # scalar Python path is covered even when C extensions handle scalar
-    # calls in the main potential evaluation.
-    from galpy.potential.EllipsoidalPotential import (
-        _2ndDerivInt,
-        _forceInt,
-        _potInt,
-    )
+def test_EllipsoidalPotential_potInt_scalar_and_array():
+    # _potInt is called directly by _evaluate_xyz; verify its scalar GL path
+    # agrees with its array GL path.
+    from galpy.potential.EllipsoidalPotential import _potInt
 
     tp = potential.TriaxialNFWPotential(normalize=1.0, b=0.7, c=0.5)
     glx, glw = tp._glx, tp._glw
     b2, c2 = tp._b2, tp._c2
-    # Scalar inputs
     x_s, y_s, z_s = 1.0, 0.5, 0.3
     pot_s = _potInt(x_s, y_s, z_s, tp._psi, b2, c2, glx=glx, glw=glw)
-    force_s = _forceInt(x_s, y_s, z_s, tp._mdens, b2, c2, 0, glx=glx, glw=glw)
-    deriv_s = _2ndDerivInt(
-        x_s, y_s, z_s, tp._mdens, tp._mdens_deriv, b2, c2, 0, 0, glx=glx, glw=glw
-    )
-    # Array inputs
     x_a = numpy.array([1.0, 2.0])
     y_a = numpy.array([0.5, 1.0])
     z_a = numpy.array([0.3, 0.6])
     pot_a = _potInt(x_a, y_a, z_a, tp._psi, b2, c2, glx=glx, glw=glw)
-    force_a = _forceInt(x_a, y_a, z_a, tp._mdens, b2, c2, 0, glx=glx, glw=glw)
-    deriv_a = _2ndDerivInt(
-        x_a, y_a, z_a, tp._mdens, tp._mdens_deriv, b2, c2, 0, 0, glx=glx, glw=glw
-    )
-    # Scalar result should match first element of array result
     assert numpy.fabs(pot_s - pot_a[0]) < 1e-10, (
         "Scalar and array _potInt results disagree"
-    )
-    assert numpy.fabs(force_s - force_a[0]) < 1e-10, (
-        "Scalar and array _forceInt results disagree"
-    )
-    assert numpy.fabs(deriv_s - deriv_a[0]) < 1e-10, (
-        "Scalar and array _2ndDerivInt results disagree"
     )
     return None
 
