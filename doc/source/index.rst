@@ -78,7 +78,7 @@ Give ``galpy`` a try in the interactive ``IPython``-like shell below!
 Quick-start guide
 -----------------
 
-.. grid:: 1 2 2 3
+.. grid:: 1 2 3 4
    :gutter: 4
 
    .. grid-item-card:: Installation
@@ -86,13 +86,14 @@ Quick-start guide
       :link-type: doc
 
       Install galpy on Linux, Mac, or Windows via pip or conda,
-      including optional C extensions and configuration.
+      including optional C extensions and configuration. Development installation
+      from source and development setup.
 
    .. grid-item-card:: What's New
       :link: whatsnew
       :link-type: doc
 
-      Release notes and changelog for all galpy versions.
+      High-level release notes for all galpy versions.
 
    .. grid-item-card:: Rotation Curves, Units, and First Orbits
       :img-top: images/tutorials/getting_started_rotation_curves_and_units.png
@@ -106,7 +107,7 @@ Quick-start guide
 Potentials
 ^^^^^^^^^^
 
-.. grid:: 1 2 2 3
+.. grid:: 1 2 3 4
    :gutter: 4
 
    .. grid-item-card:: Introduction to Potentials
@@ -172,7 +173,7 @@ Potentials
 Orbits
 ^^^^^^
 
-.. grid:: 1 2 2 3
+.. grid:: 1 2 3 4
    :gutter: 4
 
    .. grid-item-card:: Orbit Initialization
@@ -229,7 +230,7 @@ Orbits
 Action-Angle Coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. grid:: 1 2 2 3
+.. grid:: 1 2 3 4
    :gutter: 4
 
    .. grid-item-card:: Introduction to Action-Angle Coordinates
@@ -284,7 +285,7 @@ Action-Angle Coordinates
 Distribution Functions
 ^^^^^^^^^^^^^^^^^^^^^^
 
-.. grid:: 1 2 2 3
+.. grid:: 1 2 3 4
    :gutter: 4
 
    .. grid-item-card:: Two-dimensional Disk DFs
@@ -311,12 +312,12 @@ Distribution Functions
       :link-type: doc
 
       Isotropic and anisotropic distribution functions for spherical
-      systems: Hernquist, NFW, King, Plummer, and Osipkov-Merritt models.
+      systems: Hernquist, NFW, King, Plummer, Power-law, and general models.
 
 Tidal Streams
 ^^^^^^^^^^^^^
 
-.. grid:: 1 2 2 3
+.. grid:: 1 2 3 4
    :gutter: 4
 
    .. grid-item-card:: Stream Modeling with streamdf
@@ -326,7 +327,7 @@ Tidal Streams
 
       Model tidal streams in action-angle coordinates: predict stream
       tracks, compute densities, sample mock data, and evaluate the
-      full phase-space PDF.
+      full phase-space PDF. And model gaps.
 
    .. grid-item-card:: Particle-spray with streamspraydf
       :img-top: images/tutorials/streams_streamspraydf.png
@@ -334,13 +335,12 @@ Tidal Streams
       :link-type: doc
 
       Generate tidal streams using particle-spray techniques with
-      chen24spraydf and fardal15spraydf, including progenitor
-      self-gravity.
+      chen24spraydf and fardal15spraydf.
 
 Extending galpy
 ^^^^^^^^^^^^^^^
 
-.. grid:: 1 2 2 3
+.. grid:: 1 2 3 4
    :gutter: 4
 
    .. grid-item-card:: New Potentials in Python
