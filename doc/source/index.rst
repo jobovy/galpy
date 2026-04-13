@@ -160,7 +160,7 @@ Potentials
       :link-type: doc
 
       Use frozen N-body simulation potentials in galpy
-      with pynbody for orbits and analysis.
+      with pynbody for orbits, action-angle coordinates, and analysis.
 
    .. grid-item-card:: Using Potentials in Other Codes
       :img-top: images/potential-amuse-example.png
@@ -270,8 +270,8 @@ Action-Angle Coordinates
       :link: tutorials/action_angle/vertical_and_inverse
       :link-type: doc
 
-      One-dimensional action-angle coordinates for vertical
-      oscillations and their inverse transformations.
+      One-dimensional action-angle coordinates for harmonic oscillators
+      and vertical oscillations, and their inverse transformations.
 
    .. grid-item-card:: Inverse Transformations (TorusMapping)
       :img-top: images/tutorials/action_angle_torus.png
@@ -348,9 +348,9 @@ Extending galpy
       :link: tutorials/extending/new_potential_python
       :link-type: doc
 
-      Define a custom potential class in Python by implementing
-      force and potential evaluation methods, with full support for
-      orbit integration and physical units.
+      Define custom potential classes and dissipative forces in Python
+      by implementing force and potential evaluation methods, with full
+      support for orbit integration and physical units.
 
    .. grid-item-card:: New Potentials in C
       :link: tutorials/extending/new_potential_c
