@@ -216,7 +216,7 @@ Orbits
       :link-type: doc
 
       Quickly compute eccentricity, peri/apocenter, and zmax using
-      the Staeckel approximation without orbit integration.
+      the Staeckel approximation without orbit integration. Also compute actions!
 
    .. grid-item-card:: Orbit Examples
       :img-top: images/tutorials/orbits_examples.png
