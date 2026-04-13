@@ -226,38 +226,6 @@ Orbits
       Detailed examples: LMC orbit with dynamical friction,
       barycentric acceleration from the LMC, and more.
 
-Distribution Functions
-^^^^^^^^^^^^^^^^^^^^^^
-
-.. grid:: 1 2 2 3
-   :gutter: 4
-
-   .. grid-item-card:: Two-dimensional Disk DFs
-      :img-top: images/tutorials/distribution_functions_disk_df_2d.png
-      :link: tutorials/distribution_functions/disk_df_2d
-      :link-type: doc
-
-      Dehnen, Shu, and Schwarzschild distribution functions for
-      razor-thin disks: moments, asymmetric drift, Oort constants,
-      sampling, and non-axisymmetric evolution.
-
-   .. grid-item-card:: Three-dimensional Disk DFs
-      :img-top: images/tutorials/distribution_functions_disk_df_3d.png
-      :link: tutorials/distribution_functions/disk_df_3d
-      :link-type: doc
-
-      Quasi-isothermal distribution function for 3D disk populations
-      using action-angle variables: moments, velocity ellipsoid tilt,
-      and velocity sampling.
-
-   .. grid-item-card:: Spherical DFs
-      :img-top: images/tutorials/distribution_functions_spherical_dfs.png
-      :link: tutorials/distribution_functions/spherical_dfs
-      :link-type: doc
-
-      Isotropic and anisotropic distribution functions for spherical
-      systems: Hernquist, NFW, King, Plummer, and Osipkov-Merritt models.
-
 Action-Angle Coordinates
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -311,6 +279,39 @@ Action-Angle Coordinates
 
       Compute phase-space coordinates from given actions and angles
       using the Torus Mapper.
+
+
+Distribution Functions
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. grid:: 1 2 2 3
+   :gutter: 4
+
+   .. grid-item-card:: Two-dimensional Disk DFs
+      :img-top: images/tutorials/distribution_functions_disk_df_2d.png
+      :link: tutorials/distribution_functions/disk_df_2d
+      :link-type: doc
+
+      Dehnen, Shu, and Schwarzschild distribution functions for
+      razor-thin disks: moments, asymmetric drift, Oort constants,
+      sampling, and non-axisymmetric evolution.
+
+   .. grid-item-card:: Three-dimensional Disk DFs
+      :img-top: images/tutorials/distribution_functions_disk_df_3d.png
+      :link: tutorials/distribution_functions/disk_df_3d
+      :link-type: doc
+
+      Quasi-isothermal distribution function for 3D disk populations
+      using action-angle variables: moments, velocity ellipsoid tilt,
+      and velocity sampling.
+
+   .. grid-item-card:: Spherical DFs
+      :img-top: images/tutorials/distribution_functions_spherical_dfs.png
+      :link: tutorials/distribution_functions/spherical_dfs
+      :link-type: doc
+
+      Isotropic and anisotropic distribution functions for spherical
+      systems: Hernquist, NFW, King, Plummer, and Osipkov-Merritt models.
 
 Tidal Streams
 ^^^^^^^^^^^^^
