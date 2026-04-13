@@ -46,7 +46,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install ".[docs]"
-          pip install jupyter nbconvert nbformat papermill astropy astroquery numexpr pynbody rebound
+          pip install jupyter nbconvert nbformat papermill astropy astroquery numexpr pynbody rebound jax jaxlib
       - name: Cache pynbody test snapshot
         id: cache-snapshot
         uses: actions/cache@v4
