@@ -1054,3 +1054,148 @@ def test_streamTrack_plot_smoke(_simple_spdf):
     track.plot(d1="x", d2="y", spread=1.0)
     track.leading.plot(d1="ra", d2="dec")
     track.leading.plot(d1="R", d2="z")
+    # spread>0 on velocity axes exercises the velocity branch of the spread
+    # scaling; non-Cartesian axes silently skip the band
+    track.leading.plot(d1="vx", d2="vy", spread=1.0)
+    track.leading.plot(d1="R", d2="phi", spread=1.0)
+
+
+def test_streamTrack_physical_accessors_all(_simple_spdf):
+    # Exercise the physical-unit branch of every accessor.
+    numpy.random.seed(11)
+    track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
+    track.turn_physical_on(ro=8.0, vo=220.0)
+    tp = -10.0
+    for meth in (
+        "x",
+        "y",
+        "z",
+        "vx",
+        "vy",
+        "vz",
+        "R",
+        "vR",
+        "vT",
+        "phi",
+        "ra",
+        "dec",
+        "ll",
+        "bb",
+        "dist",
+        "pmra",
+        "pmdec",
+        "pmll",
+        "pmbb",
+        "vlos",
+    ):
+        v = getattr(track, meth)(tp)
+        val = getattr(v, "value", v)
+        assert numpy.isfinite(val)
+    # Plot in physical units with a velocity-axis spread hits the vo
+    # scaling branch of the band
+    import matplotlib
+
+    matplotlib.use("Agg")
+    track.plot(d1="vx", d2="vy", spread=1.0)
+    track.turn_physical_off()
+
+
+def test_streamTrack_pair_physical_toggles(_simple_spdf):
+    numpy.random.seed(12)
+    pair = _simple_spdf.streamTrack(n=1500, ntp=31, tail="both")
+    pair.turn_physical_on(ro=8.0, vo=220.0)
+    v = pair.leading.x(-5.0)
+    val = getattr(v, "value", v)
+    assert val > 0.0
+    pair.turn_physical_off()
+    v2 = pair.leading.x(-5.0)
+    assert not hasattr(v2, "unit")
+    import matplotlib
+
+    matplotlib.use("Agg")
+    pair.plot(d1="x", d2="y")
+
+
+def test_streamTrack_call_returns_stacked(_simple_spdf):
+    numpy.random.seed(13)
+    track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
+    v = track(-10.0)
+    assert v.shape == (6,)
+    tps = numpy.linspace(-10.0, -1.0, 4)
+    v = track(tps)
+    assert v.shape == (6, 4)
+
+
+def test_streamTrack_tp_grid(_simple_spdf):
+    numpy.random.seed(14)
+    track = _simple_spdf.streamTrack(n=800, ntp=31, tail="leading")
+    g = track.tp_grid()
+    assert g.shape == (1001,)
+    assert g[0] == pytest.approx(-_simple_spdf._tdisrupt)
+    assert g[-1] == 0.0
+
+
+def test_streamTrack_order1_no_cov(_simple_spdf):
+    numpy.random.seed(15)
+    track = _simple_spdf.streamTrack(n=800, ntp=31, tail="leading", order=1)
+    with pytest.raises(RuntimeError):
+        track.cov(-10.0)
+
+
+def test_streamTrack_invalid_tail(_simple_spdf):
+    with pytest.raises(ValueError):
+        _simple_spdf.streamTrack(n=100, tail="bogus")
+
+
+def test_streamTrack_particles_reuse_both(_simple_spdf):
+    numpy.random.seed(16)
+    _simple_spdf._tail = "both"
+    xv, dt = _simple_spdf.sample(
+        n=2000, returndt=True, return_orbit=False, integrate=True
+    )
+    _simple_spdf._tail = "leading"
+    pair = _simple_spdf.streamTrack(particles=(xv, dt), tail="both", ntp=31)
+    assert numpy.isfinite(pair.leading.x(0.0))
+    assert numpy.isfinite(pair.trailing.x(0.0))
+
+
+def test_streamTrack_scalar_cov(_simple_spdf):
+    numpy.random.seed(17)
+    track = _simple_spdf.streamTrack(n=800, ntp=31, tail="leading")
+    C = track.cov(-20.0)
+    assert C.shape == (6, 6)
+
+
+def test_streamTrack_physical_length_spread(_simple_spdf):
+    # Covers the physical x/y/z scaling inside the plot spread band
+    import matplotlib
+
+    matplotlib.use("Agg")
+    numpy.random.seed(18)
+    track = _simple_spdf.streamTrack(n=800, ntp=31, tail="leading")
+    track.turn_physical_on(ro=8.0, vo=220.0)
+    track.plot(d1="x", d2="y", spread=1.0)
+    track.plot(d1="vx", d2="vy", spread=1.0)
+    track.turn_physical_off()
+
+
+def test_streamTrack_degenerate_few_particles(_simple_spdf):
+    # Tiny sample with lots of bins -> most bins are empty/single-particle,
+    # exercising the degenerate paths in _bin_offsets and _smooth_series.
+    numpy.random.seed(19)
+    track = _simple_spdf.streamTrack(n=10, ntp=51, tail="leading")
+    assert numpy.isfinite(track.x(-10.0))
+
+
+def test_streamTrack_smoothing_variants(_simple_spdf):
+    numpy.random.seed(18)
+    # Default ntp (auto from n) is exercised here
+    tr_f = _simple_spdf.streamTrack(n=800, tail="leading", smoothing=20.0)
+    tr_d = _simple_spdf.streamTrack(
+        n=800,
+        ntp=31,
+        tail="leading",
+        smoothing={"x": 20.0, "y": 20.0},
+    )
+    assert numpy.isfinite(tr_f.x(-10.0))
+    assert numpy.isfinite(tr_d.x(-10.0))

@@ -1,74 +1,11 @@
 import numpy
 from scipy import interpolate
 
-from ..util import _rotate_to_arbitrary_vector, conversion, coords
+from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 
 if _APY_LOADED:
     from astropy import units
-
-
-def _setup_rot_at_tp(progenitor, tp, center=None):
-    """Build rotation matrices from galactocentric Cartesian to a progenitor-aligned
-    frame (angular momentum along z, progenitor on +x in the orbital plane),
-    evaluated at progenitor times tp (negative values in [-tdisrupt, 0]).
-
-    Returns (rot, rot_inv), each of shape (len(tp), 3, 3).
-    """
-    tp = numpy.atleast_1d(tp)
-    n = len(tp)
-    centerx = numpy.atleast_1d(progenitor.x(tp))
-    centery = numpy.atleast_1d(progenitor.y(tp))
-    centerz = numpy.atleast_1d(progenitor.z(tp))
-    if center is None:
-        L = numpy.atleast_2d(progenitor.L(tp))
-    else:
-        centerx -= center.x(tp)
-        centery -= center.y(tp)
-        centerz -= center.z(tp)
-        centervx = progenitor.vx(tp) - center.vx(tp)
-        centervy = progenitor.vy(tp) - center.vy(tp)
-        centervz = progenitor.vz(tp) - center.vz(tp)
-        L = numpy.atleast_2d(
-            numpy.array(
-                [
-                    centery * centervz - centerz * centervy,
-                    centerz * centervx - centerx * centervz,
-                    centerx * centervy - centery * centervx,
-                ]
-            ).T
-        )
-    Lnorm = L / numpy.tile(numpy.sqrt(numpy.sum(L**2.0, axis=1)), (3, 1)).T
-    z_rot = numpy.swapaxes(
-        _rotate_to_arbitrary_vector(numpy.atleast_2d(Lnorm), [0.0, 0.0, 1], inv=True),
-        1,
-        2,
-    )
-    z_rot_inv = numpy.swapaxes(
-        _rotate_to_arbitrary_vector(numpy.atleast_2d(Lnorm), [0.0, 0.0, 1], inv=False),
-        1,
-        2,
-    )
-    xyzt = numpy.einsum("ijk,ik->ij", z_rot, numpy.array([centerx, centery, centerz]).T)
-    Rt = numpy.sqrt(xyzt[:, 0] ** 2.0 + xyzt[:, 1] ** 2.0)
-    cosphi, sinphi = xyzt[:, 0] / Rt, xyzt[:, 1] / Rt
-    pa_rot = numpy.array(
-        [
-            [cosphi, -sinphi, numpy.zeros(n)],
-            [sinphi, cosphi, numpy.zeros(n)],
-            [numpy.zeros(n), numpy.zeros(n), numpy.ones(n)],
-        ]
-    ).T
-    pa_rot_inv = numpy.array(
-        [
-            [cosphi, sinphi, numpy.zeros(n)],
-            [-sinphi, cosphi, numpy.zeros(n)],
-            [numpy.zeros(n), numpy.zeros(n), numpy.ones(n)],
-        ]
-    ).T
-    rot = numpy.einsum("ijk,ikl->ijl", pa_rot, z_rot)
-    rot_inv = numpy.einsum("ijk,ikl->ijl", z_rot_inv, pa_rot_inv)
-    return rot, rot_inv
 
 
 def _particles_to_cartesian(xv_particles):
@@ -104,14 +41,13 @@ def _bin_offsets(tp_assign, offsets, tp_nodes):
         sel = idx == m
         k = int(sel.sum())
         counts[m] = k
-        if k == 0:
+        if k < 2:
+            # 0 particles: leave mean=NaN, cov=0. 1 particle: undefined
+            # sample covariance, treat the same as empty.
             continue
         group = offsets[sel]
         means[m] = group.mean(axis=0)
-        if k > 1:
-            covs[m] = numpy.cov(group, rowvar=False)
-        else:
-            covs[m] = numpy.zeros((6, 6))
+        covs[m] = numpy.cov(group, rowvar=False)
     return means, covs, counts
 
 
@@ -124,31 +60,43 @@ def _smooth_series(x, y, sigma, s_user=None):
 
     Falls back to an interpolating spline if fewer than 4 valid points.
     """
-    mask = numpy.isfinite(y) & numpy.isfinite(x) & numpy.isfinite(sigma) & (sigma > 0)
+    mask = numpy.isfinite(y) & numpy.isfinite(x)
     n_valid = int(mask.sum())
-    if n_valid < 4:
-        # Degenerate case: simple linear interp on available points
-        if n_valid >= 2:
-            order = numpy.argsort(x[mask])
-            return interpolate.interp1d(
-                x[mask][order],
-                y[mask][order],
-                kind="linear",
-                fill_value="extrapolate",
-                assume_sorted=True,
-            )
-        # With <2 points, return a constant
-        val = 0.0 if n_valid == 0 else float(y[mask][0])
-        return lambda t: numpy.full_like(numpy.atleast_1d(t), val, dtype=float)
     order = numpy.argsort(x[mask])
     xv = x[mask][order]
     yv = y[mask][order]
-    sv = numpy.maximum(sigma[mask][order], 1e-12)
+    if n_valid < 4:
+        # Too few valid bins for a cubic spline. Pad so that a linear
+        # interpolator is always well-defined: ensure at least two points,
+        # duplicating a reference value (zero if empty) when needed.
+        if n_valid < 2:
+            ref_y = float(yv[0]) if n_valid == 1 else 0.0
+            xv = numpy.array([-1.0, 0.0])
+            yv = numpy.array([ref_y, ref_y])
+        return interpolate.interp1d(
+            xv,
+            yv,
+            kind="linear",
+            fill_value="extrapolate",
+            assume_sorted=True,
+        )
+    sig_safe = numpy.where(
+        numpy.isfinite(sigma) & (sigma > 0),
+        sigma,
+        numpy.nan,
+    )
+    with numpy.errstate(invalid="ignore"):
+        sig_med = (
+            numpy.nanmedian(sig_safe)
+            if numpy.any(numpy.isfinite(sig_safe))
+            else numpy.nan
+        )
+    if not numpy.isfinite(sig_med) or sig_med == 0:
+        sig_med = 1.0
+    sv = numpy.where(numpy.isfinite(sig_safe), sig_safe, sig_med)[mask][order]
+    sv = numpy.maximum(sv, 1e-12)
     s_eff = float(n_valid) if s_user is None else float(s_user)
-    try:
-        return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_eff, k=3)
-    except Exception:
-        return interpolate.InterpolatedUnivariateSpline(xv, yv, k=3)
+    return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_eff, k=3)
 
 
 class StreamTrack:
@@ -335,7 +283,9 @@ class StreamTrack:
                     cov_fine[:, b, a] = val_fine
             # Per-entry smoothing can yield slightly non-PSD matrices;
             # project each back onto the PSD cone by clipping negative
-            # eigenvalues to zero.
+            # eigenvalues to zero. Sanitize NaN/Inf entries first
+            # (possible in degenerate low-statistics cases).
+            cov_fine = numpy.nan_to_num(cov_fine, nan=0.0, posinf=0.0, neginf=0.0)
             for k in range(self._ninterp):
                 evals, evecs = numpy.linalg.eigh(cov_fine[k])
                 evals = numpy.clip(evals, 0.0, None)
@@ -407,57 +357,53 @@ class StreamTrack:
         return arr
 
     def _parse_tp(self, tp):
-        tp = conversion.parse_time(tp, ro=self._ro, vo=self._vo)
-        return tp
+        return conversion.parse_time(tp, ro=self._ro, vo=self._vo)
+
+    def _scale(self, val, kind):
+        """Apply physical-unit scaling to ``val`` for a given coordinate
+        ``kind`` (one of 'length', 'velocity', 'angle', 'degree', 'pm',
+        'vlos')."""
+        if not self._physical:
+            return val
+        if kind == "length":
+            return val * self._ro * (units.kpc if _APY_UNITS else 1)
+        if kind == "velocity" or kind == "vlos":
+            return val * self._vo * (units.km / units.s if _APY_UNITS else 1)
+        if kind == "angle":
+            return val * (units.rad if _APY_UNITS else 1)
+        if kind == "degree":
+            return val * (units.deg if _APY_UNITS else 1)
+        # kind == "pm"
+        return val * (units.mas / units.yr if _APY_UNITS else 1)
+
+    def _cart_eval(self, idx, tp):
+        val = self._cart_splines[idx](numpy.atleast_1d(tp))
+        return self._maybe_scalar(tp, val)
 
     def x(self, tp):
         """Galactocentric Cartesian x along the track."""
         tp = self._parse_tp(tp)
-        val = self._cart_splines[0](numpy.atleast_1d(tp))
-        val = self._maybe_scalar(tp, val)
-        if self._physical and self._roSet:
-            return val * self._ro * (units.kpc if _APY_UNITS else 1)
-        return val
+        return self._scale(self._cart_eval(0, tp), "length")
 
     def y(self, tp):
         tp = self._parse_tp(tp)
-        val = self._cart_splines[1](numpy.atleast_1d(tp))
-        val = self._maybe_scalar(tp, val)
-        if self._physical and self._roSet:
-            return val * self._ro * (units.kpc if _APY_UNITS else 1)
-        return val
+        return self._scale(self._cart_eval(1, tp), "length")
 
     def z(self, tp):
         tp = self._parse_tp(tp)
-        val = self._cart_splines[2](numpy.atleast_1d(tp))
-        val = self._maybe_scalar(tp, val)
-        if self._physical and self._roSet:
-            return val * self._ro * (units.kpc if _APY_UNITS else 1)
-        return val
+        return self._scale(self._cart_eval(2, tp), "length")
 
     def vx(self, tp):
         tp = self._parse_tp(tp)
-        val = self._cart_splines[3](numpy.atleast_1d(tp))
-        val = self._maybe_scalar(tp, val)
-        if self._physical and self._voSet:
-            return val * self._vo * (units.km / units.s if _APY_UNITS else 1)
-        return val
+        return self._scale(self._cart_eval(3, tp), "velocity")
 
     def vy(self, tp):
         tp = self._parse_tp(tp)
-        val = self._cart_splines[4](numpy.atleast_1d(tp))
-        val = self._maybe_scalar(tp, val)
-        if self._physical and self._voSet:
-            return val * self._vo * (units.km / units.s if _APY_UNITS else 1)
-        return val
+        return self._scale(self._cart_eval(4, tp), "velocity")
 
     def vz(self, tp):
         tp = self._parse_tp(tp)
-        val = self._cart_splines[5](numpy.atleast_1d(tp))
-        val = self._maybe_scalar(tp, val)
-        if self._physical and self._voSet:
-            return val * self._vo * (units.km / units.s if _APY_UNITS else 1)
-        return val
+        return self._scale(self._cart_eval(5, tp), "velocity")
 
     def _cyl_at(self, tp):
         """Return (R, vR, vT, z, vz, phi) along the track (internal units)."""
@@ -471,34 +417,22 @@ class StreamTrack:
     def R(self, tp):
         tp = self._parse_tp(tp)
         R, _, _, _, _, _ = self._cyl_at(tp)
-        R = self._maybe_scalar(tp, R)
-        if self._physical and self._roSet:
-            return R * self._ro * (units.kpc if _APY_UNITS else 1)
-        return R
+        return self._scale(self._maybe_scalar(tp, R), "length")
 
     def vR(self, tp):
         tp = self._parse_tp(tp)
         _, vR, _, _, _, _ = self._cyl_at(tp)
-        vR = self._maybe_scalar(tp, vR)
-        if self._physical and self._voSet:
-            return vR * self._vo * (units.km / units.s if _APY_UNITS else 1)
-        return vR
+        return self._scale(self._maybe_scalar(tp, vR), "velocity")
 
     def vT(self, tp):
         tp = self._parse_tp(tp)
         _, _, vT, _, _, _ = self._cyl_at(tp)
-        vT = self._maybe_scalar(tp, vT)
-        if self._physical and self._voSet:
-            return vT * self._vo * (units.km / units.s if _APY_UNITS else 1)
-        return vT
+        return self._scale(self._maybe_scalar(tp, vT), "velocity")
 
     def phi(self, tp):
         tp = self._parse_tp(tp)
         _, _, _, _, _, phi = self._cyl_at(tp)
-        phi = self._maybe_scalar(tp, phi)
-        if self._physical and _APY_UNITS:
-            return phi * units.rad
-        return phi
+        return self._scale(self._maybe_scalar(tp, phi), "angle")
 
     def __call__(self, tp):
         """Return (R, vR, vT, z, vz, phi) stacked along the track at tp."""
@@ -514,8 +448,6 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def _helio_xv(self, tp):
         """Compute heliocentric XYZ, vxvyvz at tp using ro/vo/zo/solarmotion."""
-        if self._ro is None or self._vo is None:
-            raise ValueError("Heliocentric coordinates require ro and vo to be set.")
         tp = numpy.atleast_1d(tp)
         xyzvxyz = self._eval_cart(tp)  # (6, len) galactocentric Cartesian
         Xgc, Ygc, Zgc = xyzvxyz[0], xyzvxyz[1], xyzvxyz[2]
@@ -546,78 +478,55 @@ class StreamTrack:
         return X, Y, Z, vX, vY, vZ
 
     def _get_vsun_kms(self):
-        if self._solarmotion is None:
-            # Schoenrich+10 default
-            vsun = [-11.1, self._vo + 12.24, 7.25]
-        elif isinstance(self._solarmotion, str):
-            # galpy supports "hogg", "dehnen", "schoenrich"
-            if self._solarmotion.lower() == "hogg":
-                vsun = [-10.1, self._vo + 4.0, 6.7]
-            elif self._solarmotion.lower() == "dehnen":
-                vsun = [-10.0, self._vo + 5.25, 7.17]
-            else:  # schoenrich
-                vsun = [-11.1, self._vo + 12.24, 7.25]
-        else:
-            sm = numpy.asarray(self._solarmotion, dtype=float)
-            vsun = [sm[0], self._vo + sm[1], sm[2]]
-        return vsun
+        sm = numpy.asarray(self._solarmotion, dtype=float)
+        return [sm[0], self._vo + sm[1], sm[2]]
+
+    def _vrpmllpmbb(self, tp):
+        X, Y, Z, vX, vY, vZ = self._helio_xv(tp)
+        lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
+        vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
+            vX, vY, vZ, lbd[:, 0], lbd[:, 1], lbd[:, 2], degree=True
+        )
+        return lbd, vrpmllpmbb
 
     def ra(self, tp):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
         ra_dec = coords.lb_to_radec(lbd[:, 0], lbd[:, 1], degree=True)
-        ra = ra_dec[:, 0]
-        ra = self._maybe_scalar(tp, ra)
-        if self._physical and _APY_UNITS:
-            return ra * units.deg
-        return ra
+        return self._scale(self._maybe_scalar(tp, ra_dec[:, 0]), "degree")
 
     def dec(self, tp):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
         ra_dec = coords.lb_to_radec(lbd[:, 0], lbd[:, 1], degree=True)
-        dec = ra_dec[:, 1]
-        dec = self._maybe_scalar(tp, dec)
-        if self._physical and _APY_UNITS:
-            return dec * units.deg
-        return dec
+        return self._scale(self._maybe_scalar(tp, ra_dec[:, 1]), "degree")
 
     def ll(self, tp):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        val = self._maybe_scalar(tp, lbd[:, 0])
-        if self._physical and _APY_UNITS:
-            return val * units.deg
-        return val
+        return self._scale(self._maybe_scalar(tp, lbd[:, 0]), "degree")
 
     def bb(self, tp):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        val = self._maybe_scalar(tp, lbd[:, 1])
-        if self._physical and _APY_UNITS:
-            return val * units.deg
-        return val
+        return self._scale(self._maybe_scalar(tp, lbd[:, 1]), "degree")
 
     def dist(self, tp):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
         val = self._maybe_scalar(tp, lbd[:, 2])
-        if self._physical and _APY_UNITS:
-            return val * units.kpc
+        if self._physical:
+            return val * (units.kpc if _APY_UNITS else 1)
         return val
 
     def pmra(self, tp):
         tp = self._parse_tp(tp)
-        X, Y, Z, vX, vY, vZ = self._helio_xv(tp)
-        lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
-            vX, vY, vZ, lbd[:, 0], lbd[:, 1], lbd[:, 2], degree=True
-        )
+        lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
         pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
             vrpmllpmbb[:, 1],
             vrpmllpmbb[:, 2],
@@ -625,18 +534,11 @@ class StreamTrack:
             lbd[:, 1],
             degree=True,
         )
-        val = self._maybe_scalar(tp, pmrapmdec[:, 0])
-        if self._physical and _APY_UNITS:
-            return val * units.mas / units.yr
-        return val
+        return self._scale(self._maybe_scalar(tp, pmrapmdec[:, 0]), "pm")
 
     def pmdec(self, tp):
         tp = self._parse_tp(tp)
-        X, Y, Z, vX, vY, vZ = self._helio_xv(tp)
-        lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
-            vX, vY, vZ, lbd[:, 0], lbd[:, 1], lbd[:, 2], degree=True
-        )
+        lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
         pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
             vrpmllpmbb[:, 1],
             vrpmllpmbb[:, 2],
@@ -644,46 +546,22 @@ class StreamTrack:
             lbd[:, 1],
             degree=True,
         )
-        val = self._maybe_scalar(tp, pmrapmdec[:, 1])
-        if self._physical and _APY_UNITS:
-            return val * units.mas / units.yr
-        return val
+        return self._scale(self._maybe_scalar(tp, pmrapmdec[:, 1]), "pm")
 
     def pmll(self, tp):
         tp = self._parse_tp(tp)
-        X, Y, Z, vX, vY, vZ = self._helio_xv(tp)
-        lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
-            vX, vY, vZ, lbd[:, 0], lbd[:, 1], lbd[:, 2], degree=True
-        )
-        val = self._maybe_scalar(tp, vrpmllpmbb[:, 1])
-        if self._physical and _APY_UNITS:
-            return val * units.mas / units.yr
-        return val
+        _, vrpmllpmbb = self._vrpmllpmbb(tp)
+        return self._scale(self._maybe_scalar(tp, vrpmllpmbb[:, 1]), "pm")
 
     def pmbb(self, tp):
         tp = self._parse_tp(tp)
-        X, Y, Z, vX, vY, vZ = self._helio_xv(tp)
-        lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
-            vX, vY, vZ, lbd[:, 0], lbd[:, 1], lbd[:, 2], degree=True
-        )
-        val = self._maybe_scalar(tp, vrpmllpmbb[:, 2])
-        if self._physical and _APY_UNITS:
-            return val * units.mas / units.yr
-        return val
+        _, vrpmllpmbb = self._vrpmllpmbb(tp)
+        return self._scale(self._maybe_scalar(tp, vrpmllpmbb[:, 2]), "pm")
 
     def vlos(self, tp):
         tp = self._parse_tp(tp)
-        X, Y, Z, vX, vY, vZ = self._helio_xv(tp)
-        lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
-            vX, vY, vZ, lbd[:, 0], lbd[:, 1], lbd[:, 2], degree=True
-        )
-        val = self._maybe_scalar(tp, vrpmllpmbb[:, 0])
-        if self._physical and _APY_UNITS:
-            return val * units.km / units.s
-        return val
+        _, vrpmllpmbb = self._vrpmllpmbb(tp)
+        return self._scale(self._maybe_scalar(tp, vrpmllpmbb[:, 0]), "vlos")
 
     # -----------------------------------------------------------------
     # Covariance
@@ -720,6 +598,7 @@ class StreamTrack:
             self._vo = conversion.parse_velocity_kms(vo)
             self._voSet = True
         self._physical = True
+        return None
 
     def turn_physical_off(self):
         self._physical = False
@@ -791,22 +670,16 @@ class StreamTrackPair:
         self.trailing = trailing
 
     def turn_physical_on(self, ro=None, vo=None):
-        if self.leading is not None:
-            self.leading.turn_physical_on(ro=ro, vo=vo)
-        if self.trailing is not None:
-            self.trailing.turn_physical_on(ro=ro, vo=vo)
+        self.leading.turn_physical_on(ro=ro, vo=vo)
+        self.trailing.turn_physical_on(ro=ro, vo=vo)
 
     def turn_physical_off(self):
-        if self.leading is not None:
-            self.leading.turn_physical_off()
-        if self.trailing is not None:
-            self.trailing.turn_physical_off()
+        self.leading.turn_physical_off()
+        self.trailing.turn_physical_off()
 
     def plot(self, d1="x", d2="y", spread=0, n=None, **kwargs):
         """Plot both arms on the same axes."""
-        lines = []
-        if self.leading is not None:
-            lines.append(self.leading.plot(d1=d1, d2=d2, spread=spread, n=n, **kwargs))
-        if self.trailing is not None:
-            lines.append(self.trailing.plot(d1=d1, d2=d2, spread=spread, n=n, **kwargs))
-        return lines
+        return [
+            self.leading.plot(d1=d1, d2=d2, spread=spread, n=n, **kwargs),
+            self.trailing.plot(d1=d1, d2=d2, spread=spread, n=n, **kwargs),
+        ]
