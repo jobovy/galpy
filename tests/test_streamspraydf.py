@@ -823,3 +823,234 @@ def test_tail_default_is_leading():
             f"Default tail should be 'leading' for {spraydfclass.__name__}"
         )
     return None
+
+
+######################### streamTrack tests ###############################
+
+
+@pytest.fixture(scope="module")
+def _simple_spdf():
+    """Minimal fardal15spraydf fixture used by several streamTrack tests."""
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    return spdf
+
+
+def test_streamTrack_progenitor_recovery():
+    # With tiny tdisrupt, particles barely drift from progenitor so the track
+    # at any tp should be very close to the progenitor today.
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=0.05 / conversion.time_in_Gyr(vo, ro),
+    )
+    numpy.random.seed(1)
+    track = spdf.streamTrack(n=2000, ntp=41, tail="leading")
+    prog_x = spdf._progenitor.x(0.0)
+    prog_y = spdf._progenitor.y(0.0)
+    prog_z = spdf._progenitor.z(0.0)
+    tps = numpy.linspace(-spdf._tdisrupt, 0.0, 7)
+    # For small tdisrupt, ALL particles are near the progenitor today,
+    # so the track for every tp should be within a few percent of the
+    # progenitor's present-day position.
+    for tp in tps:
+        assert abs(track.x(tp) - prog_x) < 0.05, (
+            "StreamTrack does not recover the progenitor in the tiny-tdisrupt limit (x)"
+        )
+        assert abs(track.y(tp) - prog_y) < 0.05, (
+            "StreamTrack does not recover the progenitor in the tiny-tdisrupt limit (y)"
+        )
+        assert abs(track.z(tp) - prog_z) < 0.05, (
+            "StreamTrack does not recover the progenitor in the tiny-tdisrupt limit (z)"
+        )
+
+
+def test_streamTrack_sample_consistency(_simple_spdf):
+    # In Cartesian, the track should match the binned mean of samples at the
+    # same tp to within a few standard errors.
+    numpy.random.seed(1)
+    xv, dt = _simple_spdf.sample(
+        n=4000, returndt=True, return_orbit=False, integrate=True
+    )
+    track = _simple_spdf.streamTrack(particles=(xv, dt), ntp=41, tail="leading")
+    R, vR, vT, z, vz, phi = xv
+    x_p, y_p, z_p = coords.cyl_to_rect(R, phi, z)
+    # Bin particles
+    tp_part = -dt
+    edges = numpy.linspace(-_simple_spdf._tdisrupt, 0.0, 11)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    for i in range(len(centers)):
+        sel = (tp_part >= edges[i]) & (tp_part < edges[i + 1])
+        n_in = int(sel.sum())
+        if n_in < 50:
+            continue
+        mean_x = x_p[sel].mean()
+        std_x = x_p[sel].std(ddof=1) / numpy.sqrt(n_in)
+        assert abs(mean_x - track.x(centers[i])) < max(5 * std_x, 0.05), (
+            "StreamTrack does not match binned sample mean in Cartesian x"
+        )
+
+
+def test_streamTrack_interface(_simple_spdf):
+    numpy.random.seed(2)
+    track = _simple_spdf.streamTrack(n=2000, ntp=41, tail="leading")
+    tps = numpy.linspace(-_simple_spdf._tdisrupt, 0.0, 5)
+    for meth in (
+        "x",
+        "y",
+        "z",
+        "vx",
+        "vy",
+        "vz",
+        "R",
+        "vR",
+        "vT",
+        "phi",
+        "ra",
+        "dec",
+        "dist",
+        "ll",
+        "bb",
+        "pmra",
+        "pmdec",
+        "pmll",
+        "pmbb",
+        "vlos",
+    ):
+        vals = getattr(track, meth)(tps)
+        vals = numpy.asarray(vals)
+        assert vals.shape == tps.shape, f"{meth} returned wrong shape"
+        assert numpy.all(numpy.isfinite(vals)), f"{meth} returned non-finite"
+
+
+def test_streamTrack_covariance_psd(_simple_spdf):
+    numpy.random.seed(3)
+    track = _simple_spdf.streamTrack(n=2000, ntp=41, tail="leading")
+    tps = numpy.linspace(-_simple_spdf._tdisrupt, 0.0, 7)
+    covs = track.cov(tps)
+    assert covs.shape == (len(tps), 6, 6)
+    for k in range(len(tps)):
+        C = covs[k]
+        assert numpy.allclose(C, C.T, atol=1e-10), "Covariance not symmetric"
+        evs = numpy.linalg.eigvalsh(C)
+        assert numpy.all(evs >= -1e-10), f"Covariance not PSD (min eigval={evs.min()})"
+
+
+def test_streamTrack_both_tails(_simple_spdf):
+    numpy.random.seed(4)
+    pair = _simple_spdf.streamTrack(n=1500, ntp=41, tail="both")
+    # Near tp=0 both arms should sit near the progenitor
+    prog = _simple_spdf._progenitor
+    px, py = prog.x(0.0), prog.y(0.0)
+    assert abs(pair.leading.x(0.0) - px) < 0.1
+    assert abs(pair.trailing.x(0.0) - px) < 0.1
+    # Deep into the stream, the two arms should diverge
+    tp_deep = -0.7 * _simple_spdf._tdisrupt
+    d_lead = (pair.leading.x(tp_deep) - pair.trailing.x(tp_deep)) ** 2 + (
+        pair.leading.y(tp_deep) - pair.trailing.y(tp_deep)
+    ) ** 2
+    assert d_lead > 0.01, "Leading and trailing arms do not diverge at large |tp|"
+
+
+def test_streamTrack_iteration_changes_track(_simple_spdf):
+    # Iteration should move the track by a small amount; we don't require
+    # strict convergence (closest-point reassignment introduces some noise).
+    numpy.random.seed(5)
+    tr0 = _simple_spdf.streamTrack(n=2000, ntp=41, niter=0, tail="leading")
+    numpy.random.seed(5)
+    tr1 = _simple_spdf.streamTrack(n=2000, ntp=41, niter=1, tail="leading")
+    tps = numpy.linspace(-_simple_spdf._tdisrupt, 0.0, 101)
+    # Track-to-track difference should be small compared to the stream size
+    ampl = numpy.ptp(tr0.x(tps))
+    dmax = numpy.max(numpy.abs(tr0.x(tps) - tr1.x(tps)))
+    assert dmax < 0.5 * max(ampl, 0.1), (
+        "Iteration changed the track by more than half the stream amplitude"
+    )
+
+
+def test_streamTrack_chen24_works():
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    spdf = chen24spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    numpy.random.seed(6)
+    track = spdf.streamTrack(n=1500, ntp=41, tail="both")
+    for tp in [-spdf._tdisrupt / 2, 0.0]:
+        assert numpy.isfinite(track.leading.x(tp))
+        assert numpy.isfinite(track.trailing.x(tp))
+
+
+def test_streamTrack_with_center():
+    # Stream around a moving satellite
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    ro, vo = 8.0, 220.0
+    cen = Orbit([1.3, 0.2, -0.9, 0.4, 0.1, 0.4])
+    prog = Orbit([1.35, 0.22, -0.88, 0.42, 0.08, 0.45])
+    spdf = fardal15spraydf(
+        2e4 / conversion.mass_in_msol(vo, ro),
+        progenitor=prog,
+        pot=lp,
+        center=cen,
+        centerpot=lp,
+        tdisrupt=1.0 / conversion.time_in_Gyr(vo, ro),
+    )
+    numpy.random.seed(7)
+    track = spdf.streamTrack(n=1500, ntp=31, tail="leading")
+    tps = numpy.linspace(-spdf._tdisrupt, 0.0, 5)
+    vals = track.x(tps)
+    assert numpy.all(numpy.isfinite(vals))
+
+
+def test_streamTrack_physical_units(_simple_spdf):
+    numpy.random.seed(8)
+    track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
+    x0 = track.x(-10.0)
+    track.turn_physical_on(ro=8.0, vo=220.0)
+    x0_phys = track.x(-10.0)
+    # physical x should be ~ ro * internal
+    val = x0_phys.value if hasattr(x0_phys, "value") else x0_phys
+    assert abs(val - 8.0 * x0) < 1e-6
+    track.turn_physical_off()
+    assert abs(track.x(-10.0) - x0) < 1e-10
+
+
+def test_streamTrack_particles_reuse(_simple_spdf):
+    numpy.random.seed(9)
+    xv, dt = _simple_spdf.sample(
+        n=2000, returndt=True, return_orbit=False, integrate=True
+    )
+    track = _simple_spdf.streamTrack(particles=(xv, dt), ntp=41, tail="leading")
+    assert numpy.isfinite(track.x(0.0))
+
+
+def test_streamTrack_plot_smoke(_simple_spdf):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    numpy.random.seed(10)
+    track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="both")
+    track.plot(d1="x", d2="y", spread=1.0)
+    track.leading.plot(d1="ra", d2="dec")
+    track.leading.plot(d1="R", d2="z")
