@@ -382,20 +382,17 @@ def _potInt(x, y, z, psi, b2, c2, glx=None, glw=None):
 
     if glx is None:
         return integrate.quad(integrand, 0.0, 1.0)[0]
-    elif numpy.ndim(x) > 0:
-        result = numpy.zeros(len(x))
-        x2 = x**2
-        y2 = y**2
-        z2 = z**2
-        for k in range(len(glx)):
-            s = glx[k]
-            t = 1.0 / s**2 - 1.0
-            denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
-            m = numpy.sqrt(x2 / (1.0 + t) + y2 / (b2 + t) + z2 / (c2 + t))
-            result += glw[k] * psi(m) / denom
-        return result
-    else:
-        return numpy.sum(glw * integrand(glx))
+    result = 0.0
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    for k in range(len(glx)):
+        s = glx[k]
+        t = 1.0 / s**2 - 1.0
+        denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
+        m = numpy.sqrt(x2 / (1.0 + t) + y2 / (b2 + t) + z2 / (c2 + t))
+        result += glw[k] * psi(m) / denom
+    return result
 
 
 def _forceInt(x, y, z, dens, b2, c2, i):
@@ -425,46 +422,24 @@ def _forceInt_all(x, y, z, dens, b2, c2, glx=None, glw=None):
             _forceInt(x, y, z, dens, b2, c2, 1),
             _forceInt(x, y, z, dens, b2, c2, 2),
         )
-    if numpy.ndim(x) > 0:
-        n = len(x)
-        Fx = numpy.zeros(n)
-        Fy = numpy.zeros(n)
-        Fz = numpy.zeros(n)
-        x2 = x**2
-        y2 = y**2
-        z2 = z**2
-        for k in range(len(glx)):
-            s = glx[k]
-            w = glw[k]
-            t = 1.0 / s**2 - 1.0
-            inv1t = 1.0 / (1.0 + t)
-            invb2t = 1.0 / (b2 + t)
-            invc2t = 1.0 / (c2 + t)
-            m = numpy.sqrt(x2 * inv1t + y2 * invb2t + z2 * invc2t)
-            denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
-            common = w * dens(m) / denom
-            Fx += common * x * inv1t
-            Fy += common * y * invb2t
-            Fz += common * z * invc2t
-        return Fx, Fy, Fz
-    else:
-        Fx = 0.0
-        Fy = 0.0
-        Fz = 0.0
-        for k in range(len(glx)):
-            s = glx[k]
-            w = glw[k]
-            t = 1.0 / s**2 - 1.0
-            inv1t = 1.0 / (1.0 + t)
-            invb2t = 1.0 / (b2 + t)
-            invc2t = 1.0 / (c2 + t)
-            m = numpy.sqrt(x**2 * inv1t + y**2 * invb2t + z**2 * invc2t)
-            denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
-            common = w * dens(m) / denom
-            Fx += common * x * inv1t
-            Fy += common * y * invb2t
-            Fz += common * z * invc2t
-        return Fx, Fy, Fz
+    Fx = Fy = Fz = 0.0
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    for k in range(len(glx)):
+        s = glx[k]
+        w = glw[k]
+        t = 1.0 / s**2 - 1.0
+        inv1t = 1.0 / (1.0 + t)
+        invb2t = 1.0 / (b2 + t)
+        invc2t = 1.0 / (c2 + t)
+        m = numpy.sqrt(x2 * inv1t + y2 * invb2t + z2 * invc2t)
+        denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
+        common = w * dens(m) / denom
+        Fx += common * x * inv1t
+        Fy += common * y * invb2t
+        Fz += common * z * invc2t
+    return Fx, Fy, Fz
 
 
 def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j):
@@ -511,71 +486,32 @@ def _2ndDerivInt_all(x, y, z, dens, densDeriv, b2, c2, glx=None, glw=None):
             _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 1, 2),
             _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 2, 2),
         )
-    if numpy.ndim(x) > 0:
-        n = len(x)
-        xx = numpy.zeros(n)
-        xy = numpy.zeros(n)
-        xz = numpy.zeros(n)
-        yy = numpy.zeros(n)
-        yz = numpy.zeros(n)
-        zz = numpy.zeros(n)
-        x2 = x**2
-        y2 = y**2
-        z2 = z**2
-        for k in range(len(glx)):
-            s = glx[k]
-            w = glw[k]
-            t = 1.0 / s**2 - 1.0
-            inv1t = 1.0 / (1.0 + t)
-            invb2t = 1.0 / (b2 + t)
-            invc2t = 1.0 / (c2 + t)
-            m = numpy.sqrt(x2 * inv1t + y2 * invb2t + z2 * invc2t)
-            denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
-            w_over_denom = w / denom
-            dens_val = dens(m)
-            dderiv_over_m = densDeriv(m) / m
-            xi = x * inv1t
-            yi = y * invb2t
-            zi = z * invc2t
-            dd_xi = w_over_denom * dderiv_over_m * xi
-            dd_yi = w_over_denom * dderiv_over_m * yi
-            dd_zi = w_over_denom * dderiv_over_m * zi
-            xx += dd_xi * xi + w_over_denom * dens_val * inv1t
-            xy += dd_xi * yi
-            xz += dd_xi * zi
-            yy += dd_yi * yi + w_over_denom * dens_val * invb2t
-            yz += dd_yi * zi
-            zz += dd_zi * zi + w_over_denom * dens_val * invc2t
-        return xx, xy, xz, yy, yz, zz
-    else:
-        xx = 0.0
-        xy = 0.0
-        xz = 0.0
-        yy = 0.0
-        yz = 0.0
-        zz = 0.0
-        for k in range(len(glx)):
-            s = glx[k]
-            w = glw[k]
-            t = 1.0 / s**2 - 1.0
-            inv1t = 1.0 / (1.0 + t)
-            invb2t = 1.0 / (b2 + t)
-            invc2t = 1.0 / (c2 + t)
-            m = numpy.sqrt(x**2 * inv1t + y**2 * invb2t + z**2 * invc2t)
-            denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
-            w_over_denom = w / denom
-            dens_val = dens(m)
-            dderiv_over_m = densDeriv(m) / m
-            xi = x * inv1t
-            yi = y * invb2t
-            zi = z * invc2t
-            dd_xi = w_over_denom * dderiv_over_m * xi
-            dd_yi = w_over_denom * dderiv_over_m * yi
-            dd_zi = w_over_denom * dderiv_over_m * zi
-            xx += dd_xi * xi + w_over_denom * dens_val * inv1t
-            xy += dd_xi * yi
-            xz += dd_xi * zi
-            yy += dd_yi * yi + w_over_denom * dens_val * invb2t
-            yz += dd_yi * zi
-            zz += dd_zi * zi + w_over_denom * dens_val * invc2t
-        return xx, xy, xz, yy, yz, zz
+    xx = xy = xz = yy = yz = zz = 0.0
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    for k in range(len(glx)):
+        s = glx[k]
+        w = glw[k]
+        t = 1.0 / s**2 - 1.0
+        inv1t = 1.0 / (1.0 + t)
+        invb2t = 1.0 / (b2 + t)
+        invc2t = 1.0 / (c2 + t)
+        m = numpy.sqrt(x2 * inv1t + y2 * invb2t + z2 * invc2t)
+        denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
+        w_over_denom = w / denom
+        dens_val = dens(m)
+        dderiv_over_m = densDeriv(m) / m
+        xi = x * inv1t
+        yi = y * invb2t
+        zi = z * invc2t
+        dd_xi = w_over_denom * dderiv_over_m * xi
+        dd_yi = w_over_denom * dderiv_over_m * yi
+        dd_zi = w_over_denom * dderiv_over_m * zi
+        xx += dd_xi * xi + w_over_denom * dens_val * inv1t
+        xy += dd_xi * yi
+        xz += dd_xi * zi
+        yy += dd_yi * yi + w_over_denom * dens_val * invb2t
+        yz += dd_yi * zi
+        zz += dd_zi * zi + w_over_denom * dens_val * invc2t
+    return xx, xy, xz, yy, yz, zz

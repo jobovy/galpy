@@ -4854,47 +4854,23 @@ def test_NFW_virialsetup_wrtcrit():
     return None
 
 
-def test_EllipsoidalPotential_potInt_scalar_and_array():
-    # _potInt is called directly by _evaluate_xyz; verify its scalar GL path
-    # agrees with its array GL path.
-    from galpy.potential.EllipsoidalPotential import _potInt
-
-    tp = potential.TriaxialNFWPotential(normalize=1.0, b=0.7, c=0.5)
-    glx, glw = tp._glx, tp._glw
-    b2, c2 = tp._b2, tp._c2
-    x_s, y_s, z_s = 1.0, 0.5, 0.3
-    pot_s = _potInt(x_s, y_s, z_s, tp._psi, b2, c2, glx=glx, glw=glw)
-    x_a = numpy.array([1.0, 2.0])
-    y_a = numpy.array([0.5, 1.0])
-    z_a = numpy.array([0.3, 0.6])
-    pot_a = _potInt(x_a, y_a, z_a, tp._psi, b2, c2, glx=glx, glw=glw)
-    assert numpy.fabs(pot_s - pot_a[0]) < 1e-10, (
-        "Scalar and array _potInt results disagree"
-    )
-    return None
-
-
 def test_EllipsoidalPotential_evaluate_array_inf():
-    # Test that _evaluate handles array inputs with inf correctly
     tp = potential.PerfectEllipsoidPotential(normalize=1.0, b=0.7, c=0.5)
-    # Scalar inf
-    val_inf = tp._evaluate(numpy.inf, 0.0)
-    # Array with inf
+    val_inf = tp(numpy.inf, 0.0, use_physical=False)
     R_arr = numpy.array([numpy.inf, 1.0])
     z_arr = numpy.array([0.0, 0.1])
-    val_arr = tp._evaluate(R_arr, z_arr)
+    val_arr = tp(R_arr, z_arr, use_physical=False)
     assert numpy.fabs(val_inf - val_arr[0]) < 1e-10, (
-        "Scalar and array inf _evaluate results disagree"
+        "Scalar and array inf potential results disagree"
     )
-    # Non-aligned with finite array
     tp2 = potential.PerfectEllipsoidPotential(
         normalize=1.0, b=0.7, c=0.5, zvec=[0.0, numpy.sin(0.3), numpy.cos(0.3)]
     )
     R_fin = numpy.array([0.5, 1.0, 2.0])
     z_fin = numpy.array([0.1, 0.2, 0.3])
-    val_na = tp2._evaluate(R_fin, z_fin, phi=0.5)
+    val_na = tp2(R_fin, z_fin, phi=0.5, use_physical=False)
     assert not numpy.any(numpy.isnan(val_na)), (
-        "Non-aligned array _evaluate returned NaN"
+        "Non-aligned array potential evaluation returned NaN"
     )
     return None
 
