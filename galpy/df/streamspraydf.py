@@ -207,6 +207,120 @@ class basestreamspraydf(df):
         else:
             return out
 
+    def streamTrack(
+        self,
+        n=5000,
+        particles=None,
+        tail=None,
+        ntp=None,
+        ninterp=1001,
+        smoothing=None,
+        niter=0,
+        order=2,
+    ):
+        """
+        Construct a smooth phase-space track through the stream by sampling
+        particles and interpolating their mean offsets from the progenitor.
+
+        The track is parameterized by the progenitor's time coordinate
+        ``tp`` in ``[-tdisrupt, 0]``: ``tp=0`` is the progenitor today,
+        ``tp=-tdisrupt`` corresponds to the oldest stripped particles.
+
+        Parameters
+        ----------
+        n : int, optional
+            Number of particles to draw (per arm when ``tail='both'``). Ignored
+            if ``particles`` is provided. Default is 5000.
+        particles : tuple, optional
+            Pre-computed ``(xv, dt)`` from ``self.sample(returndt=True,
+            return_orbit=False, integrate=True)``. When ``tail='both'``, must
+            match the same both-arm sample ordering (leading first, then
+            trailing). Default is None (sample freshly).
+        tail : str, optional
+            One of ``'leading'``, ``'trailing'``, or ``'both'``. Defaults to
+            the value set at initialization.
+        ntp : int, optional
+            Number of nodes in the ``tp`` binning grid. Default
+            ``max(21, round(sqrt(n)))`` (clipped to 201).
+        ninterp : int, optional
+            Fine-grid resolution for the public track arrays. Default 1001.
+        smoothing : None, float, or dict, optional
+            Smoothness parameter for the mean-offset splines. ``None`` picks
+            an automatic value from binned scatter.
+        niter : int, optional
+            Iterations beyond the initial fit. Each iteration reassigns
+            particles to the closest point on the current track before
+            refitting.
+        order : int, optional
+            1 = mean only, 2 = mean + covariance (default).
+
+        Returns
+        -------
+        :class:`galpy.df.StreamTrack` or :class:`galpy.df.StreamTrackPair`
+            A single track object for single-arm streams, or a pair holding
+            ``.leading`` and ``.trailing`` tracks when ``tail='both'``.
+
+        Notes
+        -----
+        - 2026-04-14 - Written - Bovy (UofT)
+        """
+        from .streamTrack import StreamTrack, StreamTrackPair
+
+        tail = self._tail if tail is None else tail
+        if tail not in ("leading", "trailing", "both"):
+            raise ValueError(
+                f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
+            )
+        if ntp is None:
+            ntp = int(max(21, min(201, round(numpy.sqrt(n)))))
+
+        # Inherited unit metadata from the original progenitor Orbit
+        prog_ro = self._orig_progenitor._ro
+        prog_vo = self._orig_progenitor._vo
+        prog_zo = self._orig_progenitor._zo
+        prog_sm = self._orig_progenitor._solarmotion
+        prog_roSet = self._orig_progenitor._roSet
+        prog_voSet = self._orig_progenitor._voSet
+
+        def _make_track(xv, dt):
+            return StreamTrack(
+                xv_particles=xv,
+                dt_particles=dt,
+                progenitor=self._progenitor,
+                tdisrupt=self._tdisrupt,
+                center=self._center,
+                ntp=ntp,
+                ninterp=ninterp,
+                smoothing=smoothing,
+                niter=niter,
+                order=order,
+                ro=prog_ro,
+                vo=prog_vo,
+                zo=prog_zo,
+                solarmotion=prog_sm,
+                roSet=prog_roSet,
+                voSet=prog_voSet,
+            )
+
+        if tail == "both":
+            if particles is not None:
+                xv, dt = particles
+                n_lead = len(dt) // 2
+                xv_l = xv[:, :n_lead]
+                dt_l = dt[:n_lead]
+                xv_t = xv[:, n_lead:]
+                dt_t = dt[n_lead:]
+            else:
+                xv_l, dt_l = self._sample_tail(n, True, leading=True)
+                xv_t, dt_t = self._sample_tail(n, True, leading=False)
+            return StreamTrackPair(_make_track(xv_l, dt_l), _make_track(xv_t, dt_t))
+        else:
+            if particles is not None:
+                xv, dt = particles
+            else:
+                xv, dt = self._sample_tail(n, True, leading=(tail == "leading"))
+            return _make_track(xv, dt)
+
     def _sample_tail(self, n, integrate, leading=True):
         """Sample n points from the specified tail."""
         # First sample times
