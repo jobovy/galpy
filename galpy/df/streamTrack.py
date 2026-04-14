@@ -178,7 +178,6 @@ class StreamTrack:
         self._progenitor = progenitor
         self._tdisrupt = float(tdisrupt)
         self._center = center
-        self._ntp = int(ntp)
         self._ninterp = int(ninterp)
         self._order = int(order)
         self._ro = ro
@@ -189,44 +188,41 @@ class StreamTrack:
         self._voSet = voSet
         self._physical = False
 
-        # Store particles (copies)
-        self._xv = numpy.asarray(xv_particles, dtype=float).copy()
-        self._dt = numpy.asarray(dt_particles, dtype=float).copy()
+        # Particles in galactocentric Cartesian (computed once)
+        self._particles_cart = _particles_to_cartesian(
+            numpy.asarray(xv_particles, dtype=float)
+        )
 
-        # Normalize smoothing arg
+        # Normalize smoothing arg into a 6-tuple aligned with _coord_names
         self._coord_names = ("x", "y", "z", "vx", "vy", "vz")
         if smoothing is None:
-            self._s_user = {c: None for c in self._coord_names}
+            s_user = (None,) * 6
         elif isinstance(smoothing, dict):
-            self._s_user = {c: smoothing.get(c, None) for c in self._coord_names}
+            s_user = tuple(smoothing.get(c, None) for c in self._coord_names)
         else:
-            self._s_user = {c: float(smoothing) for c in self._coord_names}
+            s_user = (float(smoothing),) * 6
+        self._s_user = s_user
 
-        # Build the track
-        tp_nodes = numpy.linspace(-self._tdisrupt, 0.0, self._ntp)
-        # Fine tp grid (public)
+        tp_nodes = numpy.linspace(-self._tdisrupt, 0.0, int(ntp))
         self._tp_grid = numpy.linspace(-self._tdisrupt, 0.0, self._ninterp)
 
-        # Initial tp assignment: stripping time -> -dt
-        tp_assign = -self._dt.copy()
-        tp_assign = numpy.clip(tp_assign, -self._tdisrupt, 0.0)
+        # Initial tp assignment from stripping times
+        tp_assign = numpy.clip(
+            -numpy.asarray(dt_particles, dtype=float),
+            -self._tdisrupt,
+            0.0,
+        )
 
         for it in range(niter + 1):
             self._fit(tp_assign, tp_nodes)
             if it < niter:
-                tp_assign = self._assign_closest_on_track(self._xv)
-
-        # Save final assignment for diagnostics
-        self._tp_assign = tp_assign
+                tp_assign = self._assign_closest_on_track()
 
     # -----------------------------------------------------------------
     # Fitting
     # -----------------------------------------------------------------
     def _fit(self, tp_assign, tp_nodes):
-        particles_cart = _particles_to_cartesian(
-            self._xv
-        )  # (N, 6) in galactocentric Cartesian
-        means, covs, counts = _bin_offsets(tp_assign, particles_cart, tp_nodes)
+        means, covs, counts = _bin_offsets(tp_assign, self._particles_cart, tp_nodes)
         # Standard error of the bin mean per coord for auto-s
         with numpy.errstate(invalid="ignore"):
             per_coord_sigma = numpy.sqrt(
@@ -237,23 +233,18 @@ class StreamTrack:
             )
             sigma_of_mean = numpy.where(counts[:, None] > 1, sigma_of_mean, numpy.nan)
 
-        # Fit smoothing spline per coord directly in galactocentric Cartesian
-        coord_splines = []
-        for i, name in enumerate(self._coord_names):
-            spl = _smooth_series(
-                tp_nodes,
-                means[:, i],
-                sigma_of_mean[:, i],
-                s_user=self._s_user[name],
-            )
-            coord_splines.append(spl)
-
-        # Evaluate on the fine tp grid
-        track_xyz = numpy.column_stack(
-            [coord_splines[i](self._tp_grid) for i in range(3)]
-        )
-        track_vxvyvz = numpy.column_stack(
-            [coord_splines[i](self._tp_grid) for i in range(3, 6)]
+        # Fit smoothing spline per coord directly in galactocentric Cartesian,
+        # then evaluate on the fine tp grid.
+        track_fine = numpy.column_stack(
+            [
+                _smooth_series(
+                    tp_nodes,
+                    means[:, i],
+                    sigma_of_mean[:, i],
+                    s_user=self._s_user[i],
+                )(self._tp_grid)
+                for i in range(6)
+            ]
         )
 
         # Covariance: smooth per-entry directly in galactocentric Cartesian
@@ -294,50 +285,28 @@ class StreamTrack:
         else:
             self._cov_xyz = None
 
-        self._track_xyz = track_xyz
-        self._track_vxvyvz = track_vxvyvz
-        self._coord_splines = coord_splines
+        self._track_xyz = track_fine[:, 0:3]
+        self._track_vxvyvz = track_fine[:, 3:6]
         self._bin_counts = counts
-        self._bin_means = means
-        self._bin_covs = covs
 
         # Interpolating splines on the public fine-grid track (for evaluation)
         self._cart_splines = [
             interpolate.InterpolatedUnivariateSpline(
-                self._tp_grid, track_xyz[:, 0], k=3
-            ),
-            interpolate.InterpolatedUnivariateSpline(
-                self._tp_grid, track_xyz[:, 1], k=3
-            ),
-            interpolate.InterpolatedUnivariateSpline(
-                self._tp_grid, track_xyz[:, 2], k=3
-            ),
-            interpolate.InterpolatedUnivariateSpline(
-                self._tp_grid, track_vxvyvz[:, 0], k=3
-            ),
-            interpolate.InterpolatedUnivariateSpline(
-                self._tp_grid, track_vxvyvz[:, 1], k=3
-            ),
-            interpolate.InterpolatedUnivariateSpline(
-                self._tp_grid, track_vxvyvz[:, 2], k=3
-            ),
+                self._tp_grid, track_fine[:, i], k=3
+            )
+            for i in range(6)
         ]
 
     # -----------------------------------------------------------------
     # Assignment helpers
     # -----------------------------------------------------------------
-    def _assign_closest_on_track(self, xv_particles):
+    def _assign_closest_on_track(self):
         """Reassign each particle's tp to the closest point on the current
         track in galactocentric Cartesian position."""
-        R, vR, vT, z, vz, phi = xv_particles
-        x_p, y_p, z_p = coords.cyl_to_rect(R, phi, z)
-        # (ninterp, 3) track positions; (N, 3) particle positions
-        dx = x_p[:, None] - self._track_xyz[None, :, 0]
-        dy = y_p[:, None] - self._track_xyz[None, :, 1]
-        dz = z_p[:, None] - self._track_xyz[None, :, 2]
-        d2 = dx * dx + dy * dy + dz * dz
-        idx = numpy.argmin(d2, axis=1)
-        return self._tp_grid[idx]
+        # (N, 1, 3) - (1, M, 3) -> (N, M, 3); sum over last axis
+        diff = self._particles_cart[:, None, 0:3] - self._track_xyz[None, :, :]
+        d2 = numpy.einsum("nmk,nmk->nm", diff, diff)
+        return self._tp_grid[numpy.argmin(d2, axis=1)]
 
     # -----------------------------------------------------------------
     # Public evaluation
@@ -362,7 +331,7 @@ class StreamTrack:
     def _scale(self, val, kind):
         """Apply physical-unit scaling to ``val`` for a given coordinate
         ``kind`` (one of 'length', 'velocity', 'angle', 'degree', 'pm',
-        'vlos')."""
+        'vlos', 'kpc')."""
         if not self._physical:
             return val
         if kind == "length":
@@ -373,6 +342,8 @@ class StreamTrack:
             return val * (units.rad if _APY_UNITS else 1)
         if kind == "degree":
             return val * (units.deg if _APY_UNITS else 1)
+        if kind == "kpc":
+            return val * (units.kpc if _APY_UNITS else 1)
         # kind == "pm"
         return val * (units.mas / units.yr if _APY_UNITS else 1)
 
@@ -448,34 +419,31 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def _helio_xv(self, tp):
         """Compute heliocentric XYZ, vxvyvz at tp using ro/vo/zo/solarmotion."""
-        tp = numpy.atleast_1d(tp)
-        xyzvxyz = self._eval_cart(tp)  # (6, len) galactocentric Cartesian
-        Xgc, Ygc, Zgc = xyzvxyz[0], xyzvxyz[1], xyzvxyz[2]
-        vXgc, vYgc, vZgc = xyzvxyz[3], xyzvxyz[4], xyzvxyz[5]
-        # Convert galactocentric to heliocentric (in internal units scaled by ro/vo)
-        # Positions: kpc
-        Xgc_kpc = Xgc * self._ro
-        Ygc_kpc = Ygc * self._ro
-        Zgc_kpc = Zgc * self._ro
+        xyzvxyz = self._eval_cart(numpy.atleast_1d(tp))  # (6, len)
         zo_kpc = self._zo if self._zo is not None else 0.0
         xyz_helio = coords.galcenrect_to_XYZ(
-            Xgc_kpc, Ygc_kpc, Zgc_kpc, Xsun=self._ro, Zsun=zo_kpc
+            xyzvxyz[0] * self._ro,
+            xyzvxyz[1] * self._ro,
+            xyzvxyz[2] * self._ro,
+            Xsun=self._ro,
+            Zsun=zo_kpc,
         )
-        X = xyz_helio[..., 0]
-        Y = xyz_helio[..., 1]
-        Z = xyz_helio[..., 2]
-        # Velocities: km/s
-        vXgc_kms = vXgc * self._vo
-        vYgc_kms = vYgc * self._vo
-        vZgc_kms = vZgc * self._vo
-        vsun = self._get_vsun_kms()
         vxyz_helio = coords.galcenrect_to_vxvyvz(
-            vXgc_kms, vYgc_kms, vZgc_kms, vsun=vsun, Xsun=self._ro, Zsun=zo_kpc
+            xyzvxyz[3] * self._vo,
+            xyzvxyz[4] * self._vo,
+            xyzvxyz[5] * self._vo,
+            vsun=self._get_vsun_kms(),
+            Xsun=self._ro,
+            Zsun=zo_kpc,
         )
-        vX = vxyz_helio[..., 0]
-        vY = vxyz_helio[..., 1]
-        vZ = vxyz_helio[..., 2]
-        return X, Y, Z, vX, vY, vZ
+        return (
+            xyz_helio[..., 0],
+            xyz_helio[..., 1],
+            xyz_helio[..., 2],
+            vxyz_helio[..., 0],
+            vxyz_helio[..., 1],
+            vxyz_helio[..., 2],
+        )
 
     def _get_vsun_kms(self):
         sm = numpy.asarray(self._solarmotion, dtype=float)
@@ -519,10 +487,7 @@ class StreamTrack:
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        val = self._maybe_scalar(tp, lbd[:, 2])
-        if self._physical:
-            return val * (units.kpc if _APY_UNITS else 1)
-        return val
+        return self._scale(self._maybe_scalar(tp, lbd[:, 2]), "kpc")
 
     def pmra(self, tp):
         tp = self._parse_tp(tp)
@@ -598,7 +563,6 @@ class StreamTrack:
             self._vo = conversion.parse_velocity_kms(vo)
             self._voSet = True
         self._physical = True
-        return None
 
     def turn_physical_off(self):
         self._physical = False
