@@ -63,6 +63,13 @@ _labelDict = {
 class streamdf(df):
     """The DF of a tidal stream"""
 
+    # Note: streamdf's track machinery (_interpolatedObsTrack*, plotTrack,
+    # eigen-slerp'd covariance bands) is angle-parameterized and tightly
+    # coupled to action-angle transforms. A lighter-weight, more general
+    # representation exists in :class:`galpy.df.StreamTrack`. A future PR
+    # could refactor parts of the track interpolation and the covariance
+    # band plotting here onto StreamTrack as a shared backend.
+
     def __init__(
         self,
         sigv,
