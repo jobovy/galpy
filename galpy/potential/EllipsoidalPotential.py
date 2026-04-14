@@ -14,7 +14,7 @@ import numpy
 from scipy import integrate
 
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
-from .Potential import Potential, check_potential_inputs_not_arrays
+from .Potential import Potential
 
 
 class EllipsoidalPotential(Potential):
@@ -83,6 +83,7 @@ class EllipsoidalPotential(Potential):
         self._b2 = self._b**2.0
         self._c2 = self._c**2.0
         self._force_hash = None
+        self._2ndderiv_hash = None
         # Setup rotation
         self._setup_zvec_pa(zvec, pa)
         # Setup integration
@@ -131,13 +132,15 @@ class EllipsoidalPotential(Potential):
             self._glw *= 0.5
         return None
 
-    @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
-        if numpy.isinf(R):
-            y = 0.0
+        if numpy.ndim(R) == 0:
+            if numpy.isinf(R):
+                y = 0.0
+        else:
+            y = numpy.where(numpy.isinf(R), 0.0, y)
         if self._aligned:
             return self._evaluate_xyz(x, y, z)
         else:
@@ -157,114 +160,94 @@ class EllipsoidalPotential(Potential):
             )
         )
 
-    @check_potential_inputs_not_arrays
+    def _compute_forces(self, x, y, z):
+        """Compute and cache all three force components in the aligned frame"""
+        new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
+        if new_hash != self._force_hash:
+            if self._aligned:
+                xp, yp, zp = x, y, z
+            else:
+                xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
+                xp, yp, zp = xyzp[0], xyzp[1], xyzp[2]
+            prefac = -4.0 * numpy.pi * self._b * self._c
+            Fx, Fy, Fz = _forceInt_all(
+                xp,
+                yp,
+                zp,
+                lambda m: self._mdens(m),
+                self._b2,
+                self._c2,
+                glx=self._glx,
+                glw=self._glw,
+            )
+            self._cached_Fx = prefac * Fx
+            self._cached_Fy = prefac * Fy
+            self._cached_Fz = prefac * Fz
+            self._force_hash = new_hash
+
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
-        # Compute all rectangular forces
-        new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
-        if new_hash == self._force_hash:
-            Fx = self._cached_Fx
-            Fy = self._cached_Fy
-            Fz = self._cached_Fz
-        else:
-            if self._aligned:
-                xp, yp, zp = x, y, z
-            else:
-                xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-                xp, yp, zp = xyzp[0], xyzp[1], xyzp[2]
-            Fx = self._force_xyz(xp, yp, zp, 0)
-            Fy = self._force_xyz(xp, yp, zp, 1)
-            Fz = self._force_xyz(xp, yp, zp, 2)
-            self._force_hash = new_hash
-            self._cached_Fx = Fx
-            self._cached_Fy = Fy
-            self._cached_Fz = Fz
+        self._compute_forces(x, y, z)
+        Fx = self._cached_Fx
+        Fy = self._cached_Fy
         if not self._aligned:
-            Fxyz = numpy.dot(self._rot.T, numpy.array([Fx, Fy, Fz]))
+            Fxyz = numpy.dot(self._rot.T, numpy.array([Fx, Fy, self._cached_Fz]))
             Fx, Fy = Fxyz[0], Fxyz[1]
         return numpy.cos(phi) * Fx + numpy.sin(phi) * Fy
 
-    @check_potential_inputs_not_arrays
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
-        # Compute all rectangular forces
-        new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
-        if new_hash == self._force_hash:
-            Fx = self._cached_Fx
-            Fy = self._cached_Fy
-            Fz = self._cached_Fz
-        else:
-            if self._aligned:
-                xp, yp, zp = x, y, z
-            else:
-                xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-                xp, yp, zp = xyzp[0], xyzp[1], xyzp[2]
-            Fx = self._force_xyz(xp, yp, zp, 0)
-            Fy = self._force_xyz(xp, yp, zp, 1)
-            Fz = self._force_xyz(xp, yp, zp, 2)
-            self._force_hash = new_hash
-            self._cached_Fx = Fx
-            self._cached_Fy = Fy
-            self._cached_Fz = Fz
+        self._compute_forces(x, y, z)
+        Fx = self._cached_Fx
+        Fy = self._cached_Fy
         if not self._aligned:
-            Fxyz = numpy.dot(self._rot.T, numpy.array([Fx, Fy, Fz]))
+            Fxyz = numpy.dot(self._rot.T, numpy.array([Fx, Fy, self._cached_Fz]))
             Fx, Fy = Fxyz[0], Fxyz[1]
         return R * (-numpy.sin(phi) * Fx + numpy.cos(phi) * Fy)
 
-    @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
-        # Compute all rectangular forces
-        new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
-        if new_hash == self._force_hash:
-            Fx = self._cached_Fx
-            Fy = self._cached_Fy
-            Fz = self._cached_Fz
-        else:
-            if self._aligned:
-                xp, yp, zp = x, y, z
-            else:
-                xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-                xp, yp, zp = xyzp[0], xyzp[1], xyzp[2]
-            Fx = self._force_xyz(xp, yp, zp, 0)
-            Fy = self._force_xyz(xp, yp, zp, 1)
-            Fz = self._force_xyz(xp, yp, zp, 2)
-            self._force_hash = new_hash
-            self._cached_Fx = Fx
-            self._cached_Fy = Fy
-            self._cached_Fz = Fz
+        self._compute_forces(x, y, z)
+        Fz = self._cached_Fz
         if not self._aligned:
-            Fxyz = numpy.dot(self._rot.T, numpy.array([Fx, Fy, Fz]))
+            Fxyz = numpy.dot(
+                self._rot.T,
+                numpy.array([self._cached_Fx, self._cached_Fy, Fz]),
+            )
             Fz = Fxyz[2]
         return Fz
 
-    def _force_xyz(self, x, y, z, i):
-        """Evaluation of the i-th force component as a function of (x,y,z)"""
-        return (
-            -4.0
-            * numpy.pi
-            * self._b
-            * self._c
-            * _forceInt(
+    def _compute_2ndderivs(self, x, y, z):
+        """Compute and cache all six unique 2nd-derivative components in the
+        aligned frame"""
+        new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
+        if new_hash != self._2ndderiv_hash:
+            prefac = 4.0 * numpy.pi * self._b * self._c
+            xx, xy, xz, yy, yz, zz = _2ndDerivInt_all(
                 x,
                 y,
                 z,
                 lambda m: self._mdens(m),
+                lambda m: self._mdens_deriv(m),
                 self._b2,
                 self._c2,
-                i,
                 glx=self._glx,
                 glw=self._glw,
             )
-        )
+            self._cached_2nd_xx = prefac * xx
+            self._cached_2nd_xy = prefac * xy
+            self._cached_2nd_xz = prefac * xz
+            self._cached_2nd_yy = prefac * yy
+            self._cached_2nd_yz = prefac * yz
+            self._cached_2nd_zz = prefac * zz
+            self._2ndderiv_hash = new_hash
 
-    @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
@@ -273,73 +256,76 @@ class EllipsoidalPotential(Potential):
             raise NotImplementedError(
                 "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead"
             )
-        phixx = self._2ndderiv_xyz(x, y, z, 0, 0)
-        phixy = self._2ndderiv_xyz(x, y, z, 0, 1)
-        phiyy = self._2ndderiv_xyz(x, y, z, 1, 1)
+        self._compute_2ndderivs(x, y, z)
+        phixx = self._cached_2nd_xx
+        phixy = self._cached_2nd_xy
+        phiyy = self._cached_2nd_yy
         return (
             numpy.cos(phi) ** 2.0 * phixx
             + numpy.sin(phi) ** 2.0 * phiyy
             + 2.0 * numpy.cos(phi) * numpy.sin(phi) * phixy
         )
 
-    @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if not self._aligned:
             raise NotImplementedError(
-                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)"
+                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead"
             )
-        phixz = self._2ndderiv_xyz(x, y, z, 0, 2)
-        phiyz = self._2ndderiv_xyz(x, y, z, 1, 2)
+        self._compute_2ndderivs(x, y, z)
+        phixz = self._cached_2nd_xz
+        phiyz = self._cached_2nd_yz
         return numpy.cos(phi) * phixz + numpy.sin(phi) * phiyz
 
-    @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if not self._aligned:
             raise NotImplementedError(
-                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)"
+                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead"
             )
-        return self._2ndderiv_xyz(x, y, z, 2, 2)
+        self._compute_2ndderivs(x, y, z)
+        return self._cached_2nd_zz
 
-    @check_potential_inputs_not_arrays
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if not self._aligned:
             raise NotImplementedError(
-                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)"
+                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead"
             )
-        Fx = self._force_xyz(x, y, z, 0)
-        Fy = self._force_xyz(x, y, z, 1)
-        phixx = self._2ndderiv_xyz(x, y, z, 0, 0)
-        phixy = self._2ndderiv_xyz(x, y, z, 0, 1)
-        phiyy = self._2ndderiv_xyz(x, y, z, 1, 1)
+        self._compute_forces(x, y, z)
+        Fx = self._cached_Fx
+        Fy = self._cached_Fy
+        self._compute_2ndderivs(x, y, z)
+        phixx = self._cached_2nd_xx
+        phixy = self._cached_2nd_xy
+        phiyy = self._cached_2nd_yy
         return R**2.0 * (
             numpy.sin(phi) ** 2.0 * phixx
             + numpy.cos(phi) ** 2.0 * phiyy
             - 2.0 * numpy.cos(phi) * numpy.sin(phi) * phixy
         ) + R * (numpy.cos(phi) * Fx + numpy.sin(phi) * Fy)
 
-    @check_potential_inputs_not_arrays
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if not self._aligned:
             raise NotImplementedError(
-                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)"
+                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead"
             )
-        Fx = self._force_xyz(x, y, z, 0)
-        Fy = self._force_xyz(x, y, z, 1)
-        phixx = self._2ndderiv_xyz(x, y, z, 0, 0)
-        phixy = self._2ndderiv_xyz(x, y, z, 0, 1)
-        phiyy = self._2ndderiv_xyz(x, y, z, 1, 1)
+        self._compute_forces(x, y, z)
+        Fx = self._cached_Fx
+        Fy = self._cached_Fy
+        self._compute_2ndderivs(x, y, z)
+        phixx = self._cached_2nd_xx
+        phixy = self._cached_2nd_xy
+        phiyy = self._cached_2nd_yy
         return (
             R * numpy.cos(phi) * numpy.sin(phi) * (phiyy - phixx)
             + R * numpy.cos(2.0 * phi) * phixy
@@ -347,43 +333,19 @@ class EllipsoidalPotential(Potential):
             - numpy.cos(phi) * Fy
         )
 
-    @check_potential_inputs_not_arrays
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if not self._aligned:
             raise NotImplementedError(
-                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)"
+                "2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead"
             )
-        phixz = self._2ndderiv_xyz(x, y, z, 0, 2)
-        phiyz = self._2ndderiv_xyz(x, y, z, 1, 2)
+        self._compute_2ndderivs(x, y, z)
+        phixz = self._cached_2nd_xz
+        phiyz = self._cached_2nd_yz
         return R * (numpy.cos(phi) * phiyz - numpy.sin(phi) * phixz)
 
-    def _2ndderiv_xyz(self, x, y, z, i, j):
-        """General 2nd derivative of the potential as a function of (x,y,z)
-        in the aligned coordinate frame"""
-        return (
-            4.0
-            * numpy.pi
-            * self._b
-            * self._c
-            * _2ndDerivInt(
-                x,
-                y,
-                z,
-                lambda m: self._mdens(m),
-                lambda m: self._mdens_deriv(m),
-                self._b2,
-                self._c2,
-                i,
-                j,
-                glx=self._glx,
-                glw=self._glw,
-            )
-        )
-
-    @check_potential_inputs_not_arrays
     def _dens(self, R, z, phi=0.0, t=0.0):
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if self._aligned:
@@ -420,12 +382,22 @@ def _potInt(x, y, z, psi, b2, c2, glx=None, glw=None):
 
     if glx is None:
         return integrate.quad(integrand, 0.0, 1.0)[0]
-    else:
-        return numpy.sum(glw * integrand(glx))
+    result = 0.0
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    for k in range(len(glx)):
+        s = glx[k]
+        t = 1.0 / s**2 - 1.0
+        denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
+        m = numpy.sqrt(x2 / (1.0 + t) + y2 / (b2 + t) + z2 / (c2 + t))
+        result += glw[k] * psi(m) / denom
+    return result
 
 
-def _forceInt(x, y, z, dens, b2, c2, i, glx=None, glw=None):
-    """Integral that gives the force in x,y,z"""
+def _forceInt(x, y, z, dens, b2, c2, i):
+    """Force integral fallback using scipy.integrate.quad (scalar inputs only).
+    Used by _forceInt_all when glorder is None."""
 
     def integrand(s):
         t = 1 / s**2.0 - 1.0
@@ -439,14 +411,40 @@ def _forceInt(x, y, z, dens, b2, c2, i, glx=None, glw=None):
             / numpy.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
         )
 
+    return integrate.quad(integrand, 0.0, 1.0)[0]
+
+
+def _forceInt_all(x, y, z, dens, b2, c2, glx=None, glw=None):
+    """Compute all three force integral components in a single pass."""
     if glx is None:
-        return integrate.quad(integrand, 0.0, 1.0)[0]
-    else:
-        return numpy.sum(glw * integrand(glx))
+        return (
+            _forceInt(x, y, z, dens, b2, c2, 0),
+            _forceInt(x, y, z, dens, b2, c2, 1),
+            _forceInt(x, y, z, dens, b2, c2, 2),
+        )
+    Fx = Fy = Fz = 0.0
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    for k in range(len(glx)):
+        s = glx[k]
+        w = glw[k]
+        t = 1.0 / s**2 - 1.0
+        inv1t = 1.0 / (1.0 + t)
+        invb2t = 1.0 / (b2 + t)
+        invc2t = 1.0 / (c2 + t)
+        m = numpy.sqrt(x2 * inv1t + y2 * invb2t + z2 * invc2t)
+        denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
+        common = w * dens(m) / denom
+        Fx += common * x * inv1t
+        Fy += common * y * invb2t
+        Fz += common * z * invc2t
+    return Fx, Fy, Fz
 
 
-def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j, glx=None, glw=None):
-    """Integral that gives the 2nd derivative of the potential in x,y,z"""
+def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j):
+    """2nd-derivative integral fallback using scipy.integrate.quad (scalar inputs
+    only). Used by _2ndDerivInt_all when glorder is None."""
 
     def integrand(s):
         t = 1 / s**2.0 - 1.0
@@ -473,7 +471,47 @@ def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j, glx=None, glw=None):
             )
         ) / numpy.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
 
+    return integrate.quad(integrand, 0.0, 1.0)[0]
+
+
+def _2ndDerivInt_all(x, y, z, dens, densDeriv, b2, c2, glx=None, glw=None):
+    """Compute all six unique 2nd derivative integrals in a single pass.
+    Returns (xx, xy, xz, yy, yz, zz)."""
     if glx is None:
-        return integrate.quad(integrand, 0.0, 1.0)[0]
-    else:
-        return numpy.sum(glw * integrand(glx))
+        return (
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 0, 0),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 0, 1),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 0, 2),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 1, 1),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 1, 2),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 2, 2),
+        )
+    xx = xy = xz = yy = yz = zz = 0.0
+    x2 = x**2
+    y2 = y**2
+    z2 = z**2
+    for k in range(len(glx)):
+        s = glx[k]
+        w = glw[k]
+        t = 1.0 / s**2 - 1.0
+        inv1t = 1.0 / (1.0 + t)
+        invb2t = 1.0 / (b2 + t)
+        invc2t = 1.0 / (c2 + t)
+        m = numpy.sqrt(x2 * inv1t + y2 * invb2t + z2 * invc2t)
+        denom = numpy.sqrt((1.0 + (b2 - 1.0) * s**2) * (1.0 + (c2 - 1.0) * s**2))
+        w_over_denom = w / denom
+        dens_val = dens(m)
+        dderiv_over_m = densDeriv(m) / m
+        xi = x * inv1t
+        yi = y * invb2t
+        zi = z * invc2t
+        dd_xi = w_over_denom * dderiv_over_m * xi
+        dd_yi = w_over_denom * dderiv_over_m * yi
+        dd_zi = w_over_denom * dderiv_over_m * zi
+        xx += dd_xi * xi + w_over_denom * dens_val * inv1t
+        xy += dd_xi * yi
+        xz += dd_xi * zi
+        yy += dd_yi * yi + w_over_denom * dens_val * invb2t
+        yz += dd_yi * zi
+        zz += dd_zi * zi + w_over_denom * dens_val * invc2t
+    return xx, xy, xz, yy, yz, zz

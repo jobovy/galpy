@@ -1864,19 +1864,12 @@ def test_potential_array_input():
         "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("FerrersPotential")
-    rmpots.append("PerfectEllipsoidPotential")
-    rmpots.append("TriaxialHernquistPotential")
-    rmpots.append("TriaxialJaffePotential")
-    rmpots.append("TriaxialNFWPotential")
-    rmpots.append("TwoPowerTriaxialPotential")
     rmpots.append("DoubleExponentialDiskPotential")
     rmpots.append("RazorThinExponentialDiskPotential")
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
     rmpots.append("AnySphericalPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("HomogeneousSpherePotential")
-    rmpots.append("TriaxialGaussianPotential")
-    rmpots.append("PowerTriaxialPotential")
     # These cannot be setup without arguments
     rmpots.append("MovingObjectPotential")
     rmpots.append("SnapshotRZPotential")
@@ -2055,19 +2048,12 @@ def test_toVertical_array():
         "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("FerrersPotential")
-    rmpots.append("PerfectEllipsoidPotential")
-    rmpots.append("TriaxialHernquistPotential")
-    rmpots.append("TriaxialJaffePotential")
-    rmpots.append("TriaxialNFWPotential")
-    rmpots.append("TwoPowerTriaxialPotential")
     rmpots.append("DoubleExponentialDiskPotential")
     rmpots.append("RazorThinExponentialDiskPotential")
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
     rmpots.append("AnySphericalPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("HomogeneousSpherePotential")
-    rmpots.append("TriaxialGaussianPotential")
-    rmpots.append("PowerTriaxialPotential")
     # These cannot be setup without arguments
     rmpots.append("MovingObjectPotential")
     rmpots.append("SnapshotRZPotential")
@@ -2424,7 +2410,6 @@ def test_potential_at_infinity():
         # Also for arrays
         if (
             p == "HomogeneousSpherePotential"
-            or p == "PerfectEllipsoidPotential"
             or p == "SphericalShellPotential"
             or p == "AnyAxisymmetricRazorThinDiskPotential"
             or p == "AnySphericalPotential"
@@ -2433,9 +2418,7 @@ def test_potential_at_infinity():
             or p == "mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination"
             or p == "mockRotatedTiltedOffsetMWP14WrapperPotential"
             or p == "mockOffsetMWP14WrapperPotential"
-            or "riaxial" in p
-            or "oblate" in p
-            or "prolate" in p
+            or "noGL" in p  # EllipsoidalPotential using scipy.quad: no array support
         ):
             continue
         assert not numpy.any(
@@ -4868,6 +4851,27 @@ def test_NFW_virialsetup_wrtcrit():
         )
         < 10.0**-6.0
     ), "NFWPotential virial setup's virial mass does not work"
+    return None
+
+
+def test_EllipsoidalPotential_evaluate_array_inf():
+    tp = potential.PerfectEllipsoidPotential(normalize=1.0, b=0.7, c=0.5)
+    val_inf = tp(numpy.inf, 0.0, use_physical=False)
+    R_arr = numpy.array([numpy.inf, 1.0])
+    z_arr = numpy.array([0.0, 0.1])
+    val_arr = tp(R_arr, z_arr, use_physical=False)
+    assert numpy.fabs(val_inf - val_arr[0]) < 1e-10, (
+        "Scalar and array inf potential results disagree"
+    )
+    tp2 = potential.PerfectEllipsoidPotential(
+        normalize=1.0, b=0.7, c=0.5, zvec=[0.0, numpy.sin(0.3), numpy.cos(0.3)]
+    )
+    R_fin = numpy.array([0.5, 1.0, 2.0])
+    z_fin = numpy.array([0.1, 0.2, 0.3])
+    val_na = tp2(R_fin, z_fin, phi=0.5, use_physical=False)
+    assert not numpy.any(numpy.isnan(val_na)), (
+        "Non-aligned array potential evaluation returned NaN"
+    )
     return None
 
 
