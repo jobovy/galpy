@@ -78,26 +78,294 @@ Give ``galpy`` a try in the interactive ``IPython``-like shell below!
 Quick-start guide
 -----------------
 
+.. grid:: 1 2 3 4
+   :gutter: 4
+
+   .. grid-item-card:: Installation
+      :link: installation
+      :link-type: doc
+
+      Install galpy on Linux, Mac, or Windows via pip or conda,
+      including optional C extensions and configuration. Development installation
+      from source and development setup.
+
+   .. grid-item-card:: What's New
+      :link: whatsnew
+      :link-type: doc
+
+      High-level release notes for all galpy versions.
+
+   .. grid-item-card:: Rotation Curves, Units, and First Orbits
+      :img-top: images/tutorials/getting_started_rotation_curves_and_units.png
+      :link: tutorials/getting_started/rotation_curves_and_units
+      :link-type: doc
+
+      Set up basic potentials, plot rotation curves, understand
+      galpy's natural and physical unit systems, and integrate
+      a simple orbit.
+
+Potentials
+^^^^^^^^^^
+
+.. grid:: 1 2 3 4
+   :gutter: 4
+
+   .. grid-item-card:: Introduction to Potentials
+      :img-top: images/tutorials/potentials_introduction.png
+      :link: tutorials/potentials/introduction
+      :link-type: doc
+
+      Evaluate potentials, forces, and densities. Combine potentials,
+      plot rotation curves and potential contours, compute orbital
+      frequencies and Lindblad resonances.
+
+   .. grid-item-card:: Milky Way-like Potentials
+      :img-top: images/tutorials/potentials_milky_way_potentials.png
+      :link: tutorials/potentials/milky_way_potentials
+      :link-type: doc
+
+      Use built-in Milky Way potentials: MWPotential2014, McMillan17,
+      Irrgang13, Cautun20, DehnenBinney98. Add a central black hole
+      or dynamical friction.
+
+   .. grid-item-card:: Potential Wrappers
+      :img-top: images/tutorials/potentials_wrappers.png
+      :link: tutorials/potentials/wrappers
+      :link-type: doc
+
+      Modify potentials with time-dependent amplitudes, solid-body
+      rotation, tilting, and offsetting using wrapper classes.
+
+   .. grid-item-card:: SCF and Multipole Expansions
+      :img-top: images/tutorials/potentials_scf_and_multipole.png
+      :link: tutorials/potentials/scf_and_multipole
+      :link-type: doc
+
+      Represent arbitrary density distributions using basis-function
+      (SCF) or multipole expansions, including time-dependent and
+      disky potentials.
+
+   .. grid-item-card:: Dissipative Forces
+      :img-top: images/tutorials/potentials_dissipative.png
+      :link: tutorials/potentials/dissipative
+      :link-type: doc
+
+      Use velocity-dependent forces like Chandrasekhar dynamical
+      friction and non-inertial frame forces for orbit integration.
+      Includes the Schwarzschild precession of S2 around Sgr A*.
+
+   .. grid-item-card:: N-body Simulation Potentials
+      :img-top: images/tutorials/potentials_nbody_snapshots.png
+      :link: tutorials/potentials/nbody_snapshots
+      :link-type: doc
+
+      Use frozen N-body simulation potentials in galpy
+      with pynbody for orbits, action-angle coordinates, and analysis.
+
+   .. grid-item-card:: Using Potentials in Other Codes
+      :img-top: images/potential-amuse-example.png
+      :link: tutorials/potentials/other_codes
+      :link-type: doc
+
+      Export galpy potentials to NEMO, AMUSE, AGAMA, and gala
+      for use in other simulation frameworks.
+
+Orbits
+^^^^^^
+
+.. grid:: 1 2 3 4
+   :gutter: 4
+
+   .. grid-item-card:: Orbit Initialization
+      :img-top: images/tutorials/orbits_initialization.png
+      :link: tutorials/orbits/initialization
+      :link-type: doc
+
+      Initialize orbits in cylindrical coordinates, with physical
+      units, from observed coordinates (RA/Dec, Galactic), or from
+      astropy SkyCoord objects.
+
+   .. grid-item-card:: Multiple Orbits
+      :img-top: images/tutorials/orbits_multiple_orbits.png
+      :link: tutorials/orbits/multiple_orbits
+      :link-type: doc
+
+      Work with multiple orbits at once: array and SkyCoord
+      initialization, slicing, reshaping, and parallel integration.
+
+   .. grid-item-card:: Orbits of Known Objects
+      :img-top: images/tutorials/orbits_known_objects.png
+      :link: tutorials/orbits/known_objects
+      :link-type: doc
+
+      Initialize orbits from object names using built-in catalogs or
+      SIMBAD. Load collections of MW globular clusters, satellite
+      galaxies, or the solar system.
+
+   .. grid-item-card:: Integration and Plotting
+      :img-top: images/tutorials/orbits_integration_and_plotting.png
+      :link: tutorials/orbits/integration_and_plotting
+      :link-type: doc
+
+      Integrate orbits, display various projections, access orbital
+      quantities, check energy conservation, use non-inertial frames,
+      and compute surfaces of section.
+
+   .. grid-item-card:: Fast Orbit Characterization
+      :img-top: images/tutorials/orbits_fast_characterization.png
+      :link: tutorials/orbits/fast_characterization
+      :link-type: doc
+
+      Quickly compute eccentricity, peri/apocenter, and zmax using
+      the Staeckel approximation without orbit integration. Also compute actions!
+
+   .. grid-item-card:: Orbit Examples
+      :img-top: images/tutorials/orbits_examples.png
+      :link: tutorials/orbits/examples
+      :link-type: doc
+
+      Detailed examples: thick-disk eccentricity distribution,
+      LMC orbit with dynamical friction,
+      and barycentric acceleration from the LMC.
+
+Action-Angle Coordinates
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. grid:: 1 2 3 4
+   :gutter: 4
+
+   .. grid-item-card:: Introduction to Action-Angle Coordinates
+      :img-top: images/tutorials/action_angle_introduction.png
+      :link: tutorials/action_angle/introduction
+      :link-type: doc
+
+      Overview of action-angle variables, using the Orbit interface,
+      and calculating actions for isochrone and spherical potentials.
+
+   .. grid-item-card:: Staeckel Approximation
+      :img-top: images/tutorials/action_angle_staeckel.png
+      :link: tutorials/action_angle/staeckel
+      :link-type: doc
+
+      The most accurate general method for computing actions in
+      axisymmetric potentials, with grid-based interpolation for speed.
+      Includes a Gaia example showing Lindblad resonances.
+
+   .. grid-item-card:: Adiabatic Approximation
+      :img-top: images/tutorials/action_angle_adiabatic.png
+      :link: tutorials/action_angle/adiabatic
+      :link-type: doc
+
+      Fast action calculation by separating radial and vertical
+      motions, best for thin-disk orbits.
+
+   .. grid-item-card:: Orbit Integration-based Method
+      :img-top: images/tutorials/action_angle_isochroneapprox.png
+      :link: tutorials/action_angle/isochroneapprox
+      :link-type: doc
+
+      General action-angle calculation by integrating the orbit and
+      using a best-fit isochrone potential.
+
+   .. grid-item-card:: 1D Actions and Inverse Transformations
+      :img-top: images/tutorials/action_angle_vertical_and_inverse.png
+      :link: tutorials/action_angle/vertical_and_inverse
+      :link-type: doc
+
+      One-dimensional action-angle coordinates for harmonic oscillators
+      and vertical oscillations, and their inverse transformations.
+
+   .. grid-item-card:: Inverse Transformations (TorusMapping)
+      :img-top: images/tutorials/action_angle_torus.png
+      :link: tutorials/action_angle/torus
+      :link-type: doc
+
+      Compute phase-space coordinates from given actions and angles
+      using the Torus Mapper.
+
+
+Distribution Functions
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. grid:: 1 2 3 4
+   :gutter: 4
+
+   .. grid-item-card:: Two-dimensional Disk DFs
+      :img-top: images/tutorials/distribution_functions_disk_df_2d.png
+      :link: tutorials/distribution_functions/disk_df_2d
+      :link-type: doc
+
+      Dehnen, Shu, and Schwarzschild distribution functions for
+      razor-thin disks: moments, asymmetric drift, Oort constants,
+      sampling, and non-axisymmetric evolution.
+
+   .. grid-item-card:: Three-dimensional Disk DFs
+      :img-top: images/tutorials/distribution_functions_disk_df_3d.png
+      :link: tutorials/distribution_functions/disk_df_3d
+      :link-type: doc
+
+      Quasi-isothermal distribution function for 3D disk populations
+      using action-angle variables: moments, velocity ellipsoid tilt,
+      and velocity sampling.
+
+   .. grid-item-card:: Spherical DFs
+      :img-top: images/tutorials/distribution_functions_spherical_dfs.png
+      :link: tutorials/distribution_functions/spherical_dfs
+      :link-type: doc
+
+      Isotropic and anisotropic distribution functions for spherical
+      systems: Hernquist, NFW, King, Plummer, Power-law, and general models.
+
+Tidal Streams
+^^^^^^^^^^^^^
+
+.. grid:: 1 2 3 4
+   :gutter: 4
+
+   .. grid-item-card:: Stream Modeling with streamdf
+      :img-top: images/tutorials/streams_streamdf.png
+      :link: tutorials/streams/streamdf
+      :link-type: doc
+
+      Model tidal streams in action-angle coordinates: predict stream
+      tracks, compute densities, sample mock data, and evaluate the
+      full phase-space PDF. And model gaps.
+
+   .. grid-item-card:: Particle-spray with streamspraydf
+      :img-top: images/tutorials/streams_streamspraydf.png
+      :link: tutorials/streams/streamspraydf
+      :link-type: doc
+
+      Generate tidal streams using particle-spray techniques with
+      chen24spraydf and fardal15spraydf.
+
+Extending galpy
+^^^^^^^^^^^^^^^
+
+.. grid:: 1 2 3 4
+   :gutter: 4
+
+   .. grid-item-card:: New Potentials in Python
+      :img-top: images/tutorials/extending_new_potential_python.png
+      :link: tutorials/extending/new_potential_python
+      :link-type: doc
+
+      Define custom potential classes and dissipative forces in Python
+      by implementing force and potential evaluation methods, with full
+      support for orbit integration and physical units.
+
+   .. grid-item-card:: New Potentials in C
+      :link: tutorials/extending/new_potential_c
+      :link-type: doc
+
+      Add C implementations of potentials for fast orbit integration
+      and action-angle calculations.
+
 .. toctree::
-   :maxdepth: 2
+   :hidden:
 
    installation.rst
-
    whatsnew.rst
-
-   getting_started.rst
-
-   potential.rst
-
-   orbit.rst
-
-   basic_df.rst
-
-   actionAngle.rst
-
-   diskdf.rst
-
-   streamdf.rst
 
 Library reference
 -----------------

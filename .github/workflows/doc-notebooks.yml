@@ -1,0 +1,92 @@
+name: Validate documentation notebooks
+
+on:
+  push:
+    paths:
+      - '**'
+      - '!*'
+      - '*.py'
+      - '*.c'
+      - '*.cpp'
+      - '*.h'
+      - '!doc/**'
+      - 'doc/source/tutorials/**/*.ipynb'
+      - '!.github/**'
+      - '.github/workflows/notebooks.yml'
+  pull_request:
+    paths:
+      - '**'
+      - '!doc/**'
+      - 'doc/source/tutorials/**/*.ipynb'
+
+jobs:
+  run-notebooks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '${{ matrix.python-version }}'
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgsl-dev
+      - name: Clone Torus code for actionAngleTorus
+        run: |
+          git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+          cd galpy/actionAngle/actionAngleTorus_c_ext/torus
+          git checkout galpy
+          cd -
+      - name: Install galpy and notebook dependencies
+        run: |
+          pip install --upgrade pip
+          pip install ".[docs]"
+          pip install jupyter nbconvert nbformat papermill astropy astroquery numexpr pynbody rebound jax jaxlib
+      - name: Cache pynbody test snapshot
+        id: cache-snapshot
+        uses: actions/cache@v4
+        with:
+          path: doc/source/tutorials/potentials/gasoline_ahf
+          key: pynbody-g15784-v2
+      - name: Download pynbody test snapshot
+        if: steps.cache-snapshot.outputs.cache-hit != 'true'
+        run: |
+          cd doc/source/tutorials/potentials
+          curl -L -o gasoline.tar.gz "https://zenodo.org/records/12687409/files/gasoline.tar.gz?download=1"
+          tar -xzf gasoline.tar.gz gasoline_ahf/
+          rm gasoline.tar.gz
+      - name: Strip notebook outputs
+        run: |
+          for nb in $(find doc/source/tutorials -name '*.ipynb'); do
+            jupyter nbconvert --clear-output --inplace "$nb"
+          done
+      - name: Run all tutorial notebooks
+        run: |
+          failed_nbs=()
+          outdir=$(mktemp -d)
+          for nb in $(find doc/source/tutorials -name '*.ipynb' | sort); do
+            echo "::group::Running $nb"
+            outname=$(basename "$nb")
+            nbdir=$(dirname "$nb")
+            if papermill --request-save-on-cell-execute --log-output \
+                --cwd "$nbdir" "$nb" "$outdir/$outname"; then
+              echo "PASSED: $nb"
+            else
+              echo "::error file=$nb::FAILED: $nb"
+              failed_nbs+=("$nb")
+            fi
+            echo "::endgroup::"
+          done
+          rm -rf "$outdir"
+          if [ "${#failed_nbs[@]}" -gt 0 ]; then
+            echo "::error::The following notebooks failed execution:"
+            for nb in "${failed_nbs[@]}"; do
+              echo "::error file=$nb::$nb"
+            done
+            exit 1
+          fi
