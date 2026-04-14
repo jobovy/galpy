@@ -352,6 +352,7 @@ General instance routines
    :maxdepth: 1
 
    sample <streamspraydfsample.rst>
+   streamTrack <streamspraydfstreamtrack.rst>
 
 Specific particle-spray models
 +++++++++++++++++++++++++++++++
@@ -361,3 +362,11 @@ Specific particle-spray models
 
    Chen et al. (2024) <streamspraydfchen24.rst>
    Fardal et al. (2015) <streamspraydffardal15.rst>
+
+Smooth stream-track object
++++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 1
+
+   StreamTrack <streamtrack.rst>
