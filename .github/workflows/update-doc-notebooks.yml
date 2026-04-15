@@ -34,32 +34,69 @@ jobs:
         # Fails the workflow (and emails the author of this file) if the most
         # recent completed run of either workflow on the main branch did not
         # succeed, so we don't update notebook outputs from a broken main.
-        # Skipped when no PR would be opened anyway (pull_request trigger for
-        # testing this workflow, or workflow_dispatch with dry_run=true).
+        # Exception: test-doc-notebooks.yml is allowed to have failed if the
+        # ONLY notebooks that failed are listed in TOLERATED_FLAKY_NOTEBOOKS —
+        # notebooks known to hit transient upstream services (e.g. the Gaia
+        # archive returning HTTP 5xx). In that case the update proceeds and
+        # those notebooks are restored from HEAD later in the job, with the
+        # skip called out in the PR body.
+        # Skipped entirely when no PR would be opened anyway (pull_request
+        # trigger for testing this workflow, or workflow_dispatch dry_run).
         if: >-
           github.event_name != 'pull_request' &&
           (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOLERATED_FLAKY_NOTEBOOKS: |
+            doc/source/tutorials/action_angle/staeckel.ipynb
         run: |
+          tolerated=$(printf '%s\n' "$TOLERATED_FLAKY_NOTEBOOKS" | sed '/^$/d' | sort -u)
           failed=0
           for wf in build.yml test-doc-notebooks.yml; do
-            conclusion=$(gh run list \
+            run=$(gh run list \
               --workflow "$wf" \
               --branch main \
               --status completed \
               --limit 1 \
-              --json conclusion \
-              --jq '.[0].conclusion')
-            if [ -z "$conclusion" ]; then
+              --json databaseId,conclusion \
+              --jq '.[0]')
+            if [ -z "$run" ] || [ "$run" = "null" ]; then
               echo "::error::No completed main-branch run found for $wf"
               failed=1
-            elif [ "$conclusion" != "success" ]; then
-              echo "::error::Latest completed main run of $wf ended with conclusion=$conclusion"
-              failed=1
-            else
-              echo "$wf: latest main run succeeded"
+              continue
             fi
+            run_id=$(printf '%s' "$run" | jq -r '.databaseId')
+            conclusion=$(printf '%s' "$run" | jq -r '.conclusion')
+            if [ "$conclusion" = "success" ]; then
+              echo "$wf: latest main run (#$run_id) succeeded"
+              continue
+            fi
+            if [ "$wf" = "test-doc-notebooks.yml" ]; then
+              failed_nbs=$(gh run view "$run_id" --log-failed 2>/dev/null \
+                | grep -oE 'FAILED: doc/source/tutorials/[^[:space:]]+\.ipynb' \
+                | awk '{print $2}' | sort -u)
+              untolerated=""
+              while IFS= read -r nb; do
+                [ -z "$nb" ] && continue
+                if ! printf '%s\n' "$tolerated" | grep -qxF "$nb"; then
+                  untolerated="${untolerated}${nb}"$'\n'
+                fi
+              done <<<"$failed_nbs"
+              if [ -n "$failed_nbs" ] && [ -z "$untolerated" ]; then
+                echo "$wf: latest main run (#$run_id) failed, but only on tolerated flaky notebooks:"
+                printf '%s\n' "$failed_nbs" | sed 's/^/  - /'
+                echo "  → proceeding; these are known to hit transient upstream services."
+                continue
+              fi
+              echo "::error::Latest completed main run of $wf (#$run_id) ended with conclusion=$conclusion"
+              if [ -n "$untolerated" ]; then
+                echo "::error::Non-tolerated failed notebooks:"
+                printf '%s' "$untolerated" | sed 's/^/  - /'
+              fi
+            else
+              echo "::error::Latest completed main run of $wf (#$run_id) ended with conclusion=$conclusion"
+            fi
+            failed=1
           done
           exit $failed
       - name: Set up Python
