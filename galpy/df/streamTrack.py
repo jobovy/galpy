@@ -266,55 +266,42 @@ class StreamTrack:
         return numpy.column_stack([spl(tp) for spl in self._prog_splines])
 
     def _fit(self, tp_assign):
-        """Bin per-particle offsets-from-progenitor by tp_assign, smooth the
-        bin-means (plus optionally bin-covs), and reconstruct the public
-        track by adding the smoothed offsets back to the progenitor orbit.
-        Smoothing offsets (rather than raw positions) keeps the smoothed
-        signal small and well-behaved regardless of orbital phase."""
-        # Offsets = particle - progenitor(tp_i). Small by construction for
-        # particles close to the orbit.
-        prog_at_particles = self._prog_at(tp_assign)
-        offsets = self._particles_cart - prog_at_particles  # (N, 6)
+        """Fit the smooth track WITHOUT binning: one cubic smoothing spline
+        per coordinate on all N particles' (tp_i, offset_i) pairs. Covariance
+        comes from smoothing splines on residual outer-products."""
+        order = numpy.argsort(tp_assign)
+        tp_sorted = tp_assign[order]
+        # De-duplicate tp values (UnivariateSpline requires strictly-sorted
+        # x): nudge ties by a tiny fraction of the tp_grid span.
+        if numpy.any(numpy.diff(tp_sorted) == 0):
+            span = float(self._tp_grid[-1] - self._tp_grid[0])
+            tp_sorted = tp_sorted + 1e-9 * span * numpy.arange(len(tp_sorted))
+        offsets_sorted = self._particles_cart[order] - self._prog_at(tp_sorted)
 
-        means, covs, counts = _bin_by_tp(tp_assign, offsets, self._tp_nodes)
-        with numpy.errstate(invalid="ignore"):
-            per_coord_sigma = numpy.sqrt(numpy.diagonal(covs, axis1=1, axis2=2))
-            sigma_of_mean = per_coord_sigma / numpy.sqrt(
-                numpy.maximum(counts[:, None], 1)
-            )
-            sigma_of_mean = numpy.where(counts[:, None] > 1, sigma_of_mean, numpy.nan)
+        def _fit_one(y, s_user):
+            if s_user is None:
+                dy = numpy.diff(y)
+                sigma2 = 0.5 * numpy.mean(dy * dy)
+                s_eff = len(y) * sigma2
+            else:
+                s_eff = float(s_user)
+            return interpolate.UnivariateSpline(tp_sorted, y, s=s_eff, k=3)
 
-        # Smooth per-coord offset. Evaluate on fine tp grid.
-        offset_splines = [
-            _smooth_series(
-                self._tp_nodes,
-                means[:, i],
-                sigma_of_mean[:, i],
-                s_user=self._s_user[i],
-            )
-            for i in range(6)
+        mean_splines = [
+            _fit_one(offsets_sorted[:, i], self._s_user[i]) for i in range(6)
         ]
-        offset_fine = numpy.column_stack([spl(self._tp_grid) for spl in offset_splines])
+        offset_fine = numpy.column_stack([spl(self._tp_grid) for spl in mean_splines])
+        track_fine = self._prog_at(self._tp_grid) + offset_fine
 
-        # Add back the progenitor's phase space at each tp_grid point.
-        prog_on_grid = self._prog_at(self._tp_grid)
-        track_fine = prog_on_grid + offset_fine
-
-        # Covariance: smooth componentwise in the offset frame (≡ Cartesian
-        # offset from progenitor). Errors scale as sqrt((C_aa*C_bb+C_ab^2)/k).
         if self._order >= 2:
+            offset_at_particles = numpy.column_stack(
+                [mean_splines[i](tp_sorted) for i in range(6)]
+            )
+            resid = offsets_sorted - offset_at_particles
             cov_fine = numpy.zeros((self._ninterp, 6, 6))
             for a in range(6):
                 for b in range(a, 6):
-                    vals = covs[:, a, b]
-                    diag_a = per_coord_sigma[:, a] ** 2
-                    diag_b = per_coord_sigma[:, b] ** 2
-                    with numpy.errstate(invalid="ignore"):
-                        sigma_c = numpy.sqrt(
-                            (diag_a * diag_b + vals**2) / numpy.maximum(counts, 2)
-                        )
-                    sigma_c = numpy.where(counts > 1, sigma_c, numpy.nan)
-                    spl = _smooth_series(self._tp_nodes, vals, sigma_c, s_user=None)
+                    spl = _fit_one(resid[:, a] * resid[:, b], None)
                     val_fine = spl(self._tp_grid)
                     cov_fine[:, a, b] = val_fine
                     cov_fine[:, b, a] = val_fine
@@ -329,7 +316,9 @@ class StreamTrack:
 
         self._track_xyz = track_fine[:, 0:3]
         self._track_vxvyvz = track_fine[:, 3:6]
-        self._bin_counts = counts
+        # No binning in this variant; expose total particle count for
+        # diagnostics consistency.
+        self._bin_counts = numpy.array([len(tp_sorted)], dtype=int)
 
         # Interpolating splines on the public fine-grid track for evaluation
         self._cart_splines = [
