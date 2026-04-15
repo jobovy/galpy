@@ -217,12 +217,14 @@ class StreamTrack:
         )
         self._dt = numpy.asarray(dt_particles, dtype=float)
 
-        # Normalize smoothing argument
-        self._coord_names = ("x", "y", "z", "vx", "vy", "vz")
+        # Normalize smoothing argument: tuple of 6 optional floats aligned
+        # with (x, y, z, vx, vy, vz).
         if smoothing is None:
             self._s_user = (None,) * 6
         elif isinstance(smoothing, dict):
-            self._s_user = tuple(smoothing.get(c, None) for c in self._coord_names)
+            self._s_user = tuple(
+                smoothing.get(c, None) for c in ("x", "y", "z", "vx", "vy", "vz")
+            )
         else:
             self._s_user = (float(smoothing),) * 6
 
