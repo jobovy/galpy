@@ -1,7 +1,7 @@
 import numpy
 from scipy import interpolate
 
-from ..util import conversion, coords
+from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 
 if _APY_LOADED:
@@ -91,6 +91,37 @@ def _smooth_series(x, y, sigma, s_user=None):
     sv = numpy.maximum(sv, 1e-12)
     s_eff = float(n_valid) if s_user is None else float(s_user)
     return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_eff, k=3)
+
+
+def _progenitor_rotation_matrices(prog_cart):
+    """Compute, per-time, the 3x3 rotation that aligns the progenitor's
+    orbital angular momentum with +z and its position with +x. Returns
+    ``rot`` of shape (M, 3, 3) mapping galactocentric Cartesian -> local
+    progenitor-aligned frame.
+    """
+    xyz = prog_cart[:, 0:3]
+    vxyz = prog_cart[:, 3:6]
+    L = numpy.cross(xyz, vxyz)
+    Lnorm = L / numpy.linalg.norm(L, axis=1, keepdims=True)
+    z_rot = numpy.swapaxes(
+        _rotate_to_arbitrary_vector(numpy.atleast_2d(Lnorm), [0.0, 0.0, 1.0], inv=True),
+        1,
+        2,
+    )
+    xyzt = numpy.einsum("ijk,ik->ij", z_rot, xyz)
+    Rt = numpy.sqrt(xyzt[:, 0] ** 2 + xyzt[:, 1] ** 2)
+    cos = xyzt[:, 0] / Rt
+    sin = xyzt[:, 1] / Rt
+    zeros = numpy.zeros_like(cos)
+    ones = numpy.ones_like(cos)
+    pa_rot = numpy.array(
+        [
+            [cos, -sin, zeros],
+            [sin, cos, zeros],
+            [zeros, zeros, ones],
+        ]
+    ).T  # (M, 3, 3)
+    return numpy.einsum("ijk,ikl->ijl", pa_rot, z_rot)
 
 
 def _closest_point_on_curve(points, curve_xyz, curve_t, mask=None):
@@ -198,6 +229,17 @@ class StreamTrack:
             )
             for i in range(6)
         ]
+        # Per-time rotation matrices that map galactocentric Cartesian to
+        # the progenitor-aligned frame (L along z, progenitor at +x). Built
+        # on the dense track grid; we interpolate entries to arbitrary tp.
+        prog_rot_dense = _progenitor_rotation_matrices(self._prog_cart)
+        self._prog_rot_splines = [
+            interpolate.InterpolatedUnivariateSpline(
+                self._track_t_grid, prog_rot_dense[:, i, j], k=3
+            )
+            for i in range(3)
+            for j in range(3)
+        ]
         self._arm_sign = int(numpy.sign(arm_sign)) or 1
         self._ninterp = int(ninterp)
         self._order = int(order)
@@ -265,16 +307,39 @@ class StreamTrack:
         tp = numpy.atleast_1d(tp)
         return numpy.column_stack([spl(tp) for spl in self._prog_splines])
 
+    def _rot_at(self, tp):
+        """Evaluate the progenitor-aligned rotation matrix at arbitrary tp
+        (shape (len(tp), 3, 3)).  Splines are on entries; we re-orthogonalize
+        via SVD-like normalization to ensure rotations remain rotations."""
+        tp = numpy.atleast_1d(tp)
+        n = len(tp)
+        rot = numpy.empty((n, 3, 3))
+        k = 0
+        for i in range(3):
+            for j in range(3):
+                rot[:, i, j] = self._prog_rot_splines[k](tp)
+                k += 1
+        # Re-orthogonalize each matrix (cheap polar-decomposition step)
+        U, _, Vt = numpy.linalg.svd(rot)
+        return U @ Vt
+
     def _fit(self, tp_assign):
-        """Bin per-particle offsets-from-progenitor by tp_assign, smooth the
-        bin-means (plus optionally bin-covs), and reconstruct the public
-        track by adding the smoothed offsets back to the progenitor orbit.
-        Smoothing offsets (rather than raw positions) keeps the smoothed
-        signal small and well-behaved regardless of orbital phase."""
-        # Offsets = particle - progenitor(tp_i). Small by construction for
-        # particles close to the orbit.
+        """Bin per-particle offsets in the progenitor-aligned ROTATING
+        FRAME (L -> z, progenitor at +x). Rotated offsets are small,
+        transverse-dominant and slowly-varying with tp — easier to smooth
+        than raw Cartesian offsets. Smoothed offsets are rotated back at
+        reconstruction time."""
         prog_at_particles = self._prog_at(tp_assign)
-        offsets = self._particles_cart - prog_at_particles  # (N, 6)
+        rot_at_particles = self._rot_at(tp_assign)  # (N, 3, 3)
+        raw_offsets = self._particles_cart - prog_at_particles  # (N, 6)
+        # Apply the rotation to both position and velocity blocks
+        offsets = numpy.empty_like(raw_offsets)
+        offsets[:, 0:3] = numpy.einsum(
+            "nij,nj->ni", rot_at_particles, raw_offsets[:, 0:3]
+        )
+        offsets[:, 3:6] = numpy.einsum(
+            "nij,nj->ni", rot_at_particles, raw_offsets[:, 3:6]
+        )
 
         means, covs, counts = _bin_by_tp(tp_assign, offsets, self._tp_nodes)
         with numpy.errstate(invalid="ignore"):
@@ -294,16 +359,26 @@ class StreamTrack:
             )
             for i in range(6)
         ]
-        offset_fine = numpy.column_stack([spl(self._tp_grid) for spl in offset_splines])
+        offset_fine_rot = numpy.column_stack(
+            [spl(self._tp_grid) for spl in offset_splines]
+        )  # (ninterp, 6) in rotating frame
 
-        # Add back the progenitor's phase space at each tp_grid point.
+        # Rotate the smoothed offset back to galactocentric Cartesian at
+        # each evaluation point on the fine grid.
+        rot_on_grid = self._rot_at(self._tp_grid)
+        rot_inv_on_grid = numpy.transpose(rot_on_grid, axes=(0, 2, 1))
+        offset_fine = numpy.empty_like(offset_fine_rot)
+        offset_fine[:, 0:3] = numpy.einsum(
+            "nij,nj->ni", rot_inv_on_grid, offset_fine_rot[:, 0:3]
+        )
+        offset_fine[:, 3:6] = numpy.einsum(
+            "nij,nj->ni", rot_inv_on_grid, offset_fine_rot[:, 3:6]
+        )
         prog_on_grid = self._prog_at(self._tp_grid)
         track_fine = prog_on_grid + offset_fine
 
-        # Covariance: smooth componentwise in the offset frame (≡ Cartesian
-        # offset from progenitor). Errors scale as sqrt((C_aa*C_bb+C_ab^2)/k).
         if self._order >= 2:
-            cov_fine = numpy.zeros((self._ninterp, 6, 6))
+            cov_fine_rot = numpy.zeros((self._ninterp, 6, 6))
             for a in range(6):
                 for b in range(a, 6):
                     vals = covs[:, a, b]
@@ -316,8 +391,13 @@ class StreamTrack:
                     sigma_c = numpy.where(counts > 1, sigma_c, numpy.nan)
                     spl = _smooth_series(self._tp_nodes, vals, sigma_c, s_user=None)
                     val_fine = spl(self._tp_grid)
-                    cov_fine[:, a, b] = val_fine
-                    cov_fine[:, b, a] = val_fine
+                    cov_fine_rot[:, a, b] = val_fine
+                    cov_fine_rot[:, b, a] = val_fine
+            # Rotate covariance back via block-diagonal rotation matrix
+            R6 = numpy.zeros((self._ninterp, 6, 6))
+            R6[:, 0:3, 0:3] = rot_inv_on_grid
+            R6[:, 3:6, 3:6] = rot_inv_on_grid
+            cov_fine = numpy.einsum("nij,njk,nlk->nil", R6, cov_fine_rot, R6)
             cov_fine = numpy.nan_to_num(cov_fine, nan=0.0, posinf=0.0, neginf=0.0)
             for k in range(self._ninterp):
                 evals, evecs = numpy.linalg.eigh(cov_fine[k])
