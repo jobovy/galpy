@@ -63,7 +63,7 @@ def _smooth_series(x, y, sigma, s_user=None):
     xv = x[mask][order]
     yv = y[mask][order]
     if n_valid < 4:
-        if n_valid < 2:
+        if n_valid < 2:  # pragma: no cover (defensive: <2 valid bins)
             ref = float(yv[0]) if n_valid == 1 else 0.0
             xv = numpy.array([-1.0, 0.0])
             yv = numpy.array([ref, ref])
@@ -85,7 +85,7 @@ def _smooth_series(x, y, sigma, s_user=None):
             if numpy.any(numpy.isfinite(sig_safe))
             else numpy.nan
         )
-    if not numpy.isfinite(sig_med) or sig_med == 0:
+    if not numpy.isfinite(sig_med) or sig_med == 0:  # pragma: no cover
         sig_med = 1.0
     sv = numpy.where(numpy.isfinite(sig_safe), sig_safe, sig_med)[mask][order]
     sv = numpy.maximum(sv, 1e-12)
@@ -241,7 +241,7 @@ class StreamTrack:
             tp_hi = 0.0
         # Guard against a degenerate span (all particles at tp=0): fall back
         # to the full track-progenitor t range.
-        if tp_hi - tp_lo < 1e-12:
+        if tp_hi - tp_lo < 1e-12:  # pragma: no cover (defensive)
             tp_lo = float(self._track_t_grid[0])
             tp_hi = float(self._track_t_grid[-1])
         self._tp_grid = numpy.linspace(tp_lo, tp_hi, self._ninterp)
