@@ -18554,6 +18554,29 @@ def test_streamspraydf_sample_RvR():
     return None
 
 
+def test_streamspraydf_streamTrack_track_time_range_quantity():
+    # track_time_range accepts astropy Quantities
+    from galpy import potential
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    numpy.random.seed(20)
+    track = spdf.streamTrack(n=800, tail="leading", track_time_range=0.1 * units.Gyr)
+    assert numpy.isfinite(track.x(track.tp_grid()[-1]))
+
+
 def test_df_inconsistentPotentialUnits_error():
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf, streamdf
