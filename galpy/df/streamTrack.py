@@ -159,17 +159,17 @@ class StreamTrack:
             Stripping times (positive, galpy internal time units) for each
             particle. Used as a windowing prior when assigning progenitor-time
             coordinates via closest-point projection.
-        track_progenitor : galpy.orbit.Orbit
-            A finely-integrated progenitor orbit spanning both sides of
-            ``tp=0`` on a dense time grid (the ``track_t_grid``). The track is
-            parameterized by this orbit's time coordinate: ``tp=0`` is the
-            progenitor today, ``tp<0`` is past, ``tp>0`` is future. Because
-            stream particles lie spatially close to the progenitor's orbit
-            (small velocity difference), the relevant ``tp`` range is much
-            smaller than ``tdisrupt``.
+        track_prog_cart : array, shape (M, 6)
+            Finely-sampled progenitor phase space (x, y, z, vx, vy, vz) at
+            the times given by ``track_t_grid``. The progenitor must cover
+            both sides of ``tp=0``: ``tp=0`` is the progenitor today,
+            ``tp<0`` is past, ``tp>0`` is future. Because stream particles
+            have small velocity offsets from the progenitor, they lie
+            spatially close to a short arc of the progenitor orbit and the
+            relevant ``tp`` range is much smaller than ``tdisrupt``.
         track_t_grid : array, shape (M,)
-            The dense time grid on which ``track_progenitor`` has been
-            evaluated. Used for the closest-point projection.
+            The dense time grid on which ``track_prog_cart`` is evaluated.
+            Used for the closest-point projection.
         ninterp : int, optional
             Resolution of the fine tp grid on which the public track is
             stored.
