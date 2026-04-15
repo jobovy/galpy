@@ -186,7 +186,9 @@ class StreamTrack:
         self._solarmotion = solarmotion
         self._roSet = roSet
         self._voSet = voSet
-        self._physical = False
+        # Inherit the progenitor's physical-output state: if the progenitor
+        # has both ro and vo set, the track starts with physical output on.
+        self._physical = bool(roSet and voSet)
 
         # Particles in galactocentric Cartesian (computed once)
         self._particles_cart = _particles_to_cartesian(

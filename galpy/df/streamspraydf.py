@@ -272,7 +272,10 @@ class basestreamspraydf(df):
                 f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
             )
         if ntp is None:
-            ntp = int(max(21, min(201, round(numpy.sqrt(n)))))
+            # Needs enough knots to resolve the progenitor's orbital
+            # oscillations over tdisrupt (otherwise long streams produce
+            # jagged fits). Default: ~n/15 clipped to [31, 201].
+            ntp = int(max(31, min(201, n // 15)))
 
         # Inherited unit metadata from the original progenitor Orbit
         prog_ro = self._orig_progenitor._ro
