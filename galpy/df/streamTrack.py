@@ -50,19 +50,21 @@ def _bin_by_tp(tp_assign, values, tp_nodes):
 
 
 def _smooth_series(x, y, sigma, s_user=None):
-    """Fit a weighted smoothing spline y(x) with weights w = 1/sigma.
+    """Fit a GCV-tuned smoothing spline y(x) with weights w = 1/sigma.
 
-    Missing / invalid rows (NaN mean or sigma, or count<2) are masked out.
-    With w=1/sigma the default ``s = N_valid`` is the chi-square-like target
-    (weighted residuals of order 1 per valid bin). Falls back to linear
-    interpolation for fewer than 4 valid bins.
+    Uses ``scipy.interpolate.make_smoothing_spline`` (scipy >= 1.10), which
+    picks the smoothing parameter automatically via Generalized Cross
+    Validation — no user-facing tuning knob required.  ``s_user`` is
+    accepted but silently ignored (kept for API compatibility with other
+    backends).  Falls back to linear interpolation for fewer than 5 valid
+    bins, which is the minimum needed by GCV.
     """
     mask = numpy.isfinite(y) & numpy.isfinite(x)
     n_valid = int(mask.sum())
     order = numpy.argsort(x[mask])
     xv = x[mask][order]
     yv = y[mask][order]
-    if n_valid < 4:
+    if n_valid < 5:
         if n_valid < 2:
             ref = float(yv[0]) if n_valid == 1 else 0.0
             xv = numpy.array([-1.0, 0.0])
@@ -89,8 +91,9 @@ def _smooth_series(x, y, sigma, s_user=None):
         sig_med = 1.0
     sv = numpy.where(numpy.isfinite(sig_safe), sig_safe, sig_med)[mask][order]
     sv = numpy.maximum(sv, 1e-12)
-    s_eff = float(n_valid) if s_user is None else float(s_user)
-    return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_eff, k=3)
+    # GCV auto-selects the smoothing parameter. Weights 1/sigma^2 per
+    # make_smoothing_spline's convention (inverse variances).
+    return interpolate.make_smoothing_spline(xv, yv, w=1.0 / (sv * sv))
 
 
 def _closest_point_on_curve(points, curve_xyz, curve_t, mask=None):
