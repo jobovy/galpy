@@ -861,10 +861,10 @@ def test_streamTrack_progenitor_recovery():
     prog_x = spdf._progenitor.x(0.0)
     prog_y = spdf._progenitor.y(0.0)
     prog_z = spdf._progenitor.z(0.0)
-    tps = numpy.linspace(-spdf._tdisrupt, 0.0, 7)
-    # For small tdisrupt, ALL particles are near the progenitor today,
-    # so the track for every tp should be within a few percent of the
-    # progenitor's present-day position.
+    # For small tdisrupt, ALL particles are near the progenitor today, so
+    # the track across its own tp grid should be within a few percent of
+    # the progenitor's present-day position.
+    tps = numpy.linspace(track.tp_grid()[0], track.tp_grid()[-1], 7)
     for tp in tps:
         assert abs(track.x(tp) - prog_x) < 0.05, (
             "StreamTrack does not recover the progenitor in the tiny-tdisrupt limit (x)"
@@ -878,18 +878,15 @@ def test_streamTrack_progenitor_recovery():
 
 
 def test_streamTrack_sample_consistency(_simple_spdf):
-    # In Cartesian, the track should match the binned mean of samples at the
-    # same tp to within a few standard errors.
+    # The track's mean at tp should agree with the mean galactocentric x of
+    # particles near that tp (per the track's own closest-point tp).
     numpy.random.seed(1)
-    xv, dt = _simple_spdf.sample(
-        n=4000, returndt=True, return_orbit=False, integrate=True
-    )
-    track = _simple_spdf.streamTrack(particles=(xv, dt), ntp=41, tail="leading")
-    R, vR, vT, z, vz, phi = xv
-    x_p, y_p, z_p = coords.cyl_to_rect(R, phi, z)
-    # Bin particles
-    tp_part = -dt
-    edges = numpy.linspace(-_simple_spdf._tdisrupt, 0.0, 11)
+    track = _simple_spdf.streamTrack(n=4000, ntp=41, tail="leading")
+    # Recover the internal tp assignments used for binning
+    tp_part = track._assign_closest_on_progenitor()
+    x_p = track._particles_cart[:, 0]
+    tp_grid = track.tp_grid()
+    edges = numpy.linspace(tp_grid[0], tp_grid[-1], 9)
     centers = 0.5 * (edges[:-1] + edges[1:])
     for i in range(len(centers)):
         sel = (tp_part >= edges[i]) & (tp_part < edges[i + 1])
@@ -1128,8 +1125,9 @@ def test_streamTrack_tp_grid(_simple_spdf):
     track = _simple_spdf.streamTrack(n=800, ntp=31, tail="leading")
     g = track.tp_grid()
     assert g.shape == (1001,)
-    assert g[0] == pytest.approx(-_simple_spdf._tdisrupt)
-    assert g[-1] == 0.0
+    # Leading arm: tp ranges from 0 to some positive value.
+    assert g[0] == 0.0
+    assert g[-1] > 0.0
 
 
 def test_streamTrack_order1_no_cov(_simple_spdf):

@@ -212,6 +212,8 @@ class basestreamspraydf(df):
         n=5000,
         particles=None,
         tail=None,
+        track_time_range=None,
+        track_n_dense=10001,
         ntp=None,
         ninterp=1001,
         smoothing=None,
@@ -220,50 +222,61 @@ class basestreamspraydf(df):
     ):
         """
         Construct a smooth phase-space track through the stream by sampling
-        particles and interpolating their mean offsets from the progenitor.
+        particles and projecting them onto a finely-integrated progenitor
+        orbit.
 
         The track is parameterized by the progenitor's time coordinate
-        ``tp`` in ``[-tdisrupt, 0]``: ``tp=0`` is the progenitor today,
-        ``tp=-tdisrupt`` corresponds to the oldest stripped particles.
+        ``tp``: ``tp=0`` is the progenitor today, ``tp<0`` are past
+        positions (matched by the trailing arm) and ``tp>0`` are future
+        positions (matched by the leading arm). Because stream particles
+        have small velocity offsets from the progenitor, they lie spatially
+        close to a short arc of the progenitor's orbit — the relevant ``tp``
+        range is much smaller than ``tdisrupt``.
 
         Parameters
         ----------
         n : int, optional
-            Number of particles to draw (per arm when ``tail='both'``). Ignored
-            if ``particles`` is provided. Default is 5000.
+            Number of particles to draw (per arm when ``tail='both'``).
+            Ignored if ``particles`` is provided. Default is 5000.
         particles : tuple, optional
             Pre-computed ``(xv, dt)`` from ``self.sample(returndt=True,
-            return_orbit=False, integrate=True)``. When ``tail='both'``, must
-            match the same both-arm sample ordering (leading first, then
-            trailing). Default is None (sample freshly).
+            return_orbit=False, integrate=True)``. When ``tail='both'``,
+            particles must follow the sample ordering (leading first,
+            then trailing). Default is None (sample freshly).
         tail : str, optional
             One of ``'leading'``, ``'trailing'``, or ``'both'``. Defaults to
             the value set at initialization.
-        ntp : int, optional
-            Number of nodes in the ``tp`` binning grid. Default
-            ``max(21, round(sqrt(n)))`` (clipped to 201).
+        track_time_range : float or Quantity, optional
+            Half-range (symmetric about tp=0) of the finely-integrated
+            progenitor orbit used for closest-point matching and as the
+            public tp grid. Default is ``0.1*tdisrupt``. Must be larger than
+            the stream's spatial extent in orbital-time units.
+        track_n_dense : int, optional
+            Number of time points on the finely-integrated progenitor
+            orbit. Default 10001.
         ninterp : int, optional
-            Fine-grid resolution for the public track arrays. Default 1001.
+            Resolution of the public fine-grid track arrays. Default 1001.
         smoothing : None, float, or dict, optional
-            Smoothness parameter for the mean-offset splines. ``None`` picks
-            an automatic value from binned scatter.
+            Smoothing spline ``s`` parameter for the mean-track fit.
+            ``None`` estimates s from the pairwise noise variance of the
+            sorted particle sample per coordinate.
         niter : int, optional
             Iterations beyond the initial fit. Each iteration reassigns
-            particles to the closest point on the current track before
-            refitting.
+            particles to the closest point on the current track.
         order : int, optional
             1 = mean only, 2 = mean + covariance (default).
 
         Returns
         -------
         :class:`galpy.df.StreamTrack` or :class:`galpy.df.StreamTrackPair`
-            A single track object for single-arm streams, or a pair holding
-            ``.leading`` and ``.trailing`` tracks when ``tail='both'``.
+            A single-arm track object, or a pair with ``.leading`` and
+            ``.trailing`` tracks when ``tail='both'``.
 
         Notes
         -----
         - 2026-04-14 - Written - Bovy (UofT)
         """
+        from ..orbit import Orbit
         from .streamTrack import StreamTrack, StreamTrackPair
 
         tail = self._tail if tail is None else tail
@@ -271,11 +284,42 @@ class basestreamspraydf(df):
             raise ValueError(
                 f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
             )
-        if ntp is None:
-            # Needs enough knots to resolve the progenitor's orbital
-            # oscillations over tdisrupt (otherwise long streams produce
-            # jagged fits). Default: ~n/15 clipped to [31, 201].
-            ntp = int(max(31, min(201, n // 15)))
+        if track_time_range is None:
+            # Default: a small fraction of tdisrupt, chosen so that the
+            # progenitor covers < 1 orbital period (otherwise closest-point
+            # projection becomes wrap-ambiguous).  0.03 * tdisrupt is a
+            # conservative choice for typical cold streams; users with hot
+            # or very old streams can enlarge this.
+            track_time_range = 0.03 * self._tdisrupt
+        else:
+            track_time_range = conversion.parse_time(
+                track_time_range, ro=self._ro, vo=self._vo
+            )
+
+        # Build a finely-sampled progenitor phase-space array spanning
+        # [-T, +T] around the present day. Integrate forward and backward
+        # separately from the progenitor's present-day state, then combine.
+        half_dense = max(2, int(track_n_dense) // 2)
+        t_back = numpy.linspace(0.0, -track_time_range, half_dense)
+        t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
+        prog_back = self._orig_progenitor()
+        prog_back.turn_physical_off()
+        prog_back.integrate(t_back, self._pot)
+        prog_fwd = self._orig_progenitor()
+        prog_fwd.turn_physical_off()
+        prog_fwd.integrate(t_fwd, self._pot)
+        # Combine, skipping the t=0 duplicate
+        track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
+        track_prog_cart = numpy.column_stack(
+            [
+                numpy.concatenate([prog_back.x(t_back)[::-1], prog_fwd.x(t_fwd)[1:]]),
+                numpy.concatenate([prog_back.y(t_back)[::-1], prog_fwd.y(t_fwd)[1:]]),
+                numpy.concatenate([prog_back.z(t_back)[::-1], prog_fwd.z(t_fwd)[1:]]),
+                numpy.concatenate([prog_back.vx(t_back)[::-1], prog_fwd.vx(t_fwd)[1:]]),
+                numpy.concatenate([prog_back.vy(t_back)[::-1], prog_fwd.vy(t_fwd)[1:]]),
+                numpy.concatenate([prog_back.vz(t_back)[::-1], prog_fwd.vz(t_fwd)[1:]]),
+            ]
+        )
 
         # Inherited unit metadata from the original progenitor Orbit
         prog_ro = self._orig_progenitor._ro
@@ -285,13 +329,13 @@ class basestreamspraydf(df):
         prog_roSet = self._orig_progenitor._roSet
         prog_voSet = self._orig_progenitor._voSet
 
-        def _make_track(xv, dt):
+        def _make_track(xv, dt, arm_sign):
             return StreamTrack(
                 xv_particles=xv,
                 dt_particles=dt,
-                progenitor=self._progenitor,
-                tdisrupt=self._tdisrupt,
-                center=self._center,
+                track_prog_cart=track_prog_cart,
+                track_t_grid=track_t_grid,
+                arm_sign=arm_sign,
                 ntp=ntp,
                 ninterp=ninterp,
                 smoothing=smoothing,
@@ -316,13 +360,16 @@ class basestreamspraydf(df):
             else:
                 xv_l, dt_l = self._sample_tail(n, True, leading=True)
                 xv_t, dt_t = self._sample_tail(n, True, leading=False)
-            return StreamTrackPair(_make_track(xv_l, dt_l), _make_track(xv_t, dt_t))
+            return StreamTrackPair(
+                _make_track(xv_l, dt_l, arm_sign=+1),
+                _make_track(xv_t, dt_t, arm_sign=-1),
+            )
         else:
             if particles is not None:
                 xv, dt = particles
             else:
                 xv, dt = self._sample_tail(n, True, leading=(tail == "leading"))
-            return _make_track(xv, dt)
+            return _make_track(xv, dt, arm_sign=(+1 if tail == "leading" else -1))
 
     def _sample_tail(self, n, integrate, leading=True):
         """Sample n points from the specified tail."""
