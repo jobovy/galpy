@@ -94,22 +94,40 @@ def _smooth_series(x, y, sigma, s_user=None):
 
 
 def _closest_point_on_curve(points, curve_xyz, curve_t, mask=None):
-    """For each point in ``points`` (N, 3), find the index of the closest
-    position on ``curve_xyz`` (M, 3) and return the corresponding time
-    ``curve_t[idx]``.
+    """Closest-point projection using scipy.spatial.cKDTree.
 
-    If ``mask`` of shape (N, M) is given, positions where mask is False are
-    excluded from the search on a per-point basis.
+    Builds a KD-tree on the curve and queries nearest neighbors of each
+    point. When a per-particle mask is supplied, queries K nearest and
+    picks the closest allowed one; K grows 4x each pass until every
+    point has a match (or M is reached).
     """
-    # (N, M) squared distance matrix via expanded Cartesian products
-    # Use broadcasted subtraction; O(N*M) memory but simple and fast for
-    # N ~ few thousand and M ~ 1e4.
-    diff = points[:, None, :] - curve_xyz[None, :, :]
-    d2 = numpy.einsum("nmk,nmk->nm", diff, diff)
-    if mask is not None:
-        d2 = numpy.where(mask, d2, numpy.inf)
-    idx = numpy.argmin(d2, axis=1)
-    return curve_t[idx]
+    from scipy.spatial import cKDTree
+
+    tree = cKDTree(curve_xyz)
+    if mask is None:
+        _, idx = tree.query(points, k=1)
+        return curve_t[idx]
+    N, M = mask.shape
+    k = min(max(1, M // 128), M)
+    tp_out = numpy.empty(N, dtype=float)
+    remaining = numpy.arange(N)
+    while remaining.size:
+        _, cand = tree.query(points[remaining], k=min(k, M))
+        if cand.ndim == 1:
+            cand = cand[:, None]
+        chosen = numpy.full(remaining.size, -1, dtype=int)
+        for j, r in enumerate(remaining):
+            allowed = cand[j][mask[r][cand[j]]]
+            if allowed.size:
+                chosen[j] = allowed[0]  # sorted by distance, first is closest
+        hit = chosen >= 0
+        tp_out[remaining[hit]] = curve_t[chosen[hit]]
+        remaining = remaining[~hit]
+        if k == M:
+            tp_out[remaining] = 0.0  # no allowed neighbor anywhere
+            break
+        k = min(k * 4, M)
+    return tp_out
 
 
 class StreamTrack:
