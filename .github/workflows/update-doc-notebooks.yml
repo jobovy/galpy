@@ -99,6 +99,11 @@ jobs:
           tar -xzf gasoline.tar.gz gasoline_ahf/
           rm gasoline.tar.gz
       - name: Execute tutorial notebooks in place
+        id: execute-notebooks
+        # Failures are tolerated: notebooks that error out (e.g. because of
+        # transient upstream outages like Gaia archive downtime) are restored
+        # from HEAD so their partial/errored state is not committed, and the
+        # list is surfaced in the PR body so the merger knows to inspect them.
         run: |
           failed_nbs=()
           for nb in $(find doc/source/tutorials -name '*.ipynb' | sort); do
@@ -108,17 +113,23 @@ jobs:
                 --cwd "$nbdir" "$nb" "$nb"; then
               echo "PASSED: $nb"
             else
-              echo "::error file=$nb::FAILED: $nb"
+              echo "::warning file=$nb::Notebook execution failed; restoring from HEAD and skipping"
+              git checkout HEAD -- "$nb"
               failed_nbs+=("$nb")
             fi
             echo "::endgroup::"
           done
+          {
+            echo "failed_count=${#failed_nbs[@]}"
+            echo "failed_notebooks<<FAILED_NB_EOF"
+            for nb in "${failed_nbs[@]}"; do echo "- \`$nb\`"; done
+            echo "FAILED_NB_EOF"
+          } >> "$GITHUB_OUTPUT"
           if [ "${#failed_nbs[@]}" -gt 0 ]; then
-            echo "::error::The following notebooks failed execution:"
+            echo "::warning::${#failed_nbs[@]} notebook(s) failed execution and were not updated:"
             for nb in "${failed_nbs[@]}"; do
-              echo "::error file=$nb::$nb"
+              echo "::warning file=$nb::$nb"
             done
-            exit 1
           fi
       - name: Check for notebook changes
         id: check-changes
@@ -153,8 +164,38 @@ jobs:
           git add doc/source/tutorials
           git commit -m "Update documentation notebook outputs (${date_tag})"
           git push --set-upstream origin "$branch"
+
+          failed_count="${{ steps.execute-notebooks.outputs.failed_count }}"
+          failed_list=$(cat <<'FAILED_LIST_EOF'
+          ${{ steps.execute-notebooks.outputs.failed_notebooks }}
+          FAILED_LIST_EOF
+          )
+
+          if [ "$failed_count" -gt 0 ]; then
+            title="[auto] Update documentation notebook outputs (${date_tag}) — ${failed_count} notebook(s) failed"
+            {
+              echo "> [!WARNING]"
+              echo "> **Partial update — ${failed_count} notebook(s) failed to execute and were NOT updated in this PR.**"
+              echo ">"
+              echo "> Their committed outputs are unchanged from \`main\`; investigate separately before relying on them. Common cause: transient upstream service outages (e.g. the Gaia archive returning HTTP 5xx)."
+              echo ""
+              echo "**Failed notebooks:**"
+              echo ""
+              echo "$failed_list"
+              echo ""
+              echo "---"
+              echo ""
+            } > pr_body.md
+          else
+            title="[auto] Update documentation notebook outputs (${date_tag})"
+            : > pr_body.md
+          fi
+          {
+            echo "Automated re-execution of the tutorial notebooks under \`doc/source/tutorials/\` against the current \`main\` branch, produced by the \`Update documentation notebooks\` workflow ([run \`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) on ${date_tag}. Review the rendered diffs before merging."
+          } >> pr_body.md
+
           gh pr create \
             --base main \
             --head "$branch" \
-            --title "[auto] Update documentation notebook outputs (${date_tag})" \
-            --body "Automated re-execution of the tutorial notebooks under \`doc/source/tutorials/\` against the current \`main\` branch, produced by the \`Update documentation notebooks\` workflow (run \`${{ github.run_id }}\`) on ${date_tag}. Review the rendered diffs before merging."
+            --title "$title" \
+            --body-file pr_body.md
