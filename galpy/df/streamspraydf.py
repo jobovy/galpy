@@ -285,12 +285,34 @@ class basestreamspraydf(df):
                 f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
             )
         if track_time_range is None:
-            # Default: a small fraction of tdisrupt, chosen so that the
-            # progenitor covers < 1 orbital period (otherwise closest-point
-            # projection becomes wrap-ambiguous).  0.03 * tdisrupt is a
-            # conservative choice for typical cold streams; users with hot
-            # or very old streams can enlarge this.
-            track_time_range = 0.03 * self._tdisrupt
+            # Auto-adaptive: estimate from the stream's actual spatial
+            # extent. Draw (or reuse) particles, measure the farthest
+            # distance to the progenitor today, convert to an
+            # orbital-time scale via the progenitor's present-day speed,
+            # and pad by 4x for safety. Clamped to [1 galpy-time, tdisrupt].
+            if particles is not None:
+                _xv_probe = particles[0]
+            else:
+                _xv_probe, _ = self._sample_tail(
+                    min(n, 500), True, leading=(tail != "trailing")
+                )
+            _Rs, _, _, _zs, _, _phis = _xv_probe
+            _xs = _Rs * numpy.cos(_phis)
+            _ys = _Rs * numpy.sin(_phis)
+            _px = float(self._progenitor.x(0.0))
+            _py = float(self._progenitor.y(0.0))
+            _pz = float(self._progenitor.z(0.0))
+            _pv = numpy.sqrt(
+                float(self._progenitor.vx(0.0)) ** 2
+                + float(self._progenitor.vy(0.0)) ** 2
+                + float(self._progenitor.vz(0.0)) ** 2
+            )
+            _d_max = numpy.sqrt(
+                numpy.max((_xs - _px) ** 2 + (_ys - _py) ** 2 + (_zs - _pz) ** 2)
+            )
+            track_time_range = float(
+                numpy.clip(4.0 * _d_max / max(_pv, 1e-6), 1.0, self._tdisrupt)
+            )
         else:
             track_time_range = conversion.parse_time(
                 track_time_range, ro=self._ro, vo=self._vo
