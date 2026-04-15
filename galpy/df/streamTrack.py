@@ -343,23 +343,15 @@ class StreamTrack:
     # Assignment helpers
     # -----------------------------------------------------------------
     def _assign_closest_on_progenitor(self):
-        """Assign each particle a tp via closest-point projection onto the
-        progenitor orbit, windowed by arm sign and stripping time.
-
-        - Arm sign: leading particles project to tp >= 0 (future positions
-          the progenitor has yet to reach); trailing to tp <= 0.
-        - dt window: ``|tp| <= dt_i``; a particle that escaped ``dt_i`` ago
-          cannot lie beyond the position the progenitor reaches in the same
-          absolute time. This resolves aliasing for streams that wrap around
-          the galaxy.
-        """
-        prog_xyz = self._prog_cart[:, 0:3]  # (M, 3)
-        t_grid = self._track_t_grid
-        sign_mask = (t_grid * self._arm_sign) >= 0  # (M,)
-        dt_mask = numpy.abs(t_grid)[None, :] <= self._dt[:, None]  # (N, M)
-        mask = sign_mask[None, :] & dt_mask
-        return _closest_point_on_curve(
-            self._particles_cart[:, 0:3], prog_xyz, t_grid, mask=mask
+        """Assign each particle a tp directly from its stripping time:
+        ``tp_i = arm_sign * dt_i`` (positive for leading, negative for
+        trailing). Simple and deterministic; no closest-point projection
+        needed. Subsequent iterations may reassign via closest-point on
+        the current smooth track."""
+        return numpy.clip(
+            self._arm_sign * self._dt,
+            self._track_t_grid[0],
+            self._track_t_grid[-1],
         )
 
     def _assign_closest_on_track(self):

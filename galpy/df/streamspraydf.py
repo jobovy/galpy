@@ -285,12 +285,10 @@ class basestreamspraydf(df):
                 f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
             )
         if track_time_range is None:
-            # Default: a small fraction of tdisrupt, chosen so that the
-            # progenitor covers < 1 orbital period (otherwise closest-point
-            # projection becomes wrap-ambiguous).  0.03 * tdisrupt is a
-            # conservative choice for typical cold streams; users with hot
-            # or very old streams can enlarge this.
-            track_time_range = 0.03 * self._tdisrupt
+            # In this alternative, tp is the particle's stripping time
+            # (signed by arm), so we need the progenitor integrated over
+            # the full [-tdisrupt, +tdisrupt] to cover all particles.
+            track_time_range = self._tdisrupt
         else:
             track_time_range = conversion.parse_time(
                 track_time_range, ro=self._ro, vo=self._vo
