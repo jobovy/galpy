@@ -1228,13 +1228,16 @@ def test_streamTrack_degenerate_few_particles(_simple_spdf):
 
 
 def test_streamTrack_custom_track_time_range(_simple_spdf):
-    # Pass an explicit track_time_range (float and Quantity) to cover the
-    # non-default branch in basestreamspraydf.streamTrack.
-    from astropy import units as u
-
+    # Pass an explicit track_time_range (float) to cover the non-default
+    # branch in basestreamspraydf.streamTrack. Also test with an astropy
+    # Quantity when astropy is installed (not all CI jobs install it).
     numpy.random.seed(20)
     tr = _simple_spdf.streamTrack(n=800, tail="leading", track_time_range=3.0)
     assert tr.tp_grid()[-1] <= 3.0 + 1e-9
+    try:
+        from astropy import units as u
+    except ImportError:
+        return
     tr_q = _simple_spdf.streamTrack(n=800, tail="leading", track_time_range=0.1 * u.Gyr)
     assert numpy.isfinite(tr_q.x(tr_q.tp_grid()[-1]))
 
