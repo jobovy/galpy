@@ -13,6 +13,12 @@ on:
         required: false
         default: false
         type: boolean
+  pull_request:
+    # Run on PRs that touch this workflow, so changes to the workflow itself can
+    # be exercised end-to-end before merge. pull_request events always behave as
+    # dry runs: notebooks are executed and uploaded as an artifact; no PR opened.
+    paths:
+      - '.github/workflows/update-doc-notebooks.yml'
 
 permissions:
   contents: write
@@ -120,8 +126,8 @@ jobs:
       - name: Upload updated notebooks as artifact (dry run)
         if: >-
           steps.check-changes.outputs.changed == 'true' &&
-          github.event_name == 'workflow_dispatch' &&
-          inputs.dry_run == 'true'
+          (github.event_name == 'pull_request' ||
+           (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'))
         uses: actions/upload-artifact@v4
         with:
           name: updated-doc-notebooks
@@ -129,6 +135,7 @@ jobs:
       - name: Open pull request with updated notebooks
         if: >-
           steps.check-changes.outputs.changed == 'true' &&
+          github.event_name != 'pull_request' &&
           (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -144,5 +151,5 @@ jobs:
           gh pr create \
             --base main \
             --head "$branch" \
-            --title "Update documentation notebook outputs (${date_tag})" \
+            --title "[auto] Update documentation notebook outputs (${date_tag})" \
             --body "Automated re-execution of the tutorial notebooks under \`doc/source/tutorials/\` against the current \`main\` branch, produced by the \`Update documentation notebooks\` workflow (run \`${{ github.run_id }}\`) on ${date_tag}. Review the rendered diffs before merging."
