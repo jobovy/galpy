@@ -272,15 +272,21 @@ class StreamTrack:
         # windowed by dt and by arm sign (leading: tp>=0, trailing: tp<=0).
         tp_assign = self._assign_closest_on_progenitor()
 
-        # The public tp grid spans the observed assignment range. Always
-        # include tp=0 (progenitor today) so that leading and trailing
-        # tracks can be concatenated through the progenitor.
-        tp_lo = float(tp_assign.min())
-        tp_hi = float(tp_assign.max())
+        # The public tp grid is trimmed to the percentile range where the
+        # binned data actually supports a fit. Without trimming, a handful
+        # of outlier particles (matched to large |tp| by the closest-point
+        # procedure) populate sparse boundary bins that the smoothing
+        # spline then has to honor, producing wiggly tails.
+        # ``trim_percentile`` is the maximum-|tp| percentile retained;
+        # the corresponding lower-|tp| percentile (100-trim_percentile)
+        # is dropped from the opposite tail. Not user-exposed yet.
+        trim_percentile = 99.0
         if self._arm_sign > 0:
             tp_lo = 0.0
+            tp_hi = float(numpy.percentile(tp_assign, trim_percentile))
         else:
             tp_hi = 0.0
+            tp_lo = float(numpy.percentile(tp_assign, 100.0 - trim_percentile))
         # Guard against a degenerate span (all particles at tp=0): fall back
         # to the full track-progenitor t range.
         if tp_hi - tp_lo < 1e-12:
