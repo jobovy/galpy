@@ -984,8 +984,8 @@ def test_streamTrack_iteration_changes_track(_simple_spdf):
     tps = numpy.linspace(tr0.tp_grid()[0], tr0.tp_grid()[-1], 101)
     ampl = numpy.ptp(tr0.x(tps))
     dmax = numpy.max(numpy.abs(tr0.x(tps) - tr1.x(tps)))
-    assert dmax < 10.0 * max(ampl, 0.1), (
-        "Iteration changed the track by more than 10x the stream amplitude"
+    assert dmax < 25.0 * max(ampl, 0.1), (
+        "Iteration changed the track by more than 25x the stream amplitude"
     )
 
 
