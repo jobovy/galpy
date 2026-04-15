@@ -1,4 +1,4 @@
-name: Validate documentation notebooks
+name: Test documentation notebooks
 
 on:
   push:
@@ -12,12 +12,16 @@ on:
       - '!doc/**'
       - 'doc/source/tutorials/**/*.ipynb'
       - '!.github/**'
-      - '.github/workflows/notebooks.yml'
+      - '.github/workflows/test-doc-notebooks.yml'
   pull_request:
     paths:
       - '**'
       - '!doc/**'
       - 'doc/source/tutorials/**/*.ipynb'
+  schedule:
+    # 00:00 UTC on the 15th of every month, so the result is fresh input
+    # for the update-doc-notebooks workflow that runs later the same day.
+    - cron: '0 0 15 * *'
 
 jobs:
   run-notebooks:
