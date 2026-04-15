@@ -34,6 +34,11 @@ jobs:
         # Fails the workflow (and emails the author of this file) if the most
         # recent completed run of either workflow on the main branch did not
         # succeed, so we don't update notebook outputs from a broken main.
+        # Skipped when no PR would be opened anyway (pull_request trigger for
+        # testing this workflow, or workflow_dispatch with dry_run=true).
+        if: >-
+          github.event_name != 'pull_request' &&
+          (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
