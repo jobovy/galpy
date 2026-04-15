@@ -93,6 +93,18 @@ def _smooth_series(x, y, sigma, s_user=None):
     return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_eff, k=3)
 
 
+def _closest_point_on_curve_6d(points6, curve6, curve_t, mask=None):
+    """6D analog of :func:`_closest_point_on_curve`: for each 6D point in
+    ``points6`` (N, 6) find the index of the closest 6D phase-space
+    position on ``curve6`` (M, 6) and return the corresponding
+    ``curve_t[idx]``. An optional (N, M) mask restricts the search."""
+    diff = points6[:, None, :] - curve6[None, :, :]
+    d2 = numpy.einsum("nmk,nmk->nm", diff, diff)
+    if mask is not None:
+        d2 = numpy.where(mask, d2, numpy.inf)
+    return curve_t[numpy.argmin(d2, axis=1)]
+
+
 def _closest_point_on_curve(points, curve_xyz, curve_t, mask=None):
     """For each point in ``points`` (N, 3), find the index of the closest
     position on ``curve_xyz`` (M, 3) and return the corresponding time
@@ -343,30 +355,30 @@ class StreamTrack:
     # Assignment helpers
     # -----------------------------------------------------------------
     def _assign_closest_on_progenitor(self):
-        """Assign each particle a tp via closest-point projection onto the
-        progenitor orbit, windowed by arm sign and stripping time.
+        """Assign each particle a tp via 6D closest-point projection onto
+        the progenitor orbit (position and velocity combined), windowed by
+        arm sign and stripping time.
 
-        - Arm sign: leading particles project to tp >= 0 (future positions
-          the progenitor has yet to reach); trailing to tp <= 0.
-        - dt window: ``|tp| <= dt_i``; a particle that escaped ``dt_i`` ago
-          cannot lie beyond the position the progenitor reaches in the same
-          absolute time. This resolves aliasing for streams that wrap around
-          the galaxy.
+        Positions and velocities are both in galpy internal units so
+        adding their squared differences is dimensionally consistent and
+        of comparable magnitude. 6D matching is more accurate than 3D for
+        streams where the orbit self-intersects in position but particle
+        velocities differ between intersections.
         """
-        prog_xyz = self._prog_cart[:, 0:3]  # (M, 3)
         t_grid = self._track_t_grid
-        sign_mask = (t_grid * self._arm_sign) >= 0  # (M,)
-        dt_mask = numpy.abs(t_grid)[None, :] <= self._dt[:, None]  # (N, M)
+        sign_mask = (t_grid * self._arm_sign) >= 0
+        dt_mask = numpy.abs(t_grid)[None, :] <= self._dt[:, None]
         mask = sign_mask[None, :] & dt_mask
-        return _closest_point_on_curve(
-            self._particles_cart[:, 0:3], prog_xyz, t_grid, mask=mask
+        return _closest_point_on_curve_6d(
+            self._particles_cart, self._prog_cart, t_grid, mask=mask
         )
 
     def _assign_closest_on_track(self):
         """Reassign each particle's tp to the closest point on the current
-        smooth track."""
-        return _closest_point_on_curve(
-            self._particles_cart[:, 0:3], self._track_xyz, self._tp_grid
+        smooth track (6D distance)."""
+        track_cart = numpy.column_stack([self._track_xyz, self._track_vxvyvz])
+        return _closest_point_on_curve_6d(
+            self._particles_cart, track_cart, self._tp_grid
         )
 
     # -----------------------------------------------------------------
