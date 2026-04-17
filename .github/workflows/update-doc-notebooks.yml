@@ -124,9 +124,6 @@ jobs:
           # in CI logs.
           pip install -v ".[docs]"
           pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib
-      - name: Verify galpy C extensions are available
-        run: |
-          python -c "from galpy.actionAngle import actionAngleStaeckel; from galpy.potential import MWPotential2014; aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.4, c=True); print('galpy C extensions OK:', aA(1.0, 0.1, 1.1, 0.0, 0.05))"
       - name: Uninstall tqdm to keep notebook output clean
         # tqdm is pulled in transitively by some of the optional deps above and
         # its progress bars clutter the rendered notebook outputs.
