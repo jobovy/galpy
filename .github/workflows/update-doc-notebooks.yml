@@ -1,0 +1,244 @@
+name: Update documentation notebooks
+
+on:
+  schedule:
+    # 06:00 UTC on the 15th of every month — a few hours after test-doc-notebooks.yml's
+    # own scheduled monthly run, so its latest-main conclusion is available for
+    # the preflight gate below.
+    - cron: '0 6 15 * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Execute notebooks but do not open a PR (upload results as artifact instead)'
+        required: false
+        default: false
+        type: boolean
+  pull_request:
+    # Run on PRs that touch this workflow, so changes to the workflow itself can
+    # be exercised end-to-end before merge. pull_request events always behave as
+    # dry runs: notebooks are executed and uploaded as an artifact; no PR opened.
+    paths:
+      - '.github/workflows/update-doc-notebooks.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  update-notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify latest main runs of build.yml and test-doc-notebooks.yml passed
+        # Fails the workflow (and emails the author of this file) if the most
+        # recent completed run of either workflow on the main branch did not
+        # succeed, so we don't update notebook outputs from a broken main.
+        # Exception: test-doc-notebooks.yml is allowed to have failed if the
+        # ONLY notebooks that failed are listed in TOLERATED_FLAKY_NOTEBOOKS —
+        # notebooks known to hit transient upstream services (e.g. the Gaia
+        # archive returning HTTP 5xx). In that case the update proceeds and
+        # those notebooks are restored from HEAD later in the job, with the
+        # skip called out in the PR body.
+        # Skipped entirely when no PR would be opened anyway (pull_request
+        # trigger for testing this workflow, or workflow_dispatch dry_run).
+        if: >-
+          github.event_name != 'pull_request' &&
+          (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOLERATED_FLAKY_NOTEBOOKS: |
+            doc/source/tutorials/action_angle/staeckel.ipynb
+        run: |
+          tolerated=$(printf '%s\n' "$TOLERATED_FLAKY_NOTEBOOKS" | sed '/^$/d' | sort -u)
+          failed=0
+          for wf in build.yml test-doc-notebooks.yml; do
+            run=$(gh run list \
+              --workflow "$wf" \
+              --branch main \
+              --status completed \
+              --limit 1 \
+              --json databaseId,conclusion \
+              --jq '.[0]')
+            if [ -z "$run" ] || [ "$run" = "null" ]; then
+              echo "::error::No completed main-branch run found for $wf"
+              failed=1
+              continue
+            fi
+            run_id=$(printf '%s' "$run" | jq -r '.databaseId')
+            conclusion=$(printf '%s' "$run" | jq -r '.conclusion')
+            if [ "$conclusion" = "success" ]; then
+              echo "$wf: latest main run (#$run_id) succeeded"
+              continue
+            fi
+            if [ "$wf" = "test-doc-notebooks.yml" ]; then
+              failed_nbs=$(gh run view "$run_id" --log-failed 2>/dev/null \
+                | grep -oE 'FAILED: doc/source/tutorials/[^[:space:]]+\.ipynb' \
+                | awk '{print $2}' | sort -u)
+              untolerated=""
+              while IFS= read -r nb; do
+                [ -z "$nb" ] && continue
+                if ! printf '%s\n' "$tolerated" | grep -qxF "$nb"; then
+                  untolerated="${untolerated}${nb}"$'\n'
+                fi
+              done <<<"$failed_nbs"
+              if [ -n "$failed_nbs" ] && [ -z "$untolerated" ]; then
+                echo "$wf: latest main run (#$run_id) failed, but only on tolerated flaky notebooks:"
+                printf '%s\n' "$failed_nbs" | sed 's/^/  - /'
+                echo "  → proceeding; these are known to hit transient upstream services."
+                continue
+              fi
+              echo "::error::Latest completed main run of $wf (#$run_id) ended with conclusion=$conclusion"
+              if [ -n "$untolerated" ]; then
+                echo "::error::Non-tolerated failed notebooks:"
+                printf '%s' "$untolerated" | sed 's/^/  - /'
+              fi
+            else
+              echo "::error::Latest completed main run of $wf (#$run_id) ended with conclusion=$conclusion"
+            fi
+            failed=1
+          done
+          exit $failed
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgsl-dev
+          # Verify GSL is discoverable so galpy's C extensions build correctly
+          gsl-config --version
+          gsl-config --cflags
+          gsl-config --libs
+      - name: Clone Torus code for actionAngleTorus
+        run: |
+          git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+          cd galpy/actionAngle/actionAngleTorus_c_ext/torus
+          git checkout galpy
+          cd -
+      - name: Install galpy and notebook dependencies
+        run: |
+          pip install --upgrade pip
+          # Verbose install so that any GSL/C-extension build issues are visible
+          # in CI logs.
+          pip install -v ".[docs]"
+          pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib
+      - name: Uninstall tqdm to keep notebook output clean
+        # tqdm is pulled in transitively by some of the optional deps above and
+        # its progress bars clutter the rendered notebook outputs.
+        run: pip uninstall -y tqdm || true
+      - name: Cache pynbody test snapshot
+        id: cache-snapshot
+        uses: actions/cache@v4
+        with:
+          path: doc/source/tutorials/potentials/gasoline_ahf
+          key: pynbody-g15784-v2
+      - name: Download pynbody test snapshot
+        if: steps.cache-snapshot.outputs.cache-hit != 'true'
+        run: |
+          cd doc/source/tutorials/potentials
+          curl -L -o gasoline.tar.gz "https://zenodo.org/records/12687409/files/gasoline.tar.gz?download=1"
+          tar -xzf gasoline.tar.gz gasoline_ahf/
+          rm gasoline.tar.gz
+      - name: Execute tutorial notebooks in place
+        id: execute-notebooks
+        # Failures are tolerated: notebooks that error out (e.g. because of
+        # transient upstream outages like Gaia archive downtime) are restored
+        # from HEAD so their partial/errored state is not committed, and the
+        # list is surfaced in the PR body so the merger knows to inspect them.
+        run: |
+          failed_nbs=()
+          for nb in $(find doc/source/tutorials -name '*.ipynb' | sort); do
+            echo "::group::Running $nb"
+            nbdir=$(dirname "$nb")
+            if papermill --request-save-on-cell-execute --log-output \
+                --cwd "$nbdir" "$nb" "$nb"; then
+              echo "PASSED: $nb"
+            else
+              echo "::warning file=$nb::Notebook execution failed; restoring from HEAD and skipping"
+              git checkout HEAD -- "$nb"
+              failed_nbs+=("$nb")
+            fi
+            echo "::endgroup::"
+          done
+          {
+            echo "failed_count=${#failed_nbs[@]}"
+            echo "failed_notebooks<<FAILED_NB_EOF"
+            for nb in "${failed_nbs[@]}"; do echo "- \`$nb\`"; done
+            echo "FAILED_NB_EOF"
+          } >> "$GITHUB_OUTPUT"
+          if [ "${#failed_nbs[@]}" -gt 0 ]; then
+            echo "::warning::${#failed_nbs[@]} notebook(s) failed execution and were not updated:"
+            for nb in "${failed_nbs[@]}"; do
+              echo "::warning file=$nb::$nb"
+            done
+          fi
+      - name: Check for notebook changes
+        id: check-changes
+        run: |
+          if git diff --quiet -- doc/source/tutorials; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Upload updated notebooks as artifact (dry run)
+        if: >-
+          steps.check-changes.outputs.changed == 'true' &&
+          (github.event_name == 'pull_request' ||
+           (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-doc-notebooks
+          path: doc/source/tutorials/**/*.ipynb
+      - name: Open pull request with updated notebooks
+        if: >-
+          steps.check-changes.outputs.changed == 'true' &&
+          github.event_name != 'pull_request' &&
+          (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          date_tag=$(date -u +'%Y-%m-%d')
+          branch="auto/update-doc-notebooks-${date_tag}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add doc/source/tutorials
+          git commit -m "Update documentation notebook outputs (${date_tag})"
+          git push --set-upstream origin "$branch"
+
+          failed_count="${{ steps.execute-notebooks.outputs.failed_count }}"
+          failed_list=$(cat <<'FAILED_LIST_EOF'
+          ${{ steps.execute-notebooks.outputs.failed_notebooks }}
+          FAILED_LIST_EOF
+          )
+
+          if [ "$failed_count" -gt 0 ]; then
+            title="[auto] Update documentation notebook outputs (${date_tag}) — ${failed_count} notebook(s) failed"
+            {
+              echo "> [!WARNING]"
+              echo "> **Partial update — ${failed_count} notebook(s) failed to execute and were NOT updated in this PR.**"
+              echo ">"
+              echo "> Their committed outputs are unchanged from \`main\`; investigate separately before relying on them. Common cause: transient upstream service outages (e.g. the Gaia archive returning HTTP 5xx)."
+              echo ""
+              echo "**Failed notebooks:**"
+              echo ""
+              echo "$failed_list"
+              echo ""
+              echo "---"
+              echo ""
+            } > pr_body.md
+          else
+            title="[auto] Update documentation notebook outputs (${date_tag})"
+            : > pr_body.md
+          fi
+          {
+            echo "Automated re-execution of the tutorial notebooks under \`doc/source/tutorials/\` against the current \`main\` branch, produced by the \`Update documentation notebooks\` workflow ([run \`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) on ${date_tag}. Review the rendered diffs before merging."
+          } >> pr_body.md
+
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "$title" \
+            --body-file pr_body.md
