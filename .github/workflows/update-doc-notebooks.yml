@@ -20,10 +20,6 @@ on:
     paths:
       - '.github/workflows/update-doc-notebooks.yml'
 
-concurrency:
-  group: update-doc-notebooks
-  cancel-in-progress: true
-
 permissions:
   contents: write
   pull-requests: write
