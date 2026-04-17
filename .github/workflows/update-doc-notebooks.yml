@@ -31,6 +31,12 @@ permissions:
 
 jobs:
   update-notebooks:
+    name: >-
+      update-notebooks${{
+        github.event_name == 'pull_request' && ' (dry run — PR trigger)' ||
+        (github.event_name == 'workflow_dispatch' && inputs.dry_run && ' (dry run)') ||
+        ''
+      }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
