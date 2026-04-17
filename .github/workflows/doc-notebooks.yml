@@ -36,6 +36,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgsl-dev
+          # Verify GSL is discoverable so galpy's C extensions build correctly
+          gsl-config --version
+          gsl-config --cflags
+          gsl-config --libs
       - name: Clone Torus code for actionAngleTorus
         run: |
           git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
@@ -45,8 +49,13 @@ jobs:
       - name: Install galpy and notebook dependencies
         run: |
           pip install --upgrade pip
-          pip install ".[docs]"
-          pip install jupyter nbconvert nbformat papermill astropy astroquery numexpr pynbody rebound jax jaxlib
+          # Verbose install so that any GSL/C-extension build issues are visible
+          # in CI logs.
+          pip install -v ".[docs]"
+          pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib
+      - name: Verify galpy C extensions are available
+        run: |
+          python -c "from galpy.actionAngle import actionAngleStaeckel; from galpy.potential import MWPotential2014; aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.4, c=True); print('galpy C extensions OK:', aA(1.0, 0.1, 1.1, 0.0, 0.05))"
       - name: Cache pynbody test snapshot
         id: cache-snapshot
         uses: actions/cache@v4
