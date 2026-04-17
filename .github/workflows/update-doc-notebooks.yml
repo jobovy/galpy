@@ -210,7 +210,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           date_tag=$(date -u +'%Y-%m-%d')
-          branch="auto/update-doc-notebooks-${date_tag}"
+          branch="auto/update-doc-notebooks-${date_tag}-run-${{ github.run_id }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
