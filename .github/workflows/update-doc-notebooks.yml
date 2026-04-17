@@ -20,6 +20,10 @@ on:
     paths:
       - '.github/workflows/update-doc-notebooks.yml'
 
+concurrency:
+  group: update-doc-notebooks
+  cancel-in-progress: true
+
 permissions:
   contents: write
   pull-requests: write
@@ -44,7 +48,7 @@ jobs:
         # trigger for testing this workflow, or workflow_dispatch dry_run).
         if: >-
           github.event_name != 'pull_request' &&
-          (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
+          (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TOLERATED_FLAKY_NOTEBOOKS: |
@@ -186,7 +190,7 @@ jobs:
         if: >-
           steps.check-changes.outputs.changed == 'true' &&
           (github.event_name == 'pull_request' ||
-           (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'))
+           (github.event_name == 'workflow_dispatch' && inputs.dry_run))
         uses: actions/upload-artifact@v4
         with:
           name: updated-doc-notebooks
@@ -195,7 +199,7 @@ jobs:
         if: >-
           steps.check-changes.outputs.changed == 'true' &&
           github.event_name != 'pull_request' &&
-          (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
+          (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
