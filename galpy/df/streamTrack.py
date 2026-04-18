@@ -50,19 +50,22 @@ def _bin_by_tp(tp_assign, values, tp_nodes):
 
 
 def _smooth_series(x, y, sigma, s_user=None):
-    """Fit a weighted smoothing spline y(x) with weights w = 1/sigma.
+    """Fit a smoothing spline y(x) with weights derived from sigma.
 
-    Missing / invalid rows (NaN mean or sigma, or count<2) are masked out.
-    With w=1/sigma the default ``s = N_valid`` is the chi-square-like target
-    (weighted residuals of order 1 per valid bin). Falls back to linear
-    interpolation for fewer than 4 valid bins.
+    Default (``s_user=None``): use ``make_smoothing_spline`` with GCV
+    auto-tuning (requires scipy >= 1.10). When ``s_user`` is a float, fall
+    back to ``UnivariateSpline`` with that explicit ``s`` value, giving the
+    user full control over smoothness.
+
+    Falls back to linear interpolation for fewer than 5 valid bins (the
+    minimum required by the GCV routine).
     """
     mask = numpy.isfinite(y) & numpy.isfinite(x)
     n_valid = int(mask.sum())
     order = numpy.argsort(x[mask])
     xv = x[mask][order]
     yv = y[mask][order]
-    if n_valid < 4:
+    if n_valid < 5:
         if n_valid < 2:  # pragma: no cover (defensive: <2 valid bins)
             ref = float(yv[0]) if n_valid == 1 else 0.0
             xv = numpy.array([-1.0, 0.0])
@@ -89,22 +92,22 @@ def _smooth_series(x, y, sigma, s_user=None):
         sig_med = 1.0
     sv = numpy.where(numpy.isfinite(sig_safe), sig_safe, sig_med)[mask][order]
     sv = numpy.maximum(sv, 1e-12)
-    s_eff = float(n_valid) if s_user is None else float(s_user)
-    return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_eff, k=3)
+    if s_user is None:
+        # GCV auto-tuning: weights are inverse-variances (1/sigma^2)
+        return interpolate.make_smoothing_spline(xv, yv, w=1.0 / (sv * sv))
+    return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=float(s_user), k=3)
 
 
-def _closest_point_on_curve(points, curve_xyz, curve_t, mask=None):
-    """For each point in ``points`` (N, 3), find the index of the closest
-    position on ``curve_xyz`` (M, 3) and return the corresponding time
-    ``curve_t[idx]``.
+def _closest_point_on_curve(points, curve, curve_t, mask=None):
+    """For each point in ``points`` (N, D), find the index of the closest
+    entry in ``curve`` (M, D) and return the corresponding time
+    ``curve_t[idx]``. Works for any dimensionality D (3 for position-only,
+    6 for position+velocity).
 
-    If ``mask`` of shape (N, M) is given, positions where mask is False are
+    If ``mask`` of shape (N, M) is given, entries where mask is False are
     excluded from the search on a per-point basis.
     """
-    # (N, M) squared distance matrix via expanded Cartesian products
-    # Use broadcasted subtraction; O(N*M) memory but simple and fast for
-    # N ~ few thousand and M ~ 1e4.
-    diff = points[:, None, :] - curve_xyz[None, :, :]
+    diff = points[:, None, :] - curve[None, :, :]
     d2 = numpy.einsum("nmk,nmk->nm", diff, diff)
     if mask is not None:
         d2 = numpy.where(mask, d2, numpy.inf)
@@ -228,21 +231,33 @@ class StreamTrack:
         else:
             self._s_user = (float(smoothing),) * 6
 
-        # Initial assignment via closest-point on the progenitor orbit,
+        # Initial assignment via 6D closest-point on the progenitor orbit,
         # windowed by dt and by arm sign (leading: tp>=0, trailing: tp<=0).
         tp_assign = self._assign_closest_on_progenitor()
 
-        # The public tp grid spans the observed assignment range. Always
-        # include tp=0 (progenitor today) so that leading and trailing
-        # tracks can be concatenated through the progenitor.
-        tp_lo = float(tp_assign.min())
-        tp_hi = float(tp_assign.max())
+        # Exclude particles whose tp landed at the far boundary of the
+        # progenitor arc — these are mismatched (their true closest point
+        # is outside the searched range) and would bias the track tips.
+        if self._arm_sign > 0:
+            far_edge = self._track_t_grid[-1]
+        else:
+            far_edge = self._track_t_grid[0]
+        arc_span = abs(self._track_t_grid[-1] - self._track_t_grid[0])
+        interior = numpy.abs(tp_assign - far_edge) > 1e-3 * arc_span
+        tp_assign = tp_assign[interior]
+        self._particles_cart = self._particles_cart[interior]
+        self._dt = self._dt[interior]
+
+        # Trim the public tp grid to the percentile range where the binned
+        # data supports a fit (outlier particles at large |tp| produce
+        # sparse boundary bins that the spline would have to honor).
+        trim_percentile = 99.0
         if self._arm_sign > 0:
             tp_lo = 0.0
+            tp_hi = float(numpy.percentile(tp_assign, trim_percentile))
         else:
             tp_hi = 0.0
-        # Guard against a degenerate span (all particles at tp=0): fall back
-        # to the full track-progenitor t range.
+            tp_lo = float(numpy.percentile(tp_assign, 100.0 - trim_percentile))
         if tp_hi - tp_lo < 1e-12:  # pragma: no cover (defensive)
             tp_lo = float(self._track_t_grid[0])
             tp_hi = float(self._track_t_grid[-1])
@@ -345,31 +360,27 @@ class StreamTrack:
     # Assignment helpers
     # -----------------------------------------------------------------
     def _assign_closest_on_progenitor(self):
-        """Assign each particle a tp via closest-point projection onto the
-        progenitor orbit, windowed by arm sign and stripping time.
+        """Assign each particle a tp via 6D closest-point projection
+        (position + velocity) onto the progenitor orbit, windowed by arm
+        sign and stripping time.
 
-        - Arm sign: leading particles project to tp >= 0 (future positions
-          the progenitor has yet to reach); trailing to tp <= 0.
-        - dt window: ``|tp| <= dt_i``; a particle that escaped ``dt_i`` ago
-          cannot lie beyond the position the progenitor reaches in the same
-          absolute time. This resolves aliasing for streams that wrap around
-          the galaxy.
+        Using 6D phase space instead of 3D position disambiguates matches
+        at orbital self-intersections (same position, different velocity)
+        and improves robustness for warm / fat streams.
         """
-        prog_xyz = self._prog_cart[:, 0:3]  # (M, 3)
         t_grid = self._track_t_grid
-        sign_mask = (t_grid * self._arm_sign) >= 0  # (M,)
-        dt_mask = numpy.abs(t_grid)[None, :] <= self._dt[:, None]  # (N, M)
+        sign_mask = (t_grid * self._arm_sign) >= 0
+        dt_mask = numpy.abs(t_grid)[None, :] <= self._dt[:, None]
         mask = sign_mask[None, :] & dt_mask
         return _closest_point_on_curve(
-            self._particles_cart[:, 0:3], prog_xyz, t_grid, mask=mask
+            self._particles_cart, self._prog_cart, t_grid, mask=mask
         )
 
     def _assign_closest_on_track(self):
         """Reassign each particle's tp to the closest point on the current
-        smooth track."""
-        return _closest_point_on_curve(
-            self._particles_cart[:, 0:3], self._track_xyz, self._tp_grid
-        )
+        smooth track (6D: position + velocity)."""
+        track_cart = numpy.column_stack([self._track_xyz, self._track_vxvyvz])
+        return _closest_point_on_curve(self._particles_cart, track_cart, self._tp_grid)
 
     # -----------------------------------------------------------------
     # Public evaluation
