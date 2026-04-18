@@ -299,52 +299,58 @@ class StreamTrack:
     # Stream-orbit refinement
     # -----------------------------------------------------------------
     def _refine_base_orbit(self, tp_assign, pot):
-        """Replace the progenitor orbit with a 'stream orbit' integrated
-        from the stream tip's mean phase space. For cold streams the
-        stream orbit ≈ progenitor orbit; for warm streams it can differ
-        significantly and gives smaller smoothing offsets.
+        """Two-step stream-orbit refinement:
+
+        1. Fit a preliminary smooth track on the progenitor orbit (the
+           current base) to get a noise-free estimate of the stream tip.
+        2. Integrate a new orbit from that smoothed tip IC back to tp=0
+           and replace the base orbit.
+
+        Using the smoothed track tip (rather than raw particle means)
+        avoids the IC noise that caused the one-shot approach to diverge.
         """
         if pot is None:
-            return  # can't integrate without a potential; keep progenitor
+            return
         from ..orbit import Orbit
-        from ..util import coords as gc
 
-        # Identify the tip: particles in the outermost 10% of |tp|
-        tp_abs = numpy.abs(tp_assign)
-        cutoff = numpy.percentile(tp_abs, 90)
-        tip_mask = tp_abs >= cutoff
-        if tip_mask.sum() < 5:
-            return  # too few particles to define a tip
-        tip_mean = self._particles_cart[tip_mask].mean(axis=0)  # (6,)
+        # Step 1: preliminary fit on the progenitor base
+        trim_pct = 99.0
+        if self._arm_sign > 0:
+            tp_lo, tp_hi = 0.0, float(numpy.percentile(tp_assign, trim_pct))
+        else:
+            tp_lo, tp_hi = float(numpy.percentile(tp_assign, 100 - trim_pct)), 0.0
+        if tp_hi - tp_lo < 1e-12:
+            return
+        tmp_tp_grid = numpy.linspace(tp_lo, tp_hi, self._ninterp)
+        n_part = len(tp_assign)
+        tmp_ntp = int(max(21, min(201, round(numpy.sqrt(n_part)))))
+        self._tp_grid = tmp_tp_grid
+        self._tp_nodes = numpy.linspace(tp_lo, tp_hi, tmp_ntp)
+        self._fit(tp_assign)
 
-        # Convert tip from galactocentric Cartesian to cylindrical for Orbit
-        R, phi, z = gc.rect_to_cyl(tip_mean[0], tip_mean[1], tip_mean[2])
-        vR, vT, vz = gc.rect_to_cyl_vec(
-            tip_mean[3], tip_mean[4], tip_mean[5], R, phi, z, cyl=True
+        # Step 2: evaluate the smoothed track at the tip (the far end)
+        tp_tip = tp_hi if self._arm_sign > 0 else tp_lo
+        tip_6d = self._prog_at(tp_tip).flatten()  # progenitor at tip
+        # Add the smoothed OFFSET at the tip
+        offset_at_tip = (
+            numpy.array([self._cart_splines[i](tp_tip) for i in range(6)]) - tip_6d
+        )
+        tip_ic = tip_6d + offset_at_tip  # = track(tp_tip) = smoothed tip
+
+        # Convert to cylindrical for Orbit
+        R, phi, z = coords.rect_to_cyl(tip_ic[0], tip_ic[1], tip_ic[2])
+        vR, vT, vz = coords.rect_to_cyl_vec(
+            tip_ic[3], tip_ic[4], tip_ic[5], R, phi, z, cyl=True
         )
         tip_orb = Orbit([R, vR, vT, z, vz, phi])
         tip_orb.turn_physical_off()
 
-        # Integrate from tip back to the progenitor (and a bit beyond)
-        # by reversing time. The tp range we need is from the tip's tp
-        # back to tp=0. For leading (arm_sign=+1), tip is at large
-        # positive tp; integrate backward. For trailing, tip is at large
-        # negative tp; integrate forward.
-        tp_tip = float(numpy.median(tp_assign[tip_mask]))
+        # Integrate from tip back to tp=0
         n_dense = len(self._track_t_grid)
-        if self._arm_sign > 0:
-            # tip at +tp_tip, need orbit from tp_tip down to 0
-            t_grid = numpy.linspace(0.0, -tp_tip, n_dense)
-            tip_orb.integrate(t_grid, pot)
-            # Evaluate: at t=0 we're at the tip; at t=-tp_tip we're at
-            # the progenitor end. Map to tp by shifting: tp = tp_tip + t
-            stream_t = tp_tip + t_grid  # goes from tp_tip to 0
-        else:
-            t_grid = numpy.linspace(0.0, -tp_tip, n_dense)
-            tip_orb.integrate(t_grid, pot)
-            stream_t = tp_tip + t_grid  # goes from tp_tip to 0
+        t_grid = numpy.linspace(0.0, -tp_tip, n_dense)
+        tip_orb.integrate(t_grid, pot)
+        stream_t = tp_tip + t_grid  # map to the tp coordinate
 
-        # Build the stream orbit's phase-space array
         stream_cart = numpy.column_stack(
             [
                 tip_orb.x(t_grid),
@@ -355,7 +361,6 @@ class StreamTrack:
                 tip_orb.vz(t_grid),
             ]
         )
-        # Sort by stream_t (ascending)
         order = numpy.argsort(stream_t)
         self._track_t_grid = stream_t[order]
         self._prog_cart = stream_cart[order]
