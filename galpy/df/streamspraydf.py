@@ -133,6 +133,7 @@ class basestreamspraydf(df):
         else:
             self._center = None
         if progpot is not None:
+            self._orig_pot = self._pot  # save pre-progpot for streamTrack
             progtrajpot = MovingObjectPotential(
                 orbit=self._progenitor,
                 pot=progpot,
@@ -248,18 +249,25 @@ class basestreamspraydf(df):
             the value set at initialization.
         track_time_range : float or Quantity, optional
             Half-range (symmetric about tp=0) of the finely-integrated
-            progenitor orbit used for closest-point matching and as the
-            public tp grid. Default is ``0.1*tdisrupt``. Must be larger than
-            the stream's spatial extent in orbital-time units.
+            progenitor orbit used for closest-point matching. Default is
+            data-driven: ``8 * d_max / |v_prog|`` clamped to ``[1,
+            tdisrupt]``, where ``d_max`` is the farthest particle's
+            distance from the progenitor.
         track_n_dense : int, optional
             Number of time points on the finely-integrated progenitor
-            orbit. Default 10001.
+            orbit. The actual grid has ``2 * (track_n_dense+1)//2 - 1``
+            points (forward + backward with shared t=0). Default 10001.
+        ntp : int, optional
+            Number of binning nodes. Default ``sqrt(N)`` clipped to
+            ``[21, 201]``.
         ninterp : int, optional
             Resolution of the public fine-grid track arrays. Default 1001.
         smoothing : None, float, or dict, optional
-            Smoothing spline ``s`` parameter for the mean-track fit.
-            ``None`` estimates s from the pairwise noise variance of the
-            sorted particle sample per coordinate.
+            Smoothing parameter. ``None`` (default) uses GCV auto-tuning
+            via ``scipy.interpolate.make_smoothing_spline``. A float sets
+            an explicit ``s`` value for ``UnivariateSpline``; a dict
+            keyed by ``'x','y','z','vx','vy','vz'`` sets per-coordinate
+            ``s`` values.
         niter : int, optional
             Iterations beyond the initial fit. Each iteration reassigns
             particles to the closest point on the current track.
@@ -323,15 +331,22 @@ class basestreamspraydf(df):
         # Build a finely-sampled progenitor phase-space array spanning
         # [-T, +T] around the present day. Integrate forward and backward
         # separately from the progenitor's present-day state, then combine.
-        half_dense = max(2, int(track_n_dense) // 2)
+        # Use the BASE potential (without progpot's MovingObjectPotential)
+        # because the MovingObjectPotential's internal progenitor was only
+        # integrated on [-tdisrupt, 0] and would give wrong or erroring
+        # results for positive times.
+        _track_pot = self._pot
+        if hasattr(self, "_orig_pot"):
+            _track_pot = self._orig_pot
+        half_dense = (int(track_n_dense) + 1) // 2
         t_back = numpy.linspace(0.0, -track_time_range, half_dense)
         t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
         prog_back = self._orig_progenitor()
         prog_back.turn_physical_off()
-        prog_back.integrate(t_back, self._pot)
+        prog_back.integrate(t_back, _track_pot)
         prog_fwd = self._orig_progenitor()
         prog_fwd.turn_physical_off()
-        prog_fwd.integrate(t_fwd, self._pot)
+        prog_fwd.integrate(t_fwd, _track_pot)
         # Combine, skipping the t=0 duplicate
         track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
         track_prog_cart = numpy.column_stack(
@@ -359,6 +374,7 @@ class basestreamspraydf(df):
                 dt_particles=dt,
                 track_prog_cart=track_prog_cart,
                 track_t_grid=track_t_grid,
+                pot=_track_pot,
                 arm_sign=arm_sign,
                 ntp=ntp,
                 ninterp=ninterp,

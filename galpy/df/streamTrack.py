@@ -120,9 +120,11 @@ class StreamTrack:
 
     A StreamTrack holds a smooth mean curve (and optional covariance) in
     galactic phase space, parameterized by a progenitor time coordinate
-    ``tp`` in ``[-tdisrupt, 0]``. It is constructed from a cloud of stream
-    particles (e.g. drawn via ``basestreamspraydf.sample``) plus the
-    progenitor's orbit.
+    ``tp``. ``tp=0`` is the progenitor today; for a leading arm ``tp > 0``
+    (future positions the progenitor has yet to reach) and for a trailing
+    arm ``tp < 0``. The ``tp`` range is determined by the data: it spans
+    the percentile-trimmed range of the closest-point assignments, bounded
+    by ``track_time_range`` (typically much smaller than ``tdisrupt``).
 
     Notes
     -----
@@ -139,6 +141,7 @@ class StreamTrack:
         dt_particles,
         track_prog_cart,
         track_t_grid,
+        pot=None,
         arm_sign=1,
         ntp=None,
         ninterp=1001,
@@ -173,15 +176,21 @@ class StreamTrack:
         track_t_grid : array, shape (M,)
             The dense time grid on which ``track_prog_cart`` is evaluated.
             Used for the closest-point projection.
+        arm_sign : int, optional
+            ``+1`` for leading arm (tp >= 0), ``-1`` for trailing (tp <= 0).
+            Controls the sign constraint on the closest-point search window.
+        ntp : int, optional
+            Number of binning nodes. Default ``sqrt(N)`` clipped to
+            ``[21, 201]``.
         ninterp : int, optional
             Resolution of the fine tp grid on which the public track is
             stored.
         smoothing : None, float, or dict, optional
             Smoothing parameter for the mean spline per Cartesian coordinate.
-            ``None`` estimates s from the pairwise noise variance of the
-            sorted particle sample (Reinsch-like target s = N * sigma^2).
-            A float sets s for all six coordinates; a dict keyed by
-            ``'x','y','z','vx','vy','vz'`` sets per-coordinate values.
+            ``None`` (default) uses GCV auto-tuning via
+            ``scipy.interpolate.make_smoothing_spline``. A float sets an
+            explicit ``s`` for ``UnivariateSpline``; a dict keyed by
+            ``'x','y','z','vx','vy','vz'`` sets per-coordinate ``s`` values.
         niter : int, optional
             Iterations beyond the initial fit. Each iteration reassigns each
             particle to the closest point on the current track and refits.
@@ -235,9 +244,7 @@ class StreamTrack:
         # windowed by dt and by arm sign (leading: tp>=0, trailing: tp<=0).
         tp_assign = self._assign_closest_on_progenitor()
 
-        # Exclude particles whose tp landed at the far boundary of the
-        # progenitor arc — these are mismatched (their true closest point
-        # is outside the searched range) and would bias the track tips.
+        # Exclude particles at the far boundary (mismatched).
         if self._arm_sign > 0:
             far_edge = self._track_t_grid[-1]
         else:
@@ -248,9 +255,16 @@ class StreamTrack:
         self._particles_cart = self._particles_cart[interior]
         self._dt = self._dt[interior]
 
-        # Trim the public tp grid to the percentile range where the binned
-        # data supports a fit (outlier particles at large |tp| produce
-        # sparse boundary bins that the spline would have to honor).
+        # --- Stream-orbit refinement ---
+        # Use the initial progenitor-offset tp_assign to identify the
+        # stream tip's mean phase space. Integrate a NEW orbit from the
+        # tip back to tp=0 (or the reverse). This "stream orbit" follows
+        # the actual stream's mean path and gives smaller, more slowly-
+        # varying offsets than the progenitor orbit — especially for warm
+        # streams whose mean orbit differs from the progenitor's.
+        self._refine_base_orbit(tp_assign, pot)
+
+        # Percentile-trim the tp_grid
         trim_percentile = 99.0
         if self._arm_sign > 0:
             tp_lo = 0.0
@@ -263,16 +277,105 @@ class StreamTrack:
             tp_hi = float(self._track_t_grid[-1])
         self._tp_grid = numpy.linspace(tp_lo, tp_hi, self._ninterp)
 
-        # Binning nodes. Default: ~sqrt(N), clipped to [21, 201].
         n_part = self._particles_cart.shape[0]
         if ntp is None:
             ntp = int(max(21, min(201, round(numpy.sqrt(n_part)))))
         self._tp_nodes = numpy.linspace(tp_lo, tp_hi, int(ntp))
 
+        # Re-assign particles to the stream orbit and fit
+        tp_assign = self._assign_closest_on_base()
+        # Re-trim after re-assignment
+        interior2 = numpy.abs(tp_assign - far_edge) > 1e-3 * arc_span
+        tp_assign = tp_assign[interior2]
+        self._particles_cart = self._particles_cart[interior2]
+        self._dt = self._dt[interior2]
+
         for it in range(niter + 1):
             self._fit(tp_assign)
             if it < niter:
                 tp_assign = self._assign_closest_on_track()
+
+    # -----------------------------------------------------------------
+    # Stream-orbit refinement
+    # -----------------------------------------------------------------
+    def _refine_base_orbit(self, tp_assign, pot):
+        """Replace the progenitor orbit with a 'stream orbit' integrated
+        from the stream tip's mean phase space. For cold streams the
+        stream orbit ≈ progenitor orbit; for warm streams it can differ
+        significantly and gives smaller smoothing offsets.
+        """
+        if pot is None:
+            return  # can't integrate without a potential; keep progenitor
+        from ..orbit import Orbit
+        from ..util import coords as gc
+
+        # Identify the tip: particles in the outermost 10% of |tp|
+        tp_abs = numpy.abs(tp_assign)
+        cutoff = numpy.percentile(tp_abs, 90)
+        tip_mask = tp_abs >= cutoff
+        if tip_mask.sum() < 5:
+            return  # too few particles to define a tip
+        tip_mean = self._particles_cart[tip_mask].mean(axis=0)  # (6,)
+
+        # Convert tip from galactocentric Cartesian to cylindrical for Orbit
+        R, phi, z = gc.rect_to_cyl(tip_mean[0], tip_mean[1], tip_mean[2])
+        vR, vT, vz = gc.rect_to_cyl_vec(
+            tip_mean[3], tip_mean[4], tip_mean[5], R, phi, z, cyl=True
+        )
+        tip_orb = Orbit([R, vR, vT, z, vz, phi])
+        tip_orb.turn_physical_off()
+
+        # Integrate from tip back to the progenitor (and a bit beyond)
+        # by reversing time. The tp range we need is from the tip's tp
+        # back to tp=0. For leading (arm_sign=+1), tip is at large
+        # positive tp; integrate backward. For trailing, tip is at large
+        # negative tp; integrate forward.
+        tp_tip = float(numpy.median(tp_assign[tip_mask]))
+        n_dense = len(self._track_t_grid)
+        if self._arm_sign > 0:
+            # tip at +tp_tip, need orbit from tp_tip down to 0
+            t_grid = numpy.linspace(0.0, -tp_tip, n_dense)
+            tip_orb.integrate(t_grid, pot)
+            # Evaluate: at t=0 we're at the tip; at t=-tp_tip we're at
+            # the progenitor end. Map to tp by shifting: tp = tp_tip + t
+            stream_t = tp_tip + t_grid  # goes from tp_tip to 0
+        else:
+            t_grid = numpy.linspace(0.0, -tp_tip, n_dense)
+            tip_orb.integrate(t_grid, pot)
+            stream_t = tp_tip + t_grid  # goes from tp_tip to 0
+
+        # Build the stream orbit's phase-space array
+        stream_cart = numpy.column_stack(
+            [
+                tip_orb.x(t_grid),
+                tip_orb.y(t_grid),
+                tip_orb.z(t_grid),
+                tip_orb.vx(t_grid),
+                tip_orb.vy(t_grid),
+                tip_orb.vz(t_grid),
+            ]
+        )
+        # Sort by stream_t (ascending)
+        order = numpy.argsort(stream_t)
+        self._track_t_grid = stream_t[order]
+        self._prog_cart = stream_cart[order]
+        self._prog_splines = [
+            interpolate.InterpolatedUnivariateSpline(
+                self._track_t_grid, self._prog_cart[:, i], k=3
+            )
+            for i in range(6)
+        ]
+
+    def _assign_closest_on_base(self):
+        """Like _assign_closest_on_progenitor but uses the (possibly
+        refined) base orbit stored in self._prog_cart."""
+        t_grid = self._track_t_grid
+        sign_mask = (t_grid * self._arm_sign) >= 0
+        dt_mask = numpy.abs(t_grid)[None, :] <= self._dt[:, None]
+        mask = sign_mask[None, :] & dt_mask
+        return _closest_point_on_curve(
+            self._particles_cart, self._prog_cart, t_grid, mask=mask
+        )
 
     # -----------------------------------------------------------------
     # Fitting
@@ -410,8 +513,12 @@ class StreamTrack:
             return val
         if kind == "length":
             return val * self._ro * (units.kpc if _APY_UNITS else 1)
-        if kind == "velocity" or kind == "vlos":
+        if kind == "velocity":
             return val * self._vo * (units.km / units.s if _APY_UNITS else 1)
+        if kind == "vlos":
+            # vlos from _vrpmllpmbb is already in km/s (helio_xv pre-
+            # multiplies by vo); only attach units, don't re-scale.
+            return val * (units.km / units.s if _APY_UNITS else 1)
         if kind == "angle":
             return val * (units.rad if _APY_UNITS else 1)
         if kind == "degree":
@@ -674,21 +781,18 @@ class StreamTrack:
         line = pyplot.plot(v1, v2, **kwargs)
         if spread > 0 and self._cov_xyz is not None:
             cart_idx = {"x": 0, "y": 1, "z": 2, "vx": 3, "vy": 4, "vz": 5}
-            if d1 in cart_idx and d2 in cart_idx:
-                i1 = cart_idx[d1]
+            if d2 in cart_idx:
                 i2 = cart_idx[d2]
                 cov = self.cov(tp)  # (n_eval, 6, 6)
-                s1 = numpy.sqrt(numpy.maximum(cov[:, i1, i1], 0.0))
                 s2 = numpy.sqrt(numpy.maximum(cov[:, i2, i2], 0.0))
-                # Apply physical scaling if active
-                if self._physical and self._roSet and d1 in ("x", "y", "z"):
-                    s1 = s1 * self._ro
-                if self._physical and self._roSet and d2 in ("x", "y", "z"):
-                    s2 = s2 * self._ro
-                if self._physical and self._voSet and d1 in ("vx", "vy", "vz"):
-                    s1 = s1 * self._vo
-                if self._physical and self._voSet and d2 in ("vx", "vy", "vz"):
-                    s2 = s2 * self._vo
+                # Scale covariance sigma the same way _scale handles the
+                # coordinate values (check _physical only, consistent with
+                # the coordinate accessors).
+                if self._physical:
+                    if d2 in ("x", "y", "z"):
+                        s2 = s2 * self._ro
+                    elif d2 in ("vx", "vy", "vz"):
+                        s2 = s2 * self._vo
                 color = line[0].get_color() if line else None
                 pyplot.fill_between(
                     v1,
