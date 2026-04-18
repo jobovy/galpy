@@ -1248,3 +1248,16 @@ def test_streamTrack_smoothing_variants(_simple_spdf):
     )
     assert numpy.isfinite(tr_f.x(-10.0))
     assert numpy.isfinite(tr_d.x(-10.0))
+    # Array-like smoothing: reuse smoothing_s from a previous fit
+    numpy.random.seed(18)
+    tr_gcv = _simple_spdf.streamTrack(n=800, tail="leading", order=2)
+    assert len(tr_gcv.smoothing_s) == 27  # 6 mean + 21 cov
+    numpy.random.seed(18)
+    tr_reuse = _simple_spdf.streamTrack(
+        n=800, tail="leading", order=2, smoothing=tr_gcv.smoothing_s
+    )
+    assert numpy.isfinite(tr_reuse.x(tr_reuse.tp_grid()[-1]))
+    # order=1 returns only 6 s values
+    numpy.random.seed(18)
+    tr_o1 = _simple_spdf.streamTrack(n=800, tail="leading", order=1)
+    assert len(tr_o1.smoothing_s) == 6

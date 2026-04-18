@@ -131,7 +131,7 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None):
     remaining = numpy.arange(N)
     while remaining.size:
         _, cand = tree.query(points[remaining], k=min(k, M))
-        if cand.ndim == 1:
+        if cand.ndim == 1:  # pragma: no cover (k=1 edge case)
             cand = cand[:, None]
         chosen = numpy.full(remaining.size, -1, dtype=int)
         for j, r in enumerate(remaining):
@@ -141,7 +141,7 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None):
         hit = chosen >= 0
         tp_out[remaining[hit]] = curve_t[chosen[hit]]
         remaining = remaining[~hit]
-        if k >= M:
+        if k >= M:  # pragma: no cover (exhausted all neighbors)
             tp_out[remaining] = 0.0
             break
         k = min(k * 4, M)
