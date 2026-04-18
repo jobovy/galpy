@@ -27,6 +27,12 @@ permissions:
 
 jobs:
   update-notebooks:
+    name: >-
+      update-notebooks${{
+        github.event_name == 'pull_request' && ' (dry run — PR trigger)' ||
+        (github.event_name == 'workflow_dispatch' && inputs.dry_run && ' (dry run)') ||
+        ''
+      }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -44,7 +50,7 @@ jobs:
         # trigger for testing this workflow, or workflow_dispatch dry_run).
         if: >-
           github.event_name != 'pull_request' &&
-          (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
+          (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TOLERATED_FLAKY_NOTEBOOKS: |
@@ -186,7 +192,7 @@ jobs:
         if: >-
           steps.check-changes.outputs.changed == 'true' &&
           (github.event_name == 'pull_request' ||
-           (github.event_name == 'workflow_dispatch' && inputs.dry_run == 'true'))
+           (github.event_name == 'workflow_dispatch' && inputs.dry_run))
         uses: actions/upload-artifact@v4
         with:
           name: updated-doc-notebooks
@@ -195,12 +201,12 @@ jobs:
         if: >-
           steps.check-changes.outputs.changed == 'true' &&
           github.event_name != 'pull_request' &&
-          (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
+          (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           date_tag=$(date -u +'%Y-%m-%d')
-          branch="auto/update-doc-notebooks-${date_tag}"
+          branch="auto/update-doc-notebooks-${date_tag}-run-${{ github.run_id }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
