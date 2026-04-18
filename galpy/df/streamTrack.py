@@ -120,9 +120,11 @@ class StreamTrack:
 
     A StreamTrack holds a smooth mean curve (and optional covariance) in
     galactic phase space, parameterized by a progenitor time coordinate
-    ``tp`` in ``[-tdisrupt, 0]``. It is constructed from a cloud of stream
-    particles (e.g. drawn via ``basestreamspraydf.sample``) plus the
-    progenitor's orbit.
+    ``tp``. ``tp=0`` is the progenitor today; for a leading arm ``tp > 0``
+    (future positions the progenitor has yet to reach) and for a trailing
+    arm ``tp < 0``. The ``tp`` range is determined by the data: it spans
+    the percentile-trimmed range of the closest-point assignments, bounded
+    by ``track_time_range`` (typically much smaller than ``tdisrupt``).
 
     Notes
     -----
@@ -173,15 +175,21 @@ class StreamTrack:
         track_t_grid : array, shape (M,)
             The dense time grid on which ``track_prog_cart`` is evaluated.
             Used for the closest-point projection.
+        arm_sign : int, optional
+            ``+1`` for leading arm (tp >= 0), ``-1`` for trailing (tp <= 0).
+            Controls the sign constraint on the closest-point search window.
+        ntp : int, optional
+            Number of binning nodes. Default ``sqrt(N)`` clipped to
+            ``[21, 201]``.
         ninterp : int, optional
             Resolution of the fine tp grid on which the public track is
             stored.
         smoothing : None, float, or dict, optional
             Smoothing parameter for the mean spline per Cartesian coordinate.
-            ``None`` estimates s from the pairwise noise variance of the
-            sorted particle sample (Reinsch-like target s = N * sigma^2).
-            A float sets s for all six coordinates; a dict keyed by
-            ``'x','y','z','vx','vy','vz'`` sets per-coordinate values.
+            ``None`` (default) uses GCV auto-tuning via
+            ``scipy.interpolate.make_smoothing_spline``. A float sets an
+            explicit ``s`` for ``UnivariateSpline``; a dict keyed by
+            ``'x','y','z','vx','vy','vz'`` sets per-coordinate ``s`` values.
         niter : int, optional
             Iterations beyond the initial fit. Each iteration reassigns each
             particle to the closest point on the current track and refits.
@@ -410,8 +418,12 @@ class StreamTrack:
             return val
         if kind == "length":
             return val * self._ro * (units.kpc if _APY_UNITS else 1)
-        if kind == "velocity" or kind == "vlos":
+        if kind == "velocity":
             return val * self._vo * (units.km / units.s if _APY_UNITS else 1)
+        if kind == "vlos":
+            # vlos from _vrpmllpmbb is already in km/s (helio_xv pre-
+            # multiplies by vo); only attach units, don't re-scale.
+            return val * (units.km / units.s if _APY_UNITS else 1)
         if kind == "angle":
             return val * (units.rad if _APY_UNITS else 1)
         if kind == "degree":
@@ -674,21 +686,18 @@ class StreamTrack:
         line = pyplot.plot(v1, v2, **kwargs)
         if spread > 0 and self._cov_xyz is not None:
             cart_idx = {"x": 0, "y": 1, "z": 2, "vx": 3, "vy": 4, "vz": 5}
-            if d1 in cart_idx and d2 in cart_idx:
-                i1 = cart_idx[d1]
+            if d2 in cart_idx:
                 i2 = cart_idx[d2]
                 cov = self.cov(tp)  # (n_eval, 6, 6)
-                s1 = numpy.sqrt(numpy.maximum(cov[:, i1, i1], 0.0))
                 s2 = numpy.sqrt(numpy.maximum(cov[:, i2, i2], 0.0))
-                # Apply physical scaling if active
-                if self._physical and self._roSet and d1 in ("x", "y", "z"):
-                    s1 = s1 * self._ro
-                if self._physical and self._roSet and d2 in ("x", "y", "z"):
-                    s2 = s2 * self._ro
-                if self._physical and self._voSet and d1 in ("vx", "vy", "vz"):
-                    s1 = s1 * self._vo
-                if self._physical and self._voSet and d2 in ("vx", "vy", "vz"):
-                    s2 = s2 * self._vo
+                # Scale covariance sigma the same way _scale handles the
+                # coordinate values (check _physical only, consistent with
+                # the coordinate accessors).
+                if self._physical:
+                    if d2 in ("x", "y", "z"):
+                        s2 = s2 * self._ro
+                    elif d2 in ("vx", "vy", "vz"):
+                        s2 = s2 * self._vo
                 color = line[0].get_color() if line else None
                 pyplot.fill_between(
                     v1,
