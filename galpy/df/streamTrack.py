@@ -53,12 +53,17 @@ def _smooth_series(x, y, sigma, s_user=None):
     """Fit a smoothing spline y(x) with weights derived from sigma.
 
     Default (``s_user=None``): use ``make_smoothing_spline`` with GCV
-    auto-tuning (requires scipy >= 1.10). When ``s_user`` is a float, fall
-    back to ``UnivariateSpline`` with that explicit ``s`` value, giving the
-    user full control over smoothness.
+    auto-tuning (requires scipy >= 1.10). When ``s_user`` is a float, use
+    ``UnivariateSpline`` with that explicit ``s`` value.
 
-    Falls back to linear interpolation for fewer than 5 valid bins (the
-    minimum required by the GCV routine).
+    Returns ``(spline, effective_s)`` where ``effective_s`` is the
+    weighted residual sum of the fit (= the ``s`` that a
+    ``UnivariateSpline`` would need to reproduce the same fit). For
+    GCV fits this is computed from the residuals; for explicit-s fits
+    it equals the input ``s_user``.
+
+    Falls back to linear interpolation (effective_s=0) for fewer than 5
+    valid bins.
     """
     mask = numpy.isfinite(y) & numpy.isfinite(x)
     n_valid = int(mask.sum())
@@ -70,12 +75,15 @@ def _smooth_series(x, y, sigma, s_user=None):
             ref = float(yv[0]) if n_valid == 1 else 0.0
             xv = numpy.array([-1.0, 0.0])
             yv = numpy.array([ref, ref])
-        return interpolate.interp1d(
-            xv,
-            yv,
-            kind="linear",
-            fill_value="extrapolate",
-            assume_sorted=True,
+        return (
+            interpolate.interp1d(
+                xv,
+                yv,
+                kind="linear",
+                fill_value="extrapolate",
+                assume_sorted=True,
+            ),
+            0.0,
         )
     sig_safe = numpy.where(
         numpy.isfinite(sigma) & (sigma > 0),
@@ -93,26 +101,51 @@ def _smooth_series(x, y, sigma, s_user=None):
     sv = numpy.where(numpy.isfinite(sig_safe), sig_safe, sig_med)[mask][order]
     sv = numpy.maximum(sv, 1e-12)
     if s_user is None:
-        # GCV auto-tuning: weights are inverse-variances (1/sigma^2)
-        return interpolate.make_smoothing_spline(xv, yv, w=1.0 / (sv * sv))
-    return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=float(s_user), k=3)
+        spl = interpolate.make_smoothing_spline(xv, yv, w=1.0 / (sv * sv))
+        resid = yv - spl(xv)
+        eff_s = float(numpy.sum((resid / sv) ** 2))
+        return spl, eff_s
+    s_val = float(s_user)
+    return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_val, k=3), s_val
 
 
 def _closest_point_on_curve(points, curve, curve_t, mask=None):
     """For each point in ``points`` (N, D), find the index of the closest
     entry in ``curve`` (M, D) and return the corresponding time
-    ``curve_t[idx]``. Works for any dimensionality D (3 for position-only,
-    6 for position+velocity).
+    ``curve_t[idx]``. Works for any dimensionality D.
 
-    If ``mask`` of shape (N, M) is given, entries where mask is False are
-    excluded from the search on a per-point basis.
+    Uses ``scipy.spatial.cKDTree`` for the unmasked case (sublinear
+    per query). When a per-particle ``mask`` of shape (N, M) is given,
+    queries K nearest neighbors and picks the closest allowed one,
+    growing K until every point has a match.
     """
-    diff = points[:, None, :] - curve[None, :, :]
-    d2 = numpy.einsum("nmk,nmk->nm", diff, diff)
-    if mask is not None:
-        d2 = numpy.where(mask, d2, numpy.inf)
-    idx = numpy.argmin(d2, axis=1)
-    return curve_t[idx]
+    from scipy.spatial import cKDTree
+
+    tree = cKDTree(curve)
+    if mask is None:
+        _, idx = tree.query(points, k=1)
+        return curve_t[idx]
+    N, M = mask.shape
+    k = min(max(1, M // 64), M)
+    tp_out = numpy.empty(N, dtype=float)
+    remaining = numpy.arange(N)
+    while remaining.size:
+        _, cand = tree.query(points[remaining], k=min(k, M))
+        if cand.ndim == 1:
+            cand = cand[:, None]
+        chosen = numpy.full(remaining.size, -1, dtype=int)
+        for j, r in enumerate(remaining):
+            allowed = cand[j][mask[r][cand[j]]]
+            if allowed.size:
+                chosen[j] = allowed[0]
+        hit = chosen >= 0
+        tp_out[remaining[hit]] = curve_t[chosen[hit]]
+        remaining = remaining[~hit]
+        if k >= M:
+            tp_out[remaining] = 0.0
+            break
+        k = min(k * 4, M)
+    return tp_out
 
 
 class StreamTrack:
@@ -184,12 +217,18 @@ class StreamTrack:
         ninterp : int, optional
             Resolution of the fine tp grid on which the public track is
             stored.
-        smoothing : None, float, or dict, optional
-            Smoothing parameter for the mean spline per Cartesian coordinate.
+        smoothing : None, float, array-like, or dict, optional
+            Smoothing parameter(s) for the mean-offset splines.
             ``None`` (default) uses GCV auto-tuning via
-            ``scipy.interpolate.make_smoothing_spline``. A float sets an
-            explicit ``s`` for ``UnivariateSpline``; a dict keyed by
-            ``'x','y','z','vx','vy','vz'`` sets per-coordinate ``s`` values.
+            ``scipy.interpolate.make_smoothing_spline``. A float sets a
+            single explicit ``s`` for all six coordinates. An array-like
+            of length 6 sets per-coordinate ``s`` values (order:
+            x, y, z, vx, vy, vz). A dict keyed by coordinate name does
+            the same. After fitting, the effective per-spline ``s``
+            values are available via :attr:`smoothing_s` (length 6 for
+            mean, or 6+21=27 when ``order >= 2``), which can be passed
+            back as ``smoothing`` in a subsequent call to reproduce the
+            same smoothness without re-running GCV.
         niter : int, optional
             Iterations beyond the initial fit. Each iteration reassigns each
             particle to the closest point on the current track and refits.
@@ -228,16 +267,25 @@ class StreamTrack:
         )
         self._dt = numpy.asarray(dt_particles, dtype=float)
 
-        # Normalize smoothing argument: tuple of 6 optional floats aligned
-        # with (x, y, z, vx, vy, vz).
+        # Normalize smoothing argument into per-spline s values.
+        # Length 6 = mean only; length 27 = mean (6) + covariance (21).
+        _coord_keys = ("x", "y", "z", "vx", "vy", "vz")
         if smoothing is None:
-            self._s_user = (None,) * 6
+            self._s_user_mean = [None] * 6
+            self._s_user_cov = [None] * 21
         elif isinstance(smoothing, dict):
-            self._s_user = tuple(
-                smoothing.get(c, None) for c in ("x", "y", "z", "vx", "vy", "vz")
-            )
+            self._s_user_mean = [smoothing.get(c, None) for c in _coord_keys]
+            self._s_user_cov = [None] * 21
+        elif hasattr(smoothing, "__len__") and not isinstance(smoothing, str):
+            s_arr = list(smoothing)
+            self._s_user_mean = [None if v is None else float(v) for v in s_arr[:6]]
+            self._s_user_cov = [
+                None if v is None else float(v)
+                for v in (s_arr[6:27] if len(s_arr) > 6 else [None] * 21)
+            ]
         else:
-            self._s_user = (float(smoothing),) * 6
+            self._s_user_mean = [float(smoothing)] * 6
+            self._s_user_cov = [None] * 21
 
         # Initial assignment via 6D closest-point on the progenitor orbit,
         # windowed by dt and by arm sign (leading: tp>=0, trailing: tp<=0).
@@ -294,12 +342,12 @@ class StreamTrack:
         """Bin per-particle offsets-from-progenitor by tp_assign, smooth the
         bin-means (plus optionally bin-covs), and reconstruct the public
         track by adding the smoothed offsets back to the progenitor orbit.
-        Smoothing offsets (rather than raw positions) keeps the smoothed
-        signal small and well-behaved regardless of orbital phase."""
-        # Offsets = particle - progenitor(tp_i). Small by construction for
-        # particles close to the orbit.
+
+        After fitting, ``self.smoothing_s`` contains the effective s
+        values: 6 floats for the mean splines, plus 21 for the
+        covariance upper-triangle entries when ``order >= 2``."""
         prog_at_particles = self._prog_at(tp_assign)
-        offsets = self._particles_cart - prog_at_particles  # (N, 6)
+        offsets = self._particles_cart - prog_at_particles
 
         means, covs, counts = _bin_by_tp(tp_assign, offsets, self._tp_nodes)
         with numpy.errstate(invalid="ignore"):
@@ -309,26 +357,28 @@ class StreamTrack:
             )
             sigma_of_mean = numpy.where(counts[:, None] > 1, sigma_of_mean, numpy.nan)
 
-        # Smooth per-coord offset. Evaluate on fine tp grid.
-        offset_splines = [
-            _smooth_series(
+        # Mean-offset splines (6 coords)
+        eff_s_mean = []
+        offset_splines = []
+        for i in range(6):
+            spl, es = _smooth_series(
                 self._tp_nodes,
                 means[:, i],
                 sigma_of_mean[:, i],
-                s_user=self._s_user[i],
+                s_user=self._s_user_mean[i],
             )
-            for i in range(6)
-        ]
+            offset_splines.append(spl)
+            eff_s_mean.append(es)
         offset_fine = numpy.column_stack([spl(self._tp_grid) for spl in offset_splines])
 
-        # Add back the progenitor's phase space at each tp_grid point.
         prog_on_grid = self._prog_at(self._tp_grid)
         track_fine = prog_on_grid + offset_fine
 
-        # Covariance: smooth componentwise in the offset frame (≡ Cartesian
-        # offset from progenitor). Errors scale as sqrt((C_aa*C_bb+C_ab^2)/k).
+        # Covariance splines (21 upper-triangle entries)
+        eff_s_cov = []
         if self._order >= 2:
             cov_fine = numpy.zeros((self._ninterp, 6, 6))
+            cov_idx = 0
             for a in range(6):
                 for b in range(a, 6):
                     vals = covs[:, a, b]
@@ -339,7 +389,14 @@ class StreamTrack:
                             (diag_a * diag_b + vals**2) / numpy.maximum(counts, 2)
                         )
                     sigma_c = numpy.where(counts > 1, sigma_c, numpy.nan)
-                    spl = _smooth_series(self._tp_nodes, vals, sigma_c, s_user=None)
+                    spl, es = _smooth_series(
+                        self._tp_nodes,
+                        vals,
+                        sigma_c,
+                        s_user=self._s_user_cov[cov_idx],
+                    )
+                    eff_s_cov.append(es)
+                    cov_idx += 1
                     val_fine = spl(self._tp_grid)
                     cov_fine[:, a, b] = val_fine
                     cov_fine[:, b, a] = val_fine
@@ -352,11 +409,12 @@ class StreamTrack:
         else:
             self._cov_xyz = None
 
+        self.smoothing_s = eff_s_mean + eff_s_cov
+
         self._track_xyz = track_fine[:, 0:3]
         self._track_vxvyvz = track_fine[:, 3:6]
         self._bin_counts = counts
 
-        # Interpolating splines on the public fine-grid track for evaluation
         self._cart_splines = [
             interpolate.InterpolatedUnivariateSpline(
                 self._tp_grid, track_fine[:, i], k=3

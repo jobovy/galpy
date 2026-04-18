@@ -262,12 +262,14 @@ class basestreamspraydf(df):
             ``[21, 201]``.
         ninterp : int, optional
             Resolution of the public fine-grid track arrays. Default 1001.
-        smoothing : None, float, or dict, optional
-            Smoothing parameter. ``None`` (default) uses GCV auto-tuning
-            via ``scipy.interpolate.make_smoothing_spline``. A float sets
-            an explicit ``s`` value for ``UnivariateSpline``; a dict
-            keyed by ``'x','y','z','vx','vy','vz'`` sets per-coordinate
-            ``s`` values.
+        smoothing : None, float, array-like, or dict, optional
+            Smoothing parameter(s). ``None`` (default) uses GCV
+            auto-tuning. A float sets a single ``s`` for all coords. An
+            array-like of length 6 (mean only) or 27 (mean + covariance)
+            sets per-spline ``s`` values — pass a previous call's
+            ``track.smoothing_s`` to reproduce the same smoothness
+            without re-running GCV. A dict keyed by coordinate name
+            sets per-coordinate ``s`` for the 6 mean splines only.
         niter : int, optional
             Iterations beyond the initial fit. Each iteration reassigns
             particles to the closest point on the current track.
