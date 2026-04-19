@@ -1261,3 +1261,26 @@ def test_streamTrack_smoothing_variants(_simple_spdf):
     numpy.random.seed(18)
     tr_o1 = _simple_spdf.streamTrack(n=800, tail="leading", order=1)
     assert len(tr_o1.smoothing_s) == 6
+
+
+def test_closest_point_on_curve_kdtree_edge_cases():
+    from galpy.df.streamTrack import _closest_point_on_curve
+
+    # Case 1: short curve (M < 64) with mask — triggers cand.ndim == 1
+    # because initial k = max(1, M//64) = 1 and tree.query returns 1D
+    numpy.random.seed(99)
+    curve = numpy.random.randn(10, 6)
+    curve_t = numpy.linspace(0, 1, 10)
+    points = numpy.random.randn(5, 6)
+    mask = numpy.zeros((5, 10), dtype=bool)
+    mask[:, :3] = True
+    result = _closest_point_on_curve(points, curve, curve_t, mask=mask)
+    assert result.shape == (5,)
+    assert numpy.all(numpy.isin(result, curve_t[:3]))
+
+    # Case 2: all-False mask — no allowed neighbor anywhere, triggers
+    # the k >= M fallback that assigns tp=0
+    mask_empty = numpy.zeros((5, 10), dtype=bool)
+    result2 = _closest_point_on_curve(points, curve, curve_t, mask=mask_empty)
+    assert result2.shape == (5,)
+    assert numpy.allclose(result2, 0.0)
