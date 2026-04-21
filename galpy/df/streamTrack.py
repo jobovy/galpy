@@ -680,21 +680,28 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def cov(self, tp):
         """Return the 6x6 covariance matrix of the particle distribution at tp,
-        in the galactocentric Cartesian basis (x, y, z, vx, vy, vz)."""
+        in the galactocentric Cartesian basis (x, y, z, vx, vy, vz).
+
+        Units match the mean-track accessors: kpc², (km/s)², and
+        kpc·km/s for position-velocity cross terms when physical output
+        is on; galpy internal units otherwise."""
         if self._cov_xyz is None:
             raise RuntimeError(
                 "Covariance was not computed (order < 2). Rebuild with order=2."
             )
         tp = self._parse_tp(tp)
         tp_arr = numpy.atleast_1d(tp)
-        # Linear interpolation on the stored fine grid; covariance is already
-        # stored on a dense 1001-point grid so linear is fine.
         out = numpy.empty((len(tp_arr), 6, 6))
         for a in range(6):
             for b in range(6):
                 out[:, a, b] = numpy.interp(
                     tp_arr, self._tp_grid, self._cov_xyz[:, a, b]
                 )
+        if self._physical:
+            scale = numpy.array(
+                [self._ro, self._ro, self._ro, self._vo, self._vo, self._vo]
+            )
+            out = out * numpy.outer(scale, scale)
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
             return out[0]
         return out
@@ -746,16 +753,8 @@ class StreamTrack:
             cart_idx = {"x": 0, "y": 1, "z": 2, "vx": 3, "vy": 4, "vz": 5}
             if d2 in cart_idx:
                 i2 = cart_idx[d2]
-                cov = self.cov(tp)  # (n_eval, 6, 6)
+                cov = self.cov(tp)  # already in physical units if _physical
                 s2 = numpy.sqrt(numpy.maximum(cov[:, i2, i2], 0.0))
-                # Scale covariance sigma the same way _scale handles the
-                # coordinate values (check _physical only, consistent with
-                # the coordinate accessors).
-                if self._physical:
-                    if d2 in ("x", "y", "z"):
-                        s2 = s2 * self._ro
-                    elif d2 in ("vx", "vy", "vz"):
-                        s2 = s2 * self._vo
                 color = line[0].get_color() if line else None
                 pyplot.fill_between(
                     v1,

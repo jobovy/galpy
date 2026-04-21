@@ -1075,6 +1075,22 @@ def test_streamTrack_physical_units(_simple_spdf):
     assert abs(track.x(-10.0) - x0) < 1e-10
 
 
+def test_streamTrack_cov_physical_units(_simple_spdf):
+    # cov() must honor the physical-unit toggle, matching the scaling of
+    # x/y/z/vx/vy/vz accessors. Position entries scale by ro^2, velocity
+    # by vo^2, cross terms by ro*vo.
+    numpy.random.seed(18)
+    track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
+    track.turn_physical_off()
+    C_int = track.cov(-10.0)
+    track.turn_physical_on(ro=8.0, vo=220.0)
+    C_phys = track.cov(-10.0)
+    ro, vo = 8.0, 220.0
+    scale = numpy.array([ro, ro, ro, vo, vo, vo])
+    expected = C_int * numpy.outer(scale, scale)
+    assert numpy.allclose(C_phys, expected, rtol=1e-10)
+
+
 def test_streamTrack_particles_reuse(_simple_spdf):
     numpy.random.seed(9)
     xv, dt = _simple_spdf.sample(
