@@ -1429,3 +1429,20 @@ def test_streamTrack_plot_spread_non_cartesian(_simple_spdf):
     numpy.random.seed(34)
     track_bare = _simple_spdf.streamTrack(n=800, tail="leading", ntp=31)
     track_bare.plot(d1="x", d2="ra", spread=1, n=40)
+
+
+def test_streamTrack_custom_accessors_no_physical(_simple_spdf):
+    # phi1/phi2/pmphi1/pmphi2 accessors must also work with physical
+    # output off (covers the non-Quantity branch of the extract-scalar
+    # helper inside each accessor).
+    from galpy.util import coords
+
+    T = coords.align_to_orbit(_simple_spdf._progenitor)
+    numpy.random.seed(41)
+    track = _simple_spdf.streamTrack(n=1000, tail="leading", custom_transform=T)
+    track.turn_physical_off()
+    tp0 = track.tp_grid()[len(track.tp_grid()) // 2]
+    for name in ("phi1", "phi2", "pmphi1", "pmphi2"):
+        val = getattr(track, name)(tp0)
+        assert numpy.isfinite(float(val))
+    track.turn_physical_on(ro=8.0, vo=220.0)

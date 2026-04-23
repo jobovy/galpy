@@ -1174,8 +1174,10 @@ class StreamTrack:
             try:
                 cov = self.cov(tp, basis=basis)  # (n_eval, 6, 6)
                 s2 = numpy.sqrt(numpy.maximum(cov[:, idx, idx], 0.0))
-            except RuntimeError:
-                # e.g. basis="custom" without custom_transform — skip band
+            except RuntimeError:  # pragma: no cover (defensive)
+                # E.g. basis="customsky" without custom_transform — but
+                # that case is already blocked by the phi1/phi2 accessor
+                # raising above. Keep as defensive fallback.
                 s2 = None
             if s2 is not None:
                 color = line[0].get_color() if line else None
