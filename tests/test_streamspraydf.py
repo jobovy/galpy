@@ -1322,3 +1322,35 @@ def test_streamTrack_particles_attr(_simple_spdf):
     track2 = _simple_spdf.streamTrack(particles=track.particles, tail="leading")
     tps = track.tp_grid()
     assert numpy.allclose(track.x(tps), track2.x(tps))
+
+
+def test_streamTrack_custom_transform(_simple_spdf):
+    # custom_transform enables phi1/phi2/pmphi1/pmphi2 accessors;
+    # without it, those accessors raise.
+    from galpy.util import coords
+
+    T = _simple_spdf._progenitor.align_to_orbit()
+    numpy.random.seed(22)
+    track = _simple_spdf.streamTrack(n=1500, tail="leading", custom_transform=T)
+    tps = track.tp_grid()
+    tp0 = tps[len(tps) // 2]
+    for name in ("phi1", "phi2", "pmphi1", "pmphi2"):
+        val = getattr(track, name)(tp0)
+        assert numpy.isfinite(float(val))
+        arr = getattr(track, name)(tps[:5])
+        assert arr.shape == (5,) and numpy.all(numpy.isfinite(arr))
+    # Same (ra, dec) → phi via coords.radec_to_custom round-trip
+    ra, dec = float(track.ra(tp0)), float(track.dec(tp0))
+    expected = coords.radec_to_custom(
+        numpy.atleast_1d(ra), numpy.atleast_1d(dec), T=T, degree=True
+    )
+    assert abs(float(track.phi1(tp0)) - expected[0, 0]) < 1e-8
+    assert abs(float(track.phi2(tp0)) - expected[0, 1]) < 1e-8
+
+    # Without custom_transform, accessors raise
+    numpy.random.seed(23)
+    track_bare = _simple_spdf.streamTrack(n=500, tail="leading")
+    with pytest.raises(RuntimeError):
+        track_bare.phi1(tp0)
+    with pytest.raises(RuntimeError):
+        track_bare.pmphi1(tp0)

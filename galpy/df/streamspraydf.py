@@ -220,6 +220,7 @@ class basestreamspraydf(df):
         smoothing=None,
         niter=0,
         order=2,
+        custom_transform=None,
     ):
         """
         Construct a smooth phase-space track through the stream by sampling
@@ -382,6 +383,7 @@ class basestreamspraydf(df):
                 smoothing=smoothing,
                 niter=niter,
                 order=order,
+                custom_transform=custom_transform,
                 ro=prog_ro,
                 vo=prog_vo,
                 zo=prog_zo,

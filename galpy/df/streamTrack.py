@@ -180,6 +180,7 @@ class StreamTrack:
         smoothing=None,
         niter=0,
         order=2,
+        custom_transform=None,
         ro=None,
         vo=None,
         zo=None,
@@ -251,6 +252,14 @@ class StreamTrack:
         self._arm_sign = int(numpy.sign(arm_sign)) or 1
         self._ninterp = int(ninterp)
         self._order = int(order)
+        # Optional rotation from (ra, dec) to a custom (phi1, phi2) frame —
+        # enables the .phi1/.phi2/.pmphi1/.pmphi2 accessors. Inverse is
+        # the transpose (orthogonal by construction).
+        self._custom_transform = (
+            None
+            if custom_transform is None
+            else numpy.asarray(custom_transform, dtype=float)
+        )
         self._ro = ro
         self._vo = vo
         self._zo = zo
@@ -683,6 +692,82 @@ class StreamTrack:
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
         return self._scale(self._maybe_scalar(tp, vrpmllpmbb[:, 0]), "vlos")
+
+    # -----------------------------------------------------------------
+    # Custom sky frame (requires ``custom_transform`` to be set)
+    # -----------------------------------------------------------------
+    def _require_custom(self):
+        if self._custom_transform is None:
+            raise RuntimeError(
+                "custom_transform was not set at track construction; "
+                "the phi1/phi2/pmphi1/pmphi2 accessors require a rotation "
+                "matrix (3x3) from (ra, dec) to the custom sky frame. "
+                "See galpy.util.coords.align_to_orbit for a helper that "
+                "builds one from a progenitor Orbit."
+            )
+
+    def phi1(self, tp):
+        """Custom-frame longitude."""
+        self._require_custom()
+        tp = self._parse_tp(tp)
+        ra = numpy.atleast_1d(numpy.asarray(getattr(self.ra(tp), "value", self.ra(tp))))
+        dec = numpy.atleast_1d(
+            numpy.asarray(getattr(self.dec(tp), "value", self.dec(tp)))
+        )
+        p12 = coords.radec_to_custom(ra, dec, T=self._custom_transform, degree=True)
+        out = p12[:, 0]
+        return self._scale(self._maybe_scalar(tp, out), "degree")
+
+    def phi2(self, tp):
+        """Custom-frame latitude."""
+        self._require_custom()
+        tp = self._parse_tp(tp)
+        ra = numpy.atleast_1d(numpy.asarray(getattr(self.ra(tp), "value", self.ra(tp))))
+        dec = numpy.atleast_1d(
+            numpy.asarray(getattr(self.dec(tp), "value", self.dec(tp)))
+        )
+        p12 = coords.radec_to_custom(ra, dec, T=self._custom_transform, degree=True)
+        out = p12[:, 1]
+        return self._scale(self._maybe_scalar(tp, out), "degree")
+
+    def pmphi1(self, tp):
+        """Proper motion in custom-frame phi1, multiplied by cos(phi2)."""
+        self._require_custom()
+        tp = self._parse_tp(tp)
+        # Need pmra*cos(dec) and pmdec at tp, with (ra, dec)
+        ra = numpy.atleast_1d(numpy.asarray(getattr(self.ra(tp), "value", self.ra(tp))))
+        dec = numpy.atleast_1d(
+            numpy.asarray(getattr(self.dec(tp), "value", self.dec(tp)))
+        )
+        pmra = numpy.atleast_1d(
+            numpy.asarray(getattr(self.pmra(tp), "value", self.pmra(tp)))
+        )
+        pmdec = numpy.atleast_1d(
+            numpy.asarray(getattr(self.pmdec(tp), "value", self.pmdec(tp)))
+        )
+        pm12 = coords.pmrapmdec_to_custom(
+            pmra, pmdec, ra, dec, T=self._custom_transform, degree=True
+        )
+        return self._scale(self._maybe_scalar(tp, pm12[:, 0]), "pm")
+
+    def pmphi2(self, tp):
+        """Proper motion in custom-frame phi2."""
+        self._require_custom()
+        tp = self._parse_tp(tp)
+        ra = numpy.atleast_1d(numpy.asarray(getattr(self.ra(tp), "value", self.ra(tp))))
+        dec = numpy.atleast_1d(
+            numpy.asarray(getattr(self.dec(tp), "value", self.dec(tp)))
+        )
+        pmra = numpy.atleast_1d(
+            numpy.asarray(getattr(self.pmra(tp), "value", self.pmra(tp)))
+        )
+        pmdec = numpy.atleast_1d(
+            numpy.asarray(getattr(self.pmdec(tp), "value", self.pmdec(tp)))
+        )
+        pm12 = coords.pmrapmdec_to_custom(
+            pmra, pmdec, ra, dec, T=self._custom_transform, degree=True
+        )
+        return self._scale(self._maybe_scalar(tp, pm12[:, 1]), "pm")
 
     # -----------------------------------------------------------------
     # Covariance
