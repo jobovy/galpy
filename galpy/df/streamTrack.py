@@ -8,6 +8,40 @@ if _APY_LOADED:
     from astropy import units
 
 
+def _jac_galcenrect_to_galcencyl(x, y, z, vx, vy, vz):
+    """Closed-form 6x6 Jacobian of galactocentric (R, vR, vT, z, vz, phi)
+    w.r.t. (x, y, z, vx, vy, vz), evaluated at the given point."""
+    R = numpy.sqrt(x * x + y * y)
+    if R == 0.0:  # pragma: no cover (track never sits exactly on z axis)
+        R = 1e-30
+    cp = x / R
+    sp = y / R
+    vR_ = cp * vx + sp * vy
+    vT_ = -sp * vx + cp * vy
+    J = numpy.zeros((6, 6))
+    # row 0: R
+    J[0, 0] = cp
+    J[0, 1] = sp
+    # row 1: vR = cos_phi * vx + sin_phi * vy
+    J[1, 0] = -sp * vT_ / R
+    J[1, 1] = cp * vT_ / R
+    J[1, 3] = cp
+    J[1, 4] = sp
+    # row 2: vT = -sin_phi * vx + cos_phi * vy
+    J[2, 0] = sp * vR_ / R
+    J[2, 1] = -cp * vR_ / R
+    J[2, 3] = -sp
+    J[2, 4] = cp
+    # row 3: z
+    J[3, 2] = 1.0
+    # row 4: vz
+    J[4, 5] = 1.0
+    # row 5: phi = atan2(y, x)
+    J[5, 0] = -sp / R
+    J[5, 1] = cp / R
+    return J
+
+
 def _particles_to_cartesian(xv_particles):
     """Convert particles from (R,vR,vT,z,vz,phi) to galactocentric
     Cartesian 6-vectors. Returns array of shape (N, 6)."""
@@ -772,17 +806,55 @@ class StreamTrack:
     # -----------------------------------------------------------------
     # Covariance
     # -----------------------------------------------------------------
-    def cov(self, tp):
-        """Return the 6x6 covariance matrix of the particle distribution at tp,
-        in the galactocentric Cartesian basis (x, y, z, vx, vy, vz).
+    _BASIS_COORDS = {
+        "galcenrect": ("x", "y", "z", "vx", "vy", "vz"),
+        "galcencyl": ("R", "vR", "vT", "z", "vz", "phi"),
+        "sky": ("ra", "dec", "dist", "pmra", "pmdec", "vlos"),
+        "galsky": ("ll", "bb", "dist", "pmll", "pmbb", "vlos"),
+        "customsky": ("phi1", "phi2", "dist", "pmphi1", "pmphi2", "vlos"),
+    }
 
-        Units match the mean-track accessors: kpc², (km/s)², and
-        kpc·km/s for position-velocity cross terms when physical output
-        is on; galpy internal units otherwise."""
+    def cov(self, tp, basis="galcenrect"):
+        """Return the 6x6 covariance matrix of the particle distribution at tp.
+
+        Parameters
+        ----------
+        tp : float or array
+            Progenitor time coordinate(s).
+        basis : str, optional
+            Output basis for the covariance matrix. One of:
+            - ``"galcenrect"`` (default): ``(x, y, z, vx, vy, vz)`` in
+              galactocentric Cartesian. Stored natively by the fit.
+            - ``"galcencyl"``: ``(R, vR, vT, z, vz, phi)`` galactocentric
+              cylindrical.
+            - ``"galsky"``: ``(ll, bb, dist, pmll, pmbb, vlos)`` heliocentric
+              Galactic sky + distance + kinematics.
+            - ``"sky"``: ``(ra, dec, dist, pmra, pmdec, vlos)`` heliocentric
+              equatorial sky + distance + kinematics.
+            - ``"customsky"``: ``(phi1, phi2, dist, pmphi1, pmphi2, vlos)``
+              sky rotated by ``custom_transform``. Requires
+              ``custom_transform`` to have been set.
+
+        Non-galcenrect bases are computed by analytical Jacobian of the
+        coord chain evaluated at the track mean (``C' = J · C · Jᵀ``) — no
+        finite differences. Pure rotations (e.g. the tangent rotations
+        between sky frames) are inverted via transpose; ``lbd↔XYZ`` is a
+        non-rotation transform so its 6x6 block is inverted by
+        ``numpy.linalg.inv``.
+
+        Units match the mean-track accessors (kpc, km/s, deg, mas/yr)
+        when physical output is on; galpy internal units otherwise."""
         if self._cov_xyz is None:
             raise RuntimeError(
                 "Covariance was not computed (order < 2). Rebuild with order=2."
             )
+        if basis not in self._BASIS_COORDS:
+            raise ValueError(
+                f"Unknown basis {basis!r}; expected one of {list(self._BASIS_COORDS)}"
+            )
+        if basis == "customsky":
+            self._require_custom()
+
         tp = self._parse_tp(tp)
         tp_arr = numpy.atleast_1d(tp)
         out = numpy.empty((len(tp_arr), 6, 6))
@@ -796,9 +868,228 @@ class StreamTrack:
                 [self._ro, self._ro, self._ro, self._vo, self._vo, self._vo]
             )
             out = out * numpy.outer(scale, scale)
+
+        if basis != "galcenrect":
+            for k, tp_k in enumerate(tp_arr):
+                J = self._analytical_jacobian(tp_k, basis)
+                out[k] = J @ out[k] @ J.T
+
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
             return out[0]
         return out
+
+    # -----------------------------------------------------------------
+    # Analytical-Jacobian evaluator (used by cov(basis=..) and
+    # plot(spread=) on non-galcenrect axes).
+    # -----------------------------------------------------------------
+    def _cart_mean_at(self, tp):
+        """Mean (x, y, z, vx, vy, vz) at ``tp`` in the track's physical
+        state (kpc, km/s when physical is on, else internal)."""
+        return numpy.array(
+            [
+                float(self.x(tp)),
+                float(self.y(tp)),
+                float(self.z(tp)),
+                float(self.vx(tp)),
+                float(self.vy(tp)),
+                float(self.vz(tp)),
+            ]
+        )
+
+    def _analytical_jacobian(self, tp, basis):
+        """6x6 analytical Jacobian d(basis)/d(galcenrect) at the track mean.
+
+        Chain:
+            galcenrect → galcencyl     (closed form)
+            galcenrect → helio_XYZ     (galcenrect_to_XYZ_jac, a rotation)
+            helio_XYZ  → galsky        (inv of lbd_to_XYZ_jac via linalg.inv)
+            galsky     → sky           (tangent rotation at the sky point)
+            sky        → customsky     (tangent rotation via custom_transform)
+        """
+        mean = self._cart_mean_at(tp)
+        x, y, z, vx, vy, vz = mean
+
+        if basis == "galcencyl":
+            return _jac_galcenrect_to_galcencyl(x, y, z, vx, vy, vz)
+
+        # Sky bases — chain through heliocentric Galactic Cartesian.
+        ro = float(self._ro) if self._ro is not None else 1.0
+        zo = float(self._zo) if self._zo is not None else 0.0
+        # (1) d(helio_XYZ)/d(galcenrect): 6x6 rotation (block-diagonal).
+        J1 = coords.galcenrect_to_XYZ_jac(x, y, z, vx, vy, vz, Xsun=ro, Zsun=zo)
+        # Evaluate helio (XYZ, v) at the mean to pass into lbd_to_XYZ_jac.
+        XYZ_mean = coords.galcenrect_to_XYZ(x, y, z, Xsun=ro, Zsun=zo)
+        vxyz_mean = coords.galcenrect_to_vxvyvz(vx, vy, vz, Xsun=ro, Zsun=zo)
+        X, Y, Z = float(XYZ_mean[0]), float(XYZ_mean[1]), float(XYZ_mean[2])
+        vX, vY, vZ = float(vxyz_mean[0]), float(vxyz_mean[1]), float(vxyz_mean[2])
+        lbd_mean = coords.XYZ_to_lbd(X, Y, Z, degree=False)
+        l = float(lbd_mean[0])
+        b = float(lbd_mean[1])
+        d = float(lbd_mean[2])
+        vrpm = coords.vxvyvz_to_vrpmllpmbb(vX, vY, vZ, X, Y, Z, XYZ=True, degree=False)
+        vlos = float(vrpm[0])
+        pmll = float(vrpm[1])
+        pmbb = float(vrpm[2])
+        # (2) d(l, b, d, vlos, pmll, pmbb)/d(helio_XYZ) = inv(lbd_to_XYZ_jac).
+        #     lbd_to_XYZ_jac has order (l, b, d, vlos, pmll, pmbb); permute
+        #     to our galsky order (l, b, d, pmll, pmbb, vlos) afterward.
+        #     Internally work in radians for clean trig in (3); convert the
+        #     angular output rows to degrees at the end.
+        J_lbd = coords.lbd_to_XYZ_jac(l, b, d, vlos, pmll, pmbb, degree=False)
+        J_lbd_inv = numpy.linalg.inv(J_lbd)
+        perm = numpy.array([0, 1, 2, 4, 5, 3])  # (l,b,d,vlos,pmll,pmbb)→galsky
+        P = numpy.eye(6)[perm]
+        J_galsky = P @ J_lbd_inv @ J1  # l, b in radians
+        if basis == "galsky":
+            # Angular rows 0, 1 (l, b) → degrees
+            J_galsky = J_galsky.copy()
+            J_galsky[0] *= 180.0 / numpy.pi
+            J_galsky[1] *= 180.0 / numpy.pi
+            return J_galsky
+
+        # (3) galsky → sky: local tangent rotation at (l, b) by angle α.
+        #     Formulas for cosα, sinα match ``pmllpmbb_to_pmrapmdec``.
+        #     The PM rotation has an extra term since α depends on sky
+        #     position — captured by dα/dra and dα/ddec at the mean.
+        theta, dec_ngp, ra_ngp = coords.get_epoch_angles(2000.0)
+        cosb = numpy.cos(b)
+        radec = coords.lb_to_radec(
+            numpy.atleast_1d(l), numpy.atleast_1d(b), degree=False
+        )
+        ra = float(radec[0, 0] if radec.ndim == 2 else radec[0])
+        dec_val = float(radec[0, 1] if radec.ndim == 2 else radec[1])
+        sindec = numpy.sin(dec_val)
+        cosdec = numpy.cos(dec_val)
+        sindec_ngp = numpy.sin(dec_ngp)
+        cosdec_ngp = numpy.cos(dec_ngp)
+        sin_rrngp = numpy.sin(ra - ra_ngp)
+        cos_rrngp = numpy.cos(ra - ra_ngp)
+        # Un-normalized (σ, κ) then normalize
+        κ = sindec_ngp * cosdec - cosdec_ngp * sindec * cos_rrngp
+        σ = sin_rrngp * cosdec_ngp
+        nrm2 = κ * κ + σ * σ
+        nrm = numpy.sqrt(nrm2)
+        cosa = κ / nrm
+        sina = σ / nrm
+        # dα/d(ra, dec) via α = atan2(σ, κ) ⇒ dα = (κ·dσ − σ·dκ)/nrm² with
+        # unnormalized σ, κ.
+        dsig_dra = cosdec_ngp * cos_rrngp
+        dsig_ddec = 0.0
+        dkap_dra = cosdec_ngp * sindec * sin_rrngp
+        dkap_ddec = -sindec_ngp * sindec - cosdec_ngp * cosdec * cos_rrngp
+        dalpha_dra = (κ * dsig_dra - σ * dkap_dra) / nrm2
+        dalpha_ddec = (κ * dsig_ddec - σ * dkap_ddec) / nrm2
+        # Full (ra, dec, pmra, pmdec) Jacobian wrt (l, b, pmll, pmbb):
+        # position: rotation + cos-ratio scaling; PM: rotation + α-depends
+        # -on-position correction. Chain through (l, b) → (ra, dec) which
+        # itself is the rotation scaled.
+        #   d(ra)/d(l) = cosα · cos(b) / cos(dec)
+        #   d(ra)/d(b) = -sinα / cos(dec)
+        #   d(dec)/d(l) = sinα · cos(b),   d(dec)/d(b) = cosα
+        dra_dl = cosa * cosb / cosdec
+        dra_db = -sina / cosdec
+        ddec_dl = sina * cosb
+        ddec_db = cosa
+        # pmra = cosα · pmll − sinα · pmbb, similarly pmdec. If we perturb
+        # (l, b) while keeping (pmll, pmbb) fixed, α changes via chain:
+        #   dα/dl = dα/dra · dra/dl + dα/ddec · ddec/dl
+        #   d(pmra)/d(l) = -pmdec · dα/dl,  d(pmdec)/d(l) = +pmra · dα/dl.
+        pmra = cosa * pmll - sina * pmbb
+        pmdec = sina * pmll + cosa * pmbb
+        dalpha_dl = dalpha_dra * dra_dl + dalpha_ddec * ddec_dl
+        dalpha_db = dalpha_dra * dra_db + dalpha_ddec * ddec_db
+        J_galsky_to_sky = numpy.zeros((6, 6))
+        J_galsky_to_sky[0, 0] = dra_dl
+        J_galsky_to_sky[0, 1] = dra_db
+        J_galsky_to_sky[1, 0] = ddec_dl
+        J_galsky_to_sky[1, 1] = ddec_db
+        J_galsky_to_sky[2, 2] = 1.0
+        J_galsky_to_sky[3, 0] = -pmdec * dalpha_dl
+        J_galsky_to_sky[3, 1] = -pmdec * dalpha_db
+        J_galsky_to_sky[3, 3] = cosa
+        J_galsky_to_sky[3, 4] = -sina
+        J_galsky_to_sky[4, 0] = pmra * dalpha_dl
+        J_galsky_to_sky[4, 1] = pmra * dalpha_db
+        J_galsky_to_sky[4, 3] = sina
+        J_galsky_to_sky[4, 4] = cosa
+        J_galsky_to_sky[5, 5] = 1.0
+        J_sky = J_galsky_to_sky @ J_galsky  # ra, dec in radians
+        if basis == "sky":
+            J_sky = J_sky.copy()
+            J_sky[0] *= 180.0 / numpy.pi
+            J_sky[1] *= 180.0 / numpy.pi
+            return J_sky
+
+        # (4) sky → customsky: identical form with α' from custom_transform
+        #     (its pole in (ra, dec)). Applied to the sky-frame J_sky
+        #     which is still in radians for (ra, dec); convert at the end.
+        T = self._custom_transform
+        ra_pole, dec_pole = coords.custom_to_radec(0.0, numpy.pi / 2.0, T=T)
+        sinr_rp = numpy.sin(ra - ra_pole)
+        cosr_rp = numpy.cos(ra - ra_pole)
+        sindec_p = numpy.sin(dec_pole)
+        cosdec_p = numpy.cos(dec_pole)
+        κ2 = sindec_p * cosdec - cosdec_p * sindec * cosr_rp
+        σ2 = sinr_rp * cosdec_p
+        nrm2_2 = κ2 * κ2 + σ2 * σ2
+        nrm2 = numpy.sqrt(nrm2_2)
+        cosa2 = κ2 / nrm2
+        sina2 = σ2 / nrm2
+        # (phi1, phi2) evaluated at the mean:
+        p12 = coords.radec_to_custom(
+            numpy.atleast_1d(ra),
+            numpy.atleast_1d(dec_val),
+            T=T,
+            degree=False,
+        )
+        cosphi2 = numpy.cos(float(p12[0, 1]))
+        dsig2_dra = cosdec_p * cosr_rp
+        dkap2_dra = cosdec_p * sindec * sinr_rp
+        dkap2_ddec = -sindec_p * sindec - cosdec_p * cosdec * cosr_rp
+        dalpha2_dra = (κ2 * dsig2_dra - σ2 * dkap2_dra) / nrm2_2
+        dalpha2_ddec = (κ2 * 0.0 - σ2 * dkap2_ddec) / nrm2_2
+        # chain dα/d(ra, dec) via d(ra, dec)/d(sky) (ra in the "sky" basis is
+        # trivially just ra; so dra_dra=1, etc.)
+        # pmrapmdec_to_custom uses the transposed sign convention
+        # relative to pmllpmbb_to_pmrapmdec:
+        #   pmphi1 =  cos(α')·pmra + sin(α')·pmdec
+        #   pmphi2 = -sin(α')·pmra + cos(α')·pmdec
+        pmphi1 = cosa2 * pmra + sina2 * pmdec
+        pmphi2 = -sina2 * pmra + cosa2 * pmdec
+        # Tangent-plane Jacobian. Position block uses the same 2x2
+        # rotation with the standard cos-ratio scaling; PM block uses the
+        # rotation itself; PM-vs-position has an α'-depends-on-position
+        # correction:  ∂pmphi1/∂sky_pos = (-sin α'·pmra + cos α'·pmdec)·dα'
+        #                                = +pmphi2 · dα'
+        #              ∂pmphi2/∂sky_pos = -(cos α'·pmra + sin α'·pmdec)·dα'
+        #                                = -pmphi1 · dα'
+        dphi1_dra = cosa2 * cosdec / cosphi2
+        dphi1_ddec = sina2 / cosphi2  # + sign with this sign convention
+        dphi2_dra = -sina2 * cosdec  # - sign
+        dphi2_ddec = cosa2
+        J_sky_to_cs = numpy.zeros((6, 6))
+        J_sky_to_cs[0, 0] = dphi1_dra
+        J_sky_to_cs[0, 1] = dphi1_ddec
+        J_sky_to_cs[1, 0] = dphi2_dra
+        J_sky_to_cs[1, 1] = dphi2_ddec
+        J_sky_to_cs[2, 2] = 1.0
+        J_sky_to_cs[3, 0] = pmphi2 * dalpha2_dra
+        J_sky_to_cs[3, 1] = pmphi2 * dalpha2_ddec
+        J_sky_to_cs[3, 3] = cosa2
+        J_sky_to_cs[3, 4] = sina2
+        J_sky_to_cs[4, 0] = -pmphi1 * dalpha2_dra
+        J_sky_to_cs[4, 1] = -pmphi1 * dalpha2_ddec
+        J_sky_to_cs[4, 3] = -sina2
+        J_sky_to_cs[4, 4] = cosa2
+        J_sky_to_cs[5, 5] = 1.0
+        # NOTE: J_sky here had rows 0, 1 converted to degrees if basis=='sky'
+        # but we fell through (because basis=='customsky'), so J_sky rows
+        # 0, 1 are still in radians. The J_sky_to_cs uses radian-derivatives.
+        J_cs = J_sky_to_cs @ J_sky
+        J_cs = J_cs.copy()
+        J_cs[0] *= 180.0 / numpy.pi
+        J_cs[1] *= 180.0 / numpy.pi
+        return J_cs
 
     # -----------------------------------------------------------------
     # Unit toggles
@@ -818,6 +1109,35 @@ class StreamTrack:
     # -----------------------------------------------------------------
     # Plotting
     # -----------------------------------------------------------------
+    # Coord → (basis, index-within-basis) dispatch for plot(spread=).
+    _COORD_BASIS = {
+        "x": ("galcenrect", 0),
+        "y": ("galcenrect", 1),
+        "z": ("galcenrect", 2),
+        "vx": ("galcenrect", 3),
+        "vy": ("galcenrect", 4),
+        "vz": ("galcenrect", 5),
+        "R": ("galcencyl", 0),
+        "vR": ("galcencyl", 1),
+        "vT": ("galcencyl", 2),
+        # z, vz, phi share cylindrical positions 3, 4, 5
+        "phi": ("galcencyl", 5),
+        "ra": ("sky", 0),
+        "dec": ("sky", 1),
+        "dist": ("sky", 2),
+        "pmra": ("sky", 3),
+        "pmdec": ("sky", 4),
+        "vlos": ("sky", 5),
+        "ll": ("galsky", 0),
+        "bb": ("galsky", 1),
+        "pmll": ("galsky", 3),
+        "pmbb": ("galsky", 4),
+        "phi1": ("customsky", 0),
+        "phi2": ("customsky", 1),
+        "pmphi1": ("customsky", 3),
+        "pmphi2": ("customsky", 4),
+    }
+
     def plot(self, d1="x", d2="y", spread=0, n=None, **kwargs):
         """Plot the smooth track in the (d1, d2) plane.
 
@@ -825,10 +1145,16 @@ class StreamTrack:
         ----------
         d1, d2 : str
             Coordinate names. Any of: x, y, z, vx, vy, vz, R, vR, vT, phi,
-            ra, dec, dist, ll, bb, pmra, pmdec, pmll, pmbb, vlos.
+            ra, dec, dist, ll, bb, pmra, pmdec, pmll, pmbb, vlos, plus
+            phi1, phi2, pmphi1, pmphi2 if ``custom_transform`` is set.
         spread : float, optional
-            If > 0 and d1/d2 are among the Cartesian phase-space axes,
-            draw a ±spread·sigma band using the projected covariance.
+            If > 0, draw a ±spread·sigma band around the track along
+            ``d2`` using the projected covariance. Works for any ``d2``
+            that has a basis in :attr:`_COORD_BASIS` (i.e. any
+            galactocentric Cartesian / cylindrical axis, any sky
+            coordinate, or any custom-frame coordinate when a transform
+            is set). Silently skipped for axes outside the dispatch
+            (e.g. ``ll``, ``bb``, ``pmll``, ``pmbb``).
         n : int, optional
             Number of evaluation points (default: self._ninterp).
         **kwargs
@@ -843,12 +1169,15 @@ class StreamTrack:
         v1 = numpy.asarray(v1)
         v2 = numpy.asarray(v2)
         line = pyplot.plot(v1, v2, **kwargs)
-        if spread > 0 and self._cov_xyz is not None:
-            cart_idx = {"x": 0, "y": 1, "z": 2, "vx": 3, "vy": 4, "vz": 5}
-            if d2 in cart_idx:
-                i2 = cart_idx[d2]
-                cov = self.cov(tp)  # already in physical units if _physical
-                s2 = numpy.sqrt(numpy.maximum(cov[:, i2, i2], 0.0))
+        if spread > 0 and self._cov_xyz is not None and d2 in self._COORD_BASIS:
+            basis, idx = self._COORD_BASIS[d2]
+            try:
+                cov = self.cov(tp, basis=basis)  # (n_eval, 6, 6)
+                s2 = numpy.sqrt(numpy.maximum(cov[:, idx, idx], 0.0))
+            except RuntimeError:
+                # e.g. basis="custom" without custom_transform — skip band
+                s2 = None
+            if s2 is not None:
                 color = line[0].get_color() if line else None
                 pyplot.fill_between(
                     v1,

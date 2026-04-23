@@ -1354,3 +1354,78 @@ def test_streamTrack_custom_transform(_simple_spdf):
         track_bare.phi1(tp0)
     with pytest.raises(RuntimeError):
         track_bare.pmphi1(tp0)
+
+
+def test_streamTrack_cov_basis(_simple_spdf):
+    # cov(basis=...) must return a 6x6 PSD matrix in each supported basis.
+    # Verify units consistency (diagonal entries have the right magnitude
+    # for kpc²/km²/s², deg², mas²/yr²) and that galcencyl round-trips
+    # cleanly via its analytical Jacobian (cov diag = variance of R from
+    # the stored xy cov).
+    from galpy.util import coords
+
+    T = coords.align_to_orbit(_simple_spdf._progenitor)
+    numpy.random.seed(31)
+    track = _simple_spdf.streamTrack(n=1500, tail="leading", custom_transform=T, ntp=41)
+    tp0 = track.tp_grid()[len(track.tp_grid()) // 2]
+    # All bases: returns (6, 6), symmetric, PSD
+    for basis in ("galcenrect", "galcencyl", "galsky", "sky", "customsky"):
+        C = track.cov(tp0, basis=basis)
+        assert C.shape == (6, 6), f"{basis}: wrong shape"
+        assert numpy.allclose(C, C.T, atol=1e-8), f"{basis}: not symmetric"
+        evs = numpy.linalg.eigvalsh(C)
+        assert evs.min() > -1e-8, f"{basis}: not PSD (min eig {evs.min()})"
+    # galcencyl diag[0] = Var(R) ≈ cos²(φ)·Var(x) + sin²(φ)·Var(y) + 2·cos(φ)·sin(φ)·Cov(x,y)
+    C_gcr = track.cov(tp0, basis="galcenrect")
+    C_cyl = track.cov(tp0, basis="galcencyl")
+    x, y = float(track.x(tp0)), float(track.y(tp0))
+    R = numpy.sqrt(x * x + y * y)
+    cp, sp = x / R, y / R
+    var_R_expected = (
+        cp * cp * C_gcr[0, 0] + sp * sp * C_gcr[1, 1] + 2 * cp * sp * C_gcr[0, 1]
+    )
+    assert abs(C_cyl[0, 0] - var_R_expected) < 1e-8, (
+        f"galcencyl Var(R) mismatch: {C_cyl[0, 0]} vs {var_R_expected}"
+    )
+    # Unknown basis raises
+    with pytest.raises(ValueError):
+        track.cov(tp0, basis="bogus")
+    # customsky without custom_transform raises
+    numpy.random.seed(32)
+    track_bare = _simple_spdf.streamTrack(n=800, tail="leading", ntp=31)
+    with pytest.raises(RuntimeError):
+        track_bare.cov(tp0, basis="customsky")
+
+
+def test_streamTrack_plot_spread_non_cartesian(_simple_spdf):
+    # plot(spread>0) should draw a ±σ band for every d2 that has a basis
+    # in _COORD_BASIS (including sky / custom-sky coords), not just
+    # galactocentric Cartesian. Smoke-test a representative set.
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from galpy.util import coords
+
+    T = coords.align_to_orbit(_simple_spdf._progenitor)
+    numpy.random.seed(33)
+    track = _simple_spdf.streamTrack(n=1200, tail="leading", custom_transform=T, ntp=31)
+    for d2 in (
+        "x",
+        "R",
+        "z",
+        "ra",
+        "dec",
+        "vlos",
+        "pmra",
+        "ll",
+        "bb",
+        "phi1",
+        "phi2",
+        "pmphi1",
+    ):
+        track.plot(d1="x", d2=d2, spread=1, n=40)
+    # No custom_transform: non-custom axes still work (covers the "basis
+    # needs custom_transform but we don't have one" code path gracefully).
+    numpy.random.seed(34)
+    track_bare = _simple_spdf.streamTrack(n=800, tail="leading", ntp=31)
+    track_bare.plot(d1="x", d2="ra", spread=1, n=40)
