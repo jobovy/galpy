@@ -240,7 +240,8 @@ Action-Angle Coordinates
       :link-type: doc
 
       Overview of action-angle variables, using the Orbit interface,
-      and calculating actions for isochrone and spherical potentials.
+      calculating actions for isochrone and spherical potentials,
+      and exact inverse transforms in the isochrone case.
 
    .. grid-item-card:: Staeckel Approximation
       :img-top: images/tutorials/action_angle_staeckel.png
