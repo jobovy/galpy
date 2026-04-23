@@ -1446,3 +1446,28 @@ def test_streamTrack_custom_accessors_no_physical(_simple_spdf):
         val = getattr(track, name)(tp0)
         assert numpy.isfinite(float(val))
     track.turn_physical_on(ro=8.0, vo=220.0)
+
+
+def test_streamTrack_with_progpot():
+    # Cover the `self._orig_pot = self._pot` assignment in
+    # basestreamspraydf.__init__ that's taken when progpot is set and
+    # used by streamTrack to integrate the progenitor through the base
+    # potential (not the MovingObjectPotential one).
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        tail="leading",
+        progpot=PlummerPotential(0, 0),  # massless progenitor so samples match
+    )
+    numpy.random.seed(51)
+    track = spdf.streamTrack(n=800, ntp=21, tail="leading")
+    assert hasattr(spdf, "_orig_pot")
+    tp = track.tp_grid()[len(track.tp_grid()) // 2]
+    assert numpy.isfinite(float(track.x(tp)))
