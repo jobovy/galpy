@@ -1300,3 +1300,25 @@ def test_closest_point_on_curve_kdtree_edge_cases():
     result2 = _closest_point_on_curve(points, curve, curve_t, mask=mask_empty)
     assert result2.shape == (5,)
     assert numpy.allclose(result2, 0.0)
+
+
+def test_streamTrack_particles_attr(_simple_spdf):
+    # track.particles exposes the raw (xv, dt) tuple the fit saw — same
+    # format streamTrack(particles=...) accepts. Verify shape, that it
+    # round-trips through a second streamTrack call, and that it matches
+    # when the user passes particles explicitly.
+    numpy.random.seed(21)
+    xv, dt = _simple_spdf.sample(
+        n=1500, returndt=True, return_orbit=False, integrate=True
+    )
+    track = _simple_spdf.streamTrack(particles=(xv, dt), tail="leading")
+    assert isinstance(track.particles, tuple) and len(track.particles) == 2
+    xv_attr, dt_attr = track.particles
+    assert xv_attr.shape == xv.shape
+    assert dt_attr.shape == dt.shape
+    assert numpy.allclose(xv_attr, xv)
+    assert numpy.allclose(dt_attr, dt)
+    # Round-trip: pass track.particles back in, should get same track.
+    track2 = _simple_spdf.streamTrack(particles=track.particles, tail="leading")
+    tps = track.tp_grid()
+    assert numpy.allclose(track.x(tps), track2.x(tps))

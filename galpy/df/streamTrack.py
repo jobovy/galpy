@@ -261,6 +261,15 @@ class StreamTrack:
         # set on the progenitor, the track starts with physical output on.
         self._physical = bool(roSet and voSet)
 
+        # Raw (pre-filter) particles exposed to the user: same (xv, dt)
+        # tuple format that ``streamTrack(particles=...)`` accepts — the
+        # converse of that input knob, so callers can plot the track over
+        # the sample it was built from without resampling.
+        self.particles = (
+            numpy.asarray(xv_particles, dtype=float).copy(),
+            numpy.asarray(dt_particles, dtype=float).copy(),
+        )
+
         # Particles in galactocentric Cartesian
         self._particles_cart = _particles_to_cartesian(
             numpy.asarray(xv_particles, dtype=float)
