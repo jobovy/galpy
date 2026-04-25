@@ -151,7 +151,8 @@ jobs:
         # Restore-only: this workflow's scheduled run is 6h after the
         # test-doc-notebooks scheduled run, which is the one that refreshes
         # the cache. We just consume whatever it stored so the staeckel
-        # notebook avoids the multi-minute Gaia query.
+        # notebook avoids the ESA Gaia archive query (typically ~5 min, but
+        # observed up to ~2 h when the archive is degraded).
         uses: actions/cache/restore@v5
         with:
           path: doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits

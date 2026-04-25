@@ -79,7 +79,9 @@ jobs:
       - name: Refresh Gaia DR3 cache on scheduled runs
         # Delete the cached Gaia query result so the staeckel notebook re-runs
         # the query and stores fresh data. On non-scheduled runs we skip this
-        # so the cached result is reused and the ~5–20 minute query is avoided.
+        # so the cached result is reused and the ESA Gaia archive query is
+        # avoided (typically ~5 min, but observed up to ~2 h when the archive
+        # is degraded).
         if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
