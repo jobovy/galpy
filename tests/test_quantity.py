@@ -19212,3 +19212,284 @@ def test_time_dependent_quantity_density_warning():
     galpy_warnings = [x for x in w if issubclass(x.category, galpyWarning)]
     assert len(galpy_warnings) >= 1, "Expected warning about Quantity density"
     assert "time-dependent" in str(galpy_warnings[0].message).lower()
+
+
+# =====================================================================
+# StreamTrack physical-units tests
+# =====================================================================
+# These mirror the Orbit unit tests above — covering return type, return
+# unit, return value, turn_physical_on/off, per-call use_physical/ro/vo
+# overrides, and non-default ro/vo. The fixture caches a single track
+# (spray takes ~10 s to build) at module scope.
+
+
+def _build_streamtrack(ro=8.0, vo=220.0):
+    """Minimal fixture: a small fardal15spraydf streamTrack used by all
+    the StreamTrack quantity tests. Uses the canonical Bovy-2014 setup."""
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=ro,
+        vo=vo,
+    )
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    T = obs.align_to_orbit()
+    numpy.random.seed(7)
+    return spdf.streamTrack(n=600, ntp=21, tail="leading", custom_transform=T), T
+
+
+@pytest.fixture(scope="module")
+def _streamtrack():
+    track, T = _build_streamtrack()
+    return track
+
+
+@pytest.fixture(scope="module")
+def _streamtrack_nondefault():
+    """Track built with non-default ro=9.0, vo=200."""
+    track, T = _build_streamtrack(ro=9.0, vo=200.0)
+    return track
+
+
+def test_streamtrack_method_returntype(_streamtrack):
+    """Every accessor returns an astropy Quantity when physical is on."""
+    track = _streamtrack
+    tp = 0.5 * track.tp_grid().max()
+    accessors = [
+        "x",
+        "y",
+        "z",
+        "vx",
+        "vy",
+        "vz",
+        "R",
+        "vR",
+        "vT",
+        "phi",
+        "ra",
+        "dec",
+        "ll",
+        "bb",
+        "dist",
+        "pmra",
+        "pmdec",
+        "pmll",
+        "pmbb",
+        "vlos",
+        "phi1",
+        "phi2",
+        "pmphi1",
+        "pmphi2",
+    ]
+    for name in accessors:
+        v = getattr(track, name)(tp)
+        assert isinstance(v, units.Quantity), (
+            f"StreamTrack.{name} did not return Quantity (got {type(v).__name__})"
+        )
+
+
+def test_streamtrack_method_returnunit(_streamtrack):
+    """Each accessor returns the right units."""
+    track = _streamtrack
+    tp = 0.5 * track.tp_grid().max()
+    expected = {
+        "x": units.kpc,
+        "y": units.kpc,
+        "z": units.kpc,
+        "R": units.kpc,
+        "vx": units.km / units.s,
+        "vy": units.km / units.s,
+        "vz": units.km / units.s,
+        "vR": units.km / units.s,
+        "vT": units.km / units.s,
+        "vlos": units.km / units.s,
+        "phi": units.rad,
+        "ra": units.deg,
+        "dec": units.deg,
+        "ll": units.deg,
+        "bb": units.deg,
+        "phi1": units.deg,
+        "phi2": units.deg,
+        "dist": units.kpc,
+        "pmra": units.mas / units.yr,
+        "pmdec": units.mas / units.yr,
+        "pmll": units.mas / units.yr,
+        "pmbb": units.mas / units.yr,
+        "pmphi1": units.mas / units.yr,
+        "pmphi2": units.mas / units.yr,
+    }
+    for name, unit in expected.items():
+        v = getattr(track, name)(tp)
+        try:
+            v.to(unit)
+        except units.UnitConversionError:
+            raise AssertionError(
+                f"StreamTrack.{name} returned wrong units: got {v.unit}, "
+                f"expected something convertible to {unit}"
+            )
+
+
+def test_streamtrack_method_value_default_ro_vo(_streamtrack):
+    """Physical values agree with internal × ro / vo for the cartesian and
+    cylindrical galactocentric coords."""
+    track = _streamtrack
+    tp = 0.5 * track.tp_grid().max()
+    ro, vo = 8.0, 220.0
+    # Internal values (turn_physical_off temporarily)
+    x_phys = track.x(tp).to(units.kpc).value
+    x_int = track.x(tp, use_physical=False)
+    assert numpy.isclose(x_phys, x_int * ro), (
+        f"StreamTrack.x physical does not equal internal*ro: {x_phys} vs {x_int * ro}"
+    )
+    vx_phys = track.vx(tp).to(units.km / units.s).value
+    vx_int = track.vx(tp, use_physical=False)
+    assert numpy.isclose(vx_phys, vx_int * vo), (
+        f"StreamTrack.vx physical does not equal internal*vo"
+    )
+
+
+def test_streamtrack_method_per_call_override(_streamtrack):
+    """use_physical=False, ro=, vo= per-call overrides work."""
+    track = _streamtrack
+    tp = 0.0
+    # use_physical=False => raw float
+    x_raw = track.x(tp, use_physical=False)
+    assert not isinstance(x_raw, units.Quantity), (
+        "StreamTrack.x(use_physical=False) returned a Quantity"
+    )
+    # Custom ro: 5.0 kpc instead of default 8.0
+    x_ro5 = track.x(tp, ro=5.0)
+    x_default = track.x(tp).to(units.kpc).value
+    # x_ro5 = internal * 5.0, x_default = internal * 8.0
+    assert numpy.isclose(
+        x_ro5.to(units.kpc).value / 5.0, x_default / 8.0, rtol=1e-10
+    ), "StreamTrack.x(ro=5.0) does not scale linearly with ro"
+    # Custom vo: 250 km/s instead of default 220
+    vx_vo250 = track.vx(tp, vo=250.0)
+    vx_default = track.vx(tp).to(units.km / units.s).value
+    assert numpy.isclose(
+        vx_vo250.to(units.km / units.s).value / 250.0, vx_default / 220.0, rtol=1e-10
+    ), "StreamTrack.vx(vo=250) does not scale linearly with vo"
+    # quantity=False suppresses Quantity wrapping
+    x_no_quantity = track.x(tp, quantity=False)
+    assert not isinstance(x_no_quantity, units.Quantity), (
+        "StreamTrack.x(quantity=False) returned a Quantity"
+    )
+
+
+def test_streamtrack_method_value_turn_physical_off(_streamtrack):
+    """After ``turn_physical_off``, the cartesian/cylindrical galactocentric
+    accessors (``x/y/z/vx/vy/vz/R/vR/vT/phi``) return plain floats.
+
+    Sky-frame and natural-unit accessors (``ra``, ``dec``, ``dist``, ``vlos``,
+    ``pmra`` etc.) always return Quantities — galpy's convention for
+    underscore-tagged unit strings (``angle_deg``, ``position_kpc``,
+    ``velocity_kms``, ``proper-motion_masyr``) is that they're inherently
+    in their natural unit independent of ``ro``/``vo``."""
+    track, _ = _build_streamtrack()  # fresh copy so we can flip flags
+    tp = 0.0
+    assert isinstance(track.x(tp), units.Quantity)
+    track.turn_physical_off()
+    for name in ("x", "y", "z", "vx", "vy", "vz", "R", "vR", "vT", "phi"):
+        v = getattr(track, name)(tp)
+        assert not isinstance(v, units.Quantity), (
+            f"StreamTrack.{name} still Quantity after turn_physical_off"
+        )
+    assert abs(track.x(tp)) < 5.0, (
+        f"StreamTrack.x in internal units should be O(1), got {track.x(tp)}"
+    )
+    for name in ("ra", "dec", "dist", "vlos", "pmra", "pmdec"):
+        v = getattr(track, name)(tp)
+        assert isinstance(v, units.Quantity), (
+            f"StreamTrack.{name} dropped Quantity after turn_physical_off — "
+            "underscore-tagged unit kinds should always return Quantity"
+        )
+    track.turn_physical_on()
+    assert isinstance(track.x(tp), units.Quantity)
+
+
+def test_streamtrack_nondefault_rovo(_streamtrack_nondefault):
+    """A track with ro=9 kpc, vo=200 km/s scales physical outputs by 9/200,
+    not the global default 8/220."""
+    track = _streamtrack_nondefault
+    tp = 0.0
+    x_phys = track.x(tp).to(units.kpc).value
+    x_int = track.x(tp, use_physical=False)
+    assert numpy.isclose(x_phys, x_int * 9.0), (
+        f"Non-default ro: x physical {x_phys} != internal*9.0 ({x_int * 9.0})"
+    )
+    vx_phys = track.vx(tp).to(units.km / units.s).value
+    vx_int = track.vx(tp, use_physical=False)
+    assert numpy.isclose(vx_phys, vx_int * 200.0), (
+        f"Non-default vo: vx physical {vx_phys} != internal*200.0 ({vx_int * 200.0})"
+    )
+    # ra/dec/dist also depend on ro because they go through helio_xv (uses
+    # self._ro internally to subtract Sun position). Sanity-check dist is
+    # finite with the right unit.
+    d = track.dist(tp).to(units.kpc).value
+    assert numpy.isfinite(d) and d > 0
+
+
+def test_streamtrack_pair_turn_physical(_streamtrack):
+    """StreamTrackPair.turn_physical_on/off propagates to both arms."""
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    T = obs.align_to_orbit()
+    numpy.random.seed(8)
+    pair = spdf.streamTrack(n=600, ntp=21, tail="both", custom_transform=T)
+    # After turn_physical_off
+    pair.turn_physical_off()
+    assert not isinstance(pair.leading.x(0.0), units.Quantity)
+    assert not isinstance(pair.trailing.x(0.0), units.Quantity)
+    # And back on
+    pair.turn_physical_on()
+    assert isinstance(pair.leading.x(0.0), units.Quantity)
+    assert isinstance(pair.trailing.x(0.0), units.Quantity)
+
+
+def test_streamtrack_plot_follows_physical(_streamtrack):
+    """StreamTrack.plot uses physical/internal axes based on _roSet/_voSet
+    and the per-call override, mirroring Orbit.plot. Smoke-test that plot
+    runs in both modes without error."""
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    from matplotlib import pyplot as plt
+
+    track = _streamtrack
+    # Default (physical)
+    fig, ax = plt.subplots()
+    track.plot(d1="x", d2="y")
+    plt.close(fig)
+    # Override to internal
+    fig, ax = plt.subplots()
+    track.plot(d1="x", d2="y", use_physical=False)
+    plt.close(fig)
+    # With explicit ro/vo
+    fig, ax = plt.subplots()
+    track.plot(d1="x", d2="y", ro=10.0, vo=200.0)
+    plt.close(fig)

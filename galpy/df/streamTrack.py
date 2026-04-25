@@ -3,6 +3,7 @@ from scipy import interpolate
 
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+from ..util.conversion import physical_conversion
 
 if _APY_LOADED:
     from astropy import units
@@ -300,9 +301,6 @@ class StreamTrack:
         self._solarmotion = solarmotion
         self._roSet = roSet
         self._voSet = voSet
-        # Inherit progenitor's physical-output state: if both ro and vo are
-        # set on the progenitor, the track starts with physical output on.
-        self._physical = bool(roSet and voSet)
 
         # Raw (pre-filter) particles exposed to the user: same (xv, dt)
         # tuple format that ``streamTrack(particles=...)`` accepts — the
@@ -520,29 +518,6 @@ class StreamTrack:
     def _parse_tp(self, tp):
         return conversion.parse_time(tp, ro=self._ro, vo=self._vo)
 
-    def _scale(self, val, kind):
-        """Apply physical-unit scaling to ``val`` for a given coordinate
-        ``kind`` (one of 'length', 'velocity', 'angle', 'degree', 'pm',
-        'vlos', 'kpc')."""
-        if not self._physical:
-            return val
-        if kind == "length":
-            return val * self._ro * (units.kpc if _APY_UNITS else 1)
-        if kind == "velocity":
-            return val * self._vo * (units.km / units.s if _APY_UNITS else 1)
-        if kind == "vlos":
-            # vlos from _vrpmllpmbb is already in km/s (helio_xv pre-
-            # multiplies by vo); only attach units, don't re-scale.
-            return val * (units.km / units.s if _APY_UNITS else 1)
-        if kind == "angle":
-            return val * (units.rad if _APY_UNITS else 1)
-        if kind == "degree":
-            return val * (units.deg if _APY_UNITS else 1)
-        if kind == "kpc":
-            return val * (units.kpc if _APY_UNITS else 1)
-        # kind == "pm"
-        return val * (units.mas / units.yr if _APY_UNITS else 1)
-
     def _cart_eval(self, idx, tp):
         # Clip tp to the track's valid range to prevent unbounded cubic-spline
         # extrapolation outside the data support.
@@ -550,30 +525,36 @@ class StreamTrack:
         val = self._cart_splines[idx](tp_arr)
         return self._maybe_scalar(tp, val)
 
-    def x(self, tp):
+    @physical_conversion("position", pop=True)
+    def x(self, tp, **kwargs):
         """Galactocentric Cartesian x along the track."""
         tp = self._parse_tp(tp)
-        return self._scale(self._cart_eval(0, tp), "length")
+        return self._cart_eval(0, tp)
 
-    def y(self, tp):
+    @physical_conversion("position", pop=True)
+    def y(self, tp, **kwargs):
         tp = self._parse_tp(tp)
-        return self._scale(self._cart_eval(1, tp), "length")
+        return self._cart_eval(1, tp)
 
-    def z(self, tp):
+    @physical_conversion("position", pop=True)
+    def z(self, tp, **kwargs):
         tp = self._parse_tp(tp)
-        return self._scale(self._cart_eval(2, tp), "length")
+        return self._cart_eval(2, tp)
 
-    def vx(self, tp):
+    @physical_conversion("velocity", pop=True)
+    def vx(self, tp, **kwargs):
         tp = self._parse_tp(tp)
-        return self._scale(self._cart_eval(3, tp), "velocity")
+        return self._cart_eval(3, tp)
 
-    def vy(self, tp):
+    @physical_conversion("velocity", pop=True)
+    def vy(self, tp, **kwargs):
         tp = self._parse_tp(tp)
-        return self._scale(self._cart_eval(4, tp), "velocity")
+        return self._cart_eval(4, tp)
 
-    def vz(self, tp):
+    @physical_conversion("velocity", pop=True)
+    def vz(self, tp, **kwargs):
         tp = self._parse_tp(tp)
-        return self._scale(self._cart_eval(5, tp), "velocity")
+        return self._cart_eval(5, tp)
 
     def _cyl_at(self, tp):
         """Return (R, vR, vT, z, vz, phi) along the track (internal units)."""
@@ -584,25 +565,29 @@ class StreamTrack:
         vR, vT, vz = coords.rect_to_cyl_vec(vxc, vyc, vzc, R, phi, zcyl, cyl=True)
         return R, vR, vT, zcyl, vz, phi
 
-    def R(self, tp):
+    @physical_conversion("position", pop=True)
+    def R(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         R, _, _, _, _, _ = self._cyl_at(tp)
-        return self._scale(self._maybe_scalar(tp, R), "length")
+        return self._maybe_scalar(tp, R)
 
-    def vR(self, tp):
+    @physical_conversion("velocity", pop=True)
+    def vR(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         _, vR, _, _, _, _ = self._cyl_at(tp)
-        return self._scale(self._maybe_scalar(tp, vR), "velocity")
+        return self._maybe_scalar(tp, vR)
 
-    def vT(self, tp):
+    @physical_conversion("velocity", pop=True)
+    def vT(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         _, _, vT, _, _, _ = self._cyl_at(tp)
-        return self._scale(self._maybe_scalar(tp, vT), "velocity")
+        return self._maybe_scalar(tp, vT)
 
-    def phi(self, tp):
+    @physical_conversion("angle", pop=True)
+    def phi(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         _, _, _, _, _, phi = self._cyl_at(tp)
-        return self._scale(self._maybe_scalar(tp, phi), "angle")
+        return self._maybe_scalar(tp, phi)
 
     def __call__(self, tp):
         """Return (R, vR, vT, z, vz, phi) stacked along the track at tp."""
@@ -656,39 +641,45 @@ class StreamTrack:
         )
         return lbd, vrpmllpmbb
 
-    def ra(self, tp):
+    @physical_conversion("angle_deg", pop=True)
+    def ra(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
         ra_dec = coords.lb_to_radec(lbd[:, 0], lbd[:, 1], degree=True)
-        return self._scale(self._maybe_scalar(tp, ra_dec[:, 0]), "degree")
+        return self._maybe_scalar(tp, ra_dec[:, 0])
 
-    def dec(self, tp):
+    @physical_conversion("angle_deg", pop=True)
+    def dec(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
         ra_dec = coords.lb_to_radec(lbd[:, 0], lbd[:, 1], degree=True)
-        return self._scale(self._maybe_scalar(tp, ra_dec[:, 1]), "degree")
+        return self._maybe_scalar(tp, ra_dec[:, 1])
 
-    def ll(self, tp):
+    @physical_conversion("angle_deg", pop=True)
+    def ll(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        return self._scale(self._maybe_scalar(tp, lbd[:, 0]), "degree")
+        return self._maybe_scalar(tp, lbd[:, 0])
 
-    def bb(self, tp):
+    @physical_conversion("angle_deg", pop=True)
+    def bb(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        return self._scale(self._maybe_scalar(tp, lbd[:, 1]), "degree")
+        return self._maybe_scalar(tp, lbd[:, 1])
 
-    def dist(self, tp):
+    @physical_conversion("position_kpc", pop=True)
+    def dist(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        return self._scale(self._maybe_scalar(tp, lbd[:, 2]), "kpc")
+        return self._maybe_scalar(tp, lbd[:, 2])
 
-    def pmra(self, tp):
+    @physical_conversion("proper-motion_masyr", pop=True)
+    def pmra(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
         pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
@@ -698,9 +689,10 @@ class StreamTrack:
             lbd[:, 1],
             degree=True,
         )
-        return self._scale(self._maybe_scalar(tp, pmrapmdec[:, 0]), "pm")
+        return self._maybe_scalar(tp, pmrapmdec[:, 0])
 
-    def pmdec(self, tp):
+    @physical_conversion("proper-motion_masyr", pop=True)
+    def pmdec(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
         pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
@@ -710,22 +702,25 @@ class StreamTrack:
             lbd[:, 1],
             degree=True,
         )
-        return self._scale(self._maybe_scalar(tp, pmrapmdec[:, 1]), "pm")
+        return self._maybe_scalar(tp, pmrapmdec[:, 1])
 
-    def pmll(self, tp):
+    @physical_conversion("proper-motion_masyr", pop=True)
+    def pmll(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
-        return self._scale(self._maybe_scalar(tp, vrpmllpmbb[:, 1]), "pm")
+        return self._maybe_scalar(tp, vrpmllpmbb[:, 1])
 
-    def pmbb(self, tp):
+    @physical_conversion("proper-motion_masyr", pop=True)
+    def pmbb(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
-        return self._scale(self._maybe_scalar(tp, vrpmllpmbb[:, 2]), "pm")
+        return self._maybe_scalar(tp, vrpmllpmbb[:, 2])
 
-    def vlos(self, tp):
+    @physical_conversion("velocity_kms", pop=True)
+    def vlos(self, tp, **kwargs):
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
-        return self._scale(self._maybe_scalar(tp, vrpmllpmbb[:, 0]), "vlos")
+        return self._maybe_scalar(tp, vrpmllpmbb[:, 0])
 
     # -----------------------------------------------------------------
     # Custom sky frame (requires ``custom_transform`` to be set)
@@ -740,68 +735,78 @@ class StreamTrack:
                 "builds one from a progenitor Orbit."
             )
 
-    def phi1(self, tp):
+    def _radec_internal(self, tp):
+        """ra, dec along the track in degrees (no unit attached)."""
+        X, Y, Z, _, _, _ = self._helio_xv(tp)
+        lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
+        return coords.lb_to_radec(lbd[:, 0], lbd[:, 1], degree=True)
+
+    def _pmrapmdec_internal(self, tp):
+        """pmra, pmdec along the track in mas/yr (no unit attached)."""
+        lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
+        return coords.pmllpmbb_to_pmrapmdec(
+            vrpmllpmbb[:, 1],
+            vrpmllpmbb[:, 2],
+            lbd[:, 0],
+            lbd[:, 1],
+            degree=True,
+        )
+
+    @physical_conversion("angle_deg", pop=True)
+    def phi1(self, tp, **kwargs):
         """Custom-frame longitude."""
         self._require_custom()
         tp = self._parse_tp(tp)
-        ra = numpy.atleast_1d(numpy.asarray(getattr(self.ra(tp), "value", self.ra(tp))))
-        dec = numpy.atleast_1d(
-            numpy.asarray(getattr(self.dec(tp), "value", self.dec(tp)))
+        ra_dec = self._radec_internal(tp)
+        p12 = coords.radec_to_custom(
+            ra_dec[:, 0], ra_dec[:, 1], T=self._custom_transform, degree=True
         )
-        p12 = coords.radec_to_custom(ra, dec, T=self._custom_transform, degree=True)
-        out = p12[:, 0]
-        return self._scale(self._maybe_scalar(tp, out), "degree")
+        return self._maybe_scalar(tp, p12[:, 0])
 
-    def phi2(self, tp):
+    @physical_conversion("angle_deg", pop=True)
+    def phi2(self, tp, **kwargs):
         """Custom-frame latitude."""
         self._require_custom()
         tp = self._parse_tp(tp)
-        ra = numpy.atleast_1d(numpy.asarray(getattr(self.ra(tp), "value", self.ra(tp))))
-        dec = numpy.atleast_1d(
-            numpy.asarray(getattr(self.dec(tp), "value", self.dec(tp)))
+        ra_dec = self._radec_internal(tp)
+        p12 = coords.radec_to_custom(
+            ra_dec[:, 0], ra_dec[:, 1], T=self._custom_transform, degree=True
         )
-        p12 = coords.radec_to_custom(ra, dec, T=self._custom_transform, degree=True)
-        out = p12[:, 1]
-        return self._scale(self._maybe_scalar(tp, out), "degree")
+        return self._maybe_scalar(tp, p12[:, 1])
 
-    def pmphi1(self, tp):
+    @physical_conversion("proper-motion_masyr", pop=True)
+    def pmphi1(self, tp, **kwargs):
         """Proper motion in custom-frame phi1, multiplied by cos(phi2)."""
         self._require_custom()
         tp = self._parse_tp(tp)
-        # Need pmra*cos(dec) and pmdec at tp, with (ra, dec)
-        ra = numpy.atleast_1d(numpy.asarray(getattr(self.ra(tp), "value", self.ra(tp))))
-        dec = numpy.atleast_1d(
-            numpy.asarray(getattr(self.dec(tp), "value", self.dec(tp)))
-        )
-        pmra = numpy.atleast_1d(
-            numpy.asarray(getattr(self.pmra(tp), "value", self.pmra(tp)))
-        )
-        pmdec = numpy.atleast_1d(
-            numpy.asarray(getattr(self.pmdec(tp), "value", self.pmdec(tp)))
-        )
+        ra_dec = self._radec_internal(tp)
+        pmrapmdec = self._pmrapmdec_internal(tp)
         pm12 = coords.pmrapmdec_to_custom(
-            pmra, pmdec, ra, dec, T=self._custom_transform, degree=True
+            pmrapmdec[:, 0],
+            pmrapmdec[:, 1],
+            ra_dec[:, 0],
+            ra_dec[:, 1],
+            T=self._custom_transform,
+            degree=True,
         )
-        return self._scale(self._maybe_scalar(tp, pm12[:, 0]), "pm")
+        return self._maybe_scalar(tp, pm12[:, 0])
 
-    def pmphi2(self, tp):
+    @physical_conversion("proper-motion_masyr", pop=True)
+    def pmphi2(self, tp, **kwargs):
         """Proper motion in custom-frame phi2."""
         self._require_custom()
         tp = self._parse_tp(tp)
-        ra = numpy.atleast_1d(numpy.asarray(getattr(self.ra(tp), "value", self.ra(tp))))
-        dec = numpy.atleast_1d(
-            numpy.asarray(getattr(self.dec(tp), "value", self.dec(tp)))
-        )
-        pmra = numpy.atleast_1d(
-            numpy.asarray(getattr(self.pmra(tp), "value", self.pmra(tp)))
-        )
-        pmdec = numpy.atleast_1d(
-            numpy.asarray(getattr(self.pmdec(tp), "value", self.pmdec(tp)))
-        )
+        ra_dec = self._radec_internal(tp)
+        pmrapmdec = self._pmrapmdec_internal(tp)
         pm12 = coords.pmrapmdec_to_custom(
-            pmra, pmdec, ra, dec, T=self._custom_transform, degree=True
+            pmrapmdec[:, 0],
+            pmrapmdec[:, 1],
+            ra_dec[:, 0],
+            ra_dec[:, 1],
+            T=self._custom_transform,
+            degree=True,
         )
-        return self._scale(self._maybe_scalar(tp, pm12[:, 1]), "pm")
+        return self._maybe_scalar(tp, pm12[:, 1])
 
     # -----------------------------------------------------------------
     # Covariance
@@ -863,7 +868,7 @@ class StreamTrack:
                 out[:, a, b] = numpy.interp(
                     tp_arr, self._tp_grid, self._cov_xyz[:, a, b]
                 )
-        if self._physical:
+        if self._roSet and self._voSet:
             scale = numpy.array(
                 [self._ro, self._ro, self._ro, self._vo, self._vo, self._vo]
             )
@@ -1095,16 +1100,26 @@ class StreamTrack:
     # Unit toggles
     # -----------------------------------------------------------------
     def turn_physical_on(self, ro=None, vo=None):
+        """Turn on physical-units output. Mirrors ``Orbit.turn_physical_on``.
+
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Distance scale (kpc); if given, sets it on the track.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); if given, sets it on the track.
+        """
         if ro is not None:
             self._ro = conversion.parse_length_kpc(ro)
-            self._roSet = True
         if vo is not None:
             self._vo = conversion.parse_velocity_kms(vo)
-            self._voSet = True
-        self._physical = True
+        self._roSet = True
+        self._voSet = True
 
     def turn_physical_off(self):
-        self._physical = False
+        """Turn off physical-units output. Mirrors ``Orbit.turn_physical_off``."""
+        self._roSet = False
+        self._voSet = False
 
     # -----------------------------------------------------------------
     # Plotting
@@ -1150,30 +1165,60 @@ class StreamTrack:
         spread : float, optional
             If > 0, draw a ±spread·sigma band around the track along
             ``d2`` using the projected covariance. Works for any ``d2``
-            that has a basis in :attr:`_COORD_BASIS` (i.e. any
-            galactocentric Cartesian / cylindrical axis, any sky
-            coordinate, or any custom-frame coordinate when a transform
-            is set). Silently skipped for axes outside the dispatch
-            (e.g. ``ll``, ``bb``, ``pmll``, ``pmbb``).
+            that has a basis in :attr:`_COORD_BASIS`. Silently skipped
+            for axes outside the dispatch (e.g. ``ll``, ``bb``).
         n : int, optional
             Number of evaluation points (default: self._ninterp).
+        ro : float or Quantity, optional
+            Distance scale to use for the conversion (overrides
+            ``self._ro``).
+        vo : float or Quantity, optional
+            Velocity scale to use for the conversion (overrides
+            ``self._vo``).
+        use_physical : bool, optional
+            Override the object-wide default (set by ``_roSet``/``_voSet``)
+            for using physical units in the plot.
         **kwargs
             Passed to matplotlib.pyplot.plot.
+
+        Notes
+        -----
+        Uses the same physical-unit logic as ``Orbit.plot``: physical
+        output is on iff ``_roSet`` and ``_voSet`` are True (or the user
+        passes ``use_physical=True``/explicit ``ro=`` / ``vo=``); axis
+        labels are picked accordingly.
         """
         from matplotlib import pyplot
 
+        # Decide whether physical or internal units (matching Orbit.plot)
+        use_phys = kwargs.pop("use_physical", None)
+        ro_kw = kwargs.pop("ro", None)
+        vo_kw = kwargs.pop("vo", None)
+        if use_phys is None:
+            use_phys = self._roSet and self._voSet
+        if use_phys and ro_kw is None:
+            ro_kw = self._ro
+        if use_phys and vo_kw is None:
+            vo_kw = self._vo
+        # Forward to accessors as plain numbers (no astropy units)
+        access_kw = {"use_physical": use_phys, "quantity": False}
+        if ro_kw is not None:
+            access_kw["ro"] = ro_kw
+        if vo_kw is not None:
+            access_kw["vo"] = vo_kw
+
         n_eval = self._ninterp if n is None else int(n)
         tp = numpy.linspace(self._tp_grid[0], self._tp_grid[-1], n_eval)
-        v1 = getattr(self, d1)(tp)
-        v2 = getattr(self, d2)(tp)
-        v1 = numpy.asarray(v1)
-        v2 = numpy.asarray(v2)
+        v1 = numpy.asarray(getattr(self, d1)(tp, **access_kw))
+        v2 = numpy.asarray(getattr(self, d2)(tp, **access_kw))
         line = pyplot.plot(v1, v2, **kwargs)
         if spread > 0 and self._cov_xyz is not None and d2 in self._COORD_BASIS:
             basis, idx = self._COORD_BASIS[d2]
             try:
-                cov = self.cov(tp, basis=basis)  # (n_eval, 6, 6)
+                cov = self.cov(tp, basis=basis)  # (n_eval, 6, 6) in internal units
                 s2 = numpy.sqrt(numpy.maximum(cov[:, idx, idx], 0.0))
+                if use_phys:
+                    s2 = s2 * self._cov_axis_scale(d2, ro_kw, vo_kw)
             except RuntimeError:  # pragma: no cover (defensive)
                 # E.g. basis="customsky" without custom_transform — but
                 # that case is already blocked by the phi1/phi2 accessor
@@ -1189,6 +1234,20 @@ class StreamTrack:
                     color=color,
                 )
         return line
+
+    @staticmethod
+    def _cov_axis_scale(coord, ro, vo):
+        """Convert internal-unit cov sigma along ``coord`` to physical units.
+
+        Mirrors the per-coord factor that ``physical_conversion`` would
+        apply to the corresponding accessor. Used by ``plot(spread=)``."""
+        if coord in ("x", "y", "z", "R"):
+            return ro
+        if coord in ("vx", "vy", "vz", "vR", "vT"):
+            return vo
+        # angles, sky-frame, vlos: cov is already constructed in physical
+        # units inside _analytical_jacobian (deg, mas/yr, kpc, km/s).
+        return 1.0
 
 
 class StreamTrackPair:
@@ -1210,7 +1269,10 @@ class StreamTrackPair:
         self.trailing.turn_physical_off()
 
     def plot(self, d1="x", d2="y", spread=0, n=None, **kwargs):
-        """Plot both arms on the same axes."""
+        """Plot both arms on the same axes (mirroring ``StreamTrack.plot``).
+
+        Accepts ``ro``/``vo``/``use_physical`` for per-call unit overrides
+        like ``Orbit.plot``."""
         return [
             self.leading.plot(d1=d1, d2=d2, spread=spread, n=n, **kwargs),
             self.trailing.plot(d1=d1, d2=d2, spread=spread, n=n, **kwargs),
