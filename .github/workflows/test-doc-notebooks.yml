@@ -23,6 +23,12 @@ on:
     # for the update-doc-notebooks workflow that runs later the same day.
     - cron: '0 0 15 * *'
 
+permissions:
+  # Needed so scheduled runs can delete the cached Gaia DR3 query result via
+  # `gh cache delete` to force a fresh fetch.
+  actions: write
+  contents: read
+
 jobs:
   run-notebooks:
     runs-on: ubuntu-latest
@@ -70,6 +76,24 @@ jobs:
           curl -L -o gasoline.tar.gz "https://zenodo.org/records/12687409/files/gasoline.tar.gz?download=1"
           tar -xzf gasoline.tar.gz gasoline_ahf/
           rm gasoline.tar.gz
+      - name: Refresh Gaia DR3 cache on scheduled runs
+        # Delete the cached Gaia query result so the staeckel notebook re-runs
+        # the query and stores fresh data. On non-scheduled runs we skip this
+        # so the cached result is reused and the ~5–20 minute query is avoided.
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: |
+          gh cache delete gaia-dr3-solar-neighborhood-v1 --repo "${{ github.repository }}" \
+            || echo "No prior Gaia DR3 cache to delete."
+      - name: Cache Gaia DR3 query result
+        # Speeds the staeckel notebook up massively on routine runs. The cache
+        # is refreshed by the scheduled workflow above (and on first run).
+        uses: actions/cache@v5
+        with:
+          path: doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits
+          key: gaia-dr3-solar-neighborhood-v1
       - name: Strip notebook outputs
         run: |
           for nb in $(find doc/source/tutorials -name '*.ipynb'); do
