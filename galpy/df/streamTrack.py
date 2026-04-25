@@ -1213,41 +1213,24 @@ class StreamTrack:
         v2 = numpy.asarray(getattr(self, d2)(tp, **access_kw))
         line = pyplot.plot(v1, v2, **kwargs)
         if spread > 0 and self._cov_xyz is not None and d2 in self._COORD_BASIS:
+            # cov(basis=..) follows the same _roSet/_voSet rule as the
+            # accessors, so its diagonal is already in matching units when
+            # use_physical is not overridden. (If the caller overrides
+            # use_physical=False on a track that has _roSet=True, the
+            # spread band will be in the track's default-physical units
+            # instead of internal — out of scope for this plot helper.)
             basis, idx = self._COORD_BASIS[d2]
-            try:
-                cov = self.cov(tp, basis=basis)  # (n_eval, 6, 6) in internal units
-                s2 = numpy.sqrt(numpy.maximum(cov[:, idx, idx], 0.0))
-                if use_phys:
-                    s2 = s2 * self._cov_axis_scale(d2, ro_kw, vo_kw)
-            except RuntimeError:  # pragma: no cover (defensive)
-                # E.g. basis="customsky" without custom_transform — but
-                # that case is already blocked by the phi1/phi2 accessor
-                # raising above. Keep as defensive fallback.
-                s2 = None
-            if s2 is not None:
-                color = line[0].get_color() if line else None
-                pyplot.fill_between(
-                    v1,
-                    v2 - spread * s2,
-                    v2 + spread * s2,
-                    alpha=0.2,
-                    color=color,
-                )
+            cov = self.cov(tp, basis=basis)  # (n_eval, 6, 6)
+            s2 = numpy.sqrt(numpy.maximum(cov[:, idx, idx], 0.0))
+            color = line[0].get_color() if line else None
+            pyplot.fill_between(
+                v1,
+                v2 - spread * s2,
+                v2 + spread * s2,
+                alpha=0.2,
+                color=color,
+            )
         return line
-
-    @staticmethod
-    def _cov_axis_scale(coord, ro, vo):
-        """Convert internal-unit cov sigma along ``coord`` to physical units.
-
-        Mirrors the per-coord factor that ``physical_conversion`` would
-        apply to the corresponding accessor. Used by ``plot(spread=)``."""
-        if coord in ("x", "y", "z", "R"):
-            return ro
-        if coord in ("vx", "vy", "vz", "vR", "vT"):
-            return vo
-        # angles, sky-frame, vlos: cov is already constructed in physical
-        # units inside _analytical_jacobian (deg, mas/yr, kpc, km/s).
-        return 1.0
 
 
 class StreamTrackPair:
