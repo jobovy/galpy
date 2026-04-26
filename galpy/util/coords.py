@@ -1878,7 +1878,7 @@ def XYZ_to_lbd_jac(*args, **kwargs):
     sb = Z / D
     # On the celestial pole (r==0) ``l`` is undefined; pick (cl, sl) = (1, 0)
     # so the spatial inverse stays finite (consistent with atan2(0, 0) = 0).
-    if r == 0.0:
+    if r == 0.0:  # pragma: no cover (defensive: mean track never lands on the pole)
         cl, sl = 1.0, 0.0
     else:
         cl = X / r
@@ -1886,7 +1886,7 @@ def XYZ_to_lbd_jac(*args, **kwargs):
 
     out = numpy.zeros((6, 6) if with_vel else (3, 3))
     # Position 3x3: ∂(l, b, D)/∂(X, Y, Z)
-    if cb != 0.0:
+    if cb != 0.0:  # else: at the pole, ∂l/∂(X, Y) blows up — leave as zero
         out[0, 0] = -sl / (D * cb)
         out[0, 1] = cl / (D * cb)
     out[1, 0] = -sb * cl / D
@@ -1909,7 +1909,8 @@ def XYZ_to_lbd_jac(*args, **kwargs):
     out[3, 3] = cl * cb
     out[3, 4] = sl * cb
     out[3, 5] = sb
-    if KD != 0.0:
+    if KD != 0.0:  # pragma: no branch (D > 0 always — guard catches the
+        # heliocentric-origin singularity if a caller passes (X, Y, Z) = 0)
         out[4, 3] = -sl / KD
         out[4, 4] = cl / KD
         out[5, 3] = -cl * sb / KD
@@ -1921,8 +1922,12 @@ def XYZ_to_lbd_jac(*args, **kwargs):
     # the current vlos/pmll/pmbb (themselves derived from vX,vY,vZ via the
     # velocity inverse just computed).
     vlos = cl * cb * vX + sl * cb * vY + sb * vZ
-    pmll = (-sl * vX + cl * vY) / KD if KD != 0.0 else 0.0
-    pmbb = (-cl * sb * vX - sl * sb * vY + cb * vZ) / KD if KD != 0.0 else 0.0
+    if KD != 0.0:
+        pmll = (-sl * vX + cl * vY) / KD
+        pmbb = (-cl * sb * vX - sl * sb * vY + cb * vZ) / KD
+    else:  # pragma: no cover (defensive: Sun is never the track mean)
+        pmll = 0.0
+        pmbb = 0.0
     Q = numpy.zeros((3, 3))
     Q[0, 0] = -sl * cb * vlos - cl * KD * pmll + sb * sl * KD * pmbb
     Q[0, 1] = -cl * sb * vlos - cb * cl * KD * pmbb

@@ -2867,6 +2867,11 @@ def test_XYZ_to_lbd_jac_inverse():
     assert numpy.allclose(J_inv_deg[0], J_inv[0] * 180.0 / numpy.pi)
     assert numpy.allclose(J_inv_deg[1], J_inv[1] * 180.0 / numpy.pi)
     assert numpy.allclose(J_inv_deg[2:], J_inv[2:])
+    # Same scaling rule on the 3x3-only branch
+    J_inv3_deg = coords.XYZ_to_lbd_jac(X, Y, Z, degree=True)
+    assert numpy.allclose(J_inv3_deg[0], J_inv3[0] * 180.0 / numpy.pi)
+    assert numpy.allclose(J_inv3_deg[1], J_inv3[1] * 180.0 / numpy.pi)
+    assert numpy.allclose(J_inv3_deg[2], J_inv3[2])
     # Bad arity
     try:
         coords.XYZ_to_lbd_jac(1.0, 2.0)
@@ -2933,6 +2938,12 @@ def test_galsky_to_sky_jac():
     # 2-arg form (no PMs) zeros out the PM-vs-position cross block
     J0 = coords.galsky_to_sky_jac(l, b, degree=False)
     assert numpy.allclose(J0[3:5, 0:2], 0.0)
+    # degree=True path: angular-vs-angular entries unchanged (rad/rad =
+    # deg/deg), PM-vs-angle cols 0,1 scaled by π/180.
+    l_deg, b_deg = numpy.degrees(l), numpy.degrees(b)
+    J_deg = coords.galsky_to_sky_jac(l_deg, b_deg, pmll, pmbb, degree=True)
+    assert numpy.allclose(J_deg[0:2, 0:2], J[0:2, 0:2])
+    assert numpy.allclose(J_deg[3:5, 0:2], J[3:5, 0:2] * numpy.pi / 180.0)
     # Bad arity
     try:
         coords.galsky_to_sky_jac(1.0, 2.0, 3.0)
@@ -2961,6 +2972,14 @@ def test_sky_to_customsky_jac():
         f"sky_to_customsky_jac mismatch with FD, max diff "
         f"{numpy.max(numpy.abs(J - J_fd))}"
     )
+    # degree=True scaling on the PM-vs-position block
+    ra_deg, dec_deg = numpy.degrees(ra), numpy.degrees(dec)
+    J_deg = coords.sky_to_customsky_jac(ra_deg, dec_deg, pmra, pmdec, T=T, degree=True)
+    assert numpy.allclose(J_deg[0:2, 0:2], J[0:2, 0:2])
+    assert numpy.allclose(J_deg[3:5, 0:2], J[3:5, 0:2] * numpy.pi / 180.0)
+    # 2-arg form (no PMs)
+    J0 = coords.sky_to_customsky_jac(ra, dec, T=T, degree=False)
+    assert numpy.allclose(J0[3:5, 0:2], 0.0)
     # T= is required
     try:
         coords.sky_to_customsky_jac(ra, dec)
