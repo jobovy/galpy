@@ -44,6 +44,9 @@ coverage_html_report
 #########
 galpy/df/data/dfcorrection*.sav
 
+# Gaia DR3 query result cached by doc/source/tutorials/action_angle/staeckel.ipynb
+doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits
+
 
 # Build directories #
 #####################
