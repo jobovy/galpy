@@ -19493,3 +19493,49 @@ def test_streamtrack_plot_follows_physical(_streamtrack):
     fig, ax = plt.subplots()
     track.plot(d1="x", d2="y", ro=10.0, vo=200.0)
     plt.close(fig)
+
+
+def test_streamtrack_parameter_kind_quantity_inputs():
+    """parameter_kind controls how astropy Quantity inputs to accessors are
+    parsed. Build minimal precomputed tracks with each kind and check that
+    a Quantity input agrees with the equivalent plain-float input."""
+    from astropy import units
+
+    from galpy.df.streamTrack import StreamTrack
+    from galpy.util import conversion
+
+    # parameter_kind="time": Quantity time → galpy internal time.
+    ro, vo = 8.0, 220.0
+    tp_grid = numpy.linspace(0.0, 0.5, 21)
+    track_xyz = numpy.column_stack([tp_grid, numpy.zeros(21), numpy.zeros(21)])
+    track_vxvyvz = numpy.zeros((21, 3))
+    time_track = StreamTrack(
+        tp_grid=tp_grid,
+        track_xyz=track_xyz,
+        track_vxvyvz=track_vxvyvz,
+        parameter_kind="time",
+        ro=ro,
+        vo=vo,
+        roSet=False,
+        voSet=False,
+    )
+    tp = 0.25
+    t_gyr = tp * conversion.time_in_Gyr(vo, ro)
+    assert numpy.isclose(
+        float(time_track.x(tp)), float(time_track.x(t_gyr * units.Gyr))
+    )
+    # parameter_kind="angle": Quantity angle → radians.
+    angle_track = StreamTrack(
+        tp_grid=tp_grid,
+        track_xyz=track_xyz,
+        track_vxvyvz=track_vxvyvz,
+        parameter_kind="angle",
+        roSet=False,
+        voSet=False,
+    )
+    assert numpy.isclose(
+        float(angle_track.x(0.25)), float(angle_track.x(0.25 * units.rad))
+    )
+    # Quantity in degrees should be converted to radians automatically.
+    deg_val = (0.25 * units.rad).to(units.deg)
+    assert numpy.isclose(float(angle_track.x(0.25)), float(angle_track.x(deg_val)))

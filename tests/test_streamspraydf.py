@@ -1405,12 +1405,12 @@ def test_closest_point_on_curve_kdtree_edge_cases():
 
 
 def test_streamTrack_precomputed_init_and_parameter_kind(_simple_spdf):
-    # The base StreamTrack constructor takes a precomputed track and
-    # honors parameter_kind for Quantity inputs. Build a track via
-    # from_particles, hand its precomputed state to the base __init__,
-    # and check that accessors agree.
-    from astropy import units as u
-
+    # The base StreamTrack constructor takes a precomputed track. Build a
+    # track via from_particles, hand its precomputed state to the base
+    # __init__, and check that accessors agree. Also exercise the three
+    # parameter_kind options with plain floats (the astropy-Quantity
+    # variant of parameter_kind lives in tests/test_quantity.py to avoid
+    # depending on astropy in this file).
     from galpy.df.streamTrack import StreamTrack
 
     numpy.random.seed(40)
@@ -1447,18 +1447,7 @@ def test_streamTrack_precomputed_init_and_parameter_kind(_simple_spdf):
     # The precomputed-track instance has no fitter outputs.
     assert not hasattr(rebuilt, "particles")
     assert not hasattr(rebuilt, "smoothing_s")
-    # parameter_kind="time": astropy time Quantity is parsed.
-    if _APY_LOADED := True:  # noqa: just gate on astropy presence
-        try:
-            from galpy.util import conversion
-
-            t_gyr = tp_mid * conversion.time_in_Gyr(fit._vo, fit._ro)
-            x_q = rebuilt.x(t_gyr * u.Gyr)
-            x_plain = rebuilt.x(tp_mid)
-            assert abs(float(x_q) - float(x_plain)) < 1e-8
-        except ImportError:  # pragma: no cover
-            pass
-    # parameter_kind="angle": angular Quantity is parsed.
+    # parameter_kind="angle": plain-float input is just passed through.
     angle_track = StreamTrack(
         tp_grid=numpy.linspace(0.0, 1.0, 21),
         track_xyz=numpy.column_stack(
@@ -1467,8 +1456,7 @@ def test_streamTrack_precomputed_init_and_parameter_kind(_simple_spdf):
         track_vxvyvz=numpy.zeros((21, 3)),
         parameter_kind="angle",
     )
-    # 0.5 rad and a Quantity 0.5 rad must give the same x.
-    assert numpy.isclose(angle_track.x(0.5), float(angle_track.x(0.5 * u.rad)))
+    assert numpy.isclose(angle_track.x(0.5), 0.5)
     # parameter_kind=None: pass-through.
     pass_track = StreamTrack(
         tp_grid=numpy.linspace(0.0, 1.0, 21),
