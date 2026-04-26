@@ -149,33 +149,326 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None):
     return tp_out
 
 
+def _fit_one_pass(
+    particles_cart,
+    tp_assign,
+    tp_nodes,
+    tp_grid,
+    prog_at_fn,
+    order,
+    s_user_mean,
+    s_user_cov,
+):
+    """One pass of the offset-from-progenitor smoothing fit.
+
+    Bins particle offsets by ``tp_assign`` onto ``tp_nodes``, fits a
+    smoothing spline through each binned coordinate (and through each
+    upper-triangle covariance entry when ``order >= 2``), and reconstructs
+    the dense track on ``tp_grid`` by adding the smoothed offsets back to
+    the progenitor curve.
+
+    Returns ``(track_xyz, track_vxvyvz, cov_xyz_or_None, smoothing_s)``.
+    """
+    prog_at_particles = prog_at_fn(tp_assign)
+    offsets = particles_cart - prog_at_particles
+
+    means, covs, counts = _bin_by_tp(tp_assign, offsets, tp_nodes)
+    with numpy.errstate(invalid="ignore"):
+        per_coord_sigma = numpy.sqrt(numpy.diagonal(covs, axis1=1, axis2=2))
+        sigma_of_mean = per_coord_sigma / numpy.sqrt(numpy.maximum(counts[:, None], 1))
+        sigma_of_mean = numpy.where(counts[:, None] > 1, sigma_of_mean, numpy.nan)
+
+    eff_s_mean = []
+    offset_splines = []
+    for i in range(6):
+        spl, es = _smooth_series(
+            tp_nodes, means[:, i], sigma_of_mean[:, i], s_user=s_user_mean[i]
+        )
+        offset_splines.append(spl)
+        eff_s_mean.append(es)
+    offset_fine = numpy.column_stack([spl(tp_grid) for spl in offset_splines])
+
+    ninterp = len(tp_grid)
+    prog_on_grid = prog_at_fn(tp_grid)
+    track_fine = prog_on_grid + offset_fine
+
+    eff_s_cov = []
+    cov_xyz = None
+    if order >= 2:
+        cov_fine = numpy.zeros((ninterp, 6, 6))
+        cov_idx = 0
+        for a in range(6):
+            for b in range(a, 6):
+                vals = covs[:, a, b]
+                diag_a = per_coord_sigma[:, a] ** 2
+                diag_b = per_coord_sigma[:, b] ** 2
+                with numpy.errstate(invalid="ignore"):
+                    sigma_c = numpy.sqrt(
+                        (diag_a * diag_b + vals**2) / numpy.maximum(counts, 2)
+                    )
+                sigma_c = numpy.where(counts > 1, sigma_c, numpy.nan)
+                spl, es = _smooth_series(
+                    tp_nodes, vals, sigma_c, s_user=s_user_cov[cov_idx]
+                )
+                eff_s_cov.append(es)
+                cov_idx += 1
+                val_fine = spl(tp_grid)
+                cov_fine[:, a, b] = val_fine
+                cov_fine[:, b, a] = val_fine
+        cov_fine = numpy.nan_to_num(cov_fine, nan=0.0, posinf=0.0, neginf=0.0)
+        for k in range(ninterp):
+            evals, evecs = numpy.linalg.eigh(cov_fine[k])
+            evals = numpy.clip(evals, 0.0, None)
+            cov_fine[k] = (evecs * evals) @ evecs.T
+        cov_xyz = cov_fine
+
+    return track_fine[:, 0:3], track_fine[:, 3:6], cov_xyz, eff_s_mean + eff_s_cov
+
+
+def _fit_track_from_particles(
+    xv_particles,
+    dt_particles,
+    track_prog_cart,
+    track_t_grid,
+    arm_sign=1,
+    ntp=None,
+    ninterp=1001,
+    smoothing=None,
+    niter=0,
+    order=2,
+):
+    """Run the full closest-point projection + offset smoothing fit.
+
+    Returns the precomputed-track state needed by :class:`StreamTrack`:
+    a dict with keys ``tp_grid``, ``track_xyz``, ``track_vxvyvz``,
+    ``cov_xyz`` (None for ``order=1``), ``smoothing_s``, and
+    ``particles`` (the raw ``(xv, dt)`` tuple).
+    """
+    track_t_grid = numpy.asarray(track_t_grid, dtype=float)
+    prog_cart = numpy.asarray(track_prog_cart, dtype=float)
+    arm_sign = int(numpy.sign(arm_sign)) or 1
+    ninterp = int(ninterp)
+    order = int(order)
+
+    prog_splines = [
+        interpolate.InterpolatedUnivariateSpline(track_t_grid, prog_cart[:, i], k=3)
+        for i in range(6)
+    ]
+
+    def _prog_at(tp):
+        tp = numpy.atleast_1d(tp)
+        return numpy.column_stack([spl(tp) for spl in prog_splines])
+
+    # Raw (xv, dt) snapshot the user can plot the track over without
+    # resampling — the converse of streamTrack(particles=...) input.
+    particles = (
+        numpy.asarray(xv_particles, dtype=float).copy(),
+        numpy.asarray(dt_particles, dtype=float).copy(),
+    )
+    particles_cart = _particles_to_cartesian(numpy.asarray(xv_particles, dtype=float))
+    dt = numpy.asarray(dt_particles, dtype=float)
+
+    # Normalize smoothing argument into per-spline s values.
+    # Length 6 = mean only; length 27 = mean (6) + covariance (21).
+    _coord_keys = ("x", "y", "z", "vx", "vy", "vz")
+    if smoothing is None:
+        s_user_mean = [None] * 6
+        s_user_cov = [None] * 21
+    elif isinstance(smoothing, dict):
+        s_user_mean = [smoothing.get(c, None) for c in _coord_keys]
+        s_user_cov = [None] * 21
+    elif hasattr(smoothing, "__len__") and not isinstance(smoothing, str):
+        s_arr = list(smoothing)
+        s_user_mean = [None if v is None else float(v) for v in s_arr[:6]]
+        s_user_cov = [
+            None if v is None else float(v)
+            for v in (s_arr[6:27] if len(s_arr) > 6 else [None] * 21)
+        ]
+    else:
+        s_user_mean = [float(smoothing)] * 6
+        s_user_cov = [None] * 21
+
+    # Initial assignment: 6D closest point on the progenitor orbit, windowed
+    # by arm sign and stripping time.
+    sign_mask = (track_t_grid * arm_sign) >= 0
+    dt_mask = numpy.abs(track_t_grid)[None, :] <= dt[:, None]
+    mask = sign_mask[None, :] & dt_mask
+    tp_assign = _closest_point_on_curve(
+        particles_cart, prog_cart, track_t_grid, mask=mask
+    )
+
+    # Drop particles whose closest point hit the far boundary of the searched
+    # progenitor arc — those are mismatches that would bias the track tips.
+    if arm_sign > 0:
+        far_edge = track_t_grid[-1]
+    else:
+        far_edge = track_t_grid[0]
+    arc_span = abs(track_t_grid[-1] - track_t_grid[0])
+    interior = numpy.abs(tp_assign - far_edge) > 1e-3 * arc_span
+    tp_assign = tp_assign[interior]
+    particles_cart = particles_cart[interior]
+
+    # Trim the public tp grid to the percentile range where the binned data
+    # supports a fit (outliers at extreme |tp| produce sparse boundary bins).
+    trim_percentile = 99.0
+    if arm_sign > 0:
+        tp_lo = 0.0
+        tp_hi = float(numpy.percentile(tp_assign, trim_percentile))
+    else:
+        tp_hi = 0.0
+        tp_lo = float(numpy.percentile(tp_assign, 100.0 - trim_percentile))
+    if tp_hi - tp_lo < 1e-12:  # pragma: no cover (defensive)
+        tp_lo = float(track_t_grid[0])
+        tp_hi = float(track_t_grid[-1])
+    tp_grid = numpy.linspace(tp_lo, tp_hi, ninterp)
+
+    # Binning nodes. Default: ~sqrt(N), clipped to [21, 201].
+    n_part = particles_cart.shape[0]
+    if ntp is None:
+        ntp = int(max(21, min(201, round(numpy.sqrt(n_part)))))
+    tp_nodes = numpy.linspace(tp_lo, tp_hi, int(ntp))
+
+    track_xyz = None
+    track_vxvyvz = None
+    cov_xyz = None
+    smoothing_s = None
+    for it in range(niter + 1):
+        track_xyz, track_vxvyvz, cov_xyz, smoothing_s = _fit_one_pass(
+            particles_cart,
+            tp_assign,
+            tp_nodes,
+            tp_grid,
+            _prog_at,
+            order,
+            s_user_mean,
+            s_user_cov,
+        )
+        if it < niter:
+            track_cart = numpy.column_stack([track_xyz, track_vxvyvz])
+            tp_assign = _closest_point_on_curve(particles_cart, track_cart, tp_grid)
+
+    return {
+        "tp_grid": tp_grid,
+        "track_xyz": track_xyz,
+        "track_vxvyvz": track_vxvyvz,
+        "cov_xyz": cov_xyz,
+        "smoothing_s": smoothing_s,
+        "particles": particles,
+    }
+
+
 class StreamTrack:
     """Smooth phase-space track for a single arm of a stream.
 
     A StreamTrack holds a smooth mean curve (and optional covariance) in
-    galactic phase space, parameterized by a progenitor time coordinate
-    ``tp``. ``tp=0`` is the progenitor today; for a leading arm ``tp > 0``
-    (future positions the progenitor has yet to reach) and for a trailing
-    arm ``tp < 0``. The ``tp`` range is determined by the data: it spans
-    the percentile-trimmed range of the closest-point assignments, bounded
-    by ``track_time_range`` (typically much smaller than ``tdisrupt``).
+    galactocentric Cartesian phase space, parameterized by an affine curve
+    parameter ``tp``. The class is a pure precomputed-track container —
+    accessors evaluate the stored splines and ``cov(basis=...)`` transforms
+    the stored covariance into other bases via analytical Jacobians. The
+    fitting pipeline (closest-point + offset smoothing) is provided by the
+    :meth:`from_particles` classmethod and lives in
+    :func:`_fit_track_from_particles`.
 
-    Accessors and :meth:`cov` return ``NaN`` for ``tp`` values outside
-    the track's valid range (rather than silent cubic-spline
-    extrapolation). When ``tp`` is an array, only the offending entries
-    are NaN.
+    The semantics of ``tp`` are set at construction via ``parameter_kind``:
 
-    Notes
-    -----
-    This class is intentionally light-weight and generic: while currently
-    constructed by ``basestreamspraydf.streamTrack``, it could serve as a
-    shared backend for other stream methods' track representations. A
-    follow-up PR could refactor parts of ``streamdf``'s track machinery
-    to use this class.
+    * ``"time"`` (default): astropy ``Quantity`` inputs to accessors are
+      parsed via ``conversion.parse_time``. Used by the streamspraydf
+      pipeline, where ``tp=0`` is the progenitor today, ``tp>0`` is future
+      (leading arm), ``tp<0`` is past (trailing arm).
+    * ``"angle"``: parsed via ``conversion.parse_angle``. The natural
+      choice for streamdf-style tracks indexed by an angle along the
+      stream.
+    * ``None``: pass-through; useful for any other custom curve parameter.
+
+    Accessors and :meth:`cov` return ``NaN`` for ``tp`` values outside the
+    track's valid range (rather than silent cubic-spline extrapolation).
+    For an array ``tp``, only the offending entries are NaN.
     """
 
     def __init__(
         self,
+        tp_grid,
+        track_xyz,
+        track_vxvyvz,
+        cov_xyz=None,
+        custom_transform=None,
+        parameter_kind="time",
+        ro=None,
+        vo=None,
+        zo=None,
+        solarmotion=None,
+        roSet=True,
+        voSet=True,
+    ):
+        """Build a StreamTrack from a precomputed smooth track.
+
+        Parameters
+        ----------
+        tp_grid : array, shape (N,)
+            Affine curve parameter samples. Must be strictly monotonic.
+        track_xyz : array, shape (N, 3)
+            Galactocentric Cartesian positions ``(x, y, z)`` on ``tp_grid``,
+            in galpy internal length units.
+        track_vxvyvz : array, shape (N, 3)
+            Galactocentric Cartesian velocities ``(vx, vy, vz)`` on
+            ``tp_grid``, in galpy internal velocity units.
+        cov_xyz : array, shape (N, 6, 6), optional
+            Galactocentric Cartesian covariance ``(x, y, z, vx, vy, vz)``
+            on ``tp_grid`` (internal units). Required for :meth:`cov` and
+            for the ``spread`` band in :meth:`plot`. ``None`` (default) ⇒
+            no covariance support.
+        custom_transform : array, shape (3, 3), optional
+            Rotation from equatorial to a custom ``(phi1, phi2)`` sky
+            frame. Enables the ``phi1``/``phi2``/``pmphi1``/``pmphi2``
+            accessors and ``cov(basis="customsky")``.
+        parameter_kind : {"time", "angle", None}, optional
+            How astropy ``Quantity`` inputs to accessors are interpreted
+            (see class docstring). Default ``"time"``.
+        ro, vo, zo, solarmotion, roSet, voSet
+            Physical-unit configuration (typically inherited from the
+            progenitor / source Orbit).
+        """
+        self._tp_grid = numpy.asarray(tp_grid, dtype=float).copy()
+        self._track_xyz = numpy.asarray(track_xyz, dtype=float).copy()
+        self._track_vxvyvz = numpy.asarray(track_vxvyvz, dtype=float).copy()
+        self._cov_xyz = (
+            None if cov_xyz is None else numpy.asarray(cov_xyz, dtype=float).copy()
+        )
+        self._ninterp = len(self._tp_grid)
+        self._custom_transform = (
+            None
+            if custom_transform is None
+            else numpy.asarray(custom_transform, dtype=float)
+        )
+        if parameter_kind not in ("time", "angle", None):
+            raise ValueError(
+                f"parameter_kind must be 'time', 'angle', or None; "
+                f"got {parameter_kind!r}"
+            )
+        self._parameter_kind = parameter_kind
+        self._ro = ro
+        self._vo = vo
+        self._zo = zo
+        self._solarmotion = solarmotion
+        self._roSet = roSet
+        self._voSet = voSet
+
+        # Cubic-spline interpolators on the 6D track (mean only — cov() is
+        # interpolated linearly entry-by-entry for cheap PSD enforcement).
+        track_fine = numpy.column_stack([self._track_xyz, self._track_vxvyvz])
+        self._cart_splines = [
+            interpolate.InterpolatedUnivariateSpline(
+                self._tp_grid, track_fine[:, i], k=3
+            )
+            for i in range(6)
+        ]
+
+    # -----------------------------------------------------------------
+    # Particle-fit constructor (the streamspraydf pipeline)
+    # -----------------------------------------------------------------
+    @classmethod
+    def from_particles(
+        cls,
         xv_particles,
         dt_particles,
         track_prog_cart,
@@ -194,280 +487,87 @@ class StreamTrack:
         roSet=True,
         voSet=True,
     ):
-        """
+        """Build a StreamTrack by fitting a smooth curve to stream particles.
+
+        Runs the closest-point projection of each particle onto a
+        finely-sampled progenitor orbit, bins the resulting offsets by
+        progenitor time, smooths each coordinate (and optionally each
+        covariance entry) through GCV or user-specified ``s``, and
+        reconstructs the dense track by adding the smoothed offsets back
+        to the progenitor orbit. The ``tp`` parameter is interpreted as
+        a galpy time, suitable for spraydf models.
+
+        After the fit, ``inst.particles`` holds the raw ``(xv, dt)`` tuple
+        the fit saw and ``inst.smoothing_s`` holds the effective per-spline
+        ``s`` values (length 6 for ``order=1``, 27 for ``order>=2``) which
+        can be passed back as ``smoothing`` in a subsequent call to
+        reproduce the same smoothness without re-running GCV.
+
         Parameters
         ----------
         xv_particles : array, shape (6, N)
-            Present-day phase space (R, vR, vT, z, vz, phi) of stream particles
-            in galpy internal units.
+            Present-day phase space ``(R, vR, vT, z, vz, phi)`` of stream
+            particles in galpy internal units.
         dt_particles : array, shape (N,)
-            Stripping times (positive, galpy internal time units) for each
-            particle. Used as a windowing prior when assigning progenitor-time
-            coordinates via closest-point projection.
+            Stripping times (positive, galpy internal time) for each
+            particle. Used as a windowing prior on the closest-point
+            search.
         track_prog_cart : array, shape (M, 6)
-            Finely-sampled progenitor phase space (x, y, z, vx, vy, vz) at
-            the times given by ``track_t_grid``. The progenitor must cover
-            both sides of ``tp=0``: ``tp=0`` is the progenitor today,
-            ``tp<0`` is past, ``tp>0`` is future. Because stream particles
-            have small velocity offsets from the progenitor, they lie
-            spatially close to a short arc of the progenitor orbit and the
-            relevant ``tp`` range is much smaller than ``tdisrupt``.
+            Finely-sampled progenitor phase space ``(x, y, z, vx, vy, vz)``
+            at the times in ``track_t_grid``. Must cover both sides of
+            ``tp=0``.
         track_t_grid : array, shape (M,)
             The dense time grid on which ``track_prog_cart`` is evaluated.
-            Used for the closest-point projection.
         arm_sign : int, optional
-            ``+1`` for leading arm (tp >= 0), ``-1`` for trailing (tp <= 0).
-            Controls the sign constraint on the closest-point search window.
+            ``+1`` for leading arm (``tp >= 0``), ``-1`` for trailing
+            (``tp <= 0``).
         ntp : int, optional
             Number of binning nodes. Default ``sqrt(N)`` clipped to
             ``[21, 201]``.
         ninterp : int, optional
-            Resolution of the fine tp grid on which the public track is
-            stored.
+            Resolution of the fine ``tp`` grid. Default 1001.
         smoothing : None, float, array-like, or dict, optional
-            Smoothing parameter(s) for the mean-offset splines.
-            ``None`` (default) uses GCV auto-tuning via
-            ``scipy.interpolate.make_smoothing_spline``. A float sets a
-            single explicit ``s`` for all six coordinates. An array-like
-            of length 6 sets per-coordinate ``s`` values (order:
-            x, y, z, vx, vy, vz). A dict keyed by coordinate name does
-            the same. After fitting, the effective per-spline ``s``
-            values are available via :attr:`smoothing_s` (length 6 for
-            mean, or 6+21=27 when ``order >= 2``), which can be passed
-            back as ``smoothing`` in a subsequent call to reproduce the
-            same smoothness without re-running GCV.
+            Smoothing parameter(s); see class docstring. ``None`` (default)
+            uses GCV via ``make_smoothing_spline``.
         niter : int, optional
-            Iterations beyond the initial fit. Each iteration reassigns each
-            particle to the closest point on the current track and refits.
+            Iterations beyond the initial fit. Each iteration reassigns
+            particles to the closest point on the current track.
         order : int, optional
-            Moments to keep: 1 = mean only, 2 = mean + covariance.
-        ro, vo, zo, solarmotion, roSet, voSet
-            Physical-unit configuration (typically inherited from the
-            progenitor Orbit).
+            ``1`` = mean only, ``2`` = mean + covariance.
+        custom_transform, ro, vo, zo, solarmotion, roSet, voSet
+            Forwarded to the base ``__init__``.
         """
-        self._track_t_grid = numpy.asarray(track_t_grid, dtype=float)
-        self._prog_cart = numpy.asarray(track_prog_cart, dtype=float)
-        # Interpolating splines for the progenitor phase space; needed to
-        # evaluate at arbitrary tp values during the fit and reconstruction.
-        self._prog_splines = [
-            interpolate.InterpolatedUnivariateSpline(
-                self._track_t_grid, self._prog_cart[:, i], k=3
-            )
-            for i in range(6)
-        ]
-        self._arm_sign = int(numpy.sign(arm_sign)) or 1
-        self._ninterp = int(ninterp)
-        self._order = int(order)
-        # Optional rotation from (ra, dec) to a custom (phi1, phi2) frame —
-        # enables the .phi1/.phi2/.pmphi1/.pmphi2 accessors. Inverse is
-        # the transpose (orthogonal by construction).
-        self._custom_transform = (
-            None
-            if custom_transform is None
-            else numpy.asarray(custom_transform, dtype=float)
+        fit = _fit_track_from_particles(
+            xv_particles,
+            dt_particles,
+            track_prog_cart,
+            track_t_grid,
+            arm_sign=arm_sign,
+            ntp=ntp,
+            ninterp=ninterp,
+            smoothing=smoothing,
+            niter=niter,
+            order=order,
         )
-        self._ro = ro
-        self._vo = vo
-        self._zo = zo
-        self._solarmotion = solarmotion
-        self._roSet = roSet
-        self._voSet = voSet
-
-        # Raw (pre-filter) particles exposed to the user: same (xv, dt)
-        # tuple format that ``streamTrack(particles=...)`` accepts — the
-        # converse of that input knob, so callers can plot the track over
-        # the sample it was built from without resampling.
-        self.particles = (
-            numpy.asarray(xv_particles, dtype=float).copy(),
-            numpy.asarray(dt_particles, dtype=float).copy(),
+        inst = cls(
+            tp_grid=fit["tp_grid"],
+            track_xyz=fit["track_xyz"],
+            track_vxvyvz=fit["track_vxvyvz"],
+            cov_xyz=fit["cov_xyz"],
+            custom_transform=custom_transform,
+            parameter_kind="time",
+            ro=ro,
+            vo=vo,
+            zo=zo,
+            solarmotion=solarmotion,
+            roSet=roSet,
+            voSet=voSet,
         )
-
-        # Particles in galactocentric Cartesian
-        self._particles_cart = _particles_to_cartesian(
-            numpy.asarray(xv_particles, dtype=float)
-        )
-        self._dt = numpy.asarray(dt_particles, dtype=float)
-
-        # Normalize smoothing argument into per-spline s values.
-        # Length 6 = mean only; length 27 = mean (6) + covariance (21).
-        _coord_keys = ("x", "y", "z", "vx", "vy", "vz")
-        if smoothing is None:
-            self._s_user_mean = [None] * 6
-            self._s_user_cov = [None] * 21
-        elif isinstance(smoothing, dict):
-            self._s_user_mean = [smoothing.get(c, None) for c in _coord_keys]
-            self._s_user_cov = [None] * 21
-        elif hasattr(smoothing, "__len__") and not isinstance(smoothing, str):
-            s_arr = list(smoothing)
-            self._s_user_mean = [None if v is None else float(v) for v in s_arr[:6]]
-            self._s_user_cov = [
-                None if v is None else float(v)
-                for v in (s_arr[6:27] if len(s_arr) > 6 else [None] * 21)
-            ]
-        else:
-            self._s_user_mean = [float(smoothing)] * 6
-            self._s_user_cov = [None] * 21
-
-        # Initial assignment via 6D closest-point on the progenitor orbit,
-        # windowed by dt and by arm sign (leading: tp>=0, trailing: tp<=0).
-        tp_assign = self._assign_closest_on_progenitor()
-
-        # Exclude particles whose tp landed at the far boundary of the
-        # progenitor arc — these are mismatched (their true closest point
-        # is outside the searched range) and would bias the track tips.
-        if self._arm_sign > 0:
-            far_edge = self._track_t_grid[-1]
-        else:
-            far_edge = self._track_t_grid[0]
-        arc_span = abs(self._track_t_grid[-1] - self._track_t_grid[0])
-        interior = numpy.abs(tp_assign - far_edge) > 1e-3 * arc_span
-        tp_assign = tp_assign[interior]
-        self._particles_cart = self._particles_cart[interior]
-        self._dt = self._dt[interior]
-
-        # Trim the public tp grid to the percentile range where the binned
-        # data supports a fit (outlier particles at large |tp| produce
-        # sparse boundary bins that the spline would have to honor).
-        trim_percentile = 99.0
-        if self._arm_sign > 0:
-            tp_lo = 0.0
-            tp_hi = float(numpy.percentile(tp_assign, trim_percentile))
-        else:
-            tp_hi = 0.0
-            tp_lo = float(numpy.percentile(tp_assign, 100.0 - trim_percentile))
-        if tp_hi - tp_lo < 1e-12:  # pragma: no cover (defensive)
-            tp_lo = float(self._track_t_grid[0])
-            tp_hi = float(self._track_t_grid[-1])
-        self._tp_grid = numpy.linspace(tp_lo, tp_hi, self._ninterp)
-
-        # Binning nodes. Default: ~sqrt(N), clipped to [21, 201].
-        n_part = self._particles_cart.shape[0]
-        if ntp is None:
-            ntp = int(max(21, min(201, round(numpy.sqrt(n_part)))))
-        self._tp_nodes = numpy.linspace(tp_lo, tp_hi, int(ntp))
-
-        for it in range(niter + 1):
-            self._fit(tp_assign)
-            if it < niter:
-                tp_assign = self._assign_closest_on_track()
-
-    # -----------------------------------------------------------------
-    # Fitting
-    # -----------------------------------------------------------------
-    def _prog_at(self, tp):
-        """Evaluate the track-progenitor 6D phase space at arbitrary tp."""
-        tp = numpy.atleast_1d(tp)
-        return numpy.column_stack([spl(tp) for spl in self._prog_splines])
-
-    def _fit(self, tp_assign):
-        """Bin per-particle offsets-from-progenitor by tp_assign, smooth the
-        bin-means (plus optionally bin-covs), and reconstruct the public
-        track by adding the smoothed offsets back to the progenitor orbit.
-
-        After fitting, ``self.smoothing_s`` contains the effective s
-        values: 6 floats for the mean splines, plus 21 for the
-        covariance upper-triangle entries when ``order >= 2``."""
-        prog_at_particles = self._prog_at(tp_assign)
-        offsets = self._particles_cart - prog_at_particles
-
-        means, covs, counts = _bin_by_tp(tp_assign, offsets, self._tp_nodes)
-        with numpy.errstate(invalid="ignore"):
-            per_coord_sigma = numpy.sqrt(numpy.diagonal(covs, axis1=1, axis2=2))
-            sigma_of_mean = per_coord_sigma / numpy.sqrt(
-                numpy.maximum(counts[:, None], 1)
-            )
-            sigma_of_mean = numpy.where(counts[:, None] > 1, sigma_of_mean, numpy.nan)
-
-        # Mean-offset splines (6 coords)
-        eff_s_mean = []
-        offset_splines = []
-        for i in range(6):
-            spl, es = _smooth_series(
-                self._tp_nodes,
-                means[:, i],
-                sigma_of_mean[:, i],
-                s_user=self._s_user_mean[i],
-            )
-            offset_splines.append(spl)
-            eff_s_mean.append(es)
-        offset_fine = numpy.column_stack([spl(self._tp_grid) for spl in offset_splines])
-
-        prog_on_grid = self._prog_at(self._tp_grid)
-        track_fine = prog_on_grid + offset_fine
-
-        # Covariance splines (21 upper-triangle entries)
-        eff_s_cov = []
-        if self._order >= 2:
-            cov_fine = numpy.zeros((self._ninterp, 6, 6))
-            cov_idx = 0
-            for a in range(6):
-                for b in range(a, 6):
-                    vals = covs[:, a, b]
-                    diag_a = per_coord_sigma[:, a] ** 2
-                    diag_b = per_coord_sigma[:, b] ** 2
-                    with numpy.errstate(invalid="ignore"):
-                        sigma_c = numpy.sqrt(
-                            (diag_a * diag_b + vals**2) / numpy.maximum(counts, 2)
-                        )
-                    sigma_c = numpy.where(counts > 1, sigma_c, numpy.nan)
-                    spl, es = _smooth_series(
-                        self._tp_nodes,
-                        vals,
-                        sigma_c,
-                        s_user=self._s_user_cov[cov_idx],
-                    )
-                    eff_s_cov.append(es)
-                    cov_idx += 1
-                    val_fine = spl(self._tp_grid)
-                    cov_fine[:, a, b] = val_fine
-                    cov_fine[:, b, a] = val_fine
-            cov_fine = numpy.nan_to_num(cov_fine, nan=0.0, posinf=0.0, neginf=0.0)
-            for k in range(self._ninterp):
-                evals, evecs = numpy.linalg.eigh(cov_fine[k])
-                evals = numpy.clip(evals, 0.0, None)
-                cov_fine[k] = (evecs * evals) @ evecs.T
-            self._cov_xyz = cov_fine
-        else:
-            self._cov_xyz = None
-
-        self.smoothing_s = eff_s_mean + eff_s_cov
-
-        self._track_xyz = track_fine[:, 0:3]
-        self._track_vxvyvz = track_fine[:, 3:6]
-        self._bin_counts = counts
-
-        self._cart_splines = [
-            interpolate.InterpolatedUnivariateSpline(
-                self._tp_grid, track_fine[:, i], k=3
-            )
-            for i in range(6)
-        ]
-
-    # -----------------------------------------------------------------
-    # Assignment helpers
-    # -----------------------------------------------------------------
-    def _assign_closest_on_progenitor(self):
-        """Assign each particle a tp via 6D closest-point projection
-        (position + velocity) onto the progenitor orbit, windowed by arm
-        sign and stripping time.
-
-        Using 6D phase space instead of 3D position disambiguates matches
-        at orbital self-intersections (same position, different velocity)
-        and improves robustness for warm / fat streams.
-        """
-        t_grid = self._track_t_grid
-        sign_mask = (t_grid * self._arm_sign) >= 0
-        dt_mask = numpy.abs(t_grid)[None, :] <= self._dt[:, None]
-        mask = sign_mask[None, :] & dt_mask
-        return _closest_point_on_curve(
-            self._particles_cart, self._prog_cart, t_grid, mask=mask
-        )
-
-    def _assign_closest_on_track(self):
-        """Reassign each particle's tp to the closest point on the current
-        smooth track (6D: position + velocity)."""
-        track_cart = numpy.column_stack([self._track_xyz, self._track_vxvyvz])
-        return _closest_point_on_curve(self._particles_cart, track_cart, self._tp_grid)
+        # Fitter outputs callers may want: the raw (xv, dt) sample the fit
+        # saw, and the effective per-spline ``s`` values for reuse.
+        inst.particles = fit["particles"]
+        inst.smoothing_s = fit["smoothing_s"]
+        return inst
 
     # -----------------------------------------------------------------
     # Public evaluation
@@ -494,7 +594,12 @@ class StreamTrack:
         return arr
 
     def _parse_tp(self, tp):
-        return conversion.parse_time(tp, ro=self._ro, vo=self._vo)
+        if self._parameter_kind == "time":
+            return conversion.parse_time(tp, ro=self._ro, vo=self._vo)
+        if self._parameter_kind == "angle":
+            return conversion.parse_angle(tp)
+        # Pass-through for callers that use a custom non-physical parameter.
+        return tp
 
     def _cart_eval(self, idx, tp):
         # Out-of-range tps return NaN (not silent cubic-spline extrapolation).

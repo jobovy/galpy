@@ -924,13 +924,28 @@ def test_streamTrack_progenitor_recovery():
 
 def test_streamTrack_sample_consistency(_simple_spdf):
     # The track's mean at tp should agree with the mean galactocentric x of
-    # particles near that tp (per the track's own closest-point tp).
+    # particles near that tp (per a closest-point assignment to the track).
+    from galpy.df.streamTrack import _closest_point_on_curve, _particles_to_cartesian
+
     numpy.random.seed(1)
     track = _simple_spdf.streamTrack(n=4000, ntp=41, tail="leading")
-    # Recover the internal tp assignments used for binning
-    tp_part = track._assign_closest_on_progenitor()
-    x_p = track._particles_cart[:, 0]
+    # Reproduce the closest-point assignment from the saved particles ->
+    # closest point on the dense track itself (a stable, public reference).
+    xv, _ = track.particles
+    particles_cart = _particles_to_cartesian(xv)
     tp_grid = track.tp_grid()
+    track_cart = numpy.column_stack(
+        [
+            [float(track.x(t, use_physical=False)) for t in tp_grid],
+            [float(track.y(t, use_physical=False)) for t in tp_grid],
+            [float(track.z(t, use_physical=False)) for t in tp_grid],
+            [float(track.vx(t, use_physical=False)) for t in tp_grid],
+            [float(track.vy(t, use_physical=False)) for t in tp_grid],
+            [float(track.vz(t, use_physical=False)) for t in tp_grid],
+        ]
+    )
+    tp_part = _closest_point_on_curve(particles_cart, track_cart, tp_grid)
+    x_p = particles_cart[:, 0]
     edges = numpy.linspace(tp_grid[0], tp_grid[-1], 9)
     centers = 0.5 * (edges[:-1] + edges[1:])
     for i in range(len(centers)):
@@ -1387,6 +1402,91 @@ def test_closest_point_on_curve_kdtree_edge_cases():
     result2 = _closest_point_on_curve(points, curve, curve_t, mask=mask_empty)
     assert result2.shape == (5,)
     assert numpy.allclose(result2, 0.0)
+
+
+def test_streamTrack_precomputed_init_and_parameter_kind(_simple_spdf):
+    # The base StreamTrack constructor takes a precomputed track and
+    # honors parameter_kind for Quantity inputs. Build a track via
+    # from_particles, hand its precomputed state to the base __init__,
+    # and check that accessors agree.
+    from astropy import units as u
+
+    from galpy.df.streamTrack import StreamTrack
+
+    numpy.random.seed(40)
+    fit = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
+    # Reconstruct via the precomputed-track __init__ — no fitter involved.
+    rebuilt = StreamTrack(
+        tp_grid=fit.tp_grid(),
+        track_xyz=numpy.column_stack(
+            [
+                [float(fit.x(t, use_physical=False)) for t in fit.tp_grid()],
+                [float(fit.y(t, use_physical=False)) for t in fit.tp_grid()],
+                [float(fit.z(t, use_physical=False)) for t in fit.tp_grid()],
+            ]
+        ),
+        track_vxvyvz=numpy.column_stack(
+            [
+                [float(fit.vx(t, use_physical=False)) for t in fit.tp_grid()],
+                [float(fit.vy(t, use_physical=False)) for t in fit.tp_grid()],
+                [float(fit.vz(t, use_physical=False)) for t in fit.tp_grid()],
+            ]
+        ),
+        cov_xyz=fit._cov_xyz,
+        custom_transform=fit._custom_transform,
+        parameter_kind="time",
+        ro=fit._ro,
+        vo=fit._vo,
+        zo=fit._zo,
+        solarmotion=fit._solarmotion,
+        roSet=fit._roSet,
+        voSet=fit._voSet,
+    )
+    tp_mid = fit.tp_grid()[len(fit.tp_grid()) // 2]
+    assert abs(float(fit.x(tp_mid)) - float(rebuilt.x(tp_mid))) < 1e-10
+    # The precomputed-track instance has no fitter outputs.
+    assert not hasattr(rebuilt, "particles")
+    assert not hasattr(rebuilt, "smoothing_s")
+    # parameter_kind="time": astropy time Quantity is parsed.
+    if _APY_LOADED := True:  # noqa: just gate on astropy presence
+        try:
+            from galpy.util import conversion
+
+            t_gyr = tp_mid * conversion.time_in_Gyr(fit._vo, fit._ro)
+            x_q = rebuilt.x(t_gyr * u.Gyr)
+            x_plain = rebuilt.x(tp_mid)
+            assert abs(float(x_q) - float(x_plain)) < 1e-8
+        except ImportError:  # pragma: no cover
+            pass
+    # parameter_kind="angle": angular Quantity is parsed.
+    angle_track = StreamTrack(
+        tp_grid=numpy.linspace(0.0, 1.0, 21),
+        track_xyz=numpy.column_stack(
+            [numpy.linspace(0, 1, 21), numpy.zeros(21), numpy.zeros(21)]
+        ),
+        track_vxvyvz=numpy.zeros((21, 3)),
+        parameter_kind="angle",
+    )
+    # 0.5 rad and a Quantity 0.5 rad must give the same x.
+    assert numpy.isclose(angle_track.x(0.5), float(angle_track.x(0.5 * u.rad)))
+    # parameter_kind=None: pass-through.
+    pass_track = StreamTrack(
+        tp_grid=numpy.linspace(0.0, 1.0, 21),
+        track_xyz=numpy.column_stack(
+            [numpy.linspace(0, 1, 21), numpy.zeros(21), numpy.zeros(21)]
+        ),
+        track_vxvyvz=numpy.zeros((21, 3)),
+        parameter_kind=None,
+    )
+    assert numpy.isclose(pass_track.x(0.5), 0.5)
+    # Bad parameter_kind raises.
+    with pytest.raises(ValueError):
+        StreamTrack(
+            tp_grid=numpy.linspace(0.0, 1.0, 21),
+            track_xyz=numpy.zeros((21, 3)),
+            track_vxvyvz=numpy.zeros((21, 3)),
+            parameter_kind="bogus",
+        )
 
 
 def test_streamTrack_particles_attr(_simple_spdf):

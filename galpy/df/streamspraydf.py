@@ -372,7 +372,7 @@ class basestreamspraydf(df):
         prog_voSet = self._orig_progenitor._voSet
 
         def _make_track(xv, dt, arm_sign):
-            return StreamTrack(
+            return StreamTrack.from_particles(
                 xv_particles=xv,
                 dt_particles=dt,
                 track_prog_cart=track_prog_cart,
