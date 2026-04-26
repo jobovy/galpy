@@ -819,7 +819,9 @@ class StreamTrack:
         "customsky": ("phi1", "phi2", "dist", "pmphi1", "pmphi2", "vlos"),
     }
 
-    def cov(self, tp, basis="galcenrect"):
+    def cov(
+        self, tp, basis="galcenrect", ro=None, vo=None, use_physical=None, quantity=None
+    ):
         """Return the 6x6 covariance matrix of the particle distribution at tp.
 
         Parameters
@@ -839,6 +841,26 @@ class StreamTrack:
             - ``"customsky"``: ``(phi1, phi2, dist, pmphi1, pmphi2, vlos)``
               sky rotated by ``custom_transform``. Requires
               ``custom_transform`` to have been set.
+        ro : float or Quantity, optional
+            Distance scale for physical-units output (overrides the stored
+            value). Mirrors the per-call override on the mean accessors.
+        vo : float or Quantity, optional
+            Velocity scale for physical-units output (overrides the stored
+            value).
+        use_physical : bool, optional
+            Override the object-wide default (``_roSet`` and ``_voSet``)
+            for whether to scale the covariance to physical units. When
+            ``False``, the covariance is returned in galpy internal units
+            for galactocentric bases; sky bases retain the prior behavior
+            of running the Jacobian with the stored ``ro``/``vo`` defaults
+            (output remains unitless in the internal sense, useful only
+            as a relative shape).
+        quantity : bool, optional
+            Not supported: a covariance 6x6 has heterogeneous units across
+            entries (e.g. kpc² for position-position, kpc·km/s for
+            position-velocity, deg² for sky-sky) and can't be wrapped as
+            a single astropy ``Quantity``. Passing ``True`` raises
+            ``NotImplementedError``.
 
         Non-galcenrect bases are computed by analytical Jacobian of the
         coord chain evaluated at the track mean (``C' = J · C · Jᵀ``) — no
@@ -860,6 +882,25 @@ class StreamTrack:
         if basis == "customsky":
             self._require_custom()
 
+        if quantity:
+            raise NotImplementedError(
+                "cov() does not support quantity=True: the 6x6 has "
+                "heterogeneous units across rows/columns and can't be "
+                "wrapped as a single astropy Quantity."
+            )
+
+        # Resolve unit settings (mirrors the @physical_conversion semantics
+        # used by the mean accessors, but applied by hand because the
+        # decorator scales by a single factor and our entries scale by
+        # outer(scale, scale)).
+        if use_physical is None:
+            use_phys = self._roSet and self._voSet
+        else:
+            use_phys = bool(use_physical)
+        if use_phys:
+            ro_use = self._ro if ro is None else conversion.parse_length_kpc(ro)
+            vo_use = self._vo if vo is None else conversion.parse_velocity_kms(vo)
+
         tp = self._parse_tp(tp)
         tp_arr = numpy.atleast_1d(tp)
         out = numpy.empty((len(tp_arr), 6, 6))
@@ -868,15 +909,28 @@ class StreamTrack:
                 out[:, a, b] = numpy.interp(
                     tp_arr, self._tp_grid, self._cov_xyz[:, a, b]
                 )
-        if self._roSet and self._voSet:
-            scale = numpy.array(
-                [self._ro, self._ro, self._ro, self._vo, self._vo, self._vo]
-            )
+        if use_phys:
+            scale = numpy.array([ro_use, ro_use, ro_use, vo_use, vo_use, vo_use])
             out = out * numpy.outer(scale, scale)
 
         if basis != "galcenrect":
+            # When use_phys=True we thread the resolved ro/vo through the
+            # Jacobian so an override is consistent with the outer-scale.
+            # When use_phys=False, we let _analytical_jacobian fall back to
+            # its stored-default behavior (self._ro / self._vo) — matching
+            # the prior pre-override semantics so callers that relied on
+            # cov(basis=...) with _roSet=False keep working.
+            jac_ro = ro_use if use_phys else None
+            jac_vo = vo_use if use_phys else None
+            jac_use_phys = True if use_phys else None
             for k, tp_k in enumerate(tp_arr):
-                J = self._analytical_jacobian(tp_k, basis)
+                J = self._analytical_jacobian(
+                    tp_k,
+                    basis,
+                    ro=jac_ro,
+                    vo=jac_vo,
+                    use_physical=jac_use_phys,
+                )
                 out[k] = J @ out[k] @ J.T
 
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
@@ -887,21 +941,30 @@ class StreamTrack:
     # Analytical-Jacobian evaluator (used by cov(basis=..) and
     # plot(spread=) on non-galcenrect axes).
     # -----------------------------------------------------------------
-    def _cart_mean_at(self, tp):
+    def _cart_mean_at(self, tp, ro=None, vo=None, use_physical=None):
         """Mean (x, y, z, vx, vy, vz) at ``tp`` in the track's physical
-        state (kpc, km/s when physical is on, else internal)."""
+        state (kpc, km/s when physical is on, else internal). The optional
+        ``ro``/``vo``/``use_physical`` kwargs are forwarded to the mean
+        accessors so callers can request a specific unit choice."""
+        kw = {"quantity": False}
+        if use_physical is not None:
+            kw["use_physical"] = use_physical
+        if ro is not None:
+            kw["ro"] = ro
+        if vo is not None:
+            kw["vo"] = vo
         return numpy.array(
             [
-                float(self.x(tp)),
-                float(self.y(tp)),
-                float(self.z(tp)),
-                float(self.vx(tp)),
-                float(self.vy(tp)),
-                float(self.vz(tp)),
+                float(self.x(tp, **kw)),
+                float(self.y(tp, **kw)),
+                float(self.z(tp, **kw)),
+                float(self.vx(tp, **kw)),
+                float(self.vy(tp, **kw)),
+                float(self.vz(tp, **kw)),
             ]
         )
 
-    def _analytical_jacobian(self, tp, basis):
+    def _analytical_jacobian(self, tp, basis, ro=None, vo=None, use_physical=None):
         """6x6 analytical Jacobian d(basis)/d(galcenrect) at the track mean.
 
         Chain:
@@ -910,15 +973,24 @@ class StreamTrack:
             helio_XYZ  → galsky        (inv of lbd_to_XYZ_jac via linalg.inv)
             galsky     → sky           (tangent rotation at the sky point)
             sky        → customsky     (tangent rotation via custom_transform)
+
+        ``ro``/``vo``/``use_physical`` are forwarded to ``_cart_mean_at``
+        so the Jacobian is consistent with the unit choice the caller
+        used to scale the input covariance.
         """
-        mean = self._cart_mean_at(tp)
+        mean = self._cart_mean_at(tp, ro=ro, vo=vo, use_physical=use_physical)
         x, y, z, vx, vy, vz = mean
 
         if basis == "galcencyl":
             return _jac_galcenrect_to_galcencyl(x, y, z, vx, vy, vz)
 
         # Sky bases — chain through heliocentric Galactic Cartesian.
-        ro = float(self._ro) if self._ro is not None else 1.0
+        # Use the per-call ``ro`` (already resolved to a float by cov()) when
+        # supplied; otherwise fall back to the stored solar radius.
+        if ro is None:
+            ro = float(self._ro) if self._ro is not None else 1.0
+        else:
+            ro = float(ro)
         zo = float(self._zo) if self._zo is not None else 0.0
         # (1) d(helio_XYZ)/d(galcenrect): 6x6 rotation (block-diagonal).
         J1 = coords.galcenrect_to_XYZ_jac(x, y, z, vx, vy, vz, Xsun=ro, Zsun=zo)
@@ -1124,33 +1196,16 @@ class StreamTrack:
     # -----------------------------------------------------------------
     # Plotting
     # -----------------------------------------------------------------
-    # Coord → (basis, index-within-basis) dispatch for plot(spread=).
+    # Coord → (basis, index-within-basis) dispatch for plot(spread=),
+    # derived from _BASIS_COORDS so the two stay in sync. For names that
+    # appear in multiple bases (z/vz in galcenrect+galcencyl; dist/vlos in
+    # sky/galsky/customsky), the first-listed basis wins — iterating in
+    # reverse and letting dict-comprehension overwrites finalize the
+    # mapping yields first-occurrence-wins semantics.
     _COORD_BASIS = {
-        "x": ("galcenrect", 0),
-        "y": ("galcenrect", 1),
-        "z": ("galcenrect", 2),
-        "vx": ("galcenrect", 3),
-        "vy": ("galcenrect", 4),
-        "vz": ("galcenrect", 5),
-        "R": ("galcencyl", 0),
-        "vR": ("galcencyl", 1),
-        "vT": ("galcencyl", 2),
-        # z, vz, phi share cylindrical positions 3, 4, 5
-        "phi": ("galcencyl", 5),
-        "ra": ("sky", 0),
-        "dec": ("sky", 1),
-        "dist": ("sky", 2),
-        "pmra": ("sky", 3),
-        "pmdec": ("sky", 4),
-        "vlos": ("sky", 5),
-        "ll": ("galsky", 0),
-        "bb": ("galsky", 1),
-        "pmll": ("galsky", 3),
-        "pmbb": ("galsky", 4),
-        "phi1": ("customsky", 0),
-        "phi2": ("customsky", 1),
-        "pmphi1": ("customsky", 3),
-        "pmphi2": ("customsky", 4),
+        name: (basis, i)
+        for basis, names in reversed(list(_BASIS_COORDS.items()))
+        for i, name in enumerate(names)
     }
 
     def plot(self, d1="x", d2="y", spread=0, n=None, **kwargs):
@@ -1190,22 +1245,19 @@ class StreamTrack:
         """
         from matplotlib import pyplot
 
-        # Decide whether physical or internal units (matching Orbit.plot)
-        use_phys = kwargs.pop("use_physical", None)
-        ro_kw = kwargs.pop("ro", None)
-        vo_kw = kwargs.pop("vo", None)
-        if use_phys is None:
-            use_phys = self._roSet and self._voSet
-        if use_phys and ro_kw is None:
-            ro_kw = self._ro
-        if use_phys and vo_kw is None:
-            vo_kw = self._vo
-        # Forward to accessors as plain numbers (no astropy units)
-        access_kw = {"use_physical": use_phys, "quantity": False}
-        if ro_kw is not None:
-            access_kw["ro"] = ro_kw
-        if vo_kw is not None:
-            access_kw["vo"] = vo_kw
+        # Forward unit knobs through to the accessors and to cov(); both
+        # share the same default-resolution semantics (None → fall back to
+        # _roSet/_voSet and stored ro/vo) so we don't re-derive that here.
+        use_physical = kwargs.pop("use_physical", None)
+        ro = kwargs.pop("ro", None)
+        vo = kwargs.pop("vo", None)
+        access_kw = {"quantity": False}
+        if use_physical is not None:
+            access_kw["use_physical"] = use_physical
+        if ro is not None:
+            access_kw["ro"] = ro
+        if vo is not None:
+            access_kw["vo"] = vo
 
         n_eval = self._ninterp if n is None else int(n)
         tp = numpy.linspace(self._tp_grid[0], self._tp_grid[-1], n_eval)
@@ -1213,14 +1265,14 @@ class StreamTrack:
         v2 = numpy.asarray(getattr(self, d2)(tp, **access_kw))
         line = pyplot.plot(v1, v2, **kwargs)
         if spread > 0 and self._cov_xyz is not None and d2 in self._COORD_BASIS:
-            # cov(basis=..) follows the same _roSet/_voSet rule as the
-            # accessors, so its diagonal is already in matching units when
-            # use_physical is not overridden. (If the caller overrides
-            # use_physical=False on a track that has _roSet=True, the
-            # spread band will be in the track's default-physical units
-            # instead of internal — out of scope for this plot helper.)
             basis, idx = self._COORD_BASIS[d2]
-            cov = self.cov(tp, basis=basis)  # (n_eval, 6, 6)
+            cov = self.cov(
+                tp,
+                basis=basis,
+                ro=ro,
+                vo=vo,
+                use_physical=use_physical,
+            )
             s2 = numpy.sqrt(numpy.maximum(cov[:, idx, idx], 0.0))
             color = line[0].get_color() if line else None
             pyplot.fill_between(

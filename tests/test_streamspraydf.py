@@ -1222,6 +1222,27 @@ def test_streamTrack_scalar_cov(_simple_spdf):
     assert C.shape == (6, 6)
 
 
+def test_streamTrack_cov_per_call_unit_overrides(_simple_spdf):
+    # cov() honors per-call ro=, vo=, use_physical= (the same way the mean
+    # accessors do) so callers don't need to flip the track-wide toggle.
+    numpy.random.seed(18)
+    track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
+    track.turn_physical_off()
+    C_int = track.cov(-10.0)
+    # ro=, vo= scale the entries even when the track is in internal mode
+    ro, vo = 8.0, 220.0
+    C_phys_via_kw = track.cov(-10.0, ro=ro, vo=vo, use_physical=True)
+    scale = numpy.array([ro, ro, ro, vo, vo, vo])
+    assert numpy.allclose(C_phys_via_kw, C_int * numpy.outer(scale, scale), rtol=1e-10)
+    # use_physical=False on a physical-mode track gives back internal cov
+    track.turn_physical_on(ro=ro, vo=vo)
+    C_back_to_int = track.cov(-10.0, use_physical=False)
+    assert numpy.allclose(C_back_to_int, C_int, rtol=1e-10)
+    # quantity=True is explicitly not supported (heterogeneous units)
+    with pytest.raises(NotImplementedError):
+        track.cov(-10.0, quantity=True)
+
+
 def test_streamTrack_physical_length_spread(_simple_spdf):
     # Covers the physical x/y/z scaling inside the plot spread band
     import matplotlib
