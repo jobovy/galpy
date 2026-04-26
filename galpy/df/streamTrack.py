@@ -160,6 +160,11 @@ class StreamTrack:
     the percentile-trimmed range of the closest-point assignments, bounded
     by ``track_time_range`` (typically much smaller than ``tdisrupt``).
 
+    Accessors and :meth:`cov` return ``NaN`` for ``tp`` values outside
+    the track's valid range (rather than silent cubic-spline
+    extrapolation). When ``tp`` is an array, only the offending entries
+    are NaN.
+
     Notes
     -----
     This class is intentionally light-weight and generic: while currently
@@ -471,10 +476,17 @@ class StreamTrack:
         """Return the fine tp grid on which the track is stored."""
         return self._tp_grid.copy()
 
+    def _in_range(self, tp_arr):
+        """Boolean mask over ``tp_arr`` for entries inside the track's
+        valid ``tp`` range. Out-of-range tps get NaN accessor / cov
+        outputs rather than silent cubic-spline extrapolation."""
+        return (tp_arr >= self._tp_grid[0]) & (tp_arr <= self._tp_grid[-1])
+
     def _eval_cart(self, tp):
-        tp = numpy.clip(numpy.atleast_1d(tp), self._tp_grid[0], self._tp_grid[-1])
-        out = numpy.array([spl(tp) for spl in self._cart_splines])  # (6, len)
-        return out
+        tp_arr = numpy.atleast_1d(tp)
+        in_range = self._in_range(tp_arr)
+        out = numpy.array([spl(tp_arr) for spl in self._cart_splines])  # (6, len)
+        return numpy.where(in_range[None, :], out, numpy.nan)
 
     def _maybe_scalar(self, tp, arr):
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
@@ -485,10 +497,11 @@ class StreamTrack:
         return conversion.parse_time(tp, ro=self._ro, vo=self._vo)
 
     def _cart_eval(self, idx, tp):
-        # Clip tp to the track's valid range to prevent unbounded cubic-spline
-        # extrapolation outside the data support.
-        tp_arr = numpy.clip(numpy.atleast_1d(tp), self._tp_grid[0], self._tp_grid[-1])
-        val = self._cart_splines[idx](tp_arr)
+        # Out-of-range tps return NaN (not silent cubic-spline extrapolation).
+        # Array tps get NaNs only at the offending entries.
+        tp_arr = numpy.atleast_1d(tp)
+        in_range = self._in_range(tp_arr)
+        val = numpy.where(in_range, self._cart_splines[idx](tp_arr), numpy.nan)
         return self._maybe_scalar(tp, val)
 
     @physical_conversion("position", pop=True)
@@ -869,15 +882,15 @@ class StreamTrack:
 
         tp = self._parse_tp(tp)
         tp_arr = numpy.atleast_1d(tp)
+        in_range = self._in_range(tp_arr)
         out = numpy.empty((len(tp_arr), 6, 6))
         for a in range(6):
             for b in range(6):
-                out[:, a, b] = numpy.interp(
-                    tp_arr, self._tp_grid, self._cov_xyz[:, a, b]
-                )
+                vals = numpy.interp(tp_arr, self._tp_grid, self._cov_xyz[:, a, b])
+                out[:, a, b] = numpy.where(in_range, vals, numpy.nan)
         if use_phys:
             scale = numpy.array([ro_use, ro_use, ro_use, vo_use, vo_use, vo_use])
-            out = out * numpy.outer(scale, scale)
+            out = out * numpy.outer(scale, scale)  # NaN · scale = NaN
 
         if basis != "galcenrect":
             # When use_phys=True we thread the resolved ro/vo through the
@@ -890,6 +903,8 @@ class StreamTrack:
             jac_vo = vo_use if use_phys else None
             jac_use_phys = True if use_phys else None
             for k, tp_k in enumerate(tp_arr):
+                if not in_range[k]:
+                    continue  # out[k] already NaN; skip the Jacobian
                 J = self._analytical_jacobian(
                     tp_k,
                     basis,

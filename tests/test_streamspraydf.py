@@ -948,7 +948,8 @@ def test_streamTrack_sample_consistency(_simple_spdf):
 def test_streamTrack_interface(_simple_spdf):
     numpy.random.seed(2)
     track = _simple_spdf.streamTrack(n=2000, ntp=41, tail="leading")
-    tps = numpy.linspace(-_simple_spdf._tdisrupt, 0.0, 5)
+    g = track.tp_grid()
+    tps = numpy.linspace(g[0], g[-1], 5)
     for meth in (
         "x",
         "y",
@@ -980,7 +981,8 @@ def test_streamTrack_interface(_simple_spdf):
 def test_streamTrack_covariance_psd(_simple_spdf):
     numpy.random.seed(3)
     track = _simple_spdf.streamTrack(n=2000, ntp=41, tail="leading")
-    tps = numpy.linspace(-_simple_spdf._tdisrupt, 0.0, 7)
+    g = track.tp_grid()
+    tps = numpy.linspace(g[0], g[-1], 7)
     covs = track.cov(tps)
     assert covs.shape == (len(tps), 6, 6)
     for k in range(len(tps)):
@@ -998,10 +1000,13 @@ def test_streamTrack_both_tails(_simple_spdf):
     px, py = prog.x(0.0), prog.y(0.0)
     assert abs(pair.leading.x(0.0) - px) < 0.1
     assert abs(pair.trailing.x(0.0) - px) < 0.1
-    # Deep into the stream, the two arms should diverge
-    tp_deep = -0.7 * _simple_spdf._tdisrupt
-    d_lead = (pair.leading.x(tp_deep) - pair.trailing.x(tp_deep)) ** 2 + (
-        pair.leading.y(tp_deep) - pair.trailing.y(tp_deep)
+    # Deep into the stream, the two arms diverge — pick the deepest in-range
+    # point for each arm (leading arm: largest positive tp; trailing arm:
+    # most negative tp).
+    tp_lead = pair.leading.tp_grid()[-1]
+    tp_trail = pair.trailing.tp_grid()[0]
+    d_lead = (pair.leading.x(tp_lead) - pair.trailing.x(tp_trail)) ** 2 + (
+        pair.leading.y(tp_lead) - pair.trailing.y(tp_trail)
     ) ** 2
     assert d_lead > 0.01, "Leading and trailing arms do not diverge at large |tp|"
 
@@ -1013,7 +1018,10 @@ def test_streamTrack_iteration_changes_track(_simple_spdf):
     tr0 = _simple_spdf.streamTrack(n=2000, ntp=41, niter=0, tail="leading")
     numpy.random.seed(5)
     tr1 = _simple_spdf.streamTrack(n=2000, ntp=41, niter=1, tail="leading")
-    tps = numpy.linspace(-_simple_spdf._tdisrupt, 0.0, 101)
+    # Compare on the in-range grid common to both tracks.
+    lo = max(tr0.tp_grid()[0], tr1.tp_grid()[0])
+    hi = min(tr0.tp_grid()[-1], tr1.tp_grid()[-1])
+    tps = numpy.linspace(lo, hi, 101)
     # Track-to-track difference should be small compared to the stream size
     ampl = numpy.ptp(tr0.x(tps))
     dmax = numpy.max(numpy.abs(tr0.x(tps) - tr1.x(tps)))
@@ -1036,9 +1044,16 @@ def test_streamTrack_chen24_works():
     )
     numpy.random.seed(6)
     track = spdf.streamTrack(n=1500, ntp=41, tail="both")
-    for tp in [-spdf._tdisrupt / 2, 0.0]:
-        assert numpy.isfinite(track.leading.x(tp))
-        assert numpy.isfinite(track.trailing.x(tp))
+    # Sample at midpoint of each arm's tp grid (guaranteed in-range).
+    tp_lead = track.leading.tp_grid()[len(track.leading.tp_grid()) // 2]
+    tp_trail = track.trailing.tp_grid()[len(track.trailing.tp_grid()) // 2]
+    for tp, arm in [
+        (tp_lead, track.leading),
+        (tp_trail, track.trailing),
+        (0.0, track.leading),
+        (0.0, track.trailing),
+    ]:
+        assert numpy.isfinite(arm.x(tp))
 
 
 def test_streamTrack_with_center():
@@ -1057,7 +1072,8 @@ def test_streamTrack_with_center():
     )
     numpy.random.seed(7)
     track = spdf.streamTrack(n=1500, ntp=31, tail="leading")
-    tps = numpy.linspace(-spdf._tdisrupt, 0.0, 5)
+    g = track.tp_grid()
+    tps = numpy.linspace(g[0], g[-1], 5)
     vals = track.x(tps)
     assert numpy.all(numpy.isfinite(vals))
 
@@ -1065,14 +1081,15 @@ def test_streamTrack_with_center():
 def test_streamTrack_physical_units(_simple_spdf):
     numpy.random.seed(8)
     track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
-    x0 = track.x(-10.0)
+    tp = track.tp_grid()[len(track.tp_grid()) // 2]
+    x0 = track.x(tp)
     track.turn_physical_on(ro=8.0, vo=220.0)
-    x0_phys = track.x(-10.0)
+    x0_phys = track.x(tp)
     # physical x should be ~ ro * internal
     val = x0_phys.value if hasattr(x0_phys, "value") else x0_phys
     assert abs(val - 8.0 * x0) < 1e-6
     track.turn_physical_off()
-    assert abs(track.x(-10.0) - x0) < 1e-10
+    assert abs(track.x(tp) - x0) < 1e-10
 
 
 def test_streamTrack_cov_physical_units(_simple_spdf):
@@ -1081,10 +1098,11 @@ def test_streamTrack_cov_physical_units(_simple_spdf):
     # by vo^2, cross terms by ro*vo.
     numpy.random.seed(18)
     track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
+    tp = track.tp_grid()[len(track.tp_grid()) // 2]
     track.turn_physical_off()
-    C_int = track.cov(-10.0)
+    C_int = track.cov(tp)
     track.turn_physical_on(ro=8.0, vo=220.0)
-    C_phys = track.cov(-10.0)
+    C_phys = track.cov(tp)
     ro, vo = 8.0, 220.0
     scale = numpy.array([ro, ro, ro, vo, vo, vo])
     expected = C_int * numpy.outer(scale, scale)
@@ -1120,7 +1138,7 @@ def test_streamTrack_physical_accessors_all(_simple_spdf):
     numpy.random.seed(11)
     track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
     track.turn_physical_on(ro=8.0, vo=220.0)
-    tp = -10.0
+    tp = track.tp_grid()[len(track.tp_grid()) // 2]
     for meth in (
         "x",
         "y",
@@ -1159,11 +1177,12 @@ def test_streamTrack_pair_physical_toggles(_simple_spdf):
     numpy.random.seed(12)
     pair = _simple_spdf.streamTrack(n=1500, ntp=31, tail="both")
     pair.turn_physical_on(ro=8.0, vo=220.0)
-    v = pair.leading.x(-5.0)
+    tp_lead = pair.leading.tp_grid()[len(pair.leading.tp_grid()) // 2]
+    v = pair.leading.x(tp_lead)
     val = getattr(v, "value", v)
     assert val > 0.0
     pair.turn_physical_off()
-    v2 = pair.leading.x(-5.0)
+    v2 = pair.leading.x(tp_lead)
     assert not hasattr(v2, "unit")
     import matplotlib
 
@@ -1189,6 +1208,40 @@ def test_streamTrack_tp_grid(_simple_spdf):
     # Leading arm: tp ranges from 0 to some positive value.
     assert g[0] == 0.0
     assert g[-1] > 0.0
+
+
+def test_streamTrack_out_of_range_returns_nan(_simple_spdf):
+    # Out-of-range tp must return NaN — never silent cubic-spline
+    # extrapolation. For an array tp, only the offending entries are NaN.
+    numpy.random.seed(20)
+    track = _simple_spdf.streamTrack(n=800, ntp=31, tail="leading")
+    g = track.tp_grid()
+    tp_lo, tp_hi = g[0], g[-1]
+    # Scalar out-of-range: NaN
+    assert numpy.isnan(track.x(tp_hi + 5.0))
+    assert numpy.isnan(track.R(tp_hi + 5.0))
+    assert numpy.isnan(track.ra(tp_hi + 5.0))
+    # Negative side (leading arm has tp_lo == 0)
+    assert numpy.isnan(track.x(tp_lo - 1.0))
+    # Scalar in-range: finite
+    tp_mid = 0.5 * (tp_lo + tp_hi)
+    assert numpy.isfinite(track.x(tp_mid))
+    # Array tp with mixed in/out: NaN only at out-of-range entries
+    tps = numpy.array([tp_lo - 1.0, tp_mid, tp_hi + 5.0])
+    xs = numpy.asarray(track.x(tps))
+    assert numpy.isnan(xs[0])
+    assert numpy.isfinite(xs[1])
+    assert numpy.isnan(xs[2])
+    # cov() honors the same convention; out-of-range entries are NaN
+    Cs = track.cov(tps)
+    assert numpy.all(numpy.isnan(Cs[0]))
+    assert numpy.all(numpy.isfinite(Cs[1]))
+    assert numpy.all(numpy.isnan(Cs[2]))
+    # cov(basis=...) too — NaN entries skip the Jacobian path safely
+    Cs_sky = track.cov(tps, basis="sky")
+    assert numpy.all(numpy.isnan(Cs_sky[0]))
+    assert numpy.all(numpy.isfinite(Cs_sky[1]))
+    assert numpy.all(numpy.isnan(Cs_sky[2]))
 
 
 def test_streamTrack_order1_no_cov(_simple_spdf):
@@ -1218,8 +1271,10 @@ def test_streamTrack_particles_reuse_both(_simple_spdf):
 def test_streamTrack_scalar_cov(_simple_spdf):
     numpy.random.seed(17)
     track = _simple_spdf.streamTrack(n=800, ntp=31, tail="leading")
-    C = track.cov(-20.0)
+    tp = track.tp_grid()[len(track.tp_grid()) // 2]
+    C = track.cov(tp)
     assert C.shape == (6, 6)
+    assert numpy.all(numpy.isfinite(C))
 
 
 def test_streamTrack_cov_per_call_unit_overrides(_simple_spdf):
@@ -1227,27 +1282,28 @@ def test_streamTrack_cov_per_call_unit_overrides(_simple_spdf):
     # accessors do) so callers don't need to flip the track-wide toggle.
     numpy.random.seed(18)
     track = _simple_spdf.streamTrack(n=1500, ntp=31, tail="leading")
+    tp = track.tp_grid()[len(track.tp_grid()) // 2]
     track.turn_physical_off()
-    C_int = track.cov(-10.0)
+    C_int = track.cov(tp)
     # ro=, vo= scale the entries even when the track is in internal mode
     ro, vo = 8.0, 220.0
-    C_phys_via_kw = track.cov(-10.0, ro=ro, vo=vo, use_physical=True)
+    C_phys_via_kw = track.cov(tp, ro=ro, vo=vo, use_physical=True)
     scale = numpy.array([ro, ro, ro, vo, vo, vo])
     assert numpy.allclose(C_phys_via_kw, C_int * numpy.outer(scale, scale), rtol=1e-10)
     # use_physical=False on a physical-mode track gives back internal cov
     track.turn_physical_on(ro=ro, vo=vo)
-    C_back_to_int = track.cov(-10.0, use_physical=False)
+    C_back_to_int = track.cov(tp, use_physical=False)
     assert numpy.allclose(C_back_to_int, C_int, rtol=1e-10)
     # quantity=True is explicitly not supported (heterogeneous units)
     with pytest.raises(NotImplementedError):
-        track.cov(-10.0, quantity=True)
+        track.cov(tp, quantity=True)
     # Per-call overrides also have to thread through the analytical
     # Jacobian for non-galcenrect bases — exercise the sky path with
     # explicit ro/vo so the override branches in _cart_mean_at and
     # _analytical_jacobian (where ``ro``/``vo``/``use_physical`` are
     # forwarded to the accessors and used as Xsun) are taken.
     track.turn_physical_off()
-    C_sky_with_kw = track.cov(-10.0, basis="sky", ro=ro, vo=vo, use_physical=True)
+    C_sky_with_kw = track.cov(tp, basis="sky", ro=ro, vo=vo, use_physical=True)
     assert C_sky_with_kw.shape == (6, 6)
     assert numpy.allclose(C_sky_with_kw, C_sky_with_kw.T, atol=1e-8)
 
@@ -1270,7 +1326,8 @@ def test_streamTrack_degenerate_few_particles(_simple_spdf):
     # exercising the degenerate paths in _bin_offsets and _smooth_series.
     numpy.random.seed(19)
     track = _simple_spdf.streamTrack(n=10, ntp=51, tail="leading")
-    assert numpy.isfinite(track.x(-10.0))
+    tp = track.tp_grid()[len(track.tp_grid()) // 2]
+    assert numpy.isfinite(track.x(tp))
 
 
 def test_streamTrack_custom_track_time_range(_simple_spdf):
@@ -1292,8 +1349,8 @@ def test_streamTrack_smoothing_variants(_simple_spdf):
         tail="leading",
         smoothing={"x": 20.0, "y": 20.0},
     )
-    assert numpy.isfinite(tr_f.x(-10.0))
-    assert numpy.isfinite(tr_d.x(-10.0))
+    assert numpy.isfinite(tr_f.x(tr_f.tp_grid()[len(tr_f.tp_grid()) // 2]))
+    assert numpy.isfinite(tr_d.x(tr_d.tp_grid()[len(tr_d.tp_grid()) // 2]))
     # Array-like smoothing: reuse smoothing_s from a previous fit
     numpy.random.seed(18)
     tr_gcv = _simple_spdf.streamTrack(n=800, tail="leading", order=2)
