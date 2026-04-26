@@ -1241,6 +1241,15 @@ def test_streamTrack_cov_per_call_unit_overrides(_simple_spdf):
     # quantity=True is explicitly not supported (heterogeneous units)
     with pytest.raises(NotImplementedError):
         track.cov(-10.0, quantity=True)
+    # Per-call overrides also have to thread through the analytical
+    # Jacobian for non-galcenrect bases — exercise the sky path with
+    # explicit ro/vo so the override branches in _cart_mean_at and
+    # _analytical_jacobian (where ``ro``/``vo``/``use_physical`` are
+    # forwarded to the accessors and used as Xsun) are taken.
+    track.turn_physical_off()
+    C_sky_with_kw = track.cov(-10.0, basis="sky", ro=ro, vo=vo, use_physical=True)
+    assert C_sky_with_kw.shape == (6, 6)
+    assert numpy.allclose(C_sky_with_kw, C_sky_with_kw.T, atol=1e-8)
 
 
 def test_streamTrack_physical_length_spread(_simple_spdf):
