@@ -1,7 +1,7 @@
 import numpy
 from scipy import interpolate
 
-from ..util import conversion, coords
+from ..util import config, conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import physical_conversion
 
@@ -397,8 +397,6 @@ class StreamTrack:
         vo=None,
         zo=None,
         solarmotion=None,
-        roSet=True,
-        voSet=True,
     ):
         """Build a StreamTrack from a precomputed smooth track.
 
@@ -425,20 +423,17 @@ class StreamTrack:
             How astropy ``Quantity`` inputs to accessors are interpreted
             (see class docstring). Default ``"time"``.
         ro : float or Quantity, optional
-            Distance scale (kpc). Default None.
+            Distance scale (kpc). When omitted, falls back to the
+            ``normalization.ro`` config value and physical-units output is
+            off by default (``_roSet=False``); when set explicitly,
+            physical-units output is on by default. Mirrors ``Orbit``.
         vo : float or Quantity, optional
-            Circular velocity scale (km/s). Default None.
+            Circular velocity scale (km/s). Same semantics as ``ro``.
         zo : float or Quantity, optional
             Sun's height above the midplane (kpc). Default None.
         solarmotion : str, numpy.ndarray or Quantity, optional
             ``'hogg'``, ``'dehnen'``, ``'schoenrich'``, or ``[-U, V, W]``
             in km/s. Default None.
-        roSet : bool, optional
-            Whether ``ro`` is set (controls physical-units default for
-            position accessors and :meth:`cov`). Default True.
-        voSet : bool, optional
-            Whether ``vo`` is set (controls physical-units default for
-            velocity accessors and :meth:`cov`). Default True.
         """
         self._tp_grid = numpy.asarray(tp_grid, dtype=float).copy()
         self._track_xyz = numpy.asarray(track_xyz, dtype=float).copy()
@@ -458,12 +453,24 @@ class StreamTrack:
                 f"got {parameter_kind!r}"
             )
         self._parameter_kind = parameter_kind
-        self._ro = ro
-        self._vo = vo
+        # Mirror Orbit's pattern (Orbits.py:600-611): roSet/voSet are
+        # derived from whether ``ro``/``vo`` were explicitly passed; an
+        # unset scale falls back to the config default with the matching
+        # ``_*Set`` flag turned off.
+        if ro is None:
+            self._ro = config.__config__.getfloat("normalization", "ro")
+            self._roSet = False
+        else:
+            self._ro = conversion.parse_length_kpc(ro)
+            self._roSet = True
+        if vo is None:
+            self._vo = config.__config__.getfloat("normalization", "vo")
+            self._voSet = False
+        else:
+            self._vo = conversion.parse_velocity_kms(vo)
+            self._voSet = True
         self._zo = zo
         self._solarmotion = solarmotion
-        self._roSet = roSet
-        self._voSet = voSet
 
         # Cubic-spline interpolators on the 6D track (mean only — cov() is
         # interpolated linearly entry-by-entry for cheap PSD enforcement).
@@ -496,8 +503,6 @@ class StreamTrack:
         vo=None,
         zo=None,
         solarmotion=None,
-        roSet=True,
-        voSet=True,
     ):
         """Build a StreamTrack by fitting a smooth curve to stream particles.
 
@@ -550,18 +555,18 @@ class StreamTrack:
             Rotation from equatorial to a custom sky frame. Forwarded to
             the base ``__init__``.
         ro : float or Quantity, optional
-            Distance scale (kpc). Default None.
+            Distance scale (kpc). Default None — same semantics as the
+            base ``__init__``: the ``_roSet`` flag is derived from whether
+            ``ro`` was explicitly passed. Callers that want to inherit
+            the source ``Orbit``'s ``_roSet`` should pass ``ro`` only when
+            the source had ``_roSet=True``.
         vo : float or Quantity, optional
-            Circular velocity scale (km/s). Default None.
+            Velocity scale (km/s). Same semantics as ``ro``.
         zo : float or Quantity, optional
             Sun's height above the midplane (kpc). Default None.
         solarmotion : str, numpy.ndarray or Quantity, optional
             ``'hogg'``, ``'dehnen'``, ``'schoenrich'``, or ``[-U, V, W]``
             in km/s. Default None.
-        roSet : bool, optional
-            Whether ``ro`` is set on the resulting track. Default True.
-        voSet : bool, optional
-            Whether ``vo`` is set on the resulting track. Default True.
         """
         fit = _fit_track_from_particles(
             xv_particles,
@@ -586,8 +591,6 @@ class StreamTrack:
             vo=vo,
             zo=zo,
             solarmotion=solarmotion,
-            roSet=roSet,
-            voSet=voSet,
         )
         # Fitter outputs callers may want: the raw (xv, dt) sample the fit
         # saw, and the effective per-spline ``s`` values for reuse.
@@ -637,32 +640,63 @@ class StreamTrack:
 
     @physical_conversion("position", pop=True)
     def x(self, tp, **kwargs):
-        """Galactocentric Cartesian x along the track."""
+        """Galactocentric Cartesian x along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Galactocentric Cartesian x in kpc when physical-units output
+            is on, in galpy internal units otherwise.
+        """
         tp = self._parse_tp(tp)
         return self._cart_eval(0, tp)
 
     @physical_conversion("position", pop=True)
     def y(self, tp, **kwargs):
+        """Galactocentric Cartesian y along the track. See :meth:`x` for the
+        full parameter list (units: kpc when physical, internal otherwise)."""
         tp = self._parse_tp(tp)
         return self._cart_eval(1, tp)
 
     @physical_conversion("position", pop=True)
     def z(self, tp, **kwargs):
+        """Galactocentric Cartesian z along the track. See :meth:`x` for the
+        full parameter list (units: kpc when physical, internal otherwise)."""
         tp = self._parse_tp(tp)
         return self._cart_eval(2, tp)
 
     @physical_conversion("velocity", pop=True)
     def vx(self, tp, **kwargs):
+        """Galactocentric Cartesian vx along the track. See :meth:`x` for the
+        full parameter list (units: km/s when physical, internal otherwise)."""
         tp = self._parse_tp(tp)
         return self._cart_eval(3, tp)
 
     @physical_conversion("velocity", pop=True)
     def vy(self, tp, **kwargs):
+        """Galactocentric Cartesian vy along the track. See :meth:`x` for the
+        full parameter list (units: km/s when physical, internal otherwise)."""
         tp = self._parse_tp(tp)
         return self._cart_eval(4, tp)
 
     @physical_conversion("velocity", pop=True)
     def vz(self, tp, **kwargs):
+        """Galactocentric Cartesian vz along the track. See :meth:`x` for the
+        full parameter list (units: km/s when physical, internal otherwise)."""
         tp = self._parse_tp(tp)
         return self._cart_eval(5, tp)
 
@@ -677,30 +711,52 @@ class StreamTrack:
 
     @physical_conversion("position", pop=True)
     def R(self, tp, **kwargs):
+        """Galactocentric cylindrical R along the track. See :meth:`x` for
+        the full parameter list (units: kpc when physical, internal
+        otherwise)."""
         tp = self._parse_tp(tp)
         R, _, _, _, _, _ = self._cyl_at(tp)
         return self._maybe_scalar(tp, R)
 
     @physical_conversion("velocity", pop=True)
     def vR(self, tp, **kwargs):
+        """Galactocentric cylindrical radial velocity along the track. See
+        :meth:`x` (units: km/s when physical, internal otherwise)."""
         tp = self._parse_tp(tp)
         _, vR, _, _, _, _ = self._cyl_at(tp)
         return self._maybe_scalar(tp, vR)
 
     @physical_conversion("velocity", pop=True)
     def vT(self, tp, **kwargs):
+        """Galactocentric cylindrical tangential velocity along the track. See
+        :meth:`x` (units: km/s when physical, internal otherwise)."""
         tp = self._parse_tp(tp)
         _, _, vT, _, _, _ = self._cyl_at(tp)
         return self._maybe_scalar(tp, vT)
 
     @physical_conversion("angle", pop=True)
     def phi(self, tp, **kwargs):
+        """Galactocentric cylindrical azimuth along the track. See :meth:`x`
+        (units: rad when physical, rad internal as well — galpy convention)."""
         tp = self._parse_tp(tp)
         _, _, _, _, _, phi = self._cyl_at(tp)
         return self._maybe_scalar(tp, phi)
 
     def __call__(self, tp):
-        """Return (R, vR, vT, z, vz, phi) stacked along the track at tp."""
+        """Return ``(R, vR, vT, z, vz, phi)`` stacked along the track at ``tp``.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Shape ``(6,)`` for scalar ``tp``, ``(6, len(tp))`` for array
+            ``tp``. Always in galpy internal units (no per-call physical
+            override on ``__call__``)."""
         tp = self._parse_tp(tp)
         R, vR, vT, zcyl, vzc, phi = self._cyl_at(tp)
         out = numpy.array([R, vR, vT, zcyl, vzc, phi])
@@ -753,6 +809,8 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def ra(self, tp, **kwargs):
+        """Equatorial right ascension along the track (deg). See :meth:`x`
+        for the full parameter list."""
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -761,6 +819,7 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def dec(self, tp, **kwargs):
+        """Equatorial declination along the track (deg). See :meth:`x`."""
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -769,6 +828,7 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def ll(self, tp, **kwargs):
+        """Galactic longitude along the track (deg). See :meth:`x`."""
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -776,6 +836,7 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def bb(self, tp, **kwargs):
+        """Galactic latitude along the track (deg). See :meth:`x`."""
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -783,6 +844,7 @@ class StreamTrack:
 
     @physical_conversion("position_kpc", pop=True)
     def dist(self, tp, **kwargs):
+        """Heliocentric distance along the track (kpc). See :meth:`x`."""
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -790,6 +852,8 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmra(self, tp, **kwargs):
+        """Proper motion in right ascension, ``pmra * cos(dec)``, along the
+        track (mas/yr). See :meth:`x`."""
         tp = self._parse_tp(tp)
         lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
         pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
@@ -803,6 +867,8 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmdec(self, tp, **kwargs):
+        """Proper motion in declination along the track (mas/yr). See
+        :meth:`x`."""
         tp = self._parse_tp(tp)
         lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
         pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
@@ -816,18 +882,23 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmll(self, tp, **kwargs):
+        """Proper motion in Galactic longitude, ``pmll * cos(b)``, along the
+        track (mas/yr). See :meth:`x`."""
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
         return self._maybe_scalar(tp, vrpmllpmbb[:, 1])
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmbb(self, tp, **kwargs):
+        """Proper motion in Galactic latitude along the track (mas/yr). See
+        :meth:`x`."""
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
         return self._maybe_scalar(tp, vrpmllpmbb[:, 2])
 
     @physical_conversion("velocity_kms", pop=True)
     def vlos(self, tp, **kwargs):
+        """Line-of-sight velocity along the track (km/s). See :meth:`x`."""
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
         return self._maybe_scalar(tp, vrpmllpmbb[:, 0])
@@ -864,7 +935,9 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def phi1(self, tp, **kwargs):
-        """Custom-frame longitude."""
+        """Custom-frame longitude along the track (deg). Requires
+        ``custom_transform`` to have been set at construction. See
+        :meth:`x` for the full parameter list."""
         self._require_custom()
         tp = self._parse_tp(tp)
         ra_dec = self._radec_internal(tp)
@@ -875,7 +948,8 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def phi2(self, tp, **kwargs):
-        """Custom-frame latitude."""
+        """Custom-frame latitude along the track (deg). Requires
+        ``custom_transform``. See :meth:`x`."""
         self._require_custom()
         tp = self._parse_tp(tp)
         ra_dec = self._radec_internal(tp)
@@ -886,7 +960,9 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmphi1(self, tp, **kwargs):
-        """Proper motion in custom-frame phi1, multiplied by cos(phi2)."""
+        """Proper motion in custom-frame ``phi1`` (multiplied by
+        ``cos(phi2)``) along the track (mas/yr). Requires
+        ``custom_transform``. See :meth:`x`."""
         self._require_custom()
         tp = self._parse_tp(tp)
         ra_dec = self._radec_internal(tp)
@@ -903,7 +979,8 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmphi2(self, tp, **kwargs):
-        """Proper motion in custom-frame phi2."""
+        """Proper motion in custom-frame ``phi2`` along the track
+        (mas/yr). Requires ``custom_transform``. See :meth:`x`."""
         self._require_custom()
         tp = self._parse_tp(tp)
         ra_dec = self._radec_internal(tp)

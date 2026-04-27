@@ -363,13 +363,16 @@ class basestreamspraydf(df):
             ]
         )
 
-        # Inherited unit metadata from the original progenitor Orbit
-        prog_ro = self._orig_progenitor._ro
-        prog_vo = self._orig_progenitor._vo
+        # Inherit unit metadata from the original progenitor Orbit. Pass
+        # ``ro``/``vo`` only when the progenitor had them explicitly set —
+        # StreamTrack mirrors Orbit's "ro/vo unset means use the config
+        # default and keep _roSet=False" pattern, so we propagate the
+        # progenitor's ``_roSet``/``_voSet`` state via *not passing* the
+        # value rather than via a separate flag.
+        prog_ro = self._orig_progenitor._ro if self._orig_progenitor._roSet else None
+        prog_vo = self._orig_progenitor._vo if self._orig_progenitor._voSet else None
         prog_zo = self._orig_progenitor._zo
         prog_sm = self._orig_progenitor._solarmotion
-        prog_roSet = self._orig_progenitor._roSet
-        prog_voSet = self._orig_progenitor._voSet
 
         def _make_track(xv, dt, arm_sign):
             return StreamTrack.from_particles(
@@ -388,8 +391,6 @@ class basestreamspraydf(df):
                 vo=prog_vo,
                 zo=prog_zo,
                 solarmotion=prog_sm,
-                roSet=prog_roSet,
-                voSet=prog_voSet,
             )
 
         if tail == "both":

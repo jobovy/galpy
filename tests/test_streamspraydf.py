@@ -1435,13 +1435,17 @@ def test_streamTrack_precomputed_init_and_parameter_kind(_simple_spdf):
         cov_xyz=fit._cov_xyz,
         custom_transform=fit._custom_transform,
         parameter_kind="time",
-        ro=fit._ro,
-        vo=fit._vo,
+        # Mirror Orbit semantics: pass ro/vo only when the source had them
+        # explicitly set; otherwise let the constructor pull the config
+        # default and keep ``_roSet``/``_voSet=False``.
+        ro=fit._ro if fit._roSet else None,
+        vo=fit._vo if fit._voSet else None,
         zo=fit._zo,
         solarmotion=fit._solarmotion,
-        roSet=fit._roSet,
-        voSet=fit._voSet,
     )
+    # And the rebuilt track should inherit the same _roSet / _voSet state.
+    assert rebuilt._roSet == fit._roSet
+    assert rebuilt._voSet == fit._voSet
     tp_mid = fit.tp_grid()[len(fit.tp_grid()) // 2]
     assert abs(float(fit.x(tp_mid)) - float(rebuilt.x(tp_mid))) < 1e-10
     # The precomputed-track instance has no fitter outputs.
