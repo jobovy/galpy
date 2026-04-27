@@ -40,9 +40,11 @@ from ..potential.Potential import (
 from ..util import coords  # for prolate confocal transforms
 from ..util import conversion, galpyWarning
 from ..util.conversion import physical_conversion, potential_physical_input
-#from . import actionAngleStaeckelTriaxial_c
+
+# from . import actionAngleStaeckelTriaxial_c
 from .actionAngle import UnboundError, actionAngle
-#from .actionAngleStaeckelTriaxial_c import _ext_loaded as ext_loaded
+
+# from .actionAngleStaeckelTriaxial_c import _ext_loaded as ext_loaded
 
 
 class actionAngleStaeckelTriaxial(actionAngle):
@@ -78,7 +80,7 @@ class actionAngleStaeckelTriaxial(actionAngle):
                 "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                 galpyWarning,
             )
-        
+
         ext_loaded = False
         if ext_loaded and (("c" in kwargs and kwargs["c"]) or not "c" in kwargs):
             self._c = _check_c(self._pot)
@@ -145,17 +147,17 @@ class actionAngleStaeckelTriaxial(actionAngle):
             vz = numpy.array([vz])
             phi = numpy.array([phi])
         if (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
-            #or (ext_loaded and ("c" in kwargs and kwargs["c"]))
+            self._c and not ("c" in kwargs and not kwargs["c"])
+            # or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot):
-            #Lz = R * vT
+            # Lz = R * vT
             return 0, 0, 0
-            #jr, jz, err = actionAngleStaeckelTriaxialFudge_c.actionAngleStaeckelTriaxialFudge_c(
+            # jr, jz, err = actionAngleStaeckelTriaxialFudge_c.actionAngleStaeckelTriaxialFudge_c(
             #    self._pot, R, vR, vT, z, vz, phi, order=order
-            #)
-            #if err == 0:
+            # )
+            # if err == 0:
             #    return (jr, Lz, jz)
-            #else:  # pragma: no cover
+            # else:  # pragma: no cover
             #    raise RuntimeError(
             #        "C-code for calculation actions failed; try with c=False"
             #    )
@@ -196,6 +198,7 @@ class actionAngleStaeckelTriaxial(actionAngle):
                     numpy.atleast_1d(aASingle.Jz(**copy.copy(kwargs))),
                 )
 
+
 class actionAngleStaeckelTriaxialSingle(actionAngle):
     """Action-angle formalism for triaxial potentials using Sanders & Binney (2015)'s Staeckel approximation"""
 
@@ -213,10 +216,10 @@ class actionAngleStaeckelTriaxialSingle(actionAngle):
             b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
         pot: Potential or a combined potential formed using addition (pot1+pot2+…)
             Potential to use
-        
+
         Notes
         -----
-        
+
         """
         self._parse_eval_args(*args, _noOrbUnitsCheck=True, **kwargs)
         self._R = self._eval_R
@@ -232,26 +235,42 @@ class actionAngleStaeckelTriaxialSingle(actionAngle):
             raise OSError("Must specify delta= for actionAngleStaeckelTriaxial")
         if not "beta" in kwargs:  # pragma: no cover
             raise OSError("Must specify delta= for actionAngleStaeckelTriaxial")
-        
+
         self._delta = kwargs["delta"]
-        
+
         # Pre-calculate everything
         self._x, self._y, self._z = coords.cyl_to_rect(self._R, self._z, self._phi)
-        self._vx, self._vy, self._vz = coords.cyl_to_rect_vec(self._vR, self._vT, self._vz, self._phi)
+        self._vx, self._vy, self._vz = coords.cyl_to_rect_vec(
+            self._vR, self._vT, self._vz, self._phi
+        )
 
-        self._alpha, self._beta = estimateAlpbaBetaStaeckelTriaxial(self._pot, self._R, self._z, self._phi)
-        self._l, self._m, self._n = cartesian_to_ellipsoidal(self._x, self._y, self._z, self._alpha, self._beta, -1)
-        self._vl, self._vm, self._vn = cartesian_to_ellipsoidal_vect(self._x, self._y, self._z, self._vx, self._vy, self._vz, self._alpha, self._beta, -1)
+        self._alpha, self._beta = estimateAlpbaBetaStaeckelTriaxial(
+            self._pot, self._R, self._z, self._phi
+        )
+        self._l, self._m, self._n = cartesian_to_ellipsoidal(
+            self._x, self._y, self._z, self._alpha, self._beta, -1
+        )
+        self._vl, self._vm, self._vn = cartesian_to_ellipsoidal_vect(
+            self._x,
+            self._y,
+            self._z,
+            self._vx,
+            self._vy,
+            self._vz,
+            self._alpha,
+            self._beta,
+            -1,
+        )
 
         self._E = self.calcE()
         self._evalPotInit = _evaluatePotentials(self._pot, self._R, self._z, self._phi)
-        #get A
-        #get B
-        
-        #get tau plus, minus for each
-        
-        #perform numerical integration on the integrand
-        
+        # get A
+        # get B
+
+        # get tau plus, minus for each
+
+        # perform numerical integration on the integrand
+
         return None
 
     def angleR(self, **kwargs):
@@ -280,34 +299,72 @@ class actionAngleStaeckelTriaxialSingle(actionAngle):
         pass
 
     def calcE(self, **kwargs):
-        return self._evalPotInit + self._vx**2.0 / 2.0 + self._vy**2.0 / 2.0 + self._vz**2.0 / 2.0
+        return (
+            self._evalPotInit
+            + self._vx**2.0 / 2.0
+            + self._vy**2.0 / 2.0
+            + self._vz**2.0 / 2.0
+        )
 
     def _chi_l(self, l, m, n, pot):
-        return (l - m)*(n - l) * pot
+        return (l - m) * (n - l) * pot
 
     def _chi_m(self, l, m, n, pot):
-        return (m - n)*(l - m) * pot
+        return (m - n) * (l - m) * pot
 
     def _chi_n(self, l, m, n, pot):
-        return (n - l)*(m - n) * pot
+        return (n - l) * (m - n) * pot
 
     def _calculate_A_B(self, alpha, beta, gamma):
 
-        P_l2 = ((self._l - self._m) * (self._l - self._n)) / (4 * (self._l + alpha) * (self._l + beta) * (self._l + gamma))
-        P_m2 = ((self._m - self._n) * (self._m - self._l)) / (4 * (self._m + alpha) * (self._m + beta) * (self._m + gamma))
-        P_n2 = ((self._n - self._m) * (self._n - self._l)) / (4 * (self._n + alpha) * (self._n + beta) * (self._n + gamma))
+        P_l2 = ((self._l - self._m) * (self._l - self._n)) / (
+            4 * (self._l + alpha) * (self._l + beta) * (self._l + gamma)
+        )
+        P_m2 = ((self._m - self._n) * (self._m - self._l)) / (
+            4 * (self._m + alpha) * (self._m + beta) * (self._m + gamma)
+        )
+        P_n2 = ((self._n - self._m) * (self._n - self._l)) / (
+            4 * (self._n + alpha) * (self._n + beta) * (self._n + gamma)
+        )
 
-        A_l = (self._m + self._n) * self._E + (self._l - self._m)*(self._vm ** 2)/(2*P_m2) + (self._l - self._n)*(self._vn ** 2)/(2*P_n2)
-        A_m = (self._l + self._n) * self._E + (self._m - self._l)*(self._vl ** 2)/(2*P_l2) + (self._m - self._n)*(self._vn ** 2)/(2*P_n2)
-        A_n = (self._l + self._m) * self._E + (self._n - self._l)*(self._vl ** 2)/(2*P_l2) + (self._n - self._m)*(self._vm ** 2)/(2*P_m2)
-        
+        A_l = (
+            (self._m + self._n) * self._E
+            + (self._l - self._m) * (self._vm**2) / (2 * P_m2)
+            + (self._l - self._n) * (self._vn**2) / (2 * P_n2)
+        )
+        A_m = (
+            (self._l + self._n) * self._E
+            + (self._m - self._l) * (self._vl**2) / (2 * P_l2)
+            + (self._m - self._n) * (self._vn**2) / (2 * P_n2)
+        )
+        A_n = (
+            (self._l + self._m) * self._E
+            + (self._n - self._l) * (self._vl**2) / (2 * P_l2)
+            + (self._n - self._m) * (self._vm**2) / (2 * P_m2)
+        )
+
         chi_l = self._chi_l(self._l, self._m, self._n, self._evalPotInit)
         chi_m = self._chi_m(self._l, self._m, self._n, self._evalPotInit)
         chi_n = self._chi_n(self._l, self._m, self._n, self._evalPotInit)
 
-        B_l = 2*(self._l + alpha)*(self._l + beta)*(self._l + gamma)*self._vl**2 - (self._l**2)*self._E + self._l * A_l - chi_l
-        B_m = 2*(self._m + alpha)*(self._m + beta)*(self._m + gamma)*self._vm**2 - (self._m**2)*self._E + self._m * A_m - chi_m
-        B_n = 2*(self._n + alpha)*(self._n + beta)*(self._n + gamma)*self._vn**2 - (self._n**2)*self._E + self._n * A_n - chi_n
+        B_l = (
+            2 * (self._l + alpha) * (self._l + beta) * (self._l + gamma) * self._vl**2
+            - (self._l**2) * self._E
+            + self._l * A_l
+            - chi_l
+        )
+        B_m = (
+            2 * (self._m + alpha) * (self._m + beta) * (self._m + gamma) * self._vm**2
+            - (self._m**2) * self._E
+            + self._m * A_m
+            - chi_m
+        )
+        B_n = (
+            2 * (self._n + alpha) * (self._n + beta) * (self._n + gamma) * self._vn**2
+            - (self._n**2) * self._E
+            + self._n * A_n
+            - chi_n
+        )
 
         return A_l, A_m, A_n, B_l, B_m, B_n
 
@@ -320,12 +377,12 @@ class actionAngleStaeckelTriaxialSingle(actionAngle):
         Important note:
         The LHS has terms (tau + alpha) * (tau + beta) * (tau + gamma)
         Recall the parameter constraints -gamma <= nu <= -beta <= mu <= -alpha <= lambda
-        Therefore, 
+        Therefore,
             tau = lambda, LHS = (+) * (+) * (+) = +
             tau = mu, LHS = (-) * (+) * (+) = -
             tau = nu, LHS = (-) * (-) * (+) = +
         Sign effects are included in root solving below.
-            
+
         Returns
         -------
         tuple
@@ -338,55 +395,80 @@ class actionAngleStaeckelTriaxialSingle(actionAngle):
         if hasattr(self, "_tauptuam"):  # pragma: no cover
             return self._tauptuam
         E = self._E
-        
+
         return None
 
-def cartesian_to_ellipsoidal(x,y,z,alpha,beta,gamma):
-    #using the code from galaxiesbook.org
-    x= numpy.atleast_1d(x)
-    y= numpy.atleast_1d(y)
-    z= numpy.atleast_1d(z)
-    N= len(x)
-    out= numpy.empty((N,3))
-    for ii,(tx,ty,tz) in enumerate(zip(x,y,z)):
-        these_coords= numpy.polynomial.polynomial.Polynomial(\
-                        (beta*gamma*tx**2.+alpha*gamma*ty**2.+alpha*beta*tz**2.
-                         -alpha*beta*gamma,
-                        (beta+gamma)*tx**2.+(alpha+gamma)*ty**2.+(alpha+beta)*tz**2.
-                         -alpha*beta-alpha*gamma-beta*gamma,
-                        tx**2.+ty**2.+tz**2.-alpha-beta-gamma,
-                        -1.)).roots()
-        out[ii]= sorted(these_coords)[::-1]
+
+def cartesian_to_ellipsoidal(x, y, z, alpha, beta, gamma):
+    # using the code from galaxiesbook.org
+    x = numpy.atleast_1d(x)
+    y = numpy.atleast_1d(y)
+    z = numpy.atleast_1d(z)
+    N = len(x)
+    out = numpy.empty((N, 3))
+    for ii, (tx, ty, tz) in enumerate(zip(x, y, z)):
+        these_coords = numpy.polynomial.polynomial.Polynomial(
+            (
+                beta * gamma * tx**2.0
+                + alpha * gamma * ty**2.0
+                + alpha * beta * tz**2.0
+                - alpha * beta * gamma,
+                (beta + gamma) * tx**2.0
+                + (alpha + gamma) * ty**2.0
+                + (alpha + beta) * tz**2.0
+                - alpha * beta
+                - alpha * gamma
+                - beta * gamma,
+                tx**2.0 + ty**2.0 + tz**2.0 - alpha - beta - gamma,
+                -1.0,
+            )
+        ).roots()
+        out[ii] = sorted(these_coords)[::-1]
     return out
 
+
 def cartesian_to_ellipsoidal_vect(x, y, z, vx, vy, vz, alpha, beta, gamma):
-    #using equation 4, derived from 2
+    # using equation 4, derived from 2
     l, m, n = cartesian_to_ellipsoidal(x, y, z, alpha, beta, gamma)
-    
-    #equation 2
+
+    # equation 2
     x2 = ((l + alpha) * (m + alpha) * (n + alpha)) / ((alpha - beta) * (alpha - gamma))
     y2 = ((l + beta) * (m + beta) * (n + beta)) / ((beta - alpha) * (beta - gamma))
     z2 = ((l + gamma) * (m + gamma) * (n + gamma)) / ((gamma - beta) * (gamma - alpha))
 
-    vl = (vx/2) * numpy.sqrt(x2 / ((l + alpha) ** 2)) \
-        + (vy/2) * numpy.sqrt(y2 / ((l + beta) ** 2)) \
-        + (vz/2) * numpy.sqrt(z2 / ((l + gamma) ** 2))
-    
-    vm = (vx/2) * numpy.sqrt(x2 / ((m + alpha) ** 2)) \
-        + (vy/2) * numpy.sqrt(y2 / ((m + beta) ** 2)) \
-        + (vz/2) * numpy.sqrt(z2 / ((m + gamma) ** 2))
-    
-    vn = (vx/2) * numpy.sqrt(x2 / ((n + alpha) ** 2)) \
-        + (vy/2) * numpy.sqrt(y2 / ((n + beta) ** 2)) \
-        + (vz/2) * numpy.sqrt(z2 / ((n + gamma) ** 2))
+    vl = (
+        (vx / 2) * numpy.sqrt(x2 / ((l + alpha) ** 2))
+        + (vy / 2) * numpy.sqrt(y2 / ((l + beta) ** 2))
+        + (vz / 2) * numpy.sqrt(z2 / ((l + gamma) ** 2))
+    )
+
+    vm = (
+        (vx / 2) * numpy.sqrt(x2 / ((m + alpha) ** 2))
+        + (vy / 2) * numpy.sqrt(y2 / ((m + beta) ** 2))
+        + (vz / 2) * numpy.sqrt(z2 / ((m + gamma) ** 2))
+    )
+
+    vn = (
+        (vx / 2) * numpy.sqrt(x2 / ((n + alpha) ** 2))
+        + (vy / 2) * numpy.sqrt(y2 / ((n + beta) ** 2))
+        + (vz / 2) * numpy.sqrt(z2 / ((n + gamma) ** 2))
+    )
 
     return (vl, vm, vn)
 
-def ellipsoidal_to_cartesian(l,m,n,alpha,beta,gamma):
-    x= numpy.sqrt((l+alpha)*(m+alpha)*(n+alpha)/(alpha-beta)/(alpha-gamma))
-    y= numpy.sqrt((l+beta)*(m+beta)*(n+beta)/(beta-alpha)/(beta-gamma))
-    z= numpy.sqrt((l+gamma)*(m+gamma)*(n+gamma)/(gamma-beta)/(gamma-alpha))
-    return numpy.array([x,y,z]).T
+
+def ellipsoidal_to_cartesian(l, m, n, alpha, beta, gamma):
+    x = numpy.sqrt(
+        (l + alpha) * (m + alpha) * (n + alpha) / (alpha - beta) / (alpha - gamma)
+    )
+    y = numpy.sqrt(
+        (l + beta) * (m + beta) * (n + beta) / (beta - alpha) / (beta - gamma)
+    )
+    z = numpy.sqrt(
+        (l + gamma) * (m + gamma) * (n + gamma) / (gamma - beta) / (gamma - alpha)
+    )
+    return numpy.array([x, y, z]).T
+
 
 @potential_physical_input
 @physical_conversion("position", pop=True)
@@ -419,7 +501,7 @@ def estimateAlpbaBetaStaeckelTriaxial(pot, R, z, phi):
         raise PotentialError(
             "Calling estimateAlpbaBetaStaeckelTriaxial with non-axisymmetric potentials is not supported"
         )
-    
+
     alpha = 0.5
     beta = 1
 
