@@ -19516,13 +19516,13 @@ def test_streamtrack_parameter_kind_quantity_inputs():
         parameter_kind="time",
         ro=ro,
         vo=vo,
-        roSet=False,
-        voSet=False,
     )
     tp = 0.25
     t_gyr = tp * conversion.time_in_Gyr(vo, ro)
+    # Compare in internal units to avoid Quantity vs float comparisons.
     assert numpy.isclose(
-        float(time_track.x(tp)), float(time_track.x(t_gyr * units.Gyr))
+        float(time_track.x(tp, use_physical=False)),
+        float(time_track.x(t_gyr * units.Gyr, use_physical=False)),
     )
     # parameter_kind="angle": Quantity angle → radians.
     angle_track = StreamTrack(
@@ -19530,12 +19530,14 @@ def test_streamtrack_parameter_kind_quantity_inputs():
         track_xyz=track_xyz,
         track_vxvyvz=track_vxvyvz,
         parameter_kind="angle",
-        roSet=False,
-        voSet=False,
     )
     assert numpy.isclose(
-        float(angle_track.x(0.25)), float(angle_track.x(0.25 * units.rad))
+        float(angle_track.x(0.25, use_physical=False)),
+        float(angle_track.x(0.25 * units.rad, use_physical=False)),
     )
     # Quantity in degrees should be converted to radians automatically.
     deg_val = (0.25 * units.rad).to(units.deg)
-    assert numpy.isclose(float(angle_track.x(0.25)), float(angle_track.x(deg_val)))
+    assert numpy.isclose(
+        float(angle_track.x(0.25, use_physical=False)),
+        float(angle_track.x(deg_val, use_physical=False)),
+    )
