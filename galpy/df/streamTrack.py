@@ -424,9 +424,21 @@ class StreamTrack:
         parameter_kind : {"time", "angle", None}, optional
             How astropy ``Quantity`` inputs to accessors are interpreted
             (see class docstring). Default ``"time"``.
-        ro, vo, zo, solarmotion, roSet, voSet
-            Physical-unit configuration (typically inherited from the
-            progenitor / source Orbit).
+        ro : float or Quantity, optional
+            Distance scale (kpc). Default None.
+        vo : float or Quantity, optional
+            Circular velocity scale (km/s). Default None.
+        zo : float or Quantity, optional
+            Sun's height above the midplane (kpc). Default None.
+        solarmotion : str, numpy.ndarray or Quantity, optional
+            ``'hogg'``, ``'dehnen'``, ``'schoenrich'``, or ``[-U, V, W]``
+            in km/s. Default None.
+        roSet : bool, optional
+            Whether ``ro`` is set (controls physical-units default for
+            position accessors and :meth:`cov`). Default True.
+        voSet : bool, optional
+            Whether ``vo`` is set (controls physical-units default for
+            velocity accessors and :meth:`cov`). Default True.
         """
         self._tp_grid = numpy.asarray(tp_grid, dtype=float).copy()
         self._track_xyz = numpy.asarray(track_xyz, dtype=float).copy()
@@ -534,8 +546,22 @@ class StreamTrack:
             particles to the closest point on the current track.
         order : int, optional
             ``1`` = mean only, ``2`` = mean + covariance.
-        custom_transform, ro, vo, zo, solarmotion, roSet, voSet
-            Forwarded to the base ``__init__``.
+        custom_transform : array, shape (3, 3), optional
+            Rotation from equatorial to a custom sky frame. Forwarded to
+            the base ``__init__``.
+        ro : float or Quantity, optional
+            Distance scale (kpc). Default None.
+        vo : float or Quantity, optional
+            Circular velocity scale (km/s). Default None.
+        zo : float or Quantity, optional
+            Sun's height above the midplane (kpc). Default None.
+        solarmotion : str, numpy.ndarray or Quantity, optional
+            ``'hogg'``, ``'dehnen'``, ``'schoenrich'``, or ``[-U, V, W]``
+            in km/s. Default None.
+        roSet : bool, optional
+            Whether ``ro`` is set on the resulting track. Default True.
+        voSet : bool, optional
+            Whether ``vo`` is set on the resulting track. Default True.
         """
         fit = _fit_track_from_particles(
             xv_particles,
