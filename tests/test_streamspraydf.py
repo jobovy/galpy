@@ -1483,9 +1483,9 @@ def test_streamTrack_precomputed_init_and_parameter_kind(_simple_spdf):
 
 def test_streamTrack_particles_attr(_simple_spdf):
     # track.particles exposes the raw (xv, dt) tuple the fit saw — same
-    # format streamTrack(particles=...) accepts. Verify shape, that it
-    # round-trips through a second streamTrack call, and that it matches
-    # when the user passes particles explicitly.
+    # format that ``spraydf.streamTrack(particles=...)`` accepts. Verify
+    # shape, that it round-trips through a second spraydf.streamTrack
+    # call, and that it matches when the user passes particles explicitly.
     numpy.random.seed(21)
     xv, dt = _simple_spdf.sample(
         n=1500, returndt=True, return_orbit=False, integrate=True

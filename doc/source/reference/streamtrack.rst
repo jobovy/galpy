@@ -1,10 +1,8 @@
-.. _api_streamtrack:
-
 Smooth stream-track object
-===========================
+==========================
 
 .. autoclass:: galpy.df.StreamTrack
-   :members:
+   :members: __init__
 
 .. autoclass:: galpy.df.StreamTrackPair
-   :members:
+   :members: __init__

@@ -369,4 +369,89 @@ Smooth stream-track object
 .. toctree::
    :maxdepth: 1
 
-   StreamTrack <streamtrack.rst>
+   StreamTrack and StreamTrackPair <streamtrack.rst>
+
+General instance routines
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   __call__ <streamtrackcall.rst>
+   from_particles <streamtrackfromparticles.rst>
+   tp_grid <streamtracktpgrid.rst>
+   cov <streamtrackcov.rst>
+   plot <streamtrackplot.rst>
+   turn_physical_on <streamtrackturnphysicalon.rst>
+   turn_physical_off <streamtrackturnphysicaloff.rst>
+
+Galactocentric Cartesian accessors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   x <streamtrackx.rst>
+   y <streamtracky.rst>
+   z <streamtrackz.rst>
+   vx <streamtrackvx.rst>
+   vy <streamtrackvy.rst>
+   vz <streamtrackvz.rst>
+
+Galactocentric cylindrical accessors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   R <streamtrackR.rst>
+   vR <streamtrackvR.rst>
+   vT <streamtrackvT.rst>
+   phi <streamtrackphi.rst>
+
+Heliocentric equatorial accessors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   ra <streamtrackra.rst>
+   dec <streamtrackdec.rst>
+   dist <streamtrackdist.rst>
+   pmra <streamtrackpmra.rst>
+   pmdec <streamtrackpmdec.rst>
+   vlos <streamtrackvlos.rst>
+
+Heliocentric Galactic accessors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   ll <streamtrackll.rst>
+   bb <streamtrackbb.rst>
+   pmll <streamtrackpmll.rst>
+   pmbb <streamtrackpmbb.rst>
+
+Custom-frame sky accessors
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+These require ``custom_transform`` to have been set at construction.
+
+.. toctree::
+   :maxdepth: 1
+
+   phi1 <streamtrackphi1.rst>
+   phi2 <streamtrackphi2.rst>
+   pmphi1 <streamtrackpmphi1.rst>
+   pmphi2 <streamtrackpmphi2.rst>
+
+StreamTrackPair routines
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   plot <streamtrackpairplot.rst>
+   turn_physical_on <streamtrackpairturnphysicalon.rst>
+   turn_physical_off <streamtrackpairturnphysicaloff.rst>

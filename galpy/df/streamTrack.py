@@ -260,7 +260,8 @@ def _fit_track_from_particles(
         return numpy.column_stack([spl(tp) for spl in prog_splines])
 
     # Raw (xv, dt) snapshot the user can plot the track over without
-    # resampling — the converse of streamTrack(particles=...) input.
+    # resampling — the converse of the ``particles=`` knob on
+    # ``basestreamspraydf.streamTrack``.
     particles = (
         numpy.asarray(xv_particles, dtype=float).copy(),
         numpy.asarray(dt_particles, dtype=float).copy(),
@@ -667,36 +668,136 @@ class StreamTrack:
 
     @physical_conversion("position", pop=True)
     def y(self, tp, **kwargs):
-        """Galactocentric Cartesian y along the track. See :meth:`x` for the
-        full parameter list (units: kpc when physical, internal otherwise)."""
+        """Galactocentric Cartesian y along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Galactocentric Cartesian y in kpc when physical-units output
+            is on, in galpy internal units otherwise.
+        """
         tp = self._parse_tp(tp)
         return self._cart_eval(1, tp)
 
     @physical_conversion("position", pop=True)
     def z(self, tp, **kwargs):
-        """Galactocentric Cartesian z along the track. See :meth:`x` for the
-        full parameter list (units: kpc when physical, internal otherwise)."""
+        """Galactocentric Cartesian z along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Galactocentric Cartesian z in kpc when physical-units output
+            is on, in galpy internal units otherwise.
+        """
         tp = self._parse_tp(tp)
         return self._cart_eval(2, tp)
 
     @physical_conversion("velocity", pop=True)
     def vx(self, tp, **kwargs):
-        """Galactocentric Cartesian vx along the track. See :meth:`x` for the
-        full parameter list (units: km/s when physical, internal otherwise)."""
+        """Galactocentric Cartesian vx along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Galactocentric Cartesian vx in km/s when physical-units output
+            is on, in galpy internal units otherwise.
+        """
         tp = self._parse_tp(tp)
         return self._cart_eval(3, tp)
 
     @physical_conversion("velocity", pop=True)
     def vy(self, tp, **kwargs):
-        """Galactocentric Cartesian vy along the track. See :meth:`x` for the
-        full parameter list (units: km/s when physical, internal otherwise)."""
+        """Galactocentric Cartesian vy along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Galactocentric Cartesian vy in km/s when physical-units output
+            is on, in galpy internal units otherwise.
+        """
         tp = self._parse_tp(tp)
         return self._cart_eval(4, tp)
 
     @physical_conversion("velocity", pop=True)
     def vz(self, tp, **kwargs):
-        """Galactocentric Cartesian vz along the track. See :meth:`x` for the
-        full parameter list (units: km/s when physical, internal otherwise)."""
+        """Galactocentric Cartesian vz along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Galactocentric Cartesian vz in km/s when physical-units output
+            is on, in galpy internal units otherwise.
+        """
         tp = self._parse_tp(tp)
         return self._cart_eval(5, tp)
 
@@ -711,33 +812,112 @@ class StreamTrack:
 
     @physical_conversion("position", pop=True)
     def R(self, tp, **kwargs):
-        """Galactocentric cylindrical R along the track. See :meth:`x` for
-        the full parameter list (units: kpc when physical, internal
-        otherwise)."""
+        """Galactocentric cylindrical radius R along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Galactocentric cylindrical radius in kpc when physical-units
+            output is on, in galpy internal units otherwise.
+        """
         tp = self._parse_tp(tp)
         R, _, _, _, _, _ = self._cyl_at(tp)
         return self._maybe_scalar(tp, R)
 
     @physical_conversion("velocity", pop=True)
     def vR(self, tp, **kwargs):
-        """Galactocentric cylindrical radial velocity along the track. See
-        :meth:`x` (units: km/s when physical, internal otherwise)."""
+        """Galactocentric cylindrical radial velocity vR along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Cylindrical radial velocity in km/s when physical-units output
+            is on, in galpy internal units otherwise.
+        """
         tp = self._parse_tp(tp)
         _, vR, _, _, _, _ = self._cyl_at(tp)
         return self._maybe_scalar(tp, vR)
 
     @physical_conversion("velocity", pop=True)
     def vT(self, tp, **kwargs):
-        """Galactocentric cylindrical tangential velocity along the track. See
-        :meth:`x` (units: km/s when physical, internal otherwise)."""
+        """Galactocentric cylindrical tangential velocity vT along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Cylindrical tangential velocity in km/s when physical-units
+            output is on, in galpy internal units otherwise.
+        """
         tp = self._parse_tp(tp)
         _, _, vT, _, _, _ = self._cyl_at(tp)
         return self._maybe_scalar(tp, vT)
 
     @physical_conversion("angle", pop=True)
     def phi(self, tp, **kwargs):
-        """Galactocentric cylindrical azimuth along the track. See :meth:`x`
-        (units: rad when physical, rad internal as well — galpy convention)."""
+        """Galactocentric cylindrical azimuth phi along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Cylindrical azimuth in radians (galpy convention; ``phi``
+            stays in radians whether physical-units output is on or off).
+        """
         tp = self._parse_tp(tp)
         _, _, _, _, _, phi = self._cyl_at(tp)
         return self._maybe_scalar(tp, phi)
@@ -809,8 +989,27 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def ra(self, tp, **kwargs):
-        """Equatorial right ascension along the track (deg). See :meth:`x`
-        for the full parameter list."""
+        """Equatorial right ascension along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Right ascension in degrees.
+        """
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -819,7 +1018,27 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def dec(self, tp, **kwargs):
-        """Equatorial declination along the track (deg). See :meth:`x`."""
+        """Equatorial declination along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Declination in degrees.
+        """
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -828,7 +1047,27 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def ll(self, tp, **kwargs):
-        """Galactic longitude along the track (deg). See :meth:`x`."""
+        """Galactic longitude along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Galactic longitude ``l`` in degrees.
+        """
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -836,7 +1075,27 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def bb(self, tp, **kwargs):
-        """Galactic latitude along the track (deg). See :meth:`x`."""
+        """Galactic latitude along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Galactic latitude ``b`` in degrees.
+        """
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -844,7 +1103,27 @@ class StreamTrack:
 
     @physical_conversion("position_kpc", pop=True)
     def dist(self, tp, **kwargs):
-        """Heliocentric distance along the track (kpc). See :meth:`x`."""
+        """Heliocentric distance along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Heliocentric distance in kpc.
+        """
         tp = self._parse_tp(tp)
         X, Y, Z, _, _, _ = self._helio_xv(tp)
         lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
@@ -852,8 +1131,28 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmra(self, tp, **kwargs):
-        """Proper motion in right ascension, ``pmra * cos(dec)``, along the
-        track (mas/yr). See :meth:`x`."""
+        """Proper motion in right ascension along the track, multiplied by
+        ``cos(dec)``.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            ``pmra * cos(dec)`` in mas/yr.
+        """
         tp = self._parse_tp(tp)
         lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
         pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
@@ -867,8 +1166,27 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmdec(self, tp, **kwargs):
-        """Proper motion in declination along the track (mas/yr). See
-        :meth:`x`."""
+        """Proper motion in declination along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            ``pmdec`` in mas/yr.
+        """
         tp = self._parse_tp(tp)
         lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
         pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
@@ -882,23 +1200,82 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmll(self, tp, **kwargs):
-        """Proper motion in Galactic longitude, ``pmll * cos(b)``, along the
-        track (mas/yr). See :meth:`x`."""
+        """Proper motion in Galactic longitude along the track, multiplied
+        by ``cos(b)``.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            ``pmll * cos(b)`` in mas/yr.
+        """
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
         return self._maybe_scalar(tp, vrpmllpmbb[:, 1])
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmbb(self, tp, **kwargs):
-        """Proper motion in Galactic latitude along the track (mas/yr). See
-        :meth:`x`."""
+        """Proper motion in Galactic latitude along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            ``pmbb`` in mas/yr.
+        """
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
         return self._maybe_scalar(tp, vrpmllpmbb[:, 2])
 
     @physical_conversion("velocity_kms", pop=True)
     def vlos(self, tp, **kwargs):
-        """Line-of-sight velocity along the track (km/s). See :meth:`x`."""
+        """Heliocentric line-of-sight (radial) velocity along the track.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Line-of-sight velocity in km/s.
+        """
         tp = self._parse_tp(tp)
         _, vrpmllpmbb = self._vrpmllpmbb(tp)
         return self._maybe_scalar(tp, vrpmllpmbb[:, 0])
@@ -935,9 +1312,29 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def phi1(self, tp, **kwargs):
-        """Custom-frame longitude along the track (deg). Requires
-        ``custom_transform`` to have been set at construction. See
-        :meth:`x` for the full parameter list."""
+        """Custom-frame longitude ``phi1`` along the track.
+
+        Requires ``custom_transform`` to have been set at construction.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Custom-frame ``phi1`` in degrees.
+        """
         self._require_custom()
         tp = self._parse_tp(tp)
         ra_dec = self._radec_internal(tp)
@@ -948,8 +1345,29 @@ class StreamTrack:
 
     @physical_conversion("angle_deg", pop=True)
     def phi2(self, tp, **kwargs):
-        """Custom-frame latitude along the track (deg). Requires
-        ``custom_transform``. See :meth:`x`."""
+        """Custom-frame latitude ``phi2`` along the track.
+
+        Requires ``custom_transform`` to have been set at construction.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            Custom-frame ``phi2`` in degrees.
+        """
         self._require_custom()
         tp = self._parse_tp(tp)
         ra_dec = self._radec_internal(tp)
@@ -960,9 +1378,30 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmphi1(self, tp, **kwargs):
-        """Proper motion in custom-frame ``phi1`` (multiplied by
-        ``cos(phi2)``) along the track (mas/yr). Requires
-        ``custom_transform``. See :meth:`x`."""
+        """Proper motion in custom-frame ``phi1`` along the track,
+        multiplied by ``cos(phi2)``.
+
+        Requires ``custom_transform`` to have been set at construction.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            ``pmphi1 * cos(phi2)`` in mas/yr.
+        """
         self._require_custom()
         tp = self._parse_tp(tp)
         ra_dec = self._radec_internal(tp)
@@ -979,8 +1418,29 @@ class StreamTrack:
 
     @physical_conversion("proper-motion_masyr", pop=True)
     def pmphi2(self, tp, **kwargs):
-        """Proper motion in custom-frame ``phi2`` along the track
-        (mas/yr). Requires ``custom_transform``. See :meth:`x`."""
+        """Proper motion in custom-frame ``phi2`` along the track.
+
+        Requires ``custom_transform`` to have been set at construction.
+
+        Parameters
+        ----------
+        tp : float, array, or Quantity
+            Curve parameter(s); Quantity inputs are parsed per
+            ``parameter_kind``. Out-of-range entries return ``NaN``.
+        ro : float or Quantity, optional
+            Distance scale (kpc); overrides the stored value.
+        vo : float or Quantity, optional
+            Velocity scale (km/s); overrides the stored value.
+        use_physical : bool, optional
+            Override the object-wide physical-units default.
+        quantity : bool, optional
+            Return an astropy ``Quantity`` if True.
+
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            ``pmphi2`` in mas/yr.
+        """
         self._require_custom()
         tp = self._parse_tp(tp)
         ra_dec = self._radec_internal(tp)
