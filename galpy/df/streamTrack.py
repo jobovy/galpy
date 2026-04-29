@@ -50,18 +50,25 @@ def _bin_by_tp(tp_assign, values, tp_nodes):
     return means, covs, counts
 
 
-def _smooth_series(x, y, sigma, s_user=None):
+def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
     """Fit a smoothing spline y(x) with weights derived from sigma.
 
     Default (``s_user=None``): use ``make_smoothing_spline`` with GCV
     auto-tuning (requires scipy >= 1.10). When ``s_user`` is a float, use
     ``UnivariateSpline`` with that explicit ``s`` value.
 
+    ``smoothing_factor`` (default 1.0) multiplies the effective ``s``
+    after GCV / user choice — values > 1 produce smoother fits,
+    values < 1 rougher. Useful when GCV undersmooths in finite samples
+    (a common failure mode of ``make_smoothing_spline`` on noisy binned
+    means with mis-estimated per-bin sigmas).
+
     Returns ``(spline, effective_s)`` where ``effective_s`` is the
-    weighted residual sum of the fit (= the ``s`` that a
-    ``UnivariateSpline`` would need to reproduce the same fit). For
-    GCV fits this is computed from the residuals; for explicit-s fits
-    it equals the input ``s_user``.
+    weighted residual sum the returned spline actually achieves —
+    the ``s`` that a ``UnivariateSpline`` would need to reproduce
+    the same fit. Passing this back as ``s_user`` (with
+    ``smoothing_factor=1.0``) reproduces the fit without re-running
+    GCV.
 
     Falls back to linear interpolation (effective_s=0) for fewer than 5
     valid bins.
@@ -104,9 +111,18 @@ def _smooth_series(x, y, sigma, s_user=None):
     if s_user is None:
         spl = interpolate.make_smoothing_spline(xv, yv, w=1.0 / (sv * sv))
         resid = yv - spl(xv)
+        s_gcv = float(numpy.sum((resid / sv) ** 2))
+        if smoothing_factor == 1.0:
+            return spl, s_gcv
+        # Re-fit at s = s_gcv * smoothing_factor; recompute the achieved
+        # SSR from the new spline so the returned ``effective_s`` round-
+        # trips through ``s_user`` with smoothing_factor=1 unchanged.
+        s_target = s_gcv * float(smoothing_factor)
+        spl = interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_target, k=3)
+        resid = yv - spl(xv)
         eff_s = float(numpy.sum((resid / sv) ** 2))
         return spl, eff_s
-    s_val = float(s_user)
+    s_val = float(s_user) * float(smoothing_factor)
     return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_val, k=3), s_val
 
 
@@ -158,6 +174,7 @@ def _fit_one_pass(
     order,
     s_user_mean,
     s_user_cov,
+    smoothing_factor=1.0,
 ):
     """One pass of the offset-from-progenitor smoothing fit.
 
@@ -166,6 +183,10 @@ def _fit_one_pass(
     upper-triangle covariance entry when ``order >= 2``), and reconstructs
     the dense track on ``tp_grid`` by adding the smoothed offsets back to
     the progenitor curve.
+
+    ``smoothing_factor`` (default 1.0) scales the effective ``s`` of every
+    spline (mean and covariance) by the same factor; values > 1 force a
+    smoother fit when GCV undersmooths.
 
     Returns ``(track_xyz, track_vxvyvz, cov_xyz_or_None, smoothing_s)``.
     """
@@ -182,7 +203,11 @@ def _fit_one_pass(
     offset_splines = []
     for i in range(6):
         spl, es = _smooth_series(
-            tp_nodes, means[:, i], sigma_of_mean[:, i], s_user=s_user_mean[i]
+            tp_nodes,
+            means[:, i],
+            sigma_of_mean[:, i],
+            s_user=s_user_mean[i],
+            smoothing_factor=smoothing_factor,
         )
         offset_splines.append(spl)
         eff_s_mean.append(es)
@@ -208,7 +233,11 @@ def _fit_one_pass(
                     )
                 sigma_c = numpy.where(counts > 1, sigma_c, numpy.nan)
                 spl, es = _smooth_series(
-                    tp_nodes, vals, sigma_c, s_user=s_user_cov[cov_idx]
+                    tp_nodes,
+                    vals,
+                    sigma_c,
+                    s_user=s_user_cov[cov_idx],
+                    smoothing_factor=smoothing_factor,
                 )
                 eff_s_cov.append(es)
                 cov_idx += 1
@@ -234,6 +263,7 @@ def _fit_track_from_particles(
     ntp=None,
     ninterp=1001,
     smoothing=None,
+    smoothing_factor=1.0,
     niter=0,
     order=2,
 ):
@@ -242,7 +272,8 @@ def _fit_track_from_particles(
     Returns the precomputed-track state needed by :class:`StreamTrack`:
     a dict with keys ``tp_grid``, ``track_xyz``, ``track_vxvyvz``,
     ``cov_xyz`` (None for ``order=1``), ``smoothing_s``, and
-    ``particles`` (the raw ``(xv, dt)`` tuple).
+    ``particles`` (the raw ``(xv, dt)`` tuple). ``smoothing_factor`` (>0)
+    scales every spline's effective ``s`` after GCV / explicit-s choice.
     """
     track_t_grid = numpy.asarray(track_t_grid, dtype=float)
     prog_cart = numpy.asarray(track_prog_cart, dtype=float)
@@ -343,6 +374,7 @@ def _fit_track_from_particles(
             order,
             s_user_mean,
             s_user_cov,
+            smoothing_factor=smoothing_factor,
         )
         if it < niter:
             track_cart = numpy.column_stack([track_xyz, track_vxvyvz])
@@ -497,6 +529,7 @@ class StreamTrack:
         ntp=None,
         ninterp=1001,
         smoothing=None,
+        smoothing_factor=1.0,
         niter=0,
         order=2,
         custom_transform=None,
@@ -547,6 +580,17 @@ class StreamTrack:
         smoothing : None, float, array-like, or dict, optional
             Smoothing parameter(s); see class docstring. ``None`` (default)
             uses GCV via ``make_smoothing_spline``.
+        smoothing_factor : float, optional
+            Multiplier applied to every spline's effective ``s`` after
+            GCV (or explicit-``s``) selection. Values > 1 force a smoother
+            fit, values < 1 a rougher one. Useful when GCV undersmooths
+            in finite samples (a common failure mode of
+            ``make_smoothing_spline`` on noisy binned means). Default 1.0.
+            For an interactive smoothing sweep, save ``track.particles``
+            from the first call and pass it back as ``particles=`` to
+            subsequent ``streamspraydf.streamTrack`` calls — only the
+            cheap re-fit step runs, the orbit-integration sample is
+            reused.
         niter : int, optional
             Iterations beyond the initial fit. Each iteration reassigns
             particles to the closest point on the current track.
@@ -578,6 +622,7 @@ class StreamTrack:
             ntp=ntp,
             ninterp=ninterp,
             smoothing=smoothing,
+            smoothing_factor=smoothing_factor,
             niter=niter,
             order=order,
         )

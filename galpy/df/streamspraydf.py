@@ -226,6 +226,7 @@ class basestreamspraydf(df):
         ntp=None,
         ninterp=1001,
         smoothing=None,
+        smoothing_factor=1.0,
         niter=0,
         order=2,
         custom_transform=None,
@@ -279,6 +280,16 @@ class basestreamspraydf(df):
             ``track.smoothing_s`` to reproduce the same smoothness
             without re-running GCV. A dict keyed by coordinate name
             sets per-coordinate ``s`` for the 6 mean splines only.
+        smoothing_factor : float, optional
+            Multiplier applied to every spline's effective ``s`` after
+            GCV (or explicit-``s``) selection. Values > 1 force a smoother
+            fit, values < 1 a rougher one. Useful when GCV undersmooths
+            in finite samples (a common failure mode of
+            ``make_smoothing_spline`` on noisy binned means). Default 1.0.
+            For an interactive smoothing sweep, save ``track.particles``
+            from the first call and pass it back as ``particles=`` —
+            only the cheap re-fit step runs, the orbit-integration sample
+            is reused.
         niter : int, optional
             Iterations beyond the initial fit. Each iteration reassigns
             particles to the closest point on the current track.
@@ -392,6 +403,7 @@ class basestreamspraydf(df):
                 ntp=ntp,
                 ninterp=ninterp,
                 smoothing=smoothing,
+                smoothing_factor=smoothing_factor,
                 niter=niter,
                 order=order,
                 custom_transform=custom_transform,

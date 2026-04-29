@@ -1437,6 +1437,55 @@ def test_streamTrack_smoothing_variants(_simple_spdf):
     assert len(tr_o1.smoothing_s) == 6
 
 
+def test_streamTrack_smoothing_factor(_simple_spdf):
+    # smoothing_factor>1 must produce a smoother fit (larger effective s)
+    # than smoothing_factor=1; <1 must produce a rougher fit. Sample once
+    # and reuse via particles= so we isolate the smoothing step.
+    numpy.random.seed(33)
+    tr_default = _simple_spdf.streamTrack(n=800, ntp=21, tail="leading")
+    xv, dt = tr_default.particles
+    tr_smoother = _simple_spdf.streamTrack(
+        particles=(xv, dt), ntp=21, tail="leading", smoothing_factor=2.0
+    )
+    tr_rougher = _simple_spdf.streamTrack(
+        particles=(xv, dt), ntp=21, tail="leading", smoothing_factor=0.5
+    )
+    # Ratio of effective s, averaged over the six mean splines (skip
+    # entries where the default s is so small the rerun underflows).
+    s_def = numpy.asarray(tr_default.smoothing_s[:6])
+    s_smt = numpy.asarray(tr_smoother.smoothing_s[:6])
+    s_rgh = numpy.asarray(tr_rougher.smoothing_s[:6])
+    valid = s_def > 1e-3
+    assert valid.any(), "no valid mean-spline s to compare against"
+    # smoother should be ~2x, rougher ~0.5x. UnivariateSpline doesn't
+    # always hit the target s exactly when extending past GCV's choice,
+    # so allow a generous tolerance.
+    assert numpy.mean(s_smt[valid] / s_def[valid]) > 1.5
+    assert numpy.mean(s_rgh[valid] / s_def[valid]) < 0.7
+    # smoothing_factor=1.0 must reproduce the default fit (modulo a small
+    # probe-sampling jitter: the no-particles call draws a probe sample
+    # to size track_time_range, the particles= call skips that probe and
+    # uses the passed sample directly, so track_t_grid differs at the
+    # 1e-5 level — well below any physical scale).
+    tr_unity = _simple_spdf.streamTrack(
+        particles=(xv, dt), ntp=21, tail="leading", smoothing_factor=1.0
+    )
+    tps = tr_default.tp_grid()
+    assert numpy.max(numpy.abs(tr_default.x(tps) - tr_unity.x(tps))) < 1e-3
+    # The saved smoothing_s round-trips through ``smoothing=`` with
+    # smoothing_factor=1.0 — passing both the smoothed s values and
+    # factor=1 should reproduce the smoother track (FITPACK iteration
+    # tolerance allowed).
+    tr_reuse = _simple_spdf.streamTrack(
+        particles=(xv, dt),
+        ntp=21,
+        tail="leading",
+        smoothing=tr_smoother.smoothing_s,
+        smoothing_factor=1.0,
+    )
+    assert numpy.max(numpy.abs(tr_smoother.x(tps) - tr_reuse.x(tps))) < 1e-3
+
+
 def test_closest_point_on_curve_kdtree_edge_cases():
     from galpy.df.streamTrack import _closest_point_on_curve
 
