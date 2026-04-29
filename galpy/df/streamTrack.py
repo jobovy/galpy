@@ -1873,6 +1873,26 @@ class StreamTrackPair:
         self.leading = leading
         self.trailing = trailing
 
+    @property
+    def particles(self):
+        """Concatenated ``(xv, dt)`` from both arms in the leading-first
+        order that ``streamspraydf.streamTrack(tail='both', particles=...)``
+        expects, so a pair built with ``tail='both'`` can be re-fit at
+        different smoothing / iteration settings without re-sampling::
+
+            pair = spdf.streamTrack(n=3000, tail='both')
+            pair_smoother = spdf.streamTrack(particles=pair.particles,
+                                             tail='both',
+                                             smoothing_factor=2.0)
+
+        Available only when the underlying arms were built via
+        :meth:`StreamTrack.from_particles` (the ``streamspraydf.streamTrack``
+        path); raises ``AttributeError`` otherwise.
+        """
+        xv_l, dt_l = self.leading.particles
+        xv_t, dt_t = self.trailing.particles
+        return numpy.hstack([xv_l, xv_t]), numpy.concatenate([dt_l, dt_t])
+
     def turn_physical_on(self, ro=None, vo=None):
         self.leading.turn_physical_on(ro=ro, vo=vo)
         self.trailing.turn_physical_on(ro=ro, vo=vo)

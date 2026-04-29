@@ -1339,6 +1339,42 @@ def test_streamTrack_particles_reuse_both(_simple_spdf):
     assert numpy.isfinite(pair.trailing.x(0.0))
 
 
+def test_streamTrackPair_particles_property(_simple_spdf):
+    # pair.particles concatenates the two arms' (xv, dt) in leading-first
+    # order, exactly the format ``streamTrack(tail='both', particles=...)``
+    # expects. Round-trip: re-fit using pair.particles and confirm the
+    # resulting tracks match the original (modulo tiny FITPACK iteration
+    # noise).
+    numpy.random.seed(34)
+    pair = _simple_spdf.streamTrack(n=1500, ntp=31, tail="both")
+    xv_pair, dt_pair = pair.particles
+    # Shape: leading first, trailing second.
+    n_l = pair.leading.particles[0].shape[1]
+    n_t = pair.trailing.particles[0].shape[1]
+    assert xv_pair.shape == (6, n_l + n_t)
+    assert dt_pair.shape == (n_l + n_t,)
+    assert numpy.allclose(xv_pair[:, :n_l], pair.leading.particles[0])
+    assert numpy.allclose(xv_pair[:, n_l:], pair.trailing.particles[0])
+    assert numpy.allclose(dt_pair[:n_l], pair.leading.particles[1])
+    assert numpy.allclose(dt_pair[n_l:], pair.trailing.particles[1])
+    # Round-trip via spraydf.streamTrack(tail='both', particles=...). Compare
+    # on the overlap of the two tp grids (auto-trim percentiles can land at
+    # slightly different boundaries between the two calls due to a small
+    # probe-sample jitter; staying inside the overlap avoids NaN edges).
+    pair_reuse = _simple_spdf.streamTrack(particles=pair.particles, tail="both", ntp=31)
+    g_l, g_l2 = pair.leading.tp_grid(), pair_reuse.leading.tp_grid()
+    g_t, g_t2 = pair.trailing.tp_grid(), pair_reuse.trailing.tp_grid()
+    tps_l = numpy.linspace(max(g_l[0], g_l2[0]), min(g_l[-1], g_l2[-1]), 21)
+    tps_t = numpy.linspace(max(g_t[0], g_t2[0]), min(g_t[-1], g_t2[-1]), 21)
+    assert (
+        numpy.max(numpy.abs(pair.leading.x(tps_l) - pair_reuse.leading.x(tps_l))) < 1e-3
+    )
+    assert (
+        numpy.max(numpy.abs(pair.trailing.x(tps_t) - pair_reuse.trailing.x(tps_t)))
+        < 1e-3
+    )
+
+
 def test_streamTrack_scalar_cov(_simple_spdf):
     numpy.random.seed(17)
     track = _simple_spdf.streamTrack(n=800, ntp=31, tail="leading")

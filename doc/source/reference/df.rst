@@ -449,6 +449,12 @@ These require ``custom_transform`` to have been set at construction.
 StreamTrackPair routines
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+Attribute:
+
+* .. autoattribute:: galpy.df.StreamTrackPair.particles
+
+Methods:
+
 .. toctree::
    :maxdepth: 1
 
