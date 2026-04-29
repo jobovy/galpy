@@ -144,7 +144,7 @@ class basestreamspraydf(df):
 
         return None
 
-    def sample(self, n, return_orbit=True, returndt=False, integrate=True):
+    def sample(self, n, return_orbit=True, returndt=False, integrate=True, tail=None):
         """
         Sample from the DF
 
@@ -158,6 +158,8 @@ class basestreamspraydf(df):
             If True, also return the time since the star was stripped. Default is False.
         integrate : bool, optional
             If True, integrate the orbits to the present time. If False, return positions at stripping (probably want to combine with returndt=True then to make sense of them!). Default is True.
+        tail : str, optional
+            ``'leading'``, ``'trailing'``, or ``'both'`` to override the default set at class initialization. Default is None (use the value of ``tail=`` from ``__init__``). The progenitor is integrated identically for either arm, so any override value works regardless of the initialization choice.
 
         Returns
         -------
@@ -169,8 +171,14 @@ class basestreamspraydf(df):
         - 2018-07-31 - Written - Bovy (UofT)
         - 2022-05-18 - Made output Orbit ro/vo/zo/solarmotion/roSet/voSet match that of the progenitor orbit - Bovy (UofT)
         - 2024-08-11 - Include the progenitor's potential - Yingtian Chen (Umich)
+        - 2026-04-28 - Added ``tail`` keyword override to match ``streamTrack`` - Bovy (UofT)
         """
-        if self._tail == "both":
+        tail = self._tail if tail is None else tail
+        if tail not in ("leading", "trailing", "both"):
+            raise ValueError(
+                f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
+            )
+        if tail == "both":
             n_leading = n // 2
             n_trailing = n - n_leading
             out_l, dt_l = self._sample_tail(n_leading, integrate, leading=True)
@@ -178,7 +186,7 @@ class basestreamspraydf(df):
             out = numpy.hstack([out_l, out_t])
             dt = numpy.concatenate([dt_l, dt_t])
         else:
-            out, dt = self._sample_tail(n, integrate, leading=self._tail == "leading")
+            out, dt = self._sample_tail(n, integrate, leading=tail == "leading")
         if return_orbit:
             # Output Orbit ro/vo/zo/solarmotion/roSet/voSet match progenitor
             o = Orbit(
