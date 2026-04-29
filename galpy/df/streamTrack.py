@@ -109,7 +109,18 @@ def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
     sv = numpy.where(numpy.isfinite(sig_safe), sig_safe, sig_med)[mask][order]
     sv = numpy.maximum(sv, 1e-12)
     if s_user is None:
-        spl = interpolate.make_smoothing_spline(xv, yv, w=1.0 / (sv * sv))
+        # Normalize y to O(1) before GCV. ``make_smoothing_spline``'s GCV
+        # silently collapses to lambda=0 (interpolation) when ``y`` is at
+        # very small absolute scale (~1e-4 or smaller), even with the
+        # signal-to-noise ratio held fixed. Galpy's covariance series in
+        # internal units sit at 1e-5 to 1e-6 and were hitting this regime.
+        yscale = float(numpy.nanstd(yv))
+        if not numpy.isfinite(yscale) or yscale == 0:
+            yscale = 1.0
+        spl_n = interpolate.make_smoothing_spline(
+            xv, yv / yscale, w=1.0 / ((sv / yscale) ** 2)
+        )
+        spl = interpolate.BSpline(spl_n.t, spl_n.c * yscale, spl_n.k)
         resid = yv - spl(xv)
         s_gcv = float(numpy.sum((resid / sv) ** 2))
         if smoothing_factor == 1.0:
