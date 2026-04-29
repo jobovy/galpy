@@ -115,7 +115,7 @@ def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
         # signal-to-noise ratio held fixed. Galpy's covariance series in
         # internal units sit at 1e-5 to 1e-6 and were hitting this regime.
         yscale = float(numpy.nanstd(yv))
-        if not numpy.isfinite(yscale) or yscale == 0:
+        if not numpy.isfinite(yscale) or yscale == 0:  # pragma: no cover
             yscale = 1.0
         spl_n = interpolate.make_smoothing_spline(
             xv, yv / yscale, w=1.0 / ((sv / yscale) ** 2)
