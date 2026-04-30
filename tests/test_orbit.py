@@ -1327,6 +1327,38 @@ def test_integrate_indiv_t_python_paths():
         warnings.simplefilter("always")
         _ = o_q.x(ts)  # plain ts, not Quantity → triggers Quantity-mismatch warning
 
+    # Backward per-orbit integration (decreasing t per orbit) → triggers the
+    # per-orbit sort branch in _setupOrbitInterp when an off-grid query
+    # forces the interpolators to be built.
+    ts_back = numpy.linspace(numpy.zeros(2), -3.0 * numpy.ones(2), nt, axis=-1)
+    o_back = Orbit(vxvvs)
+    o_back.integrate(ts_back, pot, method="dop853_c")
+    qq_back = numpy.array(
+        [numpy.linspace(-2.5, -0.5, 7), numpy.linspace(-2.5, -0.5, 7)]
+    )
+    assert o_back.x(qq_back).shape == (2, 7)
+
+    # NaN-padded per-orbit self.t (produced by bruteSOS) with off-grid query
+    # → triggers the NaN-drop branch in _setupOrbitInterp.
+    o_nan = Orbit(
+        numpy.array(
+            [
+                [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+                [1.05, 0.0, 1.0, 0.05, 0.05, 0.3],
+            ]
+        )
+    )
+    o_nan.bruteSOS(numpy.linspace(0.0, 50.0, 2001), pot, method="dop853_c")
+    t_grid = numpy.asarray(o_nan.t)
+    # Query at slightly off-grid points within each orbit's window
+    qq_nan = numpy.zeros((2, 1))
+    for ii in range(2):
+        valid = ~numpy.isnan(t_grid[ii])
+        valid_t = t_grid[ii, valid]
+        # midpoint between first two valid times — guaranteed off-grid
+        qq_nan[ii, 0] = 0.5 * (valid_t[0] + valid_t[1])
+    _ = o_nan.x(qq_nan)
+
     # Flat (size,)-shaped one-time-per-orbit query when self.shape != (size,)
     vxvvs_grid = numpy.array(
         [
