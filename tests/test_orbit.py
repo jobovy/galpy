@@ -8525,6 +8525,48 @@ def test_orbinterp_reset_integrateSOS():
     return None
 
 
+# Test that integrating after bruteSOS does NOT continue from the previous
+# integration (bruteSOS rewrites self.t into a NaN-padded crossings grid and
+# sets _cannot_continue_integration; a subsequent integrate() must therefore
+# go through the from-scratch path in _should_continue_integration).
+def test_integrate_after_bruteSOS_does_not_continue():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    ic = [1.0, 0.1, 1.1, 0.1, -0.03, numpy.pi]
+    o = Orbit(ic)
+    o.bruteSOS(numpy.linspace(0.0, 100.0, 5001), MWPotential2014, method="dop853_c")
+    # After bruteSOS: self.t is 2D NaN-padded and _cannot_continue_integration
+    # is True. Re-integrating must restart from the original initial
+    # conditions, not continue from any previous state.
+    assert getattr(o, "_cannot_continue_integration", False), (
+        "bruteSOS should set _cannot_continue_integration"
+    )
+    new_ts = numpy.linspace(0.0, 10.0, 1001)
+    o.integrate(new_ts, MWPotential2014, method="dop853_c")
+    # Reference: a fresh Orbit integrated on the same grid — bit-for-bit
+    # identical if the post-bruteSOS integrate restarted from scratch.
+    o_ref = Orbit(ic)
+    o_ref.integrate(new_ts, MWPotential2014, method="dop853_c")
+    assert numpy.allclose(o.t, new_ts) and o.t.ndim == 1, (
+        "self.t after re-integrate should be the new 1D time grid"
+    )
+    assert o.orbit.shape == o_ref.orbit.shape, (
+        "post-bruteSOS integrate should produce the same orbit shape as a fresh one"
+    )
+    assert numpy.allclose(o.orbit, o_ref.orbit, atol=1e-12, rtol=1e-12), (
+        "post-bruteSOS integrate must restart from the original ICs (no continuation)"
+    )
+    # And every quantity-method query at the new grid agrees with the fresh run.
+    for method_name in ("R", "vR", "vT", "z", "vz", "phi", "x", "y"):
+        a = getattr(o, method_name)(new_ts)
+        b = getattr(o_ref, method_name)(new_ts)
+        assert numpy.allclose(a, b, atol=1e-10, rtol=1e-10), (
+            f"o.{method_name}(new_ts) disagrees with fresh-orbit reference"
+        )
+    return None
+
+
 # Test that the internal interpolator is reset when the orbit is re-integrated
 # with bruteSOS
 def test_orbinterp_reset_bruteSOS():

@@ -1428,6 +1428,11 @@ class Orbit:
             return False, True, False
         if not hasattr(self, "t") or not hasattr(self, "_pot"):
             return False, True, False
+        # Continuation is not supported for per-orbit time arrays (either the
+        # new t is per-orbit, or the stored self.t is from a previous per-orbit
+        # integration — the time-comparison logic below assumes a shared 1D t).
+        if numpy.asarray(t).ndim > 1 or numpy.asarray(self.t).ndim > 1:
+            return False, True, False
 
         # Check if potentials are the same
         pot_changed = False
@@ -1665,14 +1670,13 @@ class Orbit:
                 "dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize"
             )
 
-        # Check if we should continue from a previous integration. Per-orbit time
-        # arrays disable continuation (continuation requires a single shared t).
-        if indiv_t or (hasattr(self, "t") and numpy.asarray(self.t).ndim > 1):
-            should_continue, is_forward, pot_changed = False, True, False
-        else:
-            should_continue, is_forward, pot_changed = (
-                self._should_continue_integration(numpy.array(t), pot)
-            )
+        # Check if we should continue from a previous integration. Per-orbit
+        # time arrays (either the input t or a stored 2D self.t from a previous
+        # per-orbit run) disable continuation; that's enforced inside
+        # _should_continue_integration.
+        should_continue, is_forward, pot_changed = self._should_continue_integration(
+            numpy.array(t), pot
+        )
 
         # Prepare potential for comparison
         if self.dim() == 2:
