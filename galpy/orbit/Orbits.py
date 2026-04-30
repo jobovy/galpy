@@ -6076,11 +6076,6 @@ class Orbit:
                     )
                 )
         nt_q = t_arr.shape[-1]
-        # Bounds check across all orbits (each row against its own integration window)
-        if numpy.any(t_arr > numpy.nanmax(self_t, axis=-1, keepdims=True)) or numpy.any(
-            t_arr < numpy.nanmin(self_t, axis=-1, keepdims=True)
-        ):
-            raise ValueError("Found time value not in the integration time domain")
         # Fast path: t exactly matches the stored integration grid (NaN
         # entries — used by bruteSOS to pad short rows — are ignored).
         if (
@@ -6089,7 +6084,26 @@ class Orbit:
             and numpy.all((self_t == t_arr)[~numpy.isnan(self_t)])
         ):
             return self.orbit.transpose(2, 1, 0).copy()
-        # Otherwise build per-orbit interpolators and evaluate
+        # Some orbits may have stored grids that are too short to interpolate
+        # (bruteSOS leaves an all-NaN row for any orbit that never crossed the
+        # SOS surface). Fail with a clear message here rather than letting
+        # scipy raise an opaque "fpcurf0:m=0" inside the spline build below.
+        valid_counts = numpy.sum(~numpy.isnan(self_t), axis=-1)
+        short = numpy.where(valid_counts < 2)[0]
+        if short.size:
+            raise ValueError(
+                f"Cannot evaluate orbit(s) {short.tolist()} at the requested "
+                "time(s): their stored integration grid has fewer than 2 valid "
+                "times (e.g. because they never crossed the SOS surface during "
+                "bruteSOS); only queries that exactly match the stored grid are "
+                "supported for these orbits."
+            )
+        # Bounds check (per-orbit, against each row's own integration window).
+        if numpy.any(t_arr > numpy.nanmax(self_t, axis=-1, keepdims=True)) or numpy.any(
+            t_arr < numpy.nanmin(self_t, axis=-1, keepdims=True)
+        ):
+            raise ValueError("Found time value not in the integration time domain")
+        # Build per-orbit interpolators and evaluate
         self._setupOrbitInterp()
         out = numpy.empty((self.phasedim(), nt_q, self.size))
         for kk in range(self.size):

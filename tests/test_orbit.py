@@ -8525,6 +8525,43 @@ def test_orbinterp_reset_integrateSOS():
     return None
 
 
+# Test that an off-grid query against a per-orbit Orbit whose stored grid
+# contains an all-NaN row (e.g. an orbit that never crossed the bruteSOS
+# surface) raises a clear, actionable ValueError rather than scipy's opaque
+# "fpcurf0:m=0" error from the spline build.
+def test_indiv_t_query_short_row_raises_clearly():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # Two orbits: one normal, one with z=0, vz=0 — the latter never crosses
+    # the SOS surface, so bruteSOS leaves it with an all-NaN row.
+    o = Orbit(
+        numpy.array(
+            [
+                [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+                [1.0, 0.1, 1.1, 0.0, 0.0, 0.0],
+            ]
+        )
+    )
+    o.bruteSOS(numpy.linspace(0.0, 50.0, 1001), MWPotential2014, method="dop853_c")
+    t_grid = numpy.asarray(o.t)
+    # Sanity: orbit 1 is the all-NaN one
+    valid_per_orbit = numpy.sum(~numpy.isnan(t_grid), axis=-1)
+    assert valid_per_orbit[0] >= 2, "first orbit should have crossings"
+    assert valid_per_orbit[1] == 0, "second orbit (z=0,vz=0) should have no crossings"
+    # Off-grid query → must raise with a clear message that names the orbit
+    qq = numpy.array([[0.5, 1.5], [10.0, 20.0]])
+    with pytest.raises(ValueError, match=r"orbit\(s\) \[1\]"):
+        o.x(qq)
+    # On-grid (fast-path) query is allowed and returns NaN for the empty row
+    on_grid = o.x(t_grid)
+    assert on_grid.shape == (2, t_grid.shape[1])
+    assert numpy.isnan(on_grid[1]).all(), (
+        "on-grid query of an all-NaN row should propagate NaN"
+    )
+    return None
+
+
 # Test that integrating after bruteSOS does NOT continue from the previous
 # integration (bruteSOS rewrites self.t into a NaN-padded crossings grid and
 # sets _cannot_continue_integration; a subsequent integrate() must therefore
