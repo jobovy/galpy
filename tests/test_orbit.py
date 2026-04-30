@@ -8562,6 +8562,52 @@ def test_indiv_t_query_short_row_raises_clearly():
     return None
 
 
+# Test that integrating with a per-orbit time array on top of a previously
+# integrated Orbit (or with a shared 1D t after a previous per-orbit
+# integrate) does NOT trigger continuation: the per-orbit-t early-out in
+# _should_continue_integration must fire and the new integrate must restart
+# from the original initial conditions.
+def test_indiv_t_disables_continuation():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+        ]
+    )
+
+    # 1) 1D-t integrate first, then per-orbit-t re-integrate.
+    o = Orbit(vxvvs)
+    o.integrate(numpy.linspace(0.0, 5.0, 501), pot, method="dop853_c")
+    assert numpy.asarray(o.t).ndim == 1
+    ts_pe = numpy.array([numpy.linspace(0.0, 3.0, 301), numpy.linspace(0.0, 4.0, 301)])
+    o.integrate(ts_pe, pot, method="dop853_c")
+    # If continuation had wrongly fired, self.t would be merged from old + new.
+    # The per-orbit-t early-out in _should_continue_integration must restart
+    # the integration from the original initial conditions instead.
+    o_ref = Orbit(vxvvs)
+    o_ref.integrate(ts_pe, pot, method="dop853_c")
+    assert o.t.shape == o_ref.t.shape
+    assert numpy.allclose(o.t, o_ref.t)
+    assert numpy.allclose(o.orbit, o_ref.orbit, atol=1e-12, rtol=1e-12)
+
+    # 2) Per-orbit-t integrate first, then 1D-t re-integrate.
+    o2 = Orbit(vxvvs)
+    o2.integrate(ts_pe, pot, method="dop853_c")
+    assert numpy.asarray(o2.t).ndim == 2
+    ts_shared = numpy.linspace(0.0, 4.0, 401)
+    o2.integrate(ts_shared, pot, method="dop853_c")
+    # Same expectation: must not continue from the prior per-orbit run.
+    o2_ref = Orbit(vxvvs)
+    o2_ref.integrate(ts_shared, pot, method="dop853_c")
+    assert numpy.asarray(o2.t).ndim == 1
+    assert numpy.allclose(o2.t, o2_ref.t)
+    assert numpy.allclose(o2.orbit, o2_ref.orbit, atol=1e-12, rtol=1e-12)
+    return None
+
+
 # Test that integrating after bruteSOS does NOT continue from the previous
 # integration (bruteSOS rewrites self.t into a NaN-padded crossings grid and
 # sets _cannot_continue_integration; a subsequent integrate() must therefore
