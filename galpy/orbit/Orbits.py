@@ -6077,8 +6077,13 @@ class Orbit:
             t_arr < numpy.nanmin(self_t, axis=-1, keepdims=True)
         ):
             raise ValueError("Found time value not in the integration time domain")
-        # Fast path: t exactly matches the stored integration grid
-        if has_time_axis and self_t.shape == t_arr.shape and numpy.all(self_t == t_arr):
+        # Fast path: t exactly matches the stored integration grid (NaN
+        # entries — used by bruteSOS to pad short rows — are ignored).
+        if (
+            has_time_axis
+            and self_t.shape == t_arr.shape
+            and numpy.all((self_t == t_arr)[~numpy.isnan(self_t)])
+        ):
             return self.orbit.transpose(2, 1, 0).copy()
         # Otherwise build per-orbit interpolators and evaluate
         self._setupOrbitInterp()
@@ -6162,14 +6167,21 @@ class Orbit:
         if hasattr(self, "_orbInterp"):
             return None
         # Per-orbit integration grids: build a list of phasedim entries, each a
-        # list of size 1D interpolators (one per orbit).
+        # list of size 1D interpolators (one per orbit). Each row may contain
+        # NaN padding (bruteSOS uses this when orbits have unequal numbers of
+        # crossings) — drop those entries before fitting the spline.
         if hasattr(self, "t") and numpy.asarray(self.t).ndim > 1:
             orbInterp = [[None] * self.size for _ in range(self.phasedim())]
             for kk in range(self.size):
                 tk = numpy.asarray(self.t[kk])
                 ok = self.orbit[kk]
-                # Sort each orbit's grid ascending
-                if tk.size > 1 and tk[1] < tk[0]:
+                # Drop NaN-padded entries (per-orbit short rows)
+                valid = ~numpy.isnan(tk)
+                if not numpy.all(valid):
+                    tk = tk[valid]
+                    ok = ok[valid]
+                # Sort each orbit's grid ascending if needed
+                if tk.size > 1 and not numpy.all(numpy.diff(tk) >= 0.0):
                     sindx = numpy.argsort(tk)
                     tk = tk[sindx]
                     ok = ok[sindx]
