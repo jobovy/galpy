@@ -1031,6 +1031,175 @@ def test_bruteSOS_3D():
     return None
 
 
+# Test that Orbit.integrate accepts per-orbit time arrays (3D)
+def test_integrate_indiv_t_3D():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    # Three different starting positions and three different time windows
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+            [0.8, 0.0, 1.0, 0.2, -0.05, 1.0],
+        ]
+    )
+    nt = 401
+    ts_indiv = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, nt),
+            numpy.linspace(0.0, 7.0, nt),
+            numpy.linspace(0.0, 9.0, nt),
+        ]
+    )
+    for method in ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]:
+        # Batched per-orbit-t integration
+        o_batch = Orbit(vxvvs)
+        o_batch.integrate(ts_indiv, pot, method=method)
+        # Reference: integrate each orbit separately
+        for ii in range(len(vxvvs)):
+            o_one = Orbit(vxvvs[ii])
+            o_one.integrate(ts_indiv[ii], pot, method=method)
+            tol = 1e-6 if "dop" in method else 1e-3
+            assert numpy.allclose(o_batch.orbit[ii], o_one.orbit, rtol=tol, atol=tol), (
+                f"Per-orbit integration disagrees with single-orbit "
+                f"integration for orbit {ii}, method={method}"
+            )
+    return None
+
+
+# Test that Orbit.integrate accepts per-orbit time arrays (2D)
+def test_integrate_indiv_t_2D():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.0],
+            [1.2, -0.05, 0.9, 0.5],
+            [0.8, 0.0, 1.0, 1.0],
+        ]
+    )
+    nt = 401
+    ts_indiv = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, nt),
+            numpy.linspace(0.0, 7.0, nt),
+            numpy.linspace(0.0, 9.0, nt),
+        ]
+    )
+    for method in ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]:
+        o_batch = Orbit(vxvvs)
+        o_batch.integrate(ts_indiv, pot, method=method)
+        for ii in range(len(vxvvs)):
+            o_one = Orbit(vxvvs[ii])
+            o_one.integrate(ts_indiv[ii], pot, method=method)
+            tol = 1e-6 if "dop" in method else 1e-3
+            assert numpy.allclose(o_batch.orbit[ii], o_one.orbit, rtol=tol, atol=tol), (
+                f"Per-orbit integration disagrees with single-orbit "
+                f"integration for orbit {ii}, method={method}"
+            )
+    return None
+
+
+# Test that Orbit.integrate accepts per-orbit time arrays (1D)
+def test_integrate_indiv_t_1D():
+    from galpy.orbit import Orbit
+
+    pot = potential.IsothermalDiskPotential(amp=1.0, sigma=1.0)
+    vxvvs = numpy.array([[0.5, 0.1], [-0.3, 0.2], [0.8, -0.1]])
+    nt = 401
+    ts_indiv = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, nt),
+            numpy.linspace(0.0, 7.0, nt),
+            numpy.linspace(0.0, 9.0, nt),
+        ]
+    )
+    for method in ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]:
+        o_batch = Orbit(vxvvs)
+        o_batch.integrate(ts_indiv, pot, method=method)
+        for ii in range(len(vxvvs)):
+            o_one = Orbit(vxvvs[ii])
+            o_one.integrate(ts_indiv[ii], pot, method=method)
+            tol = 1e-6 if "dop" in method else 1e-3
+            assert numpy.allclose(o_batch.orbit[ii], o_one.orbit, rtol=tol, atol=tol), (
+                f"Per-orbit integration disagrees with single-orbit "
+                f"integration for orbit {ii}, method={method}"
+            )
+    return None
+
+
+# Test per-orbit time arrays work for an Orbit with non-trivial leading shape
+def test_integrate_indiv_t_3D_2Dshape():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    # Orbit with shape (2, 2)
+    vxvvs = numpy.array(
+        [
+            [[1.0, 0.1, 1.1, 0.1, 0.05, 0.0], [1.05, 0.0, 1.0, 0.05, 0.05, 0.3]],
+            [[1.2, -0.05, 0.9, -0.1, 0.1, 0.5], [0.95, 0.05, 1.05, 0.0, -0.05, 0.7]],
+        ]
+    )
+    nt = 201
+    # ts shape (2, 2, nt)
+    ts_indiv = numpy.empty((2, 2, nt))
+    for i in range(2):
+        for j in range(2):
+            ts_indiv[i, j] = numpy.linspace(0.0, 3.0 + 0.5 * (2 * i + j), nt)
+    o_batch = Orbit(vxvvs)
+    assert o_batch.shape == (2, 2)
+    o_batch.integrate(ts_indiv, pot, method="dop853_c")
+    # Compare to per-orbit single integrations
+    for i in range(2):
+        for j in range(2):
+            o_one = Orbit(vxvvs[i, j])
+            o_one.integrate(ts_indiv[i, j], pot, method="dop853_c")
+            # batched orbit storage is flat: index 2*i+j
+            assert numpy.allclose(
+                o_batch.orbit[2 * i + j], o_one.orbit, rtol=1e-6, atol=1e-6
+            ), f"Per-orbit integration with 2D Orbit shape disagrees at ({i},{j})"
+    return None
+
+
+# Validation tests: shape mismatches and non-evenly-spaced time arrays
+def test_integrate_indiv_t_input_validation():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+        ]
+    )
+    o = Orbit(vxvvs)
+    # Wrong leading shape (3 time arrays for 2 orbits)
+    bad_t = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, 101),
+            numpy.linspace(0.0, 7.0, 101),
+            numpy.linspace(0.0, 9.0, 101),
+        ]
+    )
+    with pytest.raises(ValueError, match="does not match Orbit shape"):
+        o.integrate(bad_t, pot, method="dop853_c")
+    # Non-evenly-spaced time array for a method that requires equispacing
+    o2 = Orbit(vxvvs)
+    bad_spacing = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, 101),
+            numpy.concatenate(
+                [numpy.linspace(0.0, 3.0, 50), numpy.linspace(3.5, 7.0, 51)]
+            ),
+        ]
+    )
+    with pytest.raises(ValueError, match="must be equally spaced"):
+        o2.integrate(bad_spacing, pot, method="symplec4_c")
+    return None
+
+
 # Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
 def test_integrate_SOS_2D():
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
