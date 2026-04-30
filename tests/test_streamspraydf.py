@@ -823,3 +823,45 @@ def test_tail_default_is_leading():
             f"Default tail should be 'leading' for {spraydfclass.__name__}"
         )
     return None
+
+
+def test_sample_matches_per_particle():
+    # Check that the batched single-Orbit integration in _sample_tail produces
+    # the same particles as the previous per-particle integration loop.
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    # Sample without integration to get initial conditions and stripping times
+    numpy.random.seed(123)
+    out_ic, dt = spdf._sample_tail(8, integrate=False, leading=True)
+    Rs, vRs, vTs, Zs, vZs, phis = out_ic
+    # Reproduce the old per-particle loop locally
+    expected = numpy.empty((6, 8))
+    for ii in range(8):
+        o_one = Orbit([Rs[ii], vRs[ii], vTs[ii], Zs[ii], vZs[ii], phis[ii]])
+        o_one.integrate(numpy.linspace(-dt[ii], 0.0, 10001), spdf._pot)
+        o_end = o_one(0.0)
+        expected[:, ii] = [
+            o_end.R(),
+            o_end.vR(),
+            o_end.vT(),
+            o_end.z(),
+            o_end.vz(),
+            o_end.phi(),
+        ]
+    # Now run the actual batched code (same seed → same ICs)
+    numpy.random.seed(123)
+    out_int, dt2 = spdf._sample_tail(8, integrate=True, leading=True)
+    assert numpy.allclose(dt, dt2), "Stripping times changed between sampling calls"
+    assert numpy.allclose(out_int, expected, rtol=1e-6, atol=1e-6), (
+        "Batched per-orbit-t integration disagrees with per-particle loop"
+    )
+    return None

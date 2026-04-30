@@ -260,12 +260,13 @@ class basestreamspraydf(df):
         )
         out = numpy.empty((6, n))
         if integrate:
-            # Now integrate the orbits
-            for ii in range(n):
-                o = Orbit([Rs[ii], vRs[ii], vTs[ii], Zs[ii], vZs[ii], phis[ii]])
-                o.integrate(numpy.linspace(-dt[ii], 0.0, 10001), self._pot)
-                o = o(0.0)
-                out[:, ii] = [o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()]
+            # Integrate all sampled particles as a single Orbit instance, with
+            # each particle on its own time grid from its stripping time -dt[i]
+            # to the present (t=0). The final time step is the present-day state.
+            o = Orbit(numpy.array([Rs, vRs, vTs, Zs, vZs, phis]).T)
+            ts = numpy.linspace(-dt, numpy.zeros(n), 10001, axis=-1)
+            o.integrate(ts, self._pot)
+            out[:] = o.orbit[:, -1, :].T
         else:
             out[0] = Rs
             out[1] = vRs
