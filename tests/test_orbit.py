@@ -1213,6 +1213,137 @@ def test_integrate_indiv_t_access():
         oi.integrate(ts[ii], pot, method="dop853_c")
         expected[ii] = oi.x(ts[ii])
     assert numpy.allclose(o.x(ts), expected)
+
+    # Out-of-bounds query raises
+    with pytest.raises(ValueError, match="not in the integration time domain"):
+        o.x(numpy.array([100.0, 100.0, 100.0]))
+    return None
+
+
+# Test that the pure-Python integrator paths and force_map=True handle per-orbit t
+def test_integrate_indiv_t_python_paths():
+    from astropy import units
+
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+        ]
+    )
+    nt = 51
+    ts = numpy.array([numpy.linspace(0.0, 5.0, nt), numpy.linspace(0.0, 7.0, nt)])
+    # Pure-Python "leapfrog" path
+    o_lp = Orbit(vxvvs)
+    o_lp.integrate(ts, pot, method="leapfrog")
+    assert o_lp.orbit.shape == (2, nt, 6)
+    # force_map=True with a C method routes through parallel_map
+    o_fm = Orbit(vxvvs)
+    o_fm.integrate(ts, pot, method="dop853_c", force_map=True)
+    assert o_fm.orbit.shape == (2, nt, 6)
+
+    # Axisymmetric (phasedim=5): pure-Python dop853/odeint branch with len(yo[0])==5
+    vxvvs_axi = numpy.array([[1.0, 0.1, 1.1, 0.1, 0.05], [1.2, -0.05, 0.9, -0.1, 0.1]])
+    o_axi = Orbit(vxvvs_axi)
+    o_axi.integrate(ts, pot, method="dop853")
+    assert o_axi.orbit.shape == (2, nt, 5)
+    o_axi2 = Orbit(vxvvs_axi)
+    o_axi2.integrate(ts, pot, method="odeint")
+    assert o_axi2.orbit.shape == (2, nt, 5)
+
+    # 2D (planar) leapfrog Python path
+    pot_p = pot[0].toPlanar()
+    vxvvs_p = numpy.array([[1.0, 0.1, 1.1, 0.0], [1.2, -0.05, 0.9, 0.5]])
+    o_p = Orbit(vxvvs_p)
+    o_p.integrate(ts, pot_p, method="leapfrog")
+    assert o_p.orbit.shape == (2, nt, 4)
+
+    # 1D leapfrog and odeint Python paths
+    pot_l = potential.IsothermalDiskPotential(amp=1.0, sigma=1.0)
+    vxvvs_l = numpy.array([[0.5, 0.1], [-0.3, 0.2]])
+    o_l = Orbit(vxvvs_l)
+    o_l.integrate(ts, pot_l, method="leapfrog")
+    assert o_l.orbit.shape == (2, nt, 2)
+    o_l2 = Orbit(vxvvs_l)
+    o_l2.integrate(ts, pot_l, method="odeint")
+    assert o_l2.orbit.shape == (2, nt, 2)
+
+    # 1D forced parallel C path
+    o_l3 = Orbit(vxvvs_l)
+    o_l3.integrate(ts, pot_l, method="dop853_c", force_map=True)
+    assert o_l3.orbit.shape == (2, nt, 2)
+
+    # Single-orbit (size 1) per-orbit-t cases — these exercise the in-process
+    # serial branch of parallel_map so the closure bodies get coverage credit.
+    one_t = numpy.array([numpy.linspace(0.0, 5.0, nt)])  # shape (1, nt)
+    one_full = Orbit(numpy.array([vxvvs[0]]))  # shape (1,) 3D
+    one_full.integrate(one_t, pot, method="leapfrog")
+    assert one_full.orbit.shape == (1, nt, 6)
+    one_axi = Orbit(numpy.array([vxvvs_axi[0]]))  # shape (1,) 3D-axi (phasedim=5)
+    one_axi.integrate(one_t, pot, method="dop853")
+    assert one_axi.orbit.shape == (1, nt, 5)
+    one_axi2 = Orbit(numpy.array([vxvvs_axi[0]]))
+    one_axi2.integrate(one_t, pot, method="odeint")
+    assert one_axi2.orbit.shape == (1, nt, 5)
+    one_axi3 = Orbit(numpy.array([vxvvs_axi[0]]))
+    one_axi3.integrate(one_t, pot, method="dop853_c", force_map=True)
+    assert one_axi3.orbit.shape == (1, nt, 5)
+    one_p = Orbit(numpy.array([vxvvs_p[0]]))  # shape (1,) planar
+    one_p.integrate(one_t, pot_p, method="leapfrog")
+    assert one_p.orbit.shape == (1, nt, 4)
+    one_pa = Orbit(numpy.array([vxvvs_p[0][:3]]))  # shape (1,) axi-planar (phasedim=3)
+    one_pa.integrate(one_t, pot_p, method="dop853")
+    assert one_pa.orbit.shape == (1, nt, 3)
+    one_pa2 = Orbit(numpy.array([vxvvs_p[0][:3]]))
+    one_pa2.integrate(one_t, pot_p, method="odeint")
+    assert one_pa2.orbit.shape == (1, nt, 3)
+    one_l = Orbit(numpy.array([vxvvs_l[0]]))  # shape (1,) linear
+    one_l.integrate(one_t, pot_l, method="leapfrog")
+    assert one_l.orbit.shape == (1, nt, 2)
+    # Also exercise the per-orbit interp for non-3D phasedim by querying off-grid
+    qq = numpy.linspace(
+        0.5, 4.5, 7
+    )  # 1D shared shape (nt_q,) doesn't match self.shape=(1,)
+    # Use shape (1, 7) instead (per-orbit-shaped)
+    qq_per = numpy.array([qq])
+    assert one_l.x(qq_per).shape == (1, 7)
+    assert one_axi.R(qq_per).shape == (1, 7)
+
+    # Per-orbit Quantity-valued t — hits the Quantity parsing branch in
+    # _call_internal_indiv_t and warns when querying without Quantity later
+    o_q = Orbit(vxvvs, ro=8.0, vo=220.0)
+    ts_q = ts * units.Gyr
+    o_q.integrate(ts_q, pot, method="dop853_c")
+    # Query with a Quantity t (size, nt_q)
+    xs_q = o_q.x(ts_q)
+    assert xs_q.shape == (2, nt)
+    # Query at scalar Quantity
+    val = o_q.x(0.0 * units.Gyr)
+    assert val.shape == (2,)
+    # Query without Quantity after integrating with Quantity → warning branch
+    with warnings.catch_warnings():
+        warnings.simplefilter("always")
+        _ = o_q.x(ts)  # plain ts, not Quantity → triggers Quantity-mismatch warning
+
+    # Flat (size,)-shaped one-time-per-orbit query when self.shape != (size,)
+    vxvvs_grid = numpy.array(
+        [
+            [[1.0, 0.1, 1.1, 0.1, 0.05, 0.0], [1.05, 0.0, 1.0, 0.05, 0.05, 0.3]],
+            [[1.2, -0.05, 0.9, -0.1, 0.1, 0.5], [0.95, 0.05, 1.05, 0.0, -0.05, 0.7]],
+        ]
+    )
+    nt_g = 21
+    ts_g = numpy.empty((2, 2, nt_g))
+    for i in range(2):
+        for j in range(2):
+            ts_g[i, j] = numpy.linspace(0.0, 3.0, nt_g)
+    o_g = Orbit(vxvvs_grid)
+    o_g.integrate(ts_g, pot, method="dop853_c")
+    # Pass flat shape (4,) — self.size=4, self.shape=(2,2)
+    flat_t = numpy.array([0.0, 0.5, 1.0, 1.5])
+    assert o_g.x(flat_t).shape == (2, 2)
     return None
 
 
