@@ -4236,6 +4236,10 @@ class Orbit:
         """
         if len(args) == 0:
             try:
+                t_out = numpy.asarray(self.t)
+                if t_out.ndim > 1:
+                    # Per-orbit storage is (size, nt); reshape to (*self.shape, nt)
+                    return t_out.reshape(self.shape + (t_out.shape[-1],)).copy()
                 return self.t.copy()
             except AttributeError:
                 return 0.0
@@ -5924,6 +5928,9 @@ class Orbit:
             )
         else:
             t = args[0]
+        # If self.t is per-orbit (2D), dispatch to the per-orbit evaluator
+        if numpy.asarray(self.t).ndim > 1:
+            return self._call_internal_indiv_t(t)
         # Parse t, first check whether we are dealing with the common case
         # where one wants all integrated times
         # 2nd line: scalar Quantities have __len__, but raise TypeError
@@ -6008,6 +6015,90 @@ class Orbit:
                 t = t[usindx]
                 return out[:, usindx]
 
+    def _call_internal_indiv_t(self, t):
+        """
+        Evaluate the orbits at time t when self.t is per-orbit (2D).
+
+        For per-orbit-integrated Orbit instances, t must have shape that
+        matches the Orbit shape (one time per orbit) or the Orbit shape with
+        an extra trailing time axis (nt_q times per orbit). A scalar applies
+        the same time to every orbit. There is no 1D "shared" broadcasting.
+
+        Output shape mirrors _call_internal: (phasedim, nt_q, size) when t has
+        a trailing time axis, or (phasedim, size) when it does not (scalar
+        or one-time-per-orbit).
+        """
+        if _APY_LOADED and isinstance(t, units.Quantity):
+            t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
+        elif (
+            "_integrate_t_asQuantity" in self.__dict__ and self._integrate_t_asQuantity
+        ):
+            warnings.warn(
+                "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",
+                galpyWarning,
+            )
+        self_t = numpy.asarray(self.t)
+        # Parse user-supplied t into a (size, nt_q) array; remember whether
+        # the caller passed a trailing time axis (and so expects one back).
+        # Accepted forms (reshaped Orbit shape OR internal flat-leading shape):
+        #   scalar                                         - same time everywhere
+        #   t.shape == self.shape                          - one time / orbit
+        #   t.shape == self.shape + (nt_q,)                - nt_q times / orbit
+        #   t.shape == (self.size,) [if != self.shape]     - flat one-time-per-orbit
+        #   t.shape == (self.size, nt_q)                   - flat per-orbit grid
+        if isinstance(t, (int, float, numpy.number)):
+            t_arr = numpy.full((self.size, 1), float(t))
+            has_time_axis = False
+        else:
+            t_in = numpy.asarray(t, dtype=float)
+            if t_in.shape == self.shape:
+                t_arr = t_in.reshape(self.size, 1)
+                has_time_axis = False
+            elif t_in.ndim == len(self.shape) + 1 and t_in.shape[:-1] == self.shape:
+                t_arr = t_in.reshape(self.size, t_in.shape[-1])
+                has_time_axis = True
+            elif t_in.shape == (self.size,):
+                t_arr = t_in.reshape(self.size, 1)
+                has_time_axis = False
+            elif t_in.ndim == 2 and t_in.shape[0] == self.size:
+                t_arr = t_in
+                has_time_axis = True
+            else:
+                raise ValueError(
+                    "Time-array shape {} is incompatible with per-orbit-"
+                    "integrated Orbit (shape {}); expected a scalar, an array "
+                    "of shape {!r}, or {!r}".format(
+                        t_in.shape, self.shape, self.shape, self.shape + ("nt_q",)
+                    )
+                )
+        nt_q = t_arr.shape[-1]
+        # Bounds check across all orbits (each row against its own integration window)
+        if numpy.any(t_arr > numpy.nanmax(self_t, axis=-1, keepdims=True)) or numpy.any(
+            t_arr < numpy.nanmin(self_t, axis=-1, keepdims=True)
+        ):
+            raise ValueError("Found time value not in the integration time domain")
+        # Fast path: t exactly matches the stored integration grid
+        if has_time_axis and self_t.shape == t_arr.shape and numpy.all(self_t == t_arr):
+            return self.orbit.transpose(2, 1, 0).copy()
+        # Otherwise build per-orbit interpolators and evaluate
+        self._setupOrbitInterp()
+        out = numpy.empty((self.phasedim(), nt_q, self.size))
+        for kk in range(self.size):
+            tk = t_arr[kk]
+            if self.phasedim() == 4 or self.phasedim() == 6:
+                x_vals = self._orbInterp[0][kk](tk)
+                y_vals = self._orbInterp[-1][kk](tk)
+                out[0, :, kk] = numpy.sqrt(x_vals * x_vals + y_vals * y_vals)
+                out[-1, :, kk] = numpy.arctan2(y_vals, x_vals)
+                for ii in range(1, self.phasedim() - 1):
+                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+            else:
+                for ii in range(self.phasedim()):
+                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+        if not has_time_axis:
+            return out[:, 0]
+        return out
+
     def toPlanar(self):
         """
         Convert 3D orbits into 2D orbits.
@@ -6069,6 +6160,33 @@ class Orbit:
 
     def _setupOrbitInterp(self):
         if hasattr(self, "_orbInterp"):
+            return None
+        # Per-orbit integration grids: build a list of phasedim entries, each a
+        # list of size 1D interpolators (one per orbit).
+        if hasattr(self, "t") and numpy.asarray(self.t).ndim > 1:
+            orbInterp = [[None] * self.size for _ in range(self.phasedim())]
+            for kk in range(self.size):
+                tk = numpy.asarray(self.t[kk])
+                ok = self.orbit[kk]
+                # Sort each orbit's grid ascending
+                if tk.size > 1 and tk[1] < tk[0]:
+                    sindx = numpy.argsort(tk)
+                    tk = tk[sindx]
+                    ok = ok[sindx]
+                for ii in range(self.phasedim()):
+                    if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
+                        ys = ok[:, 0] * numpy.cos(ok[:, -1])
+                    elif (
+                        self.phasedim() == 4 or self.phasedim() == 6
+                    ) and ii == self.phasedim() - 1:
+                        ys = ok[:, 0] * numpy.sin(ok[:, -1])
+                    else:
+                        ys = ok[:, ii]
+                    orbInterp[ii][kk] = interpolate.InterpolatedUnivariateSpline(
+                        tk, ys, k=3 if tk.size > 3 else max(1, tk.size - 1)
+                    )
+            self._orbInterp = orbInterp
+            self._orb_indx_4orbInterp = numpy.arange(self.size)
             return None
         # Setup one interpolation / phasedim, for all orbits simultaneously
         # First check that times increase

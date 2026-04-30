@@ -1163,6 +1163,101 @@ def test_integrate_indiv_t_3D_2Dshape():
     return None
 
 
+# Test that o.time(), o.x(), o.R(), etc. work after a per-orbit integration
+def test_integrate_indiv_t_access():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+            [0.8, 0.0, 1.0, 0.2, -0.05, 1.0],
+        ]
+    )
+    nt = 51
+    ts = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, nt),
+            numpy.linspace(0.0, 7.0, nt),
+            numpy.linspace(0.0, 9.0, nt),
+        ]
+    )
+    o = Orbit(vxvvs)
+    o.integrate(ts, pot, method="dop853_c")
+
+    # time() returns shape (*orbit.shape, nt)
+    assert o.time().shape == (3, nt)
+    assert numpy.allclose(o.time(), ts)
+
+    # Scalar t: same time for every orbit, output shape == orbit.shape
+    assert o.x(0.0).shape == (3,)
+    # One time per orbit (shape == orbit.shape)
+    assert o.x(numpy.array([0.0, 1.0, 2.0])).shape == (3,)
+    # nt_q times per orbit (shape == orbit.shape + (nt_q,))
+    assert o.x(ts).shape == (3, nt)
+    # R() with on-grid query
+    assert o.R(o.time()).shape == (3, nt)
+
+    # Single-orbit slice exposes the orbit's own integration grid
+    o_one = Orbit(vxvvs[1])
+    o_one.integrate(ts[1], pot, method="dop853_c")
+    assert numpy.allclose(o[1].x(ts[1]), o_one.x(ts[1]))
+    qq = numpy.linspace(ts[1][0], ts[1][-1], 13)
+    assert numpy.allclose(o[1].x(qq), o_one.x(qq), atol=1e-6, rtol=1e-6)
+
+    # Per-orbit batched query equals stacked per-orbit single integrations
+    expected = numpy.empty((3, nt))
+    for ii in range(3):
+        oi = Orbit(vxvvs[ii])
+        oi.integrate(ts[ii], pot, method="dop853_c")
+        expected[ii] = oi.x(ts[ii])
+    assert numpy.allclose(o.x(ts), expected)
+    return None
+
+
+# Test the access semantics for higher-dim Orbit shape (2,2)
+def test_integrate_indiv_t_access_2Dshape():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [[1.0, 0.1, 1.1, 0.1, 0.05, 0.0], [1.05, 0.0, 1.0, 0.05, 0.05, 0.3]],
+            [[1.2, -0.05, 0.9, -0.1, 0.1, 0.5], [0.95, 0.05, 1.05, 0.0, -0.05, 0.7]],
+        ]
+    )
+    nt = 41
+    ts = numpy.empty((2, 2, nt))
+    for i in range(2):
+        for j in range(2):
+            ts[i, j] = numpy.linspace(0.0, 3.0 + 0.5 * (2 * i + j), nt)
+    o = Orbit(vxvvs)
+    o.integrate(ts, pot, method="dop853_c")
+
+    assert o.shape == (2, 2)
+    assert o.time().shape == (2, 2, nt)
+    assert numpy.allclose(o.time(), ts)
+
+    # Scalar applies to all orbits, output (2,2)
+    assert o.x(0.0).shape == (2, 2)
+    # One time per orbit (shape (2,2)) → output (2,2)
+    assert o.x(numpy.zeros((2, 2))).shape == (2, 2)
+    # nt_q times per orbit (shape (2,2,nt)) → output (2,2,nt)
+    assert o.x(ts).shape == (2, 2, nt)
+
+    # Single-element slice
+    assert o[1, 0].shape == ()
+    o_one = Orbit(vxvvs[1, 0])
+    o_one.integrate(ts[1, 0], pot, method="dop853_c")
+    assert numpy.allclose(o[1, 0].x(ts[1, 0]), o_one.x(ts[1, 0]))
+
+    # 1D shape that doesn't match orbit shape rejected
+    with pytest.raises(ValueError, match="incompatible"):
+        o.x(numpy.linspace(0.0, 3.0, 11))
+    return None
+
+
 # Validation tests: shape mismatches and non-evenly-spaced time arrays
 def test_integrate_indiv_t_input_validation():
     from galpy.orbit import Orbit
