@@ -1060,8 +1060,11 @@ def test_integrate_indiv_t_3D():
         for ii in range(len(vxvvs)):
             o_one = Orbit(vxvvs[ii])
             o_one.integrate(ts_indiv[ii], pot, method=method)
-            tol = 1e-6 if "dop" in method else 1e-3
-            assert numpy.allclose(o_batch.orbit[ii], o_one.orbit, rtol=tol, atol=tol), (
+            # The batched per-orbit-t and single-orbit code paths feed
+            # bit-for-bit identical inputs into the same integrator, so the
+            # outputs should match exactly. (o_one stores its single orbit
+            # with a leading size-1 axis, so compare to o_one.orbit[0].)
+            assert numpy.array_equal(o_batch.orbit[ii], o_one.orbit[0]), (
                 f"Per-orbit integration disagrees with single-orbit "
                 f"integration for orbit {ii}, method={method}"
             )
@@ -1094,8 +1097,11 @@ def test_integrate_indiv_t_2D():
         for ii in range(len(vxvvs)):
             o_one = Orbit(vxvvs[ii])
             o_one.integrate(ts_indiv[ii], pot, method=method)
-            tol = 1e-6 if "dop" in method else 1e-3
-            assert numpy.allclose(o_batch.orbit[ii], o_one.orbit, rtol=tol, atol=tol), (
+            # The batched per-orbit-t and single-orbit code paths feed
+            # bit-for-bit identical inputs into the same integrator, so the
+            # outputs should match exactly. (o_one stores its single orbit
+            # with a leading size-1 axis, so compare to o_one.orbit[0].)
+            assert numpy.array_equal(o_batch.orbit[ii], o_one.orbit[0]), (
                 f"Per-orbit integration disagrees with single-orbit "
                 f"integration for orbit {ii}, method={method}"
             )
@@ -1122,8 +1128,11 @@ def test_integrate_indiv_t_1D():
         for ii in range(len(vxvvs)):
             o_one = Orbit(vxvvs[ii])
             o_one.integrate(ts_indiv[ii], pot, method=method)
-            tol = 1e-6 if "dop" in method else 1e-3
-            assert numpy.allclose(o_batch.orbit[ii], o_one.orbit, rtol=tol, atol=tol), (
+            # The batched per-orbit-t and single-orbit code paths feed
+            # bit-for-bit identical inputs into the same integrator, so the
+            # outputs should match exactly. (o_one stores its single orbit
+            # with a leading size-1 axis, so compare to o_one.orbit[0].)
+            assert numpy.array_equal(o_batch.orbit[ii], o_one.orbit[0]), (
                 f"Per-orbit integration disagrees with single-orbit "
                 f"integration for orbit {ii}, method={method}"
             )
@@ -1156,10 +1165,11 @@ def test_integrate_indiv_t_3D_2Dshape():
         for j in range(2):
             o_one = Orbit(vxvvs[i, j])
             o_one.integrate(ts_indiv[i, j], pot, method="dop853_c")
-            # batched orbit storage is flat: index 2*i+j
-            assert numpy.allclose(
-                o_batch.orbit[2 * i + j], o_one.orbit, rtol=1e-6, atol=1e-6
-            ), f"Per-orbit integration with 2D Orbit shape disagrees at ({i},{j})"
+            # batched orbit storage is flat: index 2*i+j; same code path as
+            # the single-orbit run so the result is bit-for-bit identical.
+            assert numpy.array_equal(o_batch.orbit[2 * i + j], o_one.orbit[0]), (
+                f"Per-orbit integration with 2D Orbit shape disagrees at ({i},{j})"
+            )
     return None
 
 
@@ -1199,12 +1209,18 @@ def test_integrate_indiv_t_access():
     # R() with on-grid query
     assert o.R(o.time()).shape == (3, nt)
 
-    # Single-orbit slice exposes the orbit's own integration grid
+    # Single-orbit slice exposes the orbit's own integration grid: time(),
+    # the stored orbit, and quantity-method queries should all be bit-for-bit
+    # equal to the corresponding fresh single-orbit integration.
     o_one = Orbit(vxvvs[1])
     o_one.integrate(ts[1], pot, method="dop853_c")
-    assert numpy.allclose(o[1].x(ts[1]), o_one.x(ts[1]))
+    assert o[1].shape == ()
+    assert numpy.array_equal(o[1].time(), ts[1])  # reshaped self.t for scalar slice
+    assert numpy.array_equal(o[1].time(), o_one.time())
+    assert numpy.array_equal(o[1].orbit, o_one.orbit)
+    assert numpy.array_equal(o[1].x(ts[1]), o_one.x(ts[1]))  # fast path
     qq = numpy.linspace(ts[1][0], ts[1][-1], 13)
-    assert numpy.allclose(o[1].x(qq), o_one.x(qq), atol=1e-6, rtol=1e-6)
+    assert numpy.allclose(o[1].x(qq), o_one.x(qq), atol=1e-12, rtol=1e-12)
 
     # Per-orbit batched query equals stacked per-orbit single integrations
     expected = numpy.empty((3, nt))
@@ -1212,7 +1228,7 @@ def test_integrate_indiv_t_access():
         oi = Orbit(vxvvs[ii])
         oi.integrate(ts[ii], pot, method="dop853_c")
         expected[ii] = oi.x(ts[ii])
-    assert numpy.allclose(o.x(ts), expected)
+    assert numpy.array_equal(o.x(ts), expected)
 
     # Out-of-bounds query raises
     with pytest.raises(ValueError, match="not in the integration time domain"):
@@ -1222,8 +1238,6 @@ def test_integrate_indiv_t_access():
 
 # Test that the pure-Python integrator paths and force_map=True handle per-orbit t
 def test_integrate_indiv_t_python_paths():
-    from astropy import units
-
     from galpy.orbit import Orbit
 
     pot = potential.MWPotential2014
@@ -1311,21 +1325,8 @@ def test_integrate_indiv_t_python_paths():
     assert one_l.x(qq_per).shape == (1, 7)
     assert one_axi.R(qq_per).shape == (1, 7)
 
-    # Per-orbit Quantity-valued t — hits the Quantity parsing branch in
-    # _call_internal_indiv_t and warns when querying without Quantity later
-    o_q = Orbit(vxvvs, ro=8.0, vo=220.0)
-    ts_q = ts * units.Gyr
-    o_q.integrate(ts_q, pot, method="dop853_c")
-    # Query with a Quantity t (size, nt_q)
-    xs_q = o_q.x(ts_q)
-    assert xs_q.shape == (2, nt)
-    # Query at scalar Quantity
-    val = o_q.x(0.0 * units.Gyr)
-    assert val.shape == (2,)
-    # Query without Quantity after integrating with Quantity → warning branch
-    with warnings.catch_warnings():
-        warnings.simplefilter("always")
-        _ = o_q.x(ts)  # plain ts, not Quantity → triggers Quantity-mismatch warning
+    # (Per-orbit Quantity-valued t is exercised in tests/test_quantity.py via
+    # test_orbits_integrate_perOrbitTimeAsQuantity.)
 
     # Backward per-orbit integration (decreasing t per orbit) → triggers the
     # per-orbit sort branch in _setupOrbitInterp when an off-grid query
@@ -1400,7 +1401,7 @@ def test_integrate_indiv_t_access_2Dshape():
 
     assert o.shape == (2, 2)
     assert o.time().shape == (2, 2, nt)
-    assert numpy.allclose(o.time(), ts)
+    assert numpy.array_equal(o.time(), ts)
 
     # Scalar applies to all orbits, output (2,2)
     assert o.x(0.0).shape == (2, 2)
@@ -1409,15 +1410,49 @@ def test_integrate_indiv_t_access_2Dshape():
     # nt_q times per orbit (shape (2,2,nt)) → output (2,2,nt)
     assert o.x(ts).shape == (2, 2, nt)
 
-    # Single-element slice
-    assert o[1, 0].shape == ()
-    o_one = Orbit(vxvvs[1, 0])
-    o_one.integrate(ts[1, 0], pot, method="dop853_c")
-    assert numpy.allclose(o[1, 0].x(ts[1, 0]), o_one.x(ts[1, 0]))
-
     # 1D shape that doesn't match orbit shape rejected
     with pytest.raises(ValueError, match="incompatible"):
         o.x(numpy.linspace(0.0, 3.0, 11))
+
+    # --- Slicing checks for non-trivial shape ---
+    # (a) Single-element slice → shape (), time() shape (nt,)
+    o_one_10 = Orbit(vxvvs[1, 0])
+    o_one_10.integrate(ts[1, 0], pot, method="dop853_c")
+    assert o[1, 0].shape == ()
+    assert o[1, 0].size == 1
+    assert numpy.array_equal(o[1, 0].time(), ts[1, 0])
+    assert numpy.array_equal(o[1, 0].time(), o_one_10.time())
+    assert numpy.array_equal(o[1, 0].orbit, o_one_10.orbit)
+    assert numpy.array_equal(o[1, 0].x(ts[1, 0]), o_one_10.x(ts[1, 0]))
+
+    # (b) Row slice (single index on first axis) → shape (2,), time() shape (2,nt)
+    sub = o[1]
+    assert sub.shape == (2,)
+    assert sub.size == 2
+    assert sub.time().shape == (2, nt)
+    assert numpy.array_equal(sub.time(), ts[1])
+    # Each element of the row slice is a fresh single integration
+    for j in range(2):
+        ref = Orbit(vxvvs[1, j])
+        ref.integrate(ts[1, j], pot, method="dop853_c")
+        assert numpy.array_equal(sub[j].time(), ts[1, j])
+        assert numpy.array_equal(sub[j].orbit, ref.orbit)
+    # Per-orbit query at ts[1] returns the stored grid
+    assert numpy.array_equal(sub.x(ts[1]), o.x(ts)[1])
+
+    # (c) Slice on first axis (slice(None)) → shape unchanged
+    sub_all = o[:]
+    assert sub_all.shape == (2, 2)
+    assert numpy.array_equal(sub_all.time(), ts)
+    assert numpy.array_equal(sub_all.orbit, o.orbit)
+
+    # (d) Boolean / fancy indexing on first axis → shape (n_selected, 2)
+    sub_bool = o[numpy.array([True, False])]
+    assert sub_bool.shape == (1, 2)
+    assert numpy.array_equal(sub_bool.time(), ts[:1])
+    assert numpy.array_equal(
+        sub_bool.orbit, o.orbit.reshape(2, 2, nt, 6)[:1].reshape(-1, nt, 6)
+    )
     return None
 
 
