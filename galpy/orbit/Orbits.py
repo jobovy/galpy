@@ -1428,6 +1428,11 @@ class Orbit:
             return False, True, False
         if not hasattr(self, "t") or not hasattr(self, "_pot"):
             return False, True, False
+        # Continuation is not supported for per-orbit time arrays (either the
+        # new t is per-orbit, or the stored self.t is from a previous per-orbit
+        # integration — the time-comparison logic below assumes a shared 1D t).
+        if numpy.asarray(t).ndim > 1 or numpy.asarray(self.t).ndim > 1:
+            return False, True, False
 
         # Check if potentials are the same
         pot_changed = False
@@ -1630,7 +1635,21 @@ class Orbit:
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
         else:
             self._integrate_t_asQuantity = False
-        # Check that t is evenly spaced if not using odeint
+        t = numpy.asarray(t)
+        # Per-orbit time arrays: t has shape self.shape + (nt,) instead of (nt,)
+        indiv_t = t.ndim > 1
+        if indiv_t:
+            if t.shape[:-1] != self.shape:
+                raise ValueError(
+                    f"Input time array shape {t.shape} does not match Orbit shape "
+                    f"{self.shape} + (nt,); per-orbit time arrays must have leading "
+                    f"dimensions matching the Orbit instance shape"
+                )
+            # Flatten to (self.size, nt) for the C/Python integrators
+            t_for_int = t.reshape(self.size, t.shape[-1])
+        else:
+            t_for_int = t
+        # Check that t is evenly spaced if not using odeint (axis=-1 handles per-orbit)
         if not self._check_array_evenlyspaced(t, method):
             raise ValueError(
                 f"Input time array must be equally spaced for method {method}, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced time arrays"
@@ -1651,7 +1670,10 @@ class Orbit:
                 "dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize"
             )
 
-        # Check if we should continue from a previous integration
+        # Check if we should continue from a previous integration. Per-orbit
+        # time arrays (either the input t or a stored 2D self.t from a previous
+        # per-orbit run) disable continuation; that's enforced inside
+        # _should_continue_integration.
         should_continue, is_forward, pot_changed = self._should_continue_integration(
             numpy.array(t), pot
         )
@@ -1686,7 +1708,7 @@ class Orbit:
         if hasattr(self, "_orbInterp"):
             delattr(self, "_orbInterp")
 
-        self.t = numpy.array(t)
+        self.t = numpy.array(t_for_int) if indiv_t else numpy.array(t)
         self._pot = thispot
         self._orig_pot = pot  # differs from self._pot if planar wrapper used
         method = self._check_method_c_compatible(method, self._pot)
@@ -1697,7 +1719,7 @@ class Orbit:
                 out, msg = integrateLinearOrbit(
                     self._pot,
                     self.vxvv,
-                    t,
+                    t_for_int,
                     method,
                     progressbar=progressbar,
                     numcores=numcores,
@@ -1709,7 +1731,7 @@ class Orbit:
                 out, msg = integratePlanarOrbit(
                     self._pot,
                     self.vxvv,
-                    t,
+                    t_for_int,
                     method,
                     progressbar=progressbar,
                     numcores=numcores,
@@ -1721,7 +1743,7 @@ class Orbit:
                 out, msg = integrateFullOrbit(
                     self._pot,
                     self.vxvv,
-                    t,
+                    t_for_int,
                     method,
                     progressbar=progressbar,
                     numcores=numcores,
@@ -1738,7 +1760,7 @@ class Orbit:
                 out, msg = integrateLinearOrbit_c(
                     self._pot,
                     numpy.copy(self.vxvv),
-                    t,
+                    t_for_int,
                     method,
                     progressbar=progressbar,
                     dt=dt,
@@ -1757,7 +1779,7 @@ class Orbit:
                     out, msg = integratePlanarOrbit_c(
                         self._pot,
                         vxvvs,
-                        t,
+                        t_for_int,
                         method,
                         progressbar=progressbar,
                         dt=dt,
@@ -1768,7 +1790,7 @@ class Orbit:
                     out, msg = integrateFullOrbit_c(
                         self._pot,
                         vxvvs,
-                        t,
+                        t_for_int,
                         method,
                         progressbar=progressbar,
                         dt=dt,
@@ -1961,7 +1983,7 @@ class Orbit:
         Parameters
         ----------
         t : list, numpy.ndarray, Quantity, or Potential
-            - If array-like: List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration.
+            - If array-like: List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration. The time array can also be per-orbit, with shape ``orbit.shape + (nt,)`` (each orbit integrated on its own grid); in this case continuation is not supported and the new integration always starts from the original initial conditions. Continuation is also disabled after a ``bruteSOS`` or ``SOS`` call, which rewrite ``self.t`` into a non-standard form.
             - If Potential: Integrate for 10 dynamical times (default auto-time behavior). In this case, this parameter is the potential and the second parameter (pot) becomes method.
         pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
@@ -4218,6 +4240,10 @@ class Orbit:
         """
         if len(args) == 0:
             try:
+                t_out = numpy.asarray(self.t)
+                if t_out.ndim > 1:
+                    # Per-orbit storage is (size, nt); reshape to (*self.shape, nt)
+                    return t_out.reshape(self.shape + (t_out.shape[-1],)).copy()
                 return self.t.copy()
             except AttributeError:
                 return 0.0
@@ -5906,6 +5932,9 @@ class Orbit:
             )
         else:
             t = args[0]
+        # If self.t is per-orbit (2D), dispatch to the per-orbit evaluator
+        if numpy.asarray(self.t).ndim > 1:
+            return self._call_internal_indiv_t(t)
         # Parse t, first check whether we are dealing with the common case
         # where one wants all integrated times
         # 2nd line: scalar Quantities have __len__, but raise TypeError
@@ -5990,6 +6019,109 @@ class Orbit:
                 t = t[usindx]
                 return out[:, usindx]
 
+    def _call_internal_indiv_t(self, t):
+        """
+        Evaluate the orbits at time t when self.t is per-orbit (2D).
+
+        For per-orbit-integrated Orbit instances, t must have shape that
+        matches the Orbit shape (one time per orbit) or the Orbit shape with
+        an extra trailing time axis (nt_q times per orbit). A scalar applies
+        the same time to every orbit. There is no 1D "shared" broadcasting.
+
+        Output shape mirrors _call_internal: (phasedim, nt_q, size) when t has
+        a trailing time axis, or (phasedim, size) when it does not (scalar
+        or one-time-per-orbit).
+        """
+        if _APY_LOADED and isinstance(t, units.Quantity):
+            t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
+        elif (
+            "_integrate_t_asQuantity" in self.__dict__ and self._integrate_t_asQuantity
+        ):
+            warnings.warn(
+                "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",
+                galpyWarning,
+            )
+        self_t = numpy.asarray(self.t)
+        # Parse user-supplied t into a (size, nt_q) array; remember whether
+        # the caller passed a trailing time axis (and so expects one back).
+        # Accepted forms (reshaped Orbit shape OR internal flat-leading shape):
+        #   scalar                                         - same time everywhere
+        #   t.shape == self.shape                          - one time / orbit
+        #   t.shape == self.shape + (nt_q,)                - nt_q times / orbit
+        #   t.shape == (self.size,) [if != self.shape]     - flat one-time-per-orbit
+        #   t.shape == (self.size, nt_q)                   - flat per-orbit grid
+        if isinstance(t, (int, float, numpy.number)):
+            t_arr = numpy.full((self.size, 1), float(t))
+            has_time_axis = False
+        else:
+            t_in = numpy.asarray(t, dtype=float)
+            if t_in.shape == self.shape:
+                t_arr = t_in.reshape(self.size, 1)
+                has_time_axis = False
+            elif t_in.ndim == len(self.shape) + 1 and t_in.shape[:-1] == self.shape:
+                t_arr = t_in.reshape(self.size, t_in.shape[-1])
+                has_time_axis = True
+            elif t_in.shape == (self.size,):
+                t_arr = t_in.reshape(self.size, 1)
+                has_time_axis = False
+            elif t_in.ndim == 2 and t_in.shape[0] == self.size:
+                t_arr = t_in
+                has_time_axis = True
+            else:
+                raise ValueError(
+                    "Time-array shape {} is incompatible with per-orbit-"
+                    "integrated Orbit (shape {}); expected a scalar, an array "
+                    "of shape {!r}, or {!r}".format(
+                        t_in.shape, self.shape, self.shape, self.shape + ("nt_q",)
+                    )
+                )
+        nt_q = t_arr.shape[-1]
+        # Fast path: t exactly matches the stored integration grid (NaN
+        # entries — used by bruteSOS to pad short rows — are ignored).
+        if (
+            has_time_axis
+            and self_t.shape == t_arr.shape
+            and numpy.all((self_t == t_arr)[~numpy.isnan(self_t)])
+        ):
+            return self.orbit.transpose(2, 1, 0).copy()
+        # Some orbits may have stored grids that are too short to interpolate
+        # (bruteSOS leaves an all-NaN row for any orbit that never crossed the
+        # SOS surface). Fail with a clear message here rather than letting
+        # scipy raise an opaque "fpcurf0:m=0" inside the spline build below.
+        valid_counts = numpy.sum(~numpy.isnan(self_t), axis=-1)
+        short = numpy.where(valid_counts < 2)[0]
+        if short.size:
+            raise ValueError(
+                f"Cannot evaluate orbit(s) {short.tolist()} at the requested "
+                "time(s): their stored integration grid has fewer than 2 valid "
+                "times (e.g. because they never crossed the SOS surface during "
+                "bruteSOS); only queries that exactly match the stored grid are "
+                "supported for these orbits."
+            )
+        # Bounds check (per-orbit, against each row's own integration window).
+        if numpy.any(t_arr > numpy.nanmax(self_t, axis=-1, keepdims=True)) or numpy.any(
+            t_arr < numpy.nanmin(self_t, axis=-1, keepdims=True)
+        ):
+            raise ValueError("Found time value not in the integration time domain")
+        # Build per-orbit interpolators and evaluate
+        self._setupOrbitInterp()
+        out = numpy.empty((self.phasedim(), nt_q, self.size))
+        for kk in range(self.size):
+            tk = t_arr[kk]
+            if self.phasedim() == 4 or self.phasedim() == 6:
+                x_vals = self._orbInterp[0][kk](tk)
+                y_vals = self._orbInterp[-1][kk](tk)
+                out[0, :, kk] = numpy.sqrt(x_vals * x_vals + y_vals * y_vals)
+                out[-1, :, kk] = numpy.arctan2(y_vals, x_vals)
+                for ii in range(1, self.phasedim() - 1):
+                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+            else:
+                for ii in range(self.phasedim()):
+                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+        if not has_time_axis:
+            return out[:, 0]
+        return out
+
     def toPlanar(self):
         """
         Convert 3D orbits into 2D orbits.
@@ -6051,6 +6183,40 @@ class Orbit:
 
     def _setupOrbitInterp(self):
         if hasattr(self, "_orbInterp"):
+            return None
+        # Per-orbit integration grids: build a list of phasedim entries, each a
+        # list of size 1D interpolators (one per orbit). Each row may contain
+        # NaN padding (bruteSOS uses this when orbits have unequal numbers of
+        # crossings) — drop those entries before fitting the spline.
+        if hasattr(self, "t") and numpy.asarray(self.t).ndim > 1:
+            orbInterp = [[None] * self.size for _ in range(self.phasedim())]
+            for kk in range(self.size):
+                tk = numpy.asarray(self.t[kk])
+                ok = self.orbit[kk]
+                # Drop NaN-padded entries (per-orbit short rows)
+                valid = ~numpy.isnan(tk)
+                if not numpy.all(valid):
+                    tk = tk[valid]
+                    ok = ok[valid]
+                # Sort each orbit's grid ascending if needed
+                if tk.size > 1 and not numpy.all(numpy.diff(tk) >= 0.0):
+                    sindx = numpy.argsort(tk)
+                    tk = tk[sindx]
+                    ok = ok[sindx]
+                for ii in range(self.phasedim()):
+                    if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
+                        ys = ok[:, 0] * numpy.cos(ok[:, -1])
+                    elif (
+                        self.phasedim() == 4 or self.phasedim() == 6
+                    ) and ii == self.phasedim() - 1:
+                        ys = ok[:, 0] * numpy.sin(ok[:, -1])
+                    else:
+                        ys = ok[:, ii]
+                    orbInterp[ii][kk] = interpolate.InterpolatedUnivariateSpline(
+                        tk, ys, k=3 if tk.size > 3 else max(1, tk.size - 1)
+                    )
+            self._orbInterp = orbInterp
+            self._orb_indx_4orbInterp = numpy.arange(self.size)
             return None
         # Setup one interpolation / phasedim, for all orbits simultaneously
         # First check that times increase
@@ -8733,14 +8899,12 @@ def _parse_radec_kwargs(orb, kwargs, vel=False, dontpop=False, thiso=None):
 
 
 def _check_integrate_dt(t, dt):
-    """Check that the stepsize in t is an integer x dt"""
+    """Check that the stepsize in t is an integer x dt (supports per-orbit 2D t)"""
     if dt is None:
         return True
-    mult = round((t[1] - t[0]) / dt)
-    if numpy.fabs(mult * dt - t[1] + t[0]) < 10.0**-10.0:
-        return True
-    else:
-        return False
+    spacings = t[..., 1] - t[..., 0]
+    mult = numpy.round(spacings / dt)
+    return numpy.all(numpy.fabs(mult * dt - spacings) < 10.0**-10.0)
 
 
 def _check_potential_dim(orb, pot):

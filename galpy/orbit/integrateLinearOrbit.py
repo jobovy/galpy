@@ -173,9 +173,12 @@ def integrateLinearOrbit_c(
     int_method_c = _parse_integrator(int_method)
     if dt is None:
         dt = -9999.99
+    # t can be 1D (shared across orbits) or 2D (per-orbit, shape (nobj,nt))
+    indiv_t = len(t.shape) > 1
+    nt = t.shape[-1]
 
     # Set up result array
-    result = numpy.empty((nobj, len(t), 2))
+    result = numpy.empty((nobj, nt, 2))
     err = numpy.zeros(nobj, dtype=numpy.int32)
 
     # Set up progressbar
@@ -195,6 +198,7 @@ def integrateLinearOrbit_c(
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
         ctypes.c_int,
         ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -219,8 +223,9 @@ def integrateLinearOrbit_c(
     integrationFunc(
         ctypes.c_int(nobj),
         yo,
-        ctypes.c_int(len(t)),
+        ctypes.c_int(nt),
         t,
+        ctypes.c_int(indiv_t),
         ctypes.c_int(npot),
         pot_type,
         pot_args,
@@ -292,17 +297,24 @@ def integrateLinearOrbit(
     - 2019-04-08 - Adapted to allow multiple orbits to be integrated at once and moved to integrateLinearOrbit.py - Bovy (UofT)
     - 2022-04-12 - Add progressbar - Bovy (UofT)
     """
+    # Per-orbit time arrays: when t is 2D (shape (norbit,nt)), each orbit gets its own row
+    indiv_t = len(t.shape) > 1
+
+    def _t_for(idx):
+        return t[idx] if indiv_t else t
+
     if int_method.lower() == "leapfrog":
         if rtol is None:
             rtol = 1e-8
         if atol is None:
             atol = 1e-8
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
+            vxvv = yo[idx]
             return symplecticode.leapfrog(
-                lambda x, t=t: _evaluatelinearForces(pot, x, t=t),
+                lambda x, t=0.0: _evaluatelinearForces(pot, x, t=t),
                 numpy.array(vxvv),
-                t,
+                _t_for(idx),
                 rtol=rtol,
                 atol=atol,
             )
@@ -313,32 +325,46 @@ def integrateLinearOrbit(
         if atol is None:
             atol = 1e-12
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
             return dop853(
-                func=_linearEOM, x=vxvv, t=t, args=(pot,), rtol=rtol, atol=atol
+                func=_linearEOM,
+                x=yo[idx],
+                t=_t_for(idx),
+                args=(pot,),
+                rtol=rtol,
+                atol=atol,
             )
 
     elif int_method.lower() == "odeint":
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
             return integrate.odeint(
-                _linearEOM, vxvv, t, args=(pot,), rtol=rtol, atol=atol
+                _linearEOM, yo[idx], _t_for(idx), args=(pot,), rtol=rtol, atol=atol
             )
 
     else:  # Assume we are forcing parallel_mapping of a C integrator...
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
             return integrateLinearOrbit_c(
-                pot, numpy.copy(vxvv), t, int_method, dt=dt, rtol=rtol, atol=atol
+                pot,
+                numpy.copy(yo[idx]),
+                _t_for(idx),
+                int_method,
+                dt=dt,
+                rtol=rtol,
+                atol=atol,
             )[0]
 
     if len(yo) == 1:  # Can't map a single value...
-        return numpy.atleast_3d(integrate_for_map(yo[0]).T).T, 0
+        return numpy.atleast_3d(integrate_for_map(0).T).T, 0
     else:
         return (
             numpy.array(
                 parallel_map(
-                    integrate_for_map, yo, numcores=numcores, progressbar=progressbar
+                    integrate_for_map,
+                    numpy.arange(len(yo)),
+                    numcores=numcores,
+                    progressbar=progressbar,
                 )
             ),
             numpy.zeros(len(yo)),

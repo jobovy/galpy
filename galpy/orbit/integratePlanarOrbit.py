@@ -875,9 +875,12 @@ def integratePlanarOrbit_c(
     int_method_c = _parse_integrator(int_method)
     if dt is None:
         dt = -9999.99
+    # t can be 1D (shared across orbits) or 2D (per-orbit, shape (nobj,nt))
+    indiv_t = len(t.shape) > 1
+    nt = t.shape[-1]
 
     # Set up result array
-    result = numpy.empty((nobj, len(t), 4))
+    result = numpy.empty((nobj, nt, 4))
     err = numpy.zeros(nobj, dtype=numpy.int32)
 
     # Set up progressbar
@@ -897,6 +900,7 @@ def integratePlanarOrbit_c(
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
         ctypes.c_int,
         ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -921,8 +925,9 @@ def integratePlanarOrbit_c(
     integrationFunc(
         ctypes.c_int(nobj),
         yo,
-        ctypes.c_int(len(t)),
+        ctypes.c_int(nt),
         t,
+        ctypes.c_int(indiv_t),
         ctypes.c_int(npot),
         pot_type,
         pot_args,
@@ -1105,13 +1110,21 @@ def integratePlanarOrbit(
             nophi = True
             # We hack this by putting in a dummy phi=0
             yo = numpy.pad(yo, ((0, 0), (0, 1)), "constant", constant_values=0)
+    # Per-orbit time arrays: when t is 2D (shape (norbit,nt)), each orbit gets its own row
+    indiv_t = len(t.shape) > 1
+
+    def _t_for(idx):
+        return t[idx] if indiv_t else t
+
     if int_method.lower() == "leapfrog":
         if rtol is None:
             rtol = 1e-8
         if atol is None:
             atol = 1e-8
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
+            vxvv = yo[idx]
+            this_t = _t_for(idx)
             # go to the rectangular frame
             this_vxvv = numpy.array(
                 [
@@ -1123,7 +1136,7 @@ def integratePlanarOrbit(
             )
             # integrate
             tmp_out = symplecticode.leapfrog(
-                _planarRectForce, this_vxvv, t, args=(pot,), rtol=rtol, atol=atol
+                _planarRectForce, this_vxvv, this_t, args=(pot,), rtol=rtol, atol=atol
             )
             # go back to the cylindrical frame
             R = numpy.sqrt(tmp_out[:, 0] ** 2.0 + tmp_out[:, 1] ** 2.0)
@@ -1131,7 +1144,7 @@ def integratePlanarOrbit(
             phi[(tmp_out[:, 1] < 0.0)] = 2.0 * numpy.pi - phi[(tmp_out[:, 1] < 0.0)]
             vR = tmp_out[:, 2] * numpy.cos(phi) + tmp_out[:, 3] * numpy.sin(phi)
             vT = tmp_out[:, 3] * numpy.cos(phi) - tmp_out[:, 2] * numpy.sin(phi)
-            out = numpy.zeros((len(t), 4))
+            out = numpy.zeros((len(this_t), 4))
             out[:, 0] = R
             out[:, 1] = vR
             out[:, 2] = vT
@@ -1151,14 +1164,16 @@ def integratePlanarOrbit(
             extra_kwargs = {"rtol": rtol, "atol": atol}
         if len(yo[0]) == 3:
 
-            def integrate_for_map(vxvv):
+            def integrate_for_map(idx):
+                vxvv = yo[idx]
+                this_t = _t_for(idx)
                 l = vxvv[0] * vxvv[2]
                 l2 = l**2.0
                 init = [vxvv[0], vxvv[1]]
                 intOut = integrator(
-                    _planarREOM, init, t=t, args=(pot, l2), **extra_kwargs
+                    _planarREOM, init, t=this_t, args=(pot, l2), **extra_kwargs
                 )
-                out = numpy.zeros((len(t), 3))
+                out = numpy.zeros((len(this_t), 3))
                 out[:, 0] = intOut[:, 0]
                 out[:, 1] = intOut[:, 1]
                 out[:, 2] = l / out[:, 0]
@@ -1169,11 +1184,15 @@ def integratePlanarOrbit(
 
         else:
 
-            def integrate_for_map(vxvv):
+            def integrate_for_map(idx):
+                vxvv = yo[idx]
+                this_t = _t_for(idx)
                 vphi = vxvv[2] / vxvv[0]
                 init = [vxvv[0], vxvv[1], vxvv[3], vphi]
-                intOut = integrator(_planarEOM, init, t=t, args=(pot,), **extra_kwargs)
-                out = numpy.zeros((len(t), 4))
+                intOut = integrator(
+                    _planarEOM, init, t=this_t, args=(pot,), **extra_kwargs
+                )
+                out = numpy.zeros((len(this_t), 4))
                 out[:, 0] = intOut[:, 0]
                 out[:, 1] = intOut[:, 1]
                 out[:, 3] = intOut[:, 2]
@@ -1186,17 +1205,22 @@ def integratePlanarOrbit(
 
     else:  # Assume we are forcing parallel_mapping of a C integrator...
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
+            vxvv = yo[idx]
+            this_t = _t_for(idx)
             return integratePlanarOrbit_c(
-                pot, numpy.copy(vxvv), t, int_method, dt=dt, rtol=rtol, atol=atol
+                pot, numpy.copy(vxvv), this_t, int_method, dt=dt, rtol=rtol, atol=atol
             )[0]
 
     if len(yo) == 1:  # Can't map a single value...
-        out = numpy.atleast_3d(integrate_for_map(yo[0]).T).T
+        out = numpy.atleast_3d(integrate_for_map(0).T).T
     else:
         out = numpy.array(
             parallel_map(
-                integrate_for_map, yo, numcores=numcores, progressbar=progressbar
+                integrate_for_map,
+                numpy.arange(len(yo)),
+                numcores=numcores,
+                progressbar=progressbar,
             )
         )
     if nophi:

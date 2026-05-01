@@ -3902,6 +3902,70 @@ def test_orbits_integrate_timeAsQuantity_Myr():
     return None
 
 
+def test_orbits_integrate_perOrbitTimeAsQuantity():
+    # Per-orbit time arrays: Orbit.integrate accepts a Quantity time array of
+    # shape orbit.shape + (nt,), each row carrying its own units, and the
+    # downstream quantity-method queries (R(), x(), time(), ...) should agree
+    # with the equivalent unitless integration.
+    import copy
+
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 200.0
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+        ]
+    )
+    nt = 101
+    ts_nounits = numpy.linspace(numpy.zeros(2), numpy.array([1.0, 1.5]), nt, axis=-1)
+    ts_q = units.Quantity(copy.copy(ts_nounits), unit=units.Gyr)
+    # Convert the unitless reference into internal time units
+    ts_int = ts_nounits / conversion.time_in_Gyr(vo, ro)
+
+    o = Orbit(vxvvs, ro=ro, vo=vo)
+    oc = Orbit(vxvvs, ro=ro, vo=vo)
+    o.integrate(ts_q, MWPotential)
+    oc.integrate(ts_int, MWPotential)
+    o.turn_physical_off()
+    oc.turn_physical_off()
+
+    # time() round-trips through the Quantity input
+    assert o.time().shape == ts_nounits.shape
+    # Quantity-input integration matches unitless-input integration along
+    # every quantity-method axis at the integration grid points
+    for method in ("R", "vR", "vT", "z", "vz", "phi", "x", "y"):
+        a = numpy.array(getattr(o, method)(ts_q))
+        b = numpy.array(getattr(oc, method)(ts_int))
+        assert numpy.allclose(a, b, atol=1e-8, rtol=1e-8), (
+            f"Per-orbit Quantity-time integrate disagrees on {method}()"
+        )
+
+    # Scalar Quantity query — applies the same time to every orbit
+    val_q = numpy.array(o.x(0.0 * units.Gyr))
+    val_u = numpy.array(oc.x(0.0))
+    assert val_q.shape == (2,)
+    assert numpy.allclose(val_q, val_u, atol=1e-12, rtol=1e-12)
+
+    # Querying a Quantity-integrated orbit with a non-Quantity time array
+    # warns about the implicit "internal-units" interpretation.
+    import warnings as warnings_module
+
+    from galpy.util import galpyWarning
+
+    with warnings_module.catch_warnings(record=True) as w:
+        warnings_module.simplefilter("always")
+        _ = o.x(ts_nounits)
+    msgs = [str(rec.message) for rec in w if issubclass(rec.category, galpyWarning)]
+    assert any("Quantity" in m and "natural (internal) units" in m for m in msgs), (
+        "Expected a galpyWarning about Quantity/non-Quantity mismatch"
+    )
+    return None
+
+
 def test_orbits_integrate_dtimeAsQuantity():
     import copy
 
