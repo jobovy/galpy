@@ -3377,3 +3377,45 @@ def _turn_off_apy(keep_loaded=False):
 def _turn_on_apy():
     coords._APY_COORDS = coords._APY_COORDS_ORIG
     coords._APY_LOADED = True
+
+
+def test_align_to_orbit():
+    # coords.align_to_orbit takes 6D galactocentric Cartesian kinematics
+    # (no Orbit dependency) and returns a sky-rotation matrix that places
+    # the orbit's plane at phi2≈0 with center_phi1 at the input position.
+    # Use a fixed test point in internal units (Sun at Xsun=1, Zsun≈0.0026).
+    Xsun = 1.0
+    Zsun = 0.0208 / 8.0
+    x, y, z = 1.56148083, 0.35081535, -1.15481504
+    vx, vy, vz = 0.88719443, -0.47713334, 0.12019596
+    T = coords.align_to_orbit(x, y, z, vx, vy, vz, Xsun=Xsun, Zsun=Zsun)
+    assert T.shape == (3, 3), "align_to_orbit should return a 3x3 matrix"
+    # Orthogonal: T.T == T^{-1}
+    assert numpy.allclose(T @ T.T, numpy.eye(3), atol=1e-10), (
+        "align_to_orbit rotation matrix is not orthogonal"
+    )
+    # The orbit point should land at phi1=180, phi2≈0 (default center_phi1)
+    XYZ = coords.galcenrect_to_XYZ(x, y, z, Xsun=Xsun, Zsun=Zsun)
+    lbd = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True)
+    radec = coords.lb_to_radec(lbd[0], lbd[1], degree=True)
+    p12 = coords.radec_to_custom(
+        numpy.atleast_1d(radec[0]),
+        numpy.atleast_1d(radec[1]),
+        T=T,
+        degree=True,
+    )
+    assert abs(p12[0, 0] - 180.0) < 1e-4, "progenitor not at phi1=180 (default)"
+    assert abs(p12[0, 1]) < 0.5, "progenitor not on the great circle phi2=0"
+    # center_phi1=0 override
+    T0 = coords.align_to_orbit(
+        x, y, z, vx, vy, vz, Xsun=Xsun, Zsun=Zsun, center_phi1=0.0
+    )
+    p12_0 = coords.radec_to_custom(
+        numpy.atleast_1d(radec[0]),
+        numpy.atleast_1d(radec[1]),
+        T=T0,
+        degree=True,
+    )
+    assert abs(p12_0[0, 0]) < 1e-4 or abs(p12_0[0, 0] - 360.0) < 1e-4, (
+        "center_phi1=0 override does not place the progenitor at phi1=0"
+    )

@@ -2487,6 +2487,104 @@ def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2, T=None, degree=False):
     )
 
 
+def align_to_orbit(x, y, z, vx, vy, vz, Xsun=1.0, Zsun=0.0, center_phi1=180.0):
+    """Build a 3x3 sky rotation aligning a stream-generating orbit.
+
+    Given the progenitor's galactocentric Cartesian phase-space
+    coordinates (galpy convention: ``+x`` toward the Sun, ``+y`` in the
+    direction of Galactic rotation, ``+z`` toward the North Galactic
+    Pole), returns the ``T`` matrix that :func:`radec_to_custom`
+    consumes, chosen so that in the resulting ``(phi1, phi2)`` frame:
+
+    - the progenitor's orbital plane lies at ``phi2 ≈ 0`` (so a stream
+      generated from it runs approximately horizontally);
+    - the progenitor itself sits at ``(phi1, phi2) = (center_phi1, 0)``
+      — by default ``center_phi1 = 180°`` so the stream wraps naturally
+      across the ``0/360°`` boundary rather than through the centre of
+      the plot.
+
+    Parameters
+    ----------
+    x, y, z : float
+        Galactocentric Cartesian position of the progenitor (galpy
+        convention: ``+x`` toward the Sun).
+    vx, vy, vz : float
+        Galactocentric Cartesian velocity of the progenitor (same
+        convention). The angular-momentum direction is scale-invariant,
+        so any consistent pair of position/velocity units works.
+    Xsun : float, optional
+        Galactocentric x-coordinate of the Sun in the same units as
+        ``x`` (default 1.0 — galpy internal units).
+    Zsun : float, optional
+        Galactocentric z-coordinate of the Sun in the same units as
+        ``z`` (default 0.0).
+    center_phi1 : float, optional
+        Longitude at which to place the progenitor, in degrees
+        (default 180.0).
+
+    Returns
+    -------
+    numpy.ndarray
+        3x3 rotation matrix ``T``. Use as
+        ``coords.radec_to_custom(ra, dec, T=T, degree=True)`` or pass to
+        :class:`galpy.df.streamTrack.StreamTrack` as
+        ``custom_transform=T``. Inverse of a rotation is its transpose —
+        use ``T.T`` to rotate back to equatorial sky.
+
+    Notes
+    -----
+    The alignment uses the angular momentum of the progenitor about the
+    Sun, ``L = (r_prog − r_sun) × v_prog``, with the Sun treated as at
+    rest in the Galactocentric frame. This is the quantity that defines
+    a great circle on the observer's sky closest to the apparent orbit
+    trajectory (heliocentric ``L`` with Sun-motion subtracted gives a
+    slightly different plane and a less horizontal stream).
+    """
+    from . import _rotate_to_arbitrary_vector
+
+    dx = x - Xsun
+    dy = y
+    dz = z - Zsun
+    Lx = dy * vz - dz * vy
+    Ly = dz * vx - dx * vz
+    Lz = dx * vy - dy * vx
+    # L in galactocentric basis → Galactic (l, b). Galactic ``X`` points
+    # toward the GC, opposite of galpy's galactocentric ``x``, hence the
+    # ``-Lx``; Galactic ``Y``/``Z`` match galactocentric ``y``/``z``
+    # (ignoring the tiny Zsun tilt).
+    l_pole = numpy.degrees(numpy.arctan2(Ly, -Lx))
+    b_pole = numpy.degrees(numpy.arctan2(Lz, numpy.sqrt(Lx**2 + Ly**2)))
+    radec = numpy.atleast_2d(lb_to_radec(l_pole, b_pole, degree=True))
+    ra_pole = float(radec[0, 0])
+    dec_pole = float(radec[0, 1])
+    L_eq = numpy.array(
+        [
+            numpy.cos(numpy.radians(dec_pole)) * numpy.cos(numpy.radians(ra_pole)),
+            numpy.cos(numpy.radians(dec_pole)) * numpy.sin(numpy.radians(ra_pole)),
+            numpy.sin(numpy.radians(dec_pole)),
+        ]
+    )
+    R_base = _rotate_to_arbitrary_vector(numpy.atleast_2d(L_eq), [0.0, 0.0, 1.0])[0]
+
+    # Progenitor heliocentric Galactic (X, Y, Z) → (l, b) → (ra, dec).
+    XYZ_h = galcenrect_to_XYZ(x, y, z, Xsun=Xsun, Zsun=Zsun)
+    lbd = XYZ_to_lbd(float(XYZ_h[0]), float(XYZ_h[1]), float(XYZ_h[2]), degree=True)
+    radec_p = numpy.atleast_2d(lb_to_radec(float(lbd[0]), float(lbd[1]), degree=True))
+    ra_p = float(radec_p[0, 0])
+    dec_p = float(radec_p[0, 1])
+    phi12 = radec_to_custom(
+        numpy.atleast_1d(ra_p),
+        numpy.atleast_1d(dec_p),
+        T=R_base,
+        degree=True,
+    )
+    phi1_prog = float(phi12[0, 0])
+    dphi = numpy.radians(center_phi1 - phi1_prog)
+    c, s = numpy.cos(dphi), numpy.sin(dphi)
+    R_z = numpy.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+    return R_z @ R_base
+
+
 def get_epoch_angles(epoch=2000.0):
     """
     Get the angles relevant for the transformation from ra, dec to l,b for the given epoch.

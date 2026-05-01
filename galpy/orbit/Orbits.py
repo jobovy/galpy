@@ -4721,6 +4721,42 @@ class Orbit:
         else:
             return numpy.arctan2(thiso[0], thiso[3]).T
 
+    def align_to_orbit(self, center_phi1=180.0):
+        r"""
+        Return a sky rotation matrix that places this orbit's orbital plane at ``phi2=0`` and the orbit itself at ``(phi1, phi2) = (center_phi1, 0)``.
+
+        Parameters
+        ----------
+        center_phi1 : float, optional
+            Longitude at which to place the orbit in the custom frame,
+            in degrees. Default 180.0.
+
+        Returns
+        -------
+        numpy.ndarray
+            3x3 rotation matrix.
+
+        Notes
+        -----
+        - 2026-04-23: Written by Bovy (UofT).
+        """
+        from ..util import coords
+
+        # Use internal units (Sun at Xsun=1, Zsun=zo/ro). The rotation
+        # matrix is scale-invariant since L = r x v only matters up to
+        # overall magnitude.
+        return coords.align_to_orbit(
+            float(self.x(use_physical=False)),
+            float(self.y(use_physical=False)),
+            float(self.z(use_physical=False)),
+            float(self.vx(use_physical=False)),
+            float(self.vy(use_physical=False)),
+            float(self.vz(use_physical=False)),
+            Xsun=1.0,
+            Zsun=self._zo / self._ro,
+            center_phi1=center_phi1,
+        )
+
     @physical_conversion("angle_deg")
     @shapeDecorator
     def ra(self, *args, **kwargs):

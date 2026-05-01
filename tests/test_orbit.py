@@ -11731,3 +11731,45 @@ def test_integrate_auto_vcirc_filtering_consistency_2D():
         f"Integration times differ: {o1.t[-1]} vs {o2.t[-1]}"
     )
     return None
+
+
+def test_orbit_align_to_orbit():
+    # Orbit.align_to_orbit() is a thin method wrapper around
+    # galpy.util.coords.align_to_orbit — must forward this orbit's
+    # galactocentric Cartesian kinematics plus Xsun/Zsun and produce
+    # the same rotation matrix as the coords function.
+    from galpy.orbit import Orbit
+    from galpy.util import coords as gcoords
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    T_method = prog.align_to_orbit()
+    T_func = gcoords.align_to_orbit(
+        float(prog.x(use_physical=False)),
+        float(prog.y(use_physical=False)),
+        float(prog.z(use_physical=False)),
+        float(prog.vx(use_physical=False)),
+        float(prog.vy(use_physical=False)),
+        float(prog.vz(use_physical=False)),
+        Xsun=1.0,
+        Zsun=prog._zo / prog._ro,
+    )
+    assert T_method.shape == (3, 3)
+    assert numpy.allclose(T_method, T_func)
+    # center_phi1 kwarg threads through
+    T0_method = prog.align_to_orbit(center_phi1=0.0)
+    T0_func = gcoords.align_to_orbit(
+        float(prog.x(use_physical=False)),
+        float(prog.y(use_physical=False)),
+        float(prog.z(use_physical=False)),
+        float(prog.vx(use_physical=False)),
+        float(prog.vy(use_physical=False)),
+        float(prog.vz(use_physical=False)),
+        Xsun=1.0,
+        Zsun=prog._zo / prog._ro,
+        center_phi1=0.0,
+    )
+    assert numpy.allclose(T0_method, T0_func)
