@@ -160,11 +160,15 @@ _labeldict_radec = {
     "dec": r"$\delta\ (\mathrm{deg})$",
     "ll": r"$l\ (\mathrm{deg})$",
     "bb": r"$b\ (\mathrm{deg})$",
+    "phi1": r"$\phi_1\ (\mathrm{deg})$",
+    "phi2": r"$\phi_2\ (\mathrm{deg})$",
     "dist": r"$d\ (\mathrm{kpc})$",
     "pmra": r"$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$",
     "pmdec": r"$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$",
     "pmll": r"$\mu_l\ (\mathrm{mas\,yr}^{-1})$",
     "pmbb": r"$\mu_b\ (\mathrm{mas\,yr}^{-1})$",
+    "pmphi1": r"$\mu_{\phi_1}\ (\mathrm{mas\,yr}^{-1})$",
+    "pmphi2": r"$\mu_{\phi_2}\ (\mathrm{mas\,yr}^{-1})$",
     "vlos": r"$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$",
     "helioX": r"$X\ (\mathrm{kpc})$",
     "helioY": r"$Y\ (\mathrm{kpc})$",
@@ -4725,6 +4729,12 @@ class Orbit:
         r"""
         Return a sky rotation matrix that places this orbit's orbital plane at ``phi2=0`` and the orbit itself at ``(phi1, phi2) = (center_phi1, 0)``.
 
+        The returned matrix is also stashed on this Orbit as
+        ``self._custom_transform``, so subsequent ``self.phi1()`` /
+        ``self.phi2()`` / ``self.pmphi1()`` / ``self.pmphi2()`` calls
+        (and ``self.plot(d1='phi1', d2='phi2')``) work without having
+        to pass ``T=`` explicitly.
+
         Parameters
         ----------
         center_phi1 : float, optional
@@ -4745,7 +4755,7 @@ class Orbit:
         # Use internal units (Sun at Xsun=1, Zsun=zo/ro). The rotation
         # matrix is scale-invariant since L = r x v only matters up to
         # overall magnitude.
-        return coords.align_to_orbit(
+        T = coords.align_to_orbit(
             float(self.x(use_physical=False)),
             float(self.y(use_physical=False)),
             float(self.z(use_physical=False)),
@@ -4756,6 +4766,8 @@ class Orbit:
             Zsun=self._zo / self._ro,
             center_phi1=center_phi1,
         )
+        self._custom_transform = T
+        return T
 
     @physical_conversion("angle_deg")
     @shapeDecorator
@@ -5007,6 +5019,205 @@ class Orbit:
         thiso_shape = thiso.shape
         thiso = thiso.reshape((thiso_shape[0], -1))
         return _pmrapmdec(self, thiso, *args, **kwargs).T[1].reshape(thiso_shape[1:]).T
+
+    def _resolve_custom_transform(self, kwargs, name):
+        """Pop ``T=`` off ``kwargs`` and fall back to ``self._custom_transform``.
+        Raises ``RuntimeError`` if neither is available — both phi1/phi2 and
+        their proper-motion counterparts share the same lookup."""
+        T = kwargs.pop("T", None)
+        if T is None:
+            T = getattr(self, "_custom_transform", None)
+        if T is None:
+            raise RuntimeError(
+                f"{name}() needs a custom-frame rotation matrix; either "
+                "call self.align_to_orbit() first to stash one, or pass "
+                "T=<3x3 matrix> explicitly."
+            )
+        return numpy.asarray(T)
+
+    @physical_conversion("angle_deg")
+    @shapeDecorator
+    def phi1(self, *args, **kwargs):
+        r"""
+        Return the longitude in the custom sky frame defined by this orbit's :meth:`align_to_orbit` rotation matrix (or one passed via ``T=``).
+
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get phi1. Default is the initial time.
+        T : numpy.ndarray, optional
+            3x3 rotation matrix from (ra, dec) to (phi1, phi2). Default
+            is the matrix stored by a previous call to
+            :meth:`align_to_orbit`. Required if no such call was made.
+        obs : numpy.ndarray, Quantity or Orbit, optional
+            Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default).
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Longitude in the custom sky frame in degrees.
+
+        Notes
+        -----
+        - 2026-05-01: Written by Bovy (UofT).
+        """
+        from ..util import coords
+
+        _check_roSet(self, kwargs, "phi1")
+        T = self._resolve_custom_transform(kwargs, "phi1")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs)
+        p12 = coords.radec_to_custom(radec[:, 0], radec[:, 1], T=T, degree=True)
+        return p12[:, 0].reshape(thiso_shape[1:]).T
+
+    @physical_conversion("angle_deg")
+    @shapeDecorator
+    def phi2(self, *args, **kwargs):
+        r"""
+        Return the latitude in the custom sky frame defined by this orbit's :meth:`align_to_orbit` rotation matrix (or one passed via ``T=``).
+
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get phi2. Default is the initial time.
+        T : numpy.ndarray, optional
+            3x3 rotation matrix from (ra, dec) to (phi1, phi2). Default
+            is the matrix stored by a previous call to
+            :meth:`align_to_orbit`. Required if no such call was made.
+        obs : numpy.ndarray, Quantity or Orbit, optional
+            Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default).
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Latitude in the custom sky frame in degrees.
+
+        Notes
+        -----
+        - 2026-05-01: Written by Bovy (UofT).
+        """
+        from ..util import coords
+
+        _check_roSet(self, kwargs, "phi2")
+        T = self._resolve_custom_transform(kwargs, "phi2")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs)
+        p12 = coords.radec_to_custom(radec[:, 0], radec[:, 1], T=T, degree=True)
+        return p12[:, 1].reshape(thiso_shape[1:]).T
+
+    @physical_conversion("proper-motion_masyr")
+    @shapeDecorator
+    def pmphi1(self, *args, **kwargs):
+        r"""
+        Return the proper motion in phi1 (mas/yr, includes ``cos(phi2)``) in the custom sky frame defined by :meth:`align_to_orbit`.
+
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get pmphi1. Default is the initial time.
+        T : numpy.ndarray, optional
+            3x3 rotation matrix from (ra, dec) to (phi1, phi2). Default
+            is the matrix stored by a previous call to
+            :meth:`align_to_orbit`. Required if no such call was made.
+        obs : numpy.ndarray, Quantity or Orbit, optional
+            Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default).
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Proper motion in phi1 in mas/yr.
+
+        Notes
+        -----
+        - 2026-05-01: Written by Bovy (UofT).
+        """
+        from ..util import coords
+
+        _check_roSet(self, kwargs, "pmphi1")
+        _check_voSet(self, kwargs, "pmphi1")
+        T = self._resolve_custom_transform(kwargs, "pmphi1")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs)
+        pmrapmdec = _pmrapmdec(self, thiso, *args, **kwargs)
+        pm12 = coords.pmrapmdec_to_custom(
+            pmrapmdec[:, 0], pmrapmdec[:, 1], radec[:, 0], radec[:, 1], T=T, degree=True
+        )
+        return pm12[:, 0].reshape(thiso_shape[1:]).T
+
+    @physical_conversion("proper-motion_masyr")
+    @shapeDecorator
+    def pmphi2(self, *args, **kwargs):
+        r"""
+        Return the proper motion in phi2 (mas/yr) in the custom sky frame defined by :meth:`align_to_orbit`.
+
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get pmphi2. Default is the initial time.
+        T : numpy.ndarray, optional
+            3x3 rotation matrix from (ra, dec) to (phi1, phi2). Default
+            is the matrix stored by a previous call to
+            :meth:`align_to_orbit`. Required if no such call was made.
+        obs : numpy.ndarray, Quantity or Orbit, optional
+            Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default).
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Proper motion in phi2 in mas/yr.
+
+        Notes
+        -----
+        - 2026-05-01: Written by Bovy (UofT).
+        """
+        from ..util import coords
+
+        _check_roSet(self, kwargs, "pmphi2")
+        _check_voSet(self, kwargs, "pmphi2")
+        T = self._resolve_custom_transform(kwargs, "pmphi2")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs)
+        pmrapmdec = _pmrapmdec(self, thiso, *args, **kwargs)
+        pm12 = coords.pmrapmdec_to_custom(
+            pmrapmdec[:, 0], pmrapmdec[:, 1], radec[:, 0], radec[:, 1], T=T, degree=True
+        )
+        return pm12[:, 1].reshape(thiso_shape[1:]).T
 
     @physical_conversion("proper-motion_masyr")
     @shapeDecorator
