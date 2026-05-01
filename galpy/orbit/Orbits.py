@@ -4727,13 +4727,12 @@ class Orbit:
 
     def align_to_orbit(self, center_phi1=180.0):
         r"""
-        Return a sky rotation matrix that places this orbit's orbital plane at ``phi2=0`` and the orbit itself at ``(phi1, phi2) = (center_phi1, 0)``.
+        Return a sky rotation matrix aligned with this orbit's orbital plane.
 
-        The returned matrix is also stashed on this Orbit as
-        ``self._custom_transform``, so subsequent ``self.phi1()`` /
-        ``self.phi2()`` / ``self.pmphi1()`` / ``self.pmphi2()`` calls
-        (and ``self.plot(d1='phi1', d2='phi2')``) work without having
-        to pass ``T=`` explicitly.
+        The matrix is also stashed on this Orbit as
+        ``self._custom_transform`` so that ``self.phi1()``,
+        ``self.phi2()``, ``self.pmphi1()``, ``self.pmphi2()`` (and
+        ``self.plot(d1='phi1', d2='phi2')``) work without ``T=``.
 
         Parameters
         ----------
@@ -5039,7 +5038,7 @@ class Orbit:
     @shapeDecorator
     def phi1(self, *args, **kwargs):
         r"""
-        Return the longitude in the custom sky frame defined by this orbit's :meth:`align_to_orbit` rotation matrix (or one passed via ``T=``).
+        Return the longitude in a custom sky frame (in deg).
 
         Parameters
         ----------
@@ -5082,7 +5081,7 @@ class Orbit:
     @shapeDecorator
     def phi2(self, *args, **kwargs):
         r"""
-        Return the latitude in the custom sky frame defined by this orbit's :meth:`align_to_orbit` rotation matrix (or one passed via ``T=``).
+        Return the latitude in a custom sky frame (in deg).
 
         Parameters
         ----------
@@ -5125,7 +5124,7 @@ class Orbit:
     @shapeDecorator
     def pmphi1(self, *args, **kwargs):
         r"""
-        Return the proper motion in phi1 (mas/yr, includes ``cos(phi2)``) in the custom sky frame defined by :meth:`align_to_orbit`.
+        Return proper motion in custom-frame longitude (in mas/yr, includes ``cos(phi2)``).
 
         Parameters
         ----------
@@ -5174,7 +5173,7 @@ class Orbit:
     @shapeDecorator
     def pmphi2(self, *args, **kwargs):
         r"""
-        Return the proper motion in phi2 (mas/yr) in the custom sky frame defined by :meth:`align_to_orbit`.
+        Return proper motion in custom-frame latitude (in mas/yr).
 
         Parameters
         ----------
