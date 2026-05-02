@@ -11731,3 +11731,175 @@ def test_integrate_auto_vcirc_filtering_consistency_2D():
         f"Integration times differ: {o1.t[-1]} vs {o2.t[-1]}"
     )
     return None
+
+
+def test_orbit_align_to_orbit():
+    # Orbit.align_to_orbit() is a thin method wrapper around
+    # galpy.util.coords.align_to_orbit — must forward this orbit's
+    # galactocentric Cartesian kinematics plus Xsun/Zsun and produce
+    # the same rotation matrix as the coords function.
+    from galpy.orbit import Orbit
+    from galpy.util import coords as gcoords
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    T_method = prog.align_to_orbit()
+    T_func = gcoords.align_to_orbit(
+        float(prog.x(use_physical=False)),
+        float(prog.y(use_physical=False)),
+        float(prog.z(use_physical=False)),
+        float(prog.vx(use_physical=False)),
+        float(prog.vy(use_physical=False)),
+        float(prog.vz(use_physical=False)),
+        Xsun=1.0,
+        Zsun=prog._zo / prog._ro,
+    )
+    assert T_method.shape == (3, 3)
+    assert numpy.allclose(T_method, T_func)
+    # center_phi1 kwarg threads through
+    T0_method = prog.align_to_orbit(center_phi1=0.0)
+    T0_func = gcoords.align_to_orbit(
+        float(prog.x(use_physical=False)),
+        float(prog.y(use_physical=False)),
+        float(prog.z(use_physical=False)),
+        float(prog.vx(use_physical=False)),
+        float(prog.vy(use_physical=False)),
+        float(prog.vz(use_physical=False)),
+        Xsun=1.0,
+        Zsun=prog._zo / prog._ro,
+        center_phi1=0.0,
+    )
+    assert numpy.allclose(T0_method, T0_func)
+
+
+def test_orbit_phi1phi2_after_align_to_orbit():
+    # After Orbit.align_to_orbit() stashes a custom_transform, the
+    # phi1/phi2/pmphi1/pmphi2 accessors should work without further setup
+    # and reproduce coords.radec_to_custom / pmrapmdec_to_custom directly.
+    from galpy.orbit import Orbit
+    from galpy.util import coords as gcoords
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    T = prog.align_to_orbit()
+    # The orbit's own phi1/phi2 should land at (180, ~0) by the
+    # default center_phi1=180 alignment, matching the analytical
+    # round-trip via radec_to_custom.
+    p12 = gcoords.radec_to_custom(
+        numpy.atleast_1d(prog.ra()),
+        numpy.atleast_1d(prog.dec()),
+        T=T,
+        degree=True,
+    )
+    assert abs(float(prog.phi1()) - p12[0, 0]) < 1e-8
+    assert abs(float(prog.phi2()) - p12[0, 1]) < 1e-8
+    pm12 = gcoords.pmrapmdec_to_custom(
+        numpy.atleast_1d(prog.pmra()),
+        numpy.atleast_1d(prog.pmdec()),
+        numpy.atleast_1d(prog.ra()),
+        numpy.atleast_1d(prog.dec()),
+        T=T,
+        degree=True,
+    )
+    assert abs(float(prog.pmphi1()) - pm12[0, 0]) < 1e-8
+    assert abs(float(prog.pmphi2()) - pm12[0, 1]) < 1e-8
+
+
+def test_orbit_phi1phi2_T_kwarg_override():
+    # Without calling align_to_orbit, an explicit T= still works (and
+    # overrides any stashed matrix).
+    from galpy.orbit import Orbit
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    # Identity T means phi1=ra, phi2=dec (modulo wrap on the equator)
+    val = float(prog.phi1(T=numpy.eye(3)))
+    assert abs(val - float(prog.ra())) < 1e-8
+
+
+def test_orbit_phi1_no_transform_raises():
+    # Without align_to_orbit and without an explicit T=, the accessors
+    # raise so the user knows to set up the rotation matrix.
+    from galpy.orbit import Orbit
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    import pytest
+
+    for name in ("phi1", "phi2", "pmphi1", "pmphi2"):
+        with pytest.raises(RuntimeError):
+            getattr(prog, name)()
+
+
+def test_orbit_plot_phi1phi2():
+    # Orbit.plot dispatches d1='phi1', d2='phi2' through the new
+    # accessors; smoke-test that the call returns successfully and
+    # picks up the labeldict_radec entries.
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    prog.align_to_orbit()
+    prog.integrate(numpy.linspace(0, 1, 11), MWPotential2014)
+    line = prog.plot(d1="phi1", d2="phi2")
+    assert line and len(line) >= 1
+    line2 = prog.plot(d1="phi1", d2="pmphi2")
+    assert line2 and len(line2) >= 1
+
+
+def test_orbit_phi1phi2_multi_shape_and_time():
+    # phi1/phi2/pmphi1/pmphi2 must broadcast correctly over (N orbits,
+    # M times): shape (N, M) on the input vxvv shape (N,), and each
+    # row should match the per-orbit single-Orbit accessor result.
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    vxvv = numpy.array(
+        [
+            [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+            [1.20, 0.10, -0.95, 0.50, -0.20, 0.30],
+            [1.40, 0.20, -1.00, 0.70, -0.30, 0.20],
+        ]
+    )
+    multi = Orbit(vxvv, ro=8.0, vo=220.0)
+    assert multi.shape == (3,)
+    ts = numpy.linspace(0, 1, 4)
+    multi.integrate(ts, MWPotential2014)
+    # Build a custom transform from the first orbit, share across all
+    T = multi[0].align_to_orbit()
+    multi._custom_transform = T
+    out = multi.phi1(ts)
+    assert out.shape == (3, 4), f"phi1 shape {out.shape} (expected (3, 4))"
+    # Each row should agree with a per-orbit call (which we have to set
+    # up the transform on separately because Orbit getitem yields a
+    # fresh instance without the parent's _custom_transform)
+    for i in range(3):
+        single = multi[i]
+        single._custom_transform = T
+        single_out = single.phi1(ts)
+        assert single_out.shape == (4,), f"single[{i}] phi1 shape {single_out.shape}"
+        assert numpy.allclose(out[i], single_out), (
+            f"orbit {i} phi1 differs between multi and single: {out[i]} vs {single_out}"
+        )
+        assert numpy.allclose(multi.phi2(ts)[i], single.phi2(ts))
+        assert numpy.allclose(multi.pmphi1(ts)[i], single.pmphi1(ts))
+        assert numpy.allclose(multi.pmphi2(ts)[i], single.pmphi2(ts))
