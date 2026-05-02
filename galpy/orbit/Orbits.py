@@ -4749,8 +4749,6 @@ class Orbit:
         -----
         - 2026-04-23: Written by Bovy (UofT).
         """
-        from ..util import coords
-
         # Use internal units (Sun at Xsun=1, Zsun=zo/ro). The rotation
         # matrix is scale-invariant since L = r x v only matters up to
         # overall magnitude.
@@ -5066,8 +5064,6 @@ class Orbit:
         -----
         - 2026-05-01: Written by Bovy (UofT).
         """
-        from ..util import coords
-
         _check_roSet(self, kwargs, "phi1")
         T = self._resolve_custom_transform(kwargs, "phi1")
         thiso = self._call_internal(*args, **kwargs)
@@ -5109,8 +5105,6 @@ class Orbit:
         -----
         - 2026-05-01: Written by Bovy (UofT).
         """
-        from ..util import coords
-
         _check_roSet(self, kwargs, "phi2")
         T = self._resolve_custom_transform(kwargs, "phi2")
         thiso = self._call_internal(*args, **kwargs)
@@ -5154,8 +5148,6 @@ class Orbit:
         -----
         - 2026-05-01: Written by Bovy (UofT).
         """
-        from ..util import coords
-
         _check_roSet(self, kwargs, "pmphi1")
         _check_voSet(self, kwargs, "pmphi1")
         T = self._resolve_custom_transform(kwargs, "pmphi1")
@@ -5203,8 +5195,6 @@ class Orbit:
         -----
         - 2026-05-01: Written by Bovy (UofT).
         """
-        from ..util import coords
-
         _check_roSet(self, kwargs, "pmphi2")
         _check_voSet(self, kwargs, "pmphi2")
         T = self._resolve_custom_transform(kwargs, "pmphi2")

@@ -2540,8 +2540,6 @@ def align_to_orbit(x, y, z, vx, vy, vz, Xsun=1.0, Zsun=0.0, center_phi1=180.0):
     trajectory (heliocentric ``L`` with Sun-motion subtracted gives a
     slightly different plane and a less horizontal stream).
     """
-    from . import _rotate_to_arbitrary_vector
-
     dx = x - Xsun
     dy = y
     dz = z - Zsun
