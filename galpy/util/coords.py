@@ -2548,12 +2548,16 @@ def align_to_orbit(x, y, z, vx, vy, vz, Xsun=1.0, Zsun=0.0, center_phi1=180.0):
     Lx = dy * vz - dz * vy
     Ly = dz * vx - dx * vz
     Lz = dx * vy - dy * vx
-    # L in galactocentric basis → Galactic (l, b). Galactic ``X`` points
-    # toward the GC, opposite of galpy's galactocentric ``x``, hence the
-    # ``-Lx``; Galactic ``Y``/``Z`` match galactocentric ``y``/``z``
-    # (ignoring the tiny Zsun tilt).
-    l_pole = numpy.degrees(numpy.arctan2(Ly, -Lx))
-    b_pole = numpy.degrees(numpy.arctan2(Lz, numpy.sqrt(Lx**2 + Ly**2)))
+    # Rotate L from the galactocentric basis to the heliocentric Galactic
+    # basis. ``galcenrect_to_vxvyvz`` is the rotation-only sibling of
+    # ``galcenrect_to_XYZ`` (no translation, since L is a free vector);
+    # with ``vsun=0`` it accounts for the Zsun tilt and the astropy-
+    # alignment ``galcen_extra_rot``.
+    Lh = numpy.atleast_2d(
+        galcenrect_to_vxvyvz(Lx, Ly, Lz, vsun=[0.0, 0.0, 0.0], Xsun=Xsun, Zsun=Zsun)
+    )[0]
+    l_pole = numpy.degrees(numpy.arctan2(Lh[1], Lh[0]))
+    b_pole = numpy.degrees(numpy.arctan2(Lh[2], numpy.sqrt(Lh[0] ** 2 + Lh[1] ** 2)))
     radec = numpy.atleast_2d(lb_to_radec(l_pole, b_pole, degree=True))
     ra_pole = float(radec[0, 0])
     dec_pole = float(radec[0, 1])

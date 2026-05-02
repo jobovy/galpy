@@ -3405,7 +3405,7 @@ def test_align_to_orbit():
         degree=True,
     )
     assert abs(p12[0, 0] - 180.0) < 1e-4, "progenitor not at phi1=180 (default)"
-    assert abs(p12[0, 1]) < 0.5, "progenitor not on the great circle phi2=0"
+    assert abs(p12[0, 1]) < 1e-4, "progenitor not on the great circle phi2=0"
     # center_phi1=0 override
     T0 = coords.align_to_orbit(
         x, y, z, vx, vy, vz, Xsun=Xsun, Zsun=Zsun, center_phi1=0.0
