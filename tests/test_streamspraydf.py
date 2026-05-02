@@ -1692,7 +1692,7 @@ def test_streamTrack_cov_basis(_simple_spdf):
     # the stored xy cov).
     from galpy.util import coords
 
-    T = coords.align_to_orbit(_simple_spdf._progenitor)
+    T = _simple_spdf._progenitor.align_to_orbit()
     numpy.random.seed(31)
     track = _simple_spdf.streamTrack(n=1500, tail="leading", custom_transform=T, ntp=41)
     tp0 = track.tp_grid()[len(track.tp_grid()) // 2]
@@ -1734,7 +1734,7 @@ def test_streamTrack_plot_spread_non_cartesian(_simple_spdf):
     matplotlib.use("Agg")
     from galpy.util import coords
 
-    T = coords.align_to_orbit(_simple_spdf._progenitor)
+    T = _simple_spdf._progenitor.align_to_orbit()
     numpy.random.seed(33)
     track = _simple_spdf.streamTrack(n=1200, tail="leading", custom_transform=T, ntp=31)
     for d2 in (
@@ -1765,7 +1765,7 @@ def test_streamTrack_custom_accessors_no_physical(_simple_spdf):
     # helper inside each accessor).
     from galpy.util import coords
 
-    T = coords.align_to_orbit(_simple_spdf._progenitor)
+    T = _simple_spdf._progenitor.align_to_orbit()
     numpy.random.seed(41)
     track = _simple_spdf.streamTrack(n=1000, tail="leading", custom_transform=T)
     track.turn_physical_off()
