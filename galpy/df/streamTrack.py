@@ -137,7 +137,7 @@ def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
     return interpolate.UnivariateSpline(xv, yv, w=1.0 / sv, s=s_val, k=3), s_val
 
 
-def _closest_point_on_curve(points, curve, curve_t, mask=None):
+def _closest_point_on_curve(points, curve, curve_t, mask=None, velocity_weight=1.0):
     """For each point in ``points`` (N, D), find the index of the closest
     entry in ``curve`` (M, D) and return the corresponding time
     ``curve_t[idx]``. Works for any dimensionality D.
@@ -146,9 +146,19 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None):
     per query). When a per-particle ``mask`` of shape (N, M) is given,
     queries K nearest neighbors and picks the closest allowed one,
     growing K until every point has a match.
+
+    ``velocity_weight`` (default 1.0): when D == 6, scale the velocity
+    components (last 3 columns) by this factor before computing distances.
+    See :func:`_fit_track_from_particles` for usage and ``'auto'`` mode.
     """
     from scipy.spatial import cKDTree
 
+    if velocity_weight != 1.0 and curve.shape[1] == 6:
+        sc = numpy.array(
+            [1.0, 1.0, 1.0, velocity_weight, velocity_weight, velocity_weight]
+        )
+        curve = curve * sc
+        points = points * sc
     tree = cKDTree(curve)
     if mask is None:
         _, idx = tree.query(points, k=1)
@@ -277,6 +287,7 @@ def _fit_track_from_particles(
     smoothing_factor=1.0,
     niter=0,
     order=2,
+    velocity_weight="auto",
 ):
     """Run the full closest-point projection + offset smoothing fit.
 
@@ -285,6 +296,18 @@ def _fit_track_from_particles(
     ``cov_xyz`` (None for ``order=1``), ``smoothing_s``, and
     ``particles`` (the raw ``(xv, dt)`` tuple). ``smoothing_factor`` (>0)
     scales every spline's effective ``s`` after GCV / explicit-s choice.
+
+    ``velocity_weight`` (float or ``'auto'``, default ``'auto'``): scale
+    velocity components in the 6D distance during closest-point search.
+    Values > 1 make velocity matches more important than position
+    matches — useful when the progenitor orbit revisits regions of
+    phase space (e.g., near apocenter under strong perturbations). When
+    ``'auto'`` (the default), runs a probe pass with weight 1, computes
+    σ_pos and σ_vel from the inner half of particles (where the
+    assignment is unambiguous), and uses ``σ_pos / σ_vel`` (clipped to
+    ``[1, 10]``) as the weight for the actual fit. The auto value
+    typically lands at ~2–3 for both clean and perturbed streams. Pass
+    ``1.0`` for the legacy unweighted Galpy-natural-units metric.
     """
     track_t_grid = numpy.asarray(track_t_grid, dtype=float)
     prog_cart = numpy.asarray(track_prog_cart, dtype=float)
@@ -336,8 +359,51 @@ def _fit_track_from_particles(
     sign_mask = (track_t_grid * arm_sign) >= 0
     dt_mask = numpy.abs(track_t_grid)[None, :] <= dt[:, None]
     mask = sign_mask[None, :] & dt_mask
+
+    # Resolve velocity_weight='auto' from a probe pass. Use the inner-half
+    # of particles (smaller |tp_assign|) where the assignment is unambiguous,
+    # and set weight = σ_pos / σ_vel (clipped to [1, 10]). This makes the
+    # 6D metric scale-invariant w.r.t. arbitrary ro/vo choices.
+    if isinstance(velocity_weight, str):
+        if velocity_weight != "auto":
+            raise ValueError(
+                f"velocity_weight= must be a float or 'auto', got {velocity_weight!r}"
+            )
+        probe_tp = _closest_point_on_curve(
+            particles_cart, prog_cart, track_t_grid, mask=mask
+        )
+        abs_probe = numpy.abs(probe_tp)
+        if abs_probe.size >= 20 and abs_probe.max() > 0:
+            inner_cut = numpy.median(abs_probe)
+            inner = abs_probe <= inner_cut
+            inner_n = int(inner.sum())
+            if inner_n >= 10:
+                # Closest grid index for each inner particle's tp
+                idx_inner = numpy.argmin(
+                    numpy.abs(track_t_grid[None, :] - probe_tp[inner, None]), axis=1
+                )
+                prog_at_inner = prog_cart[idx_inner]
+                dpos = particles_cart[inner, :3] - prog_at_inner[:, :3]
+                dvel = particles_cart[inner, 3:] - prog_at_inner[:, 3:]
+                sigma_pos = numpy.sqrt(numpy.mean(numpy.sum(dpos**2, axis=1)))
+                sigma_vel = numpy.sqrt(numpy.mean(numpy.sum(dvel**2, axis=1)))
+                if sigma_vel > 0:
+                    velocity_weight = float(
+                        numpy.clip(sigma_pos / sigma_vel, 1.0, 10.0)
+                    )
+                else:
+                    velocity_weight = 1.0
+            else:
+                velocity_weight = 1.0
+        else:
+            velocity_weight = 1.0
+
     tp_assign = _closest_point_on_curve(
-        particles_cart, prog_cart, track_t_grid, mask=mask
+        particles_cart,
+        prog_cart,
+        track_t_grid,
+        mask=mask,
+        velocity_weight=velocity_weight,
     )
 
     # Drop particles whose closest point hit the far boundary of the searched
@@ -395,7 +461,12 @@ def _fit_track_from_particles(
         )
         if it < niter:
             track_cart = numpy.column_stack([track_xyz, track_vxvyvz])
-            tp_assign = _closest_point_on_curve(particles_cart, track_cart, tp_grid)
+            tp_assign = _closest_point_on_curve(
+                particles_cart,
+                track_cart,
+                tp_grid,
+                velocity_weight=velocity_weight,
+            )
             # Re-trim tp_grid / tp_nodes from the new assignment. This lets
             # iteration usefully shrink the public range when outliers
             # collapse onto the bulk; without this, the smoothed track
@@ -557,6 +628,7 @@ class StreamTrack:
         smoothing_factor=1.0,
         niter=0,
         order=2,
+        velocity_weight="auto",
         custom_transform=None,
         ro=None,
         vo=None,
@@ -621,6 +693,13 @@ class StreamTrack:
             particles to the closest point on the current track.
         order : int, optional
             ``1`` = mean only, ``2`` = mean + covariance.
+        velocity_weight : float or ``'auto'``, optional
+            Multiplicative weight applied to velocity components when
+            computing 6D distances in the closest-point projection.
+            Default ``'auto'`` learns the weight from the inner-half
+            particle dispersion (``σ_pos / σ_vel``, clipped to
+            ``[1, 10]``); see ``streamspraydf.streamTrack`` for
+            motivation. Pass ``1.0`` for the legacy unweighted metric.
         custom_transform : array, shape (3, 3), optional
             Rotation from equatorial to a custom sky frame. Forwarded to
             the base ``__init__``.
@@ -650,6 +729,7 @@ class StreamTrack:
             smoothing_factor=smoothing_factor,
             niter=niter,
             order=order,
+            velocity_weight=velocity_weight,
         )
         inst = cls(
             tp_grid=fit["tp_grid"],

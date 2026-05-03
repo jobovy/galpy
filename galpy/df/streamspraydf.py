@@ -229,6 +229,7 @@ class basestreamspraydf(df):
         smoothing_factor=1.0,
         niter=0,
         order=2,
+        velocity_weight="auto",
         custom_transform=None,
     ):
         """
@@ -295,6 +296,18 @@ class basestreamspraydf(df):
             particles to the closest point on the current track.
         order : int, optional
             1 = mean only, 2 = mean + covariance (default).
+        velocity_weight : float or ``'auto'``, optional
+            Multiplicative weight applied to velocity components when
+            computing 6D distances during the closest-point projection.
+            Default ``'auto'`` learns the weight from the inner-half
+            particle dispersion (``σ_pos / σ_vel``, clipped to
+            ``[1, 10]``); typically lands at ~2–3 for both clean and
+            perturbed streams. Values > 1 make velocity matches more
+            important than position matches — useful when the
+            progenitor orbit revisits regions of phase space (e.g., in
+            strongly-perturbed potentials with a massive LMC). Pass
+            ``1.0`` for the legacy unweighted Galpy-natural-units
+            metric.
 
         Returns
         -------
@@ -406,6 +419,7 @@ class basestreamspraydf(df):
                 smoothing_factor=smoothing_factor,
                 niter=niter,
                 order=order,
+                velocity_weight=velocity_weight,
                 custom_transform=custom_transform,
                 ro=prog_ro,
                 vo=prog_vo,

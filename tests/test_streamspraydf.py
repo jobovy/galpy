@@ -1478,13 +1478,27 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
     # than smoothing_factor=1; <1 must produce a rougher fit. Sample once
     # and reuse via particles= so we isolate the smoothing step.
     numpy.random.seed(33)
-    tr_default = _simple_spdf.streamTrack(n=800, ntp=21, tail="leading")
+    # Pin velocity_weight=1.0 so this test is specifically about the
+    # smoothing_factor knob, not entangled with the velocity_weight='auto'
+    # default (which slightly shifts the per-bin variances that GCV uses
+    # to pick s, changing the absolute scale of smoothing_s).
+    tr_default = _simple_spdf.streamTrack(
+        n=800, ntp=21, tail="leading", velocity_weight=1.0
+    )
     xv, dt = tr_default.particles
     tr_smoother = _simple_spdf.streamTrack(
-        particles=(xv, dt), ntp=21, tail="leading", smoothing_factor=2.0
+        particles=(xv, dt),
+        ntp=21,
+        tail="leading",
+        smoothing_factor=2.0,
+        velocity_weight=1.0,
     )
     tr_rougher = _simple_spdf.streamTrack(
-        particles=(xv, dt), ntp=21, tail="leading", smoothing_factor=0.5
+        particles=(xv, dt),
+        ntp=21,
+        tail="leading",
+        smoothing_factor=0.5,
+        velocity_weight=1.0,
     )
     # Ratio of effective s over the six mean splines (skip entries where
     # the default s is so small the rerun underflows). The cov splines
@@ -1512,7 +1526,11 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
     # uses the passed sample directly, so track_t_grid differs at the
     # 1e-5 level — well below any physical scale).
     tr_unity = _simple_spdf.streamTrack(
-        particles=(xv, dt), ntp=21, tail="leading", smoothing_factor=1.0
+        particles=(xv, dt),
+        ntp=21,
+        tail="leading",
+        smoothing_factor=1.0,
+        velocity_weight=1.0,
     )
     tps = tr_default.tp_grid()
     assert numpy.max(numpy.abs(tr_default.x(tps) - tr_unity.x(tps))) < 1e-3
@@ -1526,6 +1544,7 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
         tail="leading",
         smoothing=tr_smoother.smoothing_s,
         smoothing_factor=1.0,
+        velocity_weight=1.0,
     )
     assert numpy.max(numpy.abs(tr_smoother.x(tps) - tr_reuse.x(tps))) < 1e-3
 
