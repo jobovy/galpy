@@ -354,22 +354,28 @@ def _fit_track_from_particles(
     # Trim the public tp grid to the percentile range where the binned data
     # supports a fit (outliers at extreme |tp| produce sparse boundary bins).
     trim_percentile = 99.0
-    if arm_sign > 0:
-        tp_lo = 0.0
-        tp_hi = float(numpy.percentile(tp_assign, trim_percentile))
-    else:
-        tp_hi = 0.0
-        tp_lo = float(numpy.percentile(tp_assign, 100.0 - trim_percentile))
-    if tp_hi - tp_lo < 1e-12:  # pragma: no cover (defensive)
-        tp_lo = float(track_t_grid[0])
-        tp_hi = float(track_t_grid[-1])
+
+    def _trim_grid(tp_assign_arr):
+        if arm_sign > 0:
+            tp_lo_ = 0.0
+            tp_hi_ = float(numpy.percentile(tp_assign_arr, trim_percentile))
+        else:
+            tp_hi_ = 0.0
+            tp_lo_ = float(numpy.percentile(tp_assign_arr, 100.0 - trim_percentile))
+        if tp_hi_ - tp_lo_ < 1e-12:  # pragma: no cover (defensive)
+            tp_lo_ = float(track_t_grid[0])
+            tp_hi_ = float(track_t_grid[-1])
+        return tp_lo_, tp_hi_
+
+    tp_lo, tp_hi = _trim_grid(tp_assign)
     tp_grid = numpy.linspace(tp_lo, tp_hi, ninterp)
 
     # Binning nodes. Default: ~sqrt(N), clipped to [21, 201].
     n_part = particles_cart.shape[0]
     if ntp is None:
         ntp = int(max(21, min(201, round(numpy.sqrt(n_part)))))
-    tp_nodes = numpy.linspace(tp_lo, tp_hi, int(ntp))
+    ntp_int = int(ntp)
+    tp_nodes = numpy.linspace(tp_lo, tp_hi, ntp_int)
 
     track_xyz = None
     track_vxvyvz = None
@@ -390,6 +396,14 @@ def _fit_track_from_particles(
         if it < niter:
             track_cart = numpy.column_stack([track_xyz, track_vxvyvz])
             tp_assign = _closest_point_on_curve(particles_cart, track_cart, tp_grid)
+            # Re-trim tp_grid / tp_nodes from the new assignment. This lets
+            # iteration usefully shrink the public range when outliers
+            # collapse onto the bulk; without this, the smoothed track
+            # extrapolates past the new particle support and can produce
+            # phantom kinks worse than the unfit baseline.
+            tp_lo, tp_hi = _trim_grid(tp_assign)
+            tp_grid = numpy.linspace(tp_lo, tp_hi, ninterp)
+            tp_nodes = numpy.linspace(tp_lo, tp_hi, ntp_int)
 
     return {
         "tp_grid": tp_grid,
