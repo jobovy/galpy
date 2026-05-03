@@ -1,7 +1,9 @@
+import warnings
+
 import numpy
 from scipy import interpolate
 
-from ..util import config, conversion, coords
+from ..util import config, conversion, coords, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import physical_conversion
 
@@ -416,6 +418,51 @@ def _fit_track_from_particles(
     interior = numpy.abs(tp_assign - far_edge) > 1e-3 * arc_span
     tp_assign = tp_assign[interior]
     particles_cart = particles_cart[interior]
+
+    # Sanity check: detect a histogram gap in tp_assign — a hallmark of
+    # closest-point assignments that landed on a far-away revisit of the
+    # progenitor orbit (e.g., particles projected past an apocentric kink in
+    # a perturbed potential). Histogram into ~30 bins between
+    # min(|tp|) and max(|tp|); look for a contiguous run of empty bins
+    # whose total span exceeds 25% of the populated range. If found, warn.
+    abs_tp = numpy.abs(tp_assign)
+    if abs_tp.size >= 30 and abs_tp.max() > 0:
+        nb = 30
+        edges = numpy.linspace(abs_tp.min(), abs_tp.max(), nb + 1)
+        counts, _ = numpy.histogram(abs_tp, bins=edges)
+        # Find the longest run of zero-count bins
+        zero = counts == 0
+        max_run = 0
+        run = 0
+        for z in zero:
+            if z:
+                run += 1
+                if run > max_run:
+                    max_run = run
+            else:
+                run = 0
+        gap_span = max_run * (edges[1] - edges[0])
+        populated_span = abs_tp.max() - abs_tp.min()
+        n_far = int((abs_tp > abs_tp.max() - gap_span).sum())
+        # Require BOTH a substantial gap AND substantial mass past it.
+        # 0.35% would be normal stragglers; 1% indicates a structural issue.
+        if (
+            populated_span > 0
+            and gap_span / populated_span > 0.25
+            and n_far / abs_tp.size > 0.01
+        ):
+            warnings.warn(
+                f"streamTrack: tp_assign histogram has a gap spanning "
+                f"{gap_span / populated_span:.0%} of the populated range. "
+                f"{n_far} of {abs_tp.size} particles ({n_far / abs_tp.size:.1%}) "
+                "are isolated past the gap and will pile up at the boundary "
+                "of the smoothed track, likely producing a kink. This "
+                "typically happens when the progenitor orbit revisits its "
+                "phase-space trajectory (e.g., near apocenter under strong "
+                "perturbation). Consider passing velocity_weight>=2 (preferred), "
+                "or niter>=2 with the per-iteration retrim, or both.",
+                galpyWarning,
+            )
 
     # Trim the public tp grid to the percentile range where the binned data
     # supports a fit (outliers at extreme |tp| produce sparse boundary bins).
