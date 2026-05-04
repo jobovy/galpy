@@ -96,6 +96,26 @@ jobs:
         with:
           path: doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits
           key: gaia-dr3-solar-neighborhood-v1
+      - name: Refresh Dierickx 2010 cache on scheduled runs
+        # Delete the cached Vizier query result so the orbit/examples notebook
+        # re-runs the query and stores fresh data. On non-scheduled runs we
+        # skip this so the cached result is reused and the Vizier query (which
+        # has been observed to fail intermittently in CI) is avoided.
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: |
+          gh cache delete dierickx-2010-thick-disk-v1 --repo "${{ github.repository }}" \
+            || echo "No prior Dierickx 2010 cache to delete."
+      - name: Cache Dierickx 2010 thick-disk catalog
+        # Speeds the orbit/examples notebook up and avoids transient Vizier
+        # failures on routine runs. Refreshed by the scheduled workflow above
+        # (and on first run).
+        uses: actions/cache@v5
+        with:
+          path: doc/source/tutorials/orbits/dierickx_2010_thick_disk.fits
+          key: dierickx-2010-thick-disk-v1
       - name: Strip notebook outputs
         run: |
           for nb in $(find doc/source/tutorials -name '*.ipynb'); do
