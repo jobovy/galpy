@@ -221,7 +221,7 @@ jobs:
         echo "CONDA_PREFIX=$CONDA_PREFIX" >> $GITHUB_ENV # necessary for gsl-config.bat to find GSL paths
     - name: Install Python dependencies
       run: |
-         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
+         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
@@ -248,7 +248,7 @@ jobs:
       run: pip install jax jaxlib
     - name: Install package
       run: |
-        python -m pip install -ve .
+        python -m pip install -ve ".[test]"
     - name: Print debug info
       shell: pwsh
       env:
@@ -269,7 +269,6 @@ jobs:
           REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
           MPLBACKEND: Agg
       run: |
-        pip install pytest-cov
         # Turn astropy deprecation warnings into errors as well if astropy
         if $REQUIRES_ASTROPY; then export PYTEST_ADDOPTS="-W error::astropy.utils.exceptions.AstropyDeprecationWarning"; else export PYTEST_ADDOPTS=""; fi
         export PILLOW_DEPRECATION="-W ignore:\"'mode' parameter is deprecated and will be removed in Pillow 13 (2026-10-15)\":DeprecationWarning"

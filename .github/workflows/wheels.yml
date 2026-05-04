@@ -138,7 +138,7 @@ jobs:
           echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Install wheel
         shell: bash
-        run: python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
+        run: python -m pip install "$(echo "$(pwd)"/wheelhouse/*.whl)[test]"
       - name: Print installed version
         shell: bash
         working-directory: ${{ runner.temp }}
@@ -147,7 +147,7 @@ jobs:
         shell: bash
         working-directory: ${{ runner.temp }}
         run: |
-          pip install astropy pytest
+          pip install astropy
           pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
       # Test that built wheels also work in a conda environment, setup environment, install wheel, and run test
       - name: Setup test conda environment (Linux / Mac OS)
@@ -165,14 +165,14 @@ jobs:
         if: matrix.buildplat[1] == 'win'
         shell: bash -l {0}
         run: |
-          micromamba create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest gsl
+          micromamba create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy gsl
           micromamba activate test-wheel-conda
           echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
       - name: Install built wheel in conda environment
         shell: bash -l {0}
         run: |
           micromamba activate test-wheel-conda
-          python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
+          python -m pip install "$(echo "$(pwd)"/wheelhouse/*.whl)[test]"
       - name: Print installed version
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
@@ -221,7 +221,7 @@ jobs:
         with:
           name: sdist
       - name: Build from sdist
-        run: python -m pip install -v galpy*.tar.gz
+        run: python -m pip install -v "galpy*.tar.gz[test]"
       - name: Run simple test
         working-directory: ${{ runner.temp }}
         run: |

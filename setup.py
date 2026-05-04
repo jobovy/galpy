@@ -405,13 +405,14 @@ setup(
     python_requires=">=3.10",
     install_requires=["packaging", "numpy>=1.7", "scipy", "matplotlib"],
     extras_require={
+        "test": ["pytest", "coverage", "pytest-cov", "pytest-rerunfailures"],
         "docs": [
             "sphinxext-opengraph",
             "sphinx-design",
             "markupsafe==2.0.1",
             "nbsphinx",
             "ipykernel",
-        ]
+        ],
     },
     ext_modules=ext_modules if not no_compiler and not no_ext else None,
     classifiers=[

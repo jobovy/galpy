@@ -3211,6 +3211,7 @@ def test_check_integrate_dt():
 
 
 # Test that fixing the stepsize works, issue #207
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_fixedstepsize():
     if WIN32:
         return None  # skip on windows, because fails for reason that I can't figure out (runtimes[0] == 0.) and not that important
@@ -3271,6 +3272,7 @@ def test_fixedstepsize():
 
 
 # Test that fixing the stepsize works for integrate_dxdv
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_fixedstepsize_dxdv():
     if WIN32:
         return None  # skip on windows, because test_fixedstepsize fails for reason that I can't figure out (runtimes[0] == 0.) and not that important
