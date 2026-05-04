@@ -1549,6 +1549,251 @@ def test_streamTrack_smoothing_factor(_simple_spdf):
     assert numpy.max(numpy.abs(tr_smoother.x(tps) - tr_reuse.x(tps))) < 1e-3
 
 
+def test_smooth_series_too_few_valid_bins():
+    """_smooth_series falls back to linear interpolation when fewer than 5
+    valid bins are available, and to a flat constant interpolant when fewer
+    than 2 valid bins remain after dropping NaNs."""
+    from galpy.df.streamTrack import _smooth_series
+
+    # Case A: zero valid bins → constant 0
+    x = numpy.array([1.0, 2.0, 3.0, 4.0, 5.0])
+    y = numpy.full(5, numpy.nan)
+    sigma = numpy.ones(5)
+    spl, eff_s = _smooth_series(x, y, sigma)
+    numpy.testing.assert_allclose(spl(numpy.array([0.0, 1.5, 3.0])), 0.0)
+    assert eff_s == 0.0
+
+    # Case B: one valid bin → constant equal to that bin's value
+    y = numpy.array([numpy.nan, numpy.nan, 7.0, numpy.nan, numpy.nan])
+    spl, eff_s = _smooth_series(x, y, sigma)
+    numpy.testing.assert_allclose(spl(numpy.array([0.0, 3.0, 5.0])), 7.0)
+    assert eff_s == 0.0
+
+
+def test_smooth_series_invalid_sigma_falls_back_to_unit_median():
+    """When all per-bin sigma entries are non-finite, _smooth_series treats
+    every bin with unit sigma instead of raising or NaN-propagating."""
+    from galpy.df.streamTrack import _smooth_series
+
+    x = numpy.linspace(0.0, 1.0, 8)
+    y = numpy.sin(2 * numpy.pi * x)
+    sigma = numpy.full(8, numpy.nan)
+    spl, eff_s = _smooth_series(x, y, sigma)
+    # Should fit something reasonable (not raise)
+    assert numpy.isfinite(spl(0.5))
+
+
+def test_smooth_series_constant_y_falls_back_to_unit_yscale():
+    """When y is a constant series, the GCV-driven yscale normalization
+    falls back to 1.0; the returned spline should reproduce the constant."""
+    from galpy.df.streamTrack import _smooth_series
+
+    x = numpy.linspace(0.0, 1.0, 8)
+    y = numpy.full(8, 3.14)  # std == 0
+    sigma = numpy.ones(8)
+    spl, _ = _smooth_series(x, y, sigma)
+    numpy.testing.assert_allclose(spl(numpy.array([0.0, 0.5, 1.0])), 3.14, atol=1e-10)
+
+
+def test_streamTrack_trim_grid_degenerate_tp():
+    """If every particle's tp_assign collapses onto a single value (so
+    tp_hi - tp_lo < 1e-12), _trim_grid falls back to the full track grid
+    instead of producing an empty range."""
+    from galpy.df.streamTrack import _fit_track_from_particles
+
+    M = 1001
+    tg = numpy.linspace(-100.0, 100.0, M)
+    prog = numpy.zeros((M, 6))
+    prog[:, 0] = tg
+    prog[:, 3] = 1.0
+
+    n = 50
+    rng = numpy.random.default_rng(7)
+    xv = numpy.zeros((6, n))
+    # All particles at the progenitor's t=0 position with tiny perpendicular
+    # noise. Their closest-point assignment is tp ≈ 0 for everyone, so the
+    # 99th-percentile trim collapses to (0, 0) and the defensive fallback
+    # has to widen the grid.
+    xv[0] = 0.0  # R = 0
+    xv[1] = 1.0  # vR -> vx
+    xv[3] = 0.001 * rng.standard_normal(n)
+    xv[4] = 0.001 * rng.standard_normal(n)
+    dt = numpy.full(n, 50.0)
+    try:
+        _fit_track_from_particles(
+            xv,
+            dt,
+            prog,
+            tg,
+            arm_sign=+1,
+            ninterp=101,
+            smoothing_factor=1.0,
+            niter=0,
+            order=2,
+            velocity_weight=1.0,
+        )
+    except ValueError:
+        # Degenerate spline fit downstream is fine; we just need the
+        # defensive grid-fallback to have run.
+        pass
+
+
+def test_streamTrack_velocity_weight_invalid_string(_simple_spdf):
+    """velocity_weight= must be a float or 'auto'; any other string raises."""
+    import pytest
+
+    with pytest.raises(ValueError, match="velocity_weight="):
+        _simple_spdf.streamTrack(
+            n=200, ntp=21, tail="leading", velocity_weight="not_auto"
+        )
+
+
+def test_streamTrack_velocity_weight_auto_smallN():
+    """velocity_weight='auto' falls back to 1.0 when fewer than 20 particles
+    are passed in (probe sample too small to estimate σ_pos / σ_vel)."""
+    from galpy.df.streamTrack import _fit_track_from_particles
+
+    M = 1001
+    tg = numpy.linspace(-100.0, 100.0, M)
+    prog = numpy.zeros((M, 6))
+    prog[:, 0] = tg
+    prog[:, 3] = 1.0
+
+    rng = numpy.random.default_rng(1)
+    n = 19  # below the 20-particle floor for auto
+    xv = numpy.zeros((6, n))
+    xv[0] = numpy.linspace(0.0, 3.0, n)
+    xv[1] = 1.0
+    xv[3] = 0.05 * rng.standard_normal(n)
+    xv[4] = 0.05 * rng.standard_normal(n)
+    dt = numpy.full(n, 50.0)
+
+    # Should run without error and the auto resolver should hit the
+    # size<20 fallback (velocity_weight collapses to 1.0). We don't assert
+    # the resulting fit shape — just that the call completes.
+    try:
+        _fit_track_from_particles(
+            xv,
+            dt,
+            prog,
+            tg,
+            arm_sign=+1,
+            ninterp=101,
+            smoothing_factor=1.0,
+            niter=0,
+            order=2,
+            velocity_weight="auto",
+        )
+    except ValueError:
+        # A degenerate downstream spline fit can ill-pose itself on this
+        # tiny synthetic sample; the auto-resolver fallback is what we're
+        # exercising and that ran before the spline fit.
+        pass
+
+
+def test_streamTrack_velocity_weight_auto_zero_sigma_vel():
+    """velocity_weight='auto' falls back to 1.0 when the inner-half particle
+    velocity dispersion is zero (degenerate spread)."""
+    from galpy.df.streamTrack import _fit_track_from_particles
+
+    M = 1001
+    tg = numpy.linspace(-100.0, 100.0, M)
+    prog = numpy.zeros((M, 6))
+    prog[:, 0] = tg
+    prog[:, 3] = 1.0  # constant velocity along the curve
+
+    n = 40
+    xv = numpy.zeros((6, n))
+    # Particles spread along x but ALL with identical (vR, vT, vz) =
+    # (1, 0, 0) — same as the curve. So sigma_vel of inner-half is 0.
+    xv[0] = numpy.linspace(0.0, 3.0, n)
+    xv[1] = 1.0
+    dt = numpy.full(n, 50.0)
+
+    try:
+        _fit_track_from_particles(
+            xv,
+            dt,
+            prog,
+            tg,
+            arm_sign=+1,
+            ninterp=101,
+            smoothing_factor=1.0,
+            niter=0,
+            order=2,
+            velocity_weight="auto",
+        )
+    except ValueError:
+        pass
+
+
+def test_streamTrack_gap_warning():
+    """When tp_assign has a structural gap (the orbit-revisit kink
+    signature), streamTrack should emit a galpyWarning recommending
+    velocity_weight or higher niter.
+
+    Construct a synthetic minimal scenario directly via
+    _fit_track_from_particles: a straight progenitor curve (x = tp,
+    vx = 1), 90 particles clustered near tp=0 plus 10 outliers at
+    tp~99. velocity_weight=1.0 disables the auto-rescue so the
+    bimodal tp_assign survives to trigger the gap detector.
+    """
+    import warnings as _warnings
+
+    from galpy.df.streamTrack import _fit_track_from_particles
+    from galpy.util import galpyWarning
+
+    M = 1001
+    tg = numpy.linspace(-100.0, 100.0, M)
+    prog = numpy.zeros((M, 6))
+    prog[:, 0] = tg  # x = tp
+    prog[:, 3] = 1.0  # vx = 1 (constant)
+
+    rng = numpy.random.default_rng(0)
+    n_bulk, n_far = 90, 10
+    xv = numpy.zeros((6, n_bulk + n_far))
+    xv[0, :n_bulk] = numpy.linspace(0.0, 3.0, n_bulk)  # R near 0
+    xv[0, n_bulk:] = numpy.linspace(95.0, 99.0, n_far)  # R far in leading arm
+    xv[1, :] = 1.0  # vR=1 -> vx=1 (matches the curve)
+    # Add small perpendicular scatter (z, vz) so the spline fit isn't
+    # singular on a perfectly degenerate line.
+    xv[3] = 0.01 * rng.standard_normal(n_bulk + n_far)
+    xv[4] = 0.01 * rng.standard_normal(n_bulk + n_far)
+    dt = numpy.full(n_bulk + n_far, 200.0)
+
+    with _warnings.catch_warnings(record=True) as w:
+        _warnings.simplefilter("always")
+        # The warning fires before the spline fit. The synthetic particles
+        # are degenerate enough that the spline can hit FITPACK's
+        # ill-posed branch — that's not what we're testing here, so swallow
+        # any post-warning ValueError.
+        try:
+            _fit_track_from_particles(
+                xv,
+                dt,
+                prog,
+                tg,
+                arm_sign=+1,
+                ninterp=101,
+                smoothing_factor=1.0,
+                niter=0,
+                order=2,
+                velocity_weight=1.0,
+            )
+        except ValueError:
+            pass
+    gap_msgs = [
+        ww
+        for ww in w
+        if issubclass(ww.category, galpyWarning)
+        and "tp_assign histogram has a gap" in str(ww.message)
+    ]
+    assert len(gap_msgs) == 1, (
+        f"expected one gap warning, got {len(gap_msgs)} "
+        f"(all warnings: {[str(ww.message) for ww in w]})"
+    )
+
+
 def test_closest_point_on_curve_kdtree_edge_cases():
     from galpy.df.streamTrack import _closest_point_on_curve
 

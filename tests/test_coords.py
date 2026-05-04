@@ -2919,6 +2919,28 @@ def test_galcenrect_to_galcencyl_jac():
     return None
 
 
+def test_galcenrect_to_galcencyl_jac_on_z_axis():
+    # On the z-axis (R=0) the Jacobian is singular; the implementation
+    # falls back to a tiny epsilon so the matrix stays finite. Check that
+    # the call returns a finite 6x6.
+    J = coords.galcenrect_to_galcencyl_jac(0.0, 0.0, 1.0, 10.0, 20.0, 30.0)
+    assert J.shape == (6, 6)
+    assert numpy.all(numpy.isfinite(J))
+
+
+def test_XYZ_to_lbd_jac_at_celestial_pole():
+    # When X = Y = 0 the heliocentric direction is the celestial pole
+    # and the (l, b) angular coordinates are undefined; the implementation
+    # should still produce a finite 3x3 (and 6x6 with velocities) without
+    # NaNs by picking an arbitrary tangent (cl, sl) = (1, 0).
+    J = coords.XYZ_to_lbd_jac(0.0, 0.0, 1.0)
+    assert J.shape == (3, 3)
+    assert numpy.all(numpy.isfinite(J))
+    J6 = coords.XYZ_to_lbd_jac(0.0, 0.0, 1.0, 10.0, 20.0, 30.0)
+    assert J6.shape == (6, 6)
+    assert numpy.all(numpy.isfinite(J6))
+
+
 def test_galsky_to_sky_jac():
     # Check against finite differences of (lb_to_radec, pmllpmbb_to_pmrapmdec)
     # at a generic point.

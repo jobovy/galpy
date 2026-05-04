@@ -81,7 +81,7 @@ def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
     xv = x[mask][order]
     yv = y[mask][order]
     if n_valid < 5:
-        if n_valid < 2:  # pragma: no cover (defensive: <2 valid bins)
+        if n_valid < 2:
             ref = float(yv[0]) if n_valid == 1 else 0.0
             xv = numpy.array([-1.0, 0.0])
             yv = numpy.array([ref, ref])
@@ -106,7 +106,7 @@ def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
             if numpy.any(numpy.isfinite(sig_safe))
             else numpy.nan
         )
-    if not numpy.isfinite(sig_med) or sig_med == 0:  # pragma: no cover
+    if not numpy.isfinite(sig_med) or sig_med == 0:
         sig_med = 1.0
     sv = numpy.where(numpy.isfinite(sig_safe), sig_safe, sig_med)[mask][order]
     sv = numpy.maximum(sv, 1e-12)
@@ -117,7 +117,7 @@ def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
         # signal-to-noise ratio held fixed. Galpy's covariance series in
         # internal units sit at 1e-5 to 1e-6 and were hitting this regime.
         yscale = float(numpy.nanstd(yv))
-        if not numpy.isfinite(yscale) or yscale == 0:  # pragma: no cover
+        if not numpy.isfinite(yscale) or yscale == 0:
             yscale = 1.0
         spl_n = interpolate.make_smoothing_spline(
             xv, yv / yscale, w=1.0 / ((sv / yscale) ** 2)
@@ -367,7 +367,7 @@ def _fit_track_from_particles(
     # and set weight = σ_pos / σ_vel (clipped to [1, 10]). This makes the
     # 6D metric scale-invariant w.r.t. arbitrary ro/vo choices.
     if isinstance(velocity_weight, str):
-        if velocity_weight != "auto":  # pragma: no cover (defensive)
+        if velocity_weight != "auto":
             raise ValueError(
                 f"velocity_weight= must be a float or 'auto', got {velocity_weight!r}"
             )
@@ -375,29 +375,24 @@ def _fit_track_from_particles(
             particles_cart, prog_cart, track_t_grid, mask=mask
         )
         abs_probe = numpy.abs(probe_tp)
+        # With size >= 20 the inner-half (median split) always has at least
+        # 10 entries, so we don't need a separate inner_n < 10 fallback.
         if abs_probe.size >= 20 and abs_probe.max() > 0:
-            inner_cut = numpy.median(abs_probe)
-            inner = abs_probe <= inner_cut
-            inner_n = int(inner.sum())
-            if inner_n >= 10:
-                # Closest grid index for each inner particle's tp
-                idx_inner = numpy.argmin(
-                    numpy.abs(track_t_grid[None, :] - probe_tp[inner, None]), axis=1
-                )
-                prog_at_inner = prog_cart[idx_inner]
-                dpos = particles_cart[inner, :3] - prog_at_inner[:, :3]
-                dvel = particles_cart[inner, 3:] - prog_at_inner[:, 3:]
-                sigma_pos = numpy.sqrt(numpy.mean(numpy.sum(dpos**2, axis=1)))
-                sigma_vel = numpy.sqrt(numpy.mean(numpy.sum(dvel**2, axis=1)))
-                if sigma_vel > 0:
-                    velocity_weight = float(
-                        numpy.clip(sigma_pos / sigma_vel, 1.0, 10.0)
-                    )
-                else:  # pragma: no cover (defensive)
-                    velocity_weight = 1.0
-            else:  # pragma: no cover (defensive)
+            inner = abs_probe <= numpy.median(abs_probe)
+            # Closest grid index for each inner particle's tp
+            idx_inner = numpy.argmin(
+                numpy.abs(track_t_grid[None, :] - probe_tp[inner, None]), axis=1
+            )
+            prog_at_inner = prog_cart[idx_inner]
+            dpos = particles_cart[inner, :3] - prog_at_inner[:, :3]
+            dvel = particles_cart[inner, 3:] - prog_at_inner[:, 3:]
+            sigma_pos = numpy.sqrt(numpy.mean(numpy.sum(dpos**2, axis=1)))
+            sigma_vel = numpy.sqrt(numpy.mean(numpy.sum(dvel**2, axis=1)))
+            if sigma_vel > 0:
+                velocity_weight = float(numpy.clip(sigma_pos / sigma_vel, 1.0, 10.0))
+            else:
                 velocity_weight = 1.0
-        else:  # pragma: no cover (defensive)
+        else:
             velocity_weight = 1.0
 
     tp_assign = _closest_point_on_curve(
@@ -475,7 +470,7 @@ def _fit_track_from_particles(
         else:
             tp_hi_ = 0.0
             tp_lo_ = float(numpy.percentile(tp_assign_arr, 100.0 - trim_percentile))
-        if tp_hi_ - tp_lo_ < 1e-12:  # pragma: no cover (defensive)
+        if tp_hi_ - tp_lo_ < 1e-12:
             tp_lo_ = float(track_t_grid[0])
             tp_hi_ = float(track_t_grid[-1])
         return tp_lo_, tp_hi_

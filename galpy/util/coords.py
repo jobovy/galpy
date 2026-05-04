@@ -1878,7 +1878,7 @@ def XYZ_to_lbd_jac(*args, **kwargs):
     sb = Z / D
     # On the celestial pole (r==0) ``l`` is undefined; pick (cl, sl) = (1, 0)
     # so the spatial inverse stays finite (consistent with atan2(0, 0) = 0).
-    if r == 0.0:  # pragma: no cover (defensive: mean track never lands on the pole)
+    if r == 0.0:
         cl, sl = 1.0, 0.0
     else:
         cl = X / r
@@ -1968,7 +1968,7 @@ def galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz):
     - 2026-04-26 - Written - Bovy (UofT)
     """
     R = numpy.sqrt(x * x + y * y)
-    if R == 0.0:  # pragma: no cover (track never sits exactly on z axis)
+    if R == 0.0:
         R = 1e-30
     cp = x / R
     sp = y / R
