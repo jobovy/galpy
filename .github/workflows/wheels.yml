@@ -138,7 +138,7 @@ jobs:
           echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Install wheel
         shell: bash
-        run: python -m pip install "$(echo "$(pwd)"/wheelhouse/*.whl)[test]"
+        run: python -m pip install "$(ls "$(pwd)"/wheelhouse/*.whl)[test]"
       - name: Print installed version
         shell: bash
         working-directory: ${{ runner.temp }}
@@ -172,7 +172,7 @@ jobs:
         shell: bash -l {0}
         run: |
           micromamba activate test-wheel-conda
-          python -m pip install "$(echo "$(pwd)"/wheelhouse/*.whl)[test]"
+          python -m pip install "$(ls "$(pwd)"/wheelhouse/*.whl)[test]"
       - name: Print installed version
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
