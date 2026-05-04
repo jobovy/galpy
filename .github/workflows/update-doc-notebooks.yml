@@ -157,6 +157,15 @@ jobs:
         with:
           path: doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits
           key: gaia-dr3-solar-neighborhood-v1
+      - name: Restore Dierickx 2010 thick-disk cache
+        # Restore-only: refreshed by test-doc-notebooks's scheduled run. We
+        # just consume whatever it stored so the orbit/examples notebook
+        # avoids the Vizier query, which has been observed to fail
+        # intermittently in CI.
+        uses: actions/cache/restore@v5
+        with:
+          path: doc/source/tutorials/orbits/dierickx_2010_thick_disk.fits
+          key: dierickx-2010-thick-disk-v1
       - name: Execute tutorial notebooks in place
         id: execute-notebooks
         # Failures are tolerated: notebooks that error out (e.g. because of
