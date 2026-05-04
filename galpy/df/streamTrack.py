@@ -367,7 +367,7 @@ def _fit_track_from_particles(
     # and set weight = σ_pos / σ_vel (clipped to [1, 10]). This makes the
     # 6D metric scale-invariant w.r.t. arbitrary ro/vo choices.
     if isinstance(velocity_weight, str):
-        if velocity_weight != "auto":
+        if velocity_weight != "auto":  # pragma: no cover (defensive)
             raise ValueError(
                 f"velocity_weight= must be a float or 'auto', got {velocity_weight!r}"
             )
@@ -393,11 +393,11 @@ def _fit_track_from_particles(
                     velocity_weight = float(
                         numpy.clip(sigma_pos / sigma_vel, 1.0, 10.0)
                     )
-                else:
+                else:  # pragma: no cover (defensive)
                     velocity_weight = 1.0
-            else:
+            else:  # pragma: no cover (defensive)
                 velocity_weight = 1.0
-        else:
+        else:  # pragma: no cover (defensive)
             velocity_weight = 1.0
 
     tp_assign = _closest_point_on_curve(
