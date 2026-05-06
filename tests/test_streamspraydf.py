@@ -1940,6 +1940,32 @@ def test_streamTrack_custom_transform(_simple_spdf):
         track_bare.phi1(tp0)
     with pytest.raises(RuntimeError):
         track_bare.pmphi1(tp0)
+    # ...but the custom_transform property can be set after construction
+    # to enable the custom-frame accessors.
+    assert track_bare.custom_transform is None
+    track_bare.custom_transform = T
+    assert numpy.allclose(track_bare.custom_transform, T)
+    val = float(track_bare.phi1(tps[:3])[0])
+    assert numpy.isfinite(val)
+    # And clearing back to None re-disables them.
+    track_bare.custom_transform = None
+    with pytest.raises(RuntimeError):
+        track_bare.phi1(tp0)
+
+
+def test_streamTrackPair_custom_transform_setter(_simple_spdf):
+    # StreamTrackPair.custom_transform should broadcast to both arms.
+    T = _simple_spdf._progenitor.align_to_orbit()
+    numpy.random.seed(24)
+    pair = _simple_spdf.streamTrack(n=1200, tail="both")
+    assert pair.custom_transform is None
+    pair.custom_transform = T
+    assert numpy.allclose(pair.leading.custom_transform, T)
+    assert numpy.allclose(pair.trailing.custom_transform, T)
+    assert numpy.allclose(pair.custom_transform, T)
+    tp0 = pair.leading.tp_grid()[3]
+    assert numpy.isfinite(float(pair.leading.phi1(tp0)))
+    assert numpy.isfinite(float(pair.trailing.phi1(-tp0)))
 
 
 def test_streamTrack_cov_basis(_simple_spdf):

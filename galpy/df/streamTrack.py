@@ -1478,6 +1478,18 @@ class StreamTrack:
     # -----------------------------------------------------------------
     # Custom sky frame (requires ``custom_transform`` to be set)
     # -----------------------------------------------------------------
+    @property
+    def custom_transform(self):
+        """3x3 rotation matrix from (ra, dec) to the custom sky frame, or
+        None. Settable post-construction: assigning a new matrix updates
+        the frame used by the ``phi1``/``phi2``/``pmphi1``/``pmphi2``
+        accessors and by ``plot``/``cov`` in the ``customsky`` basis."""
+        return self._custom_transform
+
+    @custom_transform.setter
+    def custom_transform(self, T):
+        self._custom_transform = None if T is None else numpy.asarray(T, dtype=float)
+
     def _require_custom(self):
         if self._custom_transform is None:
             raise RuntimeError(
@@ -1485,7 +1497,9 @@ class StreamTrack:
                 "the phi1/phi2/pmphi1/pmphi2 accessors require a rotation "
                 "matrix (3x3) from (ra, dec) to the custom sky frame. "
                 "See galpy.util.coords.align_to_orbit for a helper that "
-                "builds one from a progenitor Orbit."
+                "builds one from a progenitor Orbit. You can also assign "
+                "to the ``custom_transform`` attribute on an existing "
+                "track to set or replace the matrix after construction."
             )
 
     def _radec_internal(self, tp):
@@ -2037,6 +2051,18 @@ class StreamTrackPair:
         xv_l, dt_l = self.leading.particles
         xv_t, dt_t = self.trailing.particles
         return numpy.hstack([xv_l, xv_t]), numpy.concatenate([dt_l, dt_t])
+
+    @property
+    def custom_transform(self):
+        """3x3 rotation matrix shared by both arms (returns the leading
+        arm's). Settable: assigning broadcasts the new matrix to both
+        :class:`StreamTrack` instances."""
+        return self.leading.custom_transform
+
+    @custom_transform.setter
+    def custom_transform(self, T):
+        self.leading.custom_transform = T
+        self.trailing.custom_transform = T
 
     def turn_physical_on(self, ro=None, vo=None):
         self.leading.turn_physical_on(ro=ro, vo=vo)
