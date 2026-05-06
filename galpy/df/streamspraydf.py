@@ -8,6 +8,7 @@ from ..potential import MovingObjectPotential, evaluateRforces, rtide
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+from .streamTrack import StreamTrack, StreamTrackPair
 
 if _APY_LOADED:
     from astropy import units
@@ -65,6 +66,16 @@ class basestreamspraydf(df):
         - 2021-05-05 - Added center keyword - Yansong Qian (UofT)
         - 2024-08-11 - Generalized to allow different particle-spray methods - Yingtian Chen (UMich)
         """
+        # If ro/vo are not explicitly given, inherit them from the
+        # progenitor's settings so that streamspraydf and progenitor
+        # share a single physical-conversion convention. (zo/solarmotion
+        # don't enter the spray itself; streamTrack sources them from
+        # the progenitor at construction time.)
+        if progenitor is not None:
+            if ro is None and progenitor._roSet:
+                ro = progenitor._ro
+            if vo is None and progenitor._voSet:
+                vo = progenitor._vo
         super().__init__(ro=ro, vo=vo)
         # Handle leading= deprecation
         if leading is not None:
@@ -133,6 +144,7 @@ class basestreamspraydf(df):
         else:
             self._center = None
         if progpot is not None:
+            self._orig_pot = self._pot  # save pre-progpot for streamTrack
             progtrajpot = MovingObjectPotential(
                 orbit=self._progenitor,
                 pot=progpot,
@@ -143,7 +155,7 @@ class basestreamspraydf(df):
 
         return None
 
-    def sample(self, n, return_orbit=True, returndt=False, integrate=True):
+    def sample(self, n, return_orbit=True, returndt=False, integrate=True, tail=None):
         """
         Sample from the DF
 
@@ -157,6 +169,8 @@ class basestreamspraydf(df):
             If True, also return the time since the star was stripped. Default is False.
         integrate : bool, optional
             If True, integrate the orbits to the present time. If False, return positions at stripping (probably want to combine with returndt=True then to make sense of them!). Default is True.
+        tail : str, optional
+            ``'leading'``, ``'trailing'``, or ``'both'`` to override the default set at class initialization. Default is None (use the value of ``tail=`` from ``__init__``). The progenitor is integrated identically for either arm, so any override value works regardless of the initialization choice.
 
         Returns
         -------
@@ -168,8 +182,14 @@ class basestreamspraydf(df):
         - 2018-07-31 - Written - Bovy (UofT)
         - 2022-05-18 - Made output Orbit ro/vo/zo/solarmotion/roSet/voSet match that of the progenitor orbit - Bovy (UofT)
         - 2024-08-11 - Include the progenitor's potential - Yingtian Chen (Umich)
+        - 2026-04-28 - Added ``tail`` keyword override to match ``streamTrack`` - Bovy (UofT)
         """
-        if self._tail == "both":
+        tail = self._tail if tail is None else tail
+        if tail not in ("leading", "trailing", "both"):
+            raise ValueError(
+                f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
+            )
+        if tail == "both":
             n_leading = n // 2
             n_trailing = n - n_leading
             out_l, dt_l = self._sample_tail(n_leading, integrate, leading=True)
@@ -177,7 +197,7 @@ class basestreamspraydf(df):
             out = numpy.hstack([out_l, out_t])
             dt = numpy.concatenate([dt_l, dt_t])
         else:
-            out, dt = self._sample_tail(n, integrate, leading=self._tail == "leading")
+            out, dt = self._sample_tail(n, integrate, leading=tail == "leading")
         if return_orbit:
             # Output Orbit ro/vo/zo/solarmotion/roSet/voSet match progenitor
             o = Orbit(
@@ -206,6 +226,239 @@ class basestreamspraydf(df):
             return (out, dt)
         else:
             return out
+
+    def streamTrack(
+        self,
+        n=5000,
+        particles=None,
+        tail=None,
+        track_time_range=None,
+        ntp=None,
+        smoothing=None,
+        smoothing_factor=1.0,
+        niter=0,
+        order=2,
+        velocity_weight="auto",
+        custom_transform=None,
+    ):
+        """
+        Construct a smooth phase-space track through the stream by sampling
+        particles and projecting them onto a finely-integrated progenitor
+        orbit.
+
+        The track is parameterized by the progenitor's time coordinate
+        ``tp``: ``tp=0`` is the progenitor today, ``tp<0`` are past
+        positions (matched by the trailing arm) and ``tp>0`` are future
+        positions (matched by the leading arm). Because stream particles
+        have small velocity offsets from the progenitor, they lie spatially
+        close to a short arc of the progenitor's orbit — the relevant ``tp``
+        range is much smaller than ``tdisrupt``.
+
+        Parameters
+        ----------
+        n : int, optional
+            Total number of particles to draw. When ``tail='both'``, ``n``
+            is split equally between leading and trailing (matching
+            ``self.sample(n, ...)``'s convention). Ignored if
+            ``particles`` is provided. Default is 5000.
+        particles : tuple, optional
+            Pre-computed ``(xv, dt)`` from ``self.sample(returndt=True,
+            return_orbit=False, integrate=True)``. When ``tail='both'``,
+            particles must follow the sample ordering (leading first,
+            then trailing). Default is None (sample freshly).
+        tail : str, optional
+            One of ``'leading'``, ``'trailing'``, or ``'both'``. Defaults to
+            the value set at initialization.
+        track_time_range : float or Quantity, optional
+            Half-range (symmetric about tp=0) of the finely-integrated
+            progenitor orbit used for closest-point matching. Default is
+            data-driven: ``8 * d_max / |v_prog|`` clamped to ``[1,
+            tdisrupt]``, where ``d_max`` is the farthest particle's
+            distance from the progenitor.
+        ntp : int, optional
+            Number of binning nodes. Default ``sqrt(N)`` with a floor of
+            21 and a ceiling that scales with the arc span (at least 201;
+            larger for long streams).
+        smoothing : None, float, or array-like, optional
+            Smoothing parameter(s). ``None`` (default) uses GCV
+            auto-tuning. A float sets a single ``s`` for all coords. An
+            array-like of length 6 (mean only) or 27 (mean + covariance)
+            sets per-spline ``s`` values — pass a previous call's
+            ``track.smoothing_s`` to reproduce the same smoothness
+            without re-running GCV.
+        smoothing_factor : float, optional
+            Multiplier applied to every spline's effective ``s`` after
+            GCV (or explicit-``s``) selection. Values > 1 force a smoother
+            fit, values < 1 a rougher one. Useful when GCV undersmooths
+            in finite samples (a common failure mode of
+            ``make_smoothing_spline`` on noisy binned means). Default 1.0.
+            For an interactive smoothing sweep, save ``track.particles``
+            from the first call and pass it back as ``particles=`` —
+            only the cheap re-fit step runs, the orbit-integration sample
+            is reused.
+        niter : int, optional
+            Iterations beyond the initial fit. Each iteration reassigns
+            particles to the closest point on the current track.
+        order : int, optional
+            1 = mean only, 2 = mean + covariance (default).
+        velocity_weight : float or ``'auto'``, optional
+            Multiplicative weight applied to velocity components when
+            computing 6D distances during the closest-point projection.
+            Default ``'auto'`` learns the weight from the inner-half
+            particle dispersion (``σ_pos / σ_vel``, clipped to
+            ``[0.1, 10]``); typically lands at ~2–3 for both clean and
+            perturbed streams. Values > 1 make velocity matches more
+            important than position matches — useful when the
+            progenitor orbit revisits regions of phase space (e.g., in
+            strongly-perturbed potentials with a massive LMC). Pass
+            ``1.0`` for the legacy unweighted natural-units
+            metric.
+
+        Returns
+        -------
+        :class:`galpy.df.StreamTrack` or :class:`galpy.df.StreamTrackPair`
+            A single-arm track object, or a pair with ``.leading`` and
+            ``.trailing`` tracks when ``tail='both'``.
+
+        Notes
+        -----
+        - 2026-04-14 - Written - Bovy (UofT)
+        """
+        tail = self._tail if tail is None else tail
+        if tail not in ("leading", "trailing", "both"):
+            raise ValueError(
+                f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
+            )
+
+        # Resolve the particle sample(s) up front. For tail='both' we keep
+        # the leading/trailing split — the time-range estimate below pools
+        # all of them for a tight bound.
+        if tail == "both":
+            if particles is not None:
+                xv_all, dt_all = particles
+                n_lead = len(dt_all) // 2
+                xv_lead, dt_lead = xv_all[:, :n_lead], dt_all[:n_lead]
+                xv_trail, dt_trail = xv_all[:, n_lead:], dt_all[n_lead:]
+            else:
+                # Match self.sample(n, ...)'s split: half leading, half
+                # trailing (with the trailing tail picking up the parity
+                # bit when n is odd, like sample()).
+                n_lead = n // 2
+                n_trail = n - n_lead
+                xv_lead, dt_lead = self._sample_tail(n_lead, True, leading=True)
+                xv_trail, dt_trail = self._sample_tail(n_trail, True, leading=False)
+                xv_all = numpy.column_stack([xv_lead, xv_trail])
+        else:
+            if particles is not None:
+                xv_all, _ = particles
+                xv_single, dt_single = particles
+            else:
+                xv_single, dt_single = self._sample_tail(
+                    n, True, leading=(tail == "leading")
+                )
+                xv_all = xv_single
+
+        if track_time_range is None:
+            # Auto: estimate from the stream's spatial extent in the
+            # already-sampled particles, measure the farthest from the
+            # progenitor, convert to an orbital-time scale via the
+            # progenitor's present-day speed, and pad by 8x. Scales
+            # naturally with stream width (essential for warm /
+            # dwarf-galaxy-mass progenitors whose tidal radii and
+            # velocity kicks are much larger).
+            _Rs, _, _, _zs, _, _phis = xv_all
+            _xs = _Rs * numpy.cos(_phis)
+            _ys = _Rs * numpy.sin(_phis)
+            _px = float(self._progenitor.x(0.0))
+            _py = float(self._progenitor.y(0.0))
+            _pz = float(self._progenitor.z(0.0))
+            _pv = numpy.sqrt(
+                float(self._progenitor.vx(0.0)) ** 2
+                + float(self._progenitor.vy(0.0)) ** 2
+                + float(self._progenitor.vz(0.0)) ** 2
+            )
+            _d_max = numpy.sqrt(
+                numpy.max((_xs - _px) ** 2 + (_ys - _py) ** 2 + (_zs - _pz) ** 2)
+            )
+            track_time_range = float(
+                numpy.clip(8.0 * _d_max / max(_pv, 1e-6), 1.0, self._tdisrupt)
+            )
+        else:
+            track_time_range = conversion.parse_time(
+                track_time_range, ro=self._ro, vo=self._vo
+            )
+
+        # Build a finely-sampled progenitor phase-space array spanning
+        # [-T, +T] around the present day. Integrate forward, then
+        # backward — galpy's Orbit.integrate auto-stitches consecutive
+        # calls into a single continuous trajectory.
+        # Use the base potential (no MovingObjectPotential for the
+        # progenitor itself — a body shouldn't generate the field that
+        # integrates it).
+        _track_pot = getattr(self, "_orig_pot", self._pot)
+        # Dense progenitor sampling: hard-coded internal density. 10001
+        # points across [-T, +T] is plenty for any plausible track —
+        # finer than the spline knot density downstream.
+        half_dense = 5001
+        t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
+        t_back = numpy.linspace(0.0, -track_time_range, half_dense)
+        prog = self._orig_progenitor()
+        prog.turn_physical_off()
+        prog.integrate(t_fwd, _track_pot)
+        prog.integrate(t_back, _track_pot)
+        # Stitched grid spans [-T, +T] (skip the t=0 duplicate at the seam).
+        track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
+        track_prog_cart = numpy.column_stack(
+            [
+                prog.x(track_t_grid),
+                prog.y(track_t_grid),
+                prog.z(track_t_grid),
+                prog.vx(track_t_grid),
+                prog.vy(track_t_grid),
+                prog.vz(track_t_grid),
+            ]
+        )
+
+        # Inherit unit metadata from the original progenitor Orbit. Pass
+        # ``ro``/``vo`` only when the progenitor had them explicitly set —
+        # StreamTrack mirrors Orbit's "ro/vo unset means use the config
+        # default and keep _roSet=False" pattern, so we propagate the
+        # progenitor's ``_roSet``/``_voSet`` state via *not passing* the
+        # value rather than via a separate flag.
+        prog_ro = self._orig_progenitor._ro if self._orig_progenitor._roSet else None
+        prog_vo = self._orig_progenitor._vo if self._orig_progenitor._voSet else None
+        prog_zo = self._orig_progenitor._zo
+        prog_sm = self._orig_progenitor._solarmotion
+
+        def _make_track(xv, dt, arm_sign):
+            return StreamTrack.from_particles(
+                xv_particles=xv,
+                dt_particles=dt,
+                track_prog_cart=track_prog_cart,
+                track_t_grid=track_t_grid,
+                arm_sign=arm_sign,
+                ntp=ntp,
+                smoothing=smoothing,
+                smoothing_factor=smoothing_factor,
+                niter=niter,
+                order=order,
+                velocity_weight=velocity_weight,
+                prog_orbit=prog,
+                custom_transform=custom_transform,
+                ro=prog_ro,
+                vo=prog_vo,
+                zo=prog_zo,
+                solarmotion=prog_sm,
+            )
+
+        if tail == "both":
+            return StreamTrackPair(
+                _make_track(xv_lead, dt_lead, arm_sign=+1),
+                _make_track(xv_trail, dt_trail, arm_sign=-1),
+            )
+        return _make_track(
+            xv_single, dt_single, arm_sign=(+1 if tail == "leading" else -1)
+        )
 
     def _sample_tail(self, n, integrate, leading=True):
         """Sample n points from the specified tail."""

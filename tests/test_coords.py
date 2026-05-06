@@ -2842,6 +2842,207 @@ def test_lbd_to_XYZ_jac():
     return None
 
 
+def test_XYZ_to_lbd_jac_inverse():
+    # XYZ_to_lbd_jac is the analytical inverse of lbd_to_XYZ_jac;
+    # composing them should give the identity (no LAPACK round-off).
+    l, b, d = 0.7, 0.3, 5.0
+    vlos, pmll, pmbb = 30.0, -2.5, 1.7
+    J_fwd = coords.lbd_to_XYZ_jac(l, b, d, vlos, pmll, pmbb, degree=False)
+    X, Y, Z = coords.lbd_to_XYZ(l, b, d, degree=False)
+    vX, vY, vZ = coords.vrpmllpmbb_to_vxvyvz(
+        vlos, pmll, pmbb, l, b, d, XYZ=False, degree=False
+    )
+    J_inv = coords.XYZ_to_lbd_jac(X, Y, Z, vX, vY, vZ, degree=False)
+    assert numpy.allclose(J_inv @ J_fwd, numpy.eye(6), atol=1e-12), (
+        "XYZ_to_lbd_jac · lbd_to_XYZ_jac != I"
+    )
+    # 3x3 spatial-only branch
+    J_fwd3 = coords.lbd_to_XYZ_jac(l, b, d, degree=False)
+    J_inv3 = coords.XYZ_to_lbd_jac(X, Y, Z, degree=False)
+    assert numpy.allclose(J_inv3 @ J_fwd3, numpy.eye(3), atol=1e-12), (
+        "XYZ_to_lbd_jac (spatial 3x3) · lbd_to_XYZ_jac != I"
+    )
+    # degree=True: l, b output rows scaled by 180/π
+    J_inv_deg = coords.XYZ_to_lbd_jac(X, Y, Z, vX, vY, vZ, degree=True)
+    assert numpy.allclose(J_inv_deg[0], J_inv[0] * 180.0 / numpy.pi)
+    assert numpy.allclose(J_inv_deg[1], J_inv[1] * 180.0 / numpy.pi)
+    assert numpy.allclose(J_inv_deg[2:], J_inv[2:])
+    # Same scaling rule on the 3x3-only branch
+    J_inv3_deg = coords.XYZ_to_lbd_jac(X, Y, Z, degree=True)
+    assert numpy.allclose(J_inv3_deg[0], J_inv3[0] * 180.0 / numpy.pi)
+    assert numpy.allclose(J_inv3_deg[1], J_inv3[1] * 180.0 / numpy.pi)
+    assert numpy.allclose(J_inv3_deg[2], J_inv3[2])
+    # Bad arity
+    try:
+        coords.XYZ_to_lbd_jac(1.0, 2.0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("XYZ_to_lbd_jac should reject bad arity")
+    return None
+
+
+def _finite_difference_jac(fwd, x0, h=1e-6):
+    """Central-difference Jacobian, used only by tests below."""
+    n = len(x0)
+    y0 = fwd(x0)
+    m = len(y0)
+    J = numpy.zeros((m, n))
+    for j in range(n):
+        sp = x0.copy()
+        sp[j] += h
+        sm = x0.copy()
+        sm[j] -= h
+        J[:, j] = (fwd(sp) - fwd(sm)) / (2 * h)
+    return J
+
+
+def test_galcencyl_to_galcenrect_roundtrip():
+    # Round-trip a generic cylindrical 6-vector through
+    # galcencyl_to_galcenrect → rect_to_cyl(_vec) and check we recover
+    # the input.
+    R = numpy.array([1.5, 2.0])
+    phi = numpy.array([0.4, -1.2])
+    z = numpy.array([0.3, -0.1])
+    vR = numpy.array([10.0, -5.0])
+    vT = numpy.array([200.0, 150.0])
+    vz = numpy.array([3.0, -7.0])
+    out = coords.galcencyl_to_galcenrect(R, vR, vT, z, vz, phi)
+    x, y, zout, vx, vy, vzout = out.T
+    R_back, phi_back, z_back = coords.rect_to_cyl(x, y, zout)
+    vR_back, vT_back, vz_back = coords.rect_to_cyl_vec(
+        vx, vy, vzout, R_back, phi_back, z_back, cyl=True
+    )
+    numpy.testing.assert_allclose(R_back, R)
+    numpy.testing.assert_allclose(phi_back, phi)
+    numpy.testing.assert_allclose(z_back, z)
+    numpy.testing.assert_allclose(vR_back, vR)
+    numpy.testing.assert_allclose(vT_back, vT)
+    numpy.testing.assert_allclose(vz_back, vz)
+
+
+def test_galcenrect_to_galcencyl_jac():
+    # Check the closed-form Jacobian against finite differences of the
+    # underlying transform at a generic point (not on the z-axis).
+    x, y, z = 1.5, -0.7, 0.3
+    vx, vy, vz = 100.0, -50.0, 20.0
+
+    def fwd(s):
+        R, phi, zc = coords.rect_to_cyl(s[0], s[1], s[2])
+        vR, vT, vZ = coords.rect_to_cyl_vec(
+            s[3], s[4], s[5], s[0], s[1], s[2], cyl=False
+        )
+        return numpy.array([R, vR, vT, zc, vZ, phi])
+
+    J = coords.galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz)
+    J_fd = _finite_difference_jac(fwd, numpy.array([x, y, z, vx, vy, vz]))
+    assert numpy.allclose(J, J_fd, atol=1e-7), (
+        f"galcenrect_to_galcencyl_jac mismatch with FD, max diff "
+        f"{numpy.max(numpy.abs(J - J_fd))}"
+    )
+    return None
+
+
+def test_galcenrect_to_galcencyl_jac_on_z_axis():
+    # On the z-axis (R=0) the Jacobian is singular; the implementation
+    # falls back to a tiny epsilon so the matrix stays finite. Check that
+    # the call returns a finite 6x6.
+    J = coords.galcenrect_to_galcencyl_jac(0.0, 0.0, 1.0, 10.0, 20.0, 30.0)
+    assert J.shape == (6, 6)
+    assert numpy.all(numpy.isfinite(J))
+
+
+def test_XYZ_to_lbd_jac_at_celestial_pole():
+    # When X = Y = 0 the heliocentric direction is the celestial pole
+    # and the (l, b) angular coordinates are undefined; the implementation
+    # should still produce a finite 3x3 (and 6x6 with velocities) without
+    # NaNs by picking an arbitrary tangent (cl, sl) = (1, 0).
+    J = coords.XYZ_to_lbd_jac(0.0, 0.0, 1.0)
+    assert J.shape == (3, 3)
+    assert numpy.all(numpy.isfinite(J))
+    J6 = coords.XYZ_to_lbd_jac(0.0, 0.0, 1.0, 10.0, 20.0, 30.0)
+    assert J6.shape == (6, 6)
+    assert numpy.all(numpy.isfinite(J6))
+
+
+def test_galsky_to_sky_jac():
+    # Check against finite differences of (lb_to_radec, pmllpmbb_to_pmrapmdec)
+    # at a generic point.
+    l, b = 1.2, 0.3
+    pmll, pmbb = 5.0, -3.0
+
+    def fwd(s):
+        radec = coords.lb_to_radec(s[0], s[1], degree=False)
+        pmrd = coords.pmllpmbb_to_pmrapmdec(s[3], s[4], s[0], s[1], degree=False)
+        return numpy.array([radec[0], radec[1], s[2], pmrd[0], pmrd[1], s[5]])
+
+    J = coords.galsky_to_sky_jac(l, b, pmll, pmbb, degree=False)
+    J_fd = _finite_difference_jac(fwd, numpy.array([l, b, 5.0, pmll, pmbb, 30.0]))
+    assert numpy.allclose(J, J_fd, atol=1e-7), (
+        f"galsky_to_sky_jac mismatch with FD, max diff {numpy.max(numpy.abs(J - J_fd))}"
+    )
+    # 2-arg form (no PMs) zeros out the PM-vs-position cross block
+    J0 = coords.galsky_to_sky_jac(l, b, degree=False)
+    assert numpy.allclose(J0[3:5, 0:2], 0.0)
+    # degree=True path: angular-vs-angular entries unchanged (rad/rad =
+    # deg/deg), PM-vs-angle cols 0,1 scaled by π/180.
+    l_deg, b_deg = numpy.degrees(l), numpy.degrees(b)
+    J_deg = coords.galsky_to_sky_jac(l_deg, b_deg, pmll, pmbb, degree=True)
+    assert numpy.allclose(J_deg[0:2, 0:2], J[0:2, 0:2])
+    assert numpy.allclose(J_deg[3:5, 0:2], J[3:5, 0:2] * numpy.pi / 180.0)
+    # Bad arity
+    try:
+        coords.galsky_to_sky_jac(1.0, 2.0, 3.0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("galsky_to_sky_jac should reject bad arity")
+    return None
+
+
+def test_sky_to_customsky_jac():
+    # Check against finite differences with a (QR-orthogonalized) random T.
+    T = numpy.array([[0.8, 0.5, 0.3], [-0.4, 0.866, -0.3], [0.0, 0.1, 1.0]])
+    T, _ = numpy.linalg.qr(T)
+    ra, dec = 0.4, 0.2
+    pmra, pmdec = 4.0, -1.5
+
+    def fwd(s):
+        p12 = coords.radec_to_custom(s[0], s[1], T=T, degree=False)
+        pm12 = coords.pmrapmdec_to_custom(s[3], s[4], s[0], s[1], T=T, degree=False)
+        return numpy.array([p12[0], p12[1], s[2], pm12[0], pm12[1], s[5]])
+
+    J = coords.sky_to_customsky_jac(ra, dec, pmra, pmdec, T=T, degree=False)
+    J_fd = _finite_difference_jac(fwd, numpy.array([ra, dec, 5.0, pmra, pmdec, 30.0]))
+    assert numpy.allclose(J, J_fd, atol=1e-7), (
+        f"sky_to_customsky_jac mismatch with FD, max diff "
+        f"{numpy.max(numpy.abs(J - J_fd))}"
+    )
+    # degree=True scaling on the PM-vs-position block
+    ra_deg, dec_deg = numpy.degrees(ra), numpy.degrees(dec)
+    J_deg = coords.sky_to_customsky_jac(ra_deg, dec_deg, pmra, pmdec, T=T, degree=True)
+    assert numpy.allclose(J_deg[0:2, 0:2], J[0:2, 0:2])
+    assert numpy.allclose(J_deg[3:5, 0:2], J[3:5, 0:2] * numpy.pi / 180.0)
+    # 2-arg form (no PMs)
+    J0 = coords.sky_to_customsky_jac(ra, dec, T=T, degree=False)
+    assert numpy.allclose(J0[3:5, 0:2], 0.0)
+    # T= is required
+    try:
+        coords.sky_to_customsky_jac(ra, dec)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("sky_to_customsky_jac requires T=")
+    # Bad arity
+    try:
+        coords.sky_to_customsky_jac(ra, dec, pmra, T=T)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("sky_to_customsky_jac should reject bad arity")
+    return None
+
+
 def test_cyl_to_spher_vec():
     # Test 45 degrees, disk plane, & polar location
     vr, vT, vtheta = coords.cyl_to_spher_vec(0.6, 1.3, 0.6, 1.0, 1.0)

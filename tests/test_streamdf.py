@@ -483,12 +483,15 @@ def test_density_phi(bovy14_setup):
     return None
 
 
-def test_density_ll_and_customra(bovy14_setup):
+def test_density_ll_and_phi1(bovy14_setup):
     # Load the streamdf object
     sdf_bovy14 = bovy14_setup
 
     # Test that the density in ll is correctly computed, by doing this by hand
-    # custom should be the same for this setup (see above)
+    # custom should be the same for this setup (see above). The custom-frame
+    # longitude coord= is named ``phi1`` (matching the stream-physics
+    # convention and StreamTrack.phi1); ``customra`` is kept as a
+    # backwards-compatible alias.
     def dens_ll(apar):
         dapar = 10.0**-9.0
         X, Y, Z = (
@@ -518,27 +521,33 @@ def test_density_ll_and_customra(bovy14_setup):
         < 10.0**-2.0
     ), "density near progenitor in ll is incorrect"
     assert (
-        numpy.fabs(dens_ll(apar) / sdf_bovy14.density_par(apar, coord="customra") - 1.0)
+        numpy.fabs(dens_ll(apar) / sdf_bovy14.density_par(apar, coord="phi1") - 1.0)
         < 10.0**-2.0
-    ), "density near progenitor in ll is incorrect"
+    ), "density near progenitor in phi1 is incorrect"
     apar = 0.5
     assert (
         numpy.fabs(dens_ll(apar) / sdf_bovy14.density_par(apar, coord="ll") - 1.0)
         < 10.0**-2.0
     ), "density near progenitor in ll is incorrect"
     assert (
-        numpy.fabs(dens_ll(apar) / sdf_bovy14.density_par(apar, coord="customra") - 1.0)
+        numpy.fabs(dens_ll(apar) / sdf_bovy14.density_par(apar, coord="phi1") - 1.0)
         < 10.0**-2.0
-    ), "density near progenitor in ll is incorrect"
+    ), "density near progenitor in phi1 is incorrect"
     apar = 1.8
     assert (
         numpy.fabs(dens_ll(apar) / sdf_bovy14.density_par(apar, coord="ll") - 1.0)
         < 10.0**-2.0
     ), "density far from progenitor in ll is incorrect"
     assert (
-        numpy.fabs(dens_ll(apar) / sdf_bovy14.density_par(apar, coord="customra") - 1.0)
+        numpy.fabs(dens_ll(apar) / sdf_bovy14.density_par(apar, coord="phi1") - 1.0)
         < 10.0**-2.0
-    ), "density far from progenitor in ll is incorrect"
+    ), "density far from progenitor in phi1 is incorrect"
+    # ``customra`` is the back-compat alias of ``phi1``; both must give the
+    # same density at every apar tested above.
+    for apar in (0.1, 0.5, 1.8):
+        assert sdf_bovy14.density_par(apar, coord="phi1") == sdf_bovy14.density_par(
+            apar, coord="customra"
+        ), "phi1 / customra alias mismatch in density_par"
     return None
 
 

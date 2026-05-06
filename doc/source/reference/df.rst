@@ -352,6 +352,7 @@ General instance routines
    :maxdepth: 1
 
    sample <streamspraydfsample.rst>
+   streamTrack <streamspraydfstreamtrack.rst>
 
 Specific particle-spray models
 +++++++++++++++++++++++++++++++
@@ -361,3 +362,106 @@ Specific particle-spray models
 
    Chen et al. (2024) <streamspraydfchen24.rst>
    Fardal et al. (2015) <streamspraydffardal15.rst>
+
+Smooth stream-track object
++++++++++++++++++++++++++++
+
+A :class:`~galpy.df.StreamTrack` is a smooth, dense interpolation of the
+mean position-and-velocity of a tidal stream as a function of a curve
+parameter ``tp`` (proxy for stripping time / arc length along the
+stream). It exposes accessors for every standard galpy coordinate
+(``x``, ``y``, ``z``, ``R``, ``ra``, ``dec``, ``ll``, ``bb``, proper
+motions, line-of-sight velocity, ...), a covariance ``cov`` of the
+underlying particle distribution in any of those bases, and a
+``plot`` helper. A :class:`~galpy.df.StreamTrackPair` bundles the
+leading and trailing tracks built together (``tail='both'``) into a
+single object that mirrors the per-arm API and broadcasts shared
+operations to both arms.
+
+The recommended way to build a track is
+:meth:`streamspraydf.streamTrack
+<galpy.df.streamspraydf.streamTrack>`, which samples the spray DF and
+fits the smooth track in one step. For users that already have stream
+particles (e.g. from a simulation or an external sampler),
+:meth:`StreamTrack.from_particles
+<galpy.df.StreamTrack.from_particles>` exposes the particle-fitting
+machinery directly. There is no separate ``StreamTrackPair.from_particles``
+classmethod: building a pair from particles means calling
+:meth:`StreamTrack.from_particles` once per arm and then constructing a
+:class:`~galpy.df.StreamTrackPair` from the two — or, equivalently,
+calling ``streamspraydf.streamTrack(particles=..., tail='both')`` so
+the spray-DF wrapper handles the per-arm split.
+
+StreamTrack
+^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   StreamTrack <streamtrack.rst>
+
+The ``particles`` attribute (``(xv, dt)`` of the particles the track was
+fit to) is available on tracks built via :meth:`from_particles`; see the
+class docstring above.
+
+Methods:
+
+.. toctree::
+   :maxdepth: 1
+
+   __call__ <streamtrackcall.rst>
+   from_particles <streamtrackfromparticles.rst>
+   tp_grid <streamtracktpgrid.rst>
+   cov <streamtrackcov.rst>
+   plot <streamtrackplot.rst>
+   turn_physical_on <streamtrackturnphysicalon.rst>
+   turn_physical_off <streamtrackturnphysicaloff.rst>
+   x <streamtrackx.rst>
+   y <streamtracky.rst>
+   z <streamtrackz.rst>
+   vx <streamtrackvx.rst>
+   vy <streamtrackvy.rst>
+   vz <streamtrackvz.rst>
+   R <streamtrackR.rst>
+   vR <streamtrackvR.rst>
+   vT <streamtrackvT.rst>
+   phi <streamtrackphi.rst>
+   ra <streamtrackra.rst>
+   dec <streamtrackdec.rst>
+   dist <streamtrackdist.rst>
+   pmra <streamtrackpmra.rst>
+   pmdec <streamtrackpmdec.rst>
+   vlos <streamtrackvlos.rst>
+   ll <streamtrackll.rst>
+   bb <streamtrackbb.rst>
+   pmll <streamtrackpmll.rst>
+   pmbb <streamtrackpmbb.rst>
+   phi1 <streamtrackphi1.rst>
+   phi2 <streamtrackphi2.rst>
+   pmphi1 <streamtrackpmphi1.rst>
+   pmphi2 <streamtrackpmphi2.rst>
+
+The ``phi1``/``phi2``/``pmphi1``/``pmphi2`` accessors require
+``custom_transform`` to have been set (either at construction or by
+assigning to the ``custom_transform`` property).
+
+StreamTrackPair
+^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 1
+
+   StreamTrackPair <streamtrackpair.rst>
+
+Attribute:
+
+* .. autoattribute:: galpy.df.StreamTrackPair.particles
+
+Methods:
+
+.. toctree::
+   :maxdepth: 1
+
+   plot <streamtrackpairplot.rst>
+   turn_physical_on <streamtrackpairturnphysicalon.rst>
+   turn_physical_off <streamtrackpairturnphysicaloff.rst>
