@@ -492,10 +492,14 @@ def _fit_track_from_particles(
     tp_lo, tp_hi = _trim_grid(tp_assign)
     tp_grid = numpy.linspace(tp_lo, tp_hi, ninterp)
 
-    # Binning nodes. Default: ~sqrt(N), clipped to [21, 201].
+    # Binning nodes. Default: ~sqrt(N), clipped to [21, max_ntp].
+    # The ceiling scales with the arc span so longer streams can afford
+    # finer binning — one knot every ~0.1 internal time units (≈3.6 Myr
+    # at the galpy reference scale), with a floor of 201.
     n_part = particles_cart.shape[0]
     if ntp is None:
-        ntp = int(max(21, min(201, round(numpy.sqrt(n_part)))))
+        max_ntp = max(201, int(abs(tp_hi - tp_lo) / 0.1))
+        ntp = int(max(21, min(max_ntp, round(numpy.sqrt(n_part)))))
     ntp_int = int(ntp)
     tp_nodes = numpy.linspace(tp_lo, tp_hi, ntp_int)
 
@@ -726,8 +730,9 @@ class StreamTrack:
             ``+1`` for leading arm (``tp >= 0``), ``-1`` for trailing
             (``tp <= 0``).
         ntp : int, optional
-            Number of binning nodes. Default ``sqrt(N)`` clipped to
-            ``[21, 201]``.
+            Number of binning nodes. Default ``sqrt(N)`` with a floor of
+            21 and a ceiling that scales with the arc span (at least 201;
+            larger for long streams).
         ninterp : int, optional
             Resolution of the fine ``tp`` grid. Default 1001.
         smoothing : None, float, or array-like, optional

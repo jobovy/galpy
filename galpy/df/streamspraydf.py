@@ -276,8 +276,9 @@ class basestreamspraydf(df):
             tdisrupt]``, where ``d_max`` is the farthest particle's
             distance from the progenitor.
         ntp : int, optional
-            Number of binning nodes. Default ``sqrt(N)`` clipped to
-            ``[21, 201]``.
+            Number of binning nodes. Default ``sqrt(N)`` with a floor of
+            21 and a ceiling that scales with the arc span (at least 201;
+            larger for long streams).
         smoothing : None, float, or array-like, optional
             Smoothing parameter(s). ``None`` (default) uses GCV
             auto-tuning. A float sets a single ``s`` for all coords. An
