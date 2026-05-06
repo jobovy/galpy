@@ -234,7 +234,6 @@ class basestreamspraydf(df):
         tail=None,
         track_time_range=None,
         ntp=None,
-        ninterp=1001,
         smoothing=None,
         smoothing_factor=1.0,
         niter=0,
@@ -279,8 +278,6 @@ class basestreamspraydf(df):
         ntp : int, optional
             Number of binning nodes. Default ``sqrt(N)`` clipped to
             ``[21, 201]``.
-        ninterp : int, optional
-            Resolution of the public fine-grid track arrays. Default 1001.
         smoothing : None, float, array-like, or dict, optional
             Smoothing parameter(s). ``None`` (default) uses GCV
             auto-tuning. A float sets a single ``s`` for all coords. An
@@ -441,7 +438,6 @@ class basestreamspraydf(df):
                 track_t_grid=track_t_grid,
                 arm_sign=arm_sign,
                 ntp=ntp,
-                ninterp=ninterp,
                 smoothing=smoothing,
                 smoothing_factor=smoothing_factor,
                 niter=niter,
