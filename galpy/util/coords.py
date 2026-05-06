@@ -1946,6 +1946,32 @@ def XYZ_to_lbd_jac(*args, **kwargs):
     return out
 
 
+def galcencyl_to_galcenrect(R, vR, vT, z, vz, phi):
+    """
+    Convert galactocentric cylindrical phase-space ``(R, vR, vT, z, vz, phi)``
+    to galactocentric Cartesian ``(x, y, z, vx, vy, vz)``.
+
+    Parameters
+    ----------
+    R, vR, vT, z, vz, phi : float or numpy.ndarray
+        Galactocentric cylindrical phase-space components, in the
+        galpy ordering used by ``Orbit`` and ``streamspraydf.sample``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of shape ``(N, 6)`` (or ``(6,)`` for scalar inputs) containing
+        ``(x, y, z, vx, vy, vz)``.
+
+    Notes
+    -----
+    - 2026-05-06 - Written - Bovy (UofT)
+    """
+    x, y, zc = cyl_to_rect(R, phi, z)
+    vx, vy, vzc = cyl_to_rect_vec(vR, vT, vz, phi)
+    return numpy.column_stack([x, y, zc, vx, vy, vzc])
+
+
 def galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz):
     """
     Calculate the Jacobian of the Galactocentric rectangular → cylindrical

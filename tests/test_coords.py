@@ -2897,6 +2897,30 @@ def _finite_difference_jac(fwd, x0, h=1e-6):
     return J
 
 
+def test_galcencyl_to_galcenrect_roundtrip():
+    # Round-trip a generic cylindrical 6-vector through
+    # galcencyl_to_galcenrect → rect_to_cyl(_vec) and check we recover
+    # the input.
+    R = numpy.array([1.5, 2.0])
+    phi = numpy.array([0.4, -1.2])
+    z = numpy.array([0.3, -0.1])
+    vR = numpy.array([10.0, -5.0])
+    vT = numpy.array([200.0, 150.0])
+    vz = numpy.array([3.0, -7.0])
+    out = coords.galcencyl_to_galcenrect(R, vR, vT, z, vz, phi)
+    x, y, zout, vx, vy, vzout = out.T
+    R_back, phi_back, z_back = coords.rect_to_cyl(x, y, zout)
+    vR_back, vT_back, vz_back = coords.rect_to_cyl_vec(
+        vx, vy, vzout, R_back, phi_back, z_back, cyl=True
+    )
+    numpy.testing.assert_allclose(R_back, R)
+    numpy.testing.assert_allclose(phi_back, phi)
+    numpy.testing.assert_allclose(z_back, z)
+    numpy.testing.assert_allclose(vR_back, vR)
+    numpy.testing.assert_allclose(vT_back, vT)
+    numpy.testing.assert_allclose(vz_back, vz)
+
+
 def test_galcenrect_to_galcencyl_jac():
     # Check the closed-form Jacobian against finite differences of the
     # underlying transform at a generic point (not on the z-axis).

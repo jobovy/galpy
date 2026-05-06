@@ -17,9 +17,7 @@ def _particles_to_cartesian(xv_particles):
     """Convert particles from (R,vR,vT,z,vz,phi) to galactocentric
     Cartesian 6-vectors. Returns array of shape (N, 6)."""
     R, vR, vT, z, vz, phi = xv_particles
-    x_p, y_p, z_p = coords.cyl_to_rect(R, phi, z)
-    vx_p, vy_p, vz_p = coords.cyl_to_rect_vec(vR, vT, vz, phi)
-    return numpy.column_stack([x_p, y_p, z_p, vx_p, vy_p, vz_p])
+    return coords.galcencyl_to_galcenrect(R, vR, vT, z, vz, phi)
 
 
 def _bin_by_tp(tp_assign, values, tp_nodes):
