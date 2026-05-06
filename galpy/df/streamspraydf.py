@@ -335,21 +335,39 @@ class basestreamspraydf(df):
             raise ValueError(
                 f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
             )
-        if track_time_range is None:
-            # Auto: estimate from the stream's spatial extent. Draw a
-            # probe sample (or reuse provided particles), measure the
-            # farthest particle from the progenitor, convert to an
-            # orbital-time scale via the progenitor's present-day speed,
-            # and pad by 8x. This scales naturally with stream width
-            # (essential for warm / dwarf-galaxy-mass progenitors whose
-            # tidal radii and velocity kicks are much larger).
+
+        # Resolve the particle sample(s) up front. For tail='both' we keep
+        # the leading/trailing split — the time-range estimate below pools
+        # all of them for a tight bound.
+        if tail == "both":
             if particles is not None:
-                _xv_probe = particles[0]
+                xv_all, dt_all = particles
+                n_lead = len(dt_all) // 2
+                xv_lead, dt_lead = xv_all[:, :n_lead], dt_all[:n_lead]
+                xv_trail, dt_trail = xv_all[:, n_lead:], dt_all[n_lead:]
             else:
-                _xv_probe, _ = self._sample_tail(
-                    min(n, 500), True, leading=(tail != "trailing")
+                xv_lead, dt_lead = self._sample_tail(n, True, leading=True)
+                xv_trail, dt_trail = self._sample_tail(n, True, leading=False)
+                xv_all = numpy.column_stack([xv_lead, xv_trail])
+        else:
+            if particles is not None:
+                xv_all, _ = particles
+                xv_single, dt_single = particles
+            else:
+                xv_single, dt_single = self._sample_tail(
+                    n, True, leading=(tail == "leading")
                 )
-            _Rs, _, _, _zs, _, _phis = _xv_probe
+                xv_all = xv_single
+
+        if track_time_range is None:
+            # Auto: estimate from the stream's spatial extent in the
+            # already-sampled particles, measure the farthest from the
+            # progenitor, convert to an orbital-time scale via the
+            # progenitor's present-day speed, and pad by 8x. Scales
+            # naturally with stream width (essential for warm /
+            # dwarf-galaxy-mass progenitors whose tidal radii and
+            # velocity kicks are much larger).
+            _Rs, _, _, _zs, _, _phis = xv_all
             _xs = _Rs * numpy.cos(_phis)
             _ys = _Rs * numpy.sin(_phis)
             _px = float(self._progenitor.x(0.0))
@@ -433,26 +451,13 @@ class basestreamspraydf(df):
             )
 
         if tail == "both":
-            if particles is not None:
-                xv, dt = particles
-                n_lead = len(dt) // 2
-                xv_l = xv[:, :n_lead]
-                dt_l = dt[:n_lead]
-                xv_t = xv[:, n_lead:]
-                dt_t = dt[n_lead:]
-            else:
-                xv_l, dt_l = self._sample_tail(n, True, leading=True)
-                xv_t, dt_t = self._sample_tail(n, True, leading=False)
             return StreamTrackPair(
-                _make_track(xv_l, dt_l, arm_sign=+1),
-                _make_track(xv_t, dt_t, arm_sign=-1),
+                _make_track(xv_lead, dt_lead, arm_sign=+1),
+                _make_track(xv_trail, dt_trail, arm_sign=-1),
             )
-        else:
-            if particles is not None:
-                xv, dt = particles
-            else:
-                xv, dt = self._sample_tail(n, True, leading=(tail == "leading"))
-            return _make_track(xv, dt, arm_sign=(+1 if tail == "leading" else -1))
+        return _make_track(
+            xv_single, dt_single, arm_sign=(+1 if tail == "leading" else -1)
+        )
 
     def _sample_tail(self, n, integrate, leading=True):
         """Sample n points from the specified tail."""
