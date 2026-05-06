@@ -291,6 +291,7 @@ def _fit_track_from_particles(
     niter=0,
     order=2,
     velocity_weight="auto",
+    prog_orbit=None,
 ):
     """Run the full closest-point projection + offset smoothing fit.
 
@@ -318,14 +319,30 @@ def _fit_track_from_particles(
     ninterp = int(ninterp)
     order = int(order)
 
-    prog_splines = [
-        interpolate.InterpolatedUnivariateSpline(track_t_grid, prog_cart[:, i], k=3)
-        for i in range(6)
-    ]
+    if prog_orbit is not None:
+        # Reuse the Orbit's internal interpolation directly — the orbit
+        # has already been integrated densely on track_t_grid.
+        def _prog_at(tp):
+            tp = numpy.atleast_1d(tp)
+            return numpy.column_stack(
+                [
+                    prog_orbit.x(tp),
+                    prog_orbit.y(tp),
+                    prog_orbit.z(tp),
+                    prog_orbit.vx(tp),
+                    prog_orbit.vy(tp),
+                    prog_orbit.vz(tp),
+                ]
+            )
+    else:
+        prog_splines = [
+            interpolate.InterpolatedUnivariateSpline(track_t_grid, prog_cart[:, i], k=3)
+            for i in range(6)
+        ]
 
-    def _prog_at(tp):
-        tp = numpy.atleast_1d(tp)
-        return numpy.column_stack([spl(tp) for spl in prog_splines])
+        def _prog_at(tp):
+            tp = numpy.atleast_1d(tp)
+            return numpy.column_stack([spl(tp) for spl in prog_splines])
 
     # Raw (xv, dt) snapshot the user can plot the track over without
     # resampling — the converse of the ``particles=`` knob on
@@ -671,6 +688,7 @@ class StreamTrack:
         niter=0,
         order=2,
         velocity_weight="auto",
+        prog_orbit=None,
         custom_transform=None,
         ro=None,
         vo=None,
@@ -772,6 +790,7 @@ class StreamTrack:
             niter=niter,
             order=order,
             velocity_weight=velocity_weight,
+            prog_orbit=prog_orbit,
         )
         inst = cls(
             tp_grid=fit["tp_grid"],

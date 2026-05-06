@@ -414,6 +414,7 @@ class basestreamspraydf(df):
                 niter=niter,
                 order=order,
                 velocity_weight=velocity_weight,
+                prog_orbit=prog,
                 custom_transform=custom_transform,
                 ro=prog_ro,
                 vo=prog_vo,
