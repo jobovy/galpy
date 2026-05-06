@@ -66,6 +66,16 @@ class basestreamspraydf(df):
         - 2021-05-05 - Added center keyword - Yansong Qian (UofT)
         - 2024-08-11 - Generalized to allow different particle-spray methods - Yingtian Chen (UMich)
         """
+        # If ro/vo are not explicitly given, inherit them from the
+        # progenitor's settings so that streamspraydf and progenitor
+        # share a single physical-conversion convention. (zo/solarmotion
+        # don't enter the spray itself; streamTrack sources them from
+        # the progenitor at construction time.)
+        if progenitor is not None:
+            if ro is None and progenitor._roSet:
+                ro = progenitor._ro
+            if vo is None and progenitor._voSet:
+                vo = progenitor._vo
         super().__init__(ro=ro, vo=vo)
         # Handle leading= deprecation
         if leading is not None:
