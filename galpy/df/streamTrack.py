@@ -173,12 +173,15 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None, velocity_weight=1
         _, cand = tree.query(points[remaining], k=min(k, M))
         if cand.ndim == 1:
             cand = cand[:, None]
-        chosen = numpy.full(remaining.size, -1, dtype=int)
-        for j, r in enumerate(remaining):
-            allowed = cand[j][mask[r][cand[j]]]
-            if allowed.size:
-                chosen[j] = allowed[0]
-        hit = chosen >= 0
+        # Vectorized: look up the per-particle mask at each candidate index,
+        # then take the first allowed candidate. cKDTree returns neighbours
+        # in ascending-distance order, so argmax over the bool row gives the
+        # index of the closest allowed candidate (or 0 if none — filtered by
+        # the any() check below).
+        allowed = mask[remaining[:, None], cand]
+        hit = allowed.any(axis=1)
+        first = allowed.argmax(axis=1)
+        chosen = cand[numpy.arange(remaining.size), first]
         tp_out[remaining[hit]] = curve_t[chosen[hit]]
         remaining = remaining[~hit]
         if k >= M:
