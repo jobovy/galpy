@@ -259,8 +259,10 @@ class basestreamspraydf(df):
         Parameters
         ----------
         n : int, optional
-            Number of particles to draw (per arm when ``tail='both'``).
-            Ignored if ``particles`` is provided. Default is 5000.
+            Total number of particles to draw. When ``tail='both'``, ``n``
+            is split equally between leading and trailing (matching
+            ``self.sample(n, ...)``'s convention). Ignored if
+            ``particles`` is provided. Default is 5000.
         particles : tuple, optional
             Pre-computed ``(xv, dt)`` from ``self.sample(returndt=True,
             return_orbit=False, integrate=True)``. When ``tail='both'``,
@@ -346,8 +348,13 @@ class basestreamspraydf(df):
                 xv_lead, dt_lead = xv_all[:, :n_lead], dt_all[:n_lead]
                 xv_trail, dt_trail = xv_all[:, n_lead:], dt_all[n_lead:]
             else:
-                xv_lead, dt_lead = self._sample_tail(n, True, leading=True)
-                xv_trail, dt_trail = self._sample_tail(n, True, leading=False)
+                # Match self.sample(n, ...)'s split: half leading, half
+                # trailing (with the trailing tail picking up the parity
+                # bit when n is odd, like sample()).
+                n_lead = n // 2
+                n_trail = n - n_lead
+                xv_lead, dt_lead = self._sample_tail(n_lead, True, leading=True)
+                xv_trail, dt_trail = self._sample_tail(n_trail, True, leading=False)
                 xv_all = numpy.column_stack([xv_lead, xv_trail])
         else:
             if particles is not None:
