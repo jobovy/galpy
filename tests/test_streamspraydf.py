@@ -1786,7 +1786,8 @@ def test_streamTrack_gap_warning():
         ww
         for ww in w
         if issubclass(ww.category, galpyWarning)
-        and "tp_assign histogram has a gap" in str(ww.message)
+        and "tp_assign histogram" in str(ww.message)
+        and "gap" in str(ww.message)
     ]
     assert len(gap_msgs) == 1, (
         f"expected one gap warning, got {len(gap_msgs)} "

@@ -470,15 +470,10 @@ def _fit_track_from_particles(
             and n_far / abs_tp.size > 0.01
         ):
             warnings.warn(
-                f"streamTrack: tp_assign histogram has a gap spanning "
-                f"{gap_span / populated_span:.0%} of the populated range. "
-                f"{n_far} of {abs_tp.size} particles ({n_far / abs_tp.size:.1%}) "
-                "are isolated past the gap and will pile up at the boundary "
-                "of the smoothed track, likely producing a kink. This "
-                "typically happens when the progenitor orbit revisits its "
-                "phase-space trajectory (e.g., near apocenter under strong "
-                "perturbation). Consider passing velocity_weight>=2 (preferred), "
-                "or niter>=2 with the per-iteration retrim, or both.",
+                f"streamTrack: tp_assign histogram has a "
+                f"{gap_span / populated_span:.0%} gap with "
+                f"{n_far / abs_tp.size:.1%} of particles past it; the track "
+                "is likely to kink. Try a larger velocity_weight or niter.",
                 galpyWarning,
             )
 
