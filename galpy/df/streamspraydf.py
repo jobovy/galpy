@@ -8,6 +8,7 @@ from ..potential import MovingObjectPotential, evaluateRforces, rtide
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+from .streamTrack import StreamTrack, StreamTrackPair
 
 if _APY_LOADED:
     from astropy import units
@@ -319,9 +320,6 @@ class basestreamspraydf(df):
         -----
         - 2026-04-14 - Written - Bovy (UofT)
         """
-        from ..orbit import Orbit
-        from .streamTrack import StreamTrack, StreamTrackPair
-
         tail = self._tail if tail is None else tail
         if tail not in ("leading", "trailing", "both"):
             raise ValueError(

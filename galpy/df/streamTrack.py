@@ -1,7 +1,9 @@
 import warnings
 
 import numpy
+from matplotlib import pyplot
 from scipy import interpolate
+from scipy.spatial import cKDTree
 
 from ..util import config, conversion, coords, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
@@ -153,8 +155,6 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None, velocity_weight=1
     components (last 3 columns) by this factor before computing distances.
     See :func:`_fit_track_from_particles` for usage and ``'auto'`` mode.
     """
-    from scipy.spatial import cKDTree
-
     if velocity_weight != 1.0 and curve.shape[1] == 6:
         sc = numpy.array(
             [1.0, 1.0, 1.0, velocity_weight, velocity_weight, velocity_weight]
@@ -1968,8 +1968,6 @@ class StreamTrack:
         passes ``use_physical=True``/explicit ``ro=`` / ``vo=``); axis
         labels are picked accordingly.
         """
-        from matplotlib import pyplot
-
         # Forward unit knobs through to the accessors and to cov(); both
         # share the same default-resolution semantics (None → fall back to
         # _roSet/_voSet and stored ro/vo) so we don't re-derive that here.
