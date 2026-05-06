@@ -538,8 +538,7 @@ class StreamTrack:
     accessors evaluate the stored splines and ``cov(basis=...)`` transforms
     the stored covariance into other bases via analytical Jacobians. The
     fitting pipeline (closest-point + offset smoothing) is provided by the
-    :meth:`from_particles` classmethod and lives in
-    :func:`_fit_track_from_particles`.
+    :meth:`from_particles` classmethod.
 
     The semantics of ``tp`` are set at construction via ``parameter_kind``:
 
