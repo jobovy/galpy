@@ -233,7 +233,6 @@ class basestreamspraydf(df):
         particles=None,
         tail=None,
         track_time_range=None,
-        track_n_dense=10001,
         ntp=None,
         ninterp=1001,
         smoothing=None,
@@ -277,10 +276,6 @@ class basestreamspraydf(df):
             data-driven: ``8 * d_max / |v_prog|`` clamped to ``[1,
             tdisrupt]``, where ``d_max`` is the farthest particle's
             distance from the progenitor.
-        track_n_dense : int, optional
-            Number of time points on the finely-integrated progenitor
-            orbit. The actual grid has ``2 * (track_n_dense+1)//2 - 1``
-            points (forward + backward with shared t=0). Default 10001.
         ntp : int, optional
             Number of binning nodes. Default ``sqrt(N)`` clipped to
             ``[21, 201]``.
@@ -404,7 +399,10 @@ class basestreamspraydf(df):
         # progenitor itself — a body shouldn't generate the field that
         # integrates it).
         _track_pot = getattr(self, "_orig_pot", self._pot)
-        half_dense = (int(track_n_dense) + 1) // 2
+        # Dense progenitor sampling: hard-coded internal density. 10001
+        # points across [-T, +T] is plenty for any plausible track —
+        # finer than the spline knot density downstream.
+        half_dense = 5001
         t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
         t_back = numpy.linspace(0.0, -track_time_range, half_dense)
         prog = self._orig_progenitor()
