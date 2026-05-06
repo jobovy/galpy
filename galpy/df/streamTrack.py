@@ -1936,7 +1936,7 @@ class StreamTrack:
         for i, name in enumerate(names)
     }
 
-    def plot(self, d1="x", d2="y", spread=0, n=None, **kwargs):
+    def plot(self, d1="x", d2="y", spread=0, **kwargs):
         """Plot the smooth track in the (d1, d2) plane.
 
         Parameters
@@ -1950,8 +1950,6 @@ class StreamTrack:
             ``d2`` using the projected covariance. Works for any ``d2``
             that has a basis in :attr:`_COORD_BASIS`. Silently skipped
             for axes outside the dispatch (e.g. ``ll``, ``bb``).
-        n : int, optional
-            Number of evaluation points (default: self._ninterp).
         ro : float or Quantity, optional
             Distance scale to use for the conversion (overrides
             ``self._ro``).
@@ -1985,8 +1983,7 @@ class StreamTrack:
         if vo is not None:
             access_kw["vo"] = vo
 
-        n_eval = self._ninterp if n is None else int(n)
-        tp = numpy.linspace(self._tp_grid[0], self._tp_grid[-1], n_eval)
+        tp = numpy.linspace(self._tp_grid[0], self._tp_grid[-1], self._ninterp)
         v1 = numpy.asarray(getattr(self, d1)(tp, **access_kw))
         v2 = numpy.asarray(getattr(self, d2)(tp, **access_kw))
         line = pyplot.plot(v1, v2, **kwargs)
@@ -2049,12 +2046,12 @@ class StreamTrackPair:
         self.leading.turn_physical_off()
         self.trailing.turn_physical_off()
 
-    def plot(self, d1="x", d2="y", spread=0, n=None, **kwargs):
+    def plot(self, d1="x", d2="y", spread=0, **kwargs):
         """Plot both arms on the same axes (mirroring ``StreamTrack.plot``).
 
         Accepts ``ro``/``vo``/``use_physical`` for per-call unit overrides
         like ``Orbit.plot``."""
         return [
-            self.leading.plot(d1=d1, d2=d2, spread=spread, n=n, **kwargs),
-            self.trailing.plot(d1=d1, d2=d2, spread=spread, n=n, **kwargs),
+            self.leading.plot(d1=d1, d2=d2, spread=spread, **kwargs),
+            self.trailing.plot(d1=d1, d2=d2, spread=spread, **kwargs),
         ]

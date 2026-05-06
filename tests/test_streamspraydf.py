@@ -2009,12 +2009,12 @@ def test_streamTrack_plot_spread_non_cartesian(_simple_spdf):
         "phi2",
         "pmphi1",
     ):
-        track.plot(d1="x", d2=d2, spread=1, n=40)
+        track.plot(d1="x", d2=d2, spread=1)
     # No custom_transform: non-custom axes still work (covers the "basis
     # needs custom_transform but we don't have one" code path gracefully).
     numpy.random.seed(34)
     track_bare = _simple_spdf.streamTrack(n=800, tail="leading", ntp=31)
-    track_bare.plot(d1="x", d2="ra", spread=1, n=40)
+    track_bare.plot(d1="x", d2="ra", spread=1)
 
 
 def test_streamTrack_custom_accessors_no_physical(_simple_spdf):
