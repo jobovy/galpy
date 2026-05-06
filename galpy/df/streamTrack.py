@@ -571,6 +571,20 @@ class StreamTrack:
     Accessors and :meth:`cov` return ``NaN`` for ``tp`` values outside the
     track's valid range (rather than silent cubic-spline extrapolation).
     For an array ``tp``, only the offending entries are NaN.
+
+    Attributes
+    ----------
+    particles : tuple of (ndarray, ndarray) or absent
+        ``(xv, dt)`` of the particles the track was fit to, in the same
+        ``(R, vR, vT, z, vz, phi)`` layout that
+        :meth:`from_particles` accepts and ``streamspraydf.streamTrack``
+        returns from its ``particles=`` knob. Available only on tracks
+        built via :meth:`from_particles` (the
+        :meth:`streamspraydf.streamTrack
+        <galpy.df.streamspraydf.streamTrack>` path); absent on tracks
+        constructed directly from precomputed splines via
+        :meth:`__init__`. Useful for re-fitting at different smoothing /
+        iteration settings without re-sampling the spray DF.
     """
 
     def __init__(
