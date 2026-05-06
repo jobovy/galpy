@@ -307,7 +307,7 @@ class basestreamspraydf(df):
             important than position matches — useful when the
             progenitor orbit revisits regions of phase space (e.g., in
             strongly-perturbed potentials with a massive LMC). Pass
-            ``1.0`` for the legacy unweighted Galpy-natural-units
+            ``1.0`` for the legacy unweighted natural-units
             metric.
 
         Returns

@@ -310,7 +310,7 @@ def _fit_track_from_particles(
     assignment is unambiguous), and uses ``σ_pos / σ_vel`` (clipped to
     ``[1, 10]``) as the weight for the actual fit. The auto value
     typically lands at ~2–3 for both clean and perturbed streams. Pass
-    ``1.0`` for the legacy unweighted Galpy-natural-units metric.
+    ``1.0`` for the legacy unweighted natural-units metric.
     """
     track_t_grid = numpy.asarray(track_t_grid, dtype=float)
     prog_cart = numpy.asarray(track_prog_cart, dtype=float)
