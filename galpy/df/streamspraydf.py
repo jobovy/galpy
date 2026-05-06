@@ -362,31 +362,30 @@ class basestreamspraydf(df):
             )
 
         # Build a finely-sampled progenitor phase-space array spanning
-        # [-T, +T] around the present day. Integrate forward and backward
-        # separately from the progenitor's present-day state, then combine.
+        # [-T, +T] around the present day. Integrate forward, then
+        # backward — galpy's Orbit.integrate auto-stitches consecutive
+        # calls into a single continuous trajectory.
         # Use the base potential (no MovingObjectPotential for the
         # progenitor itself — a body shouldn't generate the field that
         # integrates it).
         _track_pot = getattr(self, "_orig_pot", self._pot)
         half_dense = (int(track_n_dense) + 1) // 2
-        t_back = numpy.linspace(0.0, -track_time_range, half_dense)
         t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
-        prog_back = self._orig_progenitor()
-        prog_back.turn_physical_off()
-        prog_back.integrate(t_back, _track_pot)
-        prog_fwd = self._orig_progenitor()
-        prog_fwd.turn_physical_off()
-        prog_fwd.integrate(t_fwd, _track_pot)
-        # Combine, skipping the t=0 duplicate
+        t_back = numpy.linspace(0.0, -track_time_range, half_dense)
+        prog = self._orig_progenitor()
+        prog.turn_physical_off()
+        prog.integrate(t_fwd, _track_pot)
+        prog.integrate(t_back, _track_pot)
+        # Stitched grid spans [-T, +T] (skip the t=0 duplicate at the seam).
         track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
         track_prog_cart = numpy.column_stack(
             [
-                numpy.concatenate([prog_back.x(t_back)[::-1], prog_fwd.x(t_fwd)[1:]]),
-                numpy.concatenate([prog_back.y(t_back)[::-1], prog_fwd.y(t_fwd)[1:]]),
-                numpy.concatenate([prog_back.z(t_back)[::-1], prog_fwd.z(t_fwd)[1:]]),
-                numpy.concatenate([prog_back.vx(t_back)[::-1], prog_fwd.vx(t_fwd)[1:]]),
-                numpy.concatenate([prog_back.vy(t_back)[::-1], prog_fwd.vy(t_fwd)[1:]]),
-                numpy.concatenate([prog_back.vz(t_back)[::-1], prog_fwd.vz(t_fwd)[1:]]),
+                prog.x(track_t_grid),
+                prog.y(track_t_grid),
+                prog.z(track_t_grid),
+                prog.vx(track_t_grid),
+                prog.vy(track_t_grid),
+                prog.vz(track_t_grid),
             ]
         )
 
