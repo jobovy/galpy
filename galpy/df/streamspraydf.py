@@ -364,13 +364,10 @@ class basestreamspraydf(df):
         # Build a finely-sampled progenitor phase-space array spanning
         # [-T, +T] around the present day. Integrate forward and backward
         # separately from the progenitor's present-day state, then combine.
-        # Use the BASE potential (without progpot's MovingObjectPotential)
-        # because the MovingObjectPotential's internal progenitor was only
-        # integrated on [-tdisrupt, 0] and would give wrong or erroring
-        # results for positive times.
-        _track_pot = self._pot
-        if hasattr(self, "_orig_pot"):
-            _track_pot = self._orig_pot
+        # Use the base potential (no MovingObjectPotential for the
+        # progenitor itself — a body shouldn't generate the field that
+        # integrates it).
+        _track_pot = getattr(self, "_orig_pot", self._pot)
         half_dense = (int(track_n_dense) + 1) // 2
         t_back = numpy.linspace(0.0, -track_time_range, half_dense)
         t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
