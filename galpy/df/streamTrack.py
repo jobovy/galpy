@@ -1224,9 +1224,7 @@ class StreamTrack:
             Right ascension in degrees.
         """
         tp = self._parse_tp(tp)
-        X, Y, Z, _, _, _ = self._helio_xv(tp)
-        lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        ra_dec = coords.lb_to_radec(lbd[:, 0], lbd[:, 1], degree=True)
+        ra_dec = self._radec_internal(tp)
         return self._maybe_scalar(tp, ra_dec[:, 0])
 
     @physical_conversion("angle_deg", pop=True)
@@ -1253,9 +1251,7 @@ class StreamTrack:
             Declination in degrees.
         """
         tp = self._parse_tp(tp)
-        X, Y, Z, _, _, _ = self._helio_xv(tp)
-        lbd = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        ra_dec = coords.lb_to_radec(lbd[:, 0], lbd[:, 1], degree=True)
+        ra_dec = self._radec_internal(tp)
         return self._maybe_scalar(tp, ra_dec[:, 1])
 
     @physical_conversion("angle_deg", pop=True)
@@ -1367,14 +1363,7 @@ class StreamTrack:
             ``pmra * cos(dec)`` in mas/yr.
         """
         tp = self._parse_tp(tp)
-        lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
-        pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
-            vrpmllpmbb[:, 1],
-            vrpmllpmbb[:, 2],
-            lbd[:, 0],
-            lbd[:, 1],
-            degree=True,
-        )
+        pmrapmdec = self._pmrapmdec_internal(tp)
         return self._maybe_scalar(tp, pmrapmdec[:, 0])
 
     @physical_conversion("proper-motion_masyr", pop=True)
@@ -1401,14 +1390,7 @@ class StreamTrack:
             ``pmdec`` in mas/yr.
         """
         tp = self._parse_tp(tp)
-        lbd, vrpmllpmbb = self._vrpmllpmbb(tp)
-        pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
-            vrpmllpmbb[:, 1],
-            vrpmllpmbb[:, 2],
-            lbd[:, 0],
-            lbd[:, 1],
-            degree=True,
-        )
+        pmrapmdec = self._pmrapmdec_internal(tp)
         return self._maybe_scalar(tp, pmrapmdec[:, 1])
 
     @physical_conversion("proper-motion_masyr", pop=True)
