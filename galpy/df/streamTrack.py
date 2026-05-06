@@ -764,18 +764,19 @@ class StreamTrack:
             Rotation from equatorial to a custom sky frame. Forwarded to
             the base ``__init__``.
         ro : float or Quantity, optional
-            Distance scale (kpc). Default None — same semantics as the
-            base ``__init__``: the ``_roSet`` flag is derived from whether
-            ``ro`` was explicitly passed. Callers that want to inherit
-            the source ``Orbit``'s ``_roSet`` should pass ``ro`` only when
-            the source had ``_roSet=True``.
+            Distance scale (kpc). Default ``None`` — the resulting
+            StreamTrack falls back onto the progenitor orbit's ``ro``
+            value (and inherits its ``_roSet`` flag). Pass an explicit
+            value only if the track should override the progenitor's.
         vo : float or Quantity, optional
-            Velocity scale (km/s). Same semantics as ``ro``.
+            Velocity scale (km/s). Default ``None`` — same fallback to
+            the progenitor as for ``ro``.
         zo : float or Quantity, optional
-            Sun's height above the midplane (kpc). Default None.
+            Sun's height above the midplane (kpc). Default ``None`` —
+            falls back to the progenitor orbit's ``zo``.
         solarmotion : str, numpy.ndarray or Quantity, optional
             ``'hogg'``, ``'dehnen'``, ``'schoenrich'``, or ``[-U, V, W]``
-            in km/s. Default None.
+            in km/s. Default ``None`` — falls back to the progenitor's.
         """
         fit = _fit_track_from_particles(
             xv_particles,
