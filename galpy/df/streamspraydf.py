@@ -278,14 +278,13 @@ class basestreamspraydf(df):
         ntp : int, optional
             Number of binning nodes. Default ``sqrt(N)`` clipped to
             ``[21, 201]``.
-        smoothing : None, float, array-like, or dict, optional
+        smoothing : None, float, or array-like, optional
             Smoothing parameter(s). ``None`` (default) uses GCV
             auto-tuning. A float sets a single ``s`` for all coords. An
             array-like of length 6 (mean only) or 27 (mean + covariance)
             sets per-spline ``s`` values — pass a previous call's
             ``track.smoothing_s`` to reproduce the same smoothness
-            without re-running GCV. A dict keyed by coordinate name
-            sets per-coordinate ``s`` for the 6 mean splines only.
+            without re-running GCV.
         smoothing_factor : float, optional
             Multiplier applied to every spline's effective ``s`` after
             GCV (or explicit-``s``) selection. Values > 1 force a smoother

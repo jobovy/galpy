@@ -1450,14 +1450,7 @@ def test_streamTrack_smoothing_variants(_simple_spdf):
     numpy.random.seed(18)
     # Default ntp (auto from n) is exercised here
     tr_f = _simple_spdf.streamTrack(n=800, tail="leading", smoothing=20.0)
-    tr_d = _simple_spdf.streamTrack(
-        n=800,
-        ntp=31,
-        tail="leading",
-        smoothing={"x": 20.0, "y": 20.0},
-    )
     assert numpy.isfinite(tr_f.x(tr_f.tp_grid()[len(tr_f.tp_grid()) // 2]))
-    assert numpy.isfinite(tr_d.x(tr_d.tp_grid()[len(tr_d.tp_grid()) // 2]))
     # Array-like smoothing: reuse smoothing_s from a previous fit
     numpy.random.seed(18)
     tr_gcv = _simple_spdf.streamTrack(n=800, tail="leading", order=2)

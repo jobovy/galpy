@@ -356,12 +356,8 @@ def _fit_track_from_particles(
 
     # Normalize smoothing argument into per-spline s values.
     # Length 6 = mean only; length 27 = mean (6) + covariance (21).
-    _coord_keys = ("x", "y", "z", "vx", "vy", "vz")
     if smoothing is None:
         s_user_mean = [None] * 6
-        s_user_cov = [None] * 21
-    elif isinstance(smoothing, dict):
-        s_user_mean = [smoothing.get(c, None) for c in _coord_keys]
         s_user_cov = [None] * 21
     elif hasattr(smoothing, "__len__") and not isinstance(smoothing, str):
         s_arr = list(smoothing)
@@ -734,7 +730,7 @@ class StreamTrack:
             ``[21, 201]``.
         ninterp : int, optional
             Resolution of the fine ``tp`` grid. Default 1001.
-        smoothing : None, float, array-like, or dict, optional
+        smoothing : None, float, or array-like, optional
             Smoothing parameter(s); see class docstring. ``None`` (default)
             uses GCV via ``make_smoothing_spline``.
         smoothing_factor : float, optional
