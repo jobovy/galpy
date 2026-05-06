@@ -1898,7 +1898,7 @@ class StreamTrack:
     # Unit toggles
     # -----------------------------------------------------------------
     def turn_physical_on(self, ro=None, vo=None):
-        """Turn on physical-units output. Mirrors ``Orbit.turn_physical_on``.
+        """Turn on physical-units output.
 
         Parameters
         ----------
@@ -1915,7 +1915,7 @@ class StreamTrack:
         self._voSet = True
 
     def turn_physical_off(self):
-        """Turn off physical-units output. Mirrors ``Orbit.turn_physical_off``."""
+        """Turn off physical-units output."""
         self._roSet = False
         self._voSet = False
 
