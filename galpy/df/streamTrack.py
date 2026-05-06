@@ -309,7 +309,7 @@ def _fit_track_from_particles(
     ``'auto'`` (the default), runs a probe pass with weight 1, computes
     σ_pos and σ_vel from the inner half of particles (where the
     assignment is unambiguous), and uses ``σ_pos / σ_vel`` (clipped to
-    ``[1, 10]``) as the weight for the actual fit. The auto value
+    ``[0.1, 10]``) as the weight for the actual fit. The auto value
     typically lands at ~2–3 for both clean and perturbed streams. Pass
     ``1.0`` for the legacy unweighted natural-units metric.
     """
@@ -382,7 +382,7 @@ def _fit_track_from_particles(
 
     # Resolve velocity_weight='auto' from a probe pass. Use the inner-half
     # of particles (smaller |tp_assign|) where the assignment is unambiguous,
-    # and set weight = σ_pos / σ_vel (clipped to [1, 10]). This makes the
+    # and set weight = σ_pos / σ_vel (clipped to [0.1, 10]). This makes the
     # 6D metric scale-invariant w.r.t. arbitrary ro/vo choices.
     if isinstance(velocity_weight, str):
         if velocity_weight != "auto":
@@ -407,7 +407,12 @@ def _fit_track_from_particles(
             sigma_pos = numpy.sqrt(numpy.mean(numpy.sum(dpos**2, axis=1)))
             sigma_vel = numpy.sqrt(numpy.mean(numpy.sum(dvel**2, axis=1)))
             if sigma_vel > 0:
-                velocity_weight = float(numpy.clip(sigma_pos / sigma_vel, 1.0, 10.0))
+                # Clip to [0.1, 10] — the upper bound caps pathological
+                # high ratios; the lower bound just guards against an
+                # ill-conditioned σ_vel estimate. Streams where σ_pos/σ_vel
+                # is genuinely below 1 (positions tighter than velocities
+                # in natural units) get the value as-is.
+                velocity_weight = float(numpy.clip(sigma_pos / sigma_vel, 0.1, 10.0))
             else:
                 velocity_weight = 1.0
         else:
@@ -758,7 +763,7 @@ class StreamTrack:
             computing 6D distances in the closest-point projection.
             Default ``'auto'`` learns the weight from the inner-half
             particle dispersion (``σ_pos / σ_vel``, clipped to
-            ``[1, 10]``); see ``streamspraydf.streamTrack`` for
+            ``[0.1, 10]``); see ``streamspraydf.streamTrack`` for
             motivation. Pass ``1.0`` for the legacy unweighted metric.
         custom_transform : array, shape (3, 3), optional
             Rotation from equatorial to a custom sky frame. Forwarded to

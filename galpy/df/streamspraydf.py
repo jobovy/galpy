@@ -302,7 +302,7 @@ class basestreamspraydf(df):
             computing 6D distances during the closest-point projection.
             Default ``'auto'`` learns the weight from the inner-half
             particle dispersion (``σ_pos / σ_vel``, clipped to
-            ``[1, 10]``); typically lands at ~2–3 for both clean and
+            ``[0.1, 10]``); typically lands at ~2–3 for both clean and
             perturbed streams. Values > 1 make velocity matches more
             important than position matches — useful when the
             progenitor orbit revisits regions of phase space (e.g., in
