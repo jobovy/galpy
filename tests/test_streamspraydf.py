@@ -981,14 +981,15 @@ def test_streamTrack_progenitor_recovery():
 def test_streamTrack_sample_consistency(_simple_spdf):
     # The track's mean at tp should agree with the mean galactocentric x of
     # particles near that tp (per a closest-point assignment to the track).
-    from galpy.df.streamTrack import _closest_point_on_curve, _particles_to_cartesian
+    from galpy.df.streamTrack import _closest_point_on_curve
+    from galpy.util import coords
 
     numpy.random.seed(1)
     track = _simple_spdf.streamTrack(n=4000, ntp=41, tail="leading")
     # Reproduce the closest-point assignment from the saved particles ->
     # closest point on the dense track itself (a stable, public reference).
     xv, _ = track.particles
-    particles_cart = _particles_to_cartesian(xv)
+    particles_cart = coords.galcencyl_to_galcenrect(*xv)
     tp_grid = track.tp_grid()
     track_cart = numpy.column_stack(
         [
