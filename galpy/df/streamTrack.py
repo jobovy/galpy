@@ -13,13 +13,6 @@ if _APY_LOADED:
     from astropy import units
 
 
-def _particles_to_cartesian(xv_particles):
-    """Convert particles from (R,vR,vT,z,vz,phi) to galactocentric
-    Cartesian 6-vectors. Returns array of shape (N, 6)."""
-    R, vR, vT, z, vz, phi = xv_particles
-    return coords.galcencyl_to_galcenrect(R, vR, vT, z, vz, phi)
-
-
 def _bin_by_tp(tp_assign, values, tp_nodes):
     """Bin per-particle ``values`` (N, D) by ``tp_assign`` onto ``tp_nodes``
     (M,). Bins are centered on each node. Returns ``(means (M, D), covs
@@ -351,7 +344,9 @@ def _fit_track_from_particles(
         numpy.asarray(xv_particles, dtype=float).copy(),
         numpy.asarray(dt_particles, dtype=float).copy(),
     )
-    particles_cart = _particles_to_cartesian(numpy.asarray(xv_particles, dtype=float))
+    particles_cart = coords.galcencyl_to_galcenrect(
+        *numpy.asarray(xv_particles, dtype=float)
+    )
     dt = numpy.asarray(dt_particles, dtype=float)
 
     # Normalize smoothing argument into per-spline s values.
