@@ -20,6 +20,7 @@ from . import (
     streamdf,
     streamgapdf,
     streamspraydf,
+    streamTrack,
     surfaceSigmaProfile,
 )
 
@@ -75,3 +76,5 @@ osipkovmerrittPowerLawdf = osipkovmerrittPowerLawdf.osipkovmerrittPowerLawdf
 chen24spraydf = streamspraydf.chen24spraydf
 fardal15spraydf = streamspraydf.fardal15spraydf
 streamspraydf = streamspraydf.streamspraydf
+StreamTrack = streamTrack.StreamTrack
+StreamTrackPair = streamTrack.StreamTrackPair
