@@ -1,4 +1,5 @@
 import copy
+import warnings
 
 import numpy
 import pytest
@@ -665,6 +666,68 @@ def test_tail_both_sample_size():
     return None
 
 
+def test_sample_tail_override():
+    # sample(tail=...) overrides the default set at __init__, identically
+    # to how streamTrack(tail=...) works. Setup doesn't matter — the
+    # progenitor integration is the same regardless of which arm the
+    # user asks for at sample time.
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    # Built with tail='leading' — should still be able to sample 'trailing'
+    # and 'both'.
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        tail="leading",
+    )
+    # Seed before each call so the only source of difference between the
+    # leading and trailing samples is the arm assignment, not the RNG state.
+    numpy.random.seed(7)
+    RvR_lead = spdf.sample(n=100, return_orbit=False, integrate=False)
+    numpy.random.seed(7)
+    RvR_trail = spdf.sample(n=100, return_orbit=False, integrate=False, tail="trailing")
+    numpy.random.seed(7)
+    RvR_both = spdf.sample(n=200, return_orbit=False, integrate=False, tail="both")
+    assert RvR_lead.shape == (6, 100)
+    assert RvR_trail.shape == (6, 100)
+    assert RvR_both.shape == (6, 200)
+    # Trailing-arm samples must differ from leading-arm samples (different
+    # stripping side of the progenitor) — with the same seed, this isolates
+    # the arm flip.
+    assert not numpy.allclose(RvR_lead, RvR_trail)
+    # tail=None (default) follows self._tail — should match an explicit
+    # tail='leading' call (modulo RNG, which is reseeded by us).
+    numpy.random.seed(123)
+    RvR_default = spdf.sample(n=50, return_orbit=False, integrate=False)
+    numpy.random.seed(123)
+    RvR_explicit_leading = spdf.sample(
+        n=50, return_orbit=False, integrate=False, tail="leading"
+    )
+    assert numpy.allclose(RvR_default, RvR_explicit_leading)
+    # Built with tail='both' — explicit tail='leading' should give a
+    # leading-only sample (n=100, not n=50+50).
+    spdf_both = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        tail="both",
+    )
+    RvR_lead_only = spdf_both.sample(
+        n=100, return_orbit=False, integrate=False, tail="leading"
+    )
+    assert RvR_lead_only.shape == (6, 100)
+    # Bad tail value raises.
+    with pytest.raises(ValueError):
+        spdf.sample(n=10, return_orbit=False, integrate=False, tail="bogus")
+    return None
+
+
 def test_tail_both_returndt():
     # Test that tail='both' with returndt works
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -730,7 +793,6 @@ def test_tail_both_consistency():
 
 def test_leading_deprecation():
     # Test that using leading= raises a FutureWarning
-    import warnings as _warnings
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     obs = Orbit(
@@ -738,8 +800,8 @@ def test_leading_deprecation():
     )
     ro, vo = 8.0, 220.0
     for spraydfclass in [fardal15spraydf, chen24spraydf]:
-        with _warnings.catch_warnings(record=True) as w:
-            _warnings.simplefilter("always")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             spdf = spraydfclass(
                 2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
                 progenitor=obs,
@@ -747,11 +809,11 @@ def test_leading_deprecation():
                 tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
                 leading=True,
             )
-        future_warnings = [x for x in w if issubclass(x.category, FutureWarning)]
-        assert len(future_warnings) == 1, (
+        futurewarnings = [x for x in w if issubclass(x.category, FutureWarning)]
+        assert len(futurewarnings) == 1, (
             f"Expected exactly one FutureWarning for {spraydfclass.__name__}"
         )
-        assert "leading= keyword is deprecated" in str(future_warnings[0].message), (
+        assert "leading= keyword is deprecated" in str(futurewarnings[0].message), (
             f"FutureWarning message incorrect for {spraydfclass.__name__}"
         )
         # Should still work correctly
@@ -764,7 +826,6 @@ def test_leading_deprecation():
 
 def test_leading_and_tail_error():
     # Test that specifying both leading= and tail= raises an error
-    import warnings as _warnings
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     obs = Orbit(
@@ -772,8 +833,8 @@ def test_leading_and_tail_error():
     )
     ro, vo = 8.0, 220.0
     for spraydfclass in [fardal15spraydf, chen24spraydf]:
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("always")
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
             with pytest.raises(ValueError, match="Cannot specify both"):
                 spraydfclass(
                     2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
