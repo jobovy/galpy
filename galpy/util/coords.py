@@ -42,6 +42,10 @@
 #            Rz_to_lambdanu_jac
 #            Rz_to_lambdanu_hess
 #            lambdanu_to_Rz
+#            XYZ_to_lbd_jac
+#            galcenrect_to_galcencyl_jac
+#            galsky_to_sky_jac
+#            sky_to_customsky_jac
 #
 ##############################################################################
 #############################################################################
@@ -1811,6 +1815,425 @@ def lbd_to_XYZ_jac(*args, **kwargs):
     if kwargs.get("degree", False):
         out[:, 0] *= _DEGTORAD
         out[:, 1] *= _DEGTORAD
+    return out
+
+
+def XYZ_to_lbd_jac(*args, **kwargs):
+    """
+    Calculate the Jacobian of the Galactic rectangular → Galactic spherical
+    coordinates transformation. Closed-form analytical inverse of
+    :func:`lbd_to_XYZ_jac` — no numerical inversion.
+
+    Parameters
+    ----------
+    X : float
+        Galactic rectangular X (heliocentric).
+    Y : float
+        Galactic rectangular Y.
+    Z : float
+        Galactic rectangular Z.
+    vX : float, optional
+        Galactic rectangular vX.
+    vY : float, optional
+        Galactic rectangular vY.
+    vZ : float, optional
+        Galactic rectangular vZ.
+    degree : bool, optional
+        If True, the angular output rows ``l`` and ``b`` are scaled to
+        degrees (matching the convention of ``lbd_to_XYZ_jac``, whose
+        ``l``/``b`` *columns* are scaled by ``π/180`` for ``degree=True``
+        input — so chaining the two as inverses cancels cleanly).
+
+    Returns
+    -------
+    numpy.ndarray
+        3x3 if positions only, 6x6 if position+velocity. Order:
+        ``(l, b, D[, vlos, pmll, pmbb])``.
+
+    Notes
+    -----
+    The 6x6 forward map is block-triangular (positions don't depend on
+    velocities, so the top-right block is zero). The position 3x3 has the
+    standard spherical-to-Cartesian inverse; the velocity-vs-velocity 3x3
+    is the transpose of an orthonormal rotation scaled by
+    ``diag(1, 1/(K·D), 1/(K·D))``. The velocity-vs-position coupling block
+    is computed as ``-inv(M) · Q · inv(P)`` where ``Q`` is the existing
+    velocity-vs-position block of ``lbd_to_XYZ_jac``.
+
+    - 2026-04-26 - Written - Bovy (UofT)
+    """
+    if len(args) == 3:
+        X, Y, Z = args
+        with_vel = False
+    elif len(args) == 6:
+        X, Y, Z, vX, vY, vZ = args
+        with_vel = True
+    else:
+        raise ValueError("XYZ_to_lbd_jac expects 3 or 6 arguments")
+
+    R2 = X * X + Y * Y
+    D = numpy.sqrt(R2 + Z * Z)
+    r = numpy.sqrt(R2)
+    cb = r / D
+    sb = Z / D
+    # On the celestial pole (r==0) ``l`` is undefined; pick (cl, sl) = (1, 0)
+    # so the spatial inverse stays finite (consistent with atan2(0, 0) = 0).
+    if r == 0.0:
+        cl, sl = 1.0, 0.0
+    else:
+        cl = X / r
+        sl = Y / r
+
+    out = numpy.zeros((6, 6) if with_vel else (3, 3))
+    # Position 3x3: ∂(l, b, D)/∂(X, Y, Z)
+    if cb != 0.0:  # else: at the pole, ∂l/∂(X, Y) blows up — leave as zero
+        out[0, 0] = -sl / (D * cb)
+        out[0, 1] = cl / (D * cb)
+    out[1, 0] = -sb * cl / D
+    out[1, 1] = -sb * sl / D
+    out[1, 2] = cb / D
+    out[2, 0] = cb * cl
+    out[2, 1] = cb * sl
+    out[2, 2] = sb
+
+    if not with_vel:
+        if kwargs.get("degree", False):
+            out[0, :] *= 1.0 / _DEGTORAD
+            out[1, :] *= 1.0 / _DEGTORAD
+        return out
+
+    # Velocity 3x3: ∂(vlos, pmll, pmbb)/∂(vX, vY, vZ) at fixed position.
+    # forward velocity block is R · diag(1, K·D, K·D) with R orthonormal
+    # ⇒ inverse = diag(1, 1/(K·D), 1/(K·D)) · Rᵀ.
+    KD = _K * D
+    out[3, 3] = cl * cb
+    out[3, 4] = sl * cb
+    out[3, 5] = sb
+    if KD != 0.0:  # pragma: no branch (D > 0 always — guard catches the
+        # heliocentric-origin singularity if a caller passes (X, Y, Z) = 0)
+        out[4, 3] = -sl / KD
+        out[4, 4] = cl / KD
+        out[5, 3] = -cl * sb / KD
+        out[5, 4] = -sl * sb / KD
+        out[5, 5] = cb / KD
+
+    # Bottom-left coupling: -inv(M) · Q · inv(P).
+    # Q is the velocity-vs-position block of lbd_to_XYZ_jac, evaluated at
+    # the current vlos/pmll/pmbb (themselves derived from vX,vY,vZ via the
+    # velocity inverse just computed).
+    vlos = cl * cb * vX + sl * cb * vY + sb * vZ
+    if KD != 0.0:
+        pmll = (-sl * vX + cl * vY) / KD
+        pmbb = (-cl * sb * vX - sl * sb * vY + cb * vZ) / KD
+    else:  # pragma: no cover (defensive: Sun is never the track mean)
+        pmll = 0.0
+        pmbb = 0.0
+    Q = numpy.zeros((3, 3))
+    Q[0, 0] = -sl * cb * vlos - cl * KD * pmll + sb * sl * KD * pmbb
+    Q[0, 1] = -cl * sb * vlos - cb * cl * KD * pmbb
+    Q[0, 2] = -sl * _K * pmll - sb * cl * _K * pmbb
+    Q[1, 0] = cl * cb * vlos - sl * KD * pmll - cl * sb * KD * pmbb
+    Q[1, 1] = -sl * sb * vlos - sl * cb * KD * pmbb
+    Q[1, 2] = cl * _K * pmll - sl * sb * _K * pmbb
+    Q[2, 0] = 0.0
+    Q[2, 1] = cb * vlos - sb * KD * pmbb
+    Q[2, 2] = cb * _K * pmbb
+    out[3:6, 0:3] = -out[3:6, 3:6] @ Q @ out[0:3, 0:3]
+
+    if kwargs.get("degree", False):
+        out[0, :] *= 1.0 / _DEGTORAD
+        out[1, :] *= 1.0 / _DEGTORAD
+    return out
+
+
+def galcencyl_to_galcenrect(R, vR, vT, z, vz, phi):
+    """
+    Convert galactocentric cylindrical phase-space ``(R, vR, vT, z, vz, phi)``
+    to galactocentric Cartesian ``(x, y, z, vx, vy, vz)``.
+
+    Parameters
+    ----------
+    R, vR, vT, z, vz, phi : float or numpy.ndarray
+        Galactocentric cylindrical phase-space components, in the
+        galpy ordering used by ``Orbit`` and ``streamspraydf.sample``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of shape ``(N, 6)`` (or ``(6,)`` for scalar inputs) containing
+        ``(x, y, z, vx, vy, vz)``.
+
+    Notes
+    -----
+    - 2026-05-06 - Written - Bovy (UofT)
+    """
+    x, y, zc = cyl_to_rect(R, phi, z)
+    vx, vy, vzc = cyl_to_rect_vec(vR, vT, vz, phi)
+    return numpy.column_stack([x, y, zc, vx, vy, vzc])
+
+
+def galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz):
+    """
+    Calculate the Jacobian of the Galactocentric rectangular → cylindrical
+    coordinates transformation, evaluated at the given point.
+
+    Parameters
+    ----------
+    x, y, z : float
+        Galactocentric Cartesian position.
+    vx, vy, vz : float
+        Galactocentric Cartesian velocity.
+
+    Returns
+    -------
+    numpy.ndarray
+        6x6 Jacobian of ``(R, vR, vT, z, vz, phi)`` w.r.t. ``(x, y, z, vx, vy, vz)``.
+
+    Notes
+    -----
+    - 2026-04-26 - Written - Bovy (UofT)
+    """
+    R = numpy.sqrt(x * x + y * y)
+    if R == 0.0:
+        R = 1e-30
+    cp = x / R
+    sp = y / R
+    vR_ = cp * vx + sp * vy
+    vT_ = -sp * vx + cp * vy
+    J = numpy.zeros((6, 6))
+    # row 0: R = sqrt(x²+y²)
+    J[0, 0] = cp
+    J[0, 1] = sp
+    # row 1: vR = cos(phi) * vx + sin(phi) * vy (depends on phi via x, y)
+    J[1, 0] = -sp * vT_ / R
+    J[1, 1] = cp * vT_ / R
+    J[1, 3] = cp
+    J[1, 4] = sp
+    # row 2: vT = -sin(phi) * vx + cos(phi) * vy
+    J[2, 0] = sp * vR_ / R
+    J[2, 1] = -cp * vR_ / R
+    J[2, 3] = -sp
+    J[2, 4] = cp
+    # row 3: z = z
+    J[3, 2] = 1.0
+    # row 4: vz = vz
+    J[4, 5] = 1.0
+    # row 5: phi = atan2(y, x)
+    J[5, 0] = -sp / R
+    J[5, 1] = cp / R
+    return J
+
+
+def galsky_to_sky_jac(*args, **kwargs):
+    """
+    Calculate the Jacobian of the Galactic-sky → equatorial-sky transformation.
+
+    Maps ``(l, b, D, pmll, pmbb, vlos)`` to ``(ra, dec, D, pmra, pmdec, vlos)``.
+    The angular block is the standard sky-rotation by the local position
+    angle ``α`` between the (north Galactic pole) and (north equatorial
+    pole) tangent directions; ``D`` and ``vlos`` are pass-through.
+
+    Parameters
+    ----------
+    l : float
+        Galactic longitude.
+    b : float
+        Galactic latitude.
+    pmll : float, optional
+        Proper motion in ``l`` (multiplied by ``cos(b)``). Used only for
+        the proper-motion-vs-position derivatives — the rotation angle ``α``
+        depends on the sky position, so a position perturbation also rotates
+        the proper-motion components.
+    pmbb : float, optional
+        Proper motion in ``b``.
+    degree : bool, optional
+        If True, the angular ``l`` / ``b`` inputs and ``ra`` / ``dec``
+        outputs are in degrees.
+    epoch : float, optional
+        Equinox; passed to :func:`get_epoch_angles`. Default 2000.0.
+
+    Returns
+    -------
+    numpy.ndarray
+        6x6 Jacobian.
+
+    Notes
+    -----
+    - 2026-04-26 - Written - Bovy (UofT)
+    """
+    if len(args) == 2:
+        l, b = args
+        pmll, pmbb = 0.0, 0.0
+    elif len(args) == 4:
+        l, b, pmll, pmbb = args
+    else:
+        raise ValueError("galsky_to_sky_jac expects 2 or 4 arguments")
+    epoch = kwargs.get("epoch", 2000.0)
+    if kwargs.get("degree", False):
+        l = l * _DEGTORAD
+        b = b * _DEGTORAD
+    _, dec_ngp, ra_ngp = get_epoch_angles(epoch)
+    cosb = numpy.cos(b)
+    radec = lb_to_radec(numpy.atleast_1d(l), numpy.atleast_1d(b), degree=False)
+    ra = float(radec[0, 0] if radec.ndim == 2 else radec[0])
+    dec_val = float(radec[0, 1] if radec.ndim == 2 else radec[1])
+    sindec = numpy.sin(dec_val)
+    cosdec = numpy.cos(dec_val)
+    sindec_ngp = numpy.sin(dec_ngp)
+    cosdec_ngp = numpy.cos(dec_ngp)
+    sin_rrngp = numpy.sin(ra - ra_ngp)
+    cos_rrngp = numpy.cos(ra - ra_ngp)
+    # cos α, sin α match ``pmllpmbb_to_pmrapmdec`` (κ, σ are the
+    # un-normalized numerator/denominator; nrm² = κ² + σ²).
+    kappa = sindec_ngp * cosdec - cosdec_ngp * sindec * cos_rrngp
+    sigma = sin_rrngp * cosdec_ngp
+    nrm2 = kappa * kappa + sigma * sigma
+    nrm = numpy.sqrt(nrm2)
+    cosa = kappa / nrm
+    sina = sigma / nrm
+    # dα/d(ra, dec) via α = atan2(σ, κ) ⇒ dα = (κ·dσ − σ·dκ)/(κ²+σ²).
+    dsig_dra = cosdec_ngp * cos_rrngp
+    dkap_dra = cosdec_ngp * sindec * sin_rrngp
+    dkap_ddec = -sindec_ngp * sindec - cosdec_ngp * cosdec * cos_rrngp
+    dalpha_dra = (kappa * dsig_dra - sigma * dkap_dra) / nrm2
+    dalpha_ddec = (-sigma * dkap_ddec) / nrm2
+    # (l, b) → (ra, dec): same form of rotation with cos-ratio scaling.
+    dra_dl = cosa * cosb / cosdec
+    dra_db = -sina / cosdec
+    ddec_dl = sina * cosb
+    ddec_db = cosa
+    pmra = cosa * pmll - sina * pmbb
+    pmdec = sina * pmll + cosa * pmbb
+    dalpha_dl = dalpha_dra * dra_dl + dalpha_ddec * ddec_dl
+    dalpha_db = dalpha_dra * dra_db + dalpha_ddec * ddec_db
+    out = numpy.zeros((6, 6))
+    out[0, 0] = dra_dl
+    out[0, 1] = dra_db
+    out[1, 0] = ddec_dl
+    out[1, 1] = ddec_db
+    out[2, 2] = 1.0  # D pass-through
+    out[3, 0] = -pmdec * dalpha_dl
+    out[3, 1] = -pmdec * dalpha_db
+    out[3, 3] = cosa
+    out[3, 4] = -sina
+    out[4, 0] = pmra * dalpha_dl
+    out[4, 1] = pmra * dalpha_db
+    out[4, 3] = sina
+    out[4, 4] = cosa
+    out[5, 5] = 1.0  # vlos pass-through
+    if kwargs.get("degree", False):
+        # input cols 0,1 (l, b) and output rows 0,1 (ra, dec) in degrees.
+        # Angular-vs-angular entries: dimensionless, unchanged. PM-vs-angle
+        # cols scale by π/180; angle-vs-PM (none, those entries are zero
+        # in this Jacobian); PM-vs-PM entries unchanged.
+        out[3:5, 0:2] *= _DEGTORAD
+        # angle-vs-(D, PM, vlos) entries: also need scaling? Output rows 0,1
+        # in degrees means ∂(ra_deg)/∂X = (1/_DEGTORAD)·∂(ra_rad)/∂X for any X
+        # that is not itself an angle. But this Jacobian has zeros there for
+        # X = D, pmll, pmbb, vlos (only angle-vs-angle and PM-vs-angle/PM are
+        # non-zero), so no additional scaling is needed.
+    return out
+
+
+def sky_to_customsky_jac(*args, **kwargs):
+    """
+    Calculate the Jacobian of the equatorial-sky → custom-sky transformation
+    defined by a rotation matrix ``T`` (3x3 in equatorial Cartesian).
+
+    Maps ``(ra, dec, D, pmra, pmdec, vlos)`` to
+    ``(phi1, phi2, D, pmphi1, pmphi2, vlos)``. Same tangent-rotation form
+    as :func:`galsky_to_sky_jac`, parameterized by ``T`` instead of the
+    Galactic pole.
+
+    Parameters
+    ----------
+    ra : float
+        Equatorial right ascension.
+    dec : float
+        Equatorial declination.
+    pmra : float, optional
+        Proper motion in ra (multiplied by cos(dec)). Only enters the
+        proper-motion-vs-position block.
+    pmdec : float, optional
+        Proper motion in dec.
+    T : numpy.ndarray
+        3x3 rotation matrix taking equatorial Cartesian to the custom frame
+        (same convention as :func:`radec_to_custom`).
+    degree : bool, optional
+        If True, ``ra`` / ``dec`` inputs and ``phi1`` / ``phi2`` outputs
+        are in degrees.
+
+    Returns
+    -------
+    numpy.ndarray
+        6x6 Jacobian.
+
+    Notes
+    -----
+    - 2026-04-26 - Written - Bovy (UofT)
+    """
+    if len(args) == 2:
+        ra, dec = args
+        pmra, pmdec = 0.0, 0.0
+    elif len(args) == 4:
+        ra, dec, pmra, pmdec = args
+    else:
+        raise ValueError("sky_to_customsky_jac expects 2 or 4 arguments")
+    T = kwargs.get("T", None)
+    if T is None:
+        raise ValueError("sky_to_customsky_jac requires T= rotation matrix")
+    if kwargs.get("degree", False):
+        ra = ra * _DEGTORAD
+        dec = dec * _DEGTORAD
+    sindec = numpy.sin(dec)
+    cosdec = numpy.cos(dec)
+    ra_pole, dec_pole = custom_to_radec(0.0, numpy.pi / 2.0, T=T)
+    sinr_rp = numpy.sin(ra - ra_pole)
+    cosr_rp = numpy.cos(ra - ra_pole)
+    sindec_p = numpy.sin(dec_pole)
+    cosdec_p = numpy.cos(dec_pole)
+    kappa2 = sindec_p * cosdec - cosdec_p * sindec * cosr_rp
+    sigma2 = sinr_rp * cosdec_p
+    nrm2_2 = kappa2 * kappa2 + sigma2 * sigma2
+    nrm2 = numpy.sqrt(nrm2_2)
+    cosa2 = kappa2 / nrm2
+    sina2 = sigma2 / nrm2
+    p12 = radec_to_custom(
+        numpy.atleast_1d(ra), numpy.atleast_1d(dec), T=T, degree=False
+    )
+    cosphi2 = numpy.cos(float(p12[0, 1]))
+    dsig2_dra = cosdec_p * cosr_rp
+    dkap2_dra = cosdec_p * sindec * sinr_rp
+    dkap2_ddec = -sindec_p * sindec - cosdec_p * cosdec * cosr_rp
+    dalpha2_dra = (kappa2 * dsig2_dra - sigma2 * dkap2_dra) / nrm2_2
+    dalpha2_ddec = (-sigma2 * dkap2_ddec) / nrm2_2
+    pmphi1 = cosa2 * pmra + sina2 * pmdec
+    pmphi2 = -sina2 * pmra + cosa2 * pmdec
+    # Note the sign convention for ``pmrapmdec_to_custom`` differs from
+    # ``pmllpmbb_to_pmrapmdec`` (see :func:`pmrapmdec_to_custom`):
+    #   pmphi1 =  cos(α')·pmra + sin(α')·pmdec
+    #   pmphi2 = -sin(α')·pmra + cos(α')·pmdec
+    dphi1_dra = cosa2 * cosdec / cosphi2
+    dphi1_ddec = sina2 / cosphi2
+    dphi2_dra = -sina2 * cosdec
+    dphi2_ddec = cosa2
+    out = numpy.zeros((6, 6))
+    out[0, 0] = dphi1_dra
+    out[0, 1] = dphi1_ddec
+    out[1, 0] = dphi2_dra
+    out[1, 1] = dphi2_ddec
+    out[2, 2] = 1.0
+    out[3, 0] = pmphi2 * dalpha2_dra
+    out[3, 1] = pmphi2 * dalpha2_ddec
+    out[3, 3] = cosa2
+    out[3, 4] = sina2
+    out[4, 0] = -pmphi1 * dalpha2_dra
+    out[4, 1] = -pmphi1 * dalpha2_ddec
+    out[4, 3] = -sina2
+    out[4, 4] = cosa2
+    out[5, 5] = 1.0
+    if kwargs.get("degree", False):
+        out[3:5, 0:2] *= _DEGTORAD
     return out
 
 
