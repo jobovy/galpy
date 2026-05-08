@@ -122,7 +122,7 @@ jobs:
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: "3.14"
-            TEST_FILES: tests/test_streamdf.py tests/test_streamspraydf.py
+            TEST_FILES: tests/test_streamdf.py tests/test_streamspraydf.py tests/test_streamTrack.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
