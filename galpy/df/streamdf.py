@@ -63,6 +63,13 @@ _labelDict = {
 class streamdf(df):
     """The DF of a tidal stream"""
 
+    # Note: streamdf's track machinery (_interpolatedObsTrack*, plotTrack,
+    # eigen-slerp'd covariance bands) is angle-parameterized and tightly
+    # coupled to action-angle transforms. A lighter-weight, more general
+    # representation exists in :class:`galpy.df.StreamTrack`. A future PR
+    # could refactor parts of the track interpolation and the covariance
+    # band plotting here onto StreamTrack as a shared backend.
+
     def __init__(
         self,
         sigv,
@@ -2138,8 +2145,9 @@ class streamdf(df):
         dangle : float
             Parallel angle offset for this coordinate value
         coord : str, optional
-            Coordinate to return the density in ('apar' [default],
-            'll','ra','customra','phi')
+            Coordinate to return the density in. One of ``'apar'``
+            (default), ``'ll'``, ``'ra'``, ``'phi1'`` (alias:
+            ``'customra'``), or ``'phi'``.
         tdisrupt : float, optional
             Time since the disruption to calculate the density at (in galpy
             natural units). If None, use the current time (default: None).
@@ -2173,7 +2181,8 @@ class streamdf(df):
             elif (
                 coord.lower() == "ll"
                 or coord.lower() == "ra"
-                or coord.lower() == "customra"
+                or coord.lower() == "phi1"
+                or coord.lower() == "customra"  # back-compat alias for phi1
             ):
                 XYZ_h = coords.galcenrect_to_XYZ(
                     self._interpTrackX(dangle + ddangle) * self._ro,
@@ -2198,7 +2207,7 @@ class streamdf(df):
                     radec = coords.lb_to_radec(lbd[0], lbd[1], degree=True)
                     if coord.lower() == "ra":
                         jac = numpy.fabs(radec_h[0] - radec[0]) / ddangle
-                    else:
+                    else:  # phi1 (or customra back-compat alias)
                         xieta_h = coords.radec_to_custom(
                             radec_h[0],
                             radec_h[1],
