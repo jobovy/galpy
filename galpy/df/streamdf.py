@@ -637,10 +637,22 @@ class streamdf(df):
         ``track.bb``, ``track.dist``, ``track.vlos``, ``track.pmll``, and
         ``track.pmbb`` numerically reproduce ``_interpolatedObsTrackLB``.
 
-        For cov-band plots, :meth:`plotTrack` continues to use the
-        streamdf-native eigen-slerp covariance interpolation, so the new
-        ``track.cov(basis=...)`` is purely additive and may differ
-        slightly from what ``plotTrack(spread=...)`` draws.
+        The track is constructed on the fine 1001-point grid
+        (``_interpolatedThetasTrack``). The covariance attached to the
+        StreamTrack is the *local* (perpendicular-only) covariance — same
+        action-angle pipeline as ``_interpolatedAllErrCovsXY`` but with
+        the parallel-angle variance set to ``sigangledAngle**2`` instead
+        of the ``1.0`` rad² placeholder for a uniform along-stream
+        distribution. This matches the streamspraydf streamTrack
+        convention (local empirical width) and makes
+        ``track.cov(basis='galsky')`` and ``track.plot(spread=N)``
+        produce values comparable to the stream's perpendicular width.
+        The legacy ``_allErrCovsXY`` / ``_interpolatedAllErrCovsXY`` are
+        left unchanged — they retain the original semantics used by
+        :meth:`gaussApprox` and :meth:`plotTrack` (minor-eigenvalue
+        projection in 2D).
+        :attr:`custom_sky_transform` has a setter — assigning a new
+        rotation matrix updates the cached StreamTrack in place.
 
         Parameters
         ----------
@@ -658,8 +670,13 @@ class streamdf(df):
         """
         if getattr(self, "_streamTrack", None) is not None:
             return self._streamTrack
-        if not hasattr(self, "_allErrCovsXY"):
-            self._determine_stream_spread(simple=simple)
+        # Ensure the fine-grid track + interpolated cov exist. Both are
+        # populated by default at init; the lazy triggers below cover
+        # nosetup-style streamdfs.
+        if not hasattr(self, "_interpolatedThetasTrack"):
+            self._interpolate_stream_track()
+        if not hasattr(self, "_interpolatedAllErrCovsLocalXY"):
+            self._determine_stream_local_spread(simple=simple)
         prog = self._orig_progenitor
         prog_ro = prog._ro if prog._roSet else None
         prog_vo = prog._vo if prog._voSet else None
@@ -672,10 +689,10 @@ class streamdf(df):
             [0.0, self._vo, 0.0]
         )
         self._streamTrack = StreamTrack(
-            tp_grid=self._thetasTrack,
-            track_xyz=self._ObsTrackXY[:, 0:3],
-            track_vxvyvz=self._ObsTrackXY[:, 3:6],
-            cov_xyz=self._allErrCovsXY,
+            tp_grid=self._interpolatedThetasTrack,
+            track_xyz=self._interpolatedObsTrackXY[:, 0:3],
+            track_vxvyvz=self._interpolatedObsTrackXY[:, 3:6],
+            cov_xyz=self._interpolatedAllErrCovsLocalXY,
             custom_sky_transform=self._custom_sky_transform,
             parameter_kind="angle",
             ro=prog_ro,
@@ -684,6 +701,26 @@ class streamdf(df):
             solarmotion=sdf_solarmotion,
         )
         return self._streamTrack
+
+    @property
+    def custom_sky_transform(self):
+        """
+        3x3 rotation matrix from equatorial (ra, dec) to a custom
+        ``(phi1, phi2)`` sky frame, or ``None`` if not set. Setting a new
+        matrix here also propagates to the cached :meth:`streamTrack`,
+        so :meth:`StreamTrack.phi1`/:meth:`phi2`/:meth:`pmphi1`/
+        :meth:`pmphi2` accessors and the ``customsky`` covariance basis
+        pick up the new frame on the next call.
+        """
+        return self._custom_sky_transform
+
+    @custom_sky_transform.setter
+    def custom_sky_transform(self, T):
+        self._custom_sky_transform = (
+            None if T is None else numpy.asarray(T, dtype=float)
+        )
+        if getattr(self, "_streamTrack", None) is not None:
+            self._streamTrack.custom_sky_transform = self._custom_sky_transform
 
     def plotTrack(
         self, d1="x", d2="z", interp=True, spread=0, simple=_USESIMPLE, *args, **kwargs
@@ -1543,6 +1580,117 @@ class streamdf(df):
         self._interpolatedAllErrCovsXY = interpolatedAllErrCovsXY
         # Also interpolate in l and b coordinates
         self._determine_stream_spreadLB(simple=simple)
+        return None
+
+    def _determine_stream_local_spread(self, simple=_USESIMPLE):
+        """Same as :meth:`_determine_stream_spread` but builds the *local*
+        covariance: parallel-angle variance set to ``sigangledAngle**2``
+        instead of the ``1.0`` rad² placeholder. Used by
+        :meth:`streamTrack` so ``track.cov(basis=...)`` returns the
+        perpendicular stream width (matching streamspraydf's
+        local-empirical convention)."""
+        allErrCovsLocal = numpy.empty((self._nTrackChunks, 6, 6))
+        if self._multi is None:
+            for ii in range(self._nTrackChunks):
+                allErrCovsLocal[ii] = _determine_stream_spread_single(
+                    self._sigomatrixEig,
+                    self._thetasTrack[ii],
+                    lambda x: self.sigOmega(x, use_physical=False),
+                    lambda y: self.sigangledAngle(y, simple=simple, use_physical=False),
+                    self._allinvjacsTrack[ii],
+                    local=True,
+                )
+        else:
+            multiOut = multi.parallel_map(
+                (
+                    lambda x: _determine_stream_spread_single(
+                        self._sigomatrixEig,
+                        self._thetasTrack[x],
+                        lambda x: self.sigOmega(x, use_physical=False),
+                        lambda y: self.sigangledAngle(
+                            y, simple=simple, use_physical=False
+                        ),
+                        self._allinvjacsTrack[x],
+                        local=True,
+                    )
+                ),
+                range(self._nTrackChunks),
+                numcores=numpy.amin(
+                    [self._nTrackChunks, multiprocessing.cpu_count(), self._multi]
+                ),
+            )
+            for ii in range(self._nTrackChunks):
+                allErrCovsLocal[ii] = multiOut[ii]
+        self._allErrCovsLocal = allErrCovsLocal
+        # Propagate to XYZ via the same cyl→rect Jacobian used for _allErrCovsXY.
+        allErrCovsLocalXY = numpy.empty_like(self._allErrCovsLocal)
+        allErrCovsLocalEigvalXY = numpy.empty((len(self._thetasTrack), 6))
+        allErrCovsLocalEigvecXY = numpy.empty_like(self._allErrCovsLocal)
+        eigDir = numpy.array(
+            [numpy.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]) for ii in range(6)]
+        )
+        for ii in range(self._nTrackChunks):
+            tjac = coords.cyl_to_rect_jac(*self._ObsTrack[ii])
+            allErrCovsLocalXY[ii] = numpy.dot(
+                tjac, numpy.dot(self._allErrCovsLocal[ii], tjac.T)
+            )
+            teig = numpy.linalg.eig(allErrCovsLocalXY[ii])
+            sortIndx = numpy.argsort(teig[0])
+            allErrCovsLocalEigvalXY[ii] = teig[0][sortIndx]
+            for jj in range(6):
+                if numpy.sum(eigDir[jj] * teig[1][:, sortIndx[jj]]) < 0.0:
+                    teig[1][:, sortIndx[jj]] *= -1.0
+                eigDir[jj] = teig[1][:, sortIndx[jj]]
+            allErrCovsLocalEigvecXY[ii] = teig[1][:, sortIndx]
+        self._allErrCovsLocalXY = allErrCovsLocalXY
+        # Eigen-slerp interpolation onto the fine grid (same recipe as
+        # _determine_stream_spread).
+        interpAllErrCovsLocalEigvalXY = [
+            interpolate.InterpolatedUnivariateSpline(
+                self._thetasTrack, allErrCovsLocalEigvalXY[:, ii], k=3
+            )
+            for ii in range(6)
+        ]
+        interpolatedAllErrCovsLocalXY = numpy.empty(
+            (len(self._interpolatedThetasTrack), 6, 6)
+        )
+        interpolatedEigval = numpy.array(
+            [
+                interpAllErrCovsLocalEigvalXY[ii](self._interpolatedThetasTrack)
+                for ii in range(6)
+            ]
+        )
+        interpolatedEigvec = numpy.empty((len(self._interpolatedThetasTrack), 6, 6))
+        for ii in range(self._nTrackChunks - 1):
+            slerpOmegas = [
+                numpy.arccos(
+                    numpy.sum(
+                        allErrCovsLocalEigvecXY[ii, :, jj]
+                        * allErrCovsLocalEigvecXY[ii + 1, :, jj]
+                    )
+                )
+                for jj in range(6)
+            ]
+            slerpts = (self._interpolatedThetasTrack - self._thetasTrack[ii]) / (
+                self._thetasTrack[ii + 1] - self._thetasTrack[ii]
+            )
+            slerpIndx = (slerpts >= 0.0) * (slerpts <= 1.0)
+            for jj in range(6):
+                for kk in range(6):
+                    interpolatedEigvec[slerpIndx, kk, jj] = (
+                        numpy.sin((1 - slerpts[slerpIndx]) * slerpOmegas[jj])
+                        * allErrCovsLocalEigvecXY[ii, kk, jj]
+                        + numpy.sin(slerpts[slerpIndx] * slerpOmegas[jj])
+                        * allErrCovsLocalEigvecXY[ii + 1, kk, jj]
+                    ) / numpy.sin(slerpOmegas[jj])
+        for ii in range(len(self._interpolatedThetasTrack)):
+            interpolatedAllErrCovsLocalXY[ii] = numpy.dot(
+                interpolatedEigvec[ii],
+                numpy.dot(
+                    numpy.diag(interpolatedEigval[:, ii]), interpolatedEigvec[ii].T
+                ),
+            )
+        self._interpolatedAllErrCovsLocalXY = interpolatedAllErrCovsLocalXY
         return None
 
     def _determine_stream_spreadLB(
@@ -3915,11 +4063,18 @@ def _determine_stream_track_TM_approxConstantTrackFreq(
 
 
 def _determine_stream_spread_single(
-    sigomatrixEig, thetasTrack, sigOmega, sigAngle, allinvjacsTrack
+    sigomatrixEig, thetasTrack, sigOmega, sigAngle, allinvjacsTrack, local=False
 ):
     """sigAngle input may either be a function that returns the dispersion in
-    perpendicular angle as a function of parallel angle, or a value"""
-    # Estimate the spread in all frequencies and angles
+    perpendicular angle as a function of parallel angle, or a value.
+
+    When ``local=True``, the parallel-angle variance is set to ``sigAngle**2``
+    (same as the perpendicular angles) instead of the default ``1.0`` rad²
+    placeholder for a uniform along-stream distribution. This gives the
+    *local* covariance (perpendicular width only) used by
+    :meth:`streamdf.streamTrack`, rather than the full marginal
+    covariance used for likelihood evaluation in :meth:`streamdf.gaussApprox`.
+    """
     sigObig2 = sigOmega(thetasTrack) ** 2.0
     tsigOdiag = copy.copy(sigomatrixEig[0])
     tsigOdiag[numpy.argmax(tsigOdiag)] = sigObig2
@@ -3927,23 +4082,22 @@ def _determine_stream_spread_single(
         sigomatrixEig[1],
         numpy.dot(numpy.diag(tsigOdiag), numpy.linalg.inv(sigomatrixEig[1])),
     )
-    # angles
     sigangle2 = (
         sigAngle(thetasTrack) ** 2.0 if hasattr(sigAngle, "__call__") else sigAngle**2.0
     )
     tsigadiag = numpy.ones(3) * sigangle2
-    tsigadiag[numpy.argmax(tsigOdiag)] = 1.0
+    if not local:
+        tsigadiag[numpy.argmax(tsigOdiag)] = 1.0
     tsiga = numpy.dot(
         sigomatrixEig[1],
         numpy.dot(numpy.diag(tsigadiag), numpy.linalg.inv(sigomatrixEig[1])),
     )
-    # correlations, assume half correlated for now (can be calculated)
     correlations = numpy.diag(0.5 * numpy.ones(3)) * numpy.sqrt(tsigOdiag * tsigadiag)
-    correlations[numpy.argmax(tsigOdiag), numpy.argmax(tsigOdiag)] = 0.0
+    if not local:
+        correlations[numpy.argmax(tsigOdiag), numpy.argmax(tsigOdiag)] = 0.0
     correlations = numpy.dot(
         sigomatrixEig[1], numpy.dot(correlations, numpy.linalg.inv(sigomatrixEig[1]))
     )
-    # Now convert
     fullMatrix = numpy.empty((6, 6))
     fullMatrix[:3, :3] = tsigO
     fullMatrix[3:, 3:] = tsiga

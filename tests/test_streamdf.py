@@ -372,9 +372,9 @@ def test_streamTrack_returns_StreamTrack_and_caches(bovy14_setup):
 
 
 def test_streamTrack_lazy_spread_compute():
-    # When called on a streamdf built with nospreadsetup=True (so
-    # _allErrCovsXY isn't yet populated), streamTrack() must lazily
-    # trigger _determine_stream_spread before constructing the track.
+    # When called on a streamdf built with nospreadsetup=True (so the
+    # local cov isn't yet populated), streamTrack() must lazily trigger
+    # _determine_stream_local_spread before constructing the track.
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import StreamTrack, streamdf
     from galpy.orbit import Orbit
@@ -396,13 +396,14 @@ def test_streamTrack_lazy_spread_compute():
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
         nospreadsetup=True,
     )
-    assert not hasattr(sdf_lazy, "_allErrCovsXY"), (
-        "nospreadsetup=True streamdf should not have _allErrCovsXY at init"
+    assert not hasattr(sdf_lazy, "_interpolatedAllErrCovsLocalXY"), (
+        "nospreadsetup=True streamdf should not have "
+        "_interpolatedAllErrCovsLocalXY at init"
     )
     track = sdf_lazy.streamTrack()
     assert isinstance(track, StreamTrack)
-    assert hasattr(sdf_lazy, "_allErrCovsXY"), (
-        "streamTrack() should have triggered _determine_stream_spread"
+    assert hasattr(sdf_lazy, "_interpolatedAllErrCovsLocalXY"), (
+        "streamTrack() should have triggered _determine_stream_local_spread"
     )
     return None
 
@@ -482,15 +483,39 @@ def test_streamTrack_lb_matches(bovy14_setup):
 
 
 def test_streamTrack_cov_chunk_grid(bovy14_setup):
-    # cov() in galcenrect basis at chunk-grid nodes should equal _allErrCovsXY.
+    # cov() in galcenrect basis at chunk-grid nodes should equal the
+    # *local* cov (perpendicular-only, parallel-angle variance =
+    # sigangledAngle**2 instead of the 1.0 rad² placeholder used by the
+    # full _allErrCovsXY). This matches the streamspraydf convention.
     sdf_bovy14 = bovy14_setup
     track = sdf_bovy14.streamTrack()
     thetas = sdf_bovy14._thetasTrack
     for i in (0, 3, len(thetas) - 1):
         c = track.cov(thetas[i], basis="galcenrect", use_physical=False)
-        assert numpy.allclose(c, sdf_bovy14._allErrCovsXY[i], atol=1e-12), (
-            f"streamTrack cov does not match _allErrCovsXY at chunk {i}"
+        assert numpy.allclose(c, sdf_bovy14._allErrCovsLocalXY[i], atol=1e-12), (
+            f"streamTrack cov does not match _allErrCovsLocalXY at chunk {i}"
         )
+    return None
+
+
+def test_streamTrack_cov_local_is_smaller(bovy14_setup):
+    # Sanity check: the local cov should be much smaller than the full
+    # _allErrCovsXY (the latter includes the huge along-stream variance
+    # from the 1.0 rad² parallel-angle placeholder). Order of magnitude:
+    # local diagonals ~ stream width (kpc/km-s in natural units), full
+    # diagonals ~ stream length.
+    sdf_bovy14 = bovy14_setup
+    track = sdf_bovy14.streamTrack()
+    i_mid = len(sdf_bovy14._thetasTrack) // 2
+    diag_local = numpy.sqrt(numpy.diag(sdf_bovy14._allErrCovsLocalXY[i_mid]))
+    diag_full = numpy.sqrt(numpy.diag(sdf_bovy14._allErrCovsXY[i_mid]))
+    # The full-cov diagonals should be at least 5x larger than the local
+    # ones at mid-stream — the suppressed parallel-angle direction
+    # dominates the y/z/vx/vy entries on a wrapping stream.
+    assert numpy.max(diag_full) > 5.0 * numpy.max(diag_local), (
+        "Full _allErrCovsXY should be substantially larger than local cov "
+        "(along-stream variance suppressed in local)"
+    )
     return None
 
 
@@ -502,6 +527,10 @@ def test_streamTrack_custom_sky_transform(bovy14_setup):
     assert sdf_bovy14._custom_sky_transform is not None, (
         "bovy14_setup is expected to use custom_sky_transform"
     )
+    # property getter agrees with the underlying attribute
+    assert numpy.allclose(
+        sdf_bovy14.custom_sky_transform, sdf_bovy14._custom_sky_transform
+    )
     thetas = sdf_bovy14._thetasTrack
     phi1 = numpy.asarray(track.phi1(thetas, use_physical=False))
     phi2 = numpy.asarray(track.phi2(thetas, use_physical=False))
@@ -511,6 +540,50 @@ def test_streamTrack_custom_sky_transform(bovy14_setup):
     assert phi2.shape == thetas.shape and numpy.all(numpy.isfinite(phi2))
     assert pmphi1.shape == thetas.shape and numpy.all(numpy.isfinite(pmphi1))
     assert pmphi2.shape == thetas.shape and numpy.all(numpy.isfinite(pmphi2))
+    return None
+
+
+def test_streamTrack_custom_sky_transform_setter():
+    # Assigning a new matrix to streamdf.custom_sky_transform must
+    # propagate to the cached streamTrack so phi1/phi2 accessors see
+    # the new frame without rebuilding. Setting back to None disables
+    # the custom-sky accessors on the cached track.
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    sdf = streamdf(
+        0.365 / 220.0,
+        progenitor=obs,
+        pot=lp,
+        aA=aAI,
+        leading=True,
+        nTrackChunks=11,
+        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+    )
+    assert sdf.custom_sky_transform is None
+    track = sdf.streamTrack()
+    # Now set a non-identity rotation.
+    T = numpy.array([[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    sdf.custom_sky_transform = T
+    assert numpy.allclose(sdf.custom_sky_transform, T)
+    assert numpy.allclose(track.custom_sky_transform, T), (
+        "setter on streamdf should propagate to the cached streamTrack"
+    )
+    # phi1 accessor now usable.
+    val = track.phi1(sdf._thetasTrack[0], use_physical=False)
+    assert numpy.isfinite(val)
+    # Reset to None and confirm the track sees the disable.
+    sdf.custom_sky_transform = None
+    assert sdf.custom_sky_transform is None
+    assert track.custom_sky_transform is None
     return None
 
 
