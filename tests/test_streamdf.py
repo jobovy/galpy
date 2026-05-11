@@ -357,6 +357,254 @@ def test_bovy14_track_spread(bovy14_setup):
     return None
 
 
+def test_streamTrack_returns_StreamTrack_and_caches(bovy14_setup):
+    # streamTrack() returns a StreamTrack and caches the result.
+    from galpy.df import StreamTrack
+
+    sdf_bovy14 = bovy14_setup
+    track = sdf_bovy14.streamTrack()
+    assert isinstance(track, StreamTrack), (
+        "streamdf.streamTrack() should return a StreamTrack instance"
+    )
+    track2 = sdf_bovy14.streamTrack()
+    assert track is track2, "streamTrack() should cache and return the same object"
+    return None
+
+
+def test_streamTrack_mean_chunk_grid(bovy14_setup):
+    # On the chunk grid (_thetasTrack), the StreamTrack accessors return
+    # the exact values stored in _ObsTrackXY — both come from the same
+    # k=3 spline fit to the same 11 chunk nodes.
+    sdf_bovy14 = bovy14_setup
+    track = sdf_bovy14.streamTrack()
+    thetas = sdf_bovy14._thetasTrack
+    assert numpy.allclose(
+        track.x(thetas, use_physical=False), sdf_bovy14._ObsTrackXY[:, 0]
+    )
+    assert numpy.allclose(
+        track.y(thetas, use_physical=False), sdf_bovy14._ObsTrackXY[:, 1]
+    )
+    assert numpy.allclose(
+        track.z(thetas, use_physical=False), sdf_bovy14._ObsTrackXY[:, 2]
+    )
+    assert numpy.allclose(
+        track.vx(thetas, use_physical=False), sdf_bovy14._ObsTrackXY[:, 3]
+    )
+    assert numpy.allclose(
+        track.vy(thetas, use_physical=False), sdf_bovy14._ObsTrackXY[:, 4]
+    )
+    assert numpy.allclose(
+        track.vz(thetas, use_physical=False), sdf_bovy14._ObsTrackXY[:, 5]
+    )
+    return None
+
+
+def test_streamTrack_mean_interpolated(bovy14_setup):
+    # On the fine grid, streamTrack accessors should agree with
+    # _interpolatedObsTrackXY to spline-reconstruction tolerance
+    # (the streamdf splines and the new StreamTrack splines are
+    # fit to the same chunk-level nodes, so they're identical).
+    sdf_bovy14 = bovy14_setup
+    track = sdf_bovy14.streamTrack()
+    thetas = sdf_bovy14._interpolatedThetasTrack
+    for i, accessor in enumerate(
+        [track.x, track.y, track.z, track.vx, track.vy, track.vz]
+    ):
+        new = accessor(thetas, use_physical=False)
+        old = sdf_bovy14._interpolatedObsTrackXY[:, i]
+        assert numpy.allclose(new, old, atol=1e-12), (
+            f"streamTrack interpolated mean does not match legacy "
+            f"_interpolatedObsTrackXY[:, {i}]"
+        )
+    return None
+
+
+def test_streamTrack_lb_matches(bovy14_setup):
+    # LB-axis accessors should reproduce _ObsTrackLB / _interpolatedObsTrackLB
+    # since streamTrack uses streamdf's R0/Zsun/vsun solar convention.
+    sdf_bovy14 = bovy14_setup
+    track = sdf_bovy14.streamTrack()
+    thetas = sdf_bovy14._thetasTrack
+    for col, accessor in enumerate(
+        [track.ll, track.bb, track.dist, track.vlos, track.pmll, track.pmbb]
+    ):
+        assert numpy.allclose(
+            accessor(thetas, use_physical=False),
+            sdf_bovy14._ObsTrackLB[:, col],
+            atol=1e-10,
+        ), f"streamTrack LB accessor {col} does not match _ObsTrackLB"
+    thetas_fine = sdf_bovy14._interpolatedThetasTrack
+    for col, accessor in enumerate(
+        [track.ll, track.bb, track.dist, track.vlos, track.pmll, track.pmbb]
+    ):
+        assert numpy.allclose(
+            accessor(thetas_fine, use_physical=False),
+            sdf_bovy14._interpolatedObsTrackLB[:, col],
+            atol=1e-10,
+        ), f"streamTrack fine LB accessor {col} does not match _interpolatedObsTrackLB"
+    return None
+
+
+def test_streamTrack_cov_chunk_grid(bovy14_setup):
+    # cov() in galcenrect basis at chunk-grid nodes should equal _allErrCovsXY.
+    sdf_bovy14 = bovy14_setup
+    track = sdf_bovy14.streamTrack()
+    thetas = sdf_bovy14._thetasTrack
+    for i in (0, 3, len(thetas) - 1):
+        c = track.cov(thetas[i], basis="galcenrect", use_physical=False)
+        assert numpy.allclose(c, sdf_bovy14._allErrCovsXY[i], atol=1e-12), (
+            f"streamTrack cov does not match _allErrCovsXY at chunk {i}"
+        )
+    return None
+
+
+def test_streamTrack_custom_sky_transform(bovy14_setup):
+    # bovy14_setup uses a non-identity custom_sky_transform; the phi1/phi2
+    # accessors should run and return finite values.
+    sdf_bovy14 = bovy14_setup
+    track = sdf_bovy14.streamTrack()
+    assert sdf_bovy14._custom_sky_transform is not None, (
+        "bovy14_setup is expected to use custom_sky_transform"
+    )
+    thetas = sdf_bovy14._thetasTrack
+    phi1 = numpy.asarray(track.phi1(thetas, use_physical=False))
+    phi2 = numpy.asarray(track.phi2(thetas, use_physical=False))
+    pmphi1 = numpy.asarray(track.pmphi1(thetas, use_physical=False))
+    pmphi2 = numpy.asarray(track.pmphi2(thetas, use_physical=False))
+    assert phi1.shape == thetas.shape and numpy.all(numpy.isfinite(phi1))
+    assert phi2.shape == thetas.shape and numpy.all(numpy.isfinite(phi2))
+    assert pmphi1.shape == thetas.shape and numpy.all(numpy.isfinite(pmphi1))
+    assert pmphi2.shape == thetas.shape and numpy.all(numpy.isfinite(pmphi2))
+    return None
+
+
+def test_plotTrack_works_after_replumb(bovy14_setup):
+    # Smoke test: after replumbing _parse_track_dim onto streamTrack, the
+    # public plotTrack must still work for both galcen-Cartesian and
+    # LB axes, with and without the spread band.
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib import pyplot
+
+    sdf_bovy14 = bovy14_setup
+    sdf_bovy14.plotTrack(d1="x", d2="z")
+    pyplot.close("all")
+    sdf_bovy14.plotTrack(d1="x", d2="z", spread=1)
+    pyplot.close("all")
+    sdf_bovy14.plotTrack(d1="ll", d2="bb")
+    pyplot.close("all")
+    sdf_bovy14.plotTrack(d1="ll", d2="bb", spread=1)
+    pyplot.close("all")
+    sdf_bovy14.plotTrack(d1="x", d2="z", interp=False)
+    pyplot.close("all")
+    return None
+
+
+def _release_at_least(version_str):
+    """True if galpy.__version__'s release tuple is >= the parsed tuple."""
+    from packaging.version import Version
+
+    import galpy
+
+    return Version(galpy.__version__).release >= Version(version_str).release
+
+
+def test_calc_stream_lb_deprecation(bovy14_setup):
+    # calc_stream_lb is scheduled for removal in v1.14. While we're still
+    # pre-1.14 it must emit FutureWarning; once we hit v1.14, this test
+    # actively fails so we remember to remove the method.
+    import warnings
+
+    import galpy
+
+    if _release_at_least("1.14"):
+        pytest.fail(
+            f"calc_stream_lb was scheduled for removal in v1.14 "
+            f"(current: {galpy.__version__}). Remove the public "
+            "calc_stream_lb method, the FutureWarning, the "
+            "_calc_stream_lb private body (inline it), the "
+            "streamgapdf super()._calc_stream_lb() shim, and this test."
+        )
+    sdf_bovy14 = bovy14_setup
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        sdf_bovy14.calc_stream_lb()
+    fw = [x for x in w if issubclass(x.category, FutureWarning)]
+    assert len(fw) >= 1, "calc_stream_lb should emit a FutureWarning"
+    msg = str(fw[0].message)
+    assert "calc_stream_lb is deprecated since v1.12" in msg, (
+        f"FutureWarning message does not reference v1.12: {msg!r}"
+    )
+    assert "v1.14" in msg, f"FutureWarning message does not reference v1.14: {msg!r}"
+    return None
+
+
+def test_Rnorm_Vnorm_deprecation():
+    # Rnorm/Vnorm kwargs are scheduled for removal in v1.14. While
+    # pre-1.14 they must emit FutureWarning; once we hit v1.14, this test
+    # actively fails so we remember to remove the kwargs.
+    import warnings
+
+    import galpy
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    if _release_at_least("1.14"):
+        pytest.fail(
+            f"Rnorm/Vnorm kwargs scheduled for removal in v1.14 "
+            f"(current: {galpy.__version__}). Remove the kwargs from "
+            "streamdf.__init__, drop their FutureWarnings, and this test."
+        )
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8, integrate_method="odeint")
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    sigv = 0.365
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        streamdf(
+            sigv / 220.0,
+            progenitor=obs,
+            pot=lp,
+            aA=aAI,
+            leading=True,
+            nTrackChunks=11,
+            tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+            nosetup=True,
+            Rnorm=8.0,
+        )
+    msgs = [str(x.message) for x in w if issubclass(x.category, FutureWarning)]
+    assert any("Rnorm" in m and "v1.12" in m and "v1.14" in m for m in msgs), (
+        f"streamdf(Rnorm=...) should emit a FutureWarning referencing v1.12/v1.14; got {msgs!r}"
+    )
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        streamdf(
+            sigv / 220.0,
+            progenitor=obs,
+            pot=lp,
+            aA=aAI,
+            leading=True,
+            nTrackChunks=11,
+            tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+            nosetup=True,
+            Vnorm=220.0,
+        )
+    msgs = [str(x.message) for x in w if issubclass(x.category, FutureWarning)]
+    assert any("Vnorm" in m and "v1.12" in m and "v1.14" in m for m in msgs), (
+        f"streamdf(Vnorm=...) should emit a FutureWarning referencing v1.12/v1.14; got {msgs!r}"
+    )
+    return None
+
+
 def test_closest_trackpoint(bovy14_setup):
     # Load the streamdf object
     sdf_bovy14 = bovy14_setup
