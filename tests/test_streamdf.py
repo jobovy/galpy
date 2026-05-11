@@ -371,6 +371,42 @@ def test_streamTrack_returns_StreamTrack_and_caches(bovy14_setup):
     return None
 
 
+def test_streamTrack_lazy_spread_compute():
+    # When called on a streamdf built with nospreadsetup=True (so
+    # _allErrCovsXY isn't yet populated), streamTrack() must lazily
+    # trigger _determine_stream_spread before constructing the track.
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import StreamTrack, streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    sdf_lazy = streamdf(
+        0.365 / 220.0,
+        progenitor=obs,
+        pot=lp,
+        aA=aAI,
+        leading=True,
+        nTrackChunks=11,
+        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+        nospreadsetup=True,
+    )
+    assert not hasattr(sdf_lazy, "_allErrCovsXY"), (
+        "nospreadsetup=True streamdf should not have _allErrCovsXY at init"
+    )
+    track = sdf_lazy.streamTrack()
+    assert isinstance(track, StreamTrack)
+    assert hasattr(sdf_lazy, "_allErrCovsXY"), (
+        "streamTrack() should have triggered _determine_stream_spread"
+    )
+    return None
+
+
 def test_streamTrack_mean_chunk_grid(bovy14_setup):
     # On the chunk grid (_thetasTrack), the StreamTrack accessors return
     # the exact values stored in _ObsTrackXY — both come from the same
