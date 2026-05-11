@@ -122,7 +122,7 @@ def test_progenitor_coordtransformparams():
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
-        # Test w/ diff Rnorm
+        # Test w/ diff ro
         sdf_bovy14 = streamdf(
             sigv / 220.0,
             progenitor=obs,
@@ -132,9 +132,9 @@ def test_progenitor_coordtransformparams():
             nTrackChunks=11,
             tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
             nosetup=True,  # won't look at track
-            Rnorm=10.0,
+            ro=10.0,
         )
-        # Should raise warning bc of Rnorm, might raise others
+        # Should raise warning bc of mismatched ro, might raise others
         raisedWarning = False
         for wa in w:
             raisedWarning = (
@@ -172,7 +172,7 @@ def test_progenitor_coordtransformparams():
         assert raisedWarning, (
             "streamdf setup does not raise warning when progenitor's  ro is different from R0"
         )
-    # Test w/ diff Vnorm
+    # Test w/ diff vo
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
         sdf_bovy14 = streamdf(
@@ -184,11 +184,11 @@ def test_progenitor_coordtransformparams():
             nTrackChunks=11,
             tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
             nosetup=True,  # won't look at track
-            Rnorm=8.5,
+            ro=8.5,
             R0=8.5,
-            Vnorm=220.0,
+            vo=220.0,
         )
-        # Should raise warning bc of Vnorm, might raise others
+        # Should raise warning bc of mismatched vo, might raise others
         raisedWarning = False
         for wa in w:
             raisedWarning = (
@@ -212,9 +212,9 @@ def test_progenitor_coordtransformparams():
             nTrackChunks=11,
             tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
             nosetup=True,  # won't look at track
-            Rnorm=8.5,
+            ro=8.5,
             R0=8.5,
-            Vnorm=235.0,
+            vo=235.0,
             Zsun=0.025,
         )
         # Should raise warning bc of zo, might raise others
@@ -241,9 +241,9 @@ def test_progenitor_coordtransformparams():
             nTrackChunks=11,
             tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
             nosetup=True,  # won't look at track
-            Rnorm=8.5,
+            ro=8.5,
             R0=8.5,
-            Vnorm=235.0,
+            vo=235.0,
             Zsun=0.1,
             vsun=[0.0, 220.0, 0.0],
         )
