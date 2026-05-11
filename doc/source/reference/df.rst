@@ -300,6 +300,7 @@ General instance routines
    sigangledAngle <streamdfsigangledangle.rst>
    sigOmega <streamdfsigomega.rst>
    sigtdAngle <streamdfsigtdangle.rst>
+   streamTrack <streamdfstreamtrack.rst>
    subhalo_encounters <streamdfsubhaloencounters.rst>
 
 The distribution function of a gap in a tidal stream
