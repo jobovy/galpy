@@ -32,6 +32,7 @@ from ..util import (
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import physical_conversion
 from .df import df
+from .streamTrack import StreamTrack
 
 if _APY_LOADED:
     from astropy import units
@@ -185,18 +186,24 @@ class streamdf(df):
                     "custom_sky_transform=. Use custom_sky_transform= only."
                 )
             custom_sky_transform = custom_transform
-        if ro is None and not Rnorm is None:
+        if Rnorm is not None:
             warnings.warn(
-                "WARNING: Rnorm keyword input to streamdf is deprecated in favor of the standard ro keyword",
-                galpyWarning,
+                "The Rnorm= keyword is deprecated since v1.12 and will be "
+                "removed in v1.14. Use ro= instead.",
+                FutureWarning,
+                stacklevel=2,
             )
-            ro = Rnorm
-        if vo is None and not Vnorm is None:
+            if ro is None:
+                ro = Rnorm
+        if Vnorm is not None:
             warnings.warn(
-                "WARNING: Vnorm keyword input to streamdf is deprecated in favor of the standard vo keyword",
-                galpyWarning,
+                "The Vnorm= keyword is deprecated since v1.12 and will be "
+                "removed in v1.14. Use vo= instead.",
+                FutureWarning,
+                stacklevel=2,
             )
-            vo = Vnorm
+            if vo is None:
+                vo = Vnorm
         df.__init__(self, ro=ro, vo=vo)
         sigv = conversion.parse_velocity(sigv, vo=self._vo)
         self._sigv = sigv
@@ -228,6 +235,9 @@ class streamdf(df):
             self._multi = multiprocessing.cpu_count()
         else:
             self._multi = multi
+        # Keep the caller's Orbit (unit metadata intact) for streamTrack
+        # construction; _progenitor_setup turns physical off on a copy.
+        self._orig_progenitor = progenitor
         self._progenitor_setup(progenitor, leading, useTMHessian)
         sigangle = conversion.parse_angle(sigangle)
         deltaAngleTrack = conversion.parse_angle(deltaAngleTrack)
@@ -252,7 +262,7 @@ class streamdf(df):
             if interpTrack or self._useInterp:
                 self._interpolate_stream_track()
                 self._interpolate_stream_track_aA()
-            self.calc_stream_lb()
+            self._calc_stream_lb()
             if not nospreadsetup:
                 self._determine_stream_spread()
         return None
@@ -606,6 +616,75 @@ class streamdf(df):
         )
 
     ############################STREAM TRACK FUNCTIONS#############################
+    def streamTrack(self, simple=_USESIMPLE):
+        """
+        Return a :class:`~galpy.df.StreamTrack` view of this stream.
+
+        The track is parameterized by perpendicular angle along the stream
+        (``parameter_kind="angle"``); ``tp=0`` is the progenitor and
+        ``tp`` runs to ``self._deltaAngleTrack``. The returned object
+        exposes the full StreamTrack accessor set (``x``, ``y``, ``z``,
+        ``R``, ``phi``, ``ra``, ``dec``, ``dist``, ``ll``, ``bb``,
+        ``pmll``, ``pmbb``, ``vlos``, ``phi1``, ...) and ``cov(basis=...)``
+        for sky / galcen / custom-frame covariances. The result is cached
+        on first call.
+
+        Unit metadata: ``ro`` / ``vo`` are inherited from the original
+        progenitor Orbit (matching ``streamspraydf.streamTrack``); ``zo``
+        and ``solarmotion`` are sourced from the streamdf's own
+        ``Zsun`` / ``vsun`` (with ``solarmotion = vsun - [0, vo, 0]``,
+        the peculiar-motion vector in km/s) so that ``track.ll``,
+        ``track.bb``, ``track.dist``, ``track.vlos``, ``track.pmll``, and
+        ``track.pmbb`` numerically reproduce ``_interpolatedObsTrackLB``.
+
+        For cov-band plots, :meth:`plotTrack` continues to use the
+        streamdf-native eigen-slerp covariance interpolation, so the new
+        ``track.cov(basis=...)`` is purely additive and may differ
+        slightly from what ``plotTrack(spread=...)`` draws.
+
+        Parameters
+        ----------
+        simple : bool, optional
+            Forwarded to ``_determine_stream_spread`` if the covariance
+            has not yet been computed. Default ``_USESIMPLE``.
+
+        Returns
+        -------
+        galpy.df.StreamTrack
+
+        Notes
+        -----
+        - 2026-05-11 - Written - Bovy (UofT)
+        """
+        if getattr(self, "_streamTrack", None) is not None:
+            return self._streamTrack
+        if not hasattr(self, "_allErrCovsXY"):
+            self._determine_stream_spread(simple=simple)
+        prog = self._orig_progenitor
+        prog_ro = prog._ro if prog._roSet else None
+        prog_vo = prog._vo if prog._voSet else None
+        # Use streamdf's solar-position convention (R0/Zsun/vsun) so that
+        # streamTrack.ll/bb/dist/vlos/pmll/pmbb match _interpolatedObsTrackLB
+        # exactly. vsun is the Sun's full velocity in galcen Cartesian
+        # (km/s); subtracting [0, vo, 0] gives the peculiar-motion vector
+        # that the StreamTrack/Orbit solarmotion= kwarg expects.
+        sdf_solarmotion = numpy.asarray(self._vsun, dtype=float) - numpy.array(
+            [0.0, self._vo, 0.0]
+        )
+        self._streamTrack = StreamTrack(
+            tp_grid=self._thetasTrack,
+            track_xyz=self._ObsTrackXY[:, 0:3],
+            track_vxvyvz=self._ObsTrackXY[:, 3:6],
+            cov_xyz=self._allErrCovsXY,
+            custom_sky_transform=self._custom_sky_transform,
+            parameter_kind="angle",
+            ro=prog_ro,
+            vo=prog_vo,
+            zo=self._Zsun,
+            solarmotion=sdf_solarmotion,
+        )
+        return self._streamTrack
+
     def plotTrack(
         self, d1="x", d2="z", interp=True, spread=0, simple=_USESIMPLE, *args, **kwargs
     ):
@@ -652,7 +731,7 @@ class streamdf(df):
             or d2.lower() == "pmbb"
             or d2.lower() == "vlos"
         ):
-            self.calc_stream_lb()
+            self._calc_stream_lb()
         phys = kwargs.pop("scaleToPhysical", False)
         tx = self._parse_track_dim(d1, interp=interp, phys=phys)
         ty = self._parse_track_dim(d2, interp=interp, phys=phys)
@@ -747,60 +826,38 @@ class streamdf(df):
         return None
 
     def _parse_track_dim(self, d1, interp=True, phys=False):
-        """Parse the dimension to plot the stream track for"""
-        if interp:
-            interpStr = "interpolated"
-        else:
-            interpStr = ""
-        if d1.lower() == "x":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 0]
-        elif d1.lower() == "y":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 1]
-        elif d1.lower() == "z":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 2]
-        elif d1.lower() == "r":
-            tx = self.__dict__["_%sObsTrack" % interpStr][:, 0]
-        elif d1.lower() == "phi":
-            tx = self.__dict__["_%sObsTrack" % interpStr][:, 5]
-        elif d1.lower() == "vx":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 3]
-        elif d1.lower() == "vy":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 4]
-        elif d1.lower() == "vz":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 5]
-        elif d1.lower() == "vr":
-            tx = self.__dict__["_%sObsTrack" % interpStr][:, 1]
-        elif d1.lower() == "vt":
-            tx = self.__dict__["_%sObsTrack" % interpStr][:, 2]
-        elif d1.lower() == "ll":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 0]
-        elif d1.lower() == "bb":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 1]
-        elif d1.lower() == "dist":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 2]
-        elif d1.lower() == "pmll":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 4]
-        elif d1.lower() == "pmbb":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 5]
-        elif d1.lower() == "vlos":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 3]
-        if phys and (
-            d1.lower() == "x"
-            or d1.lower() == "y"
-            or d1.lower() == "z"
-            or d1.lower() == "r"
-        ):
-            tx = copy.copy(tx)
-            tx *= self._ro
-        if phys and (
-            d1.lower() == "vx"
-            or d1.lower() == "vy"
-            or d1.lower() == "vz"
-            or d1.lower() == "vr"
-            or d1.lower() == "vt"
-        ):
-            tx = copy.copy(tx)
-            tx *= self._vo
+        """Parse the dimension to plot the stream track for. The mean
+        track is sourced from ``self.streamTrack()`` accessors so that
+        streamdf and streamspraydf share a single mean-track backend."""
+        track = self.streamTrack()
+        tps = self._interpolatedThetasTrack if interp else self._thetasTrack
+        key = d1.lower()
+        accessor = {
+            "x": track.x,
+            "y": track.y,
+            "z": track.z,
+            "r": track.R,
+            "phi": track.phi,
+            "vx": track.vx,
+            "vy": track.vy,
+            "vz": track.vz,
+            "vr": track.vR,
+            "vt": track.vT,
+            "ll": track.ll,
+            "bb": track.bb,
+            "dist": track.dist,
+            "pmll": track.pmll,
+            "pmbb": track.pmbb,
+            "vlos": track.vlos,
+        }[key]
+        tx = numpy.asarray(accessor(tps, use_physical=False), dtype=float)
+        # Legacy phys=True semantics: positions scaled by ro, velocities
+        # by vo, for galcen Cartesian / cylindrical keys only (LB axes
+        # were never scaled in the old path).
+        if phys and key in ("x", "y", "z", "r"):
+            tx = tx * self._ro
+        elif phys and key in ("vx", "vy", "vz", "vr", "vt"):
+            tx = tx * self._vo
         return tx
 
     def _parse_progenitor_dim(self, d1, ts, ro=None, vo=None, obs=None, phys=False):
@@ -1742,6 +1799,13 @@ class streamdf(df):
         """
         Convert the stream track to observational coordinates and store
 
+        .. deprecated:: 1.12
+           Use :meth:`streamTrack` and the resulting ``track.ll(tp)``,
+           ``track.bb(tp)``, ``track.dist(tp)``, ``track.vlos(tp)``,
+           ``track.pmll(tp)``, ``track.pmbb(tp)`` accessors, or
+           ``track.cov(tp, basis="galsky")`` for sky-coordinate
+           covariances. Will be removed in v1.14.
+
         Parameters
         ----------
         ro : float or Quantity, optional
@@ -1763,6 +1827,17 @@ class streamdf(df):
         -----
         - 2013-12-02 - Written - Bovy (IAS)
         """
+        warnings.warn(
+            "calc_stream_lb is deprecated since v1.12 and will be removed "
+            "in v1.14. Use streamdf.streamTrack() and the ll/bb/dist/vlos/"
+            "pmll/pmbb accessors (or cov(basis='galsky')) instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self._calc_stream_lb(vo=vo, ro=ro, R0=R0, Zsun=Zsun, vsun=vsun)
+
+    def _calc_stream_lb(self, vo=None, ro=None, R0=None, Zsun=None, vsun=None):
+        """Internal, non-deprecated body of :meth:`calc_stream_lb`."""
         if vo is None:
             vo = self._vo
         if ro is None:
