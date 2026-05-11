@@ -99,6 +99,7 @@ class streamdf(df):
         nospreadsetup=False,
         approxConstTrackFreq=False,
         useTMHessian=False,
+        custom_sky_transform=None,
         custom_transform=None,
     ):
         """
@@ -160,14 +161,30 @@ class streamdf(df):
             If True, approximate the stream assuming that the frequency is constant along the stream (only works with useTM, for which this leads to a significant speed-up) (default: False).
         useTMHessian : bool, optional
             If True, compute the basic Hessian dO/dJ_prog using TM; otherwise use aA (default: False).
+        custom_sky_transform : numpy.ndarray, optional
+            3x3 rotation matrix from (ra,dec) to a custom (phi1,phi2) sky frame. Enables the `phi1`/`phi2`/`pmphi1`/`pmphi2` accessors on `streamTrack()` (introduced in PR #878) and the `customsky` cov basis (default: None).
         custom_transform : numpy.ndarray, optional
-            Matrix implementing the rotation from (ra,dec) to a custom set of sky coordinates (default: None).
+            Deprecated alias for `custom_sky_transform`. Deprecated since v1.12 and will be removed in v1.14.
 
         Notes
         -----
         - 2013-09-16 - Started - Bovy (IAS)
         - 2013-11-25 - Started over - Bovy (IAS)
         """
+        if custom_transform is not None:
+            warnings.warn(
+                "The custom_transform= keyword is deprecated since v1.12 "
+                "and will be removed in v1.14. Use custom_sky_transform= "
+                "instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            if custom_sky_transform is not None:
+                raise ValueError(
+                    "Cannot specify both custom_transform= and "
+                    "custom_sky_transform=. Use custom_sky_transform= only."
+                )
+            custom_sky_transform = custom_transform
         if ro is None and not Rnorm is None:
             warnings.warn(
                 "WARNING: Rnorm keyword input to streamdf is deprecated in favor of the standard ro keyword",
@@ -226,7 +243,7 @@ class streamdf(df):
         vsun[0] = conversion.parse_velocity_kms(vsun[0])
         vsun[1] = conversion.parse_velocity_kms(vsun[1])
         vsun[2] = conversion.parse_velocity_kms(vsun[2])
-        self._setup_coord_transform(R0, Zsun, vsun, progenitor, custom_transform)
+        self._setup_coord_transform(R0, Zsun, vsun, progenitor, custom_sky_transform)
         # Determine the stream track
         if not nosetup:
             self._determine_nTrackIterations(nTrackIterations)
@@ -360,7 +377,7 @@ class streamdf(df):
         self._deltaAngleTrack = deltaAngleTrack
         return None
 
-    def _setup_coord_transform(self, R0, Zsun, vsun, progenitor, custom_transform):
+    def _setup_coord_transform(self, R0, Zsun, vsun, progenitor, custom_sky_transform):
         # Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
         if progenitor._roSet and (
             numpy.fabs(self._ro - progenitor._ro) > 10.0**-0.8
@@ -395,7 +412,7 @@ class streamdf(df):
         self._R0 = R0
         self._Zsun = Zsun
         self._vsun = vsun
-        self._custom_transform = custom_transform
+        self._custom_sky_transform = custom_sky_transform
         return None
 
     def _setup_progIsTrack(self):
@@ -2211,11 +2228,14 @@ class streamdf(df):
                         xieta_h = coords.radec_to_custom(
                             radec_h[0],
                             radec_h[1],
-                            T=self._custom_transform,
+                            T=self._custom_sky_transform,
                             degree=True,
                         )
                         xieta = coords.radec_to_custom(
-                            radec[0], radec[1], T=self._custom_transform, degree=True
+                            radec[0],
+                            radec[1],
+                            T=self._custom_sky_transform,
+                            degree=True,
                         )
                         jac = numpy.fabs(xieta_h[0] - xieta[0]) / ddangle
             else:

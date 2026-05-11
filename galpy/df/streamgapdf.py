@@ -98,8 +98,10 @@ class streamgapdf(streamdf.streamdf):
             If True, approximate the stream assuming that the frequency is constant along the stream (only works with useTM, for which this leads to a significant speed-up) (default: False).
         useTMHessian : bool, optional
             If True, compute the basic Hessian dO/dJ_prog using TM; otherwise use aA (default: False).
+        custom_sky_transform : numpy.ndarray, optional
+            3x3 rotation matrix from (ra,dec) to a custom (phi1,phi2) sky frame (default: None).
         custom_transform : numpy.ndarray, optional
-            Matrix implementing the rotation from (ra,dec) to a custom set of sky coordinates (default: None).
+            Deprecated alias for `custom_sky_transform`. Deprecated since v1.12 and will be removed in v1.14.
         impactb : float or Quantity, optional
             Impact parameter (can be Quantity) (default: 1.0).
         subhalovel : numpy.ndarray or Quantity, optional

@@ -25,7 +25,7 @@ def bovy14_setup():
         [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
     )
     sigv = 0.365  # km/s
-    # For custom_transform
+    # For custom_sky_transform
     theta, dec_ngp, ra_ngp = coords.get_epoch_angles(2000.0)
     T = numpy.dot(
         numpy.array(
@@ -60,7 +60,7 @@ def bovy14_setup():
         leading=True,
         nTrackChunks=11,
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
-        custom_transform=T,
+        custom_sky_transform=T,
     )
     return sdf_bovy14
 
@@ -3026,4 +3026,99 @@ def check_approxaA_inv(sdf, tol, R, vR, vT, z, vz, phi, interp=True):
         "phi after _approxaA and _approxaAInv does not agree with initial phi; relative difference = %g"
         % (numpy.fabs((RvR[5] - phi) / phi))
     )
+    return None
+
+
+def test_custom_transform_deprecation():
+    # custom_transform= is scheduled for removal in v1.14. While
+    # pre-1.14 it must emit FutureWarning and forward to
+    # custom_sky_transform; once v1.14 lands, this test actively fails
+    # so we remember to drop the alias.
+    import warnings
+
+    from packaging.version import Version
+
+    import galpy
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    if Version(galpy.__version__).release >= Version("1.14").release:
+        pytest.fail(
+            f"custom_transform= kwarg scheduled for removal in v1.14 "
+            f"(current: {galpy.__version__}). Drop the deprecated kwarg "
+            "from streamdf.__init__, remove its FutureWarning shim, and "
+            "delete this test."
+        )
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8, integrate_method="odeint")
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    sigv = 0.365
+    T = numpy.eye(3)
+
+    # 1. Passing custom_transform= warns + still wires up the matrix.
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        sdf_legacy = streamdf(
+            sigv / 220.0,
+            progenitor=obs,
+            pot=lp,
+            aA=aAI,
+            leading=True,
+            nTrackChunks=11,
+            tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+            nosetup=True,
+            custom_transform=T,
+        )
+    msgs = [str(x.message) for x in w if issubclass(x.category, FutureWarning)]
+    assert any(
+        "custom_transform" in m and "deprecated since v1.12" in m and "v1.14" in m
+        for m in msgs
+    ), (
+        f"streamdf(custom_transform=...) should emit FutureWarning referencing v1.12/v1.14; got {msgs!r}"
+    )
+    assert sdf_legacy._custom_sky_transform is not None
+    assert numpy.allclose(sdf_legacy._custom_sky_transform, T)
+
+    # 2. Passing both raises ValueError.
+    with pytest.raises(ValueError, match="Cannot specify both"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            streamdf(
+                sigv / 220.0,
+                progenitor=obs,
+                pot=lp,
+                aA=aAI,
+                leading=True,
+                nTrackChunks=11,
+                tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+                nosetup=True,
+                custom_transform=T,
+                custom_sky_transform=T,
+            )
+
+    # 3. The canonical kwarg works without any FutureWarning.
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        sdf_new = streamdf(
+            sigv / 220.0,
+            progenitor=obs,
+            pot=lp,
+            aA=aAI,
+            leading=True,
+            nTrackChunks=11,
+            tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+            nosetup=True,
+            custom_sky_transform=T,
+        )
+    assert not any(
+        issubclass(x.category, FutureWarning) and "custom_transform" in str(x.message)
+        for x in w
+    ), "custom_sky_transform= should not emit a custom_transform FutureWarning"
+    assert numpy.allclose(sdf_new._custom_sky_transform, T)
     return None
