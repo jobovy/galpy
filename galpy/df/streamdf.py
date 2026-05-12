@@ -397,20 +397,17 @@ class streamdf(df):
     def _setup_coord_transform(self, R0, Zsun, vsun, progenitor, custom_sky_transform):
         # Source unspecified R0/Zsun/vsun from the progenitor's Orbit
         # metadata so the streamdf's solar-position convention matches
-        # the progenitor by default. Falls back to the legacy defaults
-        # (R0=8 kpc, Zsun=20.8 pc, vsun=[-11.1, 8.0*30.24, 7.25] km/s)
-        # only when the progenitor itself doesn't carry the value.
+        # the progenitor by default. Progenitor is 3D, so its ``_zo``
+        # and ``_solarmotion`` are always set by ``Orbit.__init__``;
+        # ``_ro`` falls back to the config default when ``_roSet=False``.
         if R0 is None:
             R0 = progenitor._ro if progenitor._roSet else 8.0
         if Zsun is None:
-            Zsun = progenitor._zo if progenitor._zo is not None else 0.0208
+            Zsun = progenitor._zo
         if vsun is None:
-            if progenitor._solarmotion is not None:
-                vsun = numpy.asarray(
-                    progenitor._solarmotion, dtype=float
-                ) + numpy.array([0.0, self._vo, 0.0])
-            else:
-                vsun = [-11.1, 8.0 * 30.24, 7.25]
+            vsun = numpy.asarray(progenitor._solarmotion, dtype=float) + numpy.array(
+                [0.0, self._vo, 0.0]
+            )
         # Warn on explicit mismatches with progenitor metadata (need the
         # original progenitor — this object's _progenitor has physical off).
         if progenitor._roSet and (
