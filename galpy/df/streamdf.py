@@ -32,6 +32,7 @@ from ..util import (
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import physical_conversion
 from .df import df
+from .streamTrack import StreamTrack
 
 if _APY_LOADED:
     from astropy import units
@@ -89,9 +90,9 @@ class streamdf(df):
         vo=None,
         Vnorm=None,
         Rnorm=None,
-        R0=8.0,
-        Zsun=0.0208,
-        vsun=[-11.1, 8.0 * 30.24, 7.25],
+        R0=None,
+        Zsun=None,
+        vsun=None,
         multi=None,
         interpTrack=_INTERPDURINGSETUP,
         useInterp=_USEINTERP,
@@ -185,18 +186,24 @@ class streamdf(df):
                     "custom_sky_transform=. Use custom_sky_transform= only."
                 )
             custom_sky_transform = custom_transform
-        if ro is None and not Rnorm is None:
+        if Rnorm is not None:
             warnings.warn(
-                "WARNING: Rnorm keyword input to streamdf is deprecated in favor of the standard ro keyword",
-                galpyWarning,
+                "The Rnorm= keyword is deprecated since v1.12 and will be "
+                "removed in v1.14. Use ro= instead.",
+                FutureWarning,
+                stacklevel=2,
             )
-            ro = Rnorm
-        if vo is None and not Vnorm is None:
+            if ro is None:
+                ro = Rnorm
+        if Vnorm is not None:
             warnings.warn(
-                "WARNING: Vnorm keyword input to streamdf is deprecated in favor of the standard vo keyword",
-                galpyWarning,
+                "The Vnorm= keyword is deprecated since v1.12 and will be "
+                "removed in v1.14. Use vo= instead.",
+                FutureWarning,
+                stacklevel=2,
             )
-            vo = Vnorm
+            if vo is None:
+                vo = Vnorm
         df.__init__(self, ro=ro, vo=vo)
         sigv = conversion.parse_velocity(sigv, vo=self._vo)
         self._sigv = sigv
@@ -228,6 +235,9 @@ class streamdf(df):
             self._multi = multiprocessing.cpu_count()
         else:
             self._multi = multi
+        # Keep the caller's Orbit (unit metadata intact) for streamTrack
+        # construction; _progenitor_setup turns physical off on a copy.
+        self._orig_progenitor = progenitor
         self._progenitor_setup(progenitor, leading, useTMHessian)
         sigangle = conversion.parse_angle(sigangle)
         deltaAngleTrack = conversion.parse_angle(deltaAngleTrack)
@@ -235,14 +245,21 @@ class streamdf(df):
         # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
         if progIsTrack:
             self._setup_progIsTrack()
-        R0 = conversion.parse_length_kpc(R0)
-        Zsun = conversion.parse_length_kpc(Zsun)
-        vsun = conversion.parse_velocity_kms(
-            numpy.array(vsun) if isinstance(vsun, list) else vsun
-        )
-        vsun[0] = conversion.parse_velocity_kms(vsun[0])
-        vsun[1] = conversion.parse_velocity_kms(vsun[1])
-        vsun[2] = conversion.parse_velocity_kms(vsun[2])
+        # R0/Zsun/vsun may be None: _setup_coord_transform sources them
+        # from the progenitor's Orbit metadata in that case, falling back
+        # to legacy hardcoded defaults only when the progenitor doesn't
+        # carry the value either.
+        if R0 is not None:
+            R0 = conversion.parse_length_kpc(R0)
+        if Zsun is not None:
+            Zsun = conversion.parse_length_kpc(Zsun)
+        if vsun is not None:
+            vsun = conversion.parse_velocity_kms(
+                numpy.array(vsun) if isinstance(vsun, list) else vsun
+            )
+            vsun[0] = conversion.parse_velocity_kms(vsun[0])
+            vsun[1] = conversion.parse_velocity_kms(vsun[1])
+            vsun[2] = conversion.parse_velocity_kms(vsun[2])
         self._setup_coord_transform(R0, Zsun, vsun, progenitor, custom_sky_transform)
         # Determine the stream track
         if not nosetup:
@@ -252,7 +269,7 @@ class streamdf(df):
             if interpTrack or self._useInterp:
                 self._interpolate_stream_track()
                 self._interpolate_stream_track_aA()
-            self.calc_stream_lb()
+            self._calc_stream_lb()
             if not nospreadsetup:
                 self._determine_stream_spread()
         return None
@@ -378,7 +395,21 @@ class streamdf(df):
         return None
 
     def _setup_coord_transform(self, R0, Zsun, vsun, progenitor, custom_sky_transform):
-        # Set the coordinate-transformation parameters; check that these do not conflict with those in the progenitor orbit object; need to use the original, since this objects _progenitor has physical turned off
+        # Source unspecified R0/Zsun/vsun from the progenitor's Orbit
+        # metadata so the streamdf's solar-position convention matches
+        # the progenitor by default. Progenitor is 3D, so its ``_zo``
+        # and ``_solarmotion`` are always set by ``Orbit.__init__``;
+        # ``_ro`` falls back to the config default when ``_roSet=False``.
+        if R0 is None:
+            R0 = progenitor._ro if progenitor._roSet else 8.0
+        if Zsun is None:
+            Zsun = progenitor._zo
+        if vsun is None:
+            vsun = numpy.asarray(progenitor._solarmotion, dtype=float) + numpy.array(
+                [0.0, self._vo, 0.0]
+            )
+        # Warn on explicit mismatches with progenitor metadata (need the
+        # original progenitor — this object's _progenitor has physical off).
         if progenitor._roSet and (
             numpy.fabs(self._ro - progenitor._ro) > 10.0**-0.8
             or numpy.fabs(R0 - progenitor._ro) > 10.0**-8.0
@@ -606,6 +637,98 @@ class streamdf(df):
         )
 
     ############################STREAM TRACK FUNCTIONS#############################
+    def streamTrack(self, custom_sky_transform=None):
+        """
+        Return a :class:`~galpy.df.StreamTrack` wrapping this streamdf's
+        analytic track, parameterized by perpendicular angle along the
+        stream (``tp=0`` at the progenitor, ``tp=_deltaAngleTrack`` at the
+        far end). The result is cached.
+
+        The ``cov`` attached to the track is the *local* (perpendicular-only)
+        covariance, matching :meth:`streamspraydf.streamTrack`'s convention.
+        Unit metadata is inherited from the progenitor's Orbit
+        (``ro``/``vo``) and from the streamdf's solar position
+        (``zo=Zsun``, ``solarmotion = vsun - [0, vo, 0]``), so
+        ``track.ll``/``track.bb``/``track.dist``/``track.vlos``/
+        ``track.pmll``/``track.pmbb`` reproduce
+        ``_interpolatedObsTrackLB``.
+
+        Parameters
+        ----------
+        custom_sky_transform : array, shape (3, 3), optional
+            One-shot override of ``self.custom_sky_transform`` for the
+            cached :class:`~galpy.df.StreamTrack`. Use this when you want
+            the track in a custom ``(phi1, phi2)`` sky frame without
+            modifying the streamdf itself. Default ``None`` (use the
+            streamdf's stored transform, if any).
+
+        Returns
+        -------
+        galpy.df.StreamTrack
+
+        Notes
+        -----
+        - 2026-05-11 - Written - Bovy (UofT)
+        """
+        if getattr(self, "_streamTrack", None) is not None:
+            return self._streamTrack
+        if not hasattr(self, "_interpolatedAllErrCovsLocalXY"):
+            raise RuntimeError(
+                "streamTrack() requires _interpolatedAllErrCovsLocalXY, "
+                "which is populated by _determine_stream_spread during "
+                "normal setup. This streamdf was built with nosetup=True "
+                "(or nospreadsetup=True) — call _determine_stream_spread() "
+                "manually first, or rebuild without those flags."
+            )
+        prog = self._orig_progenitor
+        prog_ro = prog._ro if prog._roSet else None
+        prog_vo = prog._vo if prog._voSet else None
+        # Use streamdf's solar-position convention (R0/Zsun/vsun) so that
+        # streamTrack.ll/bb/dist/vlos/pmll/pmbb match _interpolatedObsTrackLB
+        # exactly. vsun - [0, vo, 0] is the peculiar-motion vector that the
+        # StreamTrack/Orbit ``solarmotion=`` kwarg expects.
+        sdf_solarmotion = numpy.asarray(self._vsun, dtype=float) - numpy.array(
+            [0.0, self._vo, 0.0]
+        )
+        sky_T = (
+            self._custom_sky_transform
+            if custom_sky_transform is None
+            else numpy.asarray(custom_sky_transform, dtype=float)
+        )
+        self._streamTrack = StreamTrack(
+            tp_grid=self._interpolatedThetasTrack,
+            track_xyz=self._interpolatedObsTrackXY[:, 0:3],
+            track_vxvyvz=self._interpolatedObsTrackXY[:, 3:6],
+            cov_xyz=self._interpolatedAllErrCovsLocalXY,
+            custom_sky_transform=sky_T,
+            parameter_kind="angle",
+            ro=prog_ro,
+            vo=prog_vo,
+            zo=self._Zsun,
+            solarmotion=sdf_solarmotion,
+        )
+        return self._streamTrack
+
+    @property
+    def custom_sky_transform(self):
+        """
+        3x3 rotation matrix from equatorial (ra, dec) to a custom
+        ``(phi1, phi2)`` sky frame, or ``None`` if not set. Setting a new
+        matrix here also propagates to the cached :meth:`streamTrack`,
+        so :meth:`StreamTrack.phi1`/:meth:`phi2`/:meth:`pmphi1`/
+        :meth:`pmphi2` accessors and the ``customsky`` covariance basis
+        pick up the new frame on the next call.
+        """
+        return self._custom_sky_transform
+
+    @custom_sky_transform.setter
+    def custom_sky_transform(self, T):
+        self._custom_sky_transform = (
+            None if T is None else numpy.asarray(T, dtype=float)
+        )
+        if getattr(self, "_streamTrack", None) is not None:
+            self._streamTrack.custom_sky_transform = self._custom_sky_transform
+
     def plotTrack(
         self, d1="x", d2="z", interp=True, spread=0, simple=_USESIMPLE, *args, **kwargs
     ):
@@ -652,7 +775,7 @@ class streamdf(df):
             or d2.lower() == "pmbb"
             or d2.lower() == "vlos"
         ):
-            self.calc_stream_lb()
+            self._calc_stream_lb()
         phys = kwargs.pop("scaleToPhysical", False)
         tx = self._parse_track_dim(d1, interp=interp, phys=phys)
         ty = self._parse_track_dim(d2, interp=interp, phys=phys)
@@ -747,60 +870,38 @@ class streamdf(df):
         return None
 
     def _parse_track_dim(self, d1, interp=True, phys=False):
-        """Parse the dimension to plot the stream track for"""
-        if interp:
-            interpStr = "interpolated"
-        else:
-            interpStr = ""
-        if d1.lower() == "x":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 0]
-        elif d1.lower() == "y":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 1]
-        elif d1.lower() == "z":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 2]
-        elif d1.lower() == "r":
-            tx = self.__dict__["_%sObsTrack" % interpStr][:, 0]
-        elif d1.lower() == "phi":
-            tx = self.__dict__["_%sObsTrack" % interpStr][:, 5]
-        elif d1.lower() == "vx":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 3]
-        elif d1.lower() == "vy":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 4]
-        elif d1.lower() == "vz":
-            tx = self.__dict__["_%sObsTrackXY" % interpStr][:, 5]
-        elif d1.lower() == "vr":
-            tx = self.__dict__["_%sObsTrack" % interpStr][:, 1]
-        elif d1.lower() == "vt":
-            tx = self.__dict__["_%sObsTrack" % interpStr][:, 2]
-        elif d1.lower() == "ll":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 0]
-        elif d1.lower() == "bb":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 1]
-        elif d1.lower() == "dist":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 2]
-        elif d1.lower() == "pmll":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 4]
-        elif d1.lower() == "pmbb":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 5]
-        elif d1.lower() == "vlos":
-            tx = self.__dict__["_%sObsTrackLB" % interpStr][:, 3]
-        if phys and (
-            d1.lower() == "x"
-            or d1.lower() == "y"
-            or d1.lower() == "z"
-            or d1.lower() == "r"
-        ):
-            tx = copy.copy(tx)
-            tx *= self._ro
-        if phys and (
-            d1.lower() == "vx"
-            or d1.lower() == "vy"
-            or d1.lower() == "vz"
-            or d1.lower() == "vr"
-            or d1.lower() == "vt"
-        ):
-            tx = copy.copy(tx)
-            tx *= self._vo
+        """Parse the dimension to plot the stream track for. The mean
+        track is sourced from ``self.streamTrack()`` accessors so that
+        streamdf and streamspraydf share a single mean-track backend."""
+        track = self.streamTrack()
+        tps = self._interpolatedThetasTrack if interp else self._thetasTrack
+        key = d1.lower()
+        accessor = {
+            "x": track.x,
+            "y": track.y,
+            "z": track.z,
+            "r": track.R,
+            "phi": track.phi,
+            "vx": track.vx,
+            "vy": track.vy,
+            "vz": track.vz,
+            "vr": track.vR,
+            "vt": track.vT,
+            "ll": track.ll,
+            "bb": track.bb,
+            "dist": track.dist,
+            "pmll": track.pmll,
+            "pmbb": track.pmbb,
+            "vlos": track.vlos,
+        }[key]
+        tx = numpy.asarray(accessor(tps, use_physical=False), dtype=float)
+        # Legacy phys=True semantics: positions scaled by ro, velocities
+        # by vo, for galcen Cartesian / cylindrical keys only (LB axes
+        # were never scaled in the old path).
+        if phys and key in ("x", "y", "z", "r"):
+            tx = tx * self._ro
+        elif phys and key in ("vx", "vy", "vz", "vr", "vt"):
+            tx = tx * self._vo
         return tx
 
     def _parse_progenitor_dim(self, d1, ts, ro=None, vo=None, obs=None, phys=False):
@@ -1380,15 +1481,32 @@ class streamdf(df):
         return None
 
     def _determine_stream_spread(self, simple=_USESIMPLE):
-        """Determine the spread around the stream track, just sets matrices that describe the covariances"""
+        """Compute the full + local stream covariances on the chunk grid and
+        interpolate them onto the fine grid.
+
+        Both covariances share the same action-angle factorization; they
+        differ only in the parallel-angle variance (see
+        :func:`_determine_stream_spread_single`). The full covariance
+        (``_allErrCovs[XY]`` / ``_interpolatedAllErrCovsXY``) is consumed by
+        :meth:`gaussApprox` and :meth:`plotTrack`'s 2D minor-eigenvalue
+        spread band; the local covariance (``_allErrCovsLocalXY`` /
+        ``_interpolatedAllErrCovsLocalXY``) is wrapped by
+        :meth:`streamTrack` so ``track.cov`` matches the streamspraydf
+        convention.
+        """
         allErrCovs = numpy.empty((self._nTrackChunks, 6, 6))
+        allErrCovsLocal = numpy.empty((self._nTrackChunks, 6, 6))
+        sigOmega_fn = lambda x: self.sigOmega(x, use_physical=False)
+        sigAngle_fn = lambda y: self.sigangledAngle(
+            y, simple=simple, use_physical=False
+        )
         if self._multi is None:
             for ii in range(self._nTrackChunks):
-                allErrCovs[ii] = _determine_stream_spread_single(
+                allErrCovs[ii], allErrCovsLocal[ii] = _determine_stream_spread_single(
                     self._sigomatrixEig,
                     self._thetasTrack[ii],
-                    lambda x: self.sigOmega(x, use_physical=False),
-                    lambda y: self.sigangledAngle(y, simple=simple, use_physical=False),
+                    sigOmega_fn,
+                    sigAngle_fn,
                     self._allinvjacsTrack[ii],
                 )
         else:
@@ -1397,10 +1515,8 @@ class streamdf(df):
                     lambda x: _determine_stream_spread_single(
                         self._sigomatrixEig,
                         self._thetasTrack[x],
-                        lambda x: self.sigOmega(x, use_physical=False),
-                        lambda y: self.sigangledAngle(
-                            y, simple=simple, use_physical=False
-                        ),
+                        sigOmega_fn,
+                        sigAngle_fn,
                         self._allinvjacsTrack[x],
                     )
                 ),
@@ -1410,58 +1526,61 @@ class streamdf(df):
                 ),
             )
             for ii in range(self._nTrackChunks):
-                allErrCovs[ii] = multiOut[ii]
+                allErrCovs[ii], allErrCovsLocal[ii] = multiOut[ii]
         self._allErrCovs = allErrCovs
-        # Also propagate to XYZ coordinates
-        allErrCovsXY = numpy.empty_like(self._allErrCovs)
-        allErrCovsEigvalXY = numpy.empty((len(self._thetasTrack), 6))
-        allErrCovsEigvecXY = numpy.empty_like(self._allErrCovs)
-        eigDir = numpy.array(
-            [numpy.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]) for ii in range(6)]
+        # Propagate to XYZ (galcen-Cartesian), then eigen-slerp interpolate
+        # onto the fine grid. Both pipelines share the same Jacobian per chunk.
+        self._allErrCovsXY, self._interpolatedAllErrCovsXY = self._cart_and_interp_cov(
+            allErrCovs
         )
-        for ii in range(self._nTrackChunks):
+        self._allErrCovsLocalXY, self._interpolatedAllErrCovsLocalXY = (
+            self._cart_and_interp_cov(allErrCovsLocal)
+        )
+        # Also interpolate in l and b coordinates (legacy LB pipeline, used by
+        # the deprecated calc_stream_lb path).
+        self._determine_stream_spreadLB(simple=simple)
+        return None
+
+    def _cart_and_interp_cov(self, chunk_covs):
+        """Helper: transform a (nTrackChunks, 6, 6) action-angle-projected
+        covariance into galcen-Cartesian via the per-chunk cyl→rect Jacobian,
+        then eigen-slerp interpolate it onto ``_interpolatedThetasTrack``.
+        Returns ``(allErrCovsXY, interpolatedAllErrCovsXY)``.
+        """
+        nC = self._nTrackChunks
+        allErrCovsXY = numpy.empty_like(chunk_covs)
+        eigvals = numpy.empty((nC, 6))
+        eigvecs = numpy.empty_like(chunk_covs)
+        eigDir = numpy.array(
+            [numpy.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]) for _ in range(6)]
+        )
+        for ii in range(nC):
             tjac = coords.cyl_to_rect_jac(*self._ObsTrack[ii])
-            allErrCovsXY[ii] = numpy.dot(tjac, numpy.dot(self._allErrCovs[ii], tjac.T))
-            # Eigen decomposition for interpolation
+            allErrCovsXY[ii] = numpy.dot(tjac, numpy.dot(chunk_covs[ii], tjac.T))
             teig = numpy.linalg.eig(allErrCovsXY[ii])
-            # Sort them to match them up later
             sortIndx = numpy.argsort(teig[0])
-            allErrCovsEigvalXY[ii] = teig[0][sortIndx]
-            # Make sure the eigenvectors point in the same direction
+            eigvals[ii] = teig[0][sortIndx]
+            # Keep eigenvectors continuous along the stream by sign-aligning
+            # each one with its previous-chunk counterpart.
             for jj in range(6):
                 if numpy.sum(eigDir[jj] * teig[1][:, sortIndx[jj]]) < 0.0:
                     teig[1][:, sortIndx[jj]] *= -1.0
                 eigDir[jj] = teig[1][:, sortIndx[jj]]
-            allErrCovsEigvecXY[ii] = teig[1][:, sortIndx]
-        self._allErrCovsXY = allErrCovsXY
-        # Interpolate the allErrCovsXY covariance matrices along the interpolated track
-        # Interpolate the eigenvalues
-        interpAllErrCovsEigvalXY = [
-            interpolate.InterpolatedUnivariateSpline(
-                self._thetasTrack, allErrCovsEigvalXY[:, ii], k=3
-            )
-            for ii in range(6)
-        ]
-        # Now build the interpolated allErrCovsXY using slerp
-        interpolatedAllErrCovsXY = numpy.empty(
-            (len(self._interpolatedThetasTrack), 6, 6)
-        )
+            eigvecs[ii] = teig[1][:, sortIndx]
+        # Spline the eigenvalues; slerp the eigenvectors between chunks.
+        nInterp = len(self._interpolatedThetasTrack)
         interpolatedEigval = numpy.array(
             [
-                interpAllErrCovsEigvalXY[ii](self._interpolatedThetasTrack)
-                for ii in range(6)
+                interpolate.InterpolatedUnivariateSpline(
+                    self._thetasTrack, eigvals[:, jj], k=3
+                )(self._interpolatedThetasTrack)
+                for jj in range(6)
             ]
-        )  # 6,ninterp
-        # Interpolate in chunks
-        interpolatedEigvec = numpy.empty((len(self._interpolatedThetasTrack), 6, 6))
-        for ii in range(self._nTrackChunks - 1):
+        )  # (6, nInterp)
+        interpolatedEigvec = numpy.empty((nInterp, 6, 6))
+        for ii in range(nC - 1):
             slerpOmegas = [
-                numpy.arccos(
-                    numpy.sum(
-                        allErrCovsEigvecXY[ii, :, jj]
-                        * allErrCovsEigvecXY[ii + 1, :, jj]
-                    )
-                )
+                numpy.arccos(numpy.sum(eigvecs[ii, :, jj] * eigvecs[ii + 1, :, jj]))
                 for jj in range(6)
             ]
             slerpts = (self._interpolatedThetasTrack - self._thetasTrack[ii]) / (
@@ -1472,21 +1591,19 @@ class streamdf(df):
                 for kk in range(6):
                     interpolatedEigvec[slerpIndx, kk, jj] = (
                         numpy.sin((1 - slerpts[slerpIndx]) * slerpOmegas[jj])
-                        * allErrCovsEigvecXY[ii, kk, jj]
+                        * eigvecs[ii, kk, jj]
                         + numpy.sin(slerpts[slerpIndx] * slerpOmegas[jj])
-                        * allErrCovsEigvecXY[ii + 1, kk, jj]
+                        * eigvecs[ii + 1, kk, jj]
                     ) / numpy.sin(slerpOmegas[jj])
-        for ii in range(len(self._interpolatedThetasTrack)):
-            interpolatedAllErrCovsXY[ii] = numpy.dot(
+        interpolated = numpy.empty((nInterp, 6, 6))
+        for ii in range(nInterp):
+            interpolated[ii] = numpy.dot(
                 interpolatedEigvec[ii],
                 numpy.dot(
                     numpy.diag(interpolatedEigval[:, ii]), interpolatedEigvec[ii].T
                 ),
             )
-        self._interpolatedAllErrCovsXY = interpolatedAllErrCovsXY
-        # Also interpolate in l and b coordinates
-        self._determine_stream_spreadLB(simple=simple)
-        return None
+        return allErrCovsXY, interpolated
 
     def _determine_stream_spreadLB(
         self, simple=_USESIMPLE, ro=None, vo=None, R0=None, Zsun=None, vsun=None
@@ -1742,6 +1859,13 @@ class streamdf(df):
         """
         Convert the stream track to observational coordinates and store
 
+        .. deprecated:: 1.12
+           Use :meth:`streamTrack` and the resulting ``track.ll(tp)``,
+           ``track.bb(tp)``, ``track.dist(tp)``, ``track.vlos(tp)``,
+           ``track.pmll(tp)``, ``track.pmbb(tp)`` accessors, or
+           ``track.cov(tp, basis="galsky")`` for sky-coordinate
+           covariances. Will be removed in v1.14.
+
         Parameters
         ----------
         ro : float or Quantity, optional
@@ -1763,6 +1887,17 @@ class streamdf(df):
         -----
         - 2013-12-02 - Written - Bovy (IAS)
         """
+        warnings.warn(
+            "calc_stream_lb is deprecated since v1.12 and will be removed "
+            "in v1.14. Use streamdf.streamTrack() and the ll/bb/dist/vlos/"
+            "pmll/pmbb accessors (or cov(basis='galsky')) instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        return self._calc_stream_lb(vo=vo, ro=ro, R0=R0, Zsun=Zsun, vsun=vsun)
+
+    def _calc_stream_lb(self, vo=None, ro=None, R0=None, Zsun=None, vsun=None):
+        """Internal, non-deprecated body of :meth:`calc_stream_lb`."""
         if vo is None:
             vo = self._vo
         if ro is None:
@@ -3842,39 +3977,59 @@ def _determine_stream_track_TM_approxConstantTrackFreq(
 def _determine_stream_spread_single(
     sigomatrixEig, thetasTrack, sigOmega, sigAngle, allinvjacsTrack
 ):
-    """sigAngle input may either be a function that returns the dispersion in
-    perpendicular angle as a function of parallel angle, or a value"""
-    # Estimate the spread in all frequencies and angles
+    """Return ``(full_cov, local_cov)`` in (x, y, z, vx, vy, vz) action-angle
+    -projected phase-space coordinates at the given parallel angle.
+
+    sigAngle input may either be a function that returns the dispersion in
+    perpendicular angle as a function of parallel angle, or a value.
+
+    The two covariances share the same frequency and perpendicular-angle
+    blocks; they differ only in the parallel-angle variance:
+
+    - ``full_cov`` — parallel-angle variance = ``1.0`` rad², the placeholder
+      for a uniform along-stream distribution. Correct object for likelihood
+      evaluation (:meth:`streamdf.gaussApprox`) and the 2D minor-eigenvalue
+      projection used by :meth:`streamdf.plotTrack`.
+    - ``local_cov`` — parallel-angle variance = ``sigAngle**2`` (same as the
+      perpendicular angles). The local perpendicular width of the stream,
+      matching the streamspraydf-streamTrack convention. Used by
+      :meth:`streamdf.streamTrack` to populate the StreamTrack's ``cov``.
+    """
+    inv_eigvecs = numpy.linalg.inv(sigomatrixEig[1])
     sigObig2 = sigOmega(thetasTrack) ** 2.0
     tsigOdiag = copy.copy(sigomatrixEig[0])
     tsigOdiag[numpy.argmax(tsigOdiag)] = sigObig2
-    tsigO = numpy.dot(
-        sigomatrixEig[1],
-        numpy.dot(numpy.diag(tsigOdiag), numpy.linalg.inv(sigomatrixEig[1])),
-    )
-    # angles
+    tsigO = numpy.dot(sigomatrixEig[1], numpy.dot(numpy.diag(tsigOdiag), inv_eigvecs))
     sigangle2 = (
         sigAngle(thetasTrack) ** 2.0 if hasattr(sigAngle, "__call__") else sigAngle**2.0
     )
-    tsigadiag = numpy.ones(3) * sigangle2
-    tsigadiag[numpy.argmax(tsigOdiag)] = 1.0
-    tsiga = numpy.dot(
-        sigomatrixEig[1],
-        numpy.dot(numpy.diag(tsigadiag), numpy.linalg.inv(sigomatrixEig[1])),
-    )
-    # correlations, assume half correlated for now (can be calculated)
-    correlations = numpy.diag(0.5 * numpy.ones(3)) * numpy.sqrt(tsigOdiag * tsigadiag)
-    correlations[numpy.argmax(tsigOdiag), numpy.argmax(tsigOdiag)] = 0.0
-    correlations = numpy.dot(
-        sigomatrixEig[1], numpy.dot(correlations, numpy.linalg.inv(sigomatrixEig[1]))
-    )
-    # Now convert
-    fullMatrix = numpy.empty((6, 6))
-    fullMatrix[:3, :3] = tsigO
-    fullMatrix[3:, 3:] = tsiga
-    fullMatrix[3:, :3] = correlations
-    fullMatrix[:3, 3:] = correlations.T
-    return numpy.dot(allinvjacsTrack, numpy.dot(fullMatrix, allinvjacsTrack.T))
+    parallel_idx = numpy.argmax(tsigOdiag)
+
+    def _assemble(tsigadiag, parallel_corr_zero):
+        tsiga = numpy.dot(
+            sigomatrixEig[1], numpy.dot(numpy.diag(tsigadiag), inv_eigvecs)
+        )
+        correlations = numpy.diag(0.5 * numpy.ones(3)) * numpy.sqrt(
+            tsigOdiag * tsigadiag
+        )
+        if parallel_corr_zero:
+            correlations[parallel_idx, parallel_idx] = 0.0
+        correlations = numpy.dot(sigomatrixEig[1], numpy.dot(correlations, inv_eigvecs))
+        fullMatrix = numpy.empty((6, 6))
+        fullMatrix[:3, :3] = tsigO
+        fullMatrix[3:, 3:] = tsiga
+        fullMatrix[3:, :3] = correlations
+        fullMatrix[:3, 3:] = correlations.T
+        return numpy.dot(allinvjacsTrack, numpy.dot(fullMatrix, allinvjacsTrack.T))
+
+    full_diag = numpy.ones(3) * sigangle2
+    full_diag[parallel_idx] = 1.0
+    full_cov = _assemble(full_diag, parallel_corr_zero=True)
+
+    local_diag = numpy.ones(3) * sigangle2
+    local_cov = _assemble(local_diag, parallel_corr_zero=False)
+
+    return full_cov, local_cov
 
 
 def calcaAJac(

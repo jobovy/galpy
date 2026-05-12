@@ -18036,7 +18036,6 @@ def test_streamdf_RnormWarning():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.util import conversion  # for unit conversions
-    from galpy.util import galpyWarning
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -18046,7 +18045,7 @@ def test_streamdf_RnormWarning():
     sigv = 0.365  # km/s
     ro, vo = 9.0, 250.0
     with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always", galpyWarning)
+        warnings.simplefilter("always")
         sdf_bovy14 = streamdf(
             sigv / 220.0,
             progenitor=obs,
@@ -18058,15 +18057,11 @@ def test_streamdf_RnormWarning():
             Rnorm=ro,
             nosetup=True,
         )
-        raisedWarning = False
-        for wa in w:
-            raisedWarning = (
-                str(wa.message)
-                == "WARNING: Rnorm keyword input to streamdf is deprecated in favor of the standard ro keyword"
-            )
-            if raisedWarning:
-                break
-        assert raisedWarning, "Rnorm warning not raised when it should have been"
+        msgs = [str(wa.message) for wa in w if issubclass(wa.category, FutureWarning)]
+        assert any(
+            "Rnorm" in m and "deprecated since v1.12" in m and "v1.14" in m
+            for m in msgs
+        ), f"Rnorm FutureWarning not raised; got {msgs!r}"
     return None
 
 
@@ -18080,7 +18075,6 @@ def test_streamdf_VnormWarning():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.util import conversion  # for unit conversions
-    from galpy.util import galpyWarning
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -18090,7 +18084,7 @@ def test_streamdf_VnormWarning():
     sigv = 0.365  # km/s
     ro, vo = 9.0, 250.0
     with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always", galpyWarning)
+        warnings.simplefilter("always")
         sdf_bovy14 = streamdf(
             sigv / 220.0,
             progenitor=obs,
@@ -18102,15 +18096,11 @@ def test_streamdf_VnormWarning():
             Vnorm=vo,
             nosetup=True,
         )
-        raisedWarning = False
-        for wa in w:
-            raisedWarning = (
-                str(wa.message)
-                == "WARNING: Vnorm keyword input to streamdf is deprecated in favor of the standard vo keyword"
-            )
-            if raisedWarning:
-                break
-        assert raisedWarning, "Vnorm warning not raised when it should have been"
+        msgs = [str(wa.message) for wa in w if issubclass(wa.category, FutureWarning)]
+        assert any(
+            "Vnorm" in m and "deprecated since v1.12" in m and "v1.14" in m
+            for m in msgs
+        ), f"Vnorm FutureWarning not raised; got {msgs!r}"
     return None
 
 
@@ -18150,8 +18140,8 @@ def test_streamgapdf_method_returntype():
         nTrackChunksImpact=5,
         sigMeanOffset=4.5,
         tdisrupt=10.88 * units.Gyr,
-        Vnorm=V0,
-        Rnorm=R0,
+        vo=V0,
+        ro=R0,
         impactb=0.1 * units.kpc,
         subhalovel=numpy.array([6.82200571, 132.7700529, 149.4174464])
         * units.km
@@ -18171,8 +18161,8 @@ def test_streamgapdf_method_returntype():
         nTrackChunks=5,
         nTrackIterations=1,
         nTrackChunksImpact=5,
-        Vnorm=V0,
-        Rnorm=R0,
+        vo=V0,
+        ro=R0,
         sigMeanOffset=4.5,
         tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
         impactb=0.1 / R0,

@@ -215,7 +215,7 @@ class streamgapdf(streamdf.streamdf):
         if interpTrack or self._useInterp:
             super()._interpolate_stream_track()
             super()._interpolate_stream_track_aA()
-        super().calc_stream_lb()
+        super()._calc_stream_lb()
         return None
 
     def pOparapar(self, Opar, apar):
