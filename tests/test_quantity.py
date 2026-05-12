@@ -19693,3 +19693,184 @@ def test_streamtrack_parameter_kind_quantity_inputs():
         float(angle_track.x(0.25, use_physical=False)),
         float(angle_track.x(deg_val, use_physical=False)),
     )
+
+
+def test_streamspraydf_stripping_pdf_quantity_in_out():
+    # Quantity input / Quantity output PDF: results match internal-units twin.
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    mass = 2 * 10.0**4.0 * units.Msun
+    tdisrupt = 4.5 * units.Gyr
+    t0 = -2.5 * units.Gyr
+    sig = 0.3 * units.Gyr
+
+    def pdf_qq(t):
+        x = ((t - t0) / sig).to_value(units.dimensionless_unscaled)
+        return numpy.exp(-0.5 * x**2) / units.Gyr
+
+    def pdf_internal(t):
+        t_gyr = numpy.asarray(t) * conversion.time_in_Gyr(vo, ro)
+        x = (t_gyr - t0.to_value(units.Gyr)) / sig.to_value(units.Gyr)
+        return numpy.exp(-0.5 * x**2)
+
+    spdf_q = fardal15spraydf(
+        mass,
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+        stripping_pdf=pdf_qq,
+        ro=ro,
+        vo=vo,
+    )
+    spdf_i = fardal15spraydf(
+        mass.to_value(units.Msun) / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro),
+        stripping_pdf=pdf_internal,
+    )
+    numpy.random.seed(3)
+    _, dt_q = spdf_q.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    numpy.random.seed(3)
+    _, dt_i = spdf_i.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    dt_q_internal = dt_q.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+    assert numpy.allclose(dt_q_internal, dt_i, rtol=1e-8, atol=1e-8)
+
+
+def test_streamspraydf_stripping_pdf_quantity_in_only():
+    # Quantity input / unitless output PDF.
+    from galpy.df import chen24spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    t0 = -2.5 * units.Gyr
+    sig = 0.3 * units.Gyr
+
+    def pdf_qu(t):
+        x = ((t - t0) / sig).to_value(units.dimensionless_unscaled)
+        return numpy.exp(-0.5 * x**2)
+
+    def pdf_i(t):
+        t_gyr = numpy.asarray(t) * conversion.time_in_Gyr(vo, ro)
+        x = (t_gyr - t0.to_value(units.Gyr)) / sig.to_value(units.Gyr)
+        return numpy.exp(-0.5 * x**2)
+
+    spdf_q = chen24spraydf(
+        2e4 * units.Msun,
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 * units.Gyr,
+        stripping_pdf=pdf_qu,
+        ro=ro,
+        vo=vo,
+    )
+    spdf_i = chen24spraydf(
+        2e4 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        stripping_pdf=pdf_i,
+    )
+    numpy.random.seed(5)
+    _, dt_q = spdf_q.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    numpy.random.seed(5)
+    _, dt_i = spdf_i.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    dt_q_internal = dt_q.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+    assert numpy.allclose(dt_q_internal, dt_i, rtol=1e-8, atol=1e-8)
+
+
+def test_streamspraydf_stripping_pdf_quantity_out_only():
+    # Unitless input / Quantity output PDF.
+    from galpy.df import chen24spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    t0_internal = -2.5 / conversion.time_in_Gyr(vo, ro)
+    sig_internal = 0.3 / conversion.time_in_Gyr(vo, ro)
+
+    def pdf_uq(t):
+        x = (numpy.asarray(t) - t0_internal) / sig_internal
+        return numpy.exp(-0.5 * x**2) / units.Gyr
+
+    def pdf_i(t):
+        x = (numpy.asarray(t) - t0_internal) / sig_internal
+        return numpy.exp(-0.5 * x**2)
+
+    spdf_q = chen24spraydf(
+        2e4 * units.Msun,
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 * units.Gyr,
+        stripping_pdf=pdf_uq,
+        ro=ro,
+        vo=vo,
+    )
+    spdf_i = chen24spraydf(
+        2e4 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        stripping_pdf=pdf_i,
+    )
+    numpy.random.seed(11)
+    _, dt_q = spdf_q.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    numpy.random.seed(11)
+    _, dt_i = spdf_i.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    dt_q_internal = dt_q.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+    assert numpy.allclose(dt_q_internal, dt_i, rtol=1e-8, atol=1e-8)
+
+
+def test_pericenter_stripping_pdf_quantity_sigma_tdisrupt():
+    from galpy.df import pericenter_stripping_pdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    pdf_q = pericenter_stripping_pdf(
+        obs,
+        lp,
+        4.5 * units.Gyr,
+        sigma=50 * units.Myr,
+        ro=ro,
+        vo=vo,
+    )
+    pdf_i = pericenter_stripping_pdf(
+        obs,
+        lp,
+        4.5 / conversion.time_in_Gyr(vo, ro),
+        sigma=0.05 / conversion.time_in_Gyr(vo, ro),
+    )
+    assert numpy.allclose(pdf_q.pericenter_times, pdf_i.pericenter_times)
+    # PDF value at a pericenter agrees (Quantity vs internal)
+    t_test = pdf_i.pericenter_times[0]
+    val_internal = pdf_i(t_test)
+    val_quantity = pdf_q(t_test * conversion.time_in_Gyr(vo, ro) * units.Gyr)
+    assert numpy.isclose(
+        float(val_internal),
+        float(val_quantity.to(1.0 / units.Gyr).value * conversion.time_in_Gyr(vo, ro)),
+    )

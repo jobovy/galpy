@@ -364,6 +364,18 @@ Specific particle-spray models
    Chen et al. (2024) <streamspraydfchen24.rst>
    Fardal et al. (2015) <streamspraydffardal15.rst>
 
+Stripping-time distributions
++++++++++++++++++++++++++++++
+
+Helpers that build the ``stripping_pdf=`` callable accepted by every
+``streamspraydf`` subclass, for non-uniform tidal-stripping rates over
+the disruption window ``[-tdisrupt, 0]``.
+
+.. toctree::
+   :maxdepth: 1
+
+   pericenter_stripping_pdf <streamspraydfpericenterstrippingpdf.rst>
+
 Smooth stream-track object
 +++++++++++++++++++++++++++
 

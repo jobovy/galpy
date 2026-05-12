@@ -1,6 +1,9 @@
 import warnings
 
 import numpy
+from scipy.integrate import cumulative_trapezoid
+from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.signal import find_peaks
 
 from ..df.df import df
 from ..orbit import Orbit
@@ -22,6 +25,7 @@ class basestreamspraydf(df):
         pot=None,
         rtpot=None,
         tdisrupt=None,
+        stripping_pdf=None,
         leading=None,
         tail=None,
         center=None,
@@ -45,6 +49,8 @@ class basestreamspraydf(df):
             Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
+        stripping_pdf : callable, optional
+            Probability density of stripping over the progenitor time axis ``t in [-tdisrupt, 0]`` (``t=0`` is the present, ``t<0`` the past). Must accept a 1D array (or scalar) and return a 1D array (or scalar) of the same length. Both input and output may be astropy ``Quantity`` (input a time, output a 1/time); detection mirrors :class:`galpy.potential.AnyAxisymmetricRazorThinDiskPotential`. The PDF need not be normalized. Default is None (uniform stripping over ``[-tdisrupt, 0]``).
         leading : bool, optional
             Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
         tail : str, optional
@@ -106,6 +112,7 @@ class basestreamspraydf(df):
             if tdisrupt is None
             else conversion.parse_time(tdisrupt, ro=self._ro, vo=self._vo)
         )
+        self._parse_stripping_pdf(stripping_pdf)
         if pot is None:  # pragma: no cover
             raise OSError("pot= must be set")
         self._pot = _check_potential_list_and_deprecate(pot)
@@ -456,10 +463,82 @@ class basestreamspraydf(df):
             )
         return _make_track(xv_single, arm_sign=(+1 if tail == "leading" else -1))
 
+    def _parse_stripping_pdf(self, stripping_pdf):
+        if stripping_pdf is None:
+            self._stripping_inv_cdf = None
+            return
+        if not callable(stripping_pdf):
+            raise TypeError("stripping_pdf must be callable or None")
+        # Detect Quantity input/output the same way
+        # AnyAxisymmetricRazorThinDiskPotential does.
+        time_in_gyr = conversion.time_in_Gyr(self._vo, self._ro)
+        _t_unit_input = False
+        _t_unit_output = False
+        if _APY_LOADED:
+            t_probe = -0.5 * self._tdisrupt
+            try:
+                stripping_pdf(t_probe)
+            except (units.UnitConversionError, units.UnitTypeError):
+                _t_unit_input = True
+            if _t_unit_input:
+                try:
+                    stripping_pdf(t_probe * time_in_gyr * units.Gyr).to(1.0 / units.Gyr)
+                except (AttributeError, units.UnitConversionError):
+                    pass
+                else:
+                    _t_unit_output = True
+            else:
+                try:
+                    stripping_pdf(t_probe).to(1.0 / units.Gyr)
+                except (AttributeError, units.UnitConversionError):
+                    pass
+                else:
+                    _t_unit_output = True
+        if _t_unit_input and _t_unit_output:
+
+            def pdf_internal(t):
+                out = stripping_pdf(t * time_in_gyr * units.Gyr)
+                return out.to(1.0 / units.Gyr).value * time_in_gyr
+        elif _t_unit_input:
+
+            def pdf_internal(t):
+                return numpy.asarray(stripping_pdf(t * time_in_gyr * units.Gyr))
+        elif _t_unit_output:
+
+            def pdf_internal(t):
+                out = stripping_pdf(t)
+                return out.to(1.0 / units.Gyr).value * time_in_gyr
+        else:
+
+            def pdf_internal(t):
+                return numpy.asarray(stripping_pdf(t))
+
+        t_grid = numpy.linspace(-self._tdisrupt, 0.0, 10001)
+        pdf_vals = numpy.asarray(pdf_internal(t_grid), dtype=float)
+        if numpy.any(pdf_vals < 0):
+            raise ValueError("stripping_pdf must be non-negative on [-tdisrupt, 0]")
+        _trapz = numpy.trapezoid if hasattr(numpy, "trapezoid") else numpy.trapz
+        if _trapz(pdf_vals, t_grid) <= 0:
+            raise ValueError("stripping_pdf integrates to zero on [-tdisrupt, 0]")
+        cdf_vals = cumulative_trapezoid(pdf_vals, t_grid, initial=0.0)
+        cdf_vals /= cdf_vals[-1]
+        # Enforce strict monotonicity by accumulating max and dropping ties.
+        cdf_vals = numpy.maximum.accumulate(cdf_vals)
+        _, unique_idx = numpy.unique(cdf_vals, return_index=True)
+        unique_idx = numpy.sort(unique_idx)
+        self._stripping_inv_cdf = InterpolatedUnivariateSpline(
+            cdf_vals[unique_idx], t_grid[unique_idx], k=1, ext=3
+        )
+
     def _sample_tail(self, n, integrate, leading=True):
         """Sample n points from the specified tail."""
         # First sample times
-        dt = numpy.random.uniform(size=n) * self._tdisrupt
+        if self._stripping_inv_cdf is None:
+            dt = numpy.random.uniform(size=n) * self._tdisrupt
+        else:
+            u_samples = numpy.random.uniform(size=n)
+            dt = -self._stripping_inv_cdf(u_samples)
+            dt = numpy.clip(dt, 0.0, self._tdisrupt)
         # Build all rotation matrices
         rot, rot_inv = self._setup_rot(dt)
         # Compute progenitor position in the instantaneous frame,
@@ -745,6 +824,7 @@ class chen24spraydf(basestreamspraydf):
         pot=None,
         rtpot=None,
         tdisrupt=None,
+        stripping_pdf=None,
         leading=None,
         tail=None,
         center=None,
@@ -771,6 +851,8 @@ class chen24spraydf(basestreamspraydf):
             Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
+        stripping_pdf : callable, optional
+            Probability density of stripping over the progenitor time axis ``t in [-tdisrupt, 0]``. See :class:`galpy.df.streamspraydf.basestreamspraydf` for the full description. Default is None (uniform stripping).
         leading : bool, optional
             Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
         tail : str, optional
@@ -800,6 +882,7 @@ class chen24spraydf(basestreamspraydf):
             pot=pot,
             rtpot=rtpot,
             tdisrupt=tdisrupt,
+            stripping_pdf=stripping_pdf,
             leading=leading,
             tail=tail,
             center=center,
@@ -889,6 +972,7 @@ class fardal15spraydf(basestreamspraydf):
         pot=None,
         rtpot=None,
         tdisrupt=None,
+        stripping_pdf=None,
         leading=None,
         tail=None,
         center=None,
@@ -915,6 +999,8 @@ class fardal15spraydf(basestreamspraydf):
             Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
+        stripping_pdf : callable, optional
+            Probability density of stripping over the progenitor time axis ``t in [-tdisrupt, 0]``. See :class:`galpy.df.streamspraydf.basestreamspraydf` for the full description. Default is None (uniform stripping).
         leading : bool, optional
             Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
         tail : str, optional
@@ -945,6 +1031,7 @@ class fardal15spraydf(basestreamspraydf):
             pot=pot,
             rtpot=rtpot,
             tdisrupt=tdisrupt,
+            stripping_pdf=stripping_pdf,
             leading=leading,
             tail=tail,
             center=center,
@@ -1027,3 +1114,142 @@ class streamspraydf(fardal15spraydf):
             stacklevel=1,
         )
         return None
+
+
+def pericenter_stripping_pdf(
+    progenitor,
+    pot,
+    tdisrupt,
+    sigma,
+    ngrid=10001,
+    ro=None,
+    vo=None,
+):
+    """
+    Build a stripping-time PDF from a progenitor's pericenter passages.
+
+    The returned PDF is an equal-height sum of Gaussians centered on every
+    pericenter passage of the progenitor over the interval ``[-tdisrupt, 0]``
+    (``t=0`` is the present day, ``t<0`` the past). Useful for
+    ``stripping_pdf=`` of :class:`galpy.df.streamspraydf.basestreamspraydf`
+    subclasses, capturing the well-known enhancement of tidal stripping at
+    pericenter passages.
+
+    Parameters
+    ----------
+    progenitor : galpy.orbit.Orbit
+        Progenitor orbit. Will be copied and re-integrated internally.
+    pot : galpy.potential.Potential or a combined potential
+        Potential used to integrate the progenitor.
+    tdisrupt : float or Quantity
+        Time since start of disruption. Pericenter passages over
+        ``[-tdisrupt, 0]`` are located.
+    sigma : float or Quantity
+        Width (standard deviation) of each Gaussian.
+    ngrid : int, optional
+        Number of grid points used to integrate the progenitor and locate
+        pericenter passages. Default 10001.
+    ro : float or Quantity, optional
+        Distance scale (defaults to ``progenitor``'s ``ro``).
+    vo : float or Quantity, optional
+        Velocity scale (defaults to ``progenitor``'s ``vo``).
+
+    Returns
+    -------
+    pdf : callable
+        Function ``pdf(t)`` returning the PDF at ``t``. Accepts and returns
+        either plain floats/arrays or astropy ``Quantity``: when ``sigma`` is
+        a ``Quantity``, the returned PDF expects ``t`` as a ``Quantity`` and
+        returns ``Quantity`` values with units ``1/Gyr``; otherwise it works
+        in internal units. The callable has an attribute
+        ``pdf.pericenter_times`` (1D array, internal units) listing the
+        pericenter times.
+
+    Notes
+    -----
+    Each Gaussian carries area ``1/N`` over the real line; over
+    ``[-tdisrupt, 0]`` the integral is therefore close to but not exactly
+    unity when Gaussians lie near the interval edges. Pericenter peaks
+    falling within ``sigma`` of ``-tdisrupt`` or ``0`` are dropped to avoid
+    such edge artifacts. The PDF need not be exactly normalized; the
+    ``stripping_pdf`` machinery in :class:`basestreamspraydf` renormalizes
+    automatically.
+
+    Raises
+    ------
+    ValueError
+        If no pericenter passages are found on ``[-tdisrupt, 0]`` (e.g. a
+        nearly circular orbit). Supply a custom ``stripping_pdf`` in that
+        case.
+    """
+    sigma_is_quantity = _APY_LOADED and isinstance(sigma, units.Quantity)
+    if ro is None and progenitor._roSet:
+        ro = progenitor._ro
+    if vo is None and progenitor._voSet:
+        vo = progenitor._vo
+    tdisrupt_internal = conversion.parse_time(tdisrupt, ro=ro, vo=vo)
+    sigma_internal = conversion.parse_time(sigma, ro=ro, vo=vo)
+    pot = _check_potential_list_and_deprecate(pot)
+    prog_copy = progenitor()
+    prog_copy.turn_physical_off()
+    ts = numpy.linspace(0.0, -tdisrupt_internal, ngrid)
+    prog_copy.integrate(ts, pot)
+    r_vals = prog_copy.r(ts)
+    # Require minimum prominence relative to the mean radius so that
+    # numerical-noise oscillations of a (near-)circular orbit don't yield
+    # spurious peaks.
+    _prom_threshold = 1e-6 * float(numpy.mean(r_vals))
+    peaks, _ = find_peaks(-r_vals, prominence=_prom_threshold)
+    peri_times = []
+    for idx in peaks:
+        if idx <= 0 or idx >= ngrid - 1:
+            continue
+        # Quadratic-fit refinement of the local minimum to subgrid accuracy.
+        r0, r1, r2 = r_vals[idx - 1], r_vals[idx], r_vals[idx + 1]
+        denom = r0 - 2.0 * r1 + r2
+        if denom > 0:
+            shift = 0.5 * (r0 - r2) / denom
+            shift = numpy.clip(shift, -1.0, 1.0)
+        else:
+            shift = 0.0
+        dt_grid = ts[1] - ts[0]
+        peri_times.append(ts[idx] + shift * dt_grid)
+    peri_times = numpy.asarray(peri_times)
+    # Drop peaks within sigma of either edge.
+    if peri_times.size > 0:
+        keep = (peri_times <= -sigma_internal) & (
+            peri_times >= -tdisrupt_internal + sigma_internal
+        )
+        peri_times = peri_times[keep]
+    if peri_times.size == 0:
+        raise ValueError(
+            "No pericenter passages found over [-tdisrupt, 0]. "
+            "The orbit may be nearly circular; supply a custom "
+            "stripping_pdf instead."
+        )
+    n_peri = peri_times.size
+    norm = 1.0 / (n_peri * sigma_internal * numpy.sqrt(2.0 * numpy.pi))
+
+    def _pdf_internal(t):
+        t_arr = numpy.atleast_1d(numpy.asarray(t, dtype=float))
+        dx = (t_arr[:, None] - peri_times[None, :]) / sigma_internal
+        out = norm * numpy.sum(numpy.exp(-0.5 * dx * dx), axis=-1)
+        # Cut off at the [-tdisrupt, 0] window so the PDF carries no
+        # weight outside the disruption interval.
+        out = numpy.where((t_arr >= -tdisrupt_internal) & (t_arr <= 0.0), out, 0.0)
+        if numpy.ndim(t) == 0:
+            return float(out[0])
+        return out
+
+    if sigma_is_quantity:
+        time_in_gyr = conversion.time_in_Gyr(vo, ro)
+
+        def pdf(t):
+            t_internal = conversion.parse_time(t, ro=ro, vo=vo)
+            return _pdf_internal(t_internal) / time_in_gyr / units.Gyr
+
+        pdf.pericenter_times = peri_times
+        return pdf
+
+    _pdf_internal.pericenter_times = peri_times
+    return _pdf_internal

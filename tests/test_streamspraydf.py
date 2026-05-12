@@ -1025,3 +1025,138 @@ def test_progenitor_mass_callable_array_input(klass):
     assert numpy.all(Ms > 0)
     assert numpy.isclose(Ms[-1], M0)
     assert numpy.isclose(Ms[0], 0.5 * M0)
+############################# Non-uniform stripping ##########################
+
+
+def test_stripping_pdf_uniform_matches_default():
+    from scipy.stats import kstest
+
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    pdf_const = lambda t: numpy.ones_like(numpy.atleast_1d(t))
+    spdf = fardal15spraydf(
+        mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, stripping_pdf=pdf_const
+    )
+    numpy.random.seed(42)
+    _, dt = spdf.sample(n=2000, returndt=True, integrate=False, return_orbit=False)
+    # Uniform on [0, tdisrupt]
+    stat, pval = kstest(dt / tdisrupt, "uniform")
+    assert pval > 0.01, (
+        f"Constant stripping_pdf should reproduce uniform draws (KS p={pval})"
+    )
+
+
+def test_stripping_pdf_concentrated():
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    t0 = -0.5 * tdisrupt
+    sigma = 0.02 * tdisrupt
+
+    def pdf(t):
+        t = numpy.atleast_1d(t)
+        return numpy.exp(-0.5 * ((t - t0) / sigma) ** 2)
+
+    spdf = chen24spraydf(
+        mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, stripping_pdf=pdf
+    )
+    numpy.random.seed(7)
+    _, dt = spdf.sample(n=2000, returndt=True, integrate=False, return_orbit=False)
+    # dt = -t, so concentrate around -t0 = 0.5*tdisrupt
+    assert numpy.fabs(numpy.mean(dt) - (-t0)) < 0.05 * tdisrupt
+    assert numpy.fabs(numpy.std(dt) - sigma) < 0.2 * sigma
+
+
+def test_stripping_pdf_invalid_negative_raises():
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    with pytest.raises(ValueError, match="non-negative"):
+        fardal15spraydf(
+            mass,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt,
+            stripping_pdf=lambda t: -numpy.ones_like(numpy.atleast_1d(t)),
+        )
+
+
+def test_stripping_pdf_invalid_zero_raises():
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    with pytest.raises(ValueError, match="integrates to zero"):
+        fardal15spraydf(
+            mass,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt,
+            stripping_pdf=lambda t: numpy.zeros_like(numpy.atleast_1d(t)),
+        )
+
+
+def test_stripping_pdf_not_callable_raises():
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    with pytest.raises(TypeError):
+        fardal15spraydf(
+            mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, stripping_pdf=3.14
+        )
+
+
+def test_pericenter_stripping_pdf_eccentric_orbit_finds_peris():
+    from galpy.df import pericenter_stripping_pdf
+
+    lp, obs, ro, vo, _, tdisrupt = _bovy14_setup()
+    sigma = 0.05 / conversion.time_in_Gyr(vo, ro)
+    pdf = pericenter_stripping_pdf(obs, lp, tdisrupt, sigma)
+    pts = pdf.pericenter_times
+    assert pts.size >= 5
+    # Pericenter spacings should be nearly constant (one radial period).
+    spacings = numpy.diff(pts)
+    Tr = numpy.median(spacings)
+    assert numpy.all(numpy.fabs(spacings - Tr) < 0.2 * numpy.fabs(Tr))
+    # Approximate count.
+    assert numpy.fabs(pts.size - tdisrupt / numpy.fabs(Tr)) < 2.0
+
+
+def test_pericenter_stripping_pdf_circular_raises():
+    from galpy.df import pericenter_stripping_pdf
+
+    lp_axi = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    o_circ = Orbit([1.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+    ro, vo = 8.0, 220.0
+    tdisrupt = 4.5 / conversion.time_in_Gyr(vo, ro)
+    sigma = 0.05 / conversion.time_in_Gyr(vo, ro)
+    with pytest.raises(ValueError, match="No pericenter passages"):
+        pericenter_stripping_pdf(o_circ, lp_axi, tdisrupt, sigma)
+
+
+def test_pericenter_stripping_pdf_end_to_end():
+    from galpy.df import pericenter_stripping_pdf
+
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    sigma = 0.04 * tdisrupt
+    pdf = pericenter_stripping_pdf(obs, lp, tdisrupt, sigma)
+    spdf = chen24spraydf(
+        mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, stripping_pdf=pdf
+    )
+    numpy.random.seed(123)
+    _, dt = spdf.sample(n=1500, returndt=True, integrate=False, return_orbit=False)
+    # Each sample's -dt should be near some pericenter time.
+    distances = numpy.min(
+        numpy.fabs(-dt[:, None] - pdf.pericenter_times[None, :]), axis=1
+    )
+    # Most should be within ~3 sigma of a pericenter.
+    frac_close = numpy.mean(distances < 3.0 * sigma)
+    assert frac_close > 0.95, (
+        f"Only {frac_close:.2f} of samples within 3 sigma of pericenter"
+    )
+
+
+def test_pericenter_stripping_pdf_cuts_off_at_tdisrupt():
+    from galpy.df import pericenter_stripping_pdf
+
+    lp, obs, _, _, _, tdisrupt = _bovy14_setup()
+    sigma = 0.02 * tdisrupt
+    pdf = pericenter_stripping_pdf(obs, lp, tdisrupt, sigma)
+    # Outside the [-tdisrupt, 0] window the PDF must be exactly zero,
+    # regardless of how close the nearest pericenter is.
+    assert pdf(0.001) == 0.0
+    assert pdf(-tdisrupt - 0.001) == 0.0
+    outside = numpy.array([1.0, -tdisrupt - 0.5, -2.0 * tdisrupt])
+    assert numpy.all(pdf(outside) == 0.0)
+    # Inside, at least one of the pericenter centers is non-zero.
+    assert pdf(pdf.pericenter_times[0]) > 0.0
