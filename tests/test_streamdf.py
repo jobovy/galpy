@@ -371,12 +371,14 @@ def test_streamTrack_returns_StreamTrack_and_caches(bovy14_setup):
     return None
 
 
-def test_streamTrack_lazy_spread_compute():
-    # When called on a streamdf built with nospreadsetup=True (so the
-    # local cov isn't yet populated), streamTrack() must lazily trigger
-    # _determine_stream_local_spread before constructing the track.
+def test_streamTrack_raises_when_spread_not_setup():
+    # streamTrack() requires _interpolatedAllErrCovsLocalXY, which is
+    # populated by _determine_stream_spread during normal init. When the
+    # streamdf was built with nospreadsetup=True (or nosetup=True), it's
+    # missing — calling streamTrack() should raise a clear RuntimeError
+    # rather than silently kicking off heavy setup work.
     from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.df import StreamTrack, streamdf
+    from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.util import conversion
@@ -386,7 +388,7 @@ def test_streamTrack_lazy_spread_compute():
     obs = Orbit(
         [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
     )
-    sdf_lazy = streamdf(
+    sdf_no_spread = streamdf(
         0.365 / 220.0,
         progenitor=obs,
         pot=lp,
@@ -396,15 +398,14 @@ def test_streamTrack_lazy_spread_compute():
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
         nospreadsetup=True,
     )
-    assert not hasattr(sdf_lazy, "_interpolatedAllErrCovsLocalXY"), (
-        "nospreadsetup=True streamdf should not have "
-        "_interpolatedAllErrCovsLocalXY at init"
-    )
-    track = sdf_lazy.streamTrack()
-    assert isinstance(track, StreamTrack)
-    assert hasattr(sdf_lazy, "_interpolatedAllErrCovsLocalXY"), (
-        "streamTrack() should have triggered _determine_stream_local_spread"
-    )
+    import pytest
+
+    with pytest.raises(RuntimeError, match="nosetup"):
+        sdf_no_spread.streamTrack()
+    # Run setup by hand and confirm streamTrack works.
+    sdf_no_spread._determine_stream_spread()
+    track = sdf_no_spread.streamTrack()
+    assert track is not None
     return None
 
 
@@ -499,10 +500,10 @@ def test_streamTrack_cov_chunk_grid(bovy14_setup):
 
 
 def test_streamTrack_multi_parallel():
-    # Exercise the multi.parallel_map branch in _determine_stream_local_spread
-    # (otherwise patch coverage drops on the else-branch lines). Build a
-    # streamdf with multi=True and confirm streamTrack() returns a valid
-    # local cov.
+    # Exercise the multi.parallel_map branch in _determine_stream_spread
+    # (the else-branch lines that are skipped on the default single-process
+    # path). Build a streamdf with multi=True and confirm streamTrack()
+    # returns a valid local cov.
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import StreamTrack, streamdf
     from galpy.orbit import Orbit
@@ -523,7 +524,6 @@ def test_streamTrack_multi_parallel():
         nTrackChunks=11,
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
         multi=True,
-        nospreadsetup=True,
     )
     track = sdf_multi.streamTrack()
     assert isinstance(track, StreamTrack)
@@ -558,13 +558,13 @@ def test_streamTrack_cov_local_is_smaller(bovy14_setup):
 
 def test_streamTrack_custom_sky_transform(bovy14_setup):
     # bovy14_setup uses a non-identity custom_sky_transform; the phi1/phi2
-    # accessors should run and return finite values.
+    # accessors should run and return finite values, and the property
+    # getter should agree with the stored attribute.
     sdf_bovy14 = bovy14_setup
     track = sdf_bovy14.streamTrack()
     assert sdf_bovy14._custom_sky_transform is not None, (
         "bovy14_setup is expected to use custom_sky_transform"
     )
-    # property getter agrees with the underlying attribute
     assert numpy.allclose(
         sdf_bovy14.custom_sky_transform, sdf_bovy14._custom_sky_transform
     )
@@ -577,6 +577,113 @@ def test_streamTrack_custom_sky_transform(bovy14_setup):
     assert phi2.shape == thetas.shape and numpy.all(numpy.isfinite(phi2))
     assert pmphi1.shape == thetas.shape and numpy.all(numpy.isfinite(pmphi1))
     assert pmphi2.shape == thetas.shape and numpy.all(numpy.isfinite(pmphi2))
+    return None
+
+
+def test_streamTrack_custom_sky_transform_equatorial_to_galactic():
+    # Meaningful end-to-end: build the (equatorial xyz → Galactic xyz)
+    # rotation matrix and pass it as custom_sky_transform. The
+    # phi1/phi2/pmphi1/pmphi2 accessors should then reproduce
+    # ll/bb/pmll/pmbb to numerical tolerance.
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion, coords
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    # Build the J2000 equatorial→Galactic rotation matrix (the same
+    # composition that ``radec_to_lb`` uses internally).
+    theta, dec_ngp, ra_ngp = coords.get_epoch_angles(2000.0)
+    R_eq_to_gal = numpy.dot(
+        numpy.array(
+            [
+                [numpy.cos(theta), numpy.sin(theta), 0.0],
+                [numpy.sin(theta), -numpy.cos(theta), 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        ),
+        numpy.dot(
+            numpy.array(
+                [
+                    [-numpy.sin(dec_ngp), 0.0, numpy.cos(dec_ngp)],
+                    [0.0, 1.0, 0.0],
+                    [numpy.cos(dec_ngp), 0.0, numpy.sin(dec_ngp)],
+                ]
+            ),
+            numpy.array(
+                [
+                    [numpy.cos(ra_ngp), numpy.sin(ra_ngp), 0.0],
+                    [-numpy.sin(ra_ngp), numpy.cos(ra_ngp), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
+        ),
+    )
+    sdf = streamdf(
+        0.365 / 220.0,
+        progenitor=obs,
+        pot=lp,
+        aA=aAI,
+        leading=True,
+        nTrackChunks=11,
+        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+        custom_sky_transform=R_eq_to_gal,
+    )
+    track = sdf.streamTrack()
+    thetas = sdf._thetasTrack
+    ll = numpy.asarray(track.ll(thetas, use_physical=False))
+    bb = numpy.asarray(track.bb(thetas, use_physical=False))
+    pmll = numpy.asarray(track.pmll(thetas, use_physical=False))
+    pmbb = numpy.asarray(track.pmbb(thetas, use_physical=False))
+    phi1 = numpy.asarray(track.phi1(thetas, use_physical=False))
+    phi2 = numpy.asarray(track.phi2(thetas, use_physical=False))
+    pmphi1 = numpy.asarray(track.pmphi1(thetas, use_physical=False))
+    pmphi2 = numpy.asarray(track.pmphi2(thetas, use_physical=False))
+    # phi1 == ll modulo 360 (longitude wrap).
+    assert numpy.allclose(numpy.mod(phi1, 360.0), numpy.mod(ll, 360.0), atol=1e-6), (
+        "phi1 with equatorial→Galactic custom_sky_transform should equal ll"
+    )
+    assert numpy.allclose(phi2, bb, atol=1e-6), (
+        "phi2 with equatorial→Galactic custom_sky_transform should equal bb"
+    )
+    assert numpy.allclose(pmphi1, pmll, atol=1e-6)
+    assert numpy.allclose(pmphi2, pmbb, atol=1e-6)
+    return None
+
+
+def test_streamTrack_custom_sky_transform_per_call_override():
+    # custom_sky_transform= passed to streamTrack() should override the
+    # streamdf's stored transform for just that call (matching
+    # streamspraydf.streamTrack's per-call kwarg).
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    sdf = streamdf(
+        0.365 / 220.0,
+        progenitor=obs,
+        pot=lp,
+        aA=aAI,
+        leading=True,
+        nTrackChunks=11,
+        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+    )
+    assert sdf.custom_sky_transform is None
+    track = sdf.streamTrack(custom_sky_transform=numpy.eye(3))
+    assert track.custom_sky_transform is not None
+    assert numpy.allclose(track.custom_sky_transform, numpy.eye(3))
     return None
 
 
