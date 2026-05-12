@@ -498,6 +498,43 @@ def test_streamTrack_cov_chunk_grid(bovy14_setup):
     return None
 
 
+def test_streamTrack_multi_parallel():
+    # Exercise the multi.parallel_map branch in _determine_stream_local_spread
+    # (otherwise patch coverage drops on the else-branch lines). Build a
+    # streamdf with multi=True and confirm streamTrack() returns a valid
+    # local cov.
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import StreamTrack, streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    sdf_multi = streamdf(
+        0.365 / 220.0,
+        progenitor=obs,
+        pot=lp,
+        aA=aAI,
+        leading=True,
+        nTrackChunks=11,
+        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+        multi=True,
+        nospreadsetup=True,
+    )
+    track = sdf_multi.streamTrack()
+    assert isinstance(track, StreamTrack)
+    # Sanity: local cov diagonals should be positive and finite at mid-stream.
+    i_mid = len(sdf_multi._thetasTrack) // 2
+    diag = numpy.diag(sdf_multi._allErrCovsLocalXY[i_mid])
+    assert numpy.all(diag > 0), "Local cov should be positive-definite at mid-stream"
+    assert numpy.all(numpy.isfinite(diag)), "Local cov should be finite"
+    return None
+
+
 def test_streamTrack_cov_local_is_smaller(bovy14_setup):
     # Sanity check: the local cov should be much smaller than the full
     # _allErrCovsXY (the latter includes the huge along-stream variance
