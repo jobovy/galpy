@@ -1160,3 +1160,22 @@ def test_pericenter_stripping_pdf_cuts_off_at_tdisrupt():
     assert numpy.all(pdf(outside) == 0.0)
     # Inside, at least one of the pericenter centers is non-zero.
     assert pdf(pdf.pericenter_times[0]) > 0.0
+
+
+def test_pericenter_stripping_pdf_inherits_rovo_from_progenitor():
+    # When the progenitor Orbit has ro/vo set and the caller omits them,
+    # the helper must inherit from the progenitor (mirroring
+    # basestreamspraydf.__init__).
+    from galpy.df import pericenter_stripping_pdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    ro, vo = 8.0, 220.0
+    obs_with_units = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=ro,
+        vo=vo,
+    )
+    tdisrupt = 4.5 / conversion.time_in_Gyr(vo, ro)
+    sigma = 0.05 / conversion.time_in_Gyr(vo, ro)
+    pdf = pericenter_stripping_pdf(obs_with_units, lp, tdisrupt, sigma)
+    assert pdf.pericenter_times.size > 0

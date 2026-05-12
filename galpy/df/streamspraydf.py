@@ -1202,7 +1202,8 @@ def pericenter_stripping_pdf(
     peaks, _ = find_peaks(-r_vals, prominence=_prom_threshold)
     peri_times = []
     for idx in peaks:
-        if idx <= 0 or idx >= ngrid - 1:
+        if idx <= 0 or idx >= ngrid - 1:  # pragma: no cover
+            # find_peaks excludes endpoint maxima by default; defensive only.
             continue
         # Quadratic-fit refinement of the local minimum to subgrid accuracy.
         r0, r1, r2 = r_vals[idx - 1], r_vals[idx], r_vals[idx + 1]
@@ -1210,7 +1211,8 @@ def pericenter_stripping_pdf(
         if denom > 0:
             shift = 0.5 * (r0 - r2) / denom
             shift = numpy.clip(shift, -1.0, 1.0)
-        else:
+        else:  # pragma: no cover
+            # r1 is a strict local min, so r0 + r2 - 2*r1 > 0 in practice.
             shift = 0.0
         dt_grid = ts[1] - ts[0]
         peri_times.append(ts[idx] + shift * dt_grid)
