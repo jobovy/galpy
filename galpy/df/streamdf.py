@@ -672,8 +672,9 @@ class streamdf(df):
             return self._streamTrack
         # Ensure the fine-grid track + interpolated cov exist. Both are
         # populated by default at init; the lazy triggers below cover
-        # nosetup-style streamdfs.
-        if not hasattr(self, "_interpolatedThetasTrack"):
+        # the nosetup=True edge case (manual setup that skips
+        # _interpolate_stream_track and the spread).
+        if not hasattr(self, "_interpolatedThetasTrack"):  # pragma: no cover
             self._interpolate_stream_track()
         if not hasattr(self, "_interpolatedAllErrCovsLocalXY"):
             self._determine_stream_local_spread(simple=simple)
