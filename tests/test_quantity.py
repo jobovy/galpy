@@ -18608,6 +18608,152 @@ def test_streamspraydf_sample_RvR():
     return None
 
 
+def test_streamspraydf_progmass_callable_unitfulin_unitfulout():
+    # User callable that takes a Quantity time and returns a Quantity mass
+    # must produce samples consistent with the internal-units twin.
+    from galpy.df import chen24spraydf, fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    M0_internal = 2.0 * 10.0**4.0 / conversion.mass_in_msol(vo, ro)
+    tdisrupt_internal = 4.5 / conversion.time_in_Gyr(vo, ro)
+    tau = 2.0 * units.Gyr
+    M0 = 2.0 * 10.0**4.0 * units.Msun
+
+    def mass_internal(t):
+        return M0_internal * numpy.exp(t / 2.0 * conversion.time_in_Gyr(vo, ro))
+
+    def mass_quantity(t):
+        return M0 * numpy.exp(t.to(units.Gyr).value / tau.to(units.Gyr).value)
+
+    for klass in [fardal15spraydf, chen24spraydf]:
+        spdf_nou = klass(
+            mass_internal, progenitor=obs, pot=lp, tdisrupt=tdisrupt_internal
+        )
+        spdf_q = klass(
+            mass_quantity,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt_internal,
+            ro=ro,
+            vo=vo,
+        )
+        numpy.random.seed(10)
+        sam = spdf_q.sample(n=4)
+        numpy.random.seed(10)
+        sam_nou = spdf_nou.sample(n=4)
+        assert numpy.all(
+            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        ), (
+            "Sample returned by streamspraydf.sample with Quantity-in/out callable progenitor_mass is inconsistent with the internal-units twin"
+        )
+        assert numpy.all(
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
+        ), (
+            "Sample returned by streamspraydf.sample with Quantity-in/out callable progenitor_mass is inconsistent with the internal-units twin"
+        )
+
+
+def test_streamspraydf_progmass_callable_unitlessin_unitfulout():
+    from galpy.df import chen24spraydf, fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    M0_internal = 2.0 * 10.0**4.0 / conversion.mass_in_msol(vo, ro)
+    tdisrupt_internal = 4.5 / conversion.time_in_Gyr(vo, ro)
+    M0 = 2.0 * 10.0**4.0 * units.Msun
+
+    def mass_internal(t):
+        return M0_internal * (1.0 + 0.3 * t / tdisrupt_internal)
+
+    def mass_quantity_out(t):
+        # t is float in internal time units
+        return M0 * (1.0 + 0.3 * t * conversion.time_in_Gyr(vo, ro) / 4.5)
+
+    for klass in [fardal15spraydf, chen24spraydf]:
+        spdf_nou = klass(
+            mass_internal, progenitor=obs, pot=lp, tdisrupt=tdisrupt_internal
+        )
+        spdf_q = klass(
+            mass_quantity_out,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt_internal,
+            ro=ro,
+            vo=vo,
+        )
+        numpy.random.seed(11)
+        sam = spdf_q.sample(n=4)
+        numpy.random.seed(11)
+        sam_nou = spdf_nou.sample(n=4)
+        assert numpy.all(
+            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        )
+        assert numpy.all(
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
+        )
+
+
+def test_streamspraydf_progmass_callable_unitfulin_unitlessout():
+    from galpy.df import chen24spraydf, fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    M0_internal = 2.0 * 10.0**4.0 / conversion.mass_in_msol(vo, ro)
+    tdisrupt_internal = 4.5 / conversion.time_in_Gyr(vo, ro)
+
+    def mass_internal(t):
+        return M0_internal * (1.0 + 0.3 * t / tdisrupt_internal)
+
+    def mass_quantity_in(t):
+        # t is a Quantity time; return float in internal units
+        return M0_internal * (1.0 + 0.3 * t.to(units.Gyr).value / 4.5)
+
+    for klass in [fardal15spraydf, chen24spraydf]:
+        spdf_nou = klass(
+            mass_internal, progenitor=obs, pot=lp, tdisrupt=tdisrupt_internal
+        )
+        spdf_q = klass(
+            mass_quantity_in,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt_internal,
+            ro=ro,
+            vo=vo,
+        )
+        numpy.random.seed(12)
+        sam = spdf_q.sample(n=4)
+        numpy.random.seed(12)
+        sam_nou = spdf_nou.sample(n=4)
+        assert numpy.all(
+            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        )
+        assert numpy.all(
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
+        )
+
+
 def test_streamspraydf_streamTrack_track_time_range_quantity():
     # track_time_range accepts astropy Quantities
     from galpy import potential

@@ -926,3 +926,102 @@ def test_sample_matches_per_particle():
         "Batched per-orbit-t integration disagrees with per-particle loop"
     )
     return None
+
+
+############################ Time-dependent progenitor mass ##################
+
+
+def _bovy14_setup():
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    M0 = 2.0 * 10.0**4.0 / conversion.mass_in_msol(vo, ro)
+    tdisrupt = 4.5 / conversion.time_in_Gyr(vo, ro)
+    return lp, obs, ro, vo, M0, tdisrupt
+
+
+@pytest.mark.parametrize("klass", [fardal15spraydf, chen24spraydf])
+def test_progenitor_mass_callable_constant_matches_scalar(klass):
+    # A callable that returns the same mass at all times must produce
+    # identical samples to the scalar-mass case under the same seed.
+    lp, obs, _, _, M0, tdisrupt = _bovy14_setup()
+    numpy.random.seed(11)
+    spdf_scalar = klass(M0, progenitor=obs, pot=lp, tdisrupt=tdisrupt)
+    sam_scalar = spdf_scalar.sample(n=10)
+    numpy.random.seed(11)
+    spdf_fn = klass(lambda t: M0, progenitor=obs, pot=lp, tdisrupt=tdisrupt)
+    sam_fn = spdf_fn.sample(n=10)
+    assert numpy.allclose(
+        sam_scalar.R(use_physical=False), sam_fn.R(use_physical=False)
+    )
+    assert numpy.allclose(
+        sam_scalar.vR(use_physical=False), sam_fn.vR(use_physical=False)
+    )
+
+
+@pytest.mark.parametrize("klass", [fardal15spraydf, chen24spraydf])
+def test_progenitor_mass_callable_evolving_changes_rtide(klass):
+    # A declining mass should give smaller tidal radii at earlier times
+    # than the constant-mass baseline. Use _calc_rtide directly so we
+    # bypass sampling stochasticity.
+    lp, obs, _, _, M0, tdisrupt = _bovy14_setup()
+    spdf_const = klass(M0, progenitor=obs, pot=lp, tdisrupt=tdisrupt)
+    spdf_evol = klass(
+        lambda t: M0 * (1.0 + 0.9 * t / tdisrupt),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+    )
+    # M(t) = M0 * (1 + 0.9 * t/tdisrupt) → at t=0 mass = M0; at t=-tdisrupt
+    # mass = 0.1*M0. Tidal radius scales as M^(1/3).
+    dt = numpy.array([0.01 * tdisrupt, 0.9 * tdisrupt])
+    Rpt = numpy.array(
+        [spdf_const._progenitor.R(-dt[0]), spdf_const._progenitor.R(-dt[1])]
+    )
+    phipt = numpy.array(
+        [spdf_const._progenitor.phi(-dt[0]), spdf_const._progenitor.phi(-dt[1])]
+    )
+    Zpt = numpy.array(
+        [spdf_const._progenitor.z(-dt[0]), spdf_const._progenitor.z(-dt[1])]
+    )
+    rt_const = spdf_const._calc_rtide(Rpt, phipt, Zpt, dt)
+    rt_evol = spdf_evol._calc_rtide(Rpt, phipt, Zpt, dt)
+    assert numpy.isclose(rt_evol[0] / rt_const[0], (1.0 - 0.009) ** (1.0 / 3.0))
+    assert numpy.isclose(rt_evol[1] / rt_const[1], (1.0 - 0.81) ** (1.0 / 3.0))
+
+
+@pytest.mark.parametrize("klass", [fardal15spraydf, chen24spraydf])
+def test_progenitor_mass_attribute_at_present(klass):
+    # _progenitor_mass (the legacy scalar attribute) should report the
+    # mass at t=0 for both scalar and callable inputs.
+    lp, obs, _, _, M0, tdisrupt = _bovy14_setup()
+    spdf_scalar = klass(M0, progenitor=obs, pot=lp, tdisrupt=tdisrupt)
+    assert numpy.isclose(spdf_scalar._progenitor_mass, M0)
+    spdf_fn = klass(
+        lambda t: M0 * (1.0 + 0.5 * t / tdisrupt),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+    )
+    assert numpy.isclose(spdf_fn._progenitor_mass, M0)
+    assert numpy.isclose(spdf_fn._progenitor_mass_fn(-tdisrupt), 0.5 * M0)
+
+
+@pytest.mark.parametrize("klass", [fardal15spraydf, chen24spraydf])
+def test_progenitor_mass_callable_array_input(klass):
+    # The internal _progenitor_mass_fn must accept array t and broadcast.
+    lp, obs, _, _, M0, tdisrupt = _bovy14_setup()
+    spdf = klass(
+        lambda t: M0 * (1.0 + 0.5 * t / tdisrupt),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+    )
+    t = numpy.linspace(-tdisrupt, 0.0, 5)
+    Ms = spdf._progenitor_mass_fn(t)
+    assert Ms.shape == t.shape
+    assert numpy.all(Ms > 0)
+    assert numpy.isclose(Ms[-1], M0)
+    assert numpy.isclose(Ms[0], 0.5 * M0)

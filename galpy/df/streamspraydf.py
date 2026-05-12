@@ -35,8 +35,8 @@ class basestreamspraydf(df):
 
         Parameters
         ----------
-        progenitor_mass : float or Quantity
-            Mass of the progenitor.
+        progenitor_mass : float, Quantity, or callable
+            Mass of the progenitor. If a callable, it is a function ``M(t)`` of the progenitor-time coordinate (``t=0`` is now, ``t<0`` is the past, matching the convention used throughout galpy's orbit integration). The callable may take and/or return astropy ``Quantity`` (auto-detected): unitful input is given in Gyr, unitful output should have units of mass.
         progenitor : galpy.orbit.Orbit, optional
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
         pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -65,6 +65,7 @@ class basestreamspraydf(df):
         - 2018-07-31 - Written - Bovy (UofT)
         - 2021-05-05 - Added center keyword - Yansong Qian (UofT)
         - 2024-08-11 - Generalized to allow different particle-spray methods - Yingtian Chen (UMich)
+        - 2026-05-11 - Allowed ``progenitor_mass`` to be a callable - Bovy (UofT)
         """
         # If ro/vo are not explicitly given, inherit them from the
         # progenitor's settings so that streamspraydf and progenitor
@@ -99,9 +100,7 @@ class basestreamspraydf(df):
             )
         self._tail = tail
         self._leading = tail != "trailing"
-        self._progenitor_mass = conversion.parse_mass(
-            progenitor_mass, ro=self._ro, vo=self._vo
-        )
+        self._parse_progenitor_mass(progenitor_mass)
         self._tdisrupt = (
             5.0 / conversion.time_in_Gyr(self._vo, self._ro)
             if tdisrupt is None
@@ -589,6 +588,7 @@ class basestreamspraydf(df):
         return (rot, rot_inv)
 
     def _calc_rtide(self, Rpt, phipt, Zpt, dt):
+        Ms = self._progenitor_mass_fn(-dt)
         try:
             rtides = rtide(
                 self._rtpot,
@@ -596,7 +596,7 @@ class basestreamspraydf(df):
                 Zpt,
                 phi=phipt,
                 t=-dt,
-                M=self._progenitor_mass,
+                M=Ms,
                 use_physical=False,
             )
         except (ValueError, TypeError):
@@ -608,7 +608,7 @@ class basestreamspraydf(df):
                         Zpt[ii],
                         phi=phipt[ii],
                         t=-dt[ii],
-                        M=self._progenitor_mass,
+                        M=float(Ms[ii]),
                         use_physical=False,
                     )
                     for ii in range(len(Rpt))
@@ -642,6 +642,74 @@ class basestreamspraydf(df):
                 ]
             )
         return vcs
+
+    def _parse_progenitor_mass(self, progenitor_mass):
+        # Sets self._progenitor_mass_fn(t) -> internal-unit mass, where t is
+        # the progenitor-time coordinate (t=0 is now, t<0 is the past). Also
+        # sets self._progenitor_mass to the present-day value for any external
+        # code that reads the attribute. Accepts: scalar float, Quantity, or
+        # callable. Callables are auto-detected for Quantity input / output
+        # (same four-branch pattern as AnyAxisymmetricRazorThinDiskPotential).
+        if not callable(progenitor_mass):
+            M0 = conversion.parse_mass(progenitor_mass, ro=self._ro, vo=self._vo)
+            self._progenitor_mass_fn = lambda t: (
+                M0 * numpy.ones_like(numpy.asarray(t, dtype=float))
+            )
+            self._progenitor_mass = M0
+            return
+        _mass_unit_input = False
+        _mass_unit_output = False
+        if _APY_LOADED:
+            try:
+                progenitor_mass(0.0)
+            except (
+                units.UnitConversionError,
+                units.UnitTypeError,
+                AttributeError,
+            ):
+                _mass_unit_input = True
+            probe_in = 0.0 * units.Gyr if _mass_unit_input else 0.0
+            try:
+                progenitor_mass(probe_in).to(units.Msun)
+            except (AttributeError, units.UnitConversionError):
+                pass
+            else:
+                _mass_unit_output = True
+        _time_to_quantity = (
+            conversion.time_in_Gyr(self._vo, self._ro) * units.Gyr
+            if _APY_LOADED
+            else None
+        )
+        if _mass_unit_input and _mass_unit_output:
+
+            def _mass_fn(t):
+                t_q = numpy.asarray(t, dtype=float) * _time_to_quantity
+                return conversion.parse_mass(
+                    progenitor_mass(t_q), ro=self._ro, vo=self._vo
+                )
+        elif _mass_unit_input:
+
+            def _mass_fn(t):
+                t_q = numpy.asarray(t, dtype=float) * _time_to_quantity
+                return numpy.asarray(progenitor_mass(t_q), dtype=float)
+        elif _mass_unit_output:
+
+            def _mass_fn(t):
+                return conversion.parse_mass(
+                    progenitor_mass(numpy.asarray(t, dtype=float)),
+                    ro=self._ro,
+                    vo=self._vo,
+                )
+        else:
+
+            def _mass_fn(t):
+                return numpy.asarray(
+                    progenitor_mass(numpy.asarray(t, dtype=float)),
+                    dtype=float,
+                )
+
+        self._progenitor_mass_fn = _mass_fn
+        self._progenitor_mass = float(self._progenitor_mass_fn(0.0))
 
     def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
         """
@@ -693,8 +761,8 @@ class chen24spraydf(basestreamspraydf):
 
         Parameters
         ----------
-        progenitor_mass : float or Quantity
-            Mass of the progenitor.
+        progenitor_mass : float, Quantity, or callable
+            Mass of the progenitor. If a callable, it is a function ``M(t)`` of the progenitor-time coordinate (``t=0`` is now, ``t<0`` is the past); may take and/or return astropy ``Quantity`` (auto-detected). See :class:`basestreamspraydf` for details.
         progenitor : galpy.orbit.Orbit, optional
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
         pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -787,7 +855,7 @@ class chen24spraydf(basestreamspraydf):
         # Sample positions and velocities in the instantaneous frame
         posvel = numpy.random.multivariate_normal(self._mean, self._cov, size=len(dt))
         Dr = posvel[:, 0] * rtides
-        v_esc = numpy.sqrt(2 * self._progenitor_mass / Dr)
+        v_esc = numpy.sqrt(2 * self._progenitor_mass_fn(-dt) / Dr)
         Dv = posvel[:, 3] * v_esc
         if leading:
             Dr *= -1.0
@@ -837,8 +905,8 @@ class fardal15spraydf(basestreamspraydf):
 
         Parameters
         ----------
-        progenitor_mass : float or Quantity
-            Mass of the progenitor.
+        progenitor_mass : float, Quantity, or callable
+            Mass of the progenitor. If a callable, it is a function ``M(t)`` of the progenitor-time coordinate (``t=0`` is now, ``t<0`` is the past); may take and/or return astropy ``Quantity`` (auto-detected). See :class:`basestreamspraydf` for details.
         progenitor : galpy.orbit.Orbit, optional
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
         pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
