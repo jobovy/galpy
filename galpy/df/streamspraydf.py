@@ -478,7 +478,11 @@ class basestreamspraydf(df):
             t_probe = -0.5 * self._tdisrupt
             try:
                 stripping_pdf(t_probe)
-            except (units.UnitConversionError, units.UnitTypeError):
+            except (
+                units.UnitConversionError,
+                units.UnitTypeError,
+                AttributeError,
+            ):
                 _t_unit_input = True
             if _t_unit_input:
                 try:

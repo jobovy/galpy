@@ -19840,6 +19840,56 @@ def test_streamspraydf_stripping_pdf_quantity_out_only():
     assert numpy.allclose(dt_q_internal, dt_i, rtol=1e-8, atol=1e-8)
 
 
+def test_streamspraydf_stripping_pdf_quantity_in_via_to_method():
+    # PDF that calls ``t.to(u.Gyr)`` directly raises AttributeError when
+    # probed with a float — the input-unit detector must catch that and
+    # treat the function as Quantity-input.
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    mass = 2 * 10.0**4.0 * units.Msun
+    tdisrupt = 4.5 * units.Gyr
+
+    def pdf_to_method(t):
+        # AttributeError on float, works on Quantity time.
+        t_gyr = t.to(units.Gyr).value
+        return numpy.exp(-0.5 * ((t_gyr + 2.5) / 0.3) ** 2) / units.Gyr
+
+    def pdf_internal(t):
+        t_gyr = numpy.asarray(t) * conversion.time_in_Gyr(vo, ro)
+        return numpy.exp(-0.5 * ((t_gyr + 2.5) / 0.3) ** 2)
+
+    spdf_q = fardal15spraydf(
+        mass,
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+        stripping_pdf=pdf_to_method,
+        ro=ro,
+        vo=vo,
+    )
+    spdf_i = fardal15spraydf(
+        mass.to_value(units.Msun) / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro),
+        stripping_pdf=pdf_internal,
+    )
+    numpy.random.seed(4)
+    _, dt_q = spdf_q.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    numpy.random.seed(4)
+    _, dt_i = spdf_i.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    dt_q_internal = dt_q.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+    assert numpy.allclose(dt_q_internal, dt_i, rtol=1e-8, atol=1e-8)
+
+
 def test_pericenter_stripping_pdf_quantity_sigma_tdisrupt():
     from galpy.df import pericenter_stripping_pdf
     from galpy.orbit import Orbit
