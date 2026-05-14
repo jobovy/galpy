@@ -135,6 +135,8 @@ runs:
     # AND auto-activate the env on shell start, matching setup-micromamba's
     # behaviour so consumers can just use `shell: bash -l {0}` and have
     # `python` resolve to the env's python without an explicit activate.
+    # Rewrite ~/.bash_profile on each invocation so multiple action calls
+    # in the same job don't cascade activations.
     - if: runner.os != 'macOS'
       name: Initialize conda for login shells
       shell: bash
@@ -147,8 +149,8 @@ runs:
         else
           CONDA_UNIX="$CONDA"
         fi
-        {
-          printf '\n# Added by setup-conda action (env: %s)\n' "$ENV_NAME"
-          printf 'source "%s/etc/profile.d/conda.sh"\n' "$CONDA_UNIX"
-          printf 'conda activate "%s"\n' "$ENV_NAME"
-        } >> "$HOME/.bash_profile"
+        cat > "$HOME/.bash_profile" <<EOF
+        # Managed by setup-conda action
+        source "$CONDA_UNIX/etc/profile.d/conda.sh"
+        conda activate "$ENV_NAME"
+        EOF
