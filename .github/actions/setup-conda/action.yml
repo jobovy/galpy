@@ -131,27 +131,24 @@ runs:
           echo "$ENV/bin" >> "$GITHUB_PATH"
         fi
 
-    # Initialize conda for bash so consumers can do
-    # `shell: bash -l {0}` + `conda activate <env>` and have full activation
-    # (sets up DLL search dirs on Windows, etc.). This mirrors how
-    # setup-micromamba enables `micromamba activate` on macOS.
+    # Make `conda activate <env>` available in subsequent `bash -l {0}` steps
+    # by sourcing conda.sh from ~/.bash_profile. This mirrors how
+    # setup-micromamba sets up `micromamba activate` on macOS, and is what
+    # full conda env activation requires on Windows (the conda-forge Python
+    # startup hook only adds Library\bin to add_dll_directory when activated).
     - if: runner.os != 'macOS'
-      name: Initialize conda for bash
+      name: Initialize conda for login shells
       shell: bash
       run: |
-        set -euo pipefail
+        set -e
         if [ "$RUNNER_OS" = "Windows" ]; then
-          CONDA_BIN="$CONDA/Scripts/conda"
+          CONDA_UNIX="$(cygpath -u "$CONDA")"
         else
-          CONDA_BIN="$CONDA/bin/conda"
+          CONDA_UNIX="$CONDA"
         fi
-        "$CONDA_BIN" init bash
-        # bash -l on this runner sources ~/.bash_profile, not ~/.bashrc, so
-        # mirror the conda init block into ~/.bash_profile.
-        if [ -f "$HOME/.bashrc" ] && ! grep -q '>>> conda initialize >>>' "$HOME/.bash_profile" 2>/dev/null; then
+        if ! grep -q 'setup-conda action' "$HOME/.bash_profile" 2>/dev/null; then
           {
-            echo
-            echo '# Added by setup-conda action'
-            sed -n '/>>> conda initialize >>>/,/<<< conda initialize <<</p' "$HOME/.bashrc"
+            printf '\n# Added by setup-conda action\n'
+            printf 'source "%s/etc/profile.d/conda.sh"\n' "$CONDA_UNIX"
           } >> "$HOME/.bash_profile"
         fi
