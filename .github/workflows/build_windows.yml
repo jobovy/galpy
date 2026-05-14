@@ -205,24 +205,7 @@ jobs:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     # Install just the GSL using the runner's preinstalled Miniconda
-    - name: Compute weekly cache key
-      id: weekly-key
-      shell: bash
-      run: |
-        # Weeks since Tue 2024-01-02 19:00 UTC (1 hour before the weekly
-        # scheduled run on Tuesday 20:00 UTC); cache rolls over at Tue 19:00
-        # UTC so the scheduled run rebuilds it from scratch.
-        ref_epoch=1704222000
-        now_epoch=$(date -u +%s)
-        echo "week=$(( (now_epoch - ref_epoch) / 604800 ))" >> "$GITHUB_OUTPUT"
-    - name: Cache GSL conda environment
-      id: cache-gsl
-      uses: actions/cache@v5
-      with:
-        path: C:\Miniconda\envs\gsl
-        key: ${{ runner.os }}-conda-gsl-${{ steps.weekly-key.outputs.week }}-${{ hashFiles('.github/workflows/build_windows.yml') }}
     - name: Install GSL via conda
-      if: steps.cache-gsl.outputs.cache-hit != 'true'
       shell: bash
       run: |
         "$CONDA/Scripts/conda" create -n gsl -c conda-forge gsl -y
