@@ -43,8 +43,10 @@ jobs:
         - ["cp314","3.14"]
     steps:
       - uses: actions/checkout@v6
-      # Install GSL: Windows via the runner's preinstalled Miniconda;
-      # macOS via Homebrew (macOS runners don't have Miniconda preinstalled).
+      # Install GSL via conda. Windows runners ship Miniconda at $CONDA;
+      # macOS runners do not, so we install it manually to $HOME/miniconda.
+      # Using conda-forge gsl on macOS pulls in libgomp, which galpy links
+      # against (`-lgomp` for OpenMP).
       - name: Install GSL via conda (Windows)
         if: matrix.buildplat[1] == 'win'
         shell: bash
@@ -58,16 +60,20 @@ jobs:
           echo 'LIB=C:\Miniconda\envs\gsl\Library\lib' >> $GITHUB_ENV
           echo 'LIBPATH=C:\Miniconda\envs\gsl\Library\lib' >> $GITHUB_ENV
           echo 'C:\Miniconda\envs\gsl\Library\bin' >> $GITHUB_PATH # necessary when we don't activate the environment
-      - name: Install GSL via Homebrew (Mac OS)
+      - name: Install Miniconda and GSL (Mac OS)
         if: matrix.buildplat[1] == 'macosx'
         shell: bash
         run: |
-          brew install gsl
-          PREFIX=$(brew --prefix gsl)
-          echo "CFLAGS=-I$PREFIX/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L$PREFIX/lib -headerpad_max_install_names" >> $GITHUB_ENV
-          echo "REPAIR_LIBRARY_PATH=$PREFIX/lib" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
-          echo "$PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+          ARCH=$(uname -m)
+          curl -sSL "https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${ARCH}.sh" -o miniconda.sh
+          bash miniconda.sh -b -p $HOME/miniconda
+          rm miniconda.sh
+          "$HOME/miniconda/bin/conda" create -n gsl -c conda-forge gsl -y
+          CONDA_PREFIX="$HOME/miniconda/envs/gsl"
+          echo "CFLAGS=-I$CONDA_PREFIX/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$CONDA_PREFIX/lib -headerpad_max_install_names" >> $GITHUB_ENV
+          echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
+          echo "$CONDA_PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Inject git hash into version for dev wheels
         if: github.event_name != 'release'
         run: python tools/inject_git_hash.py
