@@ -37,7 +37,7 @@ runs:
   steps:
     # macOS runners don't ship Miniconda preinstalled. Install it manually
     # to $HOME/miniconda the first time the action is called in a job; later
-    # invocations re-use it. We avoid setup-micromamba because it has been
+    # invocations reuse it. We avoid setup-micromamba because it has been
     # intermittently failing on macOS and Windows runners.
     - if: runner.os == 'macOS'
       name: Install Miniconda (Mac OS)
