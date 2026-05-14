@@ -28,7 +28,9 @@ inputs:
     required: false
     default: 'false'
   cache-environment-key:
-    description: 'Cache key used when cache-environment is true.'
+    description: |
+      Cache key used when cache-environment is true. An ISO year-week suffix
+      is appended automatically so the cache rolls over weekly.
     required: false
     default: ''
 
@@ -70,11 +72,22 @@ runs:
         echo "env-prefix=$ENV_PREFIX" >> "$GITHUB_OUTPUT"
 
     - if: inputs.cache-environment == 'true'
+      id: cache-key
+      shell: bash
+      env:
+        USER_KEY: ${{ inputs.cache-environment-key }}
+      run: |
+        set -euo pipefail
+        # Append an ISO year-week suffix so the cache rolls over weekly.
+        WEEK="$(date -u +%G-%V)"
+        echo "key=${USER_KEY}-${WEEK}" >> "$GITHUB_OUTPUT"
+
+    - if: inputs.cache-environment == 'true'
       id: cache
       uses: actions/cache@v5
       with:
         path: ${{ steps.paths.outputs.env-prefix }}
-        key: ${{ inputs.cache-environment-key }}
+        key: ${{ steps.cache-key.outputs.key }}
 
     - if: inputs.cache-environment != 'true' || steps.cache.outputs.cache-hit != 'true'
       name: Create conda environment

@@ -213,6 +213,8 @@ jobs:
           channels:
             - conda-forge
         create-args: gsl
+        cache-environment: true
+        cache-environment-key: ${{ runner.os }}-gsl
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm
