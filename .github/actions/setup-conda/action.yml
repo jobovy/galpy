@@ -132,13 +132,14 @@ runs:
         fi
 
     # Make `conda activate <env>` available in subsequent `bash -l {0}` steps
-    # by sourcing conda.sh from ~/.bash_profile. This mirrors how
-    # setup-micromamba sets up `micromamba activate` on macOS, and is what
-    # full conda env activation requires on Windows (the conda-forge Python
-    # startup hook only adds Library\bin to add_dll_directory when activated).
+    # AND auto-activate the env on shell start, matching setup-micromamba's
+    # behaviour so consumers can just use `shell: bash -l {0}` and have
+    # `python` resolve to the env's python without an explicit activate.
     - if: runner.os != 'macOS'
       name: Initialize conda for login shells
       shell: bash
+      env:
+        ENV_NAME: ${{ inputs.environment-name }}
       run: |
         set -e
         if [ "$RUNNER_OS" = "Windows" ]; then
@@ -146,9 +147,8 @@ runs:
         else
           CONDA_UNIX="$CONDA"
         fi
-        if ! grep -q 'setup-conda action' "$HOME/.bash_profile" 2>/dev/null; then
-          {
-            printf '\n# Added by setup-conda action\n'
-            printf 'source "%s/etc/profile.d/conda.sh"\n' "$CONDA_UNIX"
-          } >> "$HOME/.bash_profile"
-        fi
+        {
+          printf '\n# Added by setup-conda action (env: %s)\n' "$ENV_NAME"
+          printf 'source "%s/etc/profile.d/conda.sh"\n' "$CONDA_UNIX"
+          printf 'conda activate "%s"\n' "$ENV_NAME"
+        } >> "$HOME/.bash_profile"
