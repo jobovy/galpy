@@ -145,14 +145,22 @@ jobs:
       # Test that built wheels also work in a conda environment, setup environment, install wheel, and run test.
       # Linux and Windows runners ship Miniconda at $CONDA; macOS runners do
       # not, so we use setup-micromamba there.
-      - name: Setup test conda environment (Linux)
-        if: matrix.buildplat[1] == 'manylinux'
+      - name: Setup test conda environment (Linux / Windows)
+        if: matrix.buildplat[1] != 'macosx'
         shell: bash
         run: |
-          # Install into a user-writable prefix so we don't need sudo against
-          # the system Miniconda install at /usr/share/miniconda.
-          "$CONDA/bin/conda" create -p "$HOME/test-wheel-conda" -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest pip -y
-          echo "WHEEL_TEST_PYTHON=$HOME/test-wheel-conda/bin/python" >> $GITHUB_ENV
+          if [ "${{ matrix.buildplat[1] }}" = "manylinux" ]; then
+            # Install into a user-writable prefix so we don't need sudo against
+            # the system Miniconda install at /usr/share/miniconda.
+            "$CONDA/bin/conda" create -p "$HOME/test-wheel-conda" -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest pip -y
+            echo "WHEEL_TEST_PYTHON=$HOME/test-wheel-conda/bin/python" >> $GITHUB_ENV
+          else
+            "$CONDA/Scripts/conda" create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy gsl pip -y
+            TEST_ENV_PREFIX="$(cygpath -w "$CONDA")\\envs\\test-wheel-conda"
+            echo "WHEEL_TEST_PYTHON=${TEST_ENV_PREFIX}\\python.exe" >> $GITHUB_ENV
+            echo "${TEST_ENV_PREFIX}\\Library\\bin" >> $GITHUB_PATH # needed at runtime to find gsl
+            echo "LIBPATH=${TEST_ENV_PREFIX}\\Library\\lib" >> $GITHUB_ENV
+          fi
       - name: Setup test conda environment (Mac OS)
         if: matrix.buildplat[1] == 'macosx'
         uses: mamba-org/setup-micromamba@v3
@@ -162,52 +170,17 @@ jobs:
             channels:
               - conda-forge
           create-args: python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest pip
-      - name: Setup test conda environment (Windows)
-        if: matrix.buildplat[1] == 'win'
-        shell: bash
-        run: |
-          "$CONDA/Scripts/conda" create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy gsl pip -y
-          TEST_ENV_PREFIX="$(cygpath -w "$CONDA")\\envs\\test-wheel-conda"
-          echo "WHEEL_TEST_PYTHON=${TEST_ENV_PREFIX}\\python.exe" >> $GITHUB_ENV
-          echo "${TEST_ENV_PREFIX}\\Library\\bin" >> $GITHUB_PATH # needed at runtime to find gsl
-          echo "LIBPATH=${TEST_ENV_PREFIX}\\Library\\lib" >> $GITHUB_ENV
-      - name: Install built wheel in conda environment (Linux / Windows)
-        if: matrix.buildplat[1] != 'macosx'
-        shell: bash
-        run: |
-          "$WHEEL_TEST_PYTHON" -m pip install "$(ls wheelhouse/*.whl)[test]"
-      - name: Install built wheel in conda environment (Mac OS)
-        if: matrix.buildplat[1] == 'macosx'
+      - name: Test built wheel in conda environment
         shell: bash -l {0}
-        run: |
-          micromamba activate test-wheel-conda
-          python -m pip install "$(ls wheelhouse/*.whl)[test]"
-      - name: Print installed version (Linux / Windows)
-        if: matrix.buildplat[1] != 'macosx'
-        shell: bash
         working-directory: ${{ runner.temp }}
         run: |
+          if [ "${{ matrix.buildplat[1] }}" = "macosx" ]; then
+            micromamba activate test-wheel-conda
+            WHEEL_TEST_PYTHON=python
+          fi
+          "$WHEEL_TEST_PYTHON" -m pip install "$(ls $GITHUB_WORKSPACE/wheelhouse/*.whl)[test]"
           "$WHEEL_TEST_PYTHON" -c "import galpy; print('Installed galpy version:', galpy.__version__)"
-      - name: Print installed version (Mac OS)
-        if: matrix.buildplat[1] == 'macosx'
-        shell: bash -l {0}
-        working-directory: ${{ runner.temp }}
-        run: |
-          micromamba activate test-wheel-conda
-          python -c "import galpy; print('Installed galpy version:', galpy.__version__)"
-      - name: Test built wheel in conda environment (Linux / Windows)
-        if: matrix.buildplat[1] != 'macosx'
-        shell: bash
-        working-directory: ${{ runner.temp }}
-        run: |
           "$WHEEL_TEST_PYTHON" -m pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
-      - name: Test built wheel in conda environment (Mac OS)
-        if: matrix.buildplat[1] == 'macosx'
-        shell: bash -l {0}
-        working-directory: ${{ runner.temp }}
-        run: |
-          micromamba activate test-wheel-conda
-          pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
   build_sdist:
     name: Build source directory for release
     if: github.event_name == 'release' && github.event.action == 'created'
