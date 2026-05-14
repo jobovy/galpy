@@ -158,6 +158,10 @@ jobs:
             "$CONDA/Scripts/conda" create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy gsl pip -y
             TEST_ENV_PREFIX="$(cygpath -w "$CONDA")\\envs\\test-wheel-conda"
             echo "WHEEL_TEST_PYTHON=${TEST_ENV_PREFIX}\\python.exe" >> $GITHUB_ENV
+            # conda-forge Python on Windows uses CONDA_PREFIX to add the env's
+            # Library\bin to its DLL search at startup; without it, galpy's
+            # libgalpy.pyd can't find gsl.dll under Python 3.8+ DLL search.
+            echo "CONDA_PREFIX=${TEST_ENV_PREFIX}" >> $GITHUB_ENV
             echo "${TEST_ENV_PREFIX}\\Library\\bin" >> $GITHUB_PATH # needed at runtime to find gsl
             echo "LIBPATH=${TEST_ENV_PREFIX}\\Library\\lib" >> $GITHUB_ENV
           fi
