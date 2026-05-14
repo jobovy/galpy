@@ -10,11 +10,8 @@ description: |
     * $CONDA_PREFIX is set to the environment path.
     * The environment's bin/Scripts/Library\bin directories are prepended to
       PATH so `python`, `pytest`, gsl-config etc. resolve from the env.
-
-  Note on Windows DLL search: conda-forge Python's startup hook uses
-  CONDA_PREFIX to add Library\bin to os.add_dll_directory under Python 3.8+
-  DLL search restrictions, so setting CONDA_PREFIX is required for galpy's
-  C extensions to find gsl.dll without explicit activation.
+    * `bash -l {0}` shells have the env auto-activated (matching
+      setup-micromamba's behaviour).
 
 inputs:
   environment-name:
@@ -63,18 +60,24 @@ runs:
         echo "CONDA_PREFIX=$CONDA_PREFIX" >> "$GITHUB_ENV"
         echo "$CONDA_PREFIX/bin" >> "$GITHUB_PATH"
 
-    # Linux/Windows: use $CONDA directly.
+    # Linux/Windows: compute the env prefix.
+    # Windows: $CONDA (C:\Miniconda) is writable by the runner user, so use
+    #          $CONDA/envs/<name>.
+    # Linux:   $CONDA (/usr/share/miniconda) is NOT writable without sudo,
+    #          so install into $HOME/conda-envs/<name> instead and avoid sudo.
     - if: runner.os != 'macOS'
       id: paths
       shell: bash
+      env:
+        ENV_NAME: ${{ inputs.environment-name }}
       run: |
         set -euo pipefail
         if [ "$RUNNER_OS" = "Windows" ]; then
-          CONDA_UNIX="$(cygpath -u "$CONDA")"
+          ENV_PREFIX="$(cygpath -u "$CONDA")/envs/$ENV_NAME"
         else
-          CONDA_UNIX="$CONDA"
+          ENV_PREFIX="$HOME/conda-envs/$ENV_NAME"
         fi
-        echo "env-prefix=$CONDA_UNIX/envs/${{ inputs.environment-name }}" >> "$GITHUB_OUTPUT"
+        echo "env-prefix=$ENV_PREFIX" >> "$GITHUB_OUTPUT"
 
     - if: runner.os != 'macOS' && inputs.cache-environment == 'true'
       id: cache
@@ -88,8 +91,8 @@ runs:
       shell: bash
       env:
         CONDARC_CONTENTS: ${{ inputs.condarc }}
-        ENV_NAME: ${{ inputs.environment-name }}
         CREATE_ARGS: ${{ inputs.create-args }}
+        ENV_PREFIX: ${{ steps.paths.outputs.env-prefix }}
       run: |
         set -euo pipefail
         if [ -n "$CONDARC_CONTENTS" ]; then
@@ -100,48 +103,38 @@ runs:
         else
           CONDA_BIN="$CONDA/bin/conda"
         fi
-        # On Linux, $CONDA points at /usr/share/miniconda which the runner
-        # user can't write to. Use sudo, then chown so subsequent steps
-        # can use the env.
-        if [ "$RUNNER_OS" = "Linux" ] && [ ! -w "$CONDA/envs" ]; then
-          sudo -E "$CONDA_BIN" create -n "$ENV_NAME" $CREATE_ARGS -y
-          sudo chown -R "$USER" "${{ steps.paths.outputs.env-prefix }}"
-        else
-          "$CONDA_BIN" create -n "$ENV_NAME" $CREATE_ARGS -y
-        fi
+        # Always use `create -p` so we don't depend on $CONDA/envs being
+        # writable (it isn't on Linux GitHub-hosted runners).
+        "$CONDA_BIN" create -p "$ENV_PREFIX" $CREATE_ARGS -y
 
     - if: runner.os != 'macOS'
       name: Export environment paths
       shell: bash
+      env:
+        ENV_PREFIX: ${{ steps.paths.outputs.env-prefix }}
       run: |
         set -euo pipefail
-        ENV="${{ steps.paths.outputs.env-prefix }}"
         if [ "$RUNNER_OS" = "Windows" ]; then
-          ENV_WIN="$(cygpath -w "$ENV")"
-          {
-            echo "CONDA_PREFIX=$ENV_WIN"
-          } >> "$GITHUB_ENV"
+          ENV_WIN="$(cygpath -w "$ENV_PREFIX")"
+          echo "CONDA_PREFIX=$ENV_WIN" >> "$GITHUB_ENV"
           {
             echo "$ENV_WIN\\Library\\bin"
             echo "$ENV_WIN\\Scripts"
             echo "$ENV_WIN"
           } >> "$GITHUB_PATH"
         else
-          echo "CONDA_PREFIX=$ENV" >> "$GITHUB_ENV"
-          echo "$ENV/bin" >> "$GITHUB_PATH"
+          echo "CONDA_PREFIX=$ENV_PREFIX" >> "$GITHUB_ENV"
+          echo "$ENV_PREFIX/bin" >> "$GITHUB_PATH"
         fi
 
-    # Make `conda activate <env>` available in subsequent `bash -l {0}` steps
-    # AND auto-activate the env on shell start, matching setup-micromamba's
-    # behaviour so consumers can just use `shell: bash -l {0}` and have
-    # `python` resolve to the env's python without an explicit activate.
-    # Rewrite ~/.bash_profile on each invocation so multiple action calls
-    # in the same job don't cascade activations.
+    # Make `bash -l {0}` shells auto-activate the env, matching
+    # setup-micromamba's behaviour. Rewrite ~/.bash_profile from scratch so
+    # multiple action calls in the same job don't cascade activations.
     - if: runner.os != 'macOS'
       name: Initialize conda for login shells
       shell: bash
       env:
-        ENV_NAME: ${{ inputs.environment-name }}
+        ENV_PREFIX: ${{ steps.paths.outputs.env-prefix }}
       run: |
         set -e
         if [ "$RUNNER_OS" = "Windows" ]; then
@@ -152,5 +145,5 @@ runs:
         cat > "$HOME/.bash_profile" <<EOF
         # Managed by setup-conda action
         source "$CONDA_UNIX/etc/profile.d/conda.sh"
-        conda activate "$ENV_NAME"
+        conda activate "$ENV_PREFIX"
         EOF
