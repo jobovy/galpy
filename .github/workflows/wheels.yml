@@ -43,29 +43,54 @@ jobs:
         - ["cp314","3.14"]
     steps:
       - uses: actions/checkout@v6
-      - name: Install GSL (Windows / Mac OS x86_64)
-        uses: mamba-org/setup-micromamba@v3
+      # Install just the GSL using the runner's preinstalled Miniconda
+      - name: Compute weekly cache key (Windows / Mac OS)
         if: matrix.buildplat[1] == 'win' || matrix.buildplat[1] == 'macosx'
+        id: weekly-key
+        shell: bash
+        run: |
+          # Weeks since Tue 2024-01-02 19:00 UTC (1 hour before the weekly
+          # scheduled run for build/build_windows on Tuesday 20:00 UTC).
+          ref_epoch=1704222000
+          now_epoch=$(date -u +%s)
+          echo "week=$(( (now_epoch - ref_epoch) / 604800 ))" >> "$GITHUB_OUTPUT"
+      - name: Cache GSL conda environment (Windows)
+        if: matrix.buildplat[1] == 'win'
+        id: cache-gsl-win
+        uses: actions/cache@v5
         with:
-          environment-name: gsl
-          condarc: |
-            channels:
-              - conda-forge
-          create-args: gsl
-          cache-environment: true
-          cache-environment-key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
+          path: C:\Miniconda\envs\gsl
+          key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ steps.weekly-key.outputs.week }}-${{ hashFiles('.github/workflows/wheels.yml') }}
+      - name: Cache GSL conda environment (Mac OS)
+        if: matrix.buildplat[1] == 'macosx'
+        id: cache-gsl-mac
+        uses: actions/cache@v5
+        with:
+          path: /Users/runner/miniconda3/envs/gsl
+          key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ steps.weekly-key.outputs.week }}-${{ hashFiles('.github/workflows/wheels.yml') }}
+      - name: Install GSL via conda (Windows)
+        if: matrix.buildplat[1] == 'win' && steps.cache-gsl-win.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          "$CONDA/Scripts/conda" create -n gsl -c conda-forge gsl -y
+      - name: Install GSL via conda (Mac OS)
+        if: matrix.buildplat[1] == 'macosx' && steps.cache-gsl-mac.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          "$CONDA/bin/conda" create -n gsl -c conda-forge gsl -y
       - name: Set GSL environment variables (Windows)
         if: matrix.buildplat[1] == 'win'
-        shell: bash -l {0}
+        shell: bash
         run: |
-          echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
-          echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-          echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-          echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+          echo 'INCLUDE=C:\Miniconda\envs\gsl\Library\include' >> $GITHUB_ENV
+          echo 'LIB=C:\Miniconda\envs\gsl\Library\lib' >> $GITHUB_ENV
+          echo 'LIBPATH=C:\Miniconda\envs\gsl\Library\lib' >> $GITHUB_ENV
+          echo 'C:\Miniconda\envs\gsl\Library\bin' >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Set GSL environment variables (Mac OS)
         if: matrix.buildplat[1] == 'macosx'
-        shell: bash -l {0}
+        shell: bash
         run: |
+          CONDA_PREFIX="/Users/runner/miniconda3/envs/gsl"
           echo "CFLAGS=-I$CONDA_PREFIX/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L$CONDA_PREFIX/lib -headerpad_max_install_names" >> $GITHUB_ENV
           echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
@@ -118,24 +143,34 @@ jobs:
         with:
           python-version: ${{ matrix.python[1] }}
           allow-prereleases: true
-      - name: Install GSL (Windows)
-        uses: mamba-org/setup-micromamba@v3
+      # Install just the GSL using the runner's preinstalled Miniconda
+      - name: Compute weekly cache key
+        id: weekly-key
+        shell: bash
+        run: |
+          # Weeks since Tue 2024-01-02 19:00 UTC (1 hour before the weekly
+          # scheduled run for build/build_windows on Tuesday 20:00 UTC).
+          ref_epoch=1704222000
+          now_epoch=$(date -u +%s)
+          echo "week=$(( (now_epoch - ref_epoch) / 604800 ))" >> "$GITHUB_OUTPUT"
+      - name: Cache GSL conda environment (Windows)
         if: matrix.buildplat[1] == 'win'
+        id: cache-gsl-win
+        uses: actions/cache@v5
         with:
-          environment-name: gsl
-          condarc: |
-            channels:
-              - conda-forge
-          create-args: gsl
-          cache-environment: true
-          cache-environment-key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
+          path: C:\Miniconda\envs\gsl
+          key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ steps.weekly-key.outputs.week }}-${{ hashFiles('.github/workflows/wheels.yml') }}
+      - name: Install GSL via conda (Windows)
+        if: matrix.buildplat[1] == 'win' && steps.cache-gsl-win.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          "$CONDA/Scripts/conda" create -n gsl -c conda-forge gsl -y
       - name: Set GSL environment variables (Windows)
         if: matrix.buildplat[1] == 'win'
-        shell: bash -l {0}
+        shell: bash
         run: |
-          micromamba activate gsl
-          echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-          echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+          echo 'LIBPATH=C:\Miniconda\envs\gsl\Library\lib' >> $GITHUB_ENV
+          echo 'C:\Miniconda\envs\gsl\Library\bin' >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Install wheel
         shell: bash
         run: python -m pip install "$(ls wheelhouse/*.whl)[test]"
@@ -150,38 +185,67 @@ jobs:
           pip install astropy
           pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
       # Test that built wheels also work in a conda environment, setup environment, install wheel, and run test
-      - name: Setup test conda environment (Linux / Mac OS)
-        if: matrix.buildplat[1] != 'win'
-        uses: mamba-org/setup-micromamba@v3
+      - name: Cache test conda environment (Linux)
+        if: matrix.buildplat[1] == 'manylinux'
+        id: cache-test-conda-linux
+        uses: actions/cache@v5
         with:
-          environment-name: test-wheel-conda
-          condarc: |
-            channels:
-              - conda-forge
-          create-args: python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest
-          cache-environment: true
-          cache-environment-key: test-wheel-conda-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
-      - name: Setup test conda environment (Windows)
+          path: /usr/share/miniconda/envs/test-wheel-conda
+          key: test-wheel-conda-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ matrix.python[1] }}-${{ steps.weekly-key.outputs.week }}-${{ hashFiles('.github/workflows/wheels.yml') }}
+      - name: Cache test conda environment (Mac OS)
+        if: matrix.buildplat[1] == 'macosx'
+        id: cache-test-conda-mac
+        uses: actions/cache@v5
+        with:
+          path: /Users/runner/miniconda3/envs/test-wheel-conda
+          key: test-wheel-conda-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ matrix.python[1] }}-${{ steps.weekly-key.outputs.week }}-${{ hashFiles('.github/workflows/wheels.yml') }}
+      - name: Cache test conda environment (Windows)
         if: matrix.buildplat[1] == 'win'
-        shell: bash -l {0}
+        id: cache-test-conda-win
+        uses: actions/cache@v5
+        with:
+          path: C:\Miniconda\envs\test-wheel-conda
+          key: test-wheel-conda-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ matrix.python[1] }}-${{ steps.weekly-key.outputs.week }}-${{ hashFiles('.github/workflows/wheels.yml') }}
+      - name: Setup test conda environment (Linux / Mac OS)
+        if: (matrix.buildplat[1] == 'manylinux' && steps.cache-test-conda-linux.outputs.cache-hit != 'true') || (matrix.buildplat[1] == 'macosx' && steps.cache-test-conda-mac.outputs.cache-hit != 'true')
+        shell: bash
         run: |
-          micromamba create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy gsl
-          micromamba activate test-wheel-conda
-          echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+          "$CONDA/bin/conda" create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest -y
+      - name: Setup test conda environment (Windows)
+        if: matrix.buildplat[1] == 'win' && steps.cache-test-conda-win.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          "$CONDA/Scripts/conda" create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy gsl -y
+      - name: Activate test conda environment (Linux)
+        if: matrix.buildplat[1] == 'manylinux'
+        shell: bash
+        run: |
+          echo "/usr/share/miniconda/envs/test-wheel-conda/bin" >> $GITHUB_PATH
+      - name: Activate test conda environment (Mac OS)
+        if: matrix.buildplat[1] == 'macosx'
+        shell: bash
+        run: |
+          echo "/Users/runner/miniconda3/envs/test-wheel-conda/bin" >> $GITHUB_PATH
+      - name: Activate test conda environment (Windows)
+        if: matrix.buildplat[1] == 'win'
+        shell: bash
+        run: |
+          echo 'C:\Miniconda\envs\test-wheel-conda' >> $GITHUB_PATH
+          echo 'C:\Miniconda\envs\test-wheel-conda\Scripts' >> $GITHUB_PATH
+          echo 'C:\Miniconda\envs\test-wheel-conda\Library\bin' >> $GITHUB_PATH
+          echo 'LIBPATH=C:\Miniconda\envs\test-wheel-conda\Library\lib' >> $GITHUB_ENV
       - name: Install built wheel in conda environment
-        shell: bash -l {0}
+        shell: bash
         run: |
-          micromamba activate test-wheel-conda
           python -m pip install "$(ls wheelhouse/*.whl)[test]"
       - name: Print installed version
-        shell: bash -l {0}
+        shell: bash
         working-directory: ${{ runner.temp }}
         run: python -c "import galpy; print('Installed galpy version:', galpy.__version__)"
       - name: Test built wheel in conda environment
-        shell: bash -l {0}
+        shell: bash
         working-directory: ${{ runner.temp }}
         run: |
-          micromamba activate test-wheel-conda
           pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
   build_sdist:
     name: Build source directory for release
