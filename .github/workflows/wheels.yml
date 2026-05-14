@@ -159,8 +159,7 @@ jobs:
           create-args: python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest pip${{ matrix.buildplat[1] == 'win' && ' gsl' || '' }}
       - name: Install built wheel in conda environment
         shell: bash -l {0}
-        working-directory: ${{ runner.temp }}
-        run: python -m pip install "$(ls $GITHUB_WORKSPACE/wheelhouse/*.whl)[test]"
+        run: python -m pip install "$(ls wheelhouse/*.whl)[test]"
       - name: Print installed version in conda environment
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
@@ -168,7 +167,7 @@ jobs:
       - name: Test built wheel in conda environment
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
-        run: pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
+        run: pytest -v "$GITHUB_WORKSPACE"/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
   build_sdist:
     name: Build source directory for release
     if: github.event_name == 'release' && github.event.action == 'created'
