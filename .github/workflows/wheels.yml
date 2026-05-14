@@ -156,8 +156,10 @@ jobs:
         if: matrix.buildplat[1] == 'manylinux'
         shell: bash
         run: |
-          sudo "$CONDA/bin/conda" create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest -y
-          echo "/usr/share/miniconda/envs/test-wheel-conda/bin" >> $GITHUB_PATH
+          # Install into a user-writable prefix so we don't need sudo against
+          # the system Miniconda install at /usr/share/miniconda.
+          "$CONDA/bin/conda" create -p "$HOME/test-wheel-conda" -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest -y
+          echo "$HOME/test-wheel-conda/bin" >> $GITHUB_PATH
       - name: Setup test conda environment (Mac OS)
         if: matrix.buildplat[1] == 'macosx'
         uses: mamba-org/setup-micromamba@v3
