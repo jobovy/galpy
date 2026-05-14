@@ -205,13 +205,14 @@ jobs:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     # Install just the GSL using the runner's preinstalled Miniconda
-    - name: Install GSL via conda
-      shell: bash
-      run: |
-        "$CONDA/Scripts/conda" create -n gsl -c conda-forge gsl -y
-        GSL_PREFIX="$(cygpath -w "$CONDA")\\envs\\gsl"
-        echo "${GSL_PREFIX}\\Library\\bin" >> $GITHUB_PATH
-        echo "CONDA_PREFIX=$GSL_PREFIX" >> $GITHUB_ENV
+    - name: Install GSL
+      uses: ./.github/actions/setup-conda
+      with:
+        environment-name: gsl
+        condarc: |
+          channels:
+            - conda-forge
+        create-args: gsl
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm

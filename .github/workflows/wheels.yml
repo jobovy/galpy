@@ -43,27 +43,24 @@ jobs:
         - ["cp314","3.14"]
     steps:
       - uses: actions/checkout@v6
-      # Install GSL via conda. Windows runners ship Miniconda at $CONDA so we
-      # use that directly; macOS runners don't, so we use setup-micromamba.
-      - name: Install GSL via conda (Windows)
-        if: matrix.buildplat[1] == 'win'
-        shell: bash
-        run: |
-          "$CONDA/Scripts/conda" create -n gsl -c conda-forge gsl -y
-          GSL_PREFIX="$(cygpath -w "$CONDA")\\envs\\gsl"
-          echo "INCLUDE=${GSL_PREFIX}\\Library\\include" >> $GITHUB_ENV
-          echo "LIB=${GSL_PREFIX}\\Library\\lib" >> $GITHUB_ENV
-          echo "LIBPATH=${GSL_PREFIX}\\Library\\lib" >> $GITHUB_ENV
-          echo "${GSL_PREFIX}\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
-      - name: Install GSL (Mac OS)
-        if: matrix.buildplat[1] == 'macosx'
-        uses: mamba-org/setup-micromamba@v3
+      # Install GSL via conda. The composite action handles Windows
+      # (native Miniconda) and macOS (setup-micromamba) uniformly.
+      - if: matrix.buildplat[1] != 'manylinux'
+        uses: ./.github/actions/setup-conda
         with:
           environment-name: gsl
           condarc: |
             channels:
               - conda-forge
           create-args: gsl
+      - name: Set GSL environment variables (Windows)
+        if: matrix.buildplat[1] == 'win'
+        shell: bash
+        run: |
+          ENV_WIN="$(cygpath -w "$CONDA_PREFIX")"
+          echo "INCLUDE=${ENV_WIN}\\Library\\include" >> $GITHUB_ENV
+          echo "LIB=${ENV_WIN}\\Library\\lib" >> $GITHUB_ENV
+          echo "LIBPATH=${ENV_WIN}\\Library\\lib" >> $GITHUB_ENV
       - name: Set GSL environment variables (Mac OS)
         if: matrix.buildplat[1] == 'macosx'
         shell: bash -l {0}
@@ -71,7 +68,6 @@ jobs:
           echo "CFLAGS=-I$CONDA_PREFIX/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L$CONDA_PREFIX/lib -headerpad_max_install_names" >> $GITHUB_ENV
           echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
-          echo "$CONDA_PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Inject git hash into version for dev wheels
         if: github.event_name != 'release'
         run: python tools/inject_git_hash.py
@@ -120,15 +116,21 @@ jobs:
         with:
           python-version: ${{ matrix.python[1] }}
           allow-prereleases: true
-      # Install just the GSL using the runner's preinstalled Miniconda (Windows)
-      - name: Install GSL via conda (Windows)
+      # Install GSL via conda (Windows only — Linux/macOS wheels bundle GSL).
+      - if: matrix.buildplat[1] == 'win'
+        uses: ./.github/actions/setup-conda
+        with:
+          environment-name: gsl
+          condarc: |
+            channels:
+              - conda-forge
+          create-args: gsl
+      - name: Set GSL LIBPATH (Windows)
         if: matrix.buildplat[1] == 'win'
         shell: bash
         run: |
-          "$CONDA/Scripts/conda" create -n gsl -c conda-forge gsl -y
-          GSL_PREFIX="$(cygpath -w "$CONDA")\\envs\\gsl"
-          echo "LIBPATH=${GSL_PREFIX}\\Library\\lib" >> $GITHUB_ENV
-          echo "${GSL_PREFIX}\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+          ENV_WIN="$(cygpath -w "$CONDA_PREFIX")"
+          echo "LIBPATH=${ENV_WIN}\\Library\\lib" >> $GITHUB_ENV
       - name: Install wheel
         shell: bash
         run: python -m pip install "$(ls wheelhouse/*.whl)[test]"
@@ -142,56 +144,31 @@ jobs:
         run: |
           pip install astropy
           pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
-      # Test that built wheels also work in a conda environment, setup environment, install wheel, and run test.
-      # Linux and Windows runners ship Miniconda at $CONDA; macOS runners do
-      # not, so we use setup-micromamba there.
-      - name: Setup test conda environment (Linux / Windows)
-        if: matrix.buildplat[1] != 'macosx'
-        shell: bash
-        run: |
-          if [ "${{ matrix.buildplat[1] }}" = "manylinux" ]; then
-            # Install into a user-writable prefix so we don't need sudo against
-            # the system Miniconda install at /usr/share/miniconda.
-            "$CONDA/bin/conda" create -p "$HOME/test-wheel-conda" -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest pip -y
-            echo "WHEEL_TEST_PYTHON=$HOME/test-wheel-conda/bin/python" >> $GITHUB_ENV
-          else
-            "$CONDA/Scripts/conda" create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy gsl pip -y
-            TEST_ENV_PREFIX="$(cygpath -w "$CONDA")\\envs\\test-wheel-conda"
-            echo "WHEEL_TEST_PYTHON=${TEST_ENV_PREFIX}\\python.exe" >> $GITHUB_ENV
-            echo "${TEST_ENV_PREFIX}\\Library\\bin" >> $GITHUB_PATH # needed at runtime to find gsl
-            echo "LIBPATH=${TEST_ENV_PREFIX}\\Library\\lib" >> $GITHUB_ENV
-          fi
-      - name: Setup test conda environment (Mac OS)
-        if: matrix.buildplat[1] == 'macosx'
-        uses: mamba-org/setup-micromamba@v3
+      # Test that built wheels also work in a conda environment: set up env,
+      # install wheel, and run a single test from inside the env.
+      - name: Set up test conda environment
+        uses: ./.github/actions/setup-conda
         with:
           environment-name: test-wheel-conda
           condarc: |
             channels:
               - conda-forge
-          create-args: python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest pip
-      - name: Test built wheel in conda environment
-        shell: bash -l {0}
+          # gsl is included on Windows so the wheel can find gsl.dll via the
+          # env's Library\bin when conda-forge Python activates it via the
+          # CONDA_PREFIX startup hook.
+          create-args: python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest pip${{ matrix.buildplat[1] == 'win' && ' gsl' || '' }}
+      - name: Install built wheel in conda environment
+        shell: bash
         working-directory: ${{ runner.temp }}
-        run: |
-          set -e
-          if [ "${{ matrix.buildplat[1] }}" = "macosx" ]; then
-            micromamba activate test-wheel-conda
-            WHEEL_TEST_PYTHON=python
-          elif [ "${{ matrix.buildplat[1] }}" = "win" ]; then
-            # Conda-forge Python on Windows needs the env activated so its
-            # startup hook adds Library\bin to os.add_dll_directory (needed
-            # for galpy's libgalpy.pyd to find gsl.dll under Python 3.8+
-            # DLL search). Setting CONDA_PREFIX alone is not sufficient.
-            # cygpath -u converts C:\Miniconda → /c/Miniconda so Git Bash can
-            # source conda.sh.
-            source "$(cygpath -u "$CONDA")/etc/profile.d/conda.sh"
-            conda activate test-wheel-conda
-            WHEEL_TEST_PYTHON=python
-          fi
-          "$WHEEL_TEST_PYTHON" -m pip install "$(ls $GITHUB_WORKSPACE/wheelhouse/*.whl)[test]"
-          "$WHEEL_TEST_PYTHON" -c "import galpy; print('Installed galpy version:', galpy.__version__)"
-          "$WHEEL_TEST_PYTHON" -m pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
+        run: python -m pip install "$(ls $GITHUB_WORKSPACE/wheelhouse/*.whl)[test]"
+      - name: Print installed version in conda environment
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: python -c "import galpy; print('Installed galpy version:', galpy.__version__)"
+      - name: Test built wheel in conda environment
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
   build_sdist:
     name: Build source directory for release
     if: github.event_name == 'release' && github.event.action == 'created'
