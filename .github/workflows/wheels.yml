@@ -50,14 +50,11 @@ jobs:
         shell: bash
         run: |
           "$CONDA/Scripts/conda" create -n gsl -c conda-forge gsl -y
-      - name: Set GSL environment variables (Windows)
-        if: matrix.buildplat[1] == 'win'
-        shell: bash
-        run: |
-          echo 'INCLUDE=C:\Miniconda\envs\gsl\Library\include' >> $GITHUB_ENV
-          echo 'LIB=C:\Miniconda\envs\gsl\Library\lib' >> $GITHUB_ENV
-          echo 'LIBPATH=C:\Miniconda\envs\gsl\Library\lib' >> $GITHUB_ENV
-          echo 'C:\Miniconda\envs\gsl\Library\bin' >> $GITHUB_PATH # necessary when we don't activate the environment
+          GSL_PREFIX="$(cygpath -w "$CONDA")\\envs\\gsl"
+          echo "INCLUDE=${GSL_PREFIX}\\Library\\include" >> $GITHUB_ENV
+          echo "LIB=${GSL_PREFIX}\\Library\\lib" >> $GITHUB_ENV
+          echo "LIBPATH=${GSL_PREFIX}\\Library\\lib" >> $GITHUB_ENV
+          echo "${GSL_PREFIX}\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Install GSL (Mac OS)
         if: matrix.buildplat[1] == 'macosx'
         uses: mamba-org/setup-micromamba@v3
@@ -129,12 +126,9 @@ jobs:
         shell: bash
         run: |
           "$CONDA/Scripts/conda" create -n gsl -c conda-forge gsl -y
-      - name: Set GSL environment variables (Windows)
-        if: matrix.buildplat[1] == 'win'
-        shell: bash
-        run: |
-          echo 'LIBPATH=C:\Miniconda\envs\gsl\Library\lib' >> $GITHUB_ENV
-          echo 'C:\Miniconda\envs\gsl\Library\bin' >> $GITHUB_PATH # necessary when we don't activate the environment
+          GSL_PREFIX="$(cygpath -w "$CONDA")\\envs\\gsl"
+          echo "LIBPATH=${GSL_PREFIX}\\Library\\lib" >> $GITHUB_ENV
+          echo "${GSL_PREFIX}\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Install wheel
         shell: bash
         run: python -m pip install "$(ls wheelhouse/*.whl)[test]"
@@ -173,9 +167,10 @@ jobs:
         shell: bash
         run: |
           "$CONDA/Scripts/conda" create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy gsl pip -y
-          echo 'WHEEL_TEST_PYTHON=C:\Miniconda\envs\test-wheel-conda\python.exe' >> $GITHUB_ENV
-          echo 'C:\Miniconda\envs\test-wheel-conda\Library\bin' >> $GITHUB_PATH # needed at runtime to find gsl
-          echo 'LIBPATH=C:\Miniconda\envs\test-wheel-conda\Library\lib' >> $GITHUB_ENV
+          TEST_ENV_PREFIX="$(cygpath -w "$CONDA")\\envs\\test-wheel-conda"
+          echo "WHEEL_TEST_PYTHON=${TEST_ENV_PREFIX}\\python.exe" >> $GITHUB_ENV
+          echo "${TEST_ENV_PREFIX}\\Library\\bin" >> $GITHUB_PATH # needed at runtime to find gsl
+          echo "LIBPATH=${TEST_ENV_PREFIX}\\Library\\lib" >> $GITHUB_ENV
       - name: Install built wheel in conda environment (Linux / Windows)
         if: matrix.buildplat[1] != 'macosx'
         shell: bash

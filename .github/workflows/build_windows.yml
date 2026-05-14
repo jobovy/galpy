@@ -209,11 +209,9 @@ jobs:
       shell: bash
       run: |
         "$CONDA/Scripts/conda" create -n gsl -c conda-forge gsl -y
-    - name: Set conda environment variables necessary to run gsl-config.bat and auto-detect GSL paths in setup.py
-      shell: bash
-      run: |
-        echo 'C:\Miniconda\envs\gsl\Library\bin' >> $GITHUB_PATH
-        echo 'CONDA_PREFIX=C:\Miniconda\envs\gsl' >> $GITHUB_ENV
+        GSL_PREFIX="$(cygpath -w "$CONDA")\\envs\\gsl"
+        echo "${GSL_PREFIX}\\Library\\bin" >> $GITHUB_PATH
+        echo "CONDA_PREFIX=$GSL_PREFIX" >> $GITHUB_ENV
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm
