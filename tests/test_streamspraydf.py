@@ -1025,6 +1025,8 @@ def test_progenitor_mass_callable_array_input(klass):
     assert numpy.all(Ms > 0)
     assert numpy.isclose(Ms[-1], M0)
     assert numpy.isclose(Ms[0], 0.5 * M0)
+
+
 ############################# Non-uniform stripping ##########################
 
 
