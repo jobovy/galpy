@@ -75,6 +75,7 @@ constantbetaPowerLawdf = constantbetaPowerLawdf.constantbetaPowerLawdf
 osipkovmerrittPowerLawdf = osipkovmerrittPowerLawdf.osipkovmerrittPowerLawdf
 chen24spraydf = streamspraydf.chen24spraydf
 fardal15spraydf = streamspraydf.fardal15spraydf
+pericenter_stripping_pdf = streamspraydf.pericenter_stripping_pdf
 streamspraydf = streamspraydf.streamspraydf
 StreamTrack = streamTrack.StreamTrack
 StreamTrackPair = streamTrack.StreamTrackPair
