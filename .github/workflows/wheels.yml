@@ -53,7 +53,7 @@ jobs:
               - conda-forge
           create-args: gsl
           cache-environment: true
-          cache-environment-key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}
+          cache-environment-key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
       - name: Set GSL environment variables (Windows)
         if: matrix.buildplat[1] == 'win'
         shell: bash
@@ -127,7 +127,7 @@ jobs:
               - conda-forge
           create-args: gsl
           cache-environment: true
-          cache-environment-key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}
+          cache-environment-key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
       - name: Set GSL LIBPATH (Windows)
         if: matrix.buildplat[1] == 'win'
         shell: bash
@@ -161,7 +161,7 @@ jobs:
           # CONDA_PREFIX startup hook.
           create-args: python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest pip${{ matrix.buildplat[1] == 'win' && ' gsl' || '' }}
           cache-environment: true
-          cache-environment-key: test-wheel-conda-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ matrix.python[1] }}
+          cache-environment-key: test-wheel-conda-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ matrix.python[1] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
       - name: Install built wheel in conda environment
         shell: bash -l {0}
         run: python -m pip install "$(ls wheelhouse/*.whl)[test]"
