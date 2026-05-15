@@ -1179,3 +1179,22 @@ def test_pericenter_stripping_pdf_inherits_rovo_from_progenitor():
     sigma = 0.05 / conversion.time_in_Gyr(vo, ro)
     pdf = pericenter_stripping_pdf(obs_with_units, lp, tdisrupt, sigma)
     assert pdf.pericenter_times.size > 0
+
+
+def test_pericenter_stripping_pdf_rovo_mismatch_raises():
+    # If ro/vo are explicitly given but disagree with the progenitor's,
+    # raise rather than silently mixing two conversion conventions.
+    from galpy.df import pericenter_stripping_pdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    tdisrupt = 4.5 / conversion.time_in_Gyr(220.0, 8.0)
+    sigma = 0.05 / conversion.time_in_Gyr(220.0, 8.0)
+    with pytest.raises(ValueError, match="ro inconsistent"):
+        pericenter_stripping_pdf(obs, lp, tdisrupt, sigma, ro=9.0)
+    with pytest.raises(ValueError, match="vo inconsistent"):
+        pericenter_stripping_pdf(obs, lp, tdisrupt, sigma, vo=230.0)

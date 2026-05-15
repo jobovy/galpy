@@ -521,10 +521,9 @@ class basestreamspraydf(df):
         pdf_vals = numpy.asarray(pdf_internal(t_grid), dtype=float)
         if numpy.any(pdf_vals < 0):
             raise ValueError("stripping_pdf must be non-negative on [-tdisrupt, 0]")
-        _trapz = numpy.trapezoid if hasattr(numpy, "trapezoid") else numpy.trapz
-        if _trapz(pdf_vals, t_grid) <= 0:
-            raise ValueError("stripping_pdf integrates to zero on [-tdisrupt, 0]")
         cdf_vals = cumulative_trapezoid(pdf_vals, t_grid, initial=0.0)
+        if cdf_vals[-1] <= 0:
+            raise ValueError("stripping_pdf integrates to zero on [-tdisrupt, 0]")
         cdf_vals /= cdf_vals[-1]
         # Enforce strict monotonicity by accumulating max and dropping ties.
         cdf_vals = numpy.maximum.accumulate(cdf_vals)
@@ -542,7 +541,6 @@ class basestreamspraydf(df):
         else:
             u_samples = numpy.random.uniform(size=n)
             dt = -self._stripping_inv_cdf(u_samples)
-            dt = numpy.clip(dt, 0.0, self._tdisrupt)
         # Build all rotation matrices
         rot, rot_inv = self._setup_rot(dt)
         # Compute progenitor position in the instantaneous frame,
@@ -1134,10 +1132,10 @@ def pericenter_stripping_pdf(
 
     The returned PDF is an equal-height sum of Gaussians centered on every
     pericenter passage of the progenitor over the interval ``[-tdisrupt, 0]``
-    (``t=0`` is the present day, ``t<0`` the past). Useful for
-    ``stripping_pdf=`` of :class:`galpy.df.streamspraydf.basestreamspraydf`
-    subclasses, capturing the well-known enhancement of tidal stripping at
-    pericenter passages.
+    (``t=0`` is the present day, ``t<0`` the past) and truncated to that
+    same interval. Useful for ``stripping_pdf=`` of
+    :class:`galpy.df.streamspraydf.basestreamspraydf` subclasses, capturing
+    the well-known enhancement of tidal stripping at pericenter passages.
 
     Parameters
     ----------
@@ -1161,101 +1159,73 @@ def pericenter_stripping_pdf(
     Returns
     -------
     pdf : callable
-        Function ``pdf(t)`` returning the PDF at ``t``. Accepts and returns
-        either plain floats/arrays or astropy ``Quantity``: when ``sigma`` is
-        a ``Quantity``, the returned PDF expects ``t`` as a ``Quantity`` and
+        Function ``pdf(t)`` returning the PDF at ``t``. When ``sigma`` is a
+        ``Quantity``, the returned PDF expects ``t`` as a ``Quantity`` and
         returns ``Quantity`` values with units ``1/Gyr``; otherwise it works
-        in internal units. The callable has an attribute
+        in internal units. The callable carries an attribute
         ``pdf.pericenter_times`` (1D array, internal units) listing the
         pericenter times.
-
-    Notes
-    -----
-    Each Gaussian carries area ``1/N`` over the real line; over
-    ``[-tdisrupt, 0]`` the integral is therefore close to but not exactly
-    unity when Gaussians lie near the interval edges. Pericenter peaks
-    falling within ``sigma`` of ``-tdisrupt`` or ``0`` are dropped to avoid
-    such edge artifacts. The PDF need not be exactly normalized; the
-    ``stripping_pdf`` machinery in :class:`basestreamspraydf` renormalizes
-    automatically.
 
     Raises
     ------
     ValueError
-        If no pericenter passages are found on ``[-tdisrupt, 0]`` (e.g. a
-        nearly circular orbit). Supply a custom ``stripping_pdf`` in that
-        case.
+        If ``ro``/``vo`` are explicitly given but disagree with the
+        progenitor's, or if no pericenter passages are found on
+        ``[-tdisrupt, 0]`` (e.g. a nearly circular orbit) — in the latter
+        case, supply a custom ``stripping_pdf`` instead.
     """
     sigma_is_quantity = _APY_LOADED and isinstance(sigma, units.Quantity)
+    # Inherit ro/vo from the progenitor if not given; otherwise check
+    # consistency (progenitor/pot consistency is enforced by Orbit.integrate).
     if ro is None and progenitor._roSet:
         ro = progenitor._ro
+    elif ro is not None and progenitor._roSet:
+        ro_internal = conversion.parse_length_kpc(ro)
+        if abs(ro_internal - progenitor._ro) / progenitor._ro > 1e-8:
+            raise ValueError("ro inconsistent with progenitor's ro; omit ro to inherit")
     if vo is None and progenitor._voSet:
         vo = progenitor._vo
+    elif vo is not None and progenitor._voSet:
+        vo_internal = conversion.parse_velocity_kms(vo)
+        if abs(vo_internal - progenitor._vo) / progenitor._vo > 1e-8:
+            raise ValueError("vo inconsistent with progenitor's vo; omit vo to inherit")
     tdisrupt_internal = conversion.parse_time(tdisrupt, ro=ro, vo=vo)
     sigma_internal = conversion.parse_time(sigma, ro=ro, vo=vo)
-    pot = _check_potential_list_and_deprecate(pot)
+    # Integrate the progenitor and locate pericenter passages on the grid.
+    # The prominence threshold rejects numerical-noise oscillations on
+    # near-circular orbits.
     prog_copy = progenitor()
     prog_copy.turn_physical_off()
     ts = numpy.linspace(0.0, -tdisrupt_internal, ngrid)
-    prog_copy.integrate(ts, pot)
+    prog_copy.integrate(ts, _check_potential_list_and_deprecate(pot))
     r_vals = prog_copy.r(ts)
-    # Require minimum prominence relative to the mean radius so that
-    # numerical-noise oscillations of a (near-)circular orbit don't yield
-    # spurious peaks.
-    _prom_threshold = 1e-6 * float(numpy.mean(r_vals))
-    peaks, _ = find_peaks(-r_vals, prominence=_prom_threshold)
-    peri_times = []
-    for idx in peaks:
-        if idx <= 0 or idx >= ngrid - 1:  # pragma: no cover
-            # find_peaks excludes endpoint maxima by default; defensive only.
-            continue
-        # Quadratic-fit refinement of the local minimum to subgrid accuracy.
-        r0, r1, r2 = r_vals[idx - 1], r_vals[idx], r_vals[idx + 1]
-        denom = r0 - 2.0 * r1 + r2
-        if denom > 0:
-            shift = 0.5 * (r0 - r2) / denom
-            shift = numpy.clip(shift, -1.0, 1.0)
-        else:  # pragma: no cover
-            # r1 is a strict local min, so r0 + r2 - 2*r1 > 0 in practice.
-            shift = 0.0
-        dt_grid = ts[1] - ts[0]
-        peri_times.append(ts[idx] + shift * dt_grid)
-    peri_times = numpy.asarray(peri_times)
-    # Drop peaks within sigma of either edge.
-    if peri_times.size > 0:
-        keep = (peri_times <= -sigma_internal) & (
-            peri_times >= -tdisrupt_internal + sigma_internal
-        )
-        peri_times = peri_times[keep]
-    if peri_times.size == 0:
+    peaks, _ = find_peaks(-r_vals, prominence=1e-6 * float(numpy.mean(r_vals)))
+    if peaks.size == 0:
         raise ValueError(
-            "No pericenter passages found over [-tdisrupt, 0]. "
-            "The orbit may be nearly circular; supply a custom "
-            "stripping_pdf instead."
+            "No pericenter passages found over [-tdisrupt, 0]. The orbit "
+            "may be nearly circular; supply a custom stripping_pdf instead."
         )
-    n_peri = peri_times.size
-    norm = 1.0 / (n_peri * sigma_internal * numpy.sqrt(2.0 * numpy.pi))
+    peri_times = ts[peaks]
+    # Normalized Gaussian mixture, truncated to [-tdisrupt, 0].
+    norm = 1.0 / (peri_times.size * sigma_internal * numpy.sqrt(2.0 * numpy.pi))
 
     def _pdf_internal(t):
         t_arr = numpy.atleast_1d(numpy.asarray(t, dtype=float))
         dx = (t_arr[:, None] - peri_times[None, :]) / sigma_internal
         out = norm * numpy.sum(numpy.exp(-0.5 * dx * dx), axis=-1)
-        # Cut off at the [-tdisrupt, 0] window so the PDF carries no
-        # weight outside the disruption interval.
         out = numpy.where((t_arr >= -tdisrupt_internal) & (t_arr <= 0.0), out, 0.0)
-        if numpy.ndim(t) == 0:
-            return float(out[0])
-        return out
+        return float(out[0]) if numpy.ndim(t) == 0 else out
 
-    if sigma_is_quantity:
-        time_in_gyr = conversion.time_in_Gyr(vo, ro)
+    if not sigma_is_quantity:
+        _pdf_internal.pericenter_times = peri_times
+        return _pdf_internal
 
-        def pdf(t):
-            t_internal = conversion.parse_time(t, ro=ro, vo=vo)
-            return _pdf_internal(t_internal) / time_in_gyr / units.Gyr
+    time_in_gyr = conversion.time_in_Gyr(vo, ro)
 
-        pdf.pericenter_times = peri_times
-        return pdf
+    def pdf(t):
+        return _pdf_internal(conversion.parse_time(t, ro=ro, vo=vo)) / (
+            time_in_gyr * units.Gyr
+        )
 
-    _pdf_internal.pericenter_times = peri_times
-    return _pdf_internal
+    pdf.pericenter_times = peri_times
+    return pdf
