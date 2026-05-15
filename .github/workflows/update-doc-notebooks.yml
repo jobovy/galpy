@@ -229,7 +229,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          git add doc/source/tutorials
+          # Only stage notebook files. Other paths under doc/source/tutorials
+          # (e.g. the pynbody gasoline_ahf snapshot, Gaia/Dierickx query caches)
+          # are downloaded at runtime and must not end up in the PR.
+          find doc/source/tutorials -name '*.ipynb' -print0 | xargs -0 git add --
           git commit -m "Update documentation notebook outputs (${date_tag})"
           git push --set-upstream origin "$branch"
 

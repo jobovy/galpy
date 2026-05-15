@@ -50,6 +50,9 @@ doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits
 # Dierickx 2010 catalog cached by doc/source/tutorials/orbits/examples.ipynb
 doc/source/tutorials/orbits/dierickx_2010_thick_disk.fits
 
+# pynbody gasoline snapshot downloaded by doc/source/tutorials/potentials/nbody_snapshots.ipynb
+doc/source/tutorials/potentials/gasoline_ahf/
+
 
 # Build directories #
 #####################
