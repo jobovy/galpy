@@ -278,6 +278,29 @@ jobs:
                  - jaxlib/CUDA stderr lines about no GPU
                  - a galpyWarning disappearing because Python's default warnings
                    filter deduplicates a second emission
+                 - Consecutive `stdout` (or `stderr`) stream outputs inside a
+                   single cell merging into one (or splitting into more) when the
+                   concatenated text is byte-identical. This reflects
+                   IPython/papermill capture-buffering changes between runs, not
+                   a real output gain/loss — do NOT treat it as a "cell gained
+                   or lost outputs" event.
+                 - Monte-Carlo variance in printed numbers and scatter-plot point
+                   positions when the cell calls `numpy.random.*`,
+                   `df.sample(...)`, or `qdf.mean*(mc=True)` WITHOUT a preceding
+                   `numpy.random.seed(...)`. Expected run-to-run wobble. Note
+                   only the existence of any unseeded cell in a single bullet
+                   ("N cells still draw unseeded MC: <list>") so a follow-up
+                   can pin them; do not itemize the individual diffs.
+                 - When ONE notebook's Python kernel version differs from the
+                   rest (e.g. siblings all show 3.13.13 but one is still on
+                   3.12.x and just jumped), plot-pixel-dimension shifts and
+                   small layout drift in that outlier are an expected
+                   matplotlib-on-new-interpreter artifact. Note the version
+                   transition once; do not itemize the affected cells.
+                 - Image pairs whose dimensions differ by ≤24 px in one axis
+                   (matplotlib layout autosizing on a different environment).
+                   Compare the overlapping region; only flag as pixel-differing
+                   if the overlap also exceeds the >1% / >2-step rule below.
                  - In `action_angle/staeckel.ipynb` and `action_angle/torus.ipynb`:
                    printed actions/frequencies/angles drifting at the ~1e-5
                    relative level, and corresponding scatter-plot point shifts
