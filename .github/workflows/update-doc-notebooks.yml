@@ -24,6 +24,9 @@ permissions:
   contents: write
   pull-requests: write
   actions: read
+  # Required by anthropics/claude-code-action for the OIDC token exchange
+  # that validates the OAuth-token auth flow.
+  id-token: write
 
 jobs:
   update-notebooks:
