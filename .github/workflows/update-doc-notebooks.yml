@@ -284,6 +284,21 @@ jobs:
                  - jaxlib/CUDA stderr lines about no GPU
                  - a galpyWarning disappearing because Python's default warnings
                    filter deduplicates a second emission
+                 - In `action_angle/staeckel.ipynb` and `action_angle/torus.ipynb`:
+                   printed actions/frequencies/angles drifting at the ~1e-5
+                   relative level, and corresponding scatter-plot point shifts
+                   in those notebooks. The `actionAngleStaeckel` and
+                   `actionAngleTorus` C extensions are not bitwise-reproducible
+                   across CI runners (compiler/libm differences), and we
+                   accept this as routine.
+                 - Coordinated output shifts across cells in
+                   `action_angle/staeckel.ipynb` (Gaia DR3 catalog) or
+                   `orbits/examples.ipynb` (Dierickx 2010 thick-disk catalog)
+                   when the data file itself changed. Those FITS files are
+                   refreshed monthly by the `test-doc-notebooks.yml` workflow,
+                   so a coordinated shift in those notebooks just reflects a
+                   newer snapshot — note it as a one-liner ("Gaia DR3 cache
+                   refreshed this cycle") instead of itemizing every diff.
 
                SUBSTANTIVE — list these:
                  - text output diffs with >1e-6 relative change in printed numbers
