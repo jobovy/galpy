@@ -207,6 +207,19 @@ jobs:
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Apply pre-commit autofixes to changed notebooks
+        # Run repo pre-commit hooks (trailing-whitespace, end-of-file-fixer, ...)
+        # against the freshly re-rendered notebooks so the committed result matches
+        # what `pre-commit` would enforce locally and the CI hook won't fail later.
+        # Autofix-on-find leaves files modified and the hook exits non-zero — that's
+        # expected, so swallow it; the staged content will reflect the fixed files.
+        if: steps.check-changes.outputs.changed == 'true'
+        run: |
+          pip install --quiet pre-commit
+          git diff --name-only -- doc/source/tutorials \
+            | grep -E '\.ipynb$' \
+            | xargs --no-run-if-empty pre-commit run --files \
+            || true
       - name: Upload updated notebooks as artifact (dry run)
         if: >-
           steps.check-changes.outputs.changed == 'true' &&
@@ -216,6 +229,108 @@ jobs:
         with:
           name: updated-doc-notebooks
           path: doc/source/tutorials/**/*.ipynb
+      - name: Claude diff analysis
+        # Have Claude summarize the re-render diff so the PR body tells the
+        # reviewer at a glance whether anything substantive changed. Output is
+        # written to /tmp/nb_analysis.md by Claude and merged into the PR body
+        # in the next step. Failure is non-fatal — we fall back to the generic
+        # blurb if Claude can't run (missing key, API error, ...).
+        id: claude-analysis
+        if: steps.check-changes.outputs.changed == 'true'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --model sonnet
+            --allowed-tools "Bash,Read,Write"
+            --max-turns 40
+          prompt: |
+            You are reviewing an automated re-render of galpy's tutorial notebooks
+            against the upstream `main` branch. The current working tree contains
+            the new outputs; `HEAD` is the unchanged main. All edits live under
+            `doc/source/tutorials/**/*.ipynb`.
+
+            **Deliverable**: write `/tmp/nb_analysis.md` — a brief markdown summary
+            that will be appended verbatim to the PR body so reviewers can decide
+            at a glance whether the rerun is routine noise or needs attention.
+
+            ## Method
+
+            1. `pip install --quiet Pillow numpy` so PIL/numpy are available for
+               decoding embedded images.
+
+            2. List changed notebooks:
+               `git diff --name-only HEAD -- 'doc/source/tutorials/**/*.ipynb'`.
+
+            3. For each one, verify cell SOURCE is unchanged (only outputs should
+               differ). Compare:
+                   diff <(git show "HEAD:$f" | jq -r '.cells[] | (.source|join(""))') \
+                        <(jq -r '.cells[] | (.source|join(""))' "$f")
+               Loudly flag any source change — that would be unexpected and
+               worth investigating.
+
+            4. Classify remaining diffs.
+
+               NOISE — ignore, do NOT list individually:
+                 - papermill timestamps, durations, execution_counts
+                 - memory addresses inside `<...object at 0x...>` repr strings
+                 - Python kernel version metadata bumps
+                 - papermill `input_path`/`output_path` switching between absolute
+                   and relative paths
+                 - image base64 bytes that decode to visually-identical pixels
+                 - ≤1e-9 relative floating-point roundoff in printed numbers
+                 - cache-hit prints like `"Loaded N stars from local cache: …"`
+                 - jaxlib/CUDA stderr lines about no GPU
+                 - a galpyWarning disappearing because Python's default warnings
+                   filter deduplicates a second emission
+
+               SUBSTANTIVE — list these:
+                 - text output diffs with >1e-6 relative change in printed numbers
+                 - image diffs where >1% of pixels differ by >2 channel steps
+                   after PIL decode (treat ≤2-step diffs as compression noise)
+                 - cells that gained or lost outputs (excluding the
+                   warning-dedup case above)
+                 - any cell-source change at all
+
+            5. For images: extract each `image/png` from both versions via jq +
+               base64, decode with PIL, convert to numpy array, compare.
+
+            ## Output format
+
+            Write to `/tmp/nb_analysis.md`, structured exactly like this — keep the
+            top half under 250 words; everything else goes inside `<details>`:
+
+            ```markdown
+            ### Re-run diff summary
+
+            **Verdict**: <one short sentence — e.g. "no substantive changes" or
+            "N concerns flagged below">
+
+            <if there are concerns, include this table; otherwise omit it>
+
+            | Notebook | Cell | Change | Likely cause |
+            |---|---|---|---|
+            | … | … | … | … |
+
+            <details><summary>Image comparison (X image pairs)</summary>
+
+            - Byte-identical: …
+            - Visually identical (sub-perceptual): …
+            - Pixel-differing (>1%): … (list notebook + %)
+
+            </details>
+
+            <details><summary>Text output diffs (filtered)</summary>
+
+            <bullet list of substantive text diffs, or "none beyond floating-point
+            roundoff and unseeded MC samples (if any cells remain unseeded)">
+
+            </details>
+            ```
+
+            Be concise. Do not narrate steps in the output — the reader wants
+            findings, not your process.
       - name: Open pull request with updated notebooks
         if: >-
           steps.check-changes.outputs.changed == 'true' &&
@@ -262,8 +377,17 @@ jobs:
             : > pr_body.md
           fi
           {
-            echo "Automated re-execution of the tutorial notebooks under \`doc/source/tutorials/\` against the current \`main\` branch, produced by the \`Update documentation notebooks\` workflow ([run \`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) on ${date_tag}. Review the rendered diffs before merging."
+            echo "Automated re-execution of the tutorial notebooks under \`doc/source/tutorials/\` against the current \`main\` branch, produced by the \`Update documentation notebooks\` workflow ([run \`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})) on ${date_tag}."
+            echo ""
           } >> pr_body.md
+
+          # Append the Claude-generated diff analysis (if the analysis step
+          # produced one — non-fatal if Claude failed or wasn't configured).
+          if [ -s /tmp/nb_analysis.md ]; then
+            cat /tmp/nb_analysis.md >> pr_body.md
+          else
+            echo "_Diff analysis not available — review the rendered notebook diffs manually._" >> pr_body.md
+          fi
 
           gh pr create \
             --base main \
