@@ -220,21 +220,12 @@ jobs:
             | grep -E '\.ipynb$' \
             | xargs --no-run-if-empty pre-commit run --files \
             || true
-      - name: Upload updated notebooks as artifact (dry run)
-        if: >-
-          steps.check-changes.outputs.changed == 'true' &&
-          (github.event_name == 'pull_request' ||
-           (github.event_name == 'workflow_dispatch' && inputs.dry_run))
-        uses: actions/upload-artifact@v7
-        with:
-          name: updated-doc-notebooks
-          path: doc/source/tutorials/**/*.ipynb
       - name: Claude diff analysis
-        # Have Claude summarize the re-render diff so the PR body tells the
-        # reviewer at a glance whether anything substantive changed. Output is
-        # written to /tmp/nb_analysis.md by Claude and merged into the PR body
-        # in the next step. Failure is non-fatal — we fall back to the generic
-        # blurb if Claude can't run (missing key, API error, ...).
+        # Have Claude summarize the re-render diff so the PR body (and
+        # the dry-run artifact / Actions step summary) tell the reviewer
+        # at a glance whether anything substantive changed. Output is
+        # written to /tmp/nb_analysis.md. Failure is non-fatal — we fall
+        # back to a clear warning in the PR body and on the step summary.
         id: claude-analysis
         if: steps.check-changes.outputs.changed == 'true'
         continue-on-error: true
@@ -346,6 +337,54 @@ jobs:
 
             Be concise. Do not narrate steps in the output — the reader wants
             findings, not your process.
+      - name: Surface diff analysis to Actions step summary
+        # Visible in the GitHub Actions UI for any run (dry-run or scheduled),
+        # so dry-runs — which don't open a PR — still expose what Claude
+        # found. On real runs the same content is also merged into the PR
+        # body below.
+        if: steps.check-changes.outputs.changed == 'true'
+        run: |
+          if [ -s /tmp/nb_analysis.md ]; then
+            cat /tmp/nb_analysis.md >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.claude-analysis.outcome }}" = "failure" ]; then
+            {
+              echo "## :warning: Claude diff analysis failed"
+              echo ""
+              echo "Most likely the \`CLAUDE_CODE_OAUTH_TOKEN\` repository secret has expired or been revoked."
+              echo "Regenerate it locally with \`claude setup-token\` and update the secret at"
+              echo "[Settings → Secrets and variables → Actions](${{ github.server_url }}/${{ github.repository }}/settings/secrets/actions)."
+              echo ""
+              echo "See the \`Claude diff analysis\` step log above for the exact error."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_Diff analysis was skipped (no relevant changes)._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Stage analysis file for dry-run artifact
+        # Copy /tmp/nb_analysis.md into the workspace so the next step can
+        # include it without absolute-path warnings from upload-artifact.
+        if: >-
+          steps.check-changes.outputs.changed == 'true' &&
+          (github.event_name == 'pull_request' ||
+           (github.event_name == 'workflow_dispatch' && inputs.dry_run))
+        run: |
+          mkdir -p artifact-staging
+          if [ -s /tmp/nb_analysis.md ]; then
+            cp /tmp/nb_analysis.md artifact-staging/nb_analysis.md
+          fi
+      - name: Upload updated notebooks as artifact (dry run)
+        # Bundles the re-rendered notebooks and (if produced) Claude's diff
+        # analysis so a dry-run reviewer can download both.
+        if: >-
+          steps.check-changes.outputs.changed == 'true' &&
+          (github.event_name == 'pull_request' ||
+           (github.event_name == 'workflow_dispatch' && inputs.dry_run))
+        uses: actions/upload-artifact@v7
+        with:
+          name: updated-doc-notebooks
+          path: |
+            doc/source/tutorials/**/*.ipynb
+            artifact-staging/nb_analysis.md
+          if-no-files-found: warn
       - name: Open pull request with updated notebooks
         if: >-
           steps.check-changes.outputs.changed == 'true' &&
@@ -396,12 +435,21 @@ jobs:
             echo ""
           } >> pr_body.md
 
-          # Append the Claude-generated diff analysis (if the analysis step
-          # produced one — non-fatal if Claude failed or wasn't configured).
+          # Append the Claude-generated diff analysis. If the analysis step
+          # failed (most commonly: expired CLAUDE_CODE_OAUTH_TOKEN), surface a
+          # clear warning + remediation instead of a generic fallback so the
+          # next person to look at the PR knows exactly what to do.
           if [ -s /tmp/nb_analysis.md ]; then
             cat /tmp/nb_analysis.md >> pr_body.md
+          elif [ "${{ steps.claude-analysis.outcome }}" = "failure" ]; then
+            {
+              echo "> [!WARNING]"
+              echo "> **Diff analysis step failed.** Most likely the \`CLAUDE_CODE_OAUTH_TOKEN\` repository secret has expired or been revoked. Regenerate it locally with \`claude setup-token\` and update it at [Settings → Secrets and variables → Actions](${{ github.server_url }}/${{ github.repository }}/settings/secrets/actions). See the [\`Claude diff analysis\` step log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for the exact error."
+              echo ""
+              echo "_Review the rendered notebook diffs manually for this rerun._"
+            } >> pr_body.md
           else
-            echo "_Diff analysis not available — review the rendered notebook diffs manually._" >> pr_body.md
+            echo "_Diff analysis was skipped — review the rendered notebook diffs manually._" >> pr_body.md
           fi
 
           gh pr create \
