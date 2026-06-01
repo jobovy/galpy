@@ -9,6 +9,9 @@ extern "C" {
 #include <galpy_potentials.h>
 typedef void (*orbint_callback_type)(); // Callback function
 void parse_leapFuncArgs_Full(int, struct potentialArg *,int **,double **,tfuncs_type_arr *);
+// Builds the on-the-fly 1D splines for a NonInertialFrameForce with cinterp=True
+// (pot_type 45); shared by the full and planar parsers (identical 2D/3D layout).
+void initNonInertialFrameForceSplines(struct potentialArg *, double ** pot_args);
 #ifdef _WIN32
 // On Windows, *need* to define this function to allow the package to be imported
 #if PY_MAJOR_VERSION >= 3

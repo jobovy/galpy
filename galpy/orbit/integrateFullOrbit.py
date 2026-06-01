@@ -22,6 +22,7 @@ from .integratePlanarOrbit import (
     _parse_disk_approx_pairs,
     _parse_integrator,
     _parse_multipole_expansion_pot,
+    _parse_noninertial_frame_force,
     _parse_scf_pot,
     _parse_tol,
     _prep_tfuncs,
@@ -33,8 +34,13 @@ if _TQDM_LOADED:
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 
-def _parse_pot(pot, potforactions=False, potfortorus=False):
-    """Parse the potential so it can be fed to C"""
+def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
+    """Parse the potential so it can be fed to C
+
+    ``t`` is the integration time array (when available), used to build
+    on-the-fly C spline interpolations for a NonInertialFrameForce with
+    ``cinterp=True`` (see _parse_noninertial_frame_force).
+    """
     # Remove NullPotentials from the potential (iterate directly without casting to list first)
     purged_pot = [p for p in pot if not isinstance(p, potential.NullPotential)]
     # Use purged_pot if it's not empty, otherwise use original
@@ -335,53 +341,12 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         # 37: TriaxialGaussianPotential, done with others above
         # 38: PowerTriaxialPotential, done with others above
         elif isinstance(p, potential.NonInertialFrameForce):
-            pot_type.append(39)
-            pot_args.append(p._amp)
-            pot_args.extend(
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            )  # for caching
-            pot_args.extend(
-                [
-                    p._rot_acc,
-                    p._lin_acc,
-                    p._omegaz_only,
-                    p._const_freq,
-                    p._Omega_as_func,
-                ]
-            )
-            if p._Omega_as_func:
-                pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            else:
-                if p._omegaz_only:
-                    pot_args.extend([0.0, 0.0, p._Omega])
-                else:
-                    pot_args.extend(p._Omega)
-                pot_args.append(p._Omega2)
-                if not p._const_freq and p._omegaz_only:
-                    pot_args.extend([0.0, 0.0, p._Omegadot])
-                elif not p._const_freq:
-                    pot_args.extend(p._Omegadot)
-                else:
-                    pot_args.extend([0.0, 0.0, 0.0])
-            if p._lin_acc:
-                pot_tfuncs.extend([p._a0[0], p._a0[1], p._a0[2]])
-                if p._rot_acc:
-                    pot_tfuncs.extend([p._x0[0], p._x0[1], p._x0[2]])
-                    pot_tfuncs.extend([p._v0[0], p._v0[1], p._v0[2]])
-            if p._Omega_as_func:
-                if p._omegaz_only:
-                    pot_tfuncs.extend([p._Omega, p._Omegadot])
-                else:
-                    pot_tfuncs.extend(
-                        [
-                            p._Omega[0],
-                            p._Omega[1],
-                            p._Omega[2],
-                            p._Omegadot[0],
-                            p._Omegadot[1],
-                            p._Omegadot[2],
-                        ]
-                    )
+            # pot_type 39 (functions called from C) or 45 (on-the-fly C spline
+            # interpolation when cinterp=True); see _parse_noninertial_frame_force.
+            _code, _nip_args, _nip_tfuncs = _parse_noninertial_frame_force(p, t)
+            pot_type.append(_code)
+            pot_args.extend(_nip_args)
+            pot_tfuncs.extend(_nip_tfuncs)
         elif isinstance(p, potential.NullPotential):
             pot_type.append(40)
         elif isinstance(p, potential.EinastoPotential):
@@ -395,7 +360,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         elif isinstance(p, potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -406,7 +371,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-2)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -417,7 +382,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-3)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -428,7 +393,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-4)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -438,7 +403,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         elif isinstance(p, potential.GaussianAmplitudeWrapperPotential):
             pot_type.append(-5)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -448,7 +413,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         elif isinstance(p, potential.MovingObjectPotential):
             pot_type.append(-6)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -470,7 +435,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_args.append(1)
             pot_type.append(-7)  # Wrapping as ChandrasekharDynamicalFrictionForce
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._dens_pot, potforactions=potforactions, potfortorus=potfortorus
+                p._dens_pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -519,7 +484,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         ):  # not isinstance(p, potential.FDMDynamicalFrictionForce):
             pot_type.append(-7)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._dens_pot, potforactions=potforactions, potfortorus=potfortorus
+                p._dens_pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -546,7 +511,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-8)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -564,7 +529,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-9)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -576,7 +541,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-10)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -587,7 +552,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-12)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -646,7 +611,7 @@ def integrateFullOrbit_c(
     yo = numpy.atleast_2d(yo)
     nobj = len(yo)
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:
@@ -772,7 +737,7 @@ def integrateFullOrbit_dxdv_c(
     - 2011-11-13 - Written - Bovy (IAS)
     """
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     yo = numpy.concatenate((yo, dyo))

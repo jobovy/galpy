@@ -5,6 +5,24 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.12
++++++
+
+Version 1.12 contains new features, bug fixes, and incremental improvements.
+Key improvements include:
+
+* A ``cinterp`` option (on by default) for the :ref:`NonInertialFrameForce
+  <noninertialframe_potential>` that builds cubic-spline interpolations of the
+  time-dependent frame inputs (the origin's acceleration, position, and
+  velocity, and the rotation frequency) on the fly and evaluates them natively
+  in C during orbit integration, rather than calling the provided Python
+  functions from C at every step. This gives large speed-ups -- often more than
+  100x when the inputs wrap galpy force evaluations, as in the LMC
+  barycentric-acceleration example in the orbit tutorial -- and removes the need
+  to manually pre-interpolate the inputs. Set ``cinterp=False`` to recover the
+  previous behavior of evaluating the provided functions directly.
+
+
 v1.11
 +++++
 

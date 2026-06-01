@@ -1,6 +1,23 @@
 v1.12.0 (expected around 2026-07-01)
 ====================
 
+- Added a ``cinterp`` option (default ``True``) to ``NonInertialFrameForce``
+  that, during C orbit integration, replaces the time-dependent inputs (the
+  acceleration ``a0``, position ``x0``, and velocity ``v0`` of the origin and
+  the rotation frequency ``Omega``) by cubic-spline interpolations built on the
+  fly over the integration's time range and evaluated natively in C, rather than
+  calling the provided Python functions from C at every integration step. This
+  gives large speed-ups -- typically >10x, and >100x when the provided functions
+  are not ``numba``-compatible (e.g. when they wrap galpy force evaluations, as
+  in the LMC barycentric-acceleration tutorial example) -- and removes the need
+  to manually pre-interpolate the inputs. The interpolation resolution is set by
+  the new ``cinterp_n`` keyword (default 10000), and the rotation-frequency
+  derivative ``Omegadot`` is obtained as the spline derivative of ``Omega`` for
+  consistency. ``cinterp`` only affects the C integration path (the Python path
+  always uses the exact functions); set ``cinterp=False`` to evaluate the
+  provided functions directly, which is required for surface-of-section
+  integration (where the integration time range is not known in advance).
+
 - Added ``tail=`` keyword to ``fardal15spraydf`` and ``chen24spraydf`` (and
   ``basestreamspraydf``) to select which tidal tail(s) to model: ``'leading'``,
   ``'trailing'``, or ``'both'`` (default). This replaces the ``leading=``

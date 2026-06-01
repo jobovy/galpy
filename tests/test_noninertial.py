@@ -14,7 +14,7 @@ def test_lsrframe_scalaromegaz():
     omega = lp.omegac(1.0)
     dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
     diskpot = lp + dp
-    framepot = potential.NonInertialFrameForce(Omega=omega)
+    framepot = potential.NonInertialFrameForce(cinterp=False, Omega=omega)
     dp_frame = potential.DehnenBarPotential(omegab=1.8 - omega, rb=0.5, Af=0.03)
     diskframepot = lp + dp_frame + framepot
 
@@ -52,7 +52,7 @@ def test_lsrframe_scalaromegaz_2d():
     omega = lp.omegac(1.0)
     dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
     diskpot = lp + dp
-    framepot = potential.NonInertialFrameForce(Omega=omega)
+    framepot = potential.NonInertialFrameForce(cinterp=False, Omega=omega)
     dp_frame = potential.DehnenBarPotential(omegab=1.8 - omega, rb=0.5, Af=0.03)
     diskframepot = lp + dp_frame + framepot
 
@@ -90,7 +90,9 @@ def test_lsrframe_vecomegaz():
     omega = lp.omegac(1.0)
     dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
     diskpot = lp + dp
-    framepot = potential.NonInertialFrameForce(Omega=numpy.array([0.0, 0.0, omega]))
+    framepot = potential.NonInertialFrameForce(
+        cinterp=False, Omega=numpy.array([0.0, 0.0, omega])
+    )
     dp_frame = potential.DehnenBarPotential(omegab=1.8 - omega, rb=0.5, Af=0.03)
     diskframepot = lp + dp_frame + framepot
 
@@ -128,7 +130,9 @@ def test_lsrframe_vecomegaz_2d():
     omega = lp.omegac(1.0)
     dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
     diskpot = lp + dp
-    framepot = potential.NonInertialFrameForce(Omega=numpy.array([0.0, 0.0, omega]))
+    framepot = potential.NonInertialFrameForce(
+        cinterp=False, Omega=numpy.array([0.0, 0.0, omega])
+    )
     dp_frame = potential.DehnenBarPotential(omegab=1.8 - omega, rb=0.5, Af=0.03)
     diskframepot = lp + dp_frame + framepot
 
@@ -166,7 +170,9 @@ def test_accellsrframe_scalaromegaz():
     omega = lp.omegac(1.0)
     omegadot = 0.02
     diskpot = lp
-    framepot = potential.NonInertialFrameForce(Omega=omega, Omegadot=omegadot)
+    framepot = potential.NonInertialFrameForce(
+        cinterp=False, Omega=omega, Omegadot=omegadot
+    )
     diskframepot = lp + framepot
 
     # Now integrate the orbit of the Sun in both the inertial and the lsr frame
@@ -203,7 +209,9 @@ def test_accellsrframe_scalaromegaz_2d():
     omega = lp.omegac(1.0)
     omegadot = 0.02
     diskpot = lp
-    framepot = potential.NonInertialFrameForce(Omega=omega, Omegadot=omegadot)
+    framepot = potential.NonInertialFrameForce(
+        cinterp=False, Omega=omega, Omegadot=omegadot
+    )
     diskframepot = lp + framepot
 
     # Now integrate the orbit of the Sun in both the inertial and the lsr frame
@@ -241,7 +249,9 @@ def test_accellsrframe_vecomegaz():
     omegadot = 0.02
     diskpot = lp
     framepot = potential.NonInertialFrameForce(
-        Omega=numpy.array([0.0, 0.0, omega]), Omegadot=numpy.array([0.0, 0.0, omegadot])
+        cinterp=False,
+        Omega=numpy.array([0.0, 0.0, omega]),
+        Omegadot=numpy.array([0.0, 0.0, omegadot]),
     )
     diskframepot = lp + framepot
 
@@ -280,7 +290,9 @@ def test_accellsrframe_vecomegaz_2d():
     omegadot = 0.02
     diskpot = lp
     framepot = potential.NonInertialFrameForce(
-        Omega=numpy.array([0.0, 0.0, omega]), Omegadot=numpy.array([0.0, 0.0, omegadot])
+        cinterp=False,
+        Omega=numpy.array([0.0, 0.0, omega]),
+        Omegadot=numpy.array([0.0, 0.0, omegadot]),
     )
     diskframepot = lp + framepot
 
@@ -320,7 +332,9 @@ def test_accellsrframe_funcomegaz():
     omega_func = lambda t: lp.omegac(1.0) + 0.02 * t
     omegadot_func = lambda t: 0.02
     diskpot = lp
-    framepot = potential.NonInertialFrameForce(Omega=omega_func, Omegadot=omegadot_func)
+    framepot = potential.NonInertialFrameForce(
+        cinterp=False, Omega=omega_func, Omegadot=omegadot_func
+    )
     diskframepot = lp + framepot
 
     # Now integrate the orbit of the Sun in both the inertial and the lsr frame
@@ -359,7 +373,9 @@ def test_accellsrframe_funcomegaz_2d():
     omega_func = lambda t: lp.omegac(1.0) + 0.02 * t
     omegadot_func = lambda t: 0.02
     diskpot = lp
-    framepot = potential.NonInertialFrameForce(Omega=omega_func, Omegadot=omegadot_func)
+    framepot = potential.NonInertialFrameForce(
+        cinterp=False, Omega=omega_func, Omegadot=omegadot_func
+    )
     diskframepot = lp + framepot
 
     # Now integrate the orbit of the Sun in both the inertial and the lsr frame
@@ -398,7 +414,9 @@ def test_accellsrframe_vecfuncomegaz():
     omega_func = [lambda t: 0.0, lambda t: 0.0, lambda t: lp.omegac(1.0) + 0.02 * t]
     omegadot_func = [lambda t: 0.0, lambda t: 0.0, lambda t: 0.02]
     diskpot = lp
-    framepot = potential.NonInertialFrameForce(Omega=omega_func, Omegadot=omegadot_func)
+    framepot = potential.NonInertialFrameForce(
+        cinterp=False, Omega=omega_func, Omegadot=omegadot_func
+    )
     diskframepot = lp + framepot
 
     # Now integrate the orbit of the Sun in both the inertial and the lsr frame
@@ -437,7 +455,9 @@ def test_accellsrframe_vecfuncomegaz_2D():
     omega_func = [lambda t: 0.0, lambda t: 0.0, lambda t: lp.omegac(1.0) + 0.02 * t]
     omegadot_func = [lambda t: 0.0, lambda t: 0.0, lambda t: 0.02]
     diskpot = lp
-    framepot = potential.NonInertialFrameForce(Omega=omega_func, Omegadot=omegadot_func)
+    framepot = potential.NonInertialFrameForce(
+        cinterp=False, Omega=omega_func, Omegadot=omegadot_func
+    )
     diskframepot = lp + framepot
 
     # Now integrate the orbit of the Sun in both the inertial and the lsr frame
@@ -506,7 +526,7 @@ def test_arbitraryaxisrotation_nullpotential():
             ts,
             RotatingPotentialWrapperPotential(pot=np, rot=rot, omega=omega)
             + potential.NonInertialFrameForce(
-                Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
+                cinterp=False, Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
             ),
             method=method,
         )
@@ -608,7 +628,7 @@ def test_arbitraryaxisrotation():
             ts,
             RotatingPotentialWrapperPotential(pot=diskpot, rot=rot, omega=omega)
             + potential.NonInertialFrameForce(
-                Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
+                cinterp=False, Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
             ),
             method=method,
         )
@@ -715,6 +735,7 @@ def test_arbitraryaxisrotation_omegadot_nullpotential():
                 pot=np, rot=rot, omega=omega, omegadot=omegadot
             )
             + potential.NonInertialFrameForce(
+                cinterp=False,
                 Omega=numpy.array(derive_noninert_omega(omega, rot=rot)),
                 Omegadot=numpy.array(derive_noninert_omega(omega, rot=rot))
                 * omegadot
@@ -835,6 +856,7 @@ def test_arbitraryaxisrotation_omegadot():
                 pot=diskpot, rot=rot, omega=omega, omegadot=omegadot
             )
             + potential.NonInertialFrameForce(
+                cinterp=False,
                 Omega=numpy.array(derive_noninert_omega(omega, rot=rot)),
                 Omegadot=numpy.array(derive_noninert_omega(omega, rot=rot))
                 * omegadot
@@ -959,6 +981,7 @@ def test_arbitraryaxisrotation_omegafunc_nullpotential():
                 pot=np, rot=rot, omega=omega, omegadot=omegadot, omegadotdot=omegadotdot
             )
             + potential.NonInertialFrameForce(
+                cinterp=False,
                 Omega=[
                     lambda t: (
                         Omega[0] + Omegadot[0] * t + Omegadotdot[0] * t**2.0 / 2.0
@@ -1105,6 +1128,7 @@ def test_arbitraryaxisrotation_omegafunc():
                 omegadotdot=omegadotdot,
             )
             + potential.NonInertialFrameForce(
+                cinterp=False,
                 Omega=[
                     lambda t: (
                         Omega[0] + Omegadot[0] * t + Omegadotdot[0] * t**2.0 / 2.0
@@ -1204,7 +1228,7 @@ def test_linacc_constantacc_z():
     intaz = lambda t: (
         0.02 * t**2.0 / 2.0 * (special.erf(t) + 2.0) / (special.erf(t) + 2.0)
     )
-    framepot = potential.NonInertialFrameForce(a0=[0.0, 0.0, az])
+    framepot = potential.NonInertialFrameForce(cinterp=False, a0=[0.0, 0.0, az])
     diskframepot = (
         AcceleratingPotentialWrapperPotential(
             pot=diskpot, x0=[lambda t: 0.0, lambda t: 0.0, intaz]
@@ -1254,7 +1278,7 @@ def test_linacc_constantacc_x_2d():
     diskpot = lp + dp
     ax = 0.02
     intax = lambda t: ax * t**2.0 / 2.0
-    framepot = potential.NonInertialFrameForce(a0=[ax, 0.0, 0.0])
+    framepot = potential.NonInertialFrameForce(cinterp=False, a0=[ax, 0.0, 0.0])
     diskframepot = (
         AcceleratingPotentialWrapperPotential(
             pot=diskpot, x0=[intax, lambda t: 0.0, lambda t: 0.0]
@@ -1303,7 +1327,7 @@ def test_linacc_constantacc_xyz():
         lambda t: 0.04 * t**2.0 / 2.0,
         lambda t: 0.02 * t**2.0 / 2.0,
     ]
-    framepot = potential.NonInertialFrameForce(a0=[ax, ay, az])
+    framepot = potential.NonInertialFrameForce(cinterp=False, a0=[ax, ay, az])
     diskframepot = (
         AcceleratingPotentialWrapperPotential(pot=diskpot, x0=inta) + framepot
     )
@@ -1350,7 +1374,9 @@ def test_linacc_changingacc_z():
     diskpot = lp + dp
     az = lambda t: 0.02 + 0.03 * t / 20.0
     intaz = lambda t: 0.02 * t**2.0 / 2.0 + 0.03 * t**3.0 / 6.0 / 20.0
-    framepot = potential.NonInertialFrameForce(a0=[lambda t: 0.0, lambda t: 0.0, az])
+    framepot = potential.NonInertialFrameForce(
+        cinterp=False, a0=[lambda t: 0.0, lambda t: 0.0, az]
+    )
     diskframepot = (
         AcceleratingPotentialWrapperPotential(
             pot=diskpot, x0=[lambda t: 0.0, lambda t: 0.0, intaz]
@@ -1408,7 +1434,7 @@ def test_linacc_changingacc_xyz():
         lambda t: 0.04 * t**2.0 / 2.0 + 0.08 * t**3.0 / 6.0 / 20.0,
         lambda t: 0.02 * t**2.0 / 2.0 + 0.03 * t**3.0 / 6.0 / 20.0,
     ]
-    framepot = potential.NonInertialFrameForce(a0=[ax, ay, az])
+    framepot = potential.NonInertialFrameForce(cinterp=False, a0=[ax, ay, az])
     diskframepot = (
         AcceleratingPotentialWrapperPotential(pot=diskpot, x0=inta) + framepot
     )
@@ -1472,7 +1498,7 @@ def test_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
     omega = lp.omegac(1.0)
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
-        x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
+        cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
     )
     diskframepot = (
         AcceleratingPotentialWrapperPotential(
@@ -1568,6 +1594,7 @@ def test_linacc_changingacc_xyz_accellsrframe_vecomegaz():
     omega = lp.omegac(1.0)
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
+        cinterp=False,
         x0=x0,
         v0=v0,
         a0=a0,
@@ -1671,7 +1698,7 @@ def test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz():
     omega_func = lambda t: omega + omegadot * t + omegadotdot * t**2.0 / 2.0
     omegadot_func = lambda t: omegadot + omegadotdot * t
     framepot = potential.NonInertialFrameForce(
-        x0=x0, v0=v0, a0=a0, Omega=omega_func, Omegadot=omegadot_func
+        cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega_func, Omegadot=omegadot_func
     )
     diskframepot = (
         AcceleratingPotentialWrapperPotential(
@@ -1778,7 +1805,7 @@ def test_linacc_changingacc_xyz_accellsrframe_funcomegaz():
     ]
     omegadot_func = [lambda t: 0.0, lambda t: 0.0, lambda t: omegadot + omegadotdot * t]
     framepot = potential.NonInertialFrameForce(
-        x0=x0, v0=v0, a0=a0, Omega=omega_func, Omegadot=omegadot_func
+        cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega_func, Omegadot=omegadot_func
     )
     diskframepot = (
         AcceleratingPotentialWrapperPotential(
@@ -1879,7 +1906,7 @@ def test_python_vs_c_arbitraryaxisrotation():
             ts,
             diskpot
             + potential.NonInertialFrameForce(
-                Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
+                cinterp=False, Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
             ),
             method=py_method,
         )
@@ -1889,7 +1916,7 @@ def test_python_vs_c_arbitraryaxisrotation():
             ts,
             diskpot
             + potential.NonInertialFrameForce(
-                Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
+                cinterp=False, Omega=numpy.array(derive_noninert_omega(omega, rot=rot))
             ),
             method=c_method,
         )
@@ -1944,6 +1971,7 @@ def test_python_vs_c_arbitraryaxisrotation_omegadot():
             ts,
             diskpot
             + potential.NonInertialFrameForce(
+                cinterp=False,
                 Omega=numpy.array(derive_noninert_omega(omega, rot=rot)),
                 Omegadot=numpy.array(derive_noninert_omega(omega, rot=rot))
                 * omegadot
@@ -1957,6 +1985,7 @@ def test_python_vs_c_arbitraryaxisrotation_omegadot():
             ts,
             diskpot
             + potential.NonInertialFrameForce(
+                cinterp=False,
                 Omega=numpy.array(derive_noninert_omega(omega, rot=rot)),
                 Omegadot=numpy.array(derive_noninert_omega(omega, rot=rot))
                 * omegadot
@@ -2022,6 +2051,7 @@ def test_python_vs_c_arbitraryaxisrotation_funcomega():
             ts,
             diskpot
             + potential.NonInertialFrameForce(
+                cinterp=False,
                 Omega=[
                     lambda t: (
                         Omega[0] + Omegadot[0] * t + Omegadotdot[0] * t**2.0 / 2.0
@@ -2047,6 +2077,7 @@ def test_python_vs_c_arbitraryaxisrotation_funcomega():
             ts,
             diskpot
             + potential.NonInertialFrameForce(
+                cinterp=False,
                 Omega=[
                     lambda t: (
                         Omega[0] + Omegadot[0] * t + Omegadotdot[0] * t**2.0 / 2.0
@@ -2107,7 +2138,7 @@ def test_python_vs_c_linacc_changingacc_xyz():
         lambda t: 0.04 * t**2.0 / 2.0 + 0.08 * t**3.0 / 6.0 / 20.0,
         lambda t: 0.02 * t**2.0 / 2.0 + 0.03 * t**3.0 / 6.0 / 20.0,
     ]
-    framepot = potential.NonInertialFrameForce(a0=[ax, ay, az])
+    framepot = potential.NonInertialFrameForce(cinterp=False, a0=[ax, ay, az])
 
     def check_orbit(py_method="dop853", c_method="dop853_c", tol=1e-9):
         o = Orbit()
@@ -2167,7 +2198,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
     omega = lp.omegac(1.0)
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
-        x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
+        cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
     )
 
     def check_orbit(py_method="dop853", c_method="dop853_c", tol=1e-9):
@@ -2228,7 +2259,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz_2d():
     omega = lp.omegac(1.0)
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
-        x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
+        cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
     )
 
     def check_orbit(py_method="dop853", c_method="dop853_c", tol=1e-8):
@@ -2283,6 +2314,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz():
     omega = lp.omegac(1.0)
     omegadot = 0.02
     framepot = potential.NonInertialFrameForce(
+        cinterp=False,
         x0=x0,
         v0=v0,
         a0=a0,
@@ -2351,7 +2383,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz():
     omega_func = lambda t: omega + omegadot * t + omegadotdot * t**2.0 / 2.0
     omegadot_func = lambda t: omegadot + omegadotdot * t
     framepot = potential.NonInertialFrameForce(
-        x0=x0, v0=v0, a0=a0, Omega=omega_func, Omegadot=omegadot_func
+        cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega_func, Omegadot=omegadot_func
     )
 
     def check_orbit(py_method="dop853", c_method="dop853_c", tol=1e-8):
@@ -2419,7 +2451,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz():
     ]
     omegadot_func = [lambda t: 0.0, lambda t: 0.0, lambda t: omegadot + omegadotdot * t]
     framepot = potential.NonInertialFrameForce(
-        x0=x0, v0=v0, a0=a0, Omega=omega_func, Omegadot=omegadot_func
+        cinterp=False, x0=x0, v0=v0, a0=a0, Omega=omega_func, Omegadot=omegadot_func
     )
 
     def check_orbit(py_method="dop853", c_method="dop853_c", tol=1e-8):
@@ -2746,3 +2778,417 @@ class RotatingPotentialWrapperPotential(parentWrapperPotential):
             ]
         )
         return numpy.dot(inv_rot, numpy.array([xforcep, yforcep, zforcep]))
+
+
+# ----------------------------------------------------------------------------
+# Tests of the cinterp=True option: on-the-fly C cubic-spline interpolation of
+# the time-dependent inputs (a0, x0, v0, Omega) over the integration time
+# range, with Omegadot obtained as the spline derivative of Omega (C pot_type
+# 45). These check agreement with the exact cinterp=False tfunc integration
+# (pot_type 39) and exercise the 2D/3D, Omegadot-derivative, multi-orbit,
+# wrapper, SOS, and constant-input code paths.
+# ----------------------------------------------------------------------------
+
+
+def _cinterp_TvsF_maxdiff(pot_builder, ic, ts, fns, method="dop853_c"):
+    # Integrate the same setup with cinterp False and True and return the max
+    # absolute difference in the requested coordinate functions. The only
+    # difference between the two is how the time-dependent inputs are evaluated
+    # in C (spline vs function callback), so the difference is the interpolation
+    # error.
+    o_false = Orbit(ic)
+    o_false.turn_physical_off()
+    o_false.integrate(ts, pot_builder(False), method=method)
+    o_true = Orbit(ic)
+    o_true.turn_physical_off()
+    o_true.integrate(ts, pot_builder(True), method=method)
+    return max(
+        numpy.amax(numpy.fabs(getattr(o_false, f)(ts) - getattr(o_true, f)(ts)))
+        for f in fns
+    )
+
+
+def test_cinterp_func_a0_3d():
+    # cinterp=True agrees with cinterp=False for a 3D smooth function a0
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    a0 = [
+        lambda t: 0.02 * numpy.cos(0.7 * t),
+        lambda t: 0.015 * numpy.sin(0.5 * t),
+        lambda t: 0.01 * numpy.cos(0.3 * t),
+    ]
+    pot_builder = lambda cinterp: (
+        lp + potential.NonInertialFrameForce(a0=a0, cinterp=cinterp)
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "z", "vx", "vy", "vz"])
+    assert md < 1e-8, (
+        f"cinterp=True does not agree with cinterp=False for a 3D function a0 (max diff {md})"
+    )
+    return None
+
+
+def test_cinterp_func_a0_2d():
+    # cinterp=True agrees with cinterp=False for a 2D (planar) smooth function a0
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    a0 = [
+        lambda t: 0.02 * numpy.cos(0.7 * t),
+        lambda t: 0.015 * numpy.sin(0.5 * t),
+        lambda t: 0.0,
+    ]
+    pot_builder = lambda cinterp: (
+        lp + potential.NonInertialFrameForce(a0=a0, cinterp=cinterp)
+    )
+    ic = [1.0, 0.1, 1.1, 0.2]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "vx", "vy"])
+    assert md < 1e-8, (
+        f"cinterp=True does not agree with cinterp=False for a 2D function a0 (max diff {md})"
+    )
+    return None
+
+
+def test_cinterp_linear_a0_exact():
+    # For a linear (degree<=1) a0 the natural cubic spline is exact, so cinterp
+    # should agree with the exact integration to ~machine precision.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    a0 = [
+        lambda t: 0.02 + 0.003 * t,
+        lambda t: -0.01 + 0.002 * t,
+        lambda t: 0.005 - 0.001 * t,
+    ]
+    pot_builder = lambda cinterp: (
+        lp + potential.NonInertialFrameForce(a0=a0, cinterp=cinterp)
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "z"])
+    assert md < 1e-9, (
+        f"cinterp=True does not agree with the exact integration for a linear a0 (max diff {md})"
+    )
+    return None
+
+
+def test_cinterp_funcomegaz():
+    # cinterp=True agrees with cinterp=False for a scalar-Omega_z function (and
+    # its Omegadot), in both 3D and 2D. Exercises the Omegadot spline-derivative
+    # path for the omegaz_only case.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega_fun = lambda t: 1.0 + 0.05 * numpy.sin(0.2 * t)
+    omegadot_fun = lambda t: 0.05 * 0.2 * numpy.cos(0.2 * t)
+    pot_builder = lambda cinterp: (
+        lp
+        + potential.NonInertialFrameForce(
+            Omega=omega_fun, Omegadot=omegadot_fun, cinterp=cinterp
+        )
+    )
+    ts = numpy.linspace(0.0, 10.0, 201)
+    md3 = _cinterp_TvsF_maxdiff(
+        pot_builder, [1.0, 0.1, 1.1, 0.05, 0.1, 0.3], ts, ["x", "y", "z"]
+    )
+    md2 = _cinterp_TvsF_maxdiff(pot_builder, [1.0, 0.1, 1.1, 0.2], ts, ["x", "y"])
+    assert md3 < 1e-8, f"cinterp Omega_z(t) 3D max diff {md3}"
+    assert md2 < 1e-8, f"cinterp Omega_z(t) 2D max diff {md2}"
+    return None
+
+
+def test_cinterp_vecfuncomega():
+    # cinterp=True agrees with cinterp=False for a 3D vector-Omega function (and
+    # its Omegadot). Exercises the Omegadot spline-derivative path for the
+    # full-3D-Omega case.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega = [
+        lambda t: 0.02 * numpy.cos(0.1 * t),
+        lambda t: 0.03 + 0.0 * t,
+        lambda t: 1.0 + 0.04 * numpy.sin(0.15 * t),
+    ]
+    omegadot = [
+        lambda t: -0.02 * 0.1 * numpy.sin(0.1 * t),
+        lambda t: 0.0 * t,
+        lambda t: 0.04 * 0.15 * numpy.cos(0.15 * t),
+    ]
+    pot_builder = lambda cinterp: (
+        lp
+        + potential.NonInertialFrameForce(
+            Omega=omega, Omegadot=omegadot, cinterp=cinterp
+        )
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "z"])
+    assert md < 1e-8, f"cinterp vector Omega(t) 3D max diff {md}"
+    return None
+
+
+def test_cinterp_constfreq_lin():
+    # cinterp=True with a constant Omega and no Omegadot (const_freq=True), but a
+    # moving/accelerating origin (function a0, x0, v0): exercises the spline
+    # a0/x0/v0 path with the const_freq branch (Euler term omitted). A function
+    # Omega without a matching Omegadot is not a supported configuration (it has
+    # no derivative to use), so const_freq is tested here with a constant Omega.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega = 1.0  # constant scalar Omega_z -> not interpolated, const_freq=True
+    x0 = [
+        lambda t: 0.1 * numpy.sin(0.2 * t),
+        lambda t: 0.05 * numpy.cos(0.15 * t),
+        lambda t: 0.02 * t,
+    ]
+    v0 = [
+        lambda t: 0.1 * 0.2 * numpy.cos(0.2 * t),
+        lambda t: -0.05 * 0.15 * numpy.sin(0.15 * t),
+        lambda t: 0.02 + 0.0 * t,
+    ]
+    a0 = [
+        lambda t: 0.01 * numpy.cos(t),
+        lambda t: 0.01 * numpy.sin(t),
+        lambda t: 0.005 + 0.0 * t,
+    ]
+    pot_builder = lambda cinterp: (
+        lp
+        + potential.NonInertialFrameForce(
+            Omega=omega, x0=x0, v0=v0, a0=a0, cinterp=cinterp
+        )
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "z"])
+    assert md < 1e-8, f"cinterp const_freq with moving origin max diff {md}"
+    return None
+
+
+def test_cinterp_combined_rotlin():
+    # cinterp=True agrees with cinterp=False for the full combined case: a 3D
+    # function Omega (+Omegadot) AND an accelerating origin (a0, x0, v0). This
+    # exercises the a0/x0/v0 splines and the Omegadot spline-derivative path
+    # together.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega = [
+        lambda t: 0.02 * numpy.cos(0.1 * t),
+        lambda t: 0.03 + 0.0 * t,
+        lambda t: 1.0 + 0.04 * t,
+    ]
+    omegadot = [
+        lambda t: -0.02 * 0.1 * numpy.sin(0.1 * t),
+        lambda t: 0.0 * t,
+        lambda t: 0.04 + 0.0 * t,
+    ]
+    x0 = [
+        lambda t: 0.1 * numpy.sin(0.2 * t),
+        lambda t: 0.05 * numpy.cos(0.15 * t),
+        lambda t: 0.02 * t,
+    ]
+    v0 = [
+        lambda t: 0.1 * 0.2 * numpy.cos(0.2 * t),
+        lambda t: -0.05 * 0.15 * numpy.sin(0.15 * t),
+        lambda t: 0.02 + 0.0 * t,
+    ]
+    a0 = [
+        lambda t: 0.01 * numpy.cos(t),
+        lambda t: 0.01 * numpy.sin(t),
+        lambda t: 0.005 + 0.0 * t,
+    ]
+    pot_builder = lambda cinterp: (
+        lp
+        + potential.NonInertialFrameForce(
+            Omega=omega, Omegadot=omegadot, x0=x0, v0=v0, a0=a0, cinterp=cinterp
+        )
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "z"])
+    assert md < 1e-8, f"cinterp combined rot+lin max diff {md}"
+    return None
+
+
+def test_cinterp_multiple_orbits_indiv_t():
+    # cinterp=True works for multiple orbits integrated with per-orbit (2D) time
+    # arrays: the interpolation table is built over the overall [tmin,tmax].
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    a0 = [
+        lambda t: 0.02 * numpy.cos(0.5 * t),
+        lambda t: 0.01 * numpy.sin(0.4 * t),
+        lambda t: 0.005 * numpy.cos(0.2 * t),
+    ]
+    ics = [
+        [1.0, 0.1, 1.1, 0.05, 0.1, 0.3],
+        [1.2, 0.0, 0.9, 0.1, 0.05, 1.0],
+    ]
+    # Per-orbit time arrays with different ranges -> table over overall min/max
+    ts = numpy.array([numpy.linspace(0.0, 8.0, 151), numpy.linspace(0.0, 12.0, 151)])
+
+    def integ(cinterp):
+        o = Orbit(ics)
+        o.turn_physical_off()
+        o.integrate(
+            ts,
+            lp + potential.NonInertialFrameForce(a0=a0, cinterp=cinterp),
+            method="dop853_c",
+        )
+        return o
+
+    o_false = integ(False)
+    o_true = integ(True)
+    md = numpy.amax(numpy.fabs(o_false.getOrbit() - o_true.getOrbit()))
+    assert md < 1e-8, (
+        f"cinterp=True does not agree with cinterp=False for per-orbit time arrays (max diff {md})"
+    )
+    return None
+
+
+def test_cinterp_wrapper_and_movingobject_combo():
+    # cinterp=True works and agrees with cinterp=False when the
+    # NonInertialFrameForce is combined with a wrapper potential and another
+    # spline-using force (MovingObjectPotential) in the same potential, stressing
+    # the pot_args / pot_tfuncs / spline-block ordering through the C parser.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    ts = numpy.linspace(0.0, 10.0, 201)
+    # A moving object: its own integrated orbit -> MovingObjectPotential (a
+    # spline force, pot_type -6)
+    o_obj = Orbit([1.5, 0.0, 0.9, 0.0, 0.05, 0.0])
+    o_obj.turn_physical_off()
+    o_obj.integrate(ts, lp)
+    mop = potential.MovingObjectPotential(
+        o_obj, pot=potential.HernquistPotential(amp=0.02, a=0.3)
+    )
+    # A time-dependent amplitude wrapper around a bar (parsed as a wrapper)
+    dsw = potential.DehnenSmoothWrapperPotential(
+        pot=potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03),
+        tform=-5.0,
+        tsteady=2.0,
+    )
+    a0 = [
+        lambda t: 0.01 * numpy.cos(0.5 * t),
+        lambda t: 0.008 * numpy.sin(0.3 * t),
+        lambda t: 0.005 + 0.0 * t,
+    ]
+    pot_builder = lambda cinterp: (
+        lp + dsw + mop + potential.NonInertialFrameForce(a0=a0, cinterp=cinterp)
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "z"])
+    assert md < 1e-7, (
+        f"cinterp=True does not agree with cinterp=False in a wrapper+MovingObject combo (max diff {md})"
+    )
+    return None
+
+
+def test_cinterp_n_resolution():
+    # A finer cinterp_n gives smaller interpolation error than a coarse one for
+    # a non-polynomial input.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    a0 = [
+        lambda t: 0.05 * numpy.cos(2.0 * t),
+        lambda t: 0.05 * numpy.sin(1.7 * t),
+        lambda t: 0.03 * numpy.cos(1.3 * t),
+    ]
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    coarse = _cinterp_TvsF_maxdiff(
+        lambda cinterp: (
+            lp + potential.NonInertialFrameForce(a0=a0, cinterp=cinterp, cinterp_n=50)
+        ),
+        ic,
+        ts,
+        ["x", "y", "z"],
+    )
+    fine = _cinterp_TvsF_maxdiff(
+        lambda cinterp: (
+            lp
+            + potential.NonInertialFrameForce(a0=a0, cinterp=cinterp, cinterp_n=20000)
+        ),
+        ic,
+        ts,
+        ["x", "y", "z"],
+    )
+    assert fine < coarse, (
+        f"Finer cinterp_n did not reduce the interpolation error (coarse {coarse}, fine {fine})"
+    )
+    assert fine < 1e-8, f"cinterp with fine cinterp_n max diff {fine}"
+    return None
+
+
+def test_cinterp_sos_raises():
+    # Surface-of-section integration with cinterp=True (and genuine function
+    # inputs) is rejected with a clear error, since the time range is not known
+    # in advance; cinterp=False works.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    a0 = [
+        lambda t: 0.02 * numpy.cos(t),
+        lambda t: 0.01 * numpy.sin(t),
+        lambda t: 0.0,
+    ]
+    o = Orbit([1.0, 0.1, 1.1, 0.05, 0.1, 0.3])
+    o.turn_physical_off()
+    with pytest.raises(NotImplementedError):
+        o.SOS(lp + potential.NonInertialFrameForce(a0=a0, cinterp=True))
+    # cinterp=False must work
+    o2 = Orbit([1.0, 0.1, 1.1, 0.05, 0.1, 0.3])
+    o2.turn_physical_off()
+    o2.SOS(lp + potential.NonInertialFrameForce(a0=a0, cinterp=False))
+    return None
+
+
+def test_cinterp_constant_a0_noop():
+    # A constant a0 with cinterp=True is a no-op (nothing to interpolate -> the
+    # tfunc path, pot_type 39), so it is byte-for-byte identical to cinterp=False
+    # and is allowed for SOS integration.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    a0 = [0.02, -0.01, 0.005]
+    pot_builder = lambda cinterp: (
+        lp + potential.NonInertialFrameForce(a0=a0, cinterp=cinterp)
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "z"])
+    assert md < 1e-12, (
+        f"Constant-a0 cinterp=True is not identical to cinterp=False (max diff {md})"
+    )
+    # SOS with a constant a0 and cinterp=True must NOT raise (no interpolation)
+    o = Orbit([1.0, 0.1, 1.1, 0.05, 0.1, 0.3])
+    o.turn_physical_off()
+    o.SOS(lp + potential.NonInertialFrameForce(a0=a0, cinterp=True))
+    return None
+
+
+def test_cinterp_scalar_only_and_constant_funcs():
+    # The cinterp table is built by evaluating the supplied functions on a grid,
+    # vectorized when possible. This exercises the scalar-loop fallback (a
+    # scalar-only callable that raises on array input) and the scalar-broadcast
+    # path (a callable returning a bare constant), alongside a vectorizable one.
+    import math
+
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+
+    def a0x_scalar_only(t):  # math.cos raises on array input -> scalar-loop path
+        return 0.02 * math.cos(0.5 * t)
+
+    a0 = [
+        a0x_scalar_only,
+        lambda t: 0.01,  # bare constant -> scalar-broadcast path
+        lambda t: 0.005 * numpy.sin(0.3 * t),  # vectorizable
+    ]
+    pot_builder = lambda cinterp: (
+        lp + potential.NonInertialFrameForce(a0=a0, cinterp=cinterp)
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "z"])
+    assert md < 1e-8, (
+        f"cinterp with scalar-only/constant a0 functions does not agree with cinterp=False (max diff {md})"
+    )
+    return None
+
+
+def test_noninertialframeforce_requires_x0v0_when_rot_and_lin():
+    # When the frame both rotates (Omega) and accelerates (a0), x0 and v0 are
+    # required (they describe the moving origin); omitting them must raise a
+    # clear error at construction rather than a confusing TypeError later during
+    # integration.
+    with pytest.raises(ValueError):
+        potential.NonInertialFrameForce(a0=[0.0, 0.0, -1.0], Omega=1.0)
+    with pytest.raises(ValueError):
+        potential.NonInertialFrameForce(
+            a0=[lambda t: 0.01, lambda t: 0.0, lambda t: 0.0],
+            Omega=lambda t: 1.0,
+        )
+    return None

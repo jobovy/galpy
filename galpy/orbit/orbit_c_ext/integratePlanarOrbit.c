@@ -469,12 +469,26 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
-    case 39: //NonInertialFrameForce, 22 arguments (10 caching ones)
+    case 39: //NonInertialFrameForce, 23 arguments (10 caching ones)
+      // Time-dependent inputs passed as tfuncs (called from C every step); the
+      // cinterp=True variant (case 45) precomputes them as GSL splines instead.
       potentialArgs->planarRforceVelocity= &NonInertialFrameForcePlanarRforce;
       potentialArgs->planarphitorqueVelocity= &NonInertialFrameForcePlanarphitorque;
       potentialArgs->nargs= 23;
       potentialArgs->ntfuncs= (int) ( 3 * *(*pot_args + 12) * ( 1 + 2 * *(*pot_args + 11) ) \
                                 + ( 6 - 4 * ( *(*pot_args + 13) ) ) * *(*pot_args + 15) );
+      potentialArgs->requiresVelocity= true;
+      break;
+    case 45: //NonInertialFrameForce with cinterp=True (on-the-fly C splines)
+      // Same force as case 39, but time-dependent inputs are evaluated from GSL
+      // splines built by initNonInertialFrameForceSplines (Omegadot = spline
+      // derivative of Omega) rather than tfuncs; the spline block precedes the
+      // 23 case-39 args, plus tmin,tmax (args 23,24). nargs=25, ntfuncs=0. The
+      // shared force code branches on spline1d!=NULL.
+      potentialArgs->planarRforceVelocity= &NonInertialFrameForcePlanarRforce;
+      potentialArgs->planarphitorqueVelocity= &NonInertialFrameForcePlanarphitorque;
+      potentialArgs->nargs= 25;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;
       break;
     case 40: //NullPotential, no arguments (only supported for orbit int)
@@ -634,6 +648,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
     int initMultipoleExpansionData = *(*pot_type-1) == 44 ? 1 : 0;
+    // cinterp NonInertialFrameForce (pot_type 45); captured before the wrapper
+    // recursion below advances pot_type/pot_args, like the other setup flags.
+    int setupNonInertialFrameForceSplines = *(*pot_type-1) == 45 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -644,6 +661,8 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			 pot_type,pot_args,pot_tfuncs);
     }
     if (setupSplines) initPlanarMovingObjectSplines(potentialArgs, pot_args);
+    if ( setupNonInertialFrameForceSplines )
+      initNonInertialFrameForceSplines(potentialArgs,pot_args);
     if ( initMultipoleExpansionData )
       initMultipoleExpansionPotentialArgs(potentialArgs, pot_args);
     // Now load each potential's parameters

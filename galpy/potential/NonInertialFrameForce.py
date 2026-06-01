@@ -52,11 +52,16 @@ class NonInertialFrameForce(DissipativeForce):
 
         \\mathbf{F} = - \\boldsymbol{\\Omega} \\times ( \\boldsymbol{\\Omega} \\times \\mathbf{r}) - \\dot{\\boldsymbol{\\Omega}} \\times \\mathbf{r} -2\\boldsymbol{\\Omega}\\times \\dot{\\mathbf{r}}\\quad (\\mathbf{a}_0=\\mathbf{v}_0=\\mathbf{x}_0=0)
 
-    The functions of time are passed to the C code for fast orbit integration
-    by attempting to build fast ``numba`` versions of them. Significant
-    speed-ups can therefore be obtained by making sure that the provided
-    functions can be turned into ``nopython=True`` ``numba`` functions (try
-    running ``numba.njit`` on them and then evaluate them to check).
+    For fast orbit integration in C, by default (``cinterp=True``) the
+    time-dependent inputs are replaced by cubic-spline interpolations built over
+    the integration's time range (see the ``cinterp`` keyword), so the provided
+    functions only need to be evaluated ``cinterp_n`` times when setting up the
+    integration and are not called from C at every step. Alternatively, with
+    ``cinterp=False`` the functions are passed directly to the C code, which
+    attempts to build fast ``numba`` versions of them; significant speed-ups
+    then require that the provided functions can be turned into
+    ``nopython=True`` ``numba`` functions (try running ``numba.njit`` on them
+    and then evaluating them to check).
     """
 
     def __init__(
@@ -67,6 +72,8 @@ class NonInertialFrameForce(DissipativeForce):
         x0=None,
         v0=None,
         a0=None,
+        cinterp=True,
+        cinterp_n=10000,
         ro=None,
         vo=None,
     ):
@@ -87,6 +94,10 @@ class NonInertialFrameForce(DissipativeForce):
             Velocity vector v_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [v_0x,v_0y,v_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame (functions need to take input time in internal units and output the velocity in internal units; see galpy.util.conversion.time_in_Gyr and divided physical positions by the `vo` parameter in km/s).
         a0 : float or list of callables, optional
             Acceleration vector a_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [a_0x,a_0y, a_0z] (functions need to take input time in internal units and output the acceleration in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.force_in_XXX conversion functions [force is actually acceleration in galpy]).
+        cinterp : bool, optional
+            If True (default), when integrating orbits with the C code, replace any time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline interpolations built over the integration's time range and evaluate them (and ``Omegadot``, as the spline derivative of ``Omega``) from the splines in C, rather than calling the Python/``numba`` functions at every integration step. This is typically much faster -- the functions are evaluated only ``cinterp_n`` times, when setting up the integration -- and is especially beneficial when the inputs are not ``numba``-compatible. Only affects the C integration path: the pure-Python integration (e.g. ``method='odeint'``) always uses the exact functions. Not supported for surface-of-section integration, because the integration time range is not known in advance (set ``cinterp=False`` in that case).
+        cinterp_n : int, optional
+            Number of grid points used for the C interpolation over the integration time range (default: 10000); only used when ``cinterp=True``.
         ro : float, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float, optional
@@ -98,6 +109,10 @@ class NonInertialFrameForce(DissipativeForce):
         - 2022-03-26 - Generalized Omega to any function of time - Bovy (UofT)
         """
         DissipativeForce.__init__(self, amp=amp, ro=ro, vo=vo)
+        # cinterp: build C-side spline interpolations of the time functions on
+        # the fly at integration time (see _parse_pot); only affects C integration
+        self._cinterp = cinterp
+        self._cinterp_n = cinterp_n
         self._rot_acc = not Omega is None
         self._omegaz_only = len(numpy.atleast_1d(Omega)) == 1
         self._const_freq = Omegadot is None
@@ -127,16 +142,28 @@ class NonInertialFrameForce(DissipativeForce):
         self._lin_acc = not (a0 is None)
         if self._lin_acc:
             if not callable(a0[0]):
+                # Constant a0: wrapped as (trivial) functions of time. Tracked
+                # separately so cinterp does not bother interpolating a constant
+                # (and so constant-a0 SOS integration is not rejected; see
+                # _parse_noninertial_frame_force).
+                self._a0_as_func = False
                 self._a0 = [
                     lambda t, copy=a0[0]: copy,
                     lambda t, copy=a0[1]: copy,
                     lambda t, copy=a0[2]: copy,
                 ]
             else:
+                self._a0_as_func = True
                 self._a0 = a0
             # Convenient access in Python
             self._a0_py = lambda t: [self._a0[0](t), self._a0[1](t), self._a0[2](t)]
         if self._lin_acc and self._rot_acc:
+            if x0 is None or v0 is None:
+                raise ValueError(
+                    "x0 and v0 (the position and velocity of the non-inertial "
+                    "frame's origin) must be provided when the frame both rotates "
+                    "(Omega) and accelerates (a0)"
+                )
             self._x0 = x0
             self._v0 = v0
             # Convenient access in Python
