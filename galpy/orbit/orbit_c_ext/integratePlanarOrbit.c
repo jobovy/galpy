@@ -648,8 +648,6 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
     int initMultipoleExpansionData = *(*pot_type-1) == 44 ? 1 : 0;
-    // cinterp NonInertialFrameForce (pot_type 45); captured before the wrapper
-    // recursion below advances pot_type/pot_args, like the other setup flags.
     int setupNonInertialFrameForceSplines = *(*pot_type-1) == 45 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;

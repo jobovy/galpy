@@ -699,8 +699,6 @@ void parse_leapFuncArgs_Full(int npot,
     int setupChandrasekharDynamicalFrictionSplines = (*(*pot_type-1) == -7 || *(*pot_type-1) == -11) ? 1 : 0;
     int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
     int initMultipoleExpansionData = *(*pot_type-1) == 44 ? 1 : 0;
-    // cinterp NonInertialFrameForce (pot_type 45); captured here, before the
-    // wrapper recursion below advances pot_type/pot_args, like the others.
     int setupNonInertialFrameForceSplines = *(*pot_type-1) == 45 ? 1 : 0;
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
