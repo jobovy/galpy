@@ -855,33 +855,44 @@ def _parse_noninertial_frame_force(p, t):
         tmin = numpy.amin(t)
         tmax = numpy.amax(t)
         tgrid = numpy.linspace(tmin, tmax, p._cinterp_n)
-        # Primitives, interpolated independently and ordered to match the C
-        # spline indices: a0 at 0-2 (if lin_acc); x0 at 3-5, v0 at 6-8 (only when
-        # lin_acc and rot_acc, which is also when x0/v0 are required); Omega at
-        # 9*lin_acc onward (Omega is only present, and only read by C, when
-        # rot_acc=True -- so when lin_acc it follows the 9 a0/x0/v0 splines, else
-        # it starts at 0). Omegadot is NOT stored: C derives it from the Omega
-        # spline. v0 is its own spline (no x0->v0->a0 chaining, to avoid a 2nd
-        # derivative).
-        spline_arrs = []
-        if p._lin_acc:
-            spline_arrs.extend(
-                _eval_time_func_on_grid(p._a0[ii], tgrid) for ii in range(3)
-            )
-            if p._rot_acc:
+        # The tables (the evaluated value arrays) depend only on the time range
+        # and cinterp_n, since the functions are fixed at construction. Reuse a
+        # single-entry cache when integrating the same force over the same range
+        # again (avoids re-evaluating the -- often expensive -- functions); a
+        # different range simply re-interpolates.
+        cache_key = (tmin, tmax, p._cinterp_n)
+        cache = getattr(p, "_cinterp_table_cache", None)
+        if cache is not None and cache[0] == cache_key:
+            spline_arrs = cache[1]
+        else:
+            # Primitives, interpolated independently and ordered to match the C
+            # spline indices: a0 at 0-2 (if lin_acc); x0 at 3-5, v0 at 6-8 (only
+            # when lin_acc and rot_acc, which is also when x0/v0 are required);
+            # Omega at 9*lin_acc onward (Omega is only present, and only read by
+            # C, when rot_acc=True -- so when lin_acc it follows the 9 a0/x0/v0
+            # splines, else it starts at 0). Omegadot is NOT stored: C derives it
+            # from the Omega spline. v0 is its own spline (no x0->v0->a0
+            # chaining, to avoid a 2nd derivative).
+            spline_arrs = []
+            if p._lin_acc:
                 spline_arrs.extend(
-                    _eval_time_func_on_grid(p._x0[ii], tgrid) for ii in range(3)
+                    _eval_time_func_on_grid(p._a0[ii], tgrid) for ii in range(3)
                 )
-                spline_arrs.extend(
-                    _eval_time_func_on_grid(p._v0[ii], tgrid) for ii in range(3)
-                )
-        if p._Omega_as_func:
-            if p._omegaz_only:
-                spline_arrs.append(_eval_time_func_on_grid(p._Omega, tgrid))
-            else:
-                spline_arrs.extend(
-                    _eval_time_func_on_grid(p._Omega[ii], tgrid) for ii in range(3)
-                )
+                if p._rot_acc:
+                    spline_arrs.extend(
+                        _eval_time_func_on_grid(p._x0[ii], tgrid) for ii in range(3)
+                    )
+                    spline_arrs.extend(
+                        _eval_time_func_on_grid(p._v0[ii], tgrid) for ii in range(3)
+                    )
+            if p._Omega_as_func:
+                if p._omegaz_only:
+                    spline_arrs.append(_eval_time_func_on_grid(p._Omega, tgrid))
+                else:
+                    spline_arrs.extend(
+                        _eval_time_func_on_grid(p._Omega[ii], tgrid) for ii in range(3)
+                    )
+            p._cinterp_table_cache = (cache_key, spline_arrs)
         pot_args = [len(spline_arrs), p._cinterp_n]
         pot_args.extend(tgrid)
         for arr in spline_arrs:

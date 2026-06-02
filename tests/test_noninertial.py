@@ -3192,3 +3192,180 @@ def test_noninertialframeforce_requires_x0v0_when_rot_and_lin():
             Omega=lambda t: 1.0,
         )
     return None
+
+
+def test_cinterp_input_type_combinations():
+    # cinterp=True must agree with the exact cinterp=False integration across the
+    # matrix of function-vs-value inputs for the supported (matching-type)
+    # configurations: constant vs function a0, constant vs function Omega/Omegadot
+    # (scalar and 3D), constant a0 mixed with function x0/v0/Omega, and a 2D case.
+    # (Mismatched-type inputs -- e.g. a function Omega with a constant Omegadot --
+    # are not a supported configuration and are covered separately.)
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    ts = numpy.linspace(0.0, 10.0, 201)
+    ic3 = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ic2 = [1.0, 0.1, 1.1, 0.2]
+    af = [
+        lambda t: 0.01 * numpy.cos(t),
+        lambda t: 0.01 * numpy.sin(t),
+        lambda t: 0.005 + 0.0 * t,
+    ]
+    xf = [
+        lambda t: 0.1 * numpy.sin(0.2 * t),
+        lambda t: 0.05 * numpy.cos(0.15 * t),
+        lambda t: 0.02 * t,
+    ]
+    vf = [
+        lambda t: 0.1 * 0.2 * numpy.cos(0.2 * t),
+        lambda t: -0.05 * 0.15 * numpy.sin(0.15 * t),
+        lambda t: 0.02 + 0.0 * t,
+    ]
+    of = [
+        lambda t: 0.02 * numpy.cos(0.1 * t),
+        lambda t: 0.03 + 0.0 * t,
+        lambda t: 1.0 + 0.04 * numpy.sin(0.15 * t),
+    ]
+    ofd = [
+        lambda t: -0.02 * 0.1 * numpy.sin(0.1 * t),
+        lambda t: 0.0 * t,
+        lambda t: 0.04 * 0.15 * numpy.cos(0.15 * t),
+    ]
+    sf = lambda t: 1.0 + 0.05 * numpy.sin(0.2 * t)
+    sfd = lambda t: 0.05 * 0.2 * numpy.cos(0.2 * t)
+    arr = numpy.array([0.02, 0.03, 1.0])
+    arrd = numpy.array([0.0, 0.0, 0.04])
+    ac = [0.01, 0.02, 0.005]  # constant a0
+    cases = [
+        # combined: constant Omega (3D) with constant Omegadot + function a0/x0/v0
+        (
+            "3D const Omega+Omegadot, func a0/x0/v0",
+            ic3,
+            ["x", "y", "z"],
+            dict(Omega=arr, Omegadot=arrd, a0=af, x0=xf, v0=vf),
+        ),
+        # combined: scalar constant Omega+Omegadot + function a0/x0/v0
+        (
+            "scalar const Omega+Omegadot, func a0/x0/v0",
+            ic3,
+            ["x", "y", "z"],
+            dict(Omega=1.0, Omegadot=0.05, a0=af, x0=xf, v0=vf),
+        ),
+        # combined: constant a0 + function x0/v0 + 3D function Omega/Omegadot
+        (
+            "const a0, func x0/v0, 3D func Omega",
+            ic3,
+            ["x", "y", "z"],
+            dict(Omega=of, Omegadot=ofd, a0=ac, x0=xf, v0=vf),
+        ),
+        # combined: constant a0 + function x0/v0 + scalar function Omega/Omegadot
+        (
+            "const a0, func x0/v0, scalar func Omega",
+            ic3,
+            ["x", "y", "z"],
+            dict(Omega=sf, Omegadot=sfd, a0=ac, x0=xf, v0=vf),
+        ),
+        # 2D combined: scalar function Omega + function a0/x0/v0
+        (
+            "2D combined scalar func Omega + func a0/x0/v0",
+            ic2,
+            ["x", "y"],
+            dict(Omega=sf, Omegadot=sfd, a0=af, x0=xf, v0=vf),
+        ),
+    ]
+    for label, ic, fns, kw in cases:
+        pot_builder = lambda cinterp, kw=kw: (
+            lp + potential.NonInertialFrameForce(cinterp=cinterp, **kw)
+        )
+        md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, fns)
+        assert md < 1e-8, (
+            f"cinterp=True disagrees with cinterp=False for [{label}] (max diff {md})"
+        )
+    return None
+
+
+def test_noninertialframeforce_mixed_omega_omegadot_errors():
+    # Omega and Omegadot must be the same kind; mixing a function with a value
+    # (either direction, scalar or 3D) raises a clear error at construction.
+    with pytest.raises(ValueError):
+        potential.NonInertialFrameForce(Omega=lambda t: 1.0, Omegadot=0.05)
+    with pytest.raises(ValueError):
+        potential.NonInertialFrameForce(Omega=1.0, Omegadot=lambda t: 0.0)
+    with pytest.raises(ValueError):
+        potential.NonInertialFrameForce(
+            Omega=[lambda t: 0.0, lambda t: 0.0, lambda t: 1.0],
+            Omegadot=numpy.array([0.0, 0.0, 0.1]),
+        )
+    with pytest.raises(ValueError):
+        potential.NonInertialFrameForce(
+            Omega=numpy.array([0.0, 0.0, 1.0]),
+            Omegadot=[lambda t: 0.0, lambda t: 0.0, lambda t: 0.04],
+        )
+    return None
+
+
+def test_cinterp_omega_func_no_omegadot_derived():
+    # When Omega is a function and Omegadot is omitted, Omegadot is derived (a
+    # warning is issued) and the Euler term is included. cinterp=True (analytic
+    # spline derivative of Omega) agrees with cinterp=False (finite-difference
+    # derivative); the two different derivative approximations agree to ~1e-8,
+    # hence the slightly looser tolerance here. Covers both the scalar-Omega_z
+    # and the 3D-vector-Omega derive paths.
+    import warnings as _warnings
+
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    scalar_omega = lambda t: 1.0 + 0.05 * numpy.sin(0.2 * t)
+    vector_omega = [
+        lambda t: 0.02 * numpy.cos(0.1 * t),
+        lambda t: 0.03 + 0.0 * t,
+        lambda t: 1.0 + 0.04 * numpy.sin(0.15 * t),
+    ]
+    ic = [1.0, 0.1, 1.1, 0.05, 0.1, 0.3]
+    ts = numpy.linspace(0.0, 10.0, 201)
+    for label, omega in [("scalar Omega_z", scalar_omega), ("3D Omega", vector_omega)]:
+        with _warnings.catch_warnings(record=True) as w:
+            _warnings.simplefilter("always")
+            potential.NonInertialFrameForce(Omega=omega)
+            assert any("Omegadot" in str(rec.message) for rec in w), (
+                f"expected a warning that Omegadot will be derived ({label})"
+            )
+        pot_builder = lambda cinterp, omega=omega: (
+            lp + potential.NonInertialFrameForce(Omega=omega, cinterp=cinterp)
+        )
+        md = _cinterp_TvsF_maxdiff(pot_builder, ic, ts, ["x", "y", "z"])
+        assert md < 1e-7, (
+            f"derived-Omegadot cinterp vs non-cinterp max diff {md} ({label})"
+        )
+    return None
+
+
+def test_cinterp_table_caching():
+    # Integrating the same force over the same time range reuses the cached
+    # interpolation table; a different time range rebuilds it.
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    a0 = [
+        lambda t: 0.02 * numpy.cos(t),
+        lambda t: 0.01 * numpy.sin(t),
+        lambda t: 0.005 + 0.0 * t,
+    ]
+    nip = potential.NonInertialFrameForce(a0=a0)  # cinterp=True by default
+    assert nip._cinterp_table_cache is None
+    ts = numpy.linspace(0.0, 10.0, 201)
+    o = Orbit([1.0, 0.1, 1.1, 0.05, 0.1, 0.3])
+    o.turn_physical_off()
+    o.integrate(ts, lp + nip, method="dop853_c")
+    key1 = nip._cinterp_table_cache[0]
+    arrs1 = nip._cinterp_table_cache[1]
+    assert key1 is not None
+    # Same time range (different orbit) -> the cached table object is reused.
+    o2 = Orbit([1.0, 0.0, 1.0, 0.0, 0.1, 0.0])
+    o2.turn_physical_off()
+    o2.integrate(ts, lp + nip, method="dop853_c")
+    assert nip._cinterp_table_cache[1] is arrs1, (
+        "table should be reused for the same range"
+    )
+    # Different time range -> the table is rebuilt (cache key changes).
+    o3 = Orbit([1.0, 0.1, 1.1, 0.05, 0.1, 0.3])
+    o3.turn_physical_off()
+    o3.integrate(ts[: len(ts) // 2], lp + nip, method="dop853_c")
+    assert nip._cinterp_table_cache[0] != key1, "table should rebuild for a new range"
+    return None

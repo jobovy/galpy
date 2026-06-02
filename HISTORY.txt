@@ -16,7 +16,13 @@ v1.12.0 (expected around 2026-07-01)
   consistency. ``cinterp`` only affects the C integration path (the Python path
   always uses the exact functions); set ``cinterp=False`` to evaluate the
   provided functions directly, which is required for surface-of-section
-  integration (where the integration time range is not known in advance).
+  integration (where the integration time range is not known in advance). The
+  interpolation tables are cached and reused when the same NonInertialFrameForce
+  is integrated again over the same time range. As part of this, Omega and
+  Omegadot must now be given as the same kind (both functions of time or both
+  constants; a mismatch raises an error), and when Omega is a function of time
+  but Omegadot is omitted, Omegadot is now derived as the time-derivative of
+  Omega (with a warning) instead of dropping the Euler force term.
 
 - Added ``tail=`` keyword to ``fardal15spraydf`` and ``chen24spraydf`` (and
   ``basestreamspraydf``) to select which tidal tail(s) to model: ``'leading'``,

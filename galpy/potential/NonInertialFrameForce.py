@@ -4,12 +4,32 @@
 #                          frame
 ###############################################################################
 import hashlib
+import warnings
 
 import numpy
 import numpy.linalg
 
-from ..util import conversion, coords
+from ..util import conversion, coords, galpyWarning
 from .DissipativeForce import DissipativeForce
+
+
+def _is_freq_func(x):
+    """Whether a frequency specification (Omega or Omegadot) is given as
+    function(s) of time rather than constant(s): a callable, or a sequence whose
+    first element is callable."""
+    if callable(x):
+        return True
+    try:
+        return callable(x[0])
+    except (TypeError, IndexError, KeyError):
+        return False
+
+
+def _time_derivative(func, dt=1e-6):
+    """Central finite-difference time derivative of a scalar time function,
+    used to derive Omegadot from Omega when Omegadot is not provided (only for
+    the direct-function-evaluation path; cinterp uses the spline derivative)."""
+    return lambda t: (func(t + dt) - func(t - dt)) / (2.0 * dt)
 
 
 class NonInertialFrameForce(DissipativeForce):
@@ -87,7 +107,7 @@ class NonInertialFrameForce(DissipativeForce):
         Omega : float or list of floats or Quantity or list of Quantities or callable or list of callables, optional
             Angular frequency of the rotation of the non-inertial frame as seen from an inertial one; can either be a function of time or a number (when the frequency is assumed to be Omega + Omegadot x t) and in each case can be a list [Omega_x,Omega_y,Omega_z] or a single value Omega_z (when not a function, can be a Quantity; when a function, need to take input time in internal units and output the frequency in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions).
         Omegadot : float or list of floats or Quantity or list of Quantities or callable or list of callables, optional
-            Time derivative of the angular frequency of the non-intertial frame's rotation. Format should match Omega input ([list of] function[s] when Omega is one, number/list if Omega is a number/list; when a function, need to take input time in internal units and output the frequency derivative in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions).
+            Time derivative of the angular frequency of the non-intertial frame's rotation. Must match the *kind* of Omega: a [list of] function[s] when Omega is one, or a number/list/Quantity when Omega is one (a mismatch raises an error). When a function, need to take input time in internal units and output the frequency derivative in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions. If Omega is a function of time and Omegadot is omitted, Omegadot is derived as the time-derivative of Omega (a warning is issued); if Omega is constant and Omegadot is omitted, the frequency is taken to be constant in time.
         x0 : list of callables, optional
             Position vector x_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [x_0x,x_0y,x_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame (functions need to take input time in internal units and output the position in internal units; see galpy.util.conversion.time_in_Gyr and divided physical positions by the `ro` parameter in kpc).
         v0 : list of callables, optional
@@ -95,7 +115,7 @@ class NonInertialFrameForce(DissipativeForce):
         a0 : float or list of callables, optional
             Acceleration vector a_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [a_0x,a_0y, a_0z] (functions need to take input time in internal units and output the acceleration in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.force_in_XXX conversion functions [force is actually acceleration in galpy]).
         cinterp : bool, optional
-            If True (default), when integrating orbits with the C code, replace any time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline interpolations built over the integration's time range and evaluate them (and ``Omegadot``, as the spline derivative of ``Omega``) from the splines in C, rather than calling the Python/``numba`` functions at every integration step. This is typically much faster -- the functions are evaluated only ``cinterp_n`` times, when setting up the integration -- and is especially beneficial when the inputs are not ``numba``-compatible. Only affects the C integration path: the pure-Python integration (e.g. ``method='odeint'``) always uses the exact functions. Not supported for surface-of-section integration, because the integration time range is not known in advance (set ``cinterp=False`` in that case).
+            If True (default), when integrating orbits with the C code, replace any time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline interpolations built over the integration's time range and evaluate them (and ``Omegadot``, as the spline derivative of ``Omega``) from the splines in C, rather than calling the Python/``numba`` functions at every integration step. This is typically much faster -- the functions are evaluated only ``cinterp_n`` times, when setting up the integration -- and is especially beneficial when the inputs are not ``numba``-compatible. Only affects the C integration path: the pure-Python integration (e.g. ``method='odeint'``) always uses the exact functions. The interpolation tables are cached and reused when the same force is integrated again over the same time range. Not supported for surface-of-section integration, because the integration time range is not known in advance (set ``cinterp=False`` in that case).
         cinterp_n : int, optional
             Number of grid points used for the C interpolation over the integration time range (default: 10000); only used when ``cinterp=True``.
         ro : float, optional
@@ -113,15 +133,48 @@ class NonInertialFrameForce(DissipativeForce):
         # the fly at integration time (see _parse_pot); only affects C integration
         self._cinterp = cinterp
         self._cinterp_n = cinterp_n
+        # Single-entry cache of the on-the-fly interpolation tables, keyed by the
+        # integration time range; see _parse_noninertial_frame_force.
+        self._cinterp_table_cache = None
         self._rot_acc = not Omega is None
         self._omegaz_only = len(numpy.atleast_1d(Omega)) == 1
         self._const_freq = Omegadot is None
+        # Omega and Omegadot must be the same kind: both functions of time or
+        # both constants. A mismatch (e.g. a function Omega with a constant
+        # Omegadot) is almost always a mistake, so reject it explicitly.
+        if (
+            self._rot_acc
+            and Omegadot is not None
+            and _is_freq_func(Omegadot) != _is_freq_func(Omega)
+        ):
+            raise ValueError(
+                "Omega and Omegadot must be the same kind: both functions of "
+                "time or both constants/Quantities (Omegadot may also be omitted)"
+            )
         if (self._omegaz_only and callable(Omega)) or (
             not self._omegaz_only and callable(Omega[0])
         ):
             self._Omega_as_func = True
             self._Omega = Omega
-            self._Omegadot = Omegadot
+            if Omegadot is None:
+                # Omega varies in time but its derivative was not provided:
+                # derive it (so the Euler force term is included). cinterp uses
+                # the analytic spline derivative of Omega; the direct-evaluation
+                # path uses finite differences (see _time_derivative).
+                warnings.warn(
+                    "NonInertialFrameForce: Omega is a function of time but "
+                    "Omegadot was not provided; Omegadot will be derived as the "
+                    "time derivative of Omega (analytically from the spline when "
+                    "cinterp=True, by finite differences otherwise)",
+                    galpyWarning,
+                )
+                self._const_freq = False
+                if self._omegaz_only:
+                    self._Omegadot = _time_derivative(Omega)
+                else:
+                    self._Omegadot = [_time_derivative(o) for o in Omega]
+            else:
+                self._Omegadot = Omegadot
             # Convenient access in Python
             if not self._omegaz_only:
                 self._Omega_py = lambda t: numpy.array(
