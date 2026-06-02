@@ -30,8 +30,13 @@ if _NUMBA_LOADED:
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 
-def _parse_pot(pot):
-    """Parse the potential so it can be fed to C"""
+def _parse_pot(pot, t=None):
+    """Parse the potential so it can be fed to C
+
+    ``t`` is the integration time array (when available), used to build
+    on-the-fly C spline interpolations for a NonInertialFrameForce with
+    ``cinterp=True`` (see _parse_noninertial_frame_force).
+    """
     # Remove NullPotentials from the potential (iterate directly without casting to list first)
     purged_pot = [p for p in pot if not isinstance(p, potential.NullPotential)]
     if len(purged_pot) > 0:
@@ -53,11 +58,11 @@ def _parse_pot(pot):
         ) or isinstance(p, (parentWrapperPotential, WrapperPotential)):
             if not isinstance(p, (parentWrapperPotential, WrapperPotential)):
                 wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                    potential.toPlanarPotential(p._Pot._pot)
+                    potential.toPlanarPotential(p._Pot._pot), t=t
                 )
             else:
                 wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                    p._pot
+                    p._pot, t=t
                 )
         if (
             isinstance(p, planarPotentialFromRZPotential)
@@ -452,53 +457,12 @@ def _parse_pot(pot):
         elif isinstance(
             p, planarDissipativeForceFromFullDissipativeForce
         ) and isinstance(p._Pot, potential.NonInertialFrameForce):
-            pot_type.append(39)
-            pot_args.append(p._Pot._amp)
-            pot_args.extend(
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            )  # for caching
-            pot_args.extend(
-                [
-                    p._Pot._rot_acc,
-                    p._Pot._lin_acc,
-                    p._Pot._omegaz_only,
-                    p._Pot._const_freq,
-                    p._Pot._Omega_as_func,
-                ]
-            )
-            if p._Pot._Omega_as_func:
-                pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            else:
-                if p._Pot._omegaz_only:
-                    pot_args.extend([0.0, 0.0, p._Pot._Omega])
-                else:
-                    pot_args.extend(p._Pot._Omega)
-                pot_args.append(p._Pot._Omega2)
-                if not p._Pot._const_freq and p._Pot._omegaz_only:
-                    pot_args.extend([0.0, 0.0, p._Pot._Omegadot])
-                elif not p._Pot._const_freq:
-                    pot_args.extend(p._Pot._Omegadot)
-                else:
-                    pot_args.extend([0.0, 0.0, 0.0])
-            if p._Pot._lin_acc:
-                pot_tfuncs.extend([p._Pot._a0[0], p._Pot._a0[1], p._Pot._a0[2]])
-                if p._Pot._rot_acc:
-                    pot_tfuncs.extend([p._Pot._x0[0], p._Pot._x0[1], p._Pot._x0[2]])
-                    pot_tfuncs.extend([p._Pot._v0[0], p._Pot._v0[1], p._Pot._v0[2]])
-            if p._Pot._Omega_as_func:
-                if p._Pot._omegaz_only:
-                    pot_tfuncs.extend([p._Pot._Omega, p._Pot._Omegadot])
-                else:
-                    pot_tfuncs.extend(
-                        [
-                            p._Pot._Omega[0],
-                            p._Pot._Omega[1],
-                            p._Pot._Omega[2],
-                            p._Pot._Omegadot[0],
-                            p._Pot._Omegadot[1],
-                            p._Pot._Omegadot[2],
-                        ]
-                    )
+            # pot_type 39 (functions called from C) or 45 (on-the-fly C spline
+            # interpolation when cinterp=True); see _parse_noninertial_frame_force.
+            _code, _nip_args, _nip_tfuncs = _parse_noninertial_frame_force(p._Pot, t)
+            pot_type.append(_code)
+            pot_args.extend(_nip_args)
+            pot_tfuncs.extend(_nip_tfuncs)
         elif isinstance(p, planarPotentialFromRZPotential) and isinstance(
             p._Pot, potential.NullPotential
         ):
@@ -605,7 +569,7 @@ def _parse_pot(pot):
                 p = p._Pot
             pot_type.append(-6)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                potential.toPlanarPotential(p._pot)
+                potential.toPlanarPotential(p._pot), t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -805,6 +769,161 @@ def _parse_disk_approx_pairs(p, extra_amp=1.0, per_pair_suffix=None):
     return pot_types, pot_args
 
 
+def _eval_time_func_on_grid(func, tgrid):
+    """Evaluate a time function on ``tgrid`` for building a cinterp spline table.
+
+    Uses a single vectorized call when the function supports array input (e.g.
+    ``numpy.interp`` lambdas or galpy ``evaluate*`` functions) -- which is
+    dramatically faster (often >100x) than calling it ``cinterp_n`` times --
+    and falls back to a scalar loop for scalar-only callables. A scalar return
+    (e.g. a constant lambda) is broadcast over the grid.
+    """
+    try:
+        vals = numpy.asarray(func(tgrid), dtype=float)
+        if vals.shape == tgrid.shape:
+            return vals
+        if vals.shape == ():
+            return numpy.full(tgrid.shape, float(vals))
+    except Exception:
+        pass
+    return numpy.array([float(func(tt)) for tt in tgrid])
+
+
+def _parse_noninertial_frame_force(p, t):
+    """Serialize a NonInertialFrameForce ``p`` for the C code.
+
+    Returns ``(pot_type_code, pot_args, pot_tfuncs)`` fragments for this single
+    force, shared by the full and planar ``_parse_pot`` (the planar wrapper
+    passes its ``._Pot``). ``t`` is the integration time array (``None`` when
+    not available, e.g. surface-of-section integration).
+
+    Two C representations exist (see the C code, ``case 39`` vs ``case 45``):
+
+    - ``cinterp=False`` (or only constant inputs): emit ``pot_type 39`` and pass
+      the time functions as ``pot_tfuncs``, which C calls back at every step.
+    - ``cinterp=True`` with genuine time-varying functions: build cubic-spline
+      tables of the primitives (``a0``, ``x0``, ``v0``, ``Omega``) over the
+      integration time range ``[t.min(), t.max()]`` and emit ``pot_type 45``
+      (no ``pot_tfuncs``); C rebuilds the splines and also obtains ``Omegadot``
+      as the spline derivative of ``Omega``. The spline block is laid out first
+      in ``pot_args`` (consumed by ``initNonInertialFrameForceSplines``),
+      followed by the same fixed argument block as ``pot_type 39`` plus
+      ``tmin, tmax`` (used to clamp time queries in C).
+    """
+    # Fixed argument block, identical for pot_type 39 and 45; the C force code
+    # reads these by index (see NonInertialFrameForce.c). amp, 10 caching slots,
+    # 5 flags, then 7 Omega-related slots.
+    base_args = [p._amp]
+    base_args.extend([0.0] * 10)  # caching
+    base_args.extend(
+        [p._rot_acc, p._lin_acc, p._omegaz_only, p._const_freq, p._Omega_as_func]
+    )
+    if p._Omega_as_func:
+        base_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    else:
+        if p._omegaz_only:
+            base_args.extend([0.0, 0.0, p._Omega])
+        else:
+            base_args.extend(p._Omega)
+        base_args.append(p._Omega2)
+        if not p._const_freq and p._omegaz_only:
+            base_args.extend([0.0, 0.0, p._Omegadot])
+        elif not p._const_freq:
+            base_args.extend(p._Omegadot)
+        else:
+            base_args.extend([0.0, 0.0, 0.0])
+    # Genuine time-varying function inputs (worth interpolating): a function a0,
+    # the always-callable x0/v0 (present iff lin_acc and rot_acc), or a function
+    # Omega. A constant a0 is excluded so it is neither needlessly interpolated
+    # nor rejected for SOS integration.
+    genuine_funcs = (
+        (p._lin_acc and p._a0_as_func)
+        or (p._lin_acc and p._rot_acc)
+        or p._Omega_as_func
+    )
+    if p._cinterp and genuine_funcs and t is None:
+        raise NotImplementedError(
+            "NonInertialFrameForce with cinterp=True is not supported for "
+            "surface-of-section (SOS) integration, because building the C "
+            "interpolation table requires knowing the integration time range "
+            "in advance; re-create the NonInertialFrameForce with cinterp=False "
+            "to evaluate the time functions directly (slower)."
+        )
+    if p._cinterp and genuine_funcs:
+        # Build the interpolation tables over the overall [tmin, tmax]; works for
+        # a 1D shared time array and for a 2D per-orbit array (overall min/max).
+        tmin = numpy.amin(t)
+        tmax = numpy.amax(t)
+        tgrid = numpy.linspace(tmin, tmax, p._cinterp_n)
+        # The tables (the evaluated value arrays) depend only on the time range
+        # and cinterp_n, since the functions are fixed at construction. Reuse a
+        # single-entry cache when integrating the same force over the same range
+        # again (avoids re-evaluating the -- often expensive -- functions); a
+        # different range simply re-interpolates.
+        cache_key = (tmin, tmax, p._cinterp_n)
+        cache = getattr(p, "_cinterp_table_cache", None)
+        if cache is not None and cache[0] == cache_key:
+            spline_arrs = cache[1]
+        else:
+            # Primitives, interpolated independently and ordered to match the C
+            # spline indices: a0 at 0-2 (if lin_acc); x0 at 3-5, v0 at 6-8 (only
+            # when lin_acc and rot_acc, which is also when x0/v0 are required);
+            # Omega at 9*lin_acc onward (Omega is only present, and only read by
+            # C, when rot_acc=True -- so when lin_acc it follows the 9 a0/x0/v0
+            # splines, else it starts at 0). Omegadot is NOT stored: C derives it
+            # from the Omega spline. v0 is its own spline (no x0->v0->a0
+            # chaining, to avoid a 2nd derivative).
+            spline_arrs = []
+            if p._lin_acc:
+                spline_arrs.extend(
+                    _eval_time_func_on_grid(p._a0[ii], tgrid) for ii in range(3)
+                )
+                if p._rot_acc:
+                    spline_arrs.extend(
+                        _eval_time_func_on_grid(p._x0[ii], tgrid) for ii in range(3)
+                    )
+                    spline_arrs.extend(
+                        _eval_time_func_on_grid(p._v0[ii], tgrid) for ii in range(3)
+                    )
+            if p._Omega_as_func:
+                if p._omegaz_only:
+                    spline_arrs.append(_eval_time_func_on_grid(p._Omega, tgrid))
+                else:
+                    spline_arrs.extend(
+                        _eval_time_func_on_grid(p._Omega[ii], tgrid) for ii in range(3)
+                    )
+            p._cinterp_table_cache = (cache_key, spline_arrs)
+        pot_args = [len(spline_arrs), p._cinterp_n]
+        pot_args.extend(tgrid)
+        for arr in spline_arrs:
+            pot_args.extend(arr)
+        pot_args.extend(base_args)
+        pot_args.extend([tmin, tmax])
+        return 45, pot_args, []
+    # pot_type 39: pass the time functions to C as callbacks (as before).
+    pot_tfuncs = []
+    if p._lin_acc:
+        pot_tfuncs.extend([p._a0[0], p._a0[1], p._a0[2]])
+        if p._rot_acc:
+            pot_tfuncs.extend([p._x0[0], p._x0[1], p._x0[2]])
+            pot_tfuncs.extend([p._v0[0], p._v0[1], p._v0[2]])
+    if p._Omega_as_func:
+        if p._omegaz_only:
+            pot_tfuncs.extend([p._Omega, p._Omegadot])
+        else:
+            pot_tfuncs.extend(
+                [
+                    p._Omega[0],
+                    p._Omega[1],
+                    p._Omega[2],
+                    p._Omegadot[0],
+                    p._Omegadot[1],
+                    p._Omegadot[2],
+                ]
+            )
+    return 39, base_args, pot_tfuncs
+
+
 def _prep_tfuncs(pot_tfuncs):
     if len(pot_tfuncs) == 0:
         pot_tfuncs = None  # NULL
@@ -870,7 +989,7 @@ def integratePlanarOrbit_c(
     yo = numpy.atleast_2d(yo)
     nobj = len(yo)
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:
@@ -998,7 +1117,7 @@ def integratePlanarOrbit_dxdv_c(
 
     """
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:

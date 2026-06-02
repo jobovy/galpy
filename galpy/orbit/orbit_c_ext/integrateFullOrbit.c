@@ -506,13 +506,30 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
-    case 39: //NonInertialFrameForce, 22 arguments (10 caching ones)
+    case 39: //NonInertialFrameForce, 23 arguments (10 caching ones)
+      // The time-dependent inputs (a0, x0, v0, Omega, Omegadot) are Python/numba
+      // functions called back from C at every step via tfuncs. The cinterp=True
+      // variant (case 45) instead precomputes them as GSL splines.
       potentialArgs->RforceVelocity= &NonInertialFrameForceRforce;
       potentialArgs->zforceVelocity= &NonInertialFrameForcezforce;
       potentialArgs->phitorqueVelocity= &NonInertialFrameForcephitorque;
       potentialArgs->nargs= 23;
       potentialArgs->ntfuncs= (int) ( 3 * *(*pot_args + 12) * ( 1 + 2 * *(*pot_args + 11) ) \
                                 + ( 6 - 4 * ( *(*pot_args + 13) ) ) * *(*pot_args + 15) );
+      potentialArgs->requiresVelocity= true;
+      break;
+    case 45: //NonInertialFrameForce with cinterp=True (on-the-fly C splines)
+      // Same force as case 39, but the time-dependent inputs are evaluated from
+      // GSL splines built by initNonInertialFrameForceSplines (see below and
+      // _parse_noninertial_frame_force on the Python side) rather than from
+      // tfuncs; Omegadot is the spline derivative of Omega. The spline block
+      // precedes the 23 case-39 args, plus tmin,tmax (args 23,24) for clamping;
+      // hence nargs=25 and ntfuncs=0. The force code branches on spline1d!=NULL.
+      potentialArgs->RforceVelocity= &NonInertialFrameForceRforce;
+      potentialArgs->zforceVelocity= &NonInertialFrameForcezforce;
+      potentialArgs->phitorqueVelocity= &NonInertialFrameForcephitorque;
+      potentialArgs->nargs= 25;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;
       break;
     case 40: //NullPotential, no arguments (only supported for orbit int)
@@ -682,6 +699,7 @@ void parse_leapFuncArgs_Full(int npot,
     int setupChandrasekharDynamicalFrictionSplines = (*(*pot_type-1) == -7 || *(*pot_type-1) == -11) ? 1 : 0;
     int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
     int initMultipoleExpansionData = *(*pot_type-1) == 44 ? 1 : 0;
+    int setupNonInertialFrameForceSplines = *(*pot_type-1) == 45 ? 1 : 0;
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -695,6 +713,8 @@ void parse_leapFuncArgs_Full(int npot,
       initMovingObjectSplines(potentialArgs, pot_args);
     if (setupChandrasekharDynamicalFrictionSplines )
       initChandrasekharDynamicalFrictionSplines(potentialArgs,pot_args);
+    if ( setupNonInertialFrameForceSplines )
+      initNonInertialFrameForceSplines(potentialArgs,pot_args);
     if ( initMultipoleExpansionData )
       initMultipoleExpansionPotentialArgs(potentialArgs, pot_args);
     // Now load each potential's parameters
@@ -1108,6 +1128,35 @@ void initMovingObjectSplines(struct potentialArg * potentialArgs,
 
   *pot_args = *pot_args + (int) (1+4*nPts);
   free(t);
+}
+
+void initNonInertialFrameForceSplines(struct potentialArg * potentialArgs,
+				      double ** pot_args){
+  // cinterp NonInertialFrameForce (pot_type 45). The spline block at the front
+  // of pot_args is: n_spline, nPts, tgrid[nPts], then n_spline value arrays of
+  // length nPts in the order a0(0-2)[, x0(3-5), v0(6-8)][, Omega(9*lin_acc...)]
+  // -- matching the tfunc indices used by NonInertialFrameForce.c. (x0/v0 are
+  // present only when lin_acc and rot_acc; Omega is present and read only when
+  // rot_acc, so its base index 9*lin_acc is 9 when lin_acc -- after a0/x0/v0 --
+  // and 0 otherwise.) Splines use the raw (un-normalized) time grid, so
+  // gsl_spline_eval_deriv directly gives d/dt (used to obtain Omegadot from the
+  // Omega spline).
+  int n_spline = (int) **pot_args;
+  int nPts = (int) *(*pot_args + 1);
+  double * t_arr = *pot_args + 2; // tgrid; value array ii starts at t_arr+(ii+1)*nPts
+  int ii;
+  potentialArgs->nspline1d= n_spline;
+  potentialArgs->spline1d= (gsl_spline **)				\
+    malloc ( n_spline * sizeof ( gsl_spline * ) );
+  potentialArgs->acc1d= (gsl_interp_accel **)				\
+    malloc ( n_spline * sizeof ( gsl_interp_accel * ) );
+  for (ii=0; ii < n_spline; ii++) {
+    *(potentialArgs->acc1d + ii)= gsl_interp_accel_alloc();
+    *(potentialArgs->spline1d + ii)= gsl_spline_alloc(gsl_interp_cspline,nPts);
+    gsl_spline_init(*(potentialArgs->spline1d + ii),
+		    t_arr,t_arr + (ii + 1) * nPts,nPts);
+  }
+  *pot_args = *pot_args + (int) ( 2 + ( 1 + n_spline ) * nPts );
 }
 
 void initChandrasekharDynamicalFrictionSplines(struct potentialArg * potentialArgs,
