@@ -93,7 +93,7 @@ class NonInertialFrameForce(DissipativeForce):
         v0=None,
         a0=None,
         cinterp=True,
-        cinterp_n=10000,
+        cinterp_n=3000,
         ro=None,
         vo=None,
     ):
@@ -117,7 +117,7 @@ class NonInertialFrameForce(DissipativeForce):
         cinterp : bool, optional
             If True (default), when integrating orbits with the C code, replace any time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline interpolations built over the integration's time range and evaluate them (and ``Omegadot``, as the spline derivative of ``Omega``) from the splines in C, rather than calling the Python/``numba`` functions at every integration step. This is typically much faster -- the functions are evaluated only ``cinterp_n`` times, when setting up the integration -- and is especially beneficial when the inputs are not ``numba``-compatible. Only affects the C integration path: the pure-Python integration (e.g. ``method='odeint'``) always uses the exact functions. The interpolation tables are cached and reused when the same force is integrated again over the same time range. Not supported for surface-of-section integration, because the integration time range is not known in advance (set ``cinterp=False`` in that case).
         cinterp_n : int, optional
-            Number of grid points used for the C interpolation over the integration time range (default: 10000); only used when ``cinterp=True``.
+            Number of grid points used for the C interpolation over the integration time range (default: 3000); only used when ``cinterp=True``.
         ro : float, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float, optional

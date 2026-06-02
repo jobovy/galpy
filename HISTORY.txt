@@ -11,7 +11,7 @@ v1.12.0 (expected around 2026-07-01)
   are not ``numba``-compatible (e.g. when they wrap galpy force evaluations, as
   in the LMC barycentric-acceleration tutorial example) -- and removes the need
   to manually pre-interpolate the inputs. The interpolation resolution is set by
-  the new ``cinterp_n`` keyword (default 10000), and the rotation-frequency
+  the new ``cinterp_n`` keyword (default 3000), and the rotation-frequency
   derivative ``Omegadot`` is obtained as the spline derivative of ``Omega`` for
   consistency. ``cinterp`` only affects the C integration path (the Python path
   always uses the exact functions); set ``cinterp=False`` to evaluate the
