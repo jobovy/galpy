@@ -926,8 +926,7 @@ EXPORT void integrateFullOrbit_sos(
   free(potentialArgs);
   //Done!
 }
-// LCOV_EXCL_START
-void integrateOrbit_dxdv(double *yo,
+EXPORT void integrateFullOrbit_dxdv(double *yo,
 			 int nt,
 			 double *t,
 			 int npot,
@@ -954,12 +953,11 @@ void integrateOrbit_dxdv(double *yo,
 		      double *,int *);
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct potentialArg *);
+  // Only the non-symplectic integrators support the 12D variational (dxdv)
+  // system; Orbit.integrate_dxdv enforces this upstream
+  // (check_integrator(no_symplec=True)), so the symplectic/leapfrog/ias15
+  // odeint_types never reach here -- mirroring integratePlanarOrbit_dxdv.
   switch ( odeint_type ) {
-  case 0: //leapfrog
-    odeint_func= &leapfrog;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
-    break;
   case 1: //RK4
     odeint_func= &bovy_rk4;
     odeint_deriv_func= &evalRectDeriv_dxdv;
@@ -969,16 +967,6 @@ void integrateOrbit_dxdv(double *yo,
     odeint_func= &bovy_rk6;
     odeint_deriv_func= &evalRectDeriv_dxdv;
     dim= 12;
-    break;
-  case 3: //symplec4
-    odeint_func= &symplec4;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
-    break;
-  case 4: //symplec6
-    odeint_func= &symplec6;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
@@ -990,11 +978,6 @@ void integrateOrbit_dxdv(double *yo,
     odeint_deriv_func= &evalRectDeriv_dxdv;
     dim= 12;
     break;
-  case 7: //ias15
-    odeint_func= &wez_ias15;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
-    break;
   }
   odeint_func(odeint_deriv_func,dim,yo,nt,-9999.99,t,npot,potentialArgs,
 	      rtol,atol,result,err);
@@ -1003,7 +986,6 @@ void integrateOrbit_dxdv(double *yo,
   free(potentialArgs);
   //Done!
 }
-// LCOV_EXCL_STOP
 void evalRectForce(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phitorque, z;
@@ -1193,16 +1175,18 @@ void initChandrasekharDynamicalFrictionSplines(struct potentialArg * potentialAr
   free(r);
 }
 
-// LCOV_EXCL_START
 void evalRectDeriv_dxdv(double t, double *q, double *a,
 			int nargs, struct potentialArg * potentialArgs){
-  double sinphi, cosphi, x, y, phi,R,Rforce,phitorque,z,zforce;
-  double R2deriv, phi2deriv, Rphideriv, dFxdx, dFxdy, dFydx, dFydy;
+  // 12D state q = (x,y,z,vx,vy,vz | dx,dy,dz,dvx,dvy,dvz): the orbit plus one
+  // phase-space deviation propagated by the variational equation dw'=A w' with
+  // A=[[0,I],[K,0]] and K the symmetric Cartesian tidal tensor (-grad grad Phi).
+  double sinphi, cosphi, x, y, phi, R, Rforce, phitorque, z, zforce;
+  double R2deriv, phi2deriv, Rphideriv, z2deriv, Rzderiv, zphideriv;
+  double dFxdx, dFxdy, dFydy, dFxdz, dFydz, dFzdz, dx, dy, dz;
   //first three derivatives are just the velocities
   *a++= *(q+3);
   *a++= *(q+4);
   *a++= *(q+5);
-  //Rest is force
   //q is rectangular so calculate R and phi
   x= *q;
   y= *(q+1);
@@ -1212,22 +1196,26 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   sinphi= y/R;
   cosphi= x/R;
   if ( y < 0. ) phi= 2.*M_PI-phi;
-  //Calculate the forces
+  //Calculate the forces -> Cartesian accelerations
   Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
   zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
   phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phitorque;
   *a++= sinphi*Rforce+1./R*cosphi*phitorque;
   *a++= zforce;
-  //dx derivatives are just dv
+  //d(deviation position)/dt = deviation velocity
   *a++= *(q+9);
   *a++= *(q+10);
   *a++= *(q+11);
-  //for the dv derivatives we need also R2deriv, phi2deriv, and Rphideriv
+  // d(deviation velocity)/dt = K . (dx,dy,dz); K needs the full 3D Hessian
   R2deriv= calcR2deriv(R,z,phi,t,nargs,potentialArgs);
   phi2deriv= calcphi2deriv(R,z,phi,t,nargs,potentialArgs);
   Rphideriv= calcRphideriv(R,z,phi,t,nargs,potentialArgs);
-  //..and dFxdx, dFxdy, dFydx, dFydy
+  z2deriv= calcz2deriv(R,z,phi,t,nargs,potentialArgs);
+  Rzderiv= calcRzderiv(R,z,phi,t,nargs,potentialArgs);
+  zphideriv= calczphideriv(R,z,phi,t,nargs,potentialArgs);
+  // In-plane (x,y) block: identical to the verified 2D variational equations
+  // (z enters only through the values of the second derivatives above).
   dFxdx= -cosphi*cosphi*R2deriv
     +2.*cosphi*sinphi/R/R*phitorque
     +sinphi*sinphi/R*Rforce
@@ -1238,19 +1226,19 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
     -cosphi*sinphi/R*Rforce
     -(cosphi*cosphi-sinphi*sinphi)/R*Rphideriv
     +cosphi*sinphi/R/R*phi2deriv;
-  dFydx= -cosphi*sinphi*R2deriv
-    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorque
-    +(sinphi*sinphi-cosphi*cosphi)/R*Rphideriv
-    -sinphi*cosphi/R*Rforce
-    +sinphi*cosphi/R/R*phi2deriv;
   dFydy= -sinphi*sinphi*R2deriv
     -2.*sinphi*cosphi/R/R*phitorque
     -2.*sinphi*cosphi/R*Rphideriv
     +cosphi*cosphi/R*Rforce
     -cosphi*cosphi/R/R*phi2deriv;
-  *a++= dFxdx * *(q+4) + dFxdy * *(q+5);
-  *a++= dFydx * *(q+4) + dFydy * *(q+5);
-  *a= 0; //BOVY: PUT IN Z2DERIVS
+  // z-coupling (K symmetric: dFzdx=dFxdz, dFzdy=dFydz, dFydx=dFxdy)
+  dFxdz= -cosphi*Rzderiv+sinphi/R*zphideriv;
+  dFydz= -sinphi*Rzderiv-cosphi/R*zphideriv;
+  dFzdz= -z2deriv;
+  dx= *(q+6);
+  dy= *(q+7);
+  dz= *(q+8);
+  *a++= dFxdx*dx+dFxdy*dy+dFxdz*dz;
+  *a++= dFxdy*dx+dFydy*dy+dFydz*dz;
+  *a  = dFxdz*dx+dFydz*dy+dFzdz*dz;
 }
-
-// LCOV_EXCL_STOP

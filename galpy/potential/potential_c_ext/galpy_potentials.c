@@ -3,8 +3,11 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
   int ii;
   for (ii=0; ii < npot; ii++) {
     // Full-3D second-derivative pointers default to NULL so the 3D variational
-    // aggregators (calcz2deriv etc.) skip potentials that do not (yet) provide
-    // them; potentials that support the 3D Hessian set these in parse_*.
+    // aggregators skip potentials that do not (yet) provide them; potentials
+    // that support the 3D Hessian set these in parse_*.
+    (potentialArgs+ii)->R2deriv= NULL;
+    (potentialArgs+ii)->phi2deriv= NULL;
+    (potentialArgs+ii)->Rphideriv= NULL;
     (potentialArgs+ii)->z2deriv= NULL;
     (potentialArgs+ii)->Rzderiv= NULL;
     (potentialArgs+ii)->zphideriv= NULL;
@@ -164,8 +167,8 @@ double calcR2deriv(double R, double Z, double phi, double t,
   int ii;
   double R2deriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    R2deriv+= potentialArgs->R2deriv(R,Z,phi,t,
-				     potentialArgs);
+    if ( potentialArgs->R2deriv )
+      R2deriv+= potentialArgs->R2deriv(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
@@ -177,8 +180,8 @@ double calcphi2deriv(double R, double Z, double phi, double t,
   int ii;
   double phi2deriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    phi2deriv+= potentialArgs->phi2deriv(R,Z,phi,t,
-					 potentialArgs);
+    if ( potentialArgs->phi2deriv )
+      phi2deriv+= potentialArgs->phi2deriv(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
@@ -189,8 +192,8 @@ double calcRphideriv(double R, double Z, double phi, double t,
   int ii;
   double Rphideriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    Rphideriv+= potentialArgs->Rphideriv(R,Z,phi,t,
-					 potentialArgs);
+    if ( potentialArgs->Rphideriv )
+      Rphideriv+= potentialArgs->Rphideriv(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
