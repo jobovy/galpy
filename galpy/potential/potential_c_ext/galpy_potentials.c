@@ -162,6 +162,14 @@ double (calcPlanarphitorque)(double R, double phi, double t,
 }
 
 // LCOV_EXCL_START
+// TODO(Pvar-pot): remove this LCOV_EXCL once the full 3D second-derivative
+// machinery is exercised by tests for every aggregator. The 3D variational RHS
+// (evalRectDeriv_dxdv) now calls all six; test_liouville_3d reaches R2deriv/
+// z2deriv/Rzderiv via the axisymmetric MiyamotoNagai/Plummer validation set, but
+// the phi2deriv/Rphideriv/zphideriv branches stay unexercised until a
+// non-axisymmetric potential with a complete 3D Hessian (including zphideriv) is
+// implemented and added to test_liouville_3d (the Pvar-pot fan-out). Drop the
+// exclusion then so all six aggregators are covered.
 double calcR2deriv(double R, double Z, double phi, double t,
 		   int nargs, struct potentialArg * potentialArgs){
   int ii;

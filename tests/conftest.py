@@ -4,6 +4,25 @@ def pytest_generate_tests(metafunc):
     # Maybe I should define a cmdline option to set the config instead...
     from galpy import potential
 
+    if metafunc.function.__name__ in (
+        "test_liouville_3d",
+        "test_liouville_3d_2d_bridge",
+    ):
+        liouville3d_pots = [
+            potential.MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1, normalize=True),
+            # a==0 exercises the disk->spherical special branch of the C Hessian
+            potential.MiyamotoNagaiPotential(amp=1.0, a=0.0, b=0.3, normalize=True),
+            potential.PlummerPotential(amp=1.0, b=0.7, normalize=True),
+        ]
+        metafunc.parametrize(
+            "pot",
+            liouville3d_pots,
+            ids=[
+                "MiyamotoNagaiPotential",
+                "MiyamotoNagaiPotential_a0",
+                "PlummerPotential",
+            ],
+        )
     if metafunc.function.__name__ == "test_energy_jacobi_conservation":
         # Generate orbit integration tests for all potentials
         # Grab all of the potentials
