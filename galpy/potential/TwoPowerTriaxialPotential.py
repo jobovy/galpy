@@ -13,6 +13,7 @@
 import numpy
 from scipy import special
 
+from ..backend import get_namespace
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -395,10 +396,11 @@ class TriaxialJaffePotential(EllipsoidalPotential):
 
     def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
+        xp = get_namespace(m)
         return (
             2.0
             * self.a2
-            * (1.0 / (1.0 + m / self.a) + numpy.log(1.0 / (1.0 + self.a / m)))
+            * (1.0 / (1.0 + m / self.a) + xp.log(1.0 / (1.0 + self.a / m)))
         )
 
     def _mdens(self, m):
