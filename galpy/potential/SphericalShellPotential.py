@@ -2,8 +2,9 @@
 #   SphericalShellPotential.py: The gravitational potential of a thin,
 #                               spherical shell
 ###############################################################################
-import numpy
+import math
 
+from ..backend import get_namespace
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
 
@@ -58,37 +59,42 @@ class SphericalShellPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """The potential as a function of r"""
-        if r <= self.a:
-            return -1.0 / self.a
-        else:
-            return -1.0 / r
+        xp = get_namespace(r)
+        inside = r <= self.a
+        # safe r so the (dead) outside branch cannot produce -1/0 at r == 0
+        safe = xp.where(inside, xp.ones_like(r * 1.0), r)
+        return xp.where(inside, -1.0 / self.a * xp.ones_like(r * 1.0), -1.0 / safe)
 
     def _rforce(self, r, t=0.0):
         """The force as a function of r"""
-        if r <= self.a:
-            return 0.0
-        else:
-            return -1 / r**2.0
+        xp = get_namespace(r)
+        inside = r <= self.a
+        safe = xp.where(inside, xp.ones_like(r * 1.0), r)
+        return xp.where(inside, xp.zeros_like(r * 1.0), -1 / safe**2.0)
 
     def _r2deriv(self, r, t=0.0):
         """The second radial derivative as a function of r"""
-        if r <= self.a:
-            return 0.0
-        else:
-            return -2.0 / r**3.0
+        xp = get_namespace(r)
+        inside = r <= self.a
+        safe = xp.where(inside, xp.ones_like(r * 1.0), r)
+        return xp.where(inside, xp.zeros_like(r * 1.0), -2.0 / safe**3.0)
 
     def _rdens(self, r, t=0.0):
         """The density as a function of r"""
-        if r != self.a:
-            return 0.0
-        else:  # pragma: no cover
-            return numpy.infty
+        xp = get_namespace(r)
+        return xp.where(
+            r != self.a, xp.zeros_like(r * 1.0), math.inf * xp.ones_like(r * 1.0)
+        )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        if R > self.a:
-            return 0.0
-        h = numpy.sqrt(self.a2 - R**2)
-        if z < h:
-            return 0.0
-        else:
-            return 1.0 / (2.0 * numpy.pi * self.a * h)
+        xp = get_namespace(R, z)
+        # h is real only where R <= a; use a safe argument so the dead
+        # (R > a) branch cannot produce sqrt(negative) = NaN
+        outside = R > self.a
+        safe_arg = xp.where(outside, xp.ones_like(R * 1.0), self.a2 - R**2)
+        h = xp.sqrt(safe_arg)
+        safe_h = xp.where(h == 0.0, xp.ones_like(h), h)
+        val = 1.0 / (2.0 * math.pi * self.a * safe_h)
+        zero = xp.zeros_like((R + z) * 1.0)
+        # zero for R > a or z < h, else val
+        return xp.where(outside | (z < h), zero, val)

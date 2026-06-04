@@ -1,9 +1,12 @@
 ###############################################################################
 #   BurkertPotential.py: Potential with a Burkert density
 ###############################################################################
+import math
+
 import numpy
 from scipy import special
 
+from ..backend import get_namespace
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
 
@@ -76,23 +79,24 @@ class BurkertPotential(SphericalPotential):
     #                                +(1.-x)*numpy.log(1.+x**2.))
 
     def _rforce(self, r, t=0.0):
+        xp = get_namespace(r)
         x = r / self.a
         return (
             self.a
-            * numpy.pi
+            * math.pi
             / x**2.0
             * (
-                numpy.pi
-                - 2.0 * numpy.arctan(1.0 / x)
-                - 2.0 * numpy.log(1.0 + x)
-                - numpy.log(1.0 + x**2.0)
+                math.pi
+                - 2.0 * xp.arctan(1.0 / x)
+                - 2.0 * xp.log(1.0 + x)
+                - xp.log(1.0 + x**2.0)
             )
         )
 
     def _r2deriv(self, r, t=0.0):
         x = r / self.a
         return (
-            4.0 * numpy.pi / (1.0 + x**2.0) / (1.0 + x)
+            4.0 * math.pi / (1.0 + x**2.0) / (1.0 + x)
             + 2.0 * self._rforce(r) / x / self.a
         )
 

@@ -1,8 +1,9 @@
 ###############################################################################
 #   HomogeneousSpherePotential.py: The potential of a homogeneous sphere
 ###############################################################################
-import numpy
+import math
 
+from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -55,50 +56,65 @@ class HomogeneousSpherePotential(Potential):
         self.hasC_dens = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        if r2 < self._R2:
-            return r2 - 3.0 * self._R2
-        else:
-            return -2.0 * self._R3 / numpy.sqrt(r2)
+        inside = r2 < self._R2
+        # safe denominator so the (dead) outside branch cannot produce a
+        # 0/0 NaN at r2 == 0 that would poison reverse-mode gradients
+        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
+        return xp.where(inside, r2 - 3.0 * self._R2, -2.0 * self._R3 / xp.sqrt(safe))
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        if r2 < self._R2:
-            return -2.0 * R
-        else:
-            return -2.0 * self._R3 * R / r2**1.5
+        inside = r2 < self._R2
+        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
+        return xp.where(inside, -2.0 * R, -2.0 * self._R3 * R / safe**1.5)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        if r2 < self._R2:
-            return -2.0 * z
-        else:
-            return -2.0 * self._R3 * z / r2**1.5
+        inside = r2 < self._R2
+        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
+        return xp.where(inside, -2.0 * z, -2.0 * self._R3 * z / safe**1.5)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        if r2 < self._R2:
-            return 2.0
-        else:
-            return 2.0 * self._R3 / r2**1.5 - 6.0 * self._R3 * R**2.0 / r2**2.5
+        inside = r2 < self._R2
+        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
+        return xp.where(
+            inside,
+            2.0 * xp.ones_like(r2 * 1.0),
+            2.0 * self._R3 / safe**1.5 - 6.0 * self._R3 * R**2.0 / safe**2.5,
+        )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        if r2 < self._R2:
-            return 2.0
-        else:
-            return 2.0 * self._R3 / r2**1.5 - 6.0 * self._R3 * z**2.0 / r2**2.5
+        inside = r2 < self._R2
+        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
+        return xp.where(
+            inside,
+            2.0 * xp.ones_like(r2 * 1.0),
+            2.0 * self._R3 / safe**1.5 - 6.0 * self._R3 * z**2.0 / safe**2.5,
+        )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        if r2 < self._R2:
-            return 0.0
-        else:
-            return -6.0 * self._R3 * R * z / r2**2.5
+        inside = r2 < self._R2
+        safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
+        return xp.where(
+            inside,
+            xp.zeros_like(r2 * 1.0),
+            -6.0 * self._R3 * R * z / safe**2.5,
+        )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        if r2 < self._R2:
-            return 1.5 / numpy.pi
-        else:
-            return 0.0
+        inside = r2 < self._R2
+        return xp.where(
+            inside, 1.5 / math.pi * xp.ones_like(r2 * 1.0), xp.zeros_like(r2 * 1.0)
+        )
