@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .planarPotential import planarPotential
 
@@ -108,12 +109,13 @@ class SteadyLogSpiralPotential(planarPotential):
                 smooth = 1.0
         else:
             smooth = 1.0
+        xp = get_namespace(R, phi)
         return (
             smooth
             * self._A
             / self._alpha
-            * numpy.cos(
-                self._alpha * numpy.log(R)
+            * xp.cos(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
@@ -132,12 +134,13 @@ class SteadyLogSpiralPotential(planarPotential):
                 smooth = 1.0
         else:
             smooth = 1.0
+        xp = get_namespace(R, phi)
         return (
             smooth
             * self._A
             / R
-            * numpy.sin(
-                self._alpha * numpy.log(R)
+            * xp.sin(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
@@ -156,13 +159,14 @@ class SteadyLogSpiralPotential(planarPotential):
                 smooth = 1.0
         else:
             smooth = 1.0
+        xp = get_namespace(R, phi)
         return (
             -smooth
             * self._A
             / self._alpha
             * self._m
-            * numpy.sin(
-                self._alpha * numpy.log(R)
+            * xp.sin(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )

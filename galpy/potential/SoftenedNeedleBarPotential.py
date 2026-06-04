@@ -3,10 +3,12 @@
 #                                  bar potential from Long & Murali (1992)
 ###############################################################################
 import hashlib
+import math
 
 import numpy
 
-from ..util import conversion, coords
+from ..backend import get_namespace
+from ..util import conversion
 from .Potential import Potential
 
 
@@ -90,68 +92,92 @@ class SoftenedNeedleBarPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi)
         x, y, z = self._compute_xyz(R, phi, z, t)
         Tp, Tm = self._compute_TpTm(x, y, z)
-        return numpy.log((x - self._a + Tm) / (x + self._a + Tp)) / 2.0 / self._a
+        return xp.log((x - self._a + Tm) / (x + self._a + Tp)) / 2.0 / self._a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        self._compute_xyzforces(R, z, phi, t)
-        return numpy.cos(phi) * self._cached_Fx + numpy.sin(phi) * self._cached_Fy
+        xp = get_namespace(R, z, phi)
+        Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
+        return xp.cos(phi) * Fx + xp.sin(phi) * Fy
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        self._compute_xyzforces(R, z, phi, t)
-        return R * (
-            -numpy.sin(phi) * self._cached_Fx + numpy.cos(phi) * self._cached_Fy
-        )
+        xp = get_namespace(R, z, phi)
+        Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
+        return R * (-xp.sin(phi) * Fx + xp.cos(phi) * Fy)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        self._compute_xyzforces(R, z, phi, t)
-        return self._cached_Fz
+        xp = get_namespace(R, z, phi)
+        _, _, Fz = self._cached_xyzforces(R, z, phi, t, xp)
+        return Fz
 
     def OmegaP(self):
         return self._omegab
 
     def _compute_xyz(self, R, phi, z, t):
-        return coords.cyl_to_rect(R, phi - self._pa - self._omegab * t, z)
+        xp = get_namespace(R, z, phi)
+        ang = phi - self._pa - self._omegab * t
+        return (R * xp.cos(ang), R * xp.sin(ang), z)
 
     def _compute_TpTm(self, x, y, z):
-        secondpart = y**2.0 + (self._b + numpy.sqrt(self._c2 + z**2.0)) ** 2.0
+        xp = get_namespace(x, y, z)
+        secondpart = y**2.0 + (self._b + xp.sqrt(self._c2 + z**2.0)) ** 2.0
         return (
-            numpy.sqrt((self._a + x) ** 2.0 + secondpart),
-            numpy.sqrt((self._a - x) ** 2.0 + secondpart),
+            xp.sqrt((self._a + x) ** 2.0 + secondpart),
+            xp.sqrt((self._a - x) ** 2.0 + secondpart),
         )
 
-    def _compute_xyzforces(self, R, z, phi, t):
-        # Compute all rectangular forces
+    def _xyzforces(self, R, z, phi, t):
+        # Pure-functional rectangular (galactocentric, de-rotated) forces; no
+        # per-instance state, so it is safe under jax/torch tracing.
+        x, y, z = self._compute_xyz(R, phi, z, t)
+        Tp, Tm = self._compute_TpTm(x, y, z)
+        Fx = self._xforce_xyz(x, y, z, Tp, Tm)
+        Fy = self._yforce_xyz(x, y, z, Tp, Tm)
+        Fz = self._zforce_xyz(x, y, z, Tp, Tm)
+        # de-rotation angle depends on the time t. For a scalar t, math.cos/sin
+        # keep it a plain coefficient that broadcasts cleanly against any
+        # backend's forces; for an array t (numpy), use that array's namespace
+        # so the rotation broadcasts element-wise.
+        tp = self._pa + self._omegab * t
+        if getattr(tp, "ndim", 0) > 0:
+            txp = get_namespace(tp)
+            cp, sp = txp.cos(tp), txp.sin(tp)
+        else:
+            cp, sp = math.cos(tp), math.sin(tp)
+        return (cp * Fx - sp * Fy, sp * Fx + cp * Fy, Fz)
+
+    def _cached_xyzforces(self, R, z, phi, t, xp):
+        # numpy gets a per-instance hash cache (perf); jax/torch compute directly
+        # so the traced path never reads/writes self-state (illegal under tracing).
+        if xp is not numpy:
+            return self._xyzforces(R, z, phi, t)
         new_hash = hashlib.md5(numpy.array([R, phi, z, t])).hexdigest()
         if new_hash != self._force_hash:
-            x, y, z = self._compute_xyz(R, phi, z, t)
-            Tp, Tm = self._compute_TpTm(x, y, z)
-            Fx = self._xforce_xyz(x, y, z, Tp, Tm)
-            Fy = self._yforce_xyz(x, y, z, Tp, Tm)
-            Fz = self._zforce_xyz(x, y, z, Tp, Tm)
+            self._cached_Fx, self._cached_Fy, self._cached_Fz = self._xyzforces(
+                R, z, phi, t
+            )
             self._force_hash = new_hash
-            tp = self._pa + self._omegab * t
-            cp, sp = numpy.cos(tp), numpy.sin(tp)
-            self._cached_Fx = cp * Fx - sp * Fy
-            self._cached_Fy = sp * Fx + cp * Fy
-            self._cached_Fz = Fz
+        return self._cached_Fx, self._cached_Fy, self._cached_Fz
 
     def _xforce_xyz(self, x, y, z, Tp, Tm):
         return -2.0 * x / Tp / Tm / (Tp + Tm)
 
     def _yforce_xyz(self, x, y, z, Tp, Tm):
+        xp = get_namespace(x, y, z)
         return (
             -y
             / 2.0
             / Tp
             / Tm
             * (Tp + Tm - 4.0 * x**2.0 / (Tp + Tm))
-            / (y**2.0 + (self._b + numpy.sqrt(z**2.0 + self._c2)) ** 2.0)
+            / (y**2.0 + (self._b + xp.sqrt(z**2.0 + self._c2)) ** 2.0)
         )
 
     def _zforce_xyz(self, x, y, z, Tp, Tm):
-        zc = numpy.sqrt(z**2.0 + self._c2)
+        xp = get_namespace(x, y, z)
+        zc = xp.sqrt(z**2.0 + self._c2)
         return (
             -z
             / 2.0
@@ -164,15 +190,16 @@ class SoftenedNeedleBarPotential(Potential):
         )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi)
         x, y, z = self._compute_xyz(R, phi, z, t)
-        zc = numpy.sqrt(z**2.0 + self._c2)
+        zc = xp.sqrt(z**2.0 + self._c2)
         bzc2 = (self._b + zc) ** 2.0
         bigA = self._b * y**2.0 + (self._b + 3.0 * zc) * bzc2
         bigC = y**2.0 + bzc2
         return (
             self._c2
             / 24.0
-            / numpy.pi
+            / math.pi
             / self._a
             / bigC**2.0
             / zc**3.0

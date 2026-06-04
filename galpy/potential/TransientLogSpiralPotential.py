@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .planarPotential import planarPotential
 
@@ -89,35 +90,41 @@ class TransientLogSpiralPotential(planarPotential):
         self.hasC = True
 
     def _evaluate(self, R, phi=0.0, t=0.0):
+        xp = get_namespace(R, phi)
+        # The Gaussian envelope depends only on the (scalar/array) time t, never on
+        # the traced R/phi, so numpy.exp keeps it a plain coefficient that
+        # broadcasts cleanly against any backend's R/phi arrays.
         return (
             self._A
             * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
             / self._alpha
-            * numpy.cos(
-                self._alpha * numpy.log(R)
+            * xp.cos(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
 
     def _Rforce(self, R, phi=0.0, t=0.0):
+        xp = get_namespace(R, phi)
         return (
             self._A
             * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
             / R
-            * numpy.sin(
-                self._alpha * numpy.log(R)
+            * xp.sin(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
 
     def _phitorque(self, R, phi=0.0, t=0.0):
+        xp = get_namespace(R, phi)
         return (
             -self._A
             * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
             / self._alpha
             * self._m
-            * numpy.sin(
-                self._alpha * numpy.log(R)
+            * xp.sin(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
