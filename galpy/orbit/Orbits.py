@@ -65,6 +65,7 @@ from ..util.coords import _K
 from .integrateFullOrbit import (
     integrateFullOrbit,
     integrateFullOrbit_c,
+    integrateFullOrbit_dxdv,
     integrateFullOrbit_sos,
     integrateFullOrbit_sos_c,
 )
@@ -2273,7 +2274,7 @@ class Orbit:
         Parameters
         ----------
         dxdv : numpy.ndarray
-            Initial conditions for the orbit in cylindrical or rectangular coordinates. The shape of the array should be (\*input_shape, 4).
+            Initial conditions for the phase-space deviation in cylindrical or rectangular coordinates. The shape of the array should be (\*input_shape, 4) for planar (4D) orbits and (\*input_shape, 6) for 3D (6D) orbits.
         t : list, numpy.ndarray or Quantity
             List of equispaced times at which to compute the orbit. The initial condition is t[0].  (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
         pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
@@ -2318,9 +2319,9 @@ class Orbit:
         - 2019-05-21 - Parallelized and incorporated into new Orbits class - Bovy (UofT)
 
         """
-        if not self.phasedim() == 4:
+        if not (self.phasedim() == 4 or self.phasedim() == 6):
             raise AttributeError(
-                "integrate_dxdv is only implemented for 4D (planar) orbits"
+                "integrate_dxdv is only implemented for 4D (planar) and 6D (3D) orbits"
             )
         self.check_integrator(method, no_symplec=True)
         pot = _check_potential_list_and_deprecate(pot)
@@ -2350,6 +2351,8 @@ class Orbit:
             delattr(self, "_orbInterp")
         if self.dim() == 2:
             thispot = toPlanarPotential(pot)
+        else:
+            thispot = pot
         self.t = numpy.array(t)
         self._pot_dxdv = thispot
         self._pot = thispot
@@ -2388,9 +2391,24 @@ class Orbit:
                     rtol=rtol,
                     atol=atol,
                 )
+            else:
+                out, msg = integrateFullOrbit_dxdv(
+                    self._pot,
+                    self.vxvv,
+                    dxdv,
+                    t,
+                    method,
+                    rectIn,
+                    rectOut,
+                    progressbar=progressbar,
+                    numcores=numcores,
+                    dt=dt,
+                    rtol=rtol,
+                    atol=atol,
+                )
         # Store orbit internally
         self.orbit_dxdv = out
-        self.orbit = self.orbit_dxdv[..., :4]
+        self.orbit = self.orbit_dxdv[..., : self.phasedim()]
         return None
 
     def flip(self, inplace=False):
@@ -2522,7 +2540,7 @@ class Orbit:
         - 2019-05-21: Written by Bovy (UofT)
 
         """
-        return self.orbit_dxdv[..., 4:].copy()
+        return self.orbit_dxdv[..., self.phasedim() :].copy()
 
     @physical_conversion("energy")
     @shapeDecorator

@@ -97,9 +97,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &MiyamotoNagaiPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &MiyamotoNagaiPotentialDens;
-      //potentialArgs->R2deriv= &MiyamotoNagaiPotentialR2deriv;
-      //potentialArgs->planarphi2deriv= &ZeroForce;
-      //potentialArgs->planarRphideriv= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &MiyamotoNagaiPotentialR2deriv;
+      potentialArgs->z2deriv= &MiyamotoNagaiPotentialz2deriv;
+      potentialArgs->Rzderiv= &MiyamotoNagaiPotentialRzderiv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -263,7 +266,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &PlummerPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PlummerPotentialDens;
-      //potentialArgs->R2deriv= &PlummerPotentialR2deriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &PlummerPotentialR2deriv;
+      potentialArgs->z2deriv= &PlummerPotentialz2deriv;
+      potentialArgs->Rzderiv= &PlummerPotentialRzderiv;
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;

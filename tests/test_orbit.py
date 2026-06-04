@@ -973,6 +973,257 @@ def test_liouville_planar():
     return None
 
 
+def _cart_accel_3d(pot, rect):
+    """Cartesian acceleration (ax,ay,az) at rectangular position rect=(x,y,z)."""
+    from galpy.potential import (
+        evaluatephitorques,
+        evaluateRforces,
+        evaluatezforces,
+    )
+
+    x, y, z = rect[0], rect[1], rect[2]
+    R = numpy.sqrt(x**2.0 + y**2.0)
+    phi = numpy.arctan2(y, x)
+    cp, sp = numpy.cos(phi), numpy.sin(phi)
+    Rforce = evaluateRforces(pot, R, z, phi=phi)
+    phitorque = evaluatephitorques(pot, R, z, phi=phi)
+    zforce = evaluatezforces(pot, R, z, phi=phi)
+    ax = cp * Rforce - sp / R * phitorque
+    ay = sp * Rforce + cp / R * phitorque
+    az = zforce
+    return numpy.array([ax, ay, az])
+
+
+def _orbit_rect_3d(o, ts):
+    """Stack the integrated 6D orbit in rectangular phase space (nt,6)."""
+    x = o.x(ts)
+    y = o.y(ts)
+    z = o.z(ts)
+    vx = o.vx(ts)
+    vy = o.vy(ts)
+    vz = o.vz(ts)
+    return numpy.array([x, y, z, vx, vy, vz]).T
+
+
+# 3D variational equations: Liouville (det M=1), symplecticity, and -- the
+# parts that actually pin down the Cartesian Hessian K -- the flow-direction,
+# finite-difference, and 2D-reduction bridge checks. See the docstring of each
+# block below for which property is being validated.
+def test_liouville_3d():
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential, PlummerPotential
+
+    integrators = [
+        "dopr54_c",
+        "dop853_c",
+        "rk4_c",
+        "rk6_c",
+        "dop853",
+        "odeint",
+    ]
+    pots = [
+        MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1, normalize=True),
+        PlummerPotential(amp=1.0, b=0.7, normalize=True),
+    ]
+    # Generic, fully 3D initial condition (R,vR,vT,z,vz,phi)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    # Omega in (x,y,z,vx,vy,vz) order for the symplecticity check
+    Omega = numpy.zeros((6, 6))
+    Omega[:3, 3:] = numpy.eye(3)
+    Omega[3:, :3] = -numpy.eye(3)
+    canonical = numpy.eye(6)
+    for pot in pots:
+        pname = pot.__class__.__name__
+        for integrator in integrators:
+            if "_c" in integrator:
+                rtol, atol = 1e-12, 1e-12
+            else:
+                rtol, atol = 1e-12, 1e-12
+            # ---- Build the 6x6 monodromy/STM M: integrate the 6 canonical
+            # basis deviation vectors with rectIn=rectOut=True ----
+            Mcols = []
+            for ii in range(6):
+                o = Orbit(ic)
+                o.integrate_dxdv(
+                    canonical[ii],
+                    times,
+                    pot,
+                    method=integrator,
+                    rectIn=True,
+                    rectOut=True,
+                    rtol=rtol,
+                    atol=atol,
+                )
+                Mcols.append(o.getOrbit_dxdv()[-1, :])
+            M = numpy.array(Mcols).T  # columns are the propagated basis vectors
+            # (1) Liouville: det M = 1 [necessary check]. The fixed-step,
+            # lower-order rk4_c/rk6_c integrators are intrinsically a little less
+            # accurate, so use a slightly looser (but still meaningful) tolerance.
+            det_tol = 1e-7 if integrator in ("rk4_c", "rk6_c") else 1e-8
+            detM = numpy.linalg.det(M)
+            assert numpy.fabs(detM - 1.0) < det_tol, (
+                f"3D Liouville det(M)={detM:g} differs from 1 for {pname}, "
+                f"integrator {integrator}"
+            )
+            # (2) Symplecticity: M^T Omega M = Omega [necessary]
+            symperr = numpy.amax(
+                numpy.fabs(numpy.dot(M.T, numpy.dot(Omega, M)) - Omega)
+            )
+            assert symperr < 1e-7, (
+                f"3D symplecticity ||M^T Omega M - Omega||={symperr:g} too large "
+                f"for {pname}, integrator {integrator}"
+            )
+            # (3) Flow-direction (validates K, free): the phase-space velocity
+            # f(x0) is an exact solution of the variational equation, so the
+            # integrated deviation must equal f(x(t)) along the orbit.
+            o = Orbit(ic)
+            o.integrate(times, pot, method=integrator)
+            rect_orbit = _orbit_rect_3d(o, times)
+            f0 = numpy.empty(6)
+            f0[:3] = rect_orbit[0, 3:]
+            f0[3:] = _cart_accel_3d(pot, rect_orbit[0, :3])
+            o2 = Orbit(ic)
+            o2.integrate_dxdv(
+                f0,
+                times,
+                pot,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+                rtol=rtol,
+                atol=atol,
+            )
+            dev = o2.getOrbit_dxdv()  # (nt,6) rectangular deviation
+            ftrue = numpy.empty((len(times), 6))
+            ftrue[:, :3] = rect_orbit[:, 3:]
+            for jj in range(len(times)):
+                ftrue[jj, 3:] = _cart_accel_3d(pot, rect_orbit[jj, :3])
+            flowerr = numpy.amax(numpy.fabs(dev - ftrue))
+            assert flowerr < 1e-6, (
+                f"3D flow-direction deviation differs from f(x(t)) by {flowerr:g} "
+                f"for {pname}, integrator {integrator}"
+            )
+            # (4) Finite-difference of the flow (validates K): integrate a base
+            # orbit and orbits perturbed by eps*e_i and compare the dxdv column
+            # to the FD of the integrated flow. Do a couple of i.
+            eps = 1e-7
+            obase = Orbit(ic)
+            obase.integrate(times, pot, method=integrator)
+            base_rect = _orbit_rect_3d(obase, times)
+            for ii in [0, 2, 4]:  # an x, a z, and a vy perturbation
+                pert_ic_rect = base_rect[0].copy()
+                pert_ic_rect[ii] += eps
+                # build a cylindrical IC from the perturbed rect IC
+                from galpy.util import coords
+
+                Rp, phip, Zp = coords.rect_to_cyl(
+                    pert_ic_rect[0], pert_ic_rect[1], pert_ic_rect[2]
+                )
+                vRp, vTp, vzp = coords.rect_to_cyl_vec(
+                    pert_ic_rect[3],
+                    pert_ic_rect[4],
+                    pert_ic_rect[5],
+                    pert_ic_rect[0],
+                    pert_ic_rect[1],
+                    pert_ic_rect[2],
+                )
+                opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+                opert.integrate(times, pot, method=integrator)
+                pert_rect = _orbit_rect_3d(opert, times)
+                fd = (pert_rect - base_rect) / eps
+                # dxdv column for e_i
+                odx = Orbit(ic)
+                odx.integrate_dxdv(
+                    canonical[ii],
+                    times,
+                    pot,
+                    method=integrator,
+                    rectIn=True,
+                    rectOut=True,
+                    rtol=rtol,
+                    atol=atol,
+                )
+                col = odx.getOrbit_dxdv()
+                fderr = numpy.amax(numpy.fabs(fd - col))
+                assert fderr < 1e-4, (
+                    f"3D finite-difference of the flow for e_{ii} differs from "
+                    f"the dxdv column by {fderr:g} for {pname}, integrator {integrator}"
+                )
+    return None
+
+
+# 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
+# dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
+# integrate_dxdv must match the trusted planar integrate_dxdv result.
+def test_liouville_3d_2d_bridge():
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential, PlummerPotential
+
+    pots = [
+        MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1, normalize=True),
+        PlummerPotential(amp=1.0, b=0.7, normalize=True),
+    ]
+    times = numpy.linspace(0.0, 5.0, 251)
+    # Planar IC (z=0, vz=0): (R,vR,vT,phi) in 2D and (R,vR,vT,z=0,vz=0,phi) in 3D
+    R, vR, vT, phi = 1.0, 0.1, 1.1, 0.2
+    # In-plane rectangular deviations to compare (x, y, vx, vy basis)
+    # 3D rect order: (x,y,z,vx,vy,vz); planar rect order: (x,y,vx,vy)
+    dev3d_list = [
+        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # dx
+        [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],  # dy
+        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],  # dvx
+        [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],  # dvy
+    ]
+    dev2d_list = [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    # 3D->planar index map: (x,y,vx,vy) live at 3D indices (0,1,3,4)
+    planar_in_3d = [0, 1, 3, 4]
+    for pot in pots:
+        pname = pot.__class__.__name__
+        for dev3d, dev2d in zip(dev3d_list, dev2d_list):
+            # 3D
+            o3 = Orbit([R, vR, vT, 0.0, 0.0, phi])
+            o3.integrate_dxdv(
+                dev3d,
+                times,
+                pot,
+                method="dop853_c",
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+            d3 = o3.getOrbit_dxdv()[-1]  # rect (dx,dy,dz,dvx,dvy,dvz)
+            # planar (trusted)
+            o2 = Orbit([R, vR, vT, phi])
+            o2.integrate_dxdv(
+                dev2d,
+                times,
+                pot.toPlanar(),
+                method="dop853_c",
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+            d2 = o2.getOrbit_dxdv()[-1]  # rect (dx,dy,dvx,dvy)
+            # z, vz deviations must stay zero in 3D
+            assert numpy.fabs(d3[2]) < 1e-9 and numpy.fabs(d3[5]) < 1e-9, (
+                f"3D in-plane deviation leaked into (dz,dvz) for {pname}"
+            )
+            bridge_err = numpy.amax(numpy.fabs(d3[planar_in_3d] - d2))
+            assert bridge_err < 1e-9, (
+                f"3D->2D bridge: (x,y,vx,vy) sub-STM differs from planar by "
+                f"{bridge_err:g} for {pname}"
+            )
+    return None
+
+
 # Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
 def test_integrate_SOS_3D():
     pot = potential.MWPotential2014
@@ -8458,8 +8709,8 @@ def test_integrate_dxdv_errors():
     from galpy.orbit import Orbit
 
     ts = numpy.linspace(0.0, 10.0, 1001)
-    # Test that attempting to use integrate_dxdv with a non-phasedim==4 orbit
-    # raises error
+    # Test that attempting to use integrate_dxdv with a non-phasedim==4/6 orbit
+    # raises error (1D and 3D-without-phi orbits)
     o = Orbit([1.0, 0.1])
     with pytest.raises(AttributeError) as excinfo:
         o.integrate_dxdv(None, ts, potential.toVertical(potential.MWPotential, 1.0))
@@ -8469,14 +8720,26 @@ def test_integrate_dxdv_errors():
     o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1])
     with pytest.raises(AttributeError) as excinfo:
         o.integrate_dxdv(None, ts, potential.MWPotential)
-    o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
-    with pytest.raises(AttributeError) as excinfo:
-        o.integrate_dxdv(None, ts, potential.MWPotential)
-    # Test that a random string as the integrator doesn't work
+    # Test that a random string as the integrator doesn't work (4D)
     o = Orbit([1.0, 0.1, 1.0, 3.0])
     with pytest.raises(ValueError) as excinfo:
         o.integrate_dxdv(
             None, ts, potential.MWPotential, method="some non-existent integrator"
+        )
+    # Test that a random string as the integrator doesn't work (6D)
+    o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
+    with pytest.raises(ValueError) as excinfo:
+        o.integrate_dxdv(
+            None, ts, potential.MWPotential, method="some non-existent integrator"
+        )
+    # Test that a symplectic integrator raises for 6D orbits
+    o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
+    with pytest.raises(ValueError) as excinfo:
+        o.integrate_dxdv(
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ts,
+            potential.MWPotential,
+            method="symplec4_c",
         )
     return None
 

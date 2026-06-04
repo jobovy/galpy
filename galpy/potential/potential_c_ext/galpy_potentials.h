@@ -252,6 +252,12 @@ double MiyamotoNagaiPotentialzforce(double,double,double,double,
 				    struct potentialArg *);
 double MiyamotoNagaiPotentialPlanarR2deriv(double ,double, double,
 					   struct potentialArg *);
+double MiyamotoNagaiPotentialR2deriv(double ,double , double, double,
+				     struct potentialArg *);
+double MiyamotoNagaiPotentialz2deriv(double ,double , double, double,
+				     struct potentialArg *);
+double MiyamotoNagaiPotentialRzderiv(double ,double , double, double,
+				     struct potentialArg *);
 double MiyamotoNagaiPotentialDens(double ,double , double, double,
 				  struct potentialArg *);
 //LopsidedDiskPotential
@@ -408,6 +414,12 @@ double PlummerPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double PlummerPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+double PlummerPotentialR2deriv(double,double,double,double,
+			       struct potentialArg *);
+double PlummerPotentialz2deriv(double,double,double,double,
+			       struct potentialArg *);
+double PlummerPotentialRzderiv(double,double,double,double,
+			       struct potentialArg *);
 double PlummerPotentialDens(double,double,double,double,
 			    struct potentialArg *);
 //PseudoIsothermalPotential
