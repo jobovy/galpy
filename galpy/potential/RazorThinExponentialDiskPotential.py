@@ -7,6 +7,7 @@
 import numpy
 from scipy import special
 
+from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -211,7 +212,8 @@ class RazorThinExponentialDiskPotential(Potential):
         return numpy.infty
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        return numpy.exp(-self._alpha * R)
+        xp = get_namespace(R, z)
+        return xp.exp(-self._alpha * R)
 
     def _mass(self, R, z=None, t=0.0):
         return (

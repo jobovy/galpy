@@ -6,8 +6,9 @@
 #                          phi(R,z)= --------- ; m^2 = R^2 + z^2/q^2
 #                                   m^\alpha
 ###############################################################################
-import numpy
+import math
 
+from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -82,7 +83,8 @@ class FlattenedPowerPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if self.alpha == 0.0:
-            return 1.0 / 2.0 * numpy.log(R**2.0 + z**2.0 / self.q2 + self.core2)
+            xp = get_namespace(R, z)
+            return 1.0 / 2.0 * xp.log(R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
             m2 = self.core2 + R**2.0 + z**2.0 / self.q2
             return -(m2 ** (-self.alpha / 2.0)) / self.alpha
@@ -129,7 +131,7 @@ class FlattenedPowerPotential(Potential):
             return (
                 1.0
                 / 4.0
-                / numpy.pi
+                / math.pi
                 / self.q2
                 * (
                     (2.0 * self.q2 + 1.0) * self.core2
@@ -150,5 +152,5 @@ class FlattenedPowerPotential(Potential):
                 )
                 * m2 ** (-self.alpha / 2.0 - 2.0)
                 / 4.0
-                / numpy.pi
+                / math.pi
             )
