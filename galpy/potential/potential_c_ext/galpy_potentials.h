@@ -32,6 +32,13 @@ struct potentialArg{
 		      struct potentialArg *);
   double (*Rphideriv)(double R,double Z,double phi, double t,
 		      struct potentialArg *);
+  // Remaining full-3D second derivatives, for the 3D variational equations
+  double (*z2deriv)(double R,double Z,double phi, double t,
+		    struct potentialArg *);
+  double (*Rzderiv)(double R,double Z,double phi, double t,
+		    struct potentialArg *);
+  double (*zphideriv)(double R,double Z,double phi, double t,
+		      struct potentialArg *);
   double (*planarR2deriv)(double R,double phi, double t,
 			  struct potentialArg *);
   double (*planarphi2deriv)(double R,double phi, double t,
@@ -137,6 +144,12 @@ double calcphi2deriv(double, double, double,double,
 			   int, struct potentialArg *);
 double calcRphideriv(double, double, double,double,
 			   int, struct potentialArg *);
+double calcz2deriv(double, double, double,double,
+				 int, struct potentialArg *);
+double calcRzderiv(double, double, double,double,
+				 int, struct potentialArg *);
+double calczphideriv(double, double, double,double,
+				 int, struct potentialArg *);
 // Same hack as for Rforce etc. above to allow optional velocity for dissipative forces
 #ifdef _MSC_VER
 #define calcPlanarRforce(...)   EXPAND(CALCPLANARRFORCE(__VA_ARGS__,0.,0.))

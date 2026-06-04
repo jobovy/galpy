@@ -2,6 +2,12 @@
 void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
   int ii;
   for (ii=0; ii < npot; ii++) {
+    // Full-3D second-derivative pointers default to NULL so the 3D variational
+    // aggregators (calcz2deriv etc.) skip potentials that do not (yet) provide
+    // them; potentials that support the 3D Hessian set these in parse_*.
+    (potentialArgs+ii)->z2deriv= NULL;
+    (potentialArgs+ii)->Rzderiv= NULL;
+    (potentialArgs+ii)->zphideriv= NULL;
     (potentialArgs+ii)->i2d= NULL;
     (potentialArgs+ii)->accx= NULL;
     (potentialArgs+ii)->accy= NULL;
@@ -189,6 +195,46 @@ double calcRphideriv(double R, double Z, double phi, double t,
   }
   potentialArgs-= nargs;
   return Rphideriv;
+}
+// Remaining full-3D second derivatives for the 3D variational equations.
+// NULL-safe: a potential that does not provide the derivative contributes 0
+// (a missing curvature term), so the orbit layer must gate the 3D dxdv path on
+// every component supporting the full 3D Hessian (hasC_dxdv).
+double calcz2deriv(double R, double Z, double phi, double t,
+		   int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double z2deriv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->z2deriv )
+      z2deriv+= potentialArgs->z2deriv(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return z2deriv;
+}
+double calcRzderiv(double R, double Z, double phi, double t,
+		   int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double Rzderiv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->Rzderiv )
+      Rzderiv+= potentialArgs->Rzderiv(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return Rzderiv;
+}
+double calczphideriv(double R, double Z, double phi, double t,
+		     int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double zphideriv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->zphideriv )
+      zphideriv+= potentialArgs->zphideriv(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return zphideriv;
 }
 // LCOV_EXCL_STOP
 double calcPlanarR2deriv(double R, double phi, double t,

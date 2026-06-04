@@ -373,11 +373,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce = &SpiralArmsPotentialRforce;
       potentialArgs->zforce = &SpiralArmsPotentialzforce;
       potentialArgs->phitorque = &SpiralArmsPotentialphitorque;
-      //potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
-      //potentialArgs->z2deriv = &SpiralArmsPotentialz2deriv;
+      potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
+      potentialArgs->z2deriv = &SpiralArmsPotentialz2deriv;
       potentialArgs->phi2deriv = &SpiralArmsPotentialphi2deriv;
-      //potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
+      potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
       potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
+      // NB: SpiralArms still lacks a zphideriv (d2Phi/dz/dphi) in C; left NULL
+      // until implemented (Track B Pvar-pot), so calczphideriv skips it for now.
       potentialArgs->nargs = (int) 10 + **pot_args;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
