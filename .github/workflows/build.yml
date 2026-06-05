@@ -41,6 +41,15 @@ jobs:
             REQUIRES_JAX: true
           - os: ubuntu-latest
             python-version: "3.14"
+            TEST_FILES: tests/test_backend*.py
+            REQUIRES_PYNBODY: false
+            REQUIRES_ASTROPY: false
+            REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: true
+            REQUIRES_TORCH: true
+          - os: ubuntu-latest
+            python-version: "3.14"
             TEST_FILES: tests/test_actionAngleTorus.py tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -285,7 +294,10 @@ jobs:
         pip install --upgrade --force-reinstall setuptools
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
-      run: pip install jax jaxlib
+      run: pip install jax jaxlib array-api-compat
+    - name: Install PyTorch (CPU)
+      if: ${{ matrix.REQUIRES_TORCH }}
+      run: pip install torch --index-url https://download.pytorch.org/whl/cpu
     - name: Install torus code
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
