@@ -1031,8 +1031,8 @@ def test_twopower_planar_dxdv_c_vs_python():
     # correct (matches a finite-difference of -Rforce to ~1e-10). Only the BARE
     # TwoPowerSphericalPotential is affected; its Dehnen/DehnenCore/Hernquist/NFW/Jaffe
     # special-case subclasses use their own (correct) PlanarR2deriv. Comparing the C
-    # (dopr54_c / dop853) planar dxdv path against the (correct) pure-Python path
-    # exposes it.
+    # (dopr54_c / dop853_c) planar dxdv path against the (correct) pure-Python (dop853)
+    # path exposes it.
     from galpy.orbit import Orbit
     from galpy.potential import TwoPowerSphericalPotential
 
@@ -1050,7 +1050,7 @@ def test_twopower_planar_dxdv_c_vs_python():
     # unit dx makes the STM column O(1) and the ~7% *relative* PlanarR2deriv error show
     # up as an O(0.07) absolute discrepancy (a tiny dx would scale it below tol).
     dev = [1.0, 0.0, 0.0, 0.0]
-    for method in ["dopr54_c", "dop853"]:
+    for method in ["dopr54_c", "dop853_c"]:
         o_c = Orbit(ic)
         o_c.integrate_dxdv(
             dev,
