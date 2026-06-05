@@ -973,6 +973,55 @@ def test_liouville_planar():
     return None
 
 
+def test_spiralarms_planar_dxdv_c_vs_python():
+    # Regression test for a bug in the C SpiralArmsPotentialPlanarR2deriv (the planar
+    # d^2Phi/dR^2 used by the C planar integrate_dxdv variational RHS): a stray extra
+    # 1/Kn factor made the in-plane tidal tensor wrong by ~3e-4. It was invisible to
+    # test_liouville_planar because det(M)=1 and symplecticity hold for ANY symmetric
+    # K; only comparing the C dxdv path against the (correct) pure-Python path exposes
+    # it. The C (dopr54_c) and Python (dop853) planar dxdv integrations must agree.
+    from galpy.orbit import Orbit
+    from galpy.potential import SpiralArmsPotential
+
+    pot = SpiralArmsPotential()
+    times = numpy.linspace(0.0, 4.0, 401)
+    ic = [1.0, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]
+    # Use a UNIT deviation: the variational equation is linear in the deviation, so a
+    # unit dx makes the STM column O(1) and the ~2.6e-4 *relative* PlanarR2deriv error
+    # show up as an O(2.6e-4) absolute discrepancy (a tiny dx would scale it below tol).
+    dev = [1.0, 0.0, 0.0, 0.0]
+    o_c = Orbit(ic)
+    o_c.integrate_dxdv(
+        dev,
+        times,
+        pot,
+        method="dopr54_c",
+        rectIn=True,
+        rectOut=True,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    o_py = Orbit(ic)
+    o_py.integrate_dxdv(
+        dev,
+        times,
+        pot,
+        method="dop853",
+        rectIn=True,
+        rectOut=True,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+    dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+    # Pre-fix the C path disagreed with the (correct) Python path by ~2.6e-4.
+    assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-6, (
+        "C planar dxdv (SpiralArms) disagrees with the pure-Python result: "
+        f"max diff {numpy.amax(numpy.fabs(dev_c - dev_py)):g} (PlanarR2deriv bug?)"
+    )
+    return None
+
+
 # Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
 def test_integrate_SOS_3D():
     pot = potential.MWPotential2014
