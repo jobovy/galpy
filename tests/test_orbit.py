@@ -874,6 +874,90 @@ def test_liouville_3d(pot):
     return None
 
 
+# Spherical potentials with a new full 3D C Hessian (Pvar-pot): Hernquist, NFW,
+# Jaffe. Validate that the C 3D variational integrator (dopr54_c) matches the
+# pure-Python SphericalPotential analytic-2nd-derivative reference (dop853) to
+# <1e-6 for UNIT-magnitude deviations along the canonical e_x, e_z, e_vy
+# directions, and that Liouville (det M = 1) holds in C for one of them.
+@pytest.mark.parametrize(
+    "potname",
+    ["HernquistPotential", "NFWPotential", "JaffePotential"],
+)
+def test_integrate_dxdv_3d_c_spherical(potname):
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        HernquistPotential,
+        JaffePotential,
+        NFWPotential,
+    )
+
+    potmap = {
+        "HernquistPotential": HernquistPotential(amp=1.0, a=1.3, normalize=True),
+        "NFWPotential": NFWPotential(amp=1.0, a=2.1, normalize=True),
+        "JaffePotential": JaffePotential(amp=1.0, a=1.7, normalize=True),
+    }
+    pot = potmap[potname]
+    # The full 3D C Hessian must be advertised so the C 3D path is actually taken.
+    assert pot.hasC_dxdv3d, f"{potname} should advertise hasC_dxdv3d"
+    # Generic, fully 3D initial condition (R,vR,vT,z,vz,phi)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    # UNIT-magnitude deviations: a ~1e-4 relative error shows as ~1e-4 absolute
+    # (a tiny deviation would scale it down and hide bugs). Cover e_x, e_z, e_vy.
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:
+        dev = canonical[ii]
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    assert maxdiff < 1e-6, (
+        f"3D C variational integration for {potname} differs from the pure-Python "
+        f"SphericalPotential reference by {maxdiff:g} (unit deviation)"
+    )
+    # Liouville: det(M) = 1 in C (build the 6x6 STM from the canonical basis)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv()[-1, :])
+    detM = numpy.linalg.det(numpy.array(Mcols).T)
+    assert numpy.fabs(detM - 1.0) < 1e-7, (
+        f"3D Liouville det(M)={detM:g} differs from 1 for {potname} (dopr54_c)"
+    )
+    return None
+
+
 # 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
 # dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
 # integrate_dxdv must match the trusted planar integrate_dxdv result.
@@ -1028,13 +1112,13 @@ def test_integrate_dxdv_3d_c_requires_full_hessian():
     # is issued, and (c) that the C-method result matches the pure-Python result
     # (i.e. it really fell back, rather than returning the wrong C aggregate).
     from galpy.orbit import Orbit
-    from galpy.potential import HernquistPotential
+    from galpy.potential import IsochronePotential
 
-    pot = HernquistPotential(normalize=1.0)
-    # Hernquist has the planar dxdv C path but not the full 3D Hessian in C.
-    assert pot.hasC_dxdv, "test precondition: Hernquist should have planar hasC_dxdv"
+    pot = IsochronePotential(normalize=1.0)
+    # Isochrone has the planar dxdv C path but not the full 3D Hessian in C.
+    assert pot.hasC_dxdv, "test precondition: Isochrone should have planar hasC_dxdv"
     assert not pot.hasC_dxdv3d, (
-        "Hernquist must not advertise a full 3D C Hessian (would be silently wrong)"
+        "Isochrone must not advertise a full 3D C Hessian (would be silently wrong)"
     )
     ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
     times = numpy.linspace(0.0, 2.0, 101)
