@@ -92,6 +92,34 @@ double PowerSphericalPotentialwCutoffPlanarR2deriv(double R,double phi,
   //Calculate R2deriv
   return amp * ( 4. * M_PI * pow(r2,- 0.5 * alpha) * exp(-r2/rc/rc) - 2. * mass(r2,alpha,rc)/pow(r2,1.5) );
 }
+double PowerSphericalPotentialwCutoffR2deriv(double R,double Z, double phi,
+					     double t,
+					     struct potentialArg * potentialArgs){
+  //Spherical: Phi''(r)=PlanarR2deriv(r), Phi'(r)=-PlanarRforce(r) (incl. amp)
+  double r= sqrt( R * R + Z * Z );
+  double Phipp= PowerSphericalPotentialwCutoffPlanarR2deriv(r,phi,t,potentialArgs);
+  double Phip= -PowerSphericalPotentialwCutoffPlanarRforce(r,phi,t,potentialArgs);
+  //R2deriv = Phi''*R^2/r^2 + Phi'*z^2/r^3
+  return Phipp * R * R / r / r + Phip * Z * Z / r / r / r;
+}
+double PowerSphericalPotentialwCutoffz2deriv(double R,double Z, double phi,
+					     double t,
+					     struct potentialArg * potentialArgs){
+  double r= sqrt( R * R + Z * Z );
+  double Phipp= PowerSphericalPotentialwCutoffPlanarR2deriv(r,phi,t,potentialArgs);
+  double Phip= -PowerSphericalPotentialwCutoffPlanarRforce(r,phi,t,potentialArgs);
+  //z2deriv = Phi''*z^2/r^2 + Phi'*R^2/r^3
+  return Phipp * Z * Z / r / r + Phip * R * R / r / r / r;
+}
+double PowerSphericalPotentialwCutoffRzderiv(double R,double Z, double phi,
+					     double t,
+					     struct potentialArg * potentialArgs){
+  double r= sqrt( R * R + Z * Z );
+  double Phipp= PowerSphericalPotentialwCutoffPlanarR2deriv(r,phi,t,potentialArgs);
+  double Phip= -PowerSphericalPotentialwCutoffPlanarRforce(r,phi,t,potentialArgs);
+  //Rzderiv = R*z*(Phi''/r^2 - Phi'/r^3)
+  return R * Z * ( Phipp / r / r - Phip / r / r / r );
+}
 double PowerSphericalPotentialwCutoffDens(double R,double Z, double phi,
 					  double t,
 					  struct potentialArg * potentialArgs){

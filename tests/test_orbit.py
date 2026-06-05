@@ -1111,13 +1111,16 @@ def test_integrate_dxdv_3d_c_requires_full_hessian():
     # is issued, and (c) that the C-method result matches the pure-Python result
     # (i.e. it really fell back, rather than returning the wrong C aggregate).
     from galpy.orbit import Orbit
-    from galpy.potential import IsochronePotential
+    from galpy.potential import PseudoIsothermalPotential
 
-    pot = IsochronePotential(normalize=1.0)
-    # Isochrone has the planar dxdv C path but not the full 3D Hessian in C.
-    assert pot.hasC_dxdv, "test precondition: Isochrone should have planar hasC_dxdv"
+    pot = PseudoIsothermalPotential(normalize=1.0)
+    # PseudoIsothermal has the planar dxdv C path but not the full 3D Hessian in C
+    # (it is intentionally not part of the spherical 3D-C-Hessian batch).
+    assert pot.hasC_dxdv, (
+        "test precondition: PseudoIsothermal should have planar hasC_dxdv"
+    )
     assert not pot.hasC_dxdv3d, (
-        "Isochrone must not advertise a full 3D C Hessian (would be silently wrong)"
+        "PseudoIsothermal must not advertise a full 3D C Hessian (would be silently wrong)"
     )
     ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
     times = numpy.linspace(0.0, 2.0, 101)
@@ -1147,9 +1150,10 @@ def test_integrate_dxdv_3d_c_requires_full_hessian():
     )
     dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
     dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
-    # Without the gate, Isochrone's un-gated C result differs from the correct value
-    # by ~18% of the deviation (here ~1.8e-7, ~180x above the 1e-9 tol below); a tight
-    # match instead confirms that integrate_dxdv fell back to the Python integrator.
+    # Without the gate, the un-gated C result (hitting the NULL-safe aggregators that
+    # return 0 for the unset z2deriv/Rzderiv) differs from the correct value by a
+    # sizeable fraction of the deviation, far above the 1e-9 tol below; a tight match
+    # instead confirms that integrate_dxdv fell back to the Python integrator.
     assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-9, (
         "3D integrate_dxdv did not fall back to the correct integrator for a "
         "potential lacking the full 3D C Hessian (got a silently-wrong C result)"

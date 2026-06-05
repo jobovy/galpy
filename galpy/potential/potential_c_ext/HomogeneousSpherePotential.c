@@ -77,6 +77,34 @@ double HomogeneousSpherePotentialPlanarR2deriv(double R,double phi,
   else
     return -4. * amp * R3 / pow ( r2 , 1.5 );
 }
+double HomogeneousSpherePotentialR2deriv(double R,double Z, double phi,
+					 double t,
+					 struct potentialArg * potentialArgs){
+  //Spherical: Phi''(r)=PlanarR2deriv(r), Phi'(r)=-PlanarRforce(r) (incl. amp)
+  double r= sqrt( R * R + Z * Z );
+  double Phipp= HomogeneousSpherePotentialPlanarR2deriv(r,phi,t,potentialArgs);
+  double Phip= -HomogeneousSpherePotentialPlanarRforce(r,phi,t,potentialArgs);
+  //R2deriv = Phi''*R^2/r^2 + Phi'*z^2/r^3
+  return Phipp * R * R / r / r + Phip * Z * Z / r / r / r;
+}
+double HomogeneousSpherePotentialz2deriv(double R,double Z, double phi,
+					 double t,
+					 struct potentialArg * potentialArgs){
+  double r= sqrt( R * R + Z * Z );
+  double Phipp= HomogeneousSpherePotentialPlanarR2deriv(r,phi,t,potentialArgs);
+  double Phip= -HomogeneousSpherePotentialPlanarRforce(r,phi,t,potentialArgs);
+  //z2deriv = Phi''*z^2/r^2 + Phi'*R^2/r^3
+  return Phipp * Z * Z / r / r + Phip * R * R / r / r / r;
+}
+double HomogeneousSpherePotentialRzderiv(double R,double Z, double phi,
+					 double t,
+					 struct potentialArg * potentialArgs){
+  double r= sqrt( R * R + Z * Z );
+  double Phipp= HomogeneousSpherePotentialPlanarR2deriv(r,phi,t,potentialArgs);
+  double Phip= -HomogeneousSpherePotentialPlanarRforce(r,phi,t,potentialArgs);
+  //Rzderiv = R*z*(Phi''/r^2 - Phi'/r^3)
+  return R * Z * ( Phipp / r / r - Phip / r / r / r );
+}
 double HomogeneousSpherePotentialDens(double R,double Z, double phi,
 				      double t,
 				      struct potentialArg * potentialArgs){
