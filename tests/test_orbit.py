@@ -1227,6 +1227,114 @@ def test_liouville_3d_nonaxi_flow():
     return None
 
 
+def test_liouville_3d_spiralarms_c_vs_python():
+    # SpiralArmsPotential now wires the COMPLETE 3D C Hessian (incl. the new
+    # zphideriv == d2Phi/dz/dphi), so it sets hasC_dxdv3d=True and takes the fast
+    # C 3D variational path. This test pins down the C zphideriv by integrating
+    # the same 3D dxdv orbit with a C method (dopr54_c) AND the pure-Python method
+    # (dop853, which uses the correct evaluatephizderivs) and demanding agreement.
+    # A wrong sign/scale in the C zphideriv would break this even though it leaves
+    # det(M)=1 and symplecticity intact.
+    from galpy.orbit import Orbit
+    from galpy.potential import SpiralArmsPotential, evaluatephizderivs
+
+    pot = SpiralArmsPotential(N=3, alpha=0.2, amp=1.0)
+    assert pot.isNonAxi, "SpiralArmsPotential must be non-axisymmetric"
+    assert pot.hasC_dxdv3d, (
+        "SpiralArmsPotential must advertise a complete 3D C Hessian (hasC_dxdv3d)"
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.3]
+    times = numpy.linspace(0.0, 3.0, 151)
+    # Guard against a vacuous test: the z-phi coupling must be nonzero along the
+    # orbit, otherwise the new zphideriv term is multiplied by 0.
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dop853_c")
+    base_rect = _orbit_rect_3d(obase, times)
+    zphi_vals = numpy.array(
+        [
+            evaluatephizderivs(
+                pot,
+                numpy.sqrt(base_rect[jj, 0] ** 2 + base_rect[jj, 1] ** 2),
+                base_rect[jj, 2],
+                phi=numpy.arctan2(base_rect[jj, 1], base_rect[jj, 0]),
+            )
+            for jj in range(len(times))
+        ]
+    )
+    assert numpy.amax(numpy.fabs(zphi_vals)) > 1e-3, (
+        "SpiralArms d2Phi/dz/dphi must be nonzero along the orbit to exercise "
+        "the new C zphideriv term"
+    )
+    rtol = atol = 1e-12
+    canonical = numpy.eye(6)
+    # Check several canonical deviation directions (not just one): e_x, e_z, e_vy.
+    for ii in [0, 2, 4]:
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=rtol,
+            atol=atol,
+        )
+        cdev = numpy.asarray(oc.getOrbit_dxdv()[-1, :])
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=rtol,
+            atol=atol,
+        )
+        pdev = numpy.asarray(op.getOrbit_dxdv()[-1, :])
+        cpdiff = numpy.amax(numpy.fabs(cdev - pdev))
+        assert cpdiff < 1e-7, (
+            f"SpiralArms 3D dxdv C (dopr54_c) vs Python (dop853) for e_{ii} "
+            f"disagree by {cpdiff:g} -- likely a wrong C zphideriv"
+        )
+    return None
+
+
+def test_liouville_3d_spiralarms_detM():
+    # 3D Liouville det(M)=1 check for SpiralArmsPotential via a C method, mirroring
+    # the det-M part of test_liouville_3d but for a non-axisymmetric potential with
+    # a complete 3D C Hessian.
+    from galpy.orbit import Orbit
+    from galpy.potential import SpiralArmsPotential
+
+    pot = SpiralArmsPotential(N=3, alpha=0.2, amp=1.0)
+    assert pot.hasC_dxdv3d
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.3]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv()[-1, :])
+    M = numpy.array(Mcols).T
+    detM = numpy.linalg.det(M)
+    assert numpy.fabs(detM - 1.0) < 1e-7, (
+        f"3D Liouville det(M)={detM:g} differs from 1 for SpiralArmsPotential"
+    )
+    return None
+
+
 def test_liouville_planar():
     if _NOLONGINTEGRATIONS:
         return None
