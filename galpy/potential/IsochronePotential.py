@@ -5,8 +5,9 @@
 #                          Phi(r)= ---------------------
 #                                   b + sqrt{b^2+r^2}
 ###############################################################################
-import numpy
+import math
 
+from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -57,25 +58,29 @@ class IsochronePotential(Potential):
         self.hasC_dens = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return -1.0 / (self.b + rb)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         dPhidrr = -1.0 / rb / (self.b + rb) ** 2.0
         return dPhidrr * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         dPhidrr = -1.0 / rb / (self.b + rb) ** 2.0
         return dPhidrr * z
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return (
             -(
                 -(self.b**3.0)
@@ -87,8 +92,9 @@ class IsochronePotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return (
             -(
                 -(self.b**3.0)
@@ -100,34 +106,37 @@ class IsochronePotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return -R * z * (self.b + 3.0 * rb) / rb**3.0 / (self.b + rb) ** 3.0
 
     def _dens(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return (
             (3.0 * (self.b + rb) * rb**2.0 - r2 * (self.b + 3.0 * rb))
             / rb**3.0
             / (self.b + rb) ** 3.0
             / 4.0
-            / numpy.pi
+            / math.pi
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        rb = numpy.sqrt(r2 + self.b2)
+        rb = xp.sqrt(r2 + self.b2)
         return (
             self.b
             * (
                 (R * z) / r2
                 - (self.b * R * z * (self.b**2 + 2.0 * R**2 + z**2))
                 / ((self.b**2 + R**2) * r2 * rb)
-                + numpy.arctan(z / R)
-                - numpy.arctan(self.b * z / R / rb)
+                + xp.arctan(z / R)
+                - xp.arctan(self.b * z / R / rb)
             )
             / R**3
             / 2.0
-            / numpy.pi
+            / math.pi
         )
