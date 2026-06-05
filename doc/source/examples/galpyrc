@@ -11,3 +11,6 @@ astropy-coords = True
 
 [warnings]
 verbose= False
+
+[backend]
+default = numpy

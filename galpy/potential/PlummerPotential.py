@@ -4,8 +4,9 @@
 #                              phi(R,z) = -  ---------------------------------
 #                                                    \sqrt(R^2+z^2+b^2)
 ###############################################################################
-import numpy
+import math
 
+from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -56,7 +57,8 @@ class PlummerPotential(Potential):
         self._nemo_accname = "Plummer"
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        return -1.0 / numpy.sqrt(R**2.0 + z**2.0 + self._b2)
+        xp = get_namespace(R, z)
+        return -1.0 / xp.sqrt(R**2.0 + z**2.0 + self._b2)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         dPhidrr = -((R**2.0 + z**2.0 + self._b2) ** -1.5)
@@ -67,11 +69,12 @@ class PlummerPotential(Potential):
         return dPhidrr * z
 
     def _rforce_jax(self, r):
-        # No need for actual JAX!
+        # Pure arithmetic, so works for numpy and jax/torch inputs alike; used by
+        # the spherical DF machinery (e.g. constantbetadf).
         return -self._amp * r * (r**2.0 + self._b2) ** -1.5
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        return 3.0 / 4.0 / numpy.pi * self._b2 * (R**2.0 + z**2.0 + self._b2) ** -2.5
+        return 3.0 / 4.0 / math.pi * self._b2 * (R**2.0 + z**2.0 + self._b2) ** -2.5
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         Rb = R**2.0 + self._b2
@@ -82,7 +85,7 @@ class PlummerPotential(Potential):
             / Rb**2.0
             * (Rb + z**2.0) ** -1.5
             / 2.0
-            / numpy.pi
+            / math.pi
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
@@ -99,7 +102,7 @@ class PlummerPotential(Potential):
             self._amp
             * (-15.0)
             / 4.0
-            / numpy.pi
+            / math.pi
             * self._b2
             * r
             * (r**2 + self._b2) ** -3.5
@@ -110,7 +113,7 @@ class PlummerPotential(Potential):
             self._amp
             * (-15.0)
             / 4.0
-            / numpy.pi
+            / math.pi
             * self._b2
             * ((r**2.0 + self._b2) ** -3.5 - 7.0 * r**2.0 * (r**2 + self._b2) ** -4.5)
         )
@@ -140,7 +143,7 @@ class PlummerPotential(Potential):
             self._amp
             * 3.0
             / 4.0
-            / numpy.pi
+            / math.pi
             * self._b2
             * r ** (2.0 * beta - 1.0)
             * (
@@ -153,7 +156,7 @@ class PlummerPotential(Potential):
         if z is not None:
             raise AttributeError  # use general implementation
         r2 = R**2.0
-        return (1.0 + self._b2 / r2) ** -1.5  # written so it works for r=numpy.inf
+        return (1.0 + self._b2 / r2) ** -1.5  # written so it works for r=inf
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
