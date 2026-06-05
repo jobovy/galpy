@@ -54,6 +54,48 @@ double HernquistPotentialPlanarR2deriv(double R,double phi,
   //Calculate R2deriv
   return -amp / a / a / a * pow(1. + R / a, -3. );
 }
+double HernquistPotentialR2deriv(double R,double Z, double phi,
+				 double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //Spherical: r, Phi'(r), Phi''(r)
+  double r= sqrt( R * R + Z * Z );
+  double dphi= 1. / 2. / a / a * pow(1. + r / a , -2.); // Phi'/amp
+  double d2phi= -1. / a / a / a * pow(1. + r / a , -3.); // Phi''/amp
+  //R2deriv = Phi''*R^2/r^2 + Phi'*z^2/r^3
+  return amp * ( d2phi * R * R / r / r + dphi * Z * Z / r / r / r );
+}
+double HernquistPotentialz2deriv(double R,double Z, double phi,
+				 double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //Spherical: r, Phi'(r), Phi''(r)
+  double r= sqrt( R * R + Z * Z );
+  double dphi= 1. / 2. / a / a * pow(1. + r / a , -2.); // Phi'/amp
+  double d2phi= -1. / a / a / a * pow(1. + r / a , -3.); // Phi''/amp
+  //z2deriv = Phi''*z^2/r^2 + Phi'*R^2/r^3
+  return amp * ( d2phi * Z * Z / r / r + dphi * R * R / r / r / r );
+}
+double HernquistPotentialRzderiv(double R,double Z, double phi,
+				 double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //Spherical: r, Phi'(r), Phi''(r)
+  double r= sqrt( R * R + Z * Z );
+  double dphi= 1. / 2. / a / a * pow(1. + r / a , -2.); // Phi'/amp
+  double d2phi= -1. / a / a / a * pow(1. + r / a , -3.); // Phi''/amp
+  //Rzderiv = R*z*(Phi''/r^2 - Phi'/r^3)
+  return amp * R * Z * ( d2phi / r / r - dphi / r / r / r );
+}
 double HernquistPotentialDens(double R,double Z, double phi,
 			      double t,
 			      struct potentialArg * potentialArgs){

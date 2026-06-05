@@ -295,6 +295,12 @@ double HernquistPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double HernquistPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double HernquistPotentialR2deriv(double ,double , double, double,
+				 struct potentialArg *);
+double HernquistPotentialz2deriv(double ,double , double, double,
+				 struct potentialArg *);
+double HernquistPotentialRzderiv(double ,double , double, double,
+				 struct potentialArg *);
 double HernquistPotentialDens(double ,double , double, double,
 			      struct potentialArg *);
 //NFWPotential
@@ -308,6 +314,12 @@ double NFWPotentialzforce(double,double,double,double,
 			  struct potentialArg *);
 double NFWPotentialPlanarR2deriv(double ,double, double,
 				 struct potentialArg *);
+double NFWPotentialR2deriv(double ,double , double, double,
+			   struct potentialArg *);
+double NFWPotentialz2deriv(double ,double , double, double,
+			   struct potentialArg *);
+double NFWPotentialRzderiv(double ,double , double, double,
+			   struct potentialArg *);
 double NFWPotentialDens(double ,double , double, double,
 			 struct potentialArg *);
 //JaffePotential
@@ -321,6 +333,12 @@ double JaffePotentialzforce(double,double,double,double,
 			    struct potentialArg *);
 double JaffePotentialPlanarR2deriv(double ,double, double,
 				   struct potentialArg *);
+double JaffePotentialR2deriv(double ,double , double, double,
+			     struct potentialArg *);
+double JaffePotentialz2deriv(double ,double , double, double,
+			     struct potentialArg *);
+double JaffePotentialRzderiv(double ,double , double, double,
+			     struct potentialArg *);
 double JaffePotentialDens(double ,double , double, double,
 			  struct potentialArg *);
 //DoubleExponentialDiskPotential

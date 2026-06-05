@@ -549,6 +549,7 @@ class HernquistPotential(DehnenSphericalPotential):
         # set properties explicitly
         self.hasC = True
         self.hasC_dxdv = True
+        self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         return None
 
@@ -698,6 +699,7 @@ class JaffePotential(DehnenSphericalPotential):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
+        self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         return None
 
@@ -872,6 +874,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         self._scale = self.a
         self.hasC = True
         self.hasC_dxdv = True
+        self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         self._nemo_accname = "NFW"
         return None
