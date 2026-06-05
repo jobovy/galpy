@@ -2,6 +2,15 @@
 void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
   int ii;
   for (ii=0; ii < npot; ii++) {
+    // Full-3D second-derivative pointers default to NULL so the 3D variational
+    // aggregators skip potentials that do not (yet) provide them; potentials
+    // that support the 3D Hessian set these in parse_*.
+    (potentialArgs+ii)->R2deriv= NULL;
+    (potentialArgs+ii)->phi2deriv= NULL;
+    (potentialArgs+ii)->Rphideriv= NULL;
+    (potentialArgs+ii)->z2deriv= NULL;
+    (potentialArgs+ii)->Rzderiv= NULL;
+    (potentialArgs+ii)->zphideriv= NULL;
     (potentialArgs+ii)->i2d= NULL;
     (potentialArgs+ii)->accx= NULL;
     (potentialArgs+ii)->accy= NULL;
@@ -153,13 +162,21 @@ double (calcPlanarphitorque)(double R, double phi, double t,
 }
 
 // LCOV_EXCL_START
+// TODO(Pvar-pot): remove this LCOV_EXCL once the full 3D second-derivative
+// machinery is exercised by tests for every aggregator. The 3D variational RHS
+// (evalRectDeriv_dxdv) now calls all six; test_liouville_3d reaches R2deriv/
+// z2deriv/Rzderiv via the axisymmetric MiyamotoNagai/Plummer validation set, but
+// the phi2deriv/Rphideriv/zphideriv branches stay unexercised until a
+// non-axisymmetric potential with a complete 3D Hessian (including zphideriv) is
+// implemented and added to test_liouville_3d (the Pvar-pot fan-out). Drop the
+// exclusion then so all six aggregators are covered.
 double calcR2deriv(double R, double Z, double phi, double t,
 		   int nargs, struct potentialArg * potentialArgs){
   int ii;
   double R2deriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    R2deriv+= potentialArgs->R2deriv(R,Z,phi,t,
-				     potentialArgs);
+    if ( potentialArgs->R2deriv )
+      R2deriv+= potentialArgs->R2deriv(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
@@ -171,8 +188,8 @@ double calcphi2deriv(double R, double Z, double phi, double t,
   int ii;
   double phi2deriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    phi2deriv+= potentialArgs->phi2deriv(R,Z,phi,t,
-					 potentialArgs);
+    if ( potentialArgs->phi2deriv )
+      phi2deriv+= potentialArgs->phi2deriv(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
@@ -183,12 +200,52 @@ double calcRphideriv(double R, double Z, double phi, double t,
   int ii;
   double Rphideriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    Rphideriv+= potentialArgs->Rphideriv(R,Z,phi,t,
-					 potentialArgs);
+    if ( potentialArgs->Rphideriv )
+      Rphideriv+= potentialArgs->Rphideriv(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
   return Rphideriv;
+}
+// Remaining full-3D second derivatives for the 3D variational equations.
+// NULL-safe: a potential that does not provide the derivative contributes 0
+// (a missing curvature term), so the orbit layer must gate the 3D dxdv path on
+// every component supporting the full 3D Hessian (hasC_dxdv).
+double calcz2deriv(double R, double Z, double phi, double t,
+		   int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double z2deriv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->z2deriv )
+      z2deriv+= potentialArgs->z2deriv(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return z2deriv;
+}
+double calcRzderiv(double R, double Z, double phi, double t,
+		   int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double Rzderiv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->Rzderiv )
+      Rzderiv+= potentialArgs->Rzderiv(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return Rzderiv;
+}
+double calczphideriv(double R, double Z, double phi, double t,
+		     int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double zphideriv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->zphideriv )
+      zphideriv+= potentialArgs->zphideriv(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return zphideriv;
 }
 // LCOV_EXCL_STOP
 double calcPlanarR2deriv(double R, double phi, double t,
