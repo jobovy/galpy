@@ -1,3 +1,40 @@
+import pytest
+
+
+def pytest_addoption(parser):
+    # Force a single array backend for the whole run (numpy|jax|torch). With
+    # numpy (default) this is a no-op, so the existing suite is unchanged.
+    parser.addoption(
+        "--backend",
+        action="store",
+        default="numpy",
+        help="Array backend to force for the test run: numpy|jax|torch",
+    )
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "backend_managed: test manages its own array backend; exempt from --backend",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _galpy_force_backend(request):
+    backend_name = request.config.getoption("--backend")
+    if backend_name == "numpy" or request.node.get_closest_marker("backend_managed"):
+        yield
+        return
+    from galpy import backend  # lazy: keep galpy import out of collection
+
+    if backend_name == "jax":  # galpy's tolerances assume float64
+        import jax
+
+        jax.config.update("jax_enable_x64", True)
+    with backend.use(backend_name, force=True):
+        yield
+
+
 def _liouville3d_tdep_amp(t):
     # Smooth, strictly-positive time-dependent amplitude used by the
     # TimeDependentAmplitudeWrapperPotential registry entry (module-level so it

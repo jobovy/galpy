@@ -66,6 +66,23 @@ try:
 except ImportError:
     _JAX_LOADED = False
 
+# torch
+_TORCH_LOADED = True
+try:
+    import torch  # noqa: F401
+except ImportError:
+    _TORCH_LOADED = False
+
+# array-api-compat: the dispatch engine for galpy.backend.get_namespace
+# (data-first backend resolution). Required for the non-numpy backends — it is
+# pulled in by the jax/torch extras — but not needed for numpy-only use, where
+# get_namespace short-circuits to plain numpy without importing it.
+_ARRAY_API_COMPAT_LOADED = True
+try:
+    import array_api_compat  # noqa: F401
+except ImportError:
+    _ARRAY_API_COMPAT_LOADED = False
+
 # pynbody
 _PYNBODY_LOADED = True
 _PYNBODY_GE_20 = None
