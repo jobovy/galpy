@@ -396,10 +396,6 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
       potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
       potentialArgs->zphideriv = &SpiralArmsPotentialzphideriv;
-      // SpiralArms now wires the COMPLETE 3D Cartesian Hessian in C (all six
-      // cylindrical second derivatives, including zphideriv == d2Phi/dz/dphi),
-      // so it sets hasC_dxdv3d=True and can use the fast C 3D variational
-      // (integrate_dxdv) path (Track B Pvar-pot).
       potentialArgs->nargs = (int) 10 + **pot_args;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;

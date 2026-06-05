@@ -959,17 +959,10 @@ def test_dxdv_3d_c_vs_python(pot, pot_category):
 def test_liouville_3d_2d_bridge(pot):
     from galpy.orbit import Orbit
 
-    # The planar 2D-reduction bridge is only meaningful for potentials whose
-    # toPlanar() is the genuine in-plane reduction with z=vz staying identically
-    # zero. For a non-axisymmetric 3D potential the (z,vz) block couples to the
-    # in-plane deviations (zphideriv != 0), so an in-plane deviation does NOT stay
-    # planar and the toPlanar() comparison is not the right reference; skip those.
-    if pot.isNonAxi:
-        pytest.skip(
-            "planar 2D-reduction bridge is not meaningful for non-axisymmetric "
-            "potentials (in-plane deviations couple into z,vz via zphideriv)"
-        )
-
+    # 2D-reduction bridge: for a planar IC (z=vz=0) with an in-plane deviation, the
+    # deviation stays planar for any z-symmetric potential (Rzderiv and zphideriv both
+    # vanish at z=0), so the (x,y,vx,vy) block of the 3D STM must match the trusted
+    # planar integrate_dxdv -- a strong cross-check of the in-plane Cartesian Hessian.
     times = numpy.linspace(0.0, 5.0, 251)
     # Planar IC (z=0, vz=0): (R,vR,vT,phi) in 2D and (R,vR,vT,z=0,vz=0,phi) in 3D
     R, vR, vT, phi = 1.0, 0.1, 1.1, 0.2

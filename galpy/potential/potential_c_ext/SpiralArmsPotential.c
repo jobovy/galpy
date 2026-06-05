@@ -209,7 +209,6 @@ double SpiralArmsPotentialphitorque(double R, double z, double phi, double t,
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
                                   struct potentialArg *potentialArgs) {
 
@@ -345,9 +344,7 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
 
     return -amp * H * exp(-(R - r_ref) / Rs) / Rs * sum;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
                                   struct potentialArg *potentialArgs) {
 
@@ -393,9 +390,7 @@ double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
 
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
                                     struct potentialArg *potentialArgs) {
 
@@ -435,9 +430,7 @@ double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
 
     return amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
                                   struct potentialArg *potentialArgs) {
 
@@ -513,9 +506,7 @@ double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
 
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
                                     struct potentialArg *potentialArgs) {
 
@@ -586,9 +577,7 @@ double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
 
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialzphideriv(double R, double z, double phi, double t,
                                     struct potentialArg *potentialArgs) {
 
@@ -632,7 +621,6 @@ double SpiralArmsPotentialzphideriv(double R, double z, double phi, double t,
 
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
-// LCOV_EXCL_STOP
 
 double SpiralArmsPotentialPlanarRforce(double R, double phi, double t,
                                        struct potentialArg *potentialArgs) {
