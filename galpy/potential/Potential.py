@@ -170,6 +170,13 @@ class Potential(Force):
         self.isDissipative = False
         self.hasC = False
         self.hasC_dxdv = False
+        # hasC_dxdv3d: the FULL 3D Hessian (R2deriv/z2deriv/Rzderiv and, for
+        # non-axisymmetric potentials, phi2deriv/Rphideriv/zphideriv) is wired in
+        # C, so the 3D variational equations (integrate_dxdv on a 6D orbit) can use
+        # the C integrator. hasC_dxdv alone only guarantees the *planar* (2D) dxdv
+        # Hessian, which is insufficient for the 3D path. Defaults False; set True
+        # only on potentials whose complete 3D Hessian is implemented in C.
+        self.hasC_dxdv3d = False
         self.hasC_dens = False
         return None
 
@@ -4061,7 +4068,7 @@ def flatten(Pot):
         return Pot
 
 
-def _check_c(Pot, dxdv=False, dens=False):
+def _check_c(Pot, dxdv=False, dxdv3d=False, dens=False):
     """
     Check whether a potential or a combined potential formed using addition (pot1+pot2+…) has a C implementation.
 
@@ -4070,7 +4077,11 @@ def _check_c(Pot, dxdv=False, dens=False):
     Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Potential instance or a combined potential formed using addition (pot1+pot2+…) to check.
     dxdv : bool, optional
-        If True, check whether the potential has dxdv implementation.
+        If True, check whether the potential has a (planar) dxdv implementation in C.
+    dxdv3d : bool, optional
+        If True, check whether the potential has the full 3D Hessian wired in C, as
+        required by the 3D variational equations (integrate_dxdv on a 6D orbit).
+        Stricter than dxdv (which only guarantees the planar 2D Hessian).
     dens : bool, optional
         If True, check whether the potential has its density implemented in C.
 
@@ -4083,12 +4094,15 @@ def _check_c(Pot, dxdv=False, dens=False):
     -----
     - 2014-02-17 - Written - Bovy (IAS)
     - 2017-07-01 - Generalized to dxdv, added general support for WrapperPotentials, and added support for planarPotentials.
+    - 2026-06-04 - Added dxdv3d for the 3D variational equations - Bovy (UofT)
 
     """
     Pot = flatten(Pot)
     from ..potential import linearPotential, planarForce
 
-    if dxdv:
+    if dxdv3d:
+        hasC_attr = "hasC_dxdv3d"
+    elif dxdv:
         hasC_attr = "hasC_dxdv"
     elif dens:
         hasC_attr = "hasC_dens"
@@ -4098,16 +4112,21 @@ def _check_c(Pot, dxdv=False, dens=False):
 
     if isinstance(Pot, list):
         return numpy.all(
-            numpy.array([_check_c(p, dxdv=dxdv, dens=dens) for p in Pot], dtype="bool")
+            numpy.array(
+                [_check_c(p, dxdv=dxdv, dxdv3d=dxdv3d, dens=dens) for p in Pot],
+                dtype="bool",
+            )
         )
     elif isinstance(Pot, parentWrapperPotential):
-        return bool(Pot.__dict__[hasC_attr] * _check_c(Pot._pot))
+        # getattr default handles wrappers that predate hasC_dxdv3d (treat as
+        # unsupported -> the 3D dxdv path falls back to the Python integrator).
+        return bool(getattr(Pot, hasC_attr, False) * _check_c(Pot._pot))
     elif (
         isinstance(Pot, Force)
         or isinstance(Pot, planarForce)
         or isinstance(Pot, linearPotential)
     ):
-        return Pot.__dict__[hasC_attr]
+        return getattr(Pot, hasC_attr, False)
 
 
 def _dim(Pot):
