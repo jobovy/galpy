@@ -68,11 +68,11 @@ double NFWPotentialR2deriv(double R,double Z, double phi,
   double a= *args;
   //Spherical: r, Phi'(r), Phi''(r)
   double r= sqrt( R * R + Z * Z );
-  double dphi= amp * (log(1.+r/a)/r/r - 1./r/(a+r)); // Phi'
+  double dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
   double ar= a+r;
-  double d2phi= amp * ((r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar); // Phi''
+  double d2phi= (r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar; // Phi''/amp
   //R2deriv = Phi''*R^2/r^2 + Phi'*z^2/r^3
-  return d2phi * R * R / r / r + dphi * Z * Z / r / r / r;
+  return amp * ( d2phi * R * R / r / r + dphi * Z * Z / r / r / r );
 }
 double NFWPotentialz2deriv(double R,double Z, double phi,
 			   double t,
@@ -83,11 +83,11 @@ double NFWPotentialz2deriv(double R,double Z, double phi,
   double a= *args;
   //Spherical: r, Phi'(r), Phi''(r)
   double r= sqrt( R * R + Z * Z );
-  double dphi= amp * (log(1.+r/a)/r/r - 1./r/(a+r)); // Phi'
+  double dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
   double ar= a+r;
-  double d2phi= amp * ((r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar); // Phi''
+  double d2phi= (r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar; // Phi''/amp
   //z2deriv = Phi''*z^2/r^2 + Phi'*R^2/r^3
-  return d2phi * Z * Z / r / r + dphi * R * R / r / r / r;
+  return amp * ( d2phi * Z * Z / r / r + dphi * R * R / r / r / r );
 }
 double NFWPotentialRzderiv(double R,double Z, double phi,
 			   double t,
@@ -98,11 +98,11 @@ double NFWPotentialRzderiv(double R,double Z, double phi,
   double a= *args;
   //Spherical: r, Phi'(r), Phi''(r)
   double r= sqrt( R * R + Z * Z );
-  double dphi= amp * (log(1.+r/a)/r/r - 1./r/(a+r)); // Phi'
+  double dphi= log(1.+r/a)/r/r - 1./r/(a+r); // Phi'/amp
   double ar= a+r;
-  double d2phi= amp * ((r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar); // Phi''
+  double d2phi= (r*(2.*a+3.*r)-2.*ar*ar*log(1.+r/a))/r/r/r/ar/ar; // Phi''/amp
   //Rzderiv = R*z*(Phi''/r^2 - Phi'/r^3)
-  return R * Z * ( d2phi / r / r - dphi / r / r / r );
+  return amp * R * Z * ( d2phi / r / r - dphi / r / r / r );
 }
 double NFWPotentialDens(double R,double Z, double phi,
 			double t,
