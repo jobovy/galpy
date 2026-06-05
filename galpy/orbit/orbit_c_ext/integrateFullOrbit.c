@@ -126,7 +126,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &HernquistPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &HernquistPotentialDens;
-      //potentialArgs->R2deriv= &HernquistPotentialR2deriv;
+      potentialArgs->R2deriv= &HernquistPotentialR2deriv;
+      potentialArgs->z2deriv= &HernquistPotentialz2deriv;
+      potentialArgs->Rzderiv= &HernquistPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
@@ -139,7 +142,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &NFWPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &NFWPotentialDens;
-      //potentialArgs->R2deriv= &NFWPotentialR2deriv;
+      potentialArgs->R2deriv= &NFWPotentialR2deriv;
+      potentialArgs->z2deriv= &NFWPotentialz2deriv;
+      potentialArgs->Rzderiv= &NFWPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
@@ -152,7 +158,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &JaffePotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &JaffePotentialDens;
-      //potentialArgs->R2deriv= &JaffePotentialR2deriv;
+      potentialArgs->R2deriv= &JaffePotentialR2deriv;
+      potentialArgs->z2deriv= &JaffePotentialz2deriv;
+      potentialArgs->Rzderiv= &JaffePotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
