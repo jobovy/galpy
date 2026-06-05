@@ -582,6 +582,8 @@ currently used:
 
           * To set options related to whether or not to check for new versions of galpy (``do-check= False`` turns all such checks off; ``check-non-interactive`` sets whether or not to do the version check in non-interactive (script) sessions; ``check-non-interactive`` sets the cadence of how often to check for version updates in non-interactive sessions [in days; interactive sessions always check]; ``last-non-interactive-check`` is an internal variable to store when the last check occurred)
 
+          * To set the default array backend (``default = numpy``, the standard numpy/scipy code path). ``galpy`` resolves the backend by following the data — passing JAX or PyTorch arrays makes ``galpy`` compute (and differentiate) with that backend automatically — so this default only applies when there is no array to dispatch on. It can be set to ``jax`` or ``torch`` to make those the default (this requires the corresponding optional dependency, installable with ``pip install galpy[jax]`` or ``pip install galpy[torch]``); at runtime it can be overridden with the ``galpy.backend.use(...)`` context manager. With ``default = numpy`` (the default) there is no change to the numpy behavior and no extra dependency is needed.
+
 The current configuration file therefore looks like this::
 
 	  [normalization]
@@ -603,6 +605,9 @@ The current configuration file therefore looks like this::
 	  check-non-interactive = True
 	  check-non-interactive-every = 1
 	  last-non-interactive-check = 2000-01-01
+
+	  [backend]
+	  default = numpy
 
 where ``ro`` is the distance scale specified in kpc, ``vo`` the
 velocity scale in km/s, and the setting is to *not* return output as a
