@@ -345,6 +345,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialHernquistPotentialpsi;
       potentialArgs->mdens= &TriaxialHernquistPotentialmdens;
@@ -359,6 +366,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialNFWPotentialpsi;
       potentialArgs->mdens= &TriaxialNFWPotentialmdens;
@@ -373,6 +387,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialJaffePotentialpsi;
       potentialArgs->mdens= &TriaxialJaffePotentialmdens;
@@ -430,11 +451,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
-      //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
-      //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
-      //potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
-      //potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
-      //potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &PerfectEllipsoidPotentialpsi;
       potentialArgs->mdens= &PerfectEllipsoidPotentialmdens;
@@ -522,11 +545,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
-      //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
-      //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
-      //potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
-      //potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
-      //potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialGaussianPotentialpsi;
       potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
@@ -541,11 +566,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
-      //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
-      //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
-      //potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
-      //potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
-      //potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &PowerTriaxialPotentialpsi;
       potentialArgs->mdens= &PowerTriaxialPotentialmdens;
@@ -620,6 +647,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TwoPowerTriaxialPotentialpsi;
       potentialArgs->mdens= &TwoPowerTriaxialPotentialmdens;

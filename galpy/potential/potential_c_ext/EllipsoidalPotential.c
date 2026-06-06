@@ -448,3 +448,161 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
   return amp * (R * (cosphi * sinphi * (phiyy - phixx) + cos2phi * phixy) +
 		sinphi * Fx - cosphi * Fy);
 }
+
+// ---------------------------------------------------------------------------
+// Full-3D cylindrical Hessian for the 3D variational equations
+// (integrate_dxdv). These port the Python reference
+// EllipsoidalPotential._R2deriv / _z2deriv / _Rzderiv / _phi2deriv /
+// _Rphideriv / _phizderiv: the analytic Cartesian Hessian (phixx, phixy,
+// phixz, phiyy, phiyz, phizz) from the Gauss-Legendre angle integral, rotated
+// into cylindrical coordinates. As in the Python implementation, these assume
+// the aligned frame (the Python code raises NotImplementedError otherwise).
+// ---------------------------------------------------------------------------
+
+// Internal helper: load all six cached Cartesian Hessian components (computing
+// + caching them via EllipsoidalPotential_2ndderiv_xyz_all on a cache miss).
+static inline void EllipsoidalPotential_get_2ndderiv(struct potentialArg * potentialArgs,
+						     double x, double y, double z,
+						     double * phixx, double * phixy,
+						     double * phixz, double * phiyy,
+						     double * phiyz, double * phizz) {
+  double * args = potentialArgs->args;
+  double cached_x = *(args + 7);
+  double cached_y = *(args + 8);
+  double cached_z = *(args + 9);
+  if (x == cached_x && y == cached_y && z == cached_z) {
+    *phixx = *(args + 10);
+    *phixy = *(args + 11);
+    *phixz = *(args + 12);
+    *phiyy = *(args + 13);
+    *phiyz = *(args + 14);
+    *phizz = *(args + 15);
+  } else {
+    double * ellipargs = args + 17 + (int) *(args+16);
+    double b2 = *ellipargs++;
+    double c2 = *ellipargs++;
+    ellipargs++; // aligned
+    ellipargs += 9; // rot
+    int glorder = (int) *ellipargs++;
+    double * glx = ellipargs;
+    double * glw = ellipargs + glorder;
+    EllipsoidalPotential_2ndderiv_xyz_all(potentialArgs->mdens,
+					  potentialArgs->mdensDeriv,
+					  x, y, z, b2, c2,
+					  glorder, glx, glw, args,
+					  phixx, phixy, phixz,
+					  phiyy, phiyz, phizz);
+  }
+}
+
+// Internal helper: load the cached Cartesian forces (Fx,Fy,Fz), recomputing on
+// a cache miss.
+static inline void EllipsoidalPotential_get_forces(struct potentialArg * potentialArgs,
+						   double x, double y, double z,
+						   double * Fx, double * Fy,
+						   double * Fz) {
+  double * args = potentialArgs->args;
+  double cached_x = *(args + 1);
+  double cached_y = *(args + 2);
+  double cached_z = *(args + 3);
+  if (x == cached_x && y == cached_y && z == cached_z) {
+    *Fx = *(args + 4);
+    *Fy = *(args + 5);
+    *Fz = *(args + 6);
+  } else {
+    EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens, x, y, z,
+				      Fx, Fy, Fz, args);
+  }
+}
+
+double EllipsoidalPotentialR2deriv(double R, double z, double phi, double t,
+				   struct potentialArg * potentialArgs) {
+  double amp = *potentialArgs->args;
+  double x, y;
+  cyl_to_rect(R, phi, &x, &y);
+  double phixx, phixy, phixz, phiyy, phiyz, phizz;
+  EllipsoidalPotential_get_2ndderiv(potentialArgs, x, y, z,
+				    &phixx, &phixy, &phixz,
+				    &phiyy, &phiyz, &phizz);
+  double cosphi = cos(phi);
+  double sinphi = sin(phi);
+  return amp * (cosphi * cosphi * phixx + sinphi * sinphi * phiyy +
+		2. * cosphi * sinphi * phixy);
+}
+
+double EllipsoidalPotentialz2deriv(double R, double z, double phi, double t,
+				   struct potentialArg * potentialArgs) {
+  double amp = *potentialArgs->args;
+  double x, y;
+  cyl_to_rect(R, phi, &x, &y);
+  double phixx, phixy, phixz, phiyy, phiyz, phizz;
+  EllipsoidalPotential_get_2ndderiv(potentialArgs, x, y, z,
+				    &phixx, &phixy, &phixz,
+				    &phiyy, &phiyz, &phizz);
+  return amp * phizz;
+}
+
+double EllipsoidalPotentialRzderiv(double R, double z, double phi, double t,
+				   struct potentialArg * potentialArgs) {
+  double amp = *potentialArgs->args;
+  double x, y;
+  cyl_to_rect(R, phi, &x, &y);
+  double phixx, phixy, phixz, phiyy, phiyz, phizz;
+  EllipsoidalPotential_get_2ndderiv(potentialArgs, x, y, z,
+				    &phixx, &phixy, &phixz,
+				    &phiyy, &phiyz, &phizz);
+  double cosphi = cos(phi);
+  double sinphi = sin(phi);
+  return amp * (cosphi * phixz + sinphi * phiyz);
+}
+
+double EllipsoidalPotentialphi2deriv(double R, double z, double phi, double t,
+				     struct potentialArg * potentialArgs) {
+  double amp = *potentialArgs->args;
+  double x, y;
+  cyl_to_rect(R, phi, &x, &y);
+  double Fx, Fy, Fz;
+  EllipsoidalPotential_get_forces(potentialArgs, x, y, z, &Fx, &Fy, &Fz);
+  double phixx, phixy, phixz, phiyy, phiyz, phizz;
+  EllipsoidalPotential_get_2ndderiv(potentialArgs, x, y, z,
+				    &phixx, &phixy, &phixz,
+				    &phiyy, &phiyz, &phizz);
+  double cosphi = cos(phi);
+  double sinphi = sin(phi);
+  return amp * (R * R * (sinphi * sinphi * phixx + cosphi * cosphi * phiyy -
+			 2. * cosphi * sinphi * phixy) +
+		R * (cosphi * Fx + sinphi * Fy));
+}
+
+double EllipsoidalPotentialRphideriv(double R, double z, double phi, double t,
+				     struct potentialArg * potentialArgs) {
+  double amp = *potentialArgs->args;
+  double x, y;
+  cyl_to_rect(R, phi, &x, &y);
+  double Fx, Fy, Fz;
+  EllipsoidalPotential_get_forces(potentialArgs, x, y, z, &Fx, &Fy, &Fz);
+  double phixx, phixy, phixz, phiyy, phiyz, phizz;
+  EllipsoidalPotential_get_2ndderiv(potentialArgs, x, y, z,
+				    &phixx, &phixy, &phixz,
+				    &phiyy, &phiyz, &phizz);
+  double cosphi = cos(phi);
+  double sinphi = sin(phi);
+  double cos2phi = cos(2. * phi);
+  return amp * (R * (cosphi * sinphi * (phiyy - phixx) + cos2phi * phixy) +
+		sinphi * Fx - cosphi * Fy);
+}
+
+double EllipsoidalPotentialzphideriv(double R, double z, double phi, double t,
+				     struct potentialArg * potentialArgs) {
+  double amp = *potentialArgs->args;
+  double x, y;
+  cyl_to_rect(R, phi, &x, &y);
+  double phixx, phixy, phixz, phiyy, phiyz, phizz;
+  EllipsoidalPotential_get_2ndderiv(potentialArgs, x, y, z,
+				    &phixx, &phixy, &phixz,
+				    &phiyy, &phiyz, &phizz);
+  double cosphi = cos(phi);
+  double sinphi = sin(phi);
+  // d^2phi/dz/dphi = R * (cosphi * phiyz - sinphi * phixz)
+  return amp * R * (cosphi * phiyz - sinphi * phixz);
+}
