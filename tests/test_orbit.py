@@ -953,6 +953,64 @@ def test_dxdv_3d_c_vs_python(pot, pot_category):
     return None
 
 
+def test_kuzmindisk_dxdv_3d_c_vs_python_offplane():
+    # KuzminDiskPotential has a verified-correct full 3D C Hessian (hasC_dxdv3d=True)
+    # but is deliberately excluded from the strict liouville3d_registry: its potential
+    # ~ -amp/sqrt(R^2+(a+|z|)^2) is only C^0 across the disk plane, so d2Phi/dz2 and
+    # d2Phi/dRdz are discontinuous at z=0. An orbit crossing z=0 makes the two adaptive
+    # integrators legitimately diverge at the kink (NOT a Hessian error). This test
+    # instead exercises the C 3D Hessian on an orbit that stays OFF the disk plane
+    # (z>0 throughout), where the potential is smooth and the C 3D dxdv path must match
+    # the pure-Python reference to high precision.
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminDiskPotential
+
+    pot = KuzminDiskPotential(normalize=1.0, a=1.0)
+    assert pot.hasC_dxdv3d, "KuzminDisk should advertise hasC_dxdv3d"
+    # large z0, moving away from the plane -> the orbit never approaches z=0
+    ic = [1.0, 0.1, 1.1, 2.0, 0.3, 0.2]
+    times = numpy.linspace(0.0, 2.0, 101)
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dop853_c")
+    assert numpy.amin(numpy.fabs(obase.z(times))) > 1.0, (
+        "test precondition: the IC must keep the orbit well off the disk plane "
+        "(away from the z=0 kink in d2Phi/dz2)"
+    )
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # off-plane the C-vs-Python dxdv agree to ~1e-11; 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"off-plane 3D C variational integration for KuzminDisk differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
 # 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
 # dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
 # integrate_dxdv must match the trusted planar integrate_dxdv result.

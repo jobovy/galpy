@@ -36,7 +36,8 @@ def pytest_generate_tests(metafunc):
             # potential ~ (a+|z|) is only C^0 across the disk plane, so d2Phi/dz2 and
             # d2Phi/dRdz are discontinuous at z=0. The registry's fixed IC crosses z=0,
             # where the two adaptive integrators legitimately diverge (~4e-6) at the
-            # kink -- not a Hessian error. Off-plane the C vs Python dxdv agree to ~1e-11.
+            # kink -- not a Hessian error. Off-plane the C vs Python dxdv agree to ~1e-11;
+            # this is covered by test_orbit.test_kuzmindisk_dxdv_3d_c_vs_python_offplane.
             (
                 potential.KuzminKutuzovStaeckelPotential(
                     amp=1.0, ac=5.0, Delta=1.0, normalize=True
