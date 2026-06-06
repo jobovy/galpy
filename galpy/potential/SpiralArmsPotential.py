@@ -114,6 +114,7 @@ class SpiralArmsPotential(Potential):
             True  # Potential has C implementation to speed up orbit integrations
         )
         self.hasC_dxdv = True  # Potential has C implementation of second derivatives
+        self.hasC_dxdv3d = True  # Full 3D Hessian (incl. zphideriv) now in C
 
     def _evaluate(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):

@@ -874,37 +874,49 @@ def test_liouville_3d(pot):
     return None
 
 
-# Spherical potentials with a new full 3D C Hessian (Pvar-pot): Hernquist, NFW,
-# Jaffe. Validate that the C 3D variational integrator (dopr54_c) matches the
-# pure-Python SphericalPotential analytic-2nd-derivative reference (dop853) to
-# <1e-6 for UNIT-magnitude deviations along the canonical e_x, e_z, e_vy
-# directions. That C-vs-Python comparison is what pins the Hessian VALUES; the
-# det(M)=1 check below is only a complementary sanity check -- necessary but not
-# sufficient, since it holds for any symmetric K and so does not test the values.
-@pytest.mark.parametrize(
-    "potname",
-    ["HernquistPotential", "NFWPotential", "JaffePotential"],
-)
-def test_integrate_dxdv_3d_c_spherical(potname):
+# Consolidated C-vs-Python 3D variational (dxdv) check, parametrized over the FULL
+# categorized registry of potentials with a complete 3D C Hessian (see
+# conftest.py). The C 3D variational integrator (dopr54_c) must match the trusted
+# pure-Python analytic-2nd-derivative reference (dop853) to <1e-6 for UNIT-magnitude
+# deviations along the canonical e_x, e_z, e_vy directions. That C-vs-Python
+# comparison is what pins the Hessian VALUES (det(M)=1, validated separately in
+# test_liouville_3d, is necessary but not sufficient: it holds for any symmetric K).
+# For the non-axisymmetric category we additionally require that the zphideriv term
+# (d2Phi/dz/dphi) is genuinely nonzero along the orbit, so the C zphideriv coupling
+# is really exercised rather than multiplied by 0.
+def test_dxdv_3d_c_vs_python(pot, pot_category):
     from galpy.orbit import Orbit
-    from galpy.potential import (
-        HernquistPotential,
-        JaffePotential,
-        NFWPotential,
-    )
+    from galpy.potential import evaluatephizderivs
 
-    potmap = {
-        "HernquistPotential": HernquistPotential(amp=1.0, a=1.3, normalize=True),
-        "NFWPotential": NFWPotential(amp=1.0, a=2.1, normalize=True),
-        "JaffePotential": JaffePotential(amp=1.0, a=1.7, normalize=True),
-    }
-    pot = potmap[potname]
+    pname = pot.__class__.__name__
     # The full 3D C Hessian must be advertised so the C 3D path is actually taken.
-    assert pot.hasC_dxdv3d, f"{potname} should advertise hasC_dxdv3d"
+    assert pot.hasC_dxdv3d, f"{pname} should advertise hasC_dxdv3d"
     # Generic, fully 3D initial condition (R,vR,vT,z,vz,phi)
     ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
     times = numpy.linspace(0.0, 5.0, 251)
     canonical = numpy.eye(6)
+    if pot_category == "nonaxisymmetric":
+        # Guard against a vacuous test: the z-phi coupling must be nonzero along the
+        # orbit, otherwise the C zphideriv term is multiplied by 0.
+        assert pot.isNonAxi, f"{pname} flagged nonaxisymmetric but isNonAxi is False"
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method="dop853_c")
+        base_rect = _orbit_rect_3d(obase, times)
+        zphi_vals = numpy.array(
+            [
+                evaluatephizderivs(
+                    pot,
+                    numpy.sqrt(base_rect[jj, 0] ** 2 + base_rect[jj, 1] ** 2),
+                    base_rect[jj, 2],
+                    phi=numpy.arctan2(base_rect[jj, 1], base_rect[jj, 0]),
+                )
+                for jj in range(len(times))
+            ]
+        )
+        assert numpy.amax(numpy.fabs(zphi_vals)) > 1e-3, (
+            f"{pname} d2Phi/dz/dphi must be nonzero along the orbit to exercise "
+            f"the C zphideriv term"
+        )
     # UNIT-magnitude deviations: a ~1e-4 relative error shows as ~1e-4 absolute
     # (a tiny deviation would scale it down and hide bugs). Cover e_x, e_z, e_vy.
     maxdiff = 0.0
@@ -935,28 +947,8 @@ def test_integrate_dxdv_3d_c_spherical(potname):
         diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
         maxdiff = max(maxdiff, diff)
     assert maxdiff < 1e-6, (
-        f"3D C variational integration for {potname} differs from the pure-Python "
-        f"SphericalPotential reference by {maxdiff:g} (unit deviation)"
-    )
-    # Liouville sanity check (necessary, not sufficient): det(M) = 1 in C, built
-    # from the 6x6 STM over the canonical basis.
-    Mcols = []
-    for ii in range(6):
-        o = Orbit(ic)
-        o.integrate_dxdv(
-            canonical[ii],
-            times,
-            pot,
-            method="dopr54_c",
-            rectIn=True,
-            rectOut=True,
-            rtol=1e-12,
-            atol=1e-12,
-        )
-        Mcols.append(o.getOrbit_dxdv()[-1, :])
-    detM = numpy.linalg.det(numpy.array(Mcols).T)
-    assert numpy.fabs(detM - 1.0) < 1e-7, (
-        f"3D Liouville det(M)={detM:g} differs from 1 for {potname} (dopr54_c)"
+        f"3D C variational integration for {pname} differs from the pure-Python "
+        f"reference by {maxdiff:g} (unit deviation)"
     )
     return None
 
@@ -967,6 +959,10 @@ def test_integrate_dxdv_3d_c_spherical(potname):
 def test_liouville_3d_2d_bridge(pot):
     from galpy.orbit import Orbit
 
+    # 2D-reduction bridge: for a planar IC (z=vz=0) with an in-plane deviation, the
+    # deviation stays planar for any z-symmetric potential (Rzderiv and zphideriv both
+    # vanish at z=0), so the (x,y,vx,vy) block of the 3D STM must match the trusted
+    # planar integrate_dxdv -- a strong cross-check of the in-plane Cartesian Hessian.
     times = numpy.linspace(0.0, 5.0, 251)
     # Planar IC (z=0, vz=0): (R,vR,vT,phi) in 2D and (R,vR,vT,z=0,vz=0,phi) in 3D
     R, vR, vT, phi = 1.0, 0.1, 1.1, 0.2
