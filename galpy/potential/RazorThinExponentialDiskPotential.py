@@ -4,6 +4,8 @@
 #
 #                                      rho(R,z) = rho_0 e^-R/h_R delta(z)
 ###############################################################################
+import math
+
 import numpy
 from scipy import special
 
@@ -209,16 +211,17 @@ class RazorThinExponentialDiskPotential(Potential):
             )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):  # pragma: no cover
-        return numpy.infty
+        return math.inf
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         return xp.exp(-self._alpha * R)
 
     def _mass(self, R, z=None, t=0.0):
+        xp = get_namespace(R)
         return (
             2.0
-            * numpy.pi
-            * (1.0 - numpy.exp(-self._alpha * R) * (1.0 + self._alpha * R))
+            * math.pi
+            * (1.0 - xp.exp(-self._alpha * R) * (1.0 + self._alpha * R))
             / self._alpha**2.0
         )

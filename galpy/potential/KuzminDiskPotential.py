@@ -7,8 +7,6 @@
 ###############################################################################
 import math
 
-import numpy
-
 from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential
@@ -86,7 +84,8 @@ class KuzminDiskPotential(Potential):
         return self._a * (R**2 + self._a**2) ** -1.5 / 2.0 / math.pi
 
     def _mass(self, R, z=None, t=0.0):
-        return 1.0 - self._a / numpy.sqrt(R**2.0 + self._a**2.0)
+        xp = get_namespace(R)
+        return 1.0 - self._a / xp.sqrt(R**2.0 + self._a**2.0)
 
     def _denom(self, R, z):
         xp = get_namespace(R, z)

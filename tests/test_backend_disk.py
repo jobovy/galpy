@@ -200,6 +200,92 @@ def test_grad_evaluate_vs_finite_difference_1d(backend_name, pot):
     numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
 
 
+# --- _mass parity + grad (R-only signature) ----------------------------------
+# _mass(R, z=None) is migrated to xp for these potentials.
+_MASS_POTS = [
+    KuzminDiskPotential(amp=1.2, a=0.7),
+    RazorThinExponentialDiskPotential(amp=1.0, hr=0.4),
+]
+_MASS_IDS = [type(p).__name__ for p in _MASS_POTS]
+_MASS_RS = [0.3, 1.0, 2.5]
+
+
+@pytest.mark.parametrize("pot", _MASS_POTS, ids=_MASS_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_mass_value_parity(backend_name, pot):
+    ref = numpy.asarray(pot._mass(numpy.asarray(_MASS_RS)))
+    got = _tonumpy(pot._mass(_asarray(backend_name, _MASS_RS)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("pot", _MASS_POTS, ids=_MASS_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_mass_grad_vs_finite_difference(backend_name, pot):
+    R0 = 1.3
+    eps = 1e-6
+    fd = (
+        float(pot._mass(numpy.asarray(R0 + eps)))
+        - float(pot._mass(numpy.asarray(R0 - eps)))
+    ) / (2 * eps)
+    if backend_name == "jax":
+        ad = float(jax.grad(lambda R: pot._mass(R))(jnp.asarray(R0)))
+    else:
+        R = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
+        pot._mass(R).backward()
+        ad = float(R.grad)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
+
+
+# --- singular-point parity for rewritten branches ----------------------------
+# KuzminDisk's |z| kink (z == 0): _zforce / _Rzderiv / _z2deriv use xp.sign /
+# xp.abs and must agree across backends exactly at z == 0.
+@pytest.mark.parametrize("method", ["_zforce", "_Rzderiv", "_z2deriv"])
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_kuzmin_zkink_at_zero(backend_name, method):
+    pot = KuzminDiskPotential(amp=1.2, a=0.7)
+    R = [0.5, 1.0, 2.0]
+    z = [0.0, 0.0, 0.0]
+    ref = numpy.asarray(getattr(pot, method)(numpy.asarray(R), numpy.asarray(z)))
+    got = _tonumpy(
+        getattr(pot, method)(_asarray(backend_name, R), _asarray(backend_name, z))
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+# MiyamotoNagai a == 0 (and the a == 0, b == 0, z == 0 triple-singular point):
+# the a == 0 config branch must be finite and identical across backends, even
+# at the b == 0, z == 0 point that 0/0-poisons the general formula.
+@pytest.mark.parametrize(
+    "method", ["_zforce", "_dens", "_z2deriv", "_Rzderiv", "_Rforce", "_evaluate"]
+)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_miyamoto_a0_branch_parity(backend_name, method):
+    pot = MiyamotoNagaiPotential(amp=0.9, a=0.0, b=0.6)
+    R = [0.5, 1.0, 2.0]
+    z = [0.0, 0.1, 0.3]
+    ref = numpy.asarray(getattr(pot, method)(numpy.asarray(R), numpy.asarray(z)))
+    got = _tonumpy(
+        getattr(pot, method)(_asarray(backend_name, R), _asarray(backend_name, z))
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("method", ["_zforce", "_Rzderiv"])
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_miyamoto_a0_b0_z0_finite(backend_name, method):
+    # a == 0, b == 0, z == 0: the simplified branch avoids the general formula's
+    # 0/0 (asqrtbz / sqrtbz) and must be finite and identical across backends.
+    pot = MiyamotoNagaiPotential(amp=0.9, a=0.0, b=0.0)
+    R = [0.5, 1.0, 2.0]
+    z = [0.0, 0.0, 0.0]
+    ref = numpy.asarray(getattr(pot, method)(numpy.asarray(R), numpy.asarray(z)))
+    got = _tonumpy(
+        getattr(pot, method)(_asarray(backend_name, R), _asarray(backend_name, z))
+    )
+    assert numpy.all(numpy.isfinite(ref))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
 # --- force/Hessian identity under autodiff (extra confidence) ----------------
 @pytest.mark.parametrize("pot", [p for p, _ in _GRAD_POTS_3D], ids=_GRAD3D_IDS)
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)

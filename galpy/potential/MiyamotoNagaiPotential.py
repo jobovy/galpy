@@ -7,8 +7,6 @@
 ###############################################################################
 import math
 
-import numpy
-
 from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
@@ -81,7 +79,8 @@ class MiyamotoNagaiPotential(Potential):
         xp = get_namespace(R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if xp is numpy and isinstance(R, float) and sqrtbz == asqrtbz:
+        if self._a == 0.0:
+            # asqrtbz / sqrtbz == 1 (avoids 0/0 when b == 0 and z == 0)
             return -z / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
                 3.0 / 2.0
             )
@@ -98,7 +97,8 @@ class MiyamotoNagaiPotential(Potential):
         xp = get_namespace(R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if xp is numpy and isinstance(R, float) and sqrtbz == asqrtbz:
+        if self._a == 0.0:
+            # a == 0 simplification (avoids sqrtbz**3 in the denominator)
             return 3.0 / (R**2.0 + sqrtbz**2.0) ** 2.5 / 4.0 / math.pi * self._b2
         else:
             return (
@@ -123,7 +123,8 @@ class MiyamotoNagaiPotential(Potential):
         xp = get_namespace(R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if xp is numpy and isinstance(R, float) and sqrtbz == asqrtbz:
+        if self._a == 0.0:
+            # a == 0 simplification (avoids (b2+z2)**1.5 in the denominator)
             return (self._b2 + R**2.0 - 2.0 * z**2.0) * (
                 self._b2 + R**2.0 + z**2.0
             ) ** -2.5
@@ -142,7 +143,8 @@ class MiyamotoNagaiPotential(Potential):
         xp = get_namespace(R, z)
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
-        if xp is numpy and isinstance(R, float) and sqrtbz == asqrtbz:
+        if self._a == 0.0:
+            # asqrtbz / sqrtbz == 1 (avoids 0/0 when b == 0 and z == 0)
             return -(3.0 * R * z / (R**2.0 + asqrtbz**2.0) ** 2.5)
         else:
             return -(3.0 * R * z * asqrtbz / sqrtbz / (R**2.0 + asqrtbz**2.0) ** 2.5)
