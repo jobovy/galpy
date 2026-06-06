@@ -7,6 +7,7 @@
 #   of the array arguments), with an explicit ``xp=`` override and a
 #   context-manager/global default as fallbacks. See ``_resolver`` for details.
 ###############################################################################
+from ._namespaces import is_backend_array
 from ._resolver import (
     _seed_from_config,
     backend,
@@ -18,4 +19,10 @@ from ._resolver import (
 # Seed the default backend from the [backend] section of the config file.
 _seed_from_config()
 
-__all__ = ["get_namespace", "backend", "use", "set_default_backend"]
+__all__ = [
+    "get_namespace",
+    "backend",
+    "use",
+    "set_default_backend",
+    "is_backend_array",
+]
