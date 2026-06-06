@@ -4,6 +4,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .linearPotential import linearPotential
 
@@ -47,7 +48,9 @@ class IsothermalDiskPotential(linearPotential):
         self.hasC = True
 
     def _evaluate(self, x, t=0.0):
-        return 2.0 * self._sigma2 * numpy.log(numpy.cosh(0.5 * x / self._H))
+        xp = get_namespace(x)
+        return 2.0 * self._sigma2 * xp.log(xp.cosh(0.5 * x / self._H))
 
     def _force(self, x, t=0.0):
-        return -self._sigma2 * numpy.tanh(0.5 * x / self._H) / self._H
+        xp = get_namespace(x)
+        return -self._sigma2 * xp.tanh(0.5 * x / self._H) / self._H
