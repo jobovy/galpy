@@ -72,7 +72,13 @@ METHODS = {
 METHOD_IDS = list(METHODS)
 
 _R0, _Z0 = 1.2, 0.3
-_EPS = 1e-6
+# Step for the Richardson finite-difference reference below. A plain central
+# difference at eps=1e-6 has a relative truncation+rounding error of ~2e-10 here,
+# which would force a loose AD-vs-FD tolerance. Richardson-extrapolating two
+# central differences (at _EPS and _EPS/2) cancels the leading O(eps^2) term and
+# drops the reference error to ~5e-12, letting us assert at rtol=1e-9 (~190x
+# margin) while staying robust to cross-platform float rounding.
+_EPS = 1e-4
 
 
 def _value(ctor, fixed, pname, theta, method, xp_R, xp_z):
@@ -80,31 +86,62 @@ def _value(ctor, fixed, pname, theta, method, xp_R, xp_z):
     return METHODS[method](pot, xp_R, xp_z)
 
 
+def _fd_reference(ctor, fixed, pname, th0, method):
+    # Richardson-extrapolated central finite difference (O(eps^4) accurate),
+    # computed entirely on the pure-numpy path.
+    def fnp(theta):
+        return float(_value(ctor, fixed, pname, theta, method, _R0, _Z0))
+
+    d1 = (fnp(th0 + _EPS) - fnp(th0 - _EPS)) / (2 * _EPS)
+    d2 = (fnp(th0 + _EPS / 2) - fnp(th0 - _EPS / 2)) / _EPS
+    return (4 * d2 - d1) / 3
+
+
+def _ad_grad(backend_name, ctor, fixed, pname, th0, method):
+    if backend_name == "jax":
+        R, z = jnp.asarray(_R0), jnp.asarray(_Z0)
+        return float(
+            jax.grad(lambda th: _value(ctor, fixed, pname, th, method, R, z))(
+                jnp.asarray(th0)
+            )
+        )
+    R, z = torch.as_tensor(_R0), torch.as_tensor(_Z0)
+    th = torch.tensor(th0, requires_grad=True)
+    _value(ctor, fixed, pname, th, method, R, z).backward()
+    return float(th.grad)
+
+
 @pytest.mark.parametrize("method", METHOD_IDS)
 @pytest.mark.parametrize("spec", PARAM_SPECS, ids=SPEC_IDS)
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_param_grad_vs_finite_difference(backend_name, spec, method):
     ctor, fixed, pname, th0 = spec
+    fd = _fd_reference(ctor, fixed, pname, th0, method)
+    ad = _ad_grad(backend_name, ctor, fixed, pname, th0, method)
+    # The AD value is exact; the limiting error is the finite-difference
+    # reference (~5e-12 relative, ~2.5e-12 absolute here). rtol=1e-9 dominates
+    # (gradient magnitudes are all >~0.02) and keeps a ~190x margin; atol=1e-11
+    # is small enough not to mask a wrong gradient for the O(1) cases.
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-9, atol=1e-11)
 
-    # finite-difference reference, computed on the pure-numpy path
-    def fnp(theta):
-        return float(_value(ctor, fixed, pname, theta, method, _R0, _Z0))
 
-    fd = (fnp(th0 + _EPS) - fnp(th0 - _EPS)) / (2 * _EPS)
-
-    if backend_name == "jax":
-        R, z = jnp.asarray(_R0), jnp.asarray(_Z0)
-        ad = float(
-            jax.grad(lambda th: _value(ctor, fixed, pname, th, method, R, z))(
-                jnp.asarray(th0)
-            )
-        )
-    else:
-        R, z = torch.as_tensor(_R0), torch.as_tensor(_Z0)
-        th = torch.tensor(th0, requires_grad=True)
-        _value(ctor, fixed, pname, th, method, R, z).backward()
-        ad = float(th.grad)
-    numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-8)
+@pytest.mark.skipif(
+    "jax" not in BACKENDS or "torch" not in BACKENDS,
+    reason="needs both jax and torch",
+)
+@pytest.mark.parametrize("method", METHOD_IDS)
+@pytest.mark.parametrize("spec", PARAM_SPECS, ids=SPEC_IDS)
+def test_param_grad_jax_vs_torch(spec, method):
+    # The sharpest, finite-difference-independent check: both backends compute
+    # the *exact* derivative by autodiff, so they must agree to ~machine
+    # precision (~1e-16 measured). A subtly-wrong gradient in either backend's
+    # parse/evaluate path shows up here far more sensitively than against the
+    # FD reference. rtol=1e-10 leaves a huge (~1e6) margin over the observed
+    # agreement while still being orders of magnitude tighter than AD-vs-FD.
+    ctor, fixed, pname, th0 = spec
+    g_jax = _ad_grad("jax", ctor, fixed, pname, th0, method)
+    g_torch = _ad_grad("torch", ctor, fixed, pname, th0, method)
+    numpy.testing.assert_allclose(g_jax, g_torch, rtol=1e-10, atol=1e-12)
 
 
 @pytest.mark.parametrize("spec", PARAM_SPECS, ids=SPEC_IDS)
