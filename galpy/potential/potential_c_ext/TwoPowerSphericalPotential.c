@@ -90,8 +90,8 @@ double TwoPowerSphericalPotentialPlanarR2deriv(double R,double phi,
                        * hyp2f1(4. - alpha, 1. + beta - alpha, 5. - alpha, -R/a);
 
   double term1 = A * pow(R, -alpha) * hyper;
-  double term2 = -alpha * A * pow(R, -alpha - 1.) * hyper;
-  double term3 = -A * pow(R, -alpha) * pow(a, -1.) * hyper_deriv;
+  double term2 = -alpha * A * pow(R, -alpha) * hyper;
+  double term3 = -A * pow(R, 1. - alpha) * pow(a, -1.) * hyper_deriv;
   return amp * (term1 + term2 + term3);
 }
 
