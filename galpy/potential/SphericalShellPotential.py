@@ -93,8 +93,13 @@ class SphericalShellPotential(SphericalPotential):
         outside = R > self.a
         safe_arg = xp.where(outside, xp.ones_like(R * 1.0), self.a2 - R**2)
         h = xp.sqrt(safe_arg)
-        safe_h = xp.where(h == 0.0, xp.ones_like(h), h)
-        val = 1.0 / (2.0 * math.pi * self.a * safe_h)
+        # Do NOT mask h at the shell edge R == a (h == 0): the projected surface
+        # density genuinely diverges there (the 1/sqrt(a^2-R^2) limb singularity),
+        # so 1/(2 pi a h) -> inf is the correct value and matches the original numpy
+        # behavior. (Only the gradient at the exact edge is singular, which is real.)
+        # The R > a branch is still NaN-safe via safe_arg (h = sqrt(1) = 1 there,
+        # then masked to zero below).
+        val = 1.0 / (2.0 * math.pi * self.a * h)
         zero = xp.zeros_like((R + z) * 1.0)
         # zero for R > a or z < h, else val
         return xp.where(outside | (z < h), zero, val)
