@@ -117,28 +117,37 @@ double KuzminKutuzovStaeckelPotentialR2deriv(double R,double z, double phi,
   //Coordinate transformation
   double gamma = D2 / (1.-ac*ac);
   double alpha = gamma - D2;
-  double term  =     R*R + z*z - alpha - gamma;
-  double discr = pow(R*R + z*z - D2, 2.) + (4. * D2 * R*R);
+  double R2    = R*R;
+  double z2    = z*z;
+  double rzD2p = R2 + z2 + D2; //R^2+z^2+D^2 (appears repeatedly)
+  double term  =     R2 + z2 - alpha - gamma;
+  double rzmD2 = R2 + z2 - D2;
+  double discr = rzmD2*rzmD2 + (4. * D2 * R2);
   double sdiscr= sqrt(discr);
+  double isdiscr= 1./sdiscr;
+  double idiscr15= isdiscr/discr; //1/discr^1.5 = (1/sdiscr)/discr
   double l     = 0.5 * (term + sdiscr);
   double n     = 0.5 * (term - sdiscr);
   //Jacobian (d(l,n)/dR)
-  double dldR  = R * (1. + (R*R + z*z + D2) / sdiscr);
-  double dndR  = R * (1. - (R*R + z*z + D2) / sdiscr);
+  double rzD2p_isd= rzD2p * isdiscr;
+  double dldR  = R * (1. + rzD2p_isd);
+  double dndR  = R * (1. - rzD2p_isd);
   //Hessian (d^2(l,n)/dR^2)
-  double d2ldR2= 1. + (3.*R*R + z*z + D2) / sdiscr
-                    - (2.*R*R * pow(R*R + z*z + D2,2.)) / pow(discr,1.5);
-  double d2ndR2= 1. - (3.*R*R + z*z + D2) / sdiscr
-                    + (2.*R*R * pow(R*R + z*z + D2,2.)) / pow(discr,1.5);
+  double hess_off= (3.*R2 + z2 + D2) * isdiscr;
+  double hess_cub= 2.*R2 * rzD2p*rzD2p * idiscr15;
+  double d2ldR2= 1. + hess_off - hess_cub;
+  double d2ndR2= 1. - hess_off + hess_cub;
   //Potential derivatives w.r.t. (l,n)
   double srl   = sqrt(l);
   double srn   = sqrt(n);
   double sln   = srl + srn;
-  double dVdl  = 0.5/srl/pow(sln,2.);
-  double dVdn  = 0.5/srn/pow(sln,2.);
-  double d2Vdl2= (-3.*srl-srn) / (4. * pow(l,1.5) * pow(sln,3.));
-  double d2Vdn2= (-srl-3.*srn) / (4. * pow(n,1.5) * pow(sln,3.));
-  double d2Vdln= -0.5 / (srl * srn * pow(sln,3.));
+  double isln2 = 1./(sln*sln);
+  double isln3 = isln2/sln;
+  double dVdl  = 0.5/srl*isln2;
+  double dVdn  = 0.5/srn*isln2;
+  double d2Vdl2= (-3.*srl-srn) / (4. * l*srl) * isln3;
+  double d2Vdn2= (-srl-3.*srn) / (4. * n*srn) * isln3;
+  double d2Vdln= -0.5 / (srl * srn) * isln3;
   return amp * ( d2ldR2 * dVdl + d2ndR2 * dVdn
 		 + dldR*dldR * d2Vdl2 + dndR*dndR * d2Vdn2
 		 + 2. * dldR * dndR * d2Vdln );
@@ -155,28 +164,36 @@ double KuzminKutuzovStaeckelPotentialz2deriv(double R,double z, double phi,
   //Coordinate transformation
   double gamma = D2 / (1.-ac*ac);
   double alpha = gamma - D2;
-  double term  =     R*R + z*z - alpha - gamma;
-  double discr = pow(R*R + z*z - D2, 2.) + (4. * D2 * R*R);
+  double R2    = R*R;
+  double z2    = z*z;
+  double rzmD2 = R2 + z2 - D2; //R^2+z^2-D^2 (appears repeatedly)
+  double term  =     R2 + z2 - alpha - gamma;
+  double discr = rzmD2*rzmD2 + (4. * D2 * R2);
   double sdiscr= sqrt(discr);
+  double isdiscr= 1./sdiscr;
+  double idiscr15= isdiscr/discr; //1/discr^1.5 = (1/sdiscr)/discr
   double l     = 0.5 * (term + sdiscr);
   double n     = 0.5 * (term - sdiscr);
   //Jacobian (d(l,n)/dz)
-  double dldz  = z * (1. + (R*R + z*z - D2) / sdiscr);
-  double dndz  = z * (1. - (R*R + z*z - D2) / sdiscr);
+  double rzmD2_isd= rzmD2 * isdiscr;
+  double dldz  = z * (1. + rzmD2_isd);
+  double dndz  = z * (1. - rzmD2_isd);
   //Hessian (d^2(l,n)/dz^2)
-  double d2ldz2= 1. + (R*R + 3.*z*z - D2) / sdiscr
-                    - (2.*z*z * pow(R*R + z*z - D2,2.)) / pow(discr,1.5);
-  double d2ndz2= 1. - (R*R + 3.*z*z - D2) / sdiscr
-                    + (2.*z*z * pow(R*R + z*z - D2,2.)) / pow(discr,1.5);
+  double hess_off= (R2 + 3.*z2 - D2) * isdiscr;
+  double hess_cub= 2.*z2 * rzmD2*rzmD2 * idiscr15;
+  double d2ldz2= 1. + hess_off - hess_cub;
+  double d2ndz2= 1. - hess_off + hess_cub;
   //Potential derivatives w.r.t. (l,n)
   double srl   = sqrt(l);
   double srn   = sqrt(n);
   double sln   = srl + srn;
-  double dVdl  = 0.5/srl/pow(sln,2.);
-  double dVdn  = 0.5/srn/pow(sln,2.);
-  double d2Vdl2= (-3.*srl-srn) / (4. * pow(l,1.5) * pow(sln,3.));
-  double d2Vdn2= (-srl-3.*srn) / (4. * pow(n,1.5) * pow(sln,3.));
-  double d2Vdln= -0.5 / (srl * srn * pow(sln,3.));
+  double isln2 = 1./(sln*sln);
+  double isln3 = isln2/sln;
+  double dVdl  = 0.5/srl*isln2;
+  double dVdn  = 0.5/srn*isln2;
+  double d2Vdl2= (-3.*srl-srn) / (4. * l*srl) * isln3;
+  double d2Vdn2= (-srl-3.*srn) / (4. * n*srn) * isln3;
+  double d2Vdln= -0.5 / (srl * srn) * isln3;
   return amp * ( d2ldz2 * dVdl + d2ndz2 * dVdn
 		 + dldz*dldz * d2Vdl2 + dndz*dndz * d2Vdn2
 		 + 2. * dldz * dndz * d2Vdln );
@@ -194,29 +211,40 @@ double KuzminKutuzovStaeckelPotentialRzderiv(double R,double z, double phi,
   //Coordinate transformation
   double gamma = D2 / (1.-ac*ac);
   double alpha = gamma - D2;
-  double term  =     R*R + z*z - alpha - gamma;
-  double discr = pow(R*R + z*z - D2, 2.) + (4. * D2 * R*R);
+  double R2    = R*R;
+  double z2    = z*z;
+  double rz2   = R2 + z2;
+  double rzD2p = rz2 + D2; //R^2+z^2+D^2
+  double rzmD2 = rz2 - D2; //R^2+z^2-D^2
+  double term  =     rz2 - alpha - gamma;
+  double discr = rzmD2*rzmD2 + (4. * D2 * R2);
   double sdiscr= sqrt(discr);
+  double isdiscr= 1./sdiscr;
+  double idiscr= 1./discr;
   double l     = 0.5 * (term + sdiscr);
   double n     = 0.5 * (term - sdiscr);
   //Jacobian (d(l,n)/dR and d(l,n)/dz)
-  double dldR  = R * (1. + (R*R + z*z + D2) / sdiscr);
-  double dndR  = R * (1. - (R*R + z*z + D2) / sdiscr);
-  double dldz  = z * (1. + (R*R + z*z - D2) / sdiscr);
-  double dndz  = z * (1. - (R*R + z*z - D2) / sdiscr);
+  double rzD2p_isd= rzD2p * isdiscr;
+  double rzmD2_isd= rzmD2 * isdiscr;
+  double dldR  = R * (1. + rzD2p_isd);
+  double dndR  = R * (1. - rzD2p_isd);
+  double dldz  = z * (1. + rzmD2_isd);
+  double dndz  = z * (1. - rzmD2_isd);
   //Mixed Hessian (d^2(l,n)/dR/dz)
-  double rz2   = (R*R + z*z);
-  double d2ldRdz= 2.*R*z / sdiscr * (1. - (rz2*rz2 - D4) / discr);
-  double d2ndRdz= 2.*R*z / sdiscr * (-1. + (rz2*rz2 - D4) / discr);
+  double mix   = 2.*R*z * isdiscr * (1. - (rz2*rz2 - D4) * idiscr);
+  double d2ldRdz=  mix;
+  double d2ndRdz= -mix;
   //Potential derivatives w.r.t. (l,n)
   double srl   = sqrt(l);
   double srn   = sqrt(n);
   double sln   = srl + srn;
-  double dVdl  = 0.5/srl/pow(sln,2.);
-  double dVdn  = 0.5/srn/pow(sln,2.);
-  double d2Vdl2= (-3.*srl-srn) / (4. * pow(l,1.5) * pow(sln,3.));
-  double d2Vdn2= (-srl-3.*srn) / (4. * pow(n,1.5) * pow(sln,3.));
-  double d2Vdln= -0.5 / (srl * srn * pow(sln,3.));
+  double isln2 = 1./(sln*sln);
+  double isln3 = isln2/sln;
+  double dVdl  = 0.5/srl*isln2;
+  double dVdn  = 0.5/srn*isln2;
+  double d2Vdl2= (-3.*srl-srn) / (4. * l*srl) * isln3;
+  double d2Vdn2= (-srl-3.*srn) / (4. * n*srn) * isln3;
+  double d2Vdln= -0.5 / (srl * srn) * isln3;
   return amp * ( d2ldRdz * dVdl + d2ndRdz * dVdn
 		 + dldR * dldz * d2Vdl2 + dndR * dndz * d2Vdn2
 		 + (dldR * dndz + dldz * dndR) * d2Vdln );
