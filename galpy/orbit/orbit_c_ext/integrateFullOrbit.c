@@ -178,6 +178,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &DoubleExponentialDiskPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &DoubleExponentialDiskPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them). The R2deriv/z2deriv/
+      // Rzderiv use the same Ogata/Hankel quadrature (J0/J1 nodes) as the forces.
+      potentialArgs->R2deriv= &DoubleExponentialDiskPotentialR2deriv;
+      potentialArgs->z2deriv= &DoubleExponentialDiskPotentialz2deriv;
+      potentialArgs->Rzderiv= &DoubleExponentialDiskPotentialRzderiv;
       //Look at pot_args to figure out the number of arguments
       potentialArgs->nargs= (int) (5 + 4 * *(*pot_args+4) );
       potentialArgs->ntfuncs= 0;
@@ -189,6 +196,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &FlattenedPowerPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &FlattenedPowerPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &FlattenedPowerPotentialR2deriv;
+      potentialArgs->z2deriv= &FlattenedPowerPotentialz2deriv;
+      potentialArgs->Rzderiv= &FlattenedPowerPotentialRzderiv;
       potentialArgs->nargs= 4;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;

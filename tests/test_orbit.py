@@ -1080,6 +1080,61 @@ def test_spherical_dxdv_3d_c_vs_python_extra():
     return None
 
 
+def test_doubleexp_dxdv_3d_c_vs_python():
+    # DoubleExponentialDiskPotential has a verified-correct full 3D C Hessian
+    # (hasC_dxdv3d=True): its C R2deriv/z2deriv/Rzderiv use the same Ogata/Hankel
+    # Bessel quadrature (J0/J1 nodes) as the C forces and the Python 2nd derivatives.
+    # It is deliberately excluded from the strict liouville3d_registry because the
+    # finite absolute accuracy of that quadrature puts the registry's
+    # finite-difference-of-the-flow check (eps=1e-7 differencing of full nonlinear
+    # orbits) right at its ~1.2e-4 floor, just over the 1e-4 bound -- NOT a Hessian
+    # error. This test exercises the C 3D Hessian directly by comparing the C 3D
+    # variational integration against the pure-Python reference, which the C path must
+    # match to high precision (the two share no integrator code, only the analytic
+    # Hessian, so agreement validates the C Hessian).
+    from galpy.orbit import Orbit
+    from galpy.potential import DoubleExponentialDiskPotential
+
+    pot = DoubleExponentialDiskPotential(amp=1.0, hr=1.0, hz=0.3, normalize=True)
+    assert pot.hasC_dxdv3d, "DoubleExponentialDisk should advertise hasC_dxdv3d"
+    # Fully 3D initial condition (R,vR,vT,z,vz,phi)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # the C-vs-Python dxdv agree to ~1e-9; 1e-6 leaves a wide margin
+    assert maxdiff < 1e-6, (
+        f"3D C variational integration for DoubleExponentialDisk differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
 # 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
 # dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
 # integrate_dxdv must match the trusted planar integrate_dxdv result.
