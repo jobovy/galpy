@@ -55,43 +55,6 @@ def _from_eom(xp, ys):
     return xp.stack([R, vR, R * Om, z, vz, phi], axis=-1)
 
 
-def _integrate_jax(pot, y0, ts, rtol, atol, max_steps):
-    import diffrax
-    import jax.numpy as jnp
-
-    def field(t, y, args):
-        return jnp.stack(_eom_rhs(y, pot, t))
-
-    sol = diffrax.diffeqsolve(
-        diffrax.ODETerm(field),
-        diffrax.Dopri8(),
-        t0=ts[0],
-        t1=ts[-1],
-        dt0=None,
-        y0=y0,
-        saveat=diffrax.SaveAt(ts=ts),
-        stepsize_controller=diffrax.PIDController(rtol=rtol, atol=atol),
-        max_steps=max_steps,
-    )
-    return sol.ys
-
-
-def _integrate_torch(pot, y0, ts, rtol, atol):
-    from torchdiffeq import odeint
-
-    def field(t, y):
-        import torch
-
-        return torch.stack(_eom_rhs(y, pot, t))
-
-    # dopri5, not dopri8: torchdiffeq's dopri8 *backward* pass is noticeably less
-    # accurate (~1e-5 relative gradient error vs ~1e-8 for dopri5/rk4), because its
-    # adaptive step controller is detached on the backward. dopri5 gives accurate
-    # gradients (matching jax/diffrax Dopri8) while still matching the C integrator
-    # forward to ~1e-7. (diffrax's Dopri8 backward is fine; this is torchdiffeq-specific.)
-    return odeint(field, y0, ts, method="dopri5", rtol=rtol, atol=atol)
-
-
 def integrate_orbit(pot, vxvv, ts, *, rtol=1e-10, atol=1e-10, max_steps=100000):
     """Differentiably integrate a 3D orbit with the backend's ODE solver.
 
@@ -117,10 +80,15 @@ def integrate_orbit(pot, vxvv, ts, *, rtol=1e-10, atol=1e-10, max_steps=100000):
     xp = get_namespace(vxvv)
     name = xp.__name__
     y0 = _to_eom(xp, vxvv)
+    # backend-specific integrators live in galpy.backend._jax / ._torch
     if "jax" in name:
-        ys = _integrate_jax(pot, y0, ts, rtol, atol, max_steps)
+        from .._jax.orbit_ode import integrate as _integrate_jax
+
+        ys = _integrate_jax(pot, y0, ts, rtol=rtol, atol=atol, max_steps=max_steps)
     elif "torch" in name:
-        ys = _integrate_torch(pot, y0, ts, rtol, atol)
+        from .._torch.orbit_ode import integrate as _integrate_torch
+
+        ys = _integrate_torch(pot, y0, ts, rtol=rtol, atol=atol)
     else:  # pragma: no cover - numpy path uses galpy's C/scipy integrators instead
         raise NotImplementedError(
             "in-backend ODE integration requires a jax or torch input array; "
