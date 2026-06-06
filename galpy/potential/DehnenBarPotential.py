@@ -146,34 +146,22 @@ class DehnenBarPotential(Potential):
             self._tsteady = self._tform + tsteady * self._tb
 
     def _smooth(self, t):
-        if isinstance(t, numpy.ndarray) and not numpy.ndim(t) == 0:
-            smooth = numpy.ones(len(t))
-            indx = t < self._tform
-            smooth[indx] = 0.0
-
-            indx = (t < self._tsteady) * (t >= self._tform)
-            deltat = t[indx] - self._tform
-            xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-            smooth[indx] = (
-                3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-            )
-        else:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # bar is fully on
-                smooth = 1.0
-        return smooth
+        # Growth factor (0 before tform, smoothly to 1 at tsteady). The namespace
+        # follows t itself: a concrete (Python/numpy) t -> numpy.where (a plain
+        # coefficient, byte-identical to the original scalar/array branches, that
+        # broadcasts into any backend's spatial arrays); a traced t (the
+        # in-backend diffrax/torchdiffeq integrator, or autodiff wrt time) -> that
+        # backend's where, so it is differentiable. Branch-free so a tracer works.
+        xp = get_namespace(t)
+        deltat = t - self._tform
+        xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
+        growth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
+        return xp.where(t < self._tform, 0.0, xp.where(t < self._tsteady, growth, 1.0))
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -203,7 +191,7 @@ class DehnenBarPotential(Potential):
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -229,7 +217,7 @@ class DehnenBarPotential(Potential):
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -253,7 +241,7 @@ class DehnenBarPotential(Potential):
     def _zforce(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -271,7 +259,7 @@ class DehnenBarPotential(Potential):
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -297,7 +285,7 @@ class DehnenBarPotential(Potential):
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -321,7 +309,7 @@ class DehnenBarPotential(Potential):
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -342,7 +330,7 @@ class DehnenBarPotential(Potential):
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -364,7 +352,7 @@ class DehnenBarPotential(Potential):
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -389,7 +377,7 @@ class DehnenBarPotential(Potential):
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        xp = get_namespace(R, z, phi)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0

@@ -101,42 +101,31 @@ class EllipticalDiskPotential(planarPotential):
             else:
                 self._tsteady = self._tform + 2.0
 
+    def _smooth(self, t):
+        # Growth factor (0 before tform, smoothly to 1 at tsteady). The namespace
+        # follows t itself: a concrete (Python/numpy) t -> numpy.where (a plain
+        # coefficient, byte-identical to the original branches, that broadcasts
+        # into any backend's spatial arrays); a traced t (the in-backend
+        # diffrax/torchdiffeq integrator, or autodiff wrt time) -> that backend's
+        # where, so it is differentiable. Branch-free so a tracer works.
+        if self._tform is None:
+            return 1.0
+        xp = get_namespace(t)
+        deltat = t - self._tform
+        xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
+        growth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
+        return xp.where(t < self._tform, 0.0, xp.where(t < self._tsteady, growth, 1.0))
+
     def _evaluate(self, R, phi=0.0, t=0.0):
-        # Calculate relevant time
-        if not self._tform is None:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # fully on
-                smooth = 1.0
-        else:
-            smooth = 1.0
-        xp = get_namespace(R, phi)
+        xp = get_namespace(R, phi, t)
+        smooth = self._smooth(t)
         return (
             smooth * self._twophio / 2.0 * R**self._p * xp.cos(2.0 * (phi - self._phib))
         )
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        # Calculate relevant time
-        if not self._tform is None:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # fully on
-                smooth = 1.0
-        else:
-            smooth = 1.0
-        xp = get_namespace(R, phi)
+        xp = get_namespace(R, phi, t)
+        smooth = self._smooth(t)
         return (
             -smooth
             * self._p
@@ -147,39 +136,13 @@ class EllipticalDiskPotential(planarPotential):
         )
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        # Calculate relevant time
-        if not self._tform is None:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # fully on
-                smooth = 1.0
-        else:
-            smooth = 1.0
-        xp = get_namespace(R, phi)
+        xp = get_namespace(R, phi, t)
+        smooth = self._smooth(t)
         return smooth * self._twophio * R**self._p * xp.sin(2.0 * (phi - self._phib))
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
-        # Calculate relevant time
-        if not self._tform is None:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # fully on
-                smooth = 1.0
-        else:
-            smooth = 1.0
-        xp = get_namespace(R, phi)
+        xp = get_namespace(R, phi, t)
+        smooth = self._smooth(t)
         return (
             smooth
             * self._p
@@ -191,21 +154,8 @@ class EllipticalDiskPotential(planarPotential):
         )
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):
-        # Calculate relevant time
-        if not self._tform is None:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # perturbation is fully on
-                smooth = 1.0
-        else:
-            smooth = 1.0
-        xp = get_namespace(R, phi)
+        xp = get_namespace(R, phi, t)
+        smooth = self._smooth(t)
         return (
             -2.0
             * smooth
@@ -215,21 +165,8 @@ class EllipticalDiskPotential(planarPotential):
         )
 
     def _Rphideriv(self, R, phi=0.0, t=0.0):
-        # Calculate relevant time
-        if not self._tform is None:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # perturbation is fully on
-                smooth = 1.0
-        else:
-            smooth = 1.0
-        xp = get_namespace(R, phi)
+        xp = get_namespace(R, phi, t)
+        smooth = self._smooth(t)
         return (
             -smooth
             * self._p

@@ -136,16 +136,15 @@ class SoftenedNeedleBarPotential(Potential):
         Fx = self._xforce_xyz(x, y, z, Tp, Tm)
         Fy = self._yforce_xyz(x, y, z, Tp, Tm)
         Fz = self._zforce_xyz(x, y, z, Tp, Tm)
-        # de-rotation angle depends on the time t. For a scalar t, math.cos/sin
-        # keep it a plain coefficient that broadcasts cleanly against any
-        # backend's forces; for an array t (numpy), use that array's namespace
-        # so the rotation broadcasts element-wise.
+        # de-rotation angle; depends only on t, so its namespace follows t: a
+        # concrete (Python/numpy) t -> numpy.cos/sin (a plain coefficient that
+        # broadcasts into any backend's forces); a traced t (the in-backend
+        # integrator, or autodiff wrt time) -> that backend's cos/sin. (A bare
+        # math.cos/sin would break a tracer -- including a 0-d tracer, which has
+        # ndim 0 -- and torch's cos/sin reject a plain Python-float angle.)
+        xpt = get_namespace(t)
         tp = self._pa + self._omegab * t
-        if getattr(tp, "ndim", 0) > 0:
-            txp = get_namespace(tp)
-            cp, sp = txp.cos(tp), txp.sin(tp)
-        else:
-            cp, sp = math.cos(tp), math.sin(tp)
+        cp, sp = xpt.cos(tp), xpt.sin(tp)
         return (cp * Fx - sp * Fy, sp * Fx + cp * Fy, Fz)
 
     def _cached_xyzforces(self, R, z, phi, t, xp):
