@@ -213,6 +213,17 @@ def pytest_generate_tests(metafunc):
                 "PowerTriaxialPotential",
                 "nonaxisymmetric",
             ),
+            # Time-dependent, non-axisymmetric 3D bar: tform=-4 (in bar periods)
+            # keeps the smoothing prefactor at 1 over the test interval, so the
+            # full cos/sin(2(phi-Omega_b t-barphi)) angular dependence (incl. a
+            # nonzero zphideriv off-plane) is exercised. alpha=0.05 (a standard
+            # bar strength) raises |d2Phi/dz/dphi| along the fixed IC above the
+            # 1e-3 guard so the C zphideriv coupling is genuinely tested.
+            (
+                potential.DehnenBarPotential(alpha=0.05),
+                "DehnenBarPotential",
+                "nonaxisymmetric",
+            ),
         ]
         ids = [entry[1] for entry in liouville3d_registry]
         if metafunc.function.__name__ == "test_dxdv_3d_c_vs_python":

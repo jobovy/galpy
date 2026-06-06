@@ -702,8 +702,14 @@ def test_energy_symplec_longterm():
     return None
 
 
-def _cart_accel_3d(pot, rect):
-    """Cartesian acceleration (ax,ay,az) at rectangular position rect=(x,y,z)."""
+def _cart_accel_3d(pot, rect, t=0.0):
+    """Cartesian acceleration (ax,ay,az) at rectangular position rect=(x,y,z).
+
+    The time t is forwarded to the force evaluators so this is also correct for
+    explicitly time-dependent potentials (e.g. a rotating bar): the tangent
+    vector along the flow is dx/dt = f(x(t),t), which is an exact solution of the
+    (time-dependent) variational equation only when f is evaluated at the same t.
+    """
     from galpy.potential import (
         evaluatephitorques,
         evaluateRforces,
@@ -714,13 +720,24 @@ def _cart_accel_3d(pot, rect):
     R = numpy.sqrt(x**2.0 + y**2.0)
     phi = numpy.arctan2(y, x)
     cp, sp = numpy.cos(phi), numpy.sin(phi)
-    Rforce = evaluateRforces(pot, R, z, phi=phi)
-    phitorque = evaluatephitorques(pot, R, z, phi=phi)
-    zforce = evaluatezforces(pot, R, z, phi=phi)
+    Rforce = evaluateRforces(pot, R, z, phi=phi, t=t)
+    phitorque = evaluatephitorques(pot, R, z, phi=phi, t=t)
+    zforce = evaluatezforces(pot, R, z, phi=phi, t=t)
     ax = cp * Rforce - sp / R * phitorque
     ay = sp * Rforce + cp / R * phitorque
     az = zforce
     return numpy.array([ax, ay, az])
+
+
+def _is_time_dependent_3d(pot):
+    """Detect an explicitly time-dependent potential by comparing the Cartesian
+    acceleration at the test IC at two different times. Returns True if the force
+    depends on t (e.g. a rotating bar), in which case dx/dt is not a solution of
+    the variational equation and the flow-direction identity check is skipped."""
+    rect = numpy.array([0.9, 0.18, 0.05])  # generic off-plane, off-axis point
+    a0 = _cart_accel_3d(pot, rect, t=0.0)
+    a1 = _cart_accel_3d(pot, rect, t=1.3)
+    return numpy.amax(numpy.fabs(a1 - a0)) > 1e-12
 
 
 def _orbit_rect_3d(o, ts):
@@ -795,36 +812,44 @@ def test_liouville_3d(pot):
             f"3D symplecticity ||M^T Omega M - Omega||={symperr:g} too large "
             f"for {pname}, integrator {integrator}"
         )
-        # (3) Flow-direction (validates K, free): the phase-space velocity
-        # f(x0) is an exact solution of the variational equation, so the
-        # integrated deviation must equal f(x(t)) along the orbit.
+        # (3) Flow-direction (validates K, free): for an AUTONOMOUS (time-
+        # independent) system the phase-space velocity f(x) is an exact solution
+        # of the variational equation, so the integrated deviation seeded with
+        # f(x0) must equal f(x(t)) along the orbit. This identity does NOT hold
+        # for an explicitly time-dependent potential: there d/dt f(x(t),t) =
+        # J.f + df/dt picks up the extra df/dt term, so dx/dt no longer solves
+        # the (df/dt-free) variational equation. Skip this single check for
+        # time-dependent potentials -- their Hessian is still pinned by the
+        # symplecticity check (2) above, the FD-of-flow check (4) below, and the
+        # C-vs-Python check in test_dxdv_3d_c_vs_python.
         o = Orbit(ic)
         o.integrate(times, pot, method=integrator)
         rect_orbit = _orbit_rect_3d(o, times)
-        f0 = numpy.empty(6)
-        f0[:3] = rect_orbit[0, 3:]
-        f0[3:] = _cart_accel_3d(pot, rect_orbit[0, :3])
-        o2 = Orbit(ic)
-        o2.integrate_dxdv(
-            f0,
-            times,
-            pot,
-            method=integrator,
-            rectIn=True,
-            rectOut=True,
-            rtol=rtol,
-            atol=atol,
-        )
-        dev = o2.getOrbit_dxdv()  # (nt,6) rectangular deviation
-        ftrue = numpy.empty((len(times), 6))
-        ftrue[:, :3] = rect_orbit[:, 3:]
-        for jj in range(len(times)):
-            ftrue[jj, 3:] = _cart_accel_3d(pot, rect_orbit[jj, :3])
-        flowerr = numpy.amax(numpy.fabs(dev - ftrue))
-        assert flowerr < 1e-6, (
-            f"3D flow-direction deviation differs from f(x(t)) by {flowerr:g} "
-            f"for {pname}, integrator {integrator}"
-        )
+        if not _is_time_dependent_3d(pot):
+            f0 = numpy.empty(6)
+            f0[:3] = rect_orbit[0, 3:]
+            f0[3:] = _cart_accel_3d(pot, rect_orbit[0, :3], t=times[0])
+            o2 = Orbit(ic)
+            o2.integrate_dxdv(
+                f0,
+                times,
+                pot,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+                rtol=rtol,
+                atol=atol,
+            )
+            dev = o2.getOrbit_dxdv()  # (nt,6) rectangular deviation
+            ftrue = numpy.empty((len(times), 6))
+            ftrue[:, :3] = rect_orbit[:, 3:]
+            for jj in range(len(times)):
+                ftrue[jj, 3:] = _cart_accel_3d(pot, rect_orbit[jj, :3], t=times[jj])
+            flowerr = numpy.amax(numpy.fabs(dev - ftrue))
+            assert flowerr < 1e-6, (
+                f"3D flow-direction deviation differs from f(x(t)) by {flowerr:g} "
+                f"for {pname}, integrator {integrator}"
+            )
         # (4) Finite-difference of the flow (validates K): integrate a base
         # orbit and orbits perturbed by eps*e_i and compare the dxdv column
         # to the FD of the integrated flow. Do a couple of i.
