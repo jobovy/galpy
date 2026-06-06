@@ -604,41 +604,51 @@ class HernquistPotential(DehnenSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0.0:
-            return (
-                (
-                    -12.0 * self.a**3
-                    - 5.0 * self.a * z**2
-                    + numpy.sqrt(1.0 + z**2 / self.a**2)
-                    * (12.0 * self.a**3 - self.a * z**2 + 2 / self.a * z**4)
-                )
-                / 30.0
-                / numpy.pi
-                * z**-5.0
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # R == a is a removable singularity of the generic branch (Rma -> 0,
+        # (a^2-R^2) -> 0, (r^2-a^2) -> 0): use the closed-form limit there. Both
+        # xp.where branches are evaluated, so guard the generic branch's zero
+        # denominators with a safe R^2-a^2 that is never zero at the edge.
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        # also guard (r^2 - a^2), which vanishes at the edge when z == 0
+        d2r = r**2.0 - self.a**2.0
+        safe_d2r = xp.where(at_edge, xp.ones_like(d2r * 1.0), d2r)
+        edge = (
+            (
+                -12.0 * self.a**3
+                - 5.0 * self.a * z**2
+                + xp.sqrt(1.0 + z**2 / self.a**2)
+                * (12.0 * self.a**3 - self.a * z**2 + 2 / self.a * z**4)
             )
-        else:
-            return (
-                self.a
+            / 30.0
+            / math.pi
+            * z**-5.0
+        )
+        generic = (
+            self.a
+            * xp.real(
+                (2.0 * self.a**2.0 + R**2.0)
+                * Rma**-5
+                * (xp.arctan(z / Rma) - xp.arctan(self.a * z / r / Rma))
+                + z
                 * (
-                    (2.0 * self.a**2.0 + R**2.0)
-                    * Rma**-5
-                    * (numpy.arctan(z / Rma) - numpy.arctan(self.a * z / r / Rma))
-                    + z
-                    * (
-                        5.0 * self.a**3.0 * r
-                        - 4.0 * self.a**4
-                        + self.a**2 * (2.0 * r**2.0 + R**2)
-                        - self.a * r * (5.0 * R**2.0 + 3.0 * z**2.0)
-                        + R**2.0 * r**2.0
-                    )
-                    / (self.a**2.0 - R**2.0) ** 2.0
-                    / (r**2 - self.a**2.0) ** 2.0
-                ).real
-                / 4.0
-                / numpy.pi
+                    5.0 * self.a**3.0 * r
+                    - 4.0 * self.a**4
+                    + self.a**2 * (2.0 * r**2.0 + R**2)
+                    - self.a * r * (5.0 * R**2.0 + 3.0 * z**2.0)
+                    + R**2.0 * r**2.0
+                )
+                / safe_d2**2.0
+                / safe_d2r**2.0
             )
+            / 4.0
+            / math.pi
+        )
+        return xp.where(at_edge, edge, generic)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
@@ -753,36 +763,42 @@ class JaffePotential(DehnenSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0.0:
-            return (
-                (
-                    3.0 * z**2.0
-                    - 2.0 * self.a**2.0
-                    + 2.0
-                    * numpy.sqrt(1.0 + (z / self.a) ** 2.0)
-                    * (self.a**2.0 - 2.0 * z**2.0)
-                    + 3.0 * z**3.0 / self.a * numpy.arctan(z / self.a)
-                )
-                / self.a
-                / z**3.0
-                / 6.0
-                / numpy.pi
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # R == a is a removable singularity of the generic branch (Rma -> 0,
+        # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
+        # are evaluated, so guard the generic branch's zero denominators.
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        edge = (
+            (
+                3.0 * z**2.0
+                - 2.0 * self.a**2.0
+                + 2.0
+                * xp.sqrt(1.0 + (z / self.a) ** 2.0)
+                * (self.a**2.0 - 2.0 * z**2.0)
+                + 3.0 * z**3.0 / self.a * xp.arctan(z / self.a)
             )
-        else:
-            return (
-                (
-                    (2.0 * self.a**2.0 - R**2.0)
-                    * Rma**-3
-                    * (numpy.arctan(z / Rma) - numpy.arctan(self.a * z / r / Rma))
-                    + numpy.arctan(z / R) / R
-                    - self.a * z / (R**2 - self.a**2) / (r + self.a)
-                ).real
-                / self.a
-                / 2.0
-                / numpy.pi
+            / self.a
+            / z**3.0
+            / 6.0
+            / math.pi
+        )
+        generic = (
+            xp.real(
+                (2.0 * self.a**2.0 - R**2.0)
+                * Rma**-3
+                * (xp.arctan(z / Rma) - xp.arctan(self.a * z / r / Rma))
+                + xp.arctan(z / R) / R
+                - self.a * z / safe_d2 / (r + self.a)
             )
+            / self.a
+            / 2.0
+            / math.pi
+        )
+        return xp.where(at_edge, edge, generic)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
@@ -899,15 +915,20 @@ class NFWPotential(TwoPowerSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, (float, int)) and r == 0:
-            return -1.0 / self.a
-        elif isinstance(r, (float, int)):
-            return -special.xlogy(1.0 / r, 1.0 + r / self.a)  # stable as r -> infty
-        else:
-            out = -special.xlogy(1.0 / r, 1.0 + r / self.a)  # stable as r -> infty
-            out[r == 0] = -1.0 / self.a
-            return out
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # -special.xlogy(1/r, 1+r/a) == -(1/r)*log(1+r/a), with xlogy's
+        # convention that the result is 0 where the prefactor 1/r is 0 (i.e.
+        # at r -> infty, where the bare product is 0*inf = NaN; this is the
+        # "stable as r -> infty" behavior). Additionally Phi(0) = -1/a. Both
+        # r == 0 and r == infty are handled with NaN-safe xp.where branches.
+        at0 = r == 0.0
+        atinf = xp.isinf(r)
+        # safe r so neither dead branch divides by 0 or takes log(inf)
+        safe = xp.where(at0 | atinf, xp.ones_like(r * 1.0), r)
+        bulk = -(1.0 / safe) * xp.log(1.0 + safe / self.a)
+        out = xp.where(atinf, xp.zeros_like(r * 1.0), bulk)
+        return xp.where(at0, -1.0 / self.a * xp.ones_like(r * 1.0), out)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
@@ -968,33 +989,34 @@ class NFWPotential(TwoPowerSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0.0:
-            za2 = (z / self.a) ** 2
-            return (
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # R == a is a removable singularity of the generic branch (Rma -> 0,
+        # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
+        # are evaluated, so guard the generic branch's zero denominators.
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        za2 = (z / self.a) ** 2
+        edge = self.a * (2.0 + xp.sqrt(za2 + 1.0) * (za2 - 2.0)) / 6.0 / math.pi / z**3
+        generic = (
+            xp.real(
                 self.a
-                * (2.0 + numpy.sqrt(za2 + 1.0) * (za2 - 2.0))
-                / 6.0
-                / numpy.pi
-                / z**3
+                * Rma**-3
+                * (xp.arctan(self.a * z / r / Rma) - xp.arctan(z / Rma))
+                + z / (r + self.a) / safe_d2
             )
-        else:
-            return (
-                (
-                    self.a
-                    * Rma**-3
-                    * (numpy.arctan(self.a * z / r / Rma) - numpy.arctan(z / Rma))
-                    + z / (r + self.a) / (R**2.0 - self.a**2.0)
-                ).real
-                / 2.0
-                / numpy.pi
-            )
+            / 2.0
+            / math.pi
+        )
+        return xp.where(at_edge, edge, generic)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return numpy.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a)
+        xp = get_namespace(R)
+        return xp.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a)
 
     @conversion.physical_conversion("position", pop=False)
     def rvir(

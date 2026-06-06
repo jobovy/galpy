@@ -4,9 +4,6 @@
 ###############################################################################
 import math
 
-import numpy
-from scipy import integrate
-
 from ..backend import get_namespace
 from .Potential import Potential
 
@@ -99,5 +96,9 @@ class SphericalPotential(Potential):
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        R = numpy.float64(R)  # Avoid indexing issues
+        xp = get_namespace(R)
+        # asarray (not float64) avoids the original indexing issues for
+        # array-like input while preserving the backend (so a jax/torch R
+        # stays a tracked array rather than being coerced to numpy).
+        R = xp.asarray(R)
         return -(R**2.0) * self._rforce(R, t=t)
