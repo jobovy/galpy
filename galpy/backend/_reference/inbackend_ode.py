@@ -37,9 +37,12 @@ def _eom_rhs(y, pot, t):
 
     R, vR, phi, Om, z, vz = y[0], y[1], y[2], y[3], y[4], y[5]
     Lz2 = (R**2 * Om) ** 2
-    aR = Lz2 / R**3 + evaluateRforces(pot, R, z, phi=phi, t=t)
-    dOm = (evaluatephitorques(pot, R, z, phi=phi, t=t) - 2.0 * R * vR * Om) / R**2
-    az = evaluatezforces(pot, R, z, phi=phi, t=t)
+    # v=[vR, vT, vz] matches galpy._EOM exactly (ignored for non-dissipative
+    # potentials; required by velocity-dependent/dissipative forces).
+    v = [vR, R * Om, vz]
+    aR = Lz2 / R**3 + evaluateRforces(pot, R, z, phi=phi, t=t, v=v)
+    dOm = (evaluatephitorques(pot, R, z, phi=phi, t=t, v=v) - 2.0 * R * vR * Om) / R**2
+    az = evaluatezforces(pot, R, z, phi=phi, t=t, v=v)
     return vR, aR, Om, dOm, vz, az
 
 
