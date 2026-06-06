@@ -8,6 +8,7 @@
 import numpy
 from scipy import special
 
+from ..backend import get_namespace
 from ..util import conversion
 from ..util._optional_deps import _JAX_LOADED
 from .Potential import Potential, kms_to_kpcGyrDecorator
@@ -147,18 +148,20 @@ class PowerSphericalPotentialwCutoff(Potential):
         )
 
     def _ddensdr(self, r, t=0.0):
+        xp = get_namespace(r)
         return (
             -self._amp
             * r ** (-1.0 - self.alpha)
-            * numpy.exp(-((r / self.rc) ** 2.0))
+            * xp.exp(-((r / self.rc) ** 2.0))
             * (2.0 * r**2.0 / self.rc**2.0 + self.alpha)
         )
 
     def _d2densdr2(self, r, t=0.0):
+        xp = get_namespace(r)
         return (
             self._amp
             * r ** (-2.0 - self.alpha)
-            * numpy.exp(-((r / self.rc) ** 2))
+            * xp.exp(-((r / self.rc) ** 2))
             * (
                 self.alpha**2.0
                 + self.alpha
@@ -200,8 +203,9 @@ class PowerSphericalPotentialwCutoff(Potential):
         )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return 1.0 / r**self.alpha * numpy.exp(-((r / self.rc) ** 2.0))
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return 1.0 / r**self.alpha * xp.exp(-((r / self.rc) ** 2.0))
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
