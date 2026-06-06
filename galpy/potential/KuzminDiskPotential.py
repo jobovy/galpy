@@ -5,8 +5,9 @@
 #               Phi(R, z)=  ---------------------------
 #                            \sqrt{R^2 + (a + |z|)^2}
 ###############################################################################
-import numpy
+import math
 
+from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -62,32 +63,31 @@ class KuzminDiskPotential(Potential):
         return -(self._denom(R, z) ** -1.5) * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        return -numpy.sign(z) * self._denom(R, z) ** -1.5 * (self._a + numpy.fabs(z))
+        xp = get_namespace(R, z)
+        return -xp.sign(z) * self._denom(R, z) ** -1.5 * (self._a + xp.abs(z))
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         return self._denom(R, z) ** -1.5 - 3.0 * R**2 * self._denom(R, z) ** -2.5
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         a = self._a
         return (
             self._denom(R, z) ** -1.5
-            - 3.0 * (a + numpy.fabs(z)) ** 2.0 * self._denom(R, z) ** -2.5
+            - 3.0 * (a + xp.abs(z)) ** 2.0 * self._denom(R, z) ** -2.5
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        return (
-            -3
-            * numpy.sign(z)
-            * R
-            * (self._a + numpy.fabs(z))
-            * self._denom(R, z) ** -2.5
-        )
+        xp = get_namespace(R, z)
+        return -3 * xp.sign(z) * R * (self._a + xp.abs(z)) * self._denom(R, z) ** -2.5
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        return self._a * (R**2 + self._a**2) ** -1.5 / 2.0 / numpy.pi
+        return self._a * (R**2 + self._a**2) ** -1.5 / 2.0 / math.pi
 
     def _mass(self, R, z=None, t=0.0):
-        return 1.0 - self._a / numpy.sqrt(R**2.0 + self._a**2.0)
+        xp = get_namespace(R)
+        return 1.0 - self._a / xp.sqrt(R**2.0 + self._a**2.0)
 
     def _denom(self, R, z):
-        return R**2.0 + (self._a + numpy.fabs(z)) ** 2.0
+        xp = get_namespace(R, z)
+        return R**2.0 + (self._a + xp.abs(z)) ** 2.0
