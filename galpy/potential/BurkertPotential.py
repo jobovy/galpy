@@ -1,9 +1,9 @@
 ###############################################################################
 #   BurkertPotential.py: Potential with a Burkert density
 ###############################################################################
-import numpy
-from scipy import special
+import math
 
+from ..backend import get_namespace
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
 
@@ -58,15 +58,28 @@ class BurkertPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
+        xp = get_namespace(r)
         x = r / self.a
+        # special.xlogy(2/x, 1+x**2) == (2/x)*log(1+x**2), but with the convention
+        # that it is 0 where the prefactor is 0 (i.e. as x -> infty, where the bare
+        # product would be 0*inf = NaN). Reproduce that backend-agnostically: the
+        # prefactor 2/x only vanishes at x == infty, so guard exactly that point.
+        pref = 2.0 / x
+        # safe argument so the (dead) finite branch cannot make log(inf) at x==inf
+        safe_x2 = xp.where(xp.isinf(x), xp.ones_like(x * 1.0), x**2.0)
+        xlogy_term = xp.where(
+            xp.isinf(x),
+            xp.zeros_like(x * 1.0),
+            pref * xp.log(1.0 + safe_x2),
+        )
         return (
             -(self.a**2.0)
-            * numpy.pi
+            * math.pi
             * (
-                -numpy.pi / x
-                + 2.0 * (1.0 / x + 1) * numpy.arctan(1 / x)
-                + (1.0 / x + 1) * numpy.log((1.0 + 1.0 / x) ** 2.0 / (1.0 + 1 / x**2.0))
-                + special.xlogy(2.0 / x, 1.0 + x**2.0)
+                -math.pi / x
+                + 2.0 * (1.0 / x + 1) * xp.arctan(1 / x)
+                + (1.0 / x + 1) * xp.log((1.0 + 1.0 / x) ** 2.0 / (1.0 + 1 / x**2.0))
+                + xlogy_term
             )
         )
 
@@ -76,23 +89,24 @@ class BurkertPotential(SphericalPotential):
     #                                +(1.-x)*numpy.log(1.+x**2.))
 
     def _rforce(self, r, t=0.0):
+        xp = get_namespace(r)
         x = r / self.a
         return (
             self.a
-            * numpy.pi
+            * math.pi
             / x**2.0
             * (
-                numpy.pi
-                - 2.0 * numpy.arctan(1.0 / x)
-                - 2.0 * numpy.log(1.0 + x)
-                - numpy.log(1.0 + x**2.0)
+                math.pi
+                - 2.0 * xp.arctan(1.0 / x)
+                - 2.0 * xp.log(1.0 + x)
+                - xp.log(1.0 + x**2.0)
             )
         )
 
     def _r2deriv(self, r, t=0.0):
         x = r / self.a
         return (
-            4.0 * numpy.pi / (1.0 + x**2.0) / (1.0 + x)
+            4.0 * math.pi / (1.0 + x**2.0) / (1.0 + x)
             + 2.0 * self._rforce(r) / x / self.a
         )
 
@@ -101,34 +115,41 @@ class BurkertPotential(SphericalPotential):
         return 1.0 / (1.0 + x) / (1.0 + x**2.0)
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         x = r / self.a
-        Rpa = numpy.sqrt(R**2.0 + self.a**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0:
-            za = z / self.a
-            return (
-                self.a**2.0
-                / 2.0
-                * (
-                    (
-                        2.0
-                        - 2.0 * numpy.sqrt(za**2.0 + 1)
-                        + numpy.sqrt(2.0) * za * numpy.arctan(za / numpy.sqrt(2.0))
-                    )
-                    / z
-                    + numpy.sqrt(2 * za**2.0 + 2.0)
-                    * numpy.arctanh(za / numpy.sqrt(2.0 * (za**2.0 + 1)))
-                    / numpy.sqrt(self.a**2.0 + z**2.0)
+        Rpa = xp.sqrt(R**2.0 + self.a**2.0)
+        # R == a is a removable singularity of the generic (Rma != 0) branch:
+        # there Rma -> 0 and the arctan/Rma terms blow up, so we use a separate
+        # closed-form limit. xp.where evaluates BOTH branches, so the generic
+        # branch must stay NaN-free at the edge: build Rma from a safe argument
+        # that is never zero there (so 1/Rma, arctan(z/x/Rma) etc. stay finite).
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        # Edge (R == a) branch
+        za = z / self.a
+        edge = (
+            self.a**2.0
+            / 2.0
+            * (
+                (
+                    2.0
+                    - 2.0 * xp.sqrt(za**2.0 + 1)
+                    + 2.0**0.5 * za * xp.arctan(za / 2.0**0.5)
                 )
+                / z
+                + xp.sqrt(2 * za**2.0 + 2.0)
+                * xp.arctanh(za / xp.sqrt(2.0 * (za**2.0 + 1)))
+                / xp.sqrt(self.a**2.0 + z**2.0)
             )
-        else:
-            return (
-                self.a**2.0
-                * (
-                    numpy.arctan(z / x / Rma) / Rma
-                    + numpy.arctanh(z / x / Rpa) / Rpa
-                    - numpy.arctan(z / Rma) / Rma
-                    + numpy.arctan(z / Rpa) / Rpa
-                ).real
-            )
+        )
+        # Generic (R != a) branch; .real of the complex combination
+        generic = self.a**2.0 * xp.real(
+            xp.arctan(z / x / Rma) / Rma
+            + xp.arctanh(z / x / Rpa) / Rpa
+            - xp.arctan(z / Rma) / Rma
+            + xp.arctan(z / Rpa) / Rpa
+        )
+        return xp.where(at_edge, edge, generic)
