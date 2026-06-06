@@ -575,6 +575,8 @@ double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
                             struct potentialArg* potentialArgs);
 double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
                             struct potentialArg* potentialArgs);
+double SpiralArmsPotentialzphideriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
 double SpiralArmsPotentialPlanarRforce(double, double, double,
                             struct potentialArg*);
 double SpiralArmsPotentialPlanarphitorque(double, double, double,
