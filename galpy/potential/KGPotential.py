@@ -1,5 +1,6 @@
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .linearPotential import linearPotential
@@ -69,10 +70,12 @@ class KGPotential(linearPotential):
         self.hasC_dxdv = True  # 1D variational (dxdv) second derivative in C
 
     def _evaluate(self, x, t=0.0):
-        return self._K * (numpy.sqrt(x**2.0 + self._D2) - self._D) + self._F * x**2.0
+        xp = get_namespace(x)
+        return self._K * (xp.sqrt(x**2.0 + self._D2) - self._D) + self._F * x**2.0
 
     def _force(self, x, t=0.0):
-        return -x * (self._K / numpy.sqrt(x**2 + self._D2) + 2.0 * self._F)
+        xp = get_namespace(x)
+        return -x * (self._K / xp.sqrt(x**2 + self._D2) + 2.0 * self._F)
 
     def _force2deriv(self, x, t=0.0):
         # d^2 Phi / dx^2 = K D^2 / (x^2+D^2)^(3/2) + 2F
