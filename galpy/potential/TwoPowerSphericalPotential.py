@@ -83,6 +83,7 @@ class TwoPowerSphericalPotential(Potential):
         self.beta = beta
         self.hasC = True
         self.hasC_dxdv = True
+        self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)

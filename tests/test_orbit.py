@@ -1011,6 +1011,75 @@ def test_kuzmindisk_dxdv_3d_c_vs_python_offplane():
     return None
 
 
+def test_spherical_dxdv_3d_c_vs_python_extra():
+    # PseudoIsothermal, Einasto, and interpSpherical have verified-correct full 3D C
+    # Hessians (hasC_dxdv3d=True) but are deliberately excluded from the strict
+    # liouville3d_registry (see the note in tests/conftest.py): the spline-interpolated
+    # potentials (Einasto, interpSpherical) and PseudoIsothermal's (1/r^2)*atan profile
+    # hit accuracy floors in the registry's pure-Python odeint finite-difference-of-flow
+    # check / its 1e-9 unit-deviation bridge tolerance -- not Hessian errors. This test
+    # validates their C 3D variational Hessian directly: every C 3D-dxdv unit-deviation
+    # column must match the pure-Python (dop853) variational integrator to high
+    # precision (the genuine correctness criterion the registry would otherwise apply).
+    import numpy
+
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        EinastoPotential,
+        HernquistPotential,
+        PseudoIsothermalPotential,
+        interpSphericalPotential,
+    )
+
+    pots = [
+        PseudoIsothermalPotential(amp=1.0, a=1.1, normalize=True),
+        EinastoPotential(amp=1.0, h=1.5, n=2.0, normalize=True),
+        interpSphericalPotential(
+            rforce=HernquistPotential(amp=1.0, a=1.3, normalize=True),
+            rgrid=numpy.geomspace(0.01, 20.0, 401),
+        ),
+    ]
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    for pot in pots:
+        pname = pot.__class__.__name__
+        assert pot.hasC_dxdv3d, f"{pname} should advertise hasC_dxdv3d"
+        maxdiff = 0.0
+        for ii in range(6):
+            oc = Orbit(ic)
+            oc.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method="dopr54_c",
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+            op = Orbit(ic)
+            op.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method="dop853",
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+            diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+            maxdiff = max(maxdiff, diff)
+        # C-vs-Python 3D variational integration agrees to ~1e-6 or better for these
+        # (spline-interpolated potentials are the loosest); 1e-5 leaves a safe margin.
+        assert maxdiff < 1e-5, (
+            f"3D C variational integration for {pname} differs from the pure-Python "
+            f"reference by {maxdiff:g} (unit deviation)"
+        )
+    return None
+
+
 # 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
 # dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
 # integrate_dxdv must match the trusted planar integrate_dxdv result.
@@ -1169,16 +1238,17 @@ def test_integrate_dxdv_3d_c_requires_full_hessian():
     # is issued, and (c) that the C-method result matches the pure-Python result
     # (i.e. it really fell back, rather than returning the wrong C aggregate).
     from galpy.orbit import Orbit
-    from galpy.potential import PseudoIsothermalPotential
+    from galpy.potential import LogarithmicHaloPotential
 
-    pot = PseudoIsothermalPotential(normalize=1.0)
-    # PseudoIsothermal has the planar dxdv C path but not the full 3D Hessian in C
-    # (it is intentionally not part of the spherical 3D-C-Hessian batch).
+    pot = LogarithmicHaloPotential(normalize=1.0)
+    # LogarithmicHalo has the planar dxdv C path but not the full 3D Hessian in C
+    # (it is genuinely non-spherical, so the spherical 3D-C-Hessian transform does
+    # not apply to it).
     assert pot.hasC_dxdv, (
-        "test precondition: PseudoIsothermal should have planar hasC_dxdv"
+        "test precondition: LogarithmicHalo should have planar hasC_dxdv"
     )
     assert not pot.hasC_dxdv3d, (
-        "PseudoIsothermal must not advertise a full 3D C Hessian (would be silently wrong)"
+        "LogarithmicHalo must not advertise a full 3D C Hessian (would be silently wrong)"
     )
     ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
     times = numpy.linspace(0.0, 2.0, 101)
