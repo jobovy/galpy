@@ -154,6 +154,133 @@ double LogarithmicHaloPotentialPlanarRphideriv(double R,double phi,
   } else
     return 0.;
 }
+double LogarithmicHaloPotentialR2deriv(double R,double Z, double phi,
+				       double t,
+				       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double q= *(args+1);
+  double c= *(args+2);
+  double onem1overb2= *(args+3);
+  //Calculate R2deriv
+  double zq= Z/q;
+  double Rt2, denom;
+  if ( onem1overb2 < 1 ) {
+    Rt2= R*R * (1. - onem1overb2 * pow(sin(phi),2));
+    denom= 1. / ( Rt2 + zq*zq + c );
+    return amp * ( denom - 2. * Rt2 * denom * denom ) * Rt2 / ( R * R );
+  } else {
+    denom= 1. / ( R*R + zq*zq + c );
+    return amp * ( denom - 2. * R * R * denom * denom );
+  }
+}
+double LogarithmicHaloPotentialz2deriv(double R,double Z, double phi,
+				       double t,
+				       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double q= *(args+1);
+  double c= *(args+2);
+  double onem1overb2= *(args+3);
+  //Calculate z2deriv
+  double zq= Z/q;
+  double q2= q*q;
+  double Rt2, denom;
+  if ( onem1overb2 < 1 )
+    Rt2= R*R * (1. - onem1overb2 * pow(sin(phi),2));
+  else
+    Rt2= R*R;
+  denom= 1. / ( Rt2 + zq*zq + c );
+  return amp * ( denom / q2 - 2. * Z * Z * denom * denom / ( q2 * q2 ) );
+}
+double LogarithmicHaloPotentialRzderiv(double R,double Z, double phi,
+				       double t,
+				       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double q= *(args+1);
+  double c= *(args+2);
+  double onem1overb2= *(args+3);
+  //Calculate Rzderiv
+  double zq= Z/q;
+  double q2= q*q;
+  double Rt2, denom;
+  if ( onem1overb2 < 1 ) {
+    Rt2= R*R * (1. - onem1overb2 * pow(sin(phi),2));
+    denom= 1. / ( Rt2 + zq*zq + c );
+    return - amp * 2. * Rt2 / R * Z / q2 * denom * denom;
+  } else {
+    denom= 1. / ( R*R + zq*zq + c );
+    return - amp * 2. * R * Z / q2 * denom * denom;
+  }
+}
+double LogarithmicHaloPotentialphi2deriv(double R,double Z, double phi,
+					 double t,
+					 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double q= *(args+1);
+  double c= *(args+2);
+  double onem1overb2= *(args+3);
+  //Calculate phi2deriv
+  double zq= Z/q;
+  double R2= R*R;
+  double Rt2, denom, s2phi;
+  if ( onem1overb2 < 1 ) {
+    Rt2= R2 * (1. - onem1overb2 * pow(sin(phi),2));
+    denom= 1. / ( Rt2 + zq*zq + c );
+    s2phi= sin( 2. * phi );
+    return - amp * onem1overb2 * ( 0.5 * R2 * R2 * s2phi * s2phi * onem1overb2 \
+				   * denom * denom \
+				   + R2 * denom * cos( 2. * phi ) );
+  } else
+    return 0.;
+}
+double LogarithmicHaloPotentialRphideriv(double R,double Z, double phi,
+					 double t,
+					 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double q= *(args+1);
+  double c= *(args+2);
+  double onem1overb2= *(args+3);
+  //Calculate Rphideriv
+  double zq= Z/q;
+  double Rt2, denom;
+  if ( onem1overb2 < 1 ) {
+    Rt2= R*R * (1. - onem1overb2 * pow(sin(phi),2));
+    denom= 1. / ( Rt2 + zq*zq + c );
+    return - amp * ( denom - Rt2 * denom * denom ) * R * sin( 2. * phi ) \
+      * onem1overb2;
+  } else
+    return 0.;
+}
+double LogarithmicHaloPotentialzphideriv(double R,double Z, double phi,
+					 double t,
+					 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double q= *(args+1);
+  double c= *(args+2);
+  double onem1overb2= *(args+3);
+  //Calculate zphideriv
+  double zq= Z/q;
+  double q2= q*q;
+  double Rt2, denom;
+  if ( onem1overb2 < 1 ) {
+    Rt2= R*R * (1. - onem1overb2 * pow(sin(phi),2));
+    denom= 1. / ( Rt2 + zq*zq + c );
+    return amp * 2. * R * R * Z * sin( phi ) * cos( phi ) * onem1overb2 \
+      * denom * denom / q2;
+  } else
+    return 0.;
+}
 double LogarithmicHaloPotentialDens(double R,double Z, double phi,
 				    double t,
 				    struct potentialArg * potentialArgs){
