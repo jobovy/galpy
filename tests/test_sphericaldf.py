@@ -3268,6 +3268,8 @@ def test_isotropic_powerlaw_energyoutofbounds():
     assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1),))) < 1e-8), (
         "Evaluating the isotropic power-law DF at E > 0 does not give zero"
     )
+    # Also test scalar fE input (plain float, no .shape — covers the non-array return path)
+    assert dfp.fE(-1.0) > 0.0
 
 
 def test_isotropic_powerlaw_nonself_dens_directint():
@@ -3585,6 +3587,8 @@ def test_osipkovmerritt_powerlaw_Qoutofbounds():
     assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.0))) < 1e-8), (
         "Evaluating the OM power-law DF at E > 0 does not give zero"
     )
+    # Also test scalar fQ input (plain float, no .shape — covers the non-array return path)
+    assert dfp.fQ(1.0) > 0.0
 
 
 def test_osipkovmerritt_powerlaw_large_ra_approaches_isotropic():
