@@ -321,3 +321,203 @@ def test_grad_evaluate_vs_finite_difference(backend_name, entry):
     numpy.testing.assert_allclose(
         ad, fd, rtol=1e-5, err_msg=f"{type(pot).__name__} grad ({backend_name})"
     )
+
+
+###############################################################################
+# Differentiability of *every* migrated method (not just _evaluate), wrt both R
+# and phi, against central finite differences. This guards the safe-denominator
+# rewrites of the where-branches and the phi-derivatives against NaN poisoning
+# of reverse-mode gradients (both where-branches are evaluated under a trace).
+###############################################################################
+def _ad_grad(method, backend_name, ndim, var, R0, z0, phi0):
+    """Reverse-mode d(method)/d(var) at a scalar point, var in {'R','phi'}."""
+    if backend_name == "jax":
+
+        def f(x):
+            R = x if var == "R" else jnp.asarray(R0)
+            phi = x if var == "phi" else jnp.asarray(phi0)
+            if ndim == 3:
+                return method(R, jnp.asarray(z0), phi, _T)
+            return method(R, phi, _T)
+
+        return float(jax.grad(f)(jnp.asarray(R0 if var == "R" else phi0)))
+    # torch
+    x = torch.tensor(
+        R0 if var == "R" else phi0, dtype=torch.float64, requires_grad=True
+    )
+    R = x if var == "R" else torch.tensor(R0, dtype=torch.float64)
+    phi = x if var == "phi" else torch.tensor(phi0, dtype=torch.float64)
+    if ndim == 3:
+        y = method(R, torch.tensor(z0, dtype=torch.float64), phi, _T)
+    else:
+        y = method(R, phi, _T)
+    # Output may not depend on the differentiation variable (e.g. an axisymmetric
+    # potential wrt phi): then there is no graph edge and the gradient is 0.
+    if not (isinstance(y, torch.Tensor) and y.requires_grad):
+        return 0.0
+    y.backward()
+    return 0.0 if x.grad is None else float(x.grad)
+
+
+def _is_traceable_output(method, backend_name, ndim, R0, z0, phi0):
+    """True unless the method returns a plain Python constant (no autodiff graph).
+
+    Axisymmetric LogarithmicHalo phitorque / phi-derivatives return 0 / 0.0;
+    differentiating those is a no-op (gradient is exactly 0), so we skip them.
+    """
+    if ndim == 3:
+        out = method(numpy.asarray(R0), numpy.asarray(z0), numpy.asarray(phi0), _T)
+    else:
+        out = method(numpy.asarray(R0), numpy.asarray(phi0), _T)
+    return hasattr(out, "ndim")
+
+
+def _fd_grad(method, ndim, var, R0, z0, phi0, eps=1e-6):
+    def at(R, phi):
+        if ndim == 3:
+            return float(method(numpy.asarray(R), numpy.asarray(z0), phi, _T))
+        return float(method(numpy.asarray(R), phi, _T))
+
+    if var == "R":
+        return (at(R0 + eps, phi0) - at(R0 - eps, phi0)) / (2 * eps)
+    return (at(R0, phi0 + eps) - at(R0, phi0 - eps)) / (2 * eps)
+
+
+@pytest.mark.parametrize("entry", POTS, ids=POT_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("var", ["R", "phi"])
+def test_grad_all_methods_vs_finite_difference(backend_name, entry, var):
+    pot, ndim, methods, scalar_only = entry
+    R0, z0, phi0 = 1.3, 0.4, 0.7
+    # differentiate every vectorized method (scalar-only md5-cached force methods
+    # of SoftenedNeedleBar read per-instance state and are excluded by design).
+    for mname in methods:
+        method = getattr(pot, mname)
+        # Some methods are identically zero (e.g. axisymmetric phitorque /
+        # phi-derivatives) and return a plain Python constant with no graph to
+        # differentiate; their FD is 0 and the analytic gradient is 0, so skip.
+        if not _is_traceable_output(method, backend_name, ndim, R0, z0, phi0):
+            continue
+        fd = _fd_grad(method, ndim, var, R0, z0, phi0)
+        ad = _ad_grad(method, backend_name, ndim, var, R0, z0, phi0)
+        assert not numpy.isnan(ad), (
+            f"{type(pot).__name__}.{mname} d/d{var} is NaN ({backend_name})"
+        )
+        # FD of a method that is identically zero (e.g. axisymmetric phitorque)
+        # has no meaningful relative tolerance; compare on an absolute floor too.
+        numpy.testing.assert_allclose(
+            ad,
+            fd,
+            rtol=1e-4,
+            atol=1e-7,
+            err_msg=f"{type(pot).__name__}.{mname} d/d{var} ({backend_name})",
+        )
+
+
+###############################################################################
+# Singular / break-point coverage of the rewritten where-branches: evaluate the
+# potentials *at and around* the points where the safe-denominator substitution
+# kicks in (CosmphiDisk's break radius R==rb and the inside R<rb branch;
+# DehnenBar's r==rb seam and small-r inner branch), checking both numpy/jax/torch
+# value parity and that reverse-mode gradients there are finite (not NaN).
+###############################################################################
+# (instance, ndim, points[(R,z,phi,on_seam)], methods). Points straddle the seam;
+# ``on_seam`` marks the exact break radius where 2nd derivatives are discontinuous
+# (there a central FD straddles two branches, so we check only finiteness there,
+# not FD agreement). Off-seam points get the full grad-vs-FD check.
+_SINGULAR_CASES = [
+    (
+        CosmphiDiskPotential(amp=1.0, phib=0.3, p=1.0, phio=0.02, m=4, r1=1.0, rb=1.2),
+        2,
+        [(0.5, None, 0.7, False), (1.2, None, 0.7, True), (1.9, None, 0.7, False)],
+        PLANAR_METHODS,
+    ),
+    (
+        # negative power-law index + a different break radius: exercises the
+        # 1/Rsafe**p safe-denominator guard for p<0 in the inside-rb branch.
+        CosmphiDiskPotential(amp=1.0, phib=0.3, p=-1.5, phio=0.02, m=2, r1=1.0, rb=0.9),
+        2,
+        [(0.4, None, 0.7, False), (0.9, None, 0.7, True), (1.5, None, 0.7, False)],
+        PLANAR_METHODS,
+    ),
+    (
+        DehnenBarPotential(
+            amp=1.0, omegab=1.8, rb=0.6, Af=0.03, tform=-100.0, tsteady=1.0
+        ),
+        3,
+        # r = sqrt(R^2+z^2): just inside, on, and outside rb=0.6
+        [
+            (0.3, 0.2, 0.7, False),
+            (0.5, float(numpy.sqrt(0.6**2 - 0.5**2)), 0.7, True),
+            (1.0, 0.4, 0.7, False),
+        ],
+        [
+            "_evaluate",
+            "_Rforce",
+            "_zforce",
+            "_phitorque",
+            "_R2deriv",
+            "_z2deriv",
+            "_Rzderiv",
+            "_phi2deriv",
+            "_Rphideriv",
+            "_phizderiv",
+        ],
+    ),
+]
+_SINGULAR_IDS = ["CosmphiDisk_rb", "CosmphiDisk_rb_negp", "DehnenBar_rb"]
+
+
+@pytest.mark.parametrize("case", _SINGULAR_CASES, ids=_SINGULAR_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_singular_branch_value_parity(backend_name, case):
+    pot, ndim, points, methods = case
+    for mname in methods:
+        method = getattr(pot, mname)
+        for R0, z0, phi0, _on_seam in points:
+            ref = numpy.asarray(
+                method(R0, z0, phi0, _T) if ndim == 3 else method(R0, phi0, _T)
+            )
+            got = _tonumpy(_call_scalar(method, backend_name, ndim, R0, z0, phi0))
+            numpy.testing.assert_allclose(
+                got,
+                ref,
+                rtol=1e-11,
+                atol=1e-13,
+                err_msg=f"{type(pot).__name__}.{mname} seam parity "
+                f"@R={R0} ({backend_name})",
+            )
+
+
+@pytest.mark.parametrize("case", _SINGULAR_CASES, ids=_SINGULAR_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("var", ["R", "phi"])
+def test_singular_branch_grad_finite(backend_name, case, var):
+    # The dead where-branch must not poison the gradient with NaNs at/near the
+    # seam, and the live-branch gradient must match finite differences.
+    pot, ndim, points, methods = case
+    for mname in methods:
+        method = getattr(pot, mname)
+        for R0, z0, phi0, on_seam in points:
+            if not _is_traceable_output(method, backend_name, ndim, R0, z0, phi0):
+                continue
+            ad = _ad_grad(method, backend_name, ndim, var, R0, z0, phi0)
+            assert not numpy.isnan(ad), (
+                f"{type(pot).__name__}.{mname} d/d{var} NaN @R={R0} ({backend_name})"
+            )
+            # At the exact break radius only the potential is C1 (its gradient,
+            # ==-force, is continuous across the seam); the forces/2nd-derivatives
+            # are not C1 there, so a central FD straddling the two branches is
+            # meaningless and we require only the (live-branch) gradient to be
+            # finite, checked above.
+            if on_seam and mname != "_evaluate":
+                continue
+            fd = _fd_grad(method, ndim, var, R0, z0, phi0)
+            numpy.testing.assert_allclose(
+                ad,
+                fd,
+                rtol=1e-4,
+                atol=1e-7,
+                err_msg=f"{type(pot).__name__}.{mname} d/d{var} "
+                f"@R={R0} ({backend_name})",
+            )
