@@ -282,6 +282,12 @@ double PowerSphericalPotentialzforce(double,double,double,double,
 				     struct potentialArg *);
 double PowerSphericalPotentialPlanarR2deriv(double ,double, double,
 					    struct potentialArg *);
+double PowerSphericalPotentialR2deriv(double ,double , double, double,
+				      struct potentialArg *);
+double PowerSphericalPotentialz2deriv(double ,double , double, double,
+				      struct potentialArg *);
+double PowerSphericalPotentialRzderiv(double ,double , double, double,
+				      struct potentialArg *);
 double PowerSphericalPotentialDens(double ,double , double, double,
 				   struct potentialArg *);
 //HernquistPotential
@@ -383,6 +389,12 @@ double IsochronePotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double IsochronePotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double IsochronePotentialR2deriv(double ,double , double, double,
+				 struct potentialArg *);
+double IsochronePotentialz2deriv(double ,double , double, double,
+				 struct potentialArg *);
+double IsochronePotentialRzderiv(double ,double , double, double,
+				 struct potentialArg *);
 double IsochronePotentialDens(double ,double , double, double,
 			      struct potentialArg *);
 //PowerSphericalPotentialwCutoff
@@ -396,6 +408,12 @@ double PowerSphericalPotentialwCutoffzforce(double,double,double,double,
 					    struct potentialArg *);
 double PowerSphericalPotentialwCutoffPlanarR2deriv(double ,double, double,
 						   struct potentialArg *);
+double PowerSphericalPotentialwCutoffR2deriv(double ,double , double, double,
+					     struct potentialArg *);
+double PowerSphericalPotentialwCutoffz2deriv(double ,double , double, double,
+					     struct potentialArg *);
+double PowerSphericalPotentialwCutoffRzderiv(double ,double , double, double,
+					     struct potentialArg *);
 double PowerSphericalPotentialwCutoffDens(double ,double , double, double,
 					  struct potentialArg *);
 //KuzminKutuzovStaeckelPotential
@@ -464,6 +482,12 @@ double BurkertPotentialzforce(double,double,double,double,
 				       struct potentialArg *);
 double BurkertPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
+double BurkertPotentialR2deriv(double,double,double,double,
+			       struct potentialArg *);
+double BurkertPotentialz2deriv(double,double,double,double,
+			       struct potentialArg *);
+double BurkertPotentialRzderiv(double,double,double,double,
+			       struct potentialArg *);
 double BurkertPotentialDens(double,double,double,double,
 			    struct potentialArg *);
 //EllipsoidalPotential
@@ -633,6 +657,12 @@ double DehnenSphericalPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double DehnenSphericalPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double DehnenSphericalPotentialR2deriv(double ,double , double, double,
+				       struct potentialArg *);
+double DehnenSphericalPotentialz2deriv(double ,double , double, double,
+				       struct potentialArg *);
+double DehnenSphericalPotentialRzderiv(double ,double , double, double,
+				       struct potentialArg *);
 double DehnenSphericalPotentialDens(double ,double , double, double,
 			      struct potentialArg *);
 //DehnenCoreSphericalPotential
@@ -646,6 +676,12 @@ double DehnenCoreSphericalPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double DehnenCoreSphericalPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double DehnenCoreSphericalPotentialR2deriv(double ,double , double, double,
+					   struct potentialArg *);
+double DehnenCoreSphericalPotentialz2deriv(double ,double , double, double,
+					   struct potentialArg *);
+double DehnenCoreSphericalPotentialRzderiv(double ,double , double, double,
+					   struct potentialArg *);
 double DehnenCoreSphericalPotentialDens(double ,double , double, double,
 					struct potentialArg *);
 
@@ -660,6 +696,12 @@ double HomogeneousSpherePotentialzforce(double,double,double,double,
 					struct potentialArg *);
 double HomogeneousSpherePotentialPlanarR2deriv(double ,double, double,
 					       struct potentialArg *);
+double HomogeneousSpherePotentialR2deriv(double ,double , double, double,
+					 struct potentialArg *);
+double HomogeneousSpherePotentialz2deriv(double ,double , double, double,
+					 struct potentialArg *);
+double HomogeneousSpherePotentialRzderiv(double ,double , double, double,
+					 struct potentialArg *);
 double HomogeneousSpherePotentialDens(double ,double , double, double,
 				      struct potentialArg *);
 //SphericalPotential

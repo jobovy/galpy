@@ -63,6 +63,43 @@ double DehnenSphericalPotentialPlanarR2deriv(double R,double phi,
   // return
   return -amp * (pow(1.+a/R, alpha) * pow(a+R, -4.) * (2.*R + a*(alpha-1.))) / (3.-alpha);
 }
+double DehnenSphericalPotentialR2deriv(double R,double Z, double phi,
+				       double t,
+				       struct potentialArg * potentialArgs){
+  //Spherical: Phi''(r)=PlanarR2deriv(r), Phi'(r)=-PlanarRforce(r) (incl. amp)
+  double r2= R * R + Z * Z;
+  double r= sqrt( r2 );
+  double Phipp= DehnenSphericalPotentialPlanarR2deriv(r,phi,t,potentialArgs);
+  double Phip= -DehnenSphericalPotentialPlanarRforce(r,phi,t,potentialArgs);
+  double ir2= 1. / r2;
+  double ir3= ir2 / r;
+  //R2deriv = Phi''*R^2/r^2 + Phi'*z^2/r^3
+  return Phipp * R * R * ir2 + Phip * Z * Z * ir3;
+}
+double DehnenSphericalPotentialz2deriv(double R,double Z, double phi,
+				       double t,
+				       struct potentialArg * potentialArgs){
+  double r2= R * R + Z * Z;
+  double r= sqrt( r2 );
+  double Phipp= DehnenSphericalPotentialPlanarR2deriv(r,phi,t,potentialArgs);
+  double Phip= -DehnenSphericalPotentialPlanarRforce(r,phi,t,potentialArgs);
+  double ir2= 1. / r2;
+  double ir3= ir2 / r;
+  //z2deriv = Phi''*z^2/r^2 + Phi'*R^2/r^3
+  return Phipp * Z * Z * ir2 + Phip * R * R * ir3;
+}
+double DehnenSphericalPotentialRzderiv(double R,double Z, double phi,
+				       double t,
+				       struct potentialArg * potentialArgs){
+  double r2= R * R + Z * Z;
+  double r= sqrt( r2 );
+  double Phipp= DehnenSphericalPotentialPlanarR2deriv(r,phi,t,potentialArgs);
+  double Phip= -DehnenSphericalPotentialPlanarRforce(r,phi,t,potentialArgs);
+  double ir2= 1. / r2;
+  double ir3= ir2 / r;
+  //Rzderiv = R*z*(Phi''/r^2 - Phi'/r^3)
+  return R * Z * ( Phipp * ir2 - Phip * ir3 );
+}
 double DehnenSphericalPotentialDens(double R,double Z, double phi,
 				    double t,
 				    struct potentialArg * potentialArgs){
