@@ -15,7 +15,15 @@
 #     the scipy.integrate fallback (glorder=None) is deferred (Pspecial PR).
 #   * TwoPowerTriaxialPotential._evaluate uses scipy.special.hyp2f1 in _psi and
 #     is therefore NOT migrated (its forces/2nd-derivs/dens, which only use the
-#     pure-arithmetic _mdens, ARE migrated). _mass everywhere is out of scope.
+#     pure-arithmetic _mdens, ARE migrated).
+#   * The rotated (zvec/pa) compute path -- _rotate_to_aligned /
+#     _rotate_force_back applied to forces, density, and the potential -- is
+#     backend-agnostic and is exercised here with explicit rotated instances.
+#   * _mass is migrated for the CLOSED-FORM subclasses (PerfectEllipsoid,
+#     TriaxialHernquist, TriaxialJaffe, TriaxialNFW); it remains Pspecial-blocked
+#     for TwoPowerTriaxial (scipy.special.hyp2f1), TriaxialGaussian
+#     (scipy.special.erf), and the generic EllipsoidalPotential / PowerTriaxial
+#     base (scipy.integrate.quad), so those are not parametrized below.
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
@@ -91,11 +99,79 @@ _CASES = [
     ),
 ]
 
+# Rotated (zvec + pa) instances. The rotated compute path (_rotate_to_aligned /
+# _rotate_force_back) is backend-agnostic; a prior review flagged it had no
+# coverage. Only the forces, density, and (where migrated) potential are defined
+# for rotated frames -- the 2nd derivatives raise NotImplementedError -- so the
+# rotated cases use a reduced method list. TwoPower's _evaluate stays deferred.
+_ROT_KW = dict(zvec=[0.0, 1.0, 1.0], pa=0.3)
+_ROT_METHODS = ["_Rforce", "_zforce", "_phitorque", "_dens"]
+_ROT_CASES = [
+    (
+        "Perfect-rot",
+        PerfectEllipsoidPotential(amp=1.3, a=1.5, b=0.9, c=0.7, **_ROT_KW),
+        EVAL,
+    ),
+    (
+        "Gauss-rot",
+        TriaxialGaussianPotential(amp=1.3, sigma=1.5, b=0.9, c=0.7, **_ROT_KW),
+        EVAL,
+    ),
+    (
+        "Power-rot",
+        PowerTriaxialPotential(amp=1.3, alpha=1.2, b=0.9, c=0.7, **_ROT_KW),
+        EVAL,
+    ),
+    (
+        "Hernquist-rot",
+        TriaxialHernquistPotential(amp=1.3, a=1.5, b=0.9, c=0.7, **_ROT_KW),
+        EVAL,
+    ),
+    (
+        "Jaffe-rot",
+        TriaxialJaffePotential(amp=1.3, a=1.5, b=0.9, c=0.7, **_ROT_KW),
+        EVAL,
+    ),
+    (
+        "NFW-rot",
+        TriaxialNFWPotential(amp=1.3, a=1.5, b=0.9, c=0.7, **_ROT_KW),
+        EVAL,
+    ),
+    (
+        "TwoPower-rot",
+        TwoPowerTriaxialPotential(
+            amp=1.3, a=1.5, alpha=1.5, beta=3.5, b=0.9, c=0.7, **_ROT_KW
+        ),
+        [],
+    ),
+]
+
+# Potentials whose closed-form _mass is migrated to the backend namespace
+# (PerfectEllipsoid: atan; TriaxialNFW: log; Hernquist/Jaffe: pure arithmetic).
+# The others keep a scipy.special / scipy.integrate _mass (Pspecial-blocked).
+_MASS_POTS = [
+    pytest.param(PerfectEllipsoidPotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="Perfect"),
+    pytest.param(
+        TriaxialHernquistPotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="Hernquist"
+    ),
+    pytest.param(TriaxialJaffePotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="Jaffe"),
+    pytest.param(TriaxialNFWPotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="NFW"),
+]
+
 # Flatten to (case_id, pot, method) for value-parity parametrization.
 _VALUE_PARAMS = []
 for _name, _pot, _eval in _CASES:
     for _m in _eval + COMMON_METHODS:
         _VALUE_PARAMS.append(pytest.param(_pot, _m, id=f"{_name}-{_m}"))
+# Rotated value-parity params (forces / dens / migrated potential only).
+for _name, _pot, _eval in _ROT_CASES:
+    for _m in _eval + _ROT_METHODS:
+        _VALUE_PARAMS.append(pytest.param(_pot, _m, id=f"{_name}-{_m}"))
+
+# Rotated potentials whose _evaluate is migrated (rotated autodiff check).
+_ROT_EVAL_POTS = [
+    pytest.param(pot, id=name) for (name, pot, ev) in _ROT_CASES if ev == EVAL
+]
 
 # Potentials whose _evaluate is migrated (used for the autodiff check).
 _EVAL_POTS = [pytest.param(pot, id=name) for (name, pot, ev) in _CASES if ev == EVAL]
@@ -196,6 +272,68 @@ def test_grad_rforce_vs_finite_difference(backend_name, pot):
     else:
         R = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
         y = pot._Rforce(
+            R,
+            torch.tensor(z0, dtype=torch.float64),
+            torch.tensor(phi0, dtype=torch.float64),
+        )
+        y.backward()
+        ad = float(R.grad)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
+
+
+@pytest.mark.parametrize("pot", _MASS_POTS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_mass_value_parity(backend_name, pot):
+    # The closed-form _mass (via the public mass()) is migrated for these
+    # subclasses; numpy / jax / torch must agree.
+    Rs = numpy.asarray([0.5, 1.0, 2.0])
+    ref = numpy.asarray(pot.mass(Rs))
+    got = _tonumpy(pot.mass(_asarray(backend_name, [0.5, 1.0, 2.0])))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("pot", _MASS_POTS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_mass_grad_vs_finite_difference(backend_name, pot):
+    # The migrated closed-form _mass is differentiable; check d mass / dR.
+    R0, eps = 1.7, 1e-6
+
+    def m_np(R):
+        return float(pot._mass(numpy.asarray(R)))
+
+    fd = (m_np(R0 + eps) - m_np(R0 - eps)) / (2 * eps)
+    if backend_name == "jax":
+        ad = float(jax.grad(lambda R: pot._mass(R))(jnp.asarray(R0)))
+    else:
+        R = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
+        y = pot._mass(R)
+        y.backward()
+        ad = float(R.grad)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
+
+
+@pytest.mark.parametrize("pot", _ROT_EVAL_POTS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_grad_evaluate_rotated_vs_finite_difference(backend_name, pot):
+    # Autodiff through the rotated (zvec/pa) potential path vs central FD.
+    R0, z0, phi0 = 1.3, 0.4, 0.5
+    eps = 1e-6
+
+    def phi_np(R):
+        return float(
+            pot._evaluate(numpy.asarray(R), numpy.asarray(z0), numpy.asarray(phi0))
+        )
+
+    fd = (phi_np(R0 + eps) - phi_np(R0 - eps)) / (2 * eps)
+    if backend_name == "jax":
+        ad = float(
+            jax.grad(lambda R: pot._evaluate(R, jnp.asarray(z0), jnp.asarray(phi0)))(
+                jnp.asarray(R0)
+            )
+        )
+    else:
+        R = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
+        y = pot._evaluate(
             R,
             torch.tensor(z0, dtype=torch.float64),
             torch.tensor(phi0, dtype=torch.float64),

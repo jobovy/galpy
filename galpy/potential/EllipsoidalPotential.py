@@ -396,6 +396,9 @@ class EllipsoidalPotential(Potential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
+        # Pspecial-blocked: the generic ellipsoidal mass uses an adaptive
+        # scipy.integrate.quad over the density, which has no backend-agnostic
+        # (jax/torch) replacement -> numpy only.
         return (
             4.0
             * numpy.pi

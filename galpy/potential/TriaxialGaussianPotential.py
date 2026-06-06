@@ -114,6 +114,8 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
+        # Pspecial-blocked: closed-form mass requires scipy.special.erf, which has
+        # no backend-agnostic (jax/torch array-API) replacement -> numpy only.
         return (
             numpy.pi
             * self._b
