@@ -729,11 +729,23 @@ def _cart_accel_3d(pot, rect, t=0.0):
     return numpy.array([ax, ay, az])
 
 
-def _is_time_dependent_3d(pot):
-    """Detect an explicitly time-dependent potential by comparing the Cartesian
-    acceleration at the test IC at two different times. Returns True if the force
-    depends on t (e.g. a rotating bar), in which case dx/dt is not a solution of
-    the variational equation and the flow-direction identity check is skipped."""
+def _skip_flowdir_identity(pot):
+    """Whether to skip ONLY the flow-direction identity check (check (3) in
+    test_liouville_3d) for this potential. This does NOT gate Liouville
+    (det M = 1), symplecticity (M^T Omega M = Omega), or the FD-of-flow check --
+    those are run for every potential, time-dependent or not, exactly as in the
+    2D test_liouville_planar.
+
+    The flow-direction identity M.f(x0) = f(x(t)) relies on the phase-space
+    velocity f(x) being itself a solution of the variational equation, which only
+    holds for an AUTONOMOUS system. For an explicitly time-dependent potential
+    (e.g. a rotating bar) d/dt f(x(t),t) = J.f + df/dt picks up the extra df/dt
+    term, so dx/dt no longer solves the (df/dt-free) variational equation and the
+    identity fails -- a property of this particular check, not of the Hessian,
+    which remains pinned by checks (2) and (4) and by test_dxdv_3d_c_vs_python.
+
+    Detect time dependence by comparing the Cartesian acceleration at the test IC
+    at two different times; returns True if the force depends on t."""
     rect = numpy.array([0.9, 0.18, 0.05])  # generic off-plane, off-axis point
     a0 = _cart_accel_3d(pot, rect, t=0.0)
     a1 = _cart_accel_3d(pot, rect, t=1.3)
@@ -825,7 +837,7 @@ def test_liouville_3d(pot):
         o = Orbit(ic)
         o.integrate(times, pot, method=integrator)
         rect_orbit = _orbit_rect_3d(o, times)
-        if not _is_time_dependent_3d(pot):
+        if not _skip_flowdir_identity(pot):  # gates ONLY check (3) below
             f0 = numpy.empty(6)
             f0[:3] = rect_orbit[0, 3:]
             f0[3:] = _cart_accel_3d(pot, rect_orbit[0, :3], t=times[0])
