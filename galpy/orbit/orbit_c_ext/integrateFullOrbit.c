@@ -395,11 +395,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phi2deriv = &SpiralArmsPotentialphi2deriv;
       potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
       potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
-      // NB: SpiralArms still lacks a zphideriv (d2Phi/dz/dphi) in C, so its 3D
-      // Hessian is INCOMPLETE: it does NOT set hasC_dxdv3d=True and is therefore
-      // excluded from the C 3D variational (integrate_dxdv) path -- which falls
-      // back to the correct pure-Python RHS -- until zphideriv is implemented
-      // (Track B Pvar-pot). The pointers wired here are used only once that lands.
+      potentialArgs->zphideriv = &SpiralArmsPotentialzphideriv;
       potentialArgs->nargs = (int) 10 + **pot_args;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;

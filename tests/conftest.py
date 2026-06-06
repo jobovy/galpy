@@ -7,28 +7,72 @@ def pytest_generate_tests(metafunc):
     if metafunc.function.__name__ in (
         "test_liouville_3d",
         "test_liouville_3d_2d_bridge",
+        "test_dxdv_3d_c_vs_python",
     ):
-        # NB: these are all AXISYMMETRIC (the only potentials with a complete 3D C
-        # Hessian so far), so phi2deriv/Rphideriv/zphideriv == 0 identically and the
-        # non-axisymmetric branches of the variational RHS are NOT exercised here.
-        # Those terms (incl. the new zphideriv coupling) are validated separately via
-        # the pure-Python path in test_liouville_3d_nonaxi_flow; add a non-axi
-        # potential here once its full 3D C Hessian (incl. zphideriv) lands (Pvar-pot).
-        liouville3d_pots = [
-            potential.MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1, normalize=True),
-            # a==0 exercises the disk->spherical special branch of the C Hessian
-            potential.MiyamotoNagaiPotential(amp=1.0, a=0.0, b=0.3, normalize=True),
-            potential.PlummerPotential(amp=1.0, b=0.7, normalize=True),
-        ]
-        metafunc.parametrize(
-            "pot",
-            liouville3d_pots,
-            ids=[
+        # Single CATEGORIZED registry of EVERY potential that currently advertises a
+        # complete 3D C Hessian (hasC_dxdv3d=True). Each entry is
+        # (potential_instance, id_string, category) with
+        # category in {"spherical", "axisymmetric", "nonaxisymmetric"}. The
+        # parametrized 3D variational tests (det(M)/symplecticity/flow/FD-of-flow in
+        # test_liouville_3d, the 2D-reduction bridge in test_liouville_3d_2d_bridge,
+        # and the C-vs-Python dxdv check in test_dxdv_3d_c_vs_python) all run over the
+        # FULL registry, so adding a future potential is a one-line append below.
+        # NB: future Pvar-pot families (e.g. additional non-axisymmetric potentials
+        # that gain a full 3D C Hessian incl. zphideriv) append their potentials here.
+        liouville3d_registry = [
+            (
+                potential.MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1, normalize=True),
                 "MiyamotoNagaiPotential",
+                "axisymmetric",
+            ),
+            # a==0 exercises the disk->spherical special branch of the C Hessian
+            (
+                potential.MiyamotoNagaiPotential(amp=1.0, a=0.0, b=0.3, normalize=True),
                 "MiyamotoNagaiPotential_a0",
+                "axisymmetric",
+            ),
+            (
+                potential.PlummerPotential(amp=1.0, b=0.7, normalize=True),
                 "PlummerPotential",
-            ],
-        )
+                "spherical",
+            ),
+            (
+                potential.HernquistPotential(amp=1.0, a=1.3, normalize=True),
+                "HernquistPotential",
+                "spherical",
+            ),
+            (
+                potential.NFWPotential(amp=1.0, a=2.1, normalize=True),
+                "NFWPotential",
+                "spherical",
+            ),
+            (
+                potential.JaffePotential(amp=1.0, a=1.7, normalize=True),
+                "JaffePotential",
+                "spherical",
+            ),
+            (
+                potential.SpiralArmsPotential(),
+                "SpiralArmsPotential",
+                "nonaxisymmetric",
+            ),
+        ]
+        ids = [entry[1] for entry in liouville3d_registry]
+        if metafunc.function.__name__ == "test_dxdv_3d_c_vs_python":
+            # This test also wants the category, to switch on the non-axi check.
+            metafunc.parametrize(
+                "pot,pot_category",
+                [(entry[0], entry[2]) for entry in liouville3d_registry],
+                ids=ids,
+            )
+        else:
+            # The det(M)/symplecticity/flow/FD-of-flow and 2D-bridge tests only need
+            # the potential instance (the historical `pot` argument name).
+            metafunc.parametrize(
+                "pot",
+                [entry[0] for entry in liouville3d_registry],
+                ids=ids,
+            )
     if metafunc.function.__name__ == "test_energy_jacobi_conservation":
         # Generate orbit integration tests for all potentials
         # Grab all of the potentials
