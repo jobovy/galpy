@@ -57,3 +57,46 @@ double KuzminDiskPotentialPlanarR2deriv(double R,double phi,
   double denom=R*R+a*a;
   return amp * (-pow(denom,-1.5) + 3*R*R*pow(denom, -2.5));
 }
+
+double KuzminDiskPotentialR2deriv(double R,double z, double phi,
+				  double t,
+				  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //calculate R2deriv (d^2Phi/dR^2)
+  double az= a+fabs(z);
+  double denom= R*R+az*az;
+  double denomm15= 1./(denom*sqrt(denom)); //denom^-1.5
+  //denom^-2.5 = denom^-1.5/denom
+  return amp * (denomm15 - 3. * R * R * denomm15/denom);
+}
+double KuzminDiskPotentialz2deriv(double R,double z, double phi,
+				  double t,
+				  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //calculate z2deriv (d^2Phi/dz^2)
+  double az= a+fabs(z);
+  double denom= R*R+az*az;
+  double denomm15= 1./(denom*sqrt(denom)); //denom^-1.5
+  //denom^-2.5 = denom^-1.5/denom
+  return amp * (denomm15 - 3. * az * az * denomm15/denom);
+}
+double KuzminDiskPotentialRzderiv(double R,double z, double phi,
+				  double t,
+				  struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args;
+  //calculate Rzderiv (d^2Phi/dR/dz)
+  double zsign= (z > 0 ) - (z < 0); //Gets the sign of z
+  double az= a+fabs(z);
+  double denom= R*R+az*az;
+  double denomm25= 1./(denom*denom*sqrt(denom)); //denom^-2.5
+  return amp * ( -3. * zsign * R * az * denomm25 );
+}

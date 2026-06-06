@@ -427,6 +427,12 @@ double KuzminKutuzovStaeckelPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double KuzminKutuzovStaeckelPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+double KuzminKutuzovStaeckelPotentialR2deriv(double,double,double,double,
+					    struct potentialArg *);
+double KuzminKutuzovStaeckelPotentialz2deriv(double,double,double,double,
+					    struct potentialArg *);
+double KuzminKutuzovStaeckelPotentialRzderiv(double,double,double,double,
+					    struct potentialArg *);
 
 //KuzminDiskPotential
 double KuzminDiskPotentialEval(double,double,double,double,
@@ -438,6 +444,12 @@ double KuzminDiskPotentialPlanarRforce(double,double,double,
 double KuzminDiskPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double KuzminDiskPotentialPlanarR2deriv(double,double,double,
+					    struct potentialArg *);
+double KuzminDiskPotentialR2deriv(double,double,double,double,
+					    struct potentialArg *);
+double KuzminDiskPotentialz2deriv(double,double,double,double,
+					    struct potentialArg *);
+double KuzminDiskPotentialRzderiv(double,double,double,double,
 					    struct potentialArg *);
 //PlummerPotential
 double PlummerPotentialEval(double,double,double,double,

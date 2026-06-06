@@ -270,7 +270,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &KuzminKutuzovStaeckelPotentialRforce;
       potentialArgs->zforce= &KuzminKutuzovStaeckelPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
-      //potentialArgs->R2deriv= &KuzminKutuzovStaeckelPotentialR2deriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &KuzminKutuzovStaeckelPotentialR2deriv;
+      potentialArgs->z2deriv= &KuzminKutuzovStaeckelPotentialz2deriv;
+      potentialArgs->Rzderiv= &KuzminKutuzovStaeckelPotentialRzderiv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -307,6 +312,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &KuzminDiskPotentialRforce;
       potentialArgs->zforce= &KuzminDiskPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &KuzminDiskPotentialR2deriv;
+      potentialArgs->z2deriv= &KuzminDiskPotentialz2deriv;
+      potentialArgs->Rzderiv= &KuzminDiskPotentialRzderiv;
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
