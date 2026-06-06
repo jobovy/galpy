@@ -52,6 +52,45 @@ def pytest_generate_tests(metafunc):
                 "spherical",
             ),
             (
+                potential.PowerSphericalPotential(amp=1.0, alpha=1.8, normalize=True),
+                "PowerSphericalPotential",
+                "spherical",
+            ),
+            (
+                potential.PowerSphericalPotentialwCutoff(
+                    amp=1.0, alpha=1.0, rc=2.0, normalize=True
+                ),
+                "PowerSphericalPotentialwCutoff",
+                "spherical",
+            ),
+            (
+                potential.DehnenSphericalPotential(
+                    amp=1.0, a=1.5, alpha=1.5, normalize=True
+                ),
+                "DehnenSphericalPotential",
+                "spherical",
+            ),
+            (
+                potential.DehnenCoreSphericalPotential(amp=1.0, a=1.6, normalize=True),
+                "DehnenCoreSphericalPotential",
+                "spherical",
+            ),
+            (
+                potential.BurkertPotential(amp=1.0, a=1.0, normalize=True),
+                "BurkertPotential",
+                "spherical",
+            ),
+            (
+                potential.IsochronePotential(amp=1.0, b=1.2, normalize=True),
+                "IsochronePotential",
+                "spherical",
+            ),
+            (
+                potential.HomogeneousSpherePotential(amp=1.0, R=3.0, normalize=True),
+                "HomogeneousSpherePotential",
+                "spherical",
+            ),
+            (
                 potential.SpiralArmsPotential(),
                 "SpiralArmsPotential",
                 "nonaxisymmetric",
