@@ -21,6 +21,32 @@ def _is_python_scalar(x):
     return x is None or isinstance(x, (bool, int, float, complex))
 
 
+def is_backend_array(x):
+    """True if ``x`` is a non-numpy backend array (a jax or torch array/tensor).
+
+    Plain Python scalars, ``None``, numpy arrays/scalars, astropy Quantities, and
+    anything the backend layer does not recognise return ``False`` -- so the
+    numpy/Quantity code paths stay byte-identical and only genuine backend arrays
+    (including traced ones, so autodiff w.r.t. parameters works) take any
+    pass-through branch keyed on this. Detection is by direct ``isinstance``
+    against the public ``jax.Array`` / ``torch.Tensor`` base classes, gated on the
+    optional-dependency flags so a numpy-only install never imports jax/torch.
+    """
+    if _is_python_scalar(x) or isinstance(x, (numpy.ndarray, numpy.generic)):
+        return False
+    if _JAX_LOADED:
+        import jax
+
+        if isinstance(x, jax.Array):
+            return True
+    if _TORCH_LOADED:
+        import torch
+
+        if isinstance(x, torch.Tensor):
+            return True
+    return False
+
+
 def namespace_for_name(name):
     """Map a backend name ('numpy'|'jax'|'torch') to its array namespace module.
 
