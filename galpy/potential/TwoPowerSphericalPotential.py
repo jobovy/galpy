@@ -6,9 +6,12 @@
 #                             rho(r)= ------------------------------------
 #                                      (r/a)^\alpha (1+r/a)^(\beta-\alpha)
 ###############################################################################
+import math
+
 import numpy
 from scipy import optimize, special
 
+from ..backend import get_namespace
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED, _JAX_LOADED
 from .Potential import Potential, kms_to_kpcGyrDecorator
@@ -169,12 +172,13 @@ class TwoPowerSphericalPotential(Potential):
             )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a / r) ** self.alpha
             / (1.0 + r / self.a) ** (self.beta - self.alpha)
             / 4.0
-            / numpy.pi
+            / math.pi
             / self.a**3.0
         )
 
@@ -284,7 +288,8 @@ class TwoPowerSphericalPotential(Potential):
         return term1 + term2
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        return self._R2deriv(numpy.fabs(z), R)  # Spherical potential
+        xp = get_namespace(R, z)
+        return self._R2deriv(xp.abs(z), R)  # Spherical potential
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
@@ -357,7 +362,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         if self._specialSelf is not None:
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
         else:  # valid for alpha != 2, 3
-            r = numpy.sqrt(R**2.0 + z**2.0)
+            xp = get_namespace(R, z)
+            r = xp.sqrt(R**2.0 + z**2.0)
             return -(1.0 - 1.0 / (1.0 + self.a / r) ** (2.0 - self.alpha)) / (
                 self.a * (2.0 - self.alpha) * (3.0 - self.alpha)
             )
@@ -366,7 +372,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
         else:
-            r = numpy.sqrt(R**2.0 + z**2.0)
+            xp = get_namespace(R, z)
+            r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -R
                 / r**self.alpha
@@ -377,12 +384,13 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._R2deriv(R, z, phi=phi, t=t)
+        xp = get_namespace(R, z)
         a, alpha = self.a, self.alpha
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        r = xp.sqrt(R**2.0 + z**2.0)
         # formula not valid for alpha=2,3, (integers?)
         return (
-            numpy.power(r, -2.0 - alpha)
-            * numpy.power(r + a, alpha - 4.0)
+            r ** (-2.0 - alpha)
+            * (r + a) ** (alpha - 4.0)
             * (-a * r**2.0 + (2.0 * R**2.0 - z**2.0) * r + a * alpha * R**2.0)
             / (alpha - 3.0)
         )
@@ -391,7 +399,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
         else:
-            r = numpy.sqrt(R**2.0 + z**2.0)
+            xp = get_namespace(R, z)
+            r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -z
                 / r**self.alpha
@@ -405,23 +414,21 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._Rzderiv(R, z, phi=phi, t=t)
+        xp = get_namespace(R, z)
         a, alpha = self.a, self.alpha
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        r = xp.sqrt(R**2.0 + z**2.0)
         return (
-            R
-            * z
-            * numpy.power(r, -2.0 - alpha)
-            * numpy.power(a + r, alpha - 4.0)
-            * (3 * r + a * alpha)
+            R * z * r ** (-2.0 - alpha) * (a + r) ** (alpha - 4.0) * (3 * r + a * alpha)
         ) / (alpha - 3)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a / r) ** self.alpha
             / (1.0 + r / self.a) ** (4.0 - self.alpha)
             / 4.0
-            / numpy.pi
+            / math.pi
             / self.a**3.0
         )
 
@@ -473,38 +480,43 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         return -(1.0 - 1.0 / (1.0 + self.a / r) ** 2.0) / (6.0 * self.a)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        return -R / numpy.power(numpy.sqrt(R**2.0 + z**2.0) + self.a, 3.0) / 3.0
+        xp = get_namespace(R, z)
+        return -R / (xp.sqrt(R**2.0 + z**2.0) + self.a) ** 3.0 / 3.0
 
     def _rforce_jax(self, r):
         # No need for actual JAX!
         return -self._amp * r / (r + self.a) ** 3.0 / 3.0
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         return -(
-            ((2.0 * R**2.0 - z**2.0) - self.a * r)
-            / (3.0 * r * numpy.power(r + self.a, 4.0))
+            ((2.0 * R**2.0 - z**2.0) - self.a * r) / (3.0 * r * (r + self.a) ** 4.0)
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return -z / numpy.power(self.a + r, 3.0) / 3.0
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return -z / (self.a + r) ** 3.0 / 3.0
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         return self._R2deriv(z, R, phi=phi, t=t)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         a = self.a
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return -(R * z / r / numpy.power(a + r, 4.0))
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return -(R * z / r / (a + r) ** 4.0)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return 1.0 / (1.0 + r / self.a) ** 4.0 / 4.0 / numpy.pi / self.a**3.0
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return 1.0 / (1.0 + r / self.a) ** 4.0 / 4.0 / math.pi / self.a**3.0
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
@@ -557,14 +569,17 @@ class HernquistPotential(DehnenSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        return -1.0 / (1.0 + numpy.sqrt(R**2.0 + z**2.0) / self.a) / 2.0 / self.a
+        xp = get_namespace(R, z)
+        return -1.0 / (1.0 + xp.sqrt(R**2.0 + z**2.0) / self.a) / 2.0 / self.a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
     def _rforce_jax(self, r):
@@ -572,7 +587,8 @@ class HernquistPotential(DehnenSphericalPotential):
         return -self._amp / 2.0 / (r + self.a) ** 2.0
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * z**2.0 + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
             / sqrtRz**3.0
@@ -581,7 +597,8 @@ class HernquistPotential(DehnenSphericalPotential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
             * z
@@ -591,41 +608,51 @@ class HernquistPotential(DehnenSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0.0:
-            return (
-                (
-                    -12.0 * self.a**3
-                    - 5.0 * self.a * z**2
-                    + numpy.sqrt(1.0 + z**2 / self.a**2)
-                    * (12.0 * self.a**3 - self.a * z**2 + 2 / self.a * z**4)
-                )
-                / 30.0
-                / numpy.pi
-                * z**-5.0
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # R == a is a removable singularity of the generic branch (Rma -> 0,
+        # (a^2-R^2) -> 0, (r^2-a^2) -> 0): use the closed-form limit there. Both
+        # xp.where branches are evaluated, so guard the generic branch's zero
+        # denominators with a safe R^2-a^2 that is never zero at the edge.
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        # also guard (r^2 - a^2), which vanishes at the edge when z == 0
+        d2r = r**2.0 - self.a**2.0
+        safe_d2r = xp.where(at_edge, xp.ones_like(d2r * 1.0), d2r)
+        edge = (
+            (
+                -12.0 * self.a**3
+                - 5.0 * self.a * z**2
+                + xp.sqrt(1.0 + z**2 / self.a**2)
+                * (12.0 * self.a**3 - self.a * z**2 + 2 / self.a * z**4)
             )
-        else:
-            return (
-                self.a
+            / 30.0
+            / math.pi
+            * z**-5.0
+        )
+        generic = (
+            self.a
+            * xp.real(
+                (2.0 * self.a**2.0 + R**2.0)
+                * Rma**-5
+                * (xp.arctan(z / Rma) - xp.arctan(self.a * z / r / Rma))
+                + z
                 * (
-                    (2.0 * self.a**2.0 + R**2.0)
-                    * Rma**-5
-                    * (numpy.arctan(z / Rma) - numpy.arctan(self.a * z / r / Rma))
-                    + z
-                    * (
-                        5.0 * self.a**3.0 * r
-                        - 4.0 * self.a**4
-                        + self.a**2 * (2.0 * r**2.0 + R**2)
-                        - self.a * r * (5.0 * R**2.0 + 3.0 * z**2.0)
-                        + R**2.0 * r**2.0
-                    )
-                    / (self.a**2.0 - R**2.0) ** 2.0
-                    / (r**2 - self.a**2.0) ** 2.0
-                ).real
-                / 4.0
-                / numpy.pi
+                    5.0 * self.a**3.0 * r
+                    - 4.0 * self.a**4
+                    + self.a**2 * (2.0 * r**2.0 + R**2)
+                    - self.a * r * (5.0 * R**2.0 + 3.0 * z**2.0)
+                    + R**2.0 * r**2.0
+                )
+                / safe_d2**2.0
+                / safe_d2r**2.0
             )
+            / 4.0
+            / math.pi
+        )
+        return xp.where(at_edge, edge, generic)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
@@ -707,18 +734,22 @@ class JaffePotential(DehnenSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        return -numpy.log(1.0 + self.a / numpy.sqrt(R**2.0 + z**2.0)) / self.a
+        xp = get_namespace(R, z)
+        return -xp.log(1.0 + self.a / xp.sqrt(R**2.0 + z**2.0)) / self.a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * (z**2.0 - R**2.0) + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
             / sqrtRz**4.0
@@ -726,7 +757,8 @@ class JaffePotential(DehnenSphericalPotential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        sqrtRz = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
             * z
@@ -736,36 +768,42 @@ class JaffePotential(DehnenSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0.0:
-            return (
-                (
-                    3.0 * z**2.0
-                    - 2.0 * self.a**2.0
-                    + 2.0
-                    * numpy.sqrt(1.0 + (z / self.a) ** 2.0)
-                    * (self.a**2.0 - 2.0 * z**2.0)
-                    + 3.0 * z**3.0 / self.a * numpy.arctan(z / self.a)
-                )
-                / self.a
-                / z**3.0
-                / 6.0
-                / numpy.pi
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # R == a is a removable singularity of the generic branch (Rma -> 0,
+        # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
+        # are evaluated, so guard the generic branch's zero denominators.
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        edge = (
+            (
+                3.0 * z**2.0
+                - 2.0 * self.a**2.0
+                + 2.0
+                * xp.sqrt(1.0 + (z / self.a) ** 2.0)
+                * (self.a**2.0 - 2.0 * z**2.0)
+                + 3.0 * z**3.0 / self.a * xp.arctan(z / self.a)
             )
-        else:
-            return (
-                (
-                    (2.0 * self.a**2.0 - R**2.0)
-                    * Rma**-3
-                    * (numpy.arctan(z / Rma) - numpy.arctan(self.a * z / r / Rma))
-                    + numpy.arctan(z / R) / R
-                    - self.a * z / (R**2 - self.a**2) / (r + self.a)
-                ).real
-                / self.a
-                / 2.0
-                / numpy.pi
+            / self.a
+            / z**3.0
+            / 6.0
+            / math.pi
+        )
+        generic = (
+            xp.real(
+                (2.0 * self.a**2.0 - R**2.0)
+                * Rma**-3
+                * (xp.arctan(z / Rma) - xp.arctan(self.a * z / r / Rma))
+                + xp.arctan(z / R) / R
+                - self.a * z / safe_d2 / (r + self.a)
             )
+            / self.a
+            / 2.0
+            / math.pi
+        )
+        return xp.where(at_edge, edge, generic)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
@@ -883,30 +921,35 @@ class NFWPotential(TwoPowerSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, (float, int)) and r == 0:
-            return -1.0 / self.a
-        elif isinstance(r, (float, int)):
-            return -special.xlogy(1.0 / r, 1.0 + r / self.a)  # stable as r -> infty
-        else:
-            out = -special.xlogy(1.0 / r, 1.0 + r / self.a)  # stable as r -> infty
-            out[r == 0] = -1.0 / self.a
-            return out
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # -special.xlogy(1/r, 1+r/a) == -(1/r)*log(1+r/a), with xlogy's
+        # convention that the result is 0 where the prefactor 1/r is 0 (i.e.
+        # at r -> infty, where the bare product is 0*inf = NaN; this is the
+        # "stable as r -> infty" behavior). Additionally Phi(0) = -1/a. Both
+        # r == 0 and r == infty are handled with NaN-safe xp.where branches.
+        at0 = r == 0.0
+        atinf = xp.isinf(r)
+        # safe r so neither dead branch divides by 0 or takes log(inf)
+        safe = xp.where(at0 | atinf, xp.ones_like(r * 1.0), r)
+        bulk = -(1.0 / safe) * xp.log(1.0 + safe / self.a)
+        out = xp.where(atinf, xp.zeros_like(r * 1.0), bulk)
+        return xp.where(at0, -1.0 / self.a * xp.ones_like(r * 1.0), out)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         Rz = R**2.0 + z**2.0
-        sqrtRz = numpy.sqrt(Rz)
+        sqrtRz = xp.sqrt(Rz)
         return R * (
-            1.0 / Rz / (self.a + sqrtRz)
-            - numpy.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+            1.0 / Rz / (self.a + sqrtRz) - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         Rz = R**2.0 + z**2.0
-        sqrtRz = numpy.sqrt(Rz)
+        sqrtRz = xp.sqrt(Rz)
         return z * (
-            1.0 / Rz / (self.a + sqrtRz)
-            - numpy.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
+            1.0 / Rz / (self.a + sqrtRz) - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
         )
 
     def _rforce_jax(self, r):
@@ -917,8 +960,9 @@ class NFWPotential(TwoPowerSphericalPotential):
         return self._amp * (1.0 / r / (self.a + r) - jnp.log(1.0 + r / self.a) / r**2.0)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         Rz = R**2.0 + z**2.0
-        sqrtRz = numpy.sqrt(Rz)
+        sqrtRz = xp.sqrt(Rz)
         return (
             (
                 3.0 * R**4.0
@@ -926,15 +970,16 @@ class NFWPotential(TwoPowerSphericalPotential):
                 - z**2.0 * (z**2.0 + self.a * sqrtRz)
                 - (2.0 * R**2.0 - z**2.0)
                 * (self.a**2.0 + R**2.0 + z**2.0 + 2.0 * self.a * sqrtRz)
-                * numpy.log(1.0 + sqrtRz / self.a)
+                * xp.log(1.0 + sqrtRz / self.a)
             )
             / Rz**2.5
             / (self.a + sqrtRz) ** 2.0
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         Rz = R**2.0 + z**2.0
-        sqrtRz = numpy.sqrt(Rz)
+        sqrtRz = xp.sqrt(Rz)
         return (
             -R
             * z
@@ -943,40 +988,41 @@ class NFWPotential(TwoPowerSphericalPotential):
                 - 3.0 * self.a * sqrtRz
                 + 3.0
                 * (self.a**2.0 + Rz + 2.0 * self.a * sqrtRz)
-                * numpy.log(1.0 + sqrtRz / self.a)
+                * xp.log(1.0 + sqrtRz / self.a)
             )
             * Rz**-2.5
             * (self.a + sqrtRz) ** -2.0
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        Rma = numpy.sqrt(R**2.0 - self.a**2.0 + 0j)
-        if Rma == 0.0:
-            za2 = (z / self.a) ** 2
-            return (
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # R == a is a removable singularity of the generic branch (Rma -> 0,
+        # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
+        # are evaluated, so guard the generic branch's zero denominators.
+        at_edge = R == self.a
+        d2 = R**2.0 - self.a**2.0
+        safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
+        Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        za2 = (z / self.a) ** 2
+        edge = self.a * (2.0 + xp.sqrt(za2 + 1.0) * (za2 - 2.0)) / 6.0 / math.pi / z**3
+        generic = (
+            xp.real(
                 self.a
-                * (2.0 + numpy.sqrt(za2 + 1.0) * (za2 - 2.0))
-                / 6.0
-                / numpy.pi
-                / z**3
+                * Rma**-3
+                * (xp.arctan(self.a * z / r / Rma) - xp.arctan(z / Rma))
+                + z / (r + self.a) / safe_d2
             )
-        else:
-            return (
-                (
-                    self.a
-                    * Rma**-3
-                    * (numpy.arctan(self.a * z / r / Rma) - numpy.arctan(z / Rma))
-                    + z / (r + self.a) / (R**2.0 - self.a**2.0)
-                ).real
-                / 2.0
-                / numpy.pi
-            )
+            / 2.0
+            / math.pi
+        )
+        return xp.where(at_edge, edge, generic)
 
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        return numpy.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a)
+        xp = get_namespace(R)
+        return xp.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a)
 
     @conversion.physical_conversion("position", pop=False)
     def rvir(
