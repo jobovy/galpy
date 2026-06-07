@@ -162,6 +162,11 @@ _GRAD3D_IDS = [f"{type(p).__name__}-{i}" for i, (p, _) in enumerate(_GRAD_POTS_3
 @pytest.mark.parametrize("pot", [p for p, _ in _GRAD_POTS_3D], ids=_GRAD3D_IDS)
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_grad_evaluate_vs_finite_difference_3d(backend_name, pot):
+    # Independent FD cross-check of the migrated _evaluate gradient. The exact
+    # analytic identity AD(_evaluate)==-_Rforce is asserted (far more tightly) in
+    # test_force_hessian_identities_3d; this FD test additionally catches a latent
+    # bug shared by BOTH the gradient and the hand-coded _Rforce (which the
+    # analytic identity alone could not detect).
     R0, z0 = 1.3, 0.4
     eps = 1e-6
 
@@ -286,19 +291,93 @@ def test_miyamoto_a0_b0_z0_finite(backend_name, method):
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
-# --- force/Hessian identity under autodiff (extra confidence) ----------------
-@pytest.mark.parametrize("pot", [p for p, _ in _GRAD_POTS_3D], ids=_GRAD3D_IDS)
-@pytest.mark.parametrize("backend_name", AD_BACKENDS)
-def test_force_identity_3d(backend_name, pot):
-    # d(_evaluate)/dR == -_Rforce
-    R0, z0 = 1.3, 0.4
-    ref_force = -float(pot._Rforce(R0, z0))
+###############################################################################
+# Analytic-identity autodiff checks. galpy's sign conventions are
+#   Rforce = -dPhi/dR,  zforce = -dPhi/dz;  R2deriv = d^2Phi/dR^2, etc.
+# so under autodiff (exact to ~1e-9, unlike finite differences ~1e-5):
+#   AD(_evaluate wrt R) == -_Rforce      AD(_evaluate wrt z) == -_zforce
+#   AD(_Rforce  wrt R) == -_R2deriv      AD(_Rforce  wrt z) == -_Rzderiv
+#   AD(_zforce  wrt z) == -_z2deriv
+# This cross-validates the hand-coded forces / 2nd-derivatives, not just the AD
+# plumbing. These disk potentials are axisymmetric, so phi-direction pairs are
+# absent from their method lists. A pair is checked only when BOTH of its
+# methods are migrated for that potential: FlattenedPowerPotential's _Rzderiv is
+# the base-class numerical derivative (not migrated / not listed), so its
+# (_Rforce wrt z) pair is correctly skipped rather than checked.
+###############################################################################
+_R, _Z = 0, 1
+_ID_PAIRS_2D = [
+    ("_evaluate", _R, "_Rforce", "R"),
+    ("_evaluate", _Z, "_zforce", "z"),
+    ("_Rforce", _R, "_R2deriv", "R"),
+    ("_Rforce", _Z, "_Rzderiv", "z"),
+    ("_zforce", _Z, "_z2deriv", "z"),
+]
+
+
+def _grad_wrt(backend_name, fn, *args, argnum=0):
+    # AD of scalar-valued fn(*args) wrt args[argnum]. Mirrors the pilot:
+    # jax.grad for jax; a fresh leaf tensor + scalar backward() for torch.
     if backend_name == "jax":
-        g1 = float(
-            jax.grad(lambda R: pot._evaluate(R, jnp.asarray(z0)))(jnp.asarray(R0))
+        jargs = [jnp.asarray(a) for a in args]
+
+        def f(x):
+            full = list(jargs)
+            full[argnum] = x
+            return fn(*full)
+
+        return float(jax.grad(f)(jargs[argnum]))
+    targs = [torch.tensor(a, dtype=torch.float64) for a in args]
+    leaf = torch.tensor(args[argnum], dtype=torch.float64, requires_grad=True)
+    targs[argnum] = leaf
+    out = fn(*targs)
+    out.backward()  # backward() needs a scalar output; all args here are scalars
+    return float(leaf.grad)
+
+
+# Iterate over every 3D potential with its migrated-method list; gate each pair
+# on both methods being present. KuzminDisk has a |z| kink at z == 0, so the
+# smooth identity point keeps z0 != 0 (as the existing tests do).
+_ID_POTS_3D = [(p, ms) for (p, ms) in _POTS_3D]
+_ID3D_IDS = [f"{type(p).__name__}-{i}" for i, (p, _) in enumerate(_ID_POTS_3D)]
+
+
+@pytest.mark.parametrize("pot,methods", _ID_POTS_3D, ids=_ID3D_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_force_hessian_identities_3d(backend_name, pot, methods):
+    # For EVERY identity pair where both methods are migrated for this potential,
+    # AD(lower wrt var) == -higher, exact to rtol=1e-9.
+    if not (set(methods) & {"_evaluate", "_Rforce", "_zforce"}):
+        pytest.skip("no migrated force/evaluate methods to form an identity pair")
+    R0, z0 = 1.3, 0.4
+    n_checked = 0
+    for lower, argnum, higher, vn in _ID_PAIRS_2D:
+        if lower not in methods or higher not in methods:
+            continue
+        ad = _grad_wrt(
+            backend_name,
+            lambda R, z, _l=lower: getattr(pot, _l)(R, z),
+            R0,
+            z0,
+            argnum=argnum,
         )
-    else:
-        R = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
-        pot._evaluate(R, torch.tensor(z0, dtype=torch.float64)).backward()
-        g1 = float(R.grad)
-    numpy.testing.assert_allclose(g1, ref_force, rtol=1e-9)
+        ref = -float(getattr(pot, higher)(R0, z0))
+        numpy.testing.assert_allclose(
+            ad,
+            ref,
+            rtol=1e-9,
+            err_msg=f"{type(pot).__name__}: AD({lower}/{vn})==-{higher}",
+        )
+        n_checked += 1
+    assert n_checked > 0, f"no identity pairs exercised for {type(pot).__name__}"
+
+
+# --- 1D linearPotential force identity ----------------------------------------
+# AD(_evaluate wrt x) == -_force for the 1D IsothermalDisk / KG potentials.
+@pytest.mark.parametrize("pot", _POTS_1D, ids=_POT1D_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_force_identity_1d(backend_name, pot):
+    x0 = 0.9
+    ad = _grad_wrt(backend_name, lambda x: pot._evaluate(x), x0)
+    ref = -float(pot._force(x0))
+    numpy.testing.assert_allclose(ad, ref, rtol=1e-9)
