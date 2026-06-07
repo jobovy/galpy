@@ -1238,17 +1238,19 @@ def test_integrate_dxdv_3d_c_requires_full_hessian():
     # is issued, and (c) that the C-method result matches the pure-Python result
     # (i.e. it really fell back, rather than returning the wrong C aggregate).
     from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential
+    from galpy.potential import MN3ExponentialDiskPotential
 
-    pot = LogarithmicHaloPotential(normalize=1.0)
-    # LogarithmicHalo has the planar dxdv C path but not the full 3D Hessian in C
-    # (it is genuinely non-spherical, so the spherical 3D-C-Hessian transform does
-    # not apply to it).
+    pot = MN3ExponentialDiskPotential(normalize=1.0)
+    # MN3ExponentialDisk has the planar dxdv C path but not the full 3D Hessian in
+    # C (it is not part of the Pvar-pot 3D-Hessian fan-out), so it must take the
+    # pure-Python fallback. (Earlier this used LogarithmicHalo; that gained a full
+    # 3D C Hessian in #907, which is exactly the kind of silent breakage this test
+    # guards against -- pick a potential with planar-but-not-3D C dxdv.)
     assert pot.hasC_dxdv, (
-        "test precondition: LogarithmicHalo should have planar hasC_dxdv"
+        "test precondition: MN3ExponentialDisk should have planar hasC_dxdv"
     )
     assert not pot.hasC_dxdv3d, (
-        "LogarithmicHalo must not advertise a full 3D C Hessian (would be silently wrong)"
+        "MN3ExponentialDisk must not advertise a full 3D C Hessian (would be silently wrong)"
     )
     ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
     times = numpy.linspace(0.0, 2.0, 101)
