@@ -430,3 +430,193 @@ def test_evaluate_xyz_namespace_fallback():
         pot._evaluate(numpy.asarray(R), numpy.asarray(z), numpy.asarray(phi))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-14, atol=0.0)
+
+
+# ---------------------------------------------------------------------------
+# Degenerate-regime audit (m=0 center, on-axis / in-plane, R=inf).
+#
+# The ellipsoidal family has no xp.where dead-branch hazards in its compute
+# methods (the only xp.where, ``y = where(isinf(R), 0., y)`` in _evaluate, has
+# a finite live branch everywhere). The genuine singularities are at the
+# ellipsoidal radius m -> 0 (center / on the symmetry axes), where the cuspy
+# subclasses' _mdens / _mdens_deriv / _psi and the 2nd-derivative integrand's
+# densDeriv(m)/m diverge. These tests guard that:
+#   * the singular point itself never *raises* for scalar input in any backend
+#     (a genuine inf / nan return is acceptable; a Python exception is a bug),
+#   * numpy / jax / torch agree at VALID points just off the singular regimes,
+#   * reverse-mode AD (jax.grad / torch.autograd) is NaN-free at those valid
+#     near-singular points (a singular dead term would NaN-poison 0*inf=nan),
+#   * the 2nd-derivative quadrature stays byte-identical to pre-migration numpy
+#     (the fused accumulation must reassociate exactly like the original ``+=``).
+# ---------------------------------------------------------------------------
+
+# Aligned instances spanning the cuspy (m=0) and smooth-core density families.
+_DEGEN_POTS = [
+    pytest.param(PerfectEllipsoidPotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="Perfect"),
+    pytest.param(
+        TriaxialGaussianPotential(amp=1.3, sigma=1.5, b=0.9, c=0.7), id="Gauss"
+    ),
+    pytest.param(PowerTriaxialPotential(amp=1.3, alpha=1.2, b=0.9, c=0.7), id="Power"),
+    pytest.param(
+        TriaxialHernquistPotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="Hernquist"
+    ),
+    pytest.param(TriaxialJaffePotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="Jaffe"),
+    pytest.param(TriaxialNFWPotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="NFW"),
+    pytest.param(
+        TwoPowerTriaxialPotential(amp=1.3, a=1.5, alpha=1.5, beta=3.5, b=0.9, c=0.7),
+        id="TwoPower",
+    ),
+]
+
+# Methods migrated to the backend namespace for every subclass (forces +
+# 2nd-derivatives; _evaluate is deferred for TwoPower so excluded here).
+_DEGEN_METHODS = [
+    "_Rforce",
+    "_zforce",
+    "_phitorque",
+    "_R2deriv",
+    "_z2deriv",
+    "_phi2deriv",
+    "_Rzderiv",
+    "_Rphideriv",
+    "_phizderiv",
+]
+
+# VALID points just off the singular regimes (never AT them): near the center,
+# near the z-axis (R->0), near the disk plane (z->0).
+_NEAR_DEGEN = [
+    pytest.param((1e-5, 1e-5, 0.3), id="near-center"),
+    pytest.param((1e-6, 0.8, 0.2), id="near-zaxis"),
+    pytest.param((1.0, 1e-7, 0.4), id="near-plane"),
+]
+
+# Exact singular regimes (m=0 along the axes, the origin, and R=inf).
+_AT_DEGEN = [
+    pytest.param((0.0, 0.0, 0.0), id="center"),
+    pytest.param((0.0, 0.9, 0.0), id="on-zaxis"),
+    pytest.param((1.2, 0.0, 0.3), id="in-plane"),
+    pytest.param((numpy.inf, 0.5, 0.2), id="R-inf"),
+]
+
+
+@pytest.mark.parametrize("point", _AT_DEGEN)
+@pytest.mark.parametrize("method", _DEGEN_METHODS)
+@pytest.mark.parametrize("pot", _DEGEN_POTS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_degenerate_regime_no_scalar_raise(backend_name, pot, method, point):
+    # At a genuine singularity a finite/inf/nan scalar result is fine; a Python
+    # exception is not. (NotImplementedError for rotated 2nd-derivs is N/A here:
+    # all _DEGEN_POTS are aligned.)
+    R = _asarray(backend_name, point[0])
+    z = _asarray(backend_name, point[1])
+    phi = _asarray(backend_name, point[2])
+    # Must not raise for any backend at the singular point.
+    getattr(pot, method)(R, z, phi)
+
+
+@pytest.mark.parametrize("point", _NEAR_DEGEN)
+@pytest.mark.parametrize("method", _DEGEN_METHODS)
+@pytest.mark.parametrize("pot", _DEGEN_POTS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_degenerate_regime_value_parity(backend_name, pot, method, point):
+    # numpy reference vs jax/torch at VALID points just off the singularities.
+    ref = numpy.asarray(
+        getattr(pot, method)(
+            numpy.asarray(point[0]), numpy.asarray(point[1]), numpy.asarray(point[2])
+        )
+    )
+    got = _tonumpy(
+        getattr(pot, method)(
+            _asarray(backend_name, point[0]),
+            _asarray(backend_name, point[1]),
+            _asarray(backend_name, point[2]),
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-300)
+
+
+@pytest.mark.parametrize("var", [0, 1])  # grad wrt R (0) and z (1)
+@pytest.mark.parametrize("point", _NEAR_DEGEN)
+@pytest.mark.parametrize("method", _DEGEN_METHODS)
+@pytest.mark.parametrize("pot", _DEGEN_POTS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_degenerate_regime_ad_is_finite(backend_name, pot, method, point, var):
+    # Reverse-mode AD must be NaN-free at VALID near-singular points (no dead
+    # singular term poisoning the gradient via 0*inf=nan).
+    if backend_name == "jax":
+
+        def f(v):
+            args = [jnp.asarray(point[0]), jnp.asarray(point[1]), jnp.asarray(point[2])]
+            args[var] = v
+            return getattr(pot, method)(*args)
+
+        g = float(jax.grad(f)(jnp.asarray(point[var])))
+    else:  # torch
+        args = [
+            torch.tensor(point[0], dtype=torch.float64),
+            torch.tensor(point[1], dtype=torch.float64),
+            torch.tensor(point[2], dtype=torch.float64),
+        ]
+        leaf = torch.tensor(point[var], dtype=torch.float64, requires_grad=True)
+        args[var] = leaf
+        getattr(pot, method)(*args).backward()
+        g = float(leaf.grad)
+    assert numpy.isfinite(g), f"non-finite AD gradient {g} for {method} at {point}"
+
+
+def test_2ndderiv_quadrature_byte_identical_accumulation():
+    # The migrated _2ndDerivInt_all groups the two added terms of each diagonal
+    # entry as ``acc + (a + b)`` so the floating-point accumulation reassociates
+    # EXACTLY like the pre-migration ``acc += a + b``. This guards against a
+    # silent ULP-level drift in numpy 2nd-derivative output. We reconstruct the
+    # reference with the explicit right-grouped accumulation and require a
+    # byte-identical match.
+    from galpy.potential.EllipsoidalPotential import _2ndDerivInt_all
+
+    pot = TriaxialHernquistPotential(amp=1.3, a=1.5, b=0.9, c=0.7)
+    x, y, z = 1.1973792922037507, 0.5062438450012458, 0.7
+    got = _2ndDerivInt_all(
+        x,
+        y,
+        z,
+        pot._mdens,
+        pot._mdens_deriv,
+        pot._b2,
+        pot._c2,
+        numpy,
+        glx=pot._glx,
+        glw=pot._glw,
+    )
+
+    # Reference: explicit ``+=`` (right-grouped) accumulation.
+    xx = xy = xz = yy = yz = zz = 0.0
+    x2, y2, z2 = x**2, y**2, z**2
+    for k in range(len(pot._glx)):
+        s, w = pot._glx[k], pot._glw[k]
+        t = 1.0 / s**2 - 1.0
+        inv1t, invb2t, invc2t = (
+            1.0 / (1.0 + t),
+            1.0 / (pot._b2 + t),
+            1.0 / (pot._c2 + t),
+        )
+        m = numpy.sqrt(x2 * inv1t + y2 * invb2t + z2 * invc2t)
+        denom = numpy.sqrt(
+            (1.0 + (pot._b2 - 1.0) * s**2) * (1.0 + (pot._c2 - 1.0) * s**2)
+        )
+        w_over_denom = w / denom
+        dens_val = pot._mdens(m)
+        dderiv_over_m = pot._mdens_deriv(m) / m
+        xi, yi, zi = x * inv1t, y * invb2t, z * invc2t
+        dd_xi = w_over_denom * dderiv_over_m * xi
+        dd_yi = w_over_denom * dderiv_over_m * yi
+        dd_zi = w_over_denom * dderiv_over_m * zi
+        xx += dd_xi * xi + w_over_denom * dens_val * inv1t
+        xy += dd_xi * yi
+        xz += dd_xi * zi
+        yy += dd_yi * yi + w_over_denom * dens_val * invb2t
+        yz += dd_yi * zi
+        zz += dd_zi * zi + w_over_denom * dens_val * invc2t
+    ref = (xx, xy, xz, yy, yz, zz)
+
+    for g, r in zip(got, ref):
+        assert g.tobytes() == numpy.asarray(r).tobytes()

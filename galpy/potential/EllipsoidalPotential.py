@@ -551,10 +551,14 @@ def _2ndDerivInt_all(x, y, z, dens, densDeriv, b2, c2, xp=numpy, glx=None, glw=N
         dd_xi = w_over_denom * dderiv_over_m * xi
         dd_yi = w_over_denom * dderiv_over_m * yi
         dd_zi = w_over_denom * dderiv_over_m * zi
-        xx = xx + dd_xi * xi + w_over_denom * dens_val * inv1t
+        # Group the two added terms (diagonal entries get an extra dens term) so
+        # the accumulation reassociates exactly as the pre-migration ``+=`` did
+        # (``a += b + c`` is ``a + (b + c)``), keeping the numpy result
+        # byte-identical; this is pure arithmetic and backend-agnostic.
+        xx = xx + (dd_xi * xi + w_over_denom * dens_val * inv1t)
         xy = xy + dd_xi * yi
         xz = xz + dd_xi * zi
-        yy = yy + dd_yi * yi + w_over_denom * dens_val * invb2t
+        yy = yy + (dd_yi * yi + w_over_denom * dens_val * invb2t)
         yz = yz + dd_yi * zi
-        zz = zz + dd_zi * zi + w_over_denom * dens_val * invc2t
+        zz = zz + (dd_zi * zi + w_over_denom * dens_val * invc2t)
     return xx, xy, xz, yy, yz, zz
