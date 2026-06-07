@@ -630,3 +630,103 @@ def test_grad_wrt_time_vs_finite_difference(backend_name, case):
         atol=1e-12,
         err_msg=f"{type(pot).__name__} d/dt grad ({backend_name})",
     )
+
+
+# CosmphiDisk/LopsidedDisk with a break radius rb: the potential is a piecewise
+# power law (R**p outside rb, ~R**-p inside). The other tests only evaluate at
+# R>rb (outside); the INSIDE regime (R<rb) and the R=0 axis exercise the other
+# branch of the eager xp.where -- including a positive AND a negative break-power
+# p, where the dead (selected-away) branch carries the R**(-|p|) singularity.
+# This guards the safe-radius handling of both branches (R_in/R_out): values must
+# match numpy bit-for-bit under jax/torch, R=0 must not raise, and AD must match
+# -force on the inside.
+_BREAK_CASES = [
+    # (potential, has finite value at R=0?)  p>0: -inf at R=0 (genuine cusp);
+    # p<0: finite at R=0.
+    # (LopsidedDisk has no rb parameter -> no break radius -> no inside branch.)
+    (
+        CosmphiDiskPotential(amp=1.0, phib=0.3, p=1.0, phio=0.02, m=4, r1=1.0, rb=1.2),
+        False,
+    ),
+    (
+        CosmphiDiskPotential(amp=1.0, phib=0.3, p=-0.7, phio=0.02, m=3, r1=1.0, rb=1.2),
+        True,
+    ),
+    (
+        CosmphiDiskPotential(amp=1.0, phib=0.3, p=2.5, phio=0.02, m=2, r1=1.0, rb=0.9),
+        False,
+    ),
+]
+_BREAK_IDS = [f"{type(c[0]).__name__}_p{c[0]._p}" for c in _BREAK_CASES]
+
+
+@pytest.mark.parametrize("case", _BREAK_CASES, ids=_BREAK_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_break_radius_inside_value_parity(backend_name, case):
+    pot, _ = case
+    phi0 = 0.4
+    # R well inside rb, just inside, and at the seam; all use the inside branch.
+    for R0 in [0.2, 0.7, pot._rb - 1e-6]:
+        for mname in ["_evaluate", "_Rforce", "_phitorque", "_R2deriv", "_Rphideriv"]:
+            ref = float(getattr(pot, mname)(R0, phi0))
+            got = _tonumpy(
+                getattr(pot, mname)(
+                    _asarray(backend_name, R0), _asarray(backend_name, phi0)
+                )
+            )
+            numpy.testing.assert_allclose(
+                got,
+                ref,
+                rtol=1e-12,
+                atol=1e-14,
+                err_msg=f"{type(pot).__name__} inside-rb {mname} parity ({backend_name}) at R={R0}",
+            )
+
+
+@pytest.mark.parametrize("case", _BREAK_CASES, ids=_BREAK_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_break_radius_axis_no_crash(backend_name, case):
+    # R=0 (the axis) is an inside element: the eager xp.where evaluates the dead
+    # OUTSIDE branch R**p, which for p<0 is singular -- it must be safe-guarded so
+    # this neither raises (scalar 0**-p) nor returns NaN. For p>0 the inside value
+    # genuinely diverges (-inf); for p<0 it is finite, and must match numpy.
+    pot, finite = case
+    phi0 = 0.4
+    ref = float(pot._evaluate(0.0, phi0))  # numpy scalar: must not raise
+    got = _tonumpy(
+        pot._evaluate(_asarray(backend_name, 0.0), _asarray(backend_name, phi0))
+    )
+    if finite:
+        assert numpy.isfinite(ref), "p<0 inside value at R=0 should be finite"
+        numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+    else:
+        assert numpy.isinf(ref) and not numpy.isnan(float(got)), (
+            "p>0 inside value at R=0 is a genuine -inf singularity"
+        )
+
+
+@pytest.mark.parametrize("case", _BREAK_CASES, ids=_BREAK_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_break_radius_inside_grad_identity(backend_name, case):
+    # AD(_evaluate)/dR == -_Rforce on the INSIDE branch (R<rb), and no NaN
+    # poisoning from the dead outside branch at small (but nonzero) R.
+    pot, _ = case
+    phi0 = 0.4
+    for R0 in [0.05, 0.3, 0.7]:
+        ref = -float(pot._Rforce(R0, phi0))
+        if backend_name == "jax":
+            ad = float(
+                jax.grad(lambda R: pot._evaluate(R, jnp.asarray(phi0)))(jnp.asarray(R0))
+            )
+        else:
+            Rt = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
+            pot._evaluate(Rt, torch.tensor(phi0, dtype=torch.float64)).backward()
+            ad = float(Rt.grad)
+        assert not numpy.isnan(ad), f"NaN AD grad inside rb ({backend_name}) at R={R0}"
+        numpy.testing.assert_allclose(
+            ad,
+            ref,
+            rtol=1e-7,
+            atol=1e-10,
+            err_msg=f"{type(pot).__name__} inside-rb AD==-Rforce ({backend_name}) at R={R0}",
+        )
