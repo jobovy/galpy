@@ -109,6 +109,25 @@ def pytest_generate_tests(metafunc):
                 "SpiralArmsPotential",
                 "nonaxisymmetric",
             ),
+            # triaxial (b!=1) -> isNonAxi, exercises the full non-axi C Hessian
+            # incl. zphideriv (nonzero off-plane for z!=0, phi!=0)
+            (
+                potential.LogarithmicHaloPotential(
+                    amp=1.0, core=0.5, q=0.8, b=0.7, normalize=True
+                ),
+                "LogarithmicHaloPotential_triaxial",
+                "nonaxisymmetric",
+            ),
+            # axisymmetric (b=None) -> the C Hessian's faster onem1overb2>=1
+            # branch (no sin(phi) term), which the triaxial entry above never
+            # exercises; covers those else-branches of R2/z2/Rz/phi2/Rphi/zphi.
+            (
+                potential.LogarithmicHaloPotential(
+                    amp=1.0, core=0.5, q=0.8, normalize=True
+                ),
+                "LogarithmicHaloPotential_axi",
+                "axisymmetric",
+            ),
         ]
         ids = [entry[1] for entry in liouville3d_registry]
         if metafunc.function.__name__ == "test_dxdv_3d_c_vs_python":
