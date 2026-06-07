@@ -173,12 +173,6 @@ _ROT_EVAL_POTS = [
     pytest.param(pot, id=name) for (name, pot, ev) in _ROT_CASES if ev == EVAL
 ]
 
-# Potentials whose _evaluate is migrated (used for the autodiff check).
-_EVAL_POTS = [pytest.param(pot, id=name) for (name, pot, ev) in _CASES if ev == EVAL]
-# Every potential supports a migrated _Rforce, used for the autodiff check on
-# potentials whose _evaluate is deferred.
-_ALL_POTS = [pytest.param(pot, id=name) for (name, pot, _ev) in _CASES]
-
 _RS = [0.5, 1.0, 2.0]
 _ZS = [0.1, 0.2, 0.3]
 _PHIS = [0.3, 0.6, 0.9]
@@ -218,67 +212,110 @@ def test_value_parity(backend_name, pot, method):
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
-@pytest.mark.parametrize("pot", _EVAL_POTS)
-@pytest.mark.parametrize("backend_name", AD_BACKENDS)
-def test_grad_evaluate_vs_finite_difference(backend_name, pot):
-    R0, z0, phi0 = 1.3, 0.4, 0.5
-    eps = 1e-6
+# --- exact analytic-identity gradient checks ----------------------------------
+# galpy sign conventions: Rforce=-dPhi/dR, zforce=-dPhi/dz, phitorque=-dPhi/dphi;
+# R2deriv=d2Phi/dR2, etc. Under autodiff this gives, for each (lower, var, higher)
+# triple below, AD(lower wrt var) == -higher EXACTLY (not just to FD precision):
+#
+#   AD(_evaluate   wrt R)   == -_Rforce       AD(_Rforce wrt R)   == -_R2deriv
+#   AD(_evaluate   wrt z)   == -_zforce       AD(_Rforce wrt z)   == -_Rzderiv
+#   AD(_evaluate   wrt phi) == -_phitorque    AD(_Rforce wrt phi) == -_Rphideriv
+#   AD(_zforce     wrt z)   == -_z2deriv      AD(_zforce wrt phi) == -_phizderiv
+#   AD(_phitorque  wrt phi) == -_phi2deriv
+#
+# This cross-validates the hand-coded analytic forces and the (phi-dependent)
+# triaxial Hessian against autodiff, far more stringently than finite differences
+# (these identities replace the now-subsumed FD _evaluate / _Rforce checks).
+# Variable name -> positional index into (R, z, phi).
+_VAR_IDX = {"R": 0, "z": 1, "phi": 2}
 
-    def phi_np(R):
-        return float(
-            pot._evaluate(numpy.asarray(R), numpy.asarray(z0), numpy.asarray(phi0))
-        )
+# (lower_method, var, higher_method): AD(lower wrt var) == -higher.
+_IDENTITY_PAIRS = [
+    ("_evaluate", "R", "_Rforce"),
+    ("_evaluate", "z", "_zforce"),
+    ("_evaluate", "phi", "_phitorque"),
+    ("_Rforce", "R", "_R2deriv"),
+    ("_Rforce", "z", "_Rzderiv"),
+    ("_Rforce", "phi", "_Rphideriv"),
+    ("_zforce", "z", "_z2deriv"),
+    ("_zforce", "phi", "_phizderiv"),
+    ("_phitorque", "phi", "_phi2deriv"),
+]
 
-    fd = (phi_np(R0 + eps) - phi_np(R0 - eps)) / (2 * eps)
+# Off-axis, off-plane, non-zero-phi smooth point so every derivative (including
+# the phi-direction ones, which vanish on axis) is exercised and nonzero.
+_R0, _Z0, _PHI0 = 1.3, 0.4, 0.5
+
+
+def _ad_grad(backend_name, method, var, point):
+    """AD gradient of ``method`` (a scalar-returning bound potential method) with
+    respect to one of (R, z, phi) at ``point=(R0, z0, phi0)``, as a python float.
+
+    Mirrors the canonical jax.grad / torch.autograd pattern: a fresh leaf tensor
+    per backward, scalar output."""
+    idx = _VAR_IDX[var]
     if backend_name == "jax":
-        ad = float(
-            jax.grad(lambda R: pot._evaluate(R, jnp.asarray(z0), jnp.asarray(phi0)))(
-                jnp.asarray(R0)
+
+        def f(v):
+            args = [jnp.asarray(point[0]), jnp.asarray(point[1]), jnp.asarray(point[2])]
+            args[idx] = v
+            return method(*args)
+
+        return float(jax.grad(f)(jnp.asarray(point[idx])))
+    # torch: a fresh leaf tensor that requires grad for the chosen variable.
+    args = [
+        torch.tensor(point[0], dtype=torch.float64),
+        torch.tensor(point[1], dtype=torch.float64),
+        torch.tensor(point[2], dtype=torch.float64),
+    ]
+    leaf = torch.tensor(point[idx], dtype=torch.float64, requires_grad=True)
+    args[idx] = leaf
+    method(*args).backward()
+    return float(leaf.grad)
+
+
+def _method_migrated(name, eval_migrated):
+    """Whether ``<name>`` is namespace-migrated (callable on a traced backend).
+
+    Forces, 2nd derivatives, and density depend only on the pure-arithmetic
+    _mdens/_mdens_deriv and are migrated for every potential here; _evaluate is
+    deferred for potentials whose _psi uses scipy.special (TwoPower)."""
+    if name == "_evaluate":
+        return eval_migrated
+    return name in COMMON_METHODS
+
+
+# Build (pot, lower, var, higher) params for every identity pair whose BOTH
+# methods are migrated for that (aligned) potential. TwoPower keeps the six
+# force/2nd-deriv pairs but drops the three _evaluate pairs (psi uses hyp2f1).
+_IDENTITY_PARAMS = []
+for _name, _pot, _eval in _CASES:
+    _eval_migrated = _eval == EVAL
+    for _lower, _var, _higher in _IDENTITY_PAIRS:
+        if _method_migrated(_lower, _eval_migrated) and _method_migrated(
+            _higher, _eval_migrated
+        ):
+            _IDENTITY_PARAMS.append(
+                pytest.param(
+                    _pot, _lower, _var, _higher, id=f"{_name}-{_lower}-d{_var}"
+                )
             )
-        )
-    else:
-        R = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
-        y = pot._evaluate(
-            R,
-            torch.tensor(z0, dtype=torch.float64),
-            torch.tensor(phi0, dtype=torch.float64),
-        )
-        y.backward()
-        ad = float(R.grad)
-    numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
 
 
-@pytest.mark.parametrize("pot", _ALL_POTS)
+@pytest.mark.parametrize("pot,lower,var,higher", _IDENTITY_PARAMS)
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
-def test_grad_rforce_vs_finite_difference(backend_name, pot):
-    # _Rforce is migrated for every potential (depends only on _mdens); check its
-    # gradient wrt R against central finite differences. This also covers the
-    # autodiff path for potentials whose _evaluate is deferred (TwoPower).
-    R0, z0, phi0 = 1.3, 0.4, 0.5
-    eps = 1e-6
-
-    def f_np(R):
-        return float(
-            pot._Rforce(numpy.asarray(R), numpy.asarray(z0), numpy.asarray(phi0))
+def test_force_and_hessian_identities(backend_name, pot, lower, var, higher):
+    # AD(lower wrt var) == -higher, exactly (rtol=1e-9). Both methods share the
+    # same Gauss-Legendre quadrature nodes, so autodiff of the lower method
+    # reproduces the analytic higher method to round-off, not just FD precision.
+    point = (_R0, _Z0, _PHI0)
+    ad = _ad_grad(backend_name, getattr(pot, lower), var, point)
+    ref = -float(
+        getattr(pot, higher)(
+            numpy.asarray(_R0), numpy.asarray(_Z0), numpy.asarray(_PHI0)
         )
-
-    fd = (f_np(R0 + eps) - f_np(R0 - eps)) / (2 * eps)
-    if backend_name == "jax":
-        ad = float(
-            jax.grad(lambda R: pot._Rforce(R, jnp.asarray(z0), jnp.asarray(phi0)))(
-                jnp.asarray(R0)
-            )
-        )
-    else:
-        R = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
-        y = pot._Rforce(
-            R,
-            torch.tensor(z0, dtype=torch.float64),
-            torch.tensor(phi0, dtype=torch.float64),
-        )
-        y.backward()
-        ad = float(R.grad)
-    numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
+    )
+    numpy.testing.assert_allclose(ad, ref, rtol=1e-9)
 
 
 @pytest.mark.parametrize("pot", _MASS_POTS)
