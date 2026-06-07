@@ -203,6 +203,18 @@ double LogarithmicHaloPotentialPlanarRphideriv(double ,double, double,
 					       struct potentialArg *);
 double LogarithmicHaloPotentialDens(double ,double , double, double,
 				    struct potentialArg *);
+double LogarithmicHaloPotentialR2deriv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialz2deriv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialRzderiv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialphi2deriv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialRphideriv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialzphideriv(double ,double , double, double,
+				    struct potentialArg *);
 //DehnenBarPotential
 double DehnenBarPotentialRforce(double,double,double,double,
 				struct potentialArg *);
