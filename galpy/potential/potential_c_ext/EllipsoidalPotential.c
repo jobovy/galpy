@@ -76,79 +76,40 @@ void EllipsoidalPotentialxyzforces_xyz(double (*dens)(double m,
   *(args + 5)= *Fy;
   *(args + 6)= *Fz;
 }
+// Load the cached Cartesian forces (Fx,Fy,Fz) for (x,y,z), recomputing on a cache
+// miss. Single accessor for the shared (args+1..6) force cache, used by the three
+// cylindrical force methods below AND by the 3D Hessian phi2deriv/Rphideriv. The
+// first force evaluation at each new point misses (and computes); subsequent ones
+// at the same point hit -- so both branches are genuinely exercised (no LCOV_EXCL
+// needed, and no duplicated inline cache-check). Defined below.
+static inline void EllipsoidalPotential_get_forces(struct potentialArg *,
+						   double, double, double,
+						   double *, double *, double *);
 double EllipsoidalPotentialRforce(double R,double z, double phi,
 				  double t,
 				  struct potentialArg * potentialArgs){
-  double * args= potentialArgs->args;
-  double amp= *args;
-  // Get caching args: amp = 0, x,y,z,Fx,Fy,Fz
-  double cached_x= *(args + 1);
-  double cached_y= *(args + 2);
-  double cached_z= *(args + 3);
-  //Calculate potential
-  double x, y;
-  double Fx, Fy, Fz;
+  double amp= *potentialArgs->args;
+  double x, y, Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
-  if ( x == cached_x && y == cached_y && z == cached_z ){
-    // LCOV_EXCL_START
-    Fx= *(args + 4);
-    Fy= *(args + 5);
-    Fz= *(args + 6);
-    // LCOV_EXCL_STOP
-  }
-  else
-    EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens,
-				      x,y,z,&Fx,&Fy,&Fz,args);
+  EllipsoidalPotential_get_forces(potentialArgs,x,y,z,&Fx,&Fy,&Fz);
   return amp * ( cos ( phi ) * Fx + sin( phi ) * Fy );
 }
 double EllipsoidalPotentialphitorque(double R,double z, double phi,
 				    double t,
 				    struct potentialArg * potentialArgs){
-  double * args= potentialArgs->args;
-  double amp= *args;
-  // Get caching args: amp = 0, x,y,z,Fx,Fy,Fz
-  double cached_x= *(args + 1);
-  double cached_y= *(args + 2);
-  double cached_z= *(args + 3);
-  //Calculate potential
-  double x, y;
-  double Fx, Fy, Fz;
+  double amp= *potentialArgs->args;
+  double x, y, Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
-  if ( x == cached_x && y == cached_y && z == cached_z ){
-    Fx= *(args + 4);
-    Fy= *(args + 5);
-    Fz= *(args + 6);
-  }
-  else
-    // LCOV_EXCL_START
-    EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens,
-				      x,y,z,&Fx,&Fy,&Fz,args);
-    // LCOV_EXCL_STOP
+  EllipsoidalPotential_get_forces(potentialArgs,x,y,z,&Fx,&Fy,&Fz);
   return amp * R * ( -sin ( phi ) * Fx + cos( phi ) * Fy );
 }
 double EllipsoidalPotentialzforce(double R,double z, double phi,
 				  double t,
 				  struct potentialArg * potentialArgs){
-  double * args= potentialArgs->args;
-  double amp= *args;
-  // Get caching args: amp = 0, x,y,z,Fx,Fy,Fz
-  double cached_x= *(args + 1);
-  double cached_y= *(args + 2);
-  double cached_z= *(args + 3);
-  //Calculate potential
-  double x, y;
-  double Fx, Fy, Fz;
+  double amp= *potentialArgs->args;
+  double x, y, Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
-  if ( x == cached_x && y == cached_y && z == cached_z ){
-    Fx= *(args + + 4);
-    Fy= *(args + + 5);
-    Fz= *(args + + 6);
-  }
-  else
-    // LCOV_EXCL_START
-    EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens,
-				      x,y,z,&Fx,&Fy,&Fz,args);
-    // LCOV_EXCL_STOP
+  EllipsoidalPotential_get_forces(potentialArgs,x,y,z,&Fx,&Fy,&Fz);
   return amp * Fz;
 }
 
