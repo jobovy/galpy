@@ -10,9 +10,12 @@
 #
 #                             m^2 = x^2 + y^2/b^2 + z^2/c^2
 ###############################################################################
+import math
+
 import numpy
 from scipy import special
 
+from ..backend import get_namespace
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -173,6 +176,8 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
+        # Pspecial-blocked: closed-form mass requires scipy.special.hyp2f1, which
+        # has no backend-agnostic (jax/torch array-API) replacement -> numpy only.
         return (
             4.0
             * numpy.pi
@@ -294,7 +299,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
             raise AttributeError  # Hack to fall back to general
         return (
             4.0
-            * numpy.pi
+            * math.pi
             * self.a4
             / self.a
             / (1.0 + self.a / R) ** 2.0
@@ -395,10 +400,11 @@ class TriaxialJaffePotential(EllipsoidalPotential):
 
     def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
+        xp = get_namespace(m)
         return (
             2.0
             * self.a2
-            * (1.0 / (1.0 + m / self.a) + numpy.log(1.0 / (1.0 + self.a / m)))
+            * (1.0 / (1.0 + m / self.a) + xp.log(1.0 / (1.0 + self.a / m)))
         )
 
     def _mdens(self, m):
@@ -412,9 +418,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
-        return (
-            4.0 * numpy.pi * self.a * self.a2 / (1.0 + self.a / R) * self._b * self._c
-        )
+        return 4.0 * math.pi * self.a * self.a2 / (1.0 + self.a / R) * self._b * self._c
 
 
 class TriaxialNFWPotential(EllipsoidalPotential):
@@ -557,11 +561,12 @@ class TriaxialNFWPotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
+        xp = get_namespace(R)
         return (
             4.0
-            * numpy.pi
+            * math.pi
             * self.a3
             * self._b
             * self._c
-            * (numpy.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a))
+            * (xp.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a))
         )
