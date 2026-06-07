@@ -1084,6 +1084,61 @@ def test_twopower_planar_dxdv_c_vs_python():
     return None
 
 
+def test_flattenedpower_planar_dxdv_c_vs_python():
+    # Regression test for a bug in the C FlattenedPowerPotentialPlanarR2deriv (the
+    # planar d^2Phi/dR^2 used by the C planar integrate_dxdv variational RHS): it used
+    # (alpha + 1.) where the correct coefficient is (alpha + 2.) -- the pure-Python
+    # _R2deriv is correct (matches a finite-difference of -Rforce to ~1e-10). The error
+    # vanishes at R such that the two coincide, but is O(1) relative elsewhere, making
+    # the in-plane tidal tensor (and hence the planar STM) wrong. test_liouville_planar
+    # CANNOT catch this: det M = 1 holds for ANY symmetric Hessian (tr J = 0 regardless
+    # of the R2deriv value), so it is insensitive to a wrong-but-symmetric R2deriv.
+    # Comparing the C (dopr54_c / dop853_c) planar dxdv path against the (correct)
+    # pure-Python (dop853) path exposes it.
+    from galpy.orbit import Orbit
+    from galpy.potential import FlattenedPowerPotential
+
+    pot = FlattenedPowerPotential(amp=1.0, alpha=0.5, core=0.8, q=0.9, normalize=True)
+    times = numpy.linspace(0.0, 4.0, 401)
+    ic = [1.2, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]; R != 1 so the bug is active
+    # Use a UNIT deviation: the variational equation is linear in the deviation, so a
+    # unit dx makes the STM column O(1) and the relative PlanarR2deriv error shows up as
+    # an O(1) absolute discrepancy (a tiny dx would scale it below tol).
+    dev = [1.0, 0.0, 0.0, 0.0]
+    for method in ["dopr54_c", "dop853_c"]:
+        o_c = Orbit(ic)
+        o_c.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method=method,
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        o_py = Orbit(ic)
+        o_py.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+        dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+        # Pre-fix the C path disagreed with the (correct) Python path by ~1.4.
+        assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-6, (
+            "C planar dxdv (FlattenedPower) disagrees with the pure-Python result "
+            f"(method={method}): max diff "
+            f"{numpy.amax(numpy.fabs(dev_c - dev_py)):g} (PlanarR2deriv bug?)"
+        )
+    return None
+
+
 # Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
 def test_integrate_SOS_3D():
     pot = potential.MWPotential2014
