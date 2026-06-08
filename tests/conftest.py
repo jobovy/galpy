@@ -105,6 +105,25 @@ def pytest_generate_tests(metafunc):
                 "spherical",
             ),
             (
+                potential.TwoPowerSphericalPotential(
+                    amp=1.0, a=1.4, alpha=1.0, beta=4.0, normalize=True
+                ),
+                "TwoPowerSphericalPotential",
+                "spherical",
+            ),
+            # NOTE: PseudoIsothermalPotential, EinastoPotential, and
+            # interpSphericalPotential all have verified-correct full 3D C Hessians
+            # (hasC_dxdv3d=True; their C-vs-Python unit-deviation dxdv agrees to ~1e-7
+            # for every C integrator -- see test_spherical_dxdv_3d_c_vs_python_extra).
+            # They are intentionally NOT in this strict registry, which also runs the
+            # pure-Python odeint integrator and a 1e-9 3D->2D bridge tolerance:
+            #  - Einasto and interpSpherical are spline-interpolated, so the loose
+            #    odeint finite-difference-of-flow check (~1e-2 / and the unit-deviation
+            #    bridge ~5e-9) is limited by the interpolation accuracy, not the Hessian.
+            #  - PseudoIsothermal's (1/r^2)*atan(r/a) profile makes only the odeint
+            #    FD-of-flow check marginally exceed 1e-4 (~1.8e-4) at the registry IC,
+            #    while every C integrator agrees to ~1.6e-7.
+            (
                 potential.SpiralArmsPotential(),
                 "SpiralArmsPotential",
                 "nonaxisymmetric",
