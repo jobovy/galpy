@@ -541,6 +541,19 @@ double EllipsoidalPotentialPlanarphi2deriv(double,double,double,
 					   struct potentialArg *);
 double EllipsoidalPotentialPlanarRphideriv(double,double,double,
 					   struct potentialArg *);
+// Full-3D cylindrical Hessian (for the 3D variational equations)
+double EllipsoidalPotentialR2deriv(double,double,double,double,
+				   struct potentialArg *);
+double EllipsoidalPotentialz2deriv(double,double,double,double,
+				   struct potentialArg *);
+double EllipsoidalPotentialRzderiv(double,double,double,double,
+				   struct potentialArg *);
+double EllipsoidalPotentialphi2deriv(double,double,double,double,
+				     struct potentialArg *);
+double EllipsoidalPotentialRphideriv(double,double,double,double,
+				     struct potentialArg *);
+double EllipsoidalPotentialzphideriv(double,double,double,double,
+				     struct potentialArg *);
 //TriaxialHernquistPotential: uses EllipsoidalPotential, only need psi, dens, densDeriv
 double TriaxialHernquistPotentialpsi(double,double *);
 double TriaxialHernquistPotentialmdens(double,double *);
