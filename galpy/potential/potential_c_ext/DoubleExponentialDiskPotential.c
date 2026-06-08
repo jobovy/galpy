@@ -1,5 +1,8 @@
 #include <math.h>
 #include <galpy_potentials.h>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 //Double exponential disk potential
 double DoubleExponentialDiskPotentialEval(double R,double z, double phi,
 					  double t,
