@@ -660,6 +660,12 @@ double DiskSCFPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double DiskSCFPotentialPlanarRforce(double,double,double,
 					      struct potentialArg *);
+double DiskSCFPotentialR2deriv(double,double,double,double,
+			       struct potentialArg *);
+double DiskSCFPotentialz2deriv(double,double,double,double,
+			       struct potentialArg *);
+double DiskSCFPotentialRzderiv(double,double,double,double,
+			       struct potentialArg *);
 double DiskSCFPotentialDens(double,double,double,double,
 			    struct potentialArg *);
 

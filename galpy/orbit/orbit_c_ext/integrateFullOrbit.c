@@ -456,6 +456,11 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &DiskSCFPotentialzforce;
       potentialArgs->dens= &DiskSCFPotentialDens;
       potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->R2deriv= &DiskSCFPotentialR2deriv;
+      potentialArgs->z2deriv= &DiskSCFPotentialz2deriv;
+      potentialArgs->Rzderiv= &DiskSCFPotentialRzderiv;
+      // phi2deriv/Rphideriv/zphideriv are identically zero (axisymmetric) ->
+      // left NULL, the 3D Hessian aggregators skip them.
       potentialArgs->nargs= (int) **pot_args + 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;

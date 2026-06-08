@@ -1403,6 +1403,48 @@ def test_multipole_dxdv_3d():
     return None
 
 
+def test_disk_composite_dxdv_3d():
+    # The DiskSCF / DiskMultipole (Kuijken-Dubinski) composites have a full 3D C
+    # Hessian (hasC_dxdv3d=True) once BOTH the analytic [Sigma_i(r), Hz_i(z)]
+    # disk pairs (their R2/z2/Rz deriv are in C; phi-derivs are identically
+    # zero) AND the expansion sub-potential (SCF / MultipoleExpansion) have the
+    # Hessian in C. A SMOOTH sech2 vertical profile is used: the exp |z| profile
+    # is only C^0 across the disk plane (like KuzminDisk), so its FD-of-flow
+    # sits at the z=0 kink, not at analytic accuracy (det(M)=1/symplecticity
+    # still pass for it -- the Hessian itself is correct).
+    from galpy.potential import DiskMultipoleExpansionPotential, DiskSCFPotential
+
+    def _sphdens(R, z):
+        return numpy.exp(-numpy.sqrt(R**2 + z**2)) / (4.0 * numpy.pi)
+
+    Sigma = {"type": "exp", "h": 1.0 / 3.0, "amp": 1.0}
+    hz = {"type": "sech2", "h": 1.0 / 27.0}
+    dscf = DiskSCFPotential(
+        dens=_sphdens, Sigma=Sigma, hz=hz, a=1.0, N=4, L=4, normalize=True
+    )
+    assert dscf.hasC_dxdv3d, "DiskSCFPotential should advertise hasC_dxdv3d"
+    # analytic SCF + analytic disk pairs -> tight
+    _check_dxdv_3d_c(dscf, "DiskSCFPotential", det_tol=1e-7, symp_tol=1e-6)
+    dmep = DiskMultipoleExpansionPotential(
+        dens=_sphdens,
+        Sigma=Sigma,
+        hz=hz,
+        L=4,
+        rgrid=numpy.geomspace(1e-2, 30.0, 201),
+        normalize=True,
+    )
+    assert dmep.hasC_dxdv3d, "DiskMultipoleExpansion should advertise hasC_dxdv3d"
+    # spline-interpolated multipole part -> looser det/symp, adaptive integrators
+    _check_dxdv_3d_c(
+        dmep,
+        "DiskMultipoleExpansionPotential",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+    )
+    return None
+
+
 # 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
 # dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
 # integrate_dxdv must match the trusted planar integrate_dxdv result.
