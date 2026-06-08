@@ -6,14 +6,33 @@ import numpy
 
 from .._resolver import get_namespace
 
-# Per-backend list of functions whose NATIVE implementation is missing, so the
-# router must use the pure-backend fallback. Kept tiny and explicit; a capability
-# test (tests/test_backend_special.py) asserts this matches reality and that each
-# fallback agrees with scipy, so entries are removed as backends add the native
-# version. (numpy always has the full scipy.special, so it never needs a fallback.)
+# Per-backend functions whose NATIVE implementation is simply absent, so the
+# router must use the pure-backend fallback. A capability test
+# (test_fallback_table_matches_installed_backends) asserts this matches reality
+# (hasattr on the backend's special module), so entries are removed as backends
+# add the native version. (numpy always has the full scipy.special.)
+_NATIVE_MISSING = {
+    "jax": frozenset(("ellipk", "ellipe")),
+    "torch": frozenset(
+        ("gamma", "ellipk", "ellipe", "hyp2f1", "hyp1f1")
+    ),  # torch.special lacks all of these
+}
+
+# Functions whose native implementation EXISTS but is too inaccurate on galpy's
+# argument domain to use -- we force the fallback anyway. Currently jax's
+# hyp2f1/hyp1f1: both are catastrophically wrong for z < -1 (return +-inf with
+# NaN gradients), which is exactly galpy's regime (z = -r/a, -(R/rc)**2, ...).
+# A tripwire test documents the breakage so these move to native if jax fixes it.
+_NATIVE_UNRELIABLE = {
+    "jax": frozenset(("hyp2f1", "hyp1f1")),
+    "torch": frozenset(),
+}
+
+# The router routes a function to its fallback iff it is in EITHER set.
 _NEEDS_FALLBACK = {
-    "jax": frozenset(),
-    "torch": frozenset(("gamma",)),  # torch.special has gammaln but not gamma
+    name: _NATIVE_MISSING.get(name, frozenset())
+    | _NATIVE_UNRELIABLE.get(name, frozenset())
+    for name in ("jax", "torch")
 }
 
 
@@ -42,9 +61,15 @@ def _backend_special(xp):
     return "numpy", _sp  # pragma: no cover
 
 
-def _dispatch(fnname, args, fallback):
-    """Route ``fnname(*args)`` to native or fallback based on the args' namespace."""
-    xp = get_namespace(*args)
+def _dispatch(fnname, args, fallback, ns_args=None):
+    """Route ``fnname(*args)`` to native or fallback by the arrays' namespace.
+
+    ns_args (default: all of args) selects which arguments determine the
+    backend; pass only the array arguments when some of ``args`` are plain
+    scalars (e.g. the (a, b, c) parameters of hyp2f1) so they don't confuse
+    the resolver.
+    """
+    xp = get_namespace(*(args if ns_args is None else ns_args))
     name, sp = _backend_special(xp)
     if fnname not in _NEEDS_FALLBACK.get(name, frozenset()) and hasattr(sp, fnname):
         return getattr(sp, fnname)(*args)
@@ -96,6 +121,35 @@ def i0(x):
 
 def i1(x):
     return _dispatch("i1", (x,), _no_fallback("i1"))
+
+
+# --- Tier 2: pure-backend fallbacks (jax/torch); high force-unblock impact ----
+def hyp2f1(a, b, c, z):
+    # Gauss 2F1; only the array arg z carries the backend namespace.
+    from ._fallback.hyp2f1 import hyp2f1_fallback
+
+    return _dispatch("hyp2f1", (a, b, c, z), hyp2f1_fallback, ns_args=(z,))
+
+
+def hyp1f1(a, b, z):
+    # Confluent 1F1 (Kummer); only z carries the backend namespace.
+    from ._fallback.hyp1f1 import hyp1f1_fallback
+
+    return _dispatch("hyp1f1", (a, b, z), hyp1f1_fallback, ns_args=(z,))
+
+
+def ellipk(m):
+    # Complete elliptic integral K(m) (scipy parameter-m convention).
+    from ._fallback.elliptic import ellipk_fallback
+
+    return _dispatch("ellipk", (m,), ellipk_fallback)
+
+
+def ellipe(m):
+    # Complete elliptic integral E(m) (scipy parameter-m convention).
+    from ._fallback.elliptic import ellipe_fallback
+
+    return _dispatch("ellipe", (m,), ellipe_fallback)
 
 
 def xlogy(x, y):

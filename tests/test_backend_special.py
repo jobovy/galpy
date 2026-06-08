@@ -13,7 +13,11 @@ import pytest
 import scipy.special as scipy_special
 
 from galpy.backend import special as gsp
-from galpy.backend.special._router import _NEEDS_FALLBACK, _backend_special
+from galpy.backend.special._router import (
+    _NATIVE_MISSING,
+    _NATIVE_UNRELIABLE,
+    _backend_special,
+)
 
 pytestmark = pytest.mark.backend_managed
 
@@ -121,20 +125,135 @@ def test_unary_grad_vs_fd(backend, name, fn, sp_fn, pts):
 
 
 def test_fallback_table_matches_installed_backends():
-    # _NEEDS_FALLBACK must list exactly the Tier-1 functions the backend lacks.
-    tier1 = ["gammaln", "gamma", "gammainc", "gammaincc", "erf", "erfc", "i0", "i1"]
+    # _NATIVE_MISSING must list exactly the functions the backend's special
+    # module lacks (hasattr); the UNRELIABLE set is the opposite (must be
+    # present, else there is nothing to override).
+    tier12 = [
+        "gammaln", "gamma", "gammainc", "gammaincc", "erf", "erfc", "i0", "i1",
+        "hyp2f1", "hyp1f1", "ellipk", "ellipe",
+    ]  # fmt: skip
     for backend in AD_BACKENDS:
         xp = _asarray(backend, 1.0)
         from galpy.backend import get_namespace
 
         _name, sp = _backend_special(get_namespace(xp))
-        for fn in tier1:
-            listed = fn in _NEEDS_FALLBACK.get(backend, frozenset())
+        for fn in tier12:
+            missing = fn in _NATIVE_MISSING.get(backend, frozenset())
             native = hasattr(sp, fn)
-            assert listed == (not native), (
-                f"{backend}: {fn} native={native} but listed-as-fallback={listed}; "
-                f"update _NEEDS_FALLBACK"
+            assert missing == (not native), (
+                f"{backend}: {fn} native={native} but listed-as-missing={missing}; "
+                f"update _NATIVE_MISSING"
             )
+        for fn in _NATIVE_UNRELIABLE.get(backend, frozenset()):
+            assert hasattr(sp, fn), (
+                f"{backend}: {fn} is listed UNRELIABLE but absent natively; it "
+                f"belongs in _NATIVE_MISSING instead"
+            )
+
+
+# --- Tier 2: hyp2f1 / hyp1f1 / ellipk / ellipe --------------------------------
+# galpy's 2F1 calls (forces use c=a+1; the beta!=3 eval uses c=a+2), z = -w <= 0.
+_HYP2F1_CASES = [
+    (2.0, 2.0, 3.0),  # NFW-like force (alpha=1, beta=3): 2F1(3-a, b-a, 4-a)
+    (2.0, 3.0, 3.0),  # Hernquist-like (alpha=1, beta=4)
+    (1.0, 2.0, 2.0),  # Jaffe-like (alpha=2, beta=4)
+    (1.5, 2.0, 2.5),  # Dehnen alpha=1.5, beta=3.5
+    (0.5, 1.0, 1.5),  # PowerSpherical _surfdens 2F1(0.5, alpha/2, 1.5)
+    (1.0, 3.0, 3.0),  # beta!=3 eval, c=a+2 (beta=4): 2F1(beta-3, beta-alpha, beta-1)
+]
+# realistic radii r/a <~ 50 -- the fallback quadrature is ~1e-10 here
+_HYP2F1_W = numpy.array([0.0, 1e-3, 0.05, 0.5, 0.9, 1.0, 1.7, 5.0, 12.0, 25.0, 50.0])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("a,b,c", _HYP2F1_CASES, ids=[str(x) for x in _HYP2F1_CASES])
+def test_hyp2f1_value_parity(backend, a, b, c):
+    z = -_HYP2F1_W
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = _tonumpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    rtol = 0.0 if backend == "numpy" else 1e-9  # fallback quadrature at r/a<~50
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize("a,b,c", _HYP2F1_CASES, ids=[str(x) for x in _HYP2F1_CASES])
+def test_hyp2f1_extreme_z_bounded_error(backend, a, b, c):
+    # Far beyond realistic radii (r/a up to 500) the fixed-order quadrature
+    # degrades gracefully -- still ~1e-5, never diverges (unlike jax native).
+    z = -numpy.array([100.0, 250.0, 500.0])
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = _tonumpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-4, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_hyp1f1_value_parity(backend):
+    for alpha in [0.0, 1.0, 1.8, 2.5]:
+        a, b = 1.5 - alpha / 2.0, 2.5 - alpha / 2.0
+        X = numpy.array([0.0, 1e-3, 0.1, 1.0, 4.0, 16.0, 64.0, 256.0])
+        ref = scipy_special.hyp1f1(a, b, -X)
+        got = _tonumpy(gsp.hyp1f1(a, b, _asarray(backend, -X)))
+        rtol = 0.0 if backend == "numpy" else 1e-9  # b=a+1 -> exact via gammainc
+        numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_elliptic_value_parity(backend):
+    m = numpy.array([0.0, 0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 0.99, 0.999])
+    for fn, sp_fn in [
+        (gsp.ellipk, scipy_special.ellipk),
+        (gsp.ellipe, scipy_special.ellipe),
+    ]:
+        ref = sp_fn(m)
+        got = _tonumpy(fn(_asarray(backend, m)))
+        rtol = 0.0 if backend == "numpy" else 1e-12  # AGM is ~1e-15
+        numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_tier2_grad_vs_fd(backend):
+    # differentiate each Tier-2 fn at a smooth interior point vs central FD
+    eps = 1e-6
+    specs = [
+        ("hyp2f1", lambda zz: gsp.hyp2f1(2.0, 2.0, 3.0, zz),
+         lambda x: scipy_special.hyp2f1(2.0, 2.0, 3.0, x), -3.0),
+        ("hyp1f1", lambda zz: gsp.hyp1f1(1.5, 2.5, zz),
+         lambda x: scipy_special.hyp1f1(1.5, 2.5, x), -2.0),
+        ("ellipk", lambda mm: gsp.ellipk(mm), scipy_special.ellipk, 0.4),
+        ("ellipe", lambda mm: gsp.ellipe(mm), scipy_special.ellipe, 0.4),
+    ]  # fmt: skip
+    for name, fn, sp_fn, x0 in specs:
+        fd = (float(sp_fn(x0 + eps)) - float(sp_fn(x0 - eps))) / (2 * eps)
+        if backend == "jax":
+            ad = float(jax.grad(lambda x: fn(x))(jnp.asarray(x0)))
+        else:
+            xt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+            fn(xt).backward()
+            ad = float(xt.grad)
+        assert not numpy.isnan(ad), f"NaN grad for {name} ({backend})"
+        numpy.testing.assert_allclose(
+            ad, fd, rtol=1e-5, err_msg=f"{name} grad ({backend})"
+        )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_jax_native_hyp2f1_hyp1f1_are_unreliable():
+    # Tripwire / justification for _NATIVE_UNRELIABLE: jax's native hyp2f1 and
+    # hyp1f1 are catastrophically wrong for z < -1 (galpy's regime). If this
+    # ever starts PASSING (jax fixed them), move them to native in the router.
+    import jax.scipy.special as jsp
+
+    z = jnp.asarray(-50.0)
+    bad2 = float(jsp.hyp2f1(2.0, 2.0, 3.0, z))
+    ref2 = float(scipy_special.hyp2f1(2.0, 2.0, 3.0, -50.0))
+    bad1 = float(jsp.hyp1f1(1.5, 2.5, jnp.asarray(-64.0)))
+    ref1 = float(scipy_special.hyp1f1(1.5, 2.5, -64.0))
+    assert not numpy.isfinite(bad2) or abs(bad2 - ref2) > 1e-3 * abs(ref2), (
+        "jax native hyp2f1 now accurate for z<-1; route it natively in the router"
+    )
+    assert abs(bad1 - ref1) > 1e-3 * abs(ref1), (
+        "jax native hyp1f1 now accurate for z<-1; route it natively in the router"
+    )
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
