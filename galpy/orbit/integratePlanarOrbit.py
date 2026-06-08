@@ -715,7 +715,10 @@ def _parse_scf_pot(p, extra_amp=1.0):
     pot_args.extend(extra_amp * p._amp * p._Acos.flatten(order="C"))
     if isNonAxi:
         pot_args.extend(extra_amp * p._amp * p._Asin.flatten(order="C"))
-    pot_args.extend([-1.0, 0, 0, 0, 0, 0, 0])
+    # Cache slots: cached_type(1) + cached_coords(3) + cached_values(6). Six
+    # value slots so the full 3D Hessian (R2/z2/Rz/phi2/Rphi/zphi deriv) can be
+    # cached in one go, as well as the 3-component force/2nd-deriv results.
+    pot_args.extend([-1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     return (24, pot_args, [])  # latter is pot_tfuncs
 
 

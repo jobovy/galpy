@@ -601,6 +601,8 @@ void cyl_to_spher(double R, double Z, double *r, double *theta);
 int legendre_index(int l, int m, int L);
 void compute_legendre(double x, int L, int M, double *P);
 void compute_legendre_deriv(double x, int L, int M, double *P, double *dP);
+void legendre_theta_from_x(double theta, int L, int M, double *P, double *dPdx,
+			   double *dPth, double *d2Pth);
 //SCFPotential
 void initSCFPotentialArgs(struct potentialArg *);
 double SCFPotentialEval(double,double,double,double,
@@ -622,6 +624,18 @@ double SCFPotentialPlanarphi2deriv(double,double,double,
 				        struct potentialArg *);
 double SCFPotentialPlanarRphideriv(double,double,double,
 				        struct potentialArg *);
+double SCFPotentialR2deriv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialz2deriv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialRzderiv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialphi2deriv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialRphideriv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialzphideriv(double,double,double,double,
+			struct potentialArg *);
 double SCFPotentialDens(double,double,double,double,
 			struct potentialArg *);
 //SoftenedNeedleBarPotential
@@ -1030,6 +1044,18 @@ double MultipoleExpansionPotentialPlanarphi2deriv(double,double,double,
 						  struct potentialArg *);
 double MultipoleExpansionPotentialPlanarRphideriv(double,double,double,
 						  struct potentialArg *);
+double MultipoleExpansionPotentialR2deriv(double,double,double,double,
+					  struct potentialArg *);
+double MultipoleExpansionPotentialz2deriv(double,double,double,double,
+					  struct potentialArg *);
+double MultipoleExpansionPotentialRzderiv(double,double,double,double,
+					  struct potentialArg *);
+double MultipoleExpansionPotentialphi2deriv(double,double,double,double,
+					    struct potentialArg *);
+double MultipoleExpansionPotentialRphideriv(double,double,double,double,
+					    struct potentialArg *);
+double MultipoleExpansionPotentialzphideriv(double,double,double,double,
+					    struct potentialArg *);
 
 #ifdef __cplusplus
 }
