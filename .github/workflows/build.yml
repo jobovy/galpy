@@ -294,10 +294,14 @@ jobs:
         pip install --upgrade --force-reinstall setuptools
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
-      run: pip install jax jaxlib array-api-compat
+      # diffrax: backend ODE integrator (jax) used by the test_backend_inbackend_ode
+      # tests, so galpy.backend._reference/_jax is exercised and covered.
+      run: pip install jax jaxlib array-api-compat diffrax
     - name: Install PyTorch (CPU)
       if: ${{ matrix.REQUIRES_TORCH }}
-      run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      run: |
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
+        pip install torchdiffeq  # backend ODE integrator (torch); covers galpy.backend._torch
     - name: Install torus code
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
