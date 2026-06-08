@@ -493,6 +493,12 @@ double PseudoIsothermalPotentialzforce(double,double,double,double,
 				       struct potentialArg *);
 double PseudoIsothermalPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
+double PseudoIsothermalPotentialR2deriv(double,double,double,double,
+					struct potentialArg *);
+double PseudoIsothermalPotentialz2deriv(double,double,double,double,
+					struct potentialArg *);
+double PseudoIsothermalPotentialRzderiv(double,double,double,double,
+					struct potentialArg *);
 double PseudoIsothermalPotentialDens(double,double,double,double,
 				     struct potentialArg *);
 //BurkertPotential
@@ -739,6 +745,12 @@ double SphericalPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double SphericalPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double SphericalPotentialR2deriv(double,double,double,double,
+				 struct potentialArg *);
+double SphericalPotentialz2deriv(double,double,double,double,
+				 struct potentialArg *);
+double SphericalPotentialRzderiv(double,double,double,double,
+				 struct potentialArg *);
 double SphericalPotentialDens(double,double,double,double,
 			      struct potentialArg *);
 //interpSphericalPotential: uses SphericalPotential, only need revaluate, rforce, r2deriv
@@ -941,6 +953,12 @@ double TwoPowerSphericalPotentialPlanarRforce(double,double,double,
 						struct potentialArg *);
 double TwoPowerSphericalPotentialPlanarR2deriv(double,double,double,
 						struct potentialArg *);
+double TwoPowerSphericalPotentialR2deriv(double,double,double,double,
+					 struct potentialArg *);
+double TwoPowerSphericalPotentialz2deriv(double,double,double,double,
+					 struct potentialArg *);
+double TwoPowerSphericalPotentialRzderiv(double,double,double,double,
+					 struct potentialArg *);
 double TwoPowerSphericalPotentialDens(double,double,double,double,
 				      struct potentialArg *);
 //CylindricallySep
