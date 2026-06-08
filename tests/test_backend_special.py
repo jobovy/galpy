@@ -277,3 +277,52 @@ def test_gamma_fallback_agrees_and_no_nan_grad(backend):
         ad = float(xt.grad)
     assert not numpy.isnan(ad)
     numpy.testing.assert_allclose(ad, fd, rtol=1e-4)
+
+
+# --- Direct fallback-implementation tests (paths the router rarely reaches) ----
+def _ns(backend):
+    from galpy.backend import get_namespace
+
+    return get_namespace(_asarray(backend, 1.0))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_xlogy_fallback_direct(backend):
+    # xlogy is native on every backend, so the router never reaches the fallback;
+    # exercise (and validate vs scipy) the pure-backend implementation directly,
+    # including the 0*log(0)=0 convention.
+    from galpy.backend.special._fallback.xlogy import xlogy_fallback
+
+    x = numpy.array([0.0, 0.0, 1.0, 2.5, 0.3])
+    y = numpy.array([0.0, 5.0, 2.0, 0.7, 10.0])
+    ref = scipy_special.xlogy(x, y)
+    got = _tonumpy(
+        xlogy_fallback(_ns(backend), _asarray(backend, x), _asarray(backend, y))
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_fallback_alt_labeling(backend):
+    # 2F1 case whose accurate Euler labeling comes from b (c-a < 1 <= c-b), i.e.
+    # the second branch of _euler_labeling -- not exercised by galpy's calls
+    # (which always satisfy c-a >= 1). jax/torch route through the fallback here.
+    a, b, c = 2.0, 0.8, 2.5  # c-a=0.5 (<1), c-b=1.7 (>=1) -> labeling picks b
+    z = -numpy.array([0.0, 0.1, 1.0, 5.0, 30.0])
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = _tonumpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+
+
+def test_fallback_unsupported_regimes_raise():
+    # The fallbacks raise (rather than silently return a low-accuracy value)
+    # outside the regime galpy needs and they are accurate in.
+    from galpy.backend.special._fallback.hyp1f1 import hyp1f1_fallback
+    from galpy.backend.special._fallback.hyp2f1 import _euler_labeling
+
+    # 2F1 with c - max(a,b) < 1 (both endpoints awkward): unsupported
+    with pytest.raises(NotImplementedError):
+        _euler_labeling(2.0, 2.0, 2.5)  # c-a=c-b=0.5
+    # 1F1 only implements b = a + 1
+    with pytest.raises(NotImplementedError):
+        hyp1f1_fallback(numpy, 1.0, 3.0, numpy.array([-1.0]))

@@ -32,17 +32,21 @@ _NODES = 128
 
 
 def _euler_labeling(a, b, c):
-    """Pick (B, A) with {A,B}={a,b}, B>0, c-B>0, preferring c-B >= 1."""
+    """Pick (B, A) with {A,B}={a,b}, B>0 and c-B >= 1.
+
+    Requiring c-B >= 1 keeps the (1-t)^{c-B-1} endpoint non-singular so the
+    fixed-order quadrature stays accurate; galpy's 2F1 calls always satisfy
+    this (c-a is 1 or 2). A configuration with c-max(a,b) < 1 would need the
+    t=1 endpoint regularized too, so it raises rather than return a
+    low-accuracy value.
+    """
     if a > 0 and (c - a) >= 1.0:
         return a, b
     if b > 0 and (c - b) >= 1.0:
         return b, a
-    if a > 0 and (c - a) > 0:
-        return a, b
-    if b > 0 and (c - b) > 0:
-        return b, a
-    raise ValueError(
-        f"hyp2f1 fallback has no valid Euler labeling for (a={a}, b={b}, c={c})"
+    raise NotImplementedError(
+        f"hyp2f1 fallback requires c - max(a, b) >= 1 (galpy's regime); "
+        f"got (a={a}, b={b}, c={c})"
     )
 
 

@@ -153,15 +153,10 @@ def ellipe(m):
 
 
 def xlogy(x, y):
-    # x * log(y), with the scipy/native convention 0 * log(0) = 0. Native
-    # everywhere, but the trivial backend-agnostic form is also a valid fallback.
-    def _fb(xp, x, y):
-        x = xp.asarray(x)
-        y = xp.asarray(y)
-        safe_y = xp.where(x == 0, xp.ones_like(y), y)
-        return xp.where(x == 0, xp.zeros_like(x * 1.0), x * xp.log(safe_y))
+    # x * log(y), with the scipy/native convention 0 * log(0) = 0.
+    from ._fallback.xlogy import xlogy_fallback
 
-    return _dispatch("xlogy", (x, y), _fb)
+    return _dispatch("xlogy", (x, y), xlogy_fallback)
 
 
 # Silence "imported but unused" for numpy (kept for potential defensive use).
