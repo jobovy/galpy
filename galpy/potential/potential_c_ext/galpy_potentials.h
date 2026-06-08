@@ -846,6 +846,56 @@ double DehnenSmoothWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double DehnenSmoothWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+// 3D Hessian (variational eqns) for the amplitude/solid-body wrappers
+double DehnenSmoothWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
+
 //SolidBodyRotationWrapperPotential
 double SolidBodyRotationWrapperPotentialRforce(double,double,double,double,
 					struct potentialArg *);

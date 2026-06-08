@@ -4,6 +4,7 @@
 #                                         the z axis
 ###############################################################################
 from ..util import conversion
+from .Potential import _check_c
 from .WrapperPotential import parentWrapperPotential
 
 
@@ -47,6 +48,9 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
         self._pa = pa
         self.hasC = True
         self.hasC_dxdv = True
+        # 3D variational integration works iff the wrapped potential's full 3D
+        # Hessian is in C (else the C aggregators would silently return 0).
+        self.hasC_dxdv3d = _check_c(self._pot, dxdv3d=True)
 
     def OmegaP(self):
         return self._omega
