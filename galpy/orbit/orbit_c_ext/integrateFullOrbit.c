@@ -305,7 +305,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &PseudoIsothermalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PseudoIsothermalPotentialDens;
-      //potentialArgs->R2deriv= &PseudoIsothermalPotentialR2deriv;
+      potentialArgs->R2deriv= &PseudoIsothermalPotentialR2deriv;
+      potentialArgs->z2deriv= &PseudoIsothermalPotentialz2deriv;
+      potentialArgs->Rzderiv= &PseudoIsothermalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -507,6 +510,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &SphericalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &SphericalPotentialDens;
+      potentialArgs->R2deriv= &SphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &SphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &SphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       // Also assign functions specific to SphericalPotential
       potentialArgs->revaluate= &interpSphericalPotentialrevaluate;
       potentialArgs->rforce= &interpSphericalPotentialrforce;
@@ -595,6 +602,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &SphericalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &SphericalPotentialDens;
+      potentialArgs->R2deriv= &SphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &SphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &SphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       // Also assign functions specific to SphericalPotential
       potentialArgs->revaluate= &EinastoPotentialrevaluate;
       potentialArgs->rforce= &EinastoPotentialrforce;
@@ -610,6 +621,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &TwoPowerSphericalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &TwoPowerSphericalPotentialDens;
+      potentialArgs->R2deriv= &TwoPowerSphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &TwoPowerSphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &TwoPowerSphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 4;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
