@@ -92,6 +92,9 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned
+        # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
+        # (aligned frame only)
+        self.hasC_dxdv3d = self.hasC_dxdv
         self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 

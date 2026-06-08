@@ -147,6 +147,72 @@ def pytest_generate_tests(metafunc):
                 "LogarithmicHaloPotential_axi",
                 "axisymmetric",
             ),
+            # EllipsoidalPotential family: full 3D C Hessian via the Gauss-Legendre
+            # angle integral over the ellipsoidal density. An oblate (b==1) instance
+            # exercises the axisymmetric path; the triaxial (b!=1) instances exercise
+            # the genuine non-axisymmetric path (nonzero zphideriv along the orbit).
+            (
+                potential.PerfectEllipsoidPotential(
+                    amp=1.0, a=1.0, b=1.0, c=0.7, normalize=True
+                ),
+                "PerfectEllipsoidPotential_oblate",
+                "axisymmetric",
+            ),
+            (
+                potential.PerfectEllipsoidPotential(
+                    amp=1.0, a=1.0, b=0.8, c=0.6, normalize=True
+                ),
+                "PerfectEllipsoidPotential_triaxial",
+                "nonaxisymmetric",
+            ),
+            (
+                potential.TriaxialNFWPotential(
+                    amp=1.0, a=2.0, b=0.8, c=0.6, normalize=True
+                ),
+                "TriaxialNFWPotential",
+                "nonaxisymmetric",
+            ),
+            (
+                potential.TriaxialHernquistPotential(
+                    amp=1.0, a=1.5, b=0.9, c=0.6, normalize=True
+                ),
+                "TriaxialHernquistPotential",
+                "nonaxisymmetric",
+            ),
+            (
+                # larger scale radius a keeps the fixed IC away from the steep
+                # ~1/m central cusp, where the pure-Python odeint reference
+                # integrator's finite-difference-of-flow check is otherwise noisy
+                # (an integrator/FD-accuracy effect, not a Hessian error: the C
+                # Hessian matches Python to ~1e-10 regardless, see
+                # test_dxdv_3d_c_vs_python)
+                potential.TriaxialJaffePotential(
+                    amp=1.0, a=5.0, b=0.9, c=0.6, normalize=True
+                ),
+                "TriaxialJaffePotential",
+                "nonaxisymmetric",
+            ),
+            (
+                potential.TwoPowerTriaxialPotential(
+                    amp=1.0, a=1.5, alpha=1.0, beta=4.0, b=0.8, c=0.6, normalize=True
+                ),
+                "TwoPowerTriaxialPotential",
+                "nonaxisymmetric",
+            ),
+            (
+                potential.TriaxialGaussianPotential(
+                    amp=1.0, sigma=1.0, b=0.8, c=0.6, normalize=True
+                ),
+                "TriaxialGaussianPotential",
+                "nonaxisymmetric",
+            ),
+            (
+                potential.PowerTriaxialPotential(
+                    amp=1.0, alpha=1.0, r1=1.0, b=0.8, c=0.6, normalize=True
+                ),
+                "PowerTriaxialPotential",
+                "nonaxisymmetric",
+            ),
         ]
         ids = [entry[1] for entry in liouville3d_registry]
         if metafunc.function.__name__ == "test_dxdv_3d_c_vs_python":
