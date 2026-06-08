@@ -6,8 +6,11 @@
 #
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
 ###############################################################################
+import math
+
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -116,128 +119,60 @@ class SpiralArmsPotential(Potential):
         self.hasC_dxdv = True  # Potential has C implementation of second derivatives
 
     def _evaluate(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
 
         return (
             -self._H
-            * numpy.exp(-(R - self._r_ref) / self._Rs)
-            * numpy.sum(
-                self._Cs
+            * xp.exp(-(R - self._r_ref) / self._Rs)
+            * xp.sum(
+                Cs
                 / Ks
                 / Ds
-                * numpy.cos(self._ns * self._gamma(R, phi - self._omega * t))
-                / numpy.cosh(Ks * z / Bs) ** Bs,
+                * xp.cos(ns * self._gamma(R, phi - self._omega * t))
+                / xp.cosh(Ks * z / Bs) ** Bs,
                 axis=0,
             )
         )
 
     def _Rforce(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
-        He = self._H * numpy.exp(-(R - self._r_ref) / self._Rs)
+        He = self._H * xp.exp(-(R - self._r_ref) / self._Rs)
 
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
 
-        dKs_dR = self._dK_dR(R)
-        dBs_dR = self._dB_dR(R)
-        dDs_dR = self._dD_dR(R)
+        dKs_dR = self._dK_dR(R, ns)
+        dBs_dR = self._dB_dR(R, HNn)
+        dDs_dR = self._dD_dR(R, HNn)
 
         g = self._gamma(R, phi - self._omega * t)
         dg_dR = self._dgamma_dR(R)
 
-        cos_ng = numpy.cos(self._ns * g)
-        sin_ng = numpy.sin(self._ns * g)
+        cos_ng = xp.cos(ns * g)
+        sin_ng = xp.sin(ns * g)
 
         zKB = z * Ks / Bs
-        sechzKB = 1 / numpy.cosh(zKB)
+        sechzKB = 1 / xp.cosh(zKB)
 
-        return -He * numpy.sum(
-            self._Cs
+        return -He * xp.sum(
+            Cs
             * sechzKB**Bs
             / Ds
             * (
                 (
-                    self._ns * dg_dR / Ks * sin_ng
+                    ns * dg_dR / Ks * sin_ng
                     + cos_ng
                     * (
-                        z * numpy.tanh(zKB) * (dKs_dR / Ks - dBs_dR / Bs)
-                        - dBs_dR / Ks * numpy.log(sechzKB)
+                        z * xp.tanh(zKB) * (dKs_dR / Ks - dBs_dR / Bs)
+                        - dBs_dR / Ks * xp.log(sechzKB)
                         + dKs_dR / Ks**2
                         + dDs_dR / Ds / Ks
                     )
@@ -248,187 +183,85 @@ class SpiralArmsPotential(Potential):
         )
 
     def _zforce(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
         zK_B = z * Ks / Bs
 
         return (
             -self._H
-            * numpy.exp(-(R - self._r_ref) / self._Rs)
-            * numpy.sum(
-                self._Cs
+            * xp.exp(-(R - self._r_ref) / self._Rs)
+            * xp.sum(
+                Cs
                 / Ds
-                * numpy.cos(self._ns * self._gamma(R, phi - self._omega * t))
-                * numpy.tanh(zK_B)
-                / numpy.cosh(zK_B) ** Bs,
+                * xp.cos(ns * self._gamma(R, phi - self._omega * t))
+                * xp.tanh(zK_B)
+                / xp.cosh(zK_B) ** Bs,
                 axis=0,
             )
         )
 
     def _phitorque(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
         g = self._gamma(R, phi - self._omega * t)
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
 
         return (
             -self._H
-            * numpy.exp(-(R - self._r_ref) / self._Rs)
-            * numpy.sum(
+            * xp.exp(-(R - self._r_ref) / self._Rs)
+            * xp.sum(
                 self._N
-                * self._ns
-                * self._Cs
+                * ns
+                * Cs
                 / Ds
                 / Ks
-                / numpy.cosh(z * Ks / Bs) ** Bs
-                * numpy.sin(self._ns * g),
+                / xp.cosh(z * Ks / Bs) ** Bs
+                * xp.sin(ns * g),
                 axis=0,
             )
         )
 
     def _R2deriv(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
         Rs = self._Rs
-        He = self._H * numpy.exp(-(R - self._r_ref) / self._Rs)
+        He = self._H * xp.exp(-(R - self._r_ref) / self._Rs)
 
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
 
-        dKs_dR = self._dK_dR(R)
-        dBs_dR = self._dB_dR(R)
-        dDs_dR = self._dD_dR(R)
+        dKs_dR = self._dK_dR(R, ns)
+        dBs_dR = self._dB_dR(R, HNn)
+        dDs_dR = self._dD_dR(R, HNn)
 
         R_sina = R * self._sin_alpha
-        HNn_R_sina = self._HNn / R_sina
+        HNn_R_sina = HNn / R_sina
         HNn_R_sina_2 = HNn_R_sina**2
         x = R * (0.3 * HNn_R_sina + 1) * self._sin_alpha
 
-        d2Ks_dR2 = 2 * self._N * self._ns / R**3 / self._sin_alpha
+        d2Ks_dR2 = 2 * self._N * ns / R**3 / self._sin_alpha
         d2Bs_dR2 = HNn_R_sina / R**2 * (2.4 * HNn_R_sina + 2)
         d2Ds_dR2 = (
             self._sin_alpha
             / R
             / x
             * (
-                self._HNn
+                HNn
                 * (
-                    0.18 * self._HNn * (HNn_R_sina + 0.3 * HNn_R_sina_2 + 1) / x**2
+                    0.18 * HNn * (HNn_R_sina + 0.3 * HNn_R_sina_2 + 1) / x**2
                     + 2 / R_sina
                     - 0.6 * HNn_R_sina * (1 + 0.6 * HNn_R_sina) / x
                     - 0.6 * (HNn_R_sina + 0.3 * HNn_R_sina_2 + 1) / x
-                    + 1.8 * self._HNn / R_sina**2
+                    + 1.8 * HNn / R_sina**2
                 )
             )
         )
@@ -437,27 +270,27 @@ class SpiralArmsPotential(Potential):
         dg_dR = self._dgamma_dR(R)
         d2g_dR2 = self._N / R**2 / self._tan_alpha
 
-        sin_ng = numpy.sin(self._ns * g)
-        cos_ng = numpy.cos(self._ns * g)
+        sin_ng = xp.sin(ns * g)
+        cos_ng = xp.cos(ns * g)
 
         zKB = z * Ks / Bs
-        sechzKB = 1 / numpy.cosh(zKB)
+        sechzKB = 1 / xp.cosh(zKB)
         sechzKB_Bs = sechzKB**Bs
-        log_sechzKB = numpy.log(sechzKB)
-        tanhzKB = numpy.tanh(zKB)
+        log_sechzKB = xp.log(sechzKB)
+        tanhzKB = xp.tanh(zKB)
         ztanhzKB = z * tanhzKB
 
         return (
             -He
             / Rs
             * (
-                numpy.sum(
-                    self._Cs
+                xp.sum(
+                    Cs
                     * sechzKB_Bs
                     / Ds
                     * (
                         (
-                            self._ns * dg_dR / Ks * sin_ng
+                            ns * dg_dR / Ks * sin_ng
                             + cos_ng
                             * (
                                 ztanhzKB * (dKs_dR / Ks - dBs_dR / Bs)
@@ -479,7 +312,7 @@ class SpiralArmsPotential(Potential):
                                     - dDs_dR / Ds
                                 )
                                 * (
-                                    self._ns * dg_dR * sin_ng
+                                    ns * dg_dR * sin_ng
                                     + cos_ng
                                     * (
                                         ztanhzKB * Ks * (dKs_dR / Ks - dBs_dR / Bs)
@@ -489,15 +322,15 @@ class SpiralArmsPotential(Potential):
                                     )
                                 )
                                 + (
-                                    self._ns
+                                    ns
                                     * (
                                         sin_ng * (d2g_dR2 / Ks - dg_dR / Ks**2 * dKs_dR)
-                                        + dg_dR**2 / Ks * cos_ng * self._ns
+                                        + dg_dR**2 / Ks * cos_ng * ns
                                     )
                                     + z
                                     * (
                                         -sin_ng
-                                        * self._ns
+                                        * ns
                                         * dg_dR
                                         * tanhzKB
                                         * (dKs_dR / Ks - dBs_dR / Bs)
@@ -530,14 +363,14 @@ class SpiralArmsPotential(Potential):
                                         / Ks
                                         * log_sechzKB
                                         * sin_ng
-                                        * self._ns
+                                        * ns
                                         * dg_dR
                                     )
                                     + (
                                         (
                                             cos_ng
                                             * (d2Ks_dR2 / Ks**2 - 2 * dKs_dR**2 / Ks**3)
-                                            - dKs_dR / Ks**2 * sin_ng * self._ns * dg_dR
+                                            - dKs_dR / Ks**2 * sin_ng * ns * dg_dR
                                         )
                                         + (
                                             cos_ng
@@ -546,12 +379,7 @@ class SpiralArmsPotential(Potential):
                                                 - (dDs_dR / Ds) ** 2 / Ks
                                                 - dDs_dR / Ds / Ks**2 * dKs_dR
                                             )
-                                            - sin_ng
-                                            * self._ns
-                                            * dg_dR
-                                            * dDs_dR
-                                            / Ds
-                                            / Ks
+                                            - sin_ng * ns * dg_dR * dDs_dR / Ds / Ks
                                         )
                                     )
                                 )
@@ -569,7 +397,7 @@ class SpiralArmsPotential(Potential):
                                             + log_sechzKB * dBs_dR
                                         )
                                     )
-                                    + sin_ng * self._ns * dg_dR
+                                    + sin_ng * ns * dg_dR
                                 )
                             )
                         )
@@ -580,192 +408,90 @@ class SpiralArmsPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
         g = self._gamma(R, phi - self._omega * t)
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
         zKB = z * Ks / Bs
-        tanh2_zKB = numpy.tanh(zKB) ** 2
+        tanh2_zKB = xp.tanh(zKB) ** 2
 
         return (
             -self._H
-            * numpy.exp(-(R - self._r_ref) / self._Rs)
-            * numpy.sum(
-                self._Cs
+            * xp.exp(-(R - self._r_ref) / self._Rs)
+            * xp.sum(
+                Cs
                 * Ks
                 / Ds
                 * ((tanh2_zKB - 1) / Bs + tanh2_zKB)
-                * numpy.cos(self._ns * g)
-                / numpy.cosh(zKB) ** Bs,
+                * xp.cos(ns * g)
+                / xp.cosh(zKB) ** Bs,
                 axis=0,
             )
         )
 
     def _phi2deriv(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
         g = self._gamma(R, phi - self._omega * t)
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
 
         return (
             self._H
-            * numpy.exp(-(R - self._r_ref) / self._Rs)
-            * numpy.sum(
-                self._Cs
+            * xp.exp(-(R - self._r_ref) / self._Rs)
+            * xp.sum(
+                Cs
                 * self._N**2.0
-                * self._ns**2.0
+                * ns**2.0
                 / Ds
                 / Ks
-                / numpy.cosh(z * Ks / Bs) ** Bs
-                * numpy.cos(self._ns * g),
+                / xp.cosh(z * Ks / Bs) ** Bs
+                * xp.cos(ns * g),
                 axis=0,
             )
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
         Rs = self._Rs
-        He = self._H * numpy.exp(-(R - self._r_ref) / self._Rs)
+        He = self._H * xp.exp(-(R - self._r_ref) / self._Rs)
 
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
 
-        dKs_dR = self._dK_dR(R)
-        dBs_dR = self._dB_dR(R)
-        dDs_dR = self._dD_dR(R)
+        dKs_dR = self._dK_dR(R, ns)
+        dBs_dR = self._dB_dR(R, HNn)
+        dDs_dR = self._dD_dR(R, HNn)
 
         g = self._gamma(R, phi - self._omega * t)
         dg_dR = self._dgamma_dR(R)
 
-        cos_ng = numpy.cos(self._ns * g)
-        sin_ng = numpy.sin(self._ns * g)
+        cos_ng = xp.cos(ns * g)
+        sin_ng = xp.sin(ns * g)
 
         zKB = z * Ks / Bs
-        sechzKB = 1 / numpy.cosh(zKB)
+        sechzKB = 1 / xp.cosh(zKB)
         sechzKB_Bs = sechzKB**Bs
-        log_sechzKB = numpy.log(sechzKB)
-        tanhzKB = numpy.tanh(zKB)
+        log_sechzKB = xp.log(sechzKB)
+        tanhzKB = xp.tanh(zKB)
 
-        return -He * numpy.sum(
+        return -He * xp.sum(
             sechzKB_Bs
-            * self._Cs
+            * Cs
             / Ds
             * (
                 Ks
                 * tanhzKB
                 * (
-                    self._ns * dg_dR / Ks * sin_ng
+                    ns * dg_dR / Ks * sin_ng
                     + cos_ng
                     * (
                         z * tanhzKB * (dKs_dR / Ks - dBs_dR / Bs)
@@ -788,77 +514,43 @@ class SpiralArmsPotential(Potential):
         )
 
     def _Rphideriv(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
-        He = self._H * numpy.exp(-(R - self._r_ref) / self._Rs)
+        He = self._H * xp.exp(-(R - self._r_ref) / self._Rs)
 
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
 
-        dKs_dR = self._dK_dR(R)
-        dBs_dR = self._dB_dR(R)
-        dDs_dR = self._dD_dR(R)
+        dKs_dR = self._dK_dR(R, ns)
+        dBs_dR = self._dB_dR(R, HNn)
+        dDs_dR = self._dD_dR(R, HNn)
 
         g = self._gamma(R, phi - self._omega * t)
         dg_dR = self._dgamma_dR(R)
 
-        cos_ng = numpy.cos(self._ns * g)
-        sin_ng = numpy.sin(self._ns * g)
+        cos_ng = xp.cos(ns * g)
+        sin_ng = xp.sin(ns * g)
         zKB = z * Ks / Bs
-        sechzKB = 1 / numpy.cosh(zKB)
+        sechzKB = 1 / xp.cosh(zKB)
         sechzKB_Bs = sechzKB**Bs
 
-        return -He * numpy.sum(
-            self._Cs
+        return -He * xp.sum(
+            Cs
             * sechzKB_Bs
             / Ds
-            * self._ns
+            * ns
             * self._N
             * (
-                -self._ns * dg_dR / Ks * cos_ng
+                -ns * dg_dR / Ks * cos_ng
                 + sin_ng
                 * (
-                    z * numpy.tanh(zKB) * (dKs_dR / Ks - dBs_dR / Bs)
+                    z * xp.tanh(zKB) * (dKs_dR / Ks - dBs_dR / Bs)
                     + 1
                     / Ks
                     * (
-                        -dBs_dR * numpy.log(sechzKB)
+                        -dBs_dR * xp.log(sechzKB)
                         + dKs_dR / Ks
                         + dDs_dR / Ds
                         + 1 / self._Rs
@@ -869,112 +561,44 @@ class SpiralArmsPotential(Potential):
         )
 
     def _phizderiv(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
         zK_B = z * Ks / Bs
 
         return (
             -self._H
-            * numpy.exp(-(R - self._r_ref) / self._Rs)
-            * numpy.sum(
-                self._Cs
+            * xp.exp(-(R - self._r_ref) / self._Rs)
+            * xp.sum(
+                Cs
                 / Ds
-                * self._ns
+                * ns
                 * self._N
-                * numpy.sin(self._ns * self._gamma(R, phi - self._omega * t))
-                * numpy.tanh(zK_B)
-                / numpy.cosh(zK_B) ** Bs,
+                * xp.sin(ns * self._gamma(R, phi - self._omega * t))
+                * xp.tanh(zK_B)
+                / xp.cosh(zK_B) ** Bs,
                 axis=0,
             )
         )
 
     def _dens(self, R, z, phi=0, t=0):
-        if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
-            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
-                isinstance(z, numpy.ndarray) and len(z.shape) > 1
-            ):
-                raise ValueError(
-                    "Array R and z with more than one dimension not supported"
-                )
-            nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
-            self._Cs = numpy.transpose(
-                numpy.array(
-                    [
-                        self._Cs0,
-                    ]
-                    * nR
-                )
-            )
-            self._ns = numpy.transpose(
-                numpy.array(
-                    [
-                        self._ns0,
-                    ]
-                    * nR
-                )
-            )
-            self._HNn = numpy.transpose(
-                numpy.array(
-                    [
-                        self._HNn0,
-                    ]
-                    * nR
-                )
-            )
-        else:
-            self._Cs = self._Cs0
-            self._ns = self._ns0
-            self._HNn = self._HNn0
+        xp = get_namespace(R, z, phi)
+        Cs, ns, HNn = self._nvectors(R, z, xp)
 
         g = self._gamma(R, phi - self._omega * t)
 
-        Ks = self._K(R)
-        Bs = self._B(R)
-        Ds = self._D(R)
+        Ks = self._K(R, ns)
+        Bs = self._B(R, HNn)
+        Ds = self._D(R, HNn)
 
-        ng = self._ns * g
+        ng = ns * g
         zKB = z * Ks / Bs
-        sech_zKB = 1 / numpy.cosh(zKB)
-        tanh_zKB = numpy.tanh(zKB)
-        log_sech_zKB = numpy.log(sech_zKB)
+        sech_zKB = 1 / xp.cosh(zKB)
+        tanh_zKB = xp.tanh(zKB)
+        log_sech_zKB = xp.log(sech_zKB)
 
         # numpy of E as defined in the appendix of the paper.
         E = (
@@ -998,16 +622,16 @@ class SpiralArmsPotential(Potential):
             + 1.2 * (Ks * self._H) ** 2 * zKB * tanh_zKB
         )
 
-        return numpy.sum(
-            self._Cs
+        return xp.sum(
+            Cs
             * self._rho0
             * (self._H / (Ds * R))
-            * numpy.exp(-(R - self._r_ref) / self._Rs)
+            * xp.exp(-(R - self._r_ref) / self._Rs)
             * sech_zKB**Bs
             * (
-                numpy.cos(ng)
+                xp.cos(ng)
                 * (Ks * R * (Bs + 1) / Bs * sech_zKB**2 - 1 / Ks / R * (E**2 + rE))
-                - 2 * numpy.sin(ng) * E * numpy.cos(self._alpha)
+                - 2 * xp.sin(ng) * E * math.cos(self._alpha)
             ),
             axis=0,
         )
@@ -1015,48 +639,76 @@ class SpiralArmsPotential(Potential):
     def OmegaP(self):
         return self._omega
 
+    def _nvectors(self, R, z, xp):
+        """Return the (Cs, ns, HNn) summation vectors, in the active namespace and
+        broadcast against the input shape (column vectors for array inputs, 1-D for
+        scalar inputs), so that the per-mode sum (over axis 0) is backend-agnostic
+        and reads no per-instance mutable state (safe under jax/torch tracing)."""
+        ndR = getattr(R, "ndim", 0)
+        ndz = getattr(z, "ndim", 0)
+        if ndR > 1 or ndz > 1:
+            raise ValueError("Array R and z with more than one dimension not supported")
+        Cs = xp.asarray(self._Cs0)
+        ns = xp.asarray(self._ns0)
+        HNn = xp.asarray(self._HNn0)
+        if ndR == 1 or ndz == 1:
+            return (
+                xp.reshape(Cs, (-1, 1)),
+                xp.reshape(ns, (-1, 1)),
+                xp.reshape(HNn, (-1, 1)),
+            )
+        return Cs, ns, HNn
+
     def _gamma(self, R, phi):
         """Return gamma. (eqn 3 in the paper)"""
+        xp = get_namespace(R, phi)
         return self._N * (
-            phi - self._phi_ref - numpy.log(R / self._r_ref) / self._tan_alpha
+            phi - self._phi_ref - xp.log(R / self._r_ref) / self._tan_alpha
         )
 
     def _dgamma_dR(self, R):
         """Return the first derivative of gamma wrt R."""
         return -self._N / R / self._tan_alpha
 
-    def _K(self, R):
+    def _K(self, R, ns=None):
         """Return numpy array from K1 up to and including Kn. (eqn. 5)"""
-        return self._ns * self._N / R / self._sin_alpha
+        if ns is None:
+            ns = self._ns0
+        return ns * self._N / R / self._sin_alpha
 
-    def _dK_dR(self, R):
+    def _dK_dR(self, R, ns=None):
         """Return numpy array of dK/dR from K1 up to and including Kn."""
-        return -self._ns * self._N / R**2 / self._sin_alpha
+        if ns is None:
+            ns = self._ns0
+        return -ns * self._N / R**2 / self._sin_alpha
 
-    def _B(self, R):
+    def _B(self, R, HNn=None):
         """Return numpy array from B1 up to and including Bn. (eqn. 6)"""
-        HNn_R = self._HNn / R
+        if HNn is None:
+            HNn = self._HNn0
+        HNn_R = HNn / R
 
         return HNn_R / self._sin_alpha * (0.4 * HNn_R / self._sin_alpha + 1)
 
-    def _dB_dR(self, R):
+    def _dB_dR(self, R, HNn=None):
         """Return numpy array of dB/dR from B1 up to and including Bn."""
-        return (
-            -self._HNn
-            / R**3
-            / self._sin_alpha**2
-            * (0.8 * self._HNn + R * self._sin_alpha)
+        if HNn is None:
+            HNn = self._HNn0
+        return -HNn / R**3 / self._sin_alpha**2 * (0.8 * HNn + R * self._sin_alpha)
+
+    def _D(self, R, HNn=None):
+        """Return numpy array from D1 up to and including Dn. (eqn. 7)"""
+        if HNn is None:
+            HNn = self._HNn0
+        return (0.3 * HNn**2 / self._sin_alpha / R + HNn + R * self._sin_alpha) / (
+            0.3 * HNn + R * self._sin_alpha
         )
 
-    def _D(self, R):
-        """Return numpy array from D1 up to and including Dn. (eqn. 7)"""
-        return (
-            0.3 * self._HNn**2 / self._sin_alpha / R + self._HNn + R * self._sin_alpha
-        ) / (0.3 * self._HNn + R * self._sin_alpha)
-
-    def _dD_dR(self, R):
+    def _dD_dR(self, R, HNn=None):
         """Return numpy array of dD/dR from D1 up to and including Dn."""
-        HNn_R_sina = self._HNn / R / self._sin_alpha
+        if HNn is None:
+            HNn = self._HNn0
+        HNn_R_sina = HNn / R / self._sin_alpha
 
         return HNn_R_sina * (
             0.3
