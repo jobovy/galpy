@@ -128,8 +128,15 @@ class BurkertPotential(SphericalPotential):
         d2 = R**2.0 - self.a**2.0
         safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
         Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
-        # Edge (R == a) branch
-        za = z / self.a
+        # Edge (R == a) branch. It carries a 1/z that is singular at z == 0;
+        # under the eager xp.where it is evaluated everywhere, so in its DEAD
+        # region (generic, R != a) it must use a finite z or it NaN-poisons
+        # reverse-mode gradients at z == 0 (a valid, finite input where surfdens
+        # == 0). Use the real z on the edge (live) and 1 in the generic region
+        # (dead). At the genuine edge point R == a, z == 0 the limb singularity
+        # is real (kept).
+        z_edge = xp.where(at_edge, z, xp.ones_like(z * 1.0))
+        za = z_edge / self.a
         edge = (
             self.a**2.0
             / 2.0
@@ -139,10 +146,10 @@ class BurkertPotential(SphericalPotential):
                     - 2.0 * xp.sqrt(za**2.0 + 1)
                     + 2.0**0.5 * za * xp.arctan(za / 2.0**0.5)
                 )
-                / z
+                / z_edge
                 + xp.sqrt(2 * za**2.0 + 2.0)
                 * xp.arctanh(za / xp.sqrt(2.0 * (za**2.0 + 1)))
-                / xp.sqrt(self.a**2.0 + z**2.0)
+                / xp.sqrt(self.a**2.0 + z_edge**2.0)
             )
         )
         # Generic (R != a) branch; .real of the complex combination
