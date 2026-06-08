@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .planarPotential import planarPotential
 
@@ -88,36 +89,48 @@ class TransientLogSpiralPotential(planarPotential):
             self._alpha = alpha
         self.hasC = True
 
+    def _envelope(self, t):
+        # Gaussian growth/decay envelope; depends only on t, so its namespace
+        # follows t: a concrete (Python/numpy) t -> numpy.exp (a plain coefficient,
+        # byte-identical to the original, that broadcasts into any backend's
+        # spatial arrays); a traced t (the in-backend diffrax/torchdiffeq
+        # integrator, or autodiff wrt time) -> that backend's exp.
+        xpt = get_namespace(t)
+        return xpt.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+
     def _evaluate(self, R, phi=0.0, t=0.0):
+        xp = get_namespace(R, phi, t)
         return (
             self._A
-            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            * self._envelope(t)
             / self._alpha
-            * numpy.cos(
-                self._alpha * numpy.log(R)
+            * xp.cos(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
 
     def _Rforce(self, R, phi=0.0, t=0.0):
+        xp = get_namespace(R, phi, t)
         return (
             self._A
-            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            * self._envelope(t)
             / R
-            * numpy.sin(
-                self._alpha * numpy.log(R)
+            * xp.sin(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
 
     def _phitorque(self, R, phi=0.0, t=0.0):
+        xp = get_namespace(R, phi, t)
         return (
             -self._A
-            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            * self._envelope(t)
             / self._alpha
             * self._m
-            * numpy.sin(
-                self._alpha * numpy.log(R)
+            * xp.sin(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
