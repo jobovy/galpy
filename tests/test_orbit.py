@@ -1048,6 +1048,50 @@ def test_kuzmindisk_dxdv_3d_c_vs_python_offplane():
     return None
 
 
+def test_dehnenbar_dxdv_inside_rb_c_vs_python():
+    # DehnenBarPotential's 3D C Hessian has a separate branch for r <= rb (the bar
+    # break radius); the liouville3d_registry DehnenBar entry uses the shared IC at
+    # R~1 (r > rb ~ 0.42), exercising only the r > rb branch. This test integrates a
+    # deviation along an orbit that spends a substantial fraction of its time INSIDE
+    # rb, exercising (and validating, against the pure-Python reference) the r <= rb
+    # branch of each second derivative -- otherwise both untested.
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential
+
+    pot = DehnenBarPotential(alpha=0.05)
+    assert pot.hasC_dxdv3d, "DehnenBar should advertise hasC_dxdv3d"
+    ic = [0.2, 0.05, 0.1, 0.08, 0.03, 0.2]  # r ~ 0.22 < rb -> starts inside the bar
+    times = numpy.linspace(0.0, 2.0, 101)
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dop853_c")
+    r = numpy.sqrt(obase.R(times) ** 2 + obase.z(times) ** 2)
+    assert numpy.mean(r < pot._rb) > 0.1, (
+        "test precondition: the orbit must spend time inside rb to exercise the "
+        "r <= rb branch of the C Hessian"
+    )
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, pot, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # the bar orbit is mildly chaotic, so C-vs-Python agree to ~1e-6; 1e-5 is safe
+    assert maxdiff < 1e-5, (
+        f"inside-rb 3D C variational integration for DehnenBar differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
 def test_spherical_dxdv_3d_c_vs_python_extra():
     # PseudoIsothermal, Einasto, and interpSpherical have verified-correct full 3D C
     # Hessians (hasC_dxdv3d=True) but are deliberately excluded from the strict
