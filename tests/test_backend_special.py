@@ -348,9 +348,10 @@ def test_bessel_k_value_parity(backend):
 
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_bessel_kn_value_parity(backend):
-    # kn via the upward recurrence from k0, k1 (galpy uses kn(2, .)).
+    # kn via the upward recurrence from k0, k1 (galpy uses kn(2, .)). n=0,1
+    # exercise the recurrence base cases (kn_fallback short-circuits to K0/K1).
     x = _BESSEL_X
-    for n in (2, 3, 5):
+    for n in (0, 1, 2, 3, 5):
         ref = scipy_special.kn(n, x)
         got = _tonumpy(gsp.kn(n, _asarray(backend, x)))
         rtol = 0.0 if backend == "numpy" else 1e-11  # recurrence amplifies a touch
