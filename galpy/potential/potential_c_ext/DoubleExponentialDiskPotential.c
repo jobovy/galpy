@@ -168,6 +168,12 @@ double DoubleExponentialDiskPotentialR2deriv(double R,double z, double phi,
   }
   return 4. * M_PI * amp * alpha / R / R / R * out;
 }
+double DoubleExponentialDiskPotentialPlanarR2deriv(double R,double phi,
+						   double t,
+						   struct potentialArg * potentialArgs){
+  // Planar (in-plane, z=0) d^2Phi/dR^2: the full 3D R2deriv evaluated at z=0.
+  return DoubleExponentialDiskPotentialR2deriv(R,0.,phi,t,potentialArgs);
+}
 double DoubleExponentialDiskPotentialz2deriv(double R,double z, double phi,
 					     double t,
 					     struct potentialArg * potentialArgs){

@@ -370,6 +370,8 @@ double DoubleExponentialDiskPotentialzforce(double,double, double,double,
 					    struct potentialArg *);
 double DoubleExponentialDiskPotentialR2deriv(double,double,double,double,
 					     struct potentialArg *);
+double DoubleExponentialDiskPotentialPlanarR2deriv(double,double,double,
+						   struct potentialArg *);
 double DoubleExponentialDiskPotentialz2deriv(double,double,double,double,
 					     struct potentialArg *);
 double DoubleExponentialDiskPotentialRzderiv(double,double,double,double,

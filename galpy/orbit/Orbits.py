@@ -2361,13 +2361,12 @@ class Orbit:
             if self.phasedim() == 6:
                 # The 3D variational equations use the FULL 3D Hessian in C
                 # (R2deriv/z2deriv/Rzderiv[/zphideriv]); the planar 2D Hessian
-                # (hasC_dxdv) is NOT used by the 3D C path, so requiring it here would
-                # needlessly disqualify potentials whose 3D Hessian is wired but whose
-                # planar R2deriv is not (e.g. DoubleExponentialDiskPotential). Gate on
-                # hasC_dxdv3d instead: without it a potential lacking the 3D Hessian
-                # would hit the NULL-safe C aggregators (silently 0) and produce a wrong
-                # variational result, so fall back to the (general, correct) Python
-                # integrator in that case.
+                # (hasC_dxdv) is a separate capability that the 3D C path does not use,
+                # so requiring it here would needlessly disqualify a potential whose 3D
+                # Hessian is wired but whose planar R2deriv is not. Gate on hasC_dxdv3d
+                # instead: without it a potential lacking the 3D Hessian would hit the
+                # NULL-safe C aggregators (silently 0) and produce a wrong variational
+                # result, so fall back to the (general, correct) Python integrator then.
                 allHasC = _check_c(pot) and _check_c(pot, dxdv3d=True)
             else:
                 allHasC = _check_c(pot) and _check_c(pot, dxdv=True)

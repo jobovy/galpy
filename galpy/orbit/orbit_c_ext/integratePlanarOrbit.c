@@ -168,7 +168,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
       potentialArgs->planarRforce= &DoubleExponentialDiskPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
-      //potentialArgs->planarR2deriv= &DoubleExponentialDiskPotentialPlanarR2deriv;
+      potentialArgs->planarR2deriv= &DoubleExponentialDiskPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       //Look at pot_args to figure out the number of arguments

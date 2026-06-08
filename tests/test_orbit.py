@@ -1135,6 +1135,34 @@ def test_doubleexp_dxdv_3d_c_vs_python():
     return None
 
 
+def test_doubleexp_dxdv_planar_c_vs_python():
+    # DoubleExponentialDiskPotential also wires the PLANAR (2D, z=0) R2deriv in C
+    # (hasC_dxdv=True): it is just the 3D R2deriv at z=0, so for an in-plane orbit
+    # the C planar variational integration must match the pure-Python reference
+    # (the two share only the analytic Hessian, not integrator code).
+    from galpy.orbit import Orbit
+    from galpy.potential import DoubleExponentialDiskPotential
+
+    pot = DoubleExponentialDiskPotential(amp=1.0, hr=1.0, hz=0.3, normalize=True)
+    assert pot.hasC_dxdv, "DoubleExponentialDisk should advertise hasC_dxdv (planar)"
+    ic = [1.0, 0.1, 1.1, 0.0]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    maxdiff = 0.0
+    for dev in (numpy.array([1e-4, 0.0, 0.0, 0.0]), numpy.array([0.0, 0.0, 1e-4, 0.0])):
+        oc = Orbit(ic)
+        oc.integrate_dxdv(dev, times, pot, method="dopr54_c", rtol=1e-12, atol=1e-12)
+        op = Orbit(ic)
+        op.integrate_dxdv(dev, times, pot, method="dop853", rtol=1e-12, atol=1e-12)
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # planar C-vs-Python dxdv agree to ~1e-14; 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for DoubleExponentialDisk differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
 # 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
 # dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
 # integrate_dxdv must match the trusted planar integrate_dxdv result.
@@ -1505,7 +1533,7 @@ def test_liouville_planar():
     ]
     # rmpots.append('BurkertPotential')
     # Don't have C implementations of the relevant 2nd derivatives
-    rmpots.append("DoubleExponentialDiskPotential")
+    # (DoubleExponentialDiskPotential now wires the planar R2deriv in C)
     rmpots.append("RazorThinExponentialDiskPotential")
     # Doesn't have C at all
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
@@ -1527,6 +1555,9 @@ def test_liouville_planar():
     tol["TriaxialNFWPotential"] = -4.0  # more difficult
     tol["triaxialLogarithmicHaloPotential"] = -7.0  # more difficult
     tol["FerrersPotential"] = -2.0
+    # numerical Ogata/Hankel-quadrature forces -> the adaptive C integrators reach
+    # ~1.5e-8 over ~1 Gyr (a quadrature-accuracy effect, not a Hessian error)
+    tol["DoubleExponentialDiskPotential"] = -7.0
     tol["HomogeneousSpherePotential"] = -4.0
     tol["KingPotential"] = -6.0
     tol["mockInterpSphericalPotential"] = -4.0  # == HomogeneousSpherePotential
@@ -1563,12 +1594,21 @@ def test_liouville_planar():
                 (integrator == "odeint" or not thasC)
                 and not p == "FerrersPotential"
                 and not p == "MultipoleExpansionPotential"
+                and not p == "DoubleExponentialDiskPotential"
             ):
                 ttol = -4.0
             elif (
                 integrator == "odeint" or not thasC
             ) and p == "MultipoleExpansionPotential":
                 ttol = -3.0
+            elif (
+                integrator == "odeint" or not thasC
+            ) and p == "DoubleExponentialDiskPotential":
+                # pure-Python odeint variational integration of the numerical
+                # Hankel-quadrature forces drifts to ~9e-4 over ~1 Gyr (integrator/
+                # quadrature accuracy, not a Hessian error; the C integrators reach
+                # ~1.5e-8, see tol[] above)
+                ttol = -2.5
             if True:
                 ttimes = times
             o = setup_orbit_liouville(ptp, axi=False, henon="Henon" in p)
