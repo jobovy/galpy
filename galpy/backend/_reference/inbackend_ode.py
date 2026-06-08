@@ -3,10 +3,11 @@
 #
 #   Differentiable orbit integration *inside* the backend: galpy's equations of
 #   motion are evaluated through the backend-agnostic force layer
-#   (evaluateRforces / evaluatephitorques / evaluatezforces) and integrated by
-#   the backend's own ODE solver (diffrax for jax, torchdiffeq for torch), so
-#   gradients of the orbit w.r.t. initial conditions AND potential parameters
-#   fall out of autodiff -- no hand-coded variational equations.
+#   (_evaluateRforces / _evaluatephitorques / _evaluatezforces -- the
+#   underscored, decorator-free evaluators, as the Python integrators use) and
+#   integrated by the backend's own ODE solver (diffrax for jax, torchdiffeq for
+#   torch), so gradients of the orbit w.r.t. initial conditions AND potential
+#   parameters fall out of autodiff -- no hand-coded variational equations.
 #
 #   This is the reference, higher-order-differentiable orbit path for the
 #   jax/torch backends, and the independent cross-check for the fast C
@@ -14,48 +15,73 @@
 #
 #   Convention: phase-space vectors use galpy's Orbit ordering
 #   ``[R, vR, vT, z, vz, phi]``. Internally the EOM is integrated in
-#   ``[R, vR, phi, Omega=dphi/dt, z, vz]`` (galpy's ``_EOM`` variables) and
-#   mapped back, so the public input/output match ``Orbit``.
+#   *rectangular* variables ``[x, vx, y, vy, z, vz]`` -- matching galpy's C
+#   integrator (integrateFullOrbit.c) rather than the cylindrical Python _EOM --
+#   which avoids the 1/R centrifugal term and the coordinate singularity at the
+#   axis, and is naturally well-behaved for autodiff. The public input/output are
+#   transformed to/from ``Orbit`` order so they match ``Orbit``.
 ###############################################################################
 from .. import get_namespace
 
 
-def _eom_rhs(y, pot, t):
-    """Backend-agnostic cylindrical EOM, state y = [R, vR, phi, Omega, z, vz].
+def _eom_rhs(y, pot, t, xp):
+    """Backend-agnostic rectangular EOM, state y = [x, vx, y, vy, z, vz].
 
-    Mirrors galpy.orbit.integrateFullOrbit._EOM; the force evaluators dispatch on
-    the array type of (R, z, phi), so this runs and differentiates under any
-    backend. Returns a length-6 tuple of time-derivatives.
+    Mirrors galpy.orbit.integrateFullOrbit._rectForce: recover (R, phi) from the
+    Cartesian position, evaluate the (decorator-free) force layer -- which
+    dispatches on the array type of (R, z, phi) so this runs and differentiates
+    under any backend -- and rotate the planar force back to Cartesian. Returns a
+    length-6 tuple of time-derivatives.
     """
     # Imported lazily so importing this module never forces the potential import
     # graph at galpy import time.
-    from ...potential import (
-        evaluatephitorques,
-        evaluateRforces,
-        evaluatezforces,
+    from ...potential.Potential import (
+        _evaluatephitorques,
+        _evaluateRforces,
+        _evaluatezforces,
     )
 
-    R, vR, phi, Om, z, vz = y[0], y[1], y[2], y[3], y[4], y[5]
-    Lz2 = (R**2 * Om) ** 2
-    # v=[vR, vT, vz] matches galpy._EOM exactly (ignored for non-dissipative
-    # potentials; required by velocity-dependent/dissipative forces).
-    v = [vR, R * Om, vz]
-    aR = Lz2 / R**3 + evaluateRforces(pot, R, z, phi=phi, t=t, v=v)
-    dOm = (evaluatephitorques(pot, R, z, phi=phi, t=t, v=v) - 2.0 * R * vR * Om) / R**2
-    az = evaluatezforces(pot, R, z, phi=phi, t=t, v=v)
-    return vR, aR, Om, dOm, vz, az
+    x, vx, yy, vy, z, vz = y[0], y[1], y[2], y[3], y[4], y[5]
+    R = xp.sqrt(x**2 + yy**2)
+    phi = xp.arctan2(yy, x)
+    cosphi, sinphi = x / R, yy / R
+    # v=[vR, vT, vz]; only used by velocity-dependent/dissipative forces.
+    vR = vx * cosphi + vy * sinphi
+    vT = -vx * sinphi + vy * cosphi
+    v = [vR, vT, vz]
+    Rforce = _evaluateRforces(pot, R, z, phi=phi, t=t, v=v)
+    phitorque = _evaluatephitorques(pot, R, z, phi=phi, t=t, v=v)
+    ax = cosphi * Rforce - sinphi / R * phitorque
+    ay = sinphi * Rforce + cosphi / R * phitorque
+    az = _evaluatezforces(pot, R, z, phi=phi, t=t, v=v)
+    return vx, ax, vy, ay, vz, az
 
 
 def _to_eom(xp, vxvv):
-    """[R,vR,vT,z,vz,phi] (Orbit order) -> [R,vR,phi,Omega,z,vz] (EOM order)."""
+    """[R,vR,vT,z,vz,phi] (Orbit order) -> [x,vx,y,vy,z,vz] (rectangular EOM)."""
     R, vR, vT, z, vz, phi = (vxvv[i] for i in range(6))
-    return xp.stack([R, vR, phi, vT / R, z, vz])
+    cosphi, sinphi = xp.cos(phi), xp.sin(phi)
+    return xp.stack(
+        [
+            R * cosphi,
+            vR * cosphi - vT * sinphi,
+            R * sinphi,
+            vR * sinphi + vT * cosphi,
+            z,
+            vz,
+        ]
+    )
 
 
 def _from_eom(xp, ys):
-    """[...,R,vR,phi,Omega,z,vz] -> [...,R,vR,vT,z,vz,phi] (Orbit order)."""
-    R, vR, phi, Om, z, vz = (ys[..., i] for i in range(6))
-    return xp.stack([R, vR, R * Om, z, vz, phi], axis=-1)
+    """[...,x,vx,y,vy,z,vz] -> [...,R,vR,vT,z,vz,phi] (Orbit order)."""
+    x, vx, yy, vy, z, vz = (ys[..., i] for i in range(6))
+    R = xp.sqrt(x**2 + yy**2)
+    phi = xp.arctan2(yy, x)  # in [-pi, pi], matching Orbit's wrapped convention
+    cosphi, sinphi = x / R, yy / R
+    vR = vx * cosphi + vy * sinphi
+    vT = -vx * sinphi + vy * cosphi
+    return xp.stack([R, vR, vT, z, vz, phi], axis=-1)
 
 
 def integrate_orbit(pot, vxvv, ts, *, rtol=1e-10, atol=1e-10, max_steps=100000):
@@ -77,8 +103,9 @@ def integrate_orbit(pot, vxvv, ts, *, rtol=1e-10, atol=1e-10, max_steps=100000):
     Notes
     -----
     Differentiable w.r.t. ``vxvv`` (initial conditions) and, when the parameter is
-    supplied as a backend array, w.r.t. the potential's parameters. ``phi`` is the
-    unwrapped solver value (galpy's ``Orbit`` wraps it to [-pi, pi]).
+    supplied as a backend array, w.r.t. the potential's parameters. ``phi`` is
+    recovered from the Cartesian position, so it is wrapped to [-pi, pi] as in
+    ``Orbit``.
     """
     xp = get_namespace(vxvv)
     name = xp.__name__

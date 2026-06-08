@@ -8,16 +8,16 @@
 
 
 def integrate(pot, y0, ts, *, rtol, atol, max_steps):
-    """Integrate the EOM with diffrax (Dopri8, adaptive). y0/ys in EOM variables
-    [R, vR, phi, Omega, z, vz]. Reverse-mode differentiable (diffrax uses a
-    custom_vjp -> forward-mode jacfwd is unavailable; use jacrev)."""
+    """Integrate the EOM with diffrax (Dopri8, adaptive). y0/ys in rectangular
+    EOM variables [x, vx, y, vy, z, vz]. Reverse-mode differentiable (diffrax uses
+    a custom_vjp -> forward-mode jacfwd is unavailable; use jacrev)."""
     import diffrax
     import jax.numpy as jnp
 
     from .._reference.inbackend_ode import _eom_rhs
 
     def field(t, y, args):
-        return jnp.stack(_eom_rhs(y, pot, t))
+        return jnp.stack(_eom_rhs(y, pot, t, jnp))
 
     sol = diffrax.diffeqsolve(
         diffrax.ODETerm(field),

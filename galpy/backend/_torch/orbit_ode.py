@@ -9,8 +9,8 @@
 
 
 def integrate(pot, y0, ts, *, rtol, atol):
-    """Integrate the EOM with torchdiffeq. y0/ys in EOM variables
-    [R, vR, phi, Omega, z, vz].
+    """Integrate the EOM with torchdiffeq. y0/ys in rectangular EOM variables
+    [x, vx, y, vy, z, vz].
 
     Uses ``dopri5``, NOT ``dopri8``: torchdiffeq's ``dopri8`` *backward* pass is
     noticeably less accurate (~1e-5 relative gradient error vs ~1e-8 for
@@ -25,6 +25,6 @@ def integrate(pot, y0, ts, *, rtol, atol):
     from .._reference.inbackend_ode import _eom_rhs
 
     def field(t, y):
-        return torch.stack(_eom_rhs(y, pot, t))
+        return torch.stack(_eom_rhs(y, pot, t, torch))
 
     return odeint(field, y0, ts, method="dopri5", rtol=rtol, atol=atol)
