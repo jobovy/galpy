@@ -380,6 +380,14 @@ double DoubleExponentialDiskPotentialPlanarRforce(double,double,double,
 						  struct potentialArg *);
 double DoubleExponentialDiskPotentialzforce(double,double, double,double,
 					    struct potentialArg *);
+double DoubleExponentialDiskPotentialR2deriv(double,double,double,double,
+					     struct potentialArg *);
+double DoubleExponentialDiskPotentialPlanarR2deriv(double,double,double,
+						   struct potentialArg *);
+double DoubleExponentialDiskPotentialz2deriv(double,double,double,double,
+					     struct potentialArg *);
+double DoubleExponentialDiskPotentialRzderiv(double,double,double,double,
+					     struct potentialArg *);
 double DoubleExponentialDiskPotentialDens(double ,double , double, double,
 					  struct potentialArg *);
 //FlattenedPowerPotential
@@ -393,6 +401,12 @@ double FlattenedPowerPotentialzforce(double,double,double,double,
 				     struct potentialArg *);
 double FlattenedPowerPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+double FlattenedPowerPotentialR2deriv(double,double,double,double,
+				      struct potentialArg *);
+double FlattenedPowerPotentialz2deriv(double,double,double,double,
+				      struct potentialArg *);
+double FlattenedPowerPotentialRzderiv(double,double,double,double,
+				      struct potentialArg *);
 double FlattenedPowerPotentialDens(double,double,double,double,
 				   struct potentialArg *);
 //interpRZPotential

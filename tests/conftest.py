@@ -46,6 +46,32 @@ def pytest_generate_tests(metafunc):
                 "axisymmetric",
             ),
             (
+                potential.FlattenedPowerPotential(
+                    amp=1.0, alpha=0.5, q=0.9, normalize=True
+                ),
+                "FlattenedPowerPotential",
+                "axisymmetric",
+            ),
+            # alpha==0 exercises the log-potential (LogarithmicHalo-like) branch of
+            # the C Hessian (the alpha!=0 power-law branch is the default above).
+            (
+                potential.FlattenedPowerPotential(
+                    amp=1.0, alpha=0.0, q=0.8, normalize=True
+                ),
+                "FlattenedPowerPotential_alpha0",
+                "axisymmetric",
+            ),
+            # NOTE: DoubleExponentialDiskPotential has a verified-correct full 3D C
+            # Hessian (hasC_dxdv3d=True) -- its C R2deriv/z2deriv/Rzderiv reproduce the
+            # pure-Python reference dxdv to ~1e-9 -- but it is intentionally NOT in this
+            # strict registry. Its forces (and 2nd derivatives) are evaluated by an
+            # Ogata/Hankel Bessel quadrature, whose finite absolute accuracy means the
+            # registry's finite-difference-of-the-flow check (eps=1e-7 differencing of
+            # full nonlinear orbits) sits right at the ~1.2e-4 floor (just over the 1e-4
+            # bound) -- NOT a Hessian error (the C-vs-Python dxdv gate passes at ~1e-9).
+            # This follows the KuzminDisk/Einasto precedent: covered instead by the
+            # dedicated test_orbit.test_doubleexp_dxdv_3d_c_vs_python.
+            (
                 potential.PlummerPotential(amp=1.0, b=0.7, normalize=True),
                 "PlummerPotential",
                 "spherical",

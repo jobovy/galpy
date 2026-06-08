@@ -2367,15 +2367,18 @@ class Orbit:
         self._pot = thispot
         # First check that the potential has C
         if "_c" in method:
-            allHasC = _check_c(pot) and _check_c(pot, dxdv=True)
             if self.phasedim() == 6:
-                # The 3D variational equations need the FULL 3D Hessian in C
-                # (z2deriv/Rzderiv/zphideriv); hasC_dxdv only guarantees the planar
-                # 2D Hessian, so without this stricter check a potential lacking the
-                # 3D Hessian would hit the NULL-safe C aggregators (silently 0) and
-                # produce a wrong variational result. Fall back to the (general,
-                # correct) Python integrator instead.
-                allHasC = allHasC and _check_c(pot, dxdv3d=True)
+                # The 3D variational equations use the FULL 3D Hessian in C
+                # (R2deriv/z2deriv/Rzderiv[/zphideriv]); the planar 2D Hessian
+                # (hasC_dxdv) is a separate capability that the 3D C path does not use,
+                # so requiring it here would needlessly disqualify a potential whose 3D
+                # Hessian is wired but whose planar R2deriv is not. Gate on hasC_dxdv3d
+                # instead: without it a potential lacking the 3D Hessian would hit the
+                # NULL-safe C aggregators (silently 0) and produce a wrong variational
+                # result, so fall back to the (general, correct) Python integrator then.
+                allHasC = _check_c(pot) and _check_c(pot, dxdv3d=True)
+            else:
+                allHasC = _check_c(pot) and _check_c(pot, dxdv=True)
             if not ext_loaded or (
                 not allHasC and not "leapfrog" in method and not "symplec" in method
             ):
