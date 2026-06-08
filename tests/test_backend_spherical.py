@@ -458,3 +458,49 @@ def test_powerspherical_wcutoff_dens_parity(backend_name):
         ref = numpy.asarray(getattr(pot, method)(numpy.asarray(Rs)))
         got = _tonumpy(getattr(pot, method)(_asarray(backend_name, Rs)))
         numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14, err_msg=method)
+
+
+def _surfdens_grad_z(backend_name, pot, R0, z0):
+    """d(surfdens)/dz via autodiff at fixed R."""
+    if backend_name == "jax":
+        return float(
+            jax.grad(lambda z: pot._surfdens(jnp.asarray(R0), z))(jnp.asarray(z0))
+        )
+    z = torch.tensor(z0, dtype=torch.float64, requires_grad=True)
+    pot._surfdens(torch.tensor(R0, dtype=torch.float64), z).backward()
+    return float(z.grad)
+
+
+@pytest.mark.parametrize("pot", _SURFDENS_CASES, ids=_SURFDENS_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_surfdens_z0_value_parity(backend_name, pot):
+    # The R == a edge branch of _surfdens carries a 1/z**n (n in {3, 5}) that is
+    # singular at z == 0. Under the eager xp.where BOTH branches are evaluated,
+    # so in the generic region (R != a) at z == 0 that dead edge branch must be
+    # z-guarded. The VALUE there is the generic branch's 0 and must be parity-
+    # identical (and equal to numpy's 0) across backends, with no scalar crash.
+    R0 = 0.6  # != a (== 1.1 for all cases)
+    val = _tonumpy(
+        pot._surfdens(_asarray(backend_name, R0), _asarray(backend_name, 0.0))
+    )
+    ref = numpy.asarray(pot._surfdens(numpy.asarray(R0), numpy.asarray(0.0)))
+    numpy.testing.assert_allclose(val, ref, rtol=1e-12, atol=0.0)
+    assert numpy.isfinite(float(val)), (
+        f"{type(pot).__name__} surfdens(R!=a,z=0) not finite"
+    )
+
+
+@pytest.mark.parametrize("pot", _SURFDENS_CASES, ids=_SURFDENS_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_surfdens_grad_z_finite_off_edge(backend_name, pot):
+    # In the generic region (R != a), z == 0 is a valid finite-value input
+    # (surfdens == 0). Without z-guarding the dead R == a edge branch, its
+    # 1/z**n NaN-poisons reverse-mode d(surfdens)/dz at z == 0. The guard must
+    # keep this gradient FINITE (matching the analytic _dens at the midplane).
+    R0 = 0.6
+    ad = _surfdens_grad_z(backend_name, pot, R0, 0.0)
+    assert numpy.isfinite(ad), f"{type(pot).__name__} dSurf/dz NaN at z=0 (R!=a)"
+    # surfdens integrates rho over [-z, z], so d(surfdens)/dz|_{z=0} = 2*rho(R,0);
+    # cross-check the gradient against the analytic density (the true slope).
+    rho = float(numpy.asarray(pot._dens(numpy.asarray(R0), numpy.asarray(0.0))))
+    numpy.testing.assert_allclose(ad, 2.0 * rho, rtol=1e-7, atol=1e-10)
