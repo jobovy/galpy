@@ -617,16 +617,23 @@ class HernquistPotential(DehnenSphericalPotential):
         # also guard (r^2 - a^2), which vanishes at the edge when z == 0
         d2r = r**2.0 - self.a**2.0
         safe_d2r = xp.where(at_edge, xp.ones_like(d2r * 1.0), d2r)
+        # The edge branch carries a z**-5 that is singular at z == 0; under the
+        # eager xp.where it is evaluated everywhere, so in its DEAD region
+        # (generic, R != a) it must use a finite z or it NaN-poisons reverse-mode
+        # gradients at z == 0 (a valid, finite input where surfdens == 0). Use the
+        # real z on the edge (live) and 1 in the generic region (dead). At the
+        # genuine edge point R == a, z == 0 the limb singularity is real (kept).
+        z_edge = xp.where(at_edge, z, xp.ones_like(z * 1.0))
         edge = (
             (
                 -12.0 * self.a**3
-                - 5.0 * self.a * z**2
-                + xp.sqrt(1.0 + z**2 / self.a**2)
-                * (12.0 * self.a**3 - self.a * z**2 + 2 / self.a * z**4)
+                - 5.0 * self.a * z_edge**2
+                + xp.sqrt(1.0 + z_edge**2 / self.a**2)
+                * (12.0 * self.a**3 - self.a * z_edge**2 + 2 / self.a * z_edge**4)
             )
             / 30.0
             / math.pi
-            * z**-5.0
+            * z_edge**-5.0
         )
         generic = (
             self.a
@@ -772,17 +779,24 @@ class JaffePotential(DehnenSphericalPotential):
         d2 = R**2.0 - self.a**2.0
         safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
         Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
+        # The edge branch carries a z**-3 that is singular at z == 0; under the
+        # eager xp.where it is evaluated everywhere, so in its DEAD region
+        # (generic, R != a) it must use a finite z or it NaN-poisons reverse-mode
+        # gradients at z == 0 (a valid, finite input where surfdens == 0). Use the
+        # real z on the edge (live) and 1 in the generic region (dead). At the
+        # genuine edge point R == a, z == 0 the limb singularity is real (kept).
+        z_edge = xp.where(at_edge, z, xp.ones_like(z * 1.0))
         edge = (
             (
-                3.0 * z**2.0
+                3.0 * z_edge**2.0
                 - 2.0 * self.a**2.0
                 + 2.0
-                * xp.sqrt(1.0 + (z / self.a) ** 2.0)
-                * (self.a**2.0 - 2.0 * z**2.0)
-                + 3.0 * z**3.0 / self.a * xp.arctan(z / self.a)
+                * xp.sqrt(1.0 + (z_edge / self.a) ** 2.0)
+                * (self.a**2.0 - 2.0 * z_edge**2.0)
+                + 3.0 * z_edge**3.0 / self.a * xp.arctan(z_edge / self.a)
             )
             / self.a
-            / z**3.0
+            / z_edge**3.0
             / 6.0
             / math.pi
         )
@@ -998,8 +1012,21 @@ class NFWPotential(TwoPowerSphericalPotential):
         d2 = R**2.0 - self.a**2.0
         safe_d2 = xp.where(at_edge, xp.ones_like(d2 * 1.0), d2)
         Rma = xp.sqrt(xp.astype(safe_d2, xp.complex128))
-        za2 = (z / self.a) ** 2
-        edge = self.a * (2.0 + xp.sqrt(za2 + 1.0) * (za2 - 2.0)) / 6.0 / math.pi / z**3
+        # The edge branch carries a z**-3 that is singular at z == 0; under the
+        # eager xp.where it is evaluated everywhere, so in its DEAD region
+        # (generic, R != a) it must use a finite z or it NaN-poisons reverse-mode
+        # gradients at z == 0 (a valid, finite input where surfdens == 0). Use the
+        # real z on the edge (live) and 1 in the generic region (dead). At the
+        # genuine edge point R == a, z == 0 the limb singularity is real (kept).
+        z_edge = xp.where(at_edge, z, xp.ones_like(z * 1.0))
+        za2 = (z_edge / self.a) ** 2
+        edge = (
+            self.a
+            * (2.0 + xp.sqrt(za2 + 1.0) * (za2 - 2.0))
+            / 6.0
+            / math.pi
+            / z_edge**3
+        )
         generic = (
             xp.real(
                 self.a
