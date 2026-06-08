@@ -232,6 +232,18 @@ double DehnenBarPotentialPlanarphi2deriv(double,double,double,
 					 struct potentialArg *);
 double DehnenBarPotentialPlanarRphideriv(double,double,double,
 					 struct potentialArg *);
+double DehnenBarPotentialR2deriv(double,double,double,double,
+				 struct potentialArg *);
+double DehnenBarPotentialz2deriv(double,double,double,double,
+				 struct potentialArg *);
+double DehnenBarPotentialphi2deriv(double,double,double,double,
+				   struct potentialArg *);
+double DehnenBarPotentialRzderiv(double,double,double,double,
+				 struct potentialArg *);
+double DehnenBarPotentialRphideriv(double,double,double,double,
+				   struct potentialArg *);
+double DehnenBarPotentialzphideriv(double,double,double,double,
+				   struct potentialArg *);
 //TransientLogSpiralPotential
 double TransientLogSpiralPotentialRforce(double,double,double,
 		       struct potentialArg *);
