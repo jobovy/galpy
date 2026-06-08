@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .planarPotential import planarPotential
 
@@ -95,75 +96,57 @@ class SteadyLogSpiralPotential(planarPotential):
         self.hasC = True
         self.hasC_dxdv = True
 
+    def _smooth(self, t):
+        # Growth factor (0 before tform, smoothly to 1 at tsteady). The namespace
+        # follows t itself: a concrete (Python/numpy) t -> numpy.where (a plain
+        # coefficient, byte-identical to the original branches, that broadcasts
+        # into any backend's spatial arrays); a traced t (the in-backend
+        # diffrax/torchdiffeq integrator, or autodiff wrt time) -> that backend's
+        # where, so it is differentiable. Branch-free so a tracer works.
+        if self._tform is None:
+            return 1.0
+        xp = get_namespace(t)
+        deltat = t - self._tform
+        xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
+        growth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
+        return xp.where(t < self._tform, 0.0, xp.where(t < self._tsteady, growth, 1.0))
+
     def _evaluate(self, R, phi=0.0, t=0.0):
-        if not self._tform is None:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # spiral is fully on
-                smooth = 1.0
-        else:
-            smooth = 1.0
+        xp = get_namespace(R, phi, t)
+        smooth = self._smooth(t)
         return (
             smooth
             * self._A
             / self._alpha
-            * numpy.cos(
-                self._alpha * numpy.log(R)
+            * xp.cos(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        if not self._tform is None:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # spiral is fully on
-                smooth = 1.0
-        else:
-            smooth = 1.0
+        xp = get_namespace(R, phi, t)
+        smooth = self._smooth(t)
         return (
             smooth
             * self._A
             / R
-            * numpy.sin(
-                self._alpha * numpy.log(R)
+            * xp.sin(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        if not self._tform is None:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # spiral is fully on
-                smooth = 1.0
-        else:
-            smooth = 1.0
+        xp = get_namespace(R, phi, t)
+        smooth = self._smooth(t)
         return (
             -smooth
             * self._A
             / self._alpha
             * self._m
-            * numpy.sin(
-                self._alpha * numpy.log(R)
+            * xp.sin(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
