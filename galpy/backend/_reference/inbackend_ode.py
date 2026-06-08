@@ -92,7 +92,7 @@ def integrate_orbit(pot, vxvv, ts, *, rtol=1e-10, atol=1e-10, max_steps=100000):
         from .._torch.orbit_ode import integrate as _integrate_torch
 
         ys = _integrate_torch(pot, y0, ts, rtol=rtol, atol=atol)
-    else:  # pragma: no cover - numpy path uses galpy's C/scipy integrators instead
+    else:  # numpy path uses galpy's C/scipy integrators instead
         raise NotImplementedError(
             "in-backend ODE integration requires a jax or torch input array; "
             "for numpy use Orbit.integrate (C / scipy integrators)"

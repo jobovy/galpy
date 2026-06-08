@@ -67,6 +67,13 @@ def _c_reference(pot):
     )
 
 
+def test_inbackend_numpy_raises():
+    # The in-backend ODE integrator is for jax/torch only; a numpy IC must raise
+    # (numpy orbits use galpy's C/scipy integrators via Orbit.integrate).
+    with pytest.raises(NotImplementedError):
+        integrate_orbit(PlummerPotential(amp=1.0, b=0.6), numpy.asarray(_IC), _TS)
+
+
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 @pytest.mark.parametrize("name,pot", _POTS, ids=[p[0] for p in _POTS])
 def test_inbackend_matches_c_jax(name, pot):
