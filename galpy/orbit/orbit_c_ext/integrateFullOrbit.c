@@ -90,6 +90,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &DehnenBarPotentialRforce;
       potentialArgs->phitorque= &DehnenBarPotentialphitorque;
       potentialArgs->zforce= &DehnenBarPotentialzforce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv= &DehnenBarPotentialR2deriv;
+      potentialArgs->z2deriv= &DehnenBarPotentialz2deriv;
+      potentialArgs->phi2deriv= &DehnenBarPotentialphi2deriv;
+      potentialArgs->Rzderiv= &DehnenBarPotentialRzderiv;
+      potentialArgs->Rphideriv= &DehnenBarPotentialRphideriv;
+      potentialArgs->zphideriv= &DehnenBarPotentialzphideriv;
       potentialArgs->nargs= 6;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
