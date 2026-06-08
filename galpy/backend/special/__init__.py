@@ -25,6 +25,9 @@ from ._router import (
     hyp2f1,
     i0,
     i1,
+    k0,
+    k1,
+    kn,
     xlogy,
 )
 
@@ -42,4 +45,7 @@ __all__ = [
     "hyp1f1",
     "ellipk",
     "ellipe",
+    "k0",
+    "k1",
+    "kn",
 ]

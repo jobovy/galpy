@@ -12,10 +12,13 @@ from .._resolver import get_namespace
 # (hasattr on the backend's special module), so entries are removed as backends
 # add the native version. (numpy always has the full scipy.special.)
 _NATIVE_MISSING = {
-    "jax": frozenset(("ellipk", "ellipe")),
+    "jax": frozenset(("ellipk", "ellipe", "k0", "k1", "kn")),
+    # torch.special lacks all of these. (It does have modified_bessel_k0/k1, but
+    # they are NOT differentiable -- no autograd backward -- and there is no kn,
+    # so the k0/k1/kn fallbacks are used; the router sees no torch.special.k0.)
     "torch": frozenset(
-        ("gamma", "ellipk", "ellipe", "hyp2f1", "hyp1f1")
-    ),  # torch.special lacks all of these
+        ("gamma", "ellipk", "ellipe", "hyp2f1", "hyp1f1", "k0", "k1", "kn")
+    ),
 }
 
 # Functions whose native implementation EXISTS but is too inaccurate on galpy's
@@ -150,6 +153,26 @@ def ellipe(m):
     from ._fallback.elliptic import ellipe_fallback
 
     return _dispatch("ellipe", (m,), ellipe_fallback)
+
+
+# --- Tier 3: modified Bessel functions of the second kind (disk force paths) --
+def k0(x):
+    from ._fallback.bessel_k import k0_fallback
+
+    return _dispatch("k0", (x,), k0_fallback)
+
+
+def k1(x):
+    from ._fallback.bessel_k import k1_fallback
+
+    return _dispatch("k1", (x,), k1_fallback)
+
+
+def kn(n, x):
+    # Integer-order modified Bessel K_n; only the array arg x carries the namespace.
+    from ._fallback.bessel_k import kn_fallback
+
+    return _dispatch("kn", (n, x), kn_fallback, ns_args=(x,))
 
 
 def xlogy(x, y):

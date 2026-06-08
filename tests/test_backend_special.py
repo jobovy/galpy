@@ -130,7 +130,7 @@ def test_fallback_table_matches_installed_backends():
     # present, else there is nothing to override).
     tier12 = [
         "gammaln", "gamma", "gammainc", "gammaincc", "erf", "erfc", "i0", "i1",
-        "hyp2f1", "hyp1f1", "ellipk", "ellipe",
+        "hyp2f1", "hyp1f1", "ellipk", "ellipe", "k0", "k1", "kn",
     ]  # fmt: skip
     for backend in AD_BACKENDS:
         xp = _asarray(backend, 1.0)
@@ -326,3 +326,67 @@ def test_fallback_unsupported_regimes_raise():
     # 1F1 only implements b = a + 1
     with pytest.raises(NotImplementedError):
         hyp1f1_fallback(numpy, 1.0, 3.0, numpy.array([-1.0]))
+
+
+# --- Tier 3: modified Bessel functions of the second kind (k0, k1, kn) --------
+# RazorThinExponentialDisk forces use k0/k1/kn(2,.) on real x > 0.
+_BESSEL_X = numpy.array([0.01, 0.1, 0.5, 1.0, 2.0, 3.0, 7.0, 20.0, 80.0, 300.0])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_bessel_k_value_parity(backend):
+    x = _BESSEL_X
+    for name, fn, sp_fn in [
+        ("k0", gsp.k0, scipy_special.k0),
+        ("k1", gsp.k1, scipy_special.k1),
+    ]:
+        ref = sp_fn(x)
+        got = _tonumpy(fn(_asarray(backend, x)))
+        rtol = 0.0 if backend == "numpy" else 1e-12  # series + scaled-trapezoid
+        numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-13, err_msg=name)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_bessel_kn_value_parity(backend):
+    # kn via the upward recurrence from k0, k1 (galpy uses kn(2, .)).
+    x = _BESSEL_X
+    for n in (2, 3, 5):
+        ref = scipy_special.kn(n, x)
+        got = _tonumpy(gsp.kn(n, _asarray(backend, x)))
+        rtol = 0.0 if backend == "numpy" else 1e-11  # recurrence amplifies a touch
+        numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-13, err_msg=f"kn{n}")
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_bessel_k_grad_vs_fd(backend):
+    # K0'(x) = -K1(x); K1'(x) = -K0(x) - K1(x)/x. Check AD vs central FD on both
+    # the series (x<2) and the scaled-trapezoid (x>2) branches.
+    eps = 1e-6
+    for name, fn, sp_fn in [
+        ("k0", gsp.k0, scipy_special.k0),
+        ("k1", gsp.k1, scipy_special.k1),
+    ]:
+        for x0 in (0.7, 1.5, 4.0, 25.0):
+            fd = (float(sp_fn(x0 + eps)) - float(sp_fn(x0 - eps))) / (2 * eps)
+            if backend == "jax":
+                ad = float(jax.grad(lambda xx: fn(xx))(jnp.asarray(x0)))
+            else:
+                xt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+                fn(xt).backward()
+                ad = float(xt.grad)
+            assert not numpy.isnan(ad), f"NaN grad for {name} at x={x0} ({backend})"
+            numpy.testing.assert_allclose(
+                ad, fd, rtol=1e-5, err_msg=f"{name} grad at x={x0} ({backend})"
+            )
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
+def test_torch_native_bessel_k_is_nondifferentiable():
+    # Tripwire / justification for using the fallback on torch: torch.special has
+    # modified_bessel_k0/k1 (accurate) but they have no autograd backward.
+    xt = torch.tensor(2.5, dtype=torch.float64, requires_grad=True)
+    out = torch.special.modified_bessel_k0(xt)
+    assert not out.requires_grad, (
+        "torch.special.modified_bessel_k0 is now differentiable; it can be routed "
+        "natively (with a k0/k1 name alias) instead of via the fallback"
+    )
