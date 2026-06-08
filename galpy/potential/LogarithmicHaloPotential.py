@@ -2,10 +2,10 @@
 #   LogarithmicHaloPotential.py: class that implements the logarithmic
 #                            potential Phi(r) = vc**2 ln(r)
 ###############################################################################
+import math
 import warnings
 
-import numpy
-
+from ..backend import get_namespace
 from ..util import conversion, galpyWarning
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -76,39 +76,44 @@ class LogarithmicHaloPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
+            xp = get_namespace(R, z, phi)
             return (
                 1.0
                 / 2.0
-                * numpy.log(
-                    R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+                * xp.log(
+                    R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
                     + (z / self._q) ** 2.0
                     + self._core2
                 )
             )
         else:
-            return 1.0 / 2.0 * numpy.log(R**2.0 + (z / self._q) ** 2.0 + self._core2)
+            xp = get_namespace(R, z)
+            return 1.0 / 2.0 * xp.log(R**2.0 + (z / self._q) ** 2.0 + self._core2)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
-            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            xp = get_namespace(R, z, phi)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             return -Rt2 / R / (Rt2 + (z / self._q) ** 2.0 + self._core2)
         else:
             return -R / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
-            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            xp = get_namespace(R, z, phi)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             return -z / self._q**2.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
         else:
             return -z / self._q**2.0 / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
-            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            xp = get_namespace(R, z, phi)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             return (
                 R**2.0
                 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
-                * numpy.sin(2.0 * phi)
+                * xp.sin(2.0 * phi)
                 * self._1m1overb2
                 / 2.0
             )
@@ -117,14 +122,15 @@ class LogarithmicHaloPotential(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
+            xp = get_namespace(R, z, phi)
             R2 = R**2.0
-            Rt2 = R2 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            Rt2 = R2 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
             denom2 = denom**2.0
             return (
                 1.0
                 / 4.0
-                / numpy.pi
+                / math.pi
                 * (
                     2.0 * Rt2 / R2 * (denom - Rt2 * denom2)
                     + denom / self._q**2.0
@@ -133,11 +139,11 @@ class LogarithmicHaloPotential(Potential):
                     * (
                         2.0
                         * R2
-                        * numpy.sin(2.0 * phi) ** 2.0
+                        * xp.sin(2.0 * phi) ** 2.0
                         / 4.0
                         * self._1m1overb2
                         * denom2
-                        + denom * numpy.cos(2.0 * phi)
+                        + denom * xp.cos(2.0 * phi)
                     )
                 )
             )
@@ -145,7 +151,7 @@ class LogarithmicHaloPotential(Potential):
             return (
                 1.0
                 / 4.0
-                / numpy.pi
+                / math.pi
                 / self._q**2.0
                 * (
                     (2.0 * self._q**2.0 + 1.0) * self._core2
@@ -157,7 +163,8 @@ class LogarithmicHaloPotential(Potential):
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
-            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            xp = get_namespace(R, z, phi)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
             return (denom - 2.0 * Rt2 * denom**2.0) * Rt2 / R**2.0
         else:
@@ -166,7 +173,8 @@ class LogarithmicHaloPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
-            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            xp = get_namespace(R, z, phi)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
             return denom / self._q**2.0 - 2.0 * z**2.0 * denom**2.0 / self._q**4.0
         else:
@@ -175,7 +183,8 @@ class LogarithmicHaloPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
-            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            xp = get_namespace(R, z, phi)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             return (
                 -2.0
                 * Rt2
@@ -195,39 +204,36 @@ class LogarithmicHaloPotential(Potential):
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
-            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            xp = get_namespace(R, z, phi)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
             return -self._1m1overb2 * (
-                R**4.0
-                * numpy.sin(2.0 * phi) ** 2.0
-                / 2.0
-                * self._1m1overb2
-                * denom**2.0
-                + R**2.0 * denom * numpy.cos(2.0 * phi)
+                R**4.0 * xp.sin(2.0 * phi) ** 2.0 / 2.0 * self._1m1overb2 * denom**2.0
+                + R**2.0 * denom * xp.cos(2.0 * phi)
             )
         else:
             return 0.0
 
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
-            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            xp = get_namespace(R, z, phi)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
-            return (
-                -(denom - Rt2 * denom**2.0) * R * numpy.sin(2.0 * phi) * self._1m1overb2
-            )
+            return -(denom - Rt2 * denom**2.0) * R * xp.sin(2.0 * phi) * self._1m1overb2
         else:
             return 0.0
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
-            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            xp = get_namespace(R, z, phi)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
             return (
                 2
                 * R**2
                 * z
-                * numpy.sin(phi)
-                * numpy.cos(phi)
+                * xp.sin(phi)
+                * xp.cos(phi)
                 * self._1m1overb2
                 * denom**2
                 / self._q**2
