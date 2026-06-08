@@ -90,6 +90,67 @@ double FlattenedPowerPotentialPlanarR2deriv(double R,double phi,
     return - amp * pow(m2,-0.5 * alpha - 1.) * ( (alpha + 2.) * R*R/m2 -1.);
   }
 }
+double FlattenedPowerPotentialR2deriv(double R,double Z, double phi,
+				      double t,
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double alpha= *(args+1);
+  double q2= *(args+2);
+  double core2= *(args+3);
+  double denom, m2;
+  //Calculate d^2Phi/dR^2 (full 3D)
+  if ( alpha == 0. ) {
+    denom= 1. / ( R * R + Z * Z / q2 + core2 );
+    return amp * ( denom - 2. * R * R * denom * denom );
+  }
+  else {
+    m2= core2 + R * R + Z * Z / q2;
+    return - amp * pow(m2,-0.5 * alpha - 1.) * ( (alpha + 2.) * R * R / m2 - 1.);
+  }
+}
+double FlattenedPowerPotentialz2deriv(double R,double Z, double phi,
+				      double t,
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double alpha= *(args+1);
+  double q2= *(args+2);
+  double core2= *(args+3);
+  double denom, m2;
+  //Calculate d^2Phi/dz^2 (full 3D)
+  if ( alpha == 0. ) {
+    denom= 1. / ( R * R + Z * Z / q2 + core2 );
+    return amp / q2 * ( denom - 2. * Z * Z * denom * denom / q2 );
+  }
+  else {
+    m2= core2 + R * R + Z * Z / q2;
+    return - amp / q2 * pow(m2,-0.5 * alpha - 1.) \
+      * ( (alpha + 2.) * Z * Z / m2 / q2 - 1.);
+  }
+}
+double FlattenedPowerPotentialRzderiv(double R,double Z, double phi,
+				      double t,
+				      struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double alpha= *(args+1);
+  double q2= *(args+2);
+  double core2= *(args+3);
+  double denom, m2;
+  //Calculate d^2Phi/dRdz (full 3D)
+  if ( alpha == 0. ) {
+    denom= 1. / ( R * R + Z * Z / q2 + core2 );
+    return - 2. * amp * R * Z / q2 * denom * denom;
+  }
+  else {
+    m2= core2 + R * R + Z * Z / q2;
+    return - amp * ( alpha + 2. ) * R * Z / q2 * pow(m2,-0.5 * alpha - 2.);
+  }
+}
 double FlattenedPowerPotentialDens(double R,double Z, double phi,
 				   double t,
 				   struct potentialArg * potentialArgs){
