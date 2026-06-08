@@ -175,6 +175,46 @@ def kn(n, x):
     return _dispatch("kn", (n, x), kn_fallback, ns_args=(x,))
 
 
+# --- Tier 4: associated Legendre P_l^m (SCF / MultipoleExpansion) -------------
+def _scipy_assoc_legendre(L, M, x, deriv):
+    """numpy path: scipy.special.assoc_legendre_p_all reshaped to (...,L,M),
+    byte-identical to scipy (the convention used by util.special.compute_legendre)."""
+    import scipy.special as sp
+
+    arr = numpy.asarray(
+        sp.assoc_legendre_p_all(
+            L - 1, M - 1, numpy.asarray(x, dtype=float), branch_cut=2, diff_n=deriv
+        )
+    )  # (deriv+1, L, 2M-1, *x.shape)  -- m=0..M-1 are the first M columns
+    out = numpy.moveaxis(arr[:, :, :M], (1, 2), (-2, -1))  # (deriv+1, *x.shape, L, M)
+    return out[0] if deriv == 0 else tuple(out[i] for i in range(deriv + 1))
+
+
+def assoc_legendre(L, M, x, deriv=0):
+    """P_l^m(x) for 0<=l<L, 0<=m<M (Condon-Shortley phase), shape x.shape+(L,M).
+
+    deriv: 0 -> P; 1 -> (P, dP/dx); 2 -> (P, dP/dx, d2P/dx2). numpy routes to
+    scipy (byte-identical); jax/torch use the pure-backend Bonnet recurrence.
+    """
+    name, _ = _backend_special(get_namespace(x))
+    if name == "numpy":
+        return _scipy_assoc_legendre(L, M, x, deriv)
+    from ._fallback.assoc_legendre import assoc_legendre as _fb
+
+    return _fb(get_namespace(x), L, M, x, deriv)
+
+
+def gegenbauer(N, alpha, x):
+    """Gegenbauer polynomials C_n^alpha(x) for 0<=n<N, shape x.shape+(N,).
+
+    N static int, alpha scalar, x a backend array. Uses the three-term
+    recurrence on every backend (galpy's SCF radial basis never used a scipy
+    Gegenbauer, so there is no native to prefer)."""
+    from ._fallback.gegenbauer import gegenbauer as _fb
+
+    return _fb(get_namespace(x), N, alpha, x)
+
+
 def xlogy(x, y):
     # x * log(y), with the scipy/native convention 0 * log(0) = 0.
     from ._fallback.xlogy import xlogy_fallback

@@ -390,3 +390,100 @@ def test_torch_native_bessel_k_is_nondifferentiable():
         "torch.special.modified_bessel_k0 is now differentiable; it can be routed "
         "natively (with a k0/k1 name alias) instead of via the fallback"
     )
+
+
+# --- Tier 4a: associated Legendre P_l^m (SCF / MultipoleExpansion) -------------
+def _scipy_assoc_ref(L, M, x, deriv):
+    arr = numpy.asarray(
+        scipy_special.assoc_legendre_p_all(
+            L - 1, M - 1, numpy.asarray(x, dtype=float), branch_cut=2, diff_n=deriv
+        )
+    )
+    return numpy.moveaxis(arr[:, :, :M], (1, 2), (-2, -1))  # (deriv+1, *x.shape, L, M)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_assoc_legendre_value_parity(backend):
+    L, M = 7, 5
+    x = numpy.array([0.2, 0.5, -0.6, 0.9, -0.95])  # cos(theta), |x| < 1
+    ref = _scipy_assoc_ref(L, M, x, 2)  # P, dP/dx, d2P/dx2
+    P, dP, d2 = gsp.assoc_legendre(L, M, _asarray(backend, x), deriv=2)
+    if backend == "numpy":  # numpy must be byte-identical to scipy
+        assert numpy.array_equal(_tonumpy(P), ref[0])
+        assert numpy.array_equal(_tonumpy(dP), ref[1])
+        assert numpy.array_equal(_tonumpy(d2), ref[2])
+    else:
+        for got, r, nm in [(P, ref[0], "P"), (dP, ref[1], "dP"), (d2, ref[2], "d2P")]:
+            numpy.testing.assert_allclose(
+                _tonumpy(got), r, rtol=1e-11, atol=1e-11, err_msg=nm
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_assoc_legendre_value_only_and_shape(backend):
+    L, M = 5, 3
+    x = numpy.array([0.3, -0.4])
+    P = gsp.assoc_legendre(L, M, _asarray(backend, x))  # deriv=0 -> just P
+    assert tuple(_tonumpy(P).shape) == (2, L, M)
+    numpy.testing.assert_allclose(
+        _tonumpy(P), _scipy_assoc_ref(L, M, x, 0)[0], rtol=1e-11, atol=1e-11
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_assoc_legendre_autodiff_matches_analytic(backend):
+    # d/dx of P_l^m via autodiff must match the analytically-returned dP/dx.
+    L, M = 6, 4
+    x0 = 0.4
+    _, dP_an = gsp.assoc_legendre(L, M, _asarray(backend, x0), deriv=1)
+    dP_an = _tonumpy(dP_an)
+    for ll, mm in [(3, 2), (5, 1), (4, 0), (5, 3)]:
+        if backend == "jax":
+            g = float(
+                jax.grad(lambda xx: gsp.assoc_legendre(L, M, xx)[ll, mm])(
+                    jnp.asarray(x0)
+                )
+            )
+        else:
+            xt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+            gsp.assoc_legendre(L, M, xt)[ll, mm].backward()
+            g = float(xt.grad)
+        numpy.testing.assert_allclose(
+            g, dP_an[ll, mm], rtol=1e-6, err_msg=f"P_{ll}^{mm}"
+        )
+
+
+# --- Tier 4b: Gegenbauer C_n^alpha (SCF radial basis) -------------------------
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gegenbauer_value_parity(backend):
+    N = 8
+    x = numpy.array([-0.9, -0.3, 0.0, 0.4, 0.95])
+    for alpha in (1.5, 3.5, 2 * 3 + 1.5):  # SCF uses alpha = 2l + 3/2
+        got = _tonumpy(gsp.gegenbauer(N, alpha, _asarray(backend, x)))
+        assert got.shape == x.shape + (N,)
+        for n in range(N):
+            ref = scipy_special.eval_gegenbauer(n, alpha, x)
+            numpy.testing.assert_allclose(
+                got[..., n], ref, rtol=1e-11, atol=1e-12, err_msg=f"C_{n}^{alpha}"
+            )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_gegenbauer_grad_vs_fd(backend):
+    # d/dx C_n^alpha(x) = 2 alpha C_{n-1}^{alpha+1}(x); check AD vs central FD.
+    N, alpha, x0 = 6, 2.5, 0.4
+    eps = 1e-6
+    n = 4
+    fd = (
+        float(scipy_special.eval_gegenbauer(n, alpha, x0 + eps))
+        - float(scipy_special.eval_gegenbauer(n, alpha, x0 - eps))
+    ) / (2 * eps)
+    if backend == "jax":
+        ad = float(
+            jax.grad(lambda xx: gsp.gegenbauer(N, alpha, xx)[n])(jnp.asarray(x0))
+        )
+    else:
+        xt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+        gsp.gegenbauer(N, alpha, xt)[n].backward()
+        ad = float(xt.grad)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
