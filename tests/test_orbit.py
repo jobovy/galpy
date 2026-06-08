@@ -1216,6 +1216,38 @@ def test_doubleexp_dxdv_3d_c_vs_python():
     return None
 
 
+def test_null_dxdv_3d_ballistic():
+    # NullPotential has zero force, so the full 3D Hessian is identically zero
+    # (the NULL-safe C aggregators return 0). The deviation vectors then evolve
+    # ballistically: det(M) = 1 exactly and the C path matches the pure-Python
+    # reference. NullPotential cannot be normalized, so it is tested here rather
+    # than in the liouville3d_registry.
+    from galpy.orbit import Orbit
+    from galpy.potential import NullPotential
+
+    pot = NullPotential()
+    assert pot.hasC_dxdv3d, "NullPotential should advertise hasC_dxdv3d"
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    cols, maxdiff = [], 0.0
+    for ii in range(6):
+        oc = Orbit(ic)
+        oc.integrate_dxdv(canonical[ii], times, pot, method="dopr54_c",
+                          rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12)  # fmt: skip
+        cols.append(oc.getOrbit_dxdv()[-1, :])
+        op = Orbit(ic)
+        op.integrate_dxdv(canonical[ii], times, pot, method="dop853",
+                          rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12)  # fmt: skip
+        maxdiff = max(
+            maxdiff, numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        )
+    det = numpy.linalg.det(numpy.array(cols))
+    assert numpy.fabs(det - 1.0) < 1e-10, f"det(M) = {det:g} != 1 for NullPotential"
+    assert maxdiff < 1e-8, f"Null C-vs-Python dxdv differs by {maxdiff:g}"
+    return None
+
+
 def test_doubleexp_dxdv_planar_c_vs_python():
     # DoubleExponentialDiskPotential also wires the PLANAR (2D, z=0) R2deriv in C
     # (hasC_dxdv=True): it is just the 3D R2deriv at z=0, so for an in-plane orbit

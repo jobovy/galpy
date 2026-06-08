@@ -30,6 +30,11 @@ class NullPotential(Potential):
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="velocity2")
         self.hasC = True
         self.hasC_dxdv = True
+        # All forces (and hence the full 3D Hessian) are identically zero, so the
+        # NULL-safe C aggregators return 0 for every second derivative -- the
+        # correct zero Hessian -- and the 3D variational equations integrate the
+        # deviation vectors ballistically (det M = 1).
+        self.hasC_dxdv3d = True
         self.hasC_dens = True
         return None
 
