@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -146,586 +147,252 @@ class DehnenBarPotential(Potential):
             self._tsteady = self._tform + tsteady * self._tb
 
     def _smooth(self, t):
-        if isinstance(t, numpy.ndarray) and not numpy.ndim(t) == 0:
-            smooth = numpy.ones(len(t))
-            indx = t < self._tform
-            smooth[indx] = 0.0
-
-            indx = (t < self._tsteady) * (t >= self._tform)
-            deltat = t[indx] - self._tform
-            xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-            smooth[indx] = (
-                3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-            )
-        else:
-            if t < self._tform:
-                smooth = 0.0
-            elif t < self._tsteady:
-                deltat = t - self._tform
-                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-                smooth = (
-                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-                )
-            else:  # bar is fully on
-                smooth = 1.0
-        return smooth
+        # Growth factor (0 before tform, smoothly to 1 at tsteady). The namespace
+        # follows t itself: a concrete (Python/numpy) t -> numpy.where (a plain
+        # coefficient, byte-identical to the original scalar/array branches, that
+        # broadcasts into any backend's spatial arrays); a traced t (the
+        # in-backend diffrax/torchdiffeq integrator, or autodiff wrt time) -> that
+        # backend's where, so it is differentiable. Branch-free so a tracer works.
+        xp = get_namespace(t)
+        deltat = t - self._tform
+        xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
+        growth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
+        return xp.where(t < self._tform, 0.0, xp.where(t < self._tsteady, growth, 1.0))
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
-        r = numpy.sqrt(r2)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = ((r[indx] / self._rb) ** 3.0 - 2.0) * numpy.divide(
-                R[indx] ** 2.0, r2[indx], numpy.ones_like(R[indx]), where=R[indx] != 0
-            )
-            indx = numpy.invert(indx)
-            out[indx] = (
-                -((self._rb / r[indx]) ** 3.0)
-                * 1.0
-                / (1.0 + z[indx] ** 2.0 / R[indx] ** 2.0)
-            )
-
-            out *= (
-                self._af
-                * smooth
-                * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return out
-        else:
-            if r == 0:
-                return (
-                    -2.0
-                    * self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                )
-            elif r <= self._rb:
-                return (
-                    self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * ((r / self._rb) ** 3.0 - 2.0)
-                    * R**2.0
-                    / r2
-                )
-            else:
-                return (
-                    -self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    * 1.0
-                    / (1.0 + z**2.0 / R**2.0)
-                )
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        # Safe r/r2 so the dead branch's 1/0 cannot poison reverse-mode gradients
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r2safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+        # R^2/r^2 (== 1/(1+z^2/R^2)); at r=0, define it as 1 (matches the r==0
+        # limit of the inner branch, which then gives the -2 special case). As
+        # R -> inf with z fixed the naive R^2/r2 would be inf/inf = NaN, while
+        # the true limit z^2/R^2 -> 0 gives 1, so substitute 1 there (using a
+        # safe r2 to keep the dead branch finite under tracing).
+        Rinf = xp.isinf(R)
+        R2_over_r2 = xp.where(bad | Rinf, xp.ones_like(r2 * 1.0), R**2.0 / r2safe)
+        factor = xp.where(
+            r <= self._rb,
+            (r / self._rb) ** 3.0 - 2.0,
+            -((self._rb / rsafe) ** 3.0),
+        )
+        return (
+            self._af
+            * smooth
+            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
+            * factor
+            * R2_over_r2
+        )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = (
-                -(
-                    (r[indx] / self._rb) ** 3.0
-                    * R[indx]
-                    * (3.0 * R[indx] ** 2.0 + 2.0 * z[indx] ** 2.0)
-                    - 4.0 * R[indx] * z[indx] ** 2.0
-                )
-                / r[indx] ** 4.0
+        xp = get_namespace(R, z, phi, t)
+        r2 = R**2.0 + z**2.0
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
+        inner = (
+            -(
+                (r / self._rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0)
+                - 4.0 * R * z**2.0
             )
-            indx = numpy.invert(indx)
-            out[indx] = (
-                -((self._rb / r[indx]) ** 3.0)
-                * R[indx]
-                / r[indx] ** 4.0
-                * (3.0 * R[indx] ** 2.0 - 2.0 * z[indx] ** 2.0)
-            )
-
-            out *= (
-                self._af
-                * smooth
-                * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return out
-        else:
-            if r <= self._rb:
-                return (
-                    -self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (
-                        (r / self._rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0)
-                        - 4.0 * R * z**2.0
-                    )
-                    / r**4.0
-                )
-            else:
-                return (
-                    -self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    * R
-                    / r**4.0
-                    * (3.0 * R**2.0 - 2.0 * z**2.0)
-                )
+            / r4safe
+        )
+        outer = (
+            -((self._rb / rsafe) ** 3.0) * R / r4safe * (3.0 * R**2.0 - 2.0 * z**2.0)
+        )
+        return (
+            self._af
+            * smooth
+            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.where(r <= self._rb, inner, outer)
+        )
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
+        xp = get_namespace(R, z, phi, t)
         r2 = R**2.0 + z**2.0
-        r = numpy.sqrt(r2)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = ((r[indx] / self._rb) ** 3.0 - 2.0) * R[indx] ** 2.0 / r2[indx]
-            indx = numpy.invert(indx)
-            out[indx] = -((self._rb / r[indx]) ** 3.0) * R[indx] ** 2.0 / r2[indx]
-            out *= (
-                2.0
-                * self._af
-                * smooth
-                * numpy.sin(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return out
-        else:
-            if r <= self._rb:
-                return (
-                    2.0
-                    * self._af
-                    * smooth
-                    * numpy.sin(2.0 * (phi - self._omegab * t - self._barphi))
-                    * ((r / self._rb) ** 3.0 - 2.0)
-                    * R**2.0
-                    / r2
-                )
-            else:
-                return (
-                    -2.0
-                    * self._af
-                    * smooth
-                    * numpy.sin(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    * R**2.0
-                    / r2
-                )
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r2safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+        R2_over_r2 = R**2.0 / r2safe
+        factor = xp.where(
+            r <= self._rb,
+            (r / self._rb) ** 3.0 - 2.0,
+            -((self._rb / rsafe) ** 3.0),
+        )
+        return (
+            2.0
+            * self._af
+            * smooth
+            * xp.sin(2.0 * (phi - self._omegab * t - self._barphi))
+            * factor
+            * R2_over_r2
+        )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = (
-                -((r[indx] / self._rb) ** 3.0 + 4.0)
-                * R[indx] ** 2.0
-                * z[indx]
-                / r[indx] ** 4.0
-            )
-            indx = numpy.invert(indx)
-            out[indx] = (
-                -5.0
-                * (self._rb / r[indx]) ** 3.0
-                * R[indx] ** 2.0
-                * z[indx]
-                / r[indx] ** 4.0
-            )
-
-            out *= (
-                self._af
-                * smooth
-                * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return out
-        else:
-            if r <= self._rb:
-                return (
-                    -self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * ((r / self._rb) ** 3.0 + 4.0)
-                    * R**2.0
-                    * z
-                    / r**4.0
-                )
-            else:
-                return (
-                    -5.0
-                    * self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    * R**2.0
-                    * z
-                    / r**4.0
-                )
+        xp = get_namespace(R, z, phi, t)
+        r2 = R**2.0 + z**2.0
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
+        inner = -((r / self._rb) ** 3.0 + 4.0) * R**2.0 * z / r4safe
+        outer = -5.0 * (self._rb / rsafe) ** 3.0 * R**2.0 * z / r4safe
+        return (
+            self._af
+            * smooth
+            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.where(r <= self._rb, inner, outer)
+        )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = (r[indx] / self._rb) ** 3.0 * (
-                (9.0 * R[indx] ** 2.0 + 2.0 * z[indx] ** 2.0) / r[indx] ** 4.0
-                - R[indx] ** 2.0
-                / r[indx] ** 6.0
-                * (3.0 * R[indx] ** 2.0 + 2.0 * z[indx] ** 2.0)
-            ) + 4.0 * z[indx] ** 2.0 / r[indx] ** 6.0 * (
-                4.0 * R[indx] ** 2.0 - r[indx] ** 2.0
-            )
-            indx = numpy.invert(indx)
-            out[indx] = (
-                (self._rb / r[indx]) ** 3.0
-                / r[indx] ** 6.0
-                * (
-                    (r[indx] ** 2.0 - 7.0 * R[indx] ** 2.0)
-                    * (3.0 * R[indx] ** 2.0 - 2.0 * z[indx] ** 2.0)
-                    + 6.0 * R[indx] ** 2.0 * r[indx] ** 2.0
-                )
-            )
-
-            out *= (
-                self._af
-                * smooth
-                * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return out
-        else:
-            if r <= self._rb:
-                return (
-                    self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (
-                        (r / self._rb) ** 3.0
-                        * (
-                            (9.0 * R**2.0 + 2.0 * z**2.0) / r**4.0
-                            - R**2.0 / r**6.0 * (3.0 * R**2.0 + 2.0 * z**2.0)
-                        )
-                        + 4.0 * z**2.0 / r**6.0 * (4.0 * R**2.0 - r**2.0)
-                    )
-                )
-            else:
-                return (
-                    self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    / r**6.0
-                    * (
-                        (r**2.0 - 7.0 * R**2.0) * (3.0 * R**2.0 - 2.0 * z**2.0)
-                        + 6.0 * R**2.0 * r**2.0
-                    )
-                )
+        xp = get_namespace(R, z, phi, t)
+        r2 = R**2.0 + z**2.0
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
+        r6safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**6.0)
+        inner = (r / self._rb) ** 3.0 * (
+            (9.0 * R**2.0 + 2.0 * z**2.0) / r4safe
+            - R**2.0 / r6safe * (3.0 * R**2.0 + 2.0 * z**2.0)
+        ) + 4.0 * z**2.0 / r6safe * (4.0 * R**2.0 - r2)
+        outer = (
+            (self._rb / rsafe) ** 3.0
+            / r6safe
+            * ((r2 - 7.0 * R**2.0) * (3.0 * R**2.0 - 2.0 * z**2.0) + 6.0 * R**2.0 * r2)
+        )
+        return (
+            self._af
+            * smooth
+            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.where(r <= self._rb, inner, outer)
+        )
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = (
-                -((r[indx] / self._rb) ** 3.0 - 2.0) * R[indx] ** 2.0 / r[indx] ** 2.0
-            )
-            indx = numpy.invert(indx)
-            out[indx] = (self._rb / r[indx]) ** 3.0 * R[indx] ** 2.0 / r[indx] ** 2.0
-
-            out *= (
-                4.0
-                * self._af
-                * smooth
-                * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return out
-        else:
-            if r <= self._rb:
-                return (
-                    -4.0
-                    * self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * ((r / self._rb) ** 3.0 - 2.0)
-                    * R**2.0
-                    / r**2.0
-                )
-            else:
-                return (
-                    4.0
-                    * self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    * R**2.0
-                    / r**2.0
-                )
+        xp = get_namespace(R, z, phi, t)
+        r2 = R**2.0 + z**2.0
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r2safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+        R2_over_r2 = R**2.0 / r2safe
+        factor = xp.where(
+            r <= self._rb,
+            -((r / self._rb) ** 3.0 - 2.0),
+            (self._rb / rsafe) ** 3.0,
+        )
+        return (
+            4.0
+            * self._af
+            * smooth
+            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
+            * factor
+            * R2_over_r2
+        )
 
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = (
-                (r[indx] / self._rb) ** 3.0
-                * R[indx]
-                * (3.0 * R[indx] ** 2.0 + 2.0 * z[indx] ** 2.0)
-                - 4.0 * R[indx] * z[indx] ** 2.0
-            ) / r[indx] ** 4.0
-            indx = numpy.invert(indx)
-            out[indx] = (
-                (self._rb / r[indx]) ** 3.0
-                * R[indx]
-                / r[indx] ** 4.0
-                * (3.0 * R[indx] ** 2.0 - 2.0 * z[indx] ** 2.0)
-            )
-
-            out *= (
-                -2.0
-                * self._af
-                * smooth
-                * numpy.sin(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return out
-        else:
-            if r <= self._rb:
-                return (
-                    -2.0
-                    * self._af
-                    * smooth
-                    * numpy.sin(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (
-                        (r / self._rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0)
-                        - 4.0 * R * z**2.0
-                    )
-                    / r**4.0
-                )
-            else:
-                return (
-                    -2.0
-                    * self._af
-                    * smooth
-                    * numpy.sin(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    * R
-                    / r**4.0
-                    * (3.0 * R**2.0 - 2.0 * z**2.0)
-                )
+        xp = get_namespace(R, z, phi, t)
+        r2 = R**2.0 + z**2.0
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
+        inner = (
+            (r / self._rb) ** 3.0 * R * (3.0 * R**2.0 + 2.0 * z**2.0) - 4.0 * R * z**2.0
+        ) / r4safe
+        outer = (self._rb / rsafe) ** 3.0 * R / r4safe * (3.0 * R**2.0 - 2.0 * z**2.0)
+        return (
+            -2.0
+            * self._af
+            * smooth
+            * xp.sin(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.where(r <= self._rb, inner, outer)
+        )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = (
-                R[indx] ** 2.0
-                / r[indx] ** 6.0
-                * (
-                    (r[indx] / self._rb) ** 3.0 * (r[indx] ** 2.0 - z[indx] ** 2.0)
-                    + 4.0 * (r[indx] ** 2.0 - 4.0 * z[indx] ** 2.0)
-                )
-            )
-            indx = numpy.invert(indx)
-            out[indx] = (
-                5.0
-                * (self._rb / r[indx]) ** 3.0
-                * R[indx] ** 2.0
-                / r[indx] ** 6.0
-                * (r[indx] ** 2.0 - 7.0 * z[indx] ** 2.0)
-            )
-
-            out *= (
-                self._af
-                * smooth
-                * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return out
-        else:
-            if r <= self._rb:
-                return (
-                    self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * R**2.0
-                    / r**6.0
-                    * (
-                        (r / self._rb) ** 3.0 * (r**2.0 - z**2.0)
-                        + 4.0 * (r**2.0 - 4.0 * z**2.0)
-                    )
-                )
-            else:
-                return (
-                    5.0
-                    * self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    * R**2.0
-                    / r**6.0
-                    * (r**2.0 - 7.0 * z**2.0)
-                )
+        xp = get_namespace(R, z, phi, t)
+        r2 = R**2.0 + z**2.0
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r6safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**6.0)
+        inner = (
+            R**2.0
+            / r6safe
+            * ((r / self._rb) ** 3.0 * (r2 - z**2.0) + 4.0 * (r2 - 4.0 * z**2.0))
+        )
+        outer = 5.0 * (self._rb / rsafe) ** 3.0 * R**2.0 / r6safe * (r2 - 7.0 * z**2.0)
+        return (
+            self._af
+            * smooth
+            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.where(r <= self._rb, inner, outer)
+        )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = (
-                R[indx]
-                * z[indx]
-                / r[indx] ** 6.0
-                * (
-                    (r[indx] / self._rb) ** 3.0
-                    * (2.0 * r[indx] ** 2.0 - R[indx] ** 2.0)
-                    + 8.0 * (r[indx] ** 2.0 - 2.0 * R[indx] ** 2.0)
-                )
-            )
-            indx = numpy.invert(indx)
-            out[indx] = (
-                5.0
-                * (self._rb / r[indx]) ** 3.0
-                * R[indx]
-                * z[indx]
-                / r[indx] ** 6.0
-                * (2.0 * r[indx] ** 2.0 - 7.0 * R[indx] ** 2.0)
-            )
-
-            out *= (
-                self._af
-                * smooth
-                * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return out
-        else:
-            if r <= self._rb:
-                return (
-                    self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * R
-                    * z
-                    / r**6.0
-                    * (
-                        (r / self._rb) ** 3.0 * (2.0 * r**2.0 - R**2.0)
-                        + 8.0 * (r**2.0 - 2.0 * R**2.0)
-                    )
-                )
-            else:
-                return (
-                    5.0
-                    * self._af
-                    * smooth
-                    * numpy.cos(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    * R
-                    * z
-                    / r**6.0
-                    * (2.0 * r**2.0 - 7.0 * R**2.0)
-                )
+        xp = get_namespace(R, z, phi, t)
+        r2 = R**2.0 + z**2.0
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r6safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**6.0)
+        inner = (
+            R
+            * z
+            / r6safe
+            * ((r / self._rb) ** 3.0 * (2.0 * r2 - R**2.0) + 8.0 * (r2 - 2.0 * R**2.0))
+        )
+        outer = (
+            5.0 * (self._rb / rsafe) ** 3.0 * R * z / r6safe * (2.0 * r2 - 7.0 * R**2.0)
+        )
+        return (
+            self._af
+            * smooth
+            * xp.cos(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.where(r <= self._rb, inner, outer)
+        )
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
         smooth = self._smooth(t)
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        if isinstance(r, numpy.ndarray):
-            if not isinstance(R, numpy.ndarray):
-                R = numpy.repeat(R, len(r))
-            if not isinstance(z, numpy.ndarray):
-                z = numpy.repeat(z, len(r))
-            out = numpy.empty(len(r))
-            indx = r <= self._rb
-            out[indx] = (
-                -((r[indx] / self._rb) ** 3.0 + 4.0)
-                * R[indx] ** 2.0
-                * z[indx]
-                / r[indx] ** 4.0
-            )
-            indx = numpy.invert(indx)
-            out[indx] = (
-                -5.0
-                * (self._rb / r[indx]) ** 3.0
-                * R[indx] ** 2.0
-                * z[indx]
-                / r[indx] ** 4.0
-            )
-
-            out *= (
-                self._af
-                * smooth
-                * numpy.sin(2.0 * (phi - self._omegab * t - self._barphi))
-            )
-            return 2.0 * out
-        else:
-            if r <= self._rb:
-                return (
-                    -2
-                    * self._af
-                    * smooth
-                    * numpy.sin(2.0 * (phi - self._omegab * t - self._barphi))
-                    * ((r / self._rb) ** 3.0 + 4.0)
-                    * R**2.0
-                    * z
-                    / r**4.0
-                )
-            else:
-                return (
-                    -10.0
-                    * self._af
-                    * smooth
-                    * numpy.sin(2.0 * (phi - self._omegab * t - self._barphi))
-                    * (self._rb / r) ** 3.0
-                    * R**2.0
-                    * z
-                    / r**4.0
-                )
+        xp = get_namespace(R, z, phi, t)
+        r2 = R**2.0 + z**2.0
+        r = xp.sqrt(r2)
+        bad = r2 == 0.0
+        rsafe = xp.where(bad, xp.ones_like(r * 1.0), r)
+        r4safe = xp.where(bad, xp.ones_like(r2 * 1.0), r**4.0)
+        inner = -((r / self._rb) ** 3.0 + 4.0) * R**2.0 * z / r4safe
+        outer = -5.0 * (self._rb / rsafe) ** 3.0 * R**2.0 * z / r4safe
+        return (
+            2.0
+            * self._af
+            * smooth
+            * xp.sin(2.0 * (phi - self._omegab * t - self._barphi))
+            * xp.where(r <= self._rb, inner, outer)
+        )
 
     def tform(self):  # pragma: no cover
         """

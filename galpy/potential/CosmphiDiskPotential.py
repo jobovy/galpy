@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .planarPotential import planarPotential
 
@@ -106,107 +107,113 @@ class CosmphiDiskPotential(planarPotential):
         self.hasC_dxdv = True
 
     def _evaluate(self, R, phi=0.0, t=0.0):
-        if R < self._rb:
-            return (
-                self._mphio
-                / self._m
-                * numpy.cos(self._m * phi - self._mphib)
-                * self._rbp
-                * (2.0 * self._r1p - self._rbp / R**self._p)
+        xp = get_namespace(R, phi)
+        inside = R < self._rb
+        # Both branches contain a power of R that is singular at R=0 (the inside
+        # rbp/R**p for p>0, the outside R**p for p<0). Under the eager xp.where
+        # BOTH are evaluated everywhere, so each branch's R must be kept finite in
+        # its DEAD (selected-away) region or the where raises (scalar 0**-p) and
+        # NaN-poisons reverse-mode gradients. R_in is the real R on the inside
+        # (live) and 1 outside; R_out is 1 inside and the real R outside (live).
+        R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
+        R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
+        cosmphi = xp.cos(self._m * phi - self._mphib)
+        return (
+            self._mphio
+            / self._m
+            * cosmphi
+            * xp.where(
+                inside,
+                self._rbp * (2.0 * self._r1p - self._rbp / R_in**self._p),
+                R_out**self._p,
             )
-        else:
-            return (
-                self._mphio
-                / self._m
-                * R**self._p
-                * numpy.cos(self._m * phi - self._mphib)
-            )
+        )
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        if R < self._rb:
-            return (
-                -self._p
-                * self._mphio
-                / self._m
-                * self._rb2p
-                / R ** (self._p + 1.0)
-                * numpy.cos(self._m * phi - self._mphib)
+        xp = get_namespace(R, phi)
+        inside = R < self._rb
+        R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
+        R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
+        cosmphi = xp.cos(self._m * phi - self._mphib)
+        return (
+            -self._p
+            * self._mphio
+            / self._m
+            * cosmphi
+            * xp.where(
+                inside,
+                self._rb2p / R_in ** (self._p + 1.0),
+                R_out ** (self._p - 1.0),
             )
-        else:
-            return (
-                -self._p
-                * self._mphio
-                / self._m
-                * R ** (self._p - 1.0)
-                * numpy.cos(self._m * phi - self._mphib)
-            )
+        )
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        if R < self._rb:
-            return (
-                self._mphio
-                * numpy.sin(self._m * phi - self._mphib)
-                * self._rbp
-                * (2.0 * self._r1p - self._rbp / R**self._p)
+        xp = get_namespace(R, phi)
+        inside = R < self._rb
+        R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
+        R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
+        sinmphi = xp.sin(self._m * phi - self._mphib)
+        return (
+            self._mphio
+            * sinmphi
+            * xp.where(
+                inside,
+                self._rbp * (2.0 * self._r1p - self._rbp / R_in**self._p),
+                R_out**self._p,
             )
-        else:
-            return self._mphio * R**self._p * numpy.sin(self._m * phi - self._mphib)
+        )
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
-        if R < self._rb:
-            return (
-                -self._p
-                * (self._p + 1.0)
-                * self._mphio
-                / self._m
-                * self._rb2p
-                / R ** (self._p + 2.0)
-                * numpy.cos(self._m * phi - self._mphib)
+        xp = get_namespace(R, phi)
+        inside = R < self._rb
+        R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
+        R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
+        cosmphi = xp.cos(self._m * phi - self._mphib)
+        return (
+            self._mphio
+            / self._m
+            * cosmphi
+            * xp.where(
+                inside,
+                -self._p * (self._p + 1.0) * self._rb2p / R_in ** (self._p + 2.0),
+                self._p * (self._p - 1.0) * R_out ** (self._p - 2.0),
             )
-        else:
-            return (
-                self._p
-                * (self._p - 1.0)
-                / self._m
-                * self._mphio
-                * R ** (self._p - 2.0)
-                * numpy.cos(self._m * phi - self._mphib)
-            )
+        )
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):
-        if R < self._rb:
-            return (
-                -self._m
-                * self._mphio
-                * numpy.cos(self._m * phi - self._mphib)
-                * self._rbp
-                * (2.0 * self._r1p - self._rbp / R**self._p)
+        xp = get_namespace(R, phi)
+        inside = R < self._rb
+        R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
+        R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
+        cosmphi = xp.cos(self._m * phi - self._mphib)
+        return (
+            -self._m
+            * self._mphio
+            * cosmphi
+            * xp.where(
+                inside,
+                self._rbp * (2.0 * self._r1p - self._rbp / R_in**self._p),
+                R_out**self._p,
             )
-        else:
-            return (
-                -self._m
-                * self._mphio
-                * R**self._p
-                * numpy.cos(self._m * phi - self._mphib)
-            )
+        )
 
     def _Rphideriv(self, R, phi=0.0, t=0.0):
-        if R < self._rb:
-            return (
-                -self._p
-                * self._mphio
-                / self._m
-                * self._rb2p
-                / R ** (self._p + 1.0)
-                * numpy.sin(self._m * phi - self._mphib)
+        xp = get_namespace(R, phi)
+        inside = R < self._rb
+        R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
+        R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
+        sinmphi = xp.sin(self._m * phi - self._mphib)
+        return (
+            -self._p
+            * self._mphio
+            / self._m
+            * sinmphi
+            * xp.where(
+                inside,
+                self._rb2p / R_in ** (self._p + 1.0),
+                self._m * R_out ** (self._p - 1.0),
             )
-        else:
-            return (
-                -self._p
-                * self._mphio
-                * R ** (self._p - 1.0)
-                * numpy.sin(self._m * phi - self._mphib)
-            )
+        )
 
 
 class LopsidedDiskPotential(CosmphiDiskPotential):
