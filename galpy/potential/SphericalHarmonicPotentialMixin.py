@@ -126,6 +126,9 @@ class SphericalHarmonicPotentialMixin:
         -----
         - 2026-02-18 - Written - Bovy (UofT)
         """
+        # axisymmetric potentials are evaluated with phi=None (phi irrelevant)
+        if not self.isNonAxi and phi is None:
+            phi = 0.0
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
         phi = numpy.array(phi, dtype=float)

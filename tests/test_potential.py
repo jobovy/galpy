@@ -7556,6 +7556,98 @@ def test_NumericalPotentialDerivativesMixin():
 
 
 # Test that we don't get the "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated" numpy warning for the SCF potential; issue #347
+def test_scf_analytic_2ndderiv():
+    # SCFPotential's second derivatives are now analytic (via the
+    # spherical-harmonic Hessian + SphericalHarmonicPotentialMixin chain rule),
+    # not the NumericalPotentialDerivativesMixin finite differences. They must
+    # match a finite-difference of the (analytic) forces to ~analytic precision,
+    # for an axisymmetric and a genuinely non-axisymmetric SCF instance.
+    from galpy.potential import (
+        NumericalPotentialDerivativesMixin,
+        SCFPotential,
+        scf_compute_coeffs_spherical,
+    )
+
+    assert not isinstance(
+        SCFPotential(Acos=numpy.ones((2, 1, 1))), NumericalPotentialDerivativesMixin
+    ), "SCFPotential should no longer use NumericalPotentialDerivativesMixin"
+
+    def _hern(R, z=0.0, phi=0.0):
+        r = numpy.sqrt(R**2 + z**2)
+        return 1.0 / (2.0 * numpy.pi) / (r * (1.0 + r) ** 3)
+
+    Acos_s, _ = scf_compute_coeffs_spherical(_hern, 6, a=1.3)
+    Nn = Acos_s.shape[0]
+    Acos = numpy.zeros((Nn, 3, 3))
+    Asin = numpy.zeros((Nn, 3, 3))
+    Acos[:, 0, 0] = Acos_s[:, 0, 0]
+    Acos[0, 2, 2] = 0.05 * Acos_s[0, 0, 0]  # l=2,m=2 -> non-axisymmetric
+    Asin[0, 2, 2] = 0.03 * Acos_s[0, 0, 0]
+    pots = [
+        SCFPotential(Acos=Acos_s, a=1.3, normalize=True),  # axisymmetric
+        SCFPotential(Acos=Acos, Asin=Asin, a=1.3, normalize=True),  # non-axi
+    ]
+    h = 1e-6
+    for p in pots:
+        for R, z, phi in [(1.0, 0.3, 0.4), (2.0, 0.1, 1.1), (0.7, -0.5, 2.5)]:
+            kw = dict(use_physical=False)
+            checks = {
+                "R2": (
+                    p.R2deriv(R, z, phi=phi, **kw),
+                    -(
+                        p.Rforce(R + h, z, phi=phi, **kw)
+                        - p.Rforce(R - h, z, phi=phi, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "z2": (
+                    p.z2deriv(R, z, phi=phi, **kw),
+                    -(
+                        p.zforce(R, z + h, phi=phi, **kw)
+                        - p.zforce(R, z - h, phi=phi, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "Rz": (
+                    p.Rzderiv(R, z, phi=phi, **kw),
+                    -(
+                        p.Rforce(R, z + h, phi=phi, **kw)
+                        - p.Rforce(R, z - h, phi=phi, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "phi2": (
+                    p.phi2deriv(R, z, phi=phi, **kw),
+                    -(
+                        p.phitorque(R, z, phi=phi + h, **kw)
+                        - p.phitorque(R, z, phi=phi - h, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "Rphi": (
+                    p.Rphideriv(R, z, phi=phi, **kw),
+                    -(
+                        p.Rforce(R, z, phi=phi + h, **kw)
+                        - p.Rforce(R, z, phi=phi - h, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "phiz": (
+                    p.phizderiv(R, z, phi=phi, **kw),
+                    -(
+                        p.zforce(R, z, phi=phi + h, **kw)
+                        - p.zforce(R, z, phi=phi - h, **kw)
+                    )
+                    / (2 * h),
+                ),
+            }
+            for name, (ana, fd) in checks.items():
+                assert numpy.fabs(ana - fd) < 1e-6, (
+                    f"SCF analytic {name}deriv differs from FD by {numpy.fabs(ana - fd):g}"
+                )
+    return None
+
+
 def test_scf_tupleindexwarning():
     import warnings
 
