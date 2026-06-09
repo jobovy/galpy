@@ -1728,6 +1728,245 @@ def test_integrate_dxdv_3d_c_requires_full_hessian():
     return None
 
 
+# Tests of Orbit.lyapunov: largest Lyapunov exponent from the variational
+# equations (Benettin et al. 1980 renormalization on top of integrate_dxdv)
+def test_lyapunov_integrable():
+    # In an integrable potential all orbits are regular, so the running
+    # estimate lambda(t) of the largest Lyapunov exponent must decay ~ln(t)/t
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, LogarithmicHaloPotential
+
+    tend = 1000.0
+    ts = numpy.linspace(0.0, tend, 10001)
+    # 3D orbit in the integrable isochrone potential
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    lam = o.lyapunov(ts, pot=ip, method="dop853_c")
+    assert numpy.isnan(lam[0]), (
+        "lyapunov running estimate at ts[0] should be NaN (no elapsed time)"
+    )
+    assert lam[-1] < 3.0 * numpy.log(tend) / tend, (
+        "lyapunov estimate for a regular 3D isochrone orbit does not decay "
+        f"to ~ln(t)/t: lambda(t_end)={lam[-1]:g}"
+    )
+    assert lam[-1] < lam[len(ts) // 2], (
+        "lyapunov estimate for a regular 3D isochrone orbit is not decreasing "
+        "between the half-time and the end-time"
+    )
+    # Planar orbit in an axisymmetric potential: also regular (E,Lz integrals)
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    op = Orbit([1.0, 0.1, 1.1, 0.0])
+    lamp = op.lyapunov(ts, pot=lp, method="dop853_c")
+    assert lamp[-1] < 3.0 * numpy.log(tend) / tend, (
+        "lyapunov estimate for a regular planar axisymmetric orbit does not "
+        f"decay to ~ln(t)/t: lambda(t_end)={lamp[-1]:g}"
+    )
+    assert lamp[-1] < lamp[len(ts) // 2], (
+        "lyapunov estimate for a regular planar axisymmetric orbit is not "
+        "decreasing between the half-time and the end-time"
+    )
+    return None
+
+
+def test_lyapunov_henonheiles_chaotic():
+    # Regression test of the largest Lyapunov exponent of a chaotic orbit of
+    # the Henon-Heiles system at E=1/8, against documented literature values.
+    # We use the well-documented chaotic orbit 'F' of Skokos et al. (2002,
+    # arXiv:nlin/0210053, Sect. 3.2): Cartesian (x,y,px,py)=(0,-0.016,0.49974,0)
+    # at H=1/8, whose finite-time Lyapunov estimate fluctuates around
+    # 10^{-1.2}-10^{-1} for t=10^3-10^5 (their Fig. 4b). The classic
+    # computation of Benettin, Galgani & Strelcyn (1976, Phys. Rev. A 14,
+    # 2338; their Fig. 4, reproduced as Fig. 2 of Skokos 2010, Lect. Notes
+    # Phys. 790, 63) finds the chaotic orbits at E=0.125 saturating at
+    # k_n ~ 5-8 x 10^-2. So the documented largest Lyapunov exponent of the
+    # chaotic sea at E=1/8 is ~0.04-0.08; here the estimate converges to
+    # ~0.04-0.05, asserted below with a loose factor ~2 band, and is clearly
+    # separated from the regular orbit 'E' of Skokos et al. (2002)
+    # [(x,y,px,py)=(0,0.55,0.2417,0)] at the same energy.
+    from galpy.orbit import Orbit
+    from galpy.potential import HenonHeilesPotential
+
+    hh = HenonHeilesPotential(amp=1.0)
+    ts = numpy.linspace(0.0, 50000.0, 25001)
+    # galpy planar coords: x=0,y<0 -> (R,phi)=(|y|,-pi/2), (vx,vy)=(vT,vR)
+    oF = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    assert numpy.fabs(oF.E(pot=hh) - 0.125) < 1e-4, (
+        "Henon-Heiles chaotic test orbit is not at E=1/8"
+    )
+    lamF = oF.lyapunov(ts, pot=hh, method="dop853_c")
+    # x=0,y>0 -> (R,phi)=(y,pi/2), (vx,vy)=(-vT,vR)
+    oE = Orbit([0.55, 0.0, -0.2417, numpy.pi / 2.0])
+    assert numpy.fabs(oE.E(pot=hh) - 0.125) < 1e-4, (
+        "Henon-Heiles regular test orbit is not at E=1/8"
+    )
+    lamE = oE.lyapunov(ts, pot=hh, method="dop853_c")
+    # Chaotic: converged into the (loose) literature band at both the
+    # half-time and the end-time
+    for lam_chaotic, tlabel in [(lamF[len(ts) // 2], "t=25000"), (lamF[-1], "t=50000")]:
+        assert 0.02 < lam_chaotic < 0.14, (
+            "Largest Lyapunov exponent of the documented chaotic Henon-Heiles "
+            f"orbit at E=1/8 is {lam_chaotic:g} at {tlabel}, outside the "
+            "documented range ~0.04-0.08 (with factor ~2 tolerance)"
+        )
+    # Regular orbit at the same energy: decaying to ~ln(t)/t
+    assert lamE[-1] < 3.0 * numpy.log(ts[-1]) / ts[-1], (
+        "lyapunov estimate for the regular Henon-Heiles orbit does not decay "
+        f"to ~ln(t)/t: lambda(t_end)={lamE[-1]:g}"
+    )
+    # and the chaotic exponent is much larger than the regular one
+    assert lamF[-1] > 30.0 * lamE[-1], (
+        "Chaotic Henon-Heiles lyapunov estimate is not clearly separated from "
+        f"the regular one: chaotic {lamF[-1]:g} vs regular {lamE[-1]:g}"
+    )
+    return None
+
+
+def test_lyapunov_c_vs_python():
+    # The C (dop853_c) and pure-Python (dop853) lyapunov estimates must agree
+    # for the same orbit/potential/times; t is short enough (lambda*t ~ 13)
+    # that the tightly-toleranced trajectories still shadow each other.
+    # Also check that the running estimate is independent of the
+    # renormalization interval (validating the Benettin et al. bookkeeping)
+    from galpy.orbit import Orbit
+    from galpy.potential import HenonHeilesPotential
+
+    hh = HenonHeilesPotential(amp=1.0)
+    ic = [0.016, 0.0, 0.49974, -numpy.pi / 2.0]
+    ts = numpy.linspace(0.0, 300.0, 3001)
+    oc = Orbit(ic)
+    lam_c = oc.lyapunov(ts, pot=hh, method="dop853_c", rtol=1e-12, atol=1e-12)
+    op = Orbit(ic)
+    lam_py = op.lyapunov(ts, pot=hh, method="dop853", rtol=1e-12, atol=1e-12)
+    for idx, tlabel in [(len(ts) // 2, "t=150"), (-1, "t=300")]:
+        rel = numpy.fabs(lam_c[idx] - lam_py[idx]) / numpy.fabs(lam_c[idx])
+        assert rel < 0.02, (
+            f"C vs Python lyapunov estimates differ by {rel:g} at {tlabel} "
+            f"(C: {lam_c[idx]:g}, Python: {lam_py[idx]:g})"
+        )
+    # Independence of the renormalization interval
+    o37 = Orbit(ic)
+    lam_c37 = o37.lyapunov(
+        ts, pot=hh, method="dop853_c", renorm_every=37, rtol=1e-12, atol=1e-12
+    )
+    maxdiff = numpy.nanmax(numpy.fabs(lam_c37 - lam_c))
+    assert maxdiff < 1e-4, (
+        "lyapunov running estimate depends on the renormalization interval: "
+        f"max |renorm_every=37 - renorm_every=10| = {maxdiff:g}"
+    )
+    return None
+
+
+def test_lyapunov_api():
+    # API behavior of Orbit.lyapunov: output shapes for multiple orbits,
+    # per-orbit initial deviations, invariance under the deviation-vector
+    # normalization (the variational equations are linear), the pot=None
+    # default, and physical-output conversion
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+    from galpy.util import conversion
+
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    ts = numpy.linspace(0.0, 10.0, 101)
+    # Multiple orbits: shape (2,) -> output (2,nt)
+    o = Orbit([[1.0, 0.1, 1.1, 0.1, 0.1, 0.0], [1.1, -0.1, 0.9, 0.0, 0.05, 1.0]])
+    lam = o.lyapunov(ts, pot=ip, method="dop853_c")
+    assert lam.shape == (2, len(ts)), (
+        "lyapunov output shape incorrect for multiple orbits"
+    )
+    # Per-orbit initial deviations: shape (*input_shape,phasedim)
+    lam2 = o.lyapunov(ts, pot=ip, method="dop853_c", dxdv0=numpy.ones((2, 6)))
+    assert lam2.shape == (2, len(ts)), (
+        "lyapunov output shape incorrect for per-orbit dxdv0"
+    )
+    # The variational equations are linear, so the normalization of dxdv0
+    # is irrelevant
+    o1 = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    dxdv0 = numpy.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    lam_a = o1.lyapunov(ts, pot=ip, method="dop853_c", dxdv0=dxdv0)
+    lam_b = o1.lyapunov(ts, pot=ip, method="dop853_c", dxdv0=1e-7 * dxdv0)
+    assert numpy.allclose(lam_a[1:], lam_b[1:]), (
+        "lyapunov estimate depends on the normalization of the initial "
+        "deviation vector, but the variational equations are linear"
+    )
+    # pot=None uses the potential of the last orbit integration
+    o1.integrate(ts, ip, method="dop853_c")
+    lamd = o1.lyapunov(ts, method="dop853_c", dxdv0=dxdv0)
+    assert numpy.allclose(lamd[1:], lam_a[1:]), (
+        "lyapunov with pot=None does not use the potential of the last "
+        "orbit integration"
+    )
+    # and the stored orbit integration is not clobbered by lyapunov
+    assert numpy.allclose(o1.getOrbit()[-1], o1(ts[-1]).vxvv[0]), (
+        "lyapunov clobbered the previously integrated orbit"
+    )
+    # Physical output: frequency conversion to 1/Gyr
+    ro, vo = 8.0, 220.0
+    ophys = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0], ro=ro, vo=vo)
+    lphys = ophys.lyapunov(ts, pot=ip, method="dop853_c", quantity=False)
+    lnat = ophys.lyapunov(ts, pot=ip, method="dop853_c", use_physical=False)
+    assert numpy.allclose(lphys[1:], lnat[1:] * conversion.freq_in_Gyr(vo, ro)), (
+        "lyapunov physical output is not the natural output converted to 1/Gyr"
+    )
+    return None
+
+
+def test_lyapunov_python_fallback_warning():
+    # A potential lacking the required C variational implementation must fall
+    # back to the Python odeint integrator with a SINGLE galpyWarning (not one
+    # warning per renormalization segment)
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+    from galpy.util import galpyWarning
+
+    mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    mn.hasC_dxdv3d = False  # force the no-3D-C-Hessian code path
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    ts = numpy.linspace(0.0, 5.0, 51)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        lam = o.lyapunov(ts, pot=mn, method="dop853_c", renorm_every=10)
+        n_fallback = sum(
+            issubclass(wi.category, galpyWarning) and "Using odeint" in str(wi.message)
+            for wi in w
+        )
+    assert n_fallback == 1, (
+        "lyapunov should emit exactly one fallback warning when the potential "
+        f"lacks adequate C implementations, got {n_fallback}"
+    )
+    assert lam.shape == (len(ts),), "lyapunov fallback output shape incorrect"
+    return None
+
+
+def test_lyapunov_errors():
+    # Input validation of Orbit.lyapunov
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    ts = numpy.linspace(0.0, 1.0, 11)
+    # Only implemented for phase-space dimensions 4 and 6
+    o5 = Orbit([1.0, 0.1, 1.1, 0.1, 0.1])
+    with pytest.raises(AttributeError):
+        o5.lyapunov(ts, pot=ip)
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    # No potential given and orbit not integrated
+    with pytest.raises(AttributeError):
+        o.lyapunov(ts)
+    # Fewer than two times
+    with pytest.raises(ValueError):
+        o.lyapunov(numpy.array([0.0]), pot=ip)
+    # Invalid renormalization interval
+    with pytest.raises(ValueError):
+        o.lyapunov(ts, pot=ip, renorm_every=0)
+    # Zero-norm initial deviation
+    with pytest.raises(ValueError):
+        o.lyapunov(ts, pot=ip, dxdv0=numpy.zeros(6))
+    # Wrong-dimensionality initial deviation
+    with pytest.raises(ValueError):
+        o.lyapunov(ts, pot=ip, dxdv0=numpy.ones(4))
+    return None
+
+
 def test_liouville_3d_nonaxi_flow():
     # Validate the NON-axisymmetric Hessian terms (phi2deriv/Rphideriv/zphideriv)
     # of the 3D variational RHS, which the axisymmetric MiyamotoNagai/Plummer
