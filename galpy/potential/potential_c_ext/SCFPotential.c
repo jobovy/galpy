@@ -344,6 +344,13 @@ static void sum_spher_2nd_derivs(int N, int L, int M, int isNonAxi,
                                  double *d2phiTilde, double *P,
                                  double phi, double *F)
 {
+    // Returns the (potential) second derivatives F = (d2Phi/dr2, d2Phi/dphi2,
+    // d2Phi/drdphi) -- NOT force-like (-d2Phi). Unlike the forces (-dPhi), the
+    // second derivatives carry no extra minus sign, so the accumulation signs
+    // here are the opposite of those in sum_spher_forces:
+    //   d2Phi/dr2    =  sum cos_sum * P * d2phiTilde
+    //   d2Phi/dphi2  = -sum m^2 * cos_sum * P * phiTilde
+    //   d2Phi/drdphi = -sum m * sin_diff * P * dphiTilde
     F[0] = F[1] = F[2] = 0.0;
     if (isNonAxi) {
         for (int l = 0; l < L; l++) {
@@ -356,9 +363,9 @@ static void sum_spher_2nd_derivs(int N, int L, int M, int isNonAxi,
                     int ri = l * N + n;
                     double cos_sum = Acos[ci] * mcos + Asin[ci] * msin;
                     double sin_diff = Acos[ci] * msin - Asin[ci] * mcos;
-                    F[0] -= cos_sum * P[pi] * d2phiTilde[ri];
-                    F[1] += m * m * cos_sum * P[pi] * phiTilde[ri];
-                    F[2] += m * sin_diff * P[pi] * dphiTilde[ri];
+                    F[0] += cos_sum * P[pi] * d2phiTilde[ri];
+                    F[1] -= m * m * cos_sum * P[pi] * phiTilde[ri];
+                    F[2] -= m * sin_diff * P[pi] * dphiTilde[ri];
                 }
             }
         }
@@ -366,7 +373,7 @@ static void sum_spher_2nd_derivs(int N, int L, int M, int isNonAxi,
         for (int l = 0; l < L; l++) {
             for (int n = 0; n < N; n++) {
                 int ci = n * L * M + l * M;
-                F[0] -= Acos[ci] * P[l] * d2phiTilde[l * N + n];
+                F[0] += Acos[ci] * P[l] * d2phiTilde[l * N + n];
             }
         }
     }
