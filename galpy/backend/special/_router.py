@@ -75,11 +75,16 @@ def _dispatch(fnname, args, fallback, ns_args=None):
         if name == "torch":
             # torch.special.* require every argument to be a Tensor (they don't
             # broadcast Python scalars like scipy/jax do), so promote any plain
-            # scalar parameters (e.g. the order `a` of gammainc(a, x)).
-            args = tuple(
-                a if hasattr(a, "ndim") else xp.asarray(a, dtype=xp.float64)
-                for a in args
-            )
+            # scalar parameters (e.g. the order `a` of gammainc(a, x)) to a
+            # Tensor on the same device/dtype as the array argument(s).
+            ref = next((a for a in args if hasattr(a, "ndim")), None)
+            if ref is not None:
+                args = tuple(
+                    a
+                    if hasattr(a, "ndim")
+                    else xp.asarray(a, dtype=ref.dtype, device=ref.device)
+                    for a in args
+                )
         return getattr(sp, fnname)(*args)
     return fallback(xp, *args)
 
