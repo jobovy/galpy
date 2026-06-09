@@ -68,3 +68,47 @@ double SolidBodyRotationWrapperPotentialPlanarRphideriv(double R,double phi,
 			  potentialArgs->nwrapped,
 			  potentialArgs->wrappedPotentialArg);
 }
+
+// --- 3D Hessian for the variational equations: modulation x wrapped Hessian ---
+double SolidBodyRotationWrapperPotentialR2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args \
+    * calcR2deriv(R,z,phi - *(args+1) * t - *(args+2),t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double SolidBodyRotationWrapperPotentialz2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args \
+    * calcz2deriv(R,z,phi - *(args+1) * t - *(args+2),t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double SolidBodyRotationWrapperPotentialRzderiv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args \
+    * calcRzderiv(R,z,phi - *(args+1) * t - *(args+2),t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double SolidBodyRotationWrapperPotentialphi2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args \
+    * calcphi2deriv(R,z,phi - *(args+1) * t - *(args+2),t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double SolidBodyRotationWrapperPotentialRphideriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args \
+    * calcRphideriv(R,z,phi - *(args+1) * t - *(args+2),t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double SolidBodyRotationWrapperPotentialzphideriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args \
+    * calczphideriv(R,z,phi - *(args+1) * t - *(args+2),t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}

@@ -26,6 +26,7 @@ from .Potential import (
     _evaluatezforces,
     _isNonAxi,
     evaluateDensities,
+    evaluatephizderivs,
     evaluateR2derivs,
     evaluateRzderivs,
     evaluatez2derivs,
@@ -191,6 +192,7 @@ class WrapperPotential(Potential):
             or attribute == "_Rzderiv"
             or attribute == "_phi2deriv"
             or attribute == "_Rphideriv"
+            or attribute == "_phizderiv"
             or attribute == "_dens"
         ):
             return lambda R, Z, phi=0.0, t=0.0: self._wrap(
@@ -239,6 +241,10 @@ class WrapperPotential(Potential):
         elif attribute == "_Rphideriv":
             return lambda p, R, Z, phi=0.0, t=0.0: _evaluatePotentials(
                 p, R, Z, phi=phi, t=t, dR=1, dphi=1
+            )
+        elif attribute == "_phizderiv":
+            return lambda p, R, Z, phi=0.0, t=0.0: evaluatephizderivs(
+                p, R, Z, phi=phi, t=t, use_physical=False
             )
         else:  # pragma: no cover
             raise AttributeError(
