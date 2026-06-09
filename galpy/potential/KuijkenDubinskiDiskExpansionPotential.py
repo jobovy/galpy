@@ -95,6 +95,11 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             # integrate_dxdv works whenever the embedded SCF/Multipole part
             # supports it
             self.hasC_dxdv = self._me.hasC_dxdv
+            # 3D variational (dxdv) integration is supported iff BOTH the
+            # analytic disk pairs (their full 3D Hessian is in C here) AND the
+            # expansion sub-potential self._me (SCF / MultipoleExpansion) have
+            # the full 3D Hessian in C.
+            self.hasC_dxdv3d = getattr(self._me, "hasC_dxdv3d", False)
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):

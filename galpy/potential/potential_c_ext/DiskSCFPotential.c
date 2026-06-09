@@ -168,6 +168,52 @@ double DiskSCFPotentialzforce(double R,double Z, double phi,
   return -dSigmadR(r,Sigma_args) * Hz(Z,hz_args) * Z / r \
     -Sigma(r,Sigma_args) * dHzdz(Z,hz_args);
 }
+// Full 3D Hessian of a single approximation pair Phi(R,Z)=Sigma(r) Hz(Z),
+// r=sqrt(R^2+Z^2). The phi-derivatives are identically zero (axisymmetric), so
+// phi2deriv/Rphideriv/zphideriv are left NULL (the C aggregators skip them).
+// Uses Hz''(z) = hz(z) (the vertical density; 1D Poisson).
+double DiskSCFPotentialR2deriv(double R,double Z, double phi,
+			       double t,
+			       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  int nsigma_args= (int) *args;
+  double * Sigma_args= args+1;
+  double * hz_args= args+1+nsigma_args;
+  double r= sqrt( R * R + Z * Z );
+  double r2= r * r;
+  double sp= dSigmadR(r,Sigma_args);
+  double spp= d2SigmadR2(r,Sigma_args);
+  return Hz(Z,hz_args) * ( spp * R * R / r2 + sp * Z * Z / r2 / r );
+}
+double DiskSCFPotentialz2deriv(double R,double Z, double phi,
+			       double t,
+			       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  int nsigma_args= (int) *args;
+  double * Sigma_args= args+1;
+  double * hz_args= args+1+nsigma_args;
+  double r= sqrt( R * R + Z * Z );
+  double r2= r * r;
+  double sp= dSigmadR(r,Sigma_args);
+  double spp= d2SigmadR2(r,Sigma_args);
+  return Hz(Z,hz_args) * ( spp * Z * Z / r2 + sp * R * R / r2 / r )	\
+    + 2. * sp * Z / r * dHzdz(Z,hz_args)				\
+    + Sigma(r,Sigma_args) * hz(Z,hz_args);
+}
+double DiskSCFPotentialRzderiv(double R,double Z, double phi,
+			       double t,
+			       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  int nsigma_args= (int) *args;
+  double * Sigma_args= args+1;
+  double * hz_args= args+1+nsigma_args;
+  double r= sqrt( R * R + Z * Z );
+  double r2= r * r;
+  double sp= dSigmadR(r,Sigma_args);
+  double spp= d2SigmadR2(r,Sigma_args);
+  return Hz(Z,hz_args) * R * Z * ( spp / r2 - sp / r2 / r )		\
+    + sp * R / r * dHzdz(Z,hz_args);
+}
 double DiskSCFPotentialDens(double R,double Z, double phi,
 			    double t,
 			    struct potentialArg * potentialArgs){
