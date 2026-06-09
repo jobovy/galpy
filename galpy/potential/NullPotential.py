@@ -30,10 +30,11 @@ class NullPotential(Potential):
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="velocity2")
         self.hasC = True
         self.hasC_dxdv = True
-        # All forces (and hence the full 3D Hessian) are identically zero, so the
-        # NULL-safe C aggregators return 0 for every second derivative -- the
-        # correct zero Hessian -- and the 3D variational equations integrate the
-        # deviation vectors ballistically (det M = 1).
+        # As for hasC_dxdv: advertise the capability so a NullPotential in a
+        # combined potential does not force the whole thing off the C 3D
+        # variational path (NullPotentials are purged before C parsing; a
+        # lone NullPotential falls through to C case 40, whose unset 2nd-deriv
+        # pointers give the correct zero Hessian via the NULL-safe aggregators).
         self.hasC_dxdv3d = True
         self.hasC_dens = True
         return None
