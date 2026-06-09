@@ -136,6 +136,10 @@ class MN3ExponentialDiskPotential(Potential):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
+        # In C this expands into three MiyamotoNagai potentials (see
+        # integrateFullOrbit._parse_pot), each of which has the full 3D Hessian,
+        # so the 3D variational integration works directly.
+        self.hasC_dxdv3d = True
         self._nemo_accname = "MiyamotoNagai+MiyamotoNagai+MiyamotoNagai"
         return None
 
