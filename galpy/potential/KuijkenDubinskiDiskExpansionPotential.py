@@ -89,6 +89,11 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         if self._Sigma_dict is not None and self._hz_dict is not None:
             self.hasC = True
             self.hasC_dens = True
+            # 3D variational (dxdv) integration is supported iff BOTH the
+            # analytic disk pairs (their full 3D Hessian is in C here) AND the
+            # expansion sub-potential self._me (SCF / MultipoleExpansion) have
+            # the full 3D Hessian in C.
+            self.hasC_dxdv3d = getattr(self._me, "hasC_dxdv3d", False)
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
