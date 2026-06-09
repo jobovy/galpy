@@ -1408,8 +1408,10 @@ def test_multipole_dxdv_3d():
     omega = 0.8
     hp = HernquistPotential(amp=2.0, a=1.0)
     mep_tdep = MultipoleExpansionPotential.from_density(
-        dens=lambda R, z, phi, t=0.0: hp.dens(R, z, use_physical=False)
-        * (1.0 + 0.05 * numpy.cos(2.0 * (phi - omega * t))),
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False)
+            * (1.0 + 0.05 * numpy.cos(2.0 * (phi - omega * t)))
+        ),
         L=4,
         rgrid=rgrid,
         tgrid=numpy.linspace(0.0, 5.0, 41),
