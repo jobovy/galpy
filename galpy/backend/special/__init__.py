@@ -13,6 +13,7 @@
 #   capability test asserts native-vs-fallback agreement so it can be deleted).
 ###############################################################################
 from ._router import (
+    assoc_legendre,
     ellipe,
     ellipk,
     erf,
@@ -21,10 +22,14 @@ from ._router import (
     gammainc,
     gammaincc,
     gammaln,
+    gegenbauer,
     hyp1f1,
     hyp2f1,
     i0,
     i1,
+    k0,
+    k1,
+    kn,
     xlogy,
 )
 
@@ -42,4 +47,9 @@ __all__ = [
     "hyp1f1",
     "ellipk",
     "ellipe",
+    "k0",
+    "k1",
+    "kn",
+    "assoc_legendre",
+    "gegenbauer",
 ]
