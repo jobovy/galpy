@@ -1,3 +1,12 @@
+def _liouville3d_tdep_amp(t):
+    # Smooth, strictly-positive time-dependent amplitude used by the
+    # TimeDependentAmplitudeWrapperPotential registry entry (module-level so it
+    # is shared identically by the C and pure-Python integration paths).
+    import numpy
+
+    return 1.0 + 0.3 * numpy.sin(t)
+
+
 def pytest_generate_tests(metafunc):
     # galpy imports must be hear to not interfere with different config settings
     # in different files
@@ -257,6 +266,62 @@ def pytest_generate_tests(metafunc):
             (
                 potential.DehnenBarPotential(alpha=0.05),
                 "DehnenBarPotential",
+                "nonaxisymmetric",
+            ),
+            # ---- WrapperPotentials (Pvar-pot.6): the wrapper's full 3D C Hessian
+            # is modulation x calc<deriv>(wrapped), so it is complete iff the
+            # wrapped potential's 3D Hessian is in C (hasC_dxdv3d). Each wraps a
+            # triaxial LogarithmicHalo so the genuine non-axisymmetric zphideriv
+            # coupling is exercised; the smooth, time-dependent modulations keep
+            # det(M)=1 / symplecticity (Hamiltonian flow) while making the
+            # modulation factor non-trivial (!= 1) over the test interval. The
+            # flow-direction identity (check 3) is auto-skipped for these
+            # explicitly time-dependent potentials.
+            (
+                potential.DehnenSmoothWrapperPotential(
+                    pot=potential.LogarithmicHaloPotential(
+                        amp=1.0, core=0.5, q=0.8, b=0.7, normalize=True
+                    ),
+                    tform=-2.0,
+                    tsteady=8.0,
+                ),
+                "DehnenSmoothWrapperPotential",
+                "nonaxisymmetric",
+            ),
+            (
+                potential.GaussianAmplitudeWrapperPotential(
+                    pot=potential.LogarithmicHaloPotential(
+                        amp=1.0, core=0.5, q=0.8, b=0.7, normalize=True
+                    ),
+                    to=2.5,
+                    sigma=2.0,
+                ),
+                "GaussianAmplitudeWrapperPotential",
+                "nonaxisymmetric",
+            ),
+            (
+                potential.TimeDependentAmplitudeWrapperPotential(
+                    pot=potential.LogarithmicHaloPotential(
+                        amp=1.0, core=0.5, q=0.8, b=0.7, normalize=True
+                    ),
+                    A=_liouville3d_tdep_amp,
+                ),
+                "TimeDependentAmplitudeWrapperPotential",
+                "nonaxisymmetric",
+            ),
+            # SolidBodyRotation only does something to an axisymmetric child
+            # (phi -> phi - Omega t - pa is invisible to it), so wrapping the
+            # triaxial Log makes the rotating-frame phi-shift -- and hence the
+            # zphideriv coupling -- genuinely non-trivial.
+            (
+                potential.SolidBodyRotationWrapperPotential(
+                    pot=potential.LogarithmicHaloPotential(
+                        amp=1.0, core=0.5, q=0.8, b=0.7, normalize=True
+                    ),
+                    omega=1.3,
+                    pa=0.2,
+                ),
+                "SolidBodyRotationWrapperPotential",
                 "nonaxisymmetric",
             ),
         ]
