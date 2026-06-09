@@ -1250,6 +1250,7 @@ def _check_dxdv_3d_c(
     integrators=("dop853_c", "dopr54_c", "rk6_c"),
     det_tol=1e-7,
     symp_tol=1e-6,
+    fd_tol=1e-4,
 ):
     # Shared 3D variational (dxdv) validation for the harmonic-expansion
     # potentials (SCF / MultipoleExpansion), exercised through the C
@@ -1320,7 +1321,7 @@ def _check_dxdv_3d_c(
                 atol=1e-10,
             )
             fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
-            assert fderr < 1e-4, (
+            assert fderr < fd_tol, (
                 f"3D FD-of-flow for e_{ii} differs from the dxdv column by "
                 f"{fderr:g} for {name}, {integrator}"
             )
@@ -1399,6 +1400,31 @@ def test_multipole_dxdv_3d():
         integrators=("dop853_c", "dopr54_c"),
         det_tol=5e-6,
         symp_tol=5e-6,
+    )
+    # Time-dependent (rotating, weakly perturbed) multipole: exercises the
+    # time-dependent radial-coefficient path of the C 3D Hessian (the Nt>0
+    # branch of compute_multipole_hessian_cyl). Still a Hamiltonian flow, so
+    # det(M)=1 / symplecticity hold.
+    omega = 0.8
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mep_tdep = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: hp.dens(R, z, use_physical=False)
+        * (1.0 + 0.05 * numpy.cos(2.0 * (phi - omega * t))),
+        L=4,
+        rgrid=rgrid,
+        tgrid=numpy.linspace(0.0, 5.0, 41),
+    )
+    assert mep_tdep.isNonAxi, "time-dependent multipole should be non-axisymmetric"
+    # det(M)=1 / symplecticity still hold to ~1e-8 (the Hessian is correct); the
+    # FD-of-flow is looser because the coarse (rgrid x tgrid) interpolation of the
+    # time-dependent radial coefficients is less accurate than the static splines.
+    _check_dxdv_3d_c(
+        mep_tdep,
+        "MultipoleExpansion (time-dependent)",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+        fd_tol=1e-3,
     )
     return None
 
