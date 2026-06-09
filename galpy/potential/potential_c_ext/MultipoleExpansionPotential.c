@@ -12,6 +12,7 @@
 // Cache tags for force/deriv caching
 #define MEP_CACHE_FORCE 1
 #define MEP_CACHE_DERIV 2
+#define MEP_CACHE_HESSIAN 3
 
 // PPoly order (quintic from BPoly.from_derivatives with 3 constraints)
 #define PPOLY_K 6
@@ -47,6 +48,7 @@ struct multipole_data {
     double cached_R, cached_Z, cached_phi;
     double cached_F[3];     // dPhi/dr, dPhi/dtheta, dPhi/dphi
     double cached_D[3];     // d2Phi/dr2, d2Phi/dphi2, d2Phi/drdphi
+    double cached_H[6];     // R2/z2/Rz/phi2/Rphi/zphi deriv (full 3D Hessian)
     int cache_valid;
     // Time-dependent fields (all NULL/0 for static)
     int Nt;                      // 0 = static
@@ -70,6 +72,8 @@ struct multipole_data {
     // (R, z) coordinates (costheta would differ, causing a race condition).
     double *P_buf;               // Psize doubles for P_l^m
     double *dP_buf;              // Psize doubles for dP_l^m/d(costheta)
+    double *dPth_buf;            // Psize doubles for dP_l^m/dtheta
+    double *d2Pth_buf;           // Psize doubles for d2P_l^m/dtheta2
 
 };
 
@@ -88,6 +92,8 @@ static void freeMultipoleData(void *data)
     if (d->rho_scratch) free(d->rho_scratch);
     if (d->P_buf) free(d->P_buf);
     if (d->dP_buf) free(d->dP_buf);
+    if (d->dPth_buf) free(d->dPth_buf);
+    if (d->d2Pth_buf) free(d->d2Pth_buf);
     free(d);
 }
 
@@ -383,6 +389,8 @@ void initMultipoleExpansionPotentialArgs(struct potentialArg *potentialArgs,
     // For forces/2nd derivs, we need both P and dP (2*Psize)
     d->P_buf = (double *)malloc(d->Psize * sizeof(double));
     d->dP_buf = (double *)malloc(d->Psize * sizeof(double));
+    d->dPth_buf = (double *)malloc(d->Psize * sizeof(double));
+    d->d2Pth_buf = (double *)malloc(d->Psize * sizeof(double));
 
 
     // Initialize caches
@@ -1236,6 +1244,231 @@ static void compute_multipole_spher_2nd_derivs(struct multipole_data *d,
     free(r_neg_lp1_arr);
     free(cos_m);
     free(sin_m);
+}
+
+// ============================================================================
+// Full 3D Hessian: the six cylindrical second derivatives, for 3D variational
+// (dxdv) integration. Mirrors SCFPotential: sum the full set of
+// spherical-coordinate potential derivatives (incl. the theta-derivatives of
+// the Legendre functions) then apply the exact spherical->cylindrical
+// chain-rule transform (R=r sin theta, z=r cos theta).
+// ============================================================================
+
+static void compute_multipole_hessian_cyl(struct multipole_data *d,
+                                           struct potentialArg *potentialArgs,
+                                           double R, double Z, double phi,
+                                           double t, double *H)
+{
+    // Check cache
+    if (d->cache_valid == MEP_CACHE_HESSIAN
+        && d->cached_R == R && d->cached_Z == Z
+        && d->cached_phi == phi && d->cached_t == t) {
+        for (int k = 0; k < 6; k++)
+            H[k] = d->cached_H[k];
+        return;
+    }
+
+    int L = d->L, M = d->M;
+    double r, theta;
+    cyl_to_spher(R, Z, &r, &theta);
+
+    if (r == 0.0 || !isfinite(r)) { // LCOV_EXCL_START
+        for (int k = 0; k < 6; k++)
+            H[k] = 0.0;
+        d->cache_valid = MEP_CACHE_HESSIAN;
+        d->cached_R = R; d->cached_Z = Z; d->cached_phi = phi; d->cached_t = t;
+        for (int k = 0; k < 6; k++)
+            d->cached_H[k] = 0.0;
+        return;
+    } // LCOV_EXCL_STOP
+
+    double costheta = cos(theta);
+    double *P = d->P_buf;
+    double *dPdx = d->dP_buf;
+    double *dPth = d->dPth_buf;
+    double *d2Pth = d->d2Pth_buf;
+    if (d->isNonAxi)
+        compute_legendre_deriv(costheta, L, M, P, dPdx);
+    else
+        compute_legendre_deriv(costheta, L, 1, P, dPdx);
+    legendre_theta_from_x(theta, L, d->isNonAxi ? M : 1, P, dPdx, dPth, d2Pth);
+
+    // Spherical-coordinate potential derivatives:
+    // S[0]=Phi_r S[1]=Phi_theta S[2]=Phi_rr S[3]=Phi_thetatheta
+    // S[4]=Phi_rtheta S[5]=Phi_phiphi S[6]=Phi_rphi S[7]=Phi_thetaphi
+    double S[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    int n_r = PPOLY_K * (d->Nr - 1);
+
+    double *r_l_arr = (double *)malloc(L * sizeof(double));
+    double *r_neg_lp1_arr = (double *)malloc(L * sizeof(double));
+    {
+        double rp = 1.0, rnp = 1.0 / r;
+        for (int ll = 0; ll < L; ll++) {
+            r_l_arr[ll] = rp; r_neg_lp1_arr[ll] = rnp;
+            rp *= r; rnp /= r;
+        }
+    }
+    double *cos_m = (double *)malloc(M * sizeof(double));
+    double *sin_m = (double *)malloc(M * sizeof(double));
+    cos_m[0] = 1.0; sin_m[0] = 0.0;
+    if (M > 1) {
+        double cp = cos(phi), sp = sin(phi);
+        cos_m[1] = cp; sin_m[1] = sp;
+        for (int mm = 2; mm < M; mm++) {
+            cos_m[mm] = 2.0 * cp * cos_m[mm - 1] - cos_m[mm - 2];
+            sin_m[mm] = 2.0 * cp * sin_m[mm - 1] - sin_m[mm - 2];
+        }
+    }
+
+    for (int l = 0; l < L; l++) {
+        int mmax = l + 1 < M ? l + 1 : M;
+        double r_l = r_l_arr[l], r_neg_lp1 = r_neg_lp1_arr[l];
+        for (int m = 0; m < mmax; m++) {
+            int pi = d->isNonAxi ? legendre_index(l, m, L) : l;
+            double cmf = cos_m[m], smf = sin_m[m];
+            double radc, dradc, d2radc;
+            if (d->Nt > 0) {
+                const double *tp_inner, *tp_outer;
+                get_time_ppoly_ptrs(d, l, m, 0, &tp_inner, &tp_outer);
+                radc = eval_radial_lm_timedep(tp_inner, tp_outer, n_r,
+                    d->rgrid, d->Nr, &d->last_interval, d->tgrid, d->Nt,
+                    &d->last_t_interval, r, t, l, d->rmin, d->rmax,
+                    r_l, r_neg_lp1, EVAL_DERIV2, &dradc, &d2radc);
+            } else {
+                const double *I_inner_pp, *I_outer_pp;
+                get_ppoly_ptrs(d, l, m, 0, &I_inner_pp, &I_outer_pp);
+                radc = eval_radial_lm(I_inner_pp, I_outer_pp, d->rgrid, d->Nr,
+                    &d->last_interval, r, l, d->rmin, d->rmax,
+                    r_l, r_neg_lp1, EVAL_DERIV2, &dradc, &d2radc);
+            }
+            // cos(m phi) angular block
+            S[0] += P[pi] * cmf * dradc;
+            S[1] += dPth[pi] * cmf * radc;
+            S[2] += P[pi] * cmf * d2radc;
+            S[3] += d2Pth[pi] * cmf * radc;
+            S[4] += dPth[pi] * cmf * dradc;
+            S[5] += P[pi] * (-m * m * cmf) * radc;
+            S[6] += P[pi] * (-m * smf) * dradc;
+            S[7] += dPth[pi] * (-m * smf) * radc;
+            if (m > 0) {
+                double rads, drads, d2rads;
+                if (d->Nt > 0) {
+                    const double *tp_inner, *tp_outer;
+                    get_time_ppoly_ptrs(d, l, m, 1, &tp_inner, &tp_outer);
+                    rads = eval_radial_lm_timedep(tp_inner, tp_outer, n_r,
+                        d->rgrid, d->Nr, &d->last_interval, d->tgrid, d->Nt,
+                        &d->last_t_interval, r, t, l, d->rmin, d->rmax,
+                        r_l, r_neg_lp1, EVAL_DERIV2, &drads, &d2rads);
+                } else {
+                    const double *I_inner_pp, *I_outer_pp;
+                    get_ppoly_ptrs(d, l, m, 1, &I_inner_pp, &I_outer_pp);
+                    rads = eval_radial_lm(I_inner_pp, I_outer_pp, d->rgrid, d->Nr,
+                        &d->last_interval, r, l, d->rmin, d->rmax,
+                        r_l, r_neg_lp1, EVAL_DERIV2, &drads, &d2rads);
+                }
+                // sin(m phi) angular block
+                S[0] += P[pi] * smf * drads;
+                S[1] += dPth[pi] * smf * rads;
+                S[2] += P[pi] * smf * d2rads;
+                S[3] += d2Pth[pi] * smf * rads;
+                S[4] += dPth[pi] * smf * drads;
+                S[5] += P[pi] * (-m * m * smf) * rads;
+                S[6] += P[pi] * (m * cmf) * drads;
+                S[7] += dPth[pi] * (m * cmf) * rads;
+            }
+        }
+    }
+    free(r_l_arr); free(r_neg_lp1_arr); free(cos_m); free(sin_m);
+
+    for (int k = 0; k < 8; k++)
+        S[k] *= d->amp;
+
+    double Phi_r = S[0], Phi_th = S[1];
+    double Phi_rr = S[2], Phi_thth = S[3], Phi_rth = S[4];
+    double Phi_phiphi = S[5], Phi_rphi = S[6], Phi_thphi = S[7];
+
+    // Spherical -> cylindrical chain rule
+    double ir = 1.0 / r, ir2 = 1.0 / (r * r), ir3 = ir2 * ir, ir4 = ir2 * ir2;
+    double rR = R * ir, rz = Z * ir;
+    double thR = Z * ir2, thz = -R * ir2;
+    double rRR = Z * Z * ir3, rzz = R * R * ir3, rRz = -R * Z * ir3;
+    double thRR = -2.0 * R * Z * ir4, thzz = 2.0 * R * Z * ir4,
+           thRz = (R * R - Z * Z) * ir4;
+
+    H[0] = Phi_rr * rR * rR + 2.0 * Phi_rth * rR * thR + Phi_thth * thR * thR
+           + Phi_r * rRR + Phi_th * thRR;
+    H[1] = Phi_rr * rz * rz + 2.0 * Phi_rth * rz * thz + Phi_thth * thz * thz
+           + Phi_r * rzz + Phi_th * thzz;
+    H[2] = Phi_rr * rR * rz + Phi_rth * (rR * thz + rz * thR)
+           + Phi_thth * thR * thz + Phi_r * rRz + Phi_th * thRz;
+    H[3] = Phi_phiphi;
+    H[4] = Phi_rphi * rR + Phi_thphi * thR;
+    H[5] = Phi_rphi * rz + Phi_thphi * thz;
+
+    d->cache_valid = MEP_CACHE_HESSIAN;
+    d->cached_R = R; d->cached_Z = Z; d->cached_phi = phi; d->cached_t = t;
+    for (int k = 0; k < 6; k++)
+        d->cached_H[k] = H[k];
+}
+
+double MultipoleExpansionPotentialR2deriv(double R, double Z, double phi, double t,
+                                          struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_multipole_hessian_cyl(
+        (struct multipole_data *)potentialArgs->pot_data,
+        potentialArgs, R, Z, phi, t, H);
+    return H[0];
+}
+
+double MultipoleExpansionPotentialz2deriv(double R, double Z, double phi, double t,
+                                          struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_multipole_hessian_cyl(
+        (struct multipole_data *)potentialArgs->pot_data,
+        potentialArgs, R, Z, phi, t, H);
+    return H[1];
+}
+
+double MultipoleExpansionPotentialRzderiv(double R, double Z, double phi, double t,
+                                          struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_multipole_hessian_cyl(
+        (struct multipole_data *)potentialArgs->pot_data,
+        potentialArgs, R, Z, phi, t, H);
+    return H[2];
+}
+
+double MultipoleExpansionPotentialphi2deriv(double R, double Z, double phi, double t,
+                                            struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_multipole_hessian_cyl(
+        (struct multipole_data *)potentialArgs->pot_data,
+        potentialArgs, R, Z, phi, t, H);
+    return H[3];
+}
+
+double MultipoleExpansionPotentialRphideriv(double R, double Z, double phi, double t,
+                                            struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_multipole_hessian_cyl(
+        (struct multipole_data *)potentialArgs->pot_data,
+        potentialArgs, R, Z, phi, t, H);
+    return H[4];
+}
+
+double MultipoleExpansionPotentialzphideriv(double R, double Z, double phi, double t,
+                                            struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_multipole_hessian_cyl(
+        (struct multipole_data *)potentialArgs->pot_data,
+        potentialArgs, R, Z, phi, t, H);
+    return H[5];
 }
 
 // ============================================================================
