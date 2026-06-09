@@ -146,6 +146,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         else:
             self._Asin = numpy.zeros_like(Acos)
         self._force_hash = None
+        self._2nd_deriv_cache_key = None
+        self._cached_2nd_derivs = None
         self.hasC = True
         self.hasC_dxdv = True
         self.hasC_dens = True
@@ -570,11 +572,19 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-06-08 - Written - Bovy (UofT)
         """
+        # Cache the full spherical 2nd-derivative set: the six cylindrical
+        # second derivatives at a point all transform from it, so this is
+        # computed once per point instead of once per component.
+        cache_key = (float(R), float(z), float(phi), float(t))
+        if cache_key == self._2nd_deriv_cache_key:
+            return self._cached_2nd_derivs
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
         if r == 0.0 or not numpy.isfinite(r):
-            return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            self._2nd_deriv_cache_key = cache_key
+            self._cached_2nd_derivs = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            return self._cached_2nd_derivs
         costheta = numpy.cos(theta)
         sintheta = numpy.sin(theta)
         # nudge off the pole so the m>0 angular derivatives stay finite
@@ -605,7 +615,18 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         Phi_tp = numpy.sum(dphi_coef * dPth * phi_tilde)
         Phi_r = numpy.sum(cos_sin * PP * dphi_tilde)
         Phi_t = numpy.sum(cos_sin * dPth * phi_tilde)
-        return (Phi_rr, Phi_tt, Phi_pp, Phi_rt, Phi_rp, Phi_tp, Phi_r, Phi_t)
+        self._2nd_deriv_cache_key = cache_key
+        self._cached_2nd_derivs = (
+            Phi_rr,
+            Phi_tt,
+            Phi_pp,
+            Phi_rt,
+            Phi_rp,
+            Phi_tp,
+            Phi_r,
+            Phi_t,
+        )
+        return self._cached_2nd_derivs
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         return self._evaluate_cyl_2nd_deriv("R2", R, z, phi, t=t)
