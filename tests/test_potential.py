@@ -7645,6 +7645,29 @@ def test_scf_analytic_2ndderiv():
                 assert numpy.fabs(ana - fd) < 1e-6, (
                     f"SCF analytic {name}deriv differs from FD by {numpy.fabs(ana - fd):g}"
                 )
+    # Degenerate-point branches: at r=0 the radial basis' 2nd derivative and the
+    # full spherical 2nd-derivative set are defined to be zero, and a
+    # non-axisymmetric (m>0) expansion evaluated on the z-axis must nudge off the
+    # pole so the angular derivatives stay finite.
+    axi, nonaxi = pots
+    N, L, _ = axi._Acos.shape
+    assert numpy.all(axi._d2phiTilde(0.0, N, L) == 0.0), (
+        "SCF _d2phiTilde should vanish at r=0"
+    )
+    assert axi._compute_spher_2nd_derivs_at_point(0.0, 0.0, 0.0) == (
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ), "SCF spherical 2nd derivs should vanish at the origin"
+    onaxis = nonaxi._compute_spher_2nd_derivs_at_point(0.0, 0.5, 0.3)
+    assert numpy.all(numpy.isfinite(onaxis)), (
+        "non-axi SCF 2nd derivs should stay finite on the z-axis (pole nudge)"
+    )
     return None
 
 
