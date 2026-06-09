@@ -7564,11 +7564,17 @@ def test_harmonic_planar_stm_vs_fd_of_flow():
     # wrong-but-symmetric Hessian is still a Hamiltonian flow -- but it shifts the
     # actual deviation vectors. FD of the flow uses only the (trusted) forces, so
     # it is independent of any second-derivative code and pins their absolute
-    # value. This regression-guards the SCF planar 2nd-deriv sign fix. (The 3D
-    # Hessian and DiskSCF are validated in the variational-3D PR, where that C
-    # code lives.)
+    # value. This regression-guards the SCF planar 2nd-deriv sign fix and the
+    # DiskSCF planar variational wiring (the disk correction terms vanish
+    # identically at z=0 because H(0)=0, so the planar STM is driven by the
+    # embedded SCF part plus the trivially-zero correction Hessian). (The 3D
+    # Hessian is validated in the variational-3D PR, where that C code lives.)
     from galpy.orbit import Orbit
-    from galpy.potential import SCFPotential, scf_compute_coeffs_spherical
+    from galpy.potential import (
+        DiskSCFPotential,
+        SCFPotential,
+        scf_compute_coeffs_spherical,
+    )
 
     def _hern(R, z=0.0, phi=0.0):
         r = numpy.sqrt(R**2 + z**2)
@@ -7587,6 +7593,7 @@ def test_harmonic_planar_stm_vs_fd_of_flow():
     mp_axi.normalize(1.0)
     mp_nonaxi = mockMultipoleExpansionPotential()
     mp_nonaxi.normalize(1.0)
+    dscf = DiskSCFPotential(normalize=1.0)
     # (label, planar potential, tolerance): SCF and the axisymmetric Multipole
     # are analytic/near-exact (~1e-6); the non-axisymmetric Multipole is
     # grid-spline interpolated, so it agrees only to grid accuracy (~1e-4) -- far
@@ -7596,6 +7603,7 @@ def test_harmonic_planar_stm_vs_fd_of_flow():
         ("SCF (non-axi)", scf_nonaxi.toPlanar(), 1e-5),
         ("Multipole (axi)", mp_axi.toPlanar(), 1e-5),
         ("Multipole (non-axi)", mp_nonaxi.toPlanar(), 5e-4),
+        ("DiskSCF", dscf.toPlanar(), 1e-5),
     ]
     times = numpy.linspace(0.0, 2.0, 101)
     R0, vR0, vT0, phi0 = 1.0, 0.1, 1.1, 0.3

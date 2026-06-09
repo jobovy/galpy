@@ -802,10 +802,8 @@ def test_liouville_planar():
     # rmpots.append('PowerSphericalPotentialwCutoff')
     # Doesn't have the R2deriv
     rmpots.append("SoftenedNeedleBarPotential")
-    rmpots.append("DiskSCFPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
-    rmpots.append("DiskMultipoleExpansionPotential")
     for p in rmpots:
         pots.remove(p)
     # tolerances in log10
@@ -826,6 +824,9 @@ def test_liouville_planar():
     tol["mockMultipoleExpansionLimitedGridPotential"] = -5.0
     tol["mockTDMultipoleExpansionLimitedGridPotential"] = -4.0
     tol["mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential"] = -4.0
+    # grid-spline-interpolated embedded Multipole part -> grid-level accuracy
+    tol["DiskMultipoleExpansionPotential"] = -5.5
+    tol["DiskSCFPotential"] = -7.0  # more difficult
     firstTest = True
     for p in pots:
         # Setup instance of potential
