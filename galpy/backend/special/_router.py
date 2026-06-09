@@ -72,6 +72,14 @@ def _dispatch(fnname, args, fallback, ns_args=None):
     xp = get_namespace(*(args if ns_args is None else ns_args))
     name, sp = _backend_special(xp)
     if fnname not in _NEEDS_FALLBACK.get(name, frozenset()) and hasattr(sp, fnname):
+        if name == "torch":
+            # torch.special.* require every argument to be a Tensor (they don't
+            # broadcast Python scalars like scipy/jax do), so promote any plain
+            # scalar parameters (e.g. the order `a` of gammainc(a, x)).
+            args = tuple(
+                a if hasattr(a, "ndim") else xp.asarray(a, dtype=xp.float64)
+                for a in args
+            )
         return getattr(sp, fnname)(*args)
     return fallback(xp, *args)
 
