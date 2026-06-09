@@ -736,8 +736,11 @@ def _d2C(xi, N, L):
     a = 2 * l + 3.0 / 2
     CC = _C(xi, N + 2, L, alpha=lambda x: 2 * x + 7.0 / 2)
     CC = numpy.roll(CC, 2, axis=0)[:-2, :]
+    # n=0 (and n=1, when present) have zero second derivative; for N=1 only the
+    # n=0 row exists, so guard the n=1 assignment.
     CC[0, :] = 0
-    CC[1, :] = 0
+    if N > 1:
+        CC[1, :] = 0
     CC *= 4 * a * (a + 1)
     return CC
 
