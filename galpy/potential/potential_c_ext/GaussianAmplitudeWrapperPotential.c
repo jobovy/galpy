@@ -89,3 +89,47 @@ double GaussianAmplitudeWrapperPotentialPlanarRphideriv(double R,double phi,
 			  potentialArgs->nwrapped,
 			  potentialArgs->wrappedPotentialArg);
 }
+
+// --- 3D Hessian for the variational equations: modulation x wrapped Hessian ---
+double GaussianAmplitudeWrapperPotentialR2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * gaussSmooth(t,*(args+1),*(args+2)) \
+    * calcR2deriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double GaussianAmplitudeWrapperPotentialz2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * gaussSmooth(t,*(args+1),*(args+2)) \
+    * calcz2deriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double GaussianAmplitudeWrapperPotentialRzderiv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * gaussSmooth(t,*(args+1),*(args+2)) \
+    * calcRzderiv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double GaussianAmplitudeWrapperPotentialphi2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * gaussSmooth(t,*(args+1),*(args+2)) \
+    * calcphi2deriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double GaussianAmplitudeWrapperPotentialRphideriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * gaussSmooth(t,*(args+1),*(args+2)) \
+    * calcRphideriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double GaussianAmplitudeWrapperPotentialzphideriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * gaussSmooth(t,*(args+1),*(args+2)) \
+    * calczphideriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}

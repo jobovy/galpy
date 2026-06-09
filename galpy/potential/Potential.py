@@ -4118,9 +4118,16 @@ def _check_c(Pot, dxdv=False, dxdv3d=False, dens=False):
             )
         )
     elif isinstance(Pot, parentWrapperPotential):
-        # getattr default handles wrappers that predate hasC_dxdv3d (treat as
-        # unsupported -> the 3D dxdv path falls back to the Python integrator).
-        return bool(getattr(Pot, hasC_attr, False) * _check_c(Pot._pot))
+        # A wrapper's C implementation of a given capability is
+        # modulation x <that same capability of the wrapped potential>, so the
+        # wrapped potential must itself satisfy the SAME check (propagate the
+        # flag) -- not merely have a base C implementation. getattr's default
+        # handles wrappers that predate the attribute (treat as unsupported ->
+        # the corresponding path falls back to the Python integrator).
+        return bool(
+            getattr(Pot, hasC_attr, False)
+            * _check_c(Pot._pot, dxdv=dxdv, dxdv3d=dxdv3d, dens=dens)
+        )
     elif (
         isinstance(Pot, Force)
         or isinstance(Pot, planarForce)

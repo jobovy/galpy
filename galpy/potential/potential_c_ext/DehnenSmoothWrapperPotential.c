@@ -100,3 +100,47 @@ double DehnenSmoothWrapperPotentialPlanarRphideriv(double R,double phi,
 			  potentialArgs->nwrapped,
 			  potentialArgs->wrappedPotentialArg);
 }
+
+// --- 3D Hessian for the variational equations: modulation x wrapped Hessian ---
+double DehnenSmoothWrapperPotentialR2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * dehnenSmooth(t,*(args+1),*(args+2),(bool) *(args+3)) \
+    * calcR2deriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double DehnenSmoothWrapperPotentialz2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * dehnenSmooth(t,*(args+1),*(args+2),(bool) *(args+3)) \
+    * calcz2deriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double DehnenSmoothWrapperPotentialRzderiv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * dehnenSmooth(t,*(args+1),*(args+2),(bool) *(args+3)) \
+    * calcRzderiv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double DehnenSmoothWrapperPotentialphi2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * dehnenSmooth(t,*(args+1),*(args+2),(bool) *(args+3)) \
+    * calcphi2deriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double DehnenSmoothWrapperPotentialRphideriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * dehnenSmooth(t,*(args+1),*(args+2),(bool) *(args+3)) \
+    * calcRphideriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double DehnenSmoothWrapperPotentialzphideriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * dehnenSmooth(t,*(args+1),*(args+2),(bool) *(args+3)) \
+    * calczphideriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
