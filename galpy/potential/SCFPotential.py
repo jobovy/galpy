@@ -21,13 +21,10 @@ from .Potential import Potential
 if _APY_LOADED:
     from astropy import units
 
-from .NumericalPotentialDerivativesMixin import NumericalPotentialDerivativesMixin
 from .SphericalHarmonicPotentialMixin import SphericalHarmonicPotentialMixin
 
 
-class SCFPotential(
-    Potential, SphericalHarmonicPotentialMixin, NumericalPotentialDerivativesMixin
-):
+class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
     """Class that implements the `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`_ Self-Consistent-Field-type potential.
     Note that we divide the amplitude by 2 such that :math:`Acos = \\delta_{0n}\\delta_{0l}\\delta_{0m}` and :math:`Asin = 0` corresponds to :ref:`Galpy's Hernquist Potential <hernquist_potential>`.
 
@@ -95,9 +92,6 @@ class SCFPotential(
         -----
         - 2016-05-13 - Written - Aladdin Seaifan (UofT)
         """
-        NumericalPotentialDerivativesMixin.__init__(
-            self, {}
-        )  # just use default dR etc.
         Potential.__init__(self, amp=amp / 2.0, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
         ##Errors
@@ -152,6 +146,8 @@ class SCFPotential(
         else:
             self._Asin = numpy.zeros_like(Acos)
         self._force_hash = None
+        self._2nd_deriv_cache_key = None
+        self._cached_2nd_derivs = None
         self.hasC = True
         self.hasC_dxdv = True
         self.hasC_dens = True
@@ -455,6 +451,46 @@ class SCFPotential(
             + a**-1 * (1 - xi) ** 2 * (a * r) ** l / (a + r) ** (2 * l + 1) * dC / 2.0
         )
 
+    def _d2phiTilde(self, r, N, L):
+        # Second radial derivative of phiTilde_nl(r). phiTilde (Python
+        # convention) = sqrt(4pi) x [the C-side phiTilde], so this is the C-side
+        # compute_d2phiTilde expression times sqrt(4pi). C, dC, d2C are the
+        # Gegenbauer polynomial and its 1st/2nd xi-derivatives; the dxi/dr
+        # factors are already folded into the algebra below. (r=0 -- the centre
+        # -- is a removable singularity never hit along an orbit; guarded.)
+        a = self._a
+        ar = a + r
+        l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
+        xi = _RToxi(r, a)
+        CC = _C(xi, N, L)
+        dCC = _dC(xi, N, L)
+        d2CC = _d2C(xi, N, L)
+        if r == 0:
+            return numpy.zeros((N, L), float)
+        ar2 = ar * ar
+        ar3 = ar2 * ar
+        ar4 = ar3 * ar
+        # Factored as (a r / ar^2)^l / (r^2 ar^5) -- a small, stable number for
+        # large r -- rather than (a r)^l / ar^(5+2l), whose intermediate powers
+        # overflow to inf/inf=NaN at large l (matches the C compute_d2phiTilde).
+        rterm = numpy.power(a * r / ar2, l) / (r * r * ar3 * ar2)
+        out = rterm * (
+            CC
+            * (
+                l * (1.0 - l) * ar4
+                - (4.0 * l**2 + 6.0 * l + 2.0) * r * r * ar2
+                + l * (4.0 * l + 2.0) * r * ar3
+            )
+            + a
+            * r
+            * (
+                (4.0 * r * r + 4.0 * a * r + (8.0 * l + 4.0) * r * ar - 4.0 * l * ar2)
+                * dCC
+                - 4.0 * a * r * d2CC
+            )
+        )
+        return out * (4.0 * numpy.pi) ** 0.5
+
     def _compute_spher_forces_at_point(self, R, z, phi=0, t=0):
         """
         Compute spherical force components dPhi/dr, dPhi/dtheta, dPhi/dphi at a single point.
@@ -521,6 +557,94 @@ class SCFPotential(
             self._cached_dPhi_dtheta = dPhi_dtheta
             self._cached_dPhi_dphi = dPhi_dphi
         return dPhi_dr, dPhi_dtheta, dPhi_dphi
+
+    def _compute_spher_2nd_derivs_at_point(self, R, z, phi, t=0.0):
+        """
+        Compute the spherical-coordinate second derivatives of the potential at a
+        single point: (d2Phi/dr2, d2Phi/dtheta2, d2Phi/dphi2, d2Phi/drdtheta,
+        d2Phi/drdphi, d2Phi/dthetadphi, dPhi/dr, dPhi/dtheta). Fed to the
+        SphericalHarmonicPotentialMixin chain-rule transform to build the
+        cylindrical Hessian. The angular theta-derivatives come from the
+        x=cos(theta) Legendre derivatives via dP/dtheta=-sin(theta)dP/dx and
+        d2P/dtheta2=sin^2(theta)d2P/dx2-cos(theta)dP/dx.
+
+        Notes
+        -----
+        - 2026-06-08 - Written - Bovy (UofT)
+        """
+        # Cache the full spherical 2nd-derivative set: the six cylindrical
+        # second derivatives at a point all transform from it, so this is
+        # computed once per point instead of once per component.
+        cache_key = (float(R), float(z), float(phi), float(t))
+        if cache_key == self._2nd_deriv_cache_key:
+            return self._cached_2nd_derivs
+        Acos, Asin = self._Acos, self._Asin
+        N, L, M = Acos.shape
+        r, theta, phi = coords.cyl_to_spher(R, z, phi)
+        if r == 0.0 or not numpy.isfinite(r):
+            self._2nd_deriv_cache_key = cache_key
+            self._cached_2nd_derivs = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            return self._cached_2nd_derivs
+        costheta = numpy.cos(theta)
+        sintheta = numpy.sin(theta)
+        # nudge off the pole so the m>0 angular derivatives stay finite
+        if M > 1 and abs(1.0 - costheta * costheta) < 1e-14:
+            costheta = numpy.sign(costheta) * (1.0 - 1e-7)
+            sintheta = numpy.sqrt(1.0 - costheta**2)
+        PP, dPP, d2PP = compute_legendre(costheta, L, M, deriv=2)
+        # theta-derivatives of the (angular) Legendre functions
+        dPth = dPP * (-sintheta)
+        d2Pth = d2PP * sintheta**2 - dPP * costheta
+        PP = PP[numpy.newaxis, :, :]
+        dPth = dPth[numpy.newaxis, :, :]
+        d2Pth = d2Pth[numpy.newaxis, :, :]
+        # radial basis and its first/second radial derivatives
+        phi_tilde = self._phiTilde(r, N, L)[:, :, numpy.newaxis]
+        dphi_tilde = self._dphiTilde(r, N, L)[:, :, numpy.newaxis]
+        d2phi_tilde = self._d2phiTilde(r, N, L)[:, :, numpy.newaxis]
+        m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
+        mcos = numpy.cos(m * phi)
+        msin = numpy.sin(m * phi)
+        cos_sin = Acos * mcos + Asin * msin  # angular azimuthal coefficient
+        dphi_coef = m * (Asin * mcos - Acos * msin)  # d/dphi of cos_sin
+        Phi_rr = numpy.sum(cos_sin * PP * d2phi_tilde)
+        Phi_tt = numpy.sum(cos_sin * d2Pth * phi_tilde)
+        Phi_pp = numpy.sum(-m * m * cos_sin * PP * phi_tilde)
+        Phi_rt = numpy.sum(cos_sin * dPth * dphi_tilde)
+        Phi_rp = numpy.sum(dphi_coef * PP * dphi_tilde)
+        Phi_tp = numpy.sum(dphi_coef * dPth * phi_tilde)
+        Phi_r = numpy.sum(cos_sin * PP * dphi_tilde)
+        Phi_t = numpy.sum(cos_sin * dPth * phi_tilde)
+        self._2nd_deriv_cache_key = cache_key
+        self._cached_2nd_derivs = (
+            Phi_rr,
+            Phi_tt,
+            Phi_pp,
+            Phi_rt,
+            Phi_rp,
+            Phi_tp,
+            Phi_r,
+            Phi_t,
+        )
+        return self._cached_2nd_derivs
+
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("R2", R, z, phi, t=t)
+
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("z2", R, z, phi, t=t)
+
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("Rz", R, z, phi, t=t)
+
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("phi2", R, z, phi, t=t)
+
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("Rphi", R, z, phi, t=t)
+
+    def _phizderiv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("phiz", R, z, phi, t=t)
 
     def OmegaP(self):
         return 0
@@ -601,6 +725,23 @@ def _dC(xi, N, L):
     CC = numpy.roll(CC, 1, axis=0)[:-1, :]
     CC[0, :] = 0
     CC *= 2 * (2 * l + 3.0 / 2)
+    return CC
+
+
+def _d2C(xi, N, L):
+    # Second xi-derivative of the Gegenbauer polynomials, via
+    #   d2C_n^a/dxi2 = 4 a (a+1) C_{n-2}^{a+2}(xi),   a = 2l + 3/2
+    # (the analogue of _dC's dC_n^a/dxi = 2a C_{n-1}^{a+1}).
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    a = 2 * l + 3.0 / 2
+    CC = _C(xi, N + 2, L, alpha=lambda x: 2 * x + 7.0 / 2)
+    CC = numpy.roll(CC, 2, axis=0)[:-2, :]
+    # n=0 (and n=1, when present) have zero second derivative; for N=1 only the
+    # n=0 row exists, so guard the n=1 assignment.
+    CC[0, :] = 0
+    if N > 1:
+        CC[1, :] = 0
+    CC *= 4 * a * (a + 1)
     return CC
 
 
