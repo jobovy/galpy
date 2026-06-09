@@ -31,6 +31,15 @@ def pytest_generate_tests(metafunc):
                 "MiyamotoNagaiPotential_a0",
                 "axisymmetric",
             ),
+            # MN3 expands to three MiyamotoNagai disks in C; exercises that the 3D
+            # Hessian is correctly summed over the expanded components.
+            (
+                potential.MN3ExponentialDiskPotential(
+                    amp=1.0, hr=1.0, hz=0.3, normalize=True
+                ),
+                "MN3ExponentialDiskPotential",
+                "axisymmetric",
+            ),
             # NOTE: KuzminDiskPotential has a verified-correct full 3D C Hessian
             # (hasC_dxdv3d=True), but it is intentionally NOT in this registry: its
             # potential ~ (a+|z|) is only C^0 across the disk plane, so d2Phi/dz2 and

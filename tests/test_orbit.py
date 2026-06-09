@@ -1402,20 +1402,24 @@ def test_integrate_dxdv_3d_c_requires_full_hessian():
     # is issued, and (c) that the C-method result matches the pure-Python result
     # (i.e. it really fell back, rather than returning the wrong C aggregate).
     from galpy.orbit import Orbit
-    from galpy.potential import MN3ExponentialDiskPotential
+    from galpy.potential import MiyamotoNagaiPotential
 
-    pot = MN3ExponentialDiskPotential(normalize=1.0)
-    # MN3ExponentialDisk has the planar dxdv C path but not the full 3D Hessian in
-    # C (it is not part of the Pvar-pot 3D-Hessian fan-out), so it must take the
-    # pure-Python fallback. (Earlier this used LogarithmicHalo; that gained a full
-    # 3D C Hessian in #907, which is exactly the kind of silent breakage this test
-    # guards against -- pick a potential with planar-but-not-3D C dxdv.)
+    # As the Pvar-pot 3D-Hessian fan-out progresses, essentially every 3D
+    # potential with a planar C dxdv path (hasC_dxdv=True) also gains the full
+    # 3D C Hessian (hasC_dxdv3d=True) -- LogarithmicHalo got it in #907, MN3 and
+    # NullPotential in this PR -- so there is no longer a stable *real* example
+    # of "planar-but-not-3D". We therefore synthesize the scenario by forcing
+    # hasC_dxdv3d=False on an instance. This directly exercises the
+    # integrate_dxdv gate, which must warn and fall back to the pure-Python
+    # integrator rather than silently taking the C 3D path (whose NULL-safe
+    # aggregators would return a wrong, zero-curvature deviation for a genuinely
+    # incomplete potential). The pytest.warns below is the primary assertion;
+    # the value match confirms the fallback produced the correct result.
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.1)
     assert pot.hasC_dxdv, (
-        "test precondition: MN3ExponentialDisk should have planar hasC_dxdv"
+        "test precondition: MiyamotoNagai should have planar hasC_dxdv"
     )
-    assert not pot.hasC_dxdv3d, (
-        "MN3ExponentialDisk must not advertise a full 3D C Hessian (would be silently wrong)"
-    )
+    pot.hasC_dxdv3d = False  # force the planar-but-not-3D scenario
     ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
     times = numpy.linspace(0.0, 2.0, 101)
     dev = [1.0e-6, 0.0, 0.0, 0.0, 0.0, 0.0]
