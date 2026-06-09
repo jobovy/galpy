@@ -431,7 +431,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &SCFPotentialzforce;
       potentialArgs->phitorque= &SCFPotentialphitorque;
       potentialArgs->dens= &SCFPotentialDens;
-      potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 7);
+      potentialArgs->R2deriv= &SCFPotentialR2deriv;
+      potentialArgs->z2deriv= &SCFPotentialz2deriv;
+      potentialArgs->Rzderiv= &SCFPotentialRzderiv;
+      potentialArgs->phi2deriv= &SCFPotentialphi2deriv;
+      potentialArgs->Rphideriv= &SCFPotentialRphideriv;
+      potentialArgs->zphideriv= &SCFPotentialzphideriv;
+      potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 10);
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -450,6 +456,11 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &DiskSCFPotentialzforce;
       potentialArgs->dens= &DiskSCFPotentialDens;
       potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->R2deriv= &DiskSCFPotentialR2deriv;
+      potentialArgs->z2deriv= &DiskSCFPotentialz2deriv;
+      potentialArgs->Rzderiv= &DiskSCFPotentialRzderiv;
+      // phi2deriv/Rphideriv/zphideriv are identically zero (axisymmetric) ->
+      // left NULL, the 3D Hessian aggregators skip them.
       potentialArgs->nargs= (int) **pot_args + 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -703,6 +714,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &MultipoleExpansionPotentialzforce;
       potentialArgs->phitorque= &MultipoleExpansionPotentialphitorque;
       potentialArgs->dens= &MultipoleExpansionPotentialDens;
+      potentialArgs->R2deriv= &MultipoleExpansionPotentialR2deriv;
+      potentialArgs->z2deriv= &MultipoleExpansionPotentialz2deriv;
+      potentialArgs->Rzderiv= &MultipoleExpansionPotentialRzderiv;
+      potentialArgs->phi2deriv= &MultipoleExpansionPotentialphi2deriv;
+      potentialArgs->Rphideriv= &MultipoleExpansionPotentialRphideriv;
+      potentialArgs->zphideriv= &MultipoleExpansionPotentialzphideriv;
       potentialArgs->nargs= 0; // arguments handled in the initialization code run for this potential
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;

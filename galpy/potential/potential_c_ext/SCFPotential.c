@@ -20,6 +20,7 @@
 // Cache tags for force/derivative caching
 #define CACHE_FORCE 1
 #define CACHE_DERIV 2
+#define CACHE_HESSIAN 3
 
 // ============================================================================
 // Pre-computed SCF data: parsed parameters (immutable after init).
@@ -506,6 +507,194 @@ static void compute_spher_2nd_derivs(struct scf_data *d,
 }
 
 // ============================================================================
+// Full 3D Hessian: the six cylindrical second derivatives
+//   (R2deriv, z2deriv, Rzderiv, phi2deriv, Rphideriv, zphideriv)
+// needed for 3D variational (dxdv) integration. Built from the full set of
+// spherical-coordinate derivatives of Phi(r,theta,phi) and an exact
+// spherical->cylindrical chain-rule transform (R=r sin theta, z=r cos theta).
+// ============================================================================
+
+// From the Legendre values P_l^m(cos theta) and their x=cos(theta) derivatives
+// dP/dx, compute the theta-derivatives dP/dtheta and d2P/dtheta2 (same GSL
+// storage layout). Uses the exact identities
+//   dP/dtheta   = -sin(theta) * dP/dx
+//   d2P/dtheta2 = cos(theta) * dP/dx - l(l+1) P + m^2/sin^2(theta) P
+// (the latter from the associated-Legendre ODE). The m^2/sin^2 term is a
+// genuine coordinate singularity on the z-axis (theta=0,pi i.e. R=0), where
+// the cylindrical Hessian of an individual m>0 harmonic is undefined; orbit
+// integration never evaluates exactly on the axis (the forces stay regular
+// there). For m=0 (incl. the axisymmetric M==1 case) the term is absent and
+// the result is regular everywhere.
+void legendre_theta_from_x(double theta, int L, int M,
+                           double *P, double *dPdx,
+                           double *dPth, double *d2Pth)
+{
+    double s = sin(theta);
+    double c = cos(theta);
+    double inv_s2 = 1.0 / (s * s);
+    if (M == 1) {
+        for (int l = 0; l < L; l++) {
+            dPth[l] = -s * dPdx[l];
+            d2Pth[l] = c * dPdx[l] - l * (l + 1) * P[l];
+        }
+    } else {
+        for (int l = 0; l < L; l++) {
+            for (int m = 0; m <= l; m++) {
+                int i = legendre_index(l, m, L);
+                dPth[i] = -s * dPdx[i];
+                d2Pth[i] = c * dPdx[i] - l * (l + 1) * P[i]
+                           + (m ? m * m * inv_s2 * P[i] : 0.0);
+            }
+        }
+    }
+}
+
+// Sum the full set of spherical-coordinate derivatives of the potential:
+//   S[0]=dPhi/dr        S[1]=dPhi/dtheta
+//   S[2]=d2Phi/dr2      S[3]=d2Phi/dtheta2   S[4]=d2Phi/drdtheta
+//   S[5]=d2Phi/dphi2    S[6]=d2Phi/drdphi    S[7]=d2Phi/dthetadphi
+// All are derivatives of the *potential* (not forces).
+static void sum_spher_full(int N, int L, int M, int isNonAxi,
+                           double *Acos, double *Asin,
+                           double *phiTilde, double *dphiTilde,
+                           double *d2phiTilde, double *P,
+                           double *dPth, double *d2Pth,
+                           double phi, double *S)
+{
+    for (int k = 0; k < 8; k++)
+        S[k] = 0.0;
+    if (isNonAxi) {
+        for (int l = 0; l < L; l++) {
+            for (int m = 0; m <= l; m++) {
+                double mcos = cos(m * phi);
+                double msin = sin(m * phi);
+                int pi = legendre_index(l, m, L);
+                for (int n = 0; n < N; n++) {
+                    int ci = n * L * M + l * M + m;
+                    int ri = l * N + n;
+                    // angular azimuthal coefficient and its phi-derivative
+                    double cos_sum = Acos[ci] * mcos + Asin[ci] * msin;
+                    double dphi_sum = m * (Asin[ci] * mcos - Acos[ci] * msin);
+                    S[0] += cos_sum * P[pi] * dphiTilde[ri];
+                    S[1] += cos_sum * dPth[pi] * phiTilde[ri];
+                    S[2] += cos_sum * P[pi] * d2phiTilde[ri];
+                    S[3] += cos_sum * d2Pth[pi] * phiTilde[ri];
+                    S[4] += cos_sum * dPth[pi] * dphiTilde[ri];
+                    S[5] -= m * m * cos_sum * P[pi] * phiTilde[ri];
+                    S[6] += dphi_sum * P[pi] * dphiTilde[ri];
+                    S[7] += dphi_sum * dPth[pi] * phiTilde[ri];
+                }
+            }
+        }
+    } else {
+        for (int l = 0; l < L; l++) {
+            for (int n = 0; n < N; n++) {
+                double Acoef = Acos[n * L * M + l * M];
+                int ri = l * N + n;
+                S[0] += Acoef * P[l] * dphiTilde[ri];
+                S[1] += Acoef * dPth[l] * phiTilde[ri];
+                S[2] += Acoef * P[l] * d2phiTilde[ri];
+                S[3] += Acoef * d2Pth[l] * phiTilde[ri];
+                S[4] += Acoef * dPth[l] * dphiTilde[ri];
+                // m==0: all phi-derivatives vanish (S[5]=S[6]=S[7]=0)
+            }
+        }
+    }
+    double sqrt4pi = sqrt(4.0 * M_PI);
+    for (int k = 0; k < 8; k++)
+        S[k] *= sqrt4pi;
+}
+
+// Compute the six cylindrical second derivatives of the potential at (R,Z,phi),
+// with caching. H = [R2deriv, z2deriv, Rzderiv, phi2deriv, Rphideriv, zphideriv].
+static void compute_scf_hessian_cyl(struct scf_data *d,
+                                    double R, double Z, double phi, double *H)
+{
+    // Check cache
+    if ((int)*d->cached_type == CACHE_HESSIAN
+        && d->cached_coords[0] == R
+        && d->cached_coords[1] == Z
+        && d->cached_coords[2] == phi) {
+        for (int k = 0; k < 6; k++)
+            H[k] = d->cached_values[k];
+        return;
+    }
+
+    double r, theta;
+    cyl_to_spher(R, Z, &r, &theta);
+    double xi = calculateXi(r, d->a);
+
+    int NL = d->N * d->L;
+    int Ps = d->Psize;
+    // Workspace: 6*NL radial + 4*Ps angular
+    double *ws = (double *)malloc((6 * NL + 4 * Ps) * sizeof(double));
+    double *C      = ws;
+    double *dCArr  = ws + NL;
+    double *d2CArr = ws + 2 * NL;
+    double *phiT   = ws + 3 * NL;
+    double *dphiT  = ws + 4 * NL;
+    double *d2phiT = ws + 5 * NL;
+    double *P      = ws + 6 * NL;
+    double *dPdx   = ws + 6 * NL + Ps;
+    double *dPth   = ws + 6 * NL + 2 * Ps;
+    double *d2Pth  = ws + 6 * NL + 3 * Ps;
+
+    // Radial part
+    compute_C(xi, d->N, d->L, C);
+    compute_dC(xi, d->N, d->L, dCArr);
+    compute_d2C(xi, d->N, d->L, d2CArr);
+    compute_phiTilde(r, d->a, d->N, d->L, C, phiT);
+    compute_dphiTilde(r, d->a, d->N, d->L, C, dCArr, dphiT);
+    compute_d2phiTilde(r, d->a, d->N, d->L, C, dCArr, d2CArr, d2phiT);
+
+    // Angular part: P, dP/dx, then theta-derivatives
+    compute_legendre_deriv(cos(theta), d->L, d->M_eff, P, dPdx);
+    legendre_theta_from_x(theta, d->L, d->M_eff, P, dPdx, dPth, d2Pth);
+
+    // Full set of spherical-coordinate potential derivatives
+    double S[8];
+    sum_spher_full(d->N, d->L, d->M, d->isNonAxi,
+                   d->Acos, d->Asin, phiT, dphiT, d2phiT,
+                   P, dPth, d2Pth, phi, S);
+    free(ws);
+
+    double Phi_r = S[0], Phi_th = S[1];
+    double Phi_rr = S[2], Phi_thth = S[3], Phi_rth = S[4];
+    double Phi_phiphi = S[5], Phi_rphi = S[6], Phi_thphi = S[7];
+
+    // Spherical -> cylindrical chain rule. With r=sqrt(R^2+Z^2),
+    // theta=atan2(R,Z): r_R=R/r, r_z=Z/r, th_R=Z/r^2, th_z=-R/r^2, and the
+    // second partials below.
+    double ir = 1.0 / r;
+    double ir2 = ir * ir;
+    double ir3 = ir2 * ir;
+    double ir4 = ir2 * ir2;
+    double rR = R * ir, rz = Z * ir;
+    double thR = Z * ir2, thz = -R * ir2;
+    double rRR = Z * Z * ir3, rzz = R * R * ir3, rRz = -R * Z * ir3;
+    double thRR = -2.0 * R * Z * ir4, thzz = 2.0 * R * Z * ir4,
+           thRz = (R * R - Z * Z) * ir4;
+
+    H[0] = Phi_rr * rR * rR + 2.0 * Phi_rth * rR * thR + Phi_thth * thR * thR
+           + Phi_r * rRR + Phi_th * thRR;                       // R2deriv
+    H[1] = Phi_rr * rz * rz + 2.0 * Phi_rth * rz * thz + Phi_thth * thz * thz
+           + Phi_r * rzz + Phi_th * thzz;                       // z2deriv
+    H[2] = Phi_rr * rR * rz + Phi_rth * (rR * thz + rz * thR)
+           + Phi_thth * thR * thz + Phi_r * rRz + Phi_th * thRz; // Rzderiv
+    H[3] = Phi_phiphi;                                          // phi2deriv
+    H[4] = Phi_rphi * rR + Phi_thphi * thR;                     // Rphideriv
+    H[5] = Phi_rphi * rz + Phi_thphi * thz;                     // zphideriv
+
+    // Update cache
+    *d->cached_type = (double)CACHE_HESSIAN;
+    d->cached_coords[0] = R;
+    d->cached_coords[1] = Z;
+    d->cached_coords[2] = phi;
+    for (int k = 0; k < 6; k++)
+        d->cached_values[k] = H[k];
+}
+
+// ============================================================================
 // Public API: potential, forces, derivatives, density
 // ============================================================================
 
@@ -607,6 +796,61 @@ double SCFPotentialPlanarRphideriv(double R, double phi, double t,
     compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
                              R, 0.0, phi, F);
     return F[2];
+}
+
+// Full 3D Hessian components (for 3D variational integration)
+double SCFPotentialR2deriv(double R, double Z, double phi, double t,
+                           struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
+                            R, Z, phi, H);
+    return H[0];
+}
+
+double SCFPotentialz2deriv(double R, double Z, double phi, double t,
+                           struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
+                            R, Z, phi, H);
+    return H[1];
+}
+
+double SCFPotentialRzderiv(double R, double Z, double phi, double t,
+                           struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
+                            R, Z, phi, H);
+    return H[2];
+}
+
+double SCFPotentialphi2deriv(double R, double Z, double phi, double t,
+                             struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
+                            R, Z, phi, H);
+    return H[3];
+}
+
+double SCFPotentialRphideriv(double R, double Z, double phi, double t,
+                             struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
+                            R, Z, phi, H);
+    return H[4];
+}
+
+double SCFPotentialzphideriv(double R, double Z, double phi, double t,
+                             struct potentialArg *potentialArgs)
+{
+    double H[6];
+    compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
+                            R, Z, phi, H);
+    return H[5];
 }
 
 double SCFPotentialDens(double R, double Z, double phi, double t,

@@ -1244,6 +1244,235 @@ def test_doubleexp_dxdv_planar_c_vs_python():
     return None
 
 
+def _check_dxdv_3d_c(
+    pot,
+    name,
+    integrators=("dop853_c", "dopr54_c", "rk6_c"),
+    det_tol=1e-7,
+    symp_tol=1e-6,
+    fd_tol=1e-4,
+):
+    # Shared 3D variational (dxdv) validation for the harmonic-expansion
+    # potentials (SCF / MultipoleExpansion), exercised through the C
+    # integrators only (their pure-Python reference is impractically slow --
+    # SCF's numerical 2nd derivatives need many Python force evaluations per
+    # RHS step). Checks, per integrator: (1) Liouville det(M)=1, (2)
+    # symplecticity MᵀΩM=Ω in canonical Cartesian variables (necessary; pins
+    # K's symmetry), and -- the part that actually pins the K VALUES against
+    # the C forces -- (3) finite-difference-of-the-flow. (det_tol/symp_tol are
+    # looser for the spline-interpolated MultipoleExpansion than for the
+    # analytic-radial-basis SCF.)
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 3.0, 151)
+    canonical = numpy.eye(6)
+    Omega = numpy.zeros((6, 6))
+    Omega[:3, 3:] = numpy.eye(3)
+    Omega[3:, :3] = -numpy.eye(3)
+    for integrator in integrators:
+        Mcols = []
+        for ii in range(6):
+            o = Orbit(ic)
+            o.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-10,
+                atol=1e-10,
+            )
+            Mcols.append(o.getOrbit_dxdv()[-1, :])
+        M = numpy.array(Mcols).T
+        this_det_tol = max(det_tol, 1e-6) if integrator == "rk6_c" else det_tol
+        detM = numpy.linalg.det(M)
+        assert numpy.fabs(detM - 1.0) < this_det_tol, (
+            f"3D Liouville det(M)={detM:g} differs from 1 for {name}, {integrator}"
+        )
+        symperr = numpy.amax(numpy.fabs(M.T @ Omega @ M - Omega))
+        assert symperr < symp_tol, (
+            f"3D symplecticity err={symperr:g} too large for {name}, {integrator}"
+        )
+        # finite-difference of the flow (validates the K values vs the C forces)
+        eps = 1e-7
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method=integrator)
+        base = _orbit_rect_3d(obase, times)
+        for ii in [0, 2, 4]:  # x, z, vy perturbations
+            p = base[0].copy()
+            p[ii] += eps
+            Rp, phip, Zp = coords.rect_to_cyl(p[0], p[1], p[2])
+            vRp, vTp, vzp = coords.rect_to_cyl_vec(p[3], p[4], p[5], p[0], p[1], p[2])
+            opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+            opert.integrate(times, pot, method=integrator)
+            fd = (_orbit_rect_3d(opert, times) - base) / eps
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-10,
+                atol=1e-10,
+            )
+            fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+            assert fderr < fd_tol, (
+                f"3D FD-of-flow for e_{ii} differs from the dxdv column by "
+                f"{fderr:g} for {name}, {integrator}"
+            )
+    return None
+
+
+def test_scf_dxdv_3d():
+    # SCFPotential has a full 3D C Hessian (hasC_dxdv3d=True) via the
+    # Hernquist-Ostriker spherical-harmonic expansion. Validate the 3D
+    # variational integration for an axisymmetric and a genuinely
+    # non-axisymmetric (m=2 -> nonzero zphideriv) instance. SCF is NOT in the
+    # strict liouville3d_registry because its pure-Python integrators are far
+    # too slow for the per-potential registry sweep; this dedicated test uses
+    # the C integrators only.
+    from galpy.potential import SCFPotential, scf_compute_coeffs_spherical
+
+    def _hern(R, z=0.0, phi=0.0):
+        r = numpy.sqrt(R**2 + z**2)
+        return 1.0 / (2.0 * numpy.pi) / (r * (1.0 + r) ** 3)
+
+    Acos_s, _ = scf_compute_coeffs_spherical(_hern, 5, a=1.0)
+    N = Acos_s.shape[0]
+    # axisymmetric: spherical monopole only
+    scf_axi = SCFPotential(Acos=Acos_s, a=1.0, normalize=True)
+    assert scf_axi.hasC_dxdv3d, "SCFPotential should advertise hasC_dxdv3d"
+    # non-axisymmetric: inject an l=2,m=2 term (exercises zphideriv)
+    Acos = numpy.zeros((N, 3, 3))
+    Asin = numpy.zeros((N, 3, 3))
+    Acos[:, 0, 0] = Acos_s[:, 0, 0]
+    Acos[0, 2, 2] = 0.05 * Acos_s[0, 0, 0]
+    Asin[0, 2, 2] = 0.03 * Acos_s[0, 0, 0]
+    scf_tri = SCFPotential(Acos=Acos, Asin=Asin, a=1.0, normalize=True)
+    assert scf_tri.isNonAxi, "injected-m2 SCF should be non-axisymmetric"
+    _check_dxdv_3d_c(scf_axi, "SCFPotential (axi)")
+    _check_dxdv_3d_c(scf_tri, "SCFPotential (m=2)")
+    return None
+
+
+def test_multipole_dxdv_3d():
+    # MultipoleExpansionPotential has a full 3D C Hessian (hasC_dxdv3d=True) via
+    # the same spherical-harmonic machinery as SCF (shared transform). Validate
+    # a spherical and a genuinely triaxial (nonzero zphideriv) instance. Like
+    # SCF it is excluded from the strict registry (slow Python integrators; its
+    # radial functions are spline-interpolated, so the FD-of-flow sits at
+    # spline accuracy, not analytic accuracy).
+    from galpy.potential import (
+        HernquistPotential,
+        MultipoleExpansionPotential,
+        TriaxialNFWPotential,
+    )
+
+    rgrid = numpy.geomspace(1e-2, 30.0, 201)
+    mep_sph = MultipoleExpansionPotential.from_density(
+        dens=HernquistPotential(amp=2.0, a=1.0), symmetry="spherical", rgrid=rgrid
+    )
+    assert mep_sph.hasC_dxdv3d, "MultipoleExpansion should advertise hasC_dxdv3d"
+    mep_tri = MultipoleExpansionPotential.from_density(
+        dens=TriaxialNFWPotential(amp=3.0, a=2.0, b=0.8, c=0.6),
+        symmetry="triaxial",
+        L=6,
+        rgrid=rgrid,
+    )
+    assert mep_tri.isNonAxi, "triaxial MultipoleExpansion should be non-axisymmetric"
+    # spline-interpolated radial functions -> looser det/symp; use the adaptive
+    # C integrators (fixed-step rk*_c is dominated by the spline error here).
+    _check_dxdv_3d_c(
+        mep_sph,
+        "MultipoleExpansion (spherical)",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+    )
+    _check_dxdv_3d_c(
+        mep_tri,
+        "MultipoleExpansion (triaxial)",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+    )
+    # Time-dependent (rotating, weakly perturbed) multipole: exercises the
+    # time-dependent radial-coefficient path of the C 3D Hessian (the Nt>0
+    # branch of compute_multipole_hessian_cyl). Still a Hamiltonian flow, so
+    # det(M)=1 / symplecticity hold.
+    omega = 0.8
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mep_tdep = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False)
+            * (1.0 + 0.05 * numpy.cos(2.0 * (phi - omega * t)))
+        ),
+        L=4,
+        rgrid=rgrid,
+        tgrid=numpy.linspace(0.0, 5.0, 41),
+    )
+    assert mep_tdep.isNonAxi, "time-dependent multipole should be non-axisymmetric"
+    # det(M)=1 / symplecticity still hold to ~1e-8 (the Hessian is correct); the
+    # FD-of-flow is looser because the coarse (rgrid x tgrid) interpolation of the
+    # time-dependent radial coefficients is less accurate than the static splines.
+    _check_dxdv_3d_c(
+        mep_tdep,
+        "MultipoleExpansion (time-dependent)",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+        fd_tol=1e-3,
+    )
+    return None
+
+
+def test_disk_composite_dxdv_3d():
+    # The DiskSCF / DiskMultipole (Kuijken-Dubinski) composites have a full 3D C
+    # Hessian (hasC_dxdv3d=True) once BOTH the analytic [Sigma_i(r), Hz_i(z)]
+    # disk pairs (their R2/z2/Rz deriv are in C; phi-derivs are identically
+    # zero) AND the expansion sub-potential (SCF / MultipoleExpansion) have the
+    # Hessian in C. A SMOOTH sech2 vertical profile is used: the exp |z| profile
+    # is only C^0 across the disk plane (like KuzminDisk), so its FD-of-flow
+    # sits at the z=0 kink, not at analytic accuracy (det(M)=1/symplecticity
+    # still pass for it -- the Hessian itself is correct).
+    from galpy.potential import DiskMultipoleExpansionPotential, DiskSCFPotential
+
+    def _sphdens(R, z):
+        return numpy.exp(-numpy.sqrt(R**2 + z**2)) / (4.0 * numpy.pi)
+
+    Sigma = {"type": "exp", "h": 1.0 / 3.0, "amp": 1.0}
+    hz = {"type": "sech2", "h": 1.0 / 27.0}
+    dscf = DiskSCFPotential(
+        dens=_sphdens, Sigma=Sigma, hz=hz, a=1.0, N=4, L=4, normalize=True
+    )
+    assert dscf.hasC_dxdv3d, "DiskSCFPotential should advertise hasC_dxdv3d"
+    # analytic SCF + analytic disk pairs -> tight
+    _check_dxdv_3d_c(dscf, "DiskSCFPotential", det_tol=1e-7, symp_tol=1e-6)
+    dmep = DiskMultipoleExpansionPotential(
+        dens=_sphdens,
+        Sigma=Sigma,
+        hz=hz,
+        L=4,
+        rgrid=numpy.geomspace(1e-2, 30.0, 201),
+        normalize=True,
+    )
+    assert dmep.hasC_dxdv3d, "DiskMultipoleExpansion should advertise hasC_dxdv3d"
+    # spline-interpolated multipole part -> looser det/symp, adaptive integrators
+    _check_dxdv_3d_c(
+        dmep,
+        "DiskMultipoleExpansionPotential",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+    )
+    return None
+
+
 # 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
 # dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
 # integrate_dxdv must match the trusted planar integrate_dxdv result.
