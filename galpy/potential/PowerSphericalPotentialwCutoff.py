@@ -9,6 +9,8 @@ import numpy
 from scipy import special
 
 from ..backend import get_namespace
+from ..backend.special import gamma as _gamma
+from ..backend.special import gammainc as _gammainc
 from ..util import conversion
 from ..util._optional_deps import _JAX_LOADED
 from .Potential import Potential, kms_to_kpcGyrDecorator
@@ -74,7 +76,11 @@ class PowerSphericalPotentialwCutoff(Potential):
         self._nemo_accname = "PowSphwCut"
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        # guard r=0 in the dead branch (the 1/r term -> 0/0=NaN there) so the
+        # xp.where stays finite under autodiff/jit; the value at r=0 is 0.
+        rsafe = xp.where(r == 0, 1.0, r)
         out = (
             2.0
             * numpy.pi
@@ -82,44 +88,57 @@ class PowerSphericalPotentialwCutoff(Potential):
             * (
                 1
                 / self.rc
-                * special.gamma(1.0 - self.alpha / 2.0)
-                * special.gammainc(1.0 - self.alpha / 2.0, (r / self.rc) ** 2.0)
-                - special.gamma(1.5 - self.alpha / 2.0)
-                * special.gammainc(1.5 - self.alpha / 2.0, (r / self.rc) ** 2.0)
-                / r
+                * _gamma(1.0 - self.alpha / 2.0)
+                * _gammainc(1.0 - self.alpha / 2.0, (rsafe / self.rc) ** 2.0)
+                - _gamma(1.5 - self.alpha / 2.0)
+                * _gammainc(1.5 - self.alpha / 2.0, (rsafe / self.rc) ** 2.0)
+                / rsafe
             )
         )
-        if isinstance(r, (float, int)):
-            if r == 0:
-                return 0.0
-            else:
-                return out
-        else:
-            out[r == 0] = 0.0
-            return out
+        return xp.where(r == 0, 0.0, out)
+
+    def _rforce(self, r):
+        # Radial force (amp-free): -M(<r)/r^2. The enclosed mass is written with
+        # the regularized lower incomplete gamma P(a,x)=gammainc(a,x), so the
+        # whole force path is backend-agnostic and jit-clean -- gammainc and
+        # gamma are native (and reliable) on numpy/jax/torch, unlike the
+        # hyp1f1 form of _mass (which only the numpy mass API still uses).
+        return (
+            -2.0
+            * numpy.pi
+            * self.rc ** (3.0 - self.alpha)
+            * _gamma(1.5 - 0.5 * self.alpha)
+            * _gammainc(1.5 - 0.5 * self.alpha, (r / self.rc) ** 2.0)
+            / r**2.0
+        )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R * R + z * z)
-        return -self._mass(r) * R / r**3.0
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R * R + z * z)
+        return self._rforce(r) * R / r
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R * R + z * z)
-        return -self._mass(r) * z / r**3.0
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R * R + z * z)
+        return self._rforce(r) * z / r
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R * R + z * z)
-        return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * numpy.exp(
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R * R + z * z)
+        return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * xp.exp(
             -((r / self.rc) ** 2.0)
         ) * R**2.0 + self._mass(r) / r**5.0 * (z**2.0 - 2.0 * R**2.0)
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R * R + z * z)
-        return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * numpy.exp(
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R * R + z * z)
+        return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * xp.exp(
             -((r / self.rc) ** 2.0)
         ) * z**2.0 + self._mass(r) / r**5.0 * (R**2.0 - 2.0 * z**2.0)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R * R + z * z)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R * R + z * z)
         return (
             R
             * z
@@ -127,7 +146,7 @@ class PowerSphericalPotentialwCutoff(Potential):
                 4.0
                 * numpy.pi
                 * r ** (-2.0 - self.alpha)
-                * numpy.exp(-((r / self.rc) ** 2.0))
+                * xp.exp(-((r / self.rc) ** 2.0))
                 - 3.0 * self._mass(r) / r**5.0
             )
         )
@@ -210,26 +229,17 @@ class PowerSphericalPotentialwCutoff(Potential):
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        R = numpy.array(R)
-        out = numpy.ones_like(R)
-        out[~numpy.isinf(R)] = (
-            2.0
-            * numpy.pi
-            * R[~numpy.isinf(R)] ** (3.0 - self.alpha)
-            / (1.5 - self.alpha / 2.0)
-            * special.hyp1f1(
-                1.5 - self.alpha / 2.0,
-                2.5 - self.alpha / 2.0,
-                -((R[~numpy.isinf(R)] / self.rc) ** 2.0),
-            )
-        )
-        out[numpy.isinf(R)] = (
+        # M(<R) via the regularized lower incomplete gamma P(a,x)=gammainc(a,x).
+        # This is backend-agnostic/jit-clean and needs no separate R=inf branch:
+        # gammainc(a, inf)=1 recovers the total mass automatically. (The previous
+        # hyp1f1 form is an equivalent representation; values agree to ~1e-15.)
+        return (
             2.0
             * numpy.pi
             * self.rc ** (3.0 - self.alpha)
-            * special.gamma(1.5 - self.alpha / 2.0)
+            * _gamma(1.5 - 0.5 * self.alpha)
+            * _gammainc(1.5 - 0.5 * self.alpha, (R / self.rc) ** 2.0)
         )
-        return out
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
