@@ -1908,20 +1908,11 @@ class Orbit:
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(
-                self.r(self.t, use_physical=False) < lpot[isp_indx]._rmin
-            ) or numpy.any(self.r(self.t, use_physical=False) > lpot[isp_indx]._rmax):
-                warnings.warn(
-                    """Orbit integration with """
-                    """interpSphericalPotential visited radii """
-                    """outside of the interpolation range; """
-                    """initialize interpSphericalPotential """
-                    """with a wider radial range to avoid this """
-                    """if you wish (min/max r = {:.3f},{:.3f}""".format(
-                        self.rperi(), self.rap()
-                    ),
-                    galpyWarning,
-                )
+            self._warn_radii_outside_interpolation_range(
+                lpot[isp_indx]._rmin,
+                lpot[isp_indx]._rmax,
+                "interpSphericalPotential",
+            )
         from ..potential import MultipoleExpansionPotential
 
         if (
@@ -1945,23 +1936,41 @@ class Orbit:
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(
-                self.r(self.t, use_physical=False) < lpot[mep_indx]._rgrid[0]
-            ) or numpy.any(
-                self.r(self.t, use_physical=False) > lpot[mep_indx]._rgrid[-1]
-            ):
-                warnings.warn(
-                    """Orbit integration with """
-                    """MultipoleExpansionPotential visited radii """
-                    """outside of the interpolation range; """
-                    """initialize MultipoleExpansionPotential """
-                    """with a wider radial range to avoid this """
-                    """if you wish (min/max r = {:.3f},{:.3f}""".format(
-                        self.rperi(), self.rap()
-                    ),
-                    galpyWarning,
-                )
+            self._warn_radii_outside_interpolation_range(
+                lpot[mep_indx]._rgrid[0],
+                lpot[mep_indx]._rgrid[-1],
+                "MultipoleExpansionPotential",
+            )
         return None
+
+    def _warn_radii_outside_interpolation_range(self, rmin, rmax, potname):
+        """Warn if the integrated orbit(s) visited radii outside of the
+        interpolation range [rmin, rmax] of the potential potname"""
+        rs = self.r(self.t, use_physical=False)
+        outside = numpy.any((rs < rmin) | (rs > rmax), axis=-1)
+        if not numpy.any(outside):
+            return
+        if self.shape == ():
+            warnings.warn(
+                f"Orbit integration with {potname} visited radii "
+                f"outside of the interpolation range; initialize "
+                f"{potname} with a wider radial range to avoid this "
+                f"if you wish (min/max r = "
+                f"{self.rperi():.3f},{self.rap():.3f})",
+                galpyWarning,
+            )
+        else:
+            warnings.warn(
+                f"Orbit integration with {potname} visited radii "
+                f"outside of the interpolation range for "
+                f"{numpy.sum(outside)} out of {self.size} orbits; "
+                f"initialize {potname} with a wider radial range to "
+                f"avoid this if you wish (min/max r = "
+                f"{numpy.amin(self.rperi()):.3f},"
+                f"{numpy.amax(self.rap()):.3f}, which is the full "
+                f"range over all orbits)",
+                galpyWarning,
+            )
 
     @singledispatchmethod
     def integrate(
