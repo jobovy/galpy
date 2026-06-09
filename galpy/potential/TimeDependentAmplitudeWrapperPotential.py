@@ -8,7 +8,6 @@ from numbers import Number
 
 from numpy import empty
 
-from .Potential import _check_c
 from .WrapperPotential import parentWrapperPotential
 
 
@@ -70,9 +69,11 @@ class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
         self._A = A
         self.hasC = True
         self.hasC_dxdv = True
-        # 3D variational integration works iff the wrapped potential's full 3D
-        # Hessian is in C (else the C aggregators would silently return 0).
-        self.hasC_dxdv3d = _check_c(self._pot, dxdv3d=True)
+        # Advertise the 3D variational capability unconditionally, as for
+        # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own
+        # hasC_dxdv3d (the wrapper's C 3D Hessian is modulation x
+        # calc<deriv>(wrapped), so it is complete iff the wrapped one is).
+        self.hasC_dxdv3d = True
 
     def _wrap(self, attribute, *args, **kwargs):
         return self._A(kwargs.get("t", 0.0)) * self._wrap_pot_func(attribute)(
