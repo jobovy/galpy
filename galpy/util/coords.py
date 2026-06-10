@@ -80,6 +80,7 @@ from functools import wraps
 
 import numpy
 
+from ..backend import get_namespace
 from ..util import _rotate_to_arbitrary_vector
 from ..util._optional_deps import _APY_LOADED
 from ..util.config import __config__
@@ -1173,7 +1174,8 @@ def cyl_to_spher(R, Z, phi):
     -----
     - 2016-05-16 - Written - Aladdin
     """
-    theta = numpy.arctan2(R, Z)
+    xp = get_namespace(R, Z)
+    theta = xp.arctan2(R, Z)
     r = (R**2 + Z**2) ** 0.5
     return (r, theta, phi)
 

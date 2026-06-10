@@ -13,6 +13,8 @@ if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
 else:
     from scipy.special import assoc_legendre_p_all
 
+from ..backend import get_namespace
+from ..backend.special import assoc_legendre, gegenbauer
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
 from ..util.special import compute_legendre, sph_harm_normalization
@@ -286,21 +288,34 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
          - Written on 2016-05-17 by Aladdin Seaifan (UofT)
         """
+        xp = get_namespace(r)
         xi = _RToxi(r, self._a)
         CC = _C(xi, N, L)
         a = self._a
-        rho = numpy.zeros((N, L), float)
         n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
         l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
         K = 0.5 * n * (n + 4 * l + 3) + (l + 1.0) * (2 * l + 1)
-        rho[:, :] = (
+        if xp is numpy:
+            rho = numpy.zeros((N, L), float)
+            rho[:, :] = (
+                K
+                * ((a * r) ** l)
+                / ((r / a) * (a + r) ** (2 * l + 3.0))
+                * CC[:, :]
+                * (numpy.pi) ** -0.5
+            )
+            return rho
+        # backend path: same expression, functional (no in-place writes); the
+        # constant (n,l) grids are built in numpy and converted once.
+        K = xp.asarray(K)
+        l = xp.asarray(l)
+        return (
             K
             * ((a * r) ** l)
             / ((r / a) * (a + r) ** (2 * l + 3.0))
-            * CC[:, :]
+            * CC
             * (numpy.pi) ** -0.5
         )
-        return rho
 
     def _phiTilde(self, r, N, L):
         """
@@ -325,23 +340,39 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         - Written on 2016-05-17 by Aladdin Seaifan (UofT)
 
         """
+        xp = get_namespace(r)
         xi = _RToxi(r, self._a)
         CC = _C(xi, N, L)
         a = self._a
-        phi = numpy.zeros((N, L), float)
-        n = numpy.arange(0, N)[:, numpy.newaxis]
-        l = numpy.arange(0, L)[numpy.newaxis, :]
-        if r == 0:
-            phi[:, :] = -1.0 / a * CC[:, :] * (4 * numpy.pi) ** 0.5
-        else:
-            phi[:, :] = (
-                -(a**l)
-                * r ** (-l - 1.0)
-                / ((1.0 + a / r) ** (2 * l + 1.0))
-                * CC[:, :]
-                * (4 * numpy.pi) ** 0.5
-            )
-        return phi
+        if xp is numpy:
+            phi = numpy.zeros((N, L), float)
+            n = numpy.arange(0, N)[:, numpy.newaxis]
+            l = numpy.arange(0, L)[numpy.newaxis, :]
+            if r == 0:
+                phi[:, :] = -1.0 / a * CC[:, :] * (4 * numpy.pi) ** 0.5
+            else:
+                phi[:, :] = (
+                    -(a**l)
+                    * r ** (-l - 1.0)
+                    / ((1.0 + a / r) ** (2 * l + 1.0))
+                    * CC[:, :]
+                    * (4 * numpy.pi) ** 0.5
+                )
+            return phi
+        # backend path: branchless r == 0 handling. Both xp.where branches are
+        # evaluated under tracing/eager AD, so the generic branch is computed at
+        # a guarded rsafe (the r == 0 column then takes the -CC/a limit instead).
+        l = xp.asarray(numpy.arange(0, L, dtype=float)[numpy.newaxis, :])
+        rsafe = xp.where(r == 0, 1.0, r)
+        generic = (
+            -(a**l)
+            * rsafe ** (-l - 1.0)
+            / ((1.0 + a / rsafe) ** (2 * l + 1.0))
+            * CC
+            * (4 * numpy.pi) ** 0.5
+        )
+        centre = -1.0 / a * CC * (4 * numpy.pi) ** 0.5
+        return xp.where(r == 0, centre, generic)
 
     def _compute_at_point(self, radial_func, R, z, phi):
         """
@@ -370,20 +401,32 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         - 2016-05-18 - Written - Aladdin Seaifan (UofT)
         - 2026-02-11 - Simplified - Bovy (UofT)
         """
-        Acos, Asin = self._Acos, self._Asin
-        N, L, M = Acos.shape
+        xp = get_namespace(R, z, phi)
+        N, L, M = self._Acos.shape
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        # Radial part: (N, L)
+        if xp is numpy:
+            Acos, Asin = self._Acos, self._Asin
+            # Radial part: (N, L)
+            radial = radial_func(r, N, L)
+            # Angular part: associated Legendre polynomials (L, M)
+            PP = compute_legendre(numpy.cos(theta), L, M)
+            # Azimuthal part: cos(m*phi), sin(m*phi)
+            m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
+            mcos = numpy.cos(m * phi)
+            msin = numpy.sin(m * phi)
+            return numpy.sum(
+                radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :]
+            )
+        # backend path: same sum with the backend-agnostic special-function
+        # router; the coefficient tables are converted to the backend once.
+        Acos = xp.asarray(self._Acos)
+        Asin = xp.asarray(self._Asin)
         radial = radial_func(r, N, L)
-        # Angular part: associated Legendre polynomials (L, M)
-        PP = compute_legendre(numpy.cos(theta), L, M)
-        # Azimuthal part: cos(m*phi), sin(m*phi)
-        m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
-        mcos = numpy.cos(m * phi)
-        msin = numpy.sin(m * phi)
-        return numpy.sum(
-            radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :]
-        )
+        PP = assoc_legendre(L, M, xp.cos(theta))
+        m = xp.asarray(numpy.arange(0, M, dtype=float)[None, None, :])
+        mcos = xp.cos(m * phi)
+        msin = xp.sin(m * phi)
+        return xp.sum(radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :])
 
     def _evaluate_expansion(self, radial_func, R, z, phi):
         """
@@ -410,19 +453,44 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         - 2016-06-02 - Written - Aladdin Seaifan (UofT)
         - 2026-02-11 - Simplified - Bovy (UofT)
         """
-        R = numpy.array(R, dtype=float)
-        z = numpy.array(z, dtype=float)
-        phi = numpy.array(phi, dtype=float)
+        xp = get_namespace(R, z, phi)
+        if xp is numpy:
+            R = numpy.array(R, dtype=float)
+            z = numpy.array(z, dtype=float)
+            phi = numpy.array(phi, dtype=float)
+            shape = (R * z * phi).shape
+            if shape == ():
+                return self._compute_at_point(radial_func, R, z, phi)
+            R = R * numpy.ones(shape)
+            z = z * numpy.ones(shape)
+            phi = phi * numpy.ones(shape)
+            result = numpy.zeros(shape, float)
+            for idx in numpy.ndindex(*shape):
+                result[idx] = self._compute_at_point(
+                    radial_func, R[idx], z[idx], phi[idx]
+                )
+            return result
+        # backend path: identical per-point evaluation, but assembled
+        # functionally (stack instead of in-place writes) so it traces and
+        # differentiates under jax/torch.
+        R = xp.asarray(R) * 1.0
+        z = xp.asarray(z) * 1.0
+        phi = xp.asarray(phi) * 1.0
         shape = (R * z * phi).shape
         if shape == ():
             return self._compute_at_point(radial_func, R, z, phi)
-        R = R * numpy.ones(shape)
-        z = z * numpy.ones(shape)
-        phi = phi * numpy.ones(shape)
-        result = numpy.zeros(shape, float)
-        for idx in numpy.ndindex(*shape):
-            result[idx] = self._compute_at_point(radial_func, R[idx], z[idx], phi[idx])
-        return result
+        R = xp.broadcast_to(R, shape)
+        z = xp.broadcast_to(z, shape)
+        phi = xp.broadcast_to(phi, shape)
+        return xp.reshape(
+            xp.stack(
+                [
+                    self._compute_at_point(radial_func, R[idx], z[idx], phi[idx])
+                    for idx in numpy.ndindex(*shape)
+                ]
+            ),
+            shape,
+        )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
@@ -442,14 +510,30 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         return self._evaluate_expansion(self._phiTilde, R, z, phi)
 
     def _dphiTilde(self, r, N, L):
+        xp = get_namespace(r)
         a = self._a
-        l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
-        n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
         xi = _RToxi(r, self._a)
         dC = _dC(xi, N, L)
+        if xp is numpy:
+            l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
+            n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
+            return -((4 * numpy.pi) ** 0.5) * (
+                numpy.power(a * r, l)
+                * (l * (a + r) * numpy.power(r, -1) - (2 * l + 1))
+                / ((a + r) ** (2 * l + 2))
+                * _C(xi, N, L)
+                + a**-1
+                * (1 - xi) ** 2
+                * (a * r) ** l
+                / (a + r) ** (2 * l + 1)
+                * dC
+                / 2.0
+            )
+        # backend path: identical expression with xp arithmetic.
+        l = xp.asarray(numpy.arange(0, L, dtype=float)[numpy.newaxis, :])
         return -((4 * numpy.pi) ** 0.5) * (
-            numpy.power(a * r, l)
-            * (l * (a + r) * numpy.power(r, -1) - (2 * l + 1))
+            (a * r) ** l
+            * (l * (a + r) * r ** (-1.0) - (2 * l + 1))
             / ((a + r) ** (2 * l + 2))
             * _C(xi, N, L)
             + a**-1 * (1 - xi) ** 2 * (a * r) ** l / (a + r) ** (2 * l + 1) * dC / 2.0
@@ -462,38 +546,77 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # Gegenbauer polynomial and its 1st/2nd xi-derivatives; the dxi/dr
         # factors are already folded into the algebra below. (r=0 -- the centre
         # -- is a removable singularity never hit along an orbit; guarded.)
+        xp = get_namespace(r)
         a = self._a
-        ar = a + r
-        l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
         xi = _RToxi(r, a)
         CC = _C(xi, N, L)
         dCC = _dC(xi, N, L)
         d2CC = _d2C(xi, N, L)
-        if r == 0:
-            return numpy.zeros((N, L), float)
+        if xp is numpy:
+            ar = a + r
+            l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
+            if r == 0:
+                return numpy.zeros((N, L), float)
+            ar2 = ar * ar
+            ar3 = ar2 * ar
+            ar4 = ar3 * ar
+            # Factored as (a r / ar^2)^l / (r^2 ar^5) -- a small, stable number
+            # for large r -- rather than (a r)^l / ar^(5+2l), whose intermediate
+            # powers overflow to inf/inf=NaN at large l (matches the C
+            # compute_d2phiTilde).
+            rterm = numpy.power(a * r / ar2, l) / (r * r * ar3 * ar2)
+            out = rterm * (
+                CC
+                * (
+                    l * (1.0 - l) * ar4
+                    - (4.0 * l**2 + 6.0 * l + 2.0) * r * r * ar2
+                    + l * (4.0 * l + 2.0) * r * ar3
+                )
+                + a
+                * r
+                * (
+                    (
+                        4.0 * r * r
+                        + 4.0 * a * r
+                        + (8.0 * l + 4.0) * r * ar
+                        - 4.0 * l * ar2
+                    )
+                    * dCC
+                    - 4.0 * a * r * d2CC
+                )
+            )
+            return out * (4.0 * numpy.pi) ** 0.5
+        # backend path: same factored expression at a guarded radius (the r == 0
+        # column is exactly zero; both xp.where branches are evaluated under
+        # tracing/eager AD, so the generic branch must stay finite there).
+        l = xp.asarray(numpy.arange(0, L, dtype=float)[numpy.newaxis, :])
+        rs = xp.where(r == 0, 1.0, r)
+        ar = a + rs
         ar2 = ar * ar
         ar3 = ar2 * ar
         ar4 = ar3 * ar
-        # Factored as (a r / ar^2)^l / (r^2 ar^5) -- a small, stable number for
-        # large r -- rather than (a r)^l / ar^(5+2l), whose intermediate powers
-        # overflow to inf/inf=NaN at large l (matches the C compute_d2phiTilde).
-        rterm = numpy.power(a * r / ar2, l) / (r * r * ar3 * ar2)
+        rterm = (a * rs / ar2) ** l / (rs * rs * ar3 * ar2)
         out = rterm * (
             CC
             * (
                 l * (1.0 - l) * ar4
-                - (4.0 * l**2 + 6.0 * l + 2.0) * r * r * ar2
-                + l * (4.0 * l + 2.0) * r * ar3
+                - (4.0 * l**2 + 6.0 * l + 2.0) * rs * rs * ar2
+                + l * (4.0 * l + 2.0) * rs * ar3
             )
             + a
-            * r
+            * rs
             * (
-                (4.0 * r * r + 4.0 * a * r + (8.0 * l + 4.0) * r * ar - 4.0 * l * ar2)
+                (
+                    4.0 * rs * rs
+                    + 4.0 * a * rs
+                    + (8.0 * l + 4.0) * rs * ar
+                    - 4.0 * l * ar2
+                )
                 * dCC
-                - 4.0 * a * r * d2CC
+                - 4.0 * a * rs * d2CC
             )
         )
-        return out * (4.0 * numpy.pi) ** 0.5
+        return xp.where(r == 0, 0.0, out * (4.0 * numpy.pi) ** 0.5)
 
     def _compute_spher_forces_at_point(self, R, z, phi=0, t=0):
         """
@@ -526,40 +649,60 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         - 2016-05-18 - Written - Aladdin Seaifan (UofT)
         - 2026-02-11 - Simplified - Bovy (UofT)
         """
-        Acos, Asin = self._Acos, self._Asin
-        N, L, M = Acos.shape
+        xp = get_namespace(R, z, phi)
+        N, L, M = self._Acos.shape
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        new_hash = hashlib.md5(numpy.array([R, z, phi])).hexdigest()
+        if xp is numpy:
+            Acos, Asin = self._Acos, self._Asin
+            new_hash = hashlib.md5(numpy.array([R, z, phi])).hexdigest()
 
-        if new_hash == self._force_hash:
-            dPhi_dr = self._cached_dPhi_dr
-            dPhi_dtheta = self._cached_dPhi_dtheta
-            dPhi_dphi = self._cached_dPhi_dphi
-        else:
-            # Angular part: Legendre polynomials and their derivatives
-            PP, dPP = compute_legendre(numpy.cos(theta), L, M, deriv=True)
-            PP = PP[None, :, :]
-            dPP = dPP[None, :, :]
-            # Radial part: potential basis and its radial derivative
-            phi_tilde = self._phiTilde(r, N, L)[:, :, numpy.newaxis]
-            dphi_tilde = self._dphiTilde(r, N, L)[:, :, numpy.newaxis]
-            # Azimuthal part
-            m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
-            mcos = numpy.cos(m * phi)
-            msin = numpy.sin(m * phi)
-            # Coefficient-weighted angular factors
-            cos_sin_sum = Acos * mcos + Asin * msin
-            # Force components in spherical coordinates
-            dPhi_dr = -numpy.sum(cos_sin_sum * PP * dphi_tilde)
-            dPhi_dtheta = -numpy.sum(
-                cos_sin_sum * phi_tilde * dPP * (-numpy.sin(theta))
-            )
-            dPhi_dphi = -numpy.sum(m * (Asin * mcos - Acos * msin) * phi_tilde * PP)
-            # Cache for reuse (e.g., _Rforce and _zforce called at same point)
-            self._force_hash = new_hash
-            self._cached_dPhi_dr = dPhi_dr
-            self._cached_dPhi_dtheta = dPhi_dtheta
-            self._cached_dPhi_dphi = dPhi_dphi
+            if new_hash == self._force_hash:
+                dPhi_dr = self._cached_dPhi_dr
+                dPhi_dtheta = self._cached_dPhi_dtheta
+                dPhi_dphi = self._cached_dPhi_dphi
+            else:
+                # Angular part: Legendre polynomials and their derivatives
+                PP, dPP = compute_legendre(numpy.cos(theta), L, M, deriv=True)
+                PP = PP[None, :, :]
+                dPP = dPP[None, :, :]
+                # Radial part: potential basis and its radial derivative
+                phi_tilde = self._phiTilde(r, N, L)[:, :, numpy.newaxis]
+                dphi_tilde = self._dphiTilde(r, N, L)[:, :, numpy.newaxis]
+                # Azimuthal part
+                m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
+                mcos = numpy.cos(m * phi)
+                msin = numpy.sin(m * phi)
+                # Coefficient-weighted angular factors
+                cos_sin_sum = Acos * mcos + Asin * msin
+                # Force components in spherical coordinates
+                dPhi_dr = -numpy.sum(cos_sin_sum * PP * dphi_tilde)
+                dPhi_dtheta = -numpy.sum(
+                    cos_sin_sum * phi_tilde * dPP * (-numpy.sin(theta))
+                )
+                dPhi_dphi = -numpy.sum(m * (Asin * mcos - Acos * msin) * phi_tilde * PP)
+                # Cache for reuse (e.g., _Rforce and _zforce called at same point)
+                self._force_hash = new_hash
+                self._cached_dPhi_dr = dPhi_dr
+                self._cached_dPhi_dtheta = dPhi_dtheta
+                self._cached_dPhi_dphi = dPhi_dphi
+            return dPhi_dr, dPhi_dtheta, dPhi_dphi
+        # backend path: same computation, but functional and cache-free (the
+        # per-point Python hash cache is trace-hostile under jit and useless on
+        # traced values; numpy keeps it above).
+        Acos = xp.asarray(self._Acos)
+        Asin = xp.asarray(self._Asin)
+        PP, dPP = assoc_legendre(L, M, xp.cos(theta), deriv=1)
+        PP = PP[None, :, :]
+        dPP = dPP[None, :, :]
+        phi_tilde = self._phiTilde(r, N, L)[:, :, None]
+        dphi_tilde = self._dphiTilde(r, N, L)[:, :, None]
+        m = xp.asarray(numpy.arange(0, M, dtype=float)[None, None, :])
+        mcos = xp.cos(m * phi)
+        msin = xp.sin(m * phi)
+        cos_sin_sum = Acos * mcos + Asin * msin
+        dPhi_dr = -xp.sum(cos_sin_sum * PP * dphi_tilde)
+        dPhi_dtheta = -xp.sum(cos_sin_sum * phi_tilde * dPP * (-xp.sin(theta)))
+        dPhi_dphi = -xp.sum(m * (Asin * mcos - Acos * msin) * phi_tilde * PP)
         return dPhi_dr, dPhi_dtheta, dPhi_dphi
 
     def _compute_spher_2nd_derivs_at_point(self, R, z, phi, t=0.0):
@@ -576,61 +719,107 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-06-08 - Written - Bovy (UofT)
         """
-        # Cache the full spherical 2nd-derivative set: the six cylindrical
-        # second derivatives at a point all transform from it, so this is
-        # computed once per point instead of once per component.
-        cache_key = (float(R), float(z), float(phi), float(t))
-        if cache_key == self._2nd_deriv_cache_key:
-            return self._cached_2nd_derivs
-        Acos, Asin = self._Acos, self._Asin
-        N, L, M = Acos.shape
-        r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        if r == 0.0 or not numpy.isfinite(r):
+        xp = get_namespace(R, z, phi)
+        N, L, M = self._Acos.shape
+        if xp is numpy:
+            # Cache the full spherical 2nd-derivative set: the six cylindrical
+            # second derivatives at a point all transform from it, so this is
+            # computed once per point instead of once per component.
+            cache_key = (float(R), float(z), float(phi), float(t))
+            if cache_key == self._2nd_deriv_cache_key:
+                return self._cached_2nd_derivs
+            Acos, Asin = self._Acos, self._Asin
+            r, theta, phi = coords.cyl_to_spher(R, z, phi)
+            if r == 0.0 or not numpy.isfinite(r):
+                self._2nd_deriv_cache_key = cache_key
+                self._cached_2nd_derivs = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+                return self._cached_2nd_derivs
+            costheta = numpy.cos(theta)
+            sintheta = numpy.sin(theta)
+            # nudge off the pole so the m>0 angular derivatives stay finite
+            if M > 1 and abs(1.0 - costheta * costheta) < 1e-14:
+                costheta = numpy.sign(costheta) * (1.0 - 1e-7)
+                sintheta = numpy.sqrt(1.0 - costheta**2)
+            PP, dPP, d2PP = compute_legendre(costheta, L, M, deriv=2)
+            # theta-derivatives of the (angular) Legendre functions
+            dPth = dPP * (-sintheta)
+            d2Pth = d2PP * sintheta**2 - dPP * costheta
+            PP = PP[numpy.newaxis, :, :]
+            dPth = dPth[numpy.newaxis, :, :]
+            d2Pth = d2Pth[numpy.newaxis, :, :]
+            # radial basis and its first/second radial derivatives
+            phi_tilde = self._phiTilde(r, N, L)[:, :, numpy.newaxis]
+            dphi_tilde = self._dphiTilde(r, N, L)[:, :, numpy.newaxis]
+            d2phi_tilde = self._d2phiTilde(r, N, L)[:, :, numpy.newaxis]
+            m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
+            mcos = numpy.cos(m * phi)
+            msin = numpy.sin(m * phi)
+            cos_sin = Acos * mcos + Asin * msin  # angular azimuthal coefficient
+            dphi_coef = m * (Asin * mcos - Acos * msin)  # d/dphi of cos_sin
+            Phi_rr = numpy.sum(cos_sin * PP * d2phi_tilde)
+            Phi_tt = numpy.sum(cos_sin * d2Pth * phi_tilde)
+            Phi_pp = numpy.sum(-m * m * cos_sin * PP * phi_tilde)
+            Phi_rt = numpy.sum(cos_sin * dPth * dphi_tilde)
+            Phi_rp = numpy.sum(dphi_coef * PP * dphi_tilde)
+            Phi_tp = numpy.sum(dphi_coef * dPth * phi_tilde)
+            Phi_r = numpy.sum(cos_sin * PP * dphi_tilde)
+            Phi_t = numpy.sum(cos_sin * dPth * phi_tilde)
             self._2nd_deriv_cache_key = cache_key
-            self._cached_2nd_derivs = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            self._cached_2nd_derivs = (
+                Phi_rr,
+                Phi_tt,
+                Phi_pp,
+                Phi_rt,
+                Phi_rp,
+                Phi_tp,
+                Phi_r,
+                Phi_t,
+            )
             return self._cached_2nd_derivs
-        costheta = numpy.cos(theta)
-        sintheta = numpy.sin(theta)
-        # nudge off the pole so the m>0 angular derivatives stay finite
-        if M > 1 and abs(1.0 - costheta * costheta) < 1e-14:
-            costheta = numpy.sign(costheta) * (1.0 - 1e-7)
-            sintheta = numpy.sqrt(1.0 - costheta**2)
-        PP, dPP, d2PP = compute_legendre(costheta, L, M, deriv=2)
-        # theta-derivatives of the (angular) Legendre functions
+        # backend path: cache-free (the per-point Python cache key calls
+        # float(R), which is trace-hostile under jit) and branchless. The
+        # r == 0 / r == inf centre is handled by computing the generic branch
+        # at a guarded radius and zeroing the result with xp.where, so both
+        # branches stay finite under tracing/eager AD.
+        Acos = xp.asarray(self._Acos)
+        Asin = xp.asarray(self._Asin)
+        r, theta, phi = coords.cyl_to_spher(R, z, phi)
+        degenerate = (r == 0.0) | ~xp.isfinite(r)
+        rs = xp.where(degenerate, 1.0, r)
+        costheta = xp.cos(theta)
+        sintheta = xp.sin(theta)
+        if M > 1:
+            # nudge off the pole so the m>0 angular derivatives stay finite
+            pole = xp.abs(1.0 - costheta * costheta) < 1e-14
+            costheta = xp.where(pole, xp.sign(costheta) * (1.0 - 1e-7), costheta)
+            sintheta = xp.where(pole, xp.sqrt(1.0 - costheta**2), sintheta)
+        PP, dPP, d2PP = assoc_legendre(L, M, costheta, deriv=2)
         dPth = dPP * (-sintheta)
         d2Pth = d2PP * sintheta**2 - dPP * costheta
-        PP = PP[numpy.newaxis, :, :]
-        dPth = dPth[numpy.newaxis, :, :]
-        d2Pth = d2Pth[numpy.newaxis, :, :]
-        # radial basis and its first/second radial derivatives
-        phi_tilde = self._phiTilde(r, N, L)[:, :, numpy.newaxis]
-        dphi_tilde = self._dphiTilde(r, N, L)[:, :, numpy.newaxis]
-        d2phi_tilde = self._d2phiTilde(r, N, L)[:, :, numpy.newaxis]
-        m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
-        mcos = numpy.cos(m * phi)
-        msin = numpy.sin(m * phi)
+        PP = PP[None, :, :]
+        dPth = dPth[None, :, :]
+        d2Pth = d2Pth[None, :, :]
+        phi_tilde = self._phiTilde(rs, N, L)[:, :, None]
+        dphi_tilde = self._dphiTilde(rs, N, L)[:, :, None]
+        d2phi_tilde = self._d2phiTilde(rs, N, L)[:, :, None]
+        m = xp.asarray(numpy.arange(0, M, dtype=float)[None, None, :])
+        mcos = xp.cos(m * phi)
+        msin = xp.sin(m * phi)
         cos_sin = Acos * mcos + Asin * msin  # angular azimuthal coefficient
         dphi_coef = m * (Asin * mcos - Acos * msin)  # d/dphi of cos_sin
-        Phi_rr = numpy.sum(cos_sin * PP * d2phi_tilde)
-        Phi_tt = numpy.sum(cos_sin * d2Pth * phi_tilde)
-        Phi_pp = numpy.sum(-m * m * cos_sin * PP * phi_tilde)
-        Phi_rt = numpy.sum(cos_sin * dPth * dphi_tilde)
-        Phi_rp = numpy.sum(dphi_coef * PP * dphi_tilde)
-        Phi_tp = numpy.sum(dphi_coef * dPth * phi_tilde)
-        Phi_r = numpy.sum(cos_sin * PP * dphi_tilde)
-        Phi_t = numpy.sum(cos_sin * dPth * phi_tilde)
-        self._2nd_deriv_cache_key = cache_key
-        self._cached_2nd_derivs = (
-            Phi_rr,
-            Phi_tt,
-            Phi_pp,
-            Phi_rt,
-            Phi_rp,
-            Phi_tp,
-            Phi_r,
-            Phi_t,
+        return tuple(
+            xp.where(degenerate, 0.0, val)
+            for val in (
+                xp.sum(cos_sin * PP * d2phi_tilde),  # Phi_rr
+                xp.sum(cos_sin * d2Pth * phi_tilde),  # Phi_tt
+                xp.sum(-m * m * cos_sin * PP * phi_tilde),  # Phi_pp
+                xp.sum(cos_sin * dPth * dphi_tilde),  # Phi_rt
+                xp.sum(dphi_coef * PP * dphi_tilde),  # Phi_rp
+                xp.sum(dphi_coef * dPth * phi_tilde),  # Phi_tp
+                xp.sum(cos_sin * PP * dphi_tilde),  # Phi_r
+                xp.sum(cos_sin * dPth * phi_tilde),  # Phi_t
+            )
         )
-        return self._cached_2nd_derivs
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         return self._evaluate_cyl_2nd_deriv("R2", R, z, phi, t=t)
@@ -659,13 +848,20 @@ def _xiToR(xi, a=1):
 
 
 def _RToxi(r, a=1):
-    out = numpy.divide((r / a - 1.0), (r / a + 1.0), where=True ^ numpy.isinf(r))
-    if numpy.any(numpy.isinf(r)):
-        if hasattr(r, "__len__"):
-            out[numpy.isinf(r)] = 1.0
-        else:
-            return 1.0
-    return out
+    xp = get_namespace(r)
+    if xp is numpy:
+        out = numpy.divide((r / a - 1.0), (r / a + 1.0), where=True ^ numpy.isinf(r))
+        if numpy.any(numpy.isinf(r)):
+            if hasattr(r, "__len__"):
+                out[numpy.isinf(r)] = 1.0
+            else:
+                return 1.0
+        return out
+    # backend path: functional version of the above. The division is computed
+    # at a guarded radius (inf/inf = NaN would poison tracing/eager AD) and the
+    # r = inf entries are set to the xi = 1 limit with xp.where.
+    rsafe = xp.where(xp.isinf(r), 0.0, r)
+    return xp.where(xp.isinf(r), 1.0, (rsafe / a - 1.0) / (rsafe / a + 1.0))
 
 
 def _C(xi, N, L, alpha=lambda x: 2 * x + 3.0 / 2, singleL=False):
@@ -696,57 +892,79 @@ def _C(xi, N, L, alpha=lambda x: 2 * x + 3.0 / 2, singleL=False):
     - 2021-02-22 - Upgraded to array xi - Bovy (UofT)
     - 2021-02-22 - Added singleL for use in compute...nbody - Bovy (UofT)
     """
-    floatIn = False
-    if isinstance(xi, (float, int)):
-        floatIn = True
-        xi = numpy.array([xi])
-    if singleL:
-        Ls = [L]
-    else:
-        Ls = range(L)
-    CC = numpy.zeros((N, len(Ls), len(xi)))
-    for l, ll in enumerate(Ls):
-        for n in range(N):
-            a = alpha(ll)
-            if n == 0:
-                CC[n, l] = 1.0
-                continue
-            elif n == 1:
-                CC[n, l] = 2.0 * a * xi
-            if n + 1 != N:
-                CC[n + 1, l] = (
-                    2 * (n + a) * xi * CC[n, l] - (n + 2 * a - 1) * CC[n - 1, l]
-                ) / (n + 1.0)
-    if floatIn:
-        return CC[:, :, 0]
-    else:
-        return CC
+    xp = get_namespace(xi)
+    if xp is numpy:
+        floatIn = False
+        if isinstance(xi, (float, int)):
+            floatIn = True
+            xi = numpy.array([xi])
+        if singleL:
+            Ls = [L]
+        else:
+            Ls = range(L)
+        CC = numpy.zeros((N, len(Ls), len(xi)))
+        for l, ll in enumerate(Ls):
+            for n in range(N):
+                a = alpha(ll)
+                if n == 0:
+                    CC[n, l] = 1.0
+                    continue
+                elif n == 1:
+                    CC[n, l] = 2.0 * a * xi
+                if n + 1 != N:
+                    CC[n + 1, l] = (
+                        2 * (n + a) * xi * CC[n, l] - (n + 2 * a - 1) * CC[n - 1, l]
+                    ) / (n + 1.0)
+        if floatIn:
+            return CC[:, :, 0]
+        else:
+            return CC
+    # backend path: the special-function router's Gegenbauer recurrence (same
+    # three-term recurrence, built functionally so it traces/differentiates).
+    # gegenbauer returns xi.shape + (N,); stack the l values along the last
+    # axis and move (n, l) to the front to match the numpy layout: (N, len(Ls))
+    # for scalar xi, (N, len(Ls)) + xi.shape for array xi.
+    Ls = [L] if singleL else range(L)
+    CC = xp.stack([gegenbauer(N, alpha(ll), xi) for ll in Ls], axis=-1)
+    return xp.moveaxis(CC, (-2, -1), (0, 1))
 
 
 def _dC(xi, N, L):
+    xp = get_namespace(xi)
     l = numpy.arange(0, L)[numpy.newaxis, :]
     CC = _C(xi, N + 1, L, alpha=lambda x: 2 * x + 5.0 / 2)
-    CC = numpy.roll(CC, 1, axis=0)[:-1, :]
-    CC[0, :] = 0
-    CC *= 2 * (2 * l + 3.0 / 2)
-    return CC
+    if xp is numpy:
+        CC = numpy.roll(CC, 1, axis=0)[:-1, :]
+        CC[0, :] = 0
+        CC *= 2 * (2 * l + 3.0 / 2)
+        return CC
+    # backend path: the roll + zero-row idiom above (dC_n = 2 a C_{n-1}^{a+1},
+    # with a zero n=0 row), written functionally as a concatenation.
+    CC = xp.concat([xp.zeros_like(CC[:1]), CC[: N - 1]], axis=0)
+    return CC * xp.asarray(2 * (2 * l + 3.0 / 2))
 
 
 def _d2C(xi, N, L):
     # Second xi-derivative of the Gegenbauer polynomials, via
     #   d2C_n^a/dxi2 = 4 a (a+1) C_{n-2}^{a+2}(xi),   a = 2l + 3/2
     # (the analogue of _dC's dC_n^a/dxi = 2a C_{n-1}^{a+1}).
+    xp = get_namespace(xi)
     l = numpy.arange(0, L)[numpy.newaxis, :]
     a = 2 * l + 3.0 / 2
     CC = _C(xi, N + 2, L, alpha=lambda x: 2 * x + 7.0 / 2)
-    CC = numpy.roll(CC, 2, axis=0)[:-2, :]
-    # n=0 (and n=1, when present) have zero second derivative; for N=1 only the
-    # n=0 row exists, so guard the n=1 assignment.
-    CC[0, :] = 0
-    if N > 1:
-        CC[1, :] = 0
-    CC *= 4 * a * (a + 1)
-    return CC
+    if xp is numpy:
+        CC = numpy.roll(CC, 2, axis=0)[:-2, :]
+        # n=0 (and n=1, when present) have zero second derivative; for N=1 only
+        # the n=0 row exists, so guard the n=1 assignment.
+        CC[0, :] = 0
+        if N > 1:
+            CC[1, :] = 0
+        CC *= 4 * a * (a + 1)
+        return CC
+    # backend path: the roll + zero-rows idiom above, written functionally as a
+    # concatenation (min(N, 2) zero rows, then C_{n-2}^{a+2} for n >= 2).
+    CC = xp.concat([xp.zeros_like(CC[: min(N, 2)]), CC[: max(N - 2, 0)]], axis=0)
+    return CC * xp.asarray(4 * a * (a + 1))
 
 
 def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
