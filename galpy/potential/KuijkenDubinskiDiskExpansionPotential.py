@@ -240,21 +240,21 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me(R, z, phi=phi, use_physical=False)
+        out = self._me(R, z, phi=phi, t=t, use_physical=False)
         for a, s, H in zip(self._Sigma_amp, self._Sigma, self._Hz):
             out += 4.0 * numpy.pi * a * s(r) * H(z)
         return out
 
     def _Rforce(self, R, z, phi=0, t=0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.Rforce(R, z, phi=phi, use_physical=False)
+        out = self._me.Rforce(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, H in zip(self._Sigma_amp, self._dSigmadR, self._Hz):
             out -= 4.0 * numpy.pi * a * ds(r) * H(z) * R / r
         return out
 
     def _zforce(self, R, z, phi=0, t=0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.zforce(R, z, phi=phi, use_physical=False)
+        out = self._me.zforce(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, H, dH in zip(
             self._Sigma_amp, self._Sigma, self._dSigmadR, self._Hz, self._dHzdz
         ):
@@ -262,11 +262,11 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         return out
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        return self._me.phitorque(R, z, phi=phi, use_physical=False)
+        return self._me.phitorque(R, z, phi=phi, t=t, use_physical=False)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.R2deriv(R, z, phi=phi, use_physical=False)
+        out = self._me.R2deriv(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, d2s, H in zip(
             self._Sigma_amp, self._dSigmadR, self._d2SigmadR2, self._Hz
         ):
@@ -282,7 +282,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.z2deriv(R, z, phi=phi, use_physical=False)
+        out = self._me.z2deriv(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(
             self._Sigma_amp,
             self._Sigma,
@@ -306,7 +306,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.Rzderiv(R, z, phi=phi, use_physical=False)
+        out = self._me.Rzderiv(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, d2s, H, dH in zip(
             self._Sigma_amp, self._dSigmadR, self._d2SigmadR2, self._Hz, self._dHzdz
         ):
@@ -319,11 +319,11 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         return out
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        return self._me.phi2deriv(R, z, phi=phi, use_physical=False)
+        return self._me.phi2deriv(R, z, phi=phi, t=t, use_physical=False)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.dens(R, z, phi=phi, use_physical=False)
+        out = self._me.dens(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(
             self._Sigma_amp,
             self._Sigma,
