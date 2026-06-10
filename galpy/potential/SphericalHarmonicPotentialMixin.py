@@ -4,6 +4,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import coords
 
 
@@ -50,49 +51,85 @@ class SphericalHarmonicPotentialMixin:
         - 2026-02-11 - Simplified - Bovy (UofT)
         - 2026-02-13 - Moved to SphericalHarmonicPotentialMixin - Bovy (UofT)
         """
-        R = numpy.array(R, dtype=float)
-        z = numpy.array(z, dtype=float)
-        phi = numpy.array(phi, dtype=float)
-        t = numpy.array(t, dtype=float)
-        shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
+        xp = get_namespace(R, z, phi)
+        if xp is numpy:
+            R = numpy.array(R, dtype=float)
+            z = numpy.array(z, dtype=float)
+            phi = numpy.array(phi, dtype=float)
+            t = numpy.array(t, dtype=float)
+            shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
+            if shape == ():
+                dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
+                    R, z, phi, t=t
+                )
+                return dr_dx * dPhi_dr + dtheta_dx * dPhi_dtheta + dPhi_dphi * dphi_dx
+            R = R * numpy.ones(shape)
+            z = z * numpy.ones(shape)
+            phi = phi * numpy.ones(shape)
+            t = t * numpy.ones(shape)
+            force = numpy.zeros(shape, float)
+            dr_dx = dr_dx * numpy.ones(shape)
+            dtheta_dx = dtheta_dx * numpy.ones(shape)
+            dphi_dx = dphi_dx * numpy.ones(shape)
+            for idx in numpy.ndindex(*shape):
+                dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
+                    R[idx], z[idx], phi[idx], t=t[idx]
+                )
+                force[idx] = (
+                    dr_dx[idx] * dPhi_dr
+                    + dtheta_dx[idx] * dPhi_dtheta
+                    + dPhi_dphi * dphi_dx[idx]
+                )
+            return force
+        # backend path: identical per-point evaluation, assembled functionally
+        # (stack instead of in-place writes) so it traces and differentiates.
+        R = xp.asarray(R) * 1.0
+        z = xp.asarray(z) * 1.0
+        phi = xp.asarray(phi) * 1.0
+        t = xp.asarray(t) * 1.0
+        shape = numpy.broadcast_shapes(
+            tuple(R.shape), tuple(z.shape), tuple(phi.shape), tuple(t.shape)
+        )
         if shape == ():
             dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
                 R, z, phi, t=t
             )
             return dr_dx * dPhi_dr + dtheta_dx * dPhi_dtheta + dPhi_dphi * dphi_dx
-        R = R * numpy.ones(shape)
-        z = z * numpy.ones(shape)
-        phi = phi * numpy.ones(shape)
-        t = t * numpy.ones(shape)
-        force = numpy.zeros(shape, float)
-        dr_dx = dr_dx * numpy.ones(shape)
-        dtheta_dx = dtheta_dx * numpy.ones(shape)
-        dphi_dx = dphi_dx * numpy.ones(shape)
+        R = xp.broadcast_to(R, shape)
+        z = xp.broadcast_to(z, shape)
+        phi = xp.broadcast_to(phi, shape)
+        t = xp.broadcast_to(t, shape)
+        dr_dx = xp.broadcast_to(xp.asarray(dr_dx) * 1.0, shape)
+        dtheta_dx = xp.broadcast_to(xp.asarray(dtheta_dx) * 1.0, shape)
+        dphi_dx = xp.broadcast_to(xp.asarray(dphi_dx) * 1.0, shape)
+        force = []
         for idx in numpy.ndindex(*shape):
             dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
                 R[idx], z[idx], phi[idx], t=t[idx]
             )
-            force[idx] = (
+            force.append(
                 dr_dx[idx] * dPhi_dr
                 + dtheta_dx[idx] * dPhi_dtheta
                 + dPhi_dphi * dphi_dx[idx]
             )
-        return force
+        return xp.reshape(xp.stack(force), shape)
 
     def _Rforce(self, R, z, phi=0, t=0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
+        xp = get_namespace(R, z, phi)
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        dr_dR = numpy.divide(R, r)
-        dtheta_dR = numpy.divide(z, r**2)
+        dr_dR = xp.divide(R, r)
+        dtheta_dR = xp.divide(z, r**2)
         return self._evaluate_cyl_force(dr_dR, dtheta_dR, 0, R, z, phi, t=t)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
+        xp = get_namespace(R, z, phi)
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        dr_dz = numpy.divide(z, r)
-        dtheta_dz = numpy.divide(-R, r**2)
+        dr_dz = xp.divide(z, r)
+        dtheta_dz = xp.divide(-R, r**2)
         return self._evaluate_cyl_force(dr_dz, dtheta_dz, 0, R, z, phi, t=t)
 
     def _phitorque(self, R, z, phi=0, t=0):
@@ -129,23 +166,50 @@ class SphericalHarmonicPotentialMixin:
         # axisymmetric potentials are evaluated with phi=None (phi irrelevant)
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        R = numpy.array(R, dtype=float)
-        z = numpy.array(z, dtype=float)
-        phi = numpy.array(phi, dtype=float)
-        t = numpy.array(t, dtype=float)
-        shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
+        xp = get_namespace(R, z, phi)
+        if xp is numpy:
+            R = numpy.array(R, dtype=float)
+            z = numpy.array(z, dtype=float)
+            phi = numpy.array(phi, dtype=float)
+            t = numpy.array(t, dtype=float)
+            shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
+            if shape == ():
+                return self._cyl_2nd_deriv_at_point(deriv_type, R, z, phi, t=t)
+            R = R * numpy.ones(shape)
+            z = z * numpy.ones(shape)
+            phi = phi * numpy.ones(shape)
+            t = t * numpy.ones(shape)
+            result = numpy.zeros(shape, float)
+            for idx in numpy.ndindex(*shape):
+                result[idx] = self._cyl_2nd_deriv_at_point(
+                    deriv_type, R[idx], z[idx], phi[idx], t=t[idx]
+                )
+            return result
+        # backend path: identical per-point evaluation, assembled functionally.
+        R = xp.asarray(R) * 1.0
+        z = xp.asarray(z) * 1.0
+        phi = xp.asarray(phi) * 1.0
+        t = xp.asarray(t) * 1.0
+        shape = numpy.broadcast_shapes(
+            tuple(R.shape), tuple(z.shape), tuple(phi.shape), tuple(t.shape)
+        )
         if shape == ():
             return self._cyl_2nd_deriv_at_point(deriv_type, R, z, phi, t=t)
-        R = R * numpy.ones(shape)
-        z = z * numpy.ones(shape)
-        phi = phi * numpy.ones(shape)
-        t = t * numpy.ones(shape)
-        result = numpy.zeros(shape, float)
-        for idx in numpy.ndindex(*shape):
-            result[idx] = self._cyl_2nd_deriv_at_point(
-                deriv_type, R[idx], z[idx], phi[idx], t=t[idx]
-            )
-        return result
+        R = xp.broadcast_to(R, shape)
+        z = xp.broadcast_to(z, shape)
+        phi = xp.broadcast_to(phi, shape)
+        t = xp.broadcast_to(t, shape)
+        return xp.reshape(
+            xp.stack(
+                [
+                    self._cyl_2nd_deriv_at_point(
+                        deriv_type, R[idx], z[idx], phi[idx], t=t[idx]
+                    )
+                    for idx in numpy.ndindex(*shape)
+                ]
+            ),
+            shape,
+        )
 
     def _cyl_2nd_deriv_at_point(self, deriv_type, R, z, phi, t=0.0):
         """
@@ -155,6 +219,7 @@ class SphericalHarmonicPotentialMixin:
         -----
         - 2026-02-18 - Written - Bovy (UofT)
         """
+        xp = get_namespace(R, z, phi)
         (
             Phi_rr,
             Phi_tt,
@@ -166,13 +231,21 @@ class SphericalHarmonicPotentialMixin:
             Phi_t,
         ) = self._compute_spher_2nd_derivs_at_point(R, z, phi, t=t)
         r2 = R * R + z * z
-        r = numpy.sqrt(r2)
-        if r == 0.0:
-            return 0.0
+        r = xp.sqrt(r2)
+        if xp is numpy:
+            if r == 0.0:
+                return 0.0
+        else:
+            # backend path: branchless r == 0 guard. Both xp.where branches are
+            # evaluated under tracing/eager AD, so the chain rule below runs at
+            # a guarded radius and the centre is zeroed at the end.
+            degenerate = r == 0.0
+            r2 = xp.where(degenerate, 1.0, r2)
+            r = xp.where(degenerate, 1.0, r)
         r3 = r * r2
         r4 = r2 * r2
         if deriv_type == "R2":
-            return (
+            out = (
                 Phi_rr * R * R / r2
                 + Phi_r * z * z / r3
                 + 2.0 * Phi_rt * R * z / r3
@@ -180,7 +253,7 @@ class SphericalHarmonicPotentialMixin:
                 + Phi_t * (-2.0 * R * z) / r4
             )
         elif deriv_type == "z2":
-            return (
+            out = (
                 Phi_rr * z * z / r2
                 + Phi_r * R * R / r3
                 - 2.0 * Phi_rt * z * R / r3
@@ -188,7 +261,7 @@ class SphericalHarmonicPotentialMixin:
                 + Phi_t * 2.0 * R * z / r4
             )
         elif deriv_type == "Rz":
-            return (
+            out = (
                 Phi_rr * R * z / r2
                 + Phi_r * (-R * z) / r3
                 + Phi_rt * (z * z - R * R) / r3
@@ -196,8 +269,9 @@ class SphericalHarmonicPotentialMixin:
                 + Phi_t * (R * R - z * z) / r4
             )
         elif deriv_type == "phi2":
-            return Phi_pp
+            out = Phi_pp
         elif deriv_type == "Rphi":
-            return Phi_rp * R / r + Phi_tp * z / r2
+            out = Phi_rp * R / r + Phi_tp * z / r2
         elif deriv_type == "phiz":
-            return Phi_rp * z / r + Phi_tp * (-R) / r2
+            out = Phi_rp * z / r + Phi_tp * (-R) / r2
+        return out if xp is numpy else xp.where(degenerate, 0.0, out)
