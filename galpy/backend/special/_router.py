@@ -235,5 +235,23 @@ def xlogy(x, y):
     return _dispatch("xlogy", (x, y), xlogy_fallback)
 
 
+def logsumexp(a, axis=None):
+    """Overflow-safe log(sum(exp(a), axis)) (disk-expansion sech^2 profiles).
+
+    Native on every backend, so no fallback: scipy.special.logsumexp for numpy
+    (byte-identical), jax.scipy.special.logsumexp for jax, and torch.logsumexp
+    for torch. Handled outside ``_dispatch`` because the ``axis`` argument is a
+    plain int that must not be promoted to a tensor (and torch's ``dim`` is
+    required, so ``axis=None`` reduces over all axes explicitly).
+    """
+    xp = get_namespace(a)
+    name, sp = _backend_special(xp)
+    if name == "torch":
+        import torch
+
+        return torch.logsumexp(a, dim=tuple(range(a.ndim)) if axis is None else axis)
+    return sp.logsumexp(a, axis=axis)
+
+
 # Silence "imported but unused" for numpy (kept for potential defensive use).
 _ = numpy
