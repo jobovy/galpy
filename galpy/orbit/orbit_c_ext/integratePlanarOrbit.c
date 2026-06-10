@@ -610,6 +610,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case -6: //MovingObjectPotential
       potentialArgs->planarRforce= &MovingObjectPotentialPlanarRforce;
       potentialArgs->planarphitorque= &MovingObjectPotentialPlanarphitorque;
+      // Planar 2D Hessian for the planar variational equations
+      // (integrate_dxdv): the kernel's planar Hessian at the shifted point
+      // x-x_obj(t); nonaxisymmetric (the object is off-center). Only used
+      // when the kernel's planar Hessian is in C (gated by hasC_dxdv =
+      // _check_c(kernel, dxdv=True) on the Python side).
+      potentialArgs->planarR2deriv= &MovingObjectPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &MovingObjectPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &MovingObjectPotentialPlanarRphideriv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
