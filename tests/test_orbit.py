@@ -1860,13 +1860,33 @@ def test_lyapunov_api():
     # API behavior of Orbit.lyapunov: output shapes for multiple orbits,
     # per-orbit initial deviations, invariance under the deviation-vector
     # normalization (the variational equations are linear), the pot=None
-    # default, and physical-output conversion
+    # default, physical-output conversion, and Quantity inputs for ts and dt
+    from astropy import units
+
     from galpy.orbit import Orbit
     from galpy.potential import IsochronePotential
     from galpy.util import conversion
 
     ip = IsochronePotential(normalize=1.0, b=0.8)
     ts = numpy.linspace(0.0, 10.0, 101)
+    # Quantity ts and dt inputs parse to the same natural-units result
+    oq = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0], ro=8.0, vo=220.0)
+    tnat_to_Gyr = conversion.time_in_Gyr(220.0, 8.0)
+    ts_q = ts * tnat_to_Gyr * units.Gyr
+    lam_q = oq.lyapunov(
+        ts_q,
+        pot=ip,
+        method="rk4_c",
+        dt=(ts[1] - ts[0]) / 2.0 * tnat_to_Gyr * units.Gyr,
+        use_physical=False,
+    )
+    onat = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0], ro=8.0, vo=220.0)
+    lam_nat = onat.lyapunov(
+        ts, pot=ip, method="rk4_c", dt=(ts[1] - ts[0]) / 2.0, use_physical=False
+    )
+    assert numpy.amax(numpy.fabs(lam_q[1:] - lam_nat[1:])) < 1e-10, (
+        "lyapunov with Quantity ts/dt does not match the natural-units call"
+    )
     # Multiple orbits: shape (2,) -> output (2,nt)
     o = Orbit([[1.0, 0.1, 1.1, 0.1, 0.1, 0.0], [1.1, -0.1, 0.9, 0.0, 0.05, 1.0]])
     lam = o.lyapunov(ts, pot=ip, method="dop853_c")
