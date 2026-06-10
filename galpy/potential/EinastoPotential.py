@@ -1,10 +1,13 @@
 ###############################################################################
-#   BurkertPotential.py: Potential with a Burkert density
+#   EinastoPotential.py: Potential with an Einasto density
 ###############################################################################
 import numpy
 from scipy import special
 from scipy.optimize import fsolve
 
+from ..backend import get_namespace
+from ..backend.special import gamma as _gamma
+from ..backend.special import gammaincc as _gammaincc
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
 
@@ -95,37 +98,37 @@ class EinastoPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
+        xp = get_namespace(r)
         s = r / self.h
-        gamma_3n = special.gamma(3 * self.n)
-        gamma_2n = special.gamma(2 * self.n)
-        gamma_upper_3n = special.gammaincc(3 * self.n, (s ** (1 / self.n)))
-        gamma_upper_2n = special.gammaincc(2 * self.n, (s ** (1 / self.n)))
+        # r == 0 is handled by the separate `core` branch below; eager backends
+        # evaluate BOTH xp.where branches, so the generic branch must stay
+        # NaN-free there: its (1-Q)/s term is 0/0 at s == 0 and, for n > 1,
+        # d(s**(1/n))/ds is infinite at s == 0 (which would NaN-poison reverse-
+        # mode autodiff). Evaluate the dead branch at the safe s == 1 instead.
+        ssafe = xp.where(r == 0, 1.0, s)
+        gamma_3n = _gamma(3 * self.n)
+        gamma_2n = _gamma(2 * self.n)
+        gamma_upper_3n = _gammaincc(3 * self.n, (ssafe ** (1 / self.n)))
+        gamma_upper_2n = _gammaincc(2 * self.n, (ssafe ** (1 / self.n)))
         # written to handle s = numpy.inf
         out = -(4 * numpy.pi * (self.h**2) * self.n * gamma_3n) * (
-            (1 - gamma_upper_3n) / s + gamma_upper_2n * (gamma_2n / gamma_3n)
+            (1 - gamma_upper_3n) / ssafe + gamma_upper_2n * (gamma_2n / gamma_3n)
         )
-        core = -(4 * numpy.pi * (self.h**2) * self.n) * special.gamma(2 * self.n)
-        if isinstance(r, (float, int)):
-            if r == 0:
-                return core
-            else:
-                return out
-        else:
-            out[r == 0] = core
-            return out
+        core = -(4 * numpy.pi * (self.h**2) * self.n) * _gamma(2 * self.n)
+        return xp.where(r == 0, core, out)
 
     def _rforce(self, r, t=0.0):
         s = r / self.h
-        gamma_3n = special.gamma(3 * self.n)
-        gamma_upper_3n = special.gammaincc(3 * self.n, (s ** (1 / self.n)))
+        gamma_3n = _gamma(3 * self.n)
+        gamma_upper_3n = _gammaincc(3 * self.n, (s ** (1 / self.n)))
         return (
             (4 * numpy.pi * self.h * self.n * gamma_3n) * (s**-2) * (gamma_upper_3n - 1)
         )
 
     def _r2deriv(self, r, t=0.0):
         s = r / self.h
-        gamma_3n = special.gamma(3 * self.n)
-        gamma_upper_3n = special.gammaincc(3 * self.n, (s ** (1 / self.n)))
+        gamma_3n = _gamma(3 * self.n)
+        gamma_upper_3n = _gammaincc(3 * self.n, (s ** (1 / self.n)))
         # (self.h**2)
         return -(4 * numpy.pi * self.n * gamma_3n) * (
             (-2 * (s**-3)) * (gamma_upper_3n - 1)
