@@ -954,6 +954,13 @@ def integrateFullOrbit_dxdv(
     vRout, vTout, vzout = coords.rect_to_cyl_vec(
         out[..., 3], out[..., 4], out[..., 5], out[..., 0], out[..., 1], out[..., 2]
     )
+    # rect_to_cyl/rect_to_cyl_vec pass Z/vz through BY REFERENCE, so Zout and
+    # vzout are views into out[...,2]/out[...,5]; copy them before the in-place
+    # assignments below overwrite those columns (otherwise out[...,3] ends up
+    # holding vT instead of z, corrupting the returned base orbit and any
+    # restart that uses it, e.g. the lyapunov renormalization segments)
+    Zout = numpy.copy(Zout)
+    vzout = numpy.copy(vzout)
     out[..., 0] = Rout
     out[..., 1] = vRout
     out[..., 2] = vTout
