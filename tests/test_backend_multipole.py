@@ -335,3 +335,20 @@ def test_tdep_backend_raises(backend_name):
     for method in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
         with pytest.raises(NotImplementedError, match="time-dependent"):
             getattr(tdep, method)(R, z, 0.7, 0.5)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_axi_phi_none_default(backend_name):
+    # The backend paths default phi=None to 0 for axisymmetric expansions in
+    # four places (the _evaluate dispatch, _backend_cyl_force,
+    # _backend_cyl_2nd_deriv, and _backend_dens); call each without phi and
+    # check against the explicit phi=0 result
+    R = _asarray(backend_name, [0.5, 1.0, 2.0])
+    z = _asarray(backend_name, [0.1, 0.2, 0.3])
+    for meth in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
+        nophi = numpy.asarray(getattr(_AXI, meth)(R, z))
+        withphi = numpy.asarray(getattr(_AXI, meth)(R, z, phi=0.0))
+        assert numpy.amax(numpy.fabs(nophi - withphi)) == 0.0, (
+            f"backend {backend_name} {meth} with phi omitted differs from phi=0"
+        )
+    return None
