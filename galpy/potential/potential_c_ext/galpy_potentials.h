@@ -1003,6 +1003,21 @@ double RotateAndTiltWrapperPotentialphitorque(double,double,double,double,
 					    struct potentialArg *);
 double RotateAndTiltWrapperPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
+// Full 3D Hessian for the 3D variational equations (integrate_dxdv): the
+// wrapped potential's Hessian at the rotated/offset point, conjugated back
+// with the rotation matrix
+double RotateAndTiltWrapperPotentialR2deriv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialz2deriv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialRzderiv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialphi2deriv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialRphideriv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialzphideriv(double,double,double,double,
+					struct potentialArg *);
 //ChandrasekharDynamicalFrictionForce, takes vR,vT,vZ
 double ChandrasekharDynamicalFrictionForceRforce(double,double,double,double,
 						 struct potentialArg *,

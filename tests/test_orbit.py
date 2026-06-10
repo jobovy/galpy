@@ -2281,6 +2281,25 @@ def test_dissipative_excluded_from_liouville3d_registry():
     return None
 
 
+def _planar_invariant(pot):
+    """Whether the z=0 plane is invariant under the flow (F_z(z=0)=0
+    everywhere), the premise of the 3D->2D bridge check below. A tilted or
+    z-offset potential (e.g. the RotateAndTiltWrapperPotential registry
+    entries) breaks the z -> -z symmetry: a planar IC then immediately leaves
+    the z=0 plane, so the bridge identity does not apply (its Hessian is still
+    pinned by test_dxdv_3d_c_vs_python and the FD-of-flow check in
+    test_liouville_3d)."""
+    from galpy.potential import evaluatezforces
+
+    return all(
+        numpy.fabs(
+            evaluatezforces(pot, 1.0, 0.0, phi=testphi, t=0.0, use_physical=False)
+        )
+        < 1e-12
+        for testphi in (0.0, 0.7, 2.1)
+    )
+
+
 # 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
 # dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
 # integrate_dxdv must match the trusted planar integrate_dxdv result.
@@ -2291,6 +2310,11 @@ def test_liouville_3d_2d_bridge(pot):
     # deviation stays planar for any z-symmetric potential (Rzderiv and zphideriv both
     # vanish at z=0), so the (x,y,vx,vy) block of the 3D STM must match the trusted
     # planar integrate_dxdv -- a strong cross-check of the in-plane Cartesian Hessian.
+    if not _planar_invariant(pot):
+        pytest.skip(
+            "the z=0 plane is not invariant for this potential (no z -> -z "
+            "symmetry), so the 3D->2D bridge identity does not apply"
+        )
     times = numpy.linspace(0.0, 5.0, 251)
     # Planar IC (z=0, vz=0): (R,vR,vT,phi) in 2D and (R,vR,vT,z=0,vz=0,phi) in 3D
     R, vR, vT, phi = 1.0, 0.1, 1.1, 0.2

@@ -809,7 +809,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &RotateAndTiltWrapperPotentialRforce;
       potentialArgs->zforce= &RotateAndTiltWrapperPotentialzforce;
       potentialArgs->phitorque= &RotateAndTiltWrapperPotentialphitorque;
-      potentialArgs->nargs= 21;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv= &RotateAndTiltWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &RotateAndTiltWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &RotateAndTiltWrapperPotentialRzderiv;
+      potentialArgs->phi2deriv= &RotateAndTiltWrapperPotentialphi2deriv;
+      potentialArgs->Rphideriv= &RotateAndTiltWrapperPotentialRphideriv;
+      potentialArgs->zphideriv= &RotateAndTiltWrapperPotentialzphideriv;
+      potentialArgs->nargs= 31;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
