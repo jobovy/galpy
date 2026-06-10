@@ -2023,7 +2023,11 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
     # by searchsorted + Horner (exactly the representation _serialize_for_c
     # hands to the C code), and the angular part uses the backend-agnostic
     # galpy.backend.special.assoc_legendre router. Time-dependent (tgrid=...)
-    # instances remain numpy-only for now.
+    # instances follow the same scheme with one extra (clamped) searchsorted
+    # in tgrid: the CubicSpline-in-t coefficient stacks of the numpy path are
+    # re-packed so a cubic Horner in (t - t_k) yields the effective radial
+    # PPoly coefficients at time t (the vectorized twin of _fused_ppoly_eval /
+    # _eval_radial_lm_timedep).
     ###########################################################################
     def _Rforce(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z)
@@ -2051,6 +2055,45 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             self, deriv_type, R, z, phi, t=t
         )
 
+    def _backend_comps(self):
+        """(l, m, is_sin) component order shared by all backend tables."""
+        comps = []
+        for l in range(self._L):
+            for m in range(min(l + 1, self._M)):
+                comps.append((l, m, False))
+                if m > 0:
+                    comps.append((l, m, True))
+        return comps
+
+    @staticmethod
+    def _backend_comp_consts(comps, rmin):
+        """Per-component constant tables shared by the static and TD layouts.
+
+        The below-grid (constant-density) extrapolation's l-dependent
+        prefactors are precomputed so the l == 2 logarithmic special case
+        reduces to a constant mask.
+        """
+        l_arr = numpy.array([c[0] for c in comps])
+        m_arr = numpy.array([c[1] for c in comps])
+        return {
+            "l_idx": l_arr,
+            "m_idx": m_arr,
+            "lf": l_arr.astype(float)[:, None],
+            "mf": m_arr.astype(float)[:, None],
+            "is_sin": numpy.array([c[2] for c in comps])[:, None],
+            "inv_lp3": (1.0 / (l_arr + 3.0))[:, None],
+            "inv_2ml": numpy.where(
+                l_arr == 2, 0.0, 1.0 / numpy.where(l_arr == 2, 1.0, 2.0 - l_arr)
+            )[:, None],
+            "l2mask": (l_arr == 2)[:, None],
+            "rmin_pow_2ml": (rmin ** (2.0 - l_arr))[:, None],
+            "rmin_pow_lp2": (rmin ** (l_arr + 2.0))[:, None],
+        }
+
+    def _backend_tables(self):
+        """Constant numpy tables for the backend path (static or TD layout)."""
+        return self._backend_tdep_data() if self._tdep else self._backend_static_data()
+
     def _backend_static_data(self):
         """Build (once) the numpy constant tables for the backend path.
 
@@ -2065,20 +2108,9 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-06-09 - Written - Bovy (UofT)
         """
-        if self._tdep:
-            raise NotImplementedError(
-                "jax/torch evaluation of time-dependent (tgrid=...) "
-                "MultipoleExpansionPotential instances is not implemented; "
-                "evaluate with numpy inputs instead"
-            )
         if self._backend_data is not None:
             return self._backend_data
-        comps = []  # (l, m, is_sin) component order, shared by all tables
-        for l in range(self._L):
-            for m in range(min(l + 1, self._M)):
-                comps.append((l, m, False))
-                if m > 0:
-                    comps.append((l, m, True))
+        comps = self._backend_comps()
         rmin, rmax = self._rgrid[0], self._rgrid[-1]
         breaks, rho_breaks = None, None
         inner_c, outer_c, rho_c = [], [], []
@@ -2102,62 +2134,187 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             if rho_breaks is None:
                 rho_breaks = numpy.append(pp_rho.x[:-1][keep], pp_rho.x[-1])
             rho_c.append(pp_rho.c[:, keep])
-        l_arr = numpy.array([c[0] for c in comps])
-        m_arr = numpy.array([c[1] for c in comps])
         inner_c = numpy.stack(inner_c)
         # Below-grid constant-density constants: P_rho0 = I_inner'(rmin) /
-        # rmin^{l+2} (= pref*rho(rmin), cf. _below_grid_integrals); the
-        # l-dependent prefactors are precomputed so the l == 2 logarithmic
-        # special case reduces to a constant mask
+        # rmin^{l+2} (= pref*rho(rmin), cf. _below_grid_integrals)
         self._backend_data = {
             "breaks": breaks,
             "inner_c": inner_c,  # (n_comp, 6, Nr-1)
             "outer_c": numpy.stack(outer_c),
             "rho_breaks": rho_breaks,
             "rho_c": numpy.stack(rho_c),  # (n_comp, 4, n_int)
-            "l_idx": l_arr,
-            "m_idx": m_arr,
-            "lf": l_arr.astype(float)[:, None],
-            "mf": m_arr.astype(float)[:, None],
-            "is_sin": numpy.array([c[2] for c in comps])[:, None],
             "I_outer_rmin": numpy.array(I_outer_rmin)[:, None],
             "I_inner_rmax": numpy.array(I_inner_rmax)[:, None],
-            "P_rho0": (inner_c[:, 4, 0] / rmin ** (l_arr + 2.0))[:, None],
-            "inv_lp3": (1.0 / (l_arr + 3.0))[:, None],
-            "inv_2ml": numpy.where(
-                l_arr == 2, 0.0, 1.0 / numpy.where(l_arr == 2, 1.0, 2.0 - l_arr)
-            )[:, None],
-            "l2mask": (l_arr == 2)[:, None],
-            "rmin_pow_2ml": (rmin ** (2.0 - l_arr))[:, None],
             # value the numpy path returns at the exact center:
             # R_00(rmin) * P_00 with P_00 = 1
             "R00": I_outer_rmin[0],
+            **self._backend_comp_consts(comps, rmin),
+        }
+        self._backend_data["P_rho0"] = (
+            inner_c[:, 4, 0:1] / self._backend_data["rmin_pow_lp2"]
+        )
+        return self._backend_data
+
+    def _backend_tdep_data(self):
+        """Build (once) the numpy constant tables for the time-dependent
+        backend path.
+
+        The numpy TD path stores, per (l, m, cos/sin) component, CubicSpline
+        time-interpolators over the flattened power-basis radial PPoly
+        coefficients (``cs.c`` of shape ``(4, Nt-1, 6*(Nr-1))``) and
+        evaluates them via the fused cubic-in-dt + quintic-in-dr Horner of
+        ``_fused_ppoly_eval`` / ``_eval_radial_lm_timedep``. This method
+        re-packs exactly those CubicSpline coefficient stacks for vectorized
+        backend evaluation:
+
+        * ``inner_tc`` / ``outer_tc``: ``(n_comp, 4, 6, (Nt-1)*(Nr-1))``
+          tables gathered with a combined time-interval x radial-interval
+          index; a cubic Horner in ``dt = t - tgrid[i_t]`` (same op order as
+          ``_fused_ppoly_eval``) collapses them to the effective 6 radial
+          PPoly coefficients at time t.
+        * boundary tables at the first radial breakpoint (value and first
+          derivative of the integrals at rmin) and the last radial interval
+          (for I_inner(rmax)), feeding the analytic below-grid
+          (constant-density) and above-grid (point-mass) extrapolations of
+          ``_eval_radial_lm_timedep``.
+        * ``rho_tc``: the numpy TD density path (``_ensure_rho_for_time``)
+          builds a FITPACK interpolating spline through the
+          time-interpolated grid values. Spline interpolation is linear in
+          the data, so that spline equals the cubic-Horner-in-dt combination
+          of the splines through each CubicSpline coefficient row; those
+          per-(time-interval, dt-power) spline PPoly stacks are precomputed
+          here, shape ``(n_comp, 4, 4, (Nt-1)*n_rint)``.
+
+        Time extrapolation outside tgrid matches the numpy path (clamped
+        interval index = edge-interval cubic extrapolation, scipy's
+        ``extrapolate=True``). All entries are plain numpy arrays/floats;
+        the evaluators convert them with ``xp.asarray``.
+
+        Notes
+        -----
+        - 2026-06-10 - Written - Bovy (UofT)
+        """
+        if self._backend_data is not None:
+            return self._backend_data
+        comps = self._backend_comps()
+        rgrid = self._rgrid
+        rmin = rgrid[0]
+        nint = len(rgrid) - 1
+        rho_breaks = None
+        inner_tc, outer_tc, rho_tc = [], [], []
+        dIin_rmin_tc, Iin_rmin_tc, Iout_rmin_tc, inner_last_tc = [], [], [], []
+        for l, m, is_sin in comps:
+            I_inner_cs = (
+                self._I_inner_sin_interp if is_sin else self._I_inner_cos_interp
+            )[l][m]
+            I_outer_cs = (
+                self._I_outer_sin_interp if is_sin else self._I_outer_cos_interp
+            )[l][m]
+            rho_cs = (self._rho_sin_interp if is_sin else self._rho_cos_interp)[l][m]
+            ci = I_inner_cs.c  # (4, Nt-1, 6*(Nr-1)), interval-major in r
+            co = I_outer_cs.c
+            # (4, Nt-1, 6*nint) -> (4, 6, (Nt-1)*nint), flat = i_t*nint + i_r
+            inner_tc.append(
+                ci.reshape(4, -1, nint, 6).transpose(0, 3, 1, 2).reshape(4, 6, -1)
+            )
+            outer_tc.append(
+                co.reshape(4, -1, nint, 6).transpose(0, 3, 1, 2).reshape(4, 6, -1)
+            )
+            # i_r = 0, dr = 0 boundary stacks: PPoly value is the dr^0
+            # coefficient (flat index 5), its derivative the dr^1 one (4)
+            dIin_rmin_tc.append(ci[:, :, 4])
+            Iin_rmin_tc.append(ci[:, :, 5])
+            Iout_rmin_tc.append(co[:, :, 5])
+            # full 6-coefficient stack of the last radial interval, for
+            # I_inner(rmax) above the grid: (4, 6, Nt-1)
+            inner_last_tc.append(ci[:, :, 6 * (nint - 1) :].transpose(0, 2, 1))
+            # Density: FITPACK splines through each CubicSpline coefficient
+            # row (linearity, see docstring); drop FITPACK's zero-width
+            # boundary-knot intervals so searchsorted lookup is well-defined
+            comp_rho = []
+            for kt in range(4):
+                row = []
+                for it in range(rho_cs.c.shape[1]):
+                    pp = PPoly.from_spline(
+                        InterpolatedUnivariateSpline(
+                            rgrid, rho_cs.c[kt, it], k=self._k
+                        )._eval_args
+                    )
+                    keep = numpy.diff(pp.x) > 0
+                    if rho_breaks is None:
+                        rho_breaks = numpy.append(pp.x[:-1][keep], pp.x[-1])
+                    row.append(pp.c[:, keep])  # (4, n_rint)
+                comp_rho.append(numpy.stack(row, axis=1))  # (4, Nt-1, n_rint)
+            # (4 dt-powers, 4 dr-powers, (Nt-1)*n_rint)
+            rho_tc.append(numpy.stack(comp_rho).reshape(4, 4, -1))
+        self._backend_data = {
+            "tgrid": numpy.asarray(self._tgrid, dtype=float),
+            "breaks": numpy.asarray(rgrid, dtype=float),
+            "inner_tc": numpy.stack(inner_tc),  # (n_comp, 4, 6, (Nt-1)*nint)
+            "outer_tc": numpy.stack(outer_tc),
+            "dIin_rmin_tc": numpy.stack(dIin_rmin_tc),  # (n_comp, 4, Nt-1)
+            "Iin_rmin_tc": numpy.stack(Iin_rmin_tc),
+            "Iout_rmin_tc": numpy.stack(Iout_rmin_tc),
+            "inner_last_tc": numpy.stack(inner_last_tc),  # (n_comp, 4, 6, Nt-1)
+            "rho_breaks": rho_breaks,
+            "rho_tc": numpy.stack(rho_tc),  # (n_comp, 4, 4, (Nt-1)*n_rint)
+            **self._backend_comp_consts(comps, rmin),
         }
         return self._backend_data
 
     @staticmethod
-    def _backend_prepare(xp, R, z, phi):
-        """Broadcast (R, z, phi) to a common shape and flatten to 1-D."""
+    def _backend_prepare(xp, R, z, phi, t):
+        """Broadcast (R, z, phi, t) to a common shape and flatten to 1-D."""
         R = xp.asarray(R) * 1.0
         z = xp.asarray(z) * 1.0
         phi = xp.asarray(phi) * 1.0
-        R, z, phi = xp.broadcast_arrays(R, z, phi)
+        if isinstance(t, (int, float)):
+            # route Python scalars through numpy so torch keeps float64
+            t = numpy.asarray(t, dtype=float)
+        t = xp.asarray(t) * 1.0
+        R, z, phi, t = xp.broadcast_arrays(R, z, phi, t)
         shape = R.shape
         return (
             xp.reshape(R, (-1,)),
             xp.reshape(z, (-1,)),
             xp.reshape(phi, (-1,)),
+            xp.reshape(t, (-1,)),
             shape,
         )
 
-    def _backend_radial(self, xp, r, mode=0):
-        """Vectorized R_lm(r) (and dR/dr, d2R/dr2) for every component.
+    @staticmethod
+    def _backend_horner_t(c, dt):
+        """Cubic Horner in dt over axis 1 of a (n_comp, 4, ...) stack.
 
-        Mirrors _eval_R_lm / _eval_dR_lm / _eval_d2R_lm: quintic Horner on
-        the power-basis I_inner/I_outer coefficients in-grid, the analytic
+        Same op order as _fused_ppoly_eval's time Horner.
+        """
+        return ((c[:, 0] * dt + c[:, 1]) * dt + c[:, 2]) * dt + c[:, 3]
+
+    @staticmethod
+    def _backend_time_interval(xp, data, t):
+        """Clamped time-interval lookup of _eval_radial_lm_timedep.
+
+        Returns (i_t, dt = t - tgrid[i_t]); outside tgrid the clamped index
+        reproduces scipy's edge-interval cubic extrapolation.
+        """
+        tg = xp.asarray(data["tgrid"])
+        n_t = data["tgrid"].shape[0]
+        i_t = xp.clip(xp.searchsorted(tg, t, side="right") - 1, 0, n_t - 2)
+        return i_t, t - tg[i_t]
+
+    def _backend_radial(self, xp, r, t, mode=0):
+        """Vectorized R_lm(r[, t]) (and dR/dr, d2R/dr2) for every component.
+
+        Mirrors _eval_R_lm / _eval_dR_lm / _eval_d2R_lm (static) and
+        _eval_radial_lm_timedep (time-dependent): quintic Horner on the
+        power-basis I_inner/I_outer coefficients in-grid, the analytic
         constant-density extrapolation below rmin and the point-mass form
-        above rmax. Each piecewise branch is evaluated with a 'safe' radius
-        so its dead side stays finite under eager backends / autodiff.
+        above rmax. For time-dependent instances the effective radial
+        coefficients (and the rmin/rmax boundary integrals the
+        extrapolations depend on) are first obtained by a cubic Horner in
+        (t - t_k), exactly as in _fused_ppoly_eval. Each piecewise branch is
+        evaluated with a 'safe' radius so its dead side stays finite under
+        eager backends / autodiff.
 
         Parameters
         ----------
@@ -2165,6 +2322,9 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             Array namespace.
         r : array
             1-D backend array of spherical radii.
+        t : array
+            1-D backend array of times (broadcast with r); ignored for
+            static instances.
         mode : int
             0=value, 1=value+deriv, 2=value+deriv+2nd deriv.
 
@@ -2176,15 +2336,11 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Notes
         -----
         - 2026-06-09 - Written - Bovy (UofT)
+        - 2026-06-10 - Added the time-dependent path - Bovy (UofT)
         """
-        data = self._backend_static_data()
+        data = self._backend_tables()
         breaks = xp.asarray(data["breaks"])
-        ci = xp.asarray(data["inner_c"])
-        co = xp.asarray(data["outer_c"])
         lf = xp.asarray(data["lf"])
-        P_rho0 = xp.asarray(data["P_rho0"])
-        I_outer_rmin = xp.asarray(data["I_outer_rmin"])
-        I_inner_rmax = xp.asarray(data["I_inner_rmax"])
         inv_lp3 = xp.asarray(data["inv_lp3"])
         inv_2ml = xp.asarray(data["inv_2ml"])
         l2mask = xp.asarray(data["l2mask"])
@@ -2198,8 +2354,39 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         r_in = xp.clip(r, rmin, rmax)
         idx = xp.clip(xp.searchsorted(breaks, r_in, side="right") - 1, 0, nint - 1)
         dr = r_in - breaks[idx]
-        cin = ci[:, :, idx]  # (n_comp, 6, N)
-        cout = co[:, :, idx]
+        if self._tdep:
+            # effective radial PPoly coefficients and boundary integrals at
+            # time t: gather (time interval, radial interval) then cubic
+            # Horner in dt (the vectorized _fused_ppoly_eval)
+            i_t, dt = self._backend_time_interval(xp, data, t)
+            flat = i_t * nint + idx
+            cin = self._backend_horner_t(
+                xp.asarray(data["inner_tc"])[:, :, :, flat], dt
+            )  # (n_comp, 6, N)
+            cout = self._backend_horner_t(
+                xp.asarray(data["outer_tc"])[:, :, :, flat], dt
+            )
+            P_rho0 = self._backend_horner_t(
+                xp.asarray(data["dIin_rmin_tc"])[:, :, i_t], dt
+            ) / xp.asarray(data["rmin_pow_lp2"])
+            I_outer_rmin = self._backend_horner_t(
+                xp.asarray(data["Iout_rmin_tc"])[:, :, i_t], dt
+            )
+            # I_inner(rmax, t): dt-Horner of the last interval's stack, then
+            # the quintic Horner at dr_max (same op order as the numpy path)
+            clast = self._backend_horner_t(
+                xp.asarray(data["inner_last_tc"])[:, :, :, i_t], dt
+            )  # (n_comp, 6, N)
+            dr_max = float(data["breaks"][-1] - data["breaks"][-2])
+            I_inner_rmax = clast[:, 0]
+            for k in range(1, 6):
+                I_inner_rmax = I_inner_rmax * dr_max + clast[:, k]
+        else:
+            cin = xp.asarray(data["inner_c"])[:, :, idx]  # (n_comp, 6, N)
+            cout = xp.asarray(data["outer_c"])[:, :, idx]
+            P_rho0 = xp.asarray(data["P_rho0"])
+            I_outer_rmin = xp.asarray(data["I_outer_rmin"])
+            I_inner_rmax = xp.asarray(data["I_inner_rmax"])
 
         def _val(c):
             out = c[:, 0]
@@ -2285,7 +2472,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-06-09 - Written - Bovy (UofT)
         """
-        data = self._backend_static_data()
+        data = self._backend_tables()
         l_idx = xp.asarray(data["l_idx"])
         m_idx = xp.asarray(data["m_idx"])
         mf = xp.asarray(data["mf"])
@@ -2303,21 +2490,33 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
 
     def _backend_evaluate(self, xp, R, z, phi, t):
         """Backend-array (jax/torch) version of _evaluate."""
-        data = self._backend_static_data()
-        Rf, zf, phif, shape = self._backend_prepare(xp, R, z, phi)
+        data = self._backend_tables()
+        Rf, zf, phif, tf, shape = self._backend_prepare(xp, R, z, phi, t)
         r = xp.sqrt(Rf * Rf + zf * zf)
         ctheta = xp.cos(xp.arctan2(Rf, zf))
         (PP,), trig, _ = self._backend_angular(xp, ctheta, phif, deriv=0)
-        Rlm, _, _ = self._backend_radial(xp, r, mode=0)
+        Rlm, _, _ = self._backend_radial(xp, r, tf, mode=0)
         out = xp.sum(PP * trig * Rlm, axis=0)
-        # exact center: the numpy path returns R_00(rmin) * P_00
-        out = xp.where(r == 0.0, data["R00"], out)
+        # exact center: the numpy path returns R_00(rmin[, t]) * P_00
+        if self._tdep:
+            # R_00(rmin, t) = rmin^{-1} I_inner,00(rmin, t) + I_outer,00(rmin, t)
+            # (in-grid branch of _eval_radial_lm_timedep at i_r = 0, dr = 0)
+            i_t, dt = self._backend_time_interval(xp, data, tf)
+            cin0 = xp.asarray(data["Iin_rmin_tc"])[0][:, i_t]  # (4, N)
+            cout0 = xp.asarray(data["Iout_rmin_tc"])[0][:, i_t]
+            Iin00 = ((cin0[0] * dt + cin0[1]) * dt + cin0[2]) * dt + cin0[3]
+            Iout00 = ((cout0[0] * dt + cout0[1]) * dt + cout0[2]) * dt + cout0[3]
+            rmin = float(data["breaks"][0])
+            R00 = rmin ** (-1.0) * Iin00 + Iout00
+        else:
+            R00 = data["R00"]
+        out = xp.where(r == 0.0, R00, out)
         return xp.reshape(out, shape)
 
-    def _backend_spher_forces(self, xp, r, ctheta, stheta, phi):
+    def _backend_spher_forces(self, xp, r, ctheta, stheta, phi, t):
         """Backend version of _compute_spher_forces_at_point (vectorized)."""
         (PP, dPP), trig, dtrig = self._backend_angular(xp, ctheta, phi, deriv=1)
-        Rlm, dRlm, _ = self._backend_radial(xp, r, mode=1)
+        Rlm, dRlm, _ = self._backend_radial(xp, r, t, mode=1)
         dPhi_dr = xp.sum(PP * trig * dRlm, axis=0)
         dPhi_dtheta = xp.sum(dPP * (-stheta) * trig * Rlm, axis=0)
         dPhi_dphi = xp.sum(PP * dtrig * Rlm, axis=0)
@@ -2327,11 +2526,11 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         """Backend-array version of the mixin's _Rforce/_zforce/_phitorque."""
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        Rf, zf, phif, shape = self._backend_prepare(xp, R, z, phi)
+        Rf, zf, phif, tf, shape = self._backend_prepare(xp, R, z, phi, t)
         r = xp.sqrt(Rf * Rf + zf * zf)
         theta = xp.arctan2(Rf, zf)
         Fr, Ftheta, Fphi = self._backend_spher_forces(
-            xp, r, xp.cos(theta), xp.sin(theta), phif
+            xp, r, xp.cos(theta), xp.sin(theta), phif, tf
         )
         rsafe = xp.where(r == 0.0, 1.0, r)
         if which == "R":
@@ -2343,11 +2542,11 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         out = xp.where(r == 0.0, 0.0, out)
         return xp.reshape(out, shape)
 
-    def _backend_spher_2nd_derivs(self, xp, r, ctheta, stheta, phi):
+    def _backend_spher_2nd_derivs(self, xp, r, ctheta, stheta, phi, t):
         """Backend version of _compute_spher_2nd_derivs_at_point (vectorized)."""
         (PP, dPP, d2PP), trig, dtrig = self._backend_angular(xp, ctheta, phi, deriv=2)
-        Rlm, dRlm, d2Rlm = self._backend_radial(xp, r, mode=2)
-        mf = xp.asarray(self._backend_static_data()["mf"])
+        Rlm, dRlm, d2Rlm = self._backend_radial(xp, r, t, mode=2)
+        mf = xp.asarray(self._backend_tables()["mf"])
         dP_dtheta = dPP * (-stheta)
         d2P_dtheta2 = d2PP * stheta**2 - dPP * ctheta
         Phi_r = xp.sum(PP * trig * dRlm, axis=0)
@@ -2364,7 +2563,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         """Backend-array version of the mixin's _evaluate_cyl_2nd_deriv."""
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        Rf, zf, phif, shape = self._backend_prepare(xp, R, z, phi)
+        Rf, zf, phif, tf, shape = self._backend_prepare(xp, R, z, phi, t)
         r = xp.sqrt(Rf * Rf + zf * zf)
         theta = xp.arctan2(Rf, zf)
         ctheta = xp.cos(theta)
@@ -2377,7 +2576,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             ctheta = xp.where(polemask, ctclamp, ctheta)
             stheta = xp.where(polemask, xp.sqrt(1.0 - ctclamp**2), stheta)
         (Phi_rr, Phi_tt, Phi_pp, Phi_rt, Phi_rp, Phi_tp, Phi_r, Phi_t) = (
-            self._backend_spher_2nd_derivs(xp, r, ctheta, stheta, phif)
+            self._backend_spher_2nd_derivs(xp, r, ctheta, stheta, phif, tf)
         )
         rs = xp.where(r == 0.0, 1.0, r)
         rs2 = rs * rs
@@ -2418,15 +2617,14 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
 
     def _backend_dens(self, xp, R, z, phi, t):
         """Backend-array (jax/torch) version of _dens."""
-        data = self._backend_static_data()
+        data = self._backend_tables()
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        Rf, zf, phif, shape = self._backend_prepare(xp, R, z, phi)
+        Rf, zf, phif, tf, shape = self._backend_prepare(xp, R, z, phi, t)
         r = xp.sqrt(Rf * Rf + zf * zf)
         ctheta = xp.cos(xp.arctan2(Rf, zf))
         (PP,), trig, _ = self._backend_angular(xp, ctheta, phif, deriv=0)
         rho_breaks = xp.asarray(data["rho_breaks"])
-        rho_c = xp.asarray(data["rho_c"])
         rmin = float(data["rho_breaks"][0])
         rmax = float(data["rho_breaks"][-1])
         nint = data["rho_breaks"].shape[0] - 1
@@ -2434,7 +2632,14 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         rd = xp.clip(r, rmin, rmax)
         idx = xp.clip(xp.searchsorted(rho_breaks, rd, side="right") - 1, 0, nint - 1)
         dr = rd - rho_breaks[idx]
-        c = rho_c[:, :, idx]
+        if self._tdep:
+            # effective cubic-in-r spline coefficients at time t (linearity
+            # of spline interpolation in the data; cf. _backend_tdep_data)
+            i_t, dt = self._backend_time_interval(xp, data, tf)
+            flat = i_t * nint + idx
+            c = self._backend_horner_t(xp.asarray(data["rho_tc"])[:, :, :, flat], dt)
+        else:
+            c = xp.asarray(data["rho_c"])[:, :, idx]
         rho = ((c[:, 0] * dr + c[:, 1]) * dr + c[:, 2]) * dr + c[:, 3]
         out = xp.sum(PP * trig * rho, axis=0)
         out = xp.where(r > rmax, 0.0, out)

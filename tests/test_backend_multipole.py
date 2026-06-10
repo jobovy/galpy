@@ -17,13 +17,23 @@
 #      -second-derivative, including the phi pairs of the non-axisymmetric
 #      case and the below-/above-grid extrapolation regions,
 #   4. jax.jit produces identical values,
-#   5. time-dependent (tgrid=...) instances raise NotImplementedError on
-#      backend arrays (that path is numpy-only for now).
+#   5. the time-dependent (tgrid=...) path: numpy/jax/torch parity for the
+#      potential, forces, second derivatives, and density at times on/between/
+#      at-the-edges-of/outside the tgrid knots (the backend's clamped time
+#      searchsorted must reproduce scipy's edge-interval cubic extrapolation),
+#      for an axisymmetric and a non-axisymmetric time-dependent density;
+#      autodiff and jax.jit at time-dependent times; the r = 0 and phi = None
+#      guards; broadcasting over an array of times; and the end-to-end
+#      composite DiskMultipoleExpansionPotential (KuijkenDubinski correction
+#      layer on a time-dependent inner expansion) with jax arrays.
 #
-# Value/force parity is asserted at 1e-12; second derivatives at 1e-9
-# (power-basis Horner vs Bernstein de-Casteljau evaluation of d2I/dr2 differs
-# at the ~1e-10 rounding level -- the C backend uses the same power-basis
-# representation and is held to 1e-8 in test_potential).
+# Static value/force parity is asserted at 1e-12; static second derivatives at
+# 1e-9 (power-basis Horner vs Bernstein de-Casteljau evaluation of d2I/dr2
+# differs at the ~1e-10 rounding level -- the C backend uses the same
+# power-basis representation and is held to 1e-8 in test_potential). The
+# time-dependent numpy path evaluates the same power-basis stacks as the
+# backend (via _fused_ppoly_eval), so ALL time-dependent parity -- second
+# derivatives included -- is asserted at 1e-12.
 ###############################################################################
 import numpy
 import pytest
@@ -318,26 +328,6 @@ def test_jax_jit_matches(pot):
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
-def test_tdep_backend_raises(backend_name):
-    # Time-dependent (tgrid=...) instances are numpy-only: backend arrays
-    # must raise a clear NotImplementedError instead of silently failing.
-    tdep = MultipoleExpansionPotential.from_density(
-        lambda R, z, phi, t=0.0: (1.0 + 0.1 * t) * _HERN(numpy.sqrt(R**2 + z**2)),
-        L=1,
-        symmetry="spherical",
-        rgrid=_RGRID,
-        tgrid=numpy.linspace(0.0, 2.0, 5),
-    )
-    R = _asarray(backend_name, 1.3)
-    z = _asarray(backend_name, 0.4)
-    # numpy evaluation still works
-    assert numpy.isfinite(float(numpy.asarray(tdep._evaluate(1.3, 0.4, 0.7, 0.5))))
-    for method in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
-        with pytest.raises(NotImplementedError, match="time-dependent"):
-            getattr(tdep, method)(R, z, 0.7, 0.5)
-
-
-@pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_axi_phi_none_default(backend_name):
     # The backend paths default phi=None to 0 for axisymmetric expansions in
     # four places (the _evaluate dispatch, _backend_cyl_force,
@@ -354,3 +344,253 @@ def test_axi_phi_none_default(backend_name):
             f"backend {backend_name} {meth} with phi=None differs from phi=0"
         )
     return None
+
+
+###############################################################################
+# Time-dependent (tgrid=...) backend path. The numpy TD path evaluates
+# CubicSpline-in-t stacks of power-basis radial PPoly coefficients through
+# _fused_ppoly_eval / _eval_radial_lm_timedep; the backend path evaluates the
+# exact same stacks via a clamped searchsorted in tgrid + cubic Horner in
+# (t - t_k) followed by the static radial searchsorted + Horner, so parity is
+# held at 1e-12 for everything, second derivatives included.
+###############################################################################
+_TD_TGRID = numpy.linspace(0.0, 2.0, 5)
+# on-knot, between-knots, at-the-edges, and outside-the-grid times (the numpy
+# path extrapolates outside tgrid with the edge-interval cubic, which the
+# backend's clamped time-interval lookup must reproduce)
+_TD_TS = [0.0, 0.37, 0.5, 1.21, 2.0, -0.2, 2.4]
+_MN = MiyamotoNagaiPotential(amp=1.3, a=0.5, b=0.3)
+_TD_AXI = MultipoleExpansionPotential.from_density(
+    lambda R, z, t=0.0: (
+        (1.0 + 0.2 * numpy.sin(0.7 * t)) * _MN.dens(R, z, use_physical=False)
+    ),
+    L=4,
+    symmetry="axisymmetric",
+    rgrid=_RGRID,
+    tgrid=_TD_TGRID,
+)
+_TD_NONAXI = MultipoleExpansionPotential.from_density(
+    lambda R, z, phi, t=0.0: (
+        (
+            1.0
+            + 0.5 * numpy.cos(phi) * (1.0 + 0.1 * t)
+            + 0.3 * numpy.sin(2.0 * phi - 0.5 * t)
+        )
+        * _HERN(numpy.sqrt(R**2 + z**2))
+    ),
+    L=4,
+    rgrid=_RGRID,
+    tgrid=_TD_TGRID,
+)
+_TD_CASES = [_TD_AXI, _TD_NONAXI]
+_TD_IDS = ["tdep-axisymmetric", "tdep-nonaxisymmetric"]
+
+
+@pytest.mark.parametrize("pot", _TD_CASES, ids=_TD_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_tdep_value_parity(backend_name, pot):
+    # numpy/jax/torch parity of the potential, all three forces, all six
+    # second derivatives, and the density on the below-/in-/above-grid radial
+    # points at every kind of time relative to the tgrid knots; t is a Python
+    # float here (the orbit-integration calling convention).
+    R = _asarray(backend_name, _RS)
+    z = _asarray(backend_name, _ZS)
+    phi = _asarray(backend_name, _PHIS)
+    for t in _TD_TS:
+        for method in _FIRST_ORDER + _SECOND_ORDER:
+            ref = numpy.asarray(
+                getattr(pot, method)(
+                    numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS), t
+                )
+            )
+            got = _tonumpy(getattr(pot, method)(R, z, phi, t))
+            numpy.testing.assert_allclose(
+                got,
+                ref,
+                rtol=1e-12,
+                atol=1e-13,
+                err_msg=f"{_TD_IDS[_TD_CASES.index(pot)]}.{method} at t={t}",
+            )
+
+
+@pytest.mark.parametrize("pot", _TD_CASES, ids=_TD_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_tdep_array_t_broadcast(backend_name, pot):
+    # An array of times must broadcast against the coordinates exactly like
+    # the numpy path does (one time-interval lookup per point).
+    ts = numpy.asarray(_TD_TS[: len(_RS)])
+    ref = numpy.asarray(
+        pot._evaluate(numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS), ts)
+    )
+    got = _tonumpy(
+        pot._evaluate(
+            _asarray(backend_name, _RS),
+            _asarray(backend_name, _ZS),
+            _asarray(backend_name, _PHIS),
+            _asarray(backend_name, ts),
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-13)
+
+
+@pytest.mark.parametrize("pot", _TD_CASES, ids=_TD_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_tdep_center(backend_name, pot):
+    # Exact center at a between-knots time: _evaluate returns
+    # R_00(rmin, t) * P_00 (the time-dependent R00 branch of
+    # _backend_evaluate); forces and second derivatives are zero.
+    t0 = 1.21
+    ref = float(numpy.asarray(pot._evaluate(0.0, 0.0, 0.3, t0)))
+    got = float(
+        _tonumpy(
+            pot._evaluate(
+                _asarray(backend_name, 0.0),
+                _asarray(backend_name, 0.0),
+                _asarray(backend_name, 0.3),
+                t0,
+            )
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12)
+    for meth in ["_Rforce", "_zforce", "_phitorque", "_R2deriv"]:
+        val = float(
+            _tonumpy(
+                getattr(pot, meth)(
+                    _asarray(backend_name, 0.0),
+                    _asarray(backend_name, 0.0),
+                    _asarray(backend_name, 0.3),
+                    t0,
+                )
+            )
+        )
+        assert val == 0.0, f"{meth} not zero at the center"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_tdep_axi_phi_none_default(backend_name):
+    # Same phi=None guards as the static test, but through the
+    # time-dependent branches (phi=None only arrives via the public API, so
+    # it must be passed explicitly here).
+    R = _asarray(backend_name, [0.5, 1.0, 2.0])
+    z = _asarray(backend_name, [0.1, 0.2, 0.3])
+    for meth in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
+        nophi = numpy.asarray(getattr(_TD_AXI, meth)(R, z, phi=None, t=0.83))
+        withphi = numpy.asarray(getattr(_TD_AXI, meth)(R, z, phi=0.0, t=0.83))
+        assert numpy.amax(numpy.fabs(nophi - withphi)) == 0.0, (
+            f"backend {backend_name} {meth} with phi=None differs from phi=0"
+        )
+    return None
+
+
+@pytest.mark.parametrize("pot", _TD_CASES, ids=_TD_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_tdep_grad_evaluate_vs_finite_difference(backend_name, pot):
+    # AD of the backend _evaluate w.r.t. R, z (and phi for the
+    # non-axisymmetric case) at a time-dependent time vs central finite
+    # differences of the numpy path.
+    R0, z0, phi0, t0 = 1.3, 0.4, 0.7, 0.83
+    eps = 1e-6
+    argnums = [_R, _Z] + ([_PHI] if pot.isNonAxi else [])
+    for argnum in argnums:
+        base = [R0, z0, phi0]
+
+        def f_np(x):
+            q = list(base)
+            q[argnum] = x
+            return float(
+                pot._evaluate(numpy.asarray(q[0]), numpy.asarray(q[1]), q[2], t0)
+            )
+
+        fd = (f_np(base[argnum] + eps) - f_np(base[argnum] - eps)) / (2 * eps)
+        ad = _grad_wrt(
+            backend_name,
+            lambda R, z, phi: pot._evaluate(R, z, phi, t0),
+            R0,
+            z0,
+            phi0,
+            argnum=argnum,
+        )
+        numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
+
+
+@pytest.mark.parametrize("pot", _TD_CASES, ids=_TD_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_tdep_force_hessian_identities(backend_name, pot):
+    # The static analytic identities AD(_evaluate) == -force and
+    # AD(force) == -second-derivative must also hold at time-dependent times
+    # (this exercises the mode=1/2 time-dependent radial branches under AD).
+    R0, z0, phi0, t0 = 1.3, 0.4, 0.7, 1.21
+    for lower, argnum, higher in _ID_PAIRS:
+        ad = _grad_wrt(
+            backend_name,
+            lambda R, z, phi, _l=lower: getattr(pot, _l)(R, z, phi, t0),
+            R0,
+            z0,
+            phi0,
+            argnum=argnum,
+        )
+        ref = -float(numpy.asarray(getattr(pot, higher)(R0, z0, phi0, t0)))
+        numpy.testing.assert_allclose(
+            ad,
+            ref,
+            rtol=1e-9,
+            atol=1e-12,
+            err_msg=f"{_TD_IDS[_TD_CASES.index(pot)]}: AD({lower})==-{higher}",
+        )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not available")
+@pytest.mark.parametrize("pot", _TD_CASES, ids=_TD_IDS)
+def test_tdep_jax_jit_matches(pot):
+    # jit survival with t a traced argument; jitted == eager up to XLA's
+    # fma/reassociation fuzz (~1e-14 absolute on the second derivatives).
+    R = jnp.asarray(_RS)
+    z = jnp.asarray(_ZS)
+    phi = jnp.asarray(_PHIS)
+    t = jnp.asarray(1.21)
+    for method in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
+        fn = getattr(pot, method)
+        ref = numpy.asarray(fn(R, z, phi, t))
+        got = numpy.asarray(jax.jit(fn)(R, z, phi, t))
+        numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-13)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not available")
+def test_tdep_diskmep_composite_jax():
+    # End-to-end: a DiskMultipoleExpansionPotential whose inner multipole
+    # expansion is time-dependent -- the #932 KuijkenDubinski correction
+    # layer on top of the time-dependent backend path -- evaluated with jax
+    # arrays must match the numpy path.
+    from galpy.potential import DiskMultipoleExpansionPotential
+
+    rgrid = numpy.geomspace(1e-2, 20, 51)
+    dmep = DiskMultipoleExpansionPotential(
+        dens=lambda R, z: 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z)),
+        Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0},
+        hz={"type": "exp", "h": 1.0 / 27.0},
+        L=3,
+        rgrid=rgrid,
+    )
+    # Replace the static inner expansion by a time-dependent one (same
+    # pattern as the numpy-path tests in test_MultipoleExpansionPotential)
+    static_me = dmep._me
+    dmep._me = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            static_me.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(t))
+        ),
+        L=static_me._L,
+        rgrid=rgrid,
+        tgrid=numpy.linspace(0.0, 10.0, 11),
+        symmetry="axisymmetric",
+    )
+    assert dmep._me._tdep
+    R = numpy.array([0.5, 1.0, 2.0])
+    z = numpy.array([0.1, 0.2, 0.3])
+    for meth in ["_evaluate", "_Rforce", "_zforce", "_R2deriv", "_z2deriv", "_dens"]:
+        ref = numpy.asarray(getattr(dmep, meth)(R, z, 0.0, 0.9))
+        got = numpy.asarray(
+            getattr(dmep, meth)(jnp.asarray(R), jnp.asarray(z), 0.0, 0.9)
+        )
+        numpy.testing.assert_allclose(
+            got, ref, rtol=1e-12, atol=1e-12, err_msg=f"composite TD DiskMEP {meth}"
+        )
