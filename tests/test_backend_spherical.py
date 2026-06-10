@@ -24,6 +24,7 @@ from galpy.potential import (
     BurkertPotential,
     DehnenCoreSphericalPotential,
     DehnenSphericalPotential,
+    EinastoPotential,
     HernquistPotential,
     HomogeneousSpherePotential,
     JaffePotential,
@@ -155,6 +156,17 @@ CASES = [
             "_Rzderiv",
             "_dens",
         ],
+        _ONE_D,
+        True,
+    ),
+    # Einasto: _revaluate/_rforce/_r2deriv migrated through the special-function
+    # router (gamma/gammaincc; native on numpy/jax/torch) and the r == 0 core
+    # branch through a guarded xp.where; _rdens is closed-form. The derived 3D
+    # methods come from the SphericalPotential base. n=1.5 exercises the
+    # non-trivial s**(1/n) exponent.
+    (
+        EinastoPotential(amp=1.3, h=1.1, n=1.5),
+        _THREE_D,
         _ONE_D,
         True,
     ),
@@ -488,6 +500,40 @@ def test_surfdens_z0_value_parity(backend_name, pot):
     assert numpy.isfinite(float(val)), (
         f"{type(pot).__name__} surfdens(R!=a,z=0) not finite"
     )
+
+
+###############################################################################
+# Einasto r == 0 core branch. _revaluate has a separate finite value at r == 0
+# (the generic branch's (1-Q)/s term is 0/0 there) handled by a guarded
+# xp.where: the dead generic branch is evaluated at the safe s == 1 so that,
+# under eager backends, neither the 0/0 nor the (n > 1) infinite d(s**(1/n))/ds
+# can NaN-poison values or reverse-mode gradients at the core.
+###############################################################################
+_EINASTO_NS = [1, 1.5, 3]
+
+
+@pytest.mark.parametrize("n", _EINASTO_NS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_einasto_revaluate_core_value_parity(backend_name, n):
+    pot = EinastoPotential(amp=1.3, h=1.1, n=n)
+    # grid including r == 0 (the guarded core branch) and generic points
+    rs = [0.0, 0.5, 1.3]
+    ref = numpy.asarray(pot._revaluate(numpy.asarray(rs)))
+    got = _tonumpy(pot._revaluate(_asarray(backend_name, rs)))
+    assert numpy.all(numpy.isfinite(ref))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("n", _EINASTO_NS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_einasto_revaluate_grad_finite_at_core(backend_name, n):
+    # At r == 0 the radial force vanishes (the Einasto density is cored), so
+    # AD(_revaluate) there must be 0 and in particular FINITE: without the
+    # ssafe guard the dead generic branch NaN-poisons the gradient.
+    pot = EinastoPotential(amp=1.3, h=1.1, n=n)
+    ad = _grad_wrt(backend_name, lambda r: pot._revaluate(r), 0.0)
+    assert numpy.isfinite(ad), f"Einasto(n={n}) d_revaluate/dr NaN at r=0"
+    numpy.testing.assert_allclose(ad, 0.0, atol=1e-12)
 
 
 @pytest.mark.parametrize("pot", _SURFDENS_CASES, ids=_SURFDENS_IDS)
