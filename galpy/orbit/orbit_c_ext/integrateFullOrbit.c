@@ -65,7 +65,7 @@ void parse_leapFuncArgs_Full(int npot,
 			     double ** pot_args,
            tfuncs_type_arr * pot_tfuncs){
   int ii,jj,kk;
-  int nR, nz, nr;
+  int nR, nz, nr, i2d_hasr2deriv, i2d_hasz2deriv, i2d_hasrzderiv;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
@@ -217,6 +217,13 @@ void parse_leapFuncArgs_Full(int npot,
       //Grab the grids and the coefficients
       nR= (int) *(*pot_args)++;
       nz= (int) *(*pot_args)++;
+      // whether spline coefficients for the interpolated 2nd derivatives
+      // (R2deriv/z2deriv/Rzderiv grids; together the full 3D Hessian for the
+      // 3D variational equations) follow the force coefficients below; one
+      // independent presence flag per grid
+      i2d_hasr2deriv= (int) *(*pot_args)++;
+      i2d_hasz2deriv= (int) *(*pot_args)++;
+      i2d_hasrzderiv= (int) *(*pot_args)++;
       Rgrid= (double *) malloc ( nR * sizeof ( double ) );
       zgrid= (double *) malloc ( nz * sizeof ( double ) );
       potGrid_splinecoeffs= (double *) malloc ( nR * nz * sizeof ( double ) );
@@ -248,6 +255,47 @@ void parse_leapFuncArgs_Full(int npot,
 		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
       potentialArgs->accxzforce= gsl_interp_accel_alloc ();
       potentialArgs->accyzforce= gsl_interp_accel_alloc ();
+      // Interpolated 2nd derivatives (together the full 3D Hessian for the 3D
+      // variational equations / integrate_dxdv): precomputed exact
+      // R2deriv/z2deriv/Rzderiv grids, interpolated just like the forces.
+      // phi derivatives are identically zero (axisymmetric), so those
+      // pointers stay NULL (NULL-safe aggregators).
+      if ( i2d_hasr2deriv == 1 ) {
+	for (kk=0; kk < nR; kk++)
+	  put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz);
+	*pot_args+= nR*nz;
+	potentialArgs->i2dr2deriv= interp_2d_alloc(nR,nz);
+	interp_2d_init(potentialArgs->i2dr2deriv,Rgrid,zgrid,
+		       potGrid_splinecoeffs,
+		       INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+	potentialArgs->accxr2deriv= gsl_interp_accel_alloc ();
+	potentialArgs->accyr2deriv= gsl_interp_accel_alloc ();
+	potentialArgs->R2deriv= &interpRZPotentialR2deriv;
+      }
+      if ( i2d_hasz2deriv == 1 ) {
+	for (kk=0; kk < nR; kk++)
+	  put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz);
+	*pot_args+= nR*nz;
+	potentialArgs->i2dz2deriv= interp_2d_alloc(nR,nz);
+	interp_2d_init(potentialArgs->i2dz2deriv,Rgrid,zgrid,
+		       potGrid_splinecoeffs,
+		       INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+	potentialArgs->accxz2deriv= gsl_interp_accel_alloc ();
+	potentialArgs->accyz2deriv= gsl_interp_accel_alloc ();
+	potentialArgs->z2deriv= &interpRZPotentialz2deriv;
+      }
+      if ( i2d_hasrzderiv == 1 ) {
+	for (kk=0; kk < nR; kk++)
+	  put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz);
+	*pot_args+= nR*nz;
+	potentialArgs->i2drzderiv= interp_2d_alloc(nR,nz);
+	interp_2d_init(potentialArgs->i2drzderiv,Rgrid,zgrid,
+		       potGrid_splinecoeffs,
+		       INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+	potentialArgs->accxrzderiv= gsl_interp_accel_alloc ();
+	potentialArgs->accyrzderiv= gsl_interp_accel_alloc ();
+	potentialArgs->Rzderiv= &interpRZPotentialRzderiv;
+      }
       potentialArgs->potentialEval= &interpRZPotentialEval;
       potentialArgs->Rforce= &interpRZPotentialRforce;
       potentialArgs->zforce= &interpRZPotentialzforce;
