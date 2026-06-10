@@ -1576,6 +1576,46 @@ def test_liouville_3d_2d_bridge(pot):
     return None
 
 
+def test_integrate_dxdv_3d_base_orbit_integrity():
+    # Regression: integrateFullOrbit_dxdv's returned BASE orbit must equal a
+    # plain orbit integration in every phase-space coordinate. Previously
+    # coords.rect_to_cyl/rect_to_cyl_vec passed Z/vz through by reference, so
+    # the in-place column assignments clobbered them and the returned base
+    # orbit had z replaced by vT -- invisible to every deviation-based test
+    # (the rectOut deviation columns were correct) but corrupting anything
+    # that restarts from the dxdv orbit (e.g. lyapunov renormalization
+    # segments)
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    ts = numpy.linspace(0.0, 5.0, 51)
+    ic = [1.0, 0.1, 1.1, 0.2, 0.15, 0.3]
+    for method in ["dop853_c", "dop853"]:
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ts,
+            MWPotential2014,
+            method=method,
+            rectIn=True,
+            rectOut=True,
+        )
+        oref = Orbit(ic)
+        oref.integrate(ts, MWPotential2014, method=method)
+        diff = odx.getOrbit() - oref.getOrbit()
+        # phi wrapping conventions differ between the two code paths
+        diff[:, 5] = numpy.fabs(
+            numpy.mod(diff[:, 5] + numpy.pi, 2.0 * numpy.pi) - numpy.pi
+        )
+        maxdiff = numpy.amax(numpy.fabs(diff), axis=0)
+        for ii, name in enumerate(["R", "vR", "vT", "z", "vz", "phi"]):
+            assert maxdiff[ii] < 1e-6, (
+                f"dxdv base orbit {name} differs from plain integration by "
+                f"{maxdiff[ii]:g} for method {method}"
+            )
+    return None
+
+
 def test_integrate_dxdv_3d_multiobj_and_default_tol():
     # Cover and validate the multi-object (parallel_map) and pure-Python dop853
     # default-tolerance paths of the 3D integrate_dxdv.
