@@ -13,6 +13,7 @@ import numpy
 import pytest
 
 from galpy.potential import (
+    DoubleExponentialDiskPotential,
     FlattenedPowerPotential,
     IsothermalDiskPotential,
     KGPotential,
@@ -44,6 +45,19 @@ except ImportError:  # pragma: no cover
     torch = None
 
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
+
+# DoubleExponentialDisk's Ogata/Bessel quadrature nodes+weights are numpy
+# constants computed in __init__ (the j0/j1 Bessel values live inside the
+# precomputed weights); the per-call quadrature sums are elementary ops, so the
+# potential is backend-agnostic without any j0/j1 special-function router entry.
+# _evaluate/_dens/_surfdens are array-capable; the force/2nd-derivative methods
+# are scalar-only (check_potential_inputs_not_arrays) and get dedicated
+# scalar-parity + autodiff-identity tests at the bottom of this module. The
+# default de_n=10000 keeps the quadrature error of the AD identities below
+# machine precision (at de_n=1000 the R-direction identities only hold to the
+# quadrature accuracy ~1e-8, because Phi and Rforce use different - j0 vs j1 -
+# Ogata rules).
+_DEXP = DoubleExponentialDiskPotential(amp=1.3, hr=0.4, hz=0.1)
 
 # --- 3D potentials: (R,z) signature ------------------------------------------
 # Each entry: (instance, [migrated methods]).
@@ -96,6 +110,7 @@ _POTS_3D = [
     ),
     # Only _surfdens is analytically clean (the rest use scipy.special).
     (RazorThinExponentialDiskPotential(amp=1.0, hr=0.4), ["_surfdens"]),
+    (_DEXP, ["_evaluate", "_dens", "_surfdens"]),
 ]
 _POT3D_IDS = [f"{type(p).__name__}-{i}" for i, (p, _) in enumerate(_POTS_3D)]
 
@@ -346,9 +361,14 @@ _ID3D_IDS = [f"{type(p).__name__}-{i}" for i, (p, _) in enumerate(_ID_POTS_3D)]
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_force_hessian_identities_3d(backend_name, pot, methods):
     # For EVERY identity pair where both methods are migrated for this potential,
-    # AD(lower wrt var) == -higher, exact to rtol=1e-9.
-    if not (set(methods) & {"_evaluate", "_Rforce", "_zforce"}):
-        pytest.skip("no migrated force/evaluate methods to form an identity pair")
+    # AD(lower wrt var) == -higher, exact to rtol=1e-9. Skip when no pair is
+    # complete (e.g. DoubleExponentialDisk lists only its array-capable methods
+    # here; its scalar-only force/Hessian identities are checked in
+    # test_doubleexp_force_hessian_identities below).
+    if not any(
+        lower in methods and higher in methods for lower, _, higher, _ in _ID_PAIRS_2D
+    ):
+        pytest.skip("no complete identity pair among the migrated methods")
     R0, z0 = 1.3, 0.4
     n_checked = 0
     for lower, argnum, higher, vn in _ID_PAIRS_2D:
@@ -381,3 +401,103 @@ def test_force_identity_1d(backend_name, pot):
     ad = _grad_wrt(backend_name, lambda x: pot._evaluate(x), x0)
     ref = -float(pot._force(x0))
     numpy.testing.assert_allclose(ad, ref, rtol=1e-9)
+
+
+###############################################################################
+# DoubleExponentialDiskPotential: dedicated tests for the scalar-only
+# (check_potential_inputs_not_arrays) Ogata-quadrature methods. These need
+# explicit positional phi/t (the decorator's wrapper takes them positionally)
+# and 0-d backend arrays, so they don't fit the array-grid CASES tables above.
+###############################################################################
+_DEXP_SCALAR_METHODS = ["_Rforce", "_zforce", "_R2deriv", "_z2deriv", "_Rzderiv"]
+# Points include z < 0 and z == 0 (the odd-in-z +-1.0 sign factor of
+# _zforce/_Rzderiv) on top of generic ones.
+_DEXP_POINTS = [(0.5, 0.1), (1.0, 0.2), (2.0, -0.3), (1.3, 0.0), (0.7, 0.4)]
+
+
+@pytest.mark.parametrize("method", _DEXP_SCALAR_METHODS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_doubleexp_scalar_value_parity(backend_name, method):
+    for R0, z0 in _DEXP_POINTS:
+        ref = numpy.asarray(getattr(_DEXP, method)(R0, z0, 0.0, 0.0))
+        got = _tonumpy(
+            getattr(_DEXP, method)(
+                _asarray(backend_name, R0), _asarray(backend_name, z0), 0.0, 0.0
+            )
+        )
+        numpy.testing.assert_allclose(
+            got,
+            ref,
+            rtol=1e-12,
+            atol=1e-14,
+            err_msg=f"DoubleExponentialDisk.{method} at (R,z)=({R0},{z0}) "
+            f"({backend_name})",
+        )
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_doubleexp_evaluate_zero_point(backend_name):
+    # The R == 0, z == 0 point is patched to the analytic _pot_zero through
+    # xp.where (in-place assignment on the numpy path historically); it must be
+    # identical across backends, also as an entry of an array evaluation.
+    ref = float(_DEXP._evaluate(0.0, 0.0))
+    got = float(
+        _tonumpy(
+            _DEXP._evaluate(_asarray(backend_name, 0.0), _asarray(backend_name, 0.0))
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-15)
+    gotarr = _tonumpy(
+        _DEXP._evaluate(
+            _asarray(backend_name, [0.0, 1.0]), _asarray(backend_name, [0.0, 0.2])
+        )
+    )
+    refarr = numpy.asarray(
+        _DEXP._evaluate(numpy.asarray([0.0, 1.0]), numpy.asarray([0.0, 0.2]))
+    )
+    numpy.testing.assert_allclose(gotarr, refarr, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_doubleexp_force_hessian_identities(backend_name):
+    # Same identity battery as test_force_hessian_identities_3d, with the
+    # explicit positional phi/t the decorated scalar-only methods require. At
+    # the default de_n=10000 ALL pairs hold to machine precision; this includes
+    # the cross-quadrature ones (AD of the j0-rule Phi vs the j1-rule Rforce),
+    # which are exact only because the quadrature error is < 1e-15 there. A
+    # negative-z point exercises the +-1.0 odd-in-z factor under autodiff.
+    for R0, z0 in [(1.3, 0.4), (1.3, -0.4)]:
+        n_checked = 0
+        for lower, argnum, higher, vn in _ID_PAIRS_2D:
+            ad = _grad_wrt(
+                backend_name,
+                lambda R, z, _l=lower: getattr(_DEXP, _l)(R, z, 0.0, 0.0),
+                R0,
+                z0,
+                argnum=argnum,
+            )
+            ref = -float(getattr(_DEXP, higher)(R0, z0, 0.0, 0.0))
+            numpy.testing.assert_allclose(
+                ad,
+                ref,
+                rtol=1e-9,
+                err_msg=f"DoubleExponentialDisk: AD({lower}/{vn})==-{higher} "
+                f"at (R,z)=({R0},{z0})",
+            )
+            n_checked += 1
+        assert n_checked == len(_ID_PAIRS_2D)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_doubleexp_grad_z_vs_finite_difference(backend_name):
+    # FD cross-check of d(_evaluate)/dz (the R-gradient is FD-checked by
+    # test_grad_evaluate_vs_finite_difference_3d); catches a latent bug shared
+    # by both the AD gradient and the hand-coded _zforce.
+    R0, z0 = 1.3, 0.4
+    eps = 1e-6
+    fd = (
+        float(_DEXP._evaluate(numpy.asarray(R0), numpy.asarray(z0 + eps)))
+        - float(_DEXP._evaluate(numpy.asarray(R0), numpy.asarray(z0 - eps)))
+    ) / (2 * eps)
+    ad = _grad_wrt(backend_name, lambda R, z: _DEXP._evaluate(R, z), R0, z0, argnum=1)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
