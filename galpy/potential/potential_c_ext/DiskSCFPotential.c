@@ -142,6 +142,19 @@ double DiskSCFPotentialPlanarRforce(double R,double phi,
   //Calculate Rforce
   return -dSigmadR(R,Sigma_args) * Hz(0.,hz_args);
 }
+double DiskSCFPotentialPlanarR2deriv(double R,double phi,
+				     double t,
+				     struct potentialArg * potentialArgs){
+  //Supposed to be zero (bc H(0) supposed to be zero), but just to make sure,
+  //mirroring PlanarRforce; planar phi2deriv/Rphideriv are exactly zero
+  //(axisymmetric) and are wired to ZeroPlanarForce in the orbit parsing
+  double * args= potentialArgs->args;
+  //Get args
+  int nsigma_args= (int) *args;
+  double * Sigma_args= args+1;
+  double * hz_args= args+1+nsigma_args;
+  return d2SigmadR2(R,Sigma_args) * Hz(0.,hz_args);
+}
 double DiskSCFPotentialzforce(double R,double Z, double phi,
 			      double t,
 			      struct potentialArg * potentialArgs){

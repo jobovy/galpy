@@ -89,6 +89,12 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         if self._Sigma_dict is not None and self._hz_dict is not None:
             self.hasC = True
             self.hasC_dens = True
+            # The planar 2nd derivatives of the correction terms are in C
+            # (they vanish identically at z=0 because H(0)=0, but are wired
+            # so the planar variational equations work), so C planar
+            # integrate_dxdv works whenever the embedded SCF/Multipole part
+            # supports it
+            self.hasC_dxdv = self._me.hasC_dxdv
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):

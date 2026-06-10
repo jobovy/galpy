@@ -329,6 +329,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &DiskSCFPotentialEval;
       potentialArgs->planarRforce= &DiskSCFPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &DiskSCFPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= (int) **pot_args + 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
