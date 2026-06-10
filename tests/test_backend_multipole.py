@@ -341,14 +341,16 @@ def test_tdep_backend_raises(backend_name):
 def test_axi_phi_none_default(backend_name):
     # The backend paths default phi=None to 0 for axisymmetric expansions in
     # four places (the _evaluate dispatch, _backend_cyl_force,
-    # _backend_cyl_2nd_deriv, and _backend_dens); call each without phi and
-    # check against the explicit phi=0 result
+    # _backend_cyl_2nd_deriv, and _backend_dens). The PUBLIC API forwards
+    # phi=None when phi is omitted (the private-method signature default is
+    # 0.0, NOT None -- so phi=None must be passed explicitly here to exercise
+    # the guards) and the result must equal the explicit phi=0 one
     R = _asarray(backend_name, [0.5, 1.0, 2.0])
     z = _asarray(backend_name, [0.1, 0.2, 0.3])
     for meth in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
-        nophi = numpy.asarray(getattr(_AXI, meth)(R, z))
+        nophi = numpy.asarray(getattr(_AXI, meth)(R, z, phi=None))
         withphi = numpy.asarray(getattr(_AXI, meth)(R, z, phi=0.0))
         assert numpy.amax(numpy.fabs(nophi - withphi)) == 0.0, (
-            f"backend {backend_name} {meth} with phi omitted differs from phi=0"
+            f"backend {backend_name} {meth} with phi=None differs from phi=0"
         )
     return None
