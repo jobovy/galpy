@@ -30,6 +30,7 @@ from ._router import (
     k0,
     k1,
     kn,
+    logsumexp,
     xlogy,
 )
 
@@ -43,6 +44,7 @@ __all__ = [
     "i0",
     "i1",
     "xlogy",
+    "logsumexp",
     "hyp2f1",
     "hyp1f1",
     "ellipk",
