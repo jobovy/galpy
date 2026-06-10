@@ -7,6 +7,11 @@ v1.12.0 (expected around 2026-07-01)
   (phase-space dimension 4) and full 3D (phase-space dimension 6) orbits,
   using the C variational integrators when available, and returns the running
   estimate lambda(t) at all output times so that convergence can be assessed.
+  Setting ``spectrum=True`` computes the full Lyapunov spectrum (all
+  phase-space-dimension exponents) instead, by propagating an orthonormal set
+  of deviation vectors that is re-orthonormalized with a QR decomposition at
+  every renormalization (Benettin et al. 1980, part 2; Shimada & Nagashima
+  1979).
 
 - Added a ``cinterp`` option (default ``True``, resolution set by ``cinterp_n``)
   to ``NonInertialFrameForce`` that, during C orbit integration, replaces the

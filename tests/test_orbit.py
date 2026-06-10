@@ -1987,6 +1987,273 @@ def test_lyapunov_errors():
     return None
 
 
+# Tests of Orbit.lyapunov with spectrum=True: the full Lyapunov spectrum from
+# QR re-orthonormalization of a full set of deviation vectors (Benettin et al.
+# 1980, part 2; Shimada & Nagashima 1979)
+def test_lyapunov_spectrum_integrable():
+    # In an integrable potential all orbits are regular, so ALL running
+    # estimates lambda_i(t) of the Lyapunov spectrum must decay ~ln(t)/t;
+    # the spectrum must also obey the sum rule sum_i lambda_i = 0
+    # (phase-space volume conservation of the Hamiltonian flow)
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+
+    tend = 500.0
+    ts = numpy.linspace(0.0, tend, 5001)
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    lam = o.lyapunov(ts, pot=ip, method="dop853_c", spectrum=True)
+    assert lam.shape == (6, len(ts)), (
+        "lyapunov spectrum output shape incorrect for a single 3D orbit"
+    )
+    assert numpy.all(numpy.isnan(lam[:, 0])), (
+        "lyapunov spectrum running estimates at ts[0] should be NaN (no elapsed time)"
+    )
+    maxend = numpy.max(numpy.fabs(lam[:, -1]))
+    assert maxend < 3.0 * numpy.log(tend) / tend, (
+        "Lyapunov spectrum of a regular 3D isochrone orbit does not decay "
+        f"to ~ln(t)/t: max_i |lambda_i(t_end)|={maxend:g}"
+    )
+    assert maxend < numpy.max(numpy.fabs(lam[:, len(ts) // 2])), (
+        "Lyapunov spectrum of a regular 3D isochrone orbit is not decreasing "
+        "between the half-time and the end-time"
+    )
+    # Sum rule at all output times: the flow is symplectic, so the sum of the
+    # running estimates is the (zero) log determinant of the deviation-matrix
+    # propagator divided by the elapsed time
+    maxsum = numpy.nanmax(numpy.fabs(numpy.nansum(lam, axis=0)))
+    assert maxsum < 1e-8, (
+        "Lyapunov spectrum of a 3D isochrone orbit violates the sum rule "
+        f"sum_i lambda_i = 0: max_t |sum_i lambda_i(t)|={maxsum:g}"
+    )
+    return None
+
+
+def test_lyapunov_spectrum_henonheiles_chaotic():
+    # Full Lyapunov spectrum of the documented chaotic Henon-Heiles orbit 'F'
+    # at E=1/8 (see test_lyapunov_henonheiles_chaotic for the provenance of
+    # the initial condition and of the documented band of the largest
+    # exponent): the largest exponent must lie in the documented band and be
+    # consistent with the largest-exponent-only estimate, the two middle
+    # exponents must tend to 0 (the flow direction and its symplectic pair),
+    # and the spectrum must obey the sum rule sum_i lambda_i = 0 and the
+    # symplectic pairing lambda_i = -lambda_{phasedim+1-i}
+    from galpy.orbit import Orbit
+    from galpy.potential import HenonHeilesPotential
+
+    hh = HenonHeilesPotential(amp=1.0)
+    tend = 25000.0
+    ts = numpy.linspace(0.0, tend, 12501)
+    oF = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    lam = oF.lyapunov(ts, pot=hh, method="dop853_c", spectrum=True)
+    assert lam.shape == (4, len(ts)), (
+        "lyapunov spectrum output shape incorrect for a single planar orbit"
+    )
+    # Largest exponent in the documented band of the chaotic sea at E=1/8
+    assert 0.02 < lam[0, -1] < 0.14, (
+        "Largest exponent of the Lyapunov spectrum of the chaotic "
+        f"Henon-Heiles orbit at E=1/8 is {lam[0, -1]:g} at t={tend:g}, "
+        "outside the documented range ~0.04-0.08 (with factor ~2 tolerance)"
+    )
+    # and consistent with the largest-exponent-only (spectrum=False) estimate.
+    # Finite-time estimates of a chaotic orbit fluctuate (different initial
+    # deviation vectors have different alignment transients, and the deviation
+    # vectors enter the adaptive step-size control), so the default-input
+    # long-time comparison is loose (both estimates individually sit in the
+    # documented band); the TIGHT consistency check seeds the spectrum with
+    # the SAME initial deviation vector as the largest-exponent-only run, for
+    # which |R_11| accumulation reduces mathematically to single-vector
+    # Benettin on the same vector -- agreement at integrator precision
+    oF2 = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    lam_max = oF2.lyapunov(ts, pot=hh, method="dop853_c")
+    rel = numpy.fabs(lam[0, -1] - lam_max[-1]) / lam_max[-1]
+    assert rel < 0.3, (
+        "Largest exponent of the Lyapunov spectrum of the chaotic "
+        "Henon-Heiles orbit differs from the largest-exponent-only estimate "
+        f"by {rel:g} (spectrum: {lam[0, -1]:g}, largest-only: {lam_max[-1]:g})"
+    )
+    ts_short = numpy.linspace(0.0, 300.0, 301)
+    d0 = numpy.ones(4) / 2.0
+    oF3 = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    lam_s = oF3.lyapunov(ts_short, pot=hh, method="dop853_c", spectrum=True, dxdv0=d0)
+    oF4 = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    lam_max_s = oF4.lyapunov(ts_short, pot=hh, method="dop853_c", dxdv0=d0)
+    rel_s = numpy.fabs(lam_s[0, -1] - lam_max_s[-1]) / lam_max_s[-1]
+    assert rel_s < 1e-6, (
+        "Largest exponent of the Lyapunov spectrum with the same initial "
+        "deviation vector differs from the largest-exponent-only estimate "
+        f"by {rel_s:g} (spectrum: {lam_s[0, -1]:g}, largest-only: {lam_max_s[-1]:g})"
+    )
+    # Middle exponents tend to zero like the regular-orbit ~ln(t)/t decay
+    midmax = numpy.max(numpy.fabs(lam[1:3, -1]))
+    assert midmax < 3.0 * numpy.log(tend) / tend, (
+        "Middle exponents of the Lyapunov spectrum of the chaotic "
+        f"Henon-Heiles orbit do not tend to zero: max={midmax:g}"
+    )
+    # Symplectic pairing: lambda_1 = -lambda_4 and lambda_2 = -lambda_3
+    pair14 = numpy.fabs(lam[0, -1] + lam[3, -1])
+    assert pair14 < 0.02 * lam[0, -1], (
+        "Lyapunov spectrum of the chaotic Henon-Heiles orbit violates the "
+        f"symplectic pairing lambda_1=-lambda_4: |lambda_1+lambda_4|={pair14:g} "
+        f"vs lambda_1={lam[0, -1]:g}"
+    )
+    pair23 = numpy.fabs(lam[1, -1] + lam[2, -1])
+    assert pair23 < 0.02 * lam[0, -1], (
+        "Lyapunov spectrum of the chaotic Henon-Heiles orbit violates the "
+        f"symplectic pairing lambda_2=-lambda_3: |lambda_2+lambda_3|={pair23:g}"
+    )
+    # Sum rule at all output times
+    maxsum = numpy.nanmax(numpy.fabs(numpy.nansum(lam, axis=0)))
+    assert maxsum < 1e-8, (
+        "Lyapunov spectrum of the chaotic Henon-Heiles orbit violates the "
+        f"sum rule sum_i lambda_i = 0: max_t |sum_i lambda_i(t)|={maxsum:g}"
+    )
+    # The Benettin/Shimada-Nagashima procedure orders the exponents from
+    # largest to smallest by construction (the nearly-degenerate middle pair
+    # can transiently swap, so only check across the large gaps)
+    assert lam[0, -1] > lam[1, -1] and lam[2, -1] > lam[3, -1], (
+        f"Lyapunov spectrum is not ordered from largest to smallest: {lam[:, -1]}"
+    )
+    return None
+
+
+def test_lyapunov_spectrum_sumrule_mw():
+    # The sum rule sum_i lambda_i = 0 (phase-space volume conservation) for a
+    # 3D orbit in MWPotential2014, which exercises the full 3D C Hessian of a
+    # composite (bulge+disk+halo) potential
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    ts = numpy.linspace(0.0, 100.0, 1001)
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    lam = o.lyapunov(ts, pot=MWPotential2014, method="dop853_c", spectrum=True)
+    assert lam.shape == (6, len(ts)), (
+        "lyapunov spectrum output shape incorrect for a 3D MWPotential2014 orbit"
+    )
+    maxsum = numpy.nanmax(numpy.fabs(numpy.nansum(lam, axis=0)))
+    assert maxsum < 1e-8, (
+        "Lyapunov spectrum of a 3D MWPotential2014 orbit violates the sum "
+        f"rule sum_i lambda_i = 0: max_t |sum_i lambda_i(t)|={maxsum:g}"
+    )
+    relsum = numpy.fabs(numpy.sum(lam[:, -1])) / numpy.max(numpy.fabs(lam[:, -1]))
+    assert relsum < 1e-6, (
+        "Lyapunov spectrum of a 3D MWPotential2014 orbit violates the sum "
+        f"rule sum_i lambda_i = 0: |sum_i lambda_i|/max_i |lambda_i|={relsum:g} "
+        "at the end time"
+    )
+    return None
+
+
+def test_lyapunov_spectrum_consistency():
+    # When dxdv0= is supplied together with spectrum=True, it is used as the
+    # FIRST deviation vector (completed to an orthonormal basis); because the
+    # QR orthonormalization never changes the direction of the first vector,
+    # the running estimate of the largest exponent is then mathematically
+    # identical to the largest-exponent-only (spectrum=False) estimate with
+    # the same dxdv0. Also check that the C (dop853_c) and pure-Python
+    # (dop853) spectra agree
+    from galpy.orbit import Orbit
+    from galpy.potential import HenonHeilesPotential
+
+    hh = HenonHeilesPotential(amp=1.0)
+    ic = [0.016, 0.0, 0.49974, -numpy.pi / 2.0]
+    ts = numpy.linspace(0.0, 300.0, 3001)
+    dxdv0 = numpy.array([1.0, 0.0, 0.0, 0.0])
+    oa = Orbit(ic)
+    lam_max = oa.lyapunov(ts, pot=hh, method="dop853_c", dxdv0=dxdv0)
+    ob = Orbit(ic)
+    lam_spec = ob.lyapunov(ts, pot=hh, method="dop853_c", dxdv0=dxdv0, spectrum=True)
+    maxdiff = numpy.nanmax(numpy.fabs(lam_spec[0] - lam_max))
+    assert maxdiff < 1e-6, (
+        "Largest exponent of the Lyapunov spectrum with dxdv0= as the first "
+        "deviation vector differs from the largest-exponent-only estimate "
+        f"with the same dxdv0: max_t |diff|={maxdiff:g}"
+    )
+    # C vs Python parity of the full spectrum
+    ts2 = numpy.linspace(0.0, 100.0, 1001)
+    oc = Orbit(ic)
+    lam_c = oc.lyapunov(
+        ts2, pot=hh, method="dop853_c", spectrum=True, rtol=1e-12, atol=1e-12
+    )
+    op = Orbit(ic)
+    lam_py = op.lyapunov(
+        ts2, pot=hh, method="dop853", spectrum=True, rtol=1e-12, atol=1e-12
+    )
+    maxdiff_cpy = numpy.max(numpy.fabs(lam_c[:, -1] - lam_py[:, -1]))
+    assert maxdiff_cpy < 1e-8, (
+        "C vs Python Lyapunov spectra differ at the end time: "
+        f"max_i |diff|={maxdiff_cpy:g}"
+    )
+    return None
+
+
+def test_lyapunov_spectrum_api():
+    # API behavior of Orbit.lyapunov with spectrum=True: output shapes for
+    # multiple orbits and per-orbit dxdv0, physical-output conversion of the
+    # full spectrum, the single-warning Python fallback, and input validation
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, MiyamotoNagaiPotential
+    from galpy.util import conversion, galpyWarning
+
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    ts = numpy.linspace(0.0, 10.0, 101)
+    # Multiple orbits: shape (2,) -> output (2,phasedim,nt)
+    o = Orbit([[1.0, 0.1, 1.1, 0.1, 0.1, 0.0], [1.1, -0.1, 0.9, 0.0, 0.05, 1.0]])
+    lam = o.lyapunov(ts, pot=ip, method="dop853_c", spectrum=True)
+    assert lam.shape == (2, 6, len(ts)), (
+        "lyapunov spectrum output shape incorrect for multiple orbits"
+    )
+    assert numpy.all(numpy.isnan(lam[:, :, 0])), (
+        "lyapunov spectrum running estimates at ts[0] should be NaN"
+    )
+    # Per-orbit initial deviations: shape (*input_shape,phasedim)
+    lam2 = o.lyapunov(
+        ts, pot=ip, method="dop853_c", spectrum=True, dxdv0=numpy.ones((2, 6))
+    )
+    assert lam2.shape == (2, 6, len(ts)), (
+        "lyapunov spectrum output shape incorrect for per-orbit dxdv0"
+    )
+    # Physical output: each exponent is a frequency, converted to 1/Gyr
+    ro, vo = 8.0, 220.0
+    ophys = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0], ro=ro, vo=vo)
+    lphys = ophys.lyapunov(ts, pot=ip, method="dop853_c", spectrum=True, quantity=False)
+    lnat = ophys.lyapunov(
+        ts, pot=ip, method="dop853_c", spectrum=True, use_physical=False
+    )
+    assert lphys.shape == (6, len(ts)), (
+        "lyapunov spectrum physical output shape incorrect"
+    )
+    assert numpy.allclose(lphys[:, 1:], lnat[:, 1:] * conversion.freq_in_Gyr(vo, ro)), (
+        "lyapunov spectrum physical output is not the natural output converted to 1/Gyr"
+    )
+    # Python fallback: a potential lacking the required 3D C Hessian must
+    # fall back to odeint with a SINGLE galpyWarning, also for spectrum=True
+    mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    mn.hasC_dxdv3d = False  # force the no-3D-C-Hessian code path
+    o1 = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    ts2 = numpy.linspace(0.0, 5.0, 51)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        lamf = o1.lyapunov(
+            ts2, pot=mn, method="dop853_c", renorm_every=10, spectrum=True
+        )
+        n_fallback = sum(
+            issubclass(wi.category, galpyWarning) and "Using odeint" in str(wi.message)
+            for wi in w
+        )
+    assert n_fallback == 1, (
+        "lyapunov spectrum should emit exactly one fallback warning when the "
+        f"potential lacks adequate C implementations, got {n_fallback}"
+    )
+    assert lamf.shape == (6, len(ts2)), (
+        "lyapunov spectrum fallback output shape incorrect"
+    )
+    # Input validation: zero-norm dxdv0 also raises with spectrum=True
+    with pytest.raises(ValueError):
+        o1.lyapunov(ts2, pot=ip, spectrum=True, dxdv0=numpy.zeros(6))
+    return None
+
+
 def test_liouville_3d_nonaxi_flow():
     # Validate the NON-axisymmetric Hessian terms (phi2deriv/Rphideriv/zphideriv)
     # of the 3D variational RHS, which the axisymmetric MiyamotoNagai/Plummer
