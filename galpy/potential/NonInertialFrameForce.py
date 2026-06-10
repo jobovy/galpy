@@ -250,6 +250,13 @@ class NonInertialFrameForce(DissipativeForce):
                 )
         self._force_hash = None
         self.hasC = True
+        # The rectangular force Jacobian (dF/dx, dF/dv) of the frame force is
+        # wired in C for the 3D variational equations (integrate_dxdv): the
+        # force is linear in position and velocity, so the Jacobian is exact
+        # for EVERY supported configuration (scalar/vector Omega, constant or
+        # time-dependent through tfuncs or the cinterp splines, Omegadot,
+        # x0/v0/a0 translation terms -- the latter contribute zero).
+        self.hasC_dxdv3d = True
         return None
 
     def _force(self, R, z, phi, t, v):

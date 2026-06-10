@@ -16,6 +16,17 @@ v1.12.0 (expected around 2026-07-01)
   forces.
 >>>>>>> 0e732bc4 (Dissipative 3D variational equations in C: FDM dynamical friction Jacobian)
 
+- Wired the rectangular force Jacobian of ``NonInertialFrameForce`` in C for
+  the 3D variational equations (``hasC_dxdv3d=True``): the frame force is
+  linear in position and velocity, so dF/dv = -2 [Omega]_x and
+  dF/dx = |Omega|^2 I - Omega Omega^T - [Omegadot]_x are exact for every
+  supported configuration (scalar or vector Omega, constant or time-dependent
+  through tfuncs or the cinterp splines, Omegadot, and the x0/v0/a0
+  translation terms, which contribute zero). Phase-space volumes can now be
+  integrated in rotating/accelerating frames; because dF/dv is antisymmetric,
+  the frame force is phase-volume preserving (det M(t) = 1 exactly), unlike
+  dynamical friction.
+
 - Added a ``cinterp`` option (default ``True``, resolution set by ``cinterp_n``)
   to ``NonInertialFrameForce`` that, during C orbit integration, replaces the
   time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline

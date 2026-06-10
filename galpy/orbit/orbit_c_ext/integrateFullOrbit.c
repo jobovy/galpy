@@ -626,6 +626,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->RforceVelocity= &NonInertialFrameForceRforce;
       potentialArgs->zforceVelocity= &NonInertialFrameForcezforce;
       potentialArgs->phitorqueVelocity= &NonInertialFrameForcephitorque;
+      // Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+      // variational equations (integrate_dxdv with this velocity-dependent
+      // force; NonInertialFrameForce is a DissipativeForce subclass).
+      potentialArgs->RectDissipativeForceJacobian= &NonInertialFrameForceRectDissipativeForceJacobian;
       potentialArgs->nargs= 23;
       potentialArgs->ntfuncs= (int) ( 3 * *(*pot_args + 12) * ( 1 + 2 * *(*pot_args + 11) ) \
                                 + ( 6 - 4 * ( *(*pot_args + 13) ) ) * *(*pot_args + 15) );
@@ -641,6 +645,9 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->RforceVelocity= &NonInertialFrameForceRforce;
       potentialArgs->zforceVelocity= &NonInertialFrameForcezforce;
       potentialArgs->phitorqueVelocity= &NonInertialFrameForcephitorque;
+      // The Jacobian evaluates Omega/Omegadot from the same splines (clamped
+      // to [tmin,tmax]); see NonInertialFrameForceRectDissipativeForceJacobian.
+      potentialArgs->RectDissipativeForceJacobian= &NonInertialFrameForceRectDissipativeForceJacobian;
       potentialArgs->nargs= 25;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;

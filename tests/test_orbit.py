@@ -1664,6 +1664,20 @@ def test_chandrasekhar_dxdv_phase_volume_law():
     return None
 
 
+# NonInertialFrameForce 3D variational equations: the frame force
+# F = -2 Omega x (v+v0) - Omega x (Omega x [r+x0]) - Omegadot x [r+x0] - a0(t)
+# is LINEAR in (r, v), so its rectangular Jacobian blocks are exact closed
+# forms: dF/dv = -2 [Omega]_x (antisymmetric -> tr(dF/dv)=0: phase-volume
+# PRESERVING, det M(t)=1, unlike friction) and
+# dF/dx = |Omega|^2 I - Omega Omega^T - [Omegadot]_x; translation terms
+# contribute zero. Validated below at the orbit level only (galpy's
+# convention: C code is tested through regular galpy orbit usage) by (a) the
+# FD-of-the-flow STM test, (b) the det M(t)=1 phase-volume law (which needs
+# no trace computation: tr(dF/dv)=0 exactly), and (c) an exact cross-check
+# of the rotating-frame STM against the inertial-frame STM transformed by
+# the frame map (Plummer sphere, constant vector Omega).
+
+
 # The C rectangular friction Jacobian
 # (ChandrasekharDynamicalFrictionForce.c::...RectDissipativeForceJacobian)
 # mirrors the branch structure of the force it differentiates: three Coulomb-
@@ -2189,6 +2203,280 @@ def test_fdm_dxdv_fd_of_flow_branches(config):
             f"column by {fderr:g} (MWPotential2014 + FDM friction, "
             f"{config} configuration)"
         )
+    return None
+
+
+def _noninertial_dxdv_flow_setup():
+    """Shared setup for the NonInertialFrameForce orbit-level variational
+    tests: MWPotential2014 viewed from (1) a spinning-up frame (scalar Omega
+    with constant Omegadot; pure fixed-args C path, pot_type 39) and (2) a
+    frame with vector Omega(t) functions plus a translating origin
+    (x0/v0/a0), evaluated through the cinterp C splines (pot_type 45)."""
+    from galpy.potential import MWPotential2014, NonInertialFrameForce
+
+    configs = {
+        "omegaz_omegadot_args": MWPotential2014
+        + NonInertialFrameForce(Omega=1.1, Omegadot=0.07),
+        "vecfunc_linacc_cinterp": MWPotential2014
+        + NonInertialFrameForce(
+            Omega=[
+                lambda t: 0.15 + 0.03 * numpy.sin(t),
+                lambda t: 0.1 - 0.02 * t,
+                lambda t: 1.0 + 0.05 * numpy.cos(t),
+            ],
+            Omegadot=[
+                lambda t: 0.03 * numpy.cos(t),
+                lambda t: -0.02 + 0.0 * t,
+                lambda t: -0.05 * numpy.sin(t),
+            ],
+            x0=[lambda t: 0.05 * t**2, lambda t: -0.03 * t**2, lambda t: 0.01 * t**2],
+            v0=[lambda t: 0.1 * t, lambda t: -0.06 * t, lambda t: 0.02 * t],
+            a0=[
+                lambda t: 0.1 + 0.0 * t,
+                lambda t: -0.06 + 0.0 * t,
+                lambda t: 0.02 + 0.0 * t,
+            ],
+            cinterp=True,
+        ),
+    }
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    return configs, ic, times
+
+
+def _stm_from_dxdv(pot, ic, times):
+    """Full 6x6 STM M(t) (shape (nt,6,6)) from the 6 canonical rectangular
+    deviation integrations with the C dxdv integrator."""
+    from galpy.orbit import Orbit
+
+    canonical = numpy.eye(6)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv())
+    return numpy.array(Mcols).transpose(1, 2, 0)
+
+
+def test_noninertial_dxdv_fd_of_flow():
+    # FD-of-the-flow STM test for the NonInertialFrameForce variational
+    # equations: every column i of the C-integrated deviation (seeded with the
+    # canonical e_i) must match (x(t; x0+eps e_i) - x(t; x0))/eps built from
+    # plain orbit integrations, which use only the separately-validated
+    # forces -- the same check (and tolerance) as the conservative
+    # test_liouville_3d battery and the Chandrasekhar FD-of-flow test, for
+    # MWPotential2014 in a spinning-up frame (fixed-args path) and in a
+    # vector-Omega(t)+translation frame through the cinterp splines.
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    configs, ic, times = _noninertial_dxdv_flow_setup()
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for cname, pot in configs.items():
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method="dopr54_c")
+        base_rect = _orbit_rect_columns_3d(obase, times)
+        for ii in range(6):
+            pert = base_rect[0].copy()
+            pert[ii] += eps
+            Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+            vRp, vTp, vzp = coords.rect_to_cyl_vec(
+                pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+            )
+            opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+            opert.integrate(times, pot, method="dopr54_c")
+            fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method="dopr54_c",
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+            fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+            assert fderr < 1e-4, (
+                f"NonInertialFrameForce 3D FD-of-flow for e_{ii} differs from "
+                f"the dxdv column by {fderr:g} ({cname})"
+            )
+    return None
+
+
+def test_noninertial_dxdv_phase_volume_preserved():
+    # KEY physics test: dF/dv = -2 [Omega]_x is antisymmetric, so
+    # tr(dF/dv) = 0 and Abel/Jacobi-Liouville gives det M(t) =
+    # exp(int tr(dF/dv) dt') = 1 EXACTLY: a rotating (even arbitrarily
+    # time-dependent, translating) frame is phase-volume PRESERVING, despite
+    # the force being velocity-dependent. Unlike friction (det M < 1, see
+    # test_chandrasekhar_dxdv_phase_volume_law), this exercises the velocity
+    # block of the variational Jacobian nontrivially while leaving the volume
+    # invariant -- det M(t) = 1 must hold to ~1e-8 along the whole orbit for
+    # both the fixed-args and the cinterp-spline C configurations.
+    configs, ic, times = _noninertial_dxdv_flow_setup()
+    for cname, pot in configs.items():
+        Mt = _stm_from_dxdv(pot, ic, times)
+        detM = numpy.array([numpy.linalg.det(Mt[kk]) for kk in range(len(times))])
+        maxdev = numpy.amax(numpy.fabs(detM - 1.0))
+        assert maxdev < 1e-8, (
+            f"NonInertialFrameForce phase-volume preservation det M(t)=1 "
+            f"violated at level {maxdev:g} ({cname})"
+        )
+    return None
+
+
+def test_noninertial_dxdv_rotating_vs_inertial_stm():
+    # Exact cross-check of the rotating-frame variational equations against
+    # the trusted inertial-frame ones: for a steady spherical potential (a
+    # Plummer sphere) and a constant vector Omega, the inertial orbit x(t)
+    # and the rotating-frame orbit r(t) are related by x = R(t) r with
+    # R(t) = expm([Omega]_x t) (galpy convention: Omega is the frequency of
+    # the rotating frame as seen from the inertial frame), so the deviations
+    # map as w_rot = T(t) w_in with T = [[R^T, 0], [-[Omega]_x R^T, R^T]]
+    # (from dr = R^T dx, dr' = R^T dv + dR^T/dt dx, dR^T/dt = -[Omega]_x R^T)
+    # and the STMs must satisfy M_rot(t) = T(t) M_in(t) T(0)^{-1}. This
+    # validates the full Jacobian (Coriolis dF/dv AND centrifugal dF/dx)
+    # including all signs/factors at integrator precision (~1e-11; tolerance
+    # 1e-9), far beyond the 1e-4 FD-of-flow check.
+    from scipy.linalg import expm
+
+    from galpy.orbit import Orbit
+    from galpy.potential import NonInertialFrameForce, PlummerPotential
+    from galpy.util import coords
+
+    pp = PlummerPotential(amp=1.0, b=0.7, normalize=True)
+    Om = numpy.array([0.25, 0.15, 0.6])
+    Omx = numpy.array(
+        [[0.0, -Om[2], Om[1]], [Om[2], 0.0, -Om[0]], [-Om[1], Om[0], 0.0]]
+    )
+    pot_rot = pp + NonInertialFrameForce(Omega=Om)
+    # inertial IC and the corresponding rotating-frame IC: at t=0, R(0)=I so
+    # r(0) = x(0) and r'(0) = v(0) - Omega x x(0)
+    x0 = numpy.array([0.9, 0.3, 0.2])
+    v0 = numpy.array([-0.1, 0.95, 0.15])
+    r0 = x0.copy()
+    rd0 = v0 - numpy.cross(Om, x0)
+    times = numpy.linspace(0.0, 5.0, 101)
+
+    def cyl_ic(x, v):
+        R, phi, Z = coords.rect_to_cyl(*x)
+        vR, vT, vz = coords.rect_to_cyl_vec(*v, *x)
+        return [R, vR, vT, Z, vz, phi]
+
+    ic_in = cyl_ic(x0, v0)
+    ic_rot = cyl_ic(r0, rd0)
+    # the base orbits must agree under the frame map: r(t) = R(t)^T x(t)
+    o_in = Orbit(ic_in)
+    o_in.integrate(times, pp, method="dop853_c")
+    o_rot = Orbit(ic_rot)
+    o_rot.integrate(times, pot_rot, method="dop853_c")
+    xin = _orbit_rect_columns_3d(o_in, times)
+    xrot = _orbit_rect_columns_3d(o_rot, times)
+    err_orb = numpy.amax(
+        numpy.fabs(
+            numpy.array(
+                [
+                    expm(Omx * times[kk]).T @ xin[kk, :3] - xrot[kk, :3]
+                    for kk in range(len(times))
+                ]
+            )
+        )
+    )
+    assert err_orb < 1e-10, (
+        f"Rotating-frame orbit r(t) differs from R(t)^T x(t) by {err_orb:g}: "
+        "the frame map underlying the STM cross-check does not hold"
+    )
+    # STM cross-check at several times along the orbit
+    M_in = _stm_from_dxdv(pp, ic_in, times)
+    M_rot = _stm_from_dxdv(pot_rot, ic_rot, times)
+
+    def Tmat(t):
+        Rt = expm(Omx * t)
+        T = numpy.zeros((6, 6))
+        T[:3, :3] = Rt.T
+        T[3:, 3:] = Rt.T
+        T[3:, :3] = -Omx @ Rt.T
+        return T
+
+    T0inv = numpy.linalg.inv(Tmat(0.0))
+    for kk in [25, 50, 100]:
+        pred = Tmat(times[kk]) @ M_in[kk] @ T0inv
+        err_stm = numpy.amax(numpy.fabs(pred - M_rot[kk]))
+        assert err_stm < 1e-9, (
+            f"Rotating-frame STM differs from the transformed inertial STM by "
+            f"{err_stm:g} at t={times[kk]:g}"
+        )
+    # and the rotating-frame STM preserves phase volume exactly
+    detM = numpy.array([numpy.linalg.det(M_rot[kk]) for kk in range(len(times))])
+    assert numpy.amax(numpy.fabs(detM - 1.0)) < 1e-9, (
+        "Rotating-frame STM det M(t) != 1 in the rotating-vs-inertial cross-check"
+    )
+    return None
+
+
+def test_noninertial_dxdv_flags_and_gate():
+    # NonInertialFrameForce advertises its exact C rectangular Jacobian for
+    # EVERY configuration (the force is linear in (x,v), so no configuration
+    # is unwireable): hasC_dxdv3d=True on the class, aggregated through
+    # CompositePotential. The pure-Python integrate_dxdv methods refuse
+    # dissipative forces loudly, and a forced hasC_dxdv3d=False (the gate a
+    # genuinely unwireable configuration would use) makes the C methods fall
+    # back to odeint with a warning, which then also raises -- never a silent
+    # wrong answer.
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, NonInertialFrameForce
+
+    nif = NonInertialFrameForce(Omega=1.1, Omegadot=0.07)
+    assert nif.hasC_dxdv3d, "NonInertialFrameForce should advertise hasC_dxdv3d"
+    pot = MWPotential2014 + nif
+    assert pot.hasC_dxdv3d, (
+        "CompositePotential should aggregate hasC_dxdv3d=True for "
+        "MWPotential2014 + NonInertialFrameForce"
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 3)
+    for method in ["odeint", "dop853"]:
+        o = Orbit(ic)
+        with pytest.raises(NotImplementedError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                times,
+                pot,
+                method=method,
+                rectIn=True,
+                rectOut=True,
+            )
+        assert "dissipative" in str(excinfo.value)
+    # forced-flag gate: a NonInertialFrameForce WITHOUT the C Jacobian must
+    # not silently produce a conservative-only deviation
+    nif_noc = NonInertialFrameForce(Omega=1.1, Omegadot=0.07)
+    nif_noc.hasC_dxdv3d = False
+    pot_noc = MWPotential2014 + nif_noc
+    assert not pot_noc.hasC_dxdv3d
+    o = Orbit(ic)
+    with pytest.warns(galpyWarning, match="Using odeint"):
+        with pytest.raises(NotImplementedError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                times,
+                pot_noc,
+                method="dopr54_c",
+                rectIn=True,
+                rectOut=True,
+            )
+    assert "dissipative" in str(excinfo.value)
     return None
 
 
