@@ -96,6 +96,7 @@ class DiskSCFPotential(KuijkenDubinskiDiskExpansionPotential):
         Notes
         -----
         - Either specify (Sigma,hz) or (Sigma_amp,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz)
+        - The built-in dict-specified Sigma/hz profiles are backend-agnostic (numpy/jax/torch); for jax/torch evaluation, any *user-provided* Sigma/dSigmadR/d2SigmadR2/hz/Hz/dHzdz callables must accept backend arrays (e.g., be written with ``galpy.backend.get_namespace``)
         - Written - Bovy (UofT) - 2016-12-26
 
         """
