@@ -908,6 +908,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &KuzminLikeWrapperPotentialRforce;
       potentialArgs->zforce= &KuzminLikeWrapperPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv);
+      // chain rule of the wrapped potential's in-plane R2deriv/Rforce at
+      // (xi(R,z),0) through the Kuzmin-like substitution. Axisymmetric:
+      // phi2deriv/Rphideriv/zphideriv are 0 -> left NULL (the NULL-safe
+      // aggregators return 0 for them).
+      potentialArgs->R2deriv= &KuzminLikeWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &KuzminLikeWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &KuzminLikeWrapperPotentialRzderiv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;

@@ -442,6 +442,25 @@ def pytest_generate_tests(metafunc):
                 "CorotatingRotationWrapperPotential",
                 "nonaxisymmetric",
             ),
+            # KuzminLike is a COORDINATE-substituting wrapper (not an amplitude
+            # modulation): Phi(R,z) = Phi_wrapped(xi,0) with
+            # xi = sqrt(R^2+(a+sqrt(z^2+b^2))^2), so its C Hessian chain-rules the
+            # wrapped potential's in-plane Rforce/R2deriv through dxi/dR, dxi/dz,
+            # and the three second derivatives of xi. The wrapper output is
+            # axisymmetric by construction. b!=0 keeps d2xi/dz2 smooth across the
+            # disk plane (b=0 reduces to the C^0 Kuzmin-disk |z| kink excluded
+            # above); amp renormalizes the wrapped-Hernquist combination to
+            # vc(R=1,z=0)=1 so the shared registry IC gives a well-behaved orbit.
+            (
+                potential.KuzminLikeWrapperPotential(
+                    amp=2.9671384684971,
+                    pot=potential.HernquistPotential(amp=1.0, a=1.3, normalize=True),
+                    a=1.1,
+                    b=0.3,
+                ),
+                "KuzminLikeWrapperPotential",
+                "axisymmetric",
+            ),
         ]
         ids = [entry[1] for entry in liouville3d_registry]
         if metafunc.function.__name__ == "test_dxdv_3d_c_vs_python":
