@@ -14,6 +14,8 @@ from scipy.interpolate import (
     make_interp_spline,
 )
 
+from ..backend import get_namespace
+from ..backend.special import assoc_legendre
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
 from ..util.special import compute_legendre, sph_harm_normalization
@@ -277,6 +279,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             self._precompute_radial_integrals()
             self._force_cache_key = None
             self._2nd_deriv_cache_key = None
+        # Lazily-built constant tables for the jax/torch evaluation path
+        self._backend_data = None
         self.hasC = True
         self.hasC_dxdv = True
         # Full 3D Hessian (R2/z2/Rz/phi2/Rphi/zphi deriv) is implemented in C
@@ -1229,7 +1233,13 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Notes
         -----
         - 2026-02-13 - Written - Bovy (UofT)
+        - 2026-06-09 - Added jax/torch evaluation path - Bovy (UofT)
         """
+        xp = get_namespace(R, z)
+        if xp is not numpy:
+            if not self.isNonAxi and phi is None:
+                phi = 0.0
+            return self._backend_evaluate(xp, R, z, phi, t)
         if not self.isNonAxi and phi is None:
             phi = 0.0
         R = numpy.array(R, dtype=float)
@@ -1623,7 +1633,11 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Notes
         -----
         - 2026-02-13 - Written - Bovy (UofT)
+        - 2026-06-09 - Added jax/torch evaluation path - Bovy (UofT)
         """
+        xp = get_namespace(R, z)
+        if xp is not numpy:
+            return self._backend_dens(xp, R, z, phi, t)
         if self._tdep:
             self._ensure_rho_for_time(t)
         if not self.isNonAxi and phi is None:
@@ -2000,6 +2014,435 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         return self._evaluate_cyl_2nd_deriv("phiz", R, z, phi, t=t)
+
+    ###########################################################################
+    # Backend (jax/torch) evaluation path.
+    #
+    # The numpy path above evaluates the radial functions point-by-point
+    # through the scipy BPoly/spline objects and is kept bit-for-bit
+    # unchanged (the dispatchers below only route non-numpy inputs away from
+    # it). For jax/torch arrays the same piecewise polynomials are evaluated
+    # in a vectorized, autodiff/jit-friendly way: the BPoly radial integrals
+    # are converted once to power-basis (PPoly) coefficient stacks evaluated
+    # by searchsorted + Horner (exactly the representation _serialize_for_c
+    # hands to the C code), and the angular part uses the backend-agnostic
+    # galpy.backend.special.assoc_legendre router. Time-dependent (tgrid=...)
+    # instances remain numpy-only for now.
+    ###########################################################################
+    def _Rforce(self, R, z, phi=0, t=0):
+        xp = get_namespace(R, z)
+        if xp is not numpy:
+            return self._backend_cyl_force(xp, "R", R, z, phi, t)
+        return SphericalHarmonicPotentialMixin._Rforce(self, R, z, phi=phi, t=t)
+
+    def _zforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        if xp is not numpy:
+            return self._backend_cyl_force(xp, "z", R, z, phi, t)
+        return SphericalHarmonicPotentialMixin._zforce(self, R, z, phi=phi, t=t)
+
+    def _phitorque(self, R, z, phi=0, t=0):
+        xp = get_namespace(R, z)
+        if xp is not numpy:
+            return self._backend_cyl_force(xp, "phi", R, z, phi, t)
+        return SphericalHarmonicPotentialMixin._phitorque(self, R, z, phi=phi, t=t)
+
+    def _evaluate_cyl_2nd_deriv(self, deriv_type, R, z, phi, t=0.0):
+        xp = get_namespace(R, z)
+        if xp is not numpy:
+            return self._backend_cyl_2nd_deriv(xp, deriv_type, R, z, phi, t)
+        return SphericalHarmonicPotentialMixin._evaluate_cyl_2nd_deriv(
+            self, deriv_type, R, z, phi, t=t
+        )
+
+    def _backend_static_data(self):
+        """Build (once) the numpy constant tables for the backend path.
+
+        Converts the per-(l, m, cos/sin) BPoly radial integrals to stacked
+        power-basis (PPoly) coefficient arrays plus the analytic
+        extrapolation constants of _below_grid_integrals / _eval_R_lm, and
+        the FITPACK density splines to cubic PPoly pieces. All entries are
+        plain numpy arrays/floats; the evaluators convert them to the active
+        backend with ``xp.asarray``.
+
+        Notes
+        -----
+        - 2026-06-09 - Written - Bovy (UofT)
+        """
+        if self._tdep:
+            raise NotImplementedError(
+                "jax/torch evaluation of time-dependent (tgrid=...) "
+                "MultipoleExpansionPotential instances is not implemented; "
+                "evaluate with numpy inputs instead"
+            )
+        if self._backend_data is not None:
+            return self._backend_data
+        comps = []  # (l, m, is_sin) component order, shared by all tables
+        for l in range(self._L):
+            for m in range(min(l + 1, self._M)):
+                comps.append((l, m, False))
+                if m > 0:
+                    comps.append((l, m, True))
+        rmin, rmax = self._rgrid[0], self._rgrid[-1]
+        breaks, rho_breaks = None, None
+        inner_c, outer_c, rho_c = [], [], []
+        I_outer_rmin, I_inner_rmax = [], []
+        for l, m, is_sin in comps:
+            I_inner = (self._I_inner_sin if is_sin else self._I_inner_cos)[l][m]
+            I_outer = (self._I_outer_sin if is_sin else self._I_outer_cos)[l][m]
+            rho_sp = (self._rho_sin_splines if is_sin else self._rho_cos_splines)[l][m]
+            pp_in = PPoly.from_bernstein_basis(I_inner)
+            pp_out = PPoly.from_bernstein_basis(I_outer)
+            if breaks is None:
+                breaks = pp_in.x
+            inner_c.append(pp_in.c)  # (6, Nr-1), highest power first
+            outer_c.append(pp_out.c)
+            I_outer_rmin.append(float(pp_out(rmin)))
+            I_inner_rmax.append(float(pp_in(rmax)))
+            # Density spline -> cubic PPoly pieces; drop FITPACK's zero-width
+            # boundary-knot intervals so searchsorted lookup is well-defined
+            pp_rho = PPoly.from_spline(rho_sp._eval_args)
+            keep = numpy.diff(pp_rho.x) > 0
+            if rho_breaks is None:
+                rho_breaks = numpy.append(pp_rho.x[:-1][keep], pp_rho.x[-1])
+            rho_c.append(pp_rho.c[:, keep])
+        l_arr = numpy.array([c[0] for c in comps])
+        m_arr = numpy.array([c[1] for c in comps])
+        inner_c = numpy.stack(inner_c)
+        # Below-grid constant-density constants: P_rho0 = I_inner'(rmin) /
+        # rmin^{l+2} (= pref*rho(rmin), cf. _below_grid_integrals); the
+        # l-dependent prefactors are precomputed so the l == 2 logarithmic
+        # special case reduces to a constant mask
+        self._backend_data = {
+            "breaks": breaks,
+            "inner_c": inner_c,  # (n_comp, 6, Nr-1)
+            "outer_c": numpy.stack(outer_c),
+            "rho_breaks": rho_breaks,
+            "rho_c": numpy.stack(rho_c),  # (n_comp, 4, n_int)
+            "l_idx": l_arr,
+            "m_idx": m_arr,
+            "lf": l_arr.astype(float)[:, None],
+            "mf": m_arr.astype(float)[:, None],
+            "is_sin": numpy.array([c[2] for c in comps])[:, None],
+            "I_outer_rmin": numpy.array(I_outer_rmin)[:, None],
+            "I_inner_rmax": numpy.array(I_inner_rmax)[:, None],
+            "P_rho0": (inner_c[:, 4, 0] / rmin ** (l_arr + 2.0))[:, None],
+            "inv_lp3": (1.0 / (l_arr + 3.0))[:, None],
+            "inv_2ml": numpy.where(
+                l_arr == 2, 0.0, 1.0 / numpy.where(l_arr == 2, 1.0, 2.0 - l_arr)
+            )[:, None],
+            "l2mask": (l_arr == 2)[:, None],
+            "rmin_pow_2ml": (rmin ** (2.0 - l_arr))[:, None],
+            # value the numpy path returns at the exact center:
+            # R_00(rmin) * P_00 with P_00 = 1
+            "R00": I_outer_rmin[0],
+        }
+        return self._backend_data
+
+    @staticmethod
+    def _backend_prepare(xp, R, z, phi):
+        """Broadcast (R, z, phi) to a common shape and flatten to 1-D."""
+        R = xp.asarray(R) * 1.0
+        z = xp.asarray(z) * 1.0
+        phi = xp.asarray(phi) * 1.0
+        R, z, phi = xp.broadcast_arrays(R, z, phi)
+        shape = R.shape
+        return (
+            xp.reshape(R, (-1,)),
+            xp.reshape(z, (-1,)),
+            xp.reshape(phi, (-1,)),
+            shape,
+        )
+
+    def _backend_radial(self, xp, r, mode=0):
+        """Vectorized R_lm(r) (and dR/dr, d2R/dr2) for every component.
+
+        Mirrors _eval_R_lm / _eval_dR_lm / _eval_d2R_lm: quintic Horner on
+        the power-basis I_inner/I_outer coefficients in-grid, the analytic
+        constant-density extrapolation below rmin and the point-mass form
+        above rmax. Each piecewise branch is evaluated with a 'safe' radius
+        so its dead side stays finite under eager backends / autodiff.
+
+        Parameters
+        ----------
+        xp : module
+            Array namespace.
+        r : array
+            1-D backend array of spherical radii.
+        mode : int
+            0=value, 1=value+deriv, 2=value+deriv+2nd deriv.
+
+        Returns
+        -------
+        (R, dR, d2R) : tuple of arrays of shape (n_comp, len(r))
+            dR / d2R are None when not requested via mode.
+
+        Notes
+        -----
+        - 2026-06-09 - Written - Bovy (UofT)
+        """
+        data = self._backend_static_data()
+        breaks = xp.asarray(data["breaks"])
+        ci = xp.asarray(data["inner_c"])
+        co = xp.asarray(data["outer_c"])
+        lf = xp.asarray(data["lf"])
+        P_rho0 = xp.asarray(data["P_rho0"])
+        I_outer_rmin = xp.asarray(data["I_outer_rmin"])
+        I_inner_rmax = xp.asarray(data["I_inner_rmax"])
+        inv_lp3 = xp.asarray(data["inv_lp3"])
+        inv_2ml = xp.asarray(data["inv_2ml"])
+        l2mask = xp.asarray(data["l2mask"])
+        rmin_pow = xp.asarray(data["rmin_pow_2ml"])
+        rmin = float(data["breaks"][0])
+        rmax = float(data["breaks"][-1])
+        nint = data["breaks"].shape[0] - 1
+        below = r < rmin
+        in_grid = r <= rmax
+        # --- in-grid branch: searchsorted + Horner on r clipped into the grid
+        r_in = xp.clip(r, rmin, rmax)
+        idx = xp.clip(xp.searchsorted(breaks, r_in, side="right") - 1, 0, nint - 1)
+        dr = r_in - breaks[idx]
+        cin = ci[:, :, idx]  # (n_comp, 6, N)
+        cout = co[:, :, idx]
+
+        def _val(c):
+            out = c[:, 0]
+            for k in range(1, 6):
+                out = out * dr + c[:, k]
+            return out
+
+        def _d1(c):
+            out = 5.0 * c[:, 0]
+            for k, f in zip(range(1, 5), (4.0, 3.0, 2.0, 1.0)):
+                out = out * dr + f * c[:, k]
+            return out
+
+        def _d2(c):
+            out = 20.0 * c[:, 0]
+            for k, f in zip(range(1, 4), (12.0, 6.0, 2.0)):
+                out = out * dr + f * c[:, k]
+            return out
+
+        I_in, I_out = _val(cin), _val(cout)
+        rl = r_in**lf
+        rml = r_in ** (-(lf + 1.0))
+        R_in = rml * I_in + rl * I_out
+        # --- below-grid branch (constant density rho(rmin) below rmin):
+        # r^{-(l+1)} I_inner_ext simplifies to P_rho0/(l+3) r^2, so the only
+        # negative powers act on rb, which is guarded away from 0
+        rb = xp.where(xp.logical_and(below, r > 0.0), r, rmin)
+        extra = xp.where(
+            l2mask,
+            P_rho0 * xp.log(rmin / rb),
+            P_rho0 * inv_2ml * (rmin_pow - rb ** (2.0 - lf)),
+        )
+        I_outer_ext = I_outer_rmin + extra
+        R_below = P_rho0 * inv_lp3 * rb * rb + rb**lf * I_outer_ext
+        # --- above-grid branch (point mass: I_outer(rmax) = 0)
+        ra = xp.where(r > rmax, r, rmax)
+        R_above = I_inner_rmax * ra ** (-(lf + 1.0))
+        Rlm = xp.where(below, R_below, xp.where(in_grid, R_in, R_above))
+        dRlm, d2Rlm = None, None
+        if mode >= 1:
+            dI_in, dI_out = _d1(cin), _d1(cout)
+            dR_in = (
+                -(lf + 1.0) * r_in ** (-(lf + 2.0)) * I_in
+                + rml * dI_in
+                + lf * r_in ** (lf - 1.0) * I_out
+                + rl * dI_out
+            )
+            dR_below = (
+                -(lf + 1.0) * P_rho0 * inv_lp3 * rb
+                + lf * rb ** (lf - 1.0) * I_outer_ext
+            )
+            dR_above = -(lf + 1.0) * I_inner_rmax * ra ** (-(lf + 2.0))
+            dRlm = xp.where(below, dR_below, xp.where(in_grid, dR_in, dR_above))
+        if mode >= 2:
+            d2I_in, d2I_out = _d2(cin), _d2(cout)
+            d2R_in = (
+                (lf + 1.0) * (lf + 2.0) * r_in ** (-(lf + 3.0)) * I_in
+                - 2.0 * (lf + 1.0) * r_in ** (-(lf + 2.0)) * dI_in
+                + rml * d2I_in
+                + lf * (lf - 1.0) * r_in ** (lf - 2.0) * I_out
+                + 2.0 * lf * r_in ** (lf - 1.0) * dI_out
+                + rl * d2I_out
+            )
+            d2R_below = (
+                (lf + 1.0) * (lf + 2.0) * P_rho0 * inv_lp3
+                + lf * (lf - 1.0) * rb ** (lf - 2.0) * I_outer_ext
+                - (2.0 * lf + 1.0) * P_rho0
+            )
+            d2R_above = (lf + 1.0) * (lf + 2.0) * I_inner_rmax * ra ** (-(lf + 3.0))
+            d2Rlm = xp.where(below, d2R_below, xp.where(in_grid, d2R_in, d2R_above))
+        return Rlm, dRlm, d2Rlm
+
+    def _backend_angular(self, xp, costheta, phi, deriv=0):
+        """Per-component Legendre tables and cos/sin(m phi) factors.
+
+        Returns (tables, trig, dtrig): ``tables`` is a tuple of (n_comp, N)
+        arrays (P, and its requested x-derivatives) selected per component
+        from the assoc_legendre (L, M) table; ``trig`` is cos(m phi) for
+        cosine components / sin(m phi) for sine components; ``dtrig`` its
+        phi-derivative.
+
+        Notes
+        -----
+        - 2026-06-09 - Written - Bovy (UofT)
+        """
+        data = self._backend_static_data()
+        l_idx = xp.asarray(data["l_idx"])
+        m_idx = xp.asarray(data["m_idx"])
+        mf = xp.asarray(data["mf"])
+        is_sin = xp.asarray(data["is_sin"])
+        tables = assoc_legendre(self._L, self._M, costheta, deriv=deriv)
+        if deriv == 0:
+            tables = (tables,)
+        sel = tuple(xp.moveaxis(tab[..., l_idx, m_idx], -1, 0) for tab in tables)
+        mphi = mf * phi
+        cosm = xp.cos(mphi)
+        sinm = xp.sin(mphi)
+        trig = xp.where(is_sin, sinm, cosm)
+        dtrig = mf * xp.where(is_sin, cosm, -sinm)
+        return sel, trig, dtrig
+
+    def _backend_evaluate(self, xp, R, z, phi, t):
+        """Backend-array (jax/torch) version of _evaluate."""
+        data = self._backend_static_data()
+        Rf, zf, phif, shape = self._backend_prepare(xp, R, z, phi)
+        r = xp.sqrt(Rf * Rf + zf * zf)
+        ctheta = xp.cos(xp.arctan2(Rf, zf))
+        (PP,), trig, _ = self._backend_angular(xp, ctheta, phif, deriv=0)
+        Rlm, _, _ = self._backend_radial(xp, r, mode=0)
+        out = xp.sum(PP * trig * Rlm, axis=0)
+        # exact center: the numpy path returns R_00(rmin) * P_00
+        out = xp.where(r == 0.0, data["R00"], out)
+        return xp.reshape(out, shape)
+
+    def _backend_spher_forces(self, xp, r, ctheta, stheta, phi):
+        """Backend version of _compute_spher_forces_at_point (vectorized)."""
+        (PP, dPP), trig, dtrig = self._backend_angular(xp, ctheta, phi, deriv=1)
+        Rlm, dRlm, _ = self._backend_radial(xp, r, mode=1)
+        dPhi_dr = xp.sum(PP * trig * dRlm, axis=0)
+        dPhi_dtheta = xp.sum(dPP * (-stheta) * trig * Rlm, axis=0)
+        dPhi_dphi = xp.sum(PP * dtrig * Rlm, axis=0)
+        return -dPhi_dr, -dPhi_dtheta, -dPhi_dphi
+
+    def _backend_cyl_force(self, xp, which, R, z, phi, t):
+        """Backend-array version of the mixin's _Rforce/_zforce/_phitorque."""
+        if not self.isNonAxi and phi is None:
+            phi = 0.0
+        Rf, zf, phif, shape = self._backend_prepare(xp, R, z, phi)
+        r = xp.sqrt(Rf * Rf + zf * zf)
+        theta = xp.arctan2(Rf, zf)
+        Fr, Ftheta, Fphi = self._backend_spher_forces(
+            xp, r, xp.cos(theta), xp.sin(theta), phif
+        )
+        rsafe = xp.where(r == 0.0, 1.0, r)
+        if which == "R":
+            out = Rf / rsafe * Fr + zf / rsafe**2 * Ftheta
+        elif which == "z":
+            out = zf / rsafe * Fr - Rf / rsafe**2 * Ftheta
+        else:  # phi torque
+            out = Fphi
+        out = xp.where(r == 0.0, 0.0, out)
+        return xp.reshape(out, shape)
+
+    def _backend_spher_2nd_derivs(self, xp, r, ctheta, stheta, phi):
+        """Backend version of _compute_spher_2nd_derivs_at_point (vectorized)."""
+        (PP, dPP, d2PP), trig, dtrig = self._backend_angular(xp, ctheta, phi, deriv=2)
+        Rlm, dRlm, d2Rlm = self._backend_radial(xp, r, mode=2)
+        mf = xp.asarray(self._backend_static_data()["mf"])
+        dP_dtheta = dPP * (-stheta)
+        d2P_dtheta2 = d2PP * stheta**2 - dPP * ctheta
+        Phi_r = xp.sum(PP * trig * dRlm, axis=0)
+        Phi_t = xp.sum(dP_dtheta * trig * Rlm, axis=0)
+        Phi_rr = xp.sum(PP * trig * d2Rlm, axis=0)
+        Phi_tt = xp.sum(d2P_dtheta2 * trig * Rlm, axis=0)
+        Phi_pp = xp.sum(-(mf**2) * PP * trig * Rlm, axis=0)
+        Phi_rt = xp.sum(dP_dtheta * trig * dRlm, axis=0)
+        Phi_rp = xp.sum(PP * dtrig * dRlm, axis=0)
+        Phi_tp = xp.sum(dP_dtheta * dtrig * Rlm, axis=0)
+        return Phi_rr, Phi_tt, Phi_pp, Phi_rt, Phi_rp, Phi_tp, Phi_r, Phi_t
+
+    def _backend_cyl_2nd_deriv(self, xp, deriv_type, R, z, phi, t):
+        """Backend-array version of the mixin's _evaluate_cyl_2nd_deriv."""
+        if not self.isNonAxi and phi is None:
+            phi = 0.0
+        Rf, zf, phif, shape = self._backend_prepare(xp, R, z, phi)
+        r = xp.sqrt(Rf * Rf + zf * zf)
+        theta = xp.arctan2(Rf, zf)
+        ctheta = xp.cos(theta)
+        stheta = xp.sin(theta)
+        if self._M > 1:
+            # mirror the numpy path's pole clamp (d2P/dx2 diverges at the
+            # poles for m > 0); guard the dead side of the where
+            polemask = xp.abs(1.0 - ctheta * ctheta) < 1e-14
+            ctclamp = xp.sign(ctheta) * (1.0 - 1e-7)
+            ctheta = xp.where(polemask, ctclamp, ctheta)
+            stheta = xp.where(polemask, xp.sqrt(1.0 - ctclamp**2), stheta)
+        (Phi_rr, Phi_tt, Phi_pp, Phi_rt, Phi_rp, Phi_tp, Phi_r, Phi_t) = (
+            self._backend_spher_2nd_derivs(xp, r, ctheta, stheta, phif)
+        )
+        rs = xp.where(r == 0.0, 1.0, r)
+        rs2 = rs * rs
+        rs3 = rs * rs2
+        rs4 = rs2 * rs2
+        if deriv_type == "R2":
+            out = (
+                Phi_rr * Rf * Rf / rs2
+                + Phi_r * zf * zf / rs3
+                + 2.0 * Phi_rt * Rf * zf / rs3
+                + Phi_tt * zf * zf / rs4
+                + Phi_t * (-2.0 * Rf * zf) / rs4
+            )
+        elif deriv_type == "z2":
+            out = (
+                Phi_rr * zf * zf / rs2
+                + Phi_r * Rf * Rf / rs3
+                - 2.0 * Phi_rt * zf * Rf / rs3
+                + Phi_tt * Rf * Rf / rs4
+                + Phi_t * 2.0 * Rf * zf / rs4
+            )
+        elif deriv_type == "Rz":
+            out = (
+                Phi_rr * Rf * zf / rs2
+                + Phi_r * (-Rf * zf) / rs3
+                + Phi_rt * (zf * zf - Rf * Rf) / rs3
+                + Phi_tt * (-zf * Rf) / rs4
+                + Phi_t * (Rf * Rf - zf * zf) / rs4
+            )
+        elif deriv_type == "phi2":
+            out = Phi_pp
+        elif deriv_type == "Rphi":
+            out = Phi_rp * Rf / rs + Phi_tp * zf / rs2
+        elif deriv_type == "phiz":
+            out = Phi_rp * zf / rs + Phi_tp * (-Rf) / rs2
+        out = xp.where(r == 0.0, 0.0, out)
+        return xp.reshape(out, shape)
+
+    def _backend_dens(self, xp, R, z, phi, t):
+        """Backend-array (jax/torch) version of _dens."""
+        data = self._backend_static_data()
+        if not self.isNonAxi and phi is None:
+            phi = 0.0
+        Rf, zf, phif, shape = self._backend_prepare(xp, R, z, phi)
+        r = xp.sqrt(Rf * Rf + zf * zf)
+        ctheta = xp.cos(xp.arctan2(Rf, zf))
+        (PP,), trig, _ = self._backend_angular(xp, ctheta, phif, deriv=0)
+        rho_breaks = xp.asarray(data["rho_breaks"])
+        rho_c = xp.asarray(data["rho_c"])
+        rmin = float(data["rho_breaks"][0])
+        rmax = float(data["rho_breaks"][-1])
+        nint = data["rho_breaks"].shape[0] - 1
+        # below rmin the numpy path clamps r to rmin; above rmax it returns 0
+        rd = xp.clip(r, rmin, rmax)
+        idx = xp.clip(xp.searchsorted(rho_breaks, rd, side="right") - 1, 0, nint - 1)
+        dr = rd - rho_breaks[idx]
+        c = rho_c[:, :, idx]
+        rho = ((c[:, 0] * dr + c[:, 1]) * dr + c[:, 2]) * dr + c[:, 3]
+        out = xp.sum(PP * trig * rho, axis=0)
+        out = xp.where(r > rmax, 0.0, out)
+        return xp.reshape(out, shape)
 
     def OmegaP(self):
         return 0
