@@ -107,6 +107,45 @@ def test_xlogy_value_parity_incl_zero(backend):
     numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_logsumexp_value_parity(backend):
+    # incl. +-800 to exercise the overflow guard (naive exp would inf/0 out)
+    a = numpy.array([[-1.2, 0.3, 800.0, -800.0], [0.5, 2.0, 799.0, 0.0]])
+    for axis in (0, 1, None):
+        ref = scipy_special.logsumexp(a, axis=axis)
+        got = _tonumpy(gsp.logsumexp(_asarray(backend, a), axis=axis))
+        rtol = 0.0 if backend == "numpy" else 1e-12
+        numpy.testing.assert_allclose(
+            got, ref, rtol=rtol, atol=1e-12, err_msg=f"logsumexp axis={axis}"
+        )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_logsumexp_grad_vs_fd(backend):
+    rest = [-0.7, 1.1]
+    x0 = 0.3
+    eps = 1e-6
+
+    def f_np(x):
+        return float(scipy_special.logsumexp(numpy.array([x] + rest)))
+
+    fd = (f_np(x0 + eps) - f_np(x0 - eps)) / (2 * eps)
+    if backend == "jax":
+        ad = float(
+            jax.grad(lambda x: gsp.logsumexp(jnp.stack([x, *map(jnp.asarray, rest)])))(
+                jnp.asarray(x0)
+            )
+        )
+    else:
+        xt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+        gsp.logsumexp(
+            torch.stack([xt, *(torch.tensor(r, dtype=torch.float64) for r in rest)])
+        ).backward()
+        ad = float(xt.grad)
+    assert not numpy.isnan(ad)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
+
+
 @pytest.mark.parametrize("name,fn,sp_fn,pts", UNARY, ids=[u[0] for u in UNARY])
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_unary_grad_vs_fd(backend, name, fn, sp_fn, pts):
