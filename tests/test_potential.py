@@ -6004,6 +6004,89 @@ def test_DiskSCFPotential_nhzNeqnsigmaError():
     return None
 
 
+def test_kuijkendubinski_t_forwarding():
+    # The KuijkenDubinski layer must forward t to the embedded expansion:
+    # previously every self._me call dropped t, so a time-dependent
+    # DiskMultipoleExpansionPotential evaluated its inner expansion at t=0
+    # (while the C orbit-integration path correctly passed t -- a silent
+    # Python-vs-C inconsistency). Check every forwarded method against the
+    # manual sum of the inner expansion at t and the (time-independent)
+    # correction terms, and check Python-vs-C orbit integration agreement.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        DiskMultipoleExpansionPotential,
+        MultipoleExpansionPotential,
+    )
+
+    rgrid = numpy.geomspace(1e-2, 20, 51)
+    dmep = DiskMultipoleExpansionPotential(
+        dens=lambda R, z: 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z)),
+        Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0},
+        hz={"type": "exp", "h": 1.0 / 27.0},
+        L=3,
+        rgrid=rgrid,
+    )
+    # Replace the static inner expansion by a time-dependent one (same pattern
+    # as the time-dependent tests in test_MultipoleExpansionPotential)
+    static_me = dmep._me
+    tdep_me = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            static_me.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(t))
+        ),
+        L=static_me._L,
+        rgrid=rgrid,
+        tgrid=numpy.linspace(0.0, 10.0, 11),
+        symmetry="axisymmetric",
+    )
+    dmep._me = tdep_me
+    R, z, phi, tt = 1.1, 0.2, 0.3, 1.7
+    # the inner expansion must genuinely vary with t for this test to bite
+    assert (
+        numpy.fabs(
+            tdep_me(R, z, phi=phi, t=0.0, use_physical=False)
+            - tdep_me(R, z, phi=phi, t=tt, use_physical=False)
+        )
+        > 1e-4
+    ), "time-dependent inner expansion does not vary with t; vacuous test"
+    # every forwarded method: composite(t) - inner(t) must equal the
+    # time-independent correction = composite(0) - inner(0)
+    pairs = [
+        (dmep._evaluate, lambda *a, **k: tdep_me(*a, **k, use_physical=False)),
+        (dmep._Rforce, lambda *a, **k: tdep_me.Rforce(*a, **k, use_physical=False)),
+        (dmep._zforce, lambda *a, **k: tdep_me.zforce(*a, **k, use_physical=False)),
+        (
+            dmep._phitorque,
+            lambda *a, **k: tdep_me.phitorque(*a, **k, use_physical=False),
+        ),
+        (dmep._R2deriv, lambda *a, **k: tdep_me.R2deriv(*a, **k, use_physical=False)),
+        (dmep._z2deriv, lambda *a, **k: tdep_me.z2deriv(*a, **k, use_physical=False)),
+        (dmep._Rzderiv, lambda *a, **k: tdep_me.Rzderiv(*a, **k, use_physical=False)),
+        (
+            dmep._phi2deriv,
+            lambda *a, **k: tdep_me.phi2deriv(*a, **k, use_physical=False),
+        ),
+        (dmep._dens, lambda *a, **k: tdep_me.dens(*a, **k, use_physical=False)),
+    ]
+    for comp, inner in pairs:
+        corr_t = comp(R, z, phi=phi, t=tt) - inner(R, z, phi=phi, t=tt)
+        corr_0 = comp(R, z, phi=phi, t=0.0) - inner(R, z, phi=phi, t=0.0)
+        assert numpy.fabs(corr_t - corr_0) < 1e-12, (
+            "KuijkenDubinski layer does not forward t to the embedded expansion "
+            f"for {comp.__name__} (correction-term mismatch {corr_t - corr_0:g})"
+        )
+    # Python-vs-C orbit integration agreement (the C path always honored t)
+    ts = numpy.linspace(0.0, 2.0, 101)
+    oc = Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
+    oc.integrate(ts, dmep, method="dop853_c")
+    op = Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
+    op.integrate(ts, dmep, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-6, (
+        "Python and C orbit integration disagree for a time-dependent "
+        "DiskMultipoleExpansionPotential (t not forwarded consistently)"
+    )
+    return None
+
+
 def test_DiskSCFPotential_againstDoubleExp():
     # Test that the DiskSCFPotential approx. of a dbl-exp disk agrees with
     # DoubleExponentialDiskPotential
