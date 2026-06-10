@@ -87,7 +87,7 @@ double FlattenedPowerPotentialPlanarR2deriv(double R,double phi,
     return amp * (1.- 2.*R*R/(R*R+core2))/(R*R+core2);
   else {
     m2= core2+R*R;
-    return - amp * pow(m2,-0.5 * alpha - 1.) * ( (alpha + 1.) * R*R/m2 -1.);
+    return - amp * pow(m2,-0.5 * alpha - 1.) * ( (alpha + 2.) * R*R/m2 -1.);
   }
 }
 double FlattenedPowerPotentialDens(double R,double Z, double phi,

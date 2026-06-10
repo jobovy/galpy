@@ -314,7 +314,7 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
                                                                             + cos_ng * (ztanhzKB * Kn *
                                                                                         (dKn_dR / Kn - dBn_dR / Bn)
                                                                                         - dBn_dR * log_sechzKB
-                                                                                        + dKn_dR / Kn / Kn
+                                                                                        + dKn_dR / Kn
                                                                                         + dDn_dR / Dn))
                                                 + (n * (sin_ng * (d2g_dR2 / Kn - dg_dR / Kn / Kn * dKn_dR)
                                                         + dg_dR * dg_dR / Kn * cos_ng * n)
@@ -755,7 +755,7 @@ double SpiralArmsPotentialPlanarR2deriv(double R, double phi, double t,
                             + cos_ng * (dKn_dR / Kn / Kn
                                         + dDn_dR / Dn / Kn))
                            - (Rs * (1 / Kn * (-dDn_dR / Dn) * (n * dg_dR * sin_ng
-                                                               + cos_ng * (dKn_dR / Kn / Kn
+                                                               + cos_ng * (dKn_dR / Kn
                                                                            + dDn_dR / Dn))
                                     + (n * (sin_ng * (d2g_dR2 / Kn - dg_dR / Kn / Kn * dKn_dR)
                                             + dg_dR * dg_dR / Kn * cos_ng * n)

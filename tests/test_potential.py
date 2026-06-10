@@ -7555,7 +7555,205 @@ def test_NumericalPotentialDerivativesMixin():
     return None
 
 
+def test_harmonic_planar_stm_vs_fd_of_flow():
+    # Ground-truth (finite-difference-of-the-flow) check of the C planar
+    # variational state-transition matrix for the spherical-harmonic family
+    # (SCFPotential, MultipoleExpansionPotential). Their C planar second
+    # derivatives feed the 2D variational equations (integrate_dxdv); a
+    # sign/factor error there is invisible to the Liouville det(M)=1 test -- a
+    # wrong-but-symmetric Hessian is still a Hamiltonian flow -- but it shifts the
+    # actual deviation vectors. FD of the flow uses only the (trusted) forces, so
+    # it is independent of any second-derivative code and pins their absolute
+    # value. This regression-guards the SCF planar 2nd-deriv sign fix. (The 3D
+    # Hessian and DiskSCF are validated in the variational-3D PR, where that C
+    # code lives.)
+    from galpy.orbit import Orbit
+    from galpy.potential import SCFPotential, scf_compute_coeffs_spherical
+
+    def _hern(R, z=0.0, phi=0.0):
+        r = numpy.sqrt(R**2 + z**2)
+        return 1.0 / (2.0 * numpy.pi) / (r * (1.0 + r) ** 3)
+
+    Acos_s, _ = scf_compute_coeffs_spherical(_hern, 6, a=1.3)
+    Nn = Acos_s.shape[0]
+    Acos = numpy.zeros((Nn, 3, 3))
+    Asin = numpy.zeros((Nn, 3, 3))
+    Acos[:, 0, 0] = Acos_s[:, 0, 0]
+    Acos[0, 2, 2] = 0.05 * Acos_s[0, 0, 0]  # l=2,m=2 -> non-axisymmetric
+    Asin[0, 2, 2] = 0.03 * Acos_s[0, 0, 0]
+    scf_axi = SCFPotential(Acos=Acos_s, a=1.3, normalize=True)
+    scf_nonaxi = SCFPotential(Acos=Acos, Asin=Asin, a=1.3, normalize=True)
+    mp_axi = mockMultipoleExpansionAxiPotential()
+    mp_axi.normalize(1.0)
+    mp_nonaxi = mockMultipoleExpansionPotential()
+    mp_nonaxi.normalize(1.0)
+    # (label, planar potential, tolerance): SCF and the axisymmetric Multipole
+    # are analytic/near-exact (~1e-6); the non-axisymmetric Multipole is
+    # grid-spline interpolated, so it agrees only to grid accuracy (~1e-4) -- far
+    # tighter than the O(1) shift a sign/factor error would produce.
+    pots = [
+        ("SCF (axi)", scf_axi.toPlanar(), 1e-5),
+        ("SCF (non-axi)", scf_nonaxi.toPlanar(), 1e-5),
+        ("Multipole (axi)", mp_axi.toPlanar(), 1e-5),
+        ("Multipole (non-axi)", mp_nonaxi.toPlanar(), 5e-4),
+    ]
+    times = numpy.linspace(0.0, 2.0, 101)
+    R0, vR0, vT0, phi0 = 1.0, 0.1, 1.1, 0.3
+
+    def cyl2rect(R, vR, vT, phi):
+        c, s = numpy.cos(phi), numpy.sin(phi)
+        return numpy.array([R * c, R * s, vR * c - vT * s, vR * s + vT * c])
+
+    def rect2cyl(x, y, vx, vy):
+        R = numpy.hypot(x, y)
+        c, s = x / R, y / R
+        return [R, vx * c + vy * s, -vx * s + vy * c, numpy.arctan2(y, x)]
+
+    eps = 1e-6
+    for name, ptp, tol in pots:
+
+        def flow(rect0):
+            o = Orbit(rect2cyl(*rect0))
+            o.integrate(times, ptp, method="dop853_c")
+            of = o.getOrbit()[-1]
+            return cyl2rect(of[0], of[1], of[2], of[3])
+
+        rect0 = cyl2rect(R0, vR0, vT0, phi0)
+        base = flow(rect0)
+        for ii in range(4):
+            pert = numpy.zeros(4)
+            pert[ii] = eps
+            fd = (flow(rect0 + pert) - base) / eps
+            o = Orbit([R0, vR0, vT0, phi0])
+            dxdv = numpy.zeros(4)
+            dxdv[ii] = 1.0
+            o.integrate_dxdv(
+                dxdv, times, ptp, method="dop853_c", rectIn=True, rectOut=True
+            )
+            stm = o.getOrbit_dxdv()[-1, :]
+            assert numpy.all(numpy.fabs(stm - fd) < tol), (
+                f"{name} C planar STM column {ii} disagrees with "
+                f"finite-difference-of-the-flow by {numpy.amax(numpy.fabs(stm - fd)):g}"
+            )
+    return None
+
+
 # Test that we don't get the "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated" numpy warning for the SCF potential; issue #347
+def test_scf_analytic_2ndderiv():
+    # SCFPotential's second derivatives are now analytic (via the
+    # spherical-harmonic Hessian + SphericalHarmonicPotentialMixin chain rule),
+    # not the NumericalPotentialDerivativesMixin finite differences. They must
+    # match a finite-difference of the (analytic) forces to ~analytic precision,
+    # for an axisymmetric and a genuinely non-axisymmetric SCF instance.
+    from galpy.potential import (
+        NumericalPotentialDerivativesMixin,
+        SCFPotential,
+        scf_compute_coeffs_spherical,
+    )
+
+    assert not isinstance(
+        SCFPotential(Acos=numpy.ones((2, 1, 1))), NumericalPotentialDerivativesMixin
+    ), "SCFPotential should no longer use NumericalPotentialDerivativesMixin"
+
+    def _hern(R, z=0.0, phi=0.0):
+        r = numpy.sqrt(R**2 + z**2)
+        return 1.0 / (2.0 * numpy.pi) / (r * (1.0 + r) ** 3)
+
+    Acos_s, _ = scf_compute_coeffs_spherical(_hern, 6, a=1.3)
+    Nn = Acos_s.shape[0]
+    Acos = numpy.zeros((Nn, 3, 3))
+    Asin = numpy.zeros((Nn, 3, 3))
+    Acos[:, 0, 0] = Acos_s[:, 0, 0]
+    Acos[0, 2, 2] = 0.05 * Acos_s[0, 0, 0]  # l=2,m=2 -> non-axisymmetric
+    Asin[0, 2, 2] = 0.03 * Acos_s[0, 0, 0]
+    pots = [
+        SCFPotential(Acos=Acos_s, a=1.3, normalize=True),  # axisymmetric
+        SCFPotential(Acos=Acos, Asin=Asin, a=1.3, normalize=True),  # non-axi
+    ]
+    h = 1e-6
+    for p in pots:
+        for R, z, phi in [(1.0, 0.3, 0.4), (2.0, 0.1, 1.1), (0.7, -0.5, 2.5)]:
+            kw = dict(use_physical=False)
+            checks = {
+                "R2": (
+                    p.R2deriv(R, z, phi=phi, **kw),
+                    -(
+                        p.Rforce(R + h, z, phi=phi, **kw)
+                        - p.Rforce(R - h, z, phi=phi, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "z2": (
+                    p.z2deriv(R, z, phi=phi, **kw),
+                    -(
+                        p.zforce(R, z + h, phi=phi, **kw)
+                        - p.zforce(R, z - h, phi=phi, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "Rz": (
+                    p.Rzderiv(R, z, phi=phi, **kw),
+                    -(
+                        p.Rforce(R, z + h, phi=phi, **kw)
+                        - p.Rforce(R, z - h, phi=phi, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "phi2": (
+                    p.phi2deriv(R, z, phi=phi, **kw),
+                    -(
+                        p.phitorque(R, z, phi=phi + h, **kw)
+                        - p.phitorque(R, z, phi=phi - h, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "Rphi": (
+                    p.Rphideriv(R, z, phi=phi, **kw),
+                    -(
+                        p.Rforce(R, z, phi=phi + h, **kw)
+                        - p.Rforce(R, z, phi=phi - h, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "phiz": (
+                    p.phizderiv(R, z, phi=phi, **kw),
+                    -(
+                        p.zforce(R, z, phi=phi + h, **kw)
+                        - p.zforce(R, z, phi=phi - h, **kw)
+                    )
+                    / (2 * h),
+                ),
+            }
+            for name, (ana, fd) in checks.items():
+                assert numpy.fabs(ana - fd) < 1e-6, (
+                    f"SCF analytic {name}deriv differs from FD by {numpy.fabs(ana - fd):g}"
+                )
+    # Degenerate-point branches: at r=0 the radial basis' 2nd derivative and the
+    # full spherical 2nd-derivative set are defined to be zero, and a
+    # non-axisymmetric (m>0) expansion evaluated on the z-axis must nudge off the
+    # pole so the angular derivatives stay finite.
+    axi, nonaxi = pots
+    N, L, _ = axi._Acos.shape
+    assert numpy.all(axi._d2phiTilde(0.0, N, L) == 0.0), (
+        "SCF _d2phiTilde should vanish at r=0"
+    )
+    assert axi._compute_spher_2nd_derivs_at_point(0.0, 0.0, 0.0) == (
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ), "SCF spherical 2nd derivs should vanish at the origin"
+    onaxis = nonaxi._compute_spher_2nd_derivs_at_point(0.0, 0.5, 0.3)
+    assert numpy.all(numpy.isfinite(onaxis)), (
+        "non-axi SCF 2nd derivs should stay finite on the z-axis (pole nudge)"
+    )
+    return None
+
+
 def test_scf_tupleindexwarning():
     import warnings
 
