@@ -75,6 +75,7 @@ class baseCompositePotential:
         self.isDissipative = _isDissipative(self._potlist)
         self.hasC = _check_c(self._potlist)
         self.hasC_dxdv = _check_c(self._potlist, dxdv=True)
+        self.hasC_dxdv3d = _check_c(self._potlist, dxdv3d=True)
         self.hasC_dens = _check_c(self._potlist, dens=True)
 
     def __iter__(self):
