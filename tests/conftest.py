@@ -268,6 +268,37 @@ def pytest_generate_tests(metafunc):
                 "DehnenBarPotential",
                 "nonaxisymmetric",
             ),
+            # Rotating softened-needle bar (Long & Murali 1992): closed-form
+            # Cartesian Hessian in the bar-aligned frame rotated to cylindrical
+            # coordinates. b!=0 exercises the triaxial-softening branch; the
+            # pattern rotation (omegab!=0) makes it explicitly time-dependent
+            # (flow-direction identity auto-skipped), with the full
+            # cos/sin(phi - pa - omegab t) angular dependence exercised.
+            # omegab=0.9 (not the class default 1.8) keeps the registry IC away
+            # from a bar resonance: at omegab=1.8 the orbit is sensitive enough
+            # that the default-tolerance odeint FD-of-flow reference orbits
+            # accumulate ~1e-3 of integration noise (an integrator-accuracy
+            # effect, not a Hessian error: tightening odeint's tolerances or
+            # using any C integrator gives ~2e-6; the faster-rotating bar is
+            # covered by the dedicated planar dxdv tests in test_orbit.py).
+            (
+                potential.SoftenedNeedleBarPotential(
+                    a=4.0, b=0.5, c=1.0, pa=0.4, omegab=0.9, normalize=True
+                ),
+                "SoftenedNeedleBarPotential",
+                "nonaxisymmetric",
+            ),
+            # Static (omegab=0) prolate (b=0) needle bar: autonomous, so the
+            # flow-direction identity (check 3) -- the strongest free check of
+            # the Hessian -- runs; the shorter bar (a=1.5) puts the registry IC
+            # near the bar end where the Hessian structure is richest.
+            (
+                potential.SoftenedNeedleBarPotential(
+                    a=1.5, b=0.0, c=0.5, pa=0.4, omegab=0.0, normalize=True
+                ),
+                "SoftenedNeedleBarPotential_static",
+                "nonaxisymmetric",
+            ),
             # ---- WrapperPotentials (Pvar-pot.6): the wrapper's full 3D C Hessian
             # is modulation x calc<deriv>(wrapped), so it is complete iff the
             # wrapped potential's 3D Hessian is in C (hasC_dxdv3d). Each wraps a
