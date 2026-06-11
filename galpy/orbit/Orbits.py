@@ -2317,11 +2317,12 @@ class Orbit:
         - For 3D (6D) orbits, dissipative (velocity-dependent) forces are
           supported by the C-based methods for forces with a C implementation
           of the velocity-dependent force Jacobian (dF/dx, dF/dv), advertised
-          by ``hasC_dxdv3d=True``. Note that the resulting phase-space-volume
-          evolution is non-conservative:
-          det M(t) = exp(int tr(dF/dv) dt') < 1 for friction. The pure-Python
-          methods ('odeint', 'dop853') raise a ``NotImplementedError`` for
-          dissipative forces.
+          by ``hasC_dxdv3d=True``. The phase-space-volume evolution follows
+          det M(t) = exp(int tr(dF/dv) dt'): < 1 for friction, but exactly 1
+          for non-inertial frames (``NonInertialFrameForce``'s
+          dF/dv = -2 [Omega]_x is antisymmetric, so a rotating frame
+          preserves phase-space volume). The pure-Python methods ('odeint',
+          'dop853') raise a ``NotImplementedError`` for dissipative forces.
 
         - 2011-10-17 - Written - Bovy (IAS)
         - 2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
