@@ -821,6 +821,16 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &OblateStaeckelWrapperPotentialRforce;
       potentialArgs->zforce= &OblateStaeckelWrapperPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv):
+      // chain rule of Phi(u,v) = (U(u)-V(v))/(sinh^2 u + sin^2 v) through the
+      // prolate spheroidal (R,z) -> (u,v) transform, with U''/V'' built from
+      // the wrapped potential's forces and second derivatives along the
+      // reference curves. Axisymmetric by construction:
+      // phi2deriv/Rphideriv/zphideriv are 0 -> left NULL (the NULL-safe
+      // aggregators return 0 for them).
+      potentialArgs->R2deriv= &OblateStaeckelWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &OblateStaeckelWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &OblateStaeckelWrapperPotentialRzderiv;
       potentialArgs->nargs= (int) 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -947,6 +957,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &CylindricallySeparablePotentialWrapperPotentialRforce;
       potentialArgs->zforce= &CylindricallySeparablePotentialWrapperPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv):
+      // separability Phi(R,z) = Phi_w(R,0) + Phi_w(Rp,z) - Phi_w(Rp,0) means
+      // R2deriv/z2deriv are the wrapped potential's own second derivatives
+      // along the two reference curves, while Rzderiv = 0 identically ->
+      // left NULL, as are the (axisymmetric) phi-derivatives (the NULL-safe
+      // aggregators return 0 for them).
+      potentialArgs->R2deriv= &CylindricallySeparablePotentialWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &CylindricallySeparablePotentialWrapperPotentialz2deriv;
       potentialArgs->nargs= (int) 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
