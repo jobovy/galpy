@@ -1032,6 +1032,10 @@ double FDMDynamicalFrictionForcephitorque(double,double,double,double,
 double FDMDynamicalFrictionForcezforce(double,double,double,double,
 						 struct potentialArg *,
 						 double,double,double);
+// Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+// variational equations
+void FDMDynamicalFrictionForceRectDissipativeForceJacobian(
+    double,double *,double *,double *,struct potentialArg *);
 //TimeDependentAmplitudeWrapperPotential
 double TimeDependentAmplitudeWrapperPotentialEval(double,double,double,double,
 				      struct potentialArg *);
