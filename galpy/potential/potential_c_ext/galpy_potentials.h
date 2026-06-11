@@ -864,6 +864,10 @@ double NonInertialFrameForcePlanarphitorque(double,double,double,
 double NonInertialFrameForcezforce(double,double,double,double,
 						 		   struct potentialArg *,
 						 		   double,double,double);
+// Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+// variational equations
+void NonInertialFrameForceRectDissipativeForceJacobian(
+    double,double *,double *,double *,struct potentialArg *);
 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential
