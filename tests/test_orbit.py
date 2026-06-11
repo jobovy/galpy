@@ -1799,6 +1799,399 @@ def test_chandrasekhar_dxdv_fd_of_flow_branches(config):
     return None
 
 
+def _fdm_c_regime(fdf, q):
+    """Classify which branch of the C FDM friction coefficient
+    (FDMDynamicalFrictionForce.c) the force is on at the rectangular
+    phase-space point q, replicating the C regime logic in Python:
+    kr_C = 2 mhbar v r vs the Mach number M_sigma = v/sigma_r(r) (with the
+    same clamped sigma_r spline as C) selects the zero-velocity
+    (kr_C < M_sigma) / dispersion (kr_C > 4 M_sigma) / intermediate FDM
+    regime, and the classical cutoff applies when Cfdm/Ccdm >= 1; a constant
+    FDM factor short-circuits everything."""
+    import scipy.special as sp
+
+    if fdf._const_FDMfactor:
+        return "const"
+    r = numpy.sqrt(q[0] ** 2 + q[1] ** 2 + q[2] ** 2)
+    v = numpy.sqrt(q[3] ** 2 + q[4] ** 2 + q[5] ** 2)
+    krC = 2.0 * fdf._mhbar * v * r
+    rcl = numpy.clip(r, fdf._sigmar_rs_4interp[0], fdf._sigmar_rs_4interp[-1])
+    sr = fdf.sigmar(rcl)
+    M = v / sr
+    X = v / numpy.sqrt(2.0) / sr
+    Xf = sp.erf(X) - 2.0 * X / numpy.sqrt(numpy.pi) * numpy.exp(-(X**2))
+    if krC < M:
+        Cfdm = (
+            numpy.euler_gamma
+            + numpy.log(krC)
+            - sp.sici(krC)[1]
+            + numpy.sin(krC) / krC
+            - 1.0
+        )
+        regime = "zerovel"
+    elif krC > 4.0 * M:
+        Cfdm = numpy.log(krC / M) * Xf
+        regime = "dispersion"
+    else:
+        Czv = numpy.euler_gamma + numpy.log(M) - sp.sici(M)[1] + numpy.sin(M) / M - 1.0
+        mu = (2.0 * M - 0.5 * krC) / (1.5 * M)
+        Cfdm = mu * Czv + (1.0 - mu) * numpy.log(4.0) * Xf
+        regime = "intermediate"
+    if Cfdm / (fdf.lnLambda(r, v) * Xf) >= 1.0:
+        regime += "+cdmcutoff"
+    return regime
+
+
+def _fdm_dxdv_setup(nt=501):
+    """Shared setup for the FDM dissipative orbit-level variational tests: a
+    decaying orbit (r: ~1.0 -> ~0.80 over t=0..5) in MWPotential2014 + FDM
+    friction with rhm=0 and mhbar=10, i.e. along the entire orbit the force
+    is in the FDM dispersion regime (kr_C/M_sigma ~ 10-16 > 4) with the
+    quantum-pressure suppression active (Cfdm/Ccdm ~ 0.5-0.65 < 1), so the
+    FDM-specific branch of the C Jacobian -- not the classical cutoff -- is
+    what these tests exercise (asserted in the tests)."""
+    from galpy.potential import (
+        FDMDynamicalFrictionForce,
+        MWPotential2014,
+    )
+
+    fdf = FDMDynamicalFrictionForce(GMs=0.012, rhm=0.0, dens=MWPotential2014, maxr=10.0)
+    fdf._mhbar = 10.0  # the exact quantity the C parser ships (p._mhbar)
+    pot = MWPotential2014 + fdf
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, nt)
+    return fdf, pot, ic, times
+
+
+def _assert_fdm_suppression_active(fdf, rect_orbit):
+    """Assert that the FDM force is on the FDM dispersion branch (not the
+    classical cutoff, not another regime) all along the orbit, so the
+    orbit-level tests genuinely exercise the FDM-specific Jacobian."""
+    regimes = {_fdm_c_regime(fdf, rect_orbit[kk]) for kk in range(len(rect_orbit))}
+    assert regimes == {"dispersion"}, (
+        f"FDM test orbit wanders off the FDM dispersion branch (regimes "
+        f"found: {regimes}); the FDM orbit-level variational tests would "
+        "not exercise the FDM-specific Jacobian"
+    )
+
+
+def test_fdm_dxdv_fd_of_flow():
+    # FD-of-the-flow STM test for the dissipative 3D variational equations
+    # with FDMDynamicalFrictionForce (mirroring the Chandrasekhar test above):
+    # every column i of the C-integrated deviation (seeded with the canonical
+    # e_i) must match (x(t; x0+eps e_i) - x(t; x0))/eps built from plain orbit
+    # integrations, which use only the separately-validated forces, for a
+    # decaying orbit in MWPotential2014 + FDM friction on the FDM dispersion
+    # branch (suppression active along the entire orbit).
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    fdf, pot, ic, times = _fdm_dxdv_setup()
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    # friction must be doing real work: the orbit decays
+    rstart = numpy.sqrt(numpy.sum(base_rect[0, :3] ** 2))
+    rend = numpy.sqrt(numpy.sum(base_rect[-1, :3] ** 2))
+    assert rend < 0.85 * rstart, (
+        f"FDM test orbit does not decay (r: {rstart:g} -> {rend:g}); "
+        "the dissipative variational test would be vacuous"
+    )
+    # ... and the FDM suppression must be active (not the classical cutoff)
+    _assert_fdm_suppression_active(fdf, base_rect)
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"Dissipative 3D FD-of-flow for e_{ii} differs from the dxdv "
+            f"column by {fderr:g} (MWPotential2014 + FDM friction)"
+        )
+    return None
+
+
+def test_fdm_dxdv_phase_volume_law():
+    # Quantitative non-conservative test for FDMDynamicalFrictionForce
+    # (mirroring the Chandrasekhar test above): Abel/Jacobi-Liouville gives
+    #   det M(t) = exp( int_0^t tr(dF/dv) dt' )
+    # with tr(dF/dv) computed by central finite differences of the
+    # pure-Python FDM force along the orbit (trapezoidal rule on the fine
+    # output grid) -- a code path independent of the C variational machinery
+    # that produced the STM. The FDM suppression weakens the friction
+    # relative to pure Chandrasekhar, but the phase volume still
+    # contracts: det M < 1.
+    from galpy.orbit import Orbit
+
+    # the fine grid keeps the trapezoidal error of the trace integral (the
+    # quadrature is the limiting factor, O(h^2)) below the 1e-5 tolerance
+    fdf, pot, ic, times = _fdm_dxdv_setup(nt=1001)
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    # the FDM suppression must be active (not the classical cutoff), so the
+    # FDM-specific branch of the Jacobian is what this test exercises
+    _assert_fdm_suppression_active(fdf, base_rect)
+    canonical = numpy.eye(6)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv())
+    Mt = numpy.array(Mcols).transpose(1, 2, 0)  # (nt,6,6), columns = e_i images
+    detM = numpy.array([numpy.linalg.det(Mt[kk]) for kk in range(len(times))])
+    # tr(dF/dv) along the orbit by central FD of the PYTHON forces (the
+    # friction is the only dissipative component; conservative forces do not
+    # depend on v and contribute exactly 0)
+    trJv = _python_fd_trace_dFdv(fdf, base_rect, times)
+    integral = numpy.concatenate(
+        ([0.0], numpy.cumsum(0.5 * (trJv[1:] + trJv[:-1]) * numpy.diff(times)))
+    )
+    pred = numpy.exp(integral)
+    relerr = numpy.amax(numpy.fabs(detM - pred) / pred)
+    assert relerr < 1e-5, (
+        f"Dissipative phase-volume law det M(t) = exp(int tr(dF/dv) dt') "
+        f"violated at relative level {relerr:g} (FDM friction)"
+    )
+    # friction contracts phase volume: det M decays below 1
+    assert detM[-1] < 1.0, f"det M(t_end)={detM[-1]:g} should be < 1 with friction"
+    assert detM[-1] < 0.9, (
+        f"det M(t_end)={detM[-1]:g}: phase-space contraction too weak for the "
+        "phase-volume-law test to be meaningful"
+    )
+    return None
+
+
+# The C rectangular FDM friction Jacobian
+# (FDMDynamicalFrictionForce.c::...RectDissipativeForceJacobian) mirrors the
+# branch structure of the force it differentiates: on top of the branches
+# shared with Chandrasekhar friction (constant lnLambda; the rhm-based
+# Coulomb-log branch GMs/v^2 < rhm; the r < minr zero gate; the clamped
+# sigma_r spline outside the interpolation grid), the effective friction
+# coefficient itself has the three FDM kr-regimes (zero-velocity kr < Msig /
+# dispersion kr > 4 Msig / intermediate mu-interpolation in between, with
+# kr = 2 mhbar v r and Msig = v/sigma_r), the classical Chandrasekhar cutoff
+# when Cfdm/Ccdm >= 1, and the constant-FDM-factor short-circuit. The main
+# FD-of-flow test above runs the dispersion regime with the suppression
+# active (GMvs-based Coulomb log, inside the sigma grid); the configurations
+# here select each of the other branches through the regular constructor
+# options (+ the _mhbar boson-mass quantity the C parser ships, to place
+# kr/Msig in the desired regime) and validate with the same
+# finite-difference-of-the-flow check (ground truth built from plain orbit
+# integrations, which use only the separately-validated forces), each with a
+# non-vacuity guard -- via the _fdm_c_regime classifier, an independent
+# Python replication of the C regime logic -- that the intended branch is
+# genuinely the one the C code is on along the orbit.
+@pytest.mark.parametrize(
+    "config",
+    [
+        "minr_gate",
+        "sigma_clamp",
+        "rhm_coulomb_log_cdm_cutoff",
+        "const_lnLambda_cdm_cutoff",
+        "zerovel",
+        "intermediate",
+        "const_FDMfactor",
+    ],
+)
+def test_fdm_dxdv_fd_of_flow_branches(config):
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        FDMDynamicalFrictionForce,
+        MWPotential2014,
+        evaluateRforces,
+    )
+    from galpy.util import coords
+
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 3.0, 301)
+    if config == "minr_gate":
+        # minr above the whole orbit: the force and its Jacobian are
+        # identically zero along the orbit (the r < minr gate supplies the
+        # matching zero Jacobian at every step; see the Chandrasekhar
+        # minr_gate configuration above for why an orbit CROSSING minr is
+        # deliberately not tested: the C^0 force jump there makes FD-of-flow
+        # ill-posed)
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.05, rhm=0.0, minr=1.5, dens=MWPotential2014, maxr=10.0
+        )
+    elif config == "sigma_clamp":
+        # sigmar interpolation grid ends at maxr=0.5 < r along the whole
+        # orbit: the C force clamps the spline argument (constant sigma_r
+        # beyond the grid) and the Jacobian consistently uses sigma_r' = 0;
+        # mhbar=10 keeps the coefficient on the FDM dispersion branch with
+        # the suppression active (as in the main FDM test)
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.012, rhm=0.0, dens=MWPotential2014, maxr=0.5
+        )
+        fdf._mhbar = 10.0
+    elif config == "rhm_coulomb_log_cdm_cutoff":
+        # GMs/v^2 < rhm along the whole orbit -> the rhm-based Coulomb
+        # logarithm lnLambda = 0.5 ln(1+r^2/(gamma^2 rhm^2)) (r-dependent,
+        # v-independent), and mhbar=100 pushes kr/Msig ~ 130-155 so that
+        # Cfdm = ln(kr/Msig) Xf > Ccdm = lnLambda Xf: the classical-cutoff
+        # branch Ceff = Ccdm of the Jacobian, which consumes the rhm-based
+        # dlnLambda/dr
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.02, rhm=0.2, dens=MWPotential2014, maxr=10.0
+        )
+        fdf._mhbar = 100.0
+    elif config == "const_lnLambda_cdm_cutoff":
+        # constant Coulomb logarithm (dlnLambda/dx = dlnLambda/dv = 0 branch)
+        # with mhbar=100 -> Cfdm = ln(kr/Msig) Xf ~ 4.9 Xf > Ccdm = 2 Xf: the
+        # classical cutoff is active and consumes the zero lnLambda derivatives
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.02, rhm=0.0, const_lnLambda=2.0, dens=MWPotential2014, maxr=10.0
+        )
+        fdf._mhbar = 100.0
+    elif config == "zerovel":
+        # mhbar=0.6 places kr/Msig = 2 mhbar r sigma_r in [0.78,0.94] < 1
+        # along the whole orbit: the zero-velocity (Cin-series) regime of the
+        # FDM coefficient, with the suppression active (Cfdm ~ 0.15 << Ccdm)
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.08, rhm=0.0, dens=MWPotential2014, maxr=10.0
+        )
+        fdf._mhbar = 0.6
+    elif config == "intermediate":
+        # mhbar=2 places kr/Msig in [2.6,3.1], inside (1,4) along the whole
+        # orbit: the mu-interpolated intermediate regime between the
+        # zero-velocity and dispersion coefficients
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.05, rhm=0.0, dens=MWPotential2014, maxr=10.0
+        )
+        fdf._mhbar = 2.0
+    elif config == "const_FDMfactor":
+        # constant FDM factor: the force always applies it and the Jacobian
+        # short-circuits to Ceff = const, dCeff/dr = dCeff/dv = 0
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.02, rhm=0.0, const_FDMfactor=0.5, dens=MWPotential2014, maxr=10.0
+        )
+    pot = MWPotential2014 + fdf
+    obase = Orbit(ic)
+    if config == "minr_gate":
+        # galpy itself flags the r < minr regime (non-vacuity: the gate is on)
+        with pytest.warns(galpyWarning, match="r < minr"):
+            obase.integrate(times, pot, method="dopr54_c")
+    else:
+        obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    r = numpy.sqrt(numpy.sum(base_rect[:, :3] ** 2, axis=1))
+    v = numpy.sqrt(numpy.sum(base_rect[:, 3:] ** 2, axis=1))
+    # Non-vacuity guards: the intended branch is genuinely the one the C code
+    # is on along the orbit (via the PYTHON-side _fdm_c_regime replication of
+    # the C regime logic and constructor attributes, independent of the C code)
+    regimes = {_fdm_c_regime(fdf, base_rect[kk]) for kk in range(len(base_rect))}
+    if config == "minr_gate":
+        assert numpy.all(r < fdf._minr), (
+            f"test orbit (max r {numpy.amax(r):g}) is not entirely inside "
+            f"minr={fdf._minr:g}; the r < minr zero gate would not be exercised"
+        )
+        # ... but the friction configuration is not trivial: outside minr the
+        # force is nonzero
+        assert (
+            numpy.fabs(evaluateRforces(fdf, 2.0, 0.0, phi=0.0, v=[0.1, 1.0, 0.1])) > 0.0
+        )
+    elif config == "sigma_clamp":
+        assert numpy.all(r > fdf._maxr), (
+            f"test orbit (min r {numpy.amin(r):g}) does not stay beyond the "
+            f"sigmar interpolation grid (maxr={fdf._maxr:g}); the spline-clamp "
+            "branch would not be exercised"
+        )
+        assert regimes == {"dispersion"}, (
+            f"sigma-clamp test orbit wanders off the FDM dispersion branch "
+            f"(regimes found: {regimes})"
+        )
+    elif config == "rhm_coulomb_log_cdm_cutoff":
+        assert not fdf._lnLambda  # variable Coulomb logarithm
+        GMvs = fdf._ms / v**2.0
+        assert numpy.all(GMvs < fdf._rhm), (
+            f"GMs/v^2 (max {numpy.amax(GMvs):g}) does not stay below rhm="
+            f"{fdf._rhm:g} along the orbit; the rhm-based Coulomb-log branch "
+            "would not be selected"
+        )
+        assert regimes == {"dispersion+cdmcutoff"}, (
+            f"rhm/cutoff test orbit is not on the classical-cutoff branch "
+            f"along the whole orbit (regimes found: {regimes})"
+        )
+    elif config == "const_lnLambda_cdm_cutoff":
+        assert fdf._lnLambda == 2.0  # the constant-lnLambda branch is selected
+        assert regimes == {"dispersion+cdmcutoff"}, (
+            f"const-lnLambda/cutoff test orbit is not on the classical-cutoff "
+            f"branch along the whole orbit (regimes found: {regimes})"
+        )
+    elif config == "zerovel":
+        assert regimes == {"zerovel"}, (
+            f"zero-velocity test orbit wanders off the FDM zero-velocity "
+            f"branch (regimes found: {regimes})"
+        )
+    elif config == "intermediate":
+        assert regimes == {"intermediate"}, (
+            f"intermediate-regime test orbit wanders off the FDM intermediate "
+            f"branch (regimes found: {regimes})"
+        )
+    elif config == "const_FDMfactor":
+        assert fdf._const_FDMfactor == 0.5  # the constant-factor short-circuit
+        assert regimes == {"const"}
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"Dissipative 3D FD-of-flow for e_{ii} differs from the dxdv "
+            f"column by {fderr:g} (MWPotential2014 + FDM friction, "
+            f"{config} configuration)"
+        )
+    return None
+
+
 def test_dissipative_dxdv_python_raises():
     # The pure-Python 3D variational RHS (_EOM_dxdv) only implements the
     # conservative system, so integrate_dxdv with a dissipative force must
@@ -1815,17 +2208,16 @@ def test_dissipative_dxdv_python_raises():
     from galpy.potential.DissipativeForce import DissipativeForce
 
     cdf, pot, ic, times = _chandrasekhar_dxdv_setup()
-    # default flags: the base DissipativeForce does not have the C Jacobian,
-    # the wired ChandrasekharDynamicalFrictionForce does (incl. through a
-    # CompositePotential, which aggregates hasC_dxdv3d); FDM subclasses
-    # Chandrasekhar but its modified amplitude's Jacobian is NOT wired in C,
-    # so it must NOT inherit the flag
+    # default flags: the base DissipativeForce does not have the C Jacobian;
+    # the wired ChandrasekharDynamicalFrictionForce and
+    # FDMDynamicalFrictionForce do (incl. through a CompositePotential, which
+    # aggregates hasC_dxdv3d)
     from galpy.potential import FDMDynamicalFrictionForce
 
     assert not DissipativeForce(amp=1.0).hasC_dxdv3d
     assert cdf.hasC_dxdv3d
     assert pot.hasC_dxdv3d  # CompositePotential aggregation
-    assert not FDMDynamicalFrictionForce(GMs=0.01).hasC_dxdv3d
+    assert FDMDynamicalFrictionForce(GMs=0.01).hasC_dxdv3d
     times = times[:3]
     for method in ["odeint", "dop853"]:
         o = Orbit(ic)

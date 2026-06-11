@@ -10,9 +10,11 @@ v1.12.0 (expected around 2026-07-01)
 
 - Extended the 3D variational equations of ``Orbit.integrate_dxdv`` in C to
   velocity-dependent (dissipative) forces, starting with
-  ``ChandrasekharDynamicalFrictionForce`` (analytic Jacobian; advertised via
-  ``hasC_dxdv3d``). The pure-Python ``integrate_dxdv`` methods raise a
-  ``NotImplementedError`` for dissipative forces.
+  ``ChandrasekharDynamicalFrictionForce`` and ``FDMDynamicalFrictionForce``
+  (analytic Jacobians; advertised via ``hasC_dxdv3d``). The pure-Python
+  ``integrate_dxdv`` methods raise a ``NotImplementedError`` for dissipative
+  forces.
+>>>>>>> 0e732bc4 (Dissipative 3D variational equations in C: FDM dynamical friction Jacobian)
 
 - Added a ``cinterp`` option (default ``True``, resolution set by ``cinterp_n``)
   to ``NonInertialFrameForce`` that, during C orbit integration, replaces the
