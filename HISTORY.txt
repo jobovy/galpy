@@ -8,6 +8,12 @@ v1.12.0 (expected around 2026-07-01)
   using the C variational integrators when available, and returns the running
   estimate lambda(t) at all output times so that convergence can be assessed.
 
+- Extended the 3D variational equations of ``Orbit.integrate_dxdv`` in C to
+  velocity-dependent (dissipative) forces, starting with
+  ``ChandrasekharDynamicalFrictionForce`` (analytic Jacobian; advertised via
+  ``hasC_dxdv3d``). The pure-Python ``integrate_dxdv`` methods raise a
+  ``NotImplementedError`` for dissipative forces.
+
 - Added a ``cinterp`` option (default ``True``, resolution set by ``cinterp_n``)
   to ``NonInertialFrameForce`` that, during C orbit integration, replaces the
   time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline

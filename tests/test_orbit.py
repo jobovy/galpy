@@ -1473,6 +1473,422 @@ def test_disk_composite_dxdv_3d():
     return None
 
 
+############ 3D variational equations with DISSIPATIVE forces ################
+# For a velocity-dependent force the variational Jacobian is the general
+# J = [[0,I],[K + dF/dx, dF/dv]]: the dissipative position block is NOT the
+# symmetric -grad grad Phi and there is a nonzero velocity block. The flow is
+# non-conservative -- det M(t) = exp(int tr(dF/dv) dt') != 1 and symplecticity
+# fails BY CONSTRUCTION -- so dissipative forces are deliberately NOT in the
+# conftest liouville3d_registry (det(M)=1/symplecticity battery; verified by
+# test_dissipative_excluded_from_liouville3d_registry below) and are instead
+# validated at the orbit level only (galpy's convention: C code is tested
+# through regular galpy orbit usage) by (a) the finite-difference-of-the-flow
+# STM test (uses only the trusted forces) and (b) the quantitative
+# phase-volume law det M(t) = exp(int tr(dF/dv) dt'), with the trace computed
+# by central finite differences of the pure-Python forces -- an independent
+# code path from the C-integrated STM it is compared against.
+
+
+def _python_fd_trace_dFdv(dissip, base_rect, times, h=1e-6):
+    """tr(dF/dv) of the dissipative force along the orbit, by central finite
+    differences of the PYTHON force evaluators (evaluateRforces /
+    evaluatephitorques / evaluatezforces with v=..., converted to Cartesian):
+    a code path fully independent of the C variational machinery whose STM
+    the phase-volume-law tests validate. Conservative forces do not depend on
+    v, so only the dissipative force needs to be differentiated."""
+    from galpy.potential import (
+        evaluatephitorques,
+        evaluateRforces,
+        evaluatezforces,
+    )
+
+    def cart_force(q, t):
+        x, y, z, vx, vy, vz = q
+        R = numpy.sqrt(x**2 + y**2)
+        cosphi, sinphi = x / R, y / R
+        phi = numpy.arctan2(y, x)
+        vR = vx * cosphi + vy * sinphi
+        vT = -vx * sinphi + vy * cosphi
+        FR = evaluateRforces(dissip, R, z, phi=phi, t=t, v=[vR, vT, vz])
+        Fp = evaluatephitorques(dissip, R, z, phi=phi, t=t, v=[vR, vT, vz])
+        Fz = evaluatezforces(dissip, R, z, phi=phi, t=t, v=[vR, vT, vz])
+        return numpy.array(
+            [cosphi * FR - sinphi / R * Fp, sinphi * FR + cosphi / R * Fp, Fz]
+        )
+
+    tr = numpy.empty(len(times))
+    for kk in range(len(times)):
+        s = 0.0
+        for ii in range(3):
+            qp = base_rect[kk].copy()
+            qp[3 + ii] += h
+            qm = base_rect[kk].copy()
+            qm[3 + ii] -= h
+            s += (cart_force(qp, times[kk])[ii] - cart_force(qm, times[kk])[ii]) / (
+                2.0 * h
+            )
+        tr[kk] = s
+    return tr
+
+
+def _chandrasekhar_dxdv_setup(nt=501):
+    """Shared setup for the dissipative orbit-level variational tests: a
+    decaying orbit (r: ~1.0 -> ~0.75 over t=0..5) in MWPotential2014 +
+    Chandrasekhar friction with rhm=0, i.e. the v-dependent Coulomb-log branch
+    is exercised along the entire orbit."""
+    from galpy.potential import (
+        ChandrasekharDynamicalFrictionForce,
+        MWPotential2014,
+    )
+
+    cdf = ChandrasekharDynamicalFrictionForce(
+        GMs=0.008, rhm=0.0, dens=MWPotential2014, maxr=10.0
+    )
+    pot = MWPotential2014 + cdf
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, nt)
+    return cdf, pot, ic, times
+
+
+def _orbit_rect_columns_3d(o, ts):
+    return numpy.array([o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)]).T
+
+
+def test_chandrasekhar_dxdv_fd_of_flow():
+    # FD-of-the-flow STM test for the dissipative 3D variational equations:
+    # every column i of the C-integrated deviation (seeded with the canonical
+    # e_i) must match (x(t; x0+eps e_i) - x(t; x0))/eps built from plain orbit
+    # integrations, which use only the separately-validated forces -- the same
+    # check (and tolerance) as the conservative test_liouville_3d battery, for
+    # a decaying orbit in MWPotential2014 + Chandrasekhar friction.
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    cdf, pot, ic, times = _chandrasekhar_dxdv_setup()
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    # friction must be doing real work: the orbit decays
+    rstart = numpy.sqrt(numpy.sum(base_rect[0, :3] ** 2))
+    rend = numpy.sqrt(numpy.sum(base_rect[-1, :3] ** 2))
+    assert rend < 0.85 * rstart, (
+        f"Chandrasekhar test orbit does not decay (r: {rstart:g} -> {rend:g}); "
+        "the dissipative variational test would be vacuous"
+    )
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"Dissipative 3D FD-of-flow for e_{ii} differs from the dxdv "
+            f"column by {fderr:g} (MWPotential2014 + Chandrasekhar friction)"
+        )
+    return None
+
+
+def test_chandrasekhar_dxdv_phase_volume_law():
+    # Quantitative non-conservative test: for the general variational Jacobian
+    # J = [[0,I],[K + dF/dx, dF/dv]], Abel/Jacobi-Liouville gives
+    #   det M(t) = exp( int_0^t tr J dt' ) = exp( int_0^t tr(dF/dv) dt' )
+    # (only the velocity block contributes to the trace). Build the full 6x6
+    # STM M(t) from the 6 canonical deviation integrations and compare det M(t)
+    # against the trace integrated along the orbit (trapezoidal rule on the
+    # fine output grid), with tr(dF/dv) computed by central finite differences
+    # of the pure-Python forces -- a code path independent of the C variational
+    # machinery that produced the STM. Friction contracts phase volume, so
+    # additionally det M < 1.
+    from galpy.orbit import Orbit
+
+    # the fine grid keeps the trapezoidal error of the trace integral (the
+    # quadrature is the limiting factor, O(h^2)) below the 1e-5 tolerance
+    cdf, pot, ic, times = _chandrasekhar_dxdv_setup(nt=1001)
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    canonical = numpy.eye(6)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv())
+    Mt = numpy.array(Mcols).transpose(1, 2, 0)  # (nt,6,6), columns = e_i images
+    detM = numpy.array([numpy.linalg.det(Mt[kk]) for kk in range(len(times))])
+    # tr(dF/dv) along the orbit by central FD of the PYTHON forces (the
+    # friction is the only dissipative component; conservative forces do not
+    # depend on v and contribute exactly 0)
+    trJv = _python_fd_trace_dFdv(cdf, base_rect, times)
+    integral = numpy.concatenate(
+        ([0.0], numpy.cumsum(0.5 * (trJv[1:] + trJv[:-1]) * numpy.diff(times)))
+    )
+    pred = numpy.exp(integral)
+    relerr = numpy.amax(numpy.fabs(detM - pred) / pred)
+    assert relerr < 1e-5, (
+        f"Dissipative phase-volume law det M(t) = exp(int tr(dF/dv) dt') "
+        f"violated at relative level {relerr:g}"
+    )
+    # friction contracts phase volume: det M decays monotonically below 1
+    assert detM[-1] < 1.0, f"det M(t_end)={detM[-1]:g} should be < 1 with friction"
+    assert detM[-1] < 0.9, (
+        f"det M(t_end)={detM[-1]:g}: phase-space contraction too weak for the "
+        "phase-volume-law test to be meaningful"
+    )
+    return None
+
+
+# The C rectangular friction Jacobian
+# (ChandrasekharDynamicalFrictionForce.c::...RectDissipativeForceJacobian)
+# mirrors the branch structure of the force it differentiates: three Coulomb-
+# logarithm configurations (constant lnLambda; the rhm-based variable branch
+# GMs/v^2 < rhm; the GMvs-based variable branch), the r < minr zero gate, and
+# the clamped sigma_r spline outside the interpolation grid. The main
+# FD-of-flow test above runs the GMvs-based branch (rhm=0) inside the grid;
+# the configurations here select each of the other branches through the
+# regular constructor options and validate with the same finite-difference-of-
+# the-flow check (ground truth built from plain orbit integrations, which use
+# only the separately-validated forces), each with a non-vacuity guard that
+# the intended branch condition genuinely holds along the orbit.
+@pytest.mark.parametrize(
+    "config", ["const_lnLambda", "rhm_coulomb_log", "minr_gate", "sigma_clamp"]
+)
+def test_chandrasekhar_dxdv_fd_of_flow_branches(config):
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        ChandrasekharDynamicalFrictionForce,
+        MWPotential2014,
+        evaluateRforces,
+    )
+    from galpy.util import coords
+
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 3.0, 301)
+    if config == "const_lnLambda":
+        # constant Coulomb logarithm: the dlnLambda/dx = dlnLambda/dv = 0
+        # branch of the Jacobian
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.02, rhm=0.0, const_lnLambda=7.0, dens=MWPotential2014, maxr=10.0
+        )
+    elif config == "rhm_coulomb_log":
+        # GMs/v^2 < rhm along the whole orbit (asserted below) -> the
+        # rhm-based Coulomb logarithm lnLambda = 0.5 ln(1+r^2/(gamma^2 rhm^2)),
+        # which depends on r but not on v (dlnLambda/dv = 0)
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.02, rhm=0.2, dens=MWPotential2014, maxr=10.0
+        )
+    elif config == "minr_gate":
+        # minr above the whole orbit: the force and its Jacobian are
+        # identically zero along the orbit (the r < minr gate). NOTE: the
+        # force is discontinuous across r=minr, so the flow derivative of an
+        # orbit that CROSSES minr picks up a jump (saltation) contribution
+        # that the variational equations deliberately omit (the gate zeroes
+        # the Jacobian on the inside) -- FD-of-flow and the dxdv integration
+        # then genuinely disagree (measured ~0.7 for an orbit decaying through
+        # minr=1). The consistent regime is an orbit entirely inside minr,
+        # where the friction force vanishes identically and the gate supplies
+        # the matching zero Jacobian at every step.
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.05, rhm=0.0, minr=1.5, dens=MWPotential2014, maxr=10.0
+        )
+    elif config == "sigma_clamp":
+        # sigmar interpolation grid ends at maxr=0.5 < r along the whole
+        # orbit: the C force clamps the spline argument (constant sigma_r
+        # beyond the grid) and the Jacobian consistently uses sigma_r' = 0
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.02, rhm=0.0, dens=MWPotential2014, maxr=0.5
+        )
+    pot = MWPotential2014 + cdf
+    obase = Orbit(ic)
+    if config == "minr_gate":
+        # galpy itself flags the r < minr regime (non-vacuity: the gate is on)
+        with pytest.warns(galpyWarning, match="r < minr"):
+            obase.integrate(times, pot, method="dopr54_c")
+    else:
+        obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    r = numpy.sqrt(numpy.sum(base_rect[:, :3] ** 2, axis=1))
+    v = numpy.sqrt(numpy.sum(base_rect[:, 3:] ** 2, axis=1))
+    # Non-vacuity guards: the intended branch condition genuinely holds along
+    # the orbit (via the PYTHON-side quantities, independent of the C code)
+    if config == "const_lnLambda":
+        assert cdf._lnLambda == 7.0  # the constant-lnLambda branch is selected
+        assert r[-1] < 0.85 * r[0], (
+            f"const-lnLambda test orbit does not decay (r: {r[0]:g} -> {r[-1]:g}); "
+            "the dissipative variational test would be vacuous"
+        )
+    elif config == "rhm_coulomb_log":
+        assert not cdf._lnLambda  # variable Coulomb logarithm
+        GMvs = cdf._ms / v**2.0
+        assert numpy.all(GMvs < cdf._rhm), (
+            f"GMs/v^2 (max {numpy.amax(GMvs):g}) does not stay below rhm="
+            f"{cdf._rhm:g} along the orbit; the rhm-based Coulomb-log branch "
+            "would not be selected"
+        )
+    elif config == "minr_gate":
+        assert numpy.all(r < cdf._minr), (
+            f"test orbit (max r {numpy.amax(r):g}) is not entirely inside "
+            f"minr={cdf._minr:g}; the r < minr zero gate would not be exercised"
+        )
+        # ... but the friction configuration is not trivial: outside minr the
+        # force is nonzero
+        assert (
+            numpy.fabs(evaluateRforces(cdf, 2.0, 0.0, phi=0.0, v=[0.1, 1.0, 0.1])) > 0.0
+        )
+    elif config == "sigma_clamp":
+        assert numpy.all(r > cdf._maxr), (
+            f"test orbit (min r {numpy.amin(r):g}) does not stay beyond the "
+            f"sigmar interpolation grid (maxr={cdf._maxr:g}); the spline-clamp "
+            "branch would not be exercised"
+        )
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"Dissipative 3D FD-of-flow for e_{ii} differs from the dxdv "
+            f"column by {fderr:g} (MWPotential2014 + Chandrasekhar friction, "
+            f"{config} configuration)"
+        )
+    return None
+
+
+def test_dissipative_dxdv_python_raises():
+    # The pure-Python 3D variational RHS (_EOM_dxdv) only implements the
+    # conservative system, so integrate_dxdv with a dissipative force must
+    # fail loudly (NotImplementedError) for the Python-based methods rather
+    # than silently produce a wrong deviation -- both when a Python method is
+    # requested directly and when a C method falls back to odeint because a
+    # dissipative force does not have its rectangular Jacobian in C
+    # (hasC_dxdv3d=False).
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        ChandrasekharDynamicalFrictionForce,
+        MWPotential2014,
+    )
+    from galpy.potential.DissipativeForce import DissipativeForce
+
+    cdf, pot, ic, times = _chandrasekhar_dxdv_setup()
+    # default flags: the base DissipativeForce does not have the C Jacobian,
+    # the wired ChandrasekharDynamicalFrictionForce does (incl. through a
+    # CompositePotential, which aggregates hasC_dxdv3d); FDM subclasses
+    # Chandrasekhar but its modified amplitude's Jacobian is NOT wired in C,
+    # so it must NOT inherit the flag
+    from galpy.potential import FDMDynamicalFrictionForce
+
+    assert not DissipativeForce(amp=1.0).hasC_dxdv3d
+    assert cdf.hasC_dxdv3d
+    assert pot.hasC_dxdv3d  # CompositePotential aggregation
+    assert not FDMDynamicalFrictionForce(GMs=0.01).hasC_dxdv3d
+    times = times[:3]
+    for method in ["odeint", "dop853"]:
+        o = Orbit(ic)
+        with pytest.raises(NotImplementedError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                times,
+                pot,
+                method=method,
+                rectIn=True,
+                rectOut=True,
+            )
+        assert "dissipative" in str(excinfo.value)
+    # a dissipative force WITHOUT the C Jacobian (forced flag, so this stays
+    # valid even once more dissipative forces gain hasC_dxdv3d=True): the C
+    # method falls back to odeint with a warning, which then raises
+    cdf_noc = ChandrasekharDynamicalFrictionForce(
+        GMs=0.008, rhm=0.0, dens=MWPotential2014, maxr=10.0
+    )
+    cdf_noc.hasC_dxdv3d = False
+    pot_noc = MWPotential2014 + cdf_noc
+    assert not pot_noc.hasC_dxdv3d  # CompositePotential aggregation
+    o = Orbit(ic)
+    with pytest.warns(galpyWarning, match="Using odeint"):
+        with pytest.raises(NotImplementedError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                times,
+                pot_noc,
+                method="dopr54_c",
+                rectIn=True,
+                rectOut=True,
+            )
+    assert "dissipative" in str(excinfo.value)
+    return None
+
+
+def test_dissipative_excluded_from_liouville3d_registry():
+    # The det(M)=1/symplecticity battery (test_liouville_3d and the 2D bridge,
+    # parametrized over the conftest liouville3d_registry) must NOT contain
+    # dissipative forces: for them det M = exp(int tr(dF/dv) dt') != 1 and
+    # symplecticity fails BY CONSTRUCTION (see the phase-volume-law test
+    # above, which asserts det M < 1). The registry is a hand-curated literal
+    # in tests/conftest.py; guard against someone accidentally adding a
+    # dissipative force to it.
+    import os
+    import re
+
+    conftest_file = os.path.join(os.path.dirname(__file__), "conftest.py")
+    with open(conftest_file) as f:
+        src = f.read()
+    m = re.search(r"liouville3d_registry = \[(.*?)\n        \]", src, re.DOTALL)
+    assert m is not None, "could not locate the liouville3d_registry in conftest.py"
+    registry_src = m.group(1)
+    for forbidden in ("DynamicalFriction", "NonInertialFrameForce", "Dissipative"):
+        assert forbidden not in registry_src, (
+            f"{forbidden} found in the liouville3d_registry: dissipative / "
+            "velocity-dependent forces do not satisfy det(M)=1/symplecticity "
+            "and must be validated by the dedicated dissipative dxdv tests"
+        )
+    return None
+
+
 # 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
 # dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
 # integrate_dxdv must match the trusted planar integrate_dxdv result.

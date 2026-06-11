@@ -40,6 +40,10 @@ class DissipativeForce(Force):
         self.isDissipative = True
         self.hasC = False
         self.hasC_dxdv = False
+        # Whether the force's rectangular Jacobian (dF/dx, dF/dv) is wired in C
+        # for the 3D variational equations (integrate_dxdv); subclasses that
+        # implement RectDissipativeForceJacobian in C set this to True.
+        self.hasC_dxdv3d = False
         self.hasC_dens = False
 
     @potential_physical_input
