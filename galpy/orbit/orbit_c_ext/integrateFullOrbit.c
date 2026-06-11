@@ -798,6 +798,9 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->RforceVelocity= &ChandrasekharDynamicalFrictionForceRforce;
       potentialArgs->zforceVelocity= &ChandrasekharDynamicalFrictionForcezforce;
       potentialArgs->phitorqueVelocity= &ChandrasekharDynamicalFrictionForcephitorque;
+      // Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+      // variational equations (integrate_dxdv with this dissipative force).
+      potentialArgs->RectDissipativeForceJacobian= &ChandrasekharDynamicalFrictionForceRectDissipativeForceJacobian;
       potentialArgs->nargs= 16;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;
@@ -1182,11 +1185,11 @@ void evalRectDeriv(double t, double *q, double *a,
   vR=  *(q+3) * cosphi + *(q+4) * sinphi;
   vT= -*(q+3) * sinphi + *(q+4) * cosphi;
   //Calculate the forces
-  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
-  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
   *a++= cosphi*Rforce-1./R*sinphi*phitorque;
   *a++= sinphi*Rforce+1./R*cosphi*phitorque;
-  *a= calczforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));;
+  *a= calczforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));;
 }
 
 void evalSOSDeriv(double psi, double *q, double *a,
@@ -1335,16 +1338,25 @@ void initChandrasekharDynamicalFrictionSplines(struct potentialArg * potentialAr
 void evalRectDeriv_dxdv(double t, double *q, double *a,
 			int nargs, struct potentialArg * potentialArgs){
   // 12D state q = (x,y,z,vx,vy,vz | dx,dy,dz,dvx,dvy,dvz): the orbit plus one
-  // phase-space deviation propagated by the variational equation dw'=A w' with
-  // A=[[0,I],[K,0]] and K the symmetric Cartesian tidal tensor (-grad grad Phi).
+  // phase-space deviation propagated by the variational equation dw'=A w'
+  // with the general Jacobian A=[[0,I],[K + dF/dx, dF/dv]]: K is the
+  // symmetric Cartesian tidal tensor (-grad grad Phi) of the conservative
+  // components; (dF/dx, dF/dv) are the rectangular Jacobian blocks of the
+  // velocity-dependent (dissipative) components -- the dissipative dF/dx is
+  // NOT symmetric and the velocity block dF/dv is nonzero -- aggregated by
+  // the NULL-safe calcRectDissipativeForceJacobian, which returns exact
+  // zeros when no component has the Jacobian, reducing the system to the
+  // conservative A=[[0,I],[K,0]].
   double sinphi, cosphi, x, y, phi, R, Rforce, phitorque, z, zforce;
+  double vR, vT, RforceK, phitorqueK;
   double R2deriv, phi2deriv, Rphideriv, z2deriv, Rzderiv, zphideriv;
   double dFxdx, dFxdy, dFydy, dFxdz, dFydz, dFzdz, dx, dy, dz;
+  double jac_x[9], jac_v[9], dvx, dvy, dvz;
   //first three derivatives are just the velocities
   *a++= *(q+3);
   *a++= *(q+4);
   *a++= *(q+5);
-  //q is rectangular so calculate R and phi
+  //q is rectangular so calculate R and phi, vR and vT (for dissipative)
   x= *q;
   y= *(q+1);
   z= *(q+2);
@@ -1353,10 +1365,14 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   sinphi= y/R;
   cosphi= x/R;
   if ( y < 0. ) phi= 2.*M_PI-phi;
-  //Calculate the forces -> Cartesian accelerations
-  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
-  zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
-  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs);
+  vR=  *(q+3) * cosphi + *(q+4) * sinphi;
+  vT= -*(q+3) * sinphi + *(q+4) * cosphi;
+  //Calculate the forces -> Cartesian accelerations (passing the velocity is
+  //a no-op for conservative potentials: requiresVelocity routes to the same
+  //velocity-free force functions, so this is bit-identical to before)
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
+  zforce= calczforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
   *a++= cosphi*Rforce-1./R*sinphi*phitorque;
   *a++= sinphi*Rforce+1./R*cosphi*phitorque;
   *a++= zforce;
@@ -1364,29 +1380,45 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   *a++= *(q+9);
   *a++= *(q+10);
   *a++= *(q+11);
-  // d(deviation velocity)/dt = K . (dx,dy,dz); K needs the full 3D Hessian
+  // d(deviation velocity)/dt = (K + dF/dx) . (dx,dy,dz) + dF/dv . (dvx,dvy,dvz)
+  // K needs the full 3D Hessian (conservative components only: dissipative
+  // forces have NULL second-derivative pointers, so the NULL-safe aggregators
+  // skip them and their position-Jacobian enters via jac_x instead)
   R2deriv= calcR2deriv(R,z,phi,t,nargs,potentialArgs);
   phi2deriv= calcphi2deriv(R,z,phi,t,nargs,potentialArgs);
   Rphideriv= calcRphideriv(R,z,phi,t,nargs,potentialArgs);
   z2deriv= calcz2deriv(R,z,phi,t,nargs,potentialArgs);
   Rzderiv= calcRzderiv(R,z,phi,t,nargs,potentialArgs);
   zphideriv= calczphideriv(R,z,phi,t,nargs,potentialArgs);
+  // The Rforce/phitorque entering the cylindrical->Cartesian conversion of
+  // the CONSERVATIVE Hessian K below must be the conservative force only:
+  // a dissipative component's dF/dx is already complete in rectangular
+  // coordinates (jac_x below), so its force must not enter the curvilinear
+  // conversion terms (it would double-count terms that do not apply to it).
+  // For purely conservative potentials these aggregators sum exactly the
+  // same components in the same order as calcRforce/calcphitorque above, so
+  // RforceK/phitorqueK equal Rforce/phitorque bit-for-bit there.
+  // conservative force only (include_dissipative=0): the dissipative forces'
+  // position-Jacobian is rectangular (calcRectDissipativeForceJacobian), so
+  // they must not enter these curvilinear Hessian-conversion terms
+  RforceK= calcRforce(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
+  phitorqueK= calcphitorque(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
   // In-plane (x,y) block: identical to the verified 2D variational equations
   // (z enters only through the values of the second derivatives above).
   dFxdx= -cosphi*cosphi*R2deriv
-    +2.*cosphi*sinphi/R/R*phitorque
-    +sinphi*sinphi/R*Rforce
+    +2.*cosphi*sinphi/R/R*phitorqueK
+    +sinphi*sinphi/R*RforceK
     +2.*sinphi*cosphi/R*Rphideriv
     -sinphi*sinphi/R/R*phi2deriv;
   dFxdy= -sinphi*cosphi*R2deriv
-    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorque
-    -cosphi*sinphi/R*Rforce
+    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorqueK
+    -cosphi*sinphi/R*RforceK
     -(cosphi*cosphi-sinphi*sinphi)/R*Rphideriv
     +cosphi*sinphi/R/R*phi2deriv;
   dFydy= -sinphi*sinphi*R2deriv
-    -2.*sinphi*cosphi/R/R*phitorque
+    -2.*sinphi*cosphi/R/R*phitorqueK
     -2.*sinphi*cosphi/R*Rphideriv
-    +cosphi*cosphi/R*Rforce
+    +cosphi*cosphi/R*RforceK
     -cosphi*cosphi/R/R*phi2deriv;
   // z-coupling (K symmetric: dFzdx=dFxdz, dFzdy=dFydz, dFydx=dFxdy)
   dFxdz= -cosphi*Rzderiv+sinphi/R*zphideriv;
@@ -1395,7 +1427,19 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   dx= *(q+6);
   dy= *(q+7);
   dz= *(q+8);
-  *a++= dFxdx*dx+dFxdy*dy+dFxdz*dz;
-  *a++= dFxdy*dx+dFydy*dy+dFydz*dz;
-  *a  = dFxdz*dx+dFydz*dy+dFzdz*dz;
+  dvx= *(q+9);
+  dvy= *(q+10);
+  dvz= *(q+11);
+  // Dissipative rectangular Jacobian blocks: exact zeros when no component
+  // provides RectDissipativeForceJacobian (purely conservative case)
+  calcRectDissipativeForceJacobian(t,q,jac_x,jac_v,nargs,potentialArgs);
+  *a++= dFxdx*dx+dFxdy*dy+dFxdz*dz
+    + jac_x[0]*dx + jac_x[1]*dy + jac_x[2]*dz
+    + jac_v[0]*dvx + jac_v[1]*dvy + jac_v[2]*dvz;
+  *a++= dFxdy*dx+dFydy*dy+dFydz*dz
+    + jac_x[3]*dx + jac_x[4]*dy + jac_x[5]*dz
+    + jac_v[3]*dvx + jac_v[4]*dvy + jac_v[5]*dvz;
+  *a  = dFxdz*dx+dFydz*dy+dFzdz*dz
+    + jac_x[6]*dx + jac_x[7]*dy + jac_x[8]*dz
+    + jac_v[6]*dvx + jac_v[7]*dvy + jac_v[8]*dvz;
 }

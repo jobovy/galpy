@@ -156,6 +156,11 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._amp *= 4.0 * numpy.pi
         self._force_hash = None
         self.hasC = _check_c(self._dens_pot, dens=True)
+        # The rectangular force Jacobian (dF/dx, dF/dv) for the 3D variational
+        # equations is wired in C (ChandrasekharDynamicalFrictionForce.c); like
+        # the force itself it needs the background density (and its gradient,
+        # taken by finite differences in C) -> same requirement as hasC.
+        self.hasC_dxdv3d = self.hasC
         # No planar version of (Chandrasekhar/FDM) dynamical friction in the
         # C integrator (also covers FDMDynamicalFrictionForce, which inherits
         # its hasC* attributes from here)
