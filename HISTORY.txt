@@ -8,6 +8,12 @@ v1.12.0 (expected around 2026-07-01)
   using the C variational integrators when available, and returns the running
   estimate lambda(t) at all output times so that convergence can be assessed.
 
+- Extended the 3D variational equations of ``Orbit.integrate_dxdv`` in C to
+  velocity-dependent (dissipative) forces, starting with
+  ``ChandrasekharDynamicalFrictionForce`` (analytic Jacobian; advertised via
+  ``hasC_dxdv3d``). The pure-Python ``integrate_dxdv`` methods raise a
+  ``NotImplementedError`` for dissipative forces.
+
 - Fixed a segmentation fault (or silently-dropped force) when integrating
   planar orbits with a C integrator for potentials whose 3D version has a C
   implementation, but whose planar version does not (e.g., interpRZPotential,
