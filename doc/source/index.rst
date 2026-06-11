@@ -219,6 +219,15 @@ Orbits
       Quickly compute eccentricity, peri/apocenter, and zmax using
       the Staeckel approximation without orbit integration. Also compute actions!
 
+   .. grid-item-card:: Phase-Space Volumes and Chaos
+      :img-top: images/tutorials/orbits_phase_space_volumes_and_chaos.png
+      :link: tutorials/orbits/phase_space_volumes_and_chaos
+      :link-type: doc
+
+      Integrate phase-space deviations in 2D and 3D with the variational
+      equations, verify Liouville's theorem, and compute Lyapunov
+      exponents to detect chaos.
+
    .. grid-item-card:: Orbit Examples
       :img-top: images/tutorials/orbits_examples.png
       :link: tutorials/orbits/examples

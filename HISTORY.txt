@@ -1,6 +1,13 @@
 v1.12.0 (expected around 2026-07-01)
 ====================
 
+- Added ``Orbit.lyapunov`` to estimate the largest Lyapunov exponent of an
+  orbit from the variational equations (``integrate_dxdv``) using the
+  renormalization method of Benettin et al. (1980). Works for planar
+  (phase-space dimension 4) and full 3D (phase-space dimension 6) orbits,
+  using the C variational integrators when available, and returns the running
+  estimate lambda(t) at all output times so that convergence can be assessed.
+
 - Fixed a segmentation fault (or silently-dropped force) when integrating
   planar orbits with a C integrator for potentials whose 3D version has a C
   implementation, but whose planar version does not (e.g., interpRZPotential,
