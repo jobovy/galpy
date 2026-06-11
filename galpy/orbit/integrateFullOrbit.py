@@ -111,6 +111,17 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
         elif isinstance(p, potential.interpRZPotential):
             pot_type.append(13)
             pot_args.extend([len(p._rgrid), len(p._zgrid)])
+            # Presence flags for the interpolated 2nd-derivative grids
+            # (R2deriv/z2deriv/Rzderiv; together the full 3D Hessian for the
+            # 3D variational equations); their spline coefficients follow the
+            # force coefficients below when present
+            pot_args.extend(
+                [
+                    float(hasattr(p, "_r2derivGrid_splinecoeffs")),
+                    float(hasattr(p, "_z2derivGrid_splinecoeffs")),
+                    float(hasattr(p, "_rzderivGrid_splinecoeffs")),
+                ]
+            )
             if p._logR:
                 pot_args.extend([p._logrgrid[ii] for ii in range(len(p._rgrid))])
             else:
@@ -144,6 +155,22 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
                     galpyWarning,
                 )
                 pot_args.extend(list(numpy.ones(len(p._rgrid) * len(p._zgrid))))
+            # Interpolated 2nd-derivative grids (when present, per the
+            # presence flags above); absent grids are simply not packed: the
+            # C side leaves the corresponding 2nd-derivative NULL and the 3D
+            # variational C path is gated on hasC_dxdv3d (all three present)
+            if hasattr(p, "_r2derivGrid_splinecoeffs"):
+                pot_args.extend(
+                    [x for x in p._r2derivGrid_splinecoeffs.flatten(order="C")]
+                )
+            if hasattr(p, "_z2derivGrid_splinecoeffs"):
+                pot_args.extend(
+                    [x for x in p._z2derivGrid_splinecoeffs.flatten(order="C")]
+                )
+            if hasattr(p, "_rzderivGrid_splinecoeffs"):
+                pot_args.extend(
+                    [x for x in p._rzderivGrid_splinecoeffs.flatten(order="C")]
+                )
             pot_args.extend([p._amp, int(p._logR)])
         elif isinstance(p, potential.IsochronePotential):
             pot_type.append(14)
