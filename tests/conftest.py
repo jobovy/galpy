@@ -169,6 +169,18 @@ def pytest_generate_tests(metafunc):
             #  - PseudoIsothermal's (1/r^2)*atan(r/a) profile makes only the odeint
             #    FD-of-flow check marginally exceed 1e-4 (~1.8e-4) at the registry IC,
             #    while every C integrator agrees to ~1.6e-7.
+            # NOTE: interpRZPotential also has a verified-correct full 3D C Hessian
+            # (hasC_dxdv3d=True when the potential, forces, AND the three 2nd
+            # derivatives are interpolated with enable_c; every C integrator matches
+            # the pure-Python analytic dxdv of the UNDERLYING potential to ~1.0e-4,
+            # interpolation-limited). It is intentionally NOT in this strict registry
+            # (the interpSphericalPotential precedent): all its checks sit at spline
+            # accuracy rather than the registry's analytic tolerances, and its
+            # pure-Python integrator path with enable_c re-packs the full
+            # interpolation grids into C per RHS evaluation, far too slow for the
+            # registry sweep. Covered by the dedicated
+            # test_orbit.test_interprz_dxdv_3d (C-vs-Python-on-underlying-potential,
+            # det(M)=1/symplecticity, FD-of-flow).
             (
                 potential.SpiralArmsPotential(),
                 "SpiralArmsPotential",

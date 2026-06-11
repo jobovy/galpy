@@ -85,6 +85,18 @@ struct potentialArg{
   interp_2d * i2dzforce;
   gsl_interp_accel * accxzforce;
   gsl_interp_accel * accyzforce;
+  // 2D-interpolated 2nd derivatives (interpRZPotential's full 3D Hessian for
+  // the 3D variational equations); precomputed exact-2nd-derivative grids
+  // interpolated just like the forces
+  interp_2d * i2dr2deriv;
+  gsl_interp_accel * accxr2deriv;
+  gsl_interp_accel * accyr2deriv;
+  interp_2d * i2dz2deriv;
+  gsl_interp_accel * accxz2deriv;
+  gsl_interp_accel * accyz2deriv;
+  interp_2d * i2drzderiv;
+  gsl_interp_accel * accxrzderiv;
+  gsl_interp_accel * accyrzderiv;
   // To allow an arbitrary number of functions of time
   int ntfuncs;
   tfuncs_type_arr tfuncs; // see typedef above
@@ -433,6 +445,12 @@ double interpRZPotentialRforce(double ,double , double, double,
 			       struct potentialArg *);
 double interpRZPotentialzforce(double ,double , double, double,
 			       struct potentialArg *);
+double interpRZPotentialR2deriv(double ,double , double, double,
+				struct potentialArg *);
+double interpRZPotentialz2deriv(double ,double , double, double,
+				struct potentialArg *);
+double interpRZPotentialRzderiv(double ,double , double, double,
+				struct potentialArg *);
 //IsochronePotential
 double IsochronePotentialEval(double ,double , double, double,
 			      struct potentialArg *);

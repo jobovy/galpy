@@ -109,6 +109,9 @@ class interpRZPotential(Potential):
         enable_c=False,
         zsym=True,
         numcores=None,
+        interpR2deriv=False,
+        interpz2deriv=False,
+        interpRzderiv=False,
     ):
         """
         Initialize an interpRZPotential instance.
@@ -151,11 +154,18 @@ class interpRZPotential(Potential):
             If True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
         numcores : int, optional
             If set to an integer, use this many cores (only used for vcirc, dvcircdR, epifreq, and verticalfreq; NOT NECESSARILY FASTER, TIME TO MAKE SURE).
+        interpR2deriv : bool, optional
+            If True, interpolate the second radial derivative of the potential (grid of exact values, computed in Python regardless of use_c).
+        interpz2deriv : bool, optional
+            If True, interpolate the second vertical derivative of the potential (grid of exact values, computed in Python regardless of use_c).
+        interpRzderiv : bool, optional
+            If True, interpolate the mixed radial-vertical derivative of the potential (grid of exact values, computed in Python regardless of use_c). Together with interpR2deriv and interpz2deriv (and the potential and forces) this provides the full 3D Hessian in C (hasC_dxdv3d) for integrating phase-space volumes (integrate_dxdv) when enable_c=True.
 
         Notes
         -----
         - 2010-07-21 - Written - Bovy (NYU)
         - 2013-01-24 - Started with new implementation - Bovy (IAS)
+        - 2026-06-09 - Added interpolated 2nd derivatives (full 3D Hessian in C for the 3D variational equations) - Bovy (UofT)
 
         """
         if isinstance(RZPot, interpRZPotential):
@@ -202,8 +212,25 @@ class interpRZPotential(Potential):
         self._interpdvcircdr = interpdvcircdr
         self._interpepifreq = interpepifreq
         self._interpverticalfreq = interpverticalfreq
+        self._interpR2deriv = interpR2deriv
+        self._interpz2deriv = interpz2deriv
+        self._interpRzderiv = interpRzderiv
         self._enable_c = enable_c * ext_loaded
         self.hasC = self._enable_c
+        # Full 3D Hessian in C (R2deriv/z2deriv/Rzderiv interpolated from
+        # their own grids of exact values; phi derivatives are identically
+        # zero for this axisymmetric potential), as required by the 3D
+        # variational equations (integrate_dxdv); needs the potential and
+        # forces in C too (they drive the orbit part of the variational flow).
+        self.hasC_dxdv3d = bool(
+            self._enable_c
+            * interpPot
+            * interpRforce
+            * interpzforce
+            * interpR2deriv
+            * interpz2deriv
+            * interpRzderiv
+        )
         self._zsym = zsym
         if interpPot:
             if use_c * ext_loaded:
@@ -280,6 +307,80 @@ class interpRZPotential(Potential):
                 )
             if enable_c * ext_loaded:
                 self._zforceGrid_splinecoeffs = calc_2dsplinecoeffs_c(self._zforceGrid)
+        # Interpolated 2nd derivatives: like the forces, each is a grid of
+        # exact (original-potential) values interpolated with a 2D cubic
+        # spline. The grids are always computed in Python (not with use_c):
+        # the C grid-filler aggregators are NULL-safe and would silently
+        # return 0 for a potential without that 2nd derivative in C.
+        # d2Phi/dR2 and d2Phi/dz2 are even in z for a zsym potential, while
+        # d2Phi/dRdz is odd (zero at z=0), so all three can be sampled on the
+        # z>=0 grid like the forces.
+        if interpR2deriv:
+            from ..potential import evaluateR2derivs
+
+            r2derivGrid = numpy.zeros((len(self._rgrid), len(self._zgrid)))
+            for ii in range(len(self._rgrid)):
+                for jj in range(len(self._zgrid)):
+                    r2derivGrid[ii, jj] = evaluateR2derivs(
+                        self._origPot, self._rgrid[ii], self._zgrid[jj]
+                    )
+            self._r2derivGrid = r2derivGrid
+            if self._logR:
+                self._r2derivInterp = interpolate.RectBivariateSpline(
+                    self._logrgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3, s=0.0
+                )
+            else:
+                self._r2derivInterp = interpolate.RectBivariateSpline(
+                    self._rgrid, self._zgrid, self._r2derivGrid, kx=3, ky=3, s=0.0
+                )
+            if enable_c * ext_loaded:
+                self._r2derivGrid_splinecoeffs = calc_2dsplinecoeffs_c(
+                    self._r2derivGrid
+                )
+        if interpz2deriv:
+            from ..potential import evaluatez2derivs
+
+            z2derivGrid = numpy.zeros((len(self._rgrid), len(self._zgrid)))
+            for ii in range(len(self._rgrid)):
+                for jj in range(len(self._zgrid)):
+                    z2derivGrid[ii, jj] = evaluatez2derivs(
+                        self._origPot, self._rgrid[ii], self._zgrid[jj]
+                    )
+            self._z2derivGrid = z2derivGrid
+            if self._logR:
+                self._z2derivInterp = interpolate.RectBivariateSpline(
+                    self._logrgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3, s=0.0
+                )
+            else:
+                self._z2derivInterp = interpolate.RectBivariateSpline(
+                    self._rgrid, self._zgrid, self._z2derivGrid, kx=3, ky=3, s=0.0
+                )
+            if enable_c * ext_loaded:
+                self._z2derivGrid_splinecoeffs = calc_2dsplinecoeffs_c(
+                    self._z2derivGrid
+                )
+        if interpRzderiv:
+            from ..potential import evaluateRzderivs
+
+            rzderivGrid = numpy.zeros((len(self._rgrid), len(self._zgrid)))
+            for ii in range(len(self._rgrid)):
+                for jj in range(len(self._zgrid)):
+                    rzderivGrid[ii, jj] = evaluateRzderivs(
+                        self._origPot, self._rgrid[ii], self._zgrid[jj]
+                    )
+            self._rzderivGrid = rzderivGrid
+            if self._logR:
+                self._rzderivInterp = interpolate.RectBivariateSpline(
+                    self._logrgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3, s=0.0
+                )
+            else:
+                self._rzderivInterp = interpolate.RectBivariateSpline(
+                    self._rgrid, self._zgrid, self._rzderivGrid, kx=3, ky=3, s=0.0
+                )
+            if enable_c * ext_loaded:
+                self._rzderivGrid_splinecoeffs = calc_2dsplinecoeffs_c(
+                    self._rzderivGrid
+                )
         if interpDens:
             from ..potential import evaluateDensities
 
@@ -496,10 +597,116 @@ class interpRZPotential(Potential):
         else:
             return evaluatezforces(self._origPot, R, z)
 
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        if not self._interpR2deriv:
+            # Not interpolated: pass through to the original potential
+            from ..potential import evaluateR2derivs
+
+            return evaluateR2derivs(self._origPot, R, z)
+        return self._R2deriv_interpolated(R, z)
+
+    @scalarVectorDecorator
+    @zsymDecorator(False)
+    def _R2deriv_interpolated(self, R, z):
+        from ..potential import evaluateR2derivs
+
+        out = numpy.empty(R.shape)
+        indx = (
+            (R >= self._rgrid[0])
+            * (R <= self._rgrid[-1])
+            * (z <= self._zgrid[-1])
+            * (z >= self._zgrid[0])
+        )
+        if numpy.sum(indx) > 0:
+            if self._enable_c:
+                out[indx] = (
+                    eval_2ndderiv_c(self, R[indx], z[indx], deriv="r2deriv")[0]
+                    / self._amp
+                )
+            else:
+                if self._logR:
+                    out[indx] = self._r2derivInterp.ev(numpy.log(R[indx]), z[indx])
+                else:
+                    out[indx] = self._r2derivInterp.ev(R[indx], z[indx])
+        if numpy.sum(True ^ indx) > 0:
+            out[True ^ indx] = evaluateR2derivs(
+                self._origPot, R[True ^ indx], z[True ^ indx]
+            )
+        return out
+
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        if not self._interpz2deriv:
+            # Not interpolated: pass through to the original potential
+            from ..potential import evaluatez2derivs
+
+            return evaluatez2derivs(self._origPot, R, z)
+        return self._z2deriv_interpolated(R, z)
+
+    @scalarVectorDecorator
+    @zsymDecorator(False)
+    def _z2deriv_interpolated(self, R, z):
+        from ..potential import evaluatez2derivs
+
+        out = numpy.empty(R.shape)
+        indx = (
+            (R >= self._rgrid[0])
+            * (R <= self._rgrid[-1])
+            * (z <= self._zgrid[-1])
+            * (z >= self._zgrid[0])
+        )
+        if numpy.sum(indx) > 0:
+            if self._enable_c:
+                out[indx] = (
+                    eval_2ndderiv_c(self, R[indx], z[indx], deriv="z2deriv")[0]
+                    / self._amp
+                )
+            else:
+                if self._logR:
+                    out[indx] = self._z2derivInterp.ev(numpy.log(R[indx]), z[indx])
+                else:
+                    out[indx] = self._z2derivInterp.ev(R[indx], z[indx])
+        if numpy.sum(True ^ indx) > 0:
+            out[True ^ indx] = evaluatez2derivs(
+                self._origPot, R[True ^ indx], z[True ^ indx]
+            )
+        return out
+
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        if not self._interpRzderiv:
+            # Not interpolated: pass through to the original potential
+            from ..potential import evaluateRzderivs
+
+            return evaluateRzderivs(self._origPot, R, z)
+        return self._Rzderiv_interpolated(R, z)
+
+    @scalarVectorDecorator
+    @zsymDecorator(True)
+    def _Rzderiv_interpolated(self, R, z):
         from ..potential import evaluateRzderivs
 
-        return evaluateRzderivs(self._origPot, R, z)
+        out = numpy.empty(R.shape)
+        indx = (
+            (R >= self._rgrid[0])
+            * (R <= self._rgrid[-1])
+            * (z <= self._zgrid[-1])
+            * (z >= self._zgrid[0])
+        )
+        if numpy.sum(indx) > 0:
+            if self._enable_c:
+                out[indx] = (
+                    eval_2ndderiv_c(self, R[indx], z[indx], deriv="rzderiv")[0]
+                    / self._amp
+                )
+            else:
+                if self._logR:
+                    out[indx] = self._rzderivInterp.ev(numpy.log(R[indx]), z[indx])
+                else:
+                    out[indx] = self._rzderivInterp.ev(R[indx], z[indx])
+        if numpy.sum(True ^ indx) > 0:
+            out[True ^ indx] = evaluateRzderivs(
+                self._origPot, R[True ^ indx], z[True ^ indx]
+            )
+        return out
 
     @scalarVectorDecorator
     @zsymDecorator(False)
@@ -879,6 +1086,93 @@ def eval_force_c(pot, R, z, zforce=False):
 
     # Run the C code
     interppotential_calc_forceFunc(
+        len(R),
+        R,
+        z,
+        ctypes.c_int(npot),
+        pot_type,
+        pot_args,
+        pot_tfuncs,
+        out,
+        ctypes.byref(err),
+    )
+
+    # Reset input arrays
+    if f_cont[0]:
+        R = numpy.asfortranarray(R)
+    if f_cont[1]:
+        z = numpy.asfortranarray(z)
+
+    return (out, err.value)
+
+
+def eval_2ndderiv_c(pot, R, z, deriv="r2deriv"):
+    """
+    Use C to evaluate the interpolated potential's second derivatives.
+
+    Parameters
+    ----------
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        The potential
+    R : numpy.ndarray
+        Galactocentric cylindrical radius.
+    z : numpy.ndarray
+        Galactocentric height.
+    deriv : str, optional
+        Which second derivative to evaluate: 'r2deriv' (default), 'z2deriv',
+        or 'rzderiv'.
+
+    Returns
+    -------
+    tuple
+        (Second derivative evaluated at R and z, error code).
+
+    Notes
+    -----
+    - 2026-06-09: Written - Bovy (UofT)
+
+    """
+    from ..orbit.integrateFullOrbit import (  # here bc otherwise there is an infinite loop
+        _parse_pot,
+    )
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+
+    # Parse the potential
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    pot_tfuncs = _prep_tfuncs(pot_tfuncs)
+
+    # Set up result arrays
+    out = numpy.empty(len(R))
+    err = ctypes.c_int(0)
+
+    # Set up the C code
+    ndarrayFlags = ("C_CONTIGUOUS", "WRITEABLE")
+    if deriv.lower() == "z2deriv":
+        interppotential_calc_2ndderivFunc = _lib.eval_z2deriv
+    elif deriv.lower() == "rzderiv":
+        interppotential_calc_2ndderivFunc = _lib.eval_rzderiv
+    else:
+        interppotential_calc_2ndderivFunc = _lib.eval_r2deriv
+    interppotential_calc_2ndderivFunc.argtypes = [
+        ctypes.c_int,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
+        ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_void_p,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.POINTER(ctypes.c_int),
+    ]
+
+    # Array requirements, first store old order
+    f_cont = [R.flags["F_CONTIGUOUS"], z.flags["F_CONTIGUOUS"]]
+    R = numpy.require(R, dtype=numpy.float64, requirements=["C", "W"])
+    z = numpy.require(z, dtype=numpy.float64, requirements=["C", "W"])
+    out = numpy.require(out, dtype=numpy.float64, requirements=["C", "W"])
+
+    # Run the C code
+    interppotential_calc_2ndderivFunc(
         len(R),
         R,
         z,

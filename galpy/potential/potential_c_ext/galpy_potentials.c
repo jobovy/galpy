@@ -24,6 +24,15 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->i2dzforce= NULL;
     (potentialArgs+ii)->accxzforce= NULL;
     (potentialArgs+ii)->accyzforce= NULL;
+    (potentialArgs+ii)->i2dr2deriv= NULL;
+    (potentialArgs+ii)->accxr2deriv= NULL;
+    (potentialArgs+ii)->accyr2deriv= NULL;
+    (potentialArgs+ii)->i2dz2deriv= NULL;
+    (potentialArgs+ii)->accxz2deriv= NULL;
+    (potentialArgs+ii)->accyz2deriv= NULL;
+    (potentialArgs+ii)->i2drzderiv= NULL;
+    (potentialArgs+ii)->accxrzderiv= NULL;
+    (potentialArgs+ii)->accyrzderiv= NULL;
     (potentialArgs+ii)->wrappedPotentialArg= NULL;
     (potentialArgs+ii)->spline1d= NULL;
     (potentialArgs+ii)->acc1d= NULL;
@@ -53,6 +62,24 @@ void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
       gsl_interp_accel_free ((potentialArgs+ii)->accxzforce);
     if ( (potentialArgs+ii)->accyzforce )
       gsl_interp_accel_free ((potentialArgs+ii)->accyzforce);
+    if ( (potentialArgs+ii)->i2dr2deriv )
+      interp_2d_free((potentialArgs+ii)->i2dr2deriv) ;
+    if ( (potentialArgs+ii)->accxr2deriv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxr2deriv);
+    if ( (potentialArgs+ii)->accyr2deriv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyr2deriv);
+    if ( (potentialArgs+ii)->i2dz2deriv )
+      interp_2d_free((potentialArgs+ii)->i2dz2deriv) ;
+    if ( (potentialArgs+ii)->accxz2deriv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxz2deriv);
+    if ( (potentialArgs+ii)->accyz2deriv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyz2deriv);
+    if ( (potentialArgs+ii)->i2drzderiv )
+      interp_2d_free((potentialArgs+ii)->i2drzderiv) ;
+    if ( (potentialArgs+ii)->accxrzderiv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxrzderiv);
+    if ( (potentialArgs+ii)->accyrzderiv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyrzderiv);
     if ( (potentialArgs+ii)->wrappedPotentialArg ) {
       free_potentialArgs((potentialArgs+ii)->nwrapped,
 			 (potentialArgs+ii)->wrappedPotentialArg);
