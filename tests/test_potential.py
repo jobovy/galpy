@@ -8388,6 +8388,35 @@ def test_CompositePotential_basic():
     return None
 
 
+def test_CompositePotential_hasC_dxdv3d():
+    # CompositePotential must aggregate hasC_dxdv3d from its components like the
+    # other hasC flags; previously it did not, so _check_c(comp, dxdv3d=True) was
+    # False even when every component had the full 3D C Hessian, silently forcing
+    # 3D integrate_dxdv (and lyapunov) of e.g. MWPotential2014 onto the slow
+    # Python fallback
+    from galpy.potential.Potential import _check_c
+
+    comp = potential.MWPotential2014  # a CompositePotential, all components wired
+    assert all(p.hasC_dxdv3d for p in comp), (
+        "all MWPotential2014 components should have hasC_dxdv3d"
+    )
+    assert comp.hasC_dxdv3d, "CompositePotential should aggregate hasC_dxdv3d"
+    assert _check_c(comp, dxdv3d=True), (
+        "_check_c(CompositePotential, dxdv3d=True) should be True when all "
+        "components have the 3D C Hessian"
+    )
+    # and it must turn False if any component lacks the flag
+    weak = potential.MiyamotoNagaiPotential(normalize=1.0)
+    weak.hasC_dxdv3d = False
+    comp2 = potential.CompositePotential(
+        weak, potential.LogarithmicHaloPotential(normalize=1.0)
+    )
+    assert not comp2.hasC_dxdv3d, (
+        "CompositePotential hasC_dxdv3d should be False when a component lacks it"
+    )
+    return None
+
+
 def test_CompositePotential_evaluation():
     # Test that CompositePotential evaluates correctly
     import numpy as np

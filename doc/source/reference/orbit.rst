@@ -79,6 +79,7 @@ Methods
    L <orbitl.rst>
    LcE <orbitlce.rst>
    Lz <orbitlz.rst>
+   lyapunov <orbitlyapunov.rst>
    Op <orbitop.rst>
    Or <orbitor.rst>
    Oz <orbitoz.rst>
