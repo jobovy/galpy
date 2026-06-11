@@ -61,6 +61,13 @@ struct potentialArg{
 			 struct potentialArg *,double,double);
   double (*planarphitorqueVelocity)(double R,double phi, double t,
 			   struct potentialArg *,double,double);
+  // Rectangular Jacobian of a velocity-dependent (DissipativeForce) force,
+  // for the 3D variational equations: fills the row-major 3x3 blocks
+  // jac_x = d(Fx,Fy,Fz)/d(x,y,z) and jac_v = d(Fx,Fy,Fz)/d(vx,vy,vz) at
+  // q=(x,y,z,vx,vy,vz). NULL for conservative potentials and for dissipative
+  // forces without a wired C Jacobian (NULL-initialized in init_potentialArgs).
+  void (*RectDissipativeForceJacobian)(double t, double *q, double *jac_x,
+				       double *jac_v, struct potentialArg *);
 
   int nargs;
   double * args;
@@ -119,24 +126,27 @@ double evaluatePotentials(double,double,int, struct potentialArg *);
 // (e.g., CALCRFORCE would get R = __VA_ARGS = R,Z,phi,...)
 #ifdef _MSC_VER
 #define EXPAND(x) x
-#define calcRforce(...)   EXPAND(CALCRFORCE(__VA_ARGS__,0.,0.,0.))
-#define calczforce(...)   EXPAND(CALCZFORCE(__VA_ARGS__,0.,0.,0.))
-#define calcphitorque(...) EXPAND(CALCPHITORQUE(__VA_ARGS__,0.,0.,0.))
+#define calcRforce(...)   EXPAND(CALCRFORCE(__VA_ARGS__,1,0.,0.,0.))
+#define calczforce(...)   EXPAND(CALCZFORCE(__VA_ARGS__,1,0.,0.,0.))
+#define calcphitorque(...) EXPAND(CALCPHITORQUE(__VA_ARGS__,1,0.,0.,0.))
 #else
-#define calcRforce(R,Z,phi,t,nargs,potentialArgs,...) CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
-#define calczforce(R,Z,phi,t,nargs,potentialArgs,...) CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
-#define calcphitorque(R,Z,phi,t,nargs,potentialArgs,...) CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
+#define calcRforce(R,Z,phi,t,nargs,potentialArgs,...) CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,1,0.,0.,0.)
+#define calczforce(R,Z,phi,t,nargs,potentialArgs,...) CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,1,0.,0.,0.)
+#define calcphitorque(R,Z,phi,t,nargs,potentialArgs,...) CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,1,0.,0.,0.)
 #endif
-#define CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calcRforce(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
-#define CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calczforce(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
-#define CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calcphitorque(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
+#define CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ,...) calcRforce(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ)
+#define CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ,...) calczforce(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ)
+#define CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ,...) calcphitorque(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ)
+// int before the velocities: include the velocity-dependent (dissipative)
+// forces in the sum? (the macros default it to 1; the 3D variational
+// equations pass 0)
 double (calcRforce)(double,double,double,double,int,struct potentialArg *,
-		    double,double,double);
+		    int,double,double,double);
 double (calczforce)(double,double,double,double,int,struct potentialArg *,
-		      double,double,double);
+		      int,double,double,double);
 double (calcphitorque)(double, double,double, double,
 		      int, struct potentialArg *,
-		      double,double,double);
+		      int,double,double,double);
 // end hack
 double calcR2deriv(double, double, double,double,
 			 int, struct potentialArg *);
@@ -144,6 +154,13 @@ double calcphi2deriv(double, double, double,double,
 			   int, struct potentialArg *);
 double calcRphideriv(double, double, double,double,
 			   int, struct potentialArg *);
+// Summed rectangular Jacobian (jac_x = dF/dx, jac_v = dF/dv; row-major 3x3
+// each) of all velocity-dependent forces that provide
+// RectDissipativeForceJacobian; NULL-safe: returns exact zeros when no
+// component has the Jacobian (in particular for purely conservative
+// potentials).
+void calcRectDissipativeForceJacobian(double, double *, double *, double *,
+				      int, struct potentialArg *);
 double calcz2deriv(double, double, double,double,
 				 int, struct potentialArg *);
 double calcRzderiv(double, double, double,double,
@@ -998,6 +1015,10 @@ double ChandrasekharDynamicalFrictionForcezforce(double,double,double,double,
 						 double,double,double);
 double ChandrasekharDynamicalFrictionForceAmplitude(double,double,double,double,
 						    double,struct potentialArg *,double,double,double);
+// Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+// variational equations
+void ChandrasekharDynamicalFrictionForceRectDissipativeForceJacobian(
+    double,double *,double *,double *,struct potentialArg *);
 //FDMDynamicalFrictionForce, takes vR,vT,vZ,
 //needs ChandrasekharDynamicalFrictionForceAmplitude from above
 double FDMDynamicalFrictionForceRforce(double,double,double,double,

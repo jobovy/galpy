@@ -902,6 +902,22 @@ def integrateFullOrbit_dxdv(
         this_dyo = dyo
     this_yo = numpy.hstack((this_yo, this_dyo))
     if int_method.lower() == "dop853" or int_method.lower() == "odeint":
+        from ..potential.DissipativeForce import _isDissipative
+
+        if _isDissipative(pot):
+            # The pure-Python variational RHS (_EOM_dxdv) only implements the
+            # conservative A=[[0,I],[K,0]] system: it neither passes the
+            # velocity to the force evaluators nor includes the dissipative
+            # dF/dx and dF/dv Jacobian blocks, so it would silently produce a
+            # wrong deviation. Fail loudly instead; the C path supports
+            # dissipative forces with a C implementation of the
+            # velocity-dependent force Jacobian (hasC_dxdv3d=True).
+            raise NotImplementedError(
+                "integrate_dxdv with dissipative forces is not supported by the "
+                "pure-Python methods ('odeint', 'dop853'); use a C method (e.g. "
+                "'dopr54_c') with dissipative forces that have a C implementation "
+                "of the velocity-dependent force Jacobian (hasC_dxdv3d=True)"
+            )
         if int_method.lower() == "dop853":
             if rtol is None:
                 rtol = 1e-12

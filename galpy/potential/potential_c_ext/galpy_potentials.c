@@ -11,6 +11,10 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->z2deriv= NULL;
     (potentialArgs+ii)->Rzderiv= NULL;
     (potentialArgs+ii)->zphideriv= NULL;
+    // Rectangular dissipative-force Jacobian: NULL for conservative
+    // potentials and for dissipative forces without a C Jacobian; set in
+    // parse_* only for dissipative forces that provide it.
+    (potentialArgs+ii)->RectDissipativeForceJacobian= NULL;
     (potentialArgs+ii)->i2d= NULL;
     (potentialArgs+ii)->accx= NULL;
     (potentialArgs+ii)->accy= NULL;
@@ -85,50 +89,63 @@ double evaluatePotentials(double R, double Z,
 // in galpy_potentials.h and parentheses are necessary to avoid macro expansion
 double (calcRforce)(double R, double Z, double phi, double t,
 		    int nargs, struct potentialArg * potentialArgs,
+		    int include_dissipative,
 		    double vR, double vT, double vZ){
+  // include_dissipative: include the velocity-dependent (dissipative) forces
+  // in the sum? The calcRforce macro supplies 1; the 3D variational equations
+  // pass 0 (the dissipative position-Jacobian is rectangular, so those
+  // forces must not enter the curvilinear Hessian-conversion terms)
   int ii;
-  double Rforce= 0.;
+  double force= 0.;
   for (ii=0; ii < nargs; ii++){
-    if ( potentialArgs->requiresVelocity )
-      Rforce+= potentialArgs->RforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
-    else
-      Rforce+= potentialArgs->Rforce(R,Z,phi,t,
-				     potentialArgs);
+    if ( ! potentialArgs->requiresVelocity )
+      force+= potentialArgs->Rforce(R,Z,phi,t,potentialArgs);
+    else if ( include_dissipative )
+      force+= potentialArgs->RforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return Rforce;
+  return force;
 }
 double (calczforce)(double R, double Z, double phi, double t,
 		    int nargs, struct potentialArg * potentialArgs,
+		    int include_dissipative,
 		    double vR, double vT, double vZ){
+  // include_dissipative: include the velocity-dependent (dissipative) forces
+  // in the sum? The calczforce macro supplies 1; the 3D variational equations
+  // pass 0 (the dissipative position-Jacobian is rectangular, so those
+  // forces must not enter the curvilinear Hessian-conversion terms)
   int ii;
-  double zforce= 0.;
+  double force= 0.;
   for (ii=0; ii < nargs; ii++){
-    if ( potentialArgs->requiresVelocity )
-      zforce+= potentialArgs->zforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
-    else
-      zforce+= potentialArgs->zforce(R,Z,phi,t,potentialArgs);
+    if ( ! potentialArgs->requiresVelocity )
+      force+= potentialArgs->zforce(R,Z,phi,t,potentialArgs);
+    else if ( include_dissipative )
+      force+= potentialArgs->zforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return zforce;
+  return force;
 }
 double (calcphitorque)(double R, double Z, double phi, double t,
-		      int nargs, struct potentialArg * potentialArgs,
-		      double vR, double vT, double vZ){
+		    int nargs, struct potentialArg * potentialArgs,
+		    int include_dissipative,
+		    double vR, double vT, double vZ){
+  // include_dissipative: include the velocity-dependent (dissipative) forces
+  // in the sum? The calcphitorque macro supplies 1; the 3D variational equations
+  // pass 0 (the dissipative position-Jacobian is rectangular, so those
+  // forces must not enter the curvilinear Hessian-conversion terms)
   int ii;
-  double phitorque= 0.;
+  double force= 0.;
   for (ii=0; ii < nargs; ii++){
-    if ( potentialArgs->requiresVelocity )
-      phitorque+= potentialArgs->phitorqueVelocity(R,Z,phi,t,potentialArgs,
-						 vR,vT,vZ);
-    else
-      phitorque+= potentialArgs->phitorque(R,Z,phi,t,potentialArgs);
+    if ( ! potentialArgs->requiresVelocity )
+      force+= potentialArgs->phitorque(R,Z,phi,t,potentialArgs);
+    else if ( include_dissipative )
+      force+= potentialArgs->phitorqueVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return phitorque;
+  return force;
 }
 double (calcPlanarRforce)(double R, double phi, double t,
 			int nargs, struct potentialArg * potentialArgs,
@@ -161,6 +178,36 @@ double (calcPlanarphitorque)(double R, double phi, double t,
   return phitorque;
 }
 
+// Summed rectangular Jacobian of the velocity-dependent forces, for the 3D
+// variational equations: jac_x = sum_i dF_i/d(x,y,z), jac_v = sum_i
+// dF_i/d(vx,vy,vz) (row-major 3x3 blocks) at the rectangular phase-space
+// point q=(x,y,z,vx,vy,vz). NULL-safe: components without
+// RectDissipativeForceJacobian contribute 0, so the output is exact zeros
+// for purely conservative potentials (their position block is the symmetric
+// Hessian, aggregated separately; the orbit layer gates the dissipative dxdv
+// path on hasC_dxdv3d so that no force with a missing Jacobian gets here).
+void calcRectDissipativeForceJacobian(double t, double *q,
+				      double *jac_x, double *jac_v,
+				      int nargs,
+				      struct potentialArg * potentialArgs){
+  int ii,jj;
+  double tmp_x[9],tmp_v[9];
+  for (jj=0; jj < 9; jj++) {
+    *(jac_x+jj)= 0.;
+    *(jac_v+jj)= 0.;
+  }
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->RectDissipativeForceJacobian ) {
+      potentialArgs->RectDissipativeForceJacobian(t,q,tmp_x,tmp_v,potentialArgs);
+      for (jj=0; jj < 9; jj++) {
+	*(jac_x+jj)+= tmp_x[jj];
+	*(jac_v+jj)+= tmp_v[jj];
+      }
+    }
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+}
 double calcR2deriv(double R, double Z, double phi, double t,
 		   int nargs, struct potentialArg * potentialArgs){
   int ii;
