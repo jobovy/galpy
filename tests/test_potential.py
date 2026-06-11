@@ -221,6 +221,7 @@ def test_forceAsDeriv_potential():
     pots.append("KuzminOblateStaeckelWrapperPotential")
     pots.append("KuzminKutuzovOblateStaeckelWrapperPotential")
     pots.append("CorotatingRotationSpiralArmsPotential")
+    pots.append("CorotatingRotation3DSpiralArmsPotential")
     pots.append("GaussianAmplitudeDehnenBarPotential")
     pots.append("nestedListPotential")
     pots.append("mockInterpSphericalPotential")
@@ -476,6 +477,7 @@ def test_2ndDeriv_potential():
     pots.append("KuzminOblateStaeckelWrapperPotential")
     pots.append("KuzminKutuzovOblateStaeckelWrapperPotential")
     pots.append("CorotatingRotationSpiralArmsPotential")
+    pots.append("CorotatingRotation3DSpiralArmsPotential")
     pots.append("GaussianAmplitudeDehnenBarPotential")
     pots.append("nestedListPotential")
     pots.append("mockInterpSphericalPotential")
@@ -12524,6 +12526,23 @@ class CorotatingRotationSpiralArmsPotential(CorotatingRotationWrapperPotential):
         spn = potential.SpiralArmsPotential(omega=0.0, phi_ref=0.0)
         return CorotatingRotationWrapperPotential.__new__(
             cls, amp=1.0, pot=spn.toPlanar(), vpo=1.1, beta=-0.2, pa=0.4, to=3.0
+        )
+
+
+class CorotatingRotation3DSpiralArmsPotential(CorotatingRotationWrapperPotential):
+    # 3D version of CorotatingRotationSpiralArmsPotential above (wraps the FULL
+    # 3D SpiralArms rather than its planar reduction): unit-FD-checks ALL six
+    # cylindrical 2nd derivatives of the R-dependent phi-shift chain rule
+    # against the forces -- in particular the Rzderiv cross term
+    # -(ds/dR) d2Phi_w/dz/dphi', which only exists in 3D. to=3.0 makes t-to
+    # nonzero at the t=0 of the generic force/2nd-deriv FD loops, so the
+    # ds/dR / d2s/dR2 terms are genuinely exercised there.
+    def __new__(cls, *args, **kwargs):
+        if kwargs.get("_init", False):
+            return parentWrapperPotential.__new__(cls, *args, **kwargs)
+        spn = potential.SpiralArmsPotential(omega=0.0, phi_ref=0.0)
+        return CorotatingRotationWrapperPotential.__new__(
+            cls, amp=1.0, pot=spn, vpo=1.1, beta=-0.2, pa=0.4, to=3.0
         )
 
 

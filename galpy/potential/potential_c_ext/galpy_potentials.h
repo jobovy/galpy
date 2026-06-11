@@ -993,6 +993,19 @@ double CorotatingRotationWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double CorotatingRotationWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+// 3D Hessian (variational eqns)
+double CorotatingRotationWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
 //GaussianAmplitudeWrapperPotential
 double GaussianAmplitudeWrapperPotentialEval(double,double,double,double,
 				      struct potentialArg *);
