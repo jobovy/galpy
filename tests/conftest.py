@@ -11,6 +11,8 @@ def pytest_generate_tests(metafunc):
     # galpy imports must be hear to not interfere with different config settings
     # in different files
     # Maybe I should define a cmdline option to set the config instead...
+    import numpy
+
     from galpy import potential
 
     if metafunc.function.__name__ in (
@@ -322,6 +324,60 @@ def pytest_generate_tests(metafunc):
                     pa=0.2,
                 ),
                 "SolidBodyRotationWrapperPotential",
+                "nonaxisymmetric",
+            ),
+            # ---- RotateAndTiltWrapperPotential: the wrapper's full 3D C Hessian
+            # evaluates the wrapped potential's cylindrical Hessian at the
+            # rotated (and optionally offset) point, builds the Cartesian Hessian
+            # there, and conjugates back with the rotation matrix
+            # (H = rot^T H' rot). Tilting breaks the z -> -z symmetry, so the
+            # z=0 plane is NOT invariant and the 3D->2D bridge check is
+            # auto-skipped for these entries (see _planar_invariant in
+            # test_orbit.py). Three entries cover the C branch combinations:
+            # rotation only, rotation+offset, and offset only (rotSet=false).
+            (
+                potential.RotateAndTiltWrapperPotential(
+                    pot=potential.TriaxialNFWPotential(
+                        amp=1.0, a=2.0, b=0.8, c=0.6, normalize=True
+                    ),
+                    galaxy_pa=0.3,
+                    zvec=[numpy.sin(0.4), 0.0, numpy.cos(0.4)],
+                ),
+                "RotateAndTiltWrapperPotential_tiltedTriaxialNFW",
+                "nonaxisymmetric",
+            ),
+            # inclination/sky_pa angle parametrization + offset: exercises the
+            # offsetSet branch of the C Hessian (and the offset force path).
+            # The offset is kept small because the default-tolerance pure-Python
+            # odeint base orbit of the flow-direction check in test_liouville_3d
+            # is otherwise marginally too inaccurate at the fixed registry IC
+            # (an integrator-accuracy effect, NOT a Hessian error: the C
+            # integrators pass regardless and the C Hessian matches the
+            # pure-Python reference to ~4e-11, see test_dxdv_3d_c_vs_python);
+            # the larger-offset C paths are covered by the norot entry below.
+            (
+                potential.RotateAndTiltWrapperPotential(
+                    pot=potential.LogarithmicHaloPotential(
+                        amp=1.0, core=0.5, q=0.8, b=0.7, normalize=True
+                    ),
+                    inclination=0.4,
+                    galaxy_pa=0.3,
+                    sky_pa=0.2,
+                    offset=[0.03, -0.04, 0.02],
+                ),
+                "RotateAndTiltWrapperPotential_offset",
+                "nonaxisymmetric",
+            ),
+            # offset WITHOUT rotation (norot): exercises the rotSet=false branch
+            # of the C Hessian (no conjugation, offset-only point transform)
+            (
+                potential.RotateAndTiltWrapperPotential(
+                    pot=potential.LogarithmicHaloPotential(
+                        amp=1.0, core=0.5, q=0.8, b=0.7, normalize=True
+                    ),
+                    offset=[0.1, -0.15, 0.07],
+                ),
+                "RotateAndTiltWrapperPotential_norot_offset",
                 "nonaxisymmetric",
             ),
         ]
