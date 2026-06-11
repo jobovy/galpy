@@ -686,6 +686,24 @@ double SoftenedNeedleBarPotentialPlanarRforce(double,double,double,
 					      struct potentialArg *);
 double SoftenedNeedleBarPotentialPlanarphitorque(double,double,double,
 					  struct potentialArg *);
+double SoftenedNeedleBarPotentialR2deriv(double,double,double,double,
+					 struct potentialArg *);
+double SoftenedNeedleBarPotentialz2deriv(double,double,double,double,
+					 struct potentialArg *);
+double SoftenedNeedleBarPotentialphi2deriv(double,double,double,double,
+					   struct potentialArg *);
+double SoftenedNeedleBarPotentialRzderiv(double,double,double,double,
+					 struct potentialArg *);
+double SoftenedNeedleBarPotentialRphideriv(double,double,double,double,
+					   struct potentialArg *);
+double SoftenedNeedleBarPotentialzphideriv(double,double,double,double,
+					   struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarR2deriv(double,double,double,
+					       struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarphi2deriv(double,double,double,
+						 struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarRphideriv(double,double,double,
+						 struct potentialArg *);
 //DiskSCFPotential
 double DiskSCFPotentialEval(double,double,double,double,
 				      struct potentialArg *);
