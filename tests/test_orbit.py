@@ -1244,6 +1244,154 @@ def test_doubleexp_dxdv_planar_c_vs_python():
     return None
 
 
+def test_interprz_dxdv_3d():
+    # interpRZPotential has a full 3D C Hessian (hasC_dxdv3d=True) when the
+    # potential, both forces, AND the three 2nd derivatives are interpolated
+    # with enable_c: like the forces, R2deriv/z2deriv/Rzderiv are each a
+    # precomputed grid of exact (original-potential) values interpolated with a
+    # 2D cubic B-spline in C (phi derivatives are identically zero --
+    # axisymmetric). It is deliberately NOT in the strict liouville3d_registry
+    # (the interpSpherical/Multipole precedent): every check involving it is
+    # interpolation-limited, and its pure-Python reference path with enable_c
+    # re-packs the full grids into C per evaluation, which is far too slow for
+    # the registry sweep. This test validates the C 3D Hessian directly:
+    # (1) C 3D variational integration on the interp potential must match the
+    #     trusted pure-Python analytic-Hessian dxdv of the UNDERLYING
+    #     MWPotential2014 to interpolation accuracy (~1e-4 measured; the two
+    #     share NO code -- different potential representation, integrator, and
+    #     Hessian -- so agreement pins the C Hessian values);
+    # (2) Liouville det(M)=1 and symplecticity MtOmegaM=Omega of the 6x6 STM
+    #     (necessary; holds at integrator accuracy for any symmetric K);
+    # (3) finite-difference-of-the-flow: the dxdv column must match the FD of
+    #     the integrated C flow (uses only the trusted C forces). dop853_c is
+    #     excluded from this check only: the C2-continuous spline RHS breaks
+    #     the order-8 error estimator, making the eps=1e-7 orbit differencing
+    #     noisy (~1e-2) -- an integrator/FD-accuracy effect, not a Hessian
+    #     error (dop853_c passes check (1) at 1.0e-4, identical to dopr54_c).
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, interpRZPotential
+    from galpy.util import coords
+
+    rzpot = interpRZPotential(
+        RZPot=MWPotential2014,
+        rgrid=(numpy.log(0.3), numpy.log(3.0), 151),
+        zgrid=(0.0, 0.35, 151),
+        logR=True,
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        interpR2deriv=True,
+        interpz2deriv=True,
+        interpRzderiv=True,
+        use_c=True,
+        enable_c=True,
+        zsym=True,
+    )
+    assert rzpot.hasC_dxdv3d, "interpRZPotential should advertise hasC_dxdv3d"
+    # Negative control: without the interpolated 2nd derivatives there is no
+    # 3D C Hessian (integrate_dxdv then falls back to Python, see
+    # test_integrate_dxdv_3d_c_requires_full_hessian for the gate itself)
+    rzpot_no2nd = interpRZPotential(
+        RZPot=MWPotential2014,
+        rgrid=(numpy.log(0.3), numpy.log(3.0), 11),
+        zgrid=(0.0, 0.35, 11),
+        logR=True,
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        use_c=True,
+        enable_c=True,
+        zsym=True,
+    )
+    assert not rzpot_no2nd.hasC_dxdv3d, (
+        "interpRZPotential w/o interpolated 2nd derivatives should not advertise hasC_dxdv3d"
+    )
+    # Generic, fully 3D initial condition (R,vR,vT,z,vz,phi); the orbit stays
+    # within R in [0.98,1.31], |z| <= 0.077 -- well inside the grid
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    # (1) C dxdv on the interp potential vs the trusted pure-Python
+    # analytic-Hessian dxdv on the underlying MWPotential2014
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, MWPotential2014, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        ref = op.getOrbit_dxdv()
+        for integrator in ("dopr54_c", "dop853_c", "rk6_c"):
+            oc = Orbit(ic)
+            oc.integrate_dxdv(
+                canonical[ii], times, rzpot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - ref))
+            # measured: <= 1.0e-4 for each integrator (interpolation-limited);
+            # 1e-3 leaves a safe margin while pinning any sign/factor error
+            # in the C Hessian (those give O(1) differences)
+            assert diff < 1e-3, (
+                f"3D C variational integration for interpRZPotential differs from "
+                f"the pure-Python reference on the underlying MWPotential2014 by "
+                f"{diff:g} (unit deviation e_{ii}, integrator {integrator})"
+            )
+    # (2)+(3) det(M)=1, symplecticity, and FD-of-flow within the C integrators
+    times = numpy.linspace(0.0, 3.0, 151)
+    Omega = numpy.zeros((6, 6))
+    Omega[:3, 3:] = numpy.eye(3)
+    Omega[3:, :3] = -numpy.eye(3)
+    for integrator in ("dopr54_c", "dop853_c", "rk6_c"):
+        Mcols = []
+        for ii in range(6):
+            o = Orbit(ic)
+            o.integrate_dxdv(
+                canonical[ii], times, rzpot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-10, atol=1e-10,
+            )  # fmt: skip
+            Mcols.append(o.getOrbit_dxdv()[-1, :])
+        M = numpy.array(Mcols).T
+        detM = numpy.linalg.det(M)
+        # measured: ~1.5e-7 (adaptive) / ~4e-12 (fixed-step rk6_c)
+        assert numpy.fabs(detM - 1.0) < 1e-6, (
+            f"3D Liouville det(M)={detM:g} differs from 1 for interpRZPotential, "
+            f"integrator {integrator}"
+        )
+        symperr = numpy.amax(numpy.fabs(M.T @ Omega @ M - Omega))
+        assert symperr < 1e-6, (
+            f"3D symplecticity ||M^T Omega M - Omega||={symperr:g} too large for "
+            f"interpRZPotential, integrator {integrator}"
+        )
+        if integrator == "dop853_c":
+            continue  # FD-of-flow excluded for dop853_c, see docstring
+        # (3) finite-difference of the flow (uses only the trusted C forces)
+        eps = 1e-7
+        obase = Orbit(ic)
+        obase.integrate(times, rzpot, method=integrator, rtol=1e-12, atol=1e-12)
+        base = _orbit_rect_3d(obase, times)
+        for ii in [0, 2, 4]:  # x, z, vy perturbations
+            p = base[0].copy()
+            p[ii] += eps
+            Rp, phip, Zp = coords.rect_to_cyl(p[0], p[1], p[2])
+            vRp, vTp, vzp = coords.rect_to_cyl_vec(p[3], p[4], p[5], p[0], p[1], p[2])
+            opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+            opert.integrate(times, rzpot, method=integrator, rtol=1e-12, atol=1e-12)
+            fd = (_orbit_rect_3d(opert, times) - base) / eps
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii], times, rzpot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-10, atol=1e-10,
+            )  # fmt: skip
+            fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+            # measured: <= 6.5e-4 (interpolation-limited: the interpolated
+            # exact-Hessian K differs from the exact Jacobian of the
+            # interpolated forces at spline accuracy)
+            assert fderr < 2e-3, (
+                f"3D FD-of-flow for e_{ii} differs from the dxdv column by "
+                f"{fderr:g} for interpRZPotential, integrator {integrator}"
+            )
+    return None
+
+
 def _check_dxdv_3d_c(
     pot,
     name,

@@ -428,6 +428,7 @@ def test_2ndDeriv_potential():
     pots.append("testplanarMWPotential")
     pots.append("testlinearMWPotential")
     pots.append("mockInterpRZPotential")
+    pots.append("mockInterpRZPotentialwSecondDerivs")
     pots.append("mockCosmphiDiskPotentialnegcp")
     pots.append("mockCosmphiDiskPotentialnegp")
     pots.append("mockDehnenBarPotentialT1")
@@ -529,6 +530,7 @@ def test_2ndDeriv_potential():
     tol["RazorThinExponentialDiskPotential"] = -6.0
     tol["AnyAxisymmetricRazorThinDiskPotential"] = -4.5
     tol["mockInterpRZPotential"] = -4.0
+    tol["mockInterpRZPotentialwSecondDerivs"] = -4.0
     tol["DehnenBarPotential"] = -7.0
     for p in pots:
         # if not 'NFW' in p: continue #For testing the test
@@ -11543,6 +11545,28 @@ class mockInterpRZPotential(interpRZPotential):
             interpRforce=True,
             interpzforce=True,
             interpDens=True,
+        )
+
+
+class mockInterpRZPotentialwSecondDerivs(interpRZPotential):
+    # Also interpolates the 2nd derivatives (R2deriv/z2deriv/Rzderiv; together
+    # the full 3D Hessian); the grid covers the (R,z) points used by
+    # test_2ndDeriv_potential (R=0.5,1,2; |z|<=0.25), so the interpolated
+    # (rather than the passed-through exact) 2nd derivatives are exercised
+    # against finite differences of the interpolated forces there
+    def __init__(self):
+        interpRZPotential.__init__(
+            self,
+            RZPot=MWPotential,
+            rgrid=(numpy.log(0.35), numpy.log(2.5), 151),
+            zgrid=(0.0, 0.3, 151),
+            logR=True,
+            interpPot=True,
+            interpRforce=True,
+            interpzforce=True,
+            interpR2deriv=True,
+            interpz2deriv=True,
+            interpRzderiv=True,
         )
 
 
