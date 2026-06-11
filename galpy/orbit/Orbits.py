@@ -2431,6 +2431,190 @@ class Orbit:
         self.orbit = self.orbit_dxdv[..., : self.phasedim()]
         return None
 
+    @physical_conversion("frequency")
+    @shapeDecorator
+    def lyapunov(
+        self,
+        ts,
+        pot=None,
+        method="dop853_c",
+        renorm_every=10,
+        dxdv0=None,
+        progressbar=False,
+        dt=None,
+        numcores=_NUMCORES,
+        force_map=False,
+        rtol=None,
+        atol=None,
+        **kwargs,
+    ):
+        r"""
+        Estimate the largest Lyapunov exponent using the variational equations.
+
+        The deviation vector is propagated with the linearized (variational)
+        equations of motion (see ``integrate_dxdv``) and renormalized to its
+        initial norm every ``renorm_every`` output times (Benettin et al. 1980
+        method). The running estimate
+
+        .. math:: \lambda(t) = \frac{1}{t-t_0}\,\sum \ln \frac{|\delta x|}{|\delta x_0|}
+
+        is returned at all output times, such that its convergence can be
+        assessed; the final value is the best estimate of the largest Lyapunov
+        exponent. For regular orbits, :math:`\lambda(t)` decays as
+        :math:`\ln(t)/t`, while for chaotic orbits it converges to a positive
+        value.
+
+        Parameters
+        ----------
+        ts : list, numpy.ndarray or Quantity
+            List of equispaced times at which to compute the running Lyapunov estimate. The initial condition is ts[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…), optional
+            Gravitational field to integrate the orbit in. Default is the gravitational field used in the last orbit integration.
+        method : str, optional
+            Integration method; see ``integrate_dxdv`` for the possible (non-symplectic) methods. Default is 'dop853_c'.
+        renorm_every : int, optional
+            Renormalize the deviation vector to its initial norm every ``renorm_every`` output time intervals. Default is 10.
+        dxdv0 : numpy.ndarray, optional
+            Initial phase-space deviation vector in *rectangular* coordinates [dx,dy,dvx,dvy] (planar orbits) or [dx,dy,dz,dvx,dvy,dvz] (3D orbits); shape (phasedim,) [same deviation for all orbits] or (\*input_shape, phasedim). Because the variational equations are linear, the overall normalization is irrelevant. Default is the unit vector with equal components along all phase-space directions.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!); shown for each renormalization segment. Default is False.
+        dt : float, optional
+            If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity).
+        numcores : int, optional
+            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS.
+        force_map : bool, optional
+            If True, force use of Python-based multiprocessing (not recommended). Default is False.
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute tolerance. Default is None.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        numpy.ndarray or Quantity [\*input_shape,nt]
+            Running estimate :math:`\lambda(t)` of the largest Lyapunov exponent at the output times; the entry for the initial time ts[0] is NaN (no elapsed time yet).
+
+        Notes
+        -----
+        - Only implemented for 4D (planar) and 6D (3D) orbits.
+        - The previously integrated orbit stored in this instance (if any) is not affected.
+        - References: Benettin et al. (1980, Meccanica 15, 9); see also Skokos (2010, Lect. Notes Phys. 790, 63).
+        - 2026-06-09 - Written - Bovy (UofT)
+
+        """
+        if not (self.phasedim() == 4 or self.phasedim() == 6):
+            raise AttributeError(
+                "lyapunov is only implemented for 4D (planar) and 6D (3D) orbits"
+            )
+        self.check_integrator(method, no_symplec=True)
+        if pot is None:
+            try:
+                pot = self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        pot = _check_potential_list_and_deprecate(pot)
+        _check_potential_dim(self, pot)
+        _check_consistent_units(self, pot)
+        # Parse ts
+        if _APY_LOADED and isinstance(ts, units.Quantity):
+            ts = conversion.parse_time(ts, ro=self._ro, vo=self._vo)
+        ts = numpy.array(ts, dtype="float64")
+        if len(ts) < 2:
+            raise ValueError("Input time array must have at least two times")
+        if not dt is None:
+            dt = conversion.parse_time(dt, ro=self._ro, vo=self._vo)
+        renorm_every = int(renorm_every)
+        if renorm_every < 1:
+            raise ValueError("renorm_every must be a positive integer")
+        # Resolve the C-capability fallback once here, such that the
+        # warning is not emitted for every renormalization segment;
+        # this mirrors the check in integrate_dxdv
+        if "_c" in method:
+            if self.phasedim() == 6:
+                allHasC = _check_c(pot) and _check_c(pot, dxdv3d=True)
+            else:
+                allHasC = _check_c(pot) and _check_c(pot, dxdv=True)
+            if not ext_loaded or not allHasC:
+                method = "odeint"
+                if not ext_loaded:  # pragma: no cover
+                    warnings.warn(
+                        "Cannot use C integration because C extension not loaded (using %s instead)"
+                        % (method),
+                        galpyWarning,
+                    )
+                else:
+                    warnings.warn(
+                        "Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",
+                        galpyWarning,
+                    )
+        phasedim = self.phasedim()
+        norb = self.vxvv.shape[0]
+        nt = len(ts)
+        # Parse the initial deviation vector (rectangular coordinates)
+        if dxdv0 is None:
+            dxdv0 = numpy.ones(phasedim) / numpy.sqrt(phasedim)
+        dxdv0 = numpy.array(dxdv0, dtype="float64")
+        if dxdv0.ndim == 1:
+            dxdv0 = numpy.tile(dxdv0, (norb, 1))
+        else:
+            dxdv0 = dxdv0.reshape((-1, dxdv0.shape[-1]))
+        if dxdv0.shape != (norb, phasedim):
+            raise ValueError(
+                "Input dxdv0 must have shape (phasedim,) or (*input_shape,phasedim)"
+            )
+        d0norm = numpy.linalg.norm(dxdv0, axis=-1)
+        if numpy.any(d0norm == 0.0):
+            raise ValueError("Input dxdv0 must have non-zero norm")
+        # Benettin et al. (1980) loop: integrate the deviation vector over
+        # segments of renorm_every output intervals, renormalizing it to its
+        # initial norm at the end of each segment and accumulating the log
+        # growth factors
+        elapsed = ts - ts[0]
+        lam = numpy.empty((norb, nt))
+        lam[:, 0] = numpy.nan
+        logsum = numpy.zeros(norb)
+        cur_vxvv = self.vxvv.copy()
+        cur_dxdv = dxdv0.copy()
+        ii = 0
+        while ii < nt - 1:
+            jj = min(ii + renorm_every, nt - 1)
+            tmpo = Orbit(cur_vxvv)
+            tmpo.integrate_dxdv(
+                cur_dxdv,
+                ts[ii : jj + 1],
+                pot,
+                method=method,
+                progressbar=progressbar,
+                dt=dt,
+                numcores=numcores,
+                force_map=force_map,
+                rectIn=True,
+                rectOut=True,
+                rtol=rtol,
+                atol=atol,
+            )
+            dev = tmpo.orbit_dxdv[:, :, phasedim:]
+            devnorm = numpy.linalg.norm(dev, axis=-1)
+            # Running estimate at the output times in this segment
+            lam[:, ii + 1 : jj + 1] = (
+                logsum[:, None] + numpy.log(devnorm[:, 1:] / d0norm[:, None])
+            ) / elapsed[None, ii + 1 : jj + 1]
+            # Renormalize the deviation vector to its initial norm
+            endnorm = devnorm[:, -1]
+            logsum += numpy.log(endnorm / d0norm)
+            cur_dxdv = dev[:, -1, :] * (d0norm / endnorm)[:, None]
+            cur_vxvv = tmpo.orbit[:, -1, :]
+            ii = jj
+        return lam
+
     def flip(self, inplace=False):
         """
         Flip an orbit's initial conditions such that the velocities are minus the original velocities.

@@ -1,6 +1,13 @@
 v1.12.0 (expected around 2026-07-01)
 ====================
 
+- Added ``Orbit.lyapunov`` to estimate the largest Lyapunov exponent of an
+  orbit from the variational equations (``integrate_dxdv``) using the
+  renormalization method of Benettin et al. (1980). Works for planar
+  (phase-space dimension 4) and full 3D (phase-space dimension 6) orbits,
+  using the C variational integrators when available, and returns the running
+  estimate lambda(t) at all output times so that convergence can be assessed.
+
 - Added a ``cinterp`` option (default ``True``, resolution set by ``cinterp_n``)
   to ``NonInertialFrameForce`` that, during C orbit integration, replaces the
   time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline
