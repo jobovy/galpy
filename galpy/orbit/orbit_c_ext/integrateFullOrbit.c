@@ -829,6 +829,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &CorotatingRotationWrapperPotentialRforce;
       potentialArgs->zforce= &CorotatingRotationWrapperPotentialzforce;
       potentialArgs->phitorque= &CorotatingRotationWrapperPotentialphitorque;
+      potentialArgs->R2deriv= &CorotatingRotationWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &CorotatingRotationWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &CorotatingRotationWrapperPotentialRzderiv;
+      potentialArgs->phi2deriv= &CorotatingRotationWrapperPotentialphi2deriv;
+      potentialArgs->Rphideriv= &CorotatingRotationWrapperPotentialRphideriv;
+      potentialArgs->zphideriv= &CorotatingRotationWrapperPotentialzphideriv;
       potentialArgs->nargs= 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
