@@ -12289,6 +12289,27 @@ class mockSlowFlatDehnenBarPotential(testMWPotential):
         return self._potlist[1].OmegaP()
 
 
+class mockFlatSoftenedNeedleBarPotential(testMWPotential):
+    # Realistic configuration of the softened-needle bar: a rotating
+    # bar-strength perturbation (default amp -> ~2.6% of the radial force at
+    # R=1) on a flat-rotation-curve halo, following the mockFlatDehnenBar
+    # idiom. (The BARE normalized needle bar -- the entire rotation curve from
+    # a fast-rotating needle -- makes the fixed test_liouville_planar orbit
+    # strongly chaotic, so |det M - 1| saturates at the double-precision
+    # cancellation floor for every integrator; see test_liouville_planar.)
+    def __init__(self):
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                potential.SoftenedNeedleBarPotential(),
+            ],
+        )
+
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+
+
 class mockFlatSteadyLogSpiralPotential(testplanarMWPotential):
     def __init__(self):
         testplanarMWPotential.__init__(

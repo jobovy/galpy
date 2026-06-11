@@ -321,6 +321,10 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &SoftenedNeedleBarPotentialEval;
       potentialArgs->planarRforce= &SoftenedNeedleBarPotentialPlanarRforce;
       potentialArgs->planarphitorque= &SoftenedNeedleBarPotentialPlanarphitorque;
+      // Planar Hessian for the 2D variational equations (integrate_dxdv).
+      potentialArgs->planarR2deriv= &SoftenedNeedleBarPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &SoftenedNeedleBarPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &SoftenedNeedleBarPotentialPlanarRphideriv;
       potentialArgs->nargs= 13;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;

@@ -80,8 +80,10 @@ class SoftenedNeedleBarPotential(Potential):
         self._pa = pa
         self._omegab = omegab
         self._force_hash = None
+        self._hess_hash = None
         self.hasC = True
-        self.hasC_dxdv = False
+        self.hasC_dxdv = True
+        self.hasC_dxdv3d = True  # full 3D Hessian (incl. zphideriv) in C
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
@@ -107,6 +109,30 @@ class SoftenedNeedleBarPotential(Potential):
     def _zforce(self, R, z, phi=0.0, t=0.0):
         self._compute_xyzforces(R, z, phi, t)
         return self._cached_Fz
+
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        self._compute_cylhess(R, z, phi, t)
+        return self._cached_d2RR
+
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        self._compute_cylhess(R, z, phi, t)
+        return self._cached_d2zz
+
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
+        self._compute_cylhess(R, z, phi, t)
+        return self._cached_d2phiphi
+
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        self._compute_cylhess(R, z, phi, t)
+        return self._cached_d2Rz
+
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
+        self._compute_cylhess(R, z, phi, t)
+        return self._cached_d2Rphi
+
+    def _phizderiv(self, R, z, phi=0.0, t=0.0):
+        self._compute_cylhess(R, z, phi, t)
+        return self._cached_d2phiz
 
     def OmegaP(self):
         return self._omegab
@@ -136,6 +162,56 @@ class SoftenedNeedleBarPotential(Potential):
             self._cached_Fx = cp * Fx - sp * Fy
             self._cached_Fy = sp * Fx + cp * Fy
             self._cached_Fz = Fz
+
+    def _compute_cylhess(self, R, z, phi, t):
+        # Compute all six cylindrical second derivatives. In the bar-aligned
+        # frame (phid = phi - pa - omegab t, x = R cos phid, y = R sin phid)
+        # the Cartesian Hessian of Phi = ln[(x-a+Tm)/(x+a+Tp)]/(2a) is
+        # closed-form; the cylindrical Hessian then follows from the standard
+        # polar transformation evaluated at phid (the rigid rotation only
+        # shifts the azimuth, so d/dphi = d/dphid).
+        new_hash = hashlib.md5(numpy.array([R, phi, z, t])).hexdigest()
+        if new_hash == self._hess_hash:
+            return
+        a, b, c2 = self._a, self._b, self._c2
+        phid = phi - self._pa - self._omegab * t
+        cd, sd = numpy.cos(phid), numpy.sin(phid)
+        x, y = R * cd, R * sd
+        zc = numpy.sqrt(z**2.0 + c2)
+        u = b + zc
+        s2 = y**2.0 + u**2.0
+        Tp, Tm = self._compute_TpTm(x, y, z)
+        # Building blocks: G/H weight the two bar ends, K their difference,
+        # w = dzc-chain factor z(b+zc)/zc
+        G = (a - x) / Tm + (a + x) / Tp
+        H = (a - x) / Tm**3.0 + (a + x) / Tp**3.0
+        K = 1.0 / Tm**3.0 - 1.0 / Tp**3.0
+        w = z * u / zc
+        # Aligned-frame gradient (cf. _xforce_xyz/_yforce_xyz = -gradient)
+        px = (1.0 / Tm - 1.0 / Tp) / 2.0 / a
+        py = y * G / 2.0 / a / s2
+        # Aligned-frame Cartesian Hessian
+        pxx = H / 2.0 / a
+        pxy = -y * K / 2.0 / a
+        pxz = -w * K / 2.0 / a
+        pyy = (G * (s2 - 2.0 * y**2.0) / s2**2.0 - y**2.0 * H / s2) / 2.0 / a
+        pyz = -y * w * (2.0 * G / s2**2.0 + H / s2) / 2.0 / a
+        pzz = (
+            ((1.0 + b * c2 / zc**3.0) * G / s2 - w**2.0 * (H / s2 + 2.0 * G / s2**2.0))
+            / 2.0
+            / a
+        )
+        self._hess_hash = new_hash
+        self._cached_d2RR = cd**2.0 * pxx + 2.0 * cd * sd * pxy + sd**2.0 * pyy
+        self._cached_d2phiphi = R**2.0 * (
+            sd**2.0 * pxx - 2.0 * sd * cd * pxy + cd**2.0 * pyy
+        ) - R * (cd * px + sd * py)
+        self._cached_d2Rphi = R * (
+            -sd * cd * pxx + (cd**2.0 - sd**2.0) * pxy + sd * cd * pyy
+        ) + (-sd * px + cd * py)
+        self._cached_d2Rz = cd * pxz + sd * pyz
+        self._cached_d2zz = pzz
+        self._cached_d2phiz = R * (-sd * pxz + cd * pyz)
 
     def _xforce_xyz(self, x, y, z, Tp, Tm):
         return -2.0 * x / Tp / Tm / (Tp + Tm)
