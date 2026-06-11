@@ -2426,6 +2426,138 @@ def test_noninertial_dxdv_rotating_vs_inertial_stm():
     return None
 
 
+# The C rectangular frame-force Jacobian
+# (NonInertialFrameForce.c::...RectDissipativeForceJacobian) mirrors the
+# branch structure of the force it differentiates (see
+# test_chandrasekhar_dxdv_fd_of_flow_branches for the friction analogue):
+# the translation-only early exit (no rotation: F = -a0(t) does not depend
+# on (x,v), so the Jacobian is identically zero), the scalar
+# Omega_z(t)-as-function branch (Omega_z and Omegadot_z through the tdep
+# helpers), and the constant-vector Omega + constant-vector Omegadot branch
+# (Omega(t) = Omega + Omegadot t componentwise). The main FD-of-flow test
+# above runs the constant-scalar-Omega+Omegadot fixed-args branch and the
+# vector-Omega(t)-functions branch; the configurations here select each of
+# the remaining branches through the regular constructor options and
+# validate with the same finite-difference-of-the-flow check (ground truth
+# built from plain orbit integrations, which use only the separately-
+# validated forces), each with a non-vacuity guard (via the PYTHON-side
+# configuration, independent of the C code) that the intended branch is
+# genuinely selected and dynamically active.
+@pytest.mark.parametrize("config", ["linacc_only", "omegaz_func", "vec_omegadot_args"])
+def test_noninertial_dxdv_fd_of_flow_branches(config):
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, NonInertialFrameForce
+    from galpy.util import coords
+
+    if config == "linacc_only":
+        # translation-only frame (a0 only, no rotation): F = -a0(t) is
+        # independent of (x, v), so the frame-force Jacobian is identically
+        # zero (the rot_acc early exit in C); the deviation still feels a0
+        # through the displaced base orbit along which the potential Hessian
+        # is evaluated, so FD-of-flow remains a nontrivial check
+        nif = NonInertialFrameForce(a0=[0.06, -0.04, 0.03])
+    elif config == "omegaz_func":
+        # scalar Omega_z as a function of time (with its derivative provided
+        # as a function too): the omegaz_only Omega-as-function evaluation of
+        # Omega_z(t) and Omegadot_z(t) in the C Jacobian (through the cinterp
+        # splines, the default for C integration)
+        nif = NonInertialFrameForce(
+            Omega=lambda t: 1.0 + 0.08 * numpy.sin(t),
+            Omegadot=lambda t: 0.08 * numpy.cos(t),
+        )
+    elif config == "vec_omegadot_args":
+        # constant vector Omega with constant vector Omegadot:
+        # Omega(t) = Omega + Omegadot t with all six components nonzero, so
+        # every componentwise term of this C branch is dynamically active
+        nif = NonInertialFrameForce(
+            Omega=numpy.array([0.05, 0.08, 1.0]),
+            Omegadot=numpy.array([0.02, -0.015, 0.03]),
+        )
+    pot = MWPotential2014 + nif
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    # Non-vacuity guards: the intended branch is genuinely selected and its
+    # quantities are nonzero, so a corrupted Jacobian term could not hide
+    if config == "linacc_only":
+        assert not nif._rot_acc and nif._lin_acc, (
+            "linacc_only configuration does not select the translation-only branch"
+        )
+        assert numpy.all(numpy.fabs(nif._a0_py(2.5)) > 0.0), (
+            "linacc_only test acceleration has zero components; the "
+            "translation-only branch test would be vacuous"
+        )
+    elif config == "omegaz_func":
+        assert nif._omegaz_only and nif._Omega_as_func and not nif._const_freq, (
+            "omegaz_func configuration does not select the scalar "
+            "Omega-as-function branch"
+        )
+        assert nif._cinterp  # evaluated through the C splines (pot_type 45)
+        assert numpy.fabs(nif._Omega_py(1.5) - nif._Omega_py(0.0)) > 0.0, (
+            "omegaz_func test frequency does not vary in time"
+        )
+        assert numpy.fabs(nif._Omegadot_py(0.0)) > 0.0, (
+            "omegaz_func test frequency derivative vanishes; the Euler term "
+            "of the Jacobian would be untested"
+        )
+    elif config == "vec_omegadot_args":
+        assert (
+            not nif._omegaz_only and not nif._Omega_as_func and not nif._const_freq
+        ), (
+            "vec_omegadot_args configuration does not select the "
+            "constant-vector Omega + Omegadot branch"
+        )
+        assert numpy.all(numpy.fabs(nif._Omega) > 0.0) and numpy.all(
+            numpy.fabs(nif._Omegadot) > 0.0
+        ), (
+            "vec_omegadot_args test frequencies have zero components; parts "
+            "of the componentwise C branch would be untested"
+        )
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    if config == "linacc_only":
+        # ... and a0 genuinely acts: the base orbit differs substantially
+        # from the inertial no-frame orbit
+        onoframe = Orbit(ic)
+        onoframe.integrate(times, MWPotential2014, method="dopr54_c")
+        assert (
+            numpy.amax(numpy.fabs(_orbit_rect_columns_3d(onoframe, times) - base_rect))
+            > 0.1
+        ), (
+            "linacc_only test orbit is barely displaced by a0; the "
+            "translation-only branch test would be vacuous"
+        )
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"NonInertialFrameForce 3D FD-of-flow for e_{ii} differs from "
+            f"the dxdv column by {fderr:g} ({config} configuration)"
+        )
+    return None
+
+
 def test_noninertial_dxdv_flags_and_gate():
     # NonInertialFrameForce advertises its exact C rectangular Jacobian for
     # EVERY configuration (the force is linear in (x,v), so no configuration
