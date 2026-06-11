@@ -61,6 +61,12 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
         self._to = to
         self.hasC = True
         self.hasC_dxdv = True
+        # Advertise the 3D variational capability unconditionally, as for
+        # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own
+        # hasC_dxdv3d (the wrapper's C 3D Hessian applies the R-dependent
+        # phi-shift chain rule to calc<deriv>(wrapped), so it is complete iff
+        # the wrapped one is).
+        self.hasC_dxdv3d = True
 
     def _wrap(self, attribute, *args, **kwargs):
         kwargs["phi"] = (
@@ -120,6 +126,27 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
                 * args[0] ** (self._beta - 3.0)
                 * (kwargs.get("t", 0.0) - self._to)
             )
+        )
+
+    def _Rzderiv(self, *args, **kwargs):
+        # The phi-shift s(R,t) = vpo R^(beta-1) (t-to) + pa depends on R, so
+        # d/dR -> d/dR - (ds/dR) d/dphi' also when acting on the z-derivative:
+        # d2Phi/dRdz = Phi_w,Rz - (ds/dR) Phi_w,phi'z (without the cross term,
+        # which the generic _wrap would miss, Rzderiv is wrong for beta != 1).
+        kwargs["phi"] = (
+            kwargs.get("phi", 0.0)
+            - self._vpo
+            * args[0] ** (self._beta - 1.0)
+            * (kwargs.get("t", 0.0) - self._to)
+            - self._pa
+        )
+        return self._wrap_pot_func("_Rzderiv")(
+            self._pot, *args, **kwargs
+        ) - self._wrap_pot_func("_phizderiv")(self._pot, *args, **kwargs) * (
+            self._vpo
+            * (self._beta - 1.0)
+            * args[0] ** (self._beta - 2.0)
+            * (kwargs.get("t", 0.0) - self._to)
         )
 
     def _Rphideriv(self, *args, **kwargs):

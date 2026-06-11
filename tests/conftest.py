@@ -423,6 +423,25 @@ def pytest_generate_tests(metafunc):
                 "RotateAndTiltWrapperPotential_norot_offset",
                 "nonaxisymmetric",
             ),
+            # CorotatingRotation has an R-DEPENDENT phi-shift
+            # (phi -> phi - vpo R^(beta-1) (t-to) - pa), so -- unlike the clean
+            # wrappers above -- the chain rule d/dR -> d/dR - (ds/dR) d/dphi'
+            # generates ds/dR (and d2s/dR2) cross terms in every R-derivative of
+            # its C Hessian (R2deriv/Rphideriv/Rzderiv). Wrapping SpiralArms
+            # (full 3D C Hessian, genuine z-phi coupling) exercises all of them;
+            # beta=0 (a vpo/R pattern speed) and to=-1 keep ds/dR and d2s/dR2
+            # nonzero over the whole test interval (including at t=0).
+            (
+                potential.CorotatingRotationWrapperPotential(
+                    pot=potential.SpiralArmsPotential(),
+                    vpo=1.0,
+                    beta=0.0,
+                    to=-1.0,
+                    pa=0.3,
+                ),
+                "CorotatingRotationWrapperPotential",
+                "nonaxisymmetric",
+            ),
         ]
         ids = [entry[1] for entry in liouville3d_registry]
         if metafunc.function.__name__ == "test_dxdv_3d_c_vs_python":
