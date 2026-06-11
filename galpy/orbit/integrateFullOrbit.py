@@ -532,6 +532,10 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             pot_args.extend(
                 list(p._offset) if not p._offset is None else [0.0, 0.0, 0.0]
             )
+            # 3D-Hessian cache for the variational equations: (x,y,z,t) key
+            # (NaN = empty) + the 6 unique Cartesian Hessian components (see
+            # RotateAndTiltWrapperPotential.c)
+            pot_args.extend([numpy.nan] * 4 + [0.0] * 6)
         elif isinstance(p, potential.TimeDependentAmplitudeWrapperPotential):
             pot_type.append(-9)
             # Not sure how to easily avoid this duplication
