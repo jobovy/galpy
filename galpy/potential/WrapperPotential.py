@@ -149,7 +149,10 @@ class WrapperPotential(Potential):
             )
 
         # Build own parameter string (excluding pot, ro, vo, _init)
-        class_name = type(self).__name__[1:]
+        # Factory-created wrapper instance classes carry a leading underscore
+        # (see parentWrapperPotential.__new__); direct subclasses (e.g.,
+        # RotateAndTiltWrapperPotential, KuzminLikeWrapperPotential) do not
+        class_name = type(self).__name__.removeprefix("_")
         params = _build_params_string(
             self, exclude_params=["self", "ro", "vo", "pot", "_init"]
         )
@@ -291,7 +294,10 @@ class planarWrapperPotential(planarPotential):
             )
 
         # Build own parameter string (excluding pot, ro, vo, _init)
-        class_name = type(self).__name__[1:]
+        # Factory-created wrapper instance classes carry a leading underscore
+        # (see parentWrapperPotential.__new__); direct subclasses (e.g.,
+        # RotateAndTiltWrapperPotential, KuzminLikeWrapperPotential) do not
+        class_name = type(self).__name__.removeprefix("_")
         params = _build_params_string(
             self, exclude_params=["self", "ro", "vo", "pot", "_init"]
         )

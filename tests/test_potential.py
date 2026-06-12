@@ -1821,6 +1821,161 @@ def test_repr_wrapper_classes():
     return None
 
 
+# Test that wrapper reprs start with the exact public class name, both for
+# wrappers created through the parentWrapperPotential factory (whose instance
+# classes carry a leading underscore, e.g., _DehnenSmoothWrapperPotential) and
+# for direct WrapperPotential subclasses (RotateAndTiltWrapperPotential,
+# KuzminLikeWrapperPotential), which have no underscore to strip; regression
+# test for the repr eating the first character of direct subclasses' names
+@pytest.mark.parametrize(
+    "setup_wrapper,class_name,expected_params",
+    [
+        (
+            lambda: potential.DehnenSmoothWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                tform=-4.0,
+                tsteady=1.0,
+            ),
+            "DehnenSmoothWrapperPotential",
+            ["tform=-4.0", "tsteady=-3.0"],
+        ),
+        (
+            lambda: potential.DehnenSmoothWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0).toPlanar(),
+                tform=-4.0,
+                tsteady=1.0,
+            ),
+            "DehnenSmoothWrapperPotential",
+            ["tform=-4.0", "tsteady=-3.0"],
+        ),
+        (
+            lambda: potential.SolidBodyRotationWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                omega=1.1,
+                pa=0.3,
+            ),
+            "SolidBodyRotationWrapperPotential",
+            ["omega=1.1", "pa=0.3"],
+        ),
+        (
+            lambda: potential.SolidBodyRotationWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0).toPlanar(),
+                omega=1.1,
+                pa=0.3,
+            ),
+            "SolidBodyRotationWrapperPotential",
+            ["omega=1.1", "pa=0.3"],
+        ),
+        (
+            lambda: potential.GaussianAmplitudeWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                to=1.0,
+                sigma=1.0,
+            ),
+            "GaussianAmplitudeWrapperPotential",
+            ["to=1.0"],
+        ),
+        (
+            lambda: potential.GaussianAmplitudeWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0).toPlanar(),
+                to=1.0,
+                sigma=1.0,
+            ),
+            "GaussianAmplitudeWrapperPotential",
+            ["to=1.0"],
+        ),
+        (
+            lambda: potential.RotateAndTiltWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                zvec=[0.0, 1.0 / numpy.sqrt(2.0), 1.0 / numpy.sqrt(2.0)],
+                galaxy_pa=0.3,
+            ),
+            "RotateAndTiltWrapperPotential",
+            ["amp=1.0"],
+        ),
+        (
+            lambda: potential.KuzminLikeWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                a=1.1,
+                b=0.2,
+            ),
+            "KuzminLikeWrapperPotential",
+            ["a=1.1", "b=0.2"],
+        ),
+        (
+            lambda: potential.DehnenSmoothWrapperPotential(
+                pot=potential.GaussianAmplitudeWrapperPotential(
+                    pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                    to=1.0,
+                    sigma=1.0,
+                ),
+                tform=-4.0,
+                tsteady=1.0,
+            ),
+            "DehnenSmoothWrapperPotential",
+            ["tform=-4.0", "GaussianAmplitudeWrapperPotential"],
+        ),
+    ],
+    ids=[
+        "DehnenSmooth-3D",
+        "DehnenSmooth-planar",
+        "SolidBodyRotation-3D",
+        "SolidBodyRotation-planar",
+        "GaussianAmplitude-3D",
+        "GaussianAmplitude-planar",
+        "RotateAndTilt-directsubclass",
+        "KuzminLike-directsubclass",
+        "DehnenSmooth-of-GaussianAmplitude",
+    ],
+)
+def test_repr_wrapper_class_name(setup_wrapper, class_name, expected_params):
+    """Test that wrapper reprs start with the exact public class name for both
+    factory-created wrappers and direct WrapperPotential subclasses"""
+    wrap = setup_wrapper()
+    repr_str = repr(wrap)
+    assert repr_str.startswith(class_name), (
+        f"Expected repr to start with '{class_name}', got '{repr_str}'"
+    )
+    assert not repr_str.startswith("_"), (
+        f"Did not expect repr to start with an underscore, got '{repr_str}'"
+    )
+    for param in expected_params:
+        assert param in repr_str, f"Expected '{param}' in repr, got '{repr_str}'"
+    # str should agree with repr, as for all other potentials
+    assert str(wrap) == repr_str, (
+        f"Expected str to equal repr, got str '{str(wrap)}' and repr '{repr_str}'"
+    )
+    return None
+
+
+# Test that both factory-created wrappers and direct WrapperPotential
+# subclasses survive a pickle round trip and evaluate identically
+def test_wrapper_pickling():
+    import pickle
+
+    # Factory-created wrapper (instance class built in parentWrapperPotential)
+    dwrap = potential.DehnenSmoothWrapperPotential(
+        pot=potential.MiyamotoNagaiPotential(normalize=1.0), tform=-4.0, tsteady=1.0
+    )
+    dwrap_pickled = pickle.loads(pickle.dumps(dwrap))
+    assert (
+        numpy.fabs(
+            dwrap(1.1, 0.2, phi=0.3, t=0.5) - dwrap_pickled(1.1, 0.2, phi=0.3, t=0.5)
+        )
+        < 10.0**-10.0
+    ), "Pickled DehnenSmoothWrapperPotential does not evaluate as the original"
+    # Direct WrapperPotential subclass (no factory, no underscore)
+    kwrap = potential.KuzminLikeWrapperPotential(
+        pot=potential.MiyamotoNagaiPotential(normalize=1.0), a=1.1, b=0.2
+    )
+    kwrap_pickled = pickle.loads(pickle.dumps(kwrap))
+    assert (
+        numpy.fabs(kwrap(1.1, 0.2, phi=0.3) - kwrap_pickled(1.1, 0.2, phi=0.3))
+        < 10.0**-10.0
+    ), "Pickled KuzminLikeWrapperPotential does not evaluate as the original"
+    return None
+
+
 # Test whether potentials that support array input do so correctly
 def test_potential_array_input():
     # Grab all of the potentials
