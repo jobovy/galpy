@@ -9,9 +9,11 @@
 import math
 
 import numpy
-from scipy import optimize, special
+from scipy import optimize
 
 from ..backend import get_namespace
+from ..backend.special import gamma as _gamma
+from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED, _JAX_LOADED
 from .Potential import Potential, kms_to_kpcGyrDecorator
@@ -97,14 +99,15 @@ class TwoPowerSphericalPotential(Potential):
         if self._specialSelf is not None:
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
         elif self.beta == 3.0:
-            r = numpy.sqrt(R**2.0 + z**2.0)
+            xp = get_namespace(R, z)
+            r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 (1.0 / self.a)
                 * (
                     1
                     - (r / self.a) ** (2.0 - self.alpha)
                     / (3.0 - self.alpha)
-                    * special.hyp2f1(
+                    * _hyp2f1(
                         3.0 - self.alpha,
                         2.0 - self.alpha,
                         4.0 - self.alpha,
@@ -114,22 +117,22 @@ class TwoPowerSphericalPotential(Potential):
                 / (self.alpha - 2.0)
             )
         else:
+            xp = get_namespace(R, z)
             r = (
-                numpy.sqrt(R**2.0 + z**2.0) + 1e-11
+                xp.sqrt(R**2.0 + z**2.0) + 1e-11
             )  # avoid division by zero and numerical instability of the hyp2f1 function
             return (
-                special.gamma(self.beta - 3.0)
+                _gamma(self.beta - 3.0)
                 * (
                     (r / self.a) ** (3.0 - self.beta)
-                    / special.gamma(self.beta - 1.0)
-                    * special.hyp2f1(
+                    / _gamma(self.beta - 1.0)
+                    * _hyp2f1(
                         self.beta - 3.0,
                         self.beta - self.alpha,
                         self.beta - 1.0,
                         -self.a / r,
                     )
-                    - special.gamma(3.0 - self.alpha)
-                    / special.gamma(self.beta - self.alpha)
+                    - _gamma(3.0 - self.alpha) / _gamma(self.beta - self.alpha)
                 )
                 / r
             )
@@ -138,13 +141,14 @@ class TwoPowerSphericalPotential(Potential):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
         else:
-            r = numpy.sqrt(R**2.0 + z**2.0)
+            xp = get_namespace(R, z)
+            r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -R
                 / r**self.alpha
                 * self.a ** (self.alpha - 3.0)
                 / (3.0 - self.alpha)
-                * special.hyp2f1(
+                * _hyp2f1(
                     3.0 - self.alpha,
                     self.beta - self.alpha,
                     4.0 - self.alpha,
@@ -156,13 +160,14 @@ class TwoPowerSphericalPotential(Potential):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
         else:
-            r = numpy.sqrt(R**2.0 + z**2.0)
+            xp = get_namespace(R, z)
+            r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -z
                 / r**self.alpha
                 * self.a ** (self.alpha - 3.0)
                 / (3.0 - self.alpha)
-                * special.hyp2f1(
+                * _hyp2f1(
                     3.0 - self.alpha,
                     self.beta - self.alpha,
                     4.0 - self.alpha,
@@ -242,16 +247,17 @@ class TwoPowerSphericalPotential(Potential):
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
-        hyper = special.hyp2f1(
+        hyper = _hyp2f1(
             3.0 - self.alpha, self.beta - self.alpha, 4.0 - self.alpha, -r / self.a
         )
         hyper_deriv = (
             (3.0 - self.alpha)
             * (self.beta - self.alpha)
             / (4.0 - self.alpha)
-            * special.hyp2f1(
+            * _hyp2f1(
                 4.0 - self.alpha,
                 1.0 + self.beta - self.alpha,
                 5.0 - self.alpha,
@@ -265,16 +271,17 @@ class TwoPowerSphericalPotential(Potential):
         return term1 + term2 + term3
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
-        hyper = special.hyp2f1(
+        hyper = _hyp2f1(
             3.0 - self.alpha, self.beta - self.alpha, 4.0 - self.alpha, -r / self.a
         )
         hyper_deriv = (
             (3.0 - self.alpha)
             * (self.beta - self.alpha)
             / (4.0 - self.alpha)
-            * special.hyp2f1(
+            * _hyp2f1(
                 4.0 - self.alpha,
                 1.0 + self.beta - self.alpha,
                 5.0 - self.alpha,
@@ -296,7 +303,7 @@ class TwoPowerSphericalPotential(Potential):
         return (
             (R / self.a) ** (3.0 - self.alpha)
             / (3.0 - self.alpha)
-            * special.hyp2f1(
+            * _hyp2f1(
                 3.0 - self.alpha, -self.alpha + self.beta, 4.0 - self.alpha, -R / self.a
             )
         )
