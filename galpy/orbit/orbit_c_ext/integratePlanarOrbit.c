@@ -586,6 +586,11 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
       potentialArgs->planarRforce= &OblateStaeckelWrapperPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
+      // Planar 2nd derivatives for the planar variational equations
+      // (integrate_dxdv); axisymmetric, so the phi-derivatives vanish.
+      potentialArgs->planarR2deriv= &OblateStaeckelWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= (int) 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -654,6 +659,11 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &CylindricallySeparablePotentialWrapperPotentialEval;
       potentialArgs->planarRforce= &CylindricallySeparablePotentialWrapperPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
+      // Planar 2nd derivatives for the planar variational equations
+      // (integrate_dxdv); axisymmetric, so the phi-derivatives vanish.
+      potentialArgs->planarR2deriv= &CylindricallySeparablePotentialWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= (int) 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;

@@ -479,6 +479,43 @@ def pytest_generate_tests(metafunc):
             # test_orbit.test_movingobject_dxdv_planar, and the unit-level
             # test_potential.test_MovingObject_2ndderivs_fd (analytic vs FD of
             # the forces at ~3e-10).
+            # ---- "Staeckel-approximation" wrappers: NOT amplitude modulations
+            # but coordinate-resplittings of the wrapped potential, so their C
+            # Hessians chain-rule the wrapped potential's forces and second
+            # derivatives along reference curves. Both are axisymmetric by
+            # construction, and both reduce to the wrapped potential exactly in
+            # the z=0 plane, so the normalized wrapped MiyamotoNagai keeps
+            # vc(1,0)=1 for the shared registry IC.
+            # OblateStaeckel: Phi(u,v) = (U(u)-V(v))/(sinh^2 u + sin^2 v) in
+            # prolate spheroidal coordinates (focal length delta), with U/V
+            # built from the wrapped potential along the v=pi/2 and u=u0
+            # reference curves (delta=0.45 puts the registry orbit at u~1.5,
+            # comfortably away from the u=0 axis guard in dUdu/d2Udu2).
+            (
+                potential.OblateStaeckelWrapperPotential(
+                    pot=potential.MiyamotoNagaiPotential(
+                        amp=1.0, a=0.5, b=0.3, normalize=True
+                    ),
+                    delta=0.45,
+                    u0=1.15,
+                ),
+                "OblateStaeckelWrapperPotential",
+                "axisymmetric",
+            ),
+            # CylindricallySeparable: Phi(R,z) = Phi_w(R,0) + Phi_w(Rp,z)
+            # - Phi_w(Rp,0), so R2deriv/z2deriv are the wrapped potential's own
+            # second derivatives along the two reference curves and Rzderiv = 0
+            # identically (NULL in the parser).
+            (
+                potential.CylindricallySeparablePotentialWrapper(
+                    pot=potential.MiyamotoNagaiPotential(
+                        amp=1.0, a=0.5, b=0.3, normalize=True
+                    ),
+                    Rp=1.0,
+                ),
+                "CylindricallySeparablePotentialWrapper",
+                "axisymmetric",
+            ),
         ]
         ids = [entry[1] for entry in liouville3d_registry]
         if metafunc.function.__name__ == "test_dxdv_3d_c_vs_python":

@@ -1481,6 +1481,251 @@ def test_kuzminlike_dxdv_3d_c_vs_miyamotonagai():
     return None
 
 
+# ---- "Staeckel-approximation" wrappers (OblateStaeckelWrapperPotential and
+# CylindricallySeparablePotentialWrapper): dedicated C-vs-Python parity tests
+# for the newly enabled planar (hasC_dxdv) and 3D (hasC_dxdv3d) C variational
+# paths, complementing the full liouville3d-registry battery (det(M),
+# symplecticity, flow-direction, FD-of-flow, 2D bridge, and the registry-wide
+# C-vs-Python check at its global 1e-6 tolerance) with tight tolerances. The C
+# Hessians are direct transcriptions of the trusted Python
+# _R2deriv/_z2deriv/_Rzderiv, so C and Python share only the analytic
+# formulas, not integrator code.
+def test_oblatestaeckelwrapper_dxdv_planar_c_vs_python():
+    # First-time enablement of the planar C variational path for
+    # OblateStaeckelWrapperPotential: the C planar R2deriv (the v=pi/2
+    # simplification of the full chain-rule R2deriv, with the wrapped
+    # potential entering through its in-plane planarRforce/planarR2deriv only)
+    # must match the trusted pure-Python reference, which evaluates the full
+    # _R2deriv at z=0.
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential, OblateStaeckelWrapperPotential
+
+    pot = OblateStaeckelWrapperPotential(
+        pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3, normalize=True),
+        delta=0.45,
+        u0=1.15,
+    )
+    assert pot.hasC_dxdv, "OblateStaeckelWrapper should advertise hasC_dxdv (planar)"
+    ic = [1.0, 0.1, 1.1, 0.0]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    ptp = pot.toPlanar()
+    canonical = numpy.eye(4)
+    maxdiff = 0.0
+    for ii in [0, 2]:  # e_x and e_vx unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, ptp, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, ptp, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # measured: ~3e-11 (unit deviations); 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for OblateStaeckelWrapper differs from "
+        f"the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_oblatestaeckelwrapper_dxdv_3d_c_vs_kuzminkutuzov():
+    # Physics-law cross-check of the OblateStaeckelWrapper 3D C Hessian against
+    # a completely INDEPENDENT C implementation: a potential that is already an
+    # oblate Staeckel potential with the same focal length is reconstructed
+    # EXACTLY by the wrapper (for ANY u0): with Phi = (Ut(u)-Vt(v))/prefac,
+    # U(u) = cosh^2 u Phi(u,pi/2) = Ut(u) - Vt(pi/2) and V(v) = refpot
+    # - prefac(u0,v) Phi(u0,v) = Vt(v) - Vt(pi/2), so (U-V)/prefac = Phi.
+    # KuzminKutuzovStaeckelPotential (Delta=1) has its own closed-form C
+    # Hessian, validated separately in the liouville3d registry; the two C
+    # variational integrations share no Hessian code (the wrapper chain-rules
+    # the wrapped forces/2nd derivatives along the reference curves through
+    # the (u,v) transform), so tight agreement pins the wrapper's chain-rule
+    # Hessian values absolutely.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        KuzminKutuzovStaeckelPotential,
+        OblateStaeckelWrapperPotential,
+    )
+
+    kk = KuzminKutuzovStaeckelPotential(amp=1.0, ac=5.0, Delta=1.0, normalize=True)
+    wkk = OblateStaeckelWrapperPotential(pot=kk, delta=1.0, u0=1.3)
+    assert wkk.hasC_dxdv3d, "OblateStaeckelWrapper should advertise hasC_dxdv3d"
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        o1 = Orbit(ic)
+        o1.integrate_dxdv(
+            canonical[ii], times, wkk, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        o2 = Orbit(ic)
+        o2.integrate_dxdv(
+            canonical[ii], times, kk, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(o1.getOrbit_dxdv() - o2.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # identical flows evaluated by two independent C Hessians; measured ~2e-11
+    # (the wrapper's U/V go through acosh/uv round trips, so the two forces
+    # differ at machine precision and the variational difference grows to
+    # ~1e-11 over the orbit); 1e-9 leaves an order of magnitude of margin
+    assert maxdiff < 1e-9, (
+        f"3D C variational integration for OblateStaeckelWrapper(KuzminKutuzov) "
+        f"differs from the independent KuzminKutuzov C Hessian by {maxdiff:g} "
+        f"(unit deviation)"
+    )
+    return None
+
+
+def test_cylsepwrapper_dxdv_planar_c_vs_python():
+    # First-time enablement of the planar C variational path for
+    # CylindricallySeparablePotentialWrapper: the C planar R2deriv simply
+    # aggregates the wrapped potential's in-plane planarR2deriv (separability:
+    # Phi_RR(R,z) = Phi_w,RR(R,0)) and must match the trusted pure-Python
+    # reference.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        CylindricallySeparablePotentialWrapper,
+        MiyamotoNagaiPotential,
+    )
+
+    pot = CylindricallySeparablePotentialWrapper(
+        pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3, normalize=True), Rp=1.0
+    )
+    assert pot.hasC_dxdv, (
+        "CylindricallySeparableWrapper should advertise hasC_dxdv (planar)"
+    )
+    ic = [1.0, 0.1, 1.1, 0.0]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    ptp = pot.toPlanar()
+    canonical = numpy.eye(4)
+    maxdiff = 0.0
+    for ii in [0, 2]:  # e_x and e_vx unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, ptp, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, ptp, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # measured: ~3e-11 (unit deviations); 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for CylindricallySeparableWrapper "
+        f"differs from the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_cylsepwrapper_dxdv_3d_c_vs_python_tight():
+    # Tight-tolerance 3D C-vs-Python parity for
+    # CylindricallySeparablePotentialWrapper (the registry-wide
+    # test_dxdv_3d_c_vs_python runs the same comparison at its global 1e-6
+    # tolerance): the C R2deriv/z2deriv are direct transcriptions of the
+    # Python _R2deriv/_z2deriv (the wrapped potential's own second derivatives
+    # at (R,0) and (Rp,z)) with Rzderiv = 0 identically, so the two
+    # integrations differ only by integrator implementation.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        CylindricallySeparablePotentialWrapper,
+        MiyamotoNagaiPotential,
+    )
+
+    pot = CylindricallySeparablePotentialWrapper(
+        pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3, normalize=True), Rp=1.0
+    )
+    assert pot.hasC_dxdv3d, "CylindricallySeparableWrapper should advertise hasC_dxdv3d"
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, pot, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # measured: ~5e-11 (unit deviations); 1e-9 leaves an order of magnitude
+    assert maxdiff < 1e-9, (
+        f"3D C variational integration for CylindricallySeparableWrapper differs "
+        f"from the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_integrate_dxdv_3d_staeckelwrappers_require_wrapped_hessian():
+    # Both "Staeckel-approximation" wrappers advertise hasC_dxdv3d=True
+    # unconditionally, but their C Hessians chain-rule the WRAPPED potential's
+    # C forces/second derivatives, so when the wrapped potential lacks the 3D
+    # C Hessian the C 3D variational path would silently aggregate 0 for the
+    # unset derivatives (NULL-safe aggregators) and propagate a wrong
+    # deviation. _check_c must recurse into the wrapped potential
+    # (parentWrapperPotential branch) and integrate_dxdv must warn and fall
+    # back to the pure-Python integrator. As in
+    # test_integrate_dxdv_3d_c_requires_full_hessian, the no-3D-C-Hessian
+    # wrapped potential is synthesized by forcing hasC_dxdv3d=False.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        CylindricallySeparablePotentialWrapper,
+        MiyamotoNagaiPotential,
+        OblateStaeckelWrapperPotential,
+    )
+
+    for wrap in [
+        lambda p: OblateStaeckelWrapperPotential(pot=p, delta=0.45, u0=1.15),
+        lambda p: CylindricallySeparablePotentialWrapper(pot=p, Rp=1.0),
+    ]:
+        mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.3)
+        mn.hasC_dxdv3d = False  # force the wrapped-pot-without-3D-C-Hessian case
+        pot = wrap(mn)
+        pname = pot.__class__.__name__
+        assert pot.hasC_dxdv3d, (
+            f"test precondition: {pname} itself advertises hasC_dxdv3d"
+        )
+        assert not _check_c(pot, dxdv3d=True), (
+            f"_check_c(dxdv3d) must recurse into the wrapped potential of "
+            f"{pname} and report False"
+        )
+        ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+        times = numpy.linspace(0.0, 2.0, 101)
+        dev = [1.0e-6, 0.0, 0.0, 0.0, 0.0, 0.0]
+        o_c = Orbit(ic)
+        with pytest.warns(galpyWarning):
+            o_c.integrate_dxdv(
+                dev, times, pot, method="dopr54_c",
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+        o_py = Orbit(ic)
+        o_py.integrate_dxdv(
+            dev, times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+        dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+        assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-9, (
+            f"3D integrate_dxdv did not fall back to the correct integrator for "
+            f"{pname} when its wrapped potential lacks the full 3D C Hessian"
+        )
+    return None
+
+
 def _check_dxdv_3d_c(
     pot,
     name,

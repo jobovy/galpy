@@ -71,7 +71,13 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
         self._Rp = conversion.parse_length(Rp, ro=ro)
         self._refpot = _evaluatePotentials(self._pot, self._Rp, 0.0)
         self.hasC = True
-        self.hasC_dxdv = False
+        # Advertise the (planar and 3D) C variational capabilities
+        # unconditionally, as for hasC: _check_c recurses into the wrapped
+        # potential's own flags (the wrapper's C 2nd derivatives are the
+        # wrapped potential's own R2deriv/z2deriv along the two reference
+        # curves, so they are complete iff the wrapped potential's are in C).
+        self.hasC_dxdv = True
+        self.hasC_dxdv3d = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
