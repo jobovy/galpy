@@ -8,8 +8,11 @@
 #   WRAPPERS
 #
 ###############################################################################
+import numpy
+
 from galpy.util import conversion
 
+from ..backend import get_namespace
 from .Potential import (
     _APY_LOADED,
     _evaluatePotentials,
@@ -89,9 +92,16 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
         HISTORY:
            2026-01-14 - Written - Bovy (UofT)
         """
+        # The numpy path passes the plain scalars through untouched
+        # (byte-identical); on a non-numpy backend the reference coordinates are
+        # anchored on the inputs so the wrapped potential sees backend arrays
+        # (torch functions require Tensors) on the right device/dtype.
+        xp = get_namespace(R, z, phi, t)
+        zero = 0.0 if xp is numpy else xp.zeros_like(R)
+        Rp = self._Rp if xp is numpy else self._Rp + xp.zeros_like(z)
         return (
-            _evaluatePotentials(self._pot, R, 0.0)
-            + _evaluatePotentials(self._pot, self._Rp, z)
+            _evaluatePotentials(self._pot, R, zero)
+            + _evaluatePotentials(self._pot, Rp, z)
             - self._refpot
         )
 
@@ -111,7 +121,9 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
         HISTORY:
            2026-01-14 - Written - Bovy (UofT)
         """
-        return _evaluateRforces(self._pot, R, 0.0)
+        xp = get_namespace(R, z, phi, t)
+        zero = 0.0 if xp is numpy else xp.zeros_like(R)
+        return _evaluateRforces(self._pot, R, zero)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         """
@@ -129,7 +141,9 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
         HISTORY:
            2026-01-14 - Written - Bovy (UofT)
         """
-        return _evaluatezforces(self._pot, self._Rp, z)
+        xp = get_namespace(R, z, phi, t)
+        Rp = self._Rp if xp is numpy else self._Rp + xp.zeros_like(z)
+        return _evaluatezforces(self._pot, Rp, z)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
@@ -147,7 +161,9 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
         HISTORY:
            2026-01-14 - Written - Bovy (UofT)
         """
-        return evaluateR2derivs(self._pot, R, 0.0, use_physical=False)
+        xp = get_namespace(R, z, phi, t)
+        zero = 0.0 if xp is numpy else xp.zeros_like(R)
+        return evaluateR2derivs(self._pot, R, zero, use_physical=False)
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
@@ -165,7 +181,9 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
         HISTORY:
            2026-01-14 - Written - Bovy (UofT)
         """
-        return evaluatez2derivs(self._pot, self._Rp, z, use_physical=False)
+        xp = get_namespace(R, z, phi, t)
+        Rp = self._Rp if xp is numpy else self._Rp + xp.zeros_like(z)
+        return evaluatez2derivs(self._pot, Rp, z, use_physical=False)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
