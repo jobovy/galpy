@@ -516,6 +516,20 @@ def pytest_generate_tests(metafunc):
                 "CylindricallySeparablePotentialWrapper",
                 "axisymmetric",
             ),
+            # ---- Composite potential: MWPotential2014 (bulge + disk + halo;
+            # Bovy 2015), a CompositePotential whose hasC_dxdv3d aggregates
+            # over its components. Each component family is individually in
+            # this registry (PowerSphericalPotentialwCutoff + MiyamotoNagai +
+            # NFW), so this entry's job is to exercise the multi-component
+            # path of the 3D variational machinery: the Cartesian Hessian
+            # summed over the components in both the C parser and the
+            # pure-Python _EOM. MWPotential2014 is normalized (vc(1,0)=1 by
+            # construction), so the shared registry IC is a typical disk orbit.
+            (
+                potential.MWPotential2014,
+                "MWPotential2014",
+                "axisymmetric",
+            ),
         ]
         ids = [entry[1] for entry in liouville3d_registry]
         if metafunc.function.__name__ == "test_dxdv_3d_c_vs_python":
