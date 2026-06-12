@@ -2938,6 +2938,204 @@ def test_dissipative_excluded_from_liouville3d_registry():
     return None
 
 
+def _movingobject_setup(planar=False):
+    # Host + softened moving object on an orbit integrated in the host: the
+    # physically meaningful configuration (satellite + host) and a genuinely
+    # non-axisymmetric, explicitly time-dependent potential. The object-track
+    # window extends well beyond the test integration interval so both the C
+    # (GSL spline) and the Python (Orbit interpolation) tracks are evaluated
+    # well inside their interpolation ranges.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        MovingObjectPotential,
+        PlummerPotential,
+    )
+
+    host = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    ts_obj = numpy.linspace(-1.0, 7.0, 1601)
+    if planar:
+        obj = Orbit([1.1, 0.1, 1.1, 1.0])  # in-plane object track
+    else:
+        obj = Orbit([1.1, 0.1, 1.1, 0.1, 0.1, 1.0])  # off-plane object track
+    obj.integrate(ts_obj, host, method="dop853_c")
+    # massive, well-softened kernel: significant forces but a smooth Hessian
+    mop = MovingObjectPotential(obj, pot=PlummerPotential(amp=0.3, b=0.3), amp=1.2)
+    return host + mop, mop
+
+
+def test_movingobject_dxdv_3d_c_vs_python():
+    # MovingObjectPotential wires the full 3D Hessian in C (hasC_dxdv3d, gated
+    # on the kernel's own 3D C Hessian exactly like hasC): the kernel's Hessian
+    # at the shifted point x-x_obj(t) -- the moving-object shift is a pure
+    # translation of the evaluation point, so the time-dependence enters only
+    # through that point, with no extra terms. The C 3D variational integration
+    # must match the pure-Python analytic-2nd-derivative reference (dop853) for
+    # UNIT-magnitude deviations; that C-vs-Python comparison is what pins the
+    # Hessian VALUES (det(M)=1/symplecticity hold for any symmetric K).
+    import warnings
+
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatephizderivs
+
+    pot, mop = _movingobject_setup()
+    assert mop.hasC_dxdv3d, (
+        "MovingObjectPotential with a Plummer kernel should advertise hasC_dxdv3d"
+    )
+    # the host+object composite must propagate the capability (regression test
+    # for CompositePotential.hasC_dxdv3d, without which the C 3D variational
+    # path silently falls back to odeint for ANY composite)
+    assert pot.hasC_dxdv3d, "host+object composite should advertise hasC_dxdv3d"
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    # Guard against a vacuous test: the off-center, off-plane object must give a
+    # genuinely nonzero z-phi coupling along the orbit, otherwise the C
+    # zphideriv term is multiplied by 0.
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dop853_c")
+    zphi_vals = numpy.array(
+        [
+            evaluatephizderivs(
+                mop,
+                obase.R(tt),
+                obase.z(tt),
+                phi=obase.phi(tt),
+                t=tt,
+                use_physical=False,
+            )
+            for tt in times
+        ]
+    )
+    assert numpy.amax(numpy.fabs(zphi_vals)) > 1e-3, (
+        "d2Phi/dz/dphi must be nonzero along the orbit to exercise the C zphideriv term"
+    )
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for integrator in ("dopr54_c", "dop853_c"):
+        for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+            oc = Orbit(ic)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                oc.integrate_dxdv(
+                    canonical[ii], times, pot, method=integrator,
+                    rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+                )  # fmt: skip
+                # the C path must actually be taken (no odeint fallback)
+                assert not any("odeint" in str(ww.message) for ww in w), (
+                    "C 3D variational integration fell back to odeint for the "
+                    "host+moving-object potential"
+                )
+            op = Orbit(ic)
+            op.integrate_dxdv(
+                canonical[ii], times, pot, method="dop853",
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+            maxdiff = max(maxdiff, diff)
+    # C-vs-Python agree to ~6e-11 (the dense object track makes the GSL-vs-Orbit
+    # track-interpolation difference negligible); 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"3D C variational integration for the host+moving-object potential "
+        f"differs from the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_movingobject_dxdv_3d():
+    # det(M)=1 / symplecticity / finite-difference-of-the-flow for the
+    # host+moving-object potential through the C integrators (the FD-of-flow
+    # is the check that pins the C Hessian VALUES against the trusted C
+    # forces, independently of the Python reference).
+    pot, _ = _movingobject_setup()
+    _check_dxdv_3d_c(pot, "host+MovingObjectPotential")
+    return None
+
+
+def test_movingobject_dxdv_planar():
+    # PLANAR variational equations for an in-plane object track: the C planar
+    # Hessian (PlanarR2deriv/Planarphi2deriv/PlanarRphideriv -- genuinely
+    # non-axisymmetric, since the object is off-center) is the kernel's PLANAR
+    # Hessian at the shifted point, mirroring MovingObjectPotentialPlanarRforce.
+    # Checks: (1) C-vs-Python dxdv for unit deviations (pins the Hessian
+    # values), (2) Liouville det(M)=1 and FD-of-flow through the C integrators.
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    pot, mop = _movingobject_setup(planar=True)
+    assert mop.hasC_dxdv, (
+        "MovingObjectPotential with a Plummer kernel should advertise hasC_dxdv"
+    )
+    assert pot.hasC_dxdv, "host+object composite should advertise hasC_dxdv"
+    ic = [1.0, 0.1, 1.1, 0.2]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(4)
+    # (1) C vs pure-Python analytic reference, unit deviations e_x, e_vx
+    maxdiff = 0.0
+    for ii in [0, 2]:
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, pot, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for the host+moving-object potential "
+        f"differs from the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    # (2) Liouville + FD-of-flow through the C integrators
+    for integrator in ("dopr54_c", "dop853_c"):
+        Mcols = []
+        for ii in range(4):
+            o = Orbit(ic)
+            o.integrate_dxdv(
+                canonical[ii], times, pot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            Mcols.append(o.getOrbit_dxdv()[-1, :])
+        M = numpy.array(Mcols).T
+        detM = numpy.linalg.det(M)
+        assert numpy.fabs(detM - 1.0) < 1e-8, (
+            f"planar Liouville det(M)={detM:g} differs from 1 for the "
+            f"host+moving-object potential, integrator {integrator}"
+        )
+        # FD-of-flow: column i = (x(t;x0+eps e_i)-x(t;x0))/eps vs the dxdv column
+        eps = 1e-7
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method=integrator)
+        base = numpy.array(
+            [obase.x(times), obase.y(times), obase.vx(times), obase.vy(times)]
+        ).T
+        for ii in [0, 3]:  # an x and a vy perturbation
+            p = base[0].copy()
+            p[ii] += eps
+            Rp, phip, _ = coords.rect_to_cyl(p[0], p[1], 0.0)
+            vRp, vTp, _ = coords.rect_to_cyl_vec(p[2], p[3], 0.0, p[0], p[1], 0.0)
+            opert = Orbit([Rp, vRp, vTp, phip])
+            opert.integrate(times, pot, method=integrator)
+            pert = numpy.array(
+                [opert.x(times), opert.y(times), opert.vx(times), opert.vy(times)]
+            ).T
+            fd = (pert - base) / eps
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii], times, pot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+            assert fderr < 1e-4, (
+                f"planar FD-of-flow for e_{ii} differs from the dxdv column by "
+                f"{fderr:g} for the host+moving-object potential, integrator "
+                f"{integrator}"
+            )
+    return None
+
+
 def _planar_invariant(pot):
     """Whether the z=0 plane is invariant under the flow (F_z(z=0)=0
     everywhere), the premise of the 3D->2D bridge check below. A tilted or

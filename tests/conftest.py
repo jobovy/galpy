@@ -461,6 +461,24 @@ def pytest_generate_tests(metafunc):
                 "KuzminLikeWrapperPotential",
                 "axisymmetric",
             ),
+            # NOTE: MovingObjectPotential has a verified-correct full 3D (and
+            # planar) C Hessian -- the kernel's Hessian at the shifted point
+            # x-x_obj(t), with hasC_dxdv3d/hasC_dxdv gated on the kernel's
+            # capability exactly like hasC -- but it is intentionally NOT in
+            # this registry: an entry would need an object orbit integrated at
+            # collection time, the physically meaningful configuration is the
+            # host+object composite (a bare moving object leaves the registry
+            # IC in near-free motion), and its forces/Hessian are evaluated on
+            # a spline-interpolated object track (GSL in C, Orbit interpolation
+            # in Python), following the precedent of the other interpolated
+            # potentials excluded above. It is instead validated by the
+            # dedicated tests test_orbit.test_movingobject_dxdv_3d_c_vs_python
+            # (C-vs-Python dxdv at ~6e-11 for unit deviations, incl. a nonzero-
+            # zphideriv guard), test_orbit.test_movingobject_dxdv_3d
+            # (det(M)/symplecticity/FD-of-flow), the planar
+            # test_orbit.test_movingobject_dxdv_planar, and the unit-level
+            # test_potential.test_MovingObject_2ndderivs_fd (analytic vs FD of
+            # the forces at ~3e-10).
         ]
         ids = [entry[1] for entry in liouville3d_registry]
         if metafunc.function.__name__ == "test_dxdv_3d_c_vs_python":
