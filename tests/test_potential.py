@@ -6259,6 +6259,102 @@ def test_WrapperPotential_dims():
     return None
 
 
+def test_Wrapper_list_of_potentials_deprecation():
+    # Test that passing a list of potentials to a wrapper (a) works, with
+    # values identical to passing the equivalent CompositePotential, and
+    # (b) emits a single DeprecationWarning, while non-list input emits none
+    # (see issue with RotateAndTiltWrapperPotential failing for pot=[pot1,pot2])
+    import warnings
+
+    from packaging.version import Version
+
+    import galpy
+
+    def list_deprecation_warnings(ws):
+        return [
+            wa
+            for wa in ws
+            if issubclass(wa.category, DeprecationWarning)
+            and "list of potentials" in str(wa.message)
+        ]
+
+    pot1 = potential.MiyamotoNagaiPotential(normalize=0.6)
+    pot2 = potential.LogarithmicHaloPotential(normalize=0.4)
+    wrappers = [
+        lambda pot: potential.RotateAndTiltWrapperPotential(
+            pot=pot, galaxy_pa=0.3, zvec=[numpy.sin(0.1), 0.0, numpy.cos(0.1)]
+        ),
+        lambda pot: potential.OblateStaeckelWrapperPotential(
+            pot=pot, delta=0.5, u0=1.0
+        ),
+        lambda pot: potential.CylindricallySeparablePotentialWrapper(pot=pot),
+        lambda pot: potential.KuzminLikeWrapperPotential(pot=pot),
+        lambda pot: potential.DehnenSmoothWrapperPotential(pot=pot),
+        lambda pot: potential.GaussianAmplitudeWrapperPotential(pot=pot),
+        lambda pot: potential.SolidBodyRotationWrapperPotential(pot=pot, omega=1.1),
+        lambda pot: potential.CorotatingRotationWrapperPotential(pot=pot, vpo=1.0),
+        lambda pot: potential.TimeDependentAmplitudeWrapperPotential(
+            pot=pot, A=lambda t: 1.0
+        ),
+    ]
+    current_version = Version(galpy.__version__.split(".dev")[0])
+    for wrapper in wrappers:
+        if current_version > Version("1.13.99"):  # pragma: no cover
+            # After 1.13.x, list input should raise TypeError
+            with pytest.raises(TypeError):
+                wrapper([pot1, pot2])
+        else:
+            # Before 1.13.x, list input should work with a single
+            # DeprecationWarning
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                wrap_list = wrapper([pot1, pot2])
+                val_list = wrap_list(1.1, 0.2, phi=0.3, use_physical=False)
+            assert len(list_deprecation_warnings(w)) == 1, (
+                "Passing a list of potentials to a wrapper did not raise a single DeprecationWarning"
+            )
+            # Non-list input should emit no DeprecationWarning
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                wrap_comp = wrapper(pot1 + pot2)
+                val_comp = wrap_comp(1.1, 0.2, phi=0.3, use_physical=False)
+            assert len(list_deprecation_warnings(w)) == 0, (
+                "Passing a non-list potential to a wrapper raised a DeprecationWarning"
+            )
+            assert val_list == val_comp, (
+                "Wrapper of a list of potentials does not agree with wrapper of the equivalent CompositePotential"
+            )
+    # Also test the planar path
+    if current_version > Version("1.13.99"):  # pragma: no cover
+        with pytest.raises(TypeError):
+            potential.DehnenSmoothWrapperPotential(
+                pot=[pot1.toPlanar(), pot2.toPlanar()]
+            )
+    else:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            wrap_list = potential.DehnenSmoothWrapperPotential(
+                pot=[pot1.toPlanar(), pot2.toPlanar()]
+            )
+            val_list = wrap_list(1.1, phi=0.3, use_physical=False)
+        assert len(list_deprecation_warnings(w)) == 1, (
+            "Passing a list of planar potentials to a wrapper did not raise a single DeprecationWarning"
+        )
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            wrap_comp = potential.DehnenSmoothWrapperPotential(
+                pot=pot1.toPlanar() + pot2.toPlanar()
+            )
+            val_comp = wrap_comp(1.1, phi=0.3, use_physical=False)
+        assert len(list_deprecation_warnings(w)) == 0, (
+            "Passing a non-list planar potential to a wrapper raised a DeprecationWarning"
+        )
+        assert val_list == val_comp, (
+            "Wrapper of a list of planar potentials does not agree with wrapper of the equivalent planarCompositePotential"
+        )
+    return None
+
+
 def test_Wrapper_potinputerror():
     # Test that setting up a WrapperPotential with anything other than a
     # (list of) planar/Potentials raises an error
