@@ -2442,6 +2442,7 @@ class Orbit:
         method="dop853_c",
         renorm_every=10,
         dxdv0=None,
+        spectrum=False,
         progressbar=False,
         dt=None,
         numcores=_NUMCORES,
@@ -2451,7 +2452,8 @@ class Orbit:
         **kwargs,
     ):
         r"""
-        Estimate the largest Lyapunov exponent using the variational equations.
+        Estimate the largest Lyapunov exponent (or the full Lyapunov spectrum)
+        using the variational equations.
 
         The deviation vector is propagated with the linearized (variational)
         equations of motion (see ``integrate_dxdv``) and renormalized to its
@@ -2466,6 +2468,16 @@ class Orbit:
         :math:`\ln(t)/t`, while for chaotic orbits it converges to a positive
         value.
 
+        When ``spectrum=True``, the full Lyapunov spectrum (all ``phasedim``
+        exponents) is computed instead, using the classic generalization of
+        the renormalization method (Benettin et al. 1980, part 2; Shimada &
+        Nagashima 1979): an orthonormal set of ``phasedim`` deviation vectors
+        is propagated simultaneously and re-orthonormalized with a QR
+        decomposition every ``renorm_every`` output times; the running
+        estimate of the :math:`i`-th exponent is the accumulated
+        :math:`\sum \ln |R_{ii}|` of the QR growth factors divided by the
+        elapsed time.
+
         Parameters
         ----------
         ts : list, numpy.ndarray or Quantity
@@ -2477,7 +2489,9 @@ class Orbit:
         renorm_every : int, optional
             Renormalize the deviation vector to its initial norm every ``renorm_every`` output time intervals. Default is 10.
         dxdv0 : numpy.ndarray, optional
-            Initial phase-space deviation vector in *rectangular* coordinates [dx,dy,dvx,dvy] (planar orbits) or [dx,dy,dz,dvx,dvy,dvz] (3D orbits); shape (phasedim,) [same deviation for all orbits] or (\*input_shape, phasedim). Because the variational equations are linear, the overall normalization is irrelevant. Default is the unit vector with equal components along all phase-space directions.
+            Initial phase-space deviation vector in *rectangular* coordinates [dx,dy,dvx,dvy] (planar orbits) or [dx,dy,dz,dvx,dvy,dvz] (3D orbits); shape (phasedim,) [same deviation for all orbits] or (\*input_shape, phasedim). Because the variational equations are linear, the overall normalization is irrelevant. Default is the unit vector with equal components along all phase-space directions. When ``spectrum=True``, the (normalized) ``dxdv0`` is used as the *first* deviation vector and completed to an orthonormal basis; the default initial basis is the identity.
+        spectrum : bool, optional
+            If True, compute the full Lyapunov spectrum (all ``phasedim`` exponents) instead of only the largest exponent; see the Returns section for the output format. Default is False.
         progressbar : bool, optional
             If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!); shown for each renormalization segment. Default is False.
         dt : float, optional
@@ -2501,15 +2515,17 @@ class Orbit:
 
         Returns
         -------
-        numpy.ndarray or Quantity [\*input_shape,nt]
-            Running estimate :math:`\lambda(t)` of the largest Lyapunov exponent at the output times; the entry for the initial time ts[0] is NaN (no elapsed time yet).
+        numpy.ndarray or Quantity [\*input_shape,nt] or [\*input_shape,phasedim,nt]
+            For ``spectrum=False`` (default): running estimate :math:`\lambda(t)` of the largest Lyapunov exponent at the output times. For ``spectrum=True``: running estimates :math:`\lambda_i(t)` of all ``phasedim`` Lyapunov exponents, such that ``out[...,i,:]`` is the running estimate of the :math:`i`-th exponent; the exponents are ordered from largest to smallest by construction of the algorithm (asymptotically; finite-time estimates of nearly-degenerate exponents may transiently swap). In both cases, the entry for the initial time ts[0] is NaN (no elapsed time yet).
 
         Notes
         -----
         - Only implemented for 4D (planar) and 6D (3D) orbits.
         - The previously integrated orbit stored in this instance (if any) is not affected.
-        - References: Benettin et al. (1980, Meccanica 15, 9); see also Skokos (2010, Lect. Notes Phys. 790, 63).
+        - For ``spectrum=True``, the absolute values :math:`|R_{ii}|` of the diagonal of the QR decomposition are used as the growth factors, so the sign convention of the QR routine is irrelevant. For the Hamiltonian flows integrated here, the exponents obey :math:`\sum_i \lambda_i = 0` (phase-space volume conservation) and come in :math:`\pm` pairs (:math:`\lambda_i = -\lambda_{\mathrm{phasedim}+1-i}`); the deviation of the computed spectrum from these relations is a useful convergence/accuracy check.
+        - References: Benettin et al. (1980, Meccanica 15, 9 and Meccanica 15, 21); Shimada & Nagashima (1979, Prog. Theor. Phys. 61, 1605); see also Skokos (2010, Lect. Notes Phys. 790, 63).
         - 2026-06-09 - Written - Bovy (UofT)
+        - 2026-06-10 - Added spectrum= option - Bovy (UofT)
 
         """
         if not (self.phasedim() == 4 or self.phasedim() == 6):
@@ -2561,20 +2577,93 @@ class Orbit:
         norb = self.vxvv.shape[0]
         nt = len(ts)
         # Parse the initial deviation vector (rectangular coordinates)
-        if dxdv0 is None:
-            dxdv0 = numpy.ones(phasedim) / numpy.sqrt(phasedim)
-        dxdv0 = numpy.array(dxdv0, dtype="float64")
-        if dxdv0.ndim == 1:
-            dxdv0 = numpy.tile(dxdv0, (norb, 1))
-        else:
-            dxdv0 = dxdv0.reshape((-1, dxdv0.shape[-1]))
-        if dxdv0.shape != (norb, phasedim):
-            raise ValueError(
-                "Input dxdv0 must have shape (phasedim,) or (*input_shape,phasedim)"
-            )
-        d0norm = numpy.linalg.norm(dxdv0, axis=-1)
-        if numpy.any(d0norm == 0.0):
-            raise ValueError("Input dxdv0 must have non-zero norm")
+        if not (spectrum and dxdv0 is None):
+            if dxdv0 is None:
+                dxdv0 = numpy.ones(phasedim) / numpy.sqrt(phasedim)
+            dxdv0 = numpy.array(dxdv0, dtype="float64")
+            if dxdv0.ndim == 1:
+                dxdv0 = numpy.tile(dxdv0, (norb, 1))
+            else:
+                dxdv0 = dxdv0.reshape((-1, dxdv0.shape[-1]))
+            if dxdv0.shape != (norb, phasedim):
+                raise ValueError(
+                    "Input dxdv0 must have shape (phasedim,) or (*input_shape,phasedim)"
+                )
+            d0norm = numpy.linalg.norm(dxdv0, axis=-1)
+            if numpy.any(d0norm == 0.0):
+                raise ValueError("Input dxdv0 must have non-zero norm")
+        if spectrum:
+            # Full Lyapunov spectrum (Benettin et al. 1980, part 2; Shimada &
+            # Nagashima 1979): propagate an orthonormal basis of phasedim
+            # deviation vectors over segments of renorm_every output
+            # intervals, QR-orthonormalize the basis at the end of each
+            # segment, and accumulate the per-direction log growth factors
+            # log|R_ii| (absolute values, such that the sign convention of the
+            # QR routine is irrelevant)
+            if dxdv0 is None:
+                # Default initial basis: the identity
+                cur_Q = numpy.tile(numpy.eye(phasedim), (norb, 1, 1))
+            else:
+                # Use the supplied dxdv0 (normalized) as the first deviation
+                # vector and complete it to an orthonormal basis: the QR
+                # factorization of [dxdv0,I] has full rank for any non-zero
+                # dxdv0 and its first Q column is +/- dxdv0/|dxdv0|
+                cur_Q = numpy.linalg.qr(
+                    numpy.concatenate(
+                        (
+                            dxdv0[:, :, None],
+                            numpy.tile(numpy.eye(phasedim), (norb, 1, 1)),
+                        ),
+                        axis=-1,
+                    )
+                )[0]
+            elapsed = ts - ts[0]
+            lam = numpy.empty((norb, phasedim, nt))
+            lam[:, :, 0] = numpy.nan
+            logsum = numpy.zeros((norb, phasedim))
+            cur_vxvv = self.vxvv.copy()
+            ii = 0
+            while ii < nt - 1:
+                jj = min(ii + renorm_every, nt - 1)
+                # Stack the phasedim basis vectors of each orbit as phasedim
+                # copies of that orbit, such that a single integrate_dxdv call
+                # per segment propagates the entire basis
+                tmpo = Orbit(numpy.repeat(cur_vxvv, phasedim, axis=0))
+                tmpo.integrate_dxdv(
+                    cur_Q.transpose(0, 2, 1).reshape((norb * phasedim, phasedim)),
+                    ts[ii : jj + 1],
+                    pot,
+                    method=method,
+                    progressbar=progressbar,
+                    dt=dt,
+                    numcores=numcores,
+                    force_map=force_map,
+                    rectIn=True,
+                    rectOut=True,
+                    rtol=rtol,
+                    atol=atol,
+                )
+                dev = tmpo.orbit_dxdv[:, :, phasedim:]
+                # devmat[o,t,c,k] = component c of propagated basis vector k
+                # of orbit o at output time t of this segment
+                devmat = dev.reshape((norb, phasedim, jj + 1 - ii, phasedim)).transpose(
+                    0, 2, 3, 1
+                )
+                # Because each segment starts from an orthonormal basis,
+                # log|R_kk(t)| of the QR factorization at output time t is the
+                # log growth factor along direction k since the segment start
+                qq, rr = numpy.linalg.qr(devmat[:, 1:])
+                logr = numpy.log(numpy.fabs(numpy.diagonal(rr, axis1=-2, axis2=-1)))
+                # Running estimate at the output times in this segment
+                lam[:, :, ii + 1 : jj + 1] = (
+                    (logsum[:, None] + logr) / elapsed[None, ii + 1 : jj + 1, None]
+                ).transpose(0, 2, 1)
+                logsum += logr[:, -1]
+                # Restart from the orthonormalized basis at the segment end
+                cur_Q = qq[:, -1]
+                cur_vxvv = tmpo.orbit[::phasedim, -1, :]
+                ii = jj
+            return lam
         # Benettin et al. (1980) loop: integrate the deviation vector over
         # segments of renorm_every output intervals, renormalizing it to its
         # initial norm at the end of each segment and accumulating the log
