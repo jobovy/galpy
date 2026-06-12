@@ -764,6 +764,31 @@ def _orbit_rect_3d(o, ts):
     return numpy.array([x, y, z, vx, vy, vz]).T
 
 
+def _integrate_stm_3d(pot, ic, times, integrator):
+    """Integrate the full 6x6 state-transition matrix M(t) in CARTESIAN
+    phase-space coordinates (x,y,z,vx,vy,vz): propagate the 6 canonical basis
+    deviation vectors with rectIn=rectOut=True and stack them as the columns
+    of M. Returns an (nt,6,6) array with M(times[0])=identity."""
+    from galpy.orbit import Orbit
+
+    canonical = numpy.eye(6)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method=integrator,
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv())
+    return numpy.array(Mcols).transpose(1, 2, 0)  # (nt,6,6), columns = e_i images
+
+
 # 3D variational equations: Liouville (det M=1), symplecticity, and -- the
 # parts that actually pin down the Cartesian Hessian K -- the flow-direction,
 # finite-difference, and 2D-reduction bridge checks. See the docstring of each
@@ -836,7 +861,17 @@ def test_liouville_3d(pot):
         # symplecticity check (2) above, the FD-of-flow check (4) below, and the
         # C-vs-Python check in test_dxdv_3d_c_vs_python.
         o = Orbit(ic)
-        o.integrate(times, pot, method=integrator)
+        # The BASE orbit here supplies the ground truth f(x(t)) of check (3);
+        # at scipy's default tolerances the pure-Python odeint base orbit
+        # carries ~1e-6 of position error for some entries (measured 1.0e-6
+        # for the composite MWPotential2014, just over the bound below, while
+        # every other integrator sits at <2e-9) -- integrator noise in the
+        # ground truth, not a Hessian error. Tighten ONLY the odeint base
+        # orbit (the deviation integrations are already run at rtol=atol=1e-12;
+        # MWPotential2014's odeint flow check measures 9.9e-11 with this);
+        # every other integrator path is left byte-identical.
+        base_kw = {"rtol": 1e-12, "atol": 1e-12} if integrator == "odeint" else {}
+        o.integrate(times, pot, method=integrator, **base_kw)
         rect_orbit = _orbit_rect_3d(o, times)
         if not _skip_flowdir_identity(pot):  # gates ONLY check (3) below
             f0 = numpy.empty(6)
@@ -988,6 +1023,335 @@ def test_dxdv_3d_c_vs_python(pot, pot_category):
         f"3D C variational integration for {pname} differs from the pure-Python "
         f"reference by {maxdiff:g} (unit deviation)"
     )
+    return None
+
+
+# ---- Closed-form STM ground truth (1/2): exact 3D isotropic harmonic
+# oscillator. Inside its radius R, HomogeneousSpherePotential is
+# Phi(r) = amp (r^2 - 3 R^2), an EXACTLY harmonic potential with
+# omega^2 = 2 amp in every Cartesian coordinate. The STM of the harmonic flow
+# is closed form: per-axis 2x2 blocks in (x_i, v_i)
+#   [[ cos(w t), sin(w t)/w ], [ -w sin(w t), cos(w t) ]],
+# i.e. M(t) = [[c I3, (s/w) I3], [-w s I3, c I3]] in the (x,y,z,vx,vy,vz)
+# ordering. Unlike det(M)=1/symplecticity (necessary conditions only) and the
+# C-vs-Python/FD-of-flow checks (cross-checks between integrators), this pins
+# the integrated STM VALUES against an analytic ground truth that is fully
+# independent of galpy's variational machinery.
+def test_dxdv_3d_closed_form_stm_harmonic():
+    from galpy.orbit import Orbit
+    from galpy.potential import HomogeneousSpherePotential
+
+    pot = HomogeneousSpherePotential(amp=1.0, R=3.0, normalize=True)
+    assert pot.hasC_dxdv3d, "HomogeneousSphere should advertise hasC_dxdv3d"
+    # omega^2 = 2 amp = d2Phi/dR2 at ANY interior point: read it off the
+    # potential and guard the harmonic premise (R2deriv = z2deriv = constant,
+    # Rzderiv = 0) at two distinct interior points
+    omega2 = pot.R2deriv(0.7, 0.2)
+    assert omega2 > 0.0
+    for RR, zz in [(0.7, 0.2), (1.3, -0.4)]:
+        assert numpy.fabs(pot.R2deriv(RR, zz) - omega2) < 1e-14
+        assert numpy.fabs(pot.z2deriv(RR, zz) - omega2) < 1e-14
+        assert numpy.fabs(pot.Rzderiv(RR, zz)) < 1e-14
+    w = numpy.sqrt(omega2)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 11)
+    # non-vacuity (1): the orbit must stay INSIDE the sphere, where the
+    # potential is exactly harmonic (outside it is Keplerian)
+    o = Orbit(ic)
+    o.integrate(times, pot, method="dop853_c")
+    r = numpy.sqrt(o.x(times) ** 2.0 + o.y(times) ** 2.0 + o.z(times) ** 2.0)
+    assert numpy.amax(r) < 0.9 * pot.R, (
+        "test precondition: the orbit must stay well inside the homogeneous "
+        "sphere for the potential to be exactly harmonic along it"
+    )
+
+    def analytic_M(tk):
+        c, s = numpy.cos(w * tk), numpy.sin(w * tk)
+        Mref = numpy.zeros((6, 6))
+        Mref[:3, :3] = c * numpy.eye(3)
+        Mref[:3, 3:] = s / w * numpy.eye(3)
+        Mref[3:, :3] = -w * s * numpy.eye(3)
+        Mref[3:, 3:] = c * numpy.eye(3)
+        return Mref
+
+    # non-vacuity (2): the deviations genuinely evolve over the test interval
+    assert numpy.amax(numpy.fabs(analytic_M(times[-1]) - numpy.eye(6))) > 0.5
+    for integrator in ["dopr54_c", "dop853_c", "dop853"]:
+        Mt = _integrate_stm_3d(pot, ic, times, integrator)
+        maxdiff = numpy.amax(
+            numpy.fabs(Mt - numpy.array([analytic_M(tk) for tk in times]))
+        )
+        # measured ~4e-12 for all three integrators; 1e-8 leaves a wide margin
+        assert maxdiff < 1e-8, (
+            f"integrated 3D STM differs from the closed-form harmonic-oscillator "
+            f"STM by {maxdiff:g} for integrator {integrator}"
+        )
+    return None
+
+
+# ---- Closed-form STM ground truth (2/2): Kepler, via the Lagrange f,g
+# solution. For mu = amp = 1 the two-body propagator in the
+# change-of-eccentric-anomaly (dE = E - E0) formulation (Battin 1999, secs.
+# 4.3-4.4; Vallado, "f and g functions in terms of the eccentric anomaly") is
+#   a      = 1/(2/r0 - |v0|^2)                       (vis-viva; a>0: elliptic)
+#   sigma0 = r0vec . v0vec                           (= r0 dr0/dt, mu=1)
+#   Kepler: t = a^{3/2} [dE + (sigma0/sqrt(a))(1 - cos dE)
+#                           - (1 - r0/a) sin dE]
+#   r(t)   = a + (r0 - a) cos dE + sigma0 sqrt(a) sin dE
+#   f      = 1 - (a/r0)(1 - cos dE)        g    = t - a^{3/2} (dE - sin dE)
+#   fdot   = -(sqrt(a)/(r r0)) sin dE      gdot = 1 - (a/r)(1 - cos dE)
+#   x(t) = f x0 + g v0 ;  v(t) = fdot x0 + gdot v0.
+# The STM is the total derivative of (x(t),v(t)) wrt (x0,v0) at FIXED t:
+# every scalar above depends on the initial state through (r0, a, sigma0), and
+# dE depends on it IMPLICITLY through Kepler's equation F(dE; r0,a,sigma0,t)=0,
+# so  d dE/ds0 = -(dF/ds0)/(dF/ddE)  with  dF/ddE = r(t)/a > 0 for an elliptic
+# orbit (which also makes F monotonic in dE: the Newton solve below is safe).
+# The closed-form partials assembled in _kepler_fg_stm below were derived by
+# hand from these expressions and verified to machine precision (~2e-13)
+# against an independent sympy implicit differentiation of the same f,g
+# solution; the reference is fully independent of galpy's integrators.
+def _kepler_fg_stm(s0, dE, t):
+    """Analytic Kepler (mu=1) STM M = d(x,v)_t/d(x,v)_0 for an elliptic orbit,
+    from the Lagrange f,g functions in the dE formulation; dE must solve
+    Kepler's equation for (s0, t). s0 = (x0,y0,z0,vx0,vy0,vz0)."""
+    rvec0 = numpy.array(s0[:3])
+    vvec0 = numpy.array(s0[3:])
+    r0 = numpy.sqrt(numpy.sum(rvec0**2.0))
+    a = 1.0 / (2.0 / r0 - numpy.sum(vvec0**2.0))
+    sqa = numpy.sqrt(a)
+    sigma0 = numpy.sum(rvec0 * vvec0)
+    cE, sE = numpy.cos(dE), numpy.sin(dE)
+    r1 = a + (r0 - a) * cE + sigma0 * sqa * sE
+    f = 1.0 - a / r0 * (1.0 - cE)
+    g = t - a * sqa * (dE - sE)
+    fd = -sqa / (r1 * r0) * sE
+    gd = 1.0 - a / r1 * (1.0 - cE)
+    # gradients of the basic scalars wrt s0; a = 1/(2/r0 - |v0|^2) chain-rules
+    # to da/dr0vec = (2 a^2/r0^2) u0, da/dv0vec = 2 a^2 v0vec
+    u0 = rvec0 / r0
+    grad_r0 = numpy.concatenate([u0, numpy.zeros(3)])
+    grad_a = numpy.concatenate([2.0 * a**2.0 / r0**2.0 * u0, 2.0 * a**2.0 * vvec0])
+    grad_sigma0 = numpy.concatenate([vvec0, rvec0])
+    # implicit dE through Kepler's equation
+    # F = dE + (sigma0/sqa)(1-cE) - (1-r0/a) sE - t/a^{3/2}
+    dFddE = r1 / a  # = 1 + (sigma0/sqa) sE - (1-r0/a) cE
+    dFdsigma0 = (1.0 - cE) / sqa
+    dFdr0 = sE / a
+    dFda = (
+        -sigma0 * (1.0 - cE) / (2.0 * a * sqa)
+        - r0 * sE / a**2.0
+        + 1.5 * t / (a**2.0 * sqa)
+    )
+    grad_dE = -(dFdsigma0 * grad_sigma0 + dFdr0 * grad_r0 + dFda * grad_a) / dFddE
+    # r1 = a + (r0-a) cE + sigma0 sqa sE
+    grad_r1 = (
+        (1.0 - cE + sigma0 * sE / (2.0 * sqa)) * grad_a
+        + cE * grad_r0
+        + sqa * sE * grad_sigma0
+        + (-(r0 - a) * sE + sigma0 * sqa * cE) * grad_dE
+    )
+    # f = 1 - (a/r0)(1-cE)
+    grad_f = (
+        -(1.0 - cE) / r0 * grad_a
+        + a * (1.0 - cE) / r0**2.0 * grad_r0
+        - a * sE / r0 * grad_dE
+    )
+    # g = t - a^{3/2} (dE - sE)
+    grad_g = -1.5 * sqa * (dE - sE) * grad_a - a * sqa * (1.0 - cE) * grad_dE
+    # fd = -(sqa sE)/(r1 r0)
+    grad_fd = (
+        -sE / (2.0 * sqa * r1 * r0) * grad_a
+        + sqa * sE / (r1**2.0 * r0) * grad_r1
+        + sqa * sE / (r1 * r0**2.0) * grad_r0
+        - sqa * cE / (r1 * r0) * grad_dE
+    )
+    # gd = 1 - (a/r1)(1-cE)
+    grad_gd = (
+        -(1.0 - cE) / r1 * grad_a
+        + a * (1.0 - cE) / r1**2.0 * grad_r1
+        - a * sE / r1 * grad_dE
+    )
+    M = numpy.zeros((6, 6))
+    M[:3, :] = numpy.outer(rvec0, grad_f) + numpy.outer(vvec0, grad_g)
+    M[:3, :3] += f * numpy.eye(3)
+    M[:3, 3:] += g * numpy.eye(3)
+    M[3:, :] = numpy.outer(rvec0, grad_fd) + numpy.outer(vvec0, grad_gd)
+    M[3:, :3] += fd * numpy.eye(3)
+    M[3:, 3:] += gd * numpy.eye(3)
+    return M
+
+
+def _kepler_fg_state(s0, dE, t):
+    """Analytic Kepler (mu=1) f,g propagation of the state s0 to time t; dE
+    must solve Kepler's equation for (s0, t)."""
+    rvec0 = numpy.array(s0[:3])
+    vvec0 = numpy.array(s0[3:])
+    r0 = numpy.sqrt(numpy.sum(rvec0**2.0))
+    a = 1.0 / (2.0 / r0 - numpy.sum(vvec0**2.0))
+    sqa = numpy.sqrt(a)
+    sigma0 = numpy.sum(rvec0 * vvec0)
+    cE, sE = numpy.cos(dE), numpy.sin(dE)
+    r1 = a + (r0 - a) * cE + sigma0 * sqa * sE
+    f = 1.0 - a / r0 * (1.0 - cE)
+    g = t - a * sqa * (dE - sE)
+    fd = -sqa / (r1 * r0) * sE
+    gd = 1.0 - a / r1 * (1.0 - cE)
+    return numpy.concatenate([f * rvec0 + g * vvec0, fd * rvec0 + gd * vvec0])
+
+
+def _kepler_solve_dE(s0, t):
+    """Solve Kepler's equation (dE formulation, mu=1) for dE at time t by
+    Newton iteration from the mean-anomaly guess; dF/ddE = r(t)/a > 0 for an
+    elliptic orbit, so F is strictly monotonic in dE and Newton is safe."""
+    rvec0 = numpy.array(s0[:3])
+    vvec0 = numpy.array(s0[3:])
+    r0 = numpy.sqrt(numpy.sum(rvec0**2.0))
+    a = 1.0 / (2.0 / r0 - numpy.sum(vvec0**2.0))
+    sqa = numpy.sqrt(a)
+    sigma0 = numpy.sum(rvec0 * vvec0)
+
+    def F(dE):
+        return (
+            dE
+            + sigma0 / sqa * (1.0 - numpy.cos(dE))
+            - (1.0 - r0 / a) * numpy.sin(dE)
+            - t / (a * sqa)
+        )
+
+    def dF(dE):
+        return (a + (r0 - a) * numpy.cos(dE) + sigma0 * sqa * numpy.sin(dE)) / a
+
+    dE = t / (a * sqa)  # mean-anomaly initial guess
+    for _ in range(100):
+        Fval = F(dE)
+        if numpy.fabs(Fval) < 1e-14:
+            break
+        dE = dE - Fval / dF(dE)
+    assert numpy.fabs(F(dE)) < 1e-12, "Kepler-equation Newton solve did not converge"
+    return dE
+
+
+def test_dxdv_3d_closed_form_stm_kepler():
+    from galpy.orbit import Orbit
+    from galpy.potential import KeplerPotential
+
+    pot = KeplerPotential(amp=1.0)  # mu = 1, matching the reference above
+    assert pot.hasC_dxdv3d, "KeplerPotential should advertise hasC_dxdv3d"
+    # moderately eccentric, genuinely 3D (inclined) orbit
+    ic = [1.0, 0.2, 0.8, 0.2, 0.1, 0.3]
+    R, vR, vT, z, vz, phi = ic
+    # the same cylindrical -> Cartesian map galpy uses (x along phi=0)
+    s0 = numpy.array(
+        [
+            R * numpy.cos(phi),
+            R * numpy.sin(phi),
+            z,
+            vR * numpy.cos(phi) - vT * numpy.sin(phi),
+            vR * numpy.sin(phi) + vT * numpy.cos(phi),
+            vz,
+        ]
+    )
+    r0 = numpy.sqrt(numpy.sum(s0[:3] ** 2.0))
+    a = 1.0 / (2.0 / r0 - numpy.sum(s0[3:] ** 2.0))
+    assert a > 0.0, "test precondition: the orbit must be elliptic"
+    # eccentricity from e^2 = 1 + 2 E L^2 = 1 - |L|^2/a (mu=1)
+    Lvec = numpy.cross(s0[:3], s0[3:])
+    ecc = numpy.sqrt(1.0 - numpy.sum(Lvec**2.0) / a)
+    assert 0.2 < ecc < 0.8, (
+        f"test precondition: moderately eccentric orbit expected, got e={ecc:g}"
+    )
+    # ~1.8 radial periods (T = 2 pi a^{3/2} ~ 4.4)
+    times = numpy.linspace(0.0, 8.0, 17)
+    dEs = [_kepler_solve_dE(s0, tk) for tk in times]
+    # anchor the analytic reference: the f,g propagator must follow the same
+    # orbit as a plain galpy integration (~2e-10 measured)
+    o = Orbit(ic)
+    o.integrate(times, pot, method="dop853_c")
+    rect_orbit = _orbit_rect_3d(o, times)
+    state_diff = numpy.amax(
+        numpy.fabs(
+            numpy.array(
+                [_kepler_fg_state(s0, dEs[kk], tk) for kk, tk in enumerate(times)]
+            )
+            - rect_orbit
+        )
+    )
+    assert state_diff < 1e-8, (
+        f"analytic Kepler f,g propagation differs from the integrated orbit by "
+        f"{state_diff:g}"
+    )
+    Mref = numpy.array([_kepler_fg_stm(s0, dEs[kk], tk) for kk, tk in enumerate(times)])
+    # non-vacuity: the deviations genuinely evolve (Kepler shear grows secularly)
+    assert numpy.amax(numpy.fabs(Mref[-1] - numpy.eye(6))) > 0.5
+    for integrator in ["dopr54_c", "dop853_c"]:
+        Mt = _integrate_stm_3d(pot, ic, times, integrator)
+        maxdiff = numpy.amax(numpy.fabs(Mt - Mref))
+        # measured ~1.5e-8 (dopr54_c) / ~1.4e-9 (dop853_c)
+        assert maxdiff < 1e-7, (
+            f"integrated 3D STM differs from the closed-form Kepler f,g STM by "
+            f"{maxdiff:g} for integrator {integrator}"
+        )
+    return None
+
+
+# ---- Conserved-integral left-relations. If C(x) is conserved along every
+# orbit, C(x(t; x_0)) = C(x_0) identically in x_0; differentiating wrt x_0
+# gives the exact STM relation
+#   g(x(t))^T M(t) = g(x_0)^T ,   g = dC/dx (gradient wrt the CARTESIAN
+# phase-space coordinates (x,y,z,vx,vy,vz)),
+# i.e. the gradient of a conserved quantity along the orbit is a left
+# "eigen-covector" of the STM. For an axisymmetric, time-independent potential
+# both the energy and the z-angular momentum are conserved, with
+#   E    = |v|^2/2 + Phi      -> g_E  = (dPhi/dx, dPhi/dy, dPhi/dz, vx, vy, vz)
+#   L_z  = x vy - y vx        -> g_Lz = (vy, -vx, 0, -y, x, 0)
+# (dL_z/dx = vy, dL_z/dy = -vx, dL_z/dvx = -y, dL_z/dvy = +x; dPhi/dx_i is
+# MINUS the Cartesian acceleration). This constrains the STM ROWS against
+# orbit-level quantities, complementary to det(M)=1/symplecticity (satisfied
+# by any symmetric Hessian) and to the column-wise FD-of-flow check.
+def test_dxdv_3d_conserved_integral_left_relations():
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1, normalize=True)
+    assert pot.hasC_dxdv3d, "MiyamotoNagai should advertise hasC_dxdv3d"
+    assert not pot.isNonAxi  # premise for L_z conservation
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 51)
+    for integrator in ["dopr54_c", "dop853_c"]:
+        Mt = _integrate_stm_3d(pot, ic, times, integrator)
+        # non-vacuity: the deviations genuinely evolve (measured ~11)
+        assert numpy.amax(numpy.fabs(Mt[-1] - numpy.eye(6))) > 1.0
+        o = Orbit(ic)
+        o.integrate(times, pot, method=integrator)
+        rect = _orbit_rect_3d(o, times)
+
+        def grad_E(kk):
+            out = numpy.empty(6)
+            # dPhi/d(x,y,z) = -acceleration
+            out[:3] = -_cart_accel_3d(pot, rect[kk, :3], t=times[kk])
+            out[3:] = rect[kk, 3:]
+            return out
+
+        def grad_Lz(kk):
+            x, y = rect[kk, 0], rect[kk, 1]
+            vx, vy = rect[kk, 3], rect[kk, 4]
+            return numpy.array([vy, -vx, 0.0, -y, x, 0.0])
+
+        for cname, gfun in [("E", grad_E), ("Lz", grad_Lz)]:
+            g0 = gfun(0)
+            maxerr = numpy.amax(
+                numpy.fabs(
+                    numpy.array(
+                        [numpy.dot(gfun(kk), Mt[kk]) for kk in range(len(times))]
+                    )
+                    - g0
+                )
+            )
+            # measured ~2e-10 (dopr54_c) / ~1e-11 (dop853_c)
+            assert maxerr < 1e-8, (
+                f"conserved-integral left-relation g^T(x(t)) M(t) = g^T(x_0) "
+                f"violated at {maxerr:g} for {cname}, integrator {integrator}"
+            )
     return None
 
 
