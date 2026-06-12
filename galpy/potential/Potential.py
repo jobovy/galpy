@@ -171,6 +171,11 @@ class Potential(Force):
         self.hasC = False
         self.hasC_dxdv = False
         self.hasC_dens = False
+        # Whether the C implementation (if hasC) extends to the planar
+        # (z=0) version of this potential obtained through toPlanar/
+        # toPlanarPotential; classes with C support that is *not* hooked up
+        # in the planar C integrator should set this to False
+        self.hasC_planar = True
         return None
 
     @potential_physical_input

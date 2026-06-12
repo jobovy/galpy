@@ -117,8 +117,11 @@ class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
         self._Pot = Pot
-        self.hasC = Pot.hasC
-        self.hasC_dxdv = Pot.hasC_dxdv
+        # Only advertise C support when the wrapped force's C
+        # implementation extends to its planar version (hasC_planar)
+        _hasC_planar = getattr(Pot, "hasC_planar", True)
+        self.hasC = Pot.hasC and _hasC_planar
+        self.hasC_dxdv = Pot.hasC_dxdv and _hasC_planar
         self.hasC_dens = Pot.hasC_dens
         return None
 
