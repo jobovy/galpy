@@ -1393,6 +1393,94 @@ def test_interprz_dxdv_3d():
     return None
 
 
+def test_kuzminlike_dxdv_planar_c_vs_python():
+    # Regression test for the KuzminLikeWrapperPotential C planar dxdv path:
+    # its d2xi/dR2 helper used pow(R^2+(a+sqrt(z^2+b^2))^2, 3.0) = xi^6 where
+    # the correct denominator is xi^3 (exponent 1.5), making the C planar
+    # variational integration wrong by O(1) for unit deviations (maxdiff ~0.8
+    # over the orbit below) while leaving the forces -- and hence ordinary
+    # orbit integration -- untouched. Fixed together with the 3D Hessian; the
+    # C planar dxdv must now match the trusted pure-Python reference (the two
+    # share only the analytic chain-rule Hessian, not integrator code).
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, KuzminLikeWrapperPotential
+
+    pot = KuzminLikeWrapperPotential(
+        pot=HernquistPotential(amp=1.0, a=1.3, normalize=True), a=1.1, b=0.3
+    )
+    assert pot.hasC_dxdv, "KuzminLikeWrapper should advertise hasC_dxdv (planar)"
+    ic = [1.0, 0.1, 1.1, 0.0]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    ptp = pot.toPlanar()
+    canonical = numpy.eye(4)
+    maxdiff = 0.0
+    for ii in [0, 2]:  # e_x and e_vx unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, ptp, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, ptp, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # planar C-vs-Python dxdv agree to ~1e-11; 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for KuzminLikeWrapper differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_kuzminlike_dxdv_3d_c_vs_miyamotonagai():
+    # Physics-law cross-check of the KuzminLikeWrapper 3D C Hessian against a
+    # completely INDEPENDENT C implementation: applying the Kuzmin-like
+    # substitution to a KeplerPotential gives exactly the MiyamotoNagaiPotential
+    # (for b != 0), whose full 3D C Hessian is implemented and validated
+    # separately. The two C variational integrations share no Hessian code (the
+    # wrapper chain-rules calcRforce/calcR2deriv of Kepler through xi; MN uses
+    # its own closed-form second derivatives), so machine-precision agreement
+    # (~1e-15) pins the wrapper's chain-rule Hessian values absolutely.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        KeplerPotential,
+        KuzminLikeWrapperPotential,
+        MiyamotoNagaiPotential,
+    )
+
+    kp = KeplerPotential(normalize=1.0)
+    kwp = KuzminLikeWrapperPotential(pot=kp, a=1.3, b=0.2)
+    mn = MiyamotoNagaiPotential(amp=kp._amp, a=1.3, b=0.2)
+    assert kwp.hasC_dxdv3d, "KuzminLikeWrapper should advertise hasC_dxdv3d"
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        o1 = Orbit(ic)
+        o1.integrate_dxdv(
+            canonical[ii], times, kwp, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        o2 = Orbit(ic)
+        o2.integrate_dxdv(
+            canonical[ii], times, mn, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(o1.getOrbit_dxdv() - o2.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # identical flows evaluated by two independent C Hessians: ~1e-15; 1e-10
+    # leaves room for floating-point evaluation-order differences only
+    assert maxdiff < 1e-10, (
+        f"3D C variational integration for KuzminLikeWrapper(Kepler) differs from "
+        f"the independent MiyamotoNagai C Hessian by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
 def _check_dxdv_3d_c(
     pot,
     name,
@@ -3125,6 +3213,55 @@ def test_integrate_dxdv_3d_c_requires_full_hessian():
     assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-9, (
         "3D integrate_dxdv did not fall back to the correct integrator for a "
         "potential lacking the full 3D C Hessian (got a silently-wrong C result)"
+    )
+    return None
+
+
+def test_integrate_dxdv_3d_wrapper_requires_wrapped_hessian():
+    # The 3D-only wrappers (KuzminLikeWrapperPotential,
+    # RotateAndTiltWrapperPotential) subclass WrapperPotential DIRECTLY rather
+    # than the parentWrapperPotential delegator, so _check_c's wrapper branch
+    # must match them too: a KuzminLike wrapper advertises hasC_dxdv3d=True
+    # unconditionally, but its C Hessian chain-rules the WRAPPED potential's C
+    # R2deriv/Rforce, so when the wrapped potential lacks the 3D C Hessian the
+    # C 3D variational path would silently aggregate 0 for the unset R2deriv
+    # (NULL-safe aggregators) and propagate a wrong deviation. _check_c must
+    # therefore recurse into the wrapped potential and integrate_dxdv must warn
+    # and fall back to the pure-Python integrator. As in
+    # test_integrate_dxdv_3d_c_requires_full_hessian, the no-3D-C-Hessian
+    # wrapped potential is synthesized by forcing hasC_dxdv3d=False.
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminLikeWrapperPotential, MiyamotoNagaiPotential
+
+    mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.1)
+    mn.hasC_dxdv3d = False  # force the wrapped-potential-without-3D-C-Hessian case
+    pot = KuzminLikeWrapperPotential(pot=mn, a=1.1, b=0.3)
+    assert pot.hasC_dxdv3d, (
+        "test precondition: the wrapper itself advertises hasC_dxdv3d"
+    )
+    assert not _check_c(pot, dxdv3d=True), (
+        "_check_c(dxdv3d) must recurse into the wrapped potential of a "
+        "direct-WrapperPotential subclass and report False"
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 2.0, 101)
+    dev = [1.0e-6, 0.0, 0.0, 0.0, 0.0, 0.0]
+    o_c = Orbit(ic)
+    with pytest.warns(galpyWarning):
+        o_c.integrate_dxdv(
+            dev, times, pot, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+    o_py = Orbit(ic)
+    o_py.integrate_dxdv(
+        dev, times, pot, method="dop853",
+        rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+    )  # fmt: skip
+    dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+    dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+    assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-9, (
+        "3D integrate_dxdv did not fall back to the correct integrator for a "
+        "wrapper whose wrapped potential lacks the full 3D C Hessian"
     )
     return None
 
