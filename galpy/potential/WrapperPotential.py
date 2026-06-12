@@ -18,6 +18,7 @@ from .planarPotential import (
 from .Potential import (
     Force,
     Potential,
+    _check_potential_list_and_deprecate,
     _dim,
     _evaluatephitorques,
     _evaluatePotentials,
@@ -45,6 +46,11 @@ class parentWrapperPotential:
             return object.__new__(cls)
         # Decide whether superclass is Wrapper or planarWrapper based on dim
         pot = kwargs.get("pot", None)
+        if isinstance(pot, list):
+            # Upgrade deprecated list input to a CompositePotential
+            # (emits a DeprecationWarning)
+            pot = _check_potential_list_and_deprecate(pot)
+            kwargs["pot"] = pot
         if _dim(pot) == 2:
             parentWrapperPotential = planarWrapperPotential
         elif _dim(pot) == 3:
@@ -108,7 +114,9 @@ class WrapperPotential(Potential):
         if not _init:
             return None  # Don't run __init__ at the end of setup
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
-        self._pot = pot
+        # Upgrade deprecated list input to a CompositePotential (emits a
+        # DeprecationWarning); no-op for non-list input
+        self._pot = _check_potential_list_and_deprecate(pot)
         # Check that we are not wrapping a non-potential Force object
         if (
             isinstance(self._pot, (CompositePotential, list))
@@ -263,7 +271,9 @@ class planarWrapperPotential(planarPotential):
         if not _init:
             return None  # Don't run __init__ at the end of setup
         planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
-        self._pot = pot
+        # Upgrade deprecated list input to a CompositePotential (emits a
+        # DeprecationWarning); no-op for non-list input
+        self._pot = _check_potential_list_and_deprecate(pot)
         self.isNonAxi = _isNonAxi(self._pot)
         # Check whether units are consistent between the wrapper and the
         # wrapped potential
