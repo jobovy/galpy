@@ -14,9 +14,26 @@ import math
 import numpy
 from scipy import integrate
 
-from ..backend import get_namespace
+from ..backend import get_namespace, is_backend_array
 from ..util import _rotate_to_arbitrary_vector, conversion
 from .Potential import Potential
+
+
+def _anchor_phi(phi, R, xp):
+    """Anchor a scalar ``phi`` in the array namespace ``xp``.
+
+    ``phi`` reaches the compute methods below as a python float both when the
+    caller leaves it at its default and when the axisymmetric branch (``not
+    self.isNonAxi``) resets it to ``0.0`` -- the latter even when the caller
+    passed a backend array. torch's ``cos``/``sin`` only accept tensors, so
+    such scalars are anchored as ``xp.asarray(phi, dtype=R.dtype)`` (input-
+    dtype anchoring, so float32 inputs are not promoted through the backend's
+    default dtype). The numpy path returns ``phi`` untouched (byte-identical),
+    as do already-backend ``phi`` arrays (no silent cast/detach of user
+    tensors, which would break autodiff w.r.t. ``phi``)."""
+    if xp is numpy or is_backend_array(phi):
+        return phi
+    return xp.asarray(phi, dtype=getattr(R, "dtype", None))
 
 
 class EllipsoidalPotential(Potential):
@@ -161,6 +178,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         # When R is infinite, y = R*sin(phi) is inf/nan; force it to 0 (the
         # potential along the axis). Shape-polymorphic so it works on scalars
@@ -230,6 +248,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         Fx, Fy, _ = self._compute_forces(x, y, z, xp)
         return xp.cos(phi) * Fx + xp.sin(phi) * Fy
@@ -238,6 +257,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         Fx, Fy, _ = self._compute_forces(x, y, z, xp)
         return R * (-xp.sin(phi) * Fx + xp.cos(phi) * Fy)
@@ -246,6 +266,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         _, _, Fz = self._compute_forces(x, y, z, xp)
         return Fz
@@ -302,6 +323,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         if not self._aligned:
             raise NotImplementedError(
@@ -318,6 +340,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         if not self._aligned:
             raise NotImplementedError(
@@ -330,6 +353,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         if not self._aligned:
             raise NotImplementedError(
@@ -342,6 +366,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         if not self._aligned:
             raise NotImplementedError(
@@ -359,6 +384,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         if not self._aligned:
             raise NotImplementedError(
@@ -377,6 +403,7 @@ class EllipsoidalPotential(Potential):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
             phi = 0.0
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         if not self._aligned:
             raise NotImplementedError(
@@ -387,6 +414,7 @@ class EllipsoidalPotential(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         if self._aligned:
             xa, ya, za = x, y, z

@@ -416,6 +416,76 @@ def test_numpy_cache_unaffected_by_traced_call(backend_name):
     numpy.testing.assert_allclose(got_z, ref_z, rtol=1e-14, atol=0.0)
 
 
+# --- phi anchoring regressions -------------------------------------------------
+# The compute methods reset ``phi = 0.0`` (a python float) for axisymmetric
+# instances and accept a python-float ``phi``/``t`` from callers; both used to be
+# fed straight to ``xp.cos``/``xp.sin``, which torch rejects (TypeError: "cos():
+# argument 'input' ... must be Tensor, not float") -- so AXISYMMETRIC instances
+# (the default axis ratios of e.g. PerfectEllipsoid / TriaxialNFW) failed under
+# torch even with all-tensor (R, z, phi, t) inputs, and every instance failed for
+# backend R, z with the (perfectly normal) python-float phi/t. ``_anchor_phi``
+# now anchors scalar phi on the input namespace/dtype; these tests pin both
+# call patterns for the originally-reported potentials plus a triaxial control.
+_ANCHOR_METHODS = EVAL + COMMON_METHODS
+_AXI_POTS = [
+    pytest.param(PerfectEllipsoidPotential(amp=1.3, a=1.5), id="Perfect-axi"),
+    pytest.param(TriaxialNFWPotential(amp=1.3, a=1.5), id="NFW-axi"),
+    pytest.param(TriaxialHernquistPotential(amp=1.3, a=1.5), id="Hernquist-axi"),
+]
+_TRIAX_POTS = [
+    pytest.param(PerfectEllipsoidPotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="Perfect"),
+    pytest.param(TriaxialNFWPotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="NFW"),
+    pytest.param(
+        TriaxialHernquistPotential(amp=1.3, a=1.5, b=0.9, c=0.7), id="Hernquist"
+    ),
+]
+
+
+@pytest.mark.parametrize("method", _ANCHOR_METHODS)
+@pytest.mark.parametrize("pot", _AXI_POTS)
+@pytest.mark.parametrize("ndim", [0, 1], ids=["0d", "1d"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_axisymmetric_all_backend_inputs(backend_name, pot, ndim, method):
+    # Axisymmetric instance + ALL-backend (R, z, phi, t) inputs: the internal
+    # ``phi = 0.0`` reset must not crash torch (regression) and values must
+    # match numpy.
+    assert not pot.isNonAxi  # the reset branch is what is under test
+    R, z, phi, t = (1.1, 0.2, 0.7, 0.3) if ndim == 0 else (_RS, _ZS, _PHIS, _ZS)
+    ref = numpy.asarray(
+        getattr(pot, method)(
+            numpy.asarray(R), numpy.asarray(z), phi=numpy.asarray(phi), t=t
+        )
+    )
+    got = _tonumpy(
+        getattr(pot, method)(
+            _asarray(backend_name, R),
+            _asarray(backend_name, z),
+            phi=_asarray(backend_name, phi),
+            t=_asarray(backend_name, t),
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("method", _ANCHOR_METHODS)
+@pytest.mark.parametrize("pot", _TRIAX_POTS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_mixed_backend_Rz_float_phi_t(backend_name, pot, method):
+    # Backend R, z with python-float phi and t (the standard galpy calling
+    # pattern, e.g. a scalar azimuth for an array of (R, z)): scalar phi must be
+    # anchored on the input namespace/dtype, with values matching numpy.
+    phi0, t0 = 0.7, 0.3
+    ref = numpy.asarray(
+        getattr(pot, method)(numpy.asarray(_RS), numpy.asarray(_ZS), phi=phi0, t=t0)
+    )
+    got = _tonumpy(
+        getattr(pot, method)(
+            _asarray(backend_name, _RS), _asarray(backend_name, _ZS), phi=phi0, t=t0
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
 def test_evaluate_xyz_namespace_fallback():
     # _evaluate_xyz infers the backend from its (x,y,z) arguments when called
     # without an explicit ``xp`` (the public _evaluate always passes one, so this
