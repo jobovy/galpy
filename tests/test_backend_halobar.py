@@ -730,3 +730,66 @@ def test_break_radius_inside_grad_identity(backend_name, case):
             atol=1e-10,
             err_msg=f"{type(pot).__name__} inside-rb AD==-Rforce ({backend_name}) at R={R0}",
         )
+
+
+###############################################################################
+# SpiralArms dtype anchoring: the stored constant arrays (Cs, HNn) in
+# _nvectors must follow the input dtype. Under torch, the stored float64
+# numpy constants used to become strong float64 tensors that (a) promoted
+# float32 inputs to float64 in every compute method and (b), for the default
+# integer Cs=[1], routed `Cs * self._rho0` (int64 tensor x python float)
+# through torch's default dtype (float32), costing ~4e-8 relative error in
+# _dens even at float64.
+###############################################################################
+_SPIRAL_DTYPE_CASES = [
+    (
+        "default_Cs",
+        SpiralArmsPotential(N=2, alpha=0.2, Rs=0.3, H=0.125, omega=0.4),
+    ),
+    (
+        "float_Cs",
+        SpiralArmsPotential(
+            N=2,
+            alpha=0.2,
+            Rs=0.3,
+            H=0.125,
+            omega=0.4,
+            Cs=[8.0 / (3.0 * numpy.pi), 0.5, 8.0 / (15.0 * numpy.pi)],
+        ),
+    ),
+]
+_SPIRAL_DTYPE_IDS = [c[0] for c in _SPIRAL_DTYPE_CASES]
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+@pytest.mark.parametrize("case", _SPIRAL_DTYPE_CASES, ids=_SPIRAL_DTYPE_IDS)
+@pytest.mark.parametrize("mname", ["_evaluate", "_Rforce", "_dens"])
+def test_spiralarms_torch_float32_preserved(case, mname):
+    # float32 inputs must produce float32 outputs: the stored constants must
+    # not promote the computation to float64
+    label, pot = case
+    method = getattr(pot, mname)
+    args = [torch.tensor(v, dtype=torch.float32) for v in (_RS, _ZS, _PHIS)]
+    out = method(*args, _T)
+    assert out.dtype == torch.float32, (
+        f"SpiralArms ({label}) {mname}: float32 in gave {out.dtype} out"
+    )
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+@pytest.mark.parametrize("case", _SPIRAL_DTYPE_CASES, ids=_SPIRAL_DTYPE_IDS)
+def test_spiralarms_torch_float64_dens_parity(case):
+    # Regression pin for the 4e-8 relative error: with the default integer
+    # Cs=[1], `Cs * self._rho0` used to round-trip through torch's default
+    # dtype (float32) even for float64 inputs.
+    label, pot = case
+    ref = numpy.asarray(pot._dens(_RS, _ZS, _PHIS, _T))
+    args = [torch.tensor(v, dtype=torch.float64) for v in (_RS, _ZS, _PHIS)]
+    got = pot._dens(*args, _T).numpy()
+    numpy.testing.assert_allclose(
+        got,
+        ref,
+        rtol=1e-14,
+        atol=0.0,
+        err_msg=f"SpiralArms ({label}) _dens float64 torch/numpy parity",
+    )
