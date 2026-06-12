@@ -9,6 +9,12 @@ v1.12.0 (expected around 2026-07-01)
   the C potential parsers now raise a clear error for any potential that
   claims C support without having a C implementation.
 
+- Fixed a bug in the C implementation of ``RotateAndTiltWrapperPotential``
+  where the internal force cache was keyed on position only, so that
+  re-evaluating the force at the same position but a different time returned
+  stale forces when wrapping a time-dependent potential. The cache key now
+  includes the time.
+
 - Added a ``cinterp`` option (default ``True``, resolution set by ``cinterp_n``)
   to ``NonInertialFrameForce`` that, during C orbit integration, replaces the
   time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline

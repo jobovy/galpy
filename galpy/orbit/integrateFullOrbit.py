@@ -518,7 +518,8 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp])
-            pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # for caching
+            # for caching: x,y,z,t key + Fx,Fy,Fz
+            pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             pot_args.extend(list(p._rot.flatten()))
             pot_args.append(not p._norot)
             pot_args.append(not p._offset is None)

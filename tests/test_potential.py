@@ -7266,6 +7266,45 @@ def test_integration_RotateAndTiltWrapper():
     return None
 
 
+def test_integration_RotateAndTiltWrapper_timedependent_forcecache():
+    # Regression test for the C force cache of RotateAndTiltWrapperPotential
+    # being keyed on position only: with a time-dependent wrapped potential,
+    # re-evaluating the force at the same position but a different time
+    # returned stale forces. Exercised by an orbit initially at rest in a
+    # potential that only forms at t > 0 (zero force before tform, so the
+    # position repeats exactly at every force evaluation while t advances):
+    # with the stale cache, the C-integrated orbit never starts moving
+    mn = potential.MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    tdep = potential.DehnenSmoothWrapperPotential(pot=mn, tform=1.0, tsteady=2.0)
+    rotpot = potential.RotateAndTiltWrapperPotential(
+        pot=tdep,
+        zvec=[numpy.sin(0.3), 0.0, numpy.cos(0.3)],
+        offset=[0.5, 0.3, 0.2],
+    )
+    ts = numpy.linspace(0.0, 5.0, 101)
+    orb_py = orbit.Orbit([1.0, 0.0, 0.0, 0.3, 0.0, 0.7])
+    orb_c = orbit.Orbit([1.0, 0.0, 0.0, 0.3, 0.0, 0.7])
+    orb_py.integrate(ts, rotpot, method="dop853")
+    orb_c.integrate(ts, rotpot, method="dop853_c")
+    # The orbit should move once the potential has formed
+    assert numpy.fabs(orb_c.R(ts[-1]) - orb_c.R(ts[0])) > 0.1, (
+        "C-integrated orbit in a time-dependent RotateAndTiltWrapperPotential does not move, indicating that the C force cache returns stale forces"
+    )
+    # and the C integration should agree with the pure-Python one
+    vxvv_py = orb_py.getOrbit()
+    vxvv_c = orb_c.getOrbit()
+    assert numpy.all(numpy.fabs(vxvv_py[:, :5] - vxvv_c[:, :5]) < 10.0**-6), (
+        "C orbit integration in a time-dependent RotateAndTiltWrapperPotential does not agree with the pure-Python integration"
+    )
+    dphi = vxvv_py[:, 5] - vxvv_c[:, 5]
+    assert numpy.all(
+        numpy.fabs(numpy.arctan2(numpy.sin(dphi), numpy.cos(dphi))) < 10.0**-6
+    ), (
+        "C orbit integration in a time-dependent RotateAndTiltWrapperPotential does not agree with the pure-Python integration"
+    )
+    return None
+
+
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
     rp = potential.RazorThinExponentialDiskPotential(normalize=1.0, hr=3.0 / 8.0)
