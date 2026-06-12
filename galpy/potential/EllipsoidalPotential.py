@@ -33,6 +33,8 @@ class EllipsoidalPotential(Potential):
         \\psi(m) = -\\int_{m^2}^\\infty d m^2 \\rho(m^2)
 
     See PerfectEllipsoidPotential for an example and `Merritt & Fridman (1996) <http://adsabs.harvard.edu/abs/1996ApJ...460..136M>`_ for the formalism.
+
+    Note that rotated instances (non-trivial ``zvec``/``pa``) do not support C-based variational integration (``Orbit.integrate_dxdv``; ``hasC_dxdv3d=False``): wrap the aligned potential in a ``RotateAndTiltWrapperPotential`` instead, which implements identical physics with full 3D dxdv support.
     """
 
     def __init__(

@@ -278,10 +278,22 @@ double TransientLogSpiralPotentialRforce(double,double,double,
 		       struct potentialArg *);
 double TransientLogSpiralPotentialphitorque(double,double,double,
 		       struct potentialArg *);
+double TransientLogSpiralPotentialR2deriv(double,double,double,
+		       struct potentialArg *);
+double TransientLogSpiralPotentialphi2deriv(double,double,double,
+		       struct potentialArg *);
+double TransientLogSpiralPotentialRphideriv(double,double,double,
+		       struct potentialArg *);
 //SteadyLogSpiralPotential
 double SteadyLogSpiralPotentialRforce(double,double,double,
 		       struct potentialArg *);
 double SteadyLogSpiralPotentialphitorque(double,double,double,
+		       struct potentialArg *);
+double SteadyLogSpiralPotentialR2deriv(double,double,double,
+		       struct potentialArg *);
+double SteadyLogSpiralPotentialphi2deriv(double,double,double,
+		       struct potentialArg *);
+double SteadyLogSpiralPotentialRphideriv(double,double,double,
 		       struct potentialArg *);
 //EllipticalDiskPotential
 double EllipticalDiskPotentialRforce(double,double,double,

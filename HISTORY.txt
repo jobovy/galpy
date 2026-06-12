@@ -1,6 +1,11 @@
 v1.12.0 (expected around 2026-07-01)
 ====================
 
+- Added analytic planar second derivatives (R2deriv, phi2deriv, Rphideriv) of
+  ``SteadyLogSpiralPotential`` and ``TransientLogSpiralPotential`` in Python
+  and C, enabling the planar variational equations of ``Orbit.integrate_dxdv``
+  in C for these spirals (``hasC_dxdv=True``).
+
 - Added ``Orbit.lyapunov`` to estimate the largest Lyapunov exponent of an
   orbit from the variational equations (``integrate_dxdv``) using the
   renormalization method of Benettin et al. (1980). Works for planar

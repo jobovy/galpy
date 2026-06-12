@@ -29,6 +29,7 @@ from test_potential import (
     fullyRotatedTriaxialNFWPotential,
     mockAdiabaticContractionMWP14WrapperPotential,
     mockCombLinearPotential,
+    mockFlatActiveTransientLogSpiralPotential,
     mockFlatCorotatingRotationSpiralArmsPotential,
     mockFlatCosmphiDiskPotential,
     mockFlatCosmphiDiskwBreakPotential,
@@ -4713,8 +4714,10 @@ def test_liouville_planar():
     pots.append("mockFlatSpiralArmsPotential")
     pots.append("mockRotatingFlatSpiralArmsPotential")
     pots.append("mockSpecialRotatingFlatSpiralArmsPotential")
-    # pots.append('mockFlatSteadyLogSpiralPotential')
-    # pots.append('mockFlatTransientLogSpiralPotential')
+    pots.append("mockFlatSteadyLogSpiralPotential")
+    # active transient (peaks mid-window; the plain mockFlatTransientLogSpiral
+    # peaks at to=-10, which would be vacuous for the spiral Hessian here)
+    pots.append("mockFlatActiveTransientLogSpiralPotential")
     pots.append("mockFlatDehnenSmoothBarPotential")
     pots.append("mockSlowFlatDehnenSmoothBarPotential")
     pots.append("mockSlowFlatDecayingDehnenSmoothBarPotential")
@@ -4799,6 +4802,8 @@ def test_liouville_planar():
     tol["mockFlatCosmphiDiskwBreakPotential"] = -7.0  # more difficult
     # rotating halo+bar: the fixed-step rk4_c reaches ~3e-7 over the ~1 Gyr horizon
     tol["mockFlatSoftenedNeedleBarPotential"] = -6.0
+    # halo+transient spiral: the fixed-step rk4_c reaches ~2e-7 over the horizon
+    tol["mockFlatActiveTransientLogSpiralPotential"] = -6.0
     tol["mockFlatTrulyCorotatingRotationSpiralArmsPotential"] = -5.0  # more difficult
     tol["mockMultipoleExpansionPotential"] = -6.5
     tol["mockMultipoleExpansionLimitedGridPotential"] = -5.0
@@ -4835,11 +4840,19 @@ def test_liouville_planar():
                 and not p == "FerrersPotential"
                 and not p == "MultipoleExpansionPotential"
                 and not p == "DoubleExponentialDiskPotential"
+                and not p == "mockFlatSteadyLogSpiralPotential"
             ):
                 ttol = -4.0
             elif (
                 integrator == "odeint" or not thasC
             ) and p == "MultipoleExpansionPotential":
+                ttol = -3.0
+            elif (
+                integrator == "odeint" or not thasC
+            ) and p == "mockFlatSteadyLogSpiralPotential":
+                # default-tolerance odeint drifts to ~2.6e-4 over the ~1 Gyr
+                # horizon (integrator accuracy, not a Hessian error; the C
+                # integrators reach ~2e-9)
                 ttol = -3.0
             elif (
                 integrator == "odeint" or not thasC
@@ -5125,6 +5138,81 @@ def test_flattenedpower_planar_dxdv_c_vs_python():
             "C planar dxdv (FlattenedPower) disagrees with the pure-Python result "
             f"(method={method}): max diff "
             f"{numpy.amax(numpy.fabs(dev_c - dev_py)):g} (PlanarR2deriv bug?)"
+        )
+    return None
+
+
+def test_logspiral_planar_dxdv_c_vs_python():
+    # The Steady/TransientLogSpiralPotential planar Hessians
+    # (R2deriv/phi2deriv/Rphideriv) in C must reproduce the pure-Python analytic
+    # reference (det(M)=1 in test_liouville_planar is necessary but not sufficient:
+    # it holds for ANY symmetric in-plane Hessian, so only this direct C-vs-Python
+    # comparison pins the actual Hessian values). Both spirals are explicitly
+    # time-dependent, so integrate over a window in which the perturbation is
+    # ACTIVE: the steady spiral grows from tform through tsteady inside the window
+    # (exercising all three branches of the C dehnenSpiralSmooth in the new
+    # derivatives) and the transient spiral's Gaussian envelope peaks mid-window.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        SteadyLogSpiralPotential,
+        TransientLogSpiralPotential,
+    )
+
+    halo = LogarithmicHaloPotential(normalize=1.0).toPlanar()
+    for sp in [
+        SteadyLogSpiralPotential(),  # always on (tform=None -> NaN branch in C)
+        SteadyLogSpiralPotential(tform=0.25, tsteady=2.0),  # grows over the window
+        TransientLogSpiralPotential(to=14.0, sigma=2.0),  # peaks mid-window
+    ]:
+        # non-vacuity: the C variational path must actually be advertised --
+        # without this, a flipped flag would silently fall back to odeint and
+        # the parity comparison would test python against python
+        assert sp.hasC_dxdv, f"{type(sp).__name__} should advertise hasC_dxdv"
+        pot = halo + sp
+        times = numpy.linspace(0.0, 28.0, 1001)
+        ic = [1.0, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]
+        # Use a UNIT deviation: the variational equation is linear in the deviation,
+        # so a unit dx makes the STM column O(1) and any relative Hessian error shows
+        # up as a comparable absolute discrepancy.
+        dev = [1.0, 0.0, 0.0, 0.0]
+        o_c = Orbit(ic)
+        o_c.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        o_py = Orbit(ic)
+        o_py.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+        dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+        assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-8, (
+            f"C planar dxdv ({type(sp).__name__}) disagrees with the pure-Python "
+            f"result: max diff {numpy.amax(numpy.fabs(dev_c - dev_py)):g} "
+            "(planar 2nd-derivative bug?)"
+        )
+        # Non-vacuity: the spiral perturbation must actually act along the orbit
+        # (guards against a silently-off spiral making the comparison halo-only)
+        torques = numpy.array(
+            [sp.phitorque(o_c.R(t), phi=o_c.phi(t), t=t) for t in times[::50]]
+        )
+        assert numpy.amax(numpy.fabs(torques)) > 1e-3, (
+            f"{type(sp).__name__} exerts no torque along the test orbit: "
+            "the dxdv C-vs-Python comparison is vacuous"
         )
     return None
 

@@ -12405,6 +12405,24 @@ class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
         return self._potlist[1].OmegaP()
 
 
+class mockFlatActiveTransientLogSpiralPotential(testplanarMWPotential):
+    # Transient spiral whose Gaussian envelope peaks INSIDE the
+    # test_liouville_planar integration window [0, 28] (the plain
+    # mockFlatTransientLogSpiralPotential peaks at to=-10, so its perturbation
+    # is ~exp(-50) there and the test would be vacuous for the spiral Hessian)
+    def __init__(self):
+        testplanarMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                potential.TransientLogSpiralPotential(to=14.0, sigma=4.0),
+            ],
+        )
+
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+
+
 class mockFlatSpiralArmsPotential(testMWPotential):
     def __init__(self):
         testMWPotential.__init__(
