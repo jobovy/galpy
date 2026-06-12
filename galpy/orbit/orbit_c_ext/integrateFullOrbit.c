@@ -858,6 +858,17 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &MovingObjectPotentialRforce;
       potentialArgs->zforce= &MovingObjectPotentialzforce;
       potentialArgs->phitorque= &MovingObjectPotentialphitorque;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv):
+      // the kernel's Hessian at the shifted point x-x_obj(t), evaluated
+      // through the wrapped potential's pointers exactly like the forces
+      // (only used when the kernel itself has its 3D Hessian in C, gated by
+      // hasC_dxdv3d = _check_c(kernel, dxdv3d=True) on the Python side).
+      potentialArgs->R2deriv= &MovingObjectPotentialR2deriv;
+      potentialArgs->z2deriv= &MovingObjectPotentialz2deriv;
+      potentialArgs->Rzderiv= &MovingObjectPotentialRzderiv;
+      potentialArgs->phi2deriv= &MovingObjectPotentialphi2deriv;
+      potentialArgs->Rphideriv= &MovingObjectPotentialRphideriv;
+      potentialArgs->zphideriv= &MovingObjectPotentialzphideriv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
