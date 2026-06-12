@@ -978,6 +978,14 @@ double OblateStaeckelWrapperPotentialzforce(double,double,double,double,
 					    struct potentialArg *);
 double OblateStaeckelWrapperPotentialPlanarRforce(double,double,double,
 						  struct potentialArg *);
+double OblateStaeckelWrapperPotentialR2deriv(double,double,double,double,
+					     struct potentialArg *);
+double OblateStaeckelWrapperPotentialz2deriv(double,double,double,double,
+					     struct potentialArg *);
+double OblateStaeckelWrapperPotentialRzderiv(double,double,double,double,
+					     struct potentialArg *);
+double OblateStaeckelWrapperPotentialPlanarR2deriv(double,double,double,
+						   struct potentialArg *);
 //CorotatingRotationWrapperPotential
 double CorotatingRotationWrapperPotentialRforce(double,double,double,double,
 					struct potentialArg *);
@@ -1198,6 +1206,12 @@ double CylindricallySeparablePotentialWrapperPotentialRforce(double,double,doubl
 double CylindricallySeparablePotentialWrapperPotentialzforce(double,double,double,double,
 					    struct potentialArg *);
 double CylindricallySeparablePotentialWrapperPotentialPlanarRforce(double,double,double,
+						  struct potentialArg *);
+double CylindricallySeparablePotentialWrapperPotentialR2deriv(double,double,double,double,
+						  struct potentialArg *);
+double CylindricallySeparablePotentialWrapperPotentialz2deriv(double,double,double,double,
+						  struct potentialArg *);
+double CylindricallySeparablePotentialWrapperPotentialPlanarR2deriv(double,double,double,
 						  struct potentialArg *);
 //MultipoleExpansionPotential
 void initMultipoleExpansionPotentialArgs(struct potentialArg *,

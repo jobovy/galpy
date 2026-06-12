@@ -89,7 +89,14 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             _evaluatePotentials(self._pot, R0, z0) * numpy.cosh(self._u0) ** 2.0
         )
         self.hasC = True
-        self.hasC_dxdv = False
+        # Advertise the (planar and 3D) C variational capabilities
+        # unconditionally, as for hasC: _check_c recurses into the wrapped
+        # potential's own flags (the wrapper's C Hessian chain-rules the
+        # wrapped potential's forces and second derivatives along the U/V
+        # reference curves through the prolate spheroidal coordinates, so it
+        # is complete iff the wrapped potential's Hessian is in C).
+        self.hasC_dxdv = True
+        self.hasC_dxdv3d = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
