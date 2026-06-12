@@ -4108,7 +4108,11 @@ def _check_c(Pot, dxdv=False, dxdv3d=False, dens=False):
         hasC_attr = "hasC_dens"
     else:
         hasC_attr = "hasC"
-    from .WrapperPotential import parentWrapperPotential
+    from .WrapperPotential import (
+        WrapperPotential,
+        parentWrapperPotential,
+        planarWrapperPotential,
+    )
 
     if isinstance(Pot, list):
         return numpy.all(
@@ -4117,13 +4121,19 @@ def _check_c(Pot, dxdv=False, dxdv3d=False, dens=False):
                 dtype="bool",
             )
         )
-    elif isinstance(Pot, parentWrapperPotential):
+    elif isinstance(
+        Pot, (parentWrapperPotential, WrapperPotential, planarWrapperPotential)
+    ):
         # A wrapper's C implementation of a given capability is
         # modulation x <that same capability of the wrapped potential>, so the
         # wrapped potential must itself satisfy the SAME check (propagate the
         # flag) -- not merely have a base C implementation. getattr's default
         # handles wrappers that predate the attribute (treat as unsupported ->
         # the corresponding path falls back to the Python integrator).
+        # NB: 3D-only wrappers (KuzminLikeWrapperPotential,
+        # RotateAndTiltWrapperPotential) subclass WrapperPotential DIRECTLY
+        # (not the parentWrapperPotential delegator), so all three wrapper
+        # base classes must be checked here for the recursion to apply.
         return bool(
             getattr(Pot, hasC_attr, False)
             * _check_c(Pot._pot, dxdv=dxdv, dxdv3d=dxdv3d, dens=dens)
