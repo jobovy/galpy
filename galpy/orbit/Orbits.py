@@ -2333,6 +2333,12 @@ class Orbit:
           preserves phase-space volume). The pure-Python methods ('odeint',
           'dop853') raise a ``NotImplementedError`` for dissipative forces.
 
+        - Rotated ``EllipsoidalPotential`` instances (non-trivial ``zvec``/``pa``)
+          do not support C-based variational integration directly
+          (``hasC_dxdv3d=False``); wrap the aligned potential in a
+          ``RotateAndTiltWrapperPotential`` instead (identical physics, full 3D
+          dxdv support).
+
         - 2011-10-17 - Written - Bovy (IAS)
         - 2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
         - 2019-05-21 - Parallelized and incorporated into new Orbits class - Bovy (UofT)

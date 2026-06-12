@@ -78,6 +78,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 2: //TransientLogSpiralPotential, 8 arguments
       potentialArgs->planarRforce= &TransientLogSpiralPotentialRforce;
       potentialArgs->planarphitorque= &TransientLogSpiralPotentialphitorque;
+      potentialArgs->planarR2deriv= &TransientLogSpiralPotentialR2deriv;
+      potentialArgs->planarphi2deriv= &TransientLogSpiralPotentialphi2deriv;
+      potentialArgs->planarRphideriv= &TransientLogSpiralPotentialRphideriv;
       potentialArgs->nargs= 8;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -85,6 +88,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 3: //SteadyLogSpiralPotential, 8 arguments
       potentialArgs->planarRforce= &SteadyLogSpiralPotentialRforce;
       potentialArgs->planarphitorque= &SteadyLogSpiralPotentialphitorque;
+      potentialArgs->planarR2deriv= &SteadyLogSpiralPotentialR2deriv;
+      potentialArgs->planarphi2deriv= &SteadyLogSpiralPotentialphi2deriv;
+      potentialArgs->planarRphideriv= &SteadyLogSpiralPotentialRphideriv;
       potentialArgs->nargs= 8;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
