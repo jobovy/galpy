@@ -10,12 +10,14 @@
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 # Methods that genuinely require scipy.special with no backend-agnostic
-# replacement yet (e.g. the base TwoPower._evaluate/_Rforce via hyp2f1,
-# PowerSpherical._surfdens via hyp2f1, PowerSphericalPotentialwCutoff._mass via
-# hyp1f1) remain numpy-only and are NOT exercised here. The previously deferred
-# closed-form cases -- the xlogy-based NFW._evaluate and Burkert._revaluate, and
-# the complex-arithmetic _surfdens of Burkert/Hernquist/Jaffe/NFW -- are now
-# migrated and ARE covered below (incl. their R == a removable singularity).
+# replacement yet (e.g. PowerSpherical._surfdens via hyp2f1,
+# PowerSphericalPotentialwCutoff._mass via hyp1f1) remain numpy-only and are
+# NOT exercised here. The previously deferred closed-form cases -- the
+# xlogy-based NFW._evaluate and Burkert._revaluate, and the complex-arithmetic
+# _surfdens of Burkert/Hernquist/Jaffe/NFW -- are now migrated and ARE covered
+# below (incl. their R == a removable singularity), as is the generic-
+# (alpha, beta) TwoPower base, whose hyp2f1/gamma now go through the
+# galpy.backend.special router (see the dedicated block at the end).
 ###############################################################################
 import numpy
 import pytest
@@ -132,12 +134,15 @@ CASES = [
     # uses hyp2f1, deferred).
     (PowerSphericalPotential(amp=1.3, alpha=1.5), _THREE_D, [], True),
     (KeplerPotential(amp=1.3), _THREE_D, [], True),
-    # TwoPower base (non-special): only _dens is scipy-free.
+    # TwoPower base (non-special alpha/beta): hyp2f1/gamma routed through the
+    # galpy.backend.special router, so all 3D methods are migrated. (The
+    # dedicated block at the end additionally pins numpy byte-parity, the
+    # beta == 3 branch, force grads vs FD, and jax.jit survival.)
     (
         TwoPowerSphericalPotential(amp=1.3, a=1.1, alpha=1.5, beta=3.5),
-        ["_dens"],
+        _THREE_D,
         [],
-        False,
+        True,
     ),
     # HomogeneousSphere: piecewise, all methods migrated via xp.where.
     (HomogeneousSpherePotential(amp=1.3, R=1.1), _THREE_D, [], True),
@@ -231,7 +236,7 @@ def test_value_parity(backend_name, pot, methods, _methods1d, _ad):
 def test_public_value_parity(backend_name, pot, methods, _methods1d, _ad):
     # The public Rforce (through the unit decorators and _amp) must give
     # identical values across backends. Only meaningful where _Rforce is
-    # actually migrated (the base TwoPower _Rforce is scipy-deferred).
+    # actually migrated.
     if "_Rforce" not in methods:
         pytest.skip("_Rforce deferred (scipy.special) for this potential")
     R = _asarray(backend_name, _RS)
@@ -328,8 +333,8 @@ def test_force_hessian_identities(backend_name, pot, methods, methods1d, _ad):
     # For EVERY identity pair where both methods are migrated for this potential,
     # AD(lower wrt var) == -higher, exact to rtol=1e-9. Gate on list membership so
     # the (absent) phi pairs of these axisymmetric potentials are simply skipped.
-    # Potentials with no migrated force/eval pairs (only _dens, e.g. the
-    # scipy-special TwoPower base) have nothing to cross-validate here.
+    # Potentials with no migrated force/eval pairs (only _dens) have nothing to
+    # cross-validate here.
     if not (set(methods) & {"_evaluate", "_Rforce", "_zforce"}) and not methods1d:
         pytest.skip("no migrated force/evaluate methods to form an identity pair")
     R0, z0 = 1.3, 0.4
@@ -550,3 +555,129 @@ def test_surfdens_grad_z_finite_off_edge(backend_name, pot):
     # cross-check the gradient against the analytic density (the true slope).
     rho = float(numpy.asarray(pot._dens(numpy.asarray(R0), numpy.asarray(0.0))))
     numpy.testing.assert_allclose(ad, 2.0 * rho, rtol=1e-7, atol=1e-10)
+
+
+###############################################################################
+# Generic-(alpha, beta) TwoPowerSphericalPotential: regression pins for routing
+# the hyp2f1/gamma-backed methods through galpy.backend.special. Before the
+# routing, these methods called scipy.special on the backend arrays directly:
+# torch tensors with requires_grad RAISED (RuntimeError in Tensor.__array__),
+# no-grad torch outputs silently round-tripped through numpy (graph never
+# built), eager jax outputs degraded to plain numpy.ndarray, and jax.grad /
+# jax.jit died with TracerArrayConversionError. These tests pin:
+#   1. numpy BYTE-parity of _evaluate/_Rforce with the direct scipy.special
+#      formulas (the router dispatches numpy inputs straight to scipy.special),
+#   2. jax/torch grads of _evaluate and _Rforce wrt R vs central finite
+#      differences of the numpy path (the detach/raise regression pin),
+#   3. jax.jit survival (and jit == numpy values).
+# beta=3.5/4.5 hit the generic gamma+hyp2f1(-a/r) _evaluate branch, beta=3.0
+# the separate hyp2f1(-r/a) branch; alpha=1.5 keeps _specialSelf unset (a true
+# generic case). Cross-backend VALUE parity on all methods is covered by the
+# CASES entry above. The hyp2f1 fallback (used by jax -- whose native hyp2f1 is
+# unreliable for z < -1 -- and torch -- which has none) matches scipy to
+# better than 1e-12 over this argument range.
+###############################################################################
+_TWOPOWER_GENERIC = [
+    TwoPowerSphericalPotential(amp=1.3, a=1.1, alpha=1.5, beta=3.5),
+    TwoPowerSphericalPotential(amp=1.3, a=1.1, alpha=1.5, beta=4.5),
+    TwoPowerSphericalPotential(amp=1.3, a=1.1, alpha=1.5, beta=3.0),
+]
+_TWOPOWER_GENERIC_IDS = ["beta3.5", "beta4.5", "beta3.0"]
+
+
+def _twopower_scipy_reference(pot, method, R, z):
+    """The pre-routing direct-scipy formulas for _evaluate/_Rforce, reproduced
+    verbatim (numpy + scipy.special) as the byte-parity reference."""
+    from scipy import special
+
+    a, alpha, beta = pot.a, pot.alpha, pot.beta
+    if method == "_Rforce":
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return (
+            -R
+            / r**alpha
+            * a ** (alpha - 3.0)
+            / (3.0 - alpha)
+            * special.hyp2f1(3.0 - alpha, beta - alpha, 4.0 - alpha, -r / a)
+        )
+    if beta == 3.0:
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return (
+            (1.0 / a)
+            * (
+                1
+                - (r / a) ** (2.0 - alpha)
+                / (3.0 - alpha)
+                * special.hyp2f1(3.0 - alpha, 2.0 - alpha, 4.0 - alpha, -r / a)
+            )
+            / (alpha - 2.0)
+        )
+    r = numpy.sqrt(R**2.0 + z**2.0) + 1e-11
+    return (
+        special.gamma(beta - 3.0)
+        * (
+            (r / a) ** (3.0 - beta)
+            / special.gamma(beta - 1.0)
+            * special.hyp2f1(beta - 3.0, beta - alpha, beta - 1.0, -a / r)
+            - special.gamma(3.0 - alpha) / special.gamma(beta - alpha)
+        )
+        / r
+    )
+
+
+@pytest.mark.parametrize("pot", _TWOPOWER_GENERIC, ids=_TWOPOWER_GENERIC_IDS)
+def test_twopower_generic_numpy_byte_parity(pot):
+    # On a dense grid, the routed numpy path must be BYTE-identical to the
+    # pre-routing direct scipy.special formulas (.tobytes() equality).
+    Rg, zg = numpy.meshgrid(
+        numpy.linspace(0.1, 10.0, 40), numpy.linspace(-3.0, 3.0, 30)
+    )
+    Rg, zg = Rg.ravel(), zg.ravel()
+    for method in ["_evaluate", "_Rforce"]:
+        got = getattr(pot, method)(Rg, zg)
+        ref = _twopower_scipy_reference(pot, method, Rg, zg)
+        assert isinstance(got, numpy.ndarray), f"{method} left the numpy namespace"
+        assert got.tobytes() == ref.tobytes(), (
+            f"numpy {method} not byte-identical to the direct-scipy formula "
+            f"(alpha={pot.alpha}, beta={pot.beta})"
+        )
+
+
+@pytest.mark.parametrize("method", ["_evaluate", "_Rforce"])
+@pytest.mark.parametrize("pot", _TWOPOWER_GENERIC, ids=_TWOPOWER_GENERIC_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_twopower_generic_grad_vs_finite_difference(backend_name, pot, method):
+    # jax.grad / torch.autograd.grad of the routed methods wrt R must match a
+    # central finite difference of the numpy path. Pre-routing, torch RAISED
+    # ("Can't call numpy() on Tensor that requires grad") and jax raised
+    # TracerArrayConversionError -- this is the detach/raise regression pin.
+    f = getattr(pot, method)
+    R0, z0, eps = 1.3, 0.4, 1e-6
+    fd = (
+        float(f(numpy.asarray(R0 + eps), numpy.asarray(z0)))
+        - float(f(numpy.asarray(R0 - eps), numpy.asarray(z0)))
+    ) / (2 * eps)
+    if backend_name == "jax":
+        ad = float(jax.grad(lambda R: f(R, jnp.asarray(z0)))(jnp.asarray(R0)))
+    else:
+        R = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
+        (ad,) = torch.autograd.grad(f(R, torch.tensor(z0, dtype=torch.float64)), R)
+        ad = float(ad)
+    numpy.testing.assert_allclose(
+        ad, fd, rtol=1e-6, err_msg=f"{backend_name} grad of {method}"
+    )
+
+
+@pytest.mark.parametrize("method", ["_evaluate", "_Rforce"])
+@pytest.mark.parametrize("pot", _TWOPOWER_GENERIC, ids=_TWOPOWER_GENERIC_IDS)
+def test_twopower_generic_jax_jit(pot, method):
+    # The routed methods must survive jax.jit (pre-routing: scipy.special on a
+    # tracer raised TracerArrayConversionError) and match the numpy values.
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+    f = getattr(pot, method)
+    R0, z0 = 1.3, 0.4
+    jitted = jax.jit(lambda R: f(R, jnp.asarray(z0)))
+    got = float(jitted(jnp.asarray(R0)))
+    ref = float(f(numpy.asarray(R0), numpy.asarray(z0)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12)
