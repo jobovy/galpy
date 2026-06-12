@@ -20,6 +20,13 @@ v1.12.0 (expected around 2026-07-01)
   ``integrate_dxdv`` methods raise a ``NotImplementedError`` for dissipative
   forces.
 
+- Added C implementations of the second derivatives of
+  ``OblateStaeckelWrapperPotential`` and
+  ``CylindricallySeparablePotentialWrapper``, enabling both the planar and the
+  full 3D variational equations of ``Orbit.integrate_dxdv`` in C for these
+  wrappers (``hasC_dxdv`` and ``hasC_dxdv3d``, conditioned on the wrapped
+  potential's own C capabilities).
+
 - Wired the rectangular force Jacobian of ``NonInertialFrameForce`` in C for
   the 3D variational equations (``hasC_dxdv3d=True``): the frame force is
   linear in position and velocity, so dF/dv = -2 [Omega]_x and
