@@ -14,7 +14,7 @@ from scipy.interpolate import (
     make_interp_spline,
 )
 
-from ..backend import get_namespace
+from ..backend import get_namespace, match_input_dtype
 from ..backend.special import assoc_legendre
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -1232,19 +1232,26 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         - 2026-06-09 - Added jax/torch evaluation path - Bovy (UofT)
         """
         xp = get_namespace(R, z)
+        # the expansion tables are deliberately float64 (precision); cast the
+        # result to the input dtype at exit (no-op for float64/scalar inputs)
         if xp is not numpy:
             if not self.isNonAxi and phi is None:
                 phi = 0.0
-            return self._backend_evaluate(xp, R, z, phi, t)
+            return match_input_dtype(
+                self._backend_evaluate(xp, R, z, phi, t), R, z, phi, t
+            )
         if not self.isNonAxi and phi is None:
             phi = 0.0
+        in_coords = (R, z, phi, t)
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
         phi = numpy.array(phi, dtype=float)
         t = numpy.array(t, dtype=float)
         shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
         if shape == ():
-            return self._evaluate_at_point(R, z, phi, t=t)
+            return match_input_dtype(
+                self._evaluate_at_point(R, z, phi, t=t), *in_coords
+            )
         R = R * numpy.ones(shape)
         z = z * numpy.ones(shape)
         phi = phi * numpy.ones(shape)
@@ -1252,7 +1259,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         result = numpy.zeros(shape, float)
         for idx in numpy.ndindex(*shape):
             result[idx] = self._evaluate_at_point(R[idx], z[idx], phi[idx], t=t[idx])
-        return result
+        return match_input_dtype(result, *in_coords)
 
     def _below_grid_integrals(self, r, l, I_inner_spline, I_outer_spline):
         """Compute extended I_inner and I_outer for r < rmin.
@@ -1632,25 +1639,27 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         - 2026-06-09 - Added jax/torch evaluation path - Bovy (UofT)
         """
         xp = get_namespace(R, z)
+        # float64 table interior, input-dtype exit cast (see _evaluate)
         if xp is not numpy:
-            return self._backend_dens(xp, R, z, phi, t)
+            return match_input_dtype(self._backend_dens(xp, R, z, phi, t), R, z, phi, t)
         if self._tdep:
             self._ensure_rho_for_time(t)
         if not self.isNonAxi and phi is None:
             phi = 0.0
+        in_coords = (R, z, phi, t)
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
         phi = numpy.array(phi, dtype=float)
         shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape)
         if shape == ():
-            return self._dens_at_point(R, z, phi)
+            return match_input_dtype(self._dens_at_point(R, z, phi), *in_coords)
         R = R * numpy.ones(shape)
         z = z * numpy.ones(shape)
         phi = phi * numpy.ones(shape)
         result = numpy.zeros(shape, float)
         for idx in numpy.ndindex(*shape):
             result[idx] = self._dens_at_point(R[idx], z[idx], phi[idx])
-        return result
+        return match_input_dtype(result, *in_coords)
 
     def _ensure_rho_for_time(self, t):
         """Lazy rho spline creation for time-dependent density evaluation.
@@ -2032,25 +2041,35 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
     def _Rforce(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z)
         if xp is not numpy:
-            return self._backend_cyl_force(xp, "R", R, z, phi, t)
+            # float64 table interior, input-dtype exit cast (see _evaluate);
+            # the numpy path inherits the same cast from the mixin
+            return match_input_dtype(
+                self._backend_cyl_force(xp, "R", R, z, phi, t), R, z, phi, t
+            )
         return SphericalHarmonicPotentialMixin._Rforce(self, R, z, phi=phi, t=t)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         if xp is not numpy:
-            return self._backend_cyl_force(xp, "z", R, z, phi, t)
+            return match_input_dtype(
+                self._backend_cyl_force(xp, "z", R, z, phi, t), R, z, phi, t
+            )
         return SphericalHarmonicPotentialMixin._zforce(self, R, z, phi=phi, t=t)
 
     def _phitorque(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z)
         if xp is not numpy:
-            return self._backend_cyl_force(xp, "phi", R, z, phi, t)
+            return match_input_dtype(
+                self._backend_cyl_force(xp, "phi", R, z, phi, t), R, z, phi, t
+            )
         return SphericalHarmonicPotentialMixin._phitorque(self, R, z, phi=phi, t=t)
 
     def _evaluate_cyl_2nd_deriv(self, deriv_type, R, z, phi, t=0.0):
         xp = get_namespace(R, z)
         if xp is not numpy:
-            return self._backend_cyl_2nd_deriv(xp, deriv_type, R, z, phi, t)
+            return match_input_dtype(
+                self._backend_cyl_2nd_deriv(xp, deriv_type, R, z, phi, t), R, z, phi, t
+            )
         return SphericalHarmonicPotentialMixin._evaluate_cyl_2nd_deriv(
             self, deriv_type, R, z, phi, t=t
         )

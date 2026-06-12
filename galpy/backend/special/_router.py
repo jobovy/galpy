@@ -4,6 +4,7 @@
 ###############################################################################
 import numpy
 
+from .._namespaces import match_input_dtype
 from .._resolver import get_namespace
 
 # Per-backend functions whose NATIVE implementation is simply absent, so the
@@ -89,7 +90,15 @@ def _dispatch(fnname, args, fallback, ns_args=None):
                     for a in args
                 )
         return getattr(sp, fnname)(*args)
-    return fallback(xp, *args)
+    # The fallbacks' constant tables (Gauss-Legendre / trapezoid quadrature
+    # nodes and weights) are deliberately float64 -- precision is the point --
+    # which under torch/jax promotes float32 inputs to float64. Cast the
+    # result back to the input dtype at exit (float32 in -> float32 out at
+    # float64 quality; a strict no-op for float64 inputs, and the numpy
+    # backend never reaches the fallbacks since scipy.special is complete).
+    return match_input_dtype(
+        fallback(xp, *args), *(args if ns_args is None else ns_args)
+    )
 
 
 def _no_fallback(fnname):

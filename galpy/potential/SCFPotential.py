@@ -13,7 +13,7 @@ if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
 else:
     from scipy.special import assoc_legendre_p_all
 
-from ..backend import get_namespace
+from ..backend import get_namespace, match_input_dtype
 from ..backend.special import assoc_legendre, gegenbauer
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -491,7 +491,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
     def _dens(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        return self._evaluate_expansion(self._rhoTilde, R, z, phi)
+        # the expansion tables are deliberately float64 (precision); cast the
+        # result to the input dtype at exit (no-op for float64/scalar inputs)
+        return match_input_dtype(
+            self._evaluate_expansion(self._rhoTilde, R, z, phi), R, z, phi, t
+        )
 
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
@@ -503,7 +507,10 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        return self._evaluate_expansion(self._phiTilde, R, z, phi)
+        # float64 interior, input-dtype exit cast (see _dens)
+        return match_input_dtype(
+            self._evaluate_expansion(self._phiTilde, R, z, phi), R, z, phi, t
+        )
 
     def _dphiTilde(self, r, N, L):
         xp = get_namespace(r)

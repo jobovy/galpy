@@ -7,7 +7,7 @@
 import numpy
 from scipy import special
 
-from ..backend import get_namespace
+from ..backend import get_namespace, match_input_dtype
 from ..util import conversion
 from .Potential import Potential, check_potential_inputs_not_arrays
 
@@ -173,6 +173,10 @@ class DoubleExponentialDiskPotential(Potential):
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         xp = get_namespace(R, z)
+        # the Ogata quadrature nodes/weights are deliberately float64
+        # (precision); the result is cast to the input dtype at exit (no-op
+        # for float64/scalar inputs), so keep the original inputs for that
+        in_coords = (R, z, phi, t)
         if isinstance(R, (float, int)):
             floatIn = True
             R = xp.atleast_1d(xp.asarray(R))
@@ -213,9 +217,9 @@ class DoubleExponentialDiskPotential(Potential):
         out = xp.where((R == 0) & (z == 0), float(self._pot_zero), out)
         out = xp.where((R == 0) & (z != 0), numpy.nan, out)
         if floatIn:
-            return out[0]
+            return match_input_dtype(out[0], *in_coords)
         else:
-            return xp.reshape(out, outShape)
+            return match_input_dtype(xp.reshape(out, outShape), *in_coords)
 
     @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
@@ -254,14 +258,19 @@ class DoubleExponentialDiskPotential(Potential):
             )
             / (self._beta**2.0 - (x / R) ** 2.0)
         )
-        return (
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(
             -4.0
             * numpy.pi
             * self._alpha
             / R**2.0
             * _de_quadsum(
                 xp, (fun(xp.asarray(self._de_j1_xs)), xp.asarray(self._de_j1_weights))
-            )
+            ),
+            R,
+            z,
+            phi,
+            t,
         )
 
     @check_potential_inputs_not_arrays
@@ -311,7 +320,8 @@ class DoubleExponentialDiskPotential(Potential):
         )
         # Odd in z: out for z > 0, -out otherwise. The +-1.0 factor is exact
         # (mult by +-1.0 is bitwise) and, unlike an if on z, jit-traceable.
-        return out * (2.0 * (z > 0.0) - 1.0)
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(out * (2.0 * (z > 0.0) - 1.0), R, z, phi, t)
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
@@ -349,7 +359,8 @@ class DoubleExponentialDiskPotential(Potential):
             )
             / (self._beta**2.0 - (x / R) ** 2.0)
         )
-        return (
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(
             4.0
             * numpy.pi
             * self._alpha
@@ -363,7 +374,11 @@ class DoubleExponentialDiskPotential(Potential):
                     -fun(xp.asarray(self._de_j1_xs)) / xp.asarray(self._de_j1_xs),
                     xp.asarray(self._de_j1_weights),
                 ),
-            )
+            ),
+            R,
+            z,
+            phi,
+            t,
         )
 
     @check_potential_inputs_not_arrays
@@ -403,7 +418,8 @@ class DoubleExponentialDiskPotential(Potential):
             )
             / (self._beta**2.0 - (x / R) ** 2.0)
         )
-        return (
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(
             -4.0
             * numpy.pi
             * self._alpha
@@ -411,7 +427,11 @@ class DoubleExponentialDiskPotential(Potential):
             / R
             * _de_quadsum(
                 xp, (fun(xp.asarray(self._de_j0_xs)), xp.asarray(self._de_j0_weights))
-            )
+            ),
+            R,
+            z,
+            phi,
+            t,
         )
 
     @check_potential_inputs_not_arrays
@@ -458,7 +478,8 @@ class DoubleExponentialDiskPotential(Potential):
             )
         )
         # Odd in z (see _zforce): exact +-1.0 factor instead of an if on z.
-        return out * (2.0 * (z > 0.0) - 1.0)
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(out * (2.0 * (z > 0.0) - 1.0), R, z, phi, t)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
