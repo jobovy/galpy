@@ -204,6 +204,8 @@ class interpRZPotential(Potential):
         self._interpverticalfreq = interpverticalfreq
         self._enable_c = enable_c * ext_loaded
         self.hasC = self._enable_c
+        # No planar version of interpRZPotential in the C integrator
+        self.hasC_planar = False
         self._zsym = zsym
         if interpPot:
             if use_c * ext_loaded:

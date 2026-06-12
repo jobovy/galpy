@@ -641,6 +641,17 @@ def _parse_pot(pot, t=None):
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp, p._Rp, p._refpot])
+        else:
+            # Should never get here: a potential that gets to this point
+            # claims to have a C implementation (hasC=True), but has no
+            # entry above; silently skipping it would corrupt the arguments
+            # passed to C (npot counts it), leading to a crash
+            pname = type(p).__name__
+            if hasattr(p, "_Pot") and not isinstance(p._Pot, list):
+                pname += f" (wrapping {type(p._Pot).__name__})"
+            raise NotImplementedError(
+                f"Potential {pname} is not supported by the C planar-orbit-integration backend, but claims to be (hasC=True); please report this to the galpy developers"
+            )
 
     pot_type = numpy.array(pot_type, dtype=numpy.int32, order="C")
     pot_args = _finalize_pot_args(pot_args)

@@ -1,6 +1,14 @@
 v1.12.0 (expected around 2026-07-01)
 ====================
 
+- Fixed a segmentation fault (or silently-dropped force) when integrating
+  planar orbits with a C integrator for potentials whose 3D version has a C
+  implementation, but whose planar version does not (e.g., interpRZPotential,
+  ChandrasekharDynamicalFrictionForce, FDMDynamicalFrictionForce). Such
+  potentials now fall back to Python integration with the usual warning, and
+  the C potential parsers now raise a clear error for any potential that
+  claims C support without having a C implementation.
+
 - Added a ``cinterp`` option (default ``True``, resolution set by ``cinterp_n``)
   to ``NonInertialFrameForce`` that, during C orbit integration, replaces the
   time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline

@@ -156,6 +156,10 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         self._amp *= 4.0 * numpy.pi
         self._force_hash = None
         self.hasC = _check_c(self._dens_pot, dens=True)
+        # No planar version of (Chandrasekhar/FDM) dynamical friction in the
+        # C integrator (also covers FDMDynamicalFrictionForce, which inherits
+        # its hasC* attributes from here)
+        self.hasC_planar = False
         return None
 
     def GMs(self, gms):

@@ -559,6 +559,14 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp, p._Rp, p._refpot])
+        else:
+            # Should never get here: a potential that gets to this point
+            # claims to have a C implementation (hasC=True), but has no
+            # entry above; silently skipping it would corrupt the arguments
+            # passed to C (npot counts it), leading to a crash
+            raise NotImplementedError(
+                f"Potential {type(p).__name__} is not supported by the C orbit-integration backend, but claims to be (hasC=True); please report this to the galpy developers"
+            )
     pot_type = numpy.array(pot_type, dtype=numpy.int32, order="C")
     pot_args = _finalize_pot_args(pot_args)
     return (npot, pot_type, pot_args, pot_tfuncs)

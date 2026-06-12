@@ -8164,6 +8164,134 @@ def test_orbitint_pythonfallback():
     return None
 
 
+def test_orbitint_planar_interprz_pythonfallback():
+    # Planar version of an interpRZPotential has no C implementation in the
+    # planar C integrator; used to segfault, because the planar potential
+    # advertised hasC=True, but the C parser silently skipped it
+    from galpy.orbit import Orbit
+
+    mp = potential.MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    ip = potential.interpRZPotential(
+        RZPot=mp,
+        rgrid=(0.5, 1.5, 21),
+        zgrid=(0.0, 0.2, 21),
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        enable_c=True,
+        zsym=True,
+    )
+    pip = ip.toPlanar()
+    # Root cause: the planarized potential should not advertise C support
+    assert not pip.hasC, (
+        "Planar interpRZPotential should not advertise C support (hasC=True), because it has no planar C implementation"
+    )
+    o = Orbit([1.0, 0.1, 1.1, 0.1])
+    ts = numpy.linspace(0.0, 1.0, 101)
+    with pytest.warns(galpyWarning) as record:
+        warnings.simplefilter("always", galpyWarning)
+        o.integrate(ts, pip, method="dop853_c")
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += str(rec.message.args[0]).startswith(
+            "Cannot use C integration because some of the potentials are not implemented in C"
+        )
+    assert raisedWarning, (
+        "Integrating a planar orbit in a planar interpRZPotential with a C method did not raise the Python-fallback warning"
+    )
+    # Integration should have completed sensibly
+    assert numpy.all(numpy.isfinite(o.R(ts))), (
+        "Integrating a planar orbit in a planar interpRZPotential did not complete correctly"
+    )
+    return None
+
+
+def test_orbitint_planar_dynamfric_pythonfallback():
+    # Planar version of ChandrasekharDynamicalFrictionForce has no C
+    # implementation in the planar C integrator; used to be silently
+    # dropped by the C parser, such that the friction had no effect
+    from galpy.orbit import Orbit
+
+    lp = potential.LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    cdf = potential.ChandrasekharDynamicalFrictionForce(
+        GMs=0.05, rhm=0.1, dens=lp, sigmar=lambda r: 1.0 / numpy.sqrt(2.0)
+    )
+    pot = potential.toPlanarPotential(lp + cdf)
+    # Root cause: the planarized friction force should not advertise C support
+    assert not pot[1].hasC, (
+        "Planar ChandrasekharDynamicalFrictionForce should not advertise C support (hasC=True), because it has no planar C implementation"
+    )
+    o = Orbit([1.0, 0.1, 1.1, 0.1])
+    ts = numpy.linspace(0.0, 10.0, 101)
+    with pytest.warns(galpyWarning) as record:
+        warnings.simplefilter("always", galpyWarning)
+        o.integrate(ts, pot, method="dop853_c")
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += str(rec.message.args[0]).startswith(
+            "Cannot use C integration because some of the potentials are not implemented in C"
+        )
+    assert raisedWarning, (
+        "Integrating a planar orbit with planar dynamical friction with a C method did not raise the Python-fallback warning"
+    )
+    # Check that the dynamical friction was actually applied: angular
+    # momentum should decay (it was silently dropped before this fix)
+    Lzs = o.R(ts) * o.vT(ts)
+    assert Lzs[-1] < Lzs[0] - 0.05, (
+        "Dynamical friction was not applied when integrating a planar orbit with planar dynamical friction"
+    )
+    return None
+
+
+def test_parse_pot_unparsed_potential_raises():
+    # A potential that claims to have a C implementation (hasC=True), but
+    # has no entry in the C parsers' if/elif chains should raise a clear
+    # error rather than silently corrupting the arguments passed to C
+    from galpy.orbit.integrateFullOrbit import _parse_pot as _parse_pot_full
+    from galpy.orbit.integratePlanarOrbit import _parse_pot as _parse_pot_planar
+    from galpy.potential.planarPotential import planarPotential
+
+    class FakeCFullPotential(potential.Potential):
+        def __init__(self, amp=1.0):
+            potential.Potential.__init__(self, amp=amp)
+            self.hasC = True
+
+        def _evaluate(self, R, z, phi=0.0, t=0.0):
+            return 0.0
+
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            return 0.0
+
+        def _zforce(self, R, z, phi=0.0, t=0.0):
+            return 0.0
+
+    class FakeCPlanarPotential(planarPotential):
+        def __init__(self, amp=1.0):
+            planarPotential.__init__(self, amp=amp)
+            self.hasC = True
+
+        def _evaluate(self, R, phi=0.0, t=0.0):
+            return 0.0
+
+        def _Rforce(self, R, phi=0.0, t=0.0):
+            return 0.0
+
+    # Full C parser
+    with pytest.raises(NotImplementedError) as excinfo:
+        _parse_pot_full([FakeCFullPotential()])
+    assert "FakeCFullPotential" in str(excinfo.value)
+    # Planar C parser, with a native planar potential
+    with pytest.raises(NotImplementedError) as excinfo:
+        _parse_pot_planar([FakeCPlanarPotential()])
+    assert "FakeCPlanarPotential" in str(excinfo.value)
+    # Planar C parser, with a planarized 3D potential, such that the
+    # error names the wrapped potential
+    with pytest.raises(NotImplementedError) as excinfo:
+        _parse_pot_planar([potential.toPlanarPotential(FakeCFullPotential())])
+    assert "wrapping FakeCFullPotential" in str(excinfo.value)
+    return None
+
+
 def test_orbitint_dissipativefallback():
     # Check if a warning is raised when one tries to integrate an orbit
     # in a dissipative force law with a symplectic integrator
