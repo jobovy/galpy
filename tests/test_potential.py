@@ -4312,6 +4312,96 @@ def test_MovingObject_density():
     return None
 
 
+def test_MovingObject_2ndderivs_fd():
+    # Unit-level validation of MovingObjectPotential's analytic second
+    # derivatives (the kernel's Hessian at the shifted point x-x_obj(t),
+    # chain-ruled to the field point's cylindrical coordinates) against
+    # central finite differences of its forces, at several generic
+    # (R, z, phi, t) incl. t != 0 (the object has moved). Both a 3D and a
+    # planar (2D) object track are exercised (the latter covers the
+    # z_obj = 0 branch). These same formulas, evaluated through the wrapped
+    # potential's C pointers, make up the C Hessian used by integrate_dxdv
+    # (validated against this Python reference in
+    # test_orbit.test_movingobject_dxdv_3d_c_vs_python).
+    from galpy.orbit import Orbit
+
+    lp = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    ts = numpy.linspace(-1.0, 5.0, 1201)
+    o3 = Orbit([1.1, 0.1, 1.1, 0.1, 0.1, 1.0])
+    o3.integrate(ts, lp, method="dop853_c")
+    o2 = Orbit([1.1, 0.1, 1.1, 1.0])
+    o2.integrate(ts, lp, method="dop853_c")
+    kernel = potential.PlummerPotential(amp=0.3, b=0.3)
+    eps = 1e-6
+    for orb in (o3, o2):
+        mop = potential.MovingObjectPotential(orb, pot=kernel, amp=1.2)
+        for R, z, phi, t in [
+            (1.0, 0.05, 0.2, 0.0),
+            (0.8, -0.1, 2.3, 1.7),
+            (1.3, 0.2, -1.0, 3.1),
+            (0.9, 0.0, 4.0, 2.2),
+        ]:
+            checks = {
+                "R2deriv": (
+                    mop.R2deriv(R, z, phi=phi, t=t),
+                    -(
+                        mop.Rforce(R + eps / 2.0, z, phi=phi, t=t)
+                        - mop.Rforce(R - eps / 2.0, z, phi=phi, t=t)
+                    )
+                    / eps,
+                ),
+                "z2deriv": (
+                    mop.z2deriv(R, z, phi=phi, t=t),
+                    -(
+                        mop.zforce(R, z + eps / 2.0, phi=phi, t=t)
+                        - mop.zforce(R, z - eps / 2.0, phi=phi, t=t)
+                    )
+                    / eps,
+                ),
+                "Rzderiv": (
+                    mop.Rzderiv(R, z, phi=phi, t=t),
+                    -(
+                        mop.Rforce(R, z + eps / 2.0, phi=phi, t=t)
+                        - mop.Rforce(R, z - eps / 2.0, phi=phi, t=t)
+                    )
+                    / eps,
+                ),
+                "phi2deriv": (
+                    mop.phi2deriv(R, z, phi=phi, t=t),
+                    -(
+                        mop.phitorque(R, z, phi=phi + eps / 2.0, t=t)
+                        - mop.phitorque(R, z, phi=phi - eps / 2.0, t=t)
+                    )
+                    / eps,
+                ),
+                "Rphideriv": (
+                    mop.Rphideriv(R, z, phi=phi, t=t),
+                    -(
+                        mop.Rforce(R, z, phi=phi + eps / 2.0, t=t)
+                        - mop.Rforce(R, z, phi=phi - eps / 2.0, t=t)
+                    )
+                    / eps,
+                ),
+                "phizderiv": (
+                    mop.phizderiv(R, z, phi=phi, t=t),
+                    -(
+                        mop.zforce(R, z, phi=phi + eps / 2.0, t=t)
+                        - mop.zforce(R, z, phi=phi - eps / 2.0, t=t)
+                    )
+                    / eps,
+                ),
+            }
+            for name, (analytic, fd) in checks.items():
+                assert numpy.fabs(analytic - fd) < 1e-8, (
+                    f"MovingObjectPotential analytic {name} does not match the "
+                    f"finite difference of the force at "
+                    f"(R,z,phi,t)=({R},{z},{phi},{t}) "
+                    f"({orb.dim()}D object track): "
+                    f"|{analytic:g} - {fd:g}| = {numpy.fabs(analytic - fd):g}"
+                )
+    return None
+
+
 # test specialSelf for TwoPowerSphericalPotential
 def test_TwoPowerSphericalPotentialSpecialSelf():
     # TODO replace manual additions with an automatic method

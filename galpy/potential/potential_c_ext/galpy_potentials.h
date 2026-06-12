@@ -1049,6 +1049,24 @@ double MovingObjectPotentialPlanarRforce(double,double,double,
 					struct potentialArg *);
 double MovingObjectPotentialPlanarphitorque(double,double,double,
 					    struct potentialArg *);
+double MovingObjectPotentialR2deriv(double,double,double,double,
+				    struct potentialArg *);
+double MovingObjectPotentialz2deriv(double,double,double,double,
+				    struct potentialArg *);
+double MovingObjectPotentialRzderiv(double,double,double,double,
+				    struct potentialArg *);
+double MovingObjectPotentialphi2deriv(double,double,double,double,
+				      struct potentialArg *);
+double MovingObjectPotentialRphideriv(double,double,double,double,
+				      struct potentialArg *);
+double MovingObjectPotentialzphideriv(double,double,double,double,
+				      struct potentialArg *);
+double MovingObjectPotentialPlanarR2deriv(double,double,double,
+					  struct potentialArg *);
+double MovingObjectPotentialPlanarphi2deriv(double,double,double,
+					    struct potentialArg *);
+double MovingObjectPotentialPlanarRphideriv(double,double,double,
+					    struct potentialArg *);
 //RotateAndTiltWrapperPotential
 double RotateAndTiltWrapperPotentialRforce(double,double,double,double,
 					struct potentialArg *);
