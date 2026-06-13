@@ -6,8 +6,6 @@
 from inspect import signature
 from numbers import Number
 
-from numpy import empty
-
 from .WrapperPotential import parentWrapperPotential
 
 
