@@ -1,0 +1,255 @@
+# Backend xfail-ledger for galpy's existing test suite (Pillar 1).
+#
+# Format:  <backend> <nodeid>     (# starts a comment; blank lines ignored)
+# Backends: jax | torch  (numpy runs IGNORE this file entirely.)
+#
+# Each line marks a test that currently FAILS under that backend as
+# xfail(strict=True) when the suite is run with --backend=<backend>
+# (see tests/conftest.py: pytest_collection_modifyitems). strict=True means a
+# now-passing ledgered test XPASSes and FAILS the run, so this ledger can only
+# SHRINK as the backend ports land -- a burndown.
+#
+# Nodeid-matching convention (robust to parametrization): a line matches a
+# collected item if the line's nodeid equals EITHER the item's full
+# parametrized nodeid ("...::test_x[ParamId]") OR the item's base nodeid with
+# the "[...]" id stripped ("...::test_x"). A base-nodeid line therefore xfails
+# EVERY parametrization of that test; a fully-qualified line xfails just that
+# one case. The seed below uses base nodeids where every collected
+# parametrization of a function failed, and full nodeids where only some did
+# (e.g. test_energy_conservation_linear[<pot>...]).
+#
+# !!! THIS IS A SEED LEDGER -- INTENTIONALLY INCOMPLETE !!!
+# It was produced by a representative, CPU-only, time-bounded slice of the
+# heavy files run under BOTH backends with the C extension built:
+#   test_potential.py   -k normalize/forceAsDeriv/2ndDeriv/evaluateAndDerivs/
+#                          poisson/rforce/r2deriv/mass_spher/array_input/amp_mult
+#   test_orbit.py       -k energy_symplec_longterm/orbit_setup/integrate_orbit/
+#                          method_returntype/energy_conservation_linear
+#   test_actionAngle.py -k actionAngleStaeckel_basic_{actions,freqs}[_c]
+#   test_sphericaldf.py -k isotropic+anisotropic (hernquist/plummer/nfw)
+# It does NOT yet cover the full suite. The first scheduled / workflow_dispatch
+# CI run with regen=true runs the COMPLETE sharded suite and uploads a
+# backend_xfail_new.txt artifact to complete this ledger (see build.yml).
+#
+# Known failure clusters captured by this seed:
+#   * jax:   in-place array mutation (x[i]=...) in potential normalize/poisson/
+#            mass; SCF/DiskSCF _gaussianQuadrature precompute (the SCF/DiskSCF
+#            energy_conservation_linear cluster); isotropic/anisotropic
+#            spherical-DF interpolation/sampling paths.
+#   * torch: scalar-input rejection -- xp.sin/sqrt(<python float>) wants a
+#            Tensor -- pervasive across the scalar potential/orbit/actionAngle
+#            paths, plus the same df-module and 2nd-derivative clusters.
+#
+# Seed counts (unique nodeids), C extension built:
+#   jax  : 40 total  (test_actionAngle.py=3, test_orbit.py=10, test_potential.py=10, test_sphericaldf.py=17)
+#   torch: 154 total  (test_actionAngle.py=8, test_orbit.py=68, test_potential.py=15, test_sphericaldf.py=63)
+#
+# ======================================================================
+# jax
+# ======================================================================
+# -- tests/test_actionAngle.py
+jax tests/test_actionAngle.py::test_actionAngleStaeckel_basic_actions_c
+jax tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqsAngles
+jax tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqs_c
+# -- tests/test_orbit.py
+jax tests/test_orbit.py::test_energy_conservation_linear[DiskSCFPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[FerrersPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[altExpwholeDiskSCFPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[expwholeDiskSCFPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[mockRotatedAndTiltedMWP14WrapperPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[mockSCFAxiDensity1Potential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[mockSCFAxiDensity2Potential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[mockSCFNFWPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[mockSCFZeeuwPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[sech2DiskSCFPotential--10.0-False]
+# -- tests/test_potential.py
+jax tests/test_potential.py::test_2ndDeriv_potential
+jax tests/test_potential.py::test_amp_mult_divide
+jax tests/test_potential.py::test_evaluateAndDerivs_potential
+jax tests/test_potential.py::test_forceAsDeriv_potential
+jax tests/test_potential.py::test_mass_spher_z
+jax tests/test_potential.py::test_normalize_potential
+jax tests/test_potential.py::test_poisson_potential
+jax tests/test_potential.py::test_poisson_surfdens_potential
+jax tests/test_potential.py::test_potential_array_input
+jax tests/test_potential.py::test_scf_analytic_2ndderiv
+# -- tests/test_sphericaldf.py
+jax tests/test_sphericaldf.py::test_anisotropic_hernquist_beta
+jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_massprofile
+jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_spherically_symmetric
+jax tests/test_sphericaldf.py::test_anisotropic_hernquist_energyoutofbounds
+jax tests/test_sphericaldf.py::test_anisotropic_hernquist_sigmar
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_beta
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_dens_massprofile
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_dens_massprofile_forcemassinterpolation
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_dens_spherically_symmetric
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_energyoutofbounds
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_givenr_are_atgivenr
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_phasespacesamples_vs_orbitsamples
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_sigmar
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_singler_is_atrandomphi
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_singler_is_atsingler
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_singler_sigmar
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_singlerphi_is_atsinglephi
+
+# ======================================================================
+# torch
+# ======================================================================
+# -- tests/test_actionAngle.py
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_actions
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_actions_c
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_actions_u0
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_actions_u0_c
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqsAngles
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqs_c
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqs_c_u0
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqs_u0
+# -- tests/test_orbit.py
+torch tests/test_orbit.py::test_energy_conservation_linear[AnySphericalPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[BurkertPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[BurkertPotentialNoC--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[DehnenCoreSphericalPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[DehnenSphericalPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[DiskMultipoleExpansionPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[DiskSCFPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[DoubleExponentialDiskPotential--6.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[EinastoPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[FerrersPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[HernquistPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[HomogeneousSpherePotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[IsochronePotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[IsothermalDiskPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[JaffePotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[KGPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[KeplerPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[KingPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[KuzminDiskPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[LogarithmicHaloPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[MN3ExponentialDiskPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[MWP14CylindricallySeparablePotentialWrapper--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[MiyamotoNagaiPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[MultipoleExpansionPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[NFWPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[NFWTwoPowerTriaxialPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[PerfectEllipsoidPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[PlummerPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[PowerSphericalPotentialwCutoff--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[PowerTriaxialPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[SCFPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[TriaxialGaussianPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[TriaxialHernquistPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[TriaxialJaffePotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[TriaxialNFWPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[TwoPowerSphericalPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[TwoPowerTriaxialPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[altExpwholeDiskSCFPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[expwholeDiskMultipoleExpansionPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[expwholeDiskSCFPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[fullyRotatedTriaxialNFWPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockAdiabaticContractionMWP14WrapperPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockCombLinearPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockInterpSphericalPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockKuzminLikeWrapperPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockMultipoleExpansionAxiPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockMultipoleExpansionSphericalPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockRotatedAndTiltedMWP14WrapperPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockSCFAxiDensity1Potential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockSCFAxiDensity2Potential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockSCFNFWPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockSCFZeeuwPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[mockSimpleLinearPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[nestedListPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[oblateNFWPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[prolateNFWPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[sech2DiskMultipoleExpansionPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[sech2DiskSCFPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[specialFlattenedPowerPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[specialMiyamotoNagaiPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[testMWPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[testlinearMWPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[triaxialLogarithmicHaloPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[triaxialNFWPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_symplec_longterm
+torch tests/test_orbit.py::test_orbit_setup
+torch tests/test_orbit.py::test_orbit_setup_SkyCoord
+torch tests/test_orbit.py::test_orbit_setup_planar
+# -- tests/test_potential.py
+torch tests/test_potential.py::test_2ndDeriv_potential
+torch tests/test_potential.py::test_amp_mult_divide
+torch tests/test_potential.py::test_dissipative_ignoreInPotentialDensity2ndDerivs
+torch tests/test_potential.py::test_evaluateAndDerivs_potential
+torch tests/test_potential.py::test_evaluatelinearForces_error
+torch tests/test_potential.py::test_forceAsDeriv_potential
+torch tests/test_potential.py::test_mass_spher
+torch tests/test_potential.py::test_mass_spher_analytic
+torch tests/test_potential.py::test_mass_spher_z
+torch tests/test_potential.py::test_mass_spheroidal
+torch tests/test_potential.py::test_normalize_potential
+torch tests/test_potential.py::test_poisson_potential
+torch tests/test_potential.py::test_poisson_surfdens_potential
+torch tests/test_potential.py::test_potential_array_input
+torch tests/test_potential.py::test_scf_analytic_2ndderiv
+# -- tests/test_sphericaldf.py
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_beta
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_beta_directint
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_dMdE_betap05
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_dMdE_integral
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_directint
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_massprofile
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_spherically_symmetric
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_diffcalls
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_energyoutofbounds
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_meanvr_directint
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_sigmar
+torch tests/test_sphericaldf.py::test_anisotropic_hernquist_sigmar_directint
+torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta
+torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta_directint
+torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_directint
+torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile
+torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_spherically_symmetric
+torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_energyoutofbounds
+torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_meanvr_directint
+torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar
+torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar_directint
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_beta
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_beta_directint
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_dMdE_integral
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_dens_directint
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_dens_massprofile
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_dens_massprofile_forcemassinterpolation
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_dens_spherically_symmetric
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_diffcalls
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_energyoutofbounds
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_givenr_are_atgivenr
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_meanvr_directint
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_phasespacesamples_vs_orbitsamples
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_sigmar
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_sigmar_directint
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_sigmar_directint_forcevmoment
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_singler_is_atrandomphi
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_singler_is_atsingler
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_singler_sigmar
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_singlerphi_is_atsinglephi
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_unitsofsamples
+torch tests/test_sphericaldf.py::test_isotropic_hernquist_unittransfer
+torch tests/test_sphericaldf.py::test_isotropic_nfw_beta
+torch tests/test_sphericaldf.py::test_isotropic_nfw_beta_directint
+torch tests/test_sphericaldf.py::test_isotropic_nfw_dens_directint
+torch tests/test_sphericaldf.py::test_isotropic_nfw_dens_massprofile
+torch tests/test_sphericaldf.py::test_isotropic_nfw_dens_spherically_symmetric
+torch tests/test_sphericaldf.py::test_isotropic_nfw_energyoutofbounds
+torch tests/test_sphericaldf.py::test_isotropic_nfw_meanvr_directint
+torch tests/test_sphericaldf.py::test_isotropic_nfw_sigmar
+torch tests/test_sphericaldf.py::test_isotropic_nfw_sigmar_directint
+torch tests/test_sphericaldf.py::test_isotropic_nfw_widrow_against_improved
+torch tests/test_sphericaldf.py::test_isotropic_plummer_beta
+torch tests/test_sphericaldf.py::test_isotropic_plummer_beta_directint
+torch tests/test_sphericaldf.py::test_isotropic_plummer_dMdE_integral
+torch tests/test_sphericaldf.py::test_isotropic_plummer_dens_directint
+torch tests/test_sphericaldf.py::test_isotropic_plummer_dens_massprofile
+torch tests/test_sphericaldf.py::test_isotropic_plummer_dens_spherically_symmetric
+torch tests/test_sphericaldf.py::test_isotropic_plummer_energyoutofbounds
+torch tests/test_sphericaldf.py::test_isotropic_plummer_meanvr_directint
+torch tests/test_sphericaldf.py::test_isotropic_plummer_sigmar
+torch tests/test_sphericaldf.py::test_isotropic_plummer_sigmar_directint

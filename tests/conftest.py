@@ -1,4 +1,82 @@
+import os
+
 import pytest
+
+# ---------------------------------------------------------------------------
+# Backend xfail-ledger
+# ---------------------------------------------------------------------------
+# When the existing test suite is run under a non-numpy array backend
+# (--backend=jax / --backend=torch), many tests currently fail because the
+# backend ports are still in progress. To keep the all-backend CI job GREEN
+# while that work proceeds, a checked-in ledger (tests/backend_xfail.txt) lists
+# the nodeids that are known to fail per backend, and the
+# pytest_collection_modifyitems hook below marks each of them
+# xfail(strict=True). strict=True means a now-passing listed test XPASSes ->
+# fails the run, which forces the ledger to shrink as the ports land (a
+# burndown). numpy runs ignore the ledger entirely (byte-identical behaviour).
+#
+# Ledger file format (tests/backend_xfail.txt):
+#   # comments start with '#'
+#   <backend> <nodeid>
+# e.g.
+#   jax tests/test_potential.py::test_normalize_potential
+#   torch tests/test_orbit.py::test_energy_jacobi_conservation[PlummerPotential-...]
+#
+# Nodeid matching convention (robust to parametrization): a ledger entry
+# matches a collected item if the ledger nodeid equals EITHER
+#   (a) the item's full parametrized nodeid
+#       ("tests/test_x.py::test_y[ParamId]"), OR
+#   (b) the item's base nodeid with the "[...]" parametrization id stripped
+#       ("tests/test_x.py::test_y").
+# So a single base-nodeid ledger line xfails every parametrization of that
+# test, while a fully-qualified line xfails just that one case. This keeps the
+# seed ledger compact (one line per failing test function) while allowing
+# surgical per-parametrization entries when only some cases fail.
+#
+# Regenerate mode (GALPY_BACKEND_XFAIL_REGEN=1): the hook does NOT xfail
+# anything; instead everything runs, and the session-finish hook writes the set
+# of failing nodeids to /var/tmp/pillar1/backend_xfail_new.txt for committing.
+# This lets CI (or a local run) re-seed/complete the ledger from a real run
+# without needing the ledger to be correct up front.
+
+_LEDGER_FILENAME = "backend_xfail.txt"
+_REGEN_ENV = "GALPY_BACKEND_XFAIL_REGEN"
+# Default regen output; overridable via GALPY_BACKEND_XFAIL_OUT so parallel
+# per-backend regen runs can write to distinct files without racing.
+_REGEN_OUTFILE_DEFAULT = "/var/tmp/pillar1/backend_xfail_new.txt"
+
+
+def _regen_outfile():
+    return os.environ.get("GALPY_BACKEND_XFAIL_OUT", _REGEN_OUTFILE_DEFAULT)
+
+
+def _ledger_path():
+    return os.path.join(os.path.dirname(__file__), _LEDGER_FILENAME)
+
+
+def _strip_param(nodeid):
+    # "tests/test_x.py::test_y[Param]" -> "tests/test_x.py::test_y"
+    return nodeid.split("[", 1)[0]
+
+
+def _load_ledger(backend_name):
+    """Return the set of ledger nodeids for the given backend, or empty set."""
+    path = _ledger_path()
+    entries = set()
+    if not os.path.exists(path):
+        return entries
+    with open(path) as fh:
+        for raw in fh:
+            line = raw.split("#", 1)[0].strip()
+            if not line:
+                continue
+            parts = line.split(None, 1)
+            if len(parts) != 2:
+                continue
+            be, nodeid = parts[0].strip(), parts[1].strip()
+            if be == backend_name:
+                entries.add(nodeid)
+    return entries
 
 
 def pytest_addoption(parser):
@@ -17,6 +95,67 @@ def pytest_configure(config):
         "markers",
         "backend_managed: test manages its own array backend; exempt from --backend",
     )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Apply the backend xfail-ledger.
+
+    Only active when --backend is jax or torch (numpy is untouched). In the
+    default mode each ledgered nodeid for the active backend is marked
+    xfail(strict=True). In regenerate mode (GALPY_BACKEND_XFAIL_REGEN=1) nothing
+    is marked, so every test runs and the real outcome is recorded for re-seeding
+    the ledger in pytest_sessionfinish.
+    """
+    backend_name = config.getoption("--backend")
+    if backend_name == "numpy":
+        return
+    if os.environ.get(_REGEN_ENV) == "1":
+        # regenerate: let everything run; pytest_sessionfinish records failures
+        return
+    ledger = _load_ledger(backend_name)
+    if not ledger:
+        return
+    marker = pytest.mark.xfail(strict=True, reason="backend-xfail-ledger")
+    for item in items:
+        nodeid = item.nodeid
+        if nodeid in ledger or _strip_param(nodeid) in ledger:
+            item.add_marker(marker)
+
+
+# Module-level store bridging logreport -> sessionfinish (the report object
+# carries no config, so failing nodeids are accumulated here during the run).
+_REGEN_STORE = {"failed": set()}
+
+
+def pytest_runtest_logreport(report):
+    """Record failing nodeids during a regenerate run."""
+    if os.environ.get(_REGEN_ENV) != "1":
+        return
+    # A test counts as "failing" (-> ledger entry) if it errors in setup or
+    # fails in the call phase; ignore teardown-only failures.
+    if report.failed and report.when in ("setup", "call"):
+        _REGEN_STORE["failed"].add(report.nodeid)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """In regenerate mode, dump the failing nodeids for re-seeding the ledger."""
+    if os.environ.get(_REGEN_ENV) != "1":
+        return
+    backend_name = session.config.getoption("--backend")
+    if backend_name == "numpy":
+        return
+    failed = sorted(_REGEN_STORE["failed"])
+    outfile = _regen_outfile()
+    try:
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)
+    except OSError:
+        pass
+    # Append per-backend block so one multi-backend driver can accumulate both.
+    mode = "a" if os.path.exists(outfile) else "w"
+    with open(outfile, mode) as fh:
+        fh.write(f"# regenerated failures for backend={backend_name}\n")
+        for nodeid in failed:
+            fh.write(f"{backend_name} {nodeid}\n")
 
 
 @pytest.fixture(autouse=True)
