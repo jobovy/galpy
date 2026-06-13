@@ -1,6 +1,9 @@
 ###############################################################################
 #   DehnenSmoothWrapperPotential.py: Wrapper to smoothly grow a potential
 ###############################################################################
+import numpy
+
+from ..backend import get_namespace
 from ..util import conversion
 from .WrapperPotential import parentWrapperPotential
 
@@ -71,15 +74,32 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
         self.hasC_dxdv3d = True
 
     def _smooth(self, t):
-        # Calculate relevant time
-        if t < self._tform:
-            smooth = 0.0
-        elif t < self._tsteady:
+        # Growth factor (0 before tform, smoothly to 1 at tsteady). The namespace
+        # follows t itself: a concrete (Python/numpy) t keeps the original scalar
+        # branching (byte-identical; returns a plain float that multiplies into
+        # any backend's spatial arrays); a backend-array/traced t (the in-backend
+        # diffrax/torchdiffeq integrator, or autodiff wrt time) uses that
+        # backend's branch-free where, so it is traceable and differentiable.
+        xp = get_namespace(t)
+        if xp is numpy:
+            # Calculate relevant time
+            if t < self._tform:
+                smooth = 0.0
+            elif t < self._tsteady:
+                deltat = t - self._tform
+                xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
+                smooth = (
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
+                )
+            else:  # bar is fully on
+                smooth = 1.0
+        else:
             deltat = t - self._tform
             xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-            smooth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-        else:  # bar is fully on
-            smooth = 1.0
+            growth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
+            smooth = xp.where(
+                t < self._tform, 0.0, xp.where(t < self._tsteady, growth, 1.0)
+            )
         return smooth if self._grow else 1.0 - smooth
 
     def _wrap(self, attribute, *args, **kwargs):

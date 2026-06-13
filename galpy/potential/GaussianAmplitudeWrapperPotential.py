@@ -2,8 +2,7 @@
 #   GaussianAmplitudeWrapperPotential.py: Wrapper to modulate the amplitude
 #                                         of a potential with a Gaussian
 ###############################################################################
-import numpy
-
+from ..backend import get_namespace
 from ..util import conversion
 from .WrapperPotential import parentWrapperPotential
 
@@ -52,7 +51,11 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
         self.hasC_dxdv3d = True
 
     def _smooth(self, t):
-        return numpy.exp(-0.5 * (t - self._to) ** 2.0 / self._sigma2)
+        # The namespace follows t itself: a concrete (Python/numpy) t keeps the
+        # numpy path byte-identical; a traced t (in-backend integrator, autodiff
+        # wrt time) uses that backend's exp, so it is differentiable.
+        xp = get_namespace(t)
+        return xp.exp(-0.5 * (t - self._to) ** 2.0 / self._sigma2)
 
     def _wrap(self, attribute, *args, **kwargs):
         return self._smooth(kwargs.get("t", 0.0)) * self._wrap_pot_func(attribute)(
