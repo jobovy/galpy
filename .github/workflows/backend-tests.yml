@@ -74,6 +74,9 @@ jobs:
   backend-suite:
     name: backend ${{ matrix.BACKEND }} ${{ matrix.TEST_FILES }}
     runs-on: ubuntu-latest
+    # Backstop: even with the per-test --timeout below, cap the whole shard so a
+    # pathological accumulation of slow tests can't keep the report job waiting.
+    timeout-minutes: 90
     if: |
       github.event_name == 'schedule'
       || github.event_name == 'workflow_dispatch'
@@ -148,7 +151,10 @@ jobs:
     - name: Install the GSL
       run: sudo apt-get install libgsl-dev
     - name: Install Python dependencies
-      run: pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm
+      # pytest-timeout: kill any single test running >300 s (see the pytest step's
+      # --timeout) so a hung backend trace (e.g. the SCFPotential jax XLA-graph
+      # blow-up) is recorded as a FAILURE instead of stalling the whole run.
+      run: pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm pytest-timeout
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
@@ -225,9 +231,17 @@ jobs:
         # ledger contract. `|| true` so a non-zero exit (e.g. a strict XPASS
         # forcing a ledger shrink) still reaches the burndown summary step; the
         # explicit gate in the re-fail step re-fails the job when appropriate.
+        # --timeout=300 --timeout-method=thread: kill any single test that runs
+        # >300 s and record it as a FAILURE rather than letting it hang the shard
+        # (the SCFPotential/DiskSCF/Multipole jax XLA-graph blow-up otherwise
+        # stalls the run for hours so the `report` job never posts). The thread
+        # method works without signal support and can interrupt a hung jax XLA
+        # trace; the killed test surfaces in junit as a failure (covered by the
+        # ledger if listed, else re-fails the shard as intended).
         set -o pipefail
         eval "pytest -p no:cacheprovider -v $TEST_FILES \
           --backend=$BACKEND \
+          --timeout=300 --timeout-method=thread \
           -rxX --junitxml=${JUNIT_PATH} \
           --disable-pytest-warnings" | tee backend-pytest.log || true
     - name: Backend burndown summary
