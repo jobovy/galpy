@@ -13,7 +13,12 @@ if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
 else:
     from scipy.special import assoc_legendre_p_all
 
-from ..backend import get_namespace, match_input_dtype
+from ..backend import (
+    asarray_on_device,
+    device_of,
+    get_namespace,
+    match_input_dtype,
+)
 from ..backend.special import assoc_legendre, gegenbauer
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -302,9 +307,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             )
             return rho
         # backend path: same expression, functional (no in-place writes); the
-        # constant (n,l) grids are built in numpy and converted once.
-        K = xp.asarray(K)
-        l = xp.asarray(l)
+        # constant (n,l) grids are built in numpy and converted once, on the
+        # input's device (CUDA support).
+        dev = device_of(r)
+        K = asarray_on_device(xp, K, dev)
+        l = asarray_on_device(xp, l, dev)
         return (
             K
             * ((a * r) ** l)
@@ -358,7 +365,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # backend path: branchless r == 0 handling. Both xp.where branches are
         # evaluated under tracing/eager AD, so the generic branch is computed at
         # a guarded rsafe (the r == 0 column then takes the -CC/a limit instead).
-        l = xp.asarray(numpy.arange(0, L, dtype=float)[numpy.newaxis, :])
+        l = asarray_on_device(
+            xp, numpy.arange(0, L, dtype=float)[numpy.newaxis, :], device_of(r)
+        )
         rsafe = xp.where(r == 0, 1.0, r)
         generic = (
             -(a**l)
@@ -414,12 +423,14 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
                 radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :]
             )
         # backend path: same sum with the backend-agnostic special-function
-        # router; the coefficient tables are converted to the backend once.
-        Acos = xp.asarray(self._Acos)
-        Asin = xp.asarray(self._Asin)
+        # router; the coefficient tables are converted to the backend once,
+        # on the input's device (CUDA support).
+        dev = device_of(r, theta, phi)
+        Acos = asarray_on_device(xp, self._Acos, dev)
+        Asin = asarray_on_device(xp, self._Asin, dev)
         radial = radial_func(r, N, L)
         PP = assoc_legendre(L, M, xp.cos(theta))
-        m = xp.asarray(numpy.arange(0, M, dtype=float)[None, None, :])
+        m = asarray_on_device(xp, numpy.arange(0, M, dtype=float)[None, None, :], dev)
         mcos = xp.cos(m * phi)
         msin = xp.sin(m * phi)
         return xp.sum(radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :])
@@ -533,7 +544,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
                 / 2.0
             )
         # backend path: identical expression with xp arithmetic.
-        l = xp.asarray(numpy.arange(0, L, dtype=float)[numpy.newaxis, :])
+        l = asarray_on_device(
+            xp, numpy.arange(0, L, dtype=float)[numpy.newaxis, :], device_of(r)
+        )
         return -((4 * numpy.pi) ** 0.5) * (
             (a * r) ** l
             * (l * (a + r) * r ** (-1.0) - (2 * l + 1))
@@ -592,7 +605,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # backend path: same factored expression at a guarded radius (the r == 0
         # column is exactly zero; both xp.where branches are evaluated under
         # tracing/eager AD, so the generic branch must stay finite there).
-        l = xp.asarray(numpy.arange(0, L, dtype=float)[numpy.newaxis, :])
+        l = asarray_on_device(
+            xp, numpy.arange(0, L, dtype=float)[numpy.newaxis, :], device_of(r)
+        )
         rs = xp.where(r == 0, 1.0, r)
         ar = a + rs
         ar2 = ar * ar
@@ -691,15 +706,17 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             return dPhi_dr, dPhi_dtheta, dPhi_dphi
         # backend path: same computation, but functional and cache-free (the
         # per-point Python hash cache is trace-hostile under jit and useless on
-        # traced values; numpy keeps it above).
-        Acos = xp.asarray(self._Acos)
-        Asin = xp.asarray(self._Asin)
+        # traced values; numpy keeps it above). The coefficient tables are
+        # converted onto the input's device (CUDA support).
+        dev = device_of(r, theta, phi)
+        Acos = asarray_on_device(xp, self._Acos, dev)
+        Asin = asarray_on_device(xp, self._Asin, dev)
         PP, dPP = assoc_legendre(L, M, xp.cos(theta), deriv=1)
         PP = PP[None, :, :]
         dPP = dPP[None, :, :]
         phi_tilde = self._phiTilde(r, N, L)[:, :, None]
         dphi_tilde = self._dphiTilde(r, N, L)[:, :, None]
-        m = xp.asarray(numpy.arange(0, M, dtype=float)[None, None, :])
+        m = asarray_on_device(xp, numpy.arange(0, M, dtype=float)[None, None, :], dev)
         mcos = xp.cos(m * phi)
         msin = xp.sin(m * phi)
         cos_sin_sum = Acos * mcos + Asin * msin
@@ -783,9 +800,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # float(R), which is trace-hostile under jit) and branchless. The
         # r == 0 / r == inf centre is handled by computing the generic branch
         # at a guarded radius and zeroing the result with xp.where, so both
-        # branches stay finite under tracing/eager AD.
-        Acos = xp.asarray(self._Acos)
-        Asin = xp.asarray(self._Asin)
+        # branches stay finite under tracing/eager AD. The coefficient tables
+        # are converted onto the input's device (CUDA support).
+        dev = device_of(R, z, phi)
+        Acos = asarray_on_device(xp, self._Acos, dev)
+        Asin = asarray_on_device(xp, self._Asin, dev)
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
         degenerate = (r == 0.0) | ~xp.isfinite(r)
         rs = xp.where(degenerate, 1.0, r)
@@ -805,7 +824,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         phi_tilde = self._phiTilde(rs, N, L)[:, :, None]
         dphi_tilde = self._dphiTilde(rs, N, L)[:, :, None]
         d2phi_tilde = self._d2phiTilde(rs, N, L)[:, :, None]
-        m = xp.asarray(numpy.arange(0, M, dtype=float)[None, None, :])
+        m = asarray_on_device(xp, numpy.arange(0, M, dtype=float)[None, None, :], dev)
         mcos = xp.cos(m * phi)
         msin = xp.sin(m * phi)
         cos_sin = Acos * mcos + Asin * msin  # angular azimuthal coefficient
@@ -944,7 +963,7 @@ def _dC(xi, N, L):
     # backend path: the roll + zero-row idiom above (dC_n = 2 a C_{n-1}^{a+1},
     # with a zero n=0 row), written functionally as a concatenation.
     CC = xp.concat([xp.zeros_like(CC[:1]), CC[: N - 1]], axis=0)
-    return CC * xp.asarray(2 * (2 * l + 3.0 / 2))
+    return CC * asarray_on_device(xp, 2 * (2 * l + 3.0 / 2), device_of(xi))
 
 
 def _d2C(xi, N, L):
@@ -967,7 +986,7 @@ def _d2C(xi, N, L):
     # backend path: the roll + zero-rows idiom above, written functionally as a
     # concatenation (min(N, 2) zero rows, then C_{n-2}^{a+2} for n >= 2).
     CC = xp.concat([xp.zeros_like(CC[: min(N, 2)]), CC[: max(N - 2, 0)]], axis=0)
-    return CC * xp.asarray(4 * a * (a + 1))
+    return CC * asarray_on_device(xp, 4 * a * (a + 1), device_of(xi))
 
 
 def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):

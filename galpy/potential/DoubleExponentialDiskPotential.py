@@ -7,7 +7,12 @@
 import numpy
 from scipy import special
 
-from ..backend import get_namespace, match_input_dtype
+from ..backend import (
+    asarray_on_device,
+    device_of,
+    get_namespace,
+    match_input_dtype,
+)
 from ..util import conversion
 from .Potential import Potential, check_potential_inputs_not_arrays
 
@@ -175,8 +180,11 @@ class DoubleExponentialDiskPotential(Potential):
         xp = get_namespace(R, z)
         # the Ogata quadrature nodes/weights are deliberately float64
         # (precision); the result is cast to the input dtype at exit (no-op
-        # for float64/scalar inputs), so keep the original inputs for that
+        # for float64/scalar inputs), so keep the original inputs for that.
+        # The tables are anchored on the input's device (CUDA support; None
+        # for numpy/scalars, leaving the numpy path byte-identical).
         in_coords = (R, z, phi, t)
+        dev = device_of(R, z)
         if isinstance(R, (float, int)):
             floatIn = True
             R = xp.atleast_1d(xp.asarray(R))
@@ -210,7 +218,10 @@ class DoubleExponentialDiskPotential(Potential):
             / Rs
             * _de_quadsum(
                 xp,
-                (fun(xp.asarray(self._de_j0_xs)), xp.asarray(self._de_j0_weights)),
+                (
+                    fun(asarray_on_device(xp, self._de_j0_xs, dev)),
+                    asarray_on_device(xp, self._de_j0_weights, dev),
+                ),
                 axis=1,
             )
         )
@@ -249,6 +260,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             x
             * (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
@@ -265,7 +278,11 @@ class DoubleExponentialDiskPotential(Potential):
             * self._alpha
             / R**2.0
             * _de_quadsum(
-                xp, (fun(xp.asarray(self._de_j1_xs)), xp.asarray(self._de_j1_weights))
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j1_xs, dev)),
+                    asarray_on_device(xp, self._de_j1_weights, dev),
+                ),
             ),
             R,
             z,
@@ -301,6 +318,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * x
@@ -315,7 +334,11 @@ class DoubleExponentialDiskPotential(Potential):
             * self._beta
             / R
             * _de_quadsum(
-                xp, (fun(xp.asarray(self._de_j0_xs)), xp.asarray(self._de_j0_weights))
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j0_xs, dev)),
+                    asarray_on_device(xp, self._de_j0_weights, dev),
+                ),
             )
         )
         # Odd in z: out for z > 0, -out otherwise. The +-1.0 factor is exact
@@ -350,6 +373,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             x**2
             * (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
@@ -367,12 +392,16 @@ class DoubleExponentialDiskPotential(Potential):
             / R**3.0
             * _de_quadsum(
                 xp,
-                (fun(xp.asarray(self._de_j0_xs)), xp.asarray(self._de_j0_weights)),
+                (
+                    fun(asarray_on_device(xp, self._de_j0_xs, dev)),
+                    asarray_on_device(xp, self._de_j0_weights, dev),
+                ),
                 # f1*w1 - f2*w2 as f1*w1 + (-f2)*w2: bitwise-identical ((-a)*b
                 # == -(a*b) and x + (-y) == x - y exactly in IEEE arithmetic).
                 (
-                    -fun(xp.asarray(self._de_j1_xs)) / xp.asarray(self._de_j1_xs),
-                    xp.asarray(self._de_j1_weights),
+                    -fun(asarray_on_device(xp, self._de_j1_xs, dev))
+                    / asarray_on_device(xp, self._de_j1_xs, dev),
+                    asarray_on_device(xp, self._de_j1_weights, dev),
                 ),
             ),
             R,
@@ -408,6 +437,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * x
@@ -426,7 +457,11 @@ class DoubleExponentialDiskPotential(Potential):
             * self._beta
             / R
             * _de_quadsum(
-                xp, (fun(xp.asarray(self._de_j0_xs)), xp.asarray(self._de_j0_weights))
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j0_xs, dev)),
+                    asarray_on_device(xp, self._de_j0_weights, dev),
+                ),
             ),
             R,
             z,
@@ -461,6 +496,8 @@ class DoubleExponentialDiskPotential(Potential):
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * (x / R) ** 2.0
@@ -474,7 +511,11 @@ class DoubleExponentialDiskPotential(Potential):
             * self._beta
             / R
             * _de_quadsum(
-                xp, (fun(xp.asarray(self._de_j1_xs)), xp.asarray(self._de_j1_weights))
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j1_xs, dev)),
+                    asarray_on_device(xp, self._de_j1_weights, dev),
+                ),
             )
         )
         # Odd in z (see _zforce): exact +-1.0 factor instead of an if on z.

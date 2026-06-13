@@ -512,6 +512,103 @@ def test_special_fallback_f32_exit_cast():
     assert zt.grad is not None and torch.isfinite(zt.grad)
 
 
+###############################################################################
+# Device preservation (CUDA). The stored float64 tables (expansion
+# coefficients, Ogata/Gauss-Legendre/trapezoid quadrature nodes and weights,
+# spline coefficients) and SpiralArms' input-dtype-anchored constants are
+# placed on the coordinate inputs' device via galpy.backend.device_of /
+# asarray_on_device -- a plain xp.asarray materializes them on the CPU and
+# torch raises 'Expected all tensors to be on the same device' for CUDA
+# coordinates. These tests run on GPU boxes and skip visibly on CPU-only CI.
+###############################################################################
+
+_CUDA = torch is not None and torch.cuda.is_available()
+
+# the table-backed five (+ the DiskSCF/DiskMultipole wrappers around the
+# expansions) and SpiralArms (input-dtype-anchored constant tables)
+_DEVICE_IDS = _TABLE_IDS + ["DiskSCF", "DiskMultipole", "SpiralArms"]
+
+
+def _device_params():
+    for entry_id, pot, kind, methods in REGISTRY:
+        if entry_id not in _DEVICE_IDS:
+            continue
+        for method in methods:
+            yield pytest.param(pot, kind, method, entry_id, id=f"{entry_id}-{method}")
+
+
+@pytest.mark.skipif(not _CUDA, reason="CUDA torch device not available")
+@pytest.mark.parametrize(
+    "dtype",
+    ["float32", "float64"] if torch is None else [torch.float32, torch.float64],
+    ids=["float32", "float64"],
+)
+@pytest.mark.parametrize("pot,kind,method,entry_id", list(_device_params()))
+def test_torch_cuda_device_preserved(pot, kind, method, entry_id, dtype):
+    # CUDA inputs -> no device-mismatch error, output on the input device,
+    # output dtype matches the input dtype, and the value equals the CPU
+    # result at dtype accuracy (the residual float32 differences are
+    # CUDA-vs-CPU reduction-order rounding, not table degradation; float64
+    # agrees to ~1e-15).
+    cpu_args = _gate_args(kind, dtype)
+    cuda_args = [a.to("cuda:0") for a in cpu_args]
+    out = getattr(pot, method)(*cuda_args)
+    assert out.device == cuda_args[0].device, (
+        f"{entry_id}.{method}: cuda input gave output on {out.device}"
+    )
+    assert out.dtype == dtype, (
+        f"{entry_id}.{method}: {dtype} cuda input gave {out.dtype} output"
+    )
+    ref = getattr(pot, method)(*cpu_args)
+    numpy.testing.assert_allclose(
+        float(out.cpu()),
+        float(ref),
+        rtol=2e-6 if dtype == torch.float32 else 1e-12,
+        err_msg=f"{entry_id}.{method}: cuda result differs from the cpu result",
+    )
+
+
+@pytest.mark.skipif(not _CUDA, reason="CUDA torch device not available")
+def test_special_fallback_cuda_device_preserved():
+    # the router fallbacks' float64 quadrature node tables (Gauss-Legendre /
+    # trapezoid) are anchored on the input device too: CUDA inputs -> CUDA
+    # output of the input dtype, equal to the CPU result at dtype accuracy.
+    import galpy.backend.special as gsp
+
+    cases = [
+        (
+            "hyp2f1",
+            lambda d, dev: gsp.hyp2f1(
+                1.5, 0.5, 2.5, torch.tensor(-0.7, dtype=d, device=dev)
+            ),
+        ),
+        (
+            "hyp1f1",
+            lambda d, dev: gsp.hyp1f1(
+                0.5, 1.5, torch.tensor(-0.7, dtype=d, device=dev)
+            ),
+        ),
+        ("k0", lambda d, dev: gsp.k0(torch.tensor(3.0, dtype=d, device=dev))),
+        ("k1", lambda d, dev: gsp.k1(torch.tensor(3.0, dtype=d, device=dev))),
+        ("kn", lambda d, dev: gsp.kn(2, torch.tensor(3.0, dtype=d, device=dev))),
+        ("ellipk", lambda d, dev: gsp.ellipk(torch.tensor(0.3, dtype=d, device=dev))),
+        ("ellipe", lambda d, dev: gsp.ellipe(torch.tensor(0.3, dtype=d, device=dev))),
+        ("gamma", lambda d, dev: gsp.gamma(torch.tensor(1.5, dtype=d, device=dev))),
+    ]
+    for name, call in cases:
+        for dtype, rtol in ((torch.float32, 1e-6), (torch.float64, 1e-12)):
+            out = call(dtype, "cuda:0")
+            ref = call(dtype, "cpu")
+            assert out.device.type == "cuda", f"{name}: cuda input gave {out.device}"
+            assert out.dtype == dtype, f"{name}: {dtype} cuda input gave {out.dtype}"
+            numpy.testing.assert_allclose(
+                float(out.cpu()),
+                float(ref),
+                rtol=rtol,
+                err_msg=f"{name}: cuda result differs from the cpu result",
+            )
+
+
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_torch_grad_flows_through_exit_cast():
     # torch.autograd at float32 must flow through the exit cast and reproduce

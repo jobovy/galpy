@@ -113,6 +113,42 @@ def match_input_dtype(out, *coords):
     return namespace_from_arrays((out,)).astype(out, target)
 
 
+def device_of(*coords):
+    """Return the device of the first backend (jax/torch) array in ``coords``.
+
+    The table-backed potentials anchor their stored numpy constant tables
+    (expansion coefficients, quadrature nodes/weights, spline coefficients) on
+    the device of the coordinate inputs through this helper: a plain
+    ``xp.asarray(table)`` materializes on the CPU, and torch raises a
+    mixed-device error when CUDA coordinates meet a CPU table. Plain Python
+    scalars, numpy arrays, and traced values (jax tracers expose no concrete
+    ``device``) yield None, which makes ``asarray_on_device`` omit the
+    ``device`` keyword entirely -- so the numpy path keeps issuing the exact
+    same ``asarray`` call as before (byte-identical, and safe on numpy
+    versions without an ``asarray`` device keyword), and device placement
+    under jit tracing is left to the tracer.
+    """
+    for coord in coords:
+        if is_backend_array(coord):
+            device = getattr(coord, "device", None)
+            if device is not None:
+                return device
+    return None
+
+
+def asarray_on_device(xp, a, device, dtype=None):
+    """``xp.asarray(a, dtype=dtype)`` placed on ``device`` when one is given.
+
+    ``device`` is the result of ``device_of`` on the coordinate inputs; when
+    it is None (numpy arrays, plain scalars, traced values) the keyword is
+    omitted so the call reduces to today's plain ``xp.asarray`` (and
+    ``dtype=None`` is the default pass-through on every backend).
+    """
+    if device is None:
+        return xp.asarray(a, dtype=dtype)
+    return xp.asarray(a, dtype=dtype, device=device)
+
+
 def namespace_for_name(name):
     """Map a backend name ('numpy'|'jax'|'torch') to its array namespace module.
 

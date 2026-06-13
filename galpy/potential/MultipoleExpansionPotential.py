@@ -14,7 +14,12 @@ from scipy.interpolate import (
     make_interp_spline,
 )
 
-from ..backend import get_namespace, match_input_dtype
+from ..backend import (
+    asarray_on_device,
+    device_of,
+    get_namespace,
+    match_input_dtype,
+)
 from ..backend.special import assoc_legendre
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -2121,7 +2126,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         extrapolation constants of _below_grid_integrals / _eval_R_lm, and
         the FITPACK density splines to cubic PPoly pieces. All entries are
         plain numpy arrays/floats; the evaluators convert them to the active
-        backend with ``xp.asarray``.
+        backend with ``asarray_on_device`` (placed on the coordinate inputs'
+        device).
 
         Notes
         -----
@@ -2207,7 +2213,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Time extrapolation outside tgrid matches the numpy path (clamped
         interval index = edge-interval cubic extrapolation, scipy's
         ``extrapolate=True``). All entries are plain numpy arrays/floats;
-        the evaluators convert them with ``xp.asarray``.
+        the evaluators convert them with ``asarray_on_device`` (placed on
+        the coordinate inputs' device).
 
         Notes
         -----
@@ -2283,14 +2290,20 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
 
     @staticmethod
     def _backend_prepare(xp, R, z, phi, t):
-        """Broadcast (R, z, phi, t) to a common shape and flatten to 1-D."""
-        R = xp.asarray(R) * 1.0
-        z = xp.asarray(z) * 1.0
-        phi = xp.asarray(phi) * 1.0
+        """Broadcast (R, z, phi, t) to a common shape and flatten to 1-D.
+
+        Scalar coordinates (e.g. the default phi=0.0/t=0.0) are placed on the
+        device of the array coordinates (CUDA support): the broadcast below
+        expands them to full-size arrays, which torch cannot mix with CUDA
+        tensors (unlike 0-d scalars)."""
+        dev = device_of(R, z, phi, t)
+        R = asarray_on_device(xp, R, dev) * 1.0
+        z = asarray_on_device(xp, z, dev) * 1.0
+        phi = asarray_on_device(xp, phi, dev) * 1.0
         if isinstance(t, (int, float)):
             # route Python scalars through numpy so torch keeps float64
             t = numpy.asarray(t, dtype=float)
-        t = xp.asarray(t) * 1.0
+        t = asarray_on_device(xp, t, dev) * 1.0
         R, z, phi, t = xp.broadcast_arrays(R, z, phi, t)
         shape = R.shape
         return (
@@ -2316,7 +2329,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         Returns (i_t, dt = t - tgrid[i_t]); outside tgrid the clamped index
         reproduces scipy's edge-interval cubic extrapolation.
         """
-        tg = xp.asarray(data["tgrid"])
+        tg = asarray_on_device(xp, data["tgrid"], device_of(t))
         n_t = data["tgrid"].shape[0]
         i_t = xp.clip(xp.searchsorted(tg, t, side="right") - 1, 0, n_t - 2)
         return i_t, t - tg[i_t]
@@ -2358,12 +2371,15 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         - 2026-06-10 - Added the time-dependent path - Bovy (UofT)
         """
         data = self._backend_tables()
-        breaks = xp.asarray(data["breaks"])
-        lf = xp.asarray(data["lf"])
-        inv_lp3 = xp.asarray(data["inv_lp3"])
-        inv_2ml = xp.asarray(data["inv_2ml"])
-        l2mask = xp.asarray(data["l2mask"])
-        rmin_pow = xp.asarray(data["rmin_pow_2ml"])
+        # the tables stay float64 (precision is the point; the callers
+        # exit-cast) but must live on the input's device (CUDA support)
+        dev = device_of(r)
+        breaks = asarray_on_device(xp, data["breaks"], dev)
+        lf = asarray_on_device(xp, data["lf"], dev)
+        inv_lp3 = asarray_on_device(xp, data["inv_lp3"], dev)
+        inv_2ml = asarray_on_device(xp, data["inv_2ml"], dev)
+        l2mask = asarray_on_device(xp, data["l2mask"], dev)
+        rmin_pow = asarray_on_device(xp, data["rmin_pow_2ml"], dev)
         rmin = float(data["breaks"][0])
         rmax = float(data["breaks"][-1])
         nint = data["breaks"].shape[0] - 1
@@ -2380,32 +2396,32 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             i_t, dt = self._backend_time_interval(xp, data, t)
             flat = i_t * nint + idx
             cin = self._backend_horner_t(
-                xp.asarray(data["inner_tc"])[:, :, :, flat], dt
+                asarray_on_device(xp, data["inner_tc"], dev)[:, :, :, flat], dt
             )  # (n_comp, 6, N)
             cout = self._backend_horner_t(
-                xp.asarray(data["outer_tc"])[:, :, :, flat], dt
+                asarray_on_device(xp, data["outer_tc"], dev)[:, :, :, flat], dt
             )
             P_rho0 = self._backend_horner_t(
-                xp.asarray(data["dIin_rmin_tc"])[:, :, i_t], dt
-            ) / xp.asarray(data["rmin_pow_lp2"])
+                asarray_on_device(xp, data["dIin_rmin_tc"], dev)[:, :, i_t], dt
+            ) / asarray_on_device(xp, data["rmin_pow_lp2"], dev)
             I_outer_rmin = self._backend_horner_t(
-                xp.asarray(data["Iout_rmin_tc"])[:, :, i_t], dt
+                asarray_on_device(xp, data["Iout_rmin_tc"], dev)[:, :, i_t], dt
             )
             # I_inner(rmax, t): dt-Horner of the last interval's stack, then
             # the quintic Horner at dr_max (same op order as the numpy path)
             clast = self._backend_horner_t(
-                xp.asarray(data["inner_last_tc"])[:, :, :, i_t], dt
+                asarray_on_device(xp, data["inner_last_tc"], dev)[:, :, :, i_t], dt
             )  # (n_comp, 6, N)
             dr_max = float(data["breaks"][-1] - data["breaks"][-2])
             I_inner_rmax = clast[:, 0]
             for k in range(1, 6):
                 I_inner_rmax = I_inner_rmax * dr_max + clast[:, k]
         else:
-            cin = xp.asarray(data["inner_c"])[:, :, idx]  # (n_comp, 6, N)
-            cout = xp.asarray(data["outer_c"])[:, :, idx]
-            P_rho0 = xp.asarray(data["P_rho0"])
-            I_outer_rmin = xp.asarray(data["I_outer_rmin"])
-            I_inner_rmax = xp.asarray(data["I_inner_rmax"])
+            cin = asarray_on_device(xp, data["inner_c"], dev)[:, :, idx]
+            cout = asarray_on_device(xp, data["outer_c"], dev)[:, :, idx]
+            P_rho0 = asarray_on_device(xp, data["P_rho0"], dev)
+            I_outer_rmin = asarray_on_device(xp, data["I_outer_rmin"], dev)
+            I_inner_rmax = asarray_on_device(xp, data["I_inner_rmax"], dev)
 
         def _val(c):
             out = c[:, 0]
@@ -2492,10 +2508,12 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         - 2026-06-09 - Written - Bovy (UofT)
         """
         data = self._backend_tables()
-        l_idx = xp.asarray(data["l_idx"])
-        m_idx = xp.asarray(data["m_idx"])
-        mf = xp.asarray(data["mf"])
-        is_sin = xp.asarray(data["is_sin"])
+        # index/constant tables on the input's device (CUDA support)
+        dev = device_of(costheta)
+        l_idx = asarray_on_device(xp, data["l_idx"], dev)
+        m_idx = asarray_on_device(xp, data["m_idx"], dev)
+        mf = asarray_on_device(xp, data["mf"], dev)
+        is_sin = asarray_on_device(xp, data["is_sin"], dev)
         tables = assoc_legendre(self._L, self._M, costheta, deriv=deriv)
         if deriv == 0:
             tables = (tables,)
@@ -2521,8 +2539,9 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             # R_00(rmin, t) = rmin^{-1} I_inner,00(rmin, t) + I_outer,00(rmin, t)
             # (in-grid branch of _eval_radial_lm_timedep at i_r = 0, dr = 0)
             i_t, dt = self._backend_time_interval(xp, data, tf)
-            cin0 = xp.asarray(data["Iin_rmin_tc"])[0][:, i_t]  # (4, N)
-            cout0 = xp.asarray(data["Iout_rmin_tc"])[0][:, i_t]
+            dev = device_of(r)
+            cin0 = asarray_on_device(xp, data["Iin_rmin_tc"], dev)[0][:, i_t]
+            cout0 = asarray_on_device(xp, data["Iout_rmin_tc"], dev)[0][:, i_t]
             Iin00 = ((cin0[0] * dt + cin0[1]) * dt + cin0[2]) * dt + cin0[3]
             Iout00 = ((cout0[0] * dt + cout0[1]) * dt + cout0[2]) * dt + cout0[3]
             rmin = float(data["breaks"][0])
@@ -2565,7 +2584,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         """Backend version of _compute_spher_2nd_derivs_at_point (vectorized)."""
         (PP, dPP, d2PP), trig, dtrig = self._backend_angular(xp, ctheta, phi, deriv=2)
         Rlm, dRlm, d2Rlm = self._backend_radial(xp, r, t, mode=2)
-        mf = xp.asarray(self._backend_tables()["mf"])
+        mf = asarray_on_device(xp, self._backend_tables()["mf"], device_of(r))
         dP_dtheta = dPP * (-stheta)
         d2P_dtheta2 = d2PP * stheta**2 - dPP * ctheta
         Phi_r = xp.sum(PP * trig * dRlm, axis=0)
@@ -2643,7 +2662,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         r = xp.sqrt(Rf * Rf + zf * zf)
         ctheta = xp.cos(xp.arctan2(Rf, zf))
         (PP,), trig, _ = self._backend_angular(xp, ctheta, phif, deriv=0)
-        rho_breaks = xp.asarray(data["rho_breaks"])
+        dev = device_of(r)
+        rho_breaks = asarray_on_device(xp, data["rho_breaks"], dev)
         rmin = float(data["rho_breaks"][0])
         rmax = float(data["rho_breaks"][-1])
         nint = data["rho_breaks"].shape[0] - 1
@@ -2656,9 +2676,11 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             # of spline interpolation in the data; cf. _backend_tdep_data)
             i_t, dt = self._backend_time_interval(xp, data, tf)
             flat = i_t * nint + idx
-            c = self._backend_horner_t(xp.asarray(data["rho_tc"])[:, :, :, flat], dt)
+            c = self._backend_horner_t(
+                asarray_on_device(xp, data["rho_tc"], dev)[:, :, :, flat], dt
+            )
         else:
-            c = xp.asarray(data["rho_c"])[:, :, idx]
+            c = asarray_on_device(xp, data["rho_c"], dev)[:, :, idx]
         rho = ((c[:, 0] * dr + c[:, 1]) * dr + c[:, 2]) * dr + c[:, 3]
         out = xp.sum(PP * trig * rho, axis=0)
         out = xp.where(r > rmax, 0.0, out)

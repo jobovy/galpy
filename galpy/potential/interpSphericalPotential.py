@@ -4,7 +4,7 @@
 import numpy
 from scipy import interpolate
 
-from ..backend import get_namespace, match_input_dtype
+from ..backend import asarray_on_device, device_of, get_namespace, match_input_dtype
 from ..util._optional_deps import _JAX_LOADED
 from ..util.conversion import get_physical, physical_compatible
 from .Potential import _evaluatePotentials, _evaluateRforces
@@ -44,8 +44,11 @@ def _ppoly_eval(xp, x, c, r):
     (finite extrapolation), which keeps the dead side of the callers'
     ``xp.where`` branch selections NaN-free under autodiff.
     """
-    xb = xp.asarray(x)
-    cb = xp.asarray(c)
+    # knots/coefficients stay float64 (precision is the point; the callers
+    # exit-cast) but must live on the input's device (CUDA support)
+    dev = device_of(r)
+    xb = asarray_on_device(xp, x, dev)
+    cb = asarray_on_device(xp, c, dev)
     idx = xp.clip(xp.searchsorted(xb, r, side="right") - 1, 0, cb.shape[1] - 1)
     dr = r - xb[idx]
     out = cb[0, idx]

@@ -10,7 +10,7 @@ import math
 
 import numpy
 
-from ..backend import get_namespace
+from ..backend import asarray_on_device, device_of, get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -651,13 +651,16 @@ class SpiralArmsPotential(Potential):
         # Anchor the stored float constants on the input dtype so that float32
         # inputs are not promoted to float64 by these (strong-typed under torch)
         # float64 tensors, and so that the default integer Cs=[1] does not route
-        # `Cs * self._rho0` through torch's default dtype. dtype=None for
-        # python-scalar inputs (and numpy.asarray(x, dtype=None) is a no-op
+        # `Cs * self._rho0` through torch's default dtype -- and on the input
+        # DEVICE (CUDA support). dtype=None/device=None for python-scalar and
+        # numpy inputs (and numpy.asarray(x, dtype=None) is a no-op
         # pass-through), so the numpy path is untouched.
         dtype = getattr(R, "dtype", None)
-        Cs = xp.asarray(self._Cs0, dtype=dtype)
-        ns = xp.asarray(self._ns0)  # keep integer: int tensors never promote floats
-        HNn = xp.asarray(self._HNn0, dtype=dtype)
+        dev = device_of(R, z)
+        Cs = asarray_on_device(xp, self._Cs0, dev, dtype=dtype)
+        # ns stays integer: int tensors never promote floats
+        ns = asarray_on_device(xp, self._ns0, dev)
+        HNn = asarray_on_device(xp, self._HNn0, dev, dtype=dtype)
         if ndR == 1 or ndz == 1:
             return (
                 xp.reshape(Cs, (-1, 1)),
