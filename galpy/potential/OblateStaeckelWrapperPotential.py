@@ -10,7 +10,9 @@
 import numpy
 
 from galpy.util import conversion, coords
+from galpy.util.coords import _promote_scalars_for
 
+from ..backend import get_namespace
 from .Potential import (
     _APY_LOADED,
     _evaluatePotentials,
@@ -133,17 +135,18 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-12-15 - Written - Bovy (UofT)
         """
+        xp = get_namespace(R, z, phi, t)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
         return (
             (
-                -self._dUdu(u) * self._delta * numpy.sin(v) * numpy.cosh(u)
-                + self._dVdv(v) * numpy.tanh(u) * z
+                -self._dUdu(u) * self._delta * xp.sin(v) * xp.cosh(u)
+                + self._dVdv(v) * xp.tanh(u) * z
                 + (self._U(u) - self._V(v))
                 * (
-                    dprefacdu * self._delta * numpy.sin(v) * numpy.cosh(u)
-                    + dprefacdv * numpy.tanh(u) * z
+                    dprefacdu * self._delta * xp.sin(v) * xp.cosh(u)
+                    + dprefacdv * xp.tanh(u) * z
                 )
                 / prefac
             )
@@ -167,17 +170,18 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-12-15 - Written - Bovy (UofT)
         """
+        xp = get_namespace(R, z, phi, t)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
         return (
             (
-                -self._dUdu(u) * R / numpy.tan(v)
-                - self._dVdv(v) * self._delta * numpy.sin(v) * numpy.cosh(u)
+                -self._dUdu(u) * R / xp.tan(v)
+                - self._dVdv(v) * self._delta * xp.sin(v) * xp.cosh(u)
                 + (self._U(u) - self._V(v))
                 * (
-                    dprefacdu / numpy.tan(v) * R
-                    - dprefacdv * self._delta * numpy.sin(v) * numpy.cosh(u)
+                    dprefacdu / xp.tan(v) * R
+                    - dprefacdv * self._delta * xp.sin(v) * xp.cosh(u)
                 )
                 / prefac
             )
@@ -201,13 +205,14 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-01-21 - Written - Bovy (UofT)
         """
+        xp = get_namespace(R, z, phi, t)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
         d2prefacdu2, d2prefacdv2 = _dstaeckel_prefactord2ud2v(u, v)
         umvfac = (
-            dprefacdu * self._delta * numpy.sin(v) * numpy.cosh(u)
-            + dprefacdv * numpy.tanh(u) * z
+            dprefacdu * self._delta * xp.sin(v) * xp.cosh(u)
+            + dprefacdv * xp.tanh(u) * z
         ) / prefac  # xs (U-V) in Rforce
         U = self._U(u)
         dUdu = self._dUdu(u)
@@ -216,23 +221,20 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         dVdv = self._dVdv(v)
         d2Vdv2 = self._d2Vdv2(v)
         return (
-            d2Udu2 * numpy.sin(v) ** 2.0 * numpy.cosh(u) ** 2.0
-            + dUdu * numpy.sinh(u) * numpy.cosh(u)
-            - d2Vdv2 * numpy.sinh(u) ** 2.0 * numpy.cos(v) ** 2.0
-            - dVdv * numpy.sin(v) * numpy.cos(v)
+            d2Udu2 * xp.sin(v) ** 2.0 * xp.cosh(u) ** 2.0
+            + dUdu * xp.sinh(u) * xp.cosh(u)
+            - d2Vdv2 * xp.sinh(u) ** 2.0 * xp.cos(v) ** 2.0
+            - dVdv * xp.sin(v) * xp.cos(v)
             + (
-                (
-                    -dUdu * numpy.cosh(u) * numpy.sin(v)
-                    + dVdv * numpy.sinh(u) * numpy.cos(v)
-                )
+                (-dUdu * xp.cosh(u) * xp.sin(v) + dVdv * xp.sinh(u) * xp.cos(v))
                 / self._delta
                 * umvfac
                 + (U - V)
                 * (
-                    -d2prefacdu2 * numpy.cosh(u) ** 2.0 * numpy.sin(v) ** 2.0
-                    - dprefacdu * numpy.sinh(u) * numpy.cosh(u)
-                    - d2prefacdv2 * numpy.sinh(u) ** 2.0 * numpy.cos(v) ** 2.0
-                    - dprefacdv * numpy.sin(v) * numpy.cos(v)
+                    -d2prefacdu2 * xp.cosh(u) ** 2.0 * xp.sin(v) ** 2.0
+                    - dprefacdu * xp.sinh(u) * xp.cosh(u)
+                    - d2prefacdv2 * xp.sinh(u) ** 2.0 * xp.cos(v) ** 2.0
+                    - dprefacdv * xp.sin(v) * xp.cos(v)
                 )
                 / prefac
                 + (U - V)
@@ -240,15 +242,14 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                 / prefac
                 / self._delta
                 * (
-                    dprefacdu * numpy.cosh(u) * numpy.sin(v)
-                    + dprefacdv * numpy.sinh(u) * numpy.cos(v)
+                    dprefacdu * xp.cosh(u) * xp.sin(v)
+                    + dprefacdv * xp.sinh(u) * xp.cos(v)
                 )
             )
         ) / self._delta**2.0 / prefac**3.0 + 2.0 * self._Rforce(
             R, z, phi=phi, t=t
         ) / prefac**2.0 * (
-            dprefacdu * numpy.cosh(u) * numpy.sin(v)
-            + dprefacdv * numpy.sinh(u) * numpy.cos(v)
+            dprefacdu * xp.cosh(u) * xp.sin(v) + dprefacdv * xp.sinh(u) * xp.cos(v)
         ) / self._delta
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
@@ -267,13 +268,14 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-01-21 - Written - Bovy (UofT)
         """
+        xp = get_namespace(R, z, phi, t)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
         d2prefacdu2, d2prefacdv2 = _dstaeckel_prefactord2ud2v(u, v)
         umvfac = (
-            dprefacdu / numpy.tan(v) * R  # xs (U-V) in zforce
-            - dprefacdv * self._delta * numpy.sin(v) * numpy.cosh(u)
+            dprefacdu / xp.tan(v) * R  # xs (U-V) in zforce
+            - dprefacdv * self._delta * xp.sin(v) * xp.cosh(u)
         ) / prefac
         U = self._U(u)
         dUdu = self._dUdu(u)
@@ -282,23 +284,20 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         dVdv = self._dVdv(v)
         d2Vdv2 = self._d2Vdv2(v)
         return (
-            d2Udu2 * numpy.sinh(u) ** 2.0 * numpy.cos(v) ** 2.0
-            + dUdu * numpy.cosh(u) * numpy.sinh(u)
-            - d2Vdv2 * numpy.sin(v) ** 2.0 * numpy.cosh(u) ** 2.0
-            - dVdv * numpy.cos(v) * numpy.sin(v)
+            d2Udu2 * xp.sinh(u) ** 2.0 * xp.cos(v) ** 2.0
+            + dUdu * xp.cosh(u) * xp.sinh(u)
+            - d2Vdv2 * xp.sin(v) ** 2.0 * xp.cosh(u) ** 2.0
+            - dVdv * xp.cos(v) * xp.sin(v)
             + (
-                (
-                    -dUdu * numpy.sinh(u) * numpy.cos(v)
-                    - dVdv * numpy.cosh(u) * numpy.sin(v)
-                )
+                (-dUdu * xp.sinh(u) * xp.cos(v) - dVdv * xp.cosh(u) * xp.sin(v))
                 / self._delta
                 * umvfac
                 + (U - V)
                 * (
-                    -d2prefacdu2 * numpy.sinh(u) ** 2.0 * numpy.cos(v) ** 2.0
-                    - dprefacdu * numpy.sinh(u) * numpy.cosh(u)
-                    - d2prefacdv2 * numpy.sin(v) ** 2.0 * numpy.cosh(u) ** 2.0
-                    - dprefacdv * numpy.cos(v) * numpy.sin(v)
+                    -d2prefacdu2 * xp.sinh(u) ** 2.0 * xp.cos(v) ** 2.0
+                    - dprefacdu * xp.sinh(u) * xp.cosh(u)
+                    - d2prefacdv2 * xp.sin(v) ** 2.0 * xp.cosh(u) ** 2.0
+                    - dprefacdv * xp.cos(v) * xp.sin(v)
                 )
                 / prefac
                 - (U - V)
@@ -306,15 +305,14 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                 / prefac
                 / self._delta
                 * (
-                    -dprefacdu * numpy.sinh(u) * numpy.cos(v)
-                    + dprefacdv * numpy.cosh(u) * numpy.sin(v)
+                    -dprefacdu * xp.sinh(u) * xp.cos(v)
+                    + dprefacdv * xp.cosh(u) * xp.sin(v)
                 )
             )
         ) / self._delta**2.0 / prefac**3.0 - 2.0 * self._zforce(
             R, z, phi=phi, t=t
         ) / prefac**2.0 * (
-            -dprefacdu * numpy.sinh(u) * numpy.cos(v)
-            + dprefacdv * numpy.cosh(u) * numpy.sin(v)
+            -dprefacdu * xp.sinh(u) * xp.cos(v) + dprefacdv * xp.cosh(u) * xp.sin(v)
         ) / self._delta
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
@@ -333,13 +331,14 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-01-22 - Written - Bovy (UofT)
         """
+        xp = get_namespace(R, z, phi, t)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
         d2prefacdu2, d2prefacdv2 = _dstaeckel_prefactord2ud2v(u, v)
         umvfac = (
-            dprefacdu / numpy.tan(v) * R  # xs (U-V) in zforce
-            - dprefacdv * self._delta * numpy.sin(v) * numpy.cosh(u)
+            dprefacdu / xp.tan(v) * R  # xs (U-V) in zforce
+            - dprefacdv * self._delta * xp.sin(v) * xp.cosh(u)
         ) / prefac
         U = self._U(u)
         dUdu = self._dUdu(u)
@@ -348,29 +347,22 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         dVdv = self._dVdv(v)
         d2Vdv2 = self._d2Vdv2(v)
         return (
-            (d2Udu2 + d2Vdv2)
-            * numpy.cosh(u)
-            * numpy.sin(v)
-            * numpy.cos(v)
-            * numpy.sinh(u)
-            + dUdu * numpy.sin(v) * numpy.cos(v)
-            + dVdv * numpy.sinh(u) * numpy.cosh(u)
+            (d2Udu2 + d2Vdv2) * xp.cosh(u) * xp.sin(v) * xp.cos(v) * xp.sinh(u)
+            + dUdu * xp.sin(v) * xp.cos(v)
+            + dVdv * xp.sinh(u) * xp.cosh(u)
             + (
-                (
-                    -dUdu * numpy.cosh(u) * numpy.sin(v)
-                    + dVdv * numpy.sinh(u) * numpy.cos(v)
-                )
+                (-dUdu * xp.cosh(u) * xp.sin(v) + dVdv * xp.sinh(u) * xp.cos(v))
                 / self._delta
                 * umvfac
                 + (U - V)
                 * (
                     (-d2prefacdu2 + d2prefacdv2)
-                    * numpy.sin(v)
-                    * numpy.cosh(u)
-                    * numpy.sinh(u)
-                    * numpy.cos(v)
-                    - dprefacdu * numpy.sin(v) * numpy.cos(v)
-                    + dprefacdv * numpy.cosh(u) * numpy.sinh(u)
+                    * xp.sin(v)
+                    * xp.cosh(u)
+                    * xp.sinh(u)
+                    * xp.cos(v)
+                    - dprefacdu * xp.sin(v) * xp.cos(v)
+                    + dprefacdv * xp.cosh(u) * xp.sinh(u)
                 )
                 / prefac
                 + (U - V)
@@ -378,52 +370,49 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                 / prefac
                 / self._delta
                 * (
-                    dprefacdu * numpy.cosh(u) * numpy.sin(v)
-                    + dprefacdv * numpy.sinh(u) * numpy.cos(v)
+                    dprefacdu * xp.cosh(u) * xp.sin(v)
+                    + dprefacdv * xp.sinh(u) * xp.cos(v)
                 )
             )
         ) / self._delta**2.0 / prefac**3.0 + 2.0 * self._zforce(
             R, z, phi=phi, t=t
         ) / prefac**2.0 * (
-            dprefacdu * numpy.cosh(u) * numpy.sin(v)
-            + dprefacdv * numpy.sinh(u) * numpy.cos(v)
+            dprefacdu * xp.cosh(u) * xp.sin(v) + dprefacdv * xp.sinh(u) * xp.cos(v)
         ) / self._delta
 
     def _U(self, u):
         """Approximated U(u) = cosh^2(u) Phi(u,pi/2)"""
+        xp = get_namespace(u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
-        return numpy.cosh(u) ** 2.0 * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
+        return xp.cosh(u) ** 2.0 * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
 
     def _dUdu(self, u):
+        xp = get_namespace(u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         # 1e-12 bc force should win the 0/0 battle
-        return 2.0 * numpy.cosh(u) * numpy.sinh(u) * _evaluatePotentials(
+        return 2.0 * xp.cosh(u) * xp.sinh(u) * _evaluatePotentials(
             self._pot, Rz0[0], Rz0[1]
-        ) - numpy.cosh(u) ** 2.0 * (
-            _evaluateRforces(self._pot, Rz0[0], Rz0[1])
-            * Rz0[0]
-            / (numpy.tanh(u) + 1e-12)
-            + _evaluatezforces(self._pot, Rz0[0], Rz0[1]) * Rz0[1] * numpy.tanh(u)
+        ) - xp.cosh(u) ** 2.0 * (
+            _evaluateRforces(self._pot, Rz0[0], Rz0[1]) * Rz0[0] / (xp.tanh(u) + 1e-12)
+            + _evaluatezforces(self._pot, Rz0[0], Rz0[1]) * Rz0[1] * xp.tanh(u)
         )
 
     def _d2Udu2(self, u):
+        xp = get_namespace(u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         tRforce = _evaluateRforces(self._pot, Rz0[0], Rz0[1])
         tzforce = _evaluatezforces(self._pot, Rz0[0], Rz0[1])
         return (
-            2.0 * numpy.cosh(2 * u) * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
+            2.0 * xp.cosh(2 * u) * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
             - 4.0
-            * numpy.cosh(u)
-            * numpy.sinh(u)
-            * (
-                tRforce * Rz0[0] / (numpy.tanh(u) + 1e-12)
-                + tzforce * Rz0[1] * numpy.tanh(u)
-            )
-            - numpy.cosh(u) ** 2.0
+            * xp.cosh(u)
+            * xp.sinh(u)
+            * (tRforce * Rz0[0] / (xp.tanh(u) + 1e-12) + tzforce * Rz0[1] * xp.tanh(u))
+            - xp.cosh(u) ** 2.0
             * (
                 -evaluateR2derivs(self._pot, Rz0[0], Rz0[1], use_physical=False)
                 * Rz0[0] ** 2.0
-                / (numpy.tanh(u) + 1e-12) ** 2.0
+                / (xp.tanh(u) + 1e-12) ** 2.0
                 - 2.0
                 * evaluateRzderivs(self._pot, Rz0[0], Rz0[1], use_physical=False)
                 * Rz0[0]
@@ -431,7 +420,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                 + tRforce * Rz0[0]
                 - evaluatez2derivs(self._pot, Rz0[0], Rz0[1], use_physical=False)
                 * Rz0[1] ** 2.0
-                * numpy.tanh(u) ** 2.0
+                * xp.tanh(u) ** 2.0
                 + tzforce * Rz0[1]
             )
         )
@@ -445,28 +434,30 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         )
 
     def _dVdv(self, v):
+        xp = get_namespace(v)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
-        return -2.0 * numpy.sin(v) * numpy.cos(v) * _evaluatePotentials(
+        return -2.0 * xp.sin(v) * xp.cos(v) * _evaluatePotentials(
             self._pot, R0z[0], R0z[1]
         ) + _staeckel_prefactor(self._u0, v) * (
-            _evaluateRforces(self._pot, R0z[0], R0z[1]) * R0z[0] / numpy.tan(v)
-            - _evaluatezforces(self._pot, R0z[0], R0z[1]) * R0z[1] * numpy.tan(v)
+            _evaluateRforces(self._pot, R0z[0], R0z[1]) * R0z[0] / xp.tan(v)
+            - _evaluatezforces(self._pot, R0z[0], R0z[1]) * R0z[1] * xp.tan(v)
         )
 
     def _d2Vdv2(self, v):
+        xp = get_namespace(v)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         tRforce = _evaluateRforces(self._pot, R0z[0], R0z[1])
         tzforce = _evaluatezforces(self._pot, R0z[0], R0z[1])
         return (
-            -2.0 * numpy.cos(2.0 * v) * _evaluatePotentials(self._pot, R0z[0], R0z[1])
+            -2.0 * xp.cos(2.0 * v) * _evaluatePotentials(self._pot, R0z[0], R0z[1])
             + 2.0
-            * numpy.sin(2.0 * v)
-            * (tRforce * R0z[0] / numpy.tan(v) - tzforce * R0z[1] * numpy.tan(v))
+            * xp.sin(2.0 * v)
+            * (tRforce * R0z[0] / xp.tan(v) - tzforce * R0z[1] * xp.tan(v))
             + _staeckel_prefactor(self._u0, v)
             * (
                 -evaluateR2derivs(self._pot, R0z[0], R0z[1], use_physical=False)
                 * R0z[0] ** 2.0
-                / numpy.tan(v) ** 2.0
+                / xp.tan(v) ** 2.0
                 + 2.0
                 * evaluateRzderivs(self._pot, R0z[0], R0z[1], use_physical=False)
                 * R0z[0]
@@ -474,19 +465,25 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                 - tRforce * R0z[0]
                 - evaluatez2derivs(self._pot, R0z[0], R0z[1], use_physical=False)
                 * R0z[1] ** 2.0
-                * numpy.tan(v) ** 2.0
+                * xp.tan(v) ** 2.0
                 - tzforce * R0z[1]
             )
         )
 
 
 def _staeckel_prefactor(u, v):
-    return numpy.sinh(u) ** 2.0 + numpy.sin(v) ** 2.0
+    xp = get_namespace(u, v)
+    u, v = _promote_scalars_for(xp, u, v)
+    return xp.sinh(u) ** 2.0 + xp.sin(v) ** 2.0
 
 
 def _dstaeckel_prefactordudv(u, v):
-    return (2.0 * numpy.sinh(u) * numpy.cosh(u), 2.0 * numpy.sin(v) * numpy.cos(v))
+    xp = get_namespace(u, v)
+    u, v = _promote_scalars_for(xp, u, v)
+    return (2.0 * xp.sinh(u) * xp.cosh(u), 2.0 * xp.sin(v) * xp.cos(v))
 
 
 def _dstaeckel_prefactord2ud2v(u, v):
-    return (2.0 * numpy.cosh(2.0 * u), 2.0 * numpy.cos(2.0 * v))
+    xp = get_namespace(u, v)
+    u, v = _promote_scalars_for(xp, u, v)
+    return (2.0 * xp.cosh(2.0 * u), 2.0 * xp.cos(2.0 * v))
