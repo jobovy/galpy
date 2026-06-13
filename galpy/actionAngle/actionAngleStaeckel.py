@@ -45,6 +45,14 @@ from .actionAngle import UnboundError, actionAngle
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 
 
+def _coerce_delta_arraylike(delta):
+    """Coerce a plain Python sequence delta (allowed by the public API for
+    individual-delta inputs) to an ndarray: the backend-agnostic coords
+    transforms resolve their namespace from the data, and plain sequences
+    are not backend-resolvable. Scalars/arrays pass through untouched."""
+    return numpy.array(delta) if isinstance(delta, (list, tuple)) else delta
+
+
 class actionAngleStaeckel(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
 
@@ -96,7 +104,9 @@ class actionAngleStaeckel(actionAngle):
         self._useu0 = kwargs.get("useu0", False)
         self._delta = kwargs["delta"]
         self._order = kwargs.get("order", 10)
-        self._delta = conversion.parse_length(self._delta, ro=self._ro)
+        self._delta = _coerce_delta_arraylike(
+            conversion.parse_length(self._delta, ro=self._ro)
+        )
         # Check the units
         self._check_consistent_units()
         return None
@@ -498,7 +508,7 @@ class actionAngleStaeckel(actionAngle):
         -----
         - 2017-12-12 - Written - Bovy (UofT)
         """
-        delta = kwargs.get("delta", self._delta)
+        delta = _coerce_delta_arraylike(kwargs.get("delta", self._delta))
         umin, umax, vmin = self._uminumaxvmin(*args, **kwargs)
         rperi = coords.uv_to_Rz(umin, numpy.pi / 2.0, delta=delta)[0]
         rap_tmp, zmax = coords.uv_to_Rz(umax, vmin, delta=delta)
@@ -660,7 +670,7 @@ class actionAngleStaeckelSingle(actionAngle):
         self._pot = kwargs["pot"]
         if not "delta" in kwargs:  # pragma: no cover
             raise OSError("Must specify delta= for actionAngleStaeckel")
-        self._delta = kwargs["delta"]
+        self._delta = _coerce_delta_arraylike(kwargs["delta"])
         # Pre-calculate everything
         self._ux, self._vx = coords.Rz_to_uv(self._R, self._z, delta=self._delta)
         self._sinvx = numpy.sin(self._vx)
