@@ -7,7 +7,12 @@
 #   of the array arguments), with an explicit ``xp=`` override and a
 #   context-manager/global default as fallbacks. See ``_resolver`` for details.
 ###############################################################################
-from ._namespaces import is_backend_array
+from ._namespaces import (
+    asarray_on_device,
+    device_of,
+    is_backend_array,
+    match_input_dtype,
+)
 from ._resolver import (
     _seed_from_config,
     backend,
@@ -25,4 +30,7 @@ __all__ = [
     "use",
     "set_default_backend",
     "is_backend_array",
+    "match_input_dtype",
+    "device_of",
+    "asarray_on_device",
 ]
