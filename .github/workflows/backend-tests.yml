@@ -9,15 +9,22 @@ name: All-backend tests
 # so the numpy CI is byte-for-byte untouched.
 #
 # Triggers / gating (deliberately NOT every push/PR in the repo):
-#   * push to feat/backends            -> FULL matrix (backend-suite)
-#   * schedule (weekly cron)           -> FULL matrix (backend-suite)
-#   * workflow_dispatch (regen toggle) -> FULL matrix (backend-suite)
-#   * pull_request targeting feat/backends -> FAST smoke only (backend-smoke),
-#     so sub-PRs into the integration branch get quick pre-merge signal without
-#     paying for the ~50-min full suite.
-# The heavy full-matrix backend-suite job is itself gated with a job-level `if`
-# so that even though the workflow fires on pull_request, only the smoke runs on
-# a PR (and only the full suite runs on push/schedule/dispatch).
+#   * push to feat/backends                -> FULL matrix (backend-suite)
+#   * schedule (weekly cron)               -> FULL matrix (backend-suite)
+#   * workflow_dispatch (regen toggle)     -> FULL matrix (backend-suite)
+#   * pull_request targeting feat/backends -> FULL matrix (backend-suite)
+#     so a sub-PR into the integration branch gets the COMPLETE per-file x
+#     backend table before merge (this is what populates the status report on a
+#     PR). The full matrix is gated with a job-level `if` so that even though the
+#     workflow fires on pull_request, the suite ONLY runs for PRs whose BASE is
+#     feat/backends (and only on push/schedule/dispatch otherwise).
+#
+# The `report` job (needs backend-suite, if: always()) downloads every shard's
+# JUnit XML artifact, renders a per-file x backend markdown status table via
+# tests/backend_status_report.py, writes it to the run's step-summary, uploads
+# it as the `backend-status-report` artifact, and -- on a pull_request -- posts
+# it as a STICKY PR comment (overwritten on each re-run) so the burndown is
+# visible inline on the PR.
 # =============================================================================
 
 on:
@@ -25,8 +32,8 @@ on:
     branches:
       - feat/backends
   pull_request:
-    # Only sub-PRs that TARGET the integration branch, so they get the backend
-    # signal before merge -- NOT every PR in the repo.
+    # Only sub-PRs that TARGET the integration branch, so they get the full
+    # per-file backend table before merge -- NOT every PR in the repo.
     branches:
       - feat/backends
   schedule:
@@ -42,6 +49,11 @@ on:
         required: false
         default: false
 
+# The report job posts a sticky PR comment on pull_request runs.
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   # ===========================================================================
   # Full all-backend existing-suite job (the heavy "frequent but cheap" run).
@@ -53,17 +65,20 @@ jobs:
   # GREEN; strict=True xfail means a now-passing ledgered test XPASSes and fails
   # the run, so the ledger can only SHRINK (a burndown).
   #
-  # GATED to run ONLY on push-to-feat/backends, the weekly schedule, or a manual
-  # workflow_dispatch. It NEVER runs on a pull_request (those get backend-smoke
-  # instead), and -- because the whole workflow only fires for feat/backends --
-  # it never runs on ordinary pushes/PRs elsewhere in the repo.
+  # GATED to run on push-to-feat/backends, the weekly schedule, a manual
+  # workflow_dispatch, OR a pull_request whose BASE is feat/backends (so a sub-PR
+  # into the integration branch gets the full per-file table before merge).
+  # Because the whole workflow only fires for feat/backends (push/PR branch
+  # filters above), it never runs on ordinary pushes/PRs elsewhere in the repo;
+  # the job-level `if` additionally pins the PR case to base==feat/backends.
   backend-suite:
     name: backend ${{ matrix.BACKEND }} ${{ matrix.TEST_FILES }}
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/feat/backends')
-      || github.event_name == 'schedule'
+      github.event_name == 'schedule'
       || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && github.ref == 'refs/heads/feat/backends')
+      || (github.event_name == 'pull_request' && github.base_ref == 'feat/backends')
     strategy:
       fail-fast: false
       matrix:
@@ -187,28 +202,40 @@ jobs:
       run: |
         if [[ $TEST_FILES == 'tests/test_evolveddiskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e 'vo = 220.' >> $HOME/.galpyrc; fi
         if [[ $TEST_FILES == 'tests/test_diskdf.py' ]]; then echo -e '[normalization]' > $HOME/.galpyrc && echo -e 'ro = 8.' >> $HOME/.galpyrc && echo -e '[astropy]' >> $HOME/.galpyrc && echo -e 'astropy-units = False' >> $HOME/.galpyrc && echo -e '[plot]' >> $HOME/.galpyrc && echo -e 'seaborn-bovy-defaults = True' >> $HOME/.galpyrc && echo -e '[warnings]' >> $HOME/.galpyrc && echo -e 'verbose = True' >> $HOME/.galpyrc; fi
+    - name: Compute shard id + junit path
+      # Single source of truth for the sanitized shard id is
+      # tests/backend_status_report.py --id (reads $TEST_FILES from env, so the
+      # embedded -k '...' needs no shell quoting). The report job recomputes the
+      # SAME ids to map each artifact back to a (backend, shard) table cell.
+      env:
+        TEST_FILES: ${{ matrix.TEST_FILES }}
+        BACKEND: ${{ matrix.BACKEND }}
+      run: |
+        SHARD_ID=$(python tests/backend_status_report.py --id)
+        echo "SHARD_ID=${SHARD_ID}" >> "$GITHUB_ENV"
+        echo "JUNIT_PATH=${GITHUB_WORKSPACE}/backend-junit-${BACKEND}-${SHARD_ID}.xml" >> "$GITHUB_ENV"
     - name: Test with pytest (backend=${{ matrix.BACKEND }})
       env:
         TEST_FILES: ${{ matrix.TEST_FILES }}
         BACKEND: ${{ matrix.BACKEND }}
       run: |
-        # -rxX reports XFAIL/XPASS; junit xml drives the burndown summary.
-        # Do NOT pass -W error here: under a backend the existing suite emits
-        # many benign warnings that are not part of the ledger contract.
-        # `|| true` so a non-zero exit (e.g. a strict XPASS forcing a ledger
-        # shrink) still reaches the burndown summary step; the explicit gate in
-        # the re-fail step re-fails the job when appropriate.
+        # -rxX reports XFAIL/XPASS; junit xml drives the burndown summary and the
+        # report job's per-file table. Do NOT pass -W error here: under a backend
+        # the existing suite emits many benign warnings that are not part of the
+        # ledger contract. `|| true` so a non-zero exit (e.g. a strict XPASS
+        # forcing a ledger shrink) still reaches the burndown summary step; the
+        # explicit gate in the re-fail step re-fails the job when appropriate.
         set -o pipefail
         eval "pytest -p no:cacheprovider -v $TEST_FILES \
           --backend=$BACKEND \
-          -rxX --junitxml=backend-junit.xml \
+          -rxX --junitxml=${JUNIT_PATH} \
           --disable-pytest-warnings" | tee backend-pytest.log || true
     - name: Backend burndown summary
       if: ${{ always() }}
       env:
         BACKEND: ${{ matrix.BACKEND }}
       run: |
-        python - "$BACKEND" backend-junit.xml <<'PY' >> "$GITHUB_STEP_SUMMARY"
+        python - "$BACKEND" "$JUNIT_PATH" <<'PY' >> "$GITHUB_STEP_SUMMARY"
         import sys, xml.etree.ElementTree as ET
         backend, path = sys.argv[1], sys.argv[2]
         passed = xfailed = xpassed = failed = errored = skipped = total = 0
@@ -260,9 +287,9 @@ jobs:
         # The pytest step swallowed its exit code so the summary always renders.
         # Re-derive pass/fail from junit: any <failure> or <error> (which now
         # includes strict-XPASS ledger entries that must be removed) fails the job.
-        python - backend-junit.xml <<'PY'
+        python - "$JUNIT_PATH" <<'PY'
         import sys, xml.etree.ElementTree as ET
-        root = ET.parse("backend-junit.xml").getroot()
+        root = ET.parse(sys.argv[1]).getroot()
         bad = 0
         for tc in root.iter("testcase"):
             if tc.find("failure") is not None or tc.find("error") is not None:
@@ -272,6 +299,16 @@ jobs:
             sys.exit(1)
         print("All green: every failure is covered by the xfail-ledger.")
         PY
+    - name: Upload shard JUnit XML
+      # Always upload (even when the shard FAILS or the pytest step crashed) so
+      # the report job can render this cell; a missing artifact -> "(no result)".
+      # Name is unique per BACKEND x shard so the 26 uploads never collide.
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-junit-${{ matrix.BACKEND }}-${{ env.SHARD_ID }}
+        path: ${{ env.JUNIT_PATH }}
+        if-no-files-found: warn
     - name: Upload regenerated ledger (regen mode)
       if: ${{ always() && env.GALPY_BACKEND_XFAIL_REGEN == '1' }}
       uses: actions/upload-artifact@v4
@@ -281,32 +318,26 @@ jobs:
         if-no-files-found: warn
 
   # ===========================================================================
-  # Fast per-PR backend smoke (gross-regression catch for sub-PRs).
+  # All-backend status report (per-file x backend burndown table).
   #
-  # Runs a tiny curated slice (verified GREEN under BOTH jax and torch) under
-  # both backends so a PR TARGETING feat/backends gets quick pre-merge signal
-  # (~2-3 min) without the full ~50-min suite. The ledger is NOT applied here
-  # (these curated tests are expected to PASS); a regression makes the smoke RED
-  # immediately. Same dependency provisioning as a no-extras backend-suite shard
-  # plus astropy (test_potential pulls in astropy via the registry import paths,
-  # and the smoke previously died on `ModuleNotFoundError: astropy` because the
-  # job did not install it -- provisioned below).
+  # Downloads every backend-suite shard's JUnit XML artifact and renders a
+  # markdown table (ROWS = the 13 TEST_FILES shards, COLUMNS = jax / torch) via
+  # the checked-in tests/backend_status_report.py. The table is written to the
+  # run's step-summary, uploaded as the `backend-status-report` artifact, and --
+  # on a pull_request -- posted as a STICKY PR comment (overwritten on each
+  # re-run via the fixed `header: backend-status` marker).
   #
-  # GATED to run ONLY on a pull_request (the workflow only fires for
-  # feat/backends; the `if` ensures the smoke does not also run on
-  # push/schedule/dispatch, where the full backend-suite covers it).
-  backend-smoke:
-    name: backend smoke ${{ matrix.BACKEND }}
+  # needs backend-suite + if: always() so the report renders even when some
+  # shards FAIL or crash; a shard that produced no XML shows as "(no result)"
+  # rather than failing this job (the report script is robust to missing XML).
+  report:
+    name: backend status report
+    needs: [backend-suite]
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'pull_request' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        BACKEND: [jax, torch]
-    env:
-      MPLBACKEND: Agg
-      JAX_PLATFORMS: cpu
-      CUDA_VISIBLE_DEVICES: ""
+    if: ${{ always() }}
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
     - uses: actions/checkout@v6
     - name: Set up Python
@@ -314,56 +345,41 @@ jobs:
       with:
         python-version: "3.14"
         allow-prereleases: true
-    - name: Install the GSL
-      run: sudo apt-get install libgsl-dev
-    - name: Install Python dependencies
-      run: pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm
-    - name: Install astropy
-      # test_potential's potential registry imports exercise astropy-backed
-      # code paths; install it so collection does not fail on ModuleNotFoundError.
-      run: pip install astropy pyerfa
-    - name: Install JAX
-      if: ${{ matrix.BACKEND == 'jax' }}
-      run: pip install jax jaxlib array-api-compat diffrax
-    - name: Install PyTorch (CPU)
-      if: ${{ matrix.BACKEND == 'torch' }}
-      run: |
-        pip install torch --index-url https://download.pytorch.org/whl/cpu
-        pip install array-api-compat torchdiffeq
-    - name: Install torus code
-      run: |
-        git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
-        cd galpy/actionAngle/actionAngleTorus_c_ext/torus
-        git checkout galpy
-        cd -
-    - name: Install package
+    - name: Download all shard JUnit XML artifacts
+      uses: actions/download-artifact@v4
+      with:
+        # Each shard uploaded backend-junit-<backend>-<sid>; unpack them all
+        # into junit-artifacts/ (one sub-dir per artifact). Match on prefix so
+        # the regen-ledger artifacts are not pulled in.
+        pattern: backend-junit-*
+        path: junit-artifacts
+        merge-multiple: false
+      continue-on-error: true
+    - name: Render status table
       env:
-        GALPY_COMPILE_NO_OPENMP: 1
-        GALPY_COMPILE_SINGLE_EXT: 1
+        GITHUB_SHA: ${{ github.sha }}
       run: |
-        python -m pip install --no-build-isolation -ve ".[test]"
-        python setup.py build_ext --inplace
-    - name: Smoke test under backend=${{ matrix.BACKEND }}
-      env:
-        BACKEND: ${{ matrix.BACKEND }}
-      run: |
-        # Curated, fast, backend-CLEAN slice (verified GREEN under BOTH jax and
-        # torch): ~8 small potential-consistency checks (rforce/r2deriv across
-        # the whole potential registry, the planar-force iterator, the
-        # Ring/SphericalShell normalizers, and the MovingObject 2nd-deriv FD
-        # check) plus an orbit setup/integration case. The ledger is NOT applied
-        # here: these are expected to PASS, so any regression makes the smoke RED
-        # immediately. The broader orbit-energy and actionAngle-Staeckel coverage
-        # (which still has many ledgered backend failures) runs in the gated
-        # backend-suite job, not on PRs.
-        #
-        # NB: this curated -k is deliberately the backend-clean intersection; do
-        # NOT add orbit-energy/actionAngle-Staeckel cases until they are green
-        # under both backends.
-        # NB: -k applies to ALL selected files, so test_orbit_setup_linear must
-        # appear in the -k expression too (otherwise the explicit orbit nodeid is
-        # deselected by the potential-only -k).
-        pytest -p no:cacheprovider -v --backend=$BACKEND \
-          --disable-pytest-warnings \
-          tests/test_potential.py tests/test_orbit.py::test_orbit_setup_linear \
-            -k "test_rforce or test_r2deriv or test_planarForce_len_iter or test_RingPotential_normalizer0 or test_SphericalShellPotential_normalizer0 or test_MovingObject_2ndderivs_fd or test_orbit_setup_linear"
+        # Robust to a missing junit dir (e.g. all shards skipped/crashed): make
+        # sure the dir exists so the script just renders an all-"(no result)"
+        # table instead of failing.
+        mkdir -p junit-artifacts
+        python tests/backend_status_report.py junit-artifacts status.md
+        {
+          echo "<!-- backend-status -->"
+          cat status.md
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload status report
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-status-report
+        path: status.md
+        if-no-files-found: warn
+    - name: Sticky PR comment
+      # Overwrites the previous comment on re-runs via the fixed header marker,
+      # so a PR keeps exactly one always-current backend-status comment.
+      if: ${{ github.event_name == 'pull_request' }}
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: backend-status
+        path: status.md
