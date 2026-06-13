@@ -231,17 +231,25 @@ jobs:
         # ledger contract. `|| true` so a non-zero exit (e.g. a strict XPASS
         # forcing a ledger shrink) still reaches the burndown summary step; the
         # explicit gate in the re-fail step re-fails the job when appropriate.
-        # --timeout=300 --timeout-method=thread: kill any single test that runs
-        # >300 s and record it as a FAILURE rather than letting it hang the shard
-        # (the SCFPotential/DiskSCF/Multipole jax XLA-graph blow-up otherwise
-        # stalls the run for hours so the `report` job never posts). The thread
-        # method works without signal support and can interrupt a hung jax XLA
-        # trace; the killed test surfaces in junit as a failure (covered by the
-        # ledger if listed, else re-fails the shard as intended).
+        # --timeout=300: kill any single test that runs >300 s and record it as a
+        # FAILURE instead of letting it hang the shard (the SCFPotential/DiskSCF/
+        # Multipole jax XLA-graph blow-up -- a Python-unrolled harmonic sum --
+        # otherwise stalls the run for hours so the `report` job never posts).
+        # --timeout-method=signal (NOT thread): the jax hang is in Python-level
+        # XLA tracing, which is interruptible at a bytecode boundary, so signal
+        # raises Timeout in the test, the test is recorded as a normal FAILED in
+        # the junit XML, AND the session CONTINUES to the remaining tests. The
+        # thread method instead os._exit()s the whole pytest process on timeout,
+        # which kills it BEFORE the junit XML is written -> the shard produces no
+        # junit at all (report cell "(no result)", nothing recorded). signal is
+        # therefore what actually meets the "killed and recorded as a FAILURE"
+        # goal here. --session-timeout=4500 is a hard 75-min ceiling on the whole
+        # shard in case a future test hangs in a signal-uninterruptible C call;
+        # the job-level timeout-minutes: 90 is the final backstop above that.
         set -o pipefail
         eval "pytest -p no:cacheprovider -v $TEST_FILES \
           --backend=$BACKEND \
-          --timeout=300 --timeout-method=thread \
+          --timeout=300 --timeout-method=signal --session-timeout=4500 \
           -rxX --junitxml=${JUNIT_PATH} \
           --disable-pytest-warnings" | tee backend-pytest.log || true
     - name: Backend burndown summary
