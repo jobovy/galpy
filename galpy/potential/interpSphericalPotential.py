@@ -4,7 +4,7 @@
 import numpy
 from scipy import interpolate
 
-from ..backend import get_namespace
+from ..backend import asarray_on_device, device_of, get_namespace, match_input_dtype
 from ..util._optional_deps import _JAX_LOADED
 from ..util.conversion import get_physical, physical_compatible
 from .Potential import _evaluatePotentials, _evaluateRforces
@@ -44,8 +44,11 @@ def _ppoly_eval(xp, x, c, r):
     (finite extrapolation), which keeps the dead side of the callers'
     ``xp.where`` branch selections NaN-free under autodiff.
     """
-    xb = xp.asarray(x)
-    cb = xp.asarray(c)
+    # knots/coefficients stay float64 (precision is the point; the callers
+    # exit-cast) but must live on the input's device (CUDA support)
+    dev = device_of(r)
+    xb = asarray_on_device(xp, x, dev)
+    cb = asarray_on_device(xp, c, dev)
     idx = xp.clip(xp.searchsorted(xb, r, side="right") - 1, 0, cb.shape[1] - 1)
     dr = r - xb[idx]
     out = cb[0, idx]
@@ -166,7 +169,10 @@ class interpSphericalPotential(SphericalPotential):
         )
         rsafe = xp.where(r >= self._rmax, r, 1.0)
         outside = -float(self._total_mass) / rsafe + float(self._Phimax)
-        return xp.where(r >= self._rmax, outside, inside)
+        # the spline knots/coefficients are deliberately float64 (precision);
+        # cast the result to the input dtype at exit (no-op for float64 input;
+        # the numpy path above already follows the input dtype via empty_like)
+        return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rforce(self, r, t=0.0):
         xp = get_namespace(r)
@@ -179,7 +185,8 @@ class interpSphericalPotential(SphericalPotential):
         inside = _ppoly_eval(xp, self._ppoly_x, self._force_ppoly_c, r)
         rsafe = xp.where(r >= self._rmax, r, 1.0)
         outside = -float(self._total_mass) / rsafe**2.0
-        return xp.where(r >= self._rmax, outside, inside)
+        # float64 spline interior, input-dtype exit cast (see _revaluate)
+        return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rforce_jax(self, r):
         if not _JAX_LOADED:  # pragma: no cover
@@ -199,7 +206,8 @@ class interpSphericalPotential(SphericalPotential):
         inside = -_ppoly_eval(xp, self._ppoly_x, self._r2deriv_ppoly_c, r)
         rsafe = xp.where(r >= self._rmax, r, 1.0)
         outside = -2.0 * float(self._total_mass) / rsafe**3.0
-        return xp.where(r >= self._rmax, outside, inside)
+        # float64 spline interior, input-dtype exit cast (see _revaluate)
+        return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rdens(self, r, t=0.0):
         xp = get_namespace(r)
@@ -214,4 +222,5 @@ class interpSphericalPotential(SphericalPotential):
         # NaN-free (r >= rmax > 0, so the 1/r factors are safe there too).
         r = xp.asarray(r)
         inside = SphericalPotential._rdens(self, r, t=t)
-        return xp.where(r >= self._rmax, 0.0, inside)
+        # float64 spline interior, input-dtype exit cast (see _revaluate)
+        return match_input_dtype(xp.where(r >= self._rmax, 0.0, inside), r)

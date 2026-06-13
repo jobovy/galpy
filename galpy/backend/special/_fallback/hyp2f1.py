@@ -23,6 +23,7 @@
 ###############################################################################
 import math
 
+from ..._namespaces import asarray_on_device, device_of
 from ._quadrature import gauss_legendre_01
 
 # 128 nodes: ~1e-10 or better vs scipy at realistic radii (|z| = r/a <~ 50);
@@ -68,9 +69,12 @@ def hyp2f1_fallback(xp, a, b, c, z):
     k = min(12.0, max(1.0, float(math.ceil(6.0 / B))))
     pref = math.exp(math.lgamma(c) - math.lgamma(B) - math.lgamma(q))
 
+    # node/weight tables stay float64 (precision is the point; the router
+    # exit-casts) but must live on the input's device (CUDA support)
     nodes, weights = gauss_legendre_01(_NODES)
-    xg = xp.asarray(nodes)
-    wg = xp.asarray(weights)
+    dev = device_of(z)
+    xg = asarray_on_device(xp, nodes, dev)
+    wg = asarray_on_device(xp, weights, dev)
     X = xg**k
     dX = k * xg ** (k - 1.0)
 
