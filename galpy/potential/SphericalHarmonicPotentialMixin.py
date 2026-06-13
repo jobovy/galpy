@@ -4,7 +4,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace
+from ..backend import get_namespace, match_input_dtype
 from ..util import coords
 
 
@@ -121,7 +121,16 @@ class SphericalHarmonicPotentialMixin:
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
         dr_dR = xp.divide(R, r)
         dtheta_dR = xp.divide(z, r**2)
-        return self._evaluate_cyl_force(dr_dR, dtheta_dR, 0, R, z, phi, t=t)
+        # the expansion tables of the implementing classes (SCF /
+        # MultipoleExpansion) are deliberately float64 (precision); cast the
+        # result to the input dtype at exit (no-op for float64/scalar inputs)
+        return match_input_dtype(
+            self._evaluate_cyl_force(dr_dR, dtheta_dR, 0, R, z, phi, t=t),
+            R,
+            z,
+            phi,
+            t,
+        )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
@@ -130,14 +139,36 @@ class SphericalHarmonicPotentialMixin:
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
         dr_dz = xp.divide(z, r)
         dtheta_dz = xp.divide(-R, r**2)
-        return self._evaluate_cyl_force(dr_dz, dtheta_dz, 0, R, z, phi, t=t)
+        # float64 interior, input-dtype exit cast (see _Rforce)
+        return match_input_dtype(
+            self._evaluate_cyl_force(dr_dz, dtheta_dz, 0, R, z, phi, t=t),
+            R,
+            z,
+            phi,
+            t,
+        )
 
     def _phitorque(self, R, z, phi=0, t=0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        return self._evaluate_cyl_force(0, 0, 1, R, z, phi, t=t)
+        # float64 interior, input-dtype exit cast (see _Rforce)
+        return match_input_dtype(
+            self._evaluate_cyl_force(0, 0, 1, R, z, phi, t=t), R, z, phi, t
+        )
 
     def _evaluate_cyl_2nd_deriv(self, deriv_type, R, z, phi, t=0.0):
+        # float64 interior, input-dtype exit cast (see _Rforce); the core
+        # method below reassigns R/z/phi/t, so the cast wraps it here, where
+        # the original inputs (whose dtype is to be matched) are available
+        return match_input_dtype(
+            self._evaluate_cyl_2nd_deriv_core(deriv_type, R, z, phi, t=t),
+            R,
+            z,
+            phi,
+            t,
+        )
+
+    def _evaluate_cyl_2nd_deriv_core(self, deriv_type, R, z, phi, t=0.0):
         """
         Evaluate a cylindrical second derivative over an array of coordinates.
 

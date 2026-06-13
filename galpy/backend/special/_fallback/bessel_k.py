@@ -23,6 +23,8 @@
 ###############################################################################
 import numpy
 
+from ..._namespaces import asarray_on_device, device_of
+
 _GAMMA = 0.5772156649015328606  # Euler-Mascheroni
 _NSERIES = 30  # ascending-series terms (x <= 2)
 _TRAP_H = 0.25  # trapezoidal step (in the 1/sqrt(x)-scaled variable)
@@ -63,8 +65,11 @@ def _k01(xp, x):
     K1s = 1.0 / xs + xp.log(xs / 2.0) * i1(xs) - (xs / 2.0) * s1
 
     # --- peak-resolving scaled trapezoidal (x > 2) ---
-    nodes = xp.asarray(_TRAP_NODES)
-    weights = xp.asarray(_TRAP_W)
+    # node/weight tables stay float64 (precision is the point; the router
+    # exit-casts) but must live on the input's device (CUDA support)
+    dev = device_of(x)
+    nodes = asarray_on_device(xp, _TRAP_NODES, dev)
+    weights = asarray_on_device(xp, _TRAP_W, dev)
     sc = 1.0 / xp.sqrt(xt)
     t = sc[..., None] * nodes  # (..., N+1)
     cosh_t = xp.cosh(t)
