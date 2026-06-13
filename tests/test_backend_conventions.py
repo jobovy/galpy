@@ -35,7 +35,21 @@ COMPUTE_METHODS = {
 }
 
 # Potentials migrated to the backend convention (extend as PRs land).
-MIGRATED = ["PlummerPotential", "IsochronePotential"]
+MIGRATED = [
+    "PlummerPotential",
+    "IsochronePotential",
+    # P2.6 wrappers (their __init__ machinery is numpy-by-design; only the
+    # private compute methods below are checked)
+    "DehnenSmoothWrapperPotential",
+    "GaussianAmplitudeWrapperPotential",
+    "TimeDependentAmplitudeWrapperPotential",
+    "SolidBodyRotationWrapperPotential",
+    "CorotatingRotationWrapperPotential",
+    "RotateAndTiltWrapperPotential",
+    "KuzminLikeWrapperPotential",
+    "OblateStaeckelWrapperPotential",
+    "CylindricallySeparablePotentialWrapper",
+]
 
 
 class _BareNumpyVisitor(ast.NodeVisitor):
