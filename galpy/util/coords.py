@@ -88,6 +88,35 @@ from ..util.config import __config__
 _APY_COORDS = __config__.getboolean("astropy", "astropy-coords")
 _APY_COORDS *= _APY_LOADED
 _DEGTORAD = numpy.pi / 180.0
+
+
+def _promote_scalars_for(xp, *vals):
+    """Promote plain Python scalars among ``vals`` to the active non-numpy
+    namespace, anchored on the dtype/device of the first array argument, so
+    that e.g. torch functions -- which require Tensors -- accept the mixed
+    scalar/array inputs that the numpy path has always supported. The numpy
+    path passes everything through untouched (byte-identical)."""
+    if xp is numpy:
+        return vals
+    ref = next((v for v in vals if hasattr(v, "ndim")), None)
+    if ref is None:
+        # Nothing to anchor on (e.g. all-scalar inputs under a forced backend
+        # default): pass through, the namespace's functions handle scalars
+        return vals
+    dtype = getattr(ref, "dtype", None)
+    device = getattr(ref, "device", None)
+
+    def _promote(v):
+        if hasattr(v, "ndim"):
+            return v
+        try:
+            return xp.asarray(v, dtype=dtype, device=device)
+        except TypeError:  # pragma: no cover - namespace without device kwarg
+            return xp.asarray(v, dtype=dtype)
+
+    return tuple(_promote(v) for v in vals)
+
+
 if _APY_LOADED:
     import astropy.coordinates as apycoords
     from astropy import units
@@ -1124,7 +1153,9 @@ def rect_to_cyl(X, Y, Z):
     - 2010-09-24 - Written - Bovy (NYU)
     - 2019-06-21 - Changed such that phi in [-pi,pi] - Bovy (UofT)
     """
-    return (numpy.sqrt(X**2.0 + Y**2.0), numpy.arctan2(Y, X), Z)
+    xp = get_namespace(X, Y, Z)
+    X, Y, Z = _promote_scalars_for(xp, X, Y, Z)
+    return (xp.sqrt(X**2.0 + Y**2.0), xp.arctan2(Y, X), Z)
 
 
 def cyl_to_rect(R, phi, Z):
@@ -1149,7 +1180,9 @@ def cyl_to_rect(R, phi, Z):
     -----
     - 2011-02-23 - Written - Bovy (NYU)
     """
-    return (R * numpy.cos(phi), R * numpy.sin(phi), Z)
+    xp = get_namespace(R, phi, Z)
+    R, phi, Z = _promote_scalars_for(xp, R, phi, Z)
+    return (R * xp.cos(phi), R * xp.sin(phi), Z)
 
 
 def cyl_to_spher(R, Z, phi):
@@ -2372,16 +2405,18 @@ def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     - 2012-11-27 - Written - Bovy (IAS)
     - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
     """
+    xp = get_namespace(R, z, delta)
+    R, z = _promote_scalars_for(xp, R, z)
     if oblate:
         d12 = (R + delta) ** 2.0 + z**2.0
         d22 = (R - delta) ** 2.0 + z**2.0
     else:
         d12 = (z + delta) ** 2.0 + R**2.0
         d22 = (z - delta) ** 2.0 + R**2.0
-    coshu = 0.5 / delta * (numpy.sqrt(d12) + numpy.sqrt(d22))
-    cosv = 0.5 / delta * (numpy.sqrt(d12) - numpy.sqrt(d22))
+    coshu = 0.5 / delta * (xp.sqrt(d12) + xp.sqrt(d22))
+    cosv = 0.5 / delta * (xp.sqrt(d12) - xp.sqrt(d22))
     if oblate:  # cosv is currently really sinv
-        cosv = numpy.sqrt(1.0 - cosv**2.0)
+        cosv = xp.sqrt(1.0 - cosv**2.0)
     return (coshu, cosv)
 
 
@@ -2411,9 +2446,10 @@ def Rz_to_uv(R, z, delta=1.0, oblate=False):
     - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
 
     """
+    xp = get_namespace(R, z, delta)
     coshu, cosv = Rz_to_coshucosv(R, z, delta, oblate=oblate)
-    u = numpy.arccosh(coshu)
-    v = numpy.arccos(cosv)
+    u = xp.arccosh(coshu)
+    v = xp.arccos(cosv)
     return (u, v)
 
 
@@ -2443,12 +2479,14 @@ def uv_to_Rz(u, v, delta=1.0, oblate=False):
     - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
 
     """
+    xp = get_namespace(u, v, delta)
+    u, v = _promote_scalars_for(xp, u, v)
     if oblate:
-        R = delta * numpy.cosh(u) * numpy.sin(v)
-        z = delta * numpy.sinh(u) * numpy.cos(v)
+        R = delta * xp.cosh(u) * xp.sin(v)
+        z = delta * xp.sinh(u) * xp.cos(v)
     else:
-        R = delta * numpy.sinh(u) * numpy.sin(v)
-        z = delta * numpy.cosh(u) * numpy.cos(v)
+        R = delta * xp.sinh(u) * xp.sin(v)
+        z = delta * xp.cosh(u) * xp.cos(v)
     return (R, z)
 
 
