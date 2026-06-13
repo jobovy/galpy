@@ -4,6 +4,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from .Potential import (
     _evaluatephitorques,
@@ -20,6 +21,21 @@ from .Potential import (
     evaluatez2derivs,
 )
 from .WrapperPotential import WrapperPotential
+
+
+def _as_xp_constant(xp, value, ref):
+    """Bring a stored numpy constant (rotation matrix / offset) into the active
+    namespace, anchored on the dtype/device of ``ref`` (a backend array derived
+    from the coordinate inputs). The numpy path passes the stored array through
+    untouched (byte-identical)."""
+    if xp is numpy:
+        return value
+    dtype = getattr(ref, "dtype", None)
+    device = getattr(ref, "device", None)
+    try:
+        return xp.asarray(value, dtype=dtype, device=device)
+    except TypeError:  # pragma: no cover - namespace without device= kwarg
+        return xp.asarray(value, dtype=dtype)
 
 
 # Only implement 3D wrapper
@@ -161,27 +177,45 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
     def __getattr__(self, attribute):
         return super().__getattr__(attribute)
 
+    def _rect_transformed(self, xp, R, z, phi, guard_inf=False):
+        """Rectangular coordinates in the rotated/tilted (+offset) frame.
+
+        With ``guard_inf`` (the _evaluate/_dens R == inf branch), the wrapped
+        potential is evaluated at rectangular (R, 0, z) instead; the finite-R
+        branch's input is guarded (eager backends evaluate both ``xp.where``
+        sides, and inf*cos(phi) would NaN-poison reverse-mode autodiff)."""
+        if guard_inf:
+            Rinf = xp.isinf(R)
+            x, y, z = coords.cyl_to_rect(xp.where(Rinf, 1.0, R), phi, z)
+            x = xp.where(Rinf, R, x)
+            y = xp.where(Rinf, 0.0, y)
+        else:
+            x, y, z = coords.cyl_to_rect(R, phi, z)
+        xyzp = xp.stack([x, y, z])
+        if not self._norot:
+            xyzp = _as_xp_constant(xp, self._rot, xyzp) @ xyzp
+        if self._offset is not None:
+            xyzp = xyzp + _as_xp_constant(xp, self._offset, xyzp)
+        return xyzp
+
     @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        x, y, z = coords.cyl_to_rect(R, phi, z) if not numpy.isinf(R) else (R, 0.0, z)
-        if self._norot:
-            xyzp = numpy.array([x, y, z])
-        else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-        if self._offset is not None:
-            xyzp += self._offset
+        xp = get_namespace(R, z, phi, t)
+        xyzp = self._rect_transformed(xp, R, z, phi, guard_inf=True)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         return _evaluatePotentials(self._pot, Rp, zp, phi=phip, t=t)
 
     @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        return numpy.cos(phi) * Fxyz[0] + numpy.sin(phi) * Fxyz[1]
+        return xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1]
 
     @check_potential_inputs_not_arrays
     def _phitorque(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
-        return R * (-numpy.sin(phi) * Fxyz[0] + numpy.cos(phi) * Fxyz[1])
+        return R * (-xp.sin(phi) * Fxyz[0] + xp.cos(phi) * Fxyz[1])
 
     @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0.0, t=0.0):
@@ -189,34 +223,32 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     def _force_xyz(self, R, z, phi=0.0, t=0.0):
         """Get the rectangular forces in the transformed frame"""
-        x, y, z = coords.cyl_to_rect(R, phi, z)
-        if self._norot:
-            xyzp = numpy.array([x, y, z])
-        else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-        if self._offset is not None:
-            xyzp += self._offset
+        xp = get_namespace(R, z, phi, t)
+        xyzp = self._rect_transformed(xp, R, z, phi)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
         phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
         zforcep = _evaluatezforces(self._pot, Rp, zp, phi=phip, t=t)
-        xforcep = numpy.cos(phip) * Rforcep - numpy.sin(phip) * phitorquep / Rp
-        yforcep = numpy.sin(phip) * Rforcep + numpy.cos(phip) * phitorquep / Rp
-        return numpy.dot(self._inv_rot, numpy.array([xforcep, yforcep, zforcep]))
+        xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
+        yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
+        Fxyzp = xp.stack([xforcep, yforcep, zforcep])
+        return _as_xp_constant(xp, self._inv_rot, Fxyzp) @ Fxyzp
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return (
-            numpy.cos(phi) ** 2.0 * phi2[0, 0]
-            + numpy.sin(phi) ** 2.0 * phi2[1, 1]
-            + 2.0 * numpy.cos(phi) * numpy.sin(phi) * phi2[0, 1]
+            xp.cos(phi) ** 2.0 * phi2[0, 0]
+            + xp.sin(phi) ** 2.0 * phi2[1, 1]
+            + 2.0 * xp.cos(phi) * xp.sin(phi) * phi2[0, 1]
         )
 
     @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
-        return numpy.cos(phi) * phi2[0, 2] + numpy.sin(phi) * phi2[1, 2]
+        return xp.cos(phi) * phi2[0, 2] + xp.sin(phi) * phi2[1, 2]
 
     @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
@@ -224,39 +256,37 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     @check_potential_inputs_not_arrays
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return R**2.0 * (
-            numpy.sin(phi) ** 2.0 * phi2[0, 0]
-            + numpy.cos(phi) ** 2.0 * phi2[1, 1]
-            - 2.0 * numpy.cos(phi) * numpy.sin(phi) * phi2[0, 1]
-        ) + R * (numpy.cos(phi) * Fxyz[0] + numpy.sin(phi) * Fxyz[1])
+            xp.sin(phi) ** 2.0 * phi2[0, 0]
+            + xp.cos(phi) ** 2.0 * phi2[1, 1]
+            - 2.0 * xp.cos(phi) * xp.sin(phi) * phi2[0, 1]
+        ) + R * (xp.cos(phi) * Fxyz[0] + xp.sin(phi) * Fxyz[1])
 
     @check_potential_inputs_not_arrays
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return (
-            R * numpy.cos(phi) * numpy.sin(phi) * (phi2[1, 1] - phi2[0, 0])
-            + R * numpy.cos(2.0 * phi) * phi2[0, 1]
-            + numpy.sin(phi) * Fxyz[0]
-            - numpy.cos(phi) * Fxyz[1]
+            R * xp.cos(phi) * xp.sin(phi) * (phi2[1, 1] - phi2[0, 0])
+            + R * xp.cos(2.0 * phi) * phi2[0, 1]
+            + xp.sin(phi) * Fxyz[0]
+            - xp.cos(phi) * Fxyz[1]
         )
 
     @check_potential_inputs_not_arrays
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z, phi, t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
-        return R * (numpy.cos(phi) * phi2[1, 2] - numpy.sin(phi) * phi2[0, 2])
+        return R * (xp.cos(phi) * phi2[1, 2] - xp.sin(phi) * phi2[0, 2])
 
     def _2ndderiv_xyz(self, R, z, phi=0.0, t=0.0):
         """Get the rectangular forces in the transformed frame"""
-        x, y, z = coords.cyl_to_rect(R, phi, z)
-        if self._norot:
-            xyzp = numpy.array([x, y, z])
-        else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-        if self._offset is not None:
-            xyzp += self._offset
+        xp = get_namespace(R, z, phi, t)
+        xyzp = self._rect_transformed(xp, R, z, phi)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         Rforcep = _evaluateRforces(self._pot, Rp, zp, phi=phip, t=t)
         phitorquep = _evaluatephitorques(self._pot, Rp, zp, phi=phip, t=t)
@@ -278,7 +308,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         phizderivp = evaluatephizderivs(
             self._pot, Rp, zp, phi=phip, t=t, use_physical=False
         )
-        cp, sp = numpy.cos(phip), numpy.sin(phip)
+        cp, sp = xp.cos(phip), xp.sin(phip)
         cp2, sp2, cpsp = cp**2.0, sp**2.0, cp * sp
         Rp2 = Rp * Rp
         x2derivp = (
@@ -304,28 +334,20 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         )
         xzderivp = Rzderivp * cp - phizderivp * sp / Rp
         yzderivp = Rzderivp * sp + phizderivp * cp / Rp
-        return numpy.dot(
-            self._inv_rot,
-            numpy.dot(
-                numpy.array(
-                    [
-                        [x2derivp, xyderivp, xzderivp],
-                        [xyderivp, y2derivp, yzderivp],
-                        [xzderivp, yzderivp, z2derivp],
-                    ]
-                ),
-                self._inv_rot.T,
-            ),
+        deriv2p = xp.stack(
+            [
+                xp.stack([x2derivp, xyderivp, xzderivp]),
+                xp.stack([xyderivp, y2derivp, yzderivp]),
+                xp.stack([xzderivp, yzderivp, z2derivp]),
+            ]
         )
+        inv_rot = _as_xp_constant(xp, self._inv_rot, deriv2p)
+        inv_rot_T = _as_xp_constant(xp, self._inv_rot.T, deriv2p)
+        return inv_rot @ (deriv2p @ inv_rot_T)
 
     @check_potential_inputs_not_arrays
     def _dens(self, R, z, phi=0.0, t=0.0):
-        x, y, z = coords.cyl_to_rect(R, phi, z) if not numpy.isinf(R) else (R, 0.0, z)
-        if self._norot:
-            xyzp = numpy.array([x, y, z])
-        else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
-        if self._offset is not None:
-            xyzp += self._offset
+        xp = get_namespace(R, z, phi, t)
+        xyzp = self._rect_transformed(xp, R, z, phi, guard_inf=True)
         Rp, phip, zp = coords.rect_to_cyl(xyzp[0], xyzp[1], xyzp[2])
         return evaluateDensities(self._pot, Rp, zp, phi=phip, t=t, use_physical=False)
