@@ -397,11 +397,31 @@ jobs:
         name: backend-status-report
         path: status.md
         if-no-files-found: warn
-    - name: Sticky PR comment
+    - name: Sticky PR comment (sub-PR targeting feat/backends)
       # Overwrites the previous comment on re-runs via the fixed header marker,
       # so a PR keeps exactly one always-current backend-status comment.
       if: ${{ github.event_name == 'pull_request' }}
       uses: marocchino/sticky-pull-request-comment@v2
       with:
         header: backend-status
+        path: status.md
+    - name: Resolve the integration PR (feat/backends -> main)
+      # On a push to feat/backends the run has no PR context, so look up the
+      # open integration PR (head feat/backends, base main) to comment on it --
+      # WITHOUT adding a pull_request trigger for base main (that would make
+      # pushes to feat/backends run the suite twice).
+      id: intpr
+      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feat/backends' }}
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        num=$(gh pr list --repo "$GITHUB_REPOSITORY" --head feat/backends --base main \
+              --state open --json number --jq '.[0].number // empty')
+        echo "number=$num" >> "$GITHUB_OUTPUT"
+    - name: Sticky comment on the integration PR (push to feat/backends)
+      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/feat/backends' && steps.intpr.outputs.number != '' }}
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: backend-status
+        number: ${{ steps.intpr.outputs.number }}
         path: status.md
