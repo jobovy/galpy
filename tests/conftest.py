@@ -770,5 +770,5 @@ def pytest_generate_tests(metafunc):
         # Now generate all inputs and run tests
         tols = [tol[p] if p in tol else tol["default"] for p in pots]
         firstTest = [True if ii == 0 else False for ii in range(len(pots))]
-        metafunc.parametrize("pot,ttol,firstTest", zip(pots, tols, firstTest))
+        metafunc.parametrize("pot,ttol,firstTest", list(zip(pots, tols, firstTest)))
     return None
