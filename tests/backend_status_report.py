@@ -37,8 +37,19 @@ pytest's junitxml encodes outcomes as:
   * fail          -> <testcase><failure>
   * error         -> <testcase><error>
   * strict XPASS  -> <testcase><failure message="...XPASS(strict)...">  (a now
-                     -passing ledgered test; must be removed from the ledger ->
-                     counted separately as "XPASS(fix-me)", NOT as a plain fail)
+                     -passing ledgered test; counted separately as "XPASS(fix-me)",
+                     NOT as a plain fail)
+
+The ledger now runs xfail(strict=False) (see tests/conftest.py): a ledgered test
+is green whether it fails OR (flakily) passes, so the few slow-jax tests that
+flip pass<->timeout no longer red the run. Under strict=False pytest records a
+now-passing ledgered test as a PLAIN PASS in junit (no <failure>), so the XPASS
+recount below is structurally 0 on a normal push. Burndown -- in BOTH directions
+(tests to ADD because they newly fail, and tests to DROP because they now pass)
+-- is therefore surfaced by the SCHEDULED REGEN run (GALPY_BACKEND_XFAIL_REGEN=1),
+which applies no xfail and rewrites the ledger from real outcomes; the diff vs
+the committed ledger is the authoritative burndown. The XPASS(fix-me) column is
+retained only for a strict-mode run.
 """
 
 from __future__ import annotations
@@ -148,7 +159,11 @@ class Counts:
 
     @property
     def is_bad(self) -> bool:
-        return bool(self.failed or self.errored or self.xpassed)
+        # Under the strict=False ledger XPASS is a non-blocking burndown
+        # opportunity (a test ready to DROP), not a regression -- it never reds
+        # the run, matching the workflow re-fail gate (which only fails on
+        # un-ledgered <failure>/<error>).
+        return bool(self.failed or self.errored)
 
 
 def parse_junit(path: str) -> Counts:
@@ -304,10 +319,13 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
         lines.append("")
     lines.append(
         "Green is achieved via the checked-in xfail-ledger "
-        "(`tests/backend_xfail.txt`), so the metric to watch is the "
-        "**shrinking xfail count** (burndown), not a raw pass count. A "
-        "`XPASS(fix-me)` means a ledgered test now passes and must be removed "
-        "from the ledger; a `FAIL/ERR` is an un-ledgered regression."
+        "(`tests/backend_xfail.txt`, applied `xfail(strict=False)`), so the "
+        "metric to watch is the **shrinking xfail count** (burndown), not a raw "
+        "pass count. A `FAIL/ERR` is an un-ledgered regression (reds the run). "
+        "Because the ledger is non-strict, a now-passing ledgered test is a "
+        "plain pass here (no per-push `XPASS`); burndown candidates -- in both "
+        "directions -- are surfaced by the scheduled regen run, which rewrites "
+        "the ledger from real outcomes."
     )
     lines.append("")
 

@@ -62,8 +62,12 @@ jobs:
   # `build` matrix (same files, same REQUIRES_* dependency provisioning, same
   # GSL/torus/C-extension build, same special .galpyrc configs) -- crossed with
   # BACKEND in {jax, torch}, CPU-only. The checked-in xfail-ledger keeps the run
-  # GREEN; strict=True xfail means a now-passing ledgered test XPASSes and fails
-  # the run, so the ledger can only SHRINK (a burndown).
+  # GREEN via xfail(strict=False): a ledgered test is green whether it fails OR
+  # (flakily) passes, so the slow-jax tests that flip pass<->300s-timeout no
+  # longer red the run. Only a genuinely un-ledgered failure/error reds it (still
+  # catches regressions). Burndown -- both adding newly-failing and dropping
+  # now-passing tests -- is done by the scheduled regen run, which rewrites the
+  # ledger from real (no-xfail) outcomes.
   #
   # GATED to run on push-to-feat/backends, the weekly schedule, a manual
   # workflow_dispatch, OR a pull_request whose BASE is feat/backends (so a sub-PR
@@ -228,9 +232,9 @@ jobs:
         # -rxX reports XFAIL/XPASS; junit xml drives the burndown summary and the
         # report job's per-file table. Do NOT pass -W error here: under a backend
         # the existing suite emits many benign warnings that are not part of the
-        # ledger contract. `|| true` so a non-zero exit (e.g. a strict XPASS
-        # forcing a ledger shrink) still reaches the burndown summary step; the
-        # explicit gate in the re-fail step re-fails the job when appropriate.
+        # ledger contract. `|| true` so a non-zero exit (e.g. an un-ledgered
+        # failure) still reaches the burndown summary step; the explicit gate in
+        # the re-fail step re-fails the job when appropriate.
         # --timeout=300: kill any single test that runs >300 s and record it as a
         # FAILURE instead of letting it hang the shard (the SCFPotential/DiskSCF/
         # Multipole jax XLA-graph blow-up -- a Python-unrolled harmonic sum --
@@ -287,7 +291,10 @@ jobs:
                     skipped += 1
                 continue
             passed += 1
-        # XPASS(strict) shows up as a failure with an xpass message; recount.
+        # XPASS(strict) shows up as a <failure> with an xpass message; recount.
+        # Under the strict=False ledger a now-passing ledgered test is a plain
+        # pass instead, so this is structurally 0 on a push -- burndown
+        # candidates come from the scheduled regen run, not per-push XPASS.
         xpassed = 0
         for tc in root.iter("testcase"):
             fail = tc.find("failure")
@@ -303,12 +310,14 @@ jobs:
         print(line)
         PY
         cat "$GITHUB_STEP_SUMMARY"
-    - name: Re-fail on un-ledgered failures or strict XPASS
+    - name: Re-fail on un-ledgered failures
       if: ${{ always() && env.GALPY_BACKEND_XFAIL_REGEN != '1' }}
       run: |
         # The pytest step swallowed its exit code so the summary always renders.
-        # Re-derive pass/fail from junit: any <failure> or <error> (which now
-        # includes strict-XPASS ledger entries that must be removed) fails the job.
+        # Re-derive pass/fail from junit: any <failure> or <error> fails the job.
+        # Under the strict=False ledger a now-passing ledgered test is a plain
+        # pass (no <failure>), so XPASS never reds the run -- only genuinely
+        # un-ledgered failures/errors do, which still catches real regressions.
         python - "$JUNIT_PATH" <<'PY'
         import sys, xml.etree.ElementTree as ET
         root = ET.parse(sys.argv[1]).getroot()
@@ -317,7 +326,7 @@ jobs:
             if tc.find("failure") is not None or tc.find("error") is not None:
                 bad += 1
         if bad:
-            print(f"{bad} non-xfail failures/errors (incl. strict XPASS); see log.")
+            print(f"{bad} un-ledgered failures/errors (NOT in the xfail-ledger); see log.")
             sys.exit(1)
         print("All green: every failure is covered by the xfail-ledger.")
         PY

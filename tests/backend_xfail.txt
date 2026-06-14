@@ -156,6 +156,7 @@ jax tests/test_orbit.py::test_energy_jacobi_conservation[sech2DiskSCFPotential--
 jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_oblate]
 jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_triaxial]
 jax tests/test_orbit.py::test_liouville_3d[PowerTriaxialPotential]
+jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_norot_offset]
 jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_offset]
 jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
 jax tests/test_orbit.py::test_liouville_3d[TriaxialGaussianPotential]

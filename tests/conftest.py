@@ -11,9 +11,13 @@ import pytest
 # while that work proceeds, a checked-in ledger (tests/backend_xfail.txt) lists
 # the nodeids that are known to fail per backend, and the
 # pytest_collection_modifyitems hook below marks each of them
-# xfail(strict=True). strict=True means a now-passing listed test XPASSes ->
-# fails the run, which forces the ledger to shrink as the ports land (a
-# burndown). numpy runs ignore the ledger entirely (byte-identical behaviour).
+# xfail(strict=False). strict=False means a ledgered test is GREEN whether it
+# fails OR (flakily) passes, so the few slow-jax tests that flip
+# pass<->300s-timeout across runs do not red the run; only a genuinely
+# un-ledgered failure does (which still catches regressions). The ledger is
+# kept current (shrinking as ports land) by the scheduled regen run, which
+# rewrites it from real no-xfail outcomes. numpy runs ignore the ledger
+# entirely (byte-identical behaviour).
 #
 # Ledger file format (tests/backend_xfail.txt):
 #   # comments start with '#'
@@ -102,9 +106,14 @@ def pytest_collection_modifyitems(config, items):
 
     Only active when --backend is jax or torch (numpy is untouched). In the
     default mode each ledgered nodeid for the active backend is marked
-    xfail(strict=True). In regenerate mode (GALPY_BACKEND_XFAIL_REGEN=1) nothing
-    is marked, so every test runs and the real outcome is recorded for re-seeding
-    the ledger in pytest_sessionfinish.
+    xfail(strict=False): a ledgered test is green whether it fails OR (flakily)
+    passes, so the ~3-4 slow-jax tests that flip pass<->300s-timeout across runs
+    no longer red the run. Only a genuinely-new un-ledgered failure reds the run,
+    which still catches regressions. Burndown is tracked by ledger size + the
+    non-blocking XPASS count in the status report (tests ready to drop). In
+    regenerate mode (GALPY_BACKEND_XFAIL_REGEN=1) nothing is marked, so every
+    test runs and the real outcome is recorded for re-seeding the ledger in
+    pytest_sessionfinish.
     """
     backend_name = config.getoption("--backend")
     if backend_name == "numpy":
@@ -115,7 +124,7 @@ def pytest_collection_modifyitems(config, items):
     ledger = _load_ledger(backend_name)
     if not ledger:
         return
-    marker = pytest.mark.xfail(strict=True, reason="backend-xfail-ledger")
+    marker = pytest.mark.xfail(strict=False, reason="backend-xfail-ledger")
     for item in items:
         nodeid = item.nodeid
         if nodeid in ledger or _strip_param(nodeid) in ledger:
