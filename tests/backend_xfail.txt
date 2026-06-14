@@ -1,6 +1,6 @@
-# backend xfail-ledger -- full-matrix junit harvest (run 27481397756) UNIONED with the
-# original seed ledger (the seed entries were xfailed->skipped in the harvest run,
-# so the failure-harvest dropped them; union recovers them). 2026-06-14.
+# backend xfail-ledger -- DEFINITIVE full-matrix harvest from REGEN run 27484883662
+# (regen mode applies no xfail, so nothing is skipped and every failure/timeout
+# is captured -- no seed-skipped blind spot). 2026-06-14.
 # format: <backend> <nodeid>   (conftest applies xfail(strict=True) per backend)
 
 jax tests/test_FDMdynamfric.py::test_dynamfric_c
@@ -118,6 +118,8 @@ jax tests/test_coords.py::test_uv_to_Rz_oblate
 jax tests/test_dynamfric.py::test_dynamfric_c
 jax tests/test_galpypaper.py::test_orbmethods
 jax tests/test_galpypaper.py::test_qdf
+jax tests/test_interp_potential.py::test_interpolation_potential_force_c
+jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_kuzminkutuzov.py::test_actionConservation
 jax tests/test_noninertial.py::test_accellsrframe_funcomegaz_2d
 jax tests/test_noninertial.py::test_accellsrframe_scalaromegaz_2d
