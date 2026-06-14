@@ -264,7 +264,7 @@ jobs:
         python - "$BACKEND" "$JUNIT_PATH" <<'PY' >> "$GITHUB_STEP_SUMMARY"
         import sys, xml.etree.ElementTree as ET
         backend, path = sys.argv[1], sys.argv[2]
-        passed = xfailed = xpassed = failed = errored = skipped = total = 0
+        passed = xfailed = xpassed = failed = errored = skipped = deferred = total = 0
         try:
             root = ET.parse(path).getroot()
         except Exception as e:
@@ -284,9 +284,11 @@ jobs:
             if skip is not None:
                 # pytest encodes xfail/xpass via the skipped/<properties>;
                 # use the message to disambiguate.
-                msg = (skip.get("message") or "") + (skip.text or "")
-                if "xfail" in msg.lower():
+                msg = ((skip.get("message") or "") + (skip.text or "")).lower()
+                if "xfail" in msg:
                     xfailed += 1
+                elif "backend-slow-skip" in msg:
+                    deferred += 1  # unrunnable-until-vectorized (own burndown)
                 else:
                     skipped += 1
                 continue
@@ -304,7 +306,7 @@ jobs:
                     xpassed += 1
                     failed -= 1  # was counted as failed above
         line = (f"Backend {backend}: {passed} passed, {xfailed} xfail (ledger), "
-                f"{xpassed} XPASS(fix-me)")
+                f"{deferred} deferred (slow-skip), {xpassed} XPASS(fix-me)")
         if failed or errored:
             line += f", {failed} FAILED, {errored} ERROR (NOT in ledger)"
         print(line)

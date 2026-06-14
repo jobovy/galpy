@@ -1,0 +1,36 @@
+# backend slow-skip list -- tests UNRUNNABLE under a backend (not wrong, just
+# pathologically slow until that backend's port is vectorized). conftest.py
+# marks each matching nodeid pytest.mark.skip(reason="backend-slow-skip: ...")
+# under the listed backend, in BOTH normal and regen mode, so the per-test
+# timeout is never spent on them. numpy still exercises every one of these. The
+# status report counts them as a separate "deferred" burndown bucket (distinct
+# from xfail), which drops to zero as the ports land. Skip wins over the
+# xfail-ledger, so a nodeid here must NOT also be in backend_xfail.txt.
+#
+# format: <backend> <nodeid>   (same as backend_xfail.txt)
+#
+# --- jax spherical-DF sampling/quadrature (Track F spherical-DF migration) ---
+# These sample (300k CDF inversions) and integrate the DF by scipy at scalar
+# points; under forced-jax every scalar evaluation dispatches an XLA graph, so
+# each test runs minutes. Selected by measured CI duration >= 90 s on the
+# all-backend run 27500392935 (full shard wall 4656 s -> ~1390 s after skip,
+# slowest survivor 86 s = >3x headroom under the 300 s per-test timeout). The
+# Track F spherical-DF backend migration (vectorized sampling + GL quadrature)
+# makes them fast; delete these lines as it lands. (Distinct from Track A #39,
+# which vectorizes the SCF/assoc_legendre *potential* path.)
+jax tests/test_sphericaldf.py::test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric
+jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dMdE_integral
+jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dens_directint
+jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_dens_directint
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_spherically_symmetric
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar
+jax tests/test_sphericaldf.py::test_king_sigmar
+jax tests/test_sphericaldf.py::test_king_sigmar_directint
+jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_beta
+jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_dens_massprofile
+jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric
+jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar
+jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint
+jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric

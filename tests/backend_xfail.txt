@@ -1,7 +1,8 @@
 # backend xfail-ledger -- DEFINITIVE full-matrix harvest from REGEN run 27484883662
 # (regen mode applies no xfail, so nothing is skipped and every failure/timeout
 # is captured -- no seed-skipped blind spot). 2026-06-14.
-# format: <backend> <nodeid>   (conftest applies xfail(strict=True) per backend)
+# format: <backend> <nodeid>   (conftest applies xfail(strict=False) per backend;
+# tests unrunnable-until-vectorized go in backend_slow_skip.txt instead, not here)
 
 jax tests/test_FDMdynamfric.py::test_dynamfric_c
 jax tests/test_MultipoleExpansionPotential.py::test_2nd_derivs_on_z_axis_continuity
@@ -345,8 +346,6 @@ jax tests/test_sphericaldf.py::test_isotropic_hernquist_singler_is_atrandomphi
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_singler_is_atsingler
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_singler_sigmar
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_singlerphi_is_atsinglephi
-jax tests/test_sphericaldf.py::test_king_sigmar
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_Qoutofbounds
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_beta
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation

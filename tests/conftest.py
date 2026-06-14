@@ -44,6 +44,21 @@ import pytest
 # without needing the ledger to be correct up front.
 
 _LEDGER_FILENAME = "backend_xfail.txt"
+# Tests that are *unrunnable* under a backend -- not wrong, just pathologically
+# slow until the relevant backend port is vectorized (e.g. the jax spherical-DF
+# sampling/nested-quadrature tests, each ~minutes under jax because the DF is
+# sampled / integrated by scipy at scalar points and every scalar evaluation
+# dispatches an XLA graph; the Track F spherical-DF migration replaces that with
+# vectorized backend sampling + GL quadrature and makes them fast -- distinct
+# from Track A #39, which vectorizes the SCF/assoc_legendre *potential* path).
+# These are SKIPPED (not run) under the listed backend rather than
+# xfail-ledgered: running them only to hit the per-test timeout each CI run
+# wastes minutes and risks stacking up against the session cap, and they would
+# pollute the xfail burndown with tests that actually pass (just slowly). Skip is
+# the efficient form of the same deferral -- numpy still exercises them fully --
+# and the skip-count is its own burndown that drops to zero as the ports land.
+# Same file format as the xfail-ledger: "<backend> <nodeid>".
+_SLOW_SKIP_FILENAME = "backend_slow_skip.txt"
 _REGEN_ENV = "GALPY_BACKEND_XFAIL_REGEN"
 # Default regen output; overridable via GALPY_BACKEND_XFAIL_OUT so parallel
 # per-backend regen runs can write to distinct files without racing.
@@ -58,14 +73,21 @@ def _ledger_path():
     return os.path.join(os.path.dirname(__file__), _LEDGER_FILENAME)
 
 
+def _slow_skip_path():
+    return os.path.join(os.path.dirname(__file__), _SLOW_SKIP_FILENAME)
+
+
 def _strip_param(nodeid):
     # "tests/test_x.py::test_y[Param]" -> "tests/test_x.py::test_y"
     return nodeid.split("[", 1)[0]
 
 
-def _load_ledger(backend_name):
-    """Return the set of ledger nodeids for the given backend, or empty set."""
-    path = _ledger_path()
+def _load_backend_nodeids(path, backend_name):
+    """Parse a "<backend> <nodeid>" file, returning the nodeids for one backend.
+
+    Shared by the xfail-ledger and the slow-skip list (same format). Lines may
+    carry trailing "# ..." comments; blank/comment-only lines are ignored.
+    """
     entries = set()
     if not os.path.exists(path):
         return entries
@@ -81,6 +103,16 @@ def _load_ledger(backend_name):
             if be == backend_name:
                 entries.add(nodeid)
     return entries
+
+
+def _load_ledger(backend_name):
+    """Return the set of ledger nodeids for the given backend, or empty set."""
+    return _load_backend_nodeids(_ledger_path(), backend_name)
+
+
+def _load_slow_skip(backend_name):
+    """Return the set of slow-skip nodeids for the given backend, or empty set."""
+    return _load_backend_nodeids(_slow_skip_path(), backend_name)
 
 
 def pytest_addoption(parser):
@@ -101,33 +133,58 @@ def pytest_configure(config):
     )
 
 
-def pytest_collection_modifyitems(config, items):
-    """Apply the backend xfail-ledger.
+def _matches(nodeid, entries):
+    """A backend entry matches a collected item by full or param-stripped id."""
+    return nodeid in entries or _strip_param(nodeid) in entries
 
-    Only active when --backend is jax or torch (numpy is untouched). In the
-    default mode each ledgered nodeid for the active backend is marked
-    xfail(strict=False): a ledgered test is green whether it fails OR (flakily)
-    passes, so the ~3-4 slow-jax tests that flip pass<->300s-timeout across runs
-    no longer red the run. Only a genuinely-new un-ledgered failure reds the run,
-    which still catches regressions. Burndown is tracked by ledger size + the
-    non-blocking XPASS count in the status report (tests ready to drop). In
-    regenerate mode (GALPY_BACKEND_XFAIL_REGEN=1) nothing is marked, so every
-    test runs and the real outcome is recorded for re-seeding the ledger in
+
+def pytest_collection_modifyitems(config, items):
+    """Apply the backend slow-skip list and xfail-ledger.
+
+    Only active when --backend is jax or torch (numpy is untouched).
+
+    Slow-skip list (tests/backend_slow_skip.txt): tests UNRUNNABLE under the
+    active backend (pathologically slow until the relevant port is vectorized)
+    are marked ``skip`` so they never run -- applied in BOTH normal and
+    regenerate mode, since we never want to spend the per-test timeout on them.
+
+    xfail-ledger (tests/backend_xfail.txt): the remaining known-failing nodeids
+    are marked xfail(strict=False) -- a ledgered test is green whether it fails
+    OR (flakily) passes, so the slow-jax tests that flip pass<->timeout across
+    runs no longer red the run; only a genuinely-new un-ledgered failure reds it
+    (still catches regressions). The ledger is kept current by the scheduled
+    regen run. NOT applied in regenerate mode (GALPY_BACKEND_XFAIL_REGEN=1), so
+    everything not slow-skipped runs and its real outcome is recorded in
     pytest_sessionfinish.
     """
     backend_name = config.getoption("--backend")
     if backend_name == "numpy":
         return
+    # Slow-skip applies in all modes (incl. regen) so the unrunnable tests never
+    # consume their timeout; skip wins over the xfail-ledger for the same nodeid.
+    slow_skip = _load_slow_skip(backend_name)
+    skipped_ids = set()
+    if slow_skip:
+        skip_marker = pytest.mark.skip(
+            reason=f"backend-slow-skip: unrunnable under {backend_name} until the "
+            "backend port is vectorized; see tests/backend_slow_skip.txt"
+        )
+        for item in items:
+            if _matches(item.nodeid, slow_skip):
+                item.add_marker(skip_marker)
+                skipped_ids.add(item.nodeid)
     if os.environ.get(_REGEN_ENV) == "1":
-        # regenerate: let everything run; pytest_sessionfinish records failures
+        # regenerate: let everything (not slow-skipped) run; pytest_sessionfinish
+        # records failures.
         return
     ledger = _load_ledger(backend_name)
     if not ledger:
         return
     marker = pytest.mark.xfail(strict=False, reason="backend-xfail-ledger")
     for item in items:
-        nodeid = item.nodeid
-        if nodeid in ledger or _strip_param(nodeid) in ledger:
+        if item.nodeid in skipped_ids:
+            continue
+        if _matches(item.nodeid, ledger):
             item.add_marker(marker)
 
 

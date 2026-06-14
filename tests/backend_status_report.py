@@ -33,7 +33,10 @@ JUnit parsing
 pytest's junitxml encodes outcomes as:
   * pass          -> <testcase> with no child <failure>/<error>/<skipped>
   * xfail         -> <testcase><skipped message="...xfail...">
-  * plain skip    -> <testcase><skipped message="..."> (no "xfail")
+  * slow-skip     -> <testcase><skipped message="...backend-slow-skip..."> (a
+                     deferred test, unrunnable under the backend until its port
+                     is vectorized; counted as "deferred", its own burndown)
+  * plain skip    -> <testcase><skipped message="..."> (none of the above)
   * fail          -> <testcase><failure>
   * error         -> <testcase><error>
   * strict XPASS  -> <testcase><failure message="...XPASS(strict)...">  (a now
@@ -143,6 +146,7 @@ class Counts:
     failed: int = 0
     errored: int = 0
     skipped: int = 0
+    slow_skipped: int = 0  # backend-slow-skip: unrunnable-until-vectorized (deferred)
     found: bool = False  # was an xml present/parseable for this cell?
     parse_error: str = ""
 
@@ -155,6 +159,7 @@ class Counts:
             + self.failed
             + self.errored
             + self.skipped
+            + self.slow_skipped
         )
 
     @property
@@ -192,8 +197,13 @@ def parse_junit(path: str) -> Counts:
             continue
         if skip is not None:
             msg = (skip.get("message") or "") + (skip.text or "")
-            if "xfail" in msg.lower():
+            low = msg.lower()
+            if "xfail" in low:
                 c.xfailed += 1
+            elif "backend-slow-skip" in low:
+                # deferred: unrunnable under this backend until its port is
+                # vectorized (own burndown bucket, see tests/backend_slow_skip.txt)
+                c.slow_skipped += 1
             else:
                 c.skipped += 1
             continue
@@ -259,6 +269,8 @@ def cell_text(c: Counts) -> str:
     if not c.found:
         return "— (no result)"
     parts = [f"{c.passed} pass", f"{c.xfailed} xfail"]
+    if c.slow_skipped:
+        parts.append(f"{c.slow_skipped} deferred")
     if c.failed or c.errored:
         parts.append(f"{c.failed + c.errored} FAIL/ERR")
     if c.xpassed:
@@ -292,6 +304,7 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
                     merged.failed += c.failed
                     merged.errored += c.errored
                     merged.skipped += c.skipped
+                    merged.slow_skipped += c.slow_skipped
                 if merged.total == 0 and all(not parse_junit(f).found for f in matched):
                     merged.found = False
                 cells[(idx, backend)] = merged
@@ -308,6 +321,7 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
         t.failed += c.failed
         t.errored += c.errored
         t.skipped += c.skipped
+        t.slow_skipped += c.slow_skipped
 
     led_total, led_per = ledger_size(ledger_path)
 
@@ -325,7 +339,10 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
         "Because the ledger is non-strict, a now-passing ledgered test is a "
         "plain pass here (no per-push `XPASS`); burndown candidates -- in both "
         "directions -- are surfaced by the scheduled regen run, which rewrites "
-        "the ledger from real outcomes."
+        "the ledger from real outcomes. `deferred` is a separate burndown: tests "
+        "skipped because they are unrunnable under the backend until the port is "
+        "vectorized (see `tests/backend_slow_skip.txt`), e.g. the jax "
+        "spherical-DF sampling/quadrature tests pending the Track F DF migration."
     )
     lines.append("")
 
@@ -334,6 +351,8 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
     for b in BACKENDS:
         t = totals[b]
         seg = f"**{b}**: {t.passed} passed · {t.xfailed} xfail"
+        if t.slow_skipped:
+            seg += f" · {t.slow_skipped} deferred"
         if t.xpassed:
             seg += f" · {t.xpassed} XPASS(fix-me)"
         if t.failed or t.errored:
@@ -358,17 +377,19 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
     # Per-shard raw counts (collapsible detail).
     lines.append("<details><summary>Per-shard counts</summary>")
     lines.append("")
-    lines.append("| Test shard | backend | pass | xfail | XPASS | fail | error |")
-    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+    lines.append(
+        "| Test shard | backend | pass | xfail | deferred | XPASS | fail | error |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
     for idx, (_test_files, label) in enumerate(SHARDS):
         for backend in BACKENDS:
             c = cells[(idx, backend)]
             if not c.found:
-                lines.append(f"| {label} | {backend} | — | — | — | — | — |")
+                lines.append(f"| {label} | {backend} | — | — | — | — | — | — |")
             else:
                 lines.append(
                     f"| {label} | {backend} | {c.passed} | {c.xfailed} | "
-                    f"{c.xpassed} | {c.failed} | {c.errored} |"
+                    f"{c.slow_skipped} | {c.xpassed} | {c.failed} | {c.errored} |"
                 )
     lines.append("")
     lines.append("</details>")
