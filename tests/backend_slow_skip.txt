@@ -44,3 +44,29 @@ jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar_dire
 jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_massprofile
 jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric
 jax tests/test_sphericaldf.py::test_pvr_interpolator_rmax_default_vs_explicit
+
+# --- jax orbit integration (Track D in-backend integrator / jit + #39) ---
+# 3D variational (dxdv) orbit integration under jax: each step retraces the
+# un-jitted forces, and the triaxial/ellipsoidal + SpiralArms/needle-bar cases
+# hit the 300 s timeout or run 100-230 s (one load-spike from flipping to a
+# timeout). Selected by measured CI duration >= 75 s on the green run
+# 27503988401 (orbit shard wall 4658 s -> ~760 s after skip; slowest survivor
+# 60 s). Track D (in-backend integrator + jit routing) and the #39 SCF/Multipole
+# vectorization make these fast; delete as they land.
+jax tests/test_orbit.py::test_liouville_3d[GaussianAmplitudeWrapperPotential]
+jax tests/test_orbit.py::test_liouville_3d[LogarithmicHaloPotential_triaxial]
+jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_oblate]
+jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_triaxial]
+jax tests/test_orbit.py::test_liouville_3d[PowerTriaxialPotential]
+jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_offset]
+jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
+jax tests/test_orbit.py::test_liouville_3d[SoftenedNeedleBarPotential]
+jax tests/test_orbit.py::test_liouville_3d[SoftenedNeedleBarPotential_static]
+jax tests/test_orbit.py::test_liouville_3d[SpiralArmsPotential]
+jax tests/test_orbit.py::test_liouville_3d[TimeDependentAmplitudeWrapperPotential]
+jax tests/test_orbit.py::test_liouville_3d[TriaxialGaussianPotential]
+jax tests/test_orbit.py::test_liouville_3d[TriaxialHernquistPotential]
+jax tests/test_orbit.py::test_liouville_3d[TriaxialJaffePotential]
+jax tests/test_orbit.py::test_liouville_3d[TriaxialNFWPotential]
+jax tests/test_orbit.py::test_liouville_3d[TwoPowerSphericalPotential]
+jax tests/test_orbit.py::test_liouville_3d[TwoPowerTriaxialPotential]

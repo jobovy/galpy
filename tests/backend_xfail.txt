@@ -154,17 +154,7 @@ jax tests/test_orbit.py::test_energy_jacobi_conservation[mockSCFZeeuwPotential--
 jax tests/test_orbit.py::test_energy_jacobi_conservation[oblateNFWPotential--10.0--10.0-False]
 jax tests/test_orbit.py::test_energy_jacobi_conservation[prolateNFWPotential--10.0--10.0-False]
 jax tests/test_orbit.py::test_energy_jacobi_conservation[sech2DiskSCFPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_oblate]
-jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_triaxial]
-jax tests/test_orbit.py::test_liouville_3d[PowerTriaxialPotential]
 jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_norot_offset]
-jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_offset]
-jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
-jax tests/test_orbit.py::test_liouville_3d[TriaxialGaussianPotential]
-jax tests/test_orbit.py::test_liouville_3d[TriaxialHernquistPotential]
-jax tests/test_orbit.py::test_liouville_3d[TriaxialJaffePotential]
-jax tests/test_orbit.py::test_liouville_3d[TriaxialNFWPotential]
-jax tests/test_orbit.py::test_liouville_3d[TwoPowerTriaxialPotential]
 jax tests/test_potential.py::test_2ndDeriv_potential
 jax tests/test_potential.py::test_Cautun20
 jax tests/test_potential.py::test_CompositePotential_planar_conversion
