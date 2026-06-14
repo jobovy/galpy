@@ -116,7 +116,9 @@ jobs:
           - tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py tests/test_noninertial.py
           - tests/test_streamgapdf.py
           - tests/test_diskdf.py
-          - tests/test_streamdf.py tests/test_streamspraydf.py tests/test_streamTrack.py
+          # useTM=True streamdf tests need actionAngleTorus (external C++ Torus
+          # lib) -> out of scope for non-numpy backends; deselected here.
+          - tests/test_streamdf.py tests/test_streamspraydf.py tests/test_streamTrack.py -k 'not useTM'
         # Attach the per-shard dependency flags. An include entry whose
         # TEST_FILES matches an existing combination MERGES its extra keys into
         # that combination (for BOTH backends); it does NOT add a new job. Only
@@ -191,16 +193,11 @@ jobs:
       run: |
         pip install torch --index-url https://download.pytorch.org/whl/cpu
         pip install array-api-compat torchdiffeq
-    - name: Install torus code
-      env:
-          TEST_FILES: ${{ matrix.TEST_FILES }}
-      run: |
-         if [[ $TEST_FILES != 'tests/test_evolveddiskdf.py' ]]; then
-           git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
-           cd galpy/actionAngle/actionAngleTorus_c_ext/torus
-           git checkout galpy
-           cd -
-         fi
+    # NOTE: the external C++ Torus library is intentionally NOT built here.
+    # galpy imports and works fully without it; only actionAngleTorus needs it,
+    # and that is out of scope for the backend goal (test_actionAngleTorus.py is
+    # excluded and the useTM=True streamdf tests are deselected). Keeping it out
+    # speeds up every shard.
     - name: Install package
       env:
         GALPY_COMPILE_NO_OPENMP: 1

@@ -316,9 +316,6 @@ jax tests/test_streamdf.py::test_2ndsetup
 jax tests/test_streamdf.py::test_Rnorm_Vnorm_deprecation
 jax tests/test_streamdf.py::test_bovy14_callMargXZ
 jax tests/test_streamdf.py::test_bovy14_trackaa
-jax tests/test_streamdf.py::test_bovy14_useTM
-jax tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
-jax tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
 jax tests/test_streamdf.py::test_calcaAJac
 jax tests/test_streamdf.py::test_calcaAJacLB
 jax tests/test_streamdf.py::test_custom_transform_deprecation
@@ -1958,10 +1955,6 @@ torch tests/test_streamdf.py::test_bovy14_sampleLB
 torch tests/test_streamdf.py::test_bovy14_track_prog_diff
 torch tests/test_streamdf.py::test_bovy14_track_spread
 torch tests/test_streamdf.py::test_bovy14_trackaa
-torch tests/test_streamdf.py::test_bovy14_useTM
-torch tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
-torch tests/test_streamdf.py::test_bovy14_useTM_poterror
-torch tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
 torch tests/test_streamdf.py::test_calc_stream_lb_deprecation
 torch tests/test_streamdf.py::test_calcaAJac
 torch tests/test_streamdf.py::test_calcaAJacLB
