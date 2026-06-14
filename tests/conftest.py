@@ -684,7 +684,7 @@ def pytest_generate_tests(metafunc):
         jactols = [jactol[p] if p in jactol else tol["default"] for p in pots]
         firstTest = [True if ii == 0 else False for ii in range(len(pots))]
         metafunc.parametrize(
-            "pot,ttol,tjactol,firstTest", zip(pots, tols, jactols, firstTest)
+            "pot,ttol,tjactol,firstTest", list(zip(pots, tols, jactols, firstTest))
         )
     elif metafunc.function.__name__ == "test_energy_conservation_linear":
         # Generate linear orbit integration tests for all potentials
