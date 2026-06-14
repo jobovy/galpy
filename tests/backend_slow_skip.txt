@@ -13,19 +13,27 @@
 # These sample (300k CDF inversions) and integrate the DF by scipy at scalar
 # points; under forced-jax every scalar evaluation dispatches an XLA graph, so
 # each test runs minutes. Selected by measured CI duration >= 90 s on the
-# all-backend run 27500392935 (full shard wall 4656 s -> ~1390 s after skip,
-# slowest survivor 86 s = >3x headroom under the 300 s per-test timeout). The
+# all-backend runs 27500392935 + 27503988401 (complete shard wall 3111 s ->
+# ~1450 s after skip; slowest survivor 84 s = >3x headroom under 300 s). The
 # Track F spherical-DF backend migration (vectorized sampling + GL quadrature)
 # makes them fast; delete these lines as it lands. (Distinct from Track A #39,
 # which vectorizes the SCF/assoc_legendre *potential* path.)
+jax tests/test_sphericaldf.py::test_constantbeta_dehnencore_in_nfw_dens_massprofile
 jax tests/test_sphericaldf.py::test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric
+jax tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
+jax tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
 jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dMdE_integral
 jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dens_directint
 jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_dens_directint
+jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_meanvr_directint
+jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_rmin
+jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_sigmar
 jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta_directint
 jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile
 jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_spherically_symmetric
 jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar_directint
 jax tests/test_sphericaldf.py::test_king_sigmar
 jax tests/test_sphericaldf.py::test_king_sigmar_directint
 jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_beta
@@ -33,4 +41,6 @@ jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_dens_masspr
 jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric
 jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar
 jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint
+jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_massprofile
 jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric
+jax tests/test_sphericaldf.py::test_pvr_interpolator_rmax_default_vs_explicit

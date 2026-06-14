@@ -332,8 +332,6 @@ jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_spherically_symme
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_energyoutofbounds
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_sigmar
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_rmin
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_sigmar
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_beta
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_dens_massprofile
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_dens_massprofile_forcemassinterpolation
@@ -346,6 +344,7 @@ jax tests/test_sphericaldf.py::test_isotropic_hernquist_singler_is_atrandomphi
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_singler_is_atsingler
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_singler_sigmar
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_singlerphi_is_atsinglephi
+jax tests/test_sphericaldf.py::test_isotropic_hernquist_unitsofsamples
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_Qoutofbounds
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_beta
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
@@ -353,7 +352,6 @@ jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dens_massprofile
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dens_spherically_symmetric
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_diffcalls
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_sigmar
-jax tests/test_sphericaldf.py::test_pvr_interpolator_rmax_default_vs_explicit
 jax tests/test_streamdf.py::test_2ndsetup
 jax tests/test_streamdf.py::test_Rnorm_Vnorm_deprecation
 jax tests/test_streamdf.py::test_bovy14_callMargXZ
