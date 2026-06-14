@@ -105,11 +105,6 @@ jax tests/test_actionAngle.py::test_orbit_interface_unbound_simple_staeckel_c
 jax tests/test_actionAngle.py::test_orbit_interface_unbound_simple_staeckel_noc
 jax tests/test_actionAngle.py::test_orbit_interface_unbound_staeckeldelta_handling
 jax tests/test_actionAngle.py::test_physical_staeckel
-jax tests/test_actionAngleTorus.py::test_actionAngleTorus_Isochrone_freqsAngles
-jax tests/test_actionAngleTorus.py::test_actionAngleTorus_Staeckel_actions
-jax tests/test_actionAngleTorus.py::test_actionAngleTorus_Staeckel_freqsAngles
-jax tests/test_actionAngleTorus.py::test_actionAngleTorus_isochroneApprox_actions
-jax tests/test_actionAngleTorus.py::test_actionAngleTorus_isochroneApprox_freqsAngles
 jax tests/test_coords.py::test_Rz_to_coshucosv
 jax tests/test_coords.py::test_Rz_to_coshucosv_oblate
 jax tests/test_coords.py::test_Rz_to_uv
@@ -637,15 +632,6 @@ torch tests/test_actionAngle.py::test_physical_actionAngleIsochroneInverse
 torch tests/test_actionAngle.py::test_physical_harmonic
 torch tests/test_actionAngle.py::test_physical_staeckel
 torch tests/test_actionAngle.py::test_physical_vertical
-torch tests/test_actionAngleTorus.py::test_actionAngleTorus_Isochrone_actions
-torch tests/test_actionAngleTorus.py::test_actionAngleTorus_Isochrone_freqsAngles
-torch tests/test_actionAngleTorus.py::test_actionAngleTorus_Staeckel_actions
-torch tests/test_actionAngleTorus.py::test_actionAngleTorus_Staeckel_freqsAngles
-torch tests/test_actionAngleTorus.py::test_actionAngleTorus_basic
-torch tests/test_actionAngleTorus.py::test_actionAngleTorus_basic_freqs
-torch tests/test_actionAngleTorus.py::test_actionAngleTorus_interppot_freqs
-torch tests/test_actionAngleTorus.py::test_actionAngleTorus_isochroneApprox_actions
-torch tests/test_actionAngleTorus.py::test_actionAngleTorus_isochroneApprox_freqsAngles
 torch tests/test_conversion.py::test_get_physical
 torch tests/test_conversion.py::test_physical_compatible_combos
 torch tests/test_coords.py::test_Rz_to_coshucosv
