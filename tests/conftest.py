@@ -134,8 +134,20 @@ def pytest_configure(config):
 
 
 def _matches(nodeid, entries):
-    """A backend entry matches a collected item by full or param-stripped id."""
-    return nodeid in entries or _strip_param(nodeid) in entries
+    """A backend entry matches a collected item.
+
+    Three granularities (most to least specific):
+      * full parametrized nodeid  "tests/test_x.py::test_y[Param]"
+      * param-stripped nodeid      "tests/test_x.py::test_y" (all params)
+      * file path (no "::")        "tests/test_x.py" (every test in the file)
+    The file-level form is used by the slow-skip list to defer a whole test
+    file under a backend (e.g. the jax orbit-integration shard, pending Track D).
+    """
+    return (
+        nodeid in entries
+        or _strip_param(nodeid) in entries
+        or nodeid.split("::", 1)[0] in entries
+    )
 
 
 def pytest_collection_modifyitems(config, items):
