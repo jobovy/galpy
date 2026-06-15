@@ -7,6 +7,12 @@
 import numpy
 from scipy import special
 
+from ..backend import (
+    asarray_on_device,
+    device_of,
+    get_namespace,
+    match_input_dtype,
+)
 from ..util import conversion
 from .Potential import Potential, check_potential_inputs_not_arrays
 
@@ -19,6 +25,28 @@ def _de_psiprime(t):
     return (numpy.sinh(numpy.pi * numpy.sinh(t)) + numpy.pi * t * numpy.cosh(t)) / (
         numpy.cosh(numpy.pi * numpy.sinh(t)) + 1
     )
+
+
+def _de_quadsum(xp, *fw, axis=None):
+    """Backend-agnostic numpy.nansum(f1*w1 + f2*w2 + ..., axis=axis) over the
+    Ogata quadrature products (f = integrand at the nodes, w = the precomputed
+    weights). numpy.nansum substitutes 0 for NaN before summing, which this
+    replicates bitwise on the numpy path; jax/torch nansum APIs differ (torch
+    uses dim=), so the substitution is spelled out. The weights contain NaN at
+    the largest nodes when de_n is large (_de_psiprime overflows to inf/inf and
+    numpy.nansum is what drops those terms), so the NaN weights must ALSO be
+    zeroed inside the discarded branch: otherwise the product-rule cotangent
+    0 * NaN-weight NaN-poisons jax/torch gradients of the integrand."""
+    v = None
+    for f, w in fw:
+        t = f * w
+        v = t if v is None else v + t
+    bad = xp.isnan(v)
+    out = None
+    for f, w in fw:
+        t = f * xp.where(bad, 0.0, w)
+        out = t if out is None else out + t
+    return xp.sum(xp.where(bad, 0.0, out), axis=axis)
 
 
 class DoubleExponentialDiskPotential(Potential):
@@ -151,40 +179,60 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
+        xp = get_namespace(R, z)
+        # the Ogata quadrature nodes/weights are deliberately float64
+        # (precision); the result is cast to the input dtype at exit (no-op
+        # for float64/scalar inputs), so keep the original inputs for that.
+        # The tables are anchored on the input's device (CUDA support; None
+        # for numpy/scalars, leaving the numpy path byte-identical).
+        in_coords = (R, z, phi, t)
+        dev = device_of(R, z)
         if isinstance(R, (float, int)):
             floatIn = True
-            R = numpy.atleast_1d(R)
-            z = numpy.atleast_1d(z)
+            R = xp.atleast_1d(xp.asarray(R))
+            z = xp.atleast_1d(xp.asarray(z))
         else:
             if isinstance(z, float):
-                z = z * numpy.ones_like(R)
+                z = z * xp.ones_like(R)
             floatIn = False
             outShape = R.shape  # this code can't do arbitrary shapes
             R = R.flatten()
             z = z.flatten()
+        # Guard R == 0 (where x/R -> inf NaN-poisons autodiff through xp.where's
+        # dead branch); the R == 0 rows are overwritten below with the original
+        # values (the analytic potential at z == 0, NaN otherwise).
+        Rs = xp.where(R == 0, 1.0, R)
         fun = lambda x: (
-            (self._alpha**2.0 + (x / R[:, numpy.newaxis]) ** 2.0) ** -1.5
+            (self._alpha**2.0 + (x / Rs[:, numpy.newaxis]) ** 2.0) ** -1.5
             * (
                 self._beta
-                * numpy.exp(-x / R[:, numpy.newaxis] * numpy.fabs(z[:, numpy.newaxis]))
+                * xp.exp(-x / Rs[:, numpy.newaxis] * xp.abs(z[:, numpy.newaxis]))
                 - x
-                / R[:, numpy.newaxis]
-                * numpy.exp(-self._beta * numpy.fabs(z[:, numpy.newaxis]))
+                / Rs[:, numpy.newaxis]
+                * xp.exp(-self._beta * xp.abs(z[:, numpy.newaxis]))
             )
-            / (self._beta**2.0 - (x / R[:, numpy.newaxis]) ** 2.0)
+            / (self._beta**2.0 - (x / Rs[:, numpy.newaxis]) ** 2.0)
         )
         out = (
             -4.0
             * numpy.pi
             * self._alpha
-            / R
-            * numpy.nansum(fun(self._de_j0_xs) * self._de_j0_weights, axis=1)
+            / Rs
+            * _de_quadsum(
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j0_xs, dev)),
+                    asarray_on_device(xp, self._de_j0_weights, dev),
+                ),
+                axis=1,
+            )
         )
-        out[(R == 0) * (z == 0)] = self._pot_zero
+        out = xp.where((R == 0) & (z == 0), float(self._pot_zero), out)
+        out = xp.where((R == 0) & (z != 0), numpy.nan, out)
         if floatIn:
-            return out[0]
+            return match_input_dtype(out[0], *in_coords)
         else:
-            return numpy.reshape(out, outShape)
+            return match_input_dtype(xp.reshape(out, outShape), *in_coords)
 
     @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
@@ -213,21 +261,35 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
+        xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             x
             * (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * (
-                self._beta * numpy.exp(-x / R * numpy.fabs(z))
-                - x / R * numpy.exp(-self._beta * numpy.fabs(z))
+                self._beta * xp.exp(-x / R * xp.abs(z))
+                - x / R * xp.exp(-self._beta * xp.abs(z))
             )
             / (self._beta**2.0 - (x / R) ** 2.0)
         )
-        return (
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(
             -4.0
             * numpy.pi
             * self._alpha
             / R**2.0
-            * numpy.nansum(fun(self._de_j1_xs) * self._de_j1_weights)
+            * _de_quadsum(
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j1_xs, dev)),
+                    asarray_on_device(xp, self._de_j1_weights, dev),
+                ),
+            ),
+            R,
+            z,
+            phi,
+            t,
         )
 
     @check_potential_inputs_not_arrays
@@ -257,14 +319,14 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
+        xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * x
             / R
-            * (
-                numpy.exp(-x / R * numpy.fabs(z))
-                - numpy.exp(-self._beta * numpy.fabs(z))
-            )
+            * (xp.exp(-x / R * xp.abs(z)) - xp.exp(-self._beta * xp.abs(z)))
             / (self._beta**2.0 - (x / R) ** 2.0)
         )
         out = (
@@ -273,12 +335,18 @@ class DoubleExponentialDiskPotential(Potential):
             * self._alpha
             * self._beta
             / R
-            * numpy.nansum(fun(self._de_j0_xs) * self._de_j0_weights)
+            * _de_quadsum(
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j0_xs, dev)),
+                    asarray_on_device(xp, self._de_j0_weights, dev),
+                ),
+            )
         )
-        if z > 0.0:
-            return out
-        else:
-            return -out
+        # Odd in z: out for z > 0, -out otherwise. The +-1.0 factor is exact
+        # (mult by +-1.0 is bitwise) and, unlike an if on z, jit-traceable.
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(out * (2.0 * (z > 0.0) - 1.0), R, z, phi, t)
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
@@ -306,24 +374,42 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-27 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
+        xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             x**2
             * (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * (
-                self._beta * numpy.exp(-x / R * numpy.fabs(z))
-                - x / R * numpy.exp(-self._beta * numpy.fabs(z))
+                self._beta * xp.exp(-x / R * xp.abs(z))
+                - x / R * xp.exp(-self._beta * xp.abs(z))
             )
             / (self._beta**2.0 - (x / R) ** 2.0)
         )
-        return (
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(
             4.0
             * numpy.pi
             * self._alpha
             / R**3.0
-            * numpy.nansum(
-                fun(self._de_j0_xs) * self._de_j0_weights
-                - fun(self._de_j1_xs) / self._de_j1_xs * self._de_j1_weights
-            )
+            * _de_quadsum(
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j0_xs, dev)),
+                    asarray_on_device(xp, self._de_j0_weights, dev),
+                ),
+                # f1*w1 - f2*w2 as f1*w1 + (-f2)*w2: bitwise-identical ((-a)*b
+                # == -(a*b) and x + (-y) == x - y exactly in IEEE arithmetic).
+                (
+                    -fun(asarray_on_device(xp, self._de_j1_xs, dev))
+                    / asarray_on_device(xp, self._de_j1_xs, dev),
+                    asarray_on_device(xp, self._de_j1_weights, dev),
+                ),
+            ),
+            R,
+            z,
+            phi,
+            t,
         )
 
     @check_potential_inputs_not_arrays
@@ -352,23 +438,37 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
+        xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * x
             / R
             * (
-                x / R * numpy.exp(-x / R * numpy.fabs(z))
-                - self._beta * numpy.exp(-self._beta * numpy.fabs(z))
+                x / R * xp.exp(-x / R * xp.abs(z))
+                - self._beta * xp.exp(-self._beta * xp.abs(z))
             )
             / (self._beta**2.0 - (x / R) ** 2.0)
         )
-        return (
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(
             -4.0
             * numpy.pi
             * self._alpha
             * self._beta
             / R
-            * numpy.nansum(fun(self._de_j0_xs) * self._de_j0_weights)
+            * _de_quadsum(
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j0_xs, dev)),
+                    asarray_on_device(xp, self._de_j0_weights, dev),
+                ),
+            ),
+            R,
+            z,
+            phi,
+            t,
         )
 
     @check_potential_inputs_not_arrays
@@ -397,13 +497,13 @@ class DoubleExponentialDiskPotential(Potential):
         - 2013-08-28 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
+        xp = get_namespace(R, z)
+        # float64 Ogata tables anchored on the input's device (see _evaluate)
+        dev = device_of(R, z)
         fun = lambda x: (
             (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
             * (x / R) ** 2.0
-            * (
-                numpy.exp(-x / R * numpy.fabs(z))
-                - numpy.exp(-self._beta * numpy.fabs(z))
-            )
+            * (xp.exp(-x / R * xp.abs(z)) - xp.exp(-self._beta * xp.abs(z)))
             / (self._beta**2.0 - (x / R) ** 2.0)
         )
         out = (
@@ -412,20 +512,27 @@ class DoubleExponentialDiskPotential(Potential):
             * self._alpha
             * self._beta
             / R
-            * numpy.nansum(fun(self._de_j1_xs) * self._de_j1_weights)
+            * _de_quadsum(
+                xp,
+                (
+                    fun(asarray_on_device(xp, self._de_j1_xs, dev)),
+                    asarray_on_device(xp, self._de_j1_weights, dev),
+                ),
+            )
         )
-        if z > 0.0:
-            return out
-        else:
-            return -out
+        # Odd in z (see _zforce): exact +-1.0 factor instead of an if on z.
+        # float64 quadrature interior, input-dtype exit cast (see _evaluate)
+        return match_input_dtype(out * (2.0 * (z > 0.0) - 1.0), R, z, phi, t)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        return numpy.exp(-self._alpha * R - self._beta * numpy.fabs(z))
+        xp = get_namespace(R, z)
+        return xp.exp(-self._alpha * R - self._beta * xp.abs(z))
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         return (
             2.0
-            * numpy.exp(-self._alpha * R)
+            * xp.exp(-self._alpha * R)
             / self._beta
-            * (1.0 - numpy.exp(-self._beta * numpy.fabs(z)))
+            * (1.0 - xp.exp(-self._beta * xp.abs(z)))
         )
