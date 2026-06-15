@@ -170,3 +170,222 @@ def test_grad_in_table_values(backend):
         Spline1D(txp.asarray(_XG), yt, k=3)(txp.asarray(r0)).backward()
         g = yt.grad.numpy()
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-8)
+
+
+# out-of-range query points (below x[0], above x[-1], and one in-range)
+_ROUT = numpy.array([-1.0, 0.1, 2.7, 7.0, 10.0])
+
+
+@pytest.mark.parametrize("ext", ["clip", "const", 3])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eval_ppoly_clamp_modes(backend, ext):
+    # 'clip'/'const'/3 all clamp the eval point -> edge VALUE outside the range,
+    # which is byte-identical (numpy) / ~1e-9 (jax/torch) to scipy ext=3.
+    from galpy.backend.interpolate import eval_ppoly, spline_to_ppoly
+
+    spl0 = si.InterpolatedUnivariateSpline(_XG, _YG, k=3, ext=0)
+    x, c = spline_to_ppoly(spl0)
+    ref = si.InterpolatedUnivariateSpline(_XG, _YG, k=3, ext=3)(_ROUT)
+    xp = _xp(backend)
+    got = _tonumpy(
+        eval_ppoly(
+            xp,
+            _asarray(backend, x),
+            _asarray(backend, c),
+            _asarray(backend, _ROUT),
+            extrapolate=ext,
+        )
+    )
+    rtol = 0.0 if backend == "numpy" else 1e-9
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eval_ppoly_extrapolate_true(backend):
+    # extrapolate=True (default) extends the edge polynomial (scipy ext=0).
+    from galpy.backend.interpolate import eval_ppoly, spline_to_ppoly
+
+    spl0 = si.InterpolatedUnivariateSpline(_XG, _YG, k=3, ext=0)
+    x, c = spline_to_ppoly(spl0)
+    ref = spl0(_ROUT)
+    xp = _xp(backend)
+    got = _tonumpy(
+        eval_ppoly(
+            xp, _asarray(backend, x), _asarray(backend, c), _asarray(backend, _ROUT)
+        )
+    )
+    rtol = 0.0 if backend == "numpy" else 1e-9
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
+
+
+def test_eval_ppoly_bad_extrapolate():
+    from galpy.backend.interpolate import eval_ppoly, spline_to_ppoly
+
+    spl0 = si.InterpolatedUnivariateSpline(_XG, _YG, k=3)
+    x, c = spline_to_ppoly(spl0)
+    with pytest.raises(ValueError):
+        eval_ppoly(numpy, x, c, _RQ, extrapolate="nope")
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_cubic_not_a_knot(backend):
+    # bc='not-a-knot' matches scipy CubicSpline's DEFAULT (byte-identical numpy).
+    xp = _xp(backend)
+    x, y, r = _asarray(backend, _XG), _asarray(backend, _YG), _asarray(backend, _RQ)
+    c = cubic_spline_coeffs(xp, x, y, bc="not-a-knot")
+    got = _tonumpy(eval_cubic(xp, x, c, r))
+    ref = si.CubicSpline(_XG, _YG)(_RQ)  # default bc_type = 'not-a-knot'
+    rtol = 1e-12 if backend == "numpy" else 1e-9
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
+
+
+def test_cubic_spline_coeffs_errors():
+    with pytest.raises(ValueError):
+        cubic_spline_coeffs(numpy, _XG[:2], _YG[:2])  # n < 3
+    with pytest.raises(ValueError):
+        cubic_spline_coeffs(numpy, _XG, _YG, bc="bogus")
+
+
+@pytest.mark.parametrize("ext", ["clip", "const", 3])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_interp_linear_clamp_modes(backend, ext):
+    # 'clip'/'const'/3 clamp the eval point -> edge value beyond the ends.
+    xp = _xp(backend)
+    x, y, r = _asarray(backend, _XG), _asarray(backend, _YG), _asarray(backend, _ROUT)
+    got = _tonumpy(interp_linear(xp, x, y, r, extrapolate=ext))
+    rclamp = numpy.clip(_ROUT, _XG[0], _XG[-1])
+    ref = numpy.interp(rclamp, _XG, _YG)
+    rtol = 1e-12 if backend == "numpy" else 1e-12
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
+
+
+def test_interp_linear_bad_extrapolate():
+    with pytest.raises(ValueError):
+        interp_linear(numpy, _XG, _YG, _RQ, extrapolate="nope")
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline1d_mode2_linear(backend):
+    # mode 2 with k=1: in-backend piecewise-linear; numpy AND backend queries of
+    # the same instance both agree with numpy.interp.
+    y_b = _asarray(backend, _YG)
+    s = Spline1D(_XG, y_b, k=1)  # backend y, k=1 -> mode-2 linear (no scipy spline)
+    ref = numpy.interp(_RQ, _XG, _YG)
+    got = _tonumpy(s(_asarray(backend, _RQ)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-12)
+    # numpy query of the same mode-2 k=1 instance (interp_linear numpy branch)
+    numpy.testing.assert_allclose(_tonumpy(s(_RQ)), ref, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline1d_mode2_bad_k(backend):
+    y_b = _asarray(backend, _YG)
+    with pytest.raises(ValueError):
+        Spline1D(_XG, y_b, k=2)  # mode-2 supports only k=1 or k=3
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_spline1d_ext3_const(backend):
+    # ext=3 maps to the 'const' clamp: numpy byte-identical to scipy ext=3, and
+    # jax/torch return the edge value beyond the ends.
+    s = Spline1D(_XG, _YG, k=3, ext=3)
+    ref = si.InterpolatedUnivariateSpline(_XG, _YG, k=3, ext=3)(_ROUT)
+    got = _tonumpy(s(_asarray(backend, _ROUT)))
+    rtol = 0.0 if backend == "numpy" else 1e-9
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
+
+
+def _grid_spline():
+    xg = numpy.linspace(0.0, 3.0, 12)
+    yg = numpy.linspace(-1.0, 2.0, 10)
+    zz = numpy.outer(numpy.sin(xg), numpy.cos(yg)) + 0.1 * xg[:, None]
+    return xg, yg, zz
+
+
+@pytest.mark.parametrize("ext", ["clip", "const", 3])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_eval_rect_ppoly_clamp_modes(backend, ext):
+    # 2D 'clip'/'const'/3 clamp (X,Y) to the grid -> edge value == scipy .ev at the
+    # clamped point.
+    from galpy.backend.interpolate import eval_rect_ppoly, rect_bivariate_to_ppoly
+
+    xg, yg, zz = _grid_spline()
+    spl = si.RectBivariateSpline(xg, yg, zz)
+    xbr, ybr, c = rect_bivariate_to_ppoly(spl)
+    X = numpy.array([-1.0, 1.5, 5.0])
+    Y = numpy.array([-3.0, 0.7, 4.0])
+    ref = spl.ev(numpy.clip(X, xg[0], xg[-1]), numpy.clip(Y, yg[0], yg[-1]))
+    xp = _xp(backend)
+    got = _tonumpy(
+        eval_rect_ppoly(
+            xp,
+            _asarray(backend, xbr),
+            _asarray(backend, ybr),
+            _asarray(backend, c),
+            _asarray(backend, X),
+            _asarray(backend, Y),
+            extrapolate=ext,
+        )
+    )
+    rtol = 0.0 if backend == "numpy" else 1e-9
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
+
+
+def test_eval_rect_ppoly_bad_extrapolate():
+    from galpy.backend.interpolate import eval_rect_ppoly, rect_bivariate_to_ppoly
+
+    xg, yg, zz = _grid_spline()
+    spl = si.RectBivariateSpline(xg, yg, zz)
+    xbr, ybr, c = rect_bivariate_to_ppoly(spl)
+    with pytest.raises(ValueError):
+        eval_rect_ppoly(
+            numpy,
+            xbr,
+            ybr,
+            c,
+            numpy.array([1.0]),
+            numpy.array([0.0]),
+            extrapolate="nope",
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_spline2d_from_prefitted_spl(backend):
+    # Spline2D(spl=...) reuses a pre-fitted RectBivariateSpline instead of
+    # re-fitting; numpy path byte-identical to .ev.
+    xg, yg, zz = _grid_spline()
+    spl = si.RectBivariateSpline(xg, yg, zz)
+    X = numpy.array([0.2, 1.5, 2.8])
+    Y = numpy.array([-0.5, 0.7, 1.9])
+    ref = spl.ev(X, Y)
+    s = Spline2D(spl=spl)
+    got = _tonumpy(s(_asarray(backend, X), _asarray(backend, Y)))
+    rtol = 0.0 if backend == "numpy" else 1e-9
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_spline2d_ext3_const(backend):
+    # Spline2D ext=3 clamps (X,Y) to the grid (edge value beyond it).
+    xg, yg, zz = _grid_spline()
+    spl = si.RectBivariateSpline(xg, yg, zz)
+    s = Spline2D(x=xg, y=yg, z=zz, ext=3)
+    X = numpy.array([-1.0, 1.5, 5.0])
+    Y = numpy.array([-3.0, 0.7, 4.0])
+    ref = spl.ev(numpy.clip(X, xg[0], xg[-1]), numpy.clip(Y, yg[0], yg[-1]))
+    got = _tonumpy(s(_asarray(backend, X), _asarray(backend, Y)))
+    rtol = 0.0 if backend == "numpy" else 1e-9
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline2d_mixed_backend_args(backend):
+    # X a plain scalar (NOT a backend array), Y a backend array -> the backend
+    # path selects Y as the namespace reference (the `else Y` ref-pick branch)
+    # and still matches scipy .ev.
+    xg, yg, zz = _grid_spline()
+    spl = si.RectBivariateSpline(xg, yg, zz)
+    s = Spline2D(x=xg, y=yg, z=zz)
+    ref = spl.ev([1.5], [0.7])
+    got = _tonumpy(s(1.5, _asarray(backend, [0.7])))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-12)

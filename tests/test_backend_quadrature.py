@@ -154,3 +154,58 @@ def test_transformed_quad_interior_split(backend):
         )
     )
     numpy.testing.assert_allclose(got, 4.0 / 3.0, rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_transformed_quad_no_interior(backend):
+    xp = _xp(backend)
+    # interior_point=None falls through to plain fixed_quad: int_0^2 exp(s) = e^2-1
+    got = float(
+        numpy.asarray(transformed_quad(xp, lambda s: xp.exp(s), 0.0, 2.0, n=40))
+    )
+    numpy.testing.assert_allclose(got, numpy.exp(2.0) - 1.0, rtol=1e-10)
+
+
+def test_boundary_layer_remap_identity():
+    # k == 1 is the identity map: nodes/weights returned unchanged (same objects).
+    from galpy.backend.quadrature import _boundary_layer_remap
+
+    x01, w01 = gauss_legendre_01(12)
+    X, wX = _boundary_layer_remap(numpy, x01, w01, 1.0)
+    assert X is x01 and wX is w01
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_nested_quad_per_dim_n(backend):
+    xp = _xp(backend)
+    # per-dimension n list: int_[0,1]x[0,2] exp(x+y) dx dy = (e-1)(e^2-1)
+    got = float(
+        numpy.asarray(
+            nested_quad(
+                xp, lambda x, y: xp.exp(x + y), [(0.0, 1.0), (0.0, 2.0)], n=[20, 30]
+            )
+        )
+    )
+    ref = (numpy.e - 1.0) * (numpy.exp(2.0) - 1.0)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_semiinfinite_grad_in_limit(backend):
+    # d/da int_a^inf exp(-s) ds = -exp(-a), through the recip semi-infinite map.
+    a0 = 0.7
+    if backend == "jax":
+        ga = float(
+            jax.grad(
+                lambda a: fixed_quad_semiinfinite(
+                    jnp, lambda s: jnp.exp(-s), a, n=120, kind="recip"
+                )
+            )(jnp.asarray(a0))
+        )
+    else:
+        at = torch.tensor(a0, requires_grad=True)
+        fixed_quad_semiinfinite(
+            txp, lambda s: txp.exp(-s), at, n=120, kind="recip"
+        ).backward()
+        ga = float(at.grad)
+    numpy.testing.assert_allclose(ga, -numpy.exp(-a0), rtol=1e-5)
