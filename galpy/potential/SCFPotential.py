@@ -1640,6 +1640,9 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
         index = (numpy.arange(len(bounds)), li[i])
         s += numpy.prod(wp[index]) * integrand(*xp[index])
 
-    ##Rounds values that are less than roundoff to zero
-    s[numpy.where(numpy.fabs(s) < roundoff)] = 0
-    return s
+    ##Rounds values that are less than roundoff to zero -- functional (xp.where)
+    ##so it traces under jax/torch instead of an in-place item assignment. For
+    ##the default roundoff=0 this is an exact no-op (|s| < 0 is never true), so
+    ##the numpy result is byte-identical.
+    _xp = get_namespace(s)
+    return _xp.where(_xp.abs(s) < roundoff, 0.0, s)
