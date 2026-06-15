@@ -527,3 +527,115 @@ def test_gegenbauer_grad_vs_fd(backend):
         gsp.gegenbauer(N, alpha, xt)[n].backward()
         ad = float(xt.grad)
     numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
+
+
+# --- edge-case hardening: poles, domain endpoints, AD plateaus, numpy params ---
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_assoc_legendre_pole_derivs(backend):
+    # m=0 x-derivatives are finite at the symmetry-axis poles x=+-1 (the
+    # (x^2-1) denominators must not 0/0-NaN); match the numpy/scipy reference.
+    L, M = 6, 1
+    for xv in (1.0, -1.0):
+        _, rdP, rd2 = gsp.assoc_legendre(L, M, numpy.asarray(xv), deriv=2)
+        _, gdP, gd2 = gsp.assoc_legendre(L, M, _asarray(backend, xv), deriv=2)
+        gdP, gd2 = _tonumpy(gdP)[..., 0], _tonumpy(gd2)[..., 0]
+        assert not numpy.any(numpy.isnan(gdP)) and not numpy.any(numpy.isnan(gd2))
+        numpy.testing.assert_allclose(gdP, rdP[..., 0], rtol=1e-10, atol=1e-12)
+        numpy.testing.assert_allclose(gd2, rd2[..., 0], rtol=1e-10, atol=1e-12)
+
+
+def test_scf_spherical_zaxis_forces_finite():
+    # end-to-end: spherical SCF forces / 2nd-derivs on the z-axis (cos theta=+-1)
+    # are finite and backend-consistent (regression for the assoc_legendre poles).
+    from galpy.potential import (
+        HernquistPotential,
+        SCFPotential,
+        scf_compute_coeffs_spherical,
+    )
+
+    Acos, Asin = scf_compute_coeffs_spherical(
+        HernquistPotential(amp=2.0, a=1.0).dens, 6
+    )
+    scf = SCFPotential(Acos=Acos, Asin=Asin)
+    for meth in ("Rforce", "zforce", "R2deriv", "z2deriv"):
+        for z in (1.5, -1.5):
+            ref = float(getattr(scf, meth)(0.0, z))
+            for backend in AD_BACKENDS:
+                got = _tonumpy(
+                    getattr(scf, meth)(_asarray(backend, 0.0), _asarray(backend, z))
+                )
+                assert numpy.isfinite(got), f"{meth}(0,{z}) {backend} not finite"
+                numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_ellipk_ellipe_negative_m_and_unit(backend):
+    # scipy supports all real m<1 (incl. m<0); m=1 gives K=inf, E=1.
+    m = numpy.array([-5.0, -1.0, -0.5, 0.0, 0.3, 0.9, 0.999])
+    rtol = 0.0 if backend == "numpy" else 1e-9
+    for fn, sp_fn in (
+        (gsp.ellipk, scipy_special.ellipk),
+        (gsp.ellipe, scipy_special.ellipe),
+    ):
+        got = _tonumpy(fn(_asarray(backend, m)))
+        numpy.testing.assert_allclose(got, sp_fn(m), rtol=rtol, atol=1e-12)
+    assert numpy.isinf(_tonumpy(gsp.ellipk(_asarray(backend, 1.0))))
+    numpy.testing.assert_allclose(_tonumpy(gsp.ellipe(_asarray(backend, 1.0))), 1.0)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_ellipe_negative_m_grad_finite(backend):
+    # dE/dm = (E-K)/(2m) is finite for m<0 (sqrt(m) must not enter the E series).
+    ref = (scipy_special.ellipe(-1.0) - scipy_special.ellipk(-1.0)) / (2.0 * -1.0)
+    if backend == "jax":
+        g = float(jax.grad(lambda m: gsp.ellipe(m))(jnp.asarray(-1.0)))
+    else:
+        mt = torch.tensor(-1.0, dtype=torch.float64, requires_grad=True)
+        gsp.ellipe(mt).backward()
+        g = float(mt.grad)
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, ref, rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_gamma_negative_integer_poles_nan(backend):
+    # Gamma at -1, -2, ... is nan (scipy), not a huge finite reflection value;
+    # Gamma(0) is +inf (a distinct scipy convention).
+    for x in (-1.0, -2.0, -3.0):
+        assert numpy.isnan(_tonumpy(gsp.gamma(_asarray(backend, x))))
+    assert numpy.isinf(_tonumpy(gsp.gamma(_asarray(backend, 0.0))))
+    xs = numpy.array([-2.5, -1.5, -0.5, 0.5, 2.5, 6.0])  # off-pole unchanged
+    numpy.testing.assert_allclose(
+        _tonumpy(gsp.gamma(_asarray(backend, xs))), scipy_special.gamma(xs), rtol=1e-10
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_grad_at_zero_is_abc(backend):
+    # d/dz 2F1(a,b;c;z)|_0 = a b / c (no zero-gradient plateau near z=0).
+    a, b, c = 2.0, 2.0, 3.0
+    if backend == "jax":
+        ad = float(jax.grad(lambda z: gsp.hyp2f1(a, b, c, z))(jnp.asarray(0.0)))
+    else:
+        zt = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
+        gsp.hyp2f1(a, b, c, zt).backward()
+        ad = float(zt.grad)
+    numpy.testing.assert_allclose(ad, a * b / c, rtol=1e-5)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
+def test_router_promotes_numpy_scalar_params_torch():
+    # numpy.float64 parameters (not only python scalars) must be promoted for
+    # torch.special, so a numpy-typed potential parameter works on the torch path.
+    x = torch.tensor([0.5, 1.0, 2.0], dtype=torch.float64)
+    ref = scipy_special.gammainc(0.5, numpy.array([0.5, 1.0, 2.0]))
+    for a in (0.5, numpy.float64(0.5)):
+        got = gsp.gammainc(a, x)
+        assert torch.is_tensor(got)
+        numpy.testing.assert_allclose(got.detach().numpy(), ref, rtol=1e-12)
+    from galpy.potential import PowerSphericalPotentialwCutoff as PSPC
+
+    r = torch.tensor([1.0, 2.0], dtype=torch.float64)
+    p_py = PSPC(alpha=1.3, rc=2.0)
+    p_np = PSPC(alpha=numpy.float64(1.3), rc=2.0)
+    assert torch.allclose(p_py._rforce(r), p_np._rforce(r))
