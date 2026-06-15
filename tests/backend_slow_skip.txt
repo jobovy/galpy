@@ -58,15 +58,18 @@ jax tests/test_sphericaldf.py::test_pvr_interpolator_rmax_default_vs_explicit
 jax tests/test_orbit.py
 jax tests/test_orbits.py
 
-# --- jax FDM dynamical friction (Track A group-b dissipative migration) ---
+# --- jax/torch FDM dynamical friction (Track A group-b dissipative migration) ---
 # The FDM friction force is not yet backend-vectorized: frictionFactor uses
 # scipy.sici + numpy.interp + per-call Python branching, and these tests integrate
-# an orbit, so the un-vectorized force is evaluated thousands of times under
-# forced-jax and each test exceeds the 300 s per-test timeout (the shard ran 33
-# min). Defer until the dissipative forces are migrated (backend sici + branchless
-# frictionFactor + interpolated sigma_r, group b); numpy still exercises them.
+# an orbit, so the un-vectorized force is evaluated thousands of times under a
+# forced backend and the long central-limit integration exceeds the 300 s per-test
+# timeout (the jax shard ran 33 min). Defer until the dissipative forces are
+# migrated (backend sici + branchless frictionFactor + interpolated sigma_r,
+# group b); numpy still exercises them. (torch const_FDMfactor is a shorter
+# integration that finishes under the timeout, so only central_limit is deferred.)
 jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
+torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 
 # --- jax quasi-isothermal DF (Track F df migration) ---
 # quasiisothermaldf is not yet backend-migrated; this test does many nested
