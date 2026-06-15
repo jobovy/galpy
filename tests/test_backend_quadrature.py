@@ -1,0 +1,156 @@
+###############################################################################
+# test_backend_quadrature.py: galpy.backend.quadrature -- backend-agnostic
+# fixed-order quadrature. Asserts value parity vs scipy.integrate.quad / exact,
+# autodiff in the limits AND through integrand parameters, and that the promoted
+# gauss_legendre_01 is unchanged (the special-function hyp2f1 fallback uses it).
+###############################################################################
+import numpy
+import pytest
+
+from galpy.backend.quadrature import (
+    fixed_quad,
+    fixed_quad_semiinfinite,
+    gauss_legendre_01,
+    gauss_legendre_nodes,
+    nested_quad,
+    transformed_quad,
+)
+
+pytestmark = pytest.mark.backend_managed
+
+BACKENDS = ["numpy"]
+try:
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+
+    BACKENDS.append("jax")
+except ImportError:  # pragma: no cover
+    jax = None
+try:
+    import torch
+
+    torch.set_default_dtype(torch.float64)
+    import array_api_compat.torch as txp
+
+    BACKENDS.append("torch")
+except ImportError:  # pragma: no cover
+    torch = None
+
+AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
+
+
+def _xp(backend):
+    return {
+        "numpy": numpy,
+        "jax": jnp if jax else None,
+        "torch": txp if torch else None,
+    }[backend]
+
+
+def test_gauss_legendre_01_unchanged():
+    # byte-identical to the leggauss [0,1] remap, and still importable from the
+    # special fallback's old path (hyp2f1 uses it).
+    for n in (8, 20, 50):
+        x, w = numpy.polynomial.legendre.leggauss(n)
+        nodes, weights = gauss_legendre_01(n)
+        numpy.testing.assert_array_equal(nodes, 0.5 * (x + 1))
+        numpy.testing.assert_array_equal(weights, 0.5 * w)
+    from galpy.backend.special._fallback._quadrature import gauss_legendre_01 as old
+
+    assert old(20)[0] is gauss_legendre_01(20)[0]  # same cached object
+
+
+def test_gauss_legendre_nodes_remap():
+    nodes, weights = gauss_legendre_nodes(30, 2.0, 5.0)
+    # integrate 1 over [2,5] -> 3
+    numpy.testing.assert_allclose(numpy.sum(weights), 3.0, rtol=1e-13)
+    numpy.testing.assert_allclose(
+        numpy.sum(weights * nodes), 0.5 * (25.0 - 4.0), rtol=1e-12
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fixed_quad_parity(backend):
+    xp = _xp(backend)
+    # int_0.5^3 exp(-s) ds = exp(-0.5) - exp(-3)
+    ref = numpy.exp(-0.5) - numpy.exp(-3.0)
+    got = float(numpy.asarray(fixed_quad(xp, lambda s: xp.exp(-s), 0.5, 3.0, n=40)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_semiinfinite_parity(backend):
+    xp = _xp(backend)
+    # int_1^inf exp(-s) ds = exp(-1); int_0^inf 1/(1+s^2) ds = pi/2
+    g1 = float(
+        numpy.asarray(
+            fixed_quad_semiinfinite(xp, lambda s: xp.exp(-s), 1.0, n=100, kind="recip")
+        )
+    )
+    numpy.testing.assert_allclose(g1, numpy.exp(-1.0), rtol=1e-7)
+    g2 = float(
+        numpy.asarray(
+            fixed_quad_semiinfinite(
+                xp, lambda s: 1.0 / (1.0 + s**2), 0.0, n=100, kind="tan"
+            )
+        )
+    )
+    numpy.testing.assert_allclose(g2, numpy.pi / 2.0, rtol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_nested_quad_parity(backend):
+    xp = _xp(backend)
+    # int_[0,1]^2 exp(x+y) dx dy = (e-1)^2
+    got = float(
+        numpy.asarray(
+            nested_quad(xp, lambda x, y: xp.exp(x + y), [(0.0, 1.0), (0.0, 1.0)], n=20)
+        )
+    )
+    numpy.testing.assert_allclose(got, (numpy.e - 1.0) ** 2, rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_quad_grad_in_limit_and_param(backend):
+    xp = _xp(backend)
+    a0, p0 = 0.7, 1.3
+    # d/da int_a^3 exp(-s) ds = -exp(-a)
+    if backend == "jax":
+        ga = float(
+            jax.grad(lambda a: fixed_quad(jnp, lambda s: jnp.exp(-s), a, 3.0, n=40))(
+                jnp.asarray(a0)
+            )
+        )
+        # d/dp int_0^2 exp(-p s) ds = -(d/dp)[(1-exp(-2p))/p]
+        gp = float(
+            jax.grad(
+                lambda p: fixed_quad(jnp, lambda s: jnp.exp(-p * s), 0.0, 2.0, n=60)
+            )(jnp.asarray(p0))
+        )
+    else:
+        at = torch.tensor(a0, requires_grad=True)
+        fixed_quad(txp, lambda s: txp.exp(-s), at, 3.0, n=40).backward()
+        ga = float(at.grad)
+        pt = torch.tensor(p0, requires_grad=True)
+        fixed_quad(txp, lambda s: txp.exp(-pt * s), 0.0, 2.0, n=60).backward()
+        gp = float(pt.grad)
+    numpy.testing.assert_allclose(ga, -numpy.exp(-a0), rtol=1e-6)
+    # analytic d/dp of (1-exp(-2p))/p
+    ref_gp = (2.0 * numpy.exp(-2 * p0) * p0 - (1 - numpy.exp(-2 * p0))) / p0**2
+    numpy.testing.assert_allclose(gp, ref_gp, rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_transformed_quad_interior_split(backend):
+    xp = _xp(backend)
+    # int_0^2 |s-1|^0.5 ds = 4/3, with a sqrt-kink at the interior point s=1
+    got = float(
+        numpy.asarray(
+            transformed_quad(
+                xp, lambda s: xp.abs(s - 1.0) ** 0.5, 0.0, 2.0, n=60, interior_point=1.0
+            )
+        )
+    )
+    numpy.testing.assert_allclose(got, 4.0 / 3.0, rtol=1e-6)
