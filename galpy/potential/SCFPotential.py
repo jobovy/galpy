@@ -312,10 +312,17 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             return rho
         # backend path: same expression, functional (no in-place writes); the
         # constant (n,l) grids are built in numpy and converted once, on the
-        # input's device (CUDA support).
+        # input's device (CUDA support). For a scalar r this returns (N, L); for
+        # an array r of shape (P,) (the vectorized eval path) K gains a trailing
+        # point axis (N, L, 1) and l moves to (L, 1) so the r-prefactor is (L, P)
+        # and the result is (N, L, P) -- one batched call, no per-point loop.
         dev = device_of(r)
-        K = asarray_on_device(xp, K, dev)
-        l = asarray_on_device(xp, l, dev)
+        if getattr(r, "ndim", 0) != 0:
+            K = asarray_on_device(xp, K[:, :, numpy.newaxis], dev)
+            l = asarray_on_device(xp, l.reshape(L, 1), dev)
+        else:
+            K = asarray_on_device(xp, K, dev)
+            l = asarray_on_device(xp, l, dev)
         return (
             K
             * ((a * r) ** l)
@@ -369,9 +376,14 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # backend path: branchless r == 0 handling. Both xp.where branches are
         # evaluated under tracing/eager AD, so the generic branch is computed at
         # a guarded rsafe (the r == 0 column then takes the -CC/a limit instead).
-        l = asarray_on_device(
-            xp, numpy.arange(0, L, dtype=float)[numpy.newaxis, :], device_of(r)
-        )
+        # For a scalar r the l index sits on axis 1 (-> result (N, L)); for an
+        # array r of shape (P,) (the vectorized eval path) it sits on axis 0 so
+        # the r-dependent prefactor broadcasts to (L, P) and, against CC (N, L, P),
+        # gives (N, L, P) -- one batched call instead of a per-point Python loop.
+        _arr_r = getattr(r, "ndim", 0) != 0
+        l_np = numpy.arange(0, L, dtype=float)
+        l_np = l_np[:, numpy.newaxis] if _arr_r else l_np[numpy.newaxis, :]
+        l = asarray_on_device(xp, l_np, device_of(r))
         rsafe = xp.where(r == 0, 1.0, r)
         generic = (
             -(a**l)
@@ -428,16 +440,35 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             )
         # backend path: same sum with the backend-agnostic special-function
         # router; the coefficient tables are converted to the backend once,
-        # on the input's device (CUDA support).
+        # on the input's device (CUDA support). Shape-agnostic: a SCALAR (r,
+        # theta, phi) gives the (N, L, M) sum -> scalar (unchanged), while an
+        # ARRAY of shape (P,) carries a leading point axis through one batched
+        # sum -> (P,), so the vectorized eval/dens path needs no per-point loop.
         dev = device_of(r, theta, phi)
         Acos = asarray_on_device(xp, self._Acos, dev)
         Asin = asarray_on_device(xp, self._Asin, dev)
         radial = radial_func(r, N, L)
         PP = assoc_legendre(L, M, xp.cos(theta))
-        m = asarray_on_device(xp, numpy.arange(0, M, dtype=float)[None, None, :], dev)
-        mcos = xp.cos(m * phi)
-        msin = xp.sin(m * phi)
-        return xp.sum(radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :])
+        mvec = asarray_on_device(xp, numpy.arange(0, M, dtype=float), dev)
+        if getattr(r, "ndim", 0) == 0:
+            m = mvec[None, None, :]
+            mcos = xp.cos(m * phi)
+            msin = xp.sin(m * phi)
+            return xp.sum(
+                radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :]
+            )
+        # batched: radial (N, L, P) -> (P, N, L); PP (P, L, M); azimuth (P, M);
+        # contract over (N, L, M) leaving the point axis P.
+        radial = xp.moveaxis(radial, -1, 0)
+        ang = phi[:, None] * mvec[None, :]
+        mcos = xp.cos(ang)
+        msin = xp.sin(ang)
+        angular = (
+            Acos[None] * mcos[:, None, None, :] + Asin[None] * msin[:, None, None, :]
+        )
+        return xp.sum(
+            radial[:, :, :, None] * angular * PP[:, None, :, :], axis=(1, 2, 3)
+        )
 
     def _evaluate_expansion(self, radial_func, R, z, phi):
         """
@@ -490,18 +521,13 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         shape = (R * z * phi).shape
         if shape == ():
             return self._compute_at_point(radial_func, R, z, phi)
-        R = xp.broadcast_to(R, shape)
-        z = xp.broadcast_to(z, shape)
-        phi = xp.broadcast_to(phi, shape)
-        return xp.reshape(
-            xp.stack(
-                [
-                    self._compute_at_point(radial_func, R[idx], z[idx], phi[idx])
-                    for idx in numpy.ndindex(*shape)
-                ]
-            ),
-            shape,
-        )
+        # Vectorized: flatten the broadcast coords to 1-D and evaluate ALL points
+        # in one batched _compute_at_point call (no per-point Python loop, so no
+        # O(P) unrolled XLA graph / per-call retrace), then reshape back.
+        R = xp.reshape(xp.broadcast_to(R, shape), (-1,))
+        z = xp.reshape(xp.broadcast_to(z, shape), (-1,))
+        phi = xp.reshape(xp.broadcast_to(phi, shape), (-1,))
+        return xp.reshape(self._compute_at_point(radial_func, R, z, phi), shape)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
