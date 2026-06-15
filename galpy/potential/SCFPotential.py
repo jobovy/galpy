@@ -573,10 +573,13 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
                 * dC
                 / 2.0
             )
-        # backend path: identical expression with xp arithmetic.
-        l = asarray_on_device(
-            xp, numpy.arange(0, L, dtype=float)[numpy.newaxis, :], device_of(r)
-        )
+        # backend path: identical expression with xp arithmetic. Scalar r -> l on
+        # axis 1 -> (N, L); array r of shape (P,) -> l on axis 0 so the prefactor
+        # is (L, P) and, against _C/dC (N, L, P), gives (N, L, P) (batched, no loop).
+        _arr_r = getattr(r, "ndim", 0) != 0
+        l_np = numpy.arange(0, L, dtype=float)
+        l_np = l_np[:, numpy.newaxis] if _arr_r else l_np[numpy.newaxis, :]
+        l = asarray_on_device(xp, l_np, device_of(r))
         return -((4 * numpy.pi) ** 0.5) * (
             (a * r) ** l
             * (l * (a + r) * r ** (-1.0) - (2 * l + 1))
@@ -741,18 +744,44 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         dev = device_of(r, theta, phi)
         Acos = asarray_on_device(xp, self._Acos, dev)
         Asin = asarray_on_device(xp, self._Asin, dev)
-        PP, dPP = assoc_legendre(L, M, xp.cos(theta), deriv=1)
-        PP = PP[None, :, :]
-        dPP = dPP[None, :, :]
-        phi_tilde = self._phiTilde(r, N, L)[:, :, None]
-        dphi_tilde = self._dphiTilde(r, N, L)[:, :, None]
-        m = asarray_on_device(xp, numpy.arange(0, M, dtype=float)[None, None, :], dev)
-        mcos = xp.cos(m * phi)
-        msin = xp.sin(m * phi)
-        cos_sin_sum = Acos * mcos + Asin * msin
-        dPhi_dr = -xp.sum(cos_sin_sum * PP * dphi_tilde)
-        dPhi_dtheta = -xp.sum(cos_sin_sum * phi_tilde * dPP * (-xp.sin(theta)))
-        dPhi_dphi = -xp.sum(m * (Asin * mcos - Acos * msin) * phi_tilde * PP)
+        if getattr(r, "ndim", 0) == 0:
+            # scalar: the (N, L, M) sums collapse to three scalars (unchanged).
+            PP, dPP = assoc_legendre(L, M, xp.cos(theta), deriv=1)
+            PP = PP[None, :, :]
+            dPP = dPP[None, :, :]
+            phi_tilde = self._phiTilde(r, N, L)[:, :, None]
+            dphi_tilde = self._dphiTilde(r, N, L)[:, :, None]
+            m = asarray_on_device(
+                xp, numpy.arange(0, M, dtype=float)[None, None, :], dev
+            )
+            mcos = xp.cos(m * phi)
+            msin = xp.sin(m * phi)
+            cos_sin_sum = Acos * mcos + Asin * msin
+            dPhi_dr = -xp.sum(cos_sin_sum * PP * dphi_tilde)
+            dPhi_dtheta = -xp.sum(cos_sin_sum * phi_tilde * dPP * (-xp.sin(theta)))
+            dPhi_dphi = -xp.sum(m * (Asin * mcos - Acos * msin) * phi_tilde * PP)
+            return dPhi_dr, dPhi_dtheta, dPhi_dphi
+        # batched array (P,): carry a leading point axis through the same sums.
+        PP, dPP = assoc_legendre(L, M, xp.cos(theta), deriv=1)  # (P, L, M)
+        PP = PP[:, None, :, :]  # (P, 1, L, M)
+        dPP = dPP[:, None, :, :]
+        phi_tilde = xp.moveaxis(self._phiTilde(r, N, L), -1, 0)[
+            :, :, :, None
+        ]  # (P,N,L,1)
+        dphi_tilde = xp.moveaxis(self._dphiTilde(r, N, L), -1, 0)[:, :, :, None]
+        mvec = asarray_on_device(xp, numpy.arange(0, M, dtype=float), dev)
+        ang = phi[:, None] * mvec[None, :]  # (P, M)
+        mcos = xp.cos(ang)[:, None, None, :]  # (P, 1, 1, M)
+        msin = xp.sin(ang)[:, None, None, :]
+        cos_sin_sum = Acos[None] * mcos + Asin[None] * msin  # (P, N, L, M)
+        sin_t = xp.sin(theta)[:, None, None, None]  # (P, 1, 1, 1)
+        m4 = mvec[None, None, None, :]  # (1, 1, 1, M)
+        dPhi_dr = -xp.sum(cos_sin_sum * PP * dphi_tilde, axis=(1, 2, 3))
+        dPhi_dtheta = -xp.sum(cos_sin_sum * phi_tilde * dPP * (-sin_t), axis=(1, 2, 3))
+        dPhi_dphi = -xp.sum(
+            m4 * (Asin[None] * mcos - Acos[None] * msin) * phi_tilde * PP,
+            axis=(1, 2, 3),
+        )
         return dPhi_dr, dPhi_dtheta, dPhi_dphi
 
     def _compute_spher_2nd_derivs_at_point(self, R, z, phi, t=0.0):
@@ -991,9 +1020,14 @@ def _dC(xi, N, L):
         CC *= 2 * (2 * l + 3.0 / 2)
         return CC
     # backend path: the roll + zero-row idiom above (dC_n = 2 a C_{n-1}^{a+1},
-    # with a zero n=0 row), written functionally as a concatenation.
+    # with a zero n=0 row), written functionally as a concatenation. For an array
+    # xi of shape (P,) (the batched force path) _C returns (N, L, P), so the
+    # (1, L) l-factor gains a trailing point axis to broadcast.
     CC = xp.concat([xp.zeros_like(CC[:1]), CC[: N - 1]], axis=0)
-    return CC * asarray_on_device(xp, 2 * (2 * l + 3.0 / 2), device_of(xi))
+    fac = 2 * (2 * l + 3.0 / 2)
+    if getattr(xi, "ndim", 0) != 0:
+        fac = fac[:, :, numpy.newaxis]
+    return CC * asarray_on_device(xp, fac, device_of(xi))
 
 
 def _d2C(xi, N, L):
@@ -1014,9 +1048,14 @@ def _d2C(xi, N, L):
         CC *= 4 * a * (a + 1)
         return CC
     # backend path: the roll + zero-rows idiom above, written functionally as a
-    # concatenation (min(N, 2) zero rows, then C_{n-2}^{a+2} for n >= 2).
+    # concatenation (min(N, 2) zero rows, then C_{n-2}^{a+2} for n >= 2). For an
+    # array xi of shape (P,) _C returns (N, L, P), so the (1, L) a-factor gains a
+    # trailing point axis to broadcast.
     CC = xp.concat([xp.zeros_like(CC[: min(N, 2)]), CC[: max(N - 2, 0)]], axis=0)
-    return CC * asarray_on_device(xp, 4 * a * (a + 1), device_of(xi))
+    fac = 4 * a * (a + 1)
+    if getattr(xi, "ndim", 0) != 0:
+        fac = fac[:, :, numpy.newaxis]
+    return CC * asarray_on_device(xp, fac, device_of(xi))
 
 
 def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
