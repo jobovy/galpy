@@ -79,3 +79,78 @@ def test_no_bare_numpy_in_compute_methods(clsname):
         f"{clsname}: bare numpy.* in compute methods (use xp=get_namespace(...) "
         f"or math.pi): {visitor.violations}"
     )
+
+
+###############################################################################
+# _backend_compatible flag (set in each migrated potential's __init__, like hasC)
+# and the _check_backend_compatible gate used by potential_physical_input to
+# coerce coordinate inputs only for backend-aware targets. A migrated leaf reads
+# True; a list is compatible iff every member is; a wrapper iff it and its wrapped
+# potential are. The flag set was derived empirically (each runs its compute
+# methods under forced jax+torch, scalar and array, returning a backend array).
+
+# Sample of migrated potentials that construct with normalize=1.0 (the full set
+# is exercised by the all-backend suite).
+_MIGRATED_SAMPLE = [
+    "MiyamotoNagaiPotential",
+    "NFWPotential",
+    "PlummerPotential",
+    "IsochronePotential",
+    "PowerSphericalPotential",
+    "KeplerPotential",
+    "LogarithmicHaloPotential",
+    "BurkertPotential",
+    "EinastoPotential",
+    "HernquistPotential",
+    "KuzminDiskPotential",
+    "DoubleExponentialDiskPotential",
+    "PowerTriaxialPotential",
+]
+_UNMIGRATED_SAMPLE = [
+    "FerrersPotential",
+    "KuzminKutuzovStaeckelPotential",
+    "PseudoIsothermalPotential",
+]
+
+
+@pytest.mark.parametrize("clsname", _MIGRATED_SAMPLE)
+def test_backend_compatible_true(clsname):
+    from galpy.potential import _check_backend_compatible as cbc
+
+    assert cbc(getattr(potential, clsname)(normalize=1.0)) is True
+
+
+@pytest.mark.parametrize("clsname", _UNMIGRATED_SAMPLE)
+def test_backend_compatible_false(clsname):
+    from galpy.potential import _check_backend_compatible as cbc
+
+    assert cbc(getattr(potential, clsname)(normalize=1.0)) is False
+
+
+def test_check_backend_compatible_semantics():
+    from galpy.potential import _check_backend_compatible as cbc
+
+    mn = potential.MiyamotoNagaiPotential(normalize=1.0)
+    fe = potential.FerrersPotential(normalize=1.0)
+    pit = potential.PseudoIsothermalPotential(normalize=1.0)
+    # combined potential: all members must be compatible
+    assert cbc([mn, potential.NFWPotential(normalize=1.0)]) is True
+    assert cbc([mn, fe]) is False
+    # wrapper: own flag AND wrapped potential
+    assert cbc(potential.OblateStaeckelWrapperPotential(pot=mn)) is True
+    assert (
+        cbc(potential.KuzminLikeWrapperPotential(amp=1.0, pot=pit, a=1.0, b=0.2))
+        is False
+    )
+    # amplitude-only wrappers stay unmigrated; the inner potential self-coerces
+    assert (
+        cbc(potential.DehnenSmoothWrapperPotential(pot=mn, tform=-1.0, tsteady=1.0))
+        is False
+    )
+    # opts back out despite its interpSphericalPotential base
+    ac = potential.AdiabaticContractionWrapperPotential(
+        pot=mn, baryonpot=potential.NFWPotential(amp=0.2)
+    )
+    assert cbc(ac) is False
+    # a non-potential first arg (e.g. a df instance) is never compatible
+    assert cbc(object()) is False

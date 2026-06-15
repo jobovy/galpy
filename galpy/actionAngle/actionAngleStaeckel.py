@@ -1500,7 +1500,8 @@ def _vminFindStart(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
     return vtry if vtry >= 0.000000001 else 0.0
 
 
-@potential_physical_input
+# coerce_backend=False: numpy-only body (in-place z masking, numpy.array/median)
+@potential_physical_input(coerce_backend=False)
 @physical_conversion("position", pop=True)
 def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
     """

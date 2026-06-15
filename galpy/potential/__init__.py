@@ -126,6 +126,7 @@ turn_physical_off = Potential.turn_physical_off
 turn_physical_on = Potential.turn_physical_on
 _dim = Potential._dim
 _isNonAxi = Potential._isNonAxi
+_check_backend_compatible = Potential._check_backend_compatible
 scf_compute_coeffs_spherical_nbody = SCFPotential.scf_compute_coeffs_spherical_nbody
 scf_compute_coeffs_axi_nbody = SCFPotential.scf_compute_coeffs_axi_nbody
 scf_compute_coeffs_nbody = SCFPotential.scf_compute_coeffs_nbody
