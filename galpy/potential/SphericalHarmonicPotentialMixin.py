@@ -225,20 +225,15 @@ class SphericalHarmonicPotentialMixin:
         )
         if shape == ():
             return self._cyl_2nd_deriv_at_point(deriv_type, R, z, phi, t=t)
-        R = xp.broadcast_to(R, shape)
-        z = xp.broadcast_to(z, shape)
-        phi = xp.broadcast_to(phi, shape)
-        t = xp.broadcast_to(t, shape)
+        # Vectorized: flatten the broadcast coords to 1-D and evaluate ALL points
+        # in one batched _cyl_2nd_deriv_at_point call (no per-point Python loop ->
+        # no O(P) XLA graph), reshape back.
+        R = xp.reshape(xp.broadcast_to(R, shape), (-1,))
+        z = xp.reshape(xp.broadcast_to(z, shape), (-1,))
+        phi = xp.reshape(xp.broadcast_to(phi, shape), (-1,))
+        t = xp.reshape(xp.broadcast_to(t, shape), (-1,))
         return xp.reshape(
-            xp.stack(
-                [
-                    self._cyl_2nd_deriv_at_point(
-                        deriv_type, R[idx], z[idx], phi[idx], t=t[idx]
-                    )
-                    for idx in numpy.ndindex(*shape)
-                ]
-            ),
-            shape,
+            self._cyl_2nd_deriv_at_point(deriv_type, R, z, phi, t=t), shape
         )
 
     def _cyl_2nd_deriv_at_point(self, deriv_type, R, z, phi, t=0.0):

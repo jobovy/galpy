@@ -637,10 +637,13 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             return out * (4.0 * numpy.pi) ** 0.5
         # backend path: same factored expression at a guarded radius (the r == 0
         # column is exactly zero; both xp.where branches are evaluated under
-        # tracing/eager AD, so the generic branch must stay finite there).
-        l = asarray_on_device(
-            xp, numpy.arange(0, L, dtype=float)[numpy.newaxis, :], device_of(r)
-        )
+        # tracing/eager AD, so the generic branch must stay finite there). Scalar
+        # r -> l on axis 1 -> (N, L); array r of shape (P,) -> l on axis 0 so the
+        # r-prefactor is (L, P) and, against CC (N, L, P), gives (N, L, P).
+        _arr_r = getattr(r, "ndim", 0) != 0
+        l_np = numpy.arange(0, L, dtype=float)
+        l_np = l_np[:, numpy.newaxis] if _arr_r else l_np[numpy.newaxis, :]
+        l = asarray_on_device(xp, l_np, device_of(r))
         rs = xp.where(r == 0, 1.0, r)
         ar = a + rs
         ar2 = ar * ar
@@ -874,31 +877,70 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             pole = xp.abs(1.0 - costheta * costheta) < 1e-14
             costheta = xp.where(pole, xp.sign(costheta) * (1.0 - 1e-7), costheta)
             sintheta = xp.where(pole, xp.sqrt(1.0 - costheta**2), sintheta)
-        PP, dPP, d2PP = assoc_legendre(L, M, costheta, deriv=2)
-        dPth = dPP * (-sintheta)
-        d2Pth = d2PP * sintheta**2 - dPP * costheta
-        PP = PP[None, :, :]
-        dPth = dPth[None, :, :]
-        d2Pth = d2Pth[None, :, :]
-        phi_tilde = self._phiTilde(rs, N, L)[:, :, None]
-        dphi_tilde = self._dphiTilde(rs, N, L)[:, :, None]
-        d2phi_tilde = self._d2phiTilde(rs, N, L)[:, :, None]
-        m = asarray_on_device(xp, numpy.arange(0, M, dtype=float)[None, None, :], dev)
-        mcos = xp.cos(m * phi)
-        msin = xp.sin(m * phi)
-        cos_sin = Acos * mcos + Asin * msin  # angular azimuthal coefficient
-        dphi_coef = m * (Asin * mcos - Acos * msin)  # d/dphi of cos_sin
+        if getattr(r, "ndim", 0) == 0:
+            # scalar: the (N, L, M) sums collapse to eight scalars (unchanged).
+            PP, dPP, d2PP = assoc_legendre(L, M, costheta, deriv=2)
+            dPth = dPP * (-sintheta)
+            d2Pth = d2PP * sintheta**2 - dPP * costheta
+            PP = PP[None, :, :]
+            dPth = dPth[None, :, :]
+            d2Pth = d2Pth[None, :, :]
+            phi_tilde = self._phiTilde(rs, N, L)[:, :, None]
+            dphi_tilde = self._dphiTilde(rs, N, L)[:, :, None]
+            d2phi_tilde = self._d2phiTilde(rs, N, L)[:, :, None]
+            m = asarray_on_device(
+                xp, numpy.arange(0, M, dtype=float)[None, None, :], dev
+            )
+            mcos = xp.cos(m * phi)
+            msin = xp.sin(m * phi)
+            cos_sin = Acos * mcos + Asin * msin
+            dphi_coef = m * (Asin * mcos - Acos * msin)
+            return tuple(
+                xp.where(degenerate, 0.0, val)
+                for val in (
+                    xp.sum(cos_sin * PP * d2phi_tilde),  # Phi_rr
+                    xp.sum(cos_sin * d2Pth * phi_tilde),  # Phi_tt
+                    xp.sum(-m * m * cos_sin * PP * phi_tilde),  # Phi_pp
+                    xp.sum(cos_sin * dPth * dphi_tilde),  # Phi_rt
+                    xp.sum(dphi_coef * PP * dphi_tilde),  # Phi_rp
+                    xp.sum(dphi_coef * dPth * phi_tilde),  # Phi_tp
+                    xp.sum(cos_sin * PP * dphi_tilde),  # Phi_r
+                    xp.sum(cos_sin * dPth * phi_tilde),  # Phi_t
+                )
+            )
+        # batched array (P,): carry a leading point axis through the same sums;
+        # each of the eight outputs is (P,), zeroed where the radius is degenerate.
+        PP, dPP, d2PP = assoc_legendre(L, M, costheta, deriv=2)  # (P, L, M)
+        st = sintheta[:, None, None]
+        ct = costheta[:, None, None]
+        dPth = (dPP * (-st))[:, None, :, :]  # (P, 1, L, M)
+        d2Pth = (d2PP * st**2 - dPP * ct)[:, None, :, :]
+        PP = PP[:, None, :, :]
+        phi_tilde = xp.moveaxis(self._phiTilde(rs, N, L), -1, 0)[
+            :, :, :, None
+        ]  # (P,N,L,1)
+        dphi_tilde = xp.moveaxis(self._dphiTilde(rs, N, L), -1, 0)[:, :, :, None]
+        d2phi_tilde = xp.moveaxis(self._d2phiTilde(rs, N, L), -1, 0)[:, :, :, None]
+        mvec = asarray_on_device(xp, numpy.arange(0, M, dtype=float), dev)
+        ang = phi[:, None] * mvec[None, :]  # (P, M)
+        mcos = xp.cos(ang)[:, None, None, :]  # (P, 1, 1, M)
+        msin = xp.sin(ang)[:, None, None, :]
+        cos_sin = Acos[None] * mcos + Asin[None] * msin  # (P, N, L, M)
+        m4 = mvec[None, None, None, :]  # (1, 1, 1, M)
+        dphi_coef = m4 * (Asin[None] * mcos - Acos[None] * msin)
+        deg = degenerate
+        ax = (1, 2, 3)
         return tuple(
-            xp.where(degenerate, 0.0, val)
+            xp.where(deg, 0.0, val)
             for val in (
-                xp.sum(cos_sin * PP * d2phi_tilde),  # Phi_rr
-                xp.sum(cos_sin * d2Pth * phi_tilde),  # Phi_tt
-                xp.sum(-m * m * cos_sin * PP * phi_tilde),  # Phi_pp
-                xp.sum(cos_sin * dPth * dphi_tilde),  # Phi_rt
-                xp.sum(dphi_coef * PP * dphi_tilde),  # Phi_rp
-                xp.sum(dphi_coef * dPth * phi_tilde),  # Phi_tp
-                xp.sum(cos_sin * PP * dphi_tilde),  # Phi_r
-                xp.sum(cos_sin * dPth * phi_tilde),  # Phi_t
+                xp.sum(cos_sin * PP * d2phi_tilde, axis=ax),  # Phi_rr
+                xp.sum(cos_sin * d2Pth * phi_tilde, axis=ax),  # Phi_tt
+                xp.sum(-m4 * m4 * cos_sin * PP * phi_tilde, axis=ax),  # Phi_pp
+                xp.sum(cos_sin * dPth * dphi_tilde, axis=ax),  # Phi_rt
+                xp.sum(dphi_coef * PP * dphi_tilde, axis=ax),  # Phi_rp
+                xp.sum(dphi_coef * dPth * phi_tilde, axis=ax),  # Phi_tp
+                xp.sum(cos_sin * PP * dphi_tilde, axis=ax),  # Phi_r
+                xp.sum(cos_sin * dPth * phi_tilde, axis=ax),  # Phi_t
             )
         )
 
