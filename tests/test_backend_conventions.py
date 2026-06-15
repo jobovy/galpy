@@ -6,12 +6,32 @@
 import ast
 import inspect
 
+import numpy
 import pytest
 
 from galpy import potential
 
 # Static source analysis — independent of the active backend.
 pytestmark = pytest.mark.backend_managed
+
+# Non-numpy namespaces available, for the coerce_coords coverage test below.
+_NS = {"numpy": numpy}
+try:
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+
+    _NS["jax"] = jnp
+except ImportError:  # pragma: no cover
+    pass
+try:
+    import torch
+
+    torch.set_default_dtype(torch.float64)
+    _NS["torch"] = torch
+except ImportError:  # pragma: no cover
+    pass
 
 # Private compute methods that must be backend-agnostic (no bare ``numpy.<fn>``;
 # use ``xp = get_namespace(...)`` then ``xp.<fn>``, or ``math.pi`` for constants).
@@ -105,6 +125,8 @@ _MIGRATED_SAMPLE = [
     "KuzminDiskPotential",
     "DoubleExponentialDiskPotential",
     "PowerTriaxialPotential",
+    "MN3ExponentialDiskPotential",
+    "RingPotential",
 ]
 _UNMIGRATED_SAMPLE = [
     "FerrersPotential",
@@ -154,3 +176,31 @@ def test_check_backend_compatible_semantics():
     assert cbc(ac) is False
     # a non-potential first arg (e.g. a df instance) is never compatible
     assert cbc(object()) is False
+
+
+@pytest.mark.parametrize("backend", list(_NS))
+def test_coerce_coords_branches(backend):
+    # Exercises every branch of coerce_coords: numpy pass-through, None,
+    # float-dtype preservation, and python/int -> backend float64.
+    from galpy.backend._namespaces import coerce_coords
+
+    xp = _NS[backend]
+    f32 = numpy.float32 if backend != "torch" else None  # torch handles below
+    R = numpy.array([1.0, 2.0])  # float64 array -> dtype preserved
+    out = coerce_coords(xp, R, None, 1.0, 2)  # array, None, py-float, py-int
+    if backend == "numpy":
+        # strict pass-through: object-identical, byte-identical numpy path
+        assert out == (R, None, 1.0, 2)
+        return
+    R_o, none_o, f_o, i_o = out
+    assert none_o is None
+    # py-float and py-int are lifted to the backend's float64
+    for v in (R_o, f_o, i_o):
+        assert "float64" in str(getattr(v, "dtype", ""))
+    # a float32 input keeps its dtype (exit-cast policy still applies)
+    if f32 is not None:
+        (R32_o,) = coerce_coords(xp, R.astype(f32))
+        assert "float32" in str(R32_o.dtype)
+    else:  # torch float32 tensor
+        (R32_o,) = coerce_coords(xp, torch.tensor([1.0, 2.0], dtype=torch.float32))
+        assert "float32" in str(R32_o.dtype)
