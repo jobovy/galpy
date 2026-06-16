@@ -88,6 +88,7 @@ class TransientLogSpiralPotential(planarPotential):
         else:
             self._alpha = alpha
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
 
     def _envelope(self, t):
