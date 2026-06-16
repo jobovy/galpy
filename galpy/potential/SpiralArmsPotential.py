@@ -116,6 +116,7 @@ class SpiralArmsPotential(Potential):
         self.hasC = (
             True  # Potential has C implementation to speed up orbit integrations
         )
+        self._backend_compatible = True
         self.hasC_dxdv = True  # Potential has C implementation of second derivatives
         self.hasC_dxdv3d = True  # Full 3D Hessian (incl. zphideriv) now in C
 

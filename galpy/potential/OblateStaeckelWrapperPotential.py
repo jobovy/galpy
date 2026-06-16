@@ -91,6 +91,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             _evaluatePotentials(self._pot, R0, z0) * numpy.cosh(self._u0) ** 2.0
         )
         self.hasC = True
+        self._backend_compatible = True
         # Advertise the (planar and 3D) C variational capabilities
         # unconditionally, as for hasC: _check_c recurses into the wrapped
         # potential's own flags (the wrapper's C Hessian chain-rules the
