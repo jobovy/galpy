@@ -4,7 +4,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace, match_input_dtype
+from ..backend import asarray_on_device, device_of, get_namespace, match_input_dtype
 from ..util import coords
 
 
@@ -83,10 +83,17 @@ class SphericalHarmonicPotentialMixin:
             return force
         # backend path: identical per-point evaluation, assembled functionally
         # (stack instead of in-place writes) so it traces and differentiates.
-        R = xp.asarray(R) * 1.0
-        z = xp.asarray(z) * 1.0
-        phi = xp.asarray(phi) * 1.0
-        t = xp.asarray(t) * 1.0
+        # Anchor every coordinate AND chain-rule factor on one device, so a CUDA
+        # array coord meeting Python-scalar siblings (which xp.asarray would put
+        # on CPU) does not mix devices. dev is None for numpy -> byte-identical.
+        dev = device_of(R, z, phi, t, dr_dx, dtheta_dx, dphi_dx)
+        R = asarray_on_device(xp, R, dev) * 1.0
+        z = asarray_on_device(xp, z, dev) * 1.0
+        phi = asarray_on_device(xp, phi, dev) * 1.0
+        t = asarray_on_device(xp, t, dev) * 1.0
+        dr_dx = asarray_on_device(xp, dr_dx, dev) * 1.0
+        dtheta_dx = asarray_on_device(xp, dtheta_dx, dev) * 1.0
+        dphi_dx = asarray_on_device(xp, dphi_dx, dev) * 1.0
         shape = numpy.broadcast_shapes(
             tuple(R.shape), tuple(z.shape), tuple(phi.shape), tuple(t.shape)
         )
@@ -102,11 +109,9 @@ class SphericalHarmonicPotentialMixin:
         z = xp.reshape(xp.broadcast_to(z, shape), (-1,))
         phi = xp.reshape(xp.broadcast_to(phi, shape), (-1,))
         t = xp.reshape(xp.broadcast_to(t, shape), (-1,))
-        dr_dx = xp.reshape(xp.broadcast_to(xp.asarray(dr_dx) * 1.0, shape), (-1,))
-        dtheta_dx = xp.reshape(
-            xp.broadcast_to(xp.asarray(dtheta_dx) * 1.0, shape), (-1,)
-        )
-        dphi_dx = xp.reshape(xp.broadcast_to(xp.asarray(dphi_dx) * 1.0, shape), (-1,))
+        dr_dx = xp.reshape(xp.broadcast_to(dr_dx, shape), (-1,))
+        dtheta_dx = xp.reshape(xp.broadcast_to(dtheta_dx, shape), (-1,))
+        dphi_dx = xp.reshape(xp.broadcast_to(dphi_dx, shape), (-1,))
         dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
             R, z, phi, t=t
         )
@@ -216,10 +221,13 @@ class SphericalHarmonicPotentialMixin:
                 )
             return result
         # backend path: identical per-point evaluation, assembled functionally.
-        R = xp.asarray(R) * 1.0
-        z = xp.asarray(z) * 1.0
-        phi = xp.asarray(phi) * 1.0
-        t = xp.asarray(t) * 1.0
+        # Anchor coords on one device (CUDA array meeting scalar siblings); dev
+        # is None for numpy -> byte-identical.
+        dev = device_of(R, z, phi, t)
+        R = asarray_on_device(xp, R, dev) * 1.0
+        z = asarray_on_device(xp, z, dev) * 1.0
+        phi = asarray_on_device(xp, phi, dev) * 1.0
+        t = asarray_on_device(xp, t, dev) * 1.0
         shape = numpy.broadcast_shapes(
             tuple(R.shape), tuple(z.shape), tuple(phi.shape), tuple(t.shape)
         )
