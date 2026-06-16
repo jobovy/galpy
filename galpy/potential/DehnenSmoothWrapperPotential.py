@@ -66,6 +66,7 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
             self._tsteady = self._tform + tsteady
         self._grow = not decay
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         # Advertise the 3D variational capability unconditionally, as for
         # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own
@@ -81,7 +82,11 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
         # diffrax/torchdiffeq integrator, or autodiff wrt time) uses that
         # backend's branch-free where, so it is traceable and differentiable.
         xp = get_namespace(t)
-        if xp is numpy:
+        if xp is numpy or isinstance(t, (float, int)):
+            # numpy/python scalar fast path: a concrete (Python/numpy) t keeps
+            # the original scalar branching, byte-identical, even when a backend
+            # is forced (get_namespace then returns jax/torch for a plain float,
+            # but jax/torch ops on a python scalar/python-bool condition fail).
             # Calculate relevant time
             if t < self._tform:
                 smooth = 0.0
