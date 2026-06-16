@@ -111,7 +111,12 @@ def _promote_scalars_for(xp, *vals):
             return v
         try:
             return xp.asarray(v, dtype=dtype, device=device)
-        except TypeError:  # pragma: no cover - namespace without device kwarg
+        except (TypeError, ValueError):
+            # namespace without a device kwarg, or one that rejects the device
+            # value (array-api jax exposes .device as the string 'cpu', which
+            # jnp.asarray(device=...) refuses with ValueError). jax tracks device
+            # automatically, so a plain asarray is correct; torch's .device is a
+            # real object and never hits this fallback.
             return xp.asarray(v, dtype=dtype)
 
     return tuple(_promote(v) for v in vals)
