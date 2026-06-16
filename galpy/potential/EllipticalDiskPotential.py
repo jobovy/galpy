@@ -81,6 +81,7 @@ class EllipticalDiskPotential(planarPotential):
         # Back to old definition
         self._amp /= r1**p
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         if cp is None or sp is None:
             self._phib = phib

@@ -85,6 +85,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _finish_init(self, normalize):
         """Called by subclasses after setting self._me."""
+        self._backend_compatible = True
         if self._Sigma_dict is not None and self._hz_dict is not None:
             self.hasC = True
             self.hasC_dens = True

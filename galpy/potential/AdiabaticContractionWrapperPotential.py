@@ -125,6 +125,8 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         interpSphericalPotential.__init__(
             self, rforce=new_rforce_func, rgrid=rgrid, Phi0=Phi0, ro=ro, vo=vo
         )
+        # scipy/numpy-only: opt out of interpSphericalPotential's True flag
+        self._backend_compatible = False
 
 
 def _contraction_Cautun2020(r, M_DMO, Mbar, fbar):

@@ -91,6 +91,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
+        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian (R2deriv/z2deriv/Rzderiv/phi2deriv/Rphideriv/zphideriv)
         # in C via the EllipsoidalPotential GL angle integral; only in the aligned
