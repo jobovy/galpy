@@ -13,7 +13,8 @@ from ..util.conversion import physical_conversion, potential_physical_input
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
 
 
-@potential_physical_input
+# coerce_backend=False: numpy-only body (scipy.integrate.quad over r)
+@potential_physical_input(coerce_backend=False)
 @physical_conversion("velocity", pop=True)
 def sigmar(Pot, r, dens=None, beta=0.0):
     """
@@ -177,7 +178,8 @@ def _sigmar_on_grid(Pot, rs, dens=None, beta=0.0, nstart=1001, maxrefine=3):
     return None
 
 
-@potential_physical_input
+# coerce_backend=False: numpy-only body (nested scipy.integrate.quad)
+@potential_physical_input(coerce_backend=False)
 @physical_conversion("velocity", pop=True)
 def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
     """
