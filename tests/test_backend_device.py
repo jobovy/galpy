@@ -103,6 +103,31 @@ def test_doubleexp_scalar_R_array_z(backend):
     numpy.testing.assert_allclose(_np(dp(1.5, zb)), ref, rtol=1e-8, atol=1e-10)
 
 
+def test_promote_scalars_device_reject_fallback():
+    # _promote_scalars_for must fall back to a device-less asarray when the
+    # namespace rejects the ref's device value (array-api jax exposes .device as
+    # the string 'cpu', and jnp.asarray(device='cpu') raises ValueError). Driven
+    # deterministically here with a tiny stub so the fallback is covered on every
+    # CI runner regardless of the installed jax's .device behaviour.
+    from galpy.util.coords import _promote_scalars_for
+
+    class _Xp:
+        def asarray(self, v, dtype=None, device=None):
+            if device is not None:
+                raise ValueError(f"backend rejects device={device!r}")
+            return numpy.asarray(v, dtype=dtype)
+
+    class _Ref:
+        ndim = 1
+        dtype = float
+        device = "string-device-the-namespace-rejects"
+
+    ref = _Ref()
+    out = _promote_scalars_for(_Xp(), ref, 2.5)
+    assert out[0] is ref  # the array passes through untouched
+    assert float(out[1]) == 2.5  # the scalar was promoted via the fallback path
+
+
 @pytest.mark.skipif(
     torch is None or not torch.cuda.is_available(),
     reason="needs a CUDA torch device",
