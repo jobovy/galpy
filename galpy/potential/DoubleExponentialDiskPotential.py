@@ -189,8 +189,10 @@ class DoubleExponentialDiskPotential(Potential):
         dev = device_of(R, z)
         if isinstance(R, (float, int)):
             floatIn = True
-            R = xp.atleast_1d(xp.asarray(R))
-            z = xp.atleast_1d(xp.asarray(z))
+            # anchor on dev so a scalar R does not land on CPU while z is a CUDA
+            # array (dev is None for numpy/scalars -> byte-identical)
+            R = xp.atleast_1d(asarray_on_device(xp, R, dev))
+            z = xp.atleast_1d(asarray_on_device(xp, z, dev))
         else:
             if isinstance(z, float):
                 z = z * xp.ones_like(R)
