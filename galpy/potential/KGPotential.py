@@ -68,6 +68,7 @@ class KGPotential(linearPotential):
         self._D2 = self._D**2.0
         self.hasC = True
         self.hasC_dxdv = True  # 1D variational (dxdv) second derivative in C
+        self._backend_compatible = True
 
     def _evaluate(self, x, t=0.0):
         xp = get_namespace(x)

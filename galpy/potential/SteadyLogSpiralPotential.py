@@ -94,6 +94,7 @@ class SteadyLogSpiralPotential(planarPotential):
             else:
                 self._tsteady = self._tform + 2.0 * self._ts
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
 
     def _smooth(self, t):

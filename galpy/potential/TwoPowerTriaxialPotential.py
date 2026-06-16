@@ -127,6 +127,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
+        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
         # (aligned frame only)
@@ -281,6 +282,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         ):
             self.normalize(normalize)
         self.hasC = not self._glorder is None
+        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
         # (aligned frame only)
@@ -400,6 +402,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
+        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
         # (aligned frame only)
@@ -544,6 +547,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
             self._amp = dumb._amp
         self._scale = self.a
         self.hasC = not self._glorder is None
+        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
         # (aligned frame only)
