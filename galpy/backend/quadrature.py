@@ -6,12 +6,16 @@
 #   keyed by order) -- precision is the point, so the tables stay float64 and
 #   the result is exit-cast back to the input dtype with ``match_input_dtype``.
 #   Per call the tables are materialised into the active backend namespace with
-#   ``asarray_on_device`` (anchored on the device of the limits / an integrand
-#   sample, so CUDA inputs do not meet a CPU table), and every arithmetic step
-#   from there on is plain namespace ops, so the result differentiates under
-#   jax and torch w.r.t. the integration limits AND through the integrand (its
-#   parameters). There is no internal jit -- galpy is jit-COMPATIBLE, not
-#   jit-ing; users wrap their own galpy-using code.
+#   ``asarray_on_device``, anchored on the device of the limits (or an explicit
+#   ``device=`` hint), so CUDA inputs do not meet a CPU table. The integrand's
+#   own device cannot be probed (a CUDA-closure integrand rejects a CPU sample
+#   node before returning), so when the limits are plain Python scalars but the
+#   integrand closes over CUDA tensors, the caller passes ``device=`` (e.g. the
+#   device of its coordinates). Every arithmetic step from there on is plain
+#   namespace ops, so the result differentiates under jax and torch w.r.t. the
+#   integration limits AND through the integrand (its parameters). There is no
+#   internal jit -- galpy is jit-COMPATIBLE, not jit-ing; users wrap their own
+#   galpy-using code.
 #
 #   Fixed-order Gauss-Legendre is a differentiable APPROXIMATION, not adaptive:
 #   pick ``n`` large enough for the target accuracy on your integrand.
@@ -74,7 +78,7 @@ def _gl01_on(xp, n, dev):
     return asarray_on_device(xp, x01, dev), asarray_on_device(xp, w01, dev)
 
 
-def fixed_quad(xp, integrand, a, b, *, n=50):
+def fixed_quad(xp, integrand, a, b, *, n=50, device=None):
     r"""``int_a^b integrand(s) ds`` by fixed-order Gauss-Legendre quadrature.
 
     Backend-agnostic and differentiable in both the limits ``a, b`` and through
@@ -96,16 +100,20 @@ def fixed_quad(xp, integrand, a, b, *, n=50):
     n : int, optional
         Number of Gauss-Legendre nodes (default 50). Fixed-order GL is an
         approximation, not adaptive: raise ``n`` for tighter accuracy.
+    device : optional
+        Device for the node/weight tables. Defaults to the limits' device;
+        pass this when the limits are Python scalars but ``integrand`` closes
+        over CUDA tensors (so the nodes land on the integrand's device).
 
     Returns
     -------
     array
         The integral, exit-cast to the limits' floating dtype.
     """
-    dev = device_of(a, b)
+    dev = device if device is not None else device_of(a, b)
     x01, w01 = _gl01_on(xp, n, dev)
-    a = xp.asarray(a) * 1.0
-    b = xp.asarray(b) * 1.0
+    a = asarray_on_device(xp, a, dev) * 1.0
+    b = asarray_on_device(xp, b, dev) * 1.0
     span = b - a
     # Broadcast the affine remap over the node axis; a, b carry the autodiff.
     nodes = a[..., None] + span[..., None] * x01
@@ -114,7 +122,7 @@ def fixed_quad(xp, integrand, a, b, *, n=50):
     return match_input_dtype(result, a, b)
 
 
-def fixed_quad_semiinfinite(xp, integrand, a, *, n=50, kind="recip"):
+def fixed_quad_semiinfinite(xp, integrand, a, *, n=50, kind="recip", device=None):
     r"""``int_a^inf integrand(s) ds`` by fixed-order Gauss-Legendre quadrature.
 
     The semi-infinite range is mapped to a finite one before applying
@@ -159,9 +167,9 @@ def fixed_quad_semiinfinite(xp, integrand, a, *, n=50, kind="recip"):
     convention is still honoured: ``u`` is clamped strictly inside ``(0, 1)``
     before the map so no node can produce inf/NaN that would poison AD.
     """
-    dev = device_of(a)
+    dev = device if device is not None else device_of(a)
     x01, w01 = _gl01_on(xp, n, dev)
-    a = xp.asarray(a) * 1.0
+    a = asarray_on_device(xp, a, dev) * 1.0
     a_b = a[..., None]
     if kind == "recip":
         # s + (1 - a) = 1/u**2  =>  s = a - 1 + 1/u**2 ; ds = -2 u**-3 du.
@@ -205,7 +213,7 @@ def _boundary_layer_remap(xp, x01, w01, k):
     return X, w01 * dX
 
 
-def transformed_quad(xp, integrand, a, b, *, n=50, interior_point=None):
+def transformed_quad(xp, integrand, a, b, *, n=50, interior_point=None, device=None):
     r"""Finite GL on ``[a, b]``, optionally split at a near-singular interior point.
 
     For a smooth integrand this is ``fixed_quad``. When ``integrand`` has a
@@ -236,6 +244,9 @@ def transformed_quad(xp, integrand, a, b, *, n=50, interior_point=None):
         If given, an interior abscissa ``a < c < b`` at which to split; the
         integrand may be near-singular there. If None, a single n-point GL
         panel is used over ``[a, b]`` (== ``fixed_quad``).
+    device : optional
+        Device for the node/weight tables (see ``fixed_quad``); pass when the
+        limits are scalars but ``integrand`` closes over CUDA tensors.
 
     Returns
     -------
@@ -243,12 +254,12 @@ def transformed_quad(xp, integrand, a, b, *, n=50, interior_point=None):
         The integral, exit-cast to the limits' floating dtype.
     """
     if interior_point is None:
-        return fixed_quad(xp, integrand, a, b, n=n)
-    dev = device_of(a, b, interior_point)
+        return fixed_quad(xp, integrand, a, b, n=n, device=device)
+    dev = device if device is not None else device_of(a, b, interior_point)
     x01, w01 = _gl01_on(xp, n, dev)
-    a = xp.asarray(a) * 1.0
-    b = xp.asarray(b) * 1.0
-    c = xp.asarray(interior_point) * 1.0
+    a = asarray_on_device(xp, a, dev) * 1.0
+    b = asarray_on_device(xp, b, dev) * 1.0
+    c = asarray_on_device(xp, interior_point, dev) * 1.0
     # Cluster nodes toward the (interior) near-singular endpoint of each panel.
     # Left panel [a, c]: xi=0 maps to c (its right end) via 1 - X.
     # Right panel [c, b]: xi=0 maps to c (its left end) via X.
@@ -270,7 +281,7 @@ def transformed_quad(xp, integrand, a, b, *, n=50, interior_point=None):
     return match_input_dtype(result, a, b, c)
 
 
-def nested_quad(xp, integrand, bounds, *, n=50):
+def nested_quad(xp, integrand, bounds, *, n=50, device=None):
     r"""Tensor-product fixed-order GL over a hyper-rectangle.
 
     The backend-agnostic, vectorised generalisation of
@@ -300,6 +311,9 @@ def nested_quad(xp, integrand, bounds, *, n=50):
         Each ``a_i, b_i`` may be a scalar or a backend array.
     n : int or sequence of int, optional
         Number of GL nodes per dimension (a scalar is used for all; default 50).
+    device : optional
+        Device for the node/weight tables (see ``fixed_quad``); pass when the
+        bounds are scalars but ``integrand`` closes over CUDA tensors.
 
     Returns
     -------
@@ -312,15 +326,15 @@ def nested_quad(xp, integrand, bounds, *, n=50):
     else:
         ns = list(n)
     flat_lims = [lim for ab in bounds for lim in ab]
-    dev = device_of(*flat_lims)
+    dev = device if device is not None else device_of(*flat_lims)
     node_arrays = []
     weight_arrays = []
     spans = []
     cast_coords = []
     for i in range(d):
         x01, w01 = _gl01_on(xp, ns[i], dev)
-        a = xp.asarray(bounds[i][0]) * 1.0
-        b = xp.asarray(bounds[i][1]) * 1.0
+        a = asarray_on_device(xp, bounds[i][0], dev) * 1.0
+        b = asarray_on_device(xp, bounds[i][1], dev) * 1.0
         span = b - a
         # Place this dimension's nodes on its own (trailing) grid axis i; the
         # other d-1 node axes are length-1 here and broadcast.

@@ -209,3 +209,103 @@ def test_semiinfinite_grad_in_limit(backend):
         ).backward()
         ga = float(at.grad)
     numpy.testing.assert_allclose(ga, -numpy.exp(-a0), rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_device_hint_explicit(backend):
+    # The device= hint anchors the node/weight tables AND the (possibly scalar)
+    # limits on a caller-supplied device, for integrands that close over arrays
+    # on a device the scalar limits cannot reveal. Exercised here on CPU; the
+    # CUDA case (where it is load-bearing) is in test_device_hint_cuda.
+    if backend == "jax":
+        xp, dev, tonp = jnp, jax.devices("cpu")[0], float
+    else:
+        xp, dev, tonp = txp, torch.device("cpu"), (lambda v: float(v.detach()))
+    e5 = 2.0 * (1.0 - numpy.exp(-5.0))
+    numpy.testing.assert_allclose(
+        tonp(fixed_quad(xp, lambda s: 2.0 * xp.exp(-s), 0.0, 5.0, n=60, device=dev)),
+        e5,
+        rtol=1e-9,
+    )
+    numpy.testing.assert_allclose(
+        tonp(
+            fixed_quad_semiinfinite(
+                xp, lambda s: 2.0 * xp.exp(-s), 0.0, n=80, device=dev
+            )
+        ),
+        2.0,
+        rtol=1e-6,
+    )
+    numpy.testing.assert_allclose(
+        tonp(
+            transformed_quad(
+                xp,
+                lambda s: 2.0 * xp.exp(-s),
+                0.0,
+                5.0,
+                n=40,
+                interior_point=1.0,
+                device=dev,
+            )
+        ),
+        e5,
+        rtol=1e-7,
+    )
+    numpy.testing.assert_allclose(
+        tonp(
+            nested_quad(
+                xp,
+                lambda x, y: xp.ones_like(x * y),
+                [[0.0, 1.0], [0.0, 2.0]],
+                n=15,
+                device=dev,
+            )
+        ),
+        2.0,
+        rtol=1e-12,
+    )
+
+
+@pytest.mark.skipif(
+    torch is None or not torch.cuda.is_available(),
+    reason="needs a CUDA torch device",
+)
+def test_device_hint_cuda():
+    # Scalar limits + a CUDA-closure integrand: without device= the CPU node
+    # tables meet the CUDA integrand and torch raises; device= fixes all four.
+    cuda = torch.device("cuda:0")
+    scale = torch.tensor(2.0, device=cuda)
+
+    def integ(s):
+        return scale * torch.exp(-s)
+
+    e5 = 2.0 * (1.0 - numpy.exp(-5.0))
+    with pytest.raises(RuntimeError):  # no hint -> mixed-device error
+        fixed_quad(txp, integ, 0.0, 5.0, n=60)
+    for out, ref in [
+        (fixed_quad(txp, integ, 0.0, 5.0, n=60, device=cuda), e5),
+        (fixed_quad_semiinfinite(txp, integ, 0.0, n=60, device=cuda), 2.0),
+        (
+            transformed_quad(
+                txp, integ, 0.0, 5.0, n=40, interior_point=1.0, device=cuda
+            ),
+            e5,
+        ),
+        (
+            nested_quad(
+                txp,
+                lambda x, y: scale * torch.ones_like(x * y),
+                [[0.0, 1.0], [0.0, 1.0]],
+                n=20,
+                device=cuda,
+            ),
+            2.0,
+        ),
+    ]:
+        assert out.device.type == "cuda"
+        numpy.testing.assert_allclose(float(out.detach().cpu()), ref, atol=1e-4)
+    sc = torch.tensor(2.0, device=cuda, requires_grad=True)
+    fixed_quad(
+        txp, lambda s: sc * torch.exp(-s), 0.0, 5.0, n=60, device=cuda
+    ).backward()
+    numpy.testing.assert_allclose(float(sc.grad.cpu()), e5 / 2.0, rtol=1e-6)
