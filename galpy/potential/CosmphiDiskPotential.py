@@ -104,6 +104,7 @@ class CosmphiDiskPotential(planarPotential):
             self._rb2p = self._rbp**2.0
         self._mphib = self._m * self._phib
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
 
     def _evaluate(self, R, phi=0.0, t=0.0):
@@ -242,4 +243,5 @@ class LopsidedDiskPotential(CosmphiDiskPotential):
             self, amp=amp, phib=phib, p=p, phio=phio, m=1.0, cp=cp, sp=sp, ro=ro, vo=vo
         )
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True

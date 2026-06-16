@@ -52,6 +52,7 @@ class KuzminDiskPotential(Potential):
         ):
             self.normalize(normalize)
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         return None
