@@ -91,15 +91,21 @@ def _dispatch(fnname, args, fallback, ns_args=None):
     if fnname not in _NEEDS_FALLBACK.get(name, frozenset()) and hasattr(sp, fnname):
         if name == "torch":
             # torch.special.* require every argument to be a Tensor (they don't
-            # broadcast Python scalars like scipy/jax do), so promote any plain
-            # scalar parameters (e.g. the order `a` of gammainc(a, x)) to a
-            # Tensor on the same device/dtype as the array argument(s).
-            ref = next((a for a in args if hasattr(a, "ndim")), None)
+            # broadcast Python scalars like scipy/jax do), so promote any non-
+            # Tensor parameter (e.g. the order `a` of gammainc(a, x)) to a Tensor
+            # on the same device/dtype. Test torch.is_tensor (not hasattr ndim):
+            # numpy scalars/0-d arrays have ndim but torch.special still rejects
+            # them, so a numpy.float64 potential parameter must be promoted too.
+            import torch
+
+            ref = next((a for a in args if torch.is_tensor(a)), None)
             if ref is not None:
                 args = tuple(
                     a
-                    if hasattr(a, "ndim")
-                    else xp.asarray(a, dtype=ref.dtype, device=ref.device)
+                    if torch.is_tensor(a)
+                    else xp.asarray(
+                        numpy.asarray(a), dtype=ref.dtype, device=ref.device
+                    )
                     for a in args
                 )
         return getattr(sp, fnname)(*args)
