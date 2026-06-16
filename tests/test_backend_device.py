@@ -94,13 +94,21 @@ def test_cyl_to_spher_mixed(backend):
 
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_doubleexp_scalar_R_array_z(backend):
-    # DoubleExponentialDisk._evaluate scalar-R branch with a backend-array z.
+    # DoubleExp._evaluate's scalar-R path. The backend coercion promotes the
+    # scalar R to a 0-d array, which must still take the scalar path and return
+    # the SAME value numpy does (DoubleExp's scalar-R path returns the R-scalar
+    # result, out[0]) -- regression for the 0-d-R reshape error, and a device
+    # check (scalar R + backend-array z must not mix devices).
     from galpy.potential import DoubleExponentialDiskPotential as DEDP
 
     dp = DEDP()
     zb = _arr(backend, [0.3, 0.6])
     ref = numpy.asarray(dp(1.5, numpy.array([0.3, 0.6])))
     numpy.testing.assert_allclose(_np(dp(1.5, zb)), ref, rtol=1e-8, atol=1e-10)
+    # supported array combo (same-shape R, z) stays a full array, matching numpy
+    Rb, zb2 = _arr(backend, [1.5, 2.0]), _arr(backend, [0.3, 0.6])
+    ref2 = numpy.asarray(dp(numpy.array([1.5, 2.0]), numpy.array([0.3, 0.6])))
+    numpy.testing.assert_allclose(_np(dp(Rb, zb2)), ref2, rtol=1e-8, atol=1e-10)
 
 
 def test_promote_scalars_device_reject_fallback():
