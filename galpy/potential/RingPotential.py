@@ -53,6 +53,7 @@ class RingPotential(Potential):
                 )
             self.normalize(normalize)
         self.hasC = False
+        self._backend_compatible = True
         self.hasC_dxdv = False
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):

@@ -25,6 +25,8 @@ jax tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_dir
 jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dMdE_integral
 jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dens_directint
 jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_dens_directint
+jax tests/test_sphericaldf.py::test_eddington_powerspherical_divergent_auto_rmin
+jax tests/test_sphericaldf.py::test_eddington_powerspherical_massprofile
 jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_meanvr_directint
 jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_rmin
 jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_sigmar
@@ -57,3 +59,44 @@ jax tests/test_sphericaldf.py::test_pvr_interpolator_rmax_default_vs_explicit
 # orbit shard runs fast. (torch orbit is handled by its own ledger entries.)
 jax tests/test_orbit.py
 jax tests/test_orbits.py
+
+# --- jax/torch FDM dynamical friction (Track A group-b dissipative migration) ---
+# The FDM friction force is not yet backend-vectorized: frictionFactor uses
+# scipy.sici + numpy.interp + per-call Python branching, and these tests integrate
+# an orbit, so the un-vectorized force is evaluated thousands of times under a
+# forced backend and the long central-limit integration exceeds the 300 s per-test
+# timeout (the jax shard ran 33 min). Defer until the dissipative forces are
+# migrated (backend sici + branchless frictionFactor + interpolated sigma_r,
+# group b); numpy still exercises them. (torch const_FDMfactor is a shorter
+# integration that finishes under the timeout, so only central_limit is deferred.)
+jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
+jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
+torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
+
+# --- jax quasi-isothermal DF (Track F df migration) ---
+# quasiisothermaldf is not yet backend-migrated; this test does many nested
+# action-angle/quadrature evaluations of a migrated potential under forced-jax
+# and exceeds the 300 s per-test timeout. Defer until the df/actionAngle ports
+# (Track E/F) land; numpy still exercises it.
+jax tests/test_qdf.py::test_meanjz_noaac_issue300
+
+# --- jax interpRZ interpolated density (Track A/d interpRZ 2D-interp vectorization) ---
+# interpRZPotential's interpolated density evaluates a 2D spline at many scalar
+# points; #960's coercion routes this through the backend, so under forced-jax each
+# point dispatches an XLA graph and the test exceeds the 300 s per-test timeout
+# (the other jax interp_potential tests are faster or ledgered). Defer until
+# interpRZ's 2D interpolation is backend-vectorized (group d); numpy still runs it.
+jax tests/test_interp_potential.py::test_interpolation_potential_dens
+
+# --- jax dissipative-force + MovingObject/orbit timeouts (#960 coercion ascent) ---
+# #960's coercion newly exercises these under forced-jax: ChandrasekharDynamicalFriction
+# __init__ builds its sigma_r interpolation with per-scalar XLA dispatch, the
+# RZTo*/toVertical conversion tests construct such forces, and MovingObject integrates
+# an embedded Orbit -- all exceed the 300 s timeout (or hit the un-migrated-Orbit
+# interpolation error). Defer until the dissipative forces (Track B group-b) and Orbit
+# (Track D) are backend-migrated; numpy still exercises them.
+jax tests/test_potential.py::test_rforce_dissipative
+jax tests/test_potential.py::test_RZToplanarPotential
+jax tests/test_potential.py::test_RZToverticalPotential
+jax tests/test_potential.py::test_toVerticalPotential
+jax tests/test_potential.py::test_MovingObject_2ndderivs_fd

@@ -135,6 +135,7 @@ class MN3ExponentialDiskPotential(Potential):
         ):
             self.normalize(normalize)
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         # In C this expands into three MiyamotoNagai potentials (see
         # integrateFullOrbit._parse_pot), each of which has the full 3D Hessian,

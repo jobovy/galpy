@@ -149,6 +149,45 @@ def asarray_on_device(xp, a, device, dtype=None):
     return xp.asarray(a, dtype=dtype, device=device)
 
 
+def coerce_coords(xp, *coords):
+    """Bring coordinate inputs onto the active backend's array type.
+
+    The dominant non-numpy failure mode is "the namespace resolved to a backend
+    (forced harness, or a user mixing a backend tensor with a numpy/python arg)
+    but a coordinate is still numpy/python", which torch rejects strictly
+    (``torch.sqrt(numpy.float64)`` raises; ``numpy.ndarray * Tensor`` raises).
+    Coercing the coordinates to backend arrays once, at the public input
+    boundary, fixes it for every potential at once.
+
+    Rules (applied only when the backend is NOT numpy):
+      * ``None`` is passed through (axisymmetric ``phi=None`` etc.).
+      * a coordinate that already carries a *floating* dtype (a numpy/backend
+        float32/float64 array or scalar) is moved onto the backend with its
+        dtype PRESERVED, so the float32/exit-cast policy (``match_input_dtype``)
+        still applies.
+      * a plain Python scalar (``1.0``/``1``) or an integer array is brought to
+        the backend's float64 -- galpy's interior precision; a bare ``asarray``
+        of a Python float would give torch float32 and miss the tolerances.
+
+    The numpy backend is a strict pass-through (``coords`` returned object-
+    identical) -> the numpy path stays byte-identical.
+    """
+    if xp is numpy:
+        return coords
+    dev = device_of(*coords)
+    out = []
+    for c in coords:
+        if c is None:
+            out.append(c)
+            continue
+        dt = getattr(c, "dtype", None)
+        if dt is not None and _is_floating_dtype(dt):
+            out.append(asarray_on_device(xp, c, dev))  # preserve float dtype
+        else:
+            out.append(asarray_on_device(xp, c, dev, dtype=xp.float64))
+    return tuple(out)
+
+
 def namespace_for_name(name):
     """Map a backend name ('numpy'|'jax'|'torch') to its array namespace module.
 

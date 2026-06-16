@@ -59,6 +59,7 @@ class LogarithmicHaloPotential(Potential):
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="velocity2")
         core = conversion.parse_length(core, ro=self._ro)
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # Full 3D Hessian (incl. zphideriv for triaxial) in C
         self.hasC_dens = True
