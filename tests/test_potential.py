@@ -5124,6 +5124,57 @@ def test_EllipsoidalPotential_evaluate_array_inf():
     return None
 
 
+def test_EllipsoidalPotential_broadcast_scalarR_arrayphi():
+    # Regression: a scalar (R,z) broadcast against an array of azimuths used to
+    # raise "inhomogeneous shape" inside EllipsoidalPotential's force / 2nd-deriv
+    # md5 cache key (and the rotated-frame transform), so every ellipsoidal force
+    # and second derivative crashed on this common one-point-many-angles call.
+    # All of them should now broadcast and match an element-wise loop.
+    phi = numpy.array([0.3, 0.9, 1.7, 2.4])
+    R, z = 1.4, 0.35
+    pots = [
+        potential.PowerTriaxialPotential(normalize=1.0, b=0.7, c=0.5),
+        potential.PerfectEllipsoidPotential(normalize=1.0, b=0.8, c=0.6, a=1.0),
+        potential.TriaxialGaussianPotential(amp=1.0, sigma=1.0, b=0.7, c=0.5),
+    ]
+    aligned_fns = [
+        potential.evaluatePotentials,
+        potential.evaluateRforces,
+        potential.evaluatezforces,
+        potential.evaluatephitorques,
+        potential.evaluateR2derivs,
+        potential.evaluatez2derivs,
+        potential.evaluateRzderivs,
+        potential.evaluatephi2derivs,
+        potential.evaluateDensities,
+    ]
+    for p in pots:
+        for fn in aligned_fns:
+            got = fn(p, R, z, phi=phi, use_physical=False)
+            ref = numpy.array([fn(p, R, z, phi=ph, use_physical=False) for ph in phi])
+            assert numpy.all(numpy.fabs(got - ref) < 1e-10), (
+                f"{p.__class__.__name__}.{fn.__name__}: scalar-R/array-phi "
+                "broadcast disagrees with the element-wise loop"
+            )
+    # rotated (non-aligned) frame: potential, forces, and density must broadcast
+    # too (2nd derivatives raise NotImplementedError for rotated frames by design)
+    pr = potential.PowerTriaxialPotential(normalize=1.0, b=0.7, c=0.5, pa=0.35)
+    for fn in (
+        potential.evaluatePotentials,
+        potential.evaluateRforces,
+        potential.evaluatezforces,
+        potential.evaluatephitorques,
+        potential.evaluateDensities,
+    ):
+        got = fn(pr, R, z, phi=phi, use_physical=False)
+        ref = numpy.array([fn(pr, R, z, phi=ph, use_physical=False) for ph in phi])
+        assert numpy.all(numpy.fabs(got - ref) < 1e-10), (
+            f"rotated PowerTriaxial.{fn.__name__}: scalar-R/array-phi broadcast "
+            "disagrees with the element-wise loop"
+        )
+    return None
+
+
 def test_TriaxialNFW_virialsetup_wrtmeanmatter():
     H, Om, overdens, wrtcrit = 71.0, 0.32, 201.0, False
     ro, vo = 220.0, 8.0

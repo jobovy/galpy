@@ -17,6 +17,17 @@ from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from .Potential import Potential
 
 
+def _stack3(a, b, c):
+    """Stack three coordinate arrays into a homogeneous ``(3, ...)`` array.
+
+    ``numpy.array([a, b, c])`` raises on a broadcasting mix (e.g. a scalar R
+    with an array of azimuths gives array x,y but scalar z); broadcasting first
+    makes the stack -- used for the cache keys and the frame rotation -- accept
+    it. For already-conformable inputs (all scalar, or all the same shape) this
+    is a no-op, so the stacked array is identical to before."""
+    return numpy.array(numpy.broadcast_arrays(a, b, c))
+
+
 class EllipsoidalPotential(Potential):
     """Base class for potentials corresponding to density profiles that are stratified on ellipsoids:
 
@@ -146,7 +157,7 @@ class EllipsoidalPotential(Potential):
         if self._aligned:
             return self._evaluate_xyz(x, y, z)
         else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
+            xyzp = numpy.dot(self._rot, _stack3(x, y, z))
             return self._evaluate_xyz(xyzp[0], xyzp[1], xyzp[2])
 
     def _evaluate_xyz(self, x, y, z):
@@ -164,12 +175,12 @@ class EllipsoidalPotential(Potential):
 
     def _compute_forces(self, x, y, z):
         """Compute and cache all three force components in the aligned frame"""
-        new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
+        new_hash = hashlib.md5(_stack3(x, y, z)).hexdigest()
         if new_hash != self._force_hash:
             if self._aligned:
                 xp, yp, zp = x, y, z
             else:
-                xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
+                xyzp = numpy.dot(self._rot, _stack3(x, y, z))
                 xp, yp, zp = xyzp[0], xyzp[1], xyzp[2]
             prefac = -4.0 * numpy.pi * self._b * self._c
             Fx, Fy, Fz = _forceInt_all(
@@ -228,7 +239,7 @@ class EllipsoidalPotential(Potential):
     def _compute_2ndderivs(self, x, y, z):
         """Compute and cache all six unique 2nd-derivative components in the
         aligned frame"""
-        new_hash = hashlib.md5(numpy.array([x, y, z])).hexdigest()
+        new_hash = hashlib.md5(_stack3(x, y, z)).hexdigest()
         if new_hash != self._2ndderiv_hash:
             prefac = 4.0 * numpy.pi * self._b * self._c
             xx, xy, xz, yy, yz, zz = _2ndDerivInt_all(
@@ -353,7 +364,7 @@ class EllipsoidalPotential(Potential):
         if self._aligned:
             xp, yp, zp = x, y, z
         else:
-            xyzp = numpy.dot(self._rot, numpy.array([x, y, z]))
+            xyzp = numpy.dot(self._rot, _stack3(x, y, z))
             xp, yp, zp = xyzp[0], xyzp[1], xyzp[2]
         m = numpy.sqrt(xp**2.0 + yp**2.0 / self._b2 + zp**2.0 / self._c2)
         return self._mdens(m)
