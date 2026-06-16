@@ -27,10 +27,12 @@ from ._router import (
     hyp2f1,
     i0,
     i1,
+    iv,
     k0,
     k1,
     kn,
     logsumexp,
+    sici,
     xlogy,
 )
 
@@ -43,6 +45,7 @@ __all__ = [
     "erfc",
     "i0",
     "i1",
+    "iv",
     "xlogy",
     "logsumexp",
     "hyp2f1",
@@ -52,6 +55,7 @@ __all__ = [
     "k0",
     "k1",
     "kn",
+    "sici",
     "assoc_legendre",
     "gegenbauer",
 ]
