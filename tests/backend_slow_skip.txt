@@ -79,3 +79,11 @@ torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 # and exceeds the 300 s per-test timeout. Defer until the df/actionAngle ports
 # (Track E/F) land; numpy still exercises it.
 jax tests/test_qdf.py::test_meanjz_noaac_issue300
+
+# --- jax interpRZ interpolated density (Track A/d interpRZ 2D-interp vectorization) ---
+# interpRZPotential's interpolated density evaluates a 2D spline at many scalar
+# points; #960's coercion routes this through the backend, so under forced-jax each
+# point dispatches an XLA graph and the test exceeds the 300 s per-test timeout
+# (the other jax interp_potential tests are faster or ledgered). Defer until
+# interpRZ's 2D interpolation is backend-vectorized (group d); numpy still runs it.
+jax tests/test_interp_potential.py::test_interpolation_potential_dens
