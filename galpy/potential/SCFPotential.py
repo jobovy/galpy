@@ -514,10 +514,13 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             return result
         # backend path: identical per-point evaluation, but assembled
         # functionally (stack instead of in-place writes) so it traces and
-        # differentiates under jax/torch.
-        R = xp.asarray(R) * 1.0
-        z = xp.asarray(z) * 1.0
-        phi = xp.asarray(phi) * 1.0
+        # differentiates under jax/torch. Anchor R, z, phi on one device so a
+        # CUDA array coord meeting Python-scalar siblings (which xp.asarray puts
+        # on CPU) does not mix devices; dev is None for numpy -> byte-identical.
+        dev = device_of(R, z, phi)
+        R = asarray_on_device(xp, R, dev) * 1.0
+        z = asarray_on_device(xp, z, dev) * 1.0
+        phi = asarray_on_device(xp, phi, dev) * 1.0
         shape = (R * z * phi).shape
         if shape == ():
             return self._compute_at_point(radial_func, R, z, phi)
