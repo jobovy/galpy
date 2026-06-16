@@ -119,6 +119,7 @@ class DehnenBarPotential(Potential):
         omegab = conversion.parse_frequency(omegab, ro=self._ro, vo=self._vo)
         Af = conversion.parse_energy(Af, vo=self._vo)
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True
         self.isNonAxi = True
