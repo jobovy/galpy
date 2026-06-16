@@ -2,6 +2,10 @@
 #   GaussianAmplitudeWrapperPotential.py: Wrapper to modulate the amplitude
 #                                         of a potential with a Gaussian
 ###############################################################################
+import math
+
+import numpy
+
 from ..backend import get_namespace
 from ..util import conversion
 from .WrapperPotential import parentWrapperPotential
@@ -43,6 +47,7 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
         self._to = to
         self._sigma2 = sigma**2.0
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         # Advertise the 3D variational capability unconditionally, as for
         # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own
@@ -52,10 +57,18 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
 
     def _smooth(self, t):
         # The namespace follows t itself: a concrete (Python/numpy) t keeps the
-        # numpy path byte-identical; a traced t (in-backend integrator, autodiff
-        # wrt time) uses that backend's exp, so it is differentiable.
+        # original scalar path (byte-identical; returns a plain float that
+        # multiplies into any backend's spatial arrays); a backend-array/traced t
+        # (the in-backend integrator, or autodiff wrt time) uses that backend's
+        # exp, so it is differentiable.
         xp = get_namespace(t)
-        return xp.exp(-0.5 * (t - self._to) ** 2.0 / self._sigma2)
+        arg = -0.5 * (t - self._to) ** 2.0 / self._sigma2
+        if xp is numpy or isinstance(t, (float, int)):
+            # numpy/python scalar fast path: use math.exp so a concrete (and even
+            # forced-backend) Python/numpy-scalar t stays byte-identical and does
+            # not feed a Python scalar to a backend's exp (torch rejects that).
+            return math.exp(arg)
+        return xp.exp(arg)
 
     def _wrap(self, attribute, *args, **kwargs):
         return self._smooth(kwargs.get("t", 0.0)) * self._wrap_pot_func(attribute)(
