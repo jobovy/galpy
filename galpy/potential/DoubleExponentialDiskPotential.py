@@ -188,7 +188,11 @@ class DoubleExponentialDiskPotential(Potential):
         # for numpy/scalars, leaving the numpy path byte-identical).
         in_coords = (R, z, phi, t)
         dev = device_of(R, z)
-        if isinstance(R, (float, int)):
+        # A 0-d array counts as scalar input: the backend coercion decorator
+        # promotes a Python scalar R to a 0-d backend array, which must take the
+        # same path as a plain float (else the array branch's outShape=R.shape=()
+        # mismatches an array z and reshape fails) -> stays numpy-consistent.
+        if isinstance(R, (float, int)) or getattr(R, "ndim", 1) == 0:
             floatIn = True
             # anchor on dev so a scalar R does not land on CPU while z is a CUDA
             # array (dev is None for numpy/scalars -> byte-identical)
