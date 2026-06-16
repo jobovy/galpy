@@ -1207,7 +1207,8 @@ def cyl_to_spher(R, Z, phi):
     -----
     - 2016-05-16 - Written - Aladdin
     """
-    xp = get_namespace(R, Z)
+    xp = get_namespace(R, Z, phi)
+    R, Z, phi = _promote_scalars_for(xp, R, Z, phi)
     theta = xp.arctan2(R, Z)
     r = (R**2 + Z**2) ** 0.5
     return (r, theta, phi)
