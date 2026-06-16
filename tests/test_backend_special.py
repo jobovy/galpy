@@ -169,7 +169,7 @@ def test_fallback_table_matches_installed_backends():
     # present, else there is nothing to override).
     tier12 = [
         "gammaln", "gamma", "gammainc", "gammaincc", "erf", "erfc", "i0", "i1",
-        "hyp2f1", "hyp1f1", "ellipk", "ellipe", "k0", "k1", "kn",
+        "hyp2f1", "hyp1f1", "ellipk", "ellipe", "k0", "k1", "kn", "iv", "sici",
     ]  # fmt: skip
     for backend in AD_BACKENDS:
         xp = _asarray(backend, 1.0)
@@ -188,6 +188,82 @@ def test_fallback_table_matches_installed_backends():
                 f"{backend}: {fn} is listed UNRELIABLE but absent natively; it "
                 f"belongs in _NATIVE_MISSING instead"
             )
+
+
+# --- iv (modified Bessel I, integer order) and sici (sine/cosine integral) ----
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_iv_value_parity(backend):
+    # spans x=0, small x (series, no 2/x cancellation), the |x|=2 series/
+    # recurrence seam, and large x (overflow-regime parity).
+    pts = numpy.array([0.0, 1e-3, 1e-2, 0.3, 0.8, 1.5, 2.0, 2.5, 3.5, 5.0, 30.0])
+    for n in (0, 1, 2):
+        ref = scipy_special.iv(n, pts)
+        got = _tonumpy(gsp.iv(n, _asarray(backend, pts)))
+        rtol = 0.0 if backend == "numpy" else 1e-10  # series/recurrence ~1e-15
+        numpy.testing.assert_allclose(
+            got, ref, rtol=rtol, atol=1e-12, err_msg=f"iv n={n} ({backend})"
+        )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_iv_zero_value_and_grad_finite(backend):
+    # I_n(0)=0 for n>=2 and I_n'(0)=0: the upward recurrence divides by x, so
+    # x=0 must be handled (no NaN in value OR reverse-mode gradient).
+    assert _tonumpy(gsp.iv(2, _asarray(backend, 0.0))) == 0.0
+    if backend == "jax":
+        g = float(jax.grad(lambda x: gsp.iv(2, x))(jnp.asarray(0.0)))
+    else:
+        xt = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
+        gsp.iv(2, xt).backward()
+        g = float(xt.grad)
+    assert g == 0.0, f"iv(2,0) grad not finite-zero: {g} ({backend})"
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_iv_grad_vs_analytic(backend):
+    x0 = 2.0  # d/dx I2 = I1 - (2/x) I2
+    ref = scipy_special.iv(1, x0) - 2.0 / x0 * scipy_special.iv(2, x0)
+    if backend == "jax":
+        ad = float(jax.grad(lambda x: gsp.iv(2, x))(jnp.asarray(x0)))
+    else:
+        xt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+        gsp.iv(2, xt).backward()
+        ad = float(xt.grad)
+    numpy.testing.assert_allclose(ad, ref, rtol=1e-6, err_msg=f"iv grad ({backend})")
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sici_value_parity(backend):
+    # span both regimes (series x<=6, Gauss-Laguerre auxiliary x>6)
+    pts = numpy.array([0.2, 0.8, 2.0, 5.0, 7.0, 20.0, 80.0])
+    rsi, rci = scipy_special.sici(pts)
+    si, ci = gsp.sici(_asarray(backend, pts))
+    si, ci = _tonumpy(si), _tonumpy(ci)
+    rtol = 0.0 if backend == "numpy" else 1e-10
+    numpy.testing.assert_allclose(
+        si, rsi, rtol=rtol, atol=1e-11, err_msg=f"Si ({backend})"
+    )
+    numpy.testing.assert_allclose(
+        ci, rci, rtol=rtol, atol=1e-11, err_msg=f"Ci ({backend})"
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_sici_grad_vs_analytic(backend):
+    x0 = 3.0  # d/dx Si = sin(x)/x ; d/dx Ci = cos(x)/x
+    refsi, refci = numpy.sin(x0) / x0, numpy.cos(x0) / x0
+    if backend == "jax":
+        gsi = float(jax.grad(lambda x: gsp.sici(x)[0])(jnp.asarray(x0)))
+        gci = float(jax.grad(lambda x: gsp.sici(x)[1])(jnp.asarray(x0)))
+    else:
+        xs = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+        gsp.sici(xs)[0].backward()
+        gsi = float(xs.grad)
+        xc = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+        gsp.sici(xc)[1].backward()
+        gci = float(xc.grad)
+    numpy.testing.assert_allclose(gsi, refsi, rtol=1e-6, err_msg=f"Si grad ({backend})")
+    numpy.testing.assert_allclose(gci, refci, rtol=1e-6, err_msg=f"Ci grad ({backend})")
 
 
 # --- Tier 2: hyp2f1 / hyp1f1 / ellipk / ellipe --------------------------------
