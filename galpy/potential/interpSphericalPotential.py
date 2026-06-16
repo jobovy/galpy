@@ -4,7 +4,9 @@
 import numpy
 from scipy import interpolate
 
-from ..backend import asarray_on_device, device_of, get_namespace, match_input_dtype
+from ..backend import get_namespace, match_input_dtype
+from ..backend.interpolate import eval_ppoly as _ppoly_eval
+from ..backend.interpolate import spline_to_ppoly as _spline_to_ppoly_data
 from ..util._optional_deps import _JAX_LOADED
 from ..util.conversion import get_physical, physical_compatible
 from .Potential import _evaluatePotentials, _evaluateRforces
@@ -12,49 +14,6 @@ from .SphericalPotential import SphericalPotential
 
 if _JAX_LOADED:
     import jax.numpy as jnp
-
-
-def _spline_to_ppoly_data(spl):
-    """Convert a FITPACK spline to de-duplicated piecewise-power coefficients.
-
-    Returns ``(x, c)`` with ``x`` the distinct breakpoints (shape ``(m+1,)``)
-    and ``c`` the power-basis coefficients (shape ``(k+1, m)``) such that on
-    ``x[i] <= r < x[i+1]`` the spline is ``sum_j c[j, i] * (r - x[i])**(k-j)``.
-    This is the exact piecewise-polynomial representation of the spline (scipy's
-    ``PPoly.from_spline``), with the zero-width intervals coming from FITPACK's
-    repeated boundary knots dropped so that interval lookup by ``searchsorted``
-    is unambiguous. Called once at setup (init-time numpy/scipy is fine); the
-    coefficients then feed the backend-agnostic ``_ppoly_eval`` below.
-    """
-    ppoly = interpolate.PPoly.from_spline(spl._eval_args)
-    keep = numpy.diff(ppoly.x) > 0.0
-    return numpy.append(ppoly.x[:-1][keep], ppoly.x[-1]), ppoly.c[:, keep]
-
-
-def _ppoly_eval(xp, x, c, r):
-    """Evaluate a piecewise polynomial in the power basis at ``r``.
-
-    ``(x, c)`` are as returned by ``_spline_to_ppoly_data``; the evaluation
-    (interval lookup by ``xp.searchsorted`` + Horner) uses only namespace
-    operations, so the spline value is computed natively -- and is exactly
-    autodifferentiable -- under jax/torch. Mathematically this is the same
-    piecewise cubic as the scipy spline (agreement at the ~1 ulp level); the
-    numpy code paths keep calling the scipy splines directly and never come
-    through here. ``r`` outside ``[x[0], x[-1]]`` evaluates the edge polynomial
-    (finite extrapolation), which keeps the dead side of the callers'
-    ``xp.where`` branch selections NaN-free under autodiff.
-    """
-    # knots/coefficients stay float64 (precision is the point; the callers
-    # exit-cast) but must live on the input's device (CUDA support)
-    dev = device_of(r)
-    xb = asarray_on_device(xp, x, dev)
-    cb = asarray_on_device(xp, c, dev)
-    idx = xp.clip(xp.searchsorted(xb, r, side="right") - 1, 0, cb.shape[1] - 1)
-    dr = r - xb[idx]
-    out = cb[0, idx]
-    for j in range(1, cb.shape[0]):
-        out = out * dr + cb[j, idx]
-    return out
 
 
 class interpSphericalPotential(SphericalPotential):
