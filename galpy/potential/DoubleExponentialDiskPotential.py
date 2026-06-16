@@ -101,6 +101,7 @@ class DoubleExponentialDiskPotential(Potential):
         hr = conversion.parse_length(hr, ro=self._ro)
         hz = conversion.parse_length(hz, ro=self._ro)
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True  # planar (2D) R2deriv in C
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True

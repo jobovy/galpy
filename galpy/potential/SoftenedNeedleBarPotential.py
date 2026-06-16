@@ -84,6 +84,7 @@ class SoftenedNeedleBarPotential(Potential):
         self._force_hash = None
         self._hess_hash = None
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (incl. zphideriv) in C
         if normalize or (

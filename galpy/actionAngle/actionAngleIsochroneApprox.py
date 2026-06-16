@@ -893,7 +893,8 @@ class actionAngleIsochroneApprox(actionAngle):
             return (R, vR, vT, z, vz, phi)
 
 
-@potential_physical_input
+# coerce_backend=False: numpy-only body (isinstance/numpy.array/amin/median/amax)
+@potential_physical_input(coerce_backend=False)
 @physical_conversion("position", pop=True)
 def estimateBIsochrone(pot, R, z, phi=None):
     """
