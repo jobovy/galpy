@@ -164,9 +164,14 @@ def test_check_backend_compatible_semantics():
         cbc(potential.KuzminLikeWrapperPotential(amp=1.0, pot=pit, a=1.0, b=0.2))
         is False
     )
-    # amplitude-only wrappers stay unmigrated; the inner potential self-coerces
+    # migrated amplitude wrappers: compatible iff the wrapped potential is too
     assert (
         cbc(potential.DehnenSmoothWrapperPotential(pot=mn, tform=-1.0, tsteady=1.0))
+        is True
+    )
+    # a still-unmigrated amplitude wrapper backs out (own flag defaults to False)
+    assert (
+        cbc(potential.TimeDependentAmplitudeWrapperPotential(pot=mn, A=lambda t: 1.0))
         is False
     )
     # opts back out despite its interpSphericalPotential base
