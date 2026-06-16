@@ -87,6 +87,7 @@ class TwoPowerSphericalPotential(Potential):
         self.alpha = alpha
         self.beta = beta
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
@@ -360,6 +361,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
                 self._specialSelf = JaffePotential(amp=1.0, a=a, normalize=False)
         # set properties
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
@@ -481,6 +483,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         )
         # set properties explicitly
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
@@ -570,6 +573,7 @@ class HernquistPotential(DehnenSphericalPotential):
         self._nemo_accname = "Dehnen"
         # set properties explicitly
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
@@ -742,6 +746,7 @@ class JaffePotential(DehnenSphericalPotential):
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
@@ -935,6 +940,7 @@ class NFWPotential(TwoPowerSphericalPotential):
             self._voSet = True
         self._scale = self.a
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True

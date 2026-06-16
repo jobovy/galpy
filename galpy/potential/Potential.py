@@ -169,6 +169,9 @@ class Potential(Force):
         self.isNonAxi = False
         self.isDissipative = False
         self.hasC = False
+        # Backend-aware compute methods (jax/torch)? Set True on migrated
+        # potentials; gates coercion in potential_physical_input.
+        self._backend_compatible = False
         self.hasC_dxdv = False
         # hasC_dxdv3d: the FULL 3D Hessian (R2deriv/z2deriv/Rzderiv and, for
         # non-axisymmetric potentials, phi2deriv/Rphideriv/zphideriv) is wired in
@@ -4151,6 +4154,59 @@ def _check_c(Pot, dxdv=False, dxdv3d=False, dens=False):
         or isinstance(Pot, linearPotential)
     ):
         return getattr(Pot, hasC_attr, False)
+
+
+def _check_backend_compatible(Pot):
+    """
+    Check whether a potential (or combined/wrapped potential) has backend-aware
+    compute methods (jax/torch). Gates the coordinate coercion in
+    potential_physical_input. Mirrors ``_check_c``: a list iff every member is; a
+    wrapper iff it is itself backend-aware AND the wrapped potential is; a leaf
+    reads its ``_backend_compatible`` flag (default False, set in __init__).
+
+    Parameters
+    ----------
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        Potential, list of potentials, or wrapper to check.
+
+    Returns
+    -------
+    bool
+        True iff the target's compute methods are backend-aware.
+
+    Notes
+    -----
+    - 2026-06-15 - Written - Bovy (UofT)
+
+    """
+    Pot = flatten(Pot)
+    from ..potential import linearPotential, planarForce
+    from .WrapperPotential import (
+        WrapperPotential,
+        parentWrapperPotential,
+        planarWrapperPotential,
+    )
+
+    if isinstance(Pot, list):
+        return bool(
+            numpy.all(
+                numpy.array([_check_backend_compatible(p) for p in Pot], dtype="bool")
+            )
+        )
+    elif isinstance(
+        Pot, (parentWrapperPotential, WrapperPotential, planarWrapperPotential)
+    ):
+        return bool(
+            getattr(Pot, "_backend_compatible", False)
+            * _check_backend_compatible(Pot._pot)
+        )
+    elif (
+        isinstance(Pot, Force)
+        or isinstance(Pot, planarForce)
+        or isinstance(Pot, linearPotential)
+    ):
+        return getattr(Pot, "_backend_compatible", False)
+    return False
 
 
 def _dim(Pot):

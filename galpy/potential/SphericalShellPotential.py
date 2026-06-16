@@ -55,6 +55,7 @@ class SphericalShellPotential(SphericalPotential):
                 )
             self.normalize(normalize)
         self.hasC = False
+        self._backend_compatible = True
         self.hasC_dxdv = False
 
     def _revaluate(self, r, t=0.0):
