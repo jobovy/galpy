@@ -13,12 +13,25 @@ from .._resolver import get_namespace
 # (hasattr on the backend's special module), so entries are removed as backends
 # add the native version. (numpy always has the full scipy.special.)
 _NATIVE_MISSING = {
-    "jax": frozenset(("ellipk", "ellipe", "k0", "k1", "kn")),
+    # jax.scipy.special has i0/i1 and sici but no general-order iv.
+    "jax": frozenset(("ellipk", "ellipe", "k0", "k1", "kn", "iv")),
     # torch.special lacks all of these. (It does have modified_bessel_k0/k1, but
     # they are NOT differentiable -- no autograd backward -- and there is no kn,
     # so the k0/k1/kn fallbacks are used; the router sees no torch.special.k0.)
+    # torch also has no general-order iv and no sici (sine/cosine integral).
     "torch": frozenset(
-        ("gamma", "ellipk", "ellipe", "hyp2f1", "hyp1f1", "k0", "k1", "kn")
+        (
+            "gamma",
+            "ellipk",
+            "ellipe",
+            "hyp2f1",
+            "hyp1f1",
+            "k0",
+            "k1",
+            "kn",
+            "iv",
+            "sici",
+        )
     ),
 }
 
@@ -195,6 +208,30 @@ def kn(n, x):
     from ._fallback.bessel_k import kn_fallback
 
     return _dispatch("kn", (n, x), kn_fallback, ns_args=(x,))
+
+
+def iv(n, x):
+    # Integer-order modified Bessel I_n; only the array arg x carries the namespace.
+    # jax/torch expose only i0/i1, so the fallback recurs from native i0/i1.
+    from ._fallback.bessel_i import iv_fallback
+
+    return _dispatch("iv", (n, x), iv_fallback, ns_args=(x,))
+
+
+def sici(x):
+    """Sine and cosine integrals, returning ``(Si(x), Ci(x))`` like
+    scipy.special.sici, for real x > 0. numpy uses scipy and jax its native sici;
+    torch has neither, so a fallback computes both. The 2-tuple return is handled
+    here directly (rather than via :func:`_dispatch`, which is single-array)."""
+    xp = get_namespace(x)
+    name, sp = _backend_special(xp)
+    if "sici" in _NEEDS_FALLBACK.get(name, frozenset()) or not hasattr(sp, "sici"):
+        from ._fallback.sici import sici_fallback
+
+        si, ci = sici_fallback(xp, x)
+    else:
+        si, ci = sp.sici(x)
+    return match_input_dtype(si, x), match_input_dtype(ci, x)
 
 
 # --- Tier 4: associated Legendre P_l^m (SCF / MultipoleExpansion) -------------
