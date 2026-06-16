@@ -7,24 +7,11 @@
 import math
 
 import numpy
-from scipy import special
 
 from ..backend import get_namespace
 from ..backend import special as bspecial
 from ..util import conversion
 from .Potential import Potential
-
-
-def _iv2(xp, y):
-    # Modified Bessel I_2(y). The galpy.backend.special router exposes i0/i1 but
-    # not iv, and neither jax nor torch has a native iv. On the numpy path use
-    # scipy.special.iv directly (byte-identical); on jax/torch use the recurrence
-    # I_2 = I_0 - (2/y) I_1, which is autodiff-friendly and agrees with scipy to
-    # ~1e-12. y is strictly positive here (y = 0.5*alpha*R with R > 0 on this
-    # branch), so 2/y is safe.
-    if getattr(xp, "__name__", "") in ("numpy", "np"):
-        return special.iv(2, y)
-    return bspecial.i0(y) - 2.0 / y * bspecial.i1(y)
 
 
 class RazorThinExponentialDiskPotential(Potential):
@@ -234,7 +221,7 @@ class RazorThinExponentialDiskPotential(Potential):
                     bspecial.i0(y) * bspecial.k0(y) - bspecial.i1(y) * bspecial.k1(y)
                 ) + math.pi / 4.0 * self._alpha**2.0 * R * (
                     bspecial.i1(y) * (3.0 * bspecial.k0(y) + bspecial.kn(2, y))
-                    - bspecial.k1(y) * (3.0 * bspecial.i0(y) + _iv2(xp, y))
+                    - bspecial.k1(y) * (3.0 * bspecial.i0(y) + bspecial.iv(2, y))
                 )
             raise AttributeError(
                 "'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0"
