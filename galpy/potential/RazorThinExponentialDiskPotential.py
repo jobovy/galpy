@@ -118,6 +118,11 @@ class RazorThinExponentialDiskPotential(Potential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        # move the numpy GL nodes/weights onto the backend first, so products
+        # like R * glx are same-namespace (a torch tensor * a numpy array trips
+        # numpy's __array_wrap__); xp.asarray is a no-op on numpy (byte-identical)
+        glx = xp.asarray(self._glx)
+        glw = xp.asarray(self._glw)
         if self._new:
             # if R > 6.: return self._kp(R,z)
             if xp.abs(z) < 10.0**-6.0:
@@ -132,8 +137,8 @@ class RazorThinExponentialDiskPotential(Potential):
                     )
                 )
             kalphamax1 = R
-            ks1 = kalphamax1 * 0.5 * (self._glx + 1.0)
-            weights1 = kalphamax1 * self._glw
+            ks1 = kalphamax1 * 0.5 * (glx + 1.0)
+            weights1 = kalphamax1 * glw
             sqrtp = xp.sqrt(z**2.0 + (ks1 + R) ** 2.0)
             sqrtm = xp.sqrt(z**2.0 + (ks1 - R) ** 2.0)
             evalInt1 = (
@@ -145,8 +150,8 @@ class RazorThinExponentialDiskPotential(Potential):
             )
             if R < 10.0:
                 kalphamax2 = 10.0
-                ks2 = (kalphamax2 - kalphamax1) * 0.5 * (self._glx + 1.0) + kalphamax1
-                weights2 = (kalphamax2 - kalphamax1) * self._glw
+                ks2 = (kalphamax2 - kalphamax1) * 0.5 * (glx + 1.0) + kalphamax1
+                weights2 = (kalphamax2 - kalphamax1) * glw
                 sqrtp = xp.sqrt(z**2.0 + (ks2 + R) ** 2.0)
                 sqrtm = xp.sqrt(z**2.0 + (ks2 - R) ** 2.0)
                 evalInt2 = (
@@ -170,13 +175,15 @@ class RazorThinExponentialDiskPotential(Potential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        glx = xp.asarray(self._glx)
+        glw = xp.asarray(self._glw)
         if self._new:
             # if R > 6.: return self._kp(R,z)
             if xp.abs(z) < 10.0**-6.0:
                 return 0.0
             kalphamax1 = R
-            ks1 = kalphamax1 * 0.5 * (self._glx + 1.0)
-            weights1 = kalphamax1 * self._glw
+            ks1 = kalphamax1 * 0.5 * (glx + 1.0)
+            weights1 = kalphamax1 * glw
             sqrtp = xp.sqrt(z**2.0 + (ks1 + R) ** 2.0)
             sqrtm = xp.sqrt(z**2.0 + (ks1 - R) ** 2.0)
             evalInt1 = (
@@ -188,8 +195,8 @@ class RazorThinExponentialDiskPotential(Potential):
             )
             if R < 10.0:
                 kalphamax2 = 10.0
-                ks2 = (kalphamax2 - kalphamax1) * 0.5 * (self._glx + 1.0) + kalphamax1
-                weights2 = (kalphamax2 - kalphamax1) * self._glw
+                ks2 = (kalphamax2 - kalphamax1) * 0.5 * (glx + 1.0) + kalphamax1
+                weights2 = (kalphamax2 - kalphamax1) * glw
                 sqrtp = xp.sqrt(z**2.0 + (ks2 + R) ** 2.0)
                 sqrtm = xp.sqrt(z**2.0 + (ks2 - R) ** 2.0)
                 evalInt2 = (
