@@ -31,6 +31,8 @@ class linearPotential:
         self.hasC = False
         self.hasC_dxdv = False
         self.hasC_dens = False
+        # Backend-aware compute methods? Set True on migrated potentials.
+        self._backend_compatible = False
         # Parse ro and vo
         if ro is None:
             self._ro = config.__config__.getfloat("normalization", "ro")

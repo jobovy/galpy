@@ -8,7 +8,7 @@ import copy
 import math as m
 import numbers
 import warnings
-from functools import wraps
+from functools import partial, wraps
 from typing import Any, Tuple
 
 import numpy
@@ -1056,9 +1056,23 @@ def physical_conversion_tuple(quantities, pop=False):
     return wrapper
 
 
-def potential_physical_input(method):
+def potential_physical_input(method=None, *, coerce_backend=True):
     """Decorator to convert inputs to Potential functions from physical
-    to internal coordinates"""
+    to internal coordinates.
+
+    Parameters
+    ----------
+    coerce_backend : bool, optional
+        When True (default), coordinate inputs are coerced onto the active array
+        backend for backend-migrated targets (the torch-scalar fix; see below).
+        Set False on Potential-taking utility functions that consume a potential's
+        evaluator output but do their own numpy-only computation on the
+        coordinates (estimateDeltaStaeckel, estimateBIsochrone, jeans.sigmar/
+        sigmalos), so those coordinates stay numpy even when the potential itself
+        is backend-migrated.
+    """
+    if method is None:
+        return partial(potential_physical_input, coerce_backend=coerce_backend)
 
     @wraps(method)
     def wrapper(*args, **kwargs):
@@ -1124,6 +1138,22 @@ def potential_physical_input(method):
             and isinstance(kwargs["zmax"], units.Quantity)
         ):
             kwargs["zmax"] = kwargs["zmax"].to(units.kpc).value / ro
+        # Coerce coordinate inputs onto the active backend so torch's strict
+        # scalar handling (torch.sqrt(numpy.float64) etc.) does not reject them.
+        # Gated so it is a no-op on the numpy path (xp is numpy) and on unmigrated
+        # targets (_check_backend_compatible); only the coordinate args/kwargs are
+        # coerced, not control kwargs (dR/dphi/dz/zmax/M).
+        if coerce_backend:
+            from ..backend import get_namespace
+            from ..backend._namespaces import coerce_coords
+            from ..potential import _check_backend_compatible
+
+            xp = get_namespace(*args[1:])
+            if xp is not numpy and _check_backend_compatible(Pot):
+                args = (args[0],) + coerce_coords(xp, *args[1:])
+                for _key in ("phi", "t", "R", "z", "x", "v"):
+                    if kwargs.get(_key, None) is not None:
+                        (kwargs[_key],) = coerce_coords(xp, kwargs[_key])
         return method(*args, **kwargs)
 
     return wrapper
