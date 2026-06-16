@@ -87,3 +87,16 @@ jax tests/test_qdf.py::test_meanjz_noaac_issue300
 # (the other jax interp_potential tests are faster or ledgered). Defer until
 # interpRZ's 2D interpolation is backend-vectorized (group d); numpy still runs it.
 jax tests/test_interp_potential.py::test_interpolation_potential_dens
+
+# --- jax dissipative-force + MovingObject/orbit timeouts (#960 coercion ascent) ---
+# #960's coercion newly exercises these under forced-jax: ChandrasekharDynamicalFriction
+# __init__ builds its sigma_r interpolation with per-scalar XLA dispatch, the
+# RZTo*/toVertical conversion tests construct such forces, and MovingObject integrates
+# an embedded Orbit -- all exceed the 300 s timeout (or hit the un-migrated-Orbit
+# interpolation error). Defer until the dissipative forces (Track B group-b) and Orbit
+# (Track D) are backend-migrated; numpy still exercises them.
+jax tests/test_potential.py::test_rforce_dissipative
+jax tests/test_potential.py::test_RZToplanarPotential
+jax tests/test_potential.py::test_RZToverticalPotential
+jax tests/test_potential.py::test_toVerticalPotential
+jax tests/test_potential.py::test_MovingObject_2ndderivs_fd
