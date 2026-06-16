@@ -2253,7 +2253,8 @@ def calcu0(E, Lz, pot, delta):
     return out
 
 
-@potential_physical_input
+# coerce_backend=False: numpy-only body (in-place z masking, numpy.array/median)
+@potential_physical_input(coerce_backend=False)
 @physical_conversion("position", pop=True)
 def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
     """
