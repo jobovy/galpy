@@ -78,15 +78,18 @@ def hyp2f1_fallback(xp, a, b, c, z):
     X = xg**k
     dX = k * xg ** (k - 1.0)
 
-    # Floor |z| away from exactly zero so the 1/|z| substitution is finite (and
-    # X*log1p(|z|) cannot underflow to 0, which would make T**(B-1) blow up for
-    # B<1). At |z|=0 this evaluates 2F1 at z=-1e-10, i.e. 1 to ~1e-10; the
-    # subgradient blocks gradient only at the measure-zero origin point.
-    w_safe = xp.maximum(w, xp.ones_like(w) * 1e-10)
-    L = xp.log1p(w_safe)[..., None]  # (..., 1)
-    wb = w_safe[..., None]
+    # Tiny |z|: the 1/|z| substitution is singular, so feed a safe non-zero w
+    # into the integral (double-where: the dead branch can't NaN-poison AD via
+    # 1/w / log1p(0)) and return the exact Maclaurin limit instead -- which also
+    # gives the correct gradient a*b/c at z->0 (a plain maximum-floor flattens it).
+    tiny = w < 1e-10
+    w_for_int = xp.where(tiny, xp.ones_like(w), w)
+    L = xp.log1p(w_for_int)[..., None]  # (..., 1)
+    wb = w_for_int[..., None]
     XL = X * L  # (..., N)
     T = xp.expm1(XL) / wb
     dt = xp.exp(XL) * L / wb
     integ = T ** (B - 1.0) * (1.0 - T) ** (q - 1.0) * (1.0 + wb * T) ** (-A) * dt * dX
-    return pref * xp.sum(integ * wg, axis=-1)
+    val_int = pref * xp.sum(integ * wg, axis=-1)
+    val_series = 1.0 + (a * b / c) * z  # 2F1 = 1 + (ab/c) z + O(z^2)
+    return xp.where(tiny, val_series, val_int)
