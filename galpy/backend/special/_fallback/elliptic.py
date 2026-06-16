@@ -24,12 +24,17 @@ def _agm_KE(xp, m):
     m -> 1 (b_0 -> 0) the AGM -> 0 and K -> +inf, the correct singularity.
     """
     m = xp.asarray(m) * 1.0
-    a = xp.ones_like(m)
-    b = xp.sqrt(1.0 - m)
-    c = xp.sqrt(m)
-    # sum starts at n=0 with weight 2^{-1} and c_0^2 = m
+    one = xp.ones_like(m)
+    # At m==1 (b0=0) the AGM reaches 0 only asymptotically; run it on a safe
+    # argument and substitute the exact limits K=+inf, E=1 afterwards (AD-safe).
+    on_edge = m == 1.0
+    ms = xp.where(on_edge, 0.5 * one, m)
+    a = one
+    b = xp.sqrt(1.0 - ms)  # real for all m < 1, incl. m < 0
+    # sum starts at n=0 with weight 2^{-1} and c_0^2 = ms exactly (sqrt(ms) would
+    # be nan for m < 0, NaN-poisoning E; K depends only on b = sqrt(1-ms))
     p = 0.5
-    s = p * c * c
+    s = p * ms
     for _ in range(1, _AGM_NITER):
         an = 0.5 * (a + b)
         bn = xp.sqrt(a * b)
@@ -37,8 +42,11 @@ def _agm_KE(xp, m):
         a, b = an, bn
         p = p * 2.0
         s = s + p * c * c
-    K = xp.pi / (2.0 * a) if hasattr(xp, "pi") else 3.141592653589793 / (2.0 * a)
+    pi = xp.pi if hasattr(xp, "pi") else 3.141592653589793
+    K = pi / (2.0 * a)
     E = K * (1.0 - s)
+    K = xp.where(on_edge, xp.full_like(m, float("inf")), K)  # K(1) = +inf
+    E = xp.where(on_edge, one, E)  # E(1) = 1
     return K, E
 
 
