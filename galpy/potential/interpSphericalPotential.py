@@ -106,6 +106,7 @@ class interpSphericalPotential(SphericalPotential):
             -self._pot_spline(self._rmax) + self._Phi0 + self._total_mass / self._rmax
         )
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True

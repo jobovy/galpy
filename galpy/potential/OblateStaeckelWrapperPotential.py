@@ -147,6 +147,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
                 CubicSpline(ugrid, vals, bc_type="natural") for vals in uvals
             ] + [CubicSpline(vgrid, vals, bc_type="natural") for vals in vvals]
         self.hasC = True
+        self._backend_compatible = True
         # Advertise the (planar and 3D) C variational capabilities
         # unconditionally, as for hasC: _check_c recurses into the wrapped
         # potential's own flags (the wrapper's C Hessian chain-rules the
