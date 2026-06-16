@@ -388,6 +388,25 @@ def test_dehnensmooth_backend_t_window_parity(backend_name, t0):
     numpy.testing.assert_allclose(got, ref, rtol=1e-15, atol=1e-15)
 
 
+# Backend-array t value parity for GaussianAmplitude: a non-numpy, non-Python t
+# takes the xp.exp branch of _smooth (the math.exp fast path handles only a
+# concrete Python/numpy scalar t). Mirrors the DehnenSmooth window test above.
+@pytest.mark.parametrize("t0", [-2.0, 0.15, 3.0])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_gaussianamplitude_backend_t_parity(backend_name, t0):
+    pot = _WRAPPERS[2][1]  # GaussianAmplitude, to=0.5, sigma=1.3
+    ref = float(pot._evaluate(1.1, 0.23, phi=0.4, t=t0))
+    got = float(
+        pot._evaluate(
+            _toscalar(backend_name, 1.1),
+            _toscalar(backend_name, 0.23),
+            phi=_toscalar(backend_name, 0.4),
+            t=_toscalar(backend_name, t0),
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-15, atol=1e-15)
+
+
 # --- wrapper-of-wrapper chain -------------------------------------------------------
 _CHAIN = DehnenSmoothWrapperPotential(
     pot=GaussianAmplitudeWrapperPotential(pot=_PP, to=0.5, sigma=1.3),
