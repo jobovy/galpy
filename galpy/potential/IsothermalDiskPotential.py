@@ -47,6 +47,7 @@ class IsothermalDiskPotential(linearPotential):
         self._amp = 1.0  # Need to manually set to 1, because amp is now contained in the combination of H and sigma^2
         self.hasC = True
         self.hasC_dxdv = True  # 1D variational (dxdv) second derivative in C
+        self._backend_compatible = True
 
     def _evaluate(self, x, t=0.0):
         xp = get_namespace(x)
