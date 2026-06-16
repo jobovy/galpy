@@ -156,6 +156,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         self._2nd_deriv_cache_key = None
         self._cached_2nd_derivs = None
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         # Full 3D Hessian (R2/z2/Rz/phi2/Rphi/zphi deriv) is implemented in C
         # via the spherical-harmonic expansion, so 3D variational (dxdv)

@@ -92,6 +92,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
+        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
         # (aligned frame only)
