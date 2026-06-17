@@ -172,6 +172,7 @@ ellipsoidal triaxial potentials below.
    potentialcoredehnen.rst
    potentialdehnen.rst
    potentialeinasto.rst
+   potentialexptruncnfw.rst
    potentialhernquist.rst
    potentialhomogsphere.rst
    potentialinterpsphere.rst

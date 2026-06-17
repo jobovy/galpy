@@ -5363,6 +5363,116 @@ def test_NFW_rmaxvmax():
     return None
 
 
+# Tests specific to the exponentially-truncated NFW potential. The generic
+# correctness checks (force=-dPhi, 2nd derivs, Poisson, Phi at 0/inf, ...) are
+# already covered by the auto-discovered sweep tests; the three below lock in
+# the behavior unique to this class: (1) the finite total mass and the mass=
+# constructor, (2) the rc->infinity reduction to NFWPotential, and (3) the
+# small-r series branch used to avoid catastrophic cancellation in M(<r).
+def test_ExpTruncNFW_total_mass():
+    # Unlike plain NFW, the exponential cutoff gives a finite total mass
+    # M_tot = amp * [exp(alpha)(1+alpha)E1(alpha) - 1] with alpha = a/rc.
+    from scipy.special import exp1
+
+    a, rc = 1.3, 2.7
+    alpha = a / rc
+    Ftot = numpy.exp(alpha) * (1.0 + alpha) * exp1(alpha) - 1.0
+    # With amp=1, the total mass equals the dimensionless F(infinity)
+    p1 = potential.ExpTruncNFWPotential(amp=1.0, a=a, rc=rc)
+    assert numpy.fabs(p1.mass(1e8) - Ftot) < 1e-8, (
+        "ExpTruncNFWPotential total mass does not match closed-form F(infinity)"
+    )
+    # mass(numpy.inf) must return the finite total mass, not NaN (the generic
+    # -R^2*rforce gives inf^2*0=NaN; ExpTruncNFW overrides _mass for this)
+    assert numpy.fabs(p1.mass(numpy.inf) - Ftot) < 1e-8, (
+        "ExpTruncNFWPotential mass(numpy.inf) does not return the finite total mass"
+    )
+    # The mass= constructor reproduces a requested total mass
+    Mtot = 5.0
+    p2 = potential.ExpTruncNFWPotential(mass=Mtot, a=a, rc=rc)
+    assert numpy.fabs(p2.mass(1e8) - Mtot) < 1e-8, (
+        "ExpTruncNFWPotential mass= constructor does not reproduce requested total mass"
+    )
+    # amp= and mass= are mutually consistent: feeding back the amp=1 total mass
+    # must recover amp=1
+    p3 = potential.ExpTruncNFWPotential(mass=Ftot, a=a, rc=rc)
+    assert numpy.fabs(p3._amp - 1.0) < 1e-10, (
+        "ExpTruncNFWPotential mass= and amp= conventions are inconsistent"
+    )
+    # A Quantity mass turns on physical output and still reproduces the mass
+    from galpy.util._optional_deps import _APY_LOADED
+
+    if _APY_LOADED:
+        from astropy import units
+
+        p4 = potential.ExpTruncNFWPotential(
+            mass=1e11 * units.Msun, a=2.0, rc=20.0, ro=8.0, vo=220.0
+        )
+        assert p4._roSet and p4._voSet, (
+            "ExpTruncNFWPotential with a Quantity mass= should turn on physical output"
+        )
+        # With physical output on, mass() is returned in Msun (as a float or a
+        # Quantity depending on the astropy-units config); handle both
+        m4 = p4.mass(1e8)
+        if isinstance(m4, units.Quantity):
+            m4 = m4.to_value(units.Msun)
+        assert numpy.fabs(m4 / 1e11 - 1.0) < 1e-6, (
+            "ExpTruncNFWPotential Quantity mass= does not reproduce requested total mass"
+        )
+    return None
+
+
+def test_ExpTruncNFW_nfwlimit():
+    # As rc -> infinity the exponential cutoff vanishes and ExpTruncNFW reduces
+    # to the standard NFWPotential with the same amp and a.
+    a, amp = 1.3, 2.0
+    etn = potential.ExpTruncNFWPotential(amp=amp, a=a, rc=1e8)
+    nfw = potential.NFWPotential(amp=amp, a=a)
+    for r in [0.3, 1.0, 3.0, 10.0]:
+        assert (
+            numpy.fabs(
+                potential.evaluatePotentials(etn, r, 0.0)
+                - potential.evaluatePotentials(nfw, r, 0.0)
+            )
+            < 1e-5
+        ), "ExpTruncNFWPotential potential does not reduce to NFWPotential as rc -> infinity"
+        assert numpy.fabs(etn.rforce(r, 0.0) - nfw.rforce(r, 0.0)) < 1e-5, (
+            "ExpTruncNFWPotential force does not reduce to NFWPotential as rc -> infinity"
+        )
+        assert numpy.fabs(etn.dens(r, 0.0) - nfw.dens(r, 0.0)) < 1e-5, (
+            "ExpTruncNFWPotential density does not reduce to NFWPotential as rc -> infinity"
+        )
+    return None
+
+
+def test_ExpTruncNFW_smallr_series():
+    # Near the origin the closed-form M(<r) suffers catastrophic cancellation,
+    # so a Taylor series (_F_series) is used below _small_r_thresh. Check that
+    # (a) the series and closed form agree on both sides of the threshold, and
+    # (b) the public enclosed mass matches a direct integral of 4 pi r^2 rho
+    #     across the branch switch.
+    from scipy.integrate import quad
+
+    a, rc = 1.3, 2.7
+    p = potential.ExpTruncNFWPotential(amp=1.0, a=a, rc=rc)
+    thresh = p._small_r_thresh
+    # (a) the two branches agree in a neighborhood of the switch
+    rr = thresh * numpy.array([0.5, 0.9, 1.0, 1.1, 2.0])
+    fser = p._F_series(rr)
+    fclo = p._F_closed(rr)
+    assert numpy.all(numpy.fabs(fser - fclo) / numpy.fabs(fclo) < 1e-7), (
+        "ExpTruncNFWPotential _F_series and _F_closed disagree near the threshold"
+    )
+    # (b) public mass() matches direct quadrature on both sides of the switch
+    integrand = lambda s: 4.0 * numpy.pi * s**2.0 * p.dens(s, 0.0)
+    for r in [0.5 * thresh, 2.0 * thresh, 0.1, 1.0, 5.0]:
+        ref = quad(integrand, 0.0, r, epsabs=1e-13, epsrel=1e-13)[0]
+        assert numpy.fabs(p.mass(r) - ref) < 1e-7 * numpy.fabs(ref), (
+            "ExpTruncNFWPotential enclosed mass does not match direct integral"
+        )
+    return None
+
+
 def test_LinShuReductionFactor():
     # Test that the LinShuReductionFactor is implemented correctly, by comparing to figure 1 in Lin & Shu (1966)
     from galpy.potential import (
