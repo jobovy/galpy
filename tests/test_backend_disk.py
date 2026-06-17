@@ -108,7 +108,10 @@ _POTS_3D = [
         FlattenedPowerPotential(amp=1.1, alpha=0.0, q=0.85),
         ["_evaluate", "_Rforce", "_zforce", "_R2deriv", "_z2deriv", "_dens"],
     ),
-    # Only _surfdens is analytically clean (the rest use scipy.special).
+    # _surfdens is array-capable; _evaluate / _Rforce / _zforce / _R2deriv are
+    # scalar-only (the z==0 / R<10 branches) and get a dedicated scalar block
+    # below. All now route the Bessel functions through the backend special
+    # router (i0/i1/k0/k1) with an I_2 recurrence in _R2deriv.
     (RazorThinExponentialDiskPotential(amp=1.0, hr=0.4), ["_surfdens"]),
     (_DEXP, ["_evaluate", "_dens", "_surfdens"]),
 ]
@@ -501,3 +504,76 @@ def test_doubleexp_grad_z_vs_finite_difference(backend_name):
     ) / (2 * eps)
     ad = _grad_wrt(backend_name, lambda R, z: _DEXP._evaluate(R, z), R0, z0, argnum=1)
     numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
+
+
+###############################################################################
+# RazorThinExponentialDiskPotential: dedicated tests for the scalar-only
+# (the `if xp.abs(z) < 1e-6` / `if R < 10.` branches) Bessel-quadrature methods.
+# These exercise the jax/torch paths of the backend special router (i0/i1/k0/k1)
+# and, in _R2deriv at z==0, the I_2 = I_0 - (2/y) I_1 recurrence (_iv2) that
+# replaces scipy.special.iv on the traced backends.
+###############################################################################
+_RAZOR = RazorThinExponentialDiskPotential(amp=1.0, hr=0.4)
+# Points cover: z==0 (the closed-form Bessel branch), z!=0 with R<10 (the
+# two-segment quadrature) and R>=10 (the single-segment quadrature branch).
+_RAZOR_ZERO_POINTS = [(0.5, 0.0), (1.3, 0.0), (2.0, 0.0)]
+_RAZOR_ZNZ_POINTS = [(0.5, 0.2), (1.3, -0.3), (12.0, 0.3)]
+
+
+@pytest.mark.parametrize("method", ["_evaluate", "_Rforce", "_zforce"])
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_razorthin_scalar_value_parity(backend_name, method):
+    # numpy / jax / torch agree on the scalar Bessel-quadrature methods, at both
+    # the z==0 closed-form branch and the z!=0 (R<10 and R>=10) quadrature
+    # branches.
+    for R0, z0 in _RAZOR_ZERO_POINTS + _RAZOR_ZNZ_POINTS:
+        ref = numpy.asarray(getattr(_RAZOR, method)(R0, z0, 0.0, 0.0))
+        got = _tonumpy(
+            getattr(_RAZOR, method)(
+                _asarray(backend_name, R0), _asarray(backend_name, z0), 0.0, 0.0
+            )
+        )
+        numpy.testing.assert_allclose(
+            got,
+            ref,
+            rtol=1e-11,
+            atol=1e-14,
+            err_msg=f"RazorThin.{method} at (R,z)=({R0},{z0}) ({backend_name})",
+        )
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_razorthin_R2deriv_iv2_recurrence(backend_name):
+    # _R2deriv (only defined at z==0) uses bspecial.kn(2,.) and the _iv2 I_2
+    # recurrence; the traced backends must match scipy's iv to ~1e-12.
+    for R0 in [0.5, 1.0, 1.3, 2.0]:
+        ref = float(_RAZOR._R2deriv(numpy.asarray(R0), numpy.asarray(0.0)))
+        got = float(
+            _tonumpy(
+                _RAZOR._R2deriv(_asarray(backend_name, R0), _asarray(backend_name, 0.0))
+            )
+        )
+        numpy.testing.assert_allclose(
+            got,
+            ref,
+            rtol=1e-10,
+            atol=1e-13,
+            err_msg=f"RazorThin._R2deriv at R={R0} ({backend_name})",
+        )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_razorthin_evaluate_grad_identity(backend_name):
+    # AD(_evaluate wrt R) == -_Rforce at z==0 (closed-form Bessel branch); guards
+    # the backend Bessel router under reverse-mode autodiff.
+    for R0 in [0.5, 1.0, 1.3]:
+        ad = _grad_wrt(
+            backend_name, lambda R, z: _RAZOR._evaluate(R, z, 0.0, 0.0), R0, 0.0
+        )
+        ref = -float(_RAZOR._Rforce(R0, 0.0, 0.0, 0.0))
+        numpy.testing.assert_allclose(
+            ad,
+            ref,
+            rtol=1e-7,
+            err_msg=f"RazorThin AD(_evaluate)==-_Rforce at R={R0} ({backend_name})",
+        )
