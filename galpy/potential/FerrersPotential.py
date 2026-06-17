@@ -382,27 +382,6 @@ class FerrersPotential(Potential):
     def OmegaP(self):
         return self._omegab
 
-    def rot(self, t=0.0, transposed=False):
-        """2D Rotation matrix for non-zero pa or pattern speed
-        to goto the aligned coordinates
-        """
-        rotmat = numpy.array(
-            [
-                [
-                    numpy.cos(self._pa + self._omegab * t),
-                    numpy.sin(self._pa + self._omegab * t),
-                ],
-                [
-                    -numpy.sin(self._pa + self._omegab * t),
-                    numpy.cos(self._pa + self._omegab * t),
-                ],
-            ]
-        )
-        if transposed:
-            return rotmat.T
-        else:
-            return rotmat
-
 
 def _potInt(x, y, z, a2, b2, c2, n):
     """Integral involved in the potential at (x,y,z)
