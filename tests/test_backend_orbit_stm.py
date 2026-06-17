@@ -202,3 +202,58 @@ def test_numpy_ic_raises():
     pot = MiyamotoNagaiPotential(normalize=1.0)
     with pytest.raises(NotImplementedError):
         integrate_stm(pot, _IC, _TS, method="dop853_c")
+
+
+# ------------------------------------------------------------- bad method raises
+def test_integrate_stm_bad_method_raises():
+    # integrate_stm only supports the dxdv-capable C integrators
+    from galpy.backend._reference.inbackend_stm import integrate_stm
+
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    with pytest.raises(ValueError):
+        integrate_stm(pot, _IC, _TS, method="odeint")
+
+
+# ----------------------------------------------------- public dispatcher routing
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_integrate_stm_dispatch(backend):
+    # the public dispatcher routes a jax/torch IC to the matching backend wrapper
+    # -> identical result to calling that wrapper directly
+    from galpy.backend._reference.inbackend_stm import integrate_stm
+
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    v = _arr(backend, _IC)
+    got = _np(integrate_stm(pot, v, _TS, method="dop853_c"))
+    ref = _np(_integ(backend, pot, v, _TS, "dop853_c"))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-12)
+
+
+# -------------------------------------------- batch gradient (batch M^T einsum)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_batch_gradient_matches_single(backend):
+    # a gradient through a BATCHED integrate exercises the batched STM contraction
+    # ("ntab,nta->nb"); each row must equal the single-orbit IC gradient
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    ics = numpy.stack([_IC, _IC * 1.01, _IC * 0.99])
+    if backend == "jax":
+        gb = _np(
+            jax.grad(
+                lambda vv: _integ("jax", pot, vv, _TS, "dop853_c")[:, -1, 0].sum()
+            )(jnp.asarray(ics))
+        )
+    else:
+        v = torch.tensor(ics, requires_grad=True)
+        _integ("torch", pot, v, _TS, "dop853_c")[:, -1, 0].sum().backward()
+        gb = _np(v.grad)
+    for j, ic in enumerate(ics):
+        if backend == "jax":
+            gj = _np(
+                jax.grad(lambda v: _integ("jax", pot, v, _TS, "dop853_c")[-1, 0])(
+                    jnp.asarray(ic)
+                )
+            )
+        else:
+            vv = torch.tensor(ic, requires_grad=True)
+            _integ("torch", pot, vv, _TS, "dop853_c")[-1, 0].backward()
+            gj = _np(vv.grad)
+        numpy.testing.assert_allclose(gb[j], gj, rtol=1e-8, atol=1e-10)
