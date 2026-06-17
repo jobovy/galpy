@@ -1,6 +1,12 @@
 v1.12.0 (expected around 2026-07-01)
 ====================
 
+- Fixed compatibility with astropy >= 8.0, where the ``Galactocentric``
+  ``galcen_v_sun`` frame attribute is now a ``CartesianRepresentation`` (read
+  via ``.xyz``) rather than a ``CartesianDifferential`` (``.d_xyz``); see
+  astropy/astropy#18362. Initializing an ``Orbit`` from a ``SkyCoord`` that
+  carries ``galcen_v_sun`` now works on both old and new astropy.
+
 - Added analytic planar second derivatives (R2deriv, phi2deriv, Rphideriv) of
   ``SteadyLogSpiralPotential`` and ``TransientLogSpiralPotential`` in Python
   and C, enabling the planar variational equations of ``Orbit.integrate_dxdv``

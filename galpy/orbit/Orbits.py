@@ -567,7 +567,13 @@ class Orbit:
             and isinstance(vxvv, SkyCoord)
             and not vxvv.galcen_v_sun is None
         ):
-            sc_solarmotion = vxvv.galcen_v_sun.d_xyz.to(units.km / units.s).value
+            # astropy < 8 exposes galcen_v_sun as a CartesianDifferential (.d_xyz);
+            # astropy >= 8 (astropy/astropy#18362) as a CartesianRepresentation (.xyz)
+            _galcen_v_sun = vxvv.galcen_v_sun
+            sc_solarmotion = getattr(_galcen_v_sun, "d_xyz", None)
+            if sc_solarmotion is None:
+                sc_solarmotion = _galcen_v_sun.xyz
+            sc_solarmotion = sc_solarmotion.to(units.km / units.s).value
             sc_solarmotion[0] = -sc_solarmotion[0]  # right->left
             sc_solarmotion[1] -= vo
             if solarmotion is None:

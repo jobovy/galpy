@@ -10752,9 +10752,15 @@ def test_SkyCoord():
     assert numpy.fabs(o.SkyCoord().z_sun.to(units.kpc).value - 1.0) < 10.0**-13.0, (
         "Orbit SkyCoord GC frame attributes are incorrect"
     )
+    # astropy < 8: galcen_v_sun is a CartesianDifferential (.d_xyz); astropy >= 8
+    # (astropy/astropy#18362) a CartesianRepresentation (.xyz)
+    _gvs = o.SkyCoord().galcen_v_sun
+    _gvs_v = getattr(_gvs, "d_xyz", None)
+    if _gvs_v is None:
+        _gvs_v = _gvs.xyz
     assert numpy.all(
         numpy.fabs(
-            o.SkyCoord().galcen_v_sun.d_xyz.to(units.km / units.s).value
+            _gvs_v.to(units.km / units.s).value
             - numpy.array([10.0, 220.0 + 34.0, 12.0])
         )
         < 10.0**-13.0
