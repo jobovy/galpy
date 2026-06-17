@@ -58,6 +58,10 @@ COMPUTE_METHODS = {
 MIGRATED = [
     "PlummerPotential",
     "IsochronePotential",
+    "FerrersPotential",
+    "KuzminKutuzovStaeckelPotential",
+    "PseudoIsothermalPotential",
+    "RazorThinExponentialDiskPotential",
     # P2.6 wrappers (their __init__ machinery is numpy-by-design; only the
     # private compute methods below are checked)
     "DehnenSmoothWrapperPotential",
@@ -127,11 +131,14 @@ _MIGRATED_SAMPLE = [
     "PowerTriaxialPotential",
     "MN3ExponentialDiskPotential",
     "RingPotential",
-]
-_UNMIGRATED_SAMPLE = [
     "FerrersPotential",
     "KuzminKutuzovStaeckelPotential",
     "PseudoIsothermalPotential",
+    "RazorThinExponentialDiskPotential",
+]
+_UNMIGRATED_SAMPLE = [
+    "AnySphericalPotential",
+    "AnyAxisymmetricRazorThinDiskPotential",
 ]
 
 
@@ -153,15 +160,16 @@ def test_check_backend_compatible_semantics():
     from galpy.potential import _check_backend_compatible as cbc
 
     mn = potential.MiyamotoNagaiPotential(normalize=1.0)
-    fe = potential.FerrersPotential(normalize=1.0)
-    pit = potential.PseudoIsothermalPotential(normalize=1.0)
+    # AnySphericalPotential is still unmigrated on this branch
+    unmig = potential.AnySphericalPotential(normalize=1.0)
+    unmig2 = potential.AnySphericalPotential(normalize=1.0)
     # combined potential: all members must be compatible
     assert cbc([mn, potential.NFWPotential(normalize=1.0)]) is True
-    assert cbc([mn, fe]) is False
+    assert cbc([mn, unmig]) is False
     # wrapper: own flag AND wrapped potential
     assert cbc(potential.OblateStaeckelWrapperPotential(pot=mn)) is True
     assert (
-        cbc(potential.KuzminLikeWrapperPotential(amp=1.0, pot=pit, a=1.0, b=0.2))
+        cbc(potential.KuzminLikeWrapperPotential(amp=1.0, pot=unmig2, a=1.0, b=0.2))
         is False
     )
     # migrated amplitude wrappers: compatible iff the wrapped potential is too
