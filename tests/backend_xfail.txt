@@ -571,6 +571,10 @@ torch tests/test_interp_potential.py::test_interpolation_potential_vcirc_notinte
 torch tests/test_interp_potential.py::test_interpolation_potential_vcirc_outsidegrid
 torch tests/test_interp_potential.py::test_interpolation_potential_verticalfreq
 torch tests/test_kuzminkutuzov.py::test_actionConservation
+torch tests/test_kuzminkutuzov.py::test_density
+torch tests/test_kuzminkutuzov.py::test_estimateDelta
+torch tests/test_kuzminkutuzov.py::test_orbitIntegrationC
+torch tests/test_kuzminkutuzov.py::test_vcirc
 torch tests/test_noninertial.py::test_accellsrframe_funcomegaz
 torch tests/test_noninertial.py::test_accellsrframe_funcomegaz_2d
 torch tests/test_noninertial.py::test_accellsrframe_scalaromegaz
