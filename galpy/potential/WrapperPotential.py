@@ -18,6 +18,7 @@ from .planarPotential import (
 from .Potential import (
     Force,
     Potential,
+    _check_potential_list_and_deprecate,
     _dim,
     _evaluatephitorques,
     _evaluatePotentials,
@@ -25,6 +26,7 @@ from .Potential import (
     _evaluatezforces,
     _isNonAxi,
     evaluateDensities,
+    evaluatephizderivs,
     evaluateR2derivs,
     evaluateRzderivs,
     evaluatez2derivs,
@@ -45,6 +47,11 @@ class parentWrapperPotential:
             return object.__new__(cls)
         # Decide whether superclass is Wrapper or planarWrapper based on dim
         pot = kwargs.get("pot", None)
+        if isinstance(pot, list):
+            # Upgrade deprecated list input to a CompositePotential
+            # (emits a DeprecationWarning)
+            pot = _check_potential_list_and_deprecate(pot)
+            kwargs["pot"] = pot
         if _dim(pot) == 2:
             parentWrapperPotential = planarWrapperPotential
         elif _dim(pot) == 3:
@@ -108,7 +115,9 @@ class WrapperPotential(Potential):
         if not _init:
             return None  # Don't run __init__ at the end of setup
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
-        self._pot = pot
+        # Upgrade deprecated list input to a CompositePotential (emits a
+        # DeprecationWarning); no-op for non-list input
+        self._pot = _check_potential_list_and_deprecate(pot)
         # Check that we are not wrapping a non-potential Force object
         if (
             isinstance(self._pot, (CompositePotential, list))
@@ -149,7 +158,10 @@ class WrapperPotential(Potential):
             )
 
         # Build own parameter string (excluding pot, ro, vo, _init)
-        class_name = type(self).__name__[1:]
+        # Factory-created wrapper instance classes carry a leading underscore
+        # (see parentWrapperPotential.__new__); direct subclasses (e.g.,
+        # RotateAndTiltWrapperPotential, KuzminLikeWrapperPotential) do not
+        class_name = type(self).__name__.removeprefix("_")
         params = _build_params_string(
             self, exclude_params=["self", "ro", "vo", "pot", "_init"]
         )
@@ -180,6 +192,7 @@ class WrapperPotential(Potential):
             or attribute == "_Rzderiv"
             or attribute == "_phi2deriv"
             or attribute == "_Rphideriv"
+            or attribute == "_phizderiv"
             or attribute == "_dens"
         ):
             return lambda R, Z, phi=0.0, t=0.0: self._wrap(
@@ -229,6 +242,10 @@ class WrapperPotential(Potential):
             return lambda p, R, Z, phi=0.0, t=0.0: _evaluatePotentials(
                 p, R, Z, phi=phi, t=t, dR=1, dphi=1
             )
+        elif attribute == "_phizderiv":
+            return lambda p, R, Z, phi=0.0, t=0.0: evaluatephizderivs(
+                p, R, Z, phi=phi, t=t, use_physical=False
+            )
         else:  # pragma: no cover
             raise AttributeError(
                 "Attribute %s not found in for this WrapperPotential" % attribute
@@ -263,7 +280,9 @@ class planarWrapperPotential(planarPotential):
         if not _init:
             return None  # Don't run __init__ at the end of setup
         planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
-        self._pot = pot
+        # Upgrade deprecated list input to a CompositePotential (emits a
+        # DeprecationWarning); no-op for non-list input
+        self._pot = _check_potential_list_and_deprecate(pot)
         self.isNonAxi = _isNonAxi(self._pot)
         # Check whether units are consistent between the wrapper and the
         # wrapped potential
@@ -291,7 +310,10 @@ class planarWrapperPotential(planarPotential):
             )
 
         # Build own parameter string (excluding pot, ro, vo, _init)
-        class_name = type(self).__name__[1:]
+        # Factory-created wrapper instance classes carry a leading underscore
+        # (see parentWrapperPotential.__new__); direct subclasses (e.g.,
+        # RotateAndTiltWrapperPotential, KuzminLikeWrapperPotential) do not
+        class_name = type(self).__name__.removeprefix("_")
         params = _build_params_string(
             self, exclude_params=["self", "ro", "vo", "pot", "_init"]
         )

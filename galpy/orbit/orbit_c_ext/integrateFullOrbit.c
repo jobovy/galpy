@@ -65,7 +65,7 @@ void parse_leapFuncArgs_Full(int npot,
 			     double ** pot_args,
            tfuncs_type_arr * pot_tfuncs){
   int ii,jj,kk;
-  int nR, nz, nr;
+  int nR, nz, nr, i2d_hasr2deriv, i2d_hasz2deriv, i2d_hasrzderiv;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
@@ -76,9 +76,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &LogarithmicHaloPotentialzforce;
       potentialArgs->phitorque= &LogarithmicHaloPotentialphitorque;
       potentialArgs->dens= &LogarithmicHaloPotentialDens;
-      //potentialArgs->R2deriv= &LogarithmicHaloPotentialR2deriv;
-      //potentialArgs->planarphi2deriv= &ZeroForce;
-      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->R2deriv= &LogarithmicHaloPotentialR2deriv;
+      potentialArgs->z2deriv= &LogarithmicHaloPotentialz2deriv;
+      potentialArgs->phi2deriv= &LogarithmicHaloPotentialphi2deriv;
+      potentialArgs->Rzderiv= &LogarithmicHaloPotentialRzderiv;
+      potentialArgs->Rphideriv= &LogarithmicHaloPotentialRphideriv;
+      potentialArgs->zphideriv= &LogarithmicHaloPotentialzphideriv;
       potentialArgs->nargs= 4;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -87,6 +90,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &DehnenBarPotentialRforce;
       potentialArgs->phitorque= &DehnenBarPotentialphitorque;
       potentialArgs->zforce= &DehnenBarPotentialzforce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv= &DehnenBarPotentialR2deriv;
+      potentialArgs->z2deriv= &DehnenBarPotentialz2deriv;
+      potentialArgs->phi2deriv= &DehnenBarPotentialphi2deriv;
+      potentialArgs->Rzderiv= &DehnenBarPotentialRzderiv;
+      potentialArgs->Rphideriv= &DehnenBarPotentialRphideriv;
+      potentialArgs->zphideriv= &DehnenBarPotentialzphideriv;
       potentialArgs->nargs= 6;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -97,9 +107,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &MiyamotoNagaiPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &MiyamotoNagaiPotentialDens;
-      //potentialArgs->R2deriv= &MiyamotoNagaiPotentialR2deriv;
-      //potentialArgs->planarphi2deriv= &ZeroForce;
-      //potentialArgs->planarRphideriv= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &MiyamotoNagaiPotentialR2deriv;
+      potentialArgs->z2deriv= &MiyamotoNagaiPotentialz2deriv;
+      potentialArgs->Rzderiv= &MiyamotoNagaiPotentialRzderiv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -110,9 +123,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &PowerSphericalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PowerSphericalPotentialDens;
-      //potentialArgs->R2deriv= &PowerSphericalPotentialR2deriv;
-      //potentialArgs->planarphi2deriv= &ZeroForce;
-      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->R2deriv= &PowerSphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &PowerSphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &PowerSphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -123,7 +137,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &HernquistPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &HernquistPotentialDens;
-      //potentialArgs->R2deriv= &HernquistPotentialR2deriv;
+      potentialArgs->R2deriv= &HernquistPotentialR2deriv;
+      potentialArgs->z2deriv= &HernquistPotentialz2deriv;
+      potentialArgs->Rzderiv= &HernquistPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
@@ -136,7 +153,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &NFWPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &NFWPotentialDens;
-      //potentialArgs->R2deriv= &NFWPotentialR2deriv;
+      potentialArgs->R2deriv= &NFWPotentialR2deriv;
+      potentialArgs->z2deriv= &NFWPotentialz2deriv;
+      potentialArgs->Rzderiv= &NFWPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
@@ -149,7 +169,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &JaffePotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &JaffePotentialDens;
-      //potentialArgs->R2deriv= &JaffePotentialR2deriv;
+      potentialArgs->R2deriv= &JaffePotentialR2deriv;
+      potentialArgs->z2deriv= &JaffePotentialz2deriv;
+      potentialArgs->Rzderiv= &JaffePotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
@@ -162,6 +185,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &DoubleExponentialDiskPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &DoubleExponentialDiskPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them). The R2deriv/z2deriv/
+      // Rzderiv use the same Ogata/Hankel quadrature (J0/J1 nodes) as the forces.
+      potentialArgs->R2deriv= &DoubleExponentialDiskPotentialR2deriv;
+      potentialArgs->z2deriv= &DoubleExponentialDiskPotentialz2deriv;
+      potentialArgs->Rzderiv= &DoubleExponentialDiskPotentialRzderiv;
       //Look at pot_args to figure out the number of arguments
       potentialArgs->nargs= (int) (5 + 4 * *(*pot_args+4) );
       potentialArgs->ntfuncs= 0;
@@ -173,6 +203,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &FlattenedPowerPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &FlattenedPowerPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &FlattenedPowerPotentialR2deriv;
+      potentialArgs->z2deriv= &FlattenedPowerPotentialz2deriv;
+      potentialArgs->Rzderiv= &FlattenedPowerPotentialRzderiv;
       potentialArgs->nargs= 4;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -181,6 +217,13 @@ void parse_leapFuncArgs_Full(int npot,
       //Grab the grids and the coefficients
       nR= (int) *(*pot_args)++;
       nz= (int) *(*pot_args)++;
+      // whether spline coefficients for the interpolated 2nd derivatives
+      // (R2deriv/z2deriv/Rzderiv grids; together the full 3D Hessian for the
+      // 3D variational equations) follow the force coefficients below; one
+      // independent presence flag per grid
+      i2d_hasr2deriv= (int) *(*pot_args)++;
+      i2d_hasz2deriv= (int) *(*pot_args)++;
+      i2d_hasrzderiv= (int) *(*pot_args)++;
       Rgrid= (double *) malloc ( nR * sizeof ( double ) );
       zgrid= (double *) malloc ( nz * sizeof ( double ) );
       potGrid_splinecoeffs= (double *) malloc ( nR * nz * sizeof ( double ) );
@@ -212,6 +255,47 @@ void parse_leapFuncArgs_Full(int npot,
 		     INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
       potentialArgs->accxzforce= gsl_interp_accel_alloc ();
       potentialArgs->accyzforce= gsl_interp_accel_alloc ();
+      // Interpolated 2nd derivatives (together the full 3D Hessian for the 3D
+      // variational equations / integrate_dxdv): precomputed exact
+      // R2deriv/z2deriv/Rzderiv grids, interpolated just like the forces.
+      // phi derivatives are identically zero (axisymmetric), so those
+      // pointers stay NULL (NULL-safe aggregators).
+      if ( i2d_hasr2deriv == 1 ) {
+	for (kk=0; kk < nR; kk++)
+	  put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz);
+	*pot_args+= nR*nz;
+	potentialArgs->i2dr2deriv= interp_2d_alloc(nR,nz);
+	interp_2d_init(potentialArgs->i2dr2deriv,Rgrid,zgrid,
+		       potGrid_splinecoeffs,
+		       INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+	potentialArgs->accxr2deriv= gsl_interp_accel_alloc ();
+	potentialArgs->accyr2deriv= gsl_interp_accel_alloc ();
+	potentialArgs->R2deriv= &interpRZPotentialR2deriv;
+      }
+      if ( i2d_hasz2deriv == 1 ) {
+	for (kk=0; kk < nR; kk++)
+	  put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz);
+	*pot_args+= nR*nz;
+	potentialArgs->i2dz2deriv= interp_2d_alloc(nR,nz);
+	interp_2d_init(potentialArgs->i2dz2deriv,Rgrid,zgrid,
+		       potGrid_splinecoeffs,
+		       INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+	potentialArgs->accxz2deriv= gsl_interp_accel_alloc ();
+	potentialArgs->accyz2deriv= gsl_interp_accel_alloc ();
+	potentialArgs->z2deriv= &interpRZPotentialz2deriv;
+      }
+      if ( i2d_hasrzderiv == 1 ) {
+	for (kk=0; kk < nR; kk++)
+	  put_row(potGrid_splinecoeffs,kk,*pot_args+kk*nz,nz);
+	*pot_args+= nR*nz;
+	potentialArgs->i2drzderiv= interp_2d_alloc(nR,nz);
+	interp_2d_init(potentialArgs->i2drzderiv,Rgrid,zgrid,
+		       potGrid_splinecoeffs,
+		       INTERP_2D_LINEAR); //latter bc we already calculated the coeffs
+	potentialArgs->accxrzderiv= gsl_interp_accel_alloc ();
+	potentialArgs->accyrzderiv= gsl_interp_accel_alloc ();
+	potentialArgs->Rzderiv= &interpRZPotentialRzderiv;
+      }
       potentialArgs->potentialEval= &interpRZPotentialEval;
       potentialArgs->Rforce= &interpRZPotentialRforce;
       potentialArgs->zforce= &interpRZPotentialzforce;
@@ -230,6 +314,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &IsochronePotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &IsochronePotentialDens;
+      potentialArgs->R2deriv= &IsochronePotentialR2deriv;
+      potentialArgs->z2deriv= &IsochronePotentialz2deriv;
+      potentialArgs->Rzderiv= &IsochronePotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -240,9 +328,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &PowerSphericalPotentialwCutoffzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PowerSphericalPotentialwCutoffDens;
-      //potentialArgs->R2deriv= &PowerSphericalPotentialR2deriv;
-      //potentialArgs->planarphi2deriv= &ZeroForce;
-      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->R2deriv= &PowerSphericalPotentialwCutoffR2deriv;
+      potentialArgs->z2deriv= &PowerSphericalPotentialwCutoffz2deriv;
+      potentialArgs->Rzderiv= &PowerSphericalPotentialwCutoffRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -252,7 +341,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &KuzminKutuzovStaeckelPotentialRforce;
       potentialArgs->zforce= &KuzminKutuzovStaeckelPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
-      //potentialArgs->R2deriv= &KuzminKutuzovStaeckelPotentialR2deriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &KuzminKutuzovStaeckelPotentialR2deriv;
+      potentialArgs->z2deriv= &KuzminKutuzovStaeckelPotentialz2deriv;
+      potentialArgs->Rzderiv= &KuzminKutuzovStaeckelPotentialRzderiv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -263,7 +357,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &PlummerPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PlummerPotentialDens;
-      //potentialArgs->R2deriv= &PlummerPotentialR2deriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &PlummerPotentialR2deriv;
+      potentialArgs->z2deriv= &PlummerPotentialz2deriv;
+      potentialArgs->Rzderiv= &PlummerPotentialRzderiv;
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -274,7 +373,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &PseudoIsothermalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PseudoIsothermalPotentialDens;
-      //potentialArgs->R2deriv= &PseudoIsothermalPotentialR2deriv;
+      potentialArgs->R2deriv= &PseudoIsothermalPotentialR2deriv;
+      potentialArgs->z2deriv= &PseudoIsothermalPotentialz2deriv;
+      potentialArgs->Rzderiv= &PseudoIsothermalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -284,6 +386,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &KuzminDiskPotentialRforce;
       potentialArgs->zforce= &KuzminDiskPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      // Axisymmetric: phi2deriv/Rphideriv/zphideriv are 0 -> left NULL
+      // (the NULL-safe aggregators return 0 for them).
+      potentialArgs->R2deriv= &KuzminDiskPotentialR2deriv;
+      potentialArgs->z2deriv= &KuzminDiskPotentialz2deriv;
+      potentialArgs->Rzderiv= &KuzminDiskPotentialRzderiv;
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -294,6 +402,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &BurkertPotentialzforce;
       potentialArgs->dens= &BurkertPotentialDens;
       potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->R2deriv= &BurkertPotentialR2deriv;
+      potentialArgs->z2deriv= &BurkertPotentialz2deriv;
+      potentialArgs->Rzderiv= &BurkertPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -304,6 +416,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialHernquistPotentialpsi;
       potentialArgs->mdens= &TriaxialHernquistPotentialmdens;
@@ -318,6 +437,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialNFWPotentialpsi;
       potentialArgs->mdens= &TriaxialNFWPotentialmdens;
@@ -332,6 +458,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialJaffePotentialpsi;
       potentialArgs->mdens= &TriaxialJaffePotentialmdens;
@@ -346,7 +479,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &SCFPotentialzforce;
       potentialArgs->phitorque= &SCFPotentialphitorque;
       potentialArgs->dens= &SCFPotentialDens;
-      potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 7);
+      potentialArgs->R2deriv= &SCFPotentialR2deriv;
+      potentialArgs->z2deriv= &SCFPotentialz2deriv;
+      potentialArgs->Rzderiv= &SCFPotentialRzderiv;
+      potentialArgs->phi2deriv= &SCFPotentialphi2deriv;
+      potentialArgs->Rphideriv= &SCFPotentialRphideriv;
+      potentialArgs->zphideriv= &SCFPotentialzphideriv;
+      potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 10);
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -355,6 +494,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &SoftenedNeedleBarPotentialRforce;
       potentialArgs->zforce= &SoftenedNeedleBarPotentialzforce;
       potentialArgs->phitorque= &SoftenedNeedleBarPotentialphitorque;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv= &SoftenedNeedleBarPotentialR2deriv;
+      potentialArgs->z2deriv= &SoftenedNeedleBarPotentialz2deriv;
+      potentialArgs->phi2deriv= &SoftenedNeedleBarPotentialphi2deriv;
+      potentialArgs->Rzderiv= &SoftenedNeedleBarPotentialRzderiv;
+      potentialArgs->Rphideriv= &SoftenedNeedleBarPotentialRphideriv;
+      potentialArgs->zphideriv= &SoftenedNeedleBarPotentialzphideriv;
       potentialArgs->nargs= 13;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -365,6 +511,11 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &DiskSCFPotentialzforce;
       potentialArgs->dens= &DiskSCFPotentialDens;
       potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->R2deriv= &DiskSCFPotentialR2deriv;
+      potentialArgs->z2deriv= &DiskSCFPotentialz2deriv;
+      potentialArgs->Rzderiv= &DiskSCFPotentialRzderiv;
+      // phi2deriv/Rphideriv/zphideriv are identically zero (axisymmetric) ->
+      // left NULL, the 3D Hessian aggregators skip them.
       potentialArgs->nargs= (int) **pot_args + 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -373,11 +524,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce = &SpiralArmsPotentialRforce;
       potentialArgs->zforce = &SpiralArmsPotentialzforce;
       potentialArgs->phitorque = &SpiralArmsPotentialphitorque;
-      //potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
-      //potentialArgs->z2deriv = &SpiralArmsPotentialz2deriv;
+      potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
+      potentialArgs->z2deriv = &SpiralArmsPotentialz2deriv;
       potentialArgs->phi2deriv = &SpiralArmsPotentialphi2deriv;
-      //potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
+      potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
       potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
+      potentialArgs->zphideriv = &SpiralArmsPotentialzphideriv;
       potentialArgs->nargs = (int) 10 + **pot_args;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -388,11 +540,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
-      //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
-      //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
-      //potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
-      //potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
-      //potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &PerfectEllipsoidPotentialpsi;
       potentialArgs->mdens= &PerfectEllipsoidPotentialmdens;
@@ -409,9 +563,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &DehnenCoreSphericalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &DehnenCoreSphericalPotentialDens;
-      //potentialArgs->R2deriv= &DehnenCoreSphericalPotentialR2deriv;
-      //potentialArgs->planarphi2deriv= &ZeroForce;
-      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->R2deriv= &DehnenCoreSphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &DehnenCoreSphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &DehnenCoreSphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -422,9 +577,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &DehnenSphericalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &DehnenSphericalPotentialDens;
-      //potentialArgs->R2deriv= &DehnenSphericalPotentialR2deriv;
-      //potentialArgs->planarphi2deriv= &ZeroForce;
-      //potentialArgs->planarRphideriv= &ZeroForce;
+      potentialArgs->R2deriv= &DehnenSphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &DehnenSphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &DehnenSphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -435,6 +591,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &HomogeneousSpherePotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &HomogeneousSpherePotentialDens;
+      potentialArgs->R2deriv= &HomogeneousSpherePotentialR2deriv;
+      potentialArgs->z2deriv= &HomogeneousSpherePotentialz2deriv;
+      potentialArgs->Rzderiv= &HomogeneousSpherePotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -459,6 +619,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &SphericalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &SphericalPotentialDens;
+      potentialArgs->R2deriv= &SphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &SphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &SphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       // Also assign functions specific to SphericalPotential
       potentialArgs->revaluate= &interpSphericalPotentialrevaluate;
       potentialArgs->rforce= &interpSphericalPotentialrforce;
@@ -474,11 +638,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
-      //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
-      //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
-      //potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
-      //potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
-      //potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialGaussianPotentialpsi;
       potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
@@ -493,11 +659,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
-      //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
-      //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
-      //potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
-      //potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
-      //potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &PowerTriaxialPotentialpsi;
       potentialArgs->mdens= &PowerTriaxialPotentialmdens;
@@ -506,13 +674,37 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
-    case 39: //NonInertialFrameForce, 22 arguments (10 caching ones)
+    case 39: //NonInertialFrameForce, 23 arguments (10 caching ones)
+      // The time-dependent inputs (a0, x0, v0, Omega, Omegadot) are Python/numba
+      // functions called back from C at every step via tfuncs. The cinterp=True
+      // variant (case 45) instead precomputes them as GSL splines.
       potentialArgs->RforceVelocity= &NonInertialFrameForceRforce;
       potentialArgs->zforceVelocity= &NonInertialFrameForcezforce;
       potentialArgs->phitorqueVelocity= &NonInertialFrameForcephitorque;
+      // Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+      // variational equations (integrate_dxdv with this velocity-dependent
+      // force; NonInertialFrameForce is a DissipativeForce subclass).
+      potentialArgs->RectDissipativeForceJacobian= &NonInertialFrameForceRectDissipativeForceJacobian;
       potentialArgs->nargs= 23;
       potentialArgs->ntfuncs= (int) ( 3 * *(*pot_args + 12) * ( 1 + 2 * *(*pot_args + 11) ) \
                                 + ( 6 - 4 * ( *(*pot_args + 13) ) ) * *(*pot_args + 15) );
+      potentialArgs->requiresVelocity= true;
+      break;
+    case 45: //NonInertialFrameForce with cinterp=True (on-the-fly C splines)
+      // Same force as case 39, but the time-dependent inputs are evaluated from
+      // GSL splines built by initNonInertialFrameForceSplines (see below and
+      // _parse_noninertial_frame_force on the Python side) rather than from
+      // tfuncs; Omegadot is the spline derivative of Omega. The spline block
+      // precedes the 23 case-39 args, plus tmin,tmax (args 23,24) for clamping;
+      // hence nargs=25 and ntfuncs=0. The force code branches on spline1d!=NULL.
+      potentialArgs->RforceVelocity= &NonInertialFrameForceRforce;
+      potentialArgs->zforceVelocity= &NonInertialFrameForcezforce;
+      potentialArgs->phitorqueVelocity= &NonInertialFrameForcephitorque;
+      // The Jacobian evaluates Omega/Omegadot from the same splines (clamped
+      // to [tmin,tmax]); see NonInertialFrameForceRectDissipativeForceJacobian.
+      potentialArgs->RectDissipativeForceJacobian= &NonInertialFrameForceRectDissipativeForceJacobian;
+      potentialArgs->nargs= 25;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;
       break;
     case 40: //NullPotential, no arguments (only supported for orbit int)
@@ -530,6 +722,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &SphericalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &SphericalPotentialDens;
+      potentialArgs->R2deriv= &SphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &SphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &SphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       // Also assign functions specific to SphericalPotential
       potentialArgs->revaluate= &EinastoPotentialrevaluate;
       potentialArgs->rforce= &EinastoPotentialrforce;
@@ -545,6 +741,10 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &TwoPowerSphericalPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &TwoPowerSphericalPotentialDens;
+      potentialArgs->R2deriv= &TwoPowerSphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &TwoPowerSphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &TwoPowerSphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
       potentialArgs->nargs= 4;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -555,6 +755,13 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
       potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
+      potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
+      potentialArgs->Rzderiv = &EllipsoidalPotentialRzderiv;
+      potentialArgs->phi2deriv = &EllipsoidalPotentialphi2deriv;
+      potentialArgs->Rphideriv = &EllipsoidalPotentialRphideriv;
+      potentialArgs->zphideriv = &EllipsoidalPotentialzphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TwoPowerTriaxialPotentialpsi;
       potentialArgs->mdens= &TwoPowerTriaxialPotentialmdens;
@@ -569,6 +776,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforce= &MultipoleExpansionPotentialzforce;
       potentialArgs->phitorque= &MultipoleExpansionPotentialphitorque;
       potentialArgs->dens= &MultipoleExpansionPotentialDens;
+      potentialArgs->R2deriv= &MultipoleExpansionPotentialR2deriv;
+      potentialArgs->z2deriv= &MultipoleExpansionPotentialz2deriv;
+      potentialArgs->Rzderiv= &MultipoleExpansionPotentialRzderiv;
+      potentialArgs->phi2deriv= &MultipoleExpansionPotentialphi2deriv;
+      potentialArgs->Rphideriv= &MultipoleExpansionPotentialRphideriv;
+      potentialArgs->zphideriv= &MultipoleExpansionPotentialzphideriv;
       potentialArgs->nargs= 0; // arguments handled in the initialization code run for this potential
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -579,6 +792,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;
       potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
       potentialArgs->phitorque= &DehnenSmoothWrapperPotentialphitorque;
+      potentialArgs->R2deriv= &DehnenSmoothWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &DehnenSmoothWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &DehnenSmoothWrapperPotentialRzderiv;
+      potentialArgs->phi2deriv= &DehnenSmoothWrapperPotentialphi2deriv;
+      potentialArgs->Rphideriv= &DehnenSmoothWrapperPotentialRphideriv;
+      potentialArgs->zphideriv= &DehnenSmoothWrapperPotentialzphideriv;
       potentialArgs->nargs= 4;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -587,6 +806,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &SolidBodyRotationWrapperPotentialRforce;
       potentialArgs->zforce= &SolidBodyRotationWrapperPotentialzforce;
       potentialArgs->phitorque= &SolidBodyRotationWrapperPotentialphitorque;
+      potentialArgs->R2deriv= &SolidBodyRotationWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &SolidBodyRotationWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &SolidBodyRotationWrapperPotentialRzderiv;
+      potentialArgs->phi2deriv= &SolidBodyRotationWrapperPotentialphi2deriv;
+      potentialArgs->Rphideriv= &SolidBodyRotationWrapperPotentialRphideriv;
+      potentialArgs->zphideriv= &SolidBodyRotationWrapperPotentialzphideriv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -596,6 +821,16 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &OblateStaeckelWrapperPotentialRforce;
       potentialArgs->zforce= &OblateStaeckelWrapperPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv):
+      // chain rule of Phi(u,v) = (U(u)-V(v))/(sinh^2 u + sin^2 v) through the
+      // prolate spheroidal (R,z) -> (u,v) transform, with U''/V'' built from
+      // the wrapped potential's forces and second derivatives along the
+      // reference curves. Axisymmetric by construction:
+      // phi2deriv/Rphideriv/zphideriv are 0 -> left NULL (the NULL-safe
+      // aggregators return 0 for them).
+      potentialArgs->R2deriv= &OblateStaeckelWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &OblateStaeckelWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &OblateStaeckelWrapperPotentialRzderiv;
       potentialArgs->nargs= (int) 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -604,6 +839,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &CorotatingRotationWrapperPotentialRforce;
       potentialArgs->zforce= &CorotatingRotationWrapperPotentialzforce;
       potentialArgs->phitorque= &CorotatingRotationWrapperPotentialphitorque;
+      potentialArgs->R2deriv= &CorotatingRotationWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &CorotatingRotationWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &CorotatingRotationWrapperPotentialRzderiv;
+      potentialArgs->phi2deriv= &CorotatingRotationWrapperPotentialphi2deriv;
+      potentialArgs->Rphideriv= &CorotatingRotationWrapperPotentialRphideriv;
+      potentialArgs->zphideriv= &CorotatingRotationWrapperPotentialzphideriv;
       potentialArgs->nargs= 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -613,6 +854,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &GaussianAmplitudeWrapperPotentialRforce;
       potentialArgs->zforce= &GaussianAmplitudeWrapperPotentialzforce;
       potentialArgs->phitorque= &GaussianAmplitudeWrapperPotentialphitorque;
+      potentialArgs->R2deriv= &GaussianAmplitudeWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &GaussianAmplitudeWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &GaussianAmplitudeWrapperPotentialRzderiv;
+      potentialArgs->phi2deriv= &GaussianAmplitudeWrapperPotentialphi2deriv;
+      potentialArgs->Rphideriv= &GaussianAmplitudeWrapperPotentialRphideriv;
+      potentialArgs->zphideriv= &GaussianAmplitudeWrapperPotentialzphideriv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -621,6 +868,17 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &MovingObjectPotentialRforce;
       potentialArgs->zforce= &MovingObjectPotentialzforce;
       potentialArgs->phitorque= &MovingObjectPotentialphitorque;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv):
+      // the kernel's Hessian at the shifted point x-x_obj(t), evaluated
+      // through the wrapped potential's pointers exactly like the forces
+      // (only used when the kernel itself has its 3D Hessian in C, gated by
+      // hasC_dxdv3d = _check_c(kernel, dxdv3d=True) on the Python side).
+      potentialArgs->R2deriv= &MovingObjectPotentialR2deriv;
+      potentialArgs->z2deriv= &MovingObjectPotentialz2deriv;
+      potentialArgs->Rzderiv= &MovingObjectPotentialRzderiv;
+      potentialArgs->phi2deriv= &MovingObjectPotentialphi2deriv;
+      potentialArgs->Rphideriv= &MovingObjectPotentialRphideriv;
+      potentialArgs->zphideriv= &MovingObjectPotentialzphideriv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -629,6 +887,9 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->RforceVelocity= &ChandrasekharDynamicalFrictionForceRforce;
       potentialArgs->zforceVelocity= &ChandrasekharDynamicalFrictionForcezforce;
       potentialArgs->phitorqueVelocity= &ChandrasekharDynamicalFrictionForcephitorque;
+      // Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+      // variational equations (integrate_dxdv with this dissipative force).
+      potentialArgs->RectDissipativeForceJacobian= &ChandrasekharDynamicalFrictionForceRectDissipativeForceJacobian;
       potentialArgs->nargs= 16;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;
@@ -637,7 +898,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &RotateAndTiltWrapperPotentialRforce;
       potentialArgs->zforce= &RotateAndTiltWrapperPotentialzforce;
       potentialArgs->phitorque= &RotateAndTiltWrapperPotentialphitorque;
-      potentialArgs->nargs= 21;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv).
+      potentialArgs->R2deriv= &RotateAndTiltWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &RotateAndTiltWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &RotateAndTiltWrapperPotentialRzderiv;
+      potentialArgs->phi2deriv= &RotateAndTiltWrapperPotentialphi2deriv;
+      potentialArgs->Rphideriv= &RotateAndTiltWrapperPotentialRphideriv;
+      potentialArgs->zphideriv= &RotateAndTiltWrapperPotentialzphideriv;
+      potentialArgs->nargs= 32;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -646,6 +914,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &TimeDependentAmplitudeWrapperPotentialRforce;
       potentialArgs->zforce= &TimeDependentAmplitudeWrapperPotentialzforce;
       potentialArgs->phitorque= &TimeDependentAmplitudeWrapperPotentialphitorque;
+      potentialArgs->R2deriv= &TimeDependentAmplitudeWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &TimeDependentAmplitudeWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &TimeDependentAmplitudeWrapperPotentialRzderiv;
+      potentialArgs->phi2deriv= &TimeDependentAmplitudeWrapperPotentialphi2deriv;
+      potentialArgs->Rphideriv= &TimeDependentAmplitudeWrapperPotentialRphideriv;
+      potentialArgs->zphideriv= &TimeDependentAmplitudeWrapperPotentialzphideriv;
       potentialArgs->nargs= 1;
       potentialArgs->ntfuncs= 1;
       potentialArgs->requiresVelocity= false;
@@ -655,6 +929,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &KuzminLikeWrapperPotentialRforce;
       potentialArgs->zforce= &KuzminLikeWrapperPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv);
+      // chain rule of the wrapped potential's in-plane R2deriv/Rforce at
+      // (xi(R,z),0) through the Kuzmin-like substitution. Axisymmetric:
+      // phi2deriv/Rphideriv/zphideriv are 0 -> left NULL (the NULL-safe
+      // aggregators return 0 for them).
+      potentialArgs->R2deriv= &KuzminLikeWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &KuzminLikeWrapperPotentialz2deriv;
+      potentialArgs->Rzderiv= &KuzminLikeWrapperPotentialRzderiv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -663,6 +945,9 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->RforceVelocity= &FDMDynamicalFrictionForceRforce;
       potentialArgs->zforceVelocity= &FDMDynamicalFrictionForcezforce;
       potentialArgs->phitorqueVelocity= &FDMDynamicalFrictionForcephitorque;
+      // Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+      // variational equations (integrate_dxdv with this dissipative force).
+      potentialArgs->RectDissipativeForceJacobian= &FDMDynamicalFrictionForceRectDissipativeForceJacobian;
       potentialArgs->nargs= 18;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;
@@ -672,6 +957,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &CylindricallySeparablePotentialWrapperPotentialRforce;
       potentialArgs->zforce= &CylindricallySeparablePotentialWrapperPotentialzforce;
       potentialArgs->phitorque= &ZeroForce;
+      // Full-3D Hessian for the 3D variational equations (integrate_dxdv):
+      // separability Phi(R,z) = Phi_w(R,0) + Phi_w(Rp,z) - Phi_w(Rp,0) means
+      // R2deriv/z2deriv are the wrapped potential's own second derivatives
+      // along the two reference curves, while Rzderiv = 0 identically ->
+      // left NULL, as are the (axisymmetric) phi-derivatives (the NULL-safe
+      // aggregators return 0 for them).
+      potentialArgs->R2deriv= &CylindricallySeparablePotentialWrapperPotentialR2deriv;
+      potentialArgs->z2deriv= &CylindricallySeparablePotentialWrapperPotentialz2deriv;
       potentialArgs->nargs= (int) 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -682,6 +975,7 @@ void parse_leapFuncArgs_Full(int npot,
     int setupChandrasekharDynamicalFrictionSplines = (*(*pot_type-1) == -7 || *(*pot_type-1) == -11) ? 1 : 0;
     int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
     int initMultipoleExpansionData = *(*pot_type-1) == 44 ? 1 : 0;
+    int setupNonInertialFrameForceSplines = *(*pot_type-1) == 45 ? 1 : 0;
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -695,6 +989,8 @@ void parse_leapFuncArgs_Full(int npot,
       initMovingObjectSplines(potentialArgs, pot_args);
     if (setupChandrasekharDynamicalFrictionSplines )
       initChandrasekharDynamicalFrictionSplines(potentialArgs,pot_args);
+    if ( setupNonInertialFrameForceSplines )
+      initNonInertialFrameForceSplines(potentialArgs,pot_args);
     if ( initMultipoleExpansionData )
       initMultipoleExpansionPotentialArgs(potentialArgs, pot_args);
     // Now load each potential's parameters
@@ -720,6 +1016,7 @@ EXPORT void integrateFullOrbit(int nobj,
 			       double *yo,
 			       int nt,
 			       double *t,
+			       int indiv_t,
 			       int npot,
 			       int * pot_type,
 			       double * pot_args,
@@ -805,7 +1102,7 @@ EXPORT void integrateFullOrbit(int nobj,
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
     cyl_to_rect_galpy(yo+6*ii);
-    odeint_func(odeint_deriv_func,dim,yo+6*ii,nt,dt,t,
+    odeint_func(odeint_deriv_func,dim,yo+6*ii,nt,dt,t+nt*ii*indiv_t,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
 		result+6*nt*ii,err+ii);
     for (jj=0; jj < nt; jj++)
@@ -903,14 +1200,14 @@ EXPORT void integrateFullOrbit_sos(
   free(potentialArgs);
   //Done!
 }
-// LCOV_EXCL_START
-void integrateOrbit_dxdv(double *yo,
+EXPORT void integrateFullOrbit_dxdv(double *yo,
 			 int nt,
 			 double *t,
 			 int npot,
 			 int * pot_type,
 			 double * pot_args,
        tfuncs_type_arr pot_tfuncs,
+			 double dt,
 			 double rtol,
 			 double atol,
 			 double *result,
@@ -931,12 +1228,11 @@ void integrateOrbit_dxdv(double *yo,
 		      double *,int *);
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct potentialArg *);
+  // Only the non-symplectic integrators support the 12D variational (dxdv)
+  // system; Orbit.integrate_dxdv enforces this upstream
+  // (check_integrator(no_symplec=True)), so the symplectic/leapfrog/ias15
+  // odeint_types never reach here -- mirroring integratePlanarOrbit_dxdv.
   switch ( odeint_type ) {
-  case 0: //leapfrog
-    odeint_func= &leapfrog;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
-    break;
   case 1: //RK4
     odeint_func= &bovy_rk4;
     odeint_deriv_func= &evalRectDeriv_dxdv;
@@ -946,16 +1242,6 @@ void integrateOrbit_dxdv(double *yo,
     odeint_func= &bovy_rk6;
     odeint_deriv_func= &evalRectDeriv_dxdv;
     dim= 12;
-    break;
-  case 3: //symplec4
-    odeint_func= &symplec4;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
-    break;
-  case 4: //symplec6
-    odeint_func= &symplec6;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
@@ -967,20 +1253,14 @@ void integrateOrbit_dxdv(double *yo,
     odeint_deriv_func= &evalRectDeriv_dxdv;
     dim= 12;
     break;
-  case 7: //ias15
-    odeint_func= &wez_ias15;
-    odeint_deriv_func= &evalRectForce;
-    dim= 6;
-    break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,-9999.99,t,npot,potentialArgs,
+  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,
 	      rtol,atol,result,err);
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
   //Done!
 }
-// LCOV_EXCL_STOP
 void evalRectForce(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phitorque, z;
@@ -1020,11 +1300,11 @@ void evalRectDeriv(double t, double *q, double *a,
   vR=  *(q+3) * cosphi + *(q+4) * sinphi;
   vT= -*(q+3) * sinphi + *(q+4) * cosphi;
   //Calculate the forces
-  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
-  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
   *a++= cosphi*Rforce-1./R*sinphi*phitorque;
   *a++= sinphi*Rforce+1./R*cosphi*phitorque;
-  *a= calczforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));;
+  *a= calczforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));;
 }
 
 void evalSOSDeriv(double psi, double *q, double *a,
@@ -1109,6 +1389,35 @@ void initMovingObjectSplines(struct potentialArg * potentialArgs,
   free(t);
 }
 
+void initNonInertialFrameForceSplines(struct potentialArg * potentialArgs,
+				      double ** pot_args){
+  // cinterp NonInertialFrameForce (pot_type 45). The spline block at the front
+  // of pot_args is: n_spline, nPts, tgrid[nPts], then n_spline value arrays of
+  // length nPts in the order a0(0-2)[, x0(3-5), v0(6-8)][, Omega(9*lin_acc...)]
+  // -- matching the tfunc indices used by NonInertialFrameForce.c. (x0/v0 are
+  // present only when lin_acc and rot_acc; Omega is present and read only when
+  // rot_acc, so its base index 9*lin_acc is 9 when lin_acc -- after a0/x0/v0 --
+  // and 0 otherwise.) Splines use the raw (un-normalized) time grid, so
+  // gsl_spline_eval_deriv directly gives d/dt (used to obtain Omegadot from the
+  // Omega spline).
+  int n_spline = (int) **pot_args;
+  int nPts = (int) *(*pot_args + 1);
+  double * t_arr = *pot_args + 2; // tgrid; value array ii starts at t_arr+(ii+1)*nPts
+  int ii;
+  potentialArgs->nspline1d= n_spline;
+  potentialArgs->spline1d= (gsl_spline **)				\
+    malloc ( n_spline * sizeof ( gsl_spline * ) );
+  potentialArgs->acc1d= (gsl_interp_accel **)				\
+    malloc ( n_spline * sizeof ( gsl_interp_accel * ) );
+  for (ii=0; ii < n_spline; ii++) {
+    *(potentialArgs->acc1d + ii)= gsl_interp_accel_alloc();
+    *(potentialArgs->spline1d + ii)= gsl_spline_alloc(gsl_interp_cspline,nPts);
+    gsl_spline_init(*(potentialArgs->spline1d + ii),
+		    t_arr,t_arr + (ii + 1) * nPts,nPts);
+  }
+  *pot_args = *pot_args + (int) ( 2 + ( 1 + n_spline ) * nPts );
+}
+
 void initChandrasekharDynamicalFrictionSplines(struct potentialArg * potentialArgs,
 					       double ** pot_args){
   gsl_interp_accel *sr_accel_ptr = gsl_interp_accel_alloc();
@@ -1141,17 +1450,28 @@ void initChandrasekharDynamicalFrictionSplines(struct potentialArg * potentialAr
   free(r);
 }
 
-// LCOV_EXCL_START
 void evalRectDeriv_dxdv(double t, double *q, double *a,
 			int nargs, struct potentialArg * potentialArgs){
-  double sinphi, cosphi, x, y, phi,R,Rforce,phitorque,z,zforce;
-  double R2deriv, phi2deriv, Rphideriv, dFxdx, dFxdy, dFydx, dFydy;
+  // 12D state q = (x,y,z,vx,vy,vz | dx,dy,dz,dvx,dvy,dvz): the orbit plus one
+  // phase-space deviation propagated by the variational equation dw'=A w'
+  // with the general Jacobian A=[[0,I],[K + dF/dx, dF/dv]]: K is the
+  // symmetric Cartesian tidal tensor (-grad grad Phi) of the conservative
+  // components; (dF/dx, dF/dv) are the rectangular Jacobian blocks of the
+  // velocity-dependent (dissipative) components -- the dissipative dF/dx is
+  // NOT symmetric and the velocity block dF/dv is nonzero -- aggregated by
+  // the NULL-safe calcRectDissipativeForceJacobian, which returns exact
+  // zeros when no component has the Jacobian, reducing the system to the
+  // conservative A=[[0,I],[K,0]].
+  double sinphi, cosphi, x, y, phi, R, Rforce, phitorque, z, zforce;
+  double vR, vT, RforceK, phitorqueK;
+  double R2deriv, phi2deriv, Rphideriv, z2deriv, Rzderiv, zphideriv;
+  double dFxdx, dFxdy, dFydy, dFxdz, dFydz, dFzdz, dx, dy, dz;
+  double jac_x[9], jac_v[9], dvx, dvy, dvz;
   //first three derivatives are just the velocities
   *a++= *(q+3);
   *a++= *(q+4);
   *a++= *(q+5);
-  //Rest is force
-  //q is rectangular so calculate R and phi
+  //q is rectangular so calculate R and phi, vR and vT (for dissipative)
   x= *q;
   y= *(q+1);
   z= *(q+2);
@@ -1160,45 +1480,81 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   sinphi= y/R;
   cosphi= x/R;
   if ( y < 0. ) phi= 2.*M_PI-phi;
-  //Calculate the forces
-  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
-  zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
-  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs);
+  vR=  *(q+3) * cosphi + *(q+4) * sinphi;
+  vT= -*(q+3) * sinphi + *(q+4) * cosphi;
+  //Calculate the forces -> Cartesian accelerations (passing the velocity is
+  //a no-op for conservative potentials: requiresVelocity routes to the same
+  //velocity-free force functions, so this is bit-identical to before)
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
+  zforce= calczforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs,1,vR,vT,*(q+5));
   *a++= cosphi*Rforce-1./R*sinphi*phitorque;
   *a++= sinphi*Rforce+1./R*cosphi*phitorque;
   *a++= zforce;
-  //dx derivatives are just dv
+  //d(deviation position)/dt = deviation velocity
   *a++= *(q+9);
   *a++= *(q+10);
   *a++= *(q+11);
-  //for the dv derivatives we need also R2deriv, phi2deriv, and Rphideriv
+  // d(deviation velocity)/dt = (K + dF/dx) . (dx,dy,dz) + dF/dv . (dvx,dvy,dvz)
+  // K needs the full 3D Hessian (conservative components only: dissipative
+  // forces have NULL second-derivative pointers, so the NULL-safe aggregators
+  // skip them and their position-Jacobian enters via jac_x instead)
   R2deriv= calcR2deriv(R,z,phi,t,nargs,potentialArgs);
   phi2deriv= calcphi2deriv(R,z,phi,t,nargs,potentialArgs);
   Rphideriv= calcRphideriv(R,z,phi,t,nargs,potentialArgs);
-  //..and dFxdx, dFxdy, dFydx, dFydy
+  z2deriv= calcz2deriv(R,z,phi,t,nargs,potentialArgs);
+  Rzderiv= calcRzderiv(R,z,phi,t,nargs,potentialArgs);
+  zphideriv= calczphideriv(R,z,phi,t,nargs,potentialArgs);
+  // The Rforce/phitorque entering the cylindrical->Cartesian conversion of
+  // the CONSERVATIVE Hessian K below must be the conservative force only:
+  // a dissipative component's dF/dx is already complete in rectangular
+  // coordinates (jac_x below), so its force must not enter the curvilinear
+  // conversion terms (it would double-count terms that do not apply to it).
+  // For purely conservative potentials these aggregators sum exactly the
+  // same components in the same order as calcRforce/calcphitorque above, so
+  // RforceK/phitorqueK equal Rforce/phitorque bit-for-bit there.
+  // conservative force only (include_dissipative=0): the dissipative forces'
+  // position-Jacobian is rectangular (calcRectDissipativeForceJacobian), so
+  // they must not enter these curvilinear Hessian-conversion terms
+  RforceK= calcRforce(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
+  phitorqueK= calcphitorque(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
+  // In-plane (x,y) block: identical to the verified 2D variational equations
+  // (z enters only through the values of the second derivatives above).
   dFxdx= -cosphi*cosphi*R2deriv
-    +2.*cosphi*sinphi/R/R*phitorque
-    +sinphi*sinphi/R*Rforce
+    +2.*cosphi*sinphi/R/R*phitorqueK
+    +sinphi*sinphi/R*RforceK
     +2.*sinphi*cosphi/R*Rphideriv
     -sinphi*sinphi/R/R*phi2deriv;
   dFxdy= -sinphi*cosphi*R2deriv
-    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorque
-    -cosphi*sinphi/R*Rforce
+    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorqueK
+    -cosphi*sinphi/R*RforceK
     -(cosphi*cosphi-sinphi*sinphi)/R*Rphideriv
     +cosphi*sinphi/R/R*phi2deriv;
-  dFydx= -cosphi*sinphi*R2deriv
-    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorque
-    +(sinphi*sinphi-cosphi*cosphi)/R*Rphideriv
-    -sinphi*cosphi/R*Rforce
-    +sinphi*cosphi/R/R*phi2deriv;
   dFydy= -sinphi*sinphi*R2deriv
-    -2.*sinphi*cosphi/R/R*phitorque
+    -2.*sinphi*cosphi/R/R*phitorqueK
     -2.*sinphi*cosphi/R*Rphideriv
-    +cosphi*cosphi/R*Rforce
+    +cosphi*cosphi/R*RforceK
     -cosphi*cosphi/R/R*phi2deriv;
-  *a++= dFxdx * *(q+4) + dFxdy * *(q+5);
-  *a++= dFydx * *(q+4) + dFydy * *(q+5);
-  *a= 0; //BOVY: PUT IN Z2DERIVS
+  // z-coupling (K symmetric: dFzdx=dFxdz, dFzdy=dFydz, dFydx=dFxdy)
+  dFxdz= -cosphi*Rzderiv+sinphi/R*zphideriv;
+  dFydz= -sinphi*Rzderiv-cosphi/R*zphideriv;
+  dFzdz= -z2deriv;
+  dx= *(q+6);
+  dy= *(q+7);
+  dz= *(q+8);
+  dvx= *(q+9);
+  dvy= *(q+10);
+  dvz= *(q+11);
+  // Dissipative rectangular Jacobian blocks: exact zeros when no component
+  // provides RectDissipativeForceJacobian (purely conservative case)
+  calcRectDissipativeForceJacobian(t,q,jac_x,jac_v,nargs,potentialArgs);
+  *a++= dFxdx*dx+dFxdy*dy+dFxdz*dz
+    + jac_x[0]*dx + jac_x[1]*dy + jac_x[2]*dz
+    + jac_v[0]*dvx + jac_v[1]*dvy + jac_v[2]*dvz;
+  *a++= dFxdy*dx+dFydy*dy+dFydz*dz
+    + jac_x[3]*dx + jac_x[4]*dy + jac_x[5]*dz
+    + jac_v[3]*dvx + jac_v[4]*dvy + jac_v[5]*dvz;
+  *a  = dFxdz*dx+dFydz*dy+dFzdz*dz
+    + jac_x[6]*dx + jac_x[7]*dy + jac_x[8]*dz
+    + jac_v[6]*dvx + jac_v[7]*dvy + jac_v[8]*dvz;
 }
-
-// LCOV_EXCL_STOP

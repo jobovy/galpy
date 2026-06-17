@@ -30,8 +30,13 @@ if _NUMBA_LOADED:
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 
-def _parse_pot(pot):
-    """Parse the potential so it can be fed to C"""
+def _parse_pot(pot, t=None):
+    """Parse the potential so it can be fed to C
+
+    ``t`` is the integration time array (when available), used to build
+    on-the-fly C spline interpolations for a NonInertialFrameForce with
+    ``cinterp=True`` (see _parse_noninertial_frame_force).
+    """
     # Remove NullPotentials from the potential (iterate directly without casting to list first)
     purged_pot = [p for p in pot if not isinstance(p, potential.NullPotential)]
     if len(purged_pot) > 0:
@@ -53,11 +58,11 @@ def _parse_pot(pot):
         ) or isinstance(p, (parentWrapperPotential, WrapperPotential)):
             if not isinstance(p, (parentWrapperPotential, WrapperPotential)):
                 wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                    potential.toPlanarPotential(p._Pot._pot)
+                    potential.toPlanarPotential(p._Pot._pot), t=t
                 )
             else:
                 wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                    p._pot
+                    p._pot, t=t
                 )
         if (
             isinstance(p, planarPotentialFromRZPotential)
@@ -319,7 +324,11 @@ def _parse_pot(pot):
         ) and isinstance(p._Pot, potential.MultipoleExpansionPotential):
             pot_type.append(44)
             pp = p._Pot
-            pot_args.extend(potential.MultipoleExpansionPotential._serialize_for_c(pp))
+            _mep_args = pp._serialize_for_c()
+            if isinstance(_mep_args, numpy.ndarray):
+                pot_args.append(_mep_args)
+            else:
+                pot_args.extend(_mep_args)
         elif (
             isinstance(p, planarPotentialFromFullPotential)
             or isinstance(p, planarPotentialFromRZPotential)
@@ -352,7 +361,10 @@ def _parse_pot(pot):
             # (a) MultipoleExpansion, multiply in any add'l amp
             pt, pa = _parse_multipole_expansion_pot(p._Pot._me, extra_amp=p._Pot._amp)
             pot_type.append(pt)
-            pot_args.extend(pa)
+            if isinstance(pa, numpy.ndarray):
+                pot_args.append(pa)
+            else:
+                pot_args.extend(pa)
             # (b) constituent [Sigma_i,h_i] parts
             dpts, dpa = _parse_disk_approx_pairs(p._Pot, extra_amp=p._Pot._amp)
             for dpt in dpts:
@@ -445,53 +457,12 @@ def _parse_pot(pot):
         elif isinstance(
             p, planarDissipativeForceFromFullDissipativeForce
         ) and isinstance(p._Pot, potential.NonInertialFrameForce):
-            pot_type.append(39)
-            pot_args.append(p._Pot._amp)
-            pot_args.extend(
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            )  # for caching
-            pot_args.extend(
-                [
-                    p._Pot._rot_acc,
-                    p._Pot._lin_acc,
-                    p._Pot._omegaz_only,
-                    p._Pot._const_freq,
-                    p._Pot._Omega_as_func,
-                ]
-            )
-            if p._Pot._Omega_as_func:
-                pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            else:
-                if p._Pot._omegaz_only:
-                    pot_args.extend([0.0, 0.0, p._Pot._Omega])
-                else:
-                    pot_args.extend(p._Pot._Omega)
-                pot_args.append(p._Pot._Omega2)
-                if not p._Pot._const_freq and p._Pot._omegaz_only:
-                    pot_args.extend([0.0, 0.0, p._Pot._Omegadot])
-                elif not p._Pot._const_freq:
-                    pot_args.extend(p._Pot._Omegadot)
-                else:
-                    pot_args.extend([0.0, 0.0, 0.0])
-            if p._Pot._lin_acc:
-                pot_tfuncs.extend([p._Pot._a0[0], p._Pot._a0[1], p._Pot._a0[2]])
-                if p._Pot._rot_acc:
-                    pot_tfuncs.extend([p._Pot._x0[0], p._Pot._x0[1], p._Pot._x0[2]])
-                    pot_tfuncs.extend([p._Pot._v0[0], p._Pot._v0[1], p._Pot._v0[2]])
-            if p._Pot._Omega_as_func:
-                if p._Pot._omegaz_only:
-                    pot_tfuncs.extend([p._Pot._Omega, p._Pot._Omegadot])
-                else:
-                    pot_tfuncs.extend(
-                        [
-                            p._Pot._Omega[0],
-                            p._Pot._Omega[1],
-                            p._Pot._Omega[2],
-                            p._Pot._Omegadot[0],
-                            p._Pot._Omegadot[1],
-                            p._Pot._Omegadot[2],
-                        ]
-                    )
+            # pot_type 39 (functions called from C) or 45 (on-the-fly C spline
+            # interpolation when cinterp=True); see _parse_noninertial_frame_force.
+            _code, _nip_args, _nip_tfuncs = _parse_noninertial_frame_force(p._Pot, t)
+            pot_type.append(_code)
+            pot_args.extend(_nip_args)
+            pot_tfuncs.extend(_nip_tfuncs)
         elif isinstance(p, planarPotentialFromRZPotential) and isinstance(
             p._Pot, potential.NullPotential
         ):
@@ -598,7 +569,7 @@ def _parse_pot(pot):
                 p = p._Pot
             pot_type.append(-6)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                potential.toPlanarPotential(p._pot)
+                potential.toPlanarPotential(p._pot), t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -670,10 +641,45 @@ def _parse_pot(pot):
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp, p._Rp, p._refpot])
+        else:
+            # Should never get here: a potential that gets to this point
+            # claims to have a C implementation (hasC=True), but has no
+            # entry above; silently skipping it would corrupt the arguments
+            # passed to C (npot counts it), leading to a crash
+            pname = type(p).__name__
+            if hasattr(p, "_Pot") and not isinstance(p._Pot, list):
+                pname += f" (wrapping {type(p._Pot).__name__})"
+            raise NotImplementedError(
+                f"Potential {pname} is not supported by the C planar-orbit-integration backend, but claims to be (hasC=True); please report this to the galpy developers"
+            )
 
     pot_type = numpy.array(pot_type, dtype=numpy.int32, order="C")
-    pot_args = numpy.array(pot_args, dtype=numpy.float64, order="C")
+    pot_args = _finalize_pot_args(pot_args)
     return (npot, pot_type, pot_args, pot_tfuncs)
+
+
+def _finalize_pot_args(pot_args):
+    """Convert pot_args list to a contiguous float64 numpy array.
+
+    Handles the case where pot_args contains numpy arrays (e.g., from
+    MultipoleExpansionPotential) by concatenating chunks efficiently
+    instead of converting millions of Python floats via numpy.array().
+    """
+    if any(isinstance(a, numpy.ndarray) for a in pot_args):
+        chunks = []
+        scalars = []
+        for a in pot_args:
+            if isinstance(a, numpy.ndarray):
+                if scalars:
+                    chunks.append(numpy.array(scalars, dtype=numpy.float64))
+                    scalars = []
+                chunks.append(a.astype(numpy.float64, copy=False).ravel())
+            else:
+                scalars.append(a)
+        if scalars:
+            chunks.append(numpy.array(scalars, dtype=numpy.float64))
+        return numpy.ascontiguousarray(numpy.concatenate(chunks))
+    return numpy.array(pot_args, dtype=numpy.float64, order="C")
 
 
 def _parse_integrator(int_method):
@@ -720,16 +726,21 @@ def _parse_scf_pot(p, extra_amp=1.0):
     pot_args.extend(extra_amp * p._amp * p._Acos.flatten(order="C"))
     if isNonAxi:
         pot_args.extend(extra_amp * p._amp * p._Asin.flatten(order="C"))
-    pot_args.extend([-1.0, 0, 0, 0, 0, 0, 0])
+    # Cache slots: cached_type(1) + cached_coords(3) + cached_values(6). Six
+    # value slots so the full 3D Hessian (R2/z2/Rz/phi2/Rphi/zphi deriv) can be
+    # cached in one go, as well as the 3-component force/2nd-deriv results.
+    pot_args.extend([-1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     return (24, pot_args, [])  # latter is pot_tfuncs
 
 
 def _parse_multipole_expansion_pot(p, extra_amp=1.0):
     # Stand-alone parser for MultipoleExpansionPotential, bc reused
     # for DiskMultipoleExpansionPotential with extra_amp
-    pot_args = potential.MultipoleExpansionPotential._serialize_for_c(p)
+    pot_args = p._serialize_for_c()
     if extra_amp != 1.0:
         # amp is at index 4 + Nr (after Nr, L, M, isNonAxi, rgrid[Nr])
+        if isinstance(pot_args, numpy.ndarray):
+            pot_args = pot_args.copy()  # don't mutate the original
         Nr = int(pot_args[0])
         pot_args[4 + Nr] *= extra_amp
     return (44, pot_args)
@@ -770,6 +781,161 @@ def _parse_disk_approx_pairs(p, extra_amp=1.0, per_pair_suffix=None):
         if per_pair_suffix is not None:
             pot_args.extend(per_pair_suffix)
     return pot_types, pot_args
+
+
+def _eval_time_func_on_grid(func, tgrid):
+    """Evaluate a time function on ``tgrid`` for building a cinterp spline table.
+
+    Uses a single vectorized call when the function supports array input (e.g.
+    ``numpy.interp`` lambdas or galpy ``evaluate*`` functions) -- which is
+    dramatically faster (often >100x) than calling it ``cinterp_n`` times --
+    and falls back to a scalar loop for scalar-only callables. A scalar return
+    (e.g. a constant lambda) is broadcast over the grid.
+    """
+    try:
+        vals = numpy.asarray(func(tgrid), dtype=float)
+        if vals.shape == tgrid.shape:
+            return vals
+        if vals.shape == ():
+            return numpy.full(tgrid.shape, float(vals))
+    except Exception:
+        pass
+    return numpy.array([float(func(tt)) for tt in tgrid])
+
+
+def _parse_noninertial_frame_force(p, t):
+    """Serialize a NonInertialFrameForce ``p`` for the C code.
+
+    Returns ``(pot_type_code, pot_args, pot_tfuncs)`` fragments for this single
+    force, shared by the full and planar ``_parse_pot`` (the planar wrapper
+    passes its ``._Pot``). ``t`` is the integration time array (``None`` when
+    not available, e.g. surface-of-section integration).
+
+    Two C representations exist (see the C code, ``case 39`` vs ``case 45``):
+
+    - ``cinterp=False`` (or only constant inputs): emit ``pot_type 39`` and pass
+      the time functions as ``pot_tfuncs``, which C calls back at every step.
+    - ``cinterp=True`` with genuine time-varying functions: build cubic-spline
+      tables of the primitives (``a0``, ``x0``, ``v0``, ``Omega``) over the
+      integration time range ``[t.min(), t.max()]`` and emit ``pot_type 45``
+      (no ``pot_tfuncs``); C rebuilds the splines and also obtains ``Omegadot``
+      as the spline derivative of ``Omega``. The spline block is laid out first
+      in ``pot_args`` (consumed by ``initNonInertialFrameForceSplines``),
+      followed by the same fixed argument block as ``pot_type 39`` plus
+      ``tmin, tmax`` (used to clamp time queries in C).
+    """
+    # Fixed argument block, identical for pot_type 39 and 45; the C force code
+    # reads these by index (see NonInertialFrameForce.c). amp, 10 caching slots,
+    # 5 flags, then 7 Omega-related slots.
+    base_args = [p._amp]
+    base_args.extend([0.0] * 10)  # caching
+    base_args.extend(
+        [p._rot_acc, p._lin_acc, p._omegaz_only, p._const_freq, p._Omega_as_func]
+    )
+    if p._Omega_as_func:
+        base_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    else:
+        if p._omegaz_only:
+            base_args.extend([0.0, 0.0, p._Omega])
+        else:
+            base_args.extend(p._Omega)
+        base_args.append(p._Omega2)
+        if not p._const_freq and p._omegaz_only:
+            base_args.extend([0.0, 0.0, p._Omegadot])
+        elif not p._const_freq:
+            base_args.extend(p._Omegadot)
+        else:
+            base_args.extend([0.0, 0.0, 0.0])
+    # Genuine time-varying function inputs (worth interpolating): a function a0,
+    # the always-callable x0/v0 (present iff lin_acc and rot_acc), or a function
+    # Omega. A constant a0 is excluded so it is neither needlessly interpolated
+    # nor rejected for SOS integration.
+    genuine_funcs = (
+        (p._lin_acc and p._a0_as_func)
+        or (p._lin_acc and p._rot_acc)
+        or p._Omega_as_func
+    )
+    if p._cinterp and genuine_funcs and t is None:
+        raise NotImplementedError(
+            "NonInertialFrameForce with cinterp=True is not supported for "
+            "surface-of-section (SOS) integration, because building the C "
+            "interpolation table requires knowing the integration time range "
+            "in advance; re-create the NonInertialFrameForce with cinterp=False "
+            "to evaluate the time functions directly (slower)."
+        )
+    if p._cinterp and genuine_funcs:
+        # Build the interpolation tables over the overall [tmin, tmax]; works for
+        # a 1D shared time array and for a 2D per-orbit array (overall min/max).
+        tmin = numpy.amin(t)
+        tmax = numpy.amax(t)
+        tgrid = numpy.linspace(tmin, tmax, p._cinterp_n)
+        # The tables (the evaluated value arrays) depend only on the time range
+        # and cinterp_n, since the functions are fixed at construction. Reuse a
+        # single-entry cache when integrating the same force over the same range
+        # again (avoids re-evaluating the -- often expensive -- functions); a
+        # different range simply re-interpolates.
+        cache_key = (tmin, tmax, p._cinterp_n)
+        cache = getattr(p, "_cinterp_table_cache", None)
+        if cache is not None and cache[0] == cache_key:
+            spline_arrs = cache[1]
+        else:
+            # Primitives, interpolated independently and ordered to match the C
+            # spline indices: a0 at 0-2 (if lin_acc); x0 at 3-5, v0 at 6-8 (only
+            # when lin_acc and rot_acc, which is also when x0/v0 are required);
+            # Omega at 9*lin_acc onward (Omega is only present, and only read by
+            # C, when rot_acc=True -- so when lin_acc it follows the 9 a0/x0/v0
+            # splines, else it starts at 0). Omegadot is NOT stored: C derives it
+            # from the Omega spline. v0 is its own spline (no x0->v0->a0
+            # chaining, to avoid a 2nd derivative).
+            spline_arrs = []
+            if p._lin_acc:
+                spline_arrs.extend(
+                    _eval_time_func_on_grid(p._a0[ii], tgrid) for ii in range(3)
+                )
+                if p._rot_acc:
+                    spline_arrs.extend(
+                        _eval_time_func_on_grid(p._x0[ii], tgrid) for ii in range(3)
+                    )
+                    spline_arrs.extend(
+                        _eval_time_func_on_grid(p._v0[ii], tgrid) for ii in range(3)
+                    )
+            if p._Omega_as_func:
+                if p._omegaz_only:
+                    spline_arrs.append(_eval_time_func_on_grid(p._Omega, tgrid))
+                else:
+                    spline_arrs.extend(
+                        _eval_time_func_on_grid(p._Omega[ii], tgrid) for ii in range(3)
+                    )
+            p._cinterp_table_cache = (cache_key, spline_arrs)
+        pot_args = [len(spline_arrs), p._cinterp_n]
+        pot_args.extend(tgrid)
+        for arr in spline_arrs:
+            pot_args.extend(arr)
+        pot_args.extend(base_args)
+        pot_args.extend([tmin, tmax])
+        return 45, pot_args, []
+    # pot_type 39: pass the time functions to C as callbacks (as before).
+    pot_tfuncs = []
+    if p._lin_acc:
+        pot_tfuncs.extend([p._a0[0], p._a0[1], p._a0[2]])
+        if p._rot_acc:
+            pot_tfuncs.extend([p._x0[0], p._x0[1], p._x0[2]])
+            pot_tfuncs.extend([p._v0[0], p._v0[1], p._v0[2]])
+    if p._Omega_as_func:
+        if p._omegaz_only:
+            pot_tfuncs.extend([p._Omega, p._Omegadot])
+        else:
+            pot_tfuncs.extend(
+                [
+                    p._Omega[0],
+                    p._Omega[1],
+                    p._Omega[2],
+                    p._Omegadot[0],
+                    p._Omegadot[1],
+                    p._Omegadot[2],
+                ]
+            )
+    return 39, base_args, pot_tfuncs
 
 
 def _prep_tfuncs(pot_tfuncs):
@@ -837,14 +1003,17 @@ def integratePlanarOrbit_c(
     yo = numpy.atleast_2d(yo)
     nobj = len(yo)
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:
         dt = -9999.99
+    # t can be 1D (shared across orbits) or 2D (per-orbit, shape (nobj,nt))
+    indiv_t = len(t.shape) > 1
+    nt = t.shape[-1]
 
     # Set up result array
-    result = numpy.empty((nobj, len(t), 4))
+    result = numpy.empty((nobj, nt, 4))
     err = numpy.zeros(nobj, dtype=numpy.int32)
 
     # Set up progressbar
@@ -864,6 +1033,7 @@ def integratePlanarOrbit_c(
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
         ctypes.c_int,
         ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -888,8 +1058,9 @@ def integratePlanarOrbit_c(
     integrationFunc(
         ctypes.c_int(nobj),
         yo,
-        ctypes.c_int(len(t)),
+        ctypes.c_int(nt),
         t,
+        ctypes.c_int(indiv_t),
         ctypes.c_int(npot),
         pot_type,
         pot_args,
@@ -960,7 +1131,7 @@ def integratePlanarOrbit_dxdv_c(
 
     """
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:
@@ -1072,13 +1243,21 @@ def integratePlanarOrbit(
             nophi = True
             # We hack this by putting in a dummy phi=0
             yo = numpy.pad(yo, ((0, 0), (0, 1)), "constant", constant_values=0)
+    # Per-orbit time arrays: when t is 2D (shape (norbit,nt)), each orbit gets its own row
+    indiv_t = len(t.shape) > 1
+
+    def _t_for(idx):
+        return t[idx] if indiv_t else t
+
     if int_method.lower() == "leapfrog":
         if rtol is None:
             rtol = 1e-8
         if atol is None:
             atol = 1e-8
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
+            vxvv = yo[idx]
+            this_t = _t_for(idx)
             # go to the rectangular frame
             this_vxvv = numpy.array(
                 [
@@ -1090,7 +1269,7 @@ def integratePlanarOrbit(
             )
             # integrate
             tmp_out = symplecticode.leapfrog(
-                _planarRectForce, this_vxvv, t, args=(pot,), rtol=rtol, atol=atol
+                _planarRectForce, this_vxvv, this_t, args=(pot,), rtol=rtol, atol=atol
             )
             # go back to the cylindrical frame
             R = numpy.sqrt(tmp_out[:, 0] ** 2.0 + tmp_out[:, 1] ** 2.0)
@@ -1098,7 +1277,7 @@ def integratePlanarOrbit(
             phi[(tmp_out[:, 1] < 0.0)] = 2.0 * numpy.pi - phi[(tmp_out[:, 1] < 0.0)]
             vR = tmp_out[:, 2] * numpy.cos(phi) + tmp_out[:, 3] * numpy.sin(phi)
             vT = tmp_out[:, 3] * numpy.cos(phi) - tmp_out[:, 2] * numpy.sin(phi)
-            out = numpy.zeros((len(t), 4))
+            out = numpy.zeros((len(this_t), 4))
             out[:, 0] = R
             out[:, 1] = vR
             out[:, 2] = vT
@@ -1118,14 +1297,16 @@ def integratePlanarOrbit(
             extra_kwargs = {"rtol": rtol, "atol": atol}
         if len(yo[0]) == 3:
 
-            def integrate_for_map(vxvv):
+            def integrate_for_map(idx):
+                vxvv = yo[idx]
+                this_t = _t_for(idx)
                 l = vxvv[0] * vxvv[2]
                 l2 = l**2.0
                 init = [vxvv[0], vxvv[1]]
                 intOut = integrator(
-                    _planarREOM, init, t=t, args=(pot, l2), **extra_kwargs
+                    _planarREOM, init, t=this_t, args=(pot, l2), **extra_kwargs
                 )
-                out = numpy.zeros((len(t), 3))
+                out = numpy.zeros((len(this_t), 3))
                 out[:, 0] = intOut[:, 0]
                 out[:, 1] = intOut[:, 1]
                 out[:, 2] = l / out[:, 0]
@@ -1136,11 +1317,15 @@ def integratePlanarOrbit(
 
         else:
 
-            def integrate_for_map(vxvv):
+            def integrate_for_map(idx):
+                vxvv = yo[idx]
+                this_t = _t_for(idx)
                 vphi = vxvv[2] / vxvv[0]
                 init = [vxvv[0], vxvv[1], vxvv[3], vphi]
-                intOut = integrator(_planarEOM, init, t=t, args=(pot,), **extra_kwargs)
-                out = numpy.zeros((len(t), 4))
+                intOut = integrator(
+                    _planarEOM, init, t=this_t, args=(pot,), **extra_kwargs
+                )
+                out = numpy.zeros((len(this_t), 4))
                 out[:, 0] = intOut[:, 0]
                 out[:, 1] = intOut[:, 1]
                 out[:, 3] = intOut[:, 2]
@@ -1153,17 +1338,22 @@ def integratePlanarOrbit(
 
     else:  # Assume we are forcing parallel_mapping of a C integrator...
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
+            vxvv = yo[idx]
+            this_t = _t_for(idx)
             return integratePlanarOrbit_c(
-                pot, numpy.copy(vxvv), t, int_method, dt=dt, rtol=rtol, atol=atol
+                pot, numpy.copy(vxvv), this_t, int_method, dt=dt, rtol=rtol, atol=atol
             )[0]
 
     if len(yo) == 1:  # Can't map a single value...
-        out = numpy.atleast_3d(integrate_for_map(yo[0]).T).T
+        out = numpy.atleast_3d(integrate_for_map(0).T).T
     else:
         out = numpy.array(
             parallel_map(
-                integrate_for_map, yo, numcores=numcores, progressbar=progressbar
+                integrate_for_map,
+                numpy.arange(len(yo)),
+                numcores=numcores,
+                progressbar=progressbar,
             )
         )
     if nophi:

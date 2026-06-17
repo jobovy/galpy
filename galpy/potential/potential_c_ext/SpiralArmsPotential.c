@@ -209,7 +209,6 @@ double SpiralArmsPotentialphitorque(double R, double z, double phi, double t,
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
                                   struct potentialArg *potentialArgs) {
 
@@ -314,7 +313,7 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
                                                                             + cos_ng * (ztanhzKB * Kn *
                                                                                         (dKn_dR / Kn - dBn_dR / Bn)
                                                                                         - dBn_dR * log_sechzKB
-                                                                                        + dKn_dR / Kn / Kn
+                                                                                        + dKn_dR / Kn
                                                                                         + dDn_dR / Dn))
                                                 + (n * (sin_ng * (d2g_dR2 / Kn - dg_dR / Kn / Kn * dKn_dR)
                                                         + dg_dR * dg_dR / Kn * cos_ng * n)
@@ -345,9 +344,7 @@ double SpiralArmsPotentialR2deriv(double R, double z, double phi, double t,
 
     return -amp * H * exp(-(R - r_ref) / Rs) / Rs * sum;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
                                   struct potentialArg *potentialArgs) {
 
@@ -393,9 +390,7 @@ double SpiralArmsPotentialz2deriv(double R, double z, double phi, double t,
 
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
                                     struct potentialArg *potentialArgs) {
 
@@ -435,9 +430,7 @@ double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
 
     return amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
                                   struct potentialArg *potentialArgs) {
 
@@ -513,9 +506,7 @@ double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
 
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
-// LCOV_EXCL_STOP
 
-// LCOV_EXCL_START
 double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
                                     struct potentialArg *potentialArgs) {
 
@@ -586,7 +577,50 @@ double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
 
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
-// LCOV_EXCL_STOP
+
+double SpiralArmsPotentialzphideriv(double R, double z, double phi, double t,
+                                    struct potentialArg *potentialArgs) {
+
+    // Get args
+    double *args = potentialArgs->args;
+
+    int nCs = (int) *args++;
+    double amp = *args++;
+    double N = *args++;
+    double sin_alpha = *args++;
+    double tan_alpha = *args++;
+    double r_ref = *args++;
+    double phi_ref = *args++;
+    double Rs = *args++;
+    double H = *args++;
+    double omega = *args++;
+
+    double g = gam(R, phi-omega*t, N, phi_ref, r_ref, tan_alpha);
+
+    // Return the mixed (cylindrical) vertical and azimuthal derivative of the potential (d^2 potential / dz dphi).
+    double sum = 0;
+    int n;
+
+    double Cn;
+    double Kn;
+    double Bn;
+    double Dn;
+
+    double zKB;
+
+    for (n = 1; n <= nCs; n++) {
+        Cn = *args++;
+        Kn = K(R, n, N, sin_alpha);
+        Bn = B(R, H, n, N, sin_alpha);
+        Dn = D(R, H, n, N, sin_alpha);
+
+        zKB = z * Kn / Bn;
+
+        sum += Cn / Dn * n * N * sin(n * g) * tanh(zKB) / pow(cosh(zKB), Bn);
+    }
+
+    return -amp * H * exp(-(R - r_ref) / Rs) * sum;
+}
 
 double SpiralArmsPotentialPlanarRforce(double R, double phi, double t,
                                        struct potentialArg *potentialArgs) {
@@ -755,7 +789,7 @@ double SpiralArmsPotentialPlanarR2deriv(double R, double phi, double t,
                             + cos_ng * (dKn_dR / Kn / Kn
                                         + dDn_dR / Dn / Kn))
                            - (Rs * (1 / Kn * (-dDn_dR / Dn) * (n * dg_dR * sin_ng
-                                                               + cos_ng * (dKn_dR / Kn / Kn
+                                                               + cos_ng * (dKn_dR / Kn
                                                                            + dDn_dR / Dn))
                                     + (n * (sin_ng * (d2g_dR2 / Kn - dg_dR / Kn / Kn * dKn_dR)
                                             + dg_dR * dg_dR / Kn * cos_ng * n)

@@ -73,6 +73,13 @@ class KuzminLikeWrapperPotential(WrapperPotential):
             )
         self.hasC = True
         self.hasC_dxdv = True
+        # Advertise the 3D variational capability unconditionally, as for
+        # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own
+        # hasC_dxdv3d (the wrapper's C 3D Hessian chain-rules the wrapped
+        # potential's in-plane calcRforce/calcR2deriv at (xi,0) through the
+        # Kuzmin-like substitution, so it is complete iff the wrapped
+        # potential's Hessian is in C).
+        self.hasC_dxdv3d = True
         self.isNonAxi = False
 
     def _xi(self, R, z):

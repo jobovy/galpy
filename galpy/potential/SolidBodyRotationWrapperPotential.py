@@ -47,6 +47,11 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
         self._pa = pa
         self.hasC = True
         self.hasC_dxdv = True
+        # Advertise the 3D variational capability unconditionally, as for
+        # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own
+        # hasC_dxdv3d (the wrapper's C 3D Hessian is modulation x
+        # calc<deriv>(wrapped), so it is complete iff the wrapped one is).
+        self.hasC_dxdv3d = True
 
     def OmegaP(self):
         return self._omega

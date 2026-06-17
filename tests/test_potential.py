@@ -208,6 +208,7 @@ def test_forceAsDeriv_potential():
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockTimeDependentMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -220,6 +221,7 @@ def test_forceAsDeriv_potential():
     pots.append("KuzminOblateStaeckelWrapperPotential")
     pots.append("KuzminKutuzovOblateStaeckelWrapperPotential")
     pots.append("CorotatingRotationSpiralArmsPotential")
+    pots.append("CorotatingRotation3DSpiralArmsPotential")
     pots.append("GaussianAmplitudeDehnenBarPotential")
     pots.append("nestedListPotential")
     pots.append("mockInterpSphericalPotential")
@@ -427,6 +429,7 @@ def test_2ndDeriv_potential():
     pots.append("testplanarMWPotential")
     pots.append("testlinearMWPotential")
     pots.append("mockInterpRZPotential")
+    pots.append("mockInterpRZPotentialwSecondDerivs")
     pots.append("mockCosmphiDiskPotentialnegcp")
     pots.append("mockCosmphiDiskPotentialnegp")
     pots.append("mockDehnenBarPotentialT1")
@@ -474,6 +477,7 @@ def test_2ndDeriv_potential():
     pots.append("KuzminOblateStaeckelWrapperPotential")
     pots.append("KuzminKutuzovOblateStaeckelWrapperPotential")
     pots.append("CorotatingRotationSpiralArmsPotential")
+    pots.append("CorotatingRotation3DSpiralArmsPotential")
     pots.append("GaussianAmplitudeDehnenBarPotential")
     pots.append("nestedListPotential")
     pots.append("mockInterpSphericalPotential")
@@ -528,6 +532,7 @@ def test_2ndDeriv_potential():
     tol["RazorThinExponentialDiskPotential"] = -6.0
     tol["AnyAxisymmetricRazorThinDiskPotential"] = -4.5
     tol["mockInterpRZPotential"] = -4.0
+    tol["mockInterpRZPotentialwSecondDerivs"] = -4.0
     tol["DehnenBarPotential"] = -7.0
     for p in pots:
         # if not 'NFW' in p: continue #For testing the test
@@ -1196,6 +1201,7 @@ def test_evaluateAndDerivs_potential():
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockTimeDependentMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("SolidBodyRotationSpiralArmsPotential")
@@ -1487,6 +1493,7 @@ def test_amp_mult_divide():
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockTimeDependentMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -1557,7 +1564,7 @@ def test_amp_mult_divide():
             assert numpy.fabs(tp(R) * num - (tp * num)(R)) < 1e-10, (
                 "Multiplying a linearPotential with a number does not behave as expected"
             )
-            assert numpy.fabs(tp(R) / num - (tp / num)(R)) < 1e-10, (
+            assert numpy.allclose(tp(R) / num, (tp / num)(R), rtol=1e-10, atol=0), (
                 "Dividing a linearPotential with a number does not behave as expected"
             )
         elif isinstance(tp, potential.planarPotential):
@@ -1568,9 +1575,9 @@ def test_amp_mult_divide():
             assert numpy.fabs(tp(R, phi=phi) * num - (tp * num)(R, phi=phi)) < 1e-10, (
                 "Multiplying a planarPotential with a number does not behave as expected"
             )
-            assert numpy.fabs(tp(R, phi=phi) / num - (tp / num)(R, phi=phi)) < 1e-10, (
-                "Dividing a planarPotential with a number does not behave as expected"
-            )
+            assert numpy.allclose(
+                tp(R, phi=phi) / num, (tp / num)(R, phi=phi), rtol=1e-10, atol=0
+            ), "Dividing a planarPotential with a number does not behave as expected"
         else:
             assert (
                 numpy.fabs(tp(R, Z, phi=phi) * num - (num * tp)(R, Z, phi=phi)) < 1e-10
@@ -1579,8 +1586,11 @@ def test_amp_mult_divide():
             assert (
                 numpy.fabs(tp(R, Z, phi=phi) * num - (tp * num)(R, Z, phi=phi)) < 1e-10
             ), "Multiplying a Potential with a number does not behave as expected"
-            assert (
-                numpy.fabs(tp(R, Z, phi=phi) / num - (tp / num)(R, Z, phi=phi)) < 1e-10
+            assert numpy.allclose(
+                tp(R, Z, phi=phi) / num,
+                (tp / num)(R, Z, phi=phi),
+                rtol=1e-10,
+                atol=0,
             ), "Dividing a Potential with a number does not behave as expected"
     return None
 
@@ -1815,6 +1825,161 @@ def test_repr_wrapper_classes():
     return None
 
 
+# Test that wrapper reprs start with the exact public class name, both for
+# wrappers created through the parentWrapperPotential factory (whose instance
+# classes carry a leading underscore, e.g., _DehnenSmoothWrapperPotential) and
+# for direct WrapperPotential subclasses (RotateAndTiltWrapperPotential,
+# KuzminLikeWrapperPotential), which have no underscore to strip; regression
+# test for the repr eating the first character of direct subclasses' names
+@pytest.mark.parametrize(
+    "setup_wrapper,class_name,expected_params",
+    [
+        (
+            lambda: potential.DehnenSmoothWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                tform=-4.0,
+                tsteady=1.0,
+            ),
+            "DehnenSmoothWrapperPotential",
+            ["tform=-4.0", "tsteady=-3.0"],
+        ),
+        (
+            lambda: potential.DehnenSmoothWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0).toPlanar(),
+                tform=-4.0,
+                tsteady=1.0,
+            ),
+            "DehnenSmoothWrapperPotential",
+            ["tform=-4.0", "tsteady=-3.0"],
+        ),
+        (
+            lambda: potential.SolidBodyRotationWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                omega=1.1,
+                pa=0.3,
+            ),
+            "SolidBodyRotationWrapperPotential",
+            ["omega=1.1", "pa=0.3"],
+        ),
+        (
+            lambda: potential.SolidBodyRotationWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0).toPlanar(),
+                omega=1.1,
+                pa=0.3,
+            ),
+            "SolidBodyRotationWrapperPotential",
+            ["omega=1.1", "pa=0.3"],
+        ),
+        (
+            lambda: potential.GaussianAmplitudeWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                to=1.0,
+                sigma=1.0,
+            ),
+            "GaussianAmplitudeWrapperPotential",
+            ["to=1.0"],
+        ),
+        (
+            lambda: potential.GaussianAmplitudeWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0).toPlanar(),
+                to=1.0,
+                sigma=1.0,
+            ),
+            "GaussianAmplitudeWrapperPotential",
+            ["to=1.0"],
+        ),
+        (
+            lambda: potential.RotateAndTiltWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                zvec=[0.0, 1.0 / numpy.sqrt(2.0), 1.0 / numpy.sqrt(2.0)],
+                galaxy_pa=0.3,
+            ),
+            "RotateAndTiltWrapperPotential",
+            ["amp=1.0"],
+        ),
+        (
+            lambda: potential.KuzminLikeWrapperPotential(
+                pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                a=1.1,
+                b=0.2,
+            ),
+            "KuzminLikeWrapperPotential",
+            ["a=1.1", "b=0.2"],
+        ),
+        (
+            lambda: potential.DehnenSmoothWrapperPotential(
+                pot=potential.GaussianAmplitudeWrapperPotential(
+                    pot=potential.MiyamotoNagaiPotential(normalize=1.0),
+                    to=1.0,
+                    sigma=1.0,
+                ),
+                tform=-4.0,
+                tsteady=1.0,
+            ),
+            "DehnenSmoothWrapperPotential",
+            ["tform=-4.0", "GaussianAmplitudeWrapperPotential"],
+        ),
+    ],
+    ids=[
+        "DehnenSmooth-3D",
+        "DehnenSmooth-planar",
+        "SolidBodyRotation-3D",
+        "SolidBodyRotation-planar",
+        "GaussianAmplitude-3D",
+        "GaussianAmplitude-planar",
+        "RotateAndTilt-directsubclass",
+        "KuzminLike-directsubclass",
+        "DehnenSmooth-of-GaussianAmplitude",
+    ],
+)
+def test_repr_wrapper_class_name(setup_wrapper, class_name, expected_params):
+    """Test that wrapper reprs start with the exact public class name for both
+    factory-created wrappers and direct WrapperPotential subclasses"""
+    wrap = setup_wrapper()
+    repr_str = repr(wrap)
+    assert repr_str.startswith(class_name), (
+        f"Expected repr to start with '{class_name}', got '{repr_str}'"
+    )
+    assert not repr_str.startswith("_"), (
+        f"Did not expect repr to start with an underscore, got '{repr_str}'"
+    )
+    for param in expected_params:
+        assert param in repr_str, f"Expected '{param}' in repr, got '{repr_str}'"
+    # str should agree with repr, as for all other potentials
+    assert str(wrap) == repr_str, (
+        f"Expected str to equal repr, got str '{str(wrap)}' and repr '{repr_str}'"
+    )
+    return None
+
+
+# Test that both factory-created wrappers and direct WrapperPotential
+# subclasses survive a pickle round trip and evaluate identically
+def test_wrapper_pickling():
+    import pickle
+
+    # Factory-created wrapper (instance class built in parentWrapperPotential)
+    dwrap = potential.DehnenSmoothWrapperPotential(
+        pot=potential.MiyamotoNagaiPotential(normalize=1.0), tform=-4.0, tsteady=1.0
+    )
+    dwrap_pickled = pickle.loads(pickle.dumps(dwrap))
+    assert (
+        numpy.fabs(
+            dwrap(1.1, 0.2, phi=0.3, t=0.5) - dwrap_pickled(1.1, 0.2, phi=0.3, t=0.5)
+        )
+        < 10.0**-10.0
+    ), "Pickled DehnenSmoothWrapperPotential does not evaluate as the original"
+    # Direct WrapperPotential subclass (no factory, no underscore)
+    kwrap = potential.KuzminLikeWrapperPotential(
+        pot=potential.MiyamotoNagaiPotential(normalize=1.0), a=1.1, b=0.2
+    )
+    kwrap_pickled = pickle.loads(pickle.dumps(kwrap))
+    assert (
+        numpy.fabs(kwrap(1.1, 0.2, phi=0.3) - kwrap_pickled(1.1, 0.2, phi=0.3))
+        < 10.0**-10.0
+    ), "Pickled KuzminLikeWrapperPotential does not evaluate as the original"
+    return None
+
+
 # Test whether potentials that support array input do so correctly
 def test_potential_array_input():
     # Grab all of the potentials
@@ -1858,19 +2023,12 @@ def test_potential_array_input():
         "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("FerrersPotential")
-    rmpots.append("PerfectEllipsoidPotential")
-    rmpots.append("TriaxialHernquistPotential")
-    rmpots.append("TriaxialJaffePotential")
-    rmpots.append("TriaxialNFWPotential")
-    rmpots.append("TwoPowerTriaxialPotential")
     rmpots.append("DoubleExponentialDiskPotential")
     rmpots.append("RazorThinExponentialDiskPotential")
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
     rmpots.append("AnySphericalPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("HomogeneousSpherePotential")
-    rmpots.append("TriaxialGaussianPotential")
-    rmpots.append("PowerTriaxialPotential")
     # These cannot be setup without arguments
     rmpots.append("MovingObjectPotential")
     rmpots.append("SnapshotRZPotential")
@@ -2049,19 +2207,12 @@ def test_toVertical_array():
         "KuijkenDubinskiDiskExpansionPotential",
     ]
     rmpots.append("FerrersPotential")
-    rmpots.append("PerfectEllipsoidPotential")
-    rmpots.append("TriaxialHernquistPotential")
-    rmpots.append("TriaxialJaffePotential")
-    rmpots.append("TriaxialNFWPotential")
-    rmpots.append("TwoPowerTriaxialPotential")
     rmpots.append("DoubleExponentialDiskPotential")
     rmpots.append("RazorThinExponentialDiskPotential")
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
     rmpots.append("AnySphericalPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("HomogeneousSpherePotential")
-    rmpots.append("TriaxialGaussianPotential")
-    rmpots.append("PowerTriaxialPotential")
     # These cannot be setup without arguments
     rmpots.append("MovingObjectPotential")
     rmpots.append("SnapshotRZPotential")
@@ -2418,7 +2569,6 @@ def test_potential_at_infinity():
         # Also for arrays
         if (
             p == "HomogeneousSpherePotential"
-            or p == "PerfectEllipsoidPotential"
             or p == "SphericalShellPotential"
             or p == "AnyAxisymmetricRazorThinDiskPotential"
             or p == "AnySphericalPotential"
@@ -2427,9 +2577,7 @@ def test_potential_at_infinity():
             or p == "mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination"
             or p == "mockRotatedTiltedOffsetMWP14WrapperPotential"
             or p == "mockOffsetMWP14WrapperPotential"
-            or "riaxial" in p
-            or "oblate" in p
-            or "prolate" in p
+            or "noGL" in p  # EllipsoidalPotential using scipy.quad: no array support
         ):
             continue
         assert not numpy.any(
@@ -4319,6 +4467,96 @@ def test_MovingObject_density():
     return None
 
 
+def test_MovingObject_2ndderivs_fd():
+    # Unit-level validation of MovingObjectPotential's analytic second
+    # derivatives (the kernel's Hessian at the shifted point x-x_obj(t),
+    # chain-ruled to the field point's cylindrical coordinates) against
+    # central finite differences of its forces, at several generic
+    # (R, z, phi, t) incl. t != 0 (the object has moved). Both a 3D and a
+    # planar (2D) object track are exercised (the latter covers the
+    # z_obj = 0 branch). These same formulas, evaluated through the wrapped
+    # potential's C pointers, make up the C Hessian used by integrate_dxdv
+    # (validated against this Python reference in
+    # test_orbit.test_movingobject_dxdv_3d_c_vs_python).
+    from galpy.orbit import Orbit
+
+    lp = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    ts = numpy.linspace(-1.0, 5.0, 1201)
+    o3 = Orbit([1.1, 0.1, 1.1, 0.1, 0.1, 1.0])
+    o3.integrate(ts, lp, method="dop853_c")
+    o2 = Orbit([1.1, 0.1, 1.1, 1.0])
+    o2.integrate(ts, lp, method="dop853_c")
+    kernel = potential.PlummerPotential(amp=0.3, b=0.3)
+    eps = 1e-6
+    for orb in (o3, o2):
+        mop = potential.MovingObjectPotential(orb, pot=kernel, amp=1.2)
+        for R, z, phi, t in [
+            (1.0, 0.05, 0.2, 0.0),
+            (0.8, -0.1, 2.3, 1.7),
+            (1.3, 0.2, -1.0, 3.1),
+            (0.9, 0.0, 4.0, 2.2),
+        ]:
+            checks = {
+                "R2deriv": (
+                    mop.R2deriv(R, z, phi=phi, t=t),
+                    -(
+                        mop.Rforce(R + eps / 2.0, z, phi=phi, t=t)
+                        - mop.Rforce(R - eps / 2.0, z, phi=phi, t=t)
+                    )
+                    / eps,
+                ),
+                "z2deriv": (
+                    mop.z2deriv(R, z, phi=phi, t=t),
+                    -(
+                        mop.zforce(R, z + eps / 2.0, phi=phi, t=t)
+                        - mop.zforce(R, z - eps / 2.0, phi=phi, t=t)
+                    )
+                    / eps,
+                ),
+                "Rzderiv": (
+                    mop.Rzderiv(R, z, phi=phi, t=t),
+                    -(
+                        mop.Rforce(R, z + eps / 2.0, phi=phi, t=t)
+                        - mop.Rforce(R, z - eps / 2.0, phi=phi, t=t)
+                    )
+                    / eps,
+                ),
+                "phi2deriv": (
+                    mop.phi2deriv(R, z, phi=phi, t=t),
+                    -(
+                        mop.phitorque(R, z, phi=phi + eps / 2.0, t=t)
+                        - mop.phitorque(R, z, phi=phi - eps / 2.0, t=t)
+                    )
+                    / eps,
+                ),
+                "Rphideriv": (
+                    mop.Rphideriv(R, z, phi=phi, t=t),
+                    -(
+                        mop.Rforce(R, z, phi=phi + eps / 2.0, t=t)
+                        - mop.Rforce(R, z, phi=phi - eps / 2.0, t=t)
+                    )
+                    / eps,
+                ),
+                "phizderiv": (
+                    mop.phizderiv(R, z, phi=phi, t=t),
+                    -(
+                        mop.zforce(R, z, phi=phi + eps / 2.0, t=t)
+                        - mop.zforce(R, z, phi=phi - eps / 2.0, t=t)
+                    )
+                    / eps,
+                ),
+            }
+            for name, (analytic, fd) in checks.items():
+                assert numpy.fabs(analytic - fd) < 1e-8, (
+                    f"MovingObjectPotential analytic {name} does not match the "
+                    f"finite difference of the force at "
+                    f"(R,z,phi,t)=({R},{z},{phi},{t}) "
+                    f"({orb.dim()}D object track): "
+                    f"|{analytic:g} - {fd:g}| = {numpy.fabs(analytic - fd):g}"
+                )
+    return None
+
+
 # test specialSelf for TwoPowerSphericalPotential
 def test_TwoPowerSphericalPotentialSpecialSelf():
     # TODO replace manual additions with an automatic method
@@ -4862,6 +5100,27 @@ def test_NFW_virialsetup_wrtcrit():
         )
         < 10.0**-6.0
     ), "NFWPotential virial setup's virial mass does not work"
+    return None
+
+
+def test_EllipsoidalPotential_evaluate_array_inf():
+    tp = potential.PerfectEllipsoidPotential(normalize=1.0, b=0.7, c=0.5)
+    val_inf = tp(numpy.inf, 0.0, use_physical=False)
+    R_arr = numpy.array([numpy.inf, 1.0])
+    z_arr = numpy.array([0.0, 0.1])
+    val_arr = tp(R_arr, z_arr, use_physical=False)
+    assert numpy.fabs(val_inf - val_arr[0]) < 1e-10, (
+        "Scalar and array inf potential results disagree"
+    )
+    tp2 = potential.PerfectEllipsoidPotential(
+        normalize=1.0, b=0.7, c=0.5, zvec=[0.0, numpy.sin(0.3), numpy.cos(0.3)]
+    )
+    R_fin = numpy.array([0.5, 1.0, 2.0])
+    z_fin = numpy.array([0.1, 0.2, 0.3])
+    val_na = tp2(R_fin, z_fin, phi=0.5, use_physical=False)
+    assert not numpy.any(numpy.isnan(val_na)), (
+        "Non-aligned array potential evaluation returned NaN"
+    )
     return None
 
 
@@ -5994,6 +6253,89 @@ def test_DiskSCFPotential_nhzNeqnsigmaError():
     return None
 
 
+def test_kuijkendubinski_t_forwarding():
+    # The KuijkenDubinski layer must forward t to the embedded expansion:
+    # previously every self._me call dropped t, so a time-dependent
+    # DiskMultipoleExpansionPotential evaluated its inner expansion at t=0
+    # (while the C orbit-integration path correctly passed t -- a silent
+    # Python-vs-C inconsistency). Check every forwarded method against the
+    # manual sum of the inner expansion at t and the (time-independent)
+    # correction terms, and check Python-vs-C orbit integration agreement.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        DiskMultipoleExpansionPotential,
+        MultipoleExpansionPotential,
+    )
+
+    rgrid = numpy.geomspace(1e-2, 20, 51)
+    dmep = DiskMultipoleExpansionPotential(
+        dens=lambda R, z: 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z)),
+        Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0},
+        hz={"type": "exp", "h": 1.0 / 27.0},
+        L=3,
+        rgrid=rgrid,
+    )
+    # Replace the static inner expansion by a time-dependent one (same pattern
+    # as the time-dependent tests in test_MultipoleExpansionPotential)
+    static_me = dmep._me
+    tdep_me = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            static_me.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(t))
+        ),
+        L=static_me._L,
+        rgrid=rgrid,
+        tgrid=numpy.linspace(0.0, 10.0, 11),
+        symmetry="axisymmetric",
+    )
+    dmep._me = tdep_me
+    R, z, phi, tt = 1.1, 0.2, 0.3, 1.7
+    # the inner expansion must genuinely vary with t for this test to bite
+    assert (
+        numpy.fabs(
+            tdep_me(R, z, phi=phi, t=0.0, use_physical=False)
+            - tdep_me(R, z, phi=phi, t=tt, use_physical=False)
+        )
+        > 1e-4
+    ), "time-dependent inner expansion does not vary with t; vacuous test"
+    # every forwarded method: composite(t) - inner(t) must equal the
+    # time-independent correction = composite(0) - inner(0)
+    pairs = [
+        (dmep._evaluate, lambda *a, **k: tdep_me(*a, **k, use_physical=False)),
+        (dmep._Rforce, lambda *a, **k: tdep_me.Rforce(*a, **k, use_physical=False)),
+        (dmep._zforce, lambda *a, **k: tdep_me.zforce(*a, **k, use_physical=False)),
+        (
+            dmep._phitorque,
+            lambda *a, **k: tdep_me.phitorque(*a, **k, use_physical=False),
+        ),
+        (dmep._R2deriv, lambda *a, **k: tdep_me.R2deriv(*a, **k, use_physical=False)),
+        (dmep._z2deriv, lambda *a, **k: tdep_me.z2deriv(*a, **k, use_physical=False)),
+        (dmep._Rzderiv, lambda *a, **k: tdep_me.Rzderiv(*a, **k, use_physical=False)),
+        (
+            dmep._phi2deriv,
+            lambda *a, **k: tdep_me.phi2deriv(*a, **k, use_physical=False),
+        ),
+        (dmep._dens, lambda *a, **k: tdep_me.dens(*a, **k, use_physical=False)),
+    ]
+    for comp, inner in pairs:
+        corr_t = comp(R, z, phi=phi, t=tt) - inner(R, z, phi=phi, t=tt)
+        corr_0 = comp(R, z, phi=phi, t=0.0) - inner(R, z, phi=phi, t=0.0)
+        assert numpy.fabs(corr_t - corr_0) < 1e-12, (
+            "KuijkenDubinski layer does not forward t to the embedded expansion "
+            f"for {comp.__name__} (correction-term mismatch {corr_t - corr_0:g})"
+        )
+    # Python-vs-C orbit integration agreement (the C path always honored t)
+    ts = numpy.linspace(0.0, 2.0, 101)
+    oc = Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
+    oc.integrate(ts, dmep, method="dop853_c")
+    op = Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
+    op.integrate(ts, dmep, method="dop853")
+    assert numpy.amax(numpy.fabs(oc.getOrbit() - op.getOrbit())) < 1e-6, (
+        "Python and C orbit integration disagree for a time-dependent "
+        "DiskMultipoleExpansionPotential (t not forwarded consistently)"
+    )
+    return None
+
+
 def test_DiskSCFPotential_againstDoubleExp():
     # Test that the DiskSCFPotential approx. of a dbl-exp disk agrees with
     # DoubleExponentialDiskPotential
@@ -6163,6 +6505,102 @@ def test_WrapperPotential_dims():
     assert not isinstance(dwp, WrapperPotential), (
         "WrapperPotential for 3D pot= is an instance of WrapperPotential"
     )
+    return None
+
+
+def test_Wrapper_list_of_potentials_deprecation():
+    # Test that passing a list of potentials to a wrapper (a) works, with
+    # values identical to passing the equivalent CompositePotential, and
+    # (b) emits a single DeprecationWarning, while non-list input emits none
+    # (see issue with RotateAndTiltWrapperPotential failing for pot=[pot1,pot2])
+    import warnings
+
+    from packaging.version import Version
+
+    import galpy
+
+    def list_deprecation_warnings(ws):
+        return [
+            wa
+            for wa in ws
+            if issubclass(wa.category, DeprecationWarning)
+            and "list of potentials" in str(wa.message)
+        ]
+
+    pot1 = potential.MiyamotoNagaiPotential(normalize=0.6)
+    pot2 = potential.LogarithmicHaloPotential(normalize=0.4)
+    wrappers = [
+        lambda pot: potential.RotateAndTiltWrapperPotential(
+            pot=pot, galaxy_pa=0.3, zvec=[numpy.sin(0.1), 0.0, numpy.cos(0.1)]
+        ),
+        lambda pot: potential.OblateStaeckelWrapperPotential(
+            pot=pot, delta=0.5, u0=1.0
+        ),
+        lambda pot: potential.CylindricallySeparablePotentialWrapper(pot=pot),
+        lambda pot: potential.KuzminLikeWrapperPotential(pot=pot),
+        lambda pot: potential.DehnenSmoothWrapperPotential(pot=pot),
+        lambda pot: potential.GaussianAmplitudeWrapperPotential(pot=pot),
+        lambda pot: potential.SolidBodyRotationWrapperPotential(pot=pot, omega=1.1),
+        lambda pot: potential.CorotatingRotationWrapperPotential(pot=pot, vpo=1.0),
+        lambda pot: potential.TimeDependentAmplitudeWrapperPotential(
+            pot=pot, A=lambda t: 1.0
+        ),
+    ]
+    current_version = Version(galpy.__version__.split(".dev")[0])
+    for wrapper in wrappers:
+        if current_version > Version("1.13.99"):  # pragma: no cover
+            # After 1.13.x, list input should raise TypeError
+            with pytest.raises(TypeError):
+                wrapper([pot1, pot2])
+        else:
+            # Before 1.13.x, list input should work with a single
+            # DeprecationWarning
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                wrap_list = wrapper([pot1, pot2])
+                val_list = wrap_list(1.1, 0.2, phi=0.3, use_physical=False)
+            assert len(list_deprecation_warnings(w)) == 1, (
+                "Passing a list of potentials to a wrapper did not raise a single DeprecationWarning"
+            )
+            # Non-list input should emit no DeprecationWarning
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                wrap_comp = wrapper(pot1 + pot2)
+                val_comp = wrap_comp(1.1, 0.2, phi=0.3, use_physical=False)
+            assert len(list_deprecation_warnings(w)) == 0, (
+                "Passing a non-list potential to a wrapper raised a DeprecationWarning"
+            )
+            assert val_list == val_comp, (
+                "Wrapper of a list of potentials does not agree with wrapper of the equivalent CompositePotential"
+            )
+    # Also test the planar path
+    if current_version > Version("1.13.99"):  # pragma: no cover
+        with pytest.raises(TypeError):
+            potential.DehnenSmoothWrapperPotential(
+                pot=[pot1.toPlanar(), pot2.toPlanar()]
+            )
+    else:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            wrap_list = potential.DehnenSmoothWrapperPotential(
+                pot=[pot1.toPlanar(), pot2.toPlanar()]
+            )
+            val_list = wrap_list(1.1, phi=0.3, use_physical=False)
+        assert len(list_deprecation_warnings(w)) == 1, (
+            "Passing a list of planar potentials to a wrapper did not raise a single DeprecationWarning"
+        )
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            wrap_comp = potential.DehnenSmoothWrapperPotential(
+                pot=pot1.toPlanar() + pot2.toPlanar()
+            )
+            val_comp = wrap_comp(1.1, phi=0.3, use_physical=False)
+        assert len(list_deprecation_warnings(w)) == 0, (
+            "Passing a non-list planar potential to a wrapper raised a DeprecationWarning"
+        )
+        assert val_list == val_comp, (
+            "Wrapper of a list of planar potentials does not agree with wrapper of the equivalent planarCompositePotential"
+        )
     return None
 
 
@@ -6922,6 +7360,45 @@ def test_integration_RotateAndTiltWrapper():
     return None
 
 
+def test_integration_RotateAndTiltWrapper_timedependent_forcecache():
+    # Regression test for the C force cache of RotateAndTiltWrapperPotential
+    # being keyed on position only: with a time-dependent wrapped potential,
+    # re-evaluating the force at the same position but a different time
+    # returned stale forces. Exercised by an orbit initially at rest in a
+    # potential that only forms at t > 0 (zero force before tform, so the
+    # position repeats exactly at every force evaluation while t advances):
+    # with the stale cache, the C-integrated orbit never starts moving
+    mn = potential.MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    tdep = potential.DehnenSmoothWrapperPotential(pot=mn, tform=1.0, tsteady=2.0)
+    rotpot = potential.RotateAndTiltWrapperPotential(
+        pot=tdep,
+        zvec=[numpy.sin(0.3), 0.0, numpy.cos(0.3)],
+        offset=[0.5, 0.3, 0.2],
+    )
+    ts = numpy.linspace(0.0, 5.0, 101)
+    orb_py = orbit.Orbit([1.0, 0.0, 0.0, 0.3, 0.0, 0.7])
+    orb_c = orbit.Orbit([1.0, 0.0, 0.0, 0.3, 0.0, 0.7])
+    orb_py.integrate(ts, rotpot, method="dop853")
+    orb_c.integrate(ts, rotpot, method="dop853_c")
+    # The orbit should move once the potential has formed
+    assert numpy.fabs(orb_c.R(ts[-1]) - orb_c.R(ts[0])) > 0.1, (
+        "C-integrated orbit in a time-dependent RotateAndTiltWrapperPotential does not move, indicating that the C force cache returns stale forces"
+    )
+    # and the C integration should agree with the pure-Python one
+    vxvv_py = orb_py.getOrbit()
+    vxvv_c = orb_c.getOrbit()
+    assert numpy.all(numpy.fabs(vxvv_py[:, :5] - vxvv_c[:, :5]) < 10.0**-6), (
+        "C orbit integration in a time-dependent RotateAndTiltWrapperPotential does not agree with the pure-Python integration"
+    )
+    dphi = vxvv_py[:, 5] - vxvv_c[:, 5]
+    assert numpy.all(
+        numpy.fabs(numpy.arctan2(numpy.sin(dphi), numpy.cos(dphi))) < 10.0**-6
+    ), (
+        "C orbit integration in a time-dependent RotateAndTiltWrapperPotential does not agree with the pure-Python integration"
+    )
+    return None
+
+
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
     rp = potential.RazorThinExponentialDiskPotential(normalize=1.0, hr=3.0 / 8.0)
@@ -7545,7 +8022,213 @@ def test_NumericalPotentialDerivativesMixin():
     return None
 
 
+def test_harmonic_planar_stm_vs_fd_of_flow():
+    # Ground-truth (finite-difference-of-the-flow) check of the C planar
+    # variational state-transition matrix for the spherical-harmonic family
+    # (SCFPotential, MultipoleExpansionPotential). Their C planar second
+    # derivatives feed the 2D variational equations (integrate_dxdv); a
+    # sign/factor error there is invisible to the Liouville det(M)=1 test -- a
+    # wrong-but-symmetric Hessian is still a Hamiltonian flow -- but it shifts the
+    # actual deviation vectors. FD of the flow uses only the (trusted) forces, so
+    # it is independent of any second-derivative code and pins their absolute
+    # value. This regression-guards the SCF planar 2nd-deriv sign fix and the
+    # DiskSCF planar variational wiring (the disk correction terms vanish
+    # identically at z=0 because H(0)=0, so the planar STM is driven by the
+    # embedded SCF part plus the trivially-zero correction Hessian). (The 3D
+    # Hessian is validated in the variational-3D PR, where that C code lives.)
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        DiskSCFPotential,
+        SCFPotential,
+        scf_compute_coeffs_spherical,
+    )
+
+    def _hern(R, z=0.0, phi=0.0):
+        r = numpy.sqrt(R**2 + z**2)
+        return 1.0 / (2.0 * numpy.pi) / (r * (1.0 + r) ** 3)
+
+    Acos_s, _ = scf_compute_coeffs_spherical(_hern, 6, a=1.3)
+    Nn = Acos_s.shape[0]
+    Acos = numpy.zeros((Nn, 3, 3))
+    Asin = numpy.zeros((Nn, 3, 3))
+    Acos[:, 0, 0] = Acos_s[:, 0, 0]
+    Acos[0, 2, 2] = 0.05 * Acos_s[0, 0, 0]  # l=2,m=2 -> non-axisymmetric
+    Asin[0, 2, 2] = 0.03 * Acos_s[0, 0, 0]
+    scf_axi = SCFPotential(Acos=Acos_s, a=1.3, normalize=True)
+    scf_nonaxi = SCFPotential(Acos=Acos, Asin=Asin, a=1.3, normalize=True)
+    mp_axi = mockMultipoleExpansionAxiPotential()
+    mp_axi.normalize(1.0)
+    mp_nonaxi = mockMultipoleExpansionPotential()
+    mp_nonaxi.normalize(1.0)
+    dscf = DiskSCFPotential(normalize=1.0)
+    # (label, planar potential, tolerance): SCF and the axisymmetric Multipole
+    # are analytic/near-exact (~1e-6); the non-axisymmetric Multipole is
+    # grid-spline interpolated, so it agrees only to grid accuracy (~1e-4) -- far
+    # tighter than the O(1) shift a sign/factor error would produce.
+    pots = [
+        ("SCF (axi)", scf_axi.toPlanar(), 1e-5),
+        ("SCF (non-axi)", scf_nonaxi.toPlanar(), 1e-5),
+        ("Multipole (axi)", mp_axi.toPlanar(), 1e-5),
+        ("Multipole (non-axi)", mp_nonaxi.toPlanar(), 5e-4),
+        ("DiskSCF", dscf.toPlanar(), 1e-5),
+    ]
+    times = numpy.linspace(0.0, 2.0, 101)
+    R0, vR0, vT0, phi0 = 1.0, 0.1, 1.1, 0.3
+
+    def cyl2rect(R, vR, vT, phi):
+        c, s = numpy.cos(phi), numpy.sin(phi)
+        return numpy.array([R * c, R * s, vR * c - vT * s, vR * s + vT * c])
+
+    def rect2cyl(x, y, vx, vy):
+        R = numpy.hypot(x, y)
+        c, s = x / R, y / R
+        return [R, vx * c + vy * s, -vx * s + vy * c, numpy.arctan2(y, x)]
+
+    eps = 1e-6
+    for name, ptp, tol in pots:
+
+        def flow(rect0):
+            o = Orbit(rect2cyl(*rect0))
+            o.integrate(times, ptp, method="dop853_c")
+            of = o.getOrbit()[-1]
+            return cyl2rect(of[0], of[1], of[2], of[3])
+
+        rect0 = cyl2rect(R0, vR0, vT0, phi0)
+        base = flow(rect0)
+        for ii in range(4):
+            pert = numpy.zeros(4)
+            pert[ii] = eps
+            fd = (flow(rect0 + pert) - base) / eps
+            o = Orbit([R0, vR0, vT0, phi0])
+            dxdv = numpy.zeros(4)
+            dxdv[ii] = 1.0
+            o.integrate_dxdv(
+                dxdv, times, ptp, method="dop853_c", rectIn=True, rectOut=True
+            )
+            stm = o.getOrbit_dxdv()[-1, :]
+            assert numpy.all(numpy.fabs(stm - fd) < tol), (
+                f"{name} C planar STM column {ii} disagrees with "
+                f"finite-difference-of-the-flow by {numpy.amax(numpy.fabs(stm - fd)):g}"
+            )
+    return None
+
+
 # Test that we don't get the "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated" numpy warning for the SCF potential; issue #347
+def test_scf_analytic_2ndderiv():
+    # SCFPotential's second derivatives are now analytic (via the
+    # spherical-harmonic Hessian + SphericalHarmonicPotentialMixin chain rule),
+    # not the NumericalPotentialDerivativesMixin finite differences. They must
+    # match a finite-difference of the (analytic) forces to ~analytic precision,
+    # for an axisymmetric and a genuinely non-axisymmetric SCF instance.
+    from galpy.potential import (
+        NumericalPotentialDerivativesMixin,
+        SCFPotential,
+        scf_compute_coeffs_spherical,
+    )
+
+    assert not isinstance(
+        SCFPotential(Acos=numpy.ones((2, 1, 1))), NumericalPotentialDerivativesMixin
+    ), "SCFPotential should no longer use NumericalPotentialDerivativesMixin"
+
+    def _hern(R, z=0.0, phi=0.0):
+        r = numpy.sqrt(R**2 + z**2)
+        return 1.0 / (2.0 * numpy.pi) / (r * (1.0 + r) ** 3)
+
+    Acos_s, _ = scf_compute_coeffs_spherical(_hern, 6, a=1.3)
+    Nn = Acos_s.shape[0]
+    Acos = numpy.zeros((Nn, 3, 3))
+    Asin = numpy.zeros((Nn, 3, 3))
+    Acos[:, 0, 0] = Acos_s[:, 0, 0]
+    Acos[0, 2, 2] = 0.05 * Acos_s[0, 0, 0]  # l=2,m=2 -> non-axisymmetric
+    Asin[0, 2, 2] = 0.03 * Acos_s[0, 0, 0]
+    pots = [
+        SCFPotential(Acos=Acos_s, a=1.3, normalize=True),  # axisymmetric
+        SCFPotential(Acos=Acos, Asin=Asin, a=1.3, normalize=True),  # non-axi
+    ]
+    h = 1e-6
+    for p in pots:
+        for R, z, phi in [(1.0, 0.3, 0.4), (2.0, 0.1, 1.1), (0.7, -0.5, 2.5)]:
+            kw = dict(use_physical=False)
+            checks = {
+                "R2": (
+                    p.R2deriv(R, z, phi=phi, **kw),
+                    -(
+                        p.Rforce(R + h, z, phi=phi, **kw)
+                        - p.Rforce(R - h, z, phi=phi, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "z2": (
+                    p.z2deriv(R, z, phi=phi, **kw),
+                    -(
+                        p.zforce(R, z + h, phi=phi, **kw)
+                        - p.zforce(R, z - h, phi=phi, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "Rz": (
+                    p.Rzderiv(R, z, phi=phi, **kw),
+                    -(
+                        p.Rforce(R, z + h, phi=phi, **kw)
+                        - p.Rforce(R, z - h, phi=phi, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "phi2": (
+                    p.phi2deriv(R, z, phi=phi, **kw),
+                    -(
+                        p.phitorque(R, z, phi=phi + h, **kw)
+                        - p.phitorque(R, z, phi=phi - h, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "Rphi": (
+                    p.Rphideriv(R, z, phi=phi, **kw),
+                    -(
+                        p.Rforce(R, z, phi=phi + h, **kw)
+                        - p.Rforce(R, z, phi=phi - h, **kw)
+                    )
+                    / (2 * h),
+                ),
+                "phiz": (
+                    p.phizderiv(R, z, phi=phi, **kw),
+                    -(
+                        p.zforce(R, z, phi=phi + h, **kw)
+                        - p.zforce(R, z, phi=phi - h, **kw)
+                    )
+                    / (2 * h),
+                ),
+            }
+            for name, (ana, fd) in checks.items():
+                assert numpy.fabs(ana - fd) < 1e-6, (
+                    f"SCF analytic {name}deriv differs from FD by {numpy.fabs(ana - fd):g}"
+                )
+    # Degenerate-point branches: at r=0 the radial basis' 2nd derivative and the
+    # full spherical 2nd-derivative set are defined to be zero, and a
+    # non-axisymmetric (m>0) expansion evaluated on the z-axis must nudge off the
+    # pole so the angular derivatives stay finite.
+    axi, nonaxi = pots
+    N, L, _ = axi._Acos.shape
+    assert numpy.all(axi._d2phiTilde(0.0, N, L) == 0.0), (
+        "SCF _d2phiTilde should vanish at r=0"
+    )
+    assert axi._compute_spher_2nd_derivs_at_point(0.0, 0.0, 0.0) == (
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ), "SCF spherical 2nd derivs should vanish at the origin"
+    onaxis = nonaxi._compute_spher_2nd_derivs_at_point(0.0, 0.5, 0.3)
+    assert numpy.all(numpy.isfinite(onaxis)), (
+        "non-axi SCF 2nd derivs should stay finite on the z-axis (pole nudge)"
+    )
+    return None
+
+
 def test_scf_tupleindexwarning():
     import warnings
 
@@ -7796,6 +8479,35 @@ def test_CompositePotential_basic():
     # Check getitem
     assert comp[0] == pot1
     assert comp[1] == pot2
+    return None
+
+
+def test_CompositePotential_hasC_dxdv3d():
+    # CompositePotential must aggregate hasC_dxdv3d from its components like the
+    # other hasC flags; previously it did not, so _check_c(comp, dxdv3d=True) was
+    # False even when every component had the full 3D C Hessian, silently forcing
+    # 3D integrate_dxdv (and lyapunov) of e.g. MWPotential2014 onto the slow
+    # Python fallback
+    from galpy.potential.Potential import _check_c
+
+    comp = potential.MWPotential2014  # a CompositePotential, all components wired
+    assert all(p.hasC_dxdv3d for p in comp), (
+        "all MWPotential2014 components should have hasC_dxdv3d"
+    )
+    assert comp.hasC_dxdv3d, "CompositePotential should aggregate hasC_dxdv3d"
+    assert _check_c(comp, dxdv3d=True), (
+        "_check_c(CompositePotential, dxdv3d=True) should be True when all "
+        "components have the 3D C Hessian"
+    )
+    # and it must turn False if any component lacks the flag
+    weak = potential.MiyamotoNagaiPotential(normalize=1.0)
+    weak.hasC_dxdv3d = False
+    comp2 = potential.CompositePotential(
+        weak, potential.LogarithmicHaloPotential(normalize=1.0)
+    )
+    assert not comp2.hasC_dxdv3d, (
+        "CompositePotential hasC_dxdv3d should be False when a component lacks it"
+    )
     return None
 
 
@@ -8077,8 +8789,8 @@ def test_CompositePotential_all_methods():
     val_on = MWPotential2014(R, z)
     assert val_on is not None, "turn_physical_on failed"
 
-    # Reset to default state
-    MWPotential2014.turn_physical_on()
+    # Reset to default state (MWPotential2014 has physical units off by default)
+    MWPotential2014.turn_physical_off()
 
     return None
 
@@ -8270,6 +8982,176 @@ def test_planarCompositePotential_explicit_units():
     comp_vo = planarCompositePotential(pot1, pot2, vo=230.0)
     assert comp_vo._vo == 230.0, "Explicit vo not set correctly"
     assert comp_vo._voSet, "voSet should be True when vo is explicitly provided"
+
+    return None
+
+
+def test_CompositePotential_turn_physical():
+    # Test that turn_physical_on/off propagates to component potentials
+    # This is the behavior described in issue
+    # https://github.com/jobovy/galpy/issues/854
+    from galpy.potential import HernquistPotential, NFWPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    # Initialize with physical units ON so turn_physical_off has something to do
+    combo_pot = NFWPotential(ro=ro, vo=vo) + HernquistPotential(ro=ro, vo=vo)
+
+    # Components should start with physical on
+    assert combo_pot[0]._roSet, "Component should have roSet=True initially"
+    # Use Rforce: depends on both ro and vo (scales as force_in_kmsMyr(vo,ro))
+    force_on = combo_pot[0].Rforce(1.0, 0.0)
+
+    # Turn physical off - should propagate to components
+    combo_pot.turn_physical_off()
+    assert not combo_pot._roSet, "CompositePotential should have roSet=False"
+    assert not combo_pot[0]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    assert not combo_pot[1]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    force_off = combo_pot[0].Rforce(1.0, 0.0)
+
+    # Force output scales by force_in_kmsMyr(vo, ro) which depends on both ro and vo
+    assert (
+        numpy.fabs(force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0)
+        < 1e-10
+    ), "Component Rforce should scale correctly after turn_physical_off"
+
+    # Turn physical on - should propagate to components
+    combo_pot.turn_physical_on(ro=ro, vo=vo)
+    assert combo_pot._roSet, "CompositePotential should have roSet=True"
+    assert combo_pot[0]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    assert combo_pot[1]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    force_on_again = combo_pot[0].Rforce(1.0, 0.0)
+
+    # Should be back to physical units
+    assert (
+        numpy.fabs(
+            force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
+        )
+        < 1e-10
+    ), "Component Rforce should be in physical units after turn_physical_on"
+
+    return None
+
+
+def test_planarCompositePotential_turn_physical():
+    # Test that turn_physical_on/off propagates to component potentials
+    # This is the behavior described in issue
+    # https://github.com/jobovy/galpy/issues/854
+    from galpy.potential import HernquistPotential, NFWPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    # Initialize with physical units ON so turn_physical_off has something to do
+    planar_combo = (
+        NFWPotential(ro=ro, vo=vo).toPlanar()
+        + HernquistPotential(ro=ro, vo=vo).toPlanar()
+    )
+
+    # Components should start with physical on
+    assert planar_combo[0]._roSet, "Component should have roSet=True initially"
+    # Use Rforce: depends on both ro and vo (scales as force_in_kmsMyr(vo,ro))
+    force_on = planar_combo[0].Rforce(1.0, 0.0)
+
+    # Turn physical off - should propagate to components
+    planar_combo.turn_physical_off()
+    assert not planar_combo._roSet, "planarCompositePotential should have roSet=False"
+    assert not planar_combo[0]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    assert not planar_combo[1]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    force_off = planar_combo[0].Rforce(1.0, 0.0)
+
+    # Force output scales by force_in_kmsMyr(vo, ro) which depends on both ro and vo
+    assert (
+        numpy.fabs(force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0)
+        < 1e-10
+    ), "Component Rforce should scale correctly after turn_physical_off"
+
+    # Turn physical on - should propagate to components
+    planar_combo.turn_physical_on(ro=ro, vo=vo)
+    assert planar_combo._roSet, "planarCompositePotential should have roSet=True"
+    assert planar_combo[0]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    assert planar_combo[1]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    force_on_again = planar_combo[0].Rforce(1.0, 0.0)
+
+    # Should be back to physical units
+    assert (
+        numpy.fabs(
+            force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
+        )
+        < 1e-10
+    ), "Component Rforce should be in physical units after turn_physical_on"
+
+    return None
+
+
+def test_linearCompositePotential_turn_physical():
+    # Test that turn_physical_on/off propagates to component potentials
+    # This is the behavior described in issue
+    # https://github.com/jobovy/galpy/issues/854
+    from galpy.potential import HernquistPotential, NFWPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    # Initialize with physical units ON so turn_physical_off has something to do
+    lin_combo = NFWPotential(ro=ro, vo=vo).toVertical(1.0) + HernquistPotential(
+        ro=ro, vo=vo
+    ).toVertical(1.0)
+
+    # Components should start with physical on
+    assert lin_combo[0]._roSet, "Component should have roSet=True initially"
+    # Use force: depends on both ro and vo (scales as force_in_kmsMyr(vo,ro))
+    force_on = lin_combo[0].force(1.0)
+
+    # Turn physical off - should propagate to components
+    lin_combo.turn_physical_off()
+    assert not lin_combo._roSet, "linearCompositePotential should have roSet=False"
+    assert not lin_combo[0]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    assert not lin_combo[1]._roSet, (
+        "Component should have roSet=False after turn_physical_off"
+    )
+    force_off = lin_combo[0].force(1.0)
+
+    # Force output scales by force_in_kmsMyr(vo, ro) which depends on both ro and vo
+    assert (
+        numpy.fabs(force_on / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0)
+        < 1e-10
+    ), "Component force should scale correctly after turn_physical_off"
+
+    # Turn physical on - should propagate to components
+    lin_combo.turn_physical_on(ro=ro, vo=vo)
+    assert lin_combo._roSet, "linearCompositePotential should have roSet=True"
+    assert lin_combo[0]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    assert lin_combo[1]._roSet, (
+        "Component should have roSet=True after turn_physical_on"
+    )
+    force_on_again = lin_combo[0].force(1.0)
+
+    # Should be back to physical units
+    assert (
+        numpy.fabs(
+            force_on_again / force_off / conversion.force_in_kmsMyr(vo, ro) - 1.0
+        )
+        < 1e-10
+    ), "Component force should be in physical units after turn_physical_on"
 
     return None
 
@@ -10797,6 +11679,28 @@ class mockInterpRZPotential(interpRZPotential):
         )
 
 
+class mockInterpRZPotentialwSecondDerivs(interpRZPotential):
+    # Also interpolates the 2nd derivatives (R2deriv/z2deriv/Rzderiv; together
+    # the full 3D Hessian); the grid covers the (R,z) points used by
+    # test_2ndDeriv_potential (R=0.5,1,2; |z|<=0.25), so the interpolated
+    # (rather than the passed-through exact) 2nd derivatives are exercised
+    # against finite differences of the interpolated forces there
+    def __init__(self):
+        interpRZPotential.__init__(
+            self,
+            RZPot=MWPotential,
+            rgrid=(numpy.log(0.35), numpy.log(2.5), 151),
+            zgrid=(0.0, 0.3, 151),
+            logR=True,
+            interpPot=True,
+            interpRforce=True,
+            interpzforce=True,
+            interpR2deriv=True,
+            interpz2deriv=True,
+            interpRzderiv=True,
+        )
+
+
 class mockSnapshotRZPotential(potential.SnapshotRZPotential):
     def __init__(self):
         # Test w/ equivalent of KeplerPotential: one mass
@@ -11163,6 +12067,59 @@ class mockMultipoleExpansionLimitedGridPotential(potential.MultipoleExpansionPot
         self._rgrid = numpy.geomspace(0.98, 1.245, 201)
 
 
+##Mock time-dependent MultipoleExpansionPotential classes
+class mockTimeDependentMultipoleExpansionPotential(
+    potential.MultipoleExpansionPotential
+):
+    def __init__(self):
+        omega = 1.3
+        hp = potential.HernquistPotential(amp=2.0, a=1.0)
+        temp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + 0.1 * numpy.cos(phi + omega * t))
+            ),
+            L=6,
+            rgrid=numpy.geomspace(1e-3, 50, 201),
+            tgrid=numpy.linspace(0, 300, 76),
+        )
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            rho_cos_splines=temp._rho_cos_funcs,
+            rho_sin_splines=temp._rho_sin_funcs,
+            rgrid=temp._rgrid,
+            tgrid=temp._tgrid,
+        )
+
+
+class mockTDMultipoleExpansionLimitedGridPotential(
+    potential.MultipoleExpansionPotential
+):
+    """Time-dep multipole with a limited grid, to test below/above grid C paths."""
+
+    def __init__(self):
+        hp = potential.HernquistPotential(amp=2.0, a=1.0)
+        temp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + 1e-8 * numpy.cos(phi))
+                * (1 + 1e-8 * t)
+            ),
+            L=3,
+            rgrid=numpy.geomspace(0.1, 1.245, 101),
+            tgrid=numpy.linspace(0, 300, 11),
+        )
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            rho_cos_splines=temp._rho_cos_funcs,
+            rho_sin_splines=temp._rho_sin_funcs,
+            rgrid=temp._rgrid,
+            tgrid=temp._tgrid,
+        )
+        # Hack to end up with a very limited grid
+        self._rgrid = numpy.geomspace(0.98, 1.245, 101)
+
+
 # Test interpSphericalPotential
 class mockInterpSphericalPotential(potential.interpSphericalPotential):
     def __init__(self):
@@ -11424,6 +12381,27 @@ class mockSlowFlatDehnenBarPotential(testMWPotential):
         return self._potlist[1].OmegaP()
 
 
+class mockFlatSoftenedNeedleBarPotential(testMWPotential):
+    # Realistic configuration of the softened-needle bar: a rotating
+    # bar-strength perturbation (default amp -> ~2.6% of the radial force at
+    # R=1) on a flat-rotation-curve halo, following the mockFlatDehnenBar
+    # idiom. (The BARE normalized needle bar -- the entire rotation curve from
+    # a fast-rotating needle -- makes the fixed test_liouville_planar orbit
+    # strongly chaotic, so |det M - 1| saturates at the double-precision
+    # cancellation floor for every integrator; see test_liouville_planar.)
+    def __init__(self):
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                potential.SoftenedNeedleBarPotential(),
+            ],
+        )
+
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+
+
 class mockFlatSteadyLogSpiralPotential(testplanarMWPotential):
     def __init__(self):
         testplanarMWPotential.__init__(
@@ -11461,6 +12439,24 @@ class mockFlatTransientLogSpiralPotential(testplanarMWPotential):
                 potential.TransientLogSpiralPotential(to=-10.0),
             ],
         )  # this way, it's basically a steady spiral
+
+    def OmegaP(self):
+        return self._potlist[1].OmegaP()
+
+
+class mockFlatActiveTransientLogSpiralPotential(testplanarMWPotential):
+    # Transient spiral whose Gaussian envelope peaks INSIDE the
+    # test_liouville_planar integration window [0, 28] (the plain
+    # mockFlatTransientLogSpiralPotential peaks at to=-10, so its perturbation
+    # is ~exp(-50) there and the test would be vacuous for the spiral Hessian)
+    def __init__(self):
+        testplanarMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                potential.TransientLogSpiralPotential(to=14.0, sigma=4.0),
+            ],
+        )
 
     def OmegaP(self):
         return self._potlist[1].OmegaP()
@@ -11850,6 +12846,96 @@ class mockFlatSolidBodyRotationSpiralArmsPotential(testMWPotential):
         return self._potlist[1].OmegaP()
 
 
+class mockFlatSolidBodyRotationMultipoleExpansionPotential(testMWPotential):
+    def __init__(self):
+        omega = 1.3
+        hp = potential.HernquistPotential(amp=0.02, a=1.0)
+        tdep_mp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + 0.5 * numpy.cos(phi + omega * t))
+            ),
+            L=4,
+            rgrid=numpy.geomspace(1e-3, 50, 101),
+            tgrid=numpy.linspace(0, 300, 41),
+        )
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                tdep_mp,
+            ],
+        )
+
+    def OmegaP(self):
+        return 1.3
+
+
+class mockFlatWeaklyTDMultipoleExpansionPotential(testMWPotential):
+    """Weakly time-dependent rotating multipole (epsilon=1e-4).
+
+    Should conserve the Jacobi integral to nearly the same level as a static
+    potential conserves energy, confirming that the C time-reconstruction is
+    not introducing significant error.
+    """
+
+    def __init__(self):
+        omega = 1.3
+        epsilon = 1e-4
+        hp = potential.HernquistPotential(amp=0.02, a=1.0)
+        tdep_mp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + epsilon * numpy.cos(phi + omega * t))
+            ),
+            L=4,
+            rgrid=numpy.geomspace(1e-3, 50, 101),
+            tgrid=numpy.linspace(0, 300, 41),
+        )
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                tdep_mp,
+            ],
+        )
+
+    def OmegaP(self):
+        return 1.3
+
+
+class mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential(testMWPotential):
+    """Weakly time-dep, non-axi L=3 (M=3) multipole for actionAngle/liouville tests.
+
+    Exercises the Chebyshev cos/sin recurrence for mm>=2 and the time-dep
+    non-axi potential/force/2nd-deriv C paths.
+    """
+
+    def __init__(self):
+        omega = 1.3
+        epsilon = 1e-4
+        hp = potential.HernquistPotential(amp=0.02, a=1.0)
+        tdep_mp = potential.MultipoleExpansionPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + epsilon * numpy.cos(phi + omega * t))
+            ),
+            L=3,
+            rgrid=numpy.geomspace(1e-3, 50, 51),
+            tgrid=numpy.linspace(0, 300, 11),
+        )
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                tdep_mp,
+            ],
+        )
+
+    def OmegaP(self):
+        return 1.3
+
+
 # Special case to test handling of pure planarWrapper, not necessary for new wrappers
 class mockFlatSolidBodyRotationPlanarSpiralArmsPotential(testplanarMWPotential):
     def __init__(self):
@@ -11929,6 +13015,23 @@ class CorotatingRotationSpiralArmsPotential(CorotatingRotationWrapperPotential):
         spn = potential.SpiralArmsPotential(omega=0.0, phi_ref=0.0)
         return CorotatingRotationWrapperPotential.__new__(
             cls, amp=1.0, pot=spn.toPlanar(), vpo=1.1, beta=-0.2, pa=0.4, to=3.0
+        )
+
+
+class CorotatingRotation3DSpiralArmsPotential(CorotatingRotationWrapperPotential):
+    # 3D version of CorotatingRotationSpiralArmsPotential above (wraps the FULL
+    # 3D SpiralArms rather than its planar reduction): unit-FD-checks ALL six
+    # cylindrical 2nd derivatives of the R-dependent phi-shift chain rule
+    # against the forces -- in particular the Rzderiv cross term
+    # -(ds/dR) d2Phi_w/dz/dphi', which only exists in 3D. to=3.0 makes t-to
+    # nonzero at the t=0 of the generic force/2nd-deriv FD loops, so the
+    # ds/dR / d2s/dR2 terms are genuinely exercised there.
+    def __new__(cls, *args, **kwargs):
+        if kwargs.get("_init", False):
+            return parentWrapperPotential.__new__(cls, *args, **kwargs)
+        spn = potential.SpiralArmsPotential(omega=0.0, phi_ref=0.0)
+        return CorotatingRotationWrapperPotential.__new__(
+            cls, amp=1.0, pot=spn, vpo=1.1, beta=-0.2, pa=0.4, to=3.0
         )
 
 

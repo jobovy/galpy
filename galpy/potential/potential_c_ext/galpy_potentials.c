@@ -2,6 +2,19 @@
 void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
   int ii;
   for (ii=0; ii < npot; ii++) {
+    // Full-3D second-derivative pointers default to NULL so the 3D variational
+    // aggregators skip potentials that do not (yet) provide them; potentials
+    // that support the 3D Hessian set these in parse_*.
+    (potentialArgs+ii)->R2deriv= NULL;
+    (potentialArgs+ii)->phi2deriv= NULL;
+    (potentialArgs+ii)->Rphideriv= NULL;
+    (potentialArgs+ii)->z2deriv= NULL;
+    (potentialArgs+ii)->Rzderiv= NULL;
+    (potentialArgs+ii)->zphideriv= NULL;
+    // Rectangular dissipative-force Jacobian: NULL for conservative
+    // potentials and for dissipative forces without a C Jacobian; set in
+    // parse_* only for dissipative forces that provide it.
+    (potentialArgs+ii)->RectDissipativeForceJacobian= NULL;
     (potentialArgs+ii)->i2d= NULL;
     (potentialArgs+ii)->accx= NULL;
     (potentialArgs+ii)->accy= NULL;
@@ -11,6 +24,15 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->i2dzforce= NULL;
     (potentialArgs+ii)->accxzforce= NULL;
     (potentialArgs+ii)->accyzforce= NULL;
+    (potentialArgs+ii)->i2dr2deriv= NULL;
+    (potentialArgs+ii)->accxr2deriv= NULL;
+    (potentialArgs+ii)->accyr2deriv= NULL;
+    (potentialArgs+ii)->i2dz2deriv= NULL;
+    (potentialArgs+ii)->accxz2deriv= NULL;
+    (potentialArgs+ii)->accyz2deriv= NULL;
+    (potentialArgs+ii)->i2drzderiv= NULL;
+    (potentialArgs+ii)->accxrzderiv= NULL;
+    (potentialArgs+ii)->accyrzderiv= NULL;
     (potentialArgs+ii)->wrappedPotentialArg= NULL;
     (potentialArgs+ii)->spline1d= NULL;
     (potentialArgs+ii)->acc1d= NULL;
@@ -40,6 +62,24 @@ void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
       gsl_interp_accel_free ((potentialArgs+ii)->accxzforce);
     if ( (potentialArgs+ii)->accyzforce )
       gsl_interp_accel_free ((potentialArgs+ii)->accyzforce);
+    if ( (potentialArgs+ii)->i2dr2deriv )
+      interp_2d_free((potentialArgs+ii)->i2dr2deriv) ;
+    if ( (potentialArgs+ii)->accxr2deriv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxr2deriv);
+    if ( (potentialArgs+ii)->accyr2deriv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyr2deriv);
+    if ( (potentialArgs+ii)->i2dz2deriv )
+      interp_2d_free((potentialArgs+ii)->i2dz2deriv) ;
+    if ( (potentialArgs+ii)->accxz2deriv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxz2deriv);
+    if ( (potentialArgs+ii)->accyz2deriv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyz2deriv);
+    if ( (potentialArgs+ii)->i2drzderiv )
+      interp_2d_free((potentialArgs+ii)->i2drzderiv) ;
+    if ( (potentialArgs+ii)->accxrzderiv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accxrzderiv);
+    if ( (potentialArgs+ii)->accyrzderiv )
+      gsl_interp_accel_free ((potentialArgs+ii)->accyrzderiv);
     if ( (potentialArgs+ii)->wrappedPotentialArg ) {
       free_potentialArgs((potentialArgs+ii)->nwrapped,
 			 (potentialArgs+ii)->wrappedPotentialArg);
@@ -76,50 +116,63 @@ double evaluatePotentials(double R, double Z,
 // in galpy_potentials.h and parentheses are necessary to avoid macro expansion
 double (calcRforce)(double R, double Z, double phi, double t,
 		    int nargs, struct potentialArg * potentialArgs,
+		    int include_dissipative,
 		    double vR, double vT, double vZ){
+  // include_dissipative: include the velocity-dependent (dissipative) forces
+  // in the sum? The calcRforce macro supplies 1; the 3D variational equations
+  // pass 0 (the dissipative position-Jacobian is rectangular, so those
+  // forces must not enter the curvilinear Hessian-conversion terms)
   int ii;
-  double Rforce= 0.;
+  double force= 0.;
   for (ii=0; ii < nargs; ii++){
-    if ( potentialArgs->requiresVelocity )
-      Rforce+= potentialArgs->RforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
-    else
-      Rforce+= potentialArgs->Rforce(R,Z,phi,t,
-				     potentialArgs);
+    if ( ! potentialArgs->requiresVelocity )
+      force+= potentialArgs->Rforce(R,Z,phi,t,potentialArgs);
+    else if ( include_dissipative )
+      force+= potentialArgs->RforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return Rforce;
+  return force;
 }
 double (calczforce)(double R, double Z, double phi, double t,
 		    int nargs, struct potentialArg * potentialArgs,
+		    int include_dissipative,
 		    double vR, double vT, double vZ){
+  // include_dissipative: include the velocity-dependent (dissipative) forces
+  // in the sum? The calczforce macro supplies 1; the 3D variational equations
+  // pass 0 (the dissipative position-Jacobian is rectangular, so those
+  // forces must not enter the curvilinear Hessian-conversion terms)
   int ii;
-  double zforce= 0.;
+  double force= 0.;
   for (ii=0; ii < nargs; ii++){
-    if ( potentialArgs->requiresVelocity )
-      zforce+= potentialArgs->zforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
-    else
-      zforce+= potentialArgs->zforce(R,Z,phi,t,potentialArgs);
+    if ( ! potentialArgs->requiresVelocity )
+      force+= potentialArgs->zforce(R,Z,phi,t,potentialArgs);
+    else if ( include_dissipative )
+      force+= potentialArgs->zforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return zforce;
+  return force;
 }
 double (calcphitorque)(double R, double Z, double phi, double t,
-		      int nargs, struct potentialArg * potentialArgs,
-		      double vR, double vT, double vZ){
+		    int nargs, struct potentialArg * potentialArgs,
+		    int include_dissipative,
+		    double vR, double vT, double vZ){
+  // include_dissipative: include the velocity-dependent (dissipative) forces
+  // in the sum? The calcphitorque macro supplies 1; the 3D variational equations
+  // pass 0 (the dissipative position-Jacobian is rectangular, so those
+  // forces must not enter the curvilinear Hessian-conversion terms)
   int ii;
-  double phitorque= 0.;
+  double force= 0.;
   for (ii=0; ii < nargs; ii++){
-    if ( potentialArgs->requiresVelocity )
-      phitorque+= potentialArgs->phitorqueVelocity(R,Z,phi,t,potentialArgs,
-						 vR,vT,vZ);
-    else
-      phitorque+= potentialArgs->phitorque(R,Z,phi,t,potentialArgs);
+    if ( ! potentialArgs->requiresVelocity )
+      force+= potentialArgs->phitorque(R,Z,phi,t,potentialArgs);
+    else if ( include_dissipative )
+      force+= potentialArgs->phitorqueVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return phitorque;
+  return force;
 }
 double (calcPlanarRforce)(double R, double phi, double t,
 			int nargs, struct potentialArg * potentialArgs,
@@ -152,14 +205,43 @@ double (calcPlanarphitorque)(double R, double phi, double t,
   return phitorque;
 }
 
-// LCOV_EXCL_START
+// Summed rectangular Jacobian of the velocity-dependent forces, for the 3D
+// variational equations: jac_x = sum_i dF_i/d(x,y,z), jac_v = sum_i
+// dF_i/d(vx,vy,vz) (row-major 3x3 blocks) at the rectangular phase-space
+// point q=(x,y,z,vx,vy,vz). NULL-safe: components without
+// RectDissipativeForceJacobian contribute 0, so the output is exact zeros
+// for purely conservative potentials (their position block is the symmetric
+// Hessian, aggregated separately; the orbit layer gates the dissipative dxdv
+// path on hasC_dxdv3d so that no force with a missing Jacobian gets here).
+void calcRectDissipativeForceJacobian(double t, double *q,
+				      double *jac_x, double *jac_v,
+				      int nargs,
+				      struct potentialArg * potentialArgs){
+  int ii,jj;
+  double tmp_x[9],tmp_v[9];
+  for (jj=0; jj < 9; jj++) {
+    *(jac_x+jj)= 0.;
+    *(jac_v+jj)= 0.;
+  }
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->RectDissipativeForceJacobian ) {
+      potentialArgs->RectDissipativeForceJacobian(t,q,tmp_x,tmp_v,potentialArgs);
+      for (jj=0; jj < 9; jj++) {
+	*(jac_x+jj)+= tmp_x[jj];
+	*(jac_v+jj)+= tmp_v[jj];
+      }
+    }
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+}
 double calcR2deriv(double R, double Z, double phi, double t,
 		   int nargs, struct potentialArg * potentialArgs){
   int ii;
   double R2deriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    R2deriv+= potentialArgs->R2deriv(R,Z,phi,t,
-				     potentialArgs);
+    if ( potentialArgs->R2deriv )
+      R2deriv+= potentialArgs->R2deriv(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
@@ -171,8 +253,8 @@ double calcphi2deriv(double R, double Z, double phi, double t,
   int ii;
   double phi2deriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    phi2deriv+= potentialArgs->phi2deriv(R,Z,phi,t,
-					 potentialArgs);
+    if ( potentialArgs->phi2deriv )
+      phi2deriv+= potentialArgs->phi2deriv(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
@@ -183,14 +265,53 @@ double calcRphideriv(double R, double Z, double phi, double t,
   int ii;
   double Rphideriv= 0.;
   for (ii=0; ii < nargs; ii++){
-    Rphideriv+= potentialArgs->Rphideriv(R,Z,phi,t,
-					 potentialArgs);
+    if ( potentialArgs->Rphideriv )
+      Rphideriv+= potentialArgs->Rphideriv(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
   return Rphideriv;
 }
-// LCOV_EXCL_STOP
+// Remaining full-3D second derivatives for the 3D variational equations.
+// NULL-safe: a potential that does not provide the derivative contributes 0
+// (a missing curvature term), so the orbit layer must gate the 3D dxdv path on
+// every component supporting the full 3D Hessian (hasC_dxdv).
+double calcz2deriv(double R, double Z, double phi, double t,
+		   int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double z2deriv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->z2deriv )
+      z2deriv+= potentialArgs->z2deriv(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return z2deriv;
+}
+double calcRzderiv(double R, double Z, double phi, double t,
+		   int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double Rzderiv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->Rzderiv )
+      Rzderiv+= potentialArgs->Rzderiv(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return Rzderiv;
+}
+double calczphideriv(double R, double Z, double phi, double t,
+		     int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double zphideriv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    if ( potentialArgs->zphideriv )
+      zphideriv+= potentialArgs->zphideriv(R,Z,phi,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return zphideriv;
+}
 double calcPlanarR2deriv(double R, double phi, double t,
 			 int nargs, struct potentialArg * potentialArgs){
   int ii;

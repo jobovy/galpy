@@ -89,6 +89,17 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         if self._Sigma_dict is not None and self._hz_dict is not None:
             self.hasC = True
             self.hasC_dens = True
+            # The planar 2nd derivatives of the correction terms are in C
+            # (they vanish identically at z=0 because H(0)=0, but are wired
+            # so the planar variational equations work), so C planar
+            # integrate_dxdv works whenever the embedded SCF/Multipole part
+            # supports it
+            self.hasC_dxdv = self._me.hasC_dxdv
+            # 3D variational (dxdv) integration is supported iff BOTH the
+            # analytic disk pairs (their full 3D Hessian is in C here) AND the
+            # expansion sub-potential self._me (SCF / MultipoleExpansion) have
+            # the full 3D Hessian in C.
+            self.hasC_dxdv3d = getattr(self._me, "hasC_dxdv3d", False)
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -234,21 +245,21 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me(R, z, phi=phi, use_physical=False)
+        out = self._me(R, z, phi=phi, t=t, use_physical=False)
         for a, s, H in zip(self._Sigma_amp, self._Sigma, self._Hz):
             out += 4.0 * numpy.pi * a * s(r) * H(z)
         return out
 
     def _Rforce(self, R, z, phi=0, t=0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.Rforce(R, z, phi=phi, use_physical=False)
+        out = self._me.Rforce(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, H in zip(self._Sigma_amp, self._dSigmadR, self._Hz):
             out -= 4.0 * numpy.pi * a * ds(r) * H(z) * R / r
         return out
 
     def _zforce(self, R, z, phi=0, t=0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.zforce(R, z, phi=phi, use_physical=False)
+        out = self._me.zforce(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, H, dH in zip(
             self._Sigma_amp, self._Sigma, self._dSigmadR, self._Hz, self._dHzdz
         ):
@@ -256,11 +267,11 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         return out
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        return self._me.phitorque(R, z, phi=phi, use_physical=False)
+        return self._me.phitorque(R, z, phi=phi, t=t, use_physical=False)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.R2deriv(R, z, phi=phi, use_physical=False)
+        out = self._me.R2deriv(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, d2s, H in zip(
             self._Sigma_amp, self._dSigmadR, self._d2SigmadR2, self._Hz
         ):
@@ -276,7 +287,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.z2deriv(R, z, phi=phi, use_physical=False)
+        out = self._me.z2deriv(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(
             self._Sigma_amp,
             self._Sigma,
@@ -300,7 +311,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.Rzderiv(R, z, phi=phi, use_physical=False)
+        out = self._me.Rzderiv(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, d2s, H, dH in zip(
             self._Sigma_amp, self._dSigmadR, self._d2SigmadR2, self._Hz, self._dHzdz
         ):
@@ -313,11 +324,11 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         return out
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        return self._me.phi2deriv(R, z, phi=phi, use_physical=False)
+        return self._me.phi2deriv(R, z, phi=phi, t=t, use_physical=False)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
-        out = self._me.dens(R, z, phi=phi, use_physical=False)
+        out = self._me.dens(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(
             self._Sigma_amp,
             self._Sigma,

@@ -11,6 +11,7 @@ repos:
   - id: check-shebang-scripts-are-executable
   - id: check-executables-have-shebangs
   - id: check-yaml
+  - id: check-merge-conflict
 - repo: https://github.com/asottile/pyupgrade
   rev: v3.21.2
   hooks:
@@ -25,18 +26,18 @@ repos:
   hooks:
     - id: pycln
 - repo: https://github.com/PyCQA/isort
-  rev: 8.0.1
+  rev: 9.0.0a3
   hooks:
   - id: isort
     name: isort (python)
 - repo: https://github.com/codespell-project/codespell
-  rev: "v2.4.1"
+  rev: "v2.4.2"
   hooks:
     - id: codespell
       args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas,floatIn,dOmin,indx,Hese",
       "-x","doc/source/_static/try-galpy.js"]
-      exclude: ^xsf/
+      exclude: (^xsf/|\.ipynb$)
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.15.4
+  rev: v0.15.15
   hooks:
     - id: ruff-format

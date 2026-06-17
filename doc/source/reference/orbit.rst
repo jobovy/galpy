@@ -52,6 +52,7 @@ Methods
 
    __call__ <orbitcall.rst>
    __getitem__ <orbitgetitem.rst>
+   align_to_orbit <orbitaligntoorbit.rst>
    bb <orbitbb.rst>
    bruteSOS <orbitbrutesos.rst>
    dec <orbitdec.rst>
@@ -78,14 +79,19 @@ Methods
    L <orbitl.rst>
    LcE <orbitlce.rst>
    Lz <orbitlz.rst>
+   lyapunov <orbitlyapunov.rst>
    Op <orbitop.rst>
    Or <orbitor.rst>
    Oz <orbitoz.rst>
    phasedim <orbitphasedim.rst>
    phi <orbitphi.rst>
+   phi1 <orbitphi1.rst>
+   phi2 <orbitphi2.rst>
    pmbb <orbitpmbb.rst>
    pmdec <orbitpmdec.rst>
    pmll <orbitpmll.rst>
+   pmphi1 <orbitpmphi1.rst>
+   pmphi2 <orbitpmphi2.rst>
    pmra <orbitpmra.rst>
    r <orbitsphr.rst>
    R <orbitr.rst>

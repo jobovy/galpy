@@ -60,6 +60,7 @@ class LogarithmicHaloPotential(Potential):
         core = conversion.parse_length(core, ro=self._ro)
         self.hasC = True
         self.hasC_dxdv = True
+        self.hasC_dxdv3d = True  # Full 3D Hessian (incl. zphideriv for triaxial) in C
         self.hasC_dens = True
         self._core2 = core**2.0
         self._q = q

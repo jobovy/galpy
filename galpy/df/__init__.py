@@ -1,22 +1,26 @@
 from . import (
     constantbetadf,
     constantbetaHernquistdf,
+    constantbetaPowerLawdf,
     diskdf,
     eddingtondf,
     evolveddiskdf,
     isotropicHernquistdf,
     isotropicNFWdf,
     isotropicPlummerdf,
+    isotropicPowerLawdf,
     jeans,
     kingdf,
     osipkovmerrittdf,
     osipkovmerrittHernquistdf,
     osipkovmerrittNFWdf,
+    osipkovmerrittPowerLawdf,
     quasiisothermaldf,
     sphericaldf,
     streamdf,
     streamgapdf,
     streamspraydf,
+    streamTrack,
     surfaceSigmaProfile,
 )
 
@@ -66,6 +70,12 @@ isotropicNFWdf = isotropicNFWdf.isotropicNFWdf
 osipkovmerrittdf = osipkovmerrittdf.osipkovmerrittdf
 osipkovmerrittNFWdf = osipkovmerrittNFWdf.osipkovmerrittNFWdf
 constantbetadf = constantbetadf.constantbetadf
+isotropicPowerLawdf = isotropicPowerLawdf.isotropicPowerLawdf
+constantbetaPowerLawdf = constantbetaPowerLawdf.constantbetaPowerLawdf
+osipkovmerrittPowerLawdf = osipkovmerrittPowerLawdf.osipkovmerrittPowerLawdf
 chen24spraydf = streamspraydf.chen24spraydf
 fardal15spraydf = streamspraydf.fardal15spraydf
+pericenter_stripping_pdf = streamspraydf.pericenter_stripping_pdf
 streamspraydf = streamspraydf.streamspraydf
+StreamTrack = streamTrack.StreamTrack
+StreamTrackPair = streamTrack.StreamTrackPair

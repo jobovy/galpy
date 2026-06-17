@@ -97,6 +97,7 @@ class interpSphericalPotential(SphericalPotential):
         )
         self.hasC = True
         self.hasC_dxdv = True
+        self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         return None
 

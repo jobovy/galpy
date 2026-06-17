@@ -87,6 +87,7 @@ class TransientLogSpiralPotential(planarPotential):
         else:
             self._alpha = alpha
         self.hasC = True
+        self.hasC_dxdv = True
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         return (
@@ -117,6 +118,41 @@ class TransientLogSpiralPotential(planarPotential):
             / self._alpha
             * self._m
             * numpy.sin(
+                self._alpha * numpy.log(R)
+                - self._m * (phi - self._omegas * t - self._gamma)
+            )
+        )
+
+    def _R2deriv(self, R, phi=0.0, t=0.0):
+        chi = self._alpha * numpy.log(R) - self._m * (
+            phi - self._omegas * t - self._gamma
+        )
+        return (
+            self._A
+            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            / R**2.0
+            * (numpy.sin(chi) - self._alpha * numpy.cos(chi))
+        )
+
+    def _phi2deriv(self, R, phi=0.0, t=0.0):
+        return (
+            -self._A
+            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            / self._alpha
+            * self._m**2.0
+            * numpy.cos(
+                self._alpha * numpy.log(R)
+                - self._m * (phi - self._omegas * t - self._gamma)
+            )
+        )
+
+    def _Rphideriv(self, R, phi=0.0, t=0.0):
+        return (
+            self._A
+            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            * self._m
+            / R
+            * numpy.cos(
                 self._alpha * numpy.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )

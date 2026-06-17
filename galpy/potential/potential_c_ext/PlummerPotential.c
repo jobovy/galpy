@@ -52,6 +52,36 @@ double PlummerPotentialPlanarR2deriv(double R,double phi,
   //Calculate Rforce
   return amp * (b2 - 2.*R*R)*pow(R*R+b2,-2.5);
 }
+double PlummerPotentialR2deriv(double R,double Z, double phi,
+			       double t,
+			       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double b2= *(args+1) * *(args+1);
+  //Calculate R2deriv (d^2Phi/dR^2)
+  return amp * (b2 - 2.*R*R + Z*Z) * pow(R*R+Z*Z+b2,-2.5);
+}
+double PlummerPotentialz2deriv(double R,double Z, double phi,
+			       double t,
+			       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double b2= *(args+1) * *(args+1);
+  //Calculate z2deriv (d^2Phi/dz^2)
+  return amp * (b2 + R*R - 2.*Z*Z) * pow(R*R+Z*Z+b2,-2.5);
+}
+double PlummerPotentialRzderiv(double R,double Z, double phi,
+			       double t,
+			       struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args;
+  double b2= *(args+1) * *(args+1);
+  //Calculate Rzderiv (d^2Phi/dR/dz)
+  return amp * ( -3. * R * Z * pow(R*R+Z*Z+b2,-2.5) );
+}
 double PlummerPotentialDens(double R,double Z, double phi,
 			    double t,
 			    struct potentialArg * potentialArgs){

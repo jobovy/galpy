@@ -1,0 +1,148 @@
+name: Test documentation notebooks
+
+on:
+  push:
+    paths:
+      - '**'
+      - '!*'
+      - '*.py'
+      - '*.c'
+      - '*.cpp'
+      - '*.h'
+      - '!doc/**'
+      - 'doc/source/tutorials/**/*.ipynb'
+      - '!.github/**'
+      - '.github/workflows/test-doc-notebooks.yml'
+  pull_request:
+    paths:
+      - '**'
+      - '!doc/**'
+      - 'doc/source/tutorials/**/*.ipynb'
+  schedule:
+    # 00:00 UTC on the 15th of every month, so the result is fresh input
+    # for the update-doc-notebooks workflow that runs later the same day.
+    - cron: '0 0 15 * *'
+
+permissions:
+  # Needed so scheduled runs can delete the cached Gaia DR3 query result via
+  # `gh cache delete` to force a fresh fetch.
+  actions: write
+  contents: read
+
+jobs:
+  run-notebooks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '${{ matrix.python-version }}'
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgsl-dev
+          # Verify GSL is discoverable so galpy's C extensions build correctly
+          gsl-config --version
+          gsl-config --cflags
+          gsl-config --libs
+      - name: Clone Torus code for actionAngleTorus
+        run: |
+          git clone https://github.com/jobovy/Torus.git galpy/actionAngle/actionAngleTorus_c_ext/torus
+          cd galpy/actionAngle/actionAngleTorus_c_ext/torus
+          git checkout galpy
+          cd -
+      - name: Install galpy and notebook dependencies
+        run: |
+          pip install --upgrade pip
+          # Verbose install so that any GSL/C-extension build issues are visible
+          # in CI logs.
+          pip install -v ".[docs]"
+          pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib
+      - name: Cache pynbody test snapshot
+        id: cache-snapshot
+        uses: actions/cache@v5
+        with:
+          path: doc/source/tutorials/potentials/gasoline_ahf
+          key: pynbody-g15784-v2
+      - name: Download pynbody test snapshot
+        if: steps.cache-snapshot.outputs.cache-hit != 'true'
+        run: |
+          cd doc/source/tutorials/potentials
+          curl -L -o gasoline.tar.gz "https://zenodo.org/records/12687409/files/gasoline.tar.gz?download=1"
+          tar -xzf gasoline.tar.gz gasoline_ahf/
+          rm gasoline.tar.gz
+      - name: Refresh Gaia DR3 cache on scheduled runs
+        # Delete the cached Gaia query result so the staeckel notebook re-runs
+        # the query and stores fresh data. On non-scheduled runs we skip this
+        # so the cached result is reused and the ESA Gaia archive query is
+        # avoided (typically ~5 min, but observed up to ~2 h when the archive
+        # is degraded).
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: |
+          gh cache delete gaia-dr3-solar-neighborhood-v1 --repo "${{ github.repository }}" \
+            || echo "No prior Gaia DR3 cache to delete."
+      - name: Cache Gaia DR3 query result
+        # Speeds the staeckel notebook up massively on routine runs. The cache
+        # is refreshed by the scheduled workflow above (and on first run).
+        uses: actions/cache@v5
+        with:
+          path: doc/source/tutorials/action_angle/gaia_dr3_solar_neighborhood.fits
+          key: gaia-dr3-solar-neighborhood-v1
+      - name: Refresh Dierickx 2010 cache on scheduled runs
+        # Delete the cached Vizier query result so the orbit/examples notebook
+        # re-runs the query and stores fresh data. On non-scheduled runs we
+        # skip this so the cached result is reused and the Vizier query (which
+        # has been observed to fail intermittently in CI) is avoided.
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: |
+          gh cache delete dierickx-2010-thick-disk-v1 --repo "${{ github.repository }}" \
+            || echo "No prior Dierickx 2010 cache to delete."
+      - name: Cache Dierickx 2010 thick-disk catalog
+        # Speeds the orbit/examples notebook up and avoids transient Vizier
+        # failures on routine runs. Refreshed by the scheduled workflow above
+        # (and on first run).
+        uses: actions/cache@v5
+        with:
+          path: doc/source/tutorials/orbits/dierickx_2010_thick_disk.fits
+          key: dierickx-2010-thick-disk-v1
+      - name: Strip notebook outputs
+        run: |
+          for nb in $(find doc/source/tutorials -name '*.ipynb'); do
+            jupyter nbconvert --clear-output --inplace "$nb"
+          done
+      - name: Run all tutorial notebooks
+        run: |
+          failed_nbs=()
+          outdir=$(mktemp -d)
+          for nb in $(find doc/source/tutorials -name '*.ipynb' | sort); do
+            echo "::group::Running $nb"
+            outname=$(basename "$nb")
+            nbdir=$(dirname "$nb")
+            if papermill --request-save-on-cell-execute --log-output \
+                --cwd "$nbdir" "$nb" "$outdir/$outname"; then
+              echo "PASSED: $nb"
+            else
+              echo "::error file=$nb::FAILED: $nb"
+              failed_nbs+=("$nb")
+            fi
+            echo "::endgroup::"
+          done
+          rm -rf "$outdir"
+          if [ "${#failed_nbs[@]}" -gt 0 ]; then
+            echo "::error::The following notebooks failed execution:"
+            for nb in "${failed_nbs[@]}"; do
+              echo "::error file=$nb::$nb"
+            done
+            exit 1
+          fi

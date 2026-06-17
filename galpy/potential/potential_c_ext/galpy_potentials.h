@@ -32,6 +32,13 @@ struct potentialArg{
 		      struct potentialArg *);
   double (*Rphideriv)(double R,double Z,double phi, double t,
 		      struct potentialArg *);
+  // Remaining full-3D second derivatives, for the 3D variational equations
+  double (*z2deriv)(double R,double Z,double phi, double t,
+		    struct potentialArg *);
+  double (*Rzderiv)(double R,double Z,double phi, double t,
+		    struct potentialArg *);
+  double (*zphideriv)(double R,double Z,double phi, double t,
+		      struct potentialArg *);
   double (*planarR2deriv)(double R,double phi, double t,
 			  struct potentialArg *);
   double (*planarphi2deriv)(double R,double phi, double t,
@@ -54,6 +61,13 @@ struct potentialArg{
 			 struct potentialArg *,double,double);
   double (*planarphitorqueVelocity)(double R,double phi, double t,
 			   struct potentialArg *,double,double);
+  // Rectangular Jacobian of a velocity-dependent (DissipativeForce) force,
+  // for the 3D variational equations: fills the row-major 3x3 blocks
+  // jac_x = d(Fx,Fy,Fz)/d(x,y,z) and jac_v = d(Fx,Fy,Fz)/d(vx,vy,vz) at
+  // q=(x,y,z,vx,vy,vz). NULL for conservative potentials and for dissipative
+  // forces without a wired C Jacobian (NULL-initialized in init_potentialArgs).
+  void (*RectDissipativeForceJacobian)(double t, double *q, double *jac_x,
+				       double *jac_v, struct potentialArg *);
 
   int nargs;
   double * args;
@@ -71,6 +85,18 @@ struct potentialArg{
   interp_2d * i2dzforce;
   gsl_interp_accel * accxzforce;
   gsl_interp_accel * accyzforce;
+  // 2D-interpolated 2nd derivatives (interpRZPotential's full 3D Hessian for
+  // the 3D variational equations); precomputed exact-2nd-derivative grids
+  // interpolated just like the forces
+  interp_2d * i2dr2deriv;
+  gsl_interp_accel * accxr2deriv;
+  gsl_interp_accel * accyr2deriv;
+  interp_2d * i2dz2deriv;
+  gsl_interp_accel * accxz2deriv;
+  gsl_interp_accel * accyz2deriv;
+  interp_2d * i2drzderiv;
+  gsl_interp_accel * accxrzderiv;
+  gsl_interp_accel * accyrzderiv;
   // To allow an arbitrary number of functions of time
   int ntfuncs;
   tfuncs_type_arr tfuncs; // see typedef above
@@ -112,24 +138,27 @@ double evaluatePotentials(double,double,int, struct potentialArg *);
 // (e.g., CALCRFORCE would get R = __VA_ARGS = R,Z,phi,...)
 #ifdef _MSC_VER
 #define EXPAND(x) x
-#define calcRforce(...)   EXPAND(CALCRFORCE(__VA_ARGS__,0.,0.,0.))
-#define calczforce(...)   EXPAND(CALCZFORCE(__VA_ARGS__,0.,0.,0.))
-#define calcphitorque(...) EXPAND(CALCPHITORQUE(__VA_ARGS__,0.,0.,0.))
+#define calcRforce(...)   EXPAND(CALCRFORCE(__VA_ARGS__,1,0.,0.,0.))
+#define calczforce(...)   EXPAND(CALCZFORCE(__VA_ARGS__,1,0.,0.,0.))
+#define calcphitorque(...) EXPAND(CALCPHITORQUE(__VA_ARGS__,1,0.,0.,0.))
 #else
-#define calcRforce(R,Z,phi,t,nargs,potentialArgs,...) CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
-#define calczforce(R,Z,phi,t,nargs,potentialArgs,...) CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
-#define calcphitorque(R,Z,phi,t,nargs,potentialArgs,...) CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
+#define calcRforce(R,Z,phi,t,nargs,potentialArgs,...) CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,1,0.,0.,0.)
+#define calczforce(R,Z,phi,t,nargs,potentialArgs,...) CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,1,0.,0.,0.)
+#define calcphitorque(R,Z,phi,t,nargs,potentialArgs,...) CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,1,0.,0.,0.)
 #endif
-#define CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calcRforce(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
-#define CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calczforce(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
-#define CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calcphitorque(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
+#define CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ,...) calcRforce(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ)
+#define CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ,...) calczforce(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ)
+#define CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ,...) calcphitorque(R,Z,phi,t,nargs,potentialArgs,incl,vR,vT,vZ)
+// int before the velocities: include the velocity-dependent (dissipative)
+// forces in the sum? (the macros default it to 1; the 3D variational
+// equations pass 0)
 double (calcRforce)(double,double,double,double,int,struct potentialArg *,
-		    double,double,double);
+		    int,double,double,double);
 double (calczforce)(double,double,double,double,int,struct potentialArg *,
-		      double,double,double);
+		      int,double,double,double);
 double (calcphitorque)(double, double,double, double,
 		      int, struct potentialArg *,
-		      double,double,double);
+		      int,double,double,double);
 // end hack
 double calcR2deriv(double, double, double,double,
 			 int, struct potentialArg *);
@@ -137,6 +166,19 @@ double calcphi2deriv(double, double, double,double,
 			   int, struct potentialArg *);
 double calcRphideriv(double, double, double,double,
 			   int, struct potentialArg *);
+// Summed rectangular Jacobian (jac_x = dF/dx, jac_v = dF/dv; row-major 3x3
+// each) of all velocity-dependent forces that provide
+// RectDissipativeForceJacobian; NULL-safe: returns exact zeros when no
+// component has the Jacobian (in particular for purely conservative
+// potentials).
+void calcRectDissipativeForceJacobian(double, double *, double *, double *,
+				      int, struct potentialArg *);
+double calcz2deriv(double, double, double,double,
+				 int, struct potentialArg *);
+double calcRzderiv(double, double, double,double,
+				 int, struct potentialArg *);
+double calczphideriv(double, double, double,double,
+				 int, struct potentialArg *);
 // Same hack as for Rforce etc. above to allow optional velocity for dissipative forces
 #ifdef _MSC_VER
 #define calcPlanarRforce(...)   EXPAND(CALCPLANARRFORCE(__VA_ARGS__,0.,0.))
@@ -190,6 +232,18 @@ double LogarithmicHaloPotentialPlanarRphideriv(double ,double, double,
 					       struct potentialArg *);
 double LogarithmicHaloPotentialDens(double ,double , double, double,
 				    struct potentialArg *);
+double LogarithmicHaloPotentialR2deriv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialz2deriv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialRzderiv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialphi2deriv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialRphideriv(double ,double , double, double,
+				    struct potentialArg *);
+double LogarithmicHaloPotentialzphideriv(double ,double , double, double,
+				    struct potentialArg *);
 //DehnenBarPotential
 double DehnenBarPotentialRforce(double,double,double,double,
 				struct potentialArg *);
@@ -207,15 +261,39 @@ double DehnenBarPotentialPlanarphi2deriv(double,double,double,
 					 struct potentialArg *);
 double DehnenBarPotentialPlanarRphideriv(double,double,double,
 					 struct potentialArg *);
+double DehnenBarPotentialR2deriv(double,double,double,double,
+				 struct potentialArg *);
+double DehnenBarPotentialz2deriv(double,double,double,double,
+				 struct potentialArg *);
+double DehnenBarPotentialphi2deriv(double,double,double,double,
+				   struct potentialArg *);
+double DehnenBarPotentialRzderiv(double,double,double,double,
+				 struct potentialArg *);
+double DehnenBarPotentialRphideriv(double,double,double,double,
+				   struct potentialArg *);
+double DehnenBarPotentialzphideriv(double,double,double,double,
+				   struct potentialArg *);
 //TransientLogSpiralPotential
 double TransientLogSpiralPotentialRforce(double,double,double,
 		       struct potentialArg *);
 double TransientLogSpiralPotentialphitorque(double,double,double,
 		       struct potentialArg *);
+double TransientLogSpiralPotentialR2deriv(double,double,double,
+		       struct potentialArg *);
+double TransientLogSpiralPotentialphi2deriv(double,double,double,
+		       struct potentialArg *);
+double TransientLogSpiralPotentialRphideriv(double,double,double,
+		       struct potentialArg *);
 //SteadyLogSpiralPotential
 double SteadyLogSpiralPotentialRforce(double,double,double,
 		       struct potentialArg *);
 double SteadyLogSpiralPotentialphitorque(double,double,double,
+		       struct potentialArg *);
+double SteadyLogSpiralPotentialR2deriv(double,double,double,
+		       struct potentialArg *);
+double SteadyLogSpiralPotentialphi2deriv(double,double,double,
+		       struct potentialArg *);
+double SteadyLogSpiralPotentialRphideriv(double,double,double,
 		       struct potentialArg *);
 //EllipticalDiskPotential
 double EllipticalDiskPotentialRforce(double,double,double,
@@ -239,6 +317,12 @@ double MiyamotoNagaiPotentialzforce(double,double,double,double,
 				    struct potentialArg *);
 double MiyamotoNagaiPotentialPlanarR2deriv(double ,double, double,
 					   struct potentialArg *);
+double MiyamotoNagaiPotentialR2deriv(double ,double , double, double,
+				     struct potentialArg *);
+double MiyamotoNagaiPotentialz2deriv(double ,double , double, double,
+				     struct potentialArg *);
+double MiyamotoNagaiPotentialRzderiv(double ,double , double, double,
+				     struct potentialArg *);
 double MiyamotoNagaiPotentialDens(double ,double , double, double,
 				  struct potentialArg *);
 //LopsidedDiskPotential
@@ -263,6 +347,12 @@ double PowerSphericalPotentialzforce(double,double,double,double,
 				     struct potentialArg *);
 double PowerSphericalPotentialPlanarR2deriv(double ,double, double,
 					    struct potentialArg *);
+double PowerSphericalPotentialR2deriv(double ,double , double, double,
+				      struct potentialArg *);
+double PowerSphericalPotentialz2deriv(double ,double , double, double,
+				      struct potentialArg *);
+double PowerSphericalPotentialRzderiv(double ,double , double, double,
+				      struct potentialArg *);
 double PowerSphericalPotentialDens(double ,double , double, double,
 				   struct potentialArg *);
 //HernquistPotential
@@ -276,6 +366,12 @@ double HernquistPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double HernquistPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double HernquistPotentialR2deriv(double ,double , double, double,
+				 struct potentialArg *);
+double HernquistPotentialz2deriv(double ,double , double, double,
+				 struct potentialArg *);
+double HernquistPotentialRzderiv(double ,double , double, double,
+				 struct potentialArg *);
 double HernquistPotentialDens(double ,double , double, double,
 			      struct potentialArg *);
 //NFWPotential
@@ -289,6 +385,12 @@ double NFWPotentialzforce(double,double,double,double,
 			  struct potentialArg *);
 double NFWPotentialPlanarR2deriv(double ,double, double,
 				 struct potentialArg *);
+double NFWPotentialR2deriv(double ,double , double, double,
+			   struct potentialArg *);
+double NFWPotentialz2deriv(double ,double , double, double,
+			   struct potentialArg *);
+double NFWPotentialRzderiv(double ,double , double, double,
+			   struct potentialArg *);
 double NFWPotentialDens(double ,double , double, double,
 			 struct potentialArg *);
 //JaffePotential
@@ -302,6 +404,12 @@ double JaffePotentialzforce(double,double,double,double,
 			    struct potentialArg *);
 double JaffePotentialPlanarR2deriv(double ,double, double,
 				   struct potentialArg *);
+double JaffePotentialR2deriv(double ,double , double, double,
+			     struct potentialArg *);
+double JaffePotentialz2deriv(double ,double , double, double,
+			     struct potentialArg *);
+double JaffePotentialRzderiv(double ,double , double, double,
+			     struct potentialArg *);
 double JaffePotentialDens(double ,double , double, double,
 			  struct potentialArg *);
 //DoubleExponentialDiskPotential
@@ -313,6 +421,14 @@ double DoubleExponentialDiskPotentialPlanarRforce(double,double,double,
 						  struct potentialArg *);
 double DoubleExponentialDiskPotentialzforce(double,double, double,double,
 					    struct potentialArg *);
+double DoubleExponentialDiskPotentialR2deriv(double,double,double,double,
+					     struct potentialArg *);
+double DoubleExponentialDiskPotentialPlanarR2deriv(double,double,double,
+						   struct potentialArg *);
+double DoubleExponentialDiskPotentialz2deriv(double,double,double,double,
+					     struct potentialArg *);
+double DoubleExponentialDiskPotentialRzderiv(double,double,double,double,
+					     struct potentialArg *);
 double DoubleExponentialDiskPotentialDens(double ,double , double, double,
 					  struct potentialArg *);
 //FlattenedPowerPotential
@@ -326,6 +442,12 @@ double FlattenedPowerPotentialzforce(double,double,double,double,
 				     struct potentialArg *);
 double FlattenedPowerPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+double FlattenedPowerPotentialR2deriv(double,double,double,double,
+				      struct potentialArg *);
+double FlattenedPowerPotentialz2deriv(double,double,double,double,
+				      struct potentialArg *);
+double FlattenedPowerPotentialRzderiv(double,double,double,double,
+				      struct potentialArg *);
 double FlattenedPowerPotentialDens(double,double,double,double,
 				   struct potentialArg *);
 //interpRZPotential
@@ -335,6 +457,12 @@ double interpRZPotentialRforce(double ,double , double, double,
 			       struct potentialArg *);
 double interpRZPotentialzforce(double ,double , double, double,
 			       struct potentialArg *);
+double interpRZPotentialR2deriv(double ,double , double, double,
+				struct potentialArg *);
+double interpRZPotentialz2deriv(double ,double , double, double,
+				struct potentialArg *);
+double interpRZPotentialRzderiv(double ,double , double, double,
+				struct potentialArg *);
 //IsochronePotential
 double IsochronePotentialEval(double ,double , double, double,
 			      struct potentialArg *);
@@ -346,6 +474,12 @@ double IsochronePotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double IsochronePotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double IsochronePotentialR2deriv(double ,double , double, double,
+				 struct potentialArg *);
+double IsochronePotentialz2deriv(double ,double , double, double,
+				 struct potentialArg *);
+double IsochronePotentialRzderiv(double ,double , double, double,
+				 struct potentialArg *);
 double IsochronePotentialDens(double ,double , double, double,
 			      struct potentialArg *);
 //PowerSphericalPotentialwCutoff
@@ -359,6 +493,12 @@ double PowerSphericalPotentialwCutoffzforce(double,double,double,double,
 					    struct potentialArg *);
 double PowerSphericalPotentialwCutoffPlanarR2deriv(double ,double, double,
 						   struct potentialArg *);
+double PowerSphericalPotentialwCutoffR2deriv(double ,double , double, double,
+					     struct potentialArg *);
+double PowerSphericalPotentialwCutoffz2deriv(double ,double , double, double,
+					     struct potentialArg *);
+double PowerSphericalPotentialwCutoffRzderiv(double ,double , double, double,
+					     struct potentialArg *);
 double PowerSphericalPotentialwCutoffDens(double ,double , double, double,
 					  struct potentialArg *);
 //KuzminKutuzovStaeckelPotential
@@ -372,6 +512,12 @@ double KuzminKutuzovStaeckelPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double KuzminKutuzovStaeckelPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+double KuzminKutuzovStaeckelPotentialR2deriv(double,double,double,double,
+					    struct potentialArg *);
+double KuzminKutuzovStaeckelPotentialz2deriv(double,double,double,double,
+					    struct potentialArg *);
+double KuzminKutuzovStaeckelPotentialRzderiv(double,double,double,double,
+					    struct potentialArg *);
 
 //KuzminDiskPotential
 double KuzminDiskPotentialEval(double,double,double,double,
@@ -384,6 +530,12 @@ double KuzminDiskPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double KuzminDiskPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+double KuzminDiskPotentialR2deriv(double,double,double,double,
+					    struct potentialArg *);
+double KuzminDiskPotentialz2deriv(double,double,double,double,
+					    struct potentialArg *);
+double KuzminDiskPotentialRzderiv(double,double,double,double,
+					    struct potentialArg *);
 //PlummerPotential
 double PlummerPotentialEval(double,double,double,double,
                         struct potentialArg *);
@@ -395,6 +547,12 @@ double PlummerPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double PlummerPotentialPlanarR2deriv(double,double,double,
 					    struct potentialArg *);
+double PlummerPotentialR2deriv(double,double,double,double,
+			       struct potentialArg *);
+double PlummerPotentialz2deriv(double,double,double,double,
+			       struct potentialArg *);
+double PlummerPotentialRzderiv(double,double,double,double,
+			       struct potentialArg *);
 double PlummerPotentialDens(double,double,double,double,
 			    struct potentialArg *);
 //PseudoIsothermalPotential
@@ -408,6 +566,12 @@ double PseudoIsothermalPotentialzforce(double,double,double,double,
 				       struct potentialArg *);
 double PseudoIsothermalPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
+double PseudoIsothermalPotentialR2deriv(double,double,double,double,
+					struct potentialArg *);
+double PseudoIsothermalPotentialz2deriv(double,double,double,double,
+					struct potentialArg *);
+double PseudoIsothermalPotentialRzderiv(double,double,double,double,
+					struct potentialArg *);
 double PseudoIsothermalPotentialDens(double,double,double,double,
 				     struct potentialArg *);
 //BurkertPotential
@@ -421,6 +585,12 @@ double BurkertPotentialzforce(double,double,double,double,
 				       struct potentialArg *);
 double BurkertPotentialPlanarR2deriv(double,double,double,
 					      struct potentialArg *);
+double BurkertPotentialR2deriv(double,double,double,double,
+			       struct potentialArg *);
+double BurkertPotentialz2deriv(double,double,double,double,
+			       struct potentialArg *);
+double BurkertPotentialRzderiv(double,double,double,double,
+			       struct potentialArg *);
 double BurkertPotentialDens(double,double,double,double,
 			    struct potentialArg *);
 //EllipsoidalPotential
@@ -444,6 +614,19 @@ double EllipsoidalPotentialPlanarphi2deriv(double,double,double,
 					   struct potentialArg *);
 double EllipsoidalPotentialPlanarRphideriv(double,double,double,
 					   struct potentialArg *);
+// Full-3D cylindrical Hessian (for the 3D variational equations)
+double EllipsoidalPotentialR2deriv(double,double,double,double,
+				   struct potentialArg *);
+double EllipsoidalPotentialz2deriv(double,double,double,double,
+				   struct potentialArg *);
+double EllipsoidalPotentialRzderiv(double,double,double,double,
+				   struct potentialArg *);
+double EllipsoidalPotentialphi2deriv(double,double,double,double,
+				     struct potentialArg *);
+double EllipsoidalPotentialRphideriv(double,double,double,double,
+				     struct potentialArg *);
+double EllipsoidalPotentialzphideriv(double,double,double,double,
+				     struct potentialArg *);
 //TriaxialHernquistPotential: uses EllipsoidalPotential, only need psi, dens, densDeriv
 double TriaxialHernquistPotentialpsi(double,double *);
 double TriaxialHernquistPotentialmdens(double,double *);
@@ -465,6 +648,8 @@ void cyl_to_spher(double R, double Z, double *r, double *theta);
 int legendre_index(int l, int m, int L);
 void compute_legendre(double x, int L, int M, double *P);
 void compute_legendre_deriv(double x, int L, int M, double *P, double *dP);
+void legendre_theta_from_x(double theta, int L, int M, double *P, double *dPdx,
+			   double *dPth, double *d2Pth);
 //SCFPotential
 void initSCFPotentialArgs(struct potentialArg *);
 double SCFPotentialEval(double,double,double,double,
@@ -486,6 +671,18 @@ double SCFPotentialPlanarphi2deriv(double,double,double,
 				        struct potentialArg *);
 double SCFPotentialPlanarRphideriv(double,double,double,
 				        struct potentialArg *);
+double SCFPotentialR2deriv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialz2deriv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialRzderiv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialphi2deriv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialRphideriv(double,double,double,double,
+			struct potentialArg *);
+double SCFPotentialzphideriv(double,double,double,double,
+			struct potentialArg *);
 double SCFPotentialDens(double,double,double,double,
 			struct potentialArg *);
 //SoftenedNeedleBarPotential
@@ -501,6 +698,24 @@ double SoftenedNeedleBarPotentialPlanarRforce(double,double,double,
 					      struct potentialArg *);
 double SoftenedNeedleBarPotentialPlanarphitorque(double,double,double,
 					  struct potentialArg *);
+double SoftenedNeedleBarPotentialR2deriv(double,double,double,double,
+					 struct potentialArg *);
+double SoftenedNeedleBarPotentialz2deriv(double,double,double,double,
+					 struct potentialArg *);
+double SoftenedNeedleBarPotentialphi2deriv(double,double,double,double,
+					   struct potentialArg *);
+double SoftenedNeedleBarPotentialRzderiv(double,double,double,double,
+					 struct potentialArg *);
+double SoftenedNeedleBarPotentialRphideriv(double,double,double,double,
+					   struct potentialArg *);
+double SoftenedNeedleBarPotentialzphideriv(double,double,double,double,
+					   struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarR2deriv(double,double,double,
+					       struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarphi2deriv(double,double,double,
+						 struct potentialArg *);
+double SoftenedNeedleBarPotentialPlanarRphideriv(double,double,double,
+						 struct potentialArg *);
 //DiskSCFPotential
 double DiskSCFPotentialEval(double,double,double,double,
 				      struct potentialArg *);
@@ -510,6 +725,14 @@ double DiskSCFPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double DiskSCFPotentialPlanarRforce(double,double,double,
 					      struct potentialArg *);
+double DiskSCFPotentialPlanarR2deriv(double,double,double,
+					      struct potentialArg *);
+double DiskSCFPotentialR2deriv(double,double,double,double,
+			       struct potentialArg *);
+double DiskSCFPotentialz2deriv(double,double,double,double,
+			       struct potentialArg *);
+double DiskSCFPotentialRzderiv(double,double,double,double,
+			       struct potentialArg *);
 double DiskSCFPotentialDens(double,double,double,double,
 			    struct potentialArg *);
 
@@ -531,6 +754,8 @@ double SpiralArmsPotentialphi2deriv(double R, double z, double phi, double t,
 double SpiralArmsPotentialRzderiv(double R, double z, double phi, double t,
                             struct potentialArg* potentialArgs);
 double SpiralArmsPotentialRphideriv(double R, double z, double phi, double t,
+                            struct potentialArg* potentialArgs);
+double SpiralArmsPotentialzphideriv(double R, double z, double phi, double t,
                             struct potentialArg* potentialArgs);
 double SpiralArmsPotentialPlanarRforce(double, double, double,
                             struct potentialArg*);
@@ -586,6 +811,12 @@ double DehnenSphericalPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double DehnenSphericalPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double DehnenSphericalPotentialR2deriv(double ,double , double, double,
+				       struct potentialArg *);
+double DehnenSphericalPotentialz2deriv(double ,double , double, double,
+				       struct potentialArg *);
+double DehnenSphericalPotentialRzderiv(double ,double , double, double,
+				       struct potentialArg *);
 double DehnenSphericalPotentialDens(double ,double , double, double,
 			      struct potentialArg *);
 //DehnenCoreSphericalPotential
@@ -599,6 +830,12 @@ double DehnenCoreSphericalPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double DehnenCoreSphericalPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double DehnenCoreSphericalPotentialR2deriv(double ,double , double, double,
+					   struct potentialArg *);
+double DehnenCoreSphericalPotentialz2deriv(double ,double , double, double,
+					   struct potentialArg *);
+double DehnenCoreSphericalPotentialRzderiv(double ,double , double, double,
+					   struct potentialArg *);
 double DehnenCoreSphericalPotentialDens(double ,double , double, double,
 					struct potentialArg *);
 
@@ -613,6 +850,12 @@ double HomogeneousSpherePotentialzforce(double,double,double,double,
 					struct potentialArg *);
 double HomogeneousSpherePotentialPlanarR2deriv(double ,double, double,
 					       struct potentialArg *);
+double HomogeneousSpherePotentialR2deriv(double ,double , double, double,
+					 struct potentialArg *);
+double HomogeneousSpherePotentialz2deriv(double ,double , double, double,
+					 struct potentialArg *);
+double HomogeneousSpherePotentialRzderiv(double ,double , double, double,
+					 struct potentialArg *);
 double HomogeneousSpherePotentialDens(double ,double , double, double,
 				      struct potentialArg *);
 //SphericalPotential
@@ -626,6 +869,12 @@ double SphericalPotentialzforce(double,double,double,double,
 				struct potentialArg *);
 double SphericalPotentialPlanarR2deriv(double ,double, double,
 				       struct potentialArg *);
+double SphericalPotentialR2deriv(double,double,double,double,
+				 struct potentialArg *);
+double SphericalPotentialz2deriv(double,double,double,double,
+				 struct potentialArg *);
+double SphericalPotentialRzderiv(double,double,double,double,
+				 struct potentialArg *);
 double SphericalPotentialDens(double,double,double,double,
 			      struct potentialArg *);
 //interpSphericalPotential: uses SphericalPotential, only need revaluate, rforce, r2deriv
@@ -663,6 +912,10 @@ double NonInertialFrameForcePlanarphitorque(double,double,double,
 double NonInertialFrameForcezforce(double,double,double,double,
 						 		   struct potentialArg *,
 						 		   double,double,double);
+// Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+// variational equations
+void NonInertialFrameForceRectDissipativeForceJacobian(
+    double,double *,double *,double *,struct potentialArg *);
 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential
@@ -684,6 +937,20 @@ double DehnenSmoothWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double DehnenSmoothWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+// 3D Hessian (variational eqns)
+double DehnenSmoothWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double DehnenSmoothWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
+
 //SolidBodyRotationWrapperPotential
 double SolidBodyRotationWrapperPotentialRforce(double,double,double,double,
 					struct potentialArg *);
@@ -701,6 +968,19 @@ double SolidBodyRotationWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double SolidBodyRotationWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+// 3D Hessian (variational eqns)
+double SolidBodyRotationWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double SolidBodyRotationWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
 //OblateStaeckelWrapperPotential
 double OblateStaeckelWrapperPotentialEval(double,double,double,double,
 					  struct potentialArg *);
@@ -710,6 +990,14 @@ double OblateStaeckelWrapperPotentialzforce(double,double,double,double,
 					    struct potentialArg *);
 double OblateStaeckelWrapperPotentialPlanarRforce(double,double,double,
 						  struct potentialArg *);
+double OblateStaeckelWrapperPotentialR2deriv(double,double,double,double,
+					     struct potentialArg *);
+double OblateStaeckelWrapperPotentialz2deriv(double,double,double,double,
+					     struct potentialArg *);
+double OblateStaeckelWrapperPotentialRzderiv(double,double,double,double,
+					     struct potentialArg *);
+double OblateStaeckelWrapperPotentialPlanarR2deriv(double,double,double,
+						   struct potentialArg *);
 //CorotatingRotationWrapperPotential
 double CorotatingRotationWrapperPotentialRforce(double,double,double,double,
 					struct potentialArg *);
@@ -727,6 +1015,19 @@ double CorotatingRotationWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double CorotatingRotationWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+// 3D Hessian (variational eqns)
+double CorotatingRotationWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double CorotatingRotationWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
 //GaussianAmplitudeWrapperPotential
 double GaussianAmplitudeWrapperPotentialEval(double,double,double,double,
 				      struct potentialArg *);
@@ -746,6 +1047,19 @@ double GaussianAmplitudeWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double GaussianAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+// 3D Hessian (variational eqns)
+double GaussianAmplitudeWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double GaussianAmplitudeWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
 //MovingObjectPotential
 double MovingObjectPotentialRforce(double,double,double,double,
 					struct potentialArg *);
@@ -757,6 +1071,24 @@ double MovingObjectPotentialPlanarRforce(double,double,double,
 					struct potentialArg *);
 double MovingObjectPotentialPlanarphitorque(double,double,double,
 					    struct potentialArg *);
+double MovingObjectPotentialR2deriv(double,double,double,double,
+				    struct potentialArg *);
+double MovingObjectPotentialz2deriv(double,double,double,double,
+				    struct potentialArg *);
+double MovingObjectPotentialRzderiv(double,double,double,double,
+				    struct potentialArg *);
+double MovingObjectPotentialphi2deriv(double,double,double,double,
+				      struct potentialArg *);
+double MovingObjectPotentialRphideriv(double,double,double,double,
+				      struct potentialArg *);
+double MovingObjectPotentialzphideriv(double,double,double,double,
+				      struct potentialArg *);
+double MovingObjectPotentialPlanarR2deriv(double,double,double,
+					  struct potentialArg *);
+double MovingObjectPotentialPlanarphi2deriv(double,double,double,
+					    struct potentialArg *);
+double MovingObjectPotentialPlanarRphideriv(double,double,double,
+					    struct potentialArg *);
 //RotateAndTiltWrapperPotential
 double RotateAndTiltWrapperPotentialRforce(double,double,double,double,
 					struct potentialArg *);
@@ -764,6 +1096,21 @@ double RotateAndTiltWrapperPotentialphitorque(double,double,double,double,
 					    struct potentialArg *);
 double RotateAndTiltWrapperPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
+// Full 3D Hessian for the 3D variational equations (integrate_dxdv): the
+// wrapped potential's Hessian at the rotated/offset point, conjugated back
+// with the rotation matrix
+double RotateAndTiltWrapperPotentialR2deriv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialz2deriv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialRzderiv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialphi2deriv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialRphideriv(double,double,double,double,
+					struct potentialArg *);
+double RotateAndTiltWrapperPotentialzphideriv(double,double,double,double,
+					struct potentialArg *);
 //ChandrasekharDynamicalFrictionForce, takes vR,vT,vZ
 double ChandrasekharDynamicalFrictionForceRforce(double,double,double,double,
 						 struct potentialArg *,
@@ -776,6 +1123,10 @@ double ChandrasekharDynamicalFrictionForcezforce(double,double,double,double,
 						 double,double,double);
 double ChandrasekharDynamicalFrictionForceAmplitude(double,double,double,double,
 						    double,struct potentialArg *,double,double,double);
+// Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+// variational equations
+void ChandrasekharDynamicalFrictionForceRectDissipativeForceJacobian(
+    double,double *,double *,double *,struct potentialArg *);
 //FDMDynamicalFrictionForce, takes vR,vT,vZ,
 //needs ChandrasekharDynamicalFrictionForceAmplitude from above
 double FDMDynamicalFrictionForceRforce(double,double,double,double,
@@ -787,6 +1138,10 @@ double FDMDynamicalFrictionForcephitorque(double,double,double,double,
 double FDMDynamicalFrictionForcezforce(double,double,double,double,
 						 struct potentialArg *,
 						 double,double,double);
+// Rectangular dissipative-force Jacobian (dF/dx, dF/dv) for the 3D
+// variational equations
+void FDMDynamicalFrictionForceRectDissipativeForceJacobian(
+    double,double *,double *,double *,struct potentialArg *);
 //TimeDependentAmplitudeWrapperPotential
 double TimeDependentAmplitudeWrapperPotentialEval(double,double,double,double,
 				      struct potentialArg *);
@@ -806,6 +1161,19 @@ double TimeDependentAmplitudeWrapperPotentialPlanarphi2deriv(double,double,doubl
 						   struct potentialArg *);
 double TimeDependentAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+// 3D Hessian (variational eqns)
+double TimeDependentAmplitudeWrapperPotentialR2deriv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialz2deriv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialRzderiv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialphi2deriv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialRphideriv(double,double,double,double,
+		      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialzphideriv(double,double,double,double,
+		      struct potentialArg *);
 //KuzminLikeWrapperPotential
 double KuzminLikeWrapperPotentialEval(double,double,double,double,
 				      struct potentialArg *);
@@ -817,6 +1185,12 @@ double KuzminLikeWrapperPotentialPlanarRforce(double,double,double,
 						struct potentialArg *);
 double KuzminLikeWrapperPotentialPlanarR2deriv(double,double,double,
 						struct potentialArg *);
+double KuzminLikeWrapperPotentialR2deriv(double,double,double,double,
+					 struct potentialArg *);
+double KuzminLikeWrapperPotentialz2deriv(double,double,double,double,
+					 struct potentialArg *);
+double KuzminLikeWrapperPotentialRzderiv(double,double,double,double,
+					 struct potentialArg *);
 //TwoPowerSphericalPotential
 double TwoPowerSphericalPotentialEval(double,double,double,double,
 				      struct potentialArg *);
@@ -828,6 +1202,12 @@ double TwoPowerSphericalPotentialPlanarRforce(double,double,double,
 						struct potentialArg *);
 double TwoPowerSphericalPotentialPlanarR2deriv(double,double,double,
 						struct potentialArg *);
+double TwoPowerSphericalPotentialR2deriv(double,double,double,double,
+					 struct potentialArg *);
+double TwoPowerSphericalPotentialz2deriv(double,double,double,double,
+					 struct potentialArg *);
+double TwoPowerSphericalPotentialRzderiv(double,double,double,double,
+					 struct potentialArg *);
 double TwoPowerSphericalPotentialDens(double,double,double,double,
 				      struct potentialArg *);
 //CylindricallySep
@@ -838,6 +1218,12 @@ double CylindricallySeparablePotentialWrapperPotentialRforce(double,double,doubl
 double CylindricallySeparablePotentialWrapperPotentialzforce(double,double,double,double,
 					    struct potentialArg *);
 double CylindricallySeparablePotentialWrapperPotentialPlanarRforce(double,double,double,
+						  struct potentialArg *);
+double CylindricallySeparablePotentialWrapperPotentialR2deriv(double,double,double,double,
+						  struct potentialArg *);
+double CylindricallySeparablePotentialWrapperPotentialz2deriv(double,double,double,double,
+						  struct potentialArg *);
+double CylindricallySeparablePotentialWrapperPotentialPlanarR2deriv(double,double,double,
 						  struct potentialArg *);
 //MultipoleExpansionPotential
 void initMultipoleExpansionPotentialArgs(struct potentialArg *,
@@ -862,6 +1248,18 @@ double MultipoleExpansionPotentialPlanarphi2deriv(double,double,double,
 						  struct potentialArg *);
 double MultipoleExpansionPotentialPlanarRphideriv(double,double,double,
 						  struct potentialArg *);
+double MultipoleExpansionPotentialR2deriv(double,double,double,double,
+					  struct potentialArg *);
+double MultipoleExpansionPotentialz2deriv(double,double,double,double,
+					  struct potentialArg *);
+double MultipoleExpansionPotentialRzderiv(double,double,double,double,
+					  struct potentialArg *);
+double MultipoleExpansionPotentialphi2deriv(double,double,double,double,
+					    struct potentialArg *);
+double MultipoleExpansionPotentialRphideriv(double,double,double,double,
+					    struct potentialArg *);
+double MultipoleExpansionPotentialzphideriv(double,double,double,double,
+					    struct potentialArg *);
 
 #ifdef __cplusplus
 }

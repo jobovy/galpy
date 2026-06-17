@@ -98,6 +98,12 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             self._norot = True
         self.hasC = True
         self.hasC_dxdv = True
+        # Advertise the 3D variational capability unconditionally, as for
+        # hasC/hasC_dxdv: _check_c recurses into the wrapped potential's own
+        # hasC_dxdv3d (the wrapper's C 3D Hessian conjugates the wrapped
+        # potential's calc<deriv> Hessian with the rotation matrix, so it is
+        # complete iff the wrapped one is).
+        self.hasC_dxdv3d = True
         self.isNonAxi = True
 
     def _parse_inclination(self, inclination, sky_pa, zvec, galaxy_pa):
