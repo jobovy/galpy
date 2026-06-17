@@ -23,6 +23,7 @@ elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
 else:
     from scipy.special import logsumexp
 
+from ..backend import get_namespace, is_backend_array
 from ..potential import (
     _INF,
     CompositePotential,
@@ -355,6 +356,33 @@ class Orbit:
         - 2019-03-19 - Allow array vxvv and arbitrary shapes - Bovy (UofT)
         - 2023-07-20 - Allowed ro/zo/vo/solarmotion input to be arrays with the same shape as the Orbit itself - Bovy (UofT)
         """
+        # Capture a backend-array (jax/torch) initial condition before the numpy
+        # coercion below, so the differentiable in-backend integrator
+        # (method='diffrax'/'torchdiffeq') can use the original (possibly traced)
+        # array. is_backend_array is False for numpy/Quantity/list/tuple/SkyCoord/
+        # scalar/None, so every existing input is left untouched and the numpy
+        # path stays byte-identical. self.vxvv (numpy) is kept only for shape/
+        # phasedim bookkeeping; the real differentiable IC lives in _ic_backend.
+        self._ic_backend = None
+        # Whether self.vxvv holds the IC's real (concrete) values. True unless the
+        # backend IC is traced/grad-tracking (jax tracer / grad-requiring tensor),
+        # in which case numpy.asarray fails and self.vxvv is a shape-only zeros
+        # placeholder -- then only method='diffrax'/'torchdiffeq' can integrate it.
+        self._ic_backend_concrete = True
+        if is_backend_array(vxvv):
+            self._ic_backend = vxvv
+            # self.vxvv (numpy) is bookkeeping only; the differentiable IC lives
+            # in _ic_backend. A CONCRETE (eager) backend IC keeps its real values
+            # in self.vxvv, so the numpy/C integrators still run on it (this is how
+            # the existing suite is driven under a forced jax/torch backend). Only
+            # a traced / grad-requiring IC -- where the values are genuinely absent
+            # -- falls back to a placeholder and is restricted to the in-backend
+            # methods.
+            try:
+                vxvv = numpy.asarray(vxvv)
+            except Exception:  # traced (jax.grad/jit/vmap) or grad-requiring tensor
+                self._ic_backend_concrete = False
+                vxvv = numpy.zeros(tuple(vxvv.shape))
         # First deal with None = Sun
         if vxvv is None:  # Assume one wants the Sun
             vxvv = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
@@ -1636,16 +1664,41 @@ class Orbit:
 
         Parameters are the same as integrate().
         """
-        self.check_integrator(method)
-        pot = _check_potential_list_and_deprecate(pot)
-        _check_potential_dim(self, pot)
-        _check_consistent_units(self, pot)
-        # Parse t
+        # Parse Quantity output times up-front. A Quantity is always concrete
+        # (never a traced backend array), so handling it before the in-backend
+        # dispatch is safe for jax/torch too and keeps Quantity parsing in ONE
+        # place -- _integrate_inbackend then only ever sees numpy/backend times (a
+        # traced backend-array t is not a Quantity, so it is left untouched here).
         if _APY_LOADED and isinstance(t, units.Quantity):
             self._integrate_t_asQuantity = True
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
         else:
             self._integrate_t_asQuantity = False
+        # In-backend differentiable ODE integrators (jax->diffrax, torch->
+        # torchdiffeq). Intercept BEFORE check_integrator (which would reject
+        # these names) and before any numpy coercion of t / the IC, so the
+        # entire numpy/C/scipy path below is dead code for these methods and
+        # byte-identical for every existing method.
+        if method.lower() in ("diffrax", "torchdiffeq"):
+            return self._integrate_inbackend(t, pot, method, rtol, atol)
+        if getattr(self, "_ic_backend", None) is not None and not getattr(
+            self, "_ic_backend_concrete", True
+        ):
+            # A TRACED / grad-tracking backend IC has no concrete values (self.vxvv
+            # is a placeholder), so a numpy/C integrator would silently integrate
+            # degenerate values -- refuse and point at the differentiable methods.
+            # A concrete backend IC keeps its real values and falls through to the
+            # normal (byte-identical) numpy/C path below.
+            raise ValueError(
+                "this Orbit was built from a traced / grad-tracking jax/torch "
+                "initial condition (no concrete values), so it requires a "
+                "differentiable integrator; use method='diffrax' (jax) or "
+                f"method='torchdiffeq' (torch), not method='{method}'"
+            )
+        self.check_integrator(method)
+        pot = _check_potential_list_and_deprecate(pot)
+        _check_potential_dim(self, pot)
+        _check_consistent_units(self, pot)
         t = numpy.asarray(t)
         # Per-orbit time arrays: t has shape self.shape + (nt,) instead of (nt,)
         indiv_t = t.ndim > 1
@@ -1948,6 +2001,75 @@ class Orbit:
                 lpot[mep_indx]._rgrid[-1],
                 "MultipoleExpansionPotential",
             )
+        return None
+
+    def _integrate_inbackend(self, t, pot, method, rtol, atol):
+        """Integrate a single full-3D orbit with the in-backend differentiable
+        ODE integrator (diffrax for jax, torchdiffeq for torch).
+
+        Autodiff-friendly counterpart of the C/scipy integrators, selected by
+        method='diffrax'/'torchdiffeq'. Requires the Orbit to have been built from
+        a jax/torch initial condition (captured in self._ic_backend) and stores
+        the trajectory as a backend array in self.orbit, so gradients w.r.t. the
+        initial conditions (and backend-array potential parameters) flow through
+        getOrbit(). Time-evaluation accessors (o.R(t), o.E(t), ...) and in-place
+        mutators (flip(inplace=True), SOS) on such an orbit are a follow-up and
+        raise NotImplementedError for now; use getOrbit(). Single orbit; any of
+        the usual phase-space dimensions (2 [x,vx]; 3 [R,vR,vT]; 4 [R,vR,vT,phi];
+        5 [R,vR,vT,z,vz]; 6 [R,vR,vT,z,vz,phi]). 1D (phasedim 2) needs a
+        linearPotential; 2D/3D need a (3D) Potential -- planar orbits are
+        integrated as 3D with z=vz=0, matching the C integrators.
+        """
+        if self.shape != ():
+            raise ValueError(
+                f"method='{method}' currently supports a single orbit only"
+            )
+        ic = getattr(self, "_ic_backend", None)
+        if ic is None:
+            raise ValueError(
+                f"method='{method}' requires a jax/torch initial condition; "
+                "construct the Orbit from a jax or torch array, e.g. "
+                "Orbit(jax.numpy.array([R,vR,vT,z,vz,phi]))"
+            )
+        # Enforce the routing rule (no mixing): integrate_orbit picks the solver
+        # from the IC namespace, so cross-check it against the requested method.
+        xp = get_namespace(ic)
+        name = xp.__name__
+        if method.lower() == "diffrax" and "jax" not in name:
+            raise ValueError(
+                "method='diffrax' requires a jax initial condition; use "
+                "method='torchdiffeq' for a torch initial condition"
+            )
+        if method.lower() == "torchdiffeq" and "torch" not in name:
+            raise ValueError(
+                "method='torchdiffeq' requires a torch initial condition; use "
+                "method='diffrax' for a jax initial condition"
+            )
+        # Output times onto the IC's backend. _integrate_impl has already parsed
+        # any Quantity time to numpy floats (and set _integrate_t_asQuantity), so
+        # here t is either a backend array -- kept on its backend, possibly traced
+        # when differentiating w.r.t. the integration times or under jax.jit, so
+        # the solver call stays inside the trace -- or a list/numpy array moved
+        # onto the IC's backend.
+        if is_backend_array(t):
+            ts = t
+        else:
+            t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
+            ts = xp.asarray(t)
+        from ..backend._reference import integrate_orbit
+
+        # (nt, 6) in Orbit order [R,vR,vT,z,vz,phi], differentiable backend array.
+        result = integrate_orbit(
+            pot,
+            ic,
+            ts,
+            rtol=1e-10 if rtol is None else rtol,
+            atol=1e-10 if atol is None else atol,
+        )
+        self.orbit = result[None, ...]  # (1, nt, phasedim), matching the C layout
+        self.t = t
+        self._pot = pot
+        self._orig_pot = pot
         return None
 
     def _warn_radii_outside_interpolation_range(self, rmin, rmax, potname):
@@ -2839,6 +2961,10 @@ class Orbit:
         -----
         - 2019-03-02 - Written - Bovy (UofT)
         """
+        # A backend (jax/torch) orbit from an in-backend integrator is returned
+        # as-is (preserving the autodiff graph; torch tensors also lack .copy()).
+        if is_backend_array(self.orbit):
+            return self.orbit
         return self.orbit.copy()
 
     @shapeDecorator
@@ -6494,6 +6620,15 @@ class Orbit:
         """
         if len(args) == 0 and "t" in kwargs:
             args = [kwargs.pop("t")]
+        if is_backend_array(getattr(self, "orbit", None)):
+            # In-backend (diffrax/torchdiffeq) orbit: the time-evaluation accessors
+            # (R/vR/.../E/rperi/...) are not yet backend-aware. Fail clearly rather
+            # than crash on self.orbit.T.copy() (torch) or leak a jax array.
+            raise NotImplementedError(
+                "time-evaluation accessors (o.R(t), o.E(t), o.rperi(), ...) are "
+                "not yet supported for in-backend (diffrax/torchdiffeq) orbits; use "
+                "o.getOrbit() to obtain the differentiable trajectory"
+            )
         if len(args) == 0 or (not hasattr(self, "t") and args[0] == 0.0):
             return numpy.array(self.vxvv).T
         elif not hasattr(self, "t"):
