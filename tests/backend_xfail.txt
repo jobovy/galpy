@@ -121,6 +121,7 @@ jax tests/test_potential.py::test_TimeDependentAmplitudeWrapperPotential_against
 jax tests/test_potential.py::test_amp_mult_divide
 jax tests/test_potential.py::test_evaluateAndDerivs_potential
 jax tests/test_potential.py::test_forceAsDeriv_potential
+jax tests/test_potential.py::test_harmonic_planar_stm_vs_fd_of_flow
 jax tests/test_potential.py::test_poisson_potential
 jax tests/test_potential.py::test_poisson_surfdens_potential
 jax tests/test_potential.py::test_potential_at_infinity
