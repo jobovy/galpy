@@ -121,6 +121,7 @@ jax tests/test_potential.py::test_TimeDependentAmplitudeWrapperPotential_against
 jax tests/test_potential.py::test_amp_mult_divide
 jax tests/test_potential.py::test_evaluateAndDerivs_potential
 jax tests/test_potential.py::test_forceAsDeriv_potential
+jax tests/test_potential.py::test_harmonic_planar_stm_vs_fd_of_flow
 jax tests/test_potential.py::test_poisson_potential
 jax tests/test_potential.py::test_poisson_surfdens_potential
 jax tests/test_potential.py::test_potential_at_infinity
@@ -571,6 +572,10 @@ torch tests/test_interp_potential.py::test_interpolation_potential_vcirc_notinte
 torch tests/test_interp_potential.py::test_interpolation_potential_vcirc_outsidegrid
 torch tests/test_interp_potential.py::test_interpolation_potential_verticalfreq
 torch tests/test_kuzminkutuzov.py::test_actionConservation
+torch tests/test_kuzminkutuzov.py::test_density
+torch tests/test_kuzminkutuzov.py::test_estimateDelta
+torch tests/test_kuzminkutuzov.py::test_orbitIntegrationC
+torch tests/test_kuzminkutuzov.py::test_vcirc
 torch tests/test_noninertial.py::test_accellsrframe_funcomegaz
 torch tests/test_noninertial.py::test_accellsrframe_funcomegaz_2d
 torch tests/test_noninertial.py::test_accellsrframe_scalaromegaz
@@ -701,6 +706,7 @@ torch tests/test_orbit.py::test_energy_conservation_linear[KGPotential--10.0-Fal
 torch tests/test_orbit.py::test_energy_conservation_linear[KeplerPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[KingPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[KuzminDiskPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[KuzminKutuzovStaeckelPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[LogarithmicHaloPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[MN3ExponentialDiskPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[MWP14CylindricallySeparablePotentialWrapper--10.0-False]
@@ -713,6 +719,8 @@ torch tests/test_orbit.py::test_energy_conservation_linear[PlummerPotential--10.
 torch tests/test_orbit.py::test_energy_conservation_linear[PowerSphericalPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[PowerSphericalPotentialwCutoff--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[PowerTriaxialPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[PseudoIsothermalPotential--10.0-False]
+torch tests/test_orbit.py::test_energy_conservation_linear[RazorThinExponentialDiskPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[SCFPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[TriaxialGaussianPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[TriaxialHernquistPotential--10.0-False]
@@ -766,6 +774,7 @@ torch tests/test_orbit.py::test_energy_jacobi_conservation[KeplerPotential--10.0
 torch tests/test_orbit.py::test_energy_jacobi_conservation[KingPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[KuzminDiskPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[KuzminKutuzovOblateStaeckelWrapperPotential--10.0--10.0-False]
+torch tests/test_orbit.py::test_energy_jacobi_conservation[KuzminKutuzovStaeckelPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[LogarithmicHaloPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[MN3ExponentialDiskPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[MWP14CylindricallySeparablePotentialWrapper--10.0--10.0-False]
@@ -778,6 +787,8 @@ torch tests/test_orbit.py::test_energy_jacobi_conservation[PlummerPotential--10.
 torch tests/test_orbit.py::test_energy_jacobi_conservation[PowerSphericalPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[PowerSphericalPotentialwCutoff--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[PowerTriaxialPotential--10.0--10.0-False]
+torch tests/test_orbit.py::test_energy_jacobi_conservation[PseudoIsothermalPotential--10.0--10.0-False]
+torch tests/test_orbit.py::test_energy_jacobi_conservation[RazorThinExponentialDiskPotential--10.0--9.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[SCFPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[SoftenedNeedleBarPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[TriaxialGaussianPotential--10.0--10.0-False]
