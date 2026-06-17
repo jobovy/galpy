@@ -2,8 +2,11 @@
 #   PseudoIsothermalPotential.py: class that implements the pseudo-isothermal
 #                                 halo potential
 ###############################################################################
+import math
+
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -41,6 +44,7 @@ class PseudoIsothermalPotential(Potential):
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
@@ -54,59 +58,67 @@ class PseudoIsothermalPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        r = numpy.sqrt(r2)
-        out = (
-            0.5 * numpy.log(1 + r2 / self._a2) + self._a / r * numpy.arctan(r / self._a)
-        ) / self._a
-        if isinstance(r, (float, int)):
+        r = xp.sqrt(r2)
+        if isinstance(r, (float, int)):  # numpy/python scalar fast path
             if r == 0:
                 return 1.0 / self._a
-            else:
-                return out
-        else:
-            out[r == 0] = 1.0 / self._a
-            return out
+            return (
+                0.5 * xp.log(1 + r2 / self._a2) + self._a / r * xp.arctan(r / self._a)
+            ) / self._a
+        # guard the r==0 dead branch (self._a / r) with a safe denominator
+        r_safe = xp.where(r == 0, self._a, r)
+        out = (
+            0.5 * xp.log(1 + r2 / self._a2)
+            + self._a / r_safe * xp.arctan(r_safe / self._a)
+        ) / self._a
+        return xp.where(r == 0, 1.0 / self._a, out)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        r = numpy.sqrt(r2)
-        return -(1.0 / r - self._a / r2 * numpy.arctan(r / self._a)) / self._a * R / r
+        r = xp.sqrt(r2)
+        return -(1.0 / r - self._a / r2 * xp.arctan(r / self._a)) / self._a * R / r
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        r = numpy.sqrt(r2)
-        return -(1.0 / r - self._a / r2 * numpy.arctan(r / self._a)) / self._a * z / r
+        r = xp.sqrt(r2)
+        return -(1.0 / r - self._a / r2 * xp.arctan(r / self._a)) / self._a * z / r
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        return 1.0 / (1.0 + (R**2.0 + z**2.0) / self._a2) / 4.0 / numpy.pi / self._a3
+        return 1.0 / (1.0 + (R**2.0 + z**2.0) / self._a2) / 4.0 / math.pi / self._a3
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        r = numpy.sqrt(r2)
+        r = xp.sqrt(r2)
         return (
             1.0
             / r2
             * (1.0 - R**2.0 / r2 * (3.0 * self._a2 + 2.0 * r2) / (self._a2 + r2))
-            + self._a / r2 / r * (3.0 * R**2.0 / r2 - 1.0) * numpy.arctan(r / self._a)
+            + self._a / r2 / r * (3.0 * R**2.0 / r2 - 1.0) * xp.arctan(r / self._a)
         ) / self._a
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        r = numpy.sqrt(r2)
+        r = xp.sqrt(r2)
         return (
             1.0
             / r2
             * (1.0 - z**2.0 / r2 * (3.0 * self._a2 + 2.0 * r2) / (self._a2 + r2))
-            + self._a / r2 / r * (3.0 * z**2.0 / r2 - 1.0) * numpy.arctan(r / self._a)
+            + self._a / r2 / r * (3.0 * z**2.0 / r2 - 1.0) * xp.arctan(r / self._a)
         ) / self._a
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         r2 = R**2.0 + z**2.0
-        r = numpy.sqrt(r2)
+        r = xp.sqrt(r2)
         return (
             (
-                3.0 * self._a / r2 / r2 * numpy.arctan(r / self._a)
+                3.0 * self._a / r2 / r2 * xp.arctan(r / self._a)
                 - 1.0 / r2 / r * ((3.0 * self._a2 + 2.0 * r2) / (r2 + self._a2))
             )
             * R
