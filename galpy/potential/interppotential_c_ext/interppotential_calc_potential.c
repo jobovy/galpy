@@ -207,3 +207,68 @@ EXPORT void eval_zforce(int nR,
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
 }
+// Evaluate the (interpolated) second derivatives of the potential
+// (R2deriv/z2deriv/Rzderiv); used by interpRZPotential's C-spline path for
+// its full 3D Hessian. NB: the calc* aggregators are NULL-safe (a potential
+// without the C 2nd derivative contributes 0), so callers must check that
+// every potential supports them (e.g. interpRZPotential.hasC_dxdv3d).
+EXPORT void eval_r2deriv(int nR,
+			 double *R,
+			 double *z,
+			 int npot,
+			 int * pot_type,
+			 double * pot_args,
+       tfuncs_type_arr pot_tfuncs,
+			 double *out,
+			 int * err){
+  int ii;
+  //Set up the potentials
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,&pot_tfuncs);
+  //Run through and evaluate
+  for (ii=0; ii < nR; ii++){
+    *(out+ii)= calcR2deriv(*(R+ii),*(z+ii),0.,0.,npot,potentialArgs);
+  }
+  free_potentialArgs(npot,potentialArgs);
+  free(potentialArgs);
+}
+EXPORT void eval_z2deriv(int nR,
+			 double *R,
+			 double *z,
+			 int npot,
+			 int * pot_type,
+			 double * pot_args,
+       tfuncs_type_arr pot_tfuncs,
+			 double *out,
+			 int * err){
+  int ii;
+  //Set up the potentials
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,&pot_tfuncs);
+  //Run through and evaluate
+  for (ii=0; ii < nR; ii++){
+    *(out+ii)= calcz2deriv(*(R+ii),*(z+ii),0.,0.,npot,potentialArgs);
+  }
+  free_potentialArgs(npot,potentialArgs);
+  free(potentialArgs);
+}
+EXPORT void eval_rzderiv(int nR,
+			 double *R,
+			 double *z,
+			 int npot,
+			 int * pot_type,
+			 double * pot_args,
+       tfuncs_type_arr pot_tfuncs,
+			 double *out,
+			 int * err){
+  int ii;
+  //Set up the potentials
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,&pot_tfuncs);
+  //Run through and evaluate
+  for (ii=0; ii < nR; ii++){
+    *(out+ii)= calcRzderiv(*(R+ii),*(z+ii),0.,0.,npot,potentialArgs);
+  }
+  free_potentialArgs(npot,potentialArgs);
+  free(potentialArgs);
+}

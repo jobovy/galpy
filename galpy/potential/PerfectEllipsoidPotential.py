@@ -89,6 +89,10 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
             self.normalize(normalize)
         self.hasC = not self._glorder is None
         self.hasC_dxdv = self.hasC and self._aligned
+        # full 3D Hessian (R2deriv/z2deriv/Rzderiv/phi2deriv/Rphideriv/zphideriv)
+        # in C via the EllipsoidalPotential GL angle integral; only in the aligned
+        # frame (the Python 2nd-deriv reference is implemented for aligned only)
+        self.hasC_dxdv3d = self.hasC_dxdv
         self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 

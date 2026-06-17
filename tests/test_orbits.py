@@ -9196,3 +9196,105 @@ def test_orbits_continuation_1d():
     )
 
     return None
+
+
+def test_orbits_interpSphericalPotential_outside_interpolation_range_warning():
+    # Test that the warning about orbits straying outside of the
+    # interpolation range of interpSphericalPotential works for multiple
+    # orbits (used to fail with a TypeError) and reports the number
+    # of orbits outside of the range and the full radial range
+    import warnings
+
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, interpSphericalPotential
+    from galpy.util import galpyWarning
+
+    hp = HernquistPotential(amp=2.0)
+    ip = interpSphericalPotential(rforce=hp, rgrid=numpy.geomspace(0.5, 1.5, 101))
+    # First orbit strays outside of the interpolation range, second (circular)
+    # one does not
+    o = Orbit([[1.0, 0.5, 0.3, 0.0], [1.0, 0.0, hp.vcirc(1.0), 0.0]])
+    ts = numpy.linspace(0.0, 20.0, 1001)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(ts, ip)
+        range_warnings = [
+            str(warning.message)
+            for warning in w
+            if issubclass(warning.category, galpyWarning)
+            and "outside of the interpolation range" in str(warning.message)
+        ]
+    assert len(range_warnings) == 1, (
+        "Integrating multiple orbits outside of the interpolation range of "
+        "interpSphericalPotential should raise exactly one warning"
+    )
+    assert "1 out of 2 orbits" in range_warnings[0], (
+        "Warning for multiple orbits outside of the interpolation range "
+        "should report the number of orbits outside of the range"
+    )
+    assert "full range over all orbits" in range_warnings[0], (
+        "Warning for multiple orbits outside of the interpolation range "
+        "should make clear that the reported range is over all orbits"
+    )
+    expected_range = f"{numpy.amin(o.rperi()):.3f},{numpy.amax(o.rap()):.3f}"
+    assert expected_range in range_warnings[0], (
+        "Warning for multiple orbits outside of the interpolation range "
+        "should report amin(rperi) and amax(rap) over all orbits"
+    )
+    # No warning when all orbits remain within the interpolation range
+    o = Orbit([[1.0, 0.0, hp.vcirc(1.0), 0.0], [1.2, 0.0, hp.vcirc(1.2), 0.0]])
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(ts, ip)
+        range_warnings = [
+            warning
+            for warning in w
+            if "outside of the interpolation range" in str(warning.message)
+        ]
+    assert len(range_warnings) == 0, (
+        "Integrating multiple orbits within the interpolation range of "
+        "interpSphericalPotential should not raise a warning"
+    )
+    return None
+
+
+def test_orbits_MultipoleExpansionPotential_outside_interpolation_range_warning():
+    # Test that the warning about orbits straying outside of the
+    # interpolation range of MultipoleExpansionPotential works for multiple
+    # orbits (used to fail with a TypeError) and reports the number
+    # of orbits outside of the range and the full radial range
+    import warnings
+
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, MultipoleExpansionPotential
+    from galpy.util import galpyWarning
+
+    hp = HernquistPotential(amp=2.0)
+    mep = MultipoleExpansionPotential.from_density(
+        hp, rgrid=numpy.geomspace(0.5, 1.5, 31), L=2, symmetry="spherical"
+    )
+    # Both orbits stray outside of the interpolation range
+    o = Orbit([[1.0, 0.5, 0.3, 0.0], [1.0, 0.0, 1.0, 0.0]])
+    ts = numpy.linspace(0.0, 20.0, 1001)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(ts, mep)
+        range_warnings = [
+            str(warning.message)
+            for warning in w
+            if issubclass(warning.category, galpyWarning)
+            and "outside of the interpolation range" in str(warning.message)
+        ]
+    assert len(range_warnings) == 1, (
+        "Integrating multiple orbits outside of the interpolation range of "
+        "MultipoleExpansionPotential should raise exactly one warning"
+    )
+    assert "2 out of 2 orbits" in range_warnings[0], (
+        "Warning for multiple orbits outside of the interpolation range "
+        "should report the number of orbits outside of the range"
+    )
+    assert "full range over all orbits" in range_warnings[0], (
+        "Warning for multiple orbits outside of the interpolation range "
+        "should make clear that the reported range is over all orbits"
+    )
+    return None

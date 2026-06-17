@@ -170,7 +170,19 @@ class Potential(Force):
         self.isDissipative = False
         self.hasC = False
         self.hasC_dxdv = False
+        # hasC_dxdv3d: the FULL 3D Hessian (R2deriv/z2deriv/Rzderiv and, for
+        # non-axisymmetric potentials, phi2deriv/Rphideriv/zphideriv) is wired in
+        # C, so the 3D variational equations (integrate_dxdv on a 6D orbit) can use
+        # the C integrator. hasC_dxdv alone only guarantees the *planar* (2D) dxdv
+        # Hessian, which is insufficient for the 3D path. Defaults False; set True
+        # only on potentials whose complete 3D Hessian is implemented in C.
+        self.hasC_dxdv3d = False
         self.hasC_dens = False
+        # Whether the C implementation (if hasC) extends to the planar
+        # (z=0) version of this potential obtained through toPlanar/
+        # toPlanarPotential; classes with C support that is *not* hooked up
+        # in the planar C integrator should set this to False
+        self.hasC_planar = True
         return None
 
     @potential_physical_input
@@ -4061,7 +4073,7 @@ def flatten(Pot):
         return Pot
 
 
-def _check_c(Pot, dxdv=False, dens=False):
+def _check_c(Pot, dxdv=False, dxdv3d=False, dens=False):
     """
     Check whether a potential or a combined potential formed using addition (pot1+pot2+…) has a C implementation.
 
@@ -4070,7 +4082,11 @@ def _check_c(Pot, dxdv=False, dens=False):
     Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Potential instance or a combined potential formed using addition (pot1+pot2+…) to check.
     dxdv : bool, optional
-        If True, check whether the potential has dxdv implementation.
+        If True, check whether the potential has a (planar) dxdv implementation in C.
+    dxdv3d : bool, optional
+        If True, check whether the potential has the full 3D Hessian wired in C, as
+        required by the 3D variational equations (integrate_dxdv on a 6D orbit).
+        Stricter than dxdv (which only guarantees the planar 2D Hessian).
     dens : bool, optional
         If True, check whether the potential has its density implemented in C.
 
@@ -4083,31 +4099,56 @@ def _check_c(Pot, dxdv=False, dens=False):
     -----
     - 2014-02-17 - Written - Bovy (IAS)
     - 2017-07-01 - Generalized to dxdv, added general support for WrapperPotentials, and added support for planarPotentials.
+    - 2026-06-04 - Added dxdv3d for the 3D variational equations - Bovy (UofT)
 
     """
     Pot = flatten(Pot)
     from ..potential import linearPotential, planarForce
 
-    if dxdv:
+    if dxdv3d:
+        hasC_attr = "hasC_dxdv3d"
+    elif dxdv:
         hasC_attr = "hasC_dxdv"
     elif dens:
         hasC_attr = "hasC_dens"
     else:
         hasC_attr = "hasC"
-    from .WrapperPotential import parentWrapperPotential
+    from .WrapperPotential import (
+        WrapperPotential,
+        parentWrapperPotential,
+        planarWrapperPotential,
+    )
 
     if isinstance(Pot, list):
         return numpy.all(
-            numpy.array([_check_c(p, dxdv=dxdv, dens=dens) for p in Pot], dtype="bool")
+            numpy.array(
+                [_check_c(p, dxdv=dxdv, dxdv3d=dxdv3d, dens=dens) for p in Pot],
+                dtype="bool",
+            )
         )
-    elif isinstance(Pot, parentWrapperPotential):
-        return bool(Pot.__dict__[hasC_attr] * _check_c(Pot._pot))
+    elif isinstance(
+        Pot, (parentWrapperPotential, WrapperPotential, planarWrapperPotential)
+    ):
+        # A wrapper's C implementation of a given capability is
+        # modulation x <that same capability of the wrapped potential>, so the
+        # wrapped potential must itself satisfy the SAME check (propagate the
+        # flag) -- not merely have a base C implementation. getattr's default
+        # handles wrappers that predate the attribute (treat as unsupported ->
+        # the corresponding path falls back to the Python integrator).
+        # NB: 3D-only wrappers (KuzminLikeWrapperPotential,
+        # RotateAndTiltWrapperPotential) subclass WrapperPotential DIRECTLY
+        # (not the parentWrapperPotential delegator), so all three wrapper
+        # base classes must be checked here for the recursion to apply.
+        return bool(
+            getattr(Pot, hasC_attr, False)
+            * _check_c(Pot._pot, dxdv=dxdv, dxdv3d=dxdv3d, dens=dens)
+        )
     elif (
         isinstance(Pot, Force)
         or isinstance(Pot, planarForce)
         or isinstance(Pot, linearPotential)
     ):
-        return Pot.__dict__[hasC_attr]
+        return getattr(Pot, hasC_attr, False)
 
 
 def _dim(Pot):

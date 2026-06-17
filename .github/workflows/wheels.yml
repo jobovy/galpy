@@ -43,9 +43,9 @@ jobs:
         - ["cp314","3.14"]
     steps:
       - uses: actions/checkout@v6
-      - name: Install GSL (Windows / Mac OS x86_64)
-        uses: mamba-org/setup-micromamba@v2
-        if: matrix.buildplat[1] == 'win' || matrix.buildplat[1] == 'macosx'
+      # Install GSL via conda. The composite action handles all platforms.
+      - if: matrix.buildplat[1] != 'manylinux'
+        uses: ./.github/actions/setup-conda
         with:
           environment-name: gsl
           condarc: |
@@ -56,12 +56,12 @@ jobs:
           cache-environment-key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
       - name: Set GSL environment variables (Windows)
         if: matrix.buildplat[1] == 'win'
-        shell: bash -l {0}
+        shell: bash
         run: |
-          echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
-          echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-          echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-          echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+          ENV_WIN="$(cygpath -w "$CONDA_PREFIX")"
+          echo "INCLUDE=${ENV_WIN}\\Library\\include" >> $GITHUB_ENV
+          echo "LIB=${ENV_WIN}\\Library\\lib" >> $GITHUB_ENV
+          echo "LIBPATH=${ENV_WIN}\\Library\\lib" >> $GITHUB_ENV
       - name: Set GSL environment variables (Mac OS)
         if: matrix.buildplat[1] == 'macosx'
         shell: bash -l {0}
@@ -69,12 +69,11 @@ jobs:
           echo "CFLAGS=-I$CONDA_PREFIX/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L$CONDA_PREFIX/lib -headerpad_max_install_names" >> $GITHUB_ENV
           echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
-          echo "$CONDA_PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Inject git hash into version for dev wheels
         if: github.event_name != 'release'
         run: python tools/inject_git_hash.py
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.4
+        uses: pypa/cibuildwheel@v4.1
         env:
           CIBW_BUILD: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
           CIBW_BUILD_VERBOSITY: 1
@@ -118,9 +117,9 @@ jobs:
         with:
           python-version: ${{ matrix.python[1] }}
           allow-prereleases: true
-      - name: Install GSL (Windows)
-        uses: mamba-org/setup-micromamba@v2
-        if: matrix.buildplat[1] == 'win'
+      # Install GSL via conda (Windows only — Linux/macOS wheels bundle GSL).
+      - if: matrix.buildplat[1] == 'win'
+        uses: ./.github/actions/setup-conda
         with:
           environment-name: gsl
           condarc: |
@@ -129,16 +128,15 @@ jobs:
           create-args: gsl
           cache-environment: true
           cache-environment-key: gsl-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
-      - name: Set GSL environment variables (Windows)
+      - name: Set GSL LIBPATH (Windows)
         if: matrix.buildplat[1] == 'win'
-        shell: bash -l {0}
+        shell: bash
         run: |
-          micromamba activate gsl
-          echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-          echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+          ENV_WIN="$(cygpath -w "$CONDA_PREFIX")"
+          echo "LIBPATH=${ENV_WIN}\\Library\\lib" >> $GITHUB_ENV
       - name: Install wheel
         shell: bash
-        run: python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
+        run: python -m pip install "$(ls wheelhouse/*.whl)[test]"
       - name: Print installed version
         shell: bash
         working-directory: ${{ runner.temp }}
@@ -147,42 +145,34 @@ jobs:
         shell: bash
         working-directory: ${{ runner.temp }}
         run: |
-          pip install astropy pytest
+          pip install astropy
           pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
-      # Test that built wheels also work in a conda environment, setup environment, install wheel, and run test
-      - name: Setup test conda environment (Linux / Mac OS)
-        if: matrix.buildplat[1] != 'win'
-        uses: mamba-org/setup-micromamba@v2
+      # Test that built wheels also work in a conda environment: set up env,
+      # install wheel, and run a single test from inside the env.
+      - name: Set up test conda environment
+        uses: ./.github/actions/setup-conda
         with:
           environment-name: test-wheel-conda
           condarc: |
             channels:
               - conda-forge
-          create-args: python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest
+          # gsl is included on Windows so the wheel can find gsl.dll via the
+          # env's Library\bin when conda-forge Python activates it via the
+          # CONDA_PREFIX startup hook.
+          create-args: python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest pip${{ matrix.buildplat[1] == 'win' && ' gsl' || '' }}
           cache-environment: true
-          cache-environment-key: test-wheel-conda-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
-      - name: Setup test conda environment (Windows)
-        if: matrix.buildplat[1] == 'win'
-        shell: bash -l {0}
-        run: |
-          micromamba create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest gsl
-          micromamba activate test-wheel-conda
-          echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+          cache-environment-key: test-wheel-conda-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ matrix.python[1] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
       - name: Install built wheel in conda environment
         shell: bash -l {0}
-        run: |
-          micromamba activate test-wheel-conda
-          python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
-      - name: Print installed version
+        run: python -m pip install "$(ls wheelhouse/*.whl)[test]"
+      - name: Print installed version in conda environment
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
         run: python -c "import galpy; print('Installed galpy version:', galpy.__version__)"
       - name: Test built wheel in conda environment
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
-        run: |
-          micromamba activate test-wheel-conda
-          pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
+        run: pytest -v "$GITHUB_WORKSPACE"/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
   build_sdist:
     name: Build source directory for release
     if: github.event_name == 'release' && github.event.action == 'created'
@@ -221,7 +211,7 @@ jobs:
         with:
           name: sdist
       - name: Build from sdist
-        run: python -m pip install -v galpy*.tar.gz
+        run: python -m pip install -v "galpy*.tar.gz[test]"
       - name: Run simple test
         working-directory: ${{ runner.temp }}
         run: |
@@ -287,14 +277,16 @@ jobs:
             with open("index.html", "w") as f:
                 f.write("<html><body>\n" + "\n".join(links) + "\n</body></html>\n")
             EOF
-      - name: Upload to AWS S3
-        uses: jakejarvis/s3-sync-action@v0.5.1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
         with:
-          args: --acl public-read --follow-symlinks --delete --exclude "*emscripten*" --exclude "*pyodide*"
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+      - name: Upload to AWS S3
+        run: |
+          aws s3 sync wheelhouse "s3://${AWS_S3_BUCKET}/wheelhouse/simple/galpy" \
+            --acl public-read --follow-symlinks --delete \
+            --exclude "*emscripten*" --exclude "*pyodide*"
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: 'us-east-2'
-          SOURCE_DIR: wheelhouse
-          DEST_DIR: wheelhouse/simple/galpy

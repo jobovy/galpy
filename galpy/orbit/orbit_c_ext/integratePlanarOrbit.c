@@ -78,6 +78,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 2: //TransientLogSpiralPotential, 8 arguments
       potentialArgs->planarRforce= &TransientLogSpiralPotentialRforce;
       potentialArgs->planarphitorque= &TransientLogSpiralPotentialphitorque;
+      potentialArgs->planarR2deriv= &TransientLogSpiralPotentialR2deriv;
+      potentialArgs->planarphi2deriv= &TransientLogSpiralPotentialphi2deriv;
+      potentialArgs->planarRphideriv= &TransientLogSpiralPotentialRphideriv;
       potentialArgs->nargs= 8;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -85,6 +88,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 3: //SteadyLogSpiralPotential, 8 arguments
       potentialArgs->planarRforce= &SteadyLogSpiralPotentialRforce;
       potentialArgs->planarphitorque= &SteadyLogSpiralPotentialphitorque;
+      potentialArgs->planarR2deriv= &SteadyLogSpiralPotentialR2deriv;
+      potentialArgs->planarphi2deriv= &SteadyLogSpiralPotentialphi2deriv;
+      potentialArgs->planarRphideriv= &SteadyLogSpiralPotentialRphideriv;
       potentialArgs->nargs= 8;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -168,7 +174,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
       potentialArgs->planarRforce= &DoubleExponentialDiskPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
-      //potentialArgs->planarR2deriv= &DoubleExponentialDiskPotentialPlanarR2deriv;
+      potentialArgs->planarR2deriv= &DoubleExponentialDiskPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       //Look at pot_args to figure out the number of arguments
@@ -313,7 +319,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarR2deriv= &SCFPotentialPlanarR2deriv;
       potentialArgs->planarphi2deriv= &SCFPotentialPlanarphi2deriv;
       potentialArgs->planarRphideriv= &SCFPotentialPlanarRphideriv;
-      potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 7);
+      potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 10);
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -321,6 +327,10 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &SoftenedNeedleBarPotentialEval;
       potentialArgs->planarRforce= &SoftenedNeedleBarPotentialPlanarRforce;
       potentialArgs->planarphitorque= &SoftenedNeedleBarPotentialPlanarphitorque;
+      // Planar Hessian for the 2D variational equations (integrate_dxdv).
+      potentialArgs->planarR2deriv= &SoftenedNeedleBarPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &SoftenedNeedleBarPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &SoftenedNeedleBarPotentialPlanarRphideriv;
       potentialArgs->nargs= 13;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -329,6 +339,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &DiskSCFPotentialEval;
       potentialArgs->planarRforce= &DiskSCFPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &DiskSCFPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= (int) **pot_args + 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -469,12 +482,26 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
-    case 39: //NonInertialFrameForce, 22 arguments (10 caching ones)
+    case 39: //NonInertialFrameForce, 23 arguments (10 caching ones)
+      // Time-dependent inputs passed as tfuncs (called from C every step); the
+      // cinterp=True variant (case 45) precomputes them as GSL splines instead.
       potentialArgs->planarRforceVelocity= &NonInertialFrameForcePlanarRforce;
       potentialArgs->planarphitorqueVelocity= &NonInertialFrameForcePlanarphitorque;
       potentialArgs->nargs= 23;
       potentialArgs->ntfuncs= (int) ( 3 * *(*pot_args + 12) * ( 1 + 2 * *(*pot_args + 11) ) \
                                 + ( 6 - 4 * ( *(*pot_args + 13) ) ) * *(*pot_args + 15) );
+      potentialArgs->requiresVelocity= true;
+      break;
+    case 45: //NonInertialFrameForce with cinterp=True (on-the-fly C splines)
+      // Same force as case 39, but time-dependent inputs are evaluated from GSL
+      // splines built by initNonInertialFrameForceSplines (Omegadot = spline
+      // derivative of Omega) rather than tfuncs; the spline block precedes the
+      // 23 case-39 args, plus tmin,tmax (args 23,24). nargs=25, ntfuncs=0. The
+      // shared force code branches on spline1d!=NULL.
+      potentialArgs->planarRforceVelocity= &NonInertialFrameForcePlanarRforce;
+      potentialArgs->planarphitorqueVelocity= &NonInertialFrameForcePlanarphitorque;
+      potentialArgs->nargs= 25;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;
       break;
     case 40: //NullPotential, no arguments (only supported for orbit int)
@@ -565,6 +592,11 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
       potentialArgs->planarRforce= &OblateStaeckelWrapperPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
+      // Planar 2nd derivatives for the planar variational equations
+      // (integrate_dxdv); axisymmetric, so the phi-derivatives vanish.
+      potentialArgs->planarR2deriv= &OblateStaeckelWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= (int) 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -592,6 +624,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case -6: //MovingObjectPotential
       potentialArgs->planarRforce= &MovingObjectPotentialPlanarRforce;
       potentialArgs->planarphitorque= &MovingObjectPotentialPlanarphitorque;
+      // Planar 2D Hessian for the planar variational equations
+      // (integrate_dxdv): the kernel's planar Hessian at the shifted point
+      // x-x_obj(t); nonaxisymmetric (the object is off-center). Only used
+      // when the kernel's planar Hessian is in C (gated by hasC_dxdv =
+      // _check_c(kernel, dxdv=True) on the Python side).
+      potentialArgs->planarR2deriv= &MovingObjectPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &MovingObjectPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &MovingObjectPotentialPlanarRphideriv;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -625,6 +665,11 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &CylindricallySeparablePotentialWrapperPotentialEval;
       potentialArgs->planarRforce= &CylindricallySeparablePotentialWrapperPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
+      // Planar 2nd derivatives for the planar variational equations
+      // (integrate_dxdv); axisymmetric, so the phi-derivatives vanish.
+      potentialArgs->planarR2deriv= &CylindricallySeparablePotentialWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= (int) 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
@@ -634,6 +679,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
     int initMultipoleExpansionData = *(*pot_type-1) == 44 ? 1 : 0;
+    int setupNonInertialFrameForceSplines = *(*pot_type-1) == 45 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -644,6 +690,8 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			 pot_type,pot_args,pot_tfuncs);
     }
     if (setupSplines) initPlanarMovingObjectSplines(potentialArgs, pot_args);
+    if ( setupNonInertialFrameForceSplines )
+      initNonInertialFrameForceSplines(potentialArgs,pot_args);
     if ( initMultipoleExpansionData )
       initMultipoleExpansionPotentialArgs(potentialArgs, pot_args);
     // Now load each potential's parameters
@@ -669,6 +717,7 @@ EXPORT void integratePlanarOrbit(int nobj,
 				 double *yo,
 				 int nt,
 				 double *t,
+				 int indiv_t,
 				 int npot,
 				 int * pot_type,
 				 double * pot_args,
@@ -754,7 +803,7 @@ EXPORT void integratePlanarOrbit(int nobj,
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
     polar_to_rect_galpy(yo+4*ii);
-    odeint_func(odeint_deriv_func,dim,yo+4*ii,nt,dt,t,
+    odeint_func(odeint_deriv_func,dim,yo+4*ii,nt,dt,t+nt*ii*indiv_t,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
 		result+4*nt*ii,err+ii);
     for (jj= 0; jj < nt; jj++)

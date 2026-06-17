@@ -65,6 +65,7 @@ from ..util.coords import _K
 from .integrateFullOrbit import (
     integrateFullOrbit,
     integrateFullOrbit_c,
+    integrateFullOrbit_dxdv,
     integrateFullOrbit_sos,
     integrateFullOrbit_sos_c,
 )
@@ -160,11 +161,15 @@ _labeldict_radec = {
     "dec": r"$\delta\ (\mathrm{deg})$",
     "ll": r"$l\ (\mathrm{deg})$",
     "bb": r"$b\ (\mathrm{deg})$",
+    "phi1": r"$\phi_1\ (\mathrm{deg})$",
+    "phi2": r"$\phi_2\ (\mathrm{deg})$",
     "dist": r"$d\ (\mathrm{kpc})$",
     "pmra": r"$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$",
     "pmdec": r"$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$",
     "pmll": r"$\mu_l\ (\mathrm{mas\,yr}^{-1})$",
     "pmbb": r"$\mu_b\ (\mathrm{mas\,yr}^{-1})$",
+    "pmphi1": r"$\mu_{\phi_1}\ (\mathrm{mas\,yr}^{-1})$",
+    "pmphi2": r"$\mu_{\phi_2}\ (\mathrm{mas\,yr}^{-1})$",
     "vlos": r"$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$",
     "helioX": r"$X\ (\mathrm{kpc})$",
     "helioY": r"$Y\ (\mathrm{kpc})$",
@@ -562,7 +567,13 @@ class Orbit:
             and isinstance(vxvv, SkyCoord)
             and not vxvv.galcen_v_sun is None
         ):
-            sc_solarmotion = vxvv.galcen_v_sun.d_xyz.to(units.km / units.s).value
+            # astropy < 8 exposes galcen_v_sun as a CartesianDifferential (.d_xyz);
+            # astropy >= 8 (astropy/astropy#18362) as a CartesianRepresentation (.xyz)
+            _galcen_v_sun = vxvv.galcen_v_sun
+            sc_solarmotion = getattr(_galcen_v_sun, "d_xyz", None)
+            if sc_solarmotion is None:
+                sc_solarmotion = _galcen_v_sun.xyz
+            sc_solarmotion = sc_solarmotion.to(units.km / units.s).value
             sc_solarmotion[0] = -sc_solarmotion[0]  # right->left
             sc_solarmotion[1] -= vo
             if solarmotion is None:
@@ -1428,6 +1439,11 @@ class Orbit:
             return False, True, False
         if not hasattr(self, "t") or not hasattr(self, "_pot"):
             return False, True, False
+        # Continuation is not supported for per-orbit time arrays (either the
+        # new t is per-orbit, or the stored self.t is from a previous per-orbit
+        # integration — the time-comparison logic below assumes a shared 1D t).
+        if numpy.asarray(t).ndim > 1 or numpy.asarray(self.t).ndim > 1:
+            return False, True, False
 
         # Check if potentials are the same
         pot_changed = False
@@ -1630,7 +1646,21 @@ class Orbit:
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
         else:
             self._integrate_t_asQuantity = False
-        # Check that t is evenly spaced if not using odeint
+        t = numpy.asarray(t)
+        # Per-orbit time arrays: t has shape self.shape + (nt,) instead of (nt,)
+        indiv_t = t.ndim > 1
+        if indiv_t:
+            if t.shape[:-1] != self.shape:
+                raise ValueError(
+                    f"Input time array shape {t.shape} does not match Orbit shape "
+                    f"{self.shape} + (nt,); per-orbit time arrays must have leading "
+                    f"dimensions matching the Orbit instance shape"
+                )
+            # Flatten to (self.size, nt) for the C/Python integrators
+            t_for_int = t.reshape(self.size, t.shape[-1])
+        else:
+            t_for_int = t
+        # Check that t is evenly spaced if not using odeint (axis=-1 handles per-orbit)
         if not self._check_array_evenlyspaced(t, method):
             raise ValueError(
                 f"Input time array must be equally spaced for method {method}, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced time arrays"
@@ -1651,7 +1681,10 @@ class Orbit:
                 "dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize"
             )
 
-        # Check if we should continue from a previous integration
+        # Check if we should continue from a previous integration. Per-orbit
+        # time arrays (either the input t or a stored 2D self.t from a previous
+        # per-orbit run) disable continuation; that's enforced inside
+        # _should_continue_integration.
         should_continue, is_forward, pot_changed = self._should_continue_integration(
             numpy.array(t), pot
         )
@@ -1686,7 +1719,7 @@ class Orbit:
         if hasattr(self, "_orbInterp"):
             delattr(self, "_orbInterp")
 
-        self.t = numpy.array(t)
+        self.t = numpy.array(t_for_int) if indiv_t else numpy.array(t)
         self._pot = thispot
         self._orig_pot = pot  # differs from self._pot if planar wrapper used
         method = self._check_method_c_compatible(method, self._pot)
@@ -1697,7 +1730,7 @@ class Orbit:
                 out, msg = integrateLinearOrbit(
                     self._pot,
                     self.vxvv,
-                    t,
+                    t_for_int,
                     method,
                     progressbar=progressbar,
                     numcores=numcores,
@@ -1709,7 +1742,7 @@ class Orbit:
                 out, msg = integratePlanarOrbit(
                     self._pot,
                     self.vxvv,
-                    t,
+                    t_for_int,
                     method,
                     progressbar=progressbar,
                     numcores=numcores,
@@ -1721,7 +1754,7 @@ class Orbit:
                 out, msg = integrateFullOrbit(
                     self._pot,
                     self.vxvv,
-                    t,
+                    t_for_int,
                     method,
                     progressbar=progressbar,
                     numcores=numcores,
@@ -1738,7 +1771,7 @@ class Orbit:
                 out, msg = integrateLinearOrbit_c(
                     self._pot,
                     numpy.copy(self.vxvv),
-                    t,
+                    t_for_int,
                     method,
                     progressbar=progressbar,
                     dt=dt,
@@ -1757,7 +1790,7 @@ class Orbit:
                     out, msg = integratePlanarOrbit_c(
                         self._pot,
                         vxvvs,
-                        t,
+                        t_for_int,
                         method,
                         progressbar=progressbar,
                         dt=dt,
@@ -1768,7 +1801,7 @@ class Orbit:
                     out, msg = integrateFullOrbit_c(
                         self._pot,
                         vxvvs,
-                        t,
+                        t_for_int,
                         method,
                         progressbar=progressbar,
                         dt=dt,
@@ -1882,20 +1915,11 @@ class Orbit:
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(
-                self.r(self.t, use_physical=False) < lpot[isp_indx]._rmin
-            ) or numpy.any(self.r(self.t, use_physical=False) > lpot[isp_indx]._rmax):
-                warnings.warn(
-                    """Orbit integration with """
-                    """interpSphericalPotential visited radii """
-                    """outside of the interpolation range; """
-                    """initialize interpSphericalPotential """
-                    """with a wider radial range to avoid this """
-                    """if you wish (min/max r = {:.3f},{:.3f}""".format(
-                        self.rperi(), self.rap()
-                    ),
-                    galpyWarning,
-                )
+            self._warn_radii_outside_interpolation_range(
+                lpot[isp_indx]._rmin,
+                lpot[isp_indx]._rmax,
+                "interpSphericalPotential",
+            )
         from ..potential import MultipoleExpansionPotential
 
         if (
@@ -1919,23 +1943,41 @@ class Orbit:
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(
-                self.r(self.t, use_physical=False) < lpot[mep_indx]._rgrid[0]
-            ) or numpy.any(
-                self.r(self.t, use_physical=False) > lpot[mep_indx]._rgrid[-1]
-            ):
-                warnings.warn(
-                    """Orbit integration with """
-                    """MultipoleExpansionPotential visited radii """
-                    """outside of the interpolation range; """
-                    """initialize MultipoleExpansionPotential """
-                    """with a wider radial range to avoid this """
-                    """if you wish (min/max r = {:.3f},{:.3f}""".format(
-                        self.rperi(), self.rap()
-                    ),
-                    galpyWarning,
-                )
+            self._warn_radii_outside_interpolation_range(
+                lpot[mep_indx]._rgrid[0],
+                lpot[mep_indx]._rgrid[-1],
+                "MultipoleExpansionPotential",
+            )
         return None
+
+    def _warn_radii_outside_interpolation_range(self, rmin, rmax, potname):
+        """Warn if the integrated orbit(s) visited radii outside of the
+        interpolation range [rmin, rmax] of the potential potname"""
+        rs = self.r(self.t, use_physical=False)
+        outside = numpy.any((rs < rmin) | (rs > rmax), axis=-1)
+        if not numpy.any(outside):
+            return
+        if self.shape == ():
+            warnings.warn(
+                f"Orbit integration with {potname} visited radii "
+                f"outside of the interpolation range; initialize "
+                f"{potname} with a wider radial range to avoid this "
+                f"if you wish (min/max r = "
+                f"{self.rperi():.3f},{self.rap():.3f})",
+                galpyWarning,
+            )
+        else:
+            warnings.warn(
+                f"Orbit integration with {potname} visited radii "
+                f"outside of the interpolation range for "
+                f"{numpy.sum(outside)} out of {self.size} orbits; "
+                f"initialize {potname} with a wider radial range to "
+                f"avoid this if you wish (min/max r = "
+                f"{numpy.amin(self.rperi()):.3f},"
+                f"{numpy.amax(self.rap()):.3f}, which is the full "
+                f"range over all orbits)",
+                galpyWarning,
+            )
 
     @singledispatchmethod
     def integrate(
@@ -1961,7 +2003,7 @@ class Orbit:
         Parameters
         ----------
         t : list, numpy.ndarray, Quantity, or Potential
-            - If array-like: List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration.
+            - If array-like: List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration. The time array can also be per-orbit, with shape ``orbit.shape + (nt,)`` (each orbit integrated on its own grid); in this case continuation is not supported and the new integration always starts from the original initial conditions. Continuation is also disabled after a ``bruteSOS`` or ``SOS`` call, which rewrite ``self.t`` into a non-standard form.
             - If Potential: Integrate for 10 dynamical times (default auto-time behavior). In this case, this parameter is the potential and the second parameter (pot) becomes method.
         pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
@@ -2247,7 +2289,7 @@ class Orbit:
         Parameters
         ----------
         dxdv : numpy.ndarray
-            Initial conditions for the orbit in cylindrical or rectangular coordinates. The shape of the array should be (\*input_shape, 4).
+            Initial conditions for the phase-space deviation in cylindrical or rectangular coordinates. The shape of the array should be (\*input_shape, 4) for planar (4D) orbits and (\*input_shape, 6) for 3D (6D) orbits.
         t : list, numpy.ndarray or Quantity
             List of equispaced times at which to compute the orbit. The initial condition is t[0].  (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
         pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
@@ -2287,14 +2329,31 @@ class Orbit:
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
+        - For 3D (6D) orbits, dissipative (velocity-dependent) forces are
+          supported by the C-based methods for forces with a C implementation
+          of the velocity-dependent force Jacobian (dF/dx, dF/dv), advertised
+          by ``hasC_dxdv3d=True``. The phase-space-volume evolution follows
+          det M(t) = exp(int tr(dF/dv) dt'): < 1 for friction, but exactly 1
+          for non-inertial frames (``NonInertialFrameForce``'s
+          dF/dv = -2 [Omega]_x is antisymmetric, so a rotating frame
+          preserves phase-space volume). The pure-Python methods ('odeint',
+          'dop853') raise a ``NotImplementedError`` for dissipative forces.
+
+        - Rotated ``EllipsoidalPotential`` instances (non-trivial ``zvec``/``pa``)
+          do not support C-based variational integration directly
+          (``hasC_dxdv3d=False``); wrap the aligned potential in a
+          ``RotateAndTiltWrapperPotential`` instead (identical physics, full 3D
+          dxdv support).
+
         - 2011-10-17 - Written - Bovy (IAS)
         - 2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
         - 2019-05-21 - Parallelized and incorporated into new Orbits class - Bovy (UofT)
+        - 2026-06-09 - Dissipative-force support in C (3D) - Bovy (UofT)
 
         """
-        if not self.phasedim() == 4:
+        if not (self.phasedim() == 4 or self.phasedim() == 6):
             raise AttributeError(
-                "integrate_dxdv is only implemented for 4D (planar) orbits"
+                "integrate_dxdv is only implemented for 4D (planar) and 6D (3D) orbits"
             )
         self.check_integrator(method, no_symplec=True)
         pot = _check_potential_list_and_deprecate(pot)
@@ -2324,12 +2383,25 @@ class Orbit:
             delattr(self, "_orbInterp")
         if self.dim() == 2:
             thispot = toPlanarPotential(pot)
+        else:
+            thispot = pot
         self.t = numpy.array(t)
         self._pot_dxdv = thispot
         self._pot = thispot
         # First check that the potential has C
         if "_c" in method:
-            allHasC = _check_c(pot) and _check_c(pot, dxdv=True)
+            if self.phasedim() == 6:
+                # The 3D variational equations use the FULL 3D Hessian in C
+                # (R2deriv/z2deriv/Rzderiv[/zphideriv]); the planar 2D Hessian
+                # (hasC_dxdv) is a separate capability that the 3D C path does not use,
+                # so requiring it here would needlessly disqualify a potential whose 3D
+                # Hessian is wired but whose planar R2deriv is not. Gate on hasC_dxdv3d
+                # instead: without it a potential lacking the 3D Hessian would hit the
+                # NULL-safe C aggregators (silently 0) and produce a wrong variational
+                # result, so fall back to the (general, correct) Python integrator then.
+                allHasC = _check_c(pot) and _check_c(pot, dxdv3d=True)
+            else:
+                allHasC = _check_c(pot) and _check_c(pot, dxdv=True)
             if not ext_loaded or (
                 not allHasC and not "leapfrog" in method and not "symplec" in method
             ):
@@ -2362,10 +2434,298 @@ class Orbit:
                     rtol=rtol,
                     atol=atol,
                 )
+            else:
+                out, msg = integrateFullOrbit_dxdv(
+                    self._pot,
+                    self.vxvv,
+                    dxdv,
+                    t,
+                    method,
+                    rectIn,
+                    rectOut,
+                    progressbar=progressbar,
+                    numcores=numcores,
+                    dt=dt,
+                    rtol=rtol,
+                    atol=atol,
+                )
         # Store orbit internally
         self.orbit_dxdv = out
-        self.orbit = self.orbit_dxdv[..., :4]
+        self.orbit = self.orbit_dxdv[..., : self.phasedim()]
         return None
+
+    @physical_conversion("frequency")
+    @shapeDecorator
+    def lyapunov(
+        self,
+        ts,
+        pot=None,
+        method="dop853_c",
+        renorm_every=10,
+        dxdv0=None,
+        spectrum=False,
+        progressbar=False,
+        dt=None,
+        numcores=_NUMCORES,
+        force_map=False,
+        rtol=None,
+        atol=None,
+        **kwargs,
+    ):
+        r"""
+        Estimate the largest Lyapunov exponent (or the full Lyapunov spectrum)
+        using the variational equations.
+
+        The deviation vector is propagated with the linearized (variational)
+        equations of motion (see ``integrate_dxdv``) and renormalized to its
+        initial norm every ``renorm_every`` output times (Benettin et al. 1980
+        method). The running estimate
+
+        .. math:: \lambda(t) = \frac{1}{t-t_0}\,\sum \ln \frac{|\delta x|}{|\delta x_0|}
+
+        is returned at all output times, such that its convergence can be
+        assessed; the final value is the best estimate of the largest Lyapunov
+        exponent. For regular orbits, :math:`\lambda(t)` decays as
+        :math:`\ln(t)/t`, while for chaotic orbits it converges to a positive
+        value.
+
+        When ``spectrum=True``, the full Lyapunov spectrum (all ``phasedim``
+        exponents) is computed instead, using the classic generalization of
+        the renormalization method (Benettin et al. 1980, part 2; Shimada &
+        Nagashima 1979): an orthonormal set of ``phasedim`` deviation vectors
+        is propagated simultaneously and re-orthonormalized with a QR
+        decomposition every ``renorm_every`` output times; the running
+        estimate of the :math:`i`-th exponent is the accumulated
+        :math:`\sum \ln |R_{ii}|` of the QR growth factors divided by the
+        elapsed time.
+
+        Parameters
+        ----------
+        ts : list, numpy.ndarray or Quantity
+            List of equispaced times at which to compute the running Lyapunov estimate. The initial condition is ts[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…), optional
+            Gravitational field to integrate the orbit in. Default is the gravitational field used in the last orbit integration.
+        method : str, optional
+            Integration method; see ``integrate_dxdv`` for the possible (non-symplectic) methods. Default is 'dop853_c'.
+        renorm_every : int, optional
+            Renormalize the deviation vector to its initial norm every ``renorm_every`` output time intervals. Default is 10.
+        dxdv0 : numpy.ndarray, optional
+            Initial phase-space deviation vector in *rectangular* coordinates [dx,dy,dvx,dvy] (planar orbits) or [dx,dy,dz,dvx,dvy,dvz] (3D orbits); shape (phasedim,) [same deviation for all orbits] or (\*input_shape, phasedim). Because the variational equations are linear, the overall normalization is irrelevant. Default is the unit vector with equal components along all phase-space directions. When ``spectrum=True``, the (normalized) ``dxdv0`` is used as the *first* deviation vector and completed to an orthonormal basis; the default initial basis is the identity.
+        spectrum : bool, optional
+            If True, compute the full Lyapunov spectrum (all ``phasedim`` exponents) instead of only the largest exponent; see the Returns section for the output format. Default is False.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!); shown for each renormalization segment. Default is False.
+        dt : float, optional
+            If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity).
+        numcores : int, optional
+            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS.
+        force_map : bool, optional
+            If True, force use of Python-based multiprocessing (not recommended). Default is False.
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute tolerance. Default is None.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        numpy.ndarray or Quantity [\*input_shape,nt] or [\*input_shape,phasedim,nt]
+            For ``spectrum=False`` (default): running estimate :math:`\lambda(t)` of the largest Lyapunov exponent at the output times. For ``spectrum=True``: running estimates :math:`\lambda_i(t)` of all ``phasedim`` Lyapunov exponents, such that ``out[...,i,:]`` is the running estimate of the :math:`i`-th exponent; the exponents are ordered from largest to smallest by construction of the algorithm (asymptotically; finite-time estimates of nearly-degenerate exponents may transiently swap). In both cases, the entry for the initial time ts[0] is NaN (no elapsed time yet).
+
+        Notes
+        -----
+        - Only implemented for 4D (planar) and 6D (3D) orbits.
+        - The previously integrated orbit stored in this instance (if any) is not affected.
+        - For ``spectrum=True``, the absolute values :math:`|R_{ii}|` of the diagonal of the QR decomposition are used as the growth factors, so the sign convention of the QR routine is irrelevant. For the Hamiltonian flows integrated here, the exponents obey :math:`\sum_i \lambda_i = 0` (phase-space volume conservation) and come in :math:`\pm` pairs (:math:`\lambda_i = -\lambda_{\mathrm{phasedim}+1-i}`); the deviation of the computed spectrum from these relations is a useful convergence/accuracy check.
+        - References: Benettin et al. (1980, Meccanica 15, 9 and Meccanica 15, 21); Shimada & Nagashima (1979, Prog. Theor. Phys. 61, 1605); see also Skokos (2010, Lect. Notes Phys. 790, 63).
+        - 2026-06-09 - Written - Bovy (UofT)
+        - 2026-06-10 - Added spectrum= option - Bovy (UofT)
+
+        """
+        if not (self.phasedim() == 4 or self.phasedim() == 6):
+            raise AttributeError(
+                "lyapunov is only implemented for 4D (planar) and 6D (3D) orbits"
+            )
+        self.check_integrator(method, no_symplec=True)
+        if pot is None:
+            try:
+                pot = self._pot
+            except AttributeError:
+                raise AttributeError("Integrate orbit first or specify pot=")
+        pot = _check_potential_list_and_deprecate(pot)
+        _check_potential_dim(self, pot)
+        _check_consistent_units(self, pot)
+        # Parse ts
+        if _APY_LOADED and isinstance(ts, units.Quantity):
+            ts = conversion.parse_time(ts, ro=self._ro, vo=self._vo)
+        ts = numpy.array(ts, dtype="float64")
+        if len(ts) < 2:
+            raise ValueError("Input time array must have at least two times")
+        if not dt is None:
+            dt = conversion.parse_time(dt, ro=self._ro, vo=self._vo)
+        renorm_every = int(renorm_every)
+        if renorm_every < 1:
+            raise ValueError("renorm_every must be a positive integer")
+        # Resolve the C-capability fallback once here, such that the
+        # warning is not emitted for every renormalization segment;
+        # this mirrors the check in integrate_dxdv
+        if "_c" in method:
+            if self.phasedim() == 6:
+                allHasC = _check_c(pot) and _check_c(pot, dxdv3d=True)
+            else:
+                allHasC = _check_c(pot) and _check_c(pot, dxdv=True)
+            if not ext_loaded or not allHasC:
+                method = "odeint"
+                if not ext_loaded:  # pragma: no cover
+                    warnings.warn(
+                        "Cannot use C integration because C extension not loaded (using %s instead)"
+                        % (method),
+                        galpyWarning,
+                    )
+                else:
+                    warnings.warn(
+                        "Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",
+                        galpyWarning,
+                    )
+        phasedim = self.phasedim()
+        norb = self.vxvv.shape[0]
+        nt = len(ts)
+        # Parse the initial deviation vector (rectangular coordinates)
+        if not (spectrum and dxdv0 is None):
+            if dxdv0 is None:
+                dxdv0 = numpy.ones(phasedim) / numpy.sqrt(phasedim)
+            dxdv0 = numpy.array(dxdv0, dtype="float64")
+            if dxdv0.ndim == 1:
+                dxdv0 = numpy.tile(dxdv0, (norb, 1))
+            else:
+                dxdv0 = dxdv0.reshape((-1, dxdv0.shape[-1]))
+            if dxdv0.shape != (norb, phasedim):
+                raise ValueError(
+                    "Input dxdv0 must have shape (phasedim,) or (*input_shape,phasedim)"
+                )
+            d0norm = numpy.linalg.norm(dxdv0, axis=-1)
+            if numpy.any(d0norm == 0.0):
+                raise ValueError("Input dxdv0 must have non-zero norm")
+        if spectrum:
+            # Full Lyapunov spectrum (Benettin et al. 1980, part 2; Shimada &
+            # Nagashima 1979): propagate an orthonormal basis of phasedim
+            # deviation vectors over segments of renorm_every output
+            # intervals, QR-orthonormalize the basis at the end of each
+            # segment, and accumulate the per-direction log growth factors
+            # log|R_ii| (absolute values, such that the sign convention of the
+            # QR routine is irrelevant)
+            if dxdv0 is None:
+                # Default initial basis: the identity
+                cur_Q = numpy.tile(numpy.eye(phasedim), (norb, 1, 1))
+            else:
+                # Use the supplied dxdv0 (normalized) as the first deviation
+                # vector and complete it to an orthonormal basis: the QR
+                # factorization of [dxdv0,I] has full rank for any non-zero
+                # dxdv0 and its first Q column is +/- dxdv0/|dxdv0|
+                cur_Q = numpy.linalg.qr(
+                    numpy.concatenate(
+                        (
+                            dxdv0[:, :, None],
+                            numpy.tile(numpy.eye(phasedim), (norb, 1, 1)),
+                        ),
+                        axis=-1,
+                    )
+                )[0]
+            elapsed = ts - ts[0]
+            lam = numpy.empty((norb, phasedim, nt))
+            lam[:, :, 0] = numpy.nan
+            logsum = numpy.zeros((norb, phasedim))
+            cur_vxvv = self.vxvv.copy()
+            ii = 0
+            while ii < nt - 1:
+                jj = min(ii + renorm_every, nt - 1)
+                # Stack the phasedim basis vectors of each orbit as phasedim
+                # copies of that orbit, such that a single integrate_dxdv call
+                # per segment propagates the entire basis
+                tmpo = Orbit(numpy.repeat(cur_vxvv, phasedim, axis=0))
+                tmpo.integrate_dxdv(
+                    cur_Q.transpose(0, 2, 1).reshape((norb * phasedim, phasedim)),
+                    ts[ii : jj + 1],
+                    pot,
+                    method=method,
+                    progressbar=progressbar,
+                    dt=dt,
+                    numcores=numcores,
+                    force_map=force_map,
+                    rectIn=True,
+                    rectOut=True,
+                    rtol=rtol,
+                    atol=atol,
+                )
+                dev = tmpo.orbit_dxdv[:, :, phasedim:]
+                # devmat[o,t,c,k] = component c of propagated basis vector k
+                # of orbit o at output time t of this segment
+                devmat = dev.reshape((norb, phasedim, jj + 1 - ii, phasedim)).transpose(
+                    0, 2, 3, 1
+                )
+                # Because each segment starts from an orthonormal basis,
+                # log|R_kk(t)| of the QR factorization at output time t is the
+                # log growth factor along direction k since the segment start
+                qq, rr = numpy.linalg.qr(devmat[:, 1:])
+                logr = numpy.log(numpy.fabs(numpy.diagonal(rr, axis1=-2, axis2=-1)))
+                # Running estimate at the output times in this segment
+                lam[:, :, ii + 1 : jj + 1] = (
+                    (logsum[:, None] + logr) / elapsed[None, ii + 1 : jj + 1, None]
+                ).transpose(0, 2, 1)
+                logsum += logr[:, -1]
+                # Restart from the orthonormalized basis at the segment end
+                cur_Q = qq[:, -1]
+                cur_vxvv = tmpo.orbit[::phasedim, -1, :]
+                ii = jj
+            return lam
+        # Benettin et al. (1980) loop: integrate the deviation vector over
+        # segments of renorm_every output intervals, renormalizing it to its
+        # initial norm at the end of each segment and accumulating the log
+        # growth factors
+        elapsed = ts - ts[0]
+        lam = numpy.empty((norb, nt))
+        lam[:, 0] = numpy.nan
+        logsum = numpy.zeros(norb)
+        cur_vxvv = self.vxvv.copy()
+        cur_dxdv = dxdv0.copy()
+        ii = 0
+        while ii < nt - 1:
+            jj = min(ii + renorm_every, nt - 1)
+            tmpo = Orbit(cur_vxvv)
+            tmpo.integrate_dxdv(
+                cur_dxdv,
+                ts[ii : jj + 1],
+                pot,
+                method=method,
+                progressbar=progressbar,
+                dt=dt,
+                numcores=numcores,
+                force_map=force_map,
+                rectIn=True,
+                rectOut=True,
+                rtol=rtol,
+                atol=atol,
+            )
+            dev = tmpo.orbit_dxdv[:, :, phasedim:]
+            devnorm = numpy.linalg.norm(dev, axis=-1)
+            # Running estimate at the output times in this segment
+            lam[:, ii + 1 : jj + 1] = (
+                logsum[:, None] + numpy.log(devnorm[:, 1:] / d0norm[:, None])
+            ) / elapsed[None, ii + 1 : jj + 1]
+            # Renormalize the deviation vector to its initial norm
+            endnorm = devnorm[:, -1]
+            logsum += numpy.log(endnorm / d0norm)
+            cur_dxdv = dev[:, -1, :] * (d0norm / endnorm)[:, None]
+            cur_vxvv = tmpo.orbit[:, -1, :]
+            ii = jj
+        return lam
 
     def flip(self, inplace=False):
         """
@@ -2496,7 +2856,7 @@ class Orbit:
         - 2019-05-21: Written by Bovy (UofT)
 
         """
-        return self.orbit_dxdv[..., 4:].copy()
+        return self.orbit_dxdv[..., self.phasedim() :].copy()
 
     @physical_conversion("energy")
     @shapeDecorator
@@ -4218,6 +4578,10 @@ class Orbit:
         """
         if len(args) == 0:
             try:
+                t_out = numpy.asarray(self.t)
+                if t_out.ndim > 1:
+                    # Per-orbit storage is (size, nt); reshape to (*self.shape, nt)
+                    return t_out.reshape(self.shape + (t_out.shape[-1],)).copy()
                 return self.t.copy()
             except AttributeError:
                 return 0.0
@@ -4695,6 +5059,47 @@ class Orbit:
         else:
             return numpy.arctan2(thiso[0], thiso[3]).T
 
+    def align_to_orbit(self, center_phi1=180.0):
+        r"""
+        Return a sky rotation matrix aligned with this orbit's orbital plane.
+
+        The matrix is also stashed on this Orbit as
+        ``self._custom_transform`` so that ``self.phi1()``,
+        ``self.phi2()``, ``self.pmphi1()``, ``self.pmphi2()`` (and
+        ``self.plot(d1='phi1', d2='phi2')``) work without ``T=``.
+
+        Parameters
+        ----------
+        center_phi1 : float, optional
+            Longitude at which to place the orbit in the custom frame,
+            in degrees. Default 180.0.
+
+        Returns
+        -------
+        numpy.ndarray
+            3x3 rotation matrix.
+
+        Notes
+        -----
+        - 2026-04-23: Written by Bovy (UofT).
+        """
+        # Use internal units (Sun at Xsun=1, Zsun=zo/ro). The rotation
+        # matrix is scale-invariant since L = r x v only matters up to
+        # overall magnitude.
+        T = coords.align_to_orbit(
+            float(self.x(use_physical=False)),
+            float(self.y(use_physical=False)),
+            float(self.z(use_physical=False)),
+            float(self.vx(use_physical=False)),
+            float(self.vy(use_physical=False)),
+            float(self.vz(use_physical=False)),
+            Xsun=1.0,
+            Zsun=self._zo / self._ro,
+            center_phi1=center_phi1,
+        )
+        self._custom_transform = T
+        return T
+
     @physical_conversion("angle_deg")
     @shapeDecorator
     def ra(self, *args, **kwargs):
@@ -4945,6 +5350,197 @@ class Orbit:
         thiso_shape = thiso.shape
         thiso = thiso.reshape((thiso_shape[0], -1))
         return _pmrapmdec(self, thiso, *args, **kwargs).T[1].reshape(thiso_shape[1:]).T
+
+    def _resolve_custom_transform(self, kwargs, name):
+        """Pop ``T=`` off ``kwargs`` and fall back to ``self._custom_transform``.
+        Raises ``RuntimeError`` if neither is available — both phi1/phi2 and
+        their proper-motion counterparts share the same lookup."""
+        T = kwargs.pop("T", None)
+        if T is None:
+            T = getattr(self, "_custom_transform", None)
+        if T is None:
+            raise RuntimeError(
+                f"{name}() needs a custom-frame rotation matrix; either "
+                "call self.align_to_orbit() first to stash one, or pass "
+                "T=<3x3 matrix> explicitly."
+            )
+        return numpy.asarray(T)
+
+    @physical_conversion("angle_deg")
+    @shapeDecorator
+    def phi1(self, *args, **kwargs):
+        r"""
+        Return the longitude in a custom sky frame (in deg).
+
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get phi1. Default is the initial time.
+        T : numpy.ndarray, optional
+            3x3 rotation matrix from (ra, dec) to (phi1, phi2). Default
+            is the matrix stored by a previous call to
+            :meth:`align_to_orbit`. Required if no such call was made.
+        obs : numpy.ndarray, Quantity or Orbit, optional
+            Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default).
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Longitude in the custom sky frame in degrees.
+
+        Notes
+        -----
+        - 2026-05-01: Written by Bovy (UofT).
+        """
+        _check_roSet(self, kwargs, "phi1")
+        T = self._resolve_custom_transform(kwargs, "phi1")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs)
+        p12 = coords.radec_to_custom(radec[:, 0], radec[:, 1], T=T, degree=True)
+        return p12[:, 0].reshape(thiso_shape[1:]).T
+
+    @physical_conversion("angle_deg")
+    @shapeDecorator
+    def phi2(self, *args, **kwargs):
+        r"""
+        Return the latitude in a custom sky frame (in deg).
+
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get phi2. Default is the initial time.
+        T : numpy.ndarray, optional
+            3x3 rotation matrix from (ra, dec) to (phi1, phi2). Default
+            is the matrix stored by a previous call to
+            :meth:`align_to_orbit`. Required if no such call was made.
+        obs : numpy.ndarray, Quantity or Orbit, optional
+            Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default).
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Latitude in the custom sky frame in degrees.
+
+        Notes
+        -----
+        - 2026-05-01: Written by Bovy (UofT).
+        """
+        _check_roSet(self, kwargs, "phi2")
+        T = self._resolve_custom_transform(kwargs, "phi2")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs)
+        p12 = coords.radec_to_custom(radec[:, 0], radec[:, 1], T=T, degree=True)
+        return p12[:, 1].reshape(thiso_shape[1:]).T
+
+    @physical_conversion("proper-motion_masyr")
+    @shapeDecorator
+    def pmphi1(self, *args, **kwargs):
+        r"""
+        Return proper motion in custom-frame longitude (in mas/yr, includes ``cos(phi2)``).
+
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get pmphi1. Default is the initial time.
+        T : numpy.ndarray, optional
+            3x3 rotation matrix from (ra, dec) to (phi1, phi2). Default
+            is the matrix stored by a previous call to
+            :meth:`align_to_orbit`. Required if no such call was made.
+        obs : numpy.ndarray, Quantity or Orbit, optional
+            Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default).
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Proper motion in phi1 in mas/yr.
+
+        Notes
+        -----
+        - 2026-05-01: Written by Bovy (UofT).
+        """
+        _check_roSet(self, kwargs, "pmphi1")
+        _check_voSet(self, kwargs, "pmphi1")
+        T = self._resolve_custom_transform(kwargs, "pmphi1")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs)
+        pmrapmdec = _pmrapmdec(self, thiso, *args, **kwargs)
+        pm12 = coords.pmrapmdec_to_custom(
+            pmrapmdec[:, 0], pmrapmdec[:, 1], radec[:, 0], radec[:, 1], T=T, degree=True
+        )
+        return pm12[:, 0].reshape(thiso_shape[1:]).T
+
+    @physical_conversion("proper-motion_masyr")
+    @shapeDecorator
+    def pmphi2(self, *args, **kwargs):
+        r"""
+        Return proper motion in custom-frame latitude (in mas/yr).
+
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get pmphi2. Default is the initial time.
+        T : numpy.ndarray, optional
+            3x3 rotation matrix from (ra, dec) to (phi1, phi2). Default
+            is the matrix stored by a previous call to
+            :meth:`align_to_orbit`. Required if no such call was made.
+        obs : numpy.ndarray, Quantity or Orbit, optional
+            Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default).
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
+
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Proper motion in phi2 in mas/yr.
+
+        Notes
+        -----
+        - 2026-05-01: Written by Bovy (UofT).
+        """
+        _check_roSet(self, kwargs, "pmphi2")
+        _check_voSet(self, kwargs, "pmphi2")
+        T = self._resolve_custom_transform(kwargs, "pmphi2")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs)
+        pmrapmdec = _pmrapmdec(self, thiso, *args, **kwargs)
+        pm12 = coords.pmrapmdec_to_custom(
+            pmrapmdec[:, 0], pmrapmdec[:, 1], radec[:, 0], radec[:, 1], T=T, degree=True
+        )
+        return pm12[:, 1].reshape(thiso_shape[1:]).T
 
     @physical_conversion("proper-motion_masyr")
     @shapeDecorator
@@ -5906,6 +6502,9 @@ class Orbit:
             )
         else:
             t = args[0]
+        # If self.t is per-orbit (2D), dispatch to the per-orbit evaluator
+        if numpy.asarray(self.t).ndim > 1:
+            return self._call_internal_indiv_t(t)
         # Parse t, first check whether we are dealing with the common case
         # where one wants all integrated times
         # 2nd line: scalar Quantities have __len__, but raise TypeError
@@ -5990,6 +6589,109 @@ class Orbit:
                 t = t[usindx]
                 return out[:, usindx]
 
+    def _call_internal_indiv_t(self, t):
+        """
+        Evaluate the orbits at time t when self.t is per-orbit (2D).
+
+        For per-orbit-integrated Orbit instances, t must have shape that
+        matches the Orbit shape (one time per orbit) or the Orbit shape with
+        an extra trailing time axis (nt_q times per orbit). A scalar applies
+        the same time to every orbit. There is no 1D "shared" broadcasting.
+
+        Output shape mirrors _call_internal: (phasedim, nt_q, size) when t has
+        a trailing time axis, or (phasedim, size) when it does not (scalar
+        or one-time-per-orbit).
+        """
+        if _APY_LOADED and isinstance(t, units.Quantity):
+            t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
+        elif (
+            "_integrate_t_asQuantity" in self.__dict__ and self._integrate_t_asQuantity
+        ):
+            warnings.warn(
+                "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",
+                galpyWarning,
+            )
+        self_t = numpy.asarray(self.t)
+        # Parse user-supplied t into a (size, nt_q) array; remember whether
+        # the caller passed a trailing time axis (and so expects one back).
+        # Accepted forms (reshaped Orbit shape OR internal flat-leading shape):
+        #   scalar                                         - same time everywhere
+        #   t.shape == self.shape                          - one time / orbit
+        #   t.shape == self.shape + (nt_q,)                - nt_q times / orbit
+        #   t.shape == (self.size,) [if != self.shape]     - flat one-time-per-orbit
+        #   t.shape == (self.size, nt_q)                   - flat per-orbit grid
+        if isinstance(t, (int, float, numpy.number)):
+            t_arr = numpy.full((self.size, 1), float(t))
+            has_time_axis = False
+        else:
+            t_in = numpy.asarray(t, dtype=float)
+            if t_in.shape == self.shape:
+                t_arr = t_in.reshape(self.size, 1)
+                has_time_axis = False
+            elif t_in.ndim == len(self.shape) + 1 and t_in.shape[:-1] == self.shape:
+                t_arr = t_in.reshape(self.size, t_in.shape[-1])
+                has_time_axis = True
+            elif t_in.shape == (self.size,):
+                t_arr = t_in.reshape(self.size, 1)
+                has_time_axis = False
+            elif t_in.ndim == 2 and t_in.shape[0] == self.size:
+                t_arr = t_in
+                has_time_axis = True
+            else:
+                raise ValueError(
+                    "Time-array shape {} is incompatible with per-orbit-"
+                    "integrated Orbit (shape {}); expected a scalar, an array "
+                    "of shape {!r}, or {!r}".format(
+                        t_in.shape, self.shape, self.shape, self.shape + ("nt_q",)
+                    )
+                )
+        nt_q = t_arr.shape[-1]
+        # Fast path: t exactly matches the stored integration grid (NaN
+        # entries — used by bruteSOS to pad short rows — are ignored).
+        if (
+            has_time_axis
+            and self_t.shape == t_arr.shape
+            and numpy.all((self_t == t_arr)[~numpy.isnan(self_t)])
+        ):
+            return self.orbit.transpose(2, 1, 0).copy()
+        # Some orbits may have stored grids that are too short to interpolate
+        # (bruteSOS leaves an all-NaN row for any orbit that never crossed the
+        # SOS surface). Fail with a clear message here rather than letting
+        # scipy raise an opaque "fpcurf0:m=0" inside the spline build below.
+        valid_counts = numpy.sum(~numpy.isnan(self_t), axis=-1)
+        short = numpy.where(valid_counts < 2)[0]
+        if short.size:
+            raise ValueError(
+                f"Cannot evaluate orbit(s) {short.tolist()} at the requested "
+                "time(s): their stored integration grid has fewer than 2 valid "
+                "times (e.g. because they never crossed the SOS surface during "
+                "bruteSOS); only queries that exactly match the stored grid are "
+                "supported for these orbits."
+            )
+        # Bounds check (per-orbit, against each row's own integration window).
+        if numpy.any(t_arr > numpy.nanmax(self_t, axis=-1, keepdims=True)) or numpy.any(
+            t_arr < numpy.nanmin(self_t, axis=-1, keepdims=True)
+        ):
+            raise ValueError("Found time value not in the integration time domain")
+        # Build per-orbit interpolators and evaluate
+        self._setupOrbitInterp()
+        out = numpy.empty((self.phasedim(), nt_q, self.size))
+        for kk in range(self.size):
+            tk = t_arr[kk]
+            if self.phasedim() == 4 or self.phasedim() == 6:
+                x_vals = self._orbInterp[0][kk](tk)
+                y_vals = self._orbInterp[-1][kk](tk)
+                out[0, :, kk] = numpy.sqrt(x_vals * x_vals + y_vals * y_vals)
+                out[-1, :, kk] = numpy.arctan2(y_vals, x_vals)
+                for ii in range(1, self.phasedim() - 1):
+                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+            else:
+                for ii in range(self.phasedim()):
+                    out[ii, :, kk] = self._orbInterp[ii][kk](tk)
+        if not has_time_axis:
+            return out[:, 0]
+        return out
+
     def toPlanar(self):
         """
         Convert 3D orbits into 2D orbits.
@@ -6051,6 +6753,40 @@ class Orbit:
 
     def _setupOrbitInterp(self):
         if hasattr(self, "_orbInterp"):
+            return None
+        # Per-orbit integration grids: build a list of phasedim entries, each a
+        # list of size 1D interpolators (one per orbit). Each row may contain
+        # NaN padding (bruteSOS uses this when orbits have unequal numbers of
+        # crossings) — drop those entries before fitting the spline.
+        if hasattr(self, "t") and numpy.asarray(self.t).ndim > 1:
+            orbInterp = [[None] * self.size for _ in range(self.phasedim())]
+            for kk in range(self.size):
+                tk = numpy.asarray(self.t[kk])
+                ok = self.orbit[kk]
+                # Drop NaN-padded entries (per-orbit short rows)
+                valid = ~numpy.isnan(tk)
+                if not numpy.all(valid):
+                    tk = tk[valid]
+                    ok = ok[valid]
+                # Sort each orbit's grid ascending if needed
+                if tk.size > 1 and not numpy.all(numpy.diff(tk) >= 0.0):
+                    sindx = numpy.argsort(tk)
+                    tk = tk[sindx]
+                    ok = ok[sindx]
+                for ii in range(self.phasedim()):
+                    if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
+                        ys = ok[:, 0] * numpy.cos(ok[:, -1])
+                    elif (
+                        self.phasedim() == 4 or self.phasedim() == 6
+                    ) and ii == self.phasedim() - 1:
+                        ys = ok[:, 0] * numpy.sin(ok[:, -1])
+                    else:
+                        ys = ok[:, ii]
+                    orbInterp[ii][kk] = interpolate.InterpolatedUnivariateSpline(
+                        tk, ys, k=3 if tk.size > 3 else max(1, tk.size - 1)
+                    )
+            self._orbInterp = orbInterp
+            self._orb_indx_4orbInterp = numpy.arange(self.size)
             return None
         # Setup one interpolation / phasedim, for all orbits simultaneously
         # First check that times increase
@@ -8733,14 +9469,12 @@ def _parse_radec_kwargs(orb, kwargs, vel=False, dontpop=False, thiso=None):
 
 
 def _check_integrate_dt(t, dt):
-    """Check that the stepsize in t is an integer x dt"""
+    """Check that the stepsize in t is an integer x dt (supports per-orbit 2D t)"""
     if dt is None:
         return True
-    mult = round((t[1] - t[0]) / dt)
-    if numpy.fabs(mult * dt - t[1] + t[0]) < 10.0**-10.0:
-        return True
-    else:
-        return False
+    spacings = t[..., 1] - t[..., 0]
+    mult = numpy.round(spacings / dt)
+    return numpy.all(numpy.fabs(mult * dt - spacings) < 10.0**-10.0)
 
 
 def _check_potential_dim(orb, pot):

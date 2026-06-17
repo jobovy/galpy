@@ -1,6 +1,9 @@
 import warnings
 
 import numpy
+from scipy.integrate import cumulative_trapezoid
+from scipy.interpolate import InterpolatedUnivariateSpline
+from scipy.signal import find_peaks
 
 from ..df.df import df
 from ..orbit import Orbit
@@ -8,6 +11,7 @@ from ..potential import MovingObjectPotential, evaluateRforces, rtide
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+from .streamTrack import StreamTrack, StreamTrackPair
 
 if _APY_LOADED:
     from astropy import units
@@ -21,7 +25,9 @@ class basestreamspraydf(df):
         pot=None,
         rtpot=None,
         tdisrupt=None,
-        leading=True,
+        stripping_pdf=None,
+        leading=None,
+        tail=None,
         center=None,
         centerpot=None,
         progpot=None,
@@ -33,8 +39,8 @@ class basestreamspraydf(df):
 
         Parameters
         ----------
-        progenitor_mass : float or Quantity
-            Mass of the progenitor.
+        progenitor_mass : float, Quantity, or callable
+            Mass of the progenitor. If a callable, it is a function ``M(t)`` of the progenitor-time coordinate (``t=0`` is now, ``t<0`` is the past, matching the convention used throughout galpy's orbit integration). The callable may take and/or return astropy ``Quantity`` (auto-detected): unitful input is given in Gyr, unitful output should have units of mass.
         progenitor : galpy.orbit.Orbit, optional
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
         pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -43,8 +49,12 @@ class basestreamspraydf(df):
             Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
+        stripping_pdf : callable, optional
+            Probability density of stripping over the progenitor time axis ``t in [-tdisrupt, 0]`` (``t=0`` is the present, ``t<0`` the past). Must accept a 1D array (or scalar) and return a 1D array (or scalar) of the same length. Both input and output may be astropy ``Quantity`` (input a time, output a 1/time); detection mirrors :class:`galpy.potential.AnyAxisymmetricRazorThinDiskPotential`. The PDF need not be normalized. Default is None (uniform stripping over ``[-tdisrupt, 0]``).
         leading : bool, optional
-            If True, model the leading part of the stream. If False, model the trailing part. Default is True.
+            Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
+        tail : str, optional
+            Which tail(s) to model. Can be ``'leading'``, ``'trailing'``, or ``'both'``. Default is ``'leading'``.
         center : galpy.orbit.Orbit, optional
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
         centerpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -61,16 +71,48 @@ class basestreamspraydf(df):
         - 2018-07-31 - Written - Bovy (UofT)
         - 2021-05-05 - Added center keyword - Yansong Qian (UofT)
         - 2024-08-11 - Generalized to allow different particle-spray methods - Yingtian Chen (UMich)
+        - 2026-05-11 - Allowed ``progenitor_mass`` to be a callable - Bovy (UofT)
         """
+        # If ro/vo are not explicitly given, inherit them from the
+        # progenitor's settings so that streamspraydf and progenitor
+        # share a single physical-conversion convention. (zo/solarmotion
+        # don't enter the spray itself; streamTrack sources them from
+        # the progenitor at construction time.)
+        if progenitor is not None:
+            if ro is None and progenitor._roSet:
+                ro = progenitor._ro
+            if vo is None and progenitor._voSet:
+                vo = progenitor._vo
         super().__init__(ro=ro, vo=vo)
-        self._progenitor_mass = conversion.parse_mass(
-            progenitor_mass, ro=self._ro, vo=self._vo
-        )
+        # Handle leading= deprecation
+        if leading is not None:
+            warnings.warn(
+                "The leading= keyword is deprecated since v1.12 and will be "
+                "removed in v1.14. Use tail= instead: tail='leading' or "
+                "tail='trailing'.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            if tail is not None:
+                raise ValueError(
+                    "Cannot specify both leading= and tail=. Use tail= only."
+                )
+            tail = "leading" if leading else "trailing"
+        if tail is None:
+            tail = "leading"
+        if tail not in ("leading", "trailing", "both"):
+            raise ValueError(
+                f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
+            )
+        self._tail = tail
+        self._leading = tail != "trailing"
+        self._parse_progenitor_mass(progenitor_mass)
         self._tdisrupt = (
             5.0 / conversion.time_in_Gyr(self._vo, self._ro)
             if tdisrupt is None
             else conversion.parse_time(tdisrupt, ro=self._ro, vo=self._vo)
         )
+        self._parse_stripping_pdf(stripping_pdf)
         if pot is None:  # pragma: no cover
             raise OSError("pot= must be set")
         self._pot = _check_potential_list_and_deprecate(pot)
@@ -92,7 +134,6 @@ class basestreamspraydf(df):
         self._progenitor.turn_physical_off()
         self._progenitor_times = numpy.linspace(0.0, -self._tdisrupt, 10001)
         self._progenitor.integrate(self._progenitor_times, self._pot)
-        self._leading = leading
         # Set up center orbit if given
         if not center is None:
             self._centerpot = (
@@ -109,6 +150,7 @@ class basestreamspraydf(df):
         else:
             self._center = None
         if progpot is not None:
+            self._orig_pot = self._pot  # save pre-progpot for streamTrack
             progtrajpot = MovingObjectPotential(
                 orbit=self._progenitor,
                 pot=progpot,
@@ -119,96 +161,49 @@ class basestreamspraydf(df):
 
         return None
 
-    def sample(self, n, return_orbit=True, returndt=False, integrate=True):
+    def sample(self, n, return_orbit=True, returndt=False, integrate=True, tail=None):
         """
         Sample from the DF
 
         Parameters
         ----------
         n : int
-            Number of points to return.
+            Number of points to return. When ``tail='both'``, ``n`` is the total number of points, split equally between the leading and trailing tails.
         return_orbit : bool, optional
             If True, the output phase-space positions is an orbit.Orbit object. If False, the output is (R,vR,vT,z,vz,phi). Default is True.
         returndt : bool, optional
             If True, also return the time since the star was stripped. Default is False.
         integrate : bool, optional
             If True, integrate the orbits to the present time. If False, return positions at stripping (probably want to combine with returndt=True then to make sense of them!). Default is True.
+        tail : str, optional
+            ``'leading'``, ``'trailing'``, or ``'both'`` to override the default set at class initialization. Default is None (use the value of ``tail=`` from ``__init__``). The progenitor is integrated identically for either arm, so any override value works regardless of the initialization choice.
 
         Returns
         -------
         Orbit, numpy.ndarray, or tuple
-            Orbit instance or (R,vR,vT,z,vz,phi) of points on the stream in 6,N array (set of 6 Quantities when physical output is on); optionally the time is included as well. The ro/vo unit-conversion parameters and the zo/solarmotion parameters as well as whether physical outputs are on, match the settings of the progenitor Orbit given to the class initialization
+            Orbit instance or (R,vR,vT,z,vz,phi) of points on the stream in 6,N array (set of 6 Quantities when physical output is on); optionally the time is included as well. When ``tail='both'``, the leading-tail points come first, followed by the trailing-tail points. The ro/vo unit-conversion parameters and the zo/solarmotion parameters as well as whether physical outputs are on, match the settings of the progenitor Orbit given to the class initialization
 
         Notes
         -----
         - 2018-07-31 - Written - Bovy (UofT)
         - 2022-05-18 - Made output Orbit ro/vo/zo/solarmotion/roSet/voSet match that of the progenitor orbit - Bovy (UofT)
         - 2024-08-11 - Include the progenitor's potential - Yingtian Chen (Umich)
+        - 2026-04-28 - Added ``tail`` keyword override to match ``streamTrack`` - Bovy (UofT)
         """
-        # First sample times
-        dt = numpy.random.uniform(size=n) * self._tdisrupt
-        # Build all rotation matrices
-        rot, rot_inv = self._setup_rot(dt)
-        # Compute progenitor position in the instantaneous frame,
-        # relative to the center orbit if necessary
-        centerx = self._progenitor.x(-dt)
-        centery = self._progenitor.y(-dt)
-        centerz = self._progenitor.z(-dt)
-        centervx = self._progenitor.vx(-dt)
-        centervy = self._progenitor.vy(-dt)
-        centervz = self._progenitor.vz(-dt)
-        if not self._center is None:
-            centerx -= self._center.x(-dt)
-            centery -= self._center.y(-dt)
-            centerz -= self._center.z(-dt)
-            centervx -= self._center.vx(-dt)
-            centervy -= self._center.vy(-dt)
-            centervz -= self._center.vz(-dt)
-        xyzpt = numpy.einsum(
-            "ijk,ik->ij", rot, numpy.array([centerx, centery, centerz]).T
-        )
-        vxyzpt = numpy.einsum(
-            "ijk,ik->ij", rot, numpy.array([centervx, centervy, centervz]).T
-        )
-
-        # generate the initial conditions
-        xst, yst, zst, vxst, vyst, vzst = self.spray_df(xyzpt, vxyzpt, dt)
-
-        xyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([xst, yst, zst]).T)
-        vxyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([vxst, vyst, vzst]).T)
-
-        absx = xyzs[:, 0]
-        absy = xyzs[:, 1]
-        absz = xyzs[:, 2]
-        absvx = vxyzs[:, 0]
-        absvy = vxyzs[:, 1]
-        absvz = vxyzs[:, 2]
-        if not self._center is None:
-            absx += self._center.x(-dt)
-            absy += self._center.y(-dt)
-            absz += self._center.z(-dt)
-            absvx += self._center.vx(-dt)
-            absvy += self._center.vy(-dt)
-            absvz += self._center.vz(-dt)
-        Rs, phis, Zs = coords.rect_to_cyl(absx, absy, absz)
-        vRs, vTs, vZs = coords.rect_to_cyl_vec(
-            absvx, absvy, absvz, Rs, phis, Zs, cyl=True
-        )
-        out = numpy.empty((6, n))
-        if integrate:
-            # Now integrate the orbits
-            for ii in range(n):
-                o = Orbit([Rs[ii], vRs[ii], vTs[ii], Zs[ii], vZs[ii], phis[ii]])
-                o.integrate(numpy.linspace(-dt[ii], 0.0, 10001), self._pot)
-                o = o(0.0)
-                out[:, ii] = [o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()]
+        tail = self._tail if tail is None else tail
+        if tail not in ("leading", "trailing", "both"):
+            raise ValueError(
+                f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
+            )
+        if tail == "both":
+            n_leading = n // 2
+            n_trailing = n - n_leading
+            out_l, dt_l = self._sample_tail(n_leading, integrate, leading=True)
+            out_t, dt_t = self._sample_tail(n_trailing, integrate, leading=False)
+            out = numpy.hstack([out_l, out_t])
+            dt = numpy.concatenate([dt_l, dt_t])
         else:
-            out[0] = Rs
-            out[1] = vRs
-            out[2] = vTs
-            out[3] = Zs
-            out[4] = vZs
-            out[5] = phis
+            out, dt = self._sample_tail(n, integrate, leading=tail == "leading")
         if return_orbit:
             # Output Orbit ro/vo/zo/solarmotion/roSet/voSet match progenitor
             o = Orbit(
@@ -238,13 +233,386 @@ class basestreamspraydf(df):
         else:
             return out
 
+    def streamTrack(
+        self,
+        n=5000,
+        particles=None,
+        tail=None,
+        track_time_range=None,
+        ntp=None,
+        smoothing=None,
+        smoothing_factor=1.0,
+        niter=0,
+        order=2,
+        velocity_weight="auto",
+        custom_sky_transform=None,
+    ):
+        """
+        Construct a smooth phase-space track through the stream by sampling
+        particles and projecting them onto a finely-integrated progenitor
+        orbit.
+
+        The track is parameterized by the progenitor's time coordinate
+        ``tp``: ``tp=0`` is the progenitor today, ``tp<0`` are past
+        positions (matched by the trailing arm) and ``tp>0`` are future
+        positions (matched by the leading arm). Because stream particles
+        have small velocity offsets from the progenitor, they lie spatially
+        close to a short arc of the progenitor's orbit — the relevant ``tp``
+        range is much smaller than ``tdisrupt``.
+
+        Parameters
+        ----------
+        n : int, optional
+            Total number of particles to draw. When ``tail='both'``, ``n``
+            is split equally between leading and trailing (matching
+            ``self.sample(n, ...)``'s convention). Ignored if
+            ``particles`` is provided. Default is 5000.
+        particles : array, shape (6, N), optional
+            Pre-computed present-day ``(R, vR, vT, z, vz, phi)`` of stream
+            particles. Use ``self.sample(returndt=False, return_orbit=False,
+            integrate=True)`` to draw, or pass an externally-generated
+            sample (e.g. from an N-body run). When ``tail='both'``, the
+            array must follow the sample ordering (leading first, then
+            trailing) and is split at ``N // 2``. Default is None
+            (sample freshly).
+        tail : str, optional
+            One of ``'leading'``, ``'trailing'``, or ``'both'``. Defaults to
+            the value set at initialization.
+        track_time_range : float or Quantity, optional
+            Half-range (symmetric about tp=0) of the finely-integrated
+            progenitor orbit used for closest-point matching. Default is
+            data-driven: ``8 * d_max / |v_prog|`` clamped to ``[1,
+            tdisrupt]``, where ``d_max`` is the farthest particle's
+            distance from the progenitor.
+        ntp : int, optional
+            Number of binning nodes. Default ``sqrt(N)`` with a floor of
+            21 and a ceiling that scales with the arc span (at least 201;
+            larger for long streams).
+        smoothing : None, float, or array-like, optional
+            Smoothing parameter(s). ``None`` (default) uses GCV
+            auto-tuning. A float sets a single ``s`` for all coords. An
+            array-like of length 6 (mean only) or 27 (mean + covariance)
+            sets per-spline ``s`` values — pass a previous call's
+            ``track.smoothing_s`` to reproduce the same smoothness
+            without re-running GCV.
+        smoothing_factor : float, optional
+            Multiplier applied to every spline's effective ``s`` after
+            GCV (or explicit-``s``) selection. Values > 1 force a smoother
+            fit, values < 1 a rougher one. Useful when GCV undersmooths
+            in finite samples (a common failure mode of
+            ``make_smoothing_spline`` on noisy binned means). Default 1.0.
+            For an interactive smoothing sweep, save ``track.particles``
+            from the first call and pass it back as ``particles=`` —
+            only the cheap re-fit step runs, the orbit-integration sample
+            is reused.
+        niter : int, optional
+            Iterations beyond the initial fit. Each iteration reassigns
+            particles to the closest point on the current track.
+        order : int, optional
+            1 = mean only, 2 = mean + covariance (default).
+        velocity_weight : float or ``'auto'``, optional
+            Multiplicative weight applied to velocity components when
+            computing 6D distances during the closest-point projection.
+            Default ``'auto'`` learns the weight from the inner-half
+            particle dispersion (``σ_pos / σ_vel``, clipped to
+            ``[0.1, 10]``); typically lands at ~2–3 for both clean and
+            perturbed streams. Values > 1 make velocity matches more
+            important than position matches — useful when the
+            progenitor orbit revisits regions of phase space (e.g., in
+            strongly-perturbed potentials with a massive LMC). Pass
+            ``1.0`` for the legacy unweighted natural-units
+            metric.
+
+        Returns
+        -------
+        :class:`galpy.df.StreamTrack` or :class:`galpy.df.StreamTrackPair`
+            A single-arm track object, or a pair with ``.leading`` and
+            ``.trailing`` tracks when ``tail='both'``.
+
+        Notes
+        -----
+        - 2026-04-14 - Written - Bovy (UofT)
+        """
+        tail = self._tail if tail is None else tail
+        if tail not in ("leading", "trailing", "both"):
+            raise ValueError(
+                f"tail= must be 'leading', 'trailing', or 'both', got '{tail}'"
+            )
+
+        # Resolve the particle sample(s) up front. For tail='both' we keep
+        # the leading/trailing split — the time-range estimate below pools
+        # all of them for a tight bound.
+        if tail == "both":
+            if particles is not None:
+                xv_all = numpy.asarray(particles, dtype=float)
+                n_lead = xv_all.shape[1] // 2
+                xv_lead = xv_all[:, :n_lead]
+                xv_trail = xv_all[:, n_lead:]
+            else:
+                # Match self.sample(n, ...)'s split: half leading, half
+                # trailing (with the trailing tail picking up the parity
+                # bit when n is odd, like sample()).
+                n_lead = n // 2
+                n_trail = n - n_lead
+                xv_lead, _ = self._sample_tail(n_lead, True, leading=True)
+                xv_trail, _ = self._sample_tail(n_trail, True, leading=False)
+                xv_all = numpy.column_stack([xv_lead, xv_trail])
+        else:
+            if particles is not None:
+                xv_single = numpy.asarray(particles, dtype=float)
+            else:
+                xv_single, _ = self._sample_tail(n, True, leading=(tail == "leading"))
+            xv_all = xv_single
+
+        if track_time_range is None:
+            # Auto: estimate from the stream's spatial extent in the
+            # already-sampled particles, measure the farthest from the
+            # progenitor, convert to an orbital-time scale via the
+            # progenitor's present-day speed, and pad by 8x. Scales
+            # naturally with stream width (essential for warm /
+            # dwarf-galaxy-mass progenitors whose tidal radii and
+            # velocity kicks are much larger).
+            _Rs, _, _, _zs, _, _phis = xv_all
+            _xs = _Rs * numpy.cos(_phis)
+            _ys = _Rs * numpy.sin(_phis)
+            _px = float(self._progenitor.x(0.0))
+            _py = float(self._progenitor.y(0.0))
+            _pz = float(self._progenitor.z(0.0))
+            _pv = numpy.sqrt(
+                float(self._progenitor.vx(0.0)) ** 2
+                + float(self._progenitor.vy(0.0)) ** 2
+                + float(self._progenitor.vz(0.0)) ** 2
+            )
+            _d_max = numpy.sqrt(
+                numpy.max((_xs - _px) ** 2 + (_ys - _py) ** 2 + (_zs - _pz) ** 2)
+            )
+            track_time_range = float(
+                numpy.clip(8.0 * _d_max / max(_pv, 1e-6), 1.0, self._tdisrupt)
+            )
+        else:
+            track_time_range = conversion.parse_time(
+                track_time_range, ro=self._ro, vo=self._vo
+            )
+
+        # Build a finely-sampled progenitor phase-space array spanning
+        # [-T, +T] around the present day. Integrate forward, then
+        # backward — galpy's Orbit.integrate auto-stitches consecutive
+        # calls into a single continuous trajectory.
+        # Use the base potential (no MovingObjectPotential for the
+        # progenitor itself — a body shouldn't generate the field that
+        # integrates it).
+        _track_pot = getattr(self, "_orig_pot", self._pot)
+        # Dense progenitor sampling: hard-coded internal density. 10001
+        # points across [-T, +T] is plenty for any plausible track —
+        # finer than the spline knot density downstream.
+        half_dense = 5001
+        t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
+        t_back = numpy.linspace(0.0, -track_time_range, half_dense)
+        prog = self._orig_progenitor()
+        prog.turn_physical_off()
+        prog.integrate(t_fwd, _track_pot)
+        prog.integrate(t_back, _track_pot)
+        # Stitched grid spans [-T, +T] (skip the t=0 duplicate at the seam).
+        track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
+        track_prog_cart = numpy.column_stack(
+            [
+                prog.x(track_t_grid),
+                prog.y(track_t_grid),
+                prog.z(track_t_grid),
+                prog.vx(track_t_grid),
+                prog.vy(track_t_grid),
+                prog.vz(track_t_grid),
+            ]
+        )
+
+        # Inherit unit metadata from the original progenitor Orbit. Pass
+        # ``ro``/``vo`` only when the progenitor had them explicitly set —
+        # StreamTrack mirrors Orbit's "ro/vo unset means use the config
+        # default and keep _roSet=False" pattern, so we propagate the
+        # progenitor's ``_roSet``/``_voSet`` state via *not passing* the
+        # value rather than via a separate flag.
+        prog_ro = self._orig_progenitor._ro if self._orig_progenitor._roSet else None
+        prog_vo = self._orig_progenitor._vo if self._orig_progenitor._voSet else None
+        prog_zo = self._orig_progenitor._zo
+        prog_sm = self._orig_progenitor._solarmotion
+
+        def _make_track(xv, arm_sign):
+            return StreamTrack.from_particles(
+                xv_particles=xv,
+                track_prog_cart=track_prog_cart,
+                track_t_grid=track_t_grid,
+                arm_sign=arm_sign,
+                ntp=ntp,
+                smoothing=smoothing,
+                smoothing_factor=smoothing_factor,
+                niter=niter,
+                order=order,
+                velocity_weight=velocity_weight,
+                prog_orbit=prog,
+                custom_sky_transform=custom_sky_transform,
+                ro=prog_ro,
+                vo=prog_vo,
+                zo=prog_zo,
+                solarmotion=prog_sm,
+            )
+
+        if tail == "both":
+            return StreamTrackPair(
+                _make_track(xv_lead, arm_sign=+1),
+                _make_track(xv_trail, arm_sign=-1),
+            )
+        return _make_track(xv_single, arm_sign=(+1 if tail == "leading" else -1))
+
+    def _parse_stripping_pdf(self, stripping_pdf):
+        if stripping_pdf is None:
+            self._stripping_inv_cdf = None
+            return
+        if not callable(stripping_pdf):
+            raise TypeError("stripping_pdf must be callable or None")
+        # Detect Quantity input/output the same way
+        # AnyAxisymmetricRazorThinDiskPotential does.
+        time_in_gyr = conversion.time_in_Gyr(self._vo, self._ro)
+        _t_unit_input = False
+        _t_unit_output = False
+        if _APY_LOADED:
+            t_probe = -0.5 * self._tdisrupt
+            try:
+                stripping_pdf(t_probe)
+            except (
+                units.UnitConversionError,
+                units.UnitTypeError,
+                AttributeError,
+            ):
+                _t_unit_input = True
+            if _t_unit_input:
+                try:
+                    stripping_pdf(t_probe * time_in_gyr * units.Gyr).to(1.0 / units.Gyr)
+                except (AttributeError, units.UnitConversionError):
+                    pass
+                else:
+                    _t_unit_output = True
+            else:
+                try:
+                    stripping_pdf(t_probe).to(1.0 / units.Gyr)
+                except (AttributeError, units.UnitConversionError):
+                    pass
+                else:
+                    _t_unit_output = True
+        if _t_unit_input and _t_unit_output:
+
+            def pdf_internal(t):
+                out = stripping_pdf(t * time_in_gyr * units.Gyr)
+                return out.to(1.0 / units.Gyr).value * time_in_gyr
+        elif _t_unit_input:
+
+            def pdf_internal(t):
+                return numpy.asarray(stripping_pdf(t * time_in_gyr * units.Gyr))
+        elif _t_unit_output:
+
+            def pdf_internal(t):
+                out = stripping_pdf(t)
+                return out.to(1.0 / units.Gyr).value * time_in_gyr
+        else:
+
+            def pdf_internal(t):
+                return numpy.asarray(stripping_pdf(t))
+
+        t_grid = numpy.linspace(-self._tdisrupt, 0.0, 10001)
+        pdf_vals = numpy.asarray(pdf_internal(t_grid), dtype=float)
+        if numpy.any(pdf_vals < 0):
+            raise ValueError("stripping_pdf must be non-negative on [-tdisrupt, 0]")
+        cdf_vals = cumulative_trapezoid(pdf_vals, t_grid, initial=0.0)
+        if cdf_vals[-1] <= 0:
+            raise ValueError("stripping_pdf integrates to zero on [-tdisrupt, 0]")
+        cdf_vals /= cdf_vals[-1]
+        # Enforce strict monotonicity by accumulating max and dropping ties.
+        cdf_vals = numpy.maximum.accumulate(cdf_vals)
+        _, unique_idx = numpy.unique(cdf_vals, return_index=True)
+        unique_idx = numpy.sort(unique_idx)
+        self._stripping_inv_cdf = InterpolatedUnivariateSpline(
+            cdf_vals[unique_idx], t_grid[unique_idx], k=1, ext=3
+        )
+
+    def _sample_tail(self, n, integrate, leading=True):
+        """Sample n points from the specified tail."""
+        # First sample times
+        if self._stripping_inv_cdf is None:
+            dt = numpy.random.uniform(size=n) * self._tdisrupt
+        else:
+            u_samples = numpy.random.uniform(size=n)
+            dt = -self._stripping_inv_cdf(u_samples)
+        # Build all rotation matrices
+        rot, rot_inv = self._setup_rot(dt)
+        # Compute progenitor position in the instantaneous frame,
+        # relative to the center orbit if necessary
+        centerx = numpy.atleast_1d(self._progenitor.x(-dt))
+        centery = numpy.atleast_1d(self._progenitor.y(-dt))
+        centerz = numpy.atleast_1d(self._progenitor.z(-dt))
+        centervx = numpy.atleast_1d(self._progenitor.vx(-dt))
+        centervy = numpy.atleast_1d(self._progenitor.vy(-dt))
+        centervz = numpy.atleast_1d(self._progenitor.vz(-dt))
+        if not self._center is None:
+            centerx -= self._center.x(-dt)
+            centery -= self._center.y(-dt)
+            centerz -= self._center.z(-dt)
+            centervx -= self._center.vx(-dt)
+            centervy -= self._center.vy(-dt)
+            centervz -= self._center.vz(-dt)
+        xyzpt = numpy.einsum(
+            "ijk,ik->ij", rot, numpy.array([centerx, centery, centerz]).T
+        )
+        vxyzpt = numpy.einsum(
+            "ijk,ik->ij", rot, numpy.array([centervx, centervy, centervz]).T
+        )
+
+        # generate the initial conditions
+        xst, yst, zst, vxst, vyst, vzst = self.spray_df(xyzpt, vxyzpt, dt, leading)
+
+        xyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([xst, yst, zst]).T)
+        vxyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([vxst, vyst, vzst]).T)
+
+        absx = xyzs[:, 0]
+        absy = xyzs[:, 1]
+        absz = xyzs[:, 2]
+        absvx = vxyzs[:, 0]
+        absvy = vxyzs[:, 1]
+        absvz = vxyzs[:, 2]
+        if not self._center is None:
+            absx += self._center.x(-dt)
+            absy += self._center.y(-dt)
+            absz += self._center.z(-dt)
+            absvx += self._center.vx(-dt)
+            absvy += self._center.vy(-dt)
+            absvz += self._center.vz(-dt)
+        Rs, phis, Zs = coords.rect_to_cyl(absx, absy, absz)
+        vRs, vTs, vZs = coords.rect_to_cyl_vec(
+            absvx, absvy, absvz, Rs, phis, Zs, cyl=True
+        )
+        out = numpy.empty((6, n))
+        if integrate:
+            # Integrate all sampled particles as a single Orbit instance, with
+            # each particle on its own time grid from its stripping time -dt[i]
+            # to the present (t=0). The final time step is the present-day state.
+            o = Orbit(numpy.array([Rs, vRs, vTs, Zs, vZs, phis]).T)
+            ts = numpy.linspace(-dt, numpy.zeros(n), 10001, axis=-1)
+            o.integrate(ts, self._pot)
+            out[:] = o.orbit[:, -1, :].T
+        else:
+            out[0] = Rs
+            out[1] = vRs
+            out[2] = vTs
+            out[3] = Zs
+            out[4] = vZs
+            out[5] = phis
+        return out, dt
+
     def _setup_rot(self, dt):
         n = len(dt)
-        centerx = self._progenitor.x(-dt)
-        centery = self._progenitor.y(-dt)
-        centerz = self._progenitor.z(-dt)
+        centerx = numpy.atleast_1d(self._progenitor.x(-dt))
+        centery = numpy.atleast_1d(self._progenitor.y(-dt))
+        centerz = numpy.atleast_1d(self._progenitor.z(-dt))
         if self._center is None:
-            L = self._progenitor.L(-dt)
+            L = numpy.atleast_2d(self._progenitor.L(-dt))
         # Compute relative angular momentum to the center orbit
         else:
             centerx -= self._center.x(-dt)
@@ -253,13 +621,15 @@ class basestreamspraydf(df):
             centervx = self._progenitor.vx(-dt) - self._center.vx(-dt)
             centervy = self._progenitor.vy(-dt) - self._center.vy(-dt)
             centervz = self._progenitor.vz(-dt) - self._center.vz(-dt)
-            L = numpy.array(
-                [
-                    centery * centervz - centerz * centervy,
-                    centerz * centervx - centerx * centervz,
-                    centerx * centervy - centery * centervx,
-                ]
-            ).T
+            L = numpy.atleast_2d(
+                numpy.array(
+                    [
+                        centery * centervz - centerz * centervy,
+                        centerz * centervx - centerx * centervz,
+                        centerx * centervy - centery * centervx,
+                    ]
+                ).T
+            )
         Lnorm = L / numpy.tile(numpy.sqrt(numpy.sum(L**2.0, axis=1)), (3, 1)).T
         z_rot = numpy.swapaxes(
             _rotate_to_arbitrary_vector(
@@ -299,6 +669,7 @@ class basestreamspraydf(df):
         return (rot, rot_inv)
 
     def _calc_rtide(self, Rpt, phipt, Zpt, dt):
+        Ms = self._progenitor_mass_fn(-dt)
         try:
             rtides = rtide(
                 self._rtpot,
@@ -306,7 +677,7 @@ class basestreamspraydf(df):
                 Zpt,
                 phi=phipt,
                 t=-dt,
-                M=self._progenitor_mass,
+                M=Ms,
                 use_physical=False,
             )
         except (ValueError, TypeError):
@@ -318,7 +689,7 @@ class basestreamspraydf(df):
                         Zpt[ii],
                         phi=phipt[ii],
                         t=-dt[ii],
-                        M=self._progenitor_mass,
+                        M=float(Ms[ii]),
                         use_physical=False,
                     )
                     for ii in range(len(Rpt))
@@ -353,7 +724,75 @@ class basestreamspraydf(df):
             )
         return vcs
 
-    def spray_df(self, xyzpt, vxyzpt, dt):
+    def _parse_progenitor_mass(self, progenitor_mass):
+        # Sets self._progenitor_mass_fn(t) -> internal-unit mass, where t is
+        # the progenitor-time coordinate (t=0 is now, t<0 is the past). Also
+        # sets self._progenitor_mass to the present-day value for any external
+        # code that reads the attribute. Accepts: scalar float, Quantity, or
+        # callable. Callables are auto-detected for Quantity input / output
+        # (same four-branch pattern as AnyAxisymmetricRazorThinDiskPotential).
+        if not callable(progenitor_mass):
+            M0 = conversion.parse_mass(progenitor_mass, ro=self._ro, vo=self._vo)
+            self._progenitor_mass_fn = lambda t: (
+                M0 * numpy.ones_like(numpy.asarray(t, dtype=float))
+            )
+            self._progenitor_mass = M0
+            return
+        _mass_unit_input = False
+        _mass_unit_output = False
+        if _APY_LOADED:
+            try:
+                progenitor_mass(0.0)
+            except (
+                units.UnitConversionError,
+                units.UnitTypeError,
+                AttributeError,
+            ):
+                _mass_unit_input = True
+            probe_in = 0.0 * units.Gyr if _mass_unit_input else 0.0
+            try:
+                progenitor_mass(probe_in).to(units.Msun)
+            except (AttributeError, units.UnitConversionError):
+                pass
+            else:
+                _mass_unit_output = True
+        _time_to_quantity = (
+            conversion.time_in_Gyr(self._vo, self._ro) * units.Gyr
+            if _APY_LOADED
+            else None
+        )
+        if _mass_unit_input and _mass_unit_output:
+
+            def _mass_fn(t):
+                t_q = numpy.asarray(t, dtype=float) * _time_to_quantity
+                return conversion.parse_mass(
+                    progenitor_mass(t_q), ro=self._ro, vo=self._vo
+                )
+        elif _mass_unit_input:
+
+            def _mass_fn(t):
+                t_q = numpy.asarray(t, dtype=float) * _time_to_quantity
+                return numpy.asarray(progenitor_mass(t_q), dtype=float)
+        elif _mass_unit_output:
+
+            def _mass_fn(t):
+                return conversion.parse_mass(
+                    progenitor_mass(numpy.asarray(t, dtype=float)),
+                    ro=self._ro,
+                    vo=self._vo,
+                )
+        else:
+
+            def _mass_fn(t):
+                return numpy.asarray(
+                    progenitor_mass(numpy.asarray(t, dtype=float)),
+                    dtype=float,
+                )
+
+        self._progenitor_mass_fn = _mass_fn
+        self._progenitor_mass = float(self._progenitor_mass_fn(0.0))
+
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
         """
         Sample the positions and velocities around the progenitor
         Must be implemented in a subclass
@@ -366,6 +805,8 @@ class basestreamspraydf(df):
             Velocities of progenitor in the progenitor coordinates.
         dt : array, shape (N,)
             Time of sampling.
+        leading : bool, optional
+            If True, generate the leading tail. If False, generate the trailing tail. Default is True.
 
         Returns
         -------
@@ -385,7 +826,9 @@ class chen24spraydf(basestreamspraydf):
         pot=None,
         rtpot=None,
         tdisrupt=None,
-        leading=True,
+        stripping_pdf=None,
+        leading=None,
+        tail=None,
         center=None,
         centerpot=None,
         progpot=None,
@@ -400,8 +843,8 @@ class chen24spraydf(basestreamspraydf):
 
         Parameters
         ----------
-        progenitor_mass : float or Quantity
-            Mass of the progenitor.
+        progenitor_mass : float, Quantity, or callable
+            Mass of the progenitor. If a callable, it is a function ``M(t)`` of the progenitor-time coordinate (``t=0`` is now, ``t<0`` is the past); may take and/or return astropy ``Quantity`` (auto-detected). See :class:`basestreamspraydf` for details.
         progenitor : galpy.orbit.Orbit, optional
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
         pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -410,8 +853,12 @@ class chen24spraydf(basestreamspraydf):
             Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
+        stripping_pdf : callable, optional
+            Probability density of stripping over the progenitor time axis ``t in [-tdisrupt, 0]``. See :class:`galpy.df.streamspraydf.basestreamspraydf` for the full description. Default is None (uniform stripping).
         leading : bool, optional
-            If True, model the leading part of the stream. If False, model the trailing part. Default is True.
+            Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
+        tail : str, optional
+            Which tail(s) to model. Can be ``'leading'``, ``'trailing'``, or ``'both'``. Default is ``'leading'``.
         center : galpy.orbit.Orbit, optional
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
         centerpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -437,7 +884,9 @@ class chen24spraydf(basestreamspraydf):
             pot=pot,
             rtpot=rtpot,
             tdisrupt=tdisrupt,
+            stripping_pdf=stripping_pdf,
             leading=leading,
+            tail=tail,
             center=center,
             centerpot=centerpot,
             progpot=progpot,
@@ -463,7 +912,7 @@ class chen24spraydf(basestreamspraydf):
             self._cov = cov
         return None
 
-    def spray_df(self, xyzpt, vxyzpt, dt):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
         """
         Sample the positions and velocities around the progenitor
 
@@ -475,6 +924,8 @@ class chen24spraydf(basestreamspraydf):
             Velocities of progenitor in the progenitor coordinates.
         dt : array, shape (N,)
             Time of sampling.
+        leading : bool, optional
+            If True, generate the leading tail. If False, generate the trailing tail. Default is True.
 
         Returns
         -------
@@ -489,9 +940,9 @@ class chen24spraydf(basestreamspraydf):
         # Sample positions and velocities in the instantaneous frame
         posvel = numpy.random.multivariate_normal(self._mean, self._cov, size=len(dt))
         Dr = posvel[:, 0] * rtides
-        v_esc = numpy.sqrt(2 * self._progenitor_mass / Dr)
+        v_esc = numpy.sqrt(2 * self._progenitor_mass_fn(-dt) / Dr)
         Dv = posvel[:, 3] * v_esc
-        if self._leading:
+        if leading:
             Dr *= -1.0
             Dv *= -1.0
 
@@ -523,7 +974,9 @@ class fardal15spraydf(basestreamspraydf):
         pot=None,
         rtpot=None,
         tdisrupt=None,
-        leading=True,
+        stripping_pdf=None,
+        leading=None,
+        tail=None,
         center=None,
         centerpot=None,
         progpot=None,
@@ -538,8 +991,8 @@ class fardal15spraydf(basestreamspraydf):
 
         Parameters
         ----------
-        progenitor_mass : float or Quantity
-            Mass of the progenitor.
+        progenitor_mass : float, Quantity, or callable
+            Mass of the progenitor. If a callable, it is a function ``M(t)`` of the progenitor-time coordinate (``t=0`` is now, ``t<0`` is the past); may take and/or return astropy ``Quantity`` (auto-detected). See :class:`basestreamspraydf` for details.
         progenitor : galpy.orbit.Orbit, optional
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
         pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -548,8 +1001,12 @@ class fardal15spraydf(basestreamspraydf):
             Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
+        stripping_pdf : callable, optional
+            Probability density of stripping over the progenitor time axis ``t in [-tdisrupt, 0]``. See :class:`galpy.df.streamspraydf.basestreamspraydf` for the full description. Default is None (uniform stripping).
         leading : bool, optional
-            If True, model the leading part of the stream. If False, model the trailing part. Default is True.
+            Deprecated since v1.12. Use ``tail`` instead. If True, model the leading part of the stream. If False, model the trailing part.
+        tail : str, optional
+            Which tail(s) to model. Can be ``'leading'``, ``'trailing'``, or ``'both'``. Default is ``'leading'``.
         center : galpy.orbit.Orbit, optional
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
         centerpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
@@ -576,7 +1033,9 @@ class fardal15spraydf(basestreamspraydf):
             pot=pot,
             rtpot=rtpot,
             tdisrupt=tdisrupt,
+            stripping_pdf=stripping_pdf,
             leading=leading,
+            tail=tail,
             center=center,
             centerpot=centerpot,
             progpot=progpot,
@@ -585,11 +1044,9 @@ class fardal15spraydf(basestreamspraydf):
         )
         self._meankvec = numpy.array(meankvec)
         self._sigkvec = numpy.array(sigkvec)
-        if leading:
-            self._meankvec *= -1.0
         return None
 
-    def spray_df(self, xyzpt, vxyzpt, dt):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
         """
         Sample the positions and velocities around the progenitor
 
@@ -601,6 +1058,8 @@ class fardal15spraydf(basestreamspraydf):
             Velocities of progenitor in the progenitor coordinates.
         dt : array, shape (N,)
             Time of sampling.
+        leading : bool, optional
+            If True, generate the leading tail. If False, generate the trailing tail. Default is True.
 
         Returns
         -------
@@ -618,7 +1077,8 @@ class fardal15spraydf(basestreamspraydf):
             vxyzpt[:, 0], vxyzpt[:, 1], vxyzpt[:, 2], Rpt, phipt, Zpt, cyl=True
         )
         # Sample positions and velocities in the instantaneous frame
-        k = self._meankvec + numpy.random.normal(size=(len(dt), 6)) * self._sigkvec
+        meankvec = -self._meankvec if leading else self._meankvec
+        k = meankvec + numpy.random.normal(size=(len(dt), 6)) * self._sigkvec
 
         RpZst = numpy.array(
             [
@@ -656,3 +1116,116 @@ class streamspraydf(fardal15spraydf):
             stacklevel=1,
         )
         return None
+
+
+def pericenter_stripping_pdf(
+    progenitor,
+    pot,
+    tdisrupt,
+    sigma,
+    ngrid=10001,
+    ro=None,
+    vo=None,
+):
+    """
+    Build a stripping-time PDF from a progenitor's pericenter passages.
+
+    The returned PDF is an equal-height sum of Gaussians centered on every
+    pericenter passage of the progenitor over the interval ``[-tdisrupt, 0]``
+    (``t=0`` is the present day, ``t<0`` the past) and truncated to that
+    same interval. Useful for ``stripping_pdf=`` of
+    :class:`galpy.df.streamspraydf.basestreamspraydf` subclasses, capturing
+    the well-known enhancement of tidal stripping at pericenter passages.
+
+    Parameters
+    ----------
+    progenitor : galpy.orbit.Orbit
+        Progenitor orbit. Will be copied and re-integrated internally.
+    pot : galpy.potential.Potential or a combined potential
+        Potential used to integrate the progenitor.
+    tdisrupt : float or Quantity
+        Time since start of disruption. Pericenter passages over
+        ``[-tdisrupt, 0]`` are located.
+    sigma : float or Quantity
+        Width (standard deviation) of each Gaussian.
+    ngrid : int, optional
+        Number of grid points used to integrate the progenitor and locate
+        pericenter passages. Default 10001.
+    ro : float or Quantity, optional
+        Distance scale (defaults to ``progenitor``'s ``ro``).
+    vo : float or Quantity, optional
+        Velocity scale (defaults to ``progenitor``'s ``vo``).
+
+    Returns
+    -------
+    pdf : callable
+        Function ``pdf(t)`` returning the PDF at ``t``. When ``sigma`` is a
+        ``Quantity``, the returned PDF expects ``t`` as a ``Quantity`` and
+        returns ``Quantity`` values with units ``1/Gyr``; otherwise it works
+        in internal units. The callable carries an attribute
+        ``pdf.pericenter_times`` (1D array, internal units) listing the
+        pericenter times.
+
+    Raises
+    ------
+    ValueError
+        If ``ro``/``vo`` are explicitly given but disagree with the
+        progenitor's, or if no pericenter passages are found on
+        ``[-tdisrupt, 0]`` (e.g. a nearly circular orbit) — in the latter
+        case, supply a custom ``stripping_pdf`` instead.
+    """
+    sigma_is_quantity = _APY_LOADED and isinstance(sigma, units.Quantity)
+    # Inherit ro/vo from the progenitor if not given; otherwise check
+    # consistency (progenitor/pot consistency is enforced by Orbit.integrate).
+    if ro is None and progenitor._roSet:
+        ro = progenitor._ro
+    elif ro is not None and progenitor._roSet:
+        ro_internal = conversion.parse_length_kpc(ro)
+        if abs(ro_internal - progenitor._ro) / progenitor._ro > 1e-8:
+            raise ValueError("ro inconsistent with progenitor's ro; omit ro to inherit")
+    if vo is None and progenitor._voSet:
+        vo = progenitor._vo
+    elif vo is not None and progenitor._voSet:
+        vo_internal = conversion.parse_velocity_kms(vo)
+        if abs(vo_internal - progenitor._vo) / progenitor._vo > 1e-8:
+            raise ValueError("vo inconsistent with progenitor's vo; omit vo to inherit")
+    tdisrupt_internal = conversion.parse_time(tdisrupt, ro=ro, vo=vo)
+    sigma_internal = conversion.parse_time(sigma, ro=ro, vo=vo)
+    # Integrate the progenitor and locate pericenter passages on the grid.
+    # The prominence threshold rejects numerical-noise oscillations on
+    # near-circular orbits.
+    prog_copy = progenitor()
+    prog_copy.turn_physical_off()
+    ts = numpy.linspace(0.0, -tdisrupt_internal, ngrid)
+    prog_copy.integrate(ts, _check_potential_list_and_deprecate(pot))
+    r_vals = prog_copy.r(ts)
+    peaks, _ = find_peaks(-r_vals, prominence=1e-6 * float(numpy.mean(r_vals)))
+    if peaks.size == 0:
+        raise ValueError(
+            "No pericenter passages found over [-tdisrupt, 0]. The orbit "
+            "may be nearly circular; supply a custom stripping_pdf instead."
+        )
+    peri_times = ts[peaks]
+    # Normalized Gaussian mixture, truncated to [-tdisrupt, 0].
+    norm = 1.0 / (peri_times.size * sigma_internal * numpy.sqrt(2.0 * numpy.pi))
+
+    def _pdf_internal(t):
+        t_arr = numpy.atleast_1d(numpy.asarray(t, dtype=float))
+        dx = (t_arr[:, None] - peri_times[None, :]) / sigma_internal
+        out = norm * numpy.sum(numpy.exp(-0.5 * dx * dx), axis=-1)
+        out = numpy.where((t_arr >= -tdisrupt_internal) & (t_arr <= 0.0), out, 0.0)
+        return float(out[0]) if numpy.ndim(t) == 0 else out
+
+    if not sigma_is_quantity:
+        _pdf_internal.pericenter_times = peri_times
+        return _pdf_internal
+
+    time_in_gyr = conversion.time_in_Gyr(vo, ro)
+
+    def pdf(t):
+        return _pdf_internal(conversion.parse_time(t, ro=ro, vo=vo)) / (
+            time_in_gyr * units.Gyr
+        )
+
+    pdf.pericenter_times = peri_times
+    return pdf

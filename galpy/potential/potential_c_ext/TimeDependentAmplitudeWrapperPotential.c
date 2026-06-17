@@ -78,3 +78,47 @@ double TimeDependentAmplitudeWrapperPotentialPlanarRphideriv(double R,double phi
     * calcPlanarRphideriv(R,phi,t,potentialArgs->nwrapped,
 			                    potentialArgs->wrappedPotentialArg);
 }
+
+// --- 3D Hessian for the variational equations: modulation x wrapped Hessian ---
+double TimeDependentAmplitudeWrapperPotentialR2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * (*(*(potentialArgs->tfuncs)))(t) \
+    * calcR2deriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double TimeDependentAmplitudeWrapperPotentialz2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * (*(*(potentialArgs->tfuncs)))(t) \
+    * calcz2deriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double TimeDependentAmplitudeWrapperPotentialRzderiv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * (*(*(potentialArgs->tfuncs)))(t) \
+    * calcRzderiv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double TimeDependentAmplitudeWrapperPotentialphi2deriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * (*(*(potentialArgs->tfuncs)))(t) \
+    * calcphi2deriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double TimeDependentAmplitudeWrapperPotentialRphideriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * (*(*(potentialArgs->tfuncs)))(t) \
+    * calcRphideriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}
+double TimeDependentAmplitudeWrapperPotentialzphideriv(double R,double z,double phi,double t,
+				 struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  return *args * (*(*(potentialArgs->tfuncs)))(t) \
+    * calczphideriv(R,z,phi,t,
+		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
+}

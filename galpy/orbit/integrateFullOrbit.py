@@ -11,16 +11,24 @@ from ..potential.Potential import (
     _evaluatephitorques,
     _evaluateRforces,
     _evaluatezforces,
+    evaluatephi2derivs,
+    evaluatephizderivs,
+    evaluateR2derivs,
+    evaluateRphiderivs,
+    evaluateRzderivs,
+    evaluatez2derivs,
     potential_list_of_potentials_input,
 )
-from ..util import _load_extension_libs, galpyWarning, symplecticode
+from ..util import _load_extension_libs, coords, galpyWarning, symplecticode
 from ..util._optional_deps import _TQDM_LOADED
 from ..util.leung_dop853 import dop853
 from ..util.multi import parallel_map
 from .integratePlanarOrbit import (
+    _finalize_pot_args,
     _parse_disk_approx_pairs,
     _parse_integrator,
     _parse_multipole_expansion_pot,
+    _parse_noninertial_frame_force,
     _parse_scf_pot,
     _parse_tol,
     _prep_tfuncs,
@@ -32,8 +40,13 @@ if _TQDM_LOADED:
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 
-def _parse_pot(pot, potforactions=False, potfortorus=False):
-    """Parse the potential so it can be fed to C"""
+def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
+    """Parse the potential so it can be fed to C
+
+    ``t`` is the integration time array (when available), used to build
+    on-the-fly C spline interpolations for a NonInertialFrameForce with
+    ``cinterp=True`` (see _parse_noninertial_frame_force).
+    """
     # Remove NullPotentials from the potential (iterate directly without casting to list first)
     purged_pot = [p for p in pot if not isinstance(p, potential.NullPotential)]
     # Use purged_pot if it's not empty, otherwise use original
@@ -98,6 +111,17 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         elif isinstance(p, potential.interpRZPotential):
             pot_type.append(13)
             pot_args.extend([len(p._rgrid), len(p._zgrid)])
+            # Presence flags for the interpolated 2nd-derivative grids
+            # (R2deriv/z2deriv/Rzderiv; together the full 3D Hessian for the
+            # 3D variational equations); their spline coefficients follow the
+            # force coefficients below when present
+            pot_args.extend(
+                [
+                    float(hasattr(p, "_r2derivGrid_splinecoeffs")),
+                    float(hasattr(p, "_z2derivGrid_splinecoeffs")),
+                    float(hasattr(p, "_rzderivGrid_splinecoeffs")),
+                ]
+            )
             if p._logR:
                 pot_args.extend([p._logrgrid[ii] for ii in range(len(p._rgrid))])
             else:
@@ -131,6 +155,22 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
                     galpyWarning,
                 )
                 pot_args.extend(list(numpy.ones(len(p._rgrid) * len(p._zgrid))))
+            # Interpolated 2nd-derivative grids (when present, per the
+            # presence flags above); absent grids are simply not packed: the
+            # C side leaves the corresponding 2nd-derivative NULL and the 3D
+            # variational C path is gated on hasC_dxdv3d (all three present)
+            if hasattr(p, "_r2derivGrid_splinecoeffs"):
+                pot_args.extend(
+                    [x for x in p._r2derivGrid_splinecoeffs.flatten(order="C")]
+                )
+            if hasattr(p, "_z2derivGrid_splinecoeffs"):
+                pot_args.extend(
+                    [x for x in p._z2derivGrid_splinecoeffs.flatten(order="C")]
+                )
+            if hasattr(p, "_rzderivGrid_splinecoeffs"):
+                pot_args.extend(
+                    [x for x in p._rzderivGrid_splinecoeffs.flatten(order="C")]
+                )
             pot_args.extend([p._amp, int(p._logR)])
         elif isinstance(p, potential.IsochronePotential):
             pot_type.append(14)
@@ -249,7 +289,11 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             )
         elif isinstance(p, potential.MultipoleExpansionPotential):
             pot_type.append(44)
-            pot_args.extend(potential.MultipoleExpansionPotential._serialize_for_c(p))
+            _mep_args = p._serialize_for_c()
+            if isinstance(_mep_args, numpy.ndarray):
+                pot_args.append(_mep_args)
+            else:
+                pot_args.extend(_mep_args)
         elif isinstance(p, potential.SCFPotential):
             # Type 24, see stand-alone parser below
             pt, pa, ptf = _parse_scf_pot(p)
@@ -266,7 +310,10 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             # (a) MultipoleExpansion, multiply in any add'l amp
             pt, pa = _parse_multipole_expansion_pot(p._me, extra_amp=p._amp)
             pot_type.append(pt)
-            pot_args.extend(pa)
+            if isinstance(pa, numpy.ndarray):
+                pot_args.append(pa)
+            else:
+                pot_args.extend(pa)
             # (b) constituent [Sigma_i,h_i] parts
             dpts, dpa = _parse_disk_approx_pairs(p, extra_amp=p._amp)
             for dpt in dpts:
@@ -327,53 +374,12 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         # 37: TriaxialGaussianPotential, done with others above
         # 38: PowerTriaxialPotential, done with others above
         elif isinstance(p, potential.NonInertialFrameForce):
-            pot_type.append(39)
-            pot_args.append(p._amp)
-            pot_args.extend(
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            )  # for caching
-            pot_args.extend(
-                [
-                    p._rot_acc,
-                    p._lin_acc,
-                    p._omegaz_only,
-                    p._const_freq,
-                    p._Omega_as_func,
-                ]
-            )
-            if p._Omega_as_func:
-                pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            else:
-                if p._omegaz_only:
-                    pot_args.extend([0.0, 0.0, p._Omega])
-                else:
-                    pot_args.extend(p._Omega)
-                pot_args.append(p._Omega2)
-                if not p._const_freq and p._omegaz_only:
-                    pot_args.extend([0.0, 0.0, p._Omegadot])
-                elif not p._const_freq:
-                    pot_args.extend(p._Omegadot)
-                else:
-                    pot_args.extend([0.0, 0.0, 0.0])
-            if p._lin_acc:
-                pot_tfuncs.extend([p._a0[0], p._a0[1], p._a0[2]])
-                if p._rot_acc:
-                    pot_tfuncs.extend([p._x0[0], p._x0[1], p._x0[2]])
-                    pot_tfuncs.extend([p._v0[0], p._v0[1], p._v0[2]])
-            if p._Omega_as_func:
-                if p._omegaz_only:
-                    pot_tfuncs.extend([p._Omega, p._Omegadot])
-                else:
-                    pot_tfuncs.extend(
-                        [
-                            p._Omega[0],
-                            p._Omega[1],
-                            p._Omega[2],
-                            p._Omegadot[0],
-                            p._Omegadot[1],
-                            p._Omegadot[2],
-                        ]
-                    )
+            # pot_type 39 (functions called from C) or 45 (on-the-fly C spline
+            # interpolation when cinterp=True); see _parse_noninertial_frame_force.
+            _code, _nip_args, _nip_tfuncs = _parse_noninertial_frame_force(p, t)
+            pot_type.append(_code)
+            pot_args.extend(_nip_args)
+            pot_tfuncs.extend(_nip_tfuncs)
         elif isinstance(p, potential.NullPotential):
             pot_type.append(40)
         elif isinstance(p, potential.EinastoPotential):
@@ -387,7 +393,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         elif isinstance(p, potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -398,7 +404,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-2)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -409,7 +415,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-3)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -420,7 +426,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-4)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -430,7 +436,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         elif isinstance(p, potential.GaussianAmplitudeWrapperPotential):
             pot_type.append(-5)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -440,7 +446,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         elif isinstance(p, potential.MovingObjectPotential):
             pot_type.append(-6)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -462,7 +468,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_args.append(1)
             pot_type.append(-7)  # Wrapping as ChandrasekharDynamicalFrictionForce
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._dens_pot, potforactions=potforactions, potfortorus=potfortorus
+                p._dens_pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -511,7 +517,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         ):  # not isinstance(p, potential.FDMDynamicalFrictionForce):
             pot_type.append(-7)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._dens_pot, potforactions=potforactions, potfortorus=potfortorus
+                p._dens_pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -538,25 +544,30 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-8)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp])
-            pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # for caching
+            # for caching: x,y,z,t key + Fx,Fy,Fz
+            pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             pot_args.extend(list(p._rot.flatten()))
             pot_args.append(not p._norot)
             pot_args.append(not p._offset is None)
             pot_args.extend(
                 list(p._offset) if not p._offset is None else [0.0, 0.0, 0.0]
             )
+            # 3D-Hessian cache for the variational equations: (x,y,z,t) key
+            # (NaN = empty) + the 6 unique Cartesian Hessian components (see
+            # RotateAndTiltWrapperPotential.c)
+            pot_args.extend([numpy.nan] * 4 + [0.0] * 6)
         elif isinstance(p, potential.TimeDependentAmplitudeWrapperPotential):
             pot_type.append(-9)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -568,7 +579,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-10)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
@@ -579,15 +590,23 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_type.append(-12)
             # Not sure how to easily avoid this duplication
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
-                p._pot, potforactions=potforactions, potfortorus=potfortorus
+                p._pot, potforactions=potforactions, potfortorus=potfortorus, t=t
             )
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp, p._Rp, p._refpot])
+        else:
+            # Should never get here: a potential that gets to this point
+            # claims to have a C implementation (hasC=True), but has no
+            # entry above; silently skipping it would corrupt the arguments
+            # passed to C (npot counts it), leading to a crash
+            raise NotImplementedError(
+                f"Potential {type(p).__name__} is not supported by the C orbit-integration backend, but claims to be (hasC=True); please report this to the galpy developers"
+            )
     pot_type = numpy.array(pot_type, dtype=numpy.int32, order="C")
-    pot_args = numpy.array(pot_args, dtype=numpy.float64, order="C")
+    pot_args = _finalize_pot_args(pot_args)
     return (npot, pot_type, pot_args, pot_tfuncs)
 
 
@@ -638,14 +657,17 @@ def integrateFullOrbit_c(
     yo = numpy.atleast_2d(yo)
     nobj = len(yo)
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     if dt is None:
         dt = -9999.99
+    # t can be 1D (shared across orbits) or 2D (per-orbit, shape (nobj,nt))
+    indiv_t = len(t.shape) > 1
+    nt = t.shape[-1]
 
     # Set up result array
-    result = numpy.empty((nobj, len(t), 6))
+    result = numpy.empty((nobj, nt, 6))
     err = numpy.zeros(nobj, dtype=numpy.int32)
 
     # Set up progressbar
@@ -665,6 +687,7 @@ def integrateFullOrbit_c(
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_int,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
         ctypes.c_int,
         ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -689,8 +712,9 @@ def integrateFullOrbit_c(
     integrationFunc(
         ctypes.c_int(nobj),
         yo,
-        ctypes.c_int(len(t)),
+        ctypes.c_int(nt),
         t,
+        ctypes.c_int(indiv_t),
         ctypes.c_int(npot),
         pot_type,
         pot_args,
@@ -723,10 +747,15 @@ def integrateFullOrbit_c(
 
 
 def integrateFullOrbit_dxdv_c(
-    pot, yo, dyo, t, int_method, rtol=None, atol=None
-):  # pragma: no cover because not included in v1, uncover when included
+    pot, yo, dyo, t, int_method, dt=None, rtol=None, atol=None
+):
     """
-    Integrate an ode for a planarOrbit+phase space volume dxdv.
+    Integrate an ode for a fullOrbit+phase space volume dxdv in C.
+
+    Both the input state ``yo`` and deviation ``dyo`` as well as the output are
+    in the rectangular frame (x,y,z,vx,vy,vz | dx,dy,dz,dvx,dvy,dvz); the
+    cylindrical<->rectangular transforms are handled by the calling
+    ``integrateFullOrbit_dxdv``.
 
     Parameters
     ----------
@@ -759,7 +788,9 @@ def integrateFullOrbit_dxdv_c(
     - 2011-11-13 - Written - Bovy (IAS)
     """
     rtol, atol = _parse_tol(rtol, atol)
-    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    if dt is None:
+        dt = -9999.99
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
     pot_tfuncs = _prep_tfuncs(pot_tfuncs)
     int_method_c = _parse_integrator(int_method)
     yo = numpy.concatenate((yo, dyo))
@@ -779,6 +810,7 @@ def integrateFullOrbit_dxdv_c(
         ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
         ctypes.c_void_p,
+        ctypes.c_double,
         ctypes.c_double,
         ctypes.c_double,
         ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
@@ -801,6 +833,7 @@ def integrateFullOrbit_dxdv_c(
         pot_type,
         pot_args,
         pot_tfuncs,
+        ctypes.c_double(dt),
         ctypes.c_double(rtol),
         ctypes.c_double(atol),
         result,
@@ -818,6 +851,188 @@ def integrateFullOrbit_dxdv_c(
         t = numpy.asfortranarray(t)
 
     return (result, err.value)
+
+
+def integrateFullOrbit_dxdv(
+    pot,
+    yo,
+    dyo,
+    t,
+    int_method,
+    rectIn,
+    rectOut,
+    rtol=None,
+    atol=None,
+    progressbar=True,
+    dt=None,
+    numcores=1,
+):
+    """
+    Integrate an ode for a fullOrbit+phase space volume dxdv.
+
+    The 3D analog of ``integratePlanarOrbit_dxdv``: handles the
+    cylindrical<->rectangular transform of both the base state and the
+    phase-space deviation (via the chain rule, using the Jacobian of the
+    cyl->rect transform), then integrates the 12D rectangular variational
+    system in C (or, for the pure-Python ``dop853``/``odeint`` methods, via
+    ``_EOM_dxdv``).
+
+    Parameters
+    ----------
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+    yo : numpy.ndarray
+        Initial condition [q,p], shape [N,6] in cylindrical (R,vR,vT,z,vz,phi).
+    dyo : numpy.ndarray
+        Initial condition [dq,dp], shape [N,6]; cylindrical (dR,dvR,dvT,dz,dvz,dphi)
+        unless ``rectIn`` (then rectangular dx,dy,dz,dvx,dvy,dvz).
+    t : numpy.ndarray
+        Set of times at which one wants the result.
+    int_method : str
+        Integration method. One of 'dopr54_c', 'dop853_c', 'rk4_c', 'rk6_c',
+        'dop853', 'odeint'.
+    rectIn : bool
+        If True, input ``dyo`` is in rectangular coordinates.
+    rectOut : bool
+        If True, output deviation is in rectangular coordinates.
+    rtol : float, optional
+        Relative tolerance.
+    atol : float, optional
+        Absolute tolerance.
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits.
+    dt : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one).
+    numcores : int, optional
+        Number of cores to use for multi-processing.
+
+    Returns
+    -------
+    tuple
+        (out,err)
+        out : array, shape (N,len(t),12)
+            base orbit (cylindrical R,vR,vT,z,vz,phi) in [...,:6] and the
+            deviation in [...,6:] (rectangular if ``rectOut`` else cylindrical).
+        err : array
+            Error message per orbit (0 unless maximum step reduction happened).
+
+    Notes
+    -----
+    - 2026-06-03 - Written based on integratePlanarOrbit_dxdv - Bovy (UofT)
+    """
+    # Go to the rectangular frame: base state (R,vR,vT,z,vz,phi) -> (x,y,z,vx,vy,vz)
+    R, vR, vT, z, vz, phi = (
+        yo[:, 0],
+        yo[:, 1],
+        yo[:, 2],
+        yo[:, 3],
+        yo[:, 4],
+        yo[:, 5],
+    )
+    X, Y, Z = coords.cyl_to_rect(R, phi, z)
+    vX, vY, vZ = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    this_yo = numpy.array([X, Y, Z, vX, vY, vZ]).T
+    if not rectIn:
+        # Chain rule: rect deviation = J . cyl deviation, with J the Jacobian
+        # of (x,y,z,vx,vy,vz) wrt (R,vR,vT,z,vz,phi).
+        this_dyo = numpy.empty_like(dyo)
+        for ii in range(len(yo)):
+            jac = coords.cyl_to_rect_jac(R[ii], vR[ii], vT[ii], z[ii], vz[ii], phi[ii])
+            this_dyo[ii] = numpy.dot(jac, dyo[ii])
+    else:
+        this_dyo = dyo
+    this_yo = numpy.hstack((this_yo, this_dyo))
+    if int_method.lower() == "dop853" or int_method.lower() == "odeint":
+        from ..potential.DissipativeForce import _isDissipative
+
+        if _isDissipative(pot):
+            # The pure-Python variational RHS (_EOM_dxdv) only implements the
+            # conservative A=[[0,I],[K,0]] system: it neither passes the
+            # velocity to the force evaluators nor includes the dissipative
+            # dF/dx and dF/dv Jacobian blocks, so it would silently produce a
+            # wrong deviation. Fail loudly instead; the C path supports
+            # dissipative forces with a C implementation of the
+            # velocity-dependent force Jacobian (hasC_dxdv3d=True).
+            raise NotImplementedError(
+                "integrate_dxdv with dissipative forces is not supported by the "
+                "pure-Python methods ('odeint', 'dop853'); use a C method (e.g. "
+                "'dopr54_c') with dissipative forces that have a C implementation "
+                "of the velocity-dependent force Jacobian (hasC_dxdv3d=True)"
+            )
+        if int_method.lower() == "dop853":
+            if rtol is None:
+                rtol = 1e-12
+            if atol is None:
+                atol = 1e-12
+            integrator = dop853
+            extra_kwargs = {"rtol": rtol, "atol": atol}
+        else:
+            integrator = integrate.odeint
+            extra_kwargs = {"rtol": rtol, "atol": atol}
+
+        def integrate_for_map(vxvv):
+            return integrator(_EOM_dxdv, vxvv, t=t, args=(pot,), **extra_kwargs)
+
+    else:  # Assume we are forcing parallel_mapping of a C integrator...
+
+        def integrate_for_map(vxvv):
+            return integrateFullOrbit_dxdv_c(
+                pot,
+                numpy.copy(vxvv[:6]),
+                numpy.copy(vxvv[6:]),
+                t,
+                int_method,
+                dt=dt,
+                rtol=rtol,
+                atol=atol,
+            )[0]
+
+    if len(this_yo) == 1:  # Can't map a single value...
+        out = numpy.atleast_3d(integrate_for_map(this_yo[0]).T).T
+    else:
+        out = numpy.array(
+            parallel_map(
+                integrate_for_map, this_yo, progressbar=progressbar, numcores=numcores
+            )
+        )
+    # Go back to the cylindrical frame: base state out[...,:6] is rectangular
+    # (x,y,z,vx,vy,vz); convert to (R,vR,vT,z,vz,phi) and (optionally) the
+    # deviation out[...,6:] from rectangular to cylindrical.
+    Rout, phiout, Zout = coords.rect_to_cyl(out[..., 0], out[..., 1], out[..., 2])
+    vRout, vTout, vzout = coords.rect_to_cyl_vec(
+        out[..., 3], out[..., 4], out[..., 5], out[..., 0], out[..., 1], out[..., 2]
+    )
+    # rect_to_cyl/rect_to_cyl_vec pass Z/vz through BY REFERENCE, so Zout and
+    # vzout are views into out[...,2]/out[...,5]; copy them before the in-place
+    # assignments below overwrite those columns (otherwise out[...,3] ends up
+    # holding vT instead of z, corrupting the returned base orbit and any
+    # restart that uses it, e.g. the lyapunov renormalization segments)
+    Zout = numpy.copy(Zout)
+    vzout = numpy.copy(vzout)
+    out[..., 0] = Rout
+    out[..., 1] = vRout
+    out[..., 2] = vTout
+    out[..., 3] = Zout
+    out[..., 4] = vzout
+    out[..., 5] = phiout
+    if not rectOut:
+        # cyl deviation = J^{-1} . rect deviation, with J the cyl->rect Jacobian
+        # evaluated at each (R,vR,vT,z,vz,phi) along the orbit.
+        shp = Rout.shape
+        Rf = Rout.ravel()
+        vRf = vRout.ravel()
+        vTf = vTout.ravel()
+        Zf = Zout.ravel()
+        vzf = vzout.ravel()
+        phif = phiout.ravel()
+        dev_rect = out[..., 6:].reshape((-1, 6))
+        dev_cyl = numpy.empty_like(dev_rect)
+        for ii in range(dev_rect.shape[0]):
+            jac = coords.cyl_to_rect_jac(
+                Rf[ii], vRf[ii], vTf[ii], Zf[ii], vzf[ii], phif[ii]
+            )
+            dev_cyl[ii] = numpy.linalg.solve(jac, dev_rect[ii])
+        out[..., 6:] = dev_cyl.reshape(shp + (6,))
+    return out, numpy.zeros(len(yo))
 
 
 @potential_list_of_potentials_input
@@ -869,13 +1084,21 @@ def integrateFullOrbit(
             nophi = True
             # We hack this by putting in a dummy phi=0
             yo = numpy.pad(yo, ((0, 0), (0, 1)), "constant", constant_values=0)
+    # Per-orbit time arrays: when t is 2D (shape (norbit,nt)), each orbit gets its own row
+    indiv_t = len(t.shape) > 1
+
+    def _t_for(idx):
+        return t[idx] if indiv_t else t
+
     if int_method.lower() == "leapfrog":
         if rtol is None:
             rtol = 1e-8
         if atol is None:
             atol = 1e-8
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
+            vxvv = yo[idx]
+            this_t = _t_for(idx)
             # go to the rectangular frame
             this_vxvv = numpy.array(
                 [
@@ -889,7 +1112,7 @@ def integrateFullOrbit(
             )
             # integrate
             out = symplecticode.leapfrog(
-                _rectForce, this_vxvv, t, args=(pot,), rtol=rtol, atol=atol
+                _rectForce, this_vxvv, this_t, args=(pot,), rtol=rtol, atol=atol
             )
             # go back to the cylindrical frame
             R = numpy.sqrt(out[:, 0] ** 2.0 + out[:, 1] ** 2.0)
@@ -918,12 +1141,16 @@ def integrateFullOrbit(
             extra_kwargs = {"rtol": rtol, "atol": atol}
         if len(yo[0]) == 5:
 
-            def integrate_for_map(vxvv):
+            def integrate_for_map(idx):
+                vxvv = yo[idx]
+                this_t = _t_for(idx)
                 l = vxvv[0] * vxvv[2]
                 l2 = l**2.0
                 init = [vxvv[0], vxvv[1], vxvv[3], vxvv[4]]
-                intOut = integrator(_RZEOM, init, t=t, args=(pot, l2), **extra_kwargs)
-                out = numpy.zeros((len(t), 5))
+                intOut = integrator(
+                    _RZEOM, init, t=this_t, args=(pot, l2), **extra_kwargs
+                )
+                out = numpy.zeros((len(this_t), 5))
                 out[:, 0] = intOut[:, 0]
                 out[:, 1] = intOut[:, 1]
                 out[:, 3] = intOut[:, 2]
@@ -936,11 +1163,15 @@ def integrateFullOrbit(
 
         else:
 
-            def integrate_for_map(vxvv):
+            def integrate_for_map(idx):
+                vxvv = yo[idx]
+                this_t = _t_for(idx)
                 vphi = vxvv[2] / vxvv[0]
                 init = [vxvv[0], vxvv[1], vxvv[5], vphi, vxvv[3], vxvv[4]]
-                intOut = integrator(_EOM, init, t=t, args=(pot,), rtol=rtol, atol=atol)
-                out = numpy.zeros((len(t), 6))
+                intOut = integrator(
+                    _EOM, init, t=this_t, args=(pot,), rtol=rtol, atol=atol
+                )
+                out = numpy.zeros((len(this_t), 6))
                 out[:, 0] = intOut[:, 0]
                 out[:, 1] = intOut[:, 1]
                 out[:, 2] = out[:, 0] * intOut[:, 3]
@@ -955,17 +1186,22 @@ def integrateFullOrbit(
 
     else:  # Assume we are forcing parallel_mapping of a C integrator...
 
-        def integrate_for_map(vxvv):
+        def integrate_for_map(idx):
+            vxvv = yo[idx]
+            this_t = _t_for(idx)
             return integrateFullOrbit_c(
-                pot, numpy.copy(vxvv), t, int_method, dt=dt, rtol=rtol, atol=atol
+                pot, numpy.copy(vxvv), this_t, int_method, dt=dt, rtol=rtol, atol=atol
             )[0]
 
     if len(yo) == 1:  # Can't map a single value...
-        out = numpy.atleast_3d(integrate_for_map(yo[0]).T).T
+        out = numpy.atleast_3d(integrate_for_map(0).T).T
     else:
         out = numpy.array(
             parallel_map(
-                integrate_for_map, yo, numcores=numcores, progressbar=progressbar
+                integrate_for_map,
+                numpy.arange(len(yo)),
+                numcores=numcores,
+                progressbar=progressbar,
             )
         )
     if nophi:
@@ -1395,5 +1631,95 @@ def _rectForce(x, pot, t=0.0, vx=None):
             cosphi * Rforce - 1.0 / R * sinphi * phitorque,
             sinphi * Rforce + 1.0 / R * cosphi * phitorque,
             _evaluatezforces(pot, R, x[2], phi=phi, t=t, v=vx),
+        ]
+    )
+
+
+def _EOM_dxdv(x, t, pot):
+    """
+    Implements the EOM, i.e., the right-hand side of the differential
+    equation, for integrating a 3D orbit + phase-space deviation, in the
+    rectangular frame.
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Current 12D rectangular phase-space state
+        (x,y,z,vx,vy,vz | dx,dy,dz,dvx,dvy,dvz).
+    t : float
+        Current time.
+    pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+
+    Returns
+    -------
+    numpy.ndarray
+        dx/dt (12D).
+
+    Notes
+    -----
+    - 2026-06-03 - Written, mirroring the C evalRectDeriv_dxdv - Bovy (UofT)
+    """
+    # x is rectangular so calculate R and phi
+    R = numpy.sqrt(x[0] ** 2.0 + x[1] ** 2.0)
+    phi = numpy.arccos(x[0] / R)
+    sinphi = x[1] / R
+    cosphi = x[0] / R
+    if x[1] < 0.0:
+        phi = 2.0 * numpy.pi - phi
+    z = x[2]
+    # Cartesian forces -> accelerations
+    Rforce = _evaluateRforces(pot, R, z, phi=phi, t=t)
+    phitorque = _evaluatephitorques(pot, R, z, phi=phi, t=t)
+    zforce = _evaluatezforces(pot, R, z, phi=phi, t=t)
+    # Cylindrical second derivatives of the potential
+    R2deriv = evaluateR2derivs(pot, R, z, phi=phi, t=t)
+    phi2deriv = evaluatephi2derivs(pot, R, z, phi=phi, t=t)
+    Rphideriv = evaluateRphiderivs(pot, R, z, phi=phi, t=t)
+    z2deriv = evaluatez2derivs(pot, R, z, phi=phi, t=t)
+    Rzderiv = evaluateRzderivs(pot, R, z, phi=phi, t=t)
+    zphideriv = evaluatephizderivs(pot, R, z, phi=phi, t=t)
+    # Symmetric Cartesian tidal tensor K = -grad grad Phi; in-plane (x,y) block
+    # identical to the verified 2D variational equations (z enters only through
+    # the second-derivative values above).
+    dFxdx = (
+        -(cosphi**2.0) * R2deriv
+        + 2.0 * cosphi * sinphi / R**2.0 * phitorque
+        + sinphi**2.0 / R * Rforce
+        + 2.0 * sinphi * cosphi / R * Rphideriv
+        - sinphi**2.0 / R**2.0 * phi2deriv
+    )
+    dFxdy = (
+        -sinphi * cosphi * R2deriv
+        + (sinphi**2.0 - cosphi**2.0) / R**2.0 * phitorque
+        - cosphi * sinphi / R * Rforce
+        - (cosphi**2.0 - sinphi**2.0) / R * Rphideriv
+        + cosphi * sinphi / R**2.0 * phi2deriv
+    )
+    dFydy = (
+        -(sinphi**2.0) * R2deriv
+        - 2.0 * sinphi * cosphi / R**2.0 * phitorque
+        - 2.0 * sinphi * cosphi / R * Rphideriv
+        + cosphi**2.0 / R * Rforce
+        - cosphi**2.0 / R**2.0 * phi2deriv
+    )
+    # z-coupling (K symmetric: dFzdx=dFxdz, dFzdy=dFydz, dFydx=dFxdy)
+    dFxdz = -cosphi * Rzderiv + sinphi / R * zphideriv
+    dFydz = -sinphi * Rzderiv - cosphi / R * zphideriv
+    dFzdz = -z2deriv
+    dx, dy, dz = x[6], x[7], x[8]
+    return numpy.array(
+        [
+            x[3],
+            x[4],
+            x[5],
+            cosphi * Rforce - 1.0 / R * sinphi * phitorque,
+            sinphi * Rforce + 1.0 / R * cosphi * phitorque,
+            zforce,
+            x[9],
+            x[10],
+            x[11],
+            dFxdx * dx + dFxdy * dy + dFxdz * dz,
+            dFxdy * dx + dFydy * dy + dFydz * dz,
+            dFxdz * dx + dFydz * dy + dFzdz * dz,
         ]
     )

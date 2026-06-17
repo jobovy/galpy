@@ -78,6 +78,7 @@ class FlattenedPowerPotential(Potential):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
+        self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
@@ -122,6 +123,16 @@ class FlattenedPowerPotential(Potential):
                 / self.q2
                 * m2 ** (-self.alpha / 2.0 - 1.0)
                 * ((self.alpha + 2) * z**2.0 / m2 / self.q2 - 1.0)
+            )
+
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        if self.alpha == 0.0:
+            denom = 1.0 / (R**2.0 + z**2.0 / self.q2 + self.core2)
+            return -2.0 * R * z / self.q2 * denom**2.0
+        else:
+            m2 = self.core2 + R**2.0 + z**2.0 / self.q2
+            return (
+                -(self.alpha + 2.0) * R * z / self.q2 * m2 ** (-self.alpha / 2.0 - 2.0)
             )
 
     def _dens(self, R, z, phi=0.0, t=0.0):

@@ -14,7 +14,10 @@ from .Potential import (
     _isNonAxi,
     evaluateDensities,
     evaluatePotentials,
+    evaluateR2derivs,
     evaluateRforces,
+    evaluateRzderivs,
+    evaluatez2derivs,
     evaluatezforces,
 )
 
@@ -63,6 +66,13 @@ class MovingObjectPotential(Potential):
         self._orb.turn_physical_off()
         self.isNonAxi = True
         self.hasC = _check_c(self._pot)
+        # The second derivatives (for the variational equations) are the
+        # kernel's second derivatives at the shifted point x-x_obj(t), both in
+        # Python (below) and in C, where they are evaluated through the
+        # wrapped potential's pointers exactly like the forces. They are thus
+        # available in C exactly when the kernel's are (same gating as hasC).
+        self.hasC_dxdv = _check_c(self._pot, dxdv=True)
+        self.hasC_dxdv3d = _check_c(self._pot, dxdv3d=True)
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
@@ -103,6 +113,88 @@ class MovingObjectPotential(Potential):
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
         # Return phi force, negative of phi vector to evaluate location
         return -RF * R * (numpy.cos(phi) * yd - numpy.sin(phi) * xd) / Rdist
+
+    def _xyzHess(self, R, z, phi, t):
+        """Cartesian first (phix, phiy; phiz is never needed) and second
+        derivatives of the potential at the field point (R, z, phi) at time t
+        (without the overall amp, which the Potential base class applies).
+
+        Phi(x,t) = Psi(R'(x,y), z'(z)) with R'^2 = (x-x_o(t))^2+(y-y_o(t))^2
+        and z' = z_o(t)-z (the conventions of the force methods above). The
+        moving-object shift is a pure translation of the evaluation point, so
+        the Hessian is the kernel's Hessian at the shifted point chain-ruled
+        to the field point's coordinates: the time-dependence enters only
+        through (R', z'), with no extra terms. The kernel Psi is required to
+        be axisymmetric (enforced in __init__), so its phi derivatives vanish.
+        """
+        # Cylindrical distance
+        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
+        # Difference vector
+        orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
+        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        # Kernel cylindrical derivatives at the shifted point (R',z')=(Rdist,zd)
+        RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
+        R2d = evaluateR2derivs(self._pot, Rdist, zd, t=t, use_physical=False)
+        Rzd = evaluateRzderivs(self._pot, Rdist, zd, t=t, use_physical=False)
+        z2d = evaluatez2derivs(self._pot, Rdist, zd, t=t, use_physical=False)
+        # Chain rule with dR'/dx = (x-x_o)/R' = -xd/R' and dz'/dz = -1; the
+        # minus signs cancel pairwise in the pure-second-derivative terms
+        phix = RF * xd / Rdist
+        phiy = RF * yd / Rdist
+        phixx = R2d * xd**2.0 / Rdist**2.0 - RF * yd**2.0 / Rdist**3.0
+        phiyy = R2d * yd**2.0 / Rdist**2.0 - RF * xd**2.0 / Rdist**3.0
+        phixy = (R2d + RF / Rdist) * xd * yd / Rdist**2.0
+        phixz = Rzd * xd / Rdist
+        phiyz = Rzd * yd / Rdist
+        phizz = z2d
+        return (phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz)
+
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
+            R, z, phi, t
+        )
+        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        return cp**2.0 * phixx + 2.0 * cp * sp * phixy + sp**2.0 * phiyy
+
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
+            R, z, phi, t
+        )
+        return phizz
+
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
+            R, z, phi, t
+        )
+        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        return cp * phixz + sp * phiyz
+
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
+        phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
+            R, z, phi, t
+        )
+        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        return R**2.0 * (
+            sp**2.0 * phixx - 2.0 * cp * sp * phixy + cp**2.0 * phiyy
+        ) - R * (cp * phix + sp * phiy)
+
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
+        phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
+            R, z, phi, t
+        )
+        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        return (
+            R * (cp * sp * (phiyy - phixx) + (cp**2.0 - sp**2.0) * phixy)
+            - sp * phix
+            + cp * phiy
+        )
+
+    def _phizderiv(self, R, z, phi=0.0, t=0.0):
+        phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
+            R, z, phi, t
+        )
+        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        return R * (cp * phiyz - sp * phixz)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance

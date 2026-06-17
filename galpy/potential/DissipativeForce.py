@@ -40,7 +40,16 @@ class DissipativeForce(Force):
         self.isDissipative = True
         self.hasC = False
         self.hasC_dxdv = False
+        # Whether the force's rectangular Jacobian (dF/dx, dF/dv) is wired in C
+        # for the 3D variational equations (integrate_dxdv); subclasses that
+        # implement RectDissipativeForceJacobian in C set this to True.
+        self.hasC_dxdv3d = False
         self.hasC_dens = False
+        # Whether the C implementation (if hasC) extends to the planar
+        # (z=0) version of this force obtained through toPlanar/
+        # toPlanarPotential; classes with C support that is *not* hooked up
+        # in the planar C integrator should set this to False
+        self.hasC_planar = True
 
     @potential_physical_input
     @physical_conversion("force", pop=True)
@@ -105,7 +114,7 @@ class DissipativeForce(Force):
         return self._zforce_nodecorator(R, z, phi=phi, t=t, v=v)
 
     @potential_physical_input
-    @physical_conversion("force", pop=True)
+    @physical_conversion("energy", pop=True)
     def phitorque(self, R, z, phi=0.0, t=0.0, v=None):
         """
         Evaluate the azimuthal torque F_phi  (R,z,phi,t,v).

@@ -18,7 +18,6 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    if: "!contains(github.event.head_commit.message, 'ci skip')"
     strategy:
       fail-fast: false
       matrix:
@@ -122,7 +121,7 @@ jobs:
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: "3.14"
-            TEST_FILES: tests/test_streamdf.py tests/test_streamspraydf.py
+            TEST_FILES: tests/test_streamdf.py tests/test_streamspraydf.py tests/test_streamTrack.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
@@ -199,29 +198,25 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
-    # Cache both conda and pip, conda done by setup-micromamba
+    # Cache pip downloads
     - uses: actions/cache@v5
       with:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
-    # Install just the GSL using conda
-    - uses: mamba-org/setup-micromamba@v2
+    # Install just the GSL using the runner's preinstalled Miniconda
+    - name: Install GSL
+      uses: ./.github/actions/setup-conda
       with:
-         environment-name: gsl
-         condarc: |
-            channels:
-              - conda-forge
-         create-args: gsl
-         cache-environment: true
-         cache-environment-key: ${{ runner.os }}-${{ hashFiles('.github/workflows/build_windows.yml') }}
-    - name: Set conda environment variables necessary to run gsl-config.bat and auto-detect GSL paths in setup.py
-      shell: bash -l {0}
-      run: |
-        echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
-        echo "CONDA_PREFIX=$CONDA_PREFIX" >> $GITHUB_ENV # necessary for gsl-config.bat to find GSL paths
+        environment-name: gsl
+        condarc: |
+          channels:
+            - conda-forge
+        create-args: gsl
+        cache-environment: true
+        cache-environment-key: ${{ runner.os }}-gsl-${{ hashFiles('.github/workflows/build_windows.yml') }}
     - name: Install Python dependencies
       run: |
-         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
+         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
@@ -248,7 +243,7 @@ jobs:
       run: pip install jax jaxlib
     - name: Install package
       run: |
-        python -m pip install -ve .
+        python -m pip install -ve ".[test]"
     - name: Print debug info
       shell: pwsh
       env:
@@ -269,7 +264,6 @@ jobs:
           REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
           MPLBACKEND: Agg
       run: |
-        pip install pytest-cov
         # Turn astropy deprecation warnings into errors as well if astropy
         if $REQUIRES_ASTROPY; then export PYTEST_ADDOPTS="-W error::astropy.utils.exceptions.AstropyDeprecationWarning"; else export PYTEST_ADDOPTS=""; fi
         export PILLOW_DEPRECATION="-W ignore:\"'mode' parameter is deprecated and will be removed in Pillow 13 (2026-10-15)\":DeprecationWarning"

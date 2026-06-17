@@ -45,7 +45,13 @@ extensions = [
     "sphinx.ext.linkcode",
     "sphinxext.opengraph",
     "sphinx_design",
+    "nbsphinx",
 ]
+
+# nbsphinx configuration
+nbsphinx_execute = "never"  # notebooks are pre-executed; CI validates them
+nbsphinx_allow_errors = False
+nbsphinx_prompt_width = "0"  # hide input/output prompts ([1]: etc.)
 
 # from disnake via:
 # https://twitter.com/readthedocs/status/1541830907082022913?s=20&t=eJ293FfjILT7sIxEyz834w
@@ -59,17 +65,32 @@ def git(*args):
 
 
 git_ref = None
-try:
-    git_ref = git("name-rev", "--name-only", "--no-undefined", "HEAD")
-    git_ref = re.sub(r"^(remotes/[^/]+|tags)/", "", git_ref)
-except Exception:
-    pass
+# On RTD PR builds, name-rev returns e.g. "external-84"; use commit hash instead
+if os.environ.get("READTHEDOCS_VERSION_TYPE") == "external":
+    git_ref = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH")
+if not git_ref:
+    try:
+        git_ref = git("name-rev", "--name-only", "--no-undefined", "HEAD")
+        git_ref = re.sub(r"^(remotes/[^/]+|tags)/", "", git_ref)
+    except Exception:
+        pass
 # (if no name found or relative ref, use commit hash instead)
 if not git_ref or re.search(r"[\^~]", git_ref):
     try:
         git_ref = git("rev-parse", "HEAD")
     except Exception:
         git_ref = "main"
+
+nbsphinx_prolog = f"""
+{{% set docname = env.doc2path(env.docname, base=None) %}}
+
+.. raw:: html
+
+    <div class="admonition note">
+    <p>This page was generated from a Jupyter notebook. You can download it
+    <a href="https://github.com/jobovy/galpy/blob/{git_ref}/doc/source/{{{{ docname }}}}" download>here</a>.</p>
+    </div>
+"""
 
 
 def linkcode_resolve(domain, info):
@@ -110,6 +131,9 @@ templates_path = ["_templates"]
 
 # The suffix of source filenames.
 source_suffix = ".rst"
+
+# Exclude notebook checkpoints from the build
+exclude_patterns = ["_build", "**.ipynb_checkpoints"]
 
 # The encoding of source files.
 # source_encoding = 'utf-8'

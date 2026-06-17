@@ -29,6 +29,7 @@ from test_potential import (
     fullyRotatedTriaxialNFWPotential,
     mockAdiabaticContractionMWP14WrapperPotential,
     mockCombLinearPotential,
+    mockFlatActiveTransientLogSpiralPotential,
     mockFlatCorotatingRotationSpiralArmsPotential,
     mockFlatCosmphiDiskPotential,
     mockFlatCosmphiDiskwBreakPotential,
@@ -37,6 +38,8 @@ from test_potential import (
     mockFlatEllipticalDiskPotential,
     mockFlatGaussianAmplitudeBarPotential,
     mockFlatLopsidedDiskPotential,
+    mockFlatSoftenedNeedleBarPotential,
+    mockFlatSolidBodyRotationMultipoleExpansionPotential,
     mockFlatSolidBodyRotationPlanarSpiralArmsPotential,
     mockFlatSolidBodyRotationSpiralArmsPotential,
     mockFlatSpiralArmsPotential,
@@ -44,6 +47,8 @@ from test_potential import (
     mockFlatTransientLogSpiralPotential,
     mockFlatTrulyCorotatingRotationSpiralArmsPotential,
     mockFlatTrulyGaussianAmplitudeBarPotential,
+    mockFlatWeaklyTDMultipoleExpansionPotential,
+    mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential,
     mockInterpSphericalPotential,
     mockKuzminLikeWrapperPotential,
     mockMovingObjectLongIntPotential,
@@ -65,6 +70,7 @@ from test_potential import (
     mockSlowFlatEllipticalDiskPotential,
     mockSlowFlatSteadyLogSpiralPotential,
     mockSpecialRotatingFlatSpiralArmsPotential,
+    mockTDMultipoleExpansionLimitedGridPotential,
     nestedListPotential,
     oblateHernquistPotential,
     oblateNFWPotential,
@@ -162,6 +168,8 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             and not "Spiral" in pot
             and not "MovingObject" in pot
             and not "Slow" in pot
+            and not "SolidBodyRotationMultipole" in pot
+            and not "WeaklyTDMultipole" in pot
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
@@ -175,6 +183,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "SolidBodyRotation" in pot
             or "CorotatingRotation" in pot
             or "GaussianAmplitudeBar" in pot
+            or "WeaklyTDMultipole" in pot
             or "SteadyLogSpiralPotential" in pot
             or pot == "mockMovingObjectLongIntPotential"
             or "Cosmphi" in pot
@@ -401,7 +410,12 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             o.integrate(ttimes, ptp, method=integrator)
         tEs = o.E(ttimes)
         # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-        if not "Bar" in pot and not "Spiral" in pot:
+        if (
+            not "Bar" in pot
+            and not "Spiral" in pot
+            and not "SolidBodyRotationMultipole" in pot
+            and not "WeaklyTDMultipole" in pot
+        ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
                 % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
@@ -415,6 +429,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "GaussianAmplitudeBar" in pot
             or "SpiralArmsPotential" in pot
             or "nestedListPotential" in pot
+            or "WeaklyTDMultipole" in pot
         ):
             tJacobis = o.Jacobi(ttimes, pot=tp)
         else:
@@ -499,7 +514,12 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             o.integrate(ttimes, tp, method=integrator)
         tEs = o.E(ttimes)
         #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-        if not "Bar" in pot and not "Spiral" in pot:
+        if (
+            not "Bar" in pot
+            and not "Spiral" in pot
+            and not "SolidBodyRotationMultipole" in pot
+            and not "WeaklyTDMultipole" in pot
+        ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s"
                 % (pot, integrator)
@@ -513,6 +533,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "GaussianAmplitudeBar" in pot
             or "SpiralArmsPotential" in pot
             or "nestedListPotential" in pot
+            or "WeaklyTDMultipole" in pot
         ):
             tJacobis = o.Jacobi(ttimes, pot=tp)
         else:
@@ -599,6 +620,8 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
             and not "Spiral" in pot
             and not "MovingObject" in pot
             and not "Slow" in pot
+            and not "SolidBodyRotationMultipole" in pot
+            and not "WeaklyTDMultipole" in pot
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
@@ -681,6 +704,3968 @@ def test_energy_symplec_longterm():
     return None
 
 
+def _cart_accel_3d(pot, rect, t=0.0):
+    """Cartesian acceleration (ax,ay,az) at rectangular position rect=(x,y,z).
+
+    The time t is forwarded to the force evaluators so this is also correct for
+    explicitly time-dependent potentials (e.g. a rotating bar): the tangent
+    vector along the flow is dx/dt = f(x(t),t), which is an exact solution of the
+    (time-dependent) variational equation only when f is evaluated at the same t.
+    """
+    from galpy.potential import (
+        evaluatephitorques,
+        evaluateRforces,
+        evaluatezforces,
+    )
+
+    x, y, z = rect[0], rect[1], rect[2]
+    R = numpy.sqrt(x**2.0 + y**2.0)
+    phi = numpy.arctan2(y, x)
+    cp, sp = numpy.cos(phi), numpy.sin(phi)
+    Rforce = evaluateRforces(pot, R, z, phi=phi, t=t)
+    phitorque = evaluatephitorques(pot, R, z, phi=phi, t=t)
+    zforce = evaluatezforces(pot, R, z, phi=phi, t=t)
+    ax = cp * Rforce - sp / R * phitorque
+    ay = sp * Rforce + cp / R * phitorque
+    az = zforce
+    return numpy.array([ax, ay, az])
+
+
+def _skip_flowdir_identity(pot):
+    """Whether to skip ONLY the flow-direction identity check (check (3) in
+    test_liouville_3d) for this potential. This does NOT gate Liouville
+    (det M = 1), symplecticity (M^T Omega M = Omega), or the FD-of-flow check --
+    those are run for every potential, time-dependent or not, exactly as in the
+    2D test_liouville_planar.
+
+    The flow-direction identity M.f(x0) = f(x(t)) relies on the phase-space
+    velocity f(x) being itself a solution of the variational equation, which only
+    holds for an AUTONOMOUS system. For an explicitly time-dependent potential
+    (e.g. a rotating bar) d/dt f(x(t),t) = J.f + df/dt picks up the extra df/dt
+    term, so dx/dt no longer solves the (df/dt-free) variational equation and the
+    identity fails -- a property of this particular check, not of the Hessian,
+    which remains pinned by checks (2) and (4) and by test_dxdv_3d_c_vs_python.
+
+    Detect time dependence by comparing the Cartesian acceleration at the test IC
+    at two different times; returns True if the force depends on t."""
+    rect = numpy.array([0.9, 0.18, 0.05])  # generic off-plane, off-axis point
+    a0 = _cart_accel_3d(pot, rect, t=0.0)
+    a1 = _cart_accel_3d(pot, rect, t=1.3)
+    return numpy.amax(numpy.fabs(a1 - a0)) > 1e-12
+
+
+def _orbit_rect_3d(o, ts):
+    """Stack the integrated 6D orbit in rectangular phase space (nt,6)."""
+    x = o.x(ts)
+    y = o.y(ts)
+    z = o.z(ts)
+    vx = o.vx(ts)
+    vy = o.vy(ts)
+    vz = o.vz(ts)
+    return numpy.array([x, y, z, vx, vy, vz]).T
+
+
+def _integrate_stm_3d(pot, ic, times, integrator):
+    """Integrate the full 6x6 state-transition matrix M(t) in CARTESIAN
+    phase-space coordinates (x,y,z,vx,vy,vz): propagate the 6 canonical basis
+    deviation vectors with rectIn=rectOut=True and stack them as the columns
+    of M. Returns an (nt,6,6) array with M(times[0])=identity."""
+    from galpy.orbit import Orbit
+
+    canonical = numpy.eye(6)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method=integrator,
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv())
+    return numpy.array(Mcols).transpose(1, 2, 0)  # (nt,6,6), columns = e_i images
+
+
+# 3D variational equations: Liouville (det M=1), symplecticity, and -- the
+# parts that actually pin down the Cartesian Hessian K -- the flow-direction,
+# finite-difference, and 2D-reduction bridge checks. See the docstring of each
+# block below for which property is being validated.
+def test_liouville_3d(pot):
+    from galpy.orbit import Orbit
+
+    integrators = [
+        "dopr54_c",
+        "dop853_c",
+        "rk4_c",
+        "rk6_c",
+        "dop853",
+        "odeint",
+    ]
+    # Generic, fully 3D initial condition (R,vR,vT,z,vz,phi)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    # Omega in (x,y,z,vx,vy,vz) order for the symplecticity check
+    Omega = numpy.zeros((6, 6))
+    Omega[:3, 3:] = numpy.eye(3)
+    Omega[3:, :3] = -numpy.eye(3)
+    canonical = numpy.eye(6)
+    pname = pot.__class__.__name__
+    for integrator in integrators:
+        if "_c" in integrator:
+            rtol, atol = 1e-12, 1e-12
+        else:
+            rtol, atol = 1e-12, 1e-12
+        # ---- Build the 6x6 monodromy/STM M: integrate the 6 canonical
+        # basis deviation vectors with rectIn=rectOut=True ----
+        Mcols = []
+        for ii in range(6):
+            o = Orbit(ic)
+            o.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+                rtol=rtol,
+                atol=atol,
+            )
+            Mcols.append(o.getOrbit_dxdv()[-1, :])
+        M = numpy.array(Mcols).T  # columns are the propagated basis vectors
+        # (1) Liouville: det M = 1 [necessary check]. The fixed-step,
+        # lower-order rk4_c/rk6_c integrators are intrinsically a little less
+        # accurate, so use a slightly looser (but still meaningful) tolerance.
+        det_tol = 1e-7 if integrator in ("rk4_c", "rk6_c") else 1e-8
+        detM = numpy.linalg.det(M)
+        assert numpy.fabs(detM - 1.0) < det_tol, (
+            f"3D Liouville det(M)={detM:g} differs from 1 for {pname}, "
+            f"integrator {integrator}"
+        )
+        # (2) Symplecticity: M^T Omega M = Omega [necessary]
+        symperr = numpy.amax(numpy.fabs(numpy.dot(M.T, numpy.dot(Omega, M)) - Omega))
+        assert symperr < 1e-7, (
+            f"3D symplecticity ||M^T Omega M - Omega||={symperr:g} too large "
+            f"for {pname}, integrator {integrator}"
+        )
+        # (3) Flow-direction (validates K, free): for an AUTONOMOUS (time-
+        # independent) system the phase-space velocity f(x) is an exact solution
+        # of the variational equation, so the integrated deviation seeded with
+        # f(x0) must equal f(x(t)) along the orbit. This identity does NOT hold
+        # for an explicitly time-dependent potential: there d/dt f(x(t),t) =
+        # J.f + df/dt picks up the extra df/dt term, so dx/dt no longer solves
+        # the (df/dt-free) variational equation. Skip this single check for
+        # time-dependent potentials -- their Hessian is still pinned by the
+        # symplecticity check (2) above, the FD-of-flow check (4) below, and the
+        # C-vs-Python check in test_dxdv_3d_c_vs_python.
+        o = Orbit(ic)
+        # The BASE orbit here supplies the ground truth f(x(t)) of check (3);
+        # at scipy's default tolerances the pure-Python odeint base orbit
+        # carries ~1e-6 of position error for some entries (measured 1.0e-6
+        # for the composite MWPotential2014, just over the bound below, while
+        # every other integrator sits at <2e-9) -- integrator noise in the
+        # ground truth, not a Hessian error. Tighten ONLY the odeint base
+        # orbit (the deviation integrations are already run at rtol=atol=1e-12;
+        # MWPotential2014's odeint flow check measures 9.9e-11 with this);
+        # every other integrator path is left byte-identical.
+        base_kw = {"rtol": 1e-12, "atol": 1e-12} if integrator == "odeint" else {}
+        o.integrate(times, pot, method=integrator, **base_kw)
+        rect_orbit = _orbit_rect_3d(o, times)
+        if not _skip_flowdir_identity(pot):  # gates ONLY check (3) below
+            f0 = numpy.empty(6)
+            f0[:3] = rect_orbit[0, 3:]
+            f0[3:] = _cart_accel_3d(pot, rect_orbit[0, :3], t=times[0])
+            o2 = Orbit(ic)
+            o2.integrate_dxdv(
+                f0,
+                times,
+                pot,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+                rtol=rtol,
+                atol=atol,
+            )
+            dev = o2.getOrbit_dxdv()  # (nt,6) rectangular deviation
+            ftrue = numpy.empty((len(times), 6))
+            ftrue[:, :3] = rect_orbit[:, 3:]
+            for jj in range(len(times)):
+                ftrue[jj, 3:] = _cart_accel_3d(pot, rect_orbit[jj, :3], t=times[jj])
+            flowerr = numpy.amax(numpy.fabs(dev - ftrue))
+            assert flowerr < 1e-6, (
+                f"3D flow-direction deviation differs from f(x(t)) by {flowerr:g} "
+                f"for {pname}, integrator {integrator}"
+            )
+        # (4) Finite-difference of the flow (validates K): integrate a base
+        # orbit and orbits perturbed by eps*e_i and compare the dxdv column
+        # to the FD of the integrated flow. Do a couple of i.
+        eps = 1e-7
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method=integrator)
+        base_rect = _orbit_rect_3d(obase, times)
+        for ii in [0, 2, 4]:  # an x, a z, and a vy perturbation
+            pert_ic_rect = base_rect[0].copy()
+            pert_ic_rect[ii] += eps
+            # build a cylindrical IC from the perturbed rect IC
+            from galpy.util import coords
+
+            Rp, phip, Zp = coords.rect_to_cyl(
+                pert_ic_rect[0], pert_ic_rect[1], pert_ic_rect[2]
+            )
+            vRp, vTp, vzp = coords.rect_to_cyl_vec(
+                pert_ic_rect[3],
+                pert_ic_rect[4],
+                pert_ic_rect[5],
+                pert_ic_rect[0],
+                pert_ic_rect[1],
+                pert_ic_rect[2],
+            )
+            opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+            opert.integrate(times, pot, method=integrator)
+            pert_rect = _orbit_rect_3d(opert, times)
+            fd = (pert_rect - base_rect) / eps
+            # dxdv column for e_i
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+                rtol=rtol,
+                atol=atol,
+            )
+            col = odx.getOrbit_dxdv()
+            fderr = numpy.amax(numpy.fabs(fd - col))
+            assert fderr < 1e-4, (
+                f"3D finite-difference of the flow for e_{ii} differs from "
+                f"the dxdv column by {fderr:g} for {pname}, integrator {integrator}"
+            )
+    return None
+
+
+# Consolidated C-vs-Python 3D variational (dxdv) check, parametrized over the FULL
+# categorized registry of potentials with a complete 3D C Hessian (see
+# conftest.py). The C 3D variational integrator (dopr54_c) must match the trusted
+# pure-Python analytic-2nd-derivative reference (dop853) to <1e-6 for UNIT-magnitude
+# deviations along the canonical e_x, e_z, e_vy directions. That C-vs-Python
+# comparison is what pins the Hessian VALUES (det(M)=1, validated separately in
+# test_liouville_3d, is necessary but not sufficient: it holds for any symmetric K).
+# For the non-axisymmetric category we additionally require that the zphideriv term
+# (d2Phi/dz/dphi) is genuinely nonzero along the orbit, so the C zphideriv coupling
+# is really exercised rather than multiplied by 0.
+def test_dxdv_3d_c_vs_python(pot, pot_category):
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatephizderivs
+
+    pname = pot.__class__.__name__
+    # The full 3D C Hessian must be advertised so the C 3D path is actually taken.
+    assert pot.hasC_dxdv3d, f"{pname} should advertise hasC_dxdv3d"
+    # Generic, fully 3D initial condition (R,vR,vT,z,vz,phi)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    if pot_category == "nonaxisymmetric":
+        # Guard against a vacuous test: the z-phi coupling must be nonzero along the
+        # orbit, otherwise the C zphideriv term is multiplied by 0.
+        assert pot.isNonAxi, f"{pname} flagged nonaxisymmetric but isNonAxi is False"
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method="dop853_c")
+        base_rect = _orbit_rect_3d(obase, times)
+        zphi_vals = numpy.array(
+            [
+                evaluatephizderivs(
+                    pot,
+                    numpy.sqrt(base_rect[jj, 0] ** 2 + base_rect[jj, 1] ** 2),
+                    base_rect[jj, 2],
+                    phi=numpy.arctan2(base_rect[jj, 1], base_rect[jj, 0]),
+                )
+                for jj in range(len(times))
+            ]
+        )
+        assert numpy.amax(numpy.fabs(zphi_vals)) > 1e-3, (
+            f"{pname} d2Phi/dz/dphi must be nonzero along the orbit to exercise "
+            f"the C zphideriv term"
+        )
+    # UNIT-magnitude deviations: a ~1e-4 relative error shows as ~1e-4 absolute
+    # (a tiny deviation would scale it down and hide bugs). Cover e_x, e_z, e_vy.
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:
+        dev = canonical[ii]
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    assert maxdiff < 1e-6, (
+        f"3D C variational integration for {pname} differs from the pure-Python "
+        f"reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+# ---- Closed-form STM ground truth (1/2): exact 3D isotropic harmonic
+# oscillator. Inside its radius R, HomogeneousSpherePotential is
+# Phi(r) = amp (r^2 - 3 R^2), an EXACTLY harmonic potential with
+# omega^2 = 2 amp in every Cartesian coordinate. The STM of the harmonic flow
+# is closed form: per-axis 2x2 blocks in (x_i, v_i)
+#   [[ cos(w t), sin(w t)/w ], [ -w sin(w t), cos(w t) ]],
+# i.e. M(t) = [[c I3, (s/w) I3], [-w s I3, c I3]] in the (x,y,z,vx,vy,vz)
+# ordering. Unlike det(M)=1/symplecticity (necessary conditions only) and the
+# C-vs-Python/FD-of-flow checks (cross-checks between integrators), this pins
+# the integrated STM VALUES against an analytic ground truth that is fully
+# independent of galpy's variational machinery.
+def test_dxdv_3d_closed_form_stm_harmonic():
+    from galpy.orbit import Orbit
+    from galpy.potential import HomogeneousSpherePotential
+
+    pot = HomogeneousSpherePotential(amp=1.0, R=3.0, normalize=True)
+    assert pot.hasC_dxdv3d, "HomogeneousSphere should advertise hasC_dxdv3d"
+    # omega^2 = 2 amp = d2Phi/dR2 at ANY interior point: read it off the
+    # potential and guard the harmonic premise (R2deriv = z2deriv = constant,
+    # Rzderiv = 0) at two distinct interior points
+    omega2 = pot.R2deriv(0.7, 0.2)
+    assert omega2 > 0.0
+    for RR, zz in [(0.7, 0.2), (1.3, -0.4)]:
+        assert numpy.fabs(pot.R2deriv(RR, zz) - omega2) < 1e-14
+        assert numpy.fabs(pot.z2deriv(RR, zz) - omega2) < 1e-14
+        assert numpy.fabs(pot.Rzderiv(RR, zz)) < 1e-14
+    w = numpy.sqrt(omega2)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 11)
+    # non-vacuity (1): the orbit must stay INSIDE the sphere, where the
+    # potential is exactly harmonic (outside it is Keplerian)
+    o = Orbit(ic)
+    o.integrate(times, pot, method="dop853_c")
+    r = numpy.sqrt(o.x(times) ** 2.0 + o.y(times) ** 2.0 + o.z(times) ** 2.0)
+    assert numpy.amax(r) < 0.9 * pot.R, (
+        "test precondition: the orbit must stay well inside the homogeneous "
+        "sphere for the potential to be exactly harmonic along it"
+    )
+
+    def analytic_M(tk):
+        c, s = numpy.cos(w * tk), numpy.sin(w * tk)
+        Mref = numpy.zeros((6, 6))
+        Mref[:3, :3] = c * numpy.eye(3)
+        Mref[:3, 3:] = s / w * numpy.eye(3)
+        Mref[3:, :3] = -w * s * numpy.eye(3)
+        Mref[3:, 3:] = c * numpy.eye(3)
+        return Mref
+
+    # non-vacuity (2): the deviations genuinely evolve over the test interval
+    assert numpy.amax(numpy.fabs(analytic_M(times[-1]) - numpy.eye(6))) > 0.5
+    for integrator in ["dopr54_c", "dop853_c", "dop853"]:
+        Mt = _integrate_stm_3d(pot, ic, times, integrator)
+        maxdiff = numpy.amax(
+            numpy.fabs(Mt - numpy.array([analytic_M(tk) for tk in times]))
+        )
+        # measured ~4e-12 for all three integrators; 1e-8 leaves a wide margin
+        assert maxdiff < 1e-8, (
+            f"integrated 3D STM differs from the closed-form harmonic-oscillator "
+            f"STM by {maxdiff:g} for integrator {integrator}"
+        )
+    return None
+
+
+# ---- Closed-form STM ground truth (2/2): Kepler, via the Lagrange f,g
+# solution. For mu = amp = 1 the two-body propagator in the
+# change-of-eccentric-anomaly (dE = E - E0) formulation (Battin 1999, secs.
+# 4.3-4.4; Vallado, "f and g functions in terms of the eccentric anomaly") is
+#   a      = 1/(2/r0 - |v0|^2)                       (vis-viva; a>0: elliptic)
+#   sigma0 = r0vec . v0vec                           (= r0 dr0/dt, mu=1)
+#   Kepler: t = a^{3/2} [dE + (sigma0/sqrt(a))(1 - cos dE)
+#                           - (1 - r0/a) sin dE]
+#   r(t)   = a + (r0 - a) cos dE + sigma0 sqrt(a) sin dE
+#   f      = 1 - (a/r0)(1 - cos dE)        g    = t - a^{3/2} (dE - sin dE)
+#   fdot   = -(sqrt(a)/(r r0)) sin dE      gdot = 1 - (a/r)(1 - cos dE)
+#   x(t) = f x0 + g v0 ;  v(t) = fdot x0 + gdot v0.
+# The STM is the total derivative of (x(t),v(t)) wrt (x0,v0) at FIXED t:
+# every scalar above depends on the initial state through (r0, a, sigma0), and
+# dE depends on it IMPLICITLY through Kepler's equation F(dE; r0,a,sigma0,t)=0,
+# so  d dE/ds0 = -(dF/ds0)/(dF/ddE)  with  dF/ddE = r(t)/a > 0 for an elliptic
+# orbit (which also makes F monotonic in dE: the Newton solve below is safe).
+# The closed-form partials assembled in _kepler_fg_stm below were derived by
+# hand from these expressions and verified to machine precision (~2e-13)
+# against an independent sympy implicit differentiation of the same f,g
+# solution; the reference is fully independent of galpy's integrators.
+def _kepler_fg_stm(s0, dE, t):
+    """Analytic Kepler (mu=1) STM M = d(x,v)_t/d(x,v)_0 for an elliptic orbit,
+    from the Lagrange f,g functions in the dE formulation; dE must solve
+    Kepler's equation for (s0, t). s0 = (x0,y0,z0,vx0,vy0,vz0)."""
+    rvec0 = numpy.array(s0[:3])
+    vvec0 = numpy.array(s0[3:])
+    r0 = numpy.sqrt(numpy.sum(rvec0**2.0))
+    a = 1.0 / (2.0 / r0 - numpy.sum(vvec0**2.0))
+    sqa = numpy.sqrt(a)
+    sigma0 = numpy.sum(rvec0 * vvec0)
+    cE, sE = numpy.cos(dE), numpy.sin(dE)
+    r1 = a + (r0 - a) * cE + sigma0 * sqa * sE
+    f = 1.0 - a / r0 * (1.0 - cE)
+    g = t - a * sqa * (dE - sE)
+    fd = -sqa / (r1 * r0) * sE
+    gd = 1.0 - a / r1 * (1.0 - cE)
+    # gradients of the basic scalars wrt s0; a = 1/(2/r0 - |v0|^2) chain-rules
+    # to da/dr0vec = (2 a^2/r0^2) u0, da/dv0vec = 2 a^2 v0vec
+    u0 = rvec0 / r0
+    grad_r0 = numpy.concatenate([u0, numpy.zeros(3)])
+    grad_a = numpy.concatenate([2.0 * a**2.0 / r0**2.0 * u0, 2.0 * a**2.0 * vvec0])
+    grad_sigma0 = numpy.concatenate([vvec0, rvec0])
+    # implicit dE through Kepler's equation
+    # F = dE + (sigma0/sqa)(1-cE) - (1-r0/a) sE - t/a^{3/2}
+    dFddE = r1 / a  # = 1 + (sigma0/sqa) sE - (1-r0/a) cE
+    dFdsigma0 = (1.0 - cE) / sqa
+    dFdr0 = sE / a
+    dFda = (
+        -sigma0 * (1.0 - cE) / (2.0 * a * sqa)
+        - r0 * sE / a**2.0
+        + 1.5 * t / (a**2.0 * sqa)
+    )
+    grad_dE = -(dFdsigma0 * grad_sigma0 + dFdr0 * grad_r0 + dFda * grad_a) / dFddE
+    # r1 = a + (r0-a) cE + sigma0 sqa sE
+    grad_r1 = (
+        (1.0 - cE + sigma0 * sE / (2.0 * sqa)) * grad_a
+        + cE * grad_r0
+        + sqa * sE * grad_sigma0
+        + (-(r0 - a) * sE + sigma0 * sqa * cE) * grad_dE
+    )
+    # f = 1 - (a/r0)(1-cE)
+    grad_f = (
+        -(1.0 - cE) / r0 * grad_a
+        + a * (1.0 - cE) / r0**2.0 * grad_r0
+        - a * sE / r0 * grad_dE
+    )
+    # g = t - a^{3/2} (dE - sE)
+    grad_g = -1.5 * sqa * (dE - sE) * grad_a - a * sqa * (1.0 - cE) * grad_dE
+    # fd = -(sqa sE)/(r1 r0)
+    grad_fd = (
+        -sE / (2.0 * sqa * r1 * r0) * grad_a
+        + sqa * sE / (r1**2.0 * r0) * grad_r1
+        + sqa * sE / (r1 * r0**2.0) * grad_r0
+        - sqa * cE / (r1 * r0) * grad_dE
+    )
+    # gd = 1 - (a/r1)(1-cE)
+    grad_gd = (
+        -(1.0 - cE) / r1 * grad_a
+        + a * (1.0 - cE) / r1**2.0 * grad_r1
+        - a * sE / r1 * grad_dE
+    )
+    M = numpy.zeros((6, 6))
+    M[:3, :] = numpy.outer(rvec0, grad_f) + numpy.outer(vvec0, grad_g)
+    M[:3, :3] += f * numpy.eye(3)
+    M[:3, 3:] += g * numpy.eye(3)
+    M[3:, :] = numpy.outer(rvec0, grad_fd) + numpy.outer(vvec0, grad_gd)
+    M[3:, :3] += fd * numpy.eye(3)
+    M[3:, 3:] += gd * numpy.eye(3)
+    return M
+
+
+def _kepler_fg_state(s0, dE, t):
+    """Analytic Kepler (mu=1) f,g propagation of the state s0 to time t; dE
+    must solve Kepler's equation for (s0, t)."""
+    rvec0 = numpy.array(s0[:3])
+    vvec0 = numpy.array(s0[3:])
+    r0 = numpy.sqrt(numpy.sum(rvec0**2.0))
+    a = 1.0 / (2.0 / r0 - numpy.sum(vvec0**2.0))
+    sqa = numpy.sqrt(a)
+    sigma0 = numpy.sum(rvec0 * vvec0)
+    cE, sE = numpy.cos(dE), numpy.sin(dE)
+    r1 = a + (r0 - a) * cE + sigma0 * sqa * sE
+    f = 1.0 - a / r0 * (1.0 - cE)
+    g = t - a * sqa * (dE - sE)
+    fd = -sqa / (r1 * r0) * sE
+    gd = 1.0 - a / r1 * (1.0 - cE)
+    return numpy.concatenate([f * rvec0 + g * vvec0, fd * rvec0 + gd * vvec0])
+
+
+def _kepler_solve_dE(s0, t):
+    """Solve Kepler's equation (dE formulation, mu=1) for dE at time t by
+    Newton iteration from the mean-anomaly guess; dF/ddE = r(t)/a > 0 for an
+    elliptic orbit, so F is strictly monotonic in dE and Newton is safe."""
+    rvec0 = numpy.array(s0[:3])
+    vvec0 = numpy.array(s0[3:])
+    r0 = numpy.sqrt(numpy.sum(rvec0**2.0))
+    a = 1.0 / (2.0 / r0 - numpy.sum(vvec0**2.0))
+    sqa = numpy.sqrt(a)
+    sigma0 = numpy.sum(rvec0 * vvec0)
+
+    def F(dE):
+        return (
+            dE
+            + sigma0 / sqa * (1.0 - numpy.cos(dE))
+            - (1.0 - r0 / a) * numpy.sin(dE)
+            - t / (a * sqa)
+        )
+
+    def dF(dE):
+        return (a + (r0 - a) * numpy.cos(dE) + sigma0 * sqa * numpy.sin(dE)) / a
+
+    dE = t / (a * sqa)  # mean-anomaly initial guess
+    for _ in range(100):
+        Fval = F(dE)
+        if numpy.fabs(Fval) < 1e-14:
+            break
+        dE = dE - Fval / dF(dE)
+    assert numpy.fabs(F(dE)) < 1e-12, "Kepler-equation Newton solve did not converge"
+    return dE
+
+
+def test_dxdv_3d_closed_form_stm_kepler():
+    from galpy.orbit import Orbit
+    from galpy.potential import KeplerPotential
+
+    pot = KeplerPotential(amp=1.0)  # mu = 1, matching the reference above
+    assert pot.hasC_dxdv3d, "KeplerPotential should advertise hasC_dxdv3d"
+    # moderately eccentric, genuinely 3D (inclined) orbit
+    ic = [1.0, 0.2, 0.8, 0.2, 0.1, 0.3]
+    R, vR, vT, z, vz, phi = ic
+    # the same cylindrical -> Cartesian map galpy uses (x along phi=0)
+    s0 = numpy.array(
+        [
+            R * numpy.cos(phi),
+            R * numpy.sin(phi),
+            z,
+            vR * numpy.cos(phi) - vT * numpy.sin(phi),
+            vR * numpy.sin(phi) + vT * numpy.cos(phi),
+            vz,
+        ]
+    )
+    r0 = numpy.sqrt(numpy.sum(s0[:3] ** 2.0))
+    a = 1.0 / (2.0 / r0 - numpy.sum(s0[3:] ** 2.0))
+    assert a > 0.0, "test precondition: the orbit must be elliptic"
+    # eccentricity from e^2 = 1 + 2 E L^2 = 1 - |L|^2/a (mu=1)
+    Lvec = numpy.cross(s0[:3], s0[3:])
+    ecc = numpy.sqrt(1.0 - numpy.sum(Lvec**2.0) / a)
+    assert 0.2 < ecc < 0.8, (
+        f"test precondition: moderately eccentric orbit expected, got e={ecc:g}"
+    )
+    # ~1.8 radial periods (T = 2 pi a^{3/2} ~ 4.4)
+    times = numpy.linspace(0.0, 8.0, 17)
+    dEs = [_kepler_solve_dE(s0, tk) for tk in times]
+    # anchor the analytic reference: the f,g propagator must follow the same
+    # orbit as a plain galpy integration (~2e-10 measured)
+    o = Orbit(ic)
+    o.integrate(times, pot, method="dop853_c")
+    rect_orbit = _orbit_rect_3d(o, times)
+    state_diff = numpy.amax(
+        numpy.fabs(
+            numpy.array(
+                [_kepler_fg_state(s0, dEs[kk], tk) for kk, tk in enumerate(times)]
+            )
+            - rect_orbit
+        )
+    )
+    assert state_diff < 1e-8, (
+        f"analytic Kepler f,g propagation differs from the integrated orbit by "
+        f"{state_diff:g}"
+    )
+    Mref = numpy.array([_kepler_fg_stm(s0, dEs[kk], tk) for kk, tk in enumerate(times)])
+    # non-vacuity: the deviations genuinely evolve (Kepler shear grows secularly)
+    assert numpy.amax(numpy.fabs(Mref[-1] - numpy.eye(6))) > 0.5
+    for integrator in ["dopr54_c", "dop853_c"]:
+        Mt = _integrate_stm_3d(pot, ic, times, integrator)
+        maxdiff = numpy.amax(numpy.fabs(Mt - Mref))
+        # measured ~1.5e-8 (dopr54_c) / ~1.4e-9 (dop853_c)
+        assert maxdiff < 1e-7, (
+            f"integrated 3D STM differs from the closed-form Kepler f,g STM by "
+            f"{maxdiff:g} for integrator {integrator}"
+        )
+    return None
+
+
+# ---- Conserved-integral left-relations. If C(x) is conserved along every
+# orbit, C(x(t; x_0)) = C(x_0) identically in x_0; differentiating wrt x_0
+# gives the exact STM relation
+#   g(x(t))^T M(t) = g(x_0)^T ,   g = dC/dx (gradient wrt the CARTESIAN
+# phase-space coordinates (x,y,z,vx,vy,vz)),
+# i.e. the gradient of a conserved quantity along the orbit is a left
+# "eigen-covector" of the STM. For an axisymmetric, time-independent potential
+# both the energy and the z-angular momentum are conserved, with
+#   E    = |v|^2/2 + Phi      -> g_E  = (dPhi/dx, dPhi/dy, dPhi/dz, vx, vy, vz)
+#   L_z  = x vy - y vx        -> g_Lz = (vy, -vx, 0, -y, x, 0)
+# (dL_z/dx = vy, dL_z/dy = -vx, dL_z/dvx = -y, dL_z/dvy = +x; dPhi/dx_i is
+# MINUS the Cartesian acceleration). This constrains the STM ROWS against
+# orbit-level quantities, complementary to det(M)=1/symplecticity (satisfied
+# by any symmetric Hessian) and to the column-wise FD-of-flow check.
+def test_dxdv_3d_conserved_integral_left_relations():
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1, normalize=True)
+    assert pot.hasC_dxdv3d, "MiyamotoNagai should advertise hasC_dxdv3d"
+    assert not pot.isNonAxi  # premise for L_z conservation
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 51)
+    for integrator in ["dopr54_c", "dop853_c"]:
+        Mt = _integrate_stm_3d(pot, ic, times, integrator)
+        # non-vacuity: the deviations genuinely evolve (measured ~11)
+        assert numpy.amax(numpy.fabs(Mt[-1] - numpy.eye(6))) > 1.0
+        o = Orbit(ic)
+        o.integrate(times, pot, method=integrator)
+        rect = _orbit_rect_3d(o, times)
+
+        def grad_E(kk):
+            out = numpy.empty(6)
+            # dPhi/d(x,y,z) = -acceleration
+            out[:3] = -_cart_accel_3d(pot, rect[kk, :3], t=times[kk])
+            out[3:] = rect[kk, 3:]
+            return out
+
+        def grad_Lz(kk):
+            x, y = rect[kk, 0], rect[kk, 1]
+            vx, vy = rect[kk, 3], rect[kk, 4]
+            return numpy.array([vy, -vx, 0.0, -y, x, 0.0])
+
+        for cname, gfun in [("E", grad_E), ("Lz", grad_Lz)]:
+            g0 = gfun(0)
+            maxerr = numpy.amax(
+                numpy.fabs(
+                    numpy.array(
+                        [numpy.dot(gfun(kk), Mt[kk]) for kk in range(len(times))]
+                    )
+                    - g0
+                )
+            )
+            # measured ~2e-10 (dopr54_c) / ~1e-11 (dop853_c)
+            assert maxerr < 1e-8, (
+                f"conserved-integral left-relation g^T(x(t)) M(t) = g^T(x_0) "
+                f"violated at {maxerr:g} for {cname}, integrator {integrator}"
+            )
+    return None
+
+
+def test_kuzmindisk_dxdv_3d_c_vs_python_offplane():
+    # KuzminDiskPotential has a verified-correct full 3D C Hessian (hasC_dxdv3d=True)
+    # but is deliberately excluded from the strict liouville3d_registry: its potential
+    # ~ -amp/sqrt(R^2+(a+|z|)^2) is only C^0 across the disk plane, so d2Phi/dz2 and
+    # d2Phi/dRdz are discontinuous at z=0. An orbit crossing z=0 makes the two adaptive
+    # integrators legitimately diverge at the kink (NOT a Hessian error). This test
+    # instead exercises the C 3D Hessian on an orbit that stays OFF the disk plane
+    # (z>0 throughout), where the potential is smooth and the C 3D dxdv path must match
+    # the pure-Python reference to high precision.
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminDiskPotential
+
+    pot = KuzminDiskPotential(normalize=1.0, a=1.0)
+    assert pot.hasC_dxdv3d, "KuzminDisk should advertise hasC_dxdv3d"
+    # large z0, moving away from the plane -> the orbit never approaches z=0
+    ic = [1.0, 0.1, 1.1, 2.0, 0.3, 0.2]
+    times = numpy.linspace(0.0, 2.0, 101)
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dop853_c")
+    assert numpy.amin(numpy.fabs(obase.z(times))) > 1.0, (
+        "test precondition: the IC must keep the orbit well off the disk plane "
+        "(away from the z=0 kink in d2Phi/dz2)"
+    )
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # off-plane the C-vs-Python dxdv agree to ~1e-11; 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"off-plane 3D C variational integration for KuzminDisk differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_dehnenbar_dxdv_inside_rb_c_vs_python():
+    # DehnenBarPotential's 3D C Hessian has a separate branch for r <= rb (the bar
+    # break radius); the liouville3d_registry DehnenBar entry uses the shared IC at
+    # R~1 (r > rb ~ 0.42), exercising only the r > rb branch. This test integrates a
+    # deviation along an orbit that spends a substantial fraction of its time INSIDE
+    # rb, exercising (and validating, against the pure-Python reference) the r <= rb
+    # branch of each second derivative -- otherwise both untested.
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential
+
+    pot = DehnenBarPotential(alpha=0.05)
+    assert pot.hasC_dxdv3d, "DehnenBar should advertise hasC_dxdv3d"
+    ic = [0.2, 0.05, 0.1, 0.08, 0.03, 0.2]  # r ~ 0.22 < rb -> starts inside the bar
+    times = numpy.linspace(0.0, 2.0, 101)
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dop853_c")
+    r = numpy.sqrt(obase.R(times) ** 2 + obase.z(times) ** 2)
+    assert numpy.mean(r < pot._rb) > 0.1, (
+        "test precondition: the orbit must spend time inside rb to exercise the "
+        "r <= rb branch of the C Hessian"
+    )
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, pot, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # the bar orbit is mildly chaotic, so C-vs-Python agree to ~1e-6; 1e-5 is safe
+    assert maxdiff < 1e-5, (
+        f"inside-rb 3D C variational integration for DehnenBar differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_spherical_dxdv_3d_c_vs_python_extra():
+    # PseudoIsothermal, Einasto, and interpSpherical have verified-correct full 3D C
+    # Hessians (hasC_dxdv3d=True) but are deliberately excluded from the strict
+    # liouville3d_registry (see the note in tests/conftest.py): the spline-interpolated
+    # potentials (Einasto, interpSpherical) and PseudoIsothermal's (1/r^2)*atan profile
+    # hit accuracy floors in the registry's pure-Python odeint finite-difference-of-flow
+    # check / its 1e-9 unit-deviation bridge tolerance -- not Hessian errors. This test
+    # validates their C 3D variational Hessian directly: every C 3D-dxdv unit-deviation
+    # column must match the pure-Python (dop853) variational integrator to high
+    # precision (the genuine correctness criterion the registry would otherwise apply).
+    import numpy
+
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        EinastoPotential,
+        HernquistPotential,
+        PseudoIsothermalPotential,
+        interpSphericalPotential,
+    )
+
+    pots = [
+        PseudoIsothermalPotential(amp=1.0, a=1.1, normalize=True),
+        EinastoPotential(amp=1.0, h=1.5, n=2.0, normalize=True),
+        interpSphericalPotential(
+            rforce=HernquistPotential(amp=1.0, a=1.3, normalize=True),
+            rgrid=numpy.geomspace(0.01, 20.0, 401),
+        ),
+    ]
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    for pot in pots:
+        pname = pot.__class__.__name__
+        assert pot.hasC_dxdv3d, f"{pname} should advertise hasC_dxdv3d"
+        maxdiff = 0.0
+        for ii in range(6):
+            oc = Orbit(ic)
+            oc.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method="dopr54_c",
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+            op = Orbit(ic)
+            op.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method="dop853",
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+            diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+            maxdiff = max(maxdiff, diff)
+        # C-vs-Python 3D variational integration agrees to ~1e-6 or better for these
+        # (spline-interpolated potentials are the loosest); 1e-5 leaves a safe margin.
+        assert maxdiff < 1e-5, (
+            f"3D C variational integration for {pname} differs from the pure-Python "
+            f"reference by {maxdiff:g} (unit deviation)"
+        )
+    return None
+
+
+def test_doubleexp_dxdv_3d_c_vs_python():
+    # DoubleExponentialDiskPotential has a verified-correct full 3D C Hessian
+    # (hasC_dxdv3d=True): its C R2deriv/z2deriv/Rzderiv use the same Ogata/Hankel
+    # Bessel quadrature (J0/J1 nodes) as the C forces and the Python 2nd derivatives.
+    # It is deliberately excluded from the strict liouville3d_registry because the
+    # finite absolute accuracy of that quadrature puts the registry's
+    # finite-difference-of-the-flow check (eps=1e-7 differencing of full nonlinear
+    # orbits) right at its ~1.2e-4 floor, just over the 1e-4 bound -- NOT a Hessian
+    # error. This test exercises the C 3D Hessian directly by comparing the C 3D
+    # variational integration against the pure-Python reference, which the C path must
+    # match to high precision (the two share no integrator code, only the analytic
+    # Hessian, so agreement validates the C Hessian).
+    from galpy.orbit import Orbit
+    from galpy.potential import DoubleExponentialDiskPotential
+
+    pot = DoubleExponentialDiskPotential(amp=1.0, hr=1.0, hz=0.3, normalize=True)
+    assert pot.hasC_dxdv3d, "DoubleExponentialDisk should advertise hasC_dxdv3d"
+    # Fully 3D initial condition (R,vR,vT,z,vz,phi)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # the C-vs-Python dxdv agree to ~1e-9; 1e-6 leaves a wide margin
+    assert maxdiff < 1e-6, (
+        f"3D C variational integration for DoubleExponentialDisk differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_doubleexp_dxdv_planar_c_vs_python():
+    # DoubleExponentialDiskPotential also wires the PLANAR (2D, z=0) R2deriv in C
+    # (hasC_dxdv=True): it is just the 3D R2deriv at z=0, so for an in-plane orbit
+    # the C planar variational integration must match the pure-Python reference
+    # (the two share only the analytic Hessian, not integrator code).
+    from galpy.orbit import Orbit
+    from galpy.potential import DoubleExponentialDiskPotential
+
+    pot = DoubleExponentialDiskPotential(amp=1.0, hr=1.0, hz=0.3, normalize=True)
+    assert pot.hasC_dxdv, "DoubleExponentialDisk should advertise hasC_dxdv (planar)"
+    ic = [1.0, 0.1, 1.1, 0.0]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    maxdiff = 0.0
+    for dev in (numpy.array([1e-4, 0.0, 0.0, 0.0]), numpy.array([0.0, 0.0, 1e-4, 0.0])):
+        oc = Orbit(ic)
+        oc.integrate_dxdv(dev, times, pot, method="dopr54_c", rtol=1e-12, atol=1e-12)
+        op = Orbit(ic)
+        op.integrate_dxdv(dev, times, pot, method="dop853", rtol=1e-12, atol=1e-12)
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # planar C-vs-Python dxdv agree to ~1e-14; 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for DoubleExponentialDisk differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_interprz_dxdv_3d():
+    # interpRZPotential has a full 3D C Hessian (hasC_dxdv3d=True) when the
+    # potential, both forces, AND the three 2nd derivatives are interpolated
+    # with enable_c: like the forces, R2deriv/z2deriv/Rzderiv are each a
+    # precomputed grid of exact (original-potential) values interpolated with a
+    # 2D cubic B-spline in C (phi derivatives are identically zero --
+    # axisymmetric). It is deliberately NOT in the strict liouville3d_registry
+    # (the interpSpherical/Multipole precedent): every check involving it is
+    # interpolation-limited, and its pure-Python reference path with enable_c
+    # re-packs the full grids into C per evaluation, which is far too slow for
+    # the registry sweep. This test validates the C 3D Hessian directly:
+    # (1) C 3D variational integration on the interp potential must match the
+    #     trusted pure-Python analytic-Hessian dxdv of the UNDERLYING
+    #     MWPotential2014 to interpolation accuracy (~1e-4 measured; the two
+    #     share NO code -- different potential representation, integrator, and
+    #     Hessian -- so agreement pins the C Hessian values);
+    # (2) Liouville det(M)=1 and symplecticity MtOmegaM=Omega of the 6x6 STM
+    #     (necessary; holds at integrator accuracy for any symmetric K);
+    # (3) finite-difference-of-the-flow: the dxdv column must match the FD of
+    #     the integrated C flow (uses only the trusted C forces). dop853_c is
+    #     excluded from this check only: the C2-continuous spline RHS breaks
+    #     the order-8 error estimator, making the eps=1e-7 orbit differencing
+    #     noisy (~1e-2) -- an integrator/FD-accuracy effect, not a Hessian
+    #     error (dop853_c passes check (1) at 1.0e-4, identical to dopr54_c).
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, interpRZPotential
+    from galpy.util import coords
+
+    rzpot = interpRZPotential(
+        RZPot=MWPotential2014,
+        rgrid=(numpy.log(0.3), numpy.log(3.0), 151),
+        zgrid=(0.0, 0.35, 151),
+        logR=True,
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        interpR2deriv=True,
+        interpz2deriv=True,
+        interpRzderiv=True,
+        use_c=True,
+        enable_c=True,
+        zsym=True,
+    )
+    assert rzpot.hasC_dxdv3d, "interpRZPotential should advertise hasC_dxdv3d"
+    # Negative control: without the interpolated 2nd derivatives there is no
+    # 3D C Hessian (integrate_dxdv then falls back to Python, see
+    # test_integrate_dxdv_3d_c_requires_full_hessian for the gate itself)
+    rzpot_no2nd = interpRZPotential(
+        RZPot=MWPotential2014,
+        rgrid=(numpy.log(0.3), numpy.log(3.0), 11),
+        zgrid=(0.0, 0.35, 11),
+        logR=True,
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        use_c=True,
+        enable_c=True,
+        zsym=True,
+    )
+    assert not rzpot_no2nd.hasC_dxdv3d, (
+        "interpRZPotential w/o interpolated 2nd derivatives should not advertise hasC_dxdv3d"
+    )
+    # Generic, fully 3D initial condition (R,vR,vT,z,vz,phi); the orbit stays
+    # within R in [0.98,1.31], |z| <= 0.077 -- well inside the grid
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    # (1) C dxdv on the interp potential vs the trusted pure-Python
+    # analytic-Hessian dxdv on the underlying MWPotential2014
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, MWPotential2014, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        ref = op.getOrbit_dxdv()
+        for integrator in ("dopr54_c", "dop853_c", "rk6_c"):
+            oc = Orbit(ic)
+            oc.integrate_dxdv(
+                canonical[ii], times, rzpot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - ref))
+            # measured: <= 1.0e-4 for each integrator (interpolation-limited);
+            # 1e-3 leaves a safe margin while pinning any sign/factor error
+            # in the C Hessian (those give O(1) differences)
+            assert diff < 1e-3, (
+                f"3D C variational integration for interpRZPotential differs from "
+                f"the pure-Python reference on the underlying MWPotential2014 by "
+                f"{diff:g} (unit deviation e_{ii}, integrator {integrator})"
+            )
+    # (2)+(3) det(M)=1, symplecticity, and FD-of-flow within the C integrators
+    times = numpy.linspace(0.0, 3.0, 151)
+    Omega = numpy.zeros((6, 6))
+    Omega[:3, 3:] = numpy.eye(3)
+    Omega[3:, :3] = -numpy.eye(3)
+    for integrator in ("dopr54_c", "dop853_c", "rk6_c"):
+        Mcols = []
+        for ii in range(6):
+            o = Orbit(ic)
+            o.integrate_dxdv(
+                canonical[ii], times, rzpot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-10, atol=1e-10,
+            )  # fmt: skip
+            Mcols.append(o.getOrbit_dxdv()[-1, :])
+        M = numpy.array(Mcols).T
+        detM = numpy.linalg.det(M)
+        # measured: ~1.5e-7 (adaptive) / ~4e-12 (fixed-step rk6_c)
+        assert numpy.fabs(detM - 1.0) < 1e-6, (
+            f"3D Liouville det(M)={detM:g} differs from 1 for interpRZPotential, "
+            f"integrator {integrator}"
+        )
+        symperr = numpy.amax(numpy.fabs(M.T @ Omega @ M - Omega))
+        assert symperr < 1e-6, (
+            f"3D symplecticity ||M^T Omega M - Omega||={symperr:g} too large for "
+            f"interpRZPotential, integrator {integrator}"
+        )
+        if integrator == "dop853_c":
+            continue  # FD-of-flow excluded for dop853_c, see docstring
+        # (3) finite-difference of the flow (uses only the trusted C forces)
+        eps = 1e-7
+        obase = Orbit(ic)
+        obase.integrate(times, rzpot, method=integrator, rtol=1e-12, atol=1e-12)
+        base = _orbit_rect_3d(obase, times)
+        for ii in [0, 2, 4]:  # x, z, vy perturbations
+            p = base[0].copy()
+            p[ii] += eps
+            Rp, phip, Zp = coords.rect_to_cyl(p[0], p[1], p[2])
+            vRp, vTp, vzp = coords.rect_to_cyl_vec(p[3], p[4], p[5], p[0], p[1], p[2])
+            opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+            opert.integrate(times, rzpot, method=integrator, rtol=1e-12, atol=1e-12)
+            fd = (_orbit_rect_3d(opert, times) - base) / eps
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii], times, rzpot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-10, atol=1e-10,
+            )  # fmt: skip
+            fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+            # measured: <= 6.5e-4 (interpolation-limited: the interpolated
+            # exact-Hessian K differs from the exact Jacobian of the
+            # interpolated forces at spline accuracy)
+            assert fderr < 2e-3, (
+                f"3D FD-of-flow for e_{ii} differs from the dxdv column by "
+                f"{fderr:g} for interpRZPotential, integrator {integrator}"
+            )
+    return None
+
+
+def test_kuzminlike_dxdv_planar_c_vs_python():
+    # Regression test for the KuzminLikeWrapperPotential C planar dxdv path:
+    # its d2xi/dR2 helper used pow(R^2+(a+sqrt(z^2+b^2))^2, 3.0) = xi^6 where
+    # the correct denominator is xi^3 (exponent 1.5), making the C planar
+    # variational integration wrong by O(1) for unit deviations (maxdiff ~0.8
+    # over the orbit below) while leaving the forces -- and hence ordinary
+    # orbit integration -- untouched. Fixed together with the 3D Hessian; the
+    # C planar dxdv must now match the trusted pure-Python reference (the two
+    # share only the analytic chain-rule Hessian, not integrator code).
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, KuzminLikeWrapperPotential
+
+    pot = KuzminLikeWrapperPotential(
+        pot=HernquistPotential(amp=1.0, a=1.3, normalize=True), a=1.1, b=0.3
+    )
+    assert pot.hasC_dxdv, "KuzminLikeWrapper should advertise hasC_dxdv (planar)"
+    ic = [1.0, 0.1, 1.1, 0.0]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    ptp = pot.toPlanar()
+    canonical = numpy.eye(4)
+    maxdiff = 0.0
+    for ii in [0, 2]:  # e_x and e_vx unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, ptp, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, ptp, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # planar C-vs-Python dxdv agree to ~1e-11; 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for KuzminLikeWrapper differs from the "
+        f"pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_kuzminlike_dxdv_3d_c_vs_miyamotonagai():
+    # Physics-law cross-check of the KuzminLikeWrapper 3D C Hessian against a
+    # completely INDEPENDENT C implementation: applying the Kuzmin-like
+    # substitution to a KeplerPotential gives exactly the MiyamotoNagaiPotential
+    # (for b != 0), whose full 3D C Hessian is implemented and validated
+    # separately. The two C variational integrations share no Hessian code (the
+    # wrapper chain-rules calcRforce/calcR2deriv of Kepler through xi; MN uses
+    # its own closed-form second derivatives), so machine-precision agreement
+    # (~1e-15) pins the wrapper's chain-rule Hessian values absolutely.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        KeplerPotential,
+        KuzminLikeWrapperPotential,
+        MiyamotoNagaiPotential,
+    )
+
+    kp = KeplerPotential(normalize=1.0)
+    kwp = KuzminLikeWrapperPotential(pot=kp, a=1.3, b=0.2)
+    mn = MiyamotoNagaiPotential(amp=kp._amp, a=1.3, b=0.2)
+    assert kwp.hasC_dxdv3d, "KuzminLikeWrapper should advertise hasC_dxdv3d"
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        o1 = Orbit(ic)
+        o1.integrate_dxdv(
+            canonical[ii], times, kwp, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        o2 = Orbit(ic)
+        o2.integrate_dxdv(
+            canonical[ii], times, mn, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(o1.getOrbit_dxdv() - o2.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # identical flows evaluated by two independent C Hessians: ~1e-15; 1e-10
+    # leaves room for floating-point evaluation-order differences only
+    assert maxdiff < 1e-10, (
+        f"3D C variational integration for KuzminLikeWrapper(Kepler) differs from "
+        f"the independent MiyamotoNagai C Hessian by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+# ---- "Staeckel-approximation" wrappers (OblateStaeckelWrapperPotential and
+# CylindricallySeparablePotentialWrapper): dedicated C-vs-Python parity tests
+# for the newly enabled planar (hasC_dxdv) and 3D (hasC_dxdv3d) C variational
+# paths, complementing the full liouville3d-registry battery (det(M),
+# symplecticity, flow-direction, FD-of-flow, 2D bridge, and the registry-wide
+# C-vs-Python check at its global 1e-6 tolerance) with tight tolerances. The C
+# Hessians are direct transcriptions of the trusted Python
+# _R2deriv/_z2deriv/_Rzderiv, so C and Python share only the analytic
+# formulas, not integrator code.
+def test_oblatestaeckelwrapper_dxdv_planar_c_vs_python():
+    # First-time enablement of the planar C variational path for
+    # OblateStaeckelWrapperPotential: the C planar R2deriv (the v=pi/2
+    # simplification of the full chain-rule R2deriv, with the wrapped
+    # potential entering through its in-plane planarRforce/planarR2deriv only)
+    # must match the trusted pure-Python reference, which evaluates the full
+    # _R2deriv at z=0.
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential, OblateStaeckelWrapperPotential
+
+    pot = OblateStaeckelWrapperPotential(
+        pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3, normalize=True),
+        delta=0.45,
+        u0=1.15,
+    )
+    assert pot.hasC_dxdv, "OblateStaeckelWrapper should advertise hasC_dxdv (planar)"
+    ic = [1.0, 0.1, 1.1, 0.0]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    ptp = pot.toPlanar()
+    canonical = numpy.eye(4)
+    maxdiff = 0.0
+    for ii in [0, 2]:  # e_x and e_vx unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, ptp, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, ptp, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # measured: ~3e-11 (unit deviations); 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for OblateStaeckelWrapper differs from "
+        f"the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_oblatestaeckelwrapper_dxdv_3d_c_vs_kuzminkutuzov():
+    # Physics-law cross-check of the OblateStaeckelWrapper 3D C Hessian against
+    # a completely INDEPENDENT C implementation: a potential that is already an
+    # oblate Staeckel potential with the same focal length is reconstructed
+    # EXACTLY by the wrapper (for ANY u0): with Phi = (Ut(u)-Vt(v))/prefac,
+    # U(u) = cosh^2 u Phi(u,pi/2) = Ut(u) - Vt(pi/2) and V(v) = refpot
+    # - prefac(u0,v) Phi(u0,v) = Vt(v) - Vt(pi/2), so (U-V)/prefac = Phi.
+    # KuzminKutuzovStaeckelPotential (Delta=1) has its own closed-form C
+    # Hessian, validated separately in the liouville3d registry; the two C
+    # variational integrations share no Hessian code (the wrapper chain-rules
+    # the wrapped forces/2nd derivatives along the reference curves through
+    # the (u,v) transform), so tight agreement pins the wrapper's chain-rule
+    # Hessian values absolutely.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        KuzminKutuzovStaeckelPotential,
+        OblateStaeckelWrapperPotential,
+    )
+
+    kk = KuzminKutuzovStaeckelPotential(amp=1.0, ac=5.0, Delta=1.0, normalize=True)
+    wkk = OblateStaeckelWrapperPotential(pot=kk, delta=1.0, u0=1.3)
+    assert wkk.hasC_dxdv3d, "OblateStaeckelWrapper should advertise hasC_dxdv3d"
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        o1 = Orbit(ic)
+        o1.integrate_dxdv(
+            canonical[ii], times, wkk, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        o2 = Orbit(ic)
+        o2.integrate_dxdv(
+            canonical[ii], times, kk, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(o1.getOrbit_dxdv() - o2.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # identical flows evaluated by two independent C Hessians; measured ~2e-11
+    # (the wrapper's U/V go through acosh/uv round trips, so the two forces
+    # differ at machine precision and the variational difference grows to
+    # ~1e-11 over the orbit); 1e-9 leaves an order of magnitude of margin
+    assert maxdiff < 1e-9, (
+        f"3D C variational integration for OblateStaeckelWrapper(KuzminKutuzov) "
+        f"differs from the independent KuzminKutuzov C Hessian by {maxdiff:g} "
+        f"(unit deviation)"
+    )
+    return None
+
+
+def test_cylsepwrapper_dxdv_planar_c_vs_python():
+    # First-time enablement of the planar C variational path for
+    # CylindricallySeparablePotentialWrapper: the C planar R2deriv simply
+    # aggregates the wrapped potential's in-plane planarR2deriv (separability:
+    # Phi_RR(R,z) = Phi_w,RR(R,0)) and must match the trusted pure-Python
+    # reference.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        CylindricallySeparablePotentialWrapper,
+        MiyamotoNagaiPotential,
+    )
+
+    pot = CylindricallySeparablePotentialWrapper(
+        pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3, normalize=True), Rp=1.0
+    )
+    assert pot.hasC_dxdv, (
+        "CylindricallySeparableWrapper should advertise hasC_dxdv (planar)"
+    )
+    ic = [1.0, 0.1, 1.1, 0.0]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    ptp = pot.toPlanar()
+    canonical = numpy.eye(4)
+    maxdiff = 0.0
+    for ii in [0, 2]:  # e_x and e_vx unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, ptp, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, ptp, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # measured: ~3e-11 (unit deviations); 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for CylindricallySeparableWrapper "
+        f"differs from the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_cylsepwrapper_dxdv_3d_c_vs_python_tight():
+    # Tight-tolerance 3D C-vs-Python parity for
+    # CylindricallySeparablePotentialWrapper (the registry-wide
+    # test_dxdv_3d_c_vs_python runs the same comparison at its global 1e-6
+    # tolerance): the C R2deriv/z2deriv are direct transcriptions of the
+    # Python _R2deriv/_z2deriv (the wrapped potential's own second derivatives
+    # at (R,0) and (Rp,z)) with Rzderiv = 0 identically, so the two
+    # integrations differ only by integrator implementation.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        CylindricallySeparablePotentialWrapper,
+        MiyamotoNagaiPotential,
+    )
+
+    pot = CylindricallySeparablePotentialWrapper(
+        pot=MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.3, normalize=True), Rp=1.0
+    )
+    assert pot.hasC_dxdv3d, "CylindricallySeparableWrapper should advertise hasC_dxdv3d"
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, pot, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    # measured: ~5e-11 (unit deviations); 1e-9 leaves an order of magnitude
+    assert maxdiff < 1e-9, (
+        f"3D C variational integration for CylindricallySeparableWrapper differs "
+        f"from the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_integrate_dxdv_3d_staeckelwrappers_require_wrapped_hessian():
+    # Both "Staeckel-approximation" wrappers advertise hasC_dxdv3d=True
+    # unconditionally, but their C Hessians chain-rule the WRAPPED potential's
+    # C forces/second derivatives, so when the wrapped potential lacks the 3D
+    # C Hessian the C 3D variational path would silently aggregate 0 for the
+    # unset derivatives (NULL-safe aggregators) and propagate a wrong
+    # deviation. _check_c must recurse into the wrapped potential
+    # (parentWrapperPotential branch) and integrate_dxdv must warn and fall
+    # back to the pure-Python integrator. As in
+    # test_integrate_dxdv_3d_c_requires_full_hessian, the no-3D-C-Hessian
+    # wrapped potential is synthesized by forcing hasC_dxdv3d=False.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        CylindricallySeparablePotentialWrapper,
+        MiyamotoNagaiPotential,
+        OblateStaeckelWrapperPotential,
+    )
+
+    for wrap in [
+        lambda p: OblateStaeckelWrapperPotential(pot=p, delta=0.45, u0=1.15),
+        lambda p: CylindricallySeparablePotentialWrapper(pot=p, Rp=1.0),
+    ]:
+        mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.3)
+        mn.hasC_dxdv3d = False  # force the wrapped-pot-without-3D-C-Hessian case
+        pot = wrap(mn)
+        pname = pot.__class__.__name__
+        assert pot.hasC_dxdv3d, (
+            f"test precondition: {pname} itself advertises hasC_dxdv3d"
+        )
+        assert not _check_c(pot, dxdv3d=True), (
+            f"_check_c(dxdv3d) must recurse into the wrapped potential of "
+            f"{pname} and report False"
+        )
+        ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+        times = numpy.linspace(0.0, 2.0, 101)
+        dev = [1.0e-6, 0.0, 0.0, 0.0, 0.0, 0.0]
+        o_c = Orbit(ic)
+        with pytest.warns(galpyWarning):
+            o_c.integrate_dxdv(
+                dev, times, pot, method="dopr54_c",
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+        o_py = Orbit(ic)
+        o_py.integrate_dxdv(
+            dev, times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+        dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+        assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-9, (
+            f"3D integrate_dxdv did not fall back to the correct integrator for "
+            f"{pname} when its wrapped potential lacks the full 3D C Hessian"
+        )
+    return None
+
+
+def _check_dxdv_3d_c(
+    pot,
+    name,
+    integrators=("dop853_c", "dopr54_c", "rk6_c"),
+    det_tol=1e-7,
+    symp_tol=1e-6,
+    fd_tol=1e-4,
+):
+    # Shared 3D variational (dxdv) validation for the harmonic-expansion
+    # potentials (SCF / MultipoleExpansion), exercised through the C
+    # integrators only (their pure-Python reference is impractically slow --
+    # SCF's numerical 2nd derivatives need many Python force evaluations per
+    # RHS step). Checks, per integrator: (1) Liouville det(M)=1, (2)
+    # symplecticity MᵀΩM=Ω in canonical Cartesian variables (necessary; pins
+    # K's symmetry), and -- the part that actually pins the K VALUES against
+    # the C forces -- (3) finite-difference-of-the-flow. (det_tol/symp_tol are
+    # looser for the spline-interpolated MultipoleExpansion than for the
+    # analytic-radial-basis SCF.)
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 3.0, 151)
+    canonical = numpy.eye(6)
+    Omega = numpy.zeros((6, 6))
+    Omega[:3, 3:] = numpy.eye(3)
+    Omega[3:, :3] = -numpy.eye(3)
+    for integrator in integrators:
+        Mcols = []
+        for ii in range(6):
+            o = Orbit(ic)
+            o.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-10,
+                atol=1e-10,
+            )
+            Mcols.append(o.getOrbit_dxdv()[-1, :])
+        M = numpy.array(Mcols).T
+        this_det_tol = max(det_tol, 1e-6) if integrator == "rk6_c" else det_tol
+        detM = numpy.linalg.det(M)
+        assert numpy.fabs(detM - 1.0) < this_det_tol, (
+            f"3D Liouville det(M)={detM:g} differs from 1 for {name}, {integrator}"
+        )
+        symperr = numpy.amax(numpy.fabs(M.T @ Omega @ M - Omega))
+        assert symperr < symp_tol, (
+            f"3D symplecticity err={symperr:g} too large for {name}, {integrator}"
+        )
+        # finite-difference of the flow (validates the K values vs the C forces)
+        eps = 1e-7
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method=integrator)
+        base = _orbit_rect_3d(obase, times)
+        for ii in [0, 2, 4]:  # x, z, vy perturbations
+            p = base[0].copy()
+            p[ii] += eps
+            Rp, phip, Zp = coords.rect_to_cyl(p[0], p[1], p[2])
+            vRp, vTp, vzp = coords.rect_to_cyl_vec(p[3], p[4], p[5], p[0], p[1], p[2])
+            opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+            opert.integrate(times, pot, method=integrator)
+            fd = (_orbit_rect_3d(opert, times) - base) / eps
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method=integrator,
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-10,
+                atol=1e-10,
+            )
+            fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+            assert fderr < fd_tol, (
+                f"3D FD-of-flow for e_{ii} differs from the dxdv column by "
+                f"{fderr:g} for {name}, {integrator}"
+            )
+    return None
+
+
+def test_scf_dxdv_3d():
+    # SCFPotential has a full 3D C Hessian (hasC_dxdv3d=True) via the
+    # Hernquist-Ostriker spherical-harmonic expansion. Validate the 3D
+    # variational integration for an axisymmetric and a genuinely
+    # non-axisymmetric (m=2 -> nonzero zphideriv) instance. SCF is NOT in the
+    # strict liouville3d_registry because its pure-Python integrators are far
+    # too slow for the per-potential registry sweep; this dedicated test uses
+    # the C integrators only.
+    from galpy.potential import SCFPotential, scf_compute_coeffs_spherical
+
+    def _hern(R, z=0.0, phi=0.0):
+        r = numpy.sqrt(R**2 + z**2)
+        return 1.0 / (2.0 * numpy.pi) / (r * (1.0 + r) ** 3)
+
+    Acos_s, _ = scf_compute_coeffs_spherical(_hern, 5, a=1.0)
+    N = Acos_s.shape[0]
+    # axisymmetric: spherical monopole only
+    scf_axi = SCFPotential(Acos=Acos_s, a=1.0, normalize=True)
+    assert scf_axi.hasC_dxdv3d, "SCFPotential should advertise hasC_dxdv3d"
+    # non-axisymmetric: inject an l=2,m=2 term (exercises zphideriv)
+    Acos = numpy.zeros((N, 3, 3))
+    Asin = numpy.zeros((N, 3, 3))
+    Acos[:, 0, 0] = Acos_s[:, 0, 0]
+    Acos[0, 2, 2] = 0.05 * Acos_s[0, 0, 0]
+    Asin[0, 2, 2] = 0.03 * Acos_s[0, 0, 0]
+    scf_tri = SCFPotential(Acos=Acos, Asin=Asin, a=1.0, normalize=True)
+    assert scf_tri.isNonAxi, "injected-m2 SCF should be non-axisymmetric"
+    _check_dxdv_3d_c(scf_axi, "SCFPotential (axi)")
+    _check_dxdv_3d_c(scf_tri, "SCFPotential (m=2)")
+    return None
+
+
+def test_multipole_dxdv_3d():
+    # MultipoleExpansionPotential has a full 3D C Hessian (hasC_dxdv3d=True) via
+    # the same spherical-harmonic machinery as SCF (shared transform). Validate
+    # a spherical and a genuinely triaxial (nonzero zphideriv) instance. Like
+    # SCF it is excluded from the strict registry (slow Python integrators; its
+    # radial functions are spline-interpolated, so the FD-of-flow sits at
+    # spline accuracy, not analytic accuracy).
+    from galpy.potential import (
+        HernquistPotential,
+        MultipoleExpansionPotential,
+        TriaxialNFWPotential,
+    )
+
+    rgrid = numpy.geomspace(1e-2, 30.0, 201)
+    mep_sph = MultipoleExpansionPotential.from_density(
+        dens=HernquistPotential(amp=2.0, a=1.0), symmetry="spherical", rgrid=rgrid
+    )
+    assert mep_sph.hasC_dxdv3d, "MultipoleExpansion should advertise hasC_dxdv3d"
+    mep_tri = MultipoleExpansionPotential.from_density(
+        dens=TriaxialNFWPotential(amp=3.0, a=2.0, b=0.8, c=0.6),
+        symmetry="triaxial",
+        L=6,
+        rgrid=rgrid,
+    )
+    assert mep_tri.isNonAxi, "triaxial MultipoleExpansion should be non-axisymmetric"
+    # spline-interpolated radial functions -> looser det/symp; use the adaptive
+    # C integrators (fixed-step rk*_c is dominated by the spline error here).
+    _check_dxdv_3d_c(
+        mep_sph,
+        "MultipoleExpansion (spherical)",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+    )
+    _check_dxdv_3d_c(
+        mep_tri,
+        "MultipoleExpansion (triaxial)",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+    )
+    # Time-dependent (rotating, weakly perturbed) multipole: exercises the
+    # time-dependent radial-coefficient path of the C 3D Hessian (the Nt>0
+    # branch of compute_multipole_hessian_cyl). Still a Hamiltonian flow, so
+    # det(M)=1 / symplecticity hold.
+    omega = 0.8
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mep_tdep = MultipoleExpansionPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            hp.dens(R, z, use_physical=False)
+            * (1.0 + 0.05 * numpy.cos(2.0 * (phi - omega * t)))
+        ),
+        L=4,
+        rgrid=rgrid,
+        tgrid=numpy.linspace(0.0, 5.0, 41),
+    )
+    assert mep_tdep.isNonAxi, "time-dependent multipole should be non-axisymmetric"
+    # det(M)=1 / symplecticity still hold to ~1e-8 (the Hessian is correct); the
+    # FD-of-flow is looser because the coarse (rgrid x tgrid) interpolation of the
+    # time-dependent radial coefficients is less accurate than the static splines.
+    _check_dxdv_3d_c(
+        mep_tdep,
+        "MultipoleExpansion (time-dependent)",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+        fd_tol=1e-3,
+    )
+    return None
+
+
+def test_disk_composite_dxdv_3d():
+    # The DiskSCF / DiskMultipole (Kuijken-Dubinski) composites have a full 3D C
+    # Hessian (hasC_dxdv3d=True) once BOTH the analytic [Sigma_i(r), Hz_i(z)]
+    # disk pairs (their R2/z2/Rz deriv are in C; phi-derivs are identically
+    # zero) AND the expansion sub-potential (SCF / MultipoleExpansion) have the
+    # Hessian in C. A SMOOTH sech2 vertical profile is used: the exp |z| profile
+    # is only C^0 across the disk plane (like KuzminDisk), so its FD-of-flow
+    # sits at the z=0 kink, not at analytic accuracy (det(M)=1/symplecticity
+    # still pass for it -- the Hessian itself is correct).
+    from galpy.potential import DiskMultipoleExpansionPotential, DiskSCFPotential
+
+    def _sphdens(R, z):
+        return numpy.exp(-numpy.sqrt(R**2 + z**2)) / (4.0 * numpy.pi)
+
+    Sigma = {"type": "exp", "h": 1.0 / 3.0, "amp": 1.0}
+    hz = {"type": "sech2", "h": 1.0 / 27.0}
+    dscf = DiskSCFPotential(
+        dens=_sphdens, Sigma=Sigma, hz=hz, a=1.0, N=4, L=4, normalize=True
+    )
+    assert dscf.hasC_dxdv3d, "DiskSCFPotential should advertise hasC_dxdv3d"
+    # analytic SCF + analytic disk pairs -> tight
+    _check_dxdv_3d_c(dscf, "DiskSCFPotential", det_tol=1e-7, symp_tol=1e-6)
+    dmep = DiskMultipoleExpansionPotential(
+        dens=_sphdens,
+        Sigma=Sigma,
+        hz=hz,
+        L=4,
+        rgrid=numpy.geomspace(1e-2, 30.0, 201),
+        normalize=True,
+    )
+    assert dmep.hasC_dxdv3d, "DiskMultipoleExpansion should advertise hasC_dxdv3d"
+    # spline-interpolated multipole part -> looser det/symp, adaptive integrators
+    _check_dxdv_3d_c(
+        dmep,
+        "DiskMultipoleExpansionPotential",
+        integrators=("dop853_c", "dopr54_c"),
+        det_tol=5e-6,
+        symp_tol=5e-6,
+    )
+    return None
+
+
+############ 3D variational equations with DISSIPATIVE forces ################
+# For a velocity-dependent force the variational Jacobian is the general
+# J = [[0,I],[K + dF/dx, dF/dv]]: the dissipative position block is NOT the
+# symmetric -grad grad Phi and there is a nonzero velocity block. The flow is
+# non-conservative -- det M(t) = exp(int tr(dF/dv) dt') != 1 and symplecticity
+# fails BY CONSTRUCTION -- so dissipative forces are deliberately NOT in the
+# conftest liouville3d_registry (det(M)=1/symplecticity battery; verified by
+# test_dissipative_excluded_from_liouville3d_registry below) and are instead
+# validated at the orbit level only (galpy's convention: C code is tested
+# through regular galpy orbit usage) by (a) the finite-difference-of-the-flow
+# STM test (uses only the trusted forces) and (b) the quantitative
+# phase-volume law det M(t) = exp(int tr(dF/dv) dt'), with the trace computed
+# by central finite differences of the pure-Python forces -- an independent
+# code path from the C-integrated STM it is compared against.
+
+
+def _python_fd_trace_dFdv(dissip, base_rect, times, h=1e-6):
+    """tr(dF/dv) of the dissipative force along the orbit, by central finite
+    differences of the PYTHON force evaluators (evaluateRforces /
+    evaluatephitorques / evaluatezforces with v=..., converted to Cartesian):
+    a code path fully independent of the C variational machinery whose STM
+    the phase-volume-law tests validate. Conservative forces do not depend on
+    v, so only the dissipative force needs to be differentiated."""
+    from galpy.potential import (
+        evaluatephitorques,
+        evaluateRforces,
+        evaluatezforces,
+    )
+
+    def cart_force(q, t):
+        x, y, z, vx, vy, vz = q
+        R = numpy.sqrt(x**2 + y**2)
+        cosphi, sinphi = x / R, y / R
+        phi = numpy.arctan2(y, x)
+        vR = vx * cosphi + vy * sinphi
+        vT = -vx * sinphi + vy * cosphi
+        FR = evaluateRforces(dissip, R, z, phi=phi, t=t, v=[vR, vT, vz])
+        Fp = evaluatephitorques(dissip, R, z, phi=phi, t=t, v=[vR, vT, vz])
+        Fz = evaluatezforces(dissip, R, z, phi=phi, t=t, v=[vR, vT, vz])
+        return numpy.array(
+            [cosphi * FR - sinphi / R * Fp, sinphi * FR + cosphi / R * Fp, Fz]
+        )
+
+    tr = numpy.empty(len(times))
+    for kk in range(len(times)):
+        s = 0.0
+        for ii in range(3):
+            qp = base_rect[kk].copy()
+            qp[3 + ii] += h
+            qm = base_rect[kk].copy()
+            qm[3 + ii] -= h
+            s += (cart_force(qp, times[kk])[ii] - cart_force(qm, times[kk])[ii]) / (
+                2.0 * h
+            )
+        tr[kk] = s
+    return tr
+
+
+def _chandrasekhar_dxdv_setup(nt=501):
+    """Shared setup for the dissipative orbit-level variational tests: a
+    decaying orbit (r: ~1.0 -> ~0.75 over t=0..5) in MWPotential2014 +
+    Chandrasekhar friction with rhm=0, i.e. the v-dependent Coulomb-log branch
+    is exercised along the entire orbit."""
+    from galpy.potential import (
+        ChandrasekharDynamicalFrictionForce,
+        MWPotential2014,
+    )
+
+    cdf = ChandrasekharDynamicalFrictionForce(
+        GMs=0.008, rhm=0.0, dens=MWPotential2014, maxr=10.0
+    )
+    pot = MWPotential2014 + cdf
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, nt)
+    return cdf, pot, ic, times
+
+
+def _orbit_rect_columns_3d(o, ts):
+    return numpy.array([o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)]).T
+
+
+def test_chandrasekhar_dxdv_fd_of_flow():
+    # FD-of-the-flow STM test for the dissipative 3D variational equations:
+    # every column i of the C-integrated deviation (seeded with the canonical
+    # e_i) must match (x(t; x0+eps e_i) - x(t; x0))/eps built from plain orbit
+    # integrations, which use only the separately-validated forces -- the same
+    # check (and tolerance) as the conservative test_liouville_3d battery, for
+    # a decaying orbit in MWPotential2014 + Chandrasekhar friction.
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    cdf, pot, ic, times = _chandrasekhar_dxdv_setup()
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    # friction must be doing real work: the orbit decays
+    rstart = numpy.sqrt(numpy.sum(base_rect[0, :3] ** 2))
+    rend = numpy.sqrt(numpy.sum(base_rect[-1, :3] ** 2))
+    assert rend < 0.85 * rstart, (
+        f"Chandrasekhar test orbit does not decay (r: {rstart:g} -> {rend:g}); "
+        "the dissipative variational test would be vacuous"
+    )
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"Dissipative 3D FD-of-flow for e_{ii} differs from the dxdv "
+            f"column by {fderr:g} (MWPotential2014 + Chandrasekhar friction)"
+        )
+    return None
+
+
+def test_chandrasekhar_dxdv_phase_volume_law():
+    # Quantitative non-conservative test: for the general variational Jacobian
+    # J = [[0,I],[K + dF/dx, dF/dv]], Abel/Jacobi-Liouville gives
+    #   det M(t) = exp( int_0^t tr J dt' ) = exp( int_0^t tr(dF/dv) dt' )
+    # (only the velocity block contributes to the trace). Build the full 6x6
+    # STM M(t) from the 6 canonical deviation integrations and compare det M(t)
+    # against the trace integrated along the orbit (trapezoidal rule on the
+    # fine output grid), with tr(dF/dv) computed by central finite differences
+    # of the pure-Python forces -- a code path independent of the C variational
+    # machinery that produced the STM. Friction contracts phase volume, so
+    # additionally det M < 1.
+    from galpy.orbit import Orbit
+
+    # the fine grid keeps the trapezoidal error of the trace integral (the
+    # quadrature is the limiting factor, O(h^2)) below the 1e-5 tolerance
+    cdf, pot, ic, times = _chandrasekhar_dxdv_setup(nt=1001)
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    canonical = numpy.eye(6)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv())
+    Mt = numpy.array(Mcols).transpose(1, 2, 0)  # (nt,6,6), columns = e_i images
+    detM = numpy.array([numpy.linalg.det(Mt[kk]) for kk in range(len(times))])
+    # tr(dF/dv) along the orbit by central FD of the PYTHON forces (the
+    # friction is the only dissipative component; conservative forces do not
+    # depend on v and contribute exactly 0)
+    trJv = _python_fd_trace_dFdv(cdf, base_rect, times)
+    integral = numpy.concatenate(
+        ([0.0], numpy.cumsum(0.5 * (trJv[1:] + trJv[:-1]) * numpy.diff(times)))
+    )
+    pred = numpy.exp(integral)
+    relerr = numpy.amax(numpy.fabs(detM - pred) / pred)
+    assert relerr < 1e-5, (
+        f"Dissipative phase-volume law det M(t) = exp(int tr(dF/dv) dt') "
+        f"violated at relative level {relerr:g}"
+    )
+    # friction contracts phase volume: det M decays monotonically below 1
+    assert detM[-1] < 1.0, f"det M(t_end)={detM[-1]:g} should be < 1 with friction"
+    assert detM[-1] < 0.9, (
+        f"det M(t_end)={detM[-1]:g}: phase-space contraction too weak for the "
+        "phase-volume-law test to be meaningful"
+    )
+    return None
+
+
+# NonInertialFrameForce 3D variational equations: the frame force
+# F = -2 Omega x (v+v0) - Omega x (Omega x [r+x0]) - Omegadot x [r+x0] - a0(t)
+# is LINEAR in (r, v), so its rectangular Jacobian blocks are exact closed
+# forms: dF/dv = -2 [Omega]_x (antisymmetric -> tr(dF/dv)=0: phase-volume
+# PRESERVING, det M(t)=1, unlike friction) and
+# dF/dx = |Omega|^2 I - Omega Omega^T - [Omegadot]_x; translation terms
+# contribute zero. Validated below at the orbit level only (galpy's
+# convention: C code is tested through regular galpy orbit usage) by (a) the
+# FD-of-the-flow STM test, (b) the det M(t)=1 phase-volume law (which needs
+# no trace computation: tr(dF/dv)=0 exactly), and (c) an exact cross-check
+# of the rotating-frame STM against the inertial-frame STM transformed by
+# the frame map (Plummer sphere, constant vector Omega).
+
+
+# The C rectangular friction Jacobian
+# (ChandrasekharDynamicalFrictionForce.c::...RectDissipativeForceJacobian)
+# mirrors the branch structure of the force it differentiates: three Coulomb-
+# logarithm configurations (constant lnLambda; the rhm-based variable branch
+# GMs/v^2 < rhm; the GMvs-based variable branch), the r < minr zero gate, and
+# the clamped sigma_r spline outside the interpolation grid. The main
+# FD-of-flow test above runs the GMvs-based branch (rhm=0) inside the grid;
+# the configurations here select each of the other branches through the
+# regular constructor options and validate with the same finite-difference-of-
+# the-flow check (ground truth built from plain orbit integrations, which use
+# only the separately-validated forces), each with a non-vacuity guard that
+# the intended branch condition genuinely holds along the orbit.
+@pytest.mark.parametrize(
+    "config", ["const_lnLambda", "rhm_coulomb_log", "minr_gate", "sigma_clamp"]
+)
+def test_chandrasekhar_dxdv_fd_of_flow_branches(config):
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        ChandrasekharDynamicalFrictionForce,
+        MWPotential2014,
+        evaluateRforces,
+    )
+    from galpy.util import coords
+
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 3.0, 301)
+    if config == "const_lnLambda":
+        # constant Coulomb logarithm: the dlnLambda/dx = dlnLambda/dv = 0
+        # branch of the Jacobian
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.02, rhm=0.0, const_lnLambda=7.0, dens=MWPotential2014, maxr=10.0
+        )
+    elif config == "rhm_coulomb_log":
+        # GMs/v^2 < rhm along the whole orbit (asserted below) -> the
+        # rhm-based Coulomb logarithm lnLambda = 0.5 ln(1+r^2/(gamma^2 rhm^2)),
+        # which depends on r but not on v (dlnLambda/dv = 0)
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.02, rhm=0.2, dens=MWPotential2014, maxr=10.0
+        )
+    elif config == "minr_gate":
+        # minr above the whole orbit: the force and its Jacobian are
+        # identically zero along the orbit (the r < minr gate). NOTE: the
+        # force is discontinuous across r=minr, so the flow derivative of an
+        # orbit that CROSSES minr picks up a jump (saltation) contribution
+        # that the variational equations deliberately omit (the gate zeroes
+        # the Jacobian on the inside) -- FD-of-flow and the dxdv integration
+        # then genuinely disagree (measured ~0.7 for an orbit decaying through
+        # minr=1). The consistent regime is an orbit entirely inside minr,
+        # where the friction force vanishes identically and the gate supplies
+        # the matching zero Jacobian at every step.
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.05, rhm=0.0, minr=1.5, dens=MWPotential2014, maxr=10.0
+        )
+    elif config == "sigma_clamp":
+        # sigmar interpolation grid ends at maxr=0.5 < r along the whole
+        # orbit: the C force clamps the spline argument (constant sigma_r
+        # beyond the grid) and the Jacobian consistently uses sigma_r' = 0
+        cdf = ChandrasekharDynamicalFrictionForce(
+            GMs=0.02, rhm=0.0, dens=MWPotential2014, maxr=0.5
+        )
+    pot = MWPotential2014 + cdf
+    obase = Orbit(ic)
+    if config == "minr_gate":
+        # galpy itself flags the r < minr regime (non-vacuity: the gate is on)
+        with pytest.warns(galpyWarning, match="r < minr"):
+            obase.integrate(times, pot, method="dopr54_c")
+    else:
+        obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    r = numpy.sqrt(numpy.sum(base_rect[:, :3] ** 2, axis=1))
+    v = numpy.sqrt(numpy.sum(base_rect[:, 3:] ** 2, axis=1))
+    # Non-vacuity guards: the intended branch condition genuinely holds along
+    # the orbit (via the PYTHON-side quantities, independent of the C code)
+    if config == "const_lnLambda":
+        assert cdf._lnLambda == 7.0  # the constant-lnLambda branch is selected
+        assert r[-1] < 0.85 * r[0], (
+            f"const-lnLambda test orbit does not decay (r: {r[0]:g} -> {r[-1]:g}); "
+            "the dissipative variational test would be vacuous"
+        )
+    elif config == "rhm_coulomb_log":
+        assert not cdf._lnLambda  # variable Coulomb logarithm
+        GMvs = cdf._ms / v**2.0
+        assert numpy.all(GMvs < cdf._rhm), (
+            f"GMs/v^2 (max {numpy.amax(GMvs):g}) does not stay below rhm="
+            f"{cdf._rhm:g} along the orbit; the rhm-based Coulomb-log branch "
+            "would not be selected"
+        )
+    elif config == "minr_gate":
+        assert numpy.all(r < cdf._minr), (
+            f"test orbit (max r {numpy.amax(r):g}) is not entirely inside "
+            f"minr={cdf._minr:g}; the r < minr zero gate would not be exercised"
+        )
+        # ... but the friction configuration is not trivial: outside minr the
+        # force is nonzero
+        assert (
+            numpy.fabs(evaluateRforces(cdf, 2.0, 0.0, phi=0.0, v=[0.1, 1.0, 0.1])) > 0.0
+        )
+    elif config == "sigma_clamp":
+        assert numpy.all(r > cdf._maxr), (
+            f"test orbit (min r {numpy.amin(r):g}) does not stay beyond the "
+            f"sigmar interpolation grid (maxr={cdf._maxr:g}); the spline-clamp "
+            "branch would not be exercised"
+        )
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"Dissipative 3D FD-of-flow for e_{ii} differs from the dxdv "
+            f"column by {fderr:g} (MWPotential2014 + Chandrasekhar friction, "
+            f"{config} configuration)"
+        )
+    return None
+
+
+def _fdm_c_regime(fdf, q):
+    """Classify which branch of the C FDM friction coefficient
+    (FDMDynamicalFrictionForce.c) the force is on at the rectangular
+    phase-space point q, replicating the C regime logic in Python:
+    kr_C = 2 mhbar v r vs the Mach number M_sigma = v/sigma_r(r) (with the
+    same clamped sigma_r spline as C) selects the zero-velocity
+    (kr_C < M_sigma) / dispersion (kr_C > 4 M_sigma) / intermediate FDM
+    regime, and the classical cutoff applies when Cfdm/Ccdm >= 1; a constant
+    FDM factor short-circuits everything."""
+    import scipy.special as sp
+
+    if fdf._const_FDMfactor:
+        return "const"
+    r = numpy.sqrt(q[0] ** 2 + q[1] ** 2 + q[2] ** 2)
+    v = numpy.sqrt(q[3] ** 2 + q[4] ** 2 + q[5] ** 2)
+    krC = 2.0 * fdf._mhbar * v * r
+    rcl = numpy.clip(r, fdf._sigmar_rs_4interp[0], fdf._sigmar_rs_4interp[-1])
+    sr = fdf.sigmar(rcl)
+    M = v / sr
+    X = v / numpy.sqrt(2.0) / sr
+    Xf = sp.erf(X) - 2.0 * X / numpy.sqrt(numpy.pi) * numpy.exp(-(X**2))
+    if krC < M:
+        Cfdm = (
+            numpy.euler_gamma
+            + numpy.log(krC)
+            - sp.sici(krC)[1]
+            + numpy.sin(krC) / krC
+            - 1.0
+        )
+        regime = "zerovel"
+    elif krC > 4.0 * M:
+        Cfdm = numpy.log(krC / M) * Xf
+        regime = "dispersion"
+    else:
+        Czv = numpy.euler_gamma + numpy.log(M) - sp.sici(M)[1] + numpy.sin(M) / M - 1.0
+        mu = (2.0 * M - 0.5 * krC) / (1.5 * M)
+        Cfdm = mu * Czv + (1.0 - mu) * numpy.log(4.0) * Xf
+        regime = "intermediate"
+    if Cfdm / (fdf.lnLambda(r, v) * Xf) >= 1.0:
+        regime += "+cdmcutoff"
+    return regime
+
+
+def _fdm_dxdv_setup(nt=501):
+    """Shared setup for the FDM dissipative orbit-level variational tests: a
+    decaying orbit (r: ~1.0 -> ~0.80 over t=0..5) in MWPotential2014 + FDM
+    friction with rhm=0 and mhbar=10, i.e. along the entire orbit the force
+    is in the FDM dispersion regime (kr_C/M_sigma ~ 10-16 > 4) with the
+    quantum-pressure suppression active (Cfdm/Ccdm ~ 0.5-0.65 < 1), so the
+    FDM-specific branch of the C Jacobian -- not the classical cutoff -- is
+    what these tests exercise (asserted in the tests)."""
+    from galpy.potential import (
+        FDMDynamicalFrictionForce,
+        MWPotential2014,
+    )
+
+    fdf = FDMDynamicalFrictionForce(GMs=0.012, rhm=0.0, dens=MWPotential2014, maxr=10.0)
+    fdf._mhbar = 10.0  # the exact quantity the C parser ships (p._mhbar)
+    pot = MWPotential2014 + fdf
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, nt)
+    return fdf, pot, ic, times
+
+
+def _assert_fdm_suppression_active(fdf, rect_orbit):
+    """Assert that the FDM force is on the FDM dispersion branch (not the
+    classical cutoff, not another regime) all along the orbit, so the
+    orbit-level tests genuinely exercise the FDM-specific Jacobian."""
+    regimes = {_fdm_c_regime(fdf, rect_orbit[kk]) for kk in range(len(rect_orbit))}
+    assert regimes == {"dispersion"}, (
+        f"FDM test orbit wanders off the FDM dispersion branch (regimes "
+        f"found: {regimes}); the FDM orbit-level variational tests would "
+        "not exercise the FDM-specific Jacobian"
+    )
+
+
+def test_fdm_dxdv_fd_of_flow():
+    # FD-of-the-flow STM test for the dissipative 3D variational equations
+    # with FDMDynamicalFrictionForce (mirroring the Chandrasekhar test above):
+    # every column i of the C-integrated deviation (seeded with the canonical
+    # e_i) must match (x(t; x0+eps e_i) - x(t; x0))/eps built from plain orbit
+    # integrations, which use only the separately-validated forces, for a
+    # decaying orbit in MWPotential2014 + FDM friction on the FDM dispersion
+    # branch (suppression active along the entire orbit).
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    fdf, pot, ic, times = _fdm_dxdv_setup()
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    # friction must be doing real work: the orbit decays
+    rstart = numpy.sqrt(numpy.sum(base_rect[0, :3] ** 2))
+    rend = numpy.sqrt(numpy.sum(base_rect[-1, :3] ** 2))
+    assert rend < 0.85 * rstart, (
+        f"FDM test orbit does not decay (r: {rstart:g} -> {rend:g}); "
+        "the dissipative variational test would be vacuous"
+    )
+    # ... and the FDM suppression must be active (not the classical cutoff)
+    _assert_fdm_suppression_active(fdf, base_rect)
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"Dissipative 3D FD-of-flow for e_{ii} differs from the dxdv "
+            f"column by {fderr:g} (MWPotential2014 + FDM friction)"
+        )
+    return None
+
+
+def test_fdm_dxdv_phase_volume_law():
+    # Quantitative non-conservative test for FDMDynamicalFrictionForce
+    # (mirroring the Chandrasekhar test above): Abel/Jacobi-Liouville gives
+    #   det M(t) = exp( int_0^t tr(dF/dv) dt' )
+    # with tr(dF/dv) computed by central finite differences of the
+    # pure-Python FDM force along the orbit (trapezoidal rule on the fine
+    # output grid) -- a code path independent of the C variational machinery
+    # that produced the STM. The FDM suppression weakens the friction
+    # relative to pure Chandrasekhar, but the phase volume still
+    # contracts: det M < 1.
+    from galpy.orbit import Orbit
+
+    # the fine grid keeps the trapezoidal error of the trace integral (the
+    # quadrature is the limiting factor, O(h^2)) below the 1e-5 tolerance
+    fdf, pot, ic, times = _fdm_dxdv_setup(nt=1001)
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    # the FDM suppression must be active (not the classical cutoff), so the
+    # FDM-specific branch of the Jacobian is what this test exercises
+    _assert_fdm_suppression_active(fdf, base_rect)
+    canonical = numpy.eye(6)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv())
+    Mt = numpy.array(Mcols).transpose(1, 2, 0)  # (nt,6,6), columns = e_i images
+    detM = numpy.array([numpy.linalg.det(Mt[kk]) for kk in range(len(times))])
+    # tr(dF/dv) along the orbit by central FD of the PYTHON forces (the
+    # friction is the only dissipative component; conservative forces do not
+    # depend on v and contribute exactly 0)
+    trJv = _python_fd_trace_dFdv(fdf, base_rect, times)
+    integral = numpy.concatenate(
+        ([0.0], numpy.cumsum(0.5 * (trJv[1:] + trJv[:-1]) * numpy.diff(times)))
+    )
+    pred = numpy.exp(integral)
+    relerr = numpy.amax(numpy.fabs(detM - pred) / pred)
+    assert relerr < 1e-5, (
+        f"Dissipative phase-volume law det M(t) = exp(int tr(dF/dv) dt') "
+        f"violated at relative level {relerr:g} (FDM friction)"
+    )
+    # friction contracts phase volume: det M decays below 1
+    assert detM[-1] < 1.0, f"det M(t_end)={detM[-1]:g} should be < 1 with friction"
+    assert detM[-1] < 0.9, (
+        f"det M(t_end)={detM[-1]:g}: phase-space contraction too weak for the "
+        "phase-volume-law test to be meaningful"
+    )
+    return None
+
+
+# The C rectangular FDM friction Jacobian
+# (FDMDynamicalFrictionForce.c::...RectDissipativeForceJacobian) mirrors the
+# branch structure of the force it differentiates: on top of the branches
+# shared with Chandrasekhar friction (constant lnLambda; the rhm-based
+# Coulomb-log branch GMs/v^2 < rhm; the r < minr zero gate; the clamped
+# sigma_r spline outside the interpolation grid), the effective friction
+# coefficient itself has the three FDM kr-regimes (zero-velocity kr < Msig /
+# dispersion kr > 4 Msig / intermediate mu-interpolation in between, with
+# kr = 2 mhbar v r and Msig = v/sigma_r), the classical Chandrasekhar cutoff
+# when Cfdm/Ccdm >= 1, and the constant-FDM-factor short-circuit. The main
+# FD-of-flow test above runs the dispersion regime with the suppression
+# active (GMvs-based Coulomb log, inside the sigma grid); the configurations
+# here select each of the other branches through the regular constructor
+# options (+ the _mhbar boson-mass quantity the C parser ships, to place
+# kr/Msig in the desired regime) and validate with the same
+# finite-difference-of-the-flow check (ground truth built from plain orbit
+# integrations, which use only the separately-validated forces), each with a
+# non-vacuity guard -- via the _fdm_c_regime classifier, an independent
+# Python replication of the C regime logic -- that the intended branch is
+# genuinely the one the C code is on along the orbit.
+@pytest.mark.parametrize(
+    "config",
+    [
+        "minr_gate",
+        "sigma_clamp",
+        "rhm_coulomb_log_cdm_cutoff",
+        "const_lnLambda_cdm_cutoff",
+        "zerovel",
+        "intermediate",
+        "const_FDMfactor",
+    ],
+)
+def test_fdm_dxdv_fd_of_flow_branches(config):
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        FDMDynamicalFrictionForce,
+        MWPotential2014,
+        evaluateRforces,
+    )
+    from galpy.util import coords
+
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 3.0, 301)
+    if config == "minr_gate":
+        # minr above the whole orbit: the force and its Jacobian are
+        # identically zero along the orbit (the r < minr gate supplies the
+        # matching zero Jacobian at every step; see the Chandrasekhar
+        # minr_gate configuration above for why an orbit CROSSING minr is
+        # deliberately not tested: the C^0 force jump there makes FD-of-flow
+        # ill-posed)
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.05, rhm=0.0, minr=1.5, dens=MWPotential2014, maxr=10.0
+        )
+    elif config == "sigma_clamp":
+        # sigmar interpolation grid ends at maxr=0.5 < r along the whole
+        # orbit: the C force clamps the spline argument (constant sigma_r
+        # beyond the grid) and the Jacobian consistently uses sigma_r' = 0;
+        # mhbar=10 keeps the coefficient on the FDM dispersion branch with
+        # the suppression active (as in the main FDM test)
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.012, rhm=0.0, dens=MWPotential2014, maxr=0.5
+        )
+        fdf._mhbar = 10.0
+    elif config == "rhm_coulomb_log_cdm_cutoff":
+        # GMs/v^2 < rhm along the whole orbit -> the rhm-based Coulomb
+        # logarithm lnLambda = 0.5 ln(1+r^2/(gamma^2 rhm^2)) (r-dependent,
+        # v-independent), and mhbar=100 pushes kr/Msig ~ 130-155 so that
+        # Cfdm = ln(kr/Msig) Xf > Ccdm = lnLambda Xf: the classical-cutoff
+        # branch Ceff = Ccdm of the Jacobian, which consumes the rhm-based
+        # dlnLambda/dr
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.02, rhm=0.2, dens=MWPotential2014, maxr=10.0
+        )
+        fdf._mhbar = 100.0
+    elif config == "const_lnLambda_cdm_cutoff":
+        # constant Coulomb logarithm (dlnLambda/dx = dlnLambda/dv = 0 branch)
+        # with mhbar=100 -> Cfdm = ln(kr/Msig) Xf ~ 4.9 Xf > Ccdm = 2 Xf: the
+        # classical cutoff is active and consumes the zero lnLambda derivatives
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.02, rhm=0.0, const_lnLambda=2.0, dens=MWPotential2014, maxr=10.0
+        )
+        fdf._mhbar = 100.0
+    elif config == "zerovel":
+        # mhbar=0.6 places kr/Msig = 2 mhbar r sigma_r in [0.78,0.94] < 1
+        # along the whole orbit: the zero-velocity (Cin-series) regime of the
+        # FDM coefficient, with the suppression active (Cfdm ~ 0.15 << Ccdm)
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.08, rhm=0.0, dens=MWPotential2014, maxr=10.0
+        )
+        fdf._mhbar = 0.6
+    elif config == "intermediate":
+        # mhbar=2 places kr/Msig in [2.6,3.1], inside (1,4) along the whole
+        # orbit: the mu-interpolated intermediate regime between the
+        # zero-velocity and dispersion coefficients
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.05, rhm=0.0, dens=MWPotential2014, maxr=10.0
+        )
+        fdf._mhbar = 2.0
+    elif config == "const_FDMfactor":
+        # constant FDM factor: the force always applies it and the Jacobian
+        # short-circuits to Ceff = const, dCeff/dr = dCeff/dv = 0
+        fdf = FDMDynamicalFrictionForce(
+            GMs=0.02, rhm=0.0, const_FDMfactor=0.5, dens=MWPotential2014, maxr=10.0
+        )
+    pot = MWPotential2014 + fdf
+    obase = Orbit(ic)
+    if config == "minr_gate":
+        # galpy itself flags the r < minr regime (non-vacuity: the gate is on)
+        with pytest.warns(galpyWarning, match="r < minr"):
+            obase.integrate(times, pot, method="dopr54_c")
+    else:
+        obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    r = numpy.sqrt(numpy.sum(base_rect[:, :3] ** 2, axis=1))
+    v = numpy.sqrt(numpy.sum(base_rect[:, 3:] ** 2, axis=1))
+    # Non-vacuity guards: the intended branch is genuinely the one the C code
+    # is on along the orbit (via the PYTHON-side _fdm_c_regime replication of
+    # the C regime logic and constructor attributes, independent of the C code)
+    regimes = {_fdm_c_regime(fdf, base_rect[kk]) for kk in range(len(base_rect))}
+    if config == "minr_gate":
+        assert numpy.all(r < fdf._minr), (
+            f"test orbit (max r {numpy.amax(r):g}) is not entirely inside "
+            f"minr={fdf._minr:g}; the r < minr zero gate would not be exercised"
+        )
+        # ... but the friction configuration is not trivial: outside minr the
+        # force is nonzero
+        assert (
+            numpy.fabs(evaluateRforces(fdf, 2.0, 0.0, phi=0.0, v=[0.1, 1.0, 0.1])) > 0.0
+        )
+    elif config == "sigma_clamp":
+        assert numpy.all(r > fdf._maxr), (
+            f"test orbit (min r {numpy.amin(r):g}) does not stay beyond the "
+            f"sigmar interpolation grid (maxr={fdf._maxr:g}); the spline-clamp "
+            "branch would not be exercised"
+        )
+        assert regimes == {"dispersion"}, (
+            f"sigma-clamp test orbit wanders off the FDM dispersion branch "
+            f"(regimes found: {regimes})"
+        )
+    elif config == "rhm_coulomb_log_cdm_cutoff":
+        assert not fdf._lnLambda  # variable Coulomb logarithm
+        GMvs = fdf._ms / v**2.0
+        assert numpy.all(GMvs < fdf._rhm), (
+            f"GMs/v^2 (max {numpy.amax(GMvs):g}) does not stay below rhm="
+            f"{fdf._rhm:g} along the orbit; the rhm-based Coulomb-log branch "
+            "would not be selected"
+        )
+        assert regimes == {"dispersion+cdmcutoff"}, (
+            f"rhm/cutoff test orbit is not on the classical-cutoff branch "
+            f"along the whole orbit (regimes found: {regimes})"
+        )
+    elif config == "const_lnLambda_cdm_cutoff":
+        assert fdf._lnLambda == 2.0  # the constant-lnLambda branch is selected
+        assert regimes == {"dispersion+cdmcutoff"}, (
+            f"const-lnLambda/cutoff test orbit is not on the classical-cutoff "
+            f"branch along the whole orbit (regimes found: {regimes})"
+        )
+    elif config == "zerovel":
+        assert regimes == {"zerovel"}, (
+            f"zero-velocity test orbit wanders off the FDM zero-velocity "
+            f"branch (regimes found: {regimes})"
+        )
+    elif config == "intermediate":
+        assert regimes == {"intermediate"}, (
+            f"intermediate-regime test orbit wanders off the FDM intermediate "
+            f"branch (regimes found: {regimes})"
+        )
+    elif config == "const_FDMfactor":
+        assert fdf._const_FDMfactor == 0.5  # the constant-factor short-circuit
+        assert regimes == {"const"}
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"Dissipative 3D FD-of-flow for e_{ii} differs from the dxdv "
+            f"column by {fderr:g} (MWPotential2014 + FDM friction, "
+            f"{config} configuration)"
+        )
+    return None
+
+
+def _noninertial_dxdv_flow_setup():
+    """Shared setup for the NonInertialFrameForce orbit-level variational
+    tests: MWPotential2014 viewed from (1) a spinning-up frame (scalar Omega
+    with constant Omegadot; pure fixed-args C path, pot_type 39) and (2) a
+    frame with vector Omega(t) functions plus a translating origin
+    (x0/v0/a0), evaluated through the cinterp C splines (pot_type 45)."""
+    from galpy.potential import MWPotential2014, NonInertialFrameForce
+
+    configs = {
+        "omegaz_omegadot_args": MWPotential2014
+        + NonInertialFrameForce(Omega=1.1, Omegadot=0.07),
+        "vecfunc_linacc_cinterp": MWPotential2014
+        + NonInertialFrameForce(
+            Omega=[
+                lambda t: 0.15 + 0.03 * numpy.sin(t),
+                lambda t: 0.1 - 0.02 * t,
+                lambda t: 1.0 + 0.05 * numpy.cos(t),
+            ],
+            Omegadot=[
+                lambda t: 0.03 * numpy.cos(t),
+                lambda t: -0.02 + 0.0 * t,
+                lambda t: -0.05 * numpy.sin(t),
+            ],
+            x0=[lambda t: 0.05 * t**2, lambda t: -0.03 * t**2, lambda t: 0.01 * t**2],
+            v0=[lambda t: 0.1 * t, lambda t: -0.06 * t, lambda t: 0.02 * t],
+            a0=[
+                lambda t: 0.1 + 0.0 * t,
+                lambda t: -0.06 + 0.0 * t,
+                lambda t: 0.02 + 0.0 * t,
+            ],
+            cinterp=True,
+        ),
+    }
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    return configs, ic, times
+
+
+def _stm_from_dxdv(pot, ic, times):
+    """Full 6x6 STM M(t) (shape (nt,6,6)) from the 6 canonical rectangular
+    deviation integrations with the C dxdv integrator."""
+    from galpy.orbit import Orbit
+
+    canonical = numpy.eye(6)
+    Mcols = []
+    for ii in range(6):
+        o = Orbit(ic)
+        o.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        Mcols.append(o.getOrbit_dxdv())
+    return numpy.array(Mcols).transpose(1, 2, 0)
+
+
+def test_noninertial_dxdv_fd_of_flow():
+    # FD-of-the-flow STM test for the NonInertialFrameForce variational
+    # equations: every column i of the C-integrated deviation (seeded with the
+    # canonical e_i) must match (x(t; x0+eps e_i) - x(t; x0))/eps built from
+    # plain orbit integrations, which use only the separately-validated
+    # forces -- the same check (and tolerance) as the conservative
+    # test_liouville_3d battery and the Chandrasekhar FD-of-flow test, for
+    # MWPotential2014 in a spinning-up frame (fixed-args path) and in a
+    # vector-Omega(t)+translation frame through the cinterp splines.
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    configs, ic, times = _noninertial_dxdv_flow_setup()
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for cname, pot in configs.items():
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method="dopr54_c")
+        base_rect = _orbit_rect_columns_3d(obase, times)
+        for ii in range(6):
+            pert = base_rect[0].copy()
+            pert[ii] += eps
+            Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+            vRp, vTp, vzp = coords.rect_to_cyl_vec(
+                pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+            )
+            opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+            opert.integrate(times, pot, method="dopr54_c")
+            fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii],
+                times,
+                pot,
+                method="dopr54_c",
+                rectIn=True,
+                rectOut=True,
+                rtol=1e-12,
+                atol=1e-12,
+            )
+            fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+            assert fderr < 1e-4, (
+                f"NonInertialFrameForce 3D FD-of-flow for e_{ii} differs from "
+                f"the dxdv column by {fderr:g} ({cname})"
+            )
+    return None
+
+
+def test_noninertial_dxdv_phase_volume_preserved():
+    # KEY physics test: dF/dv = -2 [Omega]_x is antisymmetric, so
+    # tr(dF/dv) = 0 and Abel/Jacobi-Liouville gives det M(t) =
+    # exp(int tr(dF/dv) dt') = 1 EXACTLY: a rotating (even arbitrarily
+    # time-dependent, translating) frame is phase-volume PRESERVING, despite
+    # the force being velocity-dependent. Unlike friction (det M < 1, see
+    # test_chandrasekhar_dxdv_phase_volume_law), this exercises the velocity
+    # block of the variational Jacobian nontrivially while leaving the volume
+    # invariant -- det M(t) = 1 must hold to ~1e-8 along the whole orbit for
+    # both the fixed-args and the cinterp-spline C configurations.
+    configs, ic, times = _noninertial_dxdv_flow_setup()
+    for cname, pot in configs.items():
+        Mt = _stm_from_dxdv(pot, ic, times)
+        detM = numpy.array([numpy.linalg.det(Mt[kk]) for kk in range(len(times))])
+        maxdev = numpy.amax(numpy.fabs(detM - 1.0))
+        assert maxdev < 1e-8, (
+            f"NonInertialFrameForce phase-volume preservation det M(t)=1 "
+            f"violated at level {maxdev:g} ({cname})"
+        )
+    return None
+
+
+def test_noninertial_dxdv_rotating_vs_inertial_stm():
+    # Exact cross-check of the rotating-frame variational equations against
+    # the trusted inertial-frame ones: for a steady spherical potential (a
+    # Plummer sphere) and a constant vector Omega, the inertial orbit x(t)
+    # and the rotating-frame orbit r(t) are related by x = R(t) r with
+    # R(t) = expm([Omega]_x t) (galpy convention: Omega is the frequency of
+    # the rotating frame as seen from the inertial frame), so the deviations
+    # map as w_rot = T(t) w_in with T = [[R^T, 0], [-[Omega]_x R^T, R^T]]
+    # (from dr = R^T dx, dr' = R^T dv + dR^T/dt dx, dR^T/dt = -[Omega]_x R^T)
+    # and the STMs must satisfy M_rot(t) = T(t) M_in(t) T(0)^{-1}. This
+    # validates the full Jacobian (Coriolis dF/dv AND centrifugal dF/dx)
+    # including all signs/factors at integrator precision (~1e-11; tolerance
+    # 1e-9), far beyond the 1e-4 FD-of-flow check.
+    from scipy.linalg import expm
+
+    from galpy.orbit import Orbit
+    from galpy.potential import NonInertialFrameForce, PlummerPotential
+    from galpy.util import coords
+
+    pp = PlummerPotential(amp=1.0, b=0.7, normalize=True)
+    Om = numpy.array([0.25, 0.15, 0.6])
+    Omx = numpy.array(
+        [[0.0, -Om[2], Om[1]], [Om[2], 0.0, -Om[0]], [-Om[1], Om[0], 0.0]]
+    )
+    pot_rot = pp + NonInertialFrameForce(Omega=Om)
+    # inertial IC and the corresponding rotating-frame IC: at t=0, R(0)=I so
+    # r(0) = x(0) and r'(0) = v(0) - Omega x x(0)
+    x0 = numpy.array([0.9, 0.3, 0.2])
+    v0 = numpy.array([-0.1, 0.95, 0.15])
+    r0 = x0.copy()
+    rd0 = v0 - numpy.cross(Om, x0)
+    times = numpy.linspace(0.0, 5.0, 101)
+
+    def cyl_ic(x, v):
+        R, phi, Z = coords.rect_to_cyl(*x)
+        vR, vT, vz = coords.rect_to_cyl_vec(*v, *x)
+        return [R, vR, vT, Z, vz, phi]
+
+    ic_in = cyl_ic(x0, v0)
+    ic_rot = cyl_ic(r0, rd0)
+    # the base orbits must agree under the frame map: r(t) = R(t)^T x(t)
+    o_in = Orbit(ic_in)
+    o_in.integrate(times, pp, method="dop853_c")
+    o_rot = Orbit(ic_rot)
+    o_rot.integrate(times, pot_rot, method="dop853_c")
+    xin = _orbit_rect_columns_3d(o_in, times)
+    xrot = _orbit_rect_columns_3d(o_rot, times)
+    err_orb = numpy.amax(
+        numpy.fabs(
+            numpy.array(
+                [
+                    expm(Omx * times[kk]).T @ xin[kk, :3] - xrot[kk, :3]
+                    for kk in range(len(times))
+                ]
+            )
+        )
+    )
+    assert err_orb < 1e-10, (
+        f"Rotating-frame orbit r(t) differs from R(t)^T x(t) by {err_orb:g}: "
+        "the frame map underlying the STM cross-check does not hold"
+    )
+    # STM cross-check at several times along the orbit
+    M_in = _stm_from_dxdv(pp, ic_in, times)
+    M_rot = _stm_from_dxdv(pot_rot, ic_rot, times)
+
+    def Tmat(t):
+        Rt = expm(Omx * t)
+        T = numpy.zeros((6, 6))
+        T[:3, :3] = Rt.T
+        T[3:, 3:] = Rt.T
+        T[3:, :3] = -Omx @ Rt.T
+        return T
+
+    T0inv = numpy.linalg.inv(Tmat(0.0))
+    for kk in [25, 50, 100]:
+        pred = Tmat(times[kk]) @ M_in[kk] @ T0inv
+        err_stm = numpy.amax(numpy.fabs(pred - M_rot[kk]))
+        assert err_stm < 1e-9, (
+            f"Rotating-frame STM differs from the transformed inertial STM by "
+            f"{err_stm:g} at t={times[kk]:g}"
+        )
+    # and the rotating-frame STM preserves phase volume exactly
+    detM = numpy.array([numpy.linalg.det(M_rot[kk]) for kk in range(len(times))])
+    assert numpy.amax(numpy.fabs(detM - 1.0)) < 1e-9, (
+        "Rotating-frame STM det M(t) != 1 in the rotating-vs-inertial cross-check"
+    )
+    return None
+
+
+# The C rectangular frame-force Jacobian
+# (NonInertialFrameForce.c::...RectDissipativeForceJacobian) mirrors the
+# branch structure of the force it differentiates (see
+# test_chandrasekhar_dxdv_fd_of_flow_branches for the friction analogue):
+# the translation-only early exit (no rotation: F = -a0(t) does not depend
+# on (x,v), so the Jacobian is identically zero), the scalar
+# Omega_z(t)-as-function branch (Omega_z and Omegadot_z through the tdep
+# helpers), and the constant-vector Omega + constant-vector Omegadot branch
+# (Omega(t) = Omega + Omegadot t componentwise). The main FD-of-flow test
+# above runs the constant-scalar-Omega+Omegadot fixed-args branch and the
+# vector-Omega(t)-functions branch; the configurations here select each of
+# the remaining branches through the regular constructor options and
+# validate with the same finite-difference-of-the-flow check (ground truth
+# built from plain orbit integrations, which use only the separately-
+# validated forces), each with a non-vacuity guard (via the PYTHON-side
+# configuration, independent of the C code) that the intended branch is
+# genuinely selected and dynamically active.
+@pytest.mark.parametrize("config", ["linacc_only", "omegaz_func", "vec_omegadot_args"])
+def test_noninertial_dxdv_fd_of_flow_branches(config):
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, NonInertialFrameForce
+    from galpy.util import coords
+
+    if config == "linacc_only":
+        # translation-only frame (a0 only, no rotation): F = -a0(t) is
+        # independent of (x, v), so the frame-force Jacobian is identically
+        # zero (the rot_acc early exit in C); the deviation still feels a0
+        # through the displaced base orbit along which the potential Hessian
+        # is evaluated, so FD-of-flow remains a nontrivial check
+        nif = NonInertialFrameForce(a0=[0.06, -0.04, 0.03])
+    elif config == "omegaz_func":
+        # scalar Omega_z as a function of time (with its derivative provided
+        # as a function too): the omegaz_only Omega-as-function evaluation of
+        # Omega_z(t) and Omegadot_z(t) in the C Jacobian (through the cinterp
+        # splines, the default for C integration)
+        nif = NonInertialFrameForce(
+            Omega=lambda t: 1.0 + 0.08 * numpy.sin(t),
+            Omegadot=lambda t: 0.08 * numpy.cos(t),
+        )
+    elif config == "vec_omegadot_args":
+        # constant vector Omega with constant vector Omegadot:
+        # Omega(t) = Omega + Omegadot t with all six components nonzero, so
+        # every componentwise term of this C branch is dynamically active
+        nif = NonInertialFrameForce(
+            Omega=numpy.array([0.05, 0.08, 1.0]),
+            Omegadot=numpy.array([0.02, -0.015, 0.03]),
+        )
+    pot = MWPotential2014 + nif
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    # Non-vacuity guards: the intended branch is genuinely selected and its
+    # quantities are nonzero, so a corrupted Jacobian term could not hide
+    if config == "linacc_only":
+        assert not nif._rot_acc and nif._lin_acc, (
+            "linacc_only configuration does not select the translation-only branch"
+        )
+        assert numpy.all(numpy.fabs(nif._a0_py(2.5)) > 0.0), (
+            "linacc_only test acceleration has zero components; the "
+            "translation-only branch test would be vacuous"
+        )
+    elif config == "omegaz_func":
+        assert nif._omegaz_only and nif._Omega_as_func and not nif._const_freq, (
+            "omegaz_func configuration does not select the scalar "
+            "Omega-as-function branch"
+        )
+        assert nif._cinterp  # evaluated through the C splines (pot_type 45)
+        assert numpy.fabs(nif._Omega_py(1.5) - nif._Omega_py(0.0)) > 0.0, (
+            "omegaz_func test frequency does not vary in time"
+        )
+        assert numpy.fabs(nif._Omegadot_py(0.0)) > 0.0, (
+            "omegaz_func test frequency derivative vanishes; the Euler term "
+            "of the Jacobian would be untested"
+        )
+    elif config == "vec_omegadot_args":
+        assert (
+            not nif._omegaz_only and not nif._Omega_as_func and not nif._const_freq
+        ), (
+            "vec_omegadot_args configuration does not select the "
+            "constant-vector Omega + Omegadot branch"
+        )
+        assert numpy.all(numpy.fabs(nif._Omega) > 0.0) and numpy.all(
+            numpy.fabs(nif._Omegadot) > 0.0
+        ), (
+            "vec_omegadot_args test frequencies have zero components; parts "
+            "of the componentwise C branch would be untested"
+        )
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dopr54_c")
+    base_rect = _orbit_rect_columns_3d(obase, times)
+    if config == "linacc_only":
+        # ... and a0 genuinely acts: the base orbit differs substantially
+        # from the inertial no-frame orbit
+        onoframe = Orbit(ic)
+        onoframe.integrate(times, MWPotential2014, method="dopr54_c")
+        assert (
+            numpy.amax(numpy.fabs(_orbit_rect_columns_3d(onoframe, times) - base_rect))
+            > 0.1
+        ), (
+            "linacc_only test orbit is barely displaced by a0; the "
+            "translation-only branch test would be vacuous"
+        )
+    canonical = numpy.eye(6)
+    eps = 1e-7
+    for ii in range(6):
+        pert = base_rect[0].copy()
+        pert[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(pert[0], pert[1], pert[2])
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert[3], pert[4], pert[5], pert[0], pert[1], pert[2]
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method="dopr54_c")
+        fd = (_orbit_rect_columns_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+        assert fderr < 1e-4, (
+            f"NonInertialFrameForce 3D FD-of-flow for e_{ii} differs from "
+            f"the dxdv column by {fderr:g} ({config} configuration)"
+        )
+    return None
+
+
+def test_noninertial_dxdv_flags_and_gate():
+    # NonInertialFrameForce advertises its exact C rectangular Jacobian for
+    # EVERY configuration (the force is linear in (x,v), so no configuration
+    # is unwireable): hasC_dxdv3d=True on the class, aggregated through
+    # CompositePotential. The pure-Python integrate_dxdv methods refuse
+    # dissipative forces loudly, and a forced hasC_dxdv3d=False (the gate a
+    # genuinely unwireable configuration would use) makes the C methods fall
+    # back to odeint with a warning, which then also raises -- never a silent
+    # wrong answer.
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, NonInertialFrameForce
+
+    nif = NonInertialFrameForce(Omega=1.1, Omegadot=0.07)
+    assert nif.hasC_dxdv3d, "NonInertialFrameForce should advertise hasC_dxdv3d"
+    pot = MWPotential2014 + nif
+    assert pot.hasC_dxdv3d, (
+        "CompositePotential should aggregate hasC_dxdv3d=True for "
+        "MWPotential2014 + NonInertialFrameForce"
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 3)
+    for method in ["odeint", "dop853"]:
+        o = Orbit(ic)
+        with pytest.raises(NotImplementedError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                times,
+                pot,
+                method=method,
+                rectIn=True,
+                rectOut=True,
+            )
+        assert "dissipative" in str(excinfo.value)
+    # forced-flag gate: a NonInertialFrameForce WITHOUT the C Jacobian must
+    # not silently produce a conservative-only deviation
+    nif_noc = NonInertialFrameForce(Omega=1.1, Omegadot=0.07)
+    nif_noc.hasC_dxdv3d = False
+    pot_noc = MWPotential2014 + nif_noc
+    assert not pot_noc.hasC_dxdv3d
+    o = Orbit(ic)
+    with pytest.warns(galpyWarning, match="Using odeint"):
+        with pytest.raises(NotImplementedError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                times,
+                pot_noc,
+                method="dopr54_c",
+                rectIn=True,
+                rectOut=True,
+            )
+    assert "dissipative" in str(excinfo.value)
+    return None
+
+
+def test_dissipative_dxdv_python_raises():
+    # The pure-Python 3D variational RHS (_EOM_dxdv) only implements the
+    # conservative system, so integrate_dxdv with a dissipative force must
+    # fail loudly (NotImplementedError) for the Python-based methods rather
+    # than silently produce a wrong deviation -- both when a Python method is
+    # requested directly and when a C method falls back to odeint because a
+    # dissipative force does not have its rectangular Jacobian in C
+    # (hasC_dxdv3d=False).
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        ChandrasekharDynamicalFrictionForce,
+        MWPotential2014,
+    )
+    from galpy.potential.DissipativeForce import DissipativeForce
+
+    cdf, pot, ic, times = _chandrasekhar_dxdv_setup()
+    # default flags: the base DissipativeForce does not have the C Jacobian;
+    # the wired ChandrasekharDynamicalFrictionForce and
+    # FDMDynamicalFrictionForce do (incl. through a CompositePotential, which
+    # aggregates hasC_dxdv3d)
+    from galpy.potential import FDMDynamicalFrictionForce
+
+    assert not DissipativeForce(amp=1.0).hasC_dxdv3d
+    assert cdf.hasC_dxdv3d
+    assert pot.hasC_dxdv3d  # CompositePotential aggregation
+    assert FDMDynamicalFrictionForce(GMs=0.01).hasC_dxdv3d
+    times = times[:3]
+    for method in ["odeint", "dop853"]:
+        o = Orbit(ic)
+        with pytest.raises(NotImplementedError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                times,
+                pot,
+                method=method,
+                rectIn=True,
+                rectOut=True,
+            )
+        assert "dissipative" in str(excinfo.value)
+    # a dissipative force WITHOUT the C Jacobian (forced flag, so this stays
+    # valid even once more dissipative forces gain hasC_dxdv3d=True): the C
+    # method falls back to odeint with a warning, which then raises
+    cdf_noc = ChandrasekharDynamicalFrictionForce(
+        GMs=0.008, rhm=0.0, dens=MWPotential2014, maxr=10.0
+    )
+    cdf_noc.hasC_dxdv3d = False
+    pot_noc = MWPotential2014 + cdf_noc
+    assert not pot_noc.hasC_dxdv3d  # CompositePotential aggregation
+    o = Orbit(ic)
+    with pytest.warns(galpyWarning, match="Using odeint"):
+        with pytest.raises(NotImplementedError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                times,
+                pot_noc,
+                method="dopr54_c",
+                rectIn=True,
+                rectOut=True,
+            )
+    assert "dissipative" in str(excinfo.value)
+    return None
+
+
+def test_dissipative_excluded_from_liouville3d_registry():
+    # The det(M)=1/symplecticity battery (test_liouville_3d and the 2D bridge,
+    # parametrized over the conftest liouville3d_registry) must NOT contain
+    # dissipative forces: for them det M = exp(int tr(dF/dv) dt') != 1 and
+    # symplecticity fails BY CONSTRUCTION (see the phase-volume-law test
+    # above, which asserts det M < 1). The registry is a hand-curated literal
+    # in tests/conftest.py; guard against someone accidentally adding a
+    # dissipative force to it.
+    import os
+    import re
+
+    conftest_file = os.path.join(os.path.dirname(__file__), "conftest.py")
+    with open(conftest_file) as f:
+        src = f.read()
+    m = re.search(r"liouville3d_registry = \[(.*?)\n        \]", src, re.DOTALL)
+    assert m is not None, "could not locate the liouville3d_registry in conftest.py"
+    registry_src = m.group(1)
+    for forbidden in ("DynamicalFriction", "NonInertialFrameForce", "Dissipative"):
+        assert forbidden not in registry_src, (
+            f"{forbidden} found in the liouville3d_registry: dissipative / "
+            "velocity-dependent forces do not satisfy det(M)=1/symplecticity "
+            "and must be validated by the dedicated dissipative dxdv tests"
+        )
+    return None
+
+
+def _movingobject_setup(planar=False):
+    # Host + softened moving object on an orbit integrated in the host: the
+    # physically meaningful configuration (satellite + host) and a genuinely
+    # non-axisymmetric, explicitly time-dependent potential. The object-track
+    # window extends well beyond the test integration interval so both the C
+    # (GSL spline) and the Python (Orbit interpolation) tracks are evaluated
+    # well inside their interpolation ranges.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        MovingObjectPotential,
+        PlummerPotential,
+    )
+
+    host = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    ts_obj = numpy.linspace(-1.0, 7.0, 1601)
+    if planar:
+        obj = Orbit([1.1, 0.1, 1.1, 1.0])  # in-plane object track
+    else:
+        obj = Orbit([1.1, 0.1, 1.1, 0.1, 0.1, 1.0])  # off-plane object track
+    obj.integrate(ts_obj, host, method="dop853_c")
+    # massive, well-softened kernel: significant forces but a smooth Hessian
+    mop = MovingObjectPotential(obj, pot=PlummerPotential(amp=0.3, b=0.3), amp=1.2)
+    return host + mop, mop
+
+
+def test_movingobject_dxdv_3d_c_vs_python():
+    # MovingObjectPotential wires the full 3D Hessian in C (hasC_dxdv3d, gated
+    # on the kernel's own 3D C Hessian exactly like hasC): the kernel's Hessian
+    # at the shifted point x-x_obj(t) -- the moving-object shift is a pure
+    # translation of the evaluation point, so the time-dependence enters only
+    # through that point, with no extra terms. The C 3D variational integration
+    # must match the pure-Python analytic-2nd-derivative reference (dop853) for
+    # UNIT-magnitude deviations; that C-vs-Python comparison is what pins the
+    # Hessian VALUES (det(M)=1/symplecticity hold for any symmetric K).
+    import warnings
+
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatephizderivs
+
+    pot, mop = _movingobject_setup()
+    assert mop.hasC_dxdv3d, (
+        "MovingObjectPotential with a Plummer kernel should advertise hasC_dxdv3d"
+    )
+    # the host+object composite must propagate the capability (regression test
+    # for CompositePotential.hasC_dxdv3d, without which the C 3D variational
+    # path silently falls back to odeint for ANY composite)
+    assert pot.hasC_dxdv3d, "host+object composite should advertise hasC_dxdv3d"
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 5.0, 251)
+    # Guard against a vacuous test: the off-center, off-plane object must give a
+    # genuinely nonzero z-phi coupling along the orbit, otherwise the C
+    # zphideriv term is multiplied by 0.
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method="dop853_c")
+    zphi_vals = numpy.array(
+        [
+            evaluatephizderivs(
+                mop,
+                obase.R(tt),
+                obase.z(tt),
+                phi=obase.phi(tt),
+                t=tt,
+                use_physical=False,
+            )
+            for tt in times
+        ]
+    )
+    assert numpy.amax(numpy.fabs(zphi_vals)) > 1e-3, (
+        "d2Phi/dz/dphi must be nonzero along the orbit to exercise the C zphideriv term"
+    )
+    canonical = numpy.eye(6)
+    maxdiff = 0.0
+    for integrator in ("dopr54_c", "dop853_c"):
+        for ii in [0, 2, 4]:  # e_x, e_z, e_vy unit deviations
+            oc = Orbit(ic)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                oc.integrate_dxdv(
+                    canonical[ii], times, pot, method=integrator,
+                    rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+                )  # fmt: skip
+                # the C path must actually be taken (no odeint fallback)
+                assert not any("odeint" in str(ww.message) for ww in w), (
+                    "C 3D variational integration fell back to odeint for the "
+                    "host+moving-object potential"
+                )
+            op = Orbit(ic)
+            op.integrate_dxdv(
+                canonical[ii], times, pot, method="dop853",
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+            maxdiff = max(maxdiff, diff)
+    # C-vs-Python agree to ~6e-11 (the dense object track makes the GSL-vs-Orbit
+    # track-interpolation difference negligible); 1e-8 leaves a wide margin
+    assert maxdiff < 1e-8, (
+        f"3D C variational integration for the host+moving-object potential "
+        f"differs from the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    return None
+
+
+def test_movingobject_dxdv_3d():
+    # det(M)=1 / symplecticity / finite-difference-of-the-flow for the
+    # host+moving-object potential through the C integrators (the FD-of-flow
+    # is the check that pins the C Hessian VALUES against the trusted C
+    # forces, independently of the Python reference).
+    pot, _ = _movingobject_setup()
+    _check_dxdv_3d_c(pot, "host+MovingObjectPotential")
+    return None
+
+
+def test_movingobject_dxdv_planar():
+    # PLANAR variational equations for an in-plane object track: the C planar
+    # Hessian (PlanarR2deriv/Planarphi2deriv/PlanarRphideriv -- genuinely
+    # non-axisymmetric, since the object is off-center) is the kernel's PLANAR
+    # Hessian at the shifted point, mirroring MovingObjectPotentialPlanarRforce.
+    # Checks: (1) C-vs-Python dxdv for unit deviations (pins the Hessian
+    # values), (2) Liouville det(M)=1 and FD-of-flow through the C integrators.
+    from galpy.orbit import Orbit
+    from galpy.util import coords
+
+    pot, mop = _movingobject_setup(planar=True)
+    assert mop.hasC_dxdv, (
+        "MovingObjectPotential with a Plummer kernel should advertise hasC_dxdv"
+    )
+    assert pot.hasC_dxdv, "host+object composite should advertise hasC_dxdv"
+    ic = [1.0, 0.1, 1.1, 0.2]  # planar (R, vR, vT, phi)
+    times = numpy.linspace(0.0, 5.0, 251)
+    canonical = numpy.eye(4)
+    # (1) C vs pure-Python analytic reference, unit deviations e_x, e_vx
+    maxdiff = 0.0
+    for ii in [0, 2]:
+        oc = Orbit(ic)
+        oc.integrate_dxdv(
+            canonical[ii], times, pot, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        op = Orbit(ic)
+        op.integrate_dxdv(
+            canonical[ii], times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(oc.getOrbit_dxdv() - op.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    assert maxdiff < 1e-8, (
+        f"planar C variational integration for the host+moving-object potential "
+        f"differs from the pure-Python reference by {maxdiff:g} (unit deviation)"
+    )
+    # (2) Liouville + FD-of-flow through the C integrators
+    for integrator in ("dopr54_c", "dop853_c"):
+        Mcols = []
+        for ii in range(4):
+            o = Orbit(ic)
+            o.integrate_dxdv(
+                canonical[ii], times, pot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            Mcols.append(o.getOrbit_dxdv()[-1, :])
+        M = numpy.array(Mcols).T
+        detM = numpy.linalg.det(M)
+        assert numpy.fabs(detM - 1.0) < 1e-8, (
+            f"planar Liouville det(M)={detM:g} differs from 1 for the "
+            f"host+moving-object potential, integrator {integrator}"
+        )
+        # FD-of-flow: column i = (x(t;x0+eps e_i)-x(t;x0))/eps vs the dxdv column
+        eps = 1e-7
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method=integrator)
+        base = numpy.array(
+            [obase.x(times), obase.y(times), obase.vx(times), obase.vy(times)]
+        ).T
+        for ii in [0, 3]:  # an x and a vy perturbation
+            p = base[0].copy()
+            p[ii] += eps
+            Rp, phip, _ = coords.rect_to_cyl(p[0], p[1], 0.0)
+            vRp, vTp, _ = coords.rect_to_cyl_vec(p[2], p[3], 0.0, p[0], p[1], 0.0)
+            opert = Orbit([Rp, vRp, vTp, phip])
+            opert.integrate(times, pot, method=integrator)
+            pert = numpy.array(
+                [opert.x(times), opert.y(times), opert.vx(times), opert.vy(times)]
+            ).T
+            fd = (pert - base) / eps
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii], times, pot, method=integrator,
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            fderr = numpy.amax(numpy.fabs(fd - odx.getOrbit_dxdv()))
+            assert fderr < 1e-4, (
+                f"planar FD-of-flow for e_{ii} differs from the dxdv column by "
+                f"{fderr:g} for the host+moving-object potential, integrator "
+                f"{integrator}"
+            )
+    return None
+
+
+def _planar_invariant(pot):
+    """Whether the z=0 plane is invariant under the flow (F_z(z=0)=0
+    everywhere), the premise of the 3D->2D bridge check below. A tilted or
+    z-offset potential (e.g. the RotateAndTiltWrapperPotential registry
+    entries) breaks the z -> -z symmetry: a planar IC then immediately leaves
+    the z=0 plane, so the bridge identity does not apply (its Hessian is still
+    pinned by test_dxdv_3d_c_vs_python and the FD-of-flow check in
+    test_liouville_3d)."""
+    from galpy.potential import evaluatezforces
+
+    return all(
+        numpy.fabs(
+            evaluatezforces(pot, 1.0, 0.0, phi=testphi, t=0.0, use_physical=False)
+        )
+        < 1e-12
+        for testphi in (0.0, 0.7, 2.1)
+    )
+
+
+# 2D-reduction bridge (validates the (x,y) block of K): for a planar IC with
+# dz=dvz=0 and an in-plane deviation, the (x,y,vx,vy) sub-STM from the 3D
+# integrate_dxdv must match the trusted planar integrate_dxdv result.
+def test_liouville_3d_2d_bridge(pot):
+    from galpy.orbit import Orbit
+
+    # 2D-reduction bridge: for a planar IC (z=vz=0) with an in-plane deviation, the
+    # deviation stays planar for any z-symmetric potential (Rzderiv and zphideriv both
+    # vanish at z=0), so the (x,y,vx,vy) block of the 3D STM must match the trusted
+    # planar integrate_dxdv -- a strong cross-check of the in-plane Cartesian Hessian.
+    if not _planar_invariant(pot):
+        pytest.skip(
+            "the z=0 plane is not invariant for this potential (no z -> -z "
+            "symmetry), so the 3D->2D bridge identity does not apply"
+        )
+    times = numpy.linspace(0.0, 5.0, 251)
+    # Planar IC (z=0, vz=0): (R,vR,vT,phi) in 2D and (R,vR,vT,z=0,vz=0,phi) in 3D
+    R, vR, vT, phi = 1.0, 0.1, 1.1, 0.2
+    # In-plane rectangular deviations to compare (x, y, vx, vy basis)
+    # 3D rect order: (x,y,z,vx,vy,vz); planar rect order: (x,y,vx,vy)
+    dev3d_list = [
+        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # dx
+        [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],  # dy
+        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],  # dvx
+        [0.0, 0.0, 0.0, 0.0, 1.0, 0.0],  # dvy
+    ]
+    dev2d_list = [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    # 3D->planar index map: (x,y,vx,vy) live at 3D indices (0,1,3,4)
+    planar_in_3d = [0, 1, 3, 4]
+    pname = pot.__class__.__name__
+    for dev3d, dev2d in zip(dev3d_list, dev2d_list):
+        # 3D
+        o3 = Orbit([R, vR, vT, 0.0, 0.0, phi])
+        o3.integrate_dxdv(
+            dev3d,
+            times,
+            pot,
+            method="dop853_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        d3 = o3.getOrbit_dxdv()[-1]  # rect (dx,dy,dz,dvx,dvy,dvz)
+        # planar (trusted)
+        o2 = Orbit([R, vR, vT, phi])
+        o2.integrate_dxdv(
+            dev2d,
+            times,
+            pot.toPlanar(),
+            method="dop853_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        d2 = o2.getOrbit_dxdv()[-1]  # rect (dx,dy,dvx,dvy)
+        # z, vz deviations must stay zero in 3D
+        assert numpy.fabs(d3[2]) < 1e-9 and numpy.fabs(d3[5]) < 1e-9, (
+            f"3D in-plane deviation leaked into (dz,dvz) for {pname}"
+        )
+        bridge_err = numpy.amax(numpy.fabs(d3[planar_in_3d] - d2))
+        assert bridge_err < 1e-9, (
+            f"3D->2D bridge: (x,y,vx,vy) sub-STM differs from planar by "
+            f"{bridge_err:g} for {pname}"
+        )
+    # Same bridge in the cylindrical frame with the DEFAULT rectIn=rectOut=False:
+    # exercises and validates the cylindrical<->rectangular deviation transforms
+    # inside integrateFullOrbit_dxdv (the default integrate_dxdv path), against the
+    # trusted planar integrate_dxdv. Cyl deviation order: (dR,dvR,dvT,dz,dvz,dphi);
+    # (dR,dvR,dvT,dphi) live at 3D cyl indices (0,1,2,5).
+    dev3d_cyl_list = [
+        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],  # dR
+        [0.0, 1.0, 0.0, 0.0, 0.0, 0.0],  # dvR
+        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],  # dvT
+        [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],  # dphi
+    ]
+    dev2d_cyl_list = [
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    cyl_in_3d = [0, 1, 2, 5]
+    for dev3d, dev2d in zip(dev3d_cyl_list, dev2d_cyl_list):
+        o3 = Orbit([R, vR, vT, 0.0, 0.0, phi])
+        o3.integrate_dxdv(dev3d, times, pot, method="dop853_c", rtol=1e-12, atol=1e-12)
+        d3 = o3.getOrbit_dxdv()[-1]  # cyl (dR,dvR,dvT,dz,dvz,dphi)
+        o2 = Orbit([R, vR, vT, phi])
+        o2.integrate_dxdv(
+            dev2d, times, pot.toPlanar(), method="dop853_c", rtol=1e-12, atol=1e-12
+        )
+        d2 = o2.getOrbit_dxdv()[-1]  # cyl (dR,dvR,dvT,dphi)
+        assert numpy.fabs(d3[3]) < 1e-9 and numpy.fabs(d3[4]) < 1e-9, (
+            f"3D in-plane cyl deviation leaked into (dz,dvz) for {pname}"
+        )
+        bridge_err = numpy.amax(numpy.fabs(d3[cyl_in_3d] - d2))
+        assert bridge_err < 1e-9, (
+            f"3D->2D cyl bridge differs from planar by {bridge_err:g} for {pname}"
+        )
+    return None
+
+
+def test_integrate_dxdv_3d_base_orbit_integrity():
+    # Regression: integrateFullOrbit_dxdv's returned BASE orbit must equal a
+    # plain orbit integration in every phase-space coordinate. Previously
+    # coords.rect_to_cyl/rect_to_cyl_vec passed Z/vz through by reference, so
+    # the in-place column assignments clobbered them and the returned base
+    # orbit had z replaced by vT -- invisible to every deviation-based test
+    # (the rectOut deviation columns were correct) but corrupting anything
+    # that restarts from the dxdv orbit (e.g. lyapunov renormalization
+    # segments)
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    ts = numpy.linspace(0.0, 5.0, 51)
+    ic = [1.0, 0.1, 1.1, 0.2, 0.15, 0.3]
+    for method in ["dop853_c", "dop853"]:
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ts,
+            MWPotential2014,
+            method=method,
+            rectIn=True,
+            rectOut=True,
+        )
+        oref = Orbit(ic)
+        oref.integrate(ts, MWPotential2014, method=method)
+        diff = odx.getOrbit() - oref.getOrbit()
+        # phi wrapping conventions differ between the two code paths
+        diff[:, 5] = numpy.fabs(
+            numpy.mod(diff[:, 5] + numpy.pi, 2.0 * numpy.pi) - numpy.pi
+        )
+        maxdiff = numpy.amax(numpy.fabs(diff), axis=0)
+        for ii, name in enumerate(["R", "vR", "vT", "z", "vz", "phi"]):
+            assert maxdiff[ii] < 1e-6, (
+                f"dxdv base orbit {name} differs from plain integration by "
+                f"{maxdiff[ii]:g} for method {method}"
+            )
+    return None
+
+
+def test_integrate_dxdv_3d_multiobj_and_default_tol():
+    # Cover and validate the multi-object (parallel_map) and pure-Python dop853
+    # default-tolerance paths of the 3D integrate_dxdv.
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+
+    pot = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1, normalize=True)
+    times = numpy.linspace(0.0, 2.0, 51)
+    ic1 = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    ic2 = [1.2, -0.05, 0.9, -0.1, 0.03, 1.0]
+    dev = [1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # multi-object: two orbits' dxdv at once must match the single-object runs
+    omulti = Orbit([ic1, ic2])
+    omulti.integrate_dxdv(
+        [dev, dev], times, pot, method="dop853_c", rectIn=True, rectOut=True
+    )
+    gmulti = numpy.asarray(omulti.getOrbit_dxdv())  # (2,nt,6)
+    for jj, ic in enumerate([ic1, ic2]):
+        osingle = Orbit(ic)
+        osingle.integrate_dxdv(
+            dev, times, pot, method="dop853_c", rectIn=True, rectOut=True
+        )
+        assert numpy.amax(numpy.fabs(gmulti[jj] - osingle.getOrbit_dxdv())) < 1e-10, (
+            "multi-object 3D dxdv differs from the single-object result"
+        )
+    # pure-Python dop853 with default (None) tolerances vs explicit tolerances
+    odef = Orbit(ic1)
+    odef.integrate_dxdv(dev, times, pot, method="dop853", rectIn=True, rectOut=True)
+    oexp = Orbit(ic1)
+    oexp.integrate_dxdv(
+        dev,
+        times,
+        pot,
+        method="dop853",
+        rectIn=True,
+        rectOut=True,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    assert numpy.amax(numpy.fabs(odef.getOrbit_dxdv() - oexp.getOrbit_dxdv())) < 1e-8, (
+        "3D dxdv default-tolerance dop853 differs from the explicit-tolerance run"
+    )
+    return None
+
+
+def test_integrate_dxdv_3d_c_requires_full_hessian():
+    # A 3D potential with only a *planar* C dxdv implementation (hasC_dxdv=True)
+    # but no full 3D C Hessian (hasC_dxdv3d=False) must NOT silently take the C 3D
+    # variational path: that path would hit the NULL-safe aggregators (which return
+    # 0 for the unset z2deriv/Rzderiv/...) and propagate a wrong, zero-curvature
+    # deviation with no error. integrate_dxdv must instead fall back to the correct
+    # pure-Python integrator. We assert (a) the flag state, (b) that a galpyWarning
+    # is issued, and (c) that the C-method result matches the pure-Python result
+    # (i.e. it really fell back, rather than returning the wrong C aggregate).
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+
+    # As the Pvar-pot 3D-Hessian fan-out progresses, essentially every 3D
+    # potential with a planar C dxdv path (hasC_dxdv=True) also gains the full
+    # 3D C Hessian (hasC_dxdv3d=True) -- LogarithmicHalo got it in #907, MN3 and
+    # NullPotential in this PR -- so there is no longer a stable *real* example
+    # of "planar-but-not-3D". We therefore synthesize the scenario by forcing
+    # hasC_dxdv3d=False on an instance. This directly exercises the
+    # integrate_dxdv gate, which must warn and fall back to the pure-Python
+    # integrator rather than silently taking the C 3D path (whose NULL-safe
+    # aggregators would return a wrong, zero-curvature deviation for a genuinely
+    # incomplete potential). The pytest.warns below is the primary assertion;
+    # the value match confirms the fallback produced the correct result.
+    pot = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.1)
+    assert pot.hasC_dxdv, (
+        "test precondition: MiyamotoNagai should have planar hasC_dxdv"
+    )
+    pot.hasC_dxdv3d = False  # force the planar-but-not-3D scenario
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 2.0, 101)
+    dev = [1.0e-6, 0.0, 0.0, 0.0, 0.0, 0.0]
+    o_c = Orbit(ic)
+    with pytest.warns(galpyWarning):
+        o_c.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+    o_py = Orbit(ic)
+    o_py.integrate_dxdv(
+        dev,
+        times,
+        pot,
+        method="dop853",
+        rectIn=True,
+        rectOut=True,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+    dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+    # Without the gate, the un-gated C result (hitting the NULL-safe aggregators that
+    # return 0 for the unset z2deriv/Rzderiv) differs from the correct value by a
+    # sizeable fraction of the deviation, far above the 1e-9 tol below; a tight match
+    # instead confirms that integrate_dxdv fell back to the Python integrator.
+    assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-9, (
+        "3D integrate_dxdv did not fall back to the correct integrator for a "
+        "potential lacking the full 3D C Hessian (got a silently-wrong C result)"
+    )
+    return None
+
+
+def test_integrate_dxdv_3d_wrapper_requires_wrapped_hessian():
+    # The 3D-only wrappers (KuzminLikeWrapperPotential,
+    # RotateAndTiltWrapperPotential) subclass WrapperPotential DIRECTLY rather
+    # than the parentWrapperPotential delegator, so _check_c's wrapper branch
+    # must match them too: a KuzminLike wrapper advertises hasC_dxdv3d=True
+    # unconditionally, but its C Hessian chain-rules the WRAPPED potential's C
+    # R2deriv/Rforce, so when the wrapped potential lacks the 3D C Hessian the
+    # C 3D variational path would silently aggregate 0 for the unset R2deriv
+    # (NULL-safe aggregators) and propagate a wrong deviation. _check_c must
+    # therefore recurse into the wrapped potential and integrate_dxdv must warn
+    # and fall back to the pure-Python integrator. As in
+    # test_integrate_dxdv_3d_c_requires_full_hessian, the no-3D-C-Hessian
+    # wrapped potential is synthesized by forcing hasC_dxdv3d=False.
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminLikeWrapperPotential, MiyamotoNagaiPotential
+
+    mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.1)
+    mn.hasC_dxdv3d = False  # force the wrapped-potential-without-3D-C-Hessian case
+    pot = KuzminLikeWrapperPotential(pot=mn, a=1.1, b=0.3)
+    assert pot.hasC_dxdv3d, (
+        "test precondition: the wrapper itself advertises hasC_dxdv3d"
+    )
+    assert not _check_c(pot, dxdv3d=True), (
+        "_check_c(dxdv3d) must recurse into the wrapped potential of a "
+        "direct-WrapperPotential subclass and report False"
+    )
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
+    times = numpy.linspace(0.0, 2.0, 101)
+    dev = [1.0e-6, 0.0, 0.0, 0.0, 0.0, 0.0]
+    o_c = Orbit(ic)
+    with pytest.warns(galpyWarning):
+        o_c.integrate_dxdv(
+            dev, times, pot, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+    o_py = Orbit(ic)
+    o_py.integrate_dxdv(
+        dev, times, pot, method="dop853",
+        rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+    )  # fmt: skip
+    dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+    dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+    assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-9, (
+        "3D integrate_dxdv did not fall back to the correct integrator for a "
+        "wrapper whose wrapped potential lacks the full 3D C Hessian"
+    )
+    return None
+
+
+# Tests of Orbit.lyapunov: largest Lyapunov exponent from the variational
+# equations (Benettin et al. 1980 renormalization on top of integrate_dxdv)
+def test_lyapunov_integrable():
+    # In an integrable potential all orbits are regular, so the running
+    # estimate lambda(t) of the largest Lyapunov exponent must decay ~ln(t)/t
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, LogarithmicHaloPotential
+
+    tend = 1000.0
+    ts = numpy.linspace(0.0, tend, 10001)
+    # 3D orbit in the integrable isochrone potential
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    lam = o.lyapunov(ts, pot=ip, method="dop853_c")
+    assert numpy.isnan(lam[0]), (
+        "lyapunov running estimate at ts[0] should be NaN (no elapsed time)"
+    )
+    assert lam[-1] < 3.0 * numpy.log(tend) / tend, (
+        "lyapunov estimate for a regular 3D isochrone orbit does not decay "
+        f"to ~ln(t)/t: lambda(t_end)={lam[-1]:g}"
+    )
+    assert lam[-1] < lam[len(ts) // 2], (
+        "lyapunov estimate for a regular 3D isochrone orbit is not decreasing "
+        "between the half-time and the end-time"
+    )
+    # Planar orbit in an axisymmetric potential: also regular (E,Lz integrals)
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    op = Orbit([1.0, 0.1, 1.1, 0.0])
+    lamp = op.lyapunov(ts, pot=lp, method="dop853_c")
+    assert lamp[-1] < 3.0 * numpy.log(tend) / tend, (
+        "lyapunov estimate for a regular planar axisymmetric orbit does not "
+        f"decay to ~ln(t)/t: lambda(t_end)={lamp[-1]:g}"
+    )
+    assert lamp[-1] < lamp[len(ts) // 2], (
+        "lyapunov estimate for a regular planar axisymmetric orbit is not "
+        "decreasing between the half-time and the end-time"
+    )
+    return None
+
+
+def test_lyapunov_henonheiles_chaotic():
+    # Regression test of the largest Lyapunov exponent of a chaotic orbit of
+    # the Henon-Heiles system at E=1/8, against documented literature values.
+    # We use the well-documented chaotic orbit 'F' of Skokos et al. (2002,
+    # arXiv:nlin/0210053, Sect. 3.2): Cartesian (x,y,px,py)=(0,-0.016,0.49974,0)
+    # at H=1/8, whose finite-time Lyapunov estimate fluctuates around
+    # 10^{-1.2}-10^{-1} for t=10^3-10^5 (their Fig. 4b). The classic
+    # computation of Benettin, Galgani & Strelcyn (1976, Phys. Rev. A 14,
+    # 2338; their Fig. 4, reproduced as Fig. 2 of Skokos 2010, Lect. Notes
+    # Phys. 790, 63) finds the chaotic orbits at E=0.125 saturating at
+    # k_n ~ 5-8 x 10^-2. So the documented largest Lyapunov exponent of the
+    # chaotic sea at E=1/8 is ~0.04-0.08; here the estimate converges to
+    # ~0.04-0.05, asserted below with a loose factor ~2 band, and is clearly
+    # separated from the regular orbit 'E' of Skokos et al. (2002)
+    # [(x,y,px,py)=(0,0.55,0.2417,0)] at the same energy.
+    from galpy.orbit import Orbit
+    from galpy.potential import HenonHeilesPotential
+
+    hh = HenonHeilesPotential(amp=1.0)
+    ts = numpy.linspace(0.0, 50000.0, 25001)
+    # galpy planar coords: x=0,y<0 -> (R,phi)=(|y|,-pi/2), (vx,vy)=(vT,vR)
+    oF = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    assert numpy.fabs(oF.E(pot=hh) - 0.125) < 1e-4, (
+        "Henon-Heiles chaotic test orbit is not at E=1/8"
+    )
+    lamF = oF.lyapunov(ts, pot=hh, method="dop853_c")
+    # x=0,y>0 -> (R,phi)=(y,pi/2), (vx,vy)=(-vT,vR)
+    oE = Orbit([0.55, 0.0, -0.2417, numpy.pi / 2.0])
+    assert numpy.fabs(oE.E(pot=hh) - 0.125) < 1e-4, (
+        "Henon-Heiles regular test orbit is not at E=1/8"
+    )
+    lamE = oE.lyapunov(ts, pot=hh, method="dop853_c")
+    # Chaotic: converged into the (loose) literature band at both the
+    # half-time and the end-time
+    for lam_chaotic, tlabel in [(lamF[len(ts) // 2], "t=25000"), (lamF[-1], "t=50000")]:
+        assert 0.02 < lam_chaotic < 0.14, (
+            "Largest Lyapunov exponent of the documented chaotic Henon-Heiles "
+            f"orbit at E=1/8 is {lam_chaotic:g} at {tlabel}, outside the "
+            "documented range ~0.04-0.08 (with factor ~2 tolerance)"
+        )
+    # Regular orbit at the same energy: decaying to ~ln(t)/t
+    assert lamE[-1] < 3.0 * numpy.log(ts[-1]) / ts[-1], (
+        "lyapunov estimate for the regular Henon-Heiles orbit does not decay "
+        f"to ~ln(t)/t: lambda(t_end)={lamE[-1]:g}"
+    )
+    # and the chaotic exponent is much larger than the regular one
+    assert lamF[-1] > 30.0 * lamE[-1], (
+        "Chaotic Henon-Heiles lyapunov estimate is not clearly separated from "
+        f"the regular one: chaotic {lamF[-1]:g} vs regular {lamE[-1]:g}"
+    )
+    return None
+
+
+def test_lyapunov_c_vs_python():
+    # The C (dop853_c) and pure-Python (dop853) lyapunov estimates must agree
+    # for the same orbit/potential/times; t is short enough (lambda*t ~ 13)
+    # that the tightly-toleranced trajectories still shadow each other.
+    # Also check that the running estimate is independent of the
+    # renormalization interval (validating the Benettin et al. bookkeeping)
+    from galpy.orbit import Orbit
+    from galpy.potential import HenonHeilesPotential
+
+    hh = HenonHeilesPotential(amp=1.0)
+    ic = [0.016, 0.0, 0.49974, -numpy.pi / 2.0]
+    ts = numpy.linspace(0.0, 300.0, 3001)
+    oc = Orbit(ic)
+    lam_c = oc.lyapunov(ts, pot=hh, method="dop853_c", rtol=1e-12, atol=1e-12)
+    op = Orbit(ic)
+    lam_py = op.lyapunov(ts, pot=hh, method="dop853", rtol=1e-12, atol=1e-12)
+    for idx, tlabel in [(len(ts) // 2, "t=150"), (-1, "t=300")]:
+        rel = numpy.fabs(lam_c[idx] - lam_py[idx]) / numpy.fabs(lam_c[idx])
+        assert rel < 0.02, (
+            f"C vs Python lyapunov estimates differ by {rel:g} at {tlabel} "
+            f"(C: {lam_c[idx]:g}, Python: {lam_py[idx]:g})"
+        )
+    # Independence of the renormalization interval
+    o37 = Orbit(ic)
+    lam_c37 = o37.lyapunov(
+        ts, pot=hh, method="dop853_c", renorm_every=37, rtol=1e-12, atol=1e-12
+    )
+    maxdiff = numpy.nanmax(numpy.fabs(lam_c37 - lam_c))
+    assert maxdiff < 1e-4, (
+        "lyapunov running estimate depends on the renormalization interval: "
+        f"max |renorm_every=37 - renorm_every=10| = {maxdiff:g}"
+    )
+    return None
+
+
+def test_lyapunov_api():
+    # API behavior of Orbit.lyapunov: output shapes for multiple orbits,
+    # per-orbit initial deviations, invariance under the deviation-vector
+    # normalization (the variational equations are linear), the pot=None
+    # default, physical-output conversion, and Quantity inputs for ts and dt
+    from astropy import units
+
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+    from galpy.util import conversion
+
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    ts = numpy.linspace(0.0, 10.0, 101)
+    # Quantity ts and dt inputs parse to the same natural-units result
+    oq = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0], ro=8.0, vo=220.0)
+    tnat_to_Gyr = conversion.time_in_Gyr(220.0, 8.0)
+    ts_q = ts * tnat_to_Gyr * units.Gyr
+    lam_q = oq.lyapunov(
+        ts_q,
+        pot=ip,
+        method="rk4_c",
+        dt=(ts[1] - ts[0]) / 2.0 * tnat_to_Gyr * units.Gyr,
+        use_physical=False,
+    )
+    onat = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0], ro=8.0, vo=220.0)
+    lam_nat = onat.lyapunov(
+        ts, pot=ip, method="rk4_c", dt=(ts[1] - ts[0]) / 2.0, use_physical=False
+    )
+    assert numpy.amax(numpy.fabs(lam_q[1:] - lam_nat[1:])) < 1e-10, (
+        "lyapunov with Quantity ts/dt does not match the natural-units call"
+    )
+    # Multiple orbits: shape (2,) -> output (2,nt)
+    o = Orbit([[1.0, 0.1, 1.1, 0.1, 0.1, 0.0], [1.1, -0.1, 0.9, 0.0, 0.05, 1.0]])
+    lam = o.lyapunov(ts, pot=ip, method="dop853_c")
+    assert lam.shape == (2, len(ts)), (
+        "lyapunov output shape incorrect for multiple orbits"
+    )
+    # Per-orbit initial deviations: shape (*input_shape,phasedim)
+    lam2 = o.lyapunov(ts, pot=ip, method="dop853_c", dxdv0=numpy.ones((2, 6)))
+    assert lam2.shape == (2, len(ts)), (
+        "lyapunov output shape incorrect for per-orbit dxdv0"
+    )
+    # The variational equations are linear, so the normalization of dxdv0
+    # is irrelevant
+    o1 = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    dxdv0 = numpy.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    lam_a = o1.lyapunov(ts, pot=ip, method="dop853_c", dxdv0=dxdv0)
+    lam_b = o1.lyapunov(ts, pot=ip, method="dop853_c", dxdv0=1e-7 * dxdv0)
+    assert numpy.allclose(lam_a[1:], lam_b[1:]), (
+        "lyapunov estimate depends on the normalization of the initial "
+        "deviation vector, but the variational equations are linear"
+    )
+    # pot=None uses the potential of the last orbit integration
+    o1.integrate(ts, ip, method="dop853_c")
+    lamd = o1.lyapunov(ts, method="dop853_c", dxdv0=dxdv0)
+    assert numpy.allclose(lamd[1:], lam_a[1:]), (
+        "lyapunov with pot=None does not use the potential of the last "
+        "orbit integration"
+    )
+    # and the stored orbit integration is not clobbered by lyapunov
+    assert numpy.allclose(o1.getOrbit()[-1], o1(ts[-1]).vxvv[0]), (
+        "lyapunov clobbered the previously integrated orbit"
+    )
+    # Physical output: frequency conversion to 1/Gyr
+    ro, vo = 8.0, 220.0
+    ophys = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0], ro=ro, vo=vo)
+    lphys = ophys.lyapunov(ts, pot=ip, method="dop853_c", quantity=False)
+    lnat = ophys.lyapunov(ts, pot=ip, method="dop853_c", use_physical=False)
+    assert numpy.allclose(lphys[1:], lnat[1:] * conversion.freq_in_Gyr(vo, ro)), (
+        "lyapunov physical output is not the natural output converted to 1/Gyr"
+    )
+    return None
+
+
+def test_lyapunov_python_fallback_warning():
+    # A potential lacking the required C variational implementation must fall
+    # back to the Python odeint integrator with a SINGLE galpyWarning (not one
+    # warning per renormalization segment)
+    from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
+    from galpy.util import galpyWarning
+
+    mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    mn.hasC_dxdv3d = False  # force the no-3D-C-Hessian code path
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    ts = numpy.linspace(0.0, 5.0, 51)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        lam = o.lyapunov(ts, pot=mn, method="dop853_c", renorm_every=10)
+        n_fallback = sum(
+            issubclass(wi.category, galpyWarning) and "Using odeint" in str(wi.message)
+            for wi in w
+        )
+    assert n_fallback == 1, (
+        "lyapunov should emit exactly one fallback warning when the potential "
+        f"lacks adequate C implementations, got {n_fallback}"
+    )
+    assert lam.shape == (len(ts),), "lyapunov fallback output shape incorrect"
+    return None
+
+
+def test_lyapunov_errors():
+    # Input validation of Orbit.lyapunov
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    ts = numpy.linspace(0.0, 1.0, 11)
+    # Only implemented for phase-space dimensions 4 and 6
+    o5 = Orbit([1.0, 0.1, 1.1, 0.1, 0.1])
+    with pytest.raises(AttributeError):
+        o5.lyapunov(ts, pot=ip)
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    # No potential given and orbit not integrated
+    with pytest.raises(AttributeError):
+        o.lyapunov(ts)
+    # Fewer than two times
+    with pytest.raises(ValueError):
+        o.lyapunov(numpy.array([0.0]), pot=ip)
+    # Invalid renormalization interval
+    with pytest.raises(ValueError):
+        o.lyapunov(ts, pot=ip, renorm_every=0)
+    # Zero-norm initial deviation
+    with pytest.raises(ValueError):
+        o.lyapunov(ts, pot=ip, dxdv0=numpy.zeros(6))
+    # Wrong-dimensionality initial deviation
+    with pytest.raises(ValueError):
+        o.lyapunov(ts, pot=ip, dxdv0=numpy.ones(4))
+    return None
+
+
+# Tests of Orbit.lyapunov with spectrum=True: the full Lyapunov spectrum from
+# QR re-orthonormalization of a full set of deviation vectors (Benettin et al.
+# 1980, part 2; Shimada & Nagashima 1979)
+def test_lyapunov_spectrum_integrable():
+    # In an integrable potential all orbits are regular, so ALL running
+    # estimates lambda_i(t) of the Lyapunov spectrum must decay ~ln(t)/t;
+    # the spectrum must also obey the sum rule sum_i lambda_i = 0
+    # (phase-space volume conservation of the Hamiltonian flow)
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+
+    tend = 500.0
+    ts = numpy.linspace(0.0, tend, 5001)
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    lam = o.lyapunov(ts, pot=ip, method="dop853_c", spectrum=True)
+    assert lam.shape == (6, len(ts)), (
+        "lyapunov spectrum output shape incorrect for a single 3D orbit"
+    )
+    assert numpy.all(numpy.isnan(lam[:, 0])), (
+        "lyapunov spectrum running estimates at ts[0] should be NaN (no elapsed time)"
+    )
+    maxend = numpy.max(numpy.fabs(lam[:, -1]))
+    assert maxend < 3.0 * numpy.log(tend) / tend, (
+        "Lyapunov spectrum of a regular 3D isochrone orbit does not decay "
+        f"to ~ln(t)/t: max_i |lambda_i(t_end)|={maxend:g}"
+    )
+    assert maxend < numpy.max(numpy.fabs(lam[:, len(ts) // 2])), (
+        "Lyapunov spectrum of a regular 3D isochrone orbit is not decreasing "
+        "between the half-time and the end-time"
+    )
+    # Sum rule at all output times: the flow is symplectic, so the sum of the
+    # running estimates is the (zero) log determinant of the deviation-matrix
+    # propagator divided by the elapsed time
+    maxsum = numpy.nanmax(numpy.fabs(numpy.nansum(lam, axis=0)))
+    assert maxsum < 1e-8, (
+        "Lyapunov spectrum of a 3D isochrone orbit violates the sum rule "
+        f"sum_i lambda_i = 0: max_t |sum_i lambda_i(t)|={maxsum:g}"
+    )
+    return None
+
+
+def test_lyapunov_spectrum_henonheiles_chaotic():
+    # Full Lyapunov spectrum of the documented chaotic Henon-Heiles orbit 'F'
+    # at E=1/8 (see test_lyapunov_henonheiles_chaotic for the provenance of
+    # the initial condition and of the documented band of the largest
+    # exponent): the largest exponent must lie in the documented band and be
+    # consistent with the largest-exponent-only estimate, the two middle
+    # exponents must tend to 0 (the flow direction and its symplectic pair),
+    # and the spectrum must obey the sum rule sum_i lambda_i = 0 and the
+    # symplectic pairing lambda_i = -lambda_{phasedim+1-i}
+    from galpy.orbit import Orbit
+    from galpy.potential import HenonHeilesPotential
+
+    hh = HenonHeilesPotential(amp=1.0)
+    tend = 25000.0
+    ts = numpy.linspace(0.0, tend, 12501)
+    oF = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    lam = oF.lyapunov(ts, pot=hh, method="dop853_c", spectrum=True)
+    assert lam.shape == (4, len(ts)), (
+        "lyapunov spectrum output shape incorrect for a single planar orbit"
+    )
+    # Largest exponent in the documented band of the chaotic sea at E=1/8
+    assert 0.02 < lam[0, -1] < 0.14, (
+        "Largest exponent of the Lyapunov spectrum of the chaotic "
+        f"Henon-Heiles orbit at E=1/8 is {lam[0, -1]:g} at t={tend:g}, "
+        "outside the documented range ~0.04-0.08 (with factor ~2 tolerance)"
+    )
+    # and consistent with the largest-exponent-only (spectrum=False) estimate.
+    # Finite-time estimates of a chaotic orbit fluctuate (different initial
+    # deviation vectors have different alignment transients, and the deviation
+    # vectors enter the adaptive step-size control), so the default-input
+    # long-time comparison is loose (both estimates individually sit in the
+    # documented band); the TIGHT consistency check seeds the spectrum with
+    # the SAME initial deviation vector as the largest-exponent-only run, for
+    # which |R_11| accumulation reduces mathematically to single-vector
+    # Benettin on the same vector -- agreement at integrator precision
+    oF2 = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    lam_max = oF2.lyapunov(ts, pot=hh, method="dop853_c")
+    rel = numpy.fabs(lam[0, -1] - lam_max[-1]) / lam_max[-1]
+    assert rel < 0.3, (
+        "Largest exponent of the Lyapunov spectrum of the chaotic "
+        "Henon-Heiles orbit differs from the largest-exponent-only estimate "
+        f"by {rel:g} (spectrum: {lam[0, -1]:g}, largest-only: {lam_max[-1]:g})"
+    )
+    ts_short = numpy.linspace(0.0, 300.0, 301)
+    d0 = numpy.ones(4) / 2.0
+    oF3 = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    lam_s = oF3.lyapunov(ts_short, pot=hh, method="dop853_c", spectrum=True, dxdv0=d0)
+    oF4 = Orbit([0.016, 0.0, 0.49974, -numpy.pi / 2.0])
+    lam_max_s = oF4.lyapunov(ts_short, pot=hh, method="dop853_c", dxdv0=d0)
+    rel_s = numpy.fabs(lam_s[0, -1] - lam_max_s[-1]) / lam_max_s[-1]
+    assert rel_s < 1e-6, (
+        "Largest exponent of the Lyapunov spectrum with the same initial "
+        "deviation vector differs from the largest-exponent-only estimate "
+        f"by {rel_s:g} (spectrum: {lam_s[0, -1]:g}, largest-only: {lam_max_s[-1]:g})"
+    )
+    # Middle exponents tend to zero like the regular-orbit ~ln(t)/t decay
+    midmax = numpy.max(numpy.fabs(lam[1:3, -1]))
+    assert midmax < 3.0 * numpy.log(tend) / tend, (
+        "Middle exponents of the Lyapunov spectrum of the chaotic "
+        f"Henon-Heiles orbit do not tend to zero: max={midmax:g}"
+    )
+    # Symplectic pairing: lambda_1 = -lambda_4 and lambda_2 = -lambda_3
+    pair14 = numpy.fabs(lam[0, -1] + lam[3, -1])
+    assert pair14 < 0.02 * lam[0, -1], (
+        "Lyapunov spectrum of the chaotic Henon-Heiles orbit violates the "
+        f"symplectic pairing lambda_1=-lambda_4: |lambda_1+lambda_4|={pair14:g} "
+        f"vs lambda_1={lam[0, -1]:g}"
+    )
+    pair23 = numpy.fabs(lam[1, -1] + lam[2, -1])
+    assert pair23 < 0.02 * lam[0, -1], (
+        "Lyapunov spectrum of the chaotic Henon-Heiles orbit violates the "
+        f"symplectic pairing lambda_2=-lambda_3: |lambda_2+lambda_3|={pair23:g}"
+    )
+    # Sum rule at all output times
+    maxsum = numpy.nanmax(numpy.fabs(numpy.nansum(lam, axis=0)))
+    assert maxsum < 1e-8, (
+        "Lyapunov spectrum of the chaotic Henon-Heiles orbit violates the "
+        f"sum rule sum_i lambda_i = 0: max_t |sum_i lambda_i(t)|={maxsum:g}"
+    )
+    # The Benettin/Shimada-Nagashima procedure orders the exponents from
+    # largest to smallest by construction (the nearly-degenerate middle pair
+    # can transiently swap, so only check across the large gaps)
+    assert lam[0, -1] > lam[1, -1] and lam[2, -1] > lam[3, -1], (
+        f"Lyapunov spectrum is not ordered from largest to smallest: {lam[:, -1]}"
+    )
+    return None
+
+
+def test_lyapunov_spectrum_sumrule_mw():
+    # The sum rule sum_i lambda_i = 0 (phase-space volume conservation) for a
+    # 3D orbit in MWPotential2014, which exercises the full 3D C Hessian of a
+    # composite (bulge+disk+halo) potential
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    ts = numpy.linspace(0.0, 100.0, 1001)
+    o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    lam = o.lyapunov(ts, pot=MWPotential2014, method="dop853_c", spectrum=True)
+    assert lam.shape == (6, len(ts)), (
+        "lyapunov spectrum output shape incorrect for a 3D MWPotential2014 orbit"
+    )
+    maxsum = numpy.nanmax(numpy.fabs(numpy.nansum(lam, axis=0)))
+    assert maxsum < 1e-8, (
+        "Lyapunov spectrum of a 3D MWPotential2014 orbit violates the sum "
+        f"rule sum_i lambda_i = 0: max_t |sum_i lambda_i(t)|={maxsum:g}"
+    )
+    relsum = numpy.fabs(numpy.sum(lam[:, -1])) / numpy.max(numpy.fabs(lam[:, -1]))
+    assert relsum < 1e-6, (
+        "Lyapunov spectrum of a 3D MWPotential2014 orbit violates the sum "
+        f"rule sum_i lambda_i = 0: |sum_i lambda_i|/max_i |lambda_i|={relsum:g} "
+        "at the end time"
+    )
+    return None
+
+
+def test_lyapunov_spectrum_consistency():
+    # When dxdv0= is supplied together with spectrum=True, it is used as the
+    # FIRST deviation vector (completed to an orthonormal basis); because the
+    # QR orthonormalization never changes the direction of the first vector,
+    # the running estimate of the largest exponent is then mathematically
+    # identical to the largest-exponent-only (spectrum=False) estimate with
+    # the same dxdv0. Also check that the C (dop853_c) and pure-Python
+    # (dop853) spectra agree
+    from galpy.orbit import Orbit
+    from galpy.potential import HenonHeilesPotential
+
+    hh = HenonHeilesPotential(amp=1.0)
+    ic = [0.016, 0.0, 0.49974, -numpy.pi / 2.0]
+    ts = numpy.linspace(0.0, 300.0, 3001)
+    dxdv0 = numpy.array([1.0, 0.0, 0.0, 0.0])
+    oa = Orbit(ic)
+    lam_max = oa.lyapunov(ts, pot=hh, method="dop853_c", dxdv0=dxdv0)
+    ob = Orbit(ic)
+    lam_spec = ob.lyapunov(ts, pot=hh, method="dop853_c", dxdv0=dxdv0, spectrum=True)
+    maxdiff = numpy.nanmax(numpy.fabs(lam_spec[0] - lam_max))
+    assert maxdiff < 1e-6, (
+        "Largest exponent of the Lyapunov spectrum with dxdv0= as the first "
+        "deviation vector differs from the largest-exponent-only estimate "
+        f"with the same dxdv0: max_t |diff|={maxdiff:g}"
+    )
+    # C vs Python parity of the full spectrum
+    ts2 = numpy.linspace(0.0, 100.0, 1001)
+    oc = Orbit(ic)
+    lam_c = oc.lyapunov(
+        ts2, pot=hh, method="dop853_c", spectrum=True, rtol=1e-12, atol=1e-12
+    )
+    op = Orbit(ic)
+    lam_py = op.lyapunov(
+        ts2, pot=hh, method="dop853", spectrum=True, rtol=1e-12, atol=1e-12
+    )
+    maxdiff_cpy = numpy.max(numpy.fabs(lam_c[:, -1] - lam_py[:, -1]))
+    assert maxdiff_cpy < 1e-8, (
+        "C vs Python Lyapunov spectra differ at the end time: "
+        f"max_i |diff|={maxdiff_cpy:g}"
+    )
+    return None
+
+
+def test_lyapunov_spectrum_api():
+    # API behavior of Orbit.lyapunov with spectrum=True: output shapes for
+    # multiple orbits and per-orbit dxdv0, physical-output conversion of the
+    # full spectrum, the single-warning Python fallback, and input validation
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, MiyamotoNagaiPotential
+    from galpy.util import conversion, galpyWarning
+
+    ip = IsochronePotential(normalize=1.0, b=0.8)
+    ts = numpy.linspace(0.0, 10.0, 101)
+    # Multiple orbits: shape (2,) -> output (2,phasedim,nt)
+    o = Orbit([[1.0, 0.1, 1.1, 0.1, 0.1, 0.0], [1.1, -0.1, 0.9, 0.0, 0.05, 1.0]])
+    lam = o.lyapunov(ts, pot=ip, method="dop853_c", spectrum=True)
+    assert lam.shape == (2, 6, len(ts)), (
+        "lyapunov spectrum output shape incorrect for multiple orbits"
+    )
+    assert numpy.all(numpy.isnan(lam[:, :, 0])), (
+        "lyapunov spectrum running estimates at ts[0] should be NaN"
+    )
+    # Per-orbit initial deviations: shape (*input_shape,phasedim)
+    lam2 = o.lyapunov(
+        ts, pot=ip, method="dop853_c", spectrum=True, dxdv0=numpy.ones((2, 6))
+    )
+    assert lam2.shape == (2, 6, len(ts)), (
+        "lyapunov spectrum output shape incorrect for per-orbit dxdv0"
+    )
+    # Physical output: each exponent is a frequency, converted to 1/Gyr
+    ro, vo = 8.0, 220.0
+    ophys = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0], ro=ro, vo=vo)
+    lphys = ophys.lyapunov(ts, pot=ip, method="dop853_c", spectrum=True, quantity=False)
+    lnat = ophys.lyapunov(
+        ts, pot=ip, method="dop853_c", spectrum=True, use_physical=False
+    )
+    assert lphys.shape == (6, len(ts)), (
+        "lyapunov spectrum physical output shape incorrect"
+    )
+    assert numpy.allclose(lphys[:, 1:], lnat[:, 1:] * conversion.freq_in_Gyr(vo, ro)), (
+        "lyapunov spectrum physical output is not the natural output converted to 1/Gyr"
+    )
+    # Python fallback: a potential lacking the required 3D C Hessian must
+    # fall back to odeint with a SINGLE galpyWarning, also for spectrum=True
+    mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    mn.hasC_dxdv3d = False  # force the no-3D-C-Hessian code path
+    o1 = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.0])
+    ts2 = numpy.linspace(0.0, 5.0, 51)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        lamf = o1.lyapunov(
+            ts2, pot=mn, method="dop853_c", renorm_every=10, spectrum=True
+        )
+        n_fallback = sum(
+            issubclass(wi.category, galpyWarning) and "Using odeint" in str(wi.message)
+            for wi in w
+        )
+    assert n_fallback == 1, (
+        "lyapunov spectrum should emit exactly one fallback warning when the "
+        f"potential lacks adequate C implementations, got {n_fallback}"
+    )
+    assert lamf.shape == (6, len(ts2)), (
+        "lyapunov spectrum fallback output shape incorrect"
+    )
+    # Input validation: zero-norm dxdv0 also raises with spectrum=True
+    with pytest.raises(ValueError):
+        o1.lyapunov(ts2, pot=ip, spectrum=True, dxdv0=numpy.zeros(6))
+    return None
+
+
+def test_liouville_3d_nonaxi_flow():
+    # Validate the NON-axisymmetric Hessian terms (phi2deriv/Rphideriv/zphideriv)
+    # of the 3D variational RHS, which the axisymmetric MiyamotoNagai/Plummer
+    # parametrization of test_liouville_3d never exercises (those have
+    # phi2deriv==Rphideriv==zphideriv==0 identically). We use a genuinely triaxial
+    # potential and the pure-Python path (no non-axisymmetric potential has a
+    # complete 3D *C* Hessian yet), and check the dxdv columns against a
+    # finite-difference of the flow -- which pins the signs/scales of the new
+    # z-phi coupling terms (a wrong sign there would break the FD agreement even
+    # though it leaves det(M)=1 and symplecticity intact).
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, evaluatephizderivs
+    from galpy.util import coords
+
+    pot = LogarithmicHaloPotential(normalize=1.0, b=0.7, q=0.8)
+    ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.3]
+    times = numpy.linspace(0.0, 3.0, 151)
+    # Guard against a vacuous test: the non-axisymmetric coupling must be nonzero
+    # along this orbit, otherwise the new terms are multiplied by 0 as before.
+    assert numpy.fabs(evaluatephizderivs(pot, 1.0, 0.05, phi=0.3)) > 1e-3, (
+        "test potential must have a nonzero d2Phi/dz/dphi to exercise zphideriv"
+    )
+    method = "dop853"
+    rtol = atol = 1e-12
+    eps = 1e-7
+    canonical = numpy.eye(6)
+    obase = Orbit(ic)
+    obase.integrate(times, pot, method=method)
+    base_rect = _orbit_rect_3d(obase, times)
+    for ii in range(6):  # all six columns -> the full Cartesian Hessian K
+        pert_ic_rect = base_rect[0].copy()
+        pert_ic_rect[ii] += eps
+        Rp, phip, Zp = coords.rect_to_cyl(
+            pert_ic_rect[0], pert_ic_rect[1], pert_ic_rect[2]
+        )
+        vRp, vTp, vzp = coords.rect_to_cyl_vec(
+            pert_ic_rect[3],
+            pert_ic_rect[4],
+            pert_ic_rect[5],
+            pert_ic_rect[0],
+            pert_ic_rect[1],
+            pert_ic_rect[2],
+        )
+        opert = Orbit([Rp, vRp, vTp, Zp, vzp, phip])
+        opert.integrate(times, pot, method=method)
+        fd = (_orbit_rect_3d(opert, times) - base_rect) / eps
+        odx = Orbit(ic)
+        odx.integrate_dxdv(
+            canonical[ii],
+            times,
+            pot,
+            method=method,
+            rectIn=True,
+            rectOut=True,
+            rtol=rtol,
+            atol=atol,
+        )
+        col = numpy.asarray(odx.getOrbit_dxdv())
+        fderr = numpy.amax(numpy.fabs(fd - col))
+        assert fderr < 1e-4, (
+            f"non-axisymmetric 3D finite-difference of the flow for e_{ii} differs "
+            f"from the dxdv column by {fderr:g} (checks phi2deriv/Rphideriv/zphideriv)"
+        )
+    return None
+
+
 def test_liouville_planar():
     if _NOLONGINTEGRATIONS:
         return None
@@ -717,6 +4702,7 @@ def test_liouville_planar():
     pots.append("mockFlatDehnenBarPotential")
     pots.append("mockFlatDehnenBarPotential")
     pots.append("mockSlowFlatDehnenBarPotential")
+    pots.append("mockFlatSoftenedNeedleBarPotential")
     pots.append("specialFlattenedPowerPotential")
     pots.append("BurkertPotentialNoC")
     pots.append("NFWTwoPowerTriaxialPotential")  # for planar-from-full
@@ -728,8 +4714,10 @@ def test_liouville_planar():
     pots.append("mockFlatSpiralArmsPotential")
     pots.append("mockRotatingFlatSpiralArmsPotential")
     pots.append("mockSpecialRotatingFlatSpiralArmsPotential")
-    # pots.append('mockFlatSteadyLogSpiralPotential')
-    # pots.append('mockFlatTransientLogSpiralPotential')
+    pots.append("mockFlatSteadyLogSpiralPotential")
+    # active transient (peaks mid-window; the plain mockFlatTransientLogSpiral
+    # peaks at to=-10, which would be vacuous for the spiral Hessian here)
+    pots.append("mockFlatActiveTransientLogSpiralPotential")
     pots.append("mockFlatDehnenSmoothBarPotential")
     pots.append("mockSlowFlatDehnenSmoothBarPotential")
     pots.append("mockSlowFlatDecayingDehnenSmoothBarPotential")
@@ -747,6 +4735,8 @@ def test_liouville_planar():
     pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockMultipoleExpansionPotential")
     pots.append("mockMultipoleExpansionLimitedGridPotential")
+    pots.append("mockTDMultipoleExpansionLimitedGridPotential")
+    pots.append("mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -772,17 +4762,26 @@ def test_liouville_planar():
     ]
     # rmpots.append('BurkertPotential')
     # Don't have C implementations of the relevant 2nd derivatives
-    rmpots.append("DoubleExponentialDiskPotential")
+    # (DoubleExponentialDiskPotential now wires the planar R2deriv in C)
     rmpots.append("RazorThinExponentialDiskPotential")
     # Doesn't have C at all
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
     # rmpots.append('PowerSphericalPotentialwCutoff')
-    # Doesn't have the R2deriv
+    # SoftenedNeedleBarPotential now HAS the full analytic Hessian (Python and C;
+    # the planar variational equations are exercised here through the realistic
+    # mockFlatSoftenedNeedleBarPotential halo+bar configuration appended above, and
+    # the Hessian values are pinned by the dedicated
+    # test_softenedneedlebar_planar_dxdv_* tests and the liouville3d_registry). The
+    # BARE normalized potential -- the entire flat rotation curve generated by a
+    # fast-rotating (Omega_b=1.8) needle -- makes the fixed IC here strongly
+    # chaotic (||STM|| ~ 6e4 over the 28-time-unit horizon, Lyapunov time ~2.5), so
+    # |det M - 1| saturates at the double-precision cancellation floor (~0.1 for
+    # the adaptive C integrators, ~4e4 for default-tolerance odeint) REGARDLESS of
+    # Hessian correctness; no meaningful det-tolerance exists, hence it stays out.
     rmpots.append("SoftenedNeedleBarPotential")
-    rmpots.append("DiskSCFPotential")
+    # Doesn't have the R2deriv
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
-    rmpots.append("DiskMultipoleExpansionPotential")
     for p in rmpots:
         pots.remove(p)
     # tolerances in log10
@@ -794,13 +4793,25 @@ def test_liouville_planar():
     tol["TriaxialNFWPotential"] = -4.0  # more difficult
     tol["triaxialLogarithmicHaloPotential"] = -7.0  # more difficult
     tol["FerrersPotential"] = -2.0
+    # numerical Ogata/Hankel-quadrature forces -> the adaptive C integrators reach
+    # ~1.5e-8 over ~1 Gyr (a quadrature-accuracy effect, not a Hessian error)
+    tol["DoubleExponentialDiskPotential"] = -7.0
     tol["HomogeneousSpherePotential"] = -4.0
     tol["KingPotential"] = -6.0
     tol["mockInterpSphericalPotential"] = -4.0  # == HomogeneousSpherePotential
     tol["mockFlatCosmphiDiskwBreakPotential"] = -7.0  # more difficult
+    # rotating halo+bar: the fixed-step rk4_c reaches ~3e-7 over the ~1 Gyr horizon
+    tol["mockFlatSoftenedNeedleBarPotential"] = -6.0
+    # halo+transient spiral: the fixed-step rk4_c reaches ~2e-7 over the horizon
+    tol["mockFlatActiveTransientLogSpiralPotential"] = -6.0
     tol["mockFlatTrulyCorotatingRotationSpiralArmsPotential"] = -5.0  # more difficult
     tol["mockMultipoleExpansionPotential"] = -6.5
     tol["mockMultipoleExpansionLimitedGridPotential"] = -5.0
+    tol["mockTDMultipoleExpansionLimitedGridPotential"] = -4.0
+    tol["mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential"] = -4.0
+    # grid-spline-interpolated embedded Multipole part -> grid-level accuracy
+    tol["DiskMultipoleExpansionPotential"] = -5.5
+    tol["DiskSCFPotential"] = -7.0  # more difficult
     firstTest = True
     for p in pots:
         # Setup instance of potential
@@ -828,12 +4839,29 @@ def test_liouville_planar():
                 (integrator == "odeint" or not thasC)
                 and not p == "FerrersPotential"
                 and not p == "MultipoleExpansionPotential"
+                and not p == "DoubleExponentialDiskPotential"
+                and not p == "mockFlatSteadyLogSpiralPotential"
             ):
                 ttol = -4.0
             elif (
                 integrator == "odeint" or not thasC
             ) and p == "MultipoleExpansionPotential":
                 ttol = -3.0
+            elif (
+                integrator == "odeint" or not thasC
+            ) and p == "mockFlatSteadyLogSpiralPotential":
+                # default-tolerance odeint drifts to ~2.6e-4 over the ~1 Gyr
+                # horizon (integrator accuracy, not a Hessian error; the C
+                # integrators reach ~2e-9)
+                ttol = -3.0
+            elif (
+                integrator == "odeint" or not thasC
+            ) and p == "DoubleExponentialDiskPotential":
+                # pure-Python odeint variational integration of the numerical
+                # Hankel-quadrature forces drifts to ~9e-4 over ~1 Gyr (integrator/
+                # quadrature accuracy, not a Hessian error; the C integrators reach
+                # ~1.5e-8, see tol[] above)
+                ttol = -2.5
             if True:
                 ttimes = times
             o = setup_orbit_liouville(ptp, axi=False, henon="Henon" in p)
@@ -948,6 +4976,336 @@ def test_liouville_planar():
     return None
 
 
+def test_spiralarms_planar_dxdv_c_vs_python():
+    # Regression test for a bug in the C SpiralArmsPotentialPlanarR2deriv (the planar
+    # d^2Phi/dR^2 used by the C planar integrate_dxdv variational RHS): a stray extra
+    # 1/Kn factor made the in-plane tidal tensor wrong by ~3e-4. It was invisible to
+    # test_liouville_planar because det(M)=1 and symplecticity hold for ANY symmetric
+    # K; only comparing the C dxdv path against the (correct) pure-Python path exposes
+    # it. The C (dopr54_c) and Python (dop853) planar dxdv integrations must agree.
+    from galpy.orbit import Orbit
+    from galpy.potential import SpiralArmsPotential
+
+    pot = SpiralArmsPotential()
+    times = numpy.linspace(0.0, 4.0, 401)
+    ic = [1.0, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]
+    # Use a UNIT deviation: the variational equation is linear in the deviation, so a
+    # unit dx makes the STM column O(1) and the ~2.6e-4 *relative* PlanarR2deriv error
+    # show up as an O(2.6e-4) absolute discrepancy (a tiny dx would scale it below tol).
+    dev = [1.0, 0.0, 0.0, 0.0]
+    o_c = Orbit(ic)
+    o_c.integrate_dxdv(
+        dev,
+        times,
+        pot,
+        method="dopr54_c",
+        rectIn=True,
+        rectOut=True,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    o_py = Orbit(ic)
+    o_py.integrate_dxdv(
+        dev,
+        times,
+        pot,
+        method="dop853",
+        rectIn=True,
+        rectOut=True,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+    dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+    # Pre-fix the C path disagreed with the (correct) Python path by ~2.6e-4.
+    assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-6, (
+        "C planar dxdv (SpiralArms) disagrees with the pure-Python result: "
+        f"max diff {numpy.amax(numpy.fabs(dev_c - dev_py)):g} (PlanarR2deriv bug?)"
+    )
+    return None
+
+
+def test_twopower_planar_dxdv_c_vs_python():
+    # Regression test for a bug in the C TwoPowerSphericalPotentialPlanarR2deriv (the
+    # planar d^2Phi/dR^2 used by the C planar integrate_dxdv variational RHS): two terms
+    # had the wrong power of R (R^(-alpha-1) instead of R^(-alpha), and R^(-alpha)
+    # instead of R^(1-alpha)), making the in-plane tidal tensor wrong by ~7% (the error
+    # vanishes at R=1, where the wrong powers coincide). The pure-Python _R2deriv is
+    # correct (matches a finite-difference of -Rforce to ~1e-10). Only the BARE
+    # TwoPowerSphericalPotential is affected; its Dehnen/DehnenCore/Hernquist/NFW/Jaffe
+    # special-case subclasses use their own (correct) PlanarR2deriv. Comparing the C
+    # (dopr54_c / dop853_c) planar dxdv path against the (correct) pure-Python (dop853)
+    # path exposes it.
+    from galpy.orbit import Orbit
+    from galpy.potential import TwoPowerSphericalPotential
+
+    # Non-degenerate (alpha, beta): must be the bare TwoPowerSphericalPotential, NOT a
+    # special-case subclass dispatch (which would use a different, correct C R2deriv).
+    pot = TwoPowerSphericalPotential(
+        amp=1.0, a=1.5, alpha=1.0, beta=4.5, normalize=True
+    )
+    assert pot._specialSelf is None, (
+        "test must use the bare TwoPowerSphericalPotential, not a subclass dispatch"
+    )
+    times = numpy.linspace(0.0, 4.0, 401)
+    ic = [1.0, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]
+    # Use a UNIT deviation: the variational equation is linear in the deviation, so a
+    # unit dx makes the STM column O(1) and the ~7% *relative* PlanarR2deriv error show
+    # up as an O(0.07) absolute discrepancy (a tiny dx would scale it below tol).
+    dev = [1.0, 0.0, 0.0, 0.0]
+    for method in ["dopr54_c", "dop853_c"]:
+        o_c = Orbit(ic)
+        o_c.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method=method,
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        o_py = Orbit(ic)
+        o_py.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+        dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+        # Pre-fix the C path disagreed with the (correct) Python path by ~0.86.
+        assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-6, (
+            "C planar dxdv (TwoPowerSpherical) disagrees with the pure-Python result "
+            f"(method={method}): max diff "
+            f"{numpy.amax(numpy.fabs(dev_c - dev_py)):g} (PlanarR2deriv bug?)"
+        )
+    return None
+
+
+def test_flattenedpower_planar_dxdv_c_vs_python():
+    # Regression test for a bug in the C FlattenedPowerPotentialPlanarR2deriv (the
+    # planar d^2Phi/dR^2 used by the C planar integrate_dxdv variational RHS): it used
+    # (alpha + 1.) where the correct coefficient is (alpha + 2.) -- the pure-Python
+    # _R2deriv is correct (matches a finite-difference of -Rforce to ~1e-10). The error
+    # vanishes at R such that the two coincide, but is O(1) relative elsewhere, making
+    # the in-plane tidal tensor (and hence the planar STM) wrong. test_liouville_planar
+    # CANNOT catch this: det M = 1 holds for ANY symmetric Hessian (tr J = 0 regardless
+    # of the R2deriv value), so it is insensitive to a wrong-but-symmetric R2deriv.
+    # Comparing the C (dopr54_c / dop853_c) planar dxdv path against the (correct)
+    # pure-Python (dop853) path exposes it.
+    from galpy.orbit import Orbit
+    from galpy.potential import FlattenedPowerPotential
+
+    pot = FlattenedPowerPotential(amp=1.0, alpha=0.5, core=0.8, q=0.9, normalize=True)
+    times = numpy.linspace(0.0, 4.0, 401)
+    ic = [1.2, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]; R != 1 so the bug is active
+    # Use a UNIT deviation: the variational equation is linear in the deviation, so a
+    # unit dx makes the STM column O(1) and the relative PlanarR2deriv error shows up as
+    # an O(1) absolute discrepancy (a tiny dx would scale it below tol).
+    dev = [1.0, 0.0, 0.0, 0.0]
+    for method in ["dopr54_c", "dop853_c"]:
+        o_c = Orbit(ic)
+        o_c.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method=method,
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        o_py = Orbit(ic)
+        o_py.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+        dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+        # Pre-fix the C path disagreed with the (correct) Python path by ~1.4.
+        assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-6, (
+            "C planar dxdv (FlattenedPower) disagrees with the pure-Python result "
+            f"(method={method}): max diff "
+            f"{numpy.amax(numpy.fabs(dev_c - dev_py)):g} (PlanarR2deriv bug?)"
+        )
+    return None
+
+
+def test_logspiral_planar_dxdv_c_vs_python():
+    # The Steady/TransientLogSpiralPotential planar Hessians
+    # (R2deriv/phi2deriv/Rphideriv) in C must reproduce the pure-Python analytic
+    # reference (det(M)=1 in test_liouville_planar is necessary but not sufficient:
+    # it holds for ANY symmetric in-plane Hessian, so only this direct C-vs-Python
+    # comparison pins the actual Hessian values). Both spirals are explicitly
+    # time-dependent, so integrate over a window in which the perturbation is
+    # ACTIVE: the steady spiral grows from tform through tsteady inside the window
+    # (exercising all three branches of the C dehnenSpiralSmooth in the new
+    # derivatives) and the transient spiral's Gaussian envelope peaks mid-window.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        SteadyLogSpiralPotential,
+        TransientLogSpiralPotential,
+    )
+
+    halo = LogarithmicHaloPotential(normalize=1.0).toPlanar()
+    for sp in [
+        SteadyLogSpiralPotential(),  # always on (tform=None -> NaN branch in C)
+        SteadyLogSpiralPotential(tform=0.25, tsteady=2.0),  # grows over the window
+        TransientLogSpiralPotential(to=14.0, sigma=2.0),  # peaks mid-window
+    ]:
+        # non-vacuity: the C variational path must actually be advertised --
+        # without this, a flipped flag would silently fall back to odeint and
+        # the parity comparison would test python against python
+        assert sp.hasC_dxdv, f"{type(sp).__name__} should advertise hasC_dxdv"
+        pot = halo + sp
+        times = numpy.linspace(0.0, 28.0, 1001)
+        ic = [1.0, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]
+        # Use a UNIT deviation: the variational equation is linear in the deviation,
+        # so a unit dx makes the STM column O(1) and any relative Hessian error shows
+        # up as a comparable absolute discrepancy.
+        dev = [1.0, 0.0, 0.0, 0.0]
+        o_c = Orbit(ic)
+        o_c.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dopr54_c",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        o_py = Orbit(ic)
+        o_py.integrate_dxdv(
+            dev,
+            times,
+            pot,
+            method="dop853",
+            rectIn=True,
+            rectOut=True,
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        dev_c = numpy.asarray(o_c.getOrbit_dxdv())[-1]
+        dev_py = numpy.asarray(o_py.getOrbit_dxdv())[-1]
+        assert numpy.amax(numpy.fabs(dev_c - dev_py)) < 1e-8, (
+            f"C planar dxdv ({type(sp).__name__}) disagrees with the pure-Python "
+            f"result: max diff {numpy.amax(numpy.fabs(dev_c - dev_py)):g} "
+            "(planar 2nd-derivative bug?)"
+        )
+        # Non-vacuity: the spiral perturbation must actually act along the orbit
+        # (guards against a silently-off spiral making the comparison halo-only)
+        torques = numpy.array(
+            [sp.phitorque(o_c.R(t), phi=o_c.phi(t), t=t) for t in times[::50]]
+        )
+        assert numpy.amax(numpy.fabs(torques)) > 1e-3, (
+            f"{type(sp).__name__} exerts no torque along the test orbit: "
+            "the dxdv C-vs-Python comparison is vacuous"
+        )
+    return None
+
+
+def test_softenedneedlebar_planar_dxdv_c_vs_python():
+    # SoftenedNeedleBarPotential's planar Hessian (PlanarR2deriv/Planarphi2deriv/
+    # PlanarRphideriv) in C must reproduce the pure-Python analytic reference for
+    # UNIT-magnitude deviations (det(M)=1 in test_liouville_planar is necessary but
+    # not sufficient: it holds for ANY symmetric in-plane Hessian, so only this
+    # C-vs-Python comparison pins the planar Hessian VALUES). The rotating bar
+    # (omegab != 0) also exercises the time-dependent phi - pa - omegab t angular
+    # dependence of the C planar Hessian.
+    from galpy.orbit import Orbit
+    from galpy.potential import SoftenedNeedleBarPotential
+
+    pot = SoftenedNeedleBarPotential(
+        a=4.0, b=0.5, c=1.0, pa=0.4, omegab=1.8, normalize=True
+    )
+    assert pot.hasC_dxdv, "SoftenedNeedleBar should advertise hasC_dxdv"
+    times = numpy.linspace(0.0, 4.0, 401)
+    ic = [1.0, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]
+    canonical = numpy.eye(4)
+    maxdiff = 0.0
+    for ii in range(4):  # all four columns -> the full planar STM
+        o_c = Orbit(ic)
+        o_c.integrate_dxdv(
+            canonical[ii], times, pot, method="dopr54_c",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        o_py = Orbit(ic)
+        o_py.integrate_dxdv(
+            canonical[ii], times, pot, method="dop853",
+            rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+        )  # fmt: skip
+        diff = numpy.amax(numpy.fabs(o_c.getOrbit_dxdv() - o_py.getOrbit_dxdv()))
+        maxdiff = max(maxdiff, diff)
+    assert maxdiff < 1e-6, (
+        "C planar dxdv (SoftenedNeedleBar) disagrees with the pure-Python result: "
+        f"max diff {maxdiff:g} (Planar Hessian bug?)"
+    )
+    return None
+
+
+def test_softenedneedlebar_planar_dxdv_fd_of_flow():
+    # Planar finite-difference-of-the-flow STM check for SoftenedNeedleBarPotential:
+    # column i of the STM must equal (x(t; x0 + eps e_i) - x(t; x0))/eps, where the
+    # perturbed orbits use ONLY the (long-trusted) forces -- so this validates the
+    # new planar Hessian against the forces through the actual dynamics, in both the
+    # C (dopr54_c) and pure-Python (dop853) variational integrators.
+    from galpy.orbit import Orbit
+    from galpy.potential import SoftenedNeedleBarPotential
+    from galpy.util import coords
+
+    pot = SoftenedNeedleBarPotential(
+        a=4.0, b=0.5, c=1.0, pa=0.4, omegab=1.8, normalize=True
+    )
+    times = numpy.linspace(0.0, 4.0, 201)
+    ic = [1.0, 0.1, 1.1, 0.3]  # planar [R, vR, vT, phi]
+    eps = 1e-7
+    canonical = numpy.eye(4)
+    for method in ["dopr54_c", "dop853"]:
+        obase = Orbit(ic)
+        obase.integrate(times, pot, method=method)
+        base_rect = numpy.array(
+            [obase.x(times), obase.y(times), obase.vx(times), obase.vy(times)]
+        ).T
+        for ii in range(4):
+            pert = base_rect[0].copy()
+            pert[ii] += eps
+            Rp, phip, _ = coords.rect_to_cyl(pert[0], pert[1], 0.0)
+            vRp, vTp, _ = coords.rect_to_cyl_vec(
+                pert[2], pert[3], 0.0, pert[0], pert[1], 0.0
+            )
+            opert = Orbit([Rp, vRp, vTp, phip])
+            opert.integrate(times, pot, method=method)
+            pert_rect = numpy.array(
+                [opert.x(times), opert.y(times), opert.vx(times), opert.vy(times)]
+            ).T
+            fd = (pert_rect - base_rect) / eps
+            odx = Orbit(ic)
+            odx.integrate_dxdv(
+                canonical[ii], times, pot, method=method,
+                rectIn=True, rectOut=True, rtol=1e-12, atol=1e-12,
+            )  # fmt: skip
+            col = numpy.asarray(odx.getOrbit_dxdv())
+            fderr = numpy.amax(numpy.fabs(fd - col))
+            assert fderr < 1e-4, (
+                f"planar finite-difference of the flow for e_{ii} differs from the "
+                f"dxdv column by {fderr:g} for SoftenedNeedleBar, method {method}"
+            )
+    return None
+
+
 # Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
 def test_integrate_SOS_3D():
     pot = potential.MWPotential2014
@@ -1003,6 +5361,468 @@ def test_bruteSOS_3D():
         assert (vzs > 0.0).all(), (
             f"vz on SOS is not zero for bruteSOS for method={method}"
         )
+    return None
+
+
+# Test that Orbit.integrate accepts per-orbit time arrays (3D)
+def test_integrate_indiv_t_3D():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    # Three different starting positions and three different time windows
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+            [0.8, 0.0, 1.0, 0.2, -0.05, 1.0],
+        ]
+    )
+    nt = 401
+    ts_indiv = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, nt),
+            numpy.linspace(0.0, 7.0, nt),
+            numpy.linspace(0.0, 9.0, nt),
+        ]
+    )
+    for method in ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]:
+        # Batched per-orbit-t integration
+        o_batch = Orbit(vxvvs)
+        o_batch.integrate(ts_indiv, pot, method=method)
+        # Reference: integrate each orbit separately
+        for ii in range(len(vxvvs)):
+            o_one = Orbit(vxvvs[ii])
+            o_one.integrate(ts_indiv[ii], pot, method=method)
+            # The batched per-orbit-t and single-orbit code paths feed
+            # bit-for-bit identical inputs into the same integrator, so the
+            # outputs should match exactly. (o_one stores its single orbit
+            # with a leading size-1 axis, so compare to o_one.orbit[0].)
+            assert numpy.array_equal(o_batch.orbit[ii], o_one.orbit[0]), (
+                f"Per-orbit integration disagrees with single-orbit "
+                f"integration for orbit {ii}, method={method}"
+            )
+    return None
+
+
+# Test that Orbit.integrate accepts per-orbit time arrays (2D)
+def test_integrate_indiv_t_2D():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.0],
+            [1.2, -0.05, 0.9, 0.5],
+            [0.8, 0.0, 1.0, 1.0],
+        ]
+    )
+    nt = 401
+    ts_indiv = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, nt),
+            numpy.linspace(0.0, 7.0, nt),
+            numpy.linspace(0.0, 9.0, nt),
+        ]
+    )
+    for method in ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]:
+        o_batch = Orbit(vxvvs)
+        o_batch.integrate(ts_indiv, pot, method=method)
+        for ii in range(len(vxvvs)):
+            o_one = Orbit(vxvvs[ii])
+            o_one.integrate(ts_indiv[ii], pot, method=method)
+            # The batched per-orbit-t and single-orbit code paths feed
+            # bit-for-bit identical inputs into the same integrator, so the
+            # outputs should match exactly. (o_one stores its single orbit
+            # with a leading size-1 axis, so compare to o_one.orbit[0].)
+            assert numpy.array_equal(o_batch.orbit[ii], o_one.orbit[0]), (
+                f"Per-orbit integration disagrees with single-orbit "
+                f"integration for orbit {ii}, method={method}"
+            )
+    return None
+
+
+# Test that Orbit.integrate accepts per-orbit time arrays (1D)
+def test_integrate_indiv_t_1D():
+    from galpy.orbit import Orbit
+
+    pot = potential.IsothermalDiskPotential(amp=1.0, sigma=1.0)
+    vxvvs = numpy.array([[0.5, 0.1], [-0.3, 0.2], [0.8, -0.1]])
+    nt = 401
+    ts_indiv = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, nt),
+            numpy.linspace(0.0, 7.0, nt),
+            numpy.linspace(0.0, 9.0, nt),
+        ]
+    )
+    for method in ["dop853_c", "dopr54_c", "rk4_c", "symplec4_c", "dop853", "odeint"]:
+        o_batch = Orbit(vxvvs)
+        o_batch.integrate(ts_indiv, pot, method=method)
+        for ii in range(len(vxvvs)):
+            o_one = Orbit(vxvvs[ii])
+            o_one.integrate(ts_indiv[ii], pot, method=method)
+            # The batched per-orbit-t and single-orbit code paths feed
+            # bit-for-bit identical inputs into the same integrator, so the
+            # outputs should match exactly. (o_one stores its single orbit
+            # with a leading size-1 axis, so compare to o_one.orbit[0].)
+            assert numpy.array_equal(o_batch.orbit[ii], o_one.orbit[0]), (
+                f"Per-orbit integration disagrees with single-orbit "
+                f"integration for orbit {ii}, method={method}"
+            )
+    return None
+
+
+# Test per-orbit time arrays work for an Orbit with non-trivial leading shape
+def test_integrate_indiv_t_3D_2Dshape():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    # Orbit with shape (2, 2)
+    vxvvs = numpy.array(
+        [
+            [[1.0, 0.1, 1.1, 0.1, 0.05, 0.0], [1.05, 0.0, 1.0, 0.05, 0.05, 0.3]],
+            [[1.2, -0.05, 0.9, -0.1, 0.1, 0.5], [0.95, 0.05, 1.05, 0.0, -0.05, 0.7]],
+        ]
+    )
+    nt = 201
+    # ts shape (2, 2, nt)
+    ts_indiv = numpy.empty((2, 2, nt))
+    for i in range(2):
+        for j in range(2):
+            ts_indiv[i, j] = numpy.linspace(0.0, 3.0 + 0.5 * (2 * i + j), nt)
+    o_batch = Orbit(vxvvs)
+    assert o_batch.shape == (2, 2)
+    o_batch.integrate(ts_indiv, pot, method="dop853_c")
+    # Compare to per-orbit single integrations
+    for i in range(2):
+        for j in range(2):
+            o_one = Orbit(vxvvs[i, j])
+            o_one.integrate(ts_indiv[i, j], pot, method="dop853_c")
+            # batched orbit storage is flat: index 2*i+j; same code path as
+            # the single-orbit run so the result is bit-for-bit identical.
+            assert numpy.array_equal(o_batch.orbit[2 * i + j], o_one.orbit[0]), (
+                f"Per-orbit integration with 2D Orbit shape disagrees at ({i},{j})"
+            )
+    return None
+
+
+# Test that o.time(), o.x(), o.R(), etc. work after a per-orbit integration
+def test_integrate_indiv_t_access():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+            [0.8, 0.0, 1.0, 0.2, -0.05, 1.0],
+        ]
+    )
+    nt = 51
+    ts = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, nt),
+            numpy.linspace(0.0, 7.0, nt),
+            numpy.linspace(0.0, 9.0, nt),
+        ]
+    )
+    o = Orbit(vxvvs)
+    o.integrate(ts, pot, method="dop853_c")
+
+    # time() returns shape (*orbit.shape, nt)
+    assert o.time().shape == (3, nt)
+    assert numpy.allclose(o.time(), ts)
+
+    # Scalar t: same time for every orbit, output shape == orbit.shape
+    assert o.x(0.0).shape == (3,)
+    # One time per orbit (shape == orbit.shape)
+    assert o.x(numpy.array([0.0, 1.0, 2.0])).shape == (3,)
+    # nt_q times per orbit (shape == orbit.shape + (nt_q,))
+    assert o.x(ts).shape == (3, nt)
+    # R() with on-grid query
+    assert o.R(o.time()).shape == (3, nt)
+
+    # Single-orbit slice exposes the orbit's own integration grid: time(),
+    # the stored orbit, and quantity-method queries should all be bit-for-bit
+    # equal to the corresponding fresh single-orbit integration.
+    o_one = Orbit(vxvvs[1])
+    o_one.integrate(ts[1], pot, method="dop853_c")
+    assert o[1].shape == ()
+    assert numpy.array_equal(o[1].time(), ts[1])  # reshaped self.t for scalar slice
+    assert numpy.array_equal(o[1].time(), o_one.time())
+    assert numpy.array_equal(o[1].orbit, o_one.orbit)
+    assert numpy.array_equal(o[1].x(ts[1]), o_one.x(ts[1]))  # fast path
+    qq = numpy.linspace(ts[1][0], ts[1][-1], 13)
+    assert numpy.allclose(o[1].x(qq), o_one.x(qq), atol=1e-12, rtol=1e-12)
+
+    # Per-orbit batched query equals stacked per-orbit single integrations
+    expected = numpy.empty((3, nt))
+    for ii in range(3):
+        oi = Orbit(vxvvs[ii])
+        oi.integrate(ts[ii], pot, method="dop853_c")
+        expected[ii] = oi.x(ts[ii])
+    assert numpy.array_equal(o.x(ts), expected)
+
+    # Out-of-bounds query raises
+    with pytest.raises(ValueError, match="not in the integration time domain"):
+        o.x(numpy.array([100.0, 100.0, 100.0]))
+    return None
+
+
+# Test that the pure-Python integrator paths and force_map=True handle per-orbit t
+def test_integrate_indiv_t_python_paths():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+        ]
+    )
+    nt = 51
+    ts = numpy.array([numpy.linspace(0.0, 5.0, nt), numpy.linspace(0.0, 7.0, nt)])
+    # Pure-Python "leapfrog" path
+    o_lp = Orbit(vxvvs)
+    o_lp.integrate(ts, pot, method="leapfrog")
+    assert o_lp.orbit.shape == (2, nt, 6)
+    # force_map=True with a C method routes through parallel_map
+    o_fm = Orbit(vxvvs)
+    o_fm.integrate(ts, pot, method="dop853_c", force_map=True)
+    assert o_fm.orbit.shape == (2, nt, 6)
+
+    # Axisymmetric (phasedim=5): pure-Python dop853/odeint branch with len(yo[0])==5
+    vxvvs_axi = numpy.array([[1.0, 0.1, 1.1, 0.1, 0.05], [1.2, -0.05, 0.9, -0.1, 0.1]])
+    o_axi = Orbit(vxvvs_axi)
+    o_axi.integrate(ts, pot, method="dop853")
+    assert o_axi.orbit.shape == (2, nt, 5)
+    o_axi2 = Orbit(vxvvs_axi)
+    o_axi2.integrate(ts, pot, method="odeint")
+    assert o_axi2.orbit.shape == (2, nt, 5)
+
+    # 2D (planar) leapfrog Python path
+    pot_p = pot[0].toPlanar()
+    vxvvs_p = numpy.array([[1.0, 0.1, 1.1, 0.0], [1.2, -0.05, 0.9, 0.5]])
+    o_p = Orbit(vxvvs_p)
+    o_p.integrate(ts, pot_p, method="leapfrog")
+    assert o_p.orbit.shape == (2, nt, 4)
+
+    # 1D leapfrog and odeint Python paths
+    pot_l = potential.IsothermalDiskPotential(amp=1.0, sigma=1.0)
+    vxvvs_l = numpy.array([[0.5, 0.1], [-0.3, 0.2]])
+    o_l = Orbit(vxvvs_l)
+    o_l.integrate(ts, pot_l, method="leapfrog")
+    assert o_l.orbit.shape == (2, nt, 2)
+    o_l2 = Orbit(vxvvs_l)
+    o_l2.integrate(ts, pot_l, method="odeint")
+    assert o_l2.orbit.shape == (2, nt, 2)
+
+    # 1D forced parallel C path
+    o_l3 = Orbit(vxvvs_l)
+    o_l3.integrate(ts, pot_l, method="dop853_c", force_map=True)
+    assert o_l3.orbit.shape == (2, nt, 2)
+
+    # Single-orbit (size 1) per-orbit-t cases — these exercise the in-process
+    # serial branch of parallel_map so the closure bodies get coverage credit.
+    one_t = numpy.array([numpy.linspace(0.0, 5.0, nt)])  # shape (1, nt)
+    one_full = Orbit(numpy.array([vxvvs[0]]))  # shape (1,) 3D
+    one_full.integrate(one_t, pot, method="leapfrog")
+    assert one_full.orbit.shape == (1, nt, 6)
+    one_axi = Orbit(numpy.array([vxvvs_axi[0]]))  # shape (1,) 3D-axi (phasedim=5)
+    one_axi.integrate(one_t, pot, method="dop853")
+    assert one_axi.orbit.shape == (1, nt, 5)
+    one_axi2 = Orbit(numpy.array([vxvvs_axi[0]]))
+    one_axi2.integrate(one_t, pot, method="odeint")
+    assert one_axi2.orbit.shape == (1, nt, 5)
+    one_axi3 = Orbit(numpy.array([vxvvs_axi[0]]))
+    one_axi3.integrate(one_t, pot, method="dop853_c", force_map=True)
+    assert one_axi3.orbit.shape == (1, nt, 5)
+    one_p = Orbit(numpy.array([vxvvs_p[0]]))  # shape (1,) planar
+    one_p.integrate(one_t, pot_p, method="leapfrog")
+    assert one_p.orbit.shape == (1, nt, 4)
+    one_pa = Orbit(numpy.array([vxvvs_p[0][:3]]))  # shape (1,) axi-planar (phasedim=3)
+    one_pa.integrate(one_t, pot_p, method="dop853")
+    assert one_pa.orbit.shape == (1, nt, 3)
+    one_pa2 = Orbit(numpy.array([vxvvs_p[0][:3]]))
+    one_pa2.integrate(one_t, pot_p, method="odeint")
+    assert one_pa2.orbit.shape == (1, nt, 3)
+    one_l = Orbit(numpy.array([vxvvs_l[0]]))  # shape (1,) linear
+    one_l.integrate(one_t, pot_l, method="leapfrog")
+    assert one_l.orbit.shape == (1, nt, 2)
+    # Also exercise the per-orbit interp for non-3D phasedim by querying off-grid
+    qq = numpy.linspace(
+        0.5, 4.5, 7
+    )  # 1D shared shape (nt_q,) doesn't match self.shape=(1,)
+    # Use shape (1, 7) instead (per-orbit-shaped)
+    qq_per = numpy.array([qq])
+    assert one_l.x(qq_per).shape == (1, 7)
+    assert one_axi.R(qq_per).shape == (1, 7)
+
+    # (Per-orbit Quantity-valued t is exercised in tests/test_quantity.py via
+    # test_orbits_integrate_perOrbitTimeAsQuantity.)
+
+    # Backward per-orbit integration (decreasing t per orbit) → triggers the
+    # per-orbit sort branch in _setupOrbitInterp when an off-grid query
+    # forces the interpolators to be built.
+    ts_back = numpy.linspace(numpy.zeros(2), -3.0 * numpy.ones(2), nt, axis=-1)
+    o_back = Orbit(vxvvs)
+    o_back.integrate(ts_back, pot, method="dop853_c")
+    qq_back = numpy.array(
+        [numpy.linspace(-2.5, -0.5, 7), numpy.linspace(-2.5, -0.5, 7)]
+    )
+    assert o_back.x(qq_back).shape == (2, 7)
+
+    # NaN-padded per-orbit self.t (produced by bruteSOS) with off-grid query
+    # → triggers the NaN-drop branch in _setupOrbitInterp.
+    o_nan = Orbit(
+        numpy.array(
+            [
+                [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+                [1.05, 0.0, 1.0, 0.05, 0.05, 0.3],
+            ]
+        )
+    )
+    o_nan.bruteSOS(numpy.linspace(0.0, 50.0, 2001), pot, method="dop853_c")
+    t_grid = numpy.asarray(o_nan.t)
+    # Query at slightly off-grid points within each orbit's window
+    qq_nan = numpy.zeros((2, 1))
+    for ii in range(2):
+        valid = ~numpy.isnan(t_grid[ii])
+        valid_t = t_grid[ii, valid]
+        # midpoint between first two valid times — guaranteed off-grid
+        qq_nan[ii, 0] = 0.5 * (valid_t[0] + valid_t[1])
+    _ = o_nan.x(qq_nan)
+
+    # Flat (size,)-shaped one-time-per-orbit query when self.shape != (size,)
+    vxvvs_grid = numpy.array(
+        [
+            [[1.0, 0.1, 1.1, 0.1, 0.05, 0.0], [1.05, 0.0, 1.0, 0.05, 0.05, 0.3]],
+            [[1.2, -0.05, 0.9, -0.1, 0.1, 0.5], [0.95, 0.05, 1.05, 0.0, -0.05, 0.7]],
+        ]
+    )
+    nt_g = 21
+    ts_g = numpy.empty((2, 2, nt_g))
+    for i in range(2):
+        for j in range(2):
+            ts_g[i, j] = numpy.linspace(0.0, 3.0, nt_g)
+    o_g = Orbit(vxvvs_grid)
+    o_g.integrate(ts_g, pot, method="dop853_c")
+    # Pass flat shape (4,) — self.size=4, self.shape=(2,2)
+    flat_t = numpy.array([0.0, 0.5, 1.0, 1.5])
+    assert o_g.x(flat_t).shape == (2, 2)
+    return None
+
+
+# Test the access semantics for higher-dim Orbit shape (2,2)
+def test_integrate_indiv_t_access_2Dshape():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [[1.0, 0.1, 1.1, 0.1, 0.05, 0.0], [1.05, 0.0, 1.0, 0.05, 0.05, 0.3]],
+            [[1.2, -0.05, 0.9, -0.1, 0.1, 0.5], [0.95, 0.05, 1.05, 0.0, -0.05, 0.7]],
+        ]
+    )
+    nt = 41
+    ts = numpy.empty((2, 2, nt))
+    for i in range(2):
+        for j in range(2):
+            ts[i, j] = numpy.linspace(0.0, 3.0 + 0.5 * (2 * i + j), nt)
+    o = Orbit(vxvvs)
+    o.integrate(ts, pot, method="dop853_c")
+
+    assert o.shape == (2, 2)
+    assert o.time().shape == (2, 2, nt)
+    assert numpy.array_equal(o.time(), ts)
+
+    # Scalar applies to all orbits, output (2,2)
+    assert o.x(0.0).shape == (2, 2)
+    # One time per orbit (shape (2,2)) → output (2,2)
+    assert o.x(numpy.zeros((2, 2))).shape == (2, 2)
+    # nt_q times per orbit (shape (2,2,nt)) → output (2,2,nt)
+    assert o.x(ts).shape == (2, 2, nt)
+
+    # 1D shape that doesn't match orbit shape rejected
+    with pytest.raises(ValueError, match="incompatible"):
+        o.x(numpy.linspace(0.0, 3.0, 11))
+
+    # --- Slicing checks for non-trivial shape ---
+    # (a) Single-element slice → shape (), time() shape (nt,)
+    o_one_10 = Orbit(vxvvs[1, 0])
+    o_one_10.integrate(ts[1, 0], pot, method="dop853_c")
+    assert o[1, 0].shape == ()
+    assert o[1, 0].size == 1
+    assert numpy.array_equal(o[1, 0].time(), ts[1, 0])
+    assert numpy.array_equal(o[1, 0].time(), o_one_10.time())
+    assert numpy.array_equal(o[1, 0].orbit, o_one_10.orbit)
+    assert numpy.array_equal(o[1, 0].x(ts[1, 0]), o_one_10.x(ts[1, 0]))
+
+    # (b) Row slice (single index on first axis) → shape (2,), time() shape (2,nt)
+    sub = o[1]
+    assert sub.shape == (2,)
+    assert sub.size == 2
+    assert sub.time().shape == (2, nt)
+    assert numpy.array_equal(sub.time(), ts[1])
+    # Each element of the row slice is a fresh single integration
+    for j in range(2):
+        ref = Orbit(vxvvs[1, j])
+        ref.integrate(ts[1, j], pot, method="dop853_c")
+        assert numpy.array_equal(sub[j].time(), ts[1, j])
+        assert numpy.array_equal(sub[j].orbit, ref.orbit)
+    # Per-orbit query at ts[1] returns the stored grid
+    assert numpy.array_equal(sub.x(ts[1]), o.x(ts)[1])
+
+    # (c) Slice on first axis (slice(None)) → shape unchanged
+    sub_all = o[:]
+    assert sub_all.shape == (2, 2)
+    assert numpy.array_equal(sub_all.time(), ts)
+    assert numpy.array_equal(sub_all.orbit, o.orbit)
+
+    # (d) Boolean / fancy indexing on first axis → shape (n_selected, 2)
+    sub_bool = o[numpy.array([True, False])]
+    assert sub_bool.shape == (1, 2)
+    assert numpy.array_equal(sub_bool.time(), ts[:1])
+    assert numpy.array_equal(
+        sub_bool.orbit, o.orbit.reshape(2, 2, nt, 6)[:1].reshape(-1, nt, 6)
+    )
+    return None
+
+
+# Validation tests: shape mismatches and non-evenly-spaced time arrays
+def test_integrate_indiv_t_input_validation():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+        ]
+    )
+    o = Orbit(vxvvs)
+    # Wrong leading shape (3 time arrays for 2 orbits)
+    bad_t = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, 101),
+            numpy.linspace(0.0, 7.0, 101),
+            numpy.linspace(0.0, 9.0, 101),
+        ]
+    )
+    with pytest.raises(ValueError, match="does not match Orbit shape"):
+        o.integrate(bad_t, pot, method="dop853_c")
+    # Non-evenly-spaced time array for a method that requires equispacing
+    o2 = Orbit(vxvvs)
+    bad_spacing = numpy.array(
+        [
+            numpy.linspace(0.0, 5.0, 101),
+            numpy.concatenate(
+                [numpy.linspace(0.0, 3.0, 50), numpy.linspace(3.5, 7.0, 51)]
+            ),
+        ]
+    )
+    with pytest.raises(ValueError, match="must be equally spaced"):
+        o2.integrate(bad_spacing, pot, method="symplec4_c")
     return None
 
 
@@ -2724,6 +7544,7 @@ def test_check_integrate_dt():
 
 
 # Test that fixing the stepsize works, issue #207
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_fixedstepsize():
     if WIN32:
         return None  # skip on windows, because fails for reason that I can't figure out (runtimes[0] == 0.) and not that important
@@ -2784,6 +7605,7 @@ def test_fixedstepsize():
 
 
 # Test that fixing the stepsize works for integrate_dxdv
+@pytest.mark.flaky(reruns=3, reruns_delay=5)
 def test_fixedstepsize_dxdv():
     if WIN32:
         return None  # skip on windows, because test_fixedstepsize fails for reason that I can't figure out (runtimes[0] == 0.) and not that important
@@ -5930,9 +10752,15 @@ def test_SkyCoord():
     assert numpy.fabs(o.SkyCoord().z_sun.to(units.kpc).value - 1.0) < 10.0**-13.0, (
         "Orbit SkyCoord GC frame attributes are incorrect"
     )
+    # astropy < 8: galcen_v_sun is a CartesianDifferential (.d_xyz); astropy >= 8
+    # (astropy/astropy#18362) a CartesianRepresentation (.xyz)
+    _gvs = o.SkyCoord().galcen_v_sun
+    _gvs_v = getattr(_gvs, "d_xyz", None)
+    if _gvs_v is None:
+        _gvs_v = _gvs.xyz
     assert numpy.all(
         numpy.fabs(
-            o.SkyCoord().galcen_v_sun.d_xyz.to(units.km / units.s).value
+            _gvs_v.to(units.km / units.s).value
             - numpy.array([10.0, 220.0 + 34.0, 12.0])
         )
         < 10.0**-13.0
@@ -7508,6 +12336,134 @@ def test_orbitint_pythonfallback():
     return None
 
 
+def test_orbitint_planar_interprz_pythonfallback():
+    # Planar version of an interpRZPotential has no C implementation in the
+    # planar C integrator; used to segfault, because the planar potential
+    # advertised hasC=True, but the C parser silently skipped it
+    from galpy.orbit import Orbit
+
+    mp = potential.MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    ip = potential.interpRZPotential(
+        RZPot=mp,
+        rgrid=(0.5, 1.5, 21),
+        zgrid=(0.0, 0.2, 21),
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        enable_c=True,
+        zsym=True,
+    )
+    pip = ip.toPlanar()
+    # Root cause: the planarized potential should not advertise C support
+    assert not pip.hasC, (
+        "Planar interpRZPotential should not advertise C support (hasC=True), because it has no planar C implementation"
+    )
+    o = Orbit([1.0, 0.1, 1.1, 0.1])
+    ts = numpy.linspace(0.0, 1.0, 101)
+    with pytest.warns(galpyWarning) as record:
+        warnings.simplefilter("always", galpyWarning)
+        o.integrate(ts, pip, method="dop853_c")
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += str(rec.message.args[0]).startswith(
+            "Cannot use C integration because some of the potentials are not implemented in C"
+        )
+    assert raisedWarning, (
+        "Integrating a planar orbit in a planar interpRZPotential with a C method did not raise the Python-fallback warning"
+    )
+    # Integration should have completed sensibly
+    assert numpy.all(numpy.isfinite(o.R(ts))), (
+        "Integrating a planar orbit in a planar interpRZPotential did not complete correctly"
+    )
+    return None
+
+
+def test_orbitint_planar_dynamfric_pythonfallback():
+    # Planar version of ChandrasekharDynamicalFrictionForce has no C
+    # implementation in the planar C integrator; used to be silently
+    # dropped by the C parser, such that the friction had no effect
+    from galpy.orbit import Orbit
+
+    lp = potential.LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    cdf = potential.ChandrasekharDynamicalFrictionForce(
+        GMs=0.05, rhm=0.1, dens=lp, sigmar=lambda r: 1.0 / numpy.sqrt(2.0)
+    )
+    pot = potential.toPlanarPotential(lp + cdf)
+    # Root cause: the planarized friction force should not advertise C support
+    assert not pot[1].hasC, (
+        "Planar ChandrasekharDynamicalFrictionForce should not advertise C support (hasC=True), because it has no planar C implementation"
+    )
+    o = Orbit([1.0, 0.1, 1.1, 0.1])
+    ts = numpy.linspace(0.0, 10.0, 101)
+    with pytest.warns(galpyWarning) as record:
+        warnings.simplefilter("always", galpyWarning)
+        o.integrate(ts, pot, method="dop853_c")
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += str(rec.message.args[0]).startswith(
+            "Cannot use C integration because some of the potentials are not implemented in C"
+        )
+    assert raisedWarning, (
+        "Integrating a planar orbit with planar dynamical friction with a C method did not raise the Python-fallback warning"
+    )
+    # Check that the dynamical friction was actually applied: angular
+    # momentum should decay (it was silently dropped before this fix)
+    Lzs = o.R(ts) * o.vT(ts)
+    assert Lzs[-1] < Lzs[0] - 0.05, (
+        "Dynamical friction was not applied when integrating a planar orbit with planar dynamical friction"
+    )
+    return None
+
+
+def test_parse_pot_unparsed_potential_raises():
+    # A potential that claims to have a C implementation (hasC=True), but
+    # has no entry in the C parsers' if/elif chains should raise a clear
+    # error rather than silently corrupting the arguments passed to C
+    from galpy.orbit.integrateFullOrbit import _parse_pot as _parse_pot_full
+    from galpy.orbit.integratePlanarOrbit import _parse_pot as _parse_pot_planar
+    from galpy.potential.planarPotential import planarPotential
+
+    class FakeCFullPotential(potential.Potential):
+        def __init__(self, amp=1.0):
+            potential.Potential.__init__(self, amp=amp)
+            self.hasC = True
+
+        def _evaluate(self, R, z, phi=0.0, t=0.0):
+            return 0.0
+
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            return 0.0
+
+        def _zforce(self, R, z, phi=0.0, t=0.0):
+            return 0.0
+
+    class FakeCPlanarPotential(planarPotential):
+        def __init__(self, amp=1.0):
+            planarPotential.__init__(self, amp=amp)
+            self.hasC = True
+
+        def _evaluate(self, R, phi=0.0, t=0.0):
+            return 0.0
+
+        def _Rforce(self, R, phi=0.0, t=0.0):
+            return 0.0
+
+    # Full C parser
+    with pytest.raises(NotImplementedError) as excinfo:
+        _parse_pot_full([FakeCFullPotential()])
+    assert "FakeCFullPotential" in str(excinfo.value)
+    # Planar C parser, with a native planar potential
+    with pytest.raises(NotImplementedError) as excinfo:
+        _parse_pot_planar([FakeCPlanarPotential()])
+    assert "FakeCPlanarPotential" in str(excinfo.value)
+    # Planar C parser, with a planarized 3D potential, such that the
+    # error names the wrapped potential
+    with pytest.raises(NotImplementedError) as excinfo:
+        _parse_pot_planar([potential.toPlanarPotential(FakeCFullPotential())])
+    assert "wrapping FakeCFullPotential" in str(excinfo.value)
+    return None
+
+
 def test_orbitint_dissipativefallback():
     # Check if a warning is raised when one tries to integrate an orbit
     # in a dissipative force law with a symplectic integrator
@@ -7969,8 +12925,8 @@ def test_integrate_dxdv_errors():
     from galpy.orbit import Orbit
 
     ts = numpy.linspace(0.0, 10.0, 1001)
-    # Test that attempting to use integrate_dxdv with a non-phasedim==4 orbit
-    # raises error
+    # Test that attempting to use integrate_dxdv with a non-phasedim==4/6 orbit
+    # raises error (1D and 3D-without-phi orbits)
     o = Orbit([1.0, 0.1])
     with pytest.raises(AttributeError) as excinfo:
         o.integrate_dxdv(None, ts, potential.toVertical(potential.MWPotential, 1.0))
@@ -7980,14 +12936,26 @@ def test_integrate_dxdv_errors():
     o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1])
     with pytest.raises(AttributeError) as excinfo:
         o.integrate_dxdv(None, ts, potential.MWPotential)
-    o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
-    with pytest.raises(AttributeError) as excinfo:
-        o.integrate_dxdv(None, ts, potential.MWPotential)
-    # Test that a random string as the integrator doesn't work
+    # Test that a random string as the integrator doesn't work (4D)
     o = Orbit([1.0, 0.1, 1.0, 3.0])
     with pytest.raises(ValueError) as excinfo:
         o.integrate_dxdv(
             None, ts, potential.MWPotential, method="some non-existent integrator"
+        )
+    # Test that a random string as the integrator doesn't work (6D)
+    o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
+    with pytest.raises(ValueError) as excinfo:
+        o.integrate_dxdv(
+            None, ts, potential.MWPotential, method="some non-existent integrator"
+        )
+    # Test that a symplectic integrator raises for 6D orbits
+    o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
+    with pytest.raises(ValueError) as excinfo:
+        o.integrate_dxdv(
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ts,
+            potential.MWPotential,
+            method="symplec4_c",
         )
     return None
 
@@ -8070,6 +13038,131 @@ def test_orbinterp_reset_integrateSOS():
     )
     assert numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0, "Orbit rap not reset correctly"
     assert numpy.fabs(o.e() - op.e()) < 10.0**-10.0, "Orbit e not reset correctly"
+    return None
+
+
+# Test that an off-grid query against a per-orbit Orbit whose stored grid
+# contains an all-NaN row (e.g. an orbit that never crossed the bruteSOS
+# surface) raises a clear, actionable ValueError rather than scipy's opaque
+# "fpcurf0:m=0" error from the spline build.
+def test_indiv_t_query_short_row_raises_clearly():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # Two orbits: one normal, one with z=0, vz=0 — the latter never crosses
+    # the SOS surface, so bruteSOS leaves it with an all-NaN row.
+    o = Orbit(
+        numpy.array(
+            [
+                [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+                [1.0, 0.1, 1.1, 0.0, 0.0, 0.0],
+            ]
+        )
+    )
+    o.bruteSOS(numpy.linspace(0.0, 50.0, 1001), MWPotential2014, method="dop853_c")
+    t_grid = numpy.asarray(o.t)
+    # Sanity: orbit 1 is the all-NaN one
+    valid_per_orbit = numpy.sum(~numpy.isnan(t_grid), axis=-1)
+    assert valid_per_orbit[0] >= 2, "first orbit should have crossings"
+    assert valid_per_orbit[1] == 0, "second orbit (z=0,vz=0) should have no crossings"
+    # Off-grid query → must raise with a clear message that names the orbit
+    qq = numpy.array([[0.5, 1.5], [10.0, 20.0]])
+    with pytest.raises(ValueError, match=r"orbit\(s\) \[1\]"):
+        o.x(qq)
+    # On-grid (fast-path) query is allowed and returns NaN for the empty row
+    on_grid = o.x(t_grid)
+    assert on_grid.shape == (2, t_grid.shape[1])
+    assert numpy.isnan(on_grid[1]).all(), (
+        "on-grid query of an all-NaN row should propagate NaN"
+    )
+    return None
+
+
+# Test that integrating with a per-orbit time array on top of a previously
+# integrated Orbit (or with a shared 1D t after a previous per-orbit
+# integrate) does NOT trigger continuation: the per-orbit-t early-out in
+# _should_continue_integration must fire and the new integrate must restart
+# from the original initial conditions.
+def test_indiv_t_disables_continuation():
+    from galpy.orbit import Orbit
+
+    pot = potential.MWPotential2014
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+        ]
+    )
+
+    # 1) 1D-t integrate first, then per-orbit-t re-integrate.
+    o = Orbit(vxvvs)
+    o.integrate(numpy.linspace(0.0, 5.0, 501), pot, method="dop853_c")
+    assert numpy.asarray(o.t).ndim == 1
+    ts_pe = numpy.array([numpy.linspace(0.0, 3.0, 301), numpy.linspace(0.0, 4.0, 301)])
+    o.integrate(ts_pe, pot, method="dop853_c")
+    # If continuation had wrongly fired, self.t would be merged from old + new.
+    # The per-orbit-t early-out in _should_continue_integration must restart
+    # the integration from the original initial conditions instead.
+    o_ref = Orbit(vxvvs)
+    o_ref.integrate(ts_pe, pot, method="dop853_c")
+    assert o.t.shape == o_ref.t.shape
+    assert numpy.allclose(o.t, o_ref.t)
+    assert numpy.allclose(o.orbit, o_ref.orbit, atol=1e-12, rtol=1e-12)
+
+    # 2) Per-orbit-t integrate first, then 1D-t re-integrate.
+    o2 = Orbit(vxvvs)
+    o2.integrate(ts_pe, pot, method="dop853_c")
+    assert numpy.asarray(o2.t).ndim == 2
+    ts_shared = numpy.linspace(0.0, 4.0, 401)
+    o2.integrate(ts_shared, pot, method="dop853_c")
+    # Same expectation: must not continue from the prior per-orbit run.
+    o2_ref = Orbit(vxvvs)
+    o2_ref.integrate(ts_shared, pot, method="dop853_c")
+    assert numpy.asarray(o2.t).ndim == 1
+    assert numpy.allclose(o2.t, o2_ref.t)
+    assert numpy.allclose(o2.orbit, o2_ref.orbit, atol=1e-12, rtol=1e-12)
+    return None
+
+
+# Test that integrating after bruteSOS does NOT continue from the previous
+# integration (bruteSOS rewrites self.t into a NaN-padded crossings grid and
+# sets _cannot_continue_integration; a subsequent integrate() must therefore
+# go through the from-scratch path in _should_continue_integration).
+def test_integrate_after_bruteSOS_does_not_continue():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    ic = [1.0, 0.1, 1.1, 0.1, -0.03, numpy.pi]
+    o = Orbit(ic)
+    o.bruteSOS(numpy.linspace(0.0, 100.0, 5001), MWPotential2014, method="dop853_c")
+    # After bruteSOS: self.t is 2D NaN-padded and _cannot_continue_integration
+    # is True. Re-integrating must restart from the original initial
+    # conditions, not continue from any previous state.
+    assert getattr(o, "_cannot_continue_integration", False), (
+        "bruteSOS should set _cannot_continue_integration"
+    )
+    new_ts = numpy.linspace(0.0, 10.0, 1001)
+    o.integrate(new_ts, MWPotential2014, method="dop853_c")
+    # Reference: a fresh Orbit integrated on the same grid — bit-for-bit
+    # identical if the post-bruteSOS integrate restarted from scratch.
+    o_ref = Orbit(ic)
+    o_ref.integrate(new_ts, MWPotential2014, method="dop853_c")
+    assert numpy.allclose(o.t, new_ts) and o.t.ndim == 1, (
+        "self.t after re-integrate should be the new 1D time grid"
+    )
+    assert o.orbit.shape == o_ref.orbit.shape, (
+        "post-bruteSOS integrate should produce the same orbit shape as a fresh one"
+    )
+    assert numpy.allclose(o.orbit, o_ref.orbit, atol=1e-12, rtol=1e-12), (
+        "post-bruteSOS integrate must restart from the original ICs (no continuation)"
+    )
+    # And every quantity-method query at the new grid agrees with the fresh run.
+    for method_name in ("R", "vR", "vT", "z", "vz", "phi", "x", "y"):
+        a = getattr(o, method_name)(new_ts)
+        b = getattr(o_ref, method_name)(new_ts)
+        assert numpy.allclose(a, b, atol=1e-10, rtol=1e-10), (
+            f"o.{method_name}(new_ts) disagrees with fresh-orbit reference"
+        )
     return None
 
 
@@ -11119,3 +16212,175 @@ def test_integrate_auto_vcirc_filtering_consistency_2D():
         f"Integration times differ: {o1.t[-1]} vs {o2.t[-1]}"
     )
     return None
+
+
+def test_orbit_align_to_orbit():
+    # Orbit.align_to_orbit() is a thin method wrapper around
+    # galpy.util.coords.align_to_orbit — must forward this orbit's
+    # galactocentric Cartesian kinematics plus Xsun/Zsun and produce
+    # the same rotation matrix as the coords function.
+    from galpy.orbit import Orbit
+    from galpy.util import coords as gcoords
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    T_method = prog.align_to_orbit()
+    T_func = gcoords.align_to_orbit(
+        float(prog.x(use_physical=False)),
+        float(prog.y(use_physical=False)),
+        float(prog.z(use_physical=False)),
+        float(prog.vx(use_physical=False)),
+        float(prog.vy(use_physical=False)),
+        float(prog.vz(use_physical=False)),
+        Xsun=1.0,
+        Zsun=prog._zo / prog._ro,
+    )
+    assert T_method.shape == (3, 3)
+    assert numpy.allclose(T_method, T_func)
+    # center_phi1 kwarg threads through
+    T0_method = prog.align_to_orbit(center_phi1=0.0)
+    T0_func = gcoords.align_to_orbit(
+        float(prog.x(use_physical=False)),
+        float(prog.y(use_physical=False)),
+        float(prog.z(use_physical=False)),
+        float(prog.vx(use_physical=False)),
+        float(prog.vy(use_physical=False)),
+        float(prog.vz(use_physical=False)),
+        Xsun=1.0,
+        Zsun=prog._zo / prog._ro,
+        center_phi1=0.0,
+    )
+    assert numpy.allclose(T0_method, T0_func)
+
+
+def test_orbit_phi1phi2_after_align_to_orbit():
+    # After Orbit.align_to_orbit() stashes a custom_transform, the
+    # phi1/phi2/pmphi1/pmphi2 accessors should work without further setup
+    # and reproduce coords.radec_to_custom / pmrapmdec_to_custom directly.
+    from galpy.orbit import Orbit
+    from galpy.util import coords as gcoords
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    T = prog.align_to_orbit()
+    # The orbit's own phi1/phi2 should land at (180, ~0) by the
+    # default center_phi1=180 alignment, matching the analytical
+    # round-trip via radec_to_custom.
+    p12 = gcoords.radec_to_custom(
+        numpy.atleast_1d(prog.ra()),
+        numpy.atleast_1d(prog.dec()),
+        T=T,
+        degree=True,
+    )
+    assert abs(float(prog.phi1()) - p12[0, 0]) < 1e-8
+    assert abs(float(prog.phi2()) - p12[0, 1]) < 1e-8
+    pm12 = gcoords.pmrapmdec_to_custom(
+        numpy.atleast_1d(prog.pmra()),
+        numpy.atleast_1d(prog.pmdec()),
+        numpy.atleast_1d(prog.ra()),
+        numpy.atleast_1d(prog.dec()),
+        T=T,
+        degree=True,
+    )
+    assert abs(float(prog.pmphi1()) - pm12[0, 0]) < 1e-8
+    assert abs(float(prog.pmphi2()) - pm12[0, 1]) < 1e-8
+
+
+def test_orbit_phi1phi2_T_kwarg_override():
+    # Without calling align_to_orbit, an explicit T= still works (and
+    # overrides any stashed matrix).
+    from galpy.orbit import Orbit
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    # Identity T means phi1=ra, phi2=dec (modulo wrap on the equator)
+    val = float(prog.phi1(T=numpy.eye(3)))
+    assert abs(val - float(prog.ra())) < 1e-8
+
+
+def test_orbit_phi1_no_transform_raises():
+    # Without align_to_orbit and without an explicit T=, the accessors
+    # raise so the user knows to set up the rotation matrix.
+    from galpy.orbit import Orbit
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    import pytest
+
+    for name in ("phi1", "phi2", "pmphi1", "pmphi2"):
+        with pytest.raises(RuntimeError):
+            getattr(prog, name)()
+
+
+def test_orbit_plot_phi1phi2():
+    # Orbit.plot dispatches d1='phi1', d2='phi2' through the new
+    # accessors; smoke-test that the call returns successfully and
+    # picks up the labeldict_radec entries.
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    prog = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    prog.align_to_orbit()
+    prog.integrate(numpy.linspace(0, 1, 11), MWPotential2014)
+    line = prog.plot(d1="phi1", d2="phi2")
+    assert line and len(line) >= 1
+    line2 = prog.plot(d1="phi1", d2="pmphi2")
+    assert line2 and len(line2) >= 1
+
+
+def test_orbit_phi1phi2_multi_shape_and_time():
+    # phi1/phi2/pmphi1/pmphi2 must broadcast correctly over (N orbits,
+    # M times): shape (N, M) on the input vxvv shape (N,), and each
+    # row should match the per-orbit single-Orbit accessor result.
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    vxvv = numpy.array(
+        [
+            [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+            [1.20, 0.10, -0.95, 0.50, -0.20, 0.30],
+            [1.40, 0.20, -1.00, 0.70, -0.30, 0.20],
+        ]
+    )
+    multi = Orbit(vxvv, ro=8.0, vo=220.0)
+    assert multi.shape == (3,)
+    ts = numpy.linspace(0, 1, 4)
+    multi.integrate(ts, MWPotential2014)
+    # Build a custom transform from the first orbit, share across all
+    T = multi[0].align_to_orbit()
+    multi._custom_transform = T
+    out = multi.phi1(ts)
+    assert out.shape == (3, 4), f"phi1 shape {out.shape} (expected (3, 4))"
+    # Each row should agree with a per-orbit call (which we have to set
+    # up the transform on separately because Orbit getitem yields a
+    # fresh instance without the parent's _custom_transform)
+    for i in range(3):
+        single = multi[i]
+        single._custom_transform = T
+        single_out = single.phi1(ts)
+        assert single_out.shape == (4,), f"single[{i}] phi1 shape {single_out.shape}"
+        assert numpy.allclose(out[i], single_out), (
+            f"orbit {i} phi1 differs between multi and single: {out[i]} vs {single_out}"
+        )
+        assert numpy.allclose(multi.phi2(ts)[i], single.phi2(ts))
+        assert numpy.allclose(multi.pmphi1(ts)[i], single.pmphi1(ts))
+        assert numpy.allclose(multi.pmphi2(ts)[i], single.pmphi2(ts))

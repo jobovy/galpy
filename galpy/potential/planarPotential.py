@@ -548,8 +548,11 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self._roSet = RZPot._roSet
         self._voSet = RZPot._voSet
         self._Pot = RZPot
-        self.hasC = RZPot.hasC
-        self.hasC_dxdv = RZPot.hasC_dxdv
+        # Only advertise C support when the wrapped potential's C
+        # implementation extends to its planar version (hasC_planar)
+        _hasC_planar = getattr(RZPot, "hasC_planar", True)
+        self.hasC = RZPot.hasC and _hasC_planar
+        self.hasC_dxdv = RZPot.hasC_dxdv and _hasC_planar
         self.hasC_dens = RZPot.hasC_dens
         return None
 
@@ -724,8 +727,11 @@ class planarPotentialFromFullPotential(planarPotential):
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
         self._Pot = Pot
-        self.hasC = Pot.hasC
-        self.hasC_dxdv = Pot.hasC_dxdv
+        # Only advertise C support when the wrapped potential's C
+        # implementation extends to its planar version (hasC_planar)
+        _hasC_planar = getattr(Pot, "hasC_planar", True)
+        self.hasC = Pot.hasC and _hasC_planar
+        self.hasC_dxdv = Pot.hasC_dxdv and _hasC_planar
         self.hasC_dens = Pot.hasC_dens
         return None
 

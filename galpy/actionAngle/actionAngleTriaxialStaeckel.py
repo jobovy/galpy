@@ -267,8 +267,6 @@ class actionAngleStaeckelTriaxialSingle(actionAngle):
         # get A
         # get B
 
-        A_l, A_m, A_n, B_l, B_m, B_n
-
         # get tau plus, minus for each
 
         # perform numerical integration on the integrand
@@ -370,7 +368,7 @@ class actionAngleStaeckelTriaxialSingle(actionAngle):
 
         return A_l, A_m, A_n, B_l, B_m, B_n
 
-    def _calcTauPlusTauMinus(self, A_l, A_m, A_n, B_l, B_m, B_n, alpha, beta, gamma):
+    def calcTauPlusTauMinus(self, **kwargs):
         """
         Calculate the tau +, tau -
 
@@ -396,46 +394,9 @@ class actionAngleStaeckelTriaxialSingle(actionAngle):
         """
         if hasattr(self, "_tauptuam"):  # pragma: no cover
             return self._tauptuam
+        E = self._E
 
-        l_solve = lambda tau: (
-            (self._E * tau**2) - (A_l * tau) + B_l + self._chi_l(tau, self._m, self._n)
-        )
-        m_solve = lambda tau: (
-            (self._E * tau**2) - (A_m * tau) + B_m + self._chi_m(self._l, tau, self._n)
-        )
-        n_solve = lambda tau: (
-            (self._E * tau**2) - (A_n * tau) + B_n + self._chi_n(self._l, self._m, tau)
-        )
-
-        l_p, l_m = self._l, self._l
-        m_p, m_m = self._m, self._m
-        n_p, n_m = self._n, self._n
-
-        # expand the search area till root lies in interval
-        while l_solve(l_p) > 0:
-            l_p *= 2  # unbounded
-        while l_solve(l_m) > 0:
-            l_m -= 0.5 * (l_m - (-alpha))  # bounded by -alpha
-
-        # note sign change for this case.
-        while m_solve(m_p) < 0:
-            m_p += 0.5 * (-alpha - m_p)  # bounded by -alpha
-        while m_solve(m_m) < 0:
-            m_m -= 0.5 * (m_m - (-beta))  # bounded by -beta
-
-        while n_solve(n_p) > 0:
-            n_p += 0.5 * (-beta - n_p)  # bounded by -beta
-        while n_solve(n_m) > 0:
-            n_m -= 0.5 * (n_m - (-gamma))  # bounded by -alpha
-
-        l_p = optimize.brentq(l_solve, self._l, l_p)
-        l_m = optimize.brentq(l_solve, self._l, l_m)
-        m_p = optimize.brentq(m_solve, self._m, m_p)
-        m_m = optimize.brentq(m_solve, self._m, m_m)
-        n_p = optimize.brentq(n_solve, self._n, n_p)
-        n_m = optimize.brentq(n_solve, self._n, n_m)
-
-        return l_p, l_m, m_p, m_m, n_p, n_m
+        return None
 
 
 def cartesian_to_ellipsoidal(x, y, z, alpha, beta, gamma):
@@ -511,18 +472,18 @@ def ellipsoidal_to_cartesian(l, m, n, alpha, beta, gamma):
 
 @potential_physical_input
 @physical_conversion("position", pop=True)
-def estimateAlpbaBetaStaeckelTriaxial(E, pot):
+def estimateAlpbaBetaStaeckelTriaxial(pot, R, z, phi):
     """
     Estimate values for alpha, beta using the closed loop estimate technique in Sanders & Binney (2015)
 
     Parameters
     ----------
     pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
-    x : float or numpy.ndarray
-        coordinates
-    y : float or numpy.ndarray
+    R : float or numpy.ndarray
         coordinates
     z : float or numpy.ndarray
+        coordinates
+    phi : float or numpy.ndarray
         coordinates
 
     Returns
@@ -535,8 +496,11 @@ def estimateAlpbaBetaStaeckelTriaxial(E, pot):
     - 2026-04-07 - written - Weatherall
     """
 
-    # pot = _check_potential_list_and_deprecate(pot)
-    # pot
+    pot = _check_potential_list_and_deprecate(pot)
+    if _isNonAxi(pot):
+        raise PotentialError(
+            "Calling estimateAlpbaBetaStaeckelTriaxial with non-axisymmetric potentials is not supported"
+        )
 
     alpha = 0.5
     beta = 1

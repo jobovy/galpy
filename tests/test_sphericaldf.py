@@ -16,15 +16,18 @@ from galpy import potential
 from galpy.df import (
     constantbetadf,
     constantbetaHernquistdf,
+    constantbetaPowerLawdf,
     eddingtondf,
     isotropicHernquistdf,
     isotropicNFWdf,
     isotropicPlummerdf,
+    isotropicPowerLawdf,
     jeans,
     kingdf,
     osipkovmerrittdf,
     osipkovmerrittHernquistdf,
     osipkovmerrittNFWdf,
+    osipkovmerrittPowerLawdf,
 )
 from galpy.util import galpyWarning
 
@@ -3039,6 +3042,82 @@ def test_eddington_jaffe_divergent_sample_massprofile():
     return None
 
 
+def test_pvr_interpolator_covers_rmax():
+    # Test that the p(v|r) interpolator grid extends to cover all radii
+    # up to rmax, even when rmax/scale > 1e3 (the old default r_a_end=3)
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    rmax = 1e4
+    dfh = eddingtondf(pot=pot, rmax=rmax)
+    numpy.random.seed(1)
+    # Trigger interpolator creation via sample
+    dfh.sample(n=10)
+    interp = dfh._v_vesc_pvr_interpolator
+    # The interpolator's radial grid should extend up to log10(rmax/scale)
+    r_a_max_grid = interp.get_knots()[0][-1]
+    assert r_a_max_grid >= numpy.log10((rmax - 1e-8) / dfh._scale) - 0.01, (
+        f"p(v|r) interpolator grid does not extend to rmax: grid ends at "
+        f"10^{r_a_max_grid}*scale but rmax/scale={rmax / dfh._scale}"
+    )
+    return None
+
+
+def test_pvr_interpolator_rmax_default_vs_explicit():
+    # Test that _sample_v passes r_a_end based on rmax, and that explicit
+    # r_a_end values are correctly clamped by _make_pvr_interpolator
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    rmax = 100.0
+    dfh = eddingtondf(pot=pot, rmax=rmax)
+    # Set _rmin_sampling as sample() would
+    dfh._rmin_sampling = 0.0
+    # Passing r_a_end matching rmax: should use log10(rmax/scale)
+    expected_end = numpy.log10((rmax - 1e-8) / dfh._scale)
+    interp_rmax = dfh._make_pvr_interpolator(r_a_end=expected_end)
+    r_a_max_rmax = interp_rmax.get_knots()[0][-1]
+    assert numpy.fabs(r_a_max_rmax - expected_end) < 0.1, (
+        "r_a_end based on rmax was not respected"
+    )
+    # Explicit smaller r_a_end: should be clamped to smaller value
+    interp_explicit = dfh._make_pvr_interpolator(r_a_end=1.0)
+    r_a_max_explicit = interp_explicit.get_knots()[0][-1]
+    assert numpy.fabs(r_a_max_explicit - 1.0) < 0.1, (
+        "Explicit r_a_end=1.0 was not respected"
+    )
+    return None
+
+
+def test_pvr_interpolator_large_rmax_sampling():
+    # Test that sampling works correctly with large rmax by checking that
+    # velocities at large radii are physical (not extrapolated garbage)
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    rmax = 1e4
+    dfh = eddingtondf(pot=pot, rmax=rmax)
+    numpy.random.seed(42)
+    samp = dfh.sample(n=10000)
+    rs = samp.r()
+    vs = numpy.sqrt(samp.vR() ** 2 + samp.vz() ** 2 + samp.vT() ** 2)
+    # All velocities should be <= escape velocity at their radius
+    vescs = numpy.sqrt(
+        2.0
+        * (
+            potential.evaluatePotentials(pot, rmax, 0.0)
+            - potential.evaluatePotentials(pot, rs, numpy.zeros_like(rs))
+        )
+    )
+    assert numpy.all(vs <= vescs * 1.01), (
+        "Some sampled velocities exceed the escape velocity"
+    )
+    # Check samples at large radii (r > 1e3 * scale) have reasonable velocities
+    large_r_mask = rs > 1e3 * dfh._scale
+    if numpy.sum(large_r_mask) > 0:
+        assert numpy.all(vs[large_r_mask] >= 0), (
+            "Velocities at large radii should be non-negative"
+        )
+        assert numpy.all(vs[large_r_mask] <= vescs[large_r_mask] * 1.01), (
+            "Velocities at large radii exceed escape velocity"
+        )
+    return None
+
+
 # Test that the unit system is correctly transferred
 def test_isotropic_hernquist_unittransfer():
     from galpy.util import conversion
@@ -3103,6 +3182,441 @@ def test_isotropic_hernquist_unitsofsamples():
         "Orbit samples from spherical DF with units off do not have units off"
     )
     return None
+
+
+######################### ISOTROPIC POWER-LAW DF #############################
+
+
+def test_isotropic_powerlaw_dens_spherically_symmetric():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=100000)
+    tol = 1e-2
+    check_spherical_symmetry(samp, 0, 0, tol)
+    check_spherical_symmetry(samp, 1, 0, tol)
+    check_spherical_symmetry(samp, 1, -1, tol)
+    check_spherical_symmetry(samp, 2, 0, tol)
+    check_spherical_symmetry(samp, 2, -2, tol)
+    check_spherical_symmetry(samp, 3, 1, tol)
+
+
+def test_isotropic_powerlaw_dens_massprofile():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=100000)
+    tol = 5e-2
+    check_spherical_massprofile(
+        samp,
+        lambda r: (
+            (pot.mass(r) - pot.mass(1e-4))
+            / (pot.mass(numpy.amax(samp.r())) - pot.mass(1e-4))
+        ),
+        tol,
+        skip=4000,
+    )
+
+
+def test_isotropic_powerlaw_singler_is_atsingler():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(R=1.3, z=0.0, n=1000)
+    assert numpy.all(numpy.fabs(samp.r() - 1.3) < 1e-8), (
+        "Sampling at a single r does not produce orbits at that r"
+    )
+
+
+def test_isotropic_powerlaw_sigmar():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=300000)
+    tol = 0.05
+    check_sigmar_against_jeans(samp, pot, tol, beta=0.0, rmin=0.3, rmax=30.0, bins=21)
+
+
+def test_isotropic_powerlaw_dens_directint():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    tol = 1e-7
+    check_dens_directint(
+        dfp, pot, tol, lambda r: pot.dens(r, 0), rmin=0.3, rmax=30.0, bins=11
+    )
+
+
+def test_isotropic_powerlaw_sigmar_directint():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    tol = 1e-7
+    check_sigmar_against_jeans_directint(
+        dfp, pot, tol, beta=0.0, rmin=0.3, rmax=30.0, bins=11
+    )
+
+
+def test_isotropic_powerlaw_beta_directint():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    tol = 1e-8
+    check_beta_directint(dfp, tol, beta=0.0, rmin=0.3, rmax=30.0, bins=11)
+
+
+def test_isotropic_powerlaw_energyoutofbounds():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1),))) < 1e-8), (
+        "Evaluating the isotropic power-law DF at E > 0 does not give zero"
+    )
+
+
+def test_isotropic_powerlaw_nonself_dens_directint():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    denspot = potential.PowerSphericalPotential(amp=1.0, alpha=2.8)
+    dfp = isotropicPowerLawdf(pot=pot, denspot=denspot, rmax=100.0, rmin=1e-4)
+    tol = 1e-7
+    check_dens_directint(
+        dfp,
+        pot,
+        tol,
+        lambda r: denspot.dens(r, 0),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
+    )
+
+
+def test_isotropic_powerlaw_nonself_sigmar_directint():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    denspot = potential.PowerSphericalPotential(amp=1.0, alpha=2.8)
+    dfp = isotropicPowerLawdf(pot=pot, denspot=denspot, rmax=100.0, rmin=1e-4)
+    tol = 1e-7
+    check_sigmar_against_jeans_directint(
+        dfp,
+        pot,
+        tol,
+        beta=0.0,
+        dens=lambda r: denspot.dens(r, 0, use_physical=False),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
+    )
+
+
+def test_isotropic_powerlaw_nonself_different_amp():
+    # Non-self-consistent with a different amplitude for the tracer
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    denspot = potential.PowerSphericalPotential(amp=2.0, alpha=2.8)
+    dfp = isotropicPowerLawdf(pot=pot, denspot=denspot, rmax=100.0, rmin=1e-4)
+    tol = 1e-7
+    check_dens_directint(
+        dfp,
+        pot,
+        tol,
+        lambda r: denspot.dens(r, 0),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
+    )
+
+
+def test_isotropic_powerlaw_diffcalls():
+    from galpy.orbit import Orbit
+
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    R, vR, vT, z, vz, phi = 1.1, 0.3, 0.2, 0.9, -0.2, 2.4
+    assert (
+        numpy.fabs(
+            dfp(R, vR, vT, z, vz, phi)
+            - dfp((pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),))
+        )
+        < 1e-8
+    ), "Calling isotropic power-law DF with R,vR,... or E does not give same answer"
+    assert (
+        numpy.fabs(
+            dfp(R, vR, vT, z, vz, phi)
+            - dfp(
+                (
+                    pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
+                    numpy.sqrt(numpy.sum(Orbit([R, vR, vT, z, vz, phi]).L() ** 2.0)),
+                )
+            )
+        )
+        < 1e-8
+    ), "Calling isotropic power-law DF with R,vR,... or (E,L) does not give same answer"
+
+
+###################### CONSTANT-BETA POWER-LAW DF ############################
+
+
+def test_constantbeta_powerlaw_dens_spherically_symmetric():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = constantbetaPowerLawdf(pot=pot, beta=0.3, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=100000)
+    tol = 1e-2
+    check_spherical_symmetry(samp, 0, 0, tol)
+    check_spherical_symmetry(samp, 1, 0, tol)
+    check_spherical_symmetry(samp, 2, 0, tol)
+    check_spherical_symmetry(samp, 3, 1, tol)
+
+
+def test_constantbeta_powerlaw_dens_massprofile():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = constantbetaPowerLawdf(pot=pot, beta=0.3, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=100000)
+    tol = 5e-2
+    check_spherical_massprofile(
+        samp,
+        lambda r: (
+            (pot.mass(r) - pot.mass(1e-4))
+            / (pot.mass(numpy.amax(samp.r())) - pot.mass(1e-4))
+        ),
+        tol,
+        skip=4000,
+    )
+
+
+def test_constantbeta_powerlaw_sigmar():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = constantbetaPowerLawdf(pot=pot, beta=0.3, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=300000)
+    tol = 0.05
+    check_sigmar_against_jeans(samp, pot, tol, beta=0.3, rmin=0.3, rmax=30.0, bins=21)
+
+
+def test_constantbeta_powerlaw_beta():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = constantbetaPowerLawdf(pot=pot, beta=0.3, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=1000000)
+    tol = 0.1
+    check_beta(samp, pot, tol, beta=0.3, rmin=0.5, rmax=20.0, bins=21)
+
+
+@pytest.mark.parametrize("beta", [-0.5, 0.0, 0.3, 0.5])
+def test_constantbeta_powerlaw_dens_directint(beta):
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = constantbetaPowerLawdf(pot=pot, beta=beta, rmax=100.0, rmin=1e-4)
+    tol = 1e-7
+    check_dens_directint(
+        dfp, pot, tol, lambda r: pot.dens(r, 0), rmin=0.3, rmax=30.0, bins=11
+    )
+
+
+@pytest.mark.parametrize("beta", [-0.5, 0.0, 0.3, 0.5])
+def test_constantbeta_powerlaw_sigmar_directint(beta):
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = constantbetaPowerLawdf(pot=pot, beta=beta, rmax=100.0, rmin=1e-4)
+    tol = 1e-7
+    check_sigmar_against_jeans_directint(
+        dfp, pot, tol, beta=beta, rmin=0.3, rmax=30.0, bins=11
+    )
+
+
+@pytest.mark.parametrize("beta", [-0.5, 0.0, 0.3, 0.5])
+def test_constantbeta_powerlaw_beta_directint(beta):
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = constantbetaPowerLawdf(pot=pot, beta=beta, rmax=100.0, rmin=1e-4)
+    tol = 1e-8
+    check_beta_directint(dfp, tol, beta=beta, rmin=0.3, rmax=30.0, bins=11)
+
+
+def test_constantbeta_powerlaw_energyoutofbounds():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = constantbetaPowerLawdf(pot=pot, beta=0.3, rmax=100.0, rmin=1e-4)
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.0))) < 1e-8), (
+        "Evaluating the constant-beta power-law DF at E > 0 does not give zero"
+    )
+
+
+def test_constantbeta_powerlaw_beta0_equals_isotropic():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfiso = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    dfcb = constantbetaPowerLawdf(pot=pot, beta=0.0, rmax=100.0, rmin=1e-4)
+    Es = numpy.linspace(-10.0, -0.1, 21)
+    assert numpy.all(numpy.fabs(dfiso.fE(Es) / dfcb.fE(Es) - 1.0) < 1e-10), (
+        "constantbetaPowerLawdf with beta=0 does not match isotropicPowerLawdf"
+    )
+
+
+def test_constantbeta_powerlaw_nonself_dens_directint():
+    # Non-self-consistent case with denspot
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    denspot = potential.PowerSphericalPotential(amp=1.0, alpha=2.8)
+    dfp = constantbetaPowerLawdf(
+        pot=pot, denspot=denspot, beta=0.3, rmax=100.0, rmin=1e-4
+    )
+    tol = 1e-7
+    check_dens_directint(
+        dfp,
+        pot,
+        tol,
+        lambda r: denspot.dens(r, 0),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
+    )
+    # Also test scalar fE input (plain float, no .shape — covers the non-array return path)
+    assert dfp.fE(-1.0) > 0.0
+
+
+#################### OSIPKOV-MERRITT POWER-LAW DF ############################
+
+
+def test_osipkovmerritt_powerlaw_dens_spherically_symmetric():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = osipkovmerrittPowerLawdf(pot=pot, ra=2.0, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=100000)
+    tol = 1e-2
+    check_spherical_symmetry(samp, 0, 0, tol)
+    check_spherical_symmetry(samp, 1, 0, tol)
+    check_spherical_symmetry(samp, 2, 0, tol)
+    check_spherical_symmetry(samp, 3, 1, tol)
+
+
+def test_osipkovmerritt_powerlaw_dens_massprofile():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = osipkovmerrittPowerLawdf(pot=pot, ra=2.0, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=100000)
+    tol = 5e-2
+    check_spherical_massprofile(
+        samp,
+        lambda r: (
+            (pot.mass(r) - pot.mass(1e-4))
+            / (pot.mass(numpy.amax(samp.r())) - pot.mass(1e-4))
+        ),
+        tol,
+        skip=4000,
+    )
+
+
+def test_osipkovmerritt_powerlaw_sigmar():
+    # Use non-self-consistent case (gamma=2.8 > alpha=2.5) to avoid the
+    # Q^{-0.5} singularity in fQ that biases rejection sampling
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    denspot = potential.PowerSphericalPotential(amp=1.0, alpha=2.8)
+    ra = 2.0
+    dfp = osipkovmerrittPowerLawdf(
+        pot=pot, denspot=denspot, ra=ra, rmax=100.0, rmin=1e-4
+    )
+    numpy.random.seed(10)
+    samp = dfp.sample(n=300000)
+    tol = 0.05
+    check_sigmar_against_jeans(
+        samp,
+        pot,
+        tol,
+        beta=lambda r: 1.0 / (1.0 + ra**2.0 / r**2.0),
+        dens=lambda r: denspot.dens(r, 0, use_physical=False),
+        rmin=1.0,
+        rmax=20.0,
+        bins=15,
+    )
+
+
+def test_osipkovmerritt_powerlaw_beta():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    ra = 2.0
+    dfp = osipkovmerrittPowerLawdf(pot=pot, ra=ra, rmax=100.0, rmin=1e-4)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=1000000)
+    tol = 0.1
+    check_beta(
+        samp,
+        pot,
+        tol,
+        beta=lambda r: 1.0 / (1.0 + ra**2.0 / r**2.0),
+        rmin=0.5,
+        rmax=20.0,
+        bins=21,
+    )
+
+
+@pytest.mark.parametrize("ra", [0.5, 2.0, 5.0])
+def test_osipkovmerritt_powerlaw_dens_directint(ra):
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = osipkovmerrittPowerLawdf(pot=pot, ra=ra, rmax=100.0, rmin=1e-4)
+    tol = 1e-7
+    check_dens_directint(
+        dfp, pot, tol, lambda r: pot.dens(r, 0), rmin=0.3, rmax=30.0, bins=11
+    )
+
+
+@pytest.mark.parametrize("ra", [0.5, 2.0, 5.0])
+def test_osipkovmerritt_powerlaw_sigmar_directint(ra):
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = osipkovmerrittPowerLawdf(pot=pot, ra=ra, rmax=100.0, rmin=1e-4)
+    tol = 1e-4
+    check_sigmar_against_jeans_directint(
+        dfp,
+        pot,
+        tol,
+        beta=lambda r: 1.0 / (1.0 + ra**2.0 / r**2.0),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
+    )
+
+
+@pytest.mark.parametrize("ra", [0.5, 2.0, 5.0])
+def test_osipkovmerritt_powerlaw_beta_directint(ra):
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = osipkovmerrittPowerLawdf(pot=pot, ra=ra, rmax=100.0, rmin=1e-4)
+    tol = 1e-8
+    check_beta_directint(
+        dfp,
+        tol,
+        beta=lambda r: 1.0 / (1.0 + ra**2.0 / r**2.0),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
+    )
+
+
+def test_osipkovmerritt_powerlaw_Qoutofbounds():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfp = osipkovmerrittPowerLawdf(pot=pot, ra=2.0, rmax=100.0, rmin=1e-4)
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.0))) < 1e-8), (
+        "Evaluating the OM power-law DF at E > 0 does not give zero"
+    )
+
+
+def test_osipkovmerritt_powerlaw_large_ra_approaches_isotropic():
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    dfiso = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
+    dfom = osipkovmerrittPowerLawdf(pot=pot, ra=1000.0, rmax=100.0, rmin=1e-4)
+    # At large ra, OM approaches isotropic: sigma_r should match
+    for r in [0.5, 1.0, 3.0]:
+        sr_iso = dfiso.sigmar(r)
+        sr_om = dfom.sigmar(r)
+        assert numpy.fabs(sr_iso / sr_om - 1.0) < 1e-3, (
+            f"OM power-law DF with large ra does not approach isotropic at r={r}"
+        )
+
+
+def test_osipkovmerritt_powerlaw_nonself_dens_directint():
+    # Non-self-consistent case with denspot
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    denspot = potential.PowerSphericalPotential(amp=1.0, alpha=2.8)
+    dfp = osipkovmerrittPowerLawdf(
+        pot=pot, denspot=denspot, ra=2.0, rmax=100.0, rmin=1e-4
+    )
+    tol = 1e-7
+    check_dens_directint(
+        dfp,
+        pot,
+        tol,
+        lambda r: denspot.dens(r, 0),
+        rmin=0.3,
+        rmax=30.0,
+        bins=11,
+    )
 
 
 ############################### HELPER FUNCTIONS ##############################

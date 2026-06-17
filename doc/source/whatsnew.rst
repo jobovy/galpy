@@ -64,7 +64,7 @@ updates and bug fixes, and a few deprecations. The major new additions are:
   integration technique ``Orbit.SOS`` or using a brute-force technique ``Orbit.bruteSOS``
   (for orbits for which te dedicated technique fails, e.g., orbits in a rotating frame).
   There is also support for directly plotting surfaces of section in ``Orbit.plotSOS``
-  and ``Orbit.plotBruteSOS``. See :ref:`orbitsos` for more info.
+  and ``Orbit.plotBruteSOS``.
 
 * There is now general support for action-angle and reverse action-angle transformations
   for 1D potentials using the ``galpy.actionAngle.actionAngleVertical`` and
@@ -130,11 +130,9 @@ Major new features:
   this new addition is to include the effect of the Milky Way's barycenter
   acceleration due to the effect of the Large Magellanic Cloud on the orbits of
   stars, satellite galaxies, and star clusters in the Milky Way. How this can be
-  done exactly is explained in the
-  :ref:`orbit-example-barycentric-acceleration-LMC` section. But a much more
+  done exactly is explained in the `Orbit Examples <tutorials/orbits/examples.html>`__ tutorial. But a much more
   general set of non-inertial reference frames are supported: any combination of
-  barycenter acceleration and arbitrary rotations. See
-  :ref:`orbintegration-noninertial` for some more info.
+  barycenter acceleration and arbitrary rotations.
 
 * A particle-spray technique for generating mock stellar streams has been added
   as :ref:`galpy.df.streamspraydf <api_streamspraydf>`. This roughly follows the
@@ -391,12 +389,12 @@ This version will be the last to support Python 2.7 as this version of Python is
 * This version's highlight is a fully re-written implementation of
   ``galpy.orbit.Orbit`` such that it can now contain and manipulate
   multiple objects at once. ``galpy.orbit.Orbit`` can be initialized
-  with an arbitrary shape of input objects in a :ref:`variety of ways
-  <orbmultinit>`, manipulated in a manner similar to Numpy arrays, and
+  with an arbitrary shape of input objects in a variety of ways,
+  manipulated in a manner similar to Numpy arrays, and
   all ``Orbit`` methods work efficiently on ``Orbit`` instances
-  containing multiple objects. Some methods, such as :ref:`orbit
-  integration <orbintegration>` and those for :ref:`fast orbital
-  characterization <fastchar>` are parallelized on multi-core
+  containing multiple objects. Some methods, such as orbit
+  integration and those for fast orbital
+  characterization are parallelized on multi-core
   machines. ``Orbit`` instances can contain and manipulate millions of
   objects simultaneously now.
 
@@ -404,21 +402,20 @@ This version will be the last to support Python 2.7 as this version of Python is
   Milky-Way-like potentials. Currently included are MWPotential2014,
   McMillan17 for the potential from McMillan (2017), models 1 through
   4 from Dehnen & Binney (1998), and the three models from Irrgang et
-  al. (2013). See :ref:`this section of the API documentation
-  <potential-mw>` for details.
+  al. (2013). See the `Milky Way-like Potentials <tutorials/potentials/milky_way_potentials.html>`__ tutorial for details.
 
 * Added a (JSON) list with the phase-space coordinates of known
   objects (mainly Milky Way globular clusters and dwarf galaxies) for
-  easy :ref:`Orbit.from_name initialization <orbfromname>`. For
+  easy ``Orbit.from_name`` initialization. For
   ease of use, Orbit.from_name also supports tab completion for known
   objects in this list in IPython/Jupyter.
 
 * Added ``galpy.potential.to_amuse`` to create an `AMUSE
   <http://www.amusecode.org>`__ representation of any galpy potential,
-  :ref:`allowing galpy potentials to be used as external gravitational
-  fields in AMUSE N-body simulations <amusepot>`.
+  allowing galpy potentials to be used as external gravitational
+  fields in AMUSE N-body simulations.
 
-* New or improved potentials and :ref:`potential wrappers <potwrappers>`:
+* New or improved potentials and potential wrappers:
 
   * `MovingObjectPotential <reference/potentialmovingobj.html>`__: Re-wrote ``potential.MovingObjectPotential`` to allow general mass distributions for the moving object, implemented now as standard galpy potentials. Also added a C implementation of this potential for fast orbit integration.
 
@@ -463,7 +460,7 @@ v1.4
   with respect to m^2. Makes implementing any ellipsoidal potential a
   breeze. See examples in the new-potentials section below.
 
-* New or improved potentials and :ref:`potential wrappers <potwrappers>`:
+* New or improved potentials and potential wrappers:
 
   * `CorotatingRotationWrapperPotential <reference/potentialcorotwrapper.html>`__: wrapper to make a pattern (e.g., a `SpiralArmsPotential <reference/potentialspiralarms.html>`__) wind up over time such that it is always corotating (see `Hunt et al. (2018) <http://arxiv.org/abs/1806.02832>`_ for an example of this).
 
@@ -509,14 +506,11 @@ v1.3
   <https://arxiv.org/abs/1802.02592>`__). Can determine
   these parameters to better than a few percent accuracy in as little
   as 10 :math:`\mu\mathrm{s}` per object, more than 1,000 times faster
-  than through direct orbit integration. See :ref:`this section
-  <fastchar>` of the documentation for more info.
+  than through direct orbit integration.
 
 * A general method for modifying ``Potential`` classes through
   potential wrappers---simple classes that wrap existing potentials to modify
-  their behavior. See :ref:`this section <potwrappers>` of the
-  documentation for examples and :ref:`this section <addwrappot>` for
-  information on how to easily define new wrappers. Example wrappers
+  their behavior. Example wrappers
   include `SolidBodyRotationWrapperPotential
   <reference/potentialsolidbodyrotationwrapper.html>`__ to allow *any*
   potential to rotate as a solid body and
@@ -537,7 +531,7 @@ v1.3
 
 * New or improved ``galpy.orbit.Orbit`` methods:
 
-  * Method to display an animation of an integrated orbit in jupyter notebooks: `Orbit.animate <reference/orbitanimate.html>`__. See :ref:`this section <orbanim>` of the documentation.
+  * Method to display an animation of an integrated orbit in jupyter notebooks: `Orbit.animate <reference/orbitanimate.html>`__.
   * Improved default method for fast calculation of eccentricity, zmax, rperi, rap, actions, frequencies, and angles by switching to the Staeckel approximation with automatically-estimated approximation parameters.
   * Improved plotting functions: plotting of spherical radius and of arbitrary user-supplied functions of time in Orbit.plot, Orbit.plot3d, and Orbit.animate.
 
@@ -570,15 +564,12 @@ v1.2
   density/potential pairs through the basis expansion approach to
   solving the Poisson equation of Hernquist & Ostriker (1992).  Also
   implemented functions to compute the coefficients for a given
-  density function. See more explanation :ref:`here
-  <scf_potential_docs>`.
+  density function.
 
 * ``galpy.actionAngle.actionAngleTorus``: an experimental interface to
   Binney & McMillan's TorusMapper code for computing positions and
   velocities for given actions and angles. See the installation
-  instructions for how to properly install this. See :ref:`this
-  section <aatorus>` and the ``galpy.actionAngle`` API page for
-  documentation.
+  instructions for how to properly install this.
 
 * ``galpy.actionAngle.actionAngleIsochroneApprox`` (Bovy 2014) now
   implemented for the general case of a time-independent potential.

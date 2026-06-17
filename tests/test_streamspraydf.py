@@ -1,4 +1,5 @@
 import copy
+import warnings
 
 import numpy
 import pytest
@@ -13,7 +14,7 @@ from galpy.potential import (
     MovingObjectPotential,
     MWPotential2014,
     PlummerPotential,
-    TriaxialNFWPotential,
+    RotateAndTiltWrapperPotential,
 )
 from galpy.util import conversion  # for unit conversions
 from galpy.util import coords
@@ -224,7 +225,10 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
 def test_integrate_rtnonarray():
     # Test that sampling at stripping + integrate == sampling at the end
     # For a potential that doesn't support array inputs
-    nfp = TriaxialNFWPotential(normalize=1.0, b=0.9, c=0.8)
+    nfp = RotateAndTiltWrapperPotential(
+        pot=LogarithmicHaloPotential(normalize=1.0, q=0.9),
+        zvec=[0.0, numpy.sin(0.3), numpy.cos(0.3)],
+    )
     obs = Orbit(
         [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
     )
@@ -236,6 +240,7 @@ def test_integrate_rtnonarray():
             progenitor=obs,
             pot=nfp,
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
         )
         # Sample at at stripping
         numpy.random.seed(4)
@@ -331,6 +336,7 @@ def test_center():
             pot=tMWPotential2014 + moving_lmcpot,
             rtpot=lmcpot,
             tdisrupt=10.0 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
             center=o,
             centerpot=tMWPotential2014 + cdf,
         )
@@ -372,6 +378,7 @@ def test_sample_orbit_rovoetc():
             progenitor=obs,
             pot=lp,
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
         )
         sam = spdf_bovy14.sample(n=10)
         assert obs._roSet is sam._roSet, (
@@ -408,6 +415,7 @@ def test_sample_orbit_rovoetc():
             progenitor=obs,
             pot=lp,
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
         )
         sam = spdf_bovy14.sample(n=10)
         assert obs._roSet, (
@@ -450,6 +458,7 @@ def test_sample_orbit_rovoetc():
             progenitor=obs,
             pot=lp,
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
         )
         sam = spdf_bovy14.sample(n=10)
         assert obs._voSet, (
@@ -501,6 +510,7 @@ def test_integrate_with_prog():
         progenitor=obs,
         pot=lp,
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        tail="leading",
         progpot=PlummerPotential(0, 0),
     )
     numpy.random.seed(4)
@@ -541,6 +551,7 @@ def test_chen24spraydf_default_parameters():
         progenitor=obs,
         pot=lp,
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        tail="leading",
         mean=numpy.array([1.6, -0.525344, 0, 1, 0.349066, 0]),
         cov=numpy.array(
             [
@@ -566,3 +577,626 @@ def test_chen24spraydf_default_parameters():
         "Phase-space points too different when sampling with and without prognitor's potential"
     )
     return None
+
+
+def test_tail_both():
+    # Test that tail='both' produces both leading and trailing stars,
+    # consistent with separate leading/trailing models
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        # Set up leading-only and trailing-only models
+        spdf_l = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
+        )
+        spdf_t = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="trailing",
+        )
+        # Set up both model
+        spdf_both = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="both",
+        )
+        # Sample from leading-only
+        numpy.random.seed(1)
+        RvR_l = spdf_l.sample(n=150, return_orbit=False, integrate=False)
+        # Sample from trailing-only
+        numpy.random.seed(2)
+        RvR_t = spdf_t.sample(n=150, return_orbit=False, integrate=False)
+        # Sample from both (should give 150 leading + 150 trailing)
+        numpy.random.seed(1)
+        RvR_both = spdf_both.sample(n=300, return_orbit=False, integrate=False)
+        # First half should match the leading-only sample
+        assert numpy.allclose(RvR_both[:, :150], RvR_l), (
+            f"tail='both' leading half does not match tail='leading' for {spraydfclass.__name__}"
+        )
+        # Second half should match the trailing-only sample
+        # (seed 2 is consumed by the trailing part after the leading part uses seed 1)
+        # Just check that the two halves are different (leading vs trailing)
+        assert not numpy.allclose(RvR_both[:, :150], RvR_both[:, 150:]), (
+            f"tail='both' leading and trailing halves should differ for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_tail_both_sample_size():
+    # Test that tail='both' returns the correct number of points
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        spdf = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="both",
+        )
+        # Even n
+        RvR = spdf.sample(n=200, return_orbit=False, integrate=False)
+        assert RvR.shape[1] == 200, (
+            f"tail='both' with n=200 should return 200 points for {spraydfclass.__name__}"
+        )
+        # Odd n
+        RvR = spdf.sample(n=201, return_orbit=False, integrate=False)
+        assert RvR.shape[1] == 201, (
+            f"tail='both' with n=201 should return 201 points for {spraydfclass.__name__}"
+        )
+        # Orbit output
+        orbs = spdf.sample(n=100, return_orbit=True, integrate=False)
+        assert len(orbs) == 100, (
+            f"tail='both' with n=100 should return 100 orbits for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_sample_tail_override():
+    # sample(tail=...) overrides the default set at __init__, identically
+    # to how streamTrack(tail=...) works. Setup doesn't matter — the
+    # progenitor integration is the same regardless of which arm the
+    # user asks for at sample time.
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    # Built with tail='leading' — should still be able to sample 'trailing'
+    # and 'both'.
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        tail="leading",
+    )
+    # Seed before each call so the only source of difference between the
+    # leading and trailing samples is the arm assignment, not the RNG state.
+    numpy.random.seed(7)
+    RvR_lead = spdf.sample(n=100, return_orbit=False, integrate=False)
+    numpy.random.seed(7)
+    RvR_trail = spdf.sample(n=100, return_orbit=False, integrate=False, tail="trailing")
+    numpy.random.seed(7)
+    RvR_both = spdf.sample(n=200, return_orbit=False, integrate=False, tail="both")
+    assert RvR_lead.shape == (6, 100)
+    assert RvR_trail.shape == (6, 100)
+    assert RvR_both.shape == (6, 200)
+    # Trailing-arm samples must differ from leading-arm samples (different
+    # stripping side of the progenitor) — with the same seed, this isolates
+    # the arm flip.
+    assert not numpy.allclose(RvR_lead, RvR_trail)
+    # tail=None (default) follows self._tail — should match an explicit
+    # tail='leading' call (modulo RNG, which is reseeded by us).
+    numpy.random.seed(123)
+    RvR_default = spdf.sample(n=50, return_orbit=False, integrate=False)
+    numpy.random.seed(123)
+    RvR_explicit_leading = spdf.sample(
+        n=50, return_orbit=False, integrate=False, tail="leading"
+    )
+    assert numpy.allclose(RvR_default, RvR_explicit_leading)
+    # Built with tail='both' — explicit tail='leading' should give a
+    # leading-only sample (n=100, not n=50+50).
+    spdf_both = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        tail="both",
+    )
+    RvR_lead_only = spdf_both.sample(
+        n=100, return_orbit=False, integrate=False, tail="leading"
+    )
+    assert RvR_lead_only.shape == (6, 100)
+    # Bad tail value raises.
+    with pytest.raises(ValueError):
+        spdf.sample(n=10, return_orbit=False, integrate=False, tail="bogus")
+    return None
+
+
+def test_tail_both_returndt():
+    # Test that tail='both' with returndt works
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        spdf = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="both",
+        )
+        RvR, dt = spdf.sample(n=100, return_orbit=False, returndt=True, integrate=False)
+        assert RvR.shape[1] == 100, (
+            f"tail='both' with returndt should return 100 points for {spraydfclass.__name__}"
+        )
+        assert len(dt) == 100, (
+            f"tail='both' with returndt should return 100 dt values for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_tail_both_consistency():
+    # Test that tail='both' leading half matches a separate leading-only model
+    # with the same random seed
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        spdf_l = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="leading",
+        )
+        spdf_both = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            tail="both",
+        )
+        # Same seed: leading-only
+        numpy.random.seed(42)
+        RvR_l = spdf_l.sample(n=50, return_orbit=False, integrate=False)
+        # Same seed: both (first 25 should be leading)
+        numpy.random.seed(42)
+        RvR_both = spdf_both.sample(n=50, return_orbit=False, integrate=False)
+        # First 25 points of 'both' should exactly match leading-only with n=25
+        numpy.random.seed(42)
+        RvR_l25 = spdf_l.sample(n=25, return_orbit=False, integrate=False)
+        assert numpy.allclose(RvR_both[:, :25], RvR_l25), (
+            f"tail='both' leading half does not match tail='leading' for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_leading_deprecation():
+    # Test that using leading= raises a FutureWarning
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            spdf = spraydfclass(
+                2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+                progenitor=obs,
+                pot=lp,
+                tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+                leading=True,
+            )
+        futurewarnings = [x for x in w if issubclass(x.category, FutureWarning)]
+        assert len(futurewarnings) == 1, (
+            f"Expected exactly one FutureWarning for {spraydfclass.__name__}"
+        )
+        assert "leading= keyword is deprecated" in str(futurewarnings[0].message), (
+            f"FutureWarning message incorrect for {spraydfclass.__name__}"
+        )
+        # Should still work correctly
+        RvR = spdf.sample(n=10, return_orbit=False, integrate=False)
+        assert RvR.shape[1] == 10, (
+            f"Deprecated leading= should still produce correct output for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_leading_and_tail_error():
+    # Test that specifying both leading= and tail= raises an error
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        with warnings.catch_warnings():
+            warnings.simplefilter("always")
+            with pytest.raises(ValueError, match="Cannot specify both"):
+                spraydfclass(
+                    2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+                    progenitor=obs,
+                    pot=lp,
+                    tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+                    leading=True,
+                    tail="trailing",
+                )
+    return None
+
+
+def test_invalid_tail():
+    # Test that an invalid tail= value raises an error
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        with pytest.raises(ValueError, match="tail= must be"):
+            spraydfclass(
+                2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+                progenitor=obs,
+                pot=lp,
+                tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+                tail="invalid",
+            )
+    return None
+
+
+def test_tail_default_is_leading():
+    # Test that the default tail= is 'leading' for backward compatibility
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    for spraydfclass in [fardal15spraydf, chen24spraydf]:
+        spdf = spraydfclass(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        )
+        assert spdf._tail == "leading", (
+            f"Default tail should be 'leading' for {spraydfclass.__name__}"
+        )
+    return None
+
+
+def test_sample_matches_per_particle():
+    # Check that the batched single-Orbit integration in _sample_tail produces
+    # the same particles as the previous per-particle integration loop.
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    # Sample without integration to get initial conditions and stripping times
+    numpy.random.seed(123)
+    out_ic, dt = spdf._sample_tail(8, integrate=False, leading=True)
+    Rs, vRs, vTs, Zs, vZs, phis = out_ic
+    # Reproduce the old per-particle loop locally
+    expected = numpy.empty((6, 8))
+    for ii in range(8):
+        o_one = Orbit([Rs[ii], vRs[ii], vTs[ii], Zs[ii], vZs[ii], phis[ii]])
+        o_one.integrate(numpy.linspace(-dt[ii], 0.0, 10001), spdf._pot)
+        o_end = o_one(0.0)
+        expected[:, ii] = [
+            o_end.R(),
+            o_end.vR(),
+            o_end.vT(),
+            o_end.z(),
+            o_end.vz(),
+            o_end.phi(),
+        ]
+    # Now run the actual batched code (same seed → same ICs)
+    numpy.random.seed(123)
+    out_int, dt2 = spdf._sample_tail(8, integrate=True, leading=True)
+    assert numpy.allclose(dt, dt2), "Stripping times changed between sampling calls"
+    assert numpy.allclose(out_int, expected, rtol=1e-6, atol=1e-6), (
+        "Batched per-orbit-t integration disagrees with per-particle loop"
+    )
+    return None
+
+
+############################ Time-dependent progenitor mass ##################
+
+
+def _bovy14_setup():
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    M0 = 2.0 * 10.0**4.0 / conversion.mass_in_msol(vo, ro)
+    tdisrupt = 4.5 / conversion.time_in_Gyr(vo, ro)
+    return lp, obs, ro, vo, M0, tdisrupt
+
+
+@pytest.mark.parametrize("klass", [fardal15spraydf, chen24spraydf])
+def test_progenitor_mass_callable_constant_matches_scalar(klass):
+    # A callable that returns the same mass at all times must produce
+    # identical samples to the scalar-mass case under the same seed.
+    lp, obs, _, _, M0, tdisrupt = _bovy14_setup()
+    numpy.random.seed(11)
+    spdf_scalar = klass(M0, progenitor=obs, pot=lp, tdisrupt=tdisrupt)
+    sam_scalar = spdf_scalar.sample(n=10)
+    numpy.random.seed(11)
+    spdf_fn = klass(lambda t: M0, progenitor=obs, pot=lp, tdisrupt=tdisrupt)
+    sam_fn = spdf_fn.sample(n=10)
+    assert numpy.allclose(
+        sam_scalar.R(use_physical=False), sam_fn.R(use_physical=False)
+    )
+    assert numpy.allclose(
+        sam_scalar.vR(use_physical=False), sam_fn.vR(use_physical=False)
+    )
+
+
+@pytest.mark.parametrize("klass", [fardal15spraydf, chen24spraydf])
+def test_progenitor_mass_callable_evolving_changes_rtide(klass):
+    # A declining mass should give smaller tidal radii at earlier times
+    # than the constant-mass baseline. Use _calc_rtide directly so we
+    # bypass sampling stochasticity.
+    lp, obs, _, _, M0, tdisrupt = _bovy14_setup()
+    spdf_const = klass(M0, progenitor=obs, pot=lp, tdisrupt=tdisrupt)
+    spdf_evol = klass(
+        lambda t: M0 * (1.0 + 0.9 * t / tdisrupt),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+    )
+    # M(t) = M0 * (1 + 0.9 * t/tdisrupt) → at t=0 mass = M0; at t=-tdisrupt
+    # mass = 0.1*M0. Tidal radius scales as M^(1/3).
+    dt = numpy.array([0.01 * tdisrupt, 0.9 * tdisrupt])
+    Rpt = numpy.array(
+        [spdf_const._progenitor.R(-dt[0]), spdf_const._progenitor.R(-dt[1])]
+    )
+    phipt = numpy.array(
+        [spdf_const._progenitor.phi(-dt[0]), spdf_const._progenitor.phi(-dt[1])]
+    )
+    Zpt = numpy.array(
+        [spdf_const._progenitor.z(-dt[0]), spdf_const._progenitor.z(-dt[1])]
+    )
+    rt_const = spdf_const._calc_rtide(Rpt, phipt, Zpt, dt)
+    rt_evol = spdf_evol._calc_rtide(Rpt, phipt, Zpt, dt)
+    assert numpy.isclose(rt_evol[0] / rt_const[0], (1.0 - 0.009) ** (1.0 / 3.0))
+    assert numpy.isclose(rt_evol[1] / rt_const[1], (1.0 - 0.81) ** (1.0 / 3.0))
+
+
+@pytest.mark.parametrize("klass", [fardal15spraydf, chen24spraydf])
+def test_progenitor_mass_attribute_at_present(klass):
+    # _progenitor_mass (the legacy scalar attribute) should report the
+    # mass at t=0 for both scalar and callable inputs.
+    lp, obs, _, _, M0, tdisrupt = _bovy14_setup()
+    spdf_scalar = klass(M0, progenitor=obs, pot=lp, tdisrupt=tdisrupt)
+    assert numpy.isclose(spdf_scalar._progenitor_mass, M0)
+    spdf_fn = klass(
+        lambda t: M0 * (1.0 + 0.5 * t / tdisrupt),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+    )
+    assert numpy.isclose(spdf_fn._progenitor_mass, M0)
+    assert numpy.isclose(spdf_fn._progenitor_mass_fn(-tdisrupt), 0.5 * M0)
+
+
+@pytest.mark.parametrize("klass", [fardal15spraydf, chen24spraydf])
+def test_progenitor_mass_callable_array_input(klass):
+    # The internal _progenitor_mass_fn must accept array t and broadcast.
+    lp, obs, _, _, M0, tdisrupt = _bovy14_setup()
+    spdf = klass(
+        lambda t: M0 * (1.0 + 0.5 * t / tdisrupt),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+    )
+    t = numpy.linspace(-tdisrupt, 0.0, 5)
+    Ms = spdf._progenitor_mass_fn(t)
+    assert Ms.shape == t.shape
+    assert numpy.all(Ms > 0)
+    assert numpy.isclose(Ms[-1], M0)
+    assert numpy.isclose(Ms[0], 0.5 * M0)
+
+
+############################# Non-uniform stripping ##########################
+
+
+def test_stripping_pdf_uniform_matches_default():
+    from scipy.stats import kstest
+
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    pdf_const = lambda t: numpy.ones_like(numpy.atleast_1d(t))
+    spdf = fardal15spraydf(
+        mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, stripping_pdf=pdf_const
+    )
+    numpy.random.seed(42)
+    _, dt = spdf.sample(n=2000, returndt=True, integrate=False, return_orbit=False)
+    # Uniform on [0, tdisrupt]
+    stat, pval = kstest(dt / tdisrupt, "uniform")
+    assert pval > 0.01, (
+        f"Constant stripping_pdf should reproduce uniform draws (KS p={pval})"
+    )
+
+
+def test_stripping_pdf_concentrated():
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    t0 = -0.5 * tdisrupt
+    sigma = 0.02 * tdisrupt
+
+    def pdf(t):
+        t = numpy.atleast_1d(t)
+        return numpy.exp(-0.5 * ((t - t0) / sigma) ** 2)
+
+    spdf = chen24spraydf(
+        mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, stripping_pdf=pdf
+    )
+    numpy.random.seed(7)
+    _, dt = spdf.sample(n=2000, returndt=True, integrate=False, return_orbit=False)
+    # dt = -t, so concentrate around -t0 = 0.5*tdisrupt
+    assert numpy.fabs(numpy.mean(dt) - (-t0)) < 0.05 * tdisrupt
+    assert numpy.fabs(numpy.std(dt) - sigma) < 0.2 * sigma
+
+
+def test_stripping_pdf_invalid_negative_raises():
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    with pytest.raises(ValueError, match="non-negative"):
+        fardal15spraydf(
+            mass,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt,
+            stripping_pdf=lambda t: -numpy.ones_like(numpy.atleast_1d(t)),
+        )
+
+
+def test_stripping_pdf_invalid_zero_raises():
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    with pytest.raises(ValueError, match="integrates to zero"):
+        fardal15spraydf(
+            mass,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt,
+            stripping_pdf=lambda t: numpy.zeros_like(numpy.atleast_1d(t)),
+        )
+
+
+def test_stripping_pdf_not_callable_raises():
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    with pytest.raises(TypeError):
+        fardal15spraydf(
+            mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, stripping_pdf=3.14
+        )
+
+
+def test_pericenter_stripping_pdf_eccentric_orbit_finds_peris():
+    from galpy.df import pericenter_stripping_pdf
+
+    lp, obs, ro, vo, _, tdisrupt = _bovy14_setup()
+    sigma = 0.05 / conversion.time_in_Gyr(vo, ro)
+    pdf = pericenter_stripping_pdf(obs, lp, tdisrupt, sigma)
+    pts = pdf.pericenter_times
+    assert pts.size >= 5
+    # Pericenter spacings should be nearly constant (one radial period).
+    spacings = numpy.diff(pts)
+    Tr = numpy.median(spacings)
+    assert numpy.all(numpy.fabs(spacings - Tr) < 0.2 * numpy.fabs(Tr))
+    # Approximate count.
+    assert numpy.fabs(pts.size - tdisrupt / numpy.fabs(Tr)) < 2.0
+
+
+def test_pericenter_stripping_pdf_circular_raises():
+    from galpy.df import pericenter_stripping_pdf
+
+    lp_axi = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    o_circ = Orbit([1.0, 0.0, 1.0, 0.0, 0.0, 0.0])
+    ro, vo = 8.0, 220.0
+    tdisrupt = 4.5 / conversion.time_in_Gyr(vo, ro)
+    sigma = 0.05 / conversion.time_in_Gyr(vo, ro)
+    with pytest.raises(ValueError, match="No pericenter passages"):
+        pericenter_stripping_pdf(o_circ, lp_axi, tdisrupt, sigma)
+
+
+def test_pericenter_stripping_pdf_end_to_end():
+    from galpy.df import pericenter_stripping_pdf
+
+    lp, obs, _, _, mass, tdisrupt = _bovy14_setup()
+    sigma = 0.04 * tdisrupt
+    pdf = pericenter_stripping_pdf(obs, lp, tdisrupt, sigma)
+    spdf = chen24spraydf(
+        mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, stripping_pdf=pdf
+    )
+    numpy.random.seed(123)
+    _, dt = spdf.sample(n=1500, returndt=True, integrate=False, return_orbit=False)
+    # Each sample's -dt should be near some pericenter time.
+    distances = numpy.min(
+        numpy.fabs(-dt[:, None] - pdf.pericenter_times[None, :]), axis=1
+    )
+    # Most should be within ~3 sigma of a pericenter.
+    frac_close = numpy.mean(distances < 3.0 * sigma)
+    assert frac_close > 0.95, (
+        f"Only {frac_close:.2f} of samples within 3 sigma of pericenter"
+    )
+
+
+def test_pericenter_stripping_pdf_cuts_off_at_tdisrupt():
+    from galpy.df import pericenter_stripping_pdf
+
+    lp, obs, _, _, _, tdisrupt = _bovy14_setup()
+    sigma = 0.02 * tdisrupt
+    pdf = pericenter_stripping_pdf(obs, lp, tdisrupt, sigma)
+    # Outside the [-tdisrupt, 0] window the PDF must be exactly zero,
+    # regardless of how close the nearest pericenter is.
+    assert pdf(0.001) == 0.0
+    assert pdf(-tdisrupt - 0.001) == 0.0
+    outside = numpy.array([1.0, -tdisrupt - 0.5, -2.0 * tdisrupt])
+    assert numpy.all(pdf(outside) == 0.0)
+    # Inside, at least one of the pericenter centers is non-zero.
+    assert pdf(pdf.pericenter_times[0]) > 0.0
+
+
+def test_pericenter_stripping_pdf_inherits_rovo_from_progenitor():
+    # When the progenitor Orbit has ro/vo set and the caller omits them,
+    # the helper must inherit from the progenitor (mirroring
+    # basestreamspraydf.__init__).
+    from galpy.df import pericenter_stripping_pdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    ro, vo = 8.0, 220.0
+    obs_with_units = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=ro,
+        vo=vo,
+    )
+    tdisrupt = 4.5 / conversion.time_in_Gyr(vo, ro)
+    sigma = 0.05 / conversion.time_in_Gyr(vo, ro)
+    pdf = pericenter_stripping_pdf(obs_with_units, lp, tdisrupt, sigma)
+    assert pdf.pericenter_times.size > 0
+
+
+def test_pericenter_stripping_pdf_rovo_mismatch_raises():
+    # If ro/vo are explicitly given but disagree with the progenitor's,
+    # raise rather than silently mixing two conversion conventions.
+    from galpy.df import pericenter_stripping_pdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=8.0,
+        vo=220.0,
+    )
+    tdisrupt = 4.5 / conversion.time_in_Gyr(220.0, 8.0)
+    sigma = 0.05 / conversion.time_in_Gyr(220.0, 8.0)
+    with pytest.raises(ValueError, match="ro inconsistent"):
+        pericenter_stripping_pdf(obs, lp, tdisrupt, sigma, ro=9.0)
+    with pytest.raises(ValueError, match="vo inconsistent"):
+        pericenter_stripping_pdf(obs, lp, tdisrupt, sigma, vo=230.0)

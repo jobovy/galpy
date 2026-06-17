@@ -57,6 +57,7 @@ class PowerSphericalPotential(Potential):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv = True
+        self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):

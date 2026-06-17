@@ -63,6 +63,58 @@ double MiyamotoNagaiPotentialPlanarR2deriv(double R,double phi,
   double denom= R*R+pow(a+b,2.);
   return amp * (pow(denom,-1.5) - 3. * R * R * pow(denom,-2.5));
 }
+double MiyamotoNagaiPotentialR2deriv(double R,double z, double phi,
+				     double t,
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args++;
+  double b= *args;
+  //calculate R2deriv (d^2Phi/dR^2)
+  double sqrtbz= pow(b*b+z*z,0.5);
+  double asqrtbz= a+sqrtbz;
+  double denom= R*R+asqrtbz*asqrtbz;
+  return amp * (pow(denom,-1.5) - 3. * R * R * pow(denom,-2.5));
+}
+double MiyamotoNagaiPotentialz2deriv(double R,double z, double phi,
+				     double t,
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args++;
+  double b= *args;
+  //calculate z2deriv (d^2Phi/dz^2)
+  double b2= b*b;
+  double sqrtbz= pow(b2+z*z,0.5);
+  double asqrtbz= a+sqrtbz;
+  if ( a == 0. )
+    return amp * (b2+R*R-2.*z*z) * pow(b2+R*R+z*z,-2.5);
+  else
+    return amp * ( a*a*a*b2
+		   + a*a*(3.*b2-2.*z*z)*sqrtbz
+		   + (b2+R*R-2.*z*z)*pow(b2+z*z,1.5)
+		   + a*(3.*b2*b2-4.*z*z*z*z+b2*(R*R-z*z)) )
+      / ( pow(b2+z*z,1.5) * pow(R*R+asqrtbz*asqrtbz,2.5) );
+}
+double MiyamotoNagaiPotentialRzderiv(double R,double z, double phi,
+				     double t,
+				     struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  //Get args
+  double amp= *args++;
+  double a= *args++;
+  double b= *args;
+  //calculate Rzderiv (d^2Phi/dR/dz)
+  double sqrtbz= pow(b*b+z*z,0.5);
+  double asqrtbz= a+sqrtbz;
+  if ( a == 0. )
+    return amp * ( -3. * R * z * pow(R*R+asqrtbz*asqrtbz,-2.5) );
+  else
+    return amp * ( -3. * R * z * asqrtbz / sqrtbz
+		   * pow(R*R+asqrtbz*asqrtbz,-2.5) );
+}
 double MiyamotoNagaiPotentialDens(double R,double z, double phi,
 				  double t,
 				  struct potentialArg * potentialArgs){

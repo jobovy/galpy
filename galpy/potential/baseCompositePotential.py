@@ -75,6 +75,7 @@ class baseCompositePotential:
         self.isDissipative = _isDissipative(self._potlist)
         self.hasC = _check_c(self._potlist)
         self.hasC_dxdv = _check_c(self._potlist, dxdv=True)
+        self.hasC_dxdv3d = _check_c(self._potlist, dxdv3d=True)
         self.hasC_dens = _check_c(self._potlist, dens=True)
 
     def __iter__(self):
@@ -147,6 +148,53 @@ class baseCompositePotential:
         return self.__mul__(1.0 / b)
 
     __truediv__ = __div__
+
+    def turn_physical_off(self):
+        """
+        Turn off automatic returning of outputs in physical units.
+
+        Propagates to all component potentials.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        - 2026-04-10 - Written - Bovy (UofT)
+
+        """
+        super().turn_physical_off()
+        for pot in self._potlist:
+            pot.turn_physical_off()
+        return None
+
+    def turn_physical_on(self, ro=None, vo=None):
+        """
+        Turn on automatic returning of outputs in physical units.
+
+        Propagates to all component potentials.
+
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Reference distance in kpc. Default is None.
+        vo : float or Quantity, optional
+            Reference velocity in km/s. Default is None.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        - 2026-04-10 - Written - Bovy (UofT)
+
+        """
+        super().turn_physical_on(ro=ro, vo=vo)
+        for pot in self._potlist:
+            pot.turn_physical_on(ro=ro, vo=vo)
+        return None
 
     def __repr__(self):
         """

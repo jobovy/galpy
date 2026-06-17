@@ -1,20 +1,18 @@
 # Release checklist
 
+- [ ] Run the ``update-doc-notebooks.yml`` GitHub Action to update the documentation notebooks to be consistent with the current version. Merge the resulting PR.
+
 - [ ] Edit HISTORY.txt to make sure it’s up-to-date and add release date
 
-- [ ] If major version update, edit the ‘What’s new?” section of the documentation to summarize important changes for users i
+- [ ] If major version update, edit the ‘What’s new?” section of the documentation to summarize important changes for users
 
-- [ ] If major version update, remove previous version’s **NEW IN vX.X**
+- [ ] If major version update, remove previous version’s **NEW IN vX.X** if they exist. We don't really use these any more.
 
 - [ ] Update the version number with ``bumpversion release`` (using [bump2version](https://github.com/c4urself/bump2version)) and commit.
 
 - [ ] Check whether any new files need to go in MANIFEST.in (check which files are added with ``git diff --name-status PREV_RELEASE_HASH | grep ^A``)
 
 - [ ] Make sure everything is committed and pushed, make sure tests run and pass
-
-- [ ] (Optional check) Build source distribution: ``rm -rf build && rm -rf dist/* && pip install build && python -m build --sdist``
-
-- [ ] (Optional check) Push it to testpypi: ``twine upload -r pypitest dist/*`` and can test with ``pip install -i https://testpypi.python.org/pypi galpy``
 
 - [ ] Tag new version and push it with ``git tag v`python -c "import galpy; print(galpy.__version__)"` && git push --tags``
 
@@ -28,6 +26,6 @@
 
 - [ ] ~~If major version update, create maintenance branch~~
 
-- [ ] Bump version to development version with ``bumpversion patch`` (for X.Y.1 --> X.Y.2) or ``bumpversion minor`` (for X.1.0 --> X.2.0).
+- [ ] Bump version to development version with ``bumpversion patch`` (for X.Y.1 --> X.Y.2 Nov 1 and Apr 1 versions) or ``bumpversion minor`` (for X.1.0 --> X.2.0 July 1 changes).
 
 - [ ] Start on next version changes in HISTORY file

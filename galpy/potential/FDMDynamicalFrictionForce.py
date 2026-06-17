@@ -133,7 +133,12 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             * self._ro**2
             * self._vo**3
         )
-        # hasC set in ChandrasekharDynamicalFrictionForce.__init__
+        # hasC and hasC_dxdv3d set in ChandrasekharDynamicalFrictionForce.
+        # __init__: the FDM force's rectangular Jacobian (dF/dx, dF/dv) for
+        # the 3D variational equations is wired in C
+        # (FDMDynamicalFrictionForce.c), including the derivatives of the FDM
+        # quantum-pressure suppression factor in all its regimes, so the
+        # inherited hasC_dxdv3d = hasC applies as is.
 
     def krValue(self, r, v):
         """

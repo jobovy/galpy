@@ -1196,6 +1196,282 @@ def test_interpolation_potential_rzderiv():
     return None
 
 
+# Test the interpolated 2nd derivatives (R2deriv/z2deriv/Rzderiv; together the
+# full 3D Hessian): like the forces, each is a precomputed grid of exact values
+# interpolated with a 2D cubic spline; these checks are interpolation-limited
+# (cf. the tol=-4 entries for mockInterpRZPotential in test_potential.py)
+def test_interpolation_potential_secondderivs():
+    # Python (RectBivariateSpline) interpolation path, linear R grid
+    rzpot = potential.interpRZPotential(
+        RZPot=potential.MWPotential,
+        rgrid=(0.01, 2.0, 201),
+        zgrid=(0.0, 0.2, 201),
+        logR=False,
+        interpR2deriv=True,
+        interpz2deriv=True,
+        interpRzderiv=True,
+        zsym=True,
+    )
+    # On- and off-grid points, both z signs (Rzderiv is odd in z)
+    rs = numpy.linspace(0.01, 2.0, 20)
+    zs = numpy.linspace(-0.2, 0.2, 40)
+    mr, mz = numpy.meshgrid(rs, zs)
+    mr = mr.flatten()
+    mz = mz.flatten()
+    for name, finterp, fdirect in [
+        ("R2deriv", rzpot.R2deriv, potential.evaluateR2derivs),
+        ("z2deriv", rzpot.z2deriv, potential.evaluatez2derivs),
+        ("Rzderiv", rzpot.Rzderiv, potential.evaluateRzderivs),
+    ]:
+        vinterp = finterp(mr, mz)
+        vdirect = fdirect(potential.MWPotential, mr, mz)
+        # Rzderiv crosses zero (odd in z), so guard the relative error
+        relerr = numpy.amax(
+            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+        )
+        assert relerr < 10.0**-3.0, (
+            f"RZPot interpolation of {name} w/ interpRZPotential fails for vector input by {relerr:g}"
+        )
+    # logR grid
+    rzpot = potential.interpRZPotential(
+        RZPot=potential.MWPotential,
+        rgrid=(numpy.log(0.01), numpy.log(20.0), 251),
+        zgrid=(0.0, 0.2, 101),
+        logR=True,
+        interpR2deriv=True,
+        interpz2deriv=True,
+        interpRzderiv=True,
+        zsym=True,
+    )
+    rs = numpy.linspace(0.01, 20.0, 20)
+    mr, mz = numpy.meshgrid(rs, zs)
+    mr = mr.flatten()
+    mz = mz.flatten()
+    for name, finterp, fdirect in [
+        ("R2deriv", rzpot.R2deriv, potential.evaluateR2derivs),
+        ("z2deriv", rzpot.z2deriv, potential.evaluatez2derivs),
+        ("Rzderiv", rzpot.Rzderiv, potential.evaluateRzderivs),
+    ]:
+        vinterp = finterp(mr, mz)
+        vdirect = fdirect(potential.MWPotential, mr, mz)
+        relerr = numpy.amax(
+            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+        )
+        assert relerr < 10.0**-5.0, (
+            f"RZPot interpolation of {name} w/ interpRZPotential fails for vector input, w/ logR by {relerr:g}"
+        )
+    # w/o zsym (grid covers z<0 directly; covers the no-mirroring branch)
+    rzpot = potential.interpRZPotential(
+        RZPot=potential.MWPotential,
+        rgrid=(0.01, 2.0, 201),
+        zgrid=(-0.2, 0.2, 201),
+        logR=False,
+        interpR2deriv=True,
+        interpz2deriv=True,
+        interpRzderiv=True,
+        zsym=False,
+    )
+    mr, mz = numpy.meshgrid(numpy.linspace(0.01, 2.0, 20), zs)
+    mr = mr.flatten()
+    mz = mz.flatten()
+    for name, finterp, fdirect in [
+        ("R2deriv", rzpot.R2deriv, potential.evaluateR2derivs),
+        ("z2deriv", rzpot.z2deriv, potential.evaluatez2derivs),
+        ("Rzderiv", rzpot.Rzderiv, potential.evaluateRzderivs),
+    ]:
+        vinterp = finterp(mr, mz)
+        vdirect = fdirect(potential.MWPotential, mr, mz)
+        relerr = numpy.amax(
+            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+        )
+        # coarser z grid (same number of points over twice the range) ->
+        # interpolation-limited at the few-x-1e-3 level near the sharp
+        # disk midplane structure at small R
+        assert relerr < 10.0**-2.0, (
+            f"RZPot interpolation of {name} w/ interpRZPotential fails for vector input, w/o zsym by {relerr:g}"
+        )
+    return None
+
+
+def test_interpolation_potential_secondderivs_c():
+    # C (2D cubic B-spline) interpolation path: the same splines the C orbit
+    # integrator uses for the 3D variational equations (hasC_dxdv3d)
+    rzpot = potential.interpRZPotential(
+        RZPot=potential.MWPotential,
+        rgrid=(numpy.log(0.01), numpy.log(20.0), 251),
+        zgrid=(0.0, 0.2, 101),
+        logR=True,
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        interpR2deriv=True,
+        interpz2deriv=True,
+        interpRzderiv=True,
+        zsym=True,
+        use_c=True,
+        enable_c=True,
+    )
+    assert rzpot.hasC_dxdv3d, (
+        "interpRZPotential w/ all of pot/forces/2nd derivs interpolated and enable_c should advertise hasC_dxdv3d"
+    )
+    rs = numpy.linspace(0.01, 20.0, 20)
+    zs = numpy.linspace(-0.2, 0.2, 40)  # both z signs: Rzderiv is odd in z
+    mr, mz = numpy.meshgrid(rs, zs)
+    mr = mr.flatten()
+    mz = mz.flatten()
+    for name, finterp, fdirect in [
+        ("R2deriv", rzpot.R2deriv, potential.evaluateR2derivs),
+        ("z2deriv", rzpot.z2deriv, potential.evaluatez2derivs),
+        ("Rzderiv", rzpot.Rzderiv, potential.evaluateRzderivs),
+    ]:
+        vinterp = finterp(mr, mz)
+        vdirect = fdirect(potential.MWPotential, mr, mz)
+        relerr = numpy.amax(
+            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+        )
+        # the C cubic B-spline uses mirror boundary conditions, which add an
+        # O(h^2) boundary layer at the grid edges (and, for the odd-in-z
+        # Rzderiv, at the z=0 mirror), so the C path is interpolation-limited
+        # at the few-x-1e-3 level there (the interior agrees to ~1e-5); any
+        # sign/wiring error would instead show up at O(1)
+        assert relerr < 10.0**-2.0, (
+            f"RZPot interpolation of {name} w/ interpRZPotential fails for vector input, w/ logR, in C by {relerr:g}"
+        )
+    # Unit-level finite differences of the C-interpolated forces vs the
+    # C-interpolated 2nd derivatives at interior points: both interpolate the
+    # same underlying potential very accurately there, so they agree to ~1e-6
+    # relative (any sign/factor error in the Hessian wiring would be O(1)).
+    # NB: points at exactly z=0 are excluded NOT because the interpolated
+    # z2deriv is wrong there (it interpolates the exact z2deriv grid and is
+    # correct), but because the FD of the C *zforce* spline degenerates there:
+    # the B-spline mirror boundary condition at z=0 is even, so the zforce
+    # spline has zero slope at exactly z=0 (a sub-grid-cell boundary layer;
+    # the precomputed exact-z2deriv grid -- rather than a spline derivative of
+    # the zforce -- is what makes the C Hessian correct at the midplane,
+    # where orbits live).
+    dx = 1e-6
+    for r, z in [(0.7, 0.05), (1.0, -0.1), (2.3, 0.12), (5.0, 0.03)]:
+        fdr2 = -(rzpot.Rforce(r + dx, z) - rzpot.Rforce(r - dx, z)) / (2.0 * dx)
+        fdz2 = -(rzpot.zforce(r, z + dx) - rzpot.zforce(r, z - dx)) / (2.0 * dx)
+        fdrz = -(rzpot.Rforce(r, z + dx) - rzpot.Rforce(r, z - dx)) / (2.0 * dx)
+        for name, fd, vinterp in [
+            ("R2deriv", fdr2, rzpot.R2deriv(r, z)),
+            ("z2deriv", fdz2, rzpot.z2deriv(r, z)),
+            ("Rzderiv", fdrz, rzpot.Rzderiv(r, z)),
+        ]:
+            assert numpy.fabs(fd - vinterp) / (numpy.fabs(vinterp) + 1e-4) < 1e-4, (
+                f"C-interpolated {name} of interpRZPotential does not match the finite difference of the C-interpolated forces at (R,z) = ({r:g},{z:g}): {vinterp:g} vs {fd:g}"
+            )
+    # also exercise the linear-R (logR=False) branch of the C evaluators,
+    # away from the grid edges (interior accuracy)
+    rzpot = potential.interpRZPotential(
+        RZPot=potential.MWPotential,
+        rgrid=(0.5, 1.5, 101),
+        zgrid=(0.0, 0.2, 101),
+        logR=False,
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        interpR2deriv=True,
+        interpz2deriv=True,
+        interpRzderiv=True,
+        zsym=True,
+        use_c=True,
+        enable_c=True,
+    )
+    mr, mz = numpy.meshgrid(
+        numpy.linspace(0.6, 1.4, 11), numpy.linspace(-0.15, 0.15, 11)
+    )
+    mr = mr.flatten()
+    mz = mz.flatten()
+    for name, finterp, fdirect in [
+        ("R2deriv", rzpot.R2deriv, potential.evaluateR2derivs),
+        ("z2deriv", rzpot.z2deriv, potential.evaluatez2derivs),
+        ("Rzderiv", rzpot.Rzderiv, potential.evaluateRzderivs),
+    ]:
+        vinterp = finterp(mr, mz)
+        vdirect = fdirect(potential.MWPotential, mr, mz)
+        relerr = numpy.amax(
+            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+        )
+        assert relerr < 10.0**-2.0, (
+            f"RZPot interpolation of {name} w/ interpRZPotential fails for vector input, w/o logR, in C by {relerr:g}"
+        )
+    return None
+
+
+def test_interpolation_potential_secondderivs_outsidegrid():
+    # Outside the grid the 2nd derivatives fall back to the original potential
+    rzpot = potential.interpRZPotential(
+        RZPot=potential.MWPotential,
+        rgrid=(0.5, 1.5, 101),
+        zgrid=(0.0, 0.2, 101),
+        logR=False,
+        interpR2deriv=True,
+        interpz2deriv=True,
+        interpRzderiv=True,
+        zsym=True,
+    )
+    rs = [0.2, 1.8]
+    zs = [-0.1, 0.1, 0.25, -0.25]
+    for r in rs:
+        for z in zs:
+            for name, finterp, fdirect in [
+                ("R2deriv", rzpot.R2deriv, potential.evaluateR2derivs),
+                ("z2deriv", rzpot.z2deriv, potential.evaluatez2derivs),
+                ("Rzderiv", rzpot.Rzderiv, potential.evaluateRzderivs),
+            ]:
+                assert (
+                    numpy.fabs(
+                        (finterp(r, z) - fdirect(potential.MWPotential, r, z))
+                        / fdirect(potential.MWPotential, r, z)
+                    )
+                    < 10.0**-10.0
+                ), (
+                    f"RZPot interpolation of {name} w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+                )
+    return None
+
+
+def test_interpolation_potential_secondderivs_notinterpolated():
+    # Without interpR2deriv/interpz2deriv/interpRzderiv the 2nd derivatives
+    # pass through to the original potential (and there is no 3D C Hessian)
+    rzpot = potential.interpRZPotential(
+        RZPot=potential.MWPotential,
+        rgrid=(0.01, 2.0, 101),
+        zgrid=(0.0, 0.2, 101),
+        logR=False,
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        zsym=True,
+        use_c=True,
+        enable_c=True,
+    )
+    assert not rzpot.hasC_dxdv3d, (
+        "interpRZPotential w/o interpolated 2nd derivatives should not advertise hasC_dxdv3d"
+    )
+    rs = [0.5, 1.5]
+    zs = [0.075, 0.15, -0.15]
+    for r in rs:
+        for z in zs:
+            for name, finterp, fdirect in [
+                ("R2deriv", rzpot.R2deriv, potential.evaluateR2derivs),
+                ("z2deriv", rzpot.z2deriv, potential.evaluatez2derivs),
+                ("Rzderiv", rzpot.Rzderiv, potential.evaluateRzderivs),
+            ]:
+                assert (
+                    numpy.fabs(
+                        (finterp(r, z) - fdirect(potential.MWPotential, r, z))
+                        / fdirect(potential.MWPotential, r, z)
+                    )
+                    < 10.0**-10.0
+                ), (
+                    f"RZPot {name} w/ interpRZPotential fails when the 2nd derivatives were not interpolated at (R,z) = ({r:g},{z:g})"
+                )
+    return None
+
+
 # Test density
 def test_interpolation_potential_dens():
     # Test the interpolation of the potential

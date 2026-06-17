@@ -3902,6 +3902,70 @@ def test_orbits_integrate_timeAsQuantity_Myr():
     return None
 
 
+def test_orbits_integrate_perOrbitTimeAsQuantity():
+    # Per-orbit time arrays: Orbit.integrate accepts a Quantity time array of
+    # shape orbit.shape + (nt,), each row carrying its own units, and the
+    # downstream quantity-method queries (R(), x(), time(), ...) should agree
+    # with the equivalent unitless integration.
+    import copy
+
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 200.0
+    vxvvs = numpy.array(
+        [
+            [1.0, 0.1, 1.1, 0.1, 0.05, 0.0],
+            [1.2, -0.05, 0.9, -0.1, 0.1, 0.5],
+        ]
+    )
+    nt = 101
+    ts_nounits = numpy.linspace(numpy.zeros(2), numpy.array([1.0, 1.5]), nt, axis=-1)
+    ts_q = units.Quantity(copy.copy(ts_nounits), unit=units.Gyr)
+    # Convert the unitless reference into internal time units
+    ts_int = ts_nounits / conversion.time_in_Gyr(vo, ro)
+
+    o = Orbit(vxvvs, ro=ro, vo=vo)
+    oc = Orbit(vxvvs, ro=ro, vo=vo)
+    o.integrate(ts_q, MWPotential)
+    oc.integrate(ts_int, MWPotential)
+    o.turn_physical_off()
+    oc.turn_physical_off()
+
+    # time() round-trips through the Quantity input
+    assert o.time().shape == ts_nounits.shape
+    # Quantity-input integration matches unitless-input integration along
+    # every quantity-method axis at the integration grid points
+    for method in ("R", "vR", "vT", "z", "vz", "phi", "x", "y"):
+        a = numpy.array(getattr(o, method)(ts_q))
+        b = numpy.array(getattr(oc, method)(ts_int))
+        assert numpy.allclose(a, b, atol=1e-8, rtol=1e-8), (
+            f"Per-orbit Quantity-time integrate disagrees on {method}()"
+        )
+
+    # Scalar Quantity query — applies the same time to every orbit
+    val_q = numpy.array(o.x(0.0 * units.Gyr))
+    val_u = numpy.array(oc.x(0.0))
+    assert val_q.shape == (2,)
+    assert numpy.allclose(val_q, val_u, atol=1e-12, rtol=1e-12)
+
+    # Querying a Quantity-integrated orbit with a non-Quantity time array
+    # warns about the implicit "internal-units" interpretation.
+    import warnings as warnings_module
+
+    from galpy.util import galpyWarning
+
+    with warnings_module.catch_warnings(record=True) as w:
+        warnings_module.simplefilter("always")
+        _ = o.x(ts_nounits)
+    msgs = [str(rec.message) for rec in w if issubclass(rec.category, galpyWarning)]
+    assert any("Quantity" in m and "natural (internal) units" in m for m in msgs), (
+        "Expected a galpyWarning about Quantity/non-Quantity mismatch"
+    )
+    return None
+
+
 def test_orbits_integrate_dtimeAsQuantity():
     import copy
 
@@ -4305,6 +4369,31 @@ def test_dissipativeforce_method_returntype():
     assert isinstance(
         pot.zforce(1.1, 0.1, phi=2.0, v=[0.1, 1.2, 0.3]), units.Quantity
     ), "Potential method zforce does not return Quantity when it should"
+    return None
+
+
+def test_dissipativeforce_method_returnunit():
+    from galpy.potential import ChandrasekharDynamicalFrictionForce
+
+    pot = ChandrasekharDynamicalFrictionForce(GMs=0.1, rhm=1.2 / 8.0, ro=8.0, vo=220.0)
+    try:
+        pot.phitorque(1.1, 0.1, phi=2.0, v=[0.1, 1.2, 0.3]).to(units.km**2 / units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "DissipativeForce method phitorque does not return Quantity with the right units (expected energy units km^2/s^2)"
+        )
+    try:
+        pot.Rforce(1.1, 0.1, phi=2.0, v=[0.1, 1.2, 0.3]).to(units.km / units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "DissipativeForce method Rforce does not return Quantity with the right units"
+        )
+    try:
+        pot.zforce(1.1, 0.1, phi=2.0, v=[0.1, 1.2, 0.3]).to(units.km / units.s**2)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "DissipativeForce method zforce does not return Quantity with the right units"
+        )
     return None
 
 
@@ -17947,7 +18036,6 @@ def test_streamdf_RnormWarning():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.util import conversion  # for unit conversions
-    from galpy.util import galpyWarning
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -17957,7 +18045,7 @@ def test_streamdf_RnormWarning():
     sigv = 0.365  # km/s
     ro, vo = 9.0, 250.0
     with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always", galpyWarning)
+        warnings.simplefilter("always")
         sdf_bovy14 = streamdf(
             sigv / 220.0,
             progenitor=obs,
@@ -17969,15 +18057,11 @@ def test_streamdf_RnormWarning():
             Rnorm=ro,
             nosetup=True,
         )
-        raisedWarning = False
-        for wa in w:
-            raisedWarning = (
-                str(wa.message)
-                == "WARNING: Rnorm keyword input to streamdf is deprecated in favor of the standard ro keyword"
-            )
-            if raisedWarning:
-                break
-        assert raisedWarning, "Rnorm warning not raised when it should have been"
+        msgs = [str(wa.message) for wa in w if issubclass(wa.category, FutureWarning)]
+        assert any(
+            "Rnorm" in m and "deprecated since v1.12" in m and "v1.14" in m
+            for m in msgs
+        ), f"Rnorm FutureWarning not raised; got {msgs!r}"
     return None
 
 
@@ -17991,7 +18075,6 @@ def test_streamdf_VnormWarning():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.util import conversion  # for unit conversions
-    from galpy.util import galpyWarning
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -18001,7 +18084,7 @@ def test_streamdf_VnormWarning():
     sigv = 0.365  # km/s
     ro, vo = 9.0, 250.0
     with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always", galpyWarning)
+        warnings.simplefilter("always")
         sdf_bovy14 = streamdf(
             sigv / 220.0,
             progenitor=obs,
@@ -18013,15 +18096,11 @@ def test_streamdf_VnormWarning():
             Vnorm=vo,
             nosetup=True,
         )
-        raisedWarning = False
-        for wa in w:
-            raisedWarning = (
-                str(wa.message)
-                == "WARNING: Vnorm keyword input to streamdf is deprecated in favor of the standard vo keyword"
-            )
-            if raisedWarning:
-                break
-        assert raisedWarning, "Vnorm warning not raised when it should have been"
+        msgs = [str(wa.message) for wa in w if issubclass(wa.category, FutureWarning)]
+        assert any(
+            "Vnorm" in m and "deprecated since v1.12" in m and "v1.14" in m
+            for m in msgs
+        ), f"Vnorm FutureWarning not raised; got {msgs!r}"
     return None
 
 
@@ -18061,8 +18140,8 @@ def test_streamgapdf_method_returntype():
         nTrackChunksImpact=5,
         sigMeanOffset=4.5,
         tdisrupt=10.88 * units.Gyr,
-        Vnorm=V0,
-        Rnorm=R0,
+        vo=V0,
+        ro=R0,
         impactb=0.1 * units.kpc,
         subhalovel=numpy.array([6.82200571, 132.7700529, 149.4174464])
         * units.km
@@ -18082,8 +18161,8 @@ def test_streamgapdf_method_returntype():
         nTrackChunks=5,
         nTrackIterations=1,
         nTrackChunksImpact=5,
-        Vnorm=V0,
-        Rnorm=R0,
+        vo=V0,
+        ro=R0,
         sigMeanOffset=4.5,
         tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
         impactb=0.1 / R0,
@@ -18527,6 +18606,182 @@ def test_streamspraydf_sample_RvR():
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
     return None
+
+
+def test_streamspraydf_progmass_callable_unitfulin_unitfulout():
+    # User callable that takes a Quantity time and returns a Quantity mass
+    # must produce samples consistent with the internal-units twin.
+    from galpy.df import chen24spraydf, fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    M0_internal = 2.0 * 10.0**4.0 / conversion.mass_in_msol(vo, ro)
+    tdisrupt_internal = 4.5 / conversion.time_in_Gyr(vo, ro)
+    tau = 2.0 * units.Gyr
+    M0 = 2.0 * 10.0**4.0 * units.Msun
+
+    def mass_internal(t):
+        return M0_internal * numpy.exp(t / 2.0 * conversion.time_in_Gyr(vo, ro))
+
+    def mass_quantity(t):
+        return M0 * numpy.exp(t.to(units.Gyr).value / tau.to(units.Gyr).value)
+
+    for klass in [fardal15spraydf, chen24spraydf]:
+        spdf_nou = klass(
+            mass_internal, progenitor=obs, pot=lp, tdisrupt=tdisrupt_internal
+        )
+        spdf_q = klass(
+            mass_quantity,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt_internal,
+            ro=ro,
+            vo=vo,
+        )
+        numpy.random.seed(10)
+        sam = spdf_q.sample(n=4)
+        numpy.random.seed(10)
+        sam_nou = spdf_nou.sample(n=4)
+        assert numpy.all(
+            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        ), (
+            "Sample returned by streamspraydf.sample with Quantity-in/out callable progenitor_mass is inconsistent with the internal-units twin"
+        )
+        assert numpy.all(
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
+        ), (
+            "Sample returned by streamspraydf.sample with Quantity-in/out callable progenitor_mass is inconsistent with the internal-units twin"
+        )
+
+
+def test_streamspraydf_progmass_callable_unitlessin_unitfulout():
+    from galpy.df import chen24spraydf, fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    M0_internal = 2.0 * 10.0**4.0 / conversion.mass_in_msol(vo, ro)
+    tdisrupt_internal = 4.5 / conversion.time_in_Gyr(vo, ro)
+    M0 = 2.0 * 10.0**4.0 * units.Msun
+
+    def mass_internal(t):
+        return M0_internal * (1.0 + 0.3 * t / tdisrupt_internal)
+
+    def mass_quantity_out(t):
+        # t is float in internal time units
+        return M0 * (1.0 + 0.3 * t * conversion.time_in_Gyr(vo, ro) / 4.5)
+
+    for klass in [fardal15spraydf, chen24spraydf]:
+        spdf_nou = klass(
+            mass_internal, progenitor=obs, pot=lp, tdisrupt=tdisrupt_internal
+        )
+        spdf_q = klass(
+            mass_quantity_out,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt_internal,
+            ro=ro,
+            vo=vo,
+        )
+        numpy.random.seed(11)
+        sam = spdf_q.sample(n=4)
+        numpy.random.seed(11)
+        sam_nou = spdf_nou.sample(n=4)
+        assert numpy.all(
+            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        )
+        assert numpy.all(
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
+        )
+
+
+def test_streamspraydf_progmass_callable_unitfulin_unitlessout():
+    from galpy.df import chen24spraydf, fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    M0_internal = 2.0 * 10.0**4.0 / conversion.mass_in_msol(vo, ro)
+    tdisrupt_internal = 4.5 / conversion.time_in_Gyr(vo, ro)
+
+    def mass_internal(t):
+        return M0_internal * (1.0 + 0.3 * t / tdisrupt_internal)
+
+    def mass_quantity_in(t):
+        # t is a Quantity time; return float in internal units
+        return M0_internal * (1.0 + 0.3 * t.to(units.Gyr).value / 4.5)
+
+    for klass in [fardal15spraydf, chen24spraydf]:
+        spdf_nou = klass(
+            mass_internal, progenitor=obs, pot=lp, tdisrupt=tdisrupt_internal
+        )
+        spdf_q = klass(
+            mass_quantity_in,
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt_internal,
+            ro=ro,
+            vo=vo,
+        )
+        numpy.random.seed(12)
+        sam = spdf_q.sample(n=4)
+        numpy.random.seed(12)
+        sam_nou = spdf_nou.sample(n=4)
+        assert numpy.all(
+            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        )
+        assert numpy.all(
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
+        )
+
+
+def test_streamspraydf_streamTrack_track_time_range_quantity():
+    # track_time_range accepts astropy Quantities
+    from galpy import potential
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    numpy.random.seed(20)
+    track = spdf.streamTrack(n=800, tail="leading", track_time_range=0.1 * units.Gyr)
+    # Quantity input was honored: tp_grid is bounded by the requested
+    # track_time_range converted to internal units (and the bound is tight,
+    # since the trim tracks the actual particle distribution within it).
+    tr_internal = (0.1 * units.Gyr).to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+    assert track.tp_grid()[-1] <= tr_internal + 1e-9
+    # Track at tp=0 reproduces the progenitor present-day position.
+    prog_x0 = float(spdf._progenitor.x(0.0))
+    assert abs(float(track.x(0.0)) - prog_x0) < 0.05
 
 
 def test_df_inconsistentPotentialUnits_error():
@@ -19041,3 +19296,631 @@ def test_integrate_continuation_orbits_timeAsQuantity():
     )
 
     return None
+
+
+def test_MultipoleExpansionPotential_from_density_timedep_astropy_units_ro_vo():
+    """Time-dep from_density with astropy-unit density sets ro/vo on result."""
+    from galpy.potential import HernquistPotential, MultipoleExpansionPotential
+
+    ro, vo = 8.0, 220.0
+    rgrid = numpy.geomspace(1e-2, 10, 21)
+    tgrid = numpy.linspace(0, 5, 11)
+
+    def dens_with_units(R, z, phi, t=0.0):
+        hp = HernquistPotential(amp=2.0, a=1.0, ro=ro, vo=vo)
+        return hp.dens(R, z, use_physical=True) * (
+            1.0 + 0.05 * t * units.Gyr / units.Gyr
+        )
+
+    mp = MultipoleExpansionPotential.from_density(
+        dens=dens_with_units,
+        L=2,
+        rgrid=rgrid,
+        tgrid=tgrid,
+        ro=ro,
+        vo=vo,
+    )
+    assert mp._tdep is True
+    assert numpy.isclose(mp._ro, ro), f"Expected ro={ro}, got {mp._ro}"
+    assert numpy.isclose(mp._vo, vo), f"Expected vo={vo}, got {mp._vo}"
+    val = mp(1.0, 0.0, t=1.0, use_physical=False)
+    assert numpy.isfinite(val), "Potential should be finite"
+
+
+def test_time_dependent_quantity_density_warning():
+    """Time-dep density returning astropy Quantity should warn about unsupported units."""
+    import warnings
+
+    from astropy import units
+
+    from galpy.potential import HernquistPotential, MultipoleExpansionPotential
+    from galpy.util import galpyWarning
+
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    dens_with_units = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False) * (1 + 1e-6 * t) * units.Msun / units.pc**3
+    )
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        try:
+            MultipoleExpansionPotential.from_density(
+                dens=dens_with_units,
+                L=2,
+                symmetry="spherical",
+                rgrid=numpy.geomspace(1e-2, 20, 51),
+                tgrid=numpy.linspace(0, 10, 5),
+            )
+        except Exception:
+            pass  # Expected: Quantity density causes downstream errors
+    galpy_warnings = [x for x in w if issubclass(x.category, galpyWarning)]
+    assert len(galpy_warnings) >= 1, "Expected warning about Quantity density"
+    assert "time-dependent" in str(galpy_warnings[0].message).lower()
+
+
+# =====================================================================
+# StreamTrack physical-units tests
+# =====================================================================
+# These mirror the Orbit unit tests above — covering return type, return
+# unit, return value, turn_physical_on/off, per-call use_physical/ro/vo
+# overrides, and non-default ro/vo. The fixture caches a single track
+# (spray takes ~10 s to build) at module scope.
+
+
+def _build_streamtrack(ro=8.0, vo=220.0):
+    """Minimal fixture: a small fardal15spraydf streamTrack used by all
+    the StreamTrack quantity tests. Uses the canonical Bovy-2014 setup."""
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596],
+        ro=ro,
+        vo=vo,
+    )
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    T = obs.align_to_orbit()
+    numpy.random.seed(7)
+    return spdf.streamTrack(n=600, ntp=21, tail="leading", custom_sky_transform=T), T
+
+
+@pytest.fixture(scope="module")
+def _streamtrack():
+    track, T = _build_streamtrack()
+    return track
+
+
+@pytest.fixture(scope="module")
+def _streamtrack_nondefault():
+    """Track built with non-default ro=9.0, vo=200."""
+    track, T = _build_streamtrack(ro=9.0, vo=200.0)
+    return track
+
+
+def test_streamtrack_method_returntype(_streamtrack):
+    """Every accessor returns an astropy Quantity when physical is on."""
+    track = _streamtrack
+    tp = 0.5 * track.tp_grid().max()
+    accessors = [
+        "x",
+        "y",
+        "z",
+        "vx",
+        "vy",
+        "vz",
+        "R",
+        "vR",
+        "vT",
+        "phi",
+        "ra",
+        "dec",
+        "ll",
+        "bb",
+        "dist",
+        "pmra",
+        "pmdec",
+        "pmll",
+        "pmbb",
+        "vlos",
+        "phi1",
+        "phi2",
+        "pmphi1",
+        "pmphi2",
+    ]
+    for name in accessors:
+        v = getattr(track, name)(tp)
+        assert isinstance(v, units.Quantity), (
+            f"StreamTrack.{name} did not return Quantity (got {type(v).__name__})"
+        )
+
+
+def test_streamtrack_method_returnunit(_streamtrack):
+    """Each accessor returns the right units."""
+    track = _streamtrack
+    tp = 0.5 * track.tp_grid().max()
+    expected = {
+        "x": units.kpc,
+        "y": units.kpc,
+        "z": units.kpc,
+        "R": units.kpc,
+        "vx": units.km / units.s,
+        "vy": units.km / units.s,
+        "vz": units.km / units.s,
+        "vR": units.km / units.s,
+        "vT": units.km / units.s,
+        "vlos": units.km / units.s,
+        "phi": units.rad,
+        "ra": units.deg,
+        "dec": units.deg,
+        "ll": units.deg,
+        "bb": units.deg,
+        "phi1": units.deg,
+        "phi2": units.deg,
+        "dist": units.kpc,
+        "pmra": units.mas / units.yr,
+        "pmdec": units.mas / units.yr,
+        "pmll": units.mas / units.yr,
+        "pmbb": units.mas / units.yr,
+        "pmphi1": units.mas / units.yr,
+        "pmphi2": units.mas / units.yr,
+    }
+    for name, unit in expected.items():
+        v = getattr(track, name)(tp)
+        try:
+            v.to(unit)
+        except units.UnitConversionError:
+            raise AssertionError(
+                f"StreamTrack.{name} returned wrong units: got {v.unit}, "
+                f"expected something convertible to {unit}"
+            )
+
+
+def test_streamtrack_method_value_default_ro_vo(_streamtrack):
+    """Physical values agree with internal × ro / vo for the cartesian and
+    cylindrical galactocentric coords."""
+    track = _streamtrack
+    tp = 0.5 * track.tp_grid().max()
+    ro, vo = 8.0, 220.0
+    # Internal values (turn_physical_off temporarily)
+    x_phys = track.x(tp).to(units.kpc).value
+    x_int = track.x(tp, use_physical=False)
+    assert numpy.isclose(x_phys, x_int * ro), (
+        f"StreamTrack.x physical does not equal internal*ro: {x_phys} vs {x_int * ro}"
+    )
+    vx_phys = track.vx(tp).to(units.km / units.s).value
+    vx_int = track.vx(tp, use_physical=False)
+    assert numpy.isclose(vx_phys, vx_int * vo), (
+        f"StreamTrack.vx physical does not equal internal*vo"
+    )
+
+
+def test_streamtrack_method_per_call_override(_streamtrack):
+    """use_physical=False, ro=, vo= per-call overrides work."""
+    track = _streamtrack
+    tp = 0.0
+    # use_physical=False => raw float
+    x_raw = track.x(tp, use_physical=False)
+    assert not isinstance(x_raw, units.Quantity), (
+        "StreamTrack.x(use_physical=False) returned a Quantity"
+    )
+    # Custom ro: 5.0 kpc instead of default 8.0
+    x_ro5 = track.x(tp, ro=5.0)
+    x_default = track.x(tp).to(units.kpc).value
+    # x_ro5 = internal * 5.0, x_default = internal * 8.0
+    assert numpy.isclose(
+        x_ro5.to(units.kpc).value / 5.0, x_default / 8.0, rtol=1e-10
+    ), "StreamTrack.x(ro=5.0) does not scale linearly with ro"
+    # Custom vo: 250 km/s instead of default 220
+    vx_vo250 = track.vx(tp, vo=250.0)
+    vx_default = track.vx(tp).to(units.km / units.s).value
+    assert numpy.isclose(
+        vx_vo250.to(units.km / units.s).value / 250.0, vx_default / 220.0, rtol=1e-10
+    ), "StreamTrack.vx(vo=250) does not scale linearly with vo"
+    # quantity=False suppresses Quantity wrapping
+    x_no_quantity = track.x(tp, quantity=False)
+    assert not isinstance(x_no_quantity, units.Quantity), (
+        "StreamTrack.x(quantity=False) returned a Quantity"
+    )
+
+
+def test_streamtrack_method_value_turn_physical_off(_streamtrack):
+    """After ``turn_physical_off``, the cartesian/cylindrical galactocentric
+    accessors (``x/y/z/vx/vy/vz/R/vR/vT/phi``) return plain floats.
+
+    Sky-frame and natural-unit accessors (``ra``, ``dec``, ``dist``, ``vlos``,
+    ``pmra`` etc.) always return Quantities — galpy's convention for
+    underscore-tagged unit strings (``angle_deg``, ``position_kpc``,
+    ``velocity_kms``, ``proper-motion_masyr``) is that they're inherently
+    in their natural unit independent of ``ro``/``vo``."""
+    track, _ = _build_streamtrack()  # fresh copy so we can flip flags
+    tp = 0.0
+    assert isinstance(track.x(tp), units.Quantity)
+    track.turn_physical_off()
+    for name in ("x", "y", "z", "vx", "vy", "vz", "R", "vR", "vT", "phi"):
+        v = getattr(track, name)(tp)
+        assert not isinstance(v, units.Quantity), (
+            f"StreamTrack.{name} still Quantity after turn_physical_off"
+        )
+    assert abs(track.x(tp)) < 5.0, (
+        f"StreamTrack.x in internal units should be O(1), got {track.x(tp)}"
+    )
+    for name in ("ra", "dec", "dist", "vlos", "pmra", "pmdec"):
+        v = getattr(track, name)(tp)
+        assert isinstance(v, units.Quantity), (
+            f"StreamTrack.{name} dropped Quantity after turn_physical_off — "
+            "underscore-tagged unit kinds should always return Quantity"
+        )
+    track.turn_physical_on()
+    assert isinstance(track.x(tp), units.Quantity)
+
+
+def test_streamtrack_nondefault_rovo(_streamtrack_nondefault):
+    """A track with ro=9 kpc, vo=200 km/s scales physical outputs by 9/200,
+    not the global default 8/220."""
+    track = _streamtrack_nondefault
+    tp = 0.0
+    x_phys = track.x(tp).to(units.kpc).value
+    x_int = track.x(tp, use_physical=False)
+    assert numpy.isclose(x_phys, x_int * 9.0), (
+        f"Non-default ro: x physical {x_phys} != internal*9.0 ({x_int * 9.0})"
+    )
+    vx_phys = track.vx(tp).to(units.km / units.s).value
+    vx_int = track.vx(tp, use_physical=False)
+    assert numpy.isclose(vx_phys, vx_int * 200.0), (
+        f"Non-default vo: vx physical {vx_phys} != internal*200.0 ({vx_int * 200.0})"
+    )
+    # ra/dec/dist also depend on ro because they go through helio_xv (uses
+    # self._ro internally to subtract Sun position). Verify dist is
+    # consistent with the galactocentric position and the Sun-galactic-center
+    # distance ro=9: dist^2 = (x - ro)^2 + y^2 + z^2.
+    d = track.dist(tp).to(units.kpc).value
+    x_kpc = track.x(tp).to(units.kpc).value
+    y_kpc = track.y(tp).to(units.kpc).value
+    z_kpc = track.z(tp).to(units.kpc).value
+    # ro=9 dominates over the Sun's height (zo ~ 0.025 kpc) and small
+    # solar-motion-driven shifts; allow ~50 pc for those.
+    d_expected = numpy.sqrt((x_kpc - 9.0) ** 2 + y_kpc**2 + z_kpc**2)
+    assert abs(d - d_expected) < 0.05, (
+        f"dist {d} != geometric expectation {d_expected} from ro=9"
+    )
+
+
+def test_streamtrack_pair_turn_physical(_streamtrack):
+    """StreamTrackPair.turn_physical_on/off propagates to both arms."""
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    T = obs.align_to_orbit()
+    numpy.random.seed(8)
+    pair = spdf.streamTrack(n=600, ntp=21, tail="both", custom_sky_transform=T)
+    # After turn_physical_off
+    pair.turn_physical_off()
+    assert not isinstance(pair.leading.x(0.0), units.Quantity)
+    assert not isinstance(pair.trailing.x(0.0), units.Quantity)
+    # And back on
+    pair.turn_physical_on()
+    assert isinstance(pair.leading.x(0.0), units.Quantity)
+    assert isinstance(pair.trailing.x(0.0), units.Quantity)
+
+
+def test_streamtrack_plot_follows_physical(_streamtrack):
+    """StreamTrack.plot uses physical/internal axes based on _roSet/_voSet
+    and the per-call override, mirroring Orbit.plot. Smoke-test that plot
+    runs in both modes without error."""
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    from matplotlib import pyplot as plt
+
+    track = _streamtrack
+    # Default (physical)
+    fig, ax = plt.subplots()
+    track.plot(d1="x", d2="y")
+    plt.close(fig)
+    # Override to internal
+    fig, ax = plt.subplots()
+    track.plot(d1="x", d2="y", use_physical=False)
+    plt.close(fig)
+    # With explicit ro/vo
+    fig, ax = plt.subplots()
+    track.plot(d1="x", d2="y", ro=10.0, vo=200.0)
+    plt.close(fig)
+
+
+def test_streamtrack_parameter_kind_quantity_inputs():
+    """parameter_kind controls how astropy Quantity inputs to accessors are
+    parsed. Build minimal precomputed tracks with each kind and check that
+    a Quantity input agrees with the equivalent plain-float input."""
+    from astropy import units
+
+    from galpy.df.streamTrack import StreamTrack
+    from galpy.util import conversion
+
+    # parameter_kind="time": Quantity time → galpy internal time.
+    ro, vo = 8.0, 220.0
+    tp_grid = numpy.linspace(0.0, 0.5, 21)
+    track_xyz = numpy.column_stack([tp_grid, numpy.zeros(21), numpy.zeros(21)])
+    track_vxvyvz = numpy.zeros((21, 3))
+    time_track = StreamTrack(
+        tp_grid=tp_grid,
+        track_xyz=track_xyz,
+        track_vxvyvz=track_vxvyvz,
+        parameter_kind="time",
+        ro=ro,
+        vo=vo,
+    )
+    tp = 0.25
+    t_gyr = tp * conversion.time_in_Gyr(vo, ro)
+    # Compare in internal units to avoid Quantity vs float comparisons.
+    assert numpy.isclose(
+        float(time_track.x(tp, use_physical=False)),
+        float(time_track.x(t_gyr * units.Gyr, use_physical=False)),
+    )
+    # parameter_kind="angle": Quantity angle → radians.
+    angle_track = StreamTrack(
+        tp_grid=tp_grid,
+        track_xyz=track_xyz,
+        track_vxvyvz=track_vxvyvz,
+        parameter_kind="angle",
+    )
+    assert numpy.isclose(
+        float(angle_track.x(0.25, use_physical=False)),
+        float(angle_track.x(0.25 * units.rad, use_physical=False)),
+    )
+    # Quantity in degrees should be converted to radians automatically.
+    deg_val = (0.25 * units.rad).to(units.deg)
+    assert numpy.isclose(
+        float(angle_track.x(0.25, use_physical=False)),
+        float(angle_track.x(deg_val, use_physical=False)),
+    )
+
+
+def test_streamspraydf_stripping_pdf_quantity_in_out():
+    # Quantity input / Quantity output PDF: results match internal-units twin.
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    mass = 2 * 10.0**4.0 * units.Msun
+    tdisrupt = 4.5 * units.Gyr
+    t0 = -2.5 * units.Gyr
+    sig = 0.3 * units.Gyr
+
+    def pdf_qq(t):
+        x = ((t - t0) / sig).to_value(units.dimensionless_unscaled)
+        return numpy.exp(-0.5 * x**2) / units.Gyr
+
+    def pdf_internal(t):
+        t_gyr = numpy.asarray(t) * conversion.time_in_Gyr(vo, ro)
+        x = (t_gyr - t0.to_value(units.Gyr)) / sig.to_value(units.Gyr)
+        return numpy.exp(-0.5 * x**2)
+
+    spdf_q = fardal15spraydf(
+        mass,
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+        stripping_pdf=pdf_qq,
+        ro=ro,
+        vo=vo,
+    )
+    spdf_i = fardal15spraydf(
+        mass.to_value(units.Msun) / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro),
+        stripping_pdf=pdf_internal,
+    )
+    numpy.random.seed(3)
+    _, dt_q = spdf_q.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    numpy.random.seed(3)
+    _, dt_i = spdf_i.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    dt_q_internal = dt_q.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+    assert numpy.allclose(dt_q_internal, dt_i, rtol=1e-8, atol=1e-8)
+
+
+def test_streamspraydf_stripping_pdf_quantity_in_only():
+    # Quantity input / unitless output PDF.
+    from galpy.df import chen24spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    t0 = -2.5 * units.Gyr
+    sig = 0.3 * units.Gyr
+
+    def pdf_qu(t):
+        x = ((t - t0) / sig).to_value(units.dimensionless_unscaled)
+        return numpy.exp(-0.5 * x**2)
+
+    def pdf_i(t):
+        t_gyr = numpy.asarray(t) * conversion.time_in_Gyr(vo, ro)
+        x = (t_gyr - t0.to_value(units.Gyr)) / sig.to_value(units.Gyr)
+        return numpy.exp(-0.5 * x**2)
+
+    spdf_q = chen24spraydf(
+        2e4 * units.Msun,
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 * units.Gyr,
+        stripping_pdf=pdf_qu,
+        ro=ro,
+        vo=vo,
+    )
+    spdf_i = chen24spraydf(
+        2e4 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        stripping_pdf=pdf_i,
+    )
+    numpy.random.seed(5)
+    _, dt_q = spdf_q.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    numpy.random.seed(5)
+    _, dt_i = spdf_i.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    dt_q_internal = dt_q.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+    assert numpy.allclose(dt_q_internal, dt_i, rtol=1e-8, atol=1e-8)
+
+
+def test_streamspraydf_stripping_pdf_quantity_out_only():
+    # Unitless input / Quantity output PDF.
+    from galpy.df import chen24spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    t0_internal = -2.5 / conversion.time_in_Gyr(vo, ro)
+    sig_internal = 0.3 / conversion.time_in_Gyr(vo, ro)
+
+    def pdf_uq(t):
+        x = (numpy.asarray(t) - t0_internal) / sig_internal
+        return numpy.exp(-0.5 * x**2) / units.Gyr
+
+    def pdf_i(t):
+        x = (numpy.asarray(t) - t0_internal) / sig_internal
+        return numpy.exp(-0.5 * x**2)
+
+    spdf_q = chen24spraydf(
+        2e4 * units.Msun,
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 * units.Gyr,
+        stripping_pdf=pdf_uq,
+        ro=ro,
+        vo=vo,
+    )
+    spdf_i = chen24spraydf(
+        2e4 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        stripping_pdf=pdf_i,
+    )
+    numpy.random.seed(11)
+    _, dt_q = spdf_q.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    numpy.random.seed(11)
+    _, dt_i = spdf_i.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    dt_q_internal = dt_q.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+    assert numpy.allclose(dt_q_internal, dt_i, rtol=1e-8, atol=1e-8)
+
+
+def test_streamspraydf_stripping_pdf_quantity_in_via_to_method():
+    # PDF that calls ``t.to(u.Gyr)`` directly raises AttributeError when
+    # probed with a float — the input-unit detector must catch that and
+    # treat the function as Quantity-input.
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    mass = 2 * 10.0**4.0 * units.Msun
+    tdisrupt = 4.5 * units.Gyr
+
+    def pdf_to_method(t):
+        # AttributeError on float, works on Quantity time.
+        t_gyr = t.to(units.Gyr).value
+        return numpy.exp(-0.5 * ((t_gyr + 2.5) / 0.3) ** 2) / units.Gyr
+
+    def pdf_internal(t):
+        t_gyr = numpy.asarray(t) * conversion.time_in_Gyr(vo, ro)
+        return numpy.exp(-0.5 * ((t_gyr + 2.5) / 0.3) ** 2)
+
+    spdf_q = fardal15spraydf(
+        mass,
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt,
+        stripping_pdf=pdf_to_method,
+        ro=ro,
+        vo=vo,
+    )
+    spdf_i = fardal15spraydf(
+        mass.to_value(units.Msun) / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=tdisrupt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro),
+        stripping_pdf=pdf_internal,
+    )
+    numpy.random.seed(4)
+    _, dt_q = spdf_q.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    numpy.random.seed(4)
+    _, dt_i = spdf_i.sample(n=200, returndt=True, integrate=False, return_orbit=False)
+    dt_q_internal = dt_q.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+    assert numpy.allclose(dt_q_internal, dt_i, rtol=1e-8, atol=1e-8)
+
+
+def test_pericenter_stripping_pdf_quantity_sigma_tdisrupt():
+    from galpy.df import pericenter_stripping_pdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    pdf_q = pericenter_stripping_pdf(
+        obs,
+        lp,
+        4.5 * units.Gyr,
+        sigma=50 * units.Myr,
+        ro=ro,
+        vo=vo,
+    )
+    pdf_i = pericenter_stripping_pdf(
+        obs,
+        lp,
+        4.5 / conversion.time_in_Gyr(vo, ro),
+        sigma=0.05 / conversion.time_in_Gyr(vo, ro),
+    )
+    assert numpy.allclose(pdf_q.pericenter_times, pdf_i.pericenter_times)
+    # PDF value at a pericenter agrees (Quantity vs internal)
+    t_test = pdf_i.pericenter_times[0]
+    val_internal = pdf_i(t_test)
+    val_quantity = pdf_q(t_test * conversion.time_in_Gyr(vo, ro) * units.Gyr)
+    assert numpy.isclose(
+        float(val_internal),
+        float(val_quantity.to(1.0 / units.Gyr).value * conversion.time_in_Gyr(vo, ro)),
+    )

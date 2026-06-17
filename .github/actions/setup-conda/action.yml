@@ -1,0 +1,150 @@
+name: 'Set up conda environment'
+description: |
+  Create a conda environment for the workflow using the runner's preinstalled
+  Miniconda on Linux/Windows, or a manually installed Miniconda on macOS
+  (where it isn't preinstalled). Mirrors the inputs of setup-micromamba so it
+  can be used as a drop-in replacement, including optional caching.
+
+  After this action runs:
+    * $CONDA_PREFIX is set to the environment path.
+    * The environment's bin/Scripts/Library\bin directories are prepended to
+      PATH so `python`, `pytest`, gsl-config etc. resolve from the env.
+    * `bash -l {0}` shells have the env auto-activated (matching
+      setup-micromamba's behaviour).
+
+inputs:
+  environment-name:
+    description: 'Name of the conda environment to create.'
+    required: true
+  condarc:
+    description: 'Contents to write to ~/.condarc (typically channels).'
+    required: false
+    default: ''
+  create-args:
+    description: 'Packages and version constraints to pass to conda create.'
+    required: true
+  cache-environment:
+    description: 'Whether to cache the environment with actions/cache.'
+    required: false
+    default: 'false'
+  cache-environment-key:
+    description: |
+      Cache key used when cache-environment is true. An ISO year-week suffix
+      is appended automatically so the cache rolls over weekly.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # macOS runners don't ship Miniconda preinstalled. Install it manually
+    # to $HOME/miniconda the first time the action is called in a job; later
+    # invocations reuse it. We avoid setup-micromamba because it has been
+    # intermittently failing on macOS and Windows runners.
+    - if: runner.os == 'macOS'
+      name: Install Miniconda (Mac OS)
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ ! -x "$HOME/miniconda/bin/conda" ]; then
+          ARCH="$(uname -m)"
+          curl -sSL "https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-${ARCH}.sh" -o /tmp/miniconda.sh
+          bash /tmp/miniconda.sh -b -p "$HOME/miniconda"
+          rm /tmp/miniconda.sh
+        fi
+
+    # Compute the env prefix. The path is user-writable on all platforms:
+    #   Linux:   $HOME/conda-envs/<name>  ($CONDA is /usr/share/miniconda,
+    #            owned by root)
+    #   Windows: $CONDA/envs/<name>       ($CONDA is C:\Miniconda, writable)
+    #   macOS:   $HOME/miniconda/envs/<name>
+    - id: paths
+      shell: bash
+      env:
+        ENV_NAME: ${{ inputs.environment-name }}
+      run: |
+        set -euo pipefail
+        case "$RUNNER_OS" in
+          Windows) ENV_PREFIX="$(cygpath -u "$CONDA")/envs/$ENV_NAME" ;;
+          macOS)   ENV_PREFIX="$HOME/miniconda/envs/$ENV_NAME" ;;
+          *)       ENV_PREFIX="$HOME/conda-envs/$ENV_NAME" ;;
+        esac
+        echo "env-prefix=$ENV_PREFIX" >> "$GITHUB_OUTPUT"
+
+    - if: inputs.cache-environment == 'true'
+      id: cache-key
+      shell: bash
+      env:
+        USER_KEY: ${{ inputs.cache-environment-key }}
+      run: |
+        set -euo pipefail
+        # Append an ISO year-week suffix so the cache rolls over weekly.
+        WEEK="$(date -u +%G-%V)"
+        echo "key=${USER_KEY}-${WEEK}" >> "$GITHUB_OUTPUT"
+
+    - if: inputs.cache-environment == 'true'
+      id: cache
+      uses: actions/cache@v5
+      with:
+        path: ${{ steps.paths.outputs.env-prefix }}
+        key: ${{ steps.cache-key.outputs.key }}
+
+    - if: inputs.cache-environment != 'true' || steps.cache.outputs.cache-hit != 'true'
+      name: Create conda environment
+      shell: bash
+      env:
+        CONDARC_CONTENTS: ${{ inputs.condarc }}
+        CREATE_ARGS: ${{ inputs.create-args }}
+        ENV_PREFIX: ${{ steps.paths.outputs.env-prefix }}
+      run: |
+        set -euo pipefail
+        if [ -n "$CONDARC_CONTENTS" ]; then
+          printf '%s\n' "$CONDARC_CONTENTS" > "$HOME/.condarc"
+        fi
+        case "$RUNNER_OS" in
+          Windows) CONDA_BIN="$CONDA/Scripts/conda" ;;
+          macOS)   CONDA_BIN="$HOME/miniconda/bin/conda" ;;
+          *)       CONDA_BIN="$CONDA/bin/conda" ;;
+        esac
+        # Always use `create -p` so we don't depend on $CONDA/envs being
+        # writable (it isn't on Linux GitHub-hosted runners).
+        "$CONDA_BIN" create -p "$ENV_PREFIX" $CREATE_ARGS -y
+
+    - name: Export environment paths
+      shell: bash
+      env:
+        ENV_PREFIX: ${{ steps.paths.outputs.env-prefix }}
+      run: |
+        set -euo pipefail
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          ENV_WIN="$(cygpath -w "$ENV_PREFIX")"
+          echo "CONDA_PREFIX=$ENV_WIN" >> "$GITHUB_ENV"
+          {
+            echo "$ENV_WIN\\Library\\bin"
+            echo "$ENV_WIN\\Scripts"
+            echo "$ENV_WIN"
+          } >> "$GITHUB_PATH"
+        else
+          echo "CONDA_PREFIX=$ENV_PREFIX" >> "$GITHUB_ENV"
+          echo "$ENV_PREFIX/bin" >> "$GITHUB_PATH"
+        fi
+
+    # Make `bash -l {0}` shells auto-activate the env, matching
+    # setup-micromamba's behaviour. Rewrite ~/.bash_profile from scratch so
+    # multiple action calls in the same job don't cascade activations.
+    - name: Initialize conda for login shells
+      shell: bash
+      env:
+        ENV_PREFIX: ${{ steps.paths.outputs.env-prefix }}
+      run: |
+        set -e
+        case "$RUNNER_OS" in
+          Windows) CONDA_UNIX="$(cygpath -u "$CONDA")" ;;
+          macOS)   CONDA_UNIX="$HOME/miniconda" ;;
+          *)       CONDA_UNIX="$CONDA" ;;
+        esac
+        cat > "$HOME/.bash_profile" <<EOF
+        # Managed by setup-conda action
+        source "$CONDA_UNIX/etc/profile.d/conda.sh"
+        conda activate "$ENV_PREFIX"
+        EOF
