@@ -91,7 +91,7 @@ def test_accessor_diffrax_matches_c_and_stays_jax(acc):
     got, ref = numpy.asarray(val), _c_ref(acc)
     if acc in _WRAP:
         got, ref = _wrap(got), _wrap(ref)
-    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-8, atol=1e-8)
 
 
 @pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
@@ -104,7 +104,7 @@ def test_accessor_torchdiffeq_matches_c_and_stays_torch(acc):
     got, ref = val.detach().cpu().numpy(), _c_ref(acc)
     if acc in _WRAP:
         got, ref = _wrap(got), _wrap(ref)
-    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-8, atol=1e-8)
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
@@ -169,10 +169,14 @@ def test_accessor_diffrax_offgrid_matches_truth_and_numpy(acc):
     truth, npv = _c_true(acc), _np_interp(acc)
     if acc in _WRAP:
         got, truth, npv = _wrap(got), _wrap(truth), _wrap(npv)
-    # accurate vs the true orbit (cubic interpolation error)
-    numpy.testing.assert_allclose(got, truth, rtol=1e-4, atol=5e-4)
-    # and tracks the existing numpy spline path closely (same interpolant family)
-    numpy.testing.assert_allclose(got, npv, rtol=1e-5, atol=1e-5)
+    # accurate vs the true orbit -- this is the genuine cubic-interpolation error
+    # between grid points (dt~0.1); measured max over all accessors ~2e-7, and the
+    # numpy/scipy spline path has the identical error (see below), so it is not a
+    # backend deficiency. Tolerance kept ~50x above that floor.
+    numpy.testing.assert_allclose(got, truth, rtol=1e-5, atol=1e-5)
+    # and tracks the existing numpy spline path to ~machine: the backend Spline1D
+    # reproduces galpy's orbit interpolant (same knots/BC), measured ~3e-11.
+    numpy.testing.assert_allclose(got, npv, rtol=1e-9, atol=1e-9)
 
 
 @pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
@@ -182,7 +186,7 @@ def test_accessor_torchdiffeq_offgrid_matches_truth():
     val = o.R(torch.as_tensor(_TQ), use_physical=False)
     assert isinstance(val, torch.Tensor)
     numpy.testing.assert_allclose(
-        val.detach().cpu().numpy(), _c_true("R"), rtol=1e-4, atol=5e-4
+        val.detach().cpu().numpy(), _c_true("R"), rtol=1e-5, atol=1e-5
     )
 
 
@@ -232,7 +236,7 @@ def test_accessor_diffrax_offgrid_scalar_query():
     o_np = Orbit(list(_IC))
     o_np.integrate(_TS, _POT, method="dop853_c")
     numpy.testing.assert_allclose(
-        float(val), float(o_np.R(2.345, use_physical=False)), rtol=1e-5, atol=1e-5
+        float(val), float(o_np.R(2.345, use_physical=False)), rtol=1e-9, atol=1e-9
     )
 
 
