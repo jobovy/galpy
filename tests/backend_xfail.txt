@@ -1813,3 +1813,5 @@ jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarf
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz_2d
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
+# triage round-2: potential convenience migration propagates a jax array into the un-migrated quasiisothermaldf (Track F) used by the paper-overview test; quasiisothermaldf.__call__ does out[isnan]=0.0 (in-place, jax-immutable). numpy path unaffected; df migration is Track F.
+jax tests/test_galpypaper.py::test_overview
