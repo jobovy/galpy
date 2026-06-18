@@ -289,6 +289,19 @@ def _resolve_accessor_namespace(thiso):
     return xp, xp.asarray(thiso)
 
 
+def _backend_safe_copy(x):
+    """Defensive copy of a backend (jax/torch) array that does not alias the
+    Orbit's internal storage, so a caller cannot mutate ``self.orbit`` through a
+    value returned by ``getOrbit``/``_call_internal`` (the numpy paths already
+    return ``.copy()``). jax arrays are immutable, so the returned array can never
+    be mutated in place -> return as-is; a torch tensor is mutable and the backend
+    returns are views (``permute_dims``/``self.orbit``), so ``.clone()`` -- which,
+    unlike numpy's ``.copy()``, stays in the autograd graph -- gives an independent
+    copy. ``x`` is always a backend array here (guarded by ``is_backend_array``).
+    """
+    return x.clone() if hasattr(x, "clone") else x  # torch has .clone(); jax does not
+
+
 def shapeDecorator(func):
     """Decorator to return Orbits outputs with the correct shape"""
 
@@ -2982,7 +2995,7 @@ class Orbit:
         # A backend (jax/torch) orbit from an in-backend integrator is returned
         # as-is (preserving the autodiff graph; torch tensors also lack .copy()).
         if is_backend_array(self.orbit):
-            return self.orbit
+            return _backend_safe_copy(self.orbit)
         return self.orbit.copy()
 
     @shapeDecorator
@@ -6705,9 +6718,13 @@ class Orbit:
         if (
             t_exact_integration_times
         ):  # Common case where one wants all integrated times
-            if _orbit_is_backend:  # keep on the backend; no numpy .copy()
+            if (
+                _orbit_is_backend
+            ):  # keep on the backend; defensive clone, not numpy .copy()
                 xp = get_namespace(self.orbit)
-                return xp.permute_dims(self.orbit, tuple(range(self.orbit.ndim))[::-1])
+                return _backend_safe_copy(
+                    xp.permute_dims(self.orbit, tuple(range(self.orbit.ndim))[::-1])
+                )
             return self.orbit.T.copy()
         elif (
             isinstance(t, (int, float, numpy.number))
@@ -6717,7 +6734,9 @@ class Orbit:
             sl = self.orbit[:, list(_self_t).index(t), :]
             if _orbit_is_backend:
                 xp = get_namespace(sl)
-                return xp.permute_dims(sl, tuple(range(sl.ndim))[::-1])
+                return _backend_safe_copy(
+                    xp.permute_dims(sl, tuple(range(sl.ndim))[::-1])
+                )
             return numpy.array(sl).T
         else:
             if _orbit_is_backend:
