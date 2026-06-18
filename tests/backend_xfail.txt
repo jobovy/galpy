@@ -1885,3 +1885,24 @@ torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
 torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
 jax tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
+# triage round-2: PR-B accessor flips missed by the first gather (qdf/noninertial/quantity shards timed out in the prior run). Accessors now return backend arrays under the forced suite; un-migrated test_noninertial/streamspraydf do numpy-only ops (numpy.amax/mean, array-minus-list) on them. numpy path unaffected.
+torch tests/test_noninertial.py::test_cinterp_combined_rotlin
+torch tests/test_noninertial.py::test_cinterp_constant_a0_noop
+torch tests/test_noninertial.py::test_cinterp_constfreq_lin
+torch tests/test_noninertial.py::test_cinterp_func_a0_2d
+torch tests/test_noninertial.py::test_cinterp_func_a0_3d
+torch tests/test_noninertial.py::test_cinterp_funcomegaz
+torch tests/test_noninertial.py::test_cinterp_input_type_combinations
+torch tests/test_noninertial.py::test_cinterp_linear_a0_exact
+torch tests/test_noninertial.py::test_cinterp_n_resolution
+torch tests/test_noninertial.py::test_cinterp_omega_func_no_omegadot_derived
+torch tests/test_noninertial.py::test_cinterp_scalar_only_and_constant_funcs
+torch tests/test_noninertial.py::test_cinterp_vecfuncomega
+torch tests/test_noninertial.py::test_cinterp_wrapper_and_movingobject_combo
+jax tests/test_noninertial.py::test_arbitraryaxisrotation
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_nullpotential
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot_nullpotential
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
+torch tests/test_quantity.py::test_pericenter_stripping_pdf_quantity_sigma_tdisrupt
