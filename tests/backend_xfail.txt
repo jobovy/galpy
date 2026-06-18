@@ -1868,3 +1868,20 @@ jax tests/test_galpypaper.py::test_overview
 # (test_qdf's draws) into an unlucky close-approach xpos that exceeds 1e-10. Proper fix =
 # seed/loosen this Track-F test (deferred to the stream/df migration).
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_curved
+# triage: PR-B accessor-migration flips (forced-backend downstream numpy ops)
+torch tests/test_orbits.py::test_coordinate_interpolation_2d
+torch tests/test_orbits.py::test_flip
+torch tests/test_orbits.py::test_flip_inplace
+torch tests/test_orbits.py::test_flip_inplace_integrated
+torch tests/test_orbits.py::test_flip_inplace_integrated_evaluated
+torch tests/test_orbits.py::test_integration_1d
+torch tests/test_orbits.py::test_integration_forcemap_1d
+torch tests/test_orbits.py::test_toLinear
+torch tests/test_actionAngle.py::test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
+torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actions
+torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
+torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
+torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
+jax tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
