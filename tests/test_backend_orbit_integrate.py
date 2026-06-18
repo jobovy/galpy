@@ -432,3 +432,26 @@ def test_integrate_numpy_path_unchanged():
     o2 = Orbit(_IC)
     o2.integrate(_TS, pot, method="dop853")
     numpy.testing.assert_allclose(o.R(_TS), o2.R(_TS), rtol=1e-6, atol=1e-7)
+
+
+# ------------------------------------------- inbackend_ode defensive guards (no jax/torch needed)
+def test_inbackend_to_eom_unsupported_phasedim_raises():
+    # _to_eom validates the phase-space dimension; the public Orbit path only ever
+    # passes phasedim 2-6, so this guards a direct misuse (and covers the branch).
+    from galpy.backend._reference.inbackend_ode import _to_eom
+
+    with pytest.raises(ValueError, match="unsupported phase-space dimension"):
+        _to_eom(numpy, numpy.zeros(7))
+
+
+def test_inbackend_integrate_orbit_numpy_input_raises():
+    # integrate_orbit needs a jax/torch array (it picks the solver from the input
+    # namespace); a numpy input is rejected with a clear message.
+    from galpy.backend._reference.inbackend_ode import integrate_orbit
+
+    with pytest.raises(NotImplementedError, match="requires a jax or torch"):
+        integrate_orbit(
+            PlummerPotential(amp=1.0, b=0.6),
+            numpy.array(_IC),
+            numpy.linspace(0.0, 1.0, 5),
+        )
