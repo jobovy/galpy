@@ -23,6 +23,7 @@ import numpy
 from packaging.version import Version
 from scipy import integrate, optimize
 
+from ..backend import get_namespace
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -566,7 +567,8 @@ class Potential(Force):
         - 2018-03-21 - Written - Webb (UofT)
 
         """
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self.R2deriv(R, z, phi=phi, t=t, use_physical=False) * R / r
             + self.Rzderiv(R, z, phi=phi, t=t, use_physical=False) * z / r
@@ -824,7 +826,8 @@ class Potential(Force):
         - 2021-03-18 - Written - Bovy (UofT)
 
         """
-        return 2.0 * numpy.pi * R * numpy.sqrt(R / self.mass(R, use_physical=False))
+        xp = get_namespace(R)
+        return 2.0 * numpy.pi * R * xp.sqrt(R / self.mass(R, use_physical=False))
 
     @physical_conversion("mass", pop=False)
     def mvir(
@@ -1225,7 +1228,8 @@ class Potential(Force):
         - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
-        return numpy.sqrt(R * -self.Rforce(R, 0.0, phi=phi, t=t, use_physical=False))
+        xp = get_namespace(R)
+        return xp.sqrt(R * -self.Rforce(R, 0.0, phi=phi, t=t, use_physical=False))
 
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
@@ -1285,7 +1289,8 @@ class Potential(Force):
         - 2011-10-09 - Written - Bovy (IAS)
 
         """
-        return numpy.sqrt(-self.Rforce(R, 0.0, t=t, use_physical=False) / R)
+        xp = get_namespace(R)
+        return xp.sqrt(-self.Rforce(R, 0.0, t=t, use_physical=False) / R)
 
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
@@ -1310,7 +1315,8 @@ class Potential(Force):
         - 2011-10-09 - Written - Bovy (IAS)
 
         """
-        return numpy.sqrt(
+        xp = get_namespace(R)
+        return xp.sqrt(
             self.R2deriv(R, 0.0, t=t, use_physical=False)
             - 3.0 / R * self.Rforce(R, 0.0, t=t, use_physical=False)
         )
@@ -1338,7 +1344,8 @@ class Potential(Force):
         - 2012-07-25 - Written - Bovy (IAS@MPIA)
 
         """
-        return numpy.sqrt(self.z2deriv(R, 0.0, t=t, use_physical=False))
+        xp = get_namespace(R)
+        return xp.sqrt(self.z2deriv(R, 0.0, t=t, use_physical=False))
 
     @physical_conversion("position", pop=True)
     def lindbladR(self, OmegaP, m=2, t=0.0, **kwargs):
@@ -1394,7 +1401,8 @@ class Potential(Force):
         - 2011-10-09 - Written - Bovy (IAS)
 
         """
-        return numpy.sqrt(
+        xp = get_namespace(R)
+        return xp.sqrt(
             2.0
             * (
                 self(_INF, 0.0, t=t, use_physical=False)
@@ -1510,8 +1518,9 @@ class Potential(Force):
         - 2012-09-13 - Written - Bovy (IAS)
 
         """
-        return numpy.sqrt(
-            numpy.fabs(
+        xp = get_namespace(R, z)
+        return xp.sqrt(
+            xp.abs(
                 z
                 / R
                 * self.Rforce(R, z, t=t, use_physical=False)
@@ -1546,12 +1555,13 @@ class Potential(Force):
         if _APY_LOADED and isinstance(l, units.Quantity):
             l = conversion.parse_angle(l)
             deg = False
+        xp = get_namespace(l)
         if deg:
-            sinl = numpy.sin(l / 180.0 * numpy.pi)
+            sinl = xp.sin(l / 180.0 * numpy.pi)
         else:
-            sinl = numpy.sin(l)
+            sinl = xp.sin(l)
         return sinl * (
-            self.omegac(numpy.fabs(sinl), t=t, use_physical=False)
+            self.omegac(xp.abs(sinl), t=t, use_physical=False)
             - self.omegac(1.0, t=t, use_physical=False)
         )
 
@@ -1755,7 +1765,8 @@ class Potential(Force):
             raise PotentialError(
                 "Mass parameter M= needs to be set to compute tidal radius"
             )
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         omegac2 = -self.rforce(R, z, phi=phi, t=t, use_physical=False) / r
         d2phidr2 = self.r2deriv(R, z, phi=phi, t=t, use_physical=False)
         return (M / (omegac2 - d2phidr2)) ** (1.0 / 3.0)
@@ -1802,8 +1813,13 @@ class Potential(Force):
         Rphideriv = self.Rphideriv(R, z, phi=phi, t=t, use_physical=False)
         # Temporarily set zphideriv to zero until zphideriv is added to Class
         zphideriv = 0.0
-        cosphi = numpy.cos(phi)
-        sinphi = numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        # phi defaults to the Python float 0.0; anchor it on the namespace so
+        # that xp.cos/xp.sin accept it under torch (which rejects bare floats).
+        # On the numpy path this is byte-identical (numpy.cos of a 0-d array).
+        phi = xp.asarray(phi)
+        cosphi = xp.cos(phi)
+        sinphi = xp.sin(phi)
         cos2phi = cosphi**2.0
         sin2phi = sinphi**2.0
         R2 = R**2.0
@@ -1836,9 +1852,15 @@ class Potential(Force):
         txz = tzx
         tyz = tzy
         tzz = z2deriv
-        tij = -numpy.array([[txx, txy, txz], [tyx, tyy, tyz], [tzx, tzy, tzz]])
+        tij = -xp.stack(
+            [
+                xp.stack([xp.asarray(txx), xp.asarray(txy), xp.asarray(txz)]),
+                xp.stack([xp.asarray(tyx), xp.asarray(tyy), xp.asarray(tyz)]),
+                xp.stack([xp.asarray(tzx), xp.asarray(tzy), xp.asarray(tzz)]),
+            ]
+        )
         if eigenval:
-            return numpy.linalg.eigvals(tij)
+            return xp.linalg.eigvals(tij)
         else:
             return tij
 
