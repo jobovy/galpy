@@ -130,12 +130,15 @@ class ExpTruncNFWPotential(SphericalPotential):
         c2 = 0.5
         c3 = -(1.0 / rc + 2.0 / a) / 3.0
         c4 = (0.5 / rc / rc + 2.0 / (rc * a) + 3.0 / (a * a)) / 4.0
-        c5 = -(
-            1.0 / (6.0 * rc**3)
-            + 1.0 / (rc * rc * a)
-            + 3.0 / (rc * a * a)
-            + 4.0 / a**3
-        ) / 5.0
+        c5 = (
+            -(
+                1.0 / (6.0 * rc**3)
+                + 1.0 / (rc * rc * a)
+                + 3.0 / (rc * a * a)
+                + 4.0 / a**3
+            )
+            / 5.0
+        )
         return (r * r / (a * a)) * (c2 + r * (c3 + r * (c4 + r * c5)))
 
     def _G(self, r):

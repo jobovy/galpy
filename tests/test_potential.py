@@ -5435,7 +5435,9 @@ def test_ExpTruncNFW_nfwlimit():
                 - potential.evaluatePotentials(nfw, r, 0.0)
             )
             < 1e-5
-        ), "ExpTruncNFWPotential potential does not reduce to NFWPotential as rc -> infinity"
+        ), (
+            "ExpTruncNFWPotential potential does not reduce to NFWPotential as rc -> infinity"
+        )
         assert numpy.fabs(etn.rforce(r, 0.0) - nfw.rforce(r, 0.0)) < 1e-5, (
             "ExpTruncNFWPotential force does not reduce to NFWPotential as rc -> infinity"
         )
