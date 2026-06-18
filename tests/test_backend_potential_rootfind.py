@@ -376,10 +376,8 @@ def test_mass_jax(name, fn, pot, R):
     ref = float(fn(pot, R))
     out = fn(pot, jnp.asarray(R))
     assert "jax" in type(out).__module__, (name, type(out))
-    # Fixed-order GL vs scipy adaptive: looser tol than the exact root finds
-    # (the spherical integrand sharpens with R). Still tight enough to catch a
-    # real regression.
-    numpy.testing.assert_allclose(float(out), ref, rtol=1e-4, atol=1e-6)
+    # fixed-order GL vs scipy adaptive quad (measured worst ~1e-8 over these cases)
+    numpy.testing.assert_allclose(float(out), ref, rtol=1e-6, atol=1e-8)
 
     def g(x):
         return fn(pot, x)
@@ -399,7 +397,7 @@ def test_mass_torch(name, fn, pot, R):
     x.requires_grad_(True)
     out = fn(pot, x)
     assert torch.is_tensor(out), (name, type(out))
-    numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=1e-4, atol=1e-6)
+    numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=1e-6, atol=1e-8)
     out.backward()
     grad = float(x.grad)
     eps = 1e-6 * max(1.0, abs(R))

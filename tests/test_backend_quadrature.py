@@ -501,7 +501,8 @@ def test_device_hint_cuda():
         ),
     ]:
         assert out.device.type == "cuda"
-        numpy.testing.assert_allclose(float(out.detach().cpu()), ref, atol=1e-4)
+        # constant integrand -> GL is exact (summation roundoff only)
+        numpy.testing.assert_allclose(float(out.detach().cpu()), ref, atol=1e-9)
     sc = torch.tensor(2.0, device=cuda, requires_grad=True)
     fixed_quad(
         txp, lambda s: sc * torch.exp(-s), 0.0, 5.0, n=60, device=cuda

@@ -601,10 +601,7 @@ class Potential(Force):
 
         """
         xp = get_namespace(R, z)
-        # Coerce the radicand to the namespace before sqrt: under a forced torch
-        # backend get_namespace returns torch even for Python-float R,z, and
-        # torch.sqrt rejects a bare float (jax.numpy auto-converts). On the numpy
-        # path xp.asarray is a no-op (byte-identical).
+        # asarray so torch.sqrt accepts a Python-float radicand (no-op on numpy)
         r = xp.sqrt(xp.asarray(R**2.0 + z**2.0))
         return (
             self.R2deriv(R, z, phi=phi, t=t, use_physical=False) * R / r
@@ -787,11 +784,7 @@ class Potential(Force):
                 "mass for EllipsoidalPotentials is not currently supported for z != None"
             )
         if not z is None:  # Make sure z is positive, bc we integrate from -z to z
-            # xp.abs == numpy.fabs for float64 numpy z (byte-identical); for a
-            # jax/torch z it stays differentiable (numpy.fabs would detach it).
-            # Coerce to the namespace first: under a forced torch backend
-            # get_namespace returns torch even for a Python-float z, and
-            # torch.abs rejects a bare float (jax.numpy auto-converts).
+            # asarray so torch.abs accepts a Python-float z; stays differentiable, no-op on numpy
             xp_z = get_namespace(z)
             z = xp_z.abs(xp_z.asarray(z))
         try:
@@ -1289,12 +1282,7 @@ class Potential(Force):
 
         """
         xp = get_namespace(R)
-        # Coerce the radicand to the namespace before sqrt: for a still-numpy
-        # potential (e.g. AnyAxisymmetricRazorThinDiskPotential) both R and
-        # Rforce stay numpy, so the radicand is a numpy scalar; under a forced
-        # torch backend xp.sqrt is torch.sqrt, which rejects a numpy scalar
-        # (jax.numpy auto-converts). On the numpy path xp.asarray is a no-op
-        # (byte-identical).
+        # asarray so torch.sqrt accepts a numpy-scalar radicand (no-op on numpy)
         return xp.sqrt(
             xp.asarray(R * -self.Rforce(R, 0.0, phi=phi, t=t, use_physical=False))
         )
@@ -4474,10 +4462,7 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
             "Mass parameter M= needs to be set to compute tidal radius"
         )
     xp = get_namespace(R, z)
-    # Coerce the radicand to the namespace before sqrt: under a forced torch
-    # backend get_namespace returns torch even for Python-float R,z, and
-    # torch.sqrt rejects a bare float (jax.numpy auto-converts). On the numpy
-    # path xp.asarray is a no-op (byte-identical).
+    # asarray so torch.sqrt accepts a Python-float radicand (no-op on numpy)
     r = xp.sqrt(xp.asarray(R**2.0 + z**2.0))
     omegac2 = -evaluaterforces(Pot, R, z, phi=phi, t=t, use_physical=False) / r
     d2phidr2 = evaluater2derivs(Pot, R, z, phi=phi, t=t, use_physical=False)
