@@ -267,3 +267,49 @@ def test_ttensor_numpy_byte_identical_construction():
     assert out_a.shape == (3, 3, 3)
     # symmetry of the tidal tensor (sanity)
     numpy.testing.assert_allclose(out_s, out_s.T)
+
+
+# ----------------------- module-level functional interface (potential.vesc(Pot,R), ...)
+# The standalone module functions reimplement the kinematics (they don't delegate
+# to the class methods), so they need their own backend dispatch + coverage.
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+def test_module_functional_interface_jax():
+    from galpy import potential as _P
+
+    p = LogarithmicHaloPotential(normalize=1.0)
+    R, z = jnp.asarray(1.1), jnp.asarray(0.1)
+    cases = {
+        "vesc": _P.vesc(p, R, use_physical=False),
+        "rtide": _P.rtide(p, R, z, M=1e-3, use_physical=False),
+        "tdyn": _P.tdyn(p, R, use_physical=False),
+        "ttensor": _P.ttensor(p, R, z, use_physical=False),
+        "ttensor_eig": _P.ttensor(p, R, z, eigenval=True, use_physical=False),
+    }
+    for name, out in cases.items():
+        assert "jax" in type(out).__module__, f"{name} left jax: {type(out)}"
+    # value parity with numpy + a gradient through vesc and rtide
+    numpy.testing.assert_allclose(
+        float(cases["vesc"]), _P.vesc(p, 1.1, use_physical=False), rtol=1e-10
+    )
+    for fn, args in (
+        (lambda r: _P.vesc(p, r, use_physical=False), 1.1),
+        (lambda r: _P.rtide(p, r, jnp.asarray(0.1), M=1e-3, use_physical=False), 1.1),
+    ):
+        g = float(jax.grad(lambda r: fn(r))(jnp.asarray(args)))
+        eps = 1e-6
+        fd = float(
+            (fn(jnp.asarray(args + eps)) - fn(jnp.asarray(args - eps))) / (2 * eps)
+        )
+        numpy.testing.assert_allclose(g, fd, rtol=1e-4, atol=1e-7)
+
+
+@pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
+def test_module_functional_interface_torch():
+    from galpy import potential as _P
+
+    p = LogarithmicHaloPotential(normalize=1.0)
+    R, z = torch.as_tensor(1.1), torch.as_tensor(0.1)
+    assert isinstance(_P.vesc(p, R, use_physical=False), torch.Tensor)
+    assert isinstance(_P.rtide(p, R, z, M=1e-3, use_physical=False), torch.Tensor)
+    assert isinstance(_P.tdyn(p, R, use_physical=False), torch.Tensor)
+    assert isinstance(_P.ttensor(p, R, z, use_physical=False), torch.Tensor)

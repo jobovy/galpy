@@ -3655,8 +3655,9 @@ def vesc(Pot, R, t=0.0):
     """
     from ..potential import PotentialError, evaluateplanarPotentials
 
+    xp = get_namespace(R)
     try:
-        return numpy.sqrt(
+        return xp.sqrt(
             2.0
             * (
                 evaluateplanarPotentials(Pot, _INF, t=t, use_physical=False)
@@ -3667,7 +3668,7 @@ def vesc(Pot, R, t=0.0):
         from ..potential import RZToplanarPotential
 
         Pot = RZToplanarPotential(Pot)
-        return numpy.sqrt(
+        return xp.sqrt(
             2.0
             * (
                 evaluateplanarPotentials(Pot, _INF, t=t, use_physical=False)
@@ -4411,7 +4412,8 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
         raise PotentialError(
             "Mass parameter M= needs to be set to compute tidal radius"
         )
-    r = numpy.sqrt(R**2.0 + z**2.0)
+    xp = get_namespace(R, z)
+    r = xp.sqrt(R**2.0 + z**2.0)
     omegac2 = -evaluaterforces(Pot, R, z, phi=phi, t=t, use_physical=False) / r
     d2phidr2 = evaluater2derivs(Pot, R, z, phi=phi, t=t, use_physical=False)
     return (M / (omegac2 - d2phidr2)) ** (1.0 / 3.0)
@@ -4464,8 +4466,12 @@ def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
     Rphideriv = evaluateRphiderivs(Pot, R, z, phi=phi, t=t, use_physical=False)
     # Temporarily set zphideriv to zero until zphideriv is added to Class
     zphideriv = 0.0
-    cosphi = numpy.cos(phi)
-    sinphi = numpy.sin(phi)
+    xp = get_namespace(R, z, phi)
+    # phi defaults to the Python float 0.0; anchor it as an array so xp.cos/xp.sin
+    # accept it under torch (which rejects bare floats).
+    phi = xp.asarray(phi)
+    cosphi = xp.cos(phi)
+    sinphi = xp.sin(phi)
     cos2phi = cosphi**2.0
     sin2phi = sinphi**2.0
     R2 = R**2.0
@@ -4498,9 +4504,15 @@ def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
     txz = tzx
     tyz = tzy
     tzz = z2deriv
-    tij = -numpy.array([[txx, txy, txz], [tyx, tyy, tyz], [tzx, tzy, tzz]])
+    tij = -xp.stack(
+        [
+            xp.stack([xp.asarray(txx), xp.asarray(txy), xp.asarray(txz)]),
+            xp.stack([xp.asarray(tyx), xp.asarray(tyy), xp.asarray(tyz)]),
+            xp.stack([xp.asarray(tzx), xp.asarray(tzy), xp.asarray(tzz)]),
+        ]
+    )
     if eigenval:
-        return numpy.linalg.eigvals(tij)
+        return xp.linalg.eigvals(tij)
     else:
         return tij
 
@@ -4748,4 +4760,5 @@ def tdyn(Pot, R, t=0.0):
     - 2021-03-18 - Written - Bovy (UofT)
 
     """
-    return 2.0 * numpy.pi * R * numpy.sqrt(R / mass(Pot, R, use_physical=False))
+    xp = get_namespace(R)
+    return 2.0 * numpy.pi * R * xp.sqrt(R / mass(Pot, R, use_physical=False))
