@@ -4534,6 +4534,19 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
     E = conversion.parse_energy(E, **get_physical(Pot))
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
     Lz2over2R2 = Lz**2.0 / 2.0 / R**2.0
+    if is_backend_array(R) or is_backend_array(E) or is_backend_array(Lz):
+        # jax/torch: implicit-diff bracketed root of Phi(R,z) + Lz^2/(2R^2) - E,
+        # which increases with z, so d zvc / d{R,E,Lz} (and through theta) flows.
+        # The numpy-only z=0 / no-solution guards (which Python-branch on the
+        # residual value) are NOT replicated -- they are plotting conveniences
+        # for degenerate inputs and would require a value-branch that breaks
+        # under tracing; the backend path assumes a genuine positive-z root.
+        from ..backend.optimize import brentq as _bk_brentq
+
+        f = lambda z: _evaluatePotentials(Pot, R, z, phi=phi, t=t) + Lz2over2R2 - E
+        zhi, _ = _backend_rootbracket(f, R, lower_default=1e-8, hi0=1.0)
+        zlo = 0.0 * R  # z starts at 0 (anchored on R for device/dtype)
+        return _bk_brentq(f, zlo, zhi)
     # Check z=0 and whether a solution exists
     if (
         numpy.fabs(_evaluatePotentials(Pot, R, 0.0, phi=phi, t=t) + Lz2over2R2 - E)
@@ -4595,6 +4608,29 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     E = conversion.parse_energy(E, **get_physical(Pot))
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
     Lz2over2 = Lz**2.0 / 2.0
+    if is_backend_array(E) or is_backend_array(Lz):
+        # jax/torch: the two roots of g(R) = Phi(R,0) + Lz^2/(2R^2) - E bracket
+        # the guiding radius RLz (g(RLz) < 0 at the effective-potential minimum;
+        # g rises to +inf as R->0 via the centrifugal barrier and as R->inf via
+        # the potential). Solve each side with an implicit-diff bracketed root
+        # so d{Rmin,Rmax} / d{E,Lz} (and through theta) flows, returning a
+        # stacked backend array. The numpy-only nan-nan guard (a value-branch on
+        # whether any solution exists) is not replicated -- the backend path
+        # assumes a genuine pair of roots.
+        from ..backend.optimize import brentq as _bk_brentq
+
+        RLz = rl(Pot, Lz, t=t, use_physical=False)
+        g = lambda R: (
+            _evaluatePotentials(Pot, R, 0.0 * R, phi=phi, t=t) + Lz2over2 / R**2.0 - E
+        )
+        # Left root in (0, RLz]: g(small R) > 0 (barrier), g(RLz) < 0.
+        Rmin_lo = 1e-8 + 0.0 * RLz  # tiny lower bound anchored on RLz
+        Rmin = _bk_brentq(g, Rmin_lo, RLz)
+        # Right root in [RLz, inf): grow the upper bound until g > 0.
+        Rmax_hi, _ = _backend_rootbracket(g, RLz, lower_default=1e-8, hi0=2.0 * RLz)
+        Rmax = _bk_brentq(g, RLz, Rmax_hi)
+        xp = get_namespace(RLz)
+        return xp.stack([Rmin, Rmax])
     # Check whether a solution exists
     RLz = rl(Pot, Lz, t=t, use_physical=False)
     Rstart = RLz
