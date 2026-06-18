@@ -10,9 +10,11 @@ import pytest
 from galpy.backend.quadrature import (
     fixed_quad,
     fixed_quad_semiinfinite,
+    gauss_legendre,
     gauss_legendre_01,
     gauss_legendre_nodes,
     nested_quad,
+    quad,
     transformed_quad,
 )
 
@@ -209,6 +211,154 @@ def test_semiinfinite_grad_in_limit(backend):
         ).backward()
         ga = float(at.grad)
     numpy.testing.assert_allclose(ga, -numpy.exp(-a0), rtol=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# Public definite-integral API: quad / gauss_legendre. numpy -> scipy (byte-
+# identical value); jax/torch -> fixed-order GL, differentiable in params AND
+# limits (Leibniz). A scipy-style integrand func(x, *args).
+# ---------------------------------------------------------------------------
+
+
+def _integrand(backend):
+    # f(x, p) = exp(-p x) x**2 in the backend's namespace.
+    xp = _xp(backend)
+    return lambda x, p: xp.exp(-p * x) * x**2
+
+
+# int_0^b exp(-p x) x**2 dx and its exact derivatives in b and in p.
+def _exact_val(b, p):
+    return (2.0 - numpy.exp(-p * b) * (p * b * (p * b + 2.0) + 2.0)) / p**3
+
+
+def _exact_db(b, p):  # d/db (Leibniz): the integrand at x=b
+    return numpy.exp(-p * b) * b**2
+
+
+def _exact_dp(b, p):  # d/dp under the integral: int_0^b -x * exp(-p x) x**2 dx
+    fd = (_exact_val(b, p + 1e-7) - _exact_val(b, p - 1e-7)) / (2e-7)
+    return fd
+
+
+B0, P0 = 2.5, 1.3
+
+
+def test_quad_numpy_equals_scipy():
+    # numpy path delegates to scipy.integrate.quad and returns its value [0]:
+    # byte-identical, and a plain Python float (what the call sites use).
+    from scipy import integrate as sint
+
+    f = _integrand("numpy")
+    ref = sint.quad(f, 0.3, B0, args=(P0,))[0]
+    got = quad(f, 0.3, B0, args=(P0,))
+    assert isinstance(got, float)
+    assert got == ref  # byte-identical
+    # ... and matches the closed form to ~1e-8.
+    numpy.testing.assert_allclose(
+        got, _exact_val(B0, P0) - _exact_val(0.3, P0), atol=1e-8
+    )
+
+
+def test_gauss_legendre_numpy_value():
+    # gauss_legendre runs the GL rule in numpy (does NOT call scipy) and still
+    # matches the analytic integral; numpy in, numpy out.
+    f = _integrand("numpy")
+    got = gauss_legendre(f, 0.0, B0, args=(P0,), n=80)
+    assert isinstance(got, (numpy.ndarray, numpy.floating, float))
+    numpy.testing.assert_allclose(float(got), _exact_val(B0, P0), rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_quad_known_function(backend):
+    # Integral of a known function vs analytic, in every backend.
+    xp = _xp(backend)
+    f = _integrand(backend)
+    a = xp.asarray(0.0) if backend != "numpy" else 0.0
+    b = xp.asarray(B0) if backend != "numpy" else B0
+    p = xp.asarray(P0) if backend != "numpy" else P0
+    got = float(numpy.asarray(quad(f, a, b, args=(p,), n=100)))
+    numpy.testing.assert_allclose(got, _exact_val(B0, P0), rtol=1e-9)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_quad_returns_backend_array(backend):
+    # eager jax/torch must return a BACKEND array (the discriminating check: a
+    # bare-numpy compute path silently passes eager torch but detaches on jax).
+    xp = _xp(backend)
+    f = _integrand(backend)
+    out = quad(f, xp.asarray(0.0), xp.asarray(B0), args=(xp.asarray(P0),), n=60)
+    assert backend in type(out).__module__
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_quad_grad_param_and_limit(backend):
+    # grad w.r.t. a parameter and w.r.t. the upper limit vs finite-difference.
+    xp = _xp(backend)
+    f = _integrand(backend)
+    h = 1e-6
+    if backend == "jax":
+        gb = float(
+            jax.grad(lambda b: quad(f, 0.0, b, args=(jnp.asarray(P0),), n=100))(
+                jnp.asarray(B0)
+            )
+        )
+        gp = float(
+            jax.grad(lambda p: quad(f, 0.0, jnp.asarray(B0), args=(p,), n=100))(
+                jnp.asarray(P0)
+            )
+        )
+    else:
+        bt = torch.tensor(B0, requires_grad=True)
+        quad(f, torch.tensor(0.0), bt, args=(torch.tensor(P0),), n=100).backward()
+        gb = float(bt.grad)
+        pt = torch.tensor(P0, requires_grad=True)
+        quad(f, torch.tensor(0.0), torch.tensor(B0), args=(pt,), n=100).backward()
+        gp = float(pt.grad)
+    # vs analytic
+    numpy.testing.assert_allclose(gb, _exact_db(B0, P0), rtol=1e-6)
+    numpy.testing.assert_allclose(gp, _exact_dp(B0, P0), rtol=1e-6)
+    # vs finite-difference (numpy reference, independent of the backend AD)
+
+    def npval(b, p):
+        return float(
+            numpy.asarray(
+                quad(
+                    _integrand("numpy"),
+                    0.0,
+                    b,
+                    args=(p,),
+                )
+            )
+        )
+
+    fd_b = (npval(B0 + h, P0) - npval(B0 - h, P0)) / (2 * h)
+    fd_p = (npval(B0, P0 + h) - npval(B0, P0 - h)) / (2 * h)
+    numpy.testing.assert_allclose(gb, fd_b, rtol=1e-5)
+    numpy.testing.assert_allclose(gp, fd_p, rtol=1e-5)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_quad_dispatches_on_args_only(backend):
+    # A backend array ONLY in args (scalar Python limits) still routes to the
+    # in-backend differentiable path.
+    xp = _xp(backend)
+    f = _integrand(backend)
+    out = quad(f, 0.0, B0, args=(xp.asarray(P0),), n=60)
+    assert backend in type(out).__module__
+    numpy.testing.assert_allclose(
+        float(numpy.asarray(out)), _exact_val(B0, P0), rtol=1e-9
+    )
+
+
+def test_quad_numpy_no_args():
+    # The no-args branch (integrand is used as-is) on the numpy/scipy path.
+    from scipy import integrate as sint
+
+    g = lambda x: numpy.sin(x)  # noqa: E731
+    ref = sint.quad(g, 0.0, numpy.pi)[0]
+    got = quad(g, 0.0, numpy.pi)
+    assert got == ref
+    numpy.testing.assert_allclose(got, 2.0, atol=1e-10)
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)

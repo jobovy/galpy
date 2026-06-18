@@ -2,6 +2,18 @@
 #   galpy.backend.quadrature: backend-agnostic fixed-order Gauss-Legendre
 #   quadrature.
 #
+#   PUBLIC DEFINITE-INTEGRAL API (the drop-in for scipy.integrate.quad at
+#   galpy's mass / surface-density sites):
+#
+#     * ``quad(func, a, b, args=(), n=...)`` follows the data. numpy / Python
+#       scalar limits+args delegate to ``scipy.integrate.quad`` and return its
+#       VALUE (its ``[0]``), so the numpy path is BYTE-IDENTICAL to today; a
+#       jax/torch limit or arg routes to fixed-order Gauss-Legendre, returning a
+#       backend array differentiable w.r.t. ``func``'s parameters AND the limits.
+#     * ``gauss_legendre(func, a, b, args=(), n=...)`` is the fixed-node backend
+#       integrator behind it (scipy-style ``func(x, *args)`` integrand), wrapping
+#       the lower-level ``fixed_quad`` below.
+#
 #   The nodes and weights are numpy float64 constants computed once (cached,
 #   keyed by order) -- precision is the point, so the tables stay float64 and
 #   the result is exit-cast back to the input dtype with ``match_input_dtype``.
@@ -30,10 +42,121 @@
 ###############################################################################
 import numpy
 
-from ._namespaces import asarray_on_device, device_of, match_input_dtype
+from ._namespaces import (
+    asarray_on_device,
+    device_of,
+    is_backend_array,
+    match_input_dtype,
+)
+
+# Default number of Gauss-Legendre nodes for the public backend ``quad``. High
+# enough that smooth galpy integrands (mass/surface-density profiles) reproduce
+# scipy.integrate.quad to the suite's tolerances; raise ``n`` for stiffer ones.
+_QUAD_N = 100
 
 # Cache of (nodes, weights) on [0, 1] keyed by order, as numpy float64 constants.
 _GL01_CACHE = {}
+
+
+def quad(func, a, b, args=(), n=_QUAD_N, device=None):
+    r"""``int_a^b func(x, *args) dx`` -- a backend-agnostic definite integral.
+
+    The drop-in galpy uses where it would call ``scipy.integrate.quad(...)[0]``
+    for a mass / surface-density type integral. Dispatch follows the data (the
+    limits and any array in ``args``):
+
+      * numpy / Python-scalar limits and args -> delegate to
+        ``scipy.integrate.quad`` and return its **value** (its ``[0]``), so the
+        numpy path is BYTE-IDENTICAL to today (galpy already returns
+        ``scipy.integrate.quad(...)[0]`` at these sites). The full adaptive
+        machinery (error estimate, ``points``, etc.) is unchanged.
+      * a jax / torch limit or arg -> fixed-order Gauss-Legendre quadrature
+        (:func:`gauss_legendre`), returning a backend array that is
+        differentiable w.r.t. the parameters ``func`` closes over / in ``args``
+        AND w.r.t. the limits ``a, b`` (Leibniz, through the affine remap and
+        the ``b - a`` prefactor). There is NO internal jit -- galpy is
+        jit-COMPATIBLE; users wrap their own galpy-using code.
+
+    Parameters
+    ----------
+    func : callable
+        ``func(x, *args) -> scalar/array``. On the backend path it is called
+        ONCE with the whole array of quadrature nodes (so it must broadcast over
+        ``x``, i.e. be written in elementwise namespace ops -- the same form a
+        scipy integrand already takes) and must be written in the array
+        namespace so it differentiates.
+    a, b : scalar or backend array
+        Finite integration limits. Their type (and any array in ``args``)
+        selects the backend: numpy/Python scalars route to scipy
+        (byte-identical); a jax/torch limit/arg routes to in-backend GL and
+        gradients flow to the limits and to ``func``'s parameters.
+    args : tuple, optional
+        Extra arguments forwarded to ``func`` as ``func(x, *args)`` (scipy's
+        ``quad`` convention).
+    n : int, optional
+        Number of Gauss-Legendre nodes on the backend path (default 100).
+        Fixed-order GL is an approximation, not adaptive: raise ``n`` for
+        tighter accuracy. Ignored on the numpy (scipy) path.
+    device : optional
+        Device for the node/weight tables on the backend path (see
+        :func:`gauss_legendre`); pass when the limits are Python scalars but
+        ``func`` closes over CUDA tensors.
+
+    Returns
+    -------
+    float or backend array
+        The integral value. numpy -> a Python float (``scipy.integrate.quad``'s
+        value, byte-identical). jax/torch -> a backend array differentiable in
+        the limits and ``func``'s parameters.
+    """
+    # Follow the data: a backend array anywhere in the limits/args picks the
+    # in-backend differentiable path; otherwise stay byte-identical via scipy.
+    if not (
+        is_backend_array(a) or is_backend_array(b) or any(map(is_backend_array, args))
+    ):
+        from scipy import integrate as _sint
+
+        return _sint.quad(func, a, b, args=args)[0]
+    return gauss_legendre(func, a, b, args=args, n=n, device=device)
+
+
+def gauss_legendre(func, a, b, args=(), n=_QUAD_N, device=None, xp=None):
+    r"""``int_a^b func(x, *args) dx`` by fixed-order Gauss-Legendre quadrature.
+
+    The fixed-node (non-adaptive) backend integrator behind :func:`quad`.
+    Resolves the array namespace from ``a, b`` and ``args`` (or an explicit
+    ``xp=``) and evaluates ``func`` once on the full ``n``-point node array via
+    :func:`fixed_quad`, so the result is a backend array differentiable w.r.t.
+    the limits ``a, b`` AND through ``func`` / ``args`` (its parameters). On
+    plain numpy inputs this runs the same float64 GL rule in numpy (it does
+    NOT call scipy) -- use :func:`quad` for the byte-identical scipy delegation.
+
+    Parameters
+    ----------
+    func : callable
+        ``func(x, *args) -> array`` broadcasting over the node array ``x``.
+    a, b : scalar or backend array
+        Finite integration limits (carry autodiff on the backend path).
+    args : tuple, optional
+        Extra arguments forwarded as ``func(x, *args)``.
+    n : int, optional
+        Number of Gauss-Legendre nodes (default 100).
+    device : optional
+        Device for the node/weight tables (see :func:`fixed_quad`).
+    xp : module or str, optional
+        Explicit namespace override forwarded to ``get_namespace``; normally the
+        namespace is inferred from ``a, b, *args``.
+
+    Returns
+    -------
+    array
+        The integral, exit-cast to the limits' floating dtype.
+    """
+    from ._resolver import get_namespace
+
+    ns = get_namespace(a, b, *args, xp=xp)
+    integrand = (lambda x: func(x, *args)) if args else func
+    return fixed_quad(ns, integrand, a, b, n=n, device=device)
 
 
 def gauss_legendre_01(n):
