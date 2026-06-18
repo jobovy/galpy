@@ -23,7 +23,7 @@ import numpy
 from packaging.version import Version
 from scipy import integrate, optimize
 
-from ..backend import get_namespace
+from ..backend import get_namespace, is_backend_array
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -3210,6 +3210,17 @@ def rl(Pot, lz, t=0.0):
 
     """
     lz = conversion.parse_angmom(lz, **conversion.get_physical(Pot))
+    if is_backend_array(lz):
+        # jax/torch: implicit-diff bracketed root of r*vc(r) - |lz| through the
+        # backend solver, so d rl / d lz (and d rl / d theta) flows. The bracket
+        # is found from the PRIMAL of |lz| (no gradient needed for it); the solve
+        # closes over the live |lz| so the implicit-function gradient is exact.
+        from ..backend.optimize import brentq as _bk_brentq
+
+        alz = _abs_backend(lz)
+        f = lambda r: _rlfunc(r, alz, Pot, t)
+        rstart, rlower = _backend_rootbracket(f, alz, lower_default=1e-5)
+        return _bk_brentq(f, rlower, rstart, maxiter=200)
     # Find interval
     rstart = _rlFindStart(numpy.fabs(lz), numpy.fabs(lz), Pot, t=t)  # assumes vo=1.
     try:
@@ -3241,6 +3252,42 @@ def _rlFindStart(rl, lz, pot, t=0.0, lower=False):
         else:
             rtry *= 2.0
     return rtry
+
+
+def _abs_backend(x):
+    """``|x|`` in the namespace of ``x`` (xp.abs; torch has no fabs)."""
+    return get_namespace(x).abs(x)
+
+
+def _backend_rootbracket(
+    func, scale, *, lower_default=1e-5, upper_default=2.0, nsteps=60
+):
+    r"""Bracket a single root of an INCREASING ``func`` for the backend path.
+
+    Returns ``(hi, lo)`` backend arrays bracketing the sign change of ``func``
+    (``func(lo) < 0 < func(hi)``), built BRANCH-FREE so it works under jit/grad
+    (no Python comparison on traced values). Starting from ``lo = lower_default``
+    and ``hi = upper_default * |scale|`` (anchored on ``scale``'s device/dtype),
+    a FIXED schedule of ``nsteps`` namespace steps doubles ``hi`` while
+    ``func(hi) <= 0`` and halves ``lo`` while ``func(lo) >= 0`` -- so the bracket
+    grows to contain the root regardless of the magnitude of ``scale``.
+
+    These endpoints carry no gradient to the root: the backend ``brentq``
+    detaches the bisection root and recovers the exact implicit-function
+    sensitivity from ``func``'s parameters, so the bracket only needs to contain
+    the root. ``func`` must be monotone increasing on the relevant range (true
+    for ``r*vc(r) - lz`` and for ``rE``/``zvc`` energy residuals).
+    """
+    xp = get_namespace(scale)
+    s = _abs_backend(xp.asarray(scale) * 1.0)
+    lo = xp.ones_like(s) * lower_default
+    hi = xp.maximum(s * upper_default, xp.ones_like(s) * (10.0 * lower_default))
+    for _ in range(nsteps):
+        # Grow hi while func(hi) <= 0 (root still above hi).
+        hi = xp.where(func(hi) < 0.0, hi * 2.0, hi)
+        # Shrink lo while func(lo) >= 0 (root still below lo).
+        lo = xp.where(func(lo) > 0.0, lo * 0.5, lo)
+    return hi, lo
 
 
 @potential_positional_arg
@@ -3442,13 +3489,15 @@ def omegac(Pot, R, t=0.0):
     """
     from ..potential import evaluateplanarRforces
 
+    # numpy -> xp IS numpy (byte-identical); jax/torch -> differentiable sqrt.
+    xp = get_namespace(R)
     try:
-        return numpy.sqrt(-evaluateplanarRforces(Pot, R, t=t, use_physical=False) / R)
+        return xp.sqrt(-evaluateplanarRforces(Pot, R, t=t, use_physical=False) / R)
     except PotentialError:
         from ..potential import RZToplanarPotential
 
         Pot = RZToplanarPotential(Pot)
-        return numpy.sqrt(-evaluateplanarRforces(Pot, R, t=t, use_physical=False) / R)
+        return xp.sqrt(-evaluateplanarRforces(Pot, R, t=t, use_physical=False) / R)
 
 
 @potential_physical_input
@@ -3481,15 +3530,17 @@ def vcirc(Pot, R, phi=None, t=0.0):
     """
     from ..potential import PotentialError, evaluateplanarRforces
 
+    # numpy -> xp IS numpy (byte-identical); jax/torch -> differentiable sqrt.
+    xp = get_namespace(R)
     try:
-        return numpy.sqrt(
+        return xp.sqrt(
             -R * evaluateplanarRforces(Pot, R, phi=phi, t=t, use_physical=False)
         )
     except PotentialError:
         from ..potential import toPlanarPotential
 
         Pot = toPlanarPotential(Pot)
-        return numpy.sqrt(
+        return xp.sqrt(
             -R * evaluateplanarRforces(Pot, R, phi=phi, t=t, use_physical=False)
         )
 
