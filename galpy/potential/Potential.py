@@ -3219,7 +3219,9 @@ def rl(Pot, lz, t=0.0):
 
         alz = _abs_backend(lz)
         f = lambda r: _rlfunc(r, alz, Pot, t)
-        rstart, rlower = _backend_rootbracket(f, alz, lower_default=1e-5)
+        # Start the upper bound at 2*|lz| (the numpy _rlFindStart seed); the
+        # branch-free schedule grows/shrinks it to bracket the root.
+        rstart, rlower = _backend_rootbracket(f, alz, lower_default=1e-5, hi0=2.0 * alz)
         return _bk_brentq(f, rlower, rstart, maxiter=200)
     # Find interval
     rstart = _rlFindStart(numpy.fabs(lz), numpy.fabs(lz), Pot, t=t)  # assumes vo=1.
@@ -3259,18 +3261,18 @@ def _abs_backend(x):
     return get_namespace(x).abs(x)
 
 
-def _backend_rootbracket(
-    func, scale, *, lower_default=1e-5, upper_default=2.0, nsteps=60
-):
+def _backend_rootbracket(func, anchor, *, lower_default=1e-5, hi0=2.0, nsteps=60):
     r"""Bracket a single root of an INCREASING ``func`` for the backend path.
 
     Returns ``(hi, lo)`` backend arrays bracketing the sign change of ``func``
     (``func(lo) < 0 < func(hi)``), built BRANCH-FREE so it works under jit/grad
-    (no Python comparison on traced values). Starting from ``lo = lower_default``
-    and ``hi = upper_default * |scale|`` (anchored on ``scale``'s device/dtype),
-    a FIXED schedule of ``nsteps`` namespace steps doubles ``hi`` while
-    ``func(hi) <= 0`` and halves ``lo`` while ``func(lo) >= 0`` -- so the bracket
-    grows to contain the root regardless of the magnitude of ``scale``.
+    (no Python comparison on traced values). ``anchor`` is any backend array
+    whose device/dtype the bracket is built on; ``hi0`` may be a scalar OR a
+    backend array (an ``lz``-/``E``-dependent starting upper bound). Starting
+    from ``lo = lower_default`` and ``hi = max(hi0, 10*lower_default)``, a FIXED
+    schedule of ``nsteps`` namespace steps doubles ``hi`` while ``func(hi) <= 0``
+    and halves ``lo`` while ``func(lo) >= 0`` -- so the bracket grows to contain
+    the root regardless of magnitude.
 
     These endpoints carry no gradient to the root: the backend ``brentq``
     detaches the bisection root and recovers the exact implicit-function
@@ -3278,10 +3280,10 @@ def _backend_rootbracket(
     the root. ``func`` must be monotone increasing on the relevant range (true
     for ``r*vc(r) - lz`` and for ``rE``/``zvc`` energy residuals).
     """
-    xp = get_namespace(scale)
-    s = _abs_backend(xp.asarray(scale) * 1.0)
-    lo = xp.ones_like(s) * lower_default
-    hi = xp.maximum(s * upper_default, xp.ones_like(s) * (10.0 * lower_default))
+    xp = get_namespace(anchor)
+    one = xp.ones_like(xp.asarray(anchor) * 1.0)
+    lo = one * lower_default
+    hi = xp.maximum(one * hi0, one * (10.0 * lower_default))
     for _ in range(nsteps):
         # Grow hi while func(hi) <= 0 (root still above hi).
         hi = xp.where(func(hi) < 0.0, hi * 2.0, hi)
@@ -3323,6 +3325,15 @@ def rE(Pot, E, t=0.0):
 
     """
     E = conversion.parse_energy(E, **conversion.get_physical(Pot))
+    if is_backend_array(E):
+        # jax/torch: implicit-diff bracketed root of vc(r)^2/2 + Phi(r,0) - E,
+        # which increases with r, so d rE / d E (and through theta) flows. The
+        # bracket is found branch-free; the solve closes over the live E.
+        from ..backend.optimize import brentq as _bk_brentq
+
+        f = lambda r: _rEfunc(r, E, Pot, t)
+        rstart, rlower = _backend_rootbracket(f, E, lower_default=1e-5, hi0=2.0)
+        return _bk_brentq(f, rlower, rstart, maxiter=200)
     # Find interval
     rstart = _rEFindStart(1.0, E, Pot, t=t)
     try:
@@ -3337,7 +3348,12 @@ def rE(Pot, E, t=0.0):
 def _rEfunc(rE, E, pot, t=0.0):
     """Function that gives vc^2/2+Pot(rc)-E"""
     thisvcirc = vcirc(pot, rE, t=t, use_physical=False)
-    return thisvcirc**2.0 / 2.0 + _evaluatePotentials(pot, rE, 0.0, t=t) - E
+    # z=0 anchored on rE: a plain 0.0 stays a Python float for numpy rE (so the
+    # scipy path is byte-identical) but becomes a backend zero array for a
+    # jax/torch rE (torch's xp.sqrt rejects a bare Python float in the planar
+    # potential evaluation).
+    z0 = 0.0 * rE
+    return thisvcirc**2.0 / 2.0 + _evaluatePotentials(pot, rE, z0, t=t) - E
 
 
 def _rEFindStart(rE, E, pot, t=0.0, lower=False):
