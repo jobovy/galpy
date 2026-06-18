@@ -18,10 +18,25 @@ from galpy import orbit, potential
 from galpy.util import _rotate_to_arbitrary_vector, coords
 
 
-# Test whether the normalization of the potential works
-def test_normalize_potential():
-    # Grab all of the potentials
-    pots = [
+# ---- Parametrization support: build per-test potential-name lists at module level ----
+# The dir(potential) discovery+filter is byte-identical in all 12 loop-tests, so do it
+# ONCE here. Each loop-test, however, appends a DIFFERENT set of test-module mock
+# potentials and removes a DIFFERENT rmpots set, so each test needs its OWN final list
+# (a single shared list is NOT feasible). Each list below replays exactly that test's
+# original append/remove logic, so the resulting membership is identical to the loop.
+#
+# NOTE on instantiation inside the parametrized bodies (unchanged from the loops):
+#     try:
+#         tclass = getattr(potential, potname)
+#     except AttributeError:
+#         tclass = getattr(sys.modules[__name__], potname)
+#     tp = tclass()
+# i.e. real potentials come from `potential`, mock ones (testMWPotential, mock*,
+# oblate*/prolate*/triaxial*, special*, nestedListPotential, *WrapperPotential, etc.)
+# are looked up in this test module.
+def _discover_base_pots():
+    # Byte-identical to the comprehension used in every loop-test.
+    return [
         p
         for p in dir(potential)
         if (
@@ -35,6 +50,10 @@ def test_normalize_potential():
             and not "toVertical" in p
         )
     ]
+
+
+def _make_pots_normalize():
+    pots = _discover_base_pots()
     pots.append("specialTwoPowerSphericalPotential")
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -75,71 +94,11 @@ def test_normalize_potential():
         rmpots.append("RazorThinExponentialDiskPotential")
     for p in rmpots:
         pots.remove(p)
-    for p in pots:
-        # if not 'NFW' in p: continue #For testing the test
-        # Setup instance of potential
-        try:
-            tclass = getattr(potential, p)
-        except AttributeError:
-            tclass = getattr(sys.modules[__name__], p)
-        tp = tclass()
-        if hasattr(tp, "isNonAxi") and tp.isNonAxi:
-            continue  # skip, bc vcirc not well defined
-        if not hasattr(tp, "normalize"):
-            continue
-        tp.normalize(1.0)
-        assert (tp.Rforce(1.0, 0.0) + 1.0) ** 2.0 < 10.0**-16.0, (
-            "Normalization of %s potential fails" % p
-        )
-        assert (tp.vcirc(1.0) ** 2.0 - 1.0) ** 2.0 < 10.0**-16.0, (
-            "Normalization of %s potential fails" % p
-        )
-        tp.normalize(0.5)
-        if hasattr(tp, "toPlanar"):
-            ptp = tp.toPlanar()
-        else:
-            ptp = tp
-        assert (ptp.Rforce(1.0, 0.0) + 0.5) ** 2.0 < 10.0**-16.0, (
-            "Normalization of %s potential fails" % p
-        )
-        assert (ptp.vcirc(1.0) ** 2.0 - 0.5) ** 2.0 < 10.0**-16.0, (
-            "Normalization of %s potential fails" % p
-        )
-    # Also test SphericalShell and RingPotential's setup, bc not done elsewhere
-    tp = potential.SphericalShellPotential(normalize=1.0)
-    assert (tp.Rforce(1.0, 0.0) + 1.0) ** 2.0 < 10.0**-16.0, (
-        "Normalization of %s potential fails" % p
-    )
-    assert (tp.vcirc(1.0) ** 2.0 - 1.0) ** 2.0 < 10.0**-16.0, (
-        "Normalization of %s potential fails" % p
-    )
-    tp = potential.RingPotential(normalize=0.5)
-    assert (tp.Rforce(1.0, 0.0) + 0.5) ** 2.0 < 10.0**-16.0, (
-        "Normalization of %s potential fails" % p
-    )
-    assert (tp.vcirc(1.0) ** 2.0 - 0.5) ** 2.0 < 10.0**-16.0, (
-        "Normalization of %s potential fails" % p
-    )
-    return None
+    return pots
 
 
-# Test whether the derivative of the potential is minus the force
-def test_forceAsDeriv_potential():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
+def _make_pots_forceAsDeriv():
+    pots = _discover_base_pots()
     pots.append("specialTwoPowerSphericalPotential")
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -264,155 +223,11 @@ def test_forceAsDeriv_potential():
         rmpots.append("RazorThinExponentialDiskPotential")
     for p in rmpots:
         pots.remove(p)
-    Rs = numpy.array([0.5, 1.0, 2.0])
-    Zs = numpy.array([0.0, 0.125, -0.125, 0.25, -0.25])
-    phis = numpy.array(
-        [0.0, 0.5, -0.5, 1.0, -1.0, numpy.pi, 0.5 + numpy.pi, 1.0 + numpy.pi]
-    )
-    # tolerances in log10
-    tol = {}
-    tol["default"] = -8.0
-    tol["DoubleExponentialDiskPotential"] = -6.0  # these are more difficult
-    tol["RazorThinExponentialDiskPotential"] = -6.0
-    tol["AnyAxisymmetricRazorThinDiskPotential"] = -4.9
-    tol["mockInterpRZPotential"] = -4.0
-    tol["FerrersPotential"] = -7.0
-    for p in pots:
-        # if not 'NFW' in p: continue #For testing the test
-        # Setup instance of potential
-        try:
-            tclass = getattr(potential, p)
-        except AttributeError:
-            tclass = getattr(sys.modules[__name__], p)
-        tp = tclass()
-        if hasattr(tp, "normalize"):
-            tp.normalize(1.0)
-        # Set tolerance
-        if p in list(tol.keys()):
-            ttol = tol[p]
-        else:
-            ttol = tol["default"]
-        # Radial force
-        for ii in range(len(Rs)):
-            for jj in range(len(Zs)):
-                dr = 10.0**-8.0
-                newR = Rs[ii] + dr
-                dr = newR - Rs[ii]  # Representable number
-                if isinstance(tp, potential.linearPotential):
-                    mpotderivR = (
-                        potential.evaluatelinearPotentials(tp, Rs[ii])
-                        - potential.evaluatelinearPotentials(tp, Rs[ii] + dr)
-                    ) / dr
-                    tRforce = potential.evaluatelinearForces(tp, Rs[ii])
-                elif isinstance(tp, potential.planarPotential):
-                    mpotderivR = (
-                        potential.evaluateplanarPotentials(tp, Rs[ii], phi=Zs[jj])
-                        - potential.evaluateplanarPotentials(
-                            tp, Rs[ii] + dr, phi=Zs[jj]
-                        )
-                    ) / dr
-                    tRforce = potential.evaluateplanarRforces(tp, Rs[ii], phi=Zs[jj])
-                else:
-                    mpotderivR = (
-                        potential.evaluatePotentials(tp, Rs[ii], Zs[jj], phi=1.0)
-                        - potential.evaluatePotentials(tp, Rs[ii] + dr, Zs[jj], phi=1.0)
-                    ) / dr
-                    tRforce = potential.evaluateRforces(tp, Rs[ii], Zs[jj], phi=1.0)
-                if tRforce**2.0 < 10.0**ttol:
-                    assert mpotderivR**2.0 < 10.0**ttol, (
-                        f"Calculation of the Radial force as the Radial derivative of the {p} potential fails at (R,Z) = ({Rs[ii]:.3f},{Zs[jj]:.3f}); diff = {numpy.fabs(tRforce - mpotderivR):e}, rel. diff = {numpy.fabs((tRforce - mpotderivR) / tRforce):e}"
-                    )
-                else:
-                    assert (tRforce - mpotderivR) ** 2.0 / tRforce**2.0 < 10.0**ttol, (
-                        f"Calculation of the Radial force as the Radial derivative of the {p} potential fails at (R,Z) = ({Rs[ii]:.3f},{Zs[jj]:.3f}); diff = {numpy.fabs(tRforce - mpotderivR):e}, rel. diff = {numpy.fabs((tRforce - mpotderivR) / tRforce):e}"
-                    )
-        # azimuthal torque, if it exists
-        if isinstance(tp, potential.linearPotential):
-            continue
-        for ii in range(len(Rs)):
-            for jj in range(len(phis)):
-                dphi = 10.0**-8.0
-                newphi = phis[jj] + dphi
-                dphi = newphi - phis[jj]  # Representable number
-                if isinstance(tp, potential.planarPotential):
-                    mpotderivphi = (
-                        tp(Rs[ii], phi=phis[jj]) - tp(Rs[ii], phi=phis[jj] + dphi)
-                    ) / dphi
-                    tphitorque = potential.evaluateplanarphitorques(
-                        tp, Rs[ii], phi=phis[jj]
-                    )
-                else:
-                    mpotderivphi = (
-                        tp(Rs[ii], 0.05, phi=phis[jj])
-                        - tp(Rs[ii], 0.05, phi=phis[jj] + dphi)
-                    ) / dphi
-                    tphitorque = potential.evaluatephitorques(
-                        tp, Rs[ii], 0.05, phi=phis[jj]
-                    )
-                try:
-                    if tphitorque**2.0 < 10.0**ttol:
-                        assert mpotderivphi**2.0 < 10.0**ttol
-                    else:
-                        assert (
-                            tphitorque - mpotderivphi
-                        ) ** 2.0 / tphitorque**2.0 < 10.0**ttol
-                except AssertionError:
-                    if isinstance(tp, potential.planarPotential):
-                        raise AssertionError(
-                            f"Calculation of the azimuthal torque as the azimuthal derivative of the {p} potential fails at (R,phi) = ({Rs[ii]:.3f},{phis[jj]:.3f}); diff = {numpy.fabs(tphitorque - mpotderivphi):e}, rel. diff = {numpy.fabs((tphitorque - mpotderivphi) / tphitorque):e}"
-                        )
-                    else:
-                        raise AssertionError(
-                            f"Calculation of the azimuthal torque as the azimuthal derivative of the {p} potential fails at (R,Z,phi) = ({Rs[ii]:.3f},0.05,{phis[jj]:.3f}); diff = {numpy.fabs(tphitorque - mpotderivphi):e}, rel. diff = {numpy.fabs((tphitorque - mpotderivphi) / tphitorque):e}"
-                        )
-        # Vertical force, if it exists
-        if isinstance(tp, potential.planarPotential) or isinstance(
-            tp, potential.linearPotential
-        ):
-            continue
-
-        for ii in range(len(Rs)):
-            for jj in range(len(Zs)):
-                ##Excluding KuzminDiskPotential when z = 0
-                if Zs[jj] == 0 and (
-                    isinstance(tp, potential.KuzminDiskPotential)
-                    or isinstance(tp, KuzminOblateStaeckelWrapperPotential)
-                ):
-                    continue
-                dz = 10.0**-8.0
-                newZ = Zs[jj] + dz
-                dz = newZ - Zs[jj]  # Representable number
-                mpotderivz = (
-                    tp(Rs[ii], Zs[jj], phi=1.0) - tp(Rs[ii], Zs[jj] + dz, phi=1.0)
-                ) / dz
-                tzforce = potential.evaluatezforces(tp, Rs[ii], Zs[jj], phi=1.0)
-                if tzforce**2.0 < 10.0**ttol:
-                    assert mpotderivz**2.0 < 10.0**ttol, (
-                        f"Calculation of the vertical force as the vertical derivative of the {p} potential fails at (R,Z) = ({Rs[ii]:.3f},{Zs[jj]:.3f}); diff = {numpy.fabs(mpotderivz):e}, rel. diff = {numpy.fabs((tzforce - mpotderivz) / tzforce):e}"
-                    )
-                else:
-                    assert (tzforce - mpotderivz) ** 2.0 / tzforce**2.0 < 10.0**ttol, (
-                        f"Calculation of the vertical force as the vertical derivative of the {p} potential fails at (R,Z) = ({Rs[ii]:.3f},{Zs[jj]:.3f}); diff = {numpy.fabs(mpotderivz):e}, rel. diff = {numpy.fabs((tzforce - mpotderivz) / tzforce):e}"
-                    )
+    return pots
 
 
-# Test whether the second derivative of the potential is minus the derivative of the force
-def test_2ndDeriv_potential():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
+def _make_pots_2ndDeriv():
+    pots = _discover_base_pots()
     pots.append("specialTwoPowerSphericalPotential")
     pots.append("DehnenTwoPowerSphericalPotential")
     pots.append("DehnenCoreTwoPowerSphericalPotential")
@@ -520,6 +335,967 @@ def test_2ndDeriv_potential():
         rmpots.append("RazorThinExponentialDiskPotential")
     for p in rmpots:
         pots.remove(p)
+    return pots
+
+
+def _make_pots_poisson():
+    pots = _discover_base_pots()
+    pots.append("specialTwoPowerSphericalPotential")
+    pots.append("DehnenTwoPowerSphericalPotential")
+    pots.append("DehnenCoreTwoPowerSphericalPotential")
+    pots.append("HernquistTwoPowerSphericalPotential")
+    pots.append("JaffeTwoPowerSphericalPotential")
+    pots.append("NFWTwoPowerSphericalPotential")
+    pots.append("CoreNFWTwoPowerSphericalPotential")
+    pots.append("specialMiyamotoNagaiPotential")
+    pots.append("specialMN3ExponentialDiskPotentialPD")
+    pots.append("specialMN3ExponentialDiskPotentialSECH")
+    pots.append("specialFlattenedPowerPotential")
+    pots.append("specialPowerSphericalPotential")
+    pots.append("testMWPotential")
+    pots.append("testplanarMWPotential")
+    pots.append("testlinearMWPotential")
+    pots.append("oblateHernquistPotential")  # in cae these are ever implemented
+    pots.append("oblateNFWPotential")
+    pots.append("oblateJaffePotential")
+    pots.append("prolateHernquistPotential")
+    pots.append("prolateNFWPotential")
+    pots.append("prolateJaffePotential")
+    pots.append("triaxialHernquistPotential")
+    pots.append("triaxialNFWPotential")
+    pots.append("triaxialJaffePotential")
+    pots.append("HernquistTwoPowerTriaxialPotential")
+    pots.append("NFWTwoPowerTriaxialPotential")
+    pots.append("JaffeTwoPowerTriaxialPotential")
+    pots.append("rotatingSpiralArmsPotential")
+    pots.append("specialSpiralArmsPotential")
+    pots.append("DehnenSmoothDehnenBarPotential")
+    pots.append("SolidBodyRotationSpiralArmsPotential")
+    pots.append("triaxialLogarithmicHaloPotential")
+    pots.append("CorotatingRotationSpiralArmsPotential")
+    pots.append("GaussianAmplitudeDehnenBarPotential")
+    pots.append("nestedListPotential")
+    pots.append("mockInterpSphericalPotential")
+    pots.append("mockInterpSphericalPotentialwForce")
+    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
+    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
+    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
+    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockTimeDependentAmplitudeWrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
+    rmpots = [
+        "Potential",
+        "MWPotential",
+        "MWPotential2014",
+        "MovingObjectPotential",
+        "interpRZPotential",
+        "linearPotential",
+        "planarAxiPotential",
+        "planarPotential",
+        "verticalPotential",
+        "PotentialError",
+        "SnapshotRZPotential",
+        "InterpSnapshotRZPotential",
+        "EllipsoidalPotential",
+        "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
+        "SphericalPotential",
+        "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
+    ]
+    # Default DiskMultipoleExpansionPotential uses exp(-27|z|) which has a
+    # derivative discontinuity at z=0 that the multipole expansion cannot
+    # resolve well; the sech2/expwhole/nonaxi test cases test Poisson properly
+    rmpots.append("DiskMultipoleExpansionPotential")
+    if False:
+        rmpots.append("DoubleExponentialDiskPotential")
+        rmpots.append("RazorThinExponentialDiskPotential")
+    for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+def _make_pots_poisson_surfdens():
+    pots = _discover_base_pots()
+    pots.append("testMWPotential")
+    """
+    pots.append('specialTwoPowerSphericalPotential')
+    pots.append('DehnenTwoPowerSphericalPotential')
+    pots.append('DehnenCoreTwoPowerSphericalPotential')
+    pots.append('HernquistTwoPowerSphericalPotential')
+    pots.append('JaffeTwoPowerSphericalPotential')
+    pots.append('NFWTwoPowerSphericalPotential')
+    pots.append('CoreNFWTwoPowerSphericalPotential')
+    pots.append('specialMiyamotoNagaiPotential')
+    pots.append('specialMN3ExponentialDiskPotentialPD')
+    pots.append('specialMN3ExponentialDiskPotentialSECH')
+    pots.append('specialFlattenedPowerPotential')
+    pots.append('specialPowerSphericalPotential')
+    pots.append('testplanarMWPotential')
+    pots.append('testlinearMWPotential')
+    pots.append('oblateHernquistPotential') # in cae these are ever implemented
+    pots.append('oblateNFWPotential')
+    pots.append('oblateJaffePotential')
+    pots.append('prolateHernquistPotential')
+    pots.append('prolateNFWPotential')
+    pots.append('prolateJaffePotential')
+    pots.append('triaxialHernquistPotential')
+    pots.append('triaxialNFWPotential')
+    pots.append('triaxialJaffePotential')
+    pots.append('HernquistTwoPowerTriaxialPotential')
+    pots.append('NFWTwoPowerTriaxialPotential')
+    pots.append('JaffeTwoPowerTriaxialPotential')
+    pots.append('rotatingSpiralArmsPotential')
+    pots.append('specialSpiralArmsPotential')
+    pots.append('DehnenSmoothDehnenBarPotential')
+    pots.append('SolidBodyRotationSpiralArmsPotential')
+    pots.append('triaxialLogarithmicHaloPotential')
+    pots.append('CorotatingRotationSpiralArmsPotential')
+    pots.append('GaussianAmplitudeDehnenBarPotential')
+    pots.append('nestedListPotential')
+    """
+    pots.append("mockInterpSphericalPotential")
+    pots.append("mockInterpSphericalPotentialwForce")
+    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
+    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
+    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
+    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
+    rmpots = [
+        "Potential",
+        "MWPotential",
+        "MWPotential2014",
+        "MovingObjectPotential",
+        "interpRZPotential",
+        "linearPotential",
+        "planarAxiPotential",
+        "planarPotential",
+        "verticalPotential",
+        "PotentialError",
+        "SnapshotRZPotential",
+        "InterpSnapshotRZPotential",
+        "EllipsoidalPotential",
+        "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
+        "SphericalPotential",
+        "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
+    ]
+    if False:
+        rmpots.append("DoubleExponentialDiskPotential")
+        rmpots.append("RazorThinExponentialDiskPotential")
+    rmpots.append(
+        "RazorThinExponentialDiskPotential"
+    )  # R2deriv not implemented for |Z| > 0
+    for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+def _make_pots_evaluateAndDerivs():
+    pots = _discover_base_pots()
+    pots.append("specialTwoPowerSphericalPotential")
+    pots.append("DehnenTwoPowerSphericalPotential")
+    pots.append("DehnenCoreTwoPowerSphericalPotential")
+    pots.append("HernquistTwoPowerSphericalPotential")
+    pots.append("JaffeTwoPowerSphericalPotential")
+    pots.append("NFWTwoPowerSphericalPotential")
+    pots.append("CoreNFWTwoPowerSphericalPotential")
+    pots.append("specialMiyamotoNagaiPotential")
+    pots.append("specialMN3ExponentialDiskPotentialPD")
+    pots.append("specialMN3ExponentialDiskPotentialSECH")
+    pots.append("specialFlattenedPowerPotential")
+    pots.append("specialPowerSphericalPotential")
+    pots.append("mockCosmphiDiskPotentialnegcp")
+    pots.append("mockCosmphiDiskPotentialnegp")
+    pots.append("mockDehnenBarPotentialT1")
+    pots.append("mockDehnenBarPotentialTm1")
+    pots.append("mockDehnenBarPotentialTm1Omega0")
+    pots.append("mockDehnenBarPotentialTm5")
+    pots.append("mockEllipticalDiskPotentialT1")
+    pots.append("mockEllipticalDiskPotentialTm1")
+    pots.append("mockSteadyLogSpiralPotentialTm1Omega0")
+    pots.append("mockEllipticalDiskPotentialTm5")
+    pots.append("mockSteadyLogSpiralPotentialT1")
+    pots.append("mockSteadyLogSpiralPotentialTm1")
+    pots.append("mockSteadyLogSpiralPotentialTm5")
+    pots.append("mockTransientLogSpiralPotential")
+    pots.append("mockMovingObjectPotential")
+    pots.append("oblateHernquistPotential")  # in cae these are ever implemented
+    pots.append("oblateNFWPotential")
+    pots.append("oblateJaffePotential")
+    pots.append("prolateHernquistPotential")
+    pots.append("prolateNFWPotential")
+    pots.append("prolateJaffePotential")
+    pots.append("triaxialHernquistPotential")
+    pots.append("triaxialNFWPotential")
+    pots.append("triaxialJaffePotential")
+    pots.append("mockSCFZeeuwPotential")
+    pots.append("mockSCFNFWPotential")
+    pots.append("mockSCFAxiDensity1Potential")
+    pots.append("mockSCFAxiDensity2Potential")
+    pots.append("mockSCFDensityPotential")
+    pots.append("sech2DiskSCFPotential")
+    pots.append("expwholeDiskSCFPotential")
+    pots.append("nonaxiDiskSCFPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockTimeDependentMultipoleExpansionPotential")
+    pots.append("rotatingSpiralArmsPotential")
+    pots.append("specialSpiralArmsPotential")
+    pots.append("SolidBodyRotationSpiralArmsPotential")
+    pots.append("DehnenSmoothDehnenBarPotential")
+    pots.append("mockDehnenSmoothBarPotentialT1")
+    pots.append("mockDehnenSmoothBarPotentialTm1")
+    pots.append("mockDehnenSmoothBarPotentialTm5")
+    pots.append("mockDehnenSmoothBarPotentialDecay")
+    pots.append("triaxialLogarithmicHaloPotential")
+    pots.append("KuzminOblateStaeckelWrapperPotential")
+    pots.append("KuzminKutuzovOblateStaeckelWrapperPotential")
+    pots.append("CorotatingRotationSpiralArmsPotential")
+    pots.append("GaussianAmplitudeDehnenBarPotential")
+    pots.append("nestedListPotential")
+    pots.append("mockInterpSphericalPotential")
+    pots.append("mockInterpSphericalPotentialwForce")
+    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
+    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
+    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
+    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockTimeDependentAmplitudeWrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
+    pots.append("MWP14CylindricallySeparablePotentialWrapper")
+    rmpots = [
+        "Potential",
+        "MWPotential",
+        "MWPotential2014",
+        "MovingObjectPotential",
+        "interpRZPotential",
+        "linearPotential",
+        "planarAxiPotential",
+        "planarPotential",
+        "verticalPotential",
+        "PotentialError",
+        "SnapshotRZPotential",
+        "InterpSnapshotRZPotential",
+        "EllipsoidalPotential",
+        "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
+        "SphericalPotential",
+        "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
+    ]
+    if False:
+        rmpots.append("DoubleExponentialDiskPotential")
+        rmpots.append("RazorThinExponentialDiskPotential")
+    for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+def _make_pots_amp_mult_divide():
+    pots = _discover_base_pots()
+    pots.append("specialTwoPowerSphericalPotential")
+    pots.append("DehnenTwoPowerSphericalPotential")
+    pots.append("DehnenCoreTwoPowerSphericalPotential")
+    pots.append("HernquistTwoPowerSphericalPotential")
+    pots.append("JaffeTwoPowerSphericalPotential")
+    pots.append("NFWTwoPowerSphericalPotential")
+    pots.append("CoreNFWTwoPowerSphericalPotential")
+    pots.append("specialMiyamotoNagaiPotential")
+    pots.append("specialMN3ExponentialDiskPotentialPD")
+    pots.append("specialMN3ExponentialDiskPotentialSECH")
+    pots.append("specialPowerSphericalPotential")
+    pots.append("specialFlattenedPowerPotential")
+    pots.append("testMWPotential")
+    pots.append("testplanarMWPotential")
+    pots.append("testlinearMWPotential")
+    pots.append("mockInterpRZPotential")
+    if _PYNBODY_LOADED:
+        pots.append("mockSnapshotRZPotential")
+        pots.append("mockInterpSnapshotRZPotential")
+    pots.append("mockCosmphiDiskPotentialnegcp")
+    pots.append("mockCosmphiDiskPotentialnegp")
+    pots.append("mockDehnenBarPotentialT1")
+    pots.append("mockDehnenBarPotentialTm1")
+    pots.append("mockDehnenBarPotentialTm1Omega0")
+    pots.append("mockDehnenBarPotentialTm5")
+    pots.append("mockEllipticalDiskPotentialT1")
+    pots.append("mockEllipticalDiskPotentialTm1")
+    pots.append("mockSteadyLogSpiralPotentialTm1Omega0")
+    pots.append("mockEllipticalDiskPotentialTm5")
+    pots.append("mockSteadyLogSpiralPotentialT1")
+    pots.append("mockSteadyLogSpiralPotentialTm1")
+    pots.append("mockSteadyLogSpiralPotentialTm5")
+    pots.append("mockTransientLogSpiralPotential")
+    pots.append("mockFlatEllipticalDiskPotential")  # for evaluate w/ nonaxi lists
+    pots.append("mockMovingObjectPotential")
+    pots.append("mockMovingObjectPotentialExplPlummer")
+    pots.append("oblateHernquistPotential")
+    pots.append("oblateNFWPotential")
+    pots.append("oblatenoGLNFWPotential")
+    pots.append("oblateJaffePotential")
+    pots.append("prolateHernquistPotential")
+    pots.append("prolateNFWPotential")
+    pots.append("prolateJaffePotential")
+    pots.append("triaxialHernquistPotential")
+    pots.append("triaxialNFWPotential")
+    pots.append("triaxialJaffePotential")
+    pots.append("zRotatedTriaxialNFWPotential")
+    pots.append("yRotatedTriaxialNFWPotential")
+    pots.append("fullyRotatedTriaxialNFWPotential")
+    pots.append("fullyRotatednoGLTriaxialNFWPotential")
+    pots.append("HernquistTwoPowerTriaxialPotential")
+    pots.append("NFWTwoPowerTriaxialPotential")
+    pots.append("JaffeTwoPowerTriaxialPotential")
+    pots.append("mockSCFZeeuwPotential")
+    pots.append("mockSCFNFWPotential")
+    pots.append("mockSCFAxiDensity1Potential")
+    pots.append("mockSCFAxiDensity2Potential")
+    pots.append("mockSCFDensityPotential")
+    pots.append("mockAxisymmetricFerrersPotential")
+    pots.append("sech2DiskSCFPotential")
+    pots.append("expwholeDiskSCFPotential")
+    pots.append("nonaxiDiskSCFPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockTimeDependentMultipoleExpansionPotential")
+    pots.append("rotatingSpiralArmsPotential")
+    pots.append("specialSpiralArmsPotential")
+    pots.append("DehnenSmoothDehnenBarPotential")
+    pots.append("mockDehnenSmoothBarPotentialT1")
+    pots.append("mockDehnenSmoothBarPotentialTm1")
+    pots.append("mockDehnenSmoothBarPotentialTm5")
+    pots.append("mockDehnenSmoothBarPotentialDecay")
+    pots.append("SolidBodyRotationSpiralArmsPotential")
+    pots.append("triaxialLogarithmicHaloPotential")
+    pots.append("CorotatingRotationSpiralArmsPotential")
+    pots.append("GaussianAmplitudeDehnenBarPotential")
+    pots.append("nestedListPotential")
+    pots.append("mockInterpSphericalPotential")
+    pots.append("mockInterpSphericalPotentialwForce")
+    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
+    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
+    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
+    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
+    rmpots = [
+        "Potential",
+        "MWPotential",
+        "MWPotential2014",
+        "MovingObjectPotential",
+        "interpRZPotential",
+        "linearPotential",
+        "planarAxiPotential",
+        "planarPotential",
+        "verticalPotential",
+        "PotentialError",
+        "SnapshotRZPotential",
+        "InterpSnapshotRZPotential",
+        "EllipsoidalPotential",
+        "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
+        "SphericalPotential",
+        "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
+        "linearCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
+    ]
+    if False:
+        rmpots.append("DoubleExponentialDiskPotential")
+        rmpots.append("RazorThinExponentialDiskPotential")
+    for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+def _make_pots_potential_array_input():
+    pots = _discover_base_pots()
+    pots.append("mockInterpSphericalPotential")
+    pots.append("mockInterpSphericalPotentialwForce")
+    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
+    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
+    rmpots = [
+        "Potential",
+        "MWPotential",
+        "MWPotential2014",
+        "interpRZPotential",
+        "linearPotential",
+        "planarAxiPotential",
+        "planarPotential",
+        "verticalPotential",
+        "PotentialError",
+        "EllipsoidalPotential",
+        "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
+        "SphericalPotential",
+        "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
+        "linearCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
+    ]
+    rmpots.append("FerrersPotential")
+    rmpots.append("DoubleExponentialDiskPotential")
+    rmpots.append("RazorThinExponentialDiskPotential")
+    rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
+    rmpots.append("AnySphericalPotential")
+    rmpots.append("SphericalShellPotential")
+    rmpots.append("HomogeneousSpherePotential")
+    # These cannot be setup without arguments
+    rmpots.append("MovingObjectPotential")
+    rmpots.append("SnapshotRZPotential")
+    rmpots.append("InterpSnapshotRZPotential")
+    # 2D ones that cannot use this test
+    rmpots.append("CosmphiDiskPotential")
+    rmpots.append("EllipticalDiskPotential")
+    rmpots.append("LopsidedDiskPotential")
+    rmpots.append("HenonHeilesPotential")
+    rmpots.append("TransientLogSpiralPotential")
+    rmpots.append("SteadyLogSpiralPotential")
+    # 1D ones that cannot use this test
+    rmpots.append("IsothermalDiskPotential")
+    rmpots.append("KGPotential")
+    for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+def _make_pots_toVertical_array():
+    pots = _discover_base_pots()
+    pots.append("mockInterpSphericalPotential")
+    pots.append("mockInterpSphericalPotentialwForce")
+    rmpots = [
+        "Potential",
+        "MWPotential",
+        "MWPotential2014",
+        "interpRZPotential",
+        "linearPotential",
+        "planarAxiPotential",
+        "planarPotential",
+        "verticalPotential",
+        "PotentialError",
+        "EllipsoidalPotential",
+        "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
+        "SphericalPotential",
+        "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
+    ]
+    rmpots.append("FerrersPotential")
+    rmpots.append("DoubleExponentialDiskPotential")
+    rmpots.append("RazorThinExponentialDiskPotential")
+    rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
+    rmpots.append("AnySphericalPotential")
+    rmpots.append("SphericalShellPotential")
+    rmpots.append("HomogeneousSpherePotential")
+    # These cannot be setup without arguments
+    rmpots.append("MovingObjectPotential")
+    rmpots.append("SnapshotRZPotential")
+    rmpots.append("InterpSnapshotRZPotential")
+    for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+def _make_pots_potential_at_zero():
+    pots = _discover_base_pots()
+    pots.append("specialTwoPowerSphericalPotential")
+    pots.append("DehnenTwoPowerSphericalPotential")
+    pots.append("DehnenCoreTwoPowerSphericalPotential")
+    pots.append("HernquistTwoPowerSphericalPotential")
+    pots.append("JaffeTwoPowerSphericalPotential")
+    pots.append("NFWTwoPowerSphericalPotential")
+    pots.append("CoreNFWTwoPowerSphericalPotential")
+    pots.append("specialMiyamotoNagaiPotential")
+    pots.append("specialMN3ExponentialDiskPotentialPD")
+    pots.append("specialMN3ExponentialDiskPotentialSECH")
+    pots.append("specialPowerSphericalPotential")
+    pots.append("specialFlattenedPowerPotential")
+    pots.append("testMWPotential")
+    pots.append("mockInterpRZPotential")
+    if _PYNBODY_LOADED:
+        pots.append("mockSnapshotRZPotential")
+        pots.append("mockInterpSnapshotRZPotential")
+    pots.append("oblateHernquistPotential")
+    pots.append("oblateNFWPotential")
+    pots.append("oblatenoGLNFWPotential")
+    pots.append("oblateJaffePotential")
+    pots.append("prolateHernquistPotential")
+    pots.append("prolateNFWPotential")
+    pots.append("prolateJaffePotential")
+    pots.append("triaxialHernquistPotential")
+    pots.append("triaxialNFWPotential")
+    pots.append("triaxialJaffePotential")
+    pots.append("zRotatedTriaxialNFWPotential")  # Difficult bc of rotation
+    pots.append("yRotatedTriaxialNFWPotential")  # Difficult bc of rotation
+    pots.append("fullyRotatedTriaxialNFWPotential")  # Difficult bc of rotation
+    pots.append("fullyRotatednoGLTriaxialNFWPotential")  # Difficult bc of rotation
+    pots.append("HernquistTwoPowerTriaxialPotential")
+    pots.append("NFWTwoPowerTriaxialPotential")
+    # pots.append('JaffeTwoPowerTriaxialPotential') # not finite
+    pots.append("mockSCFZeeuwPotential")
+    pots.append("mockSCFNFWPotential")
+    pots.append("mockSCFAxiDensity1Potential")
+    pots.append("mockSCFAxiDensity2Potential")
+    pots.append("mockSCFDensityPotential")
+    pots.append("sech2DiskSCFPotential")
+    pots.append("expwholeDiskSCFPotential")
+    pots.append("nonaxiDiskSCFPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockInterpSphericalPotential")
+    pots.append("mockInterpSphericalPotentialwForce")
+    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
+    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
+    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
+    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
+    rmpots = [
+        "Potential",
+        "MWPotential",
+        "MWPotential2014",
+        "MovingObjectPotential",
+        "interpRZPotential",
+        "linearPotential",
+        "planarAxiPotential",
+        "planarPotential",
+        "verticalPotential",
+        "PotentialError",
+        "SnapshotRZPotential",
+        "InterpSnapshotRZPotential",
+        "EllipsoidalPotential",
+        "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
+        "SphericalPotential",
+        "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
+        "linearCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
+    ]
+    # Remove some more potentials that we don't support for now TO DO
+    rmpots.append("BurkertPotential")  # Need to figure out...
+    # rmpots.append('FerrersPotential') # Need to figure out...
+    # rmpots.append('KuzminKutuzovStaeckelPotential') # Need to figure out...
+    rmpots.append("RazorThinExponentialDiskPotential")  # Need to figure out...
+    rmpots.append("RingPotential")  # Easy, but who cares?
+    # rmpots.append('SoftenedNeedleBarPotential') # Not that hard, but haven't done it
+    rmpots.append("SpiralArmsPotential")
+    rmpots.append("TwoPowerSphericalPotential")  # Need to figure out
+    # rmpots.append('TwoPowerTriaxialPotential') # Need to figure out
+    # 2D ones that cannot use this test
+    rmpots.append("CosmphiDiskPotential")
+    rmpots.append("EllipticalDiskPotential")
+    rmpots.append("LopsidedDiskPotential")
+    rmpots.append("HenonHeilesPotential")
+    rmpots.append("TransientLogSpiralPotential")
+    rmpots.append("SteadyLogSpiralPotential")
+    # 1D ones that cannot use this test
+    rmpots.append("IsothermalDiskPotential")
+    rmpots.append("KGPotential")
+    for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+def _make_pots_potential_at_infinity():
+    pots = _discover_base_pots()
+    # pots.append('specialTwoPowerSphericalPotential')
+    pots.append("DehnenTwoPowerSphericalPotential")
+    pots.append("DehnenCoreTwoPowerSphericalPotential")
+    pots.append("HernquistTwoPowerSphericalPotential")
+    pots.append("JaffeTwoPowerSphericalPotential")
+    # pots.append('NFWTwoPowerSphericalPotential') # Difficult, and who cares?
+    # pots.append('CoreNFWTwoPowerSphericalPotential')
+    pots.append("specialMiyamotoNagaiPotential")
+    pots.append("specialMN3ExponentialDiskPotentialPD")
+    pots.append("specialMN3ExponentialDiskPotentialSECH")
+    pots.append("specialPowerSphericalPotential")
+    pots.append("specialFlattenedPowerPotential")
+    pots.append("testMWPotential")
+    pots.append("mockInterpRZPotential")
+    # if _PYNBODY_LOADED:
+    #    pots.append('mockSnapshotRZPotential')
+    #    pots.append('mockInterpSnapshotRZPotential')
+    pots.append("oblateHernquistPotential")
+    pots.append("oblateNFWPotential")
+    pots.append("oblatenoGLNFWPotential")
+    pots.append("oblateJaffePotential")
+    pots.append("prolateHernquistPotential")
+    pots.append("prolateNFWPotential")
+    pots.append("prolateJaffePotential")
+    pots.append("triaxialHernquistPotential")
+    pots.append("triaxialNFWPotential")
+    pots.append("triaxialJaffePotential")
+    # pots.append('zRotatedTriaxialNFWPotential') # Difficult bc of rotation
+    # pots.append('yRotatedTriaxialNFWPotential') # Difficult bc of rotation
+    # pots.append('fullyRotatedTriaxialNFWPotential') # Difficult bc of rotation
+    # pots.append('fullyRotatednoGLTriaxialNFWPotential') # Difficult bc of rotation
+    # pots.append('HernquistTwoPowerTriaxialPotential')
+    # pots.append('NFWTwoPowerTriaxialPotential')
+    # pots.append('JaffeTwoPowerTriaxialPotential')
+    pots.append("mockSCFZeeuwPotential")
+    pots.append("mockSCFNFWPotential")
+    pots.append("mockSCFAxiDensity1Potential")
+    pots.append("mockSCFAxiDensity2Potential")
+    pots.append("mockSCFDensityPotential")
+    pots.append("sech2DiskSCFPotential")
+    pots.append("expwholeDiskSCFPotential")
+    pots.append("nonaxiDiskSCFPotential")
+    pots.append("sech2DiskMultipoleExpansionPotential")
+    pots.append("expwholeDiskMultipoleExpansionPotential")
+    pots.append("nonaxiDiskMultipoleExpansionPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockInterpSphericalPotential")
+    pots.append("mockInterpSphericalPotentialwForce")
+    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
+    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
+    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
+    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
+    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
+    rmpots = [
+        "Potential",
+        "MWPotential",
+        "MWPotential2014",
+        "MovingObjectPotential",
+        "interpRZPotential",
+        "linearPotential",
+        "planarAxiPotential",
+        "planarPotential",
+        "verticalPotential",
+        "PotentialError",
+        "SnapshotRZPotential",
+        "InterpSnapshotRZPotential",
+        "EllipsoidalPotential",
+        "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
+        "SphericalPotential",
+        "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
+        "linearCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
+    ]
+    # Remove some more potentials that we don't support for now TO DO
+    rmpots.append("FerrersPotential")  # Need to figure out...
+    rmpots.append("KuzminKutuzovStaeckelPotential")  # Need to figure out...
+    rmpots.append("RazorThinExponentialDiskPotential")  # Need to figure out...
+    rmpots.append("SoftenedNeedleBarPotential")  # Not that hard, but haven't done it
+    rmpots.append("SpiralArmsPotential")  # Need to have 0 x cos = 0
+    rmpots.append("TwoPowerTriaxialPotential")  # Need to figure out
+    # 2D ones that cannot use this test
+    rmpots.append("CosmphiDiskPotential")
+    rmpots.append("EllipticalDiskPotential")
+    rmpots.append("LopsidedDiskPotential")
+    rmpots.append("HenonHeilesPotential")
+    rmpots.append("TransientLogSpiralPotential")
+    rmpots.append("SteadyLogSpiralPotential")
+    # 1D ones that cannot use this test
+    rmpots.append("IsothermalDiskPotential")
+    rmpots.append("KGPotential")
+    for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+def _make_pots_toVertical_toPlanar():
+    pots = _discover_base_pots()
+    pots.append("mockInterpSphericalPotential")
+    pots.append("mockInterpSphericalPotentialwForce")
+    rmpots = [
+        "Potential",
+        "MWPotential",
+        "MWPotential2014",
+        "MovingObjectPotential",
+        "interpRZPotential",
+        "linearPotential",
+        "planarAxiPotential",
+        "planarPotential",
+        "verticalPotential",
+        "PotentialError",
+        "SnapshotRZPotential",
+        "InterpSnapshotRZPotential",
+        "EllipsoidalPotential",
+        "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
+        "SphericalPotential",
+        "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
+        "KuijkenDubinskiDiskExpansionPotential",
+    ]
+    if False:
+        rmpots.append("DoubleExponentialDiskPotential")
+        rmpots.append("RazorThinExponentialDiskPotential")
+    for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+_NORMALIZE_POTS = _make_pots_normalize()
+_FORCEASDERIV_POTS = _make_pots_forceAsDeriv()
+_2NDDERIV_POTS = _make_pots_2ndDeriv()
+_POISSON_POTS = _make_pots_poisson()
+_POISSON_SURFDENS_POTS = _make_pots_poisson_surfdens()
+_EVALANDDERIVS_POTS = _make_pots_evaluateAndDerivs()
+_AMPMULTDIV_POTS = _make_pots_amp_mult_divide()
+_ARRAYINPUT_POTS = _make_pots_potential_array_input()
+_TOVERTICAL_ARRAY_POTS = _make_pots_toVertical_array()
+_AT_ZERO_POTS = _make_pots_potential_at_zero()
+_AT_INFINITY_POTS = _make_pots_potential_at_infinity()
+_TOVERTICAL_TOPLANAR_POTS = _make_pots_toVertical_toPlanar()
+
+
+# Test whether the normalization of the potential works
+@pytest.mark.parametrize("potname", _NORMALIZE_POTS)
+def test_normalize_potential(potname):
+    p = potname
+    # Setup instance of potential
+    try:
+        tclass = getattr(potential, p)
+    except AttributeError:
+        tclass = getattr(sys.modules[__name__], p)
+    tp = tclass()
+    if hasattr(tp, "isNonAxi") and tp.isNonAxi:
+        pytest.skip(
+            "skip, bc vcirc not well defined"
+        )  # skip, bc vcirc not well defined
+    if not hasattr(tp, "normalize"):
+        pytest.skip("no normalize")
+    tp.normalize(1.0)
+    assert (tp.Rforce(1.0, 0.0) + 1.0) ** 2.0 < 10.0**-16.0, (
+        "Normalization of %s potential fails" % p
+    )
+    assert (tp.vcirc(1.0) ** 2.0 - 1.0) ** 2.0 < 10.0**-16.0, (
+        "Normalization of %s potential fails" % p
+    )
+    tp.normalize(0.5)
+    if hasattr(tp, "toPlanar"):
+        ptp = tp.toPlanar()
+    else:
+        ptp = tp
+    assert (ptp.Rforce(1.0, 0.0) + 0.5) ** 2.0 < 10.0**-16.0, (
+        "Normalization of %s potential fails" % p
+    )
+    assert (ptp.vcirc(1.0) ** 2.0 - 0.5) ** 2.0 < 10.0**-16.0, (
+        "Normalization of %s potential fails" % p
+    )
+    return None
+
+
+# SphericalShell and RingPotential's setup, bc not done elsewhere; this ran once
+# after the test_normalize_potential loop, so it is its own (non-parametrized) test.
+def test_normalize_potential_extra():
+    # Also test SphericalShell and RingPotential's setup, bc not done elsewhere
+    tp = potential.SphericalShellPotential(normalize=1.0)
+    assert (tp.Rforce(1.0, 0.0) + 1.0) ** 2.0 < 10.0**-16.0, (
+        "Normalization of %s potential fails" % "SphericalShellPotential"
+    )
+    assert (tp.vcirc(1.0) ** 2.0 - 1.0) ** 2.0 < 10.0**-16.0, (
+        "Normalization of %s potential fails" % "SphericalShellPotential"
+    )
+    tp = potential.RingPotential(normalize=0.5)
+    assert (tp.Rforce(1.0, 0.0) + 0.5) ** 2.0 < 10.0**-16.0, (
+        "Normalization of %s potential fails" % "RingPotential"
+    )
+    assert (tp.vcirc(1.0) ** 2.0 - 0.5) ** 2.0 < 10.0**-16.0, (
+        "Normalization of %s potential fails" % "RingPotential"
+    )
+    return None
+
+
+# Test whether the derivative of the potential is minus the force
+@pytest.mark.parametrize("potname", _FORCEASDERIV_POTS)
+def test_forceAsDeriv_potential(potname):
+    p = potname
+    Rs = numpy.array([0.5, 1.0, 2.0])
+    Zs = numpy.array([0.0, 0.125, -0.125, 0.25, -0.25])
+    phis = numpy.array(
+        [0.0, 0.5, -0.5, 1.0, -1.0, numpy.pi, 0.5 + numpy.pi, 1.0 + numpy.pi]
+    )
+    # tolerances in log10
+    tol = {}
+    tol["default"] = -8.0
+    tol["DoubleExponentialDiskPotential"] = -6.0  # these are more difficult
+    tol["RazorThinExponentialDiskPotential"] = -6.0
+    tol["AnyAxisymmetricRazorThinDiskPotential"] = -4.9
+    tol["mockInterpRZPotential"] = -4.0
+    tol["FerrersPotential"] = -7.0
+    if True:
+        # Setup instance of potential
+        try:
+            tclass = getattr(potential, p)
+        except AttributeError:
+            tclass = getattr(sys.modules[__name__], p)
+        tp = tclass()
+        if hasattr(tp, "normalize"):
+            tp.normalize(1.0)
+        # Set tolerance
+        if p in list(tol.keys()):
+            ttol = tol[p]
+        else:
+            ttol = tol["default"]
+        # Radial force
+        for ii in range(len(Rs)):
+            for jj in range(len(Zs)):
+                dr = 10.0**-8.0
+                newR = Rs[ii] + dr
+                dr = newR - Rs[ii]  # Representable number
+                if isinstance(tp, potential.linearPotential):
+                    mpotderivR = (
+                        potential.evaluatelinearPotentials(tp, Rs[ii])
+                        - potential.evaluatelinearPotentials(tp, Rs[ii] + dr)
+                    ) / dr
+                    tRforce = potential.evaluatelinearForces(tp, Rs[ii])
+                elif isinstance(tp, potential.planarPotential):
+                    mpotderivR = (
+                        potential.evaluateplanarPotentials(tp, Rs[ii], phi=Zs[jj])
+                        - potential.evaluateplanarPotentials(
+                            tp, Rs[ii] + dr, phi=Zs[jj]
+                        )
+                    ) / dr
+                    tRforce = potential.evaluateplanarRforces(tp, Rs[ii], phi=Zs[jj])
+                else:
+                    mpotderivR = (
+                        potential.evaluatePotentials(tp, Rs[ii], Zs[jj], phi=1.0)
+                        - potential.evaluatePotentials(tp, Rs[ii] + dr, Zs[jj], phi=1.0)
+                    ) / dr
+                    tRforce = potential.evaluateRforces(tp, Rs[ii], Zs[jj], phi=1.0)
+                if tRforce**2.0 < 10.0**ttol:
+                    assert mpotderivR**2.0 < 10.0**ttol, (
+                        f"Calculation of the Radial force as the Radial derivative of the {p} potential fails at (R,Z) = ({Rs[ii]:.3f},{Zs[jj]:.3f}); diff = {numpy.fabs(tRforce - mpotderivR):e}, rel. diff = {numpy.fabs((tRforce - mpotderivR) / tRforce):e}"
+                    )
+                else:
+                    assert (tRforce - mpotderivR) ** 2.0 / tRforce**2.0 < 10.0**ttol, (
+                        f"Calculation of the Radial force as the Radial derivative of the {p} potential fails at (R,Z) = ({Rs[ii]:.3f},{Zs[jj]:.3f}); diff = {numpy.fabs(tRforce - mpotderivR):e}, rel. diff = {numpy.fabs((tRforce - mpotderivR) / tRforce):e}"
+                    )
+        # azimuthal torque, if it exists
+        if isinstance(tp, potential.linearPotential):
+            return  # was `continue`: only skips the remaining sub-blocks for this potential
+        for ii in range(len(Rs)):
+            for jj in range(len(phis)):
+                dphi = 10.0**-8.0
+                newphi = phis[jj] + dphi
+                dphi = newphi - phis[jj]  # Representable number
+                if isinstance(tp, potential.planarPotential):
+                    mpotderivphi = (
+                        tp(Rs[ii], phi=phis[jj]) - tp(Rs[ii], phi=phis[jj] + dphi)
+                    ) / dphi
+                    tphitorque = potential.evaluateplanarphitorques(
+                        tp, Rs[ii], phi=phis[jj]
+                    )
+                else:
+                    mpotderivphi = (
+                        tp(Rs[ii], 0.05, phi=phis[jj])
+                        - tp(Rs[ii], 0.05, phi=phis[jj] + dphi)
+                    ) / dphi
+                    tphitorque = potential.evaluatephitorques(
+                        tp, Rs[ii], 0.05, phi=phis[jj]
+                    )
+                try:
+                    if tphitorque**2.0 < 10.0**ttol:
+                        assert mpotderivphi**2.0 < 10.0**ttol
+                    else:
+                        assert (
+                            tphitorque - mpotderivphi
+                        ) ** 2.0 / tphitorque**2.0 < 10.0**ttol
+                except AssertionError:
+                    if isinstance(tp, potential.planarPotential):
+                        raise AssertionError(
+                            f"Calculation of the azimuthal torque as the azimuthal derivative of the {p} potential fails at (R,phi) = ({Rs[ii]:.3f},{phis[jj]:.3f}); diff = {numpy.fabs(tphitorque - mpotderivphi):e}, rel. diff = {numpy.fabs((tphitorque - mpotderivphi) / tphitorque):e}"
+                        )
+                    else:
+                        raise AssertionError(
+                            f"Calculation of the azimuthal torque as the azimuthal derivative of the {p} potential fails at (R,Z,phi) = ({Rs[ii]:.3f},0.05,{phis[jj]:.3f}); diff = {numpy.fabs(tphitorque - mpotderivphi):e}, rel. diff = {numpy.fabs((tphitorque - mpotderivphi) / tphitorque):e}"
+                        )
+        # Vertical force, if it exists
+        if isinstance(tp, potential.planarPotential) or isinstance(
+            tp, potential.linearPotential
+        ):
+            return  # was `continue`: only skips the remaining sub-blocks for this potential
+
+        for ii in range(len(Rs)):
+            for jj in range(len(Zs)):
+                ##Excluding KuzminDiskPotential when z = 0
+                if Zs[jj] == 0 and (
+                    isinstance(tp, potential.KuzminDiskPotential)
+                    or isinstance(tp, KuzminOblateStaeckelWrapperPotential)
+                ):
+                    continue
+                dz = 10.0**-8.0
+                newZ = Zs[jj] + dz
+                dz = newZ - Zs[jj]  # Representable number
+                mpotderivz = (
+                    tp(Rs[ii], Zs[jj], phi=1.0) - tp(Rs[ii], Zs[jj] + dz, phi=1.0)
+                ) / dz
+                tzforce = potential.evaluatezforces(tp, Rs[ii], Zs[jj], phi=1.0)
+                if tzforce**2.0 < 10.0**ttol:
+                    assert mpotderivz**2.0 < 10.0**ttol, (
+                        f"Calculation of the vertical force as the vertical derivative of the {p} potential fails at (R,Z) = ({Rs[ii]:.3f},{Zs[jj]:.3f}); diff = {numpy.fabs(mpotderivz):e}, rel. diff = {numpy.fabs((tzforce - mpotderivz) / tzforce):e}"
+                    )
+                else:
+                    assert (tzforce - mpotderivz) ** 2.0 / tzforce**2.0 < 10.0**ttol, (
+                        f"Calculation of the vertical force as the vertical derivative of the {p} potential fails at (R,Z) = ({Rs[ii]:.3f},{Zs[jj]:.3f}); diff = {numpy.fabs(mpotderivz):e}, rel. diff = {numpy.fabs((tzforce - mpotderivz) / tzforce):e}"
+                    )
+
+
+# Test whether the second derivative of the potential is minus the derivative of the force
+@pytest.mark.parametrize("potname", _2NDDERIV_POTS)
+def test_2ndDeriv_potential(potname):
+    p = potname
     Rs = numpy.array([0.5, 1.0, 2.0])
     Zs = numpy.array([0.0, 0.125, -0.125, 0.25, -0.25])
     phis = numpy.array(
@@ -534,7 +1310,7 @@ def test_2ndDeriv_potential():
     tol["mockInterpRZPotential"] = -4.0
     tol["mockInterpRZPotentialwSecondDerivs"] = -4.0
     tol["DehnenBarPotential"] = -7.0
-    for p in pots:
+    if True:
         # if not 'NFW' in p: continue #For testing the test
         # Setup instance of potential
         try:
@@ -808,103 +1584,9 @@ def test_2ndDeriv_potential():
 
 
 # Test whether the Poisson equation is satisfied if _dens and the relevant second derivatives are implemented
-def test_poisson_potential():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    pots.append("specialTwoPowerSphericalPotential")
-    pots.append("DehnenTwoPowerSphericalPotential")
-    pots.append("DehnenCoreTwoPowerSphericalPotential")
-    pots.append("HernquistTwoPowerSphericalPotential")
-    pots.append("JaffeTwoPowerSphericalPotential")
-    pots.append("NFWTwoPowerSphericalPotential")
-    pots.append("CoreNFWTwoPowerSphericalPotential")
-    pots.append("specialMiyamotoNagaiPotential")
-    pots.append("specialMN3ExponentialDiskPotentialPD")
-    pots.append("specialMN3ExponentialDiskPotentialSECH")
-    pots.append("specialFlattenedPowerPotential")
-    pots.append("specialPowerSphericalPotential")
-    pots.append("testMWPotential")
-    pots.append("testplanarMWPotential")
-    pots.append("testlinearMWPotential")
-    pots.append("oblateHernquistPotential")  # in cae these are ever implemented
-    pots.append("oblateNFWPotential")
-    pots.append("oblateJaffePotential")
-    pots.append("prolateHernquistPotential")
-    pots.append("prolateNFWPotential")
-    pots.append("prolateJaffePotential")
-    pots.append("triaxialHernquistPotential")
-    pots.append("triaxialNFWPotential")
-    pots.append("triaxialJaffePotential")
-    pots.append("HernquistTwoPowerTriaxialPotential")
-    pots.append("NFWTwoPowerTriaxialPotential")
-    pots.append("JaffeTwoPowerTriaxialPotential")
-    pots.append("rotatingSpiralArmsPotential")
-    pots.append("specialSpiralArmsPotential")
-    pots.append("DehnenSmoothDehnenBarPotential")
-    pots.append("SolidBodyRotationSpiralArmsPotential")
-    pots.append("triaxialLogarithmicHaloPotential")
-    pots.append("CorotatingRotationSpiralArmsPotential")
-    pots.append("GaussianAmplitudeDehnenBarPotential")
-    pots.append("nestedListPotential")
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockInterpSphericalPotentialwForce")
-    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
-    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
-    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
-    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
-    pots.append("mockOffsetMWP14WrapperPotential")
-    pots.append("mockTimeDependentAmplitudeWrapperPotential")
-    pots.append("mockKuzminLikeWrapperPotential")
-    pots.append("sech2DiskMultipoleExpansionPotential")
-    pots.append("expwholeDiskMultipoleExpansionPotential")
-    pots.append("nonaxiDiskMultipoleExpansionPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    # Default DiskMultipoleExpansionPotential uses exp(-27|z|) which has a
-    # derivative discontinuity at z=0 that the multipole expansion cannot
-    # resolve well; the sech2/expwhole/nonaxi test cases test Poisson properly
-    rmpots.append("DiskMultipoleExpansionPotential")
-    if False:
-        rmpots.append("DoubleExponentialDiskPotential")
-        rmpots.append("RazorThinExponentialDiskPotential")
-    for p in rmpots:
-        pots.remove(p)
+@pytest.mark.parametrize("potname", _POISSON_POTS)
+def test_poisson_potential(potname):
+    p = potname
     Rs = numpy.array([0.5, 1.0, 2.0])
     Zs = numpy.array([0.0, 0.125, -0.125, 0.25, -0.25])
     phis = numpy.array(
@@ -921,7 +1603,7 @@ def test_poisson_potential():
     tol["nestedListPotential"] = -3  # these are more difficult
     tol["nonaxiDiskMultipoleExpansionPotential"] = -6.0
     # tol['RazorThinExponentialDiskPotential']= -6.
-    for p in pots:
+    if True:
         # if not 'NFW' in p: continue #For testing the test
         # if 'Isochrone' in p: continue #For testing the test
         # Setup instance of potential
@@ -945,7 +1627,7 @@ def test_poisson_potential():
             or not hasattr(tp, "phi2deriv")
             or not hasattr(tp, "_z2deriv")
         ):
-            continue
+            pytest.skip("Poisson test needs _dens + R2/phi2/z2 derivs")
         for ii in range(len(Rs)):
             for jj in range(len(Zs)):
                 for kk in range(len(phis)):
@@ -969,100 +1651,9 @@ def test_poisson_potential():
 
 
 # Test whether the (integrated) Poisson equation is satisfied if _surfdens and the relevant second derivatives are implemented
-def test_poisson_surfdens_potential():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    pots.append("testMWPotential")
-    """
-    pots.append('specialTwoPowerSphericalPotential')
-    pots.append('DehnenTwoPowerSphericalPotential')
-    pots.append('DehnenCoreTwoPowerSphericalPotential')
-    pots.append('HernquistTwoPowerSphericalPotential')
-    pots.append('JaffeTwoPowerSphericalPotential')
-    pots.append('NFWTwoPowerSphericalPotential')
-    pots.append('CoreNFWTwoPowerSphericalPotential')
-    pots.append('specialMiyamotoNagaiPotential')
-    pots.append('specialMN3ExponentialDiskPotentialPD')
-    pots.append('specialMN3ExponentialDiskPotentialSECH')
-    pots.append('specialFlattenedPowerPotential')
-    pots.append('specialPowerSphericalPotential')
-    pots.append('testplanarMWPotential')
-    pots.append('testlinearMWPotential')
-    pots.append('oblateHernquistPotential') # in cae these are ever implemented
-    pots.append('oblateNFWPotential')
-    pots.append('oblateJaffePotential')
-    pots.append('prolateHernquistPotential')
-    pots.append('prolateNFWPotential')
-    pots.append('prolateJaffePotential')
-    pots.append('triaxialHernquistPotential')
-    pots.append('triaxialNFWPotential')
-    pots.append('triaxialJaffePotential')
-    pots.append('HernquistTwoPowerTriaxialPotential')
-    pots.append('NFWTwoPowerTriaxialPotential')
-    pots.append('JaffeTwoPowerTriaxialPotential')
-    pots.append('rotatingSpiralArmsPotential')
-    pots.append('specialSpiralArmsPotential')
-    pots.append('DehnenSmoothDehnenBarPotential')
-    pots.append('SolidBodyRotationSpiralArmsPotential')
-    pots.append('triaxialLogarithmicHaloPotential')
-    pots.append('CorotatingRotationSpiralArmsPotential')
-    pots.append('GaussianAmplitudeDehnenBarPotential')
-    pots.append('nestedListPotential')
-    """
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockInterpSphericalPotentialwForce")
-    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
-    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
-    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
-    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
-    pots.append("mockOffsetMWP14WrapperPotential")
-    pots.append("mockKuzminLikeWrapperPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    if False:
-        rmpots.append("DoubleExponentialDiskPotential")
-        rmpots.append("RazorThinExponentialDiskPotential")
-    rmpots.append(
-        "RazorThinExponentialDiskPotential"
-    )  # R2deriv not implemented for |Z| > 0
-    for p in rmpots:
-        pots.remove(p)
+@pytest.mark.parametrize("potname", _POISSON_SURFDENS_POTS)
+def test_poisson_surfdens_potential(potname):
+    p = potname
     Rs = numpy.array([0.5, 1.0, 2.0])
     Zs = numpy.array([0.125, 0.25, 1.0, 10.0])
     phis = numpy.array(
@@ -1081,7 +1672,7 @@ def test_poisson_surfdens_potential():
     # tol['SolidBodyRotationSpiralArmsPotential']= -2.9 #these are more difficult
     # tol['nestedListPotential']= -3 #these are more difficult
     # tol['RazorThinExponentialDiskPotential']= -6.
-    for p in pots:
+    if True:
         # if not 'NFW' in p: continue #For testing the test
         # if 'Isochrone' in p: continue #For testing the test
         # Setup instance of potential
@@ -1109,7 +1700,7 @@ def test_poisson_surfdens_potential():
                 and not p == "FlattenedPowerPotential"
             )
         ):  # make sure _surfdens is explicitly implemented
-            continue
+            pytest.skip("no explicit _surfdens / missing derivs")
         for ii in range(len(Rs)):
             for kk in range(len(phis)):
                 for jj in range(len(Zs)):
@@ -1135,133 +1726,15 @@ def test_poisson_surfdens_potential():
 
 
 # Test whether the _evaluate function is correctly implemented in specifying derivatives
-def test_evaluateAndDerivs_potential():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    pots.append("specialTwoPowerSphericalPotential")
-    pots.append("DehnenTwoPowerSphericalPotential")
-    pots.append("DehnenCoreTwoPowerSphericalPotential")
-    pots.append("HernquistTwoPowerSphericalPotential")
-    pots.append("JaffeTwoPowerSphericalPotential")
-    pots.append("NFWTwoPowerSphericalPotential")
-    pots.append("CoreNFWTwoPowerSphericalPotential")
-    pots.append("specialMiyamotoNagaiPotential")
-    pots.append("specialMN3ExponentialDiskPotentialPD")
-    pots.append("specialMN3ExponentialDiskPotentialSECH")
-    pots.append("specialFlattenedPowerPotential")
-    pots.append("specialPowerSphericalPotential")
-    pots.append("mockCosmphiDiskPotentialnegcp")
-    pots.append("mockCosmphiDiskPotentialnegp")
-    pots.append("mockDehnenBarPotentialT1")
-    pots.append("mockDehnenBarPotentialTm1")
-    pots.append("mockDehnenBarPotentialTm1Omega0")
-    pots.append("mockDehnenBarPotentialTm5")
-    pots.append("mockEllipticalDiskPotentialT1")
-    pots.append("mockEllipticalDiskPotentialTm1")
-    pots.append("mockSteadyLogSpiralPotentialTm1Omega0")
-    pots.append("mockEllipticalDiskPotentialTm5")
-    pots.append("mockSteadyLogSpiralPotentialT1")
-    pots.append("mockSteadyLogSpiralPotentialTm1")
-    pots.append("mockSteadyLogSpiralPotentialTm5")
-    pots.append("mockTransientLogSpiralPotential")
-    pots.append("mockMovingObjectPotential")
-    pots.append("oblateHernquistPotential")  # in cae these are ever implemented
-    pots.append("oblateNFWPotential")
-    pots.append("oblateJaffePotential")
-    pots.append("prolateHernquistPotential")
-    pots.append("prolateNFWPotential")
-    pots.append("prolateJaffePotential")
-    pots.append("triaxialHernquistPotential")
-    pots.append("triaxialNFWPotential")
-    pots.append("triaxialJaffePotential")
-    pots.append("mockSCFZeeuwPotential")
-    pots.append("mockSCFNFWPotential")
-    pots.append("mockSCFAxiDensity1Potential")
-    pots.append("mockSCFAxiDensity2Potential")
-    pots.append("mockSCFDensityPotential")
-    pots.append("sech2DiskSCFPotential")
-    pots.append("expwholeDiskSCFPotential")
-    pots.append("nonaxiDiskSCFPotential")
-    pots.append("sech2DiskMultipoleExpansionPotential")
-    pots.append("expwholeDiskMultipoleExpansionPotential")
-    pots.append("nonaxiDiskMultipoleExpansionPotential")
-    pots.append("mockMultipoleExpansionSphericalPotential")
-    pots.append("mockMultipoleExpansionAxiPotential")
-    pots.append("mockMultipoleExpansionPotential")
-    pots.append("mockTimeDependentMultipoleExpansionPotential")
-    pots.append("rotatingSpiralArmsPotential")
-    pots.append("specialSpiralArmsPotential")
-    pots.append("SolidBodyRotationSpiralArmsPotential")
-    pots.append("DehnenSmoothDehnenBarPotential")
-    pots.append("mockDehnenSmoothBarPotentialT1")
-    pots.append("mockDehnenSmoothBarPotentialTm1")
-    pots.append("mockDehnenSmoothBarPotentialTm5")
-    pots.append("mockDehnenSmoothBarPotentialDecay")
-    pots.append("triaxialLogarithmicHaloPotential")
-    pots.append("KuzminOblateStaeckelWrapperPotential")
-    pots.append("KuzminKutuzovOblateStaeckelWrapperPotential")
-    pots.append("CorotatingRotationSpiralArmsPotential")
-    pots.append("GaussianAmplitudeDehnenBarPotential")
-    pots.append("nestedListPotential")
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockInterpSphericalPotentialwForce")
-    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
-    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
-    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
-    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
-    pots.append("mockOffsetMWP14WrapperPotential")
-    pots.append("mockTimeDependentAmplitudeWrapperPotential")
-    pots.append("mockKuzminLikeWrapperPotential")
-    pots.append("MWP14CylindricallySeparablePotentialWrapper")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    if False:
-        rmpots.append("DoubleExponentialDiskPotential")
-        rmpots.append("RazorThinExponentialDiskPotential")
-    for p in rmpots:
-        pots.remove(p)
+@pytest.mark.parametrize("potname", _EVALANDDERIVS_POTS)
+def test_evaluateAndDerivs_potential(potname):
+    p = potname
     # tolerances in log10
     tol = {}
     tol["default"] = -12.0
     # tol['DoubleExponentialDiskPotential']= -3. #these are more difficult
     # tol['RazorThinExponentialDiskPotential']= -6.
-    for p in pots:
+    if True:
         # if 'Isochrone' in p: continue #For testing the test
         # Setup instance of potential
         try:
@@ -1278,7 +1751,7 @@ def test_evaluateAndDerivs_potential():
             ttol = tol["default"]
         # 1st radial
         if isinstance(tp, potential.linearPotential):
-            continue
+            pytest.skip("linearPotential has no Rforce path here")
         elif isinstance(tp, potential.planarPotential):
             tevaldr = tp(1.2, phi=0.1, dR=1)
             trforce = tp.Rforce(1.2, phi=0.1)
@@ -1386,168 +1859,20 @@ def test_evaluateAndDerivs_potential():
                 "Higher-order derivative request in potential __call__ does not raise NotImplementedError for %s"
                 % p
             )
-        continue
-        # mixed radial,vertical
-        if isinstance(tp, potential.planarPotential):
-            tevaldrz = tp(1.2, 0.1, phi=0.1, dR=1, dz=1)
-            trzderiv = tp.Rzderiv(1.2, 0.1, phi=0.1)
-        else:
-            tevaldrz = tp(1.2, 0.1, phi=0.1, dR=1, dz=1)
-            trzderiv = tp.Rzderiv(1.2, 0.1, phi=0.1)
-        if not tevaldrz is None:
-            if tevaldrz**2.0 < 10.0**ttol:
-                assert trzderiv * 2.0 < 10.0**ttol, (
-                    "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential"
-                    % p
-                )
-            else:
-                assert (tevaldrz - trzderiv) ** 2.0 / tevaldrz**2.0 < 10.0**ttol, (
-                    "Calculation of mixed radial,vertical derivative through _evaluate and z2deriv inconsistent for the %s potential"
-                    % p
-                )
+        # NOTE: in the original loop a bare `continue` here made the following
+        # mixed radial,vertical block unreachable (dead code), so it is dropped.
     return None
 
 
 # Test that potentials can be multiplied or divided by a number
-def test_amp_mult_divide():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    pots.append("specialTwoPowerSphericalPotential")
-    pots.append("DehnenTwoPowerSphericalPotential")
-    pots.append("DehnenCoreTwoPowerSphericalPotential")
-    pots.append("HernquistTwoPowerSphericalPotential")
-    pots.append("JaffeTwoPowerSphericalPotential")
-    pots.append("NFWTwoPowerSphericalPotential")
-    pots.append("CoreNFWTwoPowerSphericalPotential")
-    pots.append("specialMiyamotoNagaiPotential")
-    pots.append("specialMN3ExponentialDiskPotentialPD")
-    pots.append("specialMN3ExponentialDiskPotentialSECH")
-    pots.append("specialPowerSphericalPotential")
-    pots.append("specialFlattenedPowerPotential")
-    pots.append("testMWPotential")
-    pots.append("testplanarMWPotential")
-    pots.append("testlinearMWPotential")
-    pots.append("mockInterpRZPotential")
-    if _PYNBODY_LOADED:
-        pots.append("mockSnapshotRZPotential")
-        pots.append("mockInterpSnapshotRZPotential")
-    pots.append("mockCosmphiDiskPotentialnegcp")
-    pots.append("mockCosmphiDiskPotentialnegp")
-    pots.append("mockDehnenBarPotentialT1")
-    pots.append("mockDehnenBarPotentialTm1")
-    pots.append("mockDehnenBarPotentialTm1Omega0")
-    pots.append("mockDehnenBarPotentialTm5")
-    pots.append("mockEllipticalDiskPotentialT1")
-    pots.append("mockEllipticalDiskPotentialTm1")
-    pots.append("mockSteadyLogSpiralPotentialTm1Omega0")
-    pots.append("mockEllipticalDiskPotentialTm5")
-    pots.append("mockSteadyLogSpiralPotentialT1")
-    pots.append("mockSteadyLogSpiralPotentialTm1")
-    pots.append("mockSteadyLogSpiralPotentialTm5")
-    pots.append("mockTransientLogSpiralPotential")
-    pots.append("mockFlatEllipticalDiskPotential")  # for evaluate w/ nonaxi lists
-    pots.append("mockMovingObjectPotential")
-    pots.append("mockMovingObjectPotentialExplPlummer")
-    pots.append("oblateHernquistPotential")
-    pots.append("oblateNFWPotential")
-    pots.append("oblatenoGLNFWPotential")
-    pots.append("oblateJaffePotential")
-    pots.append("prolateHernquistPotential")
-    pots.append("prolateNFWPotential")
-    pots.append("prolateJaffePotential")
-    pots.append("triaxialHernquistPotential")
-    pots.append("triaxialNFWPotential")
-    pots.append("triaxialJaffePotential")
-    pots.append("zRotatedTriaxialNFWPotential")
-    pots.append("yRotatedTriaxialNFWPotential")
-    pots.append("fullyRotatedTriaxialNFWPotential")
-    pots.append("fullyRotatednoGLTriaxialNFWPotential")
-    pots.append("HernquistTwoPowerTriaxialPotential")
-    pots.append("NFWTwoPowerTriaxialPotential")
-    pots.append("JaffeTwoPowerTriaxialPotential")
-    pots.append("mockSCFZeeuwPotential")
-    pots.append("mockSCFNFWPotential")
-    pots.append("mockSCFAxiDensity1Potential")
-    pots.append("mockSCFAxiDensity2Potential")
-    pots.append("mockSCFDensityPotential")
-    pots.append("mockAxisymmetricFerrersPotential")
-    pots.append("sech2DiskSCFPotential")
-    pots.append("expwholeDiskSCFPotential")
-    pots.append("nonaxiDiskSCFPotential")
-    pots.append("sech2DiskMultipoleExpansionPotential")
-    pots.append("expwholeDiskMultipoleExpansionPotential")
-    pots.append("nonaxiDiskMultipoleExpansionPotential")
-    pots.append("mockMultipoleExpansionSphericalPotential")
-    pots.append("mockMultipoleExpansionAxiPotential")
-    pots.append("mockMultipoleExpansionPotential")
-    pots.append("mockTimeDependentMultipoleExpansionPotential")
-    pots.append("rotatingSpiralArmsPotential")
-    pots.append("specialSpiralArmsPotential")
-    pots.append("DehnenSmoothDehnenBarPotential")
-    pots.append("mockDehnenSmoothBarPotentialT1")
-    pots.append("mockDehnenSmoothBarPotentialTm1")
-    pots.append("mockDehnenSmoothBarPotentialTm5")
-    pots.append("mockDehnenSmoothBarPotentialDecay")
-    pots.append("SolidBodyRotationSpiralArmsPotential")
-    pots.append("triaxialLogarithmicHaloPotential")
-    pots.append("CorotatingRotationSpiralArmsPotential")
-    pots.append("GaussianAmplitudeDehnenBarPotential")
-    pots.append("nestedListPotential")
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockInterpSphericalPotentialwForce")
-    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
-    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
-    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
-    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
-    pots.append("mockOffsetMWP14WrapperPotential")
-    pots.append("mockKuzminLikeWrapperPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "linearCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    if False:
-        rmpots.append("DoubleExponentialDiskPotential")
-        rmpots.append("RazorThinExponentialDiskPotential")
-    for p in rmpots:
-        pots.remove(p)
+@pytest.mark.parametrize("potname", _AMPMULTDIV_POTS)
+def test_amp_mult_divide(potname):
+    p = potname
     R, Z, phi = 0.75, 0.2, 1.76
-    nums = numpy.random.uniform(size=len(pots))  # random set of amp changes
-    for num, p in zip(nums, pots):
+    num = (
+        numpy.random.uniform()
+    )  # random amp change (one per potential, as in the loop)
+    if True:
         # Setup instance of potential
         try:
             tclass = getattr(potential, p)
@@ -1981,75 +2306,14 @@ def test_wrapper_pickling():
 
 
 # Test whether potentials that support array input do so correctly
-def test_potential_array_input():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockInterpSphericalPotentialwForce")
-    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
-    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "linearCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    rmpots.append("FerrersPotential")
-    rmpots.append("DoubleExponentialDiskPotential")
-    rmpots.append("RazorThinExponentialDiskPotential")
-    rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
-    rmpots.append("AnySphericalPotential")
-    rmpots.append("SphericalShellPotential")
-    rmpots.append("HomogeneousSpherePotential")
-    # These cannot be setup without arguments
-    rmpots.append("MovingObjectPotential")
-    rmpots.append("SnapshotRZPotential")
-    rmpots.append("InterpSnapshotRZPotential")
-    # 2D ones that cannot use this test
-    rmpots.append("CosmphiDiskPotential")
-    rmpots.append("EllipticalDiskPotential")
-    rmpots.append("LopsidedDiskPotential")
-    rmpots.append("HenonHeilesPotential")
-    rmpots.append("TransientLogSpiralPotential")
-    rmpots.append("SteadyLogSpiralPotential")
-    # 1D ones that cannot use this test
-    rmpots.append("IsothermalDiskPotential")
-    rmpots.append("KGPotential")
-    for p in rmpots:
-        pots.remove(p)
+@pytest.mark.parametrize("potname", _ARRAYINPUT_POTS)
+def test_potential_array_input(potname):
+    p = potname
     rs = numpy.linspace(0.1, 2.0, 11)
     zs = numpy.linspace(-2.0, 2.0, 11)
     phis = numpy.linspace(0.0, numpy.pi, 11)
     ts = numpy.linspace(0.0, 10.0, 11)
-    for p in pots:
+    if True:
         # if not 'NFW' in p: continue #For testing the test
         # Setup instance of potential
         try:
@@ -2168,60 +2432,12 @@ def test_potential_array_input():
 
 # Test that 1D potentials created using toVertical can handle array input if
 # their 3D versions can
-def test_toVertical_array():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockInterpSphericalPotentialwForce")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    rmpots.append("FerrersPotential")
-    rmpots.append("DoubleExponentialDiskPotential")
-    rmpots.append("RazorThinExponentialDiskPotential")
-    rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
-    rmpots.append("AnySphericalPotential")
-    rmpots.append("SphericalShellPotential")
-    rmpots.append("HomogeneousSpherePotential")
-    # These cannot be setup without arguments
-    rmpots.append("MovingObjectPotential")
-    rmpots.append("SnapshotRZPotential")
-    rmpots.append("InterpSnapshotRZPotential")
-    for p in rmpots:
-        pots.remove(p)
+@pytest.mark.parametrize("potname", _TOVERTICAL_ARRAY_POTS)
+def test_toVertical_array(potname):
+    p = potname
     xs = numpy.linspace(-2.0, 2.0, 11)
     ts = numpy.linspace(0.0, 10.0, 11)
-    for p in pots:
+    if True:
         # if not 'NFW' in p: continue #For testing the test
         # Setup instance of potential
         try:
@@ -2231,7 +2447,7 @@ def test_toVertical_array():
         tp = tclass()
         # Only do 3D --> 1D potentials
         if not isinstance(tp, potential.Potential):
-            continue
+            pytest.skip("only 3D --> 1D potentials")
         tp = potential.toVerticalPotential(tp, 0.8, phi=0.2)
         # Potential itself
         tpevals = numpy.array([tp(x, t=t) for (x, t) in zip(xs, ts)])
@@ -2243,6 +2459,14 @@ def test_toVertical_array():
         assert numpy.all(numpy.fabs(tp.force(xs, t=ts) - tpevals) < 10.0**-10.0), (
             f"{p} force evaluation does not work as expected for array inputs for toVerticalPotential"
         )
+    return None
+
+
+# Morgan's example; this ran once after the test_toVertical_array loop, so it is its
+# own (non-parametrized) test (uses MWPotential2014, not a per-potential instance).
+def test_toVertical_array_mwpotential2014():
+    xs = numpy.linspace(-2.0, 2.0, 11)
+    ts = numpy.linspace(0.0, 10.0, 11)
     # Also test Morgan's example
     pot = potential.toVerticalPotential(potential.MWPotential2014, 1.0)
     # Potential itself
@@ -2253,7 +2477,7 @@ def test_toVertical_array():
         numpy.fabs(potential.evaluatelinearPotentials(pot, xs, t=ts) - tpevals)
         < 10.0**-10.0
     ), (
-        f"{p} evaluation does not work as expected for array inputs for toVerticalPotential potentials"
+        f"{'MWPotential2014'} evaluation does not work as expected for array inputs for toVerticalPotential potentials"
     )
     # Rforce
     tpevals = numpy.array(
@@ -2263,133 +2487,16 @@ def test_toVertical_array():
         numpy.fabs(potential.evaluatelinearForces(pot, xs, t=ts) - tpevals)
         < 10.0**-10.0
     ), (
-        f"{p} force evaluation does not work as expected for array inputs for toVerticalPotential"
+        f"{'MWPotential2014'} force evaluation does not work as expected for array inputs for toVerticalPotential"
     )
     return None
 
 
 # Test that all potentials can be evaluated at zero
-def test_potential_at_zero():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    pots.append("specialTwoPowerSphericalPotential")
-    pots.append("DehnenTwoPowerSphericalPotential")
-    pots.append("DehnenCoreTwoPowerSphericalPotential")
-    pots.append("HernquistTwoPowerSphericalPotential")
-    pots.append("JaffeTwoPowerSphericalPotential")
-    pots.append("NFWTwoPowerSphericalPotential")
-    pots.append("CoreNFWTwoPowerSphericalPotential")
-    pots.append("specialMiyamotoNagaiPotential")
-    pots.append("specialMN3ExponentialDiskPotentialPD")
-    pots.append("specialMN3ExponentialDiskPotentialSECH")
-    pots.append("specialPowerSphericalPotential")
-    pots.append("specialFlattenedPowerPotential")
-    pots.append("testMWPotential")
-    pots.append("mockInterpRZPotential")
-    if _PYNBODY_LOADED:
-        pots.append("mockSnapshotRZPotential")
-        pots.append("mockInterpSnapshotRZPotential")
-    pots.append("oblateHernquistPotential")
-    pots.append("oblateNFWPotential")
-    pots.append("oblatenoGLNFWPotential")
-    pots.append("oblateJaffePotential")
-    pots.append("prolateHernquistPotential")
-    pots.append("prolateNFWPotential")
-    pots.append("prolateJaffePotential")
-    pots.append("triaxialHernquistPotential")
-    pots.append("triaxialNFWPotential")
-    pots.append("triaxialJaffePotential")
-    pots.append("zRotatedTriaxialNFWPotential")  # Difficult bc of rotation
-    pots.append("yRotatedTriaxialNFWPotential")  # Difficult bc of rotation
-    pots.append("fullyRotatedTriaxialNFWPotential")  # Difficult bc of rotation
-    pots.append("fullyRotatednoGLTriaxialNFWPotential")  # Difficult bc of rotation
-    pots.append("HernquistTwoPowerTriaxialPotential")
-    pots.append("NFWTwoPowerTriaxialPotential")
-    # pots.append('JaffeTwoPowerTriaxialPotential') # not finite
-    pots.append("mockSCFZeeuwPotential")
-    pots.append("mockSCFNFWPotential")
-    pots.append("mockSCFAxiDensity1Potential")
-    pots.append("mockSCFAxiDensity2Potential")
-    pots.append("mockSCFDensityPotential")
-    pots.append("sech2DiskSCFPotential")
-    pots.append("expwholeDiskSCFPotential")
-    pots.append("nonaxiDiskSCFPotential")
-    pots.append("sech2DiskMultipoleExpansionPotential")
-    pots.append("expwholeDiskMultipoleExpansionPotential")
-    pots.append("nonaxiDiskMultipoleExpansionPotential")
-    pots.append("mockMultipoleExpansionSphericalPotential")
-    pots.append("mockMultipoleExpansionAxiPotential")
-    pots.append("mockMultipoleExpansionPotential")
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockInterpSphericalPotentialwForce")
-    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
-    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
-    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
-    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
-    pots.append("mockOffsetMWP14WrapperPotential")
-    pots.append("mockKuzminLikeWrapperPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "linearCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    # Remove some more potentials that we don't support for now TO DO
-    rmpots.append("BurkertPotential")  # Need to figure out...
-    # rmpots.append('FerrersPotential') # Need to figure out...
-    # rmpots.append('KuzminKutuzovStaeckelPotential') # Need to figure out...
-    rmpots.append("RazorThinExponentialDiskPotential")  # Need to figure out...
-    rmpots.append("RingPotential")  # Easy, but who cares?
-    # rmpots.append('SoftenedNeedleBarPotential') # Not that hard, but haven't done it
-    rmpots.append("SpiralArmsPotential")
-    rmpots.append("TwoPowerSphericalPotential")  # Need to figure out
-    # rmpots.append('TwoPowerTriaxialPotential') # Need to figure out
-    # 2D ones that cannot use this test
-    rmpots.append("CosmphiDiskPotential")
-    rmpots.append("EllipticalDiskPotential")
-    rmpots.append("LopsidedDiskPotential")
-    rmpots.append("HenonHeilesPotential")
-    rmpots.append("TransientLogSpiralPotential")
-    rmpots.append("SteadyLogSpiralPotential")
-    # 1D ones that cannot use this test
-    rmpots.append("IsothermalDiskPotential")
-    rmpots.append("KGPotential")
-    for p in rmpots:
-        pots.remove(p)
-    for p in pots:
+@pytest.mark.parametrize("potname", _AT_ZERO_POTS)
+def test_potential_at_zero(potname):
+    p = potname
+    if True:
         # Setup instance of potential
         try:
             tclass = getattr(potential, p)
@@ -2418,7 +2525,7 @@ def test_potential_at_zero():
             or "oblate" in p
             or "prolate" in p
         ):
-            continue
+            return  # was `continue`: scalar assert above already ran; only skip array assert
         assert not numpy.any(
             numpy.isnan(
                 potential.evaluatePotentials(
@@ -2430,128 +2537,14 @@ def test_potential_at_zero():
 
 
 # Test that all potentials can be evaluated with large numbers and with infinity
-def test_potential_at_infinity():
+@pytest.mark.parametrize("potname", _AT_INFINITY_POTS)
+def test_potential_at_infinity(potname):
     # One of the main reasons for this test is the implementation of vesc,
     # which uses the potential at infinity. Import what vesc uses for infinity
     from galpy.potential import _INF
 
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    # pots.append('specialTwoPowerSphericalPotential')
-    pots.append("DehnenTwoPowerSphericalPotential")
-    pots.append("DehnenCoreTwoPowerSphericalPotential")
-    pots.append("HernquistTwoPowerSphericalPotential")
-    pots.append("JaffeTwoPowerSphericalPotential")
-    # pots.append('NFWTwoPowerSphericalPotential') # Difficult, and who cares?
-    # pots.append('CoreNFWTwoPowerSphericalPotential')
-    pots.append("specialMiyamotoNagaiPotential")
-    pots.append("specialMN3ExponentialDiskPotentialPD")
-    pots.append("specialMN3ExponentialDiskPotentialSECH")
-    pots.append("specialPowerSphericalPotential")
-    pots.append("specialFlattenedPowerPotential")
-    pots.append("testMWPotential")
-    pots.append("mockInterpRZPotential")
-    # if _PYNBODY_LOADED:
-    #    pots.append('mockSnapshotRZPotential')
-    #    pots.append('mockInterpSnapshotRZPotential')
-    pots.append("oblateHernquistPotential")
-    pots.append("oblateNFWPotential")
-    pots.append("oblatenoGLNFWPotential")
-    pots.append("oblateJaffePotential")
-    pots.append("prolateHernquistPotential")
-    pots.append("prolateNFWPotential")
-    pots.append("prolateJaffePotential")
-    pots.append("triaxialHernquistPotential")
-    pots.append("triaxialNFWPotential")
-    pots.append("triaxialJaffePotential")
-    # pots.append('zRotatedTriaxialNFWPotential') # Difficult bc of rotation
-    # pots.append('yRotatedTriaxialNFWPotential') # Difficult bc of rotation
-    # pots.append('fullyRotatedTriaxialNFWPotential') # Difficult bc of rotation
-    # pots.append('fullyRotatednoGLTriaxialNFWPotential') # Difficult bc of rotation
-    # pots.append('HernquistTwoPowerTriaxialPotential')
-    # pots.append('NFWTwoPowerTriaxialPotential')
-    # pots.append('JaffeTwoPowerTriaxialPotential')
-    pots.append("mockSCFZeeuwPotential")
-    pots.append("mockSCFNFWPotential")
-    pots.append("mockSCFAxiDensity1Potential")
-    pots.append("mockSCFAxiDensity2Potential")
-    pots.append("mockSCFDensityPotential")
-    pots.append("sech2DiskSCFPotential")
-    pots.append("expwholeDiskSCFPotential")
-    pots.append("nonaxiDiskSCFPotential")
-    pots.append("sech2DiskMultipoleExpansionPotential")
-    pots.append("expwholeDiskMultipoleExpansionPotential")
-    pots.append("nonaxiDiskMultipoleExpansionPotential")
-    pots.append("mockMultipoleExpansionSphericalPotential")
-    pots.append("mockMultipoleExpansionAxiPotential")
-    pots.append("mockMultipoleExpansionPotential")
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockInterpSphericalPotentialwForce")
-    pots.append("mockAdiabaticContractionMWP14WrapperPotential")
-    pots.append("mockAdiabaticContractionMWP14ExplicitfbarWrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
-    pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
-    pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
-    pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
-    pots.append("mockOffsetMWP14WrapperPotential")
-    pots.append("mockKuzminLikeWrapperPotential")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "linearCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    # Remove some more potentials that we don't support for now TO DO
-    rmpots.append("FerrersPotential")  # Need to figure out...
-    rmpots.append("KuzminKutuzovStaeckelPotential")  # Need to figure out...
-    rmpots.append("RazorThinExponentialDiskPotential")  # Need to figure out...
-    rmpots.append("SoftenedNeedleBarPotential")  # Not that hard, but haven't done it
-    rmpots.append("SpiralArmsPotential")  # Need to have 0 x cos = 0
-    rmpots.append("TwoPowerTriaxialPotential")  # Need to figure out
-    # 2D ones that cannot use this test
-    rmpots.append("CosmphiDiskPotential")
-    rmpots.append("EllipticalDiskPotential")
-    rmpots.append("LopsidedDiskPotential")
-    rmpots.append("HenonHeilesPotential")
-    rmpots.append("TransientLogSpiralPotential")
-    rmpots.append("SteadyLogSpiralPotential")
-    # 1D ones that cannot use this test
-    rmpots.append("IsothermalDiskPotential")
-    rmpots.append("KGPotential")
-    for p in rmpots:
-        pots.remove(p)
-    for p in pots:
+    p = potname
+    if True:
         # Setup instance of potential
         try:
             tclass = getattr(potential, p)
@@ -2579,7 +2572,7 @@ def test_potential_at_infinity():
             or p == "mockOffsetMWP14WrapperPotential"
             or "noGL" in p  # EllipsoidalPotential using scipy.quad: no array support
         ):
-            continue
+            return  # was `continue`: scalar asserts above already ran; only skip array asserts
         assert not numpy.any(
             numpy.isnan(
                 potential.evaluatePotentials(
@@ -3344,53 +3337,10 @@ def test_mass_spheroidal():
 
 
 # Check that toVertical and toPlanar work
-def test_toVertical_toPlanar():
-    # Grab all of the potentials
-    pots = [
-        p
-        for p in dir(potential)
-        if (
-            "Potential" in p
-            and not "plot" in p
-            and not "RZTo" in p
-            and not "FullTo" in p
-            and not "toPlanar" in p
-            and not "evaluate" in p
-            and not "Wrapper" in p
-            and not "toVertical" in p
-        )
-    ]
-    pots.append("mockInterpSphericalPotential")
-    pots.append("mockInterpSphericalPotentialwForce")
-    rmpots = [
-        "Potential",
-        "MWPotential",
-        "MWPotential2014",
-        "MovingObjectPotential",
-        "interpRZPotential",
-        "linearPotential",
-        "planarAxiPotential",
-        "planarPotential",
-        "verticalPotential",
-        "PotentialError",
-        "SnapshotRZPotential",
-        "InterpSnapshotRZPotential",
-        "EllipsoidalPotential",
-        "NumericalPotentialDerivativesMixin",
-        "SphericalHarmonicPotentialMixin",
-        "SphericalPotential",
-        "interpSphericalPotential",
-        "CompositePotential",
-        "planarCompositePotential",
-        "baseCompositePotential",
-        "KuijkenDubinskiDiskExpansionPotential",
-    ]
-    if False:
-        rmpots.append("DoubleExponentialDiskPotential")
-        rmpots.append("RazorThinExponentialDiskPotential")
-    for p in rmpots:
-        pots.remove(p)
-    for p in pots:
+@pytest.mark.parametrize("potname", _TOVERTICAL_TOPLANAR_POTS)
+def test_toVertical_toPlanar(potname):
+    p = potname
+    if True:
         # Setup instance of potential
         try:
             tclass = getattr(potential, p)
@@ -3398,12 +3348,12 @@ def test_toVertical_toPlanar():
             tclass = getattr(sys.modules[__name__], p)
         tp = tclass()
         if not hasattr(tp, "normalize"):
-            continue  # skip these
+            pytest.skip("no normalize")  # skip these
         tp.normalize(1.0)
         if isinstance(tp, potential.linearPotential) or isinstance(
             tp, potential.planarPotential
         ):
-            continue
+            pytest.skip("already linear/planar")
         tpp = tp.toPlanar()
         assert isinstance(tpp, potential.planarPotential), (
             "Conversion into planar potential of potential %s fails" % p
