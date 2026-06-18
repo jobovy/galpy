@@ -76,6 +76,11 @@ def check_potential_inputs_not_arrays(func):
             )
         return func(self, R, z, phi, t)
 
+    # Marker so the mass() numerical-integration dispatch can tell that this
+    # potential's force methods are scalar-only and must NOT be fed the whole
+    # Gauss-Legendre node array on the backend quadrature path (see
+    # _force_accepts_arrays / Potential.mass).
+    func_wrapper._galpy_scalar_only = True
     return func_wrapper
 
 
@@ -85,6 +90,34 @@ def potential_positional_arg(func):
         return func(Pot, *args, **kwargs)
 
     return wrapper
+
+
+def _force_accepts_arrays(pot):
+    """Whether ``pot``'s force methods broadcast over an array of positions.
+
+    The numerical-integration (Gauss' theorem) path of :meth:`Potential.mass`
+    used to delegate to ``scipy.integrate.quad``, which calls the force
+    integrand node-by-node with scalars. The backend Gauss-Legendre quadrature
+    instead calls the integrand ONCE with the whole node array, which breaks for
+    potentials whose force methods are scalar-only -- either they raise on an
+    array input (those decorated with :func:`check_potential_inputs_not_arrays`,
+    e.g. ``DoubleExponentialDiskPotential``) or they silently return a wrong
+    value for one (e.g. ``AnySphericalPotential``, whose force closes over
+    ``scipy.integrate.quad`` with a scalar upper limit and so collapses an array
+    ``r`` to ``r[0]``). For those, ``mass()`` must drive the backend quadrature
+    node-by-node (``vectorized=False``); this helper detects them.
+
+    Returns False if the instance carries ``_force_accepts_arrays = False`` or if
+    any of its ``_Rforce``/``_zforce``/``_rforce`` carries the scalar-only marker
+    set by :func:`check_potential_inputs_not_arrays`; True otherwise.
+    """
+    if not getattr(pot, "_force_accepts_arrays", True):
+        return False
+    for name in ("_Rforce", "_zforce", "_rforce"):
+        meth = getattr(type(pot), name, None)
+        if meth is not None and getattr(meth, "_galpy_scalar_only", False):
+            return False
+    return True
 
 
 def _check_potential_list_and_deprecate(Pot):
@@ -568,7 +601,11 @@ class Potential(Force):
 
         """
         xp = get_namespace(R, z)
-        r = xp.sqrt(R**2.0 + z**2.0)
+        # Coerce the radicand to the namespace before sqrt: under a forced torch
+        # backend get_namespace returns torch even for Python-float R,z, and
+        # torch.sqrt rejects a bare float (jax.numpy auto-converts). On the numpy
+        # path xp.asarray is a no-op (byte-identical).
+        r = xp.sqrt(xp.asarray(R**2.0 + z**2.0))
         return (
             self.R2deriv(R, z, phi=phi, t=t, use_physical=False) * R / r
             + self.Rzderiv(R, z, phi=phi, t=t, use_physical=False) * z / r
@@ -752,7 +789,11 @@ class Potential(Force):
         if not z is None:  # Make sure z is positive, bc we integrate from -z to z
             # xp.abs == numpy.fabs for float64 numpy z (byte-identical); for a
             # jax/torch z it stays differentiable (numpy.fabs would detach it).
-            z = get_namespace(z).abs(z)
+            # Coerce to the namespace first: under a forced torch backend
+            # get_namespace returns torch even for a Python-float z, and
+            # torch.abs rejects a bare float (jax.numpy auto-converts).
+            xp_z = get_namespace(z)
+            z = xp_z.abs(xp_z.asarray(z))
         try:
             if forceint:
                 raise AttributeError  # Hack!
@@ -765,6 +806,12 @@ class Potential(Force):
             # parameters. xp.cos/sin == numpy.cos/sin on the numpy path.
             from ..backend.quadrature import quad as _bk_quad
 
+            # Scalar-only potentials (force raises on / silently mishandles an
+            # array, e.g. DoubleExponentialDiskPotential / AnySphericalPotential)
+            # must drive the backend Gauss-Legendre quadrature node-by-node, like
+            # scipy.integrate.quad does on the numpy path. No effect on the numpy
+            # path (scipy is always node-by-node) -> byte-identical there.
+            _vec = _force_accepts_arrays(self)
             xp = get_namespace(R) if z is None else get_namespace(R, z)
             if z is None:  # Within spherical shell
 
@@ -778,12 +825,18 @@ class Potential(Force):
                 # scipy (byte-identical); jax/torch R -> backend GL.
                 lo = xp.asarray(0.0)
                 hi = xp.asarray(numpy.pi)
-                return -(R**2.0) * _bk_quad(_integrand, lo, hi) / 2.0
+                return -(R**2.0) * _bk_quad(_integrand, lo, hi, vectorized=_vec) / 2.0
             else:  # Within disk at <R, -z --> z
                 return -R * _bk_quad(
-                    lambda x: self.Rforce(R, x, t=t, use_physical=False), -z, z
+                    lambda x: self.Rforce(R, x, t=t, use_physical=False),
+                    -z,
+                    z,
+                    vectorized=_vec,
                 ) / 2.0 - _bk_quad(
-                    lambda x: x * self.zforce(x, z, t=t, use_physical=False), 0.0, R
+                    lambda x: x * self.zforce(x, z, t=t, use_physical=False),
+                    0.0,
+                    R,
+                    vectorized=_vec,
                 )
 
     @physical_conversion("position", pop=True)
@@ -1236,7 +1289,15 @@ class Potential(Force):
 
         """
         xp = get_namespace(R)
-        return xp.sqrt(R * -self.Rforce(R, 0.0, phi=phi, t=t, use_physical=False))
+        # Coerce the radicand to the namespace before sqrt: for a still-numpy
+        # potential (e.g. AnyAxisymmetricRazorThinDiskPotential) both R and
+        # Rforce stay numpy, so the radicand is a numpy scalar; under a forced
+        # torch backend xp.sqrt is torch.sqrt, which rejects a numpy scalar
+        # (jax.numpy auto-converts). On the numpy path xp.asarray is a no-op
+        # (byte-identical).
+        return xp.sqrt(
+            xp.asarray(R * -self.Rforce(R, 0.0, phi=phi, t=t, use_physical=False))
+        )
 
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
@@ -4413,7 +4474,11 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
             "Mass parameter M= needs to be set to compute tidal radius"
         )
     xp = get_namespace(R, z)
-    r = xp.sqrt(R**2.0 + z**2.0)
+    # Coerce the radicand to the namespace before sqrt: under a forced torch
+    # backend get_namespace returns torch even for Python-float R,z, and
+    # torch.sqrt rejects a bare float (jax.numpy auto-converts). On the numpy
+    # path xp.asarray is a no-op (byte-identical).
+    r = xp.sqrt(xp.asarray(R**2.0 + z**2.0))
     omegac2 = -evaluaterforces(Pot, R, z, phi=phi, t=t, use_physical=False) / r
     d2phidr2 = evaluater2derivs(Pot, R, z, phi=phi, t=t, use_physical=False)
     return (M / (omegac2 - d2phidr2)) ** (1.0 / 3.0)

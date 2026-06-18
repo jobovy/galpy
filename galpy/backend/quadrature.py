@@ -58,7 +58,7 @@ _QUAD_N = 100
 _GL01_CACHE = {}
 
 
-def quad(func, a, b, args=(), n=_QUAD_N, device=None):
+def quad(func, a, b, args=(), n=_QUAD_N, device=None, vectorized=True):
     r"""``int_a^b func(x, *args) dx`` -- a backend-agnostic definite integral.
 
     The drop-in galpy uses where it would call ``scipy.integrate.quad(...)[0]``
@@ -101,6 +101,13 @@ def quad(func, a, b, args=(), n=_QUAD_N, device=None):
         Device for the node/weight tables on the backend path (see
         :func:`gauss_legendre`); pass when the limits are Python scalars but
         ``func`` closes over CUDA tensors.
+    vectorized : bool, optional
+        Whether ``func`` broadcasts over the whole node array at once (default
+        True). Pass False for a scalar-only integrand (one that rejects an array
+        argument, or silently returns a wrong value for one) so the backend GL
+        path calls it node-by-node and stacks the results -- the same
+        node-by-node contract ``scipy.integrate.quad`` uses on the numpy path.
+        Ignored on the numpy (scipy) path, which is always node-by-node.
 
     Returns
     -------
@@ -117,10 +124,14 @@ def quad(func, a, b, args=(), n=_QUAD_N, device=None):
         from scipy import integrate as _sint
 
         return _sint.quad(func, a, b, args=args)[0]
-    return gauss_legendre(func, a, b, args=args, n=n, device=device)
+    return gauss_legendre(
+        func, a, b, args=args, n=n, device=device, vectorized=vectorized
+    )
 
 
-def gauss_legendre(func, a, b, args=(), n=_QUAD_N, device=None, xp=None):
+def gauss_legendre(
+    func, a, b, args=(), n=_QUAD_N, device=None, xp=None, vectorized=True
+):
     r"""``int_a^b func(x, *args) dx`` by fixed-order Gauss-Legendre quadrature.
 
     The fixed-node (non-adaptive) backend integrator behind :func:`quad`.
@@ -146,6 +157,10 @@ def gauss_legendre(func, a, b, args=(), n=_QUAD_N, device=None, xp=None):
     xp : module or str, optional
         Explicit namespace override forwarded to ``get_namespace``; normally the
         namespace is inferred from ``a, b, *args``.
+    vectorized : bool, optional
+        Whether ``func`` broadcasts over the whole node array at once (default
+        True). Pass False for a scalar-only integrand so it is called
+        node-by-node (see :func:`fixed_quad`).
 
     Returns
     -------
@@ -156,7 +171,7 @@ def gauss_legendre(func, a, b, args=(), n=_QUAD_N, device=None, xp=None):
 
     ns = get_namespace(a, b, *args, xp=xp)
     integrand = (lambda x: func(x, *args)) if args else func
-    return fixed_quad(ns, integrand, a, b, n=n, device=device)
+    return fixed_quad(ns, integrand, a, b, n=n, device=device, vectorized=vectorized)
 
 
 def gauss_legendre_01(n):
@@ -201,14 +216,14 @@ def _gl01_on(xp, n, dev):
     return asarray_on_device(xp, x01, dev), asarray_on_device(xp, w01, dev)
 
 
-def fixed_quad(xp, integrand, a, b, *, n=50, device=None):
+def fixed_quad(xp, integrand, a, b, *, n=50, device=None, vectorized=True):
     r"""``int_a^b integrand(s) ds`` by fixed-order Gauss-Legendre quadrature.
 
     Backend-agnostic and differentiable in both the limits ``a, b`` and through
-    ``integrand`` (its parameters). ``integrand`` is called ONCE with the full
-    array of quadrature nodes (it must be vectorised over a trailing node axis,
-    i.e. broadcast over the last dimension) and the result is reduced as
-    ``(b - a) * sum(w01 * integrand(nodes))`` where ``w01`` are the [0, 1]
+    ``integrand`` (its parameters). By default ``integrand`` is called ONCE with
+    the full array of quadrature nodes (it must be vectorised over a trailing
+    node axis, i.e. broadcast over the last dimension) and the result is reduced
+    as ``(b - a) * sum(w01 * integrand(nodes))`` where ``w01`` are the [0, 1]
     weights and ``nodes = a + (b - a) * x01``.
 
     Parameters
@@ -216,7 +231,9 @@ def fixed_quad(xp, integrand, a, b, *, n=50, device=None):
     xp : module
         Array namespace (numpy / jax.numpy / array_api_compat.torch).
     integrand : callable
-        ``integrand(nodes) -> array`` broadcasting over the trailing node axis.
+        ``integrand(nodes) -> array`` broadcasting over the trailing node axis
+        (or, with ``vectorized=False``, ``integrand(node) -> scalar`` called
+        per node).
     a, b : scalar or backend array
         Finite integration limits. May be backend arrays (autodiff flows to
         them through the affine remap and the (b - a) prefactor).
@@ -227,6 +244,16 @@ def fixed_quad(xp, integrand, a, b, *, n=50, device=None):
         Device for the node/weight tables. Defaults to the limits' device;
         pass this when the limits are Python scalars but ``integrand`` closes
         over CUDA tensors (so the nodes land on the integrand's device).
+    vectorized : bool, optional
+        Whether ``integrand`` broadcasts over the node array at once (default
+        True). Pass False for a scalar-only integrand -- one that raises on an
+        array argument (e.g. a potential force decorated with
+        ``check_potential_inputs_not_arrays``) or silently returns a wrong value
+        for one -- so each node is passed individually and the per-node scalars
+        are stacked before reduction. This reproduces the node-by-node contract
+        ``scipy.integrate.quad`` uses on the numpy path; it is slower (no
+        vectorisation) but still differentiable through ``integrand`` and the
+        limits.
 
     Returns
     -------
@@ -240,7 +267,15 @@ def fixed_quad(xp, integrand, a, b, *, n=50, device=None):
     span = b - a
     # Broadcast the affine remap over the node axis; a, b carry the autodiff.
     nodes = a[..., None] + span[..., None] * x01
-    vals = integrand(nodes)
+    if vectorized:
+        vals = integrand(nodes)
+    else:
+        # Scalar-only integrand: call it once per node and stack, mirroring
+        # scipy.integrate.quad's node-by-node calling on the numpy path. The
+        # node array is 1-D here (scalar a, b at galpy's mass/quad sites).
+        vals = xp.stack(
+            [integrand(nodes[..., i]) for i in range(nodes.shape[-1])], axis=-1
+        )
     result = span * xp.sum(w01 * vals, axis=-1)
     return match_input_dtype(result, a, b)
 

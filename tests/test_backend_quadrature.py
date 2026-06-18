@@ -83,6 +83,31 @@ def test_fixed_quad_parity(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_fixed_quad_vectorized_false(backend):
+    # vectorized=False drives the quadrature node-by-node (like
+    # scipy.integrate.quad does) for a scalar-only integrand -- one that REJECTS
+    # an array argument. This is the contract Potential.mass uses for
+    # scalar-only potentials (DoubleExponentialDiskPotential / AnySpherical).
+    xp = _xp(backend)
+    ref = numpy.exp(-0.5) - numpy.exp(-3.0)
+
+    def scalar_only(s):
+        # Mirror check_potential_inputs_not_arrays: reject a >1-element array.
+        if hasattr(s, "shape") and s.shape != () and len(s) > 1:
+            raise TypeError("scalar-only integrand got an array")
+        return xp.exp(-s)
+
+    # The default (vectorized=True) would feed scalar_only the whole node array
+    # and raise; vectorized=False calls it per node and matches the analytic.
+    with pytest.raises(TypeError):
+        fixed_quad(xp, scalar_only, 0.5, 3.0, n=40)
+    got = float(
+        numpy.asarray(fixed_quad(xp, scalar_only, 0.5, 3.0, n=40, vectorized=False))
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_semiinfinite_parity(backend):
     xp = _xp(backend)
     # int_1^inf exp(-s) ds = exp(-1); int_0^inf 1/(1+s^2) ds = pi/2
@@ -141,6 +166,29 @@ def test_quad_grad_in_limit_and_param(backend):
     numpy.testing.assert_allclose(ga, -numpy.exp(-a0), rtol=1e-6)
     # analytic d/dp of (1-exp(-2p))/p
     ref_gp = (2.0 * numpy.exp(-2 * p0) * p0 - (1 - numpy.exp(-2 * p0))) / p0**2
+    numpy.testing.assert_allclose(gp, ref_gp, rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_quad_grad_vectorized_false(backend):
+    # Gradients still flow through the node-by-node (vectorized=False) path:
+    # d/dp int_0^2 exp(-p s) ds, with a scalar-only integrand called per node.
+    p0 = 1.3
+    ref_gp = (2.0 * numpy.exp(-2 * p0) * p0 - (1 - numpy.exp(-2 * p0))) / p0**2
+    if backend == "jax":
+        gp = float(
+            jax.grad(
+                lambda p: fixed_quad(
+                    jnp, lambda s: jnp.exp(-p * s), 0.0, 2.0, n=60, vectorized=False
+                )
+            )(jnp.asarray(p0))
+        )
+    else:
+        pt = torch.tensor(p0, requires_grad=True)
+        fixed_quad(
+            txp, lambda s: txp.exp(-pt * s), 0.0, 2.0, n=60, vectorized=False
+        ).backward()
+        gp = float(pt.grad)
     numpy.testing.assert_allclose(gp, ref_gp, rtol=1e-6)
 
 

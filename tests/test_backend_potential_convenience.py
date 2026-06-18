@@ -313,3 +313,83 @@ def test_module_functional_interface_torch():
     assert isinstance(_P.rtide(p, R, z, M=1e-3, use_physical=False), torch.Tensor)
     assert isinstance(_P.tdyn(p, R, use_physical=False), torch.Tensor)
     assert isinstance(_P.ttensor(p, R, z, use_physical=False), torch.Tensor)
+
+
+# --- Scalar-only potentials in Potential.mass's backend quadrature dispatch ---
+# Potential.mass's numerical-integration (Gauss' theorem) path now routes through
+# the backend Gauss-Legendre quadrature, which by default calls the force
+# integrand ONCE on the whole node array. That breaks for potentials whose force
+# methods are scalar-only -- they either raise on an array (those decorated with
+# check_potential_inputs_not_arrays, e.g. DoubleExponentialDiskPotential) or
+# silently mishandle one (AnySphericalPotential, whose force closes over
+# scipy.integrate.quad with a scalar upper limit). _force_accepts_arrays detects
+# them and mass() drives the quadrature node-by-node (vectorized=False).
+
+
+def test_force_accepts_arrays_detection():
+    from galpy.potential import (
+        AnySphericalPotential,
+        DoubleExponentialDiskPotential,
+    )
+    from galpy.potential.Potential import _force_accepts_arrays
+
+    # Array-safe force -> True.
+    assert _force_accepts_arrays(LogarithmicHaloPotential(normalize=1.0))
+    assert _force_accepts_arrays(MiyamotoNagaiPotential(a=0.5, b=0.1, normalize=1.0))
+    # DoubleExp: detected via the check_potential_inputs_not_arrays marker.
+    assert not _force_accepts_arrays(
+        DoubleExponentialDiskPotential(amp=2.0, hr=1.0 / 3.0, hz=1.0 / 16.0)
+    )
+    # AnySpherical: detected via the explicit instance flag.
+    assert not _force_accepts_arrays(AnySphericalPotential())
+
+
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+def test_mass_scalar_only_jax_matches_numpy():
+    # mass() of scalar-only potentials must give the numpy value under jax (the
+    # node-by-node backend quadrature dispatch).
+    import numpy as _np
+
+    from galpy.potential import AnySphericalPotential, DoubleExponentialDiskPotential
+
+    dp = DoubleExponentialDiskPotential(amp=2.0, hr=1.0 / 3.0, hz=1.0 / 16.0)
+    ref_disk = dp.mass(0.01, 0.01, forceint=True, use_physical=False)
+    got_disk = dp.mass(
+        jnp.asarray(0.01), jnp.asarray(0.01), forceint=True, use_physical=False
+    )
+    assert isinstance(got_disk, jnp.ndarray)
+    _np.testing.assert_allclose(float(got_disk), float(ref_disk), rtol=1e-6)
+
+    hp = AnySphericalPotential(
+        dens=lambda r: 1.0 / 4.0 / _np.pi / r**2 / (1 + r) ** 2, amp=1.0
+    )
+    ref_sph = hp.mass(4.2, 1.3, use_physical=False)
+    got_sph = hp.mass(jnp.asarray(4.2), jnp.asarray(1.3), use_physical=False)
+    assert isinstance(got_sph, jnp.ndarray)
+    _np.testing.assert_allclose(float(got_sph), float(ref_sph), rtol=1e-6)
+
+
+@pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
+def test_mass_scalar_only_torch_matches_numpy():
+    import numpy as _np
+
+    from galpy.potential import AnySphericalPotential, DoubleExponentialDiskPotential
+
+    dp = DoubleExponentialDiskPotential(amp=2.0, hr=1.0 / 3.0, hz=1.0 / 16.0)
+    ref_disk = dp.mass(0.01, 0.01, forceint=True, use_physical=False)
+    got_disk = dp.mass(
+        torch.as_tensor(0.01),
+        torch.as_tensor(0.01),
+        forceint=True,
+        use_physical=False,
+    )
+    assert isinstance(got_disk, torch.Tensor)
+    _np.testing.assert_allclose(float(got_disk), float(ref_disk), rtol=1e-6)
+
+    hp = AnySphericalPotential(
+        dens=lambda r: 1.0 / 4.0 / _np.pi / r**2 / (1 + r) ** 2, amp=1.0
+    )
+    ref_sph = hp.mass(4.2, 1.3, use_physical=False)
+    got_sph = hp.mass(torch.as_tensor(4.2), torch.as_tensor(1.3), use_physical=False)
+    assert isinstance(got_sph, torch.Tensor)
+    _np.testing.assert_allclose(float(got_sph), float(ref_sph), rtol=1e-6)

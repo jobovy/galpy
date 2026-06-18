@@ -346,7 +346,11 @@ class Force:
 
         """
         xp = get_namespace(R, z)
-        r = xp.sqrt(R**2.0 + z**2.0)
+        # Coerce the radicand to the namespace before sqrt: under a forced torch
+        # backend get_namespace returns torch even for Python-float/numpy R,z,
+        # and torch.sqrt rejects a bare float/numpy scalar (jax.numpy auto-
+        # converts). On the numpy path xp.asarray is a no-op (byte-identical).
+        r = xp.sqrt(xp.asarray(R**2.0 + z**2.0))
         kwargs["use_physical"] = False
         return self.Rforce(R, z, **kwargs) * R / r + self.zforce(R, z, **kwargs) * z / r
 

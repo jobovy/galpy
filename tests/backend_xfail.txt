@@ -1123,6 +1123,7 @@ torch tests/test_potential.py::test_Force_len_iter
 torch tests/test_potential.py::test_Irrgang13
 torch tests/test_potential.py::test_LcE_flatvc
 torch tests/test_potential.py::test_LcE_powervc
+torch tests/test_potential.py::test_MN3ExponentialDiskPotential_approx
 torch tests/test_potential.py::test_MWPotential2014
 torch tests/test_potential.py::test_McMillan17
 torch tests/test_potential.py::test_NonInertialFrameForce_2d
@@ -1169,6 +1170,7 @@ torch tests/test_potential.py::test_linearCompositePotential_mul_div
 torch tests/test_potential.py::test_linear_list_of_potentials_deprecation
 torch tests/test_potential.py::test_list_of_potentials_deprecation
 torch tests/test_potential.py::test_mass_axi
+torch tests/test_potential.py::test_mass_axi_negz
 torch tests/test_potential.py::test_mass_spher_z
 torch tests/test_potential.py::test_mvir_attributeerror
 torch tests/test_potential.py::test_nemoaccname
@@ -1199,6 +1201,7 @@ torch tests/test_potential.py::test_repr_wrapper_class_name[KuzminLike-directsub
 torch tests/test_potential.py::test_repr_wrapper_class_name[RotateAndTilt-directsubclass]
 torch tests/test_potential.py::test_repr_wrapper_class_name[SolidBodyRotation-3D]
 torch tests/test_potential.py::test_repr_wrapper_class_name[SolidBodyRotation-planar]
+torch tests/test_potential.py::test_rforce_dissipative
 torch tests/test_potential.py::test_scf_analytic_2ndderiv
 torch tests/test_potential.py::test_scf_tupleindexwarning
 torch tests/test_potential.py::test_scf_xiToR
@@ -1303,6 +1306,7 @@ torch tests/test_quantity.py::test_actionAngle_setup_roAsQuantity
 torch tests/test_quantity.py::test_actionAngle_setup_roAsQuantity_oddunits
 torch tests/test_quantity.py::test_actionAngle_setup_voAsQuantity
 torch tests/test_quantity.py::test_actionAngle_setup_voAsQuantity_oddunits
+torch tests/test_quantity.py::test_anyaxisymmetricrazorpotential_unitson
 torch tests/test_quantity.py::test_df_inconsistentPotentialUnits_error
 torch tests/test_quantity.py::test_diskdf_method_returntype
 torch tests/test_quantity.py::test_diskdf_sample
