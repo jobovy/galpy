@@ -750,33 +750,40 @@ class Potential(Force):
                 "mass for EllipsoidalPotentials is not currently supported for z != None"
             )
         if not z is None:  # Make sure z is positive, bc we integrate from -z to z
-            z = numpy.fabs(z)
+            # xp.abs == numpy.fabs for float64 numpy z (byte-identical); for a
+            # jax/torch z it stays differentiable (numpy.fabs would detach it).
+            z = get_namespace(z).abs(z)
         try:
             if forceint:
                 raise AttributeError  # Hack!
             return self._amp * self._mass(R, z=z, t=t)
         except AttributeError:
-            # Use numerical integration to get the mass, using Gauss' theorem
+            # Use numerical integration to get the mass, using Gauss' theorem.
+            # numpy -> backend.quadrature.quad delegates to scipy.integrate.quad
+            # (byte-identical); a jax/torch R/z routes to fixed-order Gauss-
+            # Legendre, so the mass differentiates w.r.t. R, z, and the potential
+            # parameters. xp.cos/sin == numpy.cos/sin on the numpy path.
+            from ..backend.quadrature import quad as _bk_quad
+
+            xp = get_namespace(R) if z is None else get_namespace(R, z)
             if z is None:  # Within spherical shell
 
                 def _integrand(theta):
-                    tz = R * numpy.cos(theta)
-                    tR = R * numpy.sin(theta)
-                    return self.rforce(tR, tz, t=t, use_physical=False) * numpy.sin(
-                        theta
-                    )
+                    tz = R * xp.cos(theta)
+                    tR = R * xp.sin(theta)
+                    return self.rforce(tR, tz, t=t, use_physical=False) * xp.sin(theta)
 
-                return -(R**2.0) * integrate.quad(_integrand, 0.0, numpy.pi)[0] / 2.0
+                # Anchor the constant limits on the namespace so dispatch follows
+                # R (the integrand closes over R): numpy R -> 0-d numpy limits ->
+                # scipy (byte-identical); jax/torch R -> backend GL.
+                lo = xp.asarray(0.0)
+                hi = xp.asarray(numpy.pi)
+                return -(R**2.0) * _bk_quad(_integrand, lo, hi) / 2.0
             else:  # Within disk at <R, -z --> z
-                return (
-                    -R
-                    * integrate.quad(
-                        lambda x: self.Rforce(R, x, t=t, use_physical=False), -z, z
-                    )[0]
-                    / 2.0
-                    - integrate.quad(
-                        lambda x: x * self.zforce(x, z, t=t, use_physical=False), 0.0, R
-                    )[0]
+                return -R * _bk_quad(
+                    lambda x: self.Rforce(R, x, t=t, use_physical=False), -z, z
+                ) / 2.0 - _bk_quad(
+                    lambda x: x * self.zforce(x, z, t=t, use_physical=False), 0.0, R
                 )
 
     @physical_conversion("position", pop=True)
