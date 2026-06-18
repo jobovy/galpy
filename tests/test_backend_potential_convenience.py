@@ -95,15 +95,27 @@ def _make_methods():
 
 METHODS = _make_methods()
 
-# tdyn calls self.mass(...), a scipy-quadrature method, and rtide calls
-# self.rforce(...) which lives in Force.py; both are NOT yet on the backend
-# namespace (migrated in later stages). Under eager jax/torch these still work
-# (the inner call gets a concrete array and detaches to numpy, then the outer
-# xp.sqrt re-attaches), but jax.grad / torch.autograd cannot flow through the
-# un-migrated inner numpy code, so they are excluded from the AD-vs-FD checks
-# here. The numpy->xp sweep of their OWN bare-numpy sqrt is still exercised by
-# the eager / numpy-parity tests.
+# tdyn calls self.mass(...) and rtide calls self.rforce(...); both now dispatch
+# through the backend (mass -> backend.quadrature.quad, rforce -> the backend
+# namespace), so under eager jax/torch they return a backend array. They are
+# still excluded from the AD-vs-FD checks here: AD through these convenience
+# methods is verified in their own focused modules (mass in
+# test_backend_potential_rootfind.py with an IFT/Leibniz cross-check; rforce in
+# test_backend_force.py). The numpy->xp sweep of their OWN bare-numpy sqrt is
+# exercised by the eager / numpy-parity tests below.
 _NO_GRAD = {"tdyn", "rtide"}
+
+# Per-method eager-value tolerance vs the numpy reference. Almost everything is
+# byte-/round-trip identical to numpy (rtol 1e-10), but tdyn = 2*pi*R*sqrt(R/M)
+# closes over mass(): for a potential WITHOUT an analytic _mass (here
+# MiyamotoNagai) the numpy path uses scipy's ADAPTIVE quad while the backend
+# path uses fixed-order Gauss-Legendre, so the two values agree only to the
+# GL-vs-adaptive quadrature error (~5e-8 here) -- a quadrature-method difference,
+# not a detachment/regression. The discriminating eager-array assertion stays
+# strict for every method. (mass's own dedicated tests use the same loosened
+# tolerance for the same reason.)
+_VALUE_RTOL = {"tdyn": 1e-6}
+_DEFAULT_VALUE_RTOL = 1e-10
 
 
 def _ids(methods):
@@ -148,7 +160,8 @@ def test_jax_eager_array_and_value(name, fn, pt):
         # (a) eager jax returns a jax array
         assert "jax" in type(out).__module__, (name, type(out))
         # (d') jax value matches the numpy reference
-        numpy.testing.assert_allclose(numpy.asarray(out), ref, rtol=1e-10, atol=1e-12)
+        rtol = _VALUE_RTOL.get(name, _DEFAULT_VALUE_RTOL)
+        numpy.testing.assert_allclose(numpy.asarray(out), ref, rtol=rtol, atol=1e-12)
 
 
 @pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
@@ -189,7 +202,8 @@ def test_torch_eager_tensor_and_value(name, fn, pt):
         out = fn(p, *targs)
         # (c) eager torch returns a torch tensor
         assert torch.is_tensor(out), (name, type(out))
-        numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=1e-10, atol=1e-12)
+        rtol = _VALUE_RTOL.get(name, _DEFAULT_VALUE_RTOL)
+        numpy.testing.assert_allclose(out.detach().numpy(), ref, rtol=rtol, atol=1e-12)
 
 
 @pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
