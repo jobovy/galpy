@@ -302,6 +302,16 @@ def _backend_safe_copy(x):
     return x.clone() if hasattr(x, "clone") else x  # torch has .clone(); jax does not
 
 
+def _backend_T(x):
+    """Backend-safe ``x.T`` (reverse all axes). numpy/jax keep ``.T`` (numpy path
+    byte-identical); a torch tensor of ndim != 2 emits a deprecation warning for
+    ``.T``, so reverse its axes explicitly via the namespace's ``permute_dims``."""
+    if hasattr(x, "clone") and getattr(x, "ndim", 2) != 2:  # torch tensor, ndim != 2
+        xp = get_namespace(x)
+        return xp.permute_dims(x, tuple(range(x.ndim))[::-1])
+    return x.T
+
+
 def shapeDecorator(func):
     """Decorator to return Orbits outputs with the correct shape"""
 
@@ -4773,7 +4783,7 @@ class Orbit:
         - 2019-02-01 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args, **kwargs)[0].T
+        return _backend_T(self._call_internal(*args, **kwargs)[0])
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4838,7 +4848,7 @@ class Orbit:
         - 2019-02-20 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args, **kwargs)[1].T
+        return _backend_T(self._call_internal(*args, **kwargs)[1])
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4867,7 +4877,7 @@ class Orbit:
         - 2019-02-20 - Written by Bovy (UofT).
 
         """
-        return self._call_internal(*args, **kwargs)[2].T
+        return _backend_T(self._call_internal(*args, **kwargs)[2])
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4898,7 +4908,7 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have z()")
-        return self._call_internal(*args, **kwargs)[3].T
+        return _backend_T(self._call_internal(*args, **kwargs)[3])
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4929,7 +4939,7 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have vz()")
-        return self._call_internal(*args, **kwargs)[4].T
+        return _backend_T(self._call_internal(*args, **kwargs)[4])
 
     @physical_conversion("angle")
     @shapeDecorator
