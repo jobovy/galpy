@@ -5,8 +5,7 @@
 ###############################################################################
 import copy
 
-import numpy
-
+from ..backend import get_namespace
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -346,7 +345,8 @@ class Force:
         - 2016-06-20 - Written - Bovy (UofT)
 
         """
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
         kwargs["use_physical"] = False
         return self.Rforce(R, z, **kwargs) * R / r + self.zforce(R, z, **kwargs) * z / r
 
