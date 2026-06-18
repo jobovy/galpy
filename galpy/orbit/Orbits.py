@@ -273,6 +273,22 @@ except:
     pass
 
 
+def _resolve_accessor_namespace(thiso):
+    """Resolve the array namespace for a derived time-evaluation accessor.
+
+    Returns ``(xp, thiso)`` where ``xp`` is the namespace resolved from
+    ``thiso`` (``get_namespace``) and ``thiso`` is coerced onto ``xp`` via
+    ``xp.asarray``. This keeps the numpy production path byte-identical
+    (``get_namespace(numpy)`` -> numpy and ``numpy.asarray`` on a numpy array is
+    a no-op), while ensuring that under a *forced* backend the unary backend
+    ufuncs (cos/sin/sqrt/abs/arctan2) receive a backend tensor instead of a raw
+    numpy array (which torch rejects). For an in-backend orbit ``thiso`` is
+    already a jax/torch array, so ``xp.asarray`` is a no-op there too.
+    """
+    xp = get_namespace(thiso)
+    return xp, xp.asarray(thiso)
+
+
 def shapeDecorator(func):
     """Decorator to return Orbits outputs with the correct shape"""
 
@@ -4774,7 +4790,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        xp = get_namespace(thiso)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 3:
             return xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0).T
         else:
@@ -4955,7 +4971,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        xp = get_namespace(thiso)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 1:
             return thiso[0].T
         elif self.phasedim() != 4 and self.phasedim() != 6:
@@ -4991,7 +5007,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        xp = get_namespace(thiso)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use y()")
         else:
@@ -5025,7 +5041,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        xp = get_namespace(thiso)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 1:
             return thiso[1].T
         elif self.phasedim() != 4 and self.phasedim() != 6:
@@ -5061,7 +5077,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        xp = get_namespace(thiso)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use vy()")
         else:
@@ -5125,7 +5141,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        xp = get_namespace(thiso)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 3:
             r = xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
             return ((thiso[0] * thiso[1] + thiso[3] * thiso[4]) / r).T
@@ -5160,7 +5176,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        xp = get_namespace(thiso)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if not self.dim() == 3:
             raise AttributeError("Orbit must be 3D to use vtheta()")
         else:
@@ -5189,7 +5205,7 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
-        xp = get_namespace(thiso)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() != 3:
             raise AttributeError("Orbit must be 3D to use theta()")
         else:
