@@ -110,7 +110,7 @@ def test_integrate_diffrax_matches_c(name, pot):
     got = numpy.asarray(o.getOrbit())
     assert got.shape == (len(_TS), 6)
     numpy.testing.assert_allclose(
-        _wrap_phi(got), _wrap_phi(_c_reference(pot)), rtol=1e-6, atol=1e-7
+        _wrap_phi(got), _wrap_phi(_c_reference(pot)), rtol=1e-8, atol=1e-9
     )
 
 
@@ -122,7 +122,7 @@ def test_integrate_torchdiffeq_matches_c(name, pot):
     got = o.getOrbit().detach().cpu().numpy()
     assert got.shape == (len(_TS), 6)
     numpy.testing.assert_allclose(
-        _wrap_phi(got), _wrap_phi(_c_reference(pot)), rtol=1e-6, atol=1e-7
+        _wrap_phi(got), _wrap_phi(_c_reference(pot)), rtol=1e-8, atol=1e-9
     )
 
 
@@ -245,7 +245,7 @@ def test_integrate_diffrax_phasedim_matches_c(ic, pot, accessors, phicol):
     assert got.shape == (len(_TS), len(ic))
     ref = _c_reference_general(ic, pot, accessors)
     numpy.testing.assert_allclose(
-        _wrap_col(got, phicol), _wrap_col(ref, phicol), rtol=1e-6, atol=1e-7
+        _wrap_col(got, phicol), _wrap_col(ref, phicol), rtol=1e-8, atol=1e-9
     )
 
 
@@ -262,7 +262,7 @@ def test_integrate_torchdiffeq_phasedim_matches_c(ic, pot, accessors, phicol):
     assert got.shape == (len(_TS), len(ic))
     ref = _c_reference_general(ic, pot, accessors)
     numpy.testing.assert_allclose(
-        _wrap_col(got, phicol), _wrap_col(ref, phicol), rtol=1e-6, atol=1e-7
+        _wrap_col(got, phicol), _wrap_col(ref, phicol), rtol=1e-8, atol=1e-9
     )
 
 
@@ -295,7 +295,7 @@ def test_integrate_diffrax_numpy_times():
     o.integrate(_TS, pot, method="diffrax")  # _TS is a numpy array
     got = numpy.asarray(o.getOrbit())
     numpy.testing.assert_allclose(
-        _wrap_phi(got), _wrap_phi(_c_reference(pot)), rtol=1e-6, atol=1e-7
+        _wrap_phi(got), _wrap_phi(_c_reference(pot)), rtol=1e-8, atol=1e-9
     )
 
 
@@ -412,6 +412,10 @@ def test_integrate_diffrax_quantity_time():
             oc.phi(_TS * units.Gyr),
         ]
     ).T
+    # _TS Gyr parses to ~28x more natural time units (1 natural time ~ 0.036 Gyr),
+    # so this is a much longer integration than the other parity tests; the looser
+    # tolerance reflects the larger accumulated Dopri8-vs-dop853 difference (the
+    # point of this test is the Quantity parsing, not tight parity).
     numpy.testing.assert_allclose(_wrap_phi(got), _wrap_phi(ref), rtol=1e-6, atol=1e-7)
 
 

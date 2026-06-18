@@ -2059,12 +2059,14 @@ class Orbit:
         from ..backend._reference import integrate_orbit
 
         # (nt, 6) in Orbit order [R,vR,vT,z,vz,phi], differentiable backend array.
+        # Default rtol/atol = 1e-12, matching galpy's C integrators (_parse_tol),
+        # so method='diffrax'/'torchdiffeq' integrates to the same accuracy.
         result = integrate_orbit(
             pot,
             ic,
             ts,
-            rtol=1e-10 if rtol is None else rtol,
-            atol=1e-10 if atol is None else atol,
+            rtol=1e-12 if rtol is None else rtol,
+            atol=1e-12 if atol is None else atol,
         )
         self.orbit = result[None, ...]  # (1, nt, phasedim), matching the C layout
         self.t = t

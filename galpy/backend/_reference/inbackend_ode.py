@@ -115,7 +115,7 @@ def _from_eom(xp, ys, phasedim):
     return xp.stack(cols, axis=-1)
 
 
-def integrate_orbit(pot, vxvv, ts, *, rtol=1e-10, atol=1e-10, max_steps=100000):
+def integrate_orbit(pot, vxvv, ts, *, rtol=1e-12, atol=1e-12, max_steps=100000):
     """Differentiably integrate an orbit with the backend's ODE solver.
 
     Parameters
@@ -126,7 +126,7 @@ def integrate_orbit(pot, vxvv, ts, *, rtol=1e-10, atol=1e-10, max_steps=100000):
         [R,vR,vT] / [R,vR,vT,phi] (2D), [R,vR,vT,z,vz] / [R,vR,vT,z,vz,phi] (3D).
         Its namespace selects the integrator: jax -> diffrax, torch -> torchdiffeq.
     ts : backend array of output times (monotonic; ts[0] is the initial time).
-    rtol, atol : solver tolerances.
+    rtol, atol : solver tolerances (default 1e-12, matching galpy's C integrators).
     max_steps : diffrax step cap (jax only).
 
     Returns
