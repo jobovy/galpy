@@ -66,17 +66,18 @@ jobs:
               "repos/$REPO/commits/$SHA/status" \
               -q '.statuses[] | {context, state}' 2>/dev/null || echo "")
 
-            pending=$(printf '%s\n' "$checks" | grep -c '"status": "\(queued\|in_progress\)"' || true)
-            pending_st=$(printf '%s\n' "$statuses" | grep -c '"state": "pending"' || true)
+            # gh --jq emits compact JSON (no space after the colon), so allow optional spaces.
+            pending=$(printf '%s\n' "$checks" | grep -c '"status": *"\(queued\|in_progress\)"' || true)
+            pending_st=$(printf '%s\n' "$statuses" | grep -c '"state": *"pending"' || true)
 
             if [ "$pending" -eq 0 ] && [ "$pending_st" -eq 0 ]; then
               echo "All sibling checks have settled. Evaluating conclusions:"
               printf '%s\n' "$checks" "$statuses"
               # Fail on any bad check-run conclusion. Treat skipped/neutral/success as OK.
               bad=$(printf '%s\n' "$checks" \
-                | grep -c '"conclusion": "\(failure\|cancelled\|timed_out\|action_required\|stale\)"' || true)
+                | grep -c '"conclusion": *"\(failure\|cancelled\|timed_out\|action_required\|stale\)"' || true)
               bad_st=$(printf '%s\n' "$statuses" \
-                | grep -c '"state": "\(failure\|error\)"' || true)
+                | grep -c '"state": *"\(failure\|error\)"' || true)
               if [ "$bad" -ne 0 ] || [ "$bad_st" -ne 0 ]; then
                 echo "::error::$bad failing check run(s) and $bad_st failing commit status(es)."
                 exit 1
