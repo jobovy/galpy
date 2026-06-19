@@ -4,6 +4,7 @@ import pickle
 import numpy
 from scipy import integrate
 
+from ..backend import get_namespace
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -262,7 +263,8 @@ class planarPotential(planarForce):
         - 2011-10-09 - Written - Bovy (IAS)
 
         """
-        return numpy.sqrt(
+        xp = get_namespace(R)
+        return xp.sqrt(
             self.R2deriv(R, 0.0, t=t, use_physical=False)
             - 3.0 / R * self.Rforce(R, 0.0, t=t, use_physical=False)
         )
@@ -293,7 +295,8 @@ class planarPotential(planarForce):
         - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
-        return numpy.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
+        xp = get_namespace(R)
+        return xp.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
 
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
@@ -318,7 +321,8 @@ class planarPotential(planarForce):
         - Written on 2011-10-09 by Bovy (IAS).
 
         """
-        return numpy.sqrt(-self.Rforce(R, t=t, use_physical=False) / R)
+        xp = get_namespace(R)
+        return xp.sqrt(-self.Rforce(R, t=t, use_physical=False) / R)
 
     def plot(self, *args, **kwargs):
         """
@@ -462,7 +466,8 @@ class planarAxiPotential(planarPotential):
         - Written on 2011-10-09 by Bovy (IAS).
 
         """
-        return numpy.sqrt(
+        xp = get_namespace(R)
+        return xp.sqrt(
             2.0
             * (self(_INF, t=t, use_physical=False) - self(R, t=t, use_physical=False))
         )
