@@ -338,3 +338,56 @@ def test_accessor_numpy_path_unchanged():
         val = getattr(o, acc)(_TS, use_physical=False)
         assert isinstance(val, numpy.ndarray)
         numpy.testing.assert_allclose(numpy.asarray(val), _c_ref(acc), rtol=1e-12)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_accessor_diffrax_scalar_ongrid_query():
+    # a scalar time landing EXACTLY on the integration grid, on a backend orbit ->
+    # the on-grid scalar branch of _call_internal (slice + permute_dims + clone)
+    o = Orbit(jnp.asarray(_IC))
+    o.integrate(jnp.asarray(_TS), _POT, method="diffrax")
+    tg = float(_TS[10])
+    val = o.R(tg, use_physical=False)
+    assert isinstance(val, jax.Array), "on-grid scalar query left the jax backend"
+    o_np = Orbit(list(_IC))
+    o_np.integrate(_TS, _POT, method="dop853_c")
+    numpy.testing.assert_allclose(
+        float(val), float(o_np.R(tg, use_physical=False)), rtol=1e-8, atol=1e-8
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_accessor_torchdiffeq_scalar_ongrid_query():
+    o = Orbit(torch.as_tensor(_IC))
+    o.integrate(torch.as_tensor(_TS), _POT, method="torchdiffeq")
+    tg = float(_TS[10])
+    val = o.R(tg, use_physical=False)
+    assert isinstance(val, torch.Tensor)
+    o_np = Orbit(list(_IC))
+    o_np.integrate(_TS, _POT, method="dop853_c")
+    numpy.testing.assert_allclose(
+        float(val.detach().cpu()),
+        float(o_np.R(tg, use_physical=False)),
+        rtol=1e-8,
+        atol=1e-8,
+    )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("acc", ["R", "vR", "z", "vz", "r"])
+def test_accessor_diffrax_offgrid_axisymmetric(acc):
+    # an axisymmetric (phasedim=5, no phi) backend orbit queried off-grid -> the
+    # non-(4,6) interpolation branch (no x,y wrap-dodge needed without phi)
+    ic5 = [1.0, 0.1, 0.9, 0.2, 0.05]  # R, vR, vT, z, vz
+    o = Orbit(jnp.asarray(ic5))
+    o.integrate(jnp.asarray(_TS), _POT, method="diffrax")
+    val = getattr(o, acc)(jnp.asarray(_TQ), use_physical=False)
+    assert isinstance(val, jax.Array), f"{acc} off-grid (no phi) left the jax backend"
+    o_np = Orbit(list(ic5))
+    o_np.integrate(_TS, _POT, method="dop853_c")
+    numpy.testing.assert_allclose(
+        numpy.asarray(val),
+        numpy.asarray(getattr(o_np, acc)(_TQ, use_physical=False)),
+        rtol=1e-5,
+        atol=1e-5,
+    )
