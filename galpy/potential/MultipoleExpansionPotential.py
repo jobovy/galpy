@@ -2,7 +2,9 @@
 #   MultipoleExpansionPotential.py: Potential via multipole expansion of a
 #   given density function
 ###############################################################################
+import copy as _copy
 import inspect
+import types as _types
 
 import numpy
 from numpy.polynomial.legendre import leggauss
@@ -22,6 +24,21 @@ from .SphericalHarmonicPotentialMixin import SphericalHarmonicPotentialMixin
 
 if _APY_LOADED:
     from astropy import units
+
+# scipy>=1.18 stores references to the array-API-compat numpy *module* on its
+# PPoly-family objects (BPoly, PPoly, CubicSpline) via their ``_xp``/
+# ``_xp_internal`` attributes. ``copy.deepcopy`` has no handler for module
+# objects and falls back to pickle-style reduction, which raises
+# "cannot pickle 'module' object". This class stores such objects (the
+# precomputed radial-integral interpolants), so deep-copying one of these
+# potentials -- as ``Force.__mul__``/``__truediv__`` do when scaling the
+# amplitude -- would fail under scipy>=1.18. Modules are process-wide
+# singletons, so teach ``copy.deepcopy`` to treat any module as atomic (return
+# it unchanged); copying a module to obtain a "different" module is never
+# meaningful. Registered once on import; a no-op if scipy stops storing module
+# references (or if something else already registered a handler).
+if _types.ModuleType not in _copy._deepcopy_dispatch:  # pragma: no branch
+    _copy._deepcopy_dispatch[_types.ModuleType] = lambda module, memo: module
 
 
 class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
