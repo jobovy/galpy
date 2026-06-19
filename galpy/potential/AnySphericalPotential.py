@@ -45,6 +45,12 @@ class AnySphericalPotential(SphericalPotential):
 
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo)
+        # Force methods (_rforce/_revaluate) close over scipy.integrate.quad with
+        # a SCALAR upper limit (_rawmass takes r[0] of an array), so they are
+        # scalar-only: an array input silently collapses to its first element.
+        # Tell Potential.mass to drive the backend GL quadrature node-by-node
+        # (vectorized=False) instead of feeding the whole node array.
+        self._force_accepts_arrays = False
         # Parse density: does it have units? does it expect them?
         if _APY_LOADED:
             _dens_unit_input = False
