@@ -24,7 +24,8 @@ jobs:
   all-clear:
     name: all-clear
     runs-on: ubuntu-latest
-    timeout-minutes: 130
+    # 5.5h, just under the 6h GitHub-hosted job hard cap; leaves margin over MAX_WAIT_SECONDS.
+    timeout-minutes: 330
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
@@ -34,8 +35,9 @@ jobs:
       # first conclude "nothing is pending" (avoids a premature pass).
       INITIAL_DELAY_SECONDS: "60"
       POLL_INTERVAL_SECONDS: "30"
-      # 2h ceiling: must exceed the slowest single check (wheels.yml ~1.5h) plus margin.
-      MAX_WAIT_SECONDS: "7200"
+      # 5h ceiling: during heavy development a full CI round can take 3-4h, partly because
+      # some wheel jobs are only scheduled after the first round and start late.
+      MAX_WAIT_SECONDS: "18000"
     steps:
       - name: Resolve head SHA
         id: sha
