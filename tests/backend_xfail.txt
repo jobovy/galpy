@@ -2051,6 +2051,7 @@ torch tests/test_potential.py::test_mass_spher
 torch tests/test_potential.py::test_mass_spher_analytic
 torch tests/test_potential.py::test_mass_spher_z
 torch tests/test_potential.py::test_McMillan17
+torch tests/test_potential.py::test_MultipoleExpansion_deepcopy
 torch tests/test_potential.py::test_mvir_attributeerror
 torch tests/test_potential.py::test_MWPotential2014
 torch tests/test_potential.py::test_nemoaccname
@@ -2383,12 +2384,3 @@ torch tests/test_potential.py::test_zvc_undefined
 torch tests/test_potential.py::test_zvc_valueerror
 # +9 jax test_potential failures the regen (-n auto / 72 workers) OOM-dropped; found by the
 # stable -n 4 re-run (1308 collected, consistent with torch). Heavy composite/MW potentials.
-jax tests/test_potential.py::test_Cautun20
-jax tests/test_potential.py::test_DehnenBinney98
-jax tests/test_potential.py::test_diskscf_overflow
-jax tests/test_potential.py::test_McMillan17
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
-jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
