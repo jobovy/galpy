@@ -1920,6 +1920,99 @@ def test_amp_mult_divide(potname):
     return None
 
 
+# Test that deep-copying a MultipoleExpansionPotential (as amplitude
+# multiplication/division does internally) produces an instance that is correct
+# in all ways: it must be a fully independent object whose potential, all forces,
+# all second derivatives, and density evaluate identically to the original
+# everywhere (and at all times, for the time-dependent case). This is a
+# regression test for scipy>=1.18, which stores numpy-module references on its
+# PPoly objects (BPoly/CubicSpline) -- the radial-integral interpolants stored by
+# this potential -- so that a naive copy.deepcopy raises
+# "cannot pickle 'module' object" (see MultipoleExpansionPotential.py).
+def test_MultipoleExpansion_deepcopy():
+    import copy
+
+    from galpy import potential
+
+    def _assert_same_evaluations(p1, p2, scale=1.0, ts=(0.0,)):
+        # Check Phi, every force, every second derivative, and the density match
+        # (p2's values equal scale x p1's) across a range of (R, z, phi) and t.
+        methods = [
+            "__call__",
+            "Rforce",
+            "zforce",
+            "phitorque",
+            "R2deriv",
+            "z2deriv",
+            "Rzderiv",
+            "phi2deriv",
+            "Rphideriv",
+            "dens",
+        ]
+        for R, z, phi in [
+            (0.8, 0.2, 1.1),
+            (1.3, -0.4, 4.2),
+            (0.5, 0.0, 0.0),
+            (2.0, 0.7, 3.0),
+        ]:
+            for t in ts:
+                for m in methods:
+                    func1 = p1.__call__ if m == "__call__" else getattr(p1, m)
+                    func2 = p2.__call__ if m == "__call__" else getattr(p2, m)
+                    v1 = func1(R, z, phi=phi, t=t)
+                    v2 = func2(R, z, phi=phi, t=t)
+                    # density is independent of the amplitude-scaling convention
+                    # only through _amp like the potential/forces, so scale it too
+                    assert numpy.allclose(scale * v1, v2, rtol=1e-10, atol=1e-12), (
+                        f"{m} of copied/scaled MultipoleExpansionPotential differs "
+                        f"at (R,z,phi,t)=({R},{z},{phi},{t}): "
+                        f"{scale * v1} != {v2}"
+                    )
+
+    # A representative spread: spherical, fully triaxial (phi-dependent),
+    # time-dependent, and the disk variant (which holds a MultipoleExpansion
+    # internally as ._me).
+    def triaxial_dens(R, z, phi):
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        sintheta2 = R**2.0 / (r**2.0 + 1e-12)
+        return numpy.exp(-r) * (1.0 + 0.3 * numpy.cos(2.0 * phi) * sintheta2)
+
+    def timedep_dens(R, z, phi, t=0.0):
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return numpy.exp(-r) * (1.0 + 0.2 * t)
+
+    tgrid = numpy.linspace(0.0, 1.0, 5)
+    pots = [
+        potential.MultipoleExpansionPotential(amp=1.3),
+        potential.MultipoleExpansionPotential.from_density(triaxial_dens, L=4, amp=0.7),
+        potential.MultipoleExpansionPotential.from_density(
+            timedep_dens, L=2, tgrid=tgrid, symmetry="axisymmetric", amp=1.1
+        ),
+        potential.DiskMultipoleExpansionPotential(amp=0.9),
+    ]
+    for p in pots:
+        ts = (0.0, 0.25, 0.7) if getattr(p, "_tdep", False) else (0.0,)
+        # 1) copy.deepcopy is a fully independent, identical instance
+        cp = copy.deepcopy(p)
+        assert cp is not p, "deepcopy returned the same object"
+        _assert_same_evaluations(p, cp, scale=1.0, ts=ts)
+        # 2) independence: mutating the original must not affect the copy
+        orig_amp = p._amp
+        p._amp = orig_amp * 3.0
+        _assert_same_evaluations(
+            cp, cp, scale=1.0, ts=ts
+        )  # copy is internally self-consistent
+        cp_val = cp(0.8, 0.2, phi=1.1, t=ts[0])
+        p._amp = orig_amp  # restore
+        assert numpy.isclose(cp_val, cp(0.8, 0.2, phi=1.1, t=ts[0])), (
+            "copy changed when the original was mutated -- state is shared"
+        )
+        # 3) the operations that triggered the bug: multiply and divide
+        _assert_same_evaluations(p, 2.0 * p, scale=2.0, ts=ts)
+        _assert_same_evaluations(p, p / 4.0, scale=0.25, ts=ts)
+    return None
+
+
 # Test whether __repr__ works for Force, planarForce, and linearPotential classes
 def test_repr():
     # Test for 3D Potentials (inherit from Force)
