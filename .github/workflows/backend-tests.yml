@@ -107,7 +107,11 @@ jobs:
           # test_actionAngleTorus.py is EXCLUDED from the all-backend goal (it
           # wraps the external C++ Torus library -- never backend-agnostic).
           - tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
-          - tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py tests/test_snapshotpotential.py
+          - tests/test_SpiralArmsPotential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py tests/test_snapshotpotential.py
+          # test_potential.py is its own shard: #977 parametrized its per-potential
+          # loop-tests (~1300 jax cases), which under serial jax overflowed the
+          # 75-min session-timeout. Split out + run with xdist (-n auto).
+          - tests/test_potential.py
           - tests/test_quantity.py tests/test_coords.py
           - tests/test_orbit.py -k 'test_energy_jacobi_conservation or from_name'
           - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
@@ -124,8 +128,14 @@ jobs:
         # that combination (for BOTH backends); it does NOT add a new job. Only
         # the shards that need an extra are listed; the rest default to false.
         include:
-          - TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py tests/test_snapshotpotential.py
+          - TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py tests/test_snapshotpotential.py
             REQUIRES_PYNBODY: true
+          - TEST_FILES: tests/test_potential.py
+            REQUIRES_PYNBODY: true
+            # xdist only here: #977's ~1300 per-potential jax cases overflow the
+            # serial 75-min session-timeout (-n 4 -> ~60min). Other shards stay
+            # serial (their ledgers were generated serially).
+            XDIST_ARGS: -n auto
           - TEST_FILES: tests/test_quantity.py tests/test_coords.py
             REQUIRES_ASTROPY: true
           - TEST_FILES: tests/test_orbit.py -k 'test_energy_jacobi_conservation or from_name'
@@ -162,7 +172,7 @@ jobs:
       # pytest-timeout: kill any single test running >300 s (see the pytest step's
       # --timeout) so a hung backend trace (e.g. the SCFPotential jax XLA-graph
       # blow-up) is recorded as a FAILURE instead of stalling the whole run.
-      run: pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm pytest-timeout
+      run: pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm pytest-timeout pytest-xdist
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
@@ -250,7 +260,7 @@ jobs:
         # shard in case a future test hangs in a signal-uninterruptible C call;
         # the job-level timeout-minutes: 90 is the final backstop above that.
         set -o pipefail
-        eval "pytest -p no:cacheprovider -v $TEST_FILES \
+        eval "pytest -p no:cacheprovider ${{ matrix.XDIST_ARGS }} -v $TEST_FILES \
           --backend=$BACKEND \
           --timeout=300 --timeout-method=signal --session-timeout=4500 \
           -rxX --junitxml=${JUNIT_PATH} \
