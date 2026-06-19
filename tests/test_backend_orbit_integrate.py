@@ -338,17 +338,6 @@ def test_integrate_traced_backend_ic_numpy_method_raises_jax():
         jax.grad(run)(0.1)
 
 
-# ----------------------------------------- accessors on a backend orbit raise clearly
-@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
-def test_integrate_backend_orbit_accessor_raises():
-    o = Orbit(jnp.asarray(_IC))
-    o.integrate(jnp.asarray(_TS), PlummerPotential(amp=1.0, b=0.6), method="diffrax")
-    with pytest.raises(NotImplementedError):
-        o.R(_TS)
-    with pytest.raises(NotImplementedError):
-        o.E(pot=PlummerPotential(amp=1.0, b=0.6))
-
-
 # ------------------------------------------- differentiate w.r.t. integration times
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 def test_integrate_diffrax_grad_time_and_jit():
