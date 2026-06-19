@@ -157,6 +157,15 @@ def pytest_generate_tests(metafunc):
                 "TwoPowerSphericalPotential",
                 "spherical",
             ),
+            # Closed-form (E_1-based) NFW with an exponential truncation, exactly
+            # like the other clean closed-form spherical entries above (not
+            # spline-based, so it belongs in the strict registry rather than the
+            # relaxed Einasto/interpSpherical precedent below).
+            (
+                potential.ExpTruncNFWPotential(amp=1.0, a=1.6, rc=4.0, normalize=True),
+                "ExpTruncNFWPotential",
+                "spherical",
+            ),
             # NOTE: PseudoIsothermalPotential, EinastoPotential, and
             # interpSphericalPotential all have verified-correct full 3D C Hessians
             # (hasC_dxdv3d=True; their C-vs-Python unit-deviation dxdv agrees to ~1e-7

@@ -20,7 +20,8 @@ class ExpTruncNFWPotential(SphericalPotential):
     mass and the outer-potential integral are expressible through the
     exponential integral :math:`E_1` (:func:`scipy.special.exp1`), with a
     small-:math:`r` Taylor expansion used to avoid catastrophic cancellation
-    when :math:`r \ll a, r_c`.
+    when :math:`r \ll a, r_c`. Has a C implementation, enabling fast orbit
+    integration and the full 3D variational equations (``Orbit.integrate_dxdv``).
 
     """
 
@@ -85,8 +86,10 @@ class ExpTruncNFWPotential(SphericalPotential):
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
             self.normalize(normalize)
-        self.hasC = False
-        self.hasC_dxdv = False
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dxdv3d = True
+        self.hasC_dens = True
         return None
 
     def _F(self, r):
