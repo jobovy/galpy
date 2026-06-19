@@ -273,6 +273,45 @@ except:
     pass
 
 
+def _resolve_accessor_namespace(thiso):
+    """Resolve the array namespace for a derived time-evaluation accessor.
+
+    Returns ``(xp, thiso)`` where ``xp`` is the namespace resolved from
+    ``thiso`` (``get_namespace``) and ``thiso`` is coerced onto ``xp`` via
+    ``xp.asarray``. This keeps the numpy production path byte-identical
+    (``get_namespace(numpy)`` -> numpy and ``numpy.asarray`` on a numpy array is
+    a no-op), while ensuring that under a *forced* backend the unary backend
+    ufuncs (cos/sin/sqrt/abs/arctan2) receive a backend tensor instead of a raw
+    numpy array (which torch rejects). For an in-backend orbit ``thiso`` is
+    already a jax/torch array, so ``xp.asarray`` is a no-op there too.
+    """
+    xp = get_namespace(thiso)
+    return xp, xp.asarray(thiso)
+
+
+def _backend_safe_copy(x):
+    """Defensive copy of a backend (jax/torch) array that does not alias the
+    Orbit's internal storage, so a caller cannot mutate ``self.orbit`` through a
+    value returned by ``getOrbit``/``_call_internal`` (the numpy paths already
+    return ``.copy()``). jax arrays are immutable, so the returned array can never
+    be mutated in place -> return as-is; a torch tensor is mutable and the backend
+    returns are views (``permute_dims``/``self.orbit``), so ``.clone()`` -- which,
+    unlike numpy's ``.copy()``, stays in the autograd graph -- gives an independent
+    copy. ``x`` is always a backend array here (guarded by ``is_backend_array``).
+    """
+    return x.clone() if hasattr(x, "clone") else x  # torch has .clone(); jax does not
+
+
+def _backend_T(x):
+    """Backend-safe ``x.T`` (reverse all axes). numpy/jax keep ``.T`` (numpy path
+    byte-identical); a torch tensor of ndim != 2 emits a deprecation warning for
+    ``.T``, so reverse its axes explicitly via the namespace's ``permute_dims``."""
+    if hasattr(x, "clone") and getattr(x, "ndim", 2) != 2:  # torch tensor, ndim != 2
+        xp = get_namespace(x)
+        return xp.permute_dims(x, tuple(range(x.ndim))[::-1])
+    return x.T
+
+
 def shapeDecorator(func):
     """Decorator to return Orbits outputs with the correct shape"""
 
@@ -2968,7 +3007,7 @@ class Orbit:
         # A backend (jax/torch) orbit from an in-backend integrator is returned
         # as-is (preserving the autodiff graph; torch tensors also lack .copy()).
         if is_backend_array(self.orbit):
-            return self.orbit
+            return _backend_safe_copy(self.orbit)
         return self.orbit.copy()
 
     @shapeDecorator
@@ -4746,7 +4785,7 @@ class Orbit:
         - 2019-02-01 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args, **kwargs)[0].T
+        return _backend_T(self._call_internal(*args, **kwargs)[0])
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4776,10 +4815,11 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 3:
-            return numpy.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0).T
+            return xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0).T
         else:
-            return numpy.fabs(thiso[0]).T
+            return xp.abs(thiso[0]).T
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4810,7 +4850,7 @@ class Orbit:
         - 2019-02-20 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args, **kwargs)[1].T
+        return _backend_T(self._call_internal(*args, **kwargs)[1])
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4839,7 +4879,7 @@ class Orbit:
         - 2019-02-20 - Written by Bovy (UofT).
 
         """
-        return self._call_internal(*args, **kwargs)[2].T
+        return _backend_T(self._call_internal(*args, **kwargs)[2])
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4870,7 +4910,7 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have z()")
-        return self._call_internal(*args, **kwargs)[3].T
+        return _backend_T(self._call_internal(*args, **kwargs)[3])
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -4901,7 +4941,7 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have vz()")
-        return self._call_internal(*args, **kwargs)[4].T
+        return _backend_T(self._call_internal(*args, **kwargs)[4])
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -4956,12 +4996,13 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 1:
             return thiso[0].T
         elif self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use x()")
         else:
-            return (thiso[0] * numpy.cos(thiso[-1, :])).T
+            return (thiso[0] * xp.cos(thiso[-1, :])).T
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4991,10 +5032,11 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use y()")
         else:
-            return (thiso[0] * numpy.sin(thiso[-1, :])).T
+            return (thiso[0] * xp.sin(thiso[-1, :])).T
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5024,12 +5066,13 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 1:
             return thiso[1].T
         elif self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use vx()")
         else:
-            return (thiso[1] * numpy.cos(thiso[-1]) - thiso[2] * numpy.sin(thiso[-1])).T
+            return (thiso[1] * xp.cos(thiso[-1]) - thiso[2] * xp.sin(thiso[-1])).T
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5059,10 +5102,11 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use vy()")
         else:
-            return (thiso[2] * numpy.cos(thiso[-1]) + thiso[1] * numpy.sin(thiso[-1])).T
+            return (thiso[2] * xp.cos(thiso[-1]) + thiso[1] * xp.sin(thiso[-1])).T
 
     @physical_conversion("frequency-kmskpc")
     @shapeDecorator
@@ -5122,8 +5166,9 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 3:
-            r = numpy.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
+            r = xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
             return ((thiso[0] * thiso[1] + thiso[3] * thiso[4]) / r).T
         else:
             return thiso[1].T
@@ -5156,10 +5201,11 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if not self.dim() == 3:
             raise AttributeError("Orbit must be 3D to use vtheta()")
         else:
-            r = numpy.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
+            r = xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
             return ((thiso[1] * thiso[3] - thiso[0] * thiso[4]) / r).T
 
     @physical_conversion("angle")
@@ -5184,10 +5230,11 @@ class Orbit:
 
         """
         thiso = self._call_internal(*args, **kwargs)
+        xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() != 3:
             raise AttributeError("Orbit must be 3D to use theta()")
         else:
-            return numpy.arctan2(thiso[0], thiso[3]).T
+            return xp.arctan2(thiso[0], thiso[3]).T
 
     def align_to_orbit(self, center_phi1=180.0):
         r"""
@@ -6624,15 +6671,12 @@ class Orbit:
         """
         if len(args) == 0 and "t" in kwargs:
             args = [kwargs.pop("t")]
-        if is_backend_array(getattr(self, "orbit", None)):
-            # In-backend (diffrax/torchdiffeq) orbit: the time-evaluation accessors
-            # (R/vR/.../E/rperi/...) are not yet backend-aware. Fail clearly rather
-            # than crash on self.orbit.T.copy() (torch) or leak a jax array.
-            raise NotImplementedError(
-                "time-evaluation accessors (o.R(t), o.E(t), o.rperi(), ...) are "
-                "not yet supported for in-backend (diffrax/torchdiffeq) orbits; use "
-                "o.getOrbit() to obtain the differentiable trajectory"
-            )
+        # In-backend (diffrax/torchdiffeq) orbits store self.orbit as a jax/torch
+        # array. The phase-space accessors keep it on its backend (so o.R(t)/...
+        # stay differentiable); exact-grid times index it directly and off-grid
+        # times go through the in-backend differentiable cubic spline
+        # (_call_internal_backend_interp), never scipy.
+        _orbit_is_backend = is_backend_array(getattr(self, "orbit", None))
         if len(args) == 0 or (not hasattr(self, "t") and args[0] == 0.0):
             return numpy.array(self.vxvv).T
         elif not hasattr(self, "t"):
@@ -6641,27 +6685,37 @@ class Orbit:
             )
         else:
             t = args[0]
+        # The integration-time grid is structural (it selects which stored times
+        # to return) and not differentiated, so compare/select against a numpy
+        # view of it -- self.t may itself be a (concrete) jax/torch array for an
+        # in-backend orbit. The returned orbit values stay on their backend.
+        _self_t = numpy.asarray(self.t)
         # If self.t is per-orbit (2D), dispatch to the per-orbit evaluator
-        if numpy.asarray(self.t).ndim > 1:
+        if _self_t.ndim > 1:
             return self._call_internal_indiv_t(t)
         # Parse t, first check whether we are dealing with the common case
         # where one wants all integrated times
         # 2nd line: scalar Quantities have __len__, but raise TypeError
-        # for scalars
+        # for scalars. A 0-d jax/torch query time ALSO has __len__ but its len()
+        # raises, so for a backend array use numpy.ndim (reads .ndim, no len()
+        # call): a 0-d/scalar backend time then falls through to the backend
+        # interpolator instead of crashing. numpy/Quantity inputs keep the exact
+        # original hasattr check, so the numpy path stays byte-identical.
         # Remove NaN times from consideration, these are used in internally in  bruteSOS
+        _t_has_len = numpy.ndim(t) > 0 if is_backend_array(t) else hasattr(t, "__len__")
         t_exact_integration_times = (
             not (_APY_LOADED and isinstance(t, units.Quantity))
-            and hasattr(t, "__len__")
-            and (len(t) == len(self.t))
-            and numpy.all((t == self.t)[~numpy.isnan(self.t)])
+            and _t_has_len
+            and (len(t) == len(_self_t))
+            and numpy.all((numpy.asarray(t) == _self_t)[~numpy.isnan(_self_t)])
         )
         if _APY_LOADED and isinstance(t, units.Quantity):
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
             # Need to re-evaluate now that t has changed...
             t_exact_integration_times = (
                 hasattr(t, "__len__")
-                and (len(t) == len(self.t))
-                and numpy.all((t == self.t)[~numpy.isnan(self.t)])
+                and (len(t) == len(_self_t))
+                and numpy.all((numpy.asarray(t) == _self_t)[~numpy.isnan(_self_t)])
             )
         elif (
             "_integrate_t_asQuantity" in self.__dict__
@@ -6676,14 +6730,31 @@ class Orbit:
         if (
             t_exact_integration_times
         ):  # Common case where one wants all integrated times
+            if (
+                _orbit_is_backend
+            ):  # keep on the backend; defensive clone, not numpy .copy()
+                xp = get_namespace(self.orbit)
+                return _backend_safe_copy(
+                    xp.permute_dims(self.orbit, tuple(range(self.orbit.ndim))[::-1])
+                )
             return self.orbit.T.copy()
         elif (
             isinstance(t, (int, float, numpy.number))
             and hasattr(self, "t")
-            and t in list(self.t)
+            and t in list(_self_t)
         ):
-            return numpy.array(self.orbit[:, list(self.t).index(t), :]).T
+            sl = self.orbit[:, list(_self_t).index(t), :]
+            if _orbit_is_backend:
+                xp = get_namespace(sl)
+                return _backend_safe_copy(
+                    xp.permute_dims(sl, tuple(range(sl.ndim))[::-1])
+                )
+            return numpy.array(sl).T
         else:
+            if _orbit_is_backend:
+                # Off-grid times: interpolate the backend trajectory with the
+                # in-backend differentiable cubic spline (no scipy).
+                return self._call_internal_backend_interp(t)
             if isinstance(t, (int, float, numpy.number)):
                 nt = 1
                 t = numpy.atleast_1d(t)
@@ -6888,6 +6959,77 @@ class Orbit:
         out = Orbit(vxvv=vxvv, **orbSetupKwargs)
         out._roSet = self._roSet
         out._voSet = self._voSet
+        return out
+
+    def _call_internal_backend_interp(self, t):
+        """Off-grid time evaluation for an in-backend (diffrax/torchdiffeq) single
+        orbit: interpolate each phase-space coordinate vs the integration grid
+        with the in-backend differentiable cubic spline
+        (galpy.backend.interpolate.Spline1D, mode 2 -- the same xp-native cubic
+        used for parameter-dependent potential tables) and evaluate it at ``t``.
+        The result is differentiable w.r.t. the orbit (its initial conditions /
+        potential parameters) AND w.r.t. the evaluation times ``t``.
+
+        Mirrors the numpy ``_setupOrbitInterp`` semantics: for phasedim 4/6 the
+        Cartesian x=R cos(phi), y=R sin(phi) are interpolated (not R, phi) to avoid
+        the 2pi wrap, with R, phi recovered at the query points; the other
+        coordinates are interpolated directly. Single orbit only (the in-backend
+        path is single-orbit), so no per-orbit RectBivariateSpline is needed.
+        Returns the same layout as ``_call_internal``'s off-grid branch:
+        ``(phasedim, nt, 1)`` for an array ``t`` (``(phasedim, 1)`` for a scalar).
+        """
+        from ..backend.interpolate import Spline1D
+
+        xp = get_namespace(self.orbit)
+        self_t = numpy.asarray(self.t)  # integration grid (geometry; numpy)
+        scalar = isinstance(t, (int, float, numpy.number)) or (
+            is_backend_array(t) and getattr(t, "ndim", 1) == 0
+        )
+        # Structural bounds check against the integration window, matching the
+        # numpy path's ValueError. A traced evaluation time (differentiating
+        # w.r.t. t under jax) cannot be coerced to numpy -> skip the check and
+        # rely on the spline's finite extrapolation.
+        try:
+            t_np = numpy.atleast_1d(numpy.asarray(t, dtype=float))
+        except Exception:  # noqa: BLE001 -- traced backend evaluation time
+            t_np = None
+        if t_np is not None and (
+            numpy.any(t_np > numpy.nanmax(self_t))
+            or numpy.any(t_np < numpy.nanmin(self_t))
+        ):
+            raise ValueError("Found time value not in the integration time domain")
+        # Evaluation times onto the orbit's backend (a backend-array t is kept as
+        # is, so the trace survives when differentiating w.r.t. t); reshape to 1D
+        # so the per-coordinate splines return a flat (nt,) each.
+        tq = t if is_backend_array(t) else xp.asarray(t_np)
+        tq = xp.reshape(tq, (-1,))
+        orb = self.orbit[0]  # (nt_grid, phasedim) on the backend
+        # The spline needs a strictly increasing grid; a backward integration
+        # (decreasing self.t) is flipped to ascending, and orb with it (a
+        # differentiable reversal), matching the numpy _setupOrbitInterp.
+        if self_t.shape[0] > 1 and self_t[1] < self_t[0]:
+            self_t = numpy.array(self_t[::-1])
+            orb = xp.flip(orb, axis=0)
+        pd = self.phasedim()
+        # cubic where the grid is long enough (matches the numpy k=3 threshold),
+        # else piecewise-linear; not-a-knot ends track scipy's interpolant.
+        k = 3 if self_t.shape[0] > 3 else 1
+        bc = "not-a-knot" if k == 3 else "natural"
+
+        def _spl(y):
+            return Spline1D(self_t, y, k=k, ext=0, bc=bc)(tq)
+
+        if pd == 4 or pd == 6:  # interpolate x,y (not R,phi) to dodge the 2pi wrap
+            xv = _spl(orb[:, 0] * xp.cos(orb[:, -1]))
+            yv = _spl(orb[:, 0] * xp.sin(orb[:, -1]))
+            cols = [xp.sqrt(xv * xv + yv * yv)]
+            cols += [_spl(orb[:, ii]) for ii in range(1, pd - 1)]
+            cols.append(xp.arctan2(yv, xv))
+        else:
+            cols = [_spl(orb[:, ii]) for ii in range(pd)]
+        out = xp.stack(cols)[:, :, None]  # (phasedim, nt, size=1)
+        if scalar:
+            return out[:, 0]  # (phasedim, 1)
         return out
 
     def _setupOrbitInterp(self):
