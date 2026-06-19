@@ -2,6 +2,18 @@
 #   galpy.backend.quadrature: backend-agnostic fixed-order Gauss-Legendre
 #   quadrature.
 #
+#   PUBLIC DEFINITE-INTEGRAL API (the drop-in for scipy.integrate.quad at
+#   galpy's mass / surface-density sites):
+#
+#     * ``quad(func, a, b, args=(), n=...)`` follows the data. numpy / Python
+#       scalar limits+args delegate to ``scipy.integrate.quad`` and return its
+#       VALUE (its ``[0]``), so the numpy path is BYTE-IDENTICAL to today; a
+#       jax/torch limit or arg routes to fixed-order Gauss-Legendre, returning a
+#       backend array differentiable w.r.t. ``func``'s parameters AND the limits.
+#     * ``gauss_legendre(func, a, b, args=(), n=...)`` is the fixed-node backend
+#       integrator behind it (scipy-style ``func(x, *args)`` integrand), wrapping
+#       the lower-level ``fixed_quad`` below.
+#
 #   The nodes and weights are numpy float64 constants computed once (cached,
 #   keyed by order) -- precision is the point, so the tables stay float64 and
 #   the result is exit-cast back to the input dtype with ``match_input_dtype``.
@@ -30,10 +42,136 @@
 ###############################################################################
 import numpy
 
-from ._namespaces import asarray_on_device, device_of, match_input_dtype
+from ._namespaces import (
+    asarray_on_device,
+    device_of,
+    is_backend_array,
+    match_input_dtype,
+)
+
+# Default number of Gauss-Legendre nodes for the public backend ``quad``. High
+# enough that smooth galpy integrands (mass/surface-density profiles) reproduce
+# scipy.integrate.quad to the suite's tolerances; raise ``n`` for stiffer ones.
+_QUAD_N = 100
 
 # Cache of (nodes, weights) on [0, 1] keyed by order, as numpy float64 constants.
 _GL01_CACHE = {}
+
+
+def quad(func, a, b, args=(), n=_QUAD_N, device=None, vectorized=True):
+    r"""``int_a^b func(x, *args) dx`` -- a backend-agnostic definite integral.
+
+    The drop-in galpy uses where it would call ``scipy.integrate.quad(...)[0]``
+    for a mass / surface-density type integral. Dispatch follows the data (the
+    limits and any array in ``args``):
+
+      * numpy / Python-scalar limits and args -> delegate to
+        ``scipy.integrate.quad`` and return its **value** (its ``[0]``), so the
+        numpy path is BYTE-IDENTICAL to today (galpy already returns
+        ``scipy.integrate.quad(...)[0]`` at these sites). The full adaptive
+        machinery (error estimate, ``points``, etc.) is unchanged.
+      * a jax / torch limit or arg -> fixed-order Gauss-Legendre quadrature
+        (:func:`gauss_legendre`), returning a backend array that is
+        differentiable w.r.t. the parameters ``func`` closes over / in ``args``
+        AND w.r.t. the limits ``a, b`` (Leibniz, through the affine remap and
+        the ``b - a`` prefactor). There is NO internal jit -- galpy is
+        jit-COMPATIBLE; users wrap their own galpy-using code.
+
+    Parameters
+    ----------
+    func : callable
+        ``func(x, *args) -> scalar/array``. On the backend path it is called
+        ONCE with the whole array of quadrature nodes (so it must broadcast over
+        ``x``, i.e. be written in elementwise namespace ops -- the same form a
+        scipy integrand already takes) and must be written in the array
+        namespace so it differentiates.
+    a, b : scalar or backend array
+        Finite integration limits. Their type (and any array in ``args``)
+        selects the backend: numpy/Python scalars route to scipy
+        (byte-identical); a jax/torch limit/arg routes to in-backend GL and
+        gradients flow to the limits and to ``func``'s parameters.
+    args : tuple, optional
+        Extra arguments forwarded to ``func`` as ``func(x, *args)`` (scipy's
+        ``quad`` convention).
+    n : int, optional
+        Number of Gauss-Legendre nodes on the backend path (default 100).
+        Fixed-order GL is an approximation, not adaptive: raise ``n`` for
+        tighter accuracy. Ignored on the numpy (scipy) path.
+    device : optional
+        Device for the node/weight tables on the backend path (see
+        :func:`gauss_legendre`); pass when the limits are Python scalars but
+        ``func`` closes over CUDA tensors.
+    vectorized : bool, optional
+        Whether ``func`` broadcasts over the whole node array at once (default
+        True). Pass False for a scalar-only integrand (one that rejects an array
+        argument, or silently returns a wrong value for one) so the backend GL
+        path calls it node-by-node and stacks the results -- the same
+        node-by-node contract ``scipy.integrate.quad`` uses on the numpy path.
+        Ignored on the numpy (scipy) path, which is always node-by-node.
+
+    Returns
+    -------
+    float or backend array
+        The integral value. numpy -> a Python float (``scipy.integrate.quad``'s
+        value, byte-identical). jax/torch -> a backend array differentiable in
+        the limits and ``func``'s parameters.
+    """
+    # Follow the data: a backend array anywhere in the limits/args picks the
+    # in-backend differentiable path; otherwise stay byte-identical via scipy.
+    if not (
+        is_backend_array(a) or is_backend_array(b) or any(map(is_backend_array, args))
+    ):
+        from scipy import integrate as _sint
+
+        return _sint.quad(func, a, b, args=args)[0]
+    return gauss_legendre(
+        func, a, b, args=args, n=n, device=device, vectorized=vectorized
+    )
+
+
+def gauss_legendre(
+    func, a, b, args=(), n=_QUAD_N, device=None, xp=None, vectorized=True
+):
+    r"""``int_a^b func(x, *args) dx`` by fixed-order Gauss-Legendre quadrature.
+
+    The fixed-node (non-adaptive) backend integrator behind :func:`quad`.
+    Resolves the array namespace from ``a, b`` and ``args`` (or an explicit
+    ``xp=``) and evaluates ``func`` once on the full ``n``-point node array via
+    :func:`fixed_quad`, so the result is a backend array differentiable w.r.t.
+    the limits ``a, b`` AND through ``func`` / ``args`` (its parameters). On
+    plain numpy inputs this runs the same float64 GL rule in numpy (it does
+    NOT call scipy) -- use :func:`quad` for the byte-identical scipy delegation.
+
+    Parameters
+    ----------
+    func : callable
+        ``func(x, *args) -> array`` broadcasting over the node array ``x``.
+    a, b : scalar or backend array
+        Finite integration limits (carry autodiff on the backend path).
+    args : tuple, optional
+        Extra arguments forwarded as ``func(x, *args)``.
+    n : int, optional
+        Number of Gauss-Legendre nodes (default 100).
+    device : optional
+        Device for the node/weight tables (see :func:`fixed_quad`).
+    xp : module or str, optional
+        Explicit namespace override forwarded to ``get_namespace``; normally the
+        namespace is inferred from ``a, b, *args``.
+    vectorized : bool, optional
+        Whether ``func`` broadcasts over the whole node array at once (default
+        True). Pass False for a scalar-only integrand so it is called
+        node-by-node (see :func:`fixed_quad`).
+
+    Returns
+    -------
+    array
+        The integral, exit-cast to the limits' floating dtype.
+    """
+    from ._resolver import get_namespace
+
+    ns = get_namespace(a, b, *args, xp=xp)
+    integrand = (lambda x: func(x, *args)) if args else func
+    return fixed_quad(ns, integrand, a, b, n=n, device=device, vectorized=vectorized)
 
 
 def gauss_legendre_01(n):
@@ -78,14 +216,14 @@ def _gl01_on(xp, n, dev):
     return asarray_on_device(xp, x01, dev), asarray_on_device(xp, w01, dev)
 
 
-def fixed_quad(xp, integrand, a, b, *, n=50, device=None):
+def fixed_quad(xp, integrand, a, b, *, n=50, device=None, vectorized=True):
     r"""``int_a^b integrand(s) ds`` by fixed-order Gauss-Legendre quadrature.
 
     Backend-agnostic and differentiable in both the limits ``a, b`` and through
-    ``integrand`` (its parameters). ``integrand`` is called ONCE with the full
-    array of quadrature nodes (it must be vectorised over a trailing node axis,
-    i.e. broadcast over the last dimension) and the result is reduced as
-    ``(b - a) * sum(w01 * integrand(nodes))`` where ``w01`` are the [0, 1]
+    ``integrand`` (its parameters). By default ``integrand`` is called ONCE with
+    the full array of quadrature nodes (it must be vectorised over a trailing
+    node axis, i.e. broadcast over the last dimension) and the result is reduced
+    as ``(b - a) * sum(w01 * integrand(nodes))`` where ``w01`` are the [0, 1]
     weights and ``nodes = a + (b - a) * x01``.
 
     Parameters
@@ -93,7 +231,9 @@ def fixed_quad(xp, integrand, a, b, *, n=50, device=None):
     xp : module
         Array namespace (numpy / jax.numpy / array_api_compat.torch).
     integrand : callable
-        ``integrand(nodes) -> array`` broadcasting over the trailing node axis.
+        ``integrand(nodes) -> array`` broadcasting over the trailing node axis
+        (or, with ``vectorized=False``, ``integrand(node) -> scalar`` called
+        per node).
     a, b : scalar or backend array
         Finite integration limits. May be backend arrays (autodiff flows to
         them through the affine remap and the (b - a) prefactor).
@@ -104,6 +244,16 @@ def fixed_quad(xp, integrand, a, b, *, n=50, device=None):
         Device for the node/weight tables. Defaults to the limits' device;
         pass this when the limits are Python scalars but ``integrand`` closes
         over CUDA tensors (so the nodes land on the integrand's device).
+    vectorized : bool, optional
+        Whether ``integrand`` broadcasts over the node array at once (default
+        True). Pass False for a scalar-only integrand -- one that raises on an
+        array argument (e.g. a potential force decorated with
+        ``check_potential_inputs_not_arrays``) or silently returns a wrong value
+        for one -- so each node is passed individually and the per-node scalars
+        are stacked before reduction. This reproduces the node-by-node contract
+        ``scipy.integrate.quad`` uses on the numpy path; it is slower (no
+        vectorisation) but still differentiable through ``integrand`` and the
+        limits.
 
     Returns
     -------
@@ -117,7 +267,15 @@ def fixed_quad(xp, integrand, a, b, *, n=50, device=None):
     span = b - a
     # Broadcast the affine remap over the node axis; a, b carry the autodiff.
     nodes = a[..., None] + span[..., None] * x01
-    vals = integrand(nodes)
+    if vectorized:
+        vals = integrand(nodes)
+    else:
+        # Scalar-only integrand: call it once per node and stack, mirroring
+        # scipy.integrate.quad's node-by-node calling on the numpy path. The
+        # node array is 1-D here (scalar a, b at galpy's mass/quad sites).
+        vals = xp.stack(
+            [integrand(nodes[..., i]) for i in range(nodes.shape[-1])], axis=-1
+        )
     result = span * xp.sum(w01 * vals, axis=-1)
     return match_input_dtype(result, a, b)
 
