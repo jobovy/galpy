@@ -1,0 +1,98 @@
+name: all-clear
+
+# Single aggregate gate for branch protection / auto-merge. It runs on every PR
+# (no path filter, so it always reports a status) and succeeds only once every
+# other check on the commit has finished and passed. Make THIS the only required
+# status check: it transitively requires all CI workflows plus the external
+# Codecov / pre-commit.ci / ReadTheDocs checks without having to list any of them.
+on:
+  pull_request:
+  merge_group:
+
+# Only the latest run per PR / queue entry matters.
+concurrency:
+  group: all-clear-${{ github.event.pull_request.number || github.event.merge_group.head_sha || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  checks: read
+  statuses: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  all-clear:
+    name: all-clear
+    runs-on: ubuntu-latest
+    # 5.5h, just under the 6h GitHub-hosted job hard cap; leaves margin over MAX_WAIT_SECONDS.
+    timeout-minutes: 330
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      # The check-run name of THIS job, so we can exclude it from the poll.
+      SELF: all-clear
+      # Initial grace period so sibling checks have time to register before we
+      # first conclude "nothing is pending" (avoids a premature pass).
+      INITIAL_DELAY_SECONDS: "60"
+      POLL_INTERVAL_SECONDS: "30"
+      # 5h ceiling: during heavy development a full CI round can take 3-4h, partly because
+      # some wheel jobs are only scheduled after the first round and start late.
+      MAX_WAIT_SECONDS: "18000"
+    steps:
+      - name: Resolve head SHA
+        id: sha
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            echo "sha=${{ github.event.merge_group.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Wait for all other checks to pass
+        env:
+          SHA: ${{ steps.sha.outputs.sha }}
+        run: |
+          set -euo pipefail
+          echo "Aggregating checks for $REPO@$SHA (excluding '$SELF')"
+          sleep "$INITIAL_DELAY_SECONDS"
+          deadline=$(( $(date +%s) + MAX_WAIT_SECONDS ))
+
+          while :; do
+            # Check runs (GitHub Actions + apps that use the Checks API, e.g. pre-commit.ci).
+            checks=$(gh api --paginate \
+              "repos/$REPO/commits/$SHA/check-runs" \
+              -q '.check_runs[] | select(.name != env.SELF)
+                  | {name, status, conclusion}' 2>/dev/null || echo "")
+            # Legacy commit statuses (apps that use the Statuses API, e.g. Codecov, ReadTheDocs).
+            statuses=$(gh api \
+              "repos/$REPO/commits/$SHA/status" \
+              -q '.statuses[] | {context, state}' 2>/dev/null || echo "")
+
+            # gh --jq emits compact JSON (no space after the colon), so allow optional spaces.
+            pending=$(printf '%s\n' "$checks" | grep -c '"status": *"\(queued\|in_progress\)"' || true)
+            pending_st=$(printf '%s\n' "$statuses" | grep -c '"state": *"pending"' || true)
+
+            if [ "$pending" -eq 0 ] && [ "$pending_st" -eq 0 ]; then
+              echo "All sibling checks have settled. Evaluating conclusions:"
+              printf '%s\n' "$checks" "$statuses"
+              # Fail on any bad check-run conclusion. Treat skipped/neutral/success as OK.
+              bad=$(printf '%s\n' "$checks" \
+                | grep -c '"conclusion": *"\(failure\|cancelled\|timed_out\|action_required\|stale\)"' || true)
+              bad_st=$(printf '%s\n' "$statuses" \
+                | grep -c '"state": *"\(failure\|error\)"' || true)
+              if [ "$bad" -ne 0 ] || [ "$bad_st" -ne 0 ]; then
+                echo "::error::$bad failing check run(s) and $bad_st failing commit status(es)."
+                exit 1
+              fi
+              echo "All checks passed."
+              exit 0
+            fi
+
+            now=$(date +%s)
+            if [ "$now" -ge "$deadline" ]; then
+              echo "::error::Timed out after ${MAX_WAIT_SECONDS}s with $pending pending check run(s) / $pending_st pending status(es)."
+              exit 1
+            fi
+            echo "Still waiting: $pending check run(s) / $pending_st status(es) pending. Sleeping ${POLL_INTERVAL_SECONDS}s..."
+            sleep "$POLL_INTERVAL_SECONDS"
+          done
