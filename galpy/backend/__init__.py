@@ -6,7 +6,17 @@
 #   numpy, JAX, and PyTorch. Backend selection follows the data first (the type
 #   of the array arguments), with an explicit ``xp=`` override and a
 #   context-manager/global default as fallbacks. See ``_resolver`` for details.
+#
+#   See ``_coerce`` for the data-coercion helpers (bringing numpy/Python data
+#   onto the active backend, anchoring stored constants) and ``_namespaces``
+#   for the namespace-resolution and dtype/device primitives they build on.
 ###############################################################################
+from ._coerce import (
+    as_backend_constant,
+    coerce_coords,
+    promote_scalars,
+    zeros_like_backend,
+)
 from ._namespaces import (
     asarray_on_device,
     device_of,
@@ -33,4 +43,8 @@ __all__ = [
     "match_input_dtype",
     "device_of",
     "asarray_on_device",
+    "as_backend_constant",
+    "coerce_coords",
+    "promote_scalars",
+    "zeros_like_backend",
 ]
