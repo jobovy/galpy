@@ -22,6 +22,7 @@ from ..backend import (
     get_namespace,
     match_input_dtype,
 )
+from ..backend import use as _use_backend
 from ..backend.special import assoc_legendre
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -389,116 +390,125 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         dumm = cls(ro=ro, vo=vo)
         internal_ro = dumm._ro
         internal_vo = dumm._vo
-        # Parse density function
-        dens_func, has_t = cls._parse_density(dens, internal_ro, internal_vo)
-        # For Potential instances with tgrid, evaluate the density at each
-        # time to create a time-dependent MultipoleExpansionPotential
-        if isinstance(dens, Potential) and tgrid is not None:
-            dens_func = lambda R, z, phi, t: dens.dens(
-                R, z, phi, t=t, use_physical=False
-            )
-            has_t = True
-        # Validate tgrid requirement
-        if has_t and tgrid is None:
-            raise ValueError(
-                "tgrid is required when the density function depends on time "
-                "(has a 't' parameter). Pass tgrid=numpy.linspace(t0, t1, Nt) "
-                "to enable time-dependent evaluation."
-            )
-        # Set L, M based on symmetry
-        if symmetry is not None and symmetry.startswith("spher"):
-            L = 1
-            M = 1
-        elif symmetry is not None and symmetry.startswith("axi"):
-            M = 1
-        else:
-            M = L
-        # Quadrature orders
-        if costheta_order is None:
-            costheta_order = max(20, L + 1)
-        if phi_order is None:
-            phi_order = max(20, 2 * L + 1)
-        if has_t:
-            # Time-dependent path: compute rho_lm at all t in tgrid
-            # using vectorized angular integration
-            tgrid = numpy.asarray(tgrid)
-            k = 3
-            beta_lm = sph_harm_normalization(L, M)
-            Nr = len(rgrid)
-            Nt = len(tgrid)
-            rho_cos_all, rho_sin_all = cls._compute_rho_lm_timedep(
-                dens_func, rgrid, tgrid, L, M, costheta_order, phi_order
-            )
-            # Build time-dependent callable splines for each (l, m)
-            # These are callables f(r, t) that return density values
-            rho_cos_funcs = [[None for _ in range(M)] for _ in range(L)]
-            rho_sin_funcs = [[None for _ in range(M)] for _ in range(L)]
-            for l in range(L):
-                for m in range(M):
-                    # beta_lm * rho_cos_all[:, :, l, m] has shape (Nt, Nr)
-                    cos_data = beta_lm[l, m] * rho_cos_all[:, :, l, m]
-                    sin_data = beta_lm[l, m] * rho_sin_all[:, :, l, m]
-                    # Build spline interpolator over t for each (l,m)
-                    cos_t_interp = make_interp_spline(tgrid, cos_data, k=3)
-                    sin_t_interp = make_interp_spline(tgrid, sin_data, k=3)
-                    # Callable f(rgrid_eval, t) that returns density on rgrid
-                    # For _precompute_radial_integrals_2d, this is called with
-                    # the full rgrid and a single t
-                    rho_cos_funcs[l][m] = lambda r, t, _interp=cos_t_interp: _interp(t)
-                    rho_sin_funcs[l][m] = lambda r, t, _interp=sin_t_interp: _interp(t)
-            # Handle astropy unit detection (following SCFPotential pattern)
-            if cls._density_has_units(dens):
-                ro = internal_ro
-                vo = internal_vo
-            return cls(
-                amp=amp,
-                rho_cos_splines=rho_cos_funcs,
-                rho_sin_splines=rho_sin_funcs,
-                rgrid=rgrid,
-                tgrid=tgrid,
-                normalize=normalize,
-                ro=ro,
-                vo=vo,
-            )
-        else:
-            # Static path
-            rho_cos, rho_sin = cls._compute_rho_lm(
-                dens_func, rgrid, L, M, costheta_order, phi_order
-            )
-            # Normalization for angular reconstruction; absorbed into splines
-            k = 3
-            beta_lm = sph_harm_normalization(L, M)
-            rho_cos_splines = [
-                [
-                    InterpolatedUnivariateSpline(
-                        rgrid, beta_lm[l, m] * rho_cos[:, l, m], k=k
-                    )
-                    for m in range(M)
+        # Construction-time numerical setup: pin to numpy so the density-arity
+        # autodetect (_parse_density) and the density-coefficient quadrature
+        # (_compute_rho_lm) run on numpy regardless of any forced backend
+        # default (byte-identical no-op on the numpy backend).
+        with _use_backend("numpy", force=True):
+            # Parse density function
+            dens_func, has_t = cls._parse_density(dens, internal_ro, internal_vo)
+            # For Potential instances with tgrid, evaluate the density at each
+            # time to create a time-dependent MultipoleExpansionPotential
+            if isinstance(dens, Potential) and tgrid is not None:
+                dens_func = lambda R, z, phi, t: dens.dens(
+                    R, z, phi, t=t, use_physical=False
+                )
+                has_t = True
+            # Validate tgrid requirement
+            if has_t and tgrid is None:
+                raise ValueError(
+                    "tgrid is required when the density function depends on time "
+                    "(has a 't' parameter). Pass tgrid=numpy.linspace(t0, t1, Nt) "
+                    "to enable time-dependent evaluation."
+                )
+            # Set L, M based on symmetry
+            if symmetry is not None and symmetry.startswith("spher"):
+                L = 1
+                M = 1
+            elif symmetry is not None and symmetry.startswith("axi"):
+                M = 1
+            else:
+                M = L
+            # Quadrature orders
+            if costheta_order is None:
+                costheta_order = max(20, L + 1)
+            if phi_order is None:
+                phi_order = max(20, 2 * L + 1)
+            if has_t:
+                # Time-dependent path: compute rho_lm at all t in tgrid
+                # using vectorized angular integration
+                tgrid = numpy.asarray(tgrid)
+                k = 3
+                beta_lm = sph_harm_normalization(L, M)
+                Nr = len(rgrid)
+                Nt = len(tgrid)
+                rho_cos_all, rho_sin_all = cls._compute_rho_lm_timedep(
+                    dens_func, rgrid, tgrid, L, M, costheta_order, phi_order
+                )
+                # Build time-dependent callable splines for each (l, m)
+                # These are callables f(r, t) that return density values
+                rho_cos_funcs = [[None for _ in range(M)] for _ in range(L)]
+                rho_sin_funcs = [[None for _ in range(M)] for _ in range(L)]
+                for l in range(L):
+                    for m in range(M):
+                        # beta_lm * rho_cos_all[:, :, l, m] has shape (Nt, Nr)
+                        cos_data = beta_lm[l, m] * rho_cos_all[:, :, l, m]
+                        sin_data = beta_lm[l, m] * rho_sin_all[:, :, l, m]
+                        # Build spline interpolator over t for each (l,m)
+                        cos_t_interp = make_interp_spline(tgrid, cos_data, k=3)
+                        sin_t_interp = make_interp_spline(tgrid, sin_data, k=3)
+                        # Callable f(rgrid_eval, t) that returns density on rgrid
+                        # For _precompute_radial_integrals_2d, this is called with
+                        # the full rgrid and a single t
+                        rho_cos_funcs[l][m] = lambda r, t, _interp=cos_t_interp: (
+                            _interp(t)
+                        )
+                        rho_sin_funcs[l][m] = lambda r, t, _interp=sin_t_interp: (
+                            _interp(t)
+                        )
+                # Handle astropy unit detection (following SCFPotential pattern)
+                if cls._density_has_units(dens):
+                    ro = internal_ro
+                    vo = internal_vo
+                return cls(
+                    amp=amp,
+                    rho_cos_splines=rho_cos_funcs,
+                    rho_sin_splines=rho_sin_funcs,
+                    rgrid=rgrid,
+                    tgrid=tgrid,
+                    normalize=normalize,
+                    ro=ro,
+                    vo=vo,
+                )
+            else:
+                # Static path
+                rho_cos, rho_sin = cls._compute_rho_lm(
+                    dens_func, rgrid, L, M, costheta_order, phi_order
+                )
+                # Normalization for angular reconstruction; absorbed into splines
+                k = 3
+                beta_lm = sph_harm_normalization(L, M)
+                rho_cos_splines = [
+                    [
+                        InterpolatedUnivariateSpline(
+                            rgrid, beta_lm[l, m] * rho_cos[:, l, m], k=k
+                        )
+                        for m in range(M)
+                    ]
+                    for l in range(L)
                 ]
-                for l in range(L)
-            ]
-            rho_sin_splines = [
-                [
-                    InterpolatedUnivariateSpline(
-                        rgrid, beta_lm[l, m] * rho_sin[:, l, m], k=k
-                    )
-                    for m in range(M)
+                rho_sin_splines = [
+                    [
+                        InterpolatedUnivariateSpline(
+                            rgrid, beta_lm[l, m] * rho_sin[:, l, m], k=k
+                        )
+                        for m in range(M)
+                    ]
+                    for l in range(L)
                 ]
-                for l in range(L)
-            ]
-            # Handle astropy unit detection (following SCFPotential pattern)
-            if cls._density_has_units(dens):
-                ro = internal_ro
-                vo = internal_vo
-            return cls(
-                amp=amp,
-                rho_cos_splines=rho_cos_splines,
-                rho_sin_splines=rho_sin_splines,
-                rgrid=rgrid,
-                normalize=normalize,
-                ro=ro,
-                vo=vo,
-            )
+                # Handle astropy unit detection (following SCFPotential pattern)
+                if cls._density_has_units(dens):
+                    ro = internal_ro
+                    vo = internal_vo
+                return cls(
+                    amp=amp,
+                    rho_cos_splines=rho_cos_splines,
+                    rho_sin_splines=rho_sin_splines,
+                    rgrid=rgrid,
+                    normalize=normalize,
+                    ro=ro,
+                    vo=vo,
+                )
 
     @staticmethod
     def _density_has_units(dens):
