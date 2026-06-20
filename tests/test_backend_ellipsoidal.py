@@ -486,6 +486,45 @@ def test_mixed_backend_Rz_float_phi_t(backend_name, pot, method):
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
+# normalize() does ``numpy.fabs(self.Rforce(1., 0.))`` and ``Rforce`` here returns
+# a torch tensor; ``numpy.fabs(<torch tensor>)`` raises numpy 2.0's __array_wrap__
+# DeprecationWarning (-W error in CI). That wart is pre-existing and orthogonal to
+# the float64-amp anchoring under test, so it is ignored here (not masked globally).
+@pytest.mark.filterwarnings(
+    "ignore:__array_wrap__ must accept context:DeprecationWarning"
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_construct_normalize_amp_is_float64(backend_name):
+    # During __init__, normalize() issues Rforce(1., 0.) with plain python
+    # scalars BEFORE _backend_compatible is set, so the input boundary does not
+    # coerce them; under a forced backend the resolved namespace is the backend's
+    # and _anchor_phi sees a dtype-less scalar R. It must anchor the scalar phi to
+    # galpy's interior float64 -- not e.g. torch's float32 default -- so the
+    # computed _amp (and hence every later float64-coordinate evaluation) stays
+    # float64. Regression for the 6 oblate/prolate/triaxial Hernquist & Jaffe
+    # amp_mult_divide torch failures (the amplitude silently dropped to float32).
+    import galpy.backend
+
+    prev = None
+    if backend_name == "torch":
+        # Reproduce the CI torch job, which (unlike jax's x64) sets no float64
+        # default -- so a bare asarray of the scalar phi would land on float32.
+        prev = torch.get_default_dtype()
+        torch.set_default_dtype(torch.float32)
+    try:
+        with galpy.backend.use(backend_name, force=True):
+            pot = TriaxialHernquistPotential(
+                amp=1.3, a=1.5, b=0.9, c=0.7, normalize=1.0
+            )
+    finally:
+        if prev is not None:
+            torch.set_default_dtype(prev)
+    assert "float64" in str(getattr(pot._amp, "dtype", "")), (
+        f"{backend_name}: normalize() produced a non-float64 _amp "
+        f"({getattr(pot._amp, 'dtype', None)})"
+    )
+
+
 def test_evaluate_xyz_namespace_fallback():
     # _evaluate_xyz infers the backend from its (x,y,z) arguments when called
     # without an explicit ``xp`` (the public _evaluate always passes one, so this

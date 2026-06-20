@@ -28,12 +28,21 @@ def _anchor_phi(phi, R, xp):
     passed a backend array. torch's ``cos``/``sin`` only accept tensors, so
     such scalars are anchored as ``xp.asarray(phi, dtype=R.dtype)`` (input-
     dtype anchoring, so float32 inputs are not promoted through the backend's
-    default dtype). The numpy path returns ``phi`` untouched (byte-identical),
-    as do already-backend ``phi`` arrays (no silent cast/detach of user
-    tensors, which would break autodiff w.r.t. ``phi``)."""
+    default dtype). When ``R`` carries no dtype (a plain python scalar -- e.g.
+    the un-coerced ``Rforce(1.,0.)`` that ``normalize()`` issues from within
+    ``__init__``, before the backend-compat flag is set so the input boundary
+    does not lift the coordinates), ``phi`` is anchored to ``xp.float64``
+    (galpy's interior precision) rather than the backend default (torch's
+    float32), so the resulting amplitude does not silently drop to float32. The
+    numpy path returns ``phi`` untouched (byte-identical), as do already-backend
+    ``phi`` arrays (no silent cast/detach of user tensors, which would break
+    autodiff w.r.t. ``phi``)."""
     if xp is numpy or is_backend_array(phi):
         return phi
-    return xp.asarray(phi, dtype=getattr(R, "dtype", None))
+    dtype = getattr(R, "dtype", None)
+    if dtype is None:
+        dtype = xp.float64
+    return xp.asarray(phi, dtype=dtype)
 
 
 class EllipsoidalPotential(Potential):
