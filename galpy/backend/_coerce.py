@@ -62,6 +62,7 @@ from ._namespaces import (
     _is_floating_dtype,
     asarray_on_device,
     device_of,
+    is_backend_array,
 )
 
 
@@ -112,7 +113,9 @@ def promote_scalars(xp, *vals):
     path passes everything through untouched (byte-identical)."""
     if xp is numpy:
         return vals
-    ref = next((v for v in vals if hasattr(v, "ndim")), None)
+    # "Leave it" only for genuine backend (jax/torch) arrays: a numpy.float64
+    # (or numpy.ndarray) HAS .ndim but torch rejects it, so it must be PROMOTED.
+    ref = next((v for v in vals if is_backend_array(v)), None)
     if ref is None:
         # Nothing to anchor on (e.g. all-scalar inputs under a forced backend
         # default): pass through, the namespace's functions handle scalars
@@ -121,17 +124,11 @@ def promote_scalars(xp, *vals):
     device = getattr(ref, "device", None)
 
     def _promote(v):
-        if hasattr(v, "ndim"):
+        if is_backend_array(v):
             return v
-        try:
-            return xp.asarray(v, dtype=dtype, device=device)
-        except (TypeError, ValueError):
-            # namespace without a device kwarg, or one that rejects the device
-            # value (array-api jax exposes .device as the string 'cpu', which
-            # jnp.asarray(device=...) refuses with ValueError). jax tracks device
-            # automatically, so a plain asarray is correct; torch's .device is a
-            # real object and never hits this fallback.
-            return xp.asarray(v, dtype=dtype)
+        # Delegate to the same helper coerce_coords uses: it places the value on
+        # the device and translates a numpy dtype to the backend dtype.
+        return asarray_on_device(xp, v, device, dtype=dtype)
 
     return tuple(_promote(v) for v in vals)
 
