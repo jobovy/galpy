@@ -122,12 +122,12 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
             )
         # Adjust amp
         self._amp /= 4.0 * numpy.pi * self.a**3
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
-        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
         # (aligned frame only)
@@ -277,12 +277,12 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         # Adjust amp
         self.a4 = self.a**4
         self._amp /= 4.0 * numpy.pi * self.a**3
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
             self.normalize(normalize)
         self.hasC = not self._glorder is None
-        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
         # (aligned frame only)
@@ -397,12 +397,12 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         # Adjust amp
         self.a2 = self.a**2
         self._amp /= 4.0 * numpy.pi * self.a2 * self.a
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
-        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian in C via the EllipsoidalPotential GL angle integral
         # (aligned frame only)
