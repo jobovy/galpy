@@ -947,7 +947,7 @@ def integrateFullOrbit_dxdv(
     if not _c_integrator:
         # Go to the rectangular frame here: the pure-Python variational RHS
         # works in (x,y,z,vx,vy,vz)
-        X, Y, Z = coords.cyl_to_rect(R, phi, z)
+        X, Y, Z = coords.cyl_to_rect(R, phi, z, xp=numpy)
         vX, vY, vZ = coords.cyl_to_rect_vec(vR, vT, vz, phi)
         this_yo = numpy.hstack((numpy.array([X, Y, Z, vX, vY, vZ]).T, this_dyo))
     else:
@@ -1018,9 +1018,17 @@ def integrateFullOrbit_dxdv(
         # rectangular (x,y,z,vx,vy,vz); convert to (R,vR,vT,z,vz,phi). The C
         # path returns the base already in cylindrical coordinates, converted
         # by the same helper the plain integrate path uses.
-        Rout, phiout, Zout = coords.rect_to_cyl(out[..., 0], out[..., 1], out[..., 2])
+        Rout, phiout, Zout = coords.rect_to_cyl(
+            out[..., 0], out[..., 1], out[..., 2], xp=numpy
+        )
         vRout, vTout, vzout = coords.rect_to_cyl_vec(
-            out[..., 3], out[..., 4], out[..., 5], out[..., 0], out[..., 1], out[..., 2]
+            out[..., 3],
+            out[..., 4],
+            out[..., 5],
+            out[..., 0],
+            out[..., 1],
+            out[..., 2],
+            xp=numpy,
         )
         # rect_to_cyl/rect_to_cyl_vec pass Z/vz through BY REFERENCE, so Zout
         # and vzout are views into out[...,2]/out[...,5]; copy them before the
