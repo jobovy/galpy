@@ -47,12 +47,12 @@ class KuzminDiskPotential(Potential):
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
         self._a = a  ## a must be greater or equal to 0.
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
             self.normalize(normalize)
         self.hasC = True
-        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         return None
