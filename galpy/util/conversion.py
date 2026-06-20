@@ -5,6 +5,7 @@
 #
 ###############################################################################
 import copy
+import inspect
 import math as m
 import numbers
 import warnings
@@ -1151,8 +1152,23 @@ def potential_physical_input(method=None, *, coerce_backend=True):
             if xp is not numpy and _check_backend_compatible(Pot):
                 args = (args[0],) + coerce_coords(xp, *args[1:])
                 for _key in ("phi", "t", "R", "z", "x", "v"):
-                    if kwargs.get(_key, None) is not None:
+                    if _key in kwargs:
                         (kwargs[_key],) = coerce_coords(xp, kwargs[_key])
+                # Default kwargs (B): when phi/t fall back to their SIGNATURE
+                # default (a Python float the caller never passed, so neither
+                # args nor kwargs holds it), inject the coerced default so the
+                # backend never sees a raw float (torch.sin(0.0) raises). Stays
+                # strictly inside the non-numpy + backend-compatible guard so the
+                # numpy path never rebinds/injects kwargs (byte-identical).
+                params = list(inspect.signature(method).parameters.values())
+                for _idx, _p in enumerate(params):
+                    if (
+                        _p.name in ("phi", "t")
+                        and _p.default is not inspect.Parameter.empty
+                        and _idx >= len(args)
+                        and _p.name not in kwargs
+                    ):
+                        (kwargs[_p.name],) = coerce_coords(xp, _p.default)
         return method(*args, **kwargs)
 
     return wrapper
