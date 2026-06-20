@@ -86,12 +86,12 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         self._scale = self.a
         # Adjust amp
         self._amp *= self.a / (numpy.pi**2 * self._b * self._c)
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
-        self._backend_compatible = True
         self.hasC_dxdv = self.hasC and self._aligned
         # full 3D Hessian (R2deriv/z2deriv/Rzderiv/phi2deriv/Rphideriv/zphideriv)
         # in C via the EllipsoidalPotential GL angle integral; only in the aligned

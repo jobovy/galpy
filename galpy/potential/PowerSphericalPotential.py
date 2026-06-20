@@ -54,12 +54,12 @@ class PowerSphericalPotential(Potential):
         # Back to old definition
         if self.alpha != 3.0:
             self._amp *= r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
             self.normalize(normalize)
         self.hasC = True
-        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
