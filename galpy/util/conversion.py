@@ -1144,8 +1144,7 @@ def potential_physical_input(method=None, *, coerce_backend=True):
         # targets (_check_backend_compatible); only the coordinate args/kwargs are
         # coerced, not control kwargs (dR/dphi/dz/zmax/M).
         if coerce_backend:
-            from ..backend import get_namespace
-            from ..backend._namespaces import coerce_coords
+            from ..backend import coerce_coords, get_namespace
             from ..potential import _check_backend_compatible
 
             xp = get_namespace(*args[1:])
