@@ -126,15 +126,9 @@ def promote_scalars(xp, *vals):
     def _promote(v):
         if is_backend_array(v):
             return v
-        try:
-            return xp.asarray(v, dtype=dtype, device=device)
-        except (TypeError, ValueError):
-            # namespace without a device kwarg, or one that rejects the device
-            # value (array-api jax exposes .device as the string 'cpu', which
-            # jnp.asarray(device=...) refuses with ValueError). jax tracks device
-            # automatically, so a plain asarray is correct; torch's .device is a
-            # real object and never hits this fallback.
-            return xp.asarray(v, dtype=dtype)
+        # Delegate to the same helper coerce_coords uses: it places the value on
+        # the device and translates a numpy dtype to the backend dtype.
+        return asarray_on_device(xp, v, device, dtype=dtype)
 
     return tuple(_promote(v) for v in vals)
 
