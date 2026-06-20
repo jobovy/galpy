@@ -14,7 +14,7 @@ import numpy
 from scipy import integrate
 from scipy.special import gamma
 
-from ..backend import get_namespace
+from ..backend import get_namespace, zeros_like_backend
 from ..util import conversion, coords
 from .Potential import Potential
 
@@ -110,7 +110,7 @@ class FerrersPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(get_namespace(R, z), R)
         x, y, z = coords.cyl_to_rect(R, phi, z)
         # rotation into the aligned frame: rot(t) @ [x, y] without array stacking
         # (numpy.array([x, y]) stacking is the torch-concat backend blocker). The
@@ -140,21 +140,21 @@ class FerrersPotential(Potential):
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
         return xp.cos(phi) * Fx + xp.sin(phi) * Fy
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
         return R * (-xp.sin(phi) * Fx + xp.cos(phi) * Fy)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         _, _, Fz = self._cached_xyzforces(R, z, phi, t, xp)
         return Fz
 
@@ -237,7 +237,7 @@ class FerrersPotential(Potential):
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         phixxa = self._2ndderiv_xyz(x, y, z, 0, 0)
         phixya = self._2ndderiv_xyz(x, y, z, 0, 1)
@@ -257,7 +257,7 @@ class FerrersPotential(Potential):
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         phixza = self._2ndderiv_xyz(x, y, z, 0, 2)
         phiyza = self._2ndderiv_xyz(x, y, z, 1, 2)
@@ -270,14 +270,14 @@ class FerrersPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(get_namespace(R, z), R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         return self._2ndderiv_xyz(x, y, z, 2, 2)
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         Fx = self._xforce_xyz(x, y, z)
         Fy = self._yforce_xyz(x, y, z)
@@ -302,7 +302,7 @@ class FerrersPotential(Potential):
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         Fx = self._xforce_xyz(x, y, z)
         Fy = self._yforce_xyz(x, y, z)
@@ -328,7 +328,7 @@ class FerrersPotential(Potential):
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         phixza = self._2ndderiv_xyz(x, y, z, 0, 2)
         phiyza = self._2ndderiv_xyz(x, y, z, 1, 2)
