@@ -340,6 +340,48 @@ def test_accessor_numpy_path_unchanged():
         numpy.testing.assert_allclose(numpy.asarray(val), _c_ref(acc), rtol=1e-12)
 
 
+# ------------------------------------------------- angular momentum L() (3-vec)
+# o.L(t) cross-multiplies x,y,z,vx,vy,vz; under a forced backend it must resolve
+# a single namespace and coerce all six onto it before the cross-product (the
+# numpy*Tensor branch in Orbits.L, phasedim==6). These exercise that branch.
+def _c_ref_L():
+    o = Orbit(list(_IC))
+    o.integrate(_TS, _POT, method="dop853_c")
+    return numpy.asarray(o.L(_TS, use_physical=False))
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_L_diffrax_matches_c_and_stays_jax():
+    o = Orbit(jnp.asarray(_IC))
+    o.integrate(jnp.asarray(_TS), _POT, method="diffrax")
+    val = o.L(jnp.asarray(_TS), use_physical=False)
+    assert isinstance(val, jax.Array), "L left the jax backend"
+    got = numpy.asarray(val)
+    assert got.shape == (*_TS.shape, 3)
+    numpy.testing.assert_allclose(got, _c_ref_L(), rtol=1e-8, atol=1e-8)
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_L_torchdiffeq_matches_c_and_stays_torch():
+    o = Orbit(torch.as_tensor(_IC))
+    o.integrate(torch.as_tensor(_TS), _POT, method="torchdiffeq")
+    val = o.L(torch.as_tensor(_TS), use_physical=False)
+    assert isinstance(val, torch.Tensor), "L left the torch backend"
+    got = val.detach().cpu().numpy()
+    assert got.shape == (*_TS.shape, 3)
+    numpy.testing.assert_allclose(got, _c_ref_L(), rtol=1e-8, atol=1e-8)
+
+
+def test_L_numpy_path_unchanged():
+    # a numpy orbit's L() is unaffected by the backend dispatch (3-vector, ...,3)
+    o = Orbit(list(_IC))
+    o.integrate(_TS, _POT, method="dop853_c")
+    val = o.L(_TS, use_physical=False)
+    assert isinstance(val, numpy.ndarray)
+    assert val.shape == (*_TS.shape, 3)
+    numpy.testing.assert_allclose(numpy.asarray(val), _c_ref_L(), rtol=1e-12)
+
+
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 def test_accessor_diffrax_scalar_ongrid_query():
     # a scalar time landing EXACTLY on the integration grid, on a backend orbit ->
