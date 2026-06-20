@@ -1103,7 +1103,7 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
         return out
 
 
-def rect_to_cyl(X, Y, Z):
+def rect_to_cyl(X, Y, Z, *, xp=None):
     """
     Convert from rectangular to cylindrical coordinates
 
@@ -1115,6 +1115,9 @@ def rect_to_cyl(X, Y, Z):
         Y coordinate.
     Z : float or numpy.ndarray
         Z coordinate.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to get_namespace (e.g.
+        ``numpy`` to pin host-side bookkeeping regardless of the forced default).
 
     Returns
     -------
@@ -1126,12 +1129,12 @@ def rect_to_cyl(X, Y, Z):
     - 2010-09-24 - Written - Bovy (NYU)
     - 2019-06-21 - Changed such that phi in [-pi,pi] - Bovy (UofT)
     """
-    xp = get_namespace(X, Y, Z)
+    xp = get_namespace(X, Y, Z, xp=xp)
     X, Y, Z = promote_scalars(xp, X, Y, Z)
     return (xp.sqrt(X**2.0 + Y**2.0), xp.arctan2(Y, X), Z)
 
 
-def cyl_to_rect(R, phi, Z):
+def cyl_to_rect(R, phi, Z, *, xp=None):
     """
     Convert from cylindrical to rectangular coordinates
 
@@ -1143,6 +1146,9 @@ def cyl_to_rect(R, phi, Z):
         Cylindrical phi coordinate.
     Z : float or numpy.ndarray
         Cylindrical Z coordinate.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to get_namespace (e.g.
+        ``numpy`` to pin host-side bookkeeping regardless of the forced default).
 
     Returns
     -------
@@ -1153,7 +1159,7 @@ def cyl_to_rect(R, phi, Z):
     -----
     - 2011-02-23 - Written - Bovy (NYU)
     """
-    xp = get_namespace(R, phi, Z)
+    xp = get_namespace(R, phi, Z, xp=xp)
     R, phi, Z = promote_scalars(xp, R, phi, Z)
     return (R * xp.cos(phi), R * xp.sin(phi), Z)
 
@@ -1574,7 +1580,7 @@ def spher_to_cyl_vec(vr, vT, vtheta, theta):
     return (vR, vT, vz)
 
 
-def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
+def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False, *, xp=None):
     """
     Transform vectors from rectangular to cylindrical coordinates vectors.
 
@@ -1594,6 +1600,10 @@ def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
         Z-coordinate.
     cyl : bool, optional
         If True, X, Y, Z are already cylindrical (i.e., [X,Y,Z] == [R,phi,Z]), by default False.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to the internal rect_to_cyl
+        call (e.g. ``numpy`` to pin host-side bookkeeping regardless of the
+        forced default).
 
     Returns
     -------
@@ -1606,7 +1616,7 @@ def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
 
     """
     if not cyl:
-        R, phi, Z = rect_to_cyl(X, Y, Z)
+        R, phi, Z = rect_to_cyl(X, Y, Z, xp=xp)
     else:
         phi = Y
     vr = +vx * numpy.cos(phi) + vy * numpy.sin(phi)

@@ -928,7 +928,7 @@ def integrateFullOrbit_dxdv(
         yo[:, 4],
         yo[:, 5],
     )
-    X, Y, Z = coords.cyl_to_rect(R, phi, z)
+    X, Y, Z = coords.cyl_to_rect(R, phi, z, xp=numpy)
     vX, vY, vZ = coords.cyl_to_rect_vec(vR, vT, vz, phi)
     this_yo = numpy.array([X, Y, Z, vX, vY, vZ]).T
     if not rectIn:
@@ -997,9 +997,17 @@ def integrateFullOrbit_dxdv(
     # Go back to the cylindrical frame: base state out[...,:6] is rectangular
     # (x,y,z,vx,vy,vz); convert to (R,vR,vT,z,vz,phi) and (optionally) the
     # deviation out[...,6:] from rectangular to cylindrical.
-    Rout, phiout, Zout = coords.rect_to_cyl(out[..., 0], out[..., 1], out[..., 2])
+    Rout, phiout, Zout = coords.rect_to_cyl(
+        out[..., 0], out[..., 1], out[..., 2], xp=numpy
+    )
     vRout, vTout, vzout = coords.rect_to_cyl_vec(
-        out[..., 3], out[..., 4], out[..., 5], out[..., 0], out[..., 1], out[..., 2]
+        out[..., 3],
+        out[..., 4],
+        out[..., 5],
+        out[..., 0],
+        out[..., 1],
+        out[..., 2],
+        xp=numpy,
     )
     # rect_to_cyl/rect_to_cyl_vec pass Z/vz through BY REFERENCE, so Zout and
     # vzout are views into out[...,2]/out[...,5]; copy them before the in-place
