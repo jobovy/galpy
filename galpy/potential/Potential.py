@@ -4689,9 +4689,9 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
         # g rises to +inf as R->0 via the centrifugal barrier and as R->inf via
         # the potential). Solve each side with an implicit-diff bracketed root
         # so d{Rmin,Rmax} / d{E,Lz} (and through theta) flows, returning a
-        # stacked backend array. The numpy-only nan-nan guard (a value-branch on
-        # whether any solution exists) is not replicated -- the backend path
-        # assumes a genuine pair of roots.
+        # stacked backend array. The numpy-only nan-nan guard (the value-branch
+        # on whether any solution exists) is mirrored below with xp.where so the
+        # backend path matches numpy when there are no turning points.
         from ..backend.optimize import brentq as _bk_brentq
 
         RLz = rl(Pot, Lz, t=t, use_physical=False)
@@ -4705,7 +4705,18 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
         Rmax_hi, _ = _backend_rootbracket(g, RLz, lower_default=1e-8, hi0=2.0 * RLz)
         Rmax = _bk_brentq(g, RLz, Rmax_hi)
         xp = get_namespace(RLz)
-        return xp.stack([Rmin, Rmax])
+        # No-solution guard, mirroring the numpy branch: when the effective
+        # potential at the guiding radius exceeds E (g(RLz) > 0) there are no
+        # turning points, so return [nan, nan]. The roots are computed
+        # unconditionally above and stay finite even with no solution, so the
+        # selected (has-solution) branch is safe to evaluate eagerly. The
+        # no-solution branch MUST be a true constant (xp.full_like, NOT
+        # RLz * xp.nan): eager xp.where evaluates both branches and its VJP
+        # multiplies the unselected branch's cotangent, so RLz * nan would
+        # NaN-poison d{Rmin,Rmax}/dLz in the ordinary has-solution case.
+        no_solution = g(RLz) > 0.0
+        nan_pair = xp.stack([xp.full_like(RLz, xp.nan), xp.full_like(RLz, xp.nan)])
+        return xp.where(no_solution, nan_pair, xp.stack([Rmin, Rmax]))
     # Check whether a solution exists
     RLz = rl(Pot, Lz, t=t, use_physical=False)
     Rstart = RLz
