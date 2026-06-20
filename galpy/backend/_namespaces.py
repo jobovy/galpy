@@ -136,14 +136,40 @@ def device_of(*coords):
     return None
 
 
+def _backend_dtype(xp, dtype):
+    """Map a numpy dtype to the active backend's dtype.
+
+    Some callers hand ``asarray_on_device`` a *numpy* dtype taken off a
+    coordinate (``dtype=getattr(R, "dtype", None)``); ``torch.asarray`` rejects
+    a numpy dtype (``torch.asarray(x, dtype=numpy.float64)`` raises), so it is
+    translated to ``xp``'s own same-named dtype (``torch.float64``). The numpy
+    path is a strict pass-through (``xp is numpy`` -> dtype unchanged), as is
+    ``None``; jax accepts numpy dtypes natively, so only a numpy dtype handed to
+    a backend that does not expose it as-is gets translated (``getattr`` falls
+    back to the original dtype when the backend has no same-named attribute).
+    """
+    if dtype is None or xp is numpy:
+        return dtype
+    try:
+        is_numpy_dtype = numpy.issubdtype(dtype, numpy.generic)
+    except TypeError:  # not a numpy dtype (already a torch.dtype): leave it
+        return dtype
+    if not is_numpy_dtype:
+        return dtype
+    return getattr(xp, numpy.dtype(dtype).name, dtype)
+
+
 def asarray_on_device(xp, a, device, dtype=None):
     """``xp.asarray(a, dtype=dtype)`` placed on ``device`` when one is given.
 
     ``device`` is the result of ``device_of`` on the coordinate inputs; when
     it is None (numpy arrays, plain scalars, traced values) the keyword is
     omitted so the call reduces to today's plain ``xp.asarray`` (and
-    ``dtype=None`` is the default pass-through on every backend).
+    ``dtype=None`` is the default pass-through on every backend). A numpy
+    ``dtype`` argument is translated to the backend's own dtype first so
+    ``torch.asarray(x, dtype=numpy.float64)`` (which raises) works.
     """
+    dtype = _backend_dtype(xp, dtype)
     if device is None:
         return xp.asarray(a, dtype=dtype)
     return xp.asarray(a, dtype=dtype, device=device)
