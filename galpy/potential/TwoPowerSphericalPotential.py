@@ -753,12 +753,12 @@ class JaffePotential(DehnenSphericalPotential):
         self._scale = self.a
         self.alpha = 2
         self.beta = 4
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = True
-        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
@@ -919,6 +919,8 @@ class NFWPotential(TwoPowerSphericalPotential):
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
+        # Flag before the (conditional) normalize() so its Rforce(1.,0.) is coerced.
+        self._backend_compatible = True
         if conc is None and rmax is None:
             self.a = a
             if normalize or (
@@ -952,7 +954,6 @@ class NFWPotential(TwoPowerSphericalPotential):
         self.beta = 3
         self._scale = self.a
         self.hasC = True
-        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
