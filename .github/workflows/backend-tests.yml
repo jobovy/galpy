@@ -107,7 +107,17 @@ jobs:
           # test_actionAngleTorus.py is EXCLUDED from the all-backend goal (it
           # wraps the external C++ Torus library -- never backend-agnostic).
           - tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
-          - tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py tests/test_snapshotpotential.py
+          - tests/test_SpiralArmsPotential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py tests/test_snapshotpotential.py
+          # test_potential.py: #977 parametrized its per-potential loop-tests
+          # (~1300 jax cases) -> serial jax (~3h) overflows the 75-min session-
+          # timeout. Split into 5 serial sub-shards via pytest-split (single
+          # process: partitions the collected tests, no pickling -- xdist can't
+          # pickle several mock/C-backed potentials). ~44min/jax group.
+          - tests/test_potential.py --splits 5 --group 1
+          - tests/test_potential.py --splits 5 --group 2
+          - tests/test_potential.py --splits 5 --group 3
+          - tests/test_potential.py --splits 5 --group 4
+          - tests/test_potential.py --splits 5 --group 5
           - tests/test_quantity.py tests/test_coords.py
           - tests/test_orbit.py -k 'test_energy_jacobi_conservation or from_name'
           - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
@@ -124,7 +134,19 @@ jobs:
         # that combination (for BOTH backends); it does NOT add a new job. Only
         # the shards that need an extra are listed; the rest default to false.
         include:
-          - TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py tests/test_snapshotpotential.py
+          - TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py tests/test_snapshotpotential.py
+            REQUIRES_PYNBODY: true
+          # all 5 test_potential split-groups need pynbody (the SnapshotRZPotential
+          # tests may land in any group under pytest-split's partition).
+          - TEST_FILES: tests/test_potential.py --splits 5 --group 1
+            REQUIRES_PYNBODY: true
+          - TEST_FILES: tests/test_potential.py --splits 5 --group 2
+            REQUIRES_PYNBODY: true
+          - TEST_FILES: tests/test_potential.py --splits 5 --group 3
+            REQUIRES_PYNBODY: true
+          - TEST_FILES: tests/test_potential.py --splits 5 --group 4
+            REQUIRES_PYNBODY: true
+          - TEST_FILES: tests/test_potential.py --splits 5 --group 5
             REQUIRES_PYNBODY: true
           - TEST_FILES: tests/test_quantity.py tests/test_coords.py
             REQUIRES_ASTROPY: true
@@ -162,7 +184,7 @@ jobs:
       # pytest-timeout: kill any single test running >300 s (see the pytest step's
       # --timeout) so a hung backend trace (e.g. the SCFPotential jax XLA-graph
       # blow-up) is recorded as a FAILURE instead of stalling the whole run.
-      run: pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm pytest-timeout
+      run: pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython tqdm pytest-timeout pytest-split
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
