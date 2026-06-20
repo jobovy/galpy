@@ -112,12 +112,12 @@ def test_doubleexp_scalar_R_array_z(backend):
 
 
 def test_promote_scalars_device_reject_fallback():
-    # _promote_scalars_for must fall back to a device-less asarray when the
+    # promote_scalars must fall back to a device-less asarray when the
     # namespace rejects the ref's device value (array-api jax exposes .device as
     # the string 'cpu', and jnp.asarray(device='cpu') raises ValueError). Driven
     # deterministically here with a tiny stub so the fallback is covered on every
     # CI runner regardless of the installed jax's .device behaviour.
-    from galpy.util.coords import _promote_scalars_for
+    from galpy.backend import promote_scalars
 
     class _Xp:
         def asarray(self, v, dtype=None, device=None):
@@ -131,7 +131,7 @@ def test_promote_scalars_device_reject_fallback():
         device = "string-device-the-namespace-rejects"
 
     ref = _Ref()
-    out = _promote_scalars_for(_Xp(), ref, 2.5)
+    out = promote_scalars(_Xp(), ref, 2.5)
     assert out[0] is ref  # the array passes through untouched
     assert float(out[1]) == 2.5  # the scalar was promoted via the fallback path
 
