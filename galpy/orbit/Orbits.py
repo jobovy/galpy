@@ -3289,10 +3289,22 @@ class Orbit:
             x = self.x(*args, **kwargs)
             y = self.y(*args, **kwargs)
             z = self.z(*args, **kwargs)
-            out = numpy.zeros(x.shape + (3,))
-            out[..., 0] = y * vz - z * vy
-            out[..., 1] = z * vx - x * vz
-            out[..., 2] = x * vy - y * vx
+            # Resolve a single namespace from all six components: under a forced
+            # backend some accessors return a backend Tensor while others stay
+            # numpy, so coerce them onto xp before the cross-product (no-op when
+            # xp is numpy -> numpy path stays byte-identical).
+            xp = get_namespace(x, y, z, vx, vy, vz)
+            if xp is not numpy:
+                x, y, z = xp.asarray(x), xp.asarray(y), xp.asarray(z)
+                vx, vy, vz = xp.asarray(vx), xp.asarray(vy), xp.asarray(vz)
+            out = xp.stack([y * vz - z * vy, z * vx - x * vz, x * vy - y * vx], axis=-1)
+            if xp is numpy:
+                # stack(axis=-1) of the F-contiguous accessor outputs is not
+                # C-contiguous for ensemble shapes; restore the historical
+                # numpy.zeros()+assign C-contiguous layout so the numpy result is
+                # byte-identical in BOTH data and flags. No-op (no copy) when the
+                # result is already C-contiguous (the common single-orbit case).
+                out = numpy.ascontiguousarray(out)
             if not old_physical is None:
                 kwargs["use_physical"] = old_physical
             else:
