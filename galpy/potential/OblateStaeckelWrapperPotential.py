@@ -10,9 +10,8 @@
 import numpy
 
 from galpy.util import conversion, coords
-from galpy.util.coords import _promote_scalars_for
 
-from ..backend import get_namespace
+from ..backend import get_namespace, promote_scalars
 from .Potential import (
     _APY_LOADED,
     _evaluatePotentials,
@@ -474,17 +473,17 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
 def _staeckel_prefactor(u, v):
     xp = get_namespace(u, v)
-    u, v = _promote_scalars_for(xp, u, v)
+    u, v = promote_scalars(xp, u, v)
     return xp.sinh(u) ** 2.0 + xp.sin(v) ** 2.0
 
 
 def _dstaeckel_prefactordudv(u, v):
     xp = get_namespace(u, v)
-    u, v = _promote_scalars_for(xp, u, v)
+    u, v = promote_scalars(xp, u, v)
     return (2.0 * xp.sinh(u) * xp.cosh(u), 2.0 * xp.sin(v) * xp.cos(v))
 
 
 def _dstaeckel_prefactord2ud2v(u, v):
     xp = get_namespace(u, v)
-    u, v = _promote_scalars_for(xp, u, v)
+    u, v = promote_scalars(xp, u, v)
     return (2.0 * xp.cosh(2.0 * u), 2.0 * xp.cos(2.0 * v))

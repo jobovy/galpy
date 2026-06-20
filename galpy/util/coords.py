@@ -80,7 +80,7 @@ from functools import wraps
 
 import numpy
 
-from ..backend import get_namespace
+from ..backend import get_namespace, promote_scalars
 from ..util import _rotate_to_arbitrary_vector
 from ..util._optional_deps import _APY_LOADED
 from ..util.config import __config__
@@ -88,38 +88,6 @@ from ..util.config import __config__
 _APY_COORDS = __config__.getboolean("astropy", "astropy-coords")
 _APY_COORDS *= _APY_LOADED
 _DEGTORAD = numpy.pi / 180.0
-
-
-def _promote_scalars_for(xp, *vals):
-    """Promote plain Python scalars among ``vals`` to the active non-numpy
-    namespace, anchored on the dtype/device of the first array argument, so
-    that e.g. torch functions -- which require Tensors -- accept the mixed
-    scalar/array inputs that the numpy path has always supported. The numpy
-    path passes everything through untouched (byte-identical)."""
-    if xp is numpy:
-        return vals
-    ref = next((v for v in vals if hasattr(v, "ndim")), None)
-    if ref is None:
-        # Nothing to anchor on (e.g. all-scalar inputs under a forced backend
-        # default): pass through, the namespace's functions handle scalars
-        return vals
-    dtype = getattr(ref, "dtype", None)
-    device = getattr(ref, "device", None)
-
-    def _promote(v):
-        if hasattr(v, "ndim"):
-            return v
-        try:
-            return xp.asarray(v, dtype=dtype, device=device)
-        except (TypeError, ValueError):
-            # namespace without a device kwarg, or one that rejects the device
-            # value (array-api jax exposes .device as the string 'cpu', which
-            # jnp.asarray(device=...) refuses with ValueError). jax tracks device
-            # automatically, so a plain asarray is correct; torch's .device is a
-            # real object and never hits this fallback.
-            return xp.asarray(v, dtype=dtype)
-
-    return tuple(_promote(v) for v in vals)
 
 
 if _APY_LOADED:
@@ -1159,7 +1127,7 @@ def rect_to_cyl(X, Y, Z):
     - 2019-06-21 - Changed such that phi in [-pi,pi] - Bovy (UofT)
     """
     xp = get_namespace(X, Y, Z)
-    X, Y, Z = _promote_scalars_for(xp, X, Y, Z)
+    X, Y, Z = promote_scalars(xp, X, Y, Z)
     return (xp.sqrt(X**2.0 + Y**2.0), xp.arctan2(Y, X), Z)
 
 
@@ -1186,7 +1154,7 @@ def cyl_to_rect(R, phi, Z):
     - 2011-02-23 - Written - Bovy (NYU)
     """
     xp = get_namespace(R, phi, Z)
-    R, phi, Z = _promote_scalars_for(xp, R, phi, Z)
+    R, phi, Z = promote_scalars(xp, R, phi, Z)
     return (R * xp.cos(phi), R * xp.sin(phi), Z)
 
 
@@ -1213,7 +1181,7 @@ def cyl_to_spher(R, Z, phi):
     - 2016-05-16 - Written - Aladdin
     """
     xp = get_namespace(R, Z, phi)
-    R, Z, phi = _promote_scalars_for(xp, R, Z, phi)
+    R, Z, phi = promote_scalars(xp, R, Z, phi)
     theta = xp.arctan2(R, Z)
     r = (R**2 + Z**2) ** 0.5
     return (r, theta, phi)
@@ -2412,7 +2380,7 @@ def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
     """
     xp = get_namespace(R, z, delta)
-    R, z = _promote_scalars_for(xp, R, z)
+    R, z = promote_scalars(xp, R, z)
     if oblate:
         d12 = (R + delta) ** 2.0 + z**2.0
         d22 = (R - delta) ** 2.0 + z**2.0
@@ -2486,7 +2454,7 @@ def uv_to_Rz(u, v, delta=1.0, oblate=False):
 
     """
     xp = get_namespace(u, v, delta)
-    u, v = _promote_scalars_for(xp, u, v)
+    u, v = promote_scalars(xp, u, v)
     if oblate:
         R = delta * xp.cosh(u) * xp.sin(v)
         z = delta * xp.sinh(u) * xp.cos(v)
