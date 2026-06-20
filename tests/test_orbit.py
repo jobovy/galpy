@@ -163,7 +163,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             o.integrate(ttimes, tp._potlist, method=integrator)
         else:
             o.integrate(ttimes, tp, method=integrator)
-        tEs = o.E(ttimes)
+        tEs = numpy.asarray(o.E(ttimes))
         # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
         if (
             not "Bar" in pot
@@ -193,9 +193,9 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "RotatedAndTilted" in pot
             or "Henon" in pot
         ):
-            tJacobis = o.Jacobi(ttimes, pot=tp)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes, pot=tp))
         else:
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
         #            print(p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s at the %g level"
@@ -203,34 +203,47 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         )
         if firstTest or "testMWPotential" in pot:
             # Some basic checking of the energy and Jacobi functions
-            assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
             )
-            assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with o.E() and o.E(0.) do not agree"
             )
-            assert (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(OmegaP=None)) - numpy.asarray(o.Jacobi())
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
             )
-            assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(pot=None)) - numpy.asarray(o.Jacobi(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
             )
             assert (
-                o.Jacobi(pot=None) - o.Jacobi(pot=potential.CompositePotential([tp]))
+                numpy.asarray(o.Jacobi(pot=None))
+                - numpy.asarray(o.Jacobi(pot=potential.CompositePotential([tp])))
             ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
             )
             if not tp.isNonAxi:
-                assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=1.0)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 )
                 assert (
-                    o.Jacobi(OmegaP=[0.0, 0.0, 1.0]) - o.Jacobi(OmegaP=1.0)
+                    numpy.asarray(o.Jacobi(OmegaP=[0.0, 0.0, 1.0]))
+                    - numpy.asarray(o.Jacobi(OmegaP=1.0))
                 ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
                 )
                 assert (
-                    o.Jacobi(OmegaP=numpy.array([0.0, 0.0, 1.0])) - o.Jacobi(OmegaP=1.0)
+                    numpy.asarray(o.Jacobi(OmegaP=numpy.array([0.0, 0.0, 1.0])))
+                    - numpy.asarray(o.Jacobi(OmegaP=1.0))
                 ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
                 )
@@ -271,14 +284,14 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 o.integrate(ttimes, tp._potlist, method=integrator)
             else:
                 o.integrate(ttimes, tp, method=integrator)
-            tEs = o.E(ttimes)
+            tEs = numpy.asarray(o.E(ttimes))
             #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
                 % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
             )
             # Jacobi
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
             assert (
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
@@ -287,31 +300,43 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             )
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
-                assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
                 )
-                assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with o.E() and o.E(0.) do not agree"
                 )
-                assert (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=None)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
                 )
-                assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(pot=None)) - numpy.asarray(o.Jacobi(pot=tp))
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
                 assert (
                     (
-                        o.Jacobi(pot=None)
-                        - o.Jacobi(
-                            pot=potential.NullPotential(amp=0.0) + tp
-                        )  # get around not knowing whether we need a CompositePotential or a planarCompositePotential
+                        numpy.asarray(o.Jacobi(pot=None))
+                        - numpy.asarray(
+                            o.Jacobi(
+                                pot=potential.NullPotential(amp=0.0) + tp
+                            )  # get around not knowing whether we need a CompositePotential or a planarCompositePotential
+                        )
                     )
                     ** 2.0
                     < 10.0** ttol
                 ), (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
-                assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=1.0)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 )
                 o = setup_orbit_energy(tp, axi=True, henon="Henon" in pot)
@@ -351,14 +376,14 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 )
             else:
                 o.integrate(ttimes, ptp, method=integrator)
-            tEs = o.E(ttimes)
+            tEs = numpy.asarray(o.E(ttimes))
             #                print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s"
                 % (pot, integrator)
             )
             # Jacobi
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
             assert (
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
@@ -367,22 +392,34 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             )
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
-                assert (o.E(pot=None) - o.E(pot=ptp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=ptp))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
                 )
-                assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
                 )
-                assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+                ) ** 2.0 < 10.0**ttol, (
                     "Energy calculated with o.E() and o.E(0.) do not agree"
                 )
-                assert (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=None)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
                 )
-                assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(pot=None)) - numpy.asarray(o.Jacobi(pot=tp))
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
-                assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+                assert (
+                    numpy.asarray(o.Jacobi(OmegaP=1.0)) - numpy.asarray(o.Jacobi())
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 )
                 o = setup_orbit_energy(ptp, axi=True)
@@ -410,7 +447,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             )
         else:
             o.integrate(ttimes, ptp, method=integrator)
-        tEs = o.E(ttimes)
+        tEs = numpy.asarray(o.E(ttimes))
         # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
         if (
             not "Bar" in pot
@@ -433,31 +470,43 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "nestedListPotential" in pot
             or "WeaklyTD" in pot
         ):
-            tJacobis = o.Jacobi(ttimes, pot=tp)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes, pot=tp))
         else:
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails by %g for potential %s and integrator %s"
             % ((numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0, pot, integrator)
         )
         if firstTest or "MWPotential" in pot:
             # Some basic checking of the energy function
-            assert (o.E(pot=None) - o.E(pot=ptp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=ptp))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
             )
-            assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
             )
-            assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with o.E() and o.E(0.) do not agree"
             )
-            assert (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(OmegaP=None)) - numpy.asarray(o.Jacobi())
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
             )
-            assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(pot=None)) - numpy.asarray(o.Jacobi(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
             )
-            assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.Jacobi(OmegaP=1.0)) - numpy.asarray(o.Jacobi())
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
             )
             o = setup_orbit_energy(ptp, axi=False)
@@ -486,7 +535,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 o.integrate(ttimes, tp._potlist, method=integrator)
             else:
                 o.integrate(ttimes, tp, method=integrator)
-            tEs = o.E(ttimes)
+            tEs = numpy.asarray(o.E(ttimes))
             # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
@@ -499,9 +548,9 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 or "CorotatingRotation" in pot
                 or "GaussianAmplitudeBar" in pot
             ):
-                tJacobis = o.Jacobi(ttimes, pot=tp)
+                tJacobis = numpy.asarray(o.Jacobi(ttimes, pot=tp))
             else:
-                tJacobis = o.Jacobi(ttimes)
+                tJacobis = numpy.asarray(o.Jacobi(ttimes))
             assert (
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
@@ -514,7 +563,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             o.integrate(ttimes, tp._potlist, method=integrator)
         else:
             o.integrate(ttimes, tp, method=integrator)
-        tEs = o.E(ttimes)
+        tEs = numpy.asarray(o.E(ttimes))
         #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
         if (
             not "Bar" in pot
@@ -537,9 +586,9 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "nestedListPotential" in pot
             or "WeaklyTD" in pot
         ):
-            tJacobis = o.Jacobi(ttimes, pot=tp)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes, pot=tp))
         else:
-            tJacobis = o.Jacobi(ttimes)
+            tJacobis = numpy.asarray(o.Jacobi(ttimes))
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
             % (pot, integrator)
@@ -615,7 +664,7 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
             o.integrate(ttimes, tp._potlist, method=integrator)
         else:
             o.integrate(ttimes, tp, method=integrator)
-        tEs = o.E(ttimes)
+        tEs = numpy.asarray(o.E(ttimes))
         # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
         if (
             not "Bar" in pot
@@ -631,10 +680,14 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
             )
         if firstTest or "testMWPotential" in pot or "linearMWPotential" in pot:
             # Some basic checking of the energy function
-            assert (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E(pot=None)) - numpy.asarray(o.E(pot=tp))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
             )
-            assert (o.E() - o.E(0.0)) ** 2.0 < 10.0**ttol, (
+            assert (
+                numpy.asarray(o.E()) - numpy.asarray(o.E(0.0))
+            ) ** 2.0 < 10.0**ttol, (
                 "Energy calculated with o.E() and o.E(0.) do not agree"
             )
             o = setup_orbit_energy(tp, axi=False, henon="Henon" in pot)
