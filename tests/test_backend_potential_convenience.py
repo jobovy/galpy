@@ -252,6 +252,29 @@ def test_ttensor_eigenval_jax():
         numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-11)
 
 
+@pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
+def test_ttensor_eigenval_torch():
+    # Same as test_ttensor_eigenval_jax for torch: ttensor(eigenval=True) routes
+    # through xp.linalg.eigvals (which returns a COMPLEX tensor), so the backend
+    # path takes xp.real(...). Check the result is a REAL (non-complex) torch
+    # tensor whose (sorted) eigenvalues match the numpy reference.
+    for p in _pots():
+        ref = numpy.sort(
+            numpy.real(p.ttensor(1.0, 0.1, eigenval=True, use_physical=False))
+        )
+        out = p.ttensor(
+            torch.as_tensor(1.0, dtype=torch.float64),
+            torch.as_tensor(0.1, dtype=torch.float64),
+            eigenval=True,
+            use_physical=False,
+        )
+        assert torch.is_tensor(out), type(out)
+        # xp.real(...) must strip the imaginary part eigvals introduces
+        assert not torch.is_complex(out), out.dtype
+        got = numpy.sort(numpy.real(out.detach().numpy()))
+        numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-11)
+
+
 def test_ttensor_numpy_byte_identical_construction():
     # The migrated xp.stack construction must be byte-identical to the original
     # numpy.array([[...]]) construction on the numpy path, for both scalar and
@@ -313,6 +336,21 @@ def test_module_functional_interface_torch():
     assert isinstance(_P.rtide(p, R, z, M=1e-3, use_physical=False), torch.Tensor)
     assert isinstance(_P.tdyn(p, R, use_physical=False), torch.Tensor)
     assert isinstance(_P.ttensor(p, R, z, use_physical=False), torch.Tensor)
+    # module-level ttensor(eigenval=True): real (non-complex) torch tensor whose
+    # eigenvalues match numpy (exercises the xp.real(xp.linalg.eigvals) branch).
+    # Use float64 inputs so the value parity holds to a tight tolerance.
+    R64 = torch.as_tensor(1.1, dtype=torch.float64)
+    z64 = torch.as_tensor(0.1, dtype=torch.float64)
+    eig = _P.ttensor(p, R64, z64, eigenval=True, use_physical=False)
+    assert torch.is_tensor(eig) and not torch.is_complex(eig), type(eig)
+    numpy.testing.assert_allclose(
+        numpy.sort(eig.detach().numpy()),
+        numpy.sort(
+            numpy.real(_P.ttensor(p, 1.1, 0.1, eigenval=True, use_physical=False))
+        ),
+        rtol=1e-9,
+        atol=1e-11,
+    )
 
 
 # --- Scalar-only potentials in Potential.mass's backend quadrature dispatch ---
