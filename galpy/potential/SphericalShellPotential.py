@@ -46,6 +46,7 @@ class SphericalShellPotential(SphericalPotential):
         a = conversion.parse_length(a, ro=self._ro)
         self.a = a
         self.a2 = a**2
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -55,7 +56,6 @@ class SphericalShellPotential(SphericalPotential):
                 )
             self.normalize(normalize)
         self.hasC = False
-        self._backend_compatible = True
         self.hasC_dxdv = False
 
     def _revaluate(self, r, t=0.0):

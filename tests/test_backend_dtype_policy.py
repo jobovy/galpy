@@ -623,3 +623,49 @@ def test_torch_grad_flows_through_exit_cast():
     assert Rt.grad.dtype == torch.float32
     ref = -float(pot._Rforce(numpy.array(R0), numpy.array(z0)))
     numpy.testing.assert_allclose(float(Rt.grad), ref, rtol=1e-4)
+
+
+###############################################################################
+# _backend_dtype translation policy. asarray_on_device translates a *numpy*
+# dtype taken off a coordinate to the active backend's same-named dtype so
+# torch.asarray(x, dtype=numpy.float64) (which raises) works. A numpy dtype
+# whose scalar .type is NOT a numpy.generic subclass -- numpy's variable-width
+# StringDType, whose .type is the Python ``str`` -- is recognised as a numpy
+# dtype yet has no backend equivalent, so it must be returned unchanged rather
+# than translated (the not-a-generic branch). Covered under jax AND torch.
+###############################################################################
+# A real numpy dtype with numpy.issubdtype(d, numpy.generic) == False (StringDType
+# resolves to the Python ``str`` scalar, which is not a numpy.generic subclass);
+# numpy < 2.0 has no such dtype, so the assertion self-skips there.
+_NONGENERIC_NPDTYPE = None
+if hasattr(numpy, "dtypes") and hasattr(numpy.dtypes, "StringDType"):
+    _cand = numpy.dtypes.StringDType()
+    if numpy.issubdtype(_cand, numpy.generic) is False:
+        _NONGENERIC_NPDTYPE = _cand
+
+
+@pytest.mark.skipif(
+    _NONGENERIC_NPDTYPE is None,
+    reason="no numpy dtype with issubdtype(., generic) is False (needs numpy>=2.0)",
+)
+@pytest.mark.parametrize(
+    "backend", [b for b in ("jax", "torch") if globals()[b] is not None]
+)
+def test_backend_dtype_passes_through_nongeneric_numpy_dtype(backend):
+    # _backend_dtype must leave a recognised-but-non-generic numpy dtype
+    # untouched (no backend has a same-named equivalent to translate to), under
+    # both jax and torch. This is the only path through the not-a-generic branch.
+    from galpy.backend import get_namespace
+    from galpy.backend._namespaces import _backend_dtype
+
+    if backend == "jax":
+        arr = jnp.asarray([1.0, 2.0])
+    else:
+        arr = torch.tensor([1.0, 2.0], dtype=torch.float64)
+    xp = get_namespace(arr)
+    out = _backend_dtype(xp, _NONGENERIC_NPDTYPE)
+    assert out is _NONGENERIC_NPDTYPE, (
+        f"{backend}: non-generic numpy dtype was not passed through unchanged"
+    )
+    # numpy stays a strict pass-through on the same input (xp is numpy guard).
+    assert _backend_dtype(numpy, _NONGENERIC_NPDTYPE) is _NONGENERIC_NPDTYPE
