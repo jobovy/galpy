@@ -44,6 +44,7 @@ class RingPotential(Potential):
         self.a = a
         self.a2 = self.a**2
         self._amp /= 2.0 * numpy.pi * self.a
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -53,7 +54,6 @@ class RingPotential(Potential):
                 )
             self.normalize(normalize)
         self.hasC = False
-        self._backend_compatible = True
         self.hasC_dxdv = False
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
