@@ -195,7 +195,7 @@ def test_check_backend_compatible_semantics():
 def test_coerce_coords_branches(backend):
     # Exercises every branch of coerce_coords: numpy pass-through, None,
     # float-dtype preservation, and python/int -> backend float64.
-    from galpy.backend._namespaces import coerce_coords
+    from galpy.backend import coerce_coords
 
     xp = _NS[backend]
     f32 = numpy.float32 if backend != "torch" else None  # torch handles below

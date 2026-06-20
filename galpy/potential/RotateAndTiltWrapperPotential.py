@@ -4,7 +4,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace
+from ..backend import as_backend_constant, get_namespace
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from .Potential import (
     _evaluatephitorques,
@@ -21,21 +21,6 @@ from .Potential import (
     evaluatez2derivs,
 )
 from .WrapperPotential import WrapperPotential
-
-
-def _as_xp_constant(xp, value, ref):
-    """Bring a stored numpy constant (rotation matrix / offset) into the active
-    namespace, anchored on the dtype/device of ``ref`` (a backend array derived
-    from the coordinate inputs). The numpy path passes the stored array through
-    untouched (byte-identical)."""
-    if xp is numpy:
-        return value
-    dtype = getattr(ref, "dtype", None)
-    device = getattr(ref, "device", None)
-    try:
-        return xp.asarray(value, dtype=dtype, device=device)
-    except TypeError:  # pragma: no cover - namespace without device= kwarg
-        return xp.asarray(value, dtype=dtype)
 
 
 # Only implement 3D wrapper
@@ -194,9 +179,9 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             x, y, z = coords.cyl_to_rect(R, phi, z)
         xyzp = xp.stack([x, y, z])
         if not self._norot:
-            xyzp = _as_xp_constant(xp, self._rot, xyzp) @ xyzp
+            xyzp = as_backend_constant(xp, self._rot, xyzp) @ xyzp
         if self._offset is not None:
-            xyzp = xyzp + _as_xp_constant(xp, self._offset, xyzp)
+            xyzp = xyzp + as_backend_constant(xp, self._offset, xyzp)
         return xyzp
 
     @check_potential_inputs_not_arrays
@@ -233,7 +218,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         xforcep = xp.cos(phip) * Rforcep - xp.sin(phip) * phitorquep / Rp
         yforcep = xp.sin(phip) * Rforcep + xp.cos(phip) * phitorquep / Rp
         Fxyzp = xp.stack([xforcep, yforcep, zforcep])
-        return _as_xp_constant(xp, self._inv_rot, Fxyzp) @ Fxyzp
+        return as_backend_constant(xp, self._inv_rot, Fxyzp) @ Fxyzp
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
@@ -342,8 +327,8 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
                 xp.stack([xzderivp, yzderivp, z2derivp]),
             ]
         )
-        inv_rot = _as_xp_constant(xp, self._inv_rot, deriv2p)
-        inv_rot_T = _as_xp_constant(xp, self._inv_rot.T, deriv2p)
+        inv_rot = as_backend_constant(xp, self._inv_rot, deriv2p)
+        inv_rot_T = as_backend_constant(xp, self._inv_rot.T, deriv2p)
         return inv_rot @ (deriv2p @ inv_rot_T)
 
     @check_potential_inputs_not_arrays
