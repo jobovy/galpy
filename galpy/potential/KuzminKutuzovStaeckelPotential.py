@@ -54,12 +54,12 @@ class KuzminKutuzovStaeckelPotential(Potential):
         self._delta = Delta
         self._gamma = self._delta**2 / (1.0 - self._ac**2)
         self._alpha = self._gamma - self._delta**2
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
             self.normalize(normalize)
         self.hasC = True
-        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
 
