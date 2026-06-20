@@ -100,3 +100,28 @@ jax tests/test_potential.py::test_RZToplanarPotential
 jax tests/test_potential.py::test_RZToverticalPotential
 jax tests/test_potential.py::test_toVerticalPotential
 jax tests/test_potential.py::test_MovingObject_2ndderivs_fd
+# test_MultipoleExpansion_deepcopy (#980's regression test): deepcopies + fully
+# re-evaluates 4 Multipole potentials (incl. from_density L=4) over a grid x times x
+# 10 methods. PASSES under jax-CPU but takes ~185 s on the dev box (jax-eager Multipole
+# eval) -> risks the 300 s per-test timeout on slower CI runners; slow-skip until
+# SCF/Multipole eval is vectorized on jax. (torch fails this at construction -> xfail-
+# ledger; numpy fully covers the actual scipy>=1.18 deepcopy-of-module regression.)
+jax tests/test_potential.py::test_MultipoleExpansion_deepcopy
+# --- Big composite-MW / rotated-tilted-wrapper Poisson tests: jax-eager-slow ---
+# These PASS under jax (correct values) but take 580-2641 s each on the dev box
+# (measured on CPU, -n 8): test_DehnenBinney98 ~2641 s, the two AndTilted MWP14 Poisson
+# checks ~1750-1840 s, test_Cautun20 ~1440 s, etc. -- all >> the 300 s per-test CI
+# timeout. As xfail-ledger entries they each burned the full 300 s hitting the timeout
+# every CI run (~45 min total -> jax test_potential session-timeout risk); moved to
+# slow-skip (correct-but-too-slow) until SCF/Multipole/wrapper eval is vectorized on
+# jax. torch fails these FAST at construction (0.0 s) -> they stay in the torch xfail-
+# ledger; numpy exercises all of them.
+jax tests/test_potential.py::test_Cautun20
+jax tests/test_potential.py::test_DehnenBinney98
+jax tests/test_potential.py::test_McMillan17
+jax tests/test_potential.py::test_diskscf_overflow
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
+jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
