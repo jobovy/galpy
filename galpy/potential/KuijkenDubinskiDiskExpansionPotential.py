@@ -7,7 +7,7 @@ import copy
 import numpy
 from scipy import integrate
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..backend.special import logsumexp
 from .Potential import Potential
 
@@ -147,24 +147,51 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         # (get_namespace), so they run under numpy (byte-identical: the numpy
         # namespace IS the numpy module), jax, and torch.
         stype = Sigma.get("type", "exp")
+        # These closures are also called directly with numpy/python R (e.g. by
+        # the Sigma-derivative tests) while the resolved namespace is a forced
+        # backend, so coerce_coords R onto that backend before xp.exp(R); the
+        # numpy pass-through keeps the numpy path byte-identical.
         if stype == "exp" and not "Rhole" in Sigma:
             rd = Sigma.get("h", 1.0 / 3.0)
             ta = Sigma.get("amp", 1.0)
-            ts = lambda R, trd=rd: get_namespace(R).exp(-R / trd)
-            tds = lambda R, trd=rd: -get_namespace(R).exp(-R / trd) / trd
-            td2s = lambda R, trd=rd: get_namespace(R).exp(-R / trd) / trd**2.0
+
+            def ts(R, trd=rd):
+                xp = get_namespace(R)
+                (R,) = coerce_coords(xp, R)
+                return xp.exp(-R / trd)
+
+            def tds(R, trd=rd):
+                xp = get_namespace(R)
+                (R,) = coerce_coords(xp, R)
+                return -xp.exp(-R / trd) / trd
+
+            def td2s(R, trd=rd):
+                xp = get_namespace(R)
+                (R,) = coerce_coords(xp, R)
+                return xp.exp(-R / trd) / trd**2.0
+
         elif stype == "expwhole" or (stype == "exp" and "Rhole" in Sigma):
             rd = Sigma.get("h", 1.0 / 3.0)
             rm = Sigma.get("Rhole", 0.5)
             ta = Sigma.get("amp", 1.0)
-            ts = lambda R, trd=rd, trm=rm: get_namespace(R).exp(-trm / R - R / trd)
-            tds = lambda R, trd=rd, trm=rm: (
-                (trm / R**2.0 - 1.0 / trd) * get_namespace(R).exp(-trm / R - R / trd)
-            )
-            td2s = lambda R, trd=rd, trm=rm: (
-                ((trm / R**2.0 - 1.0 / trd) ** 2.0 - 2.0 * trm / R**3.0)
-                * get_namespace(R).exp(-trm / R - R / trd)
-            )
+
+            def ts(R, trd=rd, trm=rm):
+                xp = get_namespace(R)
+                (R,) = coerce_coords(xp, R)
+                return xp.exp(-trm / R - R / trd)
+
+            def tds(R, trd=rd, trm=rm):
+                xp = get_namespace(R)
+                (R,) = coerce_coords(xp, R)
+                return (trm / R**2.0 - 1.0 / trd) * xp.exp(-trm / R - R / trd)
+
+            def td2s(R, trd=rd, trm=rm):
+                xp = get_namespace(R)
+                (R,) = coerce_coords(xp, R)
+                return (
+                    (trm / R**2.0 - 1.0 / trd) ** 2.0 - 2.0 * trm / R**3.0
+                ) * xp.exp(-trm / R - R / trd)
+
         return (ta, ts, tds, td2s)
 
     def _parse_hz(self, hz, Hz, dHzdz):
@@ -214,20 +241,27 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         # bit-for-bit on real floats, xp.stack of same-shape inputs ==
         # numpy.array of that list, and galpy.backend.special.logsumexp routes
         # numpy to scipy.special.logsumexp -- so the numpy path is unchanged.
+        # As in _parse_Sigma_dict_indiv, these closures are also called directly
+        # with numpy/python z while the resolved namespace is a forced backend,
+        # so coerce_coords z onto that backend before xp.abs/exp/sign(z); the
+        # numpy pass-through keeps the numpy path byte-identical.
         htype = hz.get("type", "exp")
         if htype == "exp":
             zd = hz.get("h", 0.0375)
 
             def th(z, tzd=zd):
                 xp = get_namespace(z)
+                (z,) = coerce_coords(xp, z)
                 return 1.0 / 2.0 / tzd * xp.exp(-xp.abs(z) / tzd)
 
             def tH(z, tzd=zd):
                 xp = get_namespace(z)
+                (z,) = coerce_coords(xp, z)
                 return (xp.exp(-xp.abs(z) / tzd) - 1.0 + xp.abs(z) / tzd) * tzd / 2.0
 
             def tdH(z, tzd=zd):
                 xp = get_namespace(z)
+                (z,) = coerce_coords(xp, z)
                 return 0.5 * xp.sign(z) * (1.0 - xp.exp(-xp.abs(z) / tzd))
 
         elif htype == "sech2":
@@ -236,6 +270,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             # th/tH written so as to avoid overflow in cosh
             def th(z, tzd=zd):
                 xp = get_namespace(z)
+                (z,) = coerce_coords(xp, z)
                 return (
                     xp.exp(
                         -logsumexp(
@@ -250,6 +285,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
             def tH(z, tzd=zd):
                 xp = get_namespace(z)
+                (z,) = coerce_coords(xp, z)
                 return tzd * (
                     logsumexp(xp.stack([z / 2.0 / tzd, -z / 2.0 / tzd]), axis=0)
                     - numpy.log(2.0)
@@ -257,6 +293,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
             def tdH(z, tzd=zd):
                 xp = get_namespace(z)
+                (z,) = coerce_coords(xp, z)
                 return xp.tanh(z / 2.0 / tzd) / 2.0
 
         return (th, tH, tdH)
@@ -265,6 +302,10 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         # Here and below: out-of-place accumulation (out = out + ...) instead of
         # += so torch autograd never sees an in-place op; identical numpy values.
         xp = get_namespace(R, z)
+        # Coerce R/z onto the active backend so xp.sqrt and the Sigma/hz closures
+        # (xp.exp/xp.abs(...)) receive backend arrays, not numpy/python; numpy
+        # pass-through keeps this byte-identical.
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me(R, z, phi=phi, t=t, use_physical=False)
         for a, s, H in zip(self._Sigma_amp, self._Sigma, self._Hz):
@@ -273,6 +314,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _Rforce(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.Rforce(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, H in zip(self._Sigma_amp, self._dSigmadR, self._Hz):
@@ -281,6 +323,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _zforce(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.zforce(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, H, dH in zip(
@@ -294,6 +337,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.R2deriv(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, d2s, H in zip(
@@ -311,6 +355,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.z2deriv(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(
@@ -336,6 +381,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.Rzderiv(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, d2s, H, dH in zip(
@@ -354,6 +400,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.dens(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(
@@ -395,6 +442,7 @@ def phiME_dens(R, z, phi, dens, Sigma, dSigmadR, d2SigmadR2, hz, Hz, dHzdz, Sigm
     """The density corresponding to phi_ME (backend-agnostic provided that the
     user-supplied ``dens`` callable accepts backend arrays)"""
     xp = get_namespace(R, z)
+    R, z = coerce_coords(xp, R, z)
     r = xp.sqrt(R**2.0 + z**2.0)
     out = dens(R, z, phi)
     for a, s, ds, d2s, h, H, dH in zip(
