@@ -4,7 +4,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion
 from .planarPotential import planarPotential
 
@@ -119,6 +119,7 @@ class EllipticalDiskPotential(planarPotential):
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi, t)
+        R, phi = coerce_coords(xp, R, phi)
         smooth = self._smooth(t)
         return (
             smooth * self._twophio / 2.0 * R**self._p * xp.cos(2.0 * (phi - self._phib))
@@ -126,6 +127,7 @@ class EllipticalDiskPotential(planarPotential):
 
     def _Rforce(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi, t)
+        R, phi = coerce_coords(xp, R, phi)
         smooth = self._smooth(t)
         return (
             -smooth
@@ -138,11 +140,13 @@ class EllipticalDiskPotential(planarPotential):
 
     def _phitorque(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi, t)
+        R, phi = coerce_coords(xp, R, phi)
         smooth = self._smooth(t)
         return smooth * self._twophio * R**self._p * xp.sin(2.0 * (phi - self._phib))
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi, t)
+        R, phi = coerce_coords(xp, R, phi)
         smooth = self._smooth(t)
         return (
             smooth
@@ -156,6 +160,7 @@ class EllipticalDiskPotential(planarPotential):
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi, t)
+        R, phi = coerce_coords(xp, R, phi)
         smooth = self._smooth(t)
         return (
             -2.0
@@ -167,6 +172,7 @@ class EllipticalDiskPotential(planarPotential):
 
     def _Rphideriv(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi, t)
+        R, phi = coerce_coords(xp, R, phi)
         smooth = self._smooth(t)
         return (
             -smooth
