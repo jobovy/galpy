@@ -11,7 +11,7 @@ import math
 import numpy
 from scipy import special
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -89,6 +89,7 @@ class PowerSphericalPotential(Potential):
         - Started: 2010-07-10 by Bovy (NYU)
         """
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         if self.alpha == 2.0:
             return xp.log(r2) / 2.0
@@ -281,6 +282,7 @@ class PowerSphericalPotential(Potential):
         - 2013-01-09 - Written - Bovy (IAS)
         """
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (3.0 - self.alpha) / 4.0 / math.pi / r**self.alpha
 
