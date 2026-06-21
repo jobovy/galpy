@@ -125,3 +125,4 @@ jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTilte
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
+jax tests/test_streamspraydf.py::test_center
