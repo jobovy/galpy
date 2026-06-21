@@ -117,9 +117,12 @@ def promote_scalars(xp, *vals):
     # (or numpy.ndarray) HAS .ndim but torch rejects it, so it must be PROMOTED.
     ref = next((v for v in vals if is_backend_array(v)), None)
     if ref is None:
-        # Nothing to anchor on (e.g. all-scalar inputs under a forced backend
-        # default): pass through, the namespace's functions handle scalars
-        return vals
+        # No backend array to anchor on, but xp is non-numpy (a forced default,
+        # or an array-API call). torch's functions REJECT numpy.float64/python
+        # floats, so coerce the operands onto the backend (python/int -> float64,
+        # numpy float arrays dtype-preserved) instead of passing through -- jax
+        # tolerates raw scalars but the coerced values are identical under x64.
+        return coerce_coords(xp, *vals)
     dtype = getattr(ref, "dtype", None)
     device = getattr(ref, "device", None)
 
