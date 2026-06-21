@@ -2384,3 +2384,9 @@ torch tests/test_potential.py::test_zvc_undefined
 torch tests/test_potential.py::test_zvc_valueerror
 # +9 jax test_potential failures the regen (-n auto / 72 workers) OOM-dropped; found by the
 # stable -n 4 re-run (1308 collected, consistent with torch). Heavy composite/MW potentials.
+torch tests/test_streamdf.py::test_bovy14_approxaA_inv
+torch tests/test_streamdf.py::test_bovy14_sample
+torch tests/test_streamdf.py::test_bovy14_sampleXY
+torch tests/test_streamdf.py::test_callArgs
+torch tests/test_streamdf.py::test_closest_trackpoint
+torch tests/test_streamdf.py::test_closest_trackpointaA
