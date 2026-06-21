@@ -921,7 +921,9 @@ class Orbit:
                 zo=obs[2],
                 solarmotion=obs[3],
             )
-        out._name = numpy.asarray(name)
+        # ndmin=1 matches numpy.char.array's scalar->1-d promotion (name may be a
+        # single string), so the name property's shape_wrapper indexing still works.
+        out._name = numpy.array(name, ndmin=1)
         return out
 
     @property

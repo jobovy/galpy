@@ -8896,12 +8896,12 @@ def test_from_name_name():
     assert Orbit.from_name("LMC").name == "LMC", (
         "Orbit.from_name does not appear to set the name attribute correctly"
     )
-    assert numpy.char.equal(Orbit.from_name(["LMC"]).name, numpy.char.array("LMC")), (
+    assert numpy.char.equal(Orbit.from_name(["LMC"]).name, numpy.array("LMC")), (
         "Orbit.from_name does not appear to set the name attribute correctly"
     )
     assert numpy.all(
         numpy.char.equal(
-            Orbit.from_name(["LMC", "SMC"]).name, numpy.char.array(["LMC", "SMC"])
+            Orbit.from_name(["LMC", "SMC"]).name, numpy.array(["LMC", "SMC"])
         )
     ), "Orbit.from_name does not appear to set the name attribute correctly"
     # Also slice
@@ -8911,7 +8911,7 @@ def test_from_name_name():
     assert numpy.all(
         numpy.char.equal(
             Orbit.from_name(["LMC", "SMC", "Fornax"])[:2].name,
-            numpy.char.array(["LMC", "SMC"]),
+            numpy.array(["LMC", "SMC"]),
         )
     ), "Orbit.from_name does not appear to set the name attribute correctly"
     return None
