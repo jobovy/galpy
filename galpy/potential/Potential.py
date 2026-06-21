@@ -23,7 +23,7 @@ import numpy
 from packaging.version import Version
 from scipy import integrate, optimize
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -74,6 +74,19 @@ def check_potential_inputs_not_arrays(func):
             raise TypeError(
                 f"Methods in {self.__class__.__name__} do not accept array inputs. Please input scalars"
             )
+        # Migrated scalar-only methods still do real backend arithmetic on the
+        # coordinates (xp.cos/sin/isinf/...), which torch rejects on a plain
+        # python float under a forced backend. Bring R, z, phi onto the active
+        # backend -- but ONLY for backend-compatible potentials, mirroring the
+        # ``potential_physical_input`` gate: an unmigrated potential (e.g.
+        # AnyAxisymmetricRazorThinDisk) keeps bare-numpy/scipy internals that
+        # reject backend arrays, so it must stay on numpy. ``t`` is left
+        # untouched (it may be used as a hashable cache key downstream). The
+        # numpy path is byte-identical regardless (coerce_coords is an
+        # object-identical pass-through when ``xp is numpy``).
+        if getattr(self, "_backend_compatible", False):
+            xp = get_namespace(R, z, phi)
+            R, z, phi = coerce_coords(xp, R, z, phi)
         return func(self, R, z, phi, t)
 
     # Marker so the mass() numerical-integration dispatch can tell that this
