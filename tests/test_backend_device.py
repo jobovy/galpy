@@ -111,13 +111,15 @@ def test_doubleexp_scalar_R_array_z(backend):
     numpy.testing.assert_allclose(_np(dp(Rb, zb2)), ref2, rtol=1e-8, atol=1e-10)
 
 
-def test_promote_scalars_device_reject_fallback():
-    # promote_scalars must fall back to a device-less asarray when the
-    # namespace rejects the ref's device value (array-api jax exposes .device as
-    # the string 'cpu', and jnp.asarray(device='cpu') raises ValueError). Driven
-    # deterministically here with a tiny stub so the fallback is covered on every
-    # CI runner regardless of the installed jax's .device behaviour.
-    from galpy.backend import promote_scalars
+def test_asarray_on_device_rejecting_device_fallback():
+    # asarray_on_device (the helper the anchoring/coercion paths build on) must
+    # fall back to a device-less asarray when the namespace rejects the device
+    # value (array-api jax exposes .device as the string 'cpu', and
+    # jnp.asarray(device='cpu') raises ValueError; a namespace without a device=
+    # kwarg raises TypeError). Driven deterministically with a tiny stub so the
+    # fallback is covered on every CI runner regardless of the installed jax's
+    # .device behaviour.
+    from galpy.backend._namespaces import asarray_on_device
 
     class _Xp:
         def asarray(self, v, dtype=None, device=None):
@@ -125,15 +127,8 @@ def test_promote_scalars_device_reject_fallback():
                 raise ValueError(f"backend rejects device={device!r}")
             return numpy.asarray(v, dtype=dtype)
 
-    class _Ref:
-        ndim = 1
-        dtype = float
-        device = "string-device-the-namespace-rejects"
-
-    ref = _Ref()
-    out = promote_scalars(_Xp(), ref, 2.5)
-    assert out[0] is ref  # the array passes through untouched
-    assert float(out[1]) == 2.5  # the scalar was promoted via the fallback path
+    out = asarray_on_device(_Xp(), 2.5, "string-device-the-namespace-rejects")
+    assert float(out) == 2.5  # fell back to the device-less asarray
 
 
 @pytest.mark.skipif(
