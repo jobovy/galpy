@@ -41,6 +41,18 @@ _USEINTERP = True
 _USESIMPLE = True
 # cast a wide net
 _TWOPIWRAPS = numpy.arange(-4, 5) * 2.0 * numpy.pi
+
+
+def _real_eig(a):
+    # numpy>=2.5 returns a complex result from numpy.linalg.eig even for input
+    # with real eigenvalues (e.g. the symmetric dO/dJ = d^2H/dJ^2 and covariance
+    # matrices used here); return the real part so the downstream real-valued
+    # math (fabs/sqrt/argsort) works. No-op (byte-identical) on numpy<2.5, where
+    # eig already returns real arrays for these inputs.
+    w, v = numpy.linalg.eig(a)
+    return numpy.real(w), numpy.real(v)
+
+
 _labelDict = {
     "x": r"$X$",
     "y": r"$Y$",
@@ -316,7 +328,7 @@ class streamdf(df):
                 self._progenitor.vxvv[0], self._aA, dxv=None, dOdJ=True, _initacfs=acfs
             )
         self._dOdJpInv = numpy.linalg.inv(self._dOdJp)
-        self._dOdJpEig = numpy.linalg.eig(self._dOdJp)
+        self._dOdJpEig = _real_eig(self._dOdJp)
         return None
 
     def _offset_setup(self, sigangle, leading, deltaAngleTrack):
@@ -335,7 +347,7 @@ class streamdf(df):
             self._dOdJp, numpy.dot(self._sigjmatrix, self._dOdJp.T)
         )
         # Estimate angle spread as the ratio of the largest to the middle eigenvalue
-        self._sigomatrixEig = numpy.linalg.eig(self._sigomatrix)
+        self._sigomatrixEig = _real_eig(self._sigomatrix)
         self._sigomatrixEigsortIndx = numpy.argsort(self._sigomatrixEig[0])
         self._sortedSigOEig = sorted(self._sigomatrixEig[0])
         if sigangle is None:
@@ -1040,7 +1052,7 @@ class streamdf(df):
             out = numpy.empty((self._nTrackChunks, 2))
             eigDir = numpy.array([1.0, 0.0])
             for ii in range(self._nTrackChunks):
-                covEig = numpy.linalg.eig(cov[ii])
+                covEig = _real_eig(cov[ii])
                 minIndx = numpy.argmin(covEig[0])
                 minEigvec = covEig[1][
                     :, minIndx
@@ -1056,7 +1068,7 @@ class streamdf(df):
             allEigvec = numpy.empty((self._nTrackChunks, 2))
             eigDir = numpy.array([1.0, 0.0])
             for ii in range(self._nTrackChunks):
-                covEig = numpy.linalg.eig(cov[ii])
+                covEig = _real_eig(cov[ii])
                 minIndx = numpy.argmin(covEig[0])
                 minEigvec = covEig[1][
                     :, minIndx
@@ -1557,7 +1569,7 @@ class streamdf(df):
         for ii in range(nC):
             tjac = coords.cyl_to_rect_jac(*self._ObsTrack[ii])
             allErrCovsXY[ii] = numpy.dot(tjac, numpy.dot(chunk_covs[ii], tjac.T))
-            teig = numpy.linalg.eig(allErrCovsXY[ii])
+            teig = _real_eig(allErrCovsXY[ii])
             sortIndx = numpy.argsort(teig[0])
             eigvals[ii] = teig[0][sortIndx]
             # Keep eigenvectors continuous along the stream by sign-aligning
@@ -1660,7 +1672,7 @@ class streamdf(df):
                 tjac, numpy.dot(self._allErrCovsXY[ii], tjac.T)
             )
             # Eigen decomposition for interpolation
-            teig = numpy.linalg.eig(allErrCovsLB[ii])
+            teig = _real_eig(allErrCovsLB[ii])
             # Sort them to match them up later
             sortIndx = numpy.argsort(teig[0])
             allErrCovsEigvalLB[ii] = teig[0][sortIndx]
