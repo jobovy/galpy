@@ -8,7 +8,7 @@
 import numpy
 from scipy import special
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammainc as _gammainc
 from ..util import conversion
@@ -78,6 +78,7 @@ class PowerSphericalPotentialwCutoff(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         # guard r=0 in the dead branch (the 1/r term -> 0/0=NaN there) so the
         # xp.where stays finite under autodiff/jit; the value at r=0 is 0.
@@ -115,16 +116,19 @@ class PowerSphericalPotentialwCutoff(Potential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R * R + z * z)
         return self._rforce(r) * R / r
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R * R + z * z)
         return self._rforce(r) * z / r
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R * R + z * z)
         return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * xp.exp(
             -((r / self.rc) ** 2.0)
@@ -132,6 +136,7 @@ class PowerSphericalPotentialwCutoff(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R * R + z * z)
         return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * xp.exp(
             -((r / self.rc) ** 2.0)
@@ -139,6 +144,7 @@ class PowerSphericalPotentialwCutoff(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R * R + z * z)
         return (
             R
@@ -224,6 +230,7 @@ class PowerSphericalPotentialwCutoff(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return 1.0 / r**self.alpha * xp.exp(-((r / self.rc) ** 2.0))
 
