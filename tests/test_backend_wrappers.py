@@ -533,3 +533,29 @@ def test_rotateandtilt_Rinf(backend_name, pot):
             )(jnp.asarray(1.1))
         )
         assert numpy.isfinite(g)
+
+
+# --- scalar-only methods accept plain python floats under a forced backend ----
+# The @check_potential_inputs_not_arrays methods do real backend arithmetic on
+# the coordinates (xp.isinf/cos/sin/...); a plain python float reaching them
+# under a forced backend used to crash torch ("isinf(): argument 'input' ... must
+# be Tensor, not float"). The decorator now coerces R, z, phi onto the active
+# backend. Pass plain python floats (NOT pre-made backend arrays) so the decorator
+# coercion -- not the caller -- is what brings them onto the backend.
+@pytest.mark.parametrize(
+    "method", ["_evaluate", "_Rforce", "_zforce", "_phitorque", "_dens"]
+)
+@pytest.mark.parametrize(
+    "pot",
+    [w[1] for w in _WRAPPERS if w[0].startswith("RotateAndTilt")],
+    ids=[w[0] for w in _WRAPPERS if w[0].startswith("RotateAndTilt")],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_scalar_only_python_float_inputs_forced_backend(backend_name, pot, method):
+    from galpy import backend
+
+    R, z, phi = 0.75, 0.2, 1.76
+    ref = float(getattr(pot, method)(R, z, phi=phi, t=0.0))
+    with backend.use(backend_name, force=True):
+        got = getattr(pot, method)(R, z, phi=phi, t=0.0)  # floats -> decorator coerces
+    numpy.testing.assert_allclose(float(got), ref, rtol=1e-12, atol=1e-14)
