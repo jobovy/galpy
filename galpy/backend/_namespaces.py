@@ -172,7 +172,15 @@ def asarray_on_device(xp, a, device, dtype=None):
     dtype = _backend_dtype(xp, dtype)
     if device is None:
         return xp.asarray(a, dtype=dtype)
-    return xp.asarray(a, dtype=dtype, device=device)
+    try:
+        return xp.asarray(a, dtype=dtype, device=device)
+    except (TypeError, ValueError):
+        # The namespace rejects this device value/kwarg (array-api jax exposes
+        # .device as the string 'cpu', and jnp.asarray(device='cpu') raises
+        # ValueError; a namespace without a device= kwarg raises TypeError):
+        # fall back to a device-less asarray. A genuine dtype error re-raises
+        # from the fallback (same dtype, no device), so it is not masked.
+        return xp.asarray(a, dtype=dtype)
 
 
 def namespace_for_name(name):
