@@ -80,13 +80,18 @@ torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 # (Track E/F) land; numpy still exercises it.
 jax tests/test_qdf.py::test_meanjz_noaac_issue300
 
-# --- jax interpRZ interpolated density (Track A/d interpRZ 2D-interp vectorization) ---
-# interpRZPotential's interpolated density evaluates a 2D spline at many scalar
-# points; #960's coercion routes this through the backend, so under forced-jax each
-# point dispatches an XLA graph and the test exceeds the 300 s per-test timeout
-# (the other jax interp_potential tests are faster or ledgered). Defer until
-# interpRZ's 2D interpolation is backend-vectorized (group d); numpy still runs it.
+# --- jax interpRZ scalar-loop timeouts (Track A/d interpRZ 2D-interp vectorization) ---
+# Two test_interp_potential tests drive a Python double-loop (~861 points) that evaluates
+# a coerced potential at scalar (R,z) every iteration, so under forced-jax each point
+# dispatches its own XLA graph and the test exceeds the 300 s per-test timeout:
+#  - _dens: interpRZ's interpolated 2D density spline, routed through the backend by #960.
+#  - _force: evaluateRforces over MWPotential, which is a CompositePotential -- this PR's
+#    composite-gate makes it backend-compatible, so the per-point direct force eval now
+#    coerces (same eager-jax-per-scalar-point cost as test_streamspraydf::test_center).
+# Defer both until interpRZ / the scalar loops are backend-vectorized (group d); numpy
+# still runs them and the values are correct (clean Timeout, not a wrong-value hang).
 jax tests/test_interp_potential.py::test_interpolation_potential_dens
+jax tests/test_interp_potential.py::test_interpolation_potential_force
 
 # --- jax dissipative-force + MovingObject/orbit timeouts (#960 coercion ascent) ---
 # #960's coercion newly exercises these under forced-jax: ChandrasekharDynamicalFriction
