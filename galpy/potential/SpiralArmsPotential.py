@@ -10,7 +10,7 @@ import math
 
 import numpy
 
-from ..backend import asarray_on_device, device_of, get_namespace
+from ..backend import asarray_on_device, coerce_coords, device_of, get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -122,6 +122,7 @@ class SpiralArmsPotential(Potential):
 
     def _evaluate(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         Ks = self._K(R, ns)
@@ -143,6 +144,7 @@ class SpiralArmsPotential(Potential):
 
     def _Rforce(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         He = self._H * xp.exp(-(R - self._r_ref) / self._Rs)
@@ -186,6 +188,7 @@ class SpiralArmsPotential(Potential):
 
     def _zforce(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         Ks = self._K(R, ns)
@@ -208,6 +211,7 @@ class SpiralArmsPotential(Potential):
 
     def _phitorque(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         g = self._gamma(R, phi - self._omega * t)
@@ -232,6 +236,7 @@ class SpiralArmsPotential(Potential):
 
     def _R2deriv(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         Rs = self._Rs
@@ -411,6 +416,7 @@ class SpiralArmsPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         g = self._gamma(R, phi - self._omega * t)
@@ -436,6 +442,7 @@ class SpiralArmsPotential(Potential):
 
     def _phi2deriv(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         g = self._gamma(R, phi - self._omega * t)
@@ -460,6 +467,7 @@ class SpiralArmsPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         Rs = self._Rs
@@ -517,6 +525,7 @@ class SpiralArmsPotential(Potential):
 
     def _Rphideriv(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         He = self._H * xp.exp(-(R - self._r_ref) / self._Rs)
@@ -564,6 +573,7 @@ class SpiralArmsPotential(Potential):
 
     def _phizderiv(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         Ks = self._K(R, ns)
@@ -588,6 +598,7 @@ class SpiralArmsPotential(Potential):
 
     def _dens(self, R, z, phi=0, t=0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Cs, ns, HNn = self._nvectors(R, z, xp)
 
         g = self._gamma(R, phi - self._omega * t)
