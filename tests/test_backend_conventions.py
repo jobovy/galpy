@@ -217,3 +217,22 @@ def test_coerce_coords_branches(backend):
     else:  # torch float32 tensor
         (R32_o,) = coerce_coords(xp, torch.tensor([1.0, 2.0], dtype=torch.float32))
         assert "float32" in str(R32_o.dtype)
+
+
+@pytest.mark.parametrize("backend", [b for b in _NS if b != "numpy"])
+def test_scalar_only_gate_spares_unmigrated_potential(backend):
+    # The check_potential_inputs_not_arrays decorator coerces R, z, phi onto the
+    # active backend ONLY for _backend_compatible potentials. An UNMIGRATED
+    # scalar-only potential (AnyAxisymmetricRazorThinDiskPotential: bare
+    # scipy.integrate.quad / numpy internals) must keep its plain python-float
+    # inputs even under a forced backend, or those internals crash ("'<' not
+    # supported between numpy.ndarray and Tensor"). Regression guard for the
+    # decorator's _backend_compatible gate.
+    import galpy.backend
+
+    pot = potential.AnyAxisymmetricRazorThinDiskPotential(normalize=1.0)
+    assert potential._check_backend_compatible(pot) is False
+    ref = float(pot._evaluate(0.9, 0.1, 0.0, 0.0))
+    with galpy.backend.use(backend, force=True):
+        got = float(pot._evaluate(0.9, 0.1, 0.0, 0.0))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=0.0)
