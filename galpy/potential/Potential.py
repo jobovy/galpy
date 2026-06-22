@@ -4341,6 +4341,7 @@ def _check_backend_compatible(Pot):
     """
     Pot = flatten(Pot)
     from ..potential import linearPotential, planarForce
+    from .baseCompositePotential import baseCompositePotential
     from .WrapperPotential import (
         WrapperPotential,
         parentWrapperPotential,
@@ -4353,6 +4354,14 @@ def _check_backend_compatible(Pot):
                 numpy.array([_check_backend_compatible(p) for p in Pot], dtype="bool")
             )
         )
+    elif isinstance(Pot, baseCompositePotential):
+        # A (planar/linear)CompositePotential delegates to its members through
+        # the no-decorator internal path (no per-member coercion), so coercion
+        # must fire at the OUTER boundary; it is backend-compatible iff every
+        # component is (mirrors the list branch). flatten leaves a composite
+        # as-is, so this must precede the generic Force branch (a composite IS
+        # a Force).
+        return _check_backend_compatible(Pot._potlist)
     elif isinstance(
         Pot, (parentWrapperPotential, WrapperPotential, planarWrapperPotential)
     ):
