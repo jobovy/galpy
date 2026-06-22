@@ -24,7 +24,7 @@ and a *sanitized shard id* derived from the matrix ``TEST_FILES`` string via
     backend-junit-torch-test_orbit_subset_main.xml
 
 This script independently computes the SAME sanitized ids from its own canonical
-copy of the 13 shards (``SHARDS`` below -- kept in sync with the workflow
+copy of the 14 shards (``SHARDS`` below -- kept in sync with the workflow
 matrix), so it can map each XML back to a (backend, shard) cell and, crucially,
 show a shard that produced NO xml as "-- (no result)" instead of crashing.
 
@@ -64,7 +64,7 @@ from dataclasses import dataclass
 
 BACKENDS = ["jax", "torch"]
 
-# Canonical list of the 13 TEST_FILES shards, in matrix order, each with a
+# Canonical list of the 14 TEST_FILES shards, in matrix order, each with a
 # short human-readable label for the table rows. MUST stay in sync with the
 # backend-suite matrix in .github/workflows/backend-tests.yml -- the raw string
 # is what the workflow feeds to shard_id() to name the junit file, and the label
@@ -84,11 +84,15 @@ SHARDS = [
         "conversion + util + misc",
     ),
     (
-        "tests/test_SpiralArmsPotential.py tests/test_potential.py "
-        "tests/test_scf.py tests/test_MultipoleExpansionPotential.py "
+        "tests/test_SpiralArmsPotential.py tests/test_scf.py "
+        "tests/test_MultipoleExpansionPotential.py "
         "tests/test_snapshotpotential.py",
-        "potential + scf + multipole",
+        "SpiralArms + scf + multipole",
     ),
+    # test_potential.py runs as 5 pytest-split groups (--splits 5 --group N), each
+    # uploading a backend-junit-<backend>-test_potential_g<N> artifact; match_cell
+    # gathers the _g<N> variants and render() merges them into this single row.
+    ("tests/test_potential.py", "potential (5 split-groups)"),
     ("tests/test_quantity.py tests/test_coords.py", "quantity + coords"),
     (
         "tests/test_orbit.py -k 'test_energy_jacobi_conservation or from_name'",
@@ -124,7 +128,7 @@ SHARDS = [
 def shard_id(test_files: str) -> str:
     """Sanitize a TEST_FILES matrix string into a stable artifact-safe id.
 
-    Deterministic and collision-free across the 13 shards: take the basenames of
+    Deterministic and collision-free across the 14 shards: take the basenames of
     the .py files in order (dropping the ``tests/`` prefix and ``.py`` suffix),
     join the first few with ``_``, and append a short tag for any ``-k`` subset
     so the two test_orbit.py shards get distinct ids. The result contains only
@@ -140,6 +144,13 @@ def shard_id(test_files: str) -> str:
             base += "_energy_fromname"
         elif "not test_energy_jacobi_conservation" in test_files:
             base += "_main"
+    # Disambiguate pytest-split groups (e.g. test_potential.py --splits 5 --group N)
+    # so each split-group uploads a UNIQUE artifact id instead of all colliding on
+    # the same name (which makes download-artifact keep only one -> undercount).
+    # The report's "potential" row merges the _g<N> groups back into one cell via
+    # the _g-prefix rule in match_cell().
+    if "--group" in toks:
+        base += "_g" + toks[toks.index("--group") + 1]
     # Keep it short-ish but unique.
     out = "".join(c if (c.isalnum() or c == "_") else "_" for c in base)
     return out
@@ -234,11 +245,17 @@ def match_cell(filename: str, backend: str, sid: str) -> bool:
     artifact@v4 may nest them under a per-artifact directory. Match on the
     basename containing both the backend token and the sid token, anchored so
     e.g. sid 'test_orbit_test_orbits_main' is not matched by the energy shard.
+
+    A pytest-split shard (sid 'test_potential') is uploaded as several per-group
+    artifacts whose ids carry a ``_g<N>`` suffix (see shard_id); those all belong
+    to the base shard's row and render() merges them, so accept the ``_g<N>``
+    variants in addition to the exact id.
     """
     base = os.path.basename(filename)
     if base.endswith(".xml"):
         base = base[: -len(".xml")]
-    return base == f"backend-junit-{backend}-{sid}"
+    prefix = f"backend-junit-{backend}-{sid}"
+    return base == prefix or base.startswith(prefix + "_g")
 
 
 def ledger_size(ledger_path: str) -> tuple[int, dict[str, int]]:
