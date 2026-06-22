@@ -80,13 +80,34 @@ torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 # (Track E/F) land; numpy still exercises it.
 jax tests/test_qdf.py::test_meanjz_noaac_issue300
 
-# --- jax interpRZ interpolated density (Track A/d interpRZ 2D-interp vectorization) ---
-# interpRZPotential's interpolated density evaluates a 2D spline at many scalar
-# points; #960's coercion routes this through the backend, so under forced-jax each
-# point dispatches an XLA graph and the test exceeds the 300 s per-test timeout
-# (the other jax interp_potential tests are faster or ledgered). Defer until
-# interpRZ's 2D interpolation is backend-vectorized (group d); numpy still runs it.
+# --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
+# interpRZPotential evaluates a coerced potential many times under forced-jax, so each
+# point dispatches its own XLA graph. Two tests exceed the 300 s per-test timeout outright:
+#  - _dens: interpRZ's interpolated 2D density spline, routed through the backend by #960.
+#  - _force: a ~861-point scalar double-loop over MWPotential, a CompositePotential whose
+#    this-PR composite-gate makes it backend-compatible (same eager-jax-per-point cost as
+#    test_streamspraydf::test_center).
+# Three more build their interpolation grid over MWPotential (now composite-gate-coerced)
+# and measured 263-274 s on CI -- within ~30 s of the timeout, so they flake on slower
+# runners (proactive defer, same rationale as test_MultipoleExpansion_deepcopy below):
+#  - test_interpolation_potential_c (263 s), _secondderivs_c (274 s)  [test_interp_potential]
+#  - test_2ndDeriv_potential[mockInterpRZPotentialwSecondDerivs] (263 s)  [test_potential]
+# Defer all until interpRZ is backend-vectorized (group d); numpy runs them, values correct.
 jax tests/test_interp_potential.py::test_interpolation_potential_dens
+jax tests/test_interp_potential.py::test_interpolation_potential_force
+jax tests/test_interp_potential.py::test_interpolation_potential_c
+jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs_c
+jax tests/test_potential.py::test_2ndDeriv_potential[mockInterpRZPotentialwSecondDerivs]
+
+# --- jax actionAngleAdiabatic cylsep timeout (Track E action-angle, not yet jax-migrated) ---
+# test_actionAngleAdiabatic_conserved_actions_cylsep integrates the vertical action over a
+# CylindricallySeparable potential; under forced-jax the integration dispatches eager-jax
+# per step and exceeds the 300 s timeout. Its Adiabatic siblings _linear_angles[_cylsep] and
+# AdiabaticGrid_basicAndConserved_actions already hit 300 s and are jax-xfail-ledgered -- this
+# was the one un-ledgered family member (the only non-xfail jax test >=240 s after the interp
+# cluster above; next-slowest is 195 s). Clean Timeout, not a wrong value; numpy runs it.
+# Defer until action-angle is backend-migrated/vectorized (Track E).
+jax tests/test_actionAngle.py::test_actionAngleAdiabatic_conserved_actions_cylsep
 
 # --- jax dissipative-force + MovingObject/orbit timeouts (#960 coercion ascent) ---
 # #960's coercion newly exercises these under forced-jax: ChandrasekharDynamicalFriction
@@ -125,3 +146,4 @@ jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTilte
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
+jax tests/test_streamspraydf.py::test_center
