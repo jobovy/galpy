@@ -12,7 +12,7 @@ import numpy
 
 from galpy.util import conversion
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from .Potential import (
     _APY_LOADED,
     _evaluatePotentials,
@@ -72,7 +72,11 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
                 "Rp= needs to be given to setup CylindricallySeparablePotentialWrapper"
             )
         self._Rp = conversion.parse_length(Rp, ro=ro)
-        self._refpot = _evaluatePotentials(self._pot, self._Rp, 0.0)
+        # Reference value Phi(Rp,0); coerce the construction-time scalars onto
+        # the active backend (no-op/byte-identical on numpy) so the wrapped
+        # migrated potential is not fed a raw float under a forced backend.
+        _Rp_b, _zero_b = coerce_coords(get_namespace(), self._Rp, 0.0)
+        self._refpot = _evaluatePotentials(self._pot, _Rp_b, _zero_b)
         self.hasC = True
         self._backend_compatible = True
         # Advertise the (planar and 3D) C variational capabilities
