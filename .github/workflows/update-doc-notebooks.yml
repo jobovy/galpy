@@ -38,7 +38,7 @@ jobs:
       }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Verify latest main runs of build.yml and test-doc-notebooks.yml passed
         # Fails the workflow (and emails the author of this file) if the most
         # recent completed run of either workflow on the main branch did not
