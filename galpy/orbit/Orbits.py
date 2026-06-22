@@ -359,7 +359,7 @@ class Orbit:
         if vxvv is None:  # Assume one wants the Sun
             vxvv = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             radec = True
-            self._name = numpy.char.array(["Sun"])
+            self._name = numpy.array(["Sun"])
         elif isinstance(vxvv, (list, tuple)):
             # Robust way to check for None in case of a list of arrays (None in
             # doesn't work then for some reason)
@@ -921,7 +921,9 @@ class Orbit:
                 zo=obs[2],
                 solarmotion=obs[3],
             )
-        out._name = numpy.char.array(name)
+        # ndmin=1 matches numpy.char.array's scalar->1-d promotion (name may be a
+        # single string), so the name property's shape_wrapper indexing still works.
+        out._name = numpy.array(name, ndmin=1)
         return out
 
     @property

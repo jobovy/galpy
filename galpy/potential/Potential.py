@@ -1835,7 +1835,9 @@ class Potential(Force):
         tzz = z2deriv
         tij = -numpy.array([[txx, txy, txz], [tyx, tyy, tyz], [tzx, tzy, tzz]])
         if eigenval:
-            return numpy.linalg.eigvals(tij)
+            # numpy>=2.5 returns complex from eigvals even for this symmetric
+            # (real-eigenvalue) tidal tensor; take the real part (no-op on numpy<2.5).
+            return numpy.real(numpy.linalg.eigvals(tij))
         else:
             return tij
 
@@ -4348,7 +4350,9 @@ def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
     tzz = z2deriv
     tij = -numpy.array([[txx, txy, txz], [tyx, tyy, tyz], [tzx, tzy, tzz]])
     if eigenval:
-        return numpy.linalg.eigvals(tij)
+        # numpy>=2.5 returns complex from eigvals even for this symmetric
+        # (real-eigenvalue) tidal tensor; take the real part (no-op on numpy<2.5).
+        return numpy.real(numpy.linalg.eigvals(tij))
     else:
         return tij
 
