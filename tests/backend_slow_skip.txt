@@ -47,17 +47,15 @@ jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_m
 jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric
 jax tests/test_sphericaldf.py::test_pvr_interpolator_rmax_default_vs_explicit
 
-# --- jax orbit integration: WHOLE FILES deferred (Track D) ---
-# File-level deferral (no "::"): every test in these files is skipped under jax.
-# Orbit integration is not yet backend-migrated -- it is the Track D deliverable
-# (in-backend diffrax/torchdiffeq integrator + C-STM autodiff + jit routing).
-# Until then each jax integration retraces the un-jitted forces per step, so the
-# shard collects 579 tests but only ~120 run before the 4500 s session cap and
-# it self-truncates (never completing, never giving a stable ledger). Deferring
-# the whole jax orbit surface is the honest call: it tests functionality Track D
-# delivers, not a regression. Delete these two lines when Track D lands and the
-# orbit shard runs fast. (torch orbit is handled by its own ledger entries.)
-jax tests/test_orbit.py
+# --- jax multi-orbit (test_orbits.py): WHOLE FILE deferred (Track D) ---
+# File-level deferral (no "::"): every test in test_orbits.py is skipped under jax.
+# Multi-orbit (Orbits, vectorized) integration is not yet backend-migrated -- it is
+# the Track D deliverable (in-backend diffrax/torchdiffeq integrator does single
+# orbits first; multi-orbit follows). Single-orbit (test_orbit.py) is un-deferred:
+# its C-integrator tests run numpy-fast even under forced jax (the integration loop
+# is in C); only the Python-integrator / genuinely-jax-slow minority is ledgered
+# per-test (slow_skip for hangs+crashes, backend_xfail.txt for exception-failures).
+# Delete this line when Track D multi-orbit lands. (torch orbit: own ledger entries.)
 jax tests/test_orbits.py
 
 # --- jax/torch FDM dynamical friction (Track A group-b dissipative migration) ---
@@ -147,3 +145,64 @@ jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTilte
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
 jax tests/test_streamspraydf.py::test_center
+
+# --- jax single-orbit: variational/dxdv/lyapunov battery (Track D) ---
+# These integrate the 6D STM or compare the C STM against a *Python* reference
+# integrator (method='dop853'); under forced jax the un-jitted Python reference
+# steps per-force-call (~1 ms each) and exceeds the per-test budget. They validate
+# C-vs-Python STM numerics, which the numpy run already covers; the differentiable
+# in-backend (diffrax/torchdiffeq) STM is covered by tests/test_backend_orbit_stm.py.
+jax tests/test_orbit.py::test_SOS_3D
+jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow
+jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[const_lnLambda]
+jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[minr_gate]
+jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[rhm_coulomb_log]
+jax tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[sigma_clamp]
+jax tests/test_orbit.py::test_chandrasekhar_dxdv_phase_volume_law
+jax tests/test_orbit.py::test_dissipative_dxdv_python_raises
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[CorotatingRotationWrapperPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[OblateStaeckelWrapperPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_oblate]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_triaxial]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[PowerTriaxialPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_norot_offset]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_offset]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialGaussianPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialHernquistPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialJaffePotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialNFWPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TwoPowerTriaxialPotential]
+jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow
+jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_FDMfactor]
+jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_lnLambda_cdm_cutoff]
+jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[intermediate]
+jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[minr_gate]
+jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[rhm_coulomb_log_cdm_cutoff]
+jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[sigma_clamp]
+jax tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[zerovel]
+jax tests/test_orbit.py::test_fdm_dxdv_phase_volume_law
+jax tests/test_orbit.py::test_interprz_dxdv_3d
+jax tests/test_orbit.py::test_liouville_3d[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
+jax tests/test_orbit.py::test_liouville_planar
+jax tests/test_orbit.py::test_lyapunov_c_vs_python
+jax tests/test_orbit.py::test_lyapunov_spectrum_api
+jax tests/test_orbit.py::test_lyapunov_spectrum_consistency
+jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic
+jax tests/test_orbit.py::test_movingobject_dxdv_3d_c_vs_python
+jax tests/test_orbit.py::test_spherical_dxdv_3d_c_vs_python_extra
+
+# --- jax single-orbit: misc slow (no-C-force potentials + Python-integrator paths) ---
+# energy/Jacobi over no-C-force potentials (Ferrers/*NoC: C integrator falls back to
+# Python force eval) + a few integrate paths that step in Python under jax. Track A
+# force vectorization / Track D in-backend default will let these un-defer.
+jax tests/test_orbit.py::test_energy_conservation_linear[FerrersPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[FerrersPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[RazorThinExponentialDiskPotential--10.0--9.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[mockSpecialRotatingFlatSpiralArmsPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[nestedListPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_integrate_backwards
+jax tests/test_orbit.py::test_integrate_negative_time
+jax tests/test_orbit.py::test_integrate_notevenlyspaced_ok
+jax tests/test_orbit.py::test_zmax

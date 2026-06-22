@@ -1353,3 +1353,18 @@ torch tests/test_streamdf.py::test_bovy14_sampleXY
 torch tests/test_streamdf.py::test_callArgs
 torch tests/test_streamdf.py::test_closest_trackpoint
 torch tests/test_streamdf.py::test_closest_trackpointaA
+
+# --- jax single-orbit: action-angle accessors (Track E) ---
+# o.jr()/jz()/e()/zmax()/rperi()/rap() and physical/quantity/plotting paths that call
+# them route through actionAngleStaeckel_c, which is not yet backend-migrated (Track E):
+# it hits numpy .flags on a jax array or NotImplementedError. Un-xfail when Track E lands.
+jax tests/test_orbit.py::test_analytic_ecc_rperi_rap
+jax tests/test_orbit.py::test_analytic_zmax
+jax tests/test_orbit.py::test_full_plotting
+jax tests/test_orbit.py::test_orbit_method_inputro_quantity
+jax tests/test_orbit.py::test_orbit_method_inputvo_quantity
+jax tests/test_orbit.py::test_physical_output
+jax tests/test_orbit.py::test_physical_output_off
+jax tests/test_orbit.py::test_physical_output_on
+jax tests/test_orbit.py::test_scalar_all
+jax tests/test_orbit.py::test_scalarxyvzvz_issue247
