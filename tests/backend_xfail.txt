@@ -1368,3 +1368,16 @@ jax tests/test_orbit.py::test_physical_output_off
 jax tests/test_orbit.py::test_physical_output_on
 jax tests/test_orbit.py::test_scalar_all
 jax tests/test_orbit.py::test_scalarxyvzvz_issue247
+
+# --- jax multi-orbit (test_orbits.py): action-angle accessors (Track E) ---
+# Orbits.jr()/actionsFreqsAngles()/EccZmaxRperiRap()/physical-output route through
+# actionAngleStaeckel_c (not yet backend-migrated, Track E) -- same root cause as
+# the single-orbit action-angle xfails. Un-xfail when Track E lands.
+jax tests/test_orbits.py::test_EccZmaxRperiRap_analytic_againstorbit_3d
+jax tests/test_orbits.py::test_actionsFreqsAngles_againstorbit_2d
+jax tests/test_orbits.py::test_actionsFreqsAngles_againstorbit_3d
+jax tests/test_orbits.py::test_actionsFreqsAngles_isochroneapproxb
+jax tests/test_orbits.py::test_actionsFreqsAngles_output_shape
+jax tests/test_orbits.py::test_actionsFreqsAngles_staeckeldelta
+jax tests/test_orbits.py::test_physical_output_off
+jax tests/test_orbits.py::test_physical_output_on

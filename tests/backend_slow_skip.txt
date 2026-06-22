@@ -47,16 +47,23 @@ jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_m
 jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric
 jax tests/test_sphericaldf.py::test_pvr_interpolator_rmax_default_vs_explicit
 
-# --- jax multi-orbit (test_orbits.py): WHOLE FILE deferred (Track D) ---
-# File-level deferral (no "::"): every test in test_orbits.py is skipped under jax.
-# Multi-orbit (Orbits, vectorized) integration is not yet backend-migrated -- it is
-# the Track D deliverable (in-backend diffrax/torchdiffeq integrator does single
-# orbits first; multi-orbit follows). Single-orbit (test_orbit.py) is un-deferred:
-# its C-integrator tests run numpy-fast even under forced jax (the integration loop
-# is in C); only the Python-integrator / genuinely-jax-slow minority is ledgered
-# per-test (slow_skip for hangs+crashes, backend_xfail.txt for exception-failures).
-# Delete this line when Track D multi-orbit lands. (torch orbit: own ledger entries.)
-jax tests/test_orbits.py
+# --- jax multi-orbit (test_orbits.py): slow battery (Track D/E) ---
+# Surface-of-section, multi-orbit dxdv (Python STM reference), C-fallback,
+# rE/LcE root-finds and Chandrasekhar friction integrate orbits under forced
+# jax and exceed the per-test budget (same eager-per-step cost as single-orbit;
+# numpy covers them). Un-defer as Track D in-backend vectorization lands.
+jax tests/test_orbits.py::test_ChandrasekharDynamicalFrictionForce_constLambda
+jax tests/test_orbits.py::test_LcE
+jax tests/test_orbits.py::test_SOS_2Dx
+jax tests/test_orbits.py::test_SOS_2Dy
+jax tests/test_orbits.py::test_SOS_3D
+jax tests/test_orbits.py::test_bruteSOS_2Dx
+jax tests/test_orbits.py::test_bruteSOS_2Dy
+jax tests/test_orbits.py::test_integrate_Cfallback_nonsymplec
+jax tests/test_orbits.py::test_integrate_Cfallback_symplec
+jax tests/test_orbits.py::test_integration_dxdv_2d
+jax tests/test_orbits.py::test_integration_dxdv_2d_rectInOut
+jax tests/test_orbits.py::test_rE
 
 # --- jax/torch FDM dynamical friction (Track A group-b dissipative migration) ---
 # The FDM friction force is not yet backend-vectorized: frictionFactor uses
