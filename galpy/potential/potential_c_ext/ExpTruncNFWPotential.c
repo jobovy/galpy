@@ -45,8 +45,6 @@ double ExpTruncNFWPotentialrevaluate(double r, double t,
   //Get args
   double a = *(args + 1);
   double rc = *(args + 2);
-  if (r == 0.)
-    return -ExpTruncNFW_G(0., a, rc);
   return -(ExpTruncNFW_F(r, a, rc) / r + ExpTruncNFW_G(r, a, rc));
 }
 double ExpTruncNFWPotentialrforce(double r, double t,
@@ -55,8 +53,6 @@ double ExpTruncNFWPotentialrforce(double r, double t,
   //Get args
   double a = *(args + 1);
   double rc = *(args + 2);
-  if (r == 0.)
-    return -0.5 / (a * a);
   return -ExpTruncNFW_F(r, a, rc) / (r * r);
 }
 double ExpTruncNFWPotentialr2deriv(double r, double t,
