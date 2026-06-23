@@ -20,10 +20,26 @@ import pytest
 
 from galpy.orbit import Orbit
 from galpy.potential import (
+    BurkertPotential,
+    DehnenBarPotential,
+    DehnenCoreSphericalPotential,
+    DoubleExponentialDiskPotential,
+    HernquistPotential,
     IsochronePotential,
     IsothermalDiskPotential,
+    JaffePotential,
     MiyamotoNagaiPotential,
+    MN3ExponentialDiskPotential,
+    NFWPotential,
+    PerfectEllipsoidPotential,
     PlummerPotential,
+    PowerSphericalPotentialwCutoff,
+    SCFPotential,
+    SoftenedNeedleBarPotential,
+    SpiralArmsPotential,
+    TriaxialHernquistPotential,
+    TriaxialNFWPotential,
+    TwoPowerSphericalPotential,
 )
 
 pytestmark = pytest.mark.backend_managed
@@ -52,9 +68,43 @@ except ImportError:  # pragma: no cover
 
 _IC = [1.0, 0.1, 0.9, 0.2, 0.05, 0.3]  # R, vR, vT, z, vz, phi
 _TS = numpy.linspace(0.0, 6.0, 120)
+# Broad potential sweep at the tight rtol=1e-8 trajectory-match tolerance (the
+# wired Orbit.integrate path). These 17 families hit 1e-8 vs the C dop853_c
+# reference over t=0..6; the cusped/stiff potentials where diffrax achieves only
+# ~1e-8 (DehnenSpherical/Kepler/PowerSpherical/LogHalo/FlattenedPower) are covered
+# at rtol=1e-6 in test_backend_inbackend_ode.py instead.
 _POTS = [
     ("Plummer", PlummerPotential(amp=1.0, b=0.6)),
     ("Isochrone", IsochronePotential(amp=1.0, b=0.8)),
+    ("Hernquist", HernquistPotential(amp=1.0, a=0.7)),
+    ("NFW", NFWPotential(amp=1.0, a=1.5)),
+    ("Jaffe", JaffePotential(amp=1.0, a=0.7)),
+    ("DehnenCoreSpherical", DehnenCoreSphericalPotential(amp=1.0, a=1.0)),
+    (
+        "PowerSphericalwCutoff",
+        PowerSphericalPotentialwCutoff(amp=1.0, alpha=1.0, rc=1.0),
+    ),
+    ("Burkert", BurkertPotential(amp=1.0, a=1.0)),
+    (
+        "TwoPowerSpherical",
+        TwoPowerSphericalPotential(amp=1.0, a=1.0, alpha=1.0, beta=3.0),
+    ),
+    ("MiyamotoNagai", MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1)),
+    (
+        "DoubleExponentialDisk",
+        DoubleExponentialDiskPotential(amp=1.0, hr=1.0 / 3.0, hz=1.0 / 16.0),
+    ),
+    (
+        "MN3ExponentialDisk",
+        MN3ExponentialDiskPotential(amp=1.0, hr=1.0 / 3.0, hz=1.0 / 16.0),
+    ),
+    ("TriaxialNFW", TriaxialNFWPotential(amp=1.0, a=1.0, b=0.8, c=0.6)),
+    ("PerfectEllipsoid", PerfectEllipsoidPotential(amp=1.0, a=1.0, b=0.9, c=0.7)),
+    ("TriaxialHernquist", TriaxialHernquistPotential(amp=1.0, a=1.0, b=0.8, c=0.6)),
+    ("DehnenBar", DehnenBarPotential()),
+    ("SoftenedNeedleBar", SoftenedNeedleBarPotential(amp=1.0, a=1.0, b=0.1, c=0.5)),
+    ("SpiralArms", SpiralArmsPotential()),
+    ("SCF", SCFPotential(amp=1.0)),
 ]
 
 
