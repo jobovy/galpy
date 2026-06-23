@@ -1569,6 +1569,7 @@ def test_eddington_differentpotentials_dens_directint():
         potential.PowerSphericalPotential(amp=1.3, alpha=1.9),
         potential.PlummerPotential(amp=2.3, b=1.3),
         potential.PowerSphericalPotentialwCutoff(amp=1.3, alpha=1.9, rc=1.2),
+        potential.ExpTruncNFWPotential(amp=1.3, a=1.5, rc=8.0),
     ]
     tols = [1e-3 for pot in pots]
     for pot, tol in zip(pots, tols):
@@ -1590,6 +1591,7 @@ def test_eddington_differentpotentials_dMdE_integral():
     pots = [
         potential.PlummerPotential(amp=2.3, b=1.3),
         potential.PowerSphericalPotentialwCutoff(amp=1.3, alpha=1.9, rc=1.2),
+        potential.ExpTruncNFWPotential(amp=1.3, a=1.5, rc=8.0),
     ]
     tols = [1e-6 for pot in pots]
     for pot, tol in zip(pots, tols):
