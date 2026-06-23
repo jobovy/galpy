@@ -1,6 +1,21 @@
 import os
 
+import numpy
 import pytest
+
+
+def _to_numpy(x):
+    """Coerce a (possibly jax/torch) Orbit-accessor result to a numpy array so
+    value assertions in the orbit tests are backend-agnostic. Under a forced
+    backend the accessors return jax/torch arrays; this brings them back to numpy
+    for ``numpy.amax``/``all``/``std``/... A numpy input passes through unchanged
+    (``numpy.asarray`` is the identity), so the numpy path stays byte-identical.
+    Shared by test_orbit.py and test_orbits.py (imported via ``from conftest
+    import _to_numpy``)."""
+    if hasattr(x, "detach"):  # torch tensor: detach from autograd + move to CPU
+        x = x.detach().cpu()
+    return numpy.asarray(x)
+
 
 # ---------------------------------------------------------------------------
 # Backend xfail-ledger
