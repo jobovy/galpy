@@ -2119,8 +2119,9 @@ class Orbit:
         """Warn if the integrated orbit(s) visited radii outside of the
         interpolation range [rmin, rmax] of the potential potname"""
         rs = self.r(self.t, use_physical=False)
-        outside = numpy.any((rs < rmin) | (rs > rmax), axis=-1)
-        if not numpy.any(outside):
+        xp = get_namespace(rs)
+        outside = xp.any((rs < rmin) | (rs > rmax), axis=-1)
+        if not xp.any(outside):
             return
         if self.shape == ():
             warnings.warn(
@@ -3819,8 +3820,9 @@ class Orbit:
                 "Integrate the orbit first or use analytic=True for approximate eccentricity"
             )
         rs = self.r(self.t, use_physical=False, dontreshape=True)
-        return (numpy.amax(rs, axis=-1) - numpy.amin(rs, axis=-1)) / (
-            numpy.amax(rs, axis=-1) + numpy.amin(rs, axis=-1)
+        xp = get_namespace(rs)
+        return (xp.max(rs, axis=-1) - xp.min(rs, axis=-1)) / (
+            xp.max(rs, axis=-1) + xp.min(rs, axis=-1)
         )
 
     @physical_conversion("position")
@@ -3868,7 +3870,8 @@ class Orbit:
                 "Integrate the orbit first or use analytic=True for approximate eccentricity"
             )
         rs = self.r(self.t, use_physical=False, dontreshape=True)
-        return numpy.amax(rs, axis=-1)
+        xp = get_namespace(rs)
+        return xp.max(rs, axis=-1)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -3915,7 +3918,8 @@ class Orbit:
                 "Integrate the orbit first or use analytic=True for approximate eccentricity"
             )
         rs = self.r(self.t, use_physical=False, dontreshape=True)
-        return numpy.amin(rs, axis=-1)
+        xp = get_namespace(rs)
+        return xp.min(rs, axis=-1)
 
     @physical_conversion("position")
     @shapeDecorator
@@ -4147,9 +4151,9 @@ class Orbit:
             raise AttributeError(
                 "Integrate the orbit first or use analytic=True for approximate eccentricity"
             )
-        return numpy.amax(
-            numpy.fabs(self.z(self.t, use_physical=False, dontreshape=True)), axis=-1
-        )
+        zs = self.z(self.t, use_physical=False, dontreshape=True)
+        xp = get_namespace(zs)
+        return xp.max(xp.abs(zs), axis=-1)
 
     @physical_conversion("action")
     @shapeDecorator
