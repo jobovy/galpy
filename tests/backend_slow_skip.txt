@@ -233,3 +233,24 @@ torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[rhm_coulomb_log_cdm
 torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[sigma_clamp]
 torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[zerovel]
 torch tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic
+
+# --- jax/torch from_name: SIMBAD network dependency (not backend-deterministic) ---
+# Orbit.from_name() looks up objects over the network (SIMBAD sim-tap); the lookup
+# flakes when the service is unreachable (DALServiceError -> un-ledgered failure
+# that fails the strict backend gate; seen on the jax orbit shard). These add ~no
+# unique backend coverage (the from_name coordinate transforms are exercised by the
+# coords/from_vxvv tests); numpy's build.yml still runs them. slow_skip under both
+# backends so a SIMBAD outage can't block the all-backend gate. (solarsystem uses a
+# local ephemeris, not SIMBAD, so it is NOT skipped.)
+jax tests/test_orbit.py::test_from_name_collections
+jax tests/test_orbit.py::test_from_name_errors
+jax tests/test_orbit.py::test_from_name_named
+jax tests/test_orbit.py::test_from_name_values
+jax tests/test_orbits.py::test_from_name_name
+jax tests/test_orbits.py::test_from_name_values
+torch tests/test_orbit.py::test_from_name_collections
+torch tests/test_orbit.py::test_from_name_errors
+torch tests/test_orbit.py::test_from_name_named
+torch tests/test_orbit.py::test_from_name_values
+torch tests/test_orbits.py::test_from_name_name
+torch tests/test_orbits.py::test_from_name_values
