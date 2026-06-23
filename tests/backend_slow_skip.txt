@@ -233,3 +233,75 @@ torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[rhm_coulomb_log_cdm
 torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[sigma_clamp]
 torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[zerovel]
 torch tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic
+
+# --- jax orbit: heavy eager-jax tests (>~45s) -- per-CI-group session-cap fit ---
+# Variational/wrapper/sigint/triaxial-liouville tests run 45-150s each on the dev
+# box (~2.4x on the CI runner); even 5-way duration-split, a group clustering several
+# overflows the 4500s shard cap (jax orbit group 3 timed out). Defer the heaviest
+# until Track D vectorization; the faster majority stays un-deferred. numpy runs all.
+jax tests/test_orbit.py::test_SOS_2Dx
+jax tests/test_orbit.py::test_SOS_2Dy
+jax tests/test_orbit.py::test_apocenter
+jax tests/test_orbit.py::test_bruteSOS_3D
+jax tests/test_orbit.py::test_dehnenbar_dxdv_inside_rb_c_vs_python
+jax tests/test_orbit.py::test_doubleexp_dxdv_3d_c_vs_python
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[GaussianAmplitudeWrapperPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[KuzminKutuzovStaeckelPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[KuzminLikeWrapperPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[LogarithmicHaloPotential_triaxial]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[MN3ExponentialDiskPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[MWPotential2014]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential_static]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[SpiralArmsPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TimeDependentAmplitudeWrapperPotential]
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[TwoPowerSphericalPotential]
+jax tests/test_orbit.py::test_energy_conservation_linear[BurkertPotentialNoC--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[RazorThinExponentialDiskPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[mockRotatedAndTiltedMWP14WrapperPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_conservation_linear[nestedListPotential--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[AnySphericalPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[DoubleExponentialDiskPotential--6.0--6.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatCorotatingRotationSpiralArmsPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSolidBodyRotationPlanarSpiralArmsPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSolidBodyRotationSpiralArmsPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSpiralArmsPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[mockRotatedAndTiltedMWP14WrapperPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_energy_jacobi_conservation[mockRotatingFlatSpiralArmsPotential--10.0--10.0-False]
+jax tests/test_orbit.py::test_integrate_SOS_2D
+jax tests/test_orbit.py::test_integrate_SOS_3D
+jax tests/test_orbit.py::test_integrate_dxdv_3d_base_orbit_integrity
+jax tests/test_orbit.py::test_integrate_dxdv_3d_staeckelwrappers_require_wrapped_hessian
+jax tests/test_orbit.py::test_integrate_indiv_t_3D
+jax tests/test_orbit.py::test_integrate_indiv_t_python_paths
+jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_oblate]
+jax tests/test_orbit.py::test_liouville_3d[PerfectEllipsoidPotential_triaxial]
+jax tests/test_orbit.py::test_liouville_3d[PowerTriaxialPotential]
+jax tests/test_orbit.py::test_liouville_3d[TriaxialGaussianPotential]
+jax tests/test_orbit.py::test_liouville_3d[TriaxialHernquistPotential]
+jax tests/test_orbit.py::test_liouville_3d[TriaxialJaffePotential]
+jax tests/test_orbit.py::test_liouville_3d[TriaxialNFWPotential]
+jax tests/test_orbit.py::test_liouville_3d[TwoPowerTriaxialPotential]
+jax tests/test_orbit.py::test_liouville_3d_nonaxi_flow
+jax tests/test_orbit.py::test_logspiral_planar_dxdv_c_vs_python
+jax tests/test_orbit.py::test_lyapunov_spectrum_integrable
+jax tests/test_orbit.py::test_oblatestaeckelwrapper_dxdv_planar_c_vs_python
+jax tests/test_orbit.py::test_orbit_LcE
+jax tests/test_orbit.py::test_orbit_LcE_planar
+jax tests/test_orbit.py::test_orbit_c_sigint_full
+jax tests/test_orbit.py::test_orbit_c_sigint_planar
+jax tests/test_orbit.py::test_orbit_c_sigint_planardxdv
+jax tests/test_orbit.py::test_orbit_rE
+jax tests/test_orbit.py::test_orbit_rE_planar
+jax tests/test_orbit.py::test_orbit_rguiding
+jax tests/test_orbit.py::test_orbit_rguiding_planar
+jax tests/test_orbit.py::test_pericenter
+jax tests/test_orbit.py::test_softenedneedlebar_planar_dxdv_c_vs_python
+jax tests/test_orbit.py::test_softenedneedlebar_planar_dxdv_fd_of_flow
+jax tests/test_orbit.py::test_wrapper_complicatedsequence_2d
+jax tests/test_orbit.py::test_wrapper_complicatedsequence_3d
+jax tests/test_orbit.py::test_wrapper_followedbyanotherpotential_2d
+jax tests/test_orbit.py::test_wrapper_followedbyanotherpotential_3d
+jax tests/test_orbits.py::test_bruteSOS_3D
+jax tests/test_orbits.py::test_energy_jacobi_angmom
+jax tests/test_orbits.py::test_rguiding
