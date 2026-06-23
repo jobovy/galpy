@@ -431,3 +431,41 @@ def test_mass_scalar_only_torch_matches_numpy():
     got_sph = hp.mass(torch.as_tensor(4.2), torch.as_tensor(1.3), use_physical=False)
     assert isinstance(got_sph, torch.Tensor)
     _np.testing.assert_allclose(float(got_sph), float(ref_sph), rtol=1e-6)
+
+
+# --------------------------------------------------------------------- normalize
+# Potential.normalize() does _amp *= norm / abs(Rforce(1,0)). Under a forced
+# backend Rforce(1,0) is a backend tensor for a migrated potential (here) and a
+# python float on a scalar fast-path (e.g. RazorThin), so the magnitude uses the
+# builtin abs() -- backend-agnostic (stays float/ndarray/Tensor/jax.Array) and
+# byte-identical to the old numpy.fabs on the numpy scalar.
+@pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("norm", [1.0, 0.6])
+def test_normalize_torch_backend(norm):
+    from galpy import backend
+
+    ref_amp = MiyamotoNagaiPotential(a=0.5, b=0.1, normalize=norm)._amp  # numpy
+    with backend.use("torch", force=True):
+        p = MiyamotoNagaiPotential(a=0.5, b=0.1, normalize=norm)
+        amp = p._amp  # construction (-> normalize) under forced torch must not crash
+        rf = p.Rforce(1.0, 0.0, use_physical=False)
+    # amp stays on-backend (differentiable) and equals the numpy amp byte-for-byte
+    assert torch.is_tensor(amp)
+    numpy.testing.assert_allclose(float(numpy.asarray(amp)), float(ref_amp), rtol=1e-12)
+    # and the normalization actually holds: |Rforce(1,0)| == norm
+    numpy.testing.assert_allclose(float(numpy.asarray(rf)), -norm, rtol=1e-10)
+
+
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+@pytest.mark.parametrize("norm", [1.0, 0.6])
+def test_normalize_jax_backend(norm):
+    from galpy import backend
+
+    ref_amp = MiyamotoNagaiPotential(a=0.5, b=0.1, normalize=norm)._amp  # numpy
+    with backend.use("jax", force=True):
+        p = MiyamotoNagaiPotential(a=0.5, b=0.1, normalize=norm)
+        amp = p._amp
+        rf = p.Rforce(1.0, 0.0, use_physical=False)
+    assert "jax" in type(amp).__module__
+    numpy.testing.assert_allclose(float(numpy.asarray(amp)), float(ref_amp), rtol=1e-12)
+    numpy.testing.assert_allclose(float(numpy.asarray(rf)), -norm, rtol=1e-10)
