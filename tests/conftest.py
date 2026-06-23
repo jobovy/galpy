@@ -115,6 +115,25 @@ def _load_slow_skip(backend_name):
     return _load_backend_nodeids(_slow_skip_path(), backend_name)
 
 
+# Tests skipped under a backend because they exercise NO backend-relevant code and
+# depend on a flaky external service (e.g. Orbit.from_name's SIMBAD network lookup),
+# so running them under a forced backend only risks flaking the deterministic
+# all-backend gate for ~zero coverage. Distinct from backend_slow_skip.txt
+# (slow-but-meaningful, a burndown that shrinks as ports vectorize): these are a
+# PERMANENT exclusion, not pending work, so they are NOT part of any burndown.
+# numpy still exercises them. Same "<backend> <nodeid>" format.
+_BACKEND_SKIP_FILENAME = "backend_skip.txt"
+
+
+def _backend_skip_path():
+    return os.path.join(os.path.dirname(__file__), _BACKEND_SKIP_FILENAME)
+
+
+def _load_backend_skip(backend_name):
+    """Return the set of backend-exempt nodeids for the given backend (or empty)."""
+    return _load_backend_nodeids(_backend_skip_path(), backend_name)
+
+
 def pytest_addoption(parser):
     # Force a single array backend for the whole run (numpy|jax|torch). With
     # numpy (default) this is a no-op, so the existing suite is unchanged.
@@ -184,6 +203,19 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if _matches(item.nodeid, slow_skip):
                 item.add_marker(skip_marker)
+                skipped_ids.add(item.nodeid)
+    # Backend-exempt tests (no backend-relevant code + flaky external dependency):
+    # skip in all modes, with a reason distinct from slow-skip so the burndown
+    # tooling never counts them as deferred-pending-vectorization work.
+    backend_skip = _load_backend_skip(backend_name)
+    if backend_skip:
+        exempt_marker = pytest.mark.skip(
+            reason=f"backend-skip: not backend-meaningful under {backend_name} "
+            "(external-service/network/flaky); see tests/backend_skip.txt"
+        )
+        for item in items:
+            if item.nodeid not in skipped_ids and _matches(item.nodeid, backend_skip):
+                item.add_marker(exempt_marker)
                 skipped_ids.add(item.nodeid)
     if os.environ.get(_REGEN_ENV) == "1":
         # regenerate: let everything (not slow-skipped) run; pytest_sessionfinish
