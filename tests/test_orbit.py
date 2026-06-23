@@ -14,6 +14,7 @@ import time
 import astropy
 import numpy
 import pytest
+from conftest import _to_numpy
 
 PY2 = sys.version < "3"
 _APY3 = astropy.__version__ > "3"
@@ -759,7 +760,7 @@ def test_energy_symplec_longterm():
                 ttol = tol["default"]
             o = setup_orbit_energy(tp)
             o.integrate(times, tp, method=integrator)
-            tEs = o.E(times)
+            tEs = _to_numpy(o.E(times))
             #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             #            print p, ((numpy.mean(o.E(times[0:20]))-numpy.mean(o.E(times[-20:-1])))/numpy.mean(tEs))**2.
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
@@ -5911,7 +5912,7 @@ def test_integrate_SOS_2D():
     for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
         for surface in ["x", "y"]:
             o.integrate_SOS(psis, pot, method=method)  # default is surface='x'
-            Es = o.E(o.t)
+            Es = _to_numpy(o.E(o.t))
             assert (numpy.std(Es) / numpy.mean(Es)) ** 2.0 < 10.0**-10, (
                 f"Energy is not conserved by integrate_sos for method={method} and surface={surface}"
             )
@@ -7946,8 +7947,8 @@ def test_ER_EZ():
     for o in os:
         times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
         o.integrate(times, MWPotential)
-        ERs = o.ER(times)
-        Ezs = o.Ez(times)
+        ERs = _to_numpy(o.ER(times))
+        Ezs = _to_numpy(o.Ez(times))
         ERdiff = numpy.fabs(numpy.std(ERs - numpy.mean(ERs)) / numpy.mean(ERs))
         assert ERdiff < 10.0**-4.0, (
             "ER conservation for orbits close to the plane in MWPotential fails at %g%%"
@@ -7959,18 +7960,22 @@ def test_ER_EZ():
             % (100.0 * Ezdiff)
         )
         # Some basic checking
-        assert numpy.fabs(o.ER() - o.ER(pot=MWPotential)) < 10.0**-16.0, (
-            "o.ER() not equal to o.ER(pot=)"
-        )
-        assert numpy.fabs(o.Ez() - o.Ez(pot=MWPotential)) < 10.0**-16.0, (
-            "o.ER() not equal to o.Ez(pot=)"
-        )
-        assert numpy.fabs(o.ER(pot=None) - o.ER(pot=MWPotential)) < 10.0**-16.0, (
-            "o.ER() not equal to o.ER(pot=)"
-        )
-        assert numpy.fabs(o.Ez(pot=None) - o.Ez(pot=MWPotential)) < 10.0**-16.0, (
-            "o.ER() not equal to o.Ez(pot=)"
-        )
+        assert (
+            numpy.fabs(_to_numpy(o.ER()) - _to_numpy(o.ER(pot=MWPotential)))
+            < 10.0**-16.0
+        ), "o.ER() not equal to o.ER(pot=)"
+        assert (
+            numpy.fabs(_to_numpy(o.Ez()) - _to_numpy(o.Ez(pot=MWPotential)))
+            < 10.0**-16.0
+        ), "o.ER() not equal to o.Ez(pot=)"
+        assert (
+            numpy.fabs(_to_numpy(o.ER(pot=None)) - _to_numpy(o.ER(pot=MWPotential)))
+            < 10.0**-16.0
+        ), "o.ER() not equal to o.ER(pot=)"
+        assert (
+            numpy.fabs(_to_numpy(o.Ez(pot=None)) - _to_numpy(o.Ez(pot=MWPotential)))
+            < 10.0**-16.0
+        ), "o.ER() not equal to o.Ez(pot=)"
     o = setup_orbit_analytic_EREz(MWPotential, axi=False)
     try:
         o.Ez()
@@ -10671,17 +10676,17 @@ def test_scalarxyvzvz_issue247():
     # Setup an orbit
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
     o = setup_orbit_energy(lp, axi=False)
-    assert isinstance(o.x(), float), "Orbit.x() does not return a scalar"
-    assert isinstance(o.y(), float), "Orbit.y() does not return a scalar"
-    assert isinstance(o.vx(), float), "Orbit.vx() does not return a scalar"
-    assert isinstance(o.vy(), float), "Orbit.vy() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.x())) == 0, "Orbit.x() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.y())) == 0, "Orbit.y() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vx())) == 0, "Orbit.vx() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vy())) == 0, "Orbit.vy() does not return a scalar"
     # Also integrate and then test
     times = numpy.linspace(0.0, 10.0, 1001)
     o.integrate(times, lp)
-    assert isinstance(o.x(5.0), float), "Orbit.x() does not return a scalar"
-    assert isinstance(o.y(5.0), float), "Orbit.y() does not return a scalar"
-    assert isinstance(o.vx(5.0), float), "Orbit.vx() does not return a scalar"
-    assert isinstance(o.vy(5.0), float), "Orbit.vy() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.x(5.0))) == 0, "Orbit.x() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.y(5.0))) == 0, "Orbit.y() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vx(5.0))) == 0, "Orbit.vx() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vy(5.0))) == 0, "Orbit.vy() does not return a scalar"
     return None
 
 
@@ -10691,87 +10696,139 @@ def test_scalar_all():
     # Setup an orbit
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
     o = setup_orbit_energy(lp, axi=False)
-    assert isinstance(o.R(), float), "Orbit.R() does not return a scalar"
-    assert isinstance(o.vR(), float), "Orbit.vR() does not return a scalar"
-    assert isinstance(o.vT(), float), "Orbit.vT() does not return a scalar"
-    assert isinstance(o.z(), float), "Orbit.z() does not return a scalar"
-    assert isinstance(o.vz(), float), "Orbit.vz() does not return a scalar"
-    assert isinstance(o.phi(), float), "Orbit.phi() does not return a scalar"
-    assert isinstance(o.r(), float), "Orbit.r() does not return a scalar"
-    assert isinstance(o.x(), float), "Orbit.x() does not return a scalar"
-    assert isinstance(o.y(), float), "Orbit.y() does not return a scalar"
-    assert isinstance(o.vx(), float), "Orbit.vx() does not return a scalar"
-    assert isinstance(o.vy(), float), "Orbit.vy() does not return a scalar"
-    assert isinstance(o.theta(), float), "Orbit.theta() does not return a scalar"
-    assert isinstance(o.vtheta(), float), "Orbit.vtheta() does not return a scalar"
-    assert isinstance(o.vr(), float), "Orbit.vr() does not return a scalar"
-    assert isinstance(o.ra(), float), "Orbit.ra() does not return a scalar"
-    assert isinstance(o.dec(), float), "Orbit.dec() does not return a scalar"
-    assert isinstance(o.ll(), float), "Orbit.ll() does not return a scalar"
-    assert isinstance(o.bb(), float), "Orbit.bb() does not return a scalar"
-    assert isinstance(o.dist(), float), "Orbit.dist() does not return a scalar"
-    assert isinstance(o.pmra(), float), "Orbit.pmra() does not return a scalar"
-    assert isinstance(o.pmdec(), float), "Orbit.pmdec() does not return a scalar"
-    assert isinstance(o.pmll(), float), "Orbit.pmll() does not return a scalar"
-    assert isinstance(o.pmbb(), float), "Orbit.pmbb() does not return a scalar"
-    assert isinstance(o.vra(), float), "Orbit.vra() does not return a scalar"
-    assert isinstance(o.vdec(), float), "Orbit.vdec() does not return a scalar"
-    assert isinstance(o.vll(), float), "Orbit.vll() does not return a scalar"
-    assert isinstance(o.vbb(), float), "Orbit.vbb() does not return a scalar"
-    assert isinstance(o.vlos(), float), "Orbit.vlos() does not return a scalar"
-    assert isinstance(o.helioX(), float), "Orbit.helioX() does not return a scalar"
-    assert isinstance(o.helioY(), float), "Orbit.helioY() does not return a scalar"
-    assert isinstance(o.helioZ(), float), "Orbit.helioZ() does not return a scalar"
-    assert isinstance(o.U(), float), "Orbit.U() does not return a scalar"
-    assert isinstance(o.V(), float), "Orbit.V() does not return a scalar"
-    assert isinstance(o.W(), float), "Orbit.W() does not return a scalar"
-    assert isinstance(o.E(pot=lp), float), "Orbit.E() does not return a scalar"
-    assert isinstance(o.Jacobi(pot=lp), float), (
+    assert numpy.ndim(_to_numpy(o.R())) == 0, "Orbit.R() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vR())) == 0, "Orbit.vR() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vT())) == 0, "Orbit.vT() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.z())) == 0, "Orbit.z() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vz())) == 0, "Orbit.vz() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.phi())) == 0, "Orbit.phi() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.r())) == 0, "Orbit.r() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.x())) == 0, "Orbit.x() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.y())) == 0, "Orbit.y() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vx())) == 0, "Orbit.vx() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vy())) == 0, "Orbit.vy() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.theta())) == 0, (
+        "Orbit.theta() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vtheta())) == 0, (
+        "Orbit.vtheta() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vr())) == 0, "Orbit.vr() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.ra())) == 0, "Orbit.ra() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.dec())) == 0, "Orbit.dec() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.ll())) == 0, "Orbit.ll() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.bb())) == 0, "Orbit.bb() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.dist())) == 0, "Orbit.dist() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.pmra())) == 0, "Orbit.pmra() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.pmdec())) == 0, (
+        "Orbit.pmdec() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmll())) == 0, "Orbit.pmll() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.pmbb())) == 0, "Orbit.pmbb() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vra())) == 0, "Orbit.vra() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vdec())) == 0, "Orbit.vdec() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vll())) == 0, "Orbit.vll() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vbb())) == 0, "Orbit.vbb() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vlos())) == 0, "Orbit.vlos() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.helioX())) == 0, (
+        "Orbit.helioX() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioY())) == 0, (
+        "Orbit.helioY() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioZ())) == 0, (
+        "Orbit.helioZ() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.U())) == 0, "Orbit.U() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.V())) == 0, "Orbit.V() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.W())) == 0, "Orbit.W() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.E(pot=lp))) == 0, "Orbit.E() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.Jacobi(pot=lp))) == 0, (
         "Orbit.Jacobi() does not return a scalar"
     )
-    assert isinstance(o.ER(pot=lp), float), "Orbit.ER() does not return a scalar"
-    assert isinstance(o.Ez(pot=lp), float), "Orbit.Ez() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.ER(pot=lp))) == 0, (
+        "Orbit.ER() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.Ez(pot=lp))) == 0, (
+        "Orbit.Ez() does not return a scalar"
+    )
     # Also integrate and then test
     times = numpy.linspace(0.0, 10.0, 1001)
     o.integrate(times, lp)
-    assert isinstance(o.R(5.0), float), "Orbit.R() does not return a scalar"
-    assert isinstance(o.vR(5.0), float), "Orbit.vR() does not return a scalar"
-    assert isinstance(o.vT(5.0), float), "Orbit.vT() does not return a scalar"
-    assert isinstance(o.z(5.0), float), "Orbit.z() does not return a scalar"
-    assert isinstance(o.vz(5.0), float), "Orbit.vz() does not return a scalar"
-    assert isinstance(o.phi(5.0), float), "Orbit.phi() does not return a scalar"
-    assert isinstance(o.r(5.0), float), "Orbit.r() does not return a scalar"
-    assert isinstance(o.x(5.0), float), "Orbit.x() does not return a scalar"
-    assert isinstance(o.y(5.0), float), "Orbit.y() does not return a scalar"
-    assert isinstance(o.vx(5.0), float), "Orbit.vx() does not return a scalar"
-    assert isinstance(o.vy(5.0), float), "Orbit.vy() does not return a scalar"
-    assert isinstance(o.theta(5.0), float), "Orbit.theta() does not return a scalar"
-    assert isinstance(o.vtheta(5.0), float), "Orbit.vtheta() does not return a scalar"
-    assert isinstance(o.vr(5.0), float), "Orbit.vr() does not return a scalar"
-    assert isinstance(o.ra(5.0), float), "Orbit.ra() does not return a scalar"
-    assert isinstance(o.dec(5.0), float), "Orbit.dec() does not return a scalar"
-    assert isinstance(o.ll(5.0), float), "Orbit.ll() does not return a scalar"
-    assert isinstance(o.bb(5.0), float), "Orbit.bb() does not return a scalar"
-    assert isinstance(o.dist(5.0), float), "Orbit.dist() does not return a scalar"
-    assert isinstance(o.pmra(5.0), float), "Orbit.pmra() does not return a scalar"
-    assert isinstance(o.pmdec(5.0), float), "Orbit.pmdec() does not return a scalar"
-    assert isinstance(o.pmll(5.0), float), "Orbit.pmll() does not return a scalar"
-    assert isinstance(o.pmbb(5.0), float), "Orbit.pmbb() does not return a scalar"
-    assert isinstance(o.vra(5.0), float), "Orbit.vra() does not return a scalar"
-    assert isinstance(o.vdec(5.0), float), "Orbit.vdec() does not return a scalar"
-    assert isinstance(o.vll(5.0), float), "Orbit.vll() does not return a scalar"
-    assert isinstance(o.vbb(5.0), float), "Orbit.vbb() does not return a scalar"
-    assert isinstance(o.vlos(5.0), float), "Orbit.vlos() does not return a scalar"
-    assert isinstance(o.helioX(5.0), float), "Orbit.helioX() does not return a scalar"
-    assert isinstance(o.helioY(5.0), float), "Orbit.helioY() does not return a scalar"
-    assert isinstance(o.helioZ(5.0), float), "Orbit.helioZ() does not return a scalar"
-    assert isinstance(o.U(5.0), float), "Orbit.U() does not return a scalar"
-    assert isinstance(o.V(5.0), float), "Orbit.V() does not return a scalar"
-    assert isinstance(o.W(5.0), float), "Orbit.W() does not return a scalar"
-    assert isinstance(o.E(5.0), float), "Orbit.E() does not return a scalar"
-    assert isinstance(o.Jacobi(5.0), float), "Orbit.Jacobi() does not return a scalar"
-    assert isinstance(o.ER(5.0), float), "Orbit.ER() does not return a scalar"
-    assert isinstance(o.Ez(5.0), float), "Orbit.Ez() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.R(5.0))) == 0, "Orbit.R() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vR(5.0))) == 0, "Orbit.vR() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vT(5.0))) == 0, "Orbit.vT() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.z(5.0))) == 0, "Orbit.z() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vz(5.0))) == 0, "Orbit.vz() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.phi(5.0))) == 0, (
+        "Orbit.phi() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.r(5.0))) == 0, "Orbit.r() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.x(5.0))) == 0, "Orbit.x() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.y(5.0))) == 0, "Orbit.y() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vx(5.0))) == 0, "Orbit.vx() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.vy(5.0))) == 0, "Orbit.vy() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.theta(5.0))) == 0, (
+        "Orbit.theta() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vtheta(5.0))) == 0, (
+        "Orbit.vtheta() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vr(5.0))) == 0, "Orbit.vr() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.ra(5.0))) == 0, "Orbit.ra() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.dec(5.0))) == 0, (
+        "Orbit.dec() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.ll(5.0))) == 0, "Orbit.ll() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.bb(5.0))) == 0, "Orbit.bb() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.dist(5.0))) == 0, (
+        "Orbit.dist() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmra(5.0))) == 0, (
+        "Orbit.pmra() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmdec(5.0))) == 0, (
+        "Orbit.pmdec() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmll(5.0))) == 0, (
+        "Orbit.pmll() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.pmbb(5.0))) == 0, (
+        "Orbit.pmbb() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vra(5.0))) == 0, (
+        "Orbit.vra() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vdec(5.0))) == 0, (
+        "Orbit.vdec() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vll(5.0))) == 0, (
+        "Orbit.vll() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vbb(5.0))) == 0, (
+        "Orbit.vbb() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.vlos(5.0))) == 0, (
+        "Orbit.vlos() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioX(5.0))) == 0, (
+        "Orbit.helioX() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioY(5.0))) == 0, (
+        "Orbit.helioY() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.helioZ(5.0))) == 0, (
+        "Orbit.helioZ() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.U(5.0))) == 0, "Orbit.U() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.V(5.0))) == 0, "Orbit.V() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.W(5.0))) == 0, "Orbit.W() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.E(5.0))) == 0, "Orbit.E() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.Jacobi(5.0))) == 0, (
+        "Orbit.Jacobi() does not return a scalar"
+    )
+    assert numpy.ndim(_to_numpy(o.ER(5.0))) == 0, "Orbit.ER() does not return a scalar"
+    assert numpy.ndim(_to_numpy(o.Ez(5.0))) == 0, "Orbit.Ez() does not return a scalar"
     return None
 
 
@@ -15208,8 +15265,12 @@ def test_1d_tol_integration():
             o_list.append(o)
 
         # make test for differing reconstruction precision and energy loss along the orbits
-        Delta_r = numpy.sum(numpy.abs(o_list[0].r(times) - o_list[1].r(times)))
-        Delta_E = numpy.sum(numpy.abs(o_list[0].E(times) - o_list[1].E(times)))
+        Delta_r = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].r(times)) - _to_numpy(o_list[1].r(times)))
+        )
+        Delta_E = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].E(times)) - _to_numpy(o_list[1].E(times)))
+        )
 
         # if special integrators yield same reconstructions
         if integrator == "rk6_c" or integrator == "symplec6_c":
@@ -15274,8 +15335,12 @@ def test_2d_tol_integration():
             o_list.append(o)
 
         # make test for differing reconstruction precision and energy loss along the orbits
-        Delta_r = numpy.sum(numpy.abs(o_list[0].r(times) - o_list[1].r(times)))
-        Delta_E = numpy.sum(numpy.abs(o_list[0].E(times) - o_list[1].E(times)))
+        Delta_r = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].r(times)) - _to_numpy(o_list[1].r(times)))
+        )
+        Delta_E = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].E(times)) - _to_numpy(o_list[1].E(times)))
+        )
 
         # if special integrators yield same reconstructions
         if integrator == "rk6_c":
@@ -15342,8 +15407,12 @@ def test_3d_tol_integration():
             o_list.append(o)
 
         # make test for differing reconstruction precision and energy loss along the orbits
-        Delta_r = numpy.sum(numpy.abs(o_list[0].r(times) - o_list[1].r(times)))
-        Delta_E = numpy.sum(numpy.abs(o_list[0].E(times) - o_list[1].E(times)))
+        Delta_r = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].r(times)) - _to_numpy(o_list[1].r(times)))
+        )
+        Delta_E = numpy.sum(
+            numpy.abs(_to_numpy(o_list[0].E(times)) - _to_numpy(o_list[1].E(times)))
+        )
 
         # if special integrators yield same reconstructions
         if integrator == "rk6_c" or integrator == "symplec6_c":
