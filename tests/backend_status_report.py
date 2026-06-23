@@ -36,6 +36,10 @@ pytest's junitxml encodes outcomes as:
   * slow-skip     -> <testcase><skipped message="...backend-slow-skip..."> (a
                      deferred test, unrunnable under the backend until its port
                      is vectorized; counted as "deferred", its own burndown)
+  * backend-skip  -> <testcase><skipped message="...backend-skip..."> (a test
+                     that exercises no backend-relevant code + has a flaky external
+                     dependency; counted as "exempt", a PERMANENT exclusion -- NOT
+                     a burndown; see tests/backend_skip.txt)
   * plain skip    -> <testcase><skipped message="..."> (none of the above)
   * fail          -> <testcase><failure>
   * error         -> <testcase><error>
@@ -165,6 +169,7 @@ class Counts:
     errored: int = 0
     skipped: int = 0
     slow_skipped: int = 0  # backend-slow-skip: unrunnable-until-vectorized (deferred)
+    backend_skipped: int = 0  # backend-skip: not backend-meaningful (permanent exempt)
     found: bool = False  # was an xml present/parseable for this cell?
     parse_error: str = ""
 
@@ -178,6 +183,7 @@ class Counts:
             + self.errored
             + self.skipped
             + self.slow_skipped
+            + self.backend_skipped
         )
 
     @property
@@ -222,6 +228,10 @@ def parse_junit(path: str) -> Counts:
                 # deferred: unrunnable under this backend until its port is
                 # vectorized (own burndown bucket, see tests/backend_slow_skip.txt)
                 c.slow_skipped += 1
+            elif "backend-skip" in low:
+                # backend-exempt: not backend-meaningful (external-service/flaky);
+                # a PERMANENT exclusion, not a burndown (see tests/backend_skip.txt)
+                c.backend_skipped += 1
             else:
                 c.skipped += 1
             continue
@@ -295,6 +305,8 @@ def cell_text(c: Counts) -> str:
     parts = [f"{c.passed} pass", f"{c.xfailed} xfail"]
     if c.slow_skipped:
         parts.append(f"{c.slow_skipped} deferred")
+    if c.backend_skipped:
+        parts.append(f"{c.backend_skipped} exempt")
     if c.failed or c.errored:
         parts.append(f"{c.failed + c.errored} FAIL/ERR")
     if c.xpassed:
@@ -329,6 +341,7 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
                     merged.errored += c.errored
                     merged.skipped += c.skipped
                     merged.slow_skipped += c.slow_skipped
+                    merged.backend_skipped += c.backend_skipped
                 if merged.total == 0 and all(not parse_junit(f).found for f in matched):
                     merged.found = False
                 cells[(idx, backend)] = merged
@@ -346,6 +359,7 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
         t.errored += c.errored
         t.skipped += c.skipped
         t.slow_skipped += c.slow_skipped
+        t.backend_skipped += c.backend_skipped
 
     led_total, led_per = ledger_size(ledger_path)
 
@@ -377,6 +391,8 @@ def render(junit_dir: str, ledger_path: str, sha: str) -> str:
         seg = f"**{b}**: {t.passed} passed · {t.xfailed} xfail"
         if t.slow_skipped:
             seg += f" · {t.slow_skipped} deferred"
+        if t.backend_skipped:
+            seg += f" · {t.backend_skipped} exempt"
         if t.xpassed:
             seg += f" · {t.xpassed} XPASS(fix-me)"
         if t.failed or t.errored:
