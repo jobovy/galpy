@@ -525,6 +525,35 @@ def test_construct_normalize_amp_is_float64(backend_name):
     )
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_anchor_phi_dtypeless_scalar_R_anchors_float64(backend_name):
+    # _anchor_phi's dtype-less-R branch: a scalar phi with a plain-python-scalar R
+    # (no .dtype) is anchored to the backend's float64 -- galpy's interior
+    # precision -- not the backend default (torch's float32). Tested directly on
+    # the helper so the branch stays covered regardless of when __init__ sets
+    # _backend_compatible: the construction-time normalize() path that used to
+    # reach it now coerces R to a typed array first, so it no longer exercises
+    # the dtype-less branch. Also pins the numpy short-circuit (returned untouched).
+    import galpy.backend
+    from galpy.potential.EllipsoidalPotential import _anchor_phi
+
+    prev = None
+    if backend_name == "torch":
+        prev = torch.get_default_dtype()
+        torch.set_default_dtype(torch.float32)  # worst case: backend default float32
+    try:
+        with galpy.backend.use(backend_name, force=True):
+            xp = galpy.backend.get_namespace()
+            out = _anchor_phi(0.0, 1.0, xp)  # R=1. is dtype-less -> anchor to float64
+    finally:
+        if prev is not None:
+            torch.set_default_dtype(prev)
+    assert "float64" in str(out.dtype), (
+        f"{backend_name}: dtype-less R should anchor phi to float64, got {out.dtype}"
+    )
+    assert _anchor_phi(0.5, 1.0, numpy) == 0.5  # numpy short-circuit, untouched
+
+
 def test_evaluate_xyz_namespace_fallback():
     # _evaluate_xyz infers the backend from its (x,y,z) arguments when called
     # without an explicit ``xp`` (the public _evaluate always passes one, so this
