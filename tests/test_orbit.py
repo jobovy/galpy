@@ -100,6 +100,22 @@ if not _GHACTIONS:
 else:
     _QUICKTEST = True  # Also do this for GH Actions, bc otherwise it takes too long
 _NOLONGINTEGRATIONS = False
+
+
+def _backend_integrators(integrators):
+    # Under a non-numpy backend, keep only the C integrators (``*_c``): the pure-
+    # Python ones (odeint/dop853/leapfrog/rk4/rk6) step in Python, so each force
+    # eval pays eager per-step jax/torch dispatch (~1 ms) -- ~95% of the runtime
+    # for ~0 unique backend coverage (their numerics are backend-agnostic and the
+    # numpy run exercises all of them; the jax/torch-relevant force path is shared
+    # with the C integrators). numpy runs the full list unchanged.
+    from galpy.backend import backend
+
+    if backend() == "numpy":
+        return integrators
+    return [i for i in integrators if i.endswith("_c")]
+
+
 # Don't show all warnings, to reduce log output
 warnings.simplefilter("always", galpyWarning)
 
@@ -114,19 +130,21 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
     times = numpy.linspace(0.0, 210.0, 5001)  # ~7.5 Gyr at the Solar circle
     growtimes = numpy.linspace(0.0, 280.0, 5001)  # for pots that grow slowly
     fasttimes = numpy.linspace(0.0, 14.0, 501)  # ~0.5 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     try:
         tclass = getattr(potential, pot)
     except AttributeError:
@@ -609,19 +627,21 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
     times = numpy.linspace(0.0, 210.0, 5001)  # ~7.5 Gyr at the Solar circle
     growtimes = numpy.linspace(0.0, 280.0, 5001)  # for pots that grow slowly
     fasttimes = numpy.linspace(0.0, 14.0, 501)  # ~0.5 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Setup instance of potential
     try:
         tclass = getattr(potential, pot)
@@ -850,14 +870,16 @@ def _integrate_stm_3d(pot, ic, times, integrator):
 def test_liouville_3d(pot):
     from galpy.orbit import Orbit
 
-    integrators = [
-        "dopr54_c",
-        "dop853_c",
-        "rk4_c",
-        "rk6_c",
-        "dop853",
-        "odeint",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",
+            "dop853_c",
+            "rk4_c",
+            "rk6_c",
+            "dop853",
+            "odeint",
+        ]
+    )
     # Generic, fully 3D initial condition (R,vR,vT,z,vz,phi)
     ic = [1.0, 0.1, 1.1, 0.05, 0.08, 0.2]
     times = numpy.linspace(0.0, 5.0, 251)
@@ -4724,14 +4746,16 @@ def test_liouville_planar():
         return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 28.0, 1001)  # ~1 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "dop853_c",
-        "dop853",
-        "odeint",  # direct python solver
-        "rk4_c",
-        "rk6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "dop853_c",
+            "dop853",
+            "odeint",  # direct python solver
+            "rk4_c",
+            "rk6_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -6050,19 +6074,21 @@ def test_eccentricity():
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "ias15_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "ias15_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -6232,19 +6258,21 @@ def test_pericenter():
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -6411,19 +6439,21 @@ def test_apocenter():
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -6591,19 +6621,21 @@ def test_zmax():
     # return None
     # Basic parameters for the test
     times = numpy.linspace(0.0, 7.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -6755,19 +6787,21 @@ def test_zmax():
 def test_analytic_ecc_rperi_rap():
     # Basic parameters for the test
     times = numpy.linspace(0.0, 20.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -7419,19 +7453,21 @@ def test_orbit_LcE_planar():
 def test_analytic_zmax():
     # Basic parameters for the test
     times = numpy.linspace(0.0, 20.0, 251)  # ~10 Gyr at the Solar circle
-    integrators = [
-        "dopr54_c",  # first, because we do it for all potentials
-        "odeint",  # direct python solver
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-        "ias15_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",  # first, because we do it for all potentials
+            "odeint",  # direct python solver
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+            "ias15_c",
+        ]
+    )
     # Grab all of the potentials
     pots = [
         p
@@ -15141,18 +15177,20 @@ def test_1d_tol_integration():
     times = numpy.linspace(
         0.0, 10.0, 250
     )  # with this time stepping, rk6_c and symplec6_c results will not be affected by changes in rtol/atol
-    integrators = [
-        "dopr54_c",
-        "odeint",
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",
+            "odeint",
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+        ]
+    )
     # only use the simplest normalised KeplerPotential
     pot = potential.KeplerPotential(amp=1.0, normalize=True).toVertical(1.0)
     for integrator in integrators:
@@ -15205,18 +15243,20 @@ def test_2d_tol_integration():
     times = numpy.linspace(
         0.0, 10.0, 250
     )  # with this time stepping, rk6_c results will not be affected by changes in rtol/atol
-    integrators = [
-        "dopr54_c",
-        "odeint",
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",
+            "odeint",
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+        ]
+    )
     # only use the simplest normalised KeplerPotential
     pot = potential.KeplerPotential(amp=1.0, normalize=True)
     for integrator in integrators:
@@ -15269,18 +15309,20 @@ def test_3d_tol_integration():
     times = numpy.linspace(
         0.0, 2.1, 250
     )  # with this time stepping, rk6_c and symplec6_c results will not be affected by changes in rtol/atol
-    integrators = [
-        "dopr54_c",
-        "odeint",
-        "dop853",
-        "dop853_c",
-        "leapfrog",
-        "leapfrog_c",
-        "rk4_c",
-        "rk6_c",
-        "symplec4_c",
-        "symplec6_c",
-    ]
+    integrators = _backend_integrators(
+        [
+            "dopr54_c",
+            "odeint",
+            "dop853",
+            "dop853_c",
+            "leapfrog",
+            "leapfrog_c",
+            "rk4_c",
+            "rk6_c",
+            "symplec4_c",
+            "symplec6_c",
+        ]
+    )
     # only use the simplest normalised KeplerPotential
     pot = potential.KeplerPotential(amp=1.0, normalize=True)
     for integrator in integrators:
