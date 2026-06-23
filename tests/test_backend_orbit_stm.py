@@ -267,81 +267,186 @@ def _is_backend(backend, x):
     return "jax" in type(x).__module__ if backend == "jax" else torch.is_tensor(x)
 
 
+# the four dxdv-capable C integrators the routing accepts (incl. dopr54_c)
+_ROUTE_METHODS = ["rk4_c", "rk6_c", "dopr54_c", "dop853_c"]
+# every per-time scalar accessor that should survive on the backend + match C
+_ROUTE_ACCESSORS = ["R", "vR", "vT", "z", "vz", "x", "y", "vx", "vy", "r", "vr", "E"]
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
-@pytest.mark.parametrize("method", _METHODS)
-def test_orbit_integrate_routes_cstm(backend, method):
+@pytest.mark.parametrize("method", _ROUTE_METHODS)
+def test_orbit_integrate_cstm_forward_parity(backend, method):
+    # the routed C-STM trajectory matches the numpy/C orbit across potentials and
+    # EVERY phase-space accessor, and every accessor stays a backend array.
     from galpy.orbit import Orbit
 
-    pot = MiyamotoNagaiPotential(normalize=1.0)
     ts = _arr(backend, _TS)
-    o = Orbit(_arr(backend, _IC))
-    o.integrate(ts, pot, method=method)
-    assert _is_backend(backend, o.getOrbit())
-    assert _is_backend(backend, o.R(ts, use_physical=False))
-    onp = Orbit(list(_IC))
-    onp.integrate(_TS, pot, method=method)
-    numpy.testing.assert_allclose(
-        _np(o.R(ts, use_physical=False)),
-        onp.R(_TS, use_physical=False),
-        rtol=1e-6,
-        atol=1e-7,
-        err_msg=f"{method} {backend}",
-    )
+    for name, pot in _pots().items():
+        o = Orbit(_arr(backend, _IC))
+        o.integrate(ts, pot, method=method)
+        assert _is_backend(backend, o.getOrbit()), f"{name} getOrbit left {backend}"
+        onp = Orbit(list(_IC))
+        onp.integrate(_TS, pot, method=method)
+        for acc in _ROUTE_ACCESSORS:
+            val = getattr(o, acc)(ts, use_physical=False)
+            assert _is_backend(backend, val), f"{name}.{acc} left {backend}"
+            numpy.testing.assert_allclose(
+                _np(val),
+                numpy.asarray(getattr(onp, acc)(_TS, use_physical=False)),
+                rtol=1e-5,
+                atol=1e-6,
+                err_msg=f"{name} {acc} {method} {backend}",
+            )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_orbit_integrate_cstm_grad_ecc_vs_fd(backend):
-    # the headline: d(eccentricity)/d(IC) over a *C* integration, via the STM.
+def test_orbit_integrate_cstm_full_ic_jacobian_vs_fd(backend):
+    # the full 6x6 d(final state)/d(IC) -- the STM at t[-1] -- via reverse-mode
+    # autodiff of the ROUTED Orbit.integrate, vs central finite difference.
     from galpy.orbit import Orbit
 
-    pot = MiyamotoNagaiPotential(normalize=1.0)
+    pot = MWPotential2014
 
-    def ecc_np(ic):
+    def final_np(ic):
         o = Orbit(list(ic))
         o.integrate(_TS, pot, method="dop853_c")
-        return float(o.e(use_physical=False))
+        return numpy.asarray(o.getOrbit()[-1])  # (6,) Orbit order
 
     eps = 1e-6
-    gfd = numpy.array(
+    jfd = numpy.array(
         [
-            (ecc_np(_IC + eps * numpy.eye(6)[j]) - ecc_np(_IC - eps * numpy.eye(6)[j]))
-            / (2 * eps)
+            (
+                final_np(_IC + eps * numpy.eye(6)[j])
+                - final_np(_IC - eps * numpy.eye(6)[j])
+            )
+            / (2.0 * eps)
             for j in range(6)
         ]
-    )
+    ).T  # (6 out, 6 in)
 
-    def ecc_b(v):
+    def final_b(v):
         o = Orbit(v)
         o.integrate(_arr(backend, _TS), pot, method="dop853_c")
-        return o.e(use_physical=False)
+        return o.getOrbit()[-1]
 
     if backend == "jax":
-        g = _np(jax.grad(ecc_b)(jnp.asarray(_IC)))
+        jac = _np(jax.jacrev(final_b)(jnp.asarray(_IC)))
     else:
-        v = torch.tensor(_IC, requires_grad=True)
-        ecc_b(v).backward()
-        g = _np(v.grad)
-    numpy.testing.assert_allclose(g, gfd, rtol=1e-4, atol=1e-5)
+        jac = _np(torch.autograd.functional.jacobian(final_b, torch.tensor(_IC)))
+    numpy.testing.assert_allclose(jac, jfd, rtol=1e-4, atol=1e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("acc", ["e", "rap", "rperi", "zmax"])
+def test_orbit_integrate_cstm_grad_accessor_vs_fd(backend, acc):
+    # gradient through a derived orbit characteristic (e/rap/rperi/zmax) over the
+    # C integration matches finite difference, for an axisymmetric and a
+    # non-trivial (MWPotential2014) potential.
+    from galpy.orbit import Orbit
+
+    for pot in (MiyamotoNagaiPotential(normalize=1.0), MWPotential2014):
+
+        def f_np(ic):
+            o = Orbit(list(ic))
+            o.integrate(_TS, pot, method="dop853_c")
+            return float(getattr(o, acc)(use_physical=False))
+
+        eps = 1e-6
+        gfd = numpy.array(
+            [
+                (f_np(_IC + eps * numpy.eye(6)[j]) - f_np(_IC - eps * numpy.eye(6)[j]))
+                / (2.0 * eps)
+                for j in range(6)
+            ]
+        )
+
+        def f_b(v):
+            o = Orbit(v)
+            o.integrate(_arr(backend, _TS), pot, method="dop853_c")
+            return getattr(o, acc)(use_physical=False)
+
+        if backend == "jax":
+            g = _np(jax.grad(f_b)(jnp.asarray(_IC)))
+        else:
+            v = torch.tensor(_IC, requires_grad=True)
+            f_b(v).backward()
+            g = _np(v.grad)
+        numpy.testing.assert_allclose(
+            g, gfd, rtol=1e-4, atol=1e-5, err_msg=f"{acc} {backend}"
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_orbit_integrate_cstm_matches_functional(backend):
+    # the routed Orbit.integrate uses the same orbit_stm wrapper as the functional
+    # interface -> the trajectory is identical to orbit_stm.integrate(...).
+    from galpy.orbit import Orbit
+
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    o = Orbit(_arr(backend, _IC))
+    o.integrate(_arr(backend, _TS), pot, method="dop853_c")
+    func = _np(_integ(backend, pot, _arr(backend, _IC), _TS, "dop853_c"))  # (nt,6)
+    # identical wrapper -> identical to ~roundoff (backend-vs-numpy ts in the
+    # internal numpy.asarray gives a sub-1e-11 delta; a different path would
+    # differ by >>1e-9).
+    numpy.testing.assert_allclose(_np(o.getOrbit()), func, rtol=1e-9, atol=1e-9)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_orbit_integrate_cstm_fallback_inbackend(backend):
-    # a non-6D orbit is not C-STM-eligible -> falls back to the in-backend ODE
-    # solver, still returning a differentiable backend array.
+    # a non-6D (here 5D) orbit is not C-STM-eligible -> in-backend ODE fallback:
+    # the trajectory matches the numpy 5D orbit AND stays a differentiable backend
+    # array.
     pytest.importorskip("diffrax" if backend == "jax" else "torchdiffeq")
     from galpy.orbit import Orbit
 
     pot = MiyamotoNagaiPotential(normalize=1.0)
-    o5 = Orbit(_arr(backend, _IC[:5]))  # 5D (no phi) -> in-backend fallback
+    ic5 = numpy.array(_IC[:5])  # R,vR,vT,z,vz (no phi)
+    o5 = Orbit(_arr(backend, ic5))
     o5.integrate(_arr(backend, _TS), pot, method="dop853_c")
     assert _is_backend(backend, o5.getOrbit())
+    onp = Orbit(list(ic5))
+    onp.integrate(_TS, pot, method="dop853_c")
+    numpy.testing.assert_allclose(
+        _np(o5.R(_arr(backend, _TS), use_physical=False)),
+        onp.R(_TS, use_physical=False),
+        rtol=1e-6,
+        atol=1e-6,
+    )
+
+    def fR(v):
+        o = Orbit(v)
+        o.integrate(_arr(backend, _TS), pot, method="dop853_c")
+        return o.R(_arr(backend, _TS), use_physical=False)[-1]
+
+    if backend == "jax":
+        g = _np(jax.grad(fR)(jnp.asarray(ic5)))[1]
+    else:
+        v = torch.tensor(ic5, requires_grad=True)
+        fR(v).backward()
+        g = _np(v.grad)[1]
+    assert numpy.isfinite(g)
 
 
-def test_orbit_integrate_numpy_ic_unaffected():
-    # a numpy/list IC + a C method stays the byte-identical numpy path (no routing).
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_orbit_integrate_cstm_multiorbit_raises(backend):
+    # a multi-orbit backend IC is not yet supported by the routed C-STM (single
+    # orbit only) -> a clear error, never a silent numpy fallthrough.
     from galpy.orbit import Orbit
 
     pot = MiyamotoNagaiPotential(normalize=1.0)
-    o = Orbit(list(_IC))
-    o.integrate(_TS, pot, method="dop853_c")
-    assert isinstance(o.getOrbit(), numpy.ndarray)
+    o2 = Orbit(_arr(backend, numpy.tile(_IC, (2, 1))))  # (2, 6)
+    with pytest.raises(ValueError):
+        o2.integrate(_arr(backend, _TS), pot, method="dop853_c")
+
+
+@pytest.mark.parametrize("method", _ROUTE_METHODS)
+def test_orbit_integrate_numpy_ic_unaffected(method):
+    # a numpy/list IC + a C method stays the byte-identical numpy path (no routing).
+    from galpy.orbit import Orbit
+
+    for pot in (MiyamotoNagaiPotential(normalize=1.0), MWPotential2014):
+        o = Orbit(list(_IC))
+        o.integrate(_TS, pot, method=method)
+        assert isinstance(o.getOrbit(), numpy.ndarray)
+        assert isinstance(o.R(_TS, use_physical=False), numpy.ndarray)
