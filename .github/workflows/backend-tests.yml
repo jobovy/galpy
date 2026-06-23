@@ -120,7 +120,18 @@ jobs:
           - tests/test_potential.py --splits 5 --group 5
           - tests/test_quantity.py tests/test_coords.py
           - tests/test_orbit.py -k 'test_energy_jacobi_conservation or from_name'
-          - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+          # test_orbit + test_orbits "main" shard: un-deferring the jax orbit suites
+          # (#998) makes the serial jax sum ~150min, over the 75-min session cap.
+          # Split into 5 pytest-split groups, DURATION-BALANCED via a committed
+          # durations file (the eager-jax times are heavily skewed -- liouville/dxdv
+          # tests are 100-150s each -- so count-based splitting would cluster them and
+          # one group would still overflow). ~29min/jax group. (report merges the
+          # _g<N> artifacts back into one "orbit (main)" row via match_cell's _g rule.)
+          - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 1 --durations-path tests/.test_orbit_durations
+          - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 2 --durations-path tests/.test_orbit_durations
+          - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 3 --durations-path tests/.test_orbit_durations
+          - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 4 --durations-path tests/.test_orbit_durations
+          - tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 5 --durations-path tests/.test_orbit_durations
           - tests/test_evolveddiskdf.py
           - tests/test_jeans.py tests/test_dynamfric.py tests/test_FDMdynamfric.py
           - tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py tests/test_noninertial.py
@@ -154,7 +165,25 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
-          - TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+          # all 5 orbit "main" split-groups need the same extras (any group may
+          # collect the pynbody/astropy/astroquery-dependent orbit tests).
+          - TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 1 --durations-path tests/.test_orbit_durations
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 2 --durations-path tests/.test_orbit_durations
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 3 --durations-path tests/.test_orbit_durations
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 4 --durations-path tests/.test_orbit_durations
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+          - TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation' --splits 5 --group 5 --durations-path tests/.test_orbit_durations
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true

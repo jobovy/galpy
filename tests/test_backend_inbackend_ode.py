@@ -17,7 +17,32 @@ import numpy
 import pytest
 
 from galpy.orbit import Orbit
-from galpy.potential import IsochronePotential, PlummerPotential
+from galpy.potential import (
+    BurkertPotential,
+    DehnenBarPotential,
+    DehnenCoreSphericalPotential,
+    DehnenSphericalPotential,
+    DoubleExponentialDiskPotential,
+    FlattenedPowerPotential,
+    HernquistPotential,
+    IsochronePotential,
+    JaffePotential,
+    KeplerPotential,
+    LogarithmicHaloPotential,
+    MiyamotoNagaiPotential,
+    MN3ExponentialDiskPotential,
+    NFWPotential,
+    PerfectEllipsoidPotential,
+    PlummerPotential,
+    PowerSphericalPotential,
+    PowerSphericalPotentialwCutoff,
+    SCFPotential,
+    SoftenedNeedleBarPotential,
+    SpiralArmsPotential,
+    TriaxialHernquistPotential,
+    TriaxialNFWPotential,
+    TwoPowerSphericalPotential,
+)
 
 pytestmark = pytest.mark.backend_managed
 
@@ -47,9 +72,47 @@ from galpy.backend._reference import integrate_orbit  # noqa: E402
 
 _IC = [1.0, 0.1, 0.9, 0.2, 0.05, 0.3]  # R, vR, vT, z, vz, phi
 _TS = numpy.linspace(0.0, 6.0, 120)
+# Broad potential sweep: every family the in-backend (diffrax/torchdiffeq) path
+# supports, validated trajectory-vs-C + grad-vs-FD across all of them (the sweep
+# in PR-pillar2; KuzminDisk omitted -- its |z| kink makes the *gradient* undefined
+# at a z=0 plane crossing, not a migration gap; CosmphiDisk is planar-only).
 _POTS = [
     ("Plummer", PlummerPotential(amp=1.0, b=0.6)),
     ("Isochrone", IsochronePotential(amp=1.0, b=0.8)),
+    ("Hernquist", HernquistPotential(amp=1.0, a=0.7)),
+    ("NFW", NFWPotential(amp=1.0, a=1.5)),
+    ("Jaffe", JaffePotential(amp=1.0, a=0.7)),
+    ("DehnenSpherical", DehnenSphericalPotential(amp=1.0, a=1.0, alpha=1.5)),
+    ("DehnenCoreSpherical", DehnenCoreSphericalPotential(amp=1.0, a=1.0)),
+    ("Kepler", KeplerPotential(amp=1.0)),
+    ("PowerSpherical", PowerSphericalPotential(amp=1.0, alpha=2.0)),
+    (
+        "PowerSphericalwCutoff",
+        PowerSphericalPotentialwCutoff(amp=1.0, alpha=1.0, rc=1.0),
+    ),
+    ("Burkert", BurkertPotential(amp=1.0, a=1.0)),
+    (
+        "TwoPowerSpherical",
+        TwoPowerSphericalPotential(amp=1.0, a=1.0, alpha=1.0, beta=3.0),
+    ),
+    ("MiyamotoNagai", MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1)),
+    (
+        "DoubleExponentialDisk",
+        DoubleExponentialDiskPotential(amp=1.0, hr=1.0 / 3.0, hz=1.0 / 16.0),
+    ),
+    (
+        "MN3ExponentialDisk",
+        MN3ExponentialDiskPotential(amp=1.0, hr=1.0 / 3.0, hz=1.0 / 16.0),
+    ),
+    ("LogHalo", LogarithmicHaloPotential(amp=1.0, q=0.8)),
+    ("FlattenedPower", FlattenedPowerPotential(amp=1.0, alpha=0.5, q=0.9)),
+    ("TriaxialNFW", TriaxialNFWPotential(amp=1.0, a=1.0, b=0.8, c=0.6)),
+    ("PerfectEllipsoid", PerfectEllipsoidPotential(amp=1.0, a=1.0, b=0.9, c=0.7)),
+    ("TriaxialHernquist", TriaxialHernquistPotential(amp=1.0, a=1.0, b=0.8, c=0.6)),
+    ("DehnenBar", DehnenBarPotential()),
+    ("SoftenedNeedleBar", SoftenedNeedleBarPotential(amp=1.0, a=1.0, b=0.1, c=0.5)),
+    ("SpiralArms", SpiralArmsPotential()),
+    ("SCF", SCFPotential(amp=1.0)),
 ]
 
 
