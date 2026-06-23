@@ -5501,6 +5501,38 @@ def test_ExpTruncNFW_smallr_series():
     return None
 
 
+def test_ExpTruncNFW_smallr_series_c():
+    # Exercise the small-r Taylor-series branch of the C enclosed-mass code by
+    # integrating a near-radial (low angular momentum) orbit that plunges well
+    # below the series threshold 1e-3*min(a,rc). The C orbit must match the
+    # pure-Python orbit (which uses the same series) and conserve energy across
+    # the plunge -- both would fail if the C series branch were wrong.
+    from galpy.orbit import Orbit
+
+    a, rc = 1.5, 8.0
+    p = potential.ExpTruncNFWPotential(amp=1.0, a=a, rc=rc)
+    ts = numpy.linspace(0.0, 3.0, 3001)
+    ic = [1.0, -0.8, 1e-4, 0.0, 0.0, 0.0]  # vT ~ 0 -> near-radial plunge to ~r=0
+    oc = Orbit(ic)
+    oc.integrate(ts, p, method="dop853_c")
+    op = Orbit(ic)
+    op.integrate(ts, p, method="dop853")
+    # the orbit actually reaches below the series threshold (so the branch runs)
+    assert oc.r(ts).min() < 1e-3 * min(a, rc), (
+        "ExpTruncNFW plunging orbit did not reach the small-r series regime"
+    )
+    # C and pure-Python orbits agree (C series branch == Python series branch)
+    assert numpy.amax(numpy.fabs(oc.r(ts) - op.r(ts))) < 1e-10, (
+        "ExpTruncNFWPotential C and Python plunging orbits disagree"
+    )
+    # energy is conserved across the plunge (series branch is accurate)
+    Ec = oc.E(ts)
+    assert numpy.amax(numpy.fabs(Ec - Ec[0])) < 1e-10, (
+        "ExpTruncNFWPotential energy not conserved through the small-r plunge"
+    )
+    return None
+
+
 def test_LinShuReductionFactor():
     # Test that the LinShuReductionFactor is implemented correctly, by comparing to figure 1 in Lin & Shu (1966)
     from galpy.potential import (
