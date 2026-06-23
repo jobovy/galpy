@@ -522,11 +522,7 @@ torch tests/test_orbit.py::test_bruteSOS_2Dx
 torch tests/test_orbit.py::test_bruteSOS_2Dy
 torch tests/test_orbit.py::test_bruteSOS_3D
 torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[const_lnLambda]
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[minr_gate]
 torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[rhm_coulomb_log]
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[sigma_clamp]
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_phase_volume_law
 torch tests/test_orbit.py::test_cylsepwrapper_dxdv_3d_c_vs_python_tight
 torch tests/test_orbit.py::test_dehnenbar_dxdv_inside_rb_c_vs_python
 torch tests/test_orbit.py::test_doubleexp_dxdv_3d_c_vs_python
@@ -553,7 +549,6 @@ torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[NFWPotential]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_oblate]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_triaxial]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PowerTriaxialPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential_static]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[SolidBodyRotationWrapperPotential]
@@ -607,13 +602,7 @@ torch tests/test_orbit.py::test_energy_jacobi_conservation[oblateNFWPotential--1
 torch tests/test_orbit.py::test_energy_jacobi_conservation[prolateNFWPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_symplec_longterm
 torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_FDMfactor]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_lnLambda_cdm_cutoff]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[intermediate]
 torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[minr_gate]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[rhm_coulomb_log_cdm_cutoff]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[sigma_clamp]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[zerovel]
 torch tests/test_orbit.py::test_fdm_dxdv_phase_volume_law
 torch tests/test_orbit.py::test_full_plotting
 torch tests/test_orbit.py::test_integrate_SOS_2D
@@ -1353,3 +1342,31 @@ torch tests/test_streamdf.py::test_bovy14_sampleXY
 torch tests/test_streamdf.py::test_callArgs
 torch tests/test_streamdf.py::test_closest_trackpoint
 torch tests/test_streamdf.py::test_closest_trackpointaA
+
+# --- jax single-orbit: action-angle accessors (Track E) ---
+# o.jr()/jz()/e()/zmax()/rperi()/rap() and physical/quantity/plotting paths that call
+# them route through actionAngleStaeckel_c, which is not yet backend-migrated (Track E):
+# it hits numpy .flags on a jax array or NotImplementedError. Un-xfail when Track E lands.
+jax tests/test_orbit.py::test_analytic_ecc_rperi_rap
+jax tests/test_orbit.py::test_analytic_zmax
+jax tests/test_orbit.py::test_full_plotting
+jax tests/test_orbit.py::test_orbit_method_inputro_quantity
+jax tests/test_orbit.py::test_orbit_method_inputvo_quantity
+jax tests/test_orbit.py::test_physical_output
+jax tests/test_orbit.py::test_physical_output_off
+jax tests/test_orbit.py::test_physical_output_on
+jax tests/test_orbit.py::test_scalar_all
+jax tests/test_orbit.py::test_scalarxyvzvz_issue247
+
+# --- jax multi-orbit (test_orbits.py): action-angle accessors (Track E) ---
+# Orbits.jr()/actionsFreqsAngles()/EccZmaxRperiRap()/physical-output route through
+# actionAngleStaeckel_c (not yet backend-migrated, Track E) -- same root cause as
+# the single-orbit action-angle xfails. Un-xfail when Track E lands.
+jax tests/test_orbits.py::test_EccZmaxRperiRap_analytic_againstorbit_3d
+jax tests/test_orbits.py::test_actionsFreqsAngles_againstorbit_2d
+jax tests/test_orbits.py::test_actionsFreqsAngles_againstorbit_3d
+jax tests/test_orbits.py::test_actionsFreqsAngles_isochroneapproxb
+jax tests/test_orbits.py::test_actionsFreqsAngles_output_shape
+jax tests/test_orbits.py::test_actionsFreqsAngles_staeckeldelta
+jax tests/test_orbits.py::test_physical_output_off
+jax tests/test_orbits.py::test_physical_output_on
