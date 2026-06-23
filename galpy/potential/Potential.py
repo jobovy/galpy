@@ -978,7 +978,9 @@ class Potential(Force):
         - 2010-07-10 - Written - Bovy (NYU)
 
         """
-        self._amp *= norm / numpy.fabs(self.Rforce(1.0, 0.0, use_physical=False))
+        # abs() (via __abs__) is backend-agnostic and byte-identical to the old
+        # numpy.fabs on the numpy scalar Rforce returns.
+        self._amp *= norm / abs(self.Rforce(1.0, 0.0, use_physical=False))
 
     def toPlanar(self):
         """
