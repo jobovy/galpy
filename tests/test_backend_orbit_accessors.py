@@ -433,3 +433,54 @@ def test_accessor_diffrax_offgrid_axisymmetric(acc):
         rtol=1e-5,
         atol=1e-5,
     )
+
+
+# ----------------------------------- numeric orbit characteristics (reductions)
+# e(), rap(), rperi(), zmax() reduce over the integrated trajectory
+# (numpy.amax/amin); on a backend-integrated orbit self.r(t)/self.z(t) is a
+# backend array, so the reduction must run in the orbit's namespace -- else
+# numpy.amax(tensor) crashes (rap/rperi) or silently coerces back to numpy and
+# drops the backend/grad (zmax, via numpy.fabs).
+_CHARS = ["e", "rap", "rperi", "zmax"]
+
+
+def _c_ref_char(name):
+    o = Orbit(list(_IC))
+    o.integrate(_TS, _POT, method="dop853_c")
+    return float(numpy.asarray(getattr(o, name)(use_physical=False)))
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("name", _CHARS)
+def test_orbit_characteristic_diffrax_matches_c_and_stays_jax(name):
+    o = Orbit(jnp.asarray(_IC))
+    o.integrate(jnp.asarray(_TS), _POT, method="diffrax")
+    val = getattr(o, name)(use_physical=False)
+    assert isinstance(val, jax.Array), f"{name} left the jax backend"
+    numpy.testing.assert_allclose(
+        float(numpy.asarray(val)), _c_ref_char(name), rtol=1e-6, atol=1e-6
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+@pytest.mark.parametrize("name", _CHARS)
+def test_orbit_characteristic_torchdiffeq_matches_c_and_stays_torch(name):
+    o = Orbit(torch.as_tensor(_IC))
+    o.integrate(torch.as_tensor(_TS), _POT, method="torchdiffeq")
+    val = getattr(o, name)(use_physical=False)
+    assert isinstance(val, torch.Tensor), f"{name} left the torch backend"
+    numpy.testing.assert_allclose(
+        float(val.detach().cpu()), _c_ref_char(name), rtol=1e-6, atol=1e-6
+    )
+
+
+def test_orbit_characteristic_numpy_path_unchanged():
+    # a numpy orbit's e/rap/rperi/zmax are unaffected by the namespace dispatch
+    o = Orbit(list(_IC))
+    o.integrate(_TS, _POT, method="dop853_c")
+    for name in _CHARS:
+        val = getattr(o, name)(use_physical=False)
+        assert isinstance(val, (float, numpy.floating, numpy.ndarray))
+        numpy.testing.assert_allclose(
+            float(numpy.asarray(val)), _c_ref_char(name), rtol=1e-12
+        )
