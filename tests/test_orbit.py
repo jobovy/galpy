@@ -6064,6 +6064,7 @@ def test_eccentricity():
     tol["DoubleExponentialDiskPotential"] = -6.0  # these are more difficult
     tol["NFWPotential"] = -12.0  # these are more difficult
     tol["TriaxialNFWPotential"] = -12.0  # these are more difficult
+    tol["ExpTruncNFWPotential"] = -12.0  # these are more difficult, like NFW
     tol["MultipoleExpansionPotential"] = -15.0  # slightly more difficult
     tol["DiskMultipoleExpansionPotential"] = -6.0  # these are more difficult
     firstTest = True
@@ -6771,6 +6772,7 @@ def test_analytic_ecc_rperi_rap():
     tol = {}
     tol["default"] = -10.0
     tol["NFWPotential"] = -9.0  # these are more difficult
+    tol["ExpTruncNFWPotential"] = -8.0  # these are more difficult, like NFW
     tol["PlummerPotential"] = -9.0  # these are more difficult
     tol["EinastoPotential"] = -9.0  # these are more difficult
     tol["DoubleExponentialDiskPotential"] = -6.0  # these are more difficult

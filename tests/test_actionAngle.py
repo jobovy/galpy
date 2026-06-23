@@ -3692,6 +3692,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     hp = potential.HernquistPotential(normalize=1.0)
     jp = potential.JaffePotential(normalize=1.0)
     np = potential.NFWPotential(normalize=1.0)
+    etnp = potential.ExpTruncNFWPotential(normalize=1.0)
     ip = potential.IsochronePotential(normalize=1.0, b=1.0)
     pp = potential.PowerSphericalPotential(normalize=1.0)
     lp2 = potential.PowerSphericalPotential(normalize=1.0, alpha=2.0)
@@ -3752,6 +3753,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         hp,
         jp,
         np,
+        etnp,
         ip,
         pp,
         lp2,

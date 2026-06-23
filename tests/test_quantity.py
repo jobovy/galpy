@@ -8092,6 +8092,25 @@ def test_potential_ampunits():
         )
         < 10.0**-8.0
     ), "NFWPotential w/ amp w/ units does not behave as expected"
+    # ExpTruncNFWPotential
+    pot = potential.ExpTruncNFWPotential(
+        amp=20.0 * units.Msun, a=2.0, rc=8.0, ro=ro, vo=vo
+    )
+    # Check density at r=a, which is the NFW value times exp(-a/rc)
+    assert (
+        numpy.fabs(
+            pot.dens(2.0, 0.0, use_physical=False) * conversion.dens_in_msolpc3(vo, ro)
+            - 20.0
+            * numpy.exp(-2.0 / 8.0)
+            / 4.0
+            / numpy.pi
+            / 8.0
+            / ro**3.0
+            / 10.0**9.0
+            / 4.0
+        )
+        < 10.0**-8.0
+    ), "ExpTruncNFWPotential w/ amp w/ units does not behave as expected"
     # TwoPowerTriaxialPotential
     pot = potential.TwoPowerTriaxialPotential(
         amp=20.0 * units.Msun, a=2.0, b=0.3, c=1.4, alpha=1.5, beta=3.5, ro=ro, vo=vo
@@ -10467,6 +10486,35 @@ def test_potential_paramunits():
         < 10.0**-4.0
     ), (
         "MultipoleExpansionPotential w/ 3-arg density w/ units does not behave as expected"
+    )
+    # ExpTruncNFWPotential
+    pot = potential.ExpTruncNFWPotential(
+        amp=20.0 * units.Msun,
+        a=10.0 * units.kpc,
+        rc=40.0 * units.kpc,
+        ro=ro,
+        vo=vo,
+    )
+    # Check density at r=a, which is amp*exp(-a/rc)/(16 pi a^3)
+    assert (
+        numpy.fabs(
+            pot.dens(10.0 / ro, 0.0, use_physical=False)
+            * conversion.dens_in_msolpc3(vo, ro)
+            - 20.0 * numpy.exp(-10.0 / 40.0) / 16.0 / numpy.pi / 10.0**3.0 / 10.0**9.0
+        )
+        < 10.0**-8.0
+    ), "ExpTruncNFWPotential w/ parameters w/ units does not behave as expected"
+    # ExpTruncNFWPotential with the total mass set through mass= w/ units
+    pot = potential.ExpTruncNFWPotential(
+        mass=1e10 * units.Msun, a=10.0 * units.kpc, rc=40.0 * units.kpc, ro=ro, vo=vo
+    )
+    # Check that the total mass equals the requested mass (absolute and relative)
+    tmass = pot.mass(numpy.inf, use_physical=False) * conversion.mass_in_msol(vo, ro)
+    assert numpy.fabs(tmass - 1e10) < 10.0**-2.0, (
+        "ExpTruncNFWPotential w/ mass= w/ units does not behave as expected"
+    )
+    assert numpy.fabs(tmass / 1e10 - 1.0) < 10.0**-8.0, (
+        "ExpTruncNFWPotential w/ mass= w/ units does not behave as expected"
     )
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None

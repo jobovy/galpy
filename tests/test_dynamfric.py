@@ -239,6 +239,7 @@ def test_dynamfric_c():
         potential.LogarithmicHaloPotential(normalize=1),
         potential.LogarithmicHaloPotential(normalize=1.3, q=0.9, b=0.7),  # nonaxi
         potential.NFWPotential(normalize=1.0, a=1.5),
+        potential.ExpTruncNFWPotential(normalize=1.0, a=1.5, rc=10.0),
         potential.MiyamotoNagaiPotential(normalize=0.02, a=10.0, b=10.0),
         potential.MiyamotoNagaiPotential(normalize=0.6, a=0.0, b=3.0),  # special case
         potential.PowerSphericalPotential(alpha=2.3, normalize=2.0),
