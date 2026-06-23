@@ -3115,6 +3115,12 @@ def test_mass_spher_z():
         "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
     )
 
+    # ExpTruncNFWPotential
+    etnp = potential.ExpTruncNFWPotential(amp=2.0)
+    assert numpy.fabs(etnp.mass(4.2, 1.3) - sphermass(etnp, 4.2, 1.3)) < 1e-10, (
+        "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+    )
+
     # SCF version of HernquistPotential
     hp = potential.SCFPotential.from_density(
         potential.HernquistPotential(amp=2.0), 1, 0, 1.0, symmetry="spherical"
