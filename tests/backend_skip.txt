@@ -1,0 +1,31 @@
+# backend skip list -- tests SKIPPED under a backend because they exercise NO
+# backend-relevant code and depend on a flaky external service, so running them
+# under a forced backend only risks flaking the deterministic all-backend gate for
+# ~zero coverage. conftest.py marks each matching nodeid pytest.mark.skip with a
+# "backend-skip: not backend-meaningful ..." reason, in BOTH normal and regen mode.
+#
+# This is DISTINCT from backend_slow_skip.txt (slow-but-meaningful, deferred pending
+# the backend port's vectorization -- a burndown that shrinks to zero) and from
+# backend_xfail.txt (known-failing, to be fixed). These are a PERMANENT exclusion,
+# NOT pending work, so they are not part of any burndown. numpy still runs them.
+# A nodeid here must NOT also be in backend_slow_skip.txt or backend_xfail.txt.
+#
+# format: <backend> <nodeid>   (same as the other ledger files)
+#
+# --- jax/torch Orbit.from_name(): SIMBAD network dependency (not backend code) ---
+# from_name() looks up objects over the network (SIMBAD sim-tap) and raises pyvo
+# DALServiceError when the service is unreachable. Its backend-relevant part (the
+# coordinate transforms) is covered by the coords/from_vxvv tests. solarsystem uses
+# a local ephemeris (not SIMBAD), so it is not skipped.
+jax tests/test_orbit.py::test_from_name_collections
+jax tests/test_orbit.py::test_from_name_errors
+jax tests/test_orbit.py::test_from_name_named
+jax tests/test_orbit.py::test_from_name_values
+jax tests/test_orbits.py::test_from_name_name
+jax tests/test_orbits.py::test_from_name_values
+torch tests/test_orbit.py::test_from_name_collections
+torch tests/test_orbit.py::test_from_name_errors
+torch tests/test_orbit.py::test_from_name_named
+torch tests/test_orbit.py::test_from_name_values
+torch tests/test_orbits.py::test_from_name_name
+torch tests/test_orbits.py::test_from_name_values
