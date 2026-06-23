@@ -7,6 +7,15 @@ import pytest
 
 from galpy import potential
 
+
+def _anp(x):
+    # backend-agnostic: coerce a (possibly jax/torch) accessor result to numpy
+    # for value assertions. numpy input passes through unchanged (byte-identical).
+    if hasattr(x, "detach"):
+        x = x.detach().cpu()
+    return numpy.asarray(x)
+
+
 _APY3 = astropy.__version__ > "3"
 
 
@@ -797,13 +806,17 @@ def test_integration_1d():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].x(times)) - _anp(orbits.x(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vx(times)) - _anp(orbits.vx(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -830,43 +843,57 @@ def test_integration_2d():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].x(times)) - _anp(orbits.x(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vx(times)) - _anp(orbits.vx(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].y(times) - orbits.y(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].y(times)) - _anp(orbits.y(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vy(times) - orbits.vy(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vy(times)) - _anp(orbits.vy(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].R(times)) - _anp(orbits.R(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vR(times)) - _anp(orbits.vR(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vT(times)) - _anp(orbits.vT(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -875,7 +902,11 @@ def test_integration_2d():
             numpy.amax(
                 numpy.fabs(
                     (
-                        (orbits_list[ii].phi(times) - orbits.phi(times)[ii] + numpy.pi)
+                        (
+                            _anp(orbits_list[ii].phi(times))
+                            - _anp(orbits.phi(times)[ii])
+                            + numpy.pi
+                        )
                         % (2.0 * numpy.pi)
                     )
                     - numpy.pi
@@ -947,55 +978,73 @@ def test_integration_3d():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].x(times)) - _anp(orbits.x(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vx(times)) - _anp(orbits.vx(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].y(times) - orbits.y(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].y(times)) - _anp(orbits.y(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vy(times) - orbits.vy(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vy(times)) - _anp(orbits.vy(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].z(times) - orbits.z(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].z(times)) - _anp(orbits.z(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vz(times) - orbits.vz(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vz(times)) - _anp(orbits.vz(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].R(times)) - _anp(orbits.R(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vR(times)) - _anp(orbits.vR(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vT(times)) - _anp(orbits.vT(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -1005,7 +1054,10 @@ def test_integration_3d():
                 numpy.fabs(
                     (
                         (
-                            (orbits_list[ii].phi(times) - orbits.phi(times)[ii])
+                            (
+                                _anp(orbits_list[ii].phi(times))
+                                - _anp(orbits.phi(times)[ii])
+                            )
                             + numpy.pi
                         )
                         % (2.0 * numpy.pi)
@@ -1841,13 +1893,17 @@ def test_integration_forcemap_1d():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].x(times)) - _anp(orbits.x(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vx(times)) - _anp(orbits.vx(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -1873,43 +1929,57 @@ def test_integration_forcemap_2d():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].x(times)) - _anp(orbits.x(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vx(times)) - _anp(orbits.vx(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].y(times) - orbits.y(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].y(times)) - _anp(orbits.y(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vy(times) - orbits.vy(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vy(times)) - _anp(orbits.vy(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].R(times)) - _anp(orbits.R(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vR(times)) - _anp(orbits.vR(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vT(times)) - _anp(orbits.vT(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -1919,7 +1989,10 @@ def test_integration_forcemap_2d():
                 numpy.fabs(
                     (
                         (
-                            (orbits_list[ii].phi(times) - orbits.phi(times)[ii])
+                            (
+                                _anp(orbits_list[ii].phi(times))
+                                - _anp(orbits.phi(times)[ii])
+                            )
                             + numpy.pi
                         )
                         % (2.0 * numpy.pi)
@@ -1952,55 +2025,73 @@ def test_integration_forcemap_3d():
     # Compare
     for ii in range(len(orbits)):
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].x(times)) - _anp(orbits.x(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vx(times)) - _anp(orbits.vx(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].y(times) - orbits.y(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].y(times)) - _anp(orbits.y(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vy(times) - orbits.vy(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vy(times)) - _anp(orbits.vy(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].z(times) - orbits.z(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].z(times)) - _anp(orbits.z(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vz(times) - orbits.vz(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vz(times)) - _anp(orbits.vz(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].R(times)) - _anp(orbits.R(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vR(times)) - _anp(orbits.vR(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_list[ii].vT(times)) - _anp(orbits.vT(times)[ii]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -2010,7 +2101,10 @@ def test_integration_forcemap_3d():
                 numpy.fabs(
                     (
                         (
-                            (orbits_list[ii].phi(times) - orbits.phi(times)[ii])
+                            (
+                                _anp(orbits_list[ii].phi(times))
+                                - _anp(orbits.phi(times)[ii])
+                            )
                             + numpy.pi
                         )
                         % (2.0 * numpy.pi)
@@ -2341,47 +2435,74 @@ def test_slice_singleobject():
     indices = [0, 1, -1]
     for ii in indices:
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].x(times) - orbits.x(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].x(times)) - _anp(orbits.x(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vx(times) - orbits.vx(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vx(times)) - _anp(orbits.vx(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].y(times) - orbits.y(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].y(times)) - _anp(orbits.y(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vy(times) - orbits.vy(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vy(times)) - _anp(orbits.vy(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].z(times) - orbits.z(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].z(times)) - _anp(orbits.z(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vz(times) - orbits.vz(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vz(times)) - _anp(orbits.vz(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].R(times) - orbits.R(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].R(times)) - _anp(orbits.R(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vR(times) - orbits.vR(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vR(times)) - _anp(orbits.vR(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vT(times) - orbits.vT(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vT(times)) - _anp(orbits.vT(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
@@ -2389,7 +2510,10 @@ def test_slice_singleobject():
             numpy.amax(
                 numpy.fabs(
                     (
-                        ((orbits[ii].phi(times) - orbits.phi(times)[ii]) + numpy.pi)
+                        (
+                            (_anp(orbits[ii].phi(times)) - _anp(orbits.phi(times)[ii]))
+                            + numpy.pi
+                        )
                         % (2.0 * numpy.pi)
                     )
                     - numpy.pi
@@ -2419,52 +2543,81 @@ def test_slice_multipleobjects():
     orbits_slice = orbits[1:4]
     for ii in range(3):
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.x()[ii] - orbits.x()[ii + 1])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.x()[ii]) - _anp(orbits.x()[ii + 1]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.vx()[ii] - orbits.vx()[ii + 1])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.vx()[ii]) - _anp(orbits.vx()[ii + 1]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.y()[ii] - orbits.y()[ii + 1])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.y()[ii]) - _anp(orbits.y()[ii + 1]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.vy()[ii] - orbits.vy()[ii + 1])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.vy()[ii]) - _anp(orbits.vy()[ii + 1]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.z()[ii] - orbits.z()[ii + 1])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.z()[ii]) - _anp(orbits.z()[ii + 1]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.vz()[ii] - orbits.vz()[ii + 1])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.vz()[ii]) - _anp(orbits.vz()[ii + 1]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.R()[ii] - orbits.R()[ii + 1])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.R()[ii]) - _anp(orbits.R()[ii + 1]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.vR()[ii] - orbits.vR()[ii + 1])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.vR()[ii]) - _anp(orbits.vR()[ii + 1]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.vT()[ii] - orbits.vT()[ii + 1])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.vT()[ii]) - _anp(orbits.vT()[ii + 1]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.phi()[ii] - orbits.phi()[ii + 1]))
+            numpy.amax(
+                numpy.fabs(_anp(orbits_slice.phi()[ii]) - _anp(orbits.phi()[ii + 1]))
+            )
             < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
@@ -2474,56 +2627,10 @@ def test_slice_multipleobjects():
     orbits_slice = orbits[1:4]
     for ii in range(3):
         assert (
-            numpy.amax(numpy.fabs(orbits_slice.x(times)[ii] - orbits.x(times)[ii + 1]))
-            < 1e-10
-        ), (
-            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        )
-        assert (
             numpy.amax(
-                numpy.fabs(orbits_slice.vx(times)[ii] - orbits.vx(times)[ii + 1])
-            )
-            < 1e-10
-        ), (
-            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        )
-        assert (
-            numpy.amax(numpy.fabs(orbits_slice.y(times)[ii] - orbits.y(times)[ii + 1]))
-            < 1e-10
-        ), (
-            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        )
-        assert (
-            numpy.amax(
-                numpy.fabs(orbits_slice.vy(times)[ii] - orbits.vy(times)[ii + 1])
-            )
-            < 1e-10
-        ), (
-            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        )
-        assert (
-            numpy.amax(numpy.fabs(orbits_slice.z(times)[ii] - orbits.z(times)[ii + 1]))
-            < 1e-10
-        ), (
-            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        )
-        assert (
-            numpy.amax(
-                numpy.fabs(orbits_slice.vz(times)[ii] - orbits.vz(times)[ii + 1])
-            )
-            < 1e-10
-        ), (
-            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        )
-        assert (
-            numpy.amax(numpy.fabs(orbits_slice.R(times)[ii] - orbits.R(times)[ii + 1]))
-            < 1e-10
-        ), (
-            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        )
-        assert (
-            numpy.amax(
-                numpy.fabs(orbits_slice.vR(times)[ii] - orbits.vR(times)[ii + 1])
+                numpy.fabs(
+                    _anp(orbits_slice.x(times)[ii]) - _anp(orbits.x(times)[ii + 1])
+                )
             )
             < 1e-10
         ), (
@@ -2531,7 +2638,9 @@ def test_slice_multipleobjects():
         )
         assert (
             numpy.amax(
-                numpy.fabs(orbits_slice.vT(times)[ii] - orbits.vT(times)[ii + 1])
+                numpy.fabs(
+                    _anp(orbits_slice.vx(times)[ii]) - _anp(orbits.vx(times)[ii + 1])
+                )
             )
             < 1e-10
         ), (
@@ -2539,7 +2648,79 @@ def test_slice_multipleobjects():
         )
         assert (
             numpy.amax(
-                numpy.fabs(orbits_slice.phi(times)[ii] - orbits.phi(times)[ii + 1])
+                numpy.fabs(
+                    _anp(orbits_slice.y(times)[ii]) - _anp(orbits.y(times)[ii + 1])
+                )
+            )
+            < 1e-10
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    _anp(orbits_slice.vy(times)[ii]) - _anp(orbits.vy(times)[ii + 1])
+                )
+            )
+            < 1e-10
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    _anp(orbits_slice.z(times)[ii]) - _anp(orbits.z(times)[ii + 1])
+                )
+            )
+            < 1e-10
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    _anp(orbits_slice.vz(times)[ii]) - _anp(orbits.vz(times)[ii + 1])
+                )
+            )
+            < 1e-10
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    _anp(orbits_slice.R(times)[ii]) - _anp(orbits.R(times)[ii + 1])
+                )
+            )
+            < 1e-10
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    _anp(orbits_slice.vR(times)[ii]) - _anp(orbits.vR(times)[ii + 1])
+                )
+            )
+            < 1e-10
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    _anp(orbits_slice.vT(times)[ii]) - _anp(orbits.vT(times)[ii + 1])
+                )
+            )
+            < 1e-10
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    _anp(orbits_slice.phi(times)[ii]) - _anp(orbits.phi(times)[ii + 1])
+                )
             )
             < 1e-10
         ), (
@@ -2567,47 +2748,74 @@ def test_slice_singleobject_multidim():
     indices = [(0, 0, 0), (1, 0, 2), (-1, 0, 1)]
     for ii in indices:
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].x(times) - orbits.x(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].x(times)) - _anp(orbits.x(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vx(times) - orbits.vx(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vx(times)) - _anp(orbits.vx(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].y(times) - orbits.y(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].y(times)) - _anp(orbits.y(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vy(times) - orbits.vy(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vy(times)) - _anp(orbits.vy(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].z(times) - orbits.z(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].z(times)) - _anp(orbits.z(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vz(times) - orbits.vz(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vz(times)) - _anp(orbits.vz(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].R(times) - orbits.R(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].R(times)) - _anp(orbits.R(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vR(times) - orbits.vR(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vR(times)) - _anp(orbits.vR(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
-            numpy.amax(numpy.fabs(orbits[ii].vT(times) - orbits.vT(times)[ii])) < 1e-10
+            numpy.amax(
+                numpy.fabs(_anp(orbits[ii].vT(times)) - _anp(orbits.vT(times)[ii]))
+            )
+            < 1e-10
         ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
@@ -2615,7 +2823,10 @@ def test_slice_singleobject_multidim():
             numpy.amax(
                 numpy.fabs(
                     (
-                        ((orbits[ii].phi(times) - orbits.phi(times)[ii]) + numpy.pi)
+                        (
+                            (_anp(orbits[ii].phi(times)) - _anp(orbits.phi(times)[ii]))
+                            + numpy.pi
+                        )
                         % (2.0 * numpy.pi)
                     )
                     - numpy.pi
@@ -2651,7 +2862,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.x()[ii, kk] - orbits.x()[ii + 1, jj, kk]
+                            _anp(orbits_slice.x()[ii, kk])
+                            - _anp(orbits.x()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2661,7 +2873,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vx()[ii, kk] - orbits.vx()[ii + 1, jj, kk]
+                            _anp(orbits_slice.vx()[ii, kk])
+                            - _anp(orbits.vx()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2671,7 +2884,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.y()[ii, kk] - orbits.y()[ii + 1, jj, kk]
+                            _anp(orbits_slice.y()[ii, kk])
+                            - _anp(orbits.y()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2681,7 +2895,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vy()[ii, kk] - orbits.vy()[ii + 1, jj, kk]
+                            _anp(orbits_slice.vy()[ii, kk])
+                            - _anp(orbits.vy()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2691,7 +2906,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.z()[ii, kk] - orbits.z()[ii + 1, jj, kk]
+                            _anp(orbits_slice.z()[ii, kk])
+                            - _anp(orbits.z()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2701,7 +2917,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vz()[ii, kk] - orbits.vz()[ii + 1, jj, kk]
+                            _anp(orbits_slice.vz()[ii, kk])
+                            - _anp(orbits.vz()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2711,7 +2928,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.R()[ii, kk] - orbits.R()[ii + 1, jj, kk]
+                            _anp(orbits_slice.R()[ii, kk])
+                            - _anp(orbits.R()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2721,7 +2939,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vR()[ii, kk] - orbits.vR()[ii + 1, jj, kk]
+                            _anp(orbits_slice.vR()[ii, kk])
+                            - _anp(orbits.vR()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2731,7 +2950,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vT()[ii, kk] - orbits.vT()[ii + 1, jj, kk]
+                            _anp(orbits_slice.vT()[ii, kk])
+                            - _anp(orbits.vT()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2741,7 +2961,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.phi()[ii, kk] - orbits.phi()[ii + 1, jj, kk]
+                            _anp(orbits_slice.phi()[ii, kk])
+                            - _anp(orbits.phi()[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2757,8 +2978,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.x(times)[ii, kk]
-                            - orbits.x(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.x(times)[ii, kk])
+                            - _anp(orbits.x(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2768,8 +2989,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vx(times)[ii, kk]
-                            - orbits.vx(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.vx(times)[ii, kk])
+                            - _anp(orbits.vx(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2779,8 +3000,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.y(times)[ii, kk]
-                            - orbits.y(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.y(times)[ii, kk])
+                            - _anp(orbits.y(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2790,8 +3011,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vy(times)[ii, kk]
-                            - orbits.vy(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.vy(times)[ii, kk])
+                            - _anp(orbits.vy(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2801,8 +3022,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.z(times)[ii, kk]
-                            - orbits.z(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.z(times)[ii, kk])
+                            - _anp(orbits.z(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2812,8 +3033,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vz(times)[ii, kk]
-                            - orbits.vz(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.vz(times)[ii, kk])
+                            - _anp(orbits.vz(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2823,8 +3044,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.R(times)[ii, kk]
-                            - orbits.R(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.R(times)[ii, kk])
+                            - _anp(orbits.R(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2834,8 +3055,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vR(times)[ii, kk]
-                            - orbits.vR(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.vR(times)[ii, kk])
+                            - _anp(orbits.vR(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2845,8 +3066,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.vT(times)[ii, kk]
-                            - orbits.vT(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.vT(times)[ii, kk])
+                            - _anp(orbits.vT(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2856,8 +3077,8 @@ def test_slice_multipleobjects_multidim():
                 assert (
                     numpy.amax(
                         numpy.fabs(
-                            orbits_slice.phi(times)[ii, kk]
-                            - orbits.phi(times)[ii + 1, jj, kk]
+                            _anp(orbits_slice.phi(times)[ii, kk])
+                            - _anp(orbits.phi(times)[ii + 1, jj, kk])
                         )
                     )
                     < 1e-10
@@ -2965,38 +3186,61 @@ def test_slice_physical_issue385():
         ), (
             "Sliced Orbit instance that was supposed to have physical output turned does not have the right zo"
         )
-        assert numpy.amax(numpy.fabs(orbits[ii].x() - orbits.x()[ii])) < 1e-10, (
+        assert (
+            numpy.amax(numpy.fabs(_anp(orbits[ii].x()) - _anp(orbits.x()[ii]))) < 1e-10
+        ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
-        assert numpy.amax(numpy.fabs(orbits[ii].vx() - orbits.vx()[ii])) < 1e-10, (
+        assert (
+            numpy.amax(numpy.fabs(_anp(orbits[ii].vx()) - _anp(orbits.vx()[ii])))
+            < 1e-10
+        ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
-        assert numpy.amax(numpy.fabs(orbits[ii].y() - orbits.y()[ii])) < 1e-10, (
+        assert (
+            numpy.amax(numpy.fabs(_anp(orbits[ii].y()) - _anp(orbits.y()[ii]))) < 1e-10
+        ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
-        assert numpy.amax(numpy.fabs(orbits[ii].vy() - orbits.vy()[ii])) < 1e-10, (
+        assert (
+            numpy.amax(numpy.fabs(_anp(orbits[ii].vy()) - _anp(orbits.vy()[ii])))
+            < 1e-10
+        ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
-        assert numpy.amax(numpy.fabs(orbits[ii].z() - orbits.z()[ii])) < 1e-10, (
+        assert (
+            numpy.amax(numpy.fabs(_anp(orbits[ii].z()) - _anp(orbits.z()[ii]))) < 1e-10
+        ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
-        assert numpy.amax(numpy.fabs(orbits[ii].vz() - orbits.vz()[ii])) < 1e-10, (
+        assert (
+            numpy.amax(numpy.fabs(_anp(orbits[ii].vz()) - _anp(orbits.vz()[ii])))
+            < 1e-10
+        ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
-        assert numpy.amax(numpy.fabs(orbits[ii].R() - orbits.R()[ii])) < 1e-10, (
+        assert (
+            numpy.amax(numpy.fabs(_anp(orbits[ii].R()) - _anp(orbits.R()[ii]))) < 1e-10
+        ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
-        assert numpy.amax(numpy.fabs(orbits[ii].vR() - orbits.vR()[ii])) < 1e-10, (
+        assert (
+            numpy.amax(numpy.fabs(_anp(orbits[ii].vR()) - _anp(orbits.vR()[ii])))
+            < 1e-10
+        ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
-        assert numpy.amax(numpy.fabs(orbits[ii].vT() - orbits.vT()[ii])) < 1e-10, (
+        assert (
+            numpy.amax(numpy.fabs(_anp(orbits[ii].vT()) - _anp(orbits.vT()[ii])))
+            < 1e-10
+        ), (
             "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
         )
         assert (
             numpy.amax(
                 numpy.fabs(
                     (
-                        ((orbits[ii].phi() - orbits.phi()[ii]) + numpy.pi)
+                        ((_anp(orbits[ii].phi()) - _anp(orbits.phi()[ii])) + numpy.pi)
                         % (2.0 * numpy.pi)
                     )
                     - numpy.pi
@@ -3461,109 +3705,112 @@ def test_coordinate_interpolation():
     # Before integration
     for ii in range(nrand):
         # .time is special, just a single array
-        assert numpy.all(numpy.fabs(os.time() - list_os[ii].time()) < 1e-10), (
-            "Evaluating Orbits time does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
-            "Evaluating Orbits vR does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
-            "Evaluating Orbits vT does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.z()[ii] - list_os[ii].z()) < 1e-10), (
-            "Evaluating Orbits z does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vz()[ii] - list_os[ii].vz()) < 1e-10), (
-            "Evaluating Orbits vz does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_anp(os.time()) - _anp(list_os[ii].time())) < 1e-10
+        ), "Evaluating Orbits time does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.R()[ii]) - _anp(list_os[ii].R())) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r()[ii]) - _anp(list_os[ii].r())) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR()[ii]) - _anp(list_os[ii].vR())) < 1e-10
+        ), "Evaluating Orbits vR does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vT()[ii]) - _anp(list_os[ii].vT())) < 1e-10
+        ), "Evaluating Orbits vT does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.z()[ii]) - _anp(list_os[ii].z())) < 1e-10
+        ), "Evaluating Orbits z does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vz()[ii]) - _anp(list_os[ii].vz())) < 1e-10
+        ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
-                ((os.phi()[ii] - list_os[ii].phi() + numpy.pi) % (2.0 * numpy.pi))
+                (
+                    (_anp(os.phi()[ii]) - _anp(list_os[ii].phi()) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
                 - numpy.pi
             )
             < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
-        assert numpy.all(numpy.fabs(os.x()[ii] - list_os[ii].x()) < 1e-10), (
-            "Evaluating Orbits x does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.y()[ii] - list_os[ii].y()) < 1e-10), (
-            "Evaluating Orbits y does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vx()[ii] - list_os[ii].vx()) < 1e-10), (
-            "Evaluating Orbits vx does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vy()[ii] - list_os[ii].vy()) < 1e-10), (
-            "Evaluating Orbits vy does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10), (
-            "Evaluating Orbits vphi does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.ra()[ii] - list_os[ii].ra()) < 1e-10), (
-            "Evaluating Orbits ra  does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.dec()[ii] - list_os[ii].dec()) < 1e-10), (
-            "Evaluating Orbits dec does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.dist()[ii] - list_os[ii].dist()) < 1e-10), (
-            "Evaluating Orbits dist does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.ll()[ii] - list_os[ii].ll()) < 1e-10), (
-            "Evaluating Orbits ll does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.bb()[ii] - list_os[ii].bb()) < 1e-10), (
-            "Evaluating Orbits bb  does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.pmra()[ii] - list_os[ii].pmra()) < 1e-10), (
-            "Evaluating Orbits pmra does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.pmdec()[ii] - list_os[ii].pmdec()) < 1e-10), (
-            "Evaluating Orbits pmdec does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.pmll()[ii] - list_os[ii].pmll()) < 1e-10), (
-            "Evaluating Orbits pmll does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.pmbb()[ii] - list_os[ii].pmbb()) < 1e-10), (
-            "Evaluating Orbits pmbb does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vra()[ii] - list_os[ii].vra()) < 1e-10), (
-            "Evaluating Orbits vra does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vdec()[ii] - list_os[ii].vdec()) < 1e-10), (
-            "Evaluating Orbits vdec does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vll()[ii] - list_os[ii].vll()) < 1e-10), (
-            "Evaluating Orbits vll does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vbb()[ii] - list_os[ii].vbb()) < 1e-10), (
-            "Evaluating Orbits vbb does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vlos()[ii] - list_os[ii].vlos()) < 1e-10), (
-            "Evaluating Orbits vlos does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.helioX()[ii] - list_os[ii].helioX()) < 1e-10), (
-            "Evaluating Orbits helioX does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.helioY()[ii] - list_os[ii].helioY()) < 1e-10), (
-            "Evaluating Orbits helioY does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.helioZ()[ii] - list_os[ii].helioZ()) < 1e-10), (
-            "Evaluating Orbits helioZ does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.U()[ii] - list_os[ii].U()) < 1e-10), (
-            "Evaluating Orbits U does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.V()[ii] - list_os[ii].V()) < 1e-10), (
-            "Evaluating Orbits V does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.W()[ii] - list_os[ii].W()) < 1e-10), (
-            "Evaluating Orbits W does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_anp(os.x()[ii]) - _anp(list_os[ii].x())) < 1e-10
+        ), "Evaluating Orbits x does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.y()[ii]) - _anp(list_os[ii].y())) < 1e-10
+        ), "Evaluating Orbits y does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vx()[ii]) - _anp(list_os[ii].vx())) < 1e-10
+        ), "Evaluating Orbits vx does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vy()[ii]) - _anp(list_os[ii].vy())) < 1e-10
+        ), "Evaluating Orbits vy does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vphi()[ii]) - _anp(list_os[ii].vphi())) < 1e-10
+        ), "Evaluating Orbits vphi does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.ra()[ii]) - _anp(list_os[ii].ra())) < 1e-10
+        ), "Evaluating Orbits ra  does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.dec()[ii]) - _anp(list_os[ii].dec())) < 1e-10
+        ), "Evaluating Orbits dec does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.dist()[ii]) - _anp(list_os[ii].dist())) < 1e-10
+        ), "Evaluating Orbits dist does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.ll()[ii]) - _anp(list_os[ii].ll())) < 1e-10
+        ), "Evaluating Orbits ll does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.bb()[ii]) - _anp(list_os[ii].bb())) < 1e-10
+        ), "Evaluating Orbits bb  does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.pmra()[ii]) - _anp(list_os[ii].pmra())) < 1e-10
+        ), "Evaluating Orbits pmra does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.pmdec()[ii]) - _anp(list_os[ii].pmdec())) < 1e-10
+        ), "Evaluating Orbits pmdec does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.pmll()[ii]) - _anp(list_os[ii].pmll())) < 1e-10
+        ), "Evaluating Orbits pmll does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.pmbb()[ii]) - _anp(list_os[ii].pmbb())) < 1e-10
+        ), "Evaluating Orbits pmbb does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vra()[ii]) - _anp(list_os[ii].vra())) < 1e-10
+        ), "Evaluating Orbits vra does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vdec()[ii]) - _anp(list_os[ii].vdec())) < 1e-10
+        ), "Evaluating Orbits vdec does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vll()[ii]) - _anp(list_os[ii].vll())) < 1e-10
+        ), "Evaluating Orbits vll does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vbb()[ii]) - _anp(list_os[ii].vbb())) < 1e-10
+        ), "Evaluating Orbits vbb does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vlos()[ii]) - _anp(list_os[ii].vlos())) < 1e-10
+        ), "Evaluating Orbits vlos does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.helioX()[ii]) - _anp(list_os[ii].helioX())) < 1e-10
+        ), "Evaluating Orbits helioX does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.helioY()[ii]) - _anp(list_os[ii].helioY())) < 1e-10
+        ), "Evaluating Orbits helioY does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.helioZ()[ii]) - _anp(list_os[ii].helioZ())) < 1e-10
+        ), "Evaluating Orbits helioZ does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.U()[ii]) - _anp(list_os[ii].U())) < 1e-10
+        ), "Evaluating Orbits U does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.V()[ii]) - _anp(list_os[ii].V())) < 1e-10
+        ), "Evaluating Orbits V does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.W()[ii]) - _anp(list_os[ii].W())) < 1e-10
+        ), "Evaluating Orbits W does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(os.SkyCoord().ra[ii] - list_os[ii].SkyCoord().ra).to(u.deg).value
             < 1e-10
@@ -3612,111 +3859,115 @@ def test_coordinate_interpolation():
     for ii in range(nrand):
         # .time is special, just a single array
         assert numpy.all(
-            numpy.fabs(os.time(times) - list_os[ii].time(times)) < 1e-10
+            numpy.fabs(_anp(os.time(times)) - _anp(list_os[ii].time(times))) < 1e-10
         ), "Evaluating Orbits time does not agree with Orbit"
-        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
+            numpy.fabs(_anp(os.R(times)[ii]) - _anp(list_os[ii].R(times))) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r(times)[ii]) - _anp(list_os[ii].r(times))) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR(times)[ii]) - _anp(list_os[ii].vR(times))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times)[ii] - list_os[ii].vT(times)) < 1e-10
+            numpy.fabs(_anp(os.vT(times)[ii]) - _anp(list_os[ii].vT(times))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(numpy.fabs(os.z(times)[ii] - list_os[ii].z(times)) < 1e-10), (
-            "Evaluating Orbits z does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vz(times)[ii] - list_os[ii].vz(times)) < 1e-10
+            numpy.fabs(_anp(os.z(times)[ii]) - _anp(list_os[ii].z(times))) < 1e-10
+        ), "Evaluating Orbits z does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vz(times)[ii]) - _anp(list_os[ii].vz(times))) < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
                 (
-                    (os.phi(times)[ii] - list_os[ii].phi(times) + numpy.pi)
+                    (_anp(os.phi(times)[ii]) - _anp(list_os[ii].phi(times)) + numpy.pi)
                     % (2.0 * numpy.pi)
                 )
                 - numpy.pi
             )
             < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
-        assert numpy.all(numpy.fabs(os.x(times)[ii] - list_os[ii].x(times)) < 1e-10), (
-            "Evaluating Orbits x does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.y(times)[ii] - list_os[ii].y(times)) < 1e-10), (
-            "Evaluating Orbits y does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vx(times)[ii] - list_os[ii].vx(times)) < 1e-10
+            numpy.fabs(_anp(os.x(times)[ii]) - _anp(list_os[ii].x(times))) < 1e-10
+        ), "Evaluating Orbits x does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.y(times)[ii]) - _anp(list_os[ii].y(times))) < 1e-10
+        ), "Evaluating Orbits y does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vx(times)[ii]) - _anp(list_os[ii].vx(times))) < 1e-10
         ), "Evaluating Orbits vx does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vy(times)[ii] - list_os[ii].vy(times)) < 1e-10
+            numpy.fabs(_anp(os.vy(times)[ii]) - _anp(list_os[ii].vy(times))) < 1e-10
         ), "Evaluating Orbits vy does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(times)[ii] - list_os[ii].vphi(times)) < 1e-10
+            numpy.fabs(_anp(os.vphi(times)[ii]) - _anp(list_os[ii].vphi(times))) < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.ra(times)[ii] - list_os[ii].ra(times)) < 1e-10
+            numpy.fabs(_anp(os.ra(times)[ii]) - _anp(list_os[ii].ra(times))) < 1e-10
         ), "Evaluating Orbits ra  does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.dec(times)[ii] - list_os[ii].dec(times)) < 1e-10
+            numpy.fabs(_anp(os.dec(times)[ii]) - _anp(list_os[ii].dec(times))) < 1e-10
         ), "Evaluating Orbits dec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.dist(times)[ii] - list_os[ii].dist(times)) < 1e-10
+            numpy.fabs(_anp(os.dist(times)[ii]) - _anp(list_os[ii].dist(times))) < 1e-10
         ), "Evaluating Orbits dist does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.ll(times)[ii] - list_os[ii].ll(times)) < 1e-10
+            numpy.fabs(_anp(os.ll(times)[ii]) - _anp(list_os[ii].ll(times))) < 1e-10
         ), "Evaluating Orbits ll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.bb(times)[ii] - list_os[ii].bb(times)) < 1e-10
+            numpy.fabs(_anp(os.bb(times)[ii]) - _anp(list_os[ii].bb(times))) < 1e-10
         ), "Evaluating Orbits bb  does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmra(times)[ii] - list_os[ii].pmra(times)) < 1e-10
+            numpy.fabs(_anp(os.pmra(times)[ii]) - _anp(list_os[ii].pmra(times))) < 1e-10
         ), "Evaluating Orbits pmra does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmdec(times)[ii] - list_os[ii].pmdec(times)) < 1e-10
+            numpy.fabs(_anp(os.pmdec(times)[ii]) - _anp(list_os[ii].pmdec(times)))
+            < 1e-10
         ), "Evaluating Orbits pmdec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmll(times)[ii] - list_os[ii].pmll(times)) < 1e-10
+            numpy.fabs(_anp(os.pmll(times)[ii]) - _anp(list_os[ii].pmll(times))) < 1e-10
         ), "Evaluating Orbits pmll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmbb(times)[ii] - list_os[ii].pmbb(times)) < 1e-10
+            numpy.fabs(_anp(os.pmbb(times)[ii]) - _anp(list_os[ii].pmbb(times))) < 1e-10
         ), "Evaluating Orbits pmbb does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vra(times)[ii] - list_os[ii].vra(times)) < 1e-10
+            numpy.fabs(_anp(os.vra(times)[ii]) - _anp(list_os[ii].vra(times))) < 1e-10
         ), "Evaluating Orbits vra does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vdec(times)[ii] - list_os[ii].vdec(times)) < 1e-10
+            numpy.fabs(_anp(os.vdec(times)[ii]) - _anp(list_os[ii].vdec(times))) < 1e-10
         ), "Evaluating Orbits vdec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vll(times)[ii] - list_os[ii].vll(times)) < 1e-10
+            numpy.fabs(_anp(os.vll(times)[ii]) - _anp(list_os[ii].vll(times))) < 1e-10
         ), "Evaluating Orbits vll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vbb(times)[ii] - list_os[ii].vbb(times)) < 1e-10
+            numpy.fabs(_anp(os.vbb(times)[ii]) - _anp(list_os[ii].vbb(times))) < 1e-10
         ), "Evaluating Orbits vbb does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vlos(times)[ii] - list_os[ii].vlos(times)) < 1e-9
+            numpy.fabs(_anp(os.vlos(times)[ii]) - _anp(list_os[ii].vlos(times))) < 1e-9
         ), "Evaluating Orbits vlos does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioX(times)[ii] - list_os[ii].helioX(times)) < 1e-10
+            numpy.fabs(_anp(os.helioX(times)[ii]) - _anp(list_os[ii].helioX(times)))
+            < 1e-10
         ), "Evaluating Orbits helioX does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioY(times)[ii] - list_os[ii].helioY(times)) < 1e-10
+            numpy.fabs(_anp(os.helioY(times)[ii]) - _anp(list_os[ii].helioY(times)))
+            < 1e-10
         ), "Evaluating Orbits helioY does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioZ(times)[ii] - list_os[ii].helioZ(times)) < 1e-10
+            numpy.fabs(_anp(os.helioZ(times)[ii]) - _anp(list_os[ii].helioZ(times)))
+            < 1e-10
         ), "Evaluating Orbits helioZ does not agree with Orbit"
-        assert numpy.all(numpy.fabs(os.U(times)[ii] - list_os[ii].U(times)) < 1e-10), (
-            "Evaluating Orbits U does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.V(times)[ii] - list_os[ii].V(times)) < 1e-10), (
-            "Evaluating Orbits V does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.W(times)[ii] - list_os[ii].W(times)) < 1e-10), (
-            "Evaluating Orbits W does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_anp(os.U(times)[ii]) - _anp(list_os[ii].U(times))) < 1e-10
+        ), "Evaluating Orbits U does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.V(times)[ii]) - _anp(list_os[ii].V(times))) < 1e-10
+        ), "Evaluating Orbits V does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.W(times)[ii]) - _anp(list_os[ii].W(times))) < 1e-10
+        ), "Evaluating Orbits W does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(os.SkyCoord(times).ra[ii] - list_os[ii].SkyCoord(times).ra)
             .to(u.deg)
@@ -3767,30 +4018,38 @@ def test_coordinate_interpolation():
         # Also a single time in the array ...
         # .time is special, just a single array
         assert numpy.all(
-            numpy.fabs(os.time(times[1]) - list_os[ii].time(times[1])) < 1e-10
+            numpy.fabs(_anp(os.time(times[1])) - _anp(list_os[ii].time(times[1])))
+            < 1e-10
         ), "Evaluating Orbits time does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.R(times[1])[ii] - list_os[ii].R(times[1])) < 1e-10
+            numpy.fabs(_anp(os.R(times[1])[ii]) - _anp(list_os[ii].R(times[1]))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(times[1])[ii] - list_os[ii].r(times[1])) < 1e-10
+            numpy.fabs(_anp(os.r(times[1])[ii]) - _anp(list_os[ii].r(times[1]))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(times[1])[ii] - list_os[ii].vR(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(times[1])[ii]) - _anp(list_os[ii].vR(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times[1])[ii] - list_os[ii].vT(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(times[1])[ii]) - _anp(list_os[ii].vT(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.z(times[1])[ii] - list_os[ii].z(times[1])) < 1e-10
+            numpy.fabs(_anp(os.z(times[1])[ii]) - _anp(list_os[ii].z(times[1]))) < 1e-10
         ), "Evaluating Orbits z does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vz(times[1])[ii] - list_os[ii].vz(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vz(times[1])[ii]) - _anp(list_os[ii].vz(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
                 (
-                    (os.phi(times[1])[ii] - list_os[ii].phi(times[1]) + numpy.pi)
+                    (
+                        _anp(os.phi(times[1])[ii])
+                        - _anp(list_os[ii].phi(times[1]))
+                        + numpy.pi
+                    )
                     % (2.0 * numpy.pi)
                 )
                 - numpy.pi
@@ -3798,79 +4057,105 @@ def test_coordinate_interpolation():
             < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.x(times[1])[ii] - list_os[ii].x(times[1])) < 1e-10
+            numpy.fabs(_anp(os.x(times[1])[ii]) - _anp(list_os[ii].x(times[1]))) < 1e-10
         ), "Evaluating Orbits x does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.y(times[1])[ii] - list_os[ii].y(times[1])) < 1e-10
+            numpy.fabs(_anp(os.y(times[1])[ii]) - _anp(list_os[ii].y(times[1]))) < 1e-10
         ), "Evaluating Orbits y does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vx(times[1])[ii] - list_os[ii].vx(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vx(times[1])[ii]) - _anp(list_os[ii].vx(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vx does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vy(times[1])[ii] - list_os[ii].vy(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vy(times[1])[ii]) - _anp(list_os[ii].vy(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vy does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(times[1])[ii] - list_os[ii].vphi(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vphi(times[1])[ii]) - _anp(list_os[ii].vphi(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.ra(times[1])[ii] - list_os[ii].ra(times[1])) < 1e-10
+            numpy.fabs(_anp(os.ra(times[1])[ii]) - _anp(list_os[ii].ra(times[1])))
+            < 1e-10
         ), "Evaluating Orbits ra  does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.dec(times[1])[ii] - list_os[ii].dec(times[1])) < 1e-10
+            numpy.fabs(_anp(os.dec(times[1])[ii]) - _anp(list_os[ii].dec(times[1])))
+            < 1e-10
         ), "Evaluating Orbits dec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.dist(times[1])[ii] - list_os[ii].dist(times[1])) < 1e-10
+            numpy.fabs(_anp(os.dist(times[1])[ii]) - _anp(list_os[ii].dist(times[1])))
+            < 1e-10
         ), "Evaluating Orbits dist does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.ll(times[1])[ii] - list_os[ii].ll(times[1])) < 1e-10
+            numpy.fabs(_anp(os.ll(times[1])[ii]) - _anp(list_os[ii].ll(times[1])))
+            < 1e-10
         ), "Evaluating Orbits ll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.bb(times[1])[ii] - list_os[ii].bb(times[1])) < 1e-10
+            numpy.fabs(_anp(os.bb(times[1])[ii]) - _anp(list_os[ii].bb(times[1])))
+            < 1e-10
         ), "Evaluating Orbits bb  does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmra(times[1])[ii] - list_os[ii].pmra(times[1])) < 1e-10
+            numpy.fabs(_anp(os.pmra(times[1])[ii]) - _anp(list_os[ii].pmra(times[1])))
+            < 1e-10
         ), "Evaluating Orbits pmra does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmdec(times[1])[ii] - list_os[ii].pmdec(times[1])) < 1e-10
+            numpy.fabs(_anp(os.pmdec(times[1])[ii]) - _anp(list_os[ii].pmdec(times[1])))
+            < 1e-10
         ), "Evaluating Orbits pmdec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmll(times[1])[ii] - list_os[ii].pmll(times[1])) < 1e-10
+            numpy.fabs(_anp(os.pmll(times[1])[ii]) - _anp(list_os[ii].pmll(times[1])))
+            < 1e-10
         ), "Evaluating Orbits pmll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmbb(times[1])[ii] - list_os[ii].pmbb(times[1])) < 1e-10
+            numpy.fabs(_anp(os.pmbb(times[1])[ii]) - _anp(list_os[ii].pmbb(times[1])))
+            < 1e-10
         ), "Evaluating Orbits pmbb does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vra(times[1])[ii] - list_os[ii].vra(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vra(times[1])[ii]) - _anp(list_os[ii].vra(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vra does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vdec(times[1])[ii] - list_os[ii].vdec(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vdec(times[1])[ii]) - _anp(list_os[ii].vdec(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vdec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vll(times[1])[ii] - list_os[ii].vll(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vll(times[1])[ii]) - _anp(list_os[ii].vll(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vbb(times[1])[ii] - list_os[ii].vbb(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vbb(times[1])[ii]) - _anp(list_os[ii].vbb(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vbb does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vlos(times[1])[ii] - list_os[ii].vlos(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vlos(times[1])[ii]) - _anp(list_os[ii].vlos(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vlos does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioX(times[1])[ii] - list_os[ii].helioX(times[1])) < 1e-10
+            numpy.fabs(
+                _anp(os.helioX(times[1])[ii]) - _anp(list_os[ii].helioX(times[1]))
+            )
+            < 1e-10
         ), "Evaluating Orbits helioX does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioY(times[1])[ii] - list_os[ii].helioY(times[1])) < 1e-10
+            numpy.fabs(
+                _anp(os.helioY(times[1])[ii]) - _anp(list_os[ii].helioY(times[1]))
+            )
+            < 1e-10
         ), "Evaluating Orbits helioY does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioZ(times[1])[ii] - list_os[ii].helioZ(times[1])) < 1e-10
+            numpy.fabs(
+                _anp(os.helioZ(times[1])[ii]) - _anp(list_os[ii].helioZ(times[1]))
+            )
+            < 1e-10
         ), "Evaluating Orbits helioZ does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.U(times[1])[ii] - list_os[ii].U(times[1])) < 1e-10
+            numpy.fabs(_anp(os.U(times[1])[ii]) - _anp(list_os[ii].U(times[1]))) < 1e-10
         ), "Evaluating Orbits U does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.V(times[1])[ii] - list_os[ii].V(times[1])) < 1e-10
+            numpy.fabs(_anp(os.V(times[1])[ii]) - _anp(list_os[ii].V(times[1]))) < 1e-10
         ), "Evaluating Orbits V does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.W(times[1])[ii] - list_os[ii].W(times[1])) < 1e-10
+            numpy.fabs(_anp(os.W(times[1])[ii]) - _anp(list_os[ii].W(times[1]))) < 1e-10
         ), "Evaluating Orbits W does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(os.SkyCoord(times[1]).ra[ii] - list_os[ii].SkyCoord(times[1]).ra)
@@ -3927,27 +4212,31 @@ def test_coordinate_interpolation():
     itimes = times[:-2] + (times[1] - times[0]) / 2.0
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(os.R(itimes)[ii] - list_os[ii].R(itimes)) < 1e-10
+            numpy.fabs(_anp(os.R(itimes)[ii]) - _anp(list_os[ii].R(itimes))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes)[ii] - list_os[ii].r(itimes)) < 1e-10
+            numpy.fabs(_anp(os.r(itimes)[ii]) - _anp(list_os[ii].r(itimes))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes)[ii] - list_os[ii].vR(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes)[ii]) - _anp(list_os[ii].vR(itimes))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes)[ii] - list_os[ii].vT(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes)[ii]) - _anp(list_os[ii].vT(itimes))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.z(itimes)[ii] - list_os[ii].z(itimes)) < 1e-10
+            numpy.fabs(_anp(os.z(itimes)[ii]) - _anp(list_os[ii].z(itimes))) < 1e-10
         ), "Evaluating Orbits z does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vz(itimes)[ii] - list_os[ii].vz(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vz(itimes)[ii]) - _anp(list_os[ii].vz(itimes))) < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
                 (
-                    (os.phi(itimes)[ii] - list_os[ii].phi(itimes) + numpy.pi)
+                    (
+                        _anp(os.phi(itimes)[ii])
+                        - _anp(list_os[ii].phi(itimes))
+                        + numpy.pi
+                    )
                     % (2.0 * numpy.pi)
                 )
                 - numpy.pi
@@ -3955,79 +4244,90 @@ def test_coordinate_interpolation():
             < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.x(itimes)[ii] - list_os[ii].x(itimes)) < 1e-10
+            numpy.fabs(_anp(os.x(itimes)[ii]) - _anp(list_os[ii].x(itimes))) < 1e-10
         ), "Evaluating Orbits x does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.y(itimes)[ii] - list_os[ii].y(itimes)) < 1e-10
+            numpy.fabs(_anp(os.y(itimes)[ii]) - _anp(list_os[ii].y(itimes))) < 1e-10
         ), "Evaluating Orbits y does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vx(itimes)[ii] - list_os[ii].vx(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vx(itimes)[ii]) - _anp(list_os[ii].vx(itimes))) < 1e-10
         ), "Evaluating Orbits vx does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vy(itimes)[ii] - list_os[ii].vy(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vy(itimes)[ii]) - _anp(list_os[ii].vy(itimes))) < 1e-10
         ), "Evaluating Orbits vy does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(itimes)[ii] - list_os[ii].vphi(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vphi(itimes)[ii]) - _anp(list_os[ii].vphi(itimes)))
+            < 1e-10
         ), "Evaluating Orbits vphidoes not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.ra(itimes)[ii] - list_os[ii].ra(itimes)) < 1e-10
+            numpy.fabs(_anp(os.ra(itimes)[ii]) - _anp(list_os[ii].ra(itimes))) < 1e-10
         ), "Evaluating Orbits ra  does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.dec(itimes)[ii] - list_os[ii].dec(itimes)) < 1e-10
+            numpy.fabs(_anp(os.dec(itimes)[ii]) - _anp(list_os[ii].dec(itimes))) < 1e-10
         ), "Evaluating Orbits dec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.dist(itimes)[ii] - list_os[ii].dist(itimes)) < 1e-10
+            numpy.fabs(_anp(os.dist(itimes)[ii]) - _anp(list_os[ii].dist(itimes)))
+            < 1e-10
         ), "Evaluating Orbits dist does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.ll(itimes)[ii] - list_os[ii].ll(itimes)) < 1e-10
+            numpy.fabs(_anp(os.ll(itimes)[ii]) - _anp(list_os[ii].ll(itimes))) < 1e-10
         ), "Evaluating Orbits ll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.bb(itimes)[ii] - list_os[ii].bb(itimes)) < 1e-10
+            numpy.fabs(_anp(os.bb(itimes)[ii]) - _anp(list_os[ii].bb(itimes))) < 1e-10
         ), "Evaluating Orbits bb  does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmra(itimes)[ii] - list_os[ii].pmra(itimes)) < 1e-10
+            numpy.fabs(_anp(os.pmra(itimes)[ii]) - _anp(list_os[ii].pmra(itimes)))
+            < 1e-10
         ), "Evaluating Orbits pmra does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmdec(itimes)[ii] - list_os[ii].pmdec(itimes)) < 1e-10
+            numpy.fabs(_anp(os.pmdec(itimes)[ii]) - _anp(list_os[ii].pmdec(itimes)))
+            < 1e-10
         ), "Evaluating Orbits pmdec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmll(itimes)[ii] - list_os[ii].pmll(itimes)) < 1e-10
+            numpy.fabs(_anp(os.pmll(itimes)[ii]) - _anp(list_os[ii].pmll(itimes)))
+            < 1e-10
         ), "Evaluating Orbits pmll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmbb(itimes)[ii] - list_os[ii].pmbb(itimes)) < 1e-10
+            numpy.fabs(_anp(os.pmbb(itimes)[ii]) - _anp(list_os[ii].pmbb(itimes)))
+            < 1e-10
         ), "Evaluating Orbits pmbb does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vra(itimes)[ii] - list_os[ii].vra(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vra(itimes)[ii]) - _anp(list_os[ii].vra(itimes))) < 1e-10
         ), "Evaluating Orbits vra does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vdec(itimes)[ii] - list_os[ii].vdec(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vdec(itimes)[ii]) - _anp(list_os[ii].vdec(itimes)))
+            < 1e-10
         ), "Evaluating Orbits vdec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vll(itimes)[ii] - list_os[ii].vll(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vll(itimes)[ii]) - _anp(list_os[ii].vll(itimes))) < 1e-10
         ), "Evaluating Orbits ll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vbb(itimes)[ii] - list_os[ii].vbb(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vbb(itimes)[ii]) - _anp(list_os[ii].vbb(itimes))) < 1e-10
         ), "Evaluating Orbits vbb does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vlos(itimes)[ii] - list_os[ii].vlos(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vlos(itimes)[ii]) - _anp(list_os[ii].vlos(itimes)))
+            < 1e-10
         ), "Evaluating Orbits vlos does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioX(itimes)[ii] - list_os[ii].helioX(itimes)) < 1e-10
+            numpy.fabs(_anp(os.helioX(itimes)[ii]) - _anp(list_os[ii].helioX(itimes)))
+            < 1e-10
         ), "Evaluating Orbits helioX does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioY(itimes)[ii] - list_os[ii].helioY(itimes)) < 1e-10
+            numpy.fabs(_anp(os.helioY(itimes)[ii]) - _anp(list_os[ii].helioY(itimes)))
+            < 1e-10
         ), "Evaluating Orbits helioY does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioZ(itimes)[ii] - list_os[ii].helioZ(itimes)) < 1e-10
+            numpy.fabs(_anp(os.helioZ(itimes)[ii]) - _anp(list_os[ii].helioZ(itimes)))
+            < 1e-10
         ), "Evaluating Orbits helioZ does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.U(itimes)[ii] - list_os[ii].U(itimes)) < 1e-10
+            numpy.fabs(_anp(os.U(itimes)[ii]) - _anp(list_os[ii].U(itimes))) < 1e-10
         ), "Evaluating Orbits U does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.V(itimes)[ii] - list_os[ii].V(itimes)) < 1e-10
+            numpy.fabs(_anp(os.V(itimes)[ii]) - _anp(list_os[ii].V(itimes))) < 1e-10
         ), "Evaluating Orbits V does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.W(itimes)[ii] - list_os[ii].W(itimes)) < 1e-10
+            numpy.fabs(_anp(os.W(itimes)[ii]) - _anp(list_os[ii].W(itimes))) < 1e-10
         ), "Evaluating Orbits W does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(os.SkyCoord(itimes).ra[ii] - list_os[ii].SkyCoord(itimes).ra)
@@ -4078,27 +4378,37 @@ def test_coordinate_interpolation():
             ), "Evaluating Orbits SkyCoord does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.R(itimes[1])[ii] - list_os[ii].R(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.R(itimes[1])[ii]) - _anp(list_os[ii].R(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes[1])[ii] - list_os[ii].r(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.r(itimes[1])[ii]) - _anp(list_os[ii].r(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes[1])[ii] - list_os[ii].vR(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes[1])[ii]) - _anp(list_os[ii].vR(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes[1])[ii] - list_os[ii].vT(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes[1])[ii]) - _anp(list_os[ii].vT(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.z(itimes[1])[ii] - list_os[ii].z(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.z(itimes[1])[ii]) - _anp(list_os[ii].z(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits z does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vz(itimes[1])[ii] - list_os[ii].vz(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vz(itimes[1])[ii]) - _anp(list_os[ii].vz(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
                 (
-                    (os.phi(itimes[1])[ii] - list_os[ii].phi(itimes[1]) + numpy.pi)
+                    (
+                        _anp(os.phi(itimes[1])[ii])
+                        - _anp(list_os[ii].phi(itimes[1]))
+                        + numpy.pi
+                    )
                     % (2.0 * numpy.pi)
                 )
                 - numpy.pi
@@ -4106,64 +4416,92 @@ def test_coordinate_interpolation():
             < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.ra(itimes[1])[ii] - list_os[ii].ra(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.ra(itimes[1])[ii]) - _anp(list_os[ii].ra(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits ra  does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.dec(itimes[1])[ii] - list_os[ii].dec(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.dec(itimes[1])[ii]) - _anp(list_os[ii].dec(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits dec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.dist(itimes[1])[ii] - list_os[ii].dist(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.dist(itimes[1])[ii]) - _anp(list_os[ii].dist(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits dist does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.ll(itimes[1])[ii] - list_os[ii].ll(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.ll(itimes[1])[ii]) - _anp(list_os[ii].ll(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits ll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.bb(itimes[1])[ii] - list_os[ii].bb(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.bb(itimes[1])[ii]) - _anp(list_os[ii].bb(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits bb  does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmra(itimes[1])[ii] - list_os[ii].pmra(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.pmra(itimes[1])[ii]) - _anp(list_os[ii].pmra(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits pmra does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmdec(itimes[1])[ii] - list_os[ii].pmdec(itimes[1])) < 1e-10
+            numpy.fabs(
+                _anp(os.pmdec(itimes[1])[ii]) - _anp(list_os[ii].pmdec(itimes[1]))
+            )
+            < 1e-10
         ), "Evaluating Orbits pmdec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmll(itimes[1])[ii] - list_os[ii].pmll(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.pmll(itimes[1])[ii]) - _anp(list_os[ii].pmll(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits pmll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.pmbb(itimes[1])[ii] - list_os[ii].pmbb(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.pmbb(itimes[1])[ii]) - _anp(list_os[ii].pmbb(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits pmbb does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vra(itimes[1])[ii] - list_os[ii].vra(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vra(itimes[1])[ii]) - _anp(list_os[ii].vra(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vra does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vdec(itimes[1])[ii] - list_os[ii].vdec(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vdec(itimes[1])[ii]) - _anp(list_os[ii].vdec(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vdec does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vll(itimes[1])[ii] - list_os[ii].vll(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vll(itimes[1])[ii]) - _anp(list_os[ii].vll(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vll does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vbb(itimes[1])[ii] - list_os[ii].vbb(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vbb(itimes[1])[ii]) - _anp(list_os[ii].vbb(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vbb does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vlos(itimes[1])[ii] - list_os[ii].vlos(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vlos(itimes[1])[ii]) - _anp(list_os[ii].vlos(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vlos does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioX(itimes[1])[ii] - list_os[ii].helioX(itimes[1])) < 1e-10
+            numpy.fabs(
+                _anp(os.helioX(itimes[1])[ii]) - _anp(list_os[ii].helioX(itimes[1]))
+            )
+            < 1e-10
         ), "Evaluating Orbits helioX does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioY(itimes[1])[ii] - list_os[ii].helioY(itimes[1])) < 1e-10
+            numpy.fabs(
+                _anp(os.helioY(itimes[1])[ii]) - _anp(list_os[ii].helioY(itimes[1]))
+            )
+            < 1e-10
         ), "Evaluating Orbits helioY does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.helioZ(itimes[1])[ii] - list_os[ii].helioZ(itimes[1])) < 1e-10
+            numpy.fabs(
+                _anp(os.helioZ(itimes[1])[ii]) - _anp(list_os[ii].helioZ(itimes[1]))
+            )
+            < 1e-10
         ), "Evaluating Orbits helioZ does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.U(itimes[1])[ii] - list_os[ii].U(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.U(itimes[1])[ii]) - _anp(list_os[ii].U(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits U does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.V(itimes[1])[ii] - list_os[ii].V(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.V(itimes[1])[ii]) - _anp(list_os[ii].V(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits V does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.W(itimes[1])[ii] - list_os[ii].W(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.W(itimes[1])[ii]) - _anp(list_os[ii].W(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits W does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
@@ -4240,121 +4578,133 @@ def test_coordinate_interpolation_5d():
     ]
     # Before integration
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
-            "Evaluating Orbits vR does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
-            "Evaluating Orbits vT does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.z()[ii] - list_os[ii].z()) < 1e-10), (
-            "Evaluating Orbits z does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vz()[ii] - list_os[ii].vz()) < 1e-10), (
-            "Evaluating Orbits vz does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10), (
-            "Evaluating Orbits vphi does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_anp(os.R()[ii]) - _anp(list_os[ii].R())) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r()[ii]) - _anp(list_os[ii].r())) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR()[ii]) - _anp(list_os[ii].vR())) < 1e-10
+        ), "Evaluating Orbits vR does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vT()[ii]) - _anp(list_os[ii].vT())) < 1e-10
+        ), "Evaluating Orbits vT does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.z()[ii]) - _anp(list_os[ii].z())) < 1e-10
+        ), "Evaluating Orbits z does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vz()[ii]) - _anp(list_os[ii].vz())) < 1e-10
+        ), "Evaluating Orbits vz does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vphi()[ii]) - _anp(list_os[ii].vphi())) < 1e-10
+        ), "Evaluating Orbits vphi does not agree with Orbit"
     # Integrate all
     times = numpy.linspace(0.0, 10.0, 1001)
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     # Test exact times of integration
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
+            numpy.fabs(_anp(os.R(times)[ii]) - _anp(list_os[ii].R(times))) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r(times)[ii]) - _anp(list_os[ii].r(times))) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR(times)[ii]) - _anp(list_os[ii].vR(times))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times)[ii] - list_os[ii].vT(times)) < 1e-10
+            numpy.fabs(_anp(os.vT(times)[ii]) - _anp(list_os[ii].vT(times))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(numpy.fabs(os.z(times)[ii] - list_os[ii].z(times)) < 1e-10), (
-            "Evaluating Orbits z does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vz(times)[ii] - list_os[ii].vz(times)) < 1e-10
+            numpy.fabs(_anp(os.z(times)[ii]) - _anp(list_os[ii].z(times))) < 1e-10
+        ), "Evaluating Orbits z does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vz(times)[ii]) - _anp(list_os[ii].vz(times))) < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(times)[ii] - list_os[ii].vphi(times)) < 1e-10
+            numpy.fabs(_anp(os.vphi(times)[ii]) - _anp(list_os[ii].vphi(times))) < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.R(times[1])[ii] - list_os[ii].R(times[1])) < 1e-10
+            numpy.fabs(_anp(os.R(times[1])[ii]) - _anp(list_os[ii].R(times[1]))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(times[1])[ii] - list_os[ii].r(times[1])) < 1e-10
+            numpy.fabs(_anp(os.r(times[1])[ii]) - _anp(list_os[ii].r(times[1]))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(times[1])[ii] - list_os[ii].vR(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(times[1])[ii]) - _anp(list_os[ii].vR(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times[1])[ii] - list_os[ii].vT(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(times[1])[ii]) - _anp(list_os[ii].vT(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.z(times[1])[ii] - list_os[ii].z(times[1])) < 1e-10
+            numpy.fabs(_anp(os.z(times[1])[ii]) - _anp(list_os[ii].z(times[1]))) < 1e-10
         ), "Evaluating Orbits z does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vz(times[1])[ii] - list_os[ii].vz(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vz(times[1])[ii]) - _anp(list_os[ii].vz(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(times[1])[ii] - list_os[ii].vphi(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vphi(times[1])[ii]) - _anp(list_os[ii].vphi(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
     # Test actual interpolated
     itimes = times[:-2] + (times[1] - times[0]) / 2.0
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(os.R(itimes)[ii] - list_os[ii].R(itimes)) < 1e-10
+            numpy.fabs(_anp(os.R(itimes)[ii]) - _anp(list_os[ii].R(itimes))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes)[ii] - list_os[ii].r(itimes)) < 1e-10
+            numpy.fabs(_anp(os.r(itimes)[ii]) - _anp(list_os[ii].r(itimes))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes)[ii] - list_os[ii].vR(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes)[ii]) - _anp(list_os[ii].vR(itimes))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes)[ii] - list_os[ii].vT(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes)[ii]) - _anp(list_os[ii].vT(itimes))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.z(itimes)[ii] - list_os[ii].z(itimes)) < 1e-10
+            numpy.fabs(_anp(os.z(itimes)[ii]) - _anp(list_os[ii].z(itimes))) < 1e-10
         ), "Evaluating Orbits z does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vz(itimes)[ii] - list_os[ii].vz(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vz(itimes)[ii]) - _anp(list_os[ii].vz(itimes))) < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(itimes)[ii] - list_os[ii].vphi(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vphi(itimes)[ii]) - _anp(list_os[ii].vphi(itimes)))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.R(itimes[1])[ii] - list_os[ii].R(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.R(itimes[1])[ii]) - _anp(list_os[ii].R(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes[1])[ii] - list_os[ii].r(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.r(itimes[1])[ii]) - _anp(list_os[ii].r(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes[1])[ii] - list_os[ii].vR(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes[1])[ii]) - _anp(list_os[ii].vR(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes[1])[ii] - list_os[ii].vT(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes[1])[ii]) - _anp(list_os[ii].vT(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.z(itimes[1])[ii] - list_os[ii].z(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.z(itimes[1])[ii]) - _anp(list_os[ii].z(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits z does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vz(itimes[1])[ii] - list_os[ii].vz(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vz(itimes[1])[ii]) - _anp(list_os[ii].vz(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(itimes[1])[ii] - list_os[ii].vphi(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vphi(itimes[1])[ii]) - _anp(list_os[ii].vphi(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
     with pytest.raises(AttributeError):
         os.phi()
@@ -4377,106 +4727,117 @@ def test_coordinate_interpolation_4d():
     list_os = [Orbit([R, vR, vT, phi]) for R, vR, vT, phi in zip(Rs, vRs, vTs, phis)]
     # Before integration
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
-            "Evaluating Orbits vR does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
-            "Evaluating Orbits vT does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.phi()[ii] - list_os[ii].phi()) < 1e-10), (
-            "Evaluating Orbits phi does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10), (
-            "Evaluating Orbits vphi does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_anp(os.R()[ii]) - _anp(list_os[ii].R())) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r()[ii]) - _anp(list_os[ii].r())) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR()[ii]) - _anp(list_os[ii].vR())) < 1e-10
+        ), "Evaluating Orbits vR does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vT()[ii]) - _anp(list_os[ii].vT())) < 1e-10
+        ), "Evaluating Orbits vT does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.phi()[ii]) - _anp(list_os[ii].phi())) < 1e-10
+        ), "Evaluating Orbits phi does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vphi()[ii]) - _anp(list_os[ii].vphi())) < 1e-10
+        ), "Evaluating Orbits vphi does not agree with Orbit"
     # Integrate all
     times = numpy.linspace(0.0, 10.0, 1001)
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     # Test exact times of integration
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
+            numpy.fabs(_anp(os.R(times)[ii]) - _anp(list_os[ii].R(times))) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r(times)[ii]) - _anp(list_os[ii].r(times))) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR(times)[ii]) - _anp(list_os[ii].vR(times))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times)[ii] - list_os[ii].vT(times)) < 1e-10
+            numpy.fabs(_anp(os.vT(times)[ii]) - _anp(list_os[ii].vT(times))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.phi(times)[ii] - list_os[ii].phi(times)) < 1e-10
+            numpy.fabs(_anp(os.phi(times)[ii]) - _anp(list_os[ii].phi(times))) < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(times)[ii] - list_os[ii].vphi(times)) < 1e-10
+            numpy.fabs(_anp(os.vphi(times)[ii]) - _anp(list_os[ii].vphi(times))) < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.R(times[1])[ii] - list_os[ii].R(times[1])) < 1e-10
+            numpy.fabs(_anp(os.R(times[1])[ii]) - _anp(list_os[ii].R(times[1]))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(times[1])[ii] - list_os[ii].r(times[1])) < 1e-10
+            numpy.fabs(_anp(os.r(times[1])[ii]) - _anp(list_os[ii].r(times[1]))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(times[1])[ii] - list_os[ii].vR(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(times[1])[ii]) - _anp(list_os[ii].vR(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times[1])[ii] - list_os[ii].vT(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(times[1])[ii]) - _anp(list_os[ii].vT(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.phi(times[1])[ii] - list_os[ii].phi(times[1])) < 1e-10
+            numpy.fabs(_anp(os.phi(times[1])[ii]) - _anp(list_os[ii].phi(times[1])))
+            < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(times[1])[ii] - list_os[ii].vphi(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vphi(times[1])[ii]) - _anp(list_os[ii].vphi(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
     # Test actual interpolated
     itimes = times[:-2] + (times[1] - times[0]) / 2.0
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(os.R(itimes)[ii] - list_os[ii].R(itimes)) < 1e-10
+            numpy.fabs(_anp(os.R(itimes)[ii]) - _anp(list_os[ii].R(itimes))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes)[ii] - list_os[ii].r(itimes)) < 1e-10
+            numpy.fabs(_anp(os.r(itimes)[ii]) - _anp(list_os[ii].r(itimes))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes)[ii] - list_os[ii].vR(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes)[ii]) - _anp(list_os[ii].vR(itimes))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes)[ii] - list_os[ii].vT(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes)[ii]) - _anp(list_os[ii].vT(itimes))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.phi(itimes)[ii] - list_os[ii].phi(itimes)) < 1e-10
+            numpy.fabs(_anp(os.phi(itimes)[ii]) - _anp(list_os[ii].phi(itimes))) < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(itimes)[ii] - list_os[ii].vphi(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vphi(itimes)[ii]) - _anp(list_os[ii].vphi(itimes)))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.R(itimes[1])[ii] - list_os[ii].R(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.R(itimes[1])[ii]) - _anp(list_os[ii].R(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes[1])[ii] - list_os[ii].r(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.r(itimes[1])[ii]) - _anp(list_os[ii].r(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes[1])[ii] - list_os[ii].vR(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes[1])[ii]) - _anp(list_os[ii].vR(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes[1])[ii] - list_os[ii].vT(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes[1])[ii]) - _anp(list_os[ii].vT(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.phi(itimes[1])[ii] - list_os[ii].phi(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.phi(itimes[1])[ii]) - _anp(list_os[ii].phi(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(itimes[1])[ii] - list_os[ii].vphi(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vphi(itimes[1])[ii]) - _anp(list_os[ii].vphi(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
     with pytest.raises(AttributeError):
         os.z()
@@ -4500,91 +4861,100 @@ def test_coordinate_interpolation_3d():
     list_os = [Orbit([R, vR, vT]) for R, vR, vT in zip(Rs, vRs, vTs)]
     # Before integration
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
-            "Evaluating Orbits vR does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
-            "Evaluating Orbits vT does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10), (
-            "Evaluating Orbits vphi does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_anp(os.R()[ii]) - _anp(list_os[ii].R())) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r()[ii]) - _anp(list_os[ii].r())) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR()[ii]) - _anp(list_os[ii].vR())) < 1e-10
+        ), "Evaluating Orbits vR does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vT()[ii]) - _anp(list_os[ii].vT())) < 1e-10
+        ), "Evaluating Orbits vT does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vphi()[ii]) - _anp(list_os[ii].vphi())) < 1e-10
+        ), "Evaluating Orbits vphi does not agree with Orbit"
     # Integrate all
     times = numpy.linspace(0.0, 10.0, 1001)
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     # Test exact times of integration
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
+            numpy.fabs(_anp(os.R(times)[ii]) - _anp(list_os[ii].R(times))) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r(times)[ii]) - _anp(list_os[ii].r(times))) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR(times)[ii]) - _anp(list_os[ii].vR(times))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times)[ii] - list_os[ii].vT(times)) < 1e-10
+            numpy.fabs(_anp(os.vT(times)[ii]) - _anp(list_os[ii].vT(times))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(times)[ii] - list_os[ii].vphi(times)) < 1e-10
+            numpy.fabs(_anp(os.vphi(times)[ii]) - _anp(list_os[ii].vphi(times))) < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.R(times[1])[ii] - list_os[ii].R(times[1])) < 1e-10
+            numpy.fabs(_anp(os.R(times[1])[ii]) - _anp(list_os[ii].R(times[1]))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(times[1])[ii] - list_os[ii].r(times[1])) < 1e-10
+            numpy.fabs(_anp(os.r(times[1])[ii]) - _anp(list_os[ii].r(times[1]))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(times[1])[ii] - list_os[ii].vR(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(times[1])[ii]) - _anp(list_os[ii].vR(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times[1])[ii] - list_os[ii].vT(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(times[1])[ii]) - _anp(list_os[ii].vT(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(times[1])[ii] - list_os[ii].vphi(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vphi(times[1])[ii]) - _anp(list_os[ii].vphi(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
     # Test actual interpolated
     itimes = times[:-2] + (times[1] - times[0]) / 2.0
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(os.R(itimes)[ii] - list_os[ii].R(itimes)) < 1e-10
+            numpy.fabs(_anp(os.R(itimes)[ii]) - _anp(list_os[ii].R(itimes))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes)[ii] - list_os[ii].r(itimes)) < 1e-10
+            numpy.fabs(_anp(os.r(itimes)[ii]) - _anp(list_os[ii].r(itimes))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes)[ii] - list_os[ii].vR(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes)[ii]) - _anp(list_os[ii].vR(itimes))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes)[ii] - list_os[ii].vT(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes)[ii]) - _anp(list_os[ii].vT(itimes))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(itimes)[ii] - list_os[ii].vphi(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vphi(itimes)[ii]) - _anp(list_os[ii].vphi(itimes)))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.R(itimes[1])[ii] - list_os[ii].R(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.R(itimes[1])[ii]) - _anp(list_os[ii].R(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes[1])[ii] - list_os[ii].r(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.r(itimes[1])[ii]) - _anp(list_os[ii].r(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes[1])[ii] - list_os[ii].vR(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes[1])[ii]) - _anp(list_os[ii].vR(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes[1])[ii] - list_os[ii].vT(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes[1])[ii]) - _anp(list_os[ii].vT(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vphi(itimes[1])[ii] - list_os[ii].vphi(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vphi(itimes[1])[ii]) - _anp(list_os[ii].vphi(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vphi does not agree with Orbit"
     with pytest.raises(AttributeError):
         os.phi()
@@ -4614,46 +4984,49 @@ def test_coordinate_interpolation_2d():
     list_os = [Orbit([z, vz]) for z, vz in zip(zs, vzs)]
     # Before integration
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.x()[ii] - list_os[ii].x()) < 1e-10), (
-            "Evaluating Orbits x does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vx()[ii] - list_os[ii].vx()) < 1e-10), (
-            "Evaluating Orbits vx does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_anp(os.x()[ii]) - _anp(list_os[ii].x())) < 1e-10
+        ), "Evaluating Orbits x does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vx()[ii]) - _anp(list_os[ii].vx())) < 1e-10
+        ), "Evaluating Orbits vx does not agree with Orbit"
     # Integrate all
     times = numpy.linspace(0.0, 10.0, 1001)
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     # Test exact times of integration
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.x(times)[ii] - list_os[ii].x(times)) < 1e-10), (
-            "Evaluating Orbits x does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vx(times)[ii] - list_os[ii].vx(times)) < 1e-10
+            numpy.fabs(_anp(os.x(times)[ii]) - _anp(list_os[ii].x(times))) < 1e-10
+        ), "Evaluating Orbits x does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vx(times)[ii]) - _anp(list_os[ii].vx(times))) < 1e-10
         ), "Evaluating Orbits vx does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.x(times[1])[ii] - list_os[ii].x(times[1])) < 1e-10
+            numpy.fabs(_anp(os.x(times[1])[ii]) - _anp(list_os[ii].x(times[1]))) < 1e-10
         ), "Evaluating Orbits x does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vx(times[1])[ii] - list_os[ii].vx(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vx(times[1])[ii]) - _anp(list_os[ii].vx(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vx does not agree with Orbit"
     # Test actual interpolated
     itimes = times[:-2] + (times[1] - times[0]) / 2.0
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(os.x(itimes)[ii] - list_os[ii].x(itimes)) < 1e-10
+            numpy.fabs(_anp(os.x(itimes)[ii]) - _anp(list_os[ii].x(itimes))) < 1e-10
         ), "Evaluating Orbits x does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vx(itimes)[ii] - list_os[ii].vx(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vx(itimes)[ii]) - _anp(list_os[ii].vx(itimes))) < 1e-10
         ), "Evaluating Orbits vx does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.x(itimes[1])[ii] - list_os[ii].x(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.x(itimes[1])[ii]) - _anp(list_os[ii].x(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits x does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vx(itimes[1])[ii] - list_os[ii].vx(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vx(itimes[1])[ii]) - _anp(list_os[ii].vx(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vx does not agree with Orbit"
     return None
 
@@ -4715,30 +5088,33 @@ def test_coordinate_interpolation_oneorbit():
     # Before integration
     for ii in range(nrand):
         # .time is special, just a single array
-        assert numpy.all(numpy.fabs(os.time() - list_os[ii].time()) < 1e-10), (
-            "Evaluating Orbits time does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
-            "Evaluating Orbits vR does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
-            "Evaluating Orbits vT does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.z()[ii] - list_os[ii].z()) < 1e-10), (
-            "Evaluating Orbits z does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.vz()[ii] - list_os[ii].vz()) < 1e-10), (
-            "Evaluating Orbits vz does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_anp(os.time()) - _anp(list_os[ii].time())) < 1e-10
+        ), "Evaluating Orbits time does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.R()[ii]) - _anp(list_os[ii].R())) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r()[ii]) - _anp(list_os[ii].r())) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR()[ii]) - _anp(list_os[ii].vR())) < 1e-10
+        ), "Evaluating Orbits vR does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vT()[ii]) - _anp(list_os[ii].vT())) < 1e-10
+        ), "Evaluating Orbits vT does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.z()[ii]) - _anp(list_os[ii].z())) < 1e-10
+        ), "Evaluating Orbits z does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vz()[ii]) - _anp(list_os[ii].vz())) < 1e-10
+        ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
-                ((os.phi()[ii] - list_os[ii].phi() + numpy.pi) % (2.0 * numpy.pi))
+                (
+                    (_anp(os.phi()[ii]) - _anp(list_os[ii].phi()) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
                 - numpy.pi
             )
             < 1e-10
@@ -4751,30 +5127,30 @@ def test_coordinate_interpolation_oneorbit():
     for ii in range(nrand):
         # .time is special, just a single array
         assert numpy.all(
-            numpy.fabs(os.time(times) - list_os[ii].time(times)) < 1e-10
+            numpy.fabs(_anp(os.time(times)) - _anp(list_os[ii].time(times))) < 1e-10
         ), "Evaluating Orbits time does not agree with Orbit"
-        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
-            "Evaluating Orbits R does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
-            "Evaluating Orbits r does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
+            numpy.fabs(_anp(os.R(times)[ii]) - _anp(list_os[ii].R(times))) < 1e-10
+        ), "Evaluating Orbits R does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.r(times)[ii]) - _anp(list_os[ii].r(times))) < 1e-10
+        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vR(times)[ii]) - _anp(list_os[ii].vR(times))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times)[ii] - list_os[ii].vT(times)) < 1e-10
+            numpy.fabs(_anp(os.vT(times)[ii]) - _anp(list_os[ii].vT(times))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(numpy.fabs(os.z(times)[ii] - list_os[ii].z(times)) < 1e-10), (
-            "Evaluating Orbits z does not agree with Orbit"
-        )
         assert numpy.all(
-            numpy.fabs(os.vz(times)[ii] - list_os[ii].vz(times)) < 1e-10
+            numpy.fabs(_anp(os.z(times)[ii]) - _anp(list_os[ii].z(times))) < 1e-10
+        ), "Evaluating Orbits z does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.vz(times)[ii]) - _anp(list_os[ii].vz(times))) < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
                 (
-                    (os.phi(times)[ii] - list_os[ii].phi(times) + numpy.pi)
+                    (_anp(os.phi(times)[ii]) - _anp(list_os[ii].phi(times)) + numpy.pi)
                     % (2.0 * numpy.pi)
                 )
                 - numpy.pi
@@ -4784,30 +5160,38 @@ def test_coordinate_interpolation_oneorbit():
         # Also a single time in the array ...
         # .time is special, just a single array
         assert numpy.all(
-            numpy.fabs(os.time(times[1]) - list_os[ii].time(times[1])) < 1e-10
+            numpy.fabs(_anp(os.time(times[1])) - _anp(list_os[ii].time(times[1])))
+            < 1e-10
         ), "Evaluating Orbits time does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.R(times[1])[ii] - list_os[ii].R(times[1])) < 1e-10
+            numpy.fabs(_anp(os.R(times[1])[ii]) - _anp(list_os[ii].R(times[1]))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(times[1])[ii] - list_os[ii].r(times[1])) < 1e-10
+            numpy.fabs(_anp(os.r(times[1])[ii]) - _anp(list_os[ii].r(times[1]))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(times[1])[ii] - list_os[ii].vR(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(times[1])[ii]) - _anp(list_os[ii].vR(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(times[1])[ii] - list_os[ii].vT(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(times[1])[ii]) - _anp(list_os[ii].vT(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.z(times[1])[ii] - list_os[ii].z(times[1])) < 1e-10
+            numpy.fabs(_anp(os.z(times[1])[ii]) - _anp(list_os[ii].z(times[1]))) < 1e-10
         ), "Evaluating Orbits z does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vz(times[1])[ii] - list_os[ii].vz(times[1])) < 1e-10
+            numpy.fabs(_anp(os.vz(times[1])[ii]) - _anp(list_os[ii].vz(times[1])))
+            < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
                 (
-                    (os.phi(times[1])[ii] - list_os[ii].phi(times[1]) + numpy.pi)
+                    (
+                        _anp(os.phi(times[1])[ii])
+                        - _anp(list_os[ii].phi(times[1]))
+                        + numpy.pi
+                    )
                     % (2.0 * numpy.pi)
                 )
                 - numpy.pi
@@ -4818,27 +5202,31 @@ def test_coordinate_interpolation_oneorbit():
     itimes = times[:-2] + (times[1] - times[0]) / 2.0
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(os.R(itimes)[ii] - list_os[ii].R(itimes)) < 1e-10
+            numpy.fabs(_anp(os.R(itimes)[ii]) - _anp(list_os[ii].R(itimes))) < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes)[ii] - list_os[ii].r(itimes)) < 1e-10
+            numpy.fabs(_anp(os.r(itimes)[ii]) - _anp(list_os[ii].r(itimes))) < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes)[ii] - list_os[ii].vR(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes)[ii]) - _anp(list_os[ii].vR(itimes))) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes)[ii] - list_os[ii].vT(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes)[ii]) - _anp(list_os[ii].vT(itimes))) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.z(itimes)[ii] - list_os[ii].z(itimes)) < 1e-10
+            numpy.fabs(_anp(os.z(itimes)[ii]) - _anp(list_os[ii].z(itimes))) < 1e-10
         ), "Evaluating Orbits z does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vz(itimes)[ii] - list_os[ii].vz(itimes)) < 1e-10
+            numpy.fabs(_anp(os.vz(itimes)[ii]) - _anp(list_os[ii].vz(itimes))) < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
                 (
-                    (os.phi(itimes)[ii] - list_os[ii].phi(itimes) + numpy.pi)
+                    (
+                        _anp(os.phi(itimes)[ii])
+                        - _anp(list_os[ii].phi(itimes))
+                        + numpy.pi
+                    )
                     % (2.0 * numpy.pi)
                 )
                 - numpy.pi
@@ -4847,27 +5235,37 @@ def test_coordinate_interpolation_oneorbit():
         ), "Evaluating Orbits phi does not agree with Orbit"
         # Also a single time in the array ...
         assert numpy.all(
-            numpy.fabs(os.R(itimes[1])[ii] - list_os[ii].R(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.R(itimes[1])[ii]) - _anp(list_os[ii].R(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits R does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.r(itimes[1])[ii] - list_os[ii].r(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.r(itimes[1])[ii]) - _anp(list_os[ii].r(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits r does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vR(itimes[1])[ii] - list_os[ii].vR(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vR(itimes[1])[ii]) - _anp(list_os[ii].vR(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vT(itimes[1])[ii] - list_os[ii].vT(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vT(itimes[1])[ii]) - _anp(list_os[ii].vT(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.z(itimes[1])[ii] - list_os[ii].z(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.z(itimes[1])[ii]) - _anp(list_os[ii].z(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits z does not agree with Orbit"
         assert numpy.all(
-            numpy.fabs(os.vz(itimes[1])[ii] - list_os[ii].vz(itimes[1])) < 1e-10
+            numpy.fabs(_anp(os.vz(itimes[1])[ii]) - _anp(list_os[ii].vz(itimes[1])))
+            < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(
                 (
-                    (os.phi(itimes[1])[ii] - list_os[ii].phi(itimes[1]) + numpy.pi)
+                    (
+                        _anp(os.phi(itimes[1])[ii])
+                        - _anp(list_os[ii].phi(itimes[1]))
+                        + numpy.pi
+                    )
                     % (2.0 * numpy.pi)
                 )
                 - numpy.pi
@@ -4946,32 +5344,45 @@ def test_output_shape():
             for kk in range(nrand[2]):
                 # .time is special, just a single array
                 assert numpy.all(
-                    numpy.fabs(os.time() - list_os[ii][jj][kk].time()) < 1e-10
+                    numpy.fabs(_anp(os.time()) - _anp(list_os[ii][jj][kk].time()))
+                    < 1e-10
                 ), "Evaluating Orbits time does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.R()[ii, jj, kk] - list_os[ii][jj][kk].R()) < 1e-10
+                    numpy.fabs(_anp(os.R()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].R()))
+                    < 1e-10
                 ), "Evaluating Orbits R does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.r()[ii, jj, kk] - list_os[ii][jj][kk].r()) < 1e-10
+                    numpy.fabs(_anp(os.r()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].r()))
+                    < 1e-10
                 ), "Evaluating Orbits r does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vR()[ii, jj, kk] - list_os[ii][jj][kk].vR()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vR()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vR())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vR does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vT()[ii, jj, kk] - list_os[ii][jj][kk].vT()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vT()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vT())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vT does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.z()[ii, jj, kk] - list_os[ii][jj][kk].z()) < 1e-10
+                    numpy.fabs(_anp(os.z()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].z()))
+                    < 1e-10
                 ), "Evaluating Orbits z does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vz()[ii, jj, kk] - list_os[ii][jj][kk].vz()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vz()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vz())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vz does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
                         (
                             (
-                                os.phi()[ii, jj, kk]
-                                - list_os[ii][jj][kk].phi()
+                                _anp(os.phi()[ii, jj, kk])
+                                - _anp(list_os[ii][jj][kk].phi())
                                 + numpy.pi
                             )
                             % (2.0 * numpy.pi)
@@ -4981,90 +5392,147 @@ def test_output_shape():
                     < 1e-10
                 ), "Evaluating Orbits phi does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.x()[ii, jj, kk] - list_os[ii][jj][kk].x()) < 1e-10
+                    numpy.fabs(_anp(os.x()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].x()))
+                    < 1e-10
                 ), "Evaluating Orbits x does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.y()[ii, jj, kk] - list_os[ii][jj][kk].y()) < 1e-10
+                    numpy.fabs(_anp(os.y()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].y()))
+                    < 1e-10
                 ), "Evaluating Orbits y does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vx()[ii, jj, kk] - list_os[ii][jj][kk].vx()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vx()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vx())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vx does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vy()[ii, jj, kk] - list_os[ii][jj][kk].vy()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vy()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vy())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vy does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vphi()[ii, jj, kk] - list_os[ii][jj][kk].vphi())
+                    numpy.fabs(
+                        _anp(os.vphi()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vphi())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vphi does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.ra()[ii, jj, kk] - list_os[ii][jj][kk].ra()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.ra()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].ra())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits ra  does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.dec()[ii, jj, kk] - list_os[ii][jj][kk].dec()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.dec()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].dec())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits dec does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.dist()[ii, jj, kk] - list_os[ii][jj][kk].dist())
+                    numpy.fabs(
+                        _anp(os.dist()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].dist())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits dist does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.ll()[ii, jj, kk] - list_os[ii][jj][kk].ll()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.ll()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].ll())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits ll does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.bb()[ii, jj, kk] - list_os[ii][jj][kk].bb()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.bb()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].bb())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits bb  does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.pmra()[ii, jj, kk] - list_os[ii][jj][kk].pmra())
+                    numpy.fabs(
+                        _anp(os.pmra()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].pmra())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits pmra does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.pmdec()[ii, jj, kk] - list_os[ii][jj][kk].pmdec())
+                    numpy.fabs(
+                        _anp(os.pmdec()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].pmdec())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits pmdec does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.pmll()[ii, jj, kk] - list_os[ii][jj][kk].pmll())
+                    numpy.fabs(
+                        _anp(os.pmll()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].pmll())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits pmll does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.pmbb()[ii, jj, kk] - list_os[ii][jj][kk].pmbb())
+                    numpy.fabs(
+                        _anp(os.pmbb()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].pmbb())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits pmbb does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vra()[ii, jj, kk] - list_os[ii][jj][kk].vra()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vra()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vra())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vra does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vdec()[ii, jj, kk] - list_os[ii][jj][kk].vdec())
+                    numpy.fabs(
+                        _anp(os.vdec()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vdec())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vdec does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vll()[ii, jj, kk] - list_os[ii][jj][kk].vll()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vll()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vll())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vll does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vbb()[ii, jj, kk] - list_os[ii][jj][kk].vbb()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vbb()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vbb())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vbb does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vlos()[ii, jj, kk] - list_os[ii][jj][kk].vlos())
+                    numpy.fabs(
+                        _anp(os.vlos()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vlos())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vlos does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.helioX()[ii, jj, kk] - list_os[ii][jj][kk].helioX())
+                    numpy.fabs(
+                        _anp(os.helioX()[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioX())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits helioX does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.helioY()[ii, jj, kk] - list_os[ii][jj][kk].helioY())
+                    numpy.fabs(
+                        _anp(os.helioY()[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioY())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits helioY does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.helioZ()[ii, jj, kk] - list_os[ii][jj][kk].helioZ())
+                    numpy.fabs(
+                        _anp(os.helioZ()[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioZ())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits helioZ does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.U()[ii, jj, kk] - list_os[ii][jj][kk].U()) < 1e-10
+                    numpy.fabs(_anp(os.U()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].U()))
+                    < 1e-10
                 ), "Evaluating Orbits U does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.V()[ii, jj, kk] - list_os[ii][jj][kk].V()) < 1e-10
+                    numpy.fabs(_anp(os.V()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].V()))
+                    < 1e-10
                 ), "Evaluating Orbits V does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.W()[ii, jj, kk] - list_os[ii][jj][kk].W()) < 1e-10
+                    numpy.fabs(_anp(os.W()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].W()))
+                    < 1e-10
                 ), "Evaluating Orbits W does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
@@ -5133,38 +5601,59 @@ def test_output_shape():
             for kk in range(nrand[2]):
                 # .time is special, just a single array
                 assert numpy.all(
-                    numpy.fabs(os.time(times) - list_os[ii][jj][kk].time(times)) < 1e-10
+                    numpy.fabs(
+                        _anp(os.time(times)) - _anp(list_os[ii][jj][kk].time(times))
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits time does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.R(times)[ii, jj, kk] - list_os[ii][jj][kk].R(times))
+                    numpy.fabs(
+                        _anp(os.R(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].R(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits R does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.r(times)[ii, jj, kk] - list_os[ii][jj][kk].r(times))
+                    numpy.fabs(
+                        _anp(os.r(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].r(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits r does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vR(times)[ii, jj, kk] - list_os[ii][jj][kk].vR(times))
+                    numpy.fabs(
+                        _anp(os.vR(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vR(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vR does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vT(times)[ii, jj, kk] - list_os[ii][jj][kk].vT(times))
+                    numpy.fabs(
+                        _anp(os.vT(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vT(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vT does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.z(times)[ii, jj, kk] - list_os[ii][jj][kk].z(times))
+                    numpy.fabs(
+                        _anp(os.z(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].z(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits z does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vz(times)[ii, jj, kk] - list_os[ii][jj][kk].vz(times))
+                    numpy.fabs(
+                        _anp(os.vz(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vz(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vz does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
                         (
                             (
-                                os.phi(times)[ii, jj, kk]
-                                - list_os[ii][jj][kk].phi(times)
+                                _anp(os.phi(times)[ii, jj, kk])
+                                - _anp(list_os[ii][jj][kk].phi(times))
                                 + numpy.pi
                             )
                             % (2.0 * numpy.pi)
@@ -5174,133 +5663,178 @@ def test_output_shape():
                     < 1e-10
                 ), "Evaluating Orbits phi does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.x(times)[ii, jj, kk] - list_os[ii][jj][kk].x(times))
+                    numpy.fabs(
+                        _anp(os.x(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].x(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits x does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.y(times)[ii, jj, kk] - list_os[ii][jj][kk].y(times))
+                    numpy.fabs(
+                        _anp(os.y(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].y(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits y does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vx(times)[ii, jj, kk] - list_os[ii][jj][kk].vx(times))
+                    numpy.fabs(
+                        _anp(os.vx(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vx(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vx does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vy(times)[ii, jj, kk] - list_os[ii][jj][kk].vy(times))
+                    numpy.fabs(
+                        _anp(os.vy(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vy(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vy does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vphi(times)[ii, jj, kk] - list_os[ii][jj][kk].vphi(times)
+                        _anp(os.vphi(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vphi(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vphi does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.ra(times)[ii, jj, kk] - list_os[ii][jj][kk].ra(times))
+                    numpy.fabs(
+                        _anp(os.ra(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].ra(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits ra  does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.dec(times)[ii, jj, kk] - list_os[ii][jj][kk].dec(times)
+                        _anp(os.dec(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].dec(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits dec does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.dist(times)[ii, jj, kk] - list_os[ii][jj][kk].dist(times)
+                        _anp(os.dist(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].dist(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits dist does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.ll(times)[ii, jj, kk] - list_os[ii][jj][kk].ll(times))
+                    numpy.fabs(
+                        _anp(os.ll(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].ll(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits ll does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.bb(times)[ii, jj, kk] - list_os[ii][jj][kk].bb(times))
+                    numpy.fabs(
+                        _anp(os.bb(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].bb(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits bb  does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.pmra(times)[ii, jj, kk] - list_os[ii][jj][kk].pmra(times)
+                        _anp(os.pmra(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].pmra(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits pmra does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.pmdec(times)[ii, jj, kk] - list_os[ii][jj][kk].pmdec(times)
+                        _anp(os.pmdec(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].pmdec(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits pmdec does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.pmll(times)[ii, jj, kk] - list_os[ii][jj][kk].pmll(times)
+                        _anp(os.pmll(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].pmll(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits pmll does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.pmbb(times)[ii, jj, kk] - list_os[ii][jj][kk].pmbb(times)
+                        _anp(os.pmbb(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].pmbb(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits pmbb does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vra(times)[ii, jj, kk] - list_os[ii][jj][kk].vra(times)
+                        _anp(os.vra(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vra(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vra does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vdec(times)[ii, jj, kk] - list_os[ii][jj][kk].vdec(times)
+                        _anp(os.vdec(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vdec(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vdec does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vll(times)[ii, jj, kk] - list_os[ii][jj][kk].vll(times)
+                        _anp(os.vll(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vll(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vll does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vbb(times)[ii, jj, kk] - list_os[ii][jj][kk].vbb(times)
+                        _anp(os.vbb(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vbb(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vbb does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vlos(times)[ii, jj, kk] - list_os[ii][jj][kk].vlos(times)
+                        _anp(os.vlos(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vlos(times))
                     )
                     < 1e-9
                 ), "Evaluating Orbits vlos does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.helioX(times)[ii, jj, kk] - list_os[ii][jj][kk].helioX(times)
+                        _anp(os.helioX(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioX(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits helioX does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.helioY(times)[ii, jj, kk] - list_os[ii][jj][kk].helioY(times)
+                        _anp(os.helioY(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioY(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits helioY does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.helioZ(times)[ii, jj, kk] - list_os[ii][jj][kk].helioZ(times)
+                        _anp(os.helioZ(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioZ(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits helioZ does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.U(times)[ii, jj, kk] - list_os[ii][jj][kk].U(times))
+                    numpy.fabs(
+                        _anp(os.U(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].U(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits U does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.V(times)[ii, jj, kk] - list_os[ii][jj][kk].V(times))
+                    numpy.fabs(
+                        _anp(os.V(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].V(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits V does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.W(times)[ii, jj, kk] - list_os[ii][jj][kk].W(times))
+                    numpy.fabs(
+                        _anp(os.W(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].W(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits W does not agree with Orbit"
                 assert numpy.all(
@@ -5416,32 +5950,45 @@ def test_output_reshape():
             for kk in range(nrand[2]):
                 # .time is special, just a single array
                 assert numpy.all(
-                    numpy.fabs(os.time() - list_os[ii][jj][kk].time()) < 1e-10
+                    numpy.fabs(_anp(os.time()) - _anp(list_os[ii][jj][kk].time()))
+                    < 1e-10
                 ), "Evaluating Orbits time does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.R()[ii, jj, kk] - list_os[ii][jj][kk].R()) < 1e-10
+                    numpy.fabs(_anp(os.R()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].R()))
+                    < 1e-10
                 ), "Evaluating Orbits R does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.r()[ii, jj, kk] - list_os[ii][jj][kk].r()) < 1e-10
+                    numpy.fabs(_anp(os.r()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].r()))
+                    < 1e-10
                 ), "Evaluating Orbits r does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vR()[ii, jj, kk] - list_os[ii][jj][kk].vR()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vR()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vR())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vR does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vT()[ii, jj, kk] - list_os[ii][jj][kk].vT()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vT()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vT())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vT does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.z()[ii, jj, kk] - list_os[ii][jj][kk].z()) < 1e-10
+                    numpy.fabs(_anp(os.z()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].z()))
+                    < 1e-10
                 ), "Evaluating Orbits z does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vz()[ii, jj, kk] - list_os[ii][jj][kk].vz()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vz()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vz())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vz does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
                         (
                             (
-                                os.phi()[ii, jj, kk]
-                                - list_os[ii][jj][kk].phi()
+                                _anp(os.phi()[ii, jj, kk])
+                                - _anp(list_os[ii][jj][kk].phi())
                                 + numpy.pi
                             )
                             % (2.0 * numpy.pi)
@@ -5451,90 +5998,147 @@ def test_output_reshape():
                     < 1e-10
                 ), "Evaluating Orbits phi does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.x()[ii, jj, kk] - list_os[ii][jj][kk].x()) < 1e-10
+                    numpy.fabs(_anp(os.x()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].x()))
+                    < 1e-10
                 ), "Evaluating Orbits x does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.y()[ii, jj, kk] - list_os[ii][jj][kk].y()) < 1e-10
+                    numpy.fabs(_anp(os.y()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].y()))
+                    < 1e-10
                 ), "Evaluating Orbits y does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vx()[ii, jj, kk] - list_os[ii][jj][kk].vx()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vx()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vx())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vx does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vy()[ii, jj, kk] - list_os[ii][jj][kk].vy()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vy()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vy())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vy does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vphi()[ii, jj, kk] - list_os[ii][jj][kk].vphi())
+                    numpy.fabs(
+                        _anp(os.vphi()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vphi())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vphi does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.ra()[ii, jj, kk] - list_os[ii][jj][kk].ra()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.ra()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].ra())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits ra  does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.dec()[ii, jj, kk] - list_os[ii][jj][kk].dec()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.dec()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].dec())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits dec does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.dist()[ii, jj, kk] - list_os[ii][jj][kk].dist())
+                    numpy.fabs(
+                        _anp(os.dist()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].dist())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits dist does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.ll()[ii, jj, kk] - list_os[ii][jj][kk].ll()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.ll()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].ll())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits ll does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.bb()[ii, jj, kk] - list_os[ii][jj][kk].bb()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.bb()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].bb())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits bb  does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.pmra()[ii, jj, kk] - list_os[ii][jj][kk].pmra())
+                    numpy.fabs(
+                        _anp(os.pmra()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].pmra())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits pmra does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.pmdec()[ii, jj, kk] - list_os[ii][jj][kk].pmdec())
+                    numpy.fabs(
+                        _anp(os.pmdec()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].pmdec())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits pmdec does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.pmll()[ii, jj, kk] - list_os[ii][jj][kk].pmll())
+                    numpy.fabs(
+                        _anp(os.pmll()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].pmll())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits pmll does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.pmbb()[ii, jj, kk] - list_os[ii][jj][kk].pmbb())
+                    numpy.fabs(
+                        _anp(os.pmbb()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].pmbb())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits pmbb does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vra()[ii, jj, kk] - list_os[ii][jj][kk].vra()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vra()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vra())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vra does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vdec()[ii, jj, kk] - list_os[ii][jj][kk].vdec())
+                    numpy.fabs(
+                        _anp(os.vdec()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vdec())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vdec does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vll()[ii, jj, kk] - list_os[ii][jj][kk].vll()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vll()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vll())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vll does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vbb()[ii, jj, kk] - list_os[ii][jj][kk].vbb()) < 1e-10
+                    numpy.fabs(
+                        _anp(os.vbb()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vbb())
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits vbb does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vlos()[ii, jj, kk] - list_os[ii][jj][kk].vlos())
+                    numpy.fabs(
+                        _anp(os.vlos()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].vlos())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vlos does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.helioX()[ii, jj, kk] - list_os[ii][jj][kk].helioX())
+                    numpy.fabs(
+                        _anp(os.helioX()[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioX())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits helioX does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.helioY()[ii, jj, kk] - list_os[ii][jj][kk].helioY())
+                    numpy.fabs(
+                        _anp(os.helioY()[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioY())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits helioY does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.helioZ()[ii, jj, kk] - list_os[ii][jj][kk].helioZ())
+                    numpy.fabs(
+                        _anp(os.helioZ()[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioZ())
+                    )
                     < 1e-10
                 ), "Evaluating Orbits helioZ does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.U()[ii, jj, kk] - list_os[ii][jj][kk].U()) < 1e-10
+                    numpy.fabs(_anp(os.U()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].U()))
+                    < 1e-10
                 ), "Evaluating Orbits U does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.V()[ii, jj, kk] - list_os[ii][jj][kk].V()) < 1e-10
+                    numpy.fabs(_anp(os.V()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].V()))
+                    < 1e-10
                 ), "Evaluating Orbits V does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.W()[ii, jj, kk] - list_os[ii][jj][kk].W()) < 1e-10
+                    numpy.fabs(_anp(os.W()[ii, jj, kk]) - _anp(list_os[ii][jj][kk].W()))
+                    < 1e-10
                 ), "Evaluating Orbits W does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
@@ -5603,38 +6207,59 @@ def test_output_reshape():
             for kk in range(nrand[2]):
                 # .time is special, just a single array
                 assert numpy.all(
-                    numpy.fabs(os.time(times) - list_os[ii][jj][kk].time(times)) < 1e-10
+                    numpy.fabs(
+                        _anp(os.time(times)) - _anp(list_os[ii][jj][kk].time(times))
+                    )
+                    < 1e-10
                 ), "Evaluating Orbits time does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.R(times)[ii, jj, kk] - list_os[ii][jj][kk].R(times))
+                    numpy.fabs(
+                        _anp(os.R(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].R(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits R does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.r(times)[ii, jj, kk] - list_os[ii][jj][kk].r(times))
+                    numpy.fabs(
+                        _anp(os.r(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].r(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits r does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vR(times)[ii, jj, kk] - list_os[ii][jj][kk].vR(times))
+                    numpy.fabs(
+                        _anp(os.vR(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vR(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vR does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vT(times)[ii, jj, kk] - list_os[ii][jj][kk].vT(times))
+                    numpy.fabs(
+                        _anp(os.vT(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vT(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vT does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.z(times)[ii, jj, kk] - list_os[ii][jj][kk].z(times))
+                    numpy.fabs(
+                        _anp(os.z(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].z(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits z does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vz(times)[ii, jj, kk] - list_os[ii][jj][kk].vz(times))
+                    numpy.fabs(
+                        _anp(os.vz(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vz(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vz does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
                         (
                             (
-                                os.phi(times)[ii, jj, kk]
-                                - list_os[ii][jj][kk].phi(times)
+                                _anp(os.phi(times)[ii, jj, kk])
+                                - _anp(list_os[ii][jj][kk].phi(times))
                                 + numpy.pi
                             )
                             % (2.0 * numpy.pi)
@@ -5644,133 +6269,178 @@ def test_output_reshape():
                     < 1e-10
                 ), "Evaluating Orbits phi does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.x(times)[ii, jj, kk] - list_os[ii][jj][kk].x(times))
+                    numpy.fabs(
+                        _anp(os.x(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].x(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits x does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.y(times)[ii, jj, kk] - list_os[ii][jj][kk].y(times))
+                    numpy.fabs(
+                        _anp(os.y(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].y(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits y does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vx(times)[ii, jj, kk] - list_os[ii][jj][kk].vx(times))
+                    numpy.fabs(
+                        _anp(os.vx(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vx(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vx does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.vy(times)[ii, jj, kk] - list_os[ii][jj][kk].vy(times))
+                    numpy.fabs(
+                        _anp(os.vy(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vy(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits vy does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vphi(times)[ii, jj, kk] - list_os[ii][jj][kk].vphi(times)
+                        _anp(os.vphi(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vphi(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vphi does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.ra(times)[ii, jj, kk] - list_os[ii][jj][kk].ra(times))
+                    numpy.fabs(
+                        _anp(os.ra(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].ra(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits ra  does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.dec(times)[ii, jj, kk] - list_os[ii][jj][kk].dec(times)
+                        _anp(os.dec(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].dec(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits dec does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.dist(times)[ii, jj, kk] - list_os[ii][jj][kk].dist(times)
+                        _anp(os.dist(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].dist(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits dist does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.ll(times)[ii, jj, kk] - list_os[ii][jj][kk].ll(times))
+                    numpy.fabs(
+                        _anp(os.ll(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].ll(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits ll does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.bb(times)[ii, jj, kk] - list_os[ii][jj][kk].bb(times))
+                    numpy.fabs(
+                        _anp(os.bb(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].bb(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits bb  does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.pmra(times)[ii, jj, kk] - list_os[ii][jj][kk].pmra(times)
+                        _anp(os.pmra(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].pmra(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits pmra does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.pmdec(times)[ii, jj, kk] - list_os[ii][jj][kk].pmdec(times)
+                        _anp(os.pmdec(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].pmdec(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits pmdec does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.pmll(times)[ii, jj, kk] - list_os[ii][jj][kk].pmll(times)
+                        _anp(os.pmll(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].pmll(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits pmll does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.pmbb(times)[ii, jj, kk] - list_os[ii][jj][kk].pmbb(times)
+                        _anp(os.pmbb(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].pmbb(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits pmbb does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vra(times)[ii, jj, kk] - list_os[ii][jj][kk].vra(times)
+                        _anp(os.vra(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vra(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vra does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vdec(times)[ii, jj, kk] - list_os[ii][jj][kk].vdec(times)
+                        _anp(os.vdec(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vdec(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vdec does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vll(times)[ii, jj, kk] - list_os[ii][jj][kk].vll(times)
+                        _anp(os.vll(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vll(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vll does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vbb(times)[ii, jj, kk] - list_os[ii][jj][kk].vbb(times)
+                        _anp(os.vbb(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vbb(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits vbb does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.vlos(times)[ii, jj, kk] - list_os[ii][jj][kk].vlos(times)
+                        _anp(os.vlos(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].vlos(times))
                     )
                     < 1e-9
                 ), "Evaluating Orbits vlos does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.helioX(times)[ii, jj, kk] - list_os[ii][jj][kk].helioX(times)
+                        _anp(os.helioX(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioX(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits helioX does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.helioY(times)[ii, jj, kk] - list_os[ii][jj][kk].helioY(times)
+                        _anp(os.helioY(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioY(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits helioY does not agree with Orbit"
                 assert numpy.all(
                     numpy.fabs(
-                        os.helioZ(times)[ii, jj, kk] - list_os[ii][jj][kk].helioZ(times)
+                        _anp(os.helioZ(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].helioZ(times))
                     )
                     < 1e-10
                 ), "Evaluating Orbits helioZ does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.U(times)[ii, jj, kk] - list_os[ii][jj][kk].U(times))
+                    numpy.fabs(
+                        _anp(os.U(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].U(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits U does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.V(times)[ii, jj, kk] - list_os[ii][jj][kk].V(times))
+                    numpy.fabs(
+                        _anp(os.V(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].V(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits V does not agree with Orbit"
                 assert numpy.all(
-                    numpy.fabs(os.W(times)[ii, jj, kk] - list_os[ii][jj][kk].W(times))
+                    numpy.fabs(
+                        _anp(os.W(times)[ii, jj, kk])
+                        - _anp(list_os[ii][jj][kk].W(times))
+                    )
                     < 1e-10
                 ), "Evaluating Orbits W does not agree with Orbit"
                 assert numpy.all(
@@ -5998,38 +6668,43 @@ def _check_energy_jacobi_angmom(os, list_os):
     for ii in range(nrand):
         assert numpy.all(
             numpy.fabs(
-                os.E(pot=MWPotential2014)[ii] / list_os[ii].E(pot=MWPotential2014) - 1.0
+                _anp(os.E(pot=MWPotential2014)[ii])
+                / _anp(list_os[ii].E(pot=MWPotential2014))
+                - 1.0
             )
             < 10.0**-10.0
         ), "Evaluating Orbits E does not agree with Orbit"
         if os.dim() == 3:
             assert numpy.all(
                 numpy.fabs(
-                    os.ER(pot=MWPotential2014)[ii] / list_os[ii].ER(pot=MWPotential2014)
+                    _anp(os.ER(pot=MWPotential2014)[ii])
+                    / _anp(list_os[ii].ER(pot=MWPotential2014))
                     - 1.0
                 )
                 < 10.0**-10.0
             ), "Evaluating Orbits ER does not agree with Orbit"
             assert numpy.all(
                 numpy.fabs(
-                    os.Ez(pot=MWPotential2014)[ii] / list_os[ii].Ez(pot=MWPotential2014)
+                    _anp(os.Ez(pot=MWPotential2014)[ii])
+                    / _anp(list_os[ii].Ez(pot=MWPotential2014))
                     - 1.0
                 )
                 < 10.0**-10.0
             ), "Evaluating Orbits Ez does not agree with Orbit"
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.L()[ii] / list_os[ii].L() - 1.0) < 10.0**-10.0
+                numpy.fabs(_anp(os.L()[ii]) / _anp(list_os[ii].L()) - 1.0) < 10.0**-10.0
             ), "Evaluating Orbits L does not agree with Orbit"
         if os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.Lz()[ii] / list_os[ii].Lz() - 1.0) < 10.0**-10.0
+                numpy.fabs(_anp(os.Lz()[ii]) / _anp(list_os[ii].Lz()) - 1.0)
+                < 10.0**-10.0
             ), "Evaluating Orbits Lz does not agree with Orbit"
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(pot=MWPotential2014)[ii]
-                    / list_os[ii].Jacobi(pot=MWPotential2014)
+                    _anp(os.Jacobi(pot=MWPotential2014)[ii])
+                    / _anp(list_os[ii].Jacobi(pot=MWPotential2014))
                     - 1.0
                 )
                 < 10.0**-10.0
@@ -6037,8 +6712,8 @@ def _check_energy_jacobi_angmom(os, list_os):
             # Also explicitly set OmegaP
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(pot=MWPotential2014, OmegaP=0.6)[ii]
-                    / list_os[ii].Jacobi(pot=MWPotential2014, OmegaP=0.6)
+                    _anp(os.Jacobi(pot=MWPotential2014, OmegaP=0.6)[ii])
+                    / _anp(list_os[ii].Jacobi(pot=MWPotential2014, OmegaP=0.6))
                     - 1.0
                 )
                 < 10.0**-10.0
@@ -6046,35 +6721,39 @@ def _check_energy_jacobi_angmom(os, list_os):
     # Potential for which array evaluation definitely does not work
     for ii in range(nrand):
         assert numpy.all(
-            numpy.fabs(os.E(pot=lp)[ii] / list_os[ii].E(pot=lp) - 1.0) < 10.0**-10.0
+            numpy.fabs(_anp(os.E(pot=lp)[ii]) / _anp(list_os[ii].E(pot=lp)) - 1.0)
+            < 10.0**-10.0
         ), "Evaluating Orbits E does not agree with Orbit"
         if os.dim() == 3:
             assert numpy.all(
-                numpy.fabs(os.ER(pot=lp)[ii] / list_os[ii].ER(pot=lp) - 1.0)
+                numpy.fabs(_anp(os.ER(pot=lp)[ii]) / _anp(list_os[ii].ER(pot=lp)) - 1.0)
                 < 10.0**-10.0
             ), "Evaluating Orbits ER does not agree with Orbit"
             assert numpy.all(
-                numpy.fabs(os.Ez(pot=lp)[ii] / list_os[ii].Ez(pot=lp) - 1.0)
+                numpy.fabs(_anp(os.Ez(pot=lp)[ii]) / _anp(list_os[ii].Ez(pot=lp)) - 1.0)
                 < 10.0**-10.0
             ), "Evaluating Orbits Ez does not agree with Orbit"
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.L()[ii] / list_os[ii].L() - 1.0) < 10.0**-10.0
+                numpy.fabs(_anp(os.L()[ii]) / _anp(list_os[ii].L()) - 1.0) < 10.0**-10.0
             ), "Evaluating Orbits L does not agree with Orbit"
         if os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.Lz()[ii] / list_os[ii].Lz() - 1.0) < 10.0**-10.0
+                numpy.fabs(_anp(os.Lz()[ii]) / _anp(list_os[ii].Lz()) - 1.0)
+                < 10.0**-10.0
             ), "Evaluating Orbits Lz does not agree with Orbit"
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.Jacobi(pot=lp)[ii] / list_os[ii].Jacobi(pot=lp) - 1.0)
+                numpy.fabs(
+                    _anp(os.Jacobi(pot=lp)[ii]) / _anp(list_os[ii].Jacobi(pot=lp)) - 1.0
+                )
                 < 10.0**-10.0
             ), "Evaluating Orbits Jacobi does not agree with Orbit"
             # Also explicitly set OmegaP
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(pot=lp, OmegaP=0.6)[ii]
-                    / list_os[ii].Jacobi(pot=lp, OmegaP=0.6)
+                    _anp(os.Jacobi(pot=lp, OmegaP=0.6)[ii])
+                    / _anp(list_os[ii].Jacobi(pot=lp, OmegaP=0.6))
                     - 1.0
                 )
                 < 10.0**-10.0
@@ -6083,16 +6762,16 @@ def _check_energy_jacobi_angmom(os, list_os):
             # Also in 3D
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(pot=lp, OmegaP=[0.0, 0.0, 0.6])[ii]
-                    / list_os[ii].Jacobi(pot=lp, OmegaP=0.6)
+                    _anp(os.Jacobi(pot=lp, OmegaP=[0.0, 0.0, 0.6])[ii])
+                    / _anp(list_os[ii].Jacobi(pot=lp, OmegaP=0.6))
                     - 1.0
                 )
                 < 10.0**-10.0
             ), "Evaluating Orbits Jacobi does not agree with Orbit"
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(pot=lp, OmegaP=numpy.array([0.0, 0.0, 0.6]))[ii]
-                    / list_os[ii].Jacobi(pot=lp, OmegaP=0.6)
+                    _anp(os.Jacobi(pot=lp, OmegaP=numpy.array([0.0, 0.0, 0.6]))[ii])
+                    / _anp(list_os[ii].Jacobi(pot=lp, OmegaP=0.6))
                     - 1.0
                 )
                 < 10.0**-10.0
@@ -6110,43 +6789,50 @@ def _check_energy_jacobi_angmom(os, list_os):
         # Don't have to specify the potential or set to None
         assert numpy.all(
             numpy.fabs(
-                os.E(times)[ii] / list_os[ii].E(times, pot=MWPotential2014) - 1.0
+                _anp(os.E(times)[ii]) / _anp(list_os[ii].E(times, pot=MWPotential2014))
+                - 1.0
             )
             < 10.0**-10.0
         ), "Evaluating Orbits E does not agree with Orbit"
         if os.dim() == 3:
             assert numpy.all(
                 numpy.fabs(
-                    os.ER(times, pot=None)[ii]
-                    / list_os[ii].ER(times, pot=MWPotential2014)
+                    _anp(os.ER(times, pot=None)[ii])
+                    / _anp(list_os[ii].ER(times, pot=MWPotential2014))
                     - 1.0
                 )
                 < 10.0**-10.0
             ), "Evaluating Orbits ER does not agree with Orbit"
             assert numpy.all(
                 numpy.fabs(
-                    os.Ez(times)[ii] / list_os[ii].Ez(times, pot=MWPotential2014) - 1.0
+                    _anp(os.Ez(times)[ii])
+                    / _anp(list_os[ii].Ez(times, pot=MWPotential2014))
+                    - 1.0
                 )
                 < 10.0**-10.0
             ), "Evaluating Orbits Ez does not agree with Orbit"
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.L(times)[ii] / list_os[ii].L(times) - 1.0) < 10.0**-10.0
+                numpy.fabs(_anp(os.L(times)[ii]) / _anp(list_os[ii].L(times)) - 1.0)
+                < 10.0**-10.0
             ), "Evaluating Orbits L does not agree with Orbit"
         if os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.Lz(times)[ii] / list_os[ii].Lz(times) - 1.0) < 10.0**-10.0
+                numpy.fabs(_anp(os.Lz(times)[ii]) / _anp(list_os[ii].Lz(times)) - 1.0)
+                < 10.0**-10.0
             ), "Evaluating Orbits Lz does not agree with Orbit"
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.Jacobi(times)[ii] / list_os[ii].Jacobi(times) - 1.0)
+                numpy.fabs(
+                    _anp(os.Jacobi(times)[ii]) / _anp(list_os[ii].Jacobi(times)) - 1.0
+                )
                 < 10.0**-10.0
             ), "Evaluating Orbits Jacobi does not agree with Orbit"
             # Also explicitly set OmegaP
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(times, pot=MWPotential2014, OmegaP=0.6)[ii]
-                    / list_os[ii].Jacobi(times, pot=MWPotential2014, OmegaP=0.6)
+                    _anp(os.Jacobi(times, pot=MWPotential2014, OmegaP=0.6)[ii])
+                    / _anp(list_os[ii].Jacobi(times, pot=MWPotential2014, OmegaP=0.6))
                     - 1.0
                 )
                 < 10.0**-10.0
@@ -6155,18 +6841,26 @@ def _check_energy_jacobi_angmom(os, list_os):
             # Also in 3D
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(times, pot=MWPotential2014, OmegaP=[0.0, 0.0, 0.6])[ii]
-                    / list_os[ii].Jacobi(times, pot=MWPotential2014, OmegaP=0.6)
+                    _anp(
+                        os.Jacobi(times, pot=MWPotential2014, OmegaP=[0.0, 0.0, 0.6])[
+                            ii
+                        ]
+                    )
+                    / _anp(list_os[ii].Jacobi(times, pot=MWPotential2014, OmegaP=0.6))
                     - 1.0
                 )
                 < 10.0**-10.0
             ), "Evaluating Orbits Jacobi does not agree with Orbit"
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(
-                        times, pot=MWPotential2014, OmegaP=numpy.array([0.0, 0.0, 0.6])
-                    )[ii]
-                    / list_os[ii].Jacobi(times, pot=MWPotential2014, OmegaP=0.6)
+                    _anp(
+                        os.Jacobi(
+                            times,
+                            pot=MWPotential2014,
+                            OmegaP=numpy.array([0.0, 0.0, 0.6]),
+                        )[ii]
+                    )
+                    / _anp(list_os[ii].Jacobi(times, pot=MWPotential2014, OmegaP=0.6))
                     - 1.0
                 )
                 < 10.0**-10.0
@@ -6178,8 +6872,8 @@ def _check_energy_jacobi_angmom(os, list_os):
     for ii in range(nrand):
         assert numpy.all(
             numpy.fabs(
-                os.E(pot=MWPotential2014 + dp + sp)[ii]
-                / list_os[ii].E(pot=MWPotential2014 + dp + sp)
+                _anp(os.E(pot=MWPotential2014 + dp + sp)[ii])
+                / _anp(list_os[ii].E(pot=MWPotential2014 + dp + sp))
                 - 1.0
             )
             < 10.0**-10.0
@@ -6187,33 +6881,34 @@ def _check_energy_jacobi_angmom(os, list_os):
         if os.dim() == 3:
             assert numpy.all(
                 numpy.fabs(
-                    os.ER(pot=MWPotential2014 + dp + sp)[ii]
-                    / list_os[ii].ER(pot=MWPotential2014 + dp + sp)
+                    _anp(os.ER(pot=MWPotential2014 + dp + sp)[ii])
+                    / _anp(list_os[ii].ER(pot=MWPotential2014 + dp + sp))
                     - 1.0
                 )
                 < 10.0**-10.0
             ), "Evaluating Orbits ER does not agree with Orbit"
             assert numpy.all(
                 numpy.fabs(
-                    os.Ez(pot=MWPotential2014 + dp + sp)[ii]
-                    / list_os[ii].Ez(pot=MWPotential2014 + dp + sp)
+                    _anp(os.Ez(pot=MWPotential2014 + dp + sp)[ii])
+                    / _anp(list_os[ii].Ez(pot=MWPotential2014 + dp + sp))
                     - 1.0
                 )
                 < 10.0**-10.0
             ), "Evaluating Orbits Ez does not agree with Orbit"
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.L()[ii] / list_os[ii].L() - 1.0) < 10.0**-10.0
+                numpy.fabs(_anp(os.L()[ii]) / _anp(list_os[ii].L()) - 1.0) < 10.0**-10.0
             ), "Evaluating Orbits L does not agree with Orbit"
         if os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.Lz()[ii] / list_os[ii].Lz() - 1.0) < 10.0**-10.0
+                numpy.fabs(_anp(os.Lz()[ii]) / _anp(list_os[ii].Lz()) - 1.0)
+                < 10.0**-10.0
             ), "Evaluating Orbits Lz does not agree with Orbit"
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(pot=MWPotential2014 + dp + sp)[ii]
-                    / list_os[ii].Jacobi(pot=MWPotential2014 + dp + sp)
+                    _anp(os.Jacobi(pot=MWPotential2014 + dp + sp)[ii])
+                    / _anp(list_os[ii].Jacobi(pot=MWPotential2014 + dp + sp))
                     - 1.0
                 )
                 < 10.0**-10.0
@@ -6221,8 +6916,10 @@ def _check_energy_jacobi_angmom(os, list_os):
             # Also explicitly set OmegaP
             assert numpy.all(
                 numpy.fabs(
-                    os.Jacobi(pot=MWPotential2014 + dp + sp, OmegaP=0.6)[ii]
-                    / list_os[ii].Jacobi(pot=MWPotential2014 + dp + sp, OmegaP=0.6)
+                    _anp(os.Jacobi(pot=MWPotential2014 + dp + sp, OmegaP=0.6)[ii])
+                    / _anp(
+                        list_os[ii].Jacobi(pot=MWPotential2014 + dp + sp, OmegaP=0.6)
+                    )
                     - 1.0
                 )
                 < 10.0**-10.0
@@ -6821,31 +7518,31 @@ def test_flip():
             "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         )
         if ii == 4:
-            assert numpy.all(numpy.abs(o.x() - of.x()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.x()) - _anp(of.x())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vx() + of.vx()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vx()) + _anp(of.vx())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         else:
-            assert numpy.all(numpy.abs(o.R() - of.R()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.R()) - _anp(of.R())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vR() + of.vR()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vR()) + _anp(of.vR())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vT() + of.vT()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vT()) + _anp(of.vT())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         if ii % 2 == 1:
-            assert numpy.all(numpy.abs(o.phi() - of.phi()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.phi()) - _anp(of.phi())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         if ii < 2:
-            assert numpy.all(numpy.abs(o.z() - of.z()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.z()) - _anp(of.z())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vz() + of.vz()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vz()) + _anp(of.vz())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
     return None
@@ -6903,31 +7600,31 @@ def test_flip_inplace():
             "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         )
         if ii == 4:
-            assert numpy.all(numpy.abs(o.x() - of.x()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.x()) - _anp(of.x())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vx() + of.vx()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vx()) + _anp(of.vx())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         else:
-            assert numpy.all(numpy.abs(o.R() - of.R()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.R()) - _anp(of.R())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vR() + of.vR()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vR()) + _anp(of.vR())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vT() + of.vT()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vT()) + _anp(of.vT())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         if ii % 2 == 1:
-            assert numpy.all(numpy.abs(o.phi() - of.phi()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.phi()) - _anp(of.phi())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         if ii < 2:
-            assert numpy.all(numpy.abs(o.z() - of.z()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.z()) - _anp(of.z())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vz() + of.vz()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vz()) + _anp(of.vz())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
     return None
@@ -6998,31 +7695,31 @@ def test_flip_inplace_integrated():
             "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         )
         if ii == 4:
-            assert numpy.all(numpy.abs(o.x() - of.x()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.x()) - _anp(of.x())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vx() + of.vx()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vx()) + _anp(of.vx())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         else:
-            assert numpy.all(numpy.abs(o.R() - of.R()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.R()) - _anp(of.R())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vR() + of.vR()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vR()) + _anp(of.vR())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vT() + of.vT()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vT()) + _anp(of.vT())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         if ii % 2 == 1:
-            assert numpy.all(numpy.abs(o.phi() - of.phi()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.phi()) - _anp(of.phi())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         if ii < 2:
-            assert numpy.all(numpy.abs(o.z() - of.z()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.z()) - _anp(of.z())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vz() + of.vz()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vz()) + _anp(of.vz())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
     return None
@@ -7063,7 +7760,7 @@ def test_flip_inplace_integrated_evaluated():
             o.integrate(ts, llp)
             of.integrate(ts, llp)
         # Evaluate, make sure it is at an interpolated time!
-        dumb = of.R(0.52)
+        dumb = _anp(of.R(0.52))
         # Now flip
         of.flip(inplace=True)
         # Just check one time, allows code duplication!
@@ -7099,31 +7796,31 @@ def test_flip_inplace_integrated_evaluated():
             "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         )
         if ii == 4:
-            assert numpy.all(numpy.abs(o.x() - of.x()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.x()) - _anp(of.x())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vx() + of.vx()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vx()) + _anp(of.vx())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         else:
-            assert numpy.all(numpy.abs(o.R() - of.R()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.R()) - _anp(of.R())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vR() + of.vR()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vR()) + _anp(of.vR())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vT() + of.vT()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vT()) + _anp(of.vT())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         if ii % 2 == 1:
-            assert numpy.all(numpy.abs(o.phi() - of.phi()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.phi()) - _anp(of.phi())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
         if ii < 2:
-            assert numpy.all(numpy.abs(o.z() - of.z()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.z()) - _anp(of.z())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
-            assert numpy.all(numpy.abs(o.vz() + of.vz()) < 10.0**-10.0), (
+            assert numpy.all(numpy.abs(_anp(o.vz()) + _anp(of.vz())) < 10.0**-10.0), (
                 "o.flip() did not work as expected"
             )
     return None
@@ -7231,15 +7928,15 @@ def test_EccZmaxRperiRap_num_againstorbit_2d():
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.e()[ii] - list_os[ii].e()) < 1e-10), (
-            "Evaluating Orbits e does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.rperi()[ii] - list_os[ii].rperi()) < 1e-10), (
-            "Evaluating Orbits rperi does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.rap()[ii] - list_os[ii].rap()) < 1e-10), (
-            "Evaluating Orbits rap does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_anp(os.e()[ii]) - _anp(list_os[ii].e())) < 1e-10
+        ), "Evaluating Orbits e does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.rperi()[ii]) - _anp(list_os[ii].rperi())) < 1e-10
+        ), "Evaluating Orbits rperi does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_anp(os.rap()[ii]) - _anp(list_os[ii].rap())) < 1e-10
+        ), "Evaluating Orbits rap does not agree with Orbit"
     return None
 
 
@@ -8432,19 +9129,19 @@ def test_toLinear():
     obs = Orbit([[1.0, 0.1, 1.1, 0.3, 0.0, 2.0], [1.0, -0.2, 1.3, -0.3, 0.0, 5.0]])
     obsl = obs.toLinear()
     assert obsl.dim() == 1, "toLinear does not generate an Orbit w/ dim=1 for FullOrbit"
-    assert numpy.all(obsl.x() == obs.z()), (
+    assert numpy.all(_anp(obsl.x()) == _anp(obs.z())), (
         "Linear orbit generated w/ toLinear does not have the correct z"
     )
-    assert numpy.all(obsl.vx() == obs.vz()), (
+    assert numpy.all(_anp(obsl.vx()) == _anp(obs.vz())), (
         "Linear orbit generated w/ toLinear does not have the correct vx"
     )
     obs = Orbit([[1.0, 0.1, 1.1, 0.3, 0.0], [1.0, -0.2, 1.3, -0.3, 0.0]])
     obsl = obs.toLinear()
     assert obsl.dim() == 1, "toLinear does not generate an Orbit w/ dim=1 for FullOrbit"
-    assert numpy.all(obsl.x() == obs.z()), (
+    assert numpy.all(_anp(obsl.x()) == _anp(obs.z())), (
         "Linear orbit generated w/ toLinear does not have the correct z"
     )
-    assert numpy.all(obsl.vx() == obs.vz()), (
+    assert numpy.all(_anp(obsl.vx()) == _anp(obs.vz())), (
         "Linear orbit generated w/ toLinear does not have the correct vx"
     )
     obs = Orbit([[1.0, 0.1, 1.1, 0.3], [1.0, -0.2, 1.3, -0.3]])
@@ -8463,10 +9160,10 @@ def test_toLinear():
     )
     obsl = obs.toLinear()
     assert obsl.dim() == 1, "toLinwar does not generate an Orbit w/ dim=1 for FullOrbit"
-    assert numpy.all(obsl.x() == obs.z()), (
+    assert numpy.all(_anp(obsl.x()) == _anp(obs.z())), (
         "Linear orbit generated w/ toLinear does not have the correct z"
     )
-    assert numpy.all(obsl.vx() == obs.vz()), (
+    assert numpy.all(_anp(obsl.vx()) == _anp(obs.vz())), (
         "Linear orbit generated w/ toLinear does not have the correct vx"
     )
     assert numpy.fabs(obs._ro - obsl._ro) < 10.0**-15.0, (
