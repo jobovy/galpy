@@ -5478,6 +5478,26 @@ def test_ExpTruncNFW_smallr_series():
         assert numpy.fabs(p.mass(r) - ref) < 1e-7 * numpy.fabs(ref), (
             "ExpTruncNFWPotential enclosed mass does not match direct integral"
         )
+    # (c) the radial force at r=0 is the hand-substituted finite limit
+    #     -F(r)/r^2 -> -1/(2 a^2), checked as a scalar and within an array (the
+    #     r=0 element uses the limit, the others the closed form)
+    assert numpy.fabs(p._rforce(numpy.asarray(0.0)) - (-0.5 / a**2)) < 1e-12, (
+        "ExpTruncNFWPotential radial force at r=0 is not the analytic -1/(2 a^2) limit"
+    )
+    small = 1e-5
+    assert (
+        numpy.fabs(
+            p._rforce(numpy.asarray(0.0)) + p._F(numpy.asarray(small)) / small**2
+        )
+        < 1e-4
+    ), "ExpTruncNFWPotential r=0 force limit does not match the small-r extrapolation"
+    farr = p._rforce(numpy.array([0.0, 0.5, 1.0]))
+    assert farr[0] == -0.5 / a**2, (
+        "ExpTruncNFWPotential array radial force does not use the r=0 limit at r=0"
+    )
+    assert numpy.fabs(farr[1] - (-p._F(numpy.asarray(0.5)) / 0.5**2)) < 1e-12, (
+        "ExpTruncNFWPotential array radial force is incorrect away from r=0"
+    )
     return None
 
 
