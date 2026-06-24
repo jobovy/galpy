@@ -450,3 +450,21 @@ def test_orbit_integrate_numpy_ic_unaffected(method):
         o.integrate(_TS, pot, method=method)
         assert isinstance(o.getOrbit(), numpy.ndarray)
         assert isinstance(o.R(_TS, use_physical=False), numpy.ndarray)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_orbit_integrate_cstm_numpy_times(backend):
+    # a numpy/list time array (not a backend array) is coerced onto the IC's
+    # namespace before the C-STM solve (the is_backend_array(t) else-branch of
+    # _integrate_cstm); the result is still a differentiable backend array.
+    from galpy.orbit import Orbit
+
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    o = Orbit(_arr(backend, _IC))
+    o.integrate(_TS, pot, method="dop853_c")  # _TS is a plain numpy array
+    assert _is_backend(backend, o.getOrbit())
+    onp = Orbit(list(_IC))
+    onp.integrate(_TS, pot, method="dop853_c")
+    numpy.testing.assert_allclose(
+        _np(o.getOrbit()), onp.getOrbit(), rtol=1e-6, atol=1e-7
+    )
