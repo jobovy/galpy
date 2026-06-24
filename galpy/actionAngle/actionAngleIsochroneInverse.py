@@ -10,6 +10,7 @@
 import numpy
 from scipy import optimize
 
+from ..backend import get_namespace, promote_scalars
 from ..potential import IsochronePotential
 from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
@@ -131,9 +132,13 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         -----
         - 2017-11-15 - Written - Bovy (UofT).
         """
-        L = jz + numpy.fabs(jphi)  # total angular momentum
+        xp = get_namespace(jr, jphi, jz, angler, anglephi, anglez)
+        jr, jphi, jz, angler, anglephi, anglez = promote_scalars(
+            xp, jr, jphi, jz, angler, anglephi, anglez
+        )
+        L = jz + xp.abs(jphi)  # total angular momentum
         L2 = L**2.0
-        sqrtfourbkL2 = numpy.sqrt(L2 + 4.0 * self.b * self.amp)
+        sqrtfourbkL2 = xp.sqrt(L2 + 4.0 * self.b * self.amp)
         H = -2.0 * self.amp**2.0 / (2.0 * jr + L + sqrtfourbkL2) ** 2.0
         # Calculate the frequencies
         omegar = (-2.0 * H) ** 1.5 / self.amp
@@ -141,55 +146,71 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         # Start on getting the coordinates
         a = -self.amp / 2.0 / H - self.b
         ab = a + self.b
-        e = numpy.sqrt(1.0 + L2 / (2.0 * H * a**2.0))
-        # Solve Kepler's-ish equation; ar must be between 0 and 2pi
-        angler = (numpy.atleast_1d(angler) % (-2.0 * numpy.pi)) % (2.0 * numpy.pi)
-        anglephi = numpy.atleast_1d(anglephi)
-        anglez = numpy.atleast_1d(anglez)
-        eta = numpy.empty(len(angler))
-        for ii, ar in enumerate(angler):
-            try:
-                eta[ii] = optimize.newton(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar,
-                    0.0,
-                    lambda x: 1 - a * e / ab * numpy.cos(x),
-                )
-            except RuntimeError:
-                # Newton-Raphson did not converge, this has to work,
-                # bc 0 <= ra < 2pi the following start x have different signs
-                eta[ii] = optimize.brentq(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
-                )
-        coseta = numpy.cos(eta)
-        r = a * numpy.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * self.b / a))
-        vr = numpy.sqrt(self.amp / ab) * a * e * numpy.sin(eta) / r
-        taneta2 = numpy.tan(eta / 2.0)
-        tan11 = numpy.arctan(numpy.sqrt((1.0 + e) / (1.0 - e)) * taneta2)
-        tan12 = numpy.arctan(
-            numpy.sqrt((a * (1.0 + e) + 2.0 * self.b) / (a * (1.0 - e) + 2.0 * self.b))
+        e = xp.sqrt(1.0 + L2 / (2.0 * H * a**2.0))
+        # Solve Kepler's-ish equation eta - (a e/ab) sin(eta) = ar, ar in [0, 2pi)
+        angler = (xp.atleast_1d(angler) % (-2.0 * numpy.pi)) % (2.0 * numpy.pi)
+        anglephi = xp.atleast_1d(anglephi)
+        anglez = xp.atleast_1d(anglez)
+        if xp is numpy:
+            eta = numpy.empty(len(angler))
+            for ii, ar in enumerate(angler):
+                try:
+                    eta[ii] = optimize.newton(
+                        lambda x: x - a * e / ab * numpy.sin(x) - ar,
+                        0.0,
+                        lambda x: 1 - a * e / ab * numpy.cos(x),
+                    )
+                except RuntimeError:
+                    # Newton-Raphson did not converge, this has to work,
+                    # bc 0 <= ra < 2pi the following start x have different signs
+                    eta[ii] = optimize.brentq(
+                        lambda x: x - a * e / ab * numpy.sin(x) - ar,
+                        0.0,
+                        2.0 * numpy.pi,
+                    )
+        else:
+            # Differentiable, vectorised bracketed-Newton on [0, 2pi] (f is strictly
+            # monotone there since a*e/ab < 1) -- the shared backend root-finder;
+            # gradients flow to (jr,jphi,jz) via the implicit-function theorem.
+            from ..backend.optimize import brentq as _backend_brentq
+
+            _c = a * e / ab
+            eta = _backend_brentq(
+                lambda x, c, ar: x - c * xp.sin(x) - ar,
+                xp.zeros_like(angler),
+                xp.full_like(angler, 2.0 * numpy.pi),
+                args=(_c, angler),
+            )
+        coseta = xp.cos(eta)
+        r = a * xp.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * self.b / a))
+        vr = xp.sqrt(self.amp / ab) * a * e * xp.sin(eta) / r
+        taneta2 = xp.tan(eta / 2.0)
+        tan11 = xp.arctan(xp.sqrt((1.0 + e) / (1.0 - e)) * taneta2)
+        tan12 = xp.arctan(
+            xp.sqrt((a * (1.0 + e) + 2.0 * self.b) / (a * (1.0 - e) + 2.0 * self.b))
             * taneta2
         )
-        tan11[tan11 < 0.0] += numpy.pi
-        tan12[tan12 < 0.0] += numpy.pi
+        tan11 = xp.where(tan11 < 0.0, tan11 + numpy.pi, tan11)
+        tan12 = xp.where(tan12 < 0.0, tan12 + numpy.pi, tan12)
         Lambdaeta = tan11 + L / sqrtfourbkL2 * tan12
         psi = anglez - omegaz / omegar * angler + Lambdaeta
-        lowerl = numpy.sqrt(1.0 - jphi**2.0 / L2)
-        sintheta = numpy.sin(psi) * lowerl
-        costheta = numpy.sqrt(1.0 - sintheta**2.0)
-        vtheta = L * lowerl * numpy.cos(psi) / costheta / r
+        lowerl = xp.sqrt(1.0 - jphi**2.0 / L2)
+        sintheta = xp.sin(psi) * lowerl
+        costheta = xp.sqrt(1.0 - sintheta**2.0)
+        vtheta = L * lowerl * xp.cos(psi) / costheta / r
         R = r * costheta
         z = r * sintheta
         vR = vr * costheta - vtheta * sintheta
         vz = vr * sintheta + vtheta * costheta
         sinu = sintheta / costheta * jphi / L / lowerl
-        u = numpy.arcsin(sinu)
-        u[vtheta < 0.0] = numpy.pi - u[vtheta < 0.0]
-        phi = anglephi - numpy.sign(jphi) * anglez + u
+        u = xp.arcsin(sinu)
+        u = xp.where(vtheta < 0.0, numpy.pi - u, u)
+        phi = anglephi - xp.sign(jphi) * anglez + u
         # For non-inclined orbits, phi == psi
-        phi[True ^ numpy.isfinite(phi)] = psi[True ^ numpy.isfinite(phi)]
+        phi = xp.where(xp.isfinite(phi), phi, psi)
         phi = phi % (2.0 * numpy.pi)
-        phi[phi < 0.0] += 2.0 * numpy.pi
-        return (R, vR, jphi / R, z, vz, phi, omegar, numpy.sign(jphi) * omegaz, omegaz)
+        phi = xp.where(phi < 0.0, phi + 2.0 * numpy.pi, phi)
+        return (R, vR, jphi / R, z, vz, phi, omegar, xp.sign(jphi) * omegaz, omegaz)
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
         """
@@ -213,10 +234,12 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         -----
         - 2017-11-15 - Written - Bovy (UofT).
         """
-        L = jz + numpy.fabs(jphi)  # total angular momentum
-        sqrtfourbkL2 = numpy.sqrt(L**2.0 + 4.0 * self.b * self.amp)
+        xp = get_namespace(jr, jphi, jz)
+        jr, jphi, jz = promote_scalars(xp, jr, jphi, jz)
+        L = jz + xp.abs(jphi)  # total angular momentum
+        sqrtfourbkL2 = xp.sqrt(L**2.0 + 4.0 * self.b * self.amp)
         H = -2.0 * self.amp**2.0 / (2.0 * jr + L + sqrtfourbkL2) ** 2.0
         # Calculate the frequencies
         omegar = (-2.0 * H) ** 1.5 / self.amp
         omegaz = (1.0 + L / sqrtfourbkL2) / 2.0 * omegar
-        return (omegar, numpy.sign(jphi) * omegaz, omegaz)
+        return (omegar, xp.sign(jphi) * omegaz, omegaz)
