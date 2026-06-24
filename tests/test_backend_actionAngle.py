@@ -261,10 +261,11 @@ def test_isochrone_dangle_dt_equals_freq(backend, vT, idx_ang, idx_om):
 
 
 # --------------------------------------------- inverse maps (J,angle) -> (x,v)
-# actionAngleHarmonicInverse is closed-form (amp=√(2J/ω); x=amp sinθ; vx=amp ω cosθ)
-# -> backend-migrated here. actionAngleIsochroneInverse solves Kepler's equation
-# (scipy Newton) -> NOT backend-traceable yet (needs a backend root-find; Track E
-# #2 with Vertical/Spherical), so only its numpy round-trip is exercised below.
+# actionAngleHarmonicInverse is closed-form (amp=√(2J/ω); x=amp sinθ; vx=amp ω cosθ).
+# actionAngleIsochroneInverse solves Kepler's equation eta-(a e/ab)sin(eta)=ar; the
+# numpy path keeps scipy.optimize.newton (byte-identical), the jax/torch path uses
+# the shared backend root-finder galpy.backend.optimize.brentq (vectorised bracketed
+# bisection + one-Newton-step implicit-diff) so gradients flow to the actions.
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("omega", [0.7, 1.3])
 def test_harmonic_inverse_roundtrip_parity(backend, omega):
@@ -311,24 +312,70 @@ def test_harmonic_inverse_grad_vs_fd(backend):
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
 
 
-def test_isochrone_inverse_roundtrip_numpy():
-    # numpy-only (scipy Newton Kepler solve not backend-traceable yet); establishes
-    # the forward∘inverse identity so the backend port (Track E #2) has a reference.
+# IsochroneInverse torus + angle batch (bound, inclined; angles inside (0,2π)).
+_II_J = (0.2, 0.8, 0.15)  # jr, jphi, jz
+_II_AR = numpy.array([0.7, 1.6, 3.1, 4.8])
+_II_AP = numpy.array([1.1, 2.3, 0.5, 5.1])
+_II_AZ = numpy.array([0.4, 1.9, 2.7, 3.6])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("b", [0.8, 1.2])
+def test_isochrone_inverse_parity(backend, b):
+    aAIi = actionAngleIsochroneInverse(b=b)
+    ref = aAIi._xvFreqs(*_II_J, _II_AR, _II_AP, _II_AZ)
+    bargs = (*[_arr(backend, numpy.asarray(j)) for j in _II_J],) + tuple(
+        _arr(backend, a) for a in (_II_AR, _II_AP, _II_AZ)
+    )
+    got = aAIi._xvFreqs(*bargs)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-11, atol=1e-11)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochrone_inverse_roundtrip(backend):
+    # forward ∘ inverse == identity, fully in-backend (the inverse Kepler solve runs
+    # via the shared backend root-finder), recovering actions and angles.
     b = 1.2
     aAIi = actionAngleIsochroneInverse(b=b)
     aAI = actionAngleIsochrone(b=b)
-    jr, jphi, jz = 0.2, 0.8, 0.15
-    ar, ap, az = 0.7, 1.1, 0.4
-    R, vR, vT, z, vz, phi = (
-        numpy.asarray(c).ravel()[0] for c in aAIi._evaluate(jr, jphi, jz, ar, ap, az)
+    jr, jphi, jz = _II_J
+    bj = [_arr(backend, numpy.asarray(j)) for j in _II_J]
+    bang = [_arr(backend, a) for a in (_II_AR, _II_AP, _II_AZ)]
+    R, vR, vT, z, vz, phi = aAIi._xvFreqs(*bj, *bang)[:6]
+    out = aAI._actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    numpy.testing.assert_allclose(_np(out[0]), jr, rtol=1e-7, atol=1e-9)  # Jr
+    numpy.testing.assert_allclose(_np(out[1]), jphi, rtol=1e-7, atol=1e-9)  # Jphi
+    numpy.testing.assert_allclose(_np(out[2]), jz, rtol=1e-7, atol=1e-9)  # Jz
+    # angles recovered (circular difference, to be robust to the 2π wrap)
+    for idx, a_in in ((6, _II_AR), (7, _II_AP), (8, _II_AZ)):
+        d = (_np(out[idx]) - a_in + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        numpy.testing.assert_allclose(d, 0.0, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochrone_inverse_grad_vs_fd(backend):
+    # d(sum R)/d jr through the Kepler root-find: AD (implicit-function theorem) vs FD.
+    aAIi = actionAngleIsochroneInverse(b=1.2)
+    _, jphi, jz = _II_J
+
+    def rsum(jr_val, xp_arr):
+        out = aAIi._xvFreqs(
+            jr_val,
+            xp_arr(jphi),
+            xp_arr(jz),
+            xp_arr(_II_AR),
+            xp_arr(_II_AP),
+            xp_arr(_II_AZ),
+        )
+        return out[0].sum()
+
+    fd = _fd(lambda j: numpy.asarray(rsum(j, lambda v: numpy.asarray(v))), _II_J[0])
+    g = _grad(
+        backend,
+        lambda jt: rsum(jt, lambda v: _arr(backend, numpy.asarray(v, float))),
+        _II_J[0],
     )
-    out = [
-        numpy.asarray(c).ravel()[0]
-        for c in aAI._actionsFreqsAngles(R, vR, vT, z, vz, phi)
-    ]
-    numpy.testing.assert_allclose(out[0], jr, rtol=1e-7, atol=1e-9)  # Jr
-    numpy.testing.assert_allclose(out[1], jphi, rtol=1e-7, atol=1e-9)  # Jphi
-    numpy.testing.assert_allclose(out[2], jz, rtol=1e-7, atol=1e-9)  # Jz
-    numpy.testing.assert_allclose(out[6], ar, rtol=1e-6, atol=1e-8)  # angler
-    numpy.testing.assert_allclose(out[7], ap, rtol=1e-6, atol=1e-8)  # anglephi
-    numpy.testing.assert_allclose(out[8], az, rtol=1e-6, atol=1e-8)  # anglez
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
