@@ -1946,7 +1946,8 @@ class Orbit:
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(self.r(self.t, use_physical=False) < pot[cdf_indx]._minr):
+            _cdf_r = self.r(self.t, use_physical=False)
+            if get_namespace(_cdf_r).any(_cdf_r < pot[cdf_indx]._minr):
                 warnings.warn(
                     """Orbit integration with """
                     """ChandrasekharDynamicalFrictionForce """
@@ -1973,7 +1974,8 @@ class Orbit:
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(self.r(self.t, use_physical=False) < pot[cdf_indx]._minr):
+            _cdf_r = self.r(self.t, use_physical=False)
+            if get_namespace(_cdf_r).any(_cdf_r < pot[cdf_indx]._minr):
                 warnings.warn(
                     """Orbit integration with """
                     """FDMDynamicalFrictionForce """
@@ -2136,11 +2138,11 @@ class Orbit:
             warnings.warn(
                 f"Orbit integration with {potname} visited radii "
                 f"outside of the interpolation range for "
-                f"{numpy.sum(outside)} out of {self.size} orbits; "
+                f"{int(xp.sum(outside))} out of {self.size} orbits; "
                 f"initialize {potname} with a wider radial range to "
                 f"avoid this if you wish (min/max r = "
-                f"{numpy.amin(self.rperi()):.3f},"
-                f"{numpy.amax(self.rap()):.3f}, which is the full "
+                f"{float(xp.min(self.rperi())):.3f},"
+                f"{float(xp.max(self.rap())):.3f}, which is the full "
                 f"range over all orbits)",
                 galpyWarning,
             )
@@ -6406,50 +6408,44 @@ class Orbit:
 
         """
         if self.dim() == 3:
-            init_psis = numpy.arctan2(
-                self.z(use_physical=False), self.vz(use_physical=False)
-            )
+            _sos_q, _sos_v = self.z(use_physical=False), self.vz(use_physical=False)
         elif self.phasedim() == 4:
             if not surface is None and surface.lower() == "y":
-                init_psis = numpy.arctan2(
-                    self.y(use_physical=False), self.vy(use_physical=False)
-                )
+                _sos_q, _sos_v = self.y(use_physical=False), self.vy(use_physical=False)
             else:
-                init_psis = numpy.arctan2(
-                    self.x(use_physical=False), self.vx(use_physical=False)
-                )
+                _sos_q, _sos_v = self.x(use_physical=False), self.vx(use_physical=False)
         else:
             raise NotImplementedError(
                 "SOS not implemented for 1D orbits or 2D orbits without phi"
             )
+        # build init_psis in the orbit's own namespace; coerce the IC accessor
+        # values onto it (under a forced backend the no-time accessors can return
+        # numpy). numpy.atan2 == arctan2 byte-for-byte; xp.asarray is a no-op on numpy.
+        xp = get_namespace(_sos_q, _sos_v)
+        _sos_q, _sos_v = xp.asarray(_sos_q), xp.asarray(_sos_v)
+        init_psis = xp.atan2(_sos_q, _sos_v)
         # Let's check that v(x/y/z) != 0 for orbits that are already on the SOS
         if (
             (
                 self.dim() == 3
-                and not numpy.all(
-                    (self.vz() != 0.0) + (numpy.fabs(init_psis % numpy.pi) > 1e-10)
-                )
+                and not xp.all((_sos_v != 0.0) + (xp.abs(init_psis % numpy.pi) > 1e-10))
             )
             or (
                 self.dim() == 2
                 and not surface is None
                 and surface.lower() == "y"
-                and not numpy.all(
-                    (self.vy() != 0.0) + (numpy.fabs(init_psis % numpy.pi) > 1e-10)
-                )
+                and not xp.all((_sos_v != 0.0) + (xp.abs(init_psis % numpy.pi) > 1e-10))
             )
             or (
                 self.dim() == 2
                 and (surface is None or surface.lower() == "x")
-                and not numpy.all(
-                    (self.vx() != 0.0) + (numpy.fabs(init_psis % numpy.pi) > 1e-10)
-                )
+                and not xp.all((_sos_v != 0.0) + (xp.abs(init_psis % numpy.pi) > 1e-10))
             )
         ):
             raise RuntimeError(
                 "An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"
             )
-        if numpy.any(numpy.fabs(init_psis) > 1e-10):
+        if xp.any(xp.abs(init_psis) > 1e-10):
             # Integrate to the next crossing
             init_psis = numpy.atleast_1d(
                 (init_psis + 2.0 * numpy.pi) % (2.0 * numpy.pi)
