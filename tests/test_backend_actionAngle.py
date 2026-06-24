@@ -36,7 +36,12 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
-from galpy.actionAngle import actionAngleHarmonic, actionAngleIsochrone
+from galpy.actionAngle import (
+    actionAngleHarmonic,
+    actionAngleHarmonicInverse,
+    actionAngleIsochrone,
+    actionAngleIsochroneInverse,
+)
 
 # A small batch of bound phase-space points (R,vR,vT,z,vz,phi); moderate
 # velocities so the isochrone orbits are bound (E<0) and away from the
@@ -177,3 +182,153 @@ def test_harmonic_grad_vs_fd(backend):
         0.7,
     )
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+# ----------------------------------------------- dθ/dt = Ω consistency (autodiff)
+# Angle variables evolve LINEARLY in time along an orbit: θ_i(t) = θ_i(0) + Ω_i t.
+# So dθ_i/dt = ∇_x θ_i · ẋ (the Hamiltonian flow / EOM) MUST equal the frequency
+# Ω_i returned by the same call. This is a far stronger check than grad-vs-FD: it
+# ties the autodiff'd angle gradient to the independently-computed frequency. We
+# compare dθ/dt directly against the SAME call's Ω, so whatever sign/wrap
+# convention the angle reconstruction uses is automatically the reference (no
+# manual bookkeeping). Verified to hold to ~1e-15 (machine precision).
+def _flow_deriv(backend, theta_fn, eom_fn, y0):
+    # dθ/dt = grad_y θ(y) · ẏ, as a python float, in the given backend.
+    if backend == "jax":
+        y = jnp.asarray(y0)
+        g = jax.grad(lambda v: jnp.reshape(theta_fn(v), ()))(y)
+        return float(jnp.dot(g, eom_fn(y)))
+    y = torch.tensor(y0, requires_grad=True)
+    out = torch.reshape(theta_fn(y), ())
+    (g,) = torch.autograd.grad(out, y)
+    return float(torch.dot(g, eom_fn(torch.tensor(y0))))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("omega", [0.7, 1.3])
+def test_harmonic_dangle_dt_equals_freq(backend, omega):
+    # θ = arctan2(ω x, vx); EOM (ẋ, v̇x) = (vx, -ω² x)  ⇒  dθ/dt = ω.
+    aAH = actionAngleHarmonic(omega=omega)
+    y0 = numpy.array([0.7, -0.3])  # [x, vx]
+
+    def theta(y):  # forward angle is index 2 of (j, omega, angle)
+        return aAH._actionsFreqsAngles(y[0], y[1])[2]
+
+    def eom(y):
+        xp = jnp if backend == "jax" else torch
+        return xp.stack([y[1], -(omega**2.0) * y[0]])
+
+    dthdt = _flow_deriv(backend, theta, eom, y0)
+    omega_ret = float(_np(aAH._actionsFreqsAngles(*y0)[1]).ravel()[0])
+    assert numpy.isfinite(dthdt)
+    numpy.testing.assert_allclose(dthdt, omega_ret, rtol=1e-8, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("vT", [0.35, -0.35])  # prograde + retrograde (Lz<0) branch
+@pytest.mark.parametrize(
+    "idx_ang,idx_om", [(6, 3), (7, 4), (8, 5)]
+)  # (angler,Ωr),(anglephi,Ωphi),(anglez,Ωz)
+def test_isochrone_dangle_dt_equals_freq(backend, vT, idx_ang, idx_om):
+    # Bound, inclined, off-wrap IC. EOM in galpy internal (R,vR,vT,z,vz,phi) for
+    # the axisymmetric isochrone: Ṙ=vR, v̇R=vT²/R+Rforce, v̇T=-vR vT/R, ż=vz,
+    # v̇z=zforce, φ̇=vT/R, with the PUBLIC Rforce/zforce (amp included).
+    aAI = actionAngleIsochrone(b=0.7)
+    ip = aAI._ip  # IsochronePotential(amp=aAI.amp, b=aAI.b)
+    y0 = numpy.array([1.1, 0.2, vT, 0.15, 0.18, 0.6])
+
+    def theta(y):
+        return aAI._actionsFreqsAngles(y[0], y[1], y[2], y[3], y[4], y[5])[idx_ang]
+
+    def eom(y):
+        xp = jnp if backend == "jax" else torch
+        R, vR, vTc, z, vz = y[0], y[1], y[2], y[3], y[4]
+        return xp.stack(
+            [
+                vR,
+                vTc**2.0 / R + ip.Rforce(R, z, use_physical=False),
+                -vR * vTc / R,
+                vz,
+                ip.zforce(R, z, use_physical=False),
+                vTc / R,
+            ]
+        )
+
+    dthdt = _flow_deriv(backend, theta, eom, y0)
+    om_ret = float(_np(aAI._actionsFreqsAngles(*y0)[idx_om]).ravel()[0])
+    assert numpy.isfinite(dthdt)
+    numpy.testing.assert_allclose(dthdt, om_ret, rtol=1e-8, atol=1e-9)
+
+
+# --------------------------------------------- inverse maps (J,angle) -> (x,v)
+# actionAngleHarmonicInverse is closed-form (amp=√(2J/ω); x=amp sinθ; vx=amp ω cosθ)
+# -> backend-migrated here. actionAngleIsochroneInverse solves Kepler's equation
+# (scipy Newton) -> NOT backend-traceable yet (needs a backend root-find; Track E
+# #2 with Vertical/Spherical), so only its numpy round-trip is exercised below.
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("omega", [0.7, 1.3])
+def test_harmonic_inverse_roundtrip_parity(backend, omega):
+    aAHi = actionAngleHarmonicInverse(omega=omega)
+    aAH = actionAngleHarmonic(omega=omega)
+    j = 0.6
+    angle = numpy.array(
+        [0.3, 0.9, 2.1]
+    )  # all in (0, π): forward arctan2 returns them as-is
+    x_np, vx_np, _ = aAHi._xvFreqs(j, angle)
+    # forward ∘ inverse == identity (numpy reference)
+    j_np, _, a_np = aAH._actionsFreqsAngles(numpy.asarray(x_np), numpy.asarray(vx_np))
+    numpy.testing.assert_allclose(_np(j_np), j, rtol=1e-12, atol=1e-12)
+    numpy.testing.assert_allclose(_np(a_np), angle, rtol=1e-10, atol=1e-10)
+    # backend parity + backend-array-ness
+    x_b, vx_b, _ = aAHi._xvFreqs(_arr(backend, numpy.asarray(j)), _arr(backend, angle))
+    assert _is_backend_array(backend, x_b)
+    assert _is_backend_array(backend, vx_b)
+    numpy.testing.assert_allclose(_np(x_b), numpy.asarray(x_np), rtol=1e-12, atol=1e-12)
+    numpy.testing.assert_allclose(
+        _np(vx_b), numpy.asarray(vx_np), rtol=1e-12, atol=1e-12
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_harmonic_inverse_grad_vs_fd(backend):
+    # dx/dangle at fixed action (= amp cos θ), AD vs finite-difference.
+    aAHi = actionAngleHarmonicInverse(omega=1.3)
+    j0 = 0.6
+
+    def xofang(ang_val, xp_arr):
+        return aAHi._xvFreqs(xp_arr(j0), ang_val)[0]
+
+    fd = _fd(
+        lambda a: numpy.asarray(xofang(numpy.asarray(a), lambda v: numpy.asarray(v))),
+        0.9,
+    )
+    g = _grad(
+        backend,
+        lambda at: xofang(at, lambda v: _arr(backend, numpy.asarray(v, float))),
+        0.9,
+    )
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+def test_isochrone_inverse_roundtrip_numpy():
+    # numpy-only (scipy Newton Kepler solve not backend-traceable yet); establishes
+    # the forward∘inverse identity so the backend port (Track E #2) has a reference.
+    b = 1.2
+    aAIi = actionAngleIsochroneInverse(b=b)
+    aAI = actionAngleIsochrone(b=b)
+    jr, jphi, jz = 0.2, 0.8, 0.15
+    ar, ap, az = 0.7, 1.1, 0.4
+    R, vR, vT, z, vz, phi = (
+        numpy.asarray(c).ravel()[0] for c in aAIi._evaluate(jr, jphi, jz, ar, ap, az)
+    )
+    out = [
+        numpy.asarray(c).ravel()[0]
+        for c in aAI._actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    ]
+    numpy.testing.assert_allclose(out[0], jr, rtol=1e-7, atol=1e-9)  # Jr
+    numpy.testing.assert_allclose(out[1], jphi, rtol=1e-7, atol=1e-9)  # Jphi
+    numpy.testing.assert_allclose(out[2], jz, rtol=1e-7, atol=1e-9)  # Jz
+    numpy.testing.assert_allclose(out[6], ar, rtol=1e-6, atol=1e-8)  # angler
+    numpy.testing.assert_allclose(out[7], ap, rtol=1e-6, atol=1e-8)  # anglephi
+    numpy.testing.assert_allclose(out[8], az, rtol=1e-6, atol=1e-8)  # anglez
