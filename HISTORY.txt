@@ -15,10 +15,12 @@ v1.12.0 (expected around 2026-07-01)
   ``r`` is much smaller than ``a`` and ``rc``. The ``amp`` follows the
   ``NFWPotential`` mass-scale convention (the two potentials coincide as
   ``rc -> infinity``); alternatively the total mass can be set directly with
-  the ``mass=`` keyword. Has a C implementation (``hasC=True``), including the
-  full 3D Hessian for the variational equations (``hasC_dxdv3d=True``), giving
-  fast orbit integration on par with the other closed-form spherical
-  potentials.
+  the ``mass=`` keyword. Also provides a ``from_nfw`` classmethod that truncates
+  an existing ``NFWPotential`` (inheriting its ``amp`` and ``a``), with the
+  truncation set by either ``rc`` or a desired total ``mass``. Has a C
+  implementation (``hasC=True``), including the full 3D Hessian for the
+  variational equations (``hasC_dxdv3d=True``), giving fast orbit integration on
+  par with the other closed-form spherical potentials.
 
 - Added analytic planar second derivatives (R2deriv, phi2deriv, Rphideriv) of
   ``SteadyLogSpiralPotential`` and ``TransientLogSpiralPotential`` in Python

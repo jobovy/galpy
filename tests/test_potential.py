@@ -5533,6 +5533,75 @@ def test_ExpTruncNFW_smallr_series_c():
     return None
 
 
+def test_ExpTruncNFW_from_nfw():
+    # The from_nfw classmethod truncates an existing NFWPotential, inheriting
+    # amp and a (so the inner profile is unchanged), with the truncation set by
+    # either rc directly or a desired total mass.
+    from galpy.util import galpyWarning
+
+    nfw = potential.NFWPotential(amp=2.0, a=1.5)
+
+    # (1) rc input: amp and a inherited, inner profile = NFW * exp(-r/rc)
+    rc = 10.0
+    p = potential.ExpTruncNFWPotential.from_nfw(nfw, rc=rc)
+    assert p._amp == nfw._amp, "from_nfw did not inherit amp"
+    assert p.a == nfw.a, "from_nfw did not inherit a"
+    assert p.rc == rc, "from_nfw did not set rc"
+    for r in [0.05, 0.3, 1.5, 5.0]:
+        assert numpy.fabs(
+            p.dens(r, 0.0, use_physical=False)
+            - nfw.dens(r, 0.0, use_physical=False) * numpy.exp(-r / rc)
+        ) < 1e-12, "from_nfw truncated density is not NFW * exp(-r/rc)"
+
+    # (2) mass input: amp still inherited, total mass equals the request,
+    #     and rc is solved consistently
+    target = 1.0
+    pm = potential.ExpTruncNFWPotential.from_nfw(nfw, mass=target)
+    assert pm._amp == nfw._amp, "from_nfw(mass=) should still inherit amp"
+    assert numpy.fabs(pm.mass(numpy.inf, use_physical=False) - target) < 1e-10, (
+        "from_nfw(mass=) total mass does not match the requested mass"
+    )
+
+    # (3) rc and mass are interchangeable (keeping amp): feeding the rc-built
+    #     potential's own total mass back through mass= recovers the same rc
+    Mtot = p.mass(numpy.inf, use_physical=False)
+    p_back = potential.ExpTruncNFWPotential.from_nfw(nfw, mass=Mtot)
+    assert numpy.fabs(p_back.rc - rc) < 1e-8, (
+        "from_nfw rc<->mass inversion is not self-consistent"
+    )
+
+    # (4) physical-unit NFW: the truncated potential inherits the physical state
+    nfwq = potential.NFWPotential(amp=2.0, a=1.5, ro=8.0, vo=220.0)
+    pq = potential.ExpTruncNFWPotential.from_nfw(nfwq, rc=10.0)
+    assert pq._roSet and pq._voSet, "from_nfw did not inherit the physical state"
+    # and an internal-units NFW stays internal
+    assert not (p._roSet or p._voSet), "from_nfw should not turn physical on"
+
+    # (5) error paths
+    with pytest.raises(ValueError):  # neither rc nor mass
+        potential.ExpTruncNFWPotential.from_nfw(nfw)
+    with pytest.raises(ValueError):  # both rc and mass
+        potential.ExpTruncNFWPotential.from_nfw(nfw, rc=1.0, mass=1.0)
+    with pytest.raises(TypeError):  # not an NFWPotential
+        potential.ExpTruncNFWPotential.from_nfw(
+            potential.HernquistPotential(amp=1.0), rc=1.0
+        )
+    with pytest.raises(ValueError):  # mass too large (no truncation needed)
+        potential.ExpTruncNFWPotential.from_nfw(nfw, mass=1e8)
+
+    # (6) a requested mass small enough to force rc < a warns (sharp truncation)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        ps = potential.ExpTruncNFWPotential.from_nfw(nfw, mass=0.05)
+        assert any(
+            issubclass(wi.category, galpyWarning)
+            and "sharp truncation" in str(wi.message)
+            for wi in w
+        ), "from_nfw did not warn for a sub-scale-radius truncation"
+    assert ps.rc < nfw.a, "test setup: expected rc < a for the warning case"
+    return None
+
+
 def test_LinShuReductionFactor():
     # Test that the LinShuReductionFactor is implemented correctly, by comparing to figure 1 in Lin & Shu (1966)
     from galpy.potential import (

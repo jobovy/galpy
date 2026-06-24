@@ -1,10 +1,12 @@
 ###############################################################################
 #   ExpTruncNFWPotential.py: NFW potential with an exponential truncation
 ###############################################################################
+import warnings
+
 import numpy
 from scipy.special import exp1
 
-from ..util import conversion
+from ..util import conversion, galpyWarning
 from .SphericalPotential import SphericalPotential
 
 
@@ -91,6 +93,117 @@ class ExpTruncNFWPotential(SphericalPotential):
         self.hasC_dxdv3d = True
         self.hasC_dens = True
         return None
+
+    @classmethod
+    def from_nfw(cls, nfw, rc=None, mass=None):
+        """
+        Initialize an ExpTruncNFWPotential by truncating an existing NFWPotential.
+
+        The amplitude ``amp`` and scale radius ``a`` are inherited from ``nfw``,
+        so the inner profile is unchanged (the truncated density is just the NFW
+        density times :math:`e^{-r/r_c}`). The truncation is set by **one** of:
+
+        - ``rc``: the truncation radius directly (e.g. the virial radius
+          ``nfw.rvir()``); the total mass then follows; or
+        - ``mass``: the desired (finite) total mass, from which ``rc`` is solved
+          as the unique root of ``nfw.amp * [exp(a/rc)(1+a/rc)E_1(a/rc) - 1] =
+          mass`` (``amp`` is still inherited, so this just chooses where to
+          truncate). ``rc`` and ``mass`` are interchangeable here and exactly one
+          must be given.
+
+        Parameters
+        ----------
+        nfw : NFWPotential
+            The NFW potential to truncate; its ``amp`` and ``a`` (and its unit
+            system) are inherited.
+        rc : float or Quantity, optional
+            Exponential truncation radius. Provide this or ``mass``, not both.
+        mass : float or Quantity, optional
+            Desired total mass; ``rc`` is computed from it. Provide this or
+            ``rc``, not both.
+
+        Returns
+        -------
+        ExpTruncNFWPotential
+            A truncated NFW with the same inner profile as ``nfw``.
+
+        Raises
+        ------
+        TypeError
+            If ``nfw`` is not an ``NFWPotential`` instance.
+        ValueError
+            If neither or both of ``rc`` and ``mass`` are given; or if ``mass``
+            is given but is outside the range reachable by truncating this NFW at
+            fixed ``amp`` -- too large (it would need rc far larger than ``a``,
+            i.e. essentially no truncation) or too small (it would need an
+            unphysically sharp truncation, rc < a/690, where the closed form
+            overflows).
+
+        Warns
+        -----
+        galpyWarning
+            If ``mass`` is given and the solved truncation radius comes out
+            smaller than the NFW scale radius (``rc < a``) -- a very sharp
+            truncation that cuts into the NFW cusp.
+
+        Notes
+        -----
+        - 2026-06-24 - Written - Pfaffman + Claude Code
+
+        """
+        from .TwoPowerSphericalPotential import NFWPotential
+
+        if not isinstance(nfw, NFWPotential):
+            raise TypeError(
+                "ExpTruncNFWPotential.from_nfw requires an NFWPotential instance"
+            )
+        if (rc is None) == (mass is None):
+            raise ValueError(
+                "ExpTruncNFWPotential.from_nfw requires exactly one of rc or mass"
+            )
+        a = nfw.a
+        if mass is not None:
+            # Keep amp = nfw.amp and solve amp * F(a/rc) = mass for rc, where
+            # F(alpha) = exp(alpha)(1+alpha)E_1(alpha) - 1 decreases monotonically
+            # from +inf (alpha->0) to 0 (alpha->inf), so the root is unique.
+            from scipy.optimize import brentq
+
+            target_F = (
+                conversion.parse_mass(mass, ro=nfw._ro, vo=nfw._vo) / nfw._amp
+            )
+            Froot = lambda al: numpy.exp(al) * (1.0 + al) * exp1(al) - 1.0 - target_F
+            alo, ahi = 1e-8, 690.0  # exp(690) is still finite; F(690) ~ 2e-6
+            if Froot(alo) < 0.0:
+                raise ValueError(
+                    "ExpTruncNFWPotential.from_nfw: requested mass is too large "
+                    "to be reached by truncating this NFW (would need rc much "
+                    "larger than the NFW scale radius / essentially no truncation)"
+                )
+            if Froot(ahi) > 0.0:
+                raise ValueError(
+                    "ExpTruncNFWPotential.from_nfw: requested mass is too small "
+                    "to be reached by truncating this NFW (would need an "
+                    "unphysically sharp truncation, rc < a/690)"
+                )
+            alpha = brentq(Froot, alo, ahi)
+            rc = a / alpha
+            if rc < a:
+                warnings.warn(
+                    "ExpTruncNFWPotential.from_nfw: the requested total mass "
+                    f"implies a truncation radius rc={rc:g} smaller than the NFW "
+                    f"scale radius a={a:g} (a/rc={alpha:g}); this is a very sharp "
+                    "truncation that cuts into the NFW cusp -- check that the "
+                    "requested mass is intended.",
+                    galpyWarning,
+                )
+        # Inherit amp, a, and the unit system from the NFW so the inner profile
+        # (and the meaning of the internal amp/a) carries over directly; rc is
+        # parsed in the NFW's units by the constructor.
+        out = cls(amp=nfw._amp, a=a, rc=rc, ro=nfw._ro, vo=nfw._vo)
+        # Faithfully reproduce the NFW's physical-output (ro/vo) state.
+        out._roSet = nfw._roSet
+        out._voSet = nfw._voSet
+        return out
 
     def _F(self, r):
         # F(r) = M(<r) / amp = int_0^r s e^{-s/rc} / (a+s)^2 ds, the

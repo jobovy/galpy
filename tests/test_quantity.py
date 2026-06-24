@@ -11411,6 +11411,52 @@ def test_SCFPotential_from_density():
     return None
 
 
+def test_ExpTruncNFWPotential_from_nfw_quantity():
+    # Test that the from_nfw classmethod handles Quantity inputs for rc and mass
+    from galpy import potential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    nfw = potential.NFWPotential(amp=2.0, a=1.5, ro=ro, vo=vo)
+
+    # rc as a Quantity is parsed into internal units (a=1.5 internal; with
+    # ro=8 kpc, rc=80 kpc -> 80/8 = 10 internal) and matches the float input
+    p_q = potential.ExpTruncNFWPotential.from_nfw(nfw, rc=80.0 * units.kpc)
+    p_f = potential.ExpTruncNFWPotential.from_nfw(nfw, rc=80.0 / ro)
+    assert numpy.fabs(p_q.rc - 80.0 / ro) < 1e-10, (
+        "ExpTruncNFWPotential.from_nfw does not parse a Quantity rc as expected"
+    )
+    assert numpy.fabs(p_q.rc - p_f.rc) < 1e-12, (
+        "ExpTruncNFWPotential.from_nfw Quantity and float rc disagree"
+    )
+    assert p_q._roSet and p_q._voSet, (
+        "ExpTruncNFWPotential.from_nfw should inherit the NFW's physical state"
+    )
+
+    # mass as a Quantity: the resulting total mass equals the requested mass,
+    # and amp is still inherited from the NFW
+    p_m = potential.ExpTruncNFWPotential.from_nfw(nfw, mass=1e11 * units.Msun)
+    assert p_m._amp == nfw._amp, (
+        "ExpTruncNFWPotential.from_nfw(mass=Quantity) should still inherit amp"
+    )
+    mtot = (
+        p_m.mass(numpy.inf, use_physical=False) * conversion.mass_in_msol(vo, ro)
+    )
+    assert numpy.fabs(mtot - 1e11) < 1e-6 * 1e11, (
+        "ExpTruncNFWPotential.from_nfw(mass=Quantity) total mass does not match"
+    )
+
+    # the Quantity-mass result matches passing the equivalent internal-units mass
+    mass_internal = (1e11 * units.Msun).to_value(units.Msun) / conversion.mass_in_msol(
+        vo, ro
+    )
+    p_mf = potential.ExpTruncNFWPotential.from_nfw(nfw, mass=mass_internal)
+    assert numpy.fabs(p_m.rc - p_mf.rc) < 1e-10, (
+        "ExpTruncNFWPotential.from_nfw Quantity and float mass disagree"
+    )
+    return None
+
+
 def test_actionAngle_method_returntype():
     from galpy.actionAngle import (
         actionAngleAdiabatic,
