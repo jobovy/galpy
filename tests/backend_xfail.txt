@@ -1,12 +1,13 @@
-# backend xfail-ledger -- MILESTONE-2 regen harvest from REGEN run 27949897402
-# (regen mode applies no xfail, so nothing is skipped and every failure/timeout is
-# captured). 2026-06-22. Milestone: POTENTIAL CLOSEOUT -- #989-#993 (composite-gate
-# backend-compatibility recursion, central scalar/coords coercion, migrated-potential
-# anchors) + the numpy-2.5 compat fix (#994). All 37 jax+torch shards ran to
-# completion (no session-timeout truncation, no carry-forward). 0 adds, 1017 drops
-# vs the milestone-1 ledger (jax 284->271, torch 2079->1075).
+# backend xfail-ledger -- ORBIT-MILESTONE prune off the 2026-06-22 milestone-2
+# regen baseline (run 27949897402), validated against full-matrix REGEN run
+# 28083178345 (2026-06-24, all 45 jax+torch shards ran to completion -- no
+# session-timeout truncation). Track-D orbit closeout (#998-#1004) flips 70
+# now-passing tests (jax 289->287, torch 1029->961): test_orbit 31t+2j,
+# test_orbits 31t, + 6 incidental (Multipole/dynamfric/FDM/actionAngle). 0 adds
+# (the suite was fully green; every remaining failure stays ledgered).
 # format: <backend> <nodeid>   (conftest applies xfail(strict=False) per backend;
 # tests unrunnable-until-vectorized go in backend_slow_skip.txt instead, not here)
+
 jax tests/test_FDMdynamfric.py::test_dynamfric_c
 jax tests/test_MultipoleExpansionPotential.py::test_time_dependent_density_at_multiple_times
 jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
@@ -247,10 +248,7 @@ torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor_c
 torch tests/test_FDMdynamfric.py::test_dynamfric_c
 torch tests/test_FDMdynamfric.py::test_dynamfric_c_minr
-torch tests/test_FDMdynamfric.py::test_dynamfric_c_minr_warning
-torch tests/test_MultipoleExpansionPotential.py::test_c_orbit_below_grid_l2
 torch tests/test_MultipoleExpansionPotential.py::test_finalize_pot_args_trailing_scalars
-torch tests/test_MultipoleExpansionPotential.py::test_large_L_c_orbit
 torch tests/test_MultipoleExpansionPotential.py::test_time_dependent_array_t_evaluate
 torch tests/test_MultipoleExpansionPotential.py::test_time_dependent_c_density_dynamical_friction
 torch tests/test_MultipoleExpansionPotential.py::test_time_dependent_density_at_multiple_times
@@ -297,7 +295,6 @@ torch tests/test_actionAngle.py::test_actionAngleIsochroneInverse_orbit
 torch tests/test_actionAngle.py::test_actionAngleIsochroneInverse_wrtIsochrone
 torch tests/test_actionAngle.py::test_actionAngleIsochroneInverse_wrtIsochrone_noninclinedorbit
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit
-torch tests/test_actionAngle.py::test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit_kepler
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_basic_freqs
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_conserved_actions
@@ -436,11 +433,9 @@ torch tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit
 torch tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit_rrange
 torch tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit_wcorrections
 torch tests/test_diskdf.py::test_shudf_sample_powerrise_returnROrbit
-torch tests/test_dynamfric.py::test_ChandrasekharDynamicalFrictionForce_constLambda
 torch tests/test_dynamfric.py::test_ChandrasekharDynamicalFrictionForce_varLambda
 torch tests/test_dynamfric.py::test_dynamfric_c
 torch tests/test_dynamfric.py::test_dynamfric_c_minr
-torch tests/test_dynamfric.py::test_dynamfric_c_minr_warning
 torch tests/test_galpypaper.py::test_adinvariance
 torch tests/test_galpypaper.py::test_diskdf
 torch tests/test_galpypaper.py::test_orbmethods
@@ -506,23 +501,14 @@ torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accells
 torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz
 torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz_2d
 torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz
-torch tests/test_orbit.py::test_1d_tol_integration
-torch tests/test_orbit.py::test_2d_tol_integration
-torch tests/test_orbit.py::test_3d_tol_integration
-torch tests/test_orbit.py::test_ER_EZ
 torch tests/test_orbit.py::test_MovingObjectPotential_orbit
-torch tests/test_orbit.py::test_SOS_2Dx
-torch tests/test_orbit.py::test_SOS_2Dy
 torch tests/test_orbit.py::test_SOS_3D
-torch tests/test_orbit.py::test_SOS_onsurfaceerror_2D
 torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
 torch tests/test_orbit.py::test_analytic_zmax
 torch tests/test_orbit.py::test_apocenter
 torch tests/test_orbit.py::test_bruteSOS_2Dx
 torch tests/test_orbit.py::test_bruteSOS_2Dy
 torch tests/test_orbit.py::test_bruteSOS_3D
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[rhm_coulomb_log]
 torch tests/test_orbit.py::test_cylsepwrapper_dxdv_3d_c_vs_python_tight
 torch tests/test_orbit.py::test_dehnenbar_dxdv_inside_rb_c_vs_python
 torch tests/test_orbit.py::test_doubleexp_dxdv_3d_c_vs_python
@@ -573,8 +559,6 @@ torch tests/test_orbit.py::test_energy_conservation_linear[mockInterpSphericalPo
 torch tests/test_orbit.py::test_energy_jacobi_conservation[AnySphericalPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[FerrersPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[KingPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[MultipoleExpansionPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[RazorThinExponentialDiskPotential--10.0--9.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[altExpwholeDiskSCFPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[expwholeDiskMultipoleExpansionPotential--10.0--10.0-False]
@@ -583,24 +567,13 @@ torch tests/test_orbit.py::test_energy_jacobi_conservation[mockAdiabaticContract
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatCosmphiDiskPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatCosmphiDiskwBreakPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatLopsidedDiskPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSolidBodyRotationMultipoleExpansionPotential--10.0--4.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSolidBodyRotationSpiralArmsPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSteadyLogSpiralPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatTransientLogSpiralPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatWeaklyTDMultipoleExpansionPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential--10.0--6.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockInterpSphericalPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockMultipoleExpansionAxiPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockMultipoleExpansionPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockMultipoleExpansionSphericalPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockSlowFlatEllipticalDiskPotential--10.0--6.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockSlowFlatSteadyLogSpiralPotential--10.0--8.0-False]
-torch tests/test_orbit.py::test_energy_symplec_longterm
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[minr_gate]
-torch tests/test_orbit.py::test_fdm_dxdv_phase_volume_law
 torch tests/test_orbit.py::test_full_plotting
-torch tests/test_orbit.py::test_integrate_SOS_2D
 torch tests/test_orbit.py::test_integrate_SOS_3D
 torch tests/test_orbit.py::test_integrate_backwards
 torch tests/test_orbit.py::test_integrate_dxdv_3d_base_orbit_integrity
@@ -626,11 +599,6 @@ torch tests/test_orbit.py::test_lyapunov_c_vs_python
 torch tests/test_orbit.py::test_lyapunov_python_fallback_warning
 torch tests/test_orbit.py::test_lyapunov_spectrum_api
 torch tests/test_orbit.py::test_lyapunov_spectrum_consistency
-torch tests/test_orbit.py::test_multipole_dxdv_3d
-torch tests/test_orbit.py::test_orbinterp_reset_bruteSOS
-torch tests/test_orbit.py::test_orbinterp_reset_integrate
-torch tests/test_orbit.py::test_orbinterp_reset_integrateSOS
-torch tests/test_orbit.py::test_orbinterp_reset_integratedxdv
 torch tests/test_orbit.py::test_orbit_LcE
 torch tests/test_orbit.py::test_orbit_LcE_planar
 torch tests/test_orbit.py::test_orbit_method_inputro_quantity
@@ -639,30 +607,22 @@ torch tests/test_orbit.py::test_orbit_obs_Orbits_issue322
 torch tests/test_orbit.py::test_orbit_obsvel_Orbits_issue322
 torch tests/test_orbit.py::test_orbit_rE
 torch tests/test_orbit.py::test_orbit_rE_planar
-torch tests/test_orbit.py::test_orbitint_dissipativefallback
 torch tests/test_orbit.py::test_orbitint_pythonfallback
 torch tests/test_orbit.py::test_pericenter
 torch tests/test_orbit.py::test_physical_output
 torch tests/test_orbit.py::test_physical_output_off
 torch tests/test_orbit.py::test_physical_output_on
 torch tests/test_orbit.py::test_plotBruteSOS
-torch tests/test_orbit.py::test_plotSOS
-torch tests/test_orbit.py::test_scalar_all
-torch tests/test_orbit.py::test_scalarxyvzvz_issue247
 torch tests/test_orbit.py::test_spherical_dxdv_3d_c_vs_python_extra
 torch tests/test_orbit.py::test_wrapper_complicatedsequence_2d
 torch tests/test_orbit.py::test_wrapper_complicatedsequence_3d
 torch tests/test_orbit.py::test_wrapper_followedbyanotherpotential_2d
 torch tests/test_orbit.py::test_wrapper_followedbyanotherpotential_3d
 torch tests/test_orbit.py::test_zmax
-torch tests/test_orbits.py::test_ChandrasekharDynamicalFrictionForce_constLambda
 torch tests/test_orbits.py::test_EccZmaxRperiRap_analytic_againstorbit_2d
 torch tests/test_orbits.py::test_EccZmaxRperiRap_analytic_againstorbit_3d
-torch tests/test_orbits.py::test_EccZmaxRperiRap_num_againstorbit_2d
 torch tests/test_orbits.py::test_EccZmaxRperiRap_num_againstorbit_3d
 torch tests/test_orbits.py::test_LcE
-torch tests/test_orbits.py::test_SOS_2Dx
-torch tests/test_orbits.py::test_SOS_2Dy
 torch tests/test_orbits.py::test_SOS_3D
 torch tests/test_orbits.py::test_actionsFreqsAngles_againstorbit_2d
 torch tests/test_orbits.py::test_actionsFreqsAngles_againstorbit_3d
@@ -673,30 +633,11 @@ torch tests/test_orbits.py::test_actionsFreqsAngles_staeckeldeltaequalzero
 torch tests/test_orbits.py::test_bruteSOS_2Dx
 torch tests/test_orbits.py::test_bruteSOS_2Dy
 torch tests/test_orbits.py::test_bruteSOS_3D
-torch tests/test_orbits.py::test_coordinate_interpolation
-torch tests/test_orbits.py::test_coordinate_interpolation_3d
-torch tests/test_orbits.py::test_coordinate_interpolation_4d
-torch tests/test_orbits.py::test_coordinate_interpolation_5d
-torch tests/test_orbits.py::test_coordinate_interpolation_oneorbit
-torch tests/test_orbits.py::test_energy_jacobi_angmom
-torch tests/test_orbits.py::test_integration_2d
-torch tests/test_orbits.py::test_integration_3d
-torch tests/test_orbits.py::test_integration_forcemap_2d
-torch tests/test_orbits.py::test_integration_forcemap_3d
-torch tests/test_orbits.py::test_orbits_MultipoleExpansionPotential_outside_interpolation_range_warning
 torch tests/test_orbits.py::test_orbits_interpSphericalPotential_outside_interpolation_range_warning
-torch tests/test_orbits.py::test_output_reshape
-torch tests/test_orbits.py::test_output_shape
 torch tests/test_orbits.py::test_physical_output_off
 torch tests/test_orbits.py::test_physical_output_on
 torch tests/test_orbits.py::test_plotBruteSOS
-torch tests/test_orbits.py::test_plotSOS
 torch tests/test_orbits.py::test_rE
-torch tests/test_orbits.py::test_slice_multipleobjects
-torch tests/test_orbits.py::test_slice_multipleobjects_multidim
-torch tests/test_orbits.py::test_slice_physical_issue385
-torch tests/test_orbits.py::test_slice_singleobject
-torch tests/test_orbits.py::test_slice_singleobject_multidim
 torch tests/test_pv2qdf.py::test_pvRvT_adiabatic
 torch tests/test_pv2qdf.py::test_pvRvT_staeckel
 torch tests/test_pv2qdf.py::test_pvRvT_staeckel_diffngl
@@ -1171,14 +1112,6 @@ jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrf
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
 jax tests/test_galpypaper.py::test_overview
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_curved
-torch tests/test_orbits.py::test_coordinate_interpolation_2d
-torch tests/test_orbits.py::test_flip
-torch tests/test_orbits.py::test_flip_inplace
-torch tests/test_orbits.py::test_flip_inplace_integrated
-torch tests/test_orbits.py::test_flip_inplace_integrated_evaluated
-torch tests/test_orbits.py::test_integration_1d
-torch tests/test_orbits.py::test_integration_forcemap_1d
-torch tests/test_orbits.py::test_toLinear
 torch tests/test_actionAngle.py::test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
@@ -1320,8 +1253,6 @@ jax tests/test_orbit.py::test_orbit_method_inputvo_quantity
 jax tests/test_orbit.py::test_physical_output
 jax tests/test_orbit.py::test_physical_output_off
 jax tests/test_orbit.py::test_physical_output_on
-jax tests/test_orbit.py::test_scalar_all
-jax tests/test_orbit.py::test_scalarxyvzvz_issue247
 
 # --- jax multi-orbit (test_orbits.py): action-angle accessors (Track E) ---
 # Orbits.jr()/actionsFreqsAngles()/EccZmaxRperiRap()/physical-output route through
