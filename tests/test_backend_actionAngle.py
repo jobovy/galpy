@@ -455,3 +455,93 @@ def test_spherical_grad_vs_fd_wrt_vR(backend, which):
     g = _grad(backend, f_be, _SPH_S[1])
     assert numpy.isfinite(g)
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+# ====================================================================
+# actionAngleSpherical PR-2: FREQUENCIES (Or,Op,Oz via _actionsFreqs) + ANGLES
+# (ar,ap,az via _actionsFreqsAngles). Same additive backend pattern: the numpy
+# per-object scipy loop is untouched (byte-identical), jax/torch inputs take the
+# vectorised, differentiable branch. The two t^2-substituted panels of each
+# radial-period / azimuthal-period / angle integral run through
+# galpy.backend.quadrature.fixed_quad (n=25) with the per-object upper limit
+# folded INTO the integrand (t = lim*s on a fixed [0,1] panel), so the GL
+# (n=25) value differs from scipy's adaptive quad at the ~1e-9 level
+# (rtol~1e-6, NOT 1e-12). Azimuth phi is needed for the angles call.
+_SPH_PHI = numpy.array([1.3, 0.4, 2.1])
+# A retrograde batch (vT<0) to exercise the Op sign flip and ap = asc - az
+# branch; inclined and off the turning points / non-inclined kink.
+_SPH_RETRO = (
+    numpy.array([1.0, 1.2]),
+    numpy.array([0.1, -0.15]),
+    numpy.array([-0.8, -0.5]),
+    numpy.array([0.1, -0.05]),
+    numpy.array([0.05, 0.1]),
+)
+_SPH_RETRO_PHI = numpy.array([0.5, 2.0])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("potname", list(_SPH_POTS))
+def test_spherical_freqs_parity(backend, potname):
+    # numpy <-> jax <-> torch parity of _actionsFreqs (Jr,Lz,Jz,Or,Op,Oz) and
+    # _actionsFreqsAngles (+ar,ap,az) on prograde + retrograde bound ICs.
+    aAS = actionAngleSpherical(pot=_SPH_POTS[potname])
+    for sph, phi in ((_SPH, _SPH_PHI), (_SPH_RETRO, _SPH_RETRO_PHI)):
+        bargs = [_arr(backend, v) for v in sph]
+        bphi = _arr(backend, phi)
+        # _actionsFreqs (no phi)
+        ref = aAS._actionsFreqs(*sph)
+        got = aAS._actionsFreqs(*bargs)
+        for r, g in zip(ref, got):
+            assert _is_backend_array(backend, g)
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+            )
+        # _actionsFreqsAngles (+phi); angles compared as circular differences
+        ref = aAS._actionsFreqsAngles(*sph, phi)
+        got = aAS._actionsFreqsAngles(*bargs, bphi)
+        for idx, (r, g) in enumerate(zip(ref, got)):
+            assert _is_backend_array(backend, g)
+            if idx >= 6:  # ar, ap, az: wrap-robust comparison
+                d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+                numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
+            else:
+                numpy.testing.assert_allclose(
+                    _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+                )
+
+
+# Scalar single-point bound IC (with phi) for clean per-component derivatives.
+_SPH_SA = (1.1, 0.2, 0.9, 0.15, 0.1, 1.3)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("which,idx", [("omegar", 3), ("angler", 6)])
+def test_spherical_freqs_grad_vs_fd_wrt_vR(backend, which, idx):
+    # d(Or or ar)/d vR at a single bound point: AD through the vectorised
+    # root-find + two-panel fixed_quad period/angle integrals vs finite-diff.
+    aAS = actionAngleSpherical(pot=_SPH_POTS["log"])
+    R, _, vT, z, vz, phi = _SPH_SA
+
+    def call(vR_val, xp_arr):
+        args = (
+            xp_arr(R),
+            vR_val,
+            xp_arr(vT),
+            xp_arr(z),
+            xp_arr(vz),
+            xp_arr(phi),
+        )
+        return aAS._actionsFreqsAngles(*args)[idx].sum()
+
+    def f_np(vR_val):
+        return numpy.asarray(call(vR_val, lambda v: numpy.atleast_1d(numpy.asarray(v))))
+
+    fd = _fd(f_np, _SPH_SA[1])
+
+    def f_be(vR_t):
+        return call(vR_t, lambda v: _arr(backend, numpy.atleast_1d(v).astype(float)))
+
+    g = _grad(backend, f_be, _SPH_SA[1])
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-6)
