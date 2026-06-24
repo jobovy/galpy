@@ -9,6 +9,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace, promote_scalars
 from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
 
@@ -88,9 +89,11 @@ class actionAngleHarmonicInverse(actionAngleInverse):
         - 2018-04-08 - Written - Bovy (UofT)
 
         """
-        amp = numpy.sqrt(2.0 * j / self._omega)
-        x = amp * numpy.sin(angle)
-        vx = amp * self._omega * numpy.cos(angle)
+        xp = get_namespace(j, angle)
+        j, angle = promote_scalars(xp, j, angle)
+        amp = xp.sqrt(2.0 * j / self._omega)
+        x = amp * xp.sin(angle)
+        vx = amp * self._omega * xp.cos(angle)
         return (x, vx, self._omega)
 
     def _Freqs(self, j, **kwargs):
