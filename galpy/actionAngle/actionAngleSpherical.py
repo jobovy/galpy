@@ -14,6 +14,7 @@ import copy
 import numpy
 from scipy import integrate, optimize
 
+from ..backend import get_namespace, is_backend_array
 from ..potential import _dim, epifreq, omegac, vcirc
 from ..potential.planarPotential import _evaluateplanarPotentials
 from ..potential.Potential import (
@@ -118,6 +119,14 @@ class actionAngleSpherical(actionAngle):
             vz = numpy.array([vz])
         if self._c:  # pragma: no cover
             pass
+        elif is_backend_array(R):
+            # jax/torch inputs: vectorised, differentiable path. Detected on R
+            # alone (all coords share a backend); numpy/Quantity stays below.
+            r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
+            rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
+            Jr = self._calc_jr_backend(rperi, rap, E, L)
+            xp = get_namespace(R)
+            return (Jr, Lz, L - xp.abs(Lz))
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
             vr = (R * vR + z * vz) / r
@@ -443,6 +452,17 @@ class actionAngleSpherical(actionAngle):
             vz = numpy.array([vz])
         if self._c:  # pragma: no cover
             pass
+        elif is_backend_array(R):
+            # jax/torch inputs: vectorised, differentiable path (see _evaluate).
+            xp = get_namespace(R)
+            r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
+            rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
+            return (
+                (rap - rperi) / (rap + rperi),
+                rap * xp.sqrt(1.0 - Lz**2.0 / L2),
+                rperi,
+                rap,
+            )
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
             vr = (R * vR + z * vz) / r
@@ -474,6 +494,117 @@ class actionAngleSpherical(actionAngle):
                 rperi,
                 rap,
             )
+
+    # ------------------------------------------------------------------ backend
+    # Vectorised, differentiable (jax/torch) implementations of the per-object
+    # setup + rperi/rap root-find + Jr quadrature, shared by _evaluate and
+    # _EccZmaxRperiRap. The numpy path is untouched (byte-identical); these run
+    # only when the inputs are backend arrays. PR-1 scope: gamma==0 only.
+
+    def _setup_backend(self, R, vR, vT, z, vz, extra_Jz):
+        """Backend (jax/torch) version of the shared setup arithmetic.
+
+        Identical to the numpy preamble but namespace-agnostic (xp.* / xp.abs),
+        which is byte-identical on numpy. Returns (r, vr, vt, E, L, Lz, L2).
+        """
+        if self._gamma != 0.0:
+            raise NotImplementedError(
+                "actionAngleSpherical backend (jax/torch) path supports only "
+                "_gamma==0 (standalone use); the adiabatic _gamma!=0 case is not "
+                "yet implemented in-backend"
+            )
+        xp = get_namespace(R)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        vr = (R * vR + z * vz) / r
+        Lz = R * vT
+        Lx = -z * vT
+        Ly = z * vR - R * vz
+        L2 = Lx * Lx + Ly * Ly + Lz * Lz
+        E = (
+            _evaluateplanarPotentials(self._2dpot, r)
+            + vR**2.0 / 2.0
+            + vT**2.0 / 2.0
+            + vz**2.0 / 2.0
+        )
+        L = xp.sqrt(L2)
+        vt = L / r
+        return (r, vr, vt, E, L, Lz, L2)
+
+    def _calc_rperi_rap_backend(self, r, vr, vt, E, L):
+        """Vectorised rperi/rap via the shared backend bracketed root-finder.
+
+        Brackets are found by a fixed-schedule expanding search (no scipy
+        while-loop) so the whole batch runs in lockstep; the special cases
+        (circular / exact peri- or apocenter / plunge through r=0) are handled
+        by dead-branch-guarded xp.where overrides. gamma==0 (=> startsign=+1).
+        """
+        from ..backend.optimize import brentq as _backend_brentq
+
+        xp = get_namespace(r)
+
+        def f(R_, E_, L_):
+            return (
+                E_
+                - _evaluateplanarPotentials(self._2dpot, R_)
+                - L_**2.0 / 2.0 / R_**2.0
+            )
+
+        # Fixed-schedule bracketing (mirrors _rapRperiAxiFindStart, vectorised):
+        # halve from r/2 until f<=0 (or below the floor) for rperi's lower end,
+        # double from 2r until f<=0 for rap's upper end. 80 steps >> any needed.
+        rstart = r / 2.0
+        for _ in range(80):
+            rstart = xp.where(
+                (f(rstart, E, L) > 0.0) & (rstart > 1e-9), rstart / 2.0, rstart
+            )
+        rend = 2.0 * r
+        for _ in range(80):
+            rend = xp.where(f(rend, E, L) > 0.0, rend * 2.0, rend)
+        # Special cases (all are vr==0, measure-zero among generic test orbits).
+        vcirc_r = vcirc(self._2dpot, r, use_physical=False)
+        is_circ = (vr == 0.0) & (xp.abs(vt - vcirc_r) < _EPS)
+        at_peri = (vr == 0.0) & (vt > vcirc_r)
+        at_apo = (vr == 0.0) & (vt < vcirc_r)
+        plunge = rstart <= 1e-9
+        # Widen degenerate brackets to a safe [r/2, r] BEFORE brentq (dead-branch
+        # guard: the where below overrides these elements, no NaN-poison). For
+        # exact peri/apo, f(r)==0 at the shared endpoint, so nudge it off the
+        # root (mirrors scipy's rperi+1e-5 / rap-1e-6 nudges).
+        rstart_safe = xp.where(plunge, r / 2.0, rstart)
+        rperi_hi = xp.where(at_apo, r - 1e-6, r)
+        rap_lo = xp.where(at_peri, r + 1e-5, r)
+        rperi = _backend_brentq(f, rstart_safe, rperi_hi, args=(E, L))
+        rap = _backend_brentq(f, rap_lo, rend, args=(E, L))
+        rperi = xp.where(is_circ | at_peri, r, xp.where(plunge, 0.0, rperi))
+        rap = xp.where(is_circ | at_apo, r, rap)
+        return (rperi, rap)
+
+    def _calc_jr_backend(self, rperi, rap, E, L):
+        """Vectorised, differentiable Jr = (1/pi) int_rperi^rap sqrt(...) dr.
+
+        Substitute r = rperi + (rap-rperi) sin^2(theta), theta in [0, pi/2], so
+        the sqrt's endpoint zeros are absorbed by the 2 sin cos Jacobian and the
+        integrand is smooth. Fixed-order Gauss-Legendre via the shared
+        backend.quadrature.fixed_quad (n=25). The radicand is clipped >=0 before
+        the sqrt (sqrt'(0)=inf would NaN-poison reverse-mode AD).
+        """
+        from ..backend.quadrature import fixed_quad
+
+        xp = get_namespace(rperi)
+        span = rap - rperi
+
+        def integrand(theta):
+            # theta: (n,) node array; build r(theta): (N, n).
+            sin = xp.sin(theta)[None, :]
+            cos = xp.cos(theta)[None, :]
+            rr = rperi[:, None] + span[:, None] * sin**2.0
+            Phi = _evaluateplanarPotentials(self._2dpot, rr)
+            rad = 2.0 * (E[:, None] - Phi) - L[:, None] ** 2.0 / rr**2.0
+            rad = xp.where(rad > 0.0, rad, 0.0)  # clip before sqrt (AD guard)
+            return xp.sqrt(rad) * span[:, None] * 2.0 * sin * cos
+
+        Jr = fixed_quad(xp, integrand, 0.0, numpy.pi / 2.0, n=25)
+        return Jr / numpy.pi
 
     def _calc_rperi_rap(self, r, vr, vt, E, L):
         if (
