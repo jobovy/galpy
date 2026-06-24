@@ -353,13 +353,15 @@ def test_integrate_diffrax_numpy_times():
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 def test_integrate_concrete_backend_ic_numpy_method_works():
     # a CONCRETE (eager) jax-IC Orbit keeps its real values in self.vxvv, so a
-    # numpy/C integrator runs normally and matches the numpy-IC result -- this lets
-    # the existing suite be driven under a forced jax/torch backend.
+    # non-dxdv numpy/C integrator runs normally and matches the numpy-IC result --
+    # this lets the existing suite be driven under a forced jax/torch backend. (A
+    # dxdv-capable C method instead routes to the differentiable C-STM and returns a
+    # backend array; see test_backend_orbit_stm.py::test_orbit_integrate_*.)
     pot = PlummerPotential(amp=1.0, b=0.6)
     o = Orbit(jnp.asarray(_IC))
-    o.integrate(_TS, pot, method="dop853_c")
+    o.integrate(_TS, pot, method="leapfrog_c")
     ref = Orbit(list(_IC))
-    ref.integrate(_TS, pot, method="dop853_c")
+    ref.integrate(_TS, pot, method="leapfrog_c")
     numpy.testing.assert_allclose(o.R(_TS), ref.R(_TS), rtol=1e-12, atol=1e-12)
 
 
@@ -375,13 +377,15 @@ def test_integrate_gradtracking_backend_ic_numpy_method_raises_torch():
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 def test_integrate_traced_backend_ic_numpy_method_raises_jax():
-    # under jax.grad the IC is a tracer -> placeholder self.vxvv -> a numpy/C method
-    # must raise (a differentiable method must be used instead)
+    # under jax.grad the IC is a tracer -> placeholder self.vxvv -> a non-dxdv
+    # numpy/C method must raise (a differentiable method must be used instead). A
+    # dxdv-capable C method (dop853_c, ...) instead routes to the C-STM and IS
+    # differentiable -- see test_backend_orbit_stm.py.
     pot = PlummerPotential(amp=1.0, b=0.6)
 
     def run(vR0):
         o = Orbit(jnp.array([1.0, vR0, 0.9, 0.2, 0.05, 0.3]))
-        o.integrate(_TS, pot, method="dop853_c")
+        o.integrate(_TS, pot, method="leapfrog_c")
         return o.getOrbit()[-1, 0]
 
     with pytest.raises(ValueError):
