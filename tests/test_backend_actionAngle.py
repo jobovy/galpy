@@ -41,7 +41,9 @@ from galpy.actionAngle import (
     actionAngleHarmonicInverse,
     actionAngleIsochrone,
     actionAngleIsochroneInverse,
+    actionAngleSpherical,
 )
+from galpy.potential import LogarithmicHaloPotential, NFWPotential
 
 # A small batch of bound phase-space points (R,vR,vT,z,vz,phi); moderate
 # velocities so the isochrone orbits are bound (E<0) and away from the
@@ -377,5 +379,79 @@ def test_isochrone_inverse_grad_vs_fd(backend):
         lambda jt: rsum(jt, lambda v: _arr(backend, numpy.asarray(v, float))),
         _II_J[0],
     )
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+# ====================================================================
+# actionAngleSpherical: ACTIONS (Jr,Lz,Jz via _evaluate) + _EccZmaxRperiRap.
+# Unlike the closed-form classes above, these require a bracketed root-find
+# (rperi/rap) and a quadrature (Jr): the numpy path stays byte-identical (the
+# scipy brentq/quad per-object loop) while jax/torch inputs take a vectorised,
+# differentiable path -- rperi/rap via the shared backend root-finder
+# galpy.backend.optimize.brentq, Jr via galpy.backend.quadrature.fixed_quad.
+# Backend GL (n=25) vs scipy's adaptive quad differ at the ~1e-9 level, so the
+# parity tolerance is rtol~1e-7 (NOT 1e-12). PR-1 scope: only actions+ecc; the
+# frequency/angle methods (_actionsFreqs*) are PR-2 and untouched (numpy-only).
+_SPH_POTS = {
+    "log": LogarithmicHaloPotential(normalize=1.0),
+    "nfw": NFWPotential(normalize=1.0),
+}
+# Generic bound ICs (vR != 0, so away from the exact peri/apo turning points
+# where the bracket endpoint sits on the root); inclined so Jz != 0.
+_SPH_R = numpy.array([1.1, 0.8, 1.3])
+_SPH_VR = numpy.array([0.2, -0.1, 0.15])
+_SPH_VT = numpy.array([0.9, 0.6, 1.0])
+_SPH_Z = numpy.array([0.15, -0.2, 0.1])
+_SPH_VZ = numpy.array([0.1, 0.05, -0.1])
+_SPH = (_SPH_R, _SPH_VR, _SPH_VT, _SPH_Z, _SPH_VZ)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("potname", list(_SPH_POTS))
+def test_spherical_parity(backend, potname):
+    # numpy <-> jax <-> torch parity of _evaluate (Jr,Lz,Jz) and
+    # _EccZmaxRperiRap (e,zmax,rperi,rap) on a small batch of bound ICs.
+    aAS = actionAngleSpherical(pot=_SPH_POTS[potname])
+    bargs = [_arr(backend, v) for v in _SPH]
+    for ref, got in (
+        (aAS._evaluate(*_SPH), aAS._evaluate(*bargs)),
+        (aAS._EccZmaxRperiRap(*_SPH), aAS._EccZmaxRperiRap(*bargs)),
+    ):
+        for r, g in zip(ref, got):
+            assert _is_backend_array(backend, g)
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-7, atol=1e-9
+            )
+
+
+# Scalar single-point bound IC for clean per-component derivatives.
+_SPH_S = (1.1, 0.2, 0.9, 0.15, 0.1)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("which", ["jr", "ecc"])
+def test_spherical_grad_vs_fd_wrt_vR(backend, which):
+    # d(Jr or eccentricity)/d vR at a single bound point: AD (root-find +
+    # quadrature, both differentiable via the backend layer) vs finite-diff.
+    aAS = actionAngleSpherical(pot=_SPH_POTS["log"])
+    R, _, vT, z, vz = _SPH_S
+
+    def call(vR_val, xp_arr):
+        # build args in the namespace of vR_val so get_namespace follows vR
+        args = (xp_arr(R), vR_val, xp_arr(vT), xp_arr(z), xp_arr(vz))
+        if which == "jr":
+            return aAS._evaluate(*args)[0].sum()
+        return aAS._EccZmaxRperiRap(*args)[0].sum()  # eccentricity
+
+    def f_np(vR_val):
+        return numpy.asarray(call(vR_val, lambda v: numpy.atleast_1d(numpy.asarray(v))))
+
+    fd = _fd(f_np, _SPH_S[1])
+
+    def f_be(vR_t):
+        return call(vR_t, lambda v: _arr(backend, numpy.atleast_1d(v).astype(float)))
+
+    g = _grad(backend, f_be, _SPH_S[1])
     assert numpy.isfinite(g)
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
