@@ -1722,6 +1722,31 @@ class Orbit:
         # byte-identical for every existing method.
         if method.lower() in ("diffrax", "torchdiffeq"):
             return self._integrate_inbackend(t, pot, method, rtol, atol)
+        # Differentiable FAST-C path: a jax/torch IC + a dxdv-capable C integrator
+        # routes through the variational state-transition matrix (jax.custom_vjp /
+        # torch.autograd.Function), so getOrbit()/accessors are backend arrays
+        # differentiable w.r.t. the IC. A 6D orbit whose potential has the full C
+        # 3D Hessian uses the C-STM; otherwise (or non-6D) it falls back to the
+        # in-backend ODE solver (still differentiable). numpy/list ICs have
+        # _ic_backend is None and are untouched -> the numpy/C path is unchanged.
+        ic_backend = getattr(self, "_ic_backend", None)
+        if ic_backend is not None:
+            from ..backend._reference.inbackend_stm import _C_DXDV_METHODS
+
+            if method.lower() in _C_DXDV_METHODS:
+                _potl = _check_potential_list_and_deprecate(pot)
+                _inbk = (
+                    "diffrax"
+                    if "jax" in get_namespace(ic_backend).__name__
+                    else "torchdiffeq"
+                )
+                if (
+                    self.phasedim() == 6
+                    and _check_c(_potl)
+                    and _check_c(_potl, dxdv3d=True)
+                ):
+                    return self._integrate_cstm(t, _potl, method.lower(), rtol, atol)
+                return self._integrate_inbackend(t, pot, _inbk, rtol, atol)
         if getattr(self, "_ic_backend", None) is not None and not getattr(
             self, "_ic_backend_concrete", True
         ):
@@ -2112,6 +2137,54 @@ class Orbit:
             atol=1e-12 if atol is None else atol,
         )
         self.orbit = result[None, ...]  # (1, nt, phasedim), matching the C layout
+        self.t = t
+        self._pot = pot
+        self._orig_pot = pot
+        return None
+
+    def _integrate_cstm(self, t, pot, method, rtol, atol):
+        """Differentiable FAST-C orbit integration via the dxdv state-transition
+        matrix.
+
+        The forward solve is galpy's compiled C variational integrator wrapped in
+        a jax.custom_vjp / torch.autograd.Function (galpy.backend._jax|_torch.
+        orbit_stm): it returns the trajectory plus the STM M(t)=dx(t)/dx(0), and
+        the IC gradient is M(t)^T applied to the output cotangent (no backward C
+        call). Routed here from integrate() for a 6D orbit built from a jax/torch
+        IC with a dxdv-capable C method (rk4_c/rk6_c/dopr54_c/dop853_c) whose
+        potential has the full C 3D Hessian. The trajectory is stored as a backend
+        array in self.orbit, so getOrbit()/the accessors are backend arrays
+        differentiable w.r.t. the initial conditions (gradients w.r.t. potential
+        PARAMETERS need the in-backend ODE path -- the C integrator carries no
+        d x / d theta sensitivity). Single orbit.
+        """
+        if self.shape != ():
+            raise ValueError(
+                f"method='{method}' with a jax/torch initial condition supports a "
+                "single orbit only"
+            )
+        ic = self._ic_backend
+        xp = get_namespace(ic)
+        if is_backend_array(t):
+            ts = t
+        else:
+            t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
+            ts = xp.asarray(t)
+        if "jax" in xp.__name__:
+            from ..backend._jax import orbit_stm
+        else:
+            from ..backend._torch import orbit_stm
+        # (nt, 6) Orbit order, differentiable backend array. Default rtol/atol =
+        # 1e-12 matches galpy's C integrators (_parse_tol).
+        result = orbit_stm.integrate(
+            pot,
+            ic,
+            ts,
+            method=method,
+            rtol=1e-12 if rtol is None else rtol,
+            atol=1e-12 if atol is None else atol,
+        )
+        self.orbit = result[None, ...]  # (1, nt, 6), matching the C layout
         self.t = t
         self._pot = pot
         self._orig_pot = pot
