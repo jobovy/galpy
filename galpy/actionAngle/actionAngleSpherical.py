@@ -25,6 +25,12 @@ from ..util import quadpack
 from .actionAngle import UnboundError, actionAngle
 
 _EPS = 10.0**-15.0
+# Gauss-Legendre order for the backend (jax/torch) action/freq/angle quadratures.
+# 50 matches scipy's adaptive quadrature to <1e-7 over the physical orbit range
+# (incl. near-radial L/Lcirc~1e-2: <1e-12 vs a tight reference); only at
+# pathological L/Lcirc<~1e-4 does scipy's own adaptive quad fail to ~1e-5, an
+# irreducible quadrature-method difference where higher order does not help.
+_BACKEND_GL_ORDER = 50
 
 
 class actionAngleSpherical(actionAngle):
@@ -202,6 +208,9 @@ class actionAngleSpherical(actionAngle):
             vz = numpy.array([vz])
         if self._c:  # pragma: no cover
             pass
+        elif is_backend_array(R):
+            # jax/torch inputs: vectorised, differentiable path (see _evaluate).
+            return self._actionsFreqs_backend(R, vR, vT, z, vz, extra_Jz)
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
             vr = (R * vR + z * vz) / r
@@ -302,6 +311,9 @@ class actionAngleSpherical(actionAngle):
             phi = numpy.array([phi])
         if self._c:  # pragma: no cover
             pass
+        elif is_backend_array(R):
+            # jax/torch inputs: vectorised, differentiable path (see _evaluate).
+            return self._actionsFreqsAngles_backend(R, vR, vT, z, vz, phi, extra_Jz)
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
             vr = (R * vR + z * vz) / r
@@ -542,12 +554,8 @@ class actionAngleSpherical(actionAngle):
 
         xp = get_namespace(r)
 
-        def f(R_, E_, L_):
-            return (
-                E_
-                - _evaluateplanarPotentials(self._2dpot, R_)
-                - L_**2.0 / 2.0 / R_**2.0
-            )
+        def f(R_, E_, L_):  # == _rapRperiAxiEq == _radicand/2 (vr=0 root eqn)
+            return _radicand(xp, R_, E_, L_, self._2dpot) / 2.0
 
         # Fixed-schedule bracketing (mirrors _rapRperiAxiFindStart, vectorised):
         # halve from r/2 until f<=0 (or below the floor) for rperi's lower end,
@@ -585,8 +593,8 @@ class actionAngleSpherical(actionAngle):
         Substitute r = rperi + (rap-rperi) sin^2(theta), theta in [0, pi/2], so
         the sqrt's endpoint zeros are absorbed by the 2 sin cos Jacobian and the
         integrand is smooth. Fixed-order Gauss-Legendre via the shared
-        backend.quadrature.fixed_quad (n=25). The radicand is clipped >=0 before
-        the sqrt (sqrt'(0)=inf would NaN-poison reverse-mode AD).
+        backend.quadrature.fixed_quad (_BACKEND_GL_ORDER). The radicand is
+        clipped >=0 before the sqrt (sqrt'(0)=inf would NaN-poison reverse AD).
         """
         from ..backend.quadrature import fixed_quad
 
@@ -598,13 +606,225 @@ class actionAngleSpherical(actionAngle):
             sin = xp.sin(theta)[None, :]
             cos = xp.cos(theta)[None, :]
             rr = rperi[:, None] + span[:, None] * sin**2.0
-            Phi = _evaluateplanarPotentials(self._2dpot, rr)
-            rad = 2.0 * (E[:, None] - Phi) - L[:, None] ** 2.0 / rr**2.0
+            rad = _radicand(xp, rr, E[:, None], L[:, None], self._2dpot)
             rad = xp.where(rad > 0.0, rad, 0.0)  # clip before sqrt (AD guard)
             return xp.sqrt(rad) * span[:, None] * 2.0 * sin * cos
 
-        Jr = fixed_quad(xp, integrand, 0.0, numpy.pi / 2.0, n=25)
+        Jr = fixed_quad(xp, integrand, 0.0, numpy.pi / 2.0, n=_BACKEND_GL_ORDER)
         return Jr / numpy.pi
+
+    # -------------------------------------------------- backend freqs + angles
+    # Vectorised, differentiable (jax/torch) Or/Op (radial+azimuthal frequency)
+    # and ar/ap/az (angles), mirroring the per-object numpy _calc_or/_calc_op/
+    # _calc_angler/_calc_anglez/_calc_long_asc. The two t^2-substituted panels
+    # of each period/angle integral are evaluated with backend.quadrature.
+    # fixed_quad on a fixed [0, 1] panel: the per-object upper limit `lim`
+    # (sqrt(Rmean-rperi) etc.) is folded INTO the integrand via t = lim*s
+    # (dt = lim ds), so fixed_quad's scalar a, b stay 0, 1 while `lim` is a
+    # shape-(N,) array. The 2t Jacobian of the substitution cancels the
+    # 1/sqrt endpoint zero; the radicand is clipped >=0 before the sqrt
+    # (sqrt'(0)=inf would NaN-poison reverse-mode AD), with the unused panel
+    # (lim==0) contributing exactly 0. The numpy path is untouched.
+
+    def _panel_backend(self, xp, base, sign, lim, E, L, azimuthal):
+        """One t^2-substituted Gauss-Legendre panel of a period/angle integral.
+
+        Integrates ``2 t / _JrSphericalIntegrand(r) [/ r**2 if azimuthal]`` over
+        ``t in [0, lim]`` with ``r = base + sign * t**2`` (sign=+1 small panel
+        with base=rperi, sign=-1 large panel with base=rap). The fixed [0, 1]
+        GL panel uses ``t = lim * s`` so the per-object ``lim`` (shape (N,))
+        multiplies inside the integrand (dt = lim ds) and fixed_quad's limits
+        stay scalar. ``lim`` is float (==0 makes this panel contribute 0).
+        """
+        from ..backend.quadrature import fixed_quad
+
+        def integrand(s):  # s: (n,) GL nodes -> (N, n)
+            t = lim[:, None] * s[None, :]
+            rr = base[:, None] + sign * t**2.0
+            rad = _radicand(xp, rr, E[:, None], L[:, None], self._2dpot)
+            # clip before sqrt (AD guard); the masked-out (rad<=0) endpoint sits
+            # where 2t->0 anyway, so a 0 there is harmless.
+            rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))
+            val = 2.0 * t / xp.sqrt(rad)
+            if azimuthal:
+                val = val / rr**2.0
+            return val * lim[:, None]  # dt = lim ds
+
+        return fixed_quad(xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER)
+
+    def _calc_or_op_backend(self, Rmean, rperi, rap, E, L):
+        """Vectorised Or (radial freq) and Op (azimuthal freq magnitude).
+
+        Tr = 2*(small panel [0, sqrt(Rmean-rperi)] + large panel
+        [0, sqrt(rap-Rmean)]) of 2t/_Jr; Or = 2pi/Tr. The same panels weighted
+        by 1/r**2 give I; Op = 2*L*I * Or / (2 pi). Returns (Or, Op) with Op the
+        positive magnitude (the vT<0 sign flip is applied by the caller).
+        """
+        xp = get_namespace(rperi)
+        limS = xp.sqrt(xp.where(Rmean > rperi, Rmean - rperi, xp.zeros_like(Rmean)))
+        limL = xp.sqrt(xp.where(rap > Rmean, rap - Rmean, xp.zeros_like(Rmean)))
+        Tr = 2.0 * (
+            self._panel_backend(xp, rperi, 1.0, limS, E, L, False)
+            + self._panel_backend(xp, rap, -1.0, limL, E, L, False)
+        )
+        Or = 2.0 * numpy.pi / Tr
+        I = (
+            2.0
+            * L
+            * (
+                self._panel_backend(xp, rperi, 1.0, limS, E, L, True)
+                + self._panel_backend(xp, rap, -1.0, limL, E, L, True)
+            )
+        )
+        Op = I * Or / 2.0 / numpy.pi
+        return (Or, Op)
+
+    @staticmethod
+    def _assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw):
+        """Quadrant assembly for the radial angle, namespace-agnostic.
+
+        Given the raw small/large panel values (each Or*integral, or 0), apply
+        the vr/r<Rmean quadrant logic. Shared by the numpy scalar driver
+        (xp=numpy; numpy.where on scalars is byte-identical to the if/else) and
+        the backend array driver.
+        """
+        wr_small = xp.where(vr < 0.0, 2.0 * numpy.pi - wr_small_raw, wr_small_raw)
+        wr_large = xp.where(vr < 0.0, numpy.pi + wr_large_raw, numpy.pi - wr_large_raw)
+        return xp.where(r < Rmean, wr_small, wr_large)
+
+    def _calc_angler_backend(self, Or, r, Rmean, rperi, rap, E, L, vr):
+        """Vectorised radial angle ar (un-modded; caller takes % 2pi).
+
+        Mirrors _calc_angler: if r<Rmean integrate the small panel to
+        sqrt(r-rperi) and (vr<0) wr=2pi-wr; else integrate the large panel to
+        sqrt(rap-r) and wr = pi+wr (vr<0) / pi-wr (vr>=0).
+        """
+        xp = get_namespace(r)
+        limS = xp.sqrt(xp.where(r > rperi, r - rperi, xp.zeros_like(r)))
+        limL = xp.sqrt(xp.where(rap > r, rap - r, xp.zeros_like(r)))
+        wr_small_raw = Or * self._panel_backend(xp, rperi, 1.0, limS, E, L, False)
+        wr_large_raw = Or * self._panel_backend(xp, rap, -1.0, limL, E, L, False)
+        return self._assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw)
+
+    def _calc_anglez_backend(
+        self, Or, Op, ar, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
+    ):
+        """Vectorised vertical angle az (un-modded; caller takes % 2pi).
+
+        Mirrors _calc_anglez: psi from sinpsi=z/r/sin(inclination) (clipped,
+        vtheta>0 -> pi-psi, non-inclined -> phi), then wz = L*I-integral to the
+        same data-dependent limit (vr quadrant fixes via dpsi=Op/Or*2pi), and
+        az = -wz + psi + Op/Or*ar (ar un-modded). Op here is the magnitude.
+        """
+        xp = get_namespace(r)
+        # psi (inclination phase)
+        i_incl = xp.arccos(xp.where(xp.abs(Lz / L) < 1.0, Lz / L, xp.sign(Lz / L)))
+        sini = xp.sin(i_incl)
+        # Non-inclined (sin i == 0): numpy's z/r/sin(i) is non-finite -> psi=phi.
+        # Test finiteness on the TRUE division (raw sini, not the safe one) so
+        # sin i==0 is caught; sini_safe is only the arcsin value (no NaN grad).
+        finite = xp.isfinite(z / r / sini)
+        sini_safe = xp.where(sini == 0.0, xp.ones_like(sini), sini)
+        sinpsi = z / r / sini_safe
+        sinpsi_c = xp.where(
+            sinpsi > 1.0,
+            xp.ones_like(sinpsi),
+            xp.where(sinpsi < -1.0, -xp.ones_like(sinpsi), sinpsi),
+        )
+        psi = xp.arcsin(sinpsi_c)
+        psi = xp.where(vtheta > 0.0, numpy.pi - psi, psi)
+        psi = xp.where(finite, psi, phi)  # non-inclined: psi=phi
+        psi = psi % (2.0 * numpy.pi)
+        dpsi = Op / Or * 2.0 * numpy.pi  # full I integral
+        limS = xp.sqrt(xp.where(r > rperi, r - rperi, xp.zeros_like(r)))
+        limL = xp.sqrt(xp.where(rap > r, rap - r, xp.zeros_like(r)))
+        wz_small = L * self._panel_backend(xp, rperi, 1.0, limS, E, L, True)
+        wz_small = xp.where(vr < 0.0, dpsi - wz_small, wz_small)
+        wz_large = L * self._panel_backend(xp, rap, -1.0, limL, E, L, True)
+        wz_large = xp.where(vr < 0.0, dpsi / 2.0 + wz_large, dpsi / 2.0 - wz_large)
+        wz = xp.where(r < Rmean, wz_small, wz_large)
+        return -wz + psi + Op / Or * ar
+
+    def _calc_long_asc_backend(self, z, R, vtheta, phi, Lz, L):
+        """Vectorised longitude of the ascending node (mirror _calc_long_asc)."""
+        xp = get_namespace(R)
+        i = xp.arccos(xp.where(xp.abs(Lz / L) < 1.0, Lz / L, xp.sign(Lz / L)))
+        tani = xp.tan(i)
+        # Non-inclined (tan i == 0): numpy's z/R/tan(i) is non-finite -> Omega=0
+        # (u=phi). Test finiteness on the TRUE division (raw tani); tani_safe is
+        # only the arcsin value, so no NaN enters the where value/grad path.
+        finite = xp.isfinite(z / R / tani)
+        tani_safe = xp.where(tani == 0.0, xp.ones_like(tani), tani)
+        sinu = z / R / tani_safe
+        sinu = xp.where(
+            (sinu > 1.0) & (sinu < 1.0 + 10.0**-7.0), xp.ones_like(sinu), sinu
+        )
+        sinu_c = xp.where(
+            sinu > 1.0,
+            xp.ones_like(sinu),
+            xp.where(sinu < -1.0, -xp.ones_like(sinu), sinu),
+        )
+        u = xp.arcsin(sinu_c)
+        u = xp.where(vtheta > 0.0, numpy.pi - u, u)
+        u = xp.where(finite, u, phi)  # non-inclined: Omega=0 (u=phi)
+        return phi - u
+
+    def _actionsFreqs_backend(self, R, vR, vT, z, vz, extra_Jz):
+        """Vectorised (Jr,Lz,Jz,Or,Op,Oz) for backend (jax/torch) inputs."""
+        xp = get_namespace(R)
+        r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
+        rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
+        Jr = self._calc_jr_backend(rperi, rap, E, L)
+        Jphi = Lz
+        Jz = L - xp.abs(Lz)
+        # Rmean = exp((log rperi + log rap)/2) if rperi>0 else rap/2 (guard log)
+        rperi_safe = xp.where(rperi > 0.0, rperi, xp.ones_like(rperi))
+        Rmean = xp.where(
+            rperi > 0.0,
+            xp.exp((xp.log(rperi_safe) + xp.log(rap)) / 2.0),
+            rap / 2.0,
+        )
+        Or, Op = self._calc_or_op_backend(Rmean, rperi, rap, E, L)
+        # Circular branch (Jr<1e-9): epifreq/omegac (backend-ready forces).
+        is_circ = Jr < 10.0**-9.0
+        Or = xp.where(is_circ, epifreq(self._2dpot, r, use_physical=False), Or)
+        Op = xp.where(is_circ, omegac(self._2dpot, r, use_physical=False), Op)
+        Oz = Op  # copy (magnitude)
+        Op = xp.where(vT < 0.0, -Op, Op)
+        return (Jr, Jphi, Jz, Or, Op, Oz)
+
+    def _actionsFreqsAngles_backend(self, R, vR, vT, z, vz, phi, extra_Jz):
+        """Vectorised (Jr,Lz,Jz,Or,Op,Oz,ar,ap,az) for backend inputs."""
+        xp = get_namespace(R)
+        r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
+        vtheta = (z * vR - R * vz) / r
+        rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
+        Jr = self._calc_jr_backend(rperi, rap, E, L)
+        Jphi = Lz
+        Jz = L - xp.abs(Lz)
+        rperi_safe = xp.where(rperi > 0.0, rperi, xp.ones_like(rperi))
+        Rmean = xp.where(
+            rperi > 0.0,
+            xp.exp((xp.log(rperi_safe) + xp.log(rap)) / 2.0),
+            rap / 2.0,
+        )
+        Or, Op = self._calc_or_op_backend(Rmean, rperi, rap, E, L)
+        is_circ = Jr < 10.0**-9.0
+        Or = xp.where(is_circ, epifreq(self._2dpot, r, use_physical=False), Or)
+        Op = xp.where(is_circ, omegac(self._2dpot, r, use_physical=False), Op)
+        # Angles (ar, az un-modded; Op is the magnitude here, as in numpy).
+        asc = self._calc_long_asc_backend(z, R, vtheta, phi, Lz, L)
+        ar = self._calc_angler_backend(Or, r, Rmean, rperi, rap, E, L, vr)
+        az = self._calc_anglez_backend(
+            Or, Op, ar, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
+        )
+        Oz = Op  # copy (magnitude)
+        Op = xp.where(vT < 0.0, -Op, Op)
+        ap = xp.where(vT < 0.0, asc - az, asc + az)
+        ar = ar % (2.0 * numpy.pi)
+        ap = ap % (2.0 * numpy.pi)
+        az = az % (2.0 * numpy.pi)
+        return (Jr, Jphi, Jz, Or, Op, Oz, ar, ap, az)
 
     def _calc_rperi_rap(self, r, vr, vt, E, L):
         if (
@@ -793,6 +1013,11 @@ class actionAngleSpherical(actionAngle):
         return phi - u
 
     def _calc_angler(self, Or, r, Rmean, rperi, rap, E, L, vr, fixed_quad, **kwargs):
+        # Integrate only the active panel (small if r<Rmean else large) with
+        # scipy; the lim==0 guards stay here. The quadrant assembly is shared
+        # with the backend via _assemble_angler (xp.where; on numpy scalars this
+        # is byte-identical to the original if/else). The inactive panel slot is
+        # discarded by the r<Rmean select inside _assemble_angler.
         if r < Rmean:
             if r > rperi and not fixed_quad:
                 wr = (
@@ -819,8 +1044,7 @@ class actionAngleSpherical(actionAngle):
                 )
             else:
                 wr = 0.0
-            if vr < 0.0:
-                wr = 2 * numpy.pi - wr
+            wr_small_raw, wr_large_raw = wr, 0.0
         else:
             if r < rap and not fixed_quad:
                 wr = (
@@ -847,11 +1071,8 @@ class actionAngleSpherical(actionAngle):
                 )
             else:
                 wr = 0.0
-            if vr < 0.0:
-                wr = numpy.pi + wr
-            else:
-                wr = numpy.pi - wr
-        return wr
+            wr_small_raw, wr_large_raw = 0.0, wr
+        return self._assemble_angler(numpy, r, Rmean, vr, wr_small_raw, wr_large_raw)
 
     def _calc_anglez(
         self,
@@ -948,34 +1169,53 @@ class actionAngleSpherical(actionAngle):
         return wz
 
 
+def _radicand(xp, r, E, L, pot):
+    """Radial-velocity^2 radicand 2*(E - Phi(r)) - L^2/r^2, namespace-agnostic.
+
+    Shared by the numpy integrands (xp=numpy, scalar r) and the backend panels
+    (xp=jax/torch, array r); byte-identical on numpy. Equals 2*_rapRperiAxiEq.
+    """
+    return 2.0 * (E - _evaluateplanarPotentials(pot, r)) - L**2.0 / r**2.0
+
+
+def _period_angle_integrand(xp, t, base, sign, E, L, pot, azimuthal):
+    """t^2-substituted period/angle integrand core, namespace-agnostic.
+
+    Builds r = base + sign*t**2 and returns 2t/sqrt(radicand) [/r**2 if
+    azimuthal]. Shared by the 4 numpy t^2 module integrands (xp=numpy). The
+    backend panel keeps its own AD-clipped sqrt, so it shares only _radicand.
+    """
+    r = base + sign * t**2.0
+    val = 2.0 * t / xp.sqrt(_radicand(xp, r, E, L, pot))
+    if azimuthal:
+        val = val / r**2.0
+    return val
+
+
 def _JrSphericalIntegrand(r, E, L, pot):
     """The J_r integrand"""
-    return numpy.sqrt(2.0 * (E - _evaluateplanarPotentials(pot, r)) - L**2.0 / r**2.0)
+    return numpy.sqrt(_radicand(numpy, r, E, L, pot))
 
 
 def _TrSphericalIntegrandSmall(t, E, L, pot, rperi):
-    r = rperi + t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot)
+    return _period_angle_integrand(numpy, t, rperi, 1.0, E, L, pot, False)
 
 
 def _TrSphericalIntegrandLarge(t, E, L, pot, rap):
-    r = rap - t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot)
+    return _period_angle_integrand(numpy, t, rap, -1.0, E, L, pot, False)
 
 
 def _ISphericalIntegrandSmall(t, E, L, pot, rperi):
-    r = rperi + t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot) / r**2.0
+    return _period_angle_integrand(numpy, t, rperi, 1.0, E, L, pot, True)
 
 
 def _ISphericalIntegrandLarge(t, E, L, pot, rap):
-    r = rap - t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot) / r**2.0
+    return _period_angle_integrand(numpy, t, rap, -1.0, E, L, pot, True)
 
 
 def _rapRperiAxiEq(R, E, L, pot):
     """The vr=0 equation that needs to be solved to find apo- and pericenter"""
-    return E - _evaluateplanarPotentials(pot, R) - L**2.0 / 2.0 / R**2.0
+    return _radicand(numpy, R, E, L, pot) / 2.0
 
 
 def _rapRperiAxiFindStart(R, E, L, pot, rap=False, startsign=1.0):
