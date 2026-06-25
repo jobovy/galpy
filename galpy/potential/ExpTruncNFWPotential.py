@@ -7,7 +7,12 @@ import numpy
 from scipy.special import exp1
 
 from ..util import conversion, galpyWarning
+from ..util._optional_deps import _JAX_LOADED
 from .SphericalPotential import SphericalPotential
+
+if _JAX_LOADED:
+    import jax.numpy as jnp
+    import jax.scipy.special as jspecial
 
 
 class ExpTruncNFWPotential(SphericalPotential):
@@ -133,18 +138,20 @@ class ExpTruncNFWPotential(SphericalPotential):
             If ``nfw`` is not an ``NFWPotential`` instance.
         ValueError
             If neither or both of ``rc`` and ``mass`` are given; or if ``mass``
-            is given but is outside the range reachable by truncating this NFW at
-            fixed ``amp`` -- too large (it would need rc far larger than ``a``,
-            i.e. essentially no truncation) or too small (it would need an
-            unphysically sharp truncation, rc < a/690, where the closed form
-            overflows).
+            is given but is so small that it would require a truncation sharper
+            than ``rc < a/690``, where the closed-form total mass overflows in
+            floating point (an unphysically sharp truncation). Note there is no
+            upper limit on ``mass``: the un-truncated NFW has infinite mass, so
+            any finite mass is reachable by truncating far enough out.
 
         Warns
         -----
         galpyWarning
-            If ``mass`` is given and the solved truncation radius comes out
-            smaller than the NFW scale radius (``rc < a``) -- a very sharp
-            truncation that cuts into the NFW cusp.
+            If ``mass`` is given and the solved truncation radius is either much
+            smaller than the NFW scale radius (``rc < a`` -- a very sharp
+            truncation cutting into the cusp) or well beyond the NFW virial
+            radius (``rc > 2 rvir`` -- a weak truncation that retains much of the
+            formally-divergent NFW outskirts).
 
         Notes
         -----
@@ -172,18 +179,19 @@ class ExpTruncNFWPotential(SphericalPotential):
                 conversion.parse_mass(mass, ro=nfw._ro, vo=nfw._vo) / nfw._amp
             )
             Froot = lambda al: numpy.exp(al) * (1.0 + al) * exp1(al) - 1.0 - target_F
-            alo, ahi = 1e-8, 690.0  # exp(690) is still finite; F(690) ~ 2e-6
-            if Froot(alo) < 0.0:
-                raise ValueError(
-                    "ExpTruncNFWPotential.from_nfw: requested mass is too large "
-                    "to be reached by truncating this NFW (would need rc much "
-                    "larger than the NFW scale radius / essentially no truncation)"
-                )
+            # F(alpha) decreases monotonically from +inf (alpha->0, rc->inf, the
+            # un-truncated infinite-mass NFW) to 0 (alpha->inf). Any finite mass
+            # is therefore reachable, with a larger mass simply giving a larger
+            # rc -- there is no upper bound. The only hard limit is at the sharp
+            # end: F(690) ~ 2e-6 is the smallest mass we can evaluate before
+            # exp(alpha) overflows (rc < a/690).
+            alo, ahi = 1e-150, 690.0  # F(1e-150) ~ 344; exp(690) still finite
             if Froot(ahi) > 0.0:
                 raise ValueError(
-                    "ExpTruncNFWPotential.from_nfw: requested mass is too small "
-                    "to be reached by truncating this NFW (would need an "
-                    "unphysically sharp truncation, rc < a/690)"
+                    "ExpTruncNFWPotential.from_nfw: the requested mass is too "
+                    "small to evaluate -- it implies a truncation sharper than "
+                    "rc = a/690, where the closed-form total mass overflows in "
+                    "floating point"
                 )
             alpha = brentq(Froot, alo, ahi)
             rc = a / alpha
@@ -196,6 +204,25 @@ class ExpTruncNFWPotential(SphericalPotential):
                     "requested mass is intended.",
                     galpyWarning,
                 )
+            else:
+                # Warn if the truncation lands well beyond the virial radius,
+                # i.e. a weak truncation that keeps much of the (formally
+                # divergent) NFW outskirts. rvir needs the overdensity definition
+                # and can fail (e.g. odd unit setups), so guard it.
+                try:
+                    rvir = nfw.rvir(use_physical=False)
+                except Exception:  # pragma: no cover
+                    rvir = None
+                if rvir is not None and rc > 2.0 * rvir:
+                    warnings.warn(
+                        "ExpTruncNFWPotential.from_nfw: the requested total mass "
+                        f"implies a truncation radius rc={rc:g} more than twice "
+                        f"the NFW virial radius rvir={rvir:g}; this is a weak "
+                        "truncation that retains much of the (formally divergent) "
+                        "NFW outskirts -- check that the requested mass is "
+                        "intended.",
+                        galpyWarning,
+                    )
         # Inherit amp, a, and the unit system from the NFW so the inner profile
         # (and the meaning of the internal amp/a) carries over directly; rc is
         # parsed in the NFW's units by the constructor.
@@ -325,3 +352,66 @@ class ExpTruncNFWPotential(SphericalPotential):
         g = 1.0 / r + 2.0 / (self.a + r) + 1.0 / self.rc
         gprime = -1.0 / (r * r) - 2.0 / (self.a + r) ** 2
         return rho_phys * (g * g - gprime)
+
+    def _ddenstwobetadr(self, r, beta=0):
+        """
+        Evaluate the radial density derivative x r^(2beta) for this potential.
+
+        Parameters
+        ----------
+        r : float
+            Spherical radius.
+        beta : float, optional
+            Power of r in the density derivative. Default is 0.
+
+        Returns
+        -------
+        float
+            The derivative of rho x r^(2beta) with respect to r.
+
+        Notes
+        -----
+        - 2026-06-25 - Written - Pfaffman + Claude Code
+
+        """
+        # Used (via JAX grad) by the constantbetadf machinery, so the density's
+        # exponential must go through jax.numpy. d/dr[rho r^(2beta)] =
+        # rho r^(2beta) [(2beta-1)/r - 2/(a+r) - 1/rc]; reduces to _ddensdr at
+        # beta=0.
+        if not _JAX_LOADED:  # pragma: no cover
+            raise ImportError(
+                "Making use of _ddenstwobetadr requires the google/jax library"
+            )
+        a, rc = self.a, self.rc
+        rho = (
+            self._amp
+            * jnp.exp(-r / rc)
+            / (4.0 * numpy.pi * a * a * r * (1.0 + r / a) ** 2)
+        )
+        return (
+            rho
+            * r ** (2.0 * beta)
+            * ((2.0 * beta - 1.0) / r - 2.0 / (a + r) - 1.0 / rc)
+        )
+
+    def _rforce_jax(self, r):
+        # JAX (differentiable) radial force amp*(-F(r)/r^2), needed by the
+        # constantbetadf machinery. Uses the closed form for F(r); this is the
+        # same expression as _F_closed (the DFs evaluate it at r >= rmin >> the
+        # small-r series threshold, so the series branch is not needed here).
+        # jax.scipy.special.exp1 is not differentiable in jax (it routes through
+        # expn), so use E_1(x) = -Ei(-x) via the differentiable expi instead.
+        if not _JAX_LOADED:  # pragma: no cover
+            raise ImportError(
+                "Making use of _rforce_jax function requires the google/jax library"
+            )
+        a, rc = self.a, self.rc
+        alpha = a / rc
+        beta = (a + r) / rc
+        e1 = lambda x: -jspecial.expi(-x)
+        F = (
+            jnp.exp(alpha) * (1.0 + alpha) * (e1(alpha) - e1(beta))
+            - 1.0
+            + a * jnp.exp(-r / rc) / (a + r)
+        )
+        return -self._amp * F / r**2

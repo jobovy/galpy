@@ -5586,10 +5586,25 @@ def test_ExpTruncNFW_from_nfw():
         potential.ExpTruncNFWPotential.from_nfw(
             potential.HernquistPotential(amp=1.0), rc=1.0
         )
-    with pytest.raises(ValueError):  # mass too large (no truncation needed)
-        potential.ExpTruncNFWPotential.from_nfw(nfw, mass=1e8)
 
-    # (6) a requested mass small enough to force rc < a warns (sharp truncation)
+    # (6a) a large mass is NOT an error (the NFW has infinite mass, so any finite
+    #      mass is reachable); it just gives a large rc and a weak-truncation
+    #      warning when rc lands well beyond the virial radius
+    rvir = nfw.rvir(use_physical=False)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        pw = potential.ExpTruncNFWPotential.from_nfw(nfw, mass=20.0)
+        assert any(
+            issubclass(wi.category, galpyWarning)
+            and "weak truncation" in str(wi.message)
+            for wi in w
+        ), "from_nfw did not warn for a truncation well beyond rvir"
+    assert pw.rc > 2.0 * rvir, "test setup: expected rc > 2 rvir for the warning"
+    assert numpy.fabs(pw.mass(numpy.inf, use_physical=False) - 20.0) < 1e-8, (
+        "from_nfw(mass=) with a large mass did not reproduce the requested mass"
+    )
+
+    # (6b) a requested mass small enough to force rc < a warns (sharp truncation)
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         ps = potential.ExpTruncNFWPotential.from_nfw(nfw, mass=0.05)
@@ -5599,6 +5614,11 @@ def test_ExpTruncNFW_from_nfw():
             for wi in w
         ), "from_nfw did not warn for a sub-scale-radius truncation"
     assert ps.rc < nfw.a, "test setup: expected rc < a for the warning case"
+
+    # (6c) a mass so small it would need rc < a/690 still errors (closed-form
+    #      total mass overflows there)
+    with pytest.raises(ValueError):
+        potential.ExpTruncNFWPotential.from_nfw(nfw, mass=1e-8)
     return None
 
 
