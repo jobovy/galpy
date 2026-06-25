@@ -25,6 +25,12 @@ from ..util import quadpack
 from .actionAngle import UnboundError, actionAngle
 
 _EPS = 10.0**-15.0
+# Gauss-Legendre order for the backend (jax/torch) action/freq/angle quadratures.
+# 50 matches scipy's adaptive quadrature to <1e-7 over the physical orbit range
+# (incl. near-radial L/Lcirc~1e-2: <1e-12 vs a tight reference); only at
+# pathological L/Lcirc<~1e-4 does scipy's own adaptive quad fail to ~1e-5, an
+# irreducible quadrature-method difference where higher order does not help.
+_BACKEND_GL_ORDER = 50
 
 
 class actionAngleSpherical(actionAngle):
@@ -587,8 +593,8 @@ class actionAngleSpherical(actionAngle):
         Substitute r = rperi + (rap-rperi) sin^2(theta), theta in [0, pi/2], so
         the sqrt's endpoint zeros are absorbed by the 2 sin cos Jacobian and the
         integrand is smooth. Fixed-order Gauss-Legendre via the shared
-        backend.quadrature.fixed_quad (n=25). The radicand is clipped >=0 before
-        the sqrt (sqrt'(0)=inf would NaN-poison reverse-mode AD).
+        backend.quadrature.fixed_quad (_BACKEND_GL_ORDER). The radicand is
+        clipped >=0 before the sqrt (sqrt'(0)=inf would NaN-poison reverse AD).
         """
         from ..backend.quadrature import fixed_quad
 
@@ -604,7 +610,7 @@ class actionAngleSpherical(actionAngle):
             rad = xp.where(rad > 0.0, rad, 0.0)  # clip before sqrt (AD guard)
             return xp.sqrt(rad) * span[:, None] * 2.0 * sin * cos
 
-        Jr = fixed_quad(xp, integrand, 0.0, numpy.pi / 2.0, n=25)
+        Jr = fixed_quad(xp, integrand, 0.0, numpy.pi / 2.0, n=_BACKEND_GL_ORDER)
         return Jr / numpy.pi
 
     # -------------------------------------------------- backend freqs + angles
@@ -644,7 +650,7 @@ class actionAngleSpherical(actionAngle):
                 val = val / rr**2.0
             return val * lim[:, None]  # dt = lim ds
 
-        return fixed_quad(xp, integrand, 0.0, 1.0, n=25)
+        return fixed_quad(xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER)
 
     def _calc_or_op_backend(self, Rmean, rperi, rap, E, L):
         """Vectorised Or (radial freq) and Op (azimuthal freq magnitude).
@@ -714,9 +720,12 @@ class actionAngleSpherical(actionAngle):
         # psi (inclination phase)
         i_incl = xp.arccos(xp.where(xp.abs(Lz / L) < 1.0, Lz / L, xp.sign(Lz / L)))
         sini = xp.sin(i_incl)
+        # Non-inclined (sin i == 0): numpy's z/r/sin(i) is non-finite -> psi=phi.
+        # Test finiteness on the TRUE division (raw sini, not the safe one) so
+        # sin i==0 is caught; sini_safe is only the arcsin value (no NaN grad).
+        finite = xp.isfinite(z / r / sini)
         sini_safe = xp.where(sini == 0.0, xp.ones_like(sini), sini)
         sinpsi = z / r / sini_safe
-        finite = xp.isfinite(sinpsi)
         sinpsi_c = xp.where(
             sinpsi > 1.0,
             xp.ones_like(sinpsi),
@@ -739,12 +748,17 @@ class actionAngleSpherical(actionAngle):
     def _calc_long_asc_backend(self, z, R, vtheta, phi, Lz, L):
         """Vectorised longitude of the ascending node (mirror _calc_long_asc)."""
         xp = get_namespace(R)
-        i = xp.arccos(Lz / L)
-        sinu = z / R / xp.tan(i)
+        i = xp.arccos(xp.where(xp.abs(Lz / L) < 1.0, Lz / L, xp.sign(Lz / L)))
+        tani = xp.tan(i)
+        # Non-inclined (tan i == 0): numpy's z/R/tan(i) is non-finite -> Omega=0
+        # (u=phi). Test finiteness on the TRUE division (raw tani); tani_safe is
+        # only the arcsin value, so no NaN enters the where value/grad path.
+        finite = xp.isfinite(z / R / tani)
+        tani_safe = xp.where(tani == 0.0, xp.ones_like(tani), tani)
+        sinu = z / R / tani_safe
         sinu = xp.where(
             (sinu > 1.0) & (sinu < 1.0 + 10.0**-7.0), xp.ones_like(sinu), sinu
         )
-        sinu = xp.where((sinu < -1.0) & xp.isfinite(sinu), -xp.ones_like(sinu), sinu)
         sinu_c = xp.where(
             sinu > 1.0,
             xp.ones_like(sinu),
@@ -752,7 +766,7 @@ class actionAngleSpherical(actionAngle):
         )
         u = xp.arcsin(sinu_c)
         u = xp.where(vtheta > 0.0, numpy.pi - u, u)
-        u = xp.where(xp.isfinite(u), u, phi)  # non-inclined: Omega=0 (u=phi)
+        u = xp.where(finite, u, phi)  # non-inclined: Omega=0 (u=phi)
         return phi - u
 
     def _actionsFreqs_backend(self, R, vR, vT, z, vz, extra_Jz):
