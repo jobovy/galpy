@@ -95,10 +95,8 @@ def _vertical_pots():
             LogarithmicHaloPotential(normalize=1.0, b=0.8, q=0.9), R=1.1, phi=0.7
         ),
         toVerticalPotential(
-            [
-                MiyamotoNagaiPotential(normalize=1.0),
-                LogarithmicHaloPotential(normalize=0.5),
-            ],
+            MiyamotoNagaiPotential(normalize=1.0)
+            + LogarithmicHaloPotential(normalize=0.5),
             1.1,
         ),
     ]
