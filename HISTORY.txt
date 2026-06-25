@@ -17,7 +17,10 @@ v1.12.0 (expected around 2026-07-01)
   ``rc -> infinity``); alternatively the total mass can be set directly with
   the ``mass=`` keyword. Also provides a ``from_nfw`` classmethod that truncates
   an existing ``NFWPotential`` (inheriting its ``amp`` and ``a``), with the
-  truncation set by either ``rc`` or a desired total ``mass``. Has a C
+  truncation set by either ``rc`` or a desired total ``mass``. Supports isotropic
+  (``eddingtondf``), Osipkov-Merritt (``osipkovmerrittdf``), and constant-beta
+  (``constantbetadf``) distribution functions through closed-form ``_ddensdr``,
+  ``_d2densdr2``, and ``_ddenstwobetadr`` (and a JAX ``_rforce_jax``). Has a C
   implementation (``hasC=True``), including the full 3D Hessian for the
   variational equations (``hasC_dxdv3d=True``), giving fast orbit integration on
   par with the other closed-form spherical potentials.
