@@ -1,11 +1,15 @@
-import numpy
-
+from ..backend import get_namespace
 from ..util import conversion
 from ._repr_utils import _build_physical_output_string, _strip_physical_output_info
 from .DissipativeForce import _isDissipative
 from .linearPotential import linearPotential
 from .planarPotential import planarPotential
-from .Potential import Potential, PotentialError, _check_potential_list_and_deprecate
+from .Potential import (
+    Potential,
+    PotentialError,
+    _check_backend_compatible,
+    _check_potential_list_and_deprecate,
+)
 
 
 class verticalPotential(linearPotential):
@@ -52,6 +56,8 @@ class verticalPotential(linearPotential):
             self._R, 0.0, phi=self._phi, t=t0, use_physical=False
         )
         self.hasC = Pot.hasC
+        # Backend-aware iff the wrapped 3D potential is (this wrapper itself is).
+        self._backend_compatible = _check_backend_compatible(Pot)
         # Also transfer roSet and voSet
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
@@ -104,10 +110,9 @@ class verticalPotential(linearPotential):
         - 2018-10-07 - Added support for non-axi potentials - Bovy (UofT)
         - 2019-08-19 - Added support for time-dependent potentials - Bovy (UofT)
         """
-        tR = self._R if not hasattr(z, "__len__") else self._R * numpy.ones_like(z)
-        tphi = (
-            self._phi if not hasattr(z, "__len__") else self._phi * numpy.ones_like(z)
-        )
+        xp = get_namespace(z)
+        tR = self._R if not hasattr(z, "__len__") else self._R * xp.ones_like(z)
+        tphi = self._phi if not hasattr(z, "__len__") else self._phi * xp.ones_like(z)
         return self._Pot(tR, z, phi=tphi, t=t, use_physical=False) - self._midplanePot
 
     def _force(self, z, t=0.0):
@@ -133,10 +138,9 @@ class verticalPotential(linearPotential):
         - 2019-08-19 - Added support for time-dependent potentials - Bovy (UofT)
 
         """
-        tR = self._R if not hasattr(z, "__len__") else self._R * numpy.ones_like(z)
-        tphi = (
-            self._phi if not hasattr(z, "__len__") else self._phi * numpy.ones_like(z)
-        )
+        xp = get_namespace(z)
+        tR = self._R if not hasattr(z, "__len__") else self._R * xp.ones_like(z)
+        tphi = self._phi if not hasattr(z, "__len__") else self._phi * xp.ones_like(z)
         return self._Pot.zforce(tR, z, phi=tphi, t=t, use_physical=False)
 
 
