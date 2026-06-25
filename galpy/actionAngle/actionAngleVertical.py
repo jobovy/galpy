@@ -12,9 +12,14 @@
 import numpy
 from scipy import integrate, optimize
 
+from ..backend import get_namespace, is_backend_array
 from ..potential.linearPotential import evaluatelinearPotentials
 from ..potential.Potential import _check_potential_list_and_deprecate
 from .actionAngle import actionAngle
+
+# Gauss-Legendre order for the backend (jax/torch) action/freq/angle quadratures
+# (matches actionAngleSpherical's choice).
+_BACKEND_GL_ORDER = 50
 
 
 class actionAngleVertical(actionAngle):
@@ -73,6 +78,8 @@ class actionAngleVertical(actionAngle):
             if isinstance(x, float):
                 x = numpy.array([x])
                 vx = numpy.array([vx])
+            if is_backend_array(x):
+                return self._evaluate_backend(x, vx)
             J = numpy.empty(len(x))
             for ii in range(len(x)):
                 E = vx[ii] ** 2.0 / 2.0 + evaluatelinearPotentials(
@@ -129,6 +136,8 @@ class actionAngleVertical(actionAngle):
             if isinstance(x, float):
                 x = numpy.array([x])
                 vx = numpy.array([vx])
+            if is_backend_array(x):
+                return self._actionsFreqs_backend(x, vx)
             J = numpy.empty(len(x))
             Omega = numpy.empty(len(x))
             for ii in range(len(x)):
@@ -215,6 +224,8 @@ class actionAngleVertical(actionAngle):
             if isinstance(x, float):
                 x = numpy.array([x])
                 vx = numpy.array([vx])
+            if is_backend_array(x):
+                return self._actionsFreqsAngles_backend(x, vx)
             J = numpy.empty(len(x))
             Omega = numpy.empty(len(x))
             angle = numpy.empty(len(x))
@@ -293,6 +304,132 @@ class actionAngleVertical(actionAngle):
             raise ValueError(
                 "actionAngleVertical actionsFreqsAngles input not understood"
             )
+
+    # ------------------------------------------------ backend (jax/torch) path
+    # Vectorised, differentiable mirror of the per-object numpy scipy loop above
+    # (the numpy path is byte-identical and untouched; jax/torch inputs branch
+    # here). The turning point xmax (E == Phi(xmax)) uses the shared
+    # backend.optimize.brentq with a fixed-schedule expanding bracket; the
+    # J/Omega/angle integrals use backend.quadrature.fixed_quad with the same
+    # x = xmax - t^2 substitution the numpy Omega integral uses, the radicand
+    # 2(E - Phi(x)) clipped >= 0 before the sqrt (sqrt'(0)=inf would NaN-poison
+    # reverse-mode AD). This is the 1D vertical analog of actionAngleSpherical's
+    # radial Jr/Or/ar.
+
+    def _E_backend(self, x, vx):
+        return vx**2.0 / 2.0 + evaluatelinearPotentials(
+            self._pot, x, use_physical=False
+        )
+
+    def _calc_xmax_backend(self, x, vx, E):
+        """Vectorised turning point xmax (E == Phi(xmax)) via backend brentq."""
+        from ..backend.optimize import brentq as _backend_brentq
+
+        xp = get_namespace(x)
+        absx = xp.abs(x)
+
+        def f(xm, E_):
+            return E_ - evaluatelinearPotentials(self._pot, xm, use_physical=False)
+
+        # Expanding upper bracket: double from 2|x| (1e-5 at x=0) until f <= 0.
+        xend = xp.where(absx > 0.0, 2.0 * absx, 1e-5 * xp.ones_like(absx))
+        for _ in range(80):
+            xend = xp.where(f(xend, E) > 0.0, xend * 2.0, xend)
+        # Lower bracket |x| (f(|x|) = vx^2/2 >= 0); at the turning point vx==0,
+        # |x| IS xmax, so use a safe lower end there (dead-branch guard) and
+        # override below.
+        at_turn = vx == 0.0
+        lo = xp.where(at_turn, absx / 2.0, absx)
+        xmax = _backend_brentq(f, lo, xend, args=(E,))
+        return xp.where(at_turn, absx, xmax)
+
+    def _calc_J_backend(self, xp, xmax, E):
+        """J = (2/pi) int_0^xmax sqrt(2(E-Phi)) dx via x = xmax - t^2."""
+        from ..backend.quadrature import fixed_quad
+
+        lim = xp.sqrt(xmax)
+
+        def integrand(s):  # s: (n,) -> (N, n); t = lim*s, x = xmax - t^2
+            t = lim[:, None] * s[None, :]
+            xi = xmax[:, None] - t**2.0
+            rad = 2.0 * (
+                E[:, None] - evaluatelinearPotentials(self._pot, xi, use_physical=False)
+            )
+            rad = xp.where(rad > 0.0, rad, xp.zeros_like(rad))  # clip (AD guard)
+            return xp.sqrt(rad) * 2.0 * t * lim[:, None]  # dx = 2t dt, dt = lim ds
+
+        return 2.0 / numpy.pi * fixed_quad(xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER)
+
+    def _calc_omega_backend(self, xp, xmax, E):
+        """Omega = pi/2 / int_0^xmax dx/sqrt(2(E-Phi)) via x = xmax - t^2."""
+        from ..backend.quadrature import fixed_quad
+
+        lim = xp.sqrt(xmax)
+
+        def integrand(s):
+            t = lim[:, None] * s[None, :]
+            xi = xmax[:, None] - t**2.0
+            rad = 2.0 * (
+                E[:, None] - evaluatelinearPotentials(self._pot, xi, use_physical=False)
+            )
+            rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))  # 2t->0 there anyway
+            return 2.0 * t / xp.sqrt(rad) * lim[:, None]
+
+        return numpy.pi / 2.0 / fixed_quad(xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER)
+
+    def _calc_angle_backend(self, xp, x, vx, xmax, E, Omega):
+        """angle = Omega * int_0^|x| dx/sqrt(2(E-Phi)), then (x,vx)-quadrant fix.
+
+        Integrate via xi = xmax - t^2 (t from sqrt(xmax-|x|) to sqrt(xmax)) so the
+        1/sqrt turning-point singularity at xi=xmax is regularised by the 2t
+        Jacobian (the orbit can sit arbitrarily close to xmax as vx -> 0).
+        """
+        from ..backend.quadrature import fixed_quad
+
+        absx = xp.abs(x)
+        lo = xp.sqrt(xp.where(xmax > absx, xmax - absx, xp.zeros_like(xmax)))
+        hi = xp.sqrt(xmax)
+        span = hi - lo
+
+        def integrand(s):  # t = lo + span*s, xi = xmax - t^2
+            t = lo[:, None] + span[:, None] * s[None, :]
+            xi = xmax[:, None] - t**2.0
+            rad = 2.0 * (
+                E[:, None] - evaluatelinearPotentials(self._pot, xi, use_physical=False)
+            )
+            rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))
+            return 2.0 * t / xp.sqrt(rad) * span[:, None]  # dx = 2t dt, dt = span ds
+
+        angle = Omega * fixed_quad(xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER)
+        # Quadrant assembly (mirror the numpy masked writes; disjoint conditions).
+        angle = xp.where((x >= 0.0) & (vx < 0.0), numpy.pi - angle, angle)
+        angle = xp.where((x < 0.0) & (vx <= 0.0), numpy.pi + angle, angle)
+        angle = xp.where((x < 0.0) & (vx > 0.0), 2.0 * numpy.pi - angle, angle)
+        return angle % (2.0 * numpy.pi)
+
+    def _evaluate_backend(self, x, vx):
+        xp = get_namespace(x)
+        E = self._E_backend(x, vx)
+        xmax = self._calc_xmax_backend(x, vx, E)
+        return self._calc_J_backend(xp, xmax, E)
+
+    def _actionsFreqs_backend(self, x, vx):
+        xp = get_namespace(x)
+        E = self._E_backend(x, vx)
+        xmax = self._calc_xmax_backend(x, vx, E)
+        return (
+            self._calc_J_backend(xp, xmax, E),
+            self._calc_omega_backend(xp, xmax, E),
+        )
+
+    def _actionsFreqsAngles_backend(self, x, vx):
+        xp = get_namespace(x)
+        E = self._E_backend(x, vx)
+        xmax = self._calc_xmax_backend(x, vx, E)
+        J = self._calc_J_backend(xp, xmax, E)
+        Omega = self._calc_omega_backend(xp, xmax, E)
+        angle = self._calc_angle_backend(xp, x, vx, xmax, E, Omega)
+        return (J, Omega, angle)
 
     def calcxmax(self, x, vx, E=None):
         """
