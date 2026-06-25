@@ -548,12 +548,8 @@ class actionAngleSpherical(actionAngle):
 
         xp = get_namespace(r)
 
-        def f(R_, E_, L_):
-            return (
-                E_
-                - _evaluateplanarPotentials(self._2dpot, R_)
-                - L_**2.0 / 2.0 / R_**2.0
-            )
+        def f(R_, E_, L_):  # == _rapRperiAxiEq == _radicand/2 (vr=0 root eqn)
+            return _radicand(xp, R_, E_, L_, self._2dpot) / 2.0
 
         # Fixed-schedule bracketing (mirrors _rapRperiAxiFindStart, vectorised):
         # halve from r/2 until f<=0 (or below the floor) for rperi's lower end,
@@ -604,8 +600,7 @@ class actionAngleSpherical(actionAngle):
             sin = xp.sin(theta)[None, :]
             cos = xp.cos(theta)[None, :]
             rr = rperi[:, None] + span[:, None] * sin**2.0
-            Phi = _evaluateplanarPotentials(self._2dpot, rr)
-            rad = 2.0 * (E[:, None] - Phi) - L[:, None] ** 2.0 / rr**2.0
+            rad = _radicand(xp, rr, E[:, None], L[:, None], self._2dpot)
             rad = xp.where(rad > 0.0, rad, 0.0)  # clip before sqrt (AD guard)
             return xp.sqrt(rad) * span[:, None] * 2.0 * sin * cos
 
@@ -640,8 +635,7 @@ class actionAngleSpherical(actionAngle):
         def integrand(s):  # s: (n,) GL nodes -> (N, n)
             t = lim[:, None] * s[None, :]
             rr = base[:, None] + sign * t**2.0
-            Phi = _evaluateplanarPotentials(self._2dpot, rr)
-            rad = 2.0 * (E[:, None] - Phi) - L[:, None] ** 2.0 / rr**2.0
+            rad = _radicand(xp, rr, E[:, None], L[:, None], self._2dpot)
             # clip before sqrt (AD guard); the masked-out (rad<=0) endpoint sits
             # where 2t->0 anyway, so a 0 there is harmless.
             rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))
@@ -679,6 +673,19 @@ class actionAngleSpherical(actionAngle):
         Op = I * Or / 2.0 / numpy.pi
         return (Or, Op)
 
+    @staticmethod
+    def _assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw):
+        """Quadrant assembly for the radial angle, namespace-agnostic.
+
+        Given the raw small/large panel values (each Or*integral, or 0), apply
+        the vr/r<Rmean quadrant logic. Shared by the numpy scalar driver
+        (xp=numpy; numpy.where on scalars is byte-identical to the if/else) and
+        the backend array driver.
+        """
+        wr_small = xp.where(vr < 0.0, 2.0 * numpy.pi - wr_small_raw, wr_small_raw)
+        wr_large = xp.where(vr < 0.0, numpy.pi + wr_large_raw, numpy.pi - wr_large_raw)
+        return xp.where(r < Rmean, wr_small, wr_large)
+
     def _calc_angler_backend(self, Or, r, Rmean, rperi, rap, E, L, vr):
         """Vectorised radial angle ar (un-modded; caller takes % 2pi).
 
@@ -689,11 +696,9 @@ class actionAngleSpherical(actionAngle):
         xp = get_namespace(r)
         limS = xp.sqrt(xp.where(r > rperi, r - rperi, xp.zeros_like(r)))
         limL = xp.sqrt(xp.where(rap > r, rap - r, xp.zeros_like(r)))
-        wr_small = Or * self._panel_backend(xp, rperi, 1.0, limS, E, L, False)
-        wr_small = xp.where(vr < 0.0, 2.0 * numpy.pi - wr_small, wr_small)
-        wr_large = Or * self._panel_backend(xp, rap, -1.0, limL, E, L, False)
-        wr_large = xp.where(vr < 0.0, numpy.pi + wr_large, numpy.pi - wr_large)
-        return xp.where(r < Rmean, wr_small, wr_large)
+        wr_small_raw = Or * self._panel_backend(xp, rperi, 1.0, limS, E, L, False)
+        wr_large_raw = Or * self._panel_backend(xp, rap, -1.0, limL, E, L, False)
+        return self._assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw)
 
     def _calc_anglez_backend(
         self, Or, Op, ar, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
@@ -994,6 +999,11 @@ class actionAngleSpherical(actionAngle):
         return phi - u
 
     def _calc_angler(self, Or, r, Rmean, rperi, rap, E, L, vr, fixed_quad, **kwargs):
+        # Integrate only the active panel (small if r<Rmean else large) with
+        # scipy; the lim==0 guards stay here. The quadrant assembly is shared
+        # with the backend via _assemble_angler (xp.where; on numpy scalars this
+        # is byte-identical to the original if/else). The inactive panel slot is
+        # discarded by the r<Rmean select inside _assemble_angler.
         if r < Rmean:
             if r > rperi and not fixed_quad:
                 wr = (
@@ -1020,8 +1030,7 @@ class actionAngleSpherical(actionAngle):
                 )
             else:
                 wr = 0.0
-            if vr < 0.0:
-                wr = 2 * numpy.pi - wr
+            wr_small_raw, wr_large_raw = wr, 0.0
         else:
             if r < rap and not fixed_quad:
                 wr = (
@@ -1048,11 +1057,8 @@ class actionAngleSpherical(actionAngle):
                 )
             else:
                 wr = 0.0
-            if vr < 0.0:
-                wr = numpy.pi + wr
-            else:
-                wr = numpy.pi - wr
-        return wr
+            wr_small_raw, wr_large_raw = 0.0, wr
+        return self._assemble_angler(numpy, r, Rmean, vr, wr_small_raw, wr_large_raw)
 
     def _calc_anglez(
         self,
@@ -1149,34 +1155,53 @@ class actionAngleSpherical(actionAngle):
         return wz
 
 
+def _radicand(xp, r, E, L, pot):
+    """Radial-velocity^2 radicand 2*(E - Phi(r)) - L^2/r^2, namespace-agnostic.
+
+    Shared by the numpy integrands (xp=numpy, scalar r) and the backend panels
+    (xp=jax/torch, array r); byte-identical on numpy. Equals 2*_rapRperiAxiEq.
+    """
+    return 2.0 * (E - _evaluateplanarPotentials(pot, r)) - L**2.0 / r**2.0
+
+
+def _period_angle_integrand(xp, t, base, sign, E, L, pot, azimuthal):
+    """t^2-substituted period/angle integrand core, namespace-agnostic.
+
+    Builds r = base + sign*t**2 and returns 2t/sqrt(radicand) [/r**2 if
+    azimuthal]. Shared by the 4 numpy t^2 module integrands (xp=numpy). The
+    backend panel keeps its own AD-clipped sqrt, so it shares only _radicand.
+    """
+    r = base + sign * t**2.0
+    val = 2.0 * t / xp.sqrt(_radicand(xp, r, E, L, pot))
+    if azimuthal:
+        val = val / r**2.0
+    return val
+
+
 def _JrSphericalIntegrand(r, E, L, pot):
     """The J_r integrand"""
-    return numpy.sqrt(2.0 * (E - _evaluateplanarPotentials(pot, r)) - L**2.0 / r**2.0)
+    return numpy.sqrt(_radicand(numpy, r, E, L, pot))
 
 
 def _TrSphericalIntegrandSmall(t, E, L, pot, rperi):
-    r = rperi + t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot)
+    return _period_angle_integrand(numpy, t, rperi, 1.0, E, L, pot, False)
 
 
 def _TrSphericalIntegrandLarge(t, E, L, pot, rap):
-    r = rap - t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot)
+    return _period_angle_integrand(numpy, t, rap, -1.0, E, L, pot, False)
 
 
 def _ISphericalIntegrandSmall(t, E, L, pot, rperi):
-    r = rperi + t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot) / r**2.0
+    return _period_angle_integrand(numpy, t, rperi, 1.0, E, L, pot, True)
 
 
 def _ISphericalIntegrandLarge(t, E, L, pot, rap):
-    r = rap - t**2.0  # part of the transformation
-    return 2.0 * t / _JrSphericalIntegrand(r, E, L, pot) / r**2.0
+    return _period_angle_integrand(numpy, t, rap, -1.0, E, L, pot, True)
 
 
 def _rapRperiAxiEq(R, E, L, pot):
     """The vr=0 equation that needs to be solved to find apo- and pericenter"""
-    return E - _evaluateplanarPotentials(pot, R) - L**2.0 / 2.0 / R**2.0
+    return _radicand(numpy, R, E, L, pot) / 2.0
 
 
 def _rapRperiAxiFindStart(R, E, L, pot, rap=False, startsign=1.0):
