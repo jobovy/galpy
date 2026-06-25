@@ -13,8 +13,12 @@
 # tests pin that the whole linear dispatch chain nonetheless flows jax/torch
 # through and differentiates, and that numpy stays byte-identical.
 #
-# Tested on single linear potentials (IsothermalDiskPotential, KGPotential) and
-# on a linearCompositePotential (their sum) to cover the composite dispatch.
+# Tested on single linear potentials (IsothermalDiskPotential, KGPotential), on
+# a linearCompositePotential (their sum) to cover the composite dispatch, and on
+# verticalPotential -- the 3D->1D wrapper -- built from an axisymmetric
+# (MiyamotoNagaiPotential) and a non-axisymmetric (LogarithmicHaloPotential at a
+# fixed phi) 3D potential, so the tR/tphi broadcast (xp.ones_like) and the
+# delegation to the parent's evaluate/zforce flow backend arrays through.
 #
 # Proves the four discriminating properties for every entry:
 #   (a) eager jax returns a jax array,
@@ -31,11 +35,17 @@
 import numpy
 import pytest
 
-from galpy.potential import IsothermalDiskPotential, KGPotential
+from galpy.potential import (
+    IsothermalDiskPotential,
+    KGPotential,
+    LogarithmicHaloPotential,
+    MiyamotoNagaiPotential,
+)
 from galpy.potential.linearPotential import (
     evaluatelinearForces,
     evaluatelinearPotentials,
 )
+from galpy.potential.verticalPotential import toVerticalPotential, verticalPotential
 
 # This module manages backends explicitly; exempt from the global --backend
 # force fixture.
@@ -73,8 +83,27 @@ def _composite_pot():
     return IsothermalDiskPotential(amp=1.0, sigma=0.5) + KGPotential()
 
 
+def _vertical_pots():
+    # verticalPotential wrappers over 3D parents: exercise the xp.ones_like
+    # tR/tphi broadcast and the delegation to the parent evaluate/zforce.
+    # Axisymmetric parent (no phi) and non-axisymmetric parent (fixed phi);
+    # toVerticalPotential of a 2-component list yields a linearCompositePotential
+    # of vertical potentials (composite-of-wrappers dispatch).
+    return [
+        verticalPotential(MiyamotoNagaiPotential(normalize=1.0), R=1.1),
+        verticalPotential(
+            LogarithmicHaloPotential(normalize=1.0, b=0.8, q=0.9), R=1.1, phi=0.7
+        ),
+        toVerticalPotential(
+            MiyamotoNagaiPotential(normalize=1.0)
+            + LogarithmicHaloPotential(normalize=0.5),
+            1.1,
+        ),
+    ]
+
+
 def _all_targets():
-    return _single_pots() + [_composite_pot()]
+    return _single_pots() + [_composite_pot()] + _vertical_pots()
 
 
 # --- compute methods + functional interface (all return arrays) ------------ #
