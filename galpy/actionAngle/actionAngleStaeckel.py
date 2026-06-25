@@ -171,6 +171,8 @@ def _staeckel_gl_action(xp, sqfunc, args, lo, hi, order):
 
 def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
     """Unified vectorised (jr, Lz, jz) for numpy and jax/torch backends."""
+    if is_backend_array(R) and not is_backend_array(delta):
+        delta = xp.asarray(delta)  # per-object numpy delta -> match R's namespace
     s = _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta)
     umin, umax, unbound = _staeckel_uminumax(xp, s, pot, delta)
     if bool(xp.any(unbound)):  # eager (no internal jit); mirrors the Single
