@@ -11,6 +11,14 @@ PY2 = sys.version < "3"
 warnings.simplefilter("always", galpyWarning)
 
 
+def _to_numpy(x):
+    # Convert a possibly-backend (jax/torch) array to numpy for numpy-based test
+    # reductions; detach torch grad-tracking tensors first. Identity on numpy.
+    if hasattr(x, "detach"):
+        x = x.detach()
+    return numpy.asarray(x)
+
+
 # Test the actions of an actionAngleHarmonic
 def test_actionAngleHarmonic_conserved_actions():
     # Create harmonic oscillator potential as isochrone w/ large b --> 1D
@@ -166,7 +174,9 @@ def test_actionAngleVertical_conserved_actions():
     ntimes = 1001
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, isopot)
-    js = aAV(obs.x(times), obs.vx(times))
+    # Under a forced jax/torch backend obs.x()/vx() are backend arrays, so aAV
+    # returns one too; the numpy reductions below need numpy (detach grad).
+    js = _to_numpy(aAV(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(
         numpy.fabs(
             (js - numpy.tile(numpy.mean(js), (len(times), 1)).T) / numpy.mean(js)
@@ -190,6 +200,8 @@ def test_actionAngleVertical_conserved_freqs():
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, isopot)
     js, os = aAV.actionsFreqs(obs.x(times), obs.vx(times))
+    js = _to_numpy(js)  # backend array -> numpy for the reductions below
+    os = _to_numpy(os)
     maxdj = numpy.amax(
         numpy.fabs(
             (js - numpy.tile(numpy.mean(js), (len(times), 1)).T) / numpy.mean(js)

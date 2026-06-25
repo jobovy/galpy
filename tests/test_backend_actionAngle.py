@@ -42,12 +42,17 @@ from galpy.actionAngle import (
     actionAngleIsochrone,
     actionAngleIsochroneInverse,
     actionAngleSpherical,
+    actionAngleVertical,
 )
 from galpy.potential import (
     HernquistPotential,
     IsochronePotential,
+    IsothermalDiskPotential,
+    KGPotential,
     LogarithmicHaloPotential,
+    MiyamotoNagaiPotential,
     NFWPotential,
+    toVerticalPotential,
     vcirc,
 )
 
@@ -707,3 +712,71 @@ def test_spherical_noninclined_angle_grad_vs_fd(backend, idx, name):
     g = _grad(backend, f_be, 0.2)
     assert numpy.isfinite(g), f"{name} grad is NaN at non-inclined point ({backend})"
     numpy.testing.assert_allclose(g, fd, rtol=1e-4, atol=1e-6)
+
+
+# ====================================================================
+# actionAngleVertical: 1D vertical action-angle (J, Omega, angle). The numpy
+# per-object scipy loop (brentq for xmax + adaptive quad) is untouched (byte-
+# identical); jax/torch inputs take a vectorised, differentiable branch -- xmax
+# via the shared backend.optimize.brentq, the J/Omega/angle integrals via
+# backend.quadrature.fixed_quad with the x = xmax - t^2 turning-point
+# substitution. The 1D analog of actionAngleSpherical's radial Jr/Or/ar.
+_VERT_POTS = {
+    "isodisk": IsothermalDiskPotential(amp=1.0, sigma=0.5),
+    "kg": KGPotential(),
+    "vertMN": toVerticalPotential(MiyamotoNagaiPotential(normalize=1.0), 1.1),
+}
+# Generic + every edge: midplane (x=0), turning point (vx=0), near-turn, large
+# amplitude, and all four (x,vx)-sign quadrants for the angle assembly.
+_VERT_X = numpy.array([0.1, -0.2, 0.3, 0.0, 0.3, 0.05, 0.15, -0.15, -0.15])
+_VERT_VX = numpy.array([0.2, 0.15, -0.1, 0.2, 0.0, 1.5, -0.3, -0.3, 0.3])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("potname", list(_VERT_POTS))
+def test_vertical_parity(backend, potname):
+    # numpy <-> jax <-> torch parity of _evaluate (J), _actionsFreqs (J,Omega),
+    # and _actionsFreqsAngles (J,Omega,angle) over generic + edge-case ICs.
+    aAV = actionAngleVertical(pot=_VERT_POTS[potname])
+    bx, bvx = _arr(backend, _VERT_X), _arr(backend, _VERT_VX)
+    for ref, got in (
+        (aAV._evaluate(_VERT_X, _VERT_VX), aAV._evaluate(bx, bvx)),
+        (aAV._actionsFreqs(_VERT_X, _VERT_VX), aAV._actionsFreqs(bx, bvx)),
+        (aAV._actionsFreqsAngles(_VERT_X, _VERT_VX), aAV._actionsFreqsAngles(bx, bvx)),
+    ):
+        ref = ref if isinstance(ref, tuple) else (ref,)
+        got = got if isinstance(got, tuple) else (got,)
+        for idx, (r, g) in enumerate(zip(ref, got)):
+            assert _is_backend_array(backend, g)
+            if len(ref) == 3 and idx == 2:  # angle: wrap-robust
+                d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+                numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
+            else:
+                numpy.testing.assert_allclose(
+                    _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+                )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("which,idx", [("J", 0), ("Omega", 1), ("angle", 2)])
+def test_vertical_grad_vs_fd_wrt_vx(backend, which, idx):
+    # d(J/Omega/angle)/d vx at a single bound point: AD (vectorised root-find +
+    # fixed_quad, both differentiable via the backend layer) vs finite-diff.
+    aAV = actionAngleVertical(pot=_VERT_POTS["isodisk"])
+    x0, vx0 = 0.15, 0.2
+
+    def call(vx_val, xp_arr):
+        return aAV._actionsFreqsAngles(xp_arr(x0), vx_val)[idx].sum()
+
+    def f_np(vx_val):
+        # x and vx both floats -> the numpy path wraps them to 1-element arrays
+        return numpy.asarray(call(vx_val, lambda v: v))
+
+    fd = _fd(f_np, vx0)
+
+    def f_be(vx_t):
+        return call(vx_t, lambda v: _arr(backend, numpy.atleast_1d(v).astype(float)))
+
+    g = _grad(backend, f_be, vx0)
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-6)
