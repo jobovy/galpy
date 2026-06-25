@@ -820,32 +820,23 @@ class actionAngleStaeckelSingle(actionAngle):
         )  # u0 as defined by Binney does not matter for a
         # single action evaluation, so we don't determine it here
         self._sinhu0 = numpy.sinh(self._u0)
-        # v0 reference for the u (J_R) integral. The actions path uses v0=vx
-        # (byte-identical default); the C frequencies/angles path uses v0=pi/2,
-        # which the freqs/angles wiring requests via _v0u=pi/2.
-        _v0u = kwargs.pop("_v0u", None)
-        self._v0u = self._vx if _v0u is None else _v0u
+        # All Staeckel integrals (actions, frequencies, angles) use v0=pi/2 for
+        # the u (J_R) integral and u0 for the v (J_z) integral, matching the C
+        # implementation. (_v0u is still overridable.)
+        self._v0u = kwargs.pop("_v0u", numpy.pi / 2.0)
         self._sinv0u = numpy.sin(self._v0u)
         self._potu0v0 = potentialStaeckel(self._u0, self._v0u, self._pot, self._delta)
+        # I3U with the dU reference at (u0, v0u); robust to u0!=ux (useu0=True),
+        # reduces to the bare I3 when u0=ux.
         self._I3U = (
             self._E * self._sinhux**2.0
             - self._pux**2.0 / 2.0 / self._delta**2.0
             - self._Lz**2.0 / 2.0 / self._delta**2.0 / self._sinhux**2.0
+            - (self._sinhux**2.0 + self._sinv0u**2.0)
+            * potentialStaeckel(self._ux, self._v0u, self._pot, self._delta)
+            + (self._sinhu0**2.0 + self._sinv0u**2.0) * self._potu0v0
         )
-        if _v0u is not None:
-            # C-style I3U with the dU reference correction (robust to u0!=ux, as
-            # in the freqs/angles path with useu0=True). Reduces to the default
-            # formula when u0=ux. Only used when _v0u is explicitly requested, so
-            # the actions path stays byte-identical.
-            self._I3U += (
-                -(self._sinhux**2.0 + self._sinv0u**2.0)
-                * potentialStaeckel(self._ux, self._v0u, self._pot, self._delta)
-                + (self._sinhu0**2.0 + self._sinv0u**2.0) * self._potu0v0
-            )
-        # u0 reference for the v (J_z) integral. The actions path uses u0=ux
-        # (byte-identical default); the C frequencies/angles path uses the actual
-        # u0 (== ux unless useu0=True), keyed off the same _v0u request.
-        self._u0v = self._u0 if _v0u is not None else self._ux
+        self._u0v = self._u0
         self._coshu0v = numpy.cosh(self._u0v)
         self._sinhu0v = numpy.sinh(self._u0v)
         self._potupi2 = potentialStaeckel(

@@ -3573,8 +3573,11 @@ def test_actionAngleStaeckel_conserved_actions_ecc():
 
     aAS = actionAngleStaeckel(pot=MWPotential, c=False, delta=0.71)
     obs = Orbit([1.1, 0.2, 1.3, 0.3, 0.0])
+    # Jr tol -1.4 (was -1.5): the pure-Python path now uses the C v0=pi/2
+    # convention, which conserves this eccentric orbit's Jr to 3.28% (identical
+    # to c=True) rather than the v0=vx 3.16%.
     check_actionAngle_conserved_actions(
-        aAS, obs, MWPotential, -1.5, -8.0, -1.4, ntimes=101
+        aAS, obs, MWPotential, -1.4, -8.0, -1.4, ntimes=101
     )
     return None
 
@@ -3951,8 +3954,11 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_ecc():
 
     aAS = actionAngleStaeckel(pot=MWPotential, c=False, delta=0.71)
     obs = Orbit([1.1, 0.2, 1.3, 0.3, 0.0, 2.0])
+    # ecc/zmax tols loosened (ecc -1.8->-1.7, zmax -1.4->-1.3): the pure-Python
+    # path now uses the C v0=pi/2 convention and conserves ecc/zmax to 1.58%/4.15%
+    # (identical to c=True), vs the v0=vx values the old tols were set for.
     check_actionAngle_conserved_EccZmaxRperiRap(
-        aAS, obs, MWPotential, -1.8, -1.4, -1.8, -1.8, ntimes=101, inclphi=True
+        aAS, obs, MWPotential, -1.7, -1.3, -1.8, -1.8, ntimes=101, inclphi=True
     )
     return None
 
