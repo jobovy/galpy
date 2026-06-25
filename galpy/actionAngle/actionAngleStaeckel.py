@@ -125,13 +125,17 @@ def _staeckel_uminumax(xp, s, pot, delta):
     for _ in range(80):  # expanding bracket below ux until f<0 (>1e-9 floor)
         lo = xp.where((f(lo) >= 0.0) & (lo > 1e-9), lo * 0.9, lo)
     hi = ux * 1.1
-    for _ in range(80):  # expanding bracket above ux until f<0
-        hi = xp.where(f(hi) >= 0.0, hi * 1.1, hi)
+    for _ in range(80):  # expanding bracket above ux until f<0 (stop at u=100)
+        hi = xp.where((f(hi) >= 0.0) & (hi < 100.0), hi * 1.1, hi)
+    # No upper turning point below u=100 (f(100)>=0 -> u=100 still in the allowed
+    # region) -> unbound, mirroring the per-object _uminUmaxFindStart
+    # `utry > 100 -> UnboundError`.
+    unbound = (f(100.0 * xp.ones_like(ux)) >= 0.0) & ~(at_umax | circular)
     umin = bisect_root(f, lo, ux, xp, xtol=1e-13, maxiter=200)
     umax = bisect_root(f, ux, hi, xp, xtol=1e-13, maxiter=200)
     umin = xp.where(at_umin | circular, ux, umin)
     umax = xp.where(at_umax | circular, ux, umax)
-    return umin, umax
+    return umin, umax, unbound
 
 
 def _staeckel_vmin(xp, s, pot, delta):
@@ -168,7 +172,9 @@ def _staeckel_gl_action(xp, sqfunc, args, lo, hi, order):
 def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
     """Unified vectorised (jr, Lz, jz) for numpy and jax/torch backends."""
     s = _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta)
-    umin, umax = _staeckel_uminumax(xp, s, pot, delta)
+    umin, umax, unbound = _staeckel_uminumax(xp, s, pot, delta)
+    if bool(xp.any(unbound)):  # eager (no internal jit); mirrors the Single
+        raise UnboundError("Orbit seems to be unbound")
     vmin = _staeckel_vmin(xp, s, pot, delta)
     sqrt2 = numpy.sqrt(2.0)
     jr_args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],

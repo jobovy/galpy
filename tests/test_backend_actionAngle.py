@@ -822,3 +822,19 @@ def test_staeckel_actions_vs_c(backend):
     jr_b, lz_b, jz_b = aF(*[_arr(backend, v) for v in _STK])
     numpy.testing.assert_allclose(_np(jr_b), numpy.asarray(jr_c), rtol=1e-8, atol=1e-9)
     numpy.testing.assert_allclose(_np(jz_b), numpy.asarray(jz_c), rtol=1e-8, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_unbound_raises(backend):
+    # an unbound orbit raises UnboundError under the backends too (the vectorised
+    # turning-point search detects no umax below u=100, mirroring the Single).
+    from galpy.actionAngle import UnboundError
+
+    aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.5, c=False)
+    with pytest.raises(UnboundError):
+        aA(
+            *[
+                _arr(backend, numpy.atleast_1d(v).astype(float))
+                for v in (0.9, 10.0, -20.0, 0.1, 10.0)
+            ]
+        )
