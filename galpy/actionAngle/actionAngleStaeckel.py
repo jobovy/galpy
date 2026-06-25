@@ -343,9 +343,71 @@ class actionAngleStaeckel(actionAngle):
                     "C module not used because potential does not have a C implementation",
                     galpyWarning,
                 )
-            raise NotImplementedError(
-                "actionsFreqs with c=False not implemented; maybe you meant to install the C extension?"
+            if len(args) == 5:  # R,vR.vT, z, vz
+                R, vR, vT, z, vz = args
+            elif len(args) == 6:  # R,vR.vT, z, vz, phi
+                R, vR, vT, z, vz, phi = args
+            else:
+                self._parse_eval_args(*args)
+                R = self._eval_R
+                vR = self._eval_vR
+                vT = self._eval_vT
+                z = self._eval_z
+                vz = self._eval_vz
+            if isinstance(R, float):
+                R = numpy.array([R])
+                vR = numpy.array([vR])
+                vT = numpy.array([vT])
+                z = numpy.array([z])
+                vz = numpy.array([vz])
+            kwargs.pop("c", None)
+            kwargs.pop("u0", None)
+            Lz = R * vT
+            jr = numpy.zeros(len(R))
+            jz = numpy.zeros(len(R))
+            Omegar = numpy.zeros(len(R))
+            Omegaphi = numpy.zeros(len(R))
+            Omegaz = numpy.zeros(len(R))
+            for ii in range(len(R)):
+                tdelta = delta[ii] if hasattr(delta, "__len__") else delta
+                singlekw = {
+                    "pot": self._pot,
+                    "delta": tdelta,
+                    "_v0u": numpy.pi / 2.0,
+                }
+                if self._useu0:
+                    E = (
+                        _evaluatePotentials(self._pot, R[ii], z[ii])
+                        + vR[ii] ** 2.0 / 2.0
+                        + vz[ii] ** 2.0 / 2.0
+                        + vT[ii] ** 2.0 / 2.0
+                    )
+                    singlekw["u0"] = calcu0(E, Lz[ii], self._pot, tdelta)[0]
+                aASingle = actionAngleStaeckelSingle(
+                    R[ii], vR[ii], vT[ii], z[ii], vz[ii], **singlekw
+                )
+                jr[ii] = numpy.atleast_1d(aASingle.JR(fixed_quad=True, order=order))[0]
+                jz[ii] = numpy.atleast_1d(aASingle.Jz(fixed_quad=True, order=order))[0]
+                with numpy.errstate(divide="ignore", invalid="ignore"):
+                    tOr, tOp, tOz, _, _, _, _ = aASingle.calcFreqs(order=order)
+                Omegar[ii] = tOr
+                Omegaphi[ii] = tOp
+                Omegaz[ii] = tOz
+            # Adjustments for close-to-circular orbits (mirror the C wrapper)
+            indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
+                jz < 10.0**-3.0
             )
+            if numpy.sum(indx) > 0:
+                Omegar[indx] = [
+                    epifreq(self._pot, r, use_physical=False) for r in R[indx]
+                ]
+                Omegaphi[indx] = [
+                    omegac(self._pot, r, use_physical=False) for r in R[indx]
+                ]
+                Omegaz[indx] = [
+                    verticalfreq(self._pot, r, use_physical=False) for r in R[indx]
+                ]
+            return (jr, Lz, jz, Omegar, Omegaphi, Omegaz)
 
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
@@ -460,15 +522,89 @@ class actionAngleStaeckel(actionAngle):
                 raise RuntimeError(
                     "C-code for calculation actions failed; try with c=False"
                 )  # pragma: no cover
-        else:  # pragma: no cover
+        else:
             if "c" in kwargs and kwargs["c"] and not self._c:  # pragma: no cover
                 warnings.warn(
                     "C module not used because potential does not have a C implementation",
                     galpyWarning,
                 )
-            raise NotImplementedError(
-                "actionsFreqs with c=False not implemented; maybe you meant to install the C extension?"
+            if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
+                raise OSError("Must specify phi")
+            elif len(args) == 6:  # R,vR.vT, z, vz, phi
+                R, vR, vT, z, vz, phi = args
+            else:
+                self._parse_eval_args(*args)
+                R = self._eval_R
+                vR = self._eval_vR
+                vT = self._eval_vT
+                z = self._eval_z
+                vz = self._eval_vz
+                phi = self._eval_phi
+            if isinstance(R, float):
+                R = numpy.array([R])
+                vR = numpy.array([vR])
+                vT = numpy.array([vT])
+                z = numpy.array([z])
+                vz = numpy.array([vz])
+                phi = numpy.array([phi])
+            kwargs.pop("c", None)
+            kwargs.pop("u0", None)
+            Lz = R * vT
+            jr = numpy.zeros(len(R))
+            jz = numpy.zeros(len(R))
+            Omegar = numpy.zeros(len(R))
+            Omegaphi = numpy.zeros(len(R))
+            Omegaz = numpy.zeros(len(R))
+            angler = numpy.zeros(len(R))
+            anglephi = numpy.zeros(len(R))
+            anglez = numpy.zeros(len(R))
+            for ii in range(len(R)):
+                tdelta = delta[ii] if hasattr(delta, "__len__") else delta
+                singlekw = {
+                    "pot": self._pot,
+                    "delta": tdelta,
+                    "_v0u": numpy.pi / 2.0,
+                }
+                if self._useu0:
+                    E = (
+                        _evaluatePotentials(self._pot, R[ii], z[ii])
+                        + vR[ii] ** 2.0 / 2.0
+                        + vz[ii] ** 2.0 / 2.0
+                        + vT[ii] ** 2.0 / 2.0
+                    )
+                    singlekw["u0"] = calcu0(E, Lz[ii], self._pot, tdelta)[0]
+                aASingle = actionAngleStaeckelSingle(
+                    R[ii], vR[ii], vT[ii], z[ii], vz[ii], **singlekw
+                )
+                jr[ii] = numpy.atleast_1d(aASingle.JR(fixed_quad=True, order=order))[0]
+                jz[ii] = numpy.atleast_1d(aASingle.Jz(fixed_quad=True, order=order))[0]
+                with numpy.errstate(divide="ignore", invalid="ignore"):
+                    tOr, tOp, tOz, tar, taphi, taz = aASingle.calcAngles(order=order)
+                Omegar[ii] = tOr
+                Omegaphi[ii] = tOp
+                Omegaz[ii] = tOz
+                angler[ii] = tar
+                # Assemble Anglephi as in the C wrapper: (raw + phi%2pi)%2pi
+                taphi = (taphi + phi[ii] % (2.0 * numpy.pi)) % (2.0 * numpy.pi)
+                if taphi < 0.0:  # pragma: no cover (Python % is non-negative)
+                    taphi += 2.0 * numpy.pi
+                anglephi[ii] = taphi
+                anglez[ii] = taz
+            # Adjustments for close-to-circular orbits (mirror the C wrapper)
+            indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
+                jz < 10.0**-3.0
             )
+            if numpy.sum(indx) > 0:
+                Omegar[indx] = [
+                    epifreq(self._pot, r, use_physical=False) for r in R[indx]
+                ]
+                Omegaphi[indx] = [
+                    omegac(self._pot, r, use_physical=False) for r in R[indx]
+                ]
+                Omegaz[indx] = [
+                    verticalfreq(self._pot, r, use_physical=False) for r in R[indx]
+                ]
+            return (jr, Lz, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
@@ -684,18 +820,31 @@ class actionAngleStaeckelSingle(actionAngle):
         )  # u0 as defined by Binney does not matter for a
         # single action evaluation, so we don't determine it here
         self._sinhu0 = numpy.sinh(self._u0)
-        self._potu0v0 = potentialStaeckel(self._u0, self._vx, self._pot, self._delta)
+        # All Staeckel integrals (actions, frequencies, angles) use v0=pi/2 for
+        # the u (J_R) integral and u0 for the v (J_z) integral, matching the C
+        # implementation. (_v0u is still overridable.)
+        self._v0u = kwargs.pop("_v0u", numpy.pi / 2.0)
+        self._sinv0u = numpy.sin(self._v0u)
+        self._potu0v0 = potentialStaeckel(self._u0, self._v0u, self._pot, self._delta)
+        # I3U with the dU reference at (u0, v0u); robust to u0!=ux (useu0=True),
+        # reduces to the bare I3 when u0=ux.
         self._I3U = (
             self._E * self._sinhux**2.0
             - self._pux**2.0 / 2.0 / self._delta**2.0
             - self._Lz**2.0 / 2.0 / self._delta**2.0 / self._sinhux**2.0
+            - (self._sinhux**2.0 + self._sinv0u**2.0)
+            * potentialStaeckel(self._ux, self._v0u, self._pot, self._delta)
+            + (self._sinhu0**2.0 + self._sinv0u**2.0) * self._potu0v0
         )
+        self._u0v = self._u0
+        self._coshu0v = numpy.cosh(self._u0v)
+        self._sinhu0v = numpy.sinh(self._u0v)
         self._potupi2 = potentialStaeckel(
-            self._ux, numpy.pi / 2.0, self._pot, self._delta
+            self._u0v, numpy.pi / 2.0, self._pot, self._delta
         )
-        dV = self._coshux**2.0 * self._potupi2 - (
-            self._sinhux**2.0 + self._sinvx**2.0
-        ) * potentialStaeckel(self._ux, self._vx, self._pot, self._delta)
+        dV = self._coshu0v**2.0 * self._potupi2 - (
+            self._sinhu0v**2.0 + self._sinvx**2.0
+        ) * potentialStaeckel(self._u0v, self._vx, self._pot, self._delta)
         self._I3V = (
             -self._E * self._sinvx**2.0
             + self._pvx**2.0 / 2.0 / self._delta**2.0
@@ -771,8 +920,8 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._delta,
                         self._u0,
                         self._sinhu0**2.0,
-                        self._vx,
-                        self._sinvx**2.0,
+                        self._v0u,
+                        self._sinv0u**2.0,
                         self._potu0v0,
                         self._pot,
                     ),
@@ -797,8 +946,8 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._delta,
                         self._u0,
                         self._sinhu0**2.0,
-                        self._vx,
-                        self._sinvx**2.0,
+                        self._v0u,
+                        self._sinv0u**2.0,
                         self._potu0v0,
                         self._pot,
                     ),
@@ -849,9 +998,9 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._Lz,
                         self._I3V,
                         self._delta,
-                        self._ux,
-                        self._coshux**2.0,
-                        self._sinhux**2.0,
+                        self._u0v,
+                        self._coshu0v**2.0,
+                        self._sinhu0v**2.0,
                         self._potupi2,
                         self._pot,
                     ),
@@ -875,9 +1024,9 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._Lz,
                         self._I3V,
                         self._delta,
-                        self._ux,
-                        self._coshux**2.0,
-                        self._sinhux**2.0,
+                        self._u0v,
+                        self._coshu0v**2.0,
+                        self._sinhu0v**2.0,
                         self._potupi2,
                         self._pot,
                     ),
@@ -933,8 +1082,8 @@ class actionAngleStaeckelSingle(actionAngle):
             self._delta,
             self._u0,
             self._sinhu0**2.0,
-            self._vx,
-            self._sinvx**2.0,
+            self._v0u,
+            self._sinv0u**2.0,
             self._potu0v0,
             self._pot,
         )
@@ -950,8 +1099,8 @@ class actionAngleStaeckelSingle(actionAngle):
                 self._delta,
                 self._u0,
                 self._sinhu0**2.0,
-                self._vx,
-                self._sinvx**2.0,
+                self._v0u,
+                self._sinv0u**2.0,
                 self._potu0v0,
                 self._pot,
             )
@@ -963,8 +1112,8 @@ class actionAngleStaeckelSingle(actionAngle):
                 self._delta,
                 self._u0,
                 self._sinhu0**2.0,
-                self._vx,
-                self._sinvx**2.0,
+                self._v0u,
+                self._sinv0u**2.0,
                 self._potu0v0,
                 self._pot,
             )
@@ -978,8 +1127,8 @@ class actionAngleStaeckelSingle(actionAngle):
                     self._delta,
                     self._u0,
                     self._sinhu0**2.0,
-                    self._vx,
-                    self._sinvx**2.0,
+                    self._v0u,
+                    self._sinv0u**2.0,
                     self._potu0v0,
                     self._pot,
                 )
@@ -998,8 +1147,8 @@ class actionAngleStaeckelSingle(actionAngle):
                                 self._delta,
                                 self._u0,
                                 self._sinhu0**2.0,
-                                self._vx,
-                                self._sinvx**2.0,
+                                self._v0u,
+                                self._sinv0u**2.0,
                                 self._potu0v0,
                                 self._pot,
                             ),
@@ -1017,8 +1166,8 @@ class actionAngleStaeckelSingle(actionAngle):
                     self._delta,
                     self._u0,
                     self._sinhu0**2.0,
-                    self._vx,
-                    self._sinvx**2.0,
+                    self._v0u,
+                    self._sinv0u**2.0,
                     self._potu0v0,
                     self._pot,
                     umax=True,
@@ -1034,8 +1183,8 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._delta,
                         self._u0,
                         self._sinhu0**2.0,
-                        self._vx,
-                        self._sinvx**2.0,
+                        self._v0u,
+                        self._sinv0u**2.0,
                         self._potu0v0,
                         self._pot,
                     ),
@@ -1053,12 +1202,12 @@ class actionAngleStaeckelSingle(actionAngle):
                 self._delta,
                 self._u0,
                 self._sinhu0**2.0,
-                self._vx,
-                self._sinvx**2.0,
+                self._v0u,
+                self._sinv0u**2.0,
                 self._potu0v0,
                 self._pot,
             )
-            if rstart == 0.0:
+            if rstart == 0.0:  # pragma: no cover (plunge to u=0; bound orbits don't)
                 umin = 0.0
             else:
                 if numpy.fabs(prevr - self._ux) < 10.0**-2.0:
@@ -1077,8 +1226,8 @@ class actionAngleStaeckelSingle(actionAngle):
                             self._delta,
                             self._u0,
                             self._sinhu0**2.0,
-                            self._vx,
-                            self._sinvx**2.0,
+                            self._v0u,
+                            self._sinv0u**2.0,
                             self._potu0v0,
                             self._pot,
                         ),
@@ -1094,8 +1243,8 @@ class actionAngleStaeckelSingle(actionAngle):
                 self._delta,
                 self._u0,
                 self._sinhu0**2.0,
-                self._vx,
-                self._sinvx**2.0,
+                self._v0u,
+                self._sinv0u**2.0,
                 self._potu0v0,
                 self._pot,
                 umax=True,
@@ -1111,8 +1260,8 @@ class actionAngleStaeckelSingle(actionAngle):
                     self._delta,
                     self._u0,
                     self._sinhu0**2.0,
-                    self._vx,
-                    self._sinvx**2.0,
+                    self._v0u,
+                    self._sinv0u**2.0,
                     self._potu0v0,
                     self._pot,
                 ),
@@ -1145,9 +1294,9 @@ class actionAngleStaeckelSingle(actionAngle):
                 L,
                 self._I3V,
                 self._delta,
-                self._ux,
-                self._coshux**2.0,
-                self._sinhux**2.0,
+                self._u0v,
+                self._coshu0v**2.0,
+                self._sinhu0v**2.0,
                 self._potupi2,
                 self._pot,
             )
@@ -1157,9 +1306,9 @@ class actionAngleStaeckelSingle(actionAngle):
                 L,
                 self._I3V,
                 self._delta,
-                self._ux,
-                self._coshux**2.0,
-                self._sinhux**2.0,
+                self._u0v,
+                self._coshu0v**2.0,
+                self._sinhu0v**2.0,
                 self._potupi2,
                 self._pot,
             )
@@ -1179,13 +1328,13 @@ class actionAngleStaeckelSingle(actionAngle):
                 L,
                 self._I3V,
                 self._delta,
-                self._ux,
-                self._coshux**2.0,
-                self._sinhux**2.0,
+                self._u0v,
+                self._coshu0v**2.0,
+                self._sinhu0v**2.0,
                 self._potupi2,
                 self._pot,
             )
-            if rstart == 0.0:
+            if rstart == 0.0:  # pragma: no cover (reach v=0 pole; bound orbits don't)
                 vmin = 0.0
             else:
                 try:
@@ -1198,9 +1347,9 @@ class actionAngleStaeckelSingle(actionAngle):
                             L,
                             self._I3V,
                             self._delta,
-                            self._ux,
-                            self._coshux**2.0,
-                            self._sinhux**2.0,
+                            self._u0v,
+                            self._coshu0v**2.0,
+                            self._sinhu0v**2.0,
                             self._potupi2,
                             self._pot,
                         ),
@@ -1210,6 +1359,470 @@ class actionAngleStaeckelSingle(actionAngle):
                     raise UnboundError("Orbit seems to be unbound")
         self._vmin = vmin
         return self._vmin
+
+    def _uIntegrandArgs(self):
+        return (
+            self._E,
+            self._Lz,
+            self._I3U,
+            self._delta,
+            self._u0,
+            self._sinhu0**2.0,
+            self._v0u,
+            self._sinv0u**2.0,
+            self._potu0v0,
+            self._pot,
+        )
+
+    def _vIntegrandArgs(self):
+        return (
+            self._E,
+            self._Lz,
+            self._I3V,
+            self._delta,
+            self._u0v,
+            self._coshu0v**2.0,
+            self._sinhu0v**2.0,
+            self._potupi2,
+            self._pot,
+        )
+
+    def calcdJR(self, order=10):
+        """
+        Calculate the derivatives djr/dE, djr/dLz, djr/dI3.
+
+        Parameters
+        ----------
+        order : int, optional
+            Number of points to use in the Gauss-Legendre integration. Default is 10.
+
+        Returns
+        -------
+        tuple
+            (djrdE, djrdLz, djrdI3)
+
+        Notes
+        -----
+        - Port of the C calcdJRStaeckel.
+        """
+        if hasattr(self, "_djrdE"):  # pragma: no cover
+            return (self._djrdE, self._djrdLz, self._djrdI3)
+        umin, umax = self.calcUminUmax()
+        if (umax - umin) / umax < 1e-6:  # circular
+            self._djrdE = 0.0
+            self._djrdLz = 0.0
+            self._djrdI3 = 0.0
+            return (self._djrdE, self._djrdLz, self._djrdI3)
+        args = self._uIntegrandArgs()
+        mid = numpy.sqrt(0.5 * (umax - umin))
+        # djrdE
+        djrdE = (
+            integrate.fixed_quad(
+                _uLowStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJRdEStaeckelIntegrand, umin, args),
+                n=order,
+            )[0]
+            + integrate.fixed_quad(
+                _uHighStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJRdEStaeckelIntegrand, umax, args),
+                n=order,
+            )[0]
+        )
+        djrdE *= self._delta / numpy.pi / numpy.sqrt(2.0)
+        # djrdLz
+        djrdLz = (
+            integrate.fixed_quad(
+                _uLowStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJRdLzStaeckelIntegrand, umin, args),
+                n=order,
+            )[0]
+            + integrate.fixed_quad(
+                _uHighStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJRdLzStaeckelIntegrand, umax, args),
+                n=order,
+            )[0]
+        )
+        djrdLz *= -self._Lz / numpy.pi / numpy.sqrt(2.0) / self._delta
+        # djrdI3
+        djrdI3 = (
+            integrate.fixed_quad(
+                _uLowStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJRdI3StaeckelIntegrand, umin, args),
+                n=order,
+            )[0]
+            + integrate.fixed_quad(
+                _uHighStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJRdI3StaeckelIntegrand, umax, args),
+                n=order,
+            )[0]
+        )
+        djrdI3 *= -self._delta / numpy.pi / numpy.sqrt(2.0)
+        self._djrdE = djrdE
+        self._djrdLz = djrdLz
+        self._djrdI3 = djrdI3
+        return (self._djrdE, self._djrdLz, self._djrdI3)
+
+    def calcdJz(self, order=10):
+        """
+        Calculate the derivatives djz/dE, djz/dLz, djz/dI3.
+
+        Parameters
+        ----------
+        order : int, optional
+            Number of points to use in the Gauss-Legendre integration. Default is 10.
+
+        Returns
+        -------
+        tuple
+            (djzdE, djzdLz, djzdI3)
+
+        Notes
+        -----
+        - Port of the C calcdJzStaeckel.
+        """
+        if hasattr(self, "_djzdE"):  # pragma: no cover
+            return (self._djzdE, self._djzdLz, self._djzdI3)
+        vmin = self.calcVmin()
+        if (numpy.pi / 2.0 - vmin) / numpy.pi * 2.0 < 1e-6:  # circular
+            self._djzdE = 0.0
+            self._djzdLz = 0.0
+            self._djzdI3 = 0.0
+            return (self._djzdE, self._djzdLz, self._djzdI3)
+        args = self._vIntegrandArgs()
+        mid = numpy.sqrt(0.5 * (numpy.pi / 2.0 - vmin))
+        # djzdE
+        djzdE = (
+            integrate.fixed_quad(
+                _vLowStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJzdEStaeckelIntegrand, vmin, args),
+                n=order,
+            )[0]
+            + integrate.fixed_quad(
+                _vHighStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJzdEStaeckelIntegrand, args),
+                n=order,
+            )[0]
+        )
+        djzdE *= numpy.sqrt(2.0) * self._delta / numpy.pi
+        # djzdLz
+        djzdLz = (
+            integrate.fixed_quad(
+                _vLowStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJzdLzStaeckelIntegrand, vmin, args),
+                n=order,
+            )[0]
+            + integrate.fixed_quad(
+                _vHighStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJzdLzStaeckelIntegrand, args),
+                n=order,
+            )[0]
+        )
+        djzdLz *= -self._Lz * numpy.sqrt(2.0) / numpy.pi / self._delta
+        # djzdI3
+        djzdI3 = (
+            integrate.fixed_quad(
+                _vLowStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJzdI3StaeckelIntegrand, vmin, args),
+                n=order,
+            )[0]
+            + integrate.fixed_quad(
+                _vHighStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(_dJzdI3StaeckelIntegrand, args),
+                n=order,
+            )[0]
+        )
+        djzdI3 *= numpy.sqrt(2.0) * self._delta / numpy.pi
+        self._djzdE = djzdE
+        self._djzdLz = djzdLz
+        self._djzdI3 = djzdI3
+        return (self._djzdE, self._djzdLz, self._djzdI3)
+
+    def calcFreqs(self, order=10):
+        """
+        Calculate the frequencies Omegar, Omegaphi, Omegaz and the dI3/dJ
+        derivatives in the Staeckel approximation.
+
+        Parameters
+        ----------
+        order : int, optional
+            Number of points to use in the Gauss-Legendre integration. Default is 10.
+
+        Returns
+        -------
+        tuple
+            (Omegar, Omegaphi, Omegaz, dI3dJR, dI3dJz, dI3dLz, detA)
+
+        Notes
+        -----
+        - Port of the C calcFreqsFromDerivsStaeckel + calcdI3dJFromDerivsStaeckel.
+        """
+        djrdE, djrdLz, djrdI3 = self.calcdJR(order=order)
+        djzdE, djzdLz, djzdI3 = self.calcdJz(order=order)
+        detA = djrdE * djzdI3 - djzdE * djrdI3
+        if detA == 0.0:
+            # Exactly circular: the derivatives all vanish (circular guards in
+            # calcdJR/calcdJz). The C path gets IEEE 0/0=NaN here and the caller
+            # substitutes epifreq/omegac/verticalfreq; a Python scalar 0.0/0.0
+            # would raise instead, so emit NaN explicitly to trigger that path.
+            nan = numpy.nan
+            return (nan, nan, nan, nan, nan, nan, detA)
+        Omegar = djzdI3 / detA
+        Omegaz = -djrdI3 / detA
+        Omegaphi = (djrdI3 * djzdLz - djzdI3 * djrdLz) / detA
+        dI3dJR = -djzdE / detA
+        dI3dJz = djrdE / detA
+        dI3dLz = -(djrdE * djzdLz - djzdE * djrdLz) / detA
+        return (Omegar, Omegaphi, Omegaz, dI3dJR, dI3dJz, dI3dLz, detA)
+
+    def calcAngles(self, order=10):
+        """
+        Calculate the angles angler, anglephi, anglez in the Staeckel
+        approximation (port of the C calcAnglesStaeckel).
+
+        Parameters
+        ----------
+        order : int, optional
+            Number of points to use in the Gauss-Legendre integration. Default is 10.
+
+        Returns
+        -------
+        tuple
+            (Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
+
+        Notes
+        -----
+        - Port of the C calcAnglesStaeckel.
+        """
+        umin, umax = self.calcUminUmax()
+        if (umax - umin) / umax < 1e-6:  # circular
+            # Angles are 0 (as in C calcAnglesStaeckel); the frequencies are
+            # left to the close-to-circular fallback in the caller (they are
+            # NaN/inf here, mirroring the C extension).
+            Omegar, Omegaphi, Omegaz = self.calcFreqs(order=order)[:3]
+            return (Omegar, Omegaphi, Omegaz, 0.0, 0.0, 0.0)
+        djrdE, djrdLz, djrdI3 = self.calcdJR(order=order)
+        djzdE, djzdLz, djzdI3 = self.calcdJz(order=order)
+        Omegar, Omegaphi, Omegaz, dI3dJR, dI3dJz, dI3dLz, _ = self.calcFreqs(
+            order=order
+        )
+        delta = self._delta
+        Lz = self._Lz
+        sqrt2 = numpy.sqrt(2.0)
+        uargs = self._uIntegrandArgs()
+        vargs = self._vIntegrandArgs()
+        ux = self._ux
+        vx = self._vx
+        pux = self._pux
+        pvx = self._pvx
+        vmin = self._vmin
+
+        def uquad(func, panel, bound, mid):
+            if panel == "low":
+                return integrate.fixed_quad(
+                    _uLowStaeckelIntegrand,
+                    0.0,
+                    mid,
+                    args=(func, bound, uargs),
+                    n=order,
+                )[0]
+            return integrate.fixed_quad(
+                _uHighStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(func, bound, uargs),
+                n=order,
+            )[0]
+
+        def vquad(func, panel, mid):
+            if panel == "low":
+                return integrate.fixed_quad(
+                    _vLowStaeckelIntegrand,
+                    0.0,
+                    mid,
+                    args=(func, vmin, vargs),
+                    n=order,
+                )[0]
+            return integrate.fixed_quad(
+                _vHighStaeckelIntegrand,
+                0.0,
+                mid,
+                args=(func, vargs),
+                n=order,
+            )[0]
+
+        # u-branch (Or1, I3r1, Anglephi-u-term); follows calcAnglesStaeckel @1308
+        midpoint_u = umin + 0.5 * (umax - umin)
+        if pux > 0.0:
+            if ux > midpoint_u:
+                mid = numpy.sqrt(umax - ux)
+                Or1 = uquad(_dJRdEStaeckelIntegrand, "high", umax, mid)
+                I3r1 = -uquad(_dJRdI3StaeckelIntegrand, "high", umax, mid)
+                anglephi = (
+                    numpy.pi * djrdLz
+                    + Lz
+                    * uquad(_dJRdLzStaeckelIntegrand, "high", umax, mid)
+                    / delta
+                    / sqrt2
+                )
+                Or1 *= delta / sqrt2
+                I3r1 *= delta / sqrt2
+                Or1 = numpy.pi * djrdE - Or1
+                I3r1 = numpy.pi * djrdI3 - I3r1
+            else:
+                mid = numpy.sqrt(ux - umin)
+                Or1 = uquad(_dJRdEStaeckelIntegrand, "low", umin, mid)
+                I3r1 = -uquad(_dJRdI3StaeckelIntegrand, "low", umin, mid)
+                anglephi = (
+                    -Lz
+                    * uquad(_dJRdLzStaeckelIntegrand, "low", umin, mid)
+                    / delta
+                    / sqrt2
+                )
+                Or1 *= delta / sqrt2
+                I3r1 *= delta / sqrt2
+        else:
+            if ux > midpoint_u:
+                mid = numpy.sqrt(umax - ux)
+                Or1 = uquad(_dJRdEStaeckelIntegrand, "high", umax, mid)
+                Or1 *= delta / sqrt2
+                Or1 = numpy.pi * djrdE + Or1
+                I3r1 = -uquad(_dJRdI3StaeckelIntegrand, "high", umax, mid)
+                I3r1 *= delta / sqrt2
+                I3r1 = numpy.pi * djrdI3 + I3r1
+                anglephi = (
+                    numpy.pi * djrdLz
+                    - Lz
+                    * uquad(_dJRdLzStaeckelIntegrand, "high", umax, mid)
+                    / delta
+                    / sqrt2
+                )
+            else:
+                mid = numpy.sqrt(ux - umin)
+                Or1 = uquad(_dJRdEStaeckelIntegrand, "low", umin, mid)
+                Or1 *= delta / sqrt2
+                Or1 = 2.0 * numpy.pi * djrdE - Or1
+                I3r1 = -uquad(_dJRdI3StaeckelIntegrand, "low", umin, mid)
+                I3r1 *= delta / sqrt2
+                I3r1 = 2.0 * numpy.pi * djrdI3 - I3r1
+                anglephi = (
+                    2.0 * numpy.pi * djrdLz
+                    + Lz
+                    * uquad(_dJRdLzStaeckelIntegrand, "low", umin, mid)
+                    / delta
+                    / sqrt2
+                )
+
+        # v-branch (Or2, I3r2, phitmp); follows calcAnglesStaeckel @1374
+        midpoint_v = vmin + 0.5 * (0.5 * numpy.pi - vmin)
+        if pvx > 0.0:
+            if vx < midpoint_v or vx > (numpy.pi - midpoint_v):
+                mid = (
+                    numpy.sqrt(numpy.pi - vx - vmin)
+                    if vx > 0.5 * numpy.pi
+                    else numpy.sqrt(vx - vmin)
+                )
+                Or2 = vquad(_dJzdEStaeckelIntegrand, "low", mid) * delta / sqrt2
+                I3r2 = vquad(_dJzdI3StaeckelIntegrand, "low", mid) * delta / sqrt2
+                phitmp = (
+                    vquad(_dJzdLzStaeckelIntegrand, "low", mid) * -Lz / delta / sqrt2
+                )
+                if vx > 0.5 * numpy.pi:
+                    Or2 = numpy.pi * djzdE - Or2
+                    I3r2 = numpy.pi * djzdI3 - I3r2
+                    phitmp = numpy.pi * djzdLz - phitmp
+            else:
+                mid = numpy.sqrt(numpy.fabs(0.5 * numpy.pi - vx))
+                Or2 = vquad(_dJzdEStaeckelIntegrand, "high", mid) * delta / sqrt2
+                I3r2 = vquad(_dJzdI3StaeckelIntegrand, "high", mid) * delta / sqrt2
+                phitmp = (
+                    vquad(_dJzdLzStaeckelIntegrand, "high", mid) * -Lz / delta / sqrt2
+                )
+                if vx > 0.5 * numpy.pi:
+                    Or2 = 0.5 * numpy.pi * djzdE + Or2
+                    I3r2 = 0.5 * numpy.pi * djzdI3 + I3r2
+                    phitmp = 0.5 * numpy.pi * djzdLz + phitmp
+                else:
+                    Or2 = 0.5 * numpy.pi * djzdE - Or2
+                    I3r2 = 0.5 * numpy.pi * djzdI3 - I3r2
+                    phitmp = 0.5 * numpy.pi * djzdLz - phitmp
+        else:
+            if vx < midpoint_v or vx > (numpy.pi - midpoint_v):
+                mid = (
+                    numpy.sqrt(numpy.pi - vx - vmin)
+                    if vx > 0.5 * numpy.pi
+                    else numpy.sqrt(vx - vmin)
+                )
+                Or2 = vquad(_dJzdEStaeckelIntegrand, "low", mid) * delta / sqrt2
+                I3r2 = vquad(_dJzdI3StaeckelIntegrand, "low", mid) * delta / sqrt2
+                phitmp = (
+                    vquad(_dJzdLzStaeckelIntegrand, "low", mid) * -Lz / delta / sqrt2
+                )
+                if vx < 0.5 * numpy.pi:
+                    Or2 = 2.0 * numpy.pi * djzdE - Or2
+                    I3r2 = 2.0 * numpy.pi * djzdI3 - I3r2
+                    phitmp = 2.0 * numpy.pi * djzdLz - phitmp
+                else:
+                    Or2 = numpy.pi * djzdE + Or2
+                    I3r2 = numpy.pi * djzdI3 + I3r2
+                    phitmp = numpy.pi * djzdLz + phitmp
+            else:
+                mid = numpy.sqrt(numpy.fabs(0.5 * numpy.pi - vx))
+                Or2 = vquad(_dJzdEStaeckelIntegrand, "high", mid) * delta / sqrt2
+                I3r2 = vquad(_dJzdI3StaeckelIntegrand, "high", mid) * delta / sqrt2
+                phitmp = (
+                    vquad(_dJzdLzStaeckelIntegrand, "high", mid) * -Lz / delta / sqrt2
+                )
+                if vx < 0.5 * numpy.pi:
+                    Or2 = 1.5 * numpy.pi * djzdE + Or2
+                    I3r2 = 1.5 * numpy.pi * djzdI3 + I3r2
+                    phitmp = 1.5 * numpy.pi * djzdLz + phitmp
+                else:
+                    Or2 = 1.5 * numpy.pi * djzdE - Or2
+                    I3r2 = 1.5 * numpy.pi * djzdI3 - I3r2
+                    phitmp = 1.5 * numpy.pi * djzdLz - phitmp
+
+        angler = Omegar * (Or1 + Or2) + dI3dJR * (I3r1 + I3r2)
+        anglez = Omegaz * (Or1 + Or2) + dI3dJz * (I3r1 + I3r2) + 0.5 * numpy.pi
+        anglephi += phitmp
+        anglephi += Omegaphi * (Or1 + Or2) + dI3dLz * (I3r1 + I3r2)
+        angler = numpy.fmod(angler, 2.0 * numpy.pi)
+        anglez = numpy.fmod(anglez, 2.0 * numpy.pi)
+        # Defensive [0, 2pi) normalisation: the >2pi loops are dead (fmod is
+        # already < 2pi); the <0 loops only fire for a raw angle that lands just
+        # below 0 (orbit/floating-point-dependent) -- exclude from coverage.
+        while angler < 0.0:  # pragma: no cover
+            angler += 2.0 * numpy.pi
+        while anglez < 0.0:  # pragma: no cover
+            anglez += 2.0 * numpy.pi
+        while angler > 2.0 * numpy.pi:  # pragma: no cover (fmod is already < 2 pi)
+            angler -= 2.0 * numpy.pi
+        while anglez > 2.0 * numpy.pi:  # pragma: no cover (fmod is already < 2 pi)
+            anglez -= 2.0 * numpy.pi
+        return (Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
 
 
 def calcELStaeckel(R, vR, vT, z, vz, pot, vc=1.0, ro=1.0):
@@ -1374,6 +1987,93 @@ def _JzStaeckelIntegrandSquared(
     return E * sin2v + I3V + dV - Lz**2.0 / 2.0 / delta**2.0 / sin2v
 
 
+# Derivative integrands for the Staeckel frequencies and angles. These are ports
+# of the C dJ?d?StaeckelIntegrand functions; the under-radical S_R/S_z reuses the
+# existing _JRStaeckelIntegrandSquared/_JzStaeckelIntegrandSquared helpers. Each
+# returns 0. when S<=0 (mirrors the C 'if(out<=0.) return 0.').
+def _dJRdEStaeckelIntegrand(
+    u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+):
+    out = _JRStaeckelIntegrandSquared(
+        u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+    )
+    if out <= 0.0:
+        return 0.0
+    return numpy.sinh(u) ** 2.0 / numpy.sqrt(out)
+
+
+def _dJRdLzStaeckelIntegrand(
+    u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+):
+    out = _JRStaeckelIntegrandSquared(
+        u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+    )
+    if out <= 0.0:
+        return 0.0
+    return 1.0 / numpy.sinh(u) ** 2.0 / numpy.sqrt(out)
+
+
+def _dJRdI3StaeckelIntegrand(
+    u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+):
+    out = _JRStaeckelIntegrandSquared(
+        u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+    )
+    if out <= 0.0:
+        return 0.0
+    return 1.0 / numpy.sqrt(out)
+
+
+def _dJzdEStaeckelIntegrand(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
+    out = _JzStaeckelIntegrandSquared(
+        v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
+    )
+    if out <= 0.0:
+        return 0.0
+    return numpy.sin(v) ** 2.0 / numpy.sqrt(out)
+
+
+def _dJzdLzStaeckelIntegrand(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
+    out = _JzStaeckelIntegrandSquared(
+        v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
+    )
+    if out <= 0.0:
+        return 0.0
+    return 1.0 / numpy.sin(v) ** 2.0 / numpy.sqrt(out)
+
+
+def _dJzdI3StaeckelIntegrand(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
+    out = _JzStaeckelIntegrandSquared(
+        v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
+    )
+    if out <= 0.0:
+        return 0.0
+    return 1.0 / numpy.sqrt(out)
+
+
+# t^2-substitution wrappers (integrand *= 2*t). The u integrals use a Low panel
+# u=umin+t^2 and a High panel u=umax-t^2; the v integrals use a Low panel
+# v=vmin+t^2 and a High panel v=pi/2-t^2. These take fixed_quad's vector t.
+def _uLowStaeckelIntegrand(t, func, umin, args):
+    t = numpy.atleast_1d(t)
+    return numpy.array([2.0 * tt * func(umin + tt * tt, *args) for tt in t])
+
+
+def _uHighStaeckelIntegrand(t, func, umax, args):
+    t = numpy.atleast_1d(t)
+    return numpy.array([2.0 * tt * func(umax - tt * tt, *args) for tt in t])
+
+
+def _vLowStaeckelIntegrand(t, func, vmin, args):
+    t = numpy.atleast_1d(t)
+    return numpy.array([2.0 * tt * func(vmin + tt * tt, *args) for tt in t])
+
+
+def _vHighStaeckelIntegrand(t, func, args):
+    t = numpy.atleast_1d(t)
+    return numpy.array([2.0 * tt * func(numpy.pi / 2.0 - tt * tt, *args) for tt in t])
+
+
 def _uminUmaxFindStart(
     u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot, umax=False
 ):
@@ -1485,9 +2185,62 @@ def _vminFindStart(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
         and vtry > 0.000000001
     ):
         vtry *= 0.9
-    if vtry < 0.000000001:
+    if (
+        vtry < 0.000000001
+    ):  # pragma: no cover (degenerate v=0 start; bound orbits don't)
         return 0.0
     return vtry if vtry >= 0.000000001 else 0.0
+
+
+def _u0Equation(u, E, Lz22delta, delta, pot):
+    """Port of the C u0Equation: the quantity minimized to obtain u0."""
+    sinh2u = numpy.sinh(u) ** 2.0
+    cosh2u = numpy.cosh(u) ** 2.0
+    dU = cosh2u * potentialStaeckel(u, numpy.pi / 2.0, pot, delta)
+    return -(E * sinh2u - dU - Lz22delta / sinh2u)
+
+
+def calcu0(E, Lz, pot, delta):
+    """
+    Calculate u0 in the Staeckel approximation (pure-Python port of the C calcu0).
+
+    Parameters
+    ----------
+    E : numpy.ndarray
+        Energy.
+    Lz : numpy.ndarray
+        Angular momentum along z.
+    pot : Potential object
+        galpy Potential object or a combined potential.
+    delta : float or numpy.ndarray
+        Focus.
+
+    Returns
+    -------
+    numpy.ndarray
+        u0 for each point.
+
+    Notes
+    -----
+    - Port of the C calcu0; minimizes _u0Equation over u in [0.001,100].
+    """
+    E = numpy.atleast_1d(E)
+    Lz = numpy.atleast_1d(Lz)
+    delta = numpy.atleast_1d(delta)
+    delta_stride = 0 if len(delta) == 1 else 1
+    out = numpy.empty(len(E))
+    for ii in range(len(E)):
+        tdelta = delta[ii * delta_stride]
+        Lz22delta = 0.5 * Lz[ii] ** 2.0 / tdelta**2.0
+        res = optimize.minimize_scalar(
+            _u0Equation,
+            bounds=(0.001, 100.0),
+            args=(E[ii], Lz22delta, tdelta, pot),
+            method="bounded",
+            options={"xatol": 1e-12},
+        )
+        out[ii] = res.x
+    return out
 
 
 @potential_physical_input
