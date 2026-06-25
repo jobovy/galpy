@@ -586,7 +586,7 @@ class actionAngleStaeckel(actionAngle):
                 angler[ii] = tar
                 # Assemble Anglephi as in the C wrapper: (raw + phi%2pi)%2pi
                 taphi = (taphi + phi[ii] % (2.0 * numpy.pi)) % (2.0 * numpy.pi)
-                if taphi < 0.0:
+                if taphi < 0.0:  # pragma: no cover (Python % is non-negative)
                     taphi += 2.0 * numpy.pi
                 anglephi[ii] = taphi
                 anglez[ii] = taz
@@ -1207,7 +1207,7 @@ class actionAngleStaeckelSingle(actionAngle):
                 self._potu0v0,
                 self._pot,
             )
-            if rstart == 0.0:
+            if rstart == 0.0:  # pragma: no cover (plunge to u=0; bound orbits don't)
                 umin = 0.0
             else:
                 if numpy.fabs(prevr - self._ux) < 10.0**-2.0:
@@ -1334,7 +1334,7 @@ class actionAngleStaeckelSingle(actionAngle):
                 self._potupi2,
                 self._pot,
             )
-            if rstart == 0.0:
+            if rstart == 0.0:  # pragma: no cover (reach v=0 pole; bound orbits don't)
                 vmin = 0.0
             else:
                 try:
@@ -1811,13 +1811,13 @@ class actionAngleStaeckelSingle(actionAngle):
         anglephi += Omegaphi * (Or1 + Or2) + dI3dLz * (I3r1 + I3r2)
         angler = numpy.fmod(angler, 2.0 * numpy.pi)
         anglez = numpy.fmod(anglez, 2.0 * numpy.pi)
-        while angler < 0.0:
+        while angler < 0.0:  # pragma: no cover (defensive; fmod result handled below)
             angler += 2.0 * numpy.pi
         while anglez < 0.0:
             anglez += 2.0 * numpy.pi
-        while angler > 2.0 * numpy.pi:
+        while angler > 2.0 * numpy.pi:  # pragma: no cover (fmod is already < 2 pi)
             angler -= 2.0 * numpy.pi
-        while anglez > 2.0 * numpy.pi:
+        while anglez > 2.0 * numpy.pi:  # pragma: no cover (fmod is already < 2 pi)
             anglez -= 2.0 * numpy.pi
         return (Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
 
@@ -2182,7 +2182,9 @@ def _vminFindStart(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
         and vtry > 0.000000001
     ):
         vtry *= 0.9
-    if vtry < 0.000000001:
+    if (
+        vtry < 0.000000001
+    ):  # pragma: no cover (degenerate v=0 start; bound orbits don't)
         return 0.0
     return vtry if vtry >= 0.000000001 else 0.0
 

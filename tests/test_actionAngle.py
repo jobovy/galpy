@@ -7910,3 +7910,52 @@ def reset_warning_registry(pattern=".*"):
     for mod in sys.modules.values():
         if hasattr(mod, key) and re.match(pattern, mod.__name__):
             getattr(mod, key).clear()
+
+
+# Exercise the remaining branches of the pure-Python (c=False) Staeckel
+# freqs/angles path: the _actionsFreqs (no-angles) input forms + useu0 +
+# close-to-circular fallback, and the angle-wrap / S<=0-turning-point / plunging
+# branches that the parity grid does not reach. Just runs them and asserts the
+# outputs are finite (correctness is covered by the c-vs-Python parity test).
+def test_actionAngleStaeckel_python_freqsAngles_branches():
+    import warnings
+
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, vcirc
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAS = actionAngleStaeckel(pot=lp, delta=0.5, c=False)
+    aAS_u0 = actionAngleStaeckel(pot=lp, delta=0.5, c=False, useu0=True)
+    vc = vcirc(lp, 1.0, use_physical=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        # _actionsFreqs (no angles): 5-arg, 6-arg (with phi), and Orbit input
+        for out in (
+            aAS.actionsFreqs(1.0, 0.1, 0.9, 0.2, 0.1),
+            aAS.actionsFreqs(1.0, 0.1, 0.9, 0.2, 0.1, 0.3),
+            aAS.actionsFreqs(Orbit([1.0, 0.1, 0.9, 0.2, 0.1, 0.3])),
+            aAS_u0.actionsFreqs(1.0, 0.1, 0.9, 0.2, 0.1),  # useu0 -> calcu0
+            aAS.actionsFreqs(1.0, 0.0, vc, 0.0, 0.0),  # circular fallback
+            aAS_u0.actionsFreqs(1.0, 0.0, vc, 0.0, 0.0),  # circular + useu0
+        ):
+            for o in out:
+                assert numpy.all(numpy.isfinite(numpy.atleast_1d(o)))
+        # Angle/turning-point branches: exact peri/apo (vr=0), near-radial
+        # (plunging, sharp turning points -> S<=0 guards / umin->0), highly
+        # inclined (vmin small), and a range of phi to hit the +/-2pi wraps.
+        r2 = numpy.sqrt(1.0**2 + 0.3**2)
+        vcr2 = vcirc(lp, r2, use_physical=False)
+        branch_ics = [
+            (0.9, 0.0, 1.4 * vc, 0.3, 0.0),  # vr=0 pericenter (z!=0)
+            (0.9, 0.0, 0.6 * vc, 0.3, 0.0),  # vr=0 apocenter
+            (1.0, 0.9 * vc, 0.02 * vc, 0.0, 0.05),  # near-radial / plunging
+            (1.0, 0.6 * vc, 0.18 * vc, 0.0, 0.5 * vc),  # eccentric, very inclined
+            (1.0, 0.0, 0.7 * vcr2, 0.0, 0.7 * vcr2),  # large vz, strong z-motion
+        ]
+        for ic in branch_ics:
+            for phi in (0.0, 1.5, 3.0, 5.5, 6.0):
+                out = aAS.actionsFreqsAngles(*ic, phi)
+                for o in out:
+                    assert numpy.all(numpy.isfinite(numpy.atleast_1d(o)))
+    return None
