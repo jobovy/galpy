@@ -40,9 +40,9 @@ from ..potential.Potential import (
     _evaluatezforces,
     _isNonAxi,
 )
+from ..util import coords  # for prolate confocal transforms
 from ..util import (
     conversion,
-    coords,  # for prolate confocal transforms
     galpyWarning,
 )
 from ..util.conversion import physical_conversion, potential_physical_input
