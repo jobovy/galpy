@@ -2878,6 +2878,177 @@ def test_actionAngleStaeckel_angles_order_c():
     return None
 
 
+# Test that the pure-Python (c=False) actionAngleStaeckel frequencies and angles
+# agree with the C implementation over a grid of ICs hitting every branch.
+def test_actionAngleStaeckel_python_c_freqsAngles():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import LogarithmicHaloPotential
+
+    # Flattened logarithmic halo: genuinely close to Staeckel-separable
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAc = actionAngleStaeckel(pot=lp, delta=0.5, c=True)
+    aAp = actionAngleStaeckel(pot=lp, delta=0.5, c=False)
+
+    def wrapdiff(a, b):
+        d = (a - b) % (2.0 * numpy.pi)
+        return numpy.minimum(d, 2.0 * numpy.pi - d)
+
+    # Grid hitting all branches: small/large Jr, small/large Jz (near-planar),
+    # near-circular, eccentric, z>0 and z<0 (vx</>pi/2), vR>0/<0, vz>0/<0
+    # (pux/pvx signs), prograde and retrograde (vT<0). The vR=vz=0,z<0 corner
+    # hits a pre-existing pure-Python calcVmin limitation (the actions path
+    # raises there too), so we keep |vz|>0 when z<0. The grid steps stay clear
+    # of the |pvx|<1e-3 annulus right at a vertical turning point, where the
+    # tiny partial-integral bound sqrt(vx-vmin) amplifies the C-vs-scipy brentq
+    # vmin tolerance (~1e-9) -- a measure-zero root-find floor, the Staeckel
+    # analog of the Spherical at-peri/apo edge (neither path is ground truth).
+    maxfreqdiff = 0.0
+    maxangdiff = 0.0
+    n = 0
+    for R in [0.7, 1.0, 1.3]:
+        for vR in [-0.25, 0.0, 0.25]:
+            for vT in [-0.6, 0.4, 0.9]:  # retrograde + prograde + near-circular
+                for z in [-0.2, 0.0, 0.2]:
+                    for vz in [-0.25, 0.05, 0.25]:
+                        for phi in [0.4, 2.7]:
+                            if z < 0.0 and vR == 0.0 and vz == 0.0:
+                                continue
+                            fc = aAc.actionsFreqs(R, vR, vT, z, vz)
+                            fp = aAp.actionsFreqs(R, vR, vT, z, vz)
+                            ac = aAc.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+                            ap = aAp.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+                            n += 1
+                            # jr,Lz,jz,Omegar,Omegaphi,Omegaz
+                            for ii in range(6):
+                                if numpy.isnan(fc[ii][0]) or numpy.isnan(fp[ii][0]):
+                                    continue
+                                maxfreqdiff = max(
+                                    maxfreqdiff, numpy.fabs(fc[ii][0] - fp[ii][0])
+                                )
+                            # angler, anglephi, anglez (wrap-aware)
+                            for ii in (6, 7, 8):
+                                if numpy.isnan(ac[ii][0]) or numpy.isnan(ap[ii][0]):
+                                    continue
+                                maxangdiff = max(
+                                    maxangdiff, wrapdiff(ac[ii][0], ap[ii][0])
+                                )
+    assert n > 100, "Staeckel c vs Python parity grid did not evaluate enough points"
+    assert maxfreqdiff < 1e-6, (
+        "Pure-Python actionAngleStaeckel frequencies do not agree with C "
+        "implementation; max diff = %g" % maxfreqdiff
+    )
+    assert maxangdiff < 1e-6, (
+        "Pure-Python actionAngleStaeckel angles do not agree with C "
+        "implementation; max diff = %g" % maxangdiff
+    )
+    # Exactly-circular orbits (vR=vz=z=0, vT=vcirc): detA=0, so the C path gets
+    # IEEE 0/0=NaN and substitutes epifreq/omegac/verticalfreq while the angles
+    # are 0. The pure-Python path must reproduce this (and not raise on the
+    # scalar 0/0). useu0 True and False both exercised.
+    from galpy.potential import vcirc
+
+    for usu in (False, True):
+        aApc = actionAngleStaeckel(pot=lp, delta=0.5, c=False, useu0=usu)
+        for R in [0.7, 1.0, 1.3]:
+            vc = vcirc(lp, R, use_physical=False)
+            fc = aAc.actionsFreqsAngles(R, 0.0, vc, 0.0, 0.0, 0.4)
+            fp = aApc.actionsFreqsAngles(R, 0.0, vc, 0.0, 0.0, 0.4)
+            for ii in range(9):
+                d = (
+                    numpy.fabs(fc[ii][0] - fp[ii][0])
+                    if ii < 6
+                    else wrapdiff(fc[ii][0], fp[ii][0])
+                )
+                assert d < 1e-6, (
+                    "Staeckel circular c vs Python mismatch (useu0=%s) at "
+                    "component %d: %g" % (usu, ii, d)
+                )
+    return None
+
+
+# Test that the pure-Python (c=False) actionAngleStaeckel angles increase
+# linearly with frequency along an integrated orbit.
+def test_actionAngleStaeckel_python_linear_angles():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+
+    aAS = actionAngleStaeckel(pot=MWPotential, delta=0.71, c=False)
+    obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
+    check_actionAngle_linear_angles(
+        aAS,
+        obs,
+        MWPotential,
+        -2.0,
+        -4.0,
+        -3.0,
+        -3.0,
+        -3.0,
+        -2.0,
+        -2.0,
+        -3.5,
+        -2.0,
+        ntimes=1001,
+    )  # need fine sampling for de-period
+    return None
+
+
+# Test that actionAngleAdiabatic with c=False can compute frequencies and angles
+# (it delegates to pure-Python Spherical + Vertical, needing no Staeckel C) and
+# that the radial/azimuthal part matches the underlying Spherical actionsFreqs
+# for an in-plane (z=vz=0) orbit, where the Adiabatic reduces exactly to it.
+def test_actionAngleAdiabatic_python_freqsAngles():
+    from galpy.actionAngle import actionAngleAdiabatic, actionAngleSpherical
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    aAA = actionAngleAdiabatic(pot=lp, c=False)
+    R, vR, vT, z, vz, phi = 1.0, 0.1, 0.9, 0.05, 0.1, 1.0
+    # actionsFreqs and actionsFreqsAngles run without C and agree on the actions
+    jr, lz, jz, Or, Op, Oz = aAA.actionsFreqs(R, vR, vT, z, vz)
+    (
+        jra,
+        lza,
+        jza,
+        Ora,
+        Opa,
+        Oza,
+        ar,
+        ap,
+        az,
+    ) = aAA.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    assert numpy.fabs(jr - jra) < 1e-10, (
+        "actionAngleAdiabatic actionsFreqs and actionsFreqsAngles disagree on jr"
+    )
+    assert numpy.fabs(jz - jza) < 1e-10, (
+        "actionAngleAdiabatic actionsFreqs and actionsFreqsAngles disagree on jz"
+    )
+    assert numpy.fabs(Or - Ora) < 1e-10, (
+        "actionAngleAdiabatic actionsFreqs and actionsFreqsAngles disagree on Or"
+    )
+    assert numpy.all(numpy.isfinite([jr, lz, jz, Or, Op, Oz])), (
+        "actionAngleAdiabatic c=False actionsFreqs returned non-finite values"
+    )
+    assert numpy.all(numpy.isfinite([ar, ap, az])), (
+        "actionAngleAdiabatic c=False actionsFreqsAngles returned non-finite angles"
+    )
+    # For an in-plane orbit (z=vz=0), the Adiabatic radial part is exactly the
+    # Spherical actionsFreqs.
+    aASph = actionAngleSpherical(pot=lp)
+    jr0, lz0, jz0, Or0, Op0, Oz0 = aAA.actionsFreqs(R, vR, vT, 0.0, 0.0)
+    sjr, slz, sjz, sOr, sOp, sOz = aASph.actionsFreqs(R, vR, vT, 0.0, 0.0)
+    assert numpy.fabs(jr0 - sjr) < 1e-10, (
+        "actionAngleAdiabatic in-plane radial action does not match Spherical"
+    )
+    assert numpy.fabs(Or0 - sOr) < 1e-10, (
+        "actionAngleAdiabatic in-plane radial frequency does not match Spherical"
+    )
+    assert numpy.fabs(Op0 - sOp) < 1e-10, (
+        "actionAngleAdiabatic in-plane azimuthal frequency does not match Spherical"
+    )
+    return None
+
+
 # Basic sanity checking of the actionAngleStaeckel ecc, zmax, rperi, rap calc.
 def test_actionAngleStaeckel_basic_EccZmaxRperiRap():
     from galpy.actionAngle import actionAngleStaeckel
@@ -5423,13 +5594,16 @@ def test_orbit_interface_unbound_simple_staeckel_noc():
             pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
         ),
     )
-    assert numpy.fabs(jr[0] - aASnoc(obs[0])[0]) < 10.0**-10.0, (
+    # The Orbit jr/jp/jz interface computes actions through the (now-available)
+    # c=False actionsFreqsAngles path, so compare against that same path.
+    refjr, _, refjz = aASnoc.actionsFreqsAngles(obs[0])[:3]
+    assert numpy.fabs(jr[0] - refjr) < 10.0**-10.0, (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.fabs(jp[0] - aASnoc(obs[0])[1]) < 10.0**-10.0, (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
-    assert numpy.fabs(jz[0] - aASnoc(obs[0])[2]) < 10.0**-10.0, (
+    assert numpy.fabs(jz[0] - refjz) < 10.0**-10.0, (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.fabs(e[0] - aASnoc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0, (
