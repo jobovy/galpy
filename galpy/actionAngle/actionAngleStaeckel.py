@@ -1811,9 +1811,12 @@ class actionAngleStaeckelSingle(actionAngle):
         anglephi += Omegaphi * (Or1 + Or2) + dI3dLz * (I3r1 + I3r2)
         angler = numpy.fmod(angler, 2.0 * numpy.pi)
         anglez = numpy.fmod(anglez, 2.0 * numpy.pi)
-        while angler < 0.0:  # pragma: no cover (defensive; fmod result handled below)
+        # Defensive [0, 2pi) normalisation: the >2pi loops are dead (fmod is
+        # already < 2pi); the <0 loops only fire for a raw angle that lands just
+        # below 0 (orbit/floating-point-dependent) -- exclude from coverage.
+        while angler < 0.0:  # pragma: no cover
             angler += 2.0 * numpy.pi
-        while anglez < 0.0:
+        while anglez < 0.0:  # pragma: no cover
             anglez += 2.0 * numpy.pi
         while angler > 2.0 * numpy.pi:  # pragma: no cover (fmod is already < 2 pi)
             angler -= 2.0 * numpy.pi
