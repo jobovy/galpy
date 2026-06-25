@@ -3601,51 +3601,6 @@ class Orbit:
             )
         return None
 
-    def _setup_actions(self, pot=None, **kwargs):
-        """Internal function to compute the actions and cache them for reuse (used for methods that don't support frequencies and angles)"""
-        # Currently only used when using Staeckel with c=False, because Staeckel frequencies and angles not implemented then
-        self._setupaA(pot=pot, **kwargs)
-        # Caching effectively checked in _setup_actionsFreqsAngles, because always called first
-        # if hasattr(self, "_aA_jr"):
-        #    return None
-        if self.dim() == 3:
-            # try to make sure this is not 0
-            tz = (
-                self.z(use_physical=False, dontreshape=True)
-                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
-                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
-                * 1e-10
-            )
-            tvz = self.vz(use_physical=False, dontreshape=True)
-        # dim = 2 never reached currently
-        # elif self.dim() == 2:
-        #    tz = numpy.zeros(self.size)
-        #    tvz = numpy.zeros(self.size)
-        # self.dim() == 1 error caught by _setupaA
-        # Exclude unbound orbits
-        indx, aAkwargs = self._unbound_indx_and_aAkwargs()
-        (
-            self._aA_jr,
-            self._aA_jp,
-            self._aA_jz,
-        ) = (
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
-        )
-        if numpy.sum(indx) > 0:
-            self._aA_jr[indx], self._aA_jp[indx], self._aA_jz[indx] = self._aA(
-                self.R(use_physical=False, dontreshape=True)[indx],
-                self.vR(use_physical=False, dontreshape=True)[indx],
-                self.vT(use_physical=False, dontreshape=True)[indx],
-                tz[indx],
-                tvz[indx],
-                self.phi(use_physical=False, dontreshape=True)[indx],
-                use_physical=False,
-                **aAkwargs,
-            )
-        return None
-
     @shapeDecorator
     def e(self, analytic=False, pot=None, **kwargs):
         r"""
@@ -4055,10 +4010,7 @@ class Orbit:
         galpy.actionAngle.actionAngleIsochroneApprox
         galpy.actionAngle.actionAngleSpherical
         """
-        try:
-            self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        except NotImplementedError:
-            self._setup_actions(pot=pot, **kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_jr
 
     @physical_conversion("action")
@@ -4099,10 +4051,7 @@ class Orbit:
         galpy.actionAngle.actionAngleIsochroneApprox
         galpy.actionAngle.actionAngleSpherical
         """
-        try:
-            self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        except NotImplementedError:  # pragma: no cover
-            self._setup_actions(pot=pot, **kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_jp
 
     @physical_conversion("action")
@@ -4143,10 +4092,7 @@ class Orbit:
         galpy.actionAngle.actionAngleIsochroneApprox
         galpy.actionAngle.actionAngleSpherical
         """
-        try:
-            self._setup_actionsFreqsAngles(pot=pot, **kwargs)
-        except NotImplementedError:  # pragma: no cover
-            self._setup_actions(pot=pot, **kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_jz
 
     @physical_conversion("angle")
