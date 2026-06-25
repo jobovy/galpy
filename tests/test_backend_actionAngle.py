@@ -43,7 +43,13 @@ from galpy.actionAngle import (
     actionAngleIsochroneInverse,
     actionAngleSpherical,
 )
-from galpy.potential import LogarithmicHaloPotential, NFWPotential
+from galpy.potential import (
+    HernquistPotential,
+    IsochronePotential,
+    LogarithmicHaloPotential,
+    NFWPotential,
+    vcirc,
+)
 
 # A small batch of bound phase-space points (R,vR,vT,z,vz,phi); moderate
 # velocities so the isochrone orbits are bound (E<0) and away from the
@@ -390,7 +396,7 @@ def test_isochrone_inverse_grad_vs_fd(backend):
 # scipy brentq/quad per-object loop) while jax/torch inputs take a vectorised,
 # differentiable path -- rperi/rap via the shared backend root-finder
 # galpy.backend.optimize.brentq, Jr via galpy.backend.quadrature.fixed_quad.
-# Backend GL (n=25) vs scipy's adaptive quad differ at the ~1e-9 level, so the
+# Backend GL (n=50) vs scipy's adaptive quad differ at the ~1e-9 level, so the
 # parity tolerance is rtol~1e-7 (NOT 1e-12). PR-1 scope: only actions+ecc; the
 # frequency/angle methods (_actionsFreqs*) are PR-2 and untouched (numpy-only).
 _SPH_POTS = {
@@ -455,3 +461,249 @@ def test_spherical_grad_vs_fd_wrt_vR(backend, which):
     g = _grad(backend, f_be, _SPH_S[1])
     assert numpy.isfinite(g)
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+# ====================================================================
+# actionAngleSpherical PR-2: FREQUENCIES (Or,Op,Oz via _actionsFreqs) + ANGLES
+# (ar,ap,az via _actionsFreqsAngles). Same additive backend pattern: the numpy
+# per-object scipy loop is untouched (byte-identical), jax/torch inputs take the
+# vectorised, differentiable branch. The two t^2-substituted panels of each
+# radial-period / azimuthal-period / angle integral run through
+# galpy.backend.quadrature.fixed_quad (n=50) with the per-object upper limit
+# folded INTO the integrand (t = lim*s on a fixed [0,1] panel), so the GL
+# (n=50) value differs from scipy's adaptive quad at the ~1e-9 level
+# (rtol~1e-6, NOT 1e-12). Azimuth phi is needed for the angles call.
+_SPH_PHI = numpy.array([1.3, 0.4, 2.1])
+# A retrograde batch (vT<0) to exercise the Op sign flip and ap = asc - az
+# branch; inclined and off the turning points / non-inclined kink.
+_SPH_RETRO = (
+    numpy.array([1.0, 1.2]),
+    numpy.array([0.1, -0.15]),
+    numpy.array([-0.8, -0.5]),
+    numpy.array([0.1, -0.05]),
+    numpy.array([0.05, 0.1]),
+)
+_SPH_RETRO_PHI = numpy.array([0.5, 2.0])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("potname", list(_SPH_POTS))
+def test_spherical_freqs_parity(backend, potname):
+    # numpy <-> jax <-> torch parity of _actionsFreqs (Jr,Lz,Jz,Or,Op,Oz) and
+    # _actionsFreqsAngles (+ar,ap,az) on prograde + retrograde bound ICs.
+    aAS = actionAngleSpherical(pot=_SPH_POTS[potname])
+    for sph, phi in ((_SPH, _SPH_PHI), (_SPH_RETRO, _SPH_RETRO_PHI)):
+        bargs = [_arr(backend, v) for v in sph]
+        bphi = _arr(backend, phi)
+        # _actionsFreqs (no phi)
+        ref = aAS._actionsFreqs(*sph)
+        got = aAS._actionsFreqs(*bargs)
+        for r, g in zip(ref, got):
+            assert _is_backend_array(backend, g)
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+            )
+        # _actionsFreqsAngles (+phi); angles compared as circular differences
+        ref = aAS._actionsFreqsAngles(*sph, phi)
+        got = aAS._actionsFreqsAngles(*bargs, bphi)
+        for idx, (r, g) in enumerate(zip(ref, got)):
+            assert _is_backend_array(backend, g)
+            if idx >= 6:  # ar, ap, az: wrap-robust comparison
+                d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+                numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
+            else:
+                numpy.testing.assert_allclose(
+                    _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+                )
+
+
+# Scalar single-point bound IC (with phi) for clean per-component derivatives.
+_SPH_SA = (1.1, 0.2, 0.9, 0.15, 0.1, 1.3)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("which,idx", [("omegar", 3), ("angler", 6)])
+def test_spherical_freqs_grad_vs_fd_wrt_vR(backend, which, idx):
+    # d(Or or ar)/d vR at a single bound point: AD through the vectorised
+    # root-find + two-panel fixed_quad period/angle integrals vs finite-diff.
+    aAS = actionAngleSpherical(pot=_SPH_POTS["log"])
+    R, _, vT, z, vz, phi = _SPH_SA
+
+    def call(vR_val, xp_arr):
+        args = (
+            xp_arr(R),
+            vR_val,
+            xp_arr(vT),
+            xp_arr(z),
+            xp_arr(vz),
+            xp_arr(phi),
+        )
+        return aAS._actionsFreqsAngles(*args)[idx].sum()
+
+    def f_np(vR_val):
+        return numpy.asarray(call(vR_val, lambda v: numpy.atleast_1d(numpy.asarray(v))))
+
+    fd = _fd(f_np, _SPH_SA[1])
+
+    def f_be(vR_t):
+        return call(vR_t, lambda v: _arr(backend, numpy.atleast_1d(v).astype(float)))
+
+    g = _grad(backend, f_be, _SPH_SA[1])
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-6)
+
+
+# ====================================================================
+# actionAngleSpherical EDGE-CASE parity. The spherical action/freq/angle map
+# has data-dependent branches that only fire at special parts of phase space:
+#   * at peri / at apo (vr=0): the radial-period bracket endpoint sits ON the
+#     turning-point root, so the panel limits collapse to 0;
+#   * exactly circular (Jr<1e-9): the epifreq/omegac fast branch;
+#   * z=0 with vz!=0 (plane-crossing but inclined): sin(psi)=0 but finite;
+#   * z=0 AND vz=0 (non-inclined, planar): numpy's z/r/sin(i) is non-finite, so
+#     psi=phi and the longitude of the ascending node is 0 by convention -- the
+#     branch the backend must reproduce EXACTLY (no xfall-through to psi=0);
+#   * near-radial (L/Lcirc~3e-3, deeply plunging) and near-circular (vT just off
+#     vcirc): the quadrature stress cases.
+# Every case must match numpy on ALL of (Jr,Lz,Jz,Or,Op,Oz,ar,ap,az,e,zmax,
+# rperi,rap), prograde AND retrograde, across Log/NFW/Hernquist/Isochrone. The
+# only non-byte-identity is the inherent GL(n=50)-vs-adaptive-quad floor (~1e-6
+# on the continuous freq/angle integrals; actions/ecc/peri/apo are ~1e-9). At
+# pathological L/Lcirc<~1e-4 scipy's OWN adaptive quad fails to ~1e-5, so that
+# extreme is excluded as an irreducible quadrature-method difference (not a
+# logic/convention divergence).
+_EDGE_POTS = {
+    "log": LogarithmicHaloPotential(normalize=1.0),
+    "nfw": NFWPotential(normalize=1.0),
+    "hernquist": HernquistPotential(normalize=1.0),
+    "isochrone": IsochronePotential(normalize=1.0),
+}
+_EDGE_CASES = [
+    "apocenter",
+    "pericenter",
+    "circular",
+    "zcross_incl",
+    "planar",
+    "near_radial",
+    "very_ecc",
+    "near_circular",
+]
+
+
+def _edge_ic(pot, case, prograde):
+    """(R,vR,vT,z,vz,phi) for a spherical action-angle edge case."""
+    sgn = 1.0 if prograde else -1.0
+    phi = 0.7
+    R = 1.0
+    vc = vcirc(pot, R, use_physical=False)
+    if case == "apocenter":  # vr=0, sub-circular vt, inclined -> r is apo
+        R, z = 0.9, 0.4
+        r = numpy.sqrt(R**2 + z**2)
+        vt = 0.6 * vcirc(pot, r, use_physical=False)
+        return (R, 0.0, sgn * vt * r / R, z, 0.0, phi)
+    if case == "pericenter":  # vr=0, super-circular vt, inclined -> r is peri
+        R, z = 0.9, 0.4
+        r = numpy.sqrt(R**2 + z**2)
+        vt = 1.4 * vcirc(pot, r, use_physical=False)
+        return (R, 0.0, sgn * vt * r / R, z, 0.0, phi)
+    if case == "circular":  # z=0,vz=0,vR=0,vT=vcirc -> Jr=0, non-inclined
+        return (1.1, 0.0, sgn * vcirc(pot, 1.1, use_physical=False), 0.0, 0.0, phi)
+    if case == "zcross_incl":  # z=0 but vz!=0: plane-crossing, inclined
+        return (R, 0.15, sgn * 0.8 * vc, 0.0, 0.3, phi)
+    if case == "planar":  # z=0 AND vz=0: non-inclined (the psi=phi branch)
+        return (R, 0.2, sgn * 0.7 * vc, 0.0, 0.0, phi)
+    if case == "near_radial":  # L/Lcirc~3e-3: deeply plunging (physical)
+        return (R, 0.6 * vc, sgn * 3e-3 * vc, 0.0, 0.05, phi)
+    if case == "very_ecc":  # bound, high ecc, inclined
+        return (R, 0.6 * vc, sgn * 0.18 * vc, 0.0, 0.05, phi)
+    if case == "near_circular":  # vT just off vcirc -> small Jr, non-inclined
+        return (R, 0.0, sgn * 1.002 * vc, 0.0, 0.0, phi)
+    raise ValueError(case)  # pragma: no cover
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("potname", list(_EDGE_POTS))
+@pytest.mark.parametrize("case", _EDGE_CASES)
+@pytest.mark.parametrize("prograde", [True, False])
+def test_spherical_edge_case_parity(backend, potname, case, prograde):
+    # numpy <-> backend parity of _actionsFreqsAngles AND _EccZmaxRperiRap at
+    # the spherical edge cases (peri/apo, circular, z-crossing, non-inclined,
+    # near-radial, near-circular), prograde + retrograde. The non-inclined cases
+    # exercise the psi=phi / Omega=0 conventions the backend must match exactly.
+    import warnings
+
+    pot = _EDGE_POTS[potname]
+    aAS = actionAngleSpherical(pot=pot)
+    R, vR, vT, z, vz, phi = _edge_ic(pot, case, prograde)
+    npargs = tuple(
+        numpy.atleast_1d(numpy.asarray(float(v))) for v in (R, vR, vT, z, vz)
+    )
+    npphi = numpy.atleast_1d(numpy.asarray(float(phi)))
+    bargs = [_arr(backend, numpy.asarray(float(v))[None]) for v in (R, vR, vT, z, vz)]
+    bphi = _arr(backend, numpy.asarray(float(phi))[None])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ref_afa = aAS._actionsFreqsAngles(*npargs, npphi)
+        got_afa = aAS._actionsFreqsAngles(*bargs, bphi)
+        ref_ecc = aAS._EccZmaxRperiRap(*npargs)
+        got_ecc = aAS._EccZmaxRperiRap(*bargs)
+    # (Jr,Lz,Jz,Or,Op,Oz,ar,ap,az): values to ~1e-6 (GL-vs-adaptive floor);
+    # angles (idx>=6) compared as wrap-robust circular differences.
+    for idx, (r, g) in enumerate(zip(ref_afa, got_afa)):
+        assert _is_backend_array(backend, g)
+        if idx >= 6:
+            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            numpy.testing.assert_allclose(
+                d, 0.0, atol=2e-6, err_msg=f"{case}/{potname}/angle{idx}"
+            )
+        else:
+            numpy.testing.assert_allclose(
+                _np(g),
+                numpy.asarray(r),
+                rtol=2e-6,
+                atol=2e-6,
+                err_msg=f"{case}/{potname}/afa{idx}",
+            )
+    # (e,zmax,rperi,rap): root-find + action quadrature, ~1e-9.
+    for idx, (r, g) in enumerate(zip(ref_ecc, got_ecc)):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(
+            _np(g),
+            numpy.asarray(r),
+            rtol=1e-7,
+            atol=1e-9,
+            err_msg=f"{case}/{potname}/ecc{idx}",
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("idx,name", [(7, "ap"), (8, "az")])
+def test_spherical_noninclined_angle_grad_vs_fd(backend, idx, name):
+    # d(ap or az)/d vR for a NON-INCLINED (z=0, vz=0) orbit. numpy's psi and
+    # longitude-of-ascending-node use z/r/sin(i) and z/R/tan(i), both 0/0 (sin
+    # i==0) -> non-finite -> psi=phi / Omega=0. The backend reproduces those
+    # conventions via xp.where on a finiteness mask computed from the TRUE
+    # (un-safed) division, so NO NaN reaches the where value/grad path: the
+    # gradient stays finite and matches finite-difference (perturbing vR keeps
+    # the orbit in-plane, so the angle is smooth there). Guards against the
+    # xp.where dead-branch NaN-poisoning that a naive psi=phi guard reintroduces.
+    aAS = actionAngleSpherical(pot=_EDGE_POTS["log"])
+    pot = _EDGE_POTS["log"]
+    vc = vcirc(pot, 1.0, use_physical=False)
+    R, vT, z, vz, phi = 1.0, 0.7 * vc, 0.0, 0.0, 0.7  # non-inclined, az mid-range
+
+    def call(vR_val, xp_arr):
+        args = (xp_arr(R), vR_val, xp_arr(vT), xp_arr(z), xp_arr(vz), xp_arr(phi))
+        return aAS._actionsFreqsAngles(*args)[idx].sum()
+
+    def f_np(vR_val):
+        return numpy.asarray(call(vR_val, lambda v: numpy.atleast_1d(numpy.asarray(v))))
+
+    fd = _fd(f_np, 0.2)
+
+    def f_be(vR_t):
+        return call(vR_t, lambda v: _arr(backend, numpy.atleast_1d(v).astype(float)))
+
+    g = _grad(backend, f_be, 0.2)
+    assert numpy.isfinite(g), f"{name} grad is NaN at non-inclined point ({backend})"
+    numpy.testing.assert_allclose(g, fd, rtol=1e-4, atol=1e-6)
