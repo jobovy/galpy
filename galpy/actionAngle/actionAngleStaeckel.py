@@ -16,6 +16,9 @@ import warnings
 import numpy
 from scipy import integrate, optimize
 
+from ..backend import get_namespace, is_backend_array
+from ..backend.optimize import bisect_root
+from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..potential import (
     CompositePotential,
     DiskSCFPotential,
@@ -37,12 +40,12 @@ from ..potential.Potential import (
     _evaluatezforces,
     _isNonAxi,
 )
-from ..util import coords  # for prolate confocal transforms
-from ..util import conversion, galpyWarning
+from ..util import (
+    conversion,
+    coords,  # for prolate confocal transforms
+    galpyWarning,
+)
 from ..util.conversion import physical_conversion, potential_physical_input
-from ..backend import get_namespace, is_backend_array
-from ..backend.optimize import bisect_root
-from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from . import actionAngleStaeckel_c
 from .actionAngle import UnboundError, actionAngle
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
@@ -172,14 +175,19 @@ def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
                s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
     jr = (
         _staeckel_gl_action(xp, _JRStaeckelIntegrandSquared, jr_args, umin, umax, order)
-        * sqrt2 * delta / numpy.pi
+        * sqrt2
+        * delta
+        / numpy.pi
     )
     jz_args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
                s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
     pi2 = numpy.pi / 2.0 * xp.ones_like(vmin)
     jz = (
         _staeckel_gl_action(xp, _JzStaeckelIntegrandSquared, jz_args, vmin, pi2, order)
-        * 2.0 * sqrt2 * delta / numpy.pi
+        * 2.0
+        * sqrt2
+        * delta
+        / numpy.pi
     )
     jr = xp.where((umax - umin) / umax < 1e-6, xp.zeros_like(jr), jr)
     jz = xp.where((numpy.pi / 2.0 - vmin) < 1e-7, xp.zeros_like(jz), jz)
@@ -2085,7 +2093,8 @@ def _JRStaeckelIntegrandSquared(
 ):
     # potu0v0= potentialStaeckel(u0,v0,pot,delta)
     """The J_R integrand: p^2_u(u)/2/delta^2"""
-    sinh2u = numpy.sinh(u) ** 2.0
+    xp = get_namespace(u) if is_backend_array(u) else numpy
+    sinh2u = xp.sinh(u) ** 2.0
     dU = (sinh2u + sin2v0) * potentialStaeckel(u, v0, pot, delta) - (
         sinh2u0 + sin2v0
     ) * potu0v0
@@ -2105,7 +2114,8 @@ def _JzStaeckelIntegrandSquared(
 ):
     # potu0pi2= potentialStaeckel(u0,numpy.pi/2.,pot,delta)
     """The J_z integrand: p_v(v)/2/delta^2"""
-    sin2v = numpy.sin(v) ** 2.0
+    xp = get_namespace(v) if is_backend_array(v) else numpy
+    sin2v = xp.sin(v) ** 2.0
     dV = cosh2u0 * potu0pi2 - (sinh2u0 + sin2v) * potentialStaeckel(u0, v, pot, delta)
     return E * sin2v + I3V + dV - Lz**2.0 / 2.0 / delta**2.0 / sin2v
 

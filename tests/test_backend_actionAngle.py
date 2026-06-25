@@ -42,6 +42,7 @@ from galpy.actionAngle import (
     actionAngleIsochrone,
     actionAngleIsochroneInverse,
     actionAngleSpherical,
+    actionAngleStaeckel,
     actionAngleVertical,
 )
 from galpy.potential import (
@@ -51,6 +52,7 @@ from galpy.potential import (
     KGPotential,
     LogarithmicHaloPotential,
     MiyamotoNagaiPotential,
+    MWPotential2014,
     NFWPotential,
     toVerticalPotential,
     vcirc,
@@ -780,3 +782,43 @@ def test_vertical_grad_vs_fd_wrt_vx(backend, which, idx):
     g = _grad(backend, f_be, vx0)
     assert numpy.isfinite(g)
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-6)
+
+
+# ----------------------------------------------------- Staeckel actions (PR-1)
+# Vectorised C-consistent actions (jr,Lz,jz) under the backends. The numpy and
+# jax/torch paths run the SAME unified vectorised code (turning points via the
+# shared bisect_root, J integrals via fixed_quad at the C GL order); validate
+# numpy<->backend value parity and consistency with the C path (c=True).
+# NOTE: accurate action GRADIENTS need the substitution-regularised derivative
+# integrands (the dJ/dE,dLz,dI3 Leibniz rules) and land with the frequencies in
+# the next Staeckel PR -- d(sqrt S)/dparam ~ 1/sqrt(S) is singular at the turning
+# points, so AD through the plain-GL value is only GL-order accurate. Hence this
+# module asserts VALUE parity only for Staeckel.
+_STK = (
+    numpy.array([0.9, 1.1, 0.7]),
+    numpy.array([0.1, -0.2, 0.05]),
+    numpy.array([1.05, 0.9, 1.2]),
+    numpy.array([0.2, -0.1, 0.3]),
+    numpy.array([0.08, 0.2, -0.1]),
+)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_actions_parity(backend):
+    aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    ref = aA(*_STK)
+    got = aA(*[_arr(backend, v) for v in _STK])
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-10, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_actions_vs_c(backend):
+    # the unified vectorised (numpy + backend) GL actions match the C path
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    jr_c, lz_c, jz_c = aC(*_STK)
+    jr_b, lz_b, jz_b = aF(*[_arr(backend, v) for v in _STK])
+    numpy.testing.assert_allclose(_np(jr_b), numpy.asarray(jr_c), rtol=1e-8, atol=1e-9)
+    numpy.testing.assert_allclose(_np(jz_b), numpy.asarray(jz_c), rtol=1e-8, atol=1e-9)
