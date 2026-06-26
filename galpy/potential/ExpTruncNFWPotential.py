@@ -183,15 +183,15 @@ class ExpTruncNFWPotential(SphericalPotential):
             # rc -- there is no upper bound. The only hard limit is at the sharp
             # end: F(690) ~ 2e-6 is the smallest mass we can evaluate before
             # exp(alpha) overflows (rc < a/690).
-            alow, ahi = 1e-150, 690.0  # F(1e-150) ~ 344; exp(690) still finite
-            if Froot(ahi) > 0.0:
+            a_low, a_high = 1e-150, 690.0  # F(1e-150) ~ 344; exp(690) still finite
+            if Froot(a_high) > 0.0:
                 raise ValueError(
                     "ExpTruncNFWPotential.from_nfw: the requested mass is too "
                     "small to evaluate -- it implies a truncation sharper than "
                     "rc = a/690, where the closed-form total mass overflows in "
                     "floating point"
                 )
-            alpha = brentq(Froot, alow, ahi)
+            alpha = brentq(Froot, a_low, a_high)
             rc = a / alpha
             if rc < a:
                 warnings.warn(
