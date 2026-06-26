@@ -2239,6 +2239,7 @@ def test_actionAngleAdiabaticGrid_Isochrone_actions():
 
 
 # Basic sanity checking of the actionAngleStaeckel actions
+@pytest.mark.backend_managed  # numpy-only: the Single (scipy.quad) is not backend-capable
 def test_actionAngleStaeckelSingle_quad_branches():
     # Cover the per-object actionAngleStaeckelSingle branches that the vectorised
     # _evaluate no longer exercises: the adaptive integrate.quad JR/Jz paths
