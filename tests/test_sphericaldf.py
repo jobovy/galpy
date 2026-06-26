@@ -2672,16 +2672,18 @@ def test_exptruncnfw_ddenstwobetadr_and_rforce_jax():
         for r in [0.4, 1.3, 5.0]:
             g = lambda x: pot._amp * pot._rdens(x) * x ** (2.0 * beta)
             fd = (g(r + h) - g(r - h)) / (2.0 * h)
-            assert (
-                numpy.fabs(float(pot._ddenstwobetadr(r, beta=beta)) - fd)
-                < 1e-5 * numpy.fabs(fd)
-            ), "ExpTruncNFW _ddenstwobetadr != d/dr[rho r^(2beta)]"
+            assert numpy.fabs(
+                float(pot._ddenstwobetadr(r, beta=beta)) - fd
+            ) < 1e-5 * numpy.fabs(fd), (
+                "ExpTruncNFW _ddenstwobetadr != d/dr[rho r^(2beta)]"
+            )
     # at beta=0 it reduces to _ddensdr
     for r in [0.4, 1.3, 5.0]:
-        assert (
-            numpy.fabs(float(pot._ddenstwobetadr(r, beta=0)) - pot._ddensdr(r))
-            < 1e-5 * numpy.fabs(pot._ddensdr(r))
-        ), "ExpTruncNFW _ddenstwobetadr(beta=0) does not reduce to _ddensdr"
+        assert numpy.fabs(
+            float(pot._ddenstwobetadr(r, beta=0)) - pot._ddensdr(r)
+        ) < 1e-5 * numpy.fabs(pot._ddensdr(r)), (
+            "ExpTruncNFW _ddenstwobetadr(beta=0) does not reduce to _ddensdr"
+        )
     # _rforce_jax(r) == amp * _rforce(r) (the internal Python radial force);
     # JAX defaults to float32, so this is the looser float32-limited check
     for r in [0.5, 1.3, 8.0]:

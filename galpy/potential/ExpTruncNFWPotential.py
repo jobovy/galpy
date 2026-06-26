@@ -175,9 +175,7 @@ class ExpTruncNFWPotential(SphericalPotential):
             # from +inf (alpha->0) to 0 (alpha->inf), so the root is unique.
             from scipy.optimize import brentq
 
-            target_F = (
-                conversion.parse_mass(mass, ro=nfw._ro, vo=nfw._vo) / nfw._amp
-            )
+            target_F = conversion.parse_mass(mass, ro=nfw._ro, vo=nfw._vo) / nfw._amp
             Froot = lambda al: numpy.exp(al) * (1.0 + al) * exp1(al) - 1.0 - target_F
             # F(alpha) decreases monotonically from +inf (alpha->0, rc->inf, the
             # un-truncated infinite-mass NFW) to 0 (alpha->inf). Any finite mass

@@ -5548,10 +5548,13 @@ def test_ExpTruncNFW_from_nfw():
     assert p.a == nfw.a, "from_nfw did not inherit a"
     assert p.rc == rc, "from_nfw did not set rc"
     for r in [0.05, 0.3, 1.5, 5.0]:
-        assert numpy.fabs(
-            p.dens(r, 0.0, use_physical=False)
-            - nfw.dens(r, 0.0, use_physical=False) * numpy.exp(-r / rc)
-        ) < 1e-12, "from_nfw truncated density is not NFW * exp(-r/rc)"
+        assert (
+            numpy.fabs(
+                p.dens(r, 0.0, use_physical=False)
+                - nfw.dens(r, 0.0, use_physical=False) * numpy.exp(-r / rc)
+            )
+            < 1e-12
+        ), "from_nfw truncated density is not NFW * exp(-r/rc)"
 
     # (2) mass input: amp still inherited, total mass equals the request,
     #     and rc is solved consistently

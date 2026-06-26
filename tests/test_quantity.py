@@ -11439,9 +11439,7 @@ def test_ExpTruncNFWPotential_from_nfw_quantity():
     assert p_m._amp == nfw._amp, (
         "ExpTruncNFWPotential.from_nfw(mass=Quantity) should still inherit amp"
     )
-    mtot = (
-        p_m.mass(numpy.inf, use_physical=False) * conversion.mass_in_msol(vo, ro)
-    )
+    mtot = p_m.mass(numpy.inf, use_physical=False) * conversion.mass_in_msol(vo, ro)
     assert numpy.fabs(mtot - 1e11) < 1e-6 * 1e11, (
         "ExpTruncNFWPotential.from_nfw(mass=Quantity) total mass does not match"
     )
