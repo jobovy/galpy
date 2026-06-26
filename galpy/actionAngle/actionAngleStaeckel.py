@@ -10,7 +10,6 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
-import copy
 import warnings
 
 import numpy
@@ -131,8 +130,16 @@ def _staeckel_uminumax(xp, s, pot, delta):
     # region) -> unbound, mirroring the per-object _uminUmaxFindStart
     # `utry > 100 -> UnboundError`.
     unbound = (f(100.0 * xp.ones_like(ux)) >= 0.0) & ~(at_umax | circular)
-    umin = bisect_root(f, lo, ux, xp, xtol=1e-13, maxiter=200)
-    umax = bisect_root(f, ux, hi, xp, xtol=1e-13, maxiter=200)
+    # When the orbit sits exactly AT a turning point (pux~0), f(ux)~0 to round-off
+    # (sign indeterminate), so the OTHER turning point must be bracketed from
+    # strictly INSIDE the allowed region (ux+/-eps, where f>0) -- else both ends
+    # of the bracket are <0 and a narrow interior root is missed (the bisection
+    # returns the outer endpoint). Mirrors the Single calcUminUmax ux+/-eps
+    # brackets. The snapped side's bisection result is discarded by the where below.
+    u_lo_umax = xp.where(at_umin, ux + eps, ux)  # umax: bracket above (from inside)
+    u_hi_umin = xp.where(at_umax, ux - eps, ux)  # umin: bracket below (from inside)
+    umin = bisect_root(f, lo, u_hi_umin, xp, xtol=1e-13, maxiter=200)
+    umax = bisect_root(f, u_lo_umax, hi, xp, xtol=1e-13, maxiter=200)
     umin = xp.where(at_umin | circular, ux, umin)
     umax = xp.where(at_umax | circular, ux, umax)
     return umin, umax, unbound
@@ -179,6 +186,13 @@ def _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta):
     if bool(xp.any(unbound)):  # eager (no internal jit); mirrors the Single
         raise UnboundError("Orbit seems to be unbound")
     vmin = _staeckel_vmin(xp, s, pot, delta)
+    # Planar orbit (jz=0): snap vmin to exactly pi/2 (the bisection lands ~1e-8
+    # off). Shared by actions (jz->0), freqs (zero-width J_z panels -> det(A)=0
+    # exactly, deterministic NaN/Inf across backends, matching C) and EccZmax
+    # (zmax=0 exactly).
+    vmin = xp.where(
+        (numpy.pi / 2.0 - vmin) < 1e-7, numpy.pi / 2.0 * xp.ones_like(vmin), vmin
+    )
     return s, umin, umax, vmin, delta
 
 
@@ -280,12 +294,20 @@ def _staeckel_freqs(xp, s, umin, umax, vmin, pot, delta, order):
         dP(xp, JZsq, jz_args, lambda xp, v: xp.ones_like(v), vmin, pi2, order) * prefz
     )
     detA = djrdE * djzdI3 - djzdE * djrdI3
-    circ = (umax - umin) / umax < 1e-6
-    detsafe = xp.where(circ, xp.ones_like(detA), detA)
+    circ = (umax - umin) / umax < 1e-6  # circular in R: det(A)=0 (J_R panels ->0)
+    planar = (numpy.pi / 2.0 - vmin) < 1e-7  # planar (J_z=0): det(A)=0 (J_z panels ->0)
+    degen = circ | planar
+    detsafe = xp.where(degen, xp.ones_like(detA), detA)  # avoid the 0/0 division
     nan = numpy.nan * xp.ones_like(detA)
-    Omegar = xp.where(circ, nan, djzdI3 / detsafe)
-    Omegaz = xp.where(circ, nan, -djrdI3 / detsafe)
-    Omegaphi = xp.where(circ, nan, (djrdI3 * djzdLz - djzdI3 * djrdLz) / detsafe)
+    inf = numpy.inf * xp.ones_like(detA)
+    # circular -> all NaN (caller substitutes epifreq/omegac/verticalfreq, since
+    # jr,jz<1e-3). planar-but-radially-eccentric -> Omegar,Omegaphi=NaN and
+    # Omegaz=Inf (NOT NaN): this reproduces the C 0/0 & x/0 IEEE result and, crucially,
+    # keeps the Omegaz<1e-3-substitution from firing -- so Omegar stays NaN for the
+    # genuinely eccentric radial motion rather than being wrongly set to epifreq.
+    Omegar = xp.where(degen, nan, djzdI3 / detsafe)
+    Omegaz = xp.where(circ, nan, xp.where(planar, inf, -djrdI3 / detsafe))
+    Omegaphi = xp.where(degen, nan, (djrdI3 * djzdLz - djzdI3 * djrdLz) / detsafe)
     return Omegar, Omegaphi, Omegaz
 
 
@@ -845,9 +867,10 @@ class actionAngleStaeckel(actionAngle):
         """
         delta = _coerce_delta_arraylike(kwargs.get("delta", self._delta))
         umin, umax, vmin = self._uminumaxvmin(*args, **kwargs)
+        xp = get_namespace(umin) if is_backend_array(umin) else numpy
         rperi = coords.uv_to_Rz(umin, numpy.pi / 2.0, delta=delta)[0]
         rap_tmp, zmax = coords.uv_to_Rz(umax, vmin, delta=delta)
-        rap = numpy.sqrt(rap_tmp**2.0 + zmax**2.0)
+        rap = xp.sqrt(rap_tmp**2.0 + zmax**2.0)
         e = (rap - rperi) / (rap + rperi)
         return (e, zmax, rperi, rap)
 
@@ -943,31 +966,14 @@ class actionAngleStaeckel(actionAngle):
                     galpyWarning,
                 )
             kwargs.pop("c", None)
-            if len(R) > 1:
-                oumin = numpy.zeros(len(R))
-                oumax = numpy.zeros(len(R))
-                ovmin = numpy.zeros(len(R))
-                for ii in range(len(R)):
-                    targs = (R[ii], vR[ii], vT[ii], z[ii], vz[ii])
-                    tkwargs = copy.copy(kwargs)
-                    tkwargs["delta"] = delta[ii] if len(delta) > 1 else delta[0]
-                    tumin, tumax, tvmin = self._uminumaxvmin(*targs, **tkwargs)
-                    oumin[ii] = tumin[0]
-                    oumax[ii] = tumax[0]
-                    ovmin[ii] = tvmin[0]
-                return (oumin, oumax, ovmin)
-            else:
-                # Set up the actionAngleStaeckelSingle object
-                aASingle = actionAngleStaeckelSingle(
-                    R[0], vR[0], vT[0], z[0], vz[0], pot=self._pot, delta=delta[0]
-                )
-                umin, umax = aASingle.calcUminUmax()
-                vmin = aASingle.calcVmin()
-                return (
-                    numpy.atleast_1d(umin),
-                    numpy.atleast_1d(umax),
-                    numpy.atleast_1d(vmin),
-                )
+            # Unified vectorised, backend-agnostic turning points (shared with the
+            # actions/freqs via _staeckel_prep); feeds _EccZmaxRperiRap.
+            xp = get_namespace(R) if is_backend_array(R) else numpy
+            # _staeckel_prep already snaps vmin to pi/2 for planar orbits.
+            _, umin, umax, vmin, _ = _staeckel_prep(
+                xp, R, vR, vT, z, vz, self._pot, delta
+            )
+            return (umin, umax, vmin)
 
 
 class actionAngleStaeckelSingle(actionAngle):

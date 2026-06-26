@@ -853,3 +853,159 @@ def test_staeckel_actionsfreqs_parity(backend):
     refc = aC.actionsFreqs(*_STK)
     for g, c in zip(got, refc):  # freqs match the C path to the GL floor
         numpy.testing.assert_allclose(_np(g), numpy.asarray(c), rtol=1e-7, atol=1e-9)
+
+
+# A substantial grid of bound orbits (R x vR x vT x z x vz; 768 points) spanning
+# eccentric, retrograde (vT<0), high-z, and near-radial regimes -- exercises the
+# vectorised turning points + actions/freqs/EccZmaxRperiRap far more broadly than
+# a handful of points. (All bound for MWPotential2014 + delta=0.45; verified.)
+def _staeckel_grid():
+    Rg = numpy.array([0.7, 0.9, 1.1, 1.3])
+    vRg = numpy.array([-0.3, -0.1, 0.1, 0.3])
+    vTg = numpy.array([-0.8, 0.6, 0.9, 1.2])
+    zg = numpy.array([-0.3, -0.1, 0.1, 0.3])
+    vzg = numpy.array([-0.2, 0.0, 0.15])
+    G = numpy.meshgrid(Rg, vRg, vTg, zg, vzg, indexing="ij")
+    return tuple(g.ravel() for g in G)
+
+
+_STK_GRID = _staeckel_grid()
+
+
+def test_staeckel_grid_vs_c():
+    # vectorised numpy c=False == the C path (c=True) across the whole grid, for
+    # actions, frequencies, and EccZmaxRperiRap (the GL-order floor is ~3e-9 on Oz
+    # at the most extreme grid points; jr/jz/ecc are machine precision).
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    jr_f, lz_f, jz_f, Or_f, Op_f, Oz_f = aF.actionsFreqs(*_STK_GRID)
+    jr_c, lz_c, jz_c, Or_c, Op_c, Oz_c = aC.actionsFreqs(*_STK_GRID)
+    numpy.testing.assert_allclose(jr_f, jr_c, rtol=1e-7, atol=1e-9)
+    numpy.testing.assert_allclose(jz_f, jz_c, rtol=1e-7, atol=1e-9)
+    for o_f, o_c in ((Or_f, Or_c), (Op_f, Op_c), (Oz_f, Oz_c)):
+        numpy.testing.assert_allclose(o_f, o_c, rtol=1e-6, atol=1e-7)
+    ef, zmf, rpf, raf = aF.EccZmaxRperiRap(*_STK_GRID)
+    ec, zmc, rpc, rac = aC.EccZmaxRperiRap(*_STK_GRID)
+    for a, b in ((ef, ec), (zmf, zmc), (rpf, rpc), (raf, rac)):
+        numpy.testing.assert_allclose(a, b, rtol=1e-7, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_grid_parity(backend):
+    # numpy <-> jax/torch parity across the whole grid for actions, freqs, ecc
+    # (one vectorised call processes all 768 orbits at once).
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    bargs = [_arr(backend, v) for v in _STK_GRID]
+    for ref, got in (
+        (aF(*_STK_GRID), aF(*bargs)),
+        (aF.actionsFreqs(*_STK_GRID), aF.actionsFreqs(*bargs)),
+        (aF.EccZmaxRperiRap(*_STK_GRID), aF.EccZmaxRperiRap(*bargs)),
+    ):
+        for r, g in zip(ref, got):
+            assert _is_backend_array(backend, g)
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
+            )
+
+
+# Turning-point orbits: vR=vz=0, so the orbit sits exactly AT a radial turning
+# point (ux==umin). The OTHER turning point (umax) must be bracketed from
+# strictly INSIDE the allowed region (ux+eps, where the J_R integrand>0); a naive
+# [ux,hi] bracket has the integrand <0 at both ends and misses a narrow interior
+# umax root, returning hi -> corrupting umax, J_R and the eccentricity. The
+# generic grid above never sets vR=0, so it cannot catch this -- hence a dedicated
+# grid. z!=0 so J_z>0 and the frequencies stay finite & well-posed.
+def _staeckel_turningpoint_grid():
+    Rg = numpy.array([0.7, 0.9, 1.1, 1.3])
+    vTg = numpy.array([0.6, 0.8, 1.0, 1.1])
+    zg = numpy.array([0.05, 0.15, 0.3])
+    G = numpy.meshgrid(Rg, vTg, zg, indexing="ij")
+    R, vT, z = (g.ravel() for g in G)
+    return (R, numpy.zeros_like(R), vT, z, numpy.zeros_like(R))
+
+
+_STK_TURN = _staeckel_turningpoint_grid()
+
+
+def test_staeckel_turningpoint_vs_c():
+    # Regression for the radial-turning-point umin/umax bracketing bug: actions
+    # and EccZmaxRperiRap of vR=vz=0 orbits must match the C path to machine
+    # precision (a wrong umax silently zeroed J_R and inflated the eccentricity).
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    jr_f, lz_f, jz_f = aF(*_STK_TURN)
+    jr_c, lz_c, jz_c = aC(*_STK_TURN)
+    numpy.testing.assert_allclose(jr_f, jr_c, rtol=1e-7, atol=1e-10)
+    numpy.testing.assert_allclose(jz_f, jz_c, rtol=1e-7, atol=1e-10)
+    for a, b in zip(aF.EccZmaxRperiRap(*_STK_TURN), aC.EccZmaxRperiRap(*_STK_TURN)):
+        numpy.testing.assert_allclose(a, b, rtol=1e-7, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_turningpoint_parity(backend):
+    # numpy <-> jax/torch parity of the turning-point actions + ecc.
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    bargs = [_arr(backend, v) for v in _STK_TURN]
+    ref = tuple(aF(*_STK_TURN)) + tuple(aF.EccZmaxRperiRap(*_STK_TURN))
+    got = tuple(aF(*bargs)) + tuple(aF.EccZmaxRperiRap(*bargs))
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-9, atol=1e-10)
+
+
+# Exactly-planar orbits (z=vz=0, so J_z=0): the vertical turning point snaps to
+# v=pi/2, the J_z derivative panels collapse to zero width, and the frequency
+# determinant det(A)=0. The C path then returns Omegar,Omegaphi=NaN and
+# Omegaz=Inf (IEEE 0/0 and x/0); the vectorised path must reproduce this EXACTLY
+# and deterministically across numpy/jax/torch (the vmin->pi/2 snap makes det(A)
+# identically zero rather than a tiny round-off value that would yield finite
+# garbage). Omegaz=Inf (not NaN) is load-bearing: it keeps the J_z<1e-3
+# frequency substitution from firing, so Omegar stays NaN for the genuinely
+# eccentric radial motion instead of being wrongly overwritten with epifreq.
+def _staeckel_planar_grid():
+    Rg = numpy.array([0.7, 0.9, 1.1, 1.3])
+    vRg = numpy.array([-0.2, 0.1, 0.25])
+    vTg = numpy.array([0.6, 0.9, 1.1])
+    G = numpy.meshgrid(Rg, vRg, vTg, indexing="ij")
+    R, vR, vT = (g.ravel() for g in G)
+    return (R, vR, vT, numpy.zeros_like(R), numpy.zeros_like(R))
+
+
+_STK_PLANAR = _staeckel_planar_grid()
+
+
+def _kind(x):  # 0=NaN, 1=Inf, 2=finite -- the degeneracy class of a value
+    return numpy.where(numpy.isnan(x), 0, numpy.where(numpy.isinf(x), 1, 2))
+
+
+def test_staeckel_planar_freqs_degenerate_vs_c():
+    # actions stay finite & correct; the degenerate frequencies match the C path
+    # class-for-class (NaN/Inf), and the finite ones agree numerically.
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    jr_f, lz_f, jz_f, Or_f, Op_f, Oz_f = aF.actionsFreqs(*_STK_PLANAR)
+    jr_c, lz_c, jz_c, Or_c, Op_c, Oz_c = aC.actionsFreqs(*_STK_PLANAR)
+    numpy.testing.assert_allclose(jr_f, jr_c, rtol=1e-7, atol=1e-9)
+    assert numpy.all(jz_f == 0.0)
+    for o_f, o_c in ((Or_f, Or_c), (Op_f, Op_c), (Oz_f, Oz_c)):
+        numpy.testing.assert_array_equal(_kind(o_f), _kind(o_c))  # same NaN/Inf/finite
+        fin = numpy.isfinite(o_f) & numpy.isfinite(o_c)
+        if numpy.any(fin):
+            numpy.testing.assert_allclose(o_f[fin], o_c[fin], rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_planar_freqs_degenerate_parity(backend):
+    # the NaN/Inf degeneracy is identical across numpy and the backends (so the
+    # vmin->pi/2 snap is genuinely backend-deterministic, not round-off-dependent).
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    ref = aF.actionsFreqs(*_STK_PLANAR)
+    got = aF.actionsFreqs(*[_arr(backend, v) for v in _STK_PLANAR])
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_array_equal(_kind(numpy.asarray(r)), _kind(_np(g)))
+        fin = numpy.isfinite(numpy.asarray(r)) & numpy.isfinite(_np(g))
+        if numpy.any(fin):
+            numpy.testing.assert_allclose(
+                _np(g)[fin], numpy.asarray(r)[fin], rtol=1e-8, atol=1e-9
+            )
