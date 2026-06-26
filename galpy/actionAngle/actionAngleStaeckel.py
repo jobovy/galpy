@@ -264,9 +264,10 @@ def _staeckel_deriv_panels(xp, Sfunc, sq_args, factor_fn, lo, hi, order):
     return panel(lo, 1.0) + panel(hi, -1.0)
 
 
-def _staeckel_freqs(xp, s, umin, umax, vmin, pot, delta, order):
-    """Vectorised (Omegar, Omegaphi, Omegaz); NaN for circular (caller substitutes
-    epifreq/omegac/verticalfreq, mirroring the C 0/0=NaN -> close-to-circular path)."""
+def _staeckel_jacobian(xp, s, umin, umax, vmin, pot, delta, order):
+    """The six full-range Leibniz derivatives (djrdE,djrdLz,djrdI3,djzdE,djzdLz,
+    djzdI3) -- the t^2-substituted dJ/d(E,Lz,I3) integrals with their prefactors.
+    Shared by the frequencies and the angles."""
     sqrt2 = numpy.sqrt(2.0)
     Lz = s["Lz"]
     prefr = delta / numpy.pi / sqrt2
@@ -300,6 +301,15 @@ def _staeckel_freqs(xp, s, umin, umax, vmin, pot, delta, order):
     djzdI3 = (
         dP(xp, JZsq, jz_args, lambda xp, v: xp.ones_like(v), vmin, pi2, order) * prefz
     )
+    return djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3
+
+
+def _staeckel_freqs(xp, s, umin, umax, vmin, pot, delta, order):
+    """Vectorised (Omegar, Omegaphi, Omegaz); NaN for circular (caller substitutes
+    epifreq/omegac/verticalfreq, mirroring the C 0/0=NaN -> close-to-circular path)."""
+    djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3 = _staeckel_jacobian(
+        xp, s, umin, umax, vmin, pot, delta, order
+    )
     detA = djrdE * djzdI3 - djzdE * djrdI3
     circ = (umax - umin) / umax < 1e-6  # circular in R: det(A)=0 (J_R panels ->0)
     planar = (numpy.pi / 2.0 - vmin) < 1e-7  # planar (J_z=0): det(A)=0 (J_z panels ->0)
@@ -328,6 +338,162 @@ def _staeckel_actions_freqs(xp, R, vR, vT, z, vz, pot, delta, order):
         xp, s, umin, umax, vmin, pot, delta, order
     )
     return jr, s["Lz"], jz, Omegar, Omegaphi, Omegaz
+
+
+# ------------------------------------------------------------------- angles
+# The angles need PARTIAL Leibniz integrals (from a turning point to the current
+# u/v), unlike the freqs' full turning-point-to-turning-point integrals. The
+# vectorised quadrant tree mirrors the per-object calcAnglesStaeckel: the panel
+# (Low from umin/vmin, High from umax/pi-2) is chosen by which turning point the
+# position is closer to, and a reflection constant K and sign s -- functions only
+# of the momentum sign x position quadrant -- map the partial integral onto the
+# full angle (4 leaves in u, 8 in v). All branches are computed and xp.where-
+# selected (with the turning-point dead-branch guard) for vectorisation.
+
+
+def _staeckel_angle_partial(xp, Sfunc, sq_args, factor_fn, base, sign, mid, order):
+    """t^2-substituted partial integral of factor_fn(.)/sqrt(S) from the turning
+    point `base` to base+sign*mid^2 (sign=+1 Low from umin/vmin, -1 High from
+    umax/pi-2); `mid` and `sign` are per-orbit. Guarded at the turning point."""
+    a2 = tuple(x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in sq_args)
+
+    def integ(t01):  # t01 in [0,1] -> t = mid*t01; u = base + sign*t^2
+        t = mid[..., None] * t01
+        u = base[..., None] + sign[..., None] * t**2.0
+        S = Sfunc(u, *a2)
+        Ssafe = xp.where(S > 0.0, S, xp.ones_like(S))  # dead-branch guard
+        g = xp.where(S > 0.0, factor_fn(xp, u) / xp.sqrt(Ssafe), xp.zeros_like(S))
+        return 2.0 * t * g * mid[..., None]
+
+    return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order)
+
+
+def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order):
+    """Vectorised (angler, anglephi_raw, anglez); the caller folds the azimuth phi
+    into anglephi. angler/anglez are in [0, 2pi); circular orbits -> all 0."""
+    sqrt2 = numpy.sqrt(2.0)
+    pi = numpy.pi
+    Lz = s["Lz"]
+    ux, vx, pux, pvx = s["ux"], s["vx"], s["pux"], s["pvx"]
+    djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3 = _staeckel_jacobian(
+        xp, s, umin, umax, vmin, pot, delta, order
+    )
+    detA = djrdE * djzdI3 - djzdE * djrdI3
+    circ = (umax - umin) / umax < 1e-6
+    planar = (pi / 2.0 - vmin) < 1e-7
+    detsafe = xp.where(circ | planar, xp.ones_like(detA), detA)
+    Omegar = djzdI3 / detsafe
+    Omegaz = -djrdI3 / detsafe
+    Omegaphi = (djrdI3 * djzdLz - djzdI3 * djrdLz) / detsafe
+    dI3dJR = -djzdE / detsafe
+    dI3dJz = djrdE / detsafe
+    dI3dLz = -(djrdE * djzdLz - djzdE * djrdLz) / detsafe
+    jr_args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
+               s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
+    jz_args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
+               s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
+    JRsq, JZsq, AP = (
+        _JRStaeckelIntegrandSquared,
+        _JzStaeckelIntegrandSquared,
+        _staeckel_angle_partial,
+    )
+    # ---- u-branch (4 leaves): panel by ux vs midpoint, K/s by (pux sign x panel)
+    high_u = ux > umin + 0.5 * (umax - umin)
+    base_u = xp.where(high_u, umax, umin)
+    sign_u = xp.where(high_u, -xp.ones_like(ux), xp.ones_like(ux))
+    mid_u = xp.sqrt(xp.where(high_u, umax - ux, ux - umin))
+    PE = AP(
+        xp, JRsq, jr_args, lambda xp, u: xp.sinh(u) ** 2.0, base_u, sign_u, mid_u, order
+    )
+    PI = AP(
+        xp, JRsq, jr_args, lambda xp, u: xp.ones_like(u), base_u, sign_u, mid_u, order
+    )
+    PL = AP(
+        xp,
+        JRsq,
+        jr_args,
+        lambda xp, u: 1.0 / xp.sinh(u) ** 2.0,
+        base_u,
+        sign_u,
+        mid_u,
+        order,
+    )
+    pos_u = pux > 0.0
+    K_u = xp.where(high_u, pi, xp.where(pos_u, 0.0, 2.0 * pi)) * xp.ones_like(ux)
+    s_u = xp.where(high_u, xp.where(pos_u, -1.0, 1.0), xp.where(pos_u, 1.0, -1.0))
+    Or1 = K_u * djrdE + s_u * (delta / sqrt2) * PE
+    I3r1 = K_u * djrdI3 - s_u * (delta / sqrt2) * PI  # u-branch I3 has a leading minus
+    aphi_u = K_u * djrdLz - s_u * (Lz / delta / sqrt2) * PL
+    # ---- v-branch (8 leaves): panel by vx vs midpoints, K/s by (pvx x panel x vx</>pi/2)
+    mid_v_pt = vmin + 0.5 * (pi / 2.0 - vmin)
+    low_v = (vx < mid_v_pt) | (vx > (pi - mid_v_pt))
+    above = vx > pi / 2.0
+    base_v = xp.where(low_v, vmin, (pi / 2.0) * xp.ones_like(vx))
+    sign_v = xp.where(low_v, xp.ones_like(vx), -xp.ones_like(vx))
+    mid_v = xp.where(
+        low_v,
+        xp.where(above, xp.sqrt(xp.abs(pi - vx - vmin)), xp.sqrt(xp.abs(vx - vmin))),
+        xp.sqrt(xp.abs(pi / 2.0 - vx)),
+    )
+    QE = AP(
+        xp, JZsq, jz_args, lambda xp, v: xp.sin(v) ** 2.0, base_v, sign_v, mid_v, order
+    )
+    QI = AP(
+        xp, JZsq, jz_args, lambda xp, v: xp.ones_like(v), base_v, sign_v, mid_v, order
+    )
+    QL = AP(
+        xp,
+        JZsq,
+        jz_args,
+        lambda xp, v: 1.0 / xp.sin(v) ** 2.0,
+        base_v,
+        sign_v,
+        mid_v,
+        order,
+    )
+    pos_v = pvx > 0.0
+    K_v = xp.where(
+        low_v,
+        xp.where(pos_v, xp.where(above, pi, 0.0), xp.where(above, pi, 2.0 * pi)),
+        xp.where(pos_v, pi / 2.0, 1.5 * pi),
+    ) * xp.ones_like(vx)
+    s_v = xp.where(
+        low_v,
+        xp.where(pos_v, xp.where(above, -1.0, 1.0), xp.where(above, 1.0, -1.0)),
+        xp.where(pos_v, xp.where(above, 1.0, -1.0), xp.where(above, -1.0, 1.0)),
+    )
+    Or2 = K_v * djzdE + s_v * (delta / sqrt2) * QE
+    I3r2 = K_v * djzdI3 + s_v * (delta / sqrt2) * QI  # v-branch I3: NO leading minus
+    phitmp = K_v * djzdLz - s_v * (Lz / delta / sqrt2) * QL
+    # ---- assembly (calcAnglesStaeckel)
+    Or_sum = Or1 + Or2
+    I3_sum = I3r1 + I3r2
+    angler = Omegar * Or_sum + dI3dJR * I3_sum
+    anglez = Omegaz * Or_sum + dI3dJz * I3_sum + pi / 2.0
+    anglephi = aphi_u + phitmp + Omegaphi * Or_sum + dI3dLz * I3_sum
+    angler = xp.remainder(angler, 2.0 * pi)  # fmod + non-negative wrap == remainder
+    anglez = xp.remainder(anglez, 2.0 * pi)
+    zeros = xp.zeros_like(angler)
+    circ_full = circ | planar  # both degeneracies -> C calcAngles returns 0
+    angler = xp.where(circ_full, zeros, angler)
+    anglez = xp.where(circ_full, zeros, anglez)
+    anglephi = xp.where(circ_full, zeros, anglephi)
+    return angler, anglephi, anglez
+
+
+def _staeckel_actions_freqs_angles(xp, R, vR, vT, z, vz, phi, pot, delta, order):
+    """Unified vectorised (jr,Lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez);
+    setup + turning points computed once and shared. anglephi includes the azimuth."""
+    s, umin, umax, vmin, delta = _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta)
+    jr, jz = _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order)
+    Omegar, Omegaphi, Omegaz = _staeckel_freqs(
+        xp, s, umin, umax, vmin, pot, delta, order
+    )
+    angler, anglephi, anglez = _staeckel_angles(
+        xp, s, umin, umax, vmin, pot, delta, order
+    )
+    anglephi = xp.remainder(anglephi + phi, 2.0 * numpy.pi)  # fold in the azimuth
+    return jr, s["Lz"], jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez
 
 
 class actionAngleStaeckel(actionAngle):
@@ -787,61 +953,44 @@ class actionAngleStaeckel(actionAngle):
                 phi = numpy.array([phi])
             kwargs.pop("c", None)
             kwargs.pop("u0", None)
-            Lz = R * vT
-            jr = numpy.zeros(len(R))
-            jz = numpy.zeros(len(R))
-            Omegar = numpy.zeros(len(R))
-            Omegaphi = numpy.zeros(len(R))
-            Omegaz = numpy.zeros(len(R))
-            angler = numpy.zeros(len(R))
-            anglephi = numpy.zeros(len(R))
-            anglez = numpy.zeros(len(R))
-            for ii in range(len(R)):
-                tdelta = delta[ii] if hasattr(delta, "__len__") else delta
-                singlekw = {
-                    "pot": self._pot,
-                    "delta": tdelta,
-                    "_v0u": numpy.pi / 2.0,
-                }
-                if self._useu0:
-                    E = (
-                        _evaluatePotentials(self._pot, R[ii], z[ii])
-                        + vR[ii] ** 2.0 / 2.0
-                        + vz[ii] ** 2.0 / 2.0
-                        + vT[ii] ** 2.0 / 2.0
-                    )
-                    singlekw["u0"] = calcu0(E, Lz[ii], self._pot, tdelta)[0]
-                aASingle = actionAngleStaeckelSingle(
-                    R[ii], vR[ii], vT[ii], z[ii], vz[ii], **singlekw
-                )
-                jr[ii] = numpy.atleast_1d(aASingle.JR(fixed_quad=True, order=order))[0]
-                jz[ii] = numpy.atleast_1d(aASingle.Jz(fixed_quad=True, order=order))[0]
-                with numpy.errstate(divide="ignore", invalid="ignore"):
-                    tOr, tOp, tOz, tar, taphi, taz = aASingle.calcAngles(order=order)
-                Omegar[ii] = tOr
-                Omegaphi[ii] = tOp
-                Omegaz[ii] = tOz
-                angler[ii] = tar
-                # Assemble Anglephi as in the C wrapper: (raw + phi%2pi)%2pi
-                taphi = (taphi + phi[ii] % (2.0 * numpy.pi)) % (2.0 * numpy.pi)
-                if taphi < 0.0:  # pragma: no cover (Python % is non-negative)
-                    taphi += 2.0 * numpy.pi
-                anglephi[ii] = taphi
-                anglez[ii] = taz
-            # Adjustments for close-to-circular orbits (mirror the C wrapper)
-            indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
-                jz < 10.0**-3.0
+            # Unified vectorised, backend-agnostic path (the useu0 reference is
+            # action/frequency/angle-invariant, so it is not needed here).
+            xp = get_namespace(R) if is_backend_array(R) else numpy
+            if is_backend_array(R) and not is_backend_array(phi):
+                phi = xp.asarray(phi)  # fold the azimuth in R's namespace
+            (
+                jr,
+                Lz,
+                jz,
+                Omegar,
+                Omegaphi,
+                Omegaz,
+                angler,
+                anglephi,
+                anglez,
+            ) = _staeckel_actions_freqs_angles(
+                xp,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                phi,
+                self._pot,
+                _coerce_delta_arraylike(delta),
+                order,
             )
-            if numpy.sum(indx) > 0:
-                Omegar[indx] = [
-                    epifreq(self._pot, r, use_physical=False) for r in R[indx]
-                ]
-                Omegaphi[indx] = [
-                    omegac(self._pot, r, use_physical=False) for r in R[indx]
-                ]
-                Omegaz[indx] = [
-                    verticalfreq(self._pot, r, use_physical=False) for r in R[indx]
-                ]
+            # Close-to-circular orbits: substitute epifreq/omegac/verticalfreq for
+            # the NaN frequencies (vectorised mirror of the C wrapper; the angles
+            # are already 0 there, as in the C calcAnglesStaeckel).
+            indx = (xp.isnan(Omegar) & (jr < 1e-3)) | (xp.isnan(Omegaz) & (jz < 1e-3))
+            Omegar = xp.where(indx, epifreq(self._pot, R, use_physical=False), Omegar)
+            Omegaphi = xp.where(
+                indx, omegac(self._pot, R, use_physical=False), Omegaphi
+            )
+            Omegaz = xp.where(
+                indx, verticalfreq(self._pot, R, use_physical=False), Omegaz
+            )
             return (jr, Lz, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
