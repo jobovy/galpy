@@ -120,9 +120,15 @@ def _staeckel_uminumax(xp, s, pot, delta):
     at_umin = at_turn & (peps > 0.0) & (meps < 0.0)
     at_umax = at_turn & (peps < 0.0) & (meps > 0.0)
     circular = at_turn & ~at_umin & ~at_umax
-    lo = ux * 0.9
-    for _ in range(80):  # expanding bracket below ux until f<0 (>1e-9 floor)
-        lo = xp.where((f(lo) >= 0.0) & (lo > 1e-9), lo * 0.9, lo)
+    # Lower bracket: HALVE below ux until f<0 (60 halvings reach ~1e-18, so even a
+    # near-axis turning point at u~1e-4 -- low-Lz, nearly-radial orbits -- is
+    # straddled; *0.9 only reached ~3.8e-4*ux in 80 steps and collapsed umin to ux).
+    lo = ux * 0.5
+    for _ in range(60):
+        lo = xp.where((f(lo) >= 0.0) & (lo > 1e-10), lo * 0.5, lo)
+    # f still >0 at the floor -> no lower J_R turning point: the orbit reaches the
+    # symmetry axis (Lz~0, purely-radial), so umin=0 (mirrors C / Single rstart==0).
+    reaches_axis = f(lo) >= 0.0
     hi = ux * 1.1
     for _ in range(80):  # expanding bracket above ux until f<0 (stop at u=100)
         hi = xp.where((f(hi) >= 0.0) & (hi < 100.0), hi * 1.1, hi)
@@ -142,6 +148,7 @@ def _staeckel_uminumax(xp, s, pot, delta):
     umax = bisect_root(f, u_lo_umax, hi, xp, xtol=1e-13, maxiter=200)
     umin = xp.where(at_umin | circular, ux, umin)
     umax = xp.where(at_umax | circular, ux, umax)
+    umin = xp.where(reaches_axis, xp.zeros_like(umin), umin)  # axis-reaching -> 0
     return umin, umax, unbound
 
 

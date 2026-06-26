@@ -994,6 +994,51 @@ def test_staeckel_planar_freqs_degenerate_vs_c():
             numpy.testing.assert_allclose(o_f[fin], o_c[fin], rtol=1e-6, atol=1e-7)
 
 
+# Near-axis / purely-radial orbits: small or zero Lz (vT~0). The J_R turning point
+# umin sits close to (or exactly AT, for Lz=0) the symmetry axis u=0; the lower
+# bracket must descend far enough to straddle it (and detect the axis-reaching
+# Lz=0 case -> umin=0). A too-shallow down-expansion collapsed umin to ux,
+# silently zeroing J_R and corrupting ecc/freqs; this grid regresses that.
+def _staeckel_nearaxis_grid():
+    Rg = numpy.array([0.8, 1.0, 1.3])
+    vRg = numpy.array([0.2, 0.45])
+    vTg = numpy.array([0.0, 1e-4, 3e-4])  # Lz = 0, ~1e-4, ~3e-4
+    zg = numpy.array([0.1, 0.28])
+    G = numpy.meshgrid(Rg, vRg, vTg, zg, indexing="ij")
+    R, vR, vT, z = (g.ravel() for g in G)
+    return (R, vR, vT, z, 0.1 * numpy.ones_like(R))
+
+
+_STK_NEARAXIS = _staeckel_nearaxis_grid()
+
+
+def test_staeckel_nearaxis_vs_c():
+    # Regression for the umin lower-bracket collapse at small/zero Lz: actions and
+    # EccZmaxRperiRap of near-axis / purely-radial (vT=0) orbits must match C.
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    jr_f, lz_f, jz_f = aF(*_STK_NEARAXIS)
+    jr_c, lz_c, jz_c = aC(*_STK_NEARAXIS)
+    numpy.testing.assert_allclose(jr_f, jr_c, rtol=1e-7, atol=1e-10)
+    numpy.testing.assert_allclose(jz_f, jz_c, rtol=1e-7, atol=1e-10)
+    for a, b in zip(
+        aF.EccZmaxRperiRap(*_STK_NEARAXIS), aC.EccZmaxRperiRap(*_STK_NEARAXIS)
+    ):
+        numpy.testing.assert_allclose(a, b, rtol=1e-7, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_nearaxis_parity(backend):
+    # numpy <-> jax/torch parity of the near-axis actions + ecc.
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    bargs = [_arr(backend, v) for v in _STK_NEARAXIS]
+    ref = tuple(aF(*_STK_NEARAXIS)) + tuple(aF.EccZmaxRperiRap(*_STK_NEARAXIS))
+    got = tuple(aF(*bargs)) + tuple(aF.EccZmaxRperiRap(*bargs))
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-9, atol=1e-10)
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_staeckel_planar_freqs_degenerate_parity(backend):
     # the NaN/Inf degeneracy is identical across numpy and the backends (so the
