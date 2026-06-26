@@ -10,7 +10,6 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
-import copy
 import warnings
 
 import numpy
@@ -121,9 +120,15 @@ def _staeckel_uminumax(xp, s, pot, delta):
     at_umin = at_turn & (peps > 0.0) & (meps < 0.0)
     at_umax = at_turn & (peps < 0.0) & (meps > 0.0)
     circular = at_turn & ~at_umin & ~at_umax
-    lo = ux * 0.9
-    for _ in range(80):  # expanding bracket below ux until f<0 (>1e-9 floor)
-        lo = xp.where((f(lo) >= 0.0) & (lo > 1e-9), lo * 0.9, lo)
+    # Lower bracket: HALVE below ux until f<0 (60 halvings reach ~1e-18, so even a
+    # near-axis turning point at u~1e-4 -- low-Lz, nearly-radial orbits -- is
+    # straddled; *0.9 only reached ~3.8e-4*ux in 80 steps and collapsed umin to ux).
+    lo = ux * 0.5
+    for _ in range(60):
+        lo = xp.where((f(lo) >= 0.0) & (lo > 1e-10), lo * 0.5, lo)
+    # f still >0 at the floor -> no lower J_R turning point: the orbit reaches the
+    # symmetry axis (Lz~0, purely-radial), so umin=0 (mirrors C / Single rstart==0).
+    reaches_axis = f(lo) >= 0.0
     hi = ux * 1.1
     for _ in range(80):  # expanding bracket above ux until f<0 (stop at u=100)
         hi = xp.where((f(hi) >= 0.0) & (hi < 100.0), hi * 1.1, hi)
@@ -131,10 +136,19 @@ def _staeckel_uminumax(xp, s, pot, delta):
     # region) -> unbound, mirroring the per-object _uminUmaxFindStart
     # `utry > 100 -> UnboundError`.
     unbound = (f(100.0 * xp.ones_like(ux)) >= 0.0) & ~(at_umax | circular)
-    umin = bisect_root(f, lo, ux, xp, xtol=1e-13, maxiter=200)
-    umax = bisect_root(f, ux, hi, xp, xtol=1e-13, maxiter=200)
+    # When the orbit sits exactly AT a turning point (pux~0), f(ux)~0 to round-off
+    # (sign indeterminate), so the OTHER turning point must be bracketed from
+    # strictly INSIDE the allowed region (ux+/-eps, where f>0) -- else both ends
+    # of the bracket are <0 and a narrow interior root is missed (the bisection
+    # returns the outer endpoint). Mirrors the Single calcUminUmax ux+/-eps
+    # brackets. The snapped side's bisection result is discarded by the where below.
+    u_lo_umax = xp.where(at_umin, ux + eps, ux)  # umax: bracket above (from inside)
+    u_hi_umin = xp.where(at_umax, ux - eps, ux)  # umin: bracket below (from inside)
+    umin = bisect_root(f, lo, u_hi_umin, xp, xtol=1e-13, maxiter=200)
+    umax = bisect_root(f, u_lo_umax, hi, xp, xtol=1e-13, maxiter=200)
     umin = xp.where(at_umin | circular, ux, umin)
     umax = xp.where(at_umax | circular, ux, umax)
+    umin = xp.where(reaches_axis, xp.zeros_like(umin), umin)  # axis-reaching -> 0
     return umin, umax, unbound
 
 
@@ -169,8 +183,9 @@ def _staeckel_gl_action(xp, sqfunc, args, lo, hi, order):
     return _backend_fixed_quad(xp, integrand, 0.0, 1.0, n=order)
 
 
-def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
-    """Unified vectorised (jr, Lz, jz) for numpy and jax/torch backends."""
+def _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta):
+    """Setup quantities + turning points (+ unbound check), shared by the
+    vectorised actions and frequencies. Returns (setup, umin, umax, vmin, delta)."""
     if is_backend_array(R) and not is_backend_array(delta):
         delta = xp.asarray(delta)  # per-object numpy delta -> match R's namespace
     s = _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta)
@@ -178,6 +193,18 @@ def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
     if bool(xp.any(unbound)):  # eager (no internal jit); mirrors the Single
         raise UnboundError("Orbit seems to be unbound")
     vmin = _staeckel_vmin(xp, s, pot, delta)
+    # Planar orbit (jz=0): snap vmin to exactly pi/2 (the bisection lands ~1e-8
+    # off). Shared by actions (jz->0), freqs (zero-width J_z panels -> det(A)=0
+    # exactly, deterministic NaN/Inf across backends, matching C) and EccZmax
+    # (zmax=0 exactly).
+    vmin = xp.where(
+        (numpy.pi / 2.0 - vmin) < 1e-7, numpy.pi / 2.0 * xp.ones_like(vmin), vmin
+    )
+    return s, umin, umax, vmin, delta
+
+
+def _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order):
+    """(jr, jz) action integrals from prepared setup + turning points."""
     sqrt2 = numpy.sqrt(2.0)
     jr_args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
                s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
@@ -199,7 +226,108 @@ def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
     )
     jr = xp.where((umax - umin) / umax < 1e-6, xp.zeros_like(jr), jr)
     jz = xp.where((numpy.pi / 2.0 - vmin) < 1e-7, xp.zeros_like(jz), jz)
+    return jr, jz
+
+
+def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
+    """Unified vectorised (jr, Lz, jz) for numpy and jax/torch backends."""
+    s, umin, umax, vmin, delta = _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta)
+    jr, jz = _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order)
     return jr, s["Lz"], jz
+
+
+# --------------------------------------------------------------- frequencies
+# The frequency derivative integrals dJ/d(E,Lz,I3) need the t^2-substitution
+# (their integrands are (factor)/sqrt(S), SINGULAR at the turning points, unlike
+# the action integrand sqrt(S) which vanishes there). Mirror the C
+# dJ?d?{Low,High}StaeckelIntegrand split: low panel u=lo+t^2, high panel
+# u=hi-t^2, both over t in [0, sqrt(0.5(hi-lo))]. xp.where guards the dead S<=0
+# branch (the orbit can sit arbitrarily close to a turning point).
+
+
+def _staeckel_deriv_panels(xp, Sfunc, sq_args, factor_fn, lo, hi, order):
+    """Low(lo)+High(hi) t^2-substituted panels of factor_fn(u)/sqrt(Sfunc(u))."""
+    a2 = tuple(x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in sq_args)
+    mid = xp.sqrt(0.5 * (hi - lo))
+
+    def panel(base, sign):
+        def integ(s):  # s: (n,) -> (N, n); u = base + sign*t^2, t = mid*s
+            t = mid[..., None] * s
+            u = base[..., None] + sign * t**2.0
+            S = Sfunc(u, *a2)
+            Ssafe = xp.where(S > 0.0, S, xp.ones_like(S))  # dead-branch guard
+            g = xp.where(S > 0.0, factor_fn(xp, u) / xp.sqrt(Ssafe), xp.zeros_like(S))
+            return 2.0 * t * g * mid[..., None]  # du = 2t dt, dt = mid ds
+
+        return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order)
+
+    return panel(lo, 1.0) + panel(hi, -1.0)
+
+
+def _staeckel_freqs(xp, s, umin, umax, vmin, pot, delta, order):
+    """Vectorised (Omegar, Omegaphi, Omegaz); NaN for circular (caller substitutes
+    epifreq/omegac/verticalfreq, mirroring the C 0/0=NaN -> close-to-circular path)."""
+    sqrt2 = numpy.sqrt(2.0)
+    Lz = s["Lz"]
+    prefr = delta / numpy.pi / sqrt2
+    prefz = sqrt2 * delta / numpy.pi  # NB: djz prefactors are 2x djr's, +I3
+    jr_args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
+               s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
+    jz_args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
+               s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
+    pi2 = numpy.pi / 2.0 * xp.ones_like(vmin)
+    dP, JRsq, JZsq = (
+        _staeckel_deriv_panels,
+        _JRStaeckelIntegrandSquared,
+        _JzStaeckelIntegrandSquared,
+    )  # noqa: E501
+    djrdE = (
+        dP(xp, JRsq, jr_args, lambda xp, u: xp.sinh(u) ** 2.0, umin, umax, order)
+        * prefr
+    )
+    djrdLz = dP(
+        xp, JRsq, jr_args, lambda xp, u: 1.0 / xp.sinh(u) ** 2.0, umin, umax, order
+    ) * (-Lz / numpy.pi / sqrt2 / delta)  # noqa: E501
+    djrdI3 = dP(xp, JRsq, jr_args, lambda xp, u: xp.ones_like(u), umin, umax, order) * (
+        -prefr
+    )
+    djzdE = (
+        dP(xp, JZsq, jz_args, lambda xp, v: xp.sin(v) ** 2.0, vmin, pi2, order) * prefz
+    )
+    djzdLz = dP(
+        xp, JZsq, jz_args, lambda xp, v: 1.0 / xp.sin(v) ** 2.0, vmin, pi2, order
+    ) * (-Lz * sqrt2 / numpy.pi / delta)  # noqa: E501
+    djzdI3 = (
+        dP(xp, JZsq, jz_args, lambda xp, v: xp.ones_like(v), vmin, pi2, order) * prefz
+    )
+    detA = djrdE * djzdI3 - djzdE * djrdI3
+    circ = (umax - umin) / umax < 1e-6  # circular in R: det(A)=0 (J_R panels ->0)
+    planar = (numpy.pi / 2.0 - vmin) < 1e-7  # planar (J_z=0): det(A)=0 (J_z panels ->0)
+    degen = circ | planar
+    detsafe = xp.where(degen, xp.ones_like(detA), detA)  # avoid the 0/0 division
+    nan = numpy.nan * xp.ones_like(detA)
+    inf = numpy.inf * xp.ones_like(detA)
+    # circular -> all NaN (caller substitutes epifreq/omegac/verticalfreq, since
+    # jr,jz<1e-3). planar-but-radially-eccentric -> Omegar,Omegaphi=NaN and
+    # Omegaz=Inf (NOT NaN): this reproduces the C 0/0 & x/0 IEEE result and, crucially,
+    # keeps the Omegaz<1e-3-substitution from firing -- so Omegar stays NaN for the
+    # genuinely eccentric radial motion rather than being wrongly set to epifreq.
+    Omegar = xp.where(degen, nan, djzdI3 / detsafe)
+    Omegaz = xp.where(circ, nan, xp.where(planar, inf, -djrdI3 / detsafe))
+    Omegaphi = xp.where(degen, nan, (djrdI3 * djzdLz - djzdI3 * djrdLz) / detsafe)
+    return Omegar, Omegaphi, Omegaz
+
+
+def _staeckel_actions_freqs(xp, R, vR, vT, z, vz, pot, delta, order):
+    """Unified vectorised (jr, Lz, jz, Omegar, Omegaphi, Omegaz); the frequencies
+    are NaN for circular orbits (the caller substitutes epifreq/omegac/verticalfreq).
+    Setup + turning points are computed once and shared between actions and freqs."""
+    s, umin, umax, vmin, delta = _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta)
+    jr, jz = _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order)
+    Omegar, Omegaphi, Omegaz = _staeckel_freqs(
+        xp, s, umin, umax, vmin, pot, delta, order
+    )
+    return jr, s["Lz"], jz, Omegar, Omegaphi, Omegaz
 
 
 class actionAngleStaeckel(actionAngle):
@@ -501,51 +629,22 @@ class actionAngleStaeckel(actionAngle):
                 vz = numpy.array([vz])
             kwargs.pop("c", None)
             kwargs.pop("u0", None)
-            Lz = R * vT
-            jr = numpy.zeros(len(R))
-            jz = numpy.zeros(len(R))
-            Omegar = numpy.zeros(len(R))
-            Omegaphi = numpy.zeros(len(R))
-            Omegaz = numpy.zeros(len(R))
-            for ii in range(len(R)):
-                tdelta = delta[ii] if hasattr(delta, "__len__") else delta
-                singlekw = {
-                    "pot": self._pot,
-                    "delta": tdelta,
-                    "_v0u": numpy.pi / 2.0,
-                }
-                if self._useu0:
-                    E = (
-                        _evaluatePotentials(self._pot, R[ii], z[ii])
-                        + vR[ii] ** 2.0 / 2.0
-                        + vz[ii] ** 2.0 / 2.0
-                        + vT[ii] ** 2.0 / 2.0
-                    )
-                    singlekw["u0"] = calcu0(E, Lz[ii], self._pot, tdelta)[0]
-                aASingle = actionAngleStaeckelSingle(
-                    R[ii], vR[ii], vT[ii], z[ii], vz[ii], **singlekw
-                )
-                jr[ii] = numpy.atleast_1d(aASingle.JR(fixed_quad=True, order=order))[0]
-                jz[ii] = numpy.atleast_1d(aASingle.Jz(fixed_quad=True, order=order))[0]
-                with numpy.errstate(divide="ignore", invalid="ignore"):
-                    tOr, tOp, tOz, _, _, _, _ = aASingle.calcFreqs(order=order)
-                Omegar[ii] = tOr
-                Omegaphi[ii] = tOp
-                Omegaz[ii] = tOz
-            # Adjustments for close-to-circular orbits (mirror the C wrapper)
-            indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
-                jz < 10.0**-3.0
+            # Unified vectorised, backend-agnostic path (the useu0 reference is
+            # action/frequency-invariant, so it is not needed here).
+            xp = get_namespace(R) if is_backend_array(R) else numpy
+            jr, Lz, jz, Omegar, Omegaphi, Omegaz = _staeckel_actions_freqs(
+                xp, R, vR, vT, z, vz, self._pot, _coerce_delta_arraylike(delta), order
             )
-            if numpy.sum(indx) > 0:
-                Omegar[indx] = [
-                    epifreq(self._pot, r, use_physical=False) for r in R[indx]
-                ]
-                Omegaphi[indx] = [
-                    omegac(self._pot, r, use_physical=False) for r in R[indx]
-                ]
-                Omegaz[indx] = [
-                    verticalfreq(self._pot, r, use_physical=False) for r in R[indx]
-                ]
+            # Close-to-circular orbits: the freqs are NaN (det(A)=0); substitute
+            # epifreq/omegac/verticalfreq (vectorised mirror of the C wrapper).
+            indx = (xp.isnan(Omegar) & (jr < 1e-3)) | (xp.isnan(Omegaz) & (jz < 1e-3))
+            Omegar = xp.where(indx, epifreq(self._pot, R, use_physical=False), Omegar)
+            Omegaphi = xp.where(
+                indx, omegac(self._pot, R, use_physical=False), Omegaphi
+            )
+            Omegaz = xp.where(
+                indx, verticalfreq(self._pot, R, use_physical=False), Omegaz
+            )
             return (jr, Lz, jz, Omegar, Omegaphi, Omegaz)
 
     def _actionsFreqsAngles(self, *args, **kwargs):
@@ -775,9 +874,10 @@ class actionAngleStaeckel(actionAngle):
         """
         delta = _coerce_delta_arraylike(kwargs.get("delta", self._delta))
         umin, umax, vmin = self._uminumaxvmin(*args, **kwargs)
+        xp = get_namespace(umin) if is_backend_array(umin) else numpy
         rperi = coords.uv_to_Rz(umin, numpy.pi / 2.0, delta=delta)[0]
         rap_tmp, zmax = coords.uv_to_Rz(umax, vmin, delta=delta)
-        rap = numpy.sqrt(rap_tmp**2.0 + zmax**2.0)
+        rap = xp.sqrt(rap_tmp**2.0 + zmax**2.0)
         e = (rap - rperi) / (rap + rperi)
         return (e, zmax, rperi, rap)
 
@@ -873,31 +973,14 @@ class actionAngleStaeckel(actionAngle):
                     galpyWarning,
                 )
             kwargs.pop("c", None)
-            if len(R) > 1:
-                oumin = numpy.zeros(len(R))
-                oumax = numpy.zeros(len(R))
-                ovmin = numpy.zeros(len(R))
-                for ii in range(len(R)):
-                    targs = (R[ii], vR[ii], vT[ii], z[ii], vz[ii])
-                    tkwargs = copy.copy(kwargs)
-                    tkwargs["delta"] = delta[ii] if len(delta) > 1 else delta[0]
-                    tumin, tumax, tvmin = self._uminumaxvmin(*targs, **tkwargs)
-                    oumin[ii] = tumin[0]
-                    oumax[ii] = tumax[0]
-                    ovmin[ii] = tvmin[0]
-                return (oumin, oumax, ovmin)
-            else:
-                # Set up the actionAngleStaeckelSingle object
-                aASingle = actionAngleStaeckelSingle(
-                    R[0], vR[0], vT[0], z[0], vz[0], pot=self._pot, delta=delta[0]
-                )
-                umin, umax = aASingle.calcUminUmax()
-                vmin = aASingle.calcVmin()
-                return (
-                    numpy.atleast_1d(umin),
-                    numpy.atleast_1d(umax),
-                    numpy.atleast_1d(vmin),
-                )
+            # Unified vectorised, backend-agnostic turning points (shared with the
+            # actions/freqs via _staeckel_prep); feeds _EccZmaxRperiRap.
+            xp = get_namespace(R) if is_backend_array(R) else numpy
+            # _staeckel_prep already snaps vmin to pi/2 for planar orbits.
+            _, umin, umax, vmin, _ = _staeckel_prep(
+                xp, R, vR, vT, z, vz, self._pot, delta
+            )
+            return (umin, umax, vmin)
 
 
 class actionAngleStaeckelSingle(actionAngle):
