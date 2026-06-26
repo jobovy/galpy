@@ -1096,3 +1096,18 @@ def test_staeckel_grid_angles_parity(backend):
             numpy.testing.assert_allclose(
                 _np(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
             )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_angles_numpy_phi(backend):
+    # backend R/v but a PLAIN-NUMPY phi: actionsFreqsAngles coerces the azimuth
+    # into R's namespace so anglephi += phi works under jax/torch. Exercises the
+    # mixed-namespace phi-coercion that both the all-backend and all-numpy grids
+    # skip (they pass phi in the same namespace as R).
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    bargs = [_arr(backend, v) for v in _STK_GRID]
+    got = aF.actionsFreqsAngles(*bargs, _STK_GRID_PHI)  # phi stays numpy
+    ref = aF.actionsFreqsAngles(*_STK_GRID, _STK_GRID_PHI)
+    for i in (6, 7, 8):  # angler, anglephi, anglez
+        assert _is_backend_array(backend, got[i])
+        assert numpy.max(_wrapdiff(_np(got[i]), numpy.asarray(ref[i]))) < 1e-8
