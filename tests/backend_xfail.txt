@@ -1268,3 +1268,13 @@ jax tests/test_orbits.py::test_actionsFreqsAngles_output_shape
 jax tests/test_orbits.py::test_actionsFreqsAngles_staeckeldelta
 jax tests/test_orbits.py::test_physical_output_off
 jax tests/test_orbits.py::test_physical_output_on
+# --- Staeckel/Adiabatic c=False FREQS/ANGLES (Track E PR-2: not yet vectorised;
+#     Single's scipy + Rz_to_uv path can't consume jax/torch arrays) ---
+jax tests/test_actionAngle.py::test_actionAngleAdiabatic_python_freqsAngles
+jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
+jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_freqsAngles_branches
+jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_linear_angles
+torch tests/test_actionAngle.py::test_actionAngleAdiabatic_python_freqsAngles
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_freqsAngles_branches
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_linear_angles
