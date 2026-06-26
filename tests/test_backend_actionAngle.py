@@ -1054,3 +1054,60 @@ def test_staeckel_planar_freqs_degenerate_parity(backend):
             numpy.testing.assert_allclose(
                 _np(g)[fin], numpy.asarray(r)[fin], rtol=1e-8, atol=1e-9
             )
+
+
+# Angles: the vectorized actionsFreqsAngles quadrant tree (4 leaves in u, 8 in v)
+# over the whole 768-orbit grid, with per-orbit azimuths so anglephi exercises the
+# +phi fold. The grid spans both pux/pvx signs, vx </> pi/2, and both panels, so
+# all 12 leaves are hit (verified: each leaf agrees with C to <1e-8).
+_STK_GRID_PHI = numpy.linspace(0.3, 5.9, _STK_GRID[0].size)
+
+
+def _wrapdiff(a, b):  # smallest |a-b| modulo 2pi, elementwise
+    d = numpy.abs((numpy.asarray(a) - numpy.asarray(b)) % (2.0 * numpy.pi))
+    return numpy.minimum(d, 2.0 * numpy.pi - d)
+
+
+def test_staeckel_grid_angles_vs_c():
+    # the vectorized c=False angles match the C calcAnglesStaeckel across the grid.
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    rF = aF.actionsFreqsAngles(*_STK_GRID, _STK_GRID_PHI)
+    rC = aC.actionsFreqsAngles(*_STK_GRID, _STK_GRID_PHI)
+    for i in (6, 7, 8):  # angler, anglephi, anglez
+        f, c = numpy.asarray(rF[i]), numpy.asarray(rC[i])
+        fin = numpy.isfinite(f) & numpy.isfinite(c)
+        assert numpy.all(fin)
+        assert numpy.max(_wrapdiff(f[fin], c[fin])) < 1e-6
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_grid_angles_parity(backend):
+    # numpy <-> jax/torch parity of the full actionsFreqsAngles across the grid.
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    bargs = [_arr(backend, v) for v in (_STK_GRID + (_STK_GRID_PHI,))]
+    ref = aF.actionsFreqsAngles(*_STK_GRID, _STK_GRID_PHI)
+    got = aF.actionsFreqsAngles(*bargs)
+    for i, (r, g) in enumerate(zip(ref, got)):
+        assert _is_backend_array(backend, g)
+        if i >= 6:  # angles: wrap-aware
+            assert numpy.max(_wrapdiff(_np(g), numpy.asarray(r))) < 1e-8
+        else:
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_angles_numpy_phi(backend):
+    # backend R/v but a PLAIN-NUMPY phi: actionsFreqsAngles coerces the azimuth
+    # into R's namespace so anglephi += phi works under jax/torch. Exercises the
+    # mixed-namespace phi-coercion that both the all-backend and all-numpy grids
+    # skip (they pass phi in the same namespace as R).
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    bargs = [_arr(backend, v) for v in _STK_GRID]
+    got = aF.actionsFreqsAngles(*bargs, _STK_GRID_PHI)  # phi stays numpy
+    ref = aF.actionsFreqsAngles(*_STK_GRID, _STK_GRID_PHI)
+    for i in (6, 7, 8):  # angler, anglephi, anglez
+        assert _is_backend_array(backend, got[i])
+        assert numpy.max(_wrapdiff(_np(got[i]), numpy.asarray(ref[i]))) < 1e-8
