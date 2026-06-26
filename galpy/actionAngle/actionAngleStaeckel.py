@@ -16,6 +16,9 @@ import warnings
 import numpy
 from scipy import integrate, optimize
 
+from ..backend import get_namespace, is_backend_array
+from ..backend.optimize import bisect_root
+from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..potential import (
     CompositePotential,
     DiskSCFPotential,
@@ -38,7 +41,10 @@ from ..potential.Potential import (
     _isNonAxi,
 )
 from ..util import coords  # for prolate confocal transforms
-from ..util import conversion, galpyWarning
+from ..util import (
+    conversion,
+    galpyWarning,
+)
 from ..util.conversion import physical_conversion, potential_physical_input
 from . import actionAngleStaeckel_c
 from .actionAngle import UnboundError, actionAngle
@@ -51,6 +57,149 @@ def _coerce_delta_arraylike(delta):
     transforms resolve their namespace from the data, and plain sequences
     are not backend-resolvable. Scalars/arrays pass through untouched."""
     return numpy.array(delta) if isinstance(delta, (list, tuple)) else delta
+
+
+# ----------------------------------------------------------------------------
+# Vectorised, backend-agnostic Staeckel action core (numpy / jax / torch). One
+# unified path replacing the per-object actionAngleStaeckelSingle scipy loop:
+# elementwise setup + turning points via the shared backend.optimize.bisect_root
+# (fixed-iteration expanding bracket) + the action integrals via
+# backend.quadrature.fixed_quad. Matches the C gsl_glfixed exactly: plain GL of
+# `order` points over [umin,umax]/[vmin,pi/2] (the J integrands VANISH at the
+# turning points, so no t^2-substitution is needed and grads don't flow through
+# the limits). v0=pi/2 for the u (J_R) integral, u0 for the v (J_z) integral.
+
+
+def _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta):
+    """Vectorised mirror of actionAngleStaeckelSingle.__init__ setup quantities."""
+    ux, vx = coords.Rz_to_uv(R, z, delta=delta)
+    sinvx, cosvx = xp.sin(vx), xp.cos(vx)
+    coshux, sinhux = xp.cosh(ux), xp.sinh(ux)
+    pux = delta * (vR * coshux * sinvx + vz * sinhux * cosvx)
+    pvx = delta * (vR * sinhux * cosvx - vz * coshux * sinvx)
+    E, Lz = calcELStaeckel(R, vR, vT, z, vz, pot)
+    u0 = ux  # u0 does not matter for a single action evaluation
+    sinh2u0 = xp.sinh(u0) ** 2.0
+    v0u = numpy.pi / 2.0
+    sin2v0u = numpy.sin(v0u) ** 2.0
+    potu0v0 = potentialStaeckel(u0, v0u, pot, delta)
+    I3U = (
+        E * sinhux**2.0
+        - pux**2.0 / 2.0 / delta**2.0
+        - Lz**2.0 / 2.0 / delta**2.0 / sinhux**2.0
+        - (sinhux**2.0 + sin2v0u) * potentialStaeckel(ux, v0u, pot, delta)
+        + (sinh2u0 + sin2v0u) * potu0v0
+    )
+    cosh2u0v = xp.cosh(u0) ** 2.0
+    sinh2u0v = sinh2u0
+    potupi2 = potentialStaeckel(u0, numpy.pi / 2.0, pot, delta)
+    dV = cosh2u0v * potupi2 - (sinh2u0v + sinvx**2.0) * potentialStaeckel(
+        u0, vx, pot, delta
+    )
+    I3V = (
+        -E * sinvx**2.0
+        + pvx**2.0 / 2.0 / delta**2.0
+        + Lz**2.0 / 2.0 / delta**2.0 / sinvx**2.0
+        - dV
+    )
+    return {
+        "ux": ux, "vx": vx, "pux": pux, "pvx": pvx, "E": E, "Lz": Lz,
+        "u0": u0, "sinh2u0": sinh2u0, "v0u": v0u, "sin2v0u": sin2v0u,
+        "potu0v0": potu0v0, "I3U": I3U, "cosh2u0v": cosh2u0v,
+        "sinh2u0v": sinh2u0v, "potupi2": potupi2, "I3V": I3V,
+    }  # fmt: skip
+
+
+def _staeckel_uminumax(xp, s, pot, delta):
+    """Vectorised (umin, umax): bracket-and-bisect roots of the J_R integrand^2."""
+    args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
+            s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
+    f = lambda u: _JRStaeckelIntegrandSquared(u, *args)
+    ux, eps = s["ux"], 1e-8
+    at_turn = (xp.abs(s["pux"]) < 1e-7) | (xp.abs(f(ux)) < 1e-10)
+    peps, meps = f(ux + eps), f(ux - eps)
+    at_umin = at_turn & (peps > 0.0) & (meps < 0.0)
+    at_umax = at_turn & (peps < 0.0) & (meps > 0.0)
+    circular = at_turn & ~at_umin & ~at_umax
+    lo = ux * 0.9
+    for _ in range(80):  # expanding bracket below ux until f<0 (>1e-9 floor)
+        lo = xp.where((f(lo) >= 0.0) & (lo > 1e-9), lo * 0.9, lo)
+    hi = ux * 1.1
+    for _ in range(80):  # expanding bracket above ux until f<0 (stop at u=100)
+        hi = xp.where((f(hi) >= 0.0) & (hi < 100.0), hi * 1.1, hi)
+    # No upper turning point below u=100 (f(100)>=0 -> u=100 still in the allowed
+    # region) -> unbound, mirroring the per-object _uminUmaxFindStart
+    # `utry > 100 -> UnboundError`.
+    unbound = (f(100.0 * xp.ones_like(ux)) >= 0.0) & ~(at_umax | circular)
+    umin = bisect_root(f, lo, ux, xp, xtol=1e-13, maxiter=200)
+    umax = bisect_root(f, ux, hi, xp, xtol=1e-13, maxiter=200)
+    umin = xp.where(at_umin | circular, ux, umin)
+    umax = xp.where(at_umax | circular, ux, umax)
+    return umin, umax, unbound
+
+
+def _staeckel_vmin(xp, s, pot, delta):
+    """Vectorised vmin: bracket-and-bisect root of the J_z integrand^2 below vx."""
+    args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
+            s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
+    f = lambda v: _JzStaeckelIntegrandSquared(v, *args)
+    vx, eps = s["vx"], 1e-8
+    at_turn = (xp.abs(s["pvx"]) < 1e-7) | (xp.abs(f(vx)) < 1e-10)
+    at_vmin = at_turn & (f(vx + eps) > 0.0) & (f(vx - eps) < 0.0)
+    vlo = vx * 0.9
+    for _ in range(80):
+        vlo = xp.where((f(vlo) >= 0.0) & (vlo > 1e-9), vlo * 0.9, vlo)
+    vmin = bisect_root(f, vlo, vx, xp, xtol=1e-13, maxiter=200)
+    return xp.where(at_vmin, vx, vmin)
+
+
+def _staeckel_gl_action(xp, sqfunc, args, lo, hi, order):
+    """Plain GL order-`order` of sqrt(sqfunc) over [lo, hi] (C gsl_glfixed parity)."""
+    span = hi - lo
+    a2 = tuple(
+        x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in args
+    )  # [N]->[N,1] to broadcast against the [N,n] node grid
+
+    def integrand(t):  # t: (n,) -> (N, n); u = lo + span*t
+        u = lo[..., None] + span[..., None] * t
+        sq = sqfunc(u, *a2)
+        sq = xp.where(sq > 0.0, sq, xp.zeros_like(sq))  # clip (AD/round-off guard)
+        return xp.sqrt(sq) * span[..., None]
+
+    return _backend_fixed_quad(xp, integrand, 0.0, 1.0, n=order)
+
+
+def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
+    """Unified vectorised (jr, Lz, jz) for numpy and jax/torch backends."""
+    if is_backend_array(R) and not is_backend_array(delta):
+        delta = xp.asarray(delta)  # per-object numpy delta -> match R's namespace
+    s = _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta)
+    umin, umax, unbound = _staeckel_uminumax(xp, s, pot, delta)
+    if bool(xp.any(unbound)):  # eager (no internal jit); mirrors the Single
+        raise UnboundError("Orbit seems to be unbound")
+    vmin = _staeckel_vmin(xp, s, pot, delta)
+    sqrt2 = numpy.sqrt(2.0)
+    jr_args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
+               s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
+    jr = (
+        _staeckel_gl_action(xp, _JRStaeckelIntegrandSquared, jr_args, umin, umax, order)
+        * sqrt2
+        * delta
+        / numpy.pi
+    )
+    jz_args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
+               s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
+    pi2 = numpy.pi / 2.0 * xp.ones_like(vmin)
+    jz = (
+        _staeckel_gl_action(xp, _JzStaeckelIntegrandSquared, jz_args, vmin, pi2, order)
+        * 2.0
+        * sqrt2
+        * delta
+        / numpy.pi
+    )
+    jr = xp.where((umax - umin) / umax < 1e-6, xp.zeros_like(jr), jr)
+    jz = xp.where((numpy.pi / 2.0 - vmin) < 1e-7, xp.zeros_like(jz), jz)
+    return jr, s["Lz"], jz
 
 
 class actionAngleStaeckel(actionAngle):
@@ -206,38 +355,18 @@ class actionAngleStaeckel(actionAngle):
                     galpyWarning,
                 )
             kwargs.pop("c", None)
-            if len(R) > 1:
-                ojr = numpy.zeros(len(R))
-                olz = numpy.zeros(len(R))
-                ojz = numpy.zeros(len(R))
-                for ii in range(len(R)):
-                    targs = (R[ii], vR[ii], vT[ii], z[ii], vz[ii])
-                    tkwargs = copy.copy(kwargs)
-                    try:
-                        tkwargs["delta"] = delta[ii]
-                    except (TypeError, IndexError):
-                        tkwargs["delta"] = delta
-                    tjr, tlz, tjz = self(*targs, **tkwargs)
-                    ojr[ii] = tjr[0]
-                    ojz[ii] = tjz[0]
-                    olz[ii] = tlz[0]
-                return (ojr, olz, ojz)
-            else:
-                # Set up the actionAngleStaeckelSingle object
-                aASingle = actionAngleStaeckelSingle(
-                    R[0],
-                    vR[0],
-                    vT[0],
-                    z[0],
-                    vz[0],
-                    pot=self._pot,
-                    delta=delta[0] if hasattr(delta, "__len__") else delta,
-                )
-                return (
-                    numpy.atleast_1d(aASingle.JR(**copy.copy(kwargs))),
-                    numpy.atleast_1d(aASingle._R * aASingle._vT),
-                    numpy.atleast_1d(aASingle.Jz(**copy.copy(kwargs))),
-                )
+            # Unified vectorised, backend-agnostic path (numpy + jax/torch),
+            # replacing the per-object actionAngleStaeckelSingle scipy loop. Uses
+            # plain GL order-`order` to match the C path (the default GL order);
+            # the standalone-actions c=False result is thus now consistent with
+            # both c=True and _actionsFreqsAngles (was ~1e-5 off via adaptive quad).
+            xp = get_namespace(R) if is_backend_array(R) else numpy
+            jr, Lz, jz = _staeckel_actions(
+                xp, R, vR, vT, z, vz, self._pot, _coerce_delta_arraylike(delta), order
+            )
+            if is_backend_array(R):
+                return (jr, Lz, jz)
+            return (numpy.atleast_1d(jr), numpy.atleast_1d(Lz), numpy.atleast_1d(jz))
 
     def _actionsFreqs(self, *args, **kwargs):
         """
@@ -1972,7 +2101,8 @@ def _JRStaeckelIntegrandSquared(
 ):
     # potu0v0= potentialStaeckel(u0,v0,pot,delta)
     """The J_R integrand: p^2_u(u)/2/delta^2"""
-    sinh2u = numpy.sinh(u) ** 2.0
+    xp = get_namespace(u) if is_backend_array(u) else numpy
+    sinh2u = xp.sinh(u) ** 2.0
     dU = (sinh2u + sin2v0) * potentialStaeckel(u, v0, pot, delta) - (
         sinh2u0 + sin2v0
     ) * potu0v0
@@ -1992,7 +2122,8 @@ def _JzStaeckelIntegrandSquared(
 ):
     # potu0pi2= potentialStaeckel(u0,numpy.pi/2.,pot,delta)
     """The J_z integrand: p_v(v)/2/delta^2"""
-    sin2v = numpy.sin(v) ** 2.0
+    xp = get_namespace(v) if is_backend_array(v) else numpy
+    sin2v = xp.sin(v) ** 2.0
     dV = cosh2u0 * potu0pi2 - (sinh2u0 + sin2v) * potentialStaeckel(u0, v, pot, delta)
     return E * sin2v + I3V + dV - Lz**2.0 / 2.0 / delta**2.0 / sin2v
 
