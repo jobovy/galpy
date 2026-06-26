@@ -2241,23 +2241,95 @@ def test_actionAngleAdiabaticGrid_Isochrone_actions():
 # Basic sanity checking of the actionAngleStaeckel actions
 @pytest.mark.backend_managed  # numpy-only: the Single (scipy.quad) is not backend-capable
 def test_actionAngleStaeckelSingle_quad_branches():
-    # Cover the per-object actionAngleStaeckelSingle branches that the vectorised
-    # _evaluate no longer exercises: the adaptive integrate.quad JR/Jz paths
-    # (fixed_quad=False) and the _uminUmaxFindStart unbound raise. (Single is
-    # dropped when the freqs/angles vectorisation lands; this goes with it.)
+    # The per-object actionAngleStaeckelSingle scipy path is retained only for
+    # actionAngleStaeckelGrid (which builds it from generic grid orbits); the
+    # vectorised actionAngleStaeckel._evaluate replaced it on the main path, so
+    # its degenerate-orbit machinery is no longer exercised by the grid: the
+    # at-umin/at-umax/circular umin-umax brackets, the Lz=0 axis-reaching plunge,
+    # the planar calcVmin branch, the near-axis down-search, the fixed_quad action
+    # integrals, and the pure-Python calcu0. Drive those branches directly here so
+    # the legacy path stays covered until Single is removed with the grid rewrite.
     from galpy.actionAngle import UnboundError
-    from galpy.actionAngle.actionAngleStaeckel import actionAngleStaeckelSingle
-    from galpy.potential import MWPotential2014
+    from galpy.actionAngle.actionAngleStaeckel import actionAngleStaeckelSingle as S
+    from galpy.actionAngle.actionAngleStaeckel import calcu0
+    from galpy.potential import MWPotential2014 as mw
 
-    s = actionAngleStaeckelSingle(
-        0.9, 0.1, 1.05, 0.2, 0.08, pot=MWPotential2014, delta=0.45
+    d = 0.45
+
+    def mk(R, vR, vT, z, vz):
+        return S(R, vR, vT, z, vz, pot=mw, delta=d)
+
+    # (a) generic orbits: adaptive integrate.quad JR/Jz (fixed_quad=False) and the
+    #     non-degenerate umin/umax + vmin brentq searches (incl. _vminFindStart).
+    for ic in [
+        (0.9, 0.1, 1.05, 0.2, 0.08),
+        (1.1, 0.3, 0.8, 0.1, 0.35),
+        (0.8, -0.2, 0.9, 0.3, 0.2),
+    ]:
+        s = mk(*ic)
+        assert numpy.isfinite(numpy.atleast_1d(s.JR())[0])
+        assert numpy.isfinite(numpy.atleast_1d(s.Jz())[0])
+
+    # (b) fixed_quad action integrals (fresh objects: JR/Jz cache after one call).
+    sfq = mk(0.9, 0.1, 1.05, 0.2, 0.08)
+    assert numpy.isfinite(numpy.atleast_1d(sfq.JR(fixed_quad=True))[0])
+    assert numpy.isfinite(numpy.atleast_1d(sfq.Jz(fixed_quad=True))[0])
+
+    # (c) exactly circular orbit (MWPotential2014 has vc(1)=1): JR=0 (umax==umin
+    #     via calcUminUmax's circular branch) and Jz=0 (vmin==pi/2).
+    sc = mk(1.0, 0.0, 1.0, 0.0, 0.0)
+    assert numpy.atleast_1d(sc.JR())[0] == 0.0
+    assert numpy.atleast_1d(sc.Jz())[0] == 0.0
+    lo, hi = sc.calcUminUmax()
+    assert lo == hi
+
+    # (d) radial-turning-point orbits (vR=vz=0, AT a u turning point): pericentric
+    #     (R<Rguide) hits the at-umin bracket; apocentric (R>Rguide, finite Lz)
+    #     hits the at-umax bracket with a finite-umin brentq.
+    for R, vT, z in [
+        (0.7, 1.1, 0.15),
+        (0.8, 1.0, 0.1),  # pericentric -> at umin
+        (1.3, 0.6, 0.15),
+        (1.2, 0.7, 0.05),  # apocentric  -> at umax
+    ]:
+        st = mk(R, 0.0, vT, z, 0.0)
+        lo, hi = st.calcUminUmax()
+        assert lo <= hi
+        assert numpy.isfinite(numpy.atleast_1d(st.JR())[0])
+
+    # (e) apocentric Lz=0 plunge (all velocities 0): at-umax bracket whose umin
+    #     down-search reaches the u=0 axis -> umin=0.
+    s0 = mk(1.3, 0.0, 0.0, 0.15, 0.0)
+    lo, hi = s0.calcUminUmax()
+    assert lo == 0.0
+
+    # (f) planar orbits (z=vz=0, J_z=0): calcVmin's pv=0 branch snaps vmin to pi/2.
+    for R, vR, vT in [(0.9, 0.1, 1.0), (1.1, -0.2, 0.9), (1.2, 0.25, 0.6)]:
+        sp = mk(R, vR, vT, 0.0, 0.0)
+        assert numpy.fabs(numpy.atleast_1d(sp.calcVmin())[0] - numpy.pi / 2.0) < 1e-6
+        assert numpy.atleast_1d(sp.Jz())[0] == 0.0
+
+    # (g) near-axis / Lz=0 orbits (vR!=0): the umin down-search descends many 0.9
+    #     steps and (for Lz=0) reaches the axis -> umin=0.
+    for vT in (0.0, 1e-4, 3e-4):
+        sa = mk(1.0, 0.45, vT, 0.2, 0.1)
+        sa.calcUminUmax()
+        assert numpy.isfinite(numpy.atleast_1d(sa.JR())[0])
+
+    # (h) pure-Python calcu0 reference (the vectorised path uses the C calcu0);
+    #     exercise both the scalar-delta (stride 0) and array-delta (stride 1) paths.
+    assert numpy.all(numpy.isfinite(calcu0(sc._E, sc._Lz, mw, d)))
+    u0v = calcu0(
+        numpy.array([0.0, 0.1]),
+        numpy.array([0.8, 1.0]),
+        mw,
+        numpy.array([d, d]),
     )
-    assert numpy.isfinite(numpy.atleast_1d(s.JR())[0])  # adaptive integrate.quad
-    assert numpy.isfinite(numpy.atleast_1d(s.Jz())[0])  # adaptive integrate.quad
+    assert len(u0v) == 2 and numpy.all(numpy.isfinite(u0v))
+
+    # (i) unbound orbit -> UnboundError from the umax search.
     with pytest.raises(UnboundError):
-        actionAngleStaeckelSingle(
-            0.9, 10.0, -20.0, 0.1, 10.0, pot=MWPotential2014, delta=0.5
-        )
+        mk(0.9, 10.0, -20.0, 0.1, 10.0)
     return None
 
 
