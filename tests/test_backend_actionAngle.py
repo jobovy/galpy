@@ -838,3 +838,18 @@ def test_staeckel_unbound_raises(backend):
                 for v in (0.9, 10.0, -20.0, 0.1, 10.0)
             ]
         )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_actionsfreqs_parity(backend):
+    # vectorised c=False (jr,Lz,jz,Or,Op,Oz) numpy<->backend parity + vs c=True
+    aF = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    ref = aF.actionsFreqs(*_STK)
+    got = aF.actionsFreqs(*[_arr(backend, v) for v in _STK])
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-9, atol=1e-10)
+    aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    refc = aC.actionsFreqs(*_STK)
+    for g, c in zip(got, refc):  # freqs match the C path to the GL floor
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(c), rtol=1e-7, atol=1e-9)
