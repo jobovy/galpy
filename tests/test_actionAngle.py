@@ -2239,6 +2239,28 @@ def test_actionAngleAdiabaticGrid_Isochrone_actions():
 
 
 # Basic sanity checking of the actionAngleStaeckel actions
+@pytest.mark.backend_managed  # numpy-only: the Single (scipy.quad) is not backend-capable
+def test_actionAngleStaeckelSingle_quad_branches():
+    # Cover the per-object actionAngleStaeckelSingle branches that the vectorised
+    # _evaluate no longer exercises: the adaptive integrate.quad JR/Jz paths
+    # (fixed_quad=False) and the _uminUmaxFindStart unbound raise. (Single is
+    # dropped when the freqs/angles vectorisation lands; this goes with it.)
+    from galpy.actionAngle import UnboundError
+    from galpy.actionAngle.actionAngleStaeckel import actionAngleStaeckelSingle
+    from galpy.potential import MWPotential2014
+
+    s = actionAngleStaeckelSingle(
+        0.9, 0.1, 1.05, 0.2, 0.08, pot=MWPotential2014, delta=0.45
+    )
+    assert numpy.isfinite(numpy.atleast_1d(s.JR())[0])  # adaptive integrate.quad
+    assert numpy.isfinite(numpy.atleast_1d(s.Jz())[0])  # adaptive integrate.quad
+    with pytest.raises(UnboundError):
+        actionAngleStaeckelSingle(
+            0.9, 10.0, -20.0, 0.1, 10.0, pot=MWPotential2014, delta=0.5
+        )
+    return None
+
+
 def test_actionAngleStaeckel_basic_actions():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
