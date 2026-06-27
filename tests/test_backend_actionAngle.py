@@ -37,6 +37,7 @@ except ImportError:  # pragma: no cover
     torch = None
 
 from galpy.actionAngle import (
+    actionAngleAdiabatic,
     actionAngleHarmonic,
     actionAngleHarmonicInverse,
     actionAngleIsochrone,
@@ -54,6 +55,7 @@ from galpy.potential import (
     MiyamotoNagaiPotential,
     MWPotential2014,
     NFWPotential,
+    toPlanarPotential,
     toVerticalPotential,
     vcirc,
 )
@@ -1111,3 +1113,225 @@ def test_staeckel_angles_numpy_phi(backend):
     for i in (6, 7, 8):  # angler, anglephi, anglez
         assert _is_backend_array(backend, got[i])
         assert numpy.max(_wrapdiff(_np(got[i]), numpy.asarray(ref[i]))) < 1e-8
+
+
+# ====================================================================
+# actionAngleAdiabatic: actions (jr,Lz,jz), frequencies (Or,Op,Oz), angles
+# (ar,aphi,az), and EccZmaxRperiRap in the adiabatic approximation. The numpy
+# per-object loop (a per-R actionAngleVertical for the vertical action + the
+# spherical actionAngleSpherical for the radial part) is untouched (byte-
+# identical); jax/torch inputs take a vectorised, differentiable branch that
+# processes ALL N objects at once: the RADIAL part via the already-backend-
+# migrated actionAngleSpherical self._aAS (gamma + the per-element _Jz array
+# handled internally), the VERTICAL part via actionAngleVertical's backend
+# Gauss-Legendre / root-find machinery over a per-R effective vertical potential
+# Phi(R_i, z) - Phi(R_i, 0). Backend GL (n=50) vs scipy adaptive quad differ at
+# the ~1e-9 level on the continuous freq/angle integrals (rtol~1e-6); the
+# actions/peri/apo are ~1e-9. The planar (z=vz=0) and 2D-potential edges are
+# covered (Jz=0, Oz=verticalfreq(R), az=0).
+_ADB_R = numpy.array([1.1, 0.8, 1.3])
+_ADB_VR = numpy.array([0.2, -0.1, 0.05])
+_ADB_VT = numpy.array([0.9, 0.6, 1.0])
+_ADB_Z = numpy.array([0.15, -0.2, 0.1])
+_ADB_VZ = numpy.array([0.1, 0.05, -0.1])
+_ADB = (_ADB_R, _ADB_VR, _ADB_VT, _ADB_Z, _ADB_VZ)
+_ADB_PHI = numpy.array([1.3, 0.4, 2.1])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabatic_actions_parity(backend):
+    # numpy <-> jax <-> torch parity of _evaluate (jr,Lz,jz) on a bound 3D grid.
+    aA = actionAngleAdiabatic(pot=MWPotential2014, c=False)
+    bargs = [_arr(backend, v) for v in _ADB]
+    ref = aA._evaluate(*_ADB)
+    got = aA._evaluate(*bargs)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-9, atol=1e-11)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabatic_actionsfreqs_parity(backend):
+    # numpy <-> backend parity of _actionsFreqs (jr,Lz,jz,Or,Op,Oz).
+    aA = actionAngleAdiabatic(pot=MWPotential2014, c=False)
+    bargs = [_arr(backend, v) for v in _ADB]
+    ref = aA._actionsFreqs(*_ADB)
+    got = aA._actionsFreqs(*bargs)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabatic_actionsfreqsangles_parity(backend):
+    # numpy <-> backend parity of _actionsFreqsAngles (jr,Lz,jz,Or,Op,Oz,ar,aphi,az);
+    # angles compared as wrap-robust circular differences.
+    aA = actionAngleAdiabatic(pot=MWPotential2014, c=False)
+    bargs = [_arr(backend, v) for v in _ADB]
+    bphi = _arr(backend, _ADB_PHI)
+    ref = aA._actionsFreqsAngles(*_ADB, _ADB_PHI)
+    got = aA._actionsFreqsAngles(*bargs, bphi)
+    for idx, (r, g) in enumerate(zip(ref, got)):
+        assert _is_backend_array(backend, g)
+        if idx >= 6:  # ar, aphi, az
+            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
+        else:
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabatic_ecczmaxrperirap_parity(backend):
+    # numpy <-> backend parity of _EccZmaxRperiRap (e,zmax,rperi,rap).
+    aA = actionAngleAdiabatic(pot=MWPotential2014, c=False)
+    bargs = [_arr(backend, v) for v in _ADB]
+    ref = aA._EccZmaxRperiRap(*_ADB)
+    got = aA._EccZmaxRperiRap(*bargs)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-8, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabatic_actions_vs_c(backend):
+    # the vectorised backend actions are consistent with the C path (c=True) to
+    # the inherent adiabatic Python-vs-C floor (the SAME floor the numpy c=False
+    # path has -- the backend adds no error of its own).
+    aF = actionAngleAdiabatic(pot=MWPotential2014, c=False)
+    aC = actionAngleAdiabatic(pot=MWPotential2014, c=True)
+    jr_c, lz_c, jz_c = aC._evaluate(*_ADB)
+    jr_n, lz_n, jz_n = aF._evaluate(*_ADB)
+    # numpy c=False vs c=True sets the floor; the backend must match numpy c=False
+    # at machine precision, so its distance to c=True equals numpy's.
+    floor = max(
+        numpy.max(numpy.abs(numpy.asarray(a) - numpy.asarray(b)))
+        for a, b in ((jr_n, jr_c), (lz_n, lz_c), (jz_n, jz_c))
+    )
+    jr_b, lz_b, jz_b = aF._evaluate(*[_arr(backend, v) for v in _ADB])
+    for g, c in ((jr_b, jr_c), (lz_b, lz_c), (jz_b, jz_c)):
+        numpy.testing.assert_allclose(
+            _np(g), numpy.asarray(c), rtol=1e-5, atol=floor + 1e-9
+        )
+
+
+# Scalar single-point bound IC for clean per-component derivatives.
+_ADB_S = (1.1, 0.2, 0.9, 0.15, 0.1)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "which,deriv_idx,wrt", [("jz", 2, 4), ("jr", 0, 1)]
+)  # d jz / d vz ; d jr / d vR
+def test_adiabatic_grad_vs_fd(backend, which, deriv_idx, wrt):
+    # d(action[deriv_idx]) / d (coord wrt) at a single bound point: AD through the
+    # vertical root-find + GL action quadrature AND the spherical radial path
+    # (gamma!=0 _Jz threaded as an array) vs finite-difference.
+    aA = actionAngleAdiabatic(pot=MWPotential2014, c=False)
+    base = list(_ADB_S)
+
+    def call(p_val, xp_arr):
+        args = [xp_arr(v) for v in base]
+        args[wrt] = p_val
+        return aA._evaluate(*args)[deriv_idx].sum()
+
+    def f_np(p_val):
+        return numpy.asarray(
+            call(
+                numpy.atleast_1d(numpy.asarray(p_val)),
+                lambda v: numpy.atleast_1d(numpy.asarray(v)),
+            )
+        )
+
+    fd = _fd(f_np, base[wrt])
+
+    def f_be(p_t):
+        return call(p_t, lambda v: _arr(backend, numpy.atleast_1d(v).astype(float)))
+
+    if backend == "jax":
+        g = float(
+            jax.grad(lambda t: f_be(t).reshape(()))(
+                jnp.atleast_1d(jnp.asarray(base[wrt]))
+            ).reshape(())
+        )
+    else:
+        t = torch.tensor(
+            numpy.atleast_1d(numpy.asarray(base[wrt], dtype=float)), requires_grad=True
+        )
+        out = f_be(t)
+        out.backward()
+        g = float(t.grad.sum())
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabatic_planar_edge_parity(backend):
+    # Planar orbits (z=vz=0) mixed with off-plane ones: the backend must set
+    # Jz=0, az=0, and Oz=verticalfreq(R) EXACTLY at the planar elements (the
+    # xp.where mask), matching the numpy 2D-in-plane branch.
+    aA = actionAngleAdiabatic(pot=MWPotential2014, c=False)
+    R = numpy.array([1.1, 0.8, 1.3])
+    vR = numpy.array([0.2, -0.1, 0.05])
+    vT = numpy.array([0.9, 0.6, 1.0])
+    z = numpy.array([0.0, -0.2, 0.0])  # elements 0,2 planar
+    vz = numpy.array([0.0, 0.05, 0.0])
+    phi = numpy.array([1.3, 0.4, 2.1])
+    args = (R, vR, vT, z, vz)
+    bargs = [_arr(backend, v) for v in args]
+    import warnings
+
+    with warnings.catch_warnings():
+        # numpy reference's longitude-of-ascending-node uses z/R/tan(i) = 0/0
+        # (non-finite, masked) for the non-inclined planar elements.
+        warnings.simplefilter("ignore")
+        ref = aA._actionsFreqsAngles(*args, phi)
+        got = aA._actionsFreqsAngles(*bargs, _arr(backend, phi))
+    for idx, (r, g) in enumerate(zip(ref, got)):
+        assert _is_backend_array(backend, g)
+        if idx >= 6:
+            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
+        else:
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+            )
+    # planar elements: Jz==0, az==0, Oz==verticalfreq(R)
+    from galpy.potential import verticalfreq
+
+    assert _np(got[2])[0] == 0.0 and _np(got[2])[2] == 0.0  # Jz
+    assert abs(_np(got[8])[0]) < 1e-12 and abs(_np(got[8])[2]) < 1e-12  # az
+    for ii in (0, 2):
+        numpy.testing.assert_allclose(
+            _np(got[5])[ii], verticalfreq(MWPotential2014, R[ii]), rtol=1e-12
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabatic_2dpot_edge_parity(backend):
+    # A 2D (planar) potential forces gamma=0 and Jz=0: only _evaluate and
+    # _EccZmaxRperiRap are well-posed (a planarPotential has no verticalfreq, so
+    # _actionsFreqs is unsupported on BOTH the numpy and backend paths). Check
+    # the supported methods match numpy and that Jz/zmax are identically 0.
+    plog = toPlanarPotential(LogarithmicHaloPotential(normalize=1.0))
+    aA = actionAngleAdiabatic(pot=plog, c=False)
+    assert aA._gamma == 0.0
+    R = numpy.array([1.1, 0.8, 1.3])
+    vR = numpy.array([0.2, -0.1, 0.05])
+    vT = numpy.array([0.9, 0.6, 1.0])
+    z = numpy.zeros(3)
+    vz = numpy.zeros(3)
+    args = (R, vR, vT, z, vz)
+    bargs = [_arr(backend, v) for v in args]
+    for meth in ("_evaluate", "_EccZmaxRperiRap"):
+        ref = getattr(aA, meth)(*args)
+        got = getattr(aA, meth)(*bargs)
+        for r, g in zip(ref, got):
+            assert _is_backend_array(backend, g)
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
+            )
+    # Jz (index 2 of _evaluate) and zmax (index 1 of ecc) are identically 0.
+    assert numpy.all(_np(aA._evaluate(*bargs)[2]) == 0.0)
+    assert numpy.all(_np(aA._EccZmaxRperiRap(*bargs)[1]) == 0.0)
