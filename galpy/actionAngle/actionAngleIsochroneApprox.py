@@ -18,9 +18,9 @@ import warnings
 
 import numpy
 from numpy import linalg
-from scipy import optimize
 
 from ..backend import get_namespace, is_backend_array
+from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning, plot
@@ -1179,7 +1179,10 @@ def _backend_dePeriod(xp, arr):
     return arr + _TWOPI * addto
 
 
-# coerce_backend=False: numpy-only body (isinstance/numpy.array/amin/median/amax)
+# coerce_backend=False: the migrated body resolves its own namespace from the
+# coordinate data (get_namespace) and routes backend arrays through the
+# backend-agnostic brentq, so coordinate coercion is unnecessary and the
+# byte-identical numpy/Quantity path is preserved.
 @potential_physical_input(coerce_backend=False)
 @physical_conversion("position", pop=True)
 def estimateBIsochrone(pot, R, z, phi=None):
@@ -1212,7 +1215,34 @@ def estimateBIsochrone(pot, R, z, phi=None):
         raise OSError(
             "pot= needs to be set to a Potential instance or a combined potential formed using addition (pot1+pot2+…)"
         )
-    if isinstance(R, numpy.ndarray):
+    # Namespace-swap: the scalar body runs (and differentiates) under numpy /
+    # jax / torch via the backend-agnostic brentq (scipy on the numpy path, so
+    # byte-identical; vectorised bisection+Newton, grad-carrying, on backends).
+    xp = get_namespace(R) if is_backend_array(R) else numpy
+    if getattr(R, "ndim", 0) > 0:
+        if is_backend_array(R):
+            # Vectorised backend path: per-element b in one (array-bracketed)
+            # bisection, then min/median/max over the non-NaN values.
+            phi_arg = None if phi is None or all(p is None for p in phi) else phi
+            r2 = R**2.0 + z**2
+            r = xp.sqrt(r2)
+            dlvcdlr = (
+                dvcircdR(pot, r, phi=phi_arg, use_physical=False)
+                / vcirc(pot, r, phi=phi_arg, use_physical=False)
+                * r
+            )
+            bs = _backend_brentq(
+                lambda x: (
+                    dlvcdlr - (x / xp.sqrt(r2 + x**2.0) - 0.5 * r2 / (r2 + x**2.0))
+                ),
+                xp.asarray(0.01),
+                xp.asarray(100.0),
+            )
+            bs = bs[~xp.isnan(bs)]
+            # array-api-compat torch's median returns the lower central order
+            # statistic for even counts; quantile(.,0.5) matches numpy.median.
+            bmed = xp.quantile(bs, 0.5) if "torch" in xp.__name__ else xp.median(bs)
+            return xp.stack([xp.amin(bs), bmed, xp.amax(bs)])
         if phi is None:
             phi = [None for r in R]
         bs = numpy.array(
@@ -1230,19 +1260,21 @@ def estimateBIsochrone(pot, R, z, phi=None):
         )
     else:
         r2 = R**2.0 + z**2
-        r = numpy.sqrt(r2)
+        r = xp.sqrt(r2)
         dlvcdlr = (
             dvcircdR(pot, r, phi=phi, use_physical=False)
             / vcirc(pot, r, phi=phi, use_physical=False)
             * r
         )
+        lo = xp.asarray(0.01) if is_backend_array(R) else 0.01
+        hi = xp.asarray(100.0) if is_backend_array(R) else 100.0
         try:
-            b = optimize.brentq(
+            b = _backend_brentq(
                 lambda x: (
-                    dlvcdlr - (x / numpy.sqrt(r2 + x**2.0) - 0.5 * r2 / (r2 + x**2.0))
+                    dlvcdlr - (x / xp.sqrt(r2 + x**2.0) - 0.5 * r2 / (r2 + x**2.0))
                 ),
-                0.01,
-                100.0,
+                lo,
+                hi,
             )
         except:  # pragma: no cover
             b = numpy.nan
