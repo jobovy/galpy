@@ -15,7 +15,7 @@ import warnings
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import asarray_on_device, device_of, get_namespace, is_backend_array
 from ..backend.optimize import bisect_root
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..potential import (
@@ -180,17 +180,27 @@ def _staeckel_gl_action(xp, sqfunc, args, lo, hi, order):
         sq = xp.where(sq > 0.0, sq, xp.zeros_like(sq))  # clip (AD/round-off guard)
         return xp.sqrt(sq) * span[..., None]
 
-    return _backend_fixed_quad(xp, integrand, 0.0, 1.0, n=order)
+    # device=: the limits are Python scalars, so anchor the GL nodes on the input
+    # arrays' device (lo) -- else torch raises on CUDA input (nodes default to CPU)
+    # and jax silently round-trips. No-op on numpy (device_of -> None).
+    return _backend_fixed_quad(xp, integrand, 0.0, 1.0, n=order, device=device_of(lo))
 
 
 def _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta):
     """Setup quantities + turning points (+ unbound check), shared by the
     vectorised actions and frequencies. Returns (setup, umin, umax, vmin, delta)."""
     if is_backend_array(R) and not is_backend_array(delta):
-        delta = xp.asarray(delta)  # per-object numpy delta -> match R's namespace
+        # match R's namespace AND device: a bare xp.asarray(delta) lands on the
+        # CPU, so an array-valued delta (e.g. EccZmax's atleast_1d) then collides
+        # with CUDA R/z in coords.Rz_to_uv. No-op on numpy (device_of -> None).
+        delta = asarray_on_device(xp, delta, device_of(R))
     s = _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta)
     umin, umax, unbound = _staeckel_uminumax(xp, s, pot, delta)
-    if bool(xp.any(unbound)):  # eager (no internal jit); mirrors the Single
+    # Unbound orbits raise eagerly on the numpy path (mirrors the Single class);
+    # under a backend they must stay jit-traceable, so we cannot branch on the
+    # traced `unbound` -- let unbound orbits fall through to NaN instead (the
+    # caller jits/AD-traces and checks). numpy stays byte-identical (still raises).
+    if not is_backend_array(R) and bool(numpy.any(unbound)):
         raise UnboundError("Orbit seems to be unbound")
     vmin = _staeckel_vmin(xp, s, pot, delta)
     # Planar orbit (jz=0): snap vmin to exactly pi/2 (the bisection lands ~1e-8
@@ -259,7 +269,7 @@ def _staeckel_deriv_panels(xp, Sfunc, sq_args, factor_fn, lo, hi, order):
             g = xp.where(S > 0.0, factor_fn(xp, u) / xp.sqrt(Ssafe), xp.zeros_like(S))
             return 2.0 * t * g * mid[..., None]  # du = 2t dt, dt = mid ds
 
-        return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order)
+        return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order, device=device_of(mid))
 
     return panel(lo, 1.0) + panel(hi, -1.0)
 
@@ -365,7 +375,7 @@ def _staeckel_angle_partial(xp, Sfunc, sq_args, factor_fn, base, sign, mid, orde
         g = xp.where(S > 0.0, factor_fn(xp, u) / xp.sqrt(Ssafe), xp.zeros_like(S))
         return 2.0 * t * g * mid[..., None]
 
-    return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order)
+    return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order, device=device_of(mid))
 
 
 def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order):
@@ -957,7 +967,9 @@ class actionAngleStaeckel(actionAngle):
             # action/frequency/angle-invariant, so it is not needed here).
             xp = get_namespace(R) if is_backend_array(R) else numpy
             if is_backend_array(R) and not is_backend_array(phi):
-                phi = xp.asarray(phi)  # fold the azimuth in R's namespace
+                # fold the azimuth in R's namespace AND device (a bare xp.asarray
+                # lands on the CPU and would collide with a CUDA anglephi).
+                phi = asarray_on_device(xp, phi, device_of(R))
             (
                 jr,
                 Lz,
