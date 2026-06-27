@@ -132,6 +132,24 @@ def test_jacrev_equals_stm(method):
     numpy.testing.assert_allclose(_np(Jall), M, rtol=1e-10, atol=1e-10)
 
 
+# ------------------------------------------ c_stm_forward batch == stacked singles
+@pytest.mark.parametrize("method", _METHODS)
+def test_c_stm_forward_batch_matches_singles(method):
+    # The batched host call (one stacked integrate_dxdv over 6N orbits) must return
+    # (N,nt,6)/(N,nt,6,6) and match the per-orbit single calls.
+    from galpy.backend._reference.inbackend_stm import c_stm_forward
+
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    ics = numpy.array([_IC, _IC + 0.03, _IC - 0.02])  # (3, 6)
+    xt_b, M_b = c_stm_forward(pot, ics, _TS, method, 1e-10, 1e-10)  # batch -> (N,...)
+    assert xt_b.shape == (len(ics), len(_TS), 6)
+    assert M_b.shape == (len(ics), len(_TS), 6, 6)
+    for k in range(len(ics)):
+        xt_s, M_s = c_stm_forward(pot, ics[k], _TS, method, 1e-10, 1e-10)  # single
+        numpy.testing.assert_allclose(xt_b[k], xt_s, rtol=1e-12, atol=1e-12)
+        numpy.testing.assert_allclose(M_b[k], M_s, rtol=1e-12, atol=1e-12)
+
+
 # ----------------------------------------------------------------- torch gradcheck
 @pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
 @pytest.mark.parametrize("method", ["rk4_c", "rk6_c"])
