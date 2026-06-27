@@ -825,19 +825,21 @@ def test_staeckel_actions_vs_c(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_staeckel_unbound_raises(backend):
-    # an unbound orbit raises UnboundError under the backends too (the vectorised
-    # turning-point search detects no umax below u=100, mirroring the Single).
+def test_staeckel_unbound_backend_no_raise(backend):
+    # An unbound orbit raises UnboundError on the numpy path (eager), but must NOT
+    # raise under a backend: the vectorised turning-point search cannot branch on
+    # the traced `unbound` mask under jit, so it falls through to a (garbage)
+    # backend array instead -- which is exactly what keeps actionsFreqsAngles
+    # jax.jit-traceable (jit traces+matches eager to ~9e-10). Exercises both sides
+    # of the `not is_backend_array(R)` guard in _staeckel_prep.
     from galpy.actionAngle import UnboundError
 
     aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.5, c=False)
+    ub = (0.9, 10.0, -20.0, 0.1, 10.0)
     with pytest.raises(UnboundError):
-        aA(
-            *[
-                _arr(backend, numpy.atleast_1d(v).astype(float))
-                for v in (0.9, 10.0, -20.0, 0.1, 10.0)
-            ]
-        )
+        aA(*ub)  # numpy path: eager raise
+    out = aA(*[_arr(backend, numpy.atleast_1d(v).astype(float)) for v in ub])
+    assert _is_backend_array(backend, out[0])  # backend: no raise (garbage value ok)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
