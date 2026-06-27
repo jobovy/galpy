@@ -16,6 +16,7 @@ from matplotlib.ticker import NullFormatter
 from numpy.polynomial import chebyshev, polynomial
 from scipy import interpolate, ndimage, optimize
 
+from ..backend import is_backend_array
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import galpyWarning
@@ -26,8 +27,25 @@ from .actionAngleInverse import actionAngleInverse
 from .actionAngleVertical import actionAngleVertical
 
 
+def _reject_backend(*xs):
+    # actionAngleVerticalInverse is NOT yet backend-migrated (under active
+    # development): it builds scipy interpolation/map_coordinates grids and runs
+    # under numpy only. Fail loudly on jax/torch input rather than silently
+    # mis-behaving, so the not-migrated status is explicit.
+    if any(is_backend_array(x) for x in xs):
+        raise NotImplementedError(
+            "actionAngleVerticalInverse is not yet migrated to the jax/torch "
+            "backends (it is still under development); call it with numpy inputs."
+        )
+
+
 class actionAngleVerticalInverse(actionAngleInverse):
-    """Inverse action-angle formalism for one dimensional systems"""
+    """Inverse action-angle formalism for one dimensional systems.
+
+    .. warning::
+       NOT yet backend-migrated (under active development) -- numpy/scipy only.
+       Calling with jax/torch array inputs raises ``NotImplementedError``.
+    """
 
     def __init__(
         self,
@@ -1066,6 +1084,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2018-04-15 - Written - Bovy (UofT)
         """
+        _reject_backend(j, angle)
         # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
@@ -1204,6 +1223,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2018-04-08 - Written - Bovy (UofT)
 
         """
+        _reject_backend(j)
         # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
