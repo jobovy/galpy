@@ -40,6 +40,7 @@ from galpy.actionAngle import (
     actionAngleHarmonic,
     actionAngleHarmonicInverse,
     actionAngleIsochrone,
+    actionAngleIsochroneApprox,
     actionAngleIsochroneInverse,
     actionAngleSpherical,
     actionAngleStaeckel,
@@ -1111,3 +1112,153 @@ def test_staeckel_angles_numpy_phi(backend):
     for i in (6, 7, 8):  # angler, anglephi, anglez
         assert _is_backend_array(backend, got[i])
         assert numpy.max(_wrapdiff(_np(got[i]), numpy.asarray(ref[i]))) < 1e-8
+
+
+# ====================================================================
+# actionAngleIsochroneApprox: the Bovy (2014) isochrone-approximation actions,
+# frequencies, and angles. Unlike every class above (closed-form / quadrature on
+# the INPUT phase-space point), this method INTEGRATES an orbit and angle-averages
+# the isochrone actions over it. The backend path therefore reuses TWO already-
+# migrated pieces: (1) Orbit(stacked-backend-IC).integrate(...) routes to the
+# in-backend differentiable integrator (Track D: C-STM for dopr54_c, else
+# diffrax/torchdiffeq), and (2) self._aAI._actionsFreqsAngles runs the isochrone
+# action/angle map on the integrated backend trajectory. The numpy per-object loop
+# is byte-identical (the diff is purely additive is_backend_array early-returns);
+# jax/torch ICs take the vectorised _parse_args_backend / *_backend branches.
+# Validates: numpy<->jax<->torch value parity for _evaluate (actions),
+# _actionsFreqs (+freqs), _actionsFreqsAngles (+angles), on a small bound 3D
+# MWPotential2014 grid with an EXPLICIT b (so the test does NOT depend on
+# estimateBIsochrone, migrated separately); that outputs are backend arrays; and
+# grad-vs-finite-difference of an action w.r.t. an IC under jax -- differentiating
+# THROUGH the orbit integration (orbit-STM), which is the point of the port.
+#
+# tintJ/ntintJ are reduced from the defaults (100/10000) to keep each integration
+# fast; the angle-fit still covers the full radial/vertical angle range for these
+# bound MWPotential2014 orbits. b is EXPLICIT (0.8 / 1.2); estimateBIsochrone is
+# never called. Parity tolerance ~1e-8: the in-backend integrator's trajectory
+# differs from the numpy C integrator at the ~1e-8 step level for fixed-step
+# methods (dop853_c is ~1e-12), and the angle-averaged actions inherit that.
+_IA_R = numpy.array([1.1, 0.8, 1.2])
+_IA_VR = numpy.array([0.1, -0.1, 0.05])
+_IA_VT = numpy.array([0.9, 1.0, -0.7])  # incl. a retrograde orbit (negFreqIndx)
+_IA_Z = numpy.array([0.05, -0.1, 0.1])
+_IA_VZ = numpy.array([0.1, 0.05, -0.08])
+_IA_PHI = numpy.array([1.3, 0.4, 2.0])
+_IA = (_IA_R, _IA_VR, _IA_VT, _IA_Z, _IA_VZ, _IA_PHI)
+
+
+def _aAIA(b):
+    # Explicit b (no estimateBIsochrone); short integration for test speed.
+    return actionAngleIsochroneApprox(pot=MWPotential2014, b=b, tintJ=20.0, ntintJ=2000)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("b", [0.8, 1.2])
+def test_isochroneapprox_parity(backend, b):
+    # numpy <-> jax <-> torch parity of _evaluate (jr,lz,jz), _actionsFreqs
+    # (+Or,Op,Oz), and _actionsFreqsAngles (+ar,ap,az) on a bound 3D grid (one
+    # retrograde orbit). Actions/freqs to ~1e-8 (the in-backend-vs-C integrator
+    # floor); angles compared as wrap-robust circular differences.
+    aAIA = _aAIA(b)
+    bargs = [_arr(backend, v) for v in _IA]
+    # _evaluate: (jr, lz, jz)
+    ref = aAIA._evaluate(*_IA)
+    got = aAIA._evaluate(*bargs)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+    # _actionsFreqs: (jr,lz,jz,Or,Op,Oz)
+    ref = aAIA._actionsFreqs(*_IA)
+    got = aAIA._actionsFreqs(*bargs)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+    # _actionsFreqsAngles: (...,ar,ap,az)
+    ref = aAIA._actionsFreqsAngles(*_IA)
+    got = aAIA._actionsFreqsAngles(*bargs)
+    for idx, (r, g) in enumerate(zip(ref, got)):
+        assert _is_backend_array(backend, g)
+        if idx >= 6:  # angles: wrap-robust
+            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
+        else:
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_scalar_parity(backend):
+    # a single (scalar-array) IC: _parse_args promotes it to a 1-element batch, so
+    # the backend path's atleast_1d / per-orbit stack-and-integrate handles the
+    # batch-of-one. Exercises the scalar-vs-batch handling separately from the grid.
+    aAIA = _aAIA(0.8)
+    s = (1.1, 0.2, 0.9, 0.15, 0.1, 1.3)
+    ref = aAIA._evaluate(*[numpy.atleast_1d(numpy.asarray(v)) for v in s])
+    got = aAIA._evaluate(
+        *[_arr(backend, numpy.atleast_1d(numpy.asarray(v))) for v in s]
+    )
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_cumul_parity(backend):
+    # cumul=True returns the CUMULATIVE angle-averaged actions (convergence trace),
+    # shape (no, nt-1) rather than (no,). numpy <-> backend parity of the trace.
+    aAIA = _aAIA(0.8)
+    bargs = [_arr(backend, v) for v in _IA]
+    ref = aAIA._evaluate(*_IA, cumul=True)
+    got = aAIA._evaluate(*bargs, cumul=True)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_planar_parity(backend):
+    # 4-argument (planar) call signature R,vR,vT,phi (z=vz=0): the backend
+    # _parse_args branch builds the z=vz=0 ICs. Jz is ~0; numpy<->backend parity.
+    aAIA = _aAIA(0.8)
+    planar = (_IA_R, _IA_VR, _IA_VT, _IA_PHI)
+    ref = aAIA._evaluate(*planar)
+    got = aAIA._evaluate(*[_arr(backend, v) for v in planar])
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("which,idx", [("jr", 0), ("jz", 2)])
+def test_isochroneapprox_grad_vs_fd_wrt_vR(backend, which, idx):
+    # d(action[idx]) / d vR at a single bound point, AD vs finite-difference --
+    # differentiating THROUGH the orbit integration (the orbit-STM / in-backend
+    # ODE) and the angle-averaging. This is the whole point of the port: gradients
+    # of the isochrone-approximation actions w.r.t. the initial condition.
+    aAIA = _aAIA(0.8)
+    R, _, vT, z, vz, phi = (1.1, 0.2, 0.9, 0.15, 0.1, 1.3)
+
+    def call(vR_arr, xp_arr):
+        args = (xp_arr(R), vR_arr, xp_arr(vT), xp_arr(z), xp_arr(vz), xp_arr(phi))
+        return aAIA._evaluate(*args)[idx][0]  # scalar action
+
+    def f_np(vR_val):
+        return numpy.asarray(
+            call(
+                numpy.atleast_1d(numpy.asarray(vR_val, dtype=float)),
+                lambda v: numpy.atleast_1d(numpy.asarray(v, dtype=float)),
+            )
+        )
+
+    fd = _fd(f_np, 0.2)
+
+    def f_be(vR_t):
+        return call(
+            (jnp.atleast_1d(vR_t) if backend == "jax" else torch.atleast_1d(vR_t)),
+            lambda v: _arr(backend, numpy.atleast_1d(numpy.asarray(v, dtype=float))),
+        )
+
+    g = _grad(backend, f_be, 0.2)
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
