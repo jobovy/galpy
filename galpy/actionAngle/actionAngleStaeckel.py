@@ -2132,29 +2132,84 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
         if isinstance(pot, CompositePotential)
         else isinstance(pot, SCFPotential) or isinstance(pot, DiskSCFPotential)
     )
-    # Namespace-swap: the SAME vectorised expression runs (and differentiates)
-    # under numpy / jax / torch. The numpy path is byte-identical to the
-    # original (vectorised potential evals equal the old scalar loop, and
-    # xp.where / nanmedian reproduce the in-place writes / NaN-masked median).
-    xp = get_namespace(R) if is_backend_array(R) else numpy
-    z = xp.where(z == 0.0, 1e-4, z)  # delta undefined on the plane -> fallback
-    delta2 = (
-        z**2.0
-        - R**2.0  # eqn. (9) has a sign error
-        + (
-            3.0 * R * _evaluatezforces(pot, R, z)
-            - 3.0 * z * _evaluateRforces(pot, R, z)
-            + R
-            * z
-            * (
-                evaluateR2derivs(pot, R, z, use_physical=False)
-                - evaluatez2derivs(pot, R, z, use_physical=False)
+    if is_backend_array(R):
+        # Vectorised, differentiable jax/torch path: the migrated potential
+        # evaluators accept array R,z, so evaluate the whole array at once;
+        # xp.where / _nanmedian reproduce the numpy in-place writes / masked
+        # median. (numpy keeps the per-element path below because several
+        # potentials' methods only accept scalar inputs.)
+        xp = get_namespace(R)
+        z = xp.where(z == 0.0, 1e-4, z)
+        delta2 = (
+            z**2.0
+            - R**2.0  # eqn. (9) has a sign error
+            + (
+                3.0 * R * _evaluatezforces(pot, R, z)
+                - 3.0 * z * _evaluateRforces(pot, R, z)
+                + R
+                * z
+                * (
+                    evaluateR2derivs(pot, R, z, use_physical=False)
+                    - evaluatez2derivs(pot, R, z, use_physical=False)
+                )
             )
+            / evaluateRzderivs(pot, R, z, use_physical=False)
         )
-        / evaluateRzderivs(pot, R, z, use_physical=False)
-    )
-    indx = (delta2 < delta0**2.0) & ((delta2 > -(10.0**-10.0)) | bool(pot_includes_scf))
-    delta2 = xp.where(indx, delta0**2.0, delta2)
-    if not no_median and getattr(delta2, "ndim", 0) > 0:
-        delta2 = _nanmedian(xp, delta2)
-    return xp.sqrt(delta2)
+        indx = (delta2 < delta0**2.0) & (
+            (delta2 > -(10.0**-10.0)) | bool(pot_includes_scf)
+        )
+        delta2 = xp.where(indx, delta0**2.0, delta2)
+        if not no_median and getattr(delta2, "ndim", 0) > 0:
+            delta2 = _nanmedian(xp, delta2)
+        return xp.sqrt(delta2)
+    # numpy path: byte-identical to the original (per-element evaluation, so
+    # potentials whose methods only accept scalars keep working).
+    if numpy.any(z == 0.0):
+        if isinstance(z, numpy.ndarray):
+            z[z == 0.0] = 1e-4
+        else:
+            z = 1e-4
+    if isinstance(R, numpy.ndarray):
+        delta2 = numpy.array(
+            [
+                (
+                    z[ii] ** 2.0
+                    - R[ii] ** 2.0  # eqn. (9) has a sign error
+                    + (
+                        3.0 * R[ii] * _evaluatezforces(pot, R[ii], z[ii])
+                        - 3.0 * z[ii] * _evaluateRforces(pot, R[ii], z[ii])
+                        + R[ii]
+                        * z[ii]
+                        * (
+                            evaluateR2derivs(pot, R[ii], z[ii], use_physical=False)
+                            - evaluatez2derivs(pot, R[ii], z[ii], use_physical=False)
+                        )
+                    )
+                    / evaluateRzderivs(pot, R[ii], z[ii], use_physical=False)
+                )
+                for ii in range(len(R))
+            ]
+        )
+        indx = (delta2 < delta0**2.0) * ((delta2 > -(10.0**-10.0)) + pot_includes_scf)
+        delta2[indx] = delta0**2.0
+        if not no_median:
+            delta2 = numpy.median(delta2[True ^ numpy.isnan(delta2)])
+    else:
+        delta2 = (
+            z**2.0
+            - R**2.0  # eqn. (9) has a sign error
+            + (
+                3.0 * R * _evaluatezforces(pot, R, z)
+                - 3.0 * z * _evaluateRforces(pot, R, z)
+                + R
+                * z
+                * (
+                    evaluateR2derivs(pot, R, z, use_physical=False)
+                    - evaluatez2derivs(pot, R, z, use_physical=False)
+                )
+            )
+            / evaluateRzderivs(pot, R, z, use_physical=False)
+        )
+        if delta2 < delta0**2.0 and (delta2 > -(10.0**-10.0) or pot_includes_scf):
+            delta2 = delta0**2.0
+    return numpy.sqrt(delta2)
