@@ -54,30 +54,28 @@ def c_stm_forward(pot, vxvv, ts, method, rtol, atol):
     vxvv = numpy.asarray(vxvv, dtype=numpy.float64)
     single = vxvv.ndim == 1
     ics = vxvv[None] if single else vxvv
-    basis = numpy.eye(6)
-    xts, Ms = [], []
-    for ic in ics:
-        cols = []
-        base = None
-        for i in range(6):
-            o = Orbit(list(ic))
-            o.integrate_dxdv(
-                basis[i],
-                ts,
-                pot,
-                method=method,
-                rectIn=False,
-                rectOut=False,
-                rtol=rtol,
-                atol=atol,
-            )
-            cols.append(o.getOrbit_dxdv())  # (nt,6): column i of M
-            if base is None:
-                base = o.getOrbit()  # (nt,6): the base orbit, Orbit order
-        xts.append(base)
-        Ms.append(numpy.asarray(cols).transpose(1, 2, 0))  # (nt,6,6)
-    xt = numpy.asarray(xts)
-    M = numpy.asarray(Ms)
+    n = ics.shape[0]
+    # Propagate all 6 canonical basis deviation vectors of all N initial
+    # conditions in ONE stacked C integrate_dxdv call (6N independent orbits)
+    # instead of 6N separate calls each re-integrating the same base orbit.
+    # Orbit row 6k+i = IC k carrying basis vector i (repeat ICs x6, tile eye(6)).
+    o = Orbit(numpy.repeat(ics, 6, axis=0))
+    o.integrate_dxdv(
+        numpy.tile(numpy.eye(6), (n, 1)),
+        ts,
+        pot,
+        method=method,
+        progressbar=False,
+        rectIn=False,
+        rectOut=False,
+        rtol=rtol,
+        atol=atol,
+    )
+    nt = numpy.asarray(ts).shape[0]
+    # cols[k,i] = column i of M for IC k -> (N,nt,6,6) with the last axis the column.
+    M = o.getOrbit_dxdv().reshape(n, 6, nt, 6).transpose(0, 2, 3, 1)
+    # The 6 stacked copies share one base orbit; keep the first per IC.
+    xt = o.getOrbit().reshape(n, 6, nt, 6)[:, 0]
     if single:
         return xt[0], M[0]
     return xt, M
