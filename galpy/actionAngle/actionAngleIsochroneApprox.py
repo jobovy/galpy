@@ -912,8 +912,8 @@ class actionAngleIsochroneApprox(actionAngle):
     # estimate runs and DIFFERENTIATES under jax/torch. The orbit integration reuses
     # the in-backend differentiable integrator (Orbit built from a STACKED backend IC
     # -> _ic_backend set -> routes to the C-STM / diffrax-torchdiffeq path); we never
-    # reinvent orbit integration here. Axisymmetric potentials only for the angle-fit
-    # (the non-axisymmetric branch is numpy-only, # pragma: no cover below).
+    # reinvent orbit integration here. Both axisymmetric and non-axisymmetric
+    # potentials are supported (non-axi: angle-averaged Lz + the 3-D-grid angle-fit).
 
     def _parse_args_backend(self, freqsAngles, _firstFlip, *args):
         """Backend counterpart of _parse_args for the float/array IC case: build,
@@ -1019,7 +1019,8 @@ class actionAngleIsochroneApprox(actionAngle):
 
         jr = sumFunc(jrI * danglerI, axis=1) / sumFunc(danglerI, axis=1)
         jz = sumFunc(jzI * danglezI, axis=1) / sumFunc(danglezI, axis=1)
-        if _isNonAxi(self._pot):  # pragma: no cover
+        if _isNonAxi(self._pot):
+            # non-axi: Lz is also angle-averaged (danglephi-weighted), not L_z(t0)
             lzI = xp.reshape(acfs[1], R.shape)[:, :-1]
             anglephiI = xp.reshape(acfs[7], R.shape)
             danglephiI = _backend_dangle(xp, anglephiI)
@@ -1052,7 +1053,8 @@ class actionAngleIsochroneApprox(actionAngle):
         danglezI = _backend_dangle(xp, anglezI)
         jr = xp.sum(jrI * danglerI, axis=1) / xp.sum(danglerI, axis=1)
         jz = xp.sum(jzI * danglezI, axis=1) / xp.sum(danglezI, axis=1)
-        if _isNonAxi(self._pot):  # pragma: no cover
+        if _isNonAxi(self._pot):
+            # non-axi: Lz is also angle-averaged (danglephi-weighted), not L_z(t0)
             lzI = xp.reshape(acfs[1], R.shape)[:, :-1]
             anglephiI = xp.reshape(acfs[7], R.shape)
             danglephiI = _backend_dangle(xp, anglephiI)
@@ -1074,32 +1076,48 @@ class actionAngleIsochroneApprox(actionAngle):
         angleZT = _backend_dePeriod(xp, xp.reshape(acfs[8], R.shape))
         nt = ts.shape[0]
         no = R.shape[0]
-        if _isNonAxi(self._pot):  # pragma: no cover
+        nonAxi = _isNonAxi(self._pot)
+        if nonAxi:
             nn = (2 * maxn - 1) ** 2 * maxn - (maxn - 1) * (2 * maxn - 1) - maxn
         else:
             nn = maxn * (2 * maxn - 1) - maxn
-        # The integer (n_R, n_Z) grid is data-independent (pure python/numpy);
-        # build it with numpy then move onto the backend (anchored on R's device).
+        # The integer n-grid is data-independent (pure python/numpy); build it with
+        # numpy then move onto the backend (anchored on R's device). For non-axi
+        # potentials the grid is 3-D (n_R, n_phi, n_Z) with the half-space mask;
+        # axisymmetric drops the n_phi axis.
         phig = list(numpy.arange(-maxn + 1, maxn, 1))
         phig.sort(key=lambda x: abs(x))
         phig = numpy.array(phig, dtype="int")
-        grid = numpy.meshgrid(numpy.arange(maxn), phig)
+        if nonAxi:
+            grid = numpy.meshgrid(numpy.arange(maxn), phig, phig)
+        else:
+            grid = numpy.meshgrid(numpy.arange(maxn), phig)
         gridR = grid[0].T.flatten()[1:]  # remove 0,0,0
         gridZ = grid[1].T.flatten()[1:]
-        mask = numpy.ones(len(gridR), dtype=bool)
-        mask[: 2 * maxn - 3 : 2] = False
+        if nonAxi:
+            gridphi = grid[2].T.flatten()[1:]
+            mask = True ^ (gridR == 0) * (
+                (gridphi < 0) + ((gridphi == 0) * (gridZ < 0))
+            )
+        else:
+            mask = numpy.ones(len(gridR), dtype=bool)
+            mask[: 2 * maxn - 3 : 2] = False
         gridR = gridR[mask]
         gridZ = gridZ[mask]
         gR = xp.asarray(numpy.asarray(gridR, dtype=float))
         gZ = xp.asarray(numpy.asarray(gridZ, dtype=float))
-        # A: (no, nt, 2+nn). A[...,0]=1, A[...,1]=ts, A[...,2:]=sin(nR aR + nZ aZ)
+        # A: (no, nt, 2+nn). A[...,0]=1, A[...,1]=ts, A[...,2:]=sin(n.angle)
         ones = xp.ones((no, nt), dtype=angleRT.dtype)
         tcol = xp.broadcast_to(ts[None, :], (no, nt))
-        # (no, nt, nn) = sin(gR*angleRT + gZ*angleZT), broadcast over the n-grid
-        sinnR = xp.sin(
+        # (no, nt, nn) = sin(gR*angleRT [+ gphi*anglephiT] + gZ*angleZT)
+        narg = (
             gR[None, None, :] * angleRT[:, :, None]
             + gZ[None, None, :] * angleZT[:, :, None]
         )
+        if nonAxi:
+            gphi = xp.asarray(numpy.asarray(gridphi[mask], dtype=float))
+            narg = narg + gphi[None, None, :] * anglephiT[:, :, None]
+        sinnR = xp.sin(narg)
         A = xp.concatenate([ones[:, :, None], tcol[:, :, None], sinnR], axis=2)
         ATt = xp.permute_dims(A, (0, 2, 1))  # (no, 2+nn, nt)
         atainv = xp.linalg.inv(xp.matmul(ATt, A))  # (no, 2+nn, 2+nn)

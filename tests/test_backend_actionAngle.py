@@ -1262,3 +1262,52 @@ def test_isochroneapprox_grad_vs_fd_wrt_vR(backend, which, idx):
     g = _grad(backend, f_be, 0.2)
     assert numpy.isfinite(g)
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+# Non-axisymmetric IsochroneApprox: the same orbit-integrate-and-angle-average
+# machinery, but for a potential with _isNonAxi(pot)=True. Two extra backend
+# branches fire that the axisymmetric tests never reach: (1) Lz is itself
+# angle-averaged (danglephi-weighted), not L_z(t0); and (2) the angle-fit design
+# matrix uses the 3-D (n_R, n_phi, n_Z) Fourier grid (with the half-space mask)
+# and an n_phi*anglephi term inside sin(n.angle). A mildly triaxial
+# LogarithmicHaloPotential (b=0.9 in y, q=0.8 in z) keeps the orbits bound and
+# the isochrone approximation applicable; the retrograde orbit additionally
+# exercises the negFreqIndx (2pi-anglephi / -Omegaphi) branch under non-axi.
+_NA_POT = LogarithmicHaloPotential(normalize=1.0, b=0.9, q=0.8)
+_NA_R = numpy.array([1.1, 0.9])
+_NA_VR = numpy.array([0.1, -0.05])
+_NA_VT = numpy.array([0.9, -0.8])  # second orbit retrograde -> negFreqIndx
+_NA_Z = numpy.array([0.05, 0.1])
+_NA_VZ = numpy.array([0.1, -0.07])
+_NA_PHI = numpy.array([1.3, 0.5])
+_NA = (_NA_R, _NA_VR, _NA_VT, _NA_Z, _NA_VZ, _NA_PHI)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_nonaxi_parity(backend):
+    # numpy <-> jax <-> torch parity for a NON-axisymmetric potential. Exercises
+    # the angle-averaged Lz (_evaluate index 1) and the 3-D-grid angle-fit
+    # (anglephi, index 7) backend branches, plus the retrograde negFreqIndx
+    # branch under non-axi. b is EXPLICIT (no estimateBIsochrone).
+    aAIA = actionAngleIsochroneApprox(pot=_NA_POT, b=0.8, tintJ=20.0, ntintJ=2000)
+    bargs = [_arr(backend, v) for v in _NA]
+    # _evaluate: (jr, lz, jz) -- lz is danglephi-weighted angle average here
+    ref = aAIA._evaluate(*_NA)
+    got = aAIA._evaluate(*bargs)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+    # _actionsFreqsAngles: (jr,lz,jz,Or,Op,Oz,ar,aphi,az) -- non-axi angle-fit
+    ref = aAIA._actionsFreqsAngles(*_NA)
+    got = aAIA._actionsFreqsAngles(*bargs)
+    for idx, (r, g) in enumerate(zip(ref, got)):
+        assert _is_backend_array(backend, g)
+        if idx >= 6:  # angles (incl. anglephi at idx 7): wrap-robust
+            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
+        else:
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+            )
+    # the retrograde (second) orbit must give a negative azimuthal frequency
+    assert float(_np(got[4]).ravel()[1]) < 0.0
