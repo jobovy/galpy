@@ -10,6 +10,7 @@ import warnings
 
 import numpy
 
+from ..backend import backend, is_backend_array
 from ..potential import MWPotential, _isNonAxi
 from ..potential.Potential import _check_c, _check_potential_list_and_deprecate
 from ..util import galpyWarning
@@ -25,8 +26,25 @@ _autofit_errvals[-3] = "Fit failed the goal by more than 2"
 _autofit_errvals[-4] = "Fit aborted: serious problems occurred"
 
 
+def _reject_backend(*xs):
+    # actionAngleTorus wraps the external Torus C++ library (McMillan/Binney/
+    # Dehnen) and will NOT be made jax/torch-compatible -- it is out of scope for
+    # the backend work and stays numpy-only permanently. Fail loudly under a
+    # forced/active backend context or on jax/torch array input.
+    if backend() != "numpy" or any(is_backend_array(x) for x in xs):
+        raise NotImplementedError(
+            "actionAngleTorus wraps the external Torus C++ library and is not "
+            "jax/torch-backend compatible (and will not be); use it under numpy."
+        )
+
+
 class actionAngleTorus:
-    """Action-angle formalism using the Torus machinery"""
+    """Action-angle formalism using the Torus machinery.
+
+    .. warning::
+       Wraps the external Torus C++ library -- numpy-only and NOT backend
+       (jax/torch) compatible. Calling under a backend raises ``NotImplementedError``.
+    """
 
     def __init__(self, *args, **kwargs):
         """
@@ -50,6 +68,7 @@ class actionAngleTorus:
         -----
         - 2015-08-07 - Written - Bovy (UofT).
         """
+        _reject_backend()  # external Torus C++ wrapper -- not backend compatible
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleTorus")
         self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
