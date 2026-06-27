@@ -30,8 +30,11 @@
 #   Python-level loops over the *static* polynomial degree only), so a caller
 #   may jit their galpy-using code; galpy never jits internally.
 ###############################################################################
+import itertools
+
 import numpy
 from scipy import interpolate as _scipy_interpolate
+from scipy import ndimage as _scipy_ndimage
 
 from ._namespaces import (
     asarray_on_device,
@@ -47,6 +50,9 @@ __all__ = [
     "interp_linear",
     "rect_bivariate_to_ppoly",
     "eval_rect_ppoly",
+    "spline_filter",
+    "map_coordinates",
+    "MapCoordinates",
     "Spline1D",
     "Spline2D",
 ]
@@ -73,7 +79,7 @@ def spline_to_ppoly(spl):
     return numpy.append(ppoly.x[:-1][keep], ppoly.x[-1]), ppoly.c[:, keep]
 
 
-def eval_ppoly(xp, x, c, r, *, extrapolate=True):
+def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
     """Evaluate a piecewise polynomial in the power basis at ``r``.
 
     ``(x, c)`` are as returned by ``spline_to_ppoly`` (or ``cubic_spline_coeffs``
@@ -83,6 +89,13 @@ def eval_ppoly(xp, x, c, r, *, extrapolate=True):
     Mathematically this is the same piecewise polynomial as the scipy spline
     (agreement at the ~1 ulp level); the numpy code paths keep calling the scipy
     splines directly and never come through here.
+
+    ``nu`` is the derivative order to evaluate (default ``0``, the value);
+    ``nu=1`` returns the first derivative, matching
+    ``InterpolatedUnivariateSpline(r, nu=1)``. The derivative is the analytic
+    derivative of the SAME power-basis polynomial (so it agrees with scipy's
+    spline derivative to ~1 ulp, and is itself autodifferentiable in ``r``), not
+    a finite difference. ``nu`` beyond the polynomial degree returns zeros.
 
     ``extrapolate`` selects the out-of-range behaviour, matching the
     ``InterpolatedUnivariateSpline`` ``ext`` modes callers use:
@@ -116,9 +129,26 @@ def eval_ppoly(xp, x, c, r, *, extrapolate=True):
         r = xp.clip(r, xb[0], xb[-1])
     idx = xp.clip(xp.searchsorted(xb, r, side="right") - 1, 0, cb.shape[1] - 1)
     dr = r - xb[idx]
-    out = cb[0, idx]
-    for j in range(1, cb.shape[0]):
-        out = out * dr + cb[j, idx]
+    k = cb.shape[0] - 1  # polynomial degree
+    if nu == 0:
+        out = cb[0, idx]
+        for j in range(1, cb.shape[0]):
+            out = out * dr + cb[j, idx]
+        return out
+    if nu > k:
+        # derivative past the degree is identically zero (broadcast over r)
+        return cb[0, idx] * 0.0
+    # Analytic nu-th derivative of sum_j c[j]*(dr)**(k-j): the term of original
+    # power p=k-j survives with the falling-factorial factor p*(p-1)*...*(p-nu+1)
+    # and reduced power p-nu. Horner over the surviving (descending-power) terms.
+    out = None
+    for j in range(cb.shape[0] - nu):  # original power p=k-j must be >= nu
+        p = k - j
+        fall = 1.0
+        for m in range(nu):
+            fall *= p - m
+        term = cb[j, idx] * fall
+        out = term if out is None else out * dr + term
     return out
 
 
@@ -210,25 +240,26 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
     return xp.stack([a3, a2, a1, a0], axis=0)  # (4, n-1)
 
 
-def eval_cubic(xp, x, coeffs, r, *, extrapolate=True):
+def eval_cubic(xp, x, coeffs, r, *, nu=0, extrapolate=True):
     """Evaluate cubic coefficients from ``cubic_spline_coeffs`` at ``r``.
 
     Thin alias for ``eval_ppoly`` (same power-basis layout); kept as a separate
     public name so callers building in-backend cubics read symmetrically. The
-    spline value is differentiable w.r.t. both ``r`` and (through ``coeffs``) the
-    ``y`` values used to build it.
+    spline value (and, with ``nu=1``, its derivative) is differentiable w.r.t.
+    both ``r`` and (through ``coeffs``) the ``y`` values used to build it.
     """
-    return eval_ppoly(xp, x, coeffs, r, extrapolate=extrapolate)
+    return eval_ppoly(xp, x, coeffs, r, nu=nu, extrapolate=extrapolate)
 
 
-def interp_linear(xp, x, y, r, *, extrapolate=True):
+def interp_linear(xp, x, y, r, *, nu=0, extrapolate=True):
     """Piecewise-linear interpolation of ``(x, y)`` at ``r``, built in ``xp``.
 
     ``searchsorted`` for the interval + a lerp; trivially differentiable w.r.t.
     both ``r`` and ``y``. ``x`` must be increasing. ``extrapolate=True`` extends
     the edge line beyond the ends (matching ``eval_ppoly``'s finite
     extrapolation); ``'clip'``/``'const'``/``3`` clamp ``r`` to the range first
-    (edge value beyond the ends).
+    (edge value beyond the ends). ``nu=1`` returns the (per-interval constant)
+    secant slope; ``nu>1`` returns zeros.
     """
     dev = device_of(r, y, x)
     xb = asarray_on_device(xp, numpy.asarray(x), dev) * 1.0
@@ -248,8 +279,12 @@ def interp_linear(xp, x, y, r, *, extrapolate=True):
     y1 = yb[idx + 1]
     # (x1 - x0) is a strictly positive geometry difference (x increasing), so no
     # dead-branch guard is needed: the denominator is never zero.
-    t = (r - x0) / (x1 - x0)
-    return y0 + t * (y1 - y0)
+    slope = (y1 - y0) / (x1 - x0)
+    if nu == 0:
+        return y0 + (r - x0) * slope
+    if nu == 1:
+        return slope
+    return slope * 0.0
 
 
 ###############################################################################
@@ -360,6 +395,210 @@ def eval_rect_ppoly(xp, xbr, ybr, c, X, Y, *, extrapolate=True):
 
 
 ###############################################################################
+#   (4) ndimage cubic map_coordinates (order=3): backend-agnostic, matching
+#       scipy.ndimage.map_coordinates(filtered, coords, order=3, prefilter=False).
+#
+#   This is the StaeckelGrid jr/jz/ecc/zmax/rperi/rap evaluator. As in the
+#   design for the splines above, the EXPENSIVE part -- the spline PREFILTER --
+#   is done ONCE at setup in numpy via scipy.ndimage.spline_filter (so the
+#   stored coefficient grid is byte-identical to today's grid). Only the
+#   per-query interpolation off the prefiltered coefficients is reimplemented
+#   backend-agnostically, with the SAME centred cubic B-spline kernel scipy uses
+#   -- so the backend result matches scipy.ndimage.map_coordinates to ~1e-14 and
+#   the numpy path is a literal scipy passthrough (byte-identical).
+###############################################################################
+def spline_filter(grid, order=3):
+    """Prefilter ``grid`` for cubic ``map_coordinates`` (scipy passthrough).
+
+    Thin wrapper over ``scipy.ndimage.spline_filter`` run at SETUP in numpy, so
+    the stored coefficient grid is byte-identical to the grids today. The
+    coefficients then feed the backend-agnostic :func:`map_coordinates` below
+    (called with ``prefilter=False`` since the prefilter happened here).
+    """
+    return _scipy_ndimage.spline_filter(numpy.asarray(grid), order=order)
+
+
+def _cubic_bspline_weights(xp, f):
+    r"""Centred cubic B-spline interpolation weights for the 4 taps about a point.
+
+    For a query at ``floor + f`` (``f`` the fractional offset in ``[0, 1)``) the
+    four contributing samples are at offsets ``-1, 0, 1, 2`` from ``floor``; the
+    weight of the tap at offset ``o`` is ``beta3(o - f)`` where ``beta3`` is the
+    cubic (order-3) B-spline kernel
+
+        beta3(t) = 2/3 - t**2 + |t|**3/2      for |t| < 1
+                 = (2 - |t|)**3 / 6           for 1 <= |t| < 2
+                 = 0                          otherwise.
+
+    This is exactly the kernel ``scipy.ndimage`` uses for order-3 interpolation
+    (verified to ~1e-16 against impulse responses), so the resulting weighted sum
+    over the prefiltered coefficients reproduces ``map_coordinates`` to machine
+    precision. Everything is namespace ops on ``f`` (a backend array), so the
+    weights -- and the interpolated value -- are differentiable w.r.t. the query
+    coordinate. The two ``xp.where`` branches are dead-branch-safe (pure
+    polynomials, no division/log), so neither poisons reverse-mode AD.
+    """
+    out = []
+    for o in (-1.0, 0.0, 1.0, 2.0):
+        t = xp.abs(o - f)
+        t2 = t * t
+        t3 = t2 * t
+        inner = 2.0 / 3.0 - t2 + t3 / 2.0  # |t| < 1
+        outer = (2.0 - t) ** 3 / 6.0  # 1 <= |t| < 2 (negative/0 beyond, masked)
+        w = xp.where(t < 1.0, inner, xp.where(t < 2.0, outer, t * 0.0))
+        out.append(w)
+    return out  # list of 4 weight arrays
+
+
+def map_coordinates(filtered, coords, order=3, mode="nearest", prefilter=False):
+    """Backend-agnostic cubic ``map_coordinates`` off a prefiltered grid.
+
+    A drop-in for ``scipy.ndimage.map_coordinates(filtered, coords, order=3,
+    prefilter=False)`` as used by ``actionAngleStaeckelGrid`` -- ``filtered`` is
+    the coefficient grid from :func:`spline_filter` (numpy, built once at setup),
+    ``coords`` is the ``(D, M)`` stack of query coordinates (one row per grid
+    dimension), and the return is the ``(M,)`` interpolated values.
+
+    Dispatch follows ``coords``: a numpy ``coords`` delegates to
+    ``scipy.ndimage.map_coordinates`` and is BYTE-IDENTICAL to today; a
+    jax/torch ``coords`` runs the same centred cubic B-spline interpolation
+    (:func:`_cubic_bspline_weights`) over ``filtered`` through namespace ops, so
+    the result is differentiable w.r.t. the query coordinates and matches scipy
+    to ~1e-14. ``filtered`` may stay a numpy array (the constant coefficient
+    grid); it is materialised onto the coords' device.
+
+    Parameters
+    ----------
+    filtered : array_like
+        The prefiltered spline-coefficient grid (from :func:`spline_filter`),
+        shape ``(n_0, ..., n_{D-1})``.
+    coords : array_like
+        Query coordinates, shape ``(D, M)`` (scipy's convention: row ``d`` is the
+        coordinate along grid dimension ``d``). On the backend path this is a
+        jax/torch array carrying autodiff.
+    order : int, optional
+        Spline order; only ``3`` (cubic) is implemented for the backend path
+        (the numpy path forwards any order to scipy). Default 3.
+    mode : str, optional
+        Boundary mode for taps outside ``[0, n_d - 1]``. Only ``'nearest'``
+        (clamp the tap index to the edge) is implemented on the backend path; it
+        is forwarded to scipy on the numpy path. The action-angle grids clamp
+        their coordinates in-range before calling, so the boundary mode is
+        rarely exercised, but ``'nearest'`` is the documented/default choice.
+        Default ``'nearest'``.
+    prefilter : bool, optional
+        Whether to prefilter inside this call. The intended usage prefilters once
+        at setup via :func:`spline_filter` and passes ``prefilter=False`` here;
+        ``prefilter=True`` is forwarded to scipy on the numpy path only.
+
+    Returns
+    -------
+    array
+        The interpolated values, shape ``(M,)``. numpy -> scipy's result
+        (byte-identical); jax/torch -> a backend array differentiable in the
+        query coordinates.
+    """
+    if not is_backend_array(coords):
+        # numpy / scalar coords: literal scipy passthrough (byte-identical).
+        return _scipy_ndimage.map_coordinates(
+            numpy.asarray(filtered),
+            coords,
+            order=order,
+            mode=mode,
+            prefilter=prefilter,
+        )
+    if order != 3:  # pragma: no cover - galpy only uses cubic on the backend path
+        raise NotImplementedError(
+            "backend map_coordinates only implements order=3 (cubic)"
+        )
+    if mode != "nearest":  # pragma: no cover - galpy uses the clamped path
+        raise NotImplementedError(
+            "backend map_coordinates only implements mode='nearest'"
+        )
+    import array_api_compat
+
+    xp = array_api_compat.array_namespace(coords)
+    dev = device_of(coords)
+    cb = asarray_on_device(xp, numpy.asarray(filtered), dev)
+    shape = cb.shape
+    D = cb.ndim
+    # coords is (D, M): split into per-dimension rows. base = floor index, frac =
+    # fractional offset. Index arithmetic uses an integer floor; the fractional
+    # part (which carries the gradient) stays in the float namespace.
+    base = []  # integer floor index per dim, (M,)
+    weights = []  # list (per dim) of 4 weight arrays, each (M,)
+    for d in range(D):
+        c_d = coords[d]
+        fl = xp.floor(c_d)
+        frac = c_d - fl
+        base.append(xp.astype(fl, _index_dtype(xp)) if hasattr(xp, "astype") else fl)
+        weights.append(_cubic_bspline_weights(xp, frac))
+    # Tensor product over the 4**D tap combinations: each combo picks tap offset
+    # combo[d] in {-1,0,1,2} per dim; clamp the (base+offset) index to the edge
+    # (mode='nearest'); multiply the per-dim weights; accumulate.
+    offs = (-1, 0, 1, 2)
+    out = None
+    for combo in itertools.product(range(4), repeat=D):
+        gather_idx = []
+        wt = None
+        for d in range(D):
+            idx_d = base[d] + offs[combo[d]]
+            idx_d = xp.clip(idx_d, 0, shape[d] - 1)
+            gather_idx.append(idx_d)
+            w_d = weights[d][combo[d]]
+            wt = w_d if wt is None else wt * w_d
+        vals = cb[tuple(gather_idx)]
+        contrib = vals * wt
+        out = contrib if out is None else out + contrib
+    return out
+
+
+def _index_dtype(xp):
+    """The integer dtype to use for gather indices in the active namespace."""
+    return getattr(xp, "int64", getattr(xp, "int32", None))
+
+
+class MapCoordinates:
+    """Backend-agnostic cubic ``map_coordinates`` with a setup-time prefilter.
+
+    Wraps the StaeckelGrid usage: at construction the value grid is prefiltered
+    ONCE in numpy via :func:`spline_filter` (byte-identical to the grids today);
+    ``__call__(coords)`` then interpolates off the stored coefficients with
+    :func:`map_coordinates`. numpy ``coords`` are a scipy passthrough
+    (byte-identical); jax/torch ``coords`` evaluate natively and differentiably.
+
+    Parameters
+    ----------
+    grid : array_like
+        The value grid to interpolate (e.g. ``log(jr + 1e-10)``), shape
+        ``(n_0, ..., n_{D-1})``. Prefiltered at construction.
+    order : int, optional
+        Spline order (default 3, cubic).
+    mode : str, optional
+        Boundary mode for the backend path (default ``'nearest'``).
+    """
+
+    def __init__(self, grid, order=3, mode="nearest"):
+        self._order = order
+        self._mode = mode
+        self._filtered = spline_filter(grid, order=order)
+
+    @property
+    def filtered(self):
+        """The prefiltered coefficient grid (numpy, byte-identical to scipy)."""
+        return self._filtered
+
+    def __call__(self, coords):
+        return map_coordinates(
+            self._filtered,
+            coords,
+            order=self._order,
+            mode=self._mode,
+            prefilter=False,
+        )
+
+
+###############################################################################
 #   Spline1D / Spline2D convenience classes.
 ###############################################################################
 class Spline1D:
@@ -427,12 +666,20 @@ class Spline1D:
             )
             self._ppoly_x, self._ppoly_c = spline_to_ppoly(self._spl)
 
-    def __call__(self, r):
+    def __call__(self, r, nu=0):
+        """Evaluate the spline (``nu=0``) or its ``nu``-th derivative at ``r``.
+
+        ``nu=1`` returns the first derivative, matching
+        ``InterpolatedUnivariateSpline(r, nu=1)`` to ~1 ulp on the backend path
+        and BYTE-IDENTICALLY on the numpy path (it forwards ``nu`` to the scipy
+        spline). For the mode-2 ``k=1`` piecewise-linear interpolant ``nu=1`` is
+        the (per-interval constant) secant slope.
+        """
         # numpy / scalar input: byte-identical scipy path (mode 1) or numpy-eval
         # of the in-backend coefficients (mode 2 has no scipy spline).
         if not is_backend_array(r):
             if self._spl is not None:
-                return self._spl(r)
+                return self._spl(r, nu=nu)
             # mode 2 with a numpy query: evaluate the in-backend coeffs via numpy
             if self._k == 1:
                 return interp_linear(
@@ -440,6 +687,7 @@ class Spline1D:
                     self._x,
                     numpy.asarray(self._y),
                     r,
+                    nu=nu,
                     extrapolate=self._extrapolate,
                 )
             return eval_ppoly(
@@ -447,6 +695,7 @@ class Spline1D:
                 self._x,
                 numpy.asarray(self._coeffs),
                 r,
+                nu=nu,
                 extrapolate=self._extrapolate,
             )
         import array_api_compat
@@ -455,13 +704,18 @@ class Spline1D:
         if self._mode2:
             if self._k == 1:
                 return interp_linear(
-                    xp, self._x, self._y, r, extrapolate=self._extrapolate
+                    xp, self._x, self._y, r, nu=nu, extrapolate=self._extrapolate
                 )
             return eval_cubic(
-                xp, self._x, self._coeffs, r, extrapolate=self._extrapolate
+                xp, self._x, self._coeffs, r, nu=nu, extrapolate=self._extrapolate
             )
         return eval_ppoly(
-            xp, self._ppoly_x, self._ppoly_c, r, extrapolate=self._extrapolate
+            xp,
+            self._ppoly_x,
+            self._ppoly_c,
+            r,
+            nu=nu,
+            extrapolate=self._extrapolate,
         )
 
 
@@ -504,13 +758,29 @@ class Spline2D:
         self._extrapolate = True if ext in (0, "extrapolate") else "const"
         self._xbr, self._ybr, self._c = rect_bivariate_to_ppoly(spl)
 
-    def __call__(self, X, Y):
+    def __call__(self, X, Y, grid=False):
+        """Evaluate the bivariate spline at ``(X, Y)``.
+
+        ``grid=False`` (the default here) is point-by-point evaluation -- the
+        ``X``, ``Y`` arrays are paired elementwise (broadcast together), matching
+        ``RectBivariateSpline.ev`` / ``RectBivariateSpline(..., grid=False)`` and
+        the ``.ev`` call sites in the action-angle grids. ``grid=True`` evaluates
+        on the outer (tensor) product of ``X`` and ``Y``, matching scipy's
+        default ``RectBivariateSpline.__call__``.
+        """
         if not (is_backend_array(X) or is_backend_array(Y)):
-            return self._spl.ev(X, Y)
+            return self._spl(X, Y, grid=grid)
         import array_api_compat
 
         ref = X if is_backend_array(X) else Y
         xp = array_api_compat.array_namespace(ref)
+        if grid:
+            # Outer product: broadcast X over rows, Y over columns. asarray so a
+            # plain-scalar/numpy side still indexes; the backend side carries AD.
+            Xb = asarray_on_device(xp, X, device_of(ref))
+            Yb = asarray_on_device(xp, Y, device_of(ref))
+            X = Xb[:, None]
+            Y = Yb[None, :]
         return eval_rect_ppoly(
             xp, self._xbr, self._ybr, self._c, X, Y, extrapolate=self._extrapolate
         )
