@@ -1335,3 +1335,18 @@ def test_adiabatic_2dpot_edge_parity(backend):
     # Jz (index 2 of _evaluate) and zmax (index 1 of ecc) are identically 0.
     assert numpy.all(_np(aA._evaluate(*bargs)[2]) == 0.0)
     assert numpy.all(_np(aA._EccZmaxRperiRap(*bargs)[1]) == 0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabatic_gamma0_ecczmaxrperirap_parity(backend):
+    # gamma=0 on a 3D potential: _EccZmaxRperiRap takes the Jz=0 branch (zmax
+    # still from the vertical potential), so radial peri/apo ignore the adiabatic
+    # Jz shift. numpy <-> backend parity (GL-vs-adaptive-quad floor ~1e-6).
+    aA = actionAngleAdiabatic(pot=MWPotential2014, c=False, gamma=0.0)
+    assert aA._gamma == 0.0
+    bargs = [_arr(backend, v) for v in _ADB]
+    ref = aA._EccZmaxRperiRap(*_ADB)
+    got = aA._EccZmaxRperiRap(*bargs)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8)

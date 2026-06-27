@@ -518,8 +518,8 @@ class actionAngleAdiabatic(actionAngle):
         from ..potential import verticalfreq
 
         xp = get_namespace(R)
-        vfreq = verticalfreq(self._pot, R)
-        if _dim(self._pot) == 2:
+        vfreq = verticalfreq(self._pot, R)  # raises for a 2D pot (no Oz)
+        if _dim(self._pot) == 2:  # pragma: no cover -- vfreq above raised first
             return (xp.zeros_like(R), vfreq)
         aAV = self._batched_aAV(R)
         Jz, Oz = aAV._actionsFreqs(z, vz)
@@ -533,8 +533,8 @@ class actionAngleAdiabatic(actionAngle):
         from ..potential import verticalfreq
 
         xp = get_namespace(R)
-        vfreq = verticalfreq(self._pot, R)
-        if _dim(self._pot) == 2:
+        vfreq = verticalfreq(self._pot, R)  # raises for a 2D pot (no Oz)
+        if _dim(self._pot) == 2:  # pragma: no cover -- vfreq above raised first
             return (xp.zeros_like(R), vfreq, xp.zeros_like(R))
         aAV = self._batched_aAV(R)
         Jz, Oz, az = aAV._actionsFreqsAngles(z, vz)
