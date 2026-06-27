@@ -16,6 +16,7 @@ from matplotlib.ticker import NullFormatter
 from numpy.polynomial import chebyshev, polynomial
 from scipy import interpolate, ndimage, optimize
 
+from ..backend import backend, is_backend_array
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import galpyWarning
@@ -26,8 +27,29 @@ from .actionAngleInverse import actionAngleInverse
 from .actionAngleVertical import actionAngleVertical
 
 
+def _reject_backend(*xs):
+    # actionAngleVerticalInverse is NOT yet backend-migrated (under active
+    # development): it builds scipy interpolation / ndimage.map_coordinates grids
+    # and runs under numpy only. Fail loudly rather than silently mis-behaving,
+    # so the not-migrated status is explicit. Two ways a backend sneaks in:
+    #   (1) a forced/active backend context (backend() != "numpy") -- this is what
+    #       the all-backend test harness sets via `use(..., force=True)`, which
+    #       coerces even numpy inputs to the backend, so the GRID SETUP would break;
+    #   (2) jax/torch array inputs passed directly to an evaluation method.
+    if backend() != "numpy" or any(is_backend_array(x) for x in xs):
+        raise NotImplementedError(
+            "actionAngleVerticalInverse is not yet migrated to the jax/torch "
+            "backends (it is still under development); use it under numpy only."
+        )
+
+
 class actionAngleVerticalInverse(actionAngleInverse):
-    """Inverse action-angle formalism for one dimensional systems"""
+    """Inverse action-angle formalism for one dimensional systems.
+
+    .. warning::
+       NOT yet backend-migrated (under active development) -- numpy/scipy only.
+       Calling with jax/torch array inputs raises ``NotImplementedError``.
+    """
 
     def __init__(
         self,
@@ -72,6 +94,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2018-04-11 - Started - Bovy (UofT)
         """
+        _reject_backend()  # not yet backend-migrated; block construction under a backend
         # actionAngleInverse.__init__(self,*args,**kwargs)
         if pot is None:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleVerticalInverse")
@@ -1017,6 +1040,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2022-11-24 - Written - Bovy (UofT)
 
         """
+        _reject_backend(E)
         indx = numpy.nanargmin(numpy.fabs(E - self._Es))
         if numpy.fabs(E - self._Es[indx]) > 1e-10:
             raise ValueError(
@@ -1066,6 +1090,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         -----
         - 2018-04-15 - Written - Bovy (UofT)
         """
+        _reject_backend(j, angle)
         # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
@@ -1204,6 +1229,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         - 2018-04-08 - Written - Bovy (UofT)
 
         """
+        _reject_backend(j)
         # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
