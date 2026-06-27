@@ -46,6 +46,8 @@ from galpy.actionAngle import (
     actionAngleSpherical,
     actionAngleStaeckel,
     actionAngleVertical,
+    estimateBIsochrone,
+    estimateDeltaStaeckel,
 )
 from galpy.potential import (
     HernquistPotential,
@@ -1118,6 +1120,49 @@ def test_staeckel_angles_numpy_phi(backend):
         assert numpy.max(_wrapdiff(_np(got[i]), numpy.asarray(ref[i]))) < 1e-8
 
 
+def test_actionAngleVerticalInverse_rejects_backend():
+    # NOT yet backend-migrated (under development): both a forced/active backend
+    # context (the all-backend harness's use(force=True), which would break the
+    # scipy grid SETUP) and backend-array inputs raise NotImplementedError. numpy
+    # is unaffected.
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.actionAngle.actionAngleVerticalInverse import _reject_backend
+    from galpy.potential import IsothermalDiskPotential
+
+    _reject_backend(1.0, numpy.array([0.1]))  # numpy: no raise
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    for bk in BACKENDS:
+        with pytest.raises(NotImplementedError):  # backend-array input
+            _reject_backend(_arr(bk, numpy.array([0.1])))
+        with gb.use(bk, force=True):  # forced/active backend context
+            with pytest.raises(NotImplementedError):
+                _reject_backend()
+            with pytest.raises(NotImplementedError):  # construction = setup chokepoint
+                actionAngleVerticalInverse(pot=isopot, Es=[0.3])
+    return None
+
+
+def test_actionAngleTorus_rejects_backend():
+    # actionAngleTorus wraps the external Torus C++ library and will NOT be made
+    # backend-compatible (out of scope); same guard, permanent message.
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleTorus
+    from galpy.actionAngle.actionAngleTorus import _reject_backend
+    from galpy.potential import MWPotential2014
+
+    _reject_backend(1.0)  # numpy: no raise
+    for bk in BACKENDS:
+        with pytest.raises(NotImplementedError):
+            _reject_backend(_arr(bk, numpy.array([0.1])))
+        with gb.use(bk, force=True):
+            with pytest.raises(NotImplementedError):
+                _reject_backend()
+            with pytest.raises(NotImplementedError):
+                actionAngleTorus(pot=MWPotential2014)
+    return None
+
+
 # ====================================================================
 # actionAngleIsochroneApprox: the Bovy (2014) isochrone-approximation actions,
 # frequencies, and angles. Unlike every class above (closed-form / quadrature on
@@ -1315,6 +1360,87 @@ def test_isochroneapprox_nonaxi_parity(backend):
             )
     # the retrograde (second) orbit must give a negative azimuthal frequency
     assert float(_np(got[4]).ravel()[1]) < 0.0
+
+
+# --------------------------------------------------------- delta/b estimators
+# estimateDeltaStaeckel / estimateBIsochrone: standalone helpers that consume a
+# potential's 2nd-derivative / rotation-curve evaluators and root-find for the
+# focal length delta / isochrone scale b. The numpy path is byte-identical (the
+# existing test_actionAngle.py suite is unchanged); these add backend value
+# parity, the backend-array return type, and AD-vs-finite-difference of delta/b
+# w.r.t. R -- the differentiability that is the point of the port.
+_EST_R = numpy.array([1.1, 0.8, 1.3, 0.9])
+_EST_Z = numpy.array([0.15, 0.2, 0.1, 0.25])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_estimateDeltaStaeckel_parity(backend):
+    Rb, zb = _arr(backend, _EST_R), _arr(backend, _EST_Z)
+    # array, median over the grid (single value)
+    ref_med = numpy.asarray(estimateDeltaStaeckel(MWPotential2014, _EST_R, _EST_Z))
+    got_med = estimateDeltaStaeckel(MWPotential2014, Rb, zb)
+    assert _is_backend_array(backend, got_med)
+    numpy.testing.assert_allclose(_np(got_med), ref_med, rtol=1e-12, atol=1e-12)
+    # array, no_median: per-point deltas
+    ref_all = numpy.asarray(
+        estimateDeltaStaeckel(MWPotential2014, _EST_R, _EST_Z, no_median=True)
+    )
+    got_all = estimateDeltaStaeckel(MWPotential2014, Rb, zb, no_median=True)
+    assert _is_backend_array(backend, got_all)
+    numpy.testing.assert_allclose(_np(got_all), ref_all, rtol=1e-12, atol=1e-12)
+    # scalar, incl. a z==0 (plane) point that hits the 1e-4 fallback
+    for Rs, zs in ((1.1, 0.15), (1.2, 0.0)):
+        ref = numpy.asarray(estimateDeltaStaeckel(MWPotential2014, Rs, zs))
+        got = estimateDeltaStaeckel(
+            MWPotential2014, _arr(backend, Rs), _arr(backend, zs)
+        )
+        assert _is_backend_array(backend, got)
+        numpy.testing.assert_allclose(_np(got), ref, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_estimateBIsochrone_parity(backend):
+    Rb, zb = _arr(backend, _EST_R), _arr(backend, _EST_Z)
+    # array -> (bmin, bmedian, bmax)
+    ref = numpy.asarray(estimateBIsochrone(MWPotential2014, _EST_R, _EST_Z))
+    got = estimateBIsochrone(MWPotential2014, Rb, zb)
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(_np(got), ref, rtol=1e-11, atol=1e-11)
+    # scalar -> single b
+    ref_s = float(estimateBIsochrone(MWPotential2014, 1.1, 0.15))
+    got_s = estimateBIsochrone(MWPotential2014, _arr(backend, 1.1), _arr(backend, 0.15))
+    assert _is_backend_array(backend, got_s)
+    numpy.testing.assert_allclose(_np(got_s), ref_s, rtol=1e-11, atol=1e-11)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_estimateDeltaStaeckel_grad_vs_fd_wrt_R(backend):
+    # d(delta)/dR at a fixed bound (R,z) point: AD vs central finite-difference.
+    z0 = 0.15
+
+    def f(backend, Rval):
+        return estimateDeltaStaeckel(MWPotential2014, Rval, _arr(backend, z0))
+
+    R0 = 1.1
+    g = _grad(backend, lambda t: f(backend, t), R0)
+    fd = _fd(lambda Rv: float(_np(f(backend, _arr(backend, Rv)))), R0)
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_estimateBIsochrone_grad_vs_fd_wrt_R(backend):
+    # db/dR at a fixed (R,z) point: AD (through the bisection+Newton root) vs FD.
+    z0 = 0.15
+
+    def f(backend, Rval):
+        return estimateBIsochrone(MWPotential2014, Rval, _arr(backend, z0))
+
+    R0 = 1.1
+    g = _grad(backend, lambda t: f(backend, t), R0)
+    fd = _fd(lambda Rv: float(_np(f(backend, _arr(backend, Rv)))), R0)
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
 
 
 # ====================================================================

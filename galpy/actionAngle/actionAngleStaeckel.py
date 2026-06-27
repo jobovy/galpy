@@ -58,6 +58,20 @@ def _coerce_delta_arraylike(delta):
     return numpy.array(delta) if isinstance(delta, (list, tuple)) else delta
 
 
+def _nanmedian(xp, a):
+    """NaN-skipping median matching numpy.median over the non-NaN values.
+
+    numpy/jax: ``xp.nanmedian`` is byte-identical to the original
+    ``numpy.median(a[~isnan])``. array-api-compat torch's median/nanmedian
+    return the lower of the two central order statistics for even counts
+    (not their average), so torch is handled via ``quantile(.,0.5)`` on the
+    NaN-filtered values to match numpy's convention (eager-only; the median
+    is a non-differentiable selection)."""
+    if "torch" in getattr(xp, "__name__", ""):
+        return xp.quantile(a[~xp.isnan(a)], 0.5)
+    return xp.nanmedian(a)
+
+
 # ----------------------------------------------------------------------------
 # Vectorised, backend-agnostic Staeckel action core (numpy / jax / torch). One
 # unified path replacing the per-object actionAngleStaeckelSingle scipy loop:
@@ -2077,7 +2091,11 @@ def calcu0(E, Lz, pot, delta):
     return out
 
 
-# coerce_backend=False: numpy-only body (in-place z masking, numpy.array/median)
+# coerce_backend=False: the migrated body resolves its own namespace from the
+# coordinate data (get_namespace) and never feeds numpy/Python coords into a
+# backend evaluator, so coordinate coercion is unnecessary; keeping it off also
+# preserves the byte-identical numpy/Quantity path (the decorator's get_namespace
+# probe is skipped) regardless of any ambient backend default.
 @potential_physical_input(coerce_backend=False)
 @physical_conversion("position", pop=True)
 def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
@@ -2126,6 +2144,38 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
         if isinstance(pot, CompositePotential)
         else isinstance(pot, SCFPotential) or isinstance(pot, DiskSCFPotential)
     )
+    if is_backend_array(R):
+        # Vectorised, differentiable jax/torch path: the migrated potential
+        # evaluators accept array R,z, so evaluate the whole array at once;
+        # xp.where / _nanmedian reproduce the numpy in-place writes / masked
+        # median. (numpy keeps the per-element path below because several
+        # potentials' methods only accept scalar inputs.)
+        xp = get_namespace(R)
+        z = xp.where(z == 0.0, 1e-4, z)
+        delta2 = (
+            z**2.0
+            - R**2.0  # eqn. (9) has a sign error
+            + (
+                3.0 * R * _evaluatezforces(pot, R, z)
+                - 3.0 * z * _evaluateRforces(pot, R, z)
+                + R
+                * z
+                * (
+                    evaluateR2derivs(pot, R, z, use_physical=False)
+                    - evaluatez2derivs(pot, R, z, use_physical=False)
+                )
+            )
+            / evaluateRzderivs(pot, R, z, use_physical=False)
+        )
+        indx = (delta2 < delta0**2.0) & (
+            (delta2 > -(10.0**-10.0)) | bool(pot_includes_scf)
+        )
+        delta2 = xp.where(indx, delta0**2.0, delta2)
+        if not no_median and getattr(delta2, "ndim", 0) > 0:
+            delta2 = _nanmedian(xp, delta2)
+        return xp.sqrt(delta2)
+    # numpy path: byte-identical to the original (per-element evaluation, so
+    # potentials whose methods only accept scalars keep working).
     if numpy.any(z == 0.0):
         if isinstance(z, numpy.ndarray):
             z[z == 0.0] = 1e-4

@@ -3325,6 +3325,25 @@ def test_estimateDeltaStaeckel_no_median():
     return None
 
 
+# Regression: estimateDeltaStaeckel with array (R,z) must work for potentials
+# whose methods only accept scalar inputs (the numpy path evaluates per-element).
+def test_estimateDeltaStaeckel_array_scalaronly_potential():
+    from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import DoubleExponentialDiskPotential
+
+    pot = DoubleExponentialDiskPotential(normalize=1.0)
+    R = numpy.array([1.0, 1.1, 0.9, 1.05])
+    z = numpy.array([0.1, 0.2, 0.05, 0.15])
+    # array call (no_median) must not crash and must equal the per-element
+    # scalar estimates (the numpy path evaluates the potential per element)
+    arr = estimateDeltaStaeckel(pot, R, z, no_median=True)
+    indiv = numpy.array([estimateDeltaStaeckel(pot, R[i], z[i]) for i in range(len(R))])
+    assert (numpy.fabs(arr - indiv) < 1e-10).all(), (
+        "estimateDeltaStaeckel array call disagrees with per-element estimates"
+    )
+    return None
+
+
 # Test that the replacement of z=0 with a small value works
 def test_estimateDeltaStaeckel_z_is_0():
     from galpy.actionAngle import estimateDeltaStaeckel
