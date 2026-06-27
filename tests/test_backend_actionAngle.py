@@ -1116,6 +1116,49 @@ def test_staeckel_angles_numpy_phi(backend):
         assert numpy.max(_wrapdiff(_np(got[i]), numpy.asarray(ref[i]))) < 1e-8
 
 
+def test_actionAngleVerticalInverse_rejects_backend():
+    # NOT yet backend-migrated (under development): both a forced/active backend
+    # context (the all-backend harness's use(force=True), which would break the
+    # scipy grid SETUP) and backend-array inputs raise NotImplementedError. numpy
+    # is unaffected.
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.actionAngle.actionAngleVerticalInverse import _reject_backend
+    from galpy.potential import IsothermalDiskPotential
+
+    _reject_backend(1.0, numpy.array([0.1]))  # numpy: no raise
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    for bk in BACKENDS:
+        with pytest.raises(NotImplementedError):  # backend-array input
+            _reject_backend(_arr(bk, numpy.array([0.1])))
+        with gb.use(bk, force=True):  # forced/active backend context
+            with pytest.raises(NotImplementedError):
+                _reject_backend()
+            with pytest.raises(NotImplementedError):  # construction = setup chokepoint
+                actionAngleVerticalInverse(pot=isopot, Es=[0.3])
+    return None
+
+
+def test_actionAngleTorus_rejects_backend():
+    # actionAngleTorus wraps the external Torus C++ library and will NOT be made
+    # backend-compatible (out of scope); same guard, permanent message.
+    from galpy import backend as gb
+    from galpy.actionAngle import actionAngleTorus
+    from galpy.actionAngle.actionAngleTorus import _reject_backend
+    from galpy.potential import MWPotential2014
+
+    _reject_backend(1.0)  # numpy: no raise
+    for bk in BACKENDS:
+        with pytest.raises(NotImplementedError):
+            _reject_backend(_arr(bk, numpy.array([0.1])))
+        with gb.use(bk, force=True):
+            with pytest.raises(NotImplementedError):
+                _reject_backend()
+            with pytest.raises(NotImplementedError):
+                actionAngleTorus(pot=MWPotential2014)
+    return None
+
+
 # ====================================================================
 # actionAngleIsochroneApprox: the Bovy (2014) isochrone-approximation actions,
 # frequencies, and angles. Unlike every class above (closed-form / quadrature on
