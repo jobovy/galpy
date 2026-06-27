@@ -58,6 +58,20 @@ def _coerce_delta_arraylike(delta):
     return numpy.array(delta) if isinstance(delta, (list, tuple)) else delta
 
 
+def _nanmedian(xp, a):
+    """NaN-skipping median matching numpy.median over the non-NaN values.
+
+    numpy/jax: ``xp.nanmedian`` is byte-identical to the original
+    ``numpy.median(a[~isnan])``. array-api-compat torch's median/nanmedian
+    return the lower of the two central order statistics for even counts
+    (not their average), so torch is handled via ``quantile(.,0.5)`` on the
+    NaN-filtered values to match numpy's convention (eager-only; the median
+    is a non-differentiable selection)."""
+    if "torch" in getattr(xp, "__name__", ""):
+        return xp.quantile(a[~xp.isnan(a)], 0.5)
+    return xp.nanmedian(a)
+
+
 # ----------------------------------------------------------------------------
 # Vectorised, backend-agnostic Staeckel action core (numpy / jax / torch). One
 # unified path replacing the per-object actionAngleStaeckelSingle scipy loop:
@@ -2065,7 +2079,11 @@ def calcu0(E, Lz, pot, delta):
     return out
 
 
-# coerce_backend=False: numpy-only body (in-place z masking, numpy.array/median)
+# coerce_backend=False: the migrated body resolves its own namespace from the
+# coordinate data (get_namespace) and never feeds numpy/Python coords into a
+# backend evaluator, so coordinate coercion is unnecessary; keeping it off also
+# preserves the byte-identical numpy/Quantity path (the decorator's get_namespace
+# probe is skipped) regardless of any ambient backend default.
 @potential_physical_input(coerce_backend=False)
 @physical_conversion("position", pop=True)
 def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
@@ -2114,52 +2132,29 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
         if isinstance(pot, CompositePotential)
         else isinstance(pot, SCFPotential) or isinstance(pot, DiskSCFPotential)
     )
-    if numpy.any(z == 0.0):
-        if isinstance(z, numpy.ndarray):
-            z[z == 0.0] = 1e-4
-        else:
-            z = 1e-4
-    if isinstance(R, numpy.ndarray):
-        delta2 = numpy.array(
-            [
-                (
-                    z[ii] ** 2.0
-                    - R[ii] ** 2.0  # eqn. (9) has a sign error
-                    + (
-                        3.0 * R[ii] * _evaluatezforces(pot, R[ii], z[ii])
-                        - 3.0 * z[ii] * _evaluateRforces(pot, R[ii], z[ii])
-                        + R[ii]
-                        * z[ii]
-                        * (
-                            evaluateR2derivs(pot, R[ii], z[ii], use_physical=False)
-                            - evaluatez2derivs(pot, R[ii], z[ii], use_physical=False)
-                        )
-                    )
-                    / evaluateRzderivs(pot, R[ii], z[ii], use_physical=False)
-                )
-                for ii in range(len(R))
-            ]
-        )
-        indx = (delta2 < delta0**2.0) * ((delta2 > -(10.0**-10.0)) + pot_includes_scf)
-        delta2[indx] = delta0**2.0
-        if not no_median:
-            delta2 = numpy.median(delta2[True ^ numpy.isnan(delta2)])
-    else:
-        delta2 = (
-            z**2.0
-            - R**2.0  # eqn. (9) has a sign error
-            + (
-                3.0 * R * _evaluatezforces(pot, R, z)
-                - 3.0 * z * _evaluateRforces(pot, R, z)
-                + R
-                * z
-                * (
-                    evaluateR2derivs(pot, R, z, use_physical=False)
-                    - evaluatez2derivs(pot, R, z, use_physical=False)
-                )
+    # Namespace-swap: the SAME vectorised expression runs (and differentiates)
+    # under numpy / jax / torch. The numpy path is byte-identical to the
+    # original (vectorised potential evals equal the old scalar loop, and
+    # xp.where / nanmedian reproduce the in-place writes / NaN-masked median).
+    xp = get_namespace(R) if is_backend_array(R) else numpy
+    z = xp.where(z == 0.0, 1e-4, z)  # delta undefined on the plane -> fallback
+    delta2 = (
+        z**2.0
+        - R**2.0  # eqn. (9) has a sign error
+        + (
+            3.0 * R * _evaluatezforces(pot, R, z)
+            - 3.0 * z * _evaluateRforces(pot, R, z)
+            + R
+            * z
+            * (
+                evaluateR2derivs(pot, R, z, use_physical=False)
+                - evaluatez2derivs(pot, R, z, use_physical=False)
             )
-            / evaluateRzderivs(pot, R, z, use_physical=False)
         )
-        if delta2 < delta0**2.0 and (delta2 > -(10.0**-10.0) or pot_includes_scf):
-            delta2 = delta0**2.0
-    return numpy.sqrt(delta2)
+        / evaluateRzderivs(pot, R, z, use_physical=False)
+    )
+    indx = (delta2 < delta0**2.0) & ((delta2 > -(10.0**-10.0)) | bool(pot_includes_scf))
+    delta2 = xp.where(indx, delta0**2.0, delta2)
+    if not no_median and getattr(delta2, "ndim", 0) > 0:
+        delta2 = _nanmedian(xp, delta2)
+    return xp.sqrt(delta2)
