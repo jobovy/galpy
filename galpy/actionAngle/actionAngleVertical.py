@@ -12,7 +12,7 @@
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import device_of, get_namespace, is_backend_array
 from ..potential.linearPotential import evaluatelinearPotentials
 from ..potential.Potential import _check_potential_list_and_deprecate
 from .actionAngle import actionAngle
@@ -358,7 +358,15 @@ class actionAngleVertical(actionAngle):
             rad = xp.where(rad > 0.0, rad, xp.zeros_like(rad))  # clip (AD guard)
             return xp.sqrt(rad) * 2.0 * t * lim[:, None]  # dx = 2t dt, dt = lim ds
 
-        return 2.0 / numpy.pi * fixed_quad(xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER)
+        # device=: scalar limits, so anchor the GL nodes on the input device (xmax)
+        # -- else torch raises on CUDA input. No-op on numpy (device_of -> None).
+        return (
+            2.0
+            / numpy.pi
+            * fixed_quad(
+                xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(xmax)
+            )
+        )
 
     def _calc_omega_backend(self, xp, xmax, E):
         """Omega = pi/2 / int_0^xmax dx/sqrt(2(E-Phi)) via x = xmax - t^2."""
@@ -375,7 +383,13 @@ class actionAngleVertical(actionAngle):
             rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))  # 2t->0 there anyway
             return 2.0 * t / xp.sqrt(rad) * lim[:, None]
 
-        return numpy.pi / 2.0 / fixed_quad(xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER)
+        return (
+            numpy.pi
+            / 2.0
+            / fixed_quad(
+                xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(xmax)
+            )
+        )
 
     def _calc_angle_backend(self, xp, x, vx, xmax, E, Omega):
         """angle = Omega * int_0^|x| dx/sqrt(2(E-Phi)), then (x,vx)-quadrant fix.
@@ -400,7 +414,9 @@ class actionAngleVertical(actionAngle):
             rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))
             return 2.0 * t / xp.sqrt(rad) * span[:, None]  # dx = 2t dt, dt = span ds
 
-        angle = Omega * fixed_quad(xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER)
+        angle = Omega * fixed_quad(
+            xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(xmax)
+        )
         # Quadrant assembly (mirror the numpy masked writes; disjoint conditions).
         angle = xp.where((x >= 0.0) & (vx < 0.0), numpy.pi - angle, angle)
         angle = xp.where((x < 0.0) & (vx <= 0.0), numpy.pi + angle, angle)
