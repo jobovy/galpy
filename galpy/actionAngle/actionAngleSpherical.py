@@ -14,7 +14,7 @@ import copy
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import device_of, get_namespace, is_backend_array
 from ..potential import _dim, epifreq, omegac, vcirc
 from ..potential.planarPotential import _evaluateplanarPotentials
 from ..potential.Potential import (
@@ -610,7 +610,16 @@ class actionAngleSpherical(actionAngle):
             rad = xp.where(rad > 0.0, rad, 0.0)  # clip before sqrt (AD guard)
             return xp.sqrt(rad) * span[:, None] * 2.0 * sin * cos
 
-        Jr = fixed_quad(xp, integrand, 0.0, numpy.pi / 2.0, n=_BACKEND_GL_ORDER)
+        # device=: scalar limits, so anchor the GL nodes on the input device
+        # (rperi) -- else torch raises on CUDA input. No-op on numpy.
+        Jr = fixed_quad(
+            xp,
+            integrand,
+            0.0,
+            numpy.pi / 2.0,
+            n=_BACKEND_GL_ORDER,
+            device=device_of(rperi),
+        )
         return Jr / numpy.pi
 
     # -------------------------------------------------- backend freqs + angles
@@ -650,7 +659,9 @@ class actionAngleSpherical(actionAngle):
                 val = val / rr**2.0
             return val * lim[:, None]  # dt = lim ds
 
-        return fixed_quad(xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER)
+        return fixed_quad(
+            xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(base)
+        )
 
     def _calc_or_op_backend(self, Rmean, rperi, rap, E, L):
         """Vectorised Or (radial freq) and Op (azimuthal freq magnitude).
