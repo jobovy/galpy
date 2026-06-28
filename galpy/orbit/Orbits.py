@@ -324,6 +324,12 @@ def shapeDecorator(func):
         elif args[0].shape == ():
             return result[0]
         else:
+            newshape = args[0].shape + tuple(result.shape[1:])
+            if is_backend_array(result):
+                # numpy.reshape forwards order='C', which torch's .reshape rejects
+                # (and triggers a numpy-2 __array_wrap__ deprecation); use the
+                # array's own reshape (jax/torch), preserving the autodiff graph.
+                return result.reshape(newshape)
             return numpy.reshape(result, args[0].shape + result.shape[1:])
 
     return shape_wrapper
@@ -2156,13 +2162,11 @@ class Orbit:
         array in self.orbit, so getOrbit()/the accessors are backend arrays
         differentiable w.r.t. the initial conditions (gradients w.r.t. potential
         PARAMETERS need the in-backend ODE path -- the C integrator carries no
-        d x / d theta sensitivity). Single orbit.
+        d x / d theta sensitivity). Single OR multiple orbits: a multi-orbit
+        backend IC is integrated in ONE stacked C-STM call (the wrapper and
+        c_stm_forward batch ``(N,6) -> (N,nt,6)``), so ``Orbit(N-backend-ICs).
+        integrate(<dxdv-C-method>)`` is differentiable w.r.t. all N ICs at once.
         """
-        if self.shape != ():
-            raise ValueError(
-                f"method='{method}' with a jax/torch initial condition supports a "
-                "single orbit only"
-            )
         ic = self._ic_backend
         xp = get_namespace(ic)
         if is_backend_array(t):
@@ -2174,17 +2178,23 @@ class Orbit:
             from ..backend._jax import orbit_stm
         else:
             from ..backend._torch import orbit_stm
-        # (nt, 6) Orbit order, differentiable backend array. Default rtol/atol =
-        # 1e-12 matches galpy's C integrators (_parse_tol).
-        result = orbit_stm.integrate(
-            pot,
-            ic,
-            ts,
-            method=method,
-            rtol=1e-12 if rtol is None else rtol,
-            atol=1e-12 if atol is None else atol,
-        )
-        self.orbit = result[None, ...]  # (1, nt, 6), matching the C layout
+        # Default rtol/atol = 1e-12 matches galpy's C integrators (_parse_tol).
+        _rtol = 1e-12 if rtol is None else rtol
+        _atol = 1e-12 if atol is None else atol
+        if self.shape == ():
+            # Single orbit: (nt, 6) -> stored as (1, nt, 6), matching the C layout.
+            result = orbit_stm.integrate(
+                pot, ic, ts, method=method, rtol=_rtol, atol=_atol
+            )
+            self.orbit = result[None, ...]
+        else:
+            # Multiple orbits: flatten to (size, 6), one stacked differentiable
+            # C-STM solve -> (size, nt, 6); getOrbit/accessors reshape on access.
+            ic2d = xp.reshape(ic, (-1, ic.shape[-1]))
+            result = orbit_stm.integrate(
+                pot, ic2d, ts, method=method, rtol=_rtol, atol=_atol
+            )
+            self.orbit = result
         self.t = t
         self._pot = pot
         self._orig_pot = pot
