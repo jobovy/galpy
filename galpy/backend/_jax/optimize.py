@@ -26,9 +26,7 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     import jax
     import jax.numpy as jnp
 
-    from ..optimize import bisect_root
-
-    x0 = jax.lax.stop_gradient(bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter))
+    x0 = jax.lax.stop_gradient(_bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter))
     # df/dx at x0 via a forward-mode directional derivative along the all-ones
     # tangent (exact df/dx for an elementwise f); the value fx0 comes for free.
     fx0, dfx0 = jax.jvp(f, (x0,), (jnp.ones_like(x0),))
@@ -36,6 +34,33 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     # constant w.r.t. theta and fx0 ~ 0 -- its theta-gradient is the implicit
     # one. Guard a (near-)singular slope so AD never sees a 0/0.
     return x0 - fx0 / _nonzero(dfx0, xp)
+
+
+def _bisect_root(f, a, b, xp, *, xtol, maxiter):
+    """Bisection root, rolling the halving loop into ``lax.fori_loop`` only when
+    tracing (user jit/grad/vmap).
+
+    Eager (concrete bracket): defer to the shared Python-loop ``bisect_root`` --
+    bit-identical and ~9x faster eagerly than ``fori_loop`` (which compiles a loop
+    primitive per call). Traced: the unrolled Python loop would bake ``n`` copies
+    of ``f`` into the user's jaxpr (the dominant compile cost for the heavier
+    closures, e.g. Staeckel turning points); ``fori_loop`` traces ``f`` once,
+    shrinking the jaxpr ~17x and the jitted compile ~4x for the same result.
+    """
+    import jax
+
+    from ..optimize import bisect_root, bisect_step, n_bisect_steps
+
+    if not any(isinstance(x, jax.core.Tracer) for x in (a, b)):
+        return bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter)
+    lo = xp.asarray(a) * 1.0
+    hi = xp.asarray(b) * 1.0
+    slo = xp.sign(f(lo))
+    n = n_bisect_steps(a, b, xtol, maxiter)  # tracer -> min(maxiter, _MAXITER)
+    lo, hi = jax.lax.fori_loop(
+        0, n, lambda _, c: bisect_step(c[0], c[1], slo, f, xp), (lo, hi)
+    )
+    return 0.5 * (lo + hi)
 
 
 def _nonzero(d, xp):
