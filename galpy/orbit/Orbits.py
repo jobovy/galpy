@@ -324,6 +324,12 @@ def shapeDecorator(func):
         elif args[0].shape == ():
             return result[0]
         else:
+            newshape = args[0].shape + tuple(result.shape[1:])
+            if is_backend_array(result):
+                # numpy.reshape forwards order='C', which torch's .reshape rejects
+                # (and triggers a numpy-2 __array_wrap__ deprecation); use the
+                # array's own reshape (jax/torch), preserving the autodiff graph.
+                return result.reshape(newshape)
             return numpy.reshape(result, args[0].shape + result.shape[1:])
 
     return shape_wrapper
