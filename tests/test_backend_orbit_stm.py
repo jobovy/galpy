@@ -429,15 +429,55 @@ def test_orbit_integrate_cstm_fallback_inbackend(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_orbit_integrate_cstm_multiorbit_raises(backend):
-    # a multi-orbit backend IC is not yet supported by the routed C-STM (single
-    # orbit only) -> a clear error, never a silent numpy fallthrough.
+def test_orbit_integrate_cstm_multiorbit_matches_loop(backend):
+    # A multi-orbit backend IC integrates in ONE stacked, differentiable C-STM
+    # solve; getOrbit() is (N, nt, 6) and matches the per-orbit single-orbit loop.
     from galpy.orbit import Orbit
 
     pot = MiyamotoNagaiPotential(normalize=1.0)
-    o2 = Orbit(_arr(backend, numpy.tile(_IC, (2, 1))))  # (2, 6)
-    with pytest.raises(ValueError):
-        o2.integrate(_arr(backend, _TS), pot, method="dop853_c")
+    ics = numpy.array([_IC, _IC + 0.03, _IC - 0.02])  # (3, 6)
+    ts = _arr(backend, _TS)
+    om = Orbit(_arr(backend, ics))
+    om.integrate(ts, pot, method="dop853_c")
+    multi = _np(om.getOrbit())
+    assert multi.shape == (len(ics), len(_TS), 6)
+    for k in range(len(ics)):
+        ok = Orbit(_arr(backend, ics[k]))
+        ok.integrate(ts, pot, method="dop853_c")
+        numpy.testing.assert_allclose(
+            multi[k], _np(ok.getOrbit()), rtol=1e-12, atol=1e-12
+        )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_orbit_integrate_cstm_multiorbit_grad():
+    # The batched C-STM is gradient-exact: each orbit's IC jacobian equals the
+    # single-orbit jacobian (diagonal blocks) and the orbits are independent
+    # (the off-diagonal blocks of jacrev are exactly zero).
+    from galpy.orbit import Orbit
+
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    ics = jnp.asarray(numpy.array([_IC, _IC + 0.03, _IC - 0.02]))
+    N = ics.shape[0]
+
+    def final_batch(v):  # (N,6) -> (N,6) final state
+        o = Orbit(v)
+        o.integrate(jnp.asarray(_TS), pot, method="dop853_c")
+        return o.getOrbit()[:, -1, :]
+
+    Jb = _np(jax.jacrev(final_batch)(ics))  # (N, 6, N, 6)
+
+    def final_single(v6):
+        o = Orbit(v6)
+        o.integrate(jnp.asarray(_TS), pot, method="dop853_c")
+        return o.getOrbit()[-1, :]
+
+    for i in range(N):
+        for j in range(N):
+            if i != j:
+                assert numpy.max(numpy.abs(Jb[i, :, j, :])) == 0.0  # independent
+        Js = _np(jax.jacrev(final_single)(ics[i]))  # (6, 6)
+        numpy.testing.assert_allclose(Jb[i, :, i, :], Js, rtol=1e-10, atol=1e-12)
 
 
 @pytest.mark.parametrize("method", _ROUTE_METHODS)
