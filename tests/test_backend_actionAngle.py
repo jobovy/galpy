@@ -38,6 +38,7 @@ except ImportError:  # pragma: no cover
 
 from galpy.actionAngle import (
     actionAngleAdiabatic,
+    actionAngleAdiabaticGrid,
     actionAngleHarmonic,
     actionAngleHarmonicInverse,
     actionAngleIsochrone,
@@ -45,6 +46,7 @@ from galpy.actionAngle import (
     actionAngleIsochroneInverse,
     actionAngleSpherical,
     actionAngleStaeckel,
+    actionAngleStaeckelGrid,
     actionAngleVertical,
     estimateBIsochrone,
     estimateDeltaStaeckel,
@@ -1678,3 +1680,138 @@ def test_adiabatic_gamma0_ecczmaxrperirap_parity(backend):
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
         numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8)
+
+
+# ====================================================================
+# actionAngleStaeckelGrid / actionAngleAdiabaticGrid: GRID-INTERPOLATED actions.
+# The grid SETUP (scipy spline/RectBivariate fits + ndimage.spline_filter) stays
+# numpy-only and BYTE-IDENTICAL; only the EVALUATION (interpolation lookups +
+# the surrounding coordinate/energy/u0/psi math) gets an additive backend branch.
+# At __init__ the SAME fitted scipy objects / filtered grids are wrapped with the
+# galpy.backend.interpolate helpers (Spline1D / Spline2D / MapCoordinates -- the
+# latter cubic map_coordinates off a setup-time prefilter), so the numpy path is
+# a literal scipy passthrough and jax/torch inputs evaluate natively and
+# differentiably. ICs are chosen well inside the grid (the off-grid fallback to
+# self._aA is numpy-only), so the backend path is the pure on-grid interpolation.
+# Parity is at machine precision (~1e-13) because the wrappers reuse scipy's own
+# coefficients; grad-vs-FD validates the differentiability that is the point.
+_GRID_R = numpy.array([1.1, 0.8, 1.3])
+_GRID_VR = numpy.array([0.1, -0.2, 0.05])
+_GRID_VT = numpy.array([0.9, 0.6, 1.0])
+_GRID_Z = numpy.array([0.1, -0.15, 0.08])
+_GRID_VZ = numpy.array([0.08, 0.1, -0.05])
+_GRID = (_GRID_R, _GRID_VR, _GRID_VT, _GRID_Z, _GRID_VZ)
+
+# Built once (grid construction is the expensive part); small grids for speed.
+_aASG = actionAngleStaeckelGrid(
+    pot=MWPotential2014, delta=0.45, nE=15, npsi=15, nLz=18, interpecc=True
+)
+_aAAG = actionAngleAdiabaticGrid(pot=MWPotential2014, nR=12, nEz=12, nEr=20, nLz=20)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckelgrid_parity(backend):
+    # numpy <-> jax <-> torch parity of the grid-interpolated (Jr,Lz,Jz) and
+    # (ecc,zmax,rperi,rap). The backend wrappers reuse scipy's fitted
+    # coefficients, so parity is at machine precision (rtol~1e-10).
+    bargs = [_arr(backend, v) for v in _GRID]
+    for ref, got in (
+        (_aASG(*_GRID), _aASG(*bargs)),
+        (_aASG.EccZmaxRperiRap(*_GRID), _aASG.EccZmaxRperiRap(*bargs)),
+    ):
+        for r, g in zip(ref, got):
+            assert _is_backend_array(backend, g)
+            numpy.testing.assert_allclose(
+                _np(g), numpy.asarray(r), rtol=1e-10, atol=1e-12
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabaticgrid_parity(backend):
+    # numpy <-> jax <-> torch parity of the grid-interpolated (Jr,Lz,Jz).
+    bargs = [_arr(backend, v) for v in _GRID]
+    ref, got = _aAAG(*_GRID), _aAAG(*bargs)
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-10, atol=1e-12)
+
+
+def test_staeckelgrid_numpy_byte_identity():
+    # A numpy-array input takes the untouched scipy interpolation path; the
+    # backend dispatch is is_backend_array(R) == False, so the result is the
+    # EXACT pre-migration output. We verify the numpy-array path equals the
+    # scalar-loop path bit-for-bit (the scalar branch recurses to the array
+    # branch, so this pins the array path to per-point evaluation).
+    act = _aASG(*_GRID)
+    ecc = _aASG.EccZmaxRperiRap(*_GRID)
+    for ii in range(len(_GRID_R)):
+        sact = _aASG(*[v[ii] for v in _GRID])
+        secc = _aASG.EccZmaxRperiRap(*[v[ii] for v in _GRID])
+        for comp, s in zip(act, sact):
+            numpy.testing.assert_array_equal(comp[ii], s)
+        for comp, s in zip(ecc, secc):
+            numpy.testing.assert_array_equal(comp[ii], s)
+
+
+def test_adiabaticgrid_numpy_byte_identity():
+    # As above for the adiabatic grid: numpy-array path == scalar-loop path,
+    # confirming the numpy output is unchanged by the additive backend branch.
+    act = _aAAG(*_GRID)
+    for ii in range(len(_GRID_R)):
+        sact = _aAAG(*[v[ii] for v in _GRID])
+        for comp, s in zip(act, sact):
+            numpy.testing.assert_array_equal(comp[ii], s)
+
+
+# Single-point bound IC well inside both grids, away from turning points / edges.
+_GRID_S = (1.1, 0.15, 0.9, 0.12, 0.13)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "aa,idx", [("staeckel", 2), ("adiabatic", 2)]
+)  # Jz vs vz through both grids
+def test_grid_jz_grad_vs_fd_wrt_vz(backend, aa, idx):
+    # d Jz / d vz at a single on-grid point: AD through the cubic-spline
+    # interpolation (map_coordinates for Staeckel, RectBivariate for adiabatic)
+    # vs central finite difference. The interpolation lookups carry the gradient.
+    grid = _aASG if aa == "staeckel" else _aAAG
+    R, vR, vT, z, _ = _GRID_S
+    vz0 = _GRID_S[4]
+
+    def call(vz_arr, xp_arr):
+        args = (xp_arr(R), xp_arr(vR), xp_arr(vT), xp_arr(z), vz_arr)
+        return grid(*args)[idx].sum()
+
+    def f_np(vz_val):
+        # FD reference: vz is a plain numpy 1-element array (numpy array path).
+        return numpy.asarray(
+            call(numpy.atleast_1d(vz_val), lambda v: numpy.atleast_1d(numpy.asarray(v)))
+        )
+
+    fd = _fd(f_np, vz0)
+
+    def f_be(vz_t):
+        # AD: vz_t is the differentiated rank-0 backend scalar (kept raw so grad
+        # sees a scalar); the backend grid path is fully vectorised on rank-0.
+        return call(vz_t, lambda v: _arr(backend, numpy.atleast_1d(v).astype(float)))
+
+    g = _grad(backend, f_be, vz0)
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckelgrid_vatu0_backend(backend):
+    # vatu0(retv2=False) backend branch: the grid eval path only calls
+    # vatu0(retv2=True), so its masked-sqrt xp.where branch is otherwise untested.
+    u0 = numpy.array([0.6, 0.8])
+    E = numpy.array([-0.9, -0.8])
+    Lz = numpy.array([0.3, 0.4])
+    R = _aASG._delta * numpy.sinh(u0)
+    vn = _aASG.vatu0(E, Lz, u0, R)  # numpy
+    vb = _aASG.vatu0(
+        *[_arr(backend, a) for a in (E, Lz, u0, R)]
+    )  # backend -> xp.where branch
+    assert _is_backend_array(backend, vb)
+    numpy.testing.assert_allclose(_np(vb), vn, rtol=1e-10, atol=1e-12)
