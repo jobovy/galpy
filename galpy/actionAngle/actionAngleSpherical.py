@@ -517,14 +517,11 @@ class actionAngleSpherical(actionAngle):
         """Backend (jax/torch) version of the shared setup arithmetic.
 
         Identical to the numpy preamble but namespace-agnostic (xp.* / xp.abs),
-        which is byte-identical on numpy. Returns (r, vr, vt, E, L, Lz, L2).
+        which is byte-identical on numpy. Returns (r, vr, vt, E, L, Lz, L2). The
+        adiabatic ``_gamma!=0`` modification (``L += gamma*extra_Jz`` and the
+        matching E shift) mirrors the numpy path so actionAngleAdiabatic can
+        thread a per-element ``_Jz`` array through the backend.
         """
-        if self._gamma != 0.0:
-            raise NotImplementedError(
-                "actionAngleSpherical backend (jax/torch) path supports only "
-                "_gamma==0 (standalone use); the adiabatic _gamma!=0 case is not "
-                "yet implemented in-backend"
-            )
         xp = get_namespace(R)
         r = xp.sqrt(R**2.0 + z**2.0)
         vr = (R * vR + z * vz) / r
@@ -540,6 +537,11 @@ class actionAngleSpherical(actionAngle):
         )
         L = xp.sqrt(L2)
         vt = L / r
+        if self._gamma != 0.0 and not extra_Jz is None:
+            # Out-of-place (not +=): torch autograd cannot differentiate an
+            # in-place add of a tensor still needed for the sqrt(L2) backward.
+            L = L + self._gamma * extra_Jz
+            E = E + L**2.0 / 2.0 / r**2.0 - vt**2.0 / 2.0
         return (r, vr, vt, E, L, Lz, L2)
 
     def _calc_rperi_rap_backend(self, r, vr, vt, E, L):

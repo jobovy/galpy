@@ -152,6 +152,49 @@ class verticalPotential(linearPotential):
         return self._Pot.zforce(tR, z, phi=tphi, t=t, use_physical=False)
 
 
+class _BatchedVerticalPotential(verticalPotential):
+    """verticalPotential with a per-element (array) R, broadcast against z.
+
+    Used by actionAngleAdiabatic's jax/torch backend path, which needs the
+    effective vertical potential ``Phi(R_i,z)-Phi(R_i,0)`` for a whole BATCH of
+    objects at once (each with its own ``R_i``), so it can reuse
+    actionAngleVertical's vectorised backend Gauss-Legendre / root-find machinery.
+    The parent pins a single scalar ``_R``; here ``_R`` is the ``(N,)`` batch
+    array, broadcast against ``z``'s leading (object) axis on each call (``z`` is
+    ``(N,)`` for calcxmax / angle limits or ``(N, n)`` for the quadrature node
+    grid), and the midplane term is recomputed per call so it follows ``z``'s
+    shape. Backend-agnostic: runs under numpy too (the all-backend suite forces
+    numpy through the adiabatic backend branch); numpy is otherwise untouched
+    because actionAngleAdiabatic only builds it on the is_backend_array-gated path.
+    """
+
+    def __init__(self, Pot, R, phi=None, t0=0.0):
+        # Init via the scalar parent at a representative R (R[0]) for the
+        # _Pot/_phi/amp/unit bookkeeping, then overwrite _R with the batch array
+        # (_midplanePot from the parent is unused here; _evaluate recomputes it).
+        xp = get_namespace(R)
+        R0 = float(xp.reshape(R, (-1,))[0]) if hasattr(R, "shape") else float(R)
+        verticalPotential.__init__(self, Pot, R=R0, phi=phi, t0=t0)
+        self._R = R
+
+    def _Rb(self, z):
+        # Reshape the batch R to broadcast against z (leading-axis aligned).
+        xp = get_namespace(z)
+        R = self._R
+        extra = z.ndim - R.ndim
+        if extra > 0:
+            R = xp.reshape(R, R.shape + (1,) * extra)
+        return R
+
+    def _evaluate(self, z, t=0.0):
+        xp = get_namespace(z)
+        Rb = self._Rb(z)
+        tphi = self._phi * xp.ones_like(z)
+        full = self._Pot(Rb, z, phi=tphi, t=t, use_physical=False)
+        mid = self._Pot(Rb, 0.0 * z, phi=tphi, t=t, use_physical=False)
+        return full - mid
+
+
 def RZToverticalPotential(RZPot, R):
     """
     Convert a 3D azisymmetric potential to a vertical potential at a given R.
