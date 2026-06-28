@@ -931,31 +931,24 @@ class actionAngleIsochroneApprox(actionAngle):
         z, vz, phi = xp.atleast_1d(z), xp.atleast_1d(vz), xp.atleast_1d(phi)
         no = R.shape[0]
 
-        def _integ(ic_list):
-            # ic_list: list (len no) of stacked 1-D backend IC vectors. Integrate
-            # each forward over self._tsJ with the object's integrate_method (a
-            # C-dxdv method by default -> differentiable C-STM path) and stack the
-            # (nt, phasedim) trajectories into (no, nt, phasedim).
-            os = []
-            for ic in ic_list:
-                o = Orbit(ic)
-                o.integrate(
-                    self._tsJ,
-                    pot=self._pot,
-                    method=self._integrate_method,
-                    dt=self._integrate_dt,
-                )
-                os.append(o)
-            return os
+        def _integ(ic_stack):
+            # ic_stack: (no, 6) backend ICs -> ONE Orbit integrated in a single
+            # differentiable multi-orbit solve (C-STM for a dxdv C method, else
+            # diffrax/torchdiffeq) over self._tsJ. getOrbit()/accessors return the
+            # (no, nt, ...) batch directly.
+            o = Orbit(ic_stack)
+            o.integrate(
+                self._tsJ,
+                pot=self._pot,
+                method=self._integrate_method,
+                dt=self._integrate_dt,
+            )
+            return o
 
-        # Forward integration: ICs are (R,vR,vT,z,vz,phi); stack each orbit's six
-        # coordinates into a 1-D backend vector so Orbit captures _ic_backend.
-        fwd_ics = [
-            xp.stack([R[ii], vR[ii], vT[ii], z[ii], vz[ii], phi[ii]])
-            for ii in range(no)
-        ]
-        os = _integ(fwd_ics)
-        orbs = xp.stack([o.getOrbit() for o in os], axis=0)  # (no, nt, 6)
+        # Forward integration: stack the six coordinates into a (no, 6) backend
+        # array so the one Orbit captures the whole batch in _ic_backend.
+        o = _integ(xp.stack([R, vR, vT, z, vz, phi], axis=-1))
+        orbs = o.getOrbit()  # (no, nt, 6)
         oR, ovR, ovT = orbs[:, :, 0], orbs[:, :, 1], orbs[:, :, 2]
         oz, ovz, ophi = orbs[:, :, 3], orbs[:, :, 4], orbs[:, :, 5]
         nt = oR.shape[1]
@@ -964,26 +957,20 @@ class actionAngleIsochroneApprox(actionAngle):
         # Also integrate backward in time (the requested point should not sit at
         # the edge), mirroring the numpy branch: flip the velocities, integrate
         # forward, then reverse and re-flip the velocities, and prepend.
-        bwd_ics = [
-            xp.stack([R[ii], -vR[ii], -vT[ii], z[ii], -vz[ii], phi[ii]])
-            for ii in range(no)
-        ]
-        bos = _integ(bwd_ics)
-        ts = self._tsJ
+        bo = _integ(xp.stack([R, -vR, -vT, z, -vz, phi], axis=-1))
+        borbs = bo.getOrbit()  # (no, nt, 6) at self._tsJ (== the query times, so
+        # this equals the per-orbit accessor bo.R(ts[1:]) etc. but stays batched)
 
-        def _bstack(accessor, sign=1.0):
-            # stack the backward orbits' accessor(ts[1:]), drop t=0, reverse along
-            # time (xp.flip -- array-api-compat torch rejects [::-1] negative step)
-            return sign * xp.flip(
-                xp.stack([accessor(bo)(ts[1:]) for bo in bos], axis=0), axis=1
-            )
+        def _bcol(col, sign=1.0):
+            # drop t=0, reverse along time (xp.flip -- torch rejects [::-1]).
+            return sign * xp.flip(borbs[:, 1:, col], axis=1)
 
-        bR = _bstack(lambda bo: bo.R)
-        bvR = _bstack(lambda bo: bo.vR, -1.0)
-        bvT = _bstack(lambda bo: bo.vT, -1.0)
-        bz = _bstack(lambda bo: bo.z)
-        bvz = _bstack(lambda bo: bo.vz, -1.0)
-        bphi = _bstack(lambda bo: bo.phi)
+        bR = _bcol(0)
+        bvR = _bcol(1, -1.0)
+        bvT = _bcol(2, -1.0)
+        bz = _bcol(3)
+        bvz = _bcol(4, -1.0)
+        bphi = _bcol(5)
         # full (no, 2*nt-1): [backward (reversed) | forward]
         pR = xp.concatenate([bR, oR], axis=1)
         pvR = xp.concatenate([bvR, ovR], axis=1)
