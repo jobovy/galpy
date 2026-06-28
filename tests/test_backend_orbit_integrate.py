@@ -269,14 +269,228 @@ def test_integrate_method_namespace_mismatch_raises():
         Orbit(jnp.asarray(_IC)).integrate(jnp.asarray(_TS), pot, method="torchdiffeq")
 
 
+# a small bound multi-orbit set (incl. a retrograde orbit), reshaped to grids
+_MULTI_IC = numpy.array(
+    [
+        [1.0, 0.1, 0.9, 0.2, 0.05, 0.3],
+        [1.1, -0.1, 1.0, -0.1, 0.05, 0.4],
+        [0.9, 0.05, 0.8, 0.1, -0.08, 2.0],
+        [1.05, 0.0, -0.7, 0.0, 0.1, 1.0],  # retrograde, z=vz... vR=0 edge
+    ]
+)
+
+
+def _per_orbit_inbackend(ic_arr, pot, method, xp, _np):
+    # integrate each orbit singly and stack getOrbit -> (N, nt, 6); the
+    # native-batch result must match this to within the shared-controller coupling
+    out = []
+    for row in ic_arr:
+        o = Orbit(xp(row))
+        o.integrate(xp(_TS), pot, method=method)
+        out.append(_np(o.getOrbit()))
+    return numpy.stack(out, axis=0)
+
+
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
-def test_integrate_multiorbit_inbackend_raises():
-    # the in-backend path is single-orbit only for now
-    o = Orbit(jnp.asarray(numpy.stack([_IC, _IC])))
+def test_integrate_multiorbit_inbackend_jax():
+    # a multi-orbit Orbit integrates ALL orbits in one batched diffrax solve;
+    # getOrbit() is (N, nt, 6) and a (2,2) grid is (2,2,nt,6), each orbit matching
+    # the per-orbit single solve (shared adaptive controller is sub-tolerance).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ref = _per_orbit_inbackend(_MULTI_IC, pot, "diffrax", jnp.asarray, numpy.asarray)
+    # flat (N,6)
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    got = numpy.asarray(o.getOrbit())
+    assert got.shape == (4, len(_TS), 6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+    # (2,2) grid shape: getOrbit() (2,2,nt,6); accessors reshape to (2,2,nt)
+    og = Orbit(jnp.asarray(_MULTI_IC.reshape((2, 2, 6))))
+    og.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    gg = numpy.asarray(og.getOrbit())
+    assert gg.shape == (2, 2, len(_TS), 6)
+    numpy.testing.assert_allclose(
+        gg.reshape((4, len(_TS), 6)), ref, rtol=1e-6, atol=1e-8
+    )
+    assert numpy.asarray(og.getOrbit()[..., 0]).shape == (2, 2, len(_TS))
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_integrate_multiorbit_inbackend_torch():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    _np = lambda x: x.detach().cpu().numpy()
+    ref = _per_orbit_inbackend(_MULTI_IC, pot, "torchdiffeq", torch.as_tensor, _np)
+    o = Orbit(torch.as_tensor(_MULTI_IC))
+    o.integrate(torch.as_tensor(_TS), pot, method="torchdiffeq")
+    got = _np(o.getOrbit())
+    assert got.shape == (4, len(_TS), 6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-5, atol=1e-7)
+
+
+# per-orbit time arrays (each orbit its OWN times, same length nt): different t0/t1
+# per orbit, as the C integrators' indiv_t (used by streamspraydf).
+_PERORBIT_T = numpy.stack(
+    [
+        numpy.linspace(t0, t1, 30)
+        for t0, t1 in [(0.0, 6.0), (0.5, 6.5), (0.0, 5.0), (1.0, 7.0)]
+    ],
+    axis=0,
+)  # (4, 30)
+
+
+def _per_orbit_inbackend_t(ic_arr, ts2d, pot, method, xp, _np):
+    out = []
+    for row, tk in zip(ic_arr, ts2d):
+        o = Orbit(xp(row))
+        o.integrate(xp(tk), pot, method=method)
+        out.append(_np(o.getOrbit()))
+    return numpy.stack(out, axis=0)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_multiorbit_inbackend_perorbit_t_jax():
+    # per-orbit time arrays: each orbit integrated on its OWN grid (vmap), getOrbit
+    # matches the per-orbit single solve; self.t is stored 2-D; a wrong-shape t
+    # raises ValueError (shape must be Orbit.shape + (nt,)).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ref = _per_orbit_inbackend_t(
+        _MULTI_IC, _PERORBIT_T, pot, "diffrax", jnp.asarray, numpy.asarray
+    )
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_PERORBIT_T), pot, method="diffrax")
+    got = numpy.asarray(o.getOrbit())
+    assert got.shape == (4, _PERORBIT_T.shape[1], 6)
+    assert numpy.asarray(o.t).shape == (4, _PERORBIT_T.shape[1])  # stored per-orbit
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+    # (2,2) grid-shaped Orbit with per-orbit (2,2,nt) times
+    og = Orbit(jnp.asarray(_MULTI_IC.reshape((2, 2, 6))))
+    og.integrate(jnp.asarray(_PERORBIT_T.reshape((2, 2, -1))), pot, method="diffrax")
+    assert numpy.asarray(og.getOrbit()).shape == (2, 2, _PERORBIT_T.shape[1], 6)
+    numpy.testing.assert_allclose(
+        numpy.asarray(og.getOrbit()).reshape((4, _PERORBIT_T.shape[1], 6)),
+        ref,
+        rtol=1e-6,
+        atol=1e-8,
+    )
+    # wrong-shape per-orbit t -> ValueError
     with pytest.raises(ValueError):
-        o.integrate(
-            jnp.asarray(_TS), PlummerPotential(amp=1.0, b=0.6), method="diffrax"
+        Orbit(jnp.asarray(_MULTI_IC)).integrate(
+            jnp.asarray(numpy.stack([_PERORBIT_T, _PERORBIT_T])), pot, method="diffrax"
         )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_integrate_multiorbit_inbackend_perorbit_t_torch():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    _np = lambda x: x.detach().cpu().numpy()
+    ref = _per_orbit_inbackend_t(
+        _MULTI_IC, _PERORBIT_T, pot, "torchdiffeq", torch.as_tensor, _np
+    )
+    o = Orbit(torch.as_tensor(_MULTI_IC))
+    o.integrate(torch.as_tensor(_PERORBIT_T), pot, method="torchdiffeq")
+    got = _np(o.getOrbit())
+    assert got.shape == (4, _PERORBIT_T.shape[1], 6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.parametrize(
+    "backend",
+    (["jax"] if HAVE_JAX else []) + (["torch"] if HAVE_TORCH else []),
+)
+def test_integrate_multiorbit_inbackend_perorbit_t_accessors(backend):
+    # accessors on a PER-ORBIT-times backend Orbit route to _call_internal_indiv_t
+    # (self.t is 2-D); they must stay on the backend and not crash (torch has no
+    # 3-arg transpose/.copy()). Exact-grid (o.R(self.t)) hits the fast path; an
+    # off-grid query uses the in-backend per-orbit spline. Both match getOrbit /
+    # the per-orbit single-orbit interpolation.
+    xp = jnp.asarray if backend == "jax" else torch.as_tensor
+    _np = (
+        (lambda x: numpy.asarray(x))
+        if backend == "jax"
+        else (lambda x: x.detach().cpu().numpy())
+    )
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(xp(_MULTI_IC))
+    o.integrate(
+        xp(_PERORBIT_T), pot, method="diffrax" if backend == "jax" else "torchdiffeq"
+    )
+    got = _np(o.getOrbit())  # (4, nt, 6) [R,vR,vT,z,vz,phi]
+    # exact-grid accessor: o.R(self.t) == getOrbit's R column, and stays backend
+    Rexact = o.R(xp(_PERORBIT_T))
+    assert backend in type(Rexact).__module__
+    numpy.testing.assert_allclose(_np(Rexact), got[..., 0], rtol=1e-6, atol=1e-8)
+    # off-grid accessor: per-orbit query times, vs per-orbit single-orbit o.R
+    toff = numpy.stack([_PERORBIT_T[i, :-1] + 0.013 for i in range(4)], axis=0)
+    Roff = o.R(xp(toff))
+    assert backend in type(Roff).__module__
+    ref = numpy.empty_like(toff)
+    for i, row in enumerate(_MULTI_IC):
+        oi = Orbit(xp(row))
+        oi.integrate(
+            xp(_PERORBIT_T[i]),
+            pot,
+            method="diffrax" if backend == "jax" else "torchdiffeq",
+        )
+        ref[i] = _np(oi.R(xp(toff[i])))
+    numpy.testing.assert_allclose(_np(Roff), ref, rtol=1e-6, atol=1e-7)
+    # SCALAR off-grid time (same time for every orbit) -> (size,), no time axis
+    Rscalar = o.R(2.345)
+    assert backend in type(Rscalar).__module__
+    assert _np(Rscalar).shape == (4,)
+    # BACKWARD per-orbit integration (decreasing times): the off-grid spline must
+    # flip the per-orbit grid+trajectory to ascending. Matches the per-orbit single
+    # backward solve.
+    tbwd = _PERORBIT_T[:, ::-1].copy()  # decreasing per orbit
+    ob = Orbit(xp(_MULTI_IC))
+    ob.integrate(xp(tbwd), pot, method="diffrax" if backend == "jax" else "torchdiffeq")
+    toff_b = numpy.stack([tbwd[i, :-1] - 0.013 for i in range(4)], axis=0)
+    Rb = ob.R(xp(toff_b))
+    assert backend in type(Rb).__module__
+    refb = numpy.empty_like(toff_b)
+    for i, row in enumerate(_MULTI_IC):
+        oi = Orbit(xp(row))
+        oi.integrate(
+            xp(tbwd[i]),
+            pot,
+            method="diffrax" if backend == "jax" else "torchdiffeq",
+        )
+        refb[i] = _np(oi.R(xp(toff_b[i])))
+    numpy.testing.assert_allclose(_np(Rb), refb, rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("acc", ["R", "vR", "z", "x", "y", "vx"])
+def test_integrate_multiorbit_inbackend_offgrid_matches_per_orbit(acc):
+    # off-grid time evaluation of a MULTI-orbit in-backend Orbit: each orbit is
+    # splined on the SHARED integration grid, so o.R(t)/o.x(t)/... at off-grid
+    # times match the per-orbit single-orbit interpolation (and stay on backend).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    toff = jnp.asarray([0.37, 2.15, 4.9])  # off-grid times inside the window
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    got = getattr(o, acc)(toff)
+    assert "jax" in type(got).__module__  # stayed on the backend
+    got = numpy.asarray(got)
+    assert got.shape == (4, len(toff))  # (N, nt) for a batch + array t
+    ref = numpy.empty((4, len(toff)))
+    for ii, row in enumerate(_MULTI_IC):
+        oi = Orbit(jnp.asarray(row))
+        oi.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        ref[ii] = numpy.asarray(getattr(oi, acc)(toff))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_multiorbit_inbackend_offgrid_scalar_and_call():
+    # scalar off-grid time: o.R(t) -> (N,); o(t) returns a new (N,)-shape Orbit.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    Rs = numpy.asarray(o.R(2.15))
+    assert Rs.shape == (4,)
+    osnap = o(2.15)  # new Orbit at t=2.15
+    assert osnap.shape == (4,)
+    numpy.testing.assert_allclose(numpy.asarray(osnap.R()), Rs, rtol=1e-10)
 
 
 # ----------------------------------------- all phase-space dimensions (not just 6)
