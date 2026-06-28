@@ -853,6 +853,80 @@ def integrateFullOrbit_dxdv_c(
     return (result, err.value)
 
 
+def integrateFullOrbit_stm_c(
+    pot, yo, dyo_block, t, int_method, dt=None, rtol=None, atol=None
+):
+    """Integrate the augmented 42-state variational system in C: the base orbit
+    (6) plus SIX rectangular deviation columns (``dyo_block``, shape (36,)) in ONE
+    solve (the full 6x6 STM without re-integrating the base six times). Both input
+    and output are rectangular; the cylindrical<->rectangular folding is handled by
+    the caller. Mirrors ``integrateFullOrbit_dxdv_c`` with a 42-wide state.
+
+    Returns ``(result, err)`` with ``result`` of shape ``(len(t), 42)``: base in
+    ``[:, :6]`` and the six rectangular deviation columns in ``[:, 6:]`` (column k
+    at ``[:, 6+6k:12+6k]``).
+    """
+    rtol, atol = _parse_tol(rtol, atol)
+    if dt is None:
+        dt = -9999.99
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, t=t)
+    pot_tfuncs = _prep_tfuncs(pot_tfuncs)
+    int_method_c = _parse_integrator(int_method)
+    yo = numpy.concatenate((yo, dyo_block))  # 6 + 36 = 42
+
+    result = numpy.empty((len(t), 42))
+    err = ctypes.c_int(0)
+
+    ndarrayFlags = ("C_CONTIGUOUS", "WRITEABLE")
+    integrationFunc = _lib.integrateFullOrbit_stm
+    integrationFunc.argtypes = [
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
+        ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_void_p,
+        ctypes.c_double,
+        ctypes.c_double,
+        ctypes.c_double,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.c_int,
+    ]
+
+    f_cont = [yo.flags["F_CONTIGUOUS"], t.flags["F_CONTIGUOUS"]]
+    yo = numpy.require(yo, dtype=numpy.float64, requirements=["C", "W"])
+    t = numpy.require(t, dtype=numpy.float64, requirements=["C", "W"])
+    result = numpy.require(result, dtype=numpy.float64, requirements=["C", "W"])
+
+    integrationFunc(
+        yo,
+        ctypes.c_int(len(t)),
+        t,
+        ctypes.c_int(npot),
+        pot_type,
+        pot_args,
+        pot_tfuncs,
+        ctypes.c_double(dt),
+        ctypes.c_double(rtol),
+        ctypes.c_double(atol),
+        result,
+        ctypes.byref(err),
+        ctypes.c_int(int_method_c),
+    )
+
+    if int(err.value) == -10:  # pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
+
+    if f_cont[0]:
+        yo = numpy.asfortranarray(yo)
+    if f_cont[1]:
+        t = numpy.asfortranarray(t)
+
+    return (result, err.value)
+
+
 def integrateFullOrbit_dxdv(
     pot,
     yo,
