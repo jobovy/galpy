@@ -433,6 +433,29 @@ def test_integrate_multiorbit_inbackend_perorbit_t_accessors(backend):
         )
         ref[i] = _np(oi.R(xp(toff[i])))
     numpy.testing.assert_allclose(_np(Roff), ref, rtol=1e-6, atol=1e-7)
+    # SCALAR off-grid time (same time for every orbit) -> (size,), no time axis
+    Rscalar = o.R(2.345)
+    assert backend in type(Rscalar).__module__
+    assert _np(Rscalar).shape == (4,)
+    # BACKWARD per-orbit integration (decreasing times): the off-grid spline must
+    # flip the per-orbit grid+trajectory to ascending. Matches the per-orbit single
+    # backward solve.
+    tbwd = _PERORBIT_T[:, ::-1].copy()  # decreasing per orbit
+    ob = Orbit(xp(_MULTI_IC))
+    ob.integrate(xp(tbwd), pot, method="diffrax" if backend == "jax" else "torchdiffeq")
+    toff_b = numpy.stack([tbwd[i, :-1] - 0.013 for i in range(4)], axis=0)
+    Rb = ob.R(xp(toff_b))
+    assert backend in type(Rb).__module__
+    refb = numpy.empty_like(toff_b)
+    for i, row in enumerate(_MULTI_IC):
+        oi = Orbit(xp(row))
+        oi.integrate(
+            xp(tbwd[i]),
+            pot,
+            method="diffrax" if backend == "jax" else "torchdiffeq",
+        )
+        refb[i] = _np(oi.R(xp(toff_b[i])))
+    numpy.testing.assert_allclose(_np(Rb), refb, rtol=1e-6, atol=1e-7)
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
