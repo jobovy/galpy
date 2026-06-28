@@ -1241,7 +1241,7 @@ def test_isochroneapprox_parity(backend, b):
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_isochroneapprox_scalar_parity(backend):
     # a single (scalar-array) IC: _parse_args promotes it to a 1-element batch, so
-    # the backend path's atleast_1d / per-orbit stack-and-integrate handles the
+    # the backend path's atleast_1d / one batched (1,6) Orbit solve handles the
     # batch-of-one. Exercises the scalar-vs-batch handling separately from the grid.
     aAIA = _aAIA(0.8)
     s = (1.1, 0.2, 0.9, 0.15, 0.1, 1.3)
