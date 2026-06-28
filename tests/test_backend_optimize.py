@@ -222,6 +222,35 @@ def test_vectorized_array_theta(backend):
     )
 
 
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_jax_jit_rolls_bisection():
+    # Under a trace (jax.jit/grad) the bisection halving loop is rolled into
+    # lax.fori_loop instead of unrolling ~n copies of f into the jaxpr: same root,
+    # but a small jaxpr with a loop primitive (the eager path keeps the Python
+    # loop -- see test_backend_optimize's eager tests). Covers the traced branch
+    # of galpy.backend._jax.optimize._bisect_root.
+    f = lambda x: x * x - 2.0  # root sqrt(2) on [0, 5]
+    a, b = jnp.asarray(0.0), jnp.asarray(5.0)
+    # eager value (Python-loop branch)
+    r_eager = float(brentq(f, a, b))
+    numpy.testing.assert_allclose(r_eager, numpy.sqrt(2.0), rtol=1e-9)
+    # jit value (fori_loop branch): a correct root
+    r_jit = float(jax.jit(lambda a, b: brentq(f, a, b))(a, b))
+    numpy.testing.assert_allclose(r_jit, numpy.sqrt(2.0), rtol=1e-9)
+    # the jaxpr is ROLLED: a loop primitive + far fewer eqns than an unrolled
+    # ~100-step bisection (which would be 700+ lines).
+    txt = str(jax.make_jaxpr(lambda a, b: brentq(f, a, b))(a, b))
+    assert ("while" in txt) or ("scan" in txt)
+    assert txt.count("\n") < 300
+
+    # jit gradient still exact: d sqrt(c)/dc = 1/(2 sqrt(c)) via implicit theorem
+    def root_of_c(c):
+        return brentq(lambda x: x * x - c, a, b)
+
+    g = float(jax.jit(jax.grad(root_of_c))(jnp.asarray(2.0)))
+    numpy.testing.assert_allclose(g, 1.0 / (2.0 * numpy.sqrt(2.0)), rtol=1e-6)
+
+
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_vectorized_grad_jacobian(backend):
     # Per-element gradient of the vector root w.r.t. the vector theta: a diagonal
