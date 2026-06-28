@@ -393,6 +393,48 @@ def test_integrate_multiorbit_inbackend_perorbit_t_torch():
     numpy.testing.assert_allclose(got, ref, rtol=1e-5, atol=1e-7)
 
 
+@pytest.mark.parametrize(
+    "backend",
+    (["jax"] if HAVE_JAX else []) + (["torch"] if HAVE_TORCH else []),
+)
+def test_integrate_multiorbit_inbackend_perorbit_t_accessors(backend):
+    # accessors on a PER-ORBIT-times backend Orbit route to _call_internal_indiv_t
+    # (self.t is 2-D); they must stay on the backend and not crash (torch has no
+    # 3-arg transpose/.copy()). Exact-grid (o.R(self.t)) hits the fast path; an
+    # off-grid query uses the in-backend per-orbit spline. Both match getOrbit /
+    # the per-orbit single-orbit interpolation.
+    xp = jnp.asarray if backend == "jax" else torch.as_tensor
+    _np = (
+        (lambda x: numpy.asarray(x))
+        if backend == "jax"
+        else (lambda x: x.detach().cpu().numpy())
+    )
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(xp(_MULTI_IC))
+    o.integrate(
+        xp(_PERORBIT_T), pot, method="diffrax" if backend == "jax" else "torchdiffeq"
+    )
+    got = _np(o.getOrbit())  # (4, nt, 6) [R,vR,vT,z,vz,phi]
+    # exact-grid accessor: o.R(self.t) == getOrbit's R column, and stays backend
+    Rexact = o.R(xp(_PERORBIT_T))
+    assert backend in type(Rexact).__module__
+    numpy.testing.assert_allclose(_np(Rexact), got[..., 0], rtol=1e-6, atol=1e-8)
+    # off-grid accessor: per-orbit query times, vs per-orbit single-orbit o.R
+    toff = numpy.stack([_PERORBIT_T[i, :-1] + 0.013 for i in range(4)], axis=0)
+    Roff = o.R(xp(toff))
+    assert backend in type(Roff).__module__
+    ref = numpy.empty_like(toff)
+    for i, row in enumerate(_MULTI_IC):
+        oi = Orbit(xp(row))
+        oi.integrate(
+            xp(_PERORBIT_T[i]),
+            pot,
+            method="diffrax" if backend == "jax" else "torchdiffeq",
+        )
+        ref[i] = _np(oi.R(xp(toff[i])))
+    numpy.testing.assert_allclose(_np(Roff), ref, rtol=1e-6, atol=1e-7)
+
+
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 @pytest.mark.parametrize("acc", ["R", "vR", "z", "x", "y", "vx"])
 def test_integrate_multiorbit_inbackend_offgrid_matches_per_orbit(acc):
