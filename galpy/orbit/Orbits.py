@@ -2092,10 +2092,13 @@ class Orbit:
         on such an orbit are a follow-up and raise NotImplementedError for now. Any
         Orbit shape: a multi-orbit Orbit integrates all orbits in ONE batched solve
         (on a single shared time grid). Any of the usual phase-space dimensions
-        (2 [x,vx];
-        3 [R,vR,vT]; 4 [R,vR,vT,phi]; 5 [R,vR,vT,z,vz]; 6 [R,vR,vT,z,vz,phi]).
-        1D (phasedim 2) needs a linearPotential; 2D/3D need a (3D) Potential --
-        planar orbits are integrated as 3D with z=vz=0, matching the C integrators.
+        (2 [x,vx]; 3 [R,vR,vT]; 4 [R,vR,vT,phi]; 5 [R,vR,vT,z,vz];
+        6 [R,vR,vT,z,vz,phi]). 1D (phasedim 2) needs a linearPotential; 2D/3D need
+        a (3D) Potential -- the in-backend path runs planar orbits through the 3D
+        rectangular EOM with z=vz=0 (dropping the z,vz outputs). The values match
+        galpy's *separate* 2-D planar C integrator (which has its own 4-state EOM,
+        not a z=vz=0 3-D one) because z stays 0 in the plane of a symmetric
+        potential.
         """
         ic = getattr(self, "_ic_backend", None)
         if ic is None:
