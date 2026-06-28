@@ -2078,26 +2078,28 @@ class Orbit:
         return None
 
     def _integrate_inbackend(self, t, pot, method, rtol, atol):
-        """Integrate a single full-3D orbit with the in-backend differentiable
-        ODE integrator (diffrax for jax, torchdiffeq for torch).
+        """Integrate one orbit OR a batch of orbits with the in-backend
+        differentiable ODE integrator (diffrax for jax, torchdiffeq for torch).
 
         Autodiff-friendly counterpart of the C/scipy integrators, selected by
         method='diffrax'/'torchdiffeq'. Requires the Orbit to have been built from
         a jax/torch initial condition (captured in self._ic_backend) and stores
         the trajectory as a backend array in self.orbit, so gradients w.r.t. the
         initial conditions (and backend-array potential parameters) flow through
-        getOrbit(). Time-evaluation accessors (o.R(t), o.E(t), ...) and in-place
-        mutators (flip(inplace=True), SOS) on such an orbit are a follow-up and
-        raise NotImplementedError for now; use getOrbit(). Single orbit; any of
-        the usual phase-space dimensions (2 [x,vx]; 3 [R,vR,vT]; 4 [R,vR,vT,phi];
-        5 [R,vR,vT,z,vz]; 6 [R,vR,vT,z,vz,phi]). 1D (phasedim 2) needs a
-        linearPotential; 2D/3D need a (3D) Potential -- planar orbits are
-        integrated as 3D with z=vz=0, matching the C integrators.
+        getOrbit(). Time-evaluation accessors (o.R(t), o.E(t), o(t), ...) work --
+        on the integrated grid and off-grid via the in-backend differentiable
+        spline, single orbit and batch; in-place mutators (flip(inplace=True), SOS)
+        on such an orbit are a follow-up and raise NotImplementedError for now. Any
+        Orbit shape: a multi-orbit Orbit integrates all orbits in ONE batched solve
+        (on a single shared time grid). Any of the usual phase-space dimensions
+        (2 [x,vx]; 3 [R,vR,vT]; 4 [R,vR,vT,phi]; 5 [R,vR,vT,z,vz];
+        6 [R,vR,vT,z,vz,phi]). 1D (phasedim 2) needs a linearPotential; 2D/3D need
+        a (3D) Potential -- the in-backend path runs planar orbits through the 3D
+        rectangular EOM with z=vz=0 (dropping the z,vz outputs). The values match
+        galpy's *separate* 2-D planar C integrator (which has its own 4-state EOM,
+        not a z=vz=0 3-D one) because z stays 0 in the plane of a symmetric
+        potential.
         """
-        if self.shape != ():
-            raise ValueError(
-                f"method='{method}' currently supports a single orbit only"
-            )
         ic = getattr(self, "_ic_backend", None)
         if ic is None:
             raise ValueError(
@@ -2132,18 +2134,39 @@ class Orbit:
             ts = xp.asarray(t)
         from ..backend._reference import integrate_orbit
 
-        # (nt, 6) in Orbit order [R,vR,vT,z,vz,phi], differentiable backend array.
+        _rtol = 1e-12 if rtol is None else rtol
+        _atol = 1e-12 if atol is None else atol
+        # ts is either the shared 1-D output grid (nt,) -- all orbits integrated in
+        # ONE solve -- or a PER-ORBIT grid of shape self.shape + (nt,): each orbit
+        # its own times (same length nt), as the C integrators' indiv_t (used by
+        # streamspraydf). Per-orbit grids give each orbit its own saveat/span.
+        per_orbit_t = ts.ndim > 1
+        if per_orbit_t and ts.shape[:-1] != self.shape:
+            raise ValueError(
+                f"Input time array shape {tuple(ts.shape)} does not match Orbit "
+                f"shape {self.shape} + (nt,); per-orbit time arrays must have "
+                "leading dimensions matching the Orbit instance shape"
+            )
         # Default rtol/atol = 1e-12, matching galpy's C integrators (_parse_tol),
         # so method='diffrax'/'torchdiffeq' integrates to the same accuracy.
-        result = integrate_orbit(
-            pot,
-            ic,
-            ts,
-            rtol=1e-12 if rtol is None else rtol,
-            atol=1e-12 if atol is None else atol,
-        )
-        self.orbit = result[None, ...]  # (1, nt, phasedim), matching the C layout
-        self.t = t
+        if self.shape == ():
+            # single orbit: ic (phasedim,), ts (nt,) -> result (nt, phasedim)
+            result = integrate_orbit(pot, ic, ts, rtol=_rtol, atol=_atol)
+            self.orbit = result[None, ...]  # (1, nt, phasedim), the C layout
+        else:
+            # batch: flatten the raw backend IC to (size, phasedim) -- mirroring
+            # the numpy self.vxvv flatten and the C-STM path. A shared (nt,) grid
+            # integrates all orbits in ONE solve; a per-orbit (size, nt) grid gives
+            # each orbit its own saveat (vmap on jax, loop on torch). Either way the
+            # result is (nt, size, phasedim) -> canonical (size, nt, phasedim).
+            ic2d = xp.reshape(ic, (-1, ic.shape[-1]))
+            ts_int = xp.reshape(ts, (-1, ts.shape[-1])) if per_orbit_t else ts
+            result = integrate_orbit(pot, ic2d, ts_int, rtol=_rtol, atol=_atol)
+            assert result.shape[0] == ts.shape[-1]  # (nt, size, phasedim)
+            self.orbit = xp.moveaxis(result, 0, 1)  # (size, nt, phasedim)
+        # store a per-orbit t FLATTENED to (size, nt) (mirroring the numpy indiv_t
+        # path) so it aligns with the flattened self.orbit for the accessors.
+        self.t = t.reshape(self.size, t.shape[-1]) if per_orbit_t else t
         self._pot = pot
         self._orig_pot = pot
         return None
@@ -6904,6 +6927,11 @@ class Orbit:
             and self_t.shape == t_arr.shape
             and numpy.all((self_t == t_arr)[~numpy.isnan(self_t)])
         ):
+            if is_backend_array(self.orbit):
+                # (size,nt,phasedim) -> (phasedim,nt,size), namespace-agnostic
+                # (torch has no 3-arg transpose / .copy()); stays a backend array.
+                xp = get_namespace(self.orbit)
+                return _backend_safe_copy(xp.permute_dims(self.orbit, (2, 1, 0)))
             return self.orbit.transpose(2, 1, 0).copy()
         # Some orbits may have stored grids that are too short to interpolate
         # (bruteSOS leaves an all-NaN row for any orbit that never crossed the
@@ -6924,6 +6952,12 @@ class Orbit:
             t_arr < numpy.nanmin(self_t, axis=-1, keepdims=True)
         ):
             raise ValueError("Found time value not in the integration time domain")
+        # Backend (jax/torch) per-orbit orbit: interpolate IN-BACKEND (one
+        # differentiable cubic per orbit on its own grid) so the result stays on
+        # the backend and differentiable w.r.t. the orbit, instead of the scipy
+        # path (which would coerce to numpy / crash on a traced orbit).
+        if is_backend_array(self.orbit):
+            return self._indiv_t_backend_interp(t_arr, has_time_axis)
         # Build per-orbit interpolators and evaluate
         self._setupOrbitInterp()
         out = numpy.empty((self.phasedim(), nt_q, self.size))
@@ -6941,6 +6975,58 @@ class Orbit:
                     out[ii, :, kk] = self._orbInterp[ii][kk](tk)
         if not has_time_axis:
             return out[:, 0]
+        return out
+
+    def _backend_spline_orbit(self, orb, grid, tq):
+        """Spline ONE orbit's ``(nt_grid, phasedim)`` backend trajectory ``orb`` on
+        the ascending host grid ``grid`` with the in-backend differentiable cubic
+        and evaluate at backend times ``tq`` -> ``(phasedim, nt_q)``. For phasedim
+        4/6 the Cartesian x,y (not R,phi) are interpolated to dodge the 2pi wrap.
+        Differentiable w.r.t. ``orb``; shared by the shared-grid
+        (``_call_internal_backend_interp``) and per-orbit-grid
+        (``_indiv_t_backend_interp``) backend off-grid evaluators."""
+        from ..backend.interpolate import Spline1D
+
+        xp = get_namespace(orb)
+        pd = self.phasedim()
+        k = 3 if grid.shape[0] > 3 else 1
+        bc = "not-a-knot" if k == 3 else "natural"
+
+        def _spl(y):
+            return Spline1D(grid, y, k=k, ext=0, bc=bc)(tq)
+
+        if pd == 4 or pd == 6:  # interpolate x,y (not R,phi) -> dodge the 2pi wrap
+            xv = _spl(orb[:, 0] * xp.cos(orb[:, -1]))
+            yv = _spl(orb[:, 0] * xp.sin(orb[:, -1]))
+            cols = [xp.sqrt(xv * xv + yv * yv)]
+            cols += [_spl(orb[:, ii]) for ii in range(1, pd - 1)]
+            cols.append(xp.arctan2(yv, xv))
+        else:
+            cols = [_spl(orb[:, ii]) for ii in range(pd)]
+        return xp.stack(cols)  # (phasedim, nt_q)
+
+    def _indiv_t_backend_interp(self, t_arr, has_time_axis):
+        """In-backend per-orbit off-grid interpolation: the per-orbit-grid analogue
+        of ``_call_internal_backend_interp`` for a multi-orbit in-backend Orbit
+        integrated on PER-ORBIT time grids (2-D ``self.t``). Each orbit is splined
+        on its OWN grid and evaluated at its own query times ``t_arr[kk]``,
+        differentiable w.r.t. the orbit. Returns ``(phasedim, nt_q, size)`` (or
+        ``(phasedim, size)`` when the query has no trailing time axis)."""
+        xp = get_namespace(self.orbit)
+        self_t = numpy.asarray(self.t)  # per-orbit grids (geometry; host)
+        per_orbit = []
+        for kk in range(self.size):
+            gridi = self_t[kk]
+            orb = self.orbit[kk]
+            # ascending grid for the spline (flip a backward integration + orb)
+            if gridi.shape[0] > 1 and gridi[1] < gridi[0]:
+                gridi = numpy.array(gridi[::-1])
+                orb = xp.flip(orb, axis=0)
+            tq = xp.asarray(numpy.asarray(t_arr[kk], dtype=float))
+            per_orbit.append(self._backend_spline_orbit(orb, gridi, tq))
+        out = xp.stack(per_orbit, axis=-1)  # (phasedim, nt_q, size)
+        if not has_time_axis:
+            return out[:, 0]  # (phasedim, size)
         return out
 
     def toPlanar(self):
@@ -7014,13 +7100,14 @@ class Orbit:
         Mirrors the numpy ``_setupOrbitInterp`` semantics: for phasedim 4/6 the
         Cartesian x=R cos(phi), y=R sin(phi) are interpolated (not R, phi) to avoid
         the 2pi wrap, with R, phi recovered at the query points; the other
-        coordinates are interpolated directly. Single orbit only (the in-backend
-        path is single-orbit), so no per-orbit RectBivariateSpline is needed.
+        coordinates are interpolated directly. Works for a single orbit and for a
+        multi-orbit (in-backend ODE batch or C-STM batch) Orbit: every orbit shares
+        ONE integration grid (the batch is one solve), so each orbit is splined on
+        that grid and the results are stacked on the orbit axis.
         Returns the same layout as ``_call_internal``'s off-grid branch:
-        ``(phasedim, nt, 1)`` for an array ``t`` (``(phasedim, 1)`` for a scalar).
+        ``(phasedim, nt, size)`` for an array ``t`` (``(phasedim, size)`` for a
+        scalar) -- ``size`` 1 for a single orbit.
         """
-        from ..backend.interpolate import Spline1D
-
         xp = get_namespace(self.orbit)
         self_t = numpy.asarray(self.t)  # integration grid (geometry; numpy)
         scalar = isinstance(t, (int, float, numpy.number)) or (
@@ -7044,34 +7131,27 @@ class Orbit:
         # so the per-coordinate splines return a flat (nt,) each.
         tq = t if is_backend_array(t) else xp.asarray(t_np)
         tq = xp.reshape(tq, (-1,))
-        orb = self.orbit[0]  # (nt_grid, phasedim) on the backend
         # The spline needs a strictly increasing grid; a backward integration
-        # (decreasing self.t) is flipped to ascending, and orb with it (a
-        # differentiable reversal), matching the numpy _setupOrbitInterp.
-        if self_t.shape[0] > 1 and self_t[1] < self_t[0]:
-            self_t = numpy.array(self_t[::-1])
-            orb = xp.flip(orb, axis=0)
-        pd = self.phasedim()
-        # cubic where the grid is long enough (matches the numpy k=3 threshold),
-        # else piecewise-linear; not-a-knot ends track scipy's interpolant.
-        k = 3 if self_t.shape[0] > 3 else 1
-        bc = "not-a-knot" if k == 3 else "natural"
+        # (decreasing self.t) is flipped to ascending (shared across the batch),
+        # and each orbit with it (a differentiable reversal) inside _interp_one.
+        descending = self_t.shape[0] > 1 and self_t[1] < self_t[0]
+        grid = numpy.array(self_t[::-1]) if descending else self_t
 
-        def _spl(y):
-            return Spline1D(self_t, y, k=k, ext=0, bc=bc)(tq)
+        def _interp_one(orb):  # (nt_grid, phasedim) -> (phasedim, nt_query)
+            # backward integration -> flip orb to match the ascending grid
+            o = xp.flip(orb, axis=0) if descending else orb
+            return self._backend_spline_orbit(o, grid, tq)
 
-        if pd == 4 or pd == 6:  # interpolate x,y (not R,phi) to dodge the 2pi wrap
-            xv = _spl(orb[:, 0] * xp.cos(orb[:, -1]))
-            yv = _spl(orb[:, 0] * xp.sin(orb[:, -1]))
-            cols = [xp.sqrt(xv * xv + yv * yv)]
-            cols += [_spl(orb[:, ii]) for ii in range(1, pd - 1)]
-            cols.append(xp.arctan2(yv, xv))
-        else:
-            cols = [_spl(orb[:, ii]) for ii in range(pd)]
-        out = xp.stack(cols)[:, :, None]  # (phasedim, nt, size=1)
+        # self.orbit is (size, nt_grid, phasedim); spline each orbit on the shared
+        # grid and stack on the trailing (orbit) axis -> (phasedim, nt_query, size).
+        # size == 1 (single orbit) reproduces the prior (phasedim, nt, 1) layout.
+        out = xp.stack(
+            [_interp_one(self.orbit[ii]) for ii in range(self.orbit.shape[0])],
+            axis=-1,
+        )
         if scalar:
-            return out[:, 0]  # (phasedim, 1)
-        return out
+            return out[:, 0]  # (phasedim, size)
+        return out  # (phasedim, nt_query, size)
 
     def _setupOrbitInterp(self):
         if hasattr(self, "_orbInterp"):
