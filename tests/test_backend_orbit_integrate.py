@@ -327,14 +327,70 @@ def test_integrate_multiorbit_inbackend_torch():
     numpy.testing.assert_allclose(got, ref, rtol=1e-5, atol=1e-7)
 
 
+# per-orbit time arrays (each orbit its OWN times, same length nt): different t0/t1
+# per orbit, as the C integrators' indiv_t (used by streamspraydf).
+_PERORBIT_T = numpy.stack(
+    [
+        numpy.linspace(t0, t1, 30)
+        for t0, t1 in [(0.0, 6.0), (0.5, 6.5), (0.0, 5.0), (1.0, 7.0)]
+    ],
+    axis=0,
+)  # (4, 30)
+
+
+def _per_orbit_inbackend_t(ic_arr, ts2d, pot, method, xp, _np):
+    out = []
+    for row, tk in zip(ic_arr, ts2d):
+        o = Orbit(xp(row))
+        o.integrate(xp(tk), pot, method=method)
+        out.append(_np(o.getOrbit()))
+    return numpy.stack(out, axis=0)
+
+
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
-def test_integrate_perorbit_t_inbackend_raises():
-    # a batch integrates on ONE shared time grid; a per-orbit (2-D) time array is
-    # not expressible through the single saveat solve -> clear NotImplementedError.
+def test_integrate_multiorbit_inbackend_perorbit_t_jax():
+    # per-orbit time arrays: each orbit integrated on its OWN grid (vmap), getOrbit
+    # matches the per-orbit single solve; self.t is stored 2-D; a wrong-shape t
+    # raises ValueError (shape must be Orbit.shape + (nt,)).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ref = _per_orbit_inbackend_t(
+        _MULTI_IC, _PERORBIT_T, pot, "diffrax", jnp.asarray, numpy.asarray
+    )
     o = Orbit(jnp.asarray(_MULTI_IC))
-    perorbit_t = jnp.broadcast_to(jnp.asarray(_TS), (4, len(_TS)))
-    with pytest.raises(NotImplementedError):
-        o.integrate(perorbit_t, PlummerPotential(amp=1.0, b=0.6), method="diffrax")
+    o.integrate(jnp.asarray(_PERORBIT_T), pot, method="diffrax")
+    got = numpy.asarray(o.getOrbit())
+    assert got.shape == (4, _PERORBIT_T.shape[1], 6)
+    assert numpy.asarray(o.t).shape == (4, _PERORBIT_T.shape[1])  # stored per-orbit
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+    # (2,2) grid-shaped Orbit with per-orbit (2,2,nt) times
+    og = Orbit(jnp.asarray(_MULTI_IC.reshape((2, 2, 6))))
+    og.integrate(jnp.asarray(_PERORBIT_T.reshape((2, 2, -1))), pot, method="diffrax")
+    assert numpy.asarray(og.getOrbit()).shape == (2, 2, _PERORBIT_T.shape[1], 6)
+    numpy.testing.assert_allclose(
+        numpy.asarray(og.getOrbit()).reshape((4, _PERORBIT_T.shape[1], 6)),
+        ref,
+        rtol=1e-6,
+        atol=1e-8,
+    )
+    # wrong-shape per-orbit t -> ValueError
+    with pytest.raises(ValueError):
+        Orbit(jnp.asarray(_MULTI_IC)).integrate(
+            jnp.asarray(numpy.stack([_PERORBIT_T, _PERORBIT_T])), pot, method="diffrax"
+        )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_integrate_multiorbit_inbackend_perorbit_t_torch():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    _np = lambda x: x.detach().cpu().numpy()
+    ref = _per_orbit_inbackend_t(
+        _MULTI_IC, _PERORBIT_T, pot, "torchdiffeq", torch.as_tensor, _np
+    )
+    o = Orbit(torch.as_tensor(_MULTI_IC))
+    o.integrate(torch.as_tensor(_PERORBIT_T), pot, method="torchdiffeq")
+    got = _np(o.getOrbit())
+    assert got.shape == (4, _PERORBIT_T.shape[1], 6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-5, atol=1e-7)
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")

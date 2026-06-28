@@ -140,20 +140,22 @@ def integrate_orbit(pot, vxvv, ts, *, rtol=1e-12, atol=1e-12, max_steps=100000):
         a batch of N orbits integrated in ONE solve, Orbit order -- phasedim one of
         [x,vx] (1D), [R,vR,vT] / [R,vR,vT,phi] (2D), [R,vR,vT,z,vz] /
         [R,vR,vT,z,vz,phi] (3D). Its namespace selects the integrator:
-        jax -> diffrax, torch -> torchdiffeq. A batch integrates on ONE shared
-        ``ts`` grid with one (shared) adaptive step controller and one
-        ``max_steps`` budget -- the error norm is over the whole batch, so a much
-        stiffer orbit shrinks the step for all and can exhaust ``max_steps`` where
-        that orbit integrated singly would not (raise ``max_steps`` or split it
-        off).
+        jax -> diffrax, torch -> torchdiffeq.
     ts : backend array of output times (monotonic; ts[0] is the initial time).
+        Shape ``(nt,)`` is ONE shared grid -> all N orbits in a single solve (one
+        shared adaptive controller and ``max_steps`` budget, so a much stiffer
+        orbit shrinks the step for all and can exhaust ``max_steps`` where it would
+        not singly -- raise ``max_steps`` or split it off). Shape ``(N, nt)`` is a
+        PER-ORBIT grid (each orbit its own times, same length -- the C integrators'
+        indiv_t, used by streamspraydf): each orbit gets its own saveat/span and an
+        independent controller (jax.vmap / a torch per-orbit loop).
     rtol, atol : solver tolerances (default 1e-12, matching galpy's C integrators).
     max_steps : diffrax step cap (jax only).
 
     Returns
     -------
-    backend array, shape ``(len(ts), phasedim)`` for one orbit or
-    ``(len(ts), N, phasedim)`` for a batch, the orbit(s) in Orbit order.
+    backend array, shape ``(nt, phasedim)`` for one orbit or ``(nt, N, phasedim)``
+    for a batch (``nt`` is ``ts.shape[-1]``), the orbit(s) in Orbit order.
 
     Notes
     -----

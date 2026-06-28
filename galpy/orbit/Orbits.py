@@ -2132,41 +2132,37 @@ class Orbit:
         else:
             t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
             ts = xp.asarray(t)
-        # A batch integrates on ONE shared time grid; a per-orbit time array (2-D
-        # ts) is not expressible through the single saveat/ODE solve.
-        if ts.ndim > 1:
-            raise NotImplementedError(
-                f"method='{method}' integrates all orbits on one shared time "
-                "grid; per-orbit time arrays are not supported"
-            )
         from ..backend._reference import integrate_orbit
 
+        _rtol = 1e-12 if rtol is None else rtol
+        _atol = 1e-12 if atol is None else atol
+        # ts is either the shared 1-D output grid (nt,) -- all orbits integrated in
+        # ONE solve -- or a PER-ORBIT grid of shape self.shape + (nt,): each orbit
+        # its own times (same length nt), as the C integrators' indiv_t (used by
+        # streamspraydf). Per-orbit grids give each orbit its own saveat/span.
+        per_orbit_t = ts.ndim > 1
+        if per_orbit_t and ts.shape[:-1] != self.shape:
+            raise ValueError(
+                f"Input time array shape {tuple(ts.shape)} does not match Orbit "
+                f"shape {self.shape} + (nt,); per-orbit time arrays must have "
+                "leading dimensions matching the Orbit instance shape"
+            )
         # Default rtol/atol = 1e-12, matching galpy's C integrators (_parse_tol),
         # so method='diffrax'/'torchdiffeq' integrates to the same accuracy.
         if self.shape == ():
-            # single orbit: ic (phasedim,) -> result (nt, phasedim)
-            result = integrate_orbit(
-                pot,
-                ic,
-                ts,
-                rtol=1e-12 if rtol is None else rtol,
-                atol=1e-12 if atol is None else atol,
-            )
+            # single orbit: ic (phasedim,), ts (nt,) -> result (nt, phasedim)
+            result = integrate_orbit(pot, ic, ts, rtol=_rtol, atol=_atol)
             self.orbit = result[None, ...]  # (1, nt, phasedim), the C layout
         else:
             # batch: flatten the raw backend IC to (size, phasedim) -- mirroring
-            # the numpy self.vxvv flatten and the C-STM path -- so one solve
-            # returns (nt, size, phasedim); move the time axis to get the canonical
-            # (size, nt, phasedim) layout getOrbit()/accessors reshape to self.shape.
+            # the numpy self.vxvv flatten and the C-STM path. A shared (nt,) grid
+            # integrates all orbits in ONE solve; a per-orbit (size, nt) grid gives
+            # each orbit its own saveat (vmap on jax, loop on torch). Either way the
+            # result is (nt, size, phasedim) -> canonical (size, nt, phasedim).
             ic2d = xp.reshape(ic, (-1, ic.shape[-1]))
-            result = integrate_orbit(
-                pot,
-                ic2d,
-                ts,
-                rtol=1e-12 if rtol is None else rtol,
-                atol=1e-12 if atol is None else atol,
-            )
-            assert result.shape[0] == ts.shape[0]  # (nt, size, phasedim)
+            ts_int = xp.reshape(ts, (-1, ts.shape[-1])) if per_orbit_t else ts
+            result = integrate_orbit(pot, ic2d, ts_int, rtol=_rtol, atol=_atol)
+            assert result.shape[0] == ts.shape[-1]  # (nt, size, phasedim)
             self.orbit = xp.moveaxis(result, 0, 1)  # (size, nt, phasedim)
         self.t = t
         self._pot = pot

@@ -10,8 +10,12 @@
 
 def integrate(pot, y0, ts, *, dim, rtol, atol):
     """Integrate the EOM with torchdiffeq. y0/ys in rectangular EOM variables
-    [x, vx, y, vy, z, vz], shape (dim,) for one orbit or (N, dim) for a batch
-    (integrated in one solve, shared adaptive controller -> ys (nt, N, dim)).
+    [x, vx, y, vy, z, vz], shape (dim,) for one orbit or (N, dim) for a batch.
+
+    ``ts`` shape (nt,): one shared output grid -> all N orbits in ONE solve.
+    ``ts`` shape (N, nt): a PER-ORBIT grid -> integrate each orbit on its own grid
+    (torchdiffeq has no vmap, so a per-orbit loop) and stack on the orbit axis.
+    Either way returns ys (nt, N, dim) for a batch ((nt, dim) single).
 
     Uses ``dopri5``, NOT ``dopri8``: torchdiffeq's ``dopri8`` *backward* pass is
     noticeably less accurate (~1e-5 relative gradient error vs ~1e-8 for
@@ -30,4 +34,12 @@ def integrate(pot, y0, ts, *, dim, rtol, atol):
         # an (N, dim) derivative; for a single (dim,) state axis=-1 == axis=0.
         return torch.stack(_eom_rhs(y, pot, t, torch, dim), axis=-1)
 
+    if ts.ndim > 1:  # per-orbit grids (N, nt): one solve per orbit, stack -> (nt,N,dim)
+        return torch.stack(
+            [
+                odeint(field, y0[i], ts[i], method="dopri5", rtol=rtol, atol=atol)
+                for i in range(y0.shape[0])
+            ],
+            dim=1,
+        )
     return odeint(field, y0, ts, method="dopri5", rtol=rtol, atol=atol)
