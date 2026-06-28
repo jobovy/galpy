@@ -2086,11 +2086,13 @@ class Orbit:
         a jax/torch initial condition (captured in self._ic_backend) and stores
         the trajectory as a backend array in self.orbit, so gradients w.r.t. the
         initial conditions (and backend-array potential parameters) flow through
-        getOrbit(). Time-evaluation accessors (o.R(t), o.E(t), ...) and in-place
-        mutators (flip(inplace=True), SOS) on such an orbit are a follow-up and
-        raise NotImplementedError for now; use getOrbit(). Any Orbit shape: a
-        multi-orbit Orbit integrates all orbits in ONE batched solve (on a single
-        shared time grid). Any of the usual phase-space dimensions (2 [x,vx];
+        getOrbit(). Time-evaluation accessors (o.R(t), o.E(t), o(t), ...) work --
+        on the integrated grid and off-grid via the in-backend differentiable
+        spline, single orbit and batch; in-place mutators (flip(inplace=True), SOS)
+        on such an orbit are a follow-up and raise NotImplementedError for now. Any
+        Orbit shape: a multi-orbit Orbit integrates all orbits in ONE batched solve
+        (on a single shared time grid). Any of the usual phase-space dimensions
+        (2 [x,vx];
         3 [R,vR,vT]; 4 [R,vR,vT,phi]; 5 [R,vR,vT,z,vz]; 6 [R,vR,vT,z,vz,phi]).
         1D (phasedim 2) needs a linearPotential; 2D/3D need a (3D) Potential --
         planar orbits are integrated as 3D with z=vz=0, matching the C integrators.
@@ -7034,21 +7036,14 @@ class Orbit:
         Mirrors the numpy ``_setupOrbitInterp`` semantics: for phasedim 4/6 the
         Cartesian x=R cos(phi), y=R sin(phi) are interpolated (not R, phi) to avoid
         the 2pi wrap, with R, phi recovered at the query points; the other
-        coordinates are interpolated directly. Single orbit only (the in-backend
-        path is single-orbit), so no per-orbit RectBivariateSpline is needed.
+        coordinates are interpolated directly. Works for a single orbit and for a
+        multi-orbit (in-backend ODE batch or C-STM batch) Orbit: every orbit shares
+        ONE integration grid (the batch is one solve), so each orbit is splined on
+        that grid and the results are stacked on the orbit axis.
         Returns the same layout as ``_call_internal``'s off-grid branch:
-        ``(phasedim, nt, 1)`` for an array ``t`` (``(phasedim, 1)`` for a scalar).
+        ``(phasedim, nt, size)`` for an array ``t`` (``(phasedim, size)`` for a
+        scalar) -- ``size`` 1 for a single orbit.
         """
-        if self.shape != ():
-            # The in-backend off-grid interpolation is single-orbit (it splines
-            # self.orbit[0]); a multi-orbit backend Orbit (in-backend ODE batch or
-            # C-STM batch) has no per-orbit interp yet -> a clear error, not an
-            # opaque reshape failure. Use getOrbit() at the integrated grid times.
-            raise NotImplementedError(
-                "off-grid time evaluation of a multi-orbit in-backend Orbit is not "
-                "supported yet; use getOrbit() (integrated grid times) or integrate "
-                "one orbit at a time"
-            )
         from ..backend.interpolate import Spline1D
 
         xp = get_namespace(self.orbit)
@@ -7074,34 +7069,44 @@ class Orbit:
         # so the per-coordinate splines return a flat (nt,) each.
         tq = t if is_backend_array(t) else xp.asarray(t_np)
         tq = xp.reshape(tq, (-1,))
-        orb = self.orbit[0]  # (nt_grid, phasedim) on the backend
         # The spline needs a strictly increasing grid; a backward integration
-        # (decreasing self.t) is flipped to ascending, and orb with it (a
-        # differentiable reversal), matching the numpy _setupOrbitInterp.
-        if self_t.shape[0] > 1 and self_t[1] < self_t[0]:
-            self_t = numpy.array(self_t[::-1])
-            orb = xp.flip(orb, axis=0)
+        # (decreasing self.t) is flipped to ascending (shared across the batch),
+        # and each orbit with it (a differentiable reversal) inside _interp_one.
+        descending = self_t.shape[0] > 1 and self_t[1] < self_t[0]
+        grid = numpy.array(self_t[::-1]) if descending else self_t
         pd = self.phasedim()
         # cubic where the grid is long enough (matches the numpy k=3 threshold),
         # else piecewise-linear; not-a-knot ends track scipy's interpolant.
-        k = 3 if self_t.shape[0] > 3 else 1
+        k = 3 if grid.shape[0] > 3 else 1
         bc = "not-a-knot" if k == 3 else "natural"
 
-        def _spl(y):
-            return Spline1D(self_t, y, k=k, ext=0, bc=bc)(tq)
+        def _interp_one(orb):  # (nt_grid, phasedim) -> (phasedim, nt_query)
+            if descending:
+                orb = xp.flip(orb, axis=0)
 
-        if pd == 4 or pd == 6:  # interpolate x,y (not R,phi) to dodge the 2pi wrap
-            xv = _spl(orb[:, 0] * xp.cos(orb[:, -1]))
-            yv = _spl(orb[:, 0] * xp.sin(orb[:, -1]))
-            cols = [xp.sqrt(xv * xv + yv * yv)]
-            cols += [_spl(orb[:, ii]) for ii in range(1, pd - 1)]
-            cols.append(xp.arctan2(yv, xv))
-        else:
-            cols = [_spl(orb[:, ii]) for ii in range(pd)]
-        out = xp.stack(cols)[:, :, None]  # (phasedim, nt, size=1)
+            def _spl(y):
+                return Spline1D(grid, y, k=k, ext=0, bc=bc)(tq)
+
+            if pd == 4 or pd == 6:  # interpolate x,y (not R,phi) -> dodge 2pi wrap
+                xv = _spl(orb[:, 0] * xp.cos(orb[:, -1]))
+                yv = _spl(orb[:, 0] * xp.sin(orb[:, -1]))
+                cols = [xp.sqrt(xv * xv + yv * yv)]
+                cols += [_spl(orb[:, ii]) for ii in range(1, pd - 1)]
+                cols.append(xp.arctan2(yv, xv))
+            else:
+                cols = [_spl(orb[:, ii]) for ii in range(pd)]
+            return xp.stack(cols)  # (phasedim, nt_query)
+
+        # self.orbit is (size, nt_grid, phasedim); spline each orbit on the shared
+        # grid and stack on the trailing (orbit) axis -> (phasedim, nt_query, size).
+        # size == 1 (single orbit) reproduces the prior (phasedim, nt, 1) layout.
+        out = xp.stack(
+            [_interp_one(self.orbit[ii]) for ii in range(self.orbit.shape[0])],
+            axis=-1,
+        )
         if scalar:
-            return out[:, 0]  # (phasedim, 1)
-        return out
+            return out[:, 0]  # (phasedim, size)
+        return out  # (phasedim, nt_query, size)
 
     def _setupOrbitInterp(self):
         if hasattr(self, "_orbInterp"):

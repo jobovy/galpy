@@ -338,17 +338,38 @@ def test_integrate_perorbit_t_inbackend_raises():
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
-def test_integrate_multiorbit_inbackend_offgrid_accessor_raises():
-    # off-grid time evaluation of a MULTI-orbit in-backend Orbit is single-orbit
-    # only (it splines self.orbit[0]); it must raise a clear NotImplementedError,
-    # not an opaque reshape crash. getOrbit() / exact-grid evaluation still work.
+@pytest.mark.parametrize("acc", ["R", "vR", "z", "x", "y", "vx"])
+def test_integrate_multiorbit_inbackend_offgrid_matches_per_orbit(acc):
+    # off-grid time evaluation of a MULTI-orbit in-backend Orbit: each orbit is
+    # splined on the SHARED integration grid, so o.R(t)/o.x(t)/... at off-grid
+    # times match the per-orbit single-orbit interpolation (and stay on backend).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    toff = jnp.asarray([0.37, 2.15, 4.9])  # off-grid times inside the window
     o = Orbit(jnp.asarray(_MULTI_IC))
-    o.integrate(jnp.asarray(_TS), PlummerPotential(amp=1.0, b=0.6), method="diffrax")
-    assert numpy.asarray(o.getOrbit()).shape == (4, len(_TS), 6)  # batch OK
-    with pytest.raises(NotImplementedError):
-        o.R(1.15)  # off-grid time -> single-orbit interp not available for a batch
-    with pytest.raises(NotImplementedError):
-        o(1.15)
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    got = getattr(o, acc)(toff)
+    assert "jax" in type(got).__module__  # stayed on the backend
+    got = numpy.asarray(got)
+    assert got.shape == (4, len(toff))  # (N, nt) for a batch + array t
+    ref = numpy.empty((4, len(toff)))
+    for ii, row in enumerate(_MULTI_IC):
+        oi = Orbit(jnp.asarray(row))
+        oi.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        ref[ii] = numpy.asarray(getattr(oi, acc)(toff))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_multiorbit_inbackend_offgrid_scalar_and_call():
+    # scalar off-grid time: o.R(t) -> (N,); o(t) returns a new (N,)-shape Orbit.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    Rs = numpy.asarray(o.R(2.15))
+    assert Rs.shape == (4,)
+    osnap = o(2.15)  # new Orbit at t=2.15
+    assert osnap.shape == (4,)
+    numpy.testing.assert_allclose(numpy.asarray(osnap.R()), Rs, rtol=1e-10)
 
 
 # ----------------------------------------- all phase-space dimensions (not just 6)
