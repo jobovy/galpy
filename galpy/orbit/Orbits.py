@@ -1702,6 +1702,7 @@ class Orbit:
         force_map=False,
         rtol=None,
         atol=None,
+        inbackend_kwargs=None,
     ):
         """
         Core implementation of orbit integration.
@@ -1727,7 +1728,9 @@ class Orbit:
         # entire numpy/C/scipy path below is dead code for these methods and
         # byte-identical for every existing method.
         if method.lower() in ("diffrax", "torchdiffeq"):
-            return self._integrate_inbackend(t, pot, method, rtol, atol)
+            return self._integrate_inbackend(
+                t, pot, method, rtol, atol, inbackend_kwargs
+            )
         # Differentiable FAST-C path: a jax/torch IC + a dxdv-capable C integrator
         # routes through the variational state-transition matrix (jax.custom_vjp /
         # torch.autograd.Function), so getOrbit()/accessors are backend arrays
@@ -1752,7 +1755,9 @@ class Orbit:
                     and _check_c(_potl, dxdv3d=True)
                 ):
                     return self._integrate_cstm(t, _potl, method.lower(), rtol, atol)
-                return self._integrate_inbackend(t, pot, _inbk, rtol, atol)
+                return self._integrate_inbackend(
+                    t, pot, _inbk, rtol, atol, inbackend_kwargs
+                )
         if getattr(self, "_ic_backend", None) is not None and not getattr(
             self, "_ic_backend_concrete", True
         ):
@@ -2077,9 +2082,14 @@ class Orbit:
             )
         return None
 
-    def _integrate_inbackend(self, t, pot, method, rtol, atol):
+    def _integrate_inbackend(self, t, pot, method, rtol, atol, inbackend_kwargs=None):
         """Integrate one orbit OR a batch of orbits with the in-backend
         differentiable ODE integrator (diffrax for jax, torchdiffeq for torch).
+
+        ``inbackend_kwargs`` is an optional dict of extra options forwarded to the
+        in-backend solver (``max_steps``, ``solver``, ``adjoint`` -- see
+        ``galpy.backend._reference.integrate_orbit``); e.g.
+        ``{"adjoint": "direct", "max_steps": 4096}`` enables jax second derivatives.
 
         Autodiff-friendly counterpart of the C/scipy integrators, selected by
         method='diffrax'/'torchdiffeq'. Requires the Orbit to have been built from
@@ -2136,6 +2146,7 @@ class Orbit:
 
         _rtol = 1e-12 if rtol is None else rtol
         _atol = 1e-12 if atol is None else atol
+        _ibk = inbackend_kwargs or {}
         # ts is either the shared 1-D output grid (nt,) -- all orbits integrated in
         # ONE solve -- or a PER-ORBIT grid of shape self.shape + (nt,): each orbit
         # its own times (same length nt), as the C integrators' indiv_t (used by
@@ -2151,7 +2162,7 @@ class Orbit:
         # so method='diffrax'/'torchdiffeq' integrates to the same accuracy.
         if self.shape == ():
             # single orbit: ic (phasedim,), ts (nt,) -> result (nt, phasedim)
-            result = integrate_orbit(pot, ic, ts, rtol=_rtol, atol=_atol)
+            result = integrate_orbit(pot, ic, ts, rtol=_rtol, atol=_atol, **_ibk)
             self.orbit = result[None, ...]  # (1, nt, phasedim), the C layout
         else:
             # batch: flatten the raw backend IC to (size, phasedim) -- mirroring
@@ -2161,7 +2172,7 @@ class Orbit:
             # result is (nt, size, phasedim) -> canonical (size, nt, phasedim).
             ic2d = xp.reshape(ic, (-1, ic.shape[-1]))
             ts_int = xp.reshape(ts, (-1, ts.shape[-1])) if per_orbit_t else ts
-            result = integrate_orbit(pot, ic2d, ts_int, rtol=_rtol, atol=_atol)
+            result = integrate_orbit(pot, ic2d, ts_int, rtol=_rtol, atol=_atol, **_ibk)
             assert result.shape[0] == ts.shape[-1]  # (nt, size, phasedim)
             self.orbit = xp.moveaxis(result, 0, 1)  # (size, nt, phasedim)
         # store a per-orbit t FLATTENED to (size, nt) (mirroring the numpy indiv_t
@@ -2265,6 +2276,7 @@ class Orbit:
         force_map=False,
         rtol=None,
         atol=None,
+        inbackend_kwargs=None,
     ):
         """
         Integrate the orbit instance.
@@ -2295,6 +2307,8 @@ class Orbit:
             Relative tolerance. Default is None.
         atol : float, optional
             Absolute tolerance. Default is None.
+        inbackend_kwargs : dict, optional
+            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq', or a jax/torch initial condition that falls back to it): 'max_steps', 'solver', and (jax) 'adjoint'. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only. Ignored by all other (C/scipy) methods.
 
         Returns
         -------
@@ -2326,7 +2340,16 @@ class Orbit:
         """
         # Default implementation for array-like t (numpy arrays, Quantities, etc.)
         return self._integrate_impl(
-            t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+            t,
+            pot,
+            method,
+            progressbar,
+            dt,
+            numcores,
+            force_map,
+            rtol,
+            atol,
+            inbackend_kwargs,
         )
 
     @integrate.register(Potential)
@@ -2341,11 +2364,21 @@ class Orbit:
         force_map=False,
         rtol=None,
         atol=None,
+        inbackend_kwargs=None,
     ):
         """Integrate for 10 dynamical times (default auto-time)."""
         t = self._generate_auto_time_array(pot, N_tdyn=10)
         return self._integrate_impl(
-            t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+            t,
+            pot,
+            method,
+            progressbar,
+            dt,
+            numcores,
+            force_map,
+            rtol,
+            atol,
+            inbackend_kwargs,
         )
 
     @integrate.register(list)
@@ -2359,6 +2392,7 @@ class Orbit:
         force_map=False,
         rtol=None,
         atol=None,
+        inbackend_kwargs=None,
     ):
         """Handle deprecated list of potentials (auto-time with default 10 tdyn)."""
         # Lists can only contain potentials (deprecated syntax)
@@ -2366,7 +2400,16 @@ class Orbit:
         # _check_potential_list_and_deprecate
         t_array = self._generate_auto_time_array(pot, N_tdyn=10)
         return self._integrate_impl(
-            t_array, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+            t_array,
+            pot,
+            method,
+            progressbar,
+            dt,
+            numcores,
+            force_map,
+            rtol,
+            atol,
+            inbackend_kwargs,
         )
 
     def integrate_SOS(

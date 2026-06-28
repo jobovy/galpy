@@ -129,7 +129,9 @@ def _from_eom(xp, ys, phasedim):
     return xp.stack(cols, axis=-1)
 
 
-def integrate_orbit(pot, vxvv, ts, *, rtol=1e-12, atol=1e-12, max_steps=100000):
+def integrate_orbit(
+    pot, vxvv, ts, *, rtol=1e-12, atol=1e-12, max_steps=None, solver=None, adjoint=None
+):
     """Differentiably integrate an orbit with the backend's ODE solver.
 
     Parameters
@@ -150,7 +152,11 @@ def integrate_orbit(pot, vxvv, ts, *, rtol=1e-12, atol=1e-12, max_steps=100000):
         indiv_t, used by streamspraydf): each orbit gets its own saveat/span and an
         independent controller (jax.vmap / a torch per-orbit loop).
     rtol, atol : solver tolerances (default 1e-12, matching galpy's C integrators).
-    max_steps : diffrax step cap (jax only).
+    max_steps : adaptive step cap (None -> diffrax 100000 / torchdiffeq unbounded).
+    solver : integrator name/instance (None -> diffrax Dopri8 / torchdiffeq dopri5).
+    adjoint : jax/diffrax adjoint (None -> RecursiveCheckpointAdjoint, reverse-mode
+        FIRST order; 'direct' for SECOND derivatives -- jax.hessian / nested jacrev).
+        Ignored on torch (torchdiffeq's plain odeint already double-backprops).
 
     Returns
     -------
@@ -177,12 +183,29 @@ def integrate_orbit(pot, vxvv, ts, *, rtol=1e-12, atol=1e-12, max_steps=100000):
         from .._jax.orbit_ode import integrate as _integrate_jax
 
         ys = _integrate_jax(
-            pot, y0, ts, dim=dim, rtol=rtol, atol=atol, max_steps=max_steps
+            pot,
+            y0,
+            ts,
+            dim=dim,
+            rtol=rtol,
+            atol=atol,
+            max_steps=max_steps,
+            solver=solver,
+            adjoint=adjoint,
         )
     elif "torch" in name:
         from .._torch.orbit_ode import integrate as _integrate_torch
 
-        ys = _integrate_torch(pot, y0, ts, dim=dim, rtol=rtol, atol=atol)
+        ys = _integrate_torch(
+            pot,
+            y0,
+            ts,
+            dim=dim,
+            rtol=rtol,
+            atol=atol,
+            max_steps=max_steps,
+            solver=solver,
+        )
     else:  # numpy path uses galpy's C/scipy integrators instead
         raise NotImplementedError(
             "in-backend ODE integration requires a jax or torch input array; "
