@@ -2078,8 +2078,8 @@ class Orbit:
         return None
 
     def _integrate_inbackend(self, t, pot, method, rtol, atol):
-        """Integrate a single full-3D orbit with the in-backend differentiable
-        ODE integrator (diffrax for jax, torchdiffeq for torch).
+        """Integrate one orbit OR a batch of orbits with the in-backend
+        differentiable ODE integrator (diffrax for jax, torchdiffeq for torch).
 
         Autodiff-friendly counterpart of the C/scipy integrators, selected by
         method='diffrax'/'torchdiffeq'. Requires the Orbit to have been built from
@@ -2088,16 +2088,13 @@ class Orbit:
         initial conditions (and backend-array potential parameters) flow through
         getOrbit(). Time-evaluation accessors (o.R(t), o.E(t), ...) and in-place
         mutators (flip(inplace=True), SOS) on such an orbit are a follow-up and
-        raise NotImplementedError for now; use getOrbit(). Single orbit; any of
-        the usual phase-space dimensions (2 [x,vx]; 3 [R,vR,vT]; 4 [R,vR,vT,phi];
-        5 [R,vR,vT,z,vz]; 6 [R,vR,vT,z,vz,phi]). 1D (phasedim 2) needs a
-        linearPotential; 2D/3D need a (3D) Potential -- planar orbits are
-        integrated as 3D with z=vz=0, matching the C integrators.
+        raise NotImplementedError for now; use getOrbit(). Any Orbit shape: a
+        multi-orbit Orbit integrates all orbits in ONE batched solve (on a single
+        shared time grid). Any of the usual phase-space dimensions (2 [x,vx];
+        3 [R,vR,vT]; 4 [R,vR,vT,phi]; 5 [R,vR,vT,z,vz]; 6 [R,vR,vT,z,vz,phi]).
+        1D (phasedim 2) needs a linearPotential; 2D/3D need a (3D) Potential --
+        planar orbits are integrated as 3D with z=vz=0, matching the C integrators.
         """
-        if self.shape != ():
-            raise ValueError(
-                f"method='{method}' currently supports a single orbit only"
-            )
         ic = getattr(self, "_ic_backend", None)
         if ic is None:
             raise ValueError(
@@ -2130,19 +2127,42 @@ class Orbit:
         else:
             t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
             ts = xp.asarray(t)
+        # A batch integrates on ONE shared time grid; a per-orbit time array (2-D
+        # ts) is not expressible through the single saveat/ODE solve.
+        if ts.ndim > 1:
+            raise NotImplementedError(
+                f"method='{method}' integrates all orbits on one shared time "
+                "grid; per-orbit time arrays are not supported"
+            )
         from ..backend._reference import integrate_orbit
 
-        # (nt, 6) in Orbit order [R,vR,vT,z,vz,phi], differentiable backend array.
         # Default rtol/atol = 1e-12, matching galpy's C integrators (_parse_tol),
         # so method='diffrax'/'torchdiffeq' integrates to the same accuracy.
-        result = integrate_orbit(
-            pot,
-            ic,
-            ts,
-            rtol=1e-12 if rtol is None else rtol,
-            atol=1e-12 if atol is None else atol,
-        )
-        self.orbit = result[None, ...]  # (1, nt, phasedim), matching the C layout
+        if self.shape == ():
+            # single orbit: ic (phasedim,) -> result (nt, phasedim)
+            result = integrate_orbit(
+                pot,
+                ic,
+                ts,
+                rtol=1e-12 if rtol is None else rtol,
+                atol=1e-12 if atol is None else atol,
+            )
+            self.orbit = result[None, ...]  # (1, nt, phasedim), the C layout
+        else:
+            # batch: flatten the raw backend IC to (size, phasedim) -- mirroring
+            # the numpy self.vxvv flatten and the C-STM path -- so one solve
+            # returns (nt, size, phasedim); move the time axis to get the canonical
+            # (size, nt, phasedim) layout getOrbit()/accessors reshape to self.shape.
+            ic2d = xp.reshape(ic, (-1, ic.shape[-1]))
+            result = integrate_orbit(
+                pot,
+                ic2d,
+                ts,
+                rtol=1e-12 if rtol is None else rtol,
+                atol=1e-12 if atol is None else atol,
+            )
+            assert result.shape[0] == ts.shape[0]  # (nt, size, phasedim)
+            self.orbit = xp.moveaxis(result, 0, 1)  # (size, nt, phasedim)
         self.t = t
         self._pot = pot
         self._orig_pot = pot
@@ -7019,6 +7039,16 @@ class Orbit:
         Returns the same layout as ``_call_internal``'s off-grid branch:
         ``(phasedim, nt, 1)`` for an array ``t`` (``(phasedim, 1)`` for a scalar).
         """
+        if self.shape != ():
+            # The in-backend off-grid interpolation is single-orbit (it splines
+            # self.orbit[0]); a multi-orbit backend Orbit (in-backend ODE batch or
+            # C-STM batch) has no per-orbit interp yet -> a clear error, not an
+            # opaque reshape failure. Use getOrbit() at the integrated grid times.
+            raise NotImplementedError(
+                "off-grid time evaluation of a multi-orbit in-backend Orbit is not "
+                "supported yet; use getOrbit() (integrated grid times) or integrate "
+                "one orbit at a time"
+            )
         from ..backend.interpolate import Spline1D
 
         xp = get_namespace(self.orbit)

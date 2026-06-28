@@ -7,17 +7,21 @@
 ###############################################################################
 
 
-def integrate(pot, y0, ts, *, rtol, atol, max_steps):
+def integrate(pot, y0, ts, *, dim, rtol, atol, max_steps):
     """Integrate the EOM with diffrax (Dopri8, adaptive). y0/ys in rectangular
-    EOM variables [x, vx, y, vy, z, vz]. Reverse-mode differentiable (diffrax uses
-    a custom_vjp -> forward-mode jacfwd is unavailable; use jacrev)."""
+    EOM variables [x, vx, y, vy, z, vz], shape (dim,) for one orbit or (N, dim) for
+    a batch (integrated in one solve, shared adaptive controller -> ys (nt, N, dim)).
+    Reverse-mode differentiable (diffrax uses a custom_vjp -> forward-mode jacfwd is
+    unavailable; use jacrev)."""
     import diffrax
     import jax.numpy as jnp
 
     from .._reference.inbackend_ode import _eom_rhs
 
     def field(t, y, args):
-        return jnp.stack(_eom_rhs(y, pot, t, jnp))
+        # stack on the trailing (component) axis so a batch (N, dim) state maps to
+        # an (N, dim) derivative; for a single (dim,) state axis=-1 == axis=0.
+        return jnp.stack(_eom_rhs(y, pot, t, jnp, dim), axis=-1)
 
     sol = diffrax.diffeqsolve(
         diffrax.ODETerm(field),

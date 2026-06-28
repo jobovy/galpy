@@ -269,14 +269,86 @@ def test_integrate_method_namespace_mismatch_raises():
         Orbit(jnp.asarray(_IC)).integrate(jnp.asarray(_TS), pot, method="torchdiffeq")
 
 
+# a small bound multi-orbit set (incl. a retrograde orbit), reshaped to grids
+_MULTI_IC = numpy.array(
+    [
+        [1.0, 0.1, 0.9, 0.2, 0.05, 0.3],
+        [1.1, -0.1, 1.0, -0.1, 0.05, 0.4],
+        [0.9, 0.05, 0.8, 0.1, -0.08, 2.0],
+        [1.05, 0.0, -0.7, 0.0, 0.1, 1.0],  # retrograde, z=vz... vR=0 edge
+    ]
+)
+
+
+def _per_orbit_inbackend(ic_arr, pot, method, xp, _np):
+    # integrate each orbit singly and stack getOrbit -> (N, nt, 6); the
+    # native-batch result must match this to within the shared-controller coupling
+    out = []
+    for row in ic_arr:
+        o = Orbit(xp(row))
+        o.integrate(xp(_TS), pot, method=method)
+        out.append(_np(o.getOrbit()))
+    return numpy.stack(out, axis=0)
+
+
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
-def test_integrate_multiorbit_inbackend_raises():
-    # the in-backend path is single-orbit only for now
-    o = Orbit(jnp.asarray(numpy.stack([_IC, _IC])))
-    with pytest.raises(ValueError):
-        o.integrate(
-            jnp.asarray(_TS), PlummerPotential(amp=1.0, b=0.6), method="diffrax"
-        )
+def test_integrate_multiorbit_inbackend_jax():
+    # a multi-orbit Orbit integrates ALL orbits in one batched diffrax solve;
+    # getOrbit() is (N, nt, 6) and a (2,2) grid is (2,2,nt,6), each orbit matching
+    # the per-orbit single solve (shared adaptive controller is sub-tolerance).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ref = _per_orbit_inbackend(_MULTI_IC, pot, "diffrax", jnp.asarray, numpy.asarray)
+    # flat (N,6)
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    got = numpy.asarray(o.getOrbit())
+    assert got.shape == (4, len(_TS), 6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
+    # (2,2) grid shape: getOrbit() (2,2,nt,6); accessors reshape to (2,2,nt)
+    og = Orbit(jnp.asarray(_MULTI_IC.reshape((2, 2, 6))))
+    og.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    gg = numpy.asarray(og.getOrbit())
+    assert gg.shape == (2, 2, len(_TS), 6)
+    numpy.testing.assert_allclose(
+        gg.reshape((4, len(_TS), 6)), ref, rtol=1e-6, atol=1e-8
+    )
+    assert numpy.asarray(og.getOrbit()[..., 0]).shape == (2, 2, len(_TS))
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_integrate_multiorbit_inbackend_torch():
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    _np = lambda x: x.detach().cpu().numpy()
+    ref = _per_orbit_inbackend(_MULTI_IC, pot, "torchdiffeq", torch.as_tensor, _np)
+    o = Orbit(torch.as_tensor(_MULTI_IC))
+    o.integrate(torch.as_tensor(_TS), pot, method="torchdiffeq")
+    got = _np(o.getOrbit())
+    assert got.shape == (4, len(_TS), 6)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_perorbit_t_inbackend_raises():
+    # a batch integrates on ONE shared time grid; a per-orbit (2-D) time array is
+    # not expressible through the single saveat solve -> clear NotImplementedError.
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    perorbit_t = jnp.broadcast_to(jnp.asarray(_TS), (4, len(_TS)))
+    with pytest.raises(NotImplementedError):
+        o.integrate(perorbit_t, PlummerPotential(amp=1.0, b=0.6), method="diffrax")
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_multiorbit_inbackend_offgrid_accessor_raises():
+    # off-grid time evaluation of a MULTI-orbit in-backend Orbit is single-orbit
+    # only (it splines self.orbit[0]); it must raise a clear NotImplementedError,
+    # not an opaque reshape crash. getOrbit() / exact-grid evaluation still work.
+    o = Orbit(jnp.asarray(_MULTI_IC))
+    o.integrate(jnp.asarray(_TS), PlummerPotential(amp=1.0, b=0.6), method="diffrax")
+    assert numpy.asarray(o.getOrbit()).shape == (4, len(_TS), 6)  # batch OK
+    with pytest.raises(NotImplementedError):
+        o.R(1.15)  # off-grid time -> single-orbit interp not available for a batch
+    with pytest.raises(NotImplementedError):
+        o(1.15)
 
 
 # ----------------------------------------- all phase-space dimensions (not just 6)

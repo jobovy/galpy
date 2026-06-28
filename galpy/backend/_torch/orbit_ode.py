@@ -8,9 +8,10 @@
 ###############################################################################
 
 
-def integrate(pot, y0, ts, *, rtol, atol):
+def integrate(pot, y0, ts, *, dim, rtol, atol):
     """Integrate the EOM with torchdiffeq. y0/ys in rectangular EOM variables
-    [x, vx, y, vy, z, vz].
+    [x, vx, y, vy, z, vz], shape (dim,) for one orbit or (N, dim) for a batch
+    (integrated in one solve, shared adaptive controller -> ys (nt, N, dim)).
 
     Uses ``dopri5``, NOT ``dopri8``: torchdiffeq's ``dopri8`` *backward* pass is
     noticeably less accurate (~1e-5 relative gradient error vs ~1e-8 for
@@ -25,6 +26,8 @@ def integrate(pot, y0, ts, *, rtol, atol):
     from .._reference.inbackend_ode import _eom_rhs
 
     def field(t, y):
-        return torch.stack(_eom_rhs(y, pot, t, torch))
+        # stack on the trailing (component) axis so a batch (N, dim) state maps to
+        # an (N, dim) derivative; for a single (dim,) state axis=-1 == axis=0.
+        return torch.stack(_eom_rhs(y, pot, t, torch, dim), axis=-1)
 
     return odeint(field, y0, ts, method="dopri5", rtol=rtol, atol=atol)
