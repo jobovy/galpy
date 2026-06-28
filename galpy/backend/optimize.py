@@ -142,6 +142,20 @@ def n_bisect_steps(a, b, xtol, maxiter):
     return max(1, min(n, maxiter))
 
 
+def bisect_step(lo, hi, slo, f, xp):
+    """One sign-preserving bisection halving of ``[lo, hi]`` (branch-free).
+
+    Returns the updated ``(lo, hi)``. Root in ``[lo, mid]`` iff ``f(mid)`` keeps
+    the sign of ``f(lo)`` on ``[mid, hi]`` (``sign(f(mid)) == slo`` -> the sign
+    change is in ``[mid, hi]``: move ``lo`` up). The shared per-step kernel so the
+    Python-loop (eager/torch) and the jax ``lax.fori_loop`` body run identical
+    arithmetic.
+    """
+    mid = 0.5 * (lo + hi)
+    same = xp.sign(f(mid)) == slo
+    return xp.where(same, mid, lo), xp.where(same, hi, mid)
+
+
 def bisect_root(f, a, b, xp, *, xtol, maxiter):
     """Vectorised, sign-preserving bisection root of ``f`` on ``[a, b]`` in ``xp``.
 
@@ -153,6 +167,10 @@ def bisect_root(f, a, b, xp, *, xtol, maxiter):
     reparameterises it through one Newton step for the implicit-function
     gradient. Shared by both backend paths so the logic lives in one place.
 
+    This is the eager Python-loop form (torch, and jax outside a trace); the jax
+    path swaps in a ``lax.fori_loop`` over the same ``bisect_step`` only when
+    tracing (see ``_jax.optimize``), keeping the jaxpr small under the user's jit.
+
     ``f`` must change sign on ``[a, b]`` (``f(a)``, ``f(b)`` opposite sign), as
     for ``scipy.optimize.brentq``; same-sign brackets are a caller error and
     return a midpoint without a guarantee.
@@ -163,10 +181,5 @@ def bisect_root(f, a, b, xp, *, xtol, maxiter):
     slo = xp.sign(f(lo))  # sign of f at the low endpoint
     n = n_bisect_steps(a, b, xtol, maxiter)
     for _ in range(n):
-        mid = 0.5 * (lo + hi)
-        # Root in [lo, mid] iff f(mid) keeps the sign of f(lo) on [mid, hi],
-        # i.e. sign(f(mid)) == slo -> the sign change is in [mid, hi]: move lo up.
-        same = xp.sign(f(mid)) == slo
-        lo = xp.where(same, mid, lo)
-        hi = xp.where(same, hi, mid)
+        lo, hi = bisect_step(lo, hi, slo, f, xp)
     return 0.5 * (lo + hi)
