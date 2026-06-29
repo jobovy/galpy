@@ -669,16 +669,17 @@ class sphericaldf(df):
                     "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!",
                     galpyWarning,
                 )
-            cml_pvr[cml_pvr < 0] = 0.0
-            start_indx = numpy.amax(
-                numpy.arange(len(cml_pvr))[cml_pvr == numpy.amin(cml_pvr)]
-            )
-            end_indx = (
-                numpy.amin(numpy.arange(len(cml_pvr))[cml_pvr == numpy.amax(cml_pvr)])
-                + 1
-            )
+            # Negative DF regions make the cumulative velocity distribution dip
+            # below zero or decrease (e.g. near a truncation radius where the
+            # Eddington-inverted DF goes slightly negative). Clamp it to be
+            # non-negative and enforce monotonicity, then interpolate using only
+            # its strictly-increasing (unique) points so the inverse-CDF
+            # interpolation below is well defined (the normalized cumulative
+            # always spans 0 to 1, so at least two distinct points remain).
+            cml_pvr = numpy.maximum.accumulate(numpy.clip(cml_pvr, 0.0, None))
+            cml_pvr_unique, unique_indx = numpy.unique(cml_pvr, return_index=True)
             cml_pvr_inv_interp = scipy.interpolate.InterpolatedUnivariateSpline(
-                cml_pvr[start_indx:end_indx], v_vesc_values[start_indx:end_indx], k=1
+                cml_pvr_unique, v_vesc_values[unique_indx], k=1
             )
             pvr_samples_reg = numpy.linspace(0, 1, n_new_pvr)
             v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)

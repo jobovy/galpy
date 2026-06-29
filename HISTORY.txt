@@ -1,6 +1,17 @@
 v1.12.0 (expected around 2026-07-01)
 ====================
 
+- Fixed a crash when sampling a spherical distribution function whose
+  isotropic (Eddington-inverted) form dips slightly negative over part of the
+  velocity range -- e.g. near the truncation radius of a sharply
+  exponentially-truncated NFW profile. Previously ``sample`` could fail in
+  ``sphericaldf._make_pvr_interpolator`` with an ``IndexError`` (when a
+  velocity column became entirely non-positive) or a ``ValueError: x must be
+  increasing`` (when the clamped cumulative velocity distribution was
+  non-monotonic). These regions are now clamped to be non-negative and
+  monotonic before building the inverse-CDF interpolator, so sampling succeeds
+  (still emitting the existing "DF appears to have negative regions" warning).
+
 - Fixed compatibility with astropy >= 8.0, where the ``Galactocentric``
   ``galcen_v_sun`` frame attribute is now a ``CartesianRepresentation`` (read
   via ``.xyz``) rather than a ``CartesianDifferential`` (``.d_xyz``); see
