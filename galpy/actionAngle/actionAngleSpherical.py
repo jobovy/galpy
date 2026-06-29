@@ -257,6 +257,16 @@ class actionAngleSpherical(actionAngle):
                         Or[-1], Rmean, rperi, rap, E[ii], L[ii], fixed_quad, **kwargs
                     )
                 )
+            if is_backend_array(E):
+                # Active backend leaked into the per-object Or/Op/epifreq results;
+                # assemble + apply the vT<0 sign flip in-backend (numpy.array would
+                # silently down-cast the tensors and re-break the comparison).
+                xp = get_namespace(E)
+                Or = xp.stack([xp.asarray(o) for o in Or])
+                Op = xp.stack([xp.asarray(o) for o in Op])
+                Oz = Op
+                Op = xp.where(xp.asarray(vT) < 0.0, -Op, Op)
+                return (numpy.array(Jr), Jphi, Jz, Or, Op, Oz)
             Op = numpy.array(Op)
             Oz = copy.copy(Op)
             Op[vT < 0.0] *= -1.0
@@ -409,6 +419,24 @@ class actionAngleSpherical(actionAngle):
                         **kwargs,
                     )
                 )
+            if is_backend_array(E):
+                # Active backend leaked into the per-object freq/angle results;
+                # assemble + apply the vT-sign logic in-backend (numpy.array would
+                # silently down-cast the tensors and re-break the comparison).
+                xp = get_namespace(E)
+                Or = xp.stack([xp.asarray(o) for o in Or])
+                Op = xp.stack([xp.asarray(o) for o in Op])
+                ar = xp.stack([xp.asarray(a) for a in ar])
+                az = xp.stack([xp.asarray(a) for a in az])
+                asc = xp.asarray(asc)
+                vTneg = xp.asarray(vT) < 0.0
+                Oz = Op
+                Op = xp.where(vTneg, -Op, Op)
+                ap = xp.where(vTneg, asc - az, asc + az)
+                ar = ar % (2.0 * numpy.pi)
+                ap = ap % (2.0 * numpy.pi)
+                az = az % (2.0 * numpy.pi)
+                return (numpy.array(Jr), Jphi, Jz, Or, Op, Oz, ar, ap, az)
             Op = numpy.array(Op)
             Oz = copy.copy(Op)
             Op[vT < 0.0] *= -1.0
@@ -898,7 +926,46 @@ class actionAngleSpherical(actionAngle):
             rap = optimize.brentq(_rapRperiAxiEq, r, rend, (E, L, self._2dpot))
         return (rperi, rap)
 
+    def _panel_quad(self, backend_func, a, b, args, fixed_quad):
+        """Evaluate one panel integral in the active backend (jax/torch).
+
+        Routes through the device-anchored backend Gauss-Legendre helper, used
+        by the ``_calc_*`` methods when the per-object ``E`` (``args[0]``) is a
+        backend array -- which happens even on numpy inputs under a forced/
+        active backend, because the potential leaks the active namespace into
+        ``E``, and then scipy's ``numpy_weights * tensor`` reduction raises.
+        ``n=10`` matches scipy's ``fixed_quad``; ``_BACKEND_GL_ORDER`` matches
+        scipy's adaptive ``quadrature``. The numpy path never reaches here, so
+        it stays byte-identical.
+        """
+        from ..backend.quadrature import gauss_legendre
+
+        return gauss_legendre(
+            backend_func,
+            a,
+            b,
+            args=args,
+            n=10 if fixed_quad else _BACKEND_GL_ORDER,
+            device=device_of(args[0]),
+        )
+
     def _calc_jr(self, rperi, rap, E, L, fixed_quad, **kwargs):
+        # Only the fixed_quad (vectorised GL) branch crashes under a leaked
+        # backend E (scipy's numpy_weights * tensor); scipy's adaptive quad below
+        # calls the integrand node-by-node and returns a plain float even with a
+        # backend E, so the actions path keeps its full adaptive accuracy (the
+        # 1e-10 isochrone-Jr test) untouched.
+        if is_backend_array(E) and fixed_quad:
+            return (
+                self._panel_quad(
+                    _JrSphericalIntegrand_backend,
+                    rperi,
+                    rap,
+                    (E, L, self._2dpot),
+                    fixed_quad,
+                )
+                / numpy.pi
+            )
         if fixed_quad:
             return (
                 integrate.fixed_quad(
@@ -925,6 +992,25 @@ class actionAngleSpherical(actionAngle):
             )[0] / numpy.pi
 
     def _calc_or(self, Rmean, rperi, rap, E, L, fixed_quad, **kwargs):
+        if is_backend_array(E):
+            Tr = 0.0
+            if Rmean > rperi:
+                Tr = Tr + self._panel_quad(
+                    _TrSphericalIntegrandSmall_backend,
+                    0.0,
+                    numpy.sqrt(Rmean - rperi),
+                    (E, L, self._2dpot, rperi),
+                    fixed_quad,
+                )
+            if Rmean < rap:
+                Tr = Tr + self._panel_quad(
+                    _TrSphericalIntegrandLarge_backend,
+                    0.0,
+                    numpy.sqrt(rap - Rmean),
+                    (E, L, self._2dpot, rap),
+                    fixed_quad,
+                )
+            return 2.0 * numpy.pi / (2.0 * Tr)
         Tr = 0.0
         if Rmean > rperi and not fixed_quad:
             Tr += numpy.array(
@@ -968,6 +1054,26 @@ class actionAngleSpherical(actionAngle):
         return 2.0 * numpy.pi / Tr
 
     def _calc_op(self, Or, Rmean, rperi, rap, E, L, fixed_quad, **kwargs):
+        if is_backend_array(E):
+            I = 0.0
+            if Rmean > rperi:
+                I = I + self._panel_quad(
+                    _ISphericalIntegrandSmall_backend,
+                    0.0,
+                    numpy.sqrt(Rmean - rperi),
+                    (E, L, self._2dpot, rperi),
+                    fixed_quad,
+                )
+            if Rmean < rap:
+                I = I + self._panel_quad(
+                    _ISphericalIntegrandLarge_backend,
+                    0.0,
+                    numpy.sqrt(rap - Rmean),
+                    (E, L, self._2dpot, rap),
+                    fixed_quad,
+                )
+            I = I * 2 * L
+            return I * Or / 2.0 / numpy.pi
         # Azimuthal period
         I = 0.0
         if Rmean > rperi and not fixed_quad:
@@ -1026,6 +1132,41 @@ class actionAngleSpherical(actionAngle):
         return phi - u
 
     def _calc_angler(self, Or, r, Rmean, rperi, rap, E, L, vr, fixed_quad, **kwargs):
+        if is_backend_array(E):
+            # Active backend leaked into E: integrate the active panel in-backend
+            # (r, Rmean, rperi, rap, vr are float scalars; only E/L are arrays),
+            # then apply the same scalar quadrant logic as the numpy if/else.
+            if r < Rmean:
+                wr = (
+                    Or
+                    * self._panel_quad(
+                        _TrSphericalIntegrandSmall_backend,
+                        0.0,
+                        numpy.sqrt(r - rperi),
+                        (E, L, self._2dpot, rperi),
+                        fixed_quad,
+                    )
+                    if r > rperi
+                    else 0.0
+                )
+                wr_small_raw, wr_large_raw = wr, 0.0
+            else:
+                wr = (
+                    Or
+                    * self._panel_quad(
+                        _TrSphericalIntegrandLarge_backend,
+                        0.0,
+                        numpy.sqrt(rap - r),
+                        (E, L, self._2dpot, rap),
+                        fixed_quad,
+                    )
+                    if r < rap
+                    else 0.0
+                )
+                wr_small_raw, wr_large_raw = 0.0, wr
+            if r < Rmean:
+                return (2.0 * numpy.pi - wr_small_raw) if vr < 0.0 else wr_small_raw
+            return (numpy.pi + wr_large_raw) if vr < 0.0 else (numpy.pi - wr_large_raw)
         # Integrate only the active panel (small if r<Rmean else large) with
         # scipy; the lim==0 guards stay here. The quadrant assembly is shared
         # with the backend via _assemble_angler (xp.where; on numpy scalars this
@@ -1119,9 +1260,18 @@ class actionAngleSpherical(actionAngle):
         psi = psi % (2.0 * numpy.pi)
         # Calculate dSr/dL
         dpsi = Op / Or * 2.0 * numpy.pi  # this is the full I integral
+        backend_E = is_backend_array(E)
         if r < Rmean:
             if numpy.sqrt(r - rperi) == 0.0:
                 wz = 0.0
+            elif backend_E:
+                wz = L * self._panel_quad(
+                    _ISphericalIntegrandSmall_backend,
+                    0.0,
+                    numpy.sqrt(r - rperi),
+                    (E, L, self._2dpot, rperi),
+                    fixed_quad,
+                )
             elif not fixed_quad:
                 wz = (
                     L
@@ -1150,6 +1300,14 @@ class actionAngleSpherical(actionAngle):
         else:
             if numpy.sqrt(rap - r) == 0.0:
                 wz = 0.0
+            elif backend_E:
+                wz = L * self._panel_quad(
+                    _ISphericalIntegrandLarge_backend,
+                    0.0,
+                    numpy.sqrt(rap - r),
+                    (E, L, self._2dpot, rap),
+                    fixed_quad,
+                )
             elif not fixed_quad:
                 wz = (
                     L
@@ -1224,6 +1382,40 @@ def _ISphericalIntegrandSmall(t, E, L, pot, rperi):
 
 def _ISphericalIntegrandLarge(t, E, L, pot, rap):
     return _period_angle_integrand(numpy, t, rap, -1.0, E, L, pot, True)
+
+
+# Backend (jax/torch) namespace-agnostic counterparts of the four scipy module
+# integrands above, used by the in-backend GL routing in _calc_jr/_calc_or/
+# _calc_op/_calc_angler/_calc_anglez when the per-object E/L are backend arrays
+# (the active backend leaked them in via the potential). xp is resolved from the
+# node array, so these are byte-identical on numpy if ever called there.
+def _JrSphericalIntegrand_backend(r, E, L, pot):
+    xp = get_namespace(r, E, L)
+    return xp.sqrt(_radicand(xp, r, E, L, pot))
+
+
+def _TrSphericalIntegrandSmall_backend(t, E, L, pot, rperi):
+    return _period_angle_integrand(
+        get_namespace(t, E, L), t, rperi, 1.0, E, L, pot, False
+    )
+
+
+def _TrSphericalIntegrandLarge_backend(t, E, L, pot, rap):
+    return _period_angle_integrand(
+        get_namespace(t, E, L), t, rap, -1.0, E, L, pot, False
+    )
+
+
+def _ISphericalIntegrandSmall_backend(t, E, L, pot, rperi):
+    return _period_angle_integrand(
+        get_namespace(t, E, L), t, rperi, 1.0, E, L, pot, True
+    )
+
+
+def _ISphericalIntegrandLarge_backend(t, E, L, pot, rap):
+    return _period_angle_integrand(
+        get_namespace(t, E, L), t, rap, -1.0, E, L, pot, True
+    )
 
 
 def _rapRperiAxiEq(R, E, L, pot):

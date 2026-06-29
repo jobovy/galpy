@@ -3851,7 +3851,8 @@ class Orbit:
             numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
             numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
         )
-        if numpy.sum(indx) > 0:
+        xp = get_namespace(indx)
+        if int(xp.sum(xp.asarray(indx))) > 0:
             (
                 self._aA_ecc[indx],
                 self._aA_zmax[indx],
@@ -3909,7 +3910,8 @@ class Orbit:
             numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
             numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
         )
-        if numpy.sum(indx) > 0:
+        xp = get_namespace(indx)
+        if int(xp.sum(xp.asarray(indx))) > 0:
             (
                 self._aA_jr[indx],
                 self._aA_jp[indx],

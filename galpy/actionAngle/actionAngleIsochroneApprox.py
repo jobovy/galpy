@@ -158,7 +158,15 @@ class actionAngleIsochroneApprox(actionAngle):
         - 2013-09-10 - Written - Bovy (IAS).
         """
         R, vR, vT, z, vz, phi = self._parse_args(False, False, *args)
-        if is_backend_array(R):
+        # Backend dispatch: either R is already a backend array (array/Orbit ICs
+        # routed through _parse_args_backend), or a forced backend leaks backend
+        # arrays out of the inner self._aAI even though R came back as numpy (the
+        # per-object numpy assembly loop) -- coerce and route to the backend body.
+        xp = get_namespace(R)
+        if xp is not numpy:
+            R, vR, vT, z, vz, phi = _backend_promote(
+                xp, R, vR, vT, z, vz, phi, already=is_backend_array(R)
+            )
             return self._evaluate_backend(R, vR, vT, z, vz, phi, **kwargs)
         if self._c:  # pragma: no cover
             pass
@@ -303,9 +311,17 @@ class actionAngleIsochroneApprox(actionAngle):
             ts[self._ntintJ - 1 :] = self._tsJ
             ts[: self._ntintJ - 1] = -self._tsJ[1:][::-1]
         maxn = kwargs.get("maxn", self._maxn)
-        if is_backend_array(R):
+        # See _evaluate: dispatch to the backend body when R is a backend array
+        # OR a forced backend leaks backend arrays out of the inner self._aAI.
+        xp = get_namespace(R)
+        if xp is not numpy:
+            R, vR, vT, z, vz, phi = _backend_promote(
+                xp, R, vR, vT, z, vz, phi, already=is_backend_array(R)
+            )
+            # ts/maxn are passed positionally; drop them from the forwarded kwargs
+            bkwargs = {k: v for k, v in kwargs.items() if k not in ("ts", "maxn")}
             return self._actionsFreqsAngles_backend(
-                R, vR, vT, z, vz, phi, ts, maxn, **kwargs
+                R, vR, vT, z, vz, phi, ts, maxn, **bkwargs
             )
         if self._c:  # pragma: no cover
             pass
@@ -522,6 +538,11 @@ class actionAngleIsochroneApprox(actionAngle):
             vz.flatten(),
             phi.flatten(),
         )
+        # Plotting is host-only: a forced backend leaks backend arrays out of the
+        # inner self._aAI -- bring them (and R) back to numpy for matplotlib.
+        if is_backend_array(acfs[0]) or is_backend_array(R):
+            acfs = [numpy.asarray(a) for a in acfs]
+            R = numpy.asarray(R)
         if type == "jr" or type == "lz" or type == "jz":
             jrI = numpy.reshape(acfs[0], R.shape)[:, :-1]
             jzI = numpy.reshape(acfs[2], R.shape)[:, :-1]
@@ -1158,6 +1179,16 @@ def _backend_roll1(xp, arr):
 def _backend_rollm1(xp, arr):
     """xp equivalent of numpy.roll(arr, -1, axis=1): first column wraps to back."""
     return xp.concatenate([arr[:, 1:], arr[:, :1]], axis=1)
+
+
+def _backend_promote(xp, *arrays, already=False):
+    """Coerce the parsed phase-space arrays onto the backend xp when a forced
+    backend leaked backend arrays out of the inner isochrone actionAngle but the
+    per-object numpy assembly handed back numpy R (already=False); a no-op when
+    they are already backend arrays (already=True)."""
+    if already:
+        return arrays
+    return tuple(xp.asarray(numpy.asarray(a, dtype=float)) for a in arrays)
 
 
 def _backend_dangle(xp, angle):

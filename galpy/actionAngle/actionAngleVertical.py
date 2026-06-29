@@ -425,12 +425,16 @@ class actionAngleVertical(actionAngle):
 
     def _evaluate_backend(self, x, vx):
         xp = get_namespace(x)
+        # 0-d single-orbit input (e.g. obs.x()) -> (1,) so the N-axis used by the
+        # [:, None] broadcasts below exists; numpy path is always (1,) too.
+        x, vx = xp.atleast_1d(x), xp.atleast_1d(vx)
         E = self._E_backend(x, vx)
         xmax = self._calc_xmax_backend(x, vx, E)
         return self._calc_J_backend(xp, xmax, E)
 
     def _actionsFreqs_backend(self, x, vx):
         xp = get_namespace(x)
+        x, vx = xp.atleast_1d(x), xp.atleast_1d(vx)
         E = self._E_backend(x, vx)
         xmax = self._calc_xmax_backend(x, vx, E)
         return (
@@ -440,6 +444,7 @@ class actionAngleVertical(actionAngle):
 
     def _actionsFreqsAngles_backend(self, x, vx):
         xp = get_namespace(x)
+        x, vx = xp.atleast_1d(x), xp.atleast_1d(vx)
         E = self._E_backend(x, vx)
         xmax = self._calc_xmax_backend(x, vx, E)
         J = self._calc_J_backend(xp, xmax, E)

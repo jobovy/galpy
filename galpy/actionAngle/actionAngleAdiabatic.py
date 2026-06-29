@@ -30,6 +30,14 @@ from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleVertical import actionAngleVertical
 
 
+def _atleast_1d(x):
+    # atleast_1d in x's namespace, promoting numpy scalars onto a forced backend
+    # (under a backend potential the per-object scalar path mixes numpy + backend
+    # values; asarray unifies them). numpy path stays byte-identical.
+    xp = get_namespace(x)
+    return xp.atleast_1d(xp.asarray(x))
+
+
 class actionAngleAdiabatic(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
 
@@ -267,15 +275,16 @@ class actionAngleAdiabatic(actionAngle):
                 Jz, Oz = aAV.actionsFreqs(z[0], vz[0])
             else:  # 2D in-plane
                 Jz = numpy.zeros(1)
-                Oz = numpy.ones(1) * self._pot.verticalfreq(R[0])
+                # verticalfreq follows the (possibly backend) potential, not R.
+                Oz = self._pot.verticalfreq(R[0])
             axiJO = self._aAS.actionsFreqs(R[0], vR[0], vT[0], 0.0, 0.0, _Jz=Jz)
             return (
-                numpy.atleast_1d(axiJO[0]),
-                numpy.atleast_1d(axiJO[1]),
-                numpy.atleast_1d(Jz),
-                numpy.atleast_1d(axiJO[3]),
-                numpy.atleast_1d(axiJO[4]),
-                numpy.atleast_1d(Oz),
+                _atleast_1d(axiJO[0]),
+                _atleast_1d(axiJO[1]),
+                _atleast_1d(Jz),
+                _atleast_1d(axiJO[3]),
+                _atleast_1d(axiJO[4]),
+                _atleast_1d(Oz),
             )
 
     def _actionsFreqsAngles(self, *args, **kwargs):
@@ -359,21 +368,22 @@ class actionAngleAdiabatic(actionAngle):
                 Jz, Oz, az = aAV.actionsFreqsAngles(z[0], vz[0])
             else:  # 2D in-plane
                 Jz = numpy.zeros(1)
-                Oz = numpy.ones(1) * self._pot.verticalfreq(R[0])
+                # verticalfreq follows the (possibly backend) potential, not R.
+                Oz = self._pot.verticalfreq(R[0])
                 az = numpy.zeros(1)
             axiJO = self._aAS.actionsFreqsAngles(
                 R[0], vR[0], vT[0], 0.0, 0.0, phi[0], _Jz=Jz
             )
             return (
-                numpy.atleast_1d(axiJO[0]),
-                numpy.atleast_1d(axiJO[1]),
-                numpy.atleast_1d(Jz),
-                numpy.atleast_1d(axiJO[3]),
-                numpy.atleast_1d(axiJO[4]),
-                numpy.atleast_1d(Oz),
-                numpy.atleast_1d(axiJO[6]),
-                numpy.atleast_1d(axiJO[7]),
-                numpy.atleast_1d(az),
+                _atleast_1d(axiJO[0]),
+                _atleast_1d(axiJO[1]),
+                _atleast_1d(Jz),
+                _atleast_1d(axiJO[3]),
+                _atleast_1d(axiJO[4]),
+                _atleast_1d(Oz),
+                _atleast_1d(axiJO[6]),
+                _atleast_1d(axiJO[7]),
+                _atleast_1d(az),
             )
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
