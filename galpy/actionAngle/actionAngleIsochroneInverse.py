@@ -10,7 +10,7 @@
 import numpy
 from scipy import optimize
 
-from ..backend import get_namespace, promote_scalars
+from ..backend import get_namespace, numpy_island, promote_scalars
 from ..potential import IsochronePotential
 from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
@@ -74,6 +74,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         self._check_consistent_units()
         return None
 
+    @numpy_island
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus.
@@ -104,6 +105,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         """
         return self._xvFreqs(jr, jphi, jz, angler, anglephi, anglez, **kwargs)[:6]
 
+    @numpy_island
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies.
@@ -212,6 +214,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         phi = xp.where(phi < 0.0, phi + 2.0 * numpy.pi, phi)
         return (R, vR, jphi / R, z, vz, phi, omegar, xp.sign(jphi) * omegaz, omegaz)
 
+    @numpy_island
     def _Freqs(self, jr, jphi, jz, **kwargs):
         """
         Return the frequencies corresponding to a torus

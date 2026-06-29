@@ -9,7 +9,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace, promote_scalars
+from ..backend import get_namespace, numpy_island, promote_scalars
 from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
 
@@ -43,6 +43,7 @@ class actionAngleHarmonicInverse(actionAngleInverse):
         self._omega = omega
         return None
 
+    @numpy_island
     def _evaluate(self, j, angle, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
@@ -65,6 +66,7 @@ class actionAngleHarmonicInverse(actionAngleInverse):
         """
         return self._xvFreqs(j, angle, **kwargs)[:2]
 
+    @numpy_island
     def _xvFreqs(self, j, angle, **kwargs):
         """
         Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequency
@@ -96,6 +98,7 @@ class actionAngleHarmonicInverse(actionAngleInverse):
         vx = amp * self._omega * xp.cos(angle)
         return (x, vx, self._omega)
 
+    @numpy_island
     def _Freqs(self, j, **kwargs):
         """
         Return the frequency corresponding to a torus
