@@ -4,7 +4,7 @@
 import numpy
 from scipy import interpolate
 
-from ..backend import get_namespace, match_input_dtype
+from ..backend import get_namespace, match_input_dtype, use
 from ..backend.interpolate import eval_ppoly as _ppoly_eval
 from ..backend.interpolate import spline_to_ppoly as _spline_to_ppoly_data
 from ..util._optional_deps import _JAX_LOADED
@@ -59,52 +59,58 @@ class interpSphericalPotential(SphericalPotential):
                 1e-3 if rgrid[0] == 0.0 else rgrid[0], rgrid[-1], 10001
             )
         )
-        # Determine whether rforce is a galpy Potential or a combined potential formed using addition (pot1+pot2+…)
-        try:
-            _evaluateRforces(rforce, 1.0, 0.0)
-        except:
-            _rforce = rforce
-            Phi0 = 0.0 if Phi0 is None else Phi0
-        else:
-            _rforce = lambda r: _evaluateRforces(rforce, r, 0.0)
-            # Determine Phi0
-            Phi0 = _evaluatePotentials(rforce, rgrid[0], 0.0)
-            # Also check that unit systems are compatible
-            if not physical_compatible(self, rforce):
-                raise RuntimeError(
-                    "Unit conversion factors ro and vo incompatible between Potential to be interpolated and the factors given to interpSphericalPotential"
-                )
-            # If set for the parent, set for the interpolated
-            phys = get_physical(rforce, include_set=True)
-            if phys["roSet"]:
-                self.turn_physical_on(ro=phys["ro"])
-            if phys["voSet"]:
-                self.turn_physical_on(vo=phys["vo"])
-        self._rforce_grid = numpy.array([_rforce(r) for r in rgrid])
-        self._force_spline = interpolate.InterpolatedUnivariateSpline(
-            self._rgrid, self._rforce_grid, k=3, ext=0
-        )
-        self._rforce_jax_grid = numpy.array(
-            [self._force_spline(r) for r in self._rforce_jax_rgrid]
-        )
-        # Get potential and r2deriv as splines for the integral and derivative
-        self._pot_spline = self._force_spline.antiderivative()
-        self._Phi0 = Phi0 + self._pot_spline(self._rgrid[0])
-        self._r2deriv_spline = self._force_spline.derivative()
-        # Piecewise-power (PPoly) representation of the three splines for the
-        # non-numpy backends (see _ppoly_eval). The antiderivative/derivative
-        # splines share the force spline's knots, so a single breakpoint array
-        # serves all three coefficient sets.
-        self._ppoly_x, self._force_ppoly_c = _spline_to_ppoly_data(self._force_spline)
-        _, self._pot_ppoly_c = _spline_to_ppoly_data(self._pot_spline)
-        _, self._r2deriv_ppoly_c = _spline_to_ppoly_data(self._r2deriv_spline)
-        # Extrapolate as mass within rgrid[-1]
-        self._rmin = rgrid[0]
-        self._rmax = rgrid[-1]
-        self._total_mass = -(self._rmax**2.0) * self._force_spline(self._rmax)
-        self._Phimax = (
-            -self._pot_spline(self._rmax) + self._Phi0 + self._total_mass / self._rmax
-        )
+        # Build the (numpy/scipy) interpolation grid; force numpy so an outer forced jax/torch backend doesn't leak in.
+        with use("numpy", force=True):
+            # Determine whether rforce is a galpy Potential or a combined potential formed using addition (pot1+pot2+…)
+            try:
+                _evaluateRforces(rforce, 1.0, 0.0)
+            except:
+                _rforce = rforce
+                Phi0 = 0.0 if Phi0 is None else Phi0
+            else:
+                _rforce = lambda r: _evaluateRforces(rforce, r, 0.0)
+                # Determine Phi0
+                Phi0 = _evaluatePotentials(rforce, rgrid[0], 0.0)
+                # Also check that unit systems are compatible
+                if not physical_compatible(self, rforce):
+                    raise RuntimeError(
+                        "Unit conversion factors ro and vo incompatible between Potential to be interpolated and the factors given to interpSphericalPotential"
+                    )
+                # If set for the parent, set for the interpolated
+                phys = get_physical(rforce, include_set=True)
+                if phys["roSet"]:
+                    self.turn_physical_on(ro=phys["ro"])
+                if phys["voSet"]:
+                    self.turn_physical_on(vo=phys["vo"])
+            self._rforce_grid = numpy.array([_rforce(r) for r in rgrid])
+            self._force_spline = interpolate.InterpolatedUnivariateSpline(
+                self._rgrid, self._rforce_grid, k=3, ext=0
+            )
+            self._rforce_jax_grid = numpy.array(
+                [self._force_spline(r) for r in self._rforce_jax_rgrid]
+            )
+            # Get potential and r2deriv as splines for the integral and derivative
+            self._pot_spline = self._force_spline.antiderivative()
+            self._Phi0 = Phi0 + self._pot_spline(self._rgrid[0])
+            self._r2deriv_spline = self._force_spline.derivative()
+            # Piecewise-power (PPoly) representation of the three splines for the
+            # non-numpy backends (see _ppoly_eval). The antiderivative/derivative
+            # splines share the force spline's knots, so a single breakpoint array
+            # serves all three coefficient sets.
+            self._ppoly_x, self._force_ppoly_c = _spline_to_ppoly_data(
+                self._force_spline
+            )
+            _, self._pot_ppoly_c = _spline_to_ppoly_data(self._pot_spline)
+            _, self._r2deriv_ppoly_c = _spline_to_ppoly_data(self._r2deriv_spline)
+            # Extrapolate as mass within rgrid[-1]
+            self._rmin = rgrid[0]
+            self._rmax = rgrid[-1]
+            self._total_mass = -(self._rmax**2.0) * self._force_spline(self._rmax)
+            self._Phimax = (
+                -self._pot_spline(self._rmax)
+                + self._Phi0
+                + self._total_mass / self._rmax
+            )
         self.hasC = True
         self._backend_compatible = True
         self.hasC_dxdv = True

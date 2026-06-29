@@ -16,7 +16,7 @@ from scipy import interpolate, ndimage, optimize
 from .. import potential
 from ..backend import get_namespace
 from ..backend import interpolate as backend_interpolate
-from ..backend import is_backend_array
+from ..backend import is_backend_array, use
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -96,244 +96,248 @@ class actionAngleStaeckelGrid(actionAngle):
         self._aA = actionAngleStaeckel.actionAngleStaeckel(
             pot=self._pot, delta=self._delta, c=self._c
         )
-        # Build grid
-        self._Lzmin = 0.01
-        self._Lzs = numpy.linspace(
-            self._Lzmin, self._Rmax * potential.vcirc(self._pot, self._Rmax), nLz
-        )
-        self._Lzmax = self._Lzs[-1]
-        self._nLz = nLz
-        # Calculate E_c(R=RL), energy of circular orbit
-        self._RL = numpy.array([potential.rl(self._pot, l) for l in self._Lzs])
-        self._RLInterp = interpolate.InterpolatedUnivariateSpline(
-            self._Lzs, self._RL, k=3
-        )
-        self._ERL = (
-            _evaluatePotentials(self._pot, self._RL, numpy.zeros(self._nLz))
-            + self._Lzs**2.0 / 2.0 / self._RL**2.0
-        )
-        self._ERLmax = numpy.amax(self._ERL) + 1.0
-        self._ERLInterp = interpolate.InterpolatedUnivariateSpline(
-            self._Lzs, numpy.log(-(self._ERL - self._ERLmax)), k=3
-        )
-        self._Ramax = 200.0 / 8.0
-        self._ERa = (
-            _evaluatePotentials(self._pot, self._Ramax, 0.0)
-            + self._Lzs**2.0 / 2.0 / self._Ramax**2.0
-        )
-        # self._EEsc= numpy.array([self._ERL[ii]+potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
-        self._ERamax = numpy.amax(self._ERa) + 1.0
-        self._ERaInterp = interpolate.InterpolatedUnivariateSpline(
-            self._Lzs, numpy.log(-(self._ERa - self._ERamax)), k=3
-        )
-        y = numpy.linspace(0.0, 1.0, nE)
-        self._nE = nE
-        psis = numpy.linspace(0.0, 1.0, npsi) * numpy.pi / 2.0
-        self._npsi = npsi
-        jr = numpy.zeros((nLz, nE, npsi))
-        jz = numpy.zeros((nLz, nE, npsi))
-        u0 = numpy.zeros((nLz, nE))
-        jrLzE = numpy.zeros(nLz)
-        jzLzE = numpy.zeros(nLz)
-        # First calculate u0
-        thisLzs = (numpy.tile(self._Lzs, (nE, 1)).T).flatten()
-        thisERL = (numpy.tile(self._ERL, (nE, 1)).T).flatten()
-        thisERa = (numpy.tile(self._ERa, (nE, 1)).T).flatten()
-        this = (numpy.tile(y, (nLz, 1))).flatten()
-        thisE = _invEfunc(
-            _Efunc(thisERa, thisERL)
-            + this * (_Efunc(thisERL, thisERL) - _Efunc(thisERa, thisERL)),
-            thisERL,
-        )
-        if isinstance(self._pot, potential.interpRZPotential) and hasattr(
-            self._pot, "_origPot"
-        ):
-            u0pot = self._pot._origPot
-        else:
-            u0pot = self._pot
-        if self._c:
-            mu0 = actionAngleStaeckel_c.actionAngleStaeckel_calcu0(
-                thisE, thisLzs, u0pot, self._delta
-            )[0]
-        else:
-            if numcores > 1:
-                mu0 = multi.parallel_map(
-                    (lambda x: self.calcu0(thisE[x], thisLzs[x])),
-                    range(nE * nLz),
-                    numcores=numcores,
-                )
+        # Build the (numpy/scipy) interpolation grid; force numpy so an outer forced jax/torch backend doesn't leak in.
+        with use("numpy", force=True):
+            self._Lzmin = 0.01
+            self._Lzs = numpy.linspace(
+                self._Lzmin, self._Rmax * potential.vcirc(self._pot, self._Rmax), nLz
+            )
+            self._Lzmax = self._Lzs[-1]
+            self._nLz = nLz
+            # Calculate E_c(R=RL), energy of circular orbit
+            self._RL = numpy.array([potential.rl(self._pot, l) for l in self._Lzs])
+            self._RLInterp = interpolate.InterpolatedUnivariateSpline(
+                self._Lzs, self._RL, k=3
+            )
+            self._ERL = (
+                _evaluatePotentials(self._pot, self._RL, numpy.zeros(self._nLz))
+                + self._Lzs**2.0 / 2.0 / self._RL**2.0
+            )
+            self._ERLmax = numpy.amax(self._ERL) + 1.0
+            self._ERLInterp = interpolate.InterpolatedUnivariateSpline(
+                self._Lzs, numpy.log(-(self._ERL - self._ERLmax)), k=3
+            )
+            self._Ramax = 200.0 / 8.0
+            self._ERa = (
+                _evaluatePotentials(self._pot, self._Ramax, 0.0)
+                + self._Lzs**2.0 / 2.0 / self._Ramax**2.0
+            )
+            # self._EEsc= numpy.array([self._ERL[ii]+potential.vesc(self._pot,self._RL[ii])**2./4. for ii in range(nLz)])
+            self._ERamax = numpy.amax(self._ERa) + 1.0
+            self._ERaInterp = interpolate.InterpolatedUnivariateSpline(
+                self._Lzs, numpy.log(-(self._ERa - self._ERamax)), k=3
+            )
+            y = numpy.linspace(0.0, 1.0, nE)
+            self._nE = nE
+            psis = numpy.linspace(0.0, 1.0, npsi) * numpy.pi / 2.0
+            self._npsi = npsi
+            jr = numpy.zeros((nLz, nE, npsi))
+            jz = numpy.zeros((nLz, nE, npsi))
+            u0 = numpy.zeros((nLz, nE))
+            jrLzE = numpy.zeros(nLz)
+            jzLzE = numpy.zeros(nLz)
+            # First calculate u0
+            thisLzs = (numpy.tile(self._Lzs, (nE, 1)).T).flatten()
+            thisERL = (numpy.tile(self._ERL, (nE, 1)).T).flatten()
+            thisERa = (numpy.tile(self._ERa, (nE, 1)).T).flatten()
+            this = (numpy.tile(y, (nLz, 1))).flatten()
+            thisE = _invEfunc(
+                _Efunc(thisERa, thisERL)
+                + this * (_Efunc(thisERL, thisERL) - _Efunc(thisERa, thisERL)),
+                thisERL,
+            )
+            if isinstance(self._pot, potential.interpRZPotential) and hasattr(
+                self._pot, "_origPot"
+            ):
+                u0pot = self._pot._origPot
             else:
-                mu0 = list(
-                    map((lambda x: self.calcu0(thisE[x], thisLzs[x])), range(nE * nLz))
-                )
-        u0 = numpy.reshape(mu0, (nLz, nE))
-        thisR = self._delta * numpy.sinh(u0)
-        thisv = numpy.reshape(
-            self.vatu0(
-                thisE.flatten(), thisLzs.flatten(), u0.flatten(), thisR.flatten()
-            ),
-            (nLz, nE),
-        )
-        self.thisv = thisv
-        # reshape
-        thisLzs = numpy.reshape(thisLzs, (nLz, nE))
-        thispsi = numpy.tile(psis, (nLz, nE, 1)).flatten()
-        thisLzs = numpy.tile(thisLzs.T, (npsi, 1, 1)).T.flatten()
-        thisR = numpy.tile(thisR.T, (npsi, 1, 1)).T.flatten()
-        thisv = numpy.tile(thisv.T, (npsi, 1, 1)).T.flatten()
-        mjr, mlz, mjz = self._aA(
-            thisR,  # R
-            thisv * numpy.cos(thispsi),  # vR
-            thisLzs / thisR,  # vT
-            numpy.zeros(len(thisR)),  # z
-            thisv * numpy.sin(thispsi),  # vz
-            fixed_quad=True,
-        )
-        if interpecc:
-            mecc, mzmax, mrperi, mrap = self._aA.EccZmaxRperiRap(
+                u0pot = self._pot
+            if self._c:
+                mu0 = actionAngleStaeckel_c.actionAngleStaeckel_calcu0(
+                    thisE, thisLzs, u0pot, self._delta
+                )[0]
+            else:
+                if numcores > 1:
+                    mu0 = multi.parallel_map(
+                        (lambda x: self.calcu0(thisE[x], thisLzs[x])),
+                        range(nE * nLz),
+                        numcores=numcores,
+                    )
+                else:
+                    mu0 = list(
+                        map(
+                            (lambda x: self.calcu0(thisE[x], thisLzs[x])),
+                            range(nE * nLz),
+                        )
+                    )
+            u0 = numpy.reshape(mu0, (nLz, nE))
+            thisR = self._delta * numpy.sinh(u0)
+            thisv = numpy.reshape(
+                self.vatu0(
+                    thisE.flatten(), thisLzs.flatten(), u0.flatten(), thisR.flatten()
+                ),
+                (nLz, nE),
+            )
+            self.thisv = thisv
+            # reshape
+            thisLzs = numpy.reshape(thisLzs, (nLz, nE))
+            thispsi = numpy.tile(psis, (nLz, nE, 1)).flatten()
+            thisLzs = numpy.tile(thisLzs.T, (npsi, 1, 1)).T.flatten()
+            thisR = numpy.tile(thisR.T, (npsi, 1, 1)).T.flatten()
+            thisv = numpy.tile(thisv.T, (npsi, 1, 1)).T.flatten()
+            mjr, mlz, mjz = self._aA(
                 thisR,  # R
                 thisv * numpy.cos(thispsi),  # vR
                 thisLzs / thisR,  # vT
                 numpy.zeros(len(thisR)),  # z
-                thisv * numpy.sin(thispsi),
-            )  # vz
-        if isinstance(self._pot, potential.interpRZPotential) and hasattr(
-            self._pot, "_origPot"
-        ):
-            # Interpolated potentials have problems with extreme orbits
-            indx = mjr == 9999.99
-            indx += mjz == 9999.99
-            # Re-calculate these using the original potential, hopefully not too slow
-            tmpaA = actionAngleStaeckel.actionAngleStaeckel(
-                pot=self._pot._origPot, delta=self._delta, c=self._c
-            )
-            mjr[indx], dumb, mjz[indx] = tmpaA(
-                thisR[indx],  # R
-                thisv[indx] * numpy.cos(thispsi[indx]),  # vR
-                thisLzs[indx] / thisR[indx],  # vT
-                numpy.zeros(numpy.sum(indx)),  # z
-                thisv[indx] * numpy.sin(thispsi[indx]),  # vz
+                thisv * numpy.sin(thispsi),  # vz
                 fixed_quad=True,
             )
             if interpecc:
-                (
-                    mecc[indx],
-                    mzmax[indx],
-                    mrperi[indx],
-                    mrap[indx],
-                ) = self._aA.EccZmaxRperiRap(
+                mecc, mzmax, mrperi, mrap = self._aA.EccZmaxRperiRap(
+                    thisR,  # R
+                    thisv * numpy.cos(thispsi),  # vR
+                    thisLzs / thisR,  # vT
+                    numpy.zeros(len(thisR)),  # z
+                    thisv * numpy.sin(thispsi),
+                )  # vz
+            if isinstance(self._pot, potential.interpRZPotential) and hasattr(
+                self._pot, "_origPot"
+            ):
+                # Interpolated potentials have problems with extreme orbits
+                indx = mjr == 9999.99
+                indx += mjz == 9999.99
+                # Re-calculate these using the original potential, hopefully not too slow
+                tmpaA = actionAngleStaeckel.actionAngleStaeckel(
+                    pot=self._pot._origPot, delta=self._delta, c=self._c
+                )
+                mjr[indx], dumb, mjz[indx] = tmpaA(
                     thisR[indx],  # R
                     thisv[indx] * numpy.cos(thispsi[indx]),  # vR
                     thisLzs[indx] / thisR[indx],  # vT
                     numpy.zeros(numpy.sum(indx)),  # z
-                    thisv[indx] * numpy.sin(thispsi[indx]),
-                )  # vz
-        jr = numpy.reshape(mjr, (nLz, nE, npsi))
-        jz = numpy.reshape(mjz, (nLz, nE, npsi))
-        if interpecc:
-            ecc = numpy.reshape(mecc, (nLz, nE, npsi))
-            zmax = numpy.reshape(mzmax, (nLz, nE, npsi))
-            rperi = numpy.reshape(mrperi, (nLz, nE, npsi))
-            rap = numpy.reshape(mrap, (nLz, nE, npsi))
-            zmaxLzE = numpy.zeros(nLz)
-            rperiLzE = numpy.zeros(nLz)
-            rapLzE = numpy.zeros(nLz)
-        for ii in range(nLz):
-            jrLzE[ii] = numpy.nanmax(jr[ii, (jr[ii, :, :] != 9999.99)])  #:,:])
-            jzLzE[ii] = numpy.nanmax(jz[ii, (jz[ii, :, :] != 9999.99)])  #:,:])
+                    thisv[indx] * numpy.sin(thispsi[indx]),  # vz
+                    fixed_quad=True,
+                )
+                if interpecc:
+                    (
+                        mecc[indx],
+                        mzmax[indx],
+                        mrperi[indx],
+                        mrap[indx],
+                    ) = self._aA.EccZmaxRperiRap(
+                        thisR[indx],  # R
+                        thisv[indx] * numpy.cos(thispsi[indx]),  # vR
+                        thisLzs[indx] / thisR[indx],  # vT
+                        numpy.zeros(numpy.sum(indx)),  # z
+                        thisv[indx] * numpy.sin(thispsi[indx]),
+                    )  # vz
+            jr = numpy.reshape(mjr, (nLz, nE, npsi))
+            jz = numpy.reshape(mjz, (nLz, nE, npsi))
             if interpecc:
-                zmaxLzE[ii] = numpy.amax(zmax[ii, numpy.isfinite(zmax[ii])])
-                rperiLzE[ii] = numpy.amax(rperi[ii, numpy.isfinite(rperi[ii])])
-                rapLzE[ii] = numpy.amax(rap[ii, numpy.isfinite(rap[ii])])
-        jrLzE[(jrLzE == 0.0)] = numpy.nanmin(jrLzE[(jrLzE > 0.0)])
-        jzLzE[(jzLzE == 0.0)] = numpy.nanmin(jzLzE[(jzLzE > 0.0)])
-        if interpecc:
-            zmaxLzE[(zmaxLzE == 0.0)] = numpy.nanmin(zmaxLzE[(zmaxLzE > 0.0)])
-            rperiLzE[(rperiLzE == 0.0)] = numpy.nanmin(rperiLzE[(rperiLzE > 0.0)])
-            rapLzE[(rapLzE == 0.0)] = numpy.nanmin(rapLzE[(rapLzE > 0.0)])
-        for ii in range(nLz):
-            jr[ii, :, :] /= jrLzE[ii]
-            jz[ii, :, :] /= jzLzE[ii]
+                ecc = numpy.reshape(mecc, (nLz, nE, npsi))
+                zmax = numpy.reshape(mzmax, (nLz, nE, npsi))
+                rperi = numpy.reshape(mrperi, (nLz, nE, npsi))
+                rap = numpy.reshape(mrap, (nLz, nE, npsi))
+                zmaxLzE = numpy.zeros(nLz)
+                rperiLzE = numpy.zeros(nLz)
+                rapLzE = numpy.zeros(nLz)
+            for ii in range(nLz):
+                jrLzE[ii] = numpy.nanmax(jr[ii, (jr[ii, :, :] != 9999.99)])  #:,:])
+                jzLzE[ii] = numpy.nanmax(jz[ii, (jz[ii, :, :] != 9999.99)])  #:,:])
+                if interpecc:
+                    zmaxLzE[ii] = numpy.amax(zmax[ii, numpy.isfinite(zmax[ii])])
+                    rperiLzE[ii] = numpy.amax(rperi[ii, numpy.isfinite(rperi[ii])])
+                    rapLzE[ii] = numpy.amax(rap[ii, numpy.isfinite(rap[ii])])
+            jrLzE[(jrLzE == 0.0)] = numpy.nanmin(jrLzE[(jrLzE > 0.0)])
+            jzLzE[(jzLzE == 0.0)] = numpy.nanmin(jzLzE[(jzLzE > 0.0)])
             if interpecc:
-                zmax[ii, :, :] /= zmaxLzE[ii]
-                rperi[ii, :, :] /= rperiLzE[ii]
-                rap[ii, :, :] /= rapLzE[ii]
-        # Deal w/ 9999.99
-        jr[(jr > 1.0)] = 1.0
-        jz[(jz > 1.0)] = 1.0
-        # Deal w/ NaN
-        jr[numpy.isnan(jr)] = 0.0
-        jz[numpy.isnan(jz)] = 0.0
-        if interpecc:
-            ecc[(ecc < 0.0)] = 0.0
-            ecc[(ecc > 1.0)] = 1.0
-            ecc[numpy.isnan(ecc)] = 0.0
-            ecc[numpy.isinf(ecc)] = 1.0
-            zmax[(zmax > 1.0)] = 1.0
-            zmax[numpy.isnan(zmax)] = 0.0
-            zmax[numpy.isinf(zmax)] = 1.0
-            rperi[(rperi > 1.0)] = 1.0
-            rperi[numpy.isnan(rperi)] = 0.0
-            rperi[numpy.isinf(rperi)] = 0.0  # typically orbits that can reach 0
-            rap[(rap > 1.0)] = 1.0
-            rap[numpy.isnan(rap)] = 0.0
-            rap[numpy.isinf(rap)] = 1.0
-        # First interpolate the maxima
-        self._jr = jr
-        self._jz = jz
-        self._u0 = u0
-        self._jrLzE = jrLzE
-        self._jzLzE = jzLzE
-        self._jrLzInterp = interpolate.InterpolatedUnivariateSpline(
-            self._Lzs, numpy.log(jrLzE + 10.0**-5.0), k=3
-        )
-        self._jzLzInterp = interpolate.InterpolatedUnivariateSpline(
-            self._Lzs, numpy.log(jzLzE + 10.0**-5.0), k=3
-        )
-        if interpecc:
-            self._ecc = ecc
-            self._zmax = zmax
-            self._rperi = rperi
-            self._rap = rap
-            self._zmaxLzE = zmaxLzE
-            self._rperiLzE = rperiLzE
-            self._rapLzE = rapLzE
-            self._zmaxLzInterp = interpolate.InterpolatedUnivariateSpline(
-                self._Lzs, numpy.log(zmaxLzE + 10.0**-5.0), k=3
+                zmaxLzE[(zmaxLzE == 0.0)] = numpy.nanmin(zmaxLzE[(zmaxLzE > 0.0)])
+                rperiLzE[(rperiLzE == 0.0)] = numpy.nanmin(rperiLzE[(rperiLzE > 0.0)])
+                rapLzE[(rapLzE == 0.0)] = numpy.nanmin(rapLzE[(rapLzE > 0.0)])
+            for ii in range(nLz):
+                jr[ii, :, :] /= jrLzE[ii]
+                jz[ii, :, :] /= jzLzE[ii]
+                if interpecc:
+                    zmax[ii, :, :] /= zmaxLzE[ii]
+                    rperi[ii, :, :] /= rperiLzE[ii]
+                    rap[ii, :, :] /= rapLzE[ii]
+            # Deal w/ 9999.99
+            jr[(jr > 1.0)] = 1.0
+            jz[(jz > 1.0)] = 1.0
+            # Deal w/ NaN
+            jr[numpy.isnan(jr)] = 0.0
+            jz[numpy.isnan(jz)] = 0.0
+            if interpecc:
+                ecc[(ecc < 0.0)] = 0.0
+                ecc[(ecc > 1.0)] = 1.0
+                ecc[numpy.isnan(ecc)] = 0.0
+                ecc[numpy.isinf(ecc)] = 1.0
+                zmax[(zmax > 1.0)] = 1.0
+                zmax[numpy.isnan(zmax)] = 0.0
+                zmax[numpy.isinf(zmax)] = 1.0
+                rperi[(rperi > 1.0)] = 1.0
+                rperi[numpy.isnan(rperi)] = 0.0
+                rperi[numpy.isinf(rperi)] = 0.0  # typically orbits that can reach 0
+                rap[(rap > 1.0)] = 1.0
+                rap[numpy.isnan(rap)] = 0.0
+                rap[numpy.isinf(rap)] = 1.0
+            # First interpolate the maxima
+            self._jr = jr
+            self._jz = jz
+            self._u0 = u0
+            self._jrLzE = jrLzE
+            self._jzLzE = jzLzE
+            self._jrLzInterp = interpolate.InterpolatedUnivariateSpline(
+                self._Lzs, numpy.log(jrLzE + 10.0**-5.0), k=3
             )
-            self._rperiLzInterp = interpolate.InterpolatedUnivariateSpline(
-                self._Lzs, numpy.log(rperiLzE + 10.0**-5.0), k=3
+            self._jzLzInterp = interpolate.InterpolatedUnivariateSpline(
+                self._Lzs, numpy.log(jzLzE + 10.0**-5.0), k=3
             )
-            self._rapLzInterp = interpolate.InterpolatedUnivariateSpline(
-                self._Lzs, numpy.log(rapLzE + 10.0**-5.0), k=3
+            if interpecc:
+                self._ecc = ecc
+                self._zmax = zmax
+                self._rperi = rperi
+                self._rap = rap
+                self._zmaxLzE = zmaxLzE
+                self._rperiLzE = rperiLzE
+                self._rapLzE = rapLzE
+                self._zmaxLzInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._Lzs, numpy.log(zmaxLzE + 10.0**-5.0), k=3
+                )
+                self._rperiLzInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._Lzs, numpy.log(rperiLzE + 10.0**-5.0), k=3
+                )
+                self._rapLzInterp = interpolate.InterpolatedUnivariateSpline(
+                    self._Lzs, numpy.log(rapLzE + 10.0**-5.0), k=3
+                )
+            # Interpolate u0
+            self._logu0Interp = interpolate.RectBivariateSpline(
+                self._Lzs, y, numpy.log(u0), kx=3, ky=3, s=0.0
             )
-        # Interpolate u0
-        self._logu0Interp = interpolate.RectBivariateSpline(
-            self._Lzs, y, numpy.log(u0), kx=3, ky=3, s=0.0
-        )
-        # spline filter jr and jz, such that they can be used with ndimage.map_coordinates
-        self._jrFiltered = ndimage.spline_filter(
-            numpy.log(self._jr + 10.0**-10.0), order=3
-        )
-        self._jzFiltered = ndimage.spline_filter(
-            numpy.log(self._jz + 10.0**-10.0), order=3
-        )
-        if interpecc:
-            self._eccFiltered = ndimage.spline_filter(
-                numpy.log(self._ecc + 10.0**-10.0), order=3
+            # spline filter jr and jz, such that they can be used with ndimage.map_coordinates
+            self._jrFiltered = ndimage.spline_filter(
+                numpy.log(self._jr + 10.0**-10.0), order=3
             )
-            self._zmaxFiltered = ndimage.spline_filter(
-                numpy.log(self._zmax + 10.0**-10.0), order=3
+            self._jzFiltered = ndimage.spline_filter(
+                numpy.log(self._jz + 10.0**-10.0), order=3
             )
-            self._rperiFiltered = ndimage.spline_filter(
-                numpy.log(self._rperi + 10.0**-10.0), order=3
-            )
-            self._rapFiltered = ndimage.spline_filter(
-                numpy.log(self._rap + 10.0**-10.0), order=3
-            )
-        # Backend-agnostic eval wrappers built from the SAME fitted scipy
-        # objects/filtered grids (numpy path stays byte-identical scipy).
-        self._build_backend_interp(y, interpecc)
+            if interpecc:
+                self._eccFiltered = ndimage.spline_filter(
+                    numpy.log(self._ecc + 10.0**-10.0), order=3
+                )
+                self._zmaxFiltered = ndimage.spline_filter(
+                    numpy.log(self._zmax + 10.0**-10.0), order=3
+                )
+                self._rperiFiltered = ndimage.spline_filter(
+                    numpy.log(self._rperi + 10.0**-10.0), order=3
+                )
+                self._rapFiltered = ndimage.spline_filter(
+                    numpy.log(self._rap + 10.0**-10.0), order=3
+                )
+            # Backend-agnostic eval wrappers built from the SAME fitted scipy
+            # objects/filtered grids (numpy path stays byte-identical scipy).
+            self._build_backend_interp(y, interpecc)
         # Check the units
         self._check_consistent_units()
         return None
