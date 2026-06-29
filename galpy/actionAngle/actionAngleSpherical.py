@@ -14,7 +14,7 @@ import copy
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import device_of, get_namespace, is_backend_array
+from ..backend import device_of, get_namespace, is_backend_array, numpy_island
 from ..potential import _dim, epifreq, omegac, vcirc
 from ..potential.planarPotential import _evaluateplanarPotentials
 from ..potential.Potential import (
@@ -78,6 +78,7 @@ class actionAngleSpherical(actionAngle):
         self._check_consistent_units()
         return None
 
+    @numpy_island
     def _evaluate(self, *args, **kwargs):
         """
         Evaluate the actions (jr,lz,jz).
@@ -161,6 +162,7 @@ class actionAngleSpherical(actionAngle):
                 Jr.append(self._calc_jr(rperi, rap, E[ii], L[ii], fixed_quad, **kwargs))
             return (numpy.array(Jr), Jphi, Jz)
 
+    @numpy_island
     def _actionsFreqs(self, *args, **kwargs):
         """
         Evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz).
@@ -272,6 +274,7 @@ class actionAngleSpherical(actionAngle):
             Op[vT < 0.0] *= -1.0
             return (numpy.array(Jr), Jphi, Jz, numpy.array(Or), Op, Oz)
 
+    @numpy_island
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
         Evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,aphi,az).
@@ -450,6 +453,7 @@ class actionAngleSpherical(actionAngle):
             az = az % (2.0 * numpy.pi)
             return (numpy.array(Jr), Jphi, Jz, numpy.array(Or), Op, Oz, ar, ap, az)
 
+    @numpy_island
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
         Evaluate the eccentricity, maximum height above the plane, peri- and apocenter for a spherical potential.

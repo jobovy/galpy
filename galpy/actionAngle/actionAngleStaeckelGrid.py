@@ -16,7 +16,7 @@ from scipy import interpolate, ndimage, optimize
 from .. import potential
 from ..backend import get_namespace
 from ..backend import interpolate as backend_interpolate
-from ..backend import is_backend_array, use
+from ..backend import is_backend_array, numpy_island, use
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -391,6 +391,7 @@ class actionAngleStaeckelGrid(actionAngle):
             )
         return None
 
+    @numpy_island
     def _evaluate(self, *args, **kwargs):
         """
         Evaluate the actions (jr,lz,jz)
@@ -634,6 +635,7 @@ class actionAngleStaeckelGrid(actionAngle):
         """
         return self(*args, **kwargs)[0]
 
+    @numpy_island
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
         Evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation

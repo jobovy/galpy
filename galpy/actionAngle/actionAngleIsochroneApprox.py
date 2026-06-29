@@ -19,7 +19,7 @@ import warnings
 import numpy
 from numpy import linalg
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import get_namespace, is_backend_array, numpy_island
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -1218,6 +1218,7 @@ def _backend_dePeriod(xp, arr):
 # coordinate data (get_namespace) and routes backend arrays through the
 # backend-agnostic brentq, so coordinate coercion is unnecessary and the
 # byte-identical numpy/Quantity path is preserved.
+@numpy_island
 @potential_physical_input(coerce_backend=False)
 @physical_conversion("position", pop=True)
 def estimateBIsochrone(pot, R, z, phi=None):

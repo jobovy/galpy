@@ -250,7 +250,11 @@ class planarForce:
 
     def _Rforce_nodecorator(self, R, phi=0.0, t=0.0, **kwargs):
         # Separate, so it can be used during orbit integration
-        R, phi = promote_scalars(get_namespace(R, phi), R, phi)
+        # phi may be None (axisymmetric); leave it untouched in that case.
+        if phi is None:
+            (R,) = promote_scalars(get_namespace(R), R)
+        else:
+            R, phi = promote_scalars(get_namespace(R, phi), R, phi)
         try:
             return self._amp * self._Rforce(R, phi=phi, t=t, **kwargs)
         except AttributeError:  # pragma: no cover
@@ -262,7 +266,11 @@ class planarForce:
 
     def _phitorque_nodecorator(self, R, phi=0.0, t=0.0, **kwargs):
         # Separate, so it can be used during orbit integration
-        R, phi = promote_scalars(get_namespace(R, phi), R, phi)
+        # phi may be None (axisymmetric); leave it untouched in that case.
+        if phi is None:
+            (R,) = promote_scalars(get_namespace(R), R)
+        else:
+            R, phi = promote_scalars(get_namespace(R, phi), R, phi)
         try:
             return self._amp * self._phitorque(R, phi=phi, t=t, **kwargs)
         except AttributeError:  # pragma: no cover

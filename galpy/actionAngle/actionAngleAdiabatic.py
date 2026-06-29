@@ -13,7 +13,7 @@ import warnings
 
 import numpy
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import get_namespace, is_backend_array, numpy_island
 from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
 from ..potential.Potential import (
     _check_c,
@@ -91,6 +91,7 @@ class actionAngleAdiabatic(actionAngle):
         self._check_consistent_units()
         return None
 
+    @numpy_island
     def _evaluate(self, *args, **kwargs):
         """
         Evaluate the actions (jr,lz,jz).
@@ -202,6 +203,7 @@ class actionAngleAdiabatic(actionAngle):
                         numpy.atleast_1d(Jz),
                     )
 
+    @numpy_island
     def _actionsFreqs(self, *args, **kwargs):
         """
         Evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz).
@@ -287,6 +289,7 @@ class actionAngleAdiabatic(actionAngle):
                 _atleast_1d(Oz),
             )
 
+    @numpy_island
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
         Evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,aphi,az).
@@ -386,6 +389,7 @@ class actionAngleAdiabatic(actionAngle):
                 _atleast_1d(az),
             )
 
+    @numpy_island
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
         Evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the adiabatic approximation.
