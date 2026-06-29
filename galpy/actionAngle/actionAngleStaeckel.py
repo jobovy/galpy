@@ -11,7 +11,6 @@
 #
 ###############################################################################
 import warnings
-from contextlib import nullcontext
 
 import numpy
 from scipy import integrate, optimize
@@ -22,7 +21,6 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     numpy_island,
-    use,
 )
 from ..backend.optimize import bisect_root
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
@@ -64,14 +62,6 @@ def _coerce_delta_arraylike(delta):
     transforms resolve their namespace from the data, and plain sequences
     are not backend-resolvable. Scalars/arrays pass through untouched."""
     return numpy.array(delta) if isinstance(delta, (list, tuple)) else delta
-
-
-def _island(xp):
-    # Numpy-input path under a forced jax/torch backend: force numpy so the
-    # (now backend-promoting) potential evaluators stay numpy and the byte-
-    # identical numpy core / numpy return type is preserved. No-op for a real
-    # backend namespace and a no-op (already-numpy) under an unforced numpy run.
-    return use("numpy", force=True) if xp is numpy else nullcontext()
 
 
 def _nanmedian(xp, a):
@@ -594,6 +584,7 @@ class actionAngleStaeckel(actionAngle):
         self._check_consistent_units()
         return None
 
+    @numpy_island
     def _evaluate(self, *args, **kwargs):
         """
         Evaluate the actions (jr,lz,jz).
@@ -699,22 +690,22 @@ class actionAngleStaeckel(actionAngle):
             # the standalone-actions c=False result is thus now consistent with
             # both c=True and _actionsFreqsAngles (was ~1e-5 off via adaptive quad).
             xp = get_namespace(R) if is_backend_array(R) else numpy
-            with _island(xp):
-                jr, Lz, jz = _staeckel_actions(
-                    xp,
-                    R,
-                    vR,
-                    vT,
-                    z,
-                    vz,
-                    self._pot,
-                    _coerce_delta_arraylike(delta),
-                    order,
-                )
+            jr, Lz, jz = _staeckel_actions(
+                xp,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                self._pot,
+                _coerce_delta_arraylike(delta),
+                order,
+            )
             if is_backend_array(R):
                 return (jr, Lz, jz)
             return (numpy.atleast_1d(jr), numpy.atleast_1d(Lz), numpy.atleast_1d(jz))
 
+    @numpy_island
     def _actionsFreqs(self, *args, **kwargs):
         """
         Evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz).
@@ -855,34 +846,30 @@ class actionAngleStaeckel(actionAngle):
             # Unified vectorised, backend-agnostic path (the useu0 reference is
             # action/frequency-invariant, so it is not needed here).
             xp = get_namespace(R) if is_backend_array(R) else numpy
-            with _island(xp):
-                jr, Lz, jz, Omegar, Omegaphi, Omegaz = _staeckel_actions_freqs(
-                    xp,
-                    R,
-                    vR,
-                    vT,
-                    z,
-                    vz,
-                    self._pot,
-                    _coerce_delta_arraylike(delta),
-                    order,
-                )
-                # Close-to-circular orbits: the freqs are NaN (det(A)=0); substitute
-                # epifreq/omegac/verticalfreq (vectorised mirror of the C wrapper).
-                indx = (xp.isnan(Omegar) & (jr < 1e-3)) | (
-                    xp.isnan(Omegaz) & (jz < 1e-3)
-                )
-                Omegar = xp.where(
-                    indx, epifreq(self._pot, R, use_physical=False), Omegar
-                )
-                Omegaphi = xp.where(
-                    indx, omegac(self._pot, R, use_physical=False), Omegaphi
-                )
-                Omegaz = xp.where(
-                    indx, verticalfreq(self._pot, R, use_physical=False), Omegaz
-                )
+            jr, Lz, jz, Omegar, Omegaphi, Omegaz = _staeckel_actions_freqs(
+                xp,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                self._pot,
+                _coerce_delta_arraylike(delta),
+                order,
+            )
+            # Close-to-circular orbits: the freqs are NaN (det(A)=0); substitute
+            # epifreq/omegac/verticalfreq (vectorised mirror of the C wrapper).
+            indx = (xp.isnan(Omegar) & (jr < 1e-3)) | (xp.isnan(Omegaz) & (jz < 1e-3))
+            Omegar = xp.where(indx, epifreq(self._pot, R, use_physical=False), Omegar)
+            Omegaphi = xp.where(
+                indx, omegac(self._pot, R, use_physical=False), Omegaphi
+            )
+            Omegaz = xp.where(
+                indx, verticalfreq(self._pot, R, use_physical=False), Omegaz
+            )
             return (jr, Lz, jz, Omegar, Omegaphi, Omegaz)
 
+    @numpy_island
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
         Evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez).
@@ -1034,46 +1021,42 @@ class actionAngleStaeckel(actionAngle):
                 # fold the azimuth in R's namespace AND device (a bare xp.asarray
                 # lands on the CPU and would collide with a CUDA anglephi).
                 phi = asarray_on_device(xp, phi, device_of(R))
-            with _island(xp):
-                (
-                    jr,
-                    Lz,
-                    jz,
-                    Omegar,
-                    Omegaphi,
-                    Omegaz,
-                    angler,
-                    anglephi,
-                    anglez,
-                ) = _staeckel_actions_freqs_angles(
-                    xp,
-                    R,
-                    vR,
-                    vT,
-                    z,
-                    vz,
-                    phi,
-                    self._pot,
-                    _coerce_delta_arraylike(delta),
-                    order,
-                )
-                # Close-to-circular orbits: substitute epifreq/omegac/verticalfreq for
-                # the NaN frequencies (vectorised mirror of the C wrapper; the angles
-                # are already 0 there, as in the C calcAnglesStaeckel).
-                indx = (xp.isnan(Omegar) & (jr < 1e-3)) | (
-                    xp.isnan(Omegaz) & (jz < 1e-3)
-                )
-                Omegar = xp.where(
-                    indx, epifreq(self._pot, R, use_physical=False), Omegar
-                )
-                Omegaphi = xp.where(
-                    indx, omegac(self._pot, R, use_physical=False), Omegaphi
-                )
-                Omegaz = xp.where(
-                    indx, verticalfreq(self._pot, R, use_physical=False), Omegaz
-                )
+            (
+                jr,
+                Lz,
+                jz,
+                Omegar,
+                Omegaphi,
+                Omegaz,
+                angler,
+                anglephi,
+                anglez,
+            ) = _staeckel_actions_freqs_angles(
+                xp,
+                R,
+                vR,
+                vT,
+                z,
+                vz,
+                phi,
+                self._pot,
+                _coerce_delta_arraylike(delta),
+                order,
+            )
+            # Close-to-circular orbits: substitute epifreq/omegac/verticalfreq for
+            # the NaN frequencies (vectorised mirror of the C wrapper; the angles
+            # are already 0 there, as in the C calcAnglesStaeckel).
+            indx = (xp.isnan(Omegar) & (jr < 1e-3)) | (xp.isnan(Omegaz) & (jz < 1e-3))
+            Omegar = xp.where(indx, epifreq(self._pot, R, use_physical=False), Omegar)
+            Omegaphi = xp.where(
+                indx, omegac(self._pot, R, use_physical=False), Omegaphi
+            )
+            Omegaz = xp.where(
+                indx, verticalfreq(self._pot, R, use_physical=False), Omegaz
+            )
             return (jr, Lz, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
 
+    @numpy_island
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
         Evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation.
@@ -1105,13 +1088,13 @@ class actionAngleStaeckel(actionAngle):
         delta = _coerce_delta_arraylike(kwargs.get("delta", self._delta))
         umin, umax, vmin = self._uminumaxvmin(*args, **kwargs)
         xp = get_namespace(umin) if is_backend_array(umin) else numpy
-        with _island(xp):
-            rperi = coords.uv_to_Rz(umin, numpy.pi / 2.0, delta=delta)[0]
-            rap_tmp, zmax = coords.uv_to_Rz(umax, vmin, delta=delta)
+        rperi = coords.uv_to_Rz(umin, numpy.pi / 2.0, delta=delta)[0]
+        rap_tmp, zmax = coords.uv_to_Rz(umax, vmin, delta=delta)
         rap = xp.sqrt(rap_tmp**2.0 + zmax**2.0)
         e = (rap - rperi) / (rap + rperi)
         return (e, zmax, rperi, rap)
 
+    @numpy_island
     def _uminumaxvmin(self, *args, **kwargs):
         """
         Evaluate u_min, u_max, and v_min in the Staeckel approximation.
@@ -1212,10 +1195,9 @@ class actionAngleStaeckel(actionAngle):
             # actions/freqs via _staeckel_prep); feeds _EccZmaxRperiRap.
             xp = get_namespace(R) if is_backend_array(R) else numpy
             # _staeckel_prep already snaps vmin to pi/2 for planar orbits.
-            with _island(xp):
-                _, umin, umax, vmin, _ = _staeckel_prep(
-                    xp, R, vR, vT, z, vz, self._pot, delta
-                )
+            _, umin, umax, vmin, _ = _staeckel_prep(
+                xp, R, vR, vT, z, vz, self._pot, delta
+            )
             return (umin, umax, vmin)
 
 

@@ -27,6 +27,7 @@ from ..backend import (
     coerce_coords,
     get_namespace,
     is_backend_array,
+    numpy_island,
     promote_scalars,
 )
 from ..util import conversion, coords, galpyWarning, plot
@@ -992,8 +993,13 @@ class Potential(Force):
 
         """
         # abs() (via __abs__) is backend-agnostic and byte-identical to the old
-        # numpy.fabs on the numpy scalar Rforce returns.
-        self._amp *= norm / abs(self.Rforce(1.0, 0.0, use_physical=False))
+        # numpy.fabs on the numpy scalar Rforce returns. float() keeps the
+        # amplitude a backend-agnostic scalar: under a forced jax/torch backend
+        # Rforce(1,0) returns a backend array, and storing that in self._amp
+        # would pin the whole potential to that backend (every later eval would
+        # return backend arrays even on a numpy/scalar query). The normalization
+        # is a single scalar at (R,z)=(1,0), so float() is exact/byte-identical.
+        self._amp *= float(norm / abs(self.Rforce(1.0, 0.0, use_physical=False)))
 
     def toPlanar(self):
         """
@@ -1350,6 +1356,7 @@ class Potential(Force):
             / self.vcirc(R, phi=phi, t=t, use_physical=False)
         )
 
+    @numpy_island
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
     def omegac(self, R, t=0.0):
@@ -1376,6 +1383,7 @@ class Potential(Force):
         xp = get_namespace(R)
         return xp.sqrt(-self.Rforce(R, 0.0, t=t, use_physical=False) / R)
 
+    @numpy_island
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
     def epifreq(self, R, t=0.0):
@@ -1405,6 +1413,7 @@ class Potential(Force):
             - 3.0 / R * self.Rforce(R, 0.0, t=t, use_physical=False)
         )
 
+    @numpy_island
     @potential_physical_input
     @physical_conversion("frequency", pop=True)
     def verticalfreq(self, R, t=0.0):
@@ -3142,6 +3151,7 @@ def plotSurfaceDensities(
 
 @potential_list_of_potentials_input
 @potential_positional_arg
+@numpy_island
 @potential_physical_input
 @physical_conversion("frequency", pop=True)
 @potential_list_of_potentials_input
@@ -3172,6 +3182,7 @@ def epifreq(Pot, R, t=0.0):
 
 
 @potential_positional_arg
+@numpy_island
 @potential_physical_input
 @physical_conversion("frequency", pop=True)
 @potential_list_of_potentials_input
@@ -3264,6 +3275,7 @@ def vterm(Pot, l, t=0.0, deg=True):
     return Pot.vterm(l, t=t, deg=deg, use_physical=False)
 
 
+@numpy_island
 @potential_positional_arg
 @physical_conversion("position", pop=True)
 @potential_list_of_potentials_input
@@ -3379,6 +3391,7 @@ def _backend_rootbracket(func, anchor, *, lower_default=1e-5, hi0=2.0, nsteps=60
     return hi, lo
 
 
+@numpy_island
 @potential_positional_arg
 @physical_conversion("position", pop=True)
 @potential_list_of_potentials_input
@@ -3564,6 +3577,7 @@ def _lindbladR_eq(R, Pot, OmegaP, m, t=0.0):
 
 
 @potential_positional_arg
+@numpy_island
 @potential_physical_input
 @physical_conversion("frequency", pop=True)
 @potential_list_of_potentials_input

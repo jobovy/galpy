@@ -13,7 +13,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace, promote_scalars
+from ..backend import get_namespace, numpy_island, promote_scalars
 from ..util import conversion
 from .actionAngle import actionAngle
 
@@ -47,6 +47,7 @@ class actionAngleHarmonic(actionAngle):
         )
         return None
 
+    @numpy_island
     def _evaluate(self, *args, **kwargs):
         """
         Evaluate the action for the harmonic oscillator
@@ -73,6 +74,7 @@ class actionAngleHarmonic(actionAngle):
         else:  # pragma: no cover
             raise ValueError("actionAngleHarmonic __call__ input not understood")
 
+    @numpy_island
     def _actionsFreqs(self, *args, **kwargs):
         """
         Evaluate the action and frequency for the harmonic oscillator
@@ -104,6 +106,7 @@ class actionAngleHarmonic(actionAngle):
         else:  # pragma: no cover
             raise ValueError("actionAngleHarmonic __call__ input not understood")
 
+    @numpy_island
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
         Evaluate the action, frequency, and angle for the harmonic oscillator

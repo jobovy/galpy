@@ -12,7 +12,7 @@
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import device_of, get_namespace, is_backend_array
+from ..backend import device_of, get_namespace, is_backend_array, numpy_island
 from ..potential.linearPotential import evaluatelinearPotentials
 from ..potential.Potential import _check_potential_list_and_deprecate
 from .actionAngle import actionAngle
@@ -52,6 +52,7 @@ class actionAngleVertical(actionAngle):
         self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
         return None
 
+    @numpy_island
     def _evaluate(self, *args, **kwargs):
         """
         Evaluate the action.
@@ -110,6 +111,7 @@ class actionAngleVertical(actionAngle):
         else:  # pragma: no cover
             raise ValueError("actionAngleVertical __call__ input not understood")
 
+    @numpy_island
     def _actionsFreqs(self, *args, **kwargs):
         """
         Evaluate the action and frequency.
@@ -198,6 +200,7 @@ class actionAngleVertical(actionAngle):
         else:  # pragma: no cover
             raise ValueError("actionAngleVertical actionsFreqs input not understood")
 
+    @numpy_island
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
         Evaluate the action, frequency, and angle.
