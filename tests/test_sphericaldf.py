@@ -939,6 +939,26 @@ def test_osipkovmerritt_nfw_dens_directint():
     return None
 
 
+def test_osipkovmerritt_exptruncnfw_dens_directint():
+    # The generic osipkovmerrittdf uses the potential's _ddensdr and _d2densdr2
+    # (through the internal eddingtondf); check that the OM DF reproduces the
+    # ExpTruncNFW density by direct integration. The finite truncation mass
+    # means a finite rmax is used (cf. the rmax note for this potential).
+    pot = potential.ExpTruncNFWPotential(amp=1.3, a=1.5, rc=8.0)
+    for ra in [2.3, 5.7]:
+        dfh = osipkovmerrittdf(pot=pot, ra=ra, rmax=10.0 * 8.0)
+        check_dens_directint(
+            dfh,
+            pot,
+            1e-3,  # the truncated profile is better-behaved than the bare NFW
+            lambda r: pot.dens(r, 0),
+            rmin=pot._scale / 10.0,
+            rmax=pot._scale * 10.0,
+            bins=6,
+        )
+    return None
+
+
 def test_osipkovmerritt_nfw_meanvr_directint():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     ras = [2.3, 5.7]
@@ -1569,6 +1589,7 @@ def test_eddington_differentpotentials_dens_directint():
         potential.PowerSphericalPotential(amp=1.3, alpha=1.9),
         potential.PlummerPotential(amp=2.3, b=1.3),
         potential.PowerSphericalPotentialwCutoff(amp=1.3, alpha=1.9, rc=1.2),
+        potential.ExpTruncNFWPotential(amp=1.3, a=1.5, rc=8.0),
     ]
     tols = [1e-3 for pot in pots]
     for pot, tol in zip(pots, tols):
@@ -1590,6 +1611,7 @@ def test_eddington_differentpotentials_dMdE_integral():
     pots = [
         potential.PlummerPotential(amp=2.3, b=1.3),
         potential.PowerSphericalPotentialwCutoff(amp=1.3, alpha=1.9, rc=1.2),
+        potential.ExpTruncNFWPotential(amp=1.3, a=1.5, rc=8.0),
     ]
     tols = [1e-6 for pot in pots]
     for pot, tol in zip(pots, tols):
@@ -2613,6 +2635,61 @@ def test_constantbeta_differentpotentials_dens_directint():
             rmin=pot._scale / 10.0 if hasattr(pot, "_scale") else 0.1,
             rmax=pot._scale * 10.0 if hasattr(pot, "_scale") else 10.0,
             bins=11,
+        )
+    return None
+
+
+def test_constantbeta_exptruncnfw_dens_directint():
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    # constant-beta uses the potential's _ddenstwobetadr and _rforce_jax (via
+    # JAX autodiff); twobeta=-1 (beta=-1/2) is the demanding half-integer case
+    # (nested grad). Check the DF reproduces the ExpTruncNFW density. A finite
+    # rmax is used because of the finite truncation mass.
+    pot = potential.ExpTruncNFWPotential(amp=1.3, a=1.5, rc=8.0)
+    dfh = constantbetadf(pot=pot, twobeta=-1, rmax=10.0 * 8.0)
+    check_dens_directint(
+        dfh,
+        pot,
+        1e-3,
+        lambda r: pot.dens(r, 0),
+        rmin=pot._scale / 10.0,
+        rmax=pot._scale * 10.0,
+        bins=11,
+    )
+    return None
+
+
+def test_exptruncnfw_ddenstwobetadr_and_rforce_jax():
+    # Direct checks of the two JAX functions that the anisotropic (OM /
+    # constant-beta) DFs use for ExpTruncNFWPotential.
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    pot = potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0)
+    # _ddenstwobetadr(r, beta) == d/dr[rho(r) r^(2beta)] (finite differences)
+    h = 1e-6
+    for beta in [0.0, 0.5, -0.5, 1.0]:
+        for r in [0.4, 1.3, 5.0]:
+            g = lambda x: pot._amp * pot._rdens(x) * x ** (2.0 * beta)
+            fd = (g(r + h) - g(r - h)) / (2.0 * h)
+            assert numpy.fabs(
+                float(pot._ddenstwobetadr(r, beta=beta)) - fd
+            ) < 1e-5 * numpy.fabs(fd), (
+                "ExpTruncNFW _ddenstwobetadr != d/dr[rho r^(2beta)]"
+            )
+    # at beta=0 it reduces to _ddensdr
+    for r in [0.4, 1.3, 5.0]:
+        assert numpy.fabs(
+            float(pot._ddenstwobetadr(r, beta=0)) - pot._ddensdr(r)
+        ) < 1e-5 * numpy.fabs(pot._ddensdr(r)), (
+            "ExpTruncNFW _ddenstwobetadr(beta=0) does not reduce to _ddensdr"
+        )
+    # _rforce_jax(r) == amp * _rforce(r) (the internal Python radial force);
+    # JAX defaults to float32, so this is the looser float32-limited check
+    for r in [0.5, 1.3, 8.0]:
+        py = pot._amp * float(pot._rforce(numpy.asarray(r)))
+        assert numpy.fabs(float(pot._rforce_jax(r)) - py) < 1e-4 * numpy.fabs(py), (
+            "ExpTruncNFW _rforce_jax does not match amp * _rforce"
         )
     return None
 

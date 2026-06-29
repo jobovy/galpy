@@ -7,6 +7,24 @@ v1.12.0 (expected around 2026-07-01)
   astropy/astropy#18362. Initializing an ``Orbit`` from a ``SkyCoord`` that
   carries ``galcen_v_sun`` now works on both old and new astropy.
 
+- Added ``ExpTruncNFWPotential``, an NFW profile multiplied by an exponential
+  truncation ``exp(-r/rc)`` with truncation radius ``rc``. The profile has a
+  finite total mass; the enclosed mass, potential, force, and second
+  derivative are all closed-form (via the exponential integral E_1), with a
+  small-radius Taylor expansion used to avoid catastrophic cancellation when
+  ``r`` is much smaller than ``a`` and ``rc``. The ``amp`` follows the
+  ``NFWPotential`` mass-scale convention (the two potentials coincide as
+  ``rc -> infinity``); alternatively the total mass can be set directly with
+  the ``mass=`` keyword. Also provides a ``from_nfw`` classmethod that truncates
+  an existing ``NFWPotential`` (inheriting its ``amp`` and ``a``), with the
+  truncation set by either ``rc`` or a desired total ``mass``. Supports isotropic
+  (``eddingtondf``), Osipkov-Merritt (``osipkovmerrittdf``), and constant-beta
+  (``constantbetadf``) distribution functions through closed-form ``_ddensdr``,
+  ``_d2densdr2``, and ``_ddenstwobetadr`` (and a JAX ``_rforce_jax``). Has a C
+  implementation (``hasC=True``), including the full 3D Hessian for the
+  variational equations (``hasC_dxdv3d=True``), giving fast orbit integration on
+  par with the other closed-form spherical potentials.
+
 - Added analytic planar second derivatives (R2deriv, phi2deriv, Rphideriv) of
   ``SteadyLogSpiralPotential`` and ``TransientLogSpiralPotential`` in Python
   and C, enabling the planar variational equations of ``Orbit.integrate_dxdv``
