@@ -7,6 +7,7 @@ import copy
 
 import numpy
 
+from ..backend import get_namespace, promote_scalars
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -249,6 +250,7 @@ class planarForce:
 
     def _Rforce_nodecorator(self, R, phi=0.0, t=0.0, **kwargs):
         # Separate, so it can be used during orbit integration
+        R, phi = promote_scalars(get_namespace(R, phi), R, phi)
         try:
             return self._amp * self._Rforce(R, phi=phi, t=t, **kwargs)
         except AttributeError:  # pragma: no cover
@@ -260,6 +262,7 @@ class planarForce:
 
     def _phitorque_nodecorator(self, R, phi=0.0, t=0.0, **kwargs):
         # Separate, so it can be used during orbit integration
+        R, phi = promote_scalars(get_namespace(R, phi), R, phi)
         try:
             return self._amp * self._phitorque(R, phi=phi, t=t, **kwargs)
         except AttributeError:  # pragma: no cover

@@ -5,7 +5,7 @@
 ###############################################################################
 import copy
 
-from ..backend import get_namespace
+from ..backend import get_namespace, promote_scalars
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -285,6 +285,9 @@ class Force:
 
     def _Rforce_nodecorator(self, R, z, **kwargs):
         # Separate, so it can be used during orbit integration
+        # Promote numpy/scalar coords to the active (possibly forced) backend so
+        # the force's xp.<op>(...) accepts them; numpy no-op -> byte-identical.
+        R, z = promote_scalars(get_namespace(R, z), R, z)
         try:
             return self._amp * self._Rforce(R, z, **kwargs)
         except AttributeError:  # pragma: no cover
@@ -294,6 +297,7 @@ class Force:
 
     def _zforce_nodecorator(self, R, z, **kwargs):
         # Separate, so it can be used during orbit integration
+        R, z = promote_scalars(get_namespace(R, z), R, z)
         try:
             return self._amp * self._zforce(R, z, **kwargs)
         except AttributeError:  # pragma: no cover
@@ -305,6 +309,7 @@ class Force:
 
     def _phitorque_nodecorator(self, R, z, **kwargs):
         # Separate, so it can be used during orbit integration
+        R, z = promote_scalars(get_namespace(R, z), R, z)
         try:
             return self._amp * self._phitorque(R, z, **kwargs)
         except AttributeError:  # pragma: no cover

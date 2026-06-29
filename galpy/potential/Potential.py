@@ -23,7 +23,12 @@ import numpy
 from packaging.version import Version
 from scipy import integrate, optimize
 
-from ..backend import coerce_coords, get_namespace, is_backend_array
+from ..backend import (
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+)
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -269,6 +274,14 @@ class Potential(Force):
         return self._call_nodecorator(R, z, phi=phi, t=t, dR=dR, dphi=dphi)
 
     def _call_nodecorator(self, R, z, phi=0.0, t=0.0, dR=0.0, dphi=0):
+        # Under a forced backend, numpy/scalar coordinates must be promoted to the
+        # active namespace so the potential's xp.<op>(...) accepts them (a numpy
+        # no-op -> byte-identical; a no-op too when R/z are already backend arrays).
+        # phi may be None (axisymmetric); leave it untouched in that case.
+        if phi is None:
+            R, z = promote_scalars(get_namespace(R, z), R, z)
+        else:
+            R, z, phi = promote_scalars(get_namespace(R, z, phi), R, z, phi)
         if dR == 0 and dphi == 0:
             try:
                 rawOut = self._evaluate(R, z, phi=phi, t=t)
