@@ -3914,3 +3914,39 @@ def check_dMdE_integral(dfi, tol, Emax=None):
         f"Integral of dMdE over all energies does not equal total mass for potential {dfi._pot.__class__.__name__}"
     )
     return None
+
+
+def test_eddington_sample_negative_df_regions_no_crash():
+    # Regression test: sampling an isotropic Eddington DF whose reconstructed
+    # DF dips slightly negative near a truncation (here a sharply
+    # exponentially-truncated NFW) used to crash in
+    # sphericaldf._make_pvr_interpolator -- with an IndexError ("index 0 is out
+    # of bounds for axis 0 with size 0") when a velocity column became entirely
+    # non-positive after clamping, or a ValueError ("x must be increasing")
+    # when the clamped cumulative distribution was non-monotonic. The sampler
+    # should instead handle these regions gracefully (raising a galpyWarning)
+    # and still return valid samples.
+    pot = potential.ExpTruncNFWPotential(amp=1.0, a=1.0, rc=0.3)
+    rmax = 5.0
+    dfe = eddingtondf(pot=pot, rmax=rmax)
+    numpy.random.seed(1)
+    with pytest.warns(galpyWarning):
+        samp = dfe.sample(n=2000)
+    r = samp.r(use_physical=False)
+    assert numpy.all(numpy.isfinite(r)), "Sampled radii are not all finite"
+    assert numpy.all(r <= rmax), "Sampled radii exceed rmax"
+    assert numpy.all(r >= 0.0), "Sampled radii are negative"
+    # Speeds must be finite and below the local escape speed of the cut-off DF
+    v = numpy.sqrt(
+        samp.vR(use_physical=False) ** 2.0
+        + samp.vT(use_physical=False) ** 2.0
+        + samp.vz(use_physical=False) ** 2.0
+    )
+    assert numpy.all(numpy.isfinite(v)), "Sampled velocities are not all finite"
+    vesc = numpy.sqrt(
+        2.0 * (pot(rmax, 0.0, use_physical=False) - pot(r, 0.0, use_physical=False))
+    )
+    assert numpy.all(v <= vesc + 1e-7), (
+        "Sampled speeds exceed the escape speed of the truncated DF"
+    )
+    return None
