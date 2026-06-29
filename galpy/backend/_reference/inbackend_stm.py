@@ -33,7 +33,13 @@ def c_stm_forward(pot, vxvv, ts, method, rtol, atol):
     """Run the C variational integrator and return (x(t), M(t)).
 
     Pure numpy; no autodiff. This is the host-side call wrapped by the jax/torch
-    autodiff rules.
+    autodiff rules. Uses the AUGMENTED 42-state integrator -- the base orbit plus
+    all six STM columns in ONE solve (the force + 3D Hessian are evaluated once per
+    step, not six times), ~4-6x faster than re-integrating the base per column. For
+    the adaptive methods (dop853_c/dopr54_c) the joint 42-state error norm accepts a
+    slightly different step sequence than six 12-state solves, so M matches the
+    per-column reference (``_c_stm_forward_loop``) to ~1e-10, not bit-for-bit; the
+    gradient is unchanged. See ``_c_stm_forward_loop`` for the reference path.
 
     Parameters
     ----------
@@ -48,6 +54,67 @@ def c_stm_forward(pot, vxvv, ts, method, rtol, atol):
     xt : numpy.ndarray, (nt, 6) or (N, nt, 6) -- the orbit, Orbit order.
     M : numpy.ndarray, (nt, 6, 6) or (N, nt, 6, 6) -- STM d x(t)/d x(0),
         M[...,0,:,:] = identity.
+    """
+    from ...orbit.integrateFullOrbit import integrateFullOrbit_stm_c
+    from ...util import coords
+
+    vxvv = numpy.asarray(vxvv, dtype=numpy.float64)
+    single = vxvv.ndim == 1
+    ics = vxvv[None] if single else vxvv
+    ts = numpy.asarray(ts, dtype=numpy.float64)
+    nt = len(ts)
+    eye6 = numpy.eye(6)
+    int_method = method.lower()
+    xts, Ms = [], []
+    for ic in ics:
+        R, vR, vT, z, vz, phi = ic
+        # cyl -> rect base, and the six cyl basis deviations folded to rect =
+        # the columns of the cyl->rect Jacobian (basis=I), packed as the 36-block.
+        X, Y, Z = coords.cyl_to_rect(R, phi, z, xp=numpy)
+        vX, vY, vZ = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+        yo_rect = numpy.array([X, Y, Z, vX, vY, vZ])
+        jac0 = coords.cyl_to_rect_jac(R, vR, vT, z, vz, phi)  # (6,6)
+        dyo_block = jac0.T.reshape(-1)  # column k at offset 6k
+        out, _err = integrateFullOrbit_stm_c(
+            pot, yo_rect, dyo_block, ts, int_method, rtol=rtol, atol=atol
+        )  # (nt, 42)
+        # base rect -> cyl (Orbit order); copy Z/vz before any reuse (views).
+        Rout, phiout, Zout = coords.rect_to_cyl(
+            out[:, 0], out[:, 1], out[:, 2], xp=numpy
+        )
+        vRout, vTout, vzout = coords.rect_to_cyl_vec(
+            out[:, 3], out[:, 4], out[:, 5], out[:, 0], out[:, 1], out[:, 2], xp=numpy
+        )
+        Zout = numpy.copy(Zout)
+        vzout = numpy.copy(vzout)
+        base = numpy.empty((nt, 6))
+        base[:, 0], base[:, 1], base[:, 2] = Rout, vRout, vTout
+        base[:, 3], base[:, 4], base[:, 5] = Zout, vzout, phiout
+        # STM: fold each rect deviation column back to cyl,
+        # M_cyl[t] = jac_t^{-1} . rect_cols[t]  (column b = cyl deviation of e_b).
+        dev = out[:, 6:].reshape(nt, 6, 6)  # [t, k, :] = rect dev column k
+        M = numpy.empty((nt, 6, 6))
+        for it in range(nt):
+            jac_t = coords.cyl_to_rect_jac(
+                Rout[it], vRout[it], vTout[it], Zout[it], vzout[it], phiout[it]
+            )
+            M[it] = numpy.linalg.solve(jac_t, dev[it].T)  # (6,6), column b = cyl dev
+        M[0] = eye6  # exact identity at ts[0] (matches the per-column reference)
+        xts.append(base)
+        Ms.append(M)
+    xt = numpy.asarray(xts)
+    M = numpy.asarray(Ms)
+    if single:
+        return xt[0], M[0]
+    return xt, M
+
+
+def _c_stm_forward_loop(pot, vxvv, ts, method, rtol, atol):
+    """Reference STM forward: propagate the six canonical basis deviations with
+    SIX separate ``integrate_dxdv`` solves (re-integrating the base each time), in
+    cyl Orbit order (``rectIn=False, rectOut=False`` -- no cyl<->rect folding here).
+    Kept as the bit-identity reference for the augmented ``c_stm_forward``. Same
+    signature and return contract.
     """
     from ...orbit import Orbit
 
