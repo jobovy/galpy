@@ -19,7 +19,13 @@ import warnings
 import numpy
 from numpy import linalg
 
-from ..backend import get_namespace, is_backend_array, numpy_island
+from ..backend import (
+    get_namespace,
+    is_backend_array,
+    median,
+    numpy_island,
+    promote_scalars,
+)
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -164,9 +170,7 @@ class actionAngleIsochroneApprox(actionAngle):
         # per-object numpy assembly loop) -- coerce and route to the backend body.
         xp = get_namespace(R)
         if xp is not numpy:
-            R, vR, vT, z, vz, phi = _backend_promote(
-                xp, R, vR, vT, z, vz, phi, already=is_backend_array(R)
-            )
+            R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
             return self._evaluate_backend(R, vR, vT, z, vz, phi, **kwargs)
         if self._c:  # pragma: no cover
             pass
@@ -315,9 +319,7 @@ class actionAngleIsochroneApprox(actionAngle):
         # OR a forced backend leaks backend arrays out of the inner self._aAI.
         xp = get_namespace(R)
         if xp is not numpy:
-            R, vR, vT, z, vz, phi = _backend_promote(
-                xp, R, vR, vT, z, vz, phi, already=is_backend_array(R)
-            )
+            R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
             # ts/maxn are passed positionally; drop them from the forwarded kwargs
             bkwargs = {k: v for k, v in kwargs.items() if k not in ("ts", "maxn")}
             return self._actionsFreqsAngles_backend(
@@ -1091,7 +1093,7 @@ class actionAngleIsochroneApprox(actionAngle):
         angleRT = _backend_dePeriod(xp, xp.reshape(acfs[6], R.shape))
         acfs7 = xp.reshape(acfs[7], R.shape)
         # anglephi is decreasing for retrograde orbits -> fit 2pi-anglephi instead
-        med = _backend_median(xp, acfs7 - _backend_roll1(xp, acfs7), axis=1)
+        med = median(xp, acfs7 - _backend_roll1(xp, acfs7), axis=1)
         negFreqIndx = med < 0.0
         anglephiT = xp.where(
             negFreqIndx[:, None],
@@ -1181,29 +1183,9 @@ def _backend_rollm1(xp, arr):
     return xp.concatenate([arr[:, 1:], arr[:, :1]], axis=1)
 
 
-def _backend_promote(xp, *arrays, already=False):
-    """Coerce the parsed phase-space arrays onto the backend xp when a forced
-    backend leaked backend arrays out of the inner isochrone actionAngle but the
-    per-object numpy assembly handed back numpy R (already=False); a no-op when
-    they are already backend arrays (already=True)."""
-    if already:
-        return arrays
-    return tuple(xp.asarray(numpy.asarray(a, dtype=float)) for a in arrays)
-
-
 def _backend_dangle(xp, angle):
     """((roll(angle,-1) - angle) % 2pi)[:, :-1] -- the per-step angle increment."""
     return ((_backend_rollm1(xp, angle) - angle) % _TWOPI)[:, :-1]
-
-
-def _backend_median(xp, arr, axis=1):
-    """numpy.median over axis=1 (mean of the two central order statistics for
-    even length), portable across numpy/jax/torch (xp.median's torch variant
-    returns a namedtuple and the lower median, so it is not used directly).
-    Only the axis=1 case is needed here (the per-orbit anglephi-step sign)."""
-    s = xp.sort(arr, axis=axis)
-    n = arr.shape[axis]
-    return 0.5 * (s[:, (n - 1) // 2] + s[:, n // 2])
 
 
 def _backend_dePeriod(xp, arr):

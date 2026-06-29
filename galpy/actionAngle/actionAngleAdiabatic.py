@@ -13,7 +13,7 @@ import warnings
 
 import numpy
 
-from ..backend import get_namespace, is_backend_array, numpy_island
+from ..backend import atleast_1d, get_namespace, is_backend_array, numpy_island
 from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
 from ..potential.Potential import (
     _check_c,
@@ -28,14 +28,6 @@ from .actionAngle import actionAngle
 from .actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleVertical import actionAngleVertical
-
-
-def _atleast_1d(x):
-    # atleast_1d in x's namespace, promoting numpy scalars onto a forced backend
-    # (under a backend potential the per-object scalar path mixes numpy + backend
-    # values; asarray unifies them). numpy path stays byte-identical.
-    xp = get_namespace(x)
-    return xp.atleast_1d(xp.asarray(x))
 
 
 class actionAngleAdiabatic(actionAngle):
@@ -281,12 +273,12 @@ class actionAngleAdiabatic(actionAngle):
                 Oz = self._pot.verticalfreq(R[0])
             axiJO = self._aAS.actionsFreqs(R[0], vR[0], vT[0], 0.0, 0.0, _Jz=Jz)
             return (
-                _atleast_1d(axiJO[0]),
-                _atleast_1d(axiJO[1]),
-                _atleast_1d(Jz),
-                _atleast_1d(axiJO[3]),
-                _atleast_1d(axiJO[4]),
-                _atleast_1d(Oz),
+                atleast_1d(axiJO[0]),
+                atleast_1d(axiJO[1]),
+                atleast_1d(Jz),
+                atleast_1d(axiJO[3]),
+                atleast_1d(axiJO[4]),
+                atleast_1d(Oz),
             )
 
     @numpy_island
@@ -378,15 +370,15 @@ class actionAngleAdiabatic(actionAngle):
                 R[0], vR[0], vT[0], 0.0, 0.0, phi[0], _Jz=Jz
             )
             return (
-                _atleast_1d(axiJO[0]),
-                _atleast_1d(axiJO[1]),
-                _atleast_1d(Jz),
-                _atleast_1d(axiJO[3]),
-                _atleast_1d(axiJO[4]),
-                _atleast_1d(Oz),
-                _atleast_1d(axiJO[6]),
-                _atleast_1d(axiJO[7]),
-                _atleast_1d(az),
+                atleast_1d(axiJO[0]),
+                atleast_1d(axiJO[1]),
+                atleast_1d(Jz),
+                atleast_1d(axiJO[3]),
+                atleast_1d(axiJO[4]),
+                atleast_1d(Oz),
+                atleast_1d(axiJO[6]),
+                atleast_1d(axiJO[7]),
+                atleast_1d(az),
             )
 
     @numpy_island

@@ -20,6 +20,7 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
+    median,
     numpy_island,
 )
 from ..backend.optimize import bisect_root
@@ -62,20 +63,6 @@ def _coerce_delta_arraylike(delta):
     transforms resolve their namespace from the data, and plain sequences
     are not backend-resolvable. Scalars/arrays pass through untouched."""
     return numpy.array(delta) if isinstance(delta, (list, tuple)) else delta
-
-
-def _nanmedian(xp, a):
-    """NaN-skipping median matching numpy.median over the non-NaN values.
-
-    numpy/jax: ``xp.nanmedian`` is byte-identical to the original
-    ``numpy.median(a[~isnan])``. array-api-compat torch's median/nanmedian
-    return the lower of the two central order statistics for even counts
-    (not their average), so torch is handled via ``quantile(.,0.5)`` on the
-    NaN-filtered values to match numpy's convention (eager-only; the median
-    is a non-differentiable selection)."""
-    if "torch" in getattr(xp, "__name__", ""):
-        return xp.quantile(a[~xp.isnan(a)], 0.5)
-    return xp.nanmedian(a)
 
 
 # ----------------------------------------------------------------------------
@@ -2191,7 +2178,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
     if is_backend_array(R):
         # Vectorised, differentiable jax/torch path: the migrated potential
         # evaluators accept array R,z, so evaluate the whole array at once;
-        # xp.where / _nanmedian reproduce the numpy in-place writes / masked
+        # xp.where / median(skipnan) reproduce the numpy in-place writes / masked
         # median. (numpy keeps the per-element path below because several
         # potentials' methods only accept scalar inputs.)
         xp = get_namespace(R)
@@ -2216,7 +2203,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
         )
         delta2 = xp.where(indx, delta0**2.0, delta2)
         if not no_median and getattr(delta2, "ndim", 0) > 0:
-            delta2 = _nanmedian(xp, delta2)
+            delta2 = median(xp, delta2, skipnan=True)
         return xp.sqrt(delta2)
     # numpy path: byte-identical to the original (per-element evaluation, so
     # potentials whose methods only accept scalars keep working).
