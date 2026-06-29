@@ -993,13 +993,8 @@ class Potential(Force):
 
         """
         # abs() (via __abs__) is backend-agnostic and byte-identical to the old
-        # numpy.fabs on the numpy scalar Rforce returns. float() keeps the
-        # amplitude a backend-agnostic scalar: under a forced jax/torch backend
-        # Rforce(1,0) returns a backend array, and storing that in self._amp
-        # would pin the whole potential to that backend (every later eval would
-        # return backend arrays even on a numpy/scalar query). The normalization
-        # is a single scalar at (R,z)=(1,0), so float() is exact/byte-identical.
-        self._amp *= float(norm / abs(self.Rforce(1.0, 0.0, use_physical=False)))
+        # numpy.fabs on the numpy scalar Rforce returns.
+        self._amp *= norm / abs(self.Rforce(1.0, 0.0, use_physical=False))
 
     def toPlanar(self):
         """

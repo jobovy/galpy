@@ -14,6 +14,7 @@ jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basicAndConserved_actions
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
+jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_Isochrone_actions
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_bisect
@@ -196,6 +197,7 @@ torch tests/test_MultipoleExpansionPotential.py::test_time_dependent_nonaxi_arra
 torch tests/test_MultipoleExpansionPotential.py::test_time_dependent_nonaxi_c_orbit
 torch tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_dgamma_dR
 torch tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_gamma
+torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_Isochrone_actions
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basicAndConserved_actions
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
@@ -214,9 +216,22 @@ torch tests/test_actionAngle.py::test_actionAngleIsochrone_kepler_angles
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_kepler_freqs
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_noninclinedorbit_linear_angles
+torch tests/test_actionAngle.py::test_actionAngleSpherical_almostnoninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_angler_at_pericenter
+torch tests/test_actionAngle.py::test_actionAngleSpherical_basic_freqs
+torch tests/test_actionAngle.py::test_actionAngleSpherical_basic_freqsAngles
+torch tests/test_actionAngle.py::test_actionAngleSpherical_conserved_actions_fixed_quad
+torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles
+torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles_fixed_quad
+torch tests/test_actionAngle.py::test_actionAngleSpherical_noninclinedorbit_linear_angles
+torch tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_angles
+torch tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_freqs
+torch tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_freqs_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleSpherical_smallr
+torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_Isochrone_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_actions_order
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_actions
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_actions_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_bisect
@@ -1104,5 +1119,10 @@ jax tests/test_orbits.py::test_physical_output_off
 jax tests/test_orbits.py::test_physical_output_on
 # --- Staeckel/Adiabatic c=False FREQS/ANGLES (Track E PR-2: not yet vectorised;
 #     Single's scipy + Rz_to_uv path can't consume jax/torch arrays) ---
+jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
+jax tests/test_actionAngle.py::test_actionAngleSpherical_almostnoninclinedorbit_linear_angles
+jax tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles
+jax tests/test_actionAngle.py::test_actionAngleSpherical_noninclinedorbit_linear_angles
+torch tests/test_actionAngle.py::test_actionAngleAdiabatic_python_freqsAngles
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_freqsAngles_branches
