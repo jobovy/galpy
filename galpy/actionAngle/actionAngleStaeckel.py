@@ -633,7 +633,11 @@ class actionAngleStaeckel(actionAngle):
             z = numpy.array([z])
             vz = numpy.array([vz])
         if (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
+            (
+                self._c
+                and not ("c" in kwargs and not kwargs["c"])
+                and not any(is_backend_array(_a) for _a in args)
+            )
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot):
             Lz = R * vT
@@ -723,7 +727,11 @@ class actionAngleStaeckel(actionAngle):
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
+            (
+                self._c
+                and not ("c" in kwargs and not kwargs["c"])
+                and not any(is_backend_array(_a) for _a in args)
+            )
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot):
             if len(args) == 5:  # R,vR.vT, z, vz
@@ -874,7 +882,11 @@ class actionAngleStaeckel(actionAngle):
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
         if (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
+            (
+                self._c
+                and not ("c" in kwargs and not kwargs["c"])
+                and not any(is_backend_array(_a) for _a in args)
+            )
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot):
             if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
@@ -1103,7 +1115,11 @@ class actionAngleStaeckel(actionAngle):
             z = numpy.array([z])
             vz = numpy.array([vz])
         if (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
+            (
+                self._c
+                and not ("c" in kwargs and not kwargs["c"])
+                and not any(is_backend_array(_a) for _a in args)
+            )
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot):
             Lz = R * vT

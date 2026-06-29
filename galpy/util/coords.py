@@ -2390,7 +2390,7 @@ def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
     """
     xp = get_namespace(R, z, delta)
-    R, z = promote_scalars(xp, R, z)
+    R, z, delta = promote_scalars(xp, R, z, delta)
     if oblate:
         d12 = (R + delta) ** 2.0 + z**2.0
         d22 = (R - delta) ** 2.0 + z**2.0
@@ -2464,7 +2464,7 @@ def uv_to_Rz(u, v, delta=1.0, oblate=False):
 
     """
     xp = get_namespace(u, v, delta)
-    u, v = promote_scalars(xp, u, v)
+    u, v, delta = promote_scalars(xp, u, v, delta)
     if oblate:
         R = delta * xp.cosh(u) * xp.sin(v)
         z = delta * xp.sinh(u) * xp.cos(v)
