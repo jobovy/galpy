@@ -508,3 +508,101 @@ def test_orbit_integrate_cstm_numpy_times(backend):
     numpy.testing.assert_allclose(
         _np(o.getOrbit()), onp.getOrbit(), rtol=1e-6, atol=1e-7
     )
+
+
+# -------------------- augmented 42-state STM forward (#100) -------------------
+# The default c_stm_forward integrates the base orbit + all 6 STM columns in ONE
+# 42-state C solve; _c_stm_forward_loop is the reference (6 separate 12-state
+# integrations). These run at the numpy host level (no backend needed) so they
+# cover the new C integrator + cyl<->rect folding in the coverage job.
+from galpy.backend._reference.inbackend_stm import (  # noqa: E402
+    _c_stm_forward_loop,
+    c_stm_forward,
+)
+
+_STM_TS = numpy.linspace(0.0, 3.0, 40)
+_STM_ICS = numpy.array(
+    [
+        [1.0, 0.1, 0.9, 0.05, 0.1, 1.3],  # generic
+        [1.1, 0.0, 1.0, 0.0, 0.0, 0.4],  # vR=0, z=0, vz=0 edge
+        [0.9, 0.2, 0.8, 0.1, -0.15, 2.0],  # all nonzero
+        [1.0, -0.3, 0.7, -0.2, 0.2, 0.0],  # phi=0 edge
+    ]
+)
+
+
+@pytest.mark.parametrize("ic", _STM_ICS, ids=["generic", "edge0", "allnz", "phi0"])
+def test_augmented_stm_matches_loop(ic):
+    # augmented (one 42-state solve) vs the 6-loop reference: the adaptive 42-state
+    # error norm accepts a slightly different step sequence, so M matches to ~1e-7
+    # (orbit to ~1e-9), NOT bit-for-bit -- expected, within all tolerances.
+    xa, Ma = c_stm_forward(MWPotential2014, ic, _STM_TS, "dop853_c", 1e-10, 1e-10)
+    xr, Mr = _c_stm_forward_loop(MWPotential2014, ic, _STM_TS, "dop853_c", 1e-10, 1e-10)
+    numpy.testing.assert_allclose(xa, xr, rtol=1e-7, atol=1e-9)
+    numpy.testing.assert_allclose(Ma, Mr, rtol=1e-6, atol=1e-7)
+    numpy.testing.assert_allclose(Ma[0], numpy.eye(6), atol=1e-13)  # identity at t0
+
+
+def test_augmented_stm_fd_of_flow():
+    # the real correctness check (catches an a/b axis swap that parity alone can't,
+    # since both paths would share it): M[:, :, b] == d base / d ic[b] by central
+    # finite difference of the augmented flow itself.
+    ic = _STM_ICS[0]
+    eps = 1e-6
+    _, M0 = c_stm_forward(MWPotential2014, ic, _STM_TS, "dop853_c", 1e-12, 1e-12)
+    for b in range(6):
+        icp = ic.copy()
+        icp[b] += eps
+        icm = ic.copy()
+        icm[b] -= eps
+        xp, _ = c_stm_forward(MWPotential2014, icp, _STM_TS, "dop853_c", 1e-12, 1e-12)
+        xm, _ = c_stm_forward(MWPotential2014, icm, _STM_TS, "dop853_c", 1e-12, 1e-12)
+        fd = (xp - xm) / (2 * eps)  # (nt,6) = d base_a / d ic_b
+        numpy.testing.assert_allclose(fd, M0[:, :, b], rtol=1e-5, atol=1e-6)
+
+
+def test_augmented_stm_batch_shape():
+    # N>1 -> (N,nt,6) and (N,nt,6,6); single ic reproduces the per-orbit result.
+    xt, M = c_stm_forward(MWPotential2014, _STM_ICS, _STM_TS, "dop853_c", 1e-10, 1e-10)
+    assert xt.shape == (4, len(_STM_TS), 6)
+    assert M.shape == (4, len(_STM_TS), 6, 6)
+    xt0, M0 = c_stm_forward(
+        MWPotential2014, _STM_ICS[0], _STM_TS, "dop853_c", 1e-10, 1e-10
+    )
+    numpy.testing.assert_array_equal(xt[0], xt0)
+    numpy.testing.assert_array_equal(M[0], M0)
+    # the reference loop also batches (N,6) -> (N,nt,6)/(N,nt,6,6) and agrees
+    xr, Mr = _c_stm_forward_loop(
+        MWPotential2014, _STM_ICS, _STM_TS, "dop853_c", 1e-10, 1e-10
+    )
+    assert xr.shape == (4, len(_STM_TS), 6)
+    assert Mr.shape == (4, len(_STM_TS), 6, 6)
+    numpy.testing.assert_allclose(xt, xr, rtol=1e-6, atol=1e-7)
+    numpy.testing.assert_allclose(M, Mr, rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.filterwarnings("ignore:Passing a list of potentials")
+def test_augmented_stm_dissipative():
+    # dissipative (velocity-dependent) C-STM: the rect jac_x/jac_v blocks must be
+    # applied to ALL six columns. Parity vs the loop + FD-of-flow with friction.
+    from galpy.potential import ChandrasekharDynamicalFrictionForce
+
+    pot = list(MWPotential2014) + [
+        ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1)
+    ]
+    ic = numpy.array([1.2, 0.05, 0.9, 0.1, 0.05, 1.0])
+    ts = numpy.linspace(0.0, 2.0, 30)
+    xa, Ma = c_stm_forward(pot, ic, ts, "dop853_c", 1e-11, 1e-11)
+    xr, Mr = _c_stm_forward_loop(pot, ic, ts, "dop853_c", 1e-11, 1e-11)
+    numpy.testing.assert_allclose(Ma, Mr, rtol=1e-6, atol=1e-7)
+    eps = 1e-6
+    for b in range(6):
+        icp = ic.copy()
+        icp[b] += eps
+        icm = ic.copy()
+        icm[b] -= eps
+        xp, _ = c_stm_forward(pot, icp, ts, "dop853_c", 1e-12, 1e-12)
+        xm, _ = c_stm_forward(pot, icm, ts, "dop853_c", 1e-12, 1e-12)
+        numpy.testing.assert_allclose(
+            (xp - xm) / (2 * eps), Ma[:, :, b], rtol=1e-4, atol=1e-5
+        )
