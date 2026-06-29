@@ -54,7 +54,16 @@ class actionAngleIsochroneApprox(actionAngle):
         ntintJ : int, optional
             Number of time-integration points.
         integrate_method : str, optional
-            Integration method to use.
+            Integration method to use. For a jax/torch initial condition, pass
+            'diffrax'/'torchdiffeq' (instead of the default first-order C-STM
+            'dopr54_c') to integrate with the in-backend differentiable ODE solver,
+            which supports GPU and higher-order autodiff of the actions.
+        integrate_kwargs : dict, optional
+            Extra options forwarded to the in-backend solver when
+            integrate_method='diffrax'/'torchdiffeq' ('max_steps', 'solver', and
+            (jax) 'adjoint'); e.g. {'adjoint': 'direct', 'max_steps': 4096} enables
+            jax SECOND derivatives (jax.hessian / nested jacrev) of the actions w.r.t.
+            the input phase-space coordinates. Ignored for the C/numpy path.
         dt : float, optional
             orbit.integrate dt keyword (for fixed stepsize integration).
         maxn : int, optional
@@ -106,6 +115,11 @@ class actionAngleIsochroneApprox(actionAngle):
         self._integrate_dt = kwargs.get("dt", None)
         self._tsJ = numpy.linspace(0.0, self._tintJ, self._ntintJ)
         self._integrate_method = kwargs.get("integrate_method", "dopr54_c")
+        # extra options for the in-backend differentiable solver when
+        # integrate_method='diffrax'/'torchdiffeq' (max_steps / solver / adjoint);
+        # e.g. {'adjoint': 'direct', 'max_steps': 4096} enables jax second
+        # derivatives (jax.hessian) of the actions w.r.t. the input phase-space.
+        self._integrate_kwargs = kwargs.get("integrate_kwargs", None)
         self._maxn = kwargs.get("maxn", 3)
         self._c = False
         ext_loaded = False
@@ -783,6 +797,7 @@ class actionAngleIsochroneApprox(actionAngle):
                         pot=self._pot,
                         method=self._integrate_method,
                         dt=self._integrate_dt,
+                        inbackend_kwargs=getattr(self, "_integrate_kwargs", None),
                     )
                     for o in os
                 ]
@@ -877,6 +892,7 @@ class actionAngleIsochroneApprox(actionAngle):
                     pot=self._pot,
                     method=self._integrate_method,
                     dt=self._integrate_dt,
+                    inbackend_kwargs=getattr(self, "_integrate_kwargs", None),
                 )
                 for o in os
             ]
@@ -942,6 +958,7 @@ class actionAngleIsochroneApprox(actionAngle):
                 pot=self._pot,
                 method=self._integrate_method,
                 dt=self._integrate_dt,
+                inbackend_kwargs=getattr(self, "_integrate_kwargs", None),
             )
             return o
 
