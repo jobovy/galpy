@@ -162,6 +162,16 @@ def _grad(backend, f, x0):
     return float(t.grad)
 
 
+def _hess(backend, f, x0):
+    # second derivative of a scalar->scalar f at x0 (jax.hessian / torch double-grad)
+    if backend == "jax":
+        return float(jax.hessian(lambda t: f(t))(jnp.asarray(x0)))
+    t = torch.tensor(x0, requires_grad=True)
+    (g,) = torch.autograd.grad(f(t), t, create_graph=True)
+    (h,) = torch.autograd.grad(g, t)
+    return float(h)
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("which,idx", [("jr", 0), ("omegar", 3), ("angler", 6)])
 def test_isochrone_grad_vs_fd_wrt_vR(backend, which, idx):
@@ -1362,6 +1372,76 @@ def test_isochroneapprox_nonaxi_parity(backend):
             )
     # the retrograde (second) orbit must give a negative azimuthal frequency
     assert float(_np(got[4]).ravel()[1]) < 0.0
+
+
+# ------- IsochroneApprox via the in-backend diffrax/torchdiffeq integrator (#102)
+# integrate_method='diffrax'/'torchdiffeq' routes the orbit integration through the
+# in-backend differentiable ODE solver instead of the default first-order C-STM
+# ('dopr54_c'). That is what makes the actions GPU-integrable AND twice
+# differentiable: the C-STM is a jax.pure_callback / torch.autograd.Function that
+# supports only first derivatives, while the in-backend solver is pure-backend. For
+# jax, second derivatives additionally require the 'direct' diffrax adjoint (the
+# default reverse-mode RecursiveCheckpointAdjoint cannot be differentiated twice --
+# no forward-mode, and its backward has a dynamic while_loop); torchdiffeq's plain
+# odeint retains the graph and double-backprops as-is. b is EXPLICIT throughout so
+# estimateBIsochrone (whose backend root-find is first-order only) is never on the
+# differentiated path. tintJ/ntintJ are small for test speed.
+_IA_HESS_IC = (1.1, 0.2, 0.9, 0.15, 0.1, 1.3)
+
+
+def _aAIA_small(method=None, **kw):
+    m = {} if method is None else {"integrate_method": method}
+    return actionAngleIsochroneApprox(
+        pot=MWPotential2014, b=0.8, tintJ=8.0, ntintJ=400, **m, **kw
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_inbackend_method_parity(backend):
+    # integrate_method='diffrax'/'torchdiffeq' gives the SAME actions/freqs as the
+    # numpy C path (same b/tintJ/ntintJ) -- the in-backend ODE integrator matches the
+    # C integrator to the integrator floor. Confirms routing the AA orbit through the
+    # in-backend solver does not change the answer.
+    method = "diffrax" if backend == "jax" else "torchdiffeq"
+    ref = _aAIA_small()._actionsFreqs(*_IA)  # numpy / C reference
+    got = _aAIA_small(method)._actionsFreqs(*[_arr(backend, v) for v in _IA])
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_inbackend_hessian(backend):
+    # SECOND derivative d2 jr / d vR2 through the orbit integration + angle-average,
+    # AD vs finite-difference-of-the-gradient. jax needs integrate_kwargs with the
+    # 'direct' adjoint (+ a modest max_steps that the DirectAdjoint scan uses);
+    # torchdiffeq double-backprops with no extra option. This is the capability the
+    # first-order C-STM path cannot provide.
+    if backend == "jax":
+        aA = _aAIA_small(
+            "diffrax", integrate_kwargs={"adjoint": "direct", "max_steps": 4096}
+        )
+    else:
+        aA = _aAIA_small("torchdiffeq")
+    R, _, vT, z, vz, phi = _IA_HESS_IC
+
+    def f_be(vR_t):
+        vR = jnp.atleast_1d(vR_t) if backend == "jax" else torch.atleast_1d(vR_t)
+        args = (
+            _arr(backend, [R]),
+            vR,
+            _arr(backend, [vT]),
+            _arr(backend, [z]),
+            _arr(backend, [vz]),
+            _arr(backend, [phi]),
+        )
+        return aA._evaluate(*args)[0][0]  # scalar jr
+
+    # finite-difference of the AD gradient is the 2nd-derivative reference
+    fd2 = (_grad(backend, f_be, 0.2 + 1e-3) - _grad(backend, f_be, 0.2 - 1e-3)) / 2e-3
+    h = _hess(backend, f_be, 0.2)
+    assert numpy.isfinite(h)
+    numpy.testing.assert_allclose(h, fd2, rtol=1e-3, atol=1e-5)
 
 
 # --------------------------------------------------------- delta/b estimators

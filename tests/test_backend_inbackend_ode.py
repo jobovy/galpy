@@ -239,3 +239,122 @@ def test_inbackend_grad_torch_matches_jax():
     g_torch = float(ic.grad[1])
 
     numpy.testing.assert_allclose(g_torch, g_jax, rtol=1e-6, atol=1e-8)
+
+
+# ----------------------- in-backend solver/adjoint/max_steps knobs (#102) -------
+# integrate_orbit (and Orbit.integrate via inbackend_kwargs) forwards a 'solver',
+# 'adjoint' (jax), and 'max_steps' to the underlying diffrax/torchdiffeq call. The
+# headline use is jax SECOND derivatives: the default RecursiveCheckpointAdjoint is
+# reverse-mode first-order only, so adjoint='direct' (diffrax.DirectAdjoint) is what
+# makes jax.hessian work through the solve (torchdiffeq double-backprops as-is).
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_solver_adjoint_options_jax():
+    import diffrax
+
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ic, ts = jnp.asarray(_IC), jnp.asarray(_TS)
+    base = numpy.asarray(integrate_orbit(pot, ic, ts))
+    # explicit 'recursive' adjoint + 'dopri8' solver NAME reproduces the defaults
+    same = numpy.asarray(
+        integrate_orbit(pot, ic, ts, solver="dopri8", adjoint="recursive")
+    )
+    numpy.testing.assert_allclose(same, base, rtol=1e-10, atol=1e-10)
+    # a diffrax solver INSTANCE passes through; another solver still matches to tol
+    alt = numpy.asarray(integrate_orbit(pot, ic, ts, solver=diffrax.Tsit5()))
+    numpy.testing.assert_allclose(alt, base, rtol=1e-6, atol=1e-7)
+    # a diffrax adjoint INSTANCE also passes through unchanged
+    inst = numpy.asarray(
+        integrate_orbit(pot, ic, ts, adjoint=diffrax.RecursiveCheckpointAdjoint())
+    )
+    numpy.testing.assert_allclose(inst, base, rtol=1e-10, atol=1e-10)
+    # unknown names raise a clear ValueError
+    with pytest.raises(ValueError):
+        integrate_orbit(pot, ic, ts, solver="nope")
+    with pytest.raises(ValueError):
+        integrate_orbit(pot, ic, ts, adjoint="nope")
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_hessian_direct_adjoint_jax():
+    # second derivative d2 R(T) / d vR0^2 through the diffrax solve. adjoint='direct'
+    # (DirectAdjoint) makes it differentiable twice; the default adjoint cannot.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ts = jnp.asarray(_TS)
+
+    def final_R(vR):
+        ic = jnp.asarray(_IC).at[1].set(vR)
+        return integrate_orbit(pot, ic, ts, adjoint="direct", max_steps=2048)[-1][0]
+
+    h = float(jax.hessian(final_R)(jnp.asarray(0.1)))
+    g = jax.grad(final_R)
+    fd2 = float((g(jnp.asarray(0.1 + 1e-3)) - g(jnp.asarray(0.1 - 1e-3))) / 2e-3)
+    assert numpy.isfinite(h)
+    numpy.testing.assert_allclose(h, fd2, rtol=1e-3, atol=1e-6)
+
+    # the DEFAULT (recursive) adjoint cannot be differentiated twice -> errors
+    def final_R_default(vR):
+        ic = jnp.asarray(_IC).at[1].set(vR)
+        return integrate_orbit(pot, ic, ts)[-1][0]
+
+    with pytest.raises(Exception):
+        jax.hessian(final_R_default)(jnp.asarray(0.1))
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_orbit_integrate_inbackend_kwargs_jax():
+    # Orbit.integrate threads inbackend_kwargs down to the in-backend solver: a
+    # Hessian of a final coordinate through Orbit(jax IC).integrate(method='diffrax').
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def final_R(vR):
+        ic = jnp.asarray(_IC).at[1].set(vR)
+        o = Orbit(ic)
+        o.integrate(
+            jnp.asarray(_TS),
+            pot,
+            method="diffrax",
+            inbackend_kwargs={"adjoint": "direct", "max_steps": 2048},
+        )
+        return o.getOrbit().reshape(-1, len(_IC))[-1, 0]  # final R
+
+    h = float(jax.hessian(final_R)(jnp.asarray(0.1)))
+    assert numpy.isfinite(h)
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_inbackend_solver_maxsteps_torch():
+    # torchdiffeq path: 'solver' selects the method and 'max_steps' caps the step
+    # count (torchdiffeq max_num_steps); the defaults reproduce the plain call.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ic = torch.tensor(_IC, dtype=torch.float64)
+    ts = torch.as_tensor(_TS)
+    base = integrate_orbit(pot, ic, ts).detach().numpy()
+    same = (
+        integrate_orbit(pot, ic, ts, solver="dopri5", max_steps=100000).detach().numpy()
+    )
+    numpy.testing.assert_allclose(same, base, rtol=1e-10, atol=1e-10)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_per_orbit_times_with_knobs_jax():
+    # PER-ORBIT time grids (shape (N, nt)) route through jax.vmap; the solver/
+    # max_steps knobs must thread into each per-orbit solve.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ics = jnp.stack([jnp.asarray(_IC), jnp.asarray(_IC).at[1].set(0.2)])
+    ts2 = jnp.stack([jnp.asarray(_TS), jnp.asarray(_TS) * 0.5])
+    out = integrate_orbit(pot, ics, ts2, solver="dopri8", max_steps=50000)
+    assert out.shape == (len(_TS), 2, 6)
+    assert bool(numpy.isfinite(numpy.asarray(out)).all())
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_inbackend_per_orbit_times_with_knobs_torch():
+    # PER-ORBIT grids on torch use a per-orbit odeint loop; solver/max_steps thread in.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ic0 = torch.tensor(_IC, dtype=torch.float64)
+    ics = torch.stack([ic0, ic0.clone()])
+    ts0 = torch.as_tensor(_TS)
+    ts2 = torch.stack([ts0, ts0 * 0.5])
+    out = integrate_orbit(pot, ics, ts2, solver="dopri5", max_steps=50000)
+    assert tuple(out.shape) == (len(_TS), 2, 6)
+    assert bool(torch.isfinite(out).all())
