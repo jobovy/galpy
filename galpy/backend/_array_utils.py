@@ -7,7 +7,24 @@
 #   implementation instead of a per-module copy. The numpy path is byte-identical
 #   to the plain numpy spelling.
 ###############################################################################
+from ._namespaces import is_backend_array
 from ._resolver import get_namespace
+
+
+def apply_amp(amp, result):
+    """Multiply a potential ``result`` by its amplitude ``amp``, coercing a
+    stored backend-array amp onto the result's namespace (or vice versa).
+
+    A potential constructed under a forced backend stores a backend-array
+    ``_amp`` (e.g. from ``normalize()``); evaluating it under a different active
+    namespace -- a forced-numpy action-angle island, say -- then mixes a backend
+    amp with a numpy result. Coerce so both sides share a namespace. The
+    pure-numpy path (a numpy/Python-scalar amp AND a numpy/scalar result) is left
+    untouched, so it is byte-identical to the plain ``amp * result``.
+    """
+    if is_backend_array(amp) or is_backend_array(result):
+        amp = get_namespace(result).asarray(amp)
+    return amp * result
 
 
 def atleast_1d(x):

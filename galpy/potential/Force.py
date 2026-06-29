@@ -5,7 +5,7 @@
 ###############################################################################
 import copy
 
-from ..backend import get_namespace, promote_scalars
+from ..backend import apply_amp, get_namespace, promote_scalars
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -289,7 +289,7 @@ class Force:
         # the force's xp.<op>(...) accepts them; numpy no-op -> byte-identical.
         R, z = promote_scalars(get_namespace(R, z), R, z)
         try:
-            return self._amp * self._Rforce(R, z, **kwargs)
+            return apply_amp(self._amp, self._Rforce(R, z, **kwargs))
         except AttributeError:  # pragma: no cover
             from .Potential import PotentialError
 
@@ -299,7 +299,7 @@ class Force:
         # Separate, so it can be used during orbit integration
         R, z = promote_scalars(get_namespace(R, z), R, z)
         try:
-            return self._amp * self._zforce(R, z, **kwargs)
+            return apply_amp(self._amp, self._zforce(R, z, **kwargs))
         except AttributeError:  # pragma: no cover
             from .Potential import PotentialError
 
@@ -311,7 +311,7 @@ class Force:
         # Separate, so it can be used during orbit integration
         R, z = promote_scalars(get_namespace(R, z), R, z)
         try:
-            return self._amp * self._phitorque(R, z, **kwargs)
+            return apply_amp(self._amp, self._phitorque(R, z, **kwargs))
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 from .Potential import PotentialError

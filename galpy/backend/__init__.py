@@ -11,7 +11,7 @@
 #   onto the active backend, anchoring stored constants) and ``_namespaces``
 #   for the namespace-resolution and dtype/device primitives they build on.
 ###############################################################################
-from ._array_utils import atleast_1d, median
+from ._array_utils import apply_amp, atleast_1d, median
 from ._coerce import (
     as_backend_constant,
     coerce_coords,
@@ -50,6 +50,7 @@ __all__ = [
     "coerce_coords",
     "promote_scalars",
     "zeros_like_backend",
+    "apply_amp",
     "atleast_1d",
     "median",
 ]

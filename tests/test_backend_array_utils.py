@@ -1,14 +1,16 @@
 ###############################################################################
 # test_backend_array_utils.py: multi-backend tests for the small backend-agnostic
-# array helpers in galpy.backend (atleast_1d, median) and the numpy_island
-# decorator. These exercise the backend-only branches (the array-api-compat
-# torch median workaround, numpy_island's backend-array passthrough) that the
-# numpy-only matrix can never hit. Backends that are not installed self-skip.
+# array helpers in galpy.backend (apply_amp, atleast_1d, median) and the
+# numpy_island decorator. These exercise the backend-only branches (the
+# array-api-compat torch median workaround, apply_amp's cross-namespace coercion,
+# numpy_island's backend-array passthrough) that the numpy-only matrix can never
+# hit. Backends that are not installed self-skip.
 ###############################################################################
 import numpy
 import pytest
 
 from galpy.backend import (
+    apply_amp,
     atleast_1d,
     get_namespace,
     is_backend_array,
@@ -112,3 +114,25 @@ def test_numpy_island_both_branches(backend_name):
             assert ns == "numpy"
         else:
             assert backend_name in ns
+
+
+@pytest.mark.parametrize("backend_name", _backends())
+def test_apply_amp_cross_namespace(backend_name):
+    res_np = numpy.asarray([1.0, 2.0, 3.0])
+    # pure-numpy path: byte-identical to a plain multiply, stays numpy
+    out = apply_amp(2.0, res_np)
+    assert not is_backend_array(out)
+    numpy.testing.assert_array_equal(out, 2.0 * res_np)
+    if backend_name == "numpy":
+        return
+    amp_be = _asarray(backend_name, 2.0)  # a backend-array amp (e.g. from normalize())
+    # backend amp x numpy result -> coerced onto the result's (numpy) namespace,
+    # the action-angle numpy-island case
+    out_np = apply_amp(amp_be, res_np)
+    assert not is_backend_array(out_np)
+    numpy.testing.assert_allclose(out_np, 2.0 * res_np)
+    # numpy amp x backend result -> coerced onto the result's backend namespace
+    res_be = _asarray(backend_name, [1.0, 2.0, 3.0])
+    out_be = apply_amp(2.0, res_be)
+    assert is_backend_array(out_be)
+    numpy.testing.assert_allclose(numpy.asarray(out_be), 2.0 * res_np)

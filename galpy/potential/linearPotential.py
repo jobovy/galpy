@@ -5,6 +5,7 @@ import pickle
 
 import numpy
 
+from ..backend import apply_amp
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -257,7 +258,7 @@ class linearPotential:
     def _call_nodecorator(self, x, t=0.0):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp * self._evaluate(x, t=t)
+            return apply_amp(self._amp, self._evaluate(x, t=t))
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_evaluate' function not implemented for this potential"
@@ -291,7 +292,7 @@ class linearPotential:
     def _force_nodecorator(self, x, t=0.0):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp * self._force(x, t=t)
+            return apply_amp(self._amp, self._force(x, t=t))
         except AttributeError:  # pragma: no cover
             raise PotentialError("'_force' function not implemented for this potential")
 

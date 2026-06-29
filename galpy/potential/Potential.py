@@ -24,6 +24,7 @@ from packaging.version import Version
 from scipy import integrate, optimize
 
 from ..backend import (
+    apply_amp,
     coerce_coords,
     get_namespace,
     is_backend_array,
@@ -290,7 +291,7 @@ class Potential(Force):
                 raise PotentialError(
                     "'_evaluate' function not implemented for this potential"
                 )
-            return self._amp * rawOut if not rawOut is None else rawOut
+            return apply_amp(self._amp, rawOut) if not rawOut is None else rawOut
         elif dR == 1 and dphi == 0:
             return -self.Rforce(R, z, phi=phi, t=t, use_physical=False)
         elif dR == 0 and dphi == 1:
@@ -420,7 +421,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp * self._R2deriv(R, z, phi=phi, t=t)
+            return apply_amp(self._amp, self._R2deriv(R, z, phi=phi, t=t))
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_R2deriv' function not implemented for this potential"
@@ -454,7 +455,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp * self._z2deriv(R, z, phi=phi, t=t)
+            return apply_amp(self._amp, self._z2deriv(R, z, phi=phi, t=t))
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_z2deriv' function not implemented for this potential"
@@ -487,7 +488,7 @@ class Potential(Force):
         - 2013-09-24 - Written - Bovy (IAS)
         """
         try:
-            return self._amp * self._phi2deriv(R, z, phi=phi, t=t)
+            return apply_amp(self._amp, self._phi2deriv(R, z, phi=phi, t=t))
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 raise PotentialError(
@@ -523,7 +524,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp * self._Rzderiv(R, z, phi=phi, t=t)
+            return apply_amp(self._amp, self._Rzderiv(R, z, phi=phi, t=t))
         except AttributeError:  # pragma: no cover
             raise PotentialError(
                 "'_Rzderiv' function not implemented for this potential"
@@ -556,7 +557,7 @@ class Potential(Force):
         - 2014-06-30 - Written - Bovy (IAS)
         """
         try:
-            return self._amp * self._Rphideriv(R, z, phi=phi, t=t)
+            return apply_amp(self._amp, self._Rphideriv(R, z, phi=phi, t=t))
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 raise PotentialError(
@@ -592,7 +593,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp * self._phizderiv(R, z, phi=phi, t=t)
+            return apply_amp(self._amp, self._phizderiv(R, z, phi=phi, t=t))
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 raise PotentialError(
@@ -671,7 +672,7 @@ class Potential(Force):
         try:
             if forcepoisson:
                 raise AttributeError  # Hack!
-            return self._amp * self._dens(R, z, phi=phi, t=t)
+            return apply_amp(self._amp, self._dens(R, z, phi=phi, t=t))
         except AttributeError:
             # Use the Poisson equation to get the density
             return (
@@ -718,7 +719,7 @@ class Potential(Force):
         try:
             if forcepoisson:
                 raise AttributeError  # Hack!
-            return self._amp * self._surfdens(R, z, phi=phi, t=t)
+            return apply_amp(self._amp, self._surfdens(R, z, phi=phi, t=t))
         except AttributeError:
             # Use the Poisson equation to get the surface density
             return (
@@ -817,7 +818,7 @@ class Potential(Force):
         try:
             if forceint:
                 raise AttributeError  # Hack!
-            return self._amp * self._mass(R, z=z, t=t)
+            return apply_amp(self._amp, self._mass(R, z=z, t=t))
         except AttributeError:
             # Use numerical integration to get the mass, using Gauss' theorem.
             # numpy -> backend.quadrature.quad delegates to scipy.integrate.quad

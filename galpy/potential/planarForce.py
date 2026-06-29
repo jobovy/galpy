@@ -7,7 +7,7 @@ import copy
 
 import numpy
 
-from ..backend import get_namespace, promote_scalars
+from ..backend import apply_amp, get_namespace, promote_scalars
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -256,7 +256,7 @@ class planarForce:
         else:
             R, phi = promote_scalars(get_namespace(R, phi), R, phi)
         try:
-            return self._amp * self._Rforce(R, phi=phi, t=t, **kwargs)
+            return apply_amp(self._amp, self._Rforce(R, phi=phi, t=t, **kwargs))
         except AttributeError:  # pragma: no cover
             from .Potential import PotentialError
 
@@ -272,7 +272,7 @@ class planarForce:
         else:
             R, phi = promote_scalars(get_namespace(R, phi), R, phi)
         try:
-            return self._amp * self._phitorque(R, phi=phi, t=t, **kwargs)
+            return apply_amp(self._amp, self._phitorque(R, phi=phi, t=t, **kwargs))
         except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 from .Potential import PotentialError
