@@ -13,7 +13,7 @@ import warnings
 
 import numpy
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import get_namespace
 from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
 from ..potential.Potential import (
     _check_c,
@@ -128,9 +128,11 @@ class actionAngleAdiabatic(actionAngle):
             vT = numpy.array([vT])
             z = numpy.array([z])
             vz = numpy.array([vz])
-        if is_backend_array(R):
-            # jax/torch inputs: vectorised, differentiable path (see backend
-            # section below); processes all N objects at once. numpy stays below.
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:
+            # Backend path: runs under a forced backend even for numpy inputs
+            # (promote first), exercising the backend for real, not the numpy core.
+            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
             return self._evaluate_backend(R, vR, vT, z, vz)
         if (
             (self._c and not ("c" in kwargs and not kwargs["c"]))
@@ -237,8 +239,9 @@ class actionAngleAdiabatic(actionAngle):
             vT = numpy.array([vT])
             z = numpy.array([z])
             vz = numpy.array([vz])
-        if is_backend_array(R):
-            # jax/torch inputs: vectorised, differentiable path (see below).
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:
+            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
             return self._actionsFreqs_backend(R, vR, vT, z, vz)
         if len(R) > 1:
             ojr = numpy.zeros(len(R))
@@ -323,8 +326,9 @@ class actionAngleAdiabatic(actionAngle):
             z = numpy.array([z])
             vz = numpy.array([vz])
             phi = numpy.array([phi])
-        if is_backend_array(R):
-            # jax/torch inputs: vectorised, differentiable path (see below).
+        xp = get_namespace(R, vR, vT, z, vz, phi)
+        if xp is not numpy:
+            R, vR, vT, z, vz, phi = (xp.asarray(a) for a in (R, vR, vT, z, vz, phi))
             return self._actionsFreqsAngles_backend(R, vR, vT, z, vz, phi)
         if len(R) > 1:
             ojr = numpy.zeros(len(R))
@@ -417,8 +421,9 @@ class actionAngleAdiabatic(actionAngle):
             vT = numpy.array([vT])
             z = numpy.array([z])
             vz = numpy.array([vz])
-        if is_backend_array(R):
-            # jax/torch inputs: vectorised, differentiable path (see below).
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:
+            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
             return self._EccZmaxRperiRap_backend(R, vR, vT, z, vz)
         if (
             (self._c and not ("c" in kwargs and not kwargs["c"]))

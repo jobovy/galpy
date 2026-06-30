@@ -12,7 +12,7 @@
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import device_of, get_namespace, is_backend_array
+from ..backend import device_of, get_namespace
 from ..potential.linearPotential import evaluatelinearPotentials
 from ..potential.Potential import _check_potential_list_and_deprecate
 from .actionAngle import actionAngle
@@ -78,7 +78,9 @@ class actionAngleVertical(actionAngle):
             if isinstance(x, float):
                 x = numpy.array([x])
                 vx = numpy.array([vx])
-            if is_backend_array(x):
+            xp = get_namespace(x, vx)
+            if xp is not numpy:
+                x, vx = xp.asarray(x), xp.asarray(vx)
                 return self._evaluate_backend(x, vx)
             J = numpy.empty(len(x))
             for ii in range(len(x)):
@@ -136,7 +138,9 @@ class actionAngleVertical(actionAngle):
             if isinstance(x, float):
                 x = numpy.array([x])
                 vx = numpy.array([vx])
-            if is_backend_array(x):
+            xp = get_namespace(x, vx)
+            if xp is not numpy:
+                x, vx = xp.asarray(x), xp.asarray(vx)
                 return self._actionsFreqs_backend(x, vx)
             J = numpy.empty(len(x))
             Omega = numpy.empty(len(x))
@@ -224,7 +228,9 @@ class actionAngleVertical(actionAngle):
             if isinstance(x, float):
                 x = numpy.array([x])
                 vx = numpy.array([vx])
-            if is_backend_array(x):
+            xp = get_namespace(x, vx)
+            if xp is not numpy:
+                x, vx = xp.asarray(x), xp.asarray(vx)
                 return self._actionsFreqsAngles_backend(x, vx)
             J = numpy.empty(len(x))
             Omega = numpy.empty(len(x))
