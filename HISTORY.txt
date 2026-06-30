@@ -26,10 +26,16 @@ v1.12.0 (2026-07-01)
   ``SteadyLogSpiralPotential`` and ``TransientLogSpiralPotential`` spirals.
 
 - Added ``MultipoleExpansionPotential``, which represents the potential of an
-  arbitrary density distribution via a real spherical-harmonic multipole
-  expansion, with both Python and C evaluation of the potential, forces, second
-  derivatives, and density. Build it from a density function with the
-  ``from_density`` classmethod.
+  arbitrary (and optionally time-dependent) density distribution via a real
+  spherical-harmonic multipole expansion, with both Python and C evaluation of
+  the potential, forces, second derivatives, and density. Build it from a density
+  function with the ``from_density`` classmethod.
+
+- Added ``DiskMultipoleExpansionPotential``, which represents disk+halo systems
+  by solving the Poisson equation with a multipole expansion (the analogue of
+  ``DiskSCFPotential`` built on ``MultipoleExpansionPotential``); the two now
+  share a ``KuijkenDubinskiDiskExpansionPotential`` base class, with C orbit
+  integration support.
 
 - Added a ``StreamTrack`` class holding a smooth, precomputed phase-space track
   through a tidal stream, with accessors for every standard galpy coordinate
@@ -46,6 +52,12 @@ v1.12.0 (2026-07-01)
   full 3D Hessian for the variational equations). A ``from_nfw`` classmethod
   truncates an existing ``NFWPotential``, and the total mass can alternatively be
   set directly with the ``mass=`` keyword.
+
+- Added analytic power-law spherical distribution functions for tracer densities
+  nu(r) ~ r^-gamma in power-law potentials (following Evans et al. 1997):
+  ``isotropicPowerLawdf``, ``constantbetaPowerLawdf``, and
+  ``osipkovmerrittPowerLawdf``, each supporting both the self-consistent and the
+  non-self-consistent (tracer != potential-generating density) cases.
 
 - Added support for non-uniform stripping-time distributions (with a pericenter
   helper) and callable, time-dependent ``progenitor_mass`` to the stream spray

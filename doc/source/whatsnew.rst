@@ -25,10 +25,13 @@ additions are:
   velocity-dependent (dissipative) forces such as dynamical friction.
 
 * The new ``MultipoleExpansionPotential``, which represents the potential of an
-  arbitrary density distribution through a real spherical-harmonic multipole
-  expansion. Both Python and C evaluation of the potential, forces, second
-  derivatives, and density are supported, and the potential can be constructed
-  directly from a density function with the ``from_density`` classmethod.
+  arbitrary, and optionally time-dependent, density distribution through a real
+  spherical-harmonic multipole expansion. Both Python and C evaluation of the
+  potential, forces, second derivatives, and density are supported, and the
+  potential can be constructed directly from a density function with the
+  ``from_density`` classmethod. The companion ``DiskMultipoleExpansionPotential``
+  uses this machinery to represent disk+halo systems by solving the Poisson
+  equation, the multipole analogue of ``DiskSCFPotential``.
 
 * A new ``StreamTrack`` class that holds a smooth, precomputed phase-space track
   through a tidal stream, with accessors for every standard galpy coordinate
@@ -41,6 +44,8 @@ additions are:
   in 3D, 2D, and 1D. These are created automatically when adding potentials with
   ``+`` (already the recommended way to combine potentials) and provide better
   performance and a cleaner interface than the previous lists of potentials.
+  Combining potentials using lists remains supported for now, but will be
+  deprecated in a future version (likely v1.14).
 
 Other user-facing improvements and additions are:
 
@@ -57,22 +62,30 @@ Other user-facing improvements and additions are:
   * Fuzzy dark matter (FDM) dynamical friction through
     ``FDMDynamicalFrictionForce``.
 
-  * Two new wrapper potentials: ``OblateStaeckelWrapperPotential`` (turns a
-    potential into an oblate Staeckel potential) and
-    ``CylindricallySeparablePotentialWrapper``.
+  * Two new wrapper potentials: ``OblateStaeckelWrapperPotential``, which turns
+    any potential into an oblate Staeckel potential, and
+    ``CylindricallySeparablePotentialWrapper``, which approximates an
+    axisymmetric potential as one that is separable in the cylindrical
+    coordinates :math:`R` and :math:`z` (built from the potential's radial and
+    vertical force profiles). Both are useful for action-angle estimation: the
+    former for the Staeckel approximation (``actionAngleStaeckel``) and the
+    latter for the adiabatic approximation (``actionAngleAdiabatic``).
 
 * Faster orbit integration:
 
-  * C implementations of ``TwoPowerSphericalPotential`` (including
-    ``HernquistPotential``, ``JaffePotential``, and ``NFWPotential``) and
-    ``TwoPowerTriaxialPotential``, using fast hypergeometric-function routines.
+  * C implementations of ``TwoPowerSphericalPotential`` instances with general
+    inner and outer exponents, and of ``TwoPowerTriaxialPotential``, using fast
+    hypergeometric-function routines (the special cases such as
+    ``HernquistPotential``, ``JaffePotential``, and ``NFWPotential`` already had
+    C implementations).
 
   * A ``cinterp`` option for ``NonInertialFrameForce`` that, during C
     integration, replaces its time-dependent inputs by natively-evaluated cubic
     splines, giving large speed-ups.
 
-  * Vectorized ``EllipsoidalPotential`` evaluations (array inputs) and C planar
-    second derivatives for the ellipsoidal potentials.
+  * Vectorized ``EllipsoidalPotential`` evaluations (array inputs), C planar
+    second derivatives for the ellipsoidal potentials, and analytic (rather than
+    numerical) second derivatives for ``SCFPotential``.
 
 * New and improved ``Orbit`` functionality:
 
@@ -90,6 +103,15 @@ Other user-facing improvements and additions are:
 
   * A new ``align_to_orbit`` helper (in ``galpy.util.coords`` and as an
     ``Orbit`` method) aligns an orbit horizontally.
+
+* Distribution functions:
+
+  * New analytic power-law spherical distribution functions for tracer densities
+    :math:`\nu(r) \propto r^{-\gamma}` in power-law potentials, following Evans
+    et al. (1997): ``isotropicPowerLawdf``, ``constantbetaPowerLawdf``, and
+    ``osipkovmerrittPowerLawdf``, each supporting both the self-consistent and
+    the non-self-consistent (tracer differs from the potential-generating
+    density) cases.
 
 * Stream modeling:
 
@@ -111,8 +133,15 @@ Other user-facing improvements and additions are:
 
   * Enhanced ``__repr__`` methods for potential, force, and wrapper classes.
 
-  * The documentation tutorials have been rewritten as tested Jupyter notebooks
-    with gallery navigation.
+Finally, there are some notable internal and documentation changes. The
+documentation tutorials have been rewritten as Jupyter notebooks with gallery
+navigation, and these notebooks are now executed as part of the test suite (and
+periodically re-rendered) so that the documentation is automatically checked
+against the current code and stays up to date. Internally, a large effort went
+into adding analytic second derivatives (Hessians) in C across the potential
+library to support the new variational equations, and the C implementations of
+the two-power potentials build on a newly-vendored copy of the ``xsf`` special-
+functions library for fast and accurate hypergeometric functions.
 
 v1.11
 +++++
