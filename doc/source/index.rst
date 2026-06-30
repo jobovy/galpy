@@ -325,6 +325,8 @@ Distribution Functions
 
       Isotropic and anisotropic distribution functions for spherical
       systems: Hernquist, NFW, King, Plummer, Power-law, and general models.
+      Includes N-body initial conditions for a truncated NFW halo and a
+      two-component dwarf galaxy (stars embedded in dark matter).
 
 Tidal Streams
 ^^^^^^^^^^^^^
