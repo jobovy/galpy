@@ -69,6 +69,8 @@ class actionAngleHarmonic(actionAngle):
         """
         if len(args) == 2:  # x,vx
             x, vx = args
+            xp = get_namespace(x, vx)
+            x, vx = promote_scalars(xp, x, vx)
             return (vx**2.0 / self._omega + self._omega * x**2.0) / 2.0
         else:  # pragma: no cover
             raise ValueError("actionAngleHarmonic __call__ input not understood")

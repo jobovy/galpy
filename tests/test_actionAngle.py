@@ -7782,6 +7782,9 @@ def check_actionAngle_conserved_actions(
     else:
         # Test Orbit with multiple objects case, but calling
         js = aA(obs(times))
+    # Backend-agnostic: the actions are jax/torch arrays under a forced backend;
+    # bring them to a numpy 2d array for the reductions (identity on numpy).
+    js = numpy.array([_to_numpy(j) for j in js])
     maxdj = numpy.amax(
         numpy.fabs(js - numpy.tile(numpy.mean(js, axis=1), (len(times), 1)).T), axis=1
     ) / numpy.mean(js, axis=1)
@@ -7870,6 +7873,10 @@ def check_actionAngle_linear_angles(
                 obs.vz(times),
                 obs.phi(times),
             )
+    # Backend-agnostic: actionsFreqsAngles returns jax/torch arrays under a forced
+    # backend; bring them to numpy for the reductions below (identity on numpy).
+    acfs = tuple(_to_numpy(a) for a in acfs)
+    acfs_init = tuple(_to_numpy(a) for a in acfs_init)
     ar = dePeriod(numpy.reshape(acfs[6], (1, len(times)))).flatten()
     ap = dePeriod(numpy.reshape(acfs[7], (1, len(times)))).flatten()
     az = dePeriod(numpy.reshape(acfs[8], (1, len(times)))).flatten()
@@ -8002,6 +8009,10 @@ def check_actionAngle_conserved_EccZmaxRperiRap(
         es, zmaxs, rperis, raps = aA.EccZmaxRperiRap(
             obs.R(times), obs.vR(times), obs.vT(times), obs.z(times), obs.vz(times)
         )
+    # Backend-agnostic: the actionAngle outputs are jax/torch arrays under a
+    # forced backend; bring them to numpy for the reductions below (identity on
+    # numpy, so byte-identical there).
+    es, zmaxs, rperis, raps = (_to_numpy(v) for v in (es, zmaxs, rperis, raps))
     assert numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)) < 10.0**tole, (
         "Eccentricity conservation fails at %g%%"
         % (100.0 * numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)))
