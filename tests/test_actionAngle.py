@@ -8002,6 +8002,10 @@ def check_actionAngle_conserved_EccZmaxRperiRap(
         es, zmaxs, rperis, raps = aA.EccZmaxRperiRap(
             obs.R(times), obs.vR(times), obs.vT(times), obs.z(times), obs.vz(times)
         )
+    # Backend-agnostic: the actionAngle outputs are jax/torch arrays under a
+    # forced backend; bring them to numpy for the reductions below (identity on
+    # numpy, so byte-identical there).
+    es, zmaxs, rperis, raps = (_to_numpy(v) for v in (es, zmaxs, rperis, raps))
     assert numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)) < 10.0**tole, (
         "Eccentricity conservation fails at %g%%"
         % (100.0 * numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)))
