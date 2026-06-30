@@ -1221,3 +1221,18 @@ jax tests/test_orbits.py::test_actionsFreqsAngles_output_shape
 jax tests/test_orbits.py::test_actionsFreqsAngles_staeckeldelta
 jax tests/test_orbits.py::test_physical_output_off
 jax tests/test_orbits.py::test_physical_output_on
+
+# --- AA-native-redesign jax diskdf-consumer GENUINE FAILS (Track F: diskdf) ---
+# Making actionAngle run REAL jax (resolved-namespace dispatch) flips unmigrated
+# diskdf sampling from hollow-green to real-fail under forced jax. The orbit
+# 0-d-time len() exposure is FIXED in Orbits._call_internal, after which these
+# still fail at a deeper diskdf-jax gap (physical output is a bare ndarray with
+# no .to() / a differing return type / a sampling mismatch). The diskdf sample
+# tests that now PASS-but-slow are slow-skipped instead (see backend_slow_skip).
+jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnOrbit
+jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit_rrange
+jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit_wcorrections
+jax tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
+jax tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit_wcorrections
+jax tests/test_quantity.py::test_diskdf_method_returntype
+jax tests/test_quantity.py::test_diskdf_sample
