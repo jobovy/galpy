@@ -15,7 +15,13 @@ import warnings
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import asarray_on_device, device_of, get_namespace, is_backend_array
+from ..backend import (
+    asarray_on_device,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+)
 from ..backend.optimize import bisect_root
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..potential import (
@@ -678,11 +684,16 @@ class actionAngleStaeckel(actionAngle):
             # plain GL order-`order` to match the C path (the default GL order);
             # the standalone-actions c=False result is thus now consistent with
             # both c=True and _actionsFreqsAngles (was ~1e-5 off via adaptive quad).
-            xp = get_namespace(R) if is_backend_array(R) else numpy
+            # Resolve from the active namespace (honours use(backend, force=True))
+            # and promote numpy inputs, so the existing tests run the vectorised
+            # backend path for real; numpy stays byte-identical (xp is numpy).
+            xp = get_namespace(R, vR, vT, z, vz)
+            if xp is not numpy:
+                R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             jr, Lz, jz = _staeckel_actions(
                 xp, R, vR, vT, z, vz, self._pot, _coerce_delta_arraylike(delta), order
             )
-            if is_backend_array(R):
+            if xp is not numpy:
                 return (jr, Lz, jz)
             return (numpy.atleast_1d(jr), numpy.atleast_1d(Lz), numpy.atleast_1d(jz))
 
@@ -821,7 +832,9 @@ class actionAngleStaeckel(actionAngle):
             kwargs.pop("u0", None)
             # Unified vectorised, backend-agnostic path (the useu0 reference is
             # action/frequency-invariant, so it is not needed here).
-            xp = get_namespace(R) if is_backend_array(R) else numpy
+            xp = get_namespace(R, vR, vT, z, vz)
+            if xp is not numpy:
+                R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             jr, Lz, jz, Omegar, Omegaphi, Omegaz = _staeckel_actions_freqs(
                 xp, R, vR, vT, z, vz, self._pot, _coerce_delta_arraylike(delta), order
             )
@@ -979,8 +992,9 @@ class actionAngleStaeckel(actionAngle):
             kwargs.pop("u0", None)
             # Unified vectorised, backend-agnostic path (the useu0 reference is
             # action/frequency/angle-invariant, so it is not needed here).
-            xp = get_namespace(R) if is_backend_array(R) else numpy
-            if is_backend_array(R) and not is_backend_array(phi):
+            xp = get_namespace(R, vR, vT, z, vz)
+            if xp is not numpy:
+                R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
                 # fold the azimuth in R's namespace AND device (a bare xp.asarray
                 # lands on the CPU and would collide with a CUDA anglephi).
                 phi = asarray_on_device(xp, phi, device_of(R))
@@ -1150,7 +1164,9 @@ class actionAngleStaeckel(actionAngle):
             kwargs.pop("c", None)
             # Unified vectorised, backend-agnostic turning points (shared with the
             # actions/freqs via _staeckel_prep); feeds _EccZmaxRperiRap.
-            xp = get_namespace(R) if is_backend_array(R) else numpy
+            xp = get_namespace(R, vR, vT, z, vz)
+            if xp is not numpy:
+                R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             # _staeckel_prep already snaps vmin to pi/2 for planar orbits.
             _, umin, umax, vmin, _ = _staeckel_prep(
                 xp, R, vR, vT, z, vz, self._pot, delta
