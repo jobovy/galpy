@@ -1,120 +1,110 @@
-v1.12.0 (expected around 2026-07-01)
+v1.12.0 (2026-07-01)
 ====================
 
-- Fixed a crash when sampling a spherical distribution function whose
-  isotropic (Eddington-inverted) form dips slightly negative over part of the
-  velocity range -- e.g. near the truncation radius of a sharply
-  exponentially-truncated NFW profile. Previously ``sample`` could fail in
-  ``sphericaldf._make_pvr_interpolator`` with an ``IndexError`` (when a
-  velocity column became entirely non-positive) or a ``ValueError: x must be
-  increasing`` (when the clamped cumulative velocity distribution was
-  non-monotonic). These regions are now clamped to be non-negative and
-  monotonic before building the inverse-CDF interpolator, so sampling succeeds
-  (still emitting the existing "DF appears to have negative regions" warning).
+- Added the full 3D variational equations (the state-transition matrix
+  dx(t)/dx0, integrated via ``Orbit.integrate_dxdv``) in C for most of the
+  potential library, the 3D analogue of the existing planar machinery. This
+  enables fast tangent-dynamics, Lyapunov-exponent (see ``Orbit.lyapunov``
+  below), and chaos calculations, and lays the groundwork for differentiable
+  orbit integration. Many potentials gained their analytic 3D Hessian in C as
+  part of this work.
+
+- Added ``Orbit.lyapunov`` to estimate the largest Lyapunov exponent of an orbit
+  from the variational equations using the renormalization method of Benettin et
+  al. (1980), for both planar and full 3D orbits (using the C variational
+  integrators when available). Setting ``spectrum=True`` computes the full
+  Lyapunov spectrum instead.
+
+- Extended the 3D variational equations in C to velocity-dependent (dissipative)
+  forces, starting with ``ChandrasekharDynamicalFrictionForce`` and
+  ``FDMDynamicalFrictionForce``.
+
+- Added the remaining C second derivatives used by these variational equations,
+  including ``NonInertialFrameForce`` (so phase-space volumes can be integrated
+  in rotating/accelerating frames), the ``OblateStaeckelWrapperPotential`` and
+  ``CylindricallySeparablePotentialWrapper`` wrappers, and the
+  ``SteadyLogSpiralPotential`` and ``TransientLogSpiralPotential`` spirals.
+
+- Added ``MultipoleExpansionPotential``, which represents the potential of an
+  arbitrary density distribution via a real spherical-harmonic multipole
+  expansion, with both Python and C evaluation of the potential, forces, second
+  derivatives, and density. Build it from a density function with the
+  ``from_density`` classmethod.
+
+- Added a ``StreamTrack`` class holding a smooth, precomputed phase-space track
+  through a tidal stream, with accessors for every standard galpy coordinate
+  system, a ``cov`` method for the 6x6 phase-space covariance along the track
+  (via analytic Jacobians), and plotting with an optional ±σ spread band. Tracks
+  can be built from a particle sample (``StreamTrack.from_particles``) or
+  directly from a ``streamdf`` or ``streamspraydf`` via their new ``streamTrack``
+  methods.
+
+- Added ``ExpTruncNFWPotential``, an NFW profile with an exponential truncation
+  ``exp(-r/rc)`` and hence finite total mass, with closed-form mass, potential,
+  force, and second derivative. Supports isotropic, Osipkov-Merritt, and
+  constant-beta distribution functions and has a C implementation (including the
+  full 3D Hessian for the variational equations). A ``from_nfw`` classmethod
+  truncates an existing ``NFWPotential``, and the total mass can alternatively be
+  set directly with the ``mass=`` keyword.
+
+- Added support for non-uniform stripping-time distributions (with a pericenter
+  helper) and callable, time-dependent ``progenitor_mass`` to the stream spray
+  DFs (``streamspraydf``).
+
+- Added support for per-orbit integration time arrays in ``Orbit.integrate``, so
+  each orbit in a multi-orbit ``Orbit`` can be integrated over its own time
+  range; this also enables batched ``streamspraydf`` integration.
+
+- Added a ``tail=`` keyword to ``fardal15spraydf`` and ``chen24spraydf`` (and
+  ``basestreamspraydf``) to select which tidal tail(s) to model (``'leading'``,
+  ``'trailing'``, or ``'both'``, the default). This replaces the now-deprecated
+  ``leading=`` keyword, which will be removed in v1.14.
+
+- Added an ``align_to_orbit`` helper (to ``galpy.util.coords`` and as an
+  ``Orbit`` method) that aligns an orbit horizontally.
+
+- Added a ``cinterp`` option (default ``True``) to ``NonInertialFrameForce``
+  that, during C integration, replaces its time-dependent inputs by cubic-spline
+  interpolations evaluated natively in C, giving large speed-ups (>100x when the
+  inputs are not ``numba``-compatible). Set ``cinterp=False`` to evaluate the
+  provided functions directly, which is required for surface-of-section
+  integration.
+
+- Vectorized ``EllipsoidalPotential`` evaluations so the triaxial ellipsoidal
+  potentials accept array inputs.
+
+- Added frequencies and angles computation for ``actionAngleStaeckel`` in pure
+  Python (``c=False``).
+
+- Rewrote the documentation tutorials as tested Jupyter notebooks with gallery
+  navigation.
+
+- Fixed a segmentation fault (or silently-dropped force) when integrating planar
+  orbits with a C integrator for potentials whose 3D version has a C
+  implementation but whose planar version does not (e.g. ``interpRZPotential``,
+  ``ChandrasekharDynamicalFrictionForce``); such potentials now fall back to
+  Python integration.
+
+- Fixed a stale-force bug in the C implementation of
+  ``RotateAndTiltWrapperPotential``, whose force cache was keyed on position only
+  and so returned stale forces when re-evaluating a time-dependent wrapped
+  potential at the same position but a different time.
+
+- Fixed an incorrect physical-unit conversion for ``phitorque`` in
+  ``DissipativeForce`` and ``planarDissipativeForce``.
 
 - Fixed compatibility with astropy >= 8.0, where the ``Galactocentric``
-  ``galcen_v_sun`` frame attribute is now a ``CartesianRepresentation`` (read
-  via ``.xyz``) rather than a ``CartesianDifferential`` (``.d_xyz``); see
-  astropy/astropy#18362. Initializing an ``Orbit`` from a ``SkyCoord`` that
-  carries ``galcen_v_sun`` now works on both old and new astropy.
+  ``galcen_v_sun`` attribute is now a ``CartesianRepresentation`` rather than a
+  ``CartesianDifferential`` (astropy/astropy#18362), so initializing an ``Orbit``
+  from a ``SkyCoord`` carrying ``galcen_v_sun`` works again.
 
-- Added ``ExpTruncNFWPotential``, an NFW profile multiplied by an exponential
-  truncation ``exp(-r/rc)`` with truncation radius ``rc``. The profile has a
-  finite total mass; the enclosed mass, potential, force, and second
-  derivative are all closed-form (via the exponential integral E_1), with a
-  small-radius Taylor expansion used to avoid catastrophic cancellation when
-  ``r`` is much smaller than ``a`` and ``rc``. The ``amp`` follows the
-  ``NFWPotential`` mass-scale convention (the two potentials coincide as
-  ``rc -> infinity``); alternatively the total mass can be set directly with
-  the ``mass=`` keyword. Also provides a ``from_nfw`` classmethod that truncates
-  an existing ``NFWPotential`` (inheriting its ``amp`` and ``a``), with the
-  truncation set by either ``rc`` or a desired total ``mass``. Supports isotropic
-  (``eddingtondf``), Osipkov-Merritt (``osipkovmerrittdf``), and constant-beta
-  (``constantbetadf``) distribution functions through closed-form ``_ddensdr``,
-  ``_d2densdr2``, and ``_ddenstwobetadr`` (and a JAX ``_rforce_jax``). Has a C
-  implementation (``hasC=True``), including the full 3D Hessian for the
-  variational equations (``hasC_dxdv3d=True``), giving fast orbit integration on
-  par with the other closed-form spherical potentials.
+- Fixed compatibility with numpy 2.5.0 (complex ``eig``/``eigvals`` results and
+  the ``chararray`` deprecation).
 
-- Added analytic planar second derivatives (R2deriv, phi2deriv, Rphideriv) of
-  ``SteadyLogSpiralPotential`` and ``TransientLogSpiralPotential`` in Python
-  and C, enabling the planar variational equations of ``Orbit.integrate_dxdv``
-  in C for these spirals (``hasC_dxdv=True``).
-
-- Added ``Orbit.lyapunov`` to estimate the largest Lyapunov exponent of an
-  orbit from the variational equations (``integrate_dxdv``) using the
-  renormalization method of Benettin et al. (1980). Works for planar
-  (phase-space dimension 4) and full 3D (phase-space dimension 6) orbits,
-  using the C variational integrators when available, and returns the running
-  estimate lambda(t) at all output times so that convergence can be assessed.
-  Setting ``spectrum=True`` computes the full Lyapunov spectrum (all
-  phase-space-dimension exponents) instead, by propagating an orthonormal set
-  of deviation vectors that is re-orthonormalized with a QR decomposition at
-  every renormalization (Benettin et al. 1980, part 2; Shimada & Nagashima
-  1979).
-
-- Extended the 3D variational equations of ``Orbit.integrate_dxdv`` in C to
-  velocity-dependent (dissipative) forces, starting with
-  ``ChandrasekharDynamicalFrictionForce`` and ``FDMDynamicalFrictionForce``
-  (analytic Jacobians; advertised via ``hasC_dxdv3d``). The pure-Python
-  ``integrate_dxdv`` methods raise a ``NotImplementedError`` for dissipative
-  forces.
-
-- Added C implementations of the second derivatives of
-  ``OblateStaeckelWrapperPotential`` and
-  ``CylindricallySeparablePotentialWrapper``, enabling both the planar and the
-  full 3D variational equations of ``Orbit.integrate_dxdv`` in C for these
-  wrappers (``hasC_dxdv`` and ``hasC_dxdv3d``, conditioned on the wrapped
-  potential's own C capabilities).
-
-- Wired the rectangular force Jacobian of ``NonInertialFrameForce`` in C for
-  the 3D variational equations (``hasC_dxdv3d=True``): the frame force is
-  linear in position and velocity, so dF/dv = -2 [Omega]_x and
-  dF/dx = |Omega|^2 I - Omega Omega^T - [Omegadot]_x are exact for every
-  supported configuration (scalar or vector Omega, constant or time-dependent
-  through tfuncs or the cinterp splines, Omegadot, and the x0/v0/a0
-  translation terms, which contribute zero). Phase-space volumes can now be
-  integrated in rotating/accelerating frames; because dF/dv is antisymmetric,
-  the frame force is phase-volume preserving (det M(t) = 1 exactly), unlike
-  dynamical friction.
-
-- Fixed a segmentation fault (or silently-dropped force) when integrating
-  planar orbits with a C integrator for potentials whose 3D version has a C
-  implementation, but whose planar version does not (e.g., interpRZPotential,
-  ChandrasekharDynamicalFrictionForce, FDMDynamicalFrictionForce). Such
-  potentials now fall back to Python integration with the usual warning, and
-  the C potential parsers now raise a clear error for any potential that
-  claims C support without having a C implementation.
-
-- Fixed a bug in the C implementation of ``RotateAndTiltWrapperPotential``
-  where the internal force cache was keyed on position only, so that
-  re-evaluating the force at the same position but a different time returned
-  stale forces when wrapping a time-dependent potential. The cache key now
-  includes the time.
-
-- Added a ``cinterp`` option (default ``True``, resolution set by ``cinterp_n``)
-  to ``NonInertialFrameForce`` that, during C orbit integration, replaces the
-  time-dependent inputs (``a0``, ``x0``, ``v0``, ``Omega``) by cubic-spline
-  interpolations built on the fly and evaluated natively in C, giving large
-  speed-ups (>100x when the inputs are not ``numba``-compatible). Set
-  ``cinterp=False`` to evaluate the provided functions directly, which is
-  required for surface-of-section integration.
-
-- Added ``tail=`` keyword to ``fardal15spraydf`` and ``chen24spraydf`` (and
-  ``basestreamspraydf``) to select which tidal tail(s) to model: ``'leading'``,
-  ``'trailing'``, or ``'both'`` (default). This replaces the ``leading=``
-  keyword, which is now deprecated and will be removed in v1.14.
-
-- Added MultipoleExpansionPotential, which computes the gravitational potential
-  of an arbitrary density distribution via a real spherical-harmonic multipole
-  expansion. The density is decomposed on a radial grid using Gauss-Legendre
-  (theta) and trapezoidal (phi) quadrature; radial integrals are stored as
-  Bernstein-polynomial splines for smooth derivatives that satisfy Poisson's
-  equation by construction. Both Python and C evaluation are supported,
-  including forces, second derivatives, and density reconstruction. The
-  constructor accepts precomputed density-coefficient splines, while the
-  from_density classmethod handles density decomposition (following the
-  SCFPotential pattern).
+- Fixed a crash when sampling a spherical distribution function whose isotropic
+  (Eddington-inverted) form dips slightly negative (e.g. near the truncation
+  radius of a sharply truncated NFW profile); such regions are now clamped to be
+  non-negative and monotonic before sampling.
 
 v1.11.2 (2026-02-27)
 ====================
