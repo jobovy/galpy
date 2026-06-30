@@ -6862,7 +6862,9 @@ class Orbit:
                 # Off-grid times: interpolate the backend trajectory with the
                 # in-backend differentiable cubic spline (no scipy).
                 return self._call_internal_backend_interp(t)
-            if isinstance(t, (int, float, numpy.number)):
+            if isinstance(t, (int, float, numpy.number)) or getattr(t, "ndim", 1) == 0:
+                # A 0-d backend (jax/torch) query time has __len__ but its len()
+                # raises (like a numpy 0-d array); treat it as a scalar.
                 nt = 1
                 t = numpy.atleast_1d(t)
             else:
