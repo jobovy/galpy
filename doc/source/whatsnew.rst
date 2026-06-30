@@ -5,6 +5,115 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.12
++++++
+
+Following the yearly release cycle, this entry covers all of the releases since
+v1.11.0: v1.11.1, v1.11.2, and v1.12.0. Together these contain several major new
+features alongside many smaller improvements and bug fixes. The major new
+additions are:
+
+* Full support for the **3D variational equations** (the state-transition
+  matrix) during orbit integration in C, the 3D analogue of the existing planar
+  machinery, available for most of the potential library through
+  ``Orbit.integrate_dxdv``. Building on this, the new ``Orbit.lyapunov`` method
+  estimates the largest Lyapunov exponent (or, with ``spectrum=True``, the full
+  Lyapunov spectrum) of an orbit using the renormalization method of `Benettin
+  et al. (1980)
+  <https://ui.adsabs.harvard.edu/abs/1980Mecc...15....9B/abstract>`__, making it
+  easy to quantify orbital chaos. The variational equations also support
+  velocity-dependent (dissipative) forces such as dynamical friction.
+
+* The new ``MultipoleExpansionPotential``, which represents the potential of an
+  arbitrary density distribution through a real spherical-harmonic multipole
+  expansion. Both Python and C evaluation of the potential, forces, second
+  derivatives, and density are supported, and the potential can be constructed
+  directly from a density function with the ``from_density`` classmethod.
+
+* A new ``StreamTrack`` class that holds a smooth, precomputed phase-space track
+  through a tidal stream, with accessors for every standard galpy coordinate
+  system, an analytic 6x6 phase-space covariance along the track (``cov``), and
+  built-in plotting. Tracks can be built from a particle sample or directly from
+  a ``streamdf`` or ``streamspraydf`` using their new ``streamTrack`` methods.
+
+* The new ``CompositePotential``, ``planarCompositePotential``, and
+  ``linearCompositePotential`` classes that represent combinations of potentials
+  in 3D, 2D, and 1D. These are created automatically when adding potentials with
+  ``+`` (already the recommended way to combine potentials) and provide better
+  performance and a cleaner interface than the previous lists of potentials.
+
+Other user-facing improvements and additions are:
+
+* New potentials and forces:
+
+  * ``EinastoPotential``, the potential corresponding to the Einasto density
+    profile.
+
+  * ``ExpTruncNFWPotential``, an NFW profile with an exponential truncation and
+    hence finite total mass, with closed-form properties, a C implementation,
+    and support for isotropic, Osipkov-Merritt, and constant-beta distribution
+    functions.
+
+  * Fuzzy dark matter (FDM) dynamical friction through
+    ``FDMDynamicalFrictionForce``.
+
+  * Two new wrapper potentials: ``OblateStaeckelWrapperPotential`` (turns a
+    potential into an oblate Staeckel potential) and
+    ``CylindricallySeparablePotentialWrapper``.
+
+* Faster orbit integration:
+
+  * C implementations of ``TwoPowerSphericalPotential`` (including
+    ``HernquistPotential``, ``JaffePotential``, and ``NFWPotential``) and
+    ``TwoPowerTriaxialPotential``, using fast hypergeometric-function routines.
+
+  * A ``cinterp`` option for ``NonInertialFrameForce`` that, during C
+    integration, replaces its time-dependent inputs by natively-evaluated cubic
+    splines, giving large speed-ups.
+
+  * Vectorized ``EllipsoidalPotential`` evaluations (array inputs) and C planar
+    second derivatives for the ellipsoidal potentials.
+
+* New and improved ``Orbit`` functionality:
+
+  * Orbit integrations can now be **continued or extended**: re-integrating an
+    already-integrated orbit over a time array that continues from the previous
+    one merges the two, so an orbit can be integrated forward and then backward
+    in time, or extended, without starting over.
+
+  * Orbits can be integrated **without specifying a time array** by calling
+    ``integrate(pot)``, which integrates for ten dynamical times by default
+    using the potential's dynamical time at the initial position.
+
+  * Each orbit in a multi-orbit ``Orbit`` can now be integrated over its own
+    **per-orbit time array**.
+
+  * A new ``align_to_orbit`` helper (in ``galpy.util.coords`` and as an
+    ``Orbit`` method) aligns an orbit horizontally.
+
+* Stream modeling:
+
+  * A ``tail=`` keyword for ``fardal15spraydf`` and ``chen24spraydf`` to select
+    the leading, trailing, or both tidal tails (replacing the now-deprecated
+    ``leading=`` keyword).
+
+  * Support for non-uniform stripping-time distributions and callable,
+    time-dependent progenitor masses in the stream spray DFs.
+
+* Action-angle:
+
+  * Frequencies and angles are now also computed in pure Python (``c=False``)
+    for ``actionAngleStaeckel`` and ``actionAngleAdiabatic``.
+
+* Other:
+
+  * Support for Python 3.14 (and removal of end-of-life Python 3.9).
+
+  * Enhanced ``__repr__`` methods for potential, force, and wrapper classes.
+
+  * The documentation tutorials have been rewritten as tested Jupyter notebooks
+    with gallery navigation.
+
 v1.11
 +++++
 
