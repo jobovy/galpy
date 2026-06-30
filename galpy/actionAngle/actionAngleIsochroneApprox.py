@@ -19,7 +19,7 @@ import warnings
 import numpy
 from numpy import linalg
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import get_namespace, is_backend_array, promote_scalars
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -158,7 +158,9 @@ class actionAngleIsochroneApprox(actionAngle):
         - 2013-09-10 - Written - Bovy (IAS).
         """
         R, vR, vT, z, vz, phi = self._parse_args(False, False, *args)
-        if is_backend_array(R):
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             return self._evaluate_backend(R, vR, vT, z, vz, phi, **kwargs)
         if self._c:  # pragma: no cover
             pass
@@ -303,7 +305,9 @@ class actionAngleIsochroneApprox(actionAngle):
             ts[self._ntintJ - 1 :] = self._tsJ
             ts[: self._ntintJ - 1] = -self._tsJ[1:][::-1]
         maxn = kwargs.get("maxn", self._maxn)
-        if is_backend_array(R):
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             return self._actionsFreqsAngles_backend(
                 R, vR, vT, z, vz, phi, ts, maxn, **kwargs
             )
