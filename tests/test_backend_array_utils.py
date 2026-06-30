@@ -127,12 +127,19 @@ def test_apply_amp_cross_namespace(backend_name):
         return
     amp_be = _asarray(backend_name, 2.0)  # a backend-array amp (e.g. from normalize())
     # backend amp x numpy result -> coerced onto the result's (numpy) namespace,
-    # the action-angle numpy-island case
+    # the action-angle numpy-island case (Tensor * ndarray would otherwise crash)
     out_np = apply_amp(amp_be, res_np)
     assert not is_backend_array(out_np)
     numpy.testing.assert_allclose(out_np, 2.0 * res_np)
-    # numpy amp x backend result -> coerced onto the result's backend namespace
+    # plain scalar amp x backend result -> NOT coerced; native weak-scalar multiply
+    # keeps the result's dtype (coercing to a strong 0-d float64 tensor would upcast
+    # a float32 result -- the dtype-follows-input regression this guards).
     res_be = _asarray(backend_name, [1.0, 2.0, 3.0])
     out_be = apply_amp(2.0, res_be)
     assert is_backend_array(out_be)
     numpy.testing.assert_allclose(numpy.asarray(out_be), 2.0 * res_np)
+    if backend_name == "torch":
+        res32 = torch.as_tensor(numpy.asarray([1.0, 2.0, 3.0], dtype=numpy.float32))
+    else:  # jax
+        res32 = jnp.asarray([1.0, 2.0, 3.0], dtype=jnp.float32)
+    assert apply_amp(2.0, res32).dtype == res32.dtype

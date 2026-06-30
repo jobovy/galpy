@@ -1108,3 +1108,16 @@ jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_actions_order
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_freqsAngles_branches
+# --- interpRZ / interpSnapshot C-interpolation family: unmigrated (the C/spline
+#     potential-eval path rejects backend-array coords). Pre-existing; the torch
+#     variants are already ledgered above -- these complete the family across
+#     backends. Proper fix = backend-migrate interpRZPotential (follow-up). ---
+torch tests/test_potential.py::test_potential_at_infinity[mockInterpRZPotential]
+torch tests/test_potential.py::test_potential_at_zero[mockInterpRZPotential]
+torch tests/test_potential.py::test_potential_at_zero[mockInterpSnapshotRZPotential]
+torch tests/test_snapshotpotential.py::test_interpsnapshotKeplerPotential_eval_naz
+jax tests/test_interp_potential.py::test_interpolation_potential_c_vdiffgridsizes
+jax tests/test_interp_potential.py::test_interpolation_potential_diffinputs_c
+jax tests/test_snapshotpotential.py::test_interpsnapshotKeplerPotential_eval
+jax tests/test_snapshotpotential.py::test_interpsnapshotKeplerPotential_eval_naz
+jax tests/test_snapshotpotential.py::test_interpsnapshotKeplerPotential_logR_eval

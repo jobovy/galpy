@@ -13,16 +13,20 @@ from ._resolver import get_namespace
 
 def apply_amp(amp, result):
     """Multiply a potential ``result`` by its amplitude ``amp``, coercing a
-    stored backend-array amp onto the result's namespace (or vice versa).
+    stored *backend-array* amp onto the result's namespace.
 
     A potential constructed under a forced backend stores a backend-array
-    ``_amp`` (e.g. from ``normalize()``); evaluating it under a different active
-    namespace -- a forced-numpy action-angle island, say -- then mixes a backend
-    amp with a numpy result. Coerce so both sides share a namespace. The
-    pure-numpy path (a numpy/Python-scalar amp AND a numpy/scalar result) is left
-    untouched, so it is byte-identical to the plain ``amp * result``.
+    ``_amp`` (e.g. from ``normalize()``, whose ``Rforce(1,0)`` returns a backend
+    array); evaluating it under a different active namespace -- a forced-numpy
+    action-angle island, say -- would then do ``Tensor * ndarray`` and crash.
+    When ``amp`` is a backend array, bring it onto the result's namespace first.
+
+    A plain numpy/Python-scalar amp is left untouched: ``amp * result`` already
+    works in every backend with the correct *weak-scalar* dtype promotion (a
+    float32 result stays float32), so this is byte-identical to the plain
+    ``amp * result`` -- coercing it to a strong 0-d tensor would wrongly upcast.
     """
-    if is_backend_array(amp) or is_backend_array(result):
+    if is_backend_array(amp):
         amp = get_namespace(result).asarray(amp)
     return amp * result
 

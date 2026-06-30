@@ -94,6 +94,14 @@ def check_potential_inputs_not_arrays(func):
         if getattr(self, "_backend_compatible", False):
             xp = get_namespace(R, z, phi)
             R, z, phi = coerce_coords(xp, R, z, phi)
+        else:
+            # Unmigrated scalar-only potential: the eval/force funnel may have
+            # already promoted the scalar inputs onto the active backend (see
+            # promote_scalars), which the bare-numpy/scipy internals here (e.g.
+            # scipy.integrate.quad's scalar limits/break-points) reject. Bring a
+            # scalar backend array back to a python float so the numpy core runs.
+            # numpy inputs are left untouched -> byte-identical.
+            R, z, phi = (float(c) if is_backend_array(c) else c for c in (R, z, phi))
         return func(self, R, z, phi, t)
 
     # Marker so the mass() numerical-integration dispatch can tell that this
