@@ -13,7 +13,7 @@ import warnings
 
 import numpy
 
-from ..backend import get_namespace
+from ..backend import get_namespace, promote_scalars
 from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
 from ..potential.Potential import (
     _check_c,
@@ -137,7 +137,7 @@ class actionAngleAdiabatic(actionAngle):
             # Backend path: runs under a forced backend even for numpy inputs
             # (promote first), exercising the backend for real -- unless the C
             # path was explicitly requested (then fall through to it below).
-            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             return self._evaluate_backend(R, vR, vT, z, vz)
         if use_c:
             Lz = R * vT
@@ -243,7 +243,7 @@ class actionAngleAdiabatic(actionAngle):
             vz = numpy.array([vz])
         xp = get_namespace(R, vR, vT, z, vz)
         if xp is not numpy:
-            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             return self._actionsFreqs_backend(R, vR, vT, z, vz)
         if len(R) > 1:
             ojr = numpy.zeros(len(R))
@@ -330,7 +330,7 @@ class actionAngleAdiabatic(actionAngle):
             phi = numpy.array([phi])
         xp = get_namespace(R, vR, vT, z, vz, phi)
         if xp is not numpy:
-            R, vR, vT, z, vz, phi = (xp.asarray(a) for a in (R, vR, vT, z, vz, phi))
+            R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
             return self._actionsFreqsAngles_backend(R, vR, vT, z, vz, phi)
         if len(R) > 1:
             ojr = numpy.zeros(len(R))
@@ -429,7 +429,7 @@ class actionAngleAdiabatic(actionAngle):
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot)
         if not use_c and xp is not numpy:
-            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             return self._EccZmaxRperiRap_backend(R, vR, vT, z, vz)
         if use_c:
             (

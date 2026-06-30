@@ -14,7 +14,7 @@ import copy
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import device_of, get_namespace
+from ..backend import device_of, get_namespace, promote_scalars
 from ..potential import _dim, epifreq, omegac, vcirc
 from ..potential.planarPotential import _evaluateplanarPotentials
 from ..potential.Potential import (
@@ -131,7 +131,7 @@ class actionAngleSpherical(actionAngle):
             # the active namespace (honours a forced backend), so the existing
             # suite runs the backend for real even with numpy inputs -- promote
             # them here -- rather than falling through to the numpy/scipy core.
-            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
             rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
             Jr = self._calc_jr_backend(rperi, rap, E, L)
@@ -215,7 +215,7 @@ class actionAngleSpherical(actionAngle):
         elif xp is not numpy:
             # Backend path (see _evaluate): runs under a forced backend even for
             # numpy inputs (promote first), exercising the backend for real.
-            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             return self._actionsFreqs_backend(R, vR, vT, z, vz, extra_Jz)
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
@@ -321,7 +321,7 @@ class actionAngleSpherical(actionAngle):
         elif xp is not numpy:
             # Backend path (see _evaluate): runs under a forced backend even for
             # numpy inputs (promote first), exercising the backend for real.
-            R, vR, vT, z, vz, phi = (xp.asarray(a) for a in (R, vR, vT, z, vz, phi))
+            R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
             return self._actionsFreqsAngles_backend(R, vR, vT, z, vz, phi, extra_Jz)
         else:
             r = numpy.sqrt(R**2.0 + z**2.0)
@@ -477,7 +477,7 @@ class actionAngleSpherical(actionAngle):
         elif xp is not numpy:
             # Backend path (see _evaluate): runs under a forced backend even for
             # numpy inputs (promote first), exercising the backend for real.
-            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             r, vr, vt, E, L, Lz, L2 = self._setup_backend(R, vR, vT, z, vz, extra_Jz)
             rperi, rap = self._calc_rperi_rap_backend(r, vr, vt, E, L)
             return (
