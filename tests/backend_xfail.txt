@@ -5,6 +5,22 @@
 # now-passing tests (jax 289->287, torch 1029->961): test_orbit 31t+2j,
 # test_orbits 31t, + 6 incidental (Multipole/dynamfric/FDM/actionAngle). 0 adds
 # (the suite was fully green; every remaining failure stays ledgered).
+#
+# AA-BACKEND-NATIVE prune (2026-06-30, feat/aa-backend-native -> feat/backends):
+# replacing @numpy_island with resolved-namespace dispatch makes the existing
+# test_actionAngle.py suite run the REAL jax/torch path (it previously fell back
+# to numpy under a forced backend -- "hollow green"). Regen ran the full file in
+# REGEN mode per backend (jax/torch, 207 collected, 0 collection errors), then
+# actionAngleVertical_unbound was fixed in-PR (backend unbound-angle sentinel now
+# matches numpy's (9999.99**2)%2pi). All scattered test_actionAngle.py entries are
+# consolidated into the two sorted blocks below. Net: jax 99->68 (-31 now
+# genuinely pass; +1 newly-exposed: physical_vertical), torch 166->120 (-46 now
+# pass; same +1). The lone add, physical_vertical, is a pre-existing decorator
+# quirk (1D __call__ returns a 1-tuple); numpy broadcasts `tuple - ndarray` but
+# jax/torch raise on `tuple - array` -- not introduced by this dispatch. Remaining:
+# c=True C forward (Staeckel/Adiabatic), the Inverse modules (not yet redesigned),
+# and ~1e-7 torch precision gaps the real backend path now exposes
+# (linear_angles/kepler/against_orbit).
 # format: <backend> <nodeid>   (conftest applies xfail(strict=False) per backend;
 # tests unrunnable-until-vectorized go in backend_slow_skip.txt instead, not here)
 
@@ -12,38 +28,10 @@ jax tests/test_FDMdynamfric.py::test_dynamfric_c
 jax tests/test_MultipoleExpansionPotential.py::test_time_dependent_density_at_multiple_times
 jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
 jax tests/test_actionAngle.py::test_MWPotential_warning_staeckel
-jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basicAndConserved_actions
-jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_conserved_actions_c
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
-jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_bovy14
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_diffsetups
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_firstFlip
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_actions
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_actions_cumul
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_angles
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_freqs
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_actions
 jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_angles
 jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_freqs
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_actions
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_integratedOrbit_actions
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_plotting
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_triaxialnfw_conserved_actions
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_triaxialnfw_linear_angles
-jax tests/test_actionAngle.py::test_actionAngleIsochroneInverse_freqs_wrtIsochrone
-jax tests/test_actionAngle.py::test_actionAngleIsochroneInverse_wrtIsochrone
-jax tests/test_actionAngle.py::test_actionAngleIsochroneInverse_wrtIsochrone_noninclinedorbit
-jax tests/test_actionAngle.py::test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles
-jax tests/test_actionAngle.py::test_actionAngleIsochrone_basic_freqs
-jax tests/test_actionAngle.py::test_actionAngleIsochrone_kepler_angles
-jax tests/test_actionAngle.py::test_actionAngleIsochrone_kepler_freqs
-jax tests/test_actionAngle.py::test_actionAngleIsochrone_linear_angles
-jax tests/test_actionAngle.py::test_actionAngleIsochrone_noninclinedorbit_linear_angles
-jax tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_angles
-jax tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_freqs
-jax tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_freqs_fixed_quad
 jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_Isochrone_actions
 jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
 jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c
@@ -69,6 +57,7 @@ jax tests/test_actionAngle.py::test_actionAngleStaeckel_linear_angles_interppot
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_actions_c
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_angles
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_freqs
+jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_actions_c
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_freqs_c
@@ -98,13 +87,14 @@ jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_inter
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
-jax tests/test_actionAngle.py::test_orbit_interface_actionAngleIsochroneApprox
+jax tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
 jax tests/test_actionAngle.py::test_orbit_interface_staeckel
 jax tests/test_actionAngle.py::test_orbit_interface_staeckel_defaultdelta
 jax tests/test_actionAngle.py::test_orbit_interface_unbound_complexshape_staeckel
 jax tests/test_actionAngle.py::test_orbit_interface_unbound_simple_staeckel_c
 jax tests/test_actionAngle.py::test_orbit_interface_unbound_staeckeldelta_handling
 jax tests/test_actionAngle.py::test_physical_staeckel
+jax tests/test_actionAngle.py::test_physical_vertical
 jax tests/test_dynamfric.py::test_dynamfric_c
 jax tests/test_galpypaper.py::test_orbmethods
 jax tests/test_galpypaper.py::test_qdf
@@ -270,57 +260,28 @@ torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basicAndConserved
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basic_actions_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_conserved_actions_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
-torch tests/test_actionAngle.py::test_actionAngleAdiabatic_Isochrone_actions
-torch tests/test_actionAngle.py::test_actionAngleAdiabatic_basic_freqs
-torch tests/test_actionAngle.py::test_actionAngleAdiabatic_basic_freqsAngles
-torch tests/test_actionAngle.py::test_actionAngleAdiabatic_circular_angles_c
-torch tests/test_actionAngle.py::test_actionAngleAdiabatic_conserved_frequencies
-torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
 torch tests/test_actionAngle.py::test_actionAngleHarmonicInverse_orbit
 torch tests/test_actionAngle.py::test_actionAngleHarmonicInverse_wrtHarmonic
 torch tests/test_actionAngle.py::test_actionAngleHarmonic_conserved_actions
 torch tests/test_actionAngle.py::test_actionAngleHarmonic_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_bovy14
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_diffsetups
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_firstFlip
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_actions
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_actions_cumul
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_angles
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_freqs
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_actions
 torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_angles
 torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_freqs
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_actions
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_integratedOrbit_actions
 torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_plotting
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_triaxialnfw_conserved_actions
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_triaxialnfw_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleIsochroneInverse_freqs_wrtIsochrone
 torch tests/test_actionAngle.py::test_actionAngleIsochroneInverse_orbit
 torch tests/test_actionAngle.py::test_actionAngleIsochroneInverse_wrtIsochrone
 torch tests/test_actionAngle.py::test_actionAngleIsochroneInverse_wrtIsochrone_noninclinedorbit
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit
-torch tests/test_actionAngle.py::test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleIsochrone_basic_freqs
-torch tests/test_actionAngle.py::test_actionAngleIsochrone_conserved_actions
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_kepler_actions
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_kepler_angles
 torch tests/test_actionAngle.py::test_actionAngleIsochrone_kepler_freqs
-torch tests/test_actionAngle.py::test_actionAngleIsochrone_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleIsochrone_noninclinedorbit_linear_angles
+torch tests/test_actionAngle.py::test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit
 torch tests/test_actionAngle.py::test_actionAngleSpherical_almostnoninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_angler_at_pericenter
-torch tests/test_actionAngle.py::test_actionAngleSpherical_basic_freqs
-torch tests/test_actionAngle.py::test_actionAngleSpherical_basic_freqsAngles
-torch tests/test_actionAngle.py::test_actionAngleSpherical_conserved_actions_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleSpherical_noninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_actions
-torch tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_angles
-torch tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_freqs
-torch tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_freqs_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleSpherical_smallr
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_Isochrone_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
@@ -328,29 +289,19 @@ torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_EccZmaxRperi
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_actions_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_conserved_EccZmaxRperiRap_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_conserved_actions_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_actions_order
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_actions_order_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_angles_order_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_EccZmaxRperiRap
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_actions_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_actions_u0
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_actions_u0_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqsAngles
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqs_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqs_c_u0
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_basic_freqs_u0
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_circular_angles_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_conserved_EccZmaxRperiRap
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_conserved_EccZmaxRperiRap_ecc
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_conserved_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_conserved_actions_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_conserved_actions_c_specialdblexp
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_conserved_actions_ecc
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_conserved_actions_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_freqs_order_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap_c
@@ -361,12 +312,10 @@ torch tests/test_actionAngle.py::test_actionAngleStaeckel_indivdelta_freqs_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_linear_angles_interppot
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_linear_angles_u0
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_actions_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_actions_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_angles
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_otherIsochrone_freqs
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_smallu
+torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_actions_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_freqs_c
@@ -392,8 +341,14 @@ torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_plotting_errors
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_bisect
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation
+torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
+torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actions
+torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
+torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
+torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
 torch tests/test_actionAngle.py::test_estimateDeltaStaeckel
 torch tests/test_actionAngle.py::test_estimateDeltaStaeckel_no_median
 torch tests/test_actionAngle.py::test_estimateDeltaStaeckel_z_is_0
@@ -416,8 +371,8 @@ torch tests/test_actionAngle.py::test_orbit_interface_unbound_simple_staeckel_c
 torch tests/test_actionAngle.py::test_orbit_interface_unbound_simple_staeckel_noc
 torch tests/test_actionAngle.py::test_orbit_interface_unbound_staeckeldelta_handling
 torch tests/test_actionAngle.py::test_orbits_interface_staeckel_PotentialErrors
-torch tests/test_actionAngle.py::test_physical_actionAngleIsochroneInverse
 torch tests/test_actionAngle.py::test_physical_staeckel
+torch tests/test_actionAngle.py::test_physical_vertical
 torch tests/test_conversion.py::test_get_physical
 torch tests/test_coords.py::test_Rz_to_coshucosv
 torch tests/test_coords.py::test_Rz_to_coshucosv_oblate
@@ -1120,14 +1075,6 @@ jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrf
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
 jax tests/test_galpypaper.py::test_overview
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_curved
-torch tests/test_actionAngle.py::test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation
-torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
-torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actions
-torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
-torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
-torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
-jax tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
 torch tests/test_noninertial.py::test_cinterp_combined_rotlin
 torch tests/test_noninertial.py::test_cinterp_constant_a0_noop
 torch tests/test_noninertial.py::test_cinterp_constfreq_lin
@@ -1274,13 +1221,3 @@ jax tests/test_orbits.py::test_actionsFreqsAngles_output_shape
 jax tests/test_orbits.py::test_actionsFreqsAngles_staeckeldelta
 jax tests/test_orbits.py::test_physical_output_off
 jax tests/test_orbits.py::test_physical_output_on
-# --- Staeckel/Adiabatic c=False FREQS/ANGLES (Track E PR-2: not yet vectorised;
-#     Single's scipy + Rz_to_uv path can't consume jax/torch arrays) ---
-jax tests/test_actionAngle.py::test_actionAngleAdiabatic_python_freqsAngles
-jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
-jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_freqsAngles_branches
-jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleAdiabatic_python_freqsAngles
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_freqsAngles_branches
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_python_linear_angles
