@@ -462,10 +462,12 @@ class actionAngleVertical(actionAngle):
         Omega = self._calc_omega_backend(xp, xmax, E)
         angle = self._calc_angle_backend(xp, x, vx, xmax, E, Omega)
         unbound = self._unbound_backend(xp, xmax, E)
+        # numpy unbound path sets angle=9999.99 BEFORE `angle *= Omega` (=9999.99)
+        # then `% 2pi`, so the sentinel angle is (9999.99**2) % (2pi), not 9999.99.
         return (
             xp.where(unbound, 9999.99, J),
             xp.where(unbound, 9999.99, Omega),
-            angle,
+            xp.where(unbound, (9999.99 * 9999.99) % (2.0 * numpy.pi), angle),
         )
 
     def calcxmax(self, x, vx, E=None):
