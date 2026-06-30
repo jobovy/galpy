@@ -129,15 +129,17 @@ class actionAngleAdiabatic(actionAngle):
             z = numpy.array([z])
             vz = numpy.array([vz])
         xp = get_namespace(R, vR, vT, z, vz)
-        if xp is not numpy:
-            # Backend path: runs under a forced backend even for numpy inputs
-            # (promote first), exercising the backend for real, not the numpy core.
-            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
-            return self._evaluate_backend(R, vR, vT, z, vz)
-        if (
+        use_c = (
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
-        ) and _check_c(self._pot):
+        ) and _check_c(self._pot)
+        if not use_c and xp is not numpy:
+            # Backend path: runs under a forced backend even for numpy inputs
+            # (promote first), exercising the backend for real -- unless the C
+            # path was explicitly requested (then fall through to it below).
+            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
+            return self._evaluate_backend(R, vR, vT, z, vz)
+        if use_c:
             Lz = R * vT
             jr, jz, err = actionAngleAdiabatic_c.actionAngleAdiabatic_c(
                 self._pot, self._gamma, R, vR, vT, z, vz
@@ -422,13 +424,14 @@ class actionAngleAdiabatic(actionAngle):
             z = numpy.array([z])
             vz = numpy.array([vz])
         xp = get_namespace(R, vR, vT, z, vz)
-        if xp is not numpy:
-            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
-            return self._EccZmaxRperiRap_backend(R, vR, vT, z, vz)
-        if (
+        use_c = (
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
-        ) and _check_c(self._pot):
+        ) and _check_c(self._pot)
+        if not use_c and xp is not numpy:
+            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
+            return self._EccZmaxRperiRap_backend(R, vR, vT, z, vz)
+        if use_c:
             (
                 rperi,
                 Rap,
