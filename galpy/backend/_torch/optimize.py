@@ -41,7 +41,20 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     # break callers that do plain ``.numpy()``), while still entering the
     # implicit-function reparameterisation below whenever a parameter needs grad.
     fx0 = f(x0)
-    if not (torch.is_grad_enabled() and fx0.requires_grad):
+
+    def _needs_grad(t):
+        return torch.is_tensor(t) and t.requires_grad
+
+    # Enter the implicit-function reparam whenever differentiation is intended:
+    # grad enabled AND some input requires grad -- either one of f's parameters
+    # (carried by fx0) OR a bracket endpoint (d(root)/d(endpoint) is 0, but the
+    # caller may still .backward() through it). Otherwise -- the plain forward,
+    # e.g. the numpy-input suite under a forced backend -- return the detached
+    # bisection root so callers can .numpy() it.
+    if not (
+        torch.is_grad_enabled()
+        and (fx0.requires_grad or _needs_grad(a) or _needs_grad(b))
+    ):
         return x0
     # x-slot leaf for the elementwise df/dx (a fresh copy that requires grad in
     # the x argument only; the parameters keep their own grad tracking through f).
