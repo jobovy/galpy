@@ -16,7 +16,6 @@ from scipy import interpolate
 from .. import potential
 from ..backend import get_namespace
 from ..backend import interpolate as backend_interpolate
-from ..backend import is_backend_array
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -345,7 +344,9 @@ class actionAngleAdiabaticGrid(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
-        if is_backend_array(R):  # jax/torch: vectorised, differentiable grid eval
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:  # jax/torch: vectorised, differentiable grid eval
+            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
             return self._evaluate_backend(R, vR, vT, z, vz)
         # First work on the vertical action
         Phi = _evaluatePotentials(self._pot, R, z)

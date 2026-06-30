@@ -422,7 +422,9 @@ class actionAngleStaeckelGrid(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
-        if is_backend_array(R):  # jax/torch: vectorised, differentiable grid eval
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:  # jax/torch: vectorised, differentiable grid eval
+            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
             return self._evaluate_backend(R, vR, vT, z, vz)
         Lz = R * vT
         Phi = _evaluatePotentials(self._pot, R, z)
@@ -662,7 +664,9 @@ class actionAngleStaeckelGrid(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
-        if is_backend_array(R):  # jax/torch: vectorised, differentiable grid eval
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:  # jax/torch: vectorised, differentiable grid eval
+            R, vR, vT, z, vz = (xp.asarray(a) for a in (R, vR, vT, z, vz))
             return self._EccZmaxRperiRap_backend(R, vR, vT, z, vz)
         Lz = R * vT
         Phi = _evaluatePotentials(self._pot, R, z)
