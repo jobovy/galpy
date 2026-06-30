@@ -33,6 +33,29 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     with torch.no_grad():
         x0 = bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter)
     x0 = x0.detach()
+    # f(x0) carries f's PARAMETER grad-dependence (x0 is a constant w.r.t. them).
+    # When no parameter requires grad -- the plain forward, e.g. the existing
+    # numpy-input test suite run under a forced backend -- there is nothing to
+    # differentiate, so return the detached bisection root directly. This keeps
+    # the forward output free of an autograd graph (a grad-requiring tensor would
+    # break callers that do plain ``.numpy()``), while still entering the
+    # implicit-function reparameterisation below whenever a parameter needs grad.
+    fx0 = f(x0)
+
+    def _needs_grad(t):
+        return torch.is_tensor(t) and t.requires_grad
+
+    # Enter the implicit-function reparam whenever differentiation is intended:
+    # grad enabled AND some input requires grad -- either one of f's parameters
+    # (carried by fx0) OR a bracket endpoint (d(root)/d(endpoint) is 0, but the
+    # caller may still .backward() through it). Otherwise -- the plain forward,
+    # e.g. the numpy-input suite under a forced backend -- return the detached
+    # bisection root so callers can .numpy() it.
+    if not (
+        torch.is_grad_enabled()
+        and (fx0.requires_grad or _needs_grad(a) or _needs_grad(b))
+    ):
+        return x0
     # x-slot leaf for the elementwise df/dx (a fresh copy that requires grad in
     # the x argument only; the parameters keep their own grad tracking through f).
     xr = x0.clone().requires_grad_(True)

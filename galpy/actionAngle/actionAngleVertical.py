@@ -12,7 +12,7 @@
 import numpy
 from scipy import integrate, optimize
 
-from ..backend import device_of, get_namespace, is_backend_array
+from ..backend import device_of, get_namespace, promote_scalars
 from ..potential.linearPotential import evaluatelinearPotentials
 from ..potential.Potential import _check_potential_list_and_deprecate
 from .actionAngle import actionAngle
@@ -78,7 +78,9 @@ class actionAngleVertical(actionAngle):
             if isinstance(x, float):
                 x = numpy.array([x])
                 vx = numpy.array([vx])
-            if is_backend_array(x):
+            xp = get_namespace(x, vx)
+            if xp is not numpy:
+                x, vx = promote_scalars(xp, x, vx)
                 return self._evaluate_backend(x, vx)
             J = numpy.empty(len(x))
             for ii in range(len(x)):
@@ -136,7 +138,9 @@ class actionAngleVertical(actionAngle):
             if isinstance(x, float):
                 x = numpy.array([x])
                 vx = numpy.array([vx])
-            if is_backend_array(x):
+            xp = get_namespace(x, vx)
+            if xp is not numpy:
+                x, vx = promote_scalars(xp, x, vx)
                 return self._actionsFreqs_backend(x, vx)
             J = numpy.empty(len(x))
             Omega = numpy.empty(len(x))
@@ -224,7 +228,9 @@ class actionAngleVertical(actionAngle):
             if isinstance(x, float):
                 x = numpy.array([x])
                 vx = numpy.array([vx])
-            if is_backend_array(x):
+            xp = get_namespace(x, vx)
+            if xp is not numpy:
+                x, vx = promote_scalars(xp, x, vx)
                 return self._actionsFreqsAngles_backend(x, vx)
             J = numpy.empty(len(x))
             Omega = numpy.empty(len(x))
@@ -423,19 +429,29 @@ class actionAngleVertical(actionAngle):
         angle = xp.where((x < 0.0) & (vx > 0.0), 2.0 * numpy.pi - angle, angle)
         return angle % (2.0 * numpy.pi)
 
+    def _unbound_backend(self, xp, xmax, E):
+        """Mask of unbound orbits: the bracket expansion found no turning point,
+        so E still exceeds Phi(xmax). The numpy path returns the 9999.99 sentinel
+        (calcxmax == -9999.99 on overflow); match it for the vectorised path."""
+        return (
+            E - evaluatelinearPotentials(self._pot, xmax, use_physical=False)
+        ) > 1e-7
+
     def _evaluate_backend(self, x, vx):
         xp = get_namespace(x)
         E = self._E_backend(x, vx)
         xmax = self._calc_xmax_backend(x, vx, E)
-        return self._calc_J_backend(xp, xmax, E)
+        J = self._calc_J_backend(xp, xmax, E)
+        return xp.where(self._unbound_backend(xp, xmax, E), 9999.99, J)
 
     def _actionsFreqs_backend(self, x, vx):
         xp = get_namespace(x)
         E = self._E_backend(x, vx)
         xmax = self._calc_xmax_backend(x, vx, E)
+        unbound = self._unbound_backend(xp, xmax, E)
         return (
-            self._calc_J_backend(xp, xmax, E),
-            self._calc_omega_backend(xp, xmax, E),
+            xp.where(unbound, 9999.99, self._calc_J_backend(xp, xmax, E)),
+            xp.where(unbound, 9999.99, self._calc_omega_backend(xp, xmax, E)),
         )
 
     def _actionsFreqsAngles_backend(self, x, vx):
@@ -445,7 +461,14 @@ class actionAngleVertical(actionAngle):
         J = self._calc_J_backend(xp, xmax, E)
         Omega = self._calc_omega_backend(xp, xmax, E)
         angle = self._calc_angle_backend(xp, x, vx, xmax, E, Omega)
-        return (J, Omega, angle)
+        unbound = self._unbound_backend(xp, xmax, E)
+        # numpy unbound path sets angle=9999.99 BEFORE `angle *= Omega` (=9999.99)
+        # then `% 2pi`, so the sentinel angle is (9999.99**2) % (2pi), not 9999.99.
+        return (
+            xp.where(unbound, 9999.99, J),
+            xp.where(unbound, 9999.99, Omega),
+            xp.where(unbound, (9999.99 * 9999.99) % (2.0 * numpy.pi), angle),
+        )
 
     def calcxmax(self, x, vx, E=None):
         """
