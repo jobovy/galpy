@@ -187,3 +187,14 @@ def test_graft_gradient_numpy_identity():
     numpy.testing.assert_array_equal(
         graft_gradient(numpy.array([2.0]), numpy.array([3.0])), numpy.array([2.0])
     )
+
+
+def test_under_torch_grad_without_torch(monkeypatch):
+    # the sys.modules early-out (torch never imported -> False): the test env
+    # always has torch imported, so simulate its absence.
+    import sys
+
+    from galpy.backend._namespaces import under_torch_grad
+
+    monkeypatch.delitem(sys.modules, "torch", raising=False)
+    assert under_torch_grad(numpy.array([1.0])) is False
