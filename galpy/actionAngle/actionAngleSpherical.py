@@ -649,19 +649,22 @@ class actionAngleSpherical(actionAngle):
     # (sqrt'(0)=inf would NaN-poison reverse-mode AD), with the unused panel
     # (lim==0) contributing exactly 0. The numpy path is untouched.
 
-    def _panel_backend(self, xp, base, sign, lim, E, L, azimuthal):
-        """One t^2-substituted Gauss-Legendre panel of a period/angle integral.
+    def _panel_backend_both(self, xp, base, sign, lim, E, L):
+        """Non-azimuthal AND azimuthal panel integrals from ONE radicand pass.
 
-        Integrates ``2 t / _JrSphericalIntegrand(r) [/ r**2 if azimuthal]`` over
+        A t^2-substituted Gauss-Legendre panel of a period/angle integral over
         ``t in [0, lim]`` with ``r = base + sign * t**2`` (sign=+1 small panel
-        with base=rperi, sign=-1 large panel with base=rap). The fixed [0, 1]
-        GL panel uses ``t = lim * s`` so the per-object ``lim`` (shape (N,))
-        multiplies inside the integrand (dt = lim ds) and fixed_quad's limits
-        stay scalar. ``lim`` is float (==0 makes this panel contribute 0).
+        base=rperi, sign=-1 large panel base=rap); the fixed [0, 1] GL panel uses
+        ``t = lim * s`` so ``lim`` (shape (N,)) folds into the integrand (dt = lim
+        ds; ``lim==0`` -> 0 contribution) and fixed_quad's limits stay scalar. The
+        radial-period/angle integral (2t/sqrt(radicand)) and the azimuthal one
+        (weighted by 1/r**2) share the SAME radicand at the same nodes, so the
+        potential is evaluated once here instead of twice. Returns
+        ``(non_azimuthal, azimuthal)``.
         """
         from ..backend.quadrature import fixed_quad
 
-        def integrand(s):  # s: (n,) GL nodes -> (N, n)
+        def integrand(s):  # -> (2, N, n): [non-azimuthal, azimuthal]
             t = lim[:, None] * s[None, :]
             rr = base[:, None] + sign * t**2.0
             rad = _radicand(xp, rr, E[:, None], L[:, None], self._2dpot)
@@ -669,13 +672,12 @@ class actionAngleSpherical(actionAngle):
             # where 2t->0 anyway, so a 0 there is harmless.
             rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))
             val = 2.0 * t / xp.sqrt(rad)
-            if azimuthal:
-                val = val / rr**2.0
-            return val * lim[:, None]  # dt = lim ds
+            return xp.stack([val * lim[:, None], val / rr**2.0 * lim[:, None]])
 
-        return fixed_quad(
+        both = fixed_quad(
             xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(base)
         )
+        return both[0], both[1]
 
     def _calc_or_op_backend(self, Rmean, rperi, rap, E, L):
         """Vectorised Or (radial freq) and Op (azimuthal freq magnitude).
@@ -688,19 +690,13 @@ class actionAngleSpherical(actionAngle):
         xp = get_namespace(rperi)
         limS = xp.sqrt(xp.where(Rmean > rperi, Rmean - rperi, xp.zeros_like(Rmean)))
         limL = xp.sqrt(xp.where(rap > Rmean, rap - Rmean, xp.zeros_like(Rmean)))
-        Tr = 2.0 * (
-            self._panel_backend(xp, rperi, 1.0, limS, E, L, False)
-            + self._panel_backend(xp, rap, -1.0, limL, E, L, False)
-        )
+        # Small/large panels each yield the Tr (non-azimuthal) and I (azimuthal)
+        # contributions from one shared radicand pass.
+        s_tr, s_i = self._panel_backend_both(xp, rperi, 1.0, limS, E, L)
+        l_tr, l_i = self._panel_backend_both(xp, rap, -1.0, limL, E, L)
+        Tr = 2.0 * (s_tr + l_tr)
         Or = 2.0 * numpy.pi / Tr
-        I = (
-            2.0
-            * L
-            * (
-                self._panel_backend(xp, rperi, 1.0, limS, E, L, True)
-                + self._panel_backend(xp, rap, -1.0, limL, E, L, True)
-            )
-        )
+        I = 2.0 * L * (s_i + l_i)
         Op = I * Or / 2.0 / numpy.pi
         return (Or, Op)
 
@@ -717,32 +713,30 @@ class actionAngleSpherical(actionAngle):
         wr_large = xp.where(vr < 0.0, numpy.pi + wr_large_raw, numpy.pi - wr_large_raw)
         return xp.where(r < Rmean, wr_small, wr_large)
 
-    def _calc_angler_backend(self, Or, r, Rmean, rperi, rap, E, L, vr):
-        """Vectorised radial angle ar (un-modded; caller takes % 2pi).
+    def _calc_angles_backend(
+        self, Or, Op, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
+    ):
+        """Vectorised radial + vertical angles (ar, az; un-modded, caller takes
+        % 2pi) from ONE shared radicand pass.
 
-        Mirrors _calc_angler: if r<Rmean integrate the small panel to
-        sqrt(r-rperi) and (vr<0) wr=2pi-wr; else integrate the large panel to
-        sqrt(rap-r) and wr = pi+wr (vr<0) / pi-wr (vr>=0).
+        The angler (non-azimuthal) and anglez (azimuthal) panels use the same
+        r-based limits and radicand, so the potential is evaluated once via
+        _panel_backend_both. ar: if r<Rmean integrate the small panel to
+        sqrt(r-rperi) and (vr<0) wr=2pi-wr, else the large panel with pi+/-wr.
+        az: psi from sinpsi=z/r/sin(inclination) (clipped, vtheta>0 -> pi-psi,
+        non-inclined -> phi), then wz=L*I-integral (vr quadrant via dpsi), and
+        az = -wz + psi + Op/Or*ar. Op is the magnitude here (as in numpy).
         """
         xp = get_namespace(r)
         limS = xp.sqrt(xp.where(r > rperi, r - rperi, xp.zeros_like(r)))
         limL = xp.sqrt(xp.where(rap > r, rap - r, xp.zeros_like(r)))
-        wr_small_raw = Or * self._panel_backend(xp, rperi, 1.0, limS, E, L, False)
-        wr_large_raw = Or * self._panel_backend(xp, rap, -1.0, limL, E, L, False)
-        return self._assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw)
-
-    def _calc_anglez_backend(
-        self, Or, Op, ar, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
-    ):
-        """Vectorised vertical angle az (un-modded; caller takes % 2pi).
-
-        Mirrors _calc_anglez: psi from sinpsi=z/r/sin(inclination) (clipped,
-        vtheta>0 -> pi-psi, non-inclined -> phi), then wz = L*I-integral to the
-        same data-dependent limit (vr quadrant fixes via dpsi=Op/Or*2pi), and
-        az = -wz + psi + Op/Or*ar (ar un-modded). Op here is the magnitude.
-        """
-        xp = get_namespace(r)
-        # psi (inclination phase)
+        s_nonazi, s_azi = self._panel_backend_both(xp, rperi, 1.0, limS, E, L)
+        l_nonazi, l_azi = self._panel_backend_both(xp, rap, -1.0, limL, E, L)
+        # ar (radial angle)
+        wr_small_raw = Or * s_nonazi
+        wr_large_raw = Or * l_nonazi
+        ar = self._assemble_angler(xp, r, Rmean, vr, wr_small_raw, wr_large_raw)
+        # az: psi (inclination phase)
         i_incl = xp.arccos(xp.where(xp.abs(Lz / L) < 1.0, Lz / L, xp.sign(Lz / L)))
         sini = xp.sin(i_incl)
         # Non-inclined (sin i == 0): numpy's z/r/sin(i) is non-finite -> psi=phi.
@@ -761,14 +755,13 @@ class actionAngleSpherical(actionAngle):
         psi = xp.where(finite, psi, phi)  # non-inclined: psi=phi
         psi = psi % (2.0 * numpy.pi)
         dpsi = Op / Or * 2.0 * numpy.pi  # full I integral
-        limS = xp.sqrt(xp.where(r > rperi, r - rperi, xp.zeros_like(r)))
-        limL = xp.sqrt(xp.where(rap > r, rap - r, xp.zeros_like(r)))
-        wz_small = L * self._panel_backend(xp, rperi, 1.0, limS, E, L, True)
+        wz_small = L * s_azi
         wz_small = xp.where(vr < 0.0, dpsi - wz_small, wz_small)
-        wz_large = L * self._panel_backend(xp, rap, -1.0, limL, E, L, True)
+        wz_large = L * l_azi
         wz_large = xp.where(vr < 0.0, dpsi / 2.0 + wz_large, dpsi / 2.0 - wz_large)
         wz = xp.where(r < Rmean, wz_small, wz_large)
-        return -wz + psi + Op / Or * ar
+        az = -wz + psi + Op / Or * ar
+        return ar, az
 
     def _calc_long_asc_backend(self, z, R, vtheta, phi, Lz, L):
         """Vectorised longitude of the ascending node (mirror _calc_long_asc)."""
@@ -839,9 +832,8 @@ class actionAngleSpherical(actionAngle):
         Op = xp.where(is_circ, omegac(self._2dpot, r, use_physical=False), Op)
         # Angles (ar, az un-modded; Op is the magnitude here, as in numpy).
         asc = self._calc_long_asc_backend(z, R, vtheta, phi, Lz, L)
-        ar = self._calc_angler_backend(Or, r, Rmean, rperi, rap, E, L, vr)
-        az = self._calc_anglez_backend(
-            Or, Op, ar, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
+        ar, az = self._calc_angles_backend(
+            Or, Op, z, r, Rmean, rperi, rap, E, L, Lz, vr, vtheta, phi
         )
         Oz = Op  # copy (magnitude)
         Op = xp.where(vT < 0.0, -Op, Op)
