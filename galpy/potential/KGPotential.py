@@ -1,5 +1,6 @@
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .linearPotential import linearPotential
@@ -66,9 +67,12 @@ class KGPotential(linearPotential):
         self._D = D
         self._D2 = self._D**2.0
         self.hasC = True
+        self._backend_compatible = True
 
     def _evaluate(self, x, t=0.0):
-        return self._K * (numpy.sqrt(x**2.0 + self._D2) - self._D) + self._F * x**2.0
+        xp = get_namespace(x)
+        return self._K * (xp.sqrt(x**2.0 + self._D2) - self._D) + self._F * x**2.0
 
     def _force(self, x, t=0.0):
-        return -x * (self._K / numpy.sqrt(x**2 + self._D2) + 2.0 * self._F)
+        xp = get_namespace(x)
+        return -x * (self._K / xp.sqrt(x**2 + self._D2) + 2.0 * self._F)

@@ -1,3 +1,304 @@
+import os
+
+import numpy
+import pytest
+
+
+def _to_numpy(x):
+    """Coerce a (possibly jax/torch) Orbit-accessor result to a numpy array so
+    value assertions in the orbit tests are backend-agnostic. Under a forced
+    backend the accessors return jax/torch arrays; this brings them back to numpy
+    for ``numpy.amax``/``all``/``std``/... A numpy input passes through unchanged
+    (``numpy.asarray`` is the identity), so the numpy path stays byte-identical.
+    Shared by test_orbit.py and test_orbits.py (imported via ``from conftest
+    import _to_numpy``)."""
+    if hasattr(x, "detach"):  # torch tensor: detach from autograd + move to CPU
+        x = x.detach().cpu()
+    return numpy.asarray(x)
+
+
+# ---------------------------------------------------------------------------
+# Backend xfail-ledger
+# ---------------------------------------------------------------------------
+# When the existing test suite is run under a non-numpy array backend
+# (--backend=jax / --backend=torch), many tests currently fail because the
+# backend ports are still in progress. To keep the all-backend CI job GREEN
+# while that work proceeds, a checked-in ledger (tests/backend_xfail.txt) lists
+# the nodeids that are known to fail per backend, and the
+# pytest_collection_modifyitems hook below marks each of them
+# xfail(strict=False). strict=False means a ledgered test is GREEN whether it
+# fails OR (flakily) passes, so the few slow-jax tests that flip
+# pass<->300s-timeout across runs do not red the run; only a genuinely
+# un-ledgered failure does (which still catches regressions). The ledger is
+# kept current (shrinking as ports land) by the scheduled regen run, which
+# rewrites it from real no-xfail outcomes. numpy runs ignore the ledger
+# entirely (byte-identical behaviour).
+#
+# Ledger file format (tests/backend_xfail.txt):
+#   # comments start with '#'
+#   <backend> <nodeid>
+# e.g.
+#   jax tests/test_potential.py::test_normalize_potential
+#   torch tests/test_orbit.py::test_energy_jacobi_conservation[PlummerPotential-...]
+#
+# Nodeid matching convention (robust to parametrization): a ledger entry
+# matches a collected item if the ledger nodeid equals EITHER
+#   (a) the item's full parametrized nodeid
+#       ("tests/test_x.py::test_y[ParamId]"), OR
+#   (b) the item's base nodeid with the "[...]" parametrization id stripped
+#       ("tests/test_x.py::test_y").
+# So a single base-nodeid ledger line xfails every parametrization of that
+# test, while a fully-qualified line xfails just that one case. This keeps the
+# seed ledger compact (one line per failing test function) while allowing
+# surgical per-parametrization entries when only some cases fail.
+#
+# Regenerate mode (GALPY_BACKEND_XFAIL_REGEN=1): the hook does NOT xfail
+# anything; instead everything runs, and the session-finish hook writes the set
+# of failing nodeids to /var/tmp/pillar1/backend_xfail_new.txt for committing.
+# This lets CI (or a local run) re-seed/complete the ledger from a real run
+# without needing the ledger to be correct up front.
+
+_LEDGER_FILENAME = "backend_xfail.txt"
+# Tests that are *unrunnable* under a backend -- not wrong, just pathologically
+# slow until the relevant backend port is vectorized (e.g. the jax spherical-DF
+# sampling/nested-quadrature tests, each ~minutes under jax because the DF is
+# sampled / integrated by scipy at scalar points and every scalar evaluation
+# dispatches an XLA graph; the Track F spherical-DF migration replaces that with
+# vectorized backend sampling + GL quadrature and makes them fast -- distinct
+# from Track A #39, which vectorizes the SCF/assoc_legendre *potential* path).
+# These are SKIPPED (not run) under the listed backend rather than
+# xfail-ledgered: running them only to hit the per-test timeout each CI run
+# wastes minutes and risks stacking up against the session cap, and they would
+# pollute the xfail burndown with tests that actually pass (just slowly). Skip is
+# the efficient form of the same deferral -- numpy still exercises them fully --
+# and the skip-count is its own burndown that drops to zero as the ports land.
+# Same file format as the xfail-ledger: "<backend> <nodeid>".
+_SLOW_SKIP_FILENAME = "backend_slow_skip.txt"
+_REGEN_ENV = "GALPY_BACKEND_XFAIL_REGEN"
+# Default regen output; overridable via GALPY_BACKEND_XFAIL_OUT so parallel
+# per-backend regen runs can write to distinct files without racing.
+_REGEN_OUTFILE_DEFAULT = "/var/tmp/pillar1/backend_xfail_new.txt"
+
+
+def _regen_outfile():
+    return os.environ.get("GALPY_BACKEND_XFAIL_OUT", _REGEN_OUTFILE_DEFAULT)
+
+
+def _ledger_path():
+    return os.path.join(os.path.dirname(__file__), _LEDGER_FILENAME)
+
+
+def _slow_skip_path():
+    return os.path.join(os.path.dirname(__file__), _SLOW_SKIP_FILENAME)
+
+
+def _strip_param(nodeid):
+    # "tests/test_x.py::test_y[Param]" -> "tests/test_x.py::test_y"
+    return nodeid.split("[", 1)[0]
+
+
+def _load_backend_nodeids(path, backend_name):
+    """Parse a "<backend> <nodeid>" file, returning the nodeids for one backend.
+
+    Shared by the xfail-ledger and the slow-skip list (same format). Lines may
+    carry trailing "# ..." comments; blank/comment-only lines are ignored.
+    """
+    entries = set()
+    if not os.path.exists(path):
+        return entries
+    with open(path) as fh:
+        for raw in fh:
+            line = raw.split("#", 1)[0].strip()
+            if not line:
+                continue
+            parts = line.split(None, 1)
+            if len(parts) != 2:
+                continue
+            be, nodeid = parts[0].strip(), parts[1].strip()
+            if be == backend_name:
+                entries.add(nodeid)
+    return entries
+
+
+def _load_ledger(backend_name):
+    """Return the set of ledger nodeids for the given backend, or empty set."""
+    return _load_backend_nodeids(_ledger_path(), backend_name)
+
+
+def _load_slow_skip(backend_name):
+    """Return the set of slow-skip nodeids for the given backend, or empty set."""
+    return _load_backend_nodeids(_slow_skip_path(), backend_name)
+
+
+# Tests skipped under a backend because they exercise NO backend-relevant code and
+# depend on a flaky external service (e.g. Orbit.from_name's SIMBAD network lookup),
+# so running them under a forced backend only risks flaking the deterministic
+# all-backend gate for ~zero coverage. Distinct from backend_slow_skip.txt
+# (slow-but-meaningful, a burndown that shrinks as ports vectorize): these are a
+# PERMANENT exclusion, not pending work, so they are NOT part of any burndown.
+# numpy still exercises them. Same "<backend> <nodeid>" format.
+_BACKEND_SKIP_FILENAME = "backend_skip.txt"
+
+
+def _backend_skip_path():
+    return os.path.join(os.path.dirname(__file__), _BACKEND_SKIP_FILENAME)
+
+
+def _load_backend_skip(backend_name):
+    """Return the set of backend-exempt nodeids for the given backend (or empty)."""
+    return _load_backend_nodeids(_backend_skip_path(), backend_name)
+
+
+def pytest_addoption(parser):
+    # Force a single array backend for the whole run (numpy|jax|torch). With
+    # numpy (default) this is a no-op, so the existing suite is unchanged.
+    parser.addoption(
+        "--backend",
+        action="store",
+        default="numpy",
+        help="Array backend to force for the test run: numpy|jax|torch",
+    )
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "backend_managed: test manages its own array backend; exempt from --backend",
+    )
+
+
+def _matches(nodeid, entries):
+    """A backend entry matches a collected item.
+
+    Three granularities (most to least specific):
+      * full parametrized nodeid  "tests/test_x.py::test_y[Param]"
+      * param-stripped nodeid      "tests/test_x.py::test_y" (all params)
+      * file path (no "::")        "tests/test_x.py" (every test in the file)
+    The file-level form is used by the slow-skip list to defer a whole test
+    file under a backend (e.g. the jax orbit-integration shard, pending Track D).
+    """
+    return (
+        nodeid in entries
+        or _strip_param(nodeid) in entries
+        or nodeid.split("::", 1)[0] in entries
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Apply the backend slow-skip list and xfail-ledger.
+
+    Only active when --backend is jax or torch (numpy is untouched).
+
+    Slow-skip list (tests/backend_slow_skip.txt): tests UNRUNNABLE under the
+    active backend (pathologically slow until the relevant port is vectorized)
+    are marked ``skip`` so they never run -- applied in BOTH normal and
+    regenerate mode, since we never want to spend the per-test timeout on them.
+
+    xfail-ledger (tests/backend_xfail.txt): the remaining known-failing nodeids
+    are marked xfail(strict=False) -- a ledgered test is green whether it fails
+    OR (flakily) passes, so the slow-jax tests that flip pass<->timeout across
+    runs no longer red the run; only a genuinely-new un-ledgered failure reds it
+    (still catches regressions). The ledger is kept current by the scheduled
+    regen run. NOT applied in regenerate mode (GALPY_BACKEND_XFAIL_REGEN=1), so
+    everything not slow-skipped runs and its real outcome is recorded in
+    pytest_sessionfinish.
+    """
+    backend_name = config.getoption("--backend")
+    if backend_name == "numpy":
+        return
+    # Slow-skip applies in all modes (incl. regen) so the unrunnable tests never
+    # consume their timeout; skip wins over the xfail-ledger for the same nodeid.
+    slow_skip = _load_slow_skip(backend_name)
+    skipped_ids = set()
+    if slow_skip:
+        skip_marker = pytest.mark.skip(
+            reason=f"backend-slow-skip: unrunnable under {backend_name} until the "
+            "backend port is vectorized; see tests/backend_slow_skip.txt"
+        )
+        for item in items:
+            if _matches(item.nodeid, slow_skip):
+                item.add_marker(skip_marker)
+                skipped_ids.add(item.nodeid)
+    # Backend-exempt tests (no backend-relevant code + flaky external dependency):
+    # skip in all modes, with a reason distinct from slow-skip so the burndown
+    # tooling never counts them as deferred-pending-vectorization work.
+    backend_skip = _load_backend_skip(backend_name)
+    if backend_skip:
+        exempt_marker = pytest.mark.skip(
+            reason=f"backend-skip: not backend-meaningful under {backend_name} "
+            "(external-service/network/flaky); see tests/backend_skip.txt"
+        )
+        for item in items:
+            if item.nodeid not in skipped_ids and _matches(item.nodeid, backend_skip):
+                item.add_marker(exempt_marker)
+                skipped_ids.add(item.nodeid)
+    if os.environ.get(_REGEN_ENV) == "1":
+        # regenerate: let everything (not slow-skipped) run; pytest_sessionfinish
+        # records failures.
+        return
+    ledger = _load_ledger(backend_name)
+    if not ledger:
+        return
+    marker = pytest.mark.xfail(strict=False, reason="backend-xfail-ledger")
+    for item in items:
+        if item.nodeid in skipped_ids:
+            continue
+        if _matches(item.nodeid, ledger):
+            item.add_marker(marker)
+
+
+# Module-level store bridging logreport -> sessionfinish (the report object
+# carries no config, so failing nodeids are accumulated here during the run).
+_REGEN_STORE = {"failed": set()}
+
+
+def pytest_runtest_logreport(report):
+    """Record failing nodeids during a regenerate run."""
+    if os.environ.get(_REGEN_ENV) != "1":
+        return
+    # A test counts as "failing" (-> ledger entry) if it errors in setup or
+    # fails in the call phase; ignore teardown-only failures.
+    if report.failed and report.when in ("setup", "call"):
+        _REGEN_STORE["failed"].add(report.nodeid)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """In regenerate mode, dump the failing nodeids for re-seeding the ledger."""
+    if os.environ.get(_REGEN_ENV) != "1":
+        return
+    backend_name = session.config.getoption("--backend")
+    if backend_name == "numpy":
+        return
+    failed = sorted(_REGEN_STORE["failed"])
+    outfile = _regen_outfile()
+    try:
+        os.makedirs(os.path.dirname(outfile), exist_ok=True)
+    except OSError:
+        pass
+    # Append per-backend block so one multi-backend driver can accumulate both.
+    mode = "a" if os.path.exists(outfile) else "w"
+    with open(outfile, mode) as fh:
+        fh.write(f"# regenerated failures for backend={backend_name}\n")
+        for nodeid in failed:
+            fh.write(f"{backend_name} {nodeid}\n")
+
+
+@pytest.fixture(autouse=True)
+def _galpy_force_backend(request):
+    backend_name = request.config.getoption("--backend")
+    if backend_name == "numpy" or request.node.get_closest_marker("backend_managed"):
+        yield
+        return
+    from galpy import backend  # lazy: keep galpy import out of collection
+
+    if backend_name == "jax":  # galpy's tolerances assume float64
+        import jax
+
+        jax.config.update("jax_enable_x64", True)
+    with backend.use(backend_name, force=True):
+        yield
+
+
 def _liouville3d_tdep_amp(t):
     # Smooth, strictly-positive time-dependent amplitude used by the
     # TimeDependentAmplitudeWrapperPotential registry entry (module-level so it

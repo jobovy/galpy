@@ -130,6 +130,7 @@ class MN3ExponentialDiskPotential(Potential):
                     b=self._b,
                 ),
             ]
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):

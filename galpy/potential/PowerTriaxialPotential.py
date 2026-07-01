@@ -88,6 +88,7 @@ class PowerTriaxialPotential(EllipsoidalPotential):
             self._amp *= r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
         # Multiply in constants
         self._amp *= (3.0 - self.alpha) / 4.0 / numpy.pi
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover

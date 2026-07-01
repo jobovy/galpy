@@ -8,11 +8,13 @@
 #       m^2 = x^2 + y^2/b^2 + z^2/c^2
 ########################################################################
 import hashlib
+import math
 
 import numpy
 from scipy import integrate
 from scipy.special import gamma
 
+from ..backend import get_namespace, zeros_like_backend
 from ..util import conversion, coords
 from .Potential import Potential
 
@@ -96,6 +98,7 @@ class FerrersPotential(Potential):
         self._c2 = self._c**2.0
         self._force_hash = None
         self._pa = pa
+        self._backend_compatible = True
         self._rhoc_M = gamma(n + 2.5) / gamma(n + 1) / numpy.pi**1.5 / a**3 / b / c
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
@@ -107,17 +110,23 @@ class FerrersPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(get_namespace(R, z), R)
         x, y, z = coords.cyl_to_rect(R, phi, z)
-        xy = numpy.dot(self.rot(t), numpy.array([x, y]))
-        x, y = xy[0], xy[1]
+        # rotation into the aligned frame: rot(t) @ [x, y] without array stacking
+        # (numpy.array([x, y]) stacking is the torch-concat backend blocker). The
+        # rotation angle follows t (concrete t -> numpy coefficient; traced t ->
+        # that backend), like SoftenedNeedleBarPotential.
+        xpt = get_namespace(t)
+        ang = self._pa + self._omegab * t
+        ca, sa = xpt.cos(ang), xpt.sin(ang)
+        x, y = ca * x + sa * y, -sa * x + ca * y
         return self._evaluate_xyz(x, y, z)
 
     def _evaluate_xyz(self, x, y, z=0.0):
         """Evaluation of the potential as a function of (x,y,z) in the
         aligned coordinate frame"""
         return (
-            -numpy.pi
+            -math.pi
             * self._rhoc_M
             / (self.n + 1.0)
             * self.a**3
@@ -129,53 +138,63 @@ class FerrersPotential(Potential):
         )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
-        self._compute_xyzforces(R, z, phi, t)
-        return numpy.cos(phi) * self._cached_Fx + numpy.sin(phi) * self._cached_Fy
+            phi = zeros_like_backend(xp, R)
+        Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
+        return xp.cos(phi) * Fx + xp.sin(phi) * Fy
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
-        self._compute_xyzforces(R, z, phi, t)
-        return R * (
-            -numpy.sin(phi) * self._cached_Fx + numpy.cos(phi) * self._cached_Fy
-        )
+            phi = zeros_like_backend(xp, R)
+        Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
+        return R * (-xp.sin(phi) * Fx + xp.cos(phi) * Fy)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
-        self._compute_xyzforces(R, z, phi, t)
-        return self._cached_Fz
+            phi = zeros_like_backend(xp, R)
+        _, _, Fz = self._cached_xyzforces(R, z, phi, t, xp)
+        return Fz
 
     def _compute_xyz(self, R, phi, z, t):
         return coords.cyl_to_rect(R, phi - self._pa - self._omegab * t, z)
 
-    def _compute_xyzforces(self, R, z, phi, t):
-        # Compute all rectangular forces
+    def _xyzforces(self, R, z, phi, t):
+        # Pure-functional aligned-then-de-rotated rectangular forces; no
+        # per-instance state, so it is safe under jax/torch tracing.
+        x, y, z = self._compute_xyz(R, phi, z, t)
+        Fx = self._xforce_xyz(x, y, z)
+        Fy = self._yforce_xyz(x, y, z)
+        Fz = self._zforce_xyz(x, y, z)
+        # de-rotation angle; follows t (concrete t -> numpy coefficient that
+        # broadcasts; traced t -> that backend's cos/sin), as in
+        # SoftenedNeedleBarPotential.
+        xpt = get_namespace(t)
+        tp = self._pa + self._omegab * t
+        cp, sp = xpt.cos(tp), xpt.sin(tp)
+        return (cp * Fx - sp * Fy, sp * Fx + cp * Fy, Fz)
+
+    def _cached_xyzforces(self, R, z, phi, t, xp):
+        # numpy gets a per-instance hash cache (perf); jax/torch compute directly
+        # so the traced path never reads/writes self-state (illegal under tracing).
+        if xp is not numpy:
+            return self._xyzforces(R, z, phi, t)
         new_hash = hashlib.md5(numpy.array([R, phi, z, t])).hexdigest()
-        if new_hash == self._force_hash:
-            Fx = self._cached_Fx
-            Fy = self._cached_Fy
-            Fz = self._cached_Fz
-        else:
-            x, y, z = self._compute_xyz(R, phi, z, t)
-            Fx = self._xforce_xyz(x, y, z)
-            Fy = self._yforce_xyz(x, y, z)
-            Fz = self._zforce_xyz(x, y, z)
+        if new_hash != self._force_hash:
+            self._cached_Fx, self._cached_Fy, self._cached_Fz = self._xyzforces(
+                R, z, phi, t
+            )
             self._force_hash = new_hash
-            tp = self._pa + self._omegab * t
-            cp, sp = numpy.cos(tp), numpy.sin(tp)
-            self._cached_Fx = cp * Fx - sp * Fy
-            self._cached_Fy = sp * Fx + cp * Fy
-            self._cached_Fz = Fz
+        return self._cached_Fx, self._cached_Fy, self._cached_Fz
 
     def _xforce_xyz(self, x, y, z):
         """Evaluation of the x force as a function of (x,y,z) in the aligned
         coordinate frame"""
         return (
             -2.0
-            * numpy.pi
+            * math.pi
             * self._rhoc_M
             * self.a**3
             * self._b
@@ -190,7 +209,7 @@ class FerrersPotential(Potential):
         coordinate frame"""
         return (
             -2.0
-            * numpy.pi
+            * math.pi
             * self._rhoc_M
             * self.a**3
             * self._b
@@ -205,7 +224,7 @@ class FerrersPotential(Potential):
         coordinate frame"""
         return (
             -2.0
-            * numpy.pi
+            * math.pi
             * self._rhoc_M
             * self.a**3
             * self._b
@@ -216,102 +235,116 @@ class FerrersPotential(Potential):
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         phixxa = self._2ndderiv_xyz(x, y, z, 0, 0)
         phixya = self._2ndderiv_xyz(x, y, z, 0, 1)
         phiyya = self._2ndderiv_xyz(x, y, z, 1, 1)
+        xpt = get_namespace(t)
         ang = self._omegab * t + self._pa
-        c, s = numpy.cos(ang), numpy.sin(ang)
+        c, s = xpt.cos(ang), xpt.sin(ang)
         phixx = c**2 * phixxa + 2.0 * c * s * phixya + s**2 * phiyya
         phixy = (c**2 - s**2) * phixya + c * s * (phiyya - phixxa)
         phiyy = s**2 * phixxa - 2.0 * c * s * phixya + c**2 * phiyya
         return (
-            numpy.cos(phi) ** 2.0 * phixx
-            + numpy.sin(phi) ** 2.0 * phiyy
-            + 2.0 * numpy.cos(phi) * numpy.sin(phi) * phixy
+            xp.cos(phi) ** 2.0 * phixx
+            + xp.sin(phi) ** 2.0 * phiyy
+            + 2.0 * xp.cos(phi) * xp.sin(phi) * phixy
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         phixza = self._2ndderiv_xyz(x, y, z, 0, 2)
         phiyza = self._2ndderiv_xyz(x, y, z, 1, 2)
+        xpt = get_namespace(t)
         ang = self._omegab * t + self._pa
-        c, s = numpy.cos(ang), numpy.sin(ang)
+        c, s = xpt.cos(ang), xpt.sin(ang)
         phixz = c * phixza + s * phiyza
         phiyz = -s * phixza + c * phiyza
-        return numpy.cos(phi) * phixz + numpy.sin(phi) * phiyz
+        return xp.cos(phi) * phixz + xp.sin(phi) * phiyz
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(get_namespace(R, z), R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         return self._2ndderiv_xyz(x, y, z, 2, 2)
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         Fx = self._xforce_xyz(x, y, z)
         Fy = self._yforce_xyz(x, y, z)
-        Fxy = numpy.dot(self.rot(t, transposed=True), numpy.array([Fx, Fy]))
-        Fx, Fy = Fxy[0], Fxy[1]
+        # rot(t, transposed=True) @ [Fx, Fy] without array stacking (torch concat
+        # blocker); the rotation angle follows t.
+        xpt = get_namespace(t)
+        ang = self._omegab * t + self._pa
+        c, s = xpt.cos(ang), xpt.sin(ang)
+        Fx, Fy = c * Fx - s * Fy, s * Fx + c * Fy
         phixxa = self._2ndderiv_xyz(x, y, z, 0, 0)
         phixya = self._2ndderiv_xyz(x, y, z, 0, 1)
         phiyya = self._2ndderiv_xyz(x, y, z, 1, 1)
-        ang = self._omegab * t + self._pa
-        c, s = numpy.cos(ang), numpy.sin(ang)
         phixx = c**2 * phixxa + 2.0 * c * s * phixya + s**2 * phiyya
         phixy = (c**2 - s**2) * phixya + c * s * (phiyya - phixxa)
         phiyy = s**2 * phixxa - 2.0 * c * s * phixya + c**2 * phiyya
         return R**2.0 * (
-            numpy.sin(phi) ** 2.0 * phixx
-            + numpy.cos(phi) ** 2.0 * phiyy
-            - 2.0 * numpy.cos(phi) * numpy.sin(phi) * phixy
-        ) + R * (numpy.cos(phi) * Fx + numpy.sin(phi) * Fy)
+            xp.sin(phi) ** 2.0 * phixx
+            + xp.cos(phi) ** 2.0 * phiyy
+            - 2.0 * xp.cos(phi) * xp.sin(phi) * phixy
+        ) + R * (xp.cos(phi) * Fx + xp.sin(phi) * Fy)
 
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         Fx = self._xforce_xyz(x, y, z)
         Fy = self._yforce_xyz(x, y, z)
-        Fxy = numpy.dot(self.rot(t, transposed=True), numpy.array([Fx, Fy]))
-        Fx, Fy = Fxy[0], Fxy[1]
+        # rot(t, transposed=True) @ [Fx, Fy] without array stacking (torch concat
+        # blocker); the rotation angle follows t.
+        xpt = get_namespace(t)
+        ang = self._omegab * t + self._pa
+        c, s = xpt.cos(ang), xpt.sin(ang)
+        Fx, Fy = c * Fx - s * Fy, s * Fx + c * Fy
         phixxa = self._2ndderiv_xyz(x, y, z, 0, 0)
         phixya = self._2ndderiv_xyz(x, y, z, 0, 1)
         phiyya = self._2ndderiv_xyz(x, y, z, 1, 1)
-        ang = self._omegab * t + self._pa
-        c, s = numpy.cos(ang), numpy.sin(ang)
         phixx = c**2 * phixxa + 2.0 * c * s * phixya + s**2 * phiyya
         phixy = (c**2 - s**2) * phixya + c * s * (phiyya - phixxa)
         phiyy = s**2 * phixxa - 2.0 * c * s * phixya + c**2 * phiyya
         return (
-            R * numpy.cos(phi) * numpy.sin(phi) * (phiyy - phixx)
-            + R * numpy.cos(2.0 * (phi)) * phixy
-            + numpy.sin(phi) * Fx
-            - numpy.cos(phi) * Fy
+            R * xp.cos(phi) * xp.sin(phi) * (phiyy - phixx)
+            + R * xp.cos(2.0 * (phi)) * phixy
+            + xp.sin(phi) * Fx
+            - xp.cos(phi) * Fy
         )
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         if not self.isNonAxi:
-            phi = 0.0
+            phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
         phixza = self._2ndderiv_xyz(x, y, z, 0, 2)
         phiyza = self._2ndderiv_xyz(x, y, z, 1, 2)
-        phixz, phiyz = numpy.dot(
-            self.rot(t, transposed=True), numpy.array([phixza, phiyza])
-        )
-        return R * (numpy.cos(phi) * phiyz - numpy.sin(phi) * phixz)
+        # rot(t, transposed=True) @ [phixza, phiyza] without array stacking; the
+        # rotation angle follows t.
+        xpt = get_namespace(t)
+        ang = self._omegab * t + self._pa
+        c, s = xpt.cos(ang), xpt.sin(ang)
+        phixz, phiyz = c * phixza - s * phiyza, s * phixza + c * phiyza
+        return R * (xp.cos(phi) * phiyz - xp.sin(phi) * phixz)
 
     def _2ndderiv_xyz(self, x, y, z, i, j):
         r"""General 2nd derivative of the potential as a function of (x,y,z)
         in the aligned coordinate frame, d^2\Phi/dx_i/dx_j"""
         return (
-            -numpy.pi
+            -math.pi
             * self._rhoc_M
             * self.a**3
             * self._b
@@ -330,36 +363,24 @@ class FerrersPotential(Potential):
         )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         x, y, z = self._compute_xyz(R, phi, z, t)
         m2 = x**2 / self._a2 + y**2 / self._b2 + z**2 / self._c2
-        if m2 < 1:
-            return self._rhoc_M * (1.0 - m2 / self.a**2) ** self.n
-        else:
-            return 0.0
+        if xp is numpy:
+            # preserve the original numpy behavior exactly (scalar-only: a
+            # multi-element array raises on `m2 < 1`, as it always has)
+            if m2 < 1:
+                return self._rhoc_M * (1.0 - m2 / self.a**2) ** self.n
+            else:
+                return 0.0
+        # jax/torch (incl. 0-d traced scalars): branch-free with a guarded base
+        # (1 - m2/a^2) on the m2>=1 side so a non-integer n does not NaN-poison
+        # AD; the where discards it.
+        base_safe = xp.where(m2 < 1, 1.0 - m2 / self.a**2, 1.0)
+        return xp.where(m2 < 1, self._rhoc_M * base_safe**self.n, 0.0)
 
     def OmegaP(self):
         return self._omegab
-
-    def rot(self, t=0.0, transposed=False):
-        """2D Rotation matrix for non-zero pa or pattern speed
-        to goto the aligned coordinates
-        """
-        rotmat = numpy.array(
-            [
-                [
-                    numpy.cos(self._pa + self._omegab * t),
-                    numpy.sin(self._pa + self._omegab * t),
-                ],
-                [
-                    -numpy.sin(self._pa + self._omegab * t),
-                    numpy.cos(self._pa + self._omegab * t),
-                ],
-            ]
-        )
-        if transposed:
-            return rotmat.T
-        else:
-            return rotmat
 
 
 def _potInt(x, y, z, a2, b2, c2, n):

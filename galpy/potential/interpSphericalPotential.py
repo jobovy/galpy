@@ -4,6 +4,9 @@
 import numpy
 from scipy import interpolate
 
+from ..backend import get_namespace, match_input_dtype
+from ..backend.interpolate import eval_ppoly as _ppoly_eval
+from ..backend.interpolate import spline_to_ppoly as _spline_to_ppoly_data
 from ..util._optional_deps import _JAX_LOADED
 from ..util.conversion import get_physical, physical_compatible
 from .Potential import _evaluatePotentials, _evaluateRforces
@@ -88,6 +91,13 @@ class interpSphericalPotential(SphericalPotential):
         self._pot_spline = self._force_spline.antiderivative()
         self._Phi0 = Phi0 + self._pot_spline(self._rgrid[0])
         self._r2deriv_spline = self._force_spline.derivative()
+        # Piecewise-power (PPoly) representation of the three splines for the
+        # non-numpy backends (see _ppoly_eval). The antiderivative/derivative
+        # splines share the force spline's knots, so a single breakpoint array
+        # serves all three coefficient sets.
+        self._ppoly_x, self._force_ppoly_c = _spline_to_ppoly_data(self._force_spline)
+        _, self._pot_ppoly_c = _spline_to_ppoly_data(self._pot_spline)
+        _, self._r2deriv_ppoly_c = _spline_to_ppoly_data(self._r2deriv_spline)
         # Extrapolate as mass within rgrid[-1]
         self._rmin = rgrid[0]
         self._rmax = rgrid[-1]
@@ -96,22 +106,47 @@ class interpSphericalPotential(SphericalPotential):
             -self._pot_spline(self._rmax) + self._Phi0 + self._total_mass / self._rmax
         )
         self.hasC = True
+        self._backend_compatible = True
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
         return None
 
     def _revaluate(self, r, t=0.0):
-        out = numpy.empty_like(r)
-        out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] + self._Phimax
-        out[r < self._rmax] = -self._pot_spline(r[r < self._rmax]) + self._Phi0
-        return out
+        xp = get_namespace(r)
+        if xp is numpy:
+            out = numpy.empty_like(r)
+            out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] + self._Phimax
+            out[r < self._rmax] = -self._pot_spline(r[r < self._rmax]) + self._Phi0
+            return out
+        # Backend (jax/torch) path: same piecewise definition through xp.where.
+        # The spline piece extrapolates finitely beyond rmax (the dead side of
+        # the where), while the Kepler piece guards its dead-side r=0 (r >= rmax
+        # implies r > 0 on the live side), so autodiff stays NaN-free.
+        r = xp.asarray(r)
+        inside = -_ppoly_eval(xp, self._ppoly_x, self._pot_ppoly_c, r) + float(
+            self._Phi0
+        )
+        rsafe = xp.where(r >= self._rmax, r, 1.0)
+        outside = -float(self._total_mass) / rsafe + float(self._Phimax)
+        # the spline knots/coefficients are deliberately float64 (precision);
+        # cast the result to the input dtype at exit (no-op for float64 input;
+        # the numpy path above already follows the input dtype via empty_like)
+        return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rforce(self, r, t=0.0):
-        out = numpy.empty_like(r)
-        out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] ** 2.0
-        out[r < self._rmax] = self._force_spline(r[r < self._rmax])
-        return out
+        xp = get_namespace(r)
+        if xp is numpy:
+            out = numpy.empty_like(r)
+            out[r >= self._rmax] = -self._total_mass / r[r >= self._rmax] ** 2.0
+            out[r < self._rmax] = self._force_spline(r[r < self._rmax])
+            return out
+        r = xp.asarray(r)
+        inside = _ppoly_eval(xp, self._ppoly_x, self._force_ppoly_c, r)
+        rsafe = xp.where(r >= self._rmax, r, 1.0)
+        outside = -float(self._total_mass) / rsafe**2.0
+        # float64 spline interior, input-dtype exit cast (see _revaluate)
+        return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rforce_jax(self, r):
         if not _JAX_LOADED:  # pragma: no cover
@@ -121,14 +156,31 @@ class interpSphericalPotential(SphericalPotential):
         return jnp.interp(r, self._rforce_jax_rgrid, self._rforce_jax_grid)
 
     def _r2deriv(self, r, t=0.0):
-        out = numpy.empty_like(r)
-        out[r >= self._rmax] = -2.0 * self._total_mass / r[r >= self._rmax] ** 3.0
-        out[r < self._rmax] = -self._r2deriv_spline(r[r < self._rmax])
-        return out
+        xp = get_namespace(r)
+        if xp is numpy:
+            out = numpy.empty_like(r)
+            out[r >= self._rmax] = -2.0 * self._total_mass / r[r >= self._rmax] ** 3.0
+            out[r < self._rmax] = -self._r2deriv_spline(r[r < self._rmax])
+            return out
+        r = xp.asarray(r)
+        inside = -_ppoly_eval(xp, self._ppoly_x, self._r2deriv_ppoly_c, r)
+        rsafe = xp.where(r >= self._rmax, r, 1.0)
+        outside = -2.0 * float(self._total_mass) / rsafe**3.0
+        # float64 spline interior, input-dtype exit cast (see _revaluate)
+        return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
 
     def _rdens(self, r, t=0.0):
-        out = numpy.empty_like(r)
-        out[r >= self._rmax] = 0.0
-        # Fall back onto Poisson eqn., implemented in SphericalPotential
-        out[r < self._rmax] = SphericalPotential._rdens(self, r[r < self._rmax])
-        return out
+        xp = get_namespace(r)
+        if xp is numpy:
+            out = numpy.empty_like(r)
+            out[r >= self._rmax] = 0.0
+            # Fall back onto Poisson eqn., implemented in SphericalPotential
+            out[r < self._rmax] = SphericalPotential._rdens(self, r[r < self._rmax])
+            return out
+        # Poisson-eqn density via the backend _r2deriv/_rforce above; their
+        # finite extrapolation keeps the dead (r >= rmax) side of the where
+        # NaN-free (r >= rmax > 0, so the 1/r factors are safe there too).
+        r = xp.asarray(r)
+        inside = SphericalPotential._rdens(self, r, t=t)
+        # float64 spline interior, input-dtype exit cast (see _revaluate)
+        return match_input_dtype(xp.where(r >= self._rmax, 0.0, inside), r)

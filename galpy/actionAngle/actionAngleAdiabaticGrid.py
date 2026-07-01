@@ -14,6 +14,9 @@ import numpy
 from scipy import interpolate
 
 from .. import potential
+from ..backend import get_namespace
+from ..backend import interpolate as backend_interpolate
+from ..backend import promote_scalars
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -26,7 +29,11 @@ _PRINTOUTSIDEGRID = False
 
 
 class actionAngleAdiabaticGrid(actionAngle):
-    """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
+    """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation
+
+    jax/torch input is supported and differentiable, but evaluates the
+    interpolation grid only (no off-grid fallback): inputs must lie within the
+    grid, whereas the numpy path falls back to a per-point solve off-grid."""
 
     def __init__(
         self,
@@ -274,8 +281,33 @@ class actionAngleAdiabaticGrid(actionAngle):
         self._jrInterp = interpolate.RectBivariateSpline(
             self._Lzs, y, jr, kx=3, ky=3, s=0.0
         )
+        # Backend-agnostic eval wrappers from the SAME fitted scipy objects
+        # (numpy path is byte-identical -- the wrappers delegate to scipy).
+        self._build_backend_interp(jzEzzmax, jrERRa)
         # Check the units
         self._check_consistent_units()
+        return None
+
+    def _build_backend_interp(self, jzEzzmax, jrERRa):
+        """Wrap the fitted scipy interpolators for jax/torch evaluation."""
+        self._jzInterp_b = backend_interpolate.Spline2D(spl=self._jzInterp)
+        self._jrInterp_b = backend_interpolate.Spline2D(spl=self._jrInterp)
+        self._EzZmaxsInterp_b = backend_interpolate.Spline1D(
+            self._Rs, numpy.log(self._EzZmaxs), k=3
+        )
+        self._jzEzmaxInterp_b = backend_interpolate.Spline1D(
+            self._Rs, numpy.log(jzEzzmax + 10.0**-5.0), k=3
+        )
+        self._RLInterp_b = backend_interpolate.Spline1D(self._Lzs, self._RL, k=3)
+        self._ERRLInterp_b = backend_interpolate.Spline1D(
+            self._Lzs, numpy.log(-(self._ERRL - self._ERRLmax)), k=3
+        )
+        self._ERRaInterp_b = backend_interpolate.Spline1D(
+            self._Lzs, numpy.log(-(self._ERRa - self._ERRamax)), k=3
+        )
+        self._jrERRaInterp_b = backend_interpolate.Spline1D(
+            self._Lzs, numpy.log(jrERRa + 10.0**-5.0), k=3
+        )
         return None
 
     def _evaluate(self, *args, **kwargs):
@@ -313,6 +345,10 @@ class actionAngleAdiabaticGrid(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:  # jax/torch: vectorised, differentiable grid eval
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            return self._evaluate_backend(R, vR, vT, z, vz)
         # First work on the vertical action
         Phi = _evaluatePotentials(self._pot, R, z)
         try:
@@ -454,6 +490,35 @@ class actionAngleAdiabaticGrid(actionAngle):
                     self._jrInterp(ERLz, (ER - thisERRa) / (thisERRL - thisERRa))
                     * (numpy.exp(self._jrERRaInterp(ERLz)) - 10.0**-5.0)
                 )[0][0]
+        return (jr, R * vT, jz)
+
+    def _evaluate_backend(self, R, vR, vT, z, vz):
+        """Vectorised, differentiable on-grid action eval for jax/torch inputs.
+
+        Assumes on-grid inputs (the off-grid fallback to self._aA is numpy-only).
+        """
+        xp = get_namespace(R)
+        zero = xp.zeros_like(R)
+        # Vertical action
+        Phi = _evaluatePotentials(self._pot, R, z)
+        Phio = _evaluatePotentials(self._pot, R, zero)
+        Ez = Phi - Phio + vz**2.0 / 2.0
+        thisEzZmax = xp.exp(self._EzZmaxsInterp_b(R))
+        jz = self._jzInterp_b(R, Ez / thisEzZmax, grid=False) * (
+            xp.exp(self._jzEzmaxInterp_b(R)) - 10.0**-5.0
+        )
+        # Radial action
+        ERLz = xp.abs(R * vT) + self._gamma * jz
+        ER = Phio + vR**2.0 / 2.0 + ERLz**2.0 / 2.0 / R**2.0
+        thisERRL = -xp.exp(self._ERRLInterp_b(ERLz)) + self._ERRLmax
+        thisERRa = -xp.exp(self._ERRaInterp_b(ERLz)) + self._ERRamax
+        frac = (ER - thisERRa) / (thisERRL - thisERRa)
+        # Snap the two near-boundary cases (mirrors the numpy ER[indx]= writes).
+        ER = xp.where((frac > 1.0) & ((frac - 1.0) < 10.0**-2.0), thisERRL, ER)
+        ER = xp.where((frac < 0.0) & (frac > -(10.0**-2.0)), thisERRa, ER)
+        jr = self._jrInterp_b(
+            ERLz, (ER - thisERRa) / (thisERRL - thisERRa), grid=False
+        ) * (xp.exp(self._jrERRaInterp_b(ERLz)) - 10.0**-5.0)
         return (jr, R * vT, jz)
 
     def Jz(self, *args, **kwargs):

@@ -11,6 +11,14 @@ PY2 = sys.version < "3"
 warnings.simplefilter("always", galpyWarning)
 
 
+def _to_numpy(x):
+    # Convert a possibly-backend (jax/torch) array to numpy for numpy-based test
+    # reductions; detach torch grad-tracking tensors first. Identity on numpy.
+    if hasattr(x, "detach"):
+        x = x.detach()
+    return numpy.asarray(x)
+
+
 # Test the actions of an actionAngleHarmonic
 def test_actionAngleHarmonic_conserved_actions():
     # Create harmonic oscillator potential as isochrone w/ large b --> 1D
@@ -166,7 +174,9 @@ def test_actionAngleVertical_conserved_actions():
     ntimes = 1001
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, isopot)
-    js = aAV(obs.x(times), obs.vx(times))
+    # Under a forced jax/torch backend obs.x()/vx() are backend arrays, so aAV
+    # returns one too; the numpy reductions below need numpy (detach grad).
+    js = _to_numpy(aAV(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(
         numpy.fabs(
             (js - numpy.tile(numpy.mean(js), (len(times), 1)).T) / numpy.mean(js)
@@ -190,6 +200,8 @@ def test_actionAngleVertical_conserved_freqs():
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, isopot)
     js, os = aAV.actionsFreqs(obs.x(times), obs.vx(times))
+    js = _to_numpy(js)  # backend array -> numpy for the reductions below
+    os = _to_numpy(os)
     maxdj = numpy.amax(
         numpy.fabs(
             (js - numpy.tile(numpy.mean(js), (len(times), 1)).T) / numpy.mean(js)
@@ -2227,6 +2239,100 @@ def test_actionAngleAdiabaticGrid_Isochrone_actions():
 
 
 # Basic sanity checking of the actionAngleStaeckel actions
+@pytest.mark.backend_managed  # numpy-only: the Single (scipy.quad) is not backend-capable
+def test_actionAngleStaeckelSingle_quad_branches():
+    # The per-object actionAngleStaeckelSingle scipy path is retained only for
+    # actionAngleStaeckelGrid (which builds it from generic grid orbits); the
+    # vectorised actionAngleStaeckel._evaluate replaced it on the main path, so
+    # its degenerate-orbit machinery is no longer exercised by the grid: the
+    # at-umin/at-umax/circular umin-umax brackets, the Lz=0 axis-reaching plunge,
+    # the planar calcVmin branch, the near-axis down-search, the fixed_quad action
+    # integrals, and the pure-Python calcu0. Drive those branches directly here so
+    # the legacy path stays covered until Single is removed with the grid rewrite.
+    from galpy.actionAngle import UnboundError
+    from galpy.actionAngle.actionAngleStaeckel import actionAngleStaeckelSingle as S
+    from galpy.actionAngle.actionAngleStaeckel import calcu0
+    from galpy.potential import MWPotential2014 as mw
+
+    d = 0.45
+
+    def mk(R, vR, vT, z, vz):
+        return S(R, vR, vT, z, vz, pot=mw, delta=d)
+
+    # (a) generic orbits: adaptive integrate.quad JR/Jz (fixed_quad=False) and the
+    #     non-degenerate umin/umax + vmin brentq searches (incl. _vminFindStart).
+    for ic in [
+        (0.9, 0.1, 1.05, 0.2, 0.08),
+        (1.1, 0.3, 0.8, 0.1, 0.35),
+        (0.8, -0.2, 0.9, 0.3, 0.2),
+    ]:
+        s = mk(*ic)
+        assert numpy.isfinite(numpy.atleast_1d(s.JR())[0])
+        assert numpy.isfinite(numpy.atleast_1d(s.Jz())[0])
+
+    # (b) fixed_quad action integrals (fresh objects: JR/Jz cache after one call).
+    sfq = mk(0.9, 0.1, 1.05, 0.2, 0.08)
+    assert numpy.isfinite(numpy.atleast_1d(sfq.JR(fixed_quad=True))[0])
+    assert numpy.isfinite(numpy.atleast_1d(sfq.Jz(fixed_quad=True))[0])
+
+    # (c) exactly circular orbit (MWPotential2014 has vc(1)=1): JR=0 (umax==umin
+    #     via calcUminUmax's circular branch) and Jz=0 (vmin==pi/2).
+    sc = mk(1.0, 0.0, 1.0, 0.0, 0.0)
+    assert numpy.atleast_1d(sc.JR())[0] == 0.0
+    assert numpy.atleast_1d(sc.Jz())[0] == 0.0
+    lo, hi = sc.calcUminUmax()
+    assert lo == hi
+
+    # (d) radial-turning-point orbits (vR=vz=0, AT a u turning point): pericentric
+    #     (R<Rguide) hits the at-umin bracket; apocentric (R>Rguide, finite Lz)
+    #     hits the at-umax bracket with a finite-umin brentq.
+    for R, vT, z in [
+        (0.7, 1.1, 0.15),
+        (0.8, 1.0, 0.1),  # pericentric -> at umin
+        (1.3, 0.6, 0.15),
+        (1.2, 0.7, 0.05),  # apocentric  -> at umax
+    ]:
+        st = mk(R, 0.0, vT, z, 0.0)
+        lo, hi = st.calcUminUmax()
+        assert lo <= hi
+        assert numpy.isfinite(numpy.atleast_1d(st.JR())[0])
+
+    # (e) apocentric Lz=0 plunge (all velocities 0): at-umax bracket whose umin
+    #     down-search reaches the u=0 axis -> umin=0.
+    s0 = mk(1.3, 0.0, 0.0, 0.15, 0.0)
+    lo, hi = s0.calcUminUmax()
+    assert lo == 0.0
+
+    # (f) planar orbits (z=vz=0, J_z=0): calcVmin's pv=0 branch snaps vmin to pi/2.
+    for R, vR, vT in [(0.9, 0.1, 1.0), (1.1, -0.2, 0.9), (1.2, 0.25, 0.6)]:
+        sp = mk(R, vR, vT, 0.0, 0.0)
+        assert numpy.fabs(numpy.atleast_1d(sp.calcVmin())[0] - numpy.pi / 2.0) < 1e-6
+        assert numpy.atleast_1d(sp.Jz())[0] == 0.0
+
+    # (g) near-axis / Lz=0 orbits (vR!=0): the umin down-search descends many 0.9
+    #     steps and (for Lz=0) reaches the axis -> umin=0.
+    for vT in (0.0, 1e-4, 3e-4):
+        sa = mk(1.0, 0.45, vT, 0.2, 0.1)
+        sa.calcUminUmax()
+        assert numpy.isfinite(numpy.atleast_1d(sa.JR())[0])
+
+    # (h) pure-Python calcu0 reference (the vectorised path uses the C calcu0);
+    #     exercise both the scalar-delta (stride 0) and array-delta (stride 1) paths.
+    assert numpy.all(numpy.isfinite(calcu0(sc._E, sc._Lz, mw, d)))
+    u0v = calcu0(
+        numpy.array([0.0, 0.1]),
+        numpy.array([0.8, 1.0]),
+        mw,
+        numpy.array([d, d]),
+    )
+    assert len(u0v) == 2 and numpy.all(numpy.isfinite(u0v))
+
+    # (i) unbound orbit -> UnboundError from the umax search.
+    with pytest.raises(UnboundError):
+        mk(0.9, 10.0, -20.0, 0.1, 10.0)
+    return None
+
+
 def test_actionAngleStaeckel_basic_actions():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
@@ -3215,6 +3321,25 @@ def test_estimateDeltaStaeckel_no_median():
     # check that values agree
     assert (numpy.fabs(nomed - indiv) < 1e-10).all(), (
         "no_median option returns different values to individual Delta estimation"
+    )
+    return None
+
+
+# Regression: estimateDeltaStaeckel with array (R,z) must work for potentials
+# whose methods only accept scalar inputs (the numpy path evaluates per-element).
+def test_estimateDeltaStaeckel_array_scalaronly_potential():
+    from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import DoubleExponentialDiskPotential
+
+    pot = DoubleExponentialDiskPotential(normalize=1.0)
+    R = numpy.array([1.0, 1.1, 0.9, 1.05])
+    z = numpy.array([0.1, 0.2, 0.05, 0.15])
+    # array call (no_median) must not crash and must equal the per-element
+    # scalar estimates (the numpy path evaluates the potential per element)
+    arr = estimateDeltaStaeckel(pot, R, z, no_median=True)
+    indiv = numpy.array([estimateDeltaStaeckel(pot, R[i], z[i]) for i in range(len(R))])
+    assert (numpy.fabs(arr - indiv) < 1e-10).all(), (
+        "estimateDeltaStaeckel array call disagrees with per-element estimates"
     )
     return None
 
@@ -6479,10 +6604,18 @@ def test_actionAngleHarmonicInverse_wrtHarmonic():
     obs.integrate(times, ipz)
     j, _, a = aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAHI(numpy.median(j), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+    # Backend-agnostic reductions (identity on numpy): the orbit accessors and
+    # inverse outputs are jax/torch arrays under a forced backend.
+    ox, ovx, xi, vxi = (
+        _to_numpy(obs.x(times)),
+        _to_numpy(obs.vx(times)),
+        _to_numpy(xi),
+        _to_numpy(vxi),
+    )
+    assert numpy.amax(numpy.fabs(ox - xi)) < 10.0**-6.0, (
         "actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+    assert numpy.amax(numpy.fabs(ovx - vxi)) < 10.0**-6.0, (
         "actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit"
     )
     return None
@@ -6526,8 +6659,10 @@ def test_actionAngleHarmonicInverse_orbit():
         omega=numpy.sqrt(4.0 * numpy.pi * ip.dens(1.2, 0.0) / 3.0)
     )
     j = 0.01
-    # First calculate frequencies and the initial x,v
-    xvom = aAHI.xvFreqs(j, numpy.array([0.1]))
+    # First calculate frequencies and the initial x,v. _to_numpy (identity on
+    # numpy) keeps the orbit-integration plumbing below on numpy under a forced
+    # backend; aAHI(j, angle) further down still runs the backend for real.
+    xvom = [_to_numpy(q) for q in aAHI.xvFreqs(j, numpy.array([0.1]))]
     om = xvom[2:]
     # Angles along an orbit
     ts = numpy.linspace(0.0, 20.0, 1001)
@@ -6539,10 +6674,18 @@ def test_actionAngleHarmonicInverse_orbit():
     orb.integrate(ts, ipz, method="dopr54_c")
     # Compare
     tol = -7.0
-    assert numpy.all(numpy.fabs(orb.x(ts) - xv[0]) < 10.0**tol), (
+    # Backend-agnostic reductions (identity on numpy): orbit accessors + inverse
+    # outputs are jax/torch arrays under a forced backend.
+    ox, ovx, xv0, xv1 = (
+        _to_numpy(orb.x(ts)),
+        _to_numpy(orb.vx(ts)),
+        _to_numpy(xv[0]),
+        _to_numpy(xv[1]),
+    )
+    assert numpy.all(numpy.fabs(ox - xv0) < 10.0**tol), (
         "Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in x"
     )
-    assert numpy.all(numpy.fabs(orb.vx(ts) - xv[1]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(ovx - xv1) < 10.0**tol), (
         "Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in v"
     )
     return None
@@ -6741,10 +6884,15 @@ def test_actionAngleIsochroneInverse_orbit():
     ip = IsochronePotential(normalize=1.03, b=1.2)
     aAII = actionAngleIsochroneInverse(ip=ip)
     jr, jphi, jz = 0.05, 1.1, 0.025
-    # First calculate frequencies and the initial RvR
-    RvRom = aAII.xvFreqs(
-        jr, jphi, jz, numpy.array([0.0]), numpy.array([1.0]), numpy.array([2.0])
-    )
+    # First calculate frequencies and the initial RvR. _to_numpy (identity on
+    # numpy) keeps the orbit-integration plumbing below on numpy under a forced
+    # backend; aAII(...) further down still runs the backend for real.
+    RvRom = [
+        _to_numpy(q)
+        for q in aAII.xvFreqs(
+            jr, jphi, jz, numpy.array([0.0]), numpy.array([1.0]), numpy.array([2.0])
+        )
+    ]
     om = RvRom[6:]
     # Angles along an orbit
     ts = numpy.linspace(0.0, 100.0, 1001)
@@ -6760,24 +6908,34 @@ def test_actionAngleIsochroneInverse_orbit():
     orb.integrate(ts, ip)
     # Compare
     tol = -3.0
-    assert numpy.all(numpy.fabs(orb.R(ts) - RvR[0]) < 10.0**tol), (
+    # Backend-agnostic reductions (identity on numpy): orbit accessors + inverse
+    # outputs are jax/torch arrays under a forced backend.
+    oR, ovR, ovT, oz, ovz, ophi = (
+        _to_numpy(orb.R(ts)),
+        _to_numpy(orb.vR(ts)),
+        _to_numpy(orb.vT(ts)),
+        _to_numpy(orb.z(ts)),
+        _to_numpy(orb.vz(ts)),
+        _to_numpy(orb.phi(ts)),
+    )
+    RvR = [_to_numpy(q) for q in RvR]
+    assert numpy.all(numpy.fabs(oR - RvR[0]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in R"
     )
-    assert numpy.all(numpy.fabs(orb.vR(ts) - RvR[1]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(ovR - RvR[1]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in vR"
     )
-    assert numpy.all(numpy.fabs(orb.vT(ts) - RvR[2]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(ovT - RvR[2]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in vT"
     )
-    assert numpy.all(numpy.fabs(orb.z(ts) - RvR[3]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(oz - RvR[3]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in z"
     )
-    assert numpy.all(numpy.fabs(orb.vz(ts) - RvR[4]) < 10.0**tol), (
+    assert numpy.all(numpy.fabs(ovz - RvR[4]) < 10.0**tol), (
         "Integrated orbit does not agree with torus orbit in vz"
     )
     assert numpy.all(
-        numpy.fabs((orb.phi(ts) - RvR[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
-        < 10.0**tol
+        numpy.fabs((ophi - RvR[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi) < 10.0**tol
     ), "Integrated orbit does not agree with torus orbit in phi"
     return None
 
@@ -7596,27 +7754,44 @@ def check_actionAngleIsochroneInverse_wrtIsochrone(
     Ri, vRi, vTi, zi, vzi, phii = aAII(
         numpy.median(jr), numpy.median(jp), numpy.median(jz), ar, ap, az
     )
-    assert numpy.amax(numpy.fabs(obs.R(times) - Ri)) < 10.0**tol, (
+    # Backend-agnostic: under a forced backend the orbit accessors and the
+    # inverse outputs are jax/torch arrays; bring them to numpy for the
+    # numpy.amax/fabs reductions below (identity on numpy).
+    oR, ovR, ovT, oz, ovz, ophi = (
+        _to_numpy(obs.R(times)),
+        _to_numpy(obs.vR(times)),
+        _to_numpy(obs.vT(times)),
+        _to_numpy(obs.z(times)),
+        _to_numpy(obs.vz(times)),
+        _to_numpy(obs.phi(times)),
+    )
+    Ri, vRi, vTi, zi, vzi, phii = (
+        _to_numpy(Ri),
+        _to_numpy(vRi),
+        _to_numpy(vTi),
+        _to_numpy(zi),
+        _to_numpy(vzi),
+        _to_numpy(phii),
+    )
+    assert numpy.amax(numpy.fabs(oR - Ri)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
     assert (
-        numpy.amax(
-            numpy.fabs((obs.phi(times) - phii + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
-        )
+        numpy.amax(numpy.fabs((ophi - phii + numpy.pi) % (2.0 * numpy.pi) - numpy.pi))
         < 10.0**tol
     ), (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.z(times) - zi)) < 10.0**tol, (
+    assert numpy.amax(numpy.fabs(oz - zi)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vR(times) - vRi)) < 10.0**tol, (
+    assert numpy.amax(numpy.fabs(ovR - vRi)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vT(times) - vTi)) < 10.0**tol, (
+    assert numpy.amax(numpy.fabs(ovT - vTi)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
-    assert numpy.amax(numpy.fabs(obs.vz(times) - vzi)) < 10.0**tol, (
+    assert numpy.amax(numpy.fabs(ovz - vzi)) < 10.0**tol, (
         "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     )
     return None
@@ -7659,6 +7834,9 @@ def check_actionAngle_conserved_actions(
     else:
         # Test Orbit with multiple objects case, but calling
         js = aA(obs(times))
+    # Backend-agnostic: the actions are jax/torch arrays under a forced backend;
+    # bring them to a numpy 2d array for the reductions (identity on numpy).
+    js = numpy.array([_to_numpy(j) for j in js])
     maxdj = numpy.amax(
         numpy.fabs(js - numpy.tile(numpy.mean(js, axis=1), (len(times), 1)).T), axis=1
     ) / numpy.mean(js, axis=1)
@@ -7747,6 +7925,10 @@ def check_actionAngle_linear_angles(
                 obs.vz(times),
                 obs.phi(times),
             )
+    # Backend-agnostic: actionsFreqsAngles returns jax/torch arrays under a forced
+    # backend; bring them to numpy for the reductions below (identity on numpy).
+    acfs = tuple(_to_numpy(a) for a in acfs)
+    acfs_init = tuple(_to_numpy(a) for a in acfs_init)
     ar = dePeriod(numpy.reshape(acfs[6], (1, len(times)))).flatten()
     ap = dePeriod(numpy.reshape(acfs[7], (1, len(times)))).flatten()
     az = dePeriod(numpy.reshape(acfs[8], (1, len(times)))).flatten()
@@ -7879,6 +8061,10 @@ def check_actionAngle_conserved_EccZmaxRperiRap(
         es, zmaxs, rperis, raps = aA.EccZmaxRperiRap(
             obs.R(times), obs.vR(times), obs.vT(times), obs.z(times), obs.vz(times)
         )
+    # Backend-agnostic: the actionAngle outputs are jax/torch arrays under a
+    # forced backend; bring them to numpy for the reductions below (identity on
+    # numpy, so byte-identical there).
+    es, zmaxs, rperis, raps = (_to_numpy(v) for v in (es, zmaxs, rperis, raps))
     assert numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)) < 10.0**tole, (
         "Eccentricity conservation fails at %g%%"
         % (100.0 * numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)))

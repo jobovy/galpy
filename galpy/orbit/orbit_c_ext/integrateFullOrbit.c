@@ -54,6 +54,8 @@ void evalSOSDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
+void evalRectDeriv_stm(double,double *, double *,
+			      int, struct potentialArg *);
 void initMovingObjectSplines(struct potentialArg *, double ** pot_args);
 void initChandrasekharDynamicalFrictionSplines(struct potentialArg *, double ** pot_args);
 /*
@@ -1280,6 +1282,64 @@ EXPORT void integrateFullOrbit_dxdv(double *yo,
   free(potentialArgs);
   //Done!
 }
+EXPORT void integrateFullOrbit_stm(double *yo,
+			 int nt,
+			 double *t,
+			 int npot,
+			 int * pot_type,
+			 double * pot_args,
+       tfuncs_type_arr pot_tfuncs,
+			 double dt,
+			 double rtol,
+			 double atol,
+			 double *result,
+			 int * err,
+			 int odeint_type){
+  // Augmented 42-state variational integrator: the base orbit + SIX deviation
+  // columns in ONE solve (evalRectDeriv_stm), so the full 6x6 STM comes from a
+  // single integration instead of six base re-integrations. Identical to
+  // integrateFullOrbit_dxdv except dim=42 and the STM RHS; only the
+  // non-symplectic steppers support the variational system.
+  int dim;
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,&pot_tfuncs);
+  void (*odeint_func)(void (*func)(double, double *, double *,
+			   int, struct potentialArg *),
+		      int,
+		      double *,
+		      int, double, double *,
+		      int, struct potentialArg *,
+		      double, double,
+		      double *,int *);
+  void (*odeint_deriv_func)(double, double *, double *,
+			    int,struct potentialArg *);
+  switch ( odeint_type ) {
+  case 1: //RK4
+    odeint_func= &bovy_rk4;
+    odeint_deriv_func= &evalRectDeriv_stm;
+    dim= 42;
+    break;
+  case 2: //RK6
+    odeint_func= &bovy_rk6;
+    odeint_deriv_func= &evalRectDeriv_stm;
+    dim= 42;
+    break;
+  case 5: //DOPR54
+    odeint_func= &bovy_dopr54;
+    odeint_deriv_func= &evalRectDeriv_stm;
+    dim= 42;
+    break;
+  case 6: //DOP853
+    odeint_func= &dop853;
+    odeint_deriv_func= &evalRectDeriv_stm;
+    dim= 42;
+    break;
+  }
+  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,
+	      rtol,atol,result,err);
+  free_potentialArgs(npot,potentialArgs);
+  free(potentialArgs);
+}
 void evalRectForce(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
   double sinphi, cosphi, x, y, phi,R,Rforce,phitorque, z;
@@ -1576,4 +1636,90 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   *a  = dFxdz*dx+dFydz*dy+dFzdz*dz
     + jac_x[6]*dx + jac_x[7]*dy + jac_x[8]*dz
     + jac_v[6]*dvx + jac_v[7]*dvy + jac_v[8]*dvz;
+}
+void evalRectDeriv_stm(double t, double *q, double *a,
+		       int nargs, struct potentialArg * potentialArgs){
+  // 42D state q = 6 base (x,y,z,vx,vy,vz) + SIX 6-D phase-space deviation
+  // vectors at offsets 6+6k (k=0..5). The full 6x6 STM in ONE solve: the base
+  // orbit and the 6x6 accel Jacobian A=[[0,I],[K+dF/dx, dF/dv]] are computed
+  // ONCE per step (the force + 3D-Hessian aggregators run once, not six times),
+  // then A is applied to all six deviation columns. Term-for-term identical to
+  // evalRectDeriv_dxdv, just looped over the six columns.
+  double sinphi, cosphi, x, y, phi, R, Rforce, phitorque, z, zforce;
+  double vR, vT, RforceK, phitorqueK;
+  double R2deriv, phi2deriv, Rphideriv, z2deriv, Rzderiv, zphideriv;
+  double dFxdx, dFxdy, dFydy, dFxdz, dFydz, dFzdz, dx, dy, dz;
+  double jac_x[9], jac_v[9], dvx, dvy, dvz;
+  int k, o;
+  //base velocities
+  a[0]= q[3];
+  a[1]= q[4];
+  a[2]= q[5];
+  x= q[0];
+  y= q[1];
+  z= q[2];
+  R= sqrt(x*x+y*y);
+  phi= acos(x/R);
+  sinphi= y/R;
+  cosphi= x/R;
+  if ( y < 0. ) phi= 2.*M_PI-phi;
+  vR=  q[3] * cosphi + q[4] * sinphi;
+  vT= -q[3] * sinphi + q[4] * cosphi;
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,q[5]);
+  zforce= calczforce(R,z,phi,t,nargs,potentialArgs,1,vR,vT,q[5]);
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs,1,vR,vT,q[5]);
+  a[3]= cosphi*Rforce-1./R*sinphi*phitorque;
+  a[4]= sinphi*Rforce+1./R*cosphi*phitorque;
+  a[5]= zforce;
+  // 6x6 accel Jacobian assembled ONCE (identical to evalRectDeriv_dxdv)
+  R2deriv= calcR2deriv(R,z,phi,t,nargs,potentialArgs);
+  phi2deriv= calcphi2deriv(R,z,phi,t,nargs,potentialArgs);
+  Rphideriv= calcRphideriv(R,z,phi,t,nargs,potentialArgs);
+  z2deriv= calcz2deriv(R,z,phi,t,nargs,potentialArgs);
+  Rzderiv= calcRzderiv(R,z,phi,t,nargs,potentialArgs);
+  zphideriv= calczphideriv(R,z,phi,t,nargs,potentialArgs);
+  RforceK= calcRforce(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
+  phitorqueK= calcphitorque(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
+  dFxdx= -cosphi*cosphi*R2deriv
+    +2.*cosphi*sinphi/R/R*phitorqueK
+    +sinphi*sinphi/R*RforceK
+    +2.*sinphi*cosphi/R*Rphideriv
+    -sinphi*sinphi/R/R*phi2deriv;
+  dFxdy= -sinphi*cosphi*R2deriv
+    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorqueK
+    -cosphi*sinphi/R*RforceK
+    -(cosphi*cosphi-sinphi*sinphi)/R*Rphideriv
+    +cosphi*sinphi/R/R*phi2deriv;
+  dFydy= -sinphi*sinphi*R2deriv
+    -2.*sinphi*cosphi/R/R*phitorqueK
+    -2.*sinphi*cosphi/R*Rphideriv
+    +cosphi*cosphi/R*RforceK
+    -cosphi*cosphi/R/R*phi2deriv;
+  dFxdz= -cosphi*Rzderiv+sinphi/R*zphideriv;
+  dFydz= -sinphi*Rzderiv-cosphi/R*zphideriv;
+  dFzdz= -z2deriv;
+  // dissipative rectangular blocks once (reads only q[0..5]); zeros if none
+  calcRectDissipativeForceJacobian(t,q,jac_x,jac_v,nargs,potentialArgs);
+  // apply the SAME Jacobian to each of the six deviation columns
+  for (k=0; k < 6; k++){
+    o= 6 + 6*k;
+    a[o+0]= q[o+3];
+    a[o+1]= q[o+4];
+    a[o+2]= q[o+5];
+    dx= q[o+0];
+    dy= q[o+1];
+    dz= q[o+2];
+    dvx= q[o+3];
+    dvy= q[o+4];
+    dvz= q[o+5];
+    a[o+3]= dFxdx*dx+dFxdy*dy+dFxdz*dz
+      + jac_x[0]*dx + jac_x[1]*dy + jac_x[2]*dz
+      + jac_v[0]*dvx + jac_v[1]*dvy + jac_v[2]*dvz;
+    a[o+4]= dFxdy*dx+dFydy*dy+dFydz*dz
+      + jac_x[3]*dx + jac_x[4]*dy + jac_x[5]*dz
+      + jac_v[3]*dvx + jac_v[4]*dvy + jac_v[5]*dvz;
+    a[o+5]= dFxdz*dx+dFydz*dy+dFzdz*dz
+      + jac_x[6]*dx + jac_x[7]*dy + jac_x[8]*dz
+      + jac_v[6]*dvx + jac_v[7]*dvy + jac_v[8]*dvz;
+  }
 }

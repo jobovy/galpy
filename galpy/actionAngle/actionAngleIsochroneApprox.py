@@ -18,8 +18,9 @@ import warnings
 
 import numpy
 from numpy import linalg
-from scipy import optimize
 
+from ..backend import get_namespace, is_backend_array, promote_scalars
+from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning, plot
@@ -53,7 +54,16 @@ class actionAngleIsochroneApprox(actionAngle):
         ntintJ : int, optional
             Number of time-integration points.
         integrate_method : str, optional
-            Integration method to use.
+            Integration method to use. For a jax/torch initial condition, pass
+            'diffrax'/'torchdiffeq' (instead of the default first-order C-STM
+            'dopr54_c') to integrate with the in-backend differentiable ODE solver,
+            which supports GPU and higher-order autodiff of the actions.
+        integrate_kwargs : dict, optional
+            Extra options forwarded to the in-backend solver when
+            integrate_method='diffrax'/'torchdiffeq' ('max_steps', 'solver', and
+            (jax) 'adjoint'); e.g. {'adjoint': 'direct', 'max_steps': 4096} enables
+            jax SECOND derivatives (jax.hessian / nested jacrev) of the actions w.r.t.
+            the input phase-space coordinates. Ignored for the C/numpy path.
         dt : float, optional
             orbit.integrate dt keyword (for fixed stepsize integration).
         maxn : int, optional
@@ -105,6 +115,11 @@ class actionAngleIsochroneApprox(actionAngle):
         self._integrate_dt = kwargs.get("dt", None)
         self._tsJ = numpy.linspace(0.0, self._tintJ, self._ntintJ)
         self._integrate_method = kwargs.get("integrate_method", "dopr54_c")
+        # extra options for the in-backend differentiable solver when
+        # integrate_method='diffrax'/'torchdiffeq' (max_steps / solver / adjoint);
+        # e.g. {'adjoint': 'direct', 'max_steps': 4096} enables jax second
+        # derivatives (jax.hessian) of the actions w.r.t. the input phase-space.
+        self._integrate_kwargs = kwargs.get("integrate_kwargs", None)
         self._maxn = kwargs.get("maxn", 3)
         self._c = False
         ext_loaded = False
@@ -143,6 +158,10 @@ class actionAngleIsochroneApprox(actionAngle):
         - 2013-09-10 - Written - Bovy (IAS).
         """
         R, vR, vT, z, vz, phi = self._parse_args(False, False, *args)
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            return self._evaluate_backend(R, vR, vT, z, vz, phi, **kwargs)
         if self._c:  # pragma: no cover
             pass
         else:
@@ -286,6 +305,12 @@ class actionAngleIsochroneApprox(actionAngle):
             ts[self._ntintJ - 1 :] = self._tsJ
             ts[: self._ntintJ - 1] = -self._tsJ[1:][::-1]
         maxn = kwargs.get("maxn", self._maxn)
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            return self._actionsFreqsAngles_backend(
+                R, vR, vT, z, vz, phi, ts, maxn, **kwargs
+            )
         if self._c:  # pragma: no cover
             pass
         else:
@@ -720,6 +745,13 @@ class actionAngleIsochroneApprox(actionAngle):
         """Helper function to parse the arguments to the __call__ and actionsFreqsAngles functions"""
         from ..orbit import Orbit
 
+        # Backend (jax/torch) path: when the phase-space coordinates are backend
+        # arrays, build per-orbit Orbit objects from STACKED backend ICs (so each
+        # routes to the differentiable in-backend integrator and keeps gradients),
+        # integrate, and assemble the (no, ntJ) phase-space arrays in the input
+        # namespace. The numpy per-object loop below is untouched (byte-identical).
+        if (len(args) == 6 or len(args) == 4) and is_backend_array(args[0]):
+            return self._parse_args_backend(freqsAngles, _firstFlip, *args)
         RasOrbit = False
         integrated = True  # whether the orbit was already integrated when given
         if len(args) == 5 or len(args) == 3:  # pragma: no cover
@@ -769,6 +801,7 @@ class actionAngleIsochroneApprox(actionAngle):
                         pot=self._pot,
                         method=self._integrate_method,
                         dt=self._integrate_dt,
+                        inbackend_kwargs=getattr(self, "_integrate_kwargs", None),
                     )
                     for o in os
                 ]
@@ -863,6 +896,7 @@ class actionAngleIsochroneApprox(actionAngle):
                     pot=self._pot,
                     method=self._integrate_method,
                     dt=self._integrate_dt,
+                    inbackend_kwargs=getattr(self, "_integrate_kwargs", None),
                 )
                 for o in os
             ]
@@ -892,8 +926,272 @@ class actionAngleIsochroneApprox(actionAngle):
         else:
             return (R, vR, vT, z, vz, phi)
 
+    # ------------------------------------------------------------ backend (jax/torch)
+    # The numpy methods above stay byte-identical; these mirror them with the array
+    # namespace inferred from the inputs (xp), so the same isochrone-approximation
+    # estimate runs and DIFFERENTIATES under jax/torch. The orbit integration reuses
+    # the in-backend differentiable integrator (Orbit built from a STACKED backend IC
+    # -> _ic_backend set -> routes to the C-STM / diffrax-torchdiffeq path); we never
+    # reinvent orbit integration here. Both axisymmetric and non-axisymmetric
+    # potentials are supported (non-axi: angle-averaged Lz + the 3-D-grid angle-fit).
 
-@potential_physical_input
+    def _parse_args_backend(self, freqsAngles, _firstFlip, *args):
+        """Backend counterpart of _parse_args for the float/array IC case: build,
+        integrate, and assemble the (no, ntJ) phase-space arrays as backend arrays."""
+        from ..orbit import Orbit
+
+        if len(args) == 6:
+            R, vR, vT, z, vz, phi = args
+        else:  # len == 4: planar (z=vz=0)
+            R, vR, vT, phi = args
+            z, vz = 0.0 * R, 0.0 * vR
+        xp = get_namespace(R, vR, vT, z, vz, phi)
+        R = xp.atleast_1d(R)
+        vR, vT = xp.atleast_1d(vR), xp.atleast_1d(vT)
+        z, vz, phi = xp.atleast_1d(z), xp.atleast_1d(vz), xp.atleast_1d(phi)
+        no = R.shape[0]
+
+        def _integ(ic_stack):
+            # ic_stack: (no, 6) backend ICs -> ONE Orbit integrated in a single
+            # differentiable multi-orbit solve (C-STM for a dxdv C method, else
+            # diffrax/torchdiffeq) over self._tsJ. getOrbit()/accessors return the
+            # (no, nt, ...) batch directly.
+            o = Orbit(ic_stack)
+            o.integrate(
+                self._tsJ,
+                pot=self._pot,
+                method=self._integrate_method,
+                dt=self._integrate_dt,
+                inbackend_kwargs=getattr(self, "_integrate_kwargs", None),
+            )
+            return o
+
+        # Forward integration: stack the six coordinates into a (no, 6) backend
+        # array so the one Orbit captures the whole batch in _ic_backend.
+        o = _integ(xp.stack([R, vR, vT, z, vz, phi], axis=-1))
+        orbs = o.getOrbit()  # (no, nt, 6)
+        oR, ovR, ovT = orbs[:, :, 0], orbs[:, :, 1], orbs[:, :, 2]
+        oz, ovz, ophi = orbs[:, :, 3], orbs[:, :, 4], orbs[:, :, 5]
+        nt = oR.shape[1]
+        if not freqsAngles:
+            return (oR, ovR, ovT, oz, ovz, ophi)
+        # Also integrate backward in time (the requested point should not sit at
+        # the edge), mirroring the numpy branch: flip the velocities, integrate
+        # forward, then reverse and re-flip the velocities, and prepend.
+        bo = _integ(xp.stack([R, -vR, -vT, z, -vz, phi], axis=-1))
+        borbs = bo.getOrbit()  # (no, nt, 6) at self._tsJ (== the query times, so
+        # this equals the per-orbit accessor bo.R(ts[1:]) etc. but stays batched)
+
+        def _bcol(col, sign=1.0):
+            # drop t=0, reverse along time (xp.flip -- torch rejects [::-1]).
+            return sign * xp.flip(borbs[:, 1:, col], axis=1)
+
+        bR = _bcol(0)
+        bvR = _bcol(1, -1.0)
+        bvT = _bcol(2, -1.0)
+        bz = _bcol(3)
+        bvz = _bcol(4, -1.0)
+        bphi = _bcol(5)
+        # full (no, 2*nt-1): [backward (reversed) | forward]
+        pR = xp.concatenate([bR, oR], axis=1)
+        pvR = xp.concatenate([bvR, ovR], axis=1)
+        pvT = xp.concatenate([bvT, ovT], axis=1)
+        pz = xp.concatenate([bz, oz], axis=1)
+        pvz = xp.concatenate([bvz, ovz], axis=1)
+        pphi = xp.concatenate([bphi, ophi], axis=1)
+        return (pR, pvR, pvT, pz, pvz, pphi)
+
+    def _evaluate_backend(self, R, vR, vT, z, vz, phi, **kwargs):
+        """Backend counterpart of the _evaluate angle-averaged action estimate."""
+        xp = get_namespace(R, vR, vT, z, vz, phi)
+        acfs = self._aAI._actionsFreqsAngles(
+            R.reshape(-1),
+            vR.reshape(-1),
+            vT.reshape(-1),
+            z.reshape(-1),
+            vz.reshape(-1),
+            phi.reshape(-1),
+        )
+        jrI = xp.reshape(acfs[0], R.shape)[:, :-1]
+        jzI = xp.reshape(acfs[2], R.shape)[:, :-1]
+        anglerI = xp.reshape(acfs[6], R.shape)
+        anglezI = xp.reshape(acfs[8], R.shape)
+        danglerI = _backend_dangle(xp, anglerI)
+        danglezI = _backend_dangle(xp, anglezI)
+        if kwargs.get("cumul", False):
+            sumFunc = xp.cumsum
+        else:
+
+            def sumFunc(a, axis):
+                return xp.sum(a, axis=axis)
+
+        jr = sumFunc(jrI * danglerI, axis=1) / sumFunc(danglerI, axis=1)
+        jz = sumFunc(jzI * danglezI, axis=1) / sumFunc(danglezI, axis=1)
+        if _isNonAxi(self._pot):
+            # non-axi: Lz is also angle-averaged (danglephi-weighted), not L_z(t0)
+            lzI = xp.reshape(acfs[1], R.shape)[:, :-1]
+            anglephiI = xp.reshape(acfs[7], R.shape)
+            danglephiI = _backend_dangle(xp, anglephiI)
+            lz = sumFunc(lzI * danglephiI, axis=1) / sumFunc(danglephiI, axis=1)
+        else:
+            lz = R[:, 0] * vT[:, 0]
+        return (jr, lz, jz)
+
+    def _actionsFreqsAngles_backend(self, R, vR, vT, z, vz, phi, ts, maxn, **kwargs):
+        """Backend counterpart of _actionsFreqsAngles (actions via angle-averaging,
+        frequencies and angles via the linear angle-fit Y=AX). Axisymmetric only."""
+        xp = get_namespace(R, vR, vT, z, vz, phi)
+        # ts is the (2*ntintJ-1) symmetric time grid (numpy from self._tsJ); move
+        # it onto the input backend for the angle-fit design matrix column A[..,1].
+        if not is_backend_array(ts):
+            ts = xp.asarray(numpy.asarray(ts, dtype=float))
+        acfs = self._aAI._actionsFreqsAngles(
+            R.reshape(-1),
+            vR.reshape(-1),
+            vT.reshape(-1),
+            z.reshape(-1),
+            vz.reshape(-1),
+            phi.reshape(-1),
+        )
+        jrI = xp.reshape(acfs[0], R.shape)[:, :-1]
+        jzI = xp.reshape(acfs[2], R.shape)[:, :-1]
+        anglerI = xp.reshape(acfs[6], R.shape)
+        anglezI = xp.reshape(acfs[8], R.shape)
+        danglerI = _backend_dangle(xp, anglerI)
+        danglezI = _backend_dangle(xp, anglezI)
+        jr = xp.sum(jrI * danglerI, axis=1) / xp.sum(danglerI, axis=1)
+        jz = xp.sum(jzI * danglezI, axis=1) / xp.sum(danglezI, axis=1)
+        if _isNonAxi(self._pot):
+            # non-axi: Lz is also angle-averaged (danglephi-weighted), not L_z(t0)
+            lzI = xp.reshape(acfs[1], R.shape)[:, :-1]
+            anglephiI = xp.reshape(acfs[7], R.shape)
+            danglephiI = _backend_dangle(xp, anglephiI)
+            lz = xp.sum(lzI * danglephiI, axis=1) / xp.sum(danglephiI, axis=1)
+        else:
+            mid = ts.shape[0] // 2
+            lz = R[:, mid] * vT[:, mid]
+        # angle-fit (axisymmetric): build A and solve the per-orbit least squares
+        angleRT = _backend_dePeriod(xp, xp.reshape(acfs[6], R.shape))
+        acfs7 = xp.reshape(acfs[7], R.shape)
+        # anglephi is decreasing for retrograde orbits -> fit 2pi-anglephi instead
+        med = _backend_median(xp, acfs7 - _backend_roll1(xp, acfs7), axis=1)
+        negFreqIndx = med < 0.0
+        anglephiT = xp.where(
+            negFreqIndx[:, None],
+            _backend_dePeriod(xp, _TWOPI - acfs7),
+            _backend_dePeriod(xp, acfs7),
+        )
+        angleZT = _backend_dePeriod(xp, xp.reshape(acfs[8], R.shape))
+        nt = ts.shape[0]
+        no = R.shape[0]
+        nonAxi = _isNonAxi(self._pot)
+        if nonAxi:
+            nn = (2 * maxn - 1) ** 2 * maxn - (maxn - 1) * (2 * maxn - 1) - maxn
+        else:
+            nn = maxn * (2 * maxn - 1) - maxn
+        # The integer n-grid is data-independent (pure python/numpy); build it with
+        # numpy then move onto the backend (anchored on R's device). For non-axi
+        # potentials the grid is 3-D (n_R, n_phi, n_Z) with the half-space mask;
+        # axisymmetric drops the n_phi axis.
+        phig = list(numpy.arange(-maxn + 1, maxn, 1))
+        phig.sort(key=lambda x: abs(x))
+        phig = numpy.array(phig, dtype="int")
+        if nonAxi:
+            grid = numpy.meshgrid(numpy.arange(maxn), phig, phig)
+        else:
+            grid = numpy.meshgrid(numpy.arange(maxn), phig)
+        gridR = grid[0].T.flatten()[1:]  # remove 0,0,0
+        gridZ = grid[1].T.flatten()[1:]
+        if nonAxi:
+            gridphi = grid[2].T.flatten()[1:]
+            mask = True ^ (gridR == 0) * (
+                (gridphi < 0) + ((gridphi == 0) * (gridZ < 0))
+            )
+        else:
+            mask = numpy.ones(len(gridR), dtype=bool)
+            mask[: 2 * maxn - 3 : 2] = False
+        gridR = gridR[mask]
+        gridZ = gridZ[mask]
+        gR = xp.asarray(numpy.asarray(gridR, dtype=float))
+        gZ = xp.asarray(numpy.asarray(gridZ, dtype=float))
+        # A: (no, nt, 2+nn). A[...,0]=1, A[...,1]=ts, A[...,2:]=sin(n.angle)
+        ones = xp.ones((no, nt), dtype=angleRT.dtype)
+        tcol = xp.broadcast_to(ts[None, :], (no, nt))
+        # (no, nt, nn) = sin(gR*angleRT [+ gphi*anglephiT] + gZ*angleZT)
+        narg = (
+            gR[None, None, :] * angleRT[:, :, None]
+            + gZ[None, None, :] * angleZT[:, :, None]
+        )
+        if nonAxi:
+            gphi = xp.asarray(numpy.asarray(gridphi[mask], dtype=float))
+            narg = narg + gphi[None, None, :] * anglephiT[:, :, None]
+        sinnR = xp.sin(narg)
+        A = xp.concatenate([ones[:, :, None], tcol[:, :, None], sinnR], axis=2)
+        ATt = xp.permute_dims(A, (0, 2, 1))  # (no, 2+nn, nt)
+        atainv = xp.linalg.inv(xp.matmul(ATt, A))  # (no, 2+nn, 2+nn)
+        # ATA{R,T,Z} = sum_t A^T * angle  -> (no, 2+nn)
+        ATAR = xp.sum(ATt * angleRT[:, None, :], axis=2)
+        ATAT = xp.sum(ATt * anglephiT[:, None, :], axis=2)
+        ATAZ = xp.sum(ATt * angleZT[:, None, :], axis=2)
+        angleR = xp.sum(atainv[:, 0, :] * ATAR, axis=1)
+        OmegaR = xp.sum(atainv[:, 1, :] * ATAR, axis=1)
+        anglephi = xp.sum(atainv[:, 0, :] * ATAT, axis=1)
+        Omegaphi = xp.sum(atainv[:, 1, :] * ATAT, axis=1)
+        angleZ = xp.sum(atainv[:, 0, :] * ATAZ, axis=1)
+        OmegaZ = xp.sum(atainv[:, 1, :] * ATAZ, axis=1)
+        Omegaphi = xp.where(negFreqIndx, -Omegaphi, Omegaphi)
+        anglephi = xp.where(negFreqIndx, _TWOPI - anglephi, anglephi)
+        return (
+            jr,
+            lz,
+            jz,
+            OmegaR,
+            Omegaphi,
+            OmegaZ,
+            angleR % _TWOPI,
+            anglephi % _TWOPI,
+            angleZ % _TWOPI,
+        )
+
+
+def _backend_roll1(xp, arr):
+    """xp equivalent of numpy.roll(arr, 1, axis=1): last column wraps to front."""
+    return xp.concatenate([arr[:, -1:], arr[:, :-1]], axis=1)
+
+
+def _backend_rollm1(xp, arr):
+    """xp equivalent of numpy.roll(arr, -1, axis=1): first column wraps to back."""
+    return xp.concatenate([arr[:, 1:], arr[:, :1]], axis=1)
+
+
+def _backend_dangle(xp, angle):
+    """((roll(angle,-1) - angle) % 2pi)[:, :-1] -- the per-step angle increment."""
+    return ((_backend_rollm1(xp, angle) - angle) % _TWOPI)[:, :-1]
+
+
+def _backend_median(xp, arr, axis=1):
+    """numpy.median over axis=1 (mean of the two central order statistics for
+    even length), portable across numpy/jax/torch (xp.median's torch variant
+    returns a namedtuple and the lower median, so it is not used directly).
+    Only the axis=1 case is needed here (the per-orbit anglephi-step sign)."""
+    s = xp.sort(arr, axis=axis)
+    n = arr.shape[axis]
+    return 0.5 * (s[:, (n - 1) // 2] + s[:, n // 2])
+
+
+def _backend_dePeriod(xp, arr):
+    """Backend dePeriod: make periodic angles increase linearly (axis=1)."""
+    diff = arr - _backend_roll1(xp, arr)
+    w = diff < -6.0
+    addto = xp.cumsum(xp.astype(w, arr.dtype), axis=1)
+    return arr + _TWOPI * addto
+
+
+# coerce_backend=False: the migrated body resolves its own namespace from the
+# coordinate data (get_namespace) and routes backend arrays through the
+# backend-agnostic brentq, so coordinate coercion is unnecessary and the
+# byte-identical numpy/Quantity path is preserved.
+@potential_physical_input(coerce_backend=False)
 @physical_conversion("position", pop=True)
 def estimateBIsochrone(pot, R, z, phi=None):
     """
@@ -925,7 +1223,34 @@ def estimateBIsochrone(pot, R, z, phi=None):
         raise OSError(
             "pot= needs to be set to a Potential instance or a combined potential formed using addition (pot1+pot2+…)"
         )
-    if isinstance(R, numpy.ndarray):
+    # Namespace-swap: the scalar body runs (and differentiates) under numpy /
+    # jax / torch via the backend-agnostic brentq (scipy on the numpy path, so
+    # byte-identical; vectorised bisection+Newton, grad-carrying, on backends).
+    xp = get_namespace(R) if is_backend_array(R) else numpy
+    if getattr(R, "ndim", 0) > 0:
+        if is_backend_array(R):
+            # Vectorised backend path: per-element b in one (array-bracketed)
+            # bisection, then min/median/max over the non-NaN values.
+            phi_arg = None if phi is None or all(p is None for p in phi) else phi
+            r2 = R**2.0 + z**2
+            r = xp.sqrt(r2)
+            dlvcdlr = (
+                dvcircdR(pot, r, phi=phi_arg, use_physical=False)
+                / vcirc(pot, r, phi=phi_arg, use_physical=False)
+                * r
+            )
+            bs = _backend_brentq(
+                lambda x: (
+                    dlvcdlr - (x / xp.sqrt(r2 + x**2.0) - 0.5 * r2 / (r2 + x**2.0))
+                ),
+                xp.asarray(0.01),
+                xp.asarray(100.0),
+            )
+            bs = bs[~xp.isnan(bs)]
+            # array-api-compat torch's median returns the lower central order
+            # statistic for even counts; quantile(.,0.5) matches numpy.median.
+            bmed = xp.quantile(bs, 0.5) if "torch" in xp.__name__ else xp.median(bs)
+            return xp.stack([xp.amin(bs), bmed, xp.amax(bs)])
         if phi is None:
             phi = [None for r in R]
         bs = numpy.array(
@@ -943,19 +1268,21 @@ def estimateBIsochrone(pot, R, z, phi=None):
         )
     else:
         r2 = R**2.0 + z**2
-        r = numpy.sqrt(r2)
+        r = xp.sqrt(r2)
         dlvcdlr = (
             dvcircdR(pot, r, phi=phi, use_physical=False)
             / vcirc(pot, r, phi=phi, use_physical=False)
             * r
         )
+        lo = xp.asarray(0.01) if is_backend_array(R) else 0.01
+        hi = xp.asarray(100.0) if is_backend_array(R) else 100.0
         try:
-            b = optimize.brentq(
+            b = _backend_brentq(
                 lambda x: (
-                    dlvcdlr - (x / numpy.sqrt(r2 + x**2.0) - 0.5 * r2 / (r2 + x**2.0))
+                    dlvcdlr - (x / xp.sqrt(r2 + x**2.0) - 0.5 * r2 / (r2 + x**2.0))
                 ),
-                0.01,
-                100.0,
+                lo,
+                hi,
             )
         except:  # pragma: no cover
             b = numpy.nan

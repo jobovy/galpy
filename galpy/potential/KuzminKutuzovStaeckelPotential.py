@@ -8,6 +8,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace
 from ..util import conversion  # for prolate spherical coordinate transforms
 from ..util import coords
 from .Potential import Potential
@@ -53,6 +54,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
         self._Delta = Delta
         self._gamma = self._Delta**2 / (1.0 - self._ac**2)
         self._alpha = self._gamma - self._Delta**2
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -62,31 +64,35 @@ class KuzminKutuzovStaeckelPotential(Potential):
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
-        return -1.0 / (numpy.sqrt(l) + numpy.sqrt(n))
+        return -1.0 / (xp.sqrt(l) + xp.sqrt(n))
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
-        dldR = jac[0, 0]
-        dndR = jac[1, 0]
+        dldR = xp.asarray(jac[0, 0])
+        dndR = xp.asarray(jac[1, 0])
         return -(dldR * self._lderiv(l, n) + dndR * self._nderiv(l, n))
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
-        dldz = jac[0, 1]
-        dndz = jac[1, 1]
+        dldz = xp.asarray(jac[0, 1])
+        dndz = xp.asarray(jac[1, 1])
         return -(dldz * self._lderiv(l, n) + dndz * self._nderiv(l, n))
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
-        dldR = jac[0, 0]
-        dndR = jac[1, 0]
-        d2ldR2 = hess[0, 0, 0]
-        d2ndR2 = hess[1, 0, 0]
+        dldR = xp.asarray(jac[0, 0])
+        dndR = xp.asarray(jac[1, 0])
+        d2ldR2 = xp.asarray(hess[0, 0, 0])
+        d2ndR2 = xp.asarray(hess[1, 0, 0])
         return (
             d2ldR2 * self._lderiv(l, n)
             + d2ndR2 * self._nderiv(l, n)
@@ -96,13 +102,14 @@ class KuzminKutuzovStaeckelPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
-        dldz = jac[0, 1]
-        dndz = jac[1, 1]
-        d2ldz2 = hess[0, 1, 1]
-        d2ndz2 = hess[1, 1, 1]
+        dldz = xp.asarray(jac[0, 1])
+        dndz = xp.asarray(jac[1, 1])
+        d2ldz2 = xp.asarray(hess[0, 1, 1])
+        d2ndz2 = xp.asarray(hess[1, 1, 1])
         return (
             d2ldz2 * self._lderiv(l, n)
             + d2ndz2 * self._nderiv(l, n)
@@ -112,15 +119,16 @@ class KuzminKutuzovStaeckelPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
-        dldR = jac[0, 0]
-        dndR = jac[1, 0]
-        dldz = jac[0, 1]
-        dndz = jac[1, 1]
-        d2ldRdz = hess[0, 0, 1]
-        d2ndRdz = hess[1, 0, 1]
+        dldR = xp.asarray(jac[0, 0])
+        dndR = xp.asarray(jac[1, 0])
+        dldz = xp.asarray(jac[0, 1])
+        dndz = xp.asarray(jac[1, 1])
+        d2ldRdz = xp.asarray(hess[0, 0, 1])
+        d2ndRdz = xp.asarray(hess[1, 0, 1])
         return (
             d2ldRdz * self._lderiv(l, n)
             + d2ndRdz * self._nderiv(l, n)
@@ -149,7 +157,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
         -----
         - 2015-02-15 - Written - Trick (MPIA)
         """
-        return 0.5 / numpy.sqrt(l) / (numpy.sqrt(l) + numpy.sqrt(n)) ** 2
+        xp = get_namespace(l, n)
+        return 0.5 / xp.sqrt(l) / (xp.sqrt(l) + xp.sqrt(n)) ** 2
 
     def _nderiv(self, l, n):
         """
@@ -172,7 +181,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
         - 2015-02-15 - Written - Trick (MPIA)
 
         """
-        return 0.5 / numpy.sqrt(n) / (numpy.sqrt(l) + numpy.sqrt(n)) ** 2
+        xp = get_namespace(l, n)
+        return 0.5 / xp.sqrt(n) / (xp.sqrt(l) + xp.sqrt(n)) ** 2
 
     def _l2deriv(self, l, n):
         """
@@ -195,8 +205,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         - 2015-02-15 - Written - Trick (MPIA)
 
         """
-        number = -3.0 * numpy.sqrt(l) - numpy.sqrt(n)
-        denom = 4.0 * l**1.5 * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
+        xp = get_namespace(l, n)
+        number = -3.0 * xp.sqrt(l) - xp.sqrt(n)
+        denom = 4.0 * l**1.5 * (xp.sqrt(l) + xp.sqrt(n)) ** 3
         return number / denom
 
     def _n2deriv(self, l, n):
@@ -220,8 +231,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         - 2015-02-15 - Written - Trick (MPIA)
 
         """
-        number = -numpy.sqrt(l) - 3.0 * numpy.sqrt(n)
-        denom = 4.0 * n**1.5 * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
+        xp = get_namespace(l, n)
+        number = -xp.sqrt(l) - 3.0 * xp.sqrt(n)
+        denom = 4.0 * n**1.5 * (xp.sqrt(l) + xp.sqrt(n)) ** 3
         return number / denom
 
     def _lnderiv(self, l, n):
@@ -245,6 +257,5 @@ class KuzminKutuzovStaeckelPotential(Potential):
         - 2015-02-13 - Written - Trick (MPIA)
 
         """
-        return -0.5 / (
-            numpy.sqrt(l) * numpy.sqrt(n) * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
-        )
+        xp = get_namespace(l, n)
+        return -0.5 / (xp.sqrt(l) * xp.sqrt(n) * (xp.sqrt(l) + xp.sqrt(n)) ** 3)

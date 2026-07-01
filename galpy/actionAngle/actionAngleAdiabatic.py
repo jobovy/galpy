@@ -13,8 +13,15 @@ import warnings
 
 import numpy
 
+from ..backend import get_namespace, promote_scalars
 from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
-from ..potential.Potential import _check_c, _check_potential_list_and_deprecate, _dim
+from ..potential.Potential import (
+    _check_c,
+    _check_potential_list_and_deprecate,
+    _dim,
+    _evaluatePotentials,
+)
+from ..potential.verticalPotential import _BatchedVerticalPotential
 from ..util import galpyWarning
 from . import actionAngleAdiabatic_c
 from .actionAngle import actionAngle
@@ -121,10 +128,18 @@ class actionAngleAdiabatic(actionAngle):
             vT = numpy.array([vT])
             z = numpy.array([z])
             vz = numpy.array([vz])
-        if (
+        xp = get_namespace(R, vR, vT, z, vz)
+        use_c = (
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
-        ) and _check_c(self._pot):
+        ) and _check_c(self._pot)
+        if not use_c and xp is not numpy:
+            # Backend path: runs under a forced backend even for numpy inputs
+            # (promote first), exercising the backend for real -- unless the C
+            # path was explicitly requested (then fall through to it below).
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            return self._evaluate_backend(R, vR, vT, z, vz)
+        if use_c:
             Lz = R * vT
             jr, jz, err = actionAngleAdiabatic_c.actionAngleAdiabatic_c(
                 self._pot, self._gamma, R, vR, vT, z, vz
@@ -226,6 +241,10 @@ class actionAngleAdiabatic(actionAngle):
             vT = numpy.array([vT])
             z = numpy.array([z])
             vz = numpy.array([vz])
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            return self._actionsFreqs_backend(R, vR, vT, z, vz)
         if len(R) > 1:
             ojr = numpy.zeros(len(R))
             olz = numpy.zeros(len(R))
@@ -309,6 +328,10 @@ class actionAngleAdiabatic(actionAngle):
             z = numpy.array([z])
             vz = numpy.array([vz])
             phi = numpy.array([phi])
+        xp = get_namespace(R, vR, vT, z, vz, phi)
+        if xp is not numpy:
+            R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
+            return self._actionsFreqsAngles_backend(R, vR, vT, z, vz, phi)
         if len(R) > 1:
             ojr = numpy.zeros(len(R))
             olz = numpy.zeros(len(R))
@@ -400,10 +423,15 @@ class actionAngleAdiabatic(actionAngle):
             vT = numpy.array([vT])
             z = numpy.array([z])
             vz = numpy.array([vz])
-        if (
+        xp = get_namespace(R, vR, vT, z, vz)
+        use_c = (
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
-        ) and _check_c(self._pot):
+        ) and _check_c(self._pot)
+        if not use_c and xp is not numpy:
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            return self._EccZmaxRperiRap_backend(R, vR, vT, z, vz)
+        if use_c:
             (
                 rperi,
                 Rap,
@@ -464,3 +492,104 @@ class actionAngleAdiabatic(actionAngle):
                     numpy.atleast_1d(rperi),
                     numpy.atleast_1d(rap),
                 )
+
+    # ------------------------------------------------ backend (jax/torch) path
+    # Vectorised, differentiable mirror of the per-object numpy loop above (the
+    # numpy path is byte-identical and untouched; jax/torch inputs branch here).
+    # All N objects are processed at once: the RADIAL part is delegated to the
+    # already-backend-migrated actionAngleSpherical self._aAS (which now handles
+    # _gamma + the _Jz array internally), the VERTICAL part reuses
+    # actionAngleVertical's backend Gauss-Legendre / root-find machinery via a
+    # _BatchedVerticalPotential carrying the per-object effective vertical
+    # potential Phi(R_i, z) - Phi(R_i, 0). The planar (z==0 & vz==0) and 2D
+    # (_dim==2) cases are handled with xp.where: Jz=0, Oz=verticalfreq(R), az=0.
+
+    def _batched_aAV(self, R):
+        """actionAngleVertical over the batched effective vertical potential."""
+        vpot = _BatchedVerticalPotential(self._pot, R)
+        return actionAngleVertical(pot=vpot)
+
+    def _vertical_Jz_backend(self, R, z, vz):
+        """Vertical action Jz for each object (0 for the planar / 2D cases)."""
+        xp = get_namespace(R)
+        if _dim(self._pot) == 2:  # in-plane: no vertical motion
+            return xp.zeros_like(R)
+        aAV = self._batched_aAV(R)
+        Jz = aAV._evaluate(z, vz)
+        # Planar orbits (z==0 & vz==0): Jz==0 exactly (dead-branch guard: the
+        # GL/root-find above is meaningless there, but xp.where overrides it).
+        planar = (z == 0.0) & (vz == 0.0)
+        return xp.where(planar, xp.zeros_like(Jz), Jz)
+
+    def _vertical_JzOz_backend(self, R, z, vz):
+        """Vertical (Jz, Oz); planar/2D -> (0, verticalfreq(R))."""
+        from ..potential import verticalfreq
+
+        xp = get_namespace(R)
+        vfreq = verticalfreq(self._pot, R)  # raises for a 2D pot (no Oz)
+        if _dim(self._pot) == 2:  # pragma: no cover -- vfreq above raised first
+            return (xp.zeros_like(R), vfreq)
+        aAV = self._batched_aAV(R)
+        Jz, Oz = aAV._actionsFreqs(z, vz)
+        planar = (z == 0.0) & (vz == 0.0)
+        Jz = xp.where(planar, xp.zeros_like(Jz), Jz)
+        Oz = xp.where(planar, vfreq, Oz)
+        return (Jz, Oz)
+
+    def _vertical_JzOzaz_backend(self, R, z, vz):
+        """Vertical (Jz, Oz, az); planar/2D -> (0, verticalfreq(R), 0)."""
+        from ..potential import verticalfreq
+
+        xp = get_namespace(R)
+        vfreq = verticalfreq(self._pot, R)  # raises for a 2D pot (no Oz)
+        if _dim(self._pot) == 2:  # pragma: no cover -- vfreq above raised first
+            return (xp.zeros_like(R), vfreq, xp.zeros_like(R))
+        aAV = self._batched_aAV(R)
+        Jz, Oz, az = aAV._actionsFreqsAngles(z, vz)
+        planar = (z == 0.0) & (vz == 0.0)
+        Jz = xp.where(planar, xp.zeros_like(Jz), Jz)
+        Oz = xp.where(planar, vfreq, Oz)
+        az = xp.where(planar, xp.zeros_like(az), az)
+        return (Jz, Oz, az)
+
+    def _evaluate_backend(self, R, vR, vT, z, vz):
+        xp = get_namespace(R)
+        Jz = self._vertical_Jz_backend(R, z, vz)
+        z0 = xp.zeros_like(R)
+        Jr, Lz, _ = self._aAS._evaluate(R, vR, vT, z0, z0, _Jz=Jz)
+        return (Jr, Lz, Jz)
+
+    def _actionsFreqs_backend(self, R, vR, vT, z, vz):
+        xp = get_namespace(R)
+        Jz, Oz = self._vertical_JzOz_backend(R, z, vz)
+        z0 = xp.zeros_like(R)
+        Jr, Lz, _, Or, Op, _ = self._aAS._actionsFreqs(R, vR, vT, z0, z0, _Jz=Jz)
+        return (Jr, Lz, Jz, Or, Op, Oz)
+
+    def _actionsFreqsAngles_backend(self, R, vR, vT, z, vz, phi):
+        xp = get_namespace(R)
+        Jz, Oz, az = self._vertical_JzOzaz_backend(R, z, vz)
+        z0 = xp.zeros_like(R)
+        Jr, Lz, _, Or, Op, _, ar, aphi, _ = self._aAS._actionsFreqsAngles(
+            R, vR, vT, z0, z0, phi, _Jz=Jz
+        )
+        return (Jr, Lz, Jz, Or, Op, Oz, ar, aphi, az)
+
+    def _EccZmaxRperiRap_backend(self, R, vR, vT, z, vz):
+        xp = get_namespace(R)
+        # zmax + Jz from the (batched) vertical potential.
+        if _dim(self._pot) == 3:
+            aAV = self._batched_aAV(R)
+            E = aAV._E_backend(z, vz)
+            zmax = aAV._calc_xmax_backend(z, vz, E)
+            if self._gamma != 0.0:
+                Jz = self._vertical_Jz_backend(R, z, vz)
+            else:
+                Jz = xp.zeros_like(R)
+        else:
+            zmax = xp.zeros_like(R)
+            Jz = xp.zeros_like(R)
+        z0 = xp.zeros_like(R)
+        _, _, rperi, Rap = self._aAS._EccZmaxRperiRap(R, vR, vT, z0, z0, _Jz=Jz)
+        rap = xp.sqrt(Rap**2.0 + zmax**2.0)
+        return ((rap - rperi) / (rap + rperi), zmax, rperi, rap)
