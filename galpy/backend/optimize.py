@@ -46,7 +46,7 @@
 #   first-order sensitivity; a Hessian through x* would require a true
 #   custom_jvp differentiating the implicit relation a second time.
 ###############################################################################
-from ._namespaces import is_backend_array
+from ._namespaces import is_backend_array, under_jax_trace
 from ._resolver import get_namespace
 
 # Default bracketing tolerance (matches scipy.optimize.brentq's xtol default, so
@@ -156,23 +156,6 @@ def bisect_step(lo, hi, slo, f, xp):
     return xp.where(same, mid, lo), xp.where(same, hi, mid)
 
 
-def _under_jax_trace(*xs):
-    """True iff jax is imported AND one of ``xs`` is a jax tracer (jit/grad/vmap).
-
-    Cheap on numpy/torch and on plain jax arrays: if ``jax`` is not even imported
-    we short-circuit to ``False`` (so the eager Python loops stay byte-identical
-    and we never import jax on the numpy/torch path). Under a jax trace the n
-    copies of the physics closure would otherwise unroll into the user's jaxpr.
-    """
-    import sys
-
-    if "jax" not in sys.modules:
-        return False
-    import jax
-
-    return any(isinstance(x, jax.core.Tracer) for x in xs)
-
-
 def iterate_bracket(step, x0, n):
     """Run ``x = step(x)`` ``n`` times -- a fixed-schedule, branch-free bracket
     expansion/contraction where ``step`` is a single ``xp.where`` update over the
@@ -183,7 +166,7 @@ def iterate_bracket(step, x0, n):
     ``step`` so the ``n`` embedded copies of ``f`` do NOT unroll into the jaxpr
     (mirrors the bisection rolling; eager stays ~9x faster than ``fori_loop``).
     """
-    if _under_jax_trace(x0):
+    if under_jax_trace(x0):
         import jax
 
         return jax.lax.fori_loop(0, n, lambda _, x: step(x), x0)
@@ -216,7 +199,7 @@ def bisect_root(f, a, b, xp, *, xtol, maxiter):
     # DIRECT callers jit-fast too -- notably the Staeckel umin/umax/vmin turning
     # points, which call bisect_root straight (not via brentq). Eager keeps the
     # Python loop (bit-identical, ~9x faster than fori_loop).
-    if _under_jax_trace(a, b):
+    if under_jax_trace(a, b):
         from ._jax.optimize import _bisect_root
 
         return _bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter)
