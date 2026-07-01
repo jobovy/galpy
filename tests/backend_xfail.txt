@@ -21,6 +21,17 @@
 # c=True C forward (Staeckel/Adiabatic), the Inverse modules (not yet redesigned),
 # and ~1e-7 torch precision gaps the real backend path now exposes
 # (linear_angles/kepler/against_orbit).
+#
+# AA-WAVE-DOWNSTREAM prune (2026-07-01, backend/ledger-aa-wave -> feat/backends):
+# full-matrix REGEN run 28516574227 off feat/backends post-#1043 (all 45
+# jax+torch shards ran to completion -- no session-timeout truncation). The AA
+# redesign wave (#1038 real-backend dispatch, #1039/#1040/#1043) makes the df
+# tests that COMPUTE actions (streamdf setup/track/trackaa/calcaAJac, diskdf,
+# qdf, + their test_quantity unit checks) run the real jax/torch aA path and
+# pass. Net: jax 273->233 (-40), torch 916->886 (-30). 0 adds. All 71 regen
+# drops verified deterministic (seeded samples / setup / deprecation / unit);
+# the ONE unseeded-RNG drop, test_streamgapdf_impulse::test_impulse_deltav_
+# general_curved (torch), is RETAINED xfail here (flaky, see #66) not dropped.
 # format: <backend> <nodeid>   (conftest applies xfail(strict=False) per backend;
 # tests unrunnable-until-vectorized go in backend_slow_skip.txt instead, not here)
 
@@ -154,7 +165,6 @@ jax tests/test_quantity.py::test_actionAngle_method_inputAsQuantity
 jax tests/test_quantity.py::test_actionAngle_method_returntype
 jax tests/test_quantity.py::test_actionAngle_method_returnunit
 jax tests/test_quantity.py::test_actionAngle_method_turnphysicaloff
-jax tests/test_quantity.py::test_actionAngle_method_turnphysicalon
 jax tests/test_quantity.py::test_actionAngle_method_value
 jax tests/test_quantity.py::test_orbit_method_returntype_scalar
 jax tests/test_quantity.py::test_orbit_method_returnunit
@@ -172,19 +182,6 @@ jax tests/test_quantity.py::test_sphericaldf_method_returnunit
 jax tests/test_quantity.py::test_sphericaldf_method_value
 jax tests/test_quantity.py::test_sphericaldf_sample
 jax tests/test_quantity.py::test_sphericaldf_sample_outputunits
-jax tests/test_quantity.py::test_streamdf_RnormWarning
-jax tests/test_quantity.py::test_streamdf_VnormWarning
-jax tests/test_quantity.py::test_streamdf_method_inputAsQuantity
-jax tests/test_quantity.py::test_streamdf_method_returntype
-jax tests/test_quantity.py::test_streamdf_method_returnunit
-jax tests/test_quantity.py::test_streamdf_method_value
-jax tests/test_quantity.py::test_streamdf_sample
-jax tests/test_quantity.py::test_streamdf_setup_coordtransformparamsAsQuantity
-jax tests/test_quantity.py::test_streamdf_setup_paramsAsQuantity
-jax tests/test_quantity.py::test_streamdf_setup_roAsQuantity
-jax tests/test_quantity.py::test_streamdf_setup_roAsQuantity_oddunits
-jax tests/test_quantity.py::test_streamdf_setup_voAsQuantity
-jax tests/test_quantity.py::test_streamdf_setup_voAsQuantity_oddunits
 jax tests/test_quantity.py::test_streamgapdf_inputAsQuantity
 jax tests/test_quantity.py::test_streamgapdf_method_returntype
 jax tests/test_quantity.py::test_streamgapdf_method_returnunit
@@ -220,25 +217,6 @@ jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dens_massprofile
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dens_spherically_symmetric
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_diffcalls
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_sigmar
-jax tests/test_streamdf.py::test_2ndsetup
-jax tests/test_streamdf.py::test_Rnorm_Vnorm_deprecation
-jax tests/test_streamdf.py::test_bovy14_callMargXZ
-jax tests/test_streamdf.py::test_bovy14_trackaa
-jax tests/test_streamdf.py::test_calcaAJac
-jax tests/test_streamdf.py::test_calcaAJacLB
-jax tests/test_streamdf.py::test_custom_transform_deprecation
-jax tests/test_streamdf.py::test_fardalpot_trackaa
-jax tests/test_streamdf.py::test_fardalwmwpot_trackaa
-jax tests/test_streamdf.py::test_plotting
-jax tests/test_streamdf.py::test_progenitor_coordtransformparams
-jax tests/test_streamdf.py::test_setup_progIsTrack
-jax tests/test_streamdf.py::test_streamTrack_custom_sky_transform_equatorial_to_galactic
-jax tests/test_streamdf.py::test_streamTrack_custom_sky_transform_per_call_override
-jax tests/test_streamdf.py::test_streamTrack_custom_sky_transform_setter
-jax tests/test_streamdf.py::test_streamTrack_multi_parallel
-jax tests/test_streamdf.py::test_streamTrack_raises_when_spread_not_setup
-jax tests/test_streamgapdf.py::test_leadingwtrailingimpact_error
-jax tests/test_streamgapdf.py::test_trailingwleadingimpact_error
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_classicalregime
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor_c
@@ -368,7 +346,6 @@ torch tests/test_actionAngle.py::test_orbit_interface_unbound_staeckeldelta_hand
 torch tests/test_actionAngle.py::test_orbits_interface_staeckel_PotentialErrors
 torch tests/test_actionAngle.py::test_physical_staeckel
 torch tests/test_actionAngle.py::test_physical_vertical
-torch tests/test_conversion.py::test_get_physical
 torch tests/test_coords.py::test_Rz_to_coshucosv
 torch tests/test_coords.py::test_Rz_to_coshucosv_oblate
 torch tests/test_coords.py::test_Rz_to_uv
@@ -378,26 +355,11 @@ torch tests/test_coords.py::test_uv_to_Rz
 torch tests/test_coords.py::test_uv_to_Rz_oblate
 torch tests/test_coords.py::test_vrpmllpmbb_to_galcencyl_galpyvsastropy
 torch tests/test_coords.py::test_vxvyvz_to_galcencyl
-torch tests/test_diskdf.py::test_ELtowRRapRperi_flat
-torch tests/test_diskdf.py::test_ELtowRRapRperi_powerfall
-torch tests/test_diskdf.py::test_ELtowRRapRperi_powerrise
-torch tests/test_diskdf.py::test_dehnendf_sample_flat_returnOrbit
-torch tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit
-torch tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit_rrange
-torch tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit_wcorrections
-torch tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
-torch tests/test_diskdf.py::test_shudf_sample_flat_returnOrbit
-torch tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit
-torch tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit_rrange
-torch tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit_wcorrections
-torch tests/test_diskdf.py::test_shudf_sample_powerrise_returnROrbit
 torch tests/test_dynamfric.py::test_ChandrasekharDynamicalFrictionForce_varLambda
 torch tests/test_dynamfric.py::test_dynamfric_c
 torch tests/test_dynamfric.py::test_dynamfric_c_minr
 torch tests/test_galpypaper.py::test_adinvariance
-torch tests/test_galpypaper.py::test_diskdf
 torch tests/test_galpypaper.py::test_orbmethods
-torch tests/test_galpypaper.py::test_overview
 torch tests/test_galpypaper.py::test_qdf
 torch tests/test_interp_potential.py::test_interpolation_potential
 torch tests/test_interp_potential.py::test_interpolation_potential_c
@@ -645,7 +607,6 @@ torch tests/test_qdf.py::test_pvz_staeckel_diffngl
 torch tests/test_qdf.py::test_sampleV
 torch tests/test_qdf.py::test_sampleV_interpolate
 torch tests/test_qdf.py::test_sampleV_physical
-torch tests/test_qdf.py::test_setup_diffsetups
 torch tests/test_qdf.py::test_sigmar_staeckel_gl
 torch tests/test_qdf.py::test_sigmar_staeckel_mc
 torch tests/test_qdf.py::test_sigmarz_adiabatic_gl
@@ -669,10 +630,7 @@ torch tests/test_quantity.py::test_actionAngle_method_inputAsQuantity
 torch tests/test_quantity.py::test_actionAngle_method_returntype
 torch tests/test_quantity.py::test_actionAngle_method_returnunit
 torch tests/test_quantity.py::test_actionAngle_method_turnphysicaloff
-torch tests/test_quantity.py::test_actionAngle_method_turnphysicalon
 torch tests/test_quantity.py::test_actionAngle_method_value
-torch tests/test_quantity.py::test_diskdf_method_returntype
-torch tests/test_quantity.py::test_diskdf_sample
 torch tests/test_quantity.py::test_estimateDeltaStaeckel_method_returntype
 torch tests/test_quantity.py::test_estimateDeltaStaeckel_method_returnunit
 torch tests/test_quantity.py::test_estimateDeltaStaeckel_method_value
@@ -988,9 +946,6 @@ torch tests/test_streamdf.py::test_bovy14_sampleA
 torch tests/test_streamdf.py::test_bovy14_sampleLB
 torch tests/test_streamdf.py::test_bovy14_track_prog_diff
 torch tests/test_streamdf.py::test_bovy14_track_spread
-torch tests/test_streamdf.py::test_bovy14_trackaa
-torch tests/test_streamdf.py::test_calcaAJac
-torch tests/test_streamdf.py::test_calcaAJacLB
 torch tests/test_streamdf.py::test_custom_transform_deprecation
 torch tests/test_streamdf.py::test_density_ll_wsampling
 torch tests/test_streamdf.py::test_fardalpot_trackaa
@@ -1039,13 +994,6 @@ jax tests/test_quantity.py::test_quasiisothermaldf_method_value
 jax tests/test_quantity.py::test_quasiisothermaldf_sample
 jax tests/test_quantity.py::test_quasiisothermaldf_interpolate_sample
 jax tests/test_quantity.py::test_quasiisothermaldf_method_inputAsQuantity
-torch tests/test_conversion.py::test_physical_compatible_combos
-torch tests/test_quantity.py::test_quasiisothermaldf_setup_roAsQuantity
-torch tests/test_quantity.py::test_quasiisothermaldf_setup_roAsQuantity_oddunits
-torch tests/test_quantity.py::test_quasiisothermaldf_setup_voAsQuantity
-torch tests/test_quantity.py::test_quasiisothermaldf_setup_voAsQuantity_oddunits
-torch tests/test_quantity.py::test_test_quasiisothermaldf_setup_profileAsQuantity
-torch tests/test_quantity.py::test_test_quasiisothermaldf_setup_refrloAsQuantity
 jax tests/test_qdf.py::test_meanvR_adiabatic_gl_center
 jax tests/test_qdf.py::test_meanvR_adiabatic_gl
 jax tests/test_qdf.py::test_meanvT_adiabatic_gl
@@ -1068,7 +1016,6 @@ jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarf
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz_2d
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-jax tests/test_galpypaper.py::test_overview
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_curved
 torch tests/test_noninertial.py::test_cinterp_combined_rotlin
 torch tests/test_noninertial.py::test_cinterp_constant_a0_noop
@@ -1209,9 +1156,7 @@ jax tests/test_orbit.py::test_physical_output_on
 # actionAngleStaeckel_c (not yet backend-migrated, Track E) -- same root cause as
 # the single-orbit action-angle xfails. Un-xfail when Track E lands.
 jax tests/test_orbits.py::test_EccZmaxRperiRap_analytic_againstorbit_3d
-jax tests/test_orbits.py::test_actionsFreqsAngles_againstorbit_2d
 jax tests/test_orbits.py::test_actionsFreqsAngles_againstorbit_3d
-jax tests/test_orbits.py::test_actionsFreqsAngles_isochroneapproxb
 jax tests/test_orbits.py::test_actionsFreqsAngles_output_shape
 jax tests/test_orbits.py::test_actionsFreqsAngles_staeckeldelta
 jax tests/test_orbits.py::test_physical_output_off
@@ -1226,8 +1171,4 @@ jax tests/test_orbits.py::test_physical_output_on
 # tests that now PASS-but-slow are slow-skipped instead (see backend_slow_skip).
 jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnOrbit
 jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit_rrange
-jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit_wcorrections
 jax tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
-jax tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit_wcorrections
-jax tests/test_quantity.py::test_diskdf_method_returntype
-jax tests/test_quantity.py::test_diskdf_sample
