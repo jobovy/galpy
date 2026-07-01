@@ -22,6 +22,12 @@ from ..backend import (
     is_backend_array,
     promote_scalars,
 )
+from ..backend._namespaces import (
+    graft_gradient,
+    stop_gradient,
+    under_jax_trace,
+    under_torch_grad,
+)
 from ..backend.optimize import bisect_root, iterate_bracket
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..potential import (
@@ -207,6 +213,34 @@ def _staeckel_gl_action(xp, sqfunc, args, lo, hi, order):
     return _backend_fixed_quad(xp, integrand, 0.0, 1.0, n=order, device=device_of(lo))
 
 
+def _staeckel_t2_action(xp, sqfunc, args, lo, hi, order):
+    """Low(lo)+High(hi) t^2-substituted panels of sqrt(sqfunc) over [lo, hi] --
+    the AD-regular gradient DONOR for the plain-GL action value: d(sqrt S) is
+    turning-point-singular under plain GL, but after u = lo + t^2 the du = 2t dt
+    Jacobian cancels the 1/sqrt(S) ~ 1/t, and AD through it carries the FULL
+    dependence (E, Lz, I3, the u0/v0u reference geometry, potential parameters)."""
+    a2 = tuple(x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in args)
+    # Turning-point limits held fixed: the Leibniz boundary terms vanish exactly
+    # (S = 0 there), and the bisection roots' implicit gradients must not leak in.
+    lo, hi = stop_gradient(lo), stop_gradient(hi)
+    span = hi - lo
+    ok = span > 0.0  # degenerate (circular/planar) panel: 0 with 0 gradient
+    mid = xp.sqrt(0.5 * xp.where(ok, span, xp.ones_like(span)))
+
+    def panel(base, sign):
+        def integ(s):  # s: (n,) -> (N, n); u = base + sign*t^2, t = mid*s
+            t = mid[..., None] * s
+            u = base[..., None] + sign * t**2.0
+            S = sqfunc(u, *a2)
+            Ssafe = xp.where(S > 0.0, S, xp.ones_like(S))  # dead-branch guard
+            g = xp.where(S > 0.0, xp.sqrt(Ssafe), xp.zeros_like(S))
+            return 2.0 * t * g * mid[..., None]
+
+        return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order, device=device_of(mid))
+
+    return xp.where(ok, panel(lo, 1.0) + panel(hi, -1.0), xp.zeros_like(span))
+
+
 def _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta):
     """Setup quantities + turning points (+ unbound check), shared by the
     vectorised actions and frequencies. Returns (setup, umin, umax, vmin, delta)."""
@@ -255,6 +289,30 @@ def _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order):
         * delta
         / numpy.pi
     )
+    # Backend AD: graft the t^2-substituted donor's gradient onto the plain-GL
+    # value (naive d(sqrt S) is turning-point-singular, and the dJ/d(E,Lz,I3)
+    # chain misses the u0/v0u geometry's direct R,z dependence). Value unchanged
+    # (C parity), first-order only, no cost on plain (untraced/no-grad) forwards.
+    if is_backend_array(jr) and (under_jax_trace(jr) or under_torch_grad(jr)):
+        jr = graft_gradient(
+            jr,
+            _staeckel_t2_action(
+                xp, _JRStaeckelIntegrandSquared, jr_args, umin, umax, order
+            )
+            * sqrt2
+            * delta
+            / numpy.pi,
+        )
+        jz = graft_gradient(
+            jz,
+            _staeckel_t2_action(
+                xp, _JzStaeckelIntegrandSquared, jz_args, vmin, pi2, order
+            )
+            * 2.0
+            * sqrt2
+            * delta
+            / numpy.pi,
+        )
     jr = xp.where((umax - umin) / umax < 1e-6, xp.zeros_like(jr), jr)
     jz = xp.where((numpy.pi / 2.0 - vmin) < 1e-7, xp.zeros_like(jz), jz)
     return jr, jz
