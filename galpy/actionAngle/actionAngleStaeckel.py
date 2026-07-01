@@ -335,13 +335,11 @@ def _staeckel_jacobian(xp, s, umin, umax, vmin, pot, delta, order):
     return djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3
 
 
-def _staeckel_freqs(xp, s, umin, umax, vmin, pot, delta, order, jac=None):
+def _staeckel_freqs(xp, s, umin, umax, vmin, pot, delta, order, jac):
     """Vectorised (Omegar, Omegaphi, Omegaz); NaN for circular (caller substitutes
     epifreq/omegac/verticalfreq, mirroring the C 0/0=NaN -> close-to-circular path).
-    `jac` = precomputed _staeckel_jacobian shared with the angles; computed here
-    when None (the freqs-only callers)."""
-    if jac is None:
-        jac = _staeckel_jacobian(xp, s, umin, umax, vmin, pot, delta, order)
+    `jac` = the _staeckel_jacobian 6-tuple, computed once by the caller and shared
+    with the angles."""
     djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3 = jac
     detA = djrdE * djzdI3 - djzdE * djrdI3
     circ = (umax - umin) / umax < 1e-6  # circular in R: det(A)=0 (J_R panels ->0)
@@ -367,8 +365,9 @@ def _staeckel_actions_freqs(xp, R, vR, vT, z, vz, pot, delta, order):
     Setup + turning points are computed once and shared between actions and freqs."""
     s, umin, umax, vmin, delta = _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta)
     jr, jz = _staeckel_jr_jz(xp, s, umin, umax, vmin, pot, delta, order)
+    jac = _staeckel_jacobian(xp, s, umin, umax, vmin, pot, delta, order)
     Omegar, Omegaphi, Omegaz = _staeckel_freqs(
-        xp, s, umin, umax, vmin, pot, delta, order
+        xp, s, umin, umax, vmin, pot, delta, order, jac
     )
     return jr, s["Lz"], jz, Omegar, Omegaphi, Omegaz
 
@@ -401,17 +400,15 @@ def _staeckel_angle_partial(xp, Sfunc, sq_args, factor_fn, base, sign, mid, orde
     return _backend_fixed_quad(xp, integ, 0.0, 1.0, n=order, device=device_of(mid))
 
 
-def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac=None):
+def _staeckel_angles(xp, s, umin, umax, vmin, pot, delta, order, jac):
     """Vectorised (angler, anglephi_raw, anglez); the caller folds the azimuth phi
     into anglephi. angler/anglez are in [0, 2pi); circular orbits -> all 0.
-    `jac` = precomputed _staeckel_jacobian shared with the freqs; computed here
-    when None."""
+    `jac` = the _staeckel_jacobian 6-tuple, computed once by the caller and shared
+    with the freqs."""
     sqrt2 = numpy.sqrt(2.0)
     pi = numpy.pi
     Lz = s["Lz"]
     ux, vx, pux, pvx = s["ux"], s["vx"], s["pux"], s["pvx"]
-    if jac is None:
-        jac = _staeckel_jacobian(xp, s, umin, umax, vmin, pot, delta, order)
     djrdE, djrdLz, djrdI3, djzdE, djzdLz, djzdI3 = jac
     detA = djrdE * djzdI3 - djzdE * djrdI3
     circ = (umax - umin) / umax < 1e-6
