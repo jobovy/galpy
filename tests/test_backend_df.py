@@ -109,6 +109,21 @@ def test_jeans_parity(backend, fn):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_jeans_sigmar_callable_beta_parity(backend):
+    # callable (r-dependent) anisotropy: exercises the backend intFactor path
+    # exp(2 * quad(beta(y)/y)) and its numpy<->backend parity (the closed-form
+    # power-law intFactor is used for the constant-beta case above).
+    beta = lambda r: 0.2 / (1.0 + r)
+    for r0 in (0.7, 1.1, 1.6):
+        ref = jeans.sigmar(_HP, r0, beta=beta, use_physical=False)
+        got = jeans.sigmar(_HP, _arr(backend, r0), beta=beta, use_physical=False)
+        assert _is_backend_array(backend, got)
+        numpy.testing.assert_allclose(
+            _np(got), numpy.asarray(ref), rtol=1e-6, atol=1e-9
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_jeans_sigmar_grad_vs_fd(backend):
     # d(sigma_r)/dr via backend autodiff vs central finite difference -- the
     # differentiability that motivates the migration.
