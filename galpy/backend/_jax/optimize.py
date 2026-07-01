@@ -49,9 +49,10 @@ def _bisect_root(f, a, b, xp, *, xtol, maxiter):
     """
     import jax
 
+    from .._namespaces import under_jax_trace
     from ..optimize import bisect_root, bisect_step, n_bisect_steps
 
-    if not any(isinstance(x, jax.core.Tracer) for x in (a, b)):
+    if not under_jax_trace(a, b):  # entered directly with a concrete bracket
         return bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter)
     lo = xp.asarray(a) * 1.0
     hi = xp.asarray(b) * 1.0

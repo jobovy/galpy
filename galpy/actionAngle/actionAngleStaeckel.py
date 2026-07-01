@@ -22,7 +22,7 @@ from ..backend import (
     is_backend_array,
     promote_scalars,
 )
-from ..backend.optimize import bisect_root
+from ..backend.optimize import bisect_root, iterate_bracket
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..potential import (
     CompositePotential,
@@ -143,15 +143,16 @@ def _staeckel_uminumax(xp, s, pot, delta):
     # Lower bracket: HALVE below ux until f<0 (60 halvings reach ~1e-18, so even a
     # near-axis turning point at u~1e-4 -- low-Lz, nearly-radial orbits -- is
     # straddled; *0.9 only reached ~3.8e-4*ux in 80 steps and collapsed umin to ux).
-    lo = ux * 0.5
-    for _ in range(60):
-        lo = xp.where((f(lo) >= 0.0) & (lo > 1e-10), lo * 0.5, lo)
+    lo = iterate_bracket(
+        lambda l: xp.where((f(l) >= 0.0) & (l > 1e-10), l * 0.5, l), ux * 0.5, 60
+    )
     # f still >0 at the floor -> no lower J_R turning point: the orbit reaches the
     # symmetry axis (Lz~0, purely-radial), so umin=0 (mirrors C / Single rstart==0).
     reaches_axis = f(lo) >= 0.0
-    hi = ux * 1.1
-    for _ in range(80):  # expanding bracket above ux until f<0 (stop at u=100)
-        hi = xp.where((f(hi) >= 0.0) & (hi < 100.0), hi * 1.1, hi)
+    # expanding bracket above ux until f<0 (stop at u=100)
+    hi = iterate_bracket(
+        lambda h: xp.where((f(h) >= 0.0) & (h < 100.0), h * 1.1, h), ux * 1.1, 80
+    )
     # No upper turning point below u=100 (f(100)>=0 -> u=100 still in the allowed
     # region) -> unbound, mirroring the per-object _uminUmaxFindStart
     # `utry > 100 -> UnboundError`.
@@ -180,9 +181,9 @@ def _staeckel_vmin(xp, s, pot, delta):
     vx, eps = s["vx"], 1e-8
     at_turn = (xp.abs(s["pvx"]) < 1e-7) | (xp.abs(f(vx)) < 1e-10)
     at_vmin = at_turn & (f(vx + eps) > 0.0) & (f(vx - eps) < 0.0)
-    vlo = vx * 0.9
-    for _ in range(80):
-        vlo = xp.where((f(vlo) >= 0.0) & (vlo > 1e-9), vlo * 0.9, vlo)
+    vlo = iterate_bracket(
+        lambda v: xp.where((f(v) >= 0.0) & (v > 1e-9), v * 0.9, v), vx * 0.9, 80
+    )
     vmin = bisect_root(f, vlo, vx, xp, xtol=1e-13, maxiter=200)
     return xp.where(at_vmin, vx, vmin)
 
