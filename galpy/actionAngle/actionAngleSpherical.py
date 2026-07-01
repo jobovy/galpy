@@ -564,6 +564,7 @@ class actionAngleSpherical(actionAngle):
         by dead-branch-guarded xp.where overrides. gamma==0 (=> startsign=+1).
         """
         from ..backend.optimize import brentq as _backend_brentq
+        from ..backend.optimize import iterate_bracket
 
         xp = get_namespace(r)
 
@@ -573,14 +574,14 @@ class actionAngleSpherical(actionAngle):
         # Fixed-schedule bracketing (mirrors _rapRperiAxiFindStart, vectorised):
         # halve from r/2 until f<=0 (or below the floor) for rperi's lower end,
         # double from 2r until f<=0 for rap's upper end. 80 steps >> any needed.
-        rstart = r / 2.0
-        for _ in range(80):
-            rstart = xp.where(
-                (f(rstart, E, L) > 0.0) & (rstart > 1e-9), rstart / 2.0, rstart
-            )
-        rend = 2.0 * r
-        for _ in range(80):
-            rend = xp.where(f(rend, E, L) > 0.0, rend * 2.0, rend)
+        rstart = iterate_bracket(
+            lambda rs: xp.where((f(rs, E, L) > 0.0) & (rs > 1e-9), rs / 2.0, rs),
+            r / 2.0,
+            80,
+        )
+        rend = iterate_bracket(
+            lambda re: xp.where(f(re, E, L) > 0.0, re * 2.0, re), 2.0 * r, 80
+        )
         # Special cases (all are vr==0, measure-zero among generic test orbits).
         vcirc_r = vcirc(self._2dpot, r, use_physical=False)
         is_circ = (vr == 0.0) & (xp.abs(vt - vcirc_r) < _EPS)

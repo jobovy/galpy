@@ -46,7 +46,7 @@
 #   first-order sensitivity; a Hessian through x* would require a true
 #   custom_jvp differentiating the implicit relation a second time.
 ###############################################################################
-from ._namespaces import is_backend_array
+from ._namespaces import is_backend_array, under_jax_trace
 from ._resolver import get_namespace
 
 # Default bracketing tolerance (matches scipy.optimize.brentq's xtol default, so
@@ -156,6 +156,25 @@ def bisect_step(lo, hi, slo, f, xp):
     return xp.where(same, mid, lo), xp.where(same, hi, mid)
 
 
+def iterate_bracket(step, x0, n):
+    """Run ``x = step(x)`` ``n`` times -- a fixed-schedule, branch-free bracket
+    expansion/contraction where ``step`` is a single ``xp.where`` update over the
+    physics closure ``f``.
+
+    Eager Python loop (numpy / torch / jax outside a trace) -> bit-identical to
+    the hand-written loop. Under a jax trace, a ``lax.fori_loop`` over the same
+    ``step`` so the ``n`` embedded copies of ``f`` do NOT unroll into the jaxpr
+    (mirrors the bisection rolling; eager stays ~9x faster than ``fori_loop``).
+    """
+    if under_jax_trace(x0):
+        import jax
+
+        return jax.lax.fori_loop(0, n, lambda _, x: step(x), x0)
+    for _ in range(n):
+        x0 = step(x0)
+    return x0
+
+
 def bisect_root(f, a, b, xp, *, xtol, maxiter):
     """Vectorised, sign-preserving bisection root of ``f`` on ``[a, b]`` in ``xp``.
 
@@ -175,6 +194,15 @@ def bisect_root(f, a, b, xp, *, xtol, maxiter):
     for ``scipy.optimize.brentq``; same-sign brackets are a caller error and
     return a midpoint without a guarantee.
     """
+    # Under a jax trace (jit/grad/vmap), roll the fixed halving schedule into a
+    # lax.fori_loop so the n copies of f do not unroll into the jaxpr. This makes
+    # DIRECT callers jit-fast too -- notably the Staeckel umin/umax/vmin turning
+    # points, which call bisect_root straight (not via brentq). Eager keeps the
+    # Python loop (bit-identical, ~9x faster than fori_loop).
+    if under_jax_trace(a, b):
+        from ._jax.optimize import _bisect_root
+
+        return _bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter)
     # Anchor on the inputs (device/dtype); * 1.0 promotes integer brackets.
     lo = xp.asarray(a) * 1.0
     hi = xp.asarray(b) * 1.0
