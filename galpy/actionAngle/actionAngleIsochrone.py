@@ -187,15 +187,14 @@ class actionAngleIsochrone(actionAngle):
             L2 = Lx * Lx + Ly * Ly + Lz * Lz
             E = self._ip(R, z) + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
             L = xp.sqrt(L2)
+            sqrtL2p = xp.sqrt(L2 + 4.0 * self.amp * self.b)  # shared by Jr + Omegaz
             # Actions
             Jphi = Lz
             Jz = L - xp.abs(Lz)
-            Jr = self.amp / xp.sqrt(-2.0 * E) - 0.5 * (
-                L + xp.sqrt(L2 + 4.0 * self.amp * self.b)
-            )
+            Jr = self.amp / xp.sqrt(-2.0 * E) - 0.5 * (L + sqrtL2p)
             # Frequencies
             Omegar = (-2.0 * E) ** 1.5 / self.amp
-            Omegaz = 0.5 * (1.0 + L / xp.sqrt(L2 + 4.0 * self.amp * self.b)) * Omegar
+            Omegaz = 0.5 * (1.0 + L / sqrtL2p) * Omegar
             indx = Lz < 0.0
             Omegaphi = xp.where(indx, -Omegaz, Omegaz)
             return (Jr, Jphi, Jz, Omegar, Omegaphi, Omegaz)
@@ -252,29 +251,29 @@ class actionAngleIsochrone(actionAngle):
             L2 = Lx * Lx + Ly * Ly + Lz * Lz
             E = self._ip(R, z) + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0
             L = xp.sqrt(L2)
+            sqrtL2p = xp.sqrt(L2 + 4.0 * self.amp * self.b)  # shared by Jr + Omegaz
             # Actions
             Jz = L - xp.abs(Lz)
-            Jr = self.amp / xp.sqrt(-2.0 * E) - 0.5 * (
-                L + xp.sqrt(L2 + 4.0 * self.amp * self.b)
-            )
+            Jr = self.amp / xp.sqrt(-2.0 * E) - 0.5 * (L + sqrtL2p)
             # Frequencies
             Omegar = (-2.0 * E) ** 1.5 / self.amp
-            Omegaz = 0.5 * (1.0 + L / xp.sqrt(L2 + 4.0 * self.amp * self.b)) * Omegar
+            Omegaz = 0.5 * (1.0 + L / sqrtL2p) * Omegar
             indx = Lz < 0.0
             Omegaphi = xp.where(indx, -Omegaz, Omegaz)
             # Angles
             c = -self.amp / 2.0 / E - self.b
             e2 = 1.0 - L2 / self.amp / c * (1.0 + self.b / c)
             e = xp.sqrt(e2)
+            rsph = xp.sqrt(R**2.0 + z**2.0)  # shared by coseta(b==0) + cos/sintheta
             if self.b == 0.0:
-                coseta = 1 / e * (1.0 - xp.sqrt(R**2.0 + z**2.0) / c)
+                coseta = 1 / e * (1.0 - rsph / c)
             else:
                 s = 1.0 + xp.sqrt(1.0 + (R**2.0 + z**2.0) / self.b**2.0)
                 coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
             coseta = xp.clip(coseta, -1.0, 1.0)
             eta = xp.arccos(coseta)
-            costheta = z / xp.sqrt(R**2.0 + z**2.0)
-            sintheta = R / xp.sqrt(R**2.0 + z**2.0)
+            costheta = z / rsph
+            sintheta = R / rsph
             vrindx = (vR * sintheta + vz * costheta) < 0.0
             eta = xp.where(vrindx, 2.0 * numpy.pi - eta, eta)
             angler = eta - e * c / (c + self.b) * xp.sin(eta)
@@ -289,8 +288,9 @@ class actionAngleIsochrone(actionAngle):
             Lz = xp.where(Lz / L > 1.0, L, Lz)
             Lz = xp.where(Lz / L < -1.0, -L, Lz)
             Jphi = Lz
-            sini = xp.sqrt(L**2.0 - Lz**2.0) / L
-            tani = xp.sqrt(L**2.0 - Lz**2.0) / Lz
+            sqrtL2mLz2 = xp.sqrt(L**2.0 - Lz**2.0)  # shared by sini + tani
+            sini = sqrtL2mLz2 / L
+            tani = sqrtL2mLz2 / Lz
             sinpsi = costheta / sini
             sinpsi = xp.where((sinpsi > 1.0) & xp.isfinite(sinpsi), 1.0, sinpsi)
             sinpsi = xp.where((sinpsi < -1.0) & xp.isfinite(sinpsi), -1.0, sinpsi)
