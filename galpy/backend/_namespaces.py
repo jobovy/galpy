@@ -47,6 +47,31 @@ def is_backend_array(x):
     return False
 
 
+def under_jax_trace(*xs):
+    """True iff jax is imported AND one of ``xs`` is a jax tracer (jit/grad/vmap).
+
+    The predicate that gates the eager-loop-vs-``lax.fori_loop`` choice wherever
+    galpy rolls a fixed-schedule loop (bracket expansion, bisection, ...): the
+    eager Python loop stays byte-identical and ~9x faster outside a trace, while
+    under a jax trace the same body is rolled into a ``fori_loop`` so its ``n``
+    embedded copies of the physics closure do not unroll into the user's jaxpr.
+
+    Cheap on numpy/torch and on plain (untraced) jax arrays: if ``jax`` is not
+    even imported we short-circuit to ``False`` (via ``sys.modules``, so the
+    numpy/torch eager paths never import jax). This is deliberately gated on
+    ``sys.modules`` rather than the ``_JAX_LOADED`` install flag so a jax-
+    installed-but-unused run (pure numpy/torch) keeps the eager hot path from
+    importing jax at all.
+    """
+    import sys
+
+    if "jax" not in sys.modules:
+        return False
+    import jax
+
+    return any(isinstance(x, jax.core.Tracer) for x in xs)
+
+
 def _is_floating_dtype(dtype):
     """True for real floating-point dtypes of any backend.
 

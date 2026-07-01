@@ -841,6 +841,30 @@ def test_staeckel_actions_vs_c(backend):
     numpy.testing.assert_allclose(_np(jz_b), numpy.asarray(jz_c), rtol=1e-8, atol=1e-9)
 
 
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_staeckel_jit_grad_rolls_direct_bisection():
+    # Staeckel's turning points call the module-level ``bisect_root`` DIRECTLY
+    # (not via ``brentq``). Under a jax trace (jit/grad) the bracket endpoints are
+    # tracers, so ``bisect_root`` dispatches to the rolled ``lax.fori_loop`` kernel
+    # -- the ~100-step bisection does NOT unroll ~100 copies of the Staeckel
+    # integrand into the user's jaxpr. Covers the ``under_jax_trace(a, b)`` branch
+    # of ``galpy.backend.optimize.bisect_root`` reached only by these direct
+    # callers (the brentq-based AA methods route through a different kernel).
+    aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=False)
+    R = jnp.asarray(_STK[0])
+    rest = tuple(jnp.asarray(v) for v in _STK[1:])
+    jr_e, _, jz_e = aA(R, *rest)  # eager (Python-loop) reference
+    jr_j, _, jz_j = jax.jit(lambda r: aA(r, *rest))(R)  # traced (fori_loop) value
+    numpy.testing.assert_allclose(_np(jr_j), _np(jr_e), rtol=1e-8, atol=1e-10)
+    numpy.testing.assert_allclose(_np(jz_j), _np(jz_e), rtol=1e-8, atol=1e-10)
+    # the jaxpr is ROLLED: a loop primitive, not ~100 unrolled bisection steps.
+    txt = str(jax.make_jaxpr(lambda r: aA(r, *rest)[0])(R))
+    assert ("while" in txt) or ("scan" in txt)
+    # grad flows through the direct-bisection turning points: finite dJr/dR.
+    g = jax.grad(lambda r: jnp.sum(aA(r, *rest)[0]))(R)
+    assert numpy.all(numpy.isfinite(_np(g)))
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_staeckel_unbound_backend_no_raise(backend):
     # An unbound orbit raises UnboundError on the numpy path (eager), but must NOT

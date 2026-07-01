@@ -330,6 +330,7 @@ class actionAngleVertical(actionAngle):
     def _calc_xmax_backend(self, x, vx, E):
         """Vectorised turning point xmax (E == Phi(xmax)) via backend brentq."""
         from ..backend.optimize import brentq as _backend_brentq
+        from ..backend.optimize import iterate_bracket
 
         xp = get_namespace(x)
         absx = xp.abs(x)
@@ -338,9 +339,11 @@ class actionAngleVertical(actionAngle):
             return E_ - evaluatelinearPotentials(self._pot, xm, use_physical=False)
 
         # Expanding upper bracket: double from 2|x| (1e-5 at x=0) until f <= 0.
-        xend = xp.where(absx > 0.0, 2.0 * absx, 1e-5 * xp.ones_like(absx))
-        for _ in range(80):
-            xend = xp.where(f(xend, E) > 0.0, xend * 2.0, xend)
+        xend = iterate_bracket(
+            lambda xe: xp.where(f(xe, E) > 0.0, xe * 2.0, xe),
+            xp.where(absx > 0.0, 2.0 * absx, 1e-5 * xp.ones_like(absx)),
+            80,
+        )
         # Lower bracket |x| (f(|x|) = vx^2/2 >= 0); at the turning point vx==0,
         # |x| IS xmax, so use a safe lower end there (dead-branch guard) and
         # override below.
