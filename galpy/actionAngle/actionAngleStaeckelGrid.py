@@ -462,6 +462,9 @@ class actionAngleStaeckelGrid(actionAngle):
                     )
                 )
                 sinh2u0 = numpy.sinh(u0) ** 2.0
+                potu0pi2 = actionAngleStaeckel.potentialStaeckel(
+                    u0, numpy.pi / 2.0, self._pot, self._delta
+                )
                 thisEr = self.Er(
                     R[indxc],
                     z[indxc],
@@ -471,6 +474,7 @@ class actionAngleStaeckelGrid(actionAngle):
                     Lz[indxc],
                     sinh2u0,
                     u0,
+                    potu0pi2,
                 )
                 thisEz = self.Ez(
                     R[indxc],
@@ -481,6 +485,7 @@ class actionAngleStaeckelGrid(actionAngle):
                     Lz[indxc],
                     sinh2u0,
                     u0,
+                    potu0pi2,
                 )
                 thisv2 = self.vatu0(
                     E[indxc], Lz[indxc], u0, self._delta * numpy.sinh(u0), retv2=True
@@ -706,6 +711,9 @@ class actionAngleStaeckelGrid(actionAngle):
                     )
                 )
                 sinh2u0 = numpy.sinh(u0) ** 2.0
+                potu0pi2 = actionAngleStaeckel.potentialStaeckel(
+                    u0, numpy.pi / 2.0, self._pot, self._delta
+                )
                 thisEr = self.Er(
                     R[indxc],
                     z[indxc],
@@ -715,6 +723,7 @@ class actionAngleStaeckelGrid(actionAngle):
                     Lz[indxc],
                     sinh2u0,
                     u0,
+                    potu0pi2,
                 )
                 thisEz = self.Ez(
                     R[indxc],
@@ -725,6 +734,7 @@ class actionAngleStaeckelGrid(actionAngle):
                     Lz[indxc],
                     sinh2u0,
                     u0,
+                    potu0pi2,
                 )
                 thisv2 = self.vatu0(
                     E[indxc], Lz[indxc], u0, self._delta * numpy.sinh(u0), retv2=True
@@ -961,7 +971,7 @@ class actionAngleStaeckelGrid(actionAngle):
         logu0 = optimize.brent(_u0Eq, args=(self._delta, self._pot, E, Lz**2.0 / 2.0))
         return numpy.exp(logu0)
 
-    def Er(self, R, z, vR, vz, E, Lz, sinh2u0, u0):
+    def Er(self, R, z, vR, vz, E, Lz, sinh2u0, u0, potu0pi2=None):
         """
         Calculate the 'radial energy'
 
@@ -995,6 +1005,12 @@ class actionAngleStaeckelGrid(actionAngle):
         """
         xp = get_namespace(R) if is_backend_array(R) else numpy
         u, v = coords.Rz_to_uv(R, z, self._delta)
+        # potentialStaeckel(u0, pi/2) is identical in Er and Ez; the caller may
+        # pass it precomputed to evaluate it once per orbit instead of twice.
+        if potu0pi2 is None:
+            potu0pi2 = actionAngleStaeckel.potentialStaeckel(
+                u0, numpy.pi / 2.0, self._pot, self._delta
+            )
         pu = vR * xp.cosh(u) * xp.sin(v) + vz * xp.sinh(u) * xp.cos(
             v
         )  # no delta, bc we will divide it out
@@ -1009,16 +1025,13 @@ class actionAngleStaeckelGrid(actionAngle):
             * actionAngleStaeckel.potentialStaeckel(
                 u, numpy.pi / 2.0, self._pot, self._delta
             )
-            - (sinh2u0 + 1.0)
-            * actionAngleStaeckel.potentialStaeckel(
-                u0, numpy.pi / 2.0, self._pot, self._delta
-            )
+            - (sinh2u0 + 1.0) * potu0pi2
         )
         #              +(numpy.sinh(u)**2.+numpy.sin(v)**2.)*actionAngleStaeckel.potentialStaeckel(u,v,self._pot,self._delta)
         #              -(sinh2u0+numpy.sin(v)**2.)*actionAngleStaeckel.potentialStaeckel(u0,v,self._pot,self._delta))
         return out
 
-    def Ez(self, R, z, vR, vz, E, Lz, sinh2u0, u0):
+    def Ez(self, R, z, vR, vz, E, Lz, sinh2u0, u0, potu0pi2=None):
         """
         Calculate the 'vertical energy'
 
@@ -1052,6 +1065,12 @@ class actionAngleStaeckelGrid(actionAngle):
         """
         xp = get_namespace(R) if is_backend_array(R) else numpy
         u, v = coords.Rz_to_uv(R, z, self._delta)
+        # potentialStaeckel(u0, pi/2) is identical in Er and Ez; the caller may
+        # pass it precomputed to evaluate it once per orbit instead of twice.
+        if potu0pi2 is None:
+            potu0pi2 = actionAngleStaeckel.potentialStaeckel(
+                u0, numpy.pi / 2.0, self._pot, self._delta
+            )
         pv = vR * xp.sinh(u) * xp.cos(v) - vz * xp.cosh(u) * xp.sin(
             v
         )  # no delta, bc we will divide it out
@@ -1059,10 +1078,7 @@ class actionAngleStaeckelGrid(actionAngle):
             pv**2.0 / 2.0
             + Lz**2.0 / 2.0 / self._delta**2.0 * (1.0 / xp.sin(v) ** 2.0 - 1.0)
             - E * (xp.sin(v) ** 2.0 - 1.0)
-            - (sinh2u0 + 1.0)
-            * actionAngleStaeckel.potentialStaeckel(
-                u0, numpy.pi / 2.0, self._pot, self._delta
-            )
+            - (sinh2u0 + 1.0) * potu0pi2
             + (sinh2u0 + xp.sin(v) ** 2.0)
             * actionAngleStaeckel.potentialStaeckel(u0, v, self._pot, self._delta)
         )
