@@ -3,15 +3,19 @@ import os
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
 
-# Re-export the canonical GPU-safe backend->numpy converter under the historical
-# name used by the orbit tests (``from conftest import _to_numpy`` in
-# test_orbit.py and test_orbits.py): value assertions there are backend-agnostic
-# because as_numpy pulls a jax/torch accessor result back to numpy (detaching
-# torch grad tensors) while passing a numpy input through unchanged, so the numpy
-# path stays byte-identical.
-_to_numpy = as_numpy
+def _to_numpy(x):
+    """Coerce a (possibly jax/torch) accessor result to numpy for backend-
+    agnostic value assertions in the orbit tests (imported as ``from conftest
+    import _to_numpy`` by test_orbit.py/test_orbits.py). Thin lazy wrapper over
+    the canonical ``galpy.backend.as_numpy``: the import is deferred to call time
+    so that merely loading conftest does NOT import galpy at session start --
+    an early galpy import here locks in the default astropy-units config before
+    tests that toggle it (e.g. test_quantity) can, making Orbit accessors return
+    plain numpy instead of Quantities. numpy input passes through unchanged."""
+    from galpy.backend import as_numpy
+
+    return as_numpy(x)
 
 
 # ---------------------------------------------------------------------------
