@@ -2,9 +2,10 @@
 # computed using the Eddington formula
 import numpy
 
+from ..backend import resolve_namespace
 from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
-from .sphericaldf import _resolve_xp, isotropicsphericaldf
+from .sphericaldf import isotropicsphericaldf
 
 
 class isotropicHernquistdf(isotropicsphericaldf):
@@ -63,7 +64,7 @@ class isotropicHernquistdf(isotropicsphericaldf):
         Ei = conversion.parse_energy(E, vo=self._vo)
         # resolve on the stored _psi0 too: a backend-built potential makes the
         # DF constants backend so parameter gradients keep flowing
-        xp = _resolve_xp(Ei, self._psi0)
+        xp = resolve_namespace(Ei, self._psi0)
         if xp is numpy:
             Etilde = -numpy.atleast_1d(Ei / self._psi0)
             # Handle E out of bounds
@@ -110,7 +111,7 @@ class isotropicHernquistdf(isotropicsphericaldf):
 
     def _dMdE(self, E):
         # E already in internal units here
-        xp = _resolve_xp(E, self._psi0)
+        xp = resolve_namespace(E, self._psi0)
         if xp is numpy:
             fE = self.fE(E)
             A = -self._psi0 / E[fE > 0.0]
@@ -147,7 +148,7 @@ class isotropicHernquistdf(isotropicsphericaldf):
     def _icmf(self, ms):
         """Analytic expression for the normalized inverse cumulative mass
         function. The argument ms is normalized mass fraction [0,1]"""
-        xp = _resolve_xp(ms)
+        xp = resolve_namespace(ms)
         if xp is numpy:
             return self._pot.a * numpy.sqrt(ms) / (1 - numpy.sqrt(ms))
         sq = xp.sqrt(xp.asarray(ms) * 1.0)  # coerce: torch.sqrt rejects numpy
