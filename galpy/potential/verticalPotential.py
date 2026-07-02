@@ -173,7 +173,14 @@ class _BatchedVerticalPotential(verticalPotential):
         # _Pot/_phi/amp/unit bookkeeping, then overwrite _R with the batch array
         # (_midplanePot from the parent is unused here; _evaluate recomputes it).
         xp = get_namespace(R)
-        R0 = float(xp.reshape(R, (-1,))[0]) if hasattr(R, "shape") else float(R)
+        if is_backend_array(R):
+            # the parent scalar R0 only feeds the (unused) _midplanePot, so any
+            # representative works; avoid float() on a backend array (raises on a
+            # jax tracer, warns + host-syncs a grad torch tensor). numpy path
+            # keeps the true R0 (byte-identical stored attribute).
+            R0 = 1.0
+        else:
+            R0 = float(xp.reshape(R, (-1,))[0]) if hasattr(R, "shape") else float(R)
         verticalPotential.__init__(self, Pot, R=R0, phi=phi, t0=t0)
         self._R = R
 
