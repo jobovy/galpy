@@ -307,3 +307,83 @@ def test_under_torch_grad_without_torch(monkeypatch):
 
     monkeypatch.delitem(sys.modules, "torch", raising=False)
     assert under_torch_grad(numpy.array([1.0])) is False
+
+
+# --- coverage for the C-native reference-u0 host branches + circular-freq fix ---
+def _fd_grad_aAS(aAS, orbit, eps=1e-5):
+    # central-FD of a specific aAS's numpy actions (config-matched gold).
+    gjr, gjz = [], []
+    for i in range(5):
+        up, dn = list(orbit), list(orbit)
+        up[i] += eps
+        dn[i] -= eps
+        jru, _, jzu = (float(x[0]) for x in aAS(*[numpy.array([c]) for c in up]))
+        jrd, _, jzd = (float(x[0]) for x in aAS(*[numpy.array([c]) for c in dn]))
+        gjr.append((jru - jrd) / (2 * eps))
+        gjz.append((jzu - jzd) / (2 * eps))
+    return gjr, gjz
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_c_useu0_grad_finite(backend):
+    # useu0=True routes the C-native gradient through the calcu0 reference-u0
+    # branch (_staeckel_c_backend_refu0's compute path). NB: the computed
+    # reference u0=u0(E(x)) is held FIXED under AD (du0/dx=0), so this gradient
+    # OMITS the dJ/du0*du0/dx term and is only a first-order approximation for
+    # this niche numerical-stability option (it is ~20% off an FD that lets u0
+    # vary; the DEFAULT c=True path -- reference = ux -- is exact, 1.2e-12 vs the
+    # donor). Assert the grad is finite and same-order as FD, not exact.
+    coords = _ORBITS["generic"]
+    aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True, useu0=True)
+    fjr, _ = _fd_grad_aAS(aAS, coords)
+    if backend == "jax":
+        args = [jnp.asarray([x]) for x in coords]
+        gjr = jax.grad(lambda *a: jnp.sum(aAS(*a)[0]), argnums=(0, 1, 2, 3, 4))(*args)
+        gjr = [float(g[0]) for g in gjr]
+    else:
+        args = [torch.tensor([x], requires_grad=True) for x in coords]
+        gjr = [float(g[0]) for g in torch.autograd.grad(aAS(*args)[0].sum(), args)]
+    assert numpy.all(numpy.isfinite(gjr))
+    numpy.testing.assert_allclose(gjr, fjr, rtol=0.3, atol=1e-3)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_c_u0kwarg_grad(backend):
+    # an explicit u0= kwarg routes through the fixed-u0 branch of
+    # _staeckel_c_backend_refu0 (du0/dx=0); the grad is still finite + close to FD.
+    coords = _ORBITS["generic"]
+    aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True)
+    u0 = 0.8
+    fjr, _ = _fd_grad_aAS(lambda *a: aAS(*a, u0=u0), coords)
+    if backend == "jax":
+        djr = float(
+            jax.grad(
+                lambda R: jnp.sum(
+                    aAS(R, *[jnp.asarray([x]) for x in coords[1:]], u0=u0)[0]
+                )
+            )(jnp.asarray([coords[0]]))[0]
+        )
+    else:
+        args = [torch.tensor([x], requires_grad=True) for x in coords]
+        aAS(*args, u0=u0)[0].sum().backward()
+        djr = float(args[0].grad[0])
+    numpy.testing.assert_allclose(djr, fjr[0], rtol=2e-3, atol=2e-6)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_c_freqs_circular_substitution(backend):
+    # a near-circular orbit (jr,jz -> 0) makes the C freqs NaN -> the host
+    # epifreq/omegac/verticalfreq substitution (_staeckel_c_freq_circ_fix) runs.
+    circ = (1.0, 0.0, 1.0, 0.0, 0.0)  # vR=vz=z=0, vT~vc -> jr,jz ~ 0
+    aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True)
+    ref = aAS.actionsFreqs(*[numpy.array([x]) for x in circ])
+    arr = jnp.asarray if backend == "jax" else (lambda v: torch.tensor(v))
+    got = aAS.actionsFreqs(*[arr([x]) for x in circ])
+    for i in (3, 4, 5):  # Or, Op, Oz
+        g = (
+            got[i].detach().cpu().numpy()
+            if backend == "torch"
+            else numpy.asarray(got[i])
+        )
+        assert numpy.all(numpy.isfinite(g))
+        numpy.testing.assert_allclose(g, numpy.asarray(ref[i]), rtol=1e-6, atol=1e-8)
