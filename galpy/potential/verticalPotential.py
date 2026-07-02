@@ -1,7 +1,6 @@
 import numpy
 
 from ..backend import get_namespace, is_backend_array
-from ..backend._namespaces import under_jax_trace
 from ..util import conversion
 from ._repr_utils import _build_physical_output_string, _strip_physical_output_info
 from .DissipativeForce import _isDissipative
@@ -174,9 +173,11 @@ class _BatchedVerticalPotential(verticalPotential):
         # _Pot/_phi/amp/unit bookkeeping, then overwrite _R with the batch array
         # (_midplanePot from the parent is unused here; _evaluate recomputes it).
         xp = get_namespace(R)
-        if under_jax_trace(R):
-            # a traced R has no concrete value; the parent scalar only feeds the
-            # (unused) _midplanePot, so any representative works.
+        if is_backend_array(R):
+            # the parent scalar R0 only feeds the (unused) _midplanePot, so any
+            # representative works; avoid float() on a backend array (raises on a
+            # jax tracer, warns + host-syncs a grad torch tensor). numpy path
+            # keeps the true R0 (byte-identical stored attribute).
             R0 = 1.0
         else:
             R0 = float(xp.reshape(R, (-1,))[0]) if hasattr(R, "shape") else float(R)

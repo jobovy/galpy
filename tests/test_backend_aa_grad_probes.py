@@ -22,11 +22,7 @@ import pytest
 
 pytestmark = [
     pytest.mark.backend_managed,
-    # torch: float(requires_grad tensor) in _BatchedVerticalPotential and
-    # array_api_compat's asarray-requires-grad notice are expected here.
-    pytest.mark.filterwarnings(
-        "ignore:Converting a tensor with requires_grad=True to a scalar"
-    ),
+    # array_api_compat's asarray-requires-grad notice (torch tensor construction).
     pytest.mark.filterwarnings("ignore:torch.asarray. unspecified requires_grad"),
 ]
 
