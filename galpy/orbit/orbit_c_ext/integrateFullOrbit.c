@@ -485,7 +485,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phi2deriv= &SCFPotentialphi2deriv;
       potentialArgs->Rphideriv= &SCFPotentialRphideriv;
       potentialArgs->zphideriv= &SCFPotentialzphideriv;
-      potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 10);
+      // Layout header: a, isNonAxi, N, L, M, Nt (6 doubles), then either the
+      // static coefficient arrays (Nt==0) or tgrid + time-PPoly blocks (Nt>0),
+      // then 11 cache slots (type + 4 coords[R,Z,phi,t] + 6 values).
+      potentialArgs->nargs= (int) ( *(*pot_args+5) == 0
+        ? 6 + (1 + *(*pot_args+1)) * *(*pot_args+2) * *(*pot_args+3) * *(*pot_args+4) + 11
+        : 6 + *(*pot_args+5) + (1 + *(*pot_args+1)) * *(*pot_args+2) * *(*pot_args+3) * *(*pot_args+4) * 4 * ( *(*pot_args+5) - 1 ) + 11 );
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;

@@ -1,7 +1,15 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
-- Nothing yet!
+- Added time-dependent support to ``SCFPotential``: each expansion coefficient
+  ``Acos`` and ``Asin`` can now be a function of time. Pass a ``tgrid`` together
+  with ``Acos``/``Asin`` given either as callables ``f(t)`` returning the
+  coefficient array or as precomputed ``(Nt,N,L,M)`` arrays sampled on ``tgrid``;
+  the coefficients are interpolated in time with a cubic spline, with fast
+  evaluation of the potential, forces, second derivatives, and density in both
+  Python and C. ``SCFPotential.from_density`` likewise gained a ``tgrid`` keyword
+  and builds a time-dependent potential from a density that depends on time
+  (analogous to the time-dependent ``MultipoleExpansionPotential``).
 
 v1.12.0 (2026-07-01)
 ====================
