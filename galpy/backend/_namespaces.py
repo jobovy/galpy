@@ -72,6 +72,46 @@ def under_jax_trace(*xs):
     return any(isinstance(x, jax.core.Tracer) for x in xs)
 
 
+def under_torch_grad(*xs):
+    """True iff torch is imported, grad is enabled, and some input is a grad tensor."""
+    import sys
+
+    if "torch" not in sys.modules:
+        return False
+    import torch
+
+    return torch.is_grad_enabled() and any(
+        isinstance(x, torch.Tensor) and x.requires_grad for x in xs
+    )
+
+
+def stop_gradient(x):
+    """Backend stop-gradient: identity (numpy), ``jax.lax.stop_gradient`` / ``.detach``."""
+    import sys
+
+    if "jax" in sys.modules:
+        import jax
+
+        if isinstance(x, jax.Array):
+            return jax.lax.stop_gradient(x)
+    if "torch" in sys.modules:
+        import torch
+
+        if isinstance(x, torch.Tensor):
+            return x.detach()
+    return x
+
+
+def graft_gradient(value, donor):
+    """Forward value of ``value`` with the first derivative of ``donor``.
+
+    The ``bisect_root`` stop-gradient reparameterisation:
+    ``sg(value) + donor - sg(donor)`` equals ``value`` exactly (the donor terms
+    cancel in floating point) while AD sees only ``donor``. First-order only.
+    """
+    return stop_gradient(value) + donor - stop_gradient(donor)
+
+
 def _is_floating_dtype(dtype):
     """True for real floating-point dtypes of any backend.
 
