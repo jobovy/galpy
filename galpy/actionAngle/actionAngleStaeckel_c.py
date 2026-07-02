@@ -146,6 +146,146 @@ def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
     return (jr, jz, err.value)
 
 
+def actionAngleStaeckel_actionsJac_c(
+    pot, delta, R, vR, vT, z, vz, u0=None, order=10, useu0=False
+):
+    """
+    Use C to calculate Staeckel actions AND the full 2x5 Jacobian
+    d(jr,jz)/d(R,vR,vT,z,vz) per object, assembled natively in C.
+
+    Parameters
+    ----------
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential.
+    delta : float
+        Focal length of prolate spheroidal coordinates.
+    R, vR, vT, z, vz : numpy.ndarray
+        Phase-space coordinates.
+    u0 : numpy.ndarray, optional
+        If set, u0 to use; else u0=ux (mode 0, du0/dx=dux/dx).
+    order : int, optional
+        Order of Gauss-Legendre integration of the relevant integrals.
+    useu0 : bool, optional
+        Only meaningful when u0 is given: if True, the passed u0 is a
+        calcu0(E,Lz) reference that depends on the coordinates (mode 2, the
+        exact useu0=True Jacobian adds dJ/du0*du0/dx); if False, u0 is a fixed
+        user kwarg (mode 1, du0/dx=0).
+
+    Returns
+    -------
+    tuple
+        (jr,jz,jac,err) where jr,jz are shape (len(R),), jac is shape
+        (len(R),2,5) with jac[:,0]=d(jr)/d(R,vR,vT,z,vz), jac[:,1]=d(jz)/d(...),
+        and err is non-zero if an error occurred.
+    """
+    refu0mode = 0 if u0 is None else (2 if useu0 else 1)
+    if u0 is None:
+        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+    # Parse the potential
+    from ..orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, potforactions=True)
+    pot_tfuncs = _prep_tfuncs(pot_tfuncs)
+
+    # Parse delta
+    delta = numpy.atleast_1d(delta)
+    ndelta = len(delta)
+
+    # Set up result arrays
+    jr = numpy.empty(len(R))
+    jz = numpy.empty(len(R))
+    jac = numpy.empty(len(R) * 10)
+    err = ctypes.c_int(0)
+
+    # Set up the C code
+    ndarrayFlags = ("C_CONTIGUOUS", "WRITEABLE")
+    actionAngleStaeckel_actionsFunc = _lib.actionAngleStaeckel_actionsJac
+    actionAngleStaeckel_actionsFunc.argtypes = [
+        ctypes.c_int,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
+        ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
+        ctypes.c_int,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.POINTER(ctypes.c_int),
+    ]
+
+    # Array requirements, first store old order
+    f_cont = [
+        R.flags["F_CONTIGUOUS"],
+        vR.flags["F_CONTIGUOUS"],
+        vT.flags["F_CONTIGUOUS"],
+        z.flags["F_CONTIGUOUS"],
+        vz.flags["F_CONTIGUOUS"],
+        u0.flags["F_CONTIGUOUS"],
+        delta.flags["F_CONTIGUOUS"],
+    ]
+    R = numpy.require(R, dtype=numpy.float64, requirements=["C", "W"])
+    vR = numpy.require(vR, dtype=numpy.float64, requirements=["C", "W"])
+    vT = numpy.require(vT, dtype=numpy.float64, requirements=["C", "W"])
+    z = numpy.require(z, dtype=numpy.float64, requirements=["C", "W"])
+    vz = numpy.require(vz, dtype=numpy.float64, requirements=["C", "W"])
+    u0 = numpy.require(u0, dtype=numpy.float64, requirements=["C", "W"])
+    delta = numpy.require(delta, dtype=numpy.float64, requirements=["C", "W"])
+    jr = numpy.require(jr, dtype=numpy.float64, requirements=["C", "W"])
+    jz = numpy.require(jz, dtype=numpy.float64, requirements=["C", "W"])
+    jac = numpy.require(jac, dtype=numpy.float64, requirements=["C", "W"])
+
+    # Run the C code
+    actionAngleStaeckel_actionsFunc(
+        len(R),
+        R,
+        vR,
+        vT,
+        z,
+        vz,
+        u0,
+        ctypes.c_int(npot),
+        pot_type,
+        pot_args,
+        pot_tfuncs,
+        ctypes.c_int(ndelta),
+        delta,
+        ctypes.c_int(order),
+        ctypes.c_int(refu0mode),
+        jr,
+        jz,
+        jac,
+        ctypes.byref(err),
+    )
+
+    # Reset input arrays
+    if f_cont[0]:
+        R = numpy.asfortranarray(R)
+    if f_cont[1]:
+        vR = numpy.asfortranarray(vR)
+    if f_cont[2]:
+        vT = numpy.asfortranarray(vT)
+    if f_cont[3]:
+        z = numpy.asfortranarray(z)
+    if f_cont[4]:
+        vz = numpy.asfortranarray(vz)
+    if f_cont[5]:
+        u0 = numpy.asfortranarray(u0)
+    if f_cont[6]:
+        delta = numpy.asfortranarray(delta)
+
+    return (jr, jz, jac.reshape((len(R), 2, 5)), err.value)
+
+
 def actionAngleStaeckel_calcu0(E, Lz, pot, delta):
     """
     Use C to calculate u0 in the Staeckel approximation
