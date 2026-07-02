@@ -218,6 +218,24 @@ def test_adiabatic_action_grad_dR_jax(backend):
     numpy.testing.assert_allclose([djr, djz], [fd_jr[0], fd_jz[0]], rtol=1e-3)
 
 
+def test_batched_vertical_potential_numpy_R0_branch():
+    # covers the numpy branch of _BatchedVerticalPotential.__init__ (R0=float(R),
+    # taken for a non-backend-array R -- the forced-numpy all-backend path); the
+    # backend-array branch (R0=1.0) is covered by the adiabatic grad tests above.
+    from galpy.potential import MiyamotoNagaiPotential, evaluatePotentials
+    from galpy.potential.verticalPotential import _BatchedVerticalPotential
+
+    mn = MiyamotoNagaiPotential(normalize=1.0, a=0.5, b=0.05)
+    R, z = numpy.array([0.8, 1.0, 1.3]), numpy.array([0.1, 0.15, 0.05])
+    got = _BatchedVerticalPotential(mn, R)(z)
+    want = [
+        evaluatePotentials(mn, R[i], z[i], use_physical=False)
+        - evaluatePotentials(mn, R[i], 0.0, use_physical=False)
+        for i in range(3)
+    ]
+    numpy.testing.assert_allclose(got, want, rtol=1e-12)
+
+
 # ---------------------------------------------------------- Phase-2 xfail flags
 def _np_staeckel_Or(*coords):
     out = _staeckel_actions_freqs(
