@@ -398,3 +398,50 @@ def test_staeckel_c_freqs_circular_substitution(backend):
         )
         assert numpy.all(numpy.isfinite(g))
         numpy.testing.assert_allclose(g, numpy.asarray(ref[i]), rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_c_useu0_planar_grad_finite(backend):
+    # a planar orbit (z=vz=0 -> jz=0) exercises the C Jacobian's degenerate
+    # dJz/du0=0 guard on the useu0 path; grad must stay finite (jz and its grad
+    # are ~0).
+    planar = (1.0, 0.2, 1.1, 0.0, 0.0)
+    aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True, useu0=True)
+    if backend == "jax":
+        args = [jnp.asarray([x]) for x in planar]
+        gjr = jax.grad(lambda *a: jnp.sum(aAS(*a)[0]), argnums=(0, 1, 2, 3, 4))(*args)
+        gjz = jax.grad(lambda *a: jnp.sum(aAS(*a)[2]), argnums=(0, 1, 2, 3, 4))(*args)
+        gjr, gjz = [float(g[0]) for g in gjr], [float(g[0]) for g in gjz]
+    else:
+        args = [torch.tensor([x], requires_grad=True) for x in planar]
+        out = aAS(*args)
+        gjr = [
+            float(g[0])
+            for g in torch.autograd.grad(out[0].sum(), args, retain_graph=True)
+        ]
+        gjz = [float(g[0]) for g in torch.autograd.grad(out[2].sum(), args)]
+    assert numpy.all(numpy.isfinite(gjr)) and numpy.all(numpy.isfinite(gjz))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_c_useu0_unbound_grad_finite(backend):
+    # a vertically-unbound orbit (large vz) makes the Jz/Jr turning-point
+    # bracketing fail, so C returns the 9999.99 sentinel action; the Jacobian's
+    # vmin/umin==-9999.99 sentinel guards zero out those derivative rows. Grad
+    # must stay finite rather than differentiating through the sentinel.
+    unbound = (1.0, 0.1, 1.1, 0.2, 1.5)
+    aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True, useu0=True)
+    if backend == "jax":
+        args = [jnp.asarray([x]) for x in unbound]
+        gjr = jax.grad(lambda *a: jnp.sum(aAS(*a)[0]), argnums=(0, 1, 2, 3, 4))(*args)
+        gjz = jax.grad(lambda *a: jnp.sum(aAS(*a)[2]), argnums=(0, 1, 2, 3, 4))(*args)
+        gjr, gjz = [float(g[0]) for g in gjr], [float(g[0]) for g in gjz]
+    else:
+        args = [torch.tensor([x], requires_grad=True) for x in unbound]
+        out = aAS(*args)
+        gjr = [
+            float(g[0])
+            for g in torch.autograd.grad(out[0].sum(), args, retain_graph=True)
+        ]
+        gjz = [float(g[0]) for g in torch.autograd.grad(out[2].sum(), args)]
+    assert numpy.all(numpy.isfinite(gjr)) and numpy.all(numpy.isfinite(gjz))
