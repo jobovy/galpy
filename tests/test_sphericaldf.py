@@ -13,6 +13,7 @@ import pytest
 from scipy import integrate, special
 
 from galpy import potential
+from galpy.backend import as_numpy
 from galpy.df import (
     constantbetadf,
     constantbetaHernquistdf,
@@ -3440,9 +3441,12 @@ def test_constantbeta_powerlaw_beta0_equals_isotropic():
     dfiso = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
     dfcb = constantbetaPowerLawdf(pot=pot, beta=0.0, rmax=100.0, rmin=1e-4)
     Es = numpy.linspace(-10.0, -0.1, 21)
-    assert numpy.all(numpy.fabs(dfiso.fE(Es) / dfcb.fE(Es) - 1.0) < 1e-10), (
-        "constantbetaPowerLawdf with beta=0 does not match isotropicPowerLawdf"
-    )
+    # as_numpy: under a forced backend the migrated fE returns a backend array;
+    # pull to numpy so numpy.all/fabs work (the values match; it's a numpy.all
+    # interop crash otherwise).
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfiso.fE(Es)) / as_numpy(dfcb.fE(Es)) - 1.0) < 1e-10
+    ), "constantbetaPowerLawdf with beta=0 does not match isotropicPowerLawdf"
 
 
 def test_constantbeta_powerlaw_nonself_dens_directint():

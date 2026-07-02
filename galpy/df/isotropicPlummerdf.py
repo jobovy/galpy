@@ -1,6 +1,7 @@
 # Class that implements isotropic spherical Plummer DF
 import numpy
 
+from ..backend import resolve_namespace
 from ..potential import PlummerPotential
 from ..util import conversion
 from .sphericaldf import isotropicsphericaldf
@@ -62,13 +63,27 @@ class isotropicPlummerdf(isotropicsphericaldf):
         - 2020-10-01 - Written - Bovy (UofT)
 
         """
-        Etilde = -conversion.parse_energy(E, vo=self._vo)
-        out = numpy.zeros_like(Etilde)
-        indx = (Etilde > 0) * (Etilde <= self._Etildemax)
-        out[indx] = self._fEnorm * (Etilde[indx]) ** 3.5
-        return out
+        Ei = conversion.parse_energy(E, vo=self._vo)
+        # resolve on _Etildemax too so backend-built potential params keep grads
+        xp = resolve_namespace(Ei, self._Etildemax)
+        if xp is numpy:
+            Etilde = -Ei
+            out = numpy.zeros_like(Etilde)
+            indx = (Etilde > 0) * (Etilde <= self._Etildemax)
+            out[indx] = self._fEnorm * (Etilde[indx]) ** 3.5
+            return out
+        # jax/torch: functional dead-mask (negative base -> NaN power under AD)
+        Etilde = -xp.asarray(Ei) * 1.0
+        dead = (Etilde <= 0) | (Etilde > self._Etildemax)
+        Esafe = xp.where(dead, 0.5 * self._Etildemax, Etilde)
+        out = self._fEnorm * Esafe**3.5
+        return xp.where(dead, xp.zeros_like(out), out)
 
     def _icmf(self, ms):
         """Analytic expression for the normalized inverse cumulative mass
         function. The argument ms is normalized mass fraction [0,1]"""
-        return self._pot._b / numpy.sqrt(ms ** (-2.0 / 3.0) - 1.0)
+        xp = resolve_namespace(ms)
+        if xp is numpy:
+            return self._pot._b / numpy.sqrt(ms ** (-2.0 / 3.0) - 1.0)
+        msb = xp.asarray(ms) * 1.0  # coerce: torch rejects numpy scalars
+        return self._pot._b / xp.sqrt(msb ** (-2.0 / 3.0) - 1.0)
