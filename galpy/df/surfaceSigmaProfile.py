@@ -11,6 +11,8 @@
 ###############################################################################
 import numpy
 
+from ..backend import get_namespace, is_backend_array
+
 
 class surfaceSigmaProfile:
     """Class that contains the surface density and sigma_R^2 profile"""
@@ -147,7 +149,8 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -R / self._params[0]
         else:
-            return numpy.exp(-R / self._params[0])
+            xp = get_namespace(R) if is_backend_array(R) else numpy
+            return xp.exp(-R / self._params[0])
 
     def surfacemassDerivative(self, R, log=False):
         """
@@ -172,7 +175,8 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -1.0 / self._params[0]
         else:
-            return -numpy.exp(-R / self._params[0]) / self._params[0]
+            xp = get_namespace(R) if is_backend_array(R) else numpy
+            return -xp.exp(-R / self._params[0]) / self._params[0]
 
     def sigma2(self, R, log=False):
         """
@@ -197,9 +201,8 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return 2.0 * numpy.log(self._params[2]) - 2.0 * (R - 1.0) / self._params[1]
         else:
-            return self._params[2] ** 2.0 * numpy.exp(
-                -2.0 * (R - 1.0) / self._params[1]
-            )
+            xp = get_namespace(R) if is_backend_array(R) else numpy
+            return self._params[2] ** 2.0 * xp.exp(-2.0 * (R - 1.0) / self._params[1])
 
     def sigma2Derivative(self, R, log=False):
         """
@@ -225,8 +228,9 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -2.0 / self._params[1]
         else:
+            xp = get_namespace(R) if is_backend_array(R) else numpy
             return (
                 self._params[2] ** 2.0
-                * numpy.exp(-2.0 * (R - 1.0) / self._params[1])
+                * xp.exp(-2.0 * (R - 1.0) / self._params[1])
                 * (-2.0 / self._params[1])
             )
