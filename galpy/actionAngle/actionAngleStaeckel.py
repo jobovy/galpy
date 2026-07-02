@@ -325,6 +325,189 @@ def _staeckel_actions(xp, R, vR, vT, z, vz, pot, delta, order):
     return jr, s["Lz"], jz
 
 
+# ------------------------------------------------- c=True backend round-trip
+# jax/torch inputs on the c=True path: the forward VALUE comes from the
+# compiled C wrapper (eager detach->numpy->C->backend round-trip; under a jax
+# trace a jax.pure_callback so the user's jit/grad stays traceable) and, under
+# AD, the ACTIONS' gradient is grafted from the in-backend t^2-substituted
+# donor quadrature (same donor as _staeckel_jr_jz's c=False graft). Lz = R*vT
+# is computed in-backend (trivially differentiable). Frequency/angle values
+# pass through UNGRAFTED (their gradients are second-order objects; Phase 2).
+
+
+def _backend_to_numpy(x):
+    """Backend array -> numpy for the C wrapper (detach + off-device)."""
+    x = stop_gradient(x)
+    if hasattr(x, "cpu"):  # torch: move off-device first
+        x = x.cpu()
+    return numpy.asarray(x)
+
+
+def _staeckel_c_value(xp, host, coords, nout):
+    """Forward `nout` (N,)-shaped outputs of a numpy-in/numpy-out C `host` for
+    backend coordinate arrays, anchored on the inputs' device/dtype."""
+    if under_jax_trace(*coords):
+        from ..backend._jax.staeckel_c import c_value as _jax_c_value
+
+        return _jax_c_value(host, coords, nout)
+    out = host(*(_backend_to_numpy(x) for x in coords))
+    dev, dt = device_of(coords[0]), coords[0].dtype
+    return tuple(asarray_on_device(xp, o, dev, dtype=dt) for o in out)
+
+
+def _staeckel_c_host_u0(pot, delta_np, useu0, u0_np, R, vR, vT, z, vz):
+    """u0 for the C wrapper, inside the numpy host (mirrors the numpy c=True
+    useu0 branches: a passed-in u0 wins, else calcu0 from E and Lz)."""
+    if not useu0:
+        return None
+    if u0_np is not None:
+        return u0_np
+    E = numpy.array(
+        [
+            _evaluatePotentials(pot, R[ii], z[ii])
+            + vR[ii] ** 2.0 / 2.0
+            + vz[ii] ** 2.0 / 2.0
+            + vT[ii] ** 2.0 / 2.0
+            for ii in range(len(R))
+        ]
+    )
+    return actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E, R * vT, pot, delta_np)[0]
+
+
+def _staeckel_c_circular_freqs(pot, R, jr, jz, Omegar, Omegaphi, Omegaz):
+    """In-place close-to-circular/planar NaN-frequency substitution on the
+    numpy host side (mirrors the numpy c=True branches)."""
+    indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
+        jz < 10.0**-3.0
+    )
+    if numpy.sum(indx) > 0:
+        Omegar[indx] = [epifreq(pot, r, use_physical=False) for r in R[indx]]
+        Omegaphi[indx] = [omegac(pot, r, use_physical=False) for r in R[indx]]
+        Omegaz[indx] = [verticalfreq(pot, r, use_physical=False) for r in R[indx]]
+
+
+def _staeckel_t2_actions_donor(xp, R, vR, vT, z, vz, pot, delta, order):
+    """In-backend donor (jr, jz): _staeckel_prep + the t^2-substituted action
+    quadratures with the same integrand args and prefactors as the graft block
+    of _staeckel_jr_jz (only the donor's GRADIENT is used, via graft_gradient;
+    the degenerate-orbit snap zeroes the gradient as on the c=False path)."""
+    s, umin, umax, vmin, delta = _staeckel_prep(xp, R, vR, vT, z, vz, pot, delta)
+    sqrt2 = numpy.sqrt(2.0)
+    jr_args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
+               s["v0u"], s["sin2v0u"], s["potu0v0"], pot)  # fmt: skip
+    jr = (
+        _staeckel_t2_action(xp, _JRStaeckelIntegrandSquared, jr_args, umin, umax, order)
+        * sqrt2
+        * delta
+        / numpy.pi
+    )
+    jz_args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
+               s["sinh2u0v"], s["potupi2"], pot)  # fmt: skip
+    pi2 = numpy.pi / 2.0 * xp.ones_like(vmin)
+    jz = (
+        _staeckel_t2_action(xp, _JzStaeckelIntegrandSquared, jz_args, vmin, pi2, order)
+        * 2.0
+        * sqrt2
+        * delta
+        / numpy.pi
+    )
+    jr = xp.where((umax - umin) / umax < 1e-6, xp.zeros_like(jr), jr)
+    jz = xp.where((numpy.pi / 2.0 - vmin) < 1e-7, xp.zeros_like(jz), jz)
+    return jr, jz
+
+
+def _staeckel_c_graft_actions(xp, jr, jz, R, vR, vT, z, vz, pot, delta, order):
+    """Under AD (jax trace / torch grad), graft the t^2 donor's gradient onto
+    the C action values; plain forwards pay no donor cost."""
+    if not (under_jax_trace(R, vR, vT, z, vz) or under_torch_grad(R, vR, vT, z, vz)):
+        return jr, jz
+    djr, djz = _staeckel_t2_actions_donor(xp, R, vR, vT, z, vz, pot, delta, order)
+    return graft_gradient(jr, djr), graft_gradient(jz, djz)
+
+
+def _staeckel_actions_c_backend(
+    xp, R, vR, vT, z, vz, pot, delta, order, useu0=False, u0=None
+):
+    """c=True (jr, Lz, jz) for backend inputs."""
+    delta_np = _backend_to_numpy(delta) if is_backend_array(delta) else delta
+    u0_np = None if u0 is None else _backend_to_numpy(u0)
+
+    def _host(R, vR, vT, z, vz):
+        u0h = _staeckel_c_host_u0(pot, delta_np, useu0, u0_np, R, vR, vT, z, vz)
+        jr, jz, err = actionAngleStaeckel_c.actionAngleStaeckel_c(
+            pot, delta_np, R, vR, vT, z, vz, u0=u0h, order=order
+        )
+        if err != 0:  # pragma: no cover
+            raise RuntimeError(
+                "C-code for calculation actions failed; try with c=False"
+            )
+        return jr, jz
+
+    jr, jz = _staeckel_c_value(xp, _host, (R, vR, vT, z, vz), 2)
+    jr, jz = _staeckel_c_graft_actions(
+        xp, jr, jz, R, vR, vT, z, vz, pot, _coerce_delta_arraylike(delta), order
+    )
+    return jr, R * vT, jz
+
+
+def _staeckel_actions_freqs_c_backend(
+    xp, R, vR, vT, z, vz, pot, delta, order, useu0=False, u0=None
+):
+    """c=True (jr, Lz, jz, Omegar, Omegaphi, Omegaz) for backend inputs."""
+    delta_np = _backend_to_numpy(delta) if is_backend_array(delta) else delta
+    u0_np = None if u0 is None else _backend_to_numpy(u0)
+
+    def _host(R, vR, vT, z, vz):
+        u0h = _staeckel_c_host_u0(pot, delta_np, useu0, u0_np, R, vR, vT, z, vz)
+        jr, jz, Omegar, Omegaphi, Omegaz, err = (
+            actionAngleStaeckel_c.actionAngleFreqStaeckel_c(
+                pot, delta_np, R, vR, vT, z, vz, u0=u0h, order=order
+            )
+        )
+        _staeckel_c_circular_freqs(pot, R, jr, jz, Omegar, Omegaphi, Omegaz)
+        if err != 0:  # pragma: no cover
+            raise RuntimeError(
+                "C-code for calculation actions failed; try with c=False"
+            )
+        return jr, jz, Omegar, Omegaphi, Omegaz
+
+    jr, jz, Omegar, Omegaphi, Omegaz = _staeckel_c_value(
+        xp, _host, (R, vR, vT, z, vz), 5
+    )
+    jr, jz = _staeckel_c_graft_actions(
+        xp, jr, jz, R, vR, vT, z, vz, pot, _coerce_delta_arraylike(delta), order
+    )
+    return jr, R * vT, jz, Omegar, Omegaphi, Omegaz
+
+
+def _staeckel_actions_freqs_angles_c_backend(
+    xp, R, vR, vT, z, vz, phi, pot, delta, order, useu0=False, u0=None
+):
+    """c=True (jr, Lz, jz, Omegas, angles) for backend inputs."""
+    delta_np = _backend_to_numpy(delta) if is_backend_array(delta) else delta
+    u0_np = None if u0 is None else _backend_to_numpy(u0)
+
+    def _host(R, vR, vT, z, vz, phi):
+        u0h = _staeckel_c_host_u0(pot, delta_np, useu0, u0_np, R, vR, vT, z, vz)
+        jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez, err = (
+            actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
+                pot, delta_np, R, vR, vT, z, vz, phi, u0=u0h, order=order
+            )
+        )
+        _staeckel_c_circular_freqs(pot, R, jr, jz, Omegar, Omegaphi, Omegaz)
+        if err != 0:  # pragma: no cover
+            raise RuntimeError(
+                "C-code for calculation actions failed; try with c=False"
+            )
+        return jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez
+
+    out = _staeckel_c_value(xp, _host, (R, vR, vT, z, vz, phi), 8)
+    jr, jz = _staeckel_c_graft_actions(
+        xp, out[0], out[1], R, vR, vT, z, vz, pot, _coerce_delta_arraylike(delta), order
+    )
+    return (jr, R * vT, jz) + tuple(out[2:])
+
+
 # --------------------------------------------------------------- frequencies
 # The frequency derivative integrals dJ/d(E,Lz,I3) need the t^2-substitution
 # (their integrands are (factor)/sqrt(S), SINGULAR at the turning points, unlike
@@ -705,6 +888,15 @@ class actionAngleStaeckel(actionAngle):
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot):
+            if any(is_backend_array(x) for x in (R, vR, vT, z, vz)):
+                # jax/torch inputs: forward VALUE from C, ACTION gradient (under
+                # AD) grafted from the in-backend t^2 donor. numpy is untouched.
+                xp = get_namespace(R, vR, vT, z, vz)
+                R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+                return _staeckel_actions_c_backend(
+                    xp, R, vR, vT, z, vz, self._pot, delta, order,
+                    useu0=self._useu0, u0=kwargs.pop("u0", None),
+                )  # fmt: skip
             Lz = R * vT
             if self._useu0:
                 # First calculate u0
@@ -817,6 +1009,15 @@ class actionAngleStaeckel(actionAngle):
                 vT = numpy.array([vT])
                 z = numpy.array([z])
                 vz = numpy.array([vz])
+            if any(is_backend_array(x) for x in (R, vR, vT, z, vz)):
+                # jax/torch inputs: VALUES from C; ACTION gradients grafted under
+                # AD; frequency values pass through UNGRAFTED (Phase 2).
+                xp = get_namespace(R, vR, vT, z, vz)
+                R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+                return _staeckel_actions_freqs_c_backend(
+                    xp, R, vR, vT, z, vz, self._pot, delta, order,
+                    useu0=self._useu0, u0=kwargs.pop("u0", None),
+                )  # fmt: skip
             Lz = R * vT
             if self._useu0:
                 # First calculate u0
@@ -972,6 +1173,15 @@ class actionAngleStaeckel(actionAngle):
                 z = numpy.array([z])
                 vz = numpy.array([vz])
                 phi = numpy.array([phi])
+            if any(is_backend_array(x) for x in (R, vR, vT, z, vz, phi)):
+                # jax/torch inputs: VALUES from C; ACTION gradients grafted under
+                # AD; frequency/angle values pass through UNGRAFTED (Phase 2).
+                xp = get_namespace(R, vR, vT, z, vz, phi)
+                R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
+                return _staeckel_actions_freqs_angles_c_backend(
+                    xp, R, vR, vT, z, vz, phi, self._pot, delta, order,
+                    useu0=self._useu0, u0=kwargs.pop("u0", None),
+                )  # fmt: skip
             Lz = R * vT
             if self._useu0:
                 # First calculate u0
