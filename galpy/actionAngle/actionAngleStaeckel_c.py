@@ -146,7 +146,9 @@ def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
     return (jr, jz, err.value)
 
 
-def actionAngleStaeckel_actionsJac_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
+def actionAngleStaeckel_actionsJac_c(
+    pot, delta, R, vR, vT, z, vz, u0=None, order=10, useu0=False
+):
     """
     Use C to calculate Staeckel actions AND the full 2x5 Jacobian
     d(jr,jz)/d(R,vR,vT,z,vz) per object, assembled natively in C.
@@ -160,9 +162,14 @@ def actionAngleStaeckel_actionsJac_c(pot, delta, R, vR, vT, z, vz, u0=None, orde
     R, vR, vT, z, vz : numpy.ndarray
         Phase-space coordinates.
     u0 : numpy.ndarray, optional
-        If set, u0 to use (user-fixed: du0/dx=0 in the Jacobian); else u0=ux.
+        If set, u0 to use; else u0=ux (mode 0, du0/dx=dux/dx).
     order : int, optional
         Order of Gauss-Legendre integration of the relevant integrals.
+    useu0 : bool, optional
+        Only meaningful when u0 is given: if True, the passed u0 is a
+        calcu0(E,Lz) reference that depends on the coordinates (mode 2, the
+        exact useu0=True Jacobian adds dJ/du0*du0/dx); if False, u0 is a fixed
+        user kwarg (mode 1, du0/dx=0).
 
     Returns
     -------
@@ -171,7 +178,7 @@ def actionAngleStaeckel_actionsJac_c(pot, delta, R, vR, vT, z, vz, u0=None, orde
         (len(R),2,5) with jac[:,0]=d(jr)/d(R,vR,vT,z,vz), jac[:,1]=d(jz)/d(...),
         and err is non-zero if an error occurred.
     """
-    useu0 = 0 if u0 is None else 1
+    refu0mode = 0 if u0 is None else (2 if useu0 else 1)
     if u0 is None:
         u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
     # Parse the potential
@@ -253,7 +260,7 @@ def actionAngleStaeckel_actionsJac_c(pot, delta, R, vR, vT, z, vz, u0=None, orde
         ctypes.c_int(ndelta),
         delta,
         ctypes.c_int(order),
-        ctypes.c_int(useu0),
+        ctypes.c_int(refu0mode),
         jr,
         jz,
         jac,

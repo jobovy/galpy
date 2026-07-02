@@ -325,26 +325,37 @@ def _fd_grad_aAS(aAS, orbit, eps=1e-5):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_staeckel_c_useu0_grad_finite(backend):
+@pytest.mark.parametrize("orbit", list(_ORBITS))
+def test_staeckel_c_useu0_grad_vs_fd(backend, orbit):
     # useu0=True routes the C-native gradient through the calcu0 reference-u0
-    # branch (_staeckel_c_backend_refu0's compute path). NB: the computed
-    # reference u0=u0(E(x)) is held FIXED under AD (du0/dx=0), so this gradient
-    # OMITS the dJ/du0*du0/dx term and is only a first-order approximation for
-    # this niche numerical-stability option (it is ~20% off an FD that lets u0
-    # vary; the DEFAULT c=True path -- reference = ux -- is exact, 1.2e-12 vs the
-    # donor). Assert the grad is finite and same-order as FD, not exact.
-    coords = _ORBITS["generic"]
+    # branch. The computed reference u0=u0(E,Lz) tracks the coordinates, so the
+    # C Jacobian now adds the EXACT dJ/du0*du0/dx term (du0/d(E,Lz) by implicit
+    # differentiation of the u0 stationarity condition df/du=0; f'' via a
+    # forces-only central FD of the stationarity residual). Both d(jr,jz)/dx
+    # then match the numpy useu0 FD gold to the same plain-GL-vs-donor
+    # quadrature floor as the default path: dJr/dx is u0-independent, dJz/dx
+    # carries the full du0 chain. Pre-fix (du0/dx=0) this omitted that term and
+    # was ~20-60% off on several dJz components.
+    coords = _ORBITS[orbit]
     aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True, useu0=True)
-    fjr, _ = _fd_grad_aAS(aAS, coords)
+    fjr, fjz = _fd_grad_aAS(aAS, coords)
     if backend == "jax":
         args = [jnp.asarray([x]) for x in coords]
         gjr = jax.grad(lambda *a: jnp.sum(aAS(*a)[0]), argnums=(0, 1, 2, 3, 4))(*args)
+        gjz = jax.grad(lambda *a: jnp.sum(aAS(*a)[2]), argnums=(0, 1, 2, 3, 4))(*args)
         gjr = [float(g[0]) for g in gjr]
+        gjz = [float(g[0]) for g in gjz]
     else:
         args = [torch.tensor([x], requires_grad=True) for x in coords]
-        gjr = [float(g[0]) for g in torch.autograd.grad(aAS(*args)[0].sum(), args)]
-    assert numpy.all(numpy.isfinite(gjr))
-    numpy.testing.assert_allclose(gjr, fjr, rtol=0.3, atol=1e-3)
+        out = aAS(*args)
+        gjr = [
+            float(g[0])
+            for g in torch.autograd.grad(out[0].sum(), args, retain_graph=True)
+        ]
+        gjz = [float(g[0]) for g in torch.autograd.grad(out[2].sum(), args)]
+    numpy.testing.assert_allclose(gjr, fjr, rtol=2e-3, atol=2e-6)
+    numpy.testing.assert_allclose(gjz, fjz, rtol=2e-3, atol=2e-6)
+    assert numpy.all(numpy.isfinite(gjr)) and numpy.all(numpy.isfinite(gjz))
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

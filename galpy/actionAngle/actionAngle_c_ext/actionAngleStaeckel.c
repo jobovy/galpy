@@ -547,6 +547,18 @@ void actionAngleStaeckel_actions(int ndata,
   free(umax);
   free(vmin);
 }
+// Stationarity residual g(u)= df/du of f(u)= E sinh^2 u - cosh^2 u Phi(u,pi/2)
+// - Lz22delta/sinh^2 u; calcu0's reference u0 solves g=0. Used to get
+// du0/d(E,Lz) by implicit differentiation on the useu0==2 path (forces only,
+// so no R2deriv-in-C requirement; f'' is a well-conditioned central FD of g).
+static inline double staeckelU0Stationarity(double u,double E,double Lz22delta,
+					    double delta,int npot,
+					    struct potentialArg * aaArgs){
+  double s= sinh(u), c= cosh(u);
+  double P= evaluatePotentialsUV(u,0.5*M_PI,delta,npot,aaArgs);
+  double Pp= -calcRforce(delta*s,0.,0.,0.,npot,aaArgs)*delta*c;
+  return 2.*E*s*c - 2.*s*c*P - c*c*Pp + 2.*Lz22delta*c/(s*s*s);
+}
 // actions jr, jz AND the full 2x5 Jacobian d(jr,jz)/d(R,vR,vT,z,vz) per object,
 // assembled IN C: the six t^2-substituted action-derivative integrals
 // dJ/d(E,Lz,I3) + a new dJz/du0 integral, chained through the analytic
@@ -555,7 +567,9 @@ void actionAngleStaeckel_actions(int ndata,
 // (dJr/dx = djrdE dE/dx + djrdLz dLz/dx + djrdI3 dI3Utilde/dx); J_z carries the
 // extra dJz/du0*du0/dx because u0 enters its integrand via potentialStaeckel(u0,v).
 // jac layout: [ii*10 + {0..4}]=dJr/d(R,vR,vT,z,vz), [ii*10 + {5..9}]=dJz/d(...).
-// useu0!=0 -> u0 is user-fixed (du0/dx=0); else u0 tracks ux (du0/dx=dux/dx).
+// useu0 selects the reference-u0 mode: 0 -> u0 tracks ux (du0/dx=dux/dx);
+// 1 -> user-fixed u0 kwarg (du0/dx=0); 2 -> u0=calcu0(E,Lz) reference, so
+// du0/dx = du0/dE dE/dx + du0/dLz dLz/dx (exact useu0=True gradient).
 void actionAngleStaeckel_actionsJac(int ndata,
 				    double *R,
 				    double *vR,
@@ -677,12 +691,29 @@ void actionAngleStaeckel_actionsJac(int ndata,
     double dvx_dR= shx*cvx/(tdelta*D), dvx_dz= -chx*svx/(tdelta*D);
     double dux[5]= {dux_dR,0.,0.,dux_dz,0.};
     double dvx[5]= {dvx_dR,0.,0.,dvx_dz,0.};
-    double du0[5];
-    for (kk=0;kk<5;kk++) du0[kk]= useu0 ? 0. : dux[kk];
     double dE[5]= {-calcRforce(*(R+ii),*(z+ii),0.,0.,npot,actionAngleArgs),
 		   tvR,tvT,
 		   -calczforce(*(R+ii),*(z+ii),0.,0.,npot,actionAngleArgs),tvz};
     double dLz[5]= {tvT,0.,*(R+ii),0.,0.};
+    // du0/dx per reference-u0 mode (see useu0 doc above). Mode 2 chains
+    // du0/d(E,Lz) (implicit diff of the stationarity residual g=df/du=0,
+    // f''=du0 denom via central FD of g) onto the elementary dE,dLz.
+    double du0[5];
+    double du0dE= 0., du0dLz= 0.;
+    if ( useu0 == 2 ){
+      double L2= 0.5*tLz*tLz/(tdelta*tdelta);
+      double hh= 1.e-5;
+      double fpp= ( staeckelU0Stationarity(tu0+hh,tE,L2,tdelta,npot,actionAngleArgs)
+		    -staeckelU0Stationarity(tu0-hh,tE,L2,tdelta,npot,actionAngleArgs) )
+	/ ( 2.*hh );
+      du0dE= -2.*sh0*ch0/fpp;
+      du0dLz= -2.*ch0*tLz/(tdelta*tdelta*sh0*sh0*sh0)/fpp;
+    }
+    for (kk=0;kk<5;kk++){
+      if ( useu0 == 0 ) du0[kk]= dux[kk];
+      else if ( useu0 == 1 ) du0[kk]= 0.;
+      else du0[kk]= du0dE*dE[kk] + du0dLz*dLz[kk];
+    }
     // momentum derivatives
     double dpux_dux= tdelta*(tvR*shx*svx + tvz*chx*cvx);
     double dpux_dvx= tdelta*(tvR*chx*cvx - tvz*shx*svx);

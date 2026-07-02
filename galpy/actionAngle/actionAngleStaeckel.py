@@ -589,14 +589,17 @@ def _staeckel_actions_freqs_angles(xp, R, vR, vT, z, vz, phi, pot, delta, order)
     return jr, s["Lz"], jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez
 
 
-def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order):
+def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=False):
     """Differentiable (jr, jz) via the C-native Staeckel action Jacobian.
 
     For jax/torch inputs, wraps the compiled 2x5 d(jr,jz)/d(R,vR,vT,z,vz) C entry
     (actionAngleStaeckel_actionsJac_c) in the backend custom_vjp / autograd.Function
     (galpy.backend._{jax,torch}.staeckel_c): the forward is the plain round-trip C
     action value; the backward is a matvec of the C-computed Jacobian. numpy inputs
-    never reach here. delta/u0 are fixed references (no gradient). First-order only."""
+    never reach here. delta is a fixed reference (no gradient). u0 is a fixed
+    reference too when a user kwarg (useu0=False); when it is the calcu0(E,Lz)
+    reference (useu0=True) the C Jacobian adds the exact dJ/du0*du0/dx term.
+    First-order only."""
     delta_np = numpy.atleast_1d(
         numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
     )
@@ -606,7 +609,7 @@ def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order):
 
     def host_jac(Rn, vRn, vTn, zn, vzn):
         jr, jz, jac, err = actionAngleStaeckel_c.actionAngleStaeckel_actionsJac_c(
-            pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, order=order
+            pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, order=order, useu0=useu0
         )
         return jr, jz, jac
 
@@ -638,12 +641,15 @@ def _staeckel_c_forward_values(host, coords, nout):
 
 
 def _staeckel_c_backend_refu0(pot, delta, R, vR, vT, z, vz, useu0, u0_kwarg):
-    """Fixed reference u0 (numpy, du0/dx=0) for the C-native backend path: an
-    explicit u0-kwarg or the useu0 calcu0 value; else None (C then uses ux)."""
+    """Reference u0 (numpy) for the C-native backend path, plus a flag marking
+    whether it is the coordinate-dependent calcu0(E,Lz) reference (useu0=True,
+    no kwarg) -> the C Jacobian then adds the exact dJ/du0*du0/dx term. An
+    explicit u0-kwarg is a fixed reference (du0/dx=0); if neither, returns
+    (None, False) and the C uses ux (du0/dx=dux/dx)."""
     if u0_kwarg is not None:
-        return numpy.asarray(stop_gradient(u0_kwarg), dtype=numpy.float64)
+        return numpy.asarray(stop_gradient(u0_kwarg), dtype=numpy.float64), False
     if not useu0:
-        return None
+        return None, False
     Rn, vRn, vTn, zn, vzn = (
         numpy.atleast_1d(numpy.asarray(stop_gradient(c), dtype=numpy.float64))
         for c in (R, vR, vT, z, vz)
@@ -657,7 +663,10 @@ def _staeckel_c_backend_refu0(pot, delta, R, vR, vT, z, vz, useu0, u0_kwarg):
             for ii in range(len(Rn))
         ]
     )
-    return actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E, Rn * vTn, pot, delta)[0]
+    return (
+        actionAngleStaeckel_c.actionAngleStaeckel_calcu0(E, Rn * vTn, pot, delta)[0],
+        True,
+    )
 
 
 def _staeckel_c_freq_circ_fix(pot, Rn, jrn, jzn, Or, Op, Oz):
@@ -794,7 +803,7 @@ class actionAngleStaeckel(actionAngle):
                 xp = get_namespace(R, vR, vT, z, vz)
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
                 Lz = R * vT
-                u0 = _staeckel_c_backend_refu0(
+                u0, refu0_calc = _staeckel_c_backend_refu0(
                     self._pot,
                     delta,
                     R,
@@ -806,7 +815,7 @@ class actionAngleStaeckel(actionAngle):
                     kwargs.pop("u0", None),
                 )
                 jr, jz = _staeckel_c_grad_actions(
-                    self._pot, delta, R, vR, vT, z, vz, u0, order
+                    self._pot, delta, R, vR, vT, z, vz, u0, order, useu0=refu0_calc
                 )
                 return (jr, Lz, jz)
             if self._useu0:
@@ -927,7 +936,7 @@ class actionAngleStaeckel(actionAngle):
                 xp = get_namespace(R, vR, vT, z, vz)
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
                 Lz = R * vT
-                u0 = _staeckel_c_backend_refu0(
+                u0, refu0_calc = _staeckel_c_backend_refu0(
                     self._pot,
                     delta,
                     R,
@@ -939,7 +948,7 @@ class actionAngleStaeckel(actionAngle):
                     kwargs.pop("u0", None),
                 )
                 jr, jz = _staeckel_c_grad_actions(
-                    self._pot, delta, R, vR, vT, z, vz, u0, order
+                    self._pot, delta, R, vR, vT, z, vz, u0, order, useu0=refu0_calc
                 )
                 delta_np = numpy.atleast_1d(
                     numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
@@ -1129,7 +1138,7 @@ class actionAngleStaeckel(actionAngle):
                 xp = get_namespace(R, vR, vT, z, vz)
                 R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
                 Lz = R * vT
-                u0 = _staeckel_c_backend_refu0(
+                u0, refu0_calc = _staeckel_c_backend_refu0(
                     self._pot,
                     delta,
                     R,
@@ -1141,7 +1150,7 @@ class actionAngleStaeckel(actionAngle):
                     kwargs.pop("u0", None),
                 )
                 jr, jz = _staeckel_c_grad_actions(
-                    self._pot, delta, R, vR, vT, z, vz, u0, order
+                    self._pot, delta, R, vR, vT, z, vz, u0, order, useu0=refu0_calc
                 )
                 delta_np = numpy.atleast_1d(
                     numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
