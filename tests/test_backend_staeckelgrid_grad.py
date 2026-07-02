@@ -93,6 +93,40 @@ def _backend_grads(backend, orbit):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckelgrid_grad_between_nodes_resolution_invariant(backend):
+    # Between-grid-points guarantee: at a generic (off-node) query point, two
+    # different grid resolutions give visibly DIFFERENT interpolated values
+    # (proving the point sits between nodes, interpolation error present) but
+    # IDENTICAL grafted gradients matching FD-of-the-direct-action -- the donor
+    # computes the true action at the exact query point and never reads the grid.
+    from galpy.actionAngle import actionAngleStaeckelGrid
+
+    coarse = actionAngleStaeckelGrid(
+        pot=MWPotential2014, delta=_DELTA, nE=11, npsi=11, nLz=12
+    )
+    coords = _ORBITS["generic"]
+    fjr, _ = _fd_direct(coords)
+
+    def val_and_djrdR(grid):
+        if backend == "jax":
+            args = [jnp.asarray([c]) for c in coords]
+            val = float(grid(*args)[0][0])
+            g = jax.grad(lambda R: jnp.sum(grid(R, *args[1:])[0]))(args[0])
+            return val, float(g[0])
+        args = [torch.tensor([c], requires_grad=True) for c in coords]
+        out = grid(*args)[0]
+        (g,) = torch.autograd.grad(out.sum(), (args[0],))
+        return float(out.detach()[0]), float(g[0])
+
+    v_fine, g_fine = val_and_djrdR(_aASG)
+    v_coarse, g_coarse = val_and_djrdR(coarse)
+    assert v_fine > 0.0 and v_coarse > 0.0  # unclamped (interp value positive)
+    assert abs(v_fine - v_coarse) / v_fine > 1e-3  # values differ -> off-node
+    numpy.testing.assert_allclose(g_coarse, g_fine, rtol=1e-12)  # grid-free grad
+    numpy.testing.assert_allclose(g_fine, fjr[0], rtol=2e-3)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("orbit", list(_ORBITS))
 def test_staeckelgrid_action_grad_vs_fd_direct(backend, orbit):
     # d(jr,jz)/d(R,vR,vT,z,vz) via backend AD through the grid vs numpy central
