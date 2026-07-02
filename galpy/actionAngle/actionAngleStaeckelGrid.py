@@ -17,6 +17,7 @@ from .. import potential
 from ..backend import get_namespace
 from ..backend import interpolate as backend_interpolate
 from ..backend import is_backend_array, promote_scalars
+from ..backend._namespaces import graft_gradient, under_jax_trace, under_torch_grad
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -881,9 +882,59 @@ class actionAngleStaeckelGrid(actionAngle):
         jz = (xp.exp(self._jzMap_b(coords_z)) - 10.0**-10.0) * (
             xp.exp(self._jzLzInterp_b(Lz)) - 10.0**-5.0
         )
+        # Backend AD: AD-through-the-spline differentiates the interpolation
+        # error too (~1-2% off the true gradient); graft the t^2-donor gradient
+        # of the TRUE action instead (as _staeckel_jr_jz). Value stays the
+        # interpolated one; no cost off the AD path.
+        if is_backend_array(jr) and (under_jax_trace(jr) or under_torch_grad(jr)):
+            donor_jr, donor_jz = self._backend_action_grad_donor(xp, R, vR, vT, z, vz)
+            jr = graft_gradient(jr, donor_jr)
+            jz = graft_gradient(jz, donor_jz)
         jr = xp.where(jr < 0.0, 0.0, jr)
         jz = xp.where(jz < 0.0, 0.0, jz)
         return (jr, Lz, jz)
+
+    def _backend_action_grad_donor(self, xp, R, vR, vT, z, vz):
+        """Direct (non-grid) t^2-substituted Staeckel actions at the query
+        points -- the AD gradient donor for _evaluate_backend (same args and
+        prefactors as _staeckel_jr_jz, with the grid's pot and delta)."""
+        s, umin, umax, vmin, delta = actionAngleStaeckel._staeckel_prep(
+            xp, R, vR, vT, z, vz, self._pot, self._delta
+        )
+        order = self._aA._order
+        sqrt2 = numpy.sqrt(2.0)
+        jr_args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
+                   s["v0u"], s["sin2v0u"], s["potu0v0"], self._pot)  # fmt: skip
+        donor_jr = (
+            actionAngleStaeckel._staeckel_t2_action(
+                xp,
+                actionAngleStaeckel._JRStaeckelIntegrandSquared,
+                jr_args,
+                umin,
+                umax,
+                order,
+            )
+            * sqrt2
+            * delta
+            / numpy.pi
+        )
+        jz_args = (s["E"], s["Lz"], s["I3V"], delta, s["u0"], s["cosh2u0v"],
+                   s["sinh2u0v"], s["potupi2"], self._pot)  # fmt: skip
+        donor_jz = (
+            actionAngleStaeckel._staeckel_t2_action(
+                xp,
+                actionAngleStaeckel._JzStaeckelIntegrandSquared,
+                jz_args,
+                vmin,
+                numpy.pi / 2.0 * xp.ones_like(vmin),
+                order,
+            )
+            * 2.0
+            * sqrt2
+            * delta
+            / numpy.pi
+        )
+        return donor_jr, donor_jz
 
     def _EccZmaxRperiRap_backend(self, R, vR, vT, z, vz):
         xp = get_namespace(R)

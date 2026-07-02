@@ -1872,9 +1872,10 @@ _GRID_S = (1.1, 0.15, 0.9, 0.12, 0.13)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-@pytest.mark.parametrize(
-    "aa,idx", [("staeckel", 2), ("adiabatic", 2)]
-)  # Jz vs vz through both grids
+# staeckel dropped: its grid gradients are now donor-grafted (true-action
+# gradient, not the interpolant's) -- covered in test_backend_staeckelgrid_grad
+# against FD of the DIRECT action; adiabatic still differentiates the spline.
+@pytest.mark.parametrize("aa,idx", [("adiabatic", 2)])  # Jz vs vz
 def test_grid_jz_grad_vs_fd_wrt_vz(backend, aa, idx):
     # d Jz / d vz at a single on-grid point: AD through the cubic-spline
     # interpolation (map_coordinates for Staeckel, RectBivariate for adiabatic)
