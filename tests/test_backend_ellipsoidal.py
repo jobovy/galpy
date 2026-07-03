@@ -30,6 +30,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import (
     PerfectEllipsoidPotential,
     PowerTriaxialPotential,
@@ -187,12 +188,6 @@ def _asarray(backend_name, x, requires_grad=False):
         return torch.tensor(x, dtype=torch.float64, requires_grad=requires_grad)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 @pytest.mark.parametrize("pot,method", _VALUE_PARAMS)
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity(backend_name, pot, method):
@@ -202,7 +197,7 @@ def test_value_parity(backend_name, pot, method):
             numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS)
         )
     )
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(
             _asarray(backend_name, _RS),
             _asarray(backend_name, _ZS),
@@ -325,7 +320,7 @@ def test_mass_value_parity(backend_name, pot):
     # subclasses; numpy / jax / torch must agree.
     Rs = numpy.asarray([0.5, 1.0, 2.0])
     ref = numpy.asarray(pot.mass(Rs))
-    got = _tonumpy(pot.mass(_asarray(backend_name, [0.5, 1.0, 2.0])))
+    got = as_numpy(pot.mass(_asarray(backend_name, [0.5, 1.0, 2.0])))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
@@ -456,7 +451,7 @@ def test_axisymmetric_all_backend_inputs(backend_name, pot, ndim, method):
             numpy.asarray(R), numpy.asarray(z), phi=numpy.asarray(phi), t=t
         )
     )
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(
             _asarray(backend_name, R),
             _asarray(backend_name, z),
@@ -478,7 +473,7 @@ def test_mixed_backend_Rz_float_phi_t(backend_name, pot, method):
     ref = numpy.asarray(
         getattr(pot, method)(numpy.asarray(_RS), numpy.asarray(_ZS), phi=phi0, t=t0)
     )
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(
             _asarray(backend_name, _RS), _asarray(backend_name, _ZS), phi=phi0, t=t0
         )
