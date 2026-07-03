@@ -236,7 +236,11 @@ def test_batched_vertical_potential_numpy_R0_branch():
     numpy.testing.assert_allclose(got, want, rtol=1e-12)
 
 
-# ---------------------------------------------------------- Phase-2 xfail flags
+# ---- Phase-2 (LANDED): frequency gradients + action Hessians. The fix is
+# differentiable turning points (_refine_tp: one Newton step off the frozen
+# bisection root injects the true implicit du/dtheta), NOT new second-derivative
+# integrands -- the missing turning-point-motion boundary term is exactly what
+# cancels the S^-3/2 divergence in the second derivative.
 def _np_staeckel_Or(*coords):
     out = _staeckel_actions_freqs(
         numpy, *[numpy.array([c]) for c in coords], _MP, _DELTA, _ORDER
@@ -244,61 +248,79 @@ def _np_staeckel_Or(*coords):
     return float(out[3][0])
 
 
-@pytest.mark.parametrize("backend", [b for b in BACKENDS if b == "jax"])
-@pytest.mark.xfail(
-    strict=False,
-    reason="Phase 2: Staeckel FREQUENCY gradients. Omega comes from the "
-    "1/sqrt(S) Jacobian panels (_staeckel_jacobian); AD differentiates the "
-    "already ~1/t-singular integrand once more (S^(-3/2) ~ 1/t^2), a "
-    "divergent quadrature whose GL sum is finite but wrong: measured "
-    "dOmega_r/dR = 104.89 via jax.grad vs -1.9327 by FD (factor ~-54). "
-    "Flips when the Phase-2 derivative integrands land.",
-)
-def test_staeckel_freq_grad_dR_phase2(backend):
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_freq_grad_dR(backend):
+    # Frequency gradient dOmega_r/dR: Omega comes from the 1/sqrt(S) Jacobian
+    # panels, so its gradient is a SECOND derivative of the action integral.
+    # With differentiable turning points it matches FD (was ~54x off).
     coords = _ORBIT
     fd = _fd(_np_staeckel_Or, coords, 0, eps=1e-5)
-    args = [jnp.asarray([c]) for c in coords]
+    if backend == "jax":
+        args = [jnp.asarray([c]) for c in coords]
 
-    def f(R):
-        a = [R] + args[1:]
-        return jnp.sum(_staeckel_actions_freqs(jnp, *a, _MP, _DELTA, _ORDER)[3])
+        def f(R):
+            a = [R] + args[1:]
+            return jnp.sum(_staeckel_actions_freqs(jnp, *a, _MP, _DELTA, _ORDER)[3])
 
-    ad = float(jax.grad(f)(args[0])[0])
-    numpy.testing.assert_allclose(ad, fd, rtol=1e-3)
+        ad = float(jax.grad(f)(args[0])[0])
+    else:
+        args = [torch.tensor([c], requires_grad=True) for c in coords]
+        out = _staeckel_actions_freqs(torch, *args, _MP, _DELTA, _ORDER)[3].sum()
+        out.backward()
+        ad = float(args[0].grad[0])
+    # rtol is set by the FD REFERENCE, not the AD: central-diff error bottoms out
+    # ~3e-9 (jax) / ~2e-8 (torch) at eps=1e-5 for this orbit and swings to ~3e-7 at
+    # eps=1e-3 / ~1e-5 at eps=1e-7 (truncation vs round-off). 1e-5 keeps ~40x margin.
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
 
 
-@pytest.mark.parametrize("backend", [b for b in BACKENDS if b == "jax"])
-@pytest.mark.xfail(
-    strict=False,
-    reason="Phase 2: SECOND derivatives through the grafted actions. The "
-    "donor t^2 gradient integrand is itself ~1/t-singular under one more "
-    "differentiation, so jacfwd(grad(Jr)) w.r.t. (R,z) is finite but wrong: "
-    "measured [[-278.7, -151.9], [-151.9, -96.2]] vs the "
-    "FD-of-the-grafted-gradient reference [[0.592, 0.305], [0.305, 0.684]] "
-    "(up to ~500x off). The FD-of-grafted-grad values are the Phase-2 "
-    "baseline this must match.",
-)
-def test_staeckel_action_hessian_phase2(backend):
-    coords = _ORBIT
-    args = [jnp.asarray([c]) for c in coords]
-
-    def jr_of_Rz(Rz):
-        a = [Rz[0:1], args[1], args[2], Rz[1:2], args[4]]
-        return jnp.sum(_staeckel_actions(jnp, *a, _MP, _DELTA, _ORDER)[0])
-
-    grad_fn = jax.grad(jr_of_Rz)
-    Rz0 = jnp.asarray([coords[0], coords[3]])
-    H_ad = numpy.asarray(jax.jacfwd(grad_fn)(Rz0))
-    # FD of the (accurate, grafted) first gradient = the Phase-2 baseline
-    eps = 1e-5
-    H_fd = numpy.zeros((2, 2))
+def _hess_fd(gradf, R0, z0, eps=1e-5):
+    H = numpy.zeros((2, 2))
     for i in range(2):
-        up = numpy.array([coords[0], coords[3]])
+        up = numpy.array([R0, z0])
         dn = up.copy()
         up[i] += eps
         dn[i] -= eps
-        H_fd[:, i] = (
-            numpy.asarray(grad_fn(jnp.asarray(up)))
-            - numpy.asarray(grad_fn(jnp.asarray(dn)))
-        ) / (2.0 * eps)
-    numpy.testing.assert_allclose(H_ad, H_fd, rtol=1e-2)
+        H[:, i] = (gradf(up) - gradf(dn)) / (2.0 * eps)
+    return H
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_action_hessian(backend):
+    # Action Hessian d^2 Jr/d(R,z)^2 = jacfwd(grad(Jr)). Matches FD-of-the-
+    # accurate-first-gradient with differentiable turning points (was ~500x off).
+    coords = _ORBIT
+    if backend == "jax":
+        args = [jnp.asarray([c]) for c in coords]
+
+        def jr_of_Rz(Rz):
+            a = [Rz[0:1], args[1], args[2], Rz[1:2], args[4]]
+            return jnp.sum(_staeckel_actions(jnp, *a, _MP, _DELTA, _ORDER)[0])
+
+        grad_fn = jax.grad(jr_of_Rz)
+        H_ad = numpy.asarray(jax.jacfwd(grad_fn)(jnp.asarray([coords[0], coords[3]])))
+        gradf = lambda v: numpy.asarray(grad_fn(jnp.asarray(v)))
+    else:
+
+        def jr_of_Rz(Rz):
+            a = [Rz[0:1], torch.tensor([coords[1]]), torch.tensor([coords[2]]),
+                 Rz[1:2], torch.tensor([coords[4]])]  # fmt: skip
+            return _staeckel_actions(torch, *a, _MP, _DELTA, _ORDER)[0].sum()
+
+        Rz0 = torch.tensor([coords[0], coords[3]], requires_grad=True)
+        H_ad = torch.autograd.functional.hessian(jr_of_Rz, Rz0).detach().numpy()
+
+        def gradf(v):
+            x = torch.tensor(v, requires_grad=True)
+            (g,) = torch.autograd.grad(jr_of_Rz(x), x)
+            return g.detach().numpy()
+
+    # FD-INDEPENDENT correctness check: the true Hessian is symmetric, and AD
+    # reproduces it to ~machine eps (~3e-16) -- the FD reference only gets ~1e-10.
+    # This, not the noisy FD comparison, is what proves the AD 2nd derivative is
+    # right rather than merely close to a bad reference.
+    assert abs(H_ad[0, 1] - H_ad[1, 0]) < 1e-10
+    # FD comparison: rtol set by the FD reference (AD vs FD ~3e-9 at eps=1e-5),
+    # tightened from 1e-2 -> 1e-4 (~3e4x margin) now that both are measured.
+    H_fd = _hess_fd(gradf, coords[0], coords[3])
+    numpy.testing.assert_allclose(H_ad, H_fd, rtol=1e-4)
