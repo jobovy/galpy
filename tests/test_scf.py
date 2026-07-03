@@ -1346,6 +1346,173 @@ def test_tdep_from_density_constant_no_t():
         )
 
 
+def test_tdep_from_density_axi_timedep():
+    # Axisymmetric, genuinely time-dependent density (exercises the vectorized
+    # axisymmetric time-dependent coefficient computation); linear-in-t so the
+    # cubic-spline interpolation is exact and it matches a static build at t0.
+    hp = potential.HernquistPotential(a=_TDEP_A)
+    dens_t = lambda R, z, t=0.0: hp.dens(R, z, use_physical=False) * (1.0 + 0.03 * t)
+    tgrid = numpy.linspace(0.0, 6.0, 13)
+    sp = SCFPotential.from_density(
+        dens_t, 10, L=6, a=_TDEP_A, symmetry="axi", tgrid=tgrid
+    )
+    assert sp._tdep is True
+    assert sp.isNonAxi is False
+    t0 = 2.0
+    static = SCFPotential.from_density(
+        lambda R, z: dens_t(R, z, t=t0), 10, L=6, a=_TDEP_A, symmetry="axi"
+    )
+    for R, z in [(1.0, 0.2), (0.6, -0.3)]:
+        for meth in ["dens", "Rforce", "zforce"]:
+            a1 = getattr(sp, meth)(R, z, t=t0, use_physical=False)
+            a2 = getattr(static, meth)(R, z, use_physical=False)
+            assert numpy.fabs(a1 - a2) < 1e-9
+
+
+def test_tdep_from_density_nonvectorizable_fallback():
+    # A time-dependent density that is not vectorizable over t (it coerces t to a
+    # scalar) must fall back to the per-timestep loop and give the same result as
+    # an equivalent vectorizable density.
+    hp = potential.HernquistPotential(a=_TDEP_A)
+    tgrid = numpy.linspace(0.0, 4.0, 9)
+
+    def dens_scalar_t(R, z, phi, t=0.0):
+        t = float(t)  # not vectorizable over an array t -> triggers the fallback
+        return (
+            hp.dens(R, z, use_physical=False)
+            * (1.0 + 0.1 * numpy.cos(2 * phi))
+            * (1.0 + 0.02 * t)
+        )
+
+    dens_vec_t = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False)
+        * (1.0 + 0.1 * numpy.cos(2 * phi))
+        * (1.0 + 0.02 * t)
+    )
+    sp_fb = SCFPotential.from_density(dens_scalar_t, 8, L=3, symmetry=None, tgrid=tgrid)
+    sp_vec = SCFPotential.from_density(dens_vec_t, 8, L=3, symmetry=None, tgrid=tgrid)
+    assert sp_fb._tdep is True
+    # fallback and vectorized builds of the same density agree to machine precision
+    assert numpy.max(numpy.fabs(sp_fb._Acos_all - sp_vec._Acos_all)) < 1e-12
+    assert numpy.max(numpy.fabs(sp_fb._Asin_all - sp_vec._Asin_all)) < 1e-12
+
+
+def test_tdep_from_density_vectorized_matches_loop():
+    # The time-vectorized coefficient computation must reproduce the per-timestep
+    # scf_compute_coeffs to machine precision (general, axi, and spherical).
+    from galpy.util.special import sph_harm_normalization
+
+    hp = potential.HernquistPotential(a=_TDEP_A)
+    tgrid = numpy.linspace(0.0, 5.0, 9)
+    # general
+    dens_g = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False)
+        * (
+            1.0
+            + 0.2 * numpy.cos(2 * (phi - 0.4 * t))
+            + 0.1 * numpy.sin(phi) * (1 + 0.05 * t)
+        )
+    )
+    sp = SCFPotential.from_density(
+        dens_g, 8, L=4, a=_TDEP_A, symmetry=None, tgrid=tgrid
+    )
+    NN = sph_harm_normalization(4, 4)
+    for it, t in enumerate(tgrid):
+        Ac, As = potential.scf_compute_coeffs(
+            lambda R, z, phi: dens_g(R, z, phi, t), 8, 4, a=_TDEP_A
+        )
+        assert numpy.max(numpy.fabs(sp._Acos_all[it] - Ac * NN)) < 1e-12
+        assert numpy.max(numpy.fabs(sp._Asin_all[it] - As * NN)) < 1e-12
+    # spherical
+    dens_s = lambda r, t=0.0: hp.dens(r, 0.0, use_physical=False) * (1.0 + 0.05 * t)
+    sps = SCFPotential.from_density(
+        dens_s, 8, a=_TDEP_A, symmetry="spherical", tgrid=tgrid
+    )
+    NN0 = sph_harm_normalization(1, 1)
+    for it, t in enumerate(tgrid):
+        Ac, _ = potential.scf_compute_coeffs_spherical(
+            lambda r: dens_s(r, t), 8, a=_TDEP_A
+        )
+        assert numpy.max(numpy.fabs(sps._Acos_all[it] - Ac * NN0)) < 1e-12
+
+
+def test_tdep_from_density_signature_and_order_branches():
+    # Cover the numOfParam-detection fallbacks (spherical/axi densities written
+    # with extra spatial arguments) and the explicit *_order overrides on the
+    # vectorized time-dependent coefficient paths. Passing quadrature orders equal
+    # to the defaults must reproduce the default build bit-for-bit.
+    hp = potential.HernquistPotential(a=_TDEP_A)
+    tgrid = numpy.linspace(0.0, 3.0, 7)
+    tfac = lambda t: 1.0 + 0.04 * t
+    # spherical density written with (R, z) args (numOfParam=2) and (R, z, phi)
+    # args (numOfParam=3): both describe the same spherical density
+    dens_s2 = lambda R, z, t=0.0: hp.dens(R, z, use_physical=False) * tfac(t)
+    dens_s3 = lambda R, z, phi, t=0.0: hp.dens(R, z, use_physical=False) * tfac(t)
+    sp2 = SCFPotential.from_density(
+        dens_s2, 8, a=_TDEP_A, symmetry="spherical", tgrid=tgrid, radial_order=20
+    )  # numOfParam=2 + explicit radial_order (== default)
+    sp2_def = SCFPotential.from_density(
+        dens_s2, 8, a=_TDEP_A, symmetry="spherical", tgrid=tgrid
+    )  # numOfParam=2, default radial_order
+    sp3 = SCFPotential.from_density(
+        dens_s3, 8, a=_TDEP_A, symmetry="spherical", tgrid=tgrid
+    )  # numOfParam=3
+    assert numpy.max(numpy.fabs(sp2._Acos_all - sp2_def._Acos_all)) < 1e-12
+    assert numpy.max(numpy.fabs(sp3._Acos_all - sp2_def._Acos_all)) < 1e-12
+    # axi density written with a (redundant) phi argument (numOfParam=3); explicit
+    # orders equal to the defaults reproduce the default build exactly
+    dens_a3 = lambda R, z, phi, t=0.0: hp.dens(R, z, use_physical=False) * tfac(t)
+    spa = SCFPotential.from_density(
+        dens_a3,
+        8,
+        L=4,
+        a=_TDEP_A,
+        symmetry="axi",
+        tgrid=tgrid,
+        radial_order=20,
+        costheta_order=20,
+    )
+    spa_def = SCFPotential.from_density(
+        dens_a3, 8, L=4, a=_TDEP_A, symmetry="axi", tgrid=tgrid
+    )
+    assert numpy.max(numpy.fabs(spa._Acos_all - spa_def._Acos_all)) < 1e-12
+    # general: explicit orders equal to the defaults reproduce them exactly
+    dens_g = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(2 * (phi - 0.3 * t)))
+    )
+    spg = SCFPotential.from_density(
+        dens_g,
+        8,
+        L=4,
+        a=_TDEP_A,
+        symmetry=None,
+        tgrid=tgrid,
+        radial_order=20,
+        costheta_order=20,
+        phi_order=20,
+    )
+    spg_def = SCFPotential.from_density(
+        dens_g, 8, L=4, a=_TDEP_A, symmetry=None, tgrid=tgrid
+    )
+    assert numpy.max(numpy.fabs(spg._Acos_all - spg_def._Acos_all)) < 1e-12
+    assert numpy.max(numpy.fabs(spg._Asin_all - spg_def._Asin_all)) < 1e-12
+    # constant-in-time NON-axisymmetric density (no t argument): both Acos and
+    # Asin are computed once and broadcast over time
+    dens_const = lambda R, z, phi: (
+        hp.dens(R, z, use_physical=False) * (1.0 + 0.1 * numpy.cos(2 * phi))
+    )
+    spc = SCFPotential.from_density(
+        dens_const, 8, L=4, a=_TDEP_A, symmetry=None, tgrid=tgrid
+    )
+    assert spc._tdep is True
+    assert spc.isNonAxi is True
+    assert numpy.all(spc._Asin_all[0] == spc._Asin_all[-1])  # constant in time
+    assert not numpy.all(spc._Asin_all == 0.0)  # but genuinely non-axisymmetric
+    static_c = SCFPotential.from_density(dens_const, 8, L=4, a=_TDEP_A, symmetry=None)
+    assert numpy.max(numpy.fabs(spc._Acos_all[3] - static_c._Acos)) < 1e-12
+    assert numpy.max(numpy.fabs(spc._Asin_all[3] - static_c._Asin)) < 1e-12
+
+
 # ---------------------- error / warning handling ----------------------
 
 

@@ -475,46 +475,92 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         Build a time-dependent SCFPotential from a (possibly time-dependent)
         density by computing the expansion coefficients at each time in ``tgrid``.
 
-        The density is passed ``t=t`` at each time when it accepts a ``t``
-        argument (or when it is a galpy ``Potential`` instance); otherwise it is
-        treated as constant in time (constant coefficients). As for the
-        time-dependent ``MultipoleExpansionPotential``, astropy ``Quantity``
-        (physical-unit) densities are not supported here; pass the density in
-        galpy's internal units.
+        When the density accepts a ``t`` argument, the coefficients at all times
+        are computed with a single, time-vectorized quadrature (the
+        time-independent basis functions are evaluated only once rather than once
+        per time step, mirroring the time-dependent ``MultipoleExpansionPotential``
+        and giving a large speed-up); a density that cannot be evaluated as an
+        array over ``t`` falls back to a per-timestep loop. A density without a
+        ``t`` argument is treated as constant in time (the coefficients are
+        computed once and broadcast). As for the time-dependent
+        ``MultipoleExpansionPotential``, astropy ``Quantity`` (physical-unit)
+        densities are not supported here; pass the density in galpy's internal
+        units.
 
         Notes
         -----
         - 2026-07-02 - Written - Bovy (UofT)
+        - 2026-07-02 - Vectorized over time - Bovy (UofT)
         """
         tgrid = numpy.asarray(tgrid)
+        Nt = len(tgrid)
         # A galpy Potential instance -> use its (possibly time-dependent) density
         if isinstance(dens, Potential):
             dens = dens.dens
         has_t = "t" in inspect.signature(dens).parameters
-        if has_t:
-            make_dens_t = lambda t: lambda *args, **kwargs: dens(*args, t=t, **kwargs)
-        else:
-            make_dens_t = lambda t: dens
-        Acos_list = []
-        Asin_list = []
-        any_sin = False
-        for t in tgrid:
-            Ac, As = cls._symmetry_coeffs(
-                make_dens_t(t),
-                N,
-                L,
-                a,
-                symmetry,
-                radial_order,
-                costheta_order,
-                phi_order,
+        if not has_t:
+            # Constant in time: compute the coefficients once and broadcast
+            Acos, Asin = cls._symmetry_coeffs(
+                dens, N, L, a, symmetry, radial_order, costheta_order, phi_order
             )
-            Acos_list.append(Ac)
-            if As is not None:
-                any_sin = True
-            Asin_list.append(As)
-        Acos_all = numpy.array(Acos_list)
-        Asin_all = numpy.array(Asin_list) if any_sin else None
+            Acos_all = numpy.repeat(Acos[numpy.newaxis], Nt, axis=0)
+            Asin_all = (
+                numpy.repeat(Asin[numpy.newaxis], Nt, axis=0)
+                if Asin is not None
+                else None
+            )
+            return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=ro, vo=vo)
+        try:
+            # Fast path: evaluate the density at all times at once
+            if symmetry is not None and symmetry.startswith("spher"):
+                Acos_all, Asin_all = _scf_compute_coeffs_spherical_timedep(
+                    dens, N, tgrid, a=a, radial_order=radial_order
+                )
+            elif symmetry is not None and symmetry.startswith("axi"):
+                Acos_all, Asin_all = _scf_compute_coeffs_axi_timedep(
+                    dens,
+                    N,
+                    L,
+                    tgrid,
+                    a=a,
+                    radial_order=radial_order,
+                    costheta_order=costheta_order,
+                )
+            else:
+                Acos_all, Asin_all = _scf_compute_coeffs_timedep(
+                    dens,
+                    N,
+                    L,
+                    tgrid,
+                    a=a,
+                    radial_order=radial_order,
+                    costheta_order=costheta_order,
+                    phi_order=phi_order,
+                )
+        except _TimeDepDensityNotVectorized:
+            # Fall back to a per-timestep loop for densities that cannot be
+            # evaluated as an array over t
+            Acos_list = []
+            Asin_list = []
+            any_sin = False
+            for t in tgrid:
+                make_dens_t = lambda *args, _t=t, **kwargs: dens(*args, t=_t, **kwargs)
+                Ac, As = cls._symmetry_coeffs(
+                    make_dens_t,
+                    N,
+                    L,
+                    a,
+                    symmetry,
+                    radial_order,
+                    costheta_order,
+                    phi_order,
+                )
+                Acos_list.append(Ac)
+                if As is not None:
+                    any_sin = True
+                Asin_list.append(As)
+            Acos_all = numpy.array(Acos_list)
+            Asin_all = numpy.array(Asin_list) if any_sin else None
         return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=ro, vo=vo)
 
     def _rhoTilde(self, r, N, L):
@@ -1464,6 +1510,222 @@ def scf_compute_coeffs(
     )
 
     return Acos, Asin
+
+
+class _TimeDepDensityNotVectorized(Exception):
+    """Raised when a time-dependent density cannot be evaluated as an array over
+    its ``t`` argument, so the caller must fall back to a per-timestep loop."""
+
+
+def _timedep_dens_setup(dens, tgrid, numOfParam):
+    """Detect the ``use_physical`` keyword for a time-dependent density and
+    verify that it is vectorizable over ``t``; return a callable
+    ``f(R, z, phi) -> array over tgrid`` using the first ``numOfParam`` spatial
+    arguments. Raises ``_TimeDepDensityNotVectorized`` if calling the density
+    with ``t=tgrid`` does not return an array matching ``tgrid``.
+
+    Notes
+    -----
+    - 2026-07-02 - Written - Bovy (UofT)
+    """
+    t0 = tgrid[0]
+    param = [1.0] * numOfParam
+    try:
+        dens(*param, t=t0, use_physical=False)
+    except Exception:
+        dens_kw = {}
+    else:
+        dens_kw = {"use_physical": False}
+    try:
+        out = numpy.atleast_1d(dens(*param, t=tgrid, **dens_kw))
+    except Exception:
+        raise _TimeDepDensityNotVectorized()
+    if out.shape != numpy.shape(tgrid):
+        raise _TimeDepDensityNotVectorized()
+
+    def f(R, z, phi):
+        return numpy.asarray(
+            dens(*(R, z, phi)[:numOfParam], t=tgrid, **dens_kw), dtype=float
+        )
+
+    return f
+
+
+def _scf_compute_coeffs_spherical_timedep(dens, N, tgrid, a=1.0, radial_order=None):
+    """Vectorized-over-time analogue of ``scf_compute_coeffs_spherical``.
+
+    Evaluates the (spherical) density at all times in ``tgrid`` at once, reusing
+    a single radial quadrature whose (time-independent) basis is computed only
+    once; returns ``Acos`` of shape ``(Nt, N, 1, 1)``. Raises
+    ``_TimeDepDensityNotVectorized`` if the density is not vectorizable over t.
+
+    Notes
+    -----
+    - 2026-07-02 - Written - Bovy (UofT)
+    """
+    tgrid = numpy.asarray(tgrid, dtype=float)
+    numOfParam = 0
+    try:
+        dens(0, t=tgrid[0])
+        numOfParam = 1
+    except Exception:
+        try:
+            dens(0, 0, t=tgrid[0])
+            numOfParam = 2
+        except Exception:
+            numOfParam = 3
+    f = _timedep_dens_setup(dens, tgrid, numOfParam)
+
+    def integrand(xi):
+        r = _xiToR(xi, a)
+        base = a**3.0 * (1 + xi) ** 2.0 * (1 - xi) ** -3.0 * _C(xi, N, 1)[:, 0]
+        return f(r, 0.0, 0.0)[:, numpy.newaxis] * base[numpy.newaxis]  # (Nt, N)
+
+    Ksample = [max(N + 1, 20)]
+    if radial_order is not None:
+        Ksample[0] = radial_order
+    integrated = _gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=Ksample)
+    n = numpy.arange(0, N)
+    K = 16 * numpy.pi * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
+    Acos = numpy.zeros((len(tgrid), N, 1, 1), float)
+    Acos[:, :, 0, 0] = 2 * K[numpy.newaxis] * integrated
+    return Acos, None
+
+
+def _scf_compute_coeffs_axi_timedep(
+    dens, N, L, tgrid, a=1.0, radial_order=None, costheta_order=None
+):
+    """Vectorized-over-time analogue of ``scf_compute_coeffs_axi``; returns
+    ``Acos`` of shape ``(Nt, N, L, 1)``.
+
+    Notes
+    -----
+    - 2026-07-02 - Written - Bovy (UofT)
+    """
+    tgrid = numpy.asarray(tgrid, dtype=float)
+    numOfParam = 0
+    try:
+        dens(0, 0, t=tgrid[0])
+        numOfParam = 2
+    except Exception:
+        numOfParam = 3
+    f = _timedep_dens_setup(dens, tgrid, numOfParam)
+
+    def integrand(xi, costheta):
+        l = numpy.arange(0, L)[numpy.newaxis, :]
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+            PP = lpmn(0, L - 1, costheta)[0].T[numpy.newaxis, :, 0]
+        else:
+            PP = assoc_legendre_p_all(L - 1, 0, costheta, branch_cut=2)[0].T
+        dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
+        phi_nl = (
+            a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0) * _C(xi, N, L)[:, :] * PP
+        )
+        base = phi_nl * dV  # (N, L)
+        return f(R, z, 0.0)[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
+
+    Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20)]
+    if radial_order is not None:
+        Ksample[0] = radial_order
+    if costheta_order is not None:
+        Ksample[1] = costheta_order
+    integrated = _gaussianQuadrature(integrand, [[-1, 1], [-1, 1]], Ksample=Ksample) * (
+        2 * numpy.pi
+    )
+    n = numpy.arange(0, N)[:, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
+    lnI = (
+        -(8 * l + 6) * numpy.log(2)
+        + gammaln(n + 4 * l + 3)
+        - gammaln(n + 1)
+        - numpy.log(n + 2 * l + 3.0 / 2)
+        - 2 * gammaln(2 * l + 3.0 / 2)
+    )
+    I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
+    constants = -(2.0 ** (-2 * l)) * (2 * l + 1.0) ** 0.5
+    Acos = numpy.zeros((len(tgrid), N, L, 1), float)
+    Acos[:, :, :, 0] = (
+        2 * (I**-1)[numpy.newaxis] * integrated * constants[numpy.newaxis]
+    )
+    return Acos, None
+
+
+def _scf_compute_coeffs_timedep(
+    dens, N, L, tgrid, a=1.0, radial_order=None, costheta_order=None, phi_order=None
+):
+    """Vectorized-over-time analogue of ``scf_compute_coeffs`` (general,
+    non-axisymmetric); returns ``(Acos, Asin)`` of shape ``(Nt, N, L, L)`` each.
+
+    Notes
+    -----
+    - 2026-07-02 - Written - Bovy (UofT)
+    """
+    tgrid = numpy.asarray(tgrid, dtype=float)
+    f = _timedep_dens_setup(dens, tgrid, 3)
+
+    def integrand(xi, costheta, phi):
+        l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
+        m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+            PP = lpmn(L - 1, L - 1, costheta)[0].T[numpy.newaxis, :, :]
+        else:
+            PP = numpy.swapaxes(
+                assoc_legendre_p_all(L - 1, L - 1, costheta, branch_cut=2)[0][:, :L],
+                0,
+                1,
+            ).T[numpy.newaxis, :, :]
+        dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
+        phi_nl = (
+            -(a**3)
+            * (1.0 + xi) ** l
+            * (1.0 - xi) ** (l + 1.0)
+            * _C(xi, N, L)[:, :, numpy.newaxis]
+            * PP
+        )
+        base = (
+            phi_nl[numpy.newaxis, :, :, :]
+            * numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
+            * dV
+        )  # (2, N, L, L)
+        return f(R, z, phi)[:, None, None, None, None] * base[numpy.newaxis]
+
+    Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
+    if radial_order is not None:
+        Ksample[0] = radial_order
+    if costheta_order is not None:
+        Ksample[1] = costheta_order
+    if phi_order is not None:
+        Ksample[2] = phi_order
+    integrated = _gaussianQuadrature(
+        integrand, [[-1.0, 1.0], [-1.0, 1.0], [0, 2 * numpy.pi]], Ksample=Ksample
+    )  # (Nt, 2, N, L, L)
+    n = numpy.arange(0, N)[:, numpy.newaxis, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
+    m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
+    K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
+    Nln = 0.5 * gammaln(l - m + 1) - 0.5 * gammaln(l + m + 1) - (2 * l) * numpy.log(2)
+    NN = numpy.e ** (Nln)
+    NN[numpy.where(NN == numpy.inf)] = 0
+    constants = NN * (2 * l + 1.0) ** 0.5
+    lnI = (
+        -(8 * l + 6) * numpy.log(2)
+        + gammaln(n + 4 * l + 3)
+        - gammaln(n + 1)
+        - numpy.log(n + 2 * l + 3.0 / 2)
+        - 2 * gammaln(2 * l + 3.0 / 2)
+    )
+    I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
+    res = (
+        2 * (I**-1.0)[None, None, :, :, :] * integrated * constants[None, None, :, :, :]
+    )
+    return res[:, 0], res[:, 1]
 
 
 def _cartesian(arraySizes, out=None):
