@@ -22,6 +22,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import (
     BurkertPotential,
     DehnenCoreSphericalPotential,
@@ -210,12 +211,6 @@ def _asarray(backend_name, x):
         return torch.tensor(x, dtype=torch.float64)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 @pytest.mark.parametrize("pot,methods,_methods1d,_ad", CASES, ids=CASE_IDS)
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity(backend_name, pot, methods, _methods1d, _ad):
@@ -225,7 +220,7 @@ def test_value_parity(backend_name, pot, methods, _methods1d, _ad):
         ref = numpy.asarray(
             getattr(pot, method)(numpy.asarray(_RS), numpy.asarray(_ZS))
         )
-        got = _tonumpy(getattr(pot, method)(R, z))
+        got = as_numpy(getattr(pot, method)(R, z))
         numpy.testing.assert_allclose(
             got, ref, rtol=1e-12, atol=1e-14, err_msg=f"{type(pot).__name__}.{method}"
         )
@@ -242,7 +237,7 @@ def test_public_value_parity(backend_name, pot, methods, _methods1d, _ad):
     R = _asarray(backend_name, _RS)
     z = _asarray(backend_name, _ZS)
     ref = numpy.asarray(pot.Rforce(numpy.asarray(_RS), numpy.asarray(_ZS)))
-    got = _tonumpy(pot.Rforce(R, z))
+    got = as_numpy(pot.Rforce(R, z))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
@@ -398,7 +393,7 @@ def test_surfdens_value_parity(backend_name, pot):
     Rs = [0.5, 0.9 * a, a, 1.3 * a, 2.0]
     zs = [0.3, 0.2, 0.4, 0.2, 0.3]
     ref = numpy.asarray(pot._surfdens(numpy.asarray(Rs), numpy.asarray(zs)))
-    got = _tonumpy(
+    got = as_numpy(
         pot._surfdens(_asarray(backend_name, Rs), _asarray(backend_name, zs))
     )
     numpy.testing.assert_allclose(
@@ -414,7 +409,7 @@ def test_surfdens_edge_finite(backend_name, pot):
     a = pot.a
     ref = float(numpy.asarray(pot._surfdens(numpy.asarray(a), numpy.asarray(0.3))))
     got = float(
-        _tonumpy(pot._surfdens(_asarray(backend_name, a), _asarray(backend_name, 0.3)))
+        as_numpy(pot._surfdens(_asarray(backend_name, a), _asarray(backend_name, 0.3)))
     )
     assert numpy.isfinite(ref)
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
@@ -469,11 +464,11 @@ def test_powerspherical_wcutoff_dens_parity(backend_name):
     Rs = [0.5, 1.0, 2.0]
     zs = [0.1, 0.2, 0.3]
     ref = numpy.asarray(pot._dens(numpy.asarray(Rs), numpy.asarray(zs)))
-    got = _tonumpy(pot._dens(_asarray(backend_name, Rs), _asarray(backend_name, zs)))
+    got = as_numpy(pot._dens(_asarray(backend_name, Rs), _asarray(backend_name, zs)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
     for method in ["_ddensdr", "_d2densdr2"]:
         ref = numpy.asarray(getattr(pot, method)(numpy.asarray(Rs)))
-        got = _tonumpy(getattr(pot, method)(_asarray(backend_name, Rs)))
+        got = as_numpy(getattr(pot, method)(_asarray(backend_name, Rs)))
         numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14, err_msg=method)
 
 
@@ -497,7 +492,7 @@ def test_surfdens_z0_value_parity(backend_name, pot):
     # z-guarded. The VALUE there is the generic branch's 0 and must be parity-
     # identical (and equal to numpy's 0) across backends, with no scalar crash.
     R0 = 0.6  # != a (== 1.1 for all cases)
-    val = _tonumpy(
+    val = as_numpy(
         pot._surfdens(_asarray(backend_name, R0), _asarray(backend_name, 0.0))
     )
     ref = numpy.asarray(pot._surfdens(numpy.asarray(R0), numpy.asarray(0.0)))
@@ -524,7 +519,7 @@ def test_einasto_revaluate_core_value_parity(backend_name, n):
     # grid including r == 0 (the guarded core branch) and generic points
     rs = [0.0, 0.5, 1.3]
     ref = numpy.asarray(pot._revaluate(numpy.asarray(rs)))
-    got = _tonumpy(pot._revaluate(_asarray(backend_name, rs)))
+    got = as_numpy(pot._revaluate(_asarray(backend_name, rs)))
     assert numpy.all(numpy.isfinite(ref))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
