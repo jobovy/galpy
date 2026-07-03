@@ -112,6 +112,34 @@ def graft_gradient(value, donor):
     return stop_gradient(value) + donor - stop_gradient(donor)
 
 
+def as_numpy(x):
+    """Pull a backend array back to numpy (a consumption/sampling boundary)."""
+    if not is_backend_array(x):
+        return x
+    if hasattr(x, "detach"):  # torch (possibly CUDA)
+        return x.detach().cpu().numpy()
+    return numpy.asarray(x)
+
+
+def exit_cast(value, *inputs):
+    """Cast a public physical/consumption output back to numpy unless a caller
+    input is a backend array (autodiff keeps backend arrays). Under a forced
+    backend a scalar/numpy call still computes on the backend, but astropy
+    can't hold a backend-array Quantity, so consumption outputs stay numpy."""
+    if any(is_backend_array(a) for a in inputs):
+        return value
+    return as_numpy(value)
+
+
+def resolve_namespace(*args):
+    """Namespace from the backend-array args, else the context/forced default
+    (list/None/scalar inputs stay resolver-safe). A follow-the-data variant of
+    ``get_namespace`` for leaves consumed by both numpy and backend callers."""
+    from ._resolver import get_namespace
+
+    return get_namespace(*(a for a in args if is_backend_array(a)))
+
+
 def _is_floating_dtype(dtype):
     """True for real floating-point dtypes of any backend.
 
