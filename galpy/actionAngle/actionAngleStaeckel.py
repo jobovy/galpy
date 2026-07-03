@@ -135,6 +135,39 @@ def _staeckel_setup(xp, R, vR, vT, z, vz, pot, delta):
     }  # fmt: skip
 
 
+def _refine_tp(xp, f, u, skip):
+    """Differentiable turning point: one Newton step off the frozen bisection
+    root, grafted so the VALUE is byte-identical (numpy: graft_gradient is the
+    identity) but AD carries the TRUE implicit derivative du/dtheta =
+    -f_theta(u)/f_u(u). The bisection roots (backend.optimize.bisect_root) build
+    u from piecewise-constant xp.where comparisons, so their AD gradient is a
+    meaningless bracket artifact; without this the Staeckel FREQUENCY gradients
+    (dJ/d(E,Lz,I3) panels) and the action HESSIAN are finite-but-wrong (the
+    turning-point boundary term that cancels the S^-3/2 integral divergence is
+    missing). ``skip`` masks entries that are NOT simple roots (axis-reaching
+    umin=0, circular umin=umax) where f_u~0."""
+    if xp is numpy:
+        return u  # numpy path has no autodiff: keep the root EXACTLY. (Grafting
+        # here is only ~machine-eps identity, which the 1/sqrt(S) frequency panels
+        # amplify to ~1e-13 -- a byte-identity break we must not introduce.)
+    u0 = stop_gradient(u)
+    h = 1e-6
+    fu0 = f(u0)
+    fp = (f(u0 + h) - f(u0 - h)) / (2.0 * h)
+    # f(u0) can be NaN/inf AT the root (S dips <0 / divides by 0 there) while the
+    # FD slope from f(u0+/-h) is finite -> skip the Newton step there. Mask the
+    # numerator to NaN-free BEFORE dividing (dead-branch guard: eager xp.where
+    # evaluates both sides, so raw fu0/fp would still poison the value/grad).
+    good = (xp.abs(fp) > 1e-10) & xp.isfinite(fu0) & xp.isfinite(fp) & ~skip
+    fp_safe = xp.where(good, fp, xp.ones_like(fp))
+    fu0_safe = xp.where(good, fu0, xp.zeros_like(fu0))
+    donor = u0 - fu0_safe / fp_safe  # finite everywhere; == u0 where ~good
+    # Value-exact graft: donor - stop_gradient(donor) == 0 EXACTLY (finite donor),
+    # so the value is byte-exactly the bisection root (no 1/sqrt(S) amplification of
+    # a graft_gradient ~1e-16 wobble) while AD carries du/dtheta = grad(donor).
+    return u0 + (donor - stop_gradient(donor))
+
+
 def _staeckel_uminumax(xp, s, pot, delta):
     """Vectorised (umin, umax): bracket-and-bisect roots of the J_R integrand^2."""
     args = (s["E"], s["Lz"], s["I3U"], delta, s["u0"], s["sinh2u0"],
@@ -176,6 +209,9 @@ def _staeckel_uminumax(xp, s, pot, delta):
     umin = xp.where(at_umin | circular, ux, umin)
     umax = xp.where(at_umax | circular, ux, umax)
     umin = xp.where(reaches_axis, xp.zeros_like(umin), umin)  # axis-reaching -> 0
+    # differentiable turning points (value byte-identical; injects du/dtheta)
+    umin = _refine_tp(xp, f, umin, skip=reaches_axis | circular)
+    umax = _refine_tp(xp, f, umax, skip=circular)
     return umin, umax, unbound
 
 
@@ -191,7 +227,8 @@ def _staeckel_vmin(xp, s, pot, delta):
         lambda v: xp.where((f(v) >= 0.0) & (v > 1e-9), v * 0.9, v), vx * 0.9, 80
     )
     vmin = bisect_root(f, vlo, vx, xp, xtol=1e-13, maxiter=200)
-    return xp.where(at_vmin, vx, vmin)
+    vmin = xp.where(at_vmin, vx, vmin)
+    return _refine_tp(xp, f, vmin, skip=(xp.zeros_like(vmin) > 0.5))
 
 
 def _staeckel_gl_action(xp, sqfunc, args, lo, hi, order):
@@ -221,8 +258,11 @@ def _staeckel_t2_action(xp, sqfunc, args, lo, hi, order):
     dependence (E, Lz, I3, the u0/v0u reference geometry, potential parameters)."""
     a2 = tuple(x[..., None] if getattr(x, "ndim", 0) >= 1 else x for x in args)
     # Turning-point limits held fixed: the Leibniz boundary terms vanish exactly
-    # (S = 0 there), and the bisection roots' implicit gradients must not leak in.
-    lo, hi = stop_gradient(lo), stop_gradient(hi)
+    # (S = 0 there). The limits now arrive from _refine_tp carrying their TRUE
+    # implicit derivatives (needed for the action Hessian / frequency gradients);
+    # the direct boundary term still vanishes (S=0), so the action's first
+    # gradient is unchanged, while the second derivative gets its missing
+    # turning-point-motion term.
     span = hi - lo
     ok = span > 0.0  # degenerate (circular/planar) panel: 0 with 0 gradient
     mid = xp.sqrt(0.5 * xp.where(ok, span, xp.ones_like(span)))
