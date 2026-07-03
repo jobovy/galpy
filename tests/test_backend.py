@@ -19,6 +19,7 @@ import numpy
 import pytest
 
 from galpy import backend
+from galpy.backend import as_numpy
 from galpy.potential import IsochronePotential, PlummerPotential
 
 # This module manages backends explicitly (parametrizes over them), so it is
@@ -71,19 +72,13 @@ def _asarray(backend_name, x, requires_grad=False):
         return torch.tensor(x, dtype=torch.float64, requires_grad=requires_grad)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 @pytest.mark.parametrize("method", METHODS)
 @pytest.mark.parametrize("pot", POTS, ids=POT_IDS)
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity(backend_name, pot, method):
     # Reference is always numpy
     ref = numpy.asarray(getattr(pot, method)(numpy.asarray(_RS), numpy.asarray(_ZS)))
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(_asarray(backend_name, _RS), _asarray(backend_name, _ZS))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
@@ -162,7 +157,7 @@ def test_public_method_parity(backend_name, pot):
     # Decorator pass-through: the public Rforce (through the unit decorators and
     # _amp) must give identical values across backends.
     ref = numpy.asarray(pot.Rforce(numpy.asarray(_RS), numpy.asarray(_ZS)))
-    got = _tonumpy(pot.Rforce(_asarray(backend_name, _RS), _asarray(backend_name, _ZS)))
+    got = as_numpy(pot.Rforce(_asarray(backend_name, _RS), _asarray(backend_name, _ZS)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 

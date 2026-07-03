@@ -12,6 +12,7 @@ import numpy
 import pytest
 import scipy.special as scipy_special
 
+from galpy.backend import as_numpy
 from galpy.backend import special as gsp
 from galpy.backend.special._router import (
     _NATIVE_MISSING,
@@ -50,12 +51,6 @@ def _asarray(backend, x, requires_grad=False):
     return torch.tensor(x, dtype=torch.float64, requires_grad=requires_grad)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 # (router fn, scipy fn, n-args, sample points). Ranges cover what galpy uses.
 _POS = numpy.array([0.1, 0.5, 0.9, 1.3, 2.0, 3.7, 5.0])
 _REAL = numpy.array([-3.0, -1.2, -0.3, 0.0, 0.4, 1.1, 2.5])
@@ -77,7 +72,7 @@ UNARY = [
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_unary_value_parity(backend, name, fn, sp_fn, pts):
     ref = sp_fn(pts)
-    got = _tonumpy(fn(_asarray(backend, pts)))
+    got = as_numpy(fn(_asarray(backend, pts)))
     rtol = 0.0 if backend == "numpy" else 1e-12  # numpy must be byte-identical
     numpy.testing.assert_allclose(
         got, ref, rtol=rtol, atol=1e-12, err_msg=f"{name} ({backend})"
@@ -92,7 +87,7 @@ def test_gammainc_value_parity(backend):
     ]:
         for a in _A:
             ref = sp_fn(a, _XG)
-            got = _tonumpy(fn(_asarray(backend, a), _asarray(backend, _XG)))
+            got = as_numpy(fn(_asarray(backend, a), _asarray(backend, _XG)))
             rtol = 0.0 if backend == "numpy" else 1e-12
             numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
 
@@ -102,7 +97,7 @@ def test_xlogy_value_parity_incl_zero(backend):
     x = numpy.array([0.0, 0.0, 1.0, 2.5, 0.3])
     y = numpy.array([0.0, 5.0, 2.0, 0.7, 10.0])  # x=0 -> 0 even when y=0
     ref = scipy_special.xlogy(x, y)
-    got = _tonumpy(gsp.xlogy(_asarray(backend, x), _asarray(backend, y)))
+    got = as_numpy(gsp.xlogy(_asarray(backend, x), _asarray(backend, y)))
     rtol = 0.0 if backend == "numpy" else 1e-12
     numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
 
@@ -113,7 +108,7 @@ def test_logsumexp_value_parity(backend):
     a = numpy.array([[-1.2, 0.3, 800.0, -800.0], [0.5, 2.0, 799.0, 0.0]])
     for axis in (0, 1, None):
         ref = scipy_special.logsumexp(a, axis=axis)
-        got = _tonumpy(gsp.logsumexp(_asarray(backend, a), axis=axis))
+        got = as_numpy(gsp.logsumexp(_asarray(backend, a), axis=axis))
         rtol = 0.0 if backend == "numpy" else 1e-12
         numpy.testing.assert_allclose(
             got, ref, rtol=rtol, atol=1e-12, err_msg=f"logsumexp axis={axis}"
@@ -198,7 +193,7 @@ def test_iv_value_parity(backend):
     pts = numpy.array([0.0, 1e-3, 1e-2, 0.3, 0.8, 1.5, 2.0, 2.5, 3.5, 5.0, 30.0])
     for n in (0, 1, 2):
         ref = scipy_special.iv(n, pts)
-        got = _tonumpy(gsp.iv(n, _asarray(backend, pts)))
+        got = as_numpy(gsp.iv(n, _asarray(backend, pts)))
         rtol = 0.0 if backend == "numpy" else 1e-10  # series/recurrence ~1e-15
         numpy.testing.assert_allclose(
             got, ref, rtol=rtol, atol=1e-12, err_msg=f"iv n={n} ({backend})"
@@ -209,7 +204,7 @@ def test_iv_value_parity(backend):
 def test_iv_zero_value_and_grad_finite(backend):
     # I_n(0)=0 for n>=2 and I_n'(0)=0: the upward recurrence divides by x, so
     # x=0 must be handled (no NaN in value OR reverse-mode gradient).
-    assert _tonumpy(gsp.iv(2, _asarray(backend, 0.0))) == 0.0
+    assert as_numpy(gsp.iv(2, _asarray(backend, 0.0))) == 0.0
     if backend == "jax":
         g = float(jax.grad(lambda x: gsp.iv(2, x))(jnp.asarray(0.0)))
     else:
@@ -238,7 +233,7 @@ def test_sici_value_parity(backend):
     pts = numpy.array([0.2, 0.8, 2.0, 5.0, 7.0, 20.0, 80.0])
     rsi, rci = scipy_special.sici(pts)
     si, ci = gsp.sici(_asarray(backend, pts))
-    si, ci = _tonumpy(si), _tonumpy(ci)
+    si, ci = as_numpy(si), as_numpy(ci)
     rtol = 0.0 if backend == "numpy" else 1e-10
     numpy.testing.assert_allclose(
         si, rsi, rtol=rtol, atol=1e-11, err_msg=f"Si ({backend})"
@@ -285,7 +280,7 @@ _HYP2F1_W = numpy.array([0.0, 1e-3, 0.05, 0.5, 0.9, 1.0, 1.7, 5.0, 12.0, 25.0, 5
 def test_hyp2f1_value_parity(backend, a, b, c):
     z = -_HYP2F1_W
     ref = scipy_special.hyp2f1(a, b, c, z)
-    got = _tonumpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
     rtol = 0.0 if backend == "numpy" else 1e-9  # fallback quadrature at r/a<~50
     numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-10)
 
@@ -297,7 +292,7 @@ def test_hyp2f1_extreme_z_bounded_error(backend, a, b, c):
     # degrades gracefully -- still ~1e-5, never diverges (unlike jax native).
     z = -numpy.array([100.0, 250.0, 500.0])
     ref = scipy_special.hyp2f1(a, b, c, z)
-    got = _tonumpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-4, atol=1e-8)
 
 
@@ -307,7 +302,7 @@ def test_hyp1f1_value_parity(backend):
         a, b = 1.5 - alpha / 2.0, 2.5 - alpha / 2.0
         X = numpy.array([0.0, 1e-3, 0.1, 1.0, 4.0, 16.0, 64.0, 256.0])
         ref = scipy_special.hyp1f1(a, b, -X)
-        got = _tonumpy(gsp.hyp1f1(a, b, _asarray(backend, -X)))
+        got = as_numpy(gsp.hyp1f1(a, b, _asarray(backend, -X)))
         rtol = 0.0 if backend == "numpy" else 1e-9  # b=a+1 -> exact via gammainc
         numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-10)
 
@@ -320,7 +315,7 @@ def test_elliptic_value_parity(backend):
         (gsp.ellipe, scipy_special.ellipe),
     ]:
         ref = sp_fn(m)
-        got = _tonumpy(fn(_asarray(backend, m)))
+        got = as_numpy(fn(_asarray(backend, m)))
         rtol = 0.0 if backend == "numpy" else 1e-12  # AGM is ~1e-15
         numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-12)
 
@@ -376,7 +371,7 @@ def test_gamma_fallback_agrees_and_no_nan_grad(backend):
     # Exercises the pure-backend gamma fallback (torch); on jax it routes native,
     # but we still check parity + finite gradient across the reflection at x<0.
     pts = _GAMMA_X
-    got = _tonumpy(gsp.gamma(_asarray(backend, pts)))
+    got = as_numpy(gsp.gamma(_asarray(backend, pts)))
     numpy.testing.assert_allclose(got, scipy_special.gamma(pts), rtol=1e-11, atol=1e-11)
     # gradient at a negative non-integer (reflection branch) must be finite + correct
     x0 = -1.5
@@ -411,7 +406,7 @@ def test_xlogy_fallback_direct(backend):
     x = numpy.array([0.0, 0.0, 1.0, 2.5, 0.3])
     y = numpy.array([0.0, 5.0, 2.0, 0.7, 10.0])
     ref = scipy_special.xlogy(x, y)
-    got = _tonumpy(
+    got = as_numpy(
         xlogy_fallback(_ns(backend), _asarray(backend, x), _asarray(backend, y))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-13)
@@ -425,7 +420,7 @@ def test_hyp2f1_fallback_alt_labeling(backend):
     a, b, c = 2.0, 0.8, 2.5  # c-a=0.5 (<1), c-b=1.7 (>=1) -> labeling picks b
     z = -numpy.array([0.0, 0.1, 1.0, 5.0, 30.0])
     ref = scipy_special.hyp2f1(a, b, c, z)
-    got = _tonumpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
 
 
@@ -456,7 +451,7 @@ def test_bessel_k_value_parity(backend):
         ("k1", gsp.k1, scipy_special.k1),
     ]:
         ref = sp_fn(x)
-        got = _tonumpy(fn(_asarray(backend, x)))
+        got = as_numpy(fn(_asarray(backend, x)))
         rtol = 0.0 if backend == "numpy" else 1e-12  # series + scaled-trapezoid
         numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-13, err_msg=name)
 
@@ -468,7 +463,7 @@ def test_bessel_kn_value_parity(backend):
     x = _BESSEL_X
     for n in (0, 1, 2, 3, 5):
         ref = scipy_special.kn(n, x)
-        got = _tonumpy(gsp.kn(n, _asarray(backend, x)))
+        got = as_numpy(gsp.kn(n, _asarray(backend, x)))
         rtol = 0.0 if backend == "numpy" else 1e-11  # recurrence amplifies a touch
         numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-13, err_msg=f"kn{n}")
 
@@ -525,13 +520,13 @@ def test_assoc_legendre_value_parity(backend):
     ref = _scipy_assoc_ref(L, M, x, 2)  # P, dP/dx, d2P/dx2
     P, dP, d2 = gsp.assoc_legendre(L, M, _asarray(backend, x), deriv=2)
     if backend == "numpy":  # numpy must be byte-identical to scipy
-        assert numpy.array_equal(_tonumpy(P), ref[0])
-        assert numpy.array_equal(_tonumpy(dP), ref[1])
-        assert numpy.array_equal(_tonumpy(d2), ref[2])
+        assert numpy.array_equal(as_numpy(P), ref[0])
+        assert numpy.array_equal(as_numpy(dP), ref[1])
+        assert numpy.array_equal(as_numpy(d2), ref[2])
     else:
         for got, r, nm in [(P, ref[0], "P"), (dP, ref[1], "dP"), (d2, ref[2], "d2P")]:
             numpy.testing.assert_allclose(
-                _tonumpy(got), r, rtol=1e-11, atol=1e-11, err_msg=nm
+                as_numpy(got), r, rtol=1e-11, atol=1e-11, err_msg=nm
             )
 
 
@@ -540,9 +535,9 @@ def test_assoc_legendre_value_only_and_shape(backend):
     L, M = 5, 3
     x = numpy.array([0.3, -0.4])
     P = gsp.assoc_legendre(L, M, _asarray(backend, x))  # deriv=0 -> just P
-    assert tuple(_tonumpy(P).shape) == (2, L, M)
+    assert tuple(as_numpy(P).shape) == (2, L, M)
     numpy.testing.assert_allclose(
-        _tonumpy(P), _scipy_assoc_ref(L, M, x, 0)[0], rtol=1e-11, atol=1e-11
+        as_numpy(P), _scipy_assoc_ref(L, M, x, 0)[0], rtol=1e-11, atol=1e-11
     )
 
 
@@ -552,7 +547,7 @@ def test_assoc_legendre_autodiff_matches_analytic(backend):
     L, M = 6, 4
     x0 = 0.4
     _, dP_an = gsp.assoc_legendre(L, M, _asarray(backend, x0), deriv=1)
-    dP_an = _tonumpy(dP_an)
+    dP_an = as_numpy(dP_an)
     for ll, mm in [(3, 2), (5, 1), (4, 0), (5, 3)]:
         if backend == "jax":
             g = float(
@@ -575,7 +570,7 @@ def test_gegenbauer_value_parity(backend):
     N = 8
     x = numpy.array([-0.9, -0.3, 0.0, 0.4, 0.95])
     for alpha in (1.5, 3.5, 2 * 3 + 1.5):  # SCF uses alpha = 2l + 3/2
-        got = _tonumpy(gsp.gegenbauer(N, alpha, _asarray(backend, x)))
+        got = as_numpy(gsp.gegenbauer(N, alpha, _asarray(backend, x)))
         assert got.shape == x.shape + (N,)
         for n in range(N):
             ref = scipy_special.eval_gegenbauer(n, alpha, x)
@@ -614,7 +609,7 @@ def test_assoc_legendre_pole_derivs(backend):
     for xv in (1.0, -1.0):
         _, rdP, rd2 = gsp.assoc_legendre(L, M, numpy.asarray(xv), deriv=2)
         _, gdP, gd2 = gsp.assoc_legendre(L, M, _asarray(backend, xv), deriv=2)
-        gdP, gd2 = _tonumpy(gdP)[..., 0], _tonumpy(gd2)[..., 0]
+        gdP, gd2 = as_numpy(gdP)[..., 0], as_numpy(gd2)[..., 0]
         assert not numpy.any(numpy.isnan(gdP)) and not numpy.any(numpy.isnan(gd2))
         numpy.testing.assert_allclose(gdP, rdP[..., 0], rtol=1e-10, atol=1e-12)
         numpy.testing.assert_allclose(gd2, rd2[..., 0], rtol=1e-10, atol=1e-12)
@@ -637,7 +632,7 @@ def test_scf_spherical_zaxis_forces_finite():
         for z in (1.5, -1.5):
             ref = float(getattr(scf, meth)(0.0, z))
             for backend in AD_BACKENDS:
-                got = _tonumpy(
+                got = as_numpy(
                     getattr(scf, meth)(_asarray(backend, 0.0), _asarray(backend, z))
                 )
                 assert numpy.isfinite(got), f"{meth}(0,{z}) {backend} not finite"
@@ -653,10 +648,10 @@ def test_ellipk_ellipe_negative_m_and_unit(backend):
         (gsp.ellipk, scipy_special.ellipk),
         (gsp.ellipe, scipy_special.ellipe),
     ):
-        got = _tonumpy(fn(_asarray(backend, m)))
+        got = as_numpy(fn(_asarray(backend, m)))
         numpy.testing.assert_allclose(got, sp_fn(m), rtol=rtol, atol=1e-12)
-    assert numpy.isinf(_tonumpy(gsp.ellipk(_asarray(backend, 1.0))))
-    numpy.testing.assert_allclose(_tonumpy(gsp.ellipe(_asarray(backend, 1.0))), 1.0)
+    assert numpy.isinf(as_numpy(gsp.ellipk(_asarray(backend, 1.0))))
+    numpy.testing.assert_allclose(as_numpy(gsp.ellipe(_asarray(backend, 1.0))), 1.0)
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
@@ -678,11 +673,11 @@ def test_gamma_negative_integer_poles_nan(backend):
     # Gamma at -1, -2, ... is nan (scipy), not a huge finite reflection value;
     # Gamma(0) is +inf (a distinct scipy convention).
     for x in (-1.0, -2.0, -3.0):
-        assert numpy.isnan(_tonumpy(gsp.gamma(_asarray(backend, x))))
-    assert numpy.isinf(_tonumpy(gsp.gamma(_asarray(backend, 0.0))))
+        assert numpy.isnan(as_numpy(gsp.gamma(_asarray(backend, x))))
+    assert numpy.isinf(as_numpy(gsp.gamma(_asarray(backend, 0.0))))
     xs = numpy.array([-2.5, -1.5, -0.5, 0.5, 2.5, 6.0])  # off-pole unchanged
     numpy.testing.assert_allclose(
-        _tonumpy(gsp.gamma(_asarray(backend, xs))), scipy_special.gamma(xs), rtol=1e-10
+        as_numpy(gsp.gamma(_asarray(backend, xs))), scipy_special.gamma(xs), rtol=1e-10
     )
 
 

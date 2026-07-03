@@ -29,6 +29,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import (
     HernquistPotential,
     KingPotential,
@@ -112,12 +113,6 @@ def _asarray(backend_name, x):
         return torch.tensor(x, dtype=torch.float64)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 @pytest.mark.parametrize("pot", CASES, ids=CASE_IDS)
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity(backend_name, pot):
@@ -127,7 +122,7 @@ def test_value_parity(backend_name, pot):
         ref = numpy.asarray(
             getattr(pot, method)(numpy.asarray(_RS), numpy.asarray(_ZS))
         )
-        got = _tonumpy(getattr(pot, method)(R, z))
+        got = as_numpy(getattr(pot, method)(R, z))
         numpy.testing.assert_allclose(
             got, ref, rtol=1e-12, atol=1e-14, err_msg=f"{type(pot).__name__}.{method}"
         )
@@ -140,7 +135,7 @@ def test_radial_value_parity(backend_name, pot):
     r = _asarray(backend_name, rs)
     for method in _ONE_D:
         ref = numpy.asarray(getattr(pot, method)(numpy.asarray(rs)))
-        got = _tonumpy(getattr(pot, method)(r))
+        got = as_numpy(getattr(pot, method)(r))
         numpy.testing.assert_allclose(
             got, ref, rtol=1e-12, atol=1e-14, err_msg=f"{type(pot).__name__}.{method}"
         )
@@ -154,7 +149,7 @@ def test_public_value_parity(backend_name, pot):
     R = _asarray(backend_name, _RS)
     z = _asarray(backend_name, _ZS)
     ref = numpy.asarray(pot.Rforce(numpy.asarray(_RS), numpy.asarray(_ZS)))
-    got = _tonumpy(pot.Rforce(R, z))
+    got = as_numpy(pot.Rforce(R, z))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
