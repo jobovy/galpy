@@ -13,6 +13,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import (
     CosmphiDiskPotential,
     DehnenBarPotential,
@@ -227,12 +228,6 @@ def _asarray(backend_name, x, requires_grad=False):
         return torch.tensor(x, dtype=torch.float64, requires_grad=requires_grad)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 def _call(method, backend_name, ndim):
     R = _asarray(backend_name, _RS)
     phi = _asarray(backend_name, _PHIS)
@@ -264,7 +259,7 @@ def test_value_parity(backend_name, entry):
     for mname in methods:
         method = getattr(pot, mname)
         ref = _call_numpy(method, ndim)
-        got = _tonumpy(_call(method, backend_name, ndim))
+        got = as_numpy(_call(method, backend_name, ndim))
         numpy.testing.assert_allclose(
             got,
             ref,
@@ -279,7 +274,7 @@ def test_value_parity(backend_name, entry):
             ref = numpy.asarray(
                 method(R0, z0, phi0, _T) if ndim == 3 else method(R0, phi0, _T)
             )
-            got = _tonumpy(_call_scalar(method, backend_name, ndim, R0, z0, phi0))
+            got = as_numpy(_call_scalar(method, backend_name, ndim, R0, z0, phi0))
             numpy.testing.assert_allclose(
                 got,
                 ref,
@@ -478,7 +473,7 @@ def test_singular_branch_value_parity(backend_name, case):
             ref = numpy.asarray(
                 method(R0, z0, phi0, _T) if ndim == 3 else method(R0, phi0, _T)
             )
-            got = _tonumpy(_call_scalar(method, backend_name, ndim, R0, z0, phi0))
+            got = as_numpy(_call_scalar(method, backend_name, ndim, R0, z0, phi0))
             numpy.testing.assert_allclose(
                 got,
                 ref,
@@ -573,9 +568,9 @@ def test_time_dependence_value_parity(backend_name, case):
     phib = _asarray(backend_name, phi0)
     tgb = _asarray(backend_name, tg)
     if ndim == 3:
-        got = _tonumpy(pot._evaluate(Rb, _asarray(backend_name, z0), phib, tgb))
+        got = as_numpy(pot._evaluate(Rb, _asarray(backend_name, z0), phib, tgb))
     else:
-        got = _tonumpy(pot._evaluate(Rb, phib, tgb))
+        got = as_numpy(pot._evaluate(Rb, phib, tgb))
     numpy.testing.assert_allclose(
         got,
         ref,
@@ -669,7 +664,7 @@ def test_break_radius_inside_value_parity(backend_name, case):
     for R0 in [0.2, 0.7, pot._rb - 1e-6]:
         for mname in ["_evaluate", "_Rforce", "_phitorque", "_R2deriv", "_Rphideriv"]:
             ref = float(getattr(pot, mname)(R0, phi0))
-            got = _tonumpy(
+            got = as_numpy(
                 getattr(pot, mname)(
                     _asarray(backend_name, R0), _asarray(backend_name, phi0)
                 )
@@ -693,7 +688,7 @@ def test_break_radius_axis_no_crash(backend_name, case):
     pot, finite = case
     phi0 = 0.4
     ref = float(pot._evaluate(0.0, phi0))  # numpy scalar: must not raise
-    got = _tonumpy(
+    got = as_numpy(
         pot._evaluate(_asarray(backend_name, 0.0), _asarray(backend_name, phi0))
     )
     if finite:
