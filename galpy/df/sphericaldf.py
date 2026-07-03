@@ -21,8 +21,17 @@ import warnings
 
 import numpy
 import scipy.interpolate
-from scipy import integrate, interpolate, special
+from scipy import integrate, special
 
+from ..backend import (
+    as_numpy,
+    exit_cast,
+    get_namespace,
+    is_backend_array,
+    resolve_namespace,
+)
+from ..backend.interpolate import Spline1D
+from ..backend.quadrature import fixed_quad, nested_quad
 from ..orbit import Orbit
 from ..potential import (
     CompositePotential,
@@ -43,6 +52,13 @@ from .df import df
 # Use _APY_LOADED/_APY_UNITS like this to be able to change them in tests
 if _optional_deps._APY_LOADED:
     from astropy import units
+
+# Fixed backend (jax/torch) Gauss-Legendre orders; chosen so the backend path
+# matches the adaptive-scipy numpy path to <~1e-9 over the physical range
+# (measured in tests/test_backend_sphericaldf.py).
+_QUAD_N_VMOM = 100  # velocity-moment integral over v
+_QUAD_N_VMOM2D = 60  # (v, eta) tensor product in the anisotropic base
+_QUAD_N_DMDE = 100  # dM/dE radius integral
 
 
 def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
@@ -73,7 +89,12 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
         The rmin value to use (in internal units)
     """
     # Check if potential diverges at r=0
-    phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
+    xp = get_namespace()  # context/forced default only (inputs are scalars)
+    if xp is numpy:
+        phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
+    else:
+        # coerce coords: undecorated potential evals reject scalars (torch)
+        phi_at_zero = as_numpy(_evaluatePotentials(pot, xp.asarray(0.0), 0))
     is_divergent = not numpy.isfinite(phi_at_zero)
 
     # If rmin is explicitly specified, use it
@@ -224,9 +245,21 @@ class sphericaldf(df):
                 E = args[0].E(pot=self._pot, use_physical=False)
                 L = numpy.sqrt(numpy.sum(args[0].L(use_physical=False) ** 2.0))
                 Lz = args[0].Lz(use_physical=False)
-            E = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
-            L = numpy.atleast_1d(conversion.parse_angmom(L, ro=self._ro, vo=self._vo))
-            Lz = numpy.atleast_1d(conversion.parse_angmom(Lz, ro=self._vo, vo=self._vo))
+            E = conversion.parse_energy(E, vo=self._vo)
+            L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
+            Lz = conversion.parse_angmom(Lz, ro=self._vo, vo=self._vo)
+            _inp = (E, L, Lz)
+            xp = resolve_namespace(E, L, Lz)
+            if xp is numpy:
+                E = numpy.atleast_1d(E)
+                L = numpy.atleast_1d(L)
+                Lz = numpy.atleast_1d(Lz)
+            else:
+                # asarray first (torch.atleast_1d rejects Python scalars); an
+                # unspecified L/Lz stays None (only the anisotropic DFs use them)
+                E = xp.atleast_1d(xp.asarray(E))
+                L = L if L is None else xp.atleast_1d(xp.asarray(L))
+                Lz = Lz if Lz is None else xp.atleast_1d(xp.asarray(Lz))
         else:  # Assume R,vR,vT,z,vz,(phi)
             R, vR, vT, z, vz, phi = (args + (None,))[:6]
             R = conversion.parse_length(R, ro=self._ro)
@@ -234,22 +267,39 @@ class sphericaldf(df):
             vT = conversion.parse_velocity(vT, vo=self._vo)
             z = conversion.parse_length(z, ro=self._ro)
             vz = conversion.parse_velocity(vz, vo=self._vo)
-            vtotSq = vR**2.0 + vT**2.0 + vz**2.0
-            E = numpy.atleast_1d(0.5 * vtotSq + _evaluatePotentials(self._pot, R, z))
-            Lz = numpy.atleast_1d(R * vT)
-            r = numpy.sqrt(R**2.0 + z**2.0)
-            vrad = (R * vR + z * vz) / r
-            L = numpy.atleast_1d(numpy.sqrt(vtotSq - vrad**2.0) * r)
-        return self._call_internal(E, L, Lz).reshape(
-            args[0].shape
-            if len(args) == 1 and hasattr(args[0], "shape")
-            else (
-                args[0][0].shape
-                if len(args) == 1
-                and hasattr(args[0], "__len__")
-                and hasattr(args[0][0], "shape")
-                else (args[0].shape if hasattr(args[0], "shape") else ())
-            )
+            _inp = (R, vR, vT, z, vz)
+            xp = resolve_namespace(R, vR, vT, z, vz)
+            if xp is numpy:
+                vtotSq = vR**2.0 + vT**2.0 + vz**2.0
+                E = numpy.atleast_1d(
+                    0.5 * vtotSq + _evaluatePotentials(self._pot, R, z)
+                )
+                Lz = numpy.atleast_1d(R * vT)
+                r = numpy.sqrt(R**2.0 + z**2.0)
+                vrad = (R * vR + z * vz) / r
+                L = numpy.atleast_1d(numpy.sqrt(vtotSq - vrad**2.0) * r)
+            else:
+                # bring possibly-scalar coords into the namespace first (torch)
+                R, vR, vT, z, vz = (xp.asarray(c) * 1.0 for c in (R, vR, vT, z, vz))
+                vtotSq = vR**2.0 + vT**2.0 + vz**2.0
+                E = xp.atleast_1d(0.5 * vtotSq + _evaluatePotentials(self._pot, R, z))
+                Lz = xp.atleast_1d(R * vT)
+                r = xp.sqrt(R**2.0 + z**2.0)
+                vrad = (R * vR + z * vz) / r
+                L = xp.atleast_1d(xp.sqrt(vtotSq - vrad**2.0) * r)
+        return exit_cast(
+            self._call_internal(E, L, Lz).reshape(
+                args[0].shape
+                if len(args) == 1 and hasattr(args[0], "shape")
+                else (
+                    args[0][0].shape
+                    if len(args) == 1
+                    and hasattr(args[0], "__len__")
+                    and hasattr(args[0][0], "shape")
+                    else (args[0].shape if hasattr(args[0], "shape") else ())
+                )
+            ),
+            *_inp,
         )
 
     @physical_conversion("massenergydensity", pop=True)
@@ -272,9 +322,18 @@ class sphericaldf(df):
         - 2023-05-23 - Written - Bovy (UofT)
 
         """
-        return self._dMdE(
-            numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
-        ).reshape(E.shape if isinstance(E, numpy.ndarray) else ())
+        Ei = conversion.parse_energy(E, vo=self._vo)
+        xp = resolve_namespace(Ei)
+        if xp is numpy:
+            return self._dMdE(numpy.atleast_1d(Ei)).reshape(
+                E.shape if isinstance(E, numpy.ndarray) else ()
+            )
+        return exit_cast(
+            self._dMdE(xp.atleast_1d(xp.asarray(Ei))).reshape(
+                Ei.shape if hasattr(Ei, "shape") else ()
+            ),
+            Ei,
+        )
 
     def vmomentdensity(self, r, n, m, **kwargs):
         """
@@ -310,39 +369,70 @@ class sphericaldf(df):
         vo = conversion.parse_velocity_kms(vo)
         if use_physical and vo is not None and ro is not None:
             fac = conversion.mass_in_msol(vo, ro) * vo ** (n + m) / ro**3
-            if _optional_deps._APY_UNITS:
-                u = units.Msun / units.kpc**3 * (units.km / units.s) ** (n + m)
             out = self._vmomentdensity(r, n, m)
             if _optional_deps._APY_UNITS:
-                return units.Quantity(out * fac, unit=u)
+                u = units.Msun / units.kpc**3 * (units.km / units.s) ** (n + m)
+                # a Quantity is a consumption boundary: astropy can't hold a
+                # backend array (#1052), so cast unconditionally
+                return units.Quantity(as_numpy(out) * fac, unit=u)
             else:
-                return out * fac
+                return exit_cast(out, r) * fac
         else:
-            return self._vmomentdensity(r, n, m)
+            return exit_cast(self._vmomentdensity(r, n, m), r)
 
     def _vmomentdensity(self, r, n, m):
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return (
+                2.0
+                * numpy.pi
+                * integrate.dblquad(
+                    lambda eta, v: (
+                        v ** (2.0 + m + n)
+                        * numpy.sin(eta) ** (1 + m)
+                        * numpy.cos(eta) ** n
+                        * self(
+                            r,
+                            v * numpy.cos(eta),
+                            v * numpy.sin(eta),
+                            0.0,
+                            0.0,
+                            use_physical=False,
+                        )
+                    ),
+                    0.0,
+                    self._vmax_at_r(self._pot, r),
+                    lambda x: 0.0,
+                    lambda x: numpy.pi,
+                )[0]
+            )
+        # jax/torch: tensor-product GL over (v, eta), differentiable in r; node
+        # axes must trail, so broadcast r/vmax/Phi(r) onto two extra axes
+        rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
+        vmax = self._vmax_at_r(self._pot, rb)
+        r_b = rb[..., None, None]
+        v_hi = (xp.asarray(vmax) * 1.0)[..., None, None]
+        Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0.0)) * 1.0)[
+            ..., None, None
+        ]
+
+        def _integrand(v, eta):
+            # at (R, vR, vT, z, vz) = (r, v cos eta, v sin eta, 0, 0):
+            # E = Phi(r) + v^2/2 and L = Lz = r v sin(eta)
+            L = r_b * v * xp.sin(eta)
+            return (
+                v ** (2.0 + m + n)
+                * xp.sin(eta) ** (1 + m)
+                * xp.cos(eta) ** n
+                * self._call_internal(0.5 * v**2.0 + Phir_b, L, L)
+            )
+
         return (
             2.0
             * numpy.pi
-            * integrate.dblquad(
-                lambda eta, v: (
-                    v ** (2.0 + m + n)
-                    * numpy.sin(eta) ** (1 + m)
-                    * numpy.cos(eta) ** n
-                    * self(
-                        r,
-                        v * numpy.cos(eta),
-                        v * numpy.sin(eta),
-                        0.0,
-                        0.0,
-                        use_physical=False,
-                    )
-                ),
-                0.0,
-                self._vmax_at_r(self._pot, r),
-                lambda x: 0.0,
-                lambda x: numpy.pi,
-            )[0]
+            * nested_quad(
+                xp, _integrand, [[0.0, v_hi], [0.0, numpy.pi]], n=_QUAD_N_VMOM2D
+            )
         )
 
     @physical_conversion("velocity", pop=True)
@@ -365,7 +455,10 @@ class sphericaldf(df):
         - 2020-09-04 - Written - Bovy (UofT)
         """
         r = conversion.parse_length(r, ro=self._ro)
-        return numpy.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0))
+        xp = resolve_namespace(r)  # numpy path: xp.sqrt == numpy.sqrt (byte-identical)
+        return exit_cast(
+            xp.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0)), r
+        )
 
     @physical_conversion("velocity", pop=True)
     def sigmat(self, r):
@@ -388,7 +481,10 @@ class sphericaldf(df):
 
         """
         r = conversion.parse_length(r, ro=self._ro)
-        return numpy.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0))
+        xp = resolve_namespace(r)  # numpy path: xp.sqrt == numpy.sqrt (byte-identical)
+        return exit_cast(
+            xp.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0)), r
+        )
 
     def beta(self, r):
         """
@@ -410,7 +506,9 @@ class sphericaldf(df):
 
         """
         r = conversion.parse_length(r, ro=self._ro)
-        return 1.0 - self._vmomentdensity(r, 0, 2) / 2.0 / self._vmomentdensity(r, 2, 0)
+        return exit_cast(
+            1.0 - self._vmomentdensity(r, 0, 2) / 2.0 / self._vmomentdensity(r, 2, 0), r
+        )
 
     ############################### SAMPLING THE DF################################
     def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0):
@@ -458,6 +556,12 @@ class sphericaldf(df):
         else:  # 3D velocity samples
             R = conversion.parse_length(R, ro=self._ro)
             z = conversion.parse_length(z, ro=self._ro)
+            # sampling is numpy-side (stateful numpy RNG): pull backend inputs
+            # in; [()] turns a 0-d array into the scalar it wraps
+            if is_backend_array(R):
+                R = as_numpy(R)[()]
+            if is_backend_array(z):
+                z = as_numpy(z)[()]
             if isinstance(R, numpy.ndarray):
                 assert len(R) == len(z), (
                     """When R= is set to an array, z= needs to be set to """
@@ -473,6 +577,8 @@ class sphericaldf(df):
                 phi, _ = self._sample_position_angles(n=n)
             else:
                 phi = conversion.parse_angle(phi)
+                if is_backend_array(phi):  # sampling is numpy-side
+                    phi = as_numpy(phi)[()]
                 phi = (
                     phi * numpy.ones(n)
                     if not hasattr(phi, "__len__") or len(phi) < n
@@ -517,7 +623,9 @@ class sphericaldf(df):
                 self._xi_cmf_interpolator = self._make_cmf_interpolator()
             xi_samples = self._xi_cmf_interpolator(rand_mass_frac)
             r_samples = _xiToR(xi_samples, a=self._scale)
-        return r_samples
+        # a forced backend makes the deterministic icdf eval a backend array;
+        # samples are numpy-side by design
+        return as_numpy(r_samples)
 
     def _make_cmf_interpolator(self):
         """Create the interpolator object for calculating radii from the CMF
@@ -529,8 +637,17 @@ class sphericaldf(df):
 
         so that xi is in the range [-1,1], which corresponds to an r range of
         [0,infinity)"""
-        ximin = _RToxi(self._rmin_sampling, a=self._scale)
-        ximax = _RToxi(self._rmax, a=self._scale)
+        xp = get_namespace()  # forced/context default only (inputs are scalars)
+        if xp is numpy:
+            ximin = _RToxi(self._rmin_sampling, a=self._scale)
+            ximax = _RToxi(self._rmax, a=self._scale)
+        else:
+            # a forced backend makes _RToxi resolve that backend, which rejects
+            # plain floats (torch) -- coerce in and pull back to the numpy grid
+            ximin = float(
+                as_numpy(_RToxi(xp.asarray(self._rmin_sampling) * 1.0, a=self._scale))
+            )
+            ximax = float(as_numpy(_RToxi(xp.asarray(self._rmax) * 1.0, a=self._scale)))
         xis = numpy.arange(ximin, ximax, 1e-4)
         rs = _xiToR(xis, a=self._scale)
         # try/except necessary when mass doesn't take arrays, also need to
@@ -544,6 +661,8 @@ class sphericaldf(df):
             ms -= mass(self._denspot, self._rmin_sampling, use_physical=False)
             mnorm -= mass(self._denspot, self._rmin_sampling, use_physical=False)
         ms /= mnorm
+        # mass() may have evaluated on a (forced) backend; the icdf table is numpy
+        ms = as_numpy(ms)
         # Add total mass point to avoid extrapolation beyond rmax
         if numpy.isinf(self._rmax):
             xis = numpy.append(xis, 1)
@@ -552,7 +671,9 @@ class sphericaldf(df):
             # For finite rmax, add the endpoint to ensure r <= rmax
             xis = numpy.append(xis, ximax)
             ms = numpy.append(ms, 1)
-        return scipy.interpolate.InterpolatedUnivariateSpline(ms, xis, k=1)
+        # backend-agnostic inverse-CDF: numpy queries hit the scipy spline
+        # (byte-identical); backend queries evaluate the frozen table natively
+        return Spline1D(ms, xis, k=1)
 
     def _sample_position_angles(self, n=1):
         """Generate spherical angle samples"""
@@ -569,9 +690,10 @@ class sphericaldf(df):
                 else 3
             )
             self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(r_a_end=r_a_end)
+        # samples are numpy-side by design (_vmax_at_r follows a forced backend)
         return self._v_vesc_pvr_interpolator(
             numpy.log10(r / self._scale), numpy.random.uniform(size=n), grid=False
-        ) * self._vmax_at_r(self._pot, r)
+        ) * as_numpy(self._vmax_at_r(self._pot, r))
 
     def _sample_velocity_angles(self, r, n=1):
         """Generate samples of angles that set radial vs tangential
@@ -584,11 +706,21 @@ class sphericaldf(df):
         """Function that gives the max velocity in the DF at r;
         typically equal to vesc, but not necessarily for finite systems
         such as King"""
-        return numpy.sqrt(
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return numpy.sqrt(
+                2.0
+                * (
+                    _evaluatePotentials(self._pot, self._rmax + 1e-10, 0)
+                    - _evaluatePotentials(self._pot, r, 0.0)
+                )
+            )
+        # coerce coords: undecorated potential evals reject numpy/scalars (torch)
+        return xp.sqrt(
             2.0
             * (
-                _evaluatePotentials(self._pot, self._rmax + 1e-10, 0)
-                - _evaluatePotentials(self._pot, r, 0.0)
+                _evaluatePotentials(self._pot, xp.asarray(self._rmax + 1e-10) * 1.0, 0)
+                - _evaluatePotentials(self._pot, xp.asarray(r) * 1.0, 0.0)
             )
         )
 
@@ -639,11 +771,12 @@ class sphericaldf(df):
         r_a_values = 10.0 ** numpy.linspace(r_a_start, r_a_end, n_r_a)
         v_vesc_values = numpy.linspace(0, 1, n_v_vesc)
         r_a_grid, v_vesc_grid = numpy.meshgrid(r_a_values, v_vesc_values)
-        vesc_grid = self._vmax_at_r(self._pot, r_a_grid * self._scale)
+        vesc_grid = as_numpy(self._vmax_at_r(self._pot, r_a_grid * self._scale))
         r_grid = r_a_grid * self._scale
         vr_grid = v_vesc_grid * vesc_grid
-        # Calculate p(v|r) and normalize
-        pvr_grid = self._p_v_at_r(vr_grid, r_grid)
+        # Calculate p(v|r) (one vectorized -- possibly forced-backend -- DF eval,
+        # pulled numpy-side for the spline construction) and normalize
+        pvr_grid = as_numpy(self._p_v_at_r(vr_grid, r_grid))
         pvr_grid_cml = numpy.cumsum(pvr_grid, axis=0)
         pvr_grid_cml_norm = (
             pvr_grid_cml
@@ -708,8 +841,9 @@ class sphericaldf(df):
 
         Returns
         -------
-        scipy.interpolate.InterpolatedUnivariateSpline
-            Interpolator for r(phi).
+        galpy.backend.interpolate.Spline1D
+            Interpolator for r(phi) (scipy-backed for numpy queries, natively
+            evaluated for backend queries).
 
         Notes
         -----
@@ -717,25 +851,36 @@ class sphericaldf(df):
         """
 
         # Check if potential at r=0 is finite; if not, start at r_a_min
-        phi_at_zero = _evaluatePotentials(self._pot, 0.0, 0)
+        xp = get_namespace()  # context/forced default only (the grid is numpy)
+        if xp is numpy:
+            phi_at_zero = _evaluatePotentials(self._pot, 0.0, 0)
+        else:
+            # coerce coords: undecorated potential evals reject scalars (torch)
+            phi_at_zero = as_numpy(_evaluatePotentials(self._pot, xp.asarray(0.0), 0))
         if numpy.isfinite(phi_at_zero):
             r_a_values = numpy.concatenate(
                 (numpy.array([0.0]), numpy.geomspace(r_a_min, r_a_max, nra))
             )
         else:
             r_a_values = numpy.geomspace(r_a_min, r_a_max, nra)
-        phis = numpy.array(
-            [_evaluatePotentials(self._pot, r * self._scale, 0) for r in r_a_values]
-        )
+        if xp is numpy:
+            phis = numpy.array(
+                [_evaluatePotentials(self._pot, r * self._scale, 0) for r in r_a_values]
+            )
+        else:
+            # forced backend: one vectorized eval instead of nra scalar dispatches
+            phis = as_numpy(
+                _evaluatePotentials(self._pot, xp.asarray(r_a_values) * self._scale, 0)
+            )
         # Ensure phi is monotonic (required if coming from interpolated pot)
         if numpy.any(numpy.diff(phis) <= 0):
             phim = numpy.maximum.accumulate(phis)
             indx_rm = numpy.where(numpy.diff(phim) == 0)[0]
             phis = numpy.delete(phim, indx_rm)
             r_a_values = numpy.delete(r_a_values, indx_rm)
-        return interpolate.InterpolatedUnivariateSpline(
-            phis, r_a_values * self._scale, k=3
-        )
+        # backend-agnostic r(Phi): numpy queries hit the scipy spline
+        # (byte-identical); backend queries evaluate the frozen table natively
+        return Spline1D(phis, r_a_values * self._scale, k=3)
 
 
 class isotropicsphericaldf(sphericaldf):
@@ -793,47 +938,98 @@ class isotropicsphericaldf(sphericaldf):
     def _dMdE(self, E):
         if not hasattr(self, "_rphi"):
             self._rphi = self._setup_rphi_interpolator()
-        fE = numpy.atleast_1d(self.fE(E))
-        out = numpy.zeros_like(E)
-        out[fE > 0.0] = (
-            16.0
-            * numpy.pi**2.0
-            * numpy.sqrt(2.0)
-            * fE[fE > 0.0]
-            * numpy.array(
-                [
-                    integrate.quad(
-                        lambda r: (
-                            r**2.0
-                            * numpy.sqrt(tE - _evaluatePotentials(self._pot, r, 0.0))
-                        ),
-                        0.0,
-                        self._rphi(tE),
-                    )[0]
-                    for ii, tE in enumerate(E)
-                    if fE[ii] > 0.0
-                ]
+        xp = resolve_namespace(E)
+        if xp is numpy:
+            fE = numpy.atleast_1d(self.fE(E))
+            out = numpy.zeros_like(E)
+            out[fE > 0.0] = (
+                16.0
+                * numpy.pi**2.0
+                * numpy.sqrt(2.0)
+                * fE[fE > 0.0]
+                * numpy.array(
+                    [
+                        integrate.quad(
+                            lambda r: (
+                                r**2.0
+                                * numpy.sqrt(
+                                    tE - _evaluatePotentials(self._pot, r, 0.0)
+                                )
+                            ),
+                            0.0,
+                            self._rphi(tE),
+                        )[0]
+                        for ii, tE in enumerate(E)
+                        if fE[ii] > 0.0
+                    ]
+                )
             )
+            # Numerical issues can make the integrand's sqrt argument negative, only
+            # happens at dMdE ~ 0, so just set to zero
+            out[numpy.isnan(out)] = 0.0
+            return out
+        # jax/torch: GL after r = rphi(E) - s^2, which cancels the sqrt turning
+        # point at r = rphi(E) so fixed-order GL converges fast
+        fE = xp.atleast_1d(self.fE(E))
+        pos = fE > 0.0
+        rphiE = xp.asarray(self._rphi(E)) * 1.0
+        # dead-branch guard: out-of-bounds E gets a safe dummy radius, zeroed below
+        rphiE = xp.where(pos, rphiE, xp.ones_like(rphiE))
+        Eb = (xp.asarray(E) * 1.0)[..., None]
+
+        def _integrand(s):
+            r = rphiE[..., None] - s**2.0
+            diff = Eb - _evaluatePotentials(self._pot, r, 0.0)
+            # guard: numerical noise can push E - Phi below 0 at the turning point
+            diffsafe = xp.where(diff > 0.0, diff, xp.ones_like(diff))
+            return (
+                r**2.0
+                * xp.where(diff > 0.0, xp.sqrt(diffsafe), xp.zeros_like(diff))
+                * 2.0
+                * s
+            )
+
+        integral = fixed_quad(xp, _integrand, 0.0, xp.sqrt(rphiE), n=_QUAD_N_DMDE)
+        return xp.where(
+            pos,
+            16.0 * numpy.pi**2.0 * numpy.sqrt(2.0) * fE * integral,
+            xp.zeros_like(fE),
         )
-        # Numerical issues can make the integrand's sqrt argument negative, only
-        # happens at dMdE ~ 0, so just set to zero
-        out[numpy.isnan(out)] = 0.0
-        return out
 
     def _vmomentdensity(self, r, n, m):
         if m % 2 == 1 or n % 2 == 1:
             return 0.0
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return (
+                2.0
+                * numpy.pi
+                * integrate.quad(
+                    lambda v: (
+                        v ** (2.0 + m + n)
+                        * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
+                    ),
+                    0.0,
+                    self._vmax_at_r(self._pot, r),
+                )[0]
+                * special.gamma(m // 2 + 1)
+                * special.gamma(n // 2 + 0.5)
+                / special.gamma(m // 2 + n // 2 + 1.5)
+            )
+        # jax/torch: fixed-order GL over v, differentiable in r through Phi(r)
+        # and the vmax(r) integration limit; the node axis trails
+        rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
+        Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0)) * 1.0)[..., None]
         return (
             2.0
             * numpy.pi
-            * integrate.quad(
-                lambda v: (
-                    v ** (2.0 + m + n)
-                    * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
-                ),
+            * fixed_quad(
+                xp,
+                lambda v: v ** (2.0 + m + n) * self.fE(Phir_b + 0.5 * v**2.0),
                 0.0,
-                self._vmax_at_r(self._pot, r),
-            )[0]
+                self._vmax_at_r(self._pot, rb),
+                n=_QUAD_N_VMOM,
+            )
             * special.gamma(m // 2 + 1)
             * special.gamma(n // 2 + 0.5)
             / special.gamma(m // 2 + n // 2 + 1.5)
@@ -844,6 +1040,12 @@ class isotropicsphericaldf(sphericaldf):
         return numpy.arccos(1.0 - 2.0 * numpy.random.uniform(size=n))
 
     def _p_v_at_r(self, v, r):
+        xp = resolve_namespace(v, r)
+        if xp is not numpy:
+            # coerce: a forced backend sees the numpy sampling grids here and
+            # torch potentials reject numpy coords
+            v = xp.asarray(v) * 1.0
+            r = xp.asarray(r) * 1.0
         if hasattr(self, "_fE_interp"):
             return (
                 self._fE_interp(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
@@ -887,42 +1089,76 @@ class anisotropicsphericaldf(sphericaldf):
     def _dMdE(self, E):
         if not hasattr(self, "_rphi"):
             self._rphi = self._setup_rphi_interpolator()
+        xp = resolve_namespace(E)
+        if xp is numpy:
 
-        def Lintegrand(t, L2lim, E):
-            return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
+            def Lintegrand(t, L2lim, E):
+                return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
 
-        out = (
+            out = (
+                16.0
+                * numpy.pi**2.0
+                * numpy.array(
+                    [
+                        integrate.quad(
+                            lambda r: (
+                                r
+                                * integrate.quad(
+                                    Lintegrand,
+                                    0.0,
+                                    numpy.sqrt(
+                                        2.0
+                                        * r**2.0
+                                        * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                                    ),
+                                    args=(
+                                        2.0
+                                        * r**2.0
+                                        * (tE - _evaluatePotentials(self._pot, r, 0.0)),
+                                        tE,
+                                    ),
+                                )[0]
+                            ),
+                            0.0,
+                            self._rphi(tE),
+                        )[0]
+                        for ii, tE in enumerate(E)
+                    ]
+                )
+            )
+            # Numerical issues can make the integrand's sqrt argument negative, only
+            # happens at dMdE ~ 0, so just set to zero
+            out[numpy.isnan(out)] = 0.0
+            return out
+        # jax/torch: tensor-product GL after r = rphi(E) - s^2 (cancels the outer
+        # turning point) and t = Lmax sin(phi) (cancels the inner sqrt endpoint)
+        Eb = xp.asarray(E) * 1.0
+        rphiE = xp.asarray(self._rphi(E)) * 1.0
+        # dead-branch guard: an unphysical (extrapolated) rphi <= 0 contributes 0
+        rpos = rphiE > 0.0
+        smax = xp.where(rpos, xp.sqrt(xp.where(rpos, rphiE, xp.ones_like(rphiE))), 0.0)
+        E_bb = Eb[..., None, None]
+        rphi_bb = xp.where(rpos, rphiE, xp.ones_like(rphiE))[..., None, None]
+
+        def _integrand(s, phi):
+            r = rphi_bb - s**2.0
+            L2lim = 2.0 * r**2.0 * (E_bb - _evaluatePotentials(self._pot, r, 0.0))
+            # guard: numerical noise can push E - Phi below 0 at the turning point
+            Lmax = xp.where(
+                L2lim > 0.0,
+                xp.sqrt(xp.where(L2lim > 0.0, L2lim, xp.ones_like(L2lim))),
+                xp.zeros_like(L2lim),
+            )
+            L = Lmax * xp.cos(phi)
+            return r * self._call_internal(E_bb, L, None) * L * 2.0 * s
+
+        return (
             16.0
             * numpy.pi**2.0
-            * numpy.array(
-                [
-                    integrate.quad(
-                        lambda r: (
-                            r
-                            * integrate.quad(
-                                Lintegrand,
-                                0.0,
-                                numpy.sqrt(
-                                    2.0
-                                    * r**2.0
-                                    * (tE - _evaluatePotentials(self._pot, r, 0.0))
-                                ),
-                                args=(
-                                    2.0
-                                    * r**2.0
-                                    * (tE - _evaluatePotentials(self._pot, r, 0.0)),
-                                    tE,
-                                ),
-                            )[0]
-                        ),
-                        0.0,
-                        self._rphi(tE),
-                    )[0]
-                    for ii, tE in enumerate(E)
-                ]
+            * nested_quad(
+                xp,
+                _integrand,
+                [[0.0, smax[..., None, None]], [0.0, numpy.pi / 2.0]],
+                n=_QUAD_N_VMOM2D,
             )
         )
-        # Numerical issues can make the integrand's sqrt argument negative, only
-        # happens at dMdE ~ 0, so just set to zero
-        out[numpy.isnan(out)] = 0.0
-        return out
