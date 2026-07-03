@@ -9,6 +9,8 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
+
 pytestmark = pytest.mark.backend_managed
 
 BACKENDS = []
@@ -33,12 +35,6 @@ except ImportError:  # pragma: no cover
 
 def _arr(backend, x):
     return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
-
-
-def _np(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().cpu().numpy()
-    return numpy.asarray(x)
 
 
 def _scf():
@@ -68,7 +64,7 @@ def test_scf_mixed_scalar_array_coords(backend):
         ("phi2deriv", lambda p: scf.phi2deriv(1.5, 0.3, phi=p)),
     ]:
         ref = numpy.asarray(fn(phin))
-        got = _np(fn(phib))
+        got = as_numpy(fn(phib))
         numpy.testing.assert_allclose(
             got, ref, rtol=1e-10, atol=1e-12, err_msg=f"SCF {name} ({backend})"
         )
@@ -85,11 +81,13 @@ def test_cyl_to_spher_mixed(backend):
     r_ref, theta_ref, phi_ref = coords.cyl_to_spher(
         1.5, 0.3, numpy.array([0.1, 0.2, 0.3])
     )
-    numpy.testing.assert_allclose(_np(r), numpy.broadcast_to(r_ref, (3,)), rtol=1e-12)
     numpy.testing.assert_allclose(
-        _np(th), numpy.broadcast_to(theta_ref, (3,)), rtol=1e-12
+        as_numpy(r), numpy.broadcast_to(r_ref, (3,)), rtol=1e-12
     )
-    numpy.testing.assert_allclose(_np(ph), phi_ref, rtol=1e-12)
+    numpy.testing.assert_allclose(
+        as_numpy(th), numpy.broadcast_to(theta_ref, (3,)), rtol=1e-12
+    )
+    numpy.testing.assert_allclose(as_numpy(ph), phi_ref, rtol=1e-12)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -104,11 +102,11 @@ def test_doubleexp_scalar_R_array_z(backend):
     dp = DEDP()
     zb = _arr(backend, [0.3, 0.6])
     ref = numpy.asarray(dp(1.5, numpy.array([0.3, 0.6])))
-    numpy.testing.assert_allclose(_np(dp(1.5, zb)), ref, rtol=1e-8, atol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(dp(1.5, zb)), ref, rtol=1e-8, atol=1e-10)
     # supported array combo (same-shape R, z) stays a full array, matching numpy
     Rb, zb2 = _arr(backend, [1.5, 2.0]), _arr(backend, [0.3, 0.6])
     ref2 = numpy.asarray(dp(numpy.array([1.5, 2.0]), numpy.array([0.3, 0.6])))
-    numpy.testing.assert_allclose(_np(dp(Rb, zb2)), ref2, rtol=1e-8, atol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(dp(Rb, zb2)), ref2, rtol=1e-8, atol=1e-10)
 
 
 def test_asarray_on_device_rejecting_device_fallback():

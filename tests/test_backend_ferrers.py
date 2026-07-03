@@ -18,6 +18,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import FerrersPotential
 
 # This module manages backends explicitly, so it is exempt from the global
@@ -75,12 +76,6 @@ def _asarray(backend_name, x):
         return torch.tensor(x, dtype=torch.float64)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 @pytest.mark.parametrize("method", _METHODS)
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity(backend_name, method):
@@ -94,7 +89,7 @@ def test_value_parity(backend_name, method):
         )
     )
     got = float(
-        _tonumpy(
+        as_numpy(
             getattr(_FE, method)(
                 _asarray(backend_name, _R0),
                 _asarray(backend_name, _Z0),
@@ -115,7 +110,7 @@ def test_dens_inside_outside_value_parity(backend_name):
     for R0, z0, expect_zero in [(0.3, 0.05, False), (3.0, 0.5, True)]:
         ref = float(_FE._dens(numpy.asarray(R0), numpy.asarray(z0), _PHI0, _T0))
         got = float(
-            _tonumpy(
+            as_numpy(
                 _FE._dens(
                     _asarray(backend_name, R0), _asarray(backend_name, z0), _PHI0, _T0
                 )
