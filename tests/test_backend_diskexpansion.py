@@ -27,7 +27,7 @@
 import numpy
 import pytest
 
-from galpy.backend import get_namespace
+from galpy.backend import as_numpy, get_namespace
 from galpy.potential import PlummerPotential
 from galpy.potential.KuijkenDubinskiDiskExpansionPotential import (
     KuijkenDubinskiDiskExpansionPotential,
@@ -64,12 +64,6 @@ def _asarray(backend_name, x, requires_grad=False):
     if backend_name == "jax":
         return jnp.asarray(x, dtype=jnp.float64)
     return torch.tensor(x, dtype=torch.float64, requires_grad=requires_grad)
-
-
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
 
 
 def _dens_xp(R, z):
@@ -141,7 +135,7 @@ _ZS = [-0.3, 0.05, 0.2]
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity(backend_name, pot, method):
     ref = numpy.asarray(getattr(pot, method)(numpy.asarray(_RS), numpy.asarray(_ZS)))
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(_asarray(backend_name, _RS), _asarray(backend_name, _ZS))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
@@ -156,7 +150,7 @@ def test_zkink_at_zero(backend_name, method):
     R = [0.5, 1.0, 2.0]
     z = [0.0, 0.0, 0.0]
     ref = numpy.asarray(getattr(pot, method)(numpy.asarray(R), numpy.asarray(z)))
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(_asarray(backend_name, R), _asarray(backend_name, z))
     )
     assert numpy.all(numpy.isfinite(ref))
@@ -171,7 +165,7 @@ def test_sech2_large_z_no_overflow(backend_name):
     z = [-40.0, 40.0]
     ref = numpy.asarray(pot._evaluate(numpy.asarray(R), numpy.asarray(z)))
     assert numpy.all(numpy.isfinite(ref))
-    got = _tonumpy(pot._evaluate(_asarray(backend_name, R), _asarray(backend_name, z)))
+    got = as_numpy(pot._evaluate(_asarray(backend_name, R), _asarray(backend_name, z)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
@@ -265,7 +259,7 @@ def test_force_hessian_identities(backend_name, pot):
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_phiME_dens_value_parity(backend_name, pot):
     ref = numpy.asarray(pot._phiME_dens_func(numpy.asarray(_RS), numpy.asarray(_ZS)))
-    got = _tonumpy(
+    got = as_numpy(
         pot._phiME_dens_func(_asarray(backend_name, _RS), _asarray(backend_name, _ZS))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
