@@ -30,17 +30,12 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from galpy.backend import as_numpy
 from galpy.df.surfaceSigmaProfile import expSurfaceSigmaProfile
 
 
 def _arr(backend, x):
     return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
-
-
-def _np(x):
-    if torch is not None and torch.is_tensor(x):
-        return x.detach().cpu().numpy()
-    return numpy.asarray(x)
 
 
 def _is_backend_array(backend, x):
@@ -71,7 +66,7 @@ def test_surfaceSigmaProfile_parity(backend):
             if (name, lg) not in _SSP_R_INDEP:
                 assert _is_backend_array(backend, got)
             numpy.testing.assert_allclose(
-                _np(got), numpy.asarray(ref), rtol=1e-12, atol=1e-14
+                as_numpy(got), numpy.asarray(ref), rtol=1e-12, atol=1e-14
             )
 
 

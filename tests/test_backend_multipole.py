@@ -38,6 +38,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import MiyamotoNagaiPotential, MultipoleExpansionPotential
 
 # This module manages backends explicitly (parametrizes over them), so it is
@@ -121,12 +122,6 @@ def _asarray(backend_name, x):
         return torch.tensor(x, dtype=torch.float64)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 @pytest.mark.parametrize("pot", CASES, ids=CASE_IDS)
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity(backend_name, pot):
@@ -139,7 +134,7 @@ def test_value_parity(backend_name, pot):
                 numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS)
             )
         )
-        got = _tonumpy(getattr(pot, method)(R, z, phi))
+        got = as_numpy(getattr(pot, method)(R, z, phi))
         rtol = 1e-9 if method in _SECOND_ORDER else 1e-12
         numpy.testing.assert_allclose(
             got,
@@ -157,7 +152,7 @@ def test_value_parity_scalar(backend_name, pot):
     for method in _FIRST_ORDER + _SECOND_ORDER:
         ref = float(numpy.asarray(getattr(pot, method)(1.3, 0.4, 0.7)))
         got = float(
-            _tonumpy(
+            as_numpy(
                 getattr(pot, method)(
                     _asarray(backend_name, 1.3),
                     _asarray(backend_name, 0.4),
@@ -180,7 +175,7 @@ def test_public_value_parity(backend_name, pot):
     ref = numpy.asarray(
         pot.Rforce(numpy.asarray(_RS), numpy.asarray(_ZS), phi=numpy.asarray(_PHIS))
     )
-    got = _tonumpy(pot.Rforce(R, z, phi=phi))
+    got = as_numpy(pot.Rforce(R, z, phi=phi))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
@@ -403,7 +398,7 @@ def test_tdep_value_parity(backend_name, pot):
                     numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS), t
                 )
             )
-            got = _tonumpy(getattr(pot, method)(R, z, phi, t))
+            got = as_numpy(getattr(pot, method)(R, z, phi, t))
             numpy.testing.assert_allclose(
                 got,
                 ref,
@@ -422,7 +417,7 @@ def test_tdep_array_t_broadcast(backend_name, pot):
     ref = numpy.asarray(
         pot._evaluate(numpy.asarray(_RS), numpy.asarray(_ZS), numpy.asarray(_PHIS), ts)
     )
-    got = _tonumpy(
+    got = as_numpy(
         pot._evaluate(
             _asarray(backend_name, _RS),
             _asarray(backend_name, _ZS),
@@ -442,7 +437,7 @@ def test_tdep_center(backend_name, pot):
     t0 = 1.21
     ref = float(numpy.asarray(pot._evaluate(0.0, 0.0, 0.3, t0)))
     got = float(
-        _tonumpy(
+        as_numpy(
             pot._evaluate(
                 _asarray(backend_name, 0.0),
                 _asarray(backend_name, 0.0),
@@ -454,7 +449,7 @@ def test_tdep_center(backend_name, pot):
     numpy.testing.assert_allclose(got, ref, rtol=1e-12)
     for meth in ["_Rforce", "_zforce", "_phitorque", "_R2deriv"]:
         val = float(
-            _tonumpy(
+            as_numpy(
                 getattr(pot, meth)(
                     _asarray(backend_name, 0.0),
                     _asarray(backend_name, 0.0),

@@ -5,16 +5,17 @@ import pytest
 
 
 def _to_numpy(x):
-    """Coerce a (possibly jax/torch) Orbit-accessor result to a numpy array so
-    value assertions in the orbit tests are backend-agnostic. Under a forced
-    backend the accessors return jax/torch arrays; this brings them back to numpy
-    for ``numpy.amax``/``all``/``std``/... A numpy input passes through unchanged
-    (``numpy.asarray`` is the identity), so the numpy path stays byte-identical.
-    Shared by test_orbit.py and test_orbits.py (imported via ``from conftest
-    import _to_numpy``)."""
-    if hasattr(x, "detach"):  # torch tensor: detach from autograd + move to CPU
-        x = x.detach().cpu()
-    return numpy.asarray(x)
+    """Coerce a (possibly jax/torch) accessor result to numpy for backend-
+    agnostic value assertions in the orbit tests (imported as ``from conftest
+    import _to_numpy`` by test_orbit.py/test_orbits.py). Thin lazy wrapper over
+    the canonical ``galpy.backend.as_numpy``: the import is deferred to call time
+    so that merely loading conftest does NOT import galpy at session start --
+    an early galpy import here locks in the default astropy-units config before
+    tests that toggle it (e.g. test_quantity) can, making Orbit accessors return
+    plain numpy instead of Quantities. numpy input passes through unchanged."""
+    from galpy.backend import as_numpy
+
+    return as_numpy(x)
 
 
 # ---------------------------------------------------------------------------

@@ -9,6 +9,8 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
+
 pytestmark = pytest.mark.backend_managed
 
 BACKENDS = []
@@ -53,12 +55,6 @@ def _arr(backend, x):
     return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
 
 
-def _np(x):
-    if torch is not None and torch.is_tensor(x):
-        return x.detach().cpu().numpy()
-    return numpy.asarray(x)
-
-
 def _integ(backend, pot, vxvv, ts, method):
     if backend == "jax":
         from galpy.backend._jax.orbit_stm import integrate
@@ -80,7 +76,7 @@ def test_forward_matches_c(backend, method):
         ref = numpy.array(
             [o.R(_TS), o.vR(_TS), o.vT(_TS), o.z(_TS), o.vz(_TS), o.phi(_TS)]
         ).T
-        got = _np(_integ(backend, pot, _arr(backend, _IC), _TS, method))
+        got = as_numpy(_integ(backend, pot, _arr(backend, _IC), _TS, method))
         # the wrapper's forward is the dxdv variant of the C integrator; for the
         # fixed-step methods its shared 12-D step sequence differs from base-only
         # Orbit.integrate at the integrator level (~1e-8), 1e-12 for dop853_c.
@@ -112,11 +108,11 @@ def test_grad_final_R_vs_fd(backend):
         g = jax.grad(lambda v: _integ("jax", pot, v, _TS, "dop853_c")[-1, 0])(
             jnp.asarray(_IC)
         )
-        g = _np(g)
+        g = as_numpy(g)
     else:
         v = torch.tensor(_IC, requires_grad=True)
         _integ("torch", pot, v, _TS, "dop853_c")[-1, 0].backward()
-        g = _np(v.grad)
+        g = as_numpy(v.grad)
     numpy.testing.assert_allclose(g, gfd, rtol=1e-4, atol=1e-5)
 
 
@@ -129,7 +125,7 @@ def test_jacrev_equals_stm(method):
     pot = MiyamotoNagaiPotential(normalize=1.0)
     _, M = c_stm_forward(pot, _IC, _TS, method, 1e-10, 1e-10)
     Jall = jax.jacrev(lambda v: _integ("jax", pot, v, _TS, method))(jnp.asarray(_IC))
-    numpy.testing.assert_allclose(_np(Jall), M, rtol=1e-10, atol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(Jall), M, rtol=1e-10, atol=1e-10)
 
 
 # ----------------------------------------------------------------- torch gradcheck
@@ -165,7 +161,9 @@ def test_cstm_grad_matches_inbackend_ode(backend):
         v2 = torch.tensor(_IC, requires_grad=True)
         integrate_orbit(pot, v2, torch.tensor(_TS))[-1, 0].backward()
         g_ode = v2.grad
-    numpy.testing.assert_allclose(_np(g_stm), _np(g_ode), rtol=1e-5, atol=1e-6)
+    numpy.testing.assert_allclose(
+        as_numpy(g_stm), as_numpy(g_ode), rtol=1e-5, atol=1e-6
+    )
 
 
 # --------------------------------------------------------- cross-backend agreement
@@ -174,14 +172,14 @@ def test_cstm_grad_matches_inbackend_ode(backend):
 )
 def test_torch_grad_matches_jax():
     pot = MiyamotoNagaiPotential(normalize=1.0)
-    g_jax = _np(
+    g_jax = as_numpy(
         jax.grad(lambda v: _integ("jax", pot, v, _TS, "dop853_c")[-1, 0])(
             jnp.asarray(_IC)
         )
     )
     v = torch.tensor(_IC, requires_grad=True)
     _integ("torch", pot, v, _TS, "dop853_c")[-1, 0].backward()
-    numpy.testing.assert_allclose(_np(v.grad), g_jax, rtol=1e-8, atol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(v.grad), g_jax, rtol=1e-8, atol=1e-10)
 
 
 # -------------------------------------------------------------- batch / vmap (jax)
@@ -192,7 +190,7 @@ def test_batch_and_vmap():
     batch = _integ("jax", pot, ics, _TS, "dop853_c")
     assert batch.shape == (3, len(_TS), 6)
     vm = jax.vmap(lambda v: _integ("jax", pot, v, _TS, "dop853_c"))(ics)
-    numpy.testing.assert_allclose(_np(batch), _np(vm), rtol=1e-10, atol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(batch), as_numpy(vm), rtol=1e-10, atol=1e-12)
 
 
 # ---------------------------------------------------------------- numpy IC raises
@@ -223,8 +221,8 @@ def test_integrate_stm_dispatch(backend):
 
     pot = MiyamotoNagaiPotential(normalize=1.0)
     v = _arr(backend, _IC)
-    got = _np(integrate_stm(pot, v, _TS, method="dop853_c"))
-    ref = _np(_integ(backend, pot, v, _TS, "dop853_c"))
+    got = as_numpy(integrate_stm(pot, v, _TS, method="dop853_c"))
+    ref = as_numpy(_integ(backend, pot, v, _TS, "dop853_c"))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-12)
 
 
@@ -236,7 +234,7 @@ def test_batch_gradient_matches_single(backend):
     pot = MiyamotoNagaiPotential(normalize=1.0)
     ics = numpy.stack([_IC, _IC * 1.01, _IC * 0.99])
     if backend == "jax":
-        gb = _np(
+        gb = as_numpy(
             jax.grad(
                 lambda vv: _integ("jax", pot, vv, _TS, "dop853_c")[:, -1, 0].sum()
             )(jnp.asarray(ics))
@@ -244,10 +242,10 @@ def test_batch_gradient_matches_single(backend):
     else:
         v = torch.tensor(ics, requires_grad=True)
         _integ("torch", pot, v, _TS, "dop853_c")[:, -1, 0].sum().backward()
-        gb = _np(v.grad)
+        gb = as_numpy(v.grad)
     for j, ic in enumerate(ics):
         if backend == "jax":
-            gj = _np(
+            gj = as_numpy(
                 jax.grad(lambda v: _integ("jax", pot, v, _TS, "dop853_c")[-1, 0])(
                     jnp.asarray(ic)
                 )
@@ -255,7 +253,7 @@ def test_batch_gradient_matches_single(backend):
         else:
             vv = torch.tensor(ic, requires_grad=True)
             _integ("torch", pot, vv, _TS, "dop853_c")[-1, 0].backward()
-            gj = _np(vv.grad)
+            gj = as_numpy(vv.grad)
         numpy.testing.assert_allclose(gb[j], gj, rtol=1e-8, atol=1e-10)
 
 
@@ -291,7 +289,7 @@ def test_orbit_integrate_cstm_forward_parity(backend, method):
             val = getattr(o, acc)(ts, use_physical=False)
             assert _is_backend(backend, val), f"{name}.{acc} left {backend}"
             numpy.testing.assert_allclose(
-                _np(val),
+                as_numpy(val),
                 numpy.asarray(getattr(onp, acc)(_TS, use_physical=False)),
                 rtol=1e-5,
                 atol=1e-6,
@@ -330,9 +328,9 @@ def test_orbit_integrate_cstm_full_ic_jacobian_vs_fd(backend):
         return o.getOrbit()[-1]
 
     if backend == "jax":
-        jac = _np(jax.jacrev(final_b)(jnp.asarray(_IC)))
+        jac = as_numpy(jax.jacrev(final_b)(jnp.asarray(_IC)))
     else:
-        jac = _np(torch.autograd.functional.jacobian(final_b, torch.tensor(_IC)))
+        jac = as_numpy(torch.autograd.functional.jacobian(final_b, torch.tensor(_IC)))
     numpy.testing.assert_allclose(jac, jfd, rtol=1e-4, atol=1e-5)
 
 
@@ -366,11 +364,11 @@ def test_orbit_integrate_cstm_grad_accessor_vs_fd(backend, acc):
             return getattr(o, acc)(use_physical=False)
 
         if backend == "jax":
-            g = _np(jax.grad(f_b)(jnp.asarray(_IC)))
+            g = as_numpy(jax.grad(f_b)(jnp.asarray(_IC)))
         else:
             v = torch.tensor(_IC, requires_grad=True)
             f_b(v).backward()
-            g = _np(v.grad)
+            g = as_numpy(v.grad)
         numpy.testing.assert_allclose(
             g, gfd, rtol=1e-4, atol=1e-5, err_msg=f"{acc} {backend}"
         )
@@ -385,11 +383,11 @@ def test_orbit_integrate_cstm_matches_functional(backend):
     pot = MiyamotoNagaiPotential(normalize=1.0)
     o = Orbit(_arr(backend, _IC))
     o.integrate(_arr(backend, _TS), pot, method="dop853_c")
-    func = _np(_integ(backend, pot, _arr(backend, _IC), _TS, "dop853_c"))  # (nt,6)
+    func = as_numpy(_integ(backend, pot, _arr(backend, _IC), _TS, "dop853_c"))  # (nt,6)
     # identical wrapper -> identical to ~roundoff (backend-vs-numpy ts in the
     # internal numpy.asarray gives a sub-1e-11 delta; a different path would
     # differ by >>1e-9).
-    numpy.testing.assert_allclose(_np(o.getOrbit()), func, rtol=1e-9, atol=1e-9)
+    numpy.testing.assert_allclose(as_numpy(o.getOrbit()), func, rtol=1e-9, atol=1e-9)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -408,7 +406,7 @@ def test_orbit_integrate_cstm_fallback_inbackend(backend):
     onp = Orbit(list(ic5))
     onp.integrate(_TS, pot, method="dop853_c")
     numpy.testing.assert_allclose(
-        _np(o5.R(_arr(backend, _TS), use_physical=False)),
+        as_numpy(o5.R(_arr(backend, _TS), use_physical=False)),
         onp.R(_TS, use_physical=False),
         rtol=1e-6,
         atol=1e-6,
@@ -420,11 +418,11 @@ def test_orbit_integrate_cstm_fallback_inbackend(backend):
         return o.R(_arr(backend, _TS), use_physical=False)[-1]
 
     if backend == "jax":
-        g = _np(jax.grad(fR)(jnp.asarray(ic5)))[1]
+        g = as_numpy(jax.grad(fR)(jnp.asarray(ic5)))[1]
     else:
         v = torch.tensor(ic5, requires_grad=True)
         fR(v).backward()
-        g = _np(v.grad)[1]
+        g = as_numpy(v.grad)[1]
     assert numpy.isfinite(g)
 
 
@@ -439,13 +437,13 @@ def test_orbit_integrate_cstm_multiorbit_matches_loop(backend):
     ts = _arr(backend, _TS)
     om = Orbit(_arr(backend, ics))
     om.integrate(ts, pot, method="dop853_c")
-    multi = _np(om.getOrbit())
+    multi = as_numpy(om.getOrbit())
     assert multi.shape == (len(ics), len(_TS), 6)
     for k in range(len(ics)):
         ok = Orbit(_arr(backend, ics[k]))
         ok.integrate(ts, pot, method="dop853_c")
         numpy.testing.assert_allclose(
-            multi[k], _np(ok.getOrbit()), rtol=1e-12, atol=1e-12
+            multi[k], as_numpy(ok.getOrbit()), rtol=1e-12, atol=1e-12
         )
 
 
@@ -465,7 +463,7 @@ def test_orbit_integrate_cstm_multiorbit_grad():
         o.integrate(jnp.asarray(_TS), pot, method="dop853_c")
         return o.getOrbit()[:, -1, :]
 
-    Jb = _np(jax.jacrev(final_batch)(ics))  # (N, 6, N, 6)
+    Jb = as_numpy(jax.jacrev(final_batch)(ics))  # (N, 6, N, 6)
 
     def final_single(v6):
         o = Orbit(v6)
@@ -476,7 +474,7 @@ def test_orbit_integrate_cstm_multiorbit_grad():
         for j in range(N):
             if i != j:
                 assert numpy.max(numpy.abs(Jb[i, :, j, :])) == 0.0  # independent
-        Js = _np(jax.jacrev(final_single)(ics[i]))  # (6, 6)
+        Js = as_numpy(jax.jacrev(final_single)(ics[i]))  # (6, 6)
         numpy.testing.assert_allclose(Jb[i, :, i, :], Js, rtol=1e-10, atol=1e-12)
 
 
@@ -506,7 +504,7 @@ def test_orbit_integrate_cstm_numpy_times(backend):
     onp = Orbit(list(_IC))
     onp.integrate(_TS, pot, method="dop853_c")
     numpy.testing.assert_allclose(
-        _np(o.getOrbit()), onp.getOrbit(), rtol=1e-6, atol=1e-7
+        as_numpy(o.getOrbit()), onp.getOrbit(), rtol=1e-6, atol=1e-7
     )
 
 
