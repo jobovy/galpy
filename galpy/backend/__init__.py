@@ -18,10 +18,13 @@ from ._coerce import (
     zeros_like_backend,
 )
 from ._namespaces import (
+    as_numpy,
     asarray_on_device,
     device_of,
+    exit_cast,
     is_backend_array,
     match_input_dtype,
+    resolve_namespace,
 )
 from ._resolver import (
     _seed_from_config,
@@ -43,6 +46,9 @@ __all__ = [
     "match_input_dtype",
     "device_of",
     "asarray_on_device",
+    "as_numpy",
+    "exit_cast",
+    "resolve_namespace",
     "as_backend_constant",
     "coerce_coords",
     "promote_scalars",
