@@ -15,6 +15,8 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
+
 pytestmark = pytest.mark.backend_managed
 
 BACKENDS = []
@@ -84,12 +86,6 @@ def _arr(backend, x):
     return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
 
 
-def _np(x):
-    if torch is not None and torch.is_tensor(x):
-        return x.detach().cpu().numpy()
-    return numpy.asarray(x)
-
-
 def _is_backend_array(backend, x):
     if backend == "jax":
         return isinstance(x, jax.Array)
@@ -111,7 +107,7 @@ def test_isochrone_parity(backend, b):
         for r, g in zip(ref, got):
             assert _is_backend_array(backend, g)
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-12, atol=1e-12
+                as_numpy(g), numpy.asarray(r), rtol=1e-12, atol=1e-12
             )
 
 
@@ -123,7 +119,9 @@ def test_isochrone_ecczmaxrperirap_parity(backend, b):
     got = aAI._EccZmaxRperiRap(*[_arr(backend, v) for v in _ISO[:5]])
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-12, atol=1e-12)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-12, atol=1e-12
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -140,7 +138,7 @@ def test_harmonic_parity(backend, omega):
         got = got if isinstance(got, tuple) else (got,)
         for r, g in zip(ref, got):
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-12, atol=1e-12
+                as_numpy(g), numpy.asarray(r), rtol=1e-12, atol=1e-12
             )
 
 
@@ -251,7 +249,7 @@ def test_harmonic_dangle_dt_equals_freq(backend, omega):
         return xp.stack([y[1], -(omega**2.0) * y[0]])
 
     dthdt = _flow_deriv(backend, theta, eom, y0)
-    omega_ret = float(_np(aAH._actionsFreqsAngles(*y0)[1]).ravel()[0])
+    omega_ret = float(as_numpy(aAH._actionsFreqsAngles(*y0)[1]).ravel()[0])
     assert numpy.isfinite(dthdt)
     numpy.testing.assert_allclose(dthdt, omega_ret, rtol=1e-8, atol=1e-9)
 
@@ -287,7 +285,7 @@ def test_isochrone_dangle_dt_equals_freq(backend, vT, idx_ang, idx_om):
         )
 
     dthdt = _flow_deriv(backend, theta, eom, y0)
-    om_ret = float(_np(aAI._actionsFreqsAngles(*y0)[idx_om]).ravel()[0])
+    om_ret = float(as_numpy(aAI._actionsFreqsAngles(*y0)[idx_om]).ravel()[0])
     assert numpy.isfinite(dthdt)
     numpy.testing.assert_allclose(dthdt, om_ret, rtol=1e-8, atol=1e-9)
 
@@ -310,15 +308,17 @@ def test_harmonic_inverse_roundtrip_parity(backend, omega):
     x_np, vx_np, _ = aAHi._xvFreqs(j, angle)
     # forward ∘ inverse == identity (numpy reference)
     j_np, _, a_np = aAH._actionsFreqsAngles(numpy.asarray(x_np), numpy.asarray(vx_np))
-    numpy.testing.assert_allclose(_np(j_np), j, rtol=1e-12, atol=1e-12)
-    numpy.testing.assert_allclose(_np(a_np), angle, rtol=1e-10, atol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(j_np), j, rtol=1e-12, atol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(a_np), angle, rtol=1e-10, atol=1e-10)
     # backend parity + backend-array-ness
     x_b, vx_b, _ = aAHi._xvFreqs(_arr(backend, numpy.asarray(j)), _arr(backend, angle))
     assert _is_backend_array(backend, x_b)
     assert _is_backend_array(backend, vx_b)
-    numpy.testing.assert_allclose(_np(x_b), numpy.asarray(x_np), rtol=1e-12, atol=1e-12)
     numpy.testing.assert_allclose(
-        _np(vx_b), numpy.asarray(vx_np), rtol=1e-12, atol=1e-12
+        as_numpy(x_b), numpy.asarray(x_np), rtol=1e-12, atol=1e-12
+    )
+    numpy.testing.assert_allclose(
+        as_numpy(vx_b), numpy.asarray(vx_np), rtol=1e-12, atol=1e-12
     )
 
 
@@ -362,7 +362,9 @@ def test_isochrone_inverse_parity(backend, b):
     got = aAIi._xvFreqs(*bargs)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-11, atol=1e-11)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-11, atol=1e-11
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -377,12 +379,12 @@ def test_isochrone_inverse_roundtrip(backend):
     bang = [_arr(backend, a) for a in (_II_AR, _II_AP, _II_AZ)]
     R, vR, vT, z, vz, phi = aAIi._xvFreqs(*bj, *bang)[:6]
     out = aAI._actionsFreqsAngles(R, vR, vT, z, vz, phi)
-    numpy.testing.assert_allclose(_np(out[0]), jr, rtol=1e-7, atol=1e-9)  # Jr
-    numpy.testing.assert_allclose(_np(out[1]), jphi, rtol=1e-7, atol=1e-9)  # Jphi
-    numpy.testing.assert_allclose(_np(out[2]), jz, rtol=1e-7, atol=1e-9)  # Jz
+    numpy.testing.assert_allclose(as_numpy(out[0]), jr, rtol=1e-7, atol=1e-9)  # Jr
+    numpy.testing.assert_allclose(as_numpy(out[1]), jphi, rtol=1e-7, atol=1e-9)  # Jphi
+    numpy.testing.assert_allclose(as_numpy(out[2]), jz, rtol=1e-7, atol=1e-9)  # Jz
     # angles recovered (circular difference, to be robust to the 2π wrap)
     for idx, a_in in ((6, _II_AR), (7, _II_AP), (8, _II_AZ)):
-        d = (_np(out[idx]) - a_in + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        d = (as_numpy(out[idx]) - a_in + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         numpy.testing.assert_allclose(d, 0.0, atol=1e-7)
 
 
@@ -451,7 +453,7 @@ def test_spherical_parity(backend, potname):
         for r, g in zip(ref, got):
             assert _is_backend_array(backend, g)
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-7, atol=1e-9
+                as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-9
             )
 
 
@@ -525,7 +527,7 @@ def test_spherical_freqs_parity(backend, potname):
         for r, g in zip(ref, got):
             assert _is_backend_array(backend, g)
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+                as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
             )
         # _actionsFreqsAngles (+phi); angles compared as circular differences
         ref = aAS._actionsFreqsAngles(*sph, phi)
@@ -533,11 +535,13 @@ def test_spherical_freqs_parity(backend, potname):
         for idx, (r, g) in enumerate(zip(ref, got)):
             assert _is_backend_array(backend, g)
             if idx >= 6:  # ar, ap, az: wrap-robust comparison
-                d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+                d = (as_numpy(g) - numpy.asarray(r) + numpy.pi) % (
+                    2.0 * numpy.pi
+                ) - numpy.pi
                 numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
             else:
                 numpy.testing.assert_allclose(
-                    _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+                    as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
                 )
 
 
@@ -676,13 +680,15 @@ def test_spherical_edge_case_parity(backend, potname, case, prograde):
     for idx, (r, g) in enumerate(zip(ref_afa, got_afa)):
         assert _is_backend_array(backend, g)
         if idx >= 6:
-            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            d = (as_numpy(g) - numpy.asarray(r) + numpy.pi) % (
+                2.0 * numpy.pi
+            ) - numpy.pi
             numpy.testing.assert_allclose(
                 d, 0.0, atol=2e-6, err_msg=f"{case}/{potname}/angle{idx}"
             )
         else:
             numpy.testing.assert_allclose(
-                _np(g),
+                as_numpy(g),
                 numpy.asarray(r),
                 rtol=2e-6,
                 atol=2e-6,
@@ -692,7 +698,7 @@ def test_spherical_edge_case_parity(backend, potname, case, prograde):
     for idx, (r, g) in enumerate(zip(ref_ecc, got_ecc)):
         assert _is_backend_array(backend, g)
         numpy.testing.assert_allclose(
-            _np(g),
+            as_numpy(g),
             numpy.asarray(r),
             rtol=1e-7,
             atol=1e-9,
@@ -768,11 +774,13 @@ def test_vertical_parity(backend, potname):
         for idx, (r, g) in enumerate(zip(ref, got)):
             assert _is_backend_array(backend, g)
             if len(ref) == 3 and idx == 2:  # angle: wrap-robust
-                d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+                d = (as_numpy(g) - numpy.asarray(r) + numpy.pi) % (
+                    2.0 * numpy.pi
+                ) - numpy.pi
                 numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
             else:
                 numpy.testing.assert_allclose(
-                    _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+                    as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
                 )
 
 
@@ -827,7 +835,9 @@ def test_staeckel_actions_parity(backend):
     got = aA(*[_arr(backend, v) for v in _STK])
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-10, atol=1e-12)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-10, atol=1e-12
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -837,8 +847,12 @@ def test_staeckel_actions_vs_c(backend):
     aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
     jr_c, lz_c, jz_c = aC(*_STK)
     jr_b, lz_b, jz_b = aF(*[_arr(backend, v) for v in _STK])
-    numpy.testing.assert_allclose(_np(jr_b), numpy.asarray(jr_c), rtol=1e-8, atol=1e-9)
-    numpy.testing.assert_allclose(_np(jz_b), numpy.asarray(jz_c), rtol=1e-8, atol=1e-9)
+    numpy.testing.assert_allclose(
+        as_numpy(jr_b), numpy.asarray(jr_c), rtol=1e-8, atol=1e-9
+    )
+    numpy.testing.assert_allclose(
+        as_numpy(jz_b), numpy.asarray(jz_c), rtol=1e-8, atol=1e-9
+    )
 
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
@@ -855,14 +869,14 @@ def test_staeckel_jit_grad_rolls_direct_bisection():
     rest = tuple(jnp.asarray(v) for v in _STK[1:])
     jr_e, _, jz_e = aA(R, *rest)  # eager (Python-loop) reference
     jr_j, _, jz_j = jax.jit(lambda r: aA(r, *rest))(R)  # traced (fori_loop) value
-    numpy.testing.assert_allclose(_np(jr_j), _np(jr_e), rtol=1e-8, atol=1e-10)
-    numpy.testing.assert_allclose(_np(jz_j), _np(jz_e), rtol=1e-8, atol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(jr_j), as_numpy(jr_e), rtol=1e-8, atol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(jz_j), as_numpy(jz_e), rtol=1e-8, atol=1e-10)
     # the jaxpr is ROLLED: a loop primitive, not ~100 unrolled bisection steps.
     txt = str(jax.make_jaxpr(lambda r: aA(r, *rest)[0])(R))
     assert ("while" in txt) or ("scan" in txt)
     # grad flows through the direct-bisection turning points: finite dJr/dR.
     g = jax.grad(lambda r: jnp.sum(aA(r, *rest)[0]))(R)
-    assert numpy.all(numpy.isfinite(_np(g)))
+    assert numpy.all(numpy.isfinite(as_numpy(g)))
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -891,11 +905,15 @@ def test_staeckel_actionsfreqs_parity(backend):
     got = aF.actionsFreqs(*[_arr(backend, v) for v in _STK])
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-9, atol=1e-10)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-9, atol=1e-10
+        )
     aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
     refc = aC.actionsFreqs(*_STK)
     for g, c in zip(got, refc):  # freqs match the C path to the GL floor
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(c), rtol=1e-7, atol=1e-9)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(c), rtol=1e-7, atol=1e-9
+        )
 
 
 # A substantial grid of bound orbits (R x vR x vT x z x vz; 768 points) spanning
@@ -947,7 +965,7 @@ def test_staeckel_grid_parity(backend):
         for r, g in zip(ref, got):
             assert _is_backend_array(backend, g)
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
+                as_numpy(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
             )
 
 
@@ -993,7 +1011,9 @@ def test_staeckel_turningpoint_parity(backend):
     got = tuple(aF(*bargs)) + tuple(aF.EccZmaxRperiRap(*bargs))
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-9, atol=1e-10)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-9, atol=1e-10
+        )
 
 
 # Exactly-planar orbits (z=vz=0, so J_z=0): the vertical turning point snaps to
@@ -1079,7 +1099,9 @@ def test_staeckel_nearaxis_parity(backend):
     got = tuple(aF(*bargs)) + tuple(aF.EccZmaxRperiRap(*bargs))
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-9, atol=1e-10)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-9, atol=1e-10
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1091,11 +1113,11 @@ def test_staeckel_planar_freqs_degenerate_parity(backend):
     got = aF.actionsFreqs(*[_arr(backend, v) for v in _STK_PLANAR])
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_array_equal(_kind(numpy.asarray(r)), _kind(_np(g)))
-        fin = numpy.isfinite(numpy.asarray(r)) & numpy.isfinite(_np(g))
+        numpy.testing.assert_array_equal(_kind(numpy.asarray(r)), _kind(as_numpy(g)))
+        fin = numpy.isfinite(numpy.asarray(r)) & numpy.isfinite(as_numpy(g))
         if numpy.any(fin):
             numpy.testing.assert_allclose(
-                _np(g)[fin], numpy.asarray(r)[fin], rtol=1e-8, atol=1e-9
+                as_numpy(g)[fin], numpy.asarray(r)[fin], rtol=1e-8, atol=1e-9
             )
 
 
@@ -1134,10 +1156,10 @@ def test_staeckel_grid_angles_parity(backend):
     for i, (r, g) in enumerate(zip(ref, got)):
         assert _is_backend_array(backend, g)
         if i >= 6:  # angles: wrap-aware
-            assert numpy.max(_wrapdiff(_np(g), numpy.asarray(r))) < 1e-8
+            assert numpy.max(_wrapdiff(as_numpy(g), numpy.asarray(r))) < 1e-8
         else:
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
+                as_numpy(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
             )
 
 
@@ -1153,7 +1175,7 @@ def test_staeckel_angles_numpy_phi(backend):
     ref = aF.actionsFreqsAngles(*_STK_GRID, _STK_GRID_PHI)
     for i in (6, 7, 8):  # angler, anglephi, anglez
         assert _is_backend_array(backend, got[i])
-        assert numpy.max(_wrapdiff(_np(got[i]), numpy.asarray(ref[i]))) < 1e-8
+        assert numpy.max(_wrapdiff(as_numpy(got[i]), numpy.asarray(ref[i]))) < 1e-8
 
 
 def test_actionAngleVerticalInverse_rejects_backend():
@@ -1251,24 +1273,30 @@ def test_isochroneapprox_parity(backend, b):
     got = aAIA._evaluate(*bargs)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+        )
     # _actionsFreqs: (jr,lz,jz,Or,Op,Oz)
     ref = aAIA._actionsFreqs(*_IA)
     got = aAIA._actionsFreqs(*bargs)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+        )
     # _actionsFreqsAngles: (...,ar,ap,az)
     ref = aAIA._actionsFreqsAngles(*_IA)
     got = aAIA._actionsFreqsAngles(*bargs)
     for idx, (r, g) in enumerate(zip(ref, got)):
         assert _is_backend_array(backend, g)
         if idx >= 6:  # angles: wrap-robust
-            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            d = (as_numpy(g) - numpy.asarray(r) + numpy.pi) % (
+                2.0 * numpy.pi
+            ) - numpy.pi
             numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
         else:
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+                as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
             )
 
 
@@ -1285,7 +1313,9 @@ def test_isochroneapprox_scalar_parity(backend):
     )
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1298,7 +1328,9 @@ def test_isochroneapprox_cumul_parity(backend):
     got = aAIA._evaluate(*bargs, cumul=True)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1311,7 +1343,9 @@ def test_isochroneapprox_planar_parity(backend):
     got = aAIA._evaluate(*[_arr(backend, v) for v in planar])
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1381,21 +1415,25 @@ def test_isochroneapprox_nonaxi_parity(backend):
     got = aAIA._evaluate(*bargs)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+        )
     # _actionsFreqsAngles: (jr,lz,jz,Or,Op,Oz,ar,aphi,az) -- non-axi angle-fit
     ref = aAIA._actionsFreqsAngles(*_NA)
     got = aAIA._actionsFreqsAngles(*bargs)
     for idx, (r, g) in enumerate(zip(ref, got)):
         assert _is_backend_array(backend, g)
         if idx >= 6:  # angles (incl. anglephi at idx 7): wrap-robust
-            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            d = (as_numpy(g) - numpy.asarray(r) + numpy.pi) % (
+                2.0 * numpy.pi
+            ) - numpy.pi
             numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
         else:
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
+                as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-8
             )
     # the retrograde (second) orbit must give a negative azimuthal frequency
-    assert float(_np(got[4]).ravel()[1]) < 0.0
+    assert float(as_numpy(got[4]).ravel()[1]) < 0.0
 
 
 # ------- IsochroneApprox via the in-backend diffrax/torchdiffeq integrator (#102)
@@ -1431,7 +1469,9 @@ def test_isochroneapprox_inbackend_method_parity(backend):
     got = _aAIA_small(method)._actionsFreqs(*[_arr(backend, v) for v in _IA])
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-6, atol=1e-7)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-7
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1486,14 +1526,14 @@ def test_estimateDeltaStaeckel_parity(backend):
     ref_med = numpy.asarray(estimateDeltaStaeckel(MWPotential2014, _EST_R, _EST_Z))
     got_med = estimateDeltaStaeckel(MWPotential2014, Rb, zb)
     assert _is_backend_array(backend, got_med)
-    numpy.testing.assert_allclose(_np(got_med), ref_med, rtol=1e-12, atol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(got_med), ref_med, rtol=1e-12, atol=1e-12)
     # array, no_median: per-point deltas
     ref_all = numpy.asarray(
         estimateDeltaStaeckel(MWPotential2014, _EST_R, _EST_Z, no_median=True)
     )
     got_all = estimateDeltaStaeckel(MWPotential2014, Rb, zb, no_median=True)
     assert _is_backend_array(backend, got_all)
-    numpy.testing.assert_allclose(_np(got_all), ref_all, rtol=1e-12, atol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(got_all), ref_all, rtol=1e-12, atol=1e-12)
     # scalar, incl. a z==0 (plane) point that hits the 1e-4 fallback
     for Rs, zs in ((1.1, 0.15), (1.2, 0.0)):
         ref = numpy.asarray(estimateDeltaStaeckel(MWPotential2014, Rs, zs))
@@ -1501,7 +1541,7 @@ def test_estimateDeltaStaeckel_parity(backend):
             MWPotential2014, _arr(backend, Rs), _arr(backend, zs)
         )
         assert _is_backend_array(backend, got)
-        numpy.testing.assert_allclose(_np(got), ref, rtol=1e-12, atol=1e-12)
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-12)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1511,12 +1551,12 @@ def test_estimateBIsochrone_parity(backend):
     ref = numpy.asarray(estimateBIsochrone(MWPotential2014, _EST_R, _EST_Z))
     got = estimateBIsochrone(MWPotential2014, Rb, zb)
     assert _is_backend_array(backend, got)
-    numpy.testing.assert_allclose(_np(got), ref, rtol=1e-11, atol=1e-11)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11, atol=1e-11)
     # scalar -> single b
     ref_s = float(estimateBIsochrone(MWPotential2014, 1.1, 0.15))
     got_s = estimateBIsochrone(MWPotential2014, _arr(backend, 1.1), _arr(backend, 0.15))
     assert _is_backend_array(backend, got_s)
-    numpy.testing.assert_allclose(_np(got_s), ref_s, rtol=1e-11, atol=1e-11)
+    numpy.testing.assert_allclose(as_numpy(got_s), ref_s, rtol=1e-11, atol=1e-11)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1529,7 +1569,7 @@ def test_estimateDeltaStaeckel_grad_vs_fd_wrt_R(backend):
 
     R0 = 1.1
     g = _grad(backend, lambda t: f(backend, t), R0)
-    fd = _fd(lambda Rv: float(_np(f(backend, _arr(backend, Rv)))), R0)
+    fd = _fd(lambda Rv: float(as_numpy(f(backend, _arr(backend, Rv)))), R0)
     assert numpy.isfinite(g)
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
 
@@ -1544,7 +1584,7 @@ def test_estimateBIsochrone_grad_vs_fd_wrt_R(backend):
 
     R0 = 1.1
     g = _grad(backend, lambda t: f(backend, t), R0)
-    fd = _fd(lambda Rv: float(_np(f(backend, _arr(backend, Rv)))), R0)
+    fd = _fd(lambda Rv: float(as_numpy(f(backend, _arr(backend, Rv)))), R0)
     assert numpy.isfinite(g)
     numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-7)
 
@@ -1581,7 +1621,9 @@ def test_adiabatic_actions_parity(backend):
     got = aA._evaluate(*bargs)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-9, atol=1e-11)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-9, atol=1e-11
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1593,7 +1635,9 @@ def test_adiabatic_actionsfreqs_parity(backend):
     got = aA._actionsFreqs(*bargs)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1608,11 +1652,13 @@ def test_adiabatic_actionsfreqsangles_parity(backend):
     for idx, (r, g) in enumerate(zip(ref, got)):
         assert _is_backend_array(backend, g)
         if idx >= 6:  # ar, aphi, az
-            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            d = (as_numpy(g) - numpy.asarray(r) + numpy.pi) % (
+                2.0 * numpy.pi
+            ) - numpy.pi
             numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
         else:
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+                as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
             )
 
 
@@ -1625,7 +1671,9 @@ def test_adiabatic_ecczmaxrperirap_parity(backend):
     got = aA._EccZmaxRperiRap(*bargs)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-8, atol=1e-9)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
+        )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1646,7 +1694,7 @@ def test_adiabatic_actions_vs_c(backend):
     jr_b, lz_b, jz_b = aF._evaluate(*[_arr(backend, v) for v in _ADB])
     for g, c in ((jr_b, jr_c), (lz_b, lz_c), (jz_b, jz_c)):
         numpy.testing.assert_allclose(
-            _np(g), numpy.asarray(c), rtol=1e-5, atol=floor + 1e-9
+            as_numpy(g), numpy.asarray(c), rtol=1e-5, atol=floor + 1e-9
         )
 
 
@@ -1725,20 +1773,22 @@ def test_adiabatic_planar_edge_parity(backend):
     for idx, (r, g) in enumerate(zip(ref, got)):
         assert _is_backend_array(backend, g)
         if idx >= 6:
-            d = (_np(g) - numpy.asarray(r) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            d = (as_numpy(g) - numpy.asarray(r) + numpy.pi) % (
+                2.0 * numpy.pi
+            ) - numpy.pi
             numpy.testing.assert_allclose(d, 0.0, atol=1e-6)
         else:
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+                as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
             )
     # planar elements: Jz==0, az==0, Oz==verticalfreq(R)
     from galpy.potential import verticalfreq
 
-    assert _np(got[2])[0] == 0.0 and _np(got[2])[2] == 0.0  # Jz
-    assert abs(_np(got[8])[0]) < 1e-12 and abs(_np(got[8])[2]) < 1e-12  # az
+    assert as_numpy(got[2])[0] == 0.0 and as_numpy(got[2])[2] == 0.0  # Jz
+    assert abs(as_numpy(got[8])[0]) < 1e-12 and abs(as_numpy(got[8])[2]) < 1e-12  # az
     for ii in (0, 2):
         numpy.testing.assert_allclose(
-            _np(got[5])[ii], verticalfreq(MWPotential2014, R[ii]), rtol=1e-12
+            as_numpy(got[5])[ii], verticalfreq(MWPotential2014, R[ii]), rtol=1e-12
         )
 
 
@@ -1764,11 +1814,11 @@ def test_adiabatic_2dpot_edge_parity(backend):
         for r, g in zip(ref, got):
             assert _is_backend_array(backend, g)
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
+                as_numpy(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
             )
     # Jz (index 2 of _evaluate) and zmax (index 1 of ecc) are identically 0.
-    assert numpy.all(_np(aA._evaluate(*bargs)[2]) == 0.0)
-    assert numpy.all(_np(aA._EccZmaxRperiRap(*bargs)[1]) == 0.0)
+    assert numpy.all(as_numpy(aA._evaluate(*bargs)[2]) == 0.0)
+    assert numpy.all(as_numpy(aA._EccZmaxRperiRap(*bargs)[1]) == 0.0)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -1783,7 +1833,9 @@ def test_adiabatic_gamma0_ecczmaxrperirap_parity(backend):
     got = aA._EccZmaxRperiRap(*bargs)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-6, atol=1e-8)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-6, atol=1e-8
+        )
 
 
 # ====================================================================
@@ -1826,7 +1878,7 @@ def test_staeckelgrid_parity(backend):
         for r, g in zip(ref, got):
             assert _is_backend_array(backend, g)
             numpy.testing.assert_allclose(
-                _np(g), numpy.asarray(r), rtol=1e-10, atol=1e-12
+                as_numpy(g), numpy.asarray(r), rtol=1e-10, atol=1e-12
             )
 
 
@@ -1837,7 +1889,9 @@ def test_adiabaticgrid_parity(backend):
     ref, got = _aAAG(*_GRID), _aAAG(*bargs)
     for r, g in zip(ref, got):
         assert _is_backend_array(backend, g)
-        numpy.testing.assert_allclose(_np(g), numpy.asarray(r), rtol=1e-10, atol=1e-12)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-10, atol=1e-12
+        )
 
 
 def test_staeckelgrid_numpy_byte_identity():
@@ -1918,4 +1972,4 @@ def test_staeckelgrid_vatu0_backend(backend):
         *[_arr(backend, a) for a in (E, Lz, u0, R)]
     )  # backend -> xp.where branch
     assert _is_backend_array(backend, vb)
-    numpy.testing.assert_allclose(_np(vb), vn, rtol=1e-10, atol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(vb), vn, rtol=1e-10, atol=1e-12)

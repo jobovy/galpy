@@ -25,6 +25,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import (
     ChandrasekharDynamicalFrictionForce,
     HernquistPotential,
@@ -63,12 +64,6 @@ def _asarray(backend_name, x):
         return jnp.asarray(x, dtype=jnp.float64)
     if backend_name == "torch":
         return torch.tensor(x, dtype=torch.float64)
-
-
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
 
 
 def _module_of(x):
@@ -130,7 +125,7 @@ def test_rforce_value_parity(backend_name, label, obj, needs_v, backend_ok):
         pytest.skip("force's own _Rforce not backend-clean yet (dissipative)")
     v = _V0 if needs_v else None
     ref = _rforce_np(obj, _R0, _Z0, v=v)
-    got = float(_tonumpy(_rforce_backend(backend_name, obj, _R0, _Z0, v=v)))
+    got = float(as_numpy(_rforce_backend(backend_name, obj, _R0, _Z0, v=v)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14, err_msg=label)
 
 
@@ -200,7 +195,7 @@ def test_rforce_grad_vs_finite_difference(
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_spherical_mass_value_parity(backend_name):
     ref = float(_HERN._mass(numpy.asarray(_R0)))
-    got = float(_tonumpy(_HERN._mass(_asarray(backend_name, _R0))))
+    got = float(as_numpy(_HERN._mass(_asarray(backend_name, _R0))))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
