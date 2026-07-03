@@ -12,6 +12,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import (
     DoubleExponentialDiskPotential,
     FlattenedPowerPotential,
@@ -138,12 +139,6 @@ def _asarray(backend_name, x, requires_grad=False):
         return torch.tensor(x, dtype=torch.float64, requires_grad=requires_grad)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 # --- value parity ------------------------------------------------------------
 def _iter_3d_cases():
     for (pot, methods), pid in zip(_POTS_3D, _POT3D_IDS):
@@ -155,7 +150,7 @@ def _iter_3d_cases():
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity_3d(backend_name, pot, method):
     ref = numpy.asarray(getattr(pot, method)(numpy.asarray(_RS), numpy.asarray(_ZS)))
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(_asarray(backend_name, _RS), _asarray(backend_name, _ZS))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
@@ -166,7 +161,7 @@ def test_value_parity_3d(backend_name, pot, method):
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity_1d(backend_name, pot, method):
     ref = numpy.asarray(getattr(pot, method)(numpy.asarray(_XS)))
-    got = _tonumpy(getattr(pot, method)(_asarray(backend_name, _XS)))
+    got = as_numpy(getattr(pot, method)(_asarray(backend_name, _XS)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
@@ -237,7 +232,7 @@ _MASS_RS = [0.3, 1.0, 2.5]
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_mass_value_parity(backend_name, pot):
     ref = numpy.asarray(pot._mass(numpy.asarray(_MASS_RS)))
-    got = _tonumpy(pot._mass(_asarray(backend_name, _MASS_RS)))
+    got = as_numpy(pot._mass(_asarray(backend_name, _MASS_RS)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
@@ -269,7 +264,7 @@ def test_kuzmin_zkink_at_zero(backend_name, method):
     R = [0.5, 1.0, 2.0]
     z = [0.0, 0.0, 0.0]
     ref = numpy.asarray(getattr(pot, method)(numpy.asarray(R), numpy.asarray(z)))
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(_asarray(backend_name, R), _asarray(backend_name, z))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
@@ -287,7 +282,7 @@ def test_miyamoto_a0_branch_parity(backend_name, method):
     R = [0.5, 1.0, 2.0]
     z = [0.0, 0.1, 0.3]
     ref = numpy.asarray(getattr(pot, method)(numpy.asarray(R), numpy.asarray(z)))
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(_asarray(backend_name, R), _asarray(backend_name, z))
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
@@ -302,7 +297,7 @@ def test_miyamoto_a0_b0_z0_finite(backend_name, method):
     R = [0.5, 1.0, 2.0]
     z = [0.0, 0.0, 0.0]
     ref = numpy.asarray(getattr(pot, method)(numpy.asarray(R), numpy.asarray(z)))
-    got = _tonumpy(
+    got = as_numpy(
         getattr(pot, method)(_asarray(backend_name, R), _asarray(backend_name, z))
     )
     assert numpy.all(numpy.isfinite(ref))
@@ -423,7 +418,7 @@ _DEXP_POINTS = [(0.5, 0.1), (1.0, 0.2), (2.0, -0.3), (1.3, 0.0), (0.7, 0.4)]
 def test_doubleexp_scalar_value_parity(backend_name, method):
     for R0, z0 in _DEXP_POINTS:
         ref = numpy.asarray(getattr(_DEXP, method)(R0, z0, 0.0, 0.0))
-        got = _tonumpy(
+        got = as_numpy(
             getattr(_DEXP, method)(
                 _asarray(backend_name, R0), _asarray(backend_name, z0), 0.0, 0.0
             )
@@ -445,12 +440,12 @@ def test_doubleexp_evaluate_zero_point(backend_name):
     # identical across backends, also as an entry of an array evaluation.
     ref = float(_DEXP._evaluate(0.0, 0.0))
     got = float(
-        _tonumpy(
+        as_numpy(
             _DEXP._evaluate(_asarray(backend_name, 0.0), _asarray(backend_name, 0.0))
         )
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-15)
-    gotarr = _tonumpy(
+    gotarr = as_numpy(
         _DEXP._evaluate(
             _asarray(backend_name, [0.0, 1.0]), _asarray(backend_name, [0.0, 0.2])
         )
@@ -528,7 +523,7 @@ def test_razorthin_scalar_value_parity(backend_name, method):
     # branches.
     for R0, z0 in _RAZOR_ZERO_POINTS + _RAZOR_ZNZ_POINTS:
         ref = numpy.asarray(getattr(_RAZOR, method)(R0, z0, 0.0, 0.0))
-        got = _tonumpy(
+        got = as_numpy(
             getattr(_RAZOR, method)(
                 _asarray(backend_name, R0), _asarray(backend_name, z0), 0.0, 0.0
             )
@@ -549,7 +544,7 @@ def test_razorthin_R2deriv_iv2_recurrence(backend_name):
     for R0 in [0.5, 1.0, 1.3, 2.0]:
         ref = float(_RAZOR._R2deriv(numpy.asarray(R0), numpy.asarray(0.0)))
         got = float(
-            _tonumpy(
+            as_numpy(
                 _RAZOR._R2deriv(_asarray(backend_name, R0), _asarray(backend_name, 0.0))
             )
         )

@@ -10,6 +10,8 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
+
 pytestmark = pytest.mark.backend_managed
 
 BACKENDS = []
@@ -43,12 +45,6 @@ from galpy.potential import HernquistPotential
 
 def _arr(backend, x):
     return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
-
-
-def _np(x):
-    if torch is not None and torch.is_tensor(x):
-        return x.detach().cpu().numpy()
-    return numpy.asarray(x)
 
 
 def _is_backend_array(backend, x):
@@ -88,7 +84,7 @@ def test_fE_parity(backend):
     ref = _DF.fE(_EGRID)
     got = _DF.fE(_arr(backend, _EGRID))
     assert _is_backend_array(backend, got)
-    numpy.testing.assert_allclose(_np(got), ref, rtol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -96,7 +92,7 @@ def test_fE_zero_edge(backend):
     # E == 0 exactly is 0/0 in the numpy arcsin term (masked there by a
     # historical row-quirk for 2-D grids); the backend branch implements the
     # correct fE -> 0 limit, NaN-free (special-fn edge testing)
-    got = _np(_DF.fE(_arr(backend, numpy.array([0.0, -0.0, -1e-300]))))
+    got = as_numpy(_DF.fE(_arr(backend, numpy.array([0.0, -0.0, -1e-300]))))
     assert numpy.all(got == 0.0)
 
 
@@ -106,10 +102,10 @@ def test_call_parity(backend):
     ref = _DF((_EGRID,))
     got = _DF((_arr(backend, _EGRID),))
     assert _is_backend_array(backend, got)
-    numpy.testing.assert_allclose(_np(got), ref, rtol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
     # with (ignored) L: exercises the backend L-parse branch
     got = _DF((_arr(backend, _EGRID), _arr(backend, numpy.ones_like(_EGRID))))
-    numpy.testing.assert_allclose(_np(got), ref, rtol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
     R = numpy.array([0.5, 1.1, 1.7, 2.9])
     vR = numpy.array([0.1, -0.2, 0.3, 0.0])
     vT = numpy.array([0.3, 0.5, 0.2, 0.4])
@@ -118,7 +114,7 @@ def test_call_parity(backend):
     ref = _DF(R, vR, vT, z, vz, numpy.zeros_like(R))
     got = _DF(*(_arr(backend, c) for c in (R, vR, vT, z, vz)))
     assert _is_backend_array(backend, got)
-    numpy.testing.assert_allclose(_np(got), ref, rtol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -132,9 +128,9 @@ def test_moments_parity(backend):
         gotv = f(_arr(backend, _RS))
         assert _is_backend_array(backend, gotv)
         numpy.testing.assert_allclose(got, ref, rtol=1e-8)
-        numpy.testing.assert_allclose(_np(gotv), ref, rtol=1e-8)
+        numpy.testing.assert_allclose(as_numpy(gotv), ref, rtol=1e-8)
     b = _DF.beta(_arr(backend, 1.3))
-    assert float(_np(b)) == pytest.approx(0.0, abs=1e-12)
+    assert float(as_numpy(b)) == pytest.approx(0.0, abs=1e-12)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -143,9 +139,9 @@ def test_dMdE_parity(backend):
     ref = _DF.dMdE(_ENEG)
     got = _DF.dMdE(_arr(backend, _ENEG))
     assert _is_backend_array(backend, got)
-    numpy.testing.assert_allclose(_np(got), ref, rtol=1e-11)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11)
     # out-of-bounds E -> exactly zero on the dead branch
-    assert numpy.all(_np(_DF.dMdE(_arr(backend, numpy.array([0.5])))) == 0.0)
+    assert numpy.all(as_numpy(_DF.dMdE(_arr(backend, numpy.array([0.5])))) == 0.0)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -159,7 +155,7 @@ def test_base_isotropic_dMdE_parity(backend):
     ref = isotropicsphericaldf._dMdE(dfh, _ENEG)
     got = isotropicsphericaldf._dMdE(dfh, _arr(backend, _ENEG))
     assert _is_backend_array(backend, got)
-    numpy.testing.assert_allclose(_np(got), ref, rtol=1e-6)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-6)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -170,7 +166,7 @@ def test_base_anisotropic_vmomentdensity_parity(backend):
         ref = sphericaldf._vmomentdensity(adf, 1.3, n, m)
         got = sphericaldf._vmomentdensity(adf, _arr(backend, 1.3), n, m)
         assert _is_backend_array(backend, got)
-        numpy.testing.assert_allclose(_np(got), ref, rtol=1e-7)
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-7)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -181,10 +177,10 @@ def test_base_anisotropic_dMdE_parity(backend):
     ref = anisotropicsphericaldf._dMdE(adf, _ENEG[::3])
     got = anisotropicsphericaldf._dMdE(adf, _arr(backend, _ENEG[::3]))
     assert _is_backend_array(backend, got)
-    numpy.testing.assert_allclose(_np(got), ref, rtol=1e-7)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-7)
     # and it agrees with the isotropic base-class machinery
     iso = isotropicsphericaldf._dMdE(isotropicHernquistdf(pot=_HP), _ENEG[::3])
-    numpy.testing.assert_allclose(_np(got), iso, rtol=1e-6)
+    numpy.testing.assert_allclose(as_numpy(got), iso, rtol=1e-6)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
@@ -334,4 +330,4 @@ def test_setup_rphi_interpolator_forced(backend):
     # and the frozen table evaluates natively on backend queries
     gb = got(_arr(backend, Es))
     assert _is_backend_array(backend, gb)
-    numpy.testing.assert_allclose(_np(gb), ref(Es), rtol=1e-10)
+    numpy.testing.assert_allclose(as_numpy(gb), ref(Es), rtol=1e-10)
