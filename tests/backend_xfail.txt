@@ -176,6 +176,7 @@ jax tests/test_quantity.py::test_orbits_method_value
 jax tests/test_quantity.py::test_orbits_method_value_turnquantityoff
 jax tests/test_quantity.py::test_potential_function_turnphysicaloff
 jax tests/test_quantity.py::test_potential_method_turnphysicaloff
+jax tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
 jax tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 jax tests/test_quantity.py::test_sphericaldf_method_returntype
 jax tests/test_quantity.py::test_sphericaldf_method_returnunit
@@ -197,6 +198,14 @@ jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_spherically_symme
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_energyoutofbounds
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_sigmar
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta_directint
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_directint
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_meanvr_directint
+jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar_directint
+jax tests/test_sphericaldf.py::test_isotropic_eddington_selfconsist_dehnencore_beta_directint
+jax tests/test_sphericaldf.py::test_isotropic_eddington_selfconsist_dehnencore_dens_directint
+jax tests/test_sphericaldf.py::test_isotropic_eddington_selfconsist_dehnencore_meanvr_directint
+jax tests/test_sphericaldf.py::test_isotropic_eddington_selfconsist_dehnencore_sigmar_directint
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_beta
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_dens_massprofile
 jax tests/test_sphericaldf.py::test_isotropic_hernquist_dens_massprofile_forcemassinterpolation
@@ -758,6 +767,10 @@ torch tests/test_sphericaldf.py::test_constantbeta_powerlaw_beta
 torch tests/test_sphericaldf.py::test_constantbeta_powerlaw_dens_massprofile
 torch tests/test_sphericaldf.py::test_constantbeta_powerlaw_dens_spherically_symmetric
 torch tests/test_sphericaldf.py::test_constantbeta_powerlaw_sigmar
+torch tests/test_sphericaldf.py::test_constantbeta_powerlaw_sigmar_directint[-0.5]
+torch tests/test_sphericaldf.py::test_constantbeta_powerlaw_sigmar_directint[0.0]
+torch tests/test_sphericaldf.py::test_constantbeta_powerlaw_sigmar_directint[0.3]
+torch tests/test_sphericaldf.py::test_constantbeta_powerlaw_sigmar_directint[0.5]
 torch tests/test_sphericaldf.py::test_constantbeta_powerspherical_divergent_auto_rmin
 torch tests/test_sphericaldf.py::test_constantbeta_selfconsist_dehnencore_Qoutofbounds
 torch tests/test_sphericaldf.py::test_constantbeta_selfconsist_dehnencore_beta
@@ -840,6 +853,7 @@ torch tests/test_sphericaldf.py::test_isotropic_plummer_dMdE_integral
 torch tests/test_sphericaldf.py::test_isotropic_plummer_dens_directint
 torch tests/test_sphericaldf.py::test_isotropic_plummer_dens_massprofile
 torch tests/test_sphericaldf.py::test_isotropic_plummer_dens_spherically_symmetric
+torch tests/test_sphericaldf.py::test_isotropic_plummer_energyoutofbounds
 torch tests/test_sphericaldf.py::test_isotropic_plummer_meanvr_directint
 torch tests/test_sphericaldf.py::test_isotropic_plummer_sigmar
 torch tests/test_sphericaldf.py::test_isotropic_plummer_sigmar_directint
@@ -888,7 +902,11 @@ torch tests/test_sphericaldf.py::test_osipkovmerritt_nfw_sigmar_directint
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_beta
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_massprofile
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_spherically_symmetric
+torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_large_ra_approaches_isotropic
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar
+torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[0.5]
+torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[2.0]
+torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[5.0]
 torch tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds
 torch tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_beta
 torch tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_beta_directint
