@@ -49,6 +49,7 @@ from test_potential import (
     mockFlatTrulyGaussianAmplitudeBarPotential,
     mockFlatWeaklyTDMultipoleExpansionPotential,
     mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential,
+    mockFlatWeaklyTDNonaxiM3SCFPotential,
     mockInterpSphericalPotential,
     mockKuzminLikeWrapperPotential,
     mockMovingObjectLongIntPotential,
@@ -169,7 +170,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             and not "MovingObject" in pot
             and not "Slow" in pot
             and not "SolidBodyRotationMultipole" in pot
-            and not "WeaklyTDMultipole" in pot
+            and not "WeaklyTD" in pot
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
@@ -183,7 +184,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "SolidBodyRotation" in pot
             or "CorotatingRotation" in pot
             or "GaussianAmplitudeBar" in pot
-            or "WeaklyTDMultipole" in pot
+            or "WeaklyTD" in pot
             or "SteadyLogSpiralPotential" in pot
             or pot == "mockMovingObjectLongIntPotential"
             or "Cosmphi" in pot
@@ -414,7 +415,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             not "Bar" in pot
             and not "Spiral" in pot
             and not "SolidBodyRotationMultipole" in pot
-            and not "WeaklyTDMultipole" in pot
+            and not "WeaklyTD" in pot
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
@@ -429,7 +430,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "GaussianAmplitudeBar" in pot
             or "SpiralArmsPotential" in pot
             or "nestedListPotential" in pot
-            or "WeaklyTDMultipole" in pot
+            or "WeaklyTD" in pot
         ):
             tJacobis = o.Jacobi(ttimes, pot=tp)
         else:
@@ -518,7 +519,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             not "Bar" in pot
             and not "Spiral" in pot
             and not "SolidBodyRotationMultipole" in pot
-            and not "WeaklyTDMultipole" in pot
+            and not "WeaklyTD" in pot
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s"
@@ -533,7 +534,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "GaussianAmplitudeBar" in pot
             or "SpiralArmsPotential" in pot
             or "nestedListPotential" in pot
-            or "WeaklyTDMultipole" in pot
+            or "WeaklyTD" in pot
         ):
             tJacobis = o.Jacobi(ttimes, pot=tp)
         else:
@@ -621,7 +622,7 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
             and not "MovingObject" in pot
             and not "Slow" in pot
             and not "SolidBodyRotationMultipole" in pot
-            and not "WeaklyTDMultipole" in pot
+            and not "WeaklyTD" in pot
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"

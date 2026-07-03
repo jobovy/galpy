@@ -235,6 +235,20 @@ def test_dynamfric_c():
     # Define all of the potentials (by hand, because need reasonable setup)
     MWPotential3021 = copy.deepcopy(potential.MWPotential2014)
     MWPotential3021[2] *= 1.5  # Increase mass by 50%
+    # Weakly time-dependent, non-axisymmetric SCF (density evaluated in C for the
+    # dynamical friction); built separately because normalize() is in-place.
+    scf_tdep = potential.SCFPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            potential.HernquistPotential(normalize=1.0, a=3.5).dens(R, z)
+            * (1.0 + 1e-4 * numpy.cos(phi + 1.3 * t))
+        ),
+        N=10,
+        L=3,
+        symmetry=None,
+        a=3.5,
+        tgrid=numpy.linspace(-110.0, 0.0, 12),
+    )
+    scf_tdep.normalize(1.0)
     pots = [
         potential.LogarithmicHaloPotential(normalize=1),
         potential.LogarithmicHaloPotential(normalize=1.3, q=0.9, b=0.7),  # nonaxi
@@ -283,6 +297,7 @@ def test_dynamfric_c():
             normalize=1.0,
             a=3.5,
         ),
+        scf_tdep,  # time-dependent non-axi SCF, density evaluated in C
         potential.EinastoPotential(normalize=1.0, h=2.2),
         potential.TwoPowerSphericalPotential(normalize=1.0, alpha=1.5, beta=3.5),
         potential.MultipoleExpansionPotential.from_density(

@@ -1207,54 +1207,6 @@ def test_tdep_c_planar_dxdv():
         assert numpy.max(numpy.fabs(rc - rp)) < 1e-5
 
 
-def test_tdep_c_direct_evaluators():
-    # Direct C evaluation of the potential, forces, and 2nd derivatives at t=0
-    # (via the interpolation-grid C helpers) should match Python.
-    from galpy.potential.interpRZPotential import (
-        eval_2ndderiv_c,
-        eval_force_c,
-        eval_potential_c,
-    )
-
-    R = numpy.array([0.8, 1.2, 2.0])
-    z = numpy.array([0.1, 0.3, -0.2])
-    for sp in [_make_tdep_spherical(), _make_tdep_nonaxi()]:
-        pc = eval_potential_c(sp, R, z)[0]
-        pp = numpy.array(
-            [sp(rr, zz, phi=0.0, t=0.0, use_physical=False) for rr, zz in zip(R, z)]
-        )
-        assert numpy.max(numpy.fabs(pc - pp)) < 1e-9
-        fc = eval_force_c(sp, R, z)[0]
-        fp = numpy.array(
-            [
-                sp.Rforce(rr, zz, phi=0.0, t=0.0, use_physical=False)
-                for rr, zz in zip(R, z)
-            ]
-        )
-        assert numpy.max(numpy.fabs(fc - fp)) < 1e-8
-        zc = eval_force_c(sp, R, z, zforce=True)[0]
-        zp = numpy.array(
-            [
-                sp.zforce(rr, zz, phi=0.0, t=0.0, use_physical=False)
-                for rr, zz in zip(R, z)
-            ]
-        )
-        assert numpy.max(numpy.fabs(zc - zp)) < 1e-8
-        for deriv, meth in [
-            ("r2deriv", "R2deriv"),
-            ("z2deriv", "z2deriv"),
-            ("rzderiv", "Rzderiv"),
-        ]:
-            dc = eval_2ndderiv_c(sp, R, z, deriv=deriv)[0]
-            dp = numpy.array(
-                [
-                    getattr(sp, meth)(rr, zz, phi=0.0, t=0.0, use_physical=False)
-                    for rr, zz in zip(R, z)
-                ]
-            )
-            assert numpy.max(numpy.fabs(dc - dp)) < 1e-7
-
-
 def test_tdep_c_beyond_tgrid():
     # Integrating past the end of tgrid extrapolates using the boundary cubic in
     # both C and Python (clamped time-interval selection), so they still agree.

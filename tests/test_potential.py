@@ -13241,6 +13241,41 @@ class mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential(testMWPotential):
         return 1.3
 
 
+class mockFlatWeaklyTDNonaxiM3SCFPotential(testMWPotential):
+    """Weakly time-dep, non-axi L=3 (M=3) SCF for actionAngle/orbit/liouville tests.
+
+    The SCFPotential analogue of mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential:
+    exercises the time-dependent non-axi SCF potential/force/2nd-deriv C paths, with
+    a weakly time-dependent (epsilon=1e-4) rotating (omega=1.3) perturbation so the
+    Jacobi integral is conserved during C orbit integration.
+    """
+
+    def __init__(self):
+        omega = 1.3
+        epsilon = 1e-4
+        hp = potential.HernquistPotential(amp=0.02, a=1.0)
+        tdep_scf = potential.SCFPotential.from_density(
+            dens=lambda R, z, phi, t=0.0: (
+                hp.dens(R, z, use_physical=False)
+                * (1 + epsilon * numpy.cos(phi + omega * t))
+            ),
+            N=10,
+            L=3,
+            symmetry=None,
+            tgrid=numpy.linspace(0, 300, 11),
+        )
+        testMWPotential.__init__(
+            self,
+            potlist=[
+                potential.LogarithmicHaloPotential(normalize=1.0),
+                tdep_scf,
+            ],
+        )
+
+    def OmegaP(self):
+        return 1.3
+
+
 # Special case to test handling of pure planarWrapper, not necessary for new wrappers
 class mockFlatSolidBodyRotationPlanarSpiralArmsPotential(testplanarMWPotential):
     def __init__(self):
