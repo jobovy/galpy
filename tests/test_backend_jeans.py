@@ -30,18 +30,13 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from galpy.backend import as_numpy
 from galpy.df import jeans
 from galpy.potential import HernquistPotential
 
 
 def _arr(backend, x):
     return jnp.asarray(x) if backend == "jax" else torch.tensor(x)
-
-
-def _np(x):
-    if torch is not None and torch.is_tensor(x):
-        return x.detach().cpu().numpy()
-    return numpy.asarray(x)
 
 
 def _is_backend_array(backend, x):
@@ -64,7 +59,7 @@ def test_jeans_parity(backend, fn):
         got = f(_HP, _arr(backend, r0), use_physical=False)
         assert _is_backend_array(backend, got)
         numpy.testing.assert_allclose(
-            _np(got), numpy.asarray(ref), rtol=1e-6, atol=1e-9
+            as_numpy(got), numpy.asarray(ref), rtol=1e-6, atol=1e-9
         )
 
 
@@ -79,7 +74,7 @@ def test_jeans_sigmar_callable_beta_parity(backend):
         got = jeans.sigmar(_HP, _arr(backend, r0), beta=beta, use_physical=False)
         assert _is_backend_array(backend, got)
         numpy.testing.assert_allclose(
-            _np(got), numpy.asarray(ref), rtol=1e-6, atol=1e-9
+            as_numpy(got), numpy.asarray(ref), rtol=1e-6, atol=1e-9
         )
 
 

@@ -23,6 +23,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import SCFPotential
 
 # This module manages backends explicitly (parametrizes over them), so it is
@@ -106,12 +107,6 @@ def _asarray(backend_name, x):
         return torch.tensor(x, dtype=torch.float64)
 
 
-def _tonumpy(x):
-    if torch is not None and isinstance(x, torch.Tensor):
-        return x.detach().numpy()
-    return numpy.asarray(x)
-
-
 @pytest.mark.parametrize("name,pot", CASES, ids=CASE_IDS)
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity_array(backend_name, name, pot):
@@ -121,7 +116,7 @@ def test_value_parity_array(backend_name, name, pot):
     for mname in METHODS:
         method = getattr(pot, mname)
         ref = numpy.asarray(method(_RS, _ZS, _PHIS))
-        got = _tonumpy(method(R, z, phi))
+        got = as_numpy(method(R, z, phi))
         numpy.testing.assert_allclose(
             got,
             ref,
@@ -138,7 +133,7 @@ def test_value_parity_scalar(backend_name, name, pot):
         method = getattr(pot, mname)
         for R0, z0, phi0 in zip(_RS, _ZS, _PHIS):
             ref = numpy.asarray(method(R0, z0, phi0))
-            got = _tonumpy(
+            got = as_numpy(
                 method(
                     _asarray(backend_name, R0),
                     _asarray(backend_name, z0),
@@ -163,7 +158,7 @@ def test_public_value_parity(backend_name, name, pot):
     z = _asarray(backend_name, _ZS)
     phi = _asarray(backend_name, _PHIS)
     ref = numpy.asarray(pot.Rforce(_RS, _ZS, phi=_PHIS))
-    got = _tonumpy(pot.Rforce(R, z, phi=phi))
+    got = as_numpy(pot.Rforce(R, z, phi=phi))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
 
 
@@ -290,7 +285,7 @@ def test_centre_and_infinity_parity(backend_name, name, pot):
     # potential at the centre is finite (the -CC/a limit of _phiTilde)
     ref0 = float(pot._evaluate(0.0, 0.0, 0.3))
     got0 = float(
-        _tonumpy(
+        as_numpy(
             pot._evaluate(
                 _asarray(backend_name, 0.0),
                 _asarray(backend_name, 0.0),
@@ -302,7 +297,7 @@ def test_centre_and_infinity_parity(backend_name, name, pot):
     numpy.testing.assert_allclose(got0, ref0, rtol=1e-12, atol=1e-14)
     # potential at infinity -> 0, through the xi = 1 guard of _RToxi
     gotinf = float(
-        _tonumpy(
+        as_numpy(
             pot._evaluate(
                 _asarray(backend_name, numpy.inf),
                 _asarray(backend_name, 0.0),
@@ -314,7 +309,7 @@ def test_centre_and_infinity_parity(backend_name, name, pot):
     # second derivatives at the centre are defined to be 0 (numpy convention)
     refc = float(pot._R2deriv(0.0, 0.0, 0.3))
     gotc = float(
-        _tonumpy(
+        as_numpy(
             pot._R2deriv(
                 _asarray(backend_name, 0.0),
                 _asarray(backend_name, 0.0),
