@@ -1513,6 +1513,52 @@ def test_tdep_from_density_signature_and_order_branches():
     assert numpy.max(numpy.fabs(spc._Asin_all[3] - static_c._Asin)) < 1e-12
 
 
+def test_tdep_from_density_time_batching():
+    # Building over a large tgrid processes it in memory-bounded batches; forcing
+    # a tiny batch budget makes it use several batches, and the result must equal
+    # the single-shot (unbatched) build exactly (batching over the independent
+    # time axis is exact). Covers both the Asin-present (general) and Asin=None
+    # (axi) concatenation branches.
+    import sys
+
+    scfmod = sys.modules[SCFPotential.__module__]  # the module, not the class
+
+    hp = potential.HernquistPotential(a=_TDEP_A)
+    tgrid = numpy.linspace(0.0, 5.0, 17)
+    dens_g = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False) * (1.0 + 0.2 * numpy.cos(2 * (phi - 0.4 * t)))
+    )
+    dens_a = lambda R, z, t=0.0: hp.dens(R, z, use_physical=False) * (1.0 + 0.03 * t)
+    # single-shot reference (default large budget)
+    ref_g = SCFPotential.from_density(
+        dens_g, 8, L=3, a=_TDEP_A, symmetry=None, tgrid=tgrid
+    )
+    ref_a = SCFPotential.from_density(
+        dens_a, 8, L=3, a=_TDEP_A, symmetry="axi", tgrid=tgrid
+    )
+    old = scfmod._TIMEDEP_BATCH_BYTES
+    try:
+        # budget sized to ~4 time steps per batch for each path -> several batches
+        # (general and axi have different per-time-step sizes)
+        scfmod._TIMEDEP_BATCH_BYTES = 4 * (2 * 8 * 3 * 3) * 8
+        assert scfmod._timedep_batch_size(len(tgrid), 2 * 8 * 3 * 3) < len(tgrid)
+        bat_g = SCFPotential.from_density(
+            dens_g, 8, L=3, a=_TDEP_A, symmetry=None, tgrid=tgrid
+        )
+        scfmod._TIMEDEP_BATCH_BYTES = 4 * (8 * 3) * 8
+        assert scfmod._timedep_batch_size(len(tgrid), 8 * 3) < len(tgrid)
+        bat_a = SCFPotential.from_density(
+            dens_a, 8, L=3, a=_TDEP_A, symmetry="axi", tgrid=tgrid
+        )
+    finally:
+        scfmod._TIMEDEP_BATCH_BYTES = old
+    # batched build is identical to the single-shot build (Asin present + None)
+    assert numpy.max(numpy.fabs(bat_g._Acos_all - ref_g._Acos_all)) < 1e-13
+    assert numpy.max(numpy.fabs(bat_g._Asin_all - ref_g._Asin_all)) < 1e-13
+    assert bat_a._Asin_all is not None  # axi stores zeros, not None, after init
+    assert numpy.max(numpy.fabs(bat_a._Acos_all - ref_a._Acos_all)) < 1e-13
+
+
 # ---------------------- error / warning handling ----------------------
 
 

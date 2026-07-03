@@ -511,31 +511,44 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             )
             return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=ro, vo=vo)
         try:
-            # Fast path: evaluate the density at all times at once
+            # Fast path: evaluate the density at all times at once, batching over
+            # the tgrid to keep the (time-vectorized) working set memory-bounded
             if symmetry is not None and symmetry.startswith("spher"):
-                Acos_all, Asin_all = _scf_compute_coeffs_spherical_timedep(
-                    dens, N, tgrid, a=a, radial_order=radial_order
+                Acos_all, Asin_all = _batched_timedep(
+                    tgrid,
+                    N,
+                    lambda tg: _scf_compute_coeffs_spherical_timedep(
+                        dens, N, tg, a=a, radial_order=radial_order
+                    ),
                 )
             elif symmetry is not None and symmetry.startswith("axi"):
-                Acos_all, Asin_all = _scf_compute_coeffs_axi_timedep(
-                    dens,
-                    N,
-                    L,
+                Acos_all, Asin_all = _batched_timedep(
                     tgrid,
-                    a=a,
-                    radial_order=radial_order,
-                    costheta_order=costheta_order,
+                    N * L,
+                    lambda tg: _scf_compute_coeffs_axi_timedep(
+                        dens,
+                        N,
+                        L,
+                        tg,
+                        a=a,
+                        radial_order=radial_order,
+                        costheta_order=costheta_order,
+                    ),
                 )
             else:
-                Acos_all, Asin_all = _scf_compute_coeffs_timedep(
-                    dens,
-                    N,
-                    L,
+                Acos_all, Asin_all = _batched_timedep(
                     tgrid,
-                    a=a,
-                    radial_order=radial_order,
-                    costheta_order=costheta_order,
-                    phi_order=phi_order,
+                    2 * N * L * L,
+                    lambda tg: _scf_compute_coeffs_timedep(
+                        dens,
+                        N,
+                        L,
+                        tg,
+                        a=a,
+                        radial_order=radial_order,
+                        costheta_order=costheta_order,
+                        phi_order=phi_order,
+                    ),
                 )
         except _TimeDepDensityNotVectorized:
             # Fall back to a per-timestep loop for densities that cannot be
@@ -1515,6 +1528,56 @@ def scf_compute_coeffs(
 class _TimeDepDensityNotVectorized(Exception):
     """Raised when a time-dependent density cannot be evaluated as an array over
     its ``t`` argument, so the caller must fall back to a per-timestep loop."""
+
+
+# Peak-memory budget (bytes) for a single working copy of the coefficient array
+# during a time-vectorized build. The vectorized quadrature accumulates an array
+# with a leading time axis, so its working set grows linearly with the number of
+# time steps; the ``tgrid`` is therefore processed in batches no larger than this
+# budget so that building over a very large ``tgrid`` stays memory-bounded (the
+# per-time-slice coefficients are independent, so batching is exact). This is a
+# module-level constant rather than a public parameter; tests set it small to
+# exercise the batched path.
+_TIMEDEP_BATCH_BYTES = 32 * 1024**2  # 32 MB
+
+
+def _timedep_batch_size(Nt, per_time_elems):
+    """Number of time steps to process per batch so one working copy of the
+    coefficient array stays within ``_TIMEDEP_BATCH_BYTES``.
+
+    Notes
+    -----
+    - 2026-07-03 - Written - Bovy (UofT)
+    """
+    per_batch = _TIMEDEP_BATCH_BYTES // (per_time_elems * 8)  # 8 bytes/float64
+    return int(min(Nt, max(1, per_batch)))
+
+
+def _batched_timedep(tgrid, per_time_elems, compute):
+    """Run a vectorized-over-time coefficient computation in batches over
+    ``tgrid`` to bound peak memory, concatenating the per-batch results.
+
+    ``compute`` takes a (sub-)``tgrid`` and returns ``(Acos, Asin)`` arrays with
+    a leading time axis (``Asin`` may be ``None``). ``per_time_elems`` is the
+    number of coefficient-array elements per time step, used to size the batches.
+
+    Notes
+    -----
+    - 2026-07-03 - Written - Bovy (UofT)
+    """
+    Nt = len(tgrid)
+    batch = _timedep_batch_size(Nt, per_time_elems)
+    if batch >= Nt:  # fits in one go
+        return compute(tgrid)
+    acos_parts = []
+    asin_parts = []
+    for start in range(0, Nt, batch):
+        Ac, As = compute(tgrid[start : start + batch])
+        acos_parts.append(Ac)
+        asin_parts.append(As)
+    Acos = numpy.concatenate(acos_parts, axis=0)
+    Asin = None if asin_parts[0] is None else numpy.concatenate(asin_parts, axis=0)
+    return Acos, Asin
 
 
 def _timedep_dens_setup(dens, tgrid, numOfParam):
