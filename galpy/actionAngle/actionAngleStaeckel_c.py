@@ -286,6 +286,92 @@ def actionAngleStaeckel_actionsJac_c(
     return (jr, jz, jac.reshape((len(R), 2, 5)), err.value)
 
 
+def actionAngleStaeckel_actionsFreqsJac_c(
+    pot, delta, R, vR, vT, z, vz, u0=None, order=10, useu0=False
+):
+    """Use C to calculate Staeckel actions, frequencies AND the fused (5x5)
+    Jacobian d(jr,jz,Omegar,Omegaphi,Omegaz)/d(R,vR,vT,z,vz) per object, assembled
+    natively in C (the Omega rows use the analytic action Hessians, #131).
+
+    Returns
+    -------
+    tuple
+        (jr,jz,Or,Op,Oz,jac,err) with jr,jz,Or,Op,Oz shape (len(R),) and jac
+        shape (len(R),5,5): jac[:,0]=d(jr)/d(...), jac[:,1]=d(jz)/d(...),
+        jac[:,2..4]=d(Omega{r,phi,z})/d(R,vR,vT,z,vz). err non-zero on error.
+    """
+    refu0mode = 0 if u0 is None else (2 if useu0 else 1)
+    if u0 is None:
+        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+    from ..orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, potforactions=True)
+    pot_tfuncs = _prep_tfuncs(pot_tfuncs)
+    delta = numpy.atleast_1d(delta)
+    ndelta = len(delta)
+
+    jr = numpy.empty(len(R))
+    jz = numpy.empty(len(R))
+    Or = numpy.empty(len(R))
+    Op = numpy.empty(len(R))
+    Oz = numpy.empty(len(R))
+    jac = numpy.empty(len(R) * 25)
+    err = ctypes.c_int(0)
+
+    ndarrayFlags = ("C_CONTIGUOUS", "WRITEABLE")
+    func = _lib.actionAngleStaeckel_actionsFreqsJac
+    func.argtypes = (
+        [ctypes.c_int]
+        + [ndpointer(dtype=numpy.float64, flags=ndarrayFlags)] * 6
+        + [
+            ctypes.c_int,
+            ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
+            ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        + [ndpointer(dtype=numpy.float64, flags=ndarrayFlags)] * 6
+        + [ctypes.POINTER(ctypes.c_int)]
+    )
+
+    f_cont = [a.flags["F_CONTIGUOUS"] for a in (R, vR, vT, z, vz, u0, delta)]
+    R = numpy.require(R, dtype=numpy.float64, requirements=["C", "W"])
+    vR = numpy.require(vR, dtype=numpy.float64, requirements=["C", "W"])
+    vT = numpy.require(vT, dtype=numpy.float64, requirements=["C", "W"])
+    z = numpy.require(z, dtype=numpy.float64, requirements=["C", "W"])
+    vz = numpy.require(vz, dtype=numpy.float64, requirements=["C", "W"])
+    u0 = numpy.require(u0, dtype=numpy.float64, requirements=["C", "W"])
+    delta = numpy.require(delta, dtype=numpy.float64, requirements=["C", "W"])
+
+    func(
+        len(R), R, vR, vT, z, vz, u0,
+        ctypes.c_int(npot), pot_type, pot_args, pot_tfuncs,
+        ctypes.c_int(ndelta), delta, ctypes.c_int(order), ctypes.c_int(refu0mode),
+        jr, jz, Or, Op, Oz, jac, ctypes.byref(err),
+    )  # fmt: skip
+
+    if f_cont[0]:
+        R = numpy.asfortranarray(R)
+    if f_cont[1]:
+        vR = numpy.asfortranarray(vR)
+    if f_cont[2]:
+        vT = numpy.asfortranarray(vT)
+    if f_cont[3]:
+        z = numpy.asfortranarray(z)
+    if f_cont[4]:
+        vz = numpy.asfortranarray(vz)
+    if f_cont[5]:
+        u0 = numpy.asfortranarray(u0)
+    if f_cont[6]:
+        delta = numpy.asfortranarray(delta)
+
+    return (jr, jz, Or, Op, Oz, jac.reshape((len(R), 5, 5)), err.value)
+
+
 def actionAngleStaeckel_calcu0(E, Lz, pot, delta):
     """
     Use C to calculate u0 in the Staeckel approximation

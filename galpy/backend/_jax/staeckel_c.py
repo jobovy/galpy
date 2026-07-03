@@ -88,3 +88,46 @@ def actions_with_jac(host_jac, coords):
 
     _actions.defvjp(_fwd, _bwd)
     return _actions(coords)
+
+
+def actionsfreqs_with_jac(host_jac, coords):
+    """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz) with the native-C fused (5,5)
+    Jacobian d(jr,jz,Omega)/d(R,vR,vT,z,vz) as the vjp residual (#131).
+
+    host_jac : callable taking 5 numpy (N,) coord arrays, returning
+        (jr,jz,Or,Op,Oz,jac) with the values (N,) and jac (N,5,5).
+    """
+    import jax
+
+    shape, dtype = coords[0].shape, coords[0].dtype
+
+    def _host(*cs):
+        out = host_jac(*(numpy.asarray(c, dtype=numpy.float64) for c in cs))
+        return tuple(numpy.asarray(o, dtype=dtype) for o in out)
+
+    def _call(cs):
+        cs = tuple(jax.lax.stop_gradient(c) for c in cs)
+        return jax.pure_callback(
+            _host,
+            tuple(jax.ShapeDtypeStruct(shape, dtype) for _ in range(5))
+            + (jax.ShapeDtypeStruct(shape + (5, 5), dtype),),
+            *cs,
+            vmap_method="sequential",
+        )
+
+    @jax.custom_vjp
+    def _af(cs):
+        out = _call(cs)
+        return out[:5]
+
+    def _fwd(cs):
+        out = _call(cs)
+        return out[:5], out[5]  # residual = the (5,5) Jacobian
+
+    def _bwd(jac, ct):
+        # grad_k = sum_o ct_o * jac[:,o,k]  (o over jr,jz,Or,Op,Oz)
+        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(5))  # (N,5)
+        return (tuple(g[:, k] for k in range(5)),)
+
+    _af.defvjp(_fwd, _bwd)
+    return _af(coords)
