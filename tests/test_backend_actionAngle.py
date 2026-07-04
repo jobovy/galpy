@@ -1016,6 +1016,30 @@ def test_staeckel_turningpoint_parity(backend):
         )
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_default_c_ecczmax_backend(backend):
+    # DEFAULT object (c=True): EccZmaxRperiRap / _uminumaxvmin must route backend
+    # arrays to the vectorised _staeckel_prep path (the C ctypes wrapper cannot
+    # take jax/torch arrays). Pre-fix this raised; the sibling actions/freqs/angles
+    # methods already dispatched, _uminumaxvmin did not. numpy c=True is the ref.
+    aC = actionAngleStaeckel(pot=MWPotential2014, delta=0.45)  # default c=True
+    assert aC._c
+    bargs = [_arr(backend, v) for v in _STK]
+    ref = aC.EccZmaxRperiRap(*_STK)  # numpy c=True (C path)
+    got = aC.EccZmaxRperiRap(*bargs)  # backend -> _staeckel_prep
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-9
+        )
+    # _uminumaxvmin directly, too (backs EccZmax; also a public turning-point query)
+    for r, g in zip(aC._uminumaxvmin(*_STK), aC._uminumaxvmin(*bargs)):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-7, atol=1e-9
+        )
+
+
 # Exactly-planar orbits (z=vz=0, so J_z=0): the vertical turning point snaps to
 # v=pi/2, the J_z derivative panels collapse to zero width, and the frequency
 # determinant det(A)=0. The C path then returns Omegar,Omegaphi=NaN and
@@ -1919,6 +1943,19 @@ def test_adiabaticgrid_numpy_byte_identity():
         sact = _aAAG(*[v[ii] for v in _GRID])
         for comp, s in zip(act, sact):
             numpy.testing.assert_array_equal(comp[ii], s)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabaticgrid_Jz_backend(backend):
+    # The standalone AdiabaticGrid.Jz accessor (numpy scalar-only) now guards on
+    # backend arrays and rides the migrated _evaluate path -> jz. Matches numpy.
+    ic = (1.1, 0.15, 0.9, 0.12, 0.13)
+    ref = numpy.asarray(_aAAG.Jz(*ic)).reshape(-1)[0]
+    got = _aAAG.Jz(*[_arr(backend, numpy.array([x])) for x in ic])
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(
+        as_numpy(got).reshape(-1)[0], ref, rtol=1e-10, atol=1e-12
+    )
 
 
 # Single-point bound IC well inside both grids, away from turning points / edges.

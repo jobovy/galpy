@@ -1441,9 +1441,15 @@ class actionAngleStaeckel(actionAngle):
             z = numpy.array([z])
             vz = numpy.array([vz])
         if (
-            (self._c and not ("c" in kwargs and not kwargs["c"]))
-            or (ext_loaded and ("c" in kwargs and kwargs["c"]))
-        ) and _check_c(self._pot):
+            (
+                (self._c and not ("c" in kwargs and not kwargs["c"]))
+                or (ext_loaded and ("c" in kwargs and kwargs["c"]))
+            )
+            and _check_c(self._pot)
+            # backend arrays route to the vectorised _staeckel_prep path below
+            # (no C-native uminUmaxVmin Jacobian); numpy stays on the C path here
+            and not any(is_backend_array(c) for c in (R, vR, vT, z, vz))
+        ):
             Lz = R * vT
             if self._useu0:
                 # First calculate u0

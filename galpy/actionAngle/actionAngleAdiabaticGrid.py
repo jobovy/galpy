@@ -16,7 +16,7 @@ from scipy import interpolate
 from .. import potential
 from ..backend import get_namespace
 from ..backend import interpolate as backend_interpolate
-from ..backend import promote_scalars
+from ..backend import is_backend_array, promote_scalars
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -545,6 +545,10 @@ class actionAngleAdiabaticGrid(actionAngle):
         - 2012-07-30 - Written - Bovy (IAS@MPIA)
 
         """
+        if any(is_backend_array(a) for a in args):
+            # backend arrays: ride the migrated _evaluate path (numpy stays
+            # byte-identical below); the standalone grid lookup is numpy-only.
+            return self(*args, **kwargs)[2]
         self._parse_eval_args(*args)
         Phi = _evaluatePotentials(self._pot, self._eval_R, self._eval_z)
         Phio = _evaluatePotentials(self._pot, self._eval_R, 0.0)

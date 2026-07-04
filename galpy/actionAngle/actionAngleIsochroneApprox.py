@@ -1039,7 +1039,8 @@ class actionAngleIsochroneApprox(actionAngle):
 
     def _actionsFreqsAngles_backend(self, R, vR, vT, z, vz, phi, ts, maxn, **kwargs):
         """Backend counterpart of _actionsFreqsAngles (actions via angle-averaging,
-        frequencies and angles via the linear angle-fit Y=AX). Axisymmetric only."""
+        frequencies and angles via the linear angle-fit Y=AX). Axisymmetric and
+        non-axisymmetric (the nonAxi Lz/angle-fit branches below)."""
         xp = get_namespace(R, vR, vT, z, vz, phi)
         # ts is the (2*ntintJ-1) symmetric time grid (numpy from self._tsJ); move
         # it onto the input backend for the angle-fit design matrix column A[..,1].
