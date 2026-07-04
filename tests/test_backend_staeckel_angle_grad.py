@@ -45,6 +45,10 @@ _AAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True)
 _ORBITS = {
     "generic": (1.0, 0.2, 1.1, 0.1, 0.15, 0.3),
     "eccentric": (1.2, 0.35, 0.85, 0.25, -0.2, -0.7),
+    # z<0 exercises the above-panel (vx>pi/2) v-side branch (reflected endpoint
+    # pi-vx, dvx_eff=-dvx) -- the one v-branch z>=0 orbits never hit.
+    "generic_zneg": (1.0, 0.2, 1.1, -0.1, 0.15, 0.3),
+    "eccentric_zneg": (1.2, 0.35, 0.85, -0.25, -0.2, -0.7),
 }
 _EDGE_ORBITS = {
     "edge_vR0": (1.0, 0.0, 1.1, 0.1, 0.15, 0.3),
