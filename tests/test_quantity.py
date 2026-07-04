@@ -10520,6 +10520,79 @@ def test_potential_paramunits():
     return None
 
 
+def test_scfpotential_from_nbody_units():
+    # SCFPotential.from_nbody accepts physical-unit (Quantity) particle positions,
+    # masses, and scale length, and (for the time-dependent case) a Gyr time grid,
+    # matching an equivalent build in galpy's internal units.
+    from galpy import potential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    numpy.random.seed(9)
+    n, N, L = 8000, 6, 3
+    pos_int = numpy.random.randn(3, n) * 1.5  # internal-unit positions
+    mass_int = (1e-3 / n) * numpy.ones(n)
+    # internal-unit build (no ro/vo -> physical outputs off)
+    sp_plain = potential.SCFPotential.from_nbody(
+        pos_int, N, L=L, symmetry=None, a=1.0, mass=mass_int
+    )
+    assert not sp_plain._roSet, "from_nbody w/ plain inputs unexpectedly set ro"
+    # equivalent build with Quantity inputs -> physical outputs on, same coeffs
+    ro0, vo0 = sp_plain._ro, sp_plain._vo
+    massfac = conversion.mass_in_msol(vo0, ro0)
+    sp_phys = potential.SCFPotential.from_nbody(
+        pos_int * ro0 * units.kpc,
+        N,
+        L=L,
+        symmetry=None,
+        a=1.0 * ro0 * units.kpc,
+        mass=mass_int * massfac * units.Msun,
+    )
+    assert sp_phys._roSet and sp_phys._voSet, (
+        "from_nbody w/ Quantity inputs did not turn on physical outputs"
+    )
+    assert numpy.max(numpy.fabs(sp_phys._Acos - sp_plain._Acos)) < 1e-10, (
+        "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
+    )
+    assert numpy.max(numpy.fabs(sp_phys._Asin - sp_plain._Asin)) < 1e-10, (
+        "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
+    )
+    # time-dependent: a Gyr time grid matches the equivalent internal-unit grid
+    nt = 4
+    pos_t = numpy.random.randn(3, n, nt) * 1.5
+    tg_int = numpy.linspace(0.0, 2.0, nt)
+    tg_gyr = tg_int * conversion.time_in_Gyr(vo, ro) * units.Gyr
+    sp_tint = potential.SCFPotential.from_nbody(
+        pos_t, N, L=L, symmetry=None, a=1.0, mass=mass_int, tgrid=tg_int, ro=ro, vo=vo
+    )
+    sp_tgyr = potential.SCFPotential.from_nbody(
+        pos_t, N, L=L, symmetry=None, a=1.0, mass=mass_int, tgrid=tg_gyr, ro=ro, vo=vo
+    )
+    assert numpy.all(numpy.fabs(sp_tint._tgrid - sp_tgyr._tgrid) < 1e-8), (
+        "from_nbody w/ Gyr tgrid does not match the internal-unit tgrid"
+    )
+    assert numpy.max(numpy.fabs(sp_tint._Acos_all - sp_tgyr._Acos_all)) < 1e-10, (
+        "from_nbody w/ Gyr tgrid does not match the internal-unit build"
+    )
+    # from_density likewise accepts a Gyr time grid
+    hp = potential.HernquistPotential(amp=0.5, a=1.0)
+    hp.turn_physical_off()
+    dens = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False)
+        * (1.0 + 0.1 * numpy.cos(2 * phi) * (1.0 + 0.05 * t))
+    )
+    sd_int = potential.SCFPotential.from_density(
+        dens, N, L=L, symmetry=None, a=1.0, tgrid=tg_int, ro=ro, vo=vo
+    )
+    sd_gyr = potential.SCFPotential.from_density(
+        dens, N, L=L, symmetry=None, a=1.0, tgrid=tg_gyr, ro=ro, vo=vo
+    )
+    assert numpy.max(numpy.fabs(sd_int._Acos_all - sd_gyr._Acos_all)) < 1e-10, (
+        "from_density w/ Gyr tgrid does not match the internal-unit build"
+    )
+    return None
+
+
 def test_potential_paramunits_2d():
     # Test that input units for potential parameters other than the amplitude
     # behave as expected
