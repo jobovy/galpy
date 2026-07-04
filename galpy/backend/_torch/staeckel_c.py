@@ -11,23 +11,6 @@ import numpy
 import torch
 
 
-def c_value(host, coords, nout):
-    """Forward a numpy-in/numpy-out C `host` under torch (value only, no grad).
-
-    host : callable taking len(coords) numpy (N,) arrays, returning `nout` numpy
-        (N,) arrays. coords : tuple of torch (N,) tensors. Used for the
-        frequency/angle values, which are not differentiated here (their
-        gradients are second-order objects). Detached in, so no graph is built.
-    """
-    dev, dt = coords[0].device, coords[0].dtype
-    cs = [t.detach().to("cpu", torch.float64).numpy() for t in coords]
-    out = host(*cs)
-    return tuple(
-        torch.as_tensor(numpy.asarray(o, dtype=numpy.float64), dtype=dt, device=dev)
-        for o in out
-    )
-
-
 class _ActionsJacFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, host_jac, R, vR, vT, z, vz):

@@ -1,10 +1,7 @@
 ###############################################################################
 #   galpy.backend._jax.staeckel_c
 #
-#   jax wrappers for the compiled Staeckel C actions. Two entry points:
-#     * c_value: a jax.pure_callback forwarding a numpy-in/numpy-out C wrapper's
-#       VALUES under a jax trace (used for the frequency/angle values, which are
-#       not differentiated here -- their gradients are second-order objects).
+#   jax wrappers for the compiled Staeckel C actions.
 #     * actions_with_jac: a jax.custom_vjp whose forward is a pure_callback to
 #       the C entry that returns (jr, jz) AND the full 2x5 Jacobian
 #       d(jr,jz)/d(R,vR,vT,z,vz) (assembled natively in C); the backward is a
@@ -12,30 +9,6 @@
 #       (orbit_stm), so users' jit/grad stay traceable. First-order only.
 ###############################################################################
 import numpy
-
-
-def c_value(host, coords, nout):
-    """Forward a numpy-in/numpy-out C `host` under a jax trace (value only).
-
-    host : callable taking len(coords) numpy (N,) arrays, returning `nout`
-        numpy (N,) arrays. coords : tuple of traced jax (N,) arrays. The coords
-        are stop-gradient'd in, so no JVP rule is engaged (no gradient here).
-    """
-    import jax
-
-    coords = tuple(jax.lax.stop_gradient(c) for c in coords)
-    shape, dtype = coords[0].shape, coords[0].dtype
-
-    def _host_np(*args):
-        out = host(*(numpy.asarray(a, dtype=numpy.float64) for a in args))
-        return tuple(numpy.asarray(o, dtype=dtype) for o in out)
-
-    return jax.pure_callback(
-        _host_np,
-        tuple(jax.ShapeDtypeStruct(shape, dtype) for _ in range(nout)),
-        *coords,
-        vmap_method="sequential",
-    )
 
 
 def actions_with_jac(host_jac, coords):

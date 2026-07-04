@@ -54,7 +54,14 @@ _EDGE_ORBITS = {
     "edge_vR0": (1.0, 0.0, 1.1, 0.1, 0.15, 0.3),
     "edge_vz0": (1.0, 0.2, 1.1, 0.1, 0.0, 0.3),
     "edge_z0": (1.0, 0.2, 1.1, 0.0, 0.15, 0.3),
+    # small |z| (vx just below pi/2) -> the v-side "high panel" (base=pi/2 regular
+    # point) branch of calcAnglePartialDerivV, which the interior/z<0 orbits skip.
+    "high_v_panel": (1.0, 0.15, 1.05, 0.01, 0.4, 0.3),
 }
+# unbound orbit: the Staeckel turning-point solve fails (umin/umax=-9999.99), so the
+# C zeroes the angle-Jacobian rows (degenerate guard). Kept out of the value grid --
+# the 9999.99 angle sentinel is not phi-remainder-invariant on the backend path.
+_DEGEN_ORBIT = (1.0, 3.0, 0.05, 0.0, 3.0, 0.3)
 
 
 def _wrap(d):
@@ -169,6 +176,15 @@ def test_staeckel_angle_grad_finite_edges(backend, orbit):
     g = _backend_angle_grads(backend, _EDGE_ORBITS[orbit])
     for k in range(3):
         assert numpy.all(numpy.isfinite(g[k])), f"non-finite angle grad row {k}"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_angle_grad_degenerate(backend):
+    # unbound orbit -> Staeckel turning-point solve fails -> the C degenerate guard
+    # zeroes the freq+angle Jacobian rows. The grad must be FINITE (not NaN/inf).
+    g = _backend_angle_grads(backend, _DEGEN_ORBIT)
+    for k in range(3):
+        assert numpy.all(numpy.isfinite(g[k])), f"non-finite grad row {k}"
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

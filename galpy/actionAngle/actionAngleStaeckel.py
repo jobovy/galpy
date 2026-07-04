@@ -746,19 +746,6 @@ def _staeckel_c_grad_actionsfreqsangles(
     )
 
 
-def _staeckel_c_forward_values(host, coords, nout):
-    """Forward numpy-in/numpy-out C `host` VALUES (frequencies/angles) under a
-    jax/torch trace, ungrafted (stop-gradient in). Phase-2: values only."""
-    name = getattr(get_namespace(*coords), "__name__", "")
-    if "jax" in name:
-        from ..backend._jax.staeckel_c import c_value
-
-        return c_value(host, coords, nout)
-    from ..backend._torch.staeckel_c import c_value
-
-    return c_value(host, coords, nout)
-
-
 def _staeckel_c_backend_refu0(pot, delta, R, vR, vT, z, vz, useu0, u0_kwarg):
     """Reference u0 (numpy) for the C-native backend path, plus a flag marking
     whether it is the coordinate-dependent calcu0(E,Lz) reference (useu0=True,
