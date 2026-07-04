@@ -667,6 +667,44 @@ def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=Fals
     )
 
 
+def _staeckel_c_grad_actionsfreqs(pot, delta, R, vR, vT, z, vz, u0, order, useu0=False):
+    """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz) via the fused C-native (5x5)
+    Staeckel Jacobian (actionsFreqsJac_c): the jr,jz rows are the #1051 action
+    Jacobian; the Omega rows are the analytic action-Hessian composition (#131).
+    One C pass (setup + turning points + derivative integrals shared). numpy never
+    reaches here. First-order only; close-to-circular/planar frequency VALUES get
+    the epifreq/omegac/verticalfreq substitution (host) with their Jacobian rows
+    zeroed in C."""
+    delta_np = numpy.atleast_1d(
+        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+    )
+    u0_np = (
+        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+    )
+
+    def host_jac(Rn, vRn, vTn, zn, vzn):
+        jr, jz, Or, Op, Oz, jac, err = (
+            actionAngleStaeckel_c.actionAngleStaeckel_actionsFreqsJac_c(
+                pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, order=order, useu0=useu0
+            )
+        )
+        Or, Op, Oz = _staeckel_c_freq_circ_fix(pot, Rn, jr, jz, Or, Op, Oz)
+        return jr, jz, Or, Op, Oz, jac
+
+    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
+    if "jax" in name:
+        from ..backend._jax.staeckel_c import actionsfreqs_with_jac
+
+        return actionsfreqs_with_jac(host_jac, (R, vR, vT, z, vz))
+    if "torch" in name:
+        from ..backend._torch.staeckel_c import actionsfreqs_with_jac
+
+        return actionsfreqs_with_jac(host_jac, R, vR, vT, z, vz)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Staeckel freq gradients require a jax or torch input array."
+    )
+
+
 def _staeckel_c_forward_values(host, coords, nout):
     """Forward numpy-in/numpy-out C `host` VALUES (frequencies/angles) under a
     jax/torch trace, ungrafted (stop-gradient in). Phase-2: values only."""
@@ -971,8 +1009,9 @@ class actionAngleStaeckel(actionAngle):
                 vz = numpy.array([vz])
             Lz = R * vT
             if any(is_backend_array(c) for c in (R, vR, vT, z, vz)):
-                # jax/torch: differentiable actions via the C-native Jacobian;
-                # the frequency VALUES pass through ungrafted (Phase-2).
+                # jax/torch: differentiable (jr,jz,Omega) via the fused C-native
+                # (5x5) Jacobian -- actions rows (#1051) + freq rows (#131), in one
+                # C pass. First-order.
                 xp = get_namespace(R, vR, vT, z, vz)
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
                 Lz = R * vT
@@ -987,33 +1026,8 @@ class actionAngleStaeckel(actionAngle):
                     self._useu0,
                     kwargs.pop("u0", None),
                 )
-                jr, jz = _staeckel_c_grad_actions(
+                jr, jz, Omegar, Omegaphi, Omegaz = _staeckel_c_grad_actionsfreqs(
                     self._pot, delta, R, vR, vT, z, vz, u0, order, useu0=refu0_calc
-                )
-                delta_np = numpy.atleast_1d(
-                    numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
-                )
-
-                def _host_freqs(Rn, vRn, vTn, zn, vzn):
-                    jrn, jzn, Or, Op, Oz, _ = (
-                        actionAngleStaeckel_c.actionAngleFreqStaeckel_c(
-                            self._pot,
-                            delta_np,
-                            Rn,
-                            vRn,
-                            vTn,
-                            zn,
-                            vzn,
-                            u0=u0,
-                            order=order,
-                        )
-                    )
-                    return _staeckel_c_freq_circ_fix(
-                        self._pot, Rn, jrn, jzn, Or, Op, Oz
-                    )
-
-                Omegar, Omegaphi, Omegaz = _staeckel_c_forward_values(
-                    _host_freqs, (R, vR, vT, z, vz), 3
                 )
                 return (jr, Lz, jz, Omegar, Omegaphi, Omegaz)
             if self._useu0:
