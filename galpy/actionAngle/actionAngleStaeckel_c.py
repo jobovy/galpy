@@ -372,6 +372,77 @@ def actionAngleStaeckel_actionsFreqsJac_c(
     return (jr, jz, Or, Op, Oz, jac.reshape((len(R), 5, 5)), err.value)
 
 
+def actionAngleStaeckel_actionsFreqsAnglesJac_c(
+    pot, delta, R, vR, vT, z, vz, u0=None, order=10, useu0=False
+):
+    """C-native Staeckel actions, freqs, angles AND the fused (5x5) action+freq ojac
+    + the (3x5) angle ajac (#131 PR-B). Returns
+    (jr,jz,Or,Op,Oz,angler,anglephi_raw,anglez, ojac(N,5,5), ajac(N,3,5), err) with
+    angler/anglez fmod-wrapped to [0,2pi) and anglephi WITHOUT the azimuth phi (the
+    differentiable backend tie adds phi via remainder(anglephi_raw+phi,2pi))."""
+    refu0mode = 0 if u0 is None else (2 if useu0 else 1)
+    if u0 is None:
+        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+    from ..orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, potforactions=True)
+    pot_tfuncs = _prep_tfuncs(pot_tfuncs)
+    delta = numpy.atleast_1d(delta)
+    ndelta = len(delta)
+
+    jr = numpy.empty(len(R))
+    jz = numpy.empty(len(R))
+    Or = numpy.empty(len(R))
+    Op = numpy.empty(len(R))
+    Oz = numpy.empty(len(R))
+    Angler = numpy.empty(len(R))
+    Anglephi = numpy.empty(len(R))
+    Anglez = numpy.empty(len(R))
+    ojac = numpy.empty(len(R) * 25)
+    ajac = numpy.empty(len(R) * 15)
+    err = ctypes.c_int(0)
+
+    ndarrayFlags = ("C_CONTIGUOUS", "WRITEABLE")
+    func = _lib.actionAngleStaeckel_actionsFreqsAnglesJac
+    func.argtypes = (
+        [ctypes.c_int]
+        + [ndpointer(dtype=numpy.float64, flags=ndarrayFlags)] * 6
+        + [
+            ctypes.c_int,
+            ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
+            ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        + [ndpointer(dtype=numpy.float64, flags=ndarrayFlags)] * 10
+        + [ctypes.POINTER(ctypes.c_int)]
+    )
+
+    R = numpy.require(R, dtype=numpy.float64, requirements=["C", "W"])
+    vR = numpy.require(vR, dtype=numpy.float64, requirements=["C", "W"])
+    vT = numpy.require(vT, dtype=numpy.float64, requirements=["C", "W"])
+    z = numpy.require(z, dtype=numpy.float64, requirements=["C", "W"])
+    vz = numpy.require(vz, dtype=numpy.float64, requirements=["C", "W"])
+    u0 = numpy.require(u0, dtype=numpy.float64, requirements=["C", "W"])
+    delta = numpy.require(delta, dtype=numpy.float64, requirements=["C", "W"])
+
+    func(
+        len(R), R, vR, vT, z, vz, u0,
+        ctypes.c_int(npot), pot_type, pot_args, pot_tfuncs,
+        ctypes.c_int(ndelta), delta, ctypes.c_int(order), ctypes.c_int(refu0mode),
+        jr, jz, Or, Op, Oz, Angler, Anglephi, Anglez, ojac, ajac, ctypes.byref(err),
+    )  # fmt: skip
+
+    return (
+        jr, jz, Or, Op, Oz, Angler, Anglephi, Anglez,
+        ojac.reshape((len(R), 5, 5)), ajac.reshape((len(R), 3, 5)), err.value,
+    )  # fmt: skip
+
+
 def actionAngleStaeckel_calcu0(E, Lz, pot, delta):
     """
     Use C to calculate u0 in the Staeckel approximation
