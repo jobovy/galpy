@@ -6,7 +6,7 @@ import scipy
 from numpy.polynomial.legendre import leggauss
 from packaging.version import parse as parse_version
 from scipy import integrate
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline, InterpolatedUnivariateSpline
 from scipy.special import gamma, gammaln
 
 _SCIPY_VERSION = parse_version(scipy.__version__)
@@ -538,6 +538,89 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         Asin_all = numpy.array(Asin_list) if any_sin else None
         return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=out_ro, vo=out_vo)
 
+    @classmethod
+    def from_multipole(cls, mult, N, a=1.0, radial_order=None, ro=None, vo=None):
+        """
+        Initialize an SCFPotential from a MultipoleExpansionPotential.
+
+        Because both potentials expand the density in the same real spherical
+        harmonics, the translation is purely radial: the density multipoles
+        rho_lm(r) of the multipole expansion are projected onto the SCF radial
+        basis (a set of 1D radial integrals), with no angular quadrature. The
+        angular resolution (``L``, ``M``) is taken from the multipole expansion;
+        ``N`` sets the number of SCF radial basis functions. A time-dependent
+        multipole expansion (built on a ``tgrid``) produces a time-dependent
+        SCFPotential on the same ``tgrid``.
+
+        Parameters
+        ----------
+        mult : MultipoleExpansionPotential
+            The multipole expansion to translate.
+        N : int
+            Number of radial basis functions of the SCF expansion.
+        a : float or Quantity, optional
+            SCF expansion scale length.
+        radial_order : int, optional
+            Number of sample points for the radial projection integral. If None,
+            ``max(2*N+L, 200)``.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+
+        Returns
+        -------
+        SCFPotential object
+
+        Notes
+        -----
+        - 2026-07-04 - Written - Bovy (UofT)
+
+        """
+        dumm = cls(ro=ro, vo=vo)
+        a = conversion.parse_length(a, ro=dumm._ro)
+        L, M = mult._L, mult._M
+        nonaxi = mult.isNonAxi
+        beta = sph_harm_normalization(L, M)
+        beta_safe = numpy.where(beta > 0, beta, 1.0)
+
+        def _snapshot(t):
+            # beta-baked SCF coefficients (N,L,M) from the multipole's density
+            # multipoles at time t (t=None for a static multipole)
+            Acos_b, Asin_b = _scf_coeffs_from_multipole(
+                mult, N, L, M, a, radial_order, t=t
+            )
+            raw_cos = numpy.where(beta[None] > 0, Acos_b / beta_safe[None], 0.0)
+            raw_sin = numpy.where(beta[None] > 0, Asin_b / beta_safe[None], 0.0)
+            if nonaxi:  # SCF stores (N,L,L); pad m>=M with zeros
+                pcos = numpy.zeros((N, L, L))
+                psin = numpy.zeros((N, L, L))
+                pcos[:, :, :M] = raw_cos
+                psin[:, :, :M] = raw_sin
+                return pcos, psin
+            return raw_cos[:, :, :1], None  # axisymmetric: only m=0
+
+        # SCF __init__ halves amp, so pass 2*amp to preserve the multipole's amp
+        amp = 2.0 * mult._amp
+        if not mult._tdep:
+            Acos, Asin = _snapshot(None)
+            return cls(amp=amp, Acos=Acos, Asin=Asin, a=a, ro=ro, vo=vo)
+        tgrid = mult._tgrid
+        Acos_list = []
+        Asin_list = []
+        any_sin = False
+        for t in tgrid:
+            Ac, As = _snapshot(t)
+            Acos_list.append(Ac)
+            if As is not None:
+                any_sin = True
+            Asin_list.append(As)
+        Acos_all = numpy.array(Acos_list)
+        Asin_all = numpy.array(Asin_list) if any_sin else None
+        return cls(
+            amp=amp, Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=ro, vo=vo
+        )
+
     @staticmethod
     def _symmetry_coeffs(
         dens, N, L, a, symmetry, radial_order, costheta_order, phi_order
@@ -713,21 +796,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
          - Written on 2016-05-17 by Aladdin Seaifan (UofT)
         """
-        xi = _RToxi(r, self._a)
-        CC = _C(xi, N, L)
-        a = self._a
-        rho = numpy.zeros((N, L), float)
-        n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
-        l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
-        K = 0.5 * n * (n + 4 * l + 3) + (l + 1.0) * (2 * l + 1)
-        rho[:, :] = (
-            K
-            * ((a * r) ** l)
-            / ((r / a) * (a + r) ** (2 * l + 3.0))
-            * CC[:, :]
-            * (numpy.pi) ** -0.5
-        )
-        return rho
+        return _rhoTilde_basis(r, N, L, self._a)
 
     def _phiTilde(self, r, N, L):
         """
@@ -752,23 +821,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         - Written on 2016-05-17 by Aladdin Seaifan (UofT)
 
         """
-        xi = _RToxi(r, self._a)
-        CC = _C(xi, N, L)
-        a = self._a
-        phi = numpy.zeros((N, L), float)
-        n = numpy.arange(0, N)[:, numpy.newaxis]
-        l = numpy.arange(0, L)[numpy.newaxis, :]
-        if r == 0:
-            phi[:, :] = -1.0 / a * CC[:, :] * (4 * numpy.pi) ** 0.5
-        else:
-            phi[:, :] = (
-                -(a**l)
-                * r ** (-l - 1.0)
-                / ((1.0 + a / r) ** (2 * l + 1.0))
-                * CC[:, :]
-                * (4 * numpy.pi) ** 0.5
-            )
-        return phi
+        return _phiTilde_basis(r, N, L, self._a)
 
     def _compute_at_point(self, radial_func, R, z, phi, t=0.0):
         """
@@ -1092,6 +1145,53 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
 
     def OmegaP(self):
         return 0
+
+
+def _rhoTilde_basis(r, N, L, a):
+    """Evaluate the SCF density basis functions rho_tilde_nl(r), shape (N, L).
+
+    Module-level implementation of ``SCFPotential._rhoTilde`` (which depends only
+    on the scale length ``a``), so the basis can be evaluated without an instance
+    (e.g. when translating a MultipoleExpansionPotential into an SCFPotential).
+    """
+    xi = _RToxi(r, a)
+    CC = _C(xi, N, L)
+    rho = numpy.zeros((N, L), float)
+    n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
+    l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
+    K = 0.5 * n * (n + 4 * l + 3) + (l + 1.0) * (2 * l + 1)
+    rho[:, :] = (
+        K
+        * ((a * r) ** l)
+        / ((r / a) * (a + r) ** (2 * l + 3.0))
+        * CC[:, :]
+        * (numpy.pi) ** -0.5
+    )
+    return rho
+
+
+def _phiTilde_basis(r, N, L, a):
+    """Evaluate the SCF potential basis functions phi_tilde_nl(r), shape (N, L).
+
+    Module-level implementation of ``SCFPotential._phiTilde`` (see
+    ``_rhoTilde_basis``).
+    """
+    xi = _RToxi(r, a)
+    CC = _C(xi, N, L)
+    phi = numpy.zeros((N, L), float)
+    n = numpy.arange(0, N)[:, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    if r == 0:
+        phi[:, :] = -1.0 / a * CC[:, :] * (4 * numpy.pi) ** 0.5
+    else:
+        phi[:, :] = (
+            -(a**l)
+            * r ** (-l - 1.0)
+            / ((1.0 + a / r) ** (2 * l + 1.0))
+            * CC[:, :]
+            * (4 * numpy.pi) ** 0.5
+        )
+    return phi
 
 
 def _xiToR(xi, a=1):
@@ -1602,6 +1702,69 @@ def _batched_nbody(pos, N, L, mass, a, symmetry):
         Acos = Ac if Acos is None else Acos + Ac
         if As is not None:
             Asin = As if Asin is None else Asin + As
+    return Acos, Asin
+
+
+def _scf_coeffs_from_multipole(mult, N, L, M, a, radial_order, t=None):
+    """Project a ``MultipoleExpansionPotential``'s density multipoles onto the SCF
+    radial basis, returning beta-baked SCF coefficients (Acos, Asin), each of shape
+    (N, L, M).
+
+    Both expansions use the same real spherical harmonics, so the density
+    multipole ``D_lm(r)`` (the coefficient of ``P_l^m(cos theta) cos/sin(m phi)``,
+    which the multipole stores beta-baked) is projected onto the SCF radial basis
+    ``phi_tilde_nl`` using the biorthogonality of the density/potential bases:
+    ``A_nlm = (1/W_nl) int D_lm(r) phi_tilde_nl(r) r^2 dr`` with
+    ``W_nl = int rho_tilde_nl phi_tilde_nl r^2 dr`` (diagonal in n). ``t`` selects
+    the snapshot for a time-dependent multipole (None for a static one).
+
+    Notes
+    -----
+    - 2026-07-04 - Written - Bovy (UofT)
+    """
+    rmin, rmax = mult._rgrid[0], mult._rgrid[-1]
+    if t is None:  # static: use the stored density-multipole splines
+        cos_splines = mult._rho_cos_splines
+        sin_splines = mult._rho_sin_splines
+    else:  # time-dependent: interpolate rho_lm on the multipole's rgrid at time t
+        cos_splines = [[None] * M for _ in range(L)]
+        sin_splines = [[None] * M for _ in range(L)]
+        for l in range(L):
+            for mm in range(min(l + 1, M)):
+                cos_splines[l][mm] = InterpolatedUnivariateSpline(
+                    mult._rgrid, mult._rho_cos_interp[l][mm](t), k=3
+                )
+                if mm > 0:  # the m=0 sine coefficient is identically zero
+                    sin_splines[l][mm] = InterpolatedUnivariateSpline(
+                        mult._rgrid, mult._rho_sin_interp[l][mm](t), k=3
+                    )
+
+    def _eval(splines, rq):
+        # density multipoles D_lm(rq) matching the multipole's extrapolation
+        # (clamp below rmin, zero above rmax); shape (L, M, len(rq))
+        out = numpy.zeros((L, M, len(rq)))
+        rr = numpy.clip(rq, rmin, rmax)
+        beyond = rq > rmax
+        for l in range(L):
+            for mm in range(min(l + 1, M)):
+                if splines[l][mm] is None:
+                    continue
+                v = splines[l][mm](rr)
+                v[beyond] = 0.0
+                out[l, mm] = v
+        return out
+
+    K = radial_order if radial_order is not None else max(2 * N + L, 200)
+    xi, w = leggauss(K)
+    rq = _xiToR(xi, a)
+    weight = w * (2.0 * a / (1.0 - xi) ** 2.0) * rq**2.0  # w * dr/dxi * r^2
+    rhoTq = numpy.array([_rhoTilde_basis(r, N, L, a) for r in rq]).transpose(1, 2, 0)
+    phiTq = numpy.array([_phiTilde_basis(r, N, L, a) for r in rq]).transpose(1, 2, 0)
+    Wnl = numpy.einsum("nlk,nlk,k->nl", rhoTq, phiTq, weight)  # (N, L), diagonal in n
+    Dcos = _eval(cos_splines, rq)
+    Dsin = _eval(sin_splines, rq)
+    Acos = numpy.einsum("lmk,nlk,k->nlm", Dcos, phiTq, weight) / Wnl[:, :, None]
+    Asin = numpy.einsum("lmk,nlk,k->nlm", Dsin, phiTq, weight) / Wnl[:, :, None]
     return Acos, Asin
 
 

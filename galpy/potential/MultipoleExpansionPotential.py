@@ -490,6 +490,83 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 vo=vo,
             )
 
+    @classmethod
+    def from_scf(
+        cls,
+        scf,
+        rgrid=numpy.geomspace(1e-3, 30, 1_001),
+        amp=1.0,
+        normalize=False,
+        ro=None,
+        vo=None,
+    ):
+        """
+        Initialize a MultipoleExpansionPotential from an SCFPotential.
+
+        Because both potentials expand the density in the same real spherical
+        harmonics, the translation is purely radial: the SCF density multipoles
+        rho_lm(r) = sum_n A_nlm rho_tilde_nl(r) are evaluated on ``rgrid`` and
+        stored as the multipole's radial density coefficients (no angular
+        computation). The angular resolution (``L``, ``M``) is inherited from the
+        SCF expansion. A time-dependent SCFPotential (built on a ``tgrid``)
+        produces a time-dependent MultipoleExpansionPotential on the same
+        ``tgrid``.
+
+        Parameters
+        ----------
+        scf : SCFPotential
+            The SCF potential to translate.
+        rgrid : numpy.ndarray or Quantity, optional
+            Radial grid on which to sample the density multipoles. Should span the
+            radial range of interest; for a good match choose it to cover where the
+            SCF density is non-negligible.
+        amp : float, optional
+            Overall amplitude, multiplying the SCF's amplitude (default: 1.0, i.e.
+            reproduce the SCF).
+        normalize : bool or float, optional
+            If True, normalize such that vc(1,0)=1, or, if a number, such that the
+            force is this fraction of the force necessary to make vc(1,0)=1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+
+        Returns
+        -------
+        MultipoleExpansionPotential object
+
+        Notes
+        -----
+        - 2026-07-04 - Written - Bovy (UofT)
+
+        """
+        dumm = cls(ro=ro, vo=vo)
+        rgrid = numpy.asarray(conversion.parse_length(rgrid, ro=dumm._ro))
+        # multipole does not halve amp, so its amp is simply amp * scf's amp
+        out_amp = amp * scf._amp
+        if not scf._tdep:
+            rho_cos_splines, rho_sin_splines = _scf_rho_splines(scf, rgrid)
+            return cls(
+                amp=out_amp,
+                rho_cos_splines=rho_cos_splines,
+                rho_sin_splines=rho_sin_splines,
+                rgrid=rgrid,
+                normalize=normalize,
+                ro=ro,
+                vo=vo,
+            )
+        rho_cos_funcs, rho_sin_funcs = _scf_rho_funcs(scf)
+        return cls(
+            amp=out_amp,
+            rho_cos_splines=rho_cos_funcs,
+            rho_sin_splines=rho_sin_funcs,
+            rgrid=rgrid,
+            tgrid=scf._tgrid,
+            normalize=normalize,
+            ro=ro,
+            vo=vo,
+        )
+
     @staticmethod
     def _density_has_units(dens):
         """
@@ -2137,3 +2214,72 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                     # Rho: sampled values for GSL cubic spline
                     args.extend(rho_sp(rgrid))
         return args
+
+
+def _scf_density_multipoles(scf, r_arr, Acos, Asin):
+    """Evaluate the SCF density multipoles D_lm(r) = sum_n A_nlm rho_tilde_nl(r)
+    on an array of radii, for coefficient arrays ``Acos``/``Asin`` of shape
+    (N, L, M). Returns ``(Dcos, Dsin)`` each of shape (len(r_arr), L, M), the
+    coefficients of P_l^m(cos theta) cos(m phi) [resp. sin] in the density (the
+    same beta-baked convention the multipole stores).
+
+    Notes
+    -----
+    - 2026-07-04 - Written - Bovy (UofT)
+    """
+    N, L, M = Acos.shape
+    rhoT = numpy.array([scf._rhoTilde(r, N, L) for r in r_arr])  # (Nr, N, L)
+    Dcos = numpy.einsum("nlm,rnl->rlm", Acos, rhoT)
+    Dsin = numpy.einsum("nlm,rnl->rlm", Asin, rhoT)
+    return Dcos, Dsin
+
+
+def _scf_rho_splines(scf, rgrid):
+    """Build the multipole density-coefficient splines [L][M] from a static SCF."""
+    N, L, M = scf._Acos.shape
+    Dcos, Dsin = _scf_density_multipoles(scf, rgrid, scf._Acos, scf._Asin)
+    rho_cos = [
+        [InterpolatedUnivariateSpline(rgrid, Dcos[:, l, m], k=3) for m in range(M)]
+        for l in range(L)
+    ]
+    if not scf.isNonAxi:
+        return rho_cos, None
+    rho_sin = [
+        [InterpolatedUnivariateSpline(rgrid, Dsin[:, l, m], k=3) for m in range(M)]
+        for l in range(L)
+    ]
+    return rho_cos, rho_sin
+
+
+def _scf_rho_funcs(scf):
+    """Build the multipole density-coefficient callables f(r,t) [L][M] from a
+    time-dependent SCF. The (time-independent) radial basis is cached over r."""
+    N, L, M = scf._Acos_all.shape[1:]
+    cache = {}
+
+    def _multipoles_at(r, t):
+        rr = numpy.atleast_1d(numpy.asarray(r, dtype=float))
+        key = rr.tobytes()
+        if key not in cache:
+            cache[key] = numpy.array([scf._rhoTilde(x, N, L) for x in rr])  # (Nr,N,L)
+        rhoT = cache[key]
+        scf._ensure_coeffs_for_time(t)
+        Dcos = numpy.einsum("nlm,rnl->rlm", scf._Acos, rhoT)
+        Dsin = numpy.einsum("nlm,rnl->rlm", scf._Asin, rhoT)
+        return Dcos, Dsin
+
+    def _make(l, m, sin):
+        def f(r, t):
+            Dcos, Dsin = _multipoles_at(r, t)
+            out = (Dsin if sin else Dcos)[:, l, m]
+            return out if numpy.ndim(r) else out[0]
+
+        return f
+
+    rho_cos = [[_make(l, m, False) for m in range(M)] for l in range(L)]
+    rho_sin = (
+        [[_make(l, m, True) for m in range(M)] for l in range(L)]
+        if scf.isNonAxi
+        else None
+    )
+    return rho_cos, rho_sin

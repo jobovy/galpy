@@ -10593,6 +10593,43 @@ def test_scfpotential_from_nbody_units():
     return None
 
 
+def test_scf_multipole_translation_units():
+    # SCFPotential.from_multipole and MultipoleExpansionPotential.from_scf accept
+    # physical-unit (Quantity) scale lengths / radial grids, matching the
+    # equivalent internal-unit translation.
+    from galpy import potential
+
+    ro = 8.0
+    hp = potential.HernquistPotential(amp=1.0, a=1.5)
+    hp.turn_physical_off()
+    scf = potential.SCFPotential.from_density(
+        lambda r: hp.dens(r, 0.0, use_physical=False), 8, a=1.5, symmetry="spherical"
+    )
+    rgrid = numpy.geomspace(1e-3, 100.0, 400)
+    # from_scf with the rgrid as a Quantity (kpc)
+    mult = potential.MultipoleExpansionPotential.from_scf(scf, rgrid=rgrid)
+    mult_q = potential.MultipoleExpansionPotential.from_scf(
+        scf, rgrid=rgrid * ro * units.kpc, ro=ro
+    )
+    assert (
+        numpy.fabs(
+            mult_q.dens(1.0, 0.3, 0.0, use_physical=False)
+            / mult.dens(1.0, 0.3, 0.0, use_physical=False)
+            - 1.0
+        )
+        < 1e-8
+    ), "from_scf w/ Quantity rgrid does not match the internal-unit build"
+    # from_multipole with the scale length a as a Quantity (kpc)
+    scf_plain = potential.SCFPotential.from_multipole(mult, N=8, a=1.5)
+    scf_q = potential.SCFPotential.from_multipole(
+        mult, N=8, a=1.5 * ro * units.kpc, ro=ro
+    )
+    assert numpy.max(numpy.fabs(scf_q._Acos - scf_plain._Acos)) < 1e-10, (
+        "from_multipole w/ Quantity a does not match the internal-unit build"
+    )
+    return None
+
+
 def test_potential_paramunits_2d():
     # Test that input units for potential parameters other than the amplitude
     # behave as expected
