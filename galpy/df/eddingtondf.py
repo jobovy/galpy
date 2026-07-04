@@ -3,10 +3,18 @@
 import numpy
 from scipy import integrate, interpolate
 
+from ..backend import as_numpy, get_namespace, resolve_namespace
+from ..backend.interpolate import Spline1D
+from ..backend.quadrature import fixed_quad
 from ..potential import CompositePotential, evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
 from ..util import conversion
 from .sphericaldf import _handle_rmin, isotropicsphericaldf, sphericaldf
+
+# Backend Gauss-Legendre order for the two fE half-integrals; N=100 agrees with
+# scipy adaptive quad to ~6e-8 -- higher N drifts as small-r nodes cluster into
+# the r=rphi turning-point fp-cancellation zone (see tests/test_backend_eddingtondf.py).
+_QUAD_N_FE = 100
 
 
 class eddingtondf(isotropicsphericaldf):
@@ -105,11 +113,22 @@ class eddingtondf(isotropicsphericaldf):
                 )
             )
             Es4interp = (Es4interp * (self._Emin - self._potInf) + self._potInf)[::-1]
-            fE4interp = self.fE(Es4interp)
-            iindx = numpy.isfinite(fE4interp)
-            self._fE_interp = interpolate.InterpolatedUnivariateSpline(
-                Es4interp[iindx], fE4interp[iindx], k=3, ext=3
-            )
+            xp = get_namespace()  # context/forced default only (grid is numpy)
+            if xp is numpy:
+                fE4interp = self.fE(Es4interp)
+                iindx = numpy.isfinite(fE4interp)
+                self._fE_interp = interpolate.InterpolatedUnivariateSpline(
+                    Es4interp[iindx], fE4interp[iindx], k=3, ext=3
+                )
+            else:
+                # forced backend: one vectorized fE eval, pulled numpy-side for
+                # the frozen table (Spline1D queries numpy scipy / backend native);
+                # ascontiguousarray drops the [::-1] negative stride (torch rejects)
+                fE4interp = as_numpy(self.fE(numpy.ascontiguousarray(Es4interp)))
+                iindx = numpy.isfinite(fE4interp)
+                self._fE_interp = Spline1D(
+                    Es4interp[iindx], fE4interp[iindx], k=3, ext=3
+                )
 
     def fE(self, E):
         """
@@ -130,48 +149,99 @@ class eddingtondf(isotropicsphericaldf):
         - 2021-02-04 - Written - Bovy (UofT)
         """
         Eint = conversion.parse_energy(E, vo=self._vo)
-        out = numpy.zeros_like(Eint)
-        indx = (Eint < self._potInf) * (Eint >= self._Emin)
-        # Split integral at twice the lower limit to deal with divergence at
-        # the lower end and infinity at the upper end
-        out[indx] = numpy.array(
-            [
-                integrate.quad(
-                    lambda t: _fEintegrand_smallr(
-                        t, self._pot, tE, self._dnudr, self._d2nudr2, self._rphi(tE)
-                    ),
-                    0.0,
-                    numpy.sqrt(self._rphi(tE)),
-                    points=[0.0],
-                )[0]
-                for tE in Eint[indx]
-            ]
+        xp = resolve_namespace(Eint, self._potInf, self._Emin)
+        if xp is numpy:
+            out = numpy.zeros_like(Eint)
+            indx = (Eint < self._potInf) * (Eint >= self._Emin)
+            # Split integral at twice the lower limit to deal with divergence at
+            # the lower end and infinity at the upper end
+            out[indx] = numpy.array(
+                [
+                    integrate.quad(
+                        lambda t: _fEintegrand_smallr(
+                            t, self._pot, tE, self._dnudr, self._d2nudr2, self._rphi(tE)
+                        ),
+                        0.0,
+                        numpy.sqrt(self._rphi(tE)),
+                        points=[0.0],
+                    )[0]
+                    for tE in Eint[indx]
+                ]
+            )
+            out[indx] += numpy.array(
+                [
+                    integrate.quad(
+                        lambda t: _fEintegrand_larger(
+                            t, self._pot, tE, self._dnudr, self._d2nudr2
+                        ),
+                        0.0,
+                        0.5 / self._rphi(tE),
+                    )[0]
+                    for tE in Eint[indx]
+                ]
+            )
+            # Add boundary term ~ 1 / sqrt(-E) dnu / dpsi | psi=0
+            boundary_term = numpy.zeros_like(Eint)
+            boundary_term[indx] = (
+                self._dnudr(self._rInf)
+                / _evaluateRforces(self._pot, self._rInf, 0)
+                / numpy.sqrt(-Eint[indx])
+            )
+            # For some potentials, such as PowerSphericalPotential with infinite mass,
+            # the boundary term as implemented is incorrect, but we'll just set it to zero,
+            # because it essentially is
+            boundary_term[~numpy.isfinite(boundary_term)] = 0.0
+            out -= boundary_term
+            return -out / (numpy.sqrt(8.0) * numpy.pi**2.0)
+        # jax/torch: GL after the same substitutions as the numpy path -- small-r
+        # r = t^2 + rphi(E) (cancels the sqrt turning point at r=rphi(E)) on
+        # [0, sqrt(rphi(E))], large-r r = 1/t (tames r->inf) on [0, 0.5/rphi(E)];
+        # GL nodes are strictly interior so neither endpoint is evaluated.
+        Eb = xp.asarray(Eint) * 1.0
+        dead = (Eb >= self._potInf) | (Eb < self._Emin)
+        Esafe = xp.where(dead, 0.5 * (self._potInf + self._Emin), Eb)
+        rphiE = xp.asarray(self._rphi(Esafe)) * 1.0
+
+        def _raw(r, Ei):
+            # differentiable, dead-branch-guarded _fEintegrand_raw
+            Fr = _evaluateRforces(self._pot, r, 0)
+            num = Fr * self._d2nudr2(r) + self._dnudr(r) * evaluateR2derivs(
+                self._pot, r, 0, use_physical=False
+            )
+            diff = _evaluatePotentials(self._pot, r, 0) - Ei
+            diffsafe = xp.where(diff > 0.0, diff, xp.ones_like(diff))
+            return xp.where(
+                diff > 0.0,
+                num / Fr**2.0 / xp.sqrt(diffsafe),
+                xp.zeros_like(diff),
+            )
+
+        Es_b = Esafe[..., None]
+        rphi_b = rphiE[..., None]
+        small = fixed_quad(
+            xp,
+            lambda t: 2.0 * t * _raw(t**2.0 + rphi_b, Es_b),
+            0.0,
+            xp.sqrt(rphiE),
+            n=_QUAD_N_FE,
         )
-        out[indx] += numpy.array(
-            [
-                integrate.quad(
-                    lambda t: _fEintegrand_larger(
-                        t, self._pot, tE, self._dnudr, self._d2nudr2
-                    ),
-                    0.0,
-                    0.5 / self._rphi(tE),
-                )[0]
-                for tE in Eint[indx]
-            ]
+        large = fixed_quad(
+            xp,
+            lambda t: 1.0 / t**2.0 * _raw(1.0 / t, Es_b),
+            0.0,
+            0.5 / rphiE,
+            n=_QUAD_N_FE,
         )
-        # Add boundary term ~ 1 / sqrt(-E) dnu / dpsi | psi=0
-        boundary_term = numpy.zeros_like(Eint)
-        boundary_term[indx] = (
-            self._dnudr(self._rInf)
-            / _evaluateRforces(self._pot, self._rInf, 0)
-            / numpy.sqrt(-Eint[indx])
+        # boundary term ~ 1 / sqrt(-E) dnu / dpsi | psi=0 (essentially zero for
+        # the finite-mass systems here); zeroed where non-finite as in numpy
+        rInf = xp.asarray(self._rInf) * 1.0
+        boundary = (
+            self._dnudr(rInf) / _evaluateRforces(self._pot, rInf, 0) / xp.sqrt(-Esafe)
         )
-        # For some potentials, such as PowerSphericalPotential with infinite mass,
-        # the boundary term as implemented is incorrect, but we'll just set it to zero,
-        # because it essentially is
-        boundary_term[~numpy.isfinite(boundary_term)] = 0.0
-        out -= boundary_term
-        return -out / (numpy.sqrt(8.0) * numpy.pi**2.0)
+        boundary = xp.where(xp.isfinite(boundary), boundary, xp.zeros_like(Eb))
+        out = small + large - boundary
+        fE = -out / (numpy.sqrt(8.0) * numpy.pi**2.0)
+        return xp.where(dead, xp.zeros_like(fE), fE)
 
 
 def _fEintegrand_raw(r, pot, E, dnudr, d2nudr2):
