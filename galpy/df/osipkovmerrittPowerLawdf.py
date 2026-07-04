@@ -8,6 +8,7 @@
 import numpy
 from scipy import special
 
+from ..backend import resolve_namespace
 from ..potential import PowerSphericalPotential, evaluatePotentials
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion
@@ -141,23 +142,45 @@ class osipkovmerrittPowerLawdf(_osipkovmerrittdf):
         -----
         - 2025-03-27 - Written - Bovy (UofT)
         """
-        Qint = numpy.atleast_1d(conversion.parse_energy(Q, vo=self._vo))
-        out = numpy.zeros_like(Qint)
-        valid = Qint > 0.0
-        out[valid] = (
-            self._A1 * Qint[valid] ** self._n1 + self._A2 * Qint[valid] ** self._n2
+        Qi = conversion.parse_energy(Q, vo=self._vo)
+        xp = resolve_namespace(Qi, self._A1, self._A2)
+        if xp is numpy:
+            Qint = numpy.atleast_1d(Qi)
+            out = numpy.zeros_like(Qint)
+            valid = Qint > 0.0
+            out[valid] = (
+                self._A1 * Qint[valid] ** self._n1 + self._A2 * Qint[valid] ** self._n2
+            )
+            if hasattr(Q, "shape"):
+                return out.reshape(Q.shape)
+            return out[0]
+        # jax/torch: Q^n (fractional/negative n) is NaN/complex for Q<=0, so use
+        # a safe dummy on the dead branch and zero it out
+        Qb = xp.atleast_1d(xp.asarray(Qi) * 1.0)
+        valid = Qb > 0.0
+        Qsafe = xp.where(valid, Qb, xp.ones_like(Qb))
+        out = xp.where(
+            valid,
+            self._A1 * Qsafe**self._n1 + self._A2 * Qsafe**self._n2,
+            xp.zeros_like(Qb),
         )
-        if hasattr(Q, "shape"):
-            return out.reshape(Q.shape)
-        return out[0]
+        return out.reshape(Q.shape) if hasattr(Q, "shape") else out[0]
 
     def _vmax_at_r(self, pot, r, **kwargs):
         # For alpha > 2, Phi(inf) = 0, so v_esc = sqrt(-2*Phi(r))
-        return numpy.sqrt(-2.0 * _evaluatePotentials(self._pot, r, 0.0))
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return numpy.sqrt(-2.0 * _evaluatePotentials(self._pot, r, 0.0))
+        # coerce: undecorated potential evals reject numpy/scalars (torch)
+        return xp.sqrt(-2.0 * _evaluatePotentials(self._pot, xp.asarray(r) * 1.0, 0.0))
 
     def _icmf(self, ms):
         """Analytic inverse cumulative mass function for the tracer density.
         The argument ms is normalized mass fraction [0,1]."""
         rmin_g = self._rmin ** (3.0 - self._gamma)
         rmax_g = self._rmax ** (3.0 - self._gamma)
-        return (ms * (rmax_g - rmin_g) + rmin_g) ** (1.0 / (3.0 - self._gamma))
+        xp = resolve_namespace(ms)
+        if xp is numpy:
+            return (ms * (rmax_g - rmin_g) + rmin_g) ** (1.0 / (3.0 - self._gamma))
+        msb = xp.asarray(ms) * 1.0  # coerce: torch rejects numpy grids
+        return (msb * (rmax_g - rmin_g) + rmin_g) ** (1.0 / (3.0 - self._gamma))
