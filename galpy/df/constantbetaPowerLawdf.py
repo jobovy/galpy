@@ -7,6 +7,7 @@
 import numpy
 from scipy import special
 
+from ..backend import resolve_namespace
 from ..potential import PowerSphericalPotential, evaluatePotentials
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion
@@ -131,22 +132,40 @@ class constantbetaPowerLawdf(_constantbetadf):
         -----
         - 2025-03-27 - Written - Bovy (UofT)
         """
-        Eint = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
-        eps = -Eint
-        out = numpy.zeros_like(eps)
+        Ei = conversion.parse_energy(E, vo=self._vo)
+        xp = resolve_namespace(Ei, self._fEnorm)
+        if xp is numpy:
+            Eint = numpy.atleast_1d(Ei)
+            eps = -Eint
+            out = numpy.zeros_like(eps)
+            valid = eps > 0.0
+            out[valid] = self._fEnorm * eps[valid] ** self._n
+            if hasattr(E, "shape"):
+                return out.reshape(E.shape)
+            return out[0]
+        # jax/torch: functional masking; eps<=0 gets a safe dummy (eps**n is
+        # NaN/complex there) that is zeroed out below
+        Eb = xp.asarray(Ei) * 1.0
+        eps = -xp.atleast_1d(Eb)
         valid = eps > 0.0
-        out[valid] = self._fEnorm * eps[valid] ** self._n
-        if hasattr(E, "shape"):
-            return out.reshape(E.shape)
-        return out[0]
+        epssafe = xp.where(valid, eps, xp.ones_like(eps))
+        fE = xp.where(valid, self._fEnorm * epssafe**self._n, xp.zeros_like(eps))
+        return fE.reshape(Eb.shape) if hasattr(Ei, "shape") else fE[0]
 
     def _vmax_at_r(self, pot, r, **kwargs):
         # For alpha > 2, Phi(inf) = 0, so v_esc = sqrt(-2*Phi(r))
-        return numpy.sqrt(-2.0 * _evaluatePotentials(self._pot, r, 0.0))
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return numpy.sqrt(-2.0 * _evaluatePotentials(self._pot, r, 0.0))
+        return xp.sqrt(-2.0 * _evaluatePotentials(self._pot, xp.asarray(r) * 1.0, 0.0))
 
     def _icmf(self, ms):
         """Analytic inverse cumulative mass function for the tracer density.
         The argument ms is normalized mass fraction [0,1]."""
         rmin_g = self._rmin ** (3.0 - self._gamma)
         rmax_g = self._rmax ** (3.0 - self._gamma)
+        xp = resolve_namespace(ms)
+        if xp is numpy:
+            return (ms * (rmax_g - rmin_g) + rmin_g) ** (1.0 / (3.0 - self._gamma))
+        ms = xp.asarray(ms) * 1.0  # coerce: torch rejects numpy sampling grids
         return (ms * (rmax_g - rmin_g) + rmin_g) ** (1.0 / (3.0 - self._gamma))
