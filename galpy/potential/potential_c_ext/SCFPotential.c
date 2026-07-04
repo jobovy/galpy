@@ -22,6 +22,19 @@
 #define CACHE_DERIV 2
 #define CACHE_HESSIAN 3
 
+// Cubic polynomial order for time interpolation (cubic spline: 4 coefficients)
+#define TIME_PPOLY_K 4
+
+// Keep the time-dependent coefficient reconstruction out-of-line so it does not
+// bloat (and change the register allocation / instruction scheduling of) the
+// hot evaluation functions -- into which the O(N*L*M) summation loops are
+// inlined -- on the static (time-independent) fast path.
+#if defined(_MSC_VER)
+#define SCF_NOINLINE __declspec(noinline)
+#else
+#define SCF_NOINLINE __attribute__((noinline))
+#endif
+
 // ============================================================================
 // Pre-computed SCF data: parsed parameters (immutable after init).
 // Initialized once via initSCFPotentialArgs, reused on every evaluation.
@@ -37,6 +50,12 @@ struct scf_data {
     double *cached_type, *cached_coords, *cached_values;
     // Derived constants
     int M_eff, Psize;
+    // Time dependence: Nt==0 -> static; Nt>0 -> Acos_tpp/Asin_tpp hold the
+    // per-coefficient cubic-spline-in-time PPoly blocks (Acos/Asin are NULL and
+    // are reconstructed per evaluation into per-call workspace).
+    int Nt;
+    double *tgrid;
+    double *Acos_tpp, *Asin_tpp;
 };
 
 static void freeSCFData(void *data)
@@ -55,12 +74,32 @@ void initSCFPotentialArgs(struct potentialArg *potentialArgs)
     d->N = (int)*args++;
     d->L = (int)*args++;
     d->M = (int)*args++;
-    d->Acos = args;
-    d->Asin = d->isNonAxi ? args + d->N * d->L * d->M : NULL;
-    double *cache = args + (d->isNonAxi + 1) * d->N * d->L * d->M;
+    d->Nt = (int)*args++;
+    int NLM = d->N * d->L * d->M;
+    double *cache;
+    if (d->Nt == 0) {
+        d->tgrid = NULL;
+        d->Acos_tpp = NULL;
+        d->Asin_tpp = NULL;
+        d->Acos = args;
+        d->Asin = d->isNonAxi ? args + NLM : NULL;
+        cache = args + (d->isNonAxi + 1) * NLM;
+    } else {
+        d->Acos = NULL;
+        d->Asin = NULL;
+        d->tgrid = args;
+        args += d->Nt;
+        int tpp_size = NLM * TIME_PPOLY_K * (d->Nt - 1);
+        d->Acos_tpp = args;
+        args += tpp_size;
+        d->Asin_tpp = d->isNonAxi ? args : NULL;
+        if (d->isNonAxi)
+            args += tpp_size;
+        cache = args;
+    }
     d->cached_type = cache;
-    d->cached_coords = cache + 1;
-    d->cached_values = cache + 4;
+    d->cached_coords = cache + 1;   // R, Z, phi, t
+    d->cached_values = cache + 5;
 
     // Derived constants
     d->M_eff = d->isNonAxi ? d->M : 1;
@@ -69,6 +108,64 @@ void initSCFPotentialArgs(struct potentialArg *potentialArgs)
     // Store in potentialArgs
     potentialArgs->pot_data = d;
     potentialArgs->free_pot_data = &freeSCFData;
+}
+
+// ============================================================================
+// Time interpolation of the expansion coefficients
+// ============================================================================
+
+// Find the time interval i in [0, Nt-2] with tgrid[i] <= t < tgrid[i+1],
+// clamped to the boundary intervals so that t outside [tgrid[0], tgrid[Nt-1]]
+// is extrapolated using the boundary cubic (matching scipy CubicSpline/PPoly
+// and the Python _Acos_interp evaluation for exact parity).
+static inline int scf_find_time_interval(const double *tgrid, int Nt, double t)
+{
+    if (t <= tgrid[0])
+        return 0;
+    if (t >= tgrid[Nt - 1])
+        return Nt - 2;
+    int lo = 0, hi = Nt - 2, mid;
+    while (lo < hi) {
+        mid = (lo + hi + 1) >> 1;
+        if (tgrid[mid] <= t)
+            lo = mid;
+        else
+            hi = mid - 1;
+    }
+    return lo;
+}
+
+// Reconstruct the NLM interpolated coefficients at time t from a time-PPoly
+// block (layout time_pp[(i_t*NLM + ci)*TIME_PPOLY_K + k], k the cubic power in
+// scipy order: dt^3, dt^2, dt^1, dt^0) via Horner in dt = t - tgrid[i_t].
+static inline void scf_interp_coeffs(const double *time_pp, int NLM,
+                                     int i_t, double dt, double *out)
+{
+    for (int ci = 0; ci < NLM; ci++) {
+        const double *cp = time_pp + (i_t * NLM + ci) * TIME_PPOLY_K;
+        out[ci] = ((cp[0] * dt + cp[1]) * dt + cp[2]) * dt + cp[3];
+    }
+}
+
+// Reconstruct the time-dependent coefficients at time t into the caller-provided
+// scratch buffer (size NLM for Acos + NLM for Asin when non-axisymmetric) and
+// point *Acos_out/*Asin_out at them. Only called for time-dependent potentials
+// (Nt>0); the static path uses the parsed immutable arrays directly.
+static SCF_NOINLINE void scf_coeffs_at_t(struct scf_data *d, double t,
+                                         double *scratch, double **Acos_out,
+                                         double **Asin_out)
+{
+    int NLM = d->N * d->L * d->M;
+    int i_t = scf_find_time_interval(d->tgrid, d->Nt, t);
+    double dt = t - d->tgrid[i_t];
+    scf_interp_coeffs(d->Acos_tpp, NLM, i_t, dt, scratch);
+    *Acos_out = scratch;
+    if (d->isNonAxi) {
+        scf_interp_coeffs(d->Asin_tpp, NLM, i_t, dt, scratch + NLM);
+        *Asin_out = scratch + NLM;
+    } else {
+        *Asin_out = NULL;
+    }
 }
 
 // ============================================================================
@@ -266,7 +363,7 @@ void compute_legendre_deriv(double x, int L, int M,
 // Sum the basis-function expansion (used for both potential and density).
 // radial[l*N+n] contains either phiTilde_nl or rhoTilde_nl.
 // P[...] contains P_l^m(cos theta) in GSL layout.
-static double sum_expansion(int N, int L, int M, int isNonAxi,
+static SCF_NOINLINE double sum_expansion(int N, int L, int M, int isNonAxi,
                             double *Acos, double *Asin,
                             double *radial, double *P, double phi)
 {
@@ -297,7 +394,7 @@ static double sum_expansion(int N, int L, int M, int isNonAxi,
 
 // Sum the spherical force components: dPhi/dr, dPhi/dtheta, dPhi/dphi.
 // F[0] = dPhi/dr, F[1] = dPhi/dtheta, F[2] = dPhi/dphi.
-static void sum_spher_forces(int N, int L, int M, int isNonAxi,
+static SCF_NOINLINE void sum_spher_forces(int N, int L, int M, int isNonAxi,
                              double *Acos, double *Asin,
                              double *phiTilde, double *dphiTilde,
                              double *P, double *dP,
@@ -339,7 +436,7 @@ static void sum_spher_forces(int N, int L, int M, int isNonAxi,
 
 // Sum the spherical 2nd-derivative components.
 // F[0] = d2Phi/dr2, F[1] = d2Phi/dphi2, F[2] = d2Phi/drdphi.
-static void sum_spher_2nd_derivs(int N, int L, int M, int isNonAxi,
+static SCF_NOINLINE void sum_spher_2nd_derivs(int N, int L, int M, int isNonAxi,
                                  double *Acos, double *Asin,
                                  double *phiTilde, double *dphiTilde,
                                  double *d2phiTilde, double *P,
@@ -392,13 +489,15 @@ static void sum_spher_2nd_derivs(int N, int L, int M, int isNonAxi,
 // with caching to avoid redundant work when Rforce/zforce are called
 // at the same point.
 static void compute_spher_forces(struct scf_data *d,
-                                 double R, double Z, double phi, double *F)
+                                 double R, double Z, double phi, double t,
+                                 double *F)
 {
     // Check cache
     if ((int)*d->cached_type == CACHE_FORCE
         && d->cached_coords[0] == R
         && d->cached_coords[1] == Z
-        && d->cached_coords[2] == phi) {
+        && d->cached_coords[2] == phi
+        && d->cached_coords[3] == t) {
         F[0] = d->cached_values[0];
         F[1] = d->cached_values[1];
         F[2] = d->cached_values[2];
@@ -410,14 +509,21 @@ static void compute_spher_forces(struct scf_data *d,
     double xi = calculateXi(r, d->a);
 
     int NL = d->N * d->L;
+    int coeff_ws = d->Nt > 0 ? (d->isNonAxi ? 2 * NL * d->M : NL * d->M) : 0;
     // Allocate workspace per call (thread-safe)
-    double *ws = (double *)malloc((4 * NL + 2 * d->Psize) * sizeof(double));
+    double *ws = (double *)malloc((4 * NL + 2 * d->Psize + coeff_ws) * sizeof(double));
     double *C       = ws;
     double *dCArr    = ws + NL;
     double *phiT    = ws + 2 * NL;
     double *dphiT   = ws + 3 * NL;
     double *P       = ws + 4 * NL;
     double *dP      = ws + 4 * NL + d->Psize;
+
+    // Static: use the parsed coefficients directly (no per-eval overhead);
+    // time-dependent: reconstruct the interpolated coefficients at time t.
+    double *Acos = d->Acos, *Asin = d->Asin;
+    if (d->Nt > 0)
+        scf_coeffs_at_t(d, t, ws + 4 * NL + 2 * d->Psize, &Acos, &Asin);
 
     // Radial part
     compute_C(xi, d->N, d->L, C);
@@ -430,7 +536,7 @@ static void compute_spher_forces(struct scf_data *d,
 
     // Sum
     sum_spher_forces(d->N, d->L, d->M, d->isNonAxi,
-                     d->Acos, d->Asin,
+                     Acos, Asin,
                      phiT, dphiT, P, dP,
                      phi, sin(theta), F);
 
@@ -441,6 +547,7 @@ static void compute_spher_forces(struct scf_data *d,
     d->cached_coords[0] = R;
     d->cached_coords[1] = Z;
     d->cached_coords[2] = phi;
+    d->cached_coords[3] = t;
     d->cached_values[0] = F[0];
     d->cached_values[1] = F[1];
     d->cached_values[2] = F[2];
@@ -449,13 +556,15 @@ static void compute_spher_forces(struct scf_data *d,
 // Compute spherical 2nd-derivative components (d2Phi/dr2, d2Phi/dphi2, d2Phi/drdphi)
 // with caching.
 static void compute_spher_2nd_derivs(struct scf_data *d,
-                                     double R, double Z, double phi, double *F)
+                                     double R, double Z, double phi, double t,
+                                     double *F)
 {
     // Check cache
     if ((int)*d->cached_type == CACHE_DERIV
         && d->cached_coords[0] == R
         && d->cached_coords[1] == Z
-        && d->cached_coords[2] == phi) {
+        && d->cached_coords[2] == phi
+        && d->cached_coords[3] == t) {
         F[0] = d->cached_values[0];
         F[1] = d->cached_values[1];
         F[2] = d->cached_values[2];
@@ -467,8 +576,9 @@ static void compute_spher_2nd_derivs(struct scf_data *d,
     double xi = calculateXi(r, d->a);
 
     int NL = d->N * d->L;
+    int coeff_ws = d->Nt > 0 ? (d->isNonAxi ? 2 * NL * d->M : NL * d->M) : 0;
     // Allocate workspace per call (thread-safe)
-    double *ws = (double *)malloc((6 * NL + d->Psize) * sizeof(double));
+    double *ws = (double *)malloc((6 * NL + d->Psize + coeff_ws) * sizeof(double));
     double *C       = ws;
     double *dCArr    = ws + NL;
     double *d2CArr   = ws + 2 * NL;
@@ -476,6 +586,12 @@ static void compute_spher_2nd_derivs(struct scf_data *d,
     double *dphiT   = ws + 4 * NL;
     double *d2phiT  = ws + 5 * NL;
     double *P       = ws + 6 * NL;
+
+    // Static: use the parsed coefficients directly (no per-eval overhead);
+    // time-dependent: reconstruct the interpolated coefficients at time t.
+    double *Acos = d->Acos, *Asin = d->Asin;
+    if (d->Nt > 0)
+        scf_coeffs_at_t(d, t, ws + 6 * NL + d->Psize, &Acos, &Asin);
 
     // Radial part
     compute_C(xi, d->N, d->L, C);
@@ -490,7 +606,7 @@ static void compute_spher_2nd_derivs(struct scf_data *d,
 
     // Sum
     sum_spher_2nd_derivs(d->N, d->L, d->M, d->isNonAxi,
-                         d->Acos, d->Asin,
+                         Acos, Asin,
                          phiT, dphiT, d2phiT, P,
                          phi, F);
 
@@ -501,6 +617,7 @@ static void compute_spher_2nd_derivs(struct scf_data *d,
     d->cached_coords[0] = R;
     d->cached_coords[1] = Z;
     d->cached_coords[2] = phi;
+    d->cached_coords[3] = t;
     d->cached_values[0] = F[0];
     d->cached_values[1] = F[1];
     d->cached_values[2] = F[2];
@@ -554,7 +671,7 @@ void legendre_theta_from_x(double theta, int L, int M,
 //   S[2]=d2Phi/dr2      S[3]=d2Phi/dtheta2   S[4]=d2Phi/drdtheta
 //   S[5]=d2Phi/dphi2    S[6]=d2Phi/drdphi    S[7]=d2Phi/dthetadphi
 // All are derivatives of the *potential* (not forces).
-static void sum_spher_full(int N, int L, int M, int isNonAxi,
+static SCF_NOINLINE void sum_spher_full(int N, int L, int M, int isNonAxi,
                            double *Acos, double *Asin,
                            double *phiTilde, double *dphiTilde,
                            double *d2phiTilde, double *P,
@@ -608,13 +725,15 @@ static void sum_spher_full(int N, int L, int M, int isNonAxi,
 // Compute the six cylindrical second derivatives of the potential at (R,Z,phi),
 // with caching. H = [R2deriv, z2deriv, Rzderiv, phi2deriv, Rphideriv, zphideriv].
 static void compute_scf_hessian_cyl(struct scf_data *d,
-                                    double R, double Z, double phi, double *H)
+                                    double R, double Z, double phi, double t,
+                                    double *H)
 {
     // Check cache
     if ((int)*d->cached_type == CACHE_HESSIAN
         && d->cached_coords[0] == R
         && d->cached_coords[1] == Z
-        && d->cached_coords[2] == phi) {
+        && d->cached_coords[2] == phi
+        && d->cached_coords[3] == t) {
         for (int k = 0; k < 6; k++)
             H[k] = d->cached_values[k];
         return;
@@ -626,8 +745,9 @@ static void compute_scf_hessian_cyl(struct scf_data *d,
 
     int NL = d->N * d->L;
     int Ps = d->Psize;
-    // Workspace: 6*NL radial + 4*Ps angular
-    double *ws = (double *)malloc((6 * NL + 4 * Ps) * sizeof(double));
+    int coeff_ws = d->Nt > 0 ? (d->isNonAxi ? 2 * NL * d->M : NL * d->M) : 0;
+    // Workspace: 6*NL radial + 4*Ps angular + coeff scratch
+    double *ws = (double *)malloc((6 * NL + 4 * Ps + coeff_ws) * sizeof(double));
     double *C      = ws;
     double *dCArr  = ws + NL;
     double *d2CArr = ws + 2 * NL;
@@ -638,6 +758,12 @@ static void compute_scf_hessian_cyl(struct scf_data *d,
     double *dPdx   = ws + 6 * NL + Ps;
     double *dPth   = ws + 6 * NL + 2 * Ps;
     double *d2Pth  = ws + 6 * NL + 3 * Ps;
+
+    // Static: use the parsed coefficients directly (no per-eval overhead);
+    // time-dependent: reconstruct the interpolated coefficients at time t.
+    double *Acos = d->Acos, *Asin = d->Asin;
+    if (d->Nt > 0)
+        scf_coeffs_at_t(d, t, ws + 6 * NL + 4 * Ps, &Acos, &Asin);
 
     // Radial part
     compute_C(xi, d->N, d->L, C);
@@ -654,7 +780,7 @@ static void compute_scf_hessian_cyl(struct scf_data *d,
     // Full set of spherical-coordinate potential derivatives
     double S[8];
     sum_spher_full(d->N, d->L, d->M, d->isNonAxi,
-                   d->Acos, d->Asin, phiT, dphiT, d2phiT,
+                   Acos, Asin, phiT, dphiT, d2phiT,
                    P, dPth, d2Pth, phi, S);
     free(ws);
 
@@ -690,6 +816,7 @@ static void compute_scf_hessian_cyl(struct scf_data *d,
     d->cached_coords[0] = R;
     d->cached_coords[1] = Z;
     d->cached_coords[2] = phi;
+    d->cached_coords[3] = t;
     for (int k = 0; k < 6; k++)
         d->cached_values[k] = H[k];
 }
@@ -708,10 +835,17 @@ double SCFPotentialEval(double R, double Z, double phi, double t,
     double xi = calculateXi(r, d->a);
 
     int NL = d->N * d->L;
-    double *ws = (double *)malloc((2 * NL + d->Psize) * sizeof(double));
+    int coeff_ws = d->Nt > 0 ? (d->isNonAxi ? 2 * NL * d->M : NL * d->M) : 0;
+    double *ws = (double *)malloc((2 * NL + d->Psize + coeff_ws) * sizeof(double));
     double *C      = ws;
     double *radial = ws + NL;
     double *P      = ws + 2 * NL;
+
+    // Static: use the parsed coefficients directly (no per-eval overhead);
+    // time-dependent: reconstruct the interpolated coefficients at time t.
+    double *Acos = d->Acos, *Asin = d->Asin;
+    if (d->Nt > 0)
+        scf_coeffs_at_t(d, t, ws + 2 * NL + d->Psize, &Acos, &Asin);
 
     // Radial part
     compute_C(xi, d->N, d->L, C);
@@ -722,7 +856,7 @@ double SCFPotentialEval(double R, double Z, double phi, double t,
 
     // Sum
     double result = sum_expansion(d->N, d->L, d->M, d->isNonAxi,
-                                  d->Acos, d->Asin,
+                                  Acos, Asin,
                                   radial, P, phi);
     free(ws);
     return result;
@@ -735,7 +869,7 @@ double SCFPotentialRforce(double R, double Z, double phi, double t,
     cyl_to_spher(R, Z, &r, &theta);
     double F[3];
     compute_spher_forces((struct scf_data *)potentialArgs->pot_data,
-                         R, Z, phi, F);
+                         R, Z, phi, t, F);
     return F[0] * (R / r) + F[1] * (Z / (r * r));
 }
 
@@ -746,7 +880,7 @@ double SCFPotentialzforce(double R, double Z, double phi, double t,
     cyl_to_spher(R, Z, &r, &theta);
     double F[3];
     compute_spher_forces((struct scf_data *)potentialArgs->pot_data,
-                         R, Z, phi, F);
+                         R, Z, phi, t, F);
     return F[0] * (Z / r) + F[1] * (-R / (r * r));
 }
 
@@ -755,7 +889,7 @@ double SCFPotentialphitorque(double R, double Z, double phi, double t,
 {
     double F[3];
     compute_spher_forces((struct scf_data *)potentialArgs->pot_data,
-                         R, Z, phi, F);
+                         R, Z, phi, t, F);
     return F[2];
 }
 
@@ -776,7 +910,7 @@ double SCFPotentialPlanarR2deriv(double R, double phi, double t,
 {
     double F[3];
     compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
-                             R, 0.0, phi, F);
+                             R, 0.0, phi, t, F);
     return F[0];
 }
 
@@ -785,7 +919,7 @@ double SCFPotentialPlanarphi2deriv(double R, double phi, double t,
 {
     double F[3];
     compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
-                             R, 0.0, phi, F);
+                             R, 0.0, phi, t, F);
     return F[1];
 }
 
@@ -794,7 +928,7 @@ double SCFPotentialPlanarRphideriv(double R, double phi, double t,
 {
     double F[3];
     compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
-                             R, 0.0, phi, F);
+                             R, 0.0, phi, t, F);
     return F[2];
 }
 
@@ -804,7 +938,7 @@ double SCFPotentialR2deriv(double R, double Z, double phi, double t,
 {
     double H[6];
     compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
-                            R, Z, phi, H);
+                            R, Z, phi, t, H);
     return H[0];
 }
 
@@ -813,7 +947,7 @@ double SCFPotentialz2deriv(double R, double Z, double phi, double t,
 {
     double H[6];
     compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
-                            R, Z, phi, H);
+                            R, Z, phi, t, H);
     return H[1];
 }
 
@@ -822,7 +956,7 @@ double SCFPotentialRzderiv(double R, double Z, double phi, double t,
 {
     double H[6];
     compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
-                            R, Z, phi, H);
+                            R, Z, phi, t, H);
     return H[2];
 }
 
@@ -831,7 +965,7 @@ double SCFPotentialphi2deriv(double R, double Z, double phi, double t,
 {
     double H[6];
     compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
-                            R, Z, phi, H);
+                            R, Z, phi, t, H);
     return H[3];
 }
 
@@ -840,7 +974,7 @@ double SCFPotentialRphideriv(double R, double Z, double phi, double t,
 {
     double H[6];
     compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
-                            R, Z, phi, H);
+                            R, Z, phi, t, H);
     return H[4];
 }
 
@@ -849,7 +983,7 @@ double SCFPotentialzphideriv(double R, double Z, double phi, double t,
 {
     double H[6];
     compute_scf_hessian_cyl((struct scf_data *)potentialArgs->pot_data,
-                            R, Z, phi, H);
+                            R, Z, phi, t, H);
     return H[5];
 }
 
@@ -863,10 +997,17 @@ double SCFPotentialDens(double R, double Z, double phi, double t,
     double xi = calculateXi(r, d->a);
 
     int NL = d->N * d->L;
-    double *ws = (double *)malloc((2 * NL + d->Psize) * sizeof(double));
+    int coeff_ws = d->Nt > 0 ? (d->isNonAxi ? 2 * NL * d->M : NL * d->M) : 0;
+    double *ws = (double *)malloc((2 * NL + d->Psize + coeff_ws) * sizeof(double));
     double *C      = ws;
     double *radial = ws + NL;
     double *P      = ws + 2 * NL;
+
+    // Static: use the parsed coefficients directly (no per-eval overhead);
+    // time-dependent: reconstruct the interpolated coefficients at time t.
+    double *Acos = d->Acos, *Asin = d->Asin;
+    if (d->Nt > 0)
+        scf_coeffs_at_t(d, t, ws + 2 * NL + d->Psize, &Acos, &Asin);
 
     // Radial part (rhoTilde instead of phiTilde)
     compute_C(xi, d->N, d->L, C);
@@ -877,7 +1018,7 @@ double SCFPotentialDens(double R, double Z, double phi, double t,
 
     // Sum
     double result = sum_expansion(d->N, d->L, d->M, d->isNonAxi,
-                                  d->Acos, d->Asin,
+                                  Acos, Asin,
                                   radial, P, phi) / (2.0 * M_PI);
     free(ws);
     return result;

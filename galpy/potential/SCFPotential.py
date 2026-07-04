@@ -1,10 +1,12 @@
 import hashlib
+import inspect
 
 import numpy
 import scipy
 from numpy.polynomial.legendre import leggauss
 from packaging.version import parse as parse_version
 from scipy import integrate
+from scipy.interpolate import CubicSpline
 from scipy.special import gamma, gammaln
 
 _SCIPY_VERSION = parse_version(scipy.__version__)
@@ -56,6 +58,21 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         K_{nl} = \\frac{1}{2} n (n + 4l + 3) + (l + 1)(2l + 1)
 
     and :math:`P_{lm}` is the Associated Legendre Polynomials whereas :math:`C_n^{\\alpha}` is the Gegenbauer polynomial.
+
+    **Time-dependent potentials** are supported by letting each expansion
+    coefficient :math:`A_{\\cos,nlm}` and :math:`A_{\\sin,nlm}` be a function of
+    time. This is enabled by passing a ``tgrid`` array together with either
+
+    * ``Acos`` (and optionally ``Asin``) as callables ``f(t)`` returning the
+      ``(N,L,M)`` coefficient array at time ``t``, or
+    * ``Acos``/``Asin`` as precomputed ``(Nt,N,L,M)`` arrays sampled on ``tgrid``,
+
+    or via ``from_density`` by passing a density that depends on time (i.e.,
+    ``dens(R, z, phi, t=0.)``) together with a ``tgrid``. In all cases the
+    coefficients are sampled on ``tgrid`` and interpolated in time with a cubic
+    spline, allowing efficient evaluation of the potential, forces, second
+    derivatives, and density at arbitrary times within (or, by extrapolation,
+    outside) the ``tgrid`` range in both Python and C (for orbit integration).
     """
 
     def __init__(
@@ -64,6 +81,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         Acos=numpy.array([[[1]]]),
         Asin=None,
         a=1.0,
+        tgrid=None,
         normalize=False,
         ro=None,
         vo=None,
@@ -75,12 +93,14 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         ----------
         amp : float or Quantity, optional
             Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass.
-        Acos : numpy.ndarray, optional
-            The real part of the expansion coefficient  (NxLxL matrix, or optionally NxLx1 if Asin=None).
-        Asin : numpy.ndarray, optional
-            The imaginary part of the expansion coefficient (NxLxL matrix or None).
+        Acos : numpy.ndarray or callable, optional
+            The real part of the expansion coefficient (NxLxL matrix, or optionally NxLx1 if Asin=None). For a time-dependent potential (``tgrid`` given), this is instead either a callable ``f(t)`` returning such an (N,L,L) / (N,L,1) array, or a precomputed (Nt,N,L,L) / (Nt,N,L,1) array sampled on ``tgrid``.
+        Asin : numpy.ndarray or callable, optional
+            The imaginary part of the expansion coefficient (NxLxL matrix or None). For a time-dependent potential, either a callable ``f(t)`` or a precomputed (Nt,N,L,L) array (or None for an axisymmetric potential).
         a : float or Quantity, optional
             Scale length.
+        tgrid : numpy.ndarray or None, optional
+            Time grid for time-dependent potentials. If provided, ``Acos`` and ``Asin`` are interpreted as time-dependent coefficients (callables ``f(t)`` or arrays sampled on ``tgrid``): each coefficient is sampled on ``tgrid`` and interpolated in time with a cubic spline, allowing fast evaluation (in both Python and C) at arbitrary times within the ``tgrid`` range. Default: ``None`` (static potential).
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         ro : float or Quantity, optional
@@ -91,9 +111,41 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         Notes
         -----
         - 2016-05-13 - Written - Aladdin Seaifan (UofT)
+        - 2026-07-02 - Added time-dependent support via tgrid - Bovy (UofT)
         """
         Potential.__init__(self, amp=amp / 2.0, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
+        self._a = a
+        self._tdep = tgrid is not None
+        if self._tdep:
+            self._init_timedep(Acos, Asin, tgrid)
+        else:
+            self._init_static(Acos, Asin)
+        self._force_hash = None
+        self._2nd_deriv_cache_key = None
+        self._cached_2nd_derivs = None
+        self.hasC = True
+        self.hasC_dxdv = True
+        # Full 3D Hessian (R2/z2/Rz/phi2/Rphi/zphi deriv) is implemented in C
+        # via the spherical-harmonic expansion, so 3D variational (dxdv)
+        # integration is supported.
+        self.hasC_dxdv3d = True
+        self.hasC_dens = True
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):
+            self.normalize(normalize)
+        return None
+
+    def _init_static(self, Acos, Asin):
+        """
+        Set up a static (time-independent) SCFPotential from coefficient arrays.
+
+        Notes
+        -----
+        - 2016-05-13 - Written - Aladdin Seaifan (UofT)
+        - 2026-07-02 - Split out of __init__ for time-dependent support - Bovy (UofT)
+        """
         ##Errors
         shape = Acos.shape
         errorMessage = None
@@ -136,8 +188,6 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         ):
             self.isNonAxi = False
 
-        self._a = a
-
         NN = sph_harm_normalization(Acos.shape[1], Acos.shape[2])
 
         self._Acos = Acos * NN[numpy.newaxis, :, :]
@@ -145,21 +195,132 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             self._Asin = Asin * NN[numpy.newaxis, :, :]
         else:
             self._Asin = numpy.zeros_like(Acos)
-        self._force_hash = None
-        self._2nd_deriv_cache_key = None
-        self._cached_2nd_derivs = None
-        self.hasC = True
-        self.hasC_dxdv = True
-        # Full 3D Hessian (R2/z2/Rz/phi2/Rphi/zphi deriv) is implemented in C
-        # via the spherical-harmonic expansion, so 3D variational (dxdv)
-        # integration is supported.
-        self.hasC_dxdv3d = True
-        self.hasC_dens = True
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+
+    @staticmethod
+    def _coeffs_to_timeseries(coeffs, tgrid, name):
+        """
+        Turn time-dependent coefficient input into an (Nt,N,L,M) array.
+
+        ``coeffs`` is either a callable ``f(t)`` returning an (N,L,M) array (sampled
+        on ``tgrid``) or a precomputed (Nt,N,L,M) array. Full shape validation is
+        performed by the caller (``_init_timedep``).
+
+        Notes
+        -----
+        - 2026-07-02 - Written - Bovy (UofT)
+        """
+        if callable(coeffs):
+            arr = numpy.array([numpy.asarray(coeffs(t), dtype=float) for t in tgrid])
+        else:
+            arr = numpy.asarray(coeffs, dtype=float)
+        return arr
+
+    def _init_timedep(self, Acos, Asin, tgrid):
+        """
+        Set up a time-dependent SCFPotential.
+
+        Each coefficient ``A_nlm`` (both cos and sin) is sampled on ``tgrid`` and
+        interpolated in time with a cubic spline. The interpolants are used both
+        for Python evaluation (via ``_ensure_coeffs_for_time``) and for the C
+        implementation (via ``_parse_scf_pot``), guaranteeing Python/C parity.
+
+        Notes
+        -----
+        - 2026-07-02 - Written - Bovy (UofT)
+        """
+        self._tgrid = numpy.asarray(tgrid, dtype=float)
+        Nt = len(self._tgrid)
+        Acos_all = self._coeffs_to_timeseries(Acos, self._tgrid, "Acos")
+        Asin_all = (
+            self._coeffs_to_timeseries(Asin, self._tgrid, "Asin")
+            if Asin is not None
+            else None
+        )
+        ##Errors (each time slice must satisfy the static coefficient constraints)
+        shape = Acos_all.shape
+        errorMessage = None
+        if Acos_all.ndim != 4 or shape[0] != Nt:
+            errorMessage = (
+                "For a time-dependent SCFPotential, Acos must be a callable f(t) "
+                "returning a 3 dimensional (N,L,M) array, or a 4 dimensional "
+                "(Nt,N,L,M) array sampled on tgrid (with Nt matching len(tgrid))"
+            )
+        elif Asin_all is not None and shape[2] != shape[3]:
+            errorMessage = "The second and third dimension of the expansion coefficients must have the same length"
+        elif Asin_all is None and not (shape[3] == 1 or shape[2] == shape[3]):
+            errorMessage = "The third dimension must have length=1 or equal to the length of the second dimension"
+        elif (
+            Asin_all is None and shape[2] > 1 and numpy.any(Acos_all[:, :, :, 1:] != 0)
         ):
-            self.normalize(normalize)
-        return None
+            errorMessage = (
+                "Acos has non-zero elements at indices m>0, which implies a non-axi symmetric potential.\n"
+                + "Asin=None which implies an axi symmetric potential.\n"
+                + "Contradiction."
+            )
+        elif Asin_all is not None and Asin_all.shape != shape:
+            errorMessage = "The shape of Asin does not match the shape of Acos."
+        if errorMessage is not None:
+            raise RuntimeError(errorMessage)
+
+        ##Warnings
+        warningMessage = None
+        if numpy.any(numpy.triu(Acos_all, 1) != 0) or (
+            Asin_all is not None and numpy.any(numpy.triu(Asin_all, 1) != 0)
+        ):
+            warningMessage = (
+                "Found non-zero values at expansion coefficients where m > l\n"
+                + "The Mth and Lth dimension is expected to make a lower triangular matrix.\n"
+                + "All values found above the diagonal will be ignored."
+            )
+        if warningMessage is not None:
+            raise RuntimeWarning(warningMessage)
+
+        ##Is non axi? (checked over all times)
+        self.isNonAxi = True
+        if (
+            Asin_all is None
+            or shape[2] == 1
+            or (numpy.all(Acos_all[:, :, :, 1:] == 0) and numpy.all(Asin_all == 0))
+        ):
+            self.isNonAxi = False
+
+        N, L, M = shape[1], shape[2], shape[3]
+        NN = sph_harm_normalization(L, M)
+        self._Acos_all = Acos_all * NN[numpy.newaxis, numpy.newaxis, :, :]
+        if Asin_all is not None:
+            self._Asin_all = Asin_all * NN[numpy.newaxis, numpy.newaxis, :, :]
+        else:
+            self._Asin_all = numpy.zeros_like(self._Acos_all)
+        self._coeff_shape = (N, L, M)
+        # Cubic-spline time interpolators over the flattened coefficient arrays;
+        # CubicSpline is a PPoly subclass whose coefficients are passed to C for
+        # exact Python/C parity (see _parse_scf_pot).
+        self._Acos_interp = CubicSpline(self._tgrid, self._Acos_all.reshape(Nt, -1))
+        self._Asin_interp = CubicSpline(self._tgrid, self._Asin_all.reshape(Nt, -1))
+        self._cached_coeff_t = None
+        # Placeholder current-time coefficients; refreshed by
+        # _ensure_coeffs_for_time before each evaluation.
+        self._Acos = self._Acos_all[0]
+        self._Asin = self._Asin_all[0]
+
+    def _ensure_coeffs_for_time(self, t):
+        """
+        Refresh ``self._Acos``/``self._Asin`` to the cubic-spline-interpolated
+        coefficients at time ``t`` (no-op for static potentials).
+
+        Notes
+        -----
+        - 2026-07-02 - Written - Bovy (UofT)
+        """
+        if not self._tdep:
+            return
+        tf = float(t)
+        if self._cached_coeff_t == tf:
+            return
+        N, L, M = self._coeff_shape
+        self._Acos = self._Acos_interp(tf).reshape(N, L, M)
+        self._Asin = self._Asin_interp(tf).reshape(N, L, M)
+        self._cached_coeff_t = tf
 
     @classmethod
     def from_density(
@@ -169,6 +330,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         L=None,
         a=1.0,
         symmetry=None,
+        tgrid=None,
         radial_order=None,
         costheta_order=None,
         phi_order=None,
@@ -181,7 +343,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         Parameters
         ----------
         dens : function
-            Density function that takes parameters R, z and phi; z and phi are optional for spherical profiles, phi is optional for axisymmetric profiles. The density function must take input positions in internal units (R/ro, z/ro), but can return densities in physical units. You can use the member dens of Potential instances or the density from evaluateDensities.
+            Density function that takes parameters R, z and phi; z and phi are optional for spherical profiles, phi is optional for axisymmetric profiles. The density function must take input positions in internal units (R/ro, z/ro), but can return densities in physical units. You can use the member dens of Potential instances or the density from evaluateDensities. For a time-dependent potential (``tgrid`` given), the density may additionally accept a ``t`` keyword argument (e.g., ``dens(R, z, phi, t=0.)``) or be a galpy ``Potential`` instance whose density is time-dependent.
         N : int
             Number of radial basis functions.
         L : int, optional
@@ -190,6 +352,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             Expansion scale length.
         symmetry : {'spherical','axisymmetry',None}, optional
             Symmetry of the profile to assume. None is the general, non-axisymmetric case.
+        tgrid : numpy.ndarray or None, optional
+            Time grid for time-dependent potentials. If provided, the expansion coefficients are computed at each time in ``tgrid`` (passing ``t`` to the density function when it accepts one) and interpolated in time, producing a time-dependent SCFPotential. Default: ``None`` (static potential; any ``t`` argument of the density is ignored).
         radial_order : int, optional
             Number of sample points for the radial integral. If None, radial_order=max(20, N + 3/2L + 1).
         costheta_order : int, optional
@@ -208,6 +372,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         Notes
         -----
         - Written - Jo Bovy (UofT) - 2022-06-20
+        - 2026-07-02 - Added time-dependent support via tgrid - Bovy (UofT)
 
         """
         # Dummy object for ro/vo handling, to ensure consistency
@@ -215,29 +380,23 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         internal_ro = dumm._ro
         internal_vo = dumm._vo
         a = conversion.parse_length(a, ro=internal_ro)
-        if not symmetry is None and symmetry.startswith("spher"):
-            Acos, Asin = scf_compute_coeffs_spherical(
-                dens, N, a=a, radial_order=radial_order
-            )
-        elif not symmetry is None and symmetry.startswith("axi"):
-            Acos, Asin = scf_compute_coeffs_axi(
+        if tgrid is not None:
+            return cls._from_density_timedep(
                 dens,
                 N,
                 L,
-                a=a,
-                radial_order=radial_order,
-                costheta_order=costheta_order,
+                a,
+                symmetry,
+                tgrid,
+                radial_order,
+                costheta_order,
+                phi_order,
+                ro,
+                vo,
             )
-        else:
-            Acos, Asin = scf_compute_coeffs(
-                dens,
-                N,
-                L,
-                a=a,
-                radial_order=radial_order,
-                costheta_order=costheta_order,
-                phi_order=phi_order,
-            )
+        Acos, Asin = cls._symmetry_coeffs(
+            dens, N, L, a, symmetry, radial_order, costheta_order, phi_order
+        )
         # Turn on physical outputs if input density was physical
         if _APY_LOADED:
             # First need to determine number of parameters, like in
@@ -263,6 +422,159 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
                 ro = internal_ro
                 vo = internal_vo
         return cls(Acos=Acos, Asin=Asin, a=a, ro=ro, vo=vo)
+
+    @staticmethod
+    def _symmetry_coeffs(
+        dens, N, L, a, symmetry, radial_order, costheta_order, phi_order
+    ):
+        """
+        Compute (Acos, Asin) for a density given the assumed symmetry.
+
+        Notes
+        -----
+        - 2026-07-02 - Written (factored from from_density) - Bovy (UofT)
+        """
+        if not symmetry is None and symmetry.startswith("spher"):
+            return scf_compute_coeffs_spherical(dens, N, a=a, radial_order=radial_order)
+        elif not symmetry is None and symmetry.startswith("axi"):
+            return scf_compute_coeffs_axi(
+                dens,
+                N,
+                L,
+                a=a,
+                radial_order=radial_order,
+                costheta_order=costheta_order,
+            )
+        else:
+            return scf_compute_coeffs(
+                dens,
+                N,
+                L,
+                a=a,
+                radial_order=radial_order,
+                costheta_order=costheta_order,
+                phi_order=phi_order,
+            )
+
+    @classmethod
+    def _from_density_timedep(
+        cls,
+        dens,
+        N,
+        L,
+        a,
+        symmetry,
+        tgrid,
+        radial_order,
+        costheta_order,
+        phi_order,
+        ro,
+        vo,
+    ):
+        """
+        Build a time-dependent SCFPotential from a (possibly time-dependent)
+        density by computing the expansion coefficients at each time in ``tgrid``.
+
+        When the density accepts a ``t`` argument, the coefficients at all times
+        are computed with a single, time-vectorized quadrature (the
+        time-independent basis functions are evaluated only once rather than once
+        per time step, mirroring the time-dependent ``MultipoleExpansionPotential``
+        and giving a large speed-up); a density that cannot be evaluated as an
+        array over ``t`` falls back to a per-timestep loop. A density without a
+        ``t`` argument is treated as constant in time (the coefficients are
+        computed once and broadcast). As for the time-dependent
+        ``MultipoleExpansionPotential``, astropy ``Quantity`` (physical-unit)
+        densities are not supported here; pass the density in galpy's internal
+        units.
+
+        Notes
+        -----
+        - 2026-07-02 - Written - Bovy (UofT)
+        - 2026-07-02 - Vectorized over time - Bovy (UofT)
+        """
+        tgrid = numpy.asarray(tgrid)
+        Nt = len(tgrid)
+        # A galpy Potential instance -> use its (possibly time-dependent) density
+        if isinstance(dens, Potential):
+            dens = dens.dens
+        has_t = "t" in inspect.signature(dens).parameters
+        if not has_t:
+            # Constant in time: compute the coefficients once and broadcast
+            Acos, Asin = cls._symmetry_coeffs(
+                dens, N, L, a, symmetry, radial_order, costheta_order, phi_order
+            )
+            Acos_all = numpy.repeat(Acos[numpy.newaxis], Nt, axis=0)
+            Asin_all = (
+                numpy.repeat(Asin[numpy.newaxis], Nt, axis=0)
+                if Asin is not None
+                else None
+            )
+            return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=ro, vo=vo)
+        try:
+            # Fast path: evaluate the density at all times at once, batching over
+            # the tgrid to keep the (time-vectorized) working set memory-bounded
+            if symmetry is not None and symmetry.startswith("spher"):
+                Acos_all, Asin_all = _batched_timedep(
+                    tgrid,
+                    N,
+                    lambda tg: _scf_compute_coeffs_spherical_timedep(
+                        dens, N, tg, a=a, radial_order=radial_order
+                    ),
+                )
+            elif symmetry is not None and symmetry.startswith("axi"):
+                Acos_all, Asin_all = _batched_timedep(
+                    tgrid,
+                    N * L,
+                    lambda tg: _scf_compute_coeffs_axi_timedep(
+                        dens,
+                        N,
+                        L,
+                        tg,
+                        a=a,
+                        radial_order=radial_order,
+                        costheta_order=costheta_order,
+                    ),
+                )
+            else:
+                Acos_all, Asin_all = _batched_timedep(
+                    tgrid,
+                    2 * N * L * L,
+                    lambda tg: _scf_compute_coeffs_timedep(
+                        dens,
+                        N,
+                        L,
+                        tg,
+                        a=a,
+                        radial_order=radial_order,
+                        costheta_order=costheta_order,
+                        phi_order=phi_order,
+                    ),
+                )
+        except _TimeDepDensityNotVectorized:
+            # Fall back to a per-timestep loop for densities that cannot be
+            # evaluated as an array over t
+            Acos_list = []
+            Asin_list = []
+            any_sin = False
+            for t in tgrid:
+                make_dens_t = lambda *args, _t=t, **kwargs: dens(*args, t=_t, **kwargs)
+                Ac, As = cls._symmetry_coeffs(
+                    make_dens_t,
+                    N,
+                    L,
+                    a,
+                    symmetry,
+                    radial_order,
+                    costheta_order,
+                    phi_order,
+                )
+                Acos_list.append(Ac)
+                if As is not None:
+                    any_sin = True
+                Asin_list.append(As)
+            Acos_all = numpy.array(Acos_list)
+            Asin_all = numpy.array(Asin_list) if any_sin else None
+        return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=ro, vo=vo)
 
     def _rhoTilde(self, r, N, L):
         """
@@ -343,7 +655,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             )
         return phi
 
-    def _compute_at_point(self, radial_func, R, z, phi):
+    def _compute_at_point(self, radial_func, R, z, phi, t=0.0):
         """
         Evaluate the basis-function expansion at a single point.
 
@@ -359,6 +671,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             Vertical height.
         phi : float
             Azimuth.
+        t : float, optional
+            Time (used only for time-dependent potentials). Default: 0.0.
 
         Returns
         -------
@@ -370,6 +684,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         - 2016-05-18 - Written - Aladdin Seaifan (UofT)
         - 2026-02-11 - Simplified - Bovy (UofT)
         """
+        self._ensure_coeffs_for_time(t)
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
@@ -385,7 +700,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :]
         )
 
-    def _evaluate_expansion(self, radial_func, R, z, phi):
+    def _evaluate_expansion(self, radial_func, R, z, phi, t=0.0):
         """
         Evaluate the basis-function expansion over an array of coordinates.
 
@@ -399,6 +714,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             Vertical height.
         phi : float or numpy.ndarray
             Azimuth.
+        t : float or numpy.ndarray, optional
+            Time (used only for time-dependent potentials). Default: 0.0.
 
         Returns
         -------
@@ -409,37 +726,43 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2016-06-02 - Written - Aladdin Seaifan (UofT)
         - 2026-02-11 - Simplified - Bovy (UofT)
+        - 2026-07-02 - Broadcast over t for time-dependent potentials - Bovy (UofT)
         """
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
         phi = numpy.array(phi, dtype=float)
-        shape = (R * z * phi).shape
+        t = numpy.array(t, dtype=float)
+        shape = numpy.broadcast_shapes(R.shape, z.shape, phi.shape, t.shape)
         if shape == ():
-            return self._compute_at_point(radial_func, R, z, phi)
+            return self._compute_at_point(radial_func, R, z, phi, t=t)
         R = R * numpy.ones(shape)
         z = z * numpy.ones(shape)
         phi = phi * numpy.ones(shape)
+        t = t * numpy.ones(shape)
         result = numpy.zeros(shape, float)
         for idx in numpy.ndindex(*shape):
-            result[idx] = self._compute_at_point(radial_func, R[idx], z[idx], phi[idx])
+            result[idx] = self._compute_at_point(
+                radial_func, R[idx], z[idx], phi[idx], t=t[idx]
+            )
         return result
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        return self._evaluate_expansion(self._rhoTilde, R, z, phi)
+        return self._evaluate_expansion(self._rhoTilde, R, z, phi, t=t)
 
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         # when integrating over spherical volume, all non-zero l,m vanish
+        self._ensure_coeffs_for_time(t)
         N = len(self._Acos)
         return R**2.0 * numpy.sum(self._Acos[:, 0, 0] * self._dphiTilde(R, N, 1)[:, 0])
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        return self._evaluate_expansion(self._phiTilde, R, z, phi)
+        return self._evaluate_expansion(self._phiTilde, R, z, phi, t=t)
 
     def _dphiTilde(self, r, N, L):
         a = self._a
@@ -526,10 +849,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         - 2016-05-18 - Written - Aladdin Seaifan (UofT)
         - 2026-02-11 - Simplified - Bovy (UofT)
         """
+        self._ensure_coeffs_for_time(t)
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        new_hash = hashlib.md5(numpy.array([R, z, phi])).hexdigest()
+        new_hash = hashlib.md5(numpy.array([R, z, phi, t])).hexdigest()
 
         if new_hash == self._force_hash:
             dPhi_dr = self._cached_dPhi_dr
@@ -582,6 +906,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         cache_key = (float(R), float(z), float(phi), float(t))
         if cache_key == self._2nd_deriv_cache_key:
             return self._cached_2nd_derivs
+        self._ensure_coeffs_for_time(t)
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
@@ -1198,6 +1523,272 @@ def scf_compute_coeffs(
     )
 
     return Acos, Asin
+
+
+class _TimeDepDensityNotVectorized(Exception):
+    """Raised when a time-dependent density cannot be evaluated as an array over
+    its ``t`` argument, so the caller must fall back to a per-timestep loop."""
+
+
+# Peak-memory budget (bytes) for a single working copy of the coefficient array
+# during a time-vectorized build. The vectorized quadrature accumulates an array
+# with a leading time axis, so its working set grows linearly with the number of
+# time steps; the ``tgrid`` is therefore processed in batches no larger than this
+# budget so that building over a very large ``tgrid`` stays memory-bounded (the
+# per-time-slice coefficients are independent, so batching is exact). This is a
+# module-level constant rather than a public parameter; tests set it small to
+# exercise the batched path.
+_TIMEDEP_BATCH_BYTES = 32 * 1024**2  # 32 MB
+
+
+def _timedep_batch_size(Nt, per_time_elems):
+    """Number of time steps to process per batch so one working copy of the
+    coefficient array stays within ``_TIMEDEP_BATCH_BYTES``.
+
+    Notes
+    -----
+    - 2026-07-03 - Written - Bovy (UofT)
+    """
+    per_batch = _TIMEDEP_BATCH_BYTES // (per_time_elems * 8)  # 8 bytes/float64
+    return int(min(Nt, max(1, per_batch)))
+
+
+def _batched_timedep(tgrid, per_time_elems, compute):
+    """Run a vectorized-over-time coefficient computation in batches over
+    ``tgrid`` to bound peak memory, concatenating the per-batch results.
+
+    ``compute`` takes a (sub-)``tgrid`` and returns ``(Acos, Asin)`` arrays with
+    a leading time axis (``Asin`` may be ``None``). ``per_time_elems`` is the
+    number of coefficient-array elements per time step, used to size the batches.
+
+    Notes
+    -----
+    - 2026-07-03 - Written - Bovy (UofT)
+    """
+    Nt = len(tgrid)
+    batch = _timedep_batch_size(Nt, per_time_elems)
+    if batch >= Nt:  # fits in one go
+        return compute(tgrid)
+    acos_parts = []
+    asin_parts = []
+    for start in range(0, Nt, batch):
+        Ac, As = compute(tgrid[start : start + batch])
+        acos_parts.append(Ac)
+        asin_parts.append(As)
+    Acos = numpy.concatenate(acos_parts, axis=0)
+    Asin = None if asin_parts[0] is None else numpy.concatenate(asin_parts, axis=0)
+    return Acos, Asin
+
+
+def _timedep_dens_setup(dens, tgrid, numOfParam):
+    """Detect the ``use_physical`` keyword for a time-dependent density and
+    verify that it is vectorizable over ``t``; return a callable
+    ``f(R, z, phi) -> array over tgrid`` using the first ``numOfParam`` spatial
+    arguments. Raises ``_TimeDepDensityNotVectorized`` if calling the density
+    with ``t=tgrid`` does not return an array matching ``tgrid``.
+
+    Notes
+    -----
+    - 2026-07-02 - Written - Bovy (UofT)
+    """
+    t0 = tgrid[0]
+    param = [1.0] * numOfParam
+    try:
+        dens(*param, t=t0, use_physical=False)
+    except Exception:
+        dens_kw = {}
+    else:
+        dens_kw = {"use_physical": False}
+    try:
+        out = numpy.atleast_1d(dens(*param, t=tgrid, **dens_kw))
+    except Exception:
+        raise _TimeDepDensityNotVectorized()
+    if out.shape != numpy.shape(tgrid):
+        raise _TimeDepDensityNotVectorized()
+
+    def f(R, z, phi):
+        return numpy.asarray(
+            dens(*(R, z, phi)[:numOfParam], t=tgrid, **dens_kw), dtype=float
+        )
+
+    return f
+
+
+def _scf_compute_coeffs_spherical_timedep(dens, N, tgrid, a=1.0, radial_order=None):
+    """Vectorized-over-time analogue of ``scf_compute_coeffs_spherical``.
+
+    Evaluates the (spherical) density at all times in ``tgrid`` at once, reusing
+    a single radial quadrature whose (time-independent) basis is computed only
+    once; returns ``Acos`` of shape ``(Nt, N, 1, 1)``. Raises
+    ``_TimeDepDensityNotVectorized`` if the density is not vectorizable over t.
+
+    Notes
+    -----
+    - 2026-07-02 - Written - Bovy (UofT)
+    """
+    tgrid = numpy.asarray(tgrid, dtype=float)
+    numOfParam = 0
+    try:
+        dens(0, t=tgrid[0])
+        numOfParam = 1
+    except Exception:
+        try:
+            dens(0, 0, t=tgrid[0])
+            numOfParam = 2
+        except Exception:
+            numOfParam = 3
+    f = _timedep_dens_setup(dens, tgrid, numOfParam)
+
+    def integrand(xi):
+        r = _xiToR(xi, a)
+        base = a**3.0 * (1 + xi) ** 2.0 * (1 - xi) ** -3.0 * _C(xi, N, 1)[:, 0]
+        return f(r, 0.0, 0.0)[:, numpy.newaxis] * base[numpy.newaxis]  # (Nt, N)
+
+    Ksample = [max(N + 1, 20)]
+    if radial_order is not None:
+        Ksample[0] = radial_order
+    integrated = _gaussianQuadrature(integrand, [[-1.0, 1.0]], Ksample=Ksample)
+    n = numpy.arange(0, N)
+    K = 16 * numpy.pi * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
+    Acos = numpy.zeros((len(tgrid), N, 1, 1), float)
+    Acos[:, :, 0, 0] = 2 * K[numpy.newaxis] * integrated
+    return Acos, None
+
+
+def _scf_compute_coeffs_axi_timedep(
+    dens, N, L, tgrid, a=1.0, radial_order=None, costheta_order=None
+):
+    """Vectorized-over-time analogue of ``scf_compute_coeffs_axi``; returns
+    ``Acos`` of shape ``(Nt, N, L, 1)``.
+
+    Notes
+    -----
+    - 2026-07-02 - Written - Bovy (UofT)
+    """
+    tgrid = numpy.asarray(tgrid, dtype=float)
+    numOfParam = 0
+    try:
+        dens(0, 0, t=tgrid[0])
+        numOfParam = 2
+    except Exception:
+        numOfParam = 3
+    f = _timedep_dens_setup(dens, tgrid, numOfParam)
+
+    def integrand(xi, costheta):
+        l = numpy.arange(0, L)[numpy.newaxis, :]
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+            PP = lpmn(0, L - 1, costheta)[0].T[numpy.newaxis, :, 0]
+        else:
+            PP = assoc_legendre_p_all(L - 1, 0, costheta, branch_cut=2)[0].T
+        dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
+        phi_nl = (
+            a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0) * _C(xi, N, L)[:, :] * PP
+        )
+        base = phi_nl * dV  # (N, L)
+        return f(R, z, 0.0)[:, numpy.newaxis, numpy.newaxis] * base[numpy.newaxis]
+
+    Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20)]
+    if radial_order is not None:
+        Ksample[0] = radial_order
+    if costheta_order is not None:
+        Ksample[1] = costheta_order
+    integrated = _gaussianQuadrature(integrand, [[-1, 1], [-1, 1]], Ksample=Ksample) * (
+        2 * numpy.pi
+    )
+    n = numpy.arange(0, N)[:, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :]
+    K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
+    lnI = (
+        -(8 * l + 6) * numpy.log(2)
+        + gammaln(n + 4 * l + 3)
+        - gammaln(n + 1)
+        - numpy.log(n + 2 * l + 3.0 / 2)
+        - 2 * gammaln(2 * l + 3.0 / 2)
+    )
+    I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
+    constants = -(2.0 ** (-2 * l)) * (2 * l + 1.0) ** 0.5
+    Acos = numpy.zeros((len(tgrid), N, L, 1), float)
+    Acos[:, :, :, 0] = (
+        2 * (I**-1)[numpy.newaxis] * integrated * constants[numpy.newaxis]
+    )
+    return Acos, None
+
+
+def _scf_compute_coeffs_timedep(
+    dens, N, L, tgrid, a=1.0, radial_order=None, costheta_order=None, phi_order=None
+):
+    """Vectorized-over-time analogue of ``scf_compute_coeffs`` (general,
+    non-axisymmetric); returns ``(Acos, Asin)`` of shape ``(Nt, N, L, L)`` each.
+
+    Notes
+    -----
+    - 2026-07-02 - Written - Bovy (UofT)
+    """
+    tgrid = numpy.asarray(tgrid, dtype=float)
+    f = _timedep_dens_setup(dens, tgrid, 3)
+
+    def integrand(xi, costheta, phi):
+        l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
+        m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
+        r = _xiToR(xi, a)
+        R = r * numpy.sqrt(1 - costheta**2.0)
+        z = r * costheta
+        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+            PP = lpmn(L - 1, L - 1, costheta)[0].T[numpy.newaxis, :, :]
+        else:
+            PP = numpy.swapaxes(
+                assoc_legendre_p_all(L - 1, L - 1, costheta, branch_cut=2)[0][:, :L],
+                0,
+                1,
+            ).T[numpy.newaxis, :, :]
+        dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
+        phi_nl = (
+            -(a**3)
+            * (1.0 + xi) ** l
+            * (1.0 - xi) ** (l + 1.0)
+            * _C(xi, N, L)[:, :, numpy.newaxis]
+            * PP
+        )
+        base = (
+            phi_nl[numpy.newaxis, :, :, :]
+            * numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
+            * dV
+        )  # (2, N, L, L)
+        return f(R, z, phi)[:, None, None, None, None] * base[numpy.newaxis]
+
+    Ksample = [max(N + 3 * L // 2 + 1, 20), max(L + 1, 20), max(L + 1, 20)]
+    if radial_order is not None:
+        Ksample[0] = radial_order
+    if costheta_order is not None:
+        Ksample[1] = costheta_order
+    if phi_order is not None:
+        Ksample[2] = phi_order
+    integrated = _gaussianQuadrature(
+        integrand, [[-1.0, 1.0], [-1.0, 1.0], [0, 2 * numpy.pi]], Ksample=Ksample
+    )  # (Nt, 2, N, L, L)
+    n = numpy.arange(0, N)[:, numpy.newaxis, numpy.newaxis]
+    l = numpy.arange(0, L)[numpy.newaxis, :, numpy.newaxis]
+    m = numpy.arange(0, L)[numpy.newaxis, numpy.newaxis, :]
+    K = 0.5 * n * (n + 4 * l + 3) + (l + 1) * (2 * l + 1)
+    Nln = 0.5 * gammaln(l - m + 1) - 0.5 * gammaln(l + m + 1) - (2 * l) * numpy.log(2)
+    NN = numpy.e ** (Nln)
+    NN[numpy.where(NN == numpy.inf)] = 0
+    constants = NN * (2 * l + 1.0) ** 0.5
+    lnI = (
+        -(8 * l + 6) * numpy.log(2)
+        + gammaln(n + 4 * l + 3)
+        - gammaln(n + 1)
+        - numpy.log(n + 2 * l + 3.0 / 2)
+        - 2 * gammaln(2 * l + 3.0 / 2)
+    )
+    I = -K * (4 * numpy.pi) * numpy.e ** (lnI)
+    res = (
+        2 * (I**-1.0)[None, None, :, :, :] * integrated * constants[None, None, :, :, :]
+    )
+    return res[:, 0], res[:, 1]
 
 
 def _cartesian(arraySizes, out=None):

@@ -726,15 +726,39 @@ def _parse_tol(rtol, atol):
 def _parse_scf_pot(p, extra_amp=1.0):
     # Stand-alone parser for SCF, bc reused
     isNonAxi = p.isNonAxi
+    amp = extra_amp * p._amp
+    # Cache slots: cached_type(1) + cached_coords(4=R,Z,phi,t) + cached_values(6).
+    # Six value slots so the full 3D Hessian (R2/z2/Rz/phi2/Rphi/zphi deriv) can
+    # be cached in one go, as well as the 3-component force/2nd-deriv results.
+    cache = [-1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    if p._tdep:
+        # Time-dependent: pass Nt, tgrid, and per-coefficient cubic-spline-in-time
+        # PPoly coefficients (amp baked in), which C evaluates via Horner in t.
+        # CubicSpline.c has shape (4, Nt-1, NLM); transpose to (Nt-1, NLM, 4) so
+        # the 4 cubic coefficients are contiguous per coefficient index, matching
+        # the C-side layout time_pp[(i_t*NLM + ci)*4 + k].
+        N, L, M = p._coeff_shape
+        Nt = len(p._tgrid)
+        pot_args = [p._a, isNonAxi, N, L, M, Nt]
+        pot_args.append(numpy.asarray(p._tgrid, dtype=numpy.float64))
+        pot_args.append(
+            amp * numpy.ascontiguousarray(p._Acos_interp.c.transpose(1, 2, 0)).ravel()
+        )
+        if isNonAxi:
+            pot_args.append(
+                amp
+                * numpy.ascontiguousarray(p._Asin_interp.c.transpose(1, 2, 0)).ravel()
+            )
+        pot_args.extend(cache)
+        return (24, pot_args, [])  # latter is pot_tfuncs
+    # Static: Nt=0, followed by the (amp-scaled) flattened coefficient arrays
     pot_args = [p._a, isNonAxi]
     pot_args.extend(p._Acos.shape)
-    pot_args.extend(extra_amp * p._amp * p._Acos.flatten(order="C"))
+    pot_args.append(0)  # Nt=0 (static)
+    pot_args.extend(amp * p._Acos.flatten(order="C"))
     if isNonAxi:
-        pot_args.extend(extra_amp * p._amp * p._Asin.flatten(order="C"))
-    # Cache slots: cached_type(1) + cached_coords(3) + cached_values(6). Six
-    # value slots so the full 3D Hessian (R2/z2/Rz/phi2/Rphi/zphi deriv) can be
-    # cached in one go, as well as the 3-component force/2nd-deriv results.
-    pot_args.extend([-1.0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        pot_args.extend(amp * p._Asin.flatten(order="C"))
+    pot_args.extend(cache)
     return (24, pot_args, [])  # latter is pot_tfuncs
 
 
