@@ -1545,6 +1545,22 @@ def test_estimateDeltaStaeckel_parity(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_estimateDeltaStaeckel_scalaronly_potential_backend(backend):
+    # A scalar-only potential (DoubleExponentialDisk rejects array inputs on EVERY
+    # path) exercises the per-element backend fallback (xp.stack) of the resolved-
+    # namespace path: each scalar is a backend scalar so its migrated scalar path
+    # still runs on the backend. Result stays on the backend and matches numpy.
+    from galpy.potential import DoubleExponentialDiskPotential
+
+    dp = DoubleExponentialDiskPotential(normalize=1.0)
+    R, z = numpy.array([1.1, 0.9]), numpy.array([0.15, 0.2])
+    ref = numpy.asarray(estimateDeltaStaeckel(dp, R, z, no_median=True))
+    got = estimateDeltaStaeckel(dp, _arr(backend, R), _arr(backend, z), no_median=True)
+    assert _is_backend_array(backend, got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-10, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_estimateBIsochrone_parity(backend):
     Rb, zb = _arr(backend, _EST_R), _arr(backend, _EST_Z)
     # array -> (bmin, bmedian, bmax)
