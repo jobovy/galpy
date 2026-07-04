@@ -84,3 +84,34 @@ def actionsfreqs_with_jac(host_jac, R, vR, vT, z, vz):
     Jacobian as the backward matvec (#131). host_jac returns (jr,jz,Or,Op,Oz,jac)
     with the values (N,) and jac (N,5,5)."""
     return _ActionsFreqsJacFunction.apply(host_jac, R, vR, vT, z, vz)
+
+
+class _ActionsFreqsAnglesJacFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, host_jac, R, vR, vT, z, vz):
+        cs = [t.detach().to("cpu", torch.float64).numpy() for t in (R, vR, vT, z, vz)]
+        out = host_jac(*cs)  # 8 values + jac (N,8,5)
+        vals, jac = out[:8], out[8]
+        dev, dt = R.device, R.dtype
+        ctx.save_for_backward(torch.as_tensor(jac, dtype=dt, device=dev))  # (N,8,5)
+        return tuple(
+            torch.as_tensor(numpy.asarray(v, dtype=numpy.float64), dtype=dt, device=dev)
+            for v in vals
+        )
+
+    @staticmethod
+    def backward(ctx, *cts):  # 8 cotangents (jr,jz,Or,Op,Oz,angler,anglephi,anglez)
+        (jac,) = ctx.saved_tensors  # (N,8,5)
+        g = sum(cts[o][:, None] * jac[:, o, :] for o in range(8))  # (N,5)
+        return (None,) + tuple(g[:, k] for k in range(5))
+
+
+def actionsfreqsangles_with_jac(host_jac, R, vR, vT, z, vz, phi):
+    """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez) with the
+    native-C stacked (8,5) Jacobian as the backward matvec (#131 PR-B). phi enters
+    analytically via the plain remainder below (d anglephi/dphi==1). host_jac returns
+    (jr,jz,Or,Op,Oz,angler,anglephi_raw,anglez,jac) with the 8 values (N,) --
+    angler/anglez wrapped, anglephi WITHOUT phi -- and jac (N,8,5)."""
+    raw = _ActionsFreqsAnglesJacFunction.apply(host_jac, R, vR, vT, z, vz)
+    anglephi = torch.remainder(raw[6] + phi, 2.0 * torch.pi)
+    return raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], anglephi, raw[7]

@@ -131,3 +131,53 @@ def actionsfreqs_with_jac(host_jac, coords):
 
     _af.defvjp(_fwd, _bwd)
     return _af(coords)
+
+
+def actionsfreqsangles_with_jac(host_jac, coords, phi):
+    """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez) with the
+    native-C stacked (8,5) Jacobian d(that stack w/o phi)/d(R,vR,vT,z,vz) as the vjp
+    residual (#131 PR-B). phi enters analytically (d anglephi/dphi==1) via the plain
+    remainder(anglephi_raw+phi,2pi) below, so jax handles its gradient/wrap.
+
+    host_jac : callable taking 5 numpy (N,) coord arrays, returning
+        (jr,jz,Or,Op,Oz,angler,anglephi_raw,anglez, jac) with the 8 values (N,) --
+        angler/anglez already wrapped to [0,2pi), anglephi WITHOUT phi -- and
+        jac (N,8,5) = [ojac(5,5) stacked on ajac(3,5)]. coords : 5 traced (N,) arrays;
+        phi : traced (N,) array.
+    """
+    import jax
+    import jax.numpy as jnp
+
+    shape, dtype = coords[0].shape, coords[0].dtype
+
+    def _host(*cs):
+        out = host_jac(*(numpy.asarray(c, dtype=numpy.float64) for c in cs))
+        return tuple(numpy.asarray(o, dtype=dtype) for o in out)
+
+    def _call(cs):
+        cs = tuple(jax.lax.stop_gradient(c) for c in cs)
+        return jax.pure_callback(
+            _host,
+            tuple(jax.ShapeDtypeStruct(shape, dtype) for _ in range(8))
+            + (jax.ShapeDtypeStruct(shape + (8, 5), dtype),),
+            *cs,
+            vmap_method="sequential",
+        )
+
+    @jax.custom_vjp
+    def _afa(cs):
+        return _call(cs)[:8]
+
+    def _fwd(cs):
+        out = _call(cs)
+        return out[:8], out[8]  # residual = the stacked (8,5) Jacobian
+
+    def _bwd(jac, ct):
+        # grad_k = sum_o ct_o * jac[:,o,k]  (o over jr,jz,Or,Op,Oz,angler,anglephi,anglez)
+        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(8))  # (N,5)
+        return (tuple(g[:, k] for k in range(5)),)
+
+    _afa.defvjp(_fwd, _bwd)
+    raw = _afa(coords)  # 8 values, differentiable w.r.t. the 5 coords via ajac/ojac
+    anglephi = jnp.remainder(raw[6] + phi, 2.0 * jnp.pi)
+    return raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], anglephi, raw[7]
