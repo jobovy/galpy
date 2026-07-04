@@ -350,9 +350,6 @@ torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actions
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
 torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
-torch tests/test_actionAngle.py::test_estimateDeltaStaeckel
-torch tests/test_actionAngle.py::test_estimateDeltaStaeckel_no_median
-torch tests/test_actionAngle.py::test_estimateDeltaStaeckel_z_is_0
 torch tests/test_actionAngle.py::test_nullpotential_error
 torch tests/test_actionAngle.py::test_orbit_interface_actionAngleIsochroneApprox
 torch tests/test_actionAngle.py::test_orbit_interface_adiabatic
