@@ -188,6 +188,17 @@ void calcUminUmax(int,double *,double *,double *,double *,double *,double *,
 void calcVmin(int,double *,double *,double *,double *,double *,double *,int,
 	      double *,double *,double *,double *,double *,int,
 	      struct potentialArg *);
+double JRStaeckelIntegrandSquared4dJR(double,void *);
+double JzStaeckelIntegrandSquared4dJz(double,void *);
+double JRStaeckel_dSdu(double,struct dJRStaeckelArg *);
+double JzStaeckel_dSdv(double,struct dJzStaeckelArg *);
+double JzStaeckel_dSdu0(double,struct dJzStaeckelArg *);
+void calcd2JRStaeckel(int,double *,double *,double *,double *,double *,double *,
+		      int,double *,double *,double *,double *,double *,double *,
+		      int,struct potentialArg *,int);
+void calcd2JzStaeckel(int,double *,double *,double *,double *,double *,int,
+		      double *,double *,double *,double *,double *,int,
+		      struct potentialArg *,int);
 double JRStaeckelIntegrandSquared(double,void *);
 double JRLowStaeckelIntegrand(double,void *);
 double JRLowStaeckelIntegrandDirect(double,void *);
@@ -795,6 +806,143 @@ void actionAngleStaeckel_actionsJac(int ndata,
   free(djrdE); free(djrdLz); free(djrdI3); free(djzdE); free(djzdLz);
   free(djzdI3); free(djzdU0);
   *err= 0;
+}
+// c=True C-native frequency Jacobian (#131): jr,jz,Omega{r,phi,z} + the (3x5)
+// d(Omega)/d(R,vR,vT,z,vz). Omega is a 1st derivative of J, so dOmega/dcoord =
+// sum_P (dOmega/dP)*(dP/dcoord); dOmega/dP composes the action Hessians
+// (calcd2JR/Jz) via the quotient-rule partials of calcFreqsFromDerivsStaeckel,
+// then chains through the SAME dP/dcoord block as actionsJac.
+EXPORT void actionAngleStaeckel_actionsFreqsJac(int ndata,
+    double *R,double *vR,double *vT,double *z,double *vz,double *u0,
+    int npot,int *pot_type,double *pot_args,tfuncs_type_arr pot_tfuncs,
+    int ndelta,double *delta,int order,int useu0,
+    double *jr,double *jz,double *Or,double *Op,double *Oz,
+    double *ojac,int *err){
+  int ii; double tdelta;
+  struct potentialArg * aaArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,aaArgs,&pot_type,&pot_args,&pot_tfuncs);
+  double *E=malloc(ndata*sizeof(double)),*Lz=malloc(ndata*sizeof(double));
+  calcEL(ndata,R,vR,vT,z,vz,E,Lz,npot,aaArgs);
+  double *ux=malloc(ndata*sizeof(double)),*vx=malloc(ndata*sizeof(double));
+  Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  double *shx=malloc(ndata*sizeof(double)),*chx=malloc(ndata*sizeof(double));
+  double *svx=malloc(ndata*sizeof(double)),*cvx=malloc(ndata*sizeof(double));
+  double *pux=malloc(ndata*sizeof(double)),*pvx=malloc(ndata*sizeof(double));
+  double *sinh2u0=malloc(ndata*sizeof(double)),*cosh2u0=malloc(ndata*sizeof(double));
+  double *v0=malloc(ndata*sizeof(double)),*sin2v0=malloc(ndata*sizeof(double));
+  double *potu0v0=malloc(ndata*sizeof(double)),*potupi2=malloc(ndata*sizeof(double));
+  double *I3U=malloc(ndata*sizeof(double)),*I3V=malloc(ndata*sizeof(double));
+  int ds= ndelta==1?0:1;
+  for (ii=0;ii<ndata;ii++){
+    tdelta= *(delta+ii*ds);
+    chx[ii]=cosh(ux[ii]); shx[ii]=sinh(ux[ii]); cvx[ii]=cos(vx[ii]); svx[ii]=sin(vx[ii]);
+    pux[ii]=tdelta*(vR[ii]*chx[ii]*svx[ii]+vz[ii]*shx[ii]*cvx[ii]);
+    pvx[ii]=tdelta*(vR[ii]*shx[ii]*cvx[ii]-vz[ii]*chx[ii]*svx[ii]);
+    sinh2u0[ii]=sinh(u0[ii])*sinh(u0[ii]); cosh2u0[ii]=cosh(u0[ii])*cosh(u0[ii]);
+    v0[ii]=0.5*M_PI; sin2v0[ii]=sin(v0[ii])*sin(v0[ii]);
+    potu0v0[ii]=evaluatePotentialsUV(u0[ii],v0[ii],tdelta,npot,aaArgs);
+    I3U[ii]=E[ii]*shx[ii]*shx[ii]-0.5*pux[ii]*pux[ii]/tdelta/tdelta
+      -0.5*Lz[ii]*Lz[ii]/tdelta/tdelta/shx[ii]/shx[ii]
+      -(shx[ii]*shx[ii]+sin2v0[ii])*evaluatePotentialsUV(ux[ii],v0[ii],tdelta,npot,aaArgs)
+      +(sinh2u0[ii]+sin2v0[ii])*potu0v0[ii];
+    potupi2[ii]=evaluatePotentialsUV(u0[ii],0.5*M_PI,tdelta,npot,aaArgs);
+    I3V[ii]=-E[ii]*svx[ii]*svx[ii]+0.5*pvx[ii]*pvx[ii]/tdelta/tdelta
+      +0.5*Lz[ii]*Lz[ii]/tdelta/tdelta/svx[ii]/svx[ii]-cosh2u0[ii]*potupi2[ii]
+      +(sinh2u0[ii]+svx[ii]*svx[ii])*evaluatePotentialsUV(u0[ii],vx[ii],tdelta,npot,aaArgs);
+  }
+  double *umin=malloc(ndata*sizeof(double)),*umax=malloc(ndata*sizeof(double)),*vmin=malloc(ndata*sizeof(double));
+  calcUminUmax(ndata,umin,umax,ux,pux,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs);
+  calcVmin(ndata,vmin,vx,pvx,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs);
+  calcJRStaeckel(ndata,jr,umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs,order);
+  calcJzStaeckel(ndata,jz,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
+  double *djrdE=malloc(ndata*sizeof(double)),*djrdLz=malloc(ndata*sizeof(double)),*djrdI3=malloc(ndata*sizeof(double));
+  double *djzdE=malloc(ndata*sizeof(double)),*djzdLz=malloc(ndata*sizeof(double)),*djzdI3=malloc(ndata*sizeof(double));
+  double *djzdU0=malloc(ndata*sizeof(double)),*detA=malloc(ndata*sizeof(double));
+  calcdJRStaeckel(ndata,djrdE,djrdLz,djrdI3,umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs,order);
+  calcdJzStaeckel(ndata,djzdE,djzdLz,djzdI3,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
+  calcdJzdU0Staeckel(ndata,djzdU0,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
+  calcFreqsFromDerivsStaeckel(ndata,Or,Op,Oz,detA,djrdE,djrdLz,djrdI3,djzdE,djzdLz,djzdI3);
+  double *d2jr=malloc(ndata*9*sizeof(double)),*d2jz=malloc(ndata*12*sizeof(double));
+  calcd2JRStaeckel(ndata,d2jr,umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs,order);
+  calcd2JzStaeckel(ndata,d2jz,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
+  for (ii=0;ii<ndata;ii++){
+    int kk;
+    tdelta= *(delta+ii*ds);
+    double sh=shx[ii],ch=chx[ii],sv=svx[ii],cv=cvx[ii];
+    double tu0=u0[ii],sh0=sinh(tu0),ch0=cosh(tu0);
+    double tE=E[ii],tLz=Lz[ii],tpux=pux[ii],tpvx=pvx[ii],tvR=vR[ii],tvT=vT[ii],tvz=vz[ii];
+    double D=sh*sh+sv*sv;
+    double dux_dR=ch*sv/(tdelta*D),dux_dz=sh*cv/(tdelta*D);
+    double dvx_dR=sh*cv/(tdelta*D),dvx_dz=-ch*sv/(tdelta*D);
+    double dux[5]={dux_dR,0.,0.,dux_dz,0.},dvx[5]={dvx_dR,0.,0.,dvx_dz,0.};
+    double dE[5]={-calcRforce(R[ii],z[ii],0.,0.,npot,aaArgs),tvR,tvT,
+                  -calczforce(R[ii],z[ii],0.,0.,npot,aaArgs),tvz};
+    double dLz[5]={tvT,0.,R[ii],0.,0.};
+    double du0[5],du0dE=0.,du0dLz=0.;
+    if ( useu0==2 ){
+      double L2=0.5*tLz*tLz/(tdelta*tdelta),hh=1.e-5;
+      double fpp=( staeckelU0Stationarity(tu0+hh,tE,L2,tdelta,npot,aaArgs)
+                  -staeckelU0Stationarity(tu0-hh,tE,L2,tdelta,npot,aaArgs) )/(2.*hh);
+      du0dE=-2.*sh0*ch0/fpp; du0dLz=-2.*ch0*tLz/(tdelta*tdelta*sh0*sh0*sh0)/fpp;
+    }
+    for (kk=0;kk<5;kk++) du0[kk]= useu0==0?dux[kk]:(useu0==1?0.:du0dE*dE[kk]+du0dLz*dLz[kk]);
+    double dpux_dux=tdelta*(tvR*sh*sv+tvz*ch*cv),dpux_dvx=tdelta*(tvR*ch*cv-tvz*sh*sv);
+    double dpvx_dux=tdelta*(tvR*ch*cv-tvz*sh*sv),dpvx_dvx=tdelta*(-tvR*sh*sv-tvz*ch*cv);
+    double dpux[5],dpvx[5];
+    for (kk=0;kk<5;kk++){ dpux[kk]=dpux_dux*dux[kk]+dpux_dvx*dvx[kk]; dpvx[kk]=dpvx_dux*dux[kk]+dpvx_dvx*dvx[kk]; }
+    dpux[1]+=tdelta*ch*sv; dpux[4]+=tdelta*sh*cv; dpvx[1]+=tdelta*sh*cv; dpvx[4]+=-tdelta*ch*sv;
+    double Pux=evaluatePotentialsUV(ux[ii],0.5*M_PI,tdelta,npot,aaArgs);
+    double FRux=calcRforce(tdelta*sh,0.,0.,0.,npot,aaArgs),dPux_dux=-FRux*tdelta*ch;
+    double dI3Ut_dE=sh*sh,dI3Ut_dLz=-tLz/(tdelta*tdelta*sh*sh),dI3Ut_dpux=-tpux/(tdelta*tdelta);
+    double dI3Ut_dux=2.*sh*ch*tE+tLz*tLz*ch/(tdelta*tdelta*sh*sh*sh)-2.*sh*ch*Pux-(sh*sh+1.)*dPux_dux;
+    double P0v=evaluatePotentialsUV(tu0,vx[ii],tdelta,npot,aaArgs);
+    double FRu0=calcRforce(tdelta*sh0,0.,0.,0.,npot,aaArgs);
+    double Rp=tdelta*sh0*sv,zp=tdelta*ch0*cv;
+    double FRp=calcRforce(Rp,zp,0.,0.,npot,aaArgs),Fzp=calczforce(Rp,zp,0.,0.,npot,aaArgs);
+    double dPu0_du0=-FRu0*tdelta*ch0;
+    double dP0v_dvx=-FRp*tdelta*sh0*cv+Fzp*tdelta*ch0*sv,dP0v_du0=-FRp*tdelta*ch0*sv-Fzp*tdelta*sh0*cv;
+    double dI3V_dE=-sv*sv,dI3V_dLz=tLz/(tdelta*tdelta*sv*sv),dI3V_dpvx=tpvx/(tdelta*tdelta);
+    double dI3V_dvx=-2.*tE*sv*cv-tLz*tLz*cv/(tdelta*tdelta*sv*sv*sv)+2.*sv*cv*P0v+(sh0*sh0+sv*sv)*dP0v_dvx;
+    double dI3V_du0=-2.*ch0*sh0*potupi2[ii]-ch0*ch0*dPu0_du0+2.*sh0*ch0*P0v+(sh0*sh0+sv*sv)*dP0v_du0;
+    double dI3Ut[5],dI3V[5];
+    for (kk=0;kk<5;kk++){
+      dI3Ut[kk]=dI3Ut_dE*dE[kk]+dI3Ut_dLz*dLz[kk]+dI3Ut_dpux*dpux[kk]+dI3Ut_dux*dux[kk];
+      dI3V[kk]=dI3V_dE*dE[kk]+dI3V_dLz*dLz[kk]+dI3V_dpvx*dpvx[kk]+dI3V_dvx*dvx[kk]+dI3V_du0*du0[kk];
+    }
+    // fused (5x5) rows: 0=jr,1=jz (action Jacobian, always differentiable, as
+    // #1051 actionsJac), 2=Or,3=Op,4=Oz (freq Jacobian via the action Hessians).
+    for (kk=0;kk<5;kk++){
+      ojac[ii*25+kk]= djrdE[ii]*dE[kk]+djrdLz[ii]*dLz[kk]+djrdI3[ii]*dI3Ut[kk];
+      ojac[ii*25+5+kk]= djzdE[ii]*dE[kk]+djzdLz[ii]*dLz[kk]+djzdI3[ii]*dI3V[kk]+djzdU0[ii]*du0[kk];
+    }
+    double a=djrdE[ii],b=djrdLz[ii],cJR=djrdI3[ii],dJZ=djzdE[ii],eJZ=djzdLz[ii],fJZ=djzdI3[ii];
+    if ( a==9999.99 || dJZ==9999.99 || detA[ii]==0. ){
+      for (kk=0;kk<15;kk++) ojac[ii*25+10+kk]=0.; continue; // zero freq rows (2,3,4)
+    }
+    double id=1./detA[ii],id2=id*id,N=cJR*eJZ-fJZ*b;
+    double gOr[6]={-fJZ*fJZ*id2,0.,fJZ*dJZ*id2,fJZ*cJR*id2,0.,id-fJZ*a*id2};
+    double gOp[6]={-N*fJZ*id2,-fJZ*id,eJZ*id+N*dJZ*id2,N*cJR*id2,cJR*id,-b*id-N*a*id2};
+    double gOz[6]={cJR*fJZ*id2,0.,-id-cJR*dJZ*id2,-cJR*cJR*id2,0.,cJR*a*id2};
+    double *gg[3]={gOr,gOp,gOz};
+    double *D2R=d2jr+ii*9,*D2Z=d2jz+ii*12;
+    for (int oi=0;oi<3;oi++){
+      double *g=gg[oi];
+      double dOdE=g[0]*D2R[0]+g[1]*D2R[3]+g[2]*D2R[6]+g[3]*D2Z[0]+g[4]*D2Z[4]+g[5]*D2Z[8];
+      double dOdLz=g[0]*D2R[1]+g[1]*D2R[4]+g[2]*D2R[7]+g[3]*D2Z[1]+g[4]*D2Z[5]+g[5]*D2Z[9];
+      double dOdI3U=g[0]*D2R[2]+g[1]*D2R[5]+g[2]*D2R[8];
+      double dOdI3V=g[3]*D2Z[2]+g[4]*D2Z[6]+g[5]*D2Z[10];
+      double dOdu0=g[3]*D2Z[3]+g[4]*D2Z[7]+g[5]*D2Z[11];
+      for (kk=0;kk<5;kk++)
+        ojac[ii*25+(oi+2)*5+kk]=dOdE*dE[kk]+dOdLz*dLz[kk]+dOdI3U*dI3Ut[kk]+dOdI3V*dI3V[kk]+dOdu0*du0[kk];
+    }
+  }
+  free_potentialArgs(npot,aaArgs); free(aaArgs);
+  free(E);free(Lz);free(ux);free(vx);free(shx);free(chx);free(svx);free(cvx);
+  free(pux);free(pvx);free(sinh2u0);free(cosh2u0);free(v0);free(sin2v0);
+  free(potu0v0);free(potupi2);free(I3U);free(I3V);free(umin);free(umax);free(vmin);
+  free(djrdE);free(djrdLz);free(djrdI3);free(djzdE);free(djzdLz);free(djzdI3);
+  free(djzdU0);free(detA);free(d2jr);free(d2jz);
+  *err=0;
 }
 void calcJRStaeckel(int ndata,
 		    double * jr,
@@ -1578,6 +1726,232 @@ void calcdJzdU0Staeckel(int ndata,
     *(djzdU0+ii)*= sqrt(2.) * td / M_PI;
   }
   free(dJzInt);
+  free(params);
+  gsl_integration_glfixed_table_free ( T );
+}
+// ---- Route-A analytic action Hessians for c=True freq Jacobians (#131) ----
+// d(dJ/dP0)/dP via a fixed-domain theta-map u=c-r*cos(theta), theta in [0,pi]
+// (P-independent domain -> pure under-integral, no boundary terms). The
+// turning-point sensitivity A_tp=-S_P(tp)/S_u(tp) enters via c_P,r_P; the
+// integrand stays finite at the turning points (S_u*u_P+S_P vanishes there).
+double JRStaeckel_dSdu(double u, struct dJRStaeckelArg * p){
+  // dS_R/du (S_R=JRStaeckelIntegrandSquared); needs the force at (u,v0)
+  double shu= sinh(u), chu= cosh(u), sinh2u= shu*shu, s2u= 2.*shu*chu;
+  double sv0= sin(p->v0), cv0= cos(p->v0);
+  double R= p->delta*shu*sv0, z= p->delta*chu*cv0;
+  double FR= calcRforce(R,z,0.,0.,p->nargs,p->actionAngleArgs);
+  double Fz= calczforce(R,z,0.,0.,p->nargs,p->actionAngleArgs);
+  double Phi= evaluatePotentialsUV(u,p->v0,p->delta,p->nargs,p->actionAngleArgs);
+  double dPhidu= -FR*p->delta*chu*sv0 - Fz*p->delta*shu*cv0;
+  double ddUdu= s2u*Phi + (sinh2u+p->sin2v0)*dPhidu;
+  return p->E*s2u - ddUdu + p->Lz22delta*2.*chu/(sinh2u*shu);
+}
+double JzStaeckel_dSdv(double v, struct dJzStaeckelArg * p){
+  double sv= sin(v), cv= cos(v), sin2v= sv*sv, s2v= 2.*sv*cv;
+  double sh0= sinh(p->u0), ch0= cosh(p->u0);
+  double R= p->delta*sh0*sv, z= p->delta*ch0*cv;
+  double FR= calcRforce(R,z,0.,0.,p->nargs,p->actionAngleArgs);
+  double Fz= calczforce(R,z,0.,0.,p->nargs,p->actionAngleArgs);
+  double Phi= evaluatePotentialsUV(p->u0,v,p->delta,p->nargs,p->actionAngleArgs);
+  double dPhidv= -FR*p->delta*sh0*cv + Fz*p->delta*ch0*sv;
+  double ddVdv= -( s2v*Phi + (p->sinh2u0+sin2v)*dPhidv );
+  return p->E*s2v + ddVdv + p->Lz22delta*2.*cv/(sin2v*sv);
+}
+double JzStaeckel_dSdu0(double v, struct dJzStaeckelArg * p){
+  // dS_z/du0 (= ddV/du0), same expression as the dJzdU0 integrand's numerator
+  double sv= sin(v), cv= cos(v), sin2v= sv*sv;
+  double sh0= sinh(p->u0), ch0= cosh(p->u0);
+  double R= p->delta*sh0*sv, z= p->delta*ch0*cv;
+  double FR= calcRforce(R,z,0.,0.,p->nargs,p->actionAngleArgs);
+  double Fz= calczforce(R,z,0.,0.,p->nargs,p->actionAngleArgs);
+  double FRu0= calcRforce(p->delta*sh0,0.,0.,0.,p->nargs,p->actionAngleArgs);
+  double dpotupi2du0= -FRu0*p->delta*ch0;
+  double Phi_u0v= evaluatePotentialsUV(p->u0,v,p->delta,p->nargs,p->actionAngleArgs);
+  double dPhi_du0= -FR*p->delta*ch0*sv - Fz*p->delta*sh0*cv;
+  return 2.*ch0*sh0*p->potupi2 + p->cosh2u0*dpotupi2du0
+    - 2.*sh0*ch0*Phi_u0v - (p->sinh2u0+sin2v)*dPhi_du0;
+}
+void calcd2JRStaeckel(int ndata,
+		      double * d2jr,   // ndata*9: [ii*9+P0*3+P]=d(djr_P0)/dP, {E,Lz,I3U}
+		      double * umin, double * umax,
+		      double * E, double * Lz, double * I3U,
+		      int ndelta, double * delta, double * u0, double * sinh2u0,
+		      double * v0, double * sin2v0, double * potu0v0,
+		      int nargs, struct potentialArg * actionAngleArgs, int order){
+  int ii, tid, nthreads;
+#ifdef _OPENMP
+  nthreads= omp_get_max_threads();
+#else
+  nthreads= 1;
+#endif
+  struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) malloc ( nthreads * sizeof (struct dJRStaeckelArg) );
+  for (tid=0; tid < nthreads; tid++){
+    (params+tid)->nargs= nargs;
+    (params+tid)->actionAngleArgs= actionAngleArgs;
+  }
+  gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (2*order);
+  int delta_stride= ndelta == 1 ? 0 : 1;
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(tid,ii) \
+  shared(d2jr,umin,umax,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,potu0v0,params,T)
+  for (ii=0; ii < ndata; ii++){
+#ifdef _OPENMP
+    tid= omp_get_thread_num();
+#else
+    tid = 0;
+#endif
+    int jj, P0, Pk, gi;
+    for (jj=0; jj < 9; jj++) *(d2jr+ii*9+jj)= 0.;
+    if ( *(umin+ii) == -9999.99 || *(umax+ii) == -9999.99 ) continue;
+    if ( (*(umax+ii) - *(umin+ii)) / *(umax+ii) < 0.000001 ) continue; //circular
+    double dlt= *(delta+ii*delta_stride);
+    (params+tid)->delta= dlt;
+    (params+tid)->E= *(E+ii);
+    (params+tid)->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / dlt / dlt;
+    (params+tid)->I3U= *(I3U+ii);
+    (params+tid)->u0= *(u0+ii);
+    (params+tid)->sinh2u0= *(sinh2u0+ii);
+    (params+tid)->v0= *(v0+ii);
+    (params+tid)->sin2v0= *(sin2v0+ii);
+    (params+tid)->potu0v0= *(potu0v0+ii);
+    (params+tid)->umin= *(umin+ii);
+    (params+tid)->umax= *(umax+ii);
+    double umn= *(umin+ii), umx= *(umax+ii);
+    double Ld2= *(Lz+ii) / dlt / dlt; // dS/dLz = -Ld2/sinh^2u
+    double shmn= sinh(umn), shmx= sinh(umx);
+    double Su_min= JRStaeckel_dSdu(umn,params+tid), Su_max= JRStaeckel_dSdu(umx,params+tid);
+    double SPmin[3]= { shmn*shmn, -Ld2/(shmn*shmn), -1. };
+    double SPmax[3]= { shmx*shmx, -Ld2/(shmx*shmx), -1. };
+    double cP[3], rP[3];
+    for (Pk=0; Pk < 3; Pk++){
+      double Amn= -SPmin[Pk]/Su_min, Amx= -SPmax[Pk]/Su_max;
+      cP[Pk]= 0.5*(Amn+Amx); rP[Pk]= 0.5*(Amx-Amn);
+    }
+    double cc= 0.5*(umn+umx), rr= 0.5*(umx-umn);
+    double H[9], Ifirst[3];
+    for (jj=0; jj < 9; jj++) H[jj]= 0.;
+    for (Pk=0; Pk < 3; Pk++) Ifirst[Pk]= 0.;
+    double xi, wi;
+    for (gi=0; gi < 2*order; gi++){
+      gsl_integration_glfixed_point(0.,M_PI,gi,&xi,&wi,T);
+      double costh= cos(xi), sinth= sin(xi);
+      double u= cc - rr*costh;
+      double S= JRStaeckelIntegrandSquared4dJR(u,params+tid);
+      if ( S <= 0. ) continue;
+      double sq= sqrt(S), S15= S*sq;
+      double Su= JRStaeckel_dSdu(u,params+tid);
+      double shu= sinh(u), chu= cosh(u), sinh2u= shu*shu;
+      double SP[3]= { sinh2u, -Ld2/sinh2u, -1. };
+      double gv[3]= { sinh2u, 1./sinh2u, 1. };
+      double gu[3]= { 2.*shu*chu, -2.*chu/(sinh2u*shu), 0. };
+      for (P0=0; P0 < 3; P0++){
+	Ifirst[P0]+= wi*( gv[P0]/sq*rr*sinth );
+	for (Pk=0; Pk < 3; Pk++){
+	  double uP= cP[Pk]-rP[Pk]*costh;
+	  H[P0*3+Pk]+= wi*( rr*sinth*( gu[P0]*uP/sq - 0.5*gv[P0]*(Su*uP+SP[Pk])/S15 )
+			    + rP[Pk]*gv[P0]/sq*sinth );
+	}
+      }
+    }
+    double prefr= dlt / M_PI / sqrt(2.);
+    double pref[3]= { prefr, - *(Lz+ii) / M_PI / sqrt(2.) / dlt, -prefr };
+    for (P0=0; P0 < 3; P0++)
+      for (Pk=0; Pk < 3; Pk++)
+	*(d2jr+ii*9+P0*3+Pk)= H[P0*3+Pk]*pref[P0];
+    // pref(Lz) depends on Lz -> product-rule term on d(djrdLz)/dLz
+    *(d2jr+ii*9+1*3+1)+= (-1. / M_PI / sqrt(2.) / dlt)*Ifirst[1];
+  }
+  free(params);
+  gsl_integration_glfixed_table_free ( T );
+}
+void calcd2JzStaeckel(int ndata,
+		      double * d2jz,   // ndata*12: [ii*12+P0*4+P]=d(djz_P0)/dP, {E,Lz,I3V,u0}
+		      double * vmin,
+		      double * E, double * Lz, double * I3V,
+		      int ndelta, double * delta, double * u0, double * cosh2u0,
+		      double * sinh2u0, double * potupi2,
+		      int nargs, struct potentialArg * actionAngleArgs, int order){
+  int ii, tid, nthreads;
+#ifdef _OPENMP
+  nthreads= omp_get_max_threads();
+#else
+  nthreads= 1;
+#endif
+  struct dJzStaeckelArg * params= (struct dJzStaeckelArg *) malloc ( nthreads * sizeof (struct dJzStaeckelArg) );
+  for (tid=0; tid < nthreads; tid++){
+    (params+tid)->nargs= nargs;
+    (params+tid)->actionAngleArgs= actionAngleArgs;
+  }
+  gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (2*order);
+  int delta_stride= ndelta == 1 ? 0 : 1;
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(tid,ii) \
+  shared(d2jz,vmin,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,potupi2,params,T)
+  for (ii=0; ii < ndata; ii++){
+#ifdef _OPENMP
+    tid= omp_get_thread_num();
+#else
+    tid = 0;
+#endif
+    int jj, P0, Pk, gi;
+    for (jj=0; jj < 12; jj++) *(d2jz+ii*12+jj)= 0.;
+    if ( *(vmin+ii) == -9999.99 ) continue;
+    if ( (M_PI/2. - *(vmin+ii)) < 0.0000001 ) continue; //planar (J_z=0)
+    double dlt= *(delta+ii*delta_stride);
+    (params+tid)->delta= dlt;
+    (params+tid)->E= *(E+ii);
+    (params+tid)->Lz22delta= 0.5 * *(Lz+ii) * *(Lz+ii) / dlt / dlt;
+    (params+tid)->I3V= *(I3V+ii);
+    (params+tid)->u0= *(u0+ii);
+    (params+tid)->cosh2u0= *(cosh2u0+ii);
+    (params+tid)->sinh2u0= *(sinh2u0+ii);
+    (params+tid)->potupi2= *(potupi2+ii);
+    (params+tid)->vmin= *(vmin+ii);
+    double vmn= *(vmin+ii), vhi= M_PI/2.;
+    double Ld2= *(Lz+ii) / dlt / dlt;
+    double svmn= sin(vmn);
+    double Sv_min= JzStaeckel_dSdv(vmn,params+tid);
+    // S_P at vmin for {E,Lz,I3V,u0}
+    double SPmin[4]= { svmn*svmn, -Ld2/(svmn*svmn), 1., JzStaeckel_dSdu0(vmn,params+tid) };
+    double cP[4], rP[4];
+    for (Pk=0; Pk < 4; Pk++){
+      double Amn= -SPmin[Pk]/Sv_min; // A at vmin; A at pi/2 = 0 (fixed endpoint)
+      cP[Pk]= 0.5*Amn; rP[Pk]= -0.5*Amn;
+    }
+    double cc= 0.5*(vmn+vhi), rr= 0.5*(vhi-vmn);
+    double H[12], Ifirst[3];
+    for (jj=0; jj < 12; jj++) H[jj]= 0.;
+    for (P0=0; P0 < 3; P0++) Ifirst[P0]= 0.;
+    double xi, wi;
+    for (gi=0; gi < 2*order; gi++){
+      gsl_integration_glfixed_point(0.,M_PI,gi,&xi,&wi,T);
+      double costh= cos(xi), sinth= sin(xi);
+      double v= cc - rr*costh;
+      double S= JzStaeckelIntegrandSquared4dJz(v,params+tid);
+      if ( S <= 0. ) continue;
+      double sq= sqrt(S), S15= S*sq;
+      double Sv= JzStaeckel_dSdv(v,params+tid);
+      double sv= sin(v), cv= cos(v), sin2v= sv*sv;
+      double SP[4]= { sin2v, -Ld2/sin2v, 1., JzStaeckel_dSdu0(v,params+tid) };
+      double gv[3]= { sin2v, 1./sin2v, 1. };
+      double gvd[3]= { 2.*sv*cv, -2.*cv/(sin2v*sv), 0. };
+      for (P0=0; P0 < 3; P0++){
+	Ifirst[P0]+= wi*( gv[P0]/sq*rr*sinth );
+	for (Pk=0; Pk < 4; Pk++){
+	  double vP= cP[Pk]-rP[Pk]*costh;
+	  H[P0*4+Pk]+= wi*( rr*sinth*( gvd[P0]*vP/sq - 0.5*gv[P0]*(Sv*vP+SP[Pk])/S15 )
+			    + rP[Pk]*gv[P0]/sq*sinth );
+	}
+      }
+    }
+    double prefz= sqrt(2.) * dlt / M_PI;
+    double pref[3]= { prefz, - *(Lz+ii) * sqrt(2.) / M_PI / dlt, prefz };
+    for (P0=0; P0 < 3; P0++)
+      for (Pk=0; Pk < 4; Pk++)
+	*(d2jz+ii*12+P0*4+Pk)= H[P0*4+Pk]*pref[P0];
+    // pref(Lz) depends on Lz -> product-rule term on d(djzdLz)/dLz
+    *(d2jz+ii*12+1*4+1)+= (-sqrt(2.) / M_PI / dlt)*Ifirst[1];
+  }
   free(params);
   gsl_integration_glfixed_table_free ( T );
 }
@@ -2475,6 +2849,17 @@ double JRHighStaeckelIntegrand(double chi,
   double D= params->umax - params->umin;
   if ( Q <= 0. ) return 0.;
   return D / 4. * sqrt(Q) * sc * sc;
+}
+
+double JRStaeckelIntegrandSquared4dJR(double u,
+				      void * p){
+  struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
+  double sinh2u= sinh(u) * sinh(u);
+  double dU= (sinh2u+params->sin2v0)
+    *evaluatePotentialsUV(u,params->v0,params->delta,
+			  params->nargs,params->actionAngleArgs)
+    - (params->sinh2u0+params->sin2v0)*params->potu0v0;
+  return params->E * sinh2u - params->I3U - dU  - params->Lz22delta / sinh2u;
 }
 
 double JzStaeckelIntegrand(double v,
