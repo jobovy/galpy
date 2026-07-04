@@ -2,11 +2,18 @@
 import numpy
 from scipy import integrate, interpolate, special
 
+from ..backend import as_numpy, resolve_namespace
+from ..backend.quadrature import fixed_quad, nested_quad
 from ..potential import evaluateDensities
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion
 from .eddingtondf import eddingtondf
-from .sphericaldf import anisotropicsphericaldf, sphericaldf
+from .sphericaldf import (
+    _QUAD_N_VMOM,
+    _QUAD_N_VMOM2D,
+    anisotropicsphericaldf,
+    sphericaldf,
+)
 
 
 # This is the general Osipkov-Merritt superclass, implementation of general
@@ -75,64 +82,110 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
     def _dMdE(self, E):
         if not hasattr(self, "_rphi"):
             self._rphi = self._setup_rphi_interpolator()
+        xp = resolve_namespace(E)
+        if xp is numpy:
 
-        def Lintegrand(t, L2lim, E):
-            return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
+            def Lintegrand(t, L2lim, E):
+                return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
 
-        # Integrate where Q > 0
+            # Integrate where Q > 0
 
-        out = (
+            out = (
+                16.0
+                * numpy.pi**2.0
+                * numpy.array(
+                    [
+                        integrate.quad(
+                            lambda r: (
+                                r
+                                * integrate.quad(
+                                    Lintegrand,
+                                    numpy.sqrt(
+                                        numpy.amax(
+                                            [
+                                                (0.0),
+                                                (
+                                                    2.0
+                                                    * r**2.0
+                                                    * (
+                                                        tE
+                                                        - _evaluatePotentials(
+                                                            self._pot, r, 0.0
+                                                        )
+                                                    )
+                                                    + 2.0 * tE * self._ra2
+                                                ),
+                                            ]
+                                        )
+                                    ),
+                                    numpy.sqrt(
+                                        2.0
+                                        * r**2.0
+                                        * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                                    ),
+                                    args=(
+                                        2.0
+                                        * r**2.0
+                                        * (tE - _evaluatePotentials(self._pot, r, 0.0)),
+                                        tE,
+                                    ),
+                                )[0]
+                            ),
+                            0.0,
+                            self._rphi(tE),
+                        )[0]
+                        for ii, tE in enumerate(E)
+                    ]
+                )
+            )
+            # Numerical issues can make the integrand's sqrt argument negative, only
+            # happens at dMdE ~ 0, so just set to zero
+            out[numpy.isnan(out)] = 0.0
+            return out.reshape(E.shape)
+        # jax/torch: nested GL over the Q>0 region after r = rphi - s^2 (outer
+        # turning point) and t = Lmax sin(phi) with phi clustered as phi_low+span*w^2
+        # (cancels the fQ sqrt(Q) endpoint at the Q=0 boundary phi_low)
+        Eb = xp.asarray(E) * 1.0
+        rphiE = xp.asarray(self._rphi(E)) * 1.0
+        rpos = rphiE > 0.0
+        smax = xp.where(rpos, xp.sqrt(xp.where(rpos, rphiE, xp.ones_like(rphiE))), 0.0)
+        E_bb = Eb[..., None, None]
+        rphi_bb = xp.where(rpos, rphiE, xp.ones_like(rphiE))[..., None, None]
+
+        def _integrand(s, w):
+            r = rphi_bb - s**2.0
+            twoRsq = 2.0 * r**2.0 * (E_bb - _evaluatePotentials(self._pot, r, 0.0))
+            live = twoRsq > 0.0
+            Lmax = xp.where(
+                live, xp.sqrt(xp.where(live, twoRsq, xp.ones_like(twoRsq))), 0.0
+            )
+            Llow2 = twoRsq + 2.0 * E_bb * self._ra2  # Q>=0 boundary in t^2
+            Llow2 = xp.where(Llow2 > 0.0, Llow2, xp.zeros_like(Llow2))
+            ratio = xp.sqrt(Llow2) / xp.where(live, Lmax, xp.ones_like(Lmax))
+            ratio = xp.where(ratio < 1.0, ratio, xp.ones_like(ratio))
+            phi_low = xp.arcsin(ratio)
+            span = numpy.pi / 2.0 - phi_low
+            phi = phi_low + span * w**2.0
+            L = Lmax * xp.cos(phi)
+            return (
+                r
+                * self._call_internal(E_bb, L, None)
+                * L
+                * span
+                * (2.0 * w)
+                * (2.0 * s)
+            )
+
+        return (
             16.0
             * numpy.pi**2.0
-            * numpy.array(
-                [
-                    integrate.quad(
-                        lambda r: (
-                            r
-                            * integrate.quad(
-                                Lintegrand,
-                                numpy.sqrt(
-                                    numpy.amax(
-                                        [
-                                            (0.0),
-                                            (
-                                                2.0
-                                                * r**2.0
-                                                * (
-                                                    tE
-                                                    - _evaluatePotentials(
-                                                        self._pot, r, 0.0
-                                                    )
-                                                )
-                                                + 2.0 * tE * self._ra2
-                                            ),
-                                        ]
-                                    )
-                                ),
-                                numpy.sqrt(
-                                    2.0
-                                    * r**2.0
-                                    * (tE - _evaluatePotentials(self._pot, r, 0.0))
-                                ),
-                                args=(
-                                    2.0
-                                    * r**2.0
-                                    * (tE - _evaluatePotentials(self._pot, r, 0.0)),
-                                    tE,
-                                ),
-                            )[0]
-                        ),
-                        0.0,
-                        self._rphi(tE),
-                    )[0]
-                    for ii, tE in enumerate(E)
-                ]
+            * nested_quad(
+                xp,
+                _integrand,
+                [[0.0, smax[..., None, None]], [0.0, 1.0]],
+                n=_QUAD_N_VMOM2D,
             )
         )
-        # Numerical issues can make the integrand's sqrt argument negative, only
-        # happens at dMdE ~ 0, so just set to zero
-        out[numpy.isnan(out)] = 0.0
-        return out.reshape(E.shape)
 
     def _sample_eta(self, r, n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
@@ -153,7 +206,10 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
 
     def _p_v_at_r(self, v, r):
         """p( v*sqrt[1+r^2/ra^2*sin^2eta] | r) used in sampling"""
+        xp = resolve_namespace(v, r)
         if hasattr(self, "_logfQ_interp"):
+            # scipy interpolator (general OM df) is numpy-only; sampling numpy-side
+            v, r = as_numpy(v), as_numpy(r)
             return (
                 numpy.exp(
                     self._logfQ_interp(
@@ -162,10 +218,14 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
                 )
                 * v**2.0
             )
-        else:
+        if xp is numpy:
             return (
                 self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0) * v**2.0
             )
+        # coerce: a forced backend sees numpy sampling grids; torch potentials
+        # reject numpy coords
+        v, r = xp.asarray(v) * 1.0, xp.asarray(r) * 1.0
+        return self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0) * v**2.0
 
     def _sample_v(self, r, eta, n=1):
         """Generate velocity samples"""
@@ -177,21 +237,41 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
     def _vmomentdensity(self, r, n, m):
         if m % 2 == 1 or n % 2 == 1:
             return 0.0
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return (
+                2.0
+                * numpy.pi
+                * integrate.quad(
+                    lambda v: (
+                        v ** (2.0 + m + n)
+                        * self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0)
+                    ),
+                    0.0,
+                    self._vmax_at_r(self._pot, r),
+                )[0]
+                * special.gamma(m / 2.0 + 1.0)
+                * special.gamma((n + 1) / 2.0)
+                / special.gamma(0.5 * (m + n + 3.0))
+                / (1 + r**2.0 / self._ra2) ** (m / 2 + 1)
+            )
+        # jax/torch: fixed-order GL over v, differentiable in r; node axis trails
+        rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
+        Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0)) * 1.0)[..., None]
         return (
             2.0
             * numpy.pi
-            * integrate.quad(
-                lambda v: (
-                    v ** (2.0 + m + n)
-                    * self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0)
-                ),
+            * fixed_quad(
+                xp,
+                lambda v: v ** (2.0 + m + n) * self.fQ(-Phir_b - 0.5 * v**2.0),
                 0.0,
-                self._vmax_at_r(self._pot, r),
-            )[0]
+                self._vmax_at_r(self._pot, rb),
+                n=_QUAD_N_VMOM,
+            )
             * special.gamma(m / 2.0 + 1.0)
             * special.gamma((n + 1) / 2.0)
             / special.gamma(0.5 * (m + n + 3.0))
-            / (1 + r**2.0 / self._ra2) ** (m / 2 + 1)
+            / (1 + rb**2.0 / self._ra2) ** (m / 2 + 1)
         )
 
 
