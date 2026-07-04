@@ -423,6 +423,117 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
                 vo = internal_vo
         return cls(Acos=Acos, Asin=Asin, a=a, ro=ro, vo=vo)
 
+    @classmethod
+    def from_nbody(
+        cls,
+        pos,
+        N,
+        L=None,
+        mass=1.0,
+        a=1.0,
+        symmetry=None,
+        tgrid=None,
+        ro=None,
+        vo=None,
+    ):
+        """
+        Initialize an SCFPotential from an N-body / particle representation.
+
+        Computes the expansion coefficients directly from a set of particle
+        positions and masses (using ``scf_compute_coeffs_spherical_nbody`` and
+        its axisymmetric and general counterparts). A time-dependent potential is
+        built by passing multiple snapshots: give ``pos`` with shape ``[3,n,nt]``
+        together with a ``tgrid`` of length ``nt``, and the coefficients are
+        computed at each snapshot and interpolated in time (analogous to the
+        time-dependent ``from_density``). The particle sum is accumulated in
+        batches so that building from a very large number of particles stays
+        memory-bounded.
+
+        Parameters
+        ----------
+        pos : numpy.ndarray or Quantity
+            Positions of the particles in rectangular coordinates, with shape
+            ``[3,n]`` (static) or ``[3,n,nt]`` (time-dependent, one snapshot per
+            time in ``tgrid``).
+        N : int
+            Number of radial basis functions.
+        L : int, optional
+            Number of costheta basis functions; for non-axisymmetric profiles also
+            sets the number of azimuthal (phi) basis functions to M = 2L+1.
+            Required unless ``symmetry='spherical'``.
+        mass : float, numpy.ndarray, or Quantity, optional
+            Particle masses: a scalar (all equal), an array of shape ``[n]``, or,
+            for the time-dependent case, an array of shape ``[n,nt]``. Default 1.0.
+        a : float or Quantity, optional
+            Expansion scale length.
+        symmetry : {'spherical','axisymmetry',None}, optional
+            Symmetry to assume. None is the general, non-axisymmetric case.
+        tgrid : numpy.ndarray or None, optional
+            Time grid for a time-dependent potential. If provided, ``pos`` must
+            have shape ``[3,n,len(tgrid)]`` and the coefficients are computed at
+            each snapshot and interpolated in time. Default: ``None`` (static).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+
+        Returns
+        -------
+        SCFPotential object
+
+        Notes
+        -----
+        - 2026-07-04 - Written - Bovy (UofT)
+
+        """
+        # Dummy object for ro/vo handling, to ensure consistency
+        dumm = cls(ro=ro, vo=vo)
+        internal_ro = dumm._ro
+        internal_vo = dumm._vo
+        # Physical outputs if any physical (Quantity) input was given
+        physical = _APY_LOADED and (
+            isinstance(mass, units.Quantity) or isinstance(pos, units.Quantity)
+        )
+        a = conversion.parse_length(a, ro=internal_ro)
+        pos = numpy.asarray(conversion.parse_length(pos, ro=internal_ro), dtype=float)
+        mass = numpy.asarray(
+            conversion.parse_mass(mass, ro=internal_ro, vo=internal_vo), dtype=float
+        )
+        if pos.ndim not in (2, 3) or pos.shape[0] != 3:
+            raise ValueError(
+                "pos must have shape [3,n] (static) or [3,n,nt] (time-dependent)"
+            )
+        out_ro, out_vo = (internal_ro, internal_vo) if physical else (ro, vo)
+        if tgrid is None:
+            if pos.ndim != 2:
+                raise ValueError("pos must have shape [3,n] when tgrid is not given")
+            mass = _nbody_parse_mass(mass, pos.shape[1])
+            Acos, Asin = _batched_nbody(pos, N, L, mass, a, symmetry)
+            return cls(Acos=Acos, Asin=Asin, a=a, ro=out_ro, vo=out_vo)
+        tgrid = numpy.asarray(tgrid)
+        Nt = len(tgrid)
+        if pos.ndim != 3 or pos.shape[2] != Nt:
+            raise ValueError(
+                "pos must have shape [3,n,nt] with nt=len(tgrid) when tgrid is given"
+            )
+        n = pos.shape[1]
+        mass2d = mass.ndim == 2
+        if mass2d and mass.shape != (n, Nt):
+            raise ValueError("a 2D mass must have shape [n,nt]")
+        Acos_list = []
+        Asin_list = []
+        any_sin = False
+        for it in range(Nt):
+            mass_it = _nbody_parse_mass(mass[:, it] if mass2d else mass, n)
+            Ac, As = _batched_nbody(pos[:, :, it], N, L, mass_it, a, symmetry)
+            Acos_list.append(Ac)
+            if As is not None:
+                any_sin = True
+            Asin_list.append(As)
+        Acos_all = numpy.array(Acos_list)
+        Asin_all = numpy.array(Asin_list) if any_sin else None
+        return cls(Acos=Acos_all, Asin=Asin_all, a=a, tgrid=tgrid, ro=out_ro, vo=out_vo)
+
     @staticmethod
     def _symmetry_coeffs(
         dens, N, L, a, symmetry, radial_order, costheta_order, phi_order
@@ -1411,6 +1522,82 @@ def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
                 Plmm1 = tmp
         # Recurse Assoc. Legendre
         Pll *= -(2 * mm + 1.0) * sintheta
+    return Acos, Asin
+
+
+# Peak-memory budget (bytes) for one working copy of the per-particle basis
+# arrays [shape (N, batch)] when computing N-body coefficients; the particle sum
+# is accumulated in batches no larger than this so building from a very large
+# number of particles stays memory-bounded. Module-level (not a public
+# parameter); tests set it small to exercise the batched path.
+_NBODY_BATCH_BYTES = 32 * 1024**2  # 32 MB
+
+
+def _nbody_parse_mass(mass, n):
+    """Normalize a particle-mass input (scalar or length-n array) to shape (n,).
+
+    Notes
+    -----
+    - 2026-07-04 - Written - Bovy (UofT)
+    """
+    mass = numpy.asarray(mass, dtype=float)
+    if mass.ndim == 0 or mass.size == 1:
+        return numpy.broadcast_to(mass.reshape(()), (n,))
+    if mass.shape != (n,):
+        raise ValueError("mass must be a scalar or match the number of particles")
+    return mass
+
+
+def _nbody_symmetry_coeffs(pos, N, L, mass, a, symmetry):
+    """Compute (Acos, Asin) from particle positions/masses for the assumed symmetry.
+
+    Notes
+    -----
+    - 2026-07-04 - Written - Bovy (UofT)
+    """
+    if symmetry is not None and symmetry.startswith("spher"):
+        return scf_compute_coeffs_spherical_nbody(pos, N, mass=mass, a=a)
+    elif symmetry is not None and symmetry.startswith("axi"):
+        return scf_compute_coeffs_axi_nbody(pos, N, L, mass=mass, a=a)
+    else:
+        return scf_compute_coeffs_nbody(pos, N, L, mass=mass, a=a)
+
+
+def _nbody_batch_size(n, N):
+    """Number of particles to process per batch so a working copy of the
+    (N, batch) per-particle basis arrays stays within ``_NBODY_BATCH_BYTES``.
+
+    Notes
+    -----
+    - 2026-07-04 - Written - Bovy (UofT)
+    """
+    per_batch = _NBODY_BATCH_BYTES // (max(N, 1) * 8 * 4)  # ~4 working copies
+    return int(min(n, max(1, per_batch)))
+
+
+def _batched_nbody(pos, N, L, mass, a, symmetry):
+    """Compute (Acos, Asin) from particle positions ``pos`` [shape (3,n)] and
+    masses ``mass`` [shape (n,)], accumulating the particle sum in batches to
+    bound memory. This is exact: each coefficient is a particle-independent
+    constant times a sum over particles, so summing per-batch coefficients
+    reproduces the all-at-once result (up to floating-point summation order).
+
+    Notes
+    -----
+    - 2026-07-04 - Written - Bovy (UofT)
+    """
+    if (symmetry is None or not symmetry.startswith("spher")) and L is None:
+        raise ValueError("L must be specified unless symmetry='spherical'")
+    n = pos.shape[1]
+    batch = _nbody_batch_size(n, N)
+    Acos = None
+    Asin = None
+    for start in range(0, n, batch):
+        sl = slice(start, start + batch)
+        Ac, As = _nbody_symmetry_coeffs(pos[:, sl], N, L, mass[sl], a, symmetry)
+        Acos = Ac if Acos is None else Acos + Ac
+        if As is not None:
+            Asin = As if Asin is None else Asin + As
     return Acos, Asin
 
 

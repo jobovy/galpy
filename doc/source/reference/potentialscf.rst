@@ -4,4 +4,4 @@ Hernquist & Ostriker Self-Consistent-Field-type potential
 ===========================================================
 
 .. autoclass:: galpy.potential.SCFPotential
-   :members: __init__, from_density
+   :members: __init__, from_density, from_nbody

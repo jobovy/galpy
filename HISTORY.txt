@@ -11,6 +11,13 @@ v1.12.1 (expected around 2026-11-01)
   and builds a time-dependent potential from a density that depends on time
   (analogous to the time-dependent ``MultipoleExpansionPotential``).
 
+- Added ``SCFPotential.from_nbody`` to initialize an ``SCFPotential`` directly
+  from an N-body / particle representation (positions and masses), using the
+  ``scf_compute_coeffs_*_nbody`` machinery. Multiple snapshots (``pos`` of shape
+  ``[3,n,nt]`` together with a ``tgrid``) build a time-dependent potential, and
+  the particle sum is accumulated in batches so building from a very large number
+  of particles stays memory-bounded.
+
 v1.12.0 (2026-07-01)
 ====================
 

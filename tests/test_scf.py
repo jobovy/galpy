@@ -412,6 +412,238 @@ def test_scf_compute_nbody_twopowertriaxial():
     return None
 
 
+# ---------------------- from_nbody ----------------------
+
+_NBODY_A = 1.3
+
+
+def _nbody_sample_positions(n, seed=7):
+    numpy.random.seed(seed)
+    return numpy.random.randn(3, n) * 1.5
+
+
+def test_from_nbody_static_matches_direct():
+    # Static from_nbody reproduces a direct scf_compute_coeffs_*_nbody build
+    # (single batch -> exactly), for spherical, axisymmetric, and general symmetry.
+    n, N, L = 20000, 8, 4
+    pos = _nbody_sample_positions(n)
+    mass = (1.0 / n) * numpy.ones(n)
+    for symmetry, Lk, coeffs in [
+        (
+            "spherical",
+            None,
+            potential.scf_compute_coeffs_spherical_nbody(pos, N, mass=mass, a=_NBODY_A),
+        ),
+        (
+            "axi",
+            L,
+            potential.scf_compute_coeffs_axi_nbody(pos, N, L, mass=mass, a=_NBODY_A),
+        ),
+        (None, L, potential.scf_compute_coeffs_nbody(pos, N, L, mass=mass, a=_NBODY_A)),
+    ]:
+        sp = SCFPotential.from_nbody(
+            pos, N, L=Lk, symmetry=symmetry, a=_NBODY_A, mass=mass
+        )
+        ref = SCFPotential(Acos=coeffs[0], Asin=coeffs[1], a=_NBODY_A)
+        assert not sp._tdep
+        assert numpy.max(numpy.fabs(sp._Acos - ref._Acos)) < 1e-12
+        if sp._Asin is not None:
+            assert numpy.max(numpy.fabs(sp._Asin - ref._Asin)) < 1e-12
+    # general symmetry is non-axisymmetric; spherical/axi are not
+    assert SCFPotential.from_nbody(
+        pos, N, L=L, symmetry=None, a=_NBODY_A, mass=mass
+    ).isNonAxi
+    assert not SCFPotential.from_nbody(
+        pos, N, L=L, symmetry="axi", a=_NBODY_A, mass=mass
+    ).isNonAxi
+
+
+def test_from_nbody_scalar_vs_array_mass():
+    # A scalar mass is equivalent to a constant per-particle mass array.
+    n, N, L = 15000, 8, 3
+    pos = _nbody_sample_positions(n, seed=3)
+    sp_scalar = SCFPotential.from_nbody(
+        pos, N, L=L, symmetry=None, a=_NBODY_A, mass=1.0 / n
+    )
+    sp_array = SCFPotential.from_nbody(
+        pos, N, L=L, symmetry=None, a=_NBODY_A, mass=(1.0 / n) * numpy.ones(n)
+    )
+    assert numpy.max(numpy.fabs(sp_scalar._Acos - sp_array._Acos)) < 1e-12
+    assert numpy.max(numpy.fabs(sp_scalar._Asin - sp_array._Asin)) < 1e-12
+
+
+def test_from_nbody_particle_batching():
+    # Forcing a tiny memory budget processes the particle sum in many batches; the
+    # result must match the single-batch build (up to floating-point summation
+    # order). Covers the batched path and both symmetry branches.
+    import sys
+
+    scfmod = sys.modules[SCFPotential.__module__]
+    n, N, L = 40000, 8, 3
+    pos = _nbody_sample_positions(n, seed=5)
+    mass = (1.0 / n) * numpy.ones(n)
+    ref_g = SCFPotential.from_nbody(pos, N, L=L, symmetry=None, a=_NBODY_A, mass=mass)
+    ref_s = SCFPotential.from_nbody(pos, N, symmetry="spherical", a=_NBODY_A, mass=mass)
+    old = scfmod._NBODY_BATCH_BYTES
+    scfmod._NBODY_BATCH_BYTES = 4 * 1024  # tiny -> thousands of batches
+    try:
+        assert scfmod._nbody_batch_size(n, N) < n
+        bat_g = SCFPotential.from_nbody(
+            pos, N, L=L, symmetry=None, a=_NBODY_A, mass=mass
+        )
+        bat_s = SCFPotential.from_nbody(
+            pos, N, symmetry="spherical", a=_NBODY_A, mass=mass
+        )
+    finally:
+        scfmod._NBODY_BATCH_BYTES = old
+    assert numpy.max(numpy.fabs(bat_g._Acos - ref_g._Acos)) < 1e-10
+    assert numpy.max(numpy.fabs(bat_g._Asin - ref_g._Asin)) < 1e-10
+    assert numpy.max(numpy.fabs(bat_s._Acos - ref_s._Acos)) < 1e-10
+
+
+def test_from_nbody_timedep():
+    # Multiple snapshots (pos [3,n,nt] + tgrid) build a time-dependent potential;
+    # each snapshot's coefficients match a static build of that snapshot, the
+    # potential is genuinely time-dependent, and it evaluates at arbitrary t.
+    n, N, L, nt = 12000, 8, 3, 5
+    numpy.random.seed(11)
+    base = numpy.random.randn(3, n) * 1.5
+    tgrid = numpy.linspace(0.0, 4.0, nt)
+    # rotate the particles by a t-dependent angle -> genuine time dependence
+    pos_t = numpy.empty((3, n, nt))
+    for it, t in enumerate(tgrid):
+        ang = 0.3 * t
+        pos_t[0, :, it] = numpy.cos(ang) * base[0] - numpy.sin(ang) * base[1]
+        pos_t[1, :, it] = numpy.sin(ang) * base[0] + numpy.cos(ang) * base[1]
+        pos_t[2, :, it] = base[2]
+    mass = (1.0 / n) * numpy.ones(n)
+    sp = SCFPotential.from_nbody(
+        pos_t, N, L=L, symmetry=None, a=_NBODY_A, mass=mass, tgrid=tgrid
+    )
+    assert sp._tdep
+    assert sp._Acos_all.shape == (nt, N, L, L)
+    # each snapshot's coefficients equal a static build at that snapshot (exact at
+    # the grid nodes, where the cubic-spline interpolation is exact)
+    for it in range(nt):
+        static = SCFPotential.from_nbody(
+            pos_t[:, :, it], N, L=L, symmetry=None, a=_NBODY_A, mass=mass
+        )
+        assert numpy.max(numpy.fabs(sp._Acos_all[it] - static._Acos)) < 1e-12
+    # genuinely time-dependent: the potential at fixed position changes with t
+    p0 = sp(1.0, 0.2, phi=0.5, t=tgrid[0], use_physical=False)
+    p1 = sp(1.0, 0.2, phi=0.5, t=tgrid[-1], use_physical=False)
+    assert numpy.fabs(p0 - p1) > 1e-6
+    # evaluation at a grid node matches the static build there (Rforce, dens)
+    it = 2
+    static = SCFPotential.from_nbody(
+        pos_t[:, :, it], N, L=L, symmetry=None, a=_NBODY_A, mass=mass
+    )
+    for meth in ["__call__", "Rforce", "zforce", "dens"]:
+        a1 = getattr(sp, meth)(1.1, 0.3, phi=0.7, t=tgrid[it], use_physical=False)
+        a2 = getattr(static, meth)(1.1, 0.3, phi=0.7, use_physical=False)
+        assert numpy.fabs(a1 - a2) < 1e-9
+
+
+def test_from_nbody_timedep_2d_mass():
+    # A per-snapshot mass array [n,nt] is accepted and, when constant across
+    # snapshots, matches the [n] mass build.
+    n, N, L, nt = 8000, 6, 3, 4
+    numpy.random.seed(13)
+    pos_t = numpy.random.randn(3, n, nt) * 1.5
+    tgrid = numpy.linspace(0.0, 3.0, nt)
+    mass1d = (1.0 / n) * numpy.ones(n)
+    mass2d = (1.0 / n) * numpy.ones((n, nt))
+    sp1 = SCFPotential.from_nbody(
+        pos_t, N, L=L, symmetry=None, a=_NBODY_A, mass=mass1d, tgrid=tgrid
+    )
+    sp2 = SCFPotential.from_nbody(
+        pos_t, N, L=L, symmetry=None, a=_NBODY_A, mass=mass2d, tgrid=tgrid
+    )
+    assert numpy.max(numpy.fabs(sp1._Acos_all - sp2._Acos_all)) < 1e-12
+    assert numpy.max(numpy.fabs(sp1._Asin_all - sp2._Asin_all)) < 1e-12
+
+
+def test_from_nbody_matches_from_density():
+    # Sampling a Hernquist halo and building an SCF from the samples reproduces the
+    # from_density build (and the analytic potential) to within the sampling noise.
+    n, Mh, ah, N = int(2e5), 11.0, 50.0 / 8.0, 10
+    hern = potential.HernquistPotential(amp=2 * Mh, a=ah)
+    hern.turn_physical_off()
+    hdf = df.isotropicHernquistdf(hern)
+    numpy.random.seed(1)
+    s = hdf.sample(n=n)
+    pos = numpy.array([s.x(), s.y(), s.z()])
+    snb = SCFPotential.from_nbody(pos, N, symmetry="spherical", a=ah, mass=Mh / n)
+    sde = SCFPotential.from_density(hern.dens, N, symmetry="spherical", a=ah)
+    rs = numpy.array([1.0, 3.0, 8.0, 20.0])
+    p_nb = numpy.array([snb(r, 0.0, use_physical=False) for r in rs])
+    p_de = numpy.array([sde(r, 0.0, use_physical=False) for r in rs])
+    p_true = numpy.array([hern(r, 0.0, use_physical=False) for r in rs])
+    assert numpy.all(numpy.fabs(p_nb / p_de - 1.0) < 0.02)
+    assert numpy.all(numpy.fabs(p_nb / p_true - 1.0) < 0.02)
+
+
+def test_from_nbody_physical():
+    # Physical (Quantity) positions/masses turn on physical outputs, and the
+    # internal-unit values match an equivalent plain-units build.
+    from astropy import units
+
+    from galpy.util import conversion
+
+    n, N, L = 10000, 6, 3
+    pos_int = _nbody_sample_positions(n, seed=9)  # internal-unit positions
+    mass_int = (1e-3 / n) * numpy.ones(n)
+    # plain floats, no ro/vo -> physical outputs off
+    sp_plain = SCFPotential.from_nbody(
+        pos_int, N, L=L, symmetry=None, a=1.0, mass=mass_int
+    )
+    assert not sp_plain._roSet
+    # equivalent build with Quantity inputs (no ro/vo passed) -> physical on
+    ro, vo = sp_plain._ro, sp_plain._vo
+    massfac = conversion.mass_in_msol(vo, ro)
+    sp_phys = SCFPotential.from_nbody(
+        pos_int * ro * units.kpc,
+        N,
+        L=L,
+        symmetry=None,
+        a=1.0 * ro * units.kpc,
+        mass=mass_int * massfac * units.Msun,
+    )
+    assert sp_phys._roSet and sp_phys._voSet  # Quantity inputs -> physical on
+    # unit parsing round-trips to identical internal coefficients
+    assert numpy.max(numpy.fabs(sp_phys._Acos - sp_plain._Acos)) < 1e-10
+    assert numpy.max(numpy.fabs(sp_phys._Asin - sp_plain._Asin)) < 1e-10
+
+
+def test_from_nbody_errors():
+    n, N, L = 1000, 6, 3
+    pos = _nbody_sample_positions(n, seed=2)
+    tgrid = numpy.linspace(0.0, 1.0, 4)
+    # bad leading dimension
+    with pytest.raises(ValueError):
+        SCFPotential.from_nbody(numpy.random.randn(2, n), N, L=L)
+    # 3D pos without tgrid
+    with pytest.raises(ValueError):
+        SCFPotential.from_nbody(numpy.random.randn(3, n, 4), N, L=L)
+    # tgrid given but pos is 2D
+    with pytest.raises(ValueError):
+        SCFPotential.from_nbody(pos, N, L=L, tgrid=tgrid)
+    # tgrid given but nt mismatched
+    with pytest.raises(ValueError):
+        SCFPotential.from_nbody(numpy.random.randn(3, n, 3), N, L=L, tgrid=tgrid)
+    # missing L for non-spherical
+    with pytest.raises(ValueError):
+        SCFPotential.from_nbody(pos, N, symmetry=None)
+    # mass array of the wrong length
+    with pytest.raises(ValueError):
+        SCFPotential.from_nbody(pos, N, symmetry="spherical", mass=numpy.ones(n + 1))
+    # 2D mass of the wrong shape (time-dependent)
+    with pytest.raises(ValueError):
+        SCFPotential.from_nbody(
+            numpy.random.randn(3, n, 4), N, L=L, tgrid=tgrid, mass=numpy.ones((n, 3))
+        )
+
+
 def test_scf_compute_nfw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
     spherical_coeffsTest(Acos, Asin)
