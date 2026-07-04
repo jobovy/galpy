@@ -7,7 +7,9 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace
+import numpy
+
+from ..backend import get_namespace, is_backend_array
 from ..util import conversion
 from .Potential import Potential
 
@@ -59,27 +61,35 @@ class IsochronePotential(Potential):
         self.hasC_dens = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return -1.0 / (self.b + rb)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         dPhidrr = -1.0 / rb / (self.b + rb) ** 2.0
         return dPhidrr * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         dPhidrr = -1.0 / rb / (self.b + rb) ** 2.0
         return dPhidrr * z
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return (
@@ -93,7 +103,9 @@ class IsochronePotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return (
@@ -107,13 +119,17 @@ class IsochronePotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return -R * z * (self.b + 3.0 * rb) / rb**3.0 / (self.b + rb) ** 3.0
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return (
@@ -125,7 +141,9 @@ class IsochronePotential(Potential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return (

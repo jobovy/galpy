@@ -7,7 +7,9 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace
+import numpy
+
+from ..backend import get_namespace, is_backend_array
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -68,17 +70,23 @@ class MiyamotoNagaiPotential(Potential):
         self._nemo_accname = "MiyamotoNagai"
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         return -1.0 / xp.sqrt(R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         return -R / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
             3.0 / 2.0
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
         if self._a == 0.0:
@@ -96,7 +104,9 @@ class MiyamotoNagaiPotential(Potential):
             )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
         if self._a == 0.0:
@@ -113,7 +123,9 @@ class MiyamotoNagaiPotential(Potential):
             )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         return (
             1.0 / (R**2.0 + (self._a + xp.sqrt(z**2.0 + self._b2)) ** 2.0) ** 1.5
             - 3.0
@@ -122,7 +134,9 @@ class MiyamotoNagaiPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
         if self._a == 0.0:
@@ -142,7 +156,9 @@ class MiyamotoNagaiPotential(Potential):
             ) / ((self._b2 + z**2.0) ** 1.5 * (R**2.0 + asqrtbz**2.0) ** 2.5)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtbz = xp.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
         if self._a == 0.0:

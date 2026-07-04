@@ -11,7 +11,7 @@ import math
 import numpy
 from scipy import optimize
 
-from ..backend import get_namespace
+from ..backend import get_namespace, is_backend_array
 from ..backend.special import gamma as _gamma
 from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
@@ -101,7 +101,11 @@ class TwoPowerSphericalPotential(Potential):
         if self._specialSelf is not None:
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
         elif self.beta == 3.0:
-            xp = get_namespace(R, z)
+            xp = (
+                get_namespace(R, z)
+                if is_backend_array(R) or is_backend_array(z)
+                else numpy
+            )
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 (1.0 / self.a)
@@ -119,7 +123,11 @@ class TwoPowerSphericalPotential(Potential):
                 / (self.alpha - 2.0)
             )
         else:
-            xp = get_namespace(R, z)
+            xp = (
+                get_namespace(R, z)
+                if is_backend_array(R) or is_backend_array(z)
+                else numpy
+            )
             r = (
                 xp.sqrt(R**2.0 + z**2.0) + 1e-11
             )  # avoid division by zero and numerical instability of the hyp2f1 function
@@ -143,7 +151,11 @@ class TwoPowerSphericalPotential(Potential):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
         else:
-            xp = get_namespace(R, z)
+            xp = (
+                get_namespace(R, z)
+                if is_backend_array(R) or is_backend_array(z)
+                else numpy
+            )
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -R
@@ -162,7 +174,11 @@ class TwoPowerSphericalPotential(Potential):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
         else:
-            xp = get_namespace(R, z)
+            xp = (
+                get_namespace(R, z)
+                if is_backend_array(R) or is_backend_array(z)
+                else numpy
+            )
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -z
@@ -178,7 +194,9 @@ class TwoPowerSphericalPotential(Potential):
             )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a / r) ** self.alpha
@@ -249,7 +267,9 @@ class TwoPowerSphericalPotential(Potential):
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
         hyper = _hyp2f1(
@@ -273,7 +293,9 @@ class TwoPowerSphericalPotential(Potential):
         return term1 + term2 + term3
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
         hyper = _hyp2f1(
@@ -296,7 +318,9 @@ class TwoPowerSphericalPotential(Potential):
         return term1 + term2
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         return self._R2deriv(xp.abs(z), R)  # Spherical potential
 
     def _mass(self, R, z=None, t=0.0):
@@ -371,7 +395,11 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         if self._specialSelf is not None:
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
         else:  # valid for alpha != 2, 3
-            xp = get_namespace(R, z)
+            xp = (
+                get_namespace(R, z)
+                if is_backend_array(R) or is_backend_array(z)
+                else numpy
+            )
             r = xp.sqrt(R**2.0 + z**2.0)
             return -(1.0 - 1.0 / (1.0 + self.a / r) ** (2.0 - self.alpha)) / (
                 self.a * (2.0 - self.alpha) * (3.0 - self.alpha)
@@ -381,7 +409,11 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         if self._specialSelf is not None:
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
         else:
-            xp = get_namespace(R, z)
+            xp = (
+                get_namespace(R, z)
+                if is_backend_array(R) or is_backend_array(z)
+                else numpy
+            )
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -R
@@ -393,7 +425,9 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._R2deriv(R, z, phi=phi, t=t)
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         a, alpha = self.a, self.alpha
         r = xp.sqrt(R**2.0 + z**2.0)
         # formula not valid for alpha=2,3, (integers?)
@@ -408,7 +442,11 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         if self._specialSelf is not None:
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
         else:
-            xp = get_namespace(R, z)
+            xp = (
+                get_namespace(R, z)
+                if is_backend_array(R) or is_backend_array(z)
+                else numpy
+            )
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -z
@@ -423,7 +461,9 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         if self._specialSelf is not None:
             return self._specialSelf._Rzderiv(R, z, phi=phi, t=t)
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         a, alpha = self.a, self.alpha
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
@@ -431,7 +471,9 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         ) / (alpha - 3)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a / r) ** self.alpha
@@ -490,12 +532,16 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         return -(1.0 - 1.0 / (1.0 + self.a / r) ** 2.0) / (6.0 * self.a)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         return -R / (xp.sqrt(R**2.0 + z**2.0) + self.a) ** 3.0 / 3.0
 
     def _rforce_jax(self, r):
@@ -503,14 +549,18 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         return -self._amp * r / (r + self.a) ** 3.0 / 3.0
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         return -(
             ((2.0 * R**2.0 - z**2.0) - self.a * r) / (3.0 * r * (r + self.a) ** 4.0)
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         return -z / (self.a + r) ** 3.0 / 3.0
 
@@ -518,13 +568,17 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         return self._R2deriv(z, R, phi=phi, t=t)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         a = self.a
         r = xp.sqrt(R**2.0 + z**2.0)
         return -(R * z / r / (a + r) ** 4.0)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         return 1.0 / (1.0 + r / self.a) ** 4.0 / 4.0 / math.pi / self.a**3.0
 
@@ -580,16 +634,22 @@ class HernquistPotential(DehnenSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         return -1.0 / (1.0 + xp.sqrt(R**2.0 + z**2.0) / self.a) / 2.0 / self.a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
@@ -598,7 +658,9 @@ class HernquistPotential(DehnenSphericalPotential):
         return -self._amp / 2.0 / (r + self.a) ** 2.0
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * z**2.0 + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
@@ -608,7 +670,9 @@ class HernquistPotential(DehnenSphericalPotential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
@@ -619,7 +683,9 @@ class HernquistPotential(DehnenSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         # R == a is a removable singularity of the generic branch (Rma -> 0,
         # (a^2-R^2) -> 0, (r^2-a^2) -> 0): use the closed-form limit there. Both
@@ -753,21 +819,29 @@ class JaffePotential(DehnenSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         return -xp.log(1.0 + self.a / xp.sqrt(R**2.0 + z**2.0)) / self.a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * (z**2.0 - R**2.0) + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
@@ -776,7 +850,9 @@ class JaffePotential(DehnenSphericalPotential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
@@ -787,7 +863,9 @@ class JaffePotential(DehnenSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         # R == a is a removable singularity of the generic branch (Rma -> 0,
         # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
@@ -949,7 +1027,9 @@ class NFWPotential(TwoPowerSphericalPotential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         # -special.xlogy(1/r, 1+r/a) == -(1/r)*log(1+r/a), with xlogy's
         # convention that the result is 0 where the prefactor 1/r is 0 (i.e.
@@ -965,7 +1045,9 @@ class NFWPotential(TwoPowerSphericalPotential):
         return xp.where(at0, -1.0 / self.a * xp.ones_like(r * 1.0), out)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return R * (
@@ -973,7 +1055,9 @@ class NFWPotential(TwoPowerSphericalPotential):
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return z * (
@@ -988,7 +1072,9 @@ class NFWPotential(TwoPowerSphericalPotential):
         return self._amp * (1.0 / r / (self.a + r) - jnp.log(1.0 + r / self.a) / r**2.0)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return (
@@ -1005,7 +1091,9 @@ class NFWPotential(TwoPowerSphericalPotential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return (
@@ -1023,7 +1111,9 @@ class NFWPotential(TwoPowerSphericalPotential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+        xp = (
+            get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
+        )
         r = xp.sqrt(R**2.0 + z**2.0)
         # R == a is a removable singularity of the generic branch (Rma -> 0,
         # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
@@ -1062,7 +1152,7 @@ class NFWPotential(TwoPowerSphericalPotential):
     def _mass(self, R, z=None, t=0.0):
         if z is not None:
             raise AttributeError  # use general implementation
-        xp = get_namespace(R)
+        xp = get_namespace(R) if is_backend_array(R) else numpy
         return xp.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a)
 
     @conversion.physical_conversion("position", pop=False)
