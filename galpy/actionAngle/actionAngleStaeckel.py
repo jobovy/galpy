@@ -2497,29 +2497,42 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
         if isinstance(pot, CompositePotential)
         else isinstance(pot, SCFPotential) or isinstance(pot, DiskSCFPotential)
     )
-    if is_backend_array(R):
-        # Vectorised, differentiable jax/torch path: the migrated potential
-        # evaluators accept array R,z, so evaluate the whole array at once;
-        # xp.where / _nanmedian reproduce the numpy in-place writes / masked
-        # median. (numpy keeps the per-element path below because several
-        # potentials' methods only accept scalar inputs.)
-        xp = get_namespace(R)
+    xp = get_namespace(R, z)
+    if xp is not numpy:
+        # Resolved-namespace path (runs on jax/torch): under a forced backend the
+        # numpy inputs are promoted UP to the backend so the whole estimate runs
+        # on the backend instead of falling through to a numpy island. xp.where /
+        # _nanmedian reproduce the numpy in-place writes / masked median.
+        R, z = promote_scalars(xp, R, z)
         z = xp.where(z == 0.0, 1e-4, z)
-        delta2 = (
-            z**2.0
-            - R**2.0  # eqn. (9) has a sign error
-            + (
-                3.0 * R * _evaluatezforces(pot, R, z)
-                - 3.0 * z * _evaluateRforces(pot, R, z)
-                + R
-                * z
-                * (
-                    evaluateR2derivs(pot, R, z, use_physical=False)
-                    - evaluatez2derivs(pot, R, z, use_physical=False)
+
+        def _delta2(Ri, zi):
+            # eqn. (9) has a sign error (hence z^2 - R^2)
+            return (
+                zi**2.0
+                - Ri**2.0
+                + (
+                    3.0 * Ri * _evaluatezforces(pot, Ri, zi)
+                    - 3.0 * zi * _evaluateRforces(pot, Ri, zi)
+                    + Ri
+                    * zi
+                    * (
+                        evaluateR2derivs(pot, Ri, zi, use_physical=False)
+                        - evaluatez2derivs(pot, Ri, zi, use_physical=False)
+                    )
                 )
+                / evaluateRzderivs(pot, Ri, zi, use_physical=False)
             )
-            / evaluateRzderivs(pot, R, z, use_physical=False)
-        )
+
+        try:
+            # array-capable potentials evaluate the whole array at once
+            delta2 = _delta2(R, z)
+        except (TypeError, RuntimeError):
+            # scalar-only potentials (e.g. DoubleExponentialDisk, which rejects
+            # array inputs on every path) evaluate element-by-element; each scalar
+            # is a backend scalar so the migrated scalar path still runs on the
+            # backend.
+            delta2 = xp.stack([_delta2(R[ii], z[ii]) for ii in range(len(R))])
         indx = (delta2 < delta0**2.0) & (
             (delta2 > -(10.0**-10.0)) | bool(pot_includes_scf)
         )
