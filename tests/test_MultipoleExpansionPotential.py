@@ -9,6 +9,7 @@ from galpy.potential import (
     MiyamotoNagaiPotential,
     MultipoleExpansionPotential,
     SCFPotential,
+    TriaxialHernquistPotential,
 )
 
 # Shared grids for reuse
@@ -1952,3 +1953,114 @@ def test_large_L_c_orbit():
     o.integrate(ts, mp, method="dop853_c")
     assert numpy.all(numpy.isfinite(o.R(ts))), "Orbit R not finite"
     assert numpy.all(numpy.isfinite(o.z(ts))), "Orbit z not finite"
+
+
+# --- from_scf (SCFPotential -> MultipoleExpansionPotential) ---
+
+_TRANS_PTS = [(1.0, 0.3, 0.5), (2.0, -0.4, 1.1), (0.7, 0.2, 2.0)]
+
+
+def _rel(p, q, meth, R, z, phi, t=None):
+    kw = {} if t is None else {"t": t}
+    return numpy.fabs(
+        getattr(p, meth)(R, z, phi, use_physical=False, **kw)
+        / getattr(q, meth)(R, z, phi, use_physical=False, **kw)
+        - 1.0
+    )
+
+
+def test_from_scf_static():
+    # Translating an SCFPotential into a MultipoleExpansionPotential reproduces its
+    # density and forces (purely radial, shared angular basis).
+    th = TriaxialHernquistPotential(amp=1.0, a=1.5, b=0.9, c=0.8)
+    th.turn_physical_off()
+    dg = lambda R, z, phi: th.dens(R, z, phi, use_physical=False)
+    scf = SCFPotential.from_density(dg, 10, L=6, a=1.5, symmetry=None)
+    mult = MultipoleExpansionPotential.from_scf(
+        scf, rgrid=numpy.geomspace(1e-3, 100.0, 400)
+    )
+    assert mult.isNonAxi
+    assert not mult._tdep
+    for R, z, phi in _TRANS_PTS:
+        assert _rel(mult, scf, "dens", R, z, phi) < 1e-5
+        assert _rel(mult, scf, "Rforce", R, z, phi) < 1e-3
+        assert _rel(mult, scf, "zforce", R, z, phi) < 1e-3
+
+
+def test_from_scf_amp_preserved():
+    # The multipole reproduces a rescaled SCF, and the amp argument scales it.
+    hp = HernquistPotential(amp=3.0, a=1.5)
+    hp.turn_physical_off()
+    scf = SCFPotential.from_density(
+        lambda r: hp.dens(r, 0.0, use_physical=False), 8, a=1.5, symmetry="spherical"
+    )
+    mult = MultipoleExpansionPotential.from_scf(
+        scf, rgrid=numpy.geomspace(1e-3, 100.0, 400)
+    )
+    assert _rel(mult, scf, "dens", 1.0, 0.3, 0.0) < 1e-5
+    mult2 = MultipoleExpansionPotential.from_scf(
+        scf, rgrid=numpy.geomspace(1e-3, 100.0, 400), amp=2.0
+    )
+    assert (
+        numpy.fabs(
+            mult2.dens(1.0, 0.3, 0.0, use_physical=False)
+            / mult.dens(1.0, 0.3, 0.0, use_physical=False)
+            - 2.0
+        )
+        < 1e-10
+    )
+
+
+def test_from_scf_axi_and_spherical():
+    # Axisymmetric and spherical SCFs translate to axi/spherical multipoles.
+    th = TriaxialHernquistPotential(amp=1.0, a=1.5, b=1.0, c=0.7)
+    th.turn_physical_off()
+    scf_axi = SCFPotential.from_density(
+        lambda R, z: th.dens(R, z, 0.0, use_physical=False),
+        10,
+        L=6,
+        a=1.5,
+        symmetry="axi",
+    )
+    mult_axi = MultipoleExpansionPotential.from_scf(
+        scf_axi, rgrid=numpy.geomspace(1e-3, 100.0, 400)
+    )
+    assert not mult_axi.isNonAxi
+    hp = HernquistPotential(amp=1.0, a=1.5)
+    hp.turn_physical_off()
+    scf_sph = SCFPotential.from_density(
+        lambda r: hp.dens(r, 0.0, use_physical=False), 8, a=1.5, symmetry="spherical"
+    )
+    mult_sph = MultipoleExpansionPotential.from_scf(
+        scf_sph, rgrid=numpy.geomspace(1e-3, 100.0, 400)
+    )
+    assert not mult_sph.isNonAxi
+    for R, z in [(1.0, 0.3), (2.0, -0.4)]:
+        assert _rel(mult_axi, scf_axi, "dens", R, z, 0.0) < 1e-5
+        assert _rel(mult_sph, scf_sph, "Rforce", R, z, 0.0) < 1e-4
+
+
+def test_from_scf_timedep():
+    # A time-dependent SCF (rotating bar) translates to a time-dependent multipole.
+    hp = HernquistPotential(normalize=1.0, a=1.0)
+    hp.turn_physical_off()
+    OmegaP = 1.3
+    tgrid = numpy.linspace(0.0, 2.0, 6)
+    dens = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False)
+        * (1.0 + 0.2 * numpy.cos(2.0 * (phi - OmegaP * t)))
+    )
+    scf = SCFPotential.from_density(dens, 10, L=4, a=1.0, symmetry=None, tgrid=tgrid)
+    mult = MultipoleExpansionPotential.from_scf(
+        scf, rgrid=numpy.geomspace(1e-3, 30.0, 400)
+    )
+    assert mult._tdep
+    assert numpy.allclose(mult._tgrid, scf._tgrid)
+    # genuinely time-dependent and reproduces the SCF at arbitrary t
+    d0 = mult.dens(1.0, 0.2, 0.5, t=tgrid[0], use_physical=False)
+    d1 = mult.dens(1.0, 0.2, 0.5, t=tgrid[-1], use_physical=False)
+    assert numpy.fabs(d0 - d1) > 1e-3
+    for t in [0.3, 1.1]:
+        for R, z, phi in _TRANS_PTS:
+            assert _rel(mult, scf, "dens", R, z, phi, t=t) < 1e-4
+            assert _rel(mult, scf, "Rforce", R, z, phi, t=t) < 1e-3

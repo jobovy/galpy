@@ -5,7 +5,7 @@ import pytest
 
 from galpy import df, potential
 from galpy.orbit import Orbit
-from galpy.potential import SCFPotential
+from galpy.potential import MultipoleExpansionPotential, SCFPotential
 from galpy.util import coords
 
 EPS = 1e-13  ## default epsilon
@@ -610,6 +610,106 @@ def test_from_nbody_errors():
         SCFPotential.from_nbody(
             numpy.random.randn(3, n, 4), N, L=L, tgrid=tgrid, mass=numpy.ones((n, 3))
         )
+
+
+# ---------------------- from_multipole (Multipole -> SCF) ----------------------
+
+_TRANS_PTS = [(1.0, 0.3, 0.5), (2.0, -0.4, 1.1), (0.7, 0.2, 2.0)]
+
+
+def _rel(p, q, meth, R, z, phi, t=None):
+    kw = {} if t is None else {"t": t}
+    return numpy.fabs(
+        getattr(p, meth)(R, z, phi, use_physical=False, **kw)
+        / getattr(q, meth)(R, z, phi, use_physical=False, **kw)
+        - 1.0
+    )
+
+
+def test_from_multipole_static():
+    # Translating a MultipoleExpansionPotential into an SCFPotential reproduces its
+    # density and forces (purely radial projection, shared angular basis).
+    th = potential.TriaxialHernquistPotential(amp=1.0, a=1.5, b=0.9, c=0.8)
+    th.turn_physical_off()
+    dg = lambda R, z, phi: th.dens(R, z, phi, use_physical=False)
+    rgrid = numpy.geomspace(1e-3, 100.0, 400)
+    mult = MultipoleExpansionPotential.from_density(dg, L=6, rgrid=rgrid, symmetry=None)
+    scf = SCFPotential.from_multipole(mult, N=10, a=1.5)
+    assert scf.isNonAxi
+    assert not scf._tdep
+    for R, z, phi in _TRANS_PTS:
+        assert _rel(scf, mult, "dens", R, z, phi) < 1e-2
+        assert _rel(scf, mult, "Rforce", R, z, phi) < 5e-3
+        assert _rel(scf, mult, "zforce", R, z, phi) < 5e-3
+
+
+def test_from_multipole_roundtrip():
+    # SCF -> Multipole -> SCF recovers the original coefficients and potential.
+    th = potential.TriaxialHernquistPotential(amp=1.0, a=1.5, b=0.9, c=0.8)
+    th.turn_physical_off()
+    dg = lambda R, z, phi: th.dens(R, z, phi, use_physical=False)
+    scf = SCFPotential.from_density(dg, 10, L=6, a=1.5, symmetry=None)
+    mult = MultipoleExpansionPotential.from_scf(
+        scf, rgrid=numpy.geomspace(1e-3, 100.0, 400)
+    )
+    scf2 = SCFPotential.from_multipole(mult, N=10, a=1.5)
+    # same amplitude and (to the radial-grid accuracy) same coefficients
+    assert numpy.fabs(scf2._amp - scf._amp) < 1e-12
+    assert numpy.max(numpy.fabs(scf2._Acos - scf._Acos)) < 1e-2
+    for R, z, phi in _TRANS_PTS:
+        assert _rel(scf2, scf, "dens", R, z, phi) < 1e-2
+        assert _rel(scf2, scf, "Rforce", R, z, phi) < 5e-3
+
+
+def test_from_multipole_axi_and_spherical():
+    # Axisymmetric and spherical multipoles translate to axi/spherical SCFs.
+    th = potential.TriaxialHernquistPotential(amp=1.0, a=1.5, b=1.0, c=0.7)
+    th.turn_physical_off()  # oblate -> axisymmetric
+    rgrid = numpy.geomspace(1e-3, 100.0, 400)
+    da = lambda R, z: th.dens(R, z, 0.0, use_physical=False)
+    mult_axi = MultipoleExpansionPotential.from_density(
+        da, L=6, rgrid=rgrid, symmetry="axi"
+    )
+    scf_axi = SCFPotential.from_multipole(mult_axi, N=10, a=1.5)
+    assert not scf_axi.isNonAxi
+    assert numpy.all(scf_axi._Asin == 0.0)
+    hp = potential.HernquistPotential(amp=1.0, a=1.5)
+    hp.turn_physical_off()
+    ds = lambda r: hp.dens(r, 0.0, use_physical=False)
+    mult_sph = MultipoleExpansionPotential.from_density(
+        ds, rgrid=rgrid, symmetry="spherical"
+    )
+    scf_sph = SCFPotential.from_multipole(mult_sph, N=10, a=1.5)
+    assert not scf_sph.isNonAxi
+    for R, z in [(1.0, 0.3), (2.0, -0.4)]:
+        assert _rel(scf_axi, mult_axi, "dens", R, z, 0.0) < 1e-2
+        assert _rel(scf_sph, mult_sph, "Rforce", R, z, 0.0) < 5e-3
+
+
+def test_from_multipole_timedep():
+    # A time-dependent multipole (rotating bar) translates to a time-dependent SCF.
+    hp = potential.HernquistPotential(normalize=1.0, a=1.0)
+    hp.turn_physical_off()
+    OmegaP = 1.3
+    tgrid = numpy.linspace(0.0, 2.0, 6)
+    dens = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False)
+        * (1.0 + 0.2 * numpy.cos(2.0 * (phi - OmegaP * t)))
+    )
+    scf = SCFPotential.from_density(dens, 10, L=4, a=1.0, symmetry=None, tgrid=tgrid)
+    mult = MultipoleExpansionPotential.from_scf(
+        scf, rgrid=numpy.geomspace(1e-3, 30.0, 400)
+    )
+    scf2 = SCFPotential.from_multipole(mult, N=10, a=1.0)
+    assert scf2._tdep
+    assert numpy.allclose(scf2._tgrid, scf._tgrid)
+    # genuinely time-dependent and reproduces the source at arbitrary t
+    p0 = scf2(1.0, 0.2, phi=0.5, t=tgrid[0], use_physical=False)
+    p1 = scf2(1.0, 0.2, phi=0.5, t=tgrid[-1], use_physical=False)
+    assert numpy.fabs(p0 - p1) > 1e-3
+    for t in [0.3, 1.1]:
+        for R, z, phi in _TRANS_PTS:
+            assert _rel(scf2, scf, "Rforce", R, z, phi, t=t) < 1e-2
 
 
 def test_scf_compute_nfw():

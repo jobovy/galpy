@@ -18,6 +18,13 @@ v1.12.1 (expected around 2026-11-01)
   the particle sum is accumulated in batches so building from a very large number
   of particles stays memory-bounded.
 
+- Added translation between the ``SCFPotential`` and ``MultipoleExpansionPotential``
+  representations: ``SCFPotential.from_multipole`` builds an SCF expansion from a
+  multipole expansion, and ``MultipoleExpansionPotential.from_scf`` does the
+  reverse. Because both expand the density in the same real spherical harmonics,
+  the translation is purely radial (no angular quadrature), and it supports
+  time-dependent potentials.
+
 v1.12.0 (2026-07-01)
 ====================
 
