@@ -193,11 +193,15 @@ jax tests/test_scf.py::test_scf_compute_axi_nbody_twopowertriaxial
 jax tests/test_scf.py::test_scf_compute_nbody_twopowertriaxial
 jax tests/test_scf.py::test_scf_compute_spherical_nbody_hernquist
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_beta
+jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dMdE_integral
+jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_directint
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_massprofile
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_spherically_symmetric
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_energyoutofbounds
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_sigmar
+jax tests/test_sphericaldf.py::test_constantbeta_differentpotentials_dens_directint
+jax tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
 jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta_directint
 jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_directint
 jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_meanvr_directint
@@ -225,6 +229,7 @@ jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_meanvr_dire
 jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_Qoutofbounds
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_beta
+jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dens_massprofile
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dens_spherically_symmetric
