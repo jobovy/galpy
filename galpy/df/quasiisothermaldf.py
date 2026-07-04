@@ -7,6 +7,8 @@ from scipy import integrate, interpolate, optimize
 
 from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
+from ..backend import get_namespace, is_backend_array
+from ..backend.interpolate import Spline1D
 from ..orbit import Orbit
 from ..potential import IsochronePotential
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -145,9 +147,12 @@ class quasiisothermaldf(df):
             self._rgInterp = interpolate.InterpolatedUnivariateSpline(
                 self._precomputergLzgrid, self._rls, k=3
             )
+            # backend-array eval of the same spline (numpy path stays byte-identical)
+            self._rgInterpBackend = Spline1D(self._precomputergLzgrid, self._rls, k=3)
         else:
             self._precomputergrmax = 0.0
             self._rgInterp = None
+            self._rgInterpBackend = None
             self._rls = None
             self._precomputergnr = None
             self._precomputergLzgrid = None
@@ -235,7 +240,13 @@ class quasiisothermaldf(df):
                     return 0.0
             # if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
             # if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
-        if not isinstance(lz, numpy.ndarray) and self._cutcounter and lz < 0.0:
+        xp = get_namespace(jr, lz, jz)
+        if (
+            not isinstance(lz, numpy.ndarray)
+            and not is_backend_array(lz)
+            and self._cutcounter
+            and lz < 0.0
+        ):
             if log:
                 return -numpy.finfo(numpy.dtype(numpy.float64)).max
             else:
@@ -245,7 +256,7 @@ class quasiisothermaldf(df):
             thisrg = self._rg(lz)
             # Then calculate the epicycle and vertical frequencies
             kappa, nu = self._calc_epifreq(thisrg), self._calc_verticalfreq(thisrg)
-            Omega = numpy.fabs(lz) / thisrg / thisrg
+            Omega = xp.abs(lz) / thisrg / thisrg
         # calculate surface-densities and sigmas
         lnsurfmass = (self._refr - thisrg) / self._hr
         lnsr = self._lnsr + (self._refr - thisrg) / self._hsr
@@ -253,7 +264,7 @@ class quasiisothermaldf(df):
         # Calculate func
         if not _func is None:
             if log:
-                funcTerm = numpy.log(_func(jr, lz, jz))
+                funcTerm = xp.log(_func(jr, lz, jz))
             else:
                 funcFactor = _func(jr, lz, jz)
         # Calculate fsr
@@ -264,42 +275,51 @@ class quasiisothermaldf(df):
                 funcFactor = 1.0
         if log:
             lnfsr = (
-                numpy.log(Omega)
+                xp.log(Omega)
                 + lnsurfmass
                 - 2.0 * lnsr
                 - numpy.log(numpy.pi)
-                - numpy.log(kappa)
-                + numpy.log(1.0 + numpy.tanh(lz / self._lo))
-                - kappa * jr * numpy.exp(-2.0 * lnsr)
+                - xp.log(kappa)
+                + xp.log(1.0 + xp.tanh(lz / self._lo))
+                - kappa * jr * xp.exp(-2.0 * lnsr)
             )
             lnfsz = (
-                numpy.log(nu)
+                xp.log(nu)
                 - numpy.log(2.0 * numpy.pi)
                 - 2.0 * lnsz
-                - nu * jz * numpy.exp(-2.0 * lnsz)
+                - nu * jz * xp.exp(-2.0 * lnsz)
             )
             out = lnfsr + lnfsz + funcTerm
-            if isinstance(lz, numpy.ndarray):
+            if is_backend_array(out):
+                sentinel = -xp.finfo(out.dtype).max
+                out = xp.where(xp.isnan(out), sentinel, out)
+                if self._cutcounter:
+                    out = xp.where(lz < 0.0, sentinel, out)
+            elif isinstance(lz, numpy.ndarray):
                 out[numpy.isnan(out)] = -numpy.finfo(numpy.dtype(numpy.float64)).max
                 if self._cutcounter:
                     out[(lz < 0.0)] = -numpy.finfo(numpy.dtype(numpy.float64)).max
             elif numpy.isnan(out):  # pragma: no cover
                 out = -numpy.finfo(numpy.dtype(numpy.float64)).max
         else:
-            srm2 = numpy.exp(-2.0 * lnsr)
+            srm2 = xp.exp(-2.0 * lnsr)
             fsr = (
                 Omega
-                * numpy.exp(lnsurfmass)
+                * xp.exp(lnsurfmass)
                 * srm2
                 / numpy.pi
                 / kappa
-                * (1.0 + numpy.tanh(lz / self._lo))
-                * numpy.exp(-kappa * jr * srm2)
+                * (1.0 + xp.tanh(lz / self._lo))
+                * xp.exp(-kappa * jr * srm2)
             )
-            szm2 = numpy.exp(-2.0 * lnsz)
-            fsz = nu / 2.0 / numpy.pi * szm2 * numpy.exp(-nu * jz * szm2)
+            szm2 = xp.exp(-2.0 * lnsz)
+            fsz = nu / 2.0 / numpy.pi * szm2 * xp.exp(-nu * jz * szm2)
             out = fsr * fsz * funcFactor
-            if isinstance(lz, numpy.ndarray):
+            if is_backend_array(out):
+                out = xp.where(xp.isnan(out), 0.0, out)
+                if self._cutcounter:
+                    out = xp.where(lz < 0.0, 0.0, out)
+            elif isinstance(lz, numpy.ndarray):
                 out[numpy.isnan(out)] = 0.0
                 if self._cutcounter:
                     out[(lz < 0.0)] = 0.0
@@ -3051,6 +3071,19 @@ class quasiisothermaldf(df):
         -----
         - 2012-07-25 - Written - Bovy (IAS@MPIA)
         """
+        if is_backend_array(lz):  # leaf data-guard: numpy callers stay numpy
+            if self._rgInterpBackend is None:  # _precomputerg=False: rl everywhere
+                return potential.rl(self._pot, lz)
+            xp = get_namespace(lz)
+            # mirror the numpy-array indx: spline everywhere, rl a dead branch
+            # guarded so the in-range regime never root-finds a bad lz (AD-safe)
+            indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
+            lzsafe = xp.where(indx, self._precomputergLzmin, lz)
+            return xp.where(
+                indx,
+                potential.rl(self._pot, lzsafe),
+                self._rgInterpBackend(lz),
+            )
         if isinstance(lz, numpy.ndarray):
             indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
             indxc = True ^ indx
