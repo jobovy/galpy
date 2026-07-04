@@ -199,6 +199,16 @@ void calcd2JRStaeckel(int,double *,double *,double *,double *,double *,double *,
 void calcd2JzStaeckel(int,double *,double *,double *,double *,double *,int,
 		      double *,double *,double *,double *,double *,int,
 		      struct potentialArg *,int);
+EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int,double *,double *,
+	double *,double *,double *,double *,int,int *,double *,tfuncs_type_arr,
+	int,double *,int,int,double *,double *,double *,double *,double *,
+	double *,double *,double *,double *,double *,int *);
+void calcAnglePartialDerivU(struct dJRStaeckelArg *,gsl_integration_glfixed_table *,
+	int,double,double,double,double,double *,double *,double *,double *,
+	double *,double *);
+void calcAnglePartialDerivV(struct dJzStaeckelArg *,gsl_integration_glfixed_table *,
+	int,double,double,double,double,int,double *,double *,double *,double *,
+	double *,double *,double *);
 double JRStaeckelIntegrandSquared(double,void *);
 double JRLowStaeckelIntegrand(double,void *);
 double JRLowStaeckelIntegrandDirect(double,void *);
@@ -942,6 +952,334 @@ EXPORT void actionAngleStaeckel_actionsFreqsJac(int ndata,
   free(potu0v0);free(potupi2);free(I3U);free(I3V);free(umin);free(umax);free(vmin);
   free(djrdE);free(djrdLz);free(djrdI3);free(djzdE);free(djzdLz);free(djzdI3);
   free(djzdU0);free(detA);free(d2jr);free(d2jz);
+  *err=0;
+}
+// ---- Route-A partial-range angle-Jacobian helpers for c=True (#131 PR-B) ----
+// d(P_k)/d(coord) for the three u-side angle factor families k={sinh^2u,1,1/sinh^2u}
+// (PE,PI,PL), plus the partial-integral VALUES Pval[k]. Woven t^2 form (u=base+
+// sign*(mid*s)^2, s in GL[0,1] order): boundary + S^{-3/2} range + turning-point
+// cancellation, with the turning-pt base motion dbase[c]= sum_Pk A[Pk]*dparam[Pk],
+// A[Pk]=-SP_base[Pk]/Su_base (implicit d(tp)/dc, mirrors calcd2JR). u_c=(1-s^2)*
+// dbase+s^2*dux interpolates base & current-position motion. 3 params {E,Lz,I3Ut}
+// (u0 folded into I3Utilde -> dS/du0=0 on the u-side).
+void calcAnglePartialDerivU(struct dJRStaeckelArg * p,
+			    gsl_integration_glfixed_table * T,int order,
+			    double base,double sign,double mid,double Ld2,
+			    double * dE,double * dLz,double * dI3Ut,double * dux,
+			    double * Pval,double * dP){
+  int gi,k,c;
+  for (k=0;k<3;k++){ Pval[k]= 0.; for (c=0;c<5;c++) dP[k*5+c]= 0.; }
+  double shb= sinh(base), sinh2b= shb*shb;
+  double SPbase[3]= { sinh2b, -Ld2/sinh2b, -1. };
+  double Su_base= JRStaeckel_dSdu(base,p);
+  double dbase[5],dmid[5];
+  for (c=0;c<5;c++)
+    dbase[c]= (-SPbase[0]/Su_base)*dE[c]+(-SPbase[1]/Su_base)*dLz[c]
+      +(-SPbase[2]/Su_base)*dI3Ut[c];
+  for (c=0;c<5;c++) dmid[c]= sign*(dux[c]-dbase[c])/(2.*mid);
+  double si,wi;
+  for (gi=0;gi<order;gi++){
+    gsl_integration_glfixed_point(0.,1.,gi,&si,&wi,T);
+    double t= mid*si, u= base+sign*t*t;
+    double S= JRStaeckelIntegrandSquared4dJR(u,p);
+    if ( S <= 0. ) continue;
+    double sq= sqrt(S), S15= S*sq;
+    double Su= JRStaeckel_dSdu(u,p);
+    double shu= sinh(u), chu= cosh(u), sinh2u= shu*shu;
+    double gv[3]= { sinh2u, 1., 1./sinh2u };
+    double gu[3]= { 2.*shu*chu, 0., -2.*chu/(sinh2u*shu) };
+    double SP[3]= { sinh2u, -Ld2/sinh2u, -1. };
+    double s2= si*si, u_c[5], Sc[5];
+    for (c=0;c<5;c++){
+      u_c[c]= (1.-s2)*dbase[c]+s2*dux[c];
+      Sc[c]= SP[0]*dE[c]+SP[1]*dLz[c]+SP[2]*dI3Ut[c];
+    }
+    for (k=0;k<3;k++){
+      Pval[k]+= wi*2.*mid*mid*si*(gv[k]/sq);
+      for (c=0;c<5;c++){
+	double term1= 4.*mid*dmid[c]*si*(gv[k]/sq);
+	double term2= 2.*mid*mid*si*( (gu[k]/sq)*u_c[c]
+				      -0.5*(gv[k]/S15)*(Su*u_c[c]+Sc[c]) );
+	dP[k*5+c]+= wi*(term1+term2);
+      }
+    }
+  }
+}
+// v-side analogue; 4 params {E,Lz,I3V,u0} (S_v genuinely depends on u0). High-v
+// panel base=pi/2 is a regular point (dbase=0, no turning-point cancellation).
+// dvx here is the reflected endpoint motion (caller passes -dvx when vx>pi/2).
+void calcAnglePartialDerivV(struct dJzStaeckelArg * p,
+			    gsl_integration_glfixed_table * T,int order,
+			    double base,double sign,double mid,double Ld2,
+			    int high_panel,
+			    double * dE,double * dLz,double * dI3V,double * du0,
+			    double * dvx,double * Qval,double * dQ){
+  int gi,k,c;
+  for (k=0;k<3;k++){ Qval[k]= 0.; for (c=0;c<5;c++) dQ[k*5+c]= 0.; }
+  double dbase[5],dmid[5];
+  if ( high_panel ){
+    for (c=0;c<5;c++) dbase[c]= 0.;
+  } else {
+    double svb= sin(base), sin2b= svb*svb;
+    double SPbase[4]= { sin2b, -Ld2/sin2b, 1., JzStaeckel_dSdu0(base,p) };
+    double Sv_base= JzStaeckel_dSdv(base,p);
+    for (c=0;c<5;c++)
+      dbase[c]= (-SPbase[0]/Sv_base)*dE[c]+(-SPbase[1]/Sv_base)*dLz[c]
+	+(-SPbase[2]/Sv_base)*dI3V[c]+(-SPbase[3]/Sv_base)*du0[c];
+  }
+  for (c=0;c<5;c++) dmid[c]= sign*(dvx[c]-dbase[c])/(2.*mid);
+  double si,wi;
+  for (gi=0;gi<order;gi++){
+    gsl_integration_glfixed_point(0.,1.,gi,&si,&wi,T);
+    double t= mid*si, v= base+sign*t*t;
+    double S= JzStaeckelIntegrandSquared4dJz(v,p);
+    if ( S <= 0. ) continue;
+    double sq= sqrt(S), S15= S*sq;
+    double Sv= JzStaeckel_dSdv(v,p);
+    double sv= sin(v), cv= cos(v), sin2v= sv*sv;
+    double gv[3]= { sin2v, 1., 1./sin2v };
+    double gu[3]= { 2.*sv*cv, 0., -2.*cv/(sin2v*sv) };
+    double SP[4]= { sin2v, -Ld2/sin2v, 1., JzStaeckel_dSdu0(v,p) };
+    double s2= si*si, v_c[5], Sc[5];
+    for (c=0;c<5;c++){
+      v_c[c]= (1.-s2)*dbase[c]+s2*dvx[c];
+      Sc[c]= SP[0]*dE[c]+SP[1]*dLz[c]+SP[2]*dI3V[c]+SP[3]*du0[c];
+    }
+    for (k=0;k<3;k++){
+      Qval[k]+= wi*2.*mid*mid*si*(gv[k]/sq);
+      for (c=0;c<5;c++){
+	double term1= 4.*mid*dmid[c]*si*(gv[k]/sq);
+	double term2= 2.*mid*mid*si*( (gu[k]/sq)*v_c[c]
+				      -0.5*(gv[k]/S15)*(Sv*v_c[c]+Sc[c]) );
+	dQ[k*5+c]+= wi*(term1+term2);
+      }
+    }
+  }
+}
+// c=True C-native ANGLE Jacobian (#131 PR-B): emits jr,jz,Omega{r,phi,z} + the
+// three angles (values, angles fmod-wrapped as calcAnglesStaeckel, anglephi WITHOUT
+// phi) + ojac (N*25, byte-identical to actionsFreqsJac) + ajac (N*15 = 3x5
+// d(angler,anglephi,anglez)/d(R,vR,vT,z,vz)). The angle rows chain the outer
+// dOmega/d(dI3dJ) quotient-rule gradients through the action Hessians (as the freq
+// rows) PLUS the novel partial-range integral derivatives (calcAnglePartialDeriv).
+EXPORT void actionAngleStaeckel_actionsFreqsAnglesJac(int ndata,
+    double *R,double *vR,double *vT,double *z,double *vz,double *u0,
+    int npot,int *pot_type,double *pot_args,tfuncs_type_arr pot_tfuncs,
+    int ndelta,double *delta,int order,int useu0,
+    double *jr,double *jz,double *Or,double *Op,double *Oz,
+    double *Angler,double *Anglephi,double *Anglez,
+    double *ojac,double *ajac,int *err){
+  int ii; double tdelta;
+  struct potentialArg * aaArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,aaArgs,&pot_type,&pot_args,&pot_tfuncs);
+  double *E=malloc(ndata*sizeof(double)),*Lz=malloc(ndata*sizeof(double));
+  calcEL(ndata,R,vR,vT,z,vz,E,Lz,npot,aaArgs);
+  double *ux=malloc(ndata*sizeof(double)),*vx=malloc(ndata*sizeof(double));
+  Rz_to_uv_vec(ndata,R,z,ux,vx,ndelta,delta);
+  double *shx=malloc(ndata*sizeof(double)),*chx=malloc(ndata*sizeof(double));
+  double *svx=malloc(ndata*sizeof(double)),*cvx=malloc(ndata*sizeof(double));
+  double *pux=malloc(ndata*sizeof(double)),*pvx=malloc(ndata*sizeof(double));
+  double *sinh2u0=malloc(ndata*sizeof(double)),*cosh2u0=malloc(ndata*sizeof(double));
+  double *v0=malloc(ndata*sizeof(double)),*sin2v0=malloc(ndata*sizeof(double));
+  double *potu0v0=malloc(ndata*sizeof(double)),*potupi2=malloc(ndata*sizeof(double));
+  double *I3U=malloc(ndata*sizeof(double)),*I3V=malloc(ndata*sizeof(double));
+  int ds= ndelta==1?0:1;
+  for (ii=0;ii<ndata;ii++){
+    tdelta= *(delta+ii*ds);
+    chx[ii]=cosh(ux[ii]); shx[ii]=sinh(ux[ii]); cvx[ii]=cos(vx[ii]); svx[ii]=sin(vx[ii]);
+    pux[ii]=tdelta*(vR[ii]*chx[ii]*svx[ii]+vz[ii]*shx[ii]*cvx[ii]);
+    pvx[ii]=tdelta*(vR[ii]*shx[ii]*cvx[ii]-vz[ii]*chx[ii]*svx[ii]);
+    sinh2u0[ii]=sinh(u0[ii])*sinh(u0[ii]); cosh2u0[ii]=cosh(u0[ii])*cosh(u0[ii]);
+    v0[ii]=0.5*M_PI; sin2v0[ii]=sin(v0[ii])*sin(v0[ii]);
+    potu0v0[ii]=evaluatePotentialsUV(u0[ii],v0[ii],tdelta,npot,aaArgs);
+    I3U[ii]=E[ii]*shx[ii]*shx[ii]-0.5*pux[ii]*pux[ii]/tdelta/tdelta
+      -0.5*Lz[ii]*Lz[ii]/tdelta/tdelta/shx[ii]/shx[ii]
+      -(shx[ii]*shx[ii]+sin2v0[ii])*evaluatePotentialsUV(ux[ii],v0[ii],tdelta,npot,aaArgs)
+      +(sinh2u0[ii]+sin2v0[ii])*potu0v0[ii];
+    potupi2[ii]=evaluatePotentialsUV(u0[ii],0.5*M_PI,tdelta,npot,aaArgs);
+    I3V[ii]=-E[ii]*svx[ii]*svx[ii]+0.5*pvx[ii]*pvx[ii]/tdelta/tdelta
+      +0.5*Lz[ii]*Lz[ii]/tdelta/tdelta/svx[ii]/svx[ii]-cosh2u0[ii]*potupi2[ii]
+      +(sinh2u0[ii]+svx[ii]*svx[ii])*evaluatePotentialsUV(u0[ii],vx[ii],tdelta,npot,aaArgs);
+  }
+  double *umin=malloc(ndata*sizeof(double)),*umax=malloc(ndata*sizeof(double)),*vmin=malloc(ndata*sizeof(double));
+  calcUminUmax(ndata,umin,umax,ux,pux,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs);
+  calcVmin(ndata,vmin,vx,pvx,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs);
+  calcJRStaeckel(ndata,jr,umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs,order);
+  calcJzStaeckel(ndata,jz,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
+  double *djrdE=malloc(ndata*sizeof(double)),*djrdLz=malloc(ndata*sizeof(double)),*djrdI3=malloc(ndata*sizeof(double));
+  double *djzdE=malloc(ndata*sizeof(double)),*djzdLz=malloc(ndata*sizeof(double)),*djzdI3=malloc(ndata*sizeof(double));
+  double *djzdU0=malloc(ndata*sizeof(double)),*detA=malloc(ndata*sizeof(double));
+  calcdJRStaeckel(ndata,djrdE,djrdLz,djrdI3,umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs,order);
+  calcdJzStaeckel(ndata,djzdE,djzdLz,djzdI3,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
+  calcdJzdU0Staeckel(ndata,djzdU0,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
+  calcFreqsFromDerivsStaeckel(ndata,Or,Op,Oz,detA,djrdE,djrdLz,djrdI3,djzdE,djzdLz,djzdI3);
+  double *dI3dJR=malloc(ndata*sizeof(double)),*dI3dJz=malloc(ndata*sizeof(double)),*dI3dLz=malloc(ndata*sizeof(double));
+  calcdI3dJFromDerivsStaeckel(ndata,dI3dJR,dI3dJz,dI3dLz,detA,djrdE,djzdE,djrdLz,djzdLz);
+  double *d2jr=malloc(ndata*9*sizeof(double)),*d2jz=malloc(ndata*12*sizeof(double));
+  calcd2JRStaeckel(ndata,d2jr,umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,npot,aaArgs,order);
+  calcd2JzStaeckel(ndata,d2jz,vmin,E,Lz,I3V,ndelta,delta,u0,cosh2u0,sinh2u0,potupi2,npot,aaArgs,order);
+  // angle VALUES (reused value path -> byte-identical to actionsFreqsAngles_c)
+  calcAnglesStaeckel(ndata,Angler,Anglephi,Anglez,Or,Op,Oz,dI3dJR,dI3dJz,dI3dLz,
+		     djrdE,djrdLz,djrdI3,djzdE,djzdLz,djzdI3,ux,vx,pux,pvx,
+		     umin,umax,E,Lz,I3U,ndelta,delta,u0,sinh2u0,v0,sin2v0,potu0v0,
+		     vmin,I3V,cosh2u0,potupi2,npot,aaArgs,order);
+  gsl_integration_glfixed_table * Tang= gsl_integration_glfixed_table_alloc(order);
+  for (ii=0;ii<ndata;ii++){
+    int kk;
+    tdelta= *(delta+ii*ds);
+    double sh=shx[ii],ch=chx[ii],sv=svx[ii],cv=cvx[ii];
+    double tu0=u0[ii],sh0=sinh(tu0),ch0=cosh(tu0);
+    double tE=E[ii],tLz=Lz[ii],tpux=pux[ii],tpvx=pvx[ii],tvR=vR[ii],tvT=vT[ii],tvz=vz[ii];
+    double D=sh*sh+sv*sv;
+    double dux_dR=ch*sv/(tdelta*D),dux_dz=sh*cv/(tdelta*D);
+    double dvx_dR=sh*cv/(tdelta*D),dvx_dz=-ch*sv/(tdelta*D);
+    double dux[5]={dux_dR,0.,0.,dux_dz,0.},dvx[5]={dvx_dR,0.,0.,dvx_dz,0.};
+    double dE[5]={-calcRforce(R[ii],z[ii],0.,0.,npot,aaArgs),tvR,tvT,
+                  -calczforce(R[ii],z[ii],0.,0.,npot,aaArgs),tvz};
+    double dLz[5]={tvT,0.,R[ii],0.,0.};
+    double du0[5],du0dE=0.,du0dLz=0.;
+    if ( useu0==2 ){
+      double L2=0.5*tLz*tLz/(tdelta*tdelta),hh=1.e-5;
+      double fpp=( staeckelU0Stationarity(tu0+hh,tE,L2,tdelta,npot,aaArgs)
+                  -staeckelU0Stationarity(tu0-hh,tE,L2,tdelta,npot,aaArgs) )/(2.*hh);
+      du0dE=-2.*sh0*ch0/fpp; du0dLz=-2.*ch0*tLz/(tdelta*tdelta*sh0*sh0*sh0)/fpp;
+    }
+    for (kk=0;kk<5;kk++) du0[kk]= useu0==0?dux[kk]:(useu0==1?0.:du0dE*dE[kk]+du0dLz*dLz[kk]);
+    double dpux_dux=tdelta*(tvR*sh*sv+tvz*ch*cv),dpux_dvx=tdelta*(tvR*ch*cv-tvz*sh*sv);
+    double dpvx_dux=tdelta*(tvR*ch*cv-tvz*sh*sv),dpvx_dvx=tdelta*(-tvR*sh*sv-tvz*ch*cv);
+    double dpux[5],dpvx[5];
+    for (kk=0;kk<5;kk++){ dpux[kk]=dpux_dux*dux[kk]+dpux_dvx*dvx[kk]; dpvx[kk]=dpvx_dux*dux[kk]+dpvx_dvx*dvx[kk]; }
+    dpux[1]+=tdelta*ch*sv; dpux[4]+=tdelta*sh*cv; dpvx[1]+=tdelta*sh*cv; dpvx[4]+=-tdelta*ch*sv;
+    double Pux=evaluatePotentialsUV(ux[ii],0.5*M_PI,tdelta,npot,aaArgs);
+    double FRux=calcRforce(tdelta*sh,0.,0.,0.,npot,aaArgs),dPux_dux=-FRux*tdelta*ch;
+    double dI3Ut_dE=sh*sh,dI3Ut_dLz=-tLz/(tdelta*tdelta*sh*sh),dI3Ut_dpux=-tpux/(tdelta*tdelta);
+    double dI3Ut_dux=2.*sh*ch*tE+tLz*tLz*ch/(tdelta*tdelta*sh*sh*sh)-2.*sh*ch*Pux-(sh*sh+1.)*dPux_dux;
+    double P0v=evaluatePotentialsUV(tu0,vx[ii],tdelta,npot,aaArgs);
+    double FRu0=calcRforce(tdelta*sh0,0.,0.,0.,npot,aaArgs);
+    double Rp=tdelta*sh0*sv,zp=tdelta*ch0*cv;
+    double FRp=calcRforce(Rp,zp,0.,0.,npot,aaArgs),Fzp=calczforce(Rp,zp,0.,0.,npot,aaArgs);
+    double dPu0_du0=-FRu0*tdelta*ch0;
+    double dP0v_dvx=-FRp*tdelta*sh0*cv+Fzp*tdelta*ch0*sv,dP0v_du0=-FRp*tdelta*ch0*sv-Fzp*tdelta*sh0*cv;
+    double dI3V_dE=-sv*sv,dI3V_dLz=tLz/(tdelta*tdelta*sv*sv),dI3V_dpvx=tpvx/(tdelta*tdelta);
+    double dI3V_dvx=-2.*tE*sv*cv-tLz*tLz*cv/(tdelta*tdelta*sv*sv*sv)+2.*sv*cv*P0v+(sh0*sh0+sv*sv)*dP0v_dvx;
+    double dI3V_du0=-2.*ch0*sh0*potupi2[ii]-ch0*ch0*dPu0_du0+2.*sh0*ch0*P0v+(sh0*sh0+sv*sv)*dP0v_du0;
+    double dI3Ut[5],dI3V_[5];
+    for (kk=0;kk<5;kk++){
+      dI3Ut[kk]=dI3Ut_dE*dE[kk]+dI3Ut_dLz*dLz[kk]+dI3Ut_dpux*dpux[kk]+dI3Ut_dux*dux[kk];
+      dI3V_[kk]=dI3V_dE*dE[kk]+dI3V_dLz*dLz[kk]+dI3V_dpvx*dpvx[kk]+dI3V_dvx*dvx[kk]+dI3V_du0*du0[kk];
+    }
+    // ojac action rows (0,1) -- byte-identical to actionsFreqsJac
+    for (kk=0;kk<5;kk++){
+      ojac[ii*25+kk]= djrdE[ii]*dE[kk]+djrdLz[ii]*dLz[kk]+djrdI3[ii]*dI3Ut[kk];
+      ojac[ii*25+5+kk]= djzdE[ii]*dE[kk]+djzdLz[ii]*dLz[kk]+djzdI3[ii]*dI3V_[kk]+djzdU0[ii]*du0[kk];
+    }
+    double a=djrdE[ii],b=djrdLz[ii],cJR=djrdI3[ii],dJZ=djzdE[ii],eJZ=djzdLz[ii],fJZ=djzdI3[ii];
+    if ( a==9999.99 || dJZ==9999.99 || detA[ii]==0. ){
+      for (kk=0;kk<15;kk++) ojac[ii*25+10+kk]=0.;
+      for (kk=0;kk<15;kk++) ajac[ii*15+kk]=0.;
+      continue; // zero freq + angle rows
+    }
+    double id=1./detA[ii],id2=id*id,N=cJR*eJZ-fJZ*b,Mm=a*eJZ-dJZ*b;
+    double gOr[6]={-fJZ*fJZ*id2,0.,fJZ*dJZ*id2,fJZ*cJR*id2,0.,id-fJZ*a*id2};
+    double gOp[6]={-N*fJZ*id2,-fJZ*id,eJZ*id+N*dJZ*id2,N*cJR*id2,cJR*id,-b*id-N*a*id2};
+    double gOz[6]={cJR*fJZ*id2,0.,-id-cJR*dJZ*id2,-cJR*cJR*id2,0.,cJR*a*id2};
+    // quotient-rule gradients of dI3dJR=-dJZ/detA, dI3dJz=a/detA,
+    // dI3dLz=-(a*eJZ-dJZ*b)/detA in {a,b,cJR,dJZ,eJZ,fJZ} (Mm=a*eJZ-dJZ*b)
+    double gI3R[6]={fJZ*dJZ*id2,0.,-dJZ*dJZ*id2,-id-dJZ*cJR*id2,0.,dJZ*a*id2};
+    double gI3z[6]={id-a*fJZ*id2,0.,a*dJZ*id2,a*cJR*id2,0.,-a*a*id2};
+    double gI3Lz[6]={-eJZ*id+Mm*fJZ*id2,dJZ*id,-Mm*dJZ*id2,b*id-Mm*cJR*id2,-a*id,Mm*a*id2};
+    double *gall[6]={gOr,gOp,gOz,gI3R,gI3z,gI3Lz};
+    double *D2R=d2jr+ii*9,*D2Z=d2jz+ii*12;
+    double drow[6][5];
+    for (int oi=0;oi<6;oi++){
+      double *g=gall[oi];
+      double dOdE=g[0]*D2R[0]+g[1]*D2R[3]+g[2]*D2R[6]+g[3]*D2Z[0]+g[4]*D2Z[4]+g[5]*D2Z[8];
+      double dOdLz=g[0]*D2R[1]+g[1]*D2R[4]+g[2]*D2R[7]+g[3]*D2Z[1]+g[4]*D2Z[5]+g[5]*D2Z[9];
+      double dOdI3U=g[0]*D2R[2]+g[1]*D2R[5]+g[2]*D2R[8];
+      double dOdI3V=g[3]*D2Z[2]+g[4]*D2Z[6]+g[5]*D2Z[10];
+      double dOdu0=g[3]*D2Z[3]+g[4]*D2Z[7]+g[5]*D2Z[11];
+      for (kk=0;kk<5;kk++)
+	drow[oi][kk]=dOdE*dE[kk]+dOdLz*dLz[kk]+dOdI3U*dI3Ut[kk]+dOdI3V*dI3V_[kk]+dOdu0*du0[kk];
+    }
+    // ojac freq rows (2,3,4) -- byte-identical to actionsFreqsJac
+    for (int oi=0;oi<3;oi++)
+      for (kk=0;kk<5;kk++) ojac[ii*25+(oi+2)*5+kk]=drow[oi][kk];
+    // ----- angle Jacobian rows (ajac) -----
+    double tumin=umin[ii],tumax=umax[ii],tux=ux[ii];
+    double midpt_u= tumin+0.5*(tumax-tumin);
+    int high_u= tux>midpt_u;
+    double base_u= high_u? tumax:tumin, sign_u= high_u? -1.:1.;
+    double mid_u= sqrt( high_u? (tumax-tux) : (tux-tumin) );
+    double Ku= high_u? M_PI : ( tpux>0.? 0. : 2.*M_PI );
+    double su= high_u? (tpux>0.? -1.:1.) : (tpux>0.? 1.:-1.);
+    double tvmin=vmin[ii],tvx=vx[ii];
+    double midpt_v= tvmin+0.5*(0.5*M_PI-tvmin);
+    int low_v= (tvx<midpt_v) || (tvx>(M_PI-midpt_v));
+    int above= tvx>0.5*M_PI;
+    double base_v= low_v? tvmin:0.5*M_PI, sign_v= low_v? 1.:-1.;
+    double mid_v= low_v? ( above? sqrt(fabs(M_PI-tvx-tvmin)) : sqrt(fabs(tvx-tvmin)) )
+                       : sqrt(fabs(0.5*M_PI-tvx));
+    double Kv,sv2;
+    if ( low_v ){
+      if ( tpvx>0. ){ Kv= above? M_PI:0.; sv2= above? -1.:1.; }
+      else { Kv= above? M_PI:2.*M_PI; sv2= above? 1.:-1.; }
+    } else {
+      if ( tpvx>0. ){ Kv= 0.5*M_PI; sv2= above? 1.:-1.; }
+      else { Kv= 1.5*M_PI; sv2= above? -1.:1.; }
+    }
+    // near-turning-point guard (z=0 -> mid_v=0; position at a panel base) -> zero
+    if ( mid_u<1.e-7 || mid_v<1.e-7 ){
+      for (kk=0;kk<15;kk++) ajac[ii*15+kk]=0.;
+      continue;
+    }
+    double Ld2= tLz/(tdelta*tdelta);
+    double dvx_eff[5];
+    for (kk=0;kk<5;kk++) dvx_eff[kk]= above? -dvx[kk]:dvx[kk];
+    struct dJRStaeckelArg pu;
+    pu.E=tE; pu.Lz22delta=0.5*tLz*tLz/(tdelta*tdelta); pu.I3U=I3U[ii]; pu.delta=tdelta;
+    pu.u0=tu0; pu.sinh2u0=sinh2u0[ii]; pu.v0=v0[ii]; pu.sin2v0=sin2v0[ii];
+    pu.potu0v0=potu0v0[ii]; pu.umin=tumin; pu.umax=tumax; pu.nargs=npot; pu.actionAngleArgs=aaArgs;
+    struct dJzStaeckelArg pv;
+    pv.E=tE; pv.Lz22delta=0.5*tLz*tLz/(tdelta*tdelta); pv.I3V=I3V[ii]; pv.delta=tdelta;
+    pv.u0=tu0; pv.cosh2u0=cosh2u0[ii]; pv.sinh2u0=sinh2u0[ii]; pv.potupi2=potupi2[ii];
+    pv.vmin=tvmin; pv.nargs=npot; pv.actionAngleArgs=aaArgs;
+    double Pval[3],Qval[3],dPu[15],dQv[15];
+    calcAnglePartialDerivU(&pu,Tang,order,base_u,sign_u,mid_u,Ld2,dE,dLz,dI3Ut,dux,Pval,dPu);
+    calcAnglePartialDerivV(&pv,Tang,order,base_v,sign_v,mid_v,Ld2,!low_v,dE,dLz,dI3V_,du0,dvx_eff,Qval,dQv);
+    double pr=tdelta/sqrt(2.), aL=tLz/tdelta/sqrt(2.), aLc=1./tdelta/sqrt(2.);
+    double Or1=Ku*djrdE[ii]+su*pr*Pval[0], I3r1=Ku*djrdI3[ii]-su*pr*Pval[1], PLv=Pval[2];
+    double Or2=Kv*djzdE[ii]+sv2*pr*Qval[0], I3r2=Kv*djzdI3[ii]+sv2*pr*Qval[1], QLv=Qval[2];
+    double Or_sum=Or1+Or2, I3_sum=I3r1+I3r2;
+    // full-range action-Hessian chains d(djXdY)/dc
+    double dOr_sum[5],dI3_sum[5],daphi_u[5],dphitmp[5];
+    for (kk=0;kk<5;kk++){
+      double ddjrdE= D2R[0]*dE[kk]+D2R[1]*dLz[kk]+D2R[2]*dI3Ut[kk];
+      double ddjrdLz= D2R[3]*dE[kk]+D2R[4]*dLz[kk]+D2R[5]*dI3Ut[kk];
+      double ddjrdI3= D2R[6]*dE[kk]+D2R[7]*dLz[kk]+D2R[8]*dI3Ut[kk];
+      double ddjzdE= D2Z[0]*dE[kk]+D2Z[1]*dLz[kk]+D2Z[2]*dI3V_[kk]+D2Z[3]*du0[kk];
+      double ddjzdLz= D2Z[4]*dE[kk]+D2Z[5]*dLz[kk]+D2Z[6]*dI3V_[kk]+D2Z[7]*du0[kk];
+      double ddjzdI3= D2Z[8]*dE[kk]+D2Z[9]*dLz[kk]+D2Z[10]*dI3V_[kk]+D2Z[11]*du0[kk];
+      dOr_sum[kk]= Ku*ddjrdE+Kv*ddjzdE+su*pr*dPu[0*5+kk]+sv2*pr*dQv[0*5+kk];
+      dI3_sum[kk]= Ku*ddjrdI3+Kv*ddjzdI3-su*pr*dPu[1*5+kk]+sv2*pr*dQv[1*5+kk];
+      daphi_u[kk]= Ku*ddjrdLz-aL*su*dPu[2*5+kk]-aLc*dLz[kk]*su*PLv;
+      dphitmp[kk]= Kv*ddjzdLz-aL*sv2*dQv[2*5+kk]-aLc*dLz[kk]*sv2*QLv;
+    }
+    double Omr=Or[ii],Omp=Op[ii],Omz=Oz[ii];
+    double dI3JR=dI3dJR[ii],dI3Jz=dI3dJz[ii],dI3Lz2=dI3dLz[ii];
+    for (kk=0;kk<5;kk++){
+      ajac[ii*15+0*5+kk]= drow[0][kk]*Or_sum+Omr*dOr_sum[kk]+drow[3][kk]*I3_sum+dI3JR*dI3_sum[kk];
+      ajac[ii*15+1*5+kk]= daphi_u[kk]+dphitmp[kk]+drow[1][kk]*Or_sum+Omp*dOr_sum[kk]
+	+drow[5][kk]*I3_sum+dI3Lz2*dI3_sum[kk];
+      ajac[ii*15+2*5+kk]= drow[2][kk]*Or_sum+Omz*dOr_sum[kk]+drow[4][kk]*I3_sum+dI3Jz*dI3_sum[kk];
+    }
+  }
+  gsl_integration_glfixed_table_free(Tang);
+  free_potentialArgs(npot,aaArgs); free(aaArgs);
+  free(E);free(Lz);free(ux);free(vx);free(shx);free(chx);free(svx);free(cvx);
+  free(pux);free(pvx);free(sinh2u0);free(cosh2u0);free(v0);free(sin2v0);
+  free(potu0v0);free(potupi2);free(I3U);free(I3V);free(umin);free(umax);free(vmin);
+  free(djrdE);free(djrdLz);free(djrdI3);free(djzdE);free(djzdLz);free(djzdI3);
+  free(djzdU0);free(detA);free(dI3dJR);free(dI3dJz);free(dI3dLz);free(d2jr);free(d2jz);
   *err=0;
 }
 void calcJRStaeckel(int ndata,
