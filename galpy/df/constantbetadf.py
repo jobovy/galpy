@@ -4,11 +4,19 @@
 import numpy
 from scipy import integrate, interpolate, special
 
+from ..backend import resolve_namespace
+from ..backend.quadrature import fixed_quad
 from ..potential import interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion, quadpack
 from ..util._optional_deps import _JAX_LOADED
-from .sphericaldf import _handle_rmin, anisotropicsphericaldf, sphericaldf
+from .sphericaldf import (
+    _QUAD_N_DMDE,
+    _QUAD_N_VMOM,
+    _handle_rmin,
+    anisotropicsphericaldf,
+    sphericaldf,
+)
 
 if _JAX_LOADED:
     from jax import grad, vmap
@@ -74,31 +82,64 @@ class _constantbetadf(anisotropicsphericaldf):
     def _dMdE(self, E):
         if not hasattr(self, "_rphi"):
             self._rphi = self._setup_rphi_interpolator()
-        fE = self.fE(E)
-        out = numpy.zeros_like(E)
-        out[fE > 0.0] = (
+        xp = resolve_namespace(E)
+        if xp is numpy:
+            fE = self.fE(E)
+            out = numpy.zeros_like(E)
+            out[fE > 0.0] = (
+                (2.0 * numpy.pi) ** 2.5
+                * special.gamma(1.0 - self._beta)
+                / 2.0 ** (self._beta - 1.0)
+                / special.gamma(1.5 - self._beta)
+                * fE[fE > 0.0]
+                * numpy.array(
+                    [
+                        integrate.quad(
+                            lambda r: (
+                                r ** (2.0 - 2.0 * self._beta)
+                                * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                                ** (0.5 - self._beta)
+                            ),
+                            0.0,
+                            self._rphi(tE),
+                        )[0]
+                        for ii, tE in enumerate(E)
+                        if fE[ii] > 0.0
+                    ]
+                )
+            )
+            return out
+        # jax/torch: GL after r = rphi(E) - s^2, which cancels the (E-Phi)^{...}
+        # turning point at r = rphi(E) so fixed-order GL converges fast
+        fE = xp.atleast_1d(self.fE(E))
+        pos = fE > 0.0
+        rphiE = xp.asarray(self._rphi(E)) * 1.0
+        # dead-branch guard: out-of-bounds E gets a safe dummy radius, zeroed below
+        rphiE = xp.where(pos, rphiE, xp.ones_like(rphiE))
+        Eb = (xp.asarray(E) * 1.0)[..., None]
+
+        def _integrand(s):
+            r = rphiE[..., None] - s**2.0
+            diff = Eb - _evaluatePotentials(self._pot, r, 0.0)
+            # guard: numerical noise can push E - Phi below 0 at the turning point
+            diffsafe = xp.where(diff > 0.0, diff, xp.ones_like(diff))
+            return (
+                r ** (2.0 - 2.0 * self._beta)
+                * xp.where(
+                    diff > 0.0, diffsafe ** (0.5 - self._beta), xp.zeros_like(diff)
+                )
+                * 2.0
+                * s
+            )
+
+        integral = fixed_quad(xp, _integrand, 0.0, xp.sqrt(rphiE), n=_QUAD_N_DMDE)
+        prefac = (
             (2.0 * numpy.pi) ** 2.5
             * special.gamma(1.0 - self._beta)
             / 2.0 ** (self._beta - 1.0)
             / special.gamma(1.5 - self._beta)
-            * fE[fE > 0.0]
-            * numpy.array(
-                [
-                    integrate.quad(
-                        lambda r: (
-                            r ** (2.0 - 2.0 * self._beta)
-                            * (tE - _evaluatePotentials(self._pot, r, 0.0))
-                            ** (0.5 - self._beta)
-                        ),
-                        0.0,
-                        self._rphi(tE),
-                    )[0]
-                    for ii, tE in enumerate(E)
-                    if fE[ii] > 0.0
-                ]
-            )
         )
-        return out
+        return xp.where(pos, prefac * fE * integral, xp.zeros_like(fE))
 
     def _sample_eta(self, r, n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
@@ -120,6 +161,12 @@ class _constantbetadf(anisotropicsphericaldf):
         return numpy.arccos(self._coseta_icmf_interp(numpy.random.uniform(size=n)))
 
     def _p_v_at_r(self, v, r):
+        xp = resolve_namespace(v, r)
+        if xp is not numpy:
+            # coerce: a forced backend sees the numpy sampling grids here and
+            # torch potentials reject numpy coords
+            v = xp.asarray(v) * 1.0
+            r = xp.asarray(r) * 1.0
         if hasattr(self, "_fE_interp"):
             return self._fE_interp(
                 _evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0
@@ -132,18 +179,42 @@ class _constantbetadf(anisotropicsphericaldf):
     def _vmomentdensity(self, r, n, m):
         if m % 2 == 1 or n % 2 == 1:
             return 0.0
+        xp = resolve_namespace(r)
+        if xp is numpy:
+            return (
+                2.0
+                * numpy.pi
+                * r ** (-2.0 * self._beta)
+                * integrate.quad(
+                    lambda v: (
+                        v ** (2.0 - 2.0 * self._beta + m + n)
+                        * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
+                    ),
+                    0.0,
+                    self._vmax_at_r(self._pot, r),
+                )[0]
+                * special.gamma(m / 2.0 - self._beta + 1.0)
+                * special.gamma((n + 1) / 2.0)
+                / special.gamma(0.5 * (m + n - 2.0 * self._beta + 3.0))
+            )
+        # jax/torch: fixed-order GL over v, differentiable in r through Phi(r)
+        # and the vmax(r) integration limit; the node axis trails
+        rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
+        Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0)) * 1.0)[..., None]
         return (
             2.0
             * numpy.pi
-            * r ** (-2.0 * self._beta)
-            * integrate.quad(
+            * rb ** (-2.0 * self._beta)
+            * fixed_quad(
+                xp,
                 lambda v: (
                     v ** (2.0 - 2.0 * self._beta + m + n)
-                    * self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
+                    * self.fE(Phir_b + 0.5 * v**2.0)
                 ),
                 0.0,
-                self._vmax_at_r(self._pot, r),
-            )[0]
+                self._vmax_at_r(self._pot, rb),
+                n=_QUAD_N_VMOM,
+            )
             * special.gamma(m / 2.0 - self._beta + 1.0)
             * special.gamma((n + 1) / 2.0)
             / special.gamma(0.5 * (m + n - 2.0 * self._beta + 3.0))
