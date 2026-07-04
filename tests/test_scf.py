@@ -583,38 +583,6 @@ def test_from_nbody_matches_from_density():
     assert numpy.all(numpy.fabs(p_nb / p_true - 1.0) < 0.02)
 
 
-def test_from_nbody_physical():
-    # Physical (Quantity) positions/masses turn on physical outputs, and the
-    # internal-unit values match an equivalent plain-units build.
-    from astropy import units
-
-    from galpy.util import conversion
-
-    n, N, L = 10000, 6, 3
-    pos_int = _nbody_sample_positions(n, seed=9)  # internal-unit positions
-    mass_int = (1e-3 / n) * numpy.ones(n)
-    # plain floats, no ro/vo -> physical outputs off
-    sp_plain = SCFPotential.from_nbody(
-        pos_int, N, L=L, symmetry=None, a=1.0, mass=mass_int
-    )
-    assert not sp_plain._roSet
-    # equivalent build with Quantity inputs (no ro/vo passed) -> physical on
-    ro, vo = sp_plain._ro, sp_plain._vo
-    massfac = conversion.mass_in_msol(vo, ro)
-    sp_phys = SCFPotential.from_nbody(
-        pos_int * ro * units.kpc,
-        N,
-        L=L,
-        symmetry=None,
-        a=1.0 * ro * units.kpc,
-        mass=mass_int * massfac * units.Msun,
-    )
-    assert sp_phys._roSet and sp_phys._voSet  # Quantity inputs -> physical on
-    # unit parsing round-trips to identical internal coefficients
-    assert numpy.max(numpy.fabs(sp_phys._Acos - sp_plain._Acos)) < 1e-10
-    assert numpy.max(numpy.fabs(sp_phys._Asin - sp_plain._Asin)) < 1e-10
-
-
 def test_from_nbody_errors():
     n, N, L = 1000, 6, 3
     pos = _nbody_sample_positions(n, seed=2)

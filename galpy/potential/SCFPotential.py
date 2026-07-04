@@ -352,8 +352,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             Expansion scale length.
         symmetry : {'spherical','axisymmetry',None}, optional
             Symmetry of the profile to assume. None is the general, non-axisymmetric case.
-        tgrid : numpy.ndarray or None, optional
-            Time grid for time-dependent potentials. If provided, the expansion coefficients are computed at each time in ``tgrid`` (passing ``t`` to the density function when it accepts one) and interpolated in time, producing a time-dependent SCFPotential. Default: ``None`` (static potential; any ``t`` argument of the density is ignored).
+        tgrid : numpy.ndarray, Quantity, or None, optional
+            Time grid for time-dependent potentials (a Quantity in physical time units, e.g. Gyr, is accepted). If provided, the expansion coefficients are computed at each time in ``tgrid`` (passing ``t`` to the density function when it accepts one) and interpolated in time, producing a time-dependent SCFPotential. Default: ``None`` (static potential; any ``t`` argument of the density is ignored).
         radial_order : int, optional
             Number of sample points for the radial integral. If None, radial_order=max(20, N + 3/2L + 1).
         costheta_order : int, optional
@@ -381,6 +381,7 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         internal_vo = dumm._vo
         a = conversion.parse_length(a, ro=internal_ro)
         if tgrid is not None:
+            tgrid = conversion.parse_time(tgrid, ro=internal_ro, vo=internal_vo)
             return cls._from_density_timedep(
                 dens,
                 N,
@@ -468,10 +469,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             Expansion scale length.
         symmetry : {'spherical','axisymmetry',None}, optional
             Symmetry to assume. None is the general, non-axisymmetric case.
-        tgrid : numpy.ndarray or None, optional
-            Time grid for a time-dependent potential. If provided, ``pos`` must
-            have shape ``[3,n,len(tgrid)]`` and the coefficients are computed at
-            each snapshot and interpolated in time. Default: ``None`` (static).
+        tgrid : numpy.ndarray, Quantity, or None, optional
+            Time grid for a time-dependent potential (a Quantity in physical time
+            units, e.g. Gyr, is accepted). If provided, ``pos`` must have shape
+            ``[3,n,len(tgrid)]`` and the coefficients are computed at each snapshot
+            and interpolated in time. Default: ``None`` (static).
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -510,7 +512,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             mass = _nbody_parse_mass(mass, pos.shape[1])
             Acos, Asin = _batched_nbody(pos, N, L, mass, a, symmetry)
             return cls(Acos=Acos, Asin=Asin, a=a, ro=out_ro, vo=out_vo)
-        tgrid = numpy.asarray(tgrid)
+        tgrid = numpy.asarray(
+            conversion.parse_time(tgrid, ro=internal_ro, vo=internal_vo)
+        )
         Nt = len(tgrid)
         if pos.ndim != 3 or pos.shape[2] != Nt:
             raise ValueError(
