@@ -705,17 +705,45 @@ def _staeckel_c_grad_actionsfreqs(pot, delta, R, vR, vT, z, vz, u0, order, useu0
     )
 
 
-def _staeckel_c_forward_values(host, coords, nout):
-    """Forward numpy-in/numpy-out C `host` VALUES (frequencies/angles) under a
-    jax/torch trace, ungrafted (stop-gradient in). Phase-2: values only."""
-    name = getattr(get_namespace(*coords), "__name__", "")
+def _staeckel_c_grad_actionsfreqsangles(
+    pot, delta, R, vR, vT, z, vz, phi, u0, order, useu0=False
+):
+    """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez) via the
+    fused C-native Staeckel Jacobian (actionsFreqsAnglesJac_c): the jr,jz+Omega rows
+    are #1051/#131-PR-A; the angle rows compose the action Hessians through the SAME
+    dP/dcoord chain PLUS the current-position boundary term (#131 PR-B). phi enters
+    analytically (d anglephi/dphi==1) via the backend tie. numpy never reaches here.
+    First-order only; near-turning-point angle-Jacobian rows are zeroed in C (the AA
+    turning-point-edge convention)."""
+    delta_np = numpy.atleast_1d(
+        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+    )
+    u0_np = (
+        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+    )
+
+    def host_jac(Rn, vRn, vTn, zn, vzn):
+        (jr, jz, Or, Op, Oz, angler, anglephi, anglez, ojac, ajac, err) = (
+            actionAngleStaeckel_c.actionAngleStaeckel_actionsFreqsAnglesJac_c(
+                pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, order=order, useu0=useu0
+            )
+        )
+        Or, Op, Oz = _staeckel_c_freq_circ_fix(pot, Rn, jr, jz, Or, Op, Oz)
+        jac = numpy.concatenate((ojac, ajac), axis=1)  # (N,8,5): ojac(5,5) + ajac(3,5)
+        return jr, jz, Or, Op, Oz, angler, anglephi, anglez, jac
+
+    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
     if "jax" in name:
-        from ..backend._jax.staeckel_c import c_value
+        from ..backend._jax.staeckel_c import actionsfreqsangles_with_jac
 
-        return c_value(host, coords, nout)
-    from ..backend._torch.staeckel_c import c_value
+        return actionsfreqsangles_with_jac(host_jac, (R, vR, vT, z, vz), phi)
+    if "torch" in name:
+        from ..backend._torch.staeckel_c import actionsfreqsangles_with_jac
 
-    return c_value(host, coords, nout)
+        return actionsfreqsangles_with_jac(host_jac, R, vR, vT, z, vz, phi)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Staeckel angle gradients require a jax or torch input array."
+    )
 
 
 def _staeckel_c_backend_refu0(pot, delta, R, vR, vT, z, vz, useu0, u0_kwarg):
@@ -1186,9 +1214,9 @@ class actionAngleStaeckel(actionAngle):
                 phi = numpy.array([phi])
             Lz = R * vT
             if any(is_backend_array(c) for c in (R, vR, vT, z, vz)):
-                # jax/torch: differentiable actions via the C-native Jacobian; the
-                # frequency/angle VALUES pass through ungrafted (phi is forwarded
-                # through the callback, not differentiated). Phase-2.
+                # jax/torch: differentiable actions, frequencies AND angles via the
+                # fused C-native Jacobian (#131 PR-B); phi enters analytically
+                # (d anglephi/dphi==1). Values byte-identical to the c=True numpy path.
                 xp = get_namespace(R, vR, vT, z, vz)
                 R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
                 Lz = R * vT
@@ -1203,35 +1231,20 @@ class actionAngleStaeckel(actionAngle):
                     self._useu0,
                     kwargs.pop("u0", None),
                 )
-                jr, jz = _staeckel_c_grad_actions(
-                    self._pot, delta, R, vR, vT, z, vz, u0, order, useu0=refu0_calc
-                )
-                delta_np = numpy.atleast_1d(
-                    numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
-                )
-
-                def _host_fa(Rn, vRn, vTn, zn, vzn, phin):
-                    (jrn, jzn, Or, Op, Oz, ar, ap, az, _) = (
-                        actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(
-                            self._pot,
-                            delta_np,
-                            Rn,
-                            vRn,
-                            vTn,
-                            zn,
-                            vzn,
-                            phin,
-                            u0=u0,
-                            order=order,
-                        )
+                jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez = (
+                    _staeckel_c_grad_actionsfreqsangles(
+                        self._pot,
+                        delta,
+                        R,
+                        vR,
+                        vT,
+                        z,
+                        vz,
+                        phi,
+                        u0,
+                        order,
+                        useu0=refu0_calc,
                     )
-                    Or, Op, Oz = _staeckel_c_freq_circ_fix(
-                        self._pot, Rn, jrn, jzn, Or, Op, Oz
-                    )
-                    return Or, Op, Oz, ar, ap, az
-
-                (Omegar, Omegaphi, Omegaz, angler, anglephi, anglez) = (
-                    _staeckel_c_forward_values(_host_fa, (R, vR, vT, z, vz, phi), 6)
                 )
                 return (jr, Lz, jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
             if self._useu0:
