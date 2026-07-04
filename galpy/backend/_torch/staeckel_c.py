@@ -57,3 +57,30 @@ def actions_with_jac(host_jac, R, vR, vT, z, vz):
         (jr, jz, jac) with jr,jz (N,) and jac (N,2,5).
     """
     return _ActionsJacFunction.apply(host_jac, R, vR, vT, z, vz)
+
+
+class _ActionsFreqsJacFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, host_jac, R, vR, vT, z, vz):
+        cs = [t.detach().to("cpu", torch.float64).numpy() for t in (R, vR, vT, z, vz)]
+        jr, jz, Or, Op, Oz, jac = host_jac(*cs)
+        dev, dt = R.device, R.dtype
+        ctx.save_for_backward(torch.as_tensor(jac, dtype=dt, device=dev))  # (N,5,5)
+        return tuple(
+            torch.as_tensor(numpy.asarray(x, dtype=numpy.float64), dtype=dt, device=dev)
+            for x in (jr, jz, Or, Op, Oz)
+        )
+
+    @staticmethod
+    def backward(ctx, g_jr, g_jz, g_Or, g_Op, g_Oz):
+        (jac,) = ctx.saved_tensors  # (N,5,5)
+        gs = (g_jr, g_jz, g_Or, g_Op, g_Oz)
+        g = sum(gs[o][:, None] * jac[:, o, :] for o in range(5))  # (N,5)
+        return (None,) + tuple(g[:, k] for k in range(5))
+
+
+def actionsfreqs_with_jac(host_jac, R, vR, vT, z, vz):
+    """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz) with the native-C fused (5,5)
+    Jacobian as the backward matvec (#131). host_jac returns (jr,jz,Or,Op,Oz,jac)
+    with the values (N,) and jac (N,5,5)."""
+    return _ActionsFreqsJacFunction.apply(host_jac, R, vR, vT, z, vz)
