@@ -2,6 +2,9 @@
 import numpy
 from scipy import integrate, interpolate, special
 
+from ..backend import get_namespace, is_backend_array, resolve_namespace
+from ..backend import special as _bspecial
+from ..backend.interpolate import Spline1D
 from ..util import conversion
 from .df import df
 from .sphericaldf import isotropicsphericaldf
@@ -93,15 +96,30 @@ class kingdf(isotropicsphericaldf):
         return self._scalefree_kdf.dens(r / self._radius_scale) * self._density_scale
 
     def fE(self, E):
-        out = numpy.zeros(numpy.atleast_1d(E).shape)
-        varE = self._potInf - E
-        if numpy.sum(varE > 0.0) > 0:
-            out[varE > 0.0] = (
-                (numpy.exp(varE[varE > 0.0] / self._sigma2) - 1.0)
-                * (2.0 * numpy.pi * self._sigma2) ** -1.5
-                * self.rho1
-            )
-        return out.reshape(E.shape)  # mass density, not /self.M as for number density
+        xp = resolve_namespace(E)
+        if xp is numpy:
+            out = numpy.zeros(numpy.atleast_1d(E).shape)
+            varE = self._potInf - E
+            if numpy.sum(varE > 0.0) > 0:
+                out[varE > 0.0] = (
+                    (numpy.exp(varE[varE > 0.0] / self._sigma2) - 1.0)
+                    * (2.0 * numpy.pi * self._sigma2) ** -1.5
+                    * self.rho1
+                )
+            return out.reshape(
+                E.shape
+            )  # mass density, not /self.M as for number density
+        # jax/torch: dead-mask varE<=0 -> 0 (dummy keeps the dead branch finite)
+        Eb = xp.asarray(E) * 1.0
+        varE = self._potInf - Eb
+        live = varE > 0.0
+        varE_safe = xp.where(live, varE, xp.ones_like(varE))
+        fE = (
+            (xp.exp(varE_safe / self._sigma2) - 1.0)
+            * (2.0 * numpy.pi * self._sigma2) ** -1.5
+            * self.rho1
+        )
+        return xp.where(live, fE, xp.zeros_like(fE)).reshape(Eb.shape)
 
 
 class _scalefreekingdf:
@@ -168,8 +186,9 @@ class _scalefreekingdf:
         self._rho = self._dens_W(self._W)
         self.rt = r[-1]
         self.c = numpy.log10(self.rt / self.r0)
-        # Interpolate solution
-        self._W_from_r = interpolate.InterpolatedUnivariateSpline(self._r, self._W, k=3)
+        # Interpolate solution (backend-agnostic: numpy queries hit the scipy
+        # spline byte-identically, backend queries evaluate the frozen table)
+        self._W_from_r = Spline1D(self._r, self._W, k=3)
         # Compute the cumulative mass and store the total mass, adjust small decreases to zero
         self._cumul_mass = -self._dWdr * self._r**2.0
         for ii in range(1, npt):
@@ -182,9 +201,18 @@ class _scalefreekingdf:
 
     def _dens_W(self, W):
         """Density as a function of W"""
-        sqW = numpy.sqrt(W)
-        return numpy.exp(W) * special.erf(sqW) - _TWOOVERSQRTPI * sqW * (
-            1.0 + 2.0 / 3.0 * W
+        # data-guard: leaf consumed by numpy construction (solve_ivp, rho0/r0);
+        # only a backend-array W (dens(backend r) via _W_from_r) goes backend
+        if not is_backend_array(W):
+            sqW = numpy.sqrt(W)
+            return numpy.exp(W) * special.erf(sqW) - _TWOOVERSQRTPI * sqW * (
+                1.0 + 2.0 / 3.0 * W
+            )
+        xp = get_namespace(W)
+        Wb = xp.asarray(W) * 1.0
+        sqW = xp.sqrt(Wb)
+        return xp.exp(Wb) * _bspecial.erf(sqW) - _TWOOVERSQRTPI * sqW * (
+            1.0 + 2.0 / 3.0 * Wb
         )
 
     def dens(self, r):
