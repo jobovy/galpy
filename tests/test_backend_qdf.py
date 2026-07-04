@@ -126,6 +126,32 @@ def test_rg_backend_parity(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_rg_no_precompute(backend):
+    # _precomputerg=False: the rg spline is never built (_rgInterpBackend is None),
+    # so the backend _rg falls through to potential.rl everywhere -- matching the
+    # numpy scalar path (which also always takes rl since Lzmin/max are +/-finfo).
+    from galpy.potential import rl
+
+    qdf0 = quasiisothermaldf(
+        1.0 / 4.0,
+        0.2,
+        0.1,
+        1.0,
+        1.0,
+        pot=MWPotential,
+        aA=_aAS,
+        cutcounter=True,
+        _precomputerg=False,
+    )
+    assert qdf0._rgInterpBackend is None
+    lzn = numpy.array([0.3, 0.81, 1.4])
+    ref = numpy.array([float(rl(MWPotential, l)) for l in lzn])
+    got = qdf0._rg(_arr(backend, lzn))
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("log", [False, True])
 def test_call_grad_vs_fd(backend, log):
     # jax.grad / torch.autograd of __call__ w.r.t. (R,vR,vT,z,vz) vs central FD.
