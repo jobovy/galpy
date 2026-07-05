@@ -30,6 +30,38 @@ from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleVertical import actionAngleVertical
 
 
+def _adiabatic_c_grad_actions(pot, gamma, R, vR, vT, z, vz, order=10):
+    """Differentiable (jr, jz) via the C-native Adiabatic action Jacobian.
+
+    For jax/torch inputs, wraps the compiled 2x5 d(jr,jz)/d(R,vR,vT,z,vz) C entry
+    (actionAngleAdiabatic_actionsJac_c) in the backend custom_vjp / autograd.Function
+    (galpy.backend._{jax,torch}.adiabatic_c): the forward is the plain round-trip C
+    action value; the backward is a matvec of the C-computed Jacobian. numpy inputs
+    never reach here. gamma is a fixed scalar (no gradient); the vertical action is
+    injected into the radial Lz internally in C (Lz -> |R vT| + gamma*Jz), so the
+    (z,vz) gradients of jr are nonzero for gamma!=0. First-order only.
+    """
+
+    def host_jac(Rn, vRn, vTn, zn, vzn):
+        jr, jz, jac, err = actionAngleAdiabatic_c.actionAngleAdiabatic_actionsJac_c(
+            pot, gamma, Rn, vRn, vTn, zn, vzn, order=order
+        )
+        return jr, jz, jac
+
+    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
+    if "jax" in name:
+        from ..backend._jax.adiabatic_c import actions_with_jac
+
+        return actions_with_jac(host_jac, (R, vR, vT, z, vz))
+    if "torch" in name:
+        from ..backend._torch.adiabatic_c import actions_with_jac
+
+        return actions_with_jac(host_jac, R, vR, vT, z, vz)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Adiabatic action gradients require a jax or torch input array."
+    )
+
+
 class actionAngleAdiabatic(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
 
@@ -133,6 +165,20 @@ class actionAngleAdiabatic(actionAngle):
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot)
+        _special = (
+            kwargs.get("_justjr", False)
+            or kwargs.get("_justjz", False)
+            or "_Jz" in kwargs
+        )
+        if use_c and xp is not numpy and not _special:
+            # C-native differentiable path: backend inputs route to the fused C
+            # (jr,jz) Jacobian (custom_vjp / autograd.Function), running the C
+            # actions on the backend with first-order gradients (#131 PR-2a). Lz
+            # (=R*vT) is differentiated trivially by the backend. numpy path is
+            # byte-identical (never reaches here).
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            jr, jz = _adiabatic_c_grad_actions(self._pot, self._gamma, R, vR, vT, z, vz)
+            return (jr, R * vT, jz)
         if not use_c and xp is not numpy:
             # Backend path: runs under a forced backend even for numpy inputs
             # (promote first), exercising the backend for real -- unless the C
