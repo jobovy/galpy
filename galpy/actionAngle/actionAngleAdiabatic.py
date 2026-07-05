@@ -428,7 +428,12 @@ class actionAngleAdiabatic(actionAngle):
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot)
-        if not use_c and xp is not numpy:
+        if xp is not numpy:
+            # Any backend array (c=True or c=False) uses the differentiable
+            # Spherical (radial) + Vertical (zmax) backend path: the numpy/C
+            # turning-point solve cannot take jax/torch arrays, and there is no
+            # Adiabatic-specific C custom_vjp -- the migrated Spherical+Vertical
+            # ARE the differentiable natives. numpy stays on the C path below.
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             return self._EccZmaxRperiRap_backend(R, vR, vT, z, vz)
         if use_c:

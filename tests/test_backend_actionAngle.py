@@ -1693,6 +1693,25 @@ def test_adiabatic_ecczmaxrperirap_parity(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabatic_ecczmaxrperirap_c_backend(backend):
+    # A c=True object with backend arrays routes to the differentiable
+    # Spherical(radial)+Vertical(zmax) backend path (the numpy/C turning-point
+    # solve cannot take jax/torch arrays, and there is no Adiabatic-specific C
+    # custom_vjp -- the migrated Spherical+Vertical ARE the differentiable
+    # natives). Pre-fix this crashed; now it matches the numpy backend-path
+    # computation and returns backend arrays.
+    aC = actionAngleAdiabatic(pot=MWPotential2014, c=True)
+    aF = actionAngleAdiabatic(pot=MWPotential2014, c=False)
+    ref = aF._EccZmaxRperiRap(*_ADB)  # numpy Spherical+Vertical
+    got = aC._EccZmaxRperiRap(*[_arr(backend, v) for v in _ADB])  # c=True + backend
+    for r, g in zip(ref, got):
+        assert _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(
+            as_numpy(g), numpy.asarray(r), rtol=1e-8, atol=1e-9
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_adiabatic_actions_vs_c(backend):
     # the vectorised backend actions are consistent with the C path (c=True) to
     # the inherent adiabatic Python-vs-C floor (the SAME floor the numpy c=False
