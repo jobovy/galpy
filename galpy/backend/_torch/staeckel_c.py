@@ -98,3 +98,30 @@ def actionsfreqsangles_with_jac(host_jac, R, vR, vT, z, vz, phi):
     raw = _ActionsFreqsAnglesJacFunction.apply(host_jac, R, vR, vT, z, vz)
     anglephi = torch.remainder(raw[6] + phi, 2.0 * torch.pi)
     return raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], anglephi, raw[7]
+
+
+class _EccZmaxJacFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, host_jac, R, vR, vT, z, vz):
+        cs = [t.detach().to("cpu", torch.float64).numpy() for t in (R, vR, vT, z, vz)]
+        e, zm, rp, ra, jac = host_jac(*cs)  # 4 values + jac (N,4,5)
+        dev, dt = R.device, R.dtype
+        ctx.save_for_backward(torch.as_tensor(jac, dtype=dt, device=dev))  # (N,4,5)
+        return tuple(
+            torch.as_tensor(numpy.asarray(x, dtype=numpy.float64), dtype=dt, device=dev)
+            for x in (e, zm, rp, ra)
+        )
+
+    @staticmethod
+    def backward(ctx, g_e, g_zm, g_rp, g_ra):
+        (jac,) = ctx.saved_tensors  # (N,4,5)
+        gs = (g_e, g_zm, g_rp, g_ra)
+        g = sum(gs[o][:, None] * jac[:, o, :] for o in range(4))  # (N,5)
+        return (None,) + tuple(g[:, k] for k in range(5))
+
+
+def ecczmax_with_jac(host_jac, R, vR, vT, z, vz):
+    """Differentiable (e,zmax,rperi,rap) with the native-C (4,5) Jacobian as the
+    backward matvec (#131). first-order; partial at fixed delta. host_jac returns
+    (e,zmax,rperi,rap,jac) with the 4 values (N,) and jac (N,4,5)."""
+    return _EccZmaxJacFunction.apply(host_jac, R, vR, vT, z, vz)
