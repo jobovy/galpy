@@ -154,3 +154,46 @@ def actionsfreqsangles_with_jac(host_jac, coords, phi):
     raw = _afa(coords)  # 8 values, differentiable w.r.t. the 5 coords via ajac/ojac
     anglephi = jnp.remainder(raw[6] + phi, 2.0 * jnp.pi)
     return raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], anglephi, raw[7]
+
+
+def ecczmax_with_jac(host_jac, coords):
+    """Differentiable (e,zmax,rperi,rap) with the native-C (4,5) Jacobian
+    d(e,zmax,rperi,rap)/d(R,vR,vT,z,vz) as the vjp residual (#131). first-order;
+    the Jacobian is the partial at fixed delta.
+
+    host_jac : callable taking 5 numpy (N,) coord arrays, returning
+        (e,zmax,rperi,rap,jac) with the 4 values (N,) and jac (N,4,5).
+    """
+    import jax
+
+    shape, dtype = coords[0].shape, coords[0].dtype
+
+    def _host(*cs):
+        out = host_jac(*(numpy.asarray(c, dtype=numpy.float64) for c in cs))
+        return tuple(numpy.asarray(o, dtype=dtype) for o in out)
+
+    def _call(cs):
+        cs = tuple(jax.lax.stop_gradient(c) for c in cs)
+        return jax.pure_callback(
+            _host,
+            tuple(jax.ShapeDtypeStruct(shape, dtype) for _ in range(4))
+            + (jax.ShapeDtypeStruct(shape + (4, 5), dtype),),
+            *cs,
+            vmap_method="sequential",
+        )
+
+    @jax.custom_vjp
+    def _ez(cs):
+        return _call(cs)[:4]
+
+    def _fwd(cs):
+        out = _call(cs)
+        return out[:4], out[4]  # residual = the (4,5) Jacobian
+
+    def _bwd(jac, ct):
+        # grad_k = sum_o ct_o * jac[:,o,k]  (o over e,zmax,rperi,rap)
+        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(4))  # (N,5)
+        return (tuple(g[:, k] for k in range(5)),)
+
+    _ez.defvjp(_fwd, _bwd)
+    return _ez(coords)
