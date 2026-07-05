@@ -3133,16 +3133,12 @@ class quasiisothermaldf(df):
         if is_backend_array(lz):  # leaf data-guard: numpy callers stay numpy
             if self._rgInterpBackend is None:  # _precomputerg=False: rl everywhere
                 return potential.rl(self._pot, lz)
-            xp = get_namespace(lz)
-            # mirror the numpy-array indx: spline everywhere, rl a dead branch
-            # guarded so the in-range regime never root-finds a bad lz (AD-safe)
-            indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
-            lzsafe = xp.where(indx, self._precomputergLzmin, lz)
-            return xp.where(
-                indx,
-                potential.rl(self._pot, lzsafe),
-                self._rgInterpBackend(lz),
-            )
+            # _precomputerg=True: spline everywhere. This mirrors the numpy-array
+            # path, whose out-of-range rl branch is dead for a valid Lz grid
+            # (indx = (lz>Lzmax)&(lz<Lzmin) is empty when Lzmin<Lzmax), so it too
+            # only ever splines an array. AD-safe (no root-find), and it avoids the
+            # eager full-array rl solve an xp.where(indx, rl, spline) would run.
+            return self._rgInterpBackend(lz)
         if isinstance(lz, numpy.ndarray):
             indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
             indxc = True ^ indx
