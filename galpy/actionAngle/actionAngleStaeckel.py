@@ -667,6 +667,45 @@ def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=Fals
     )
 
 
+def _staeckel_c_grad_ecczmax(pot, delta, R, vR, vT, z, vz, u0, useu0=False):
+    """Differentiable (e,zmax,rperi,rap) via the C-native Staeckel EccZmax
+    Jacobian.
+
+    For jax/torch inputs, wraps the compiled 4x5 d(e,zmax,rperi,rap)/d(R,vR,vT,z,vz)
+    C entry (actionAngleStaeckel_EccZmaxRperiRapJac_c) in the backend custom_vjp /
+    autograd.Function: the forward is the round-trip C value, the backward a matvec
+    of the C-computed Jacobian. numpy inputs never reach here. delta is a fixed
+    reference (no gradient), so the Jacobian is the partial at fixed delta.
+    First-order only."""
+    delta_np = numpy.atleast_1d(
+        numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
+    )
+    u0_np = (
+        None if u0 is None else numpy.asarray(stop_gradient(u0), dtype=numpy.float64)
+    )
+
+    def host_jac(Rn, vRn, vTn, zn, vzn):
+        e, zm, rp, ra, jac, err = (
+            actionAngleStaeckel_c.actionAngleStaeckel_EccZmaxRperiRapJac_c(
+                pot, delta_np, Rn, vRn, vTn, zn, vzn, u0=u0_np, useu0=useu0
+            )
+        )
+        return e, zm, rp, ra, jac
+
+    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
+    if "jax" in name:
+        from ..backend._jax.staeckel_c import ecczmax_with_jac
+
+        return ecczmax_with_jac(host_jac, (R, vR, vT, z, vz))
+    if "torch" in name:
+        from ..backend._torch.staeckel_c import ecczmax_with_jac
+
+        return ecczmax_with_jac(host_jac, R, vR, vT, z, vz)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Staeckel EccZmax gradients require a jax or torch input array."
+    )
+
+
 def _staeckel_c_grad_actionsfreqs(pot, delta, R, vR, vT, z, vz, u0, order, useu0=False):
     """Differentiable (jr,jz,Omegar,Omegaphi,Omegaz) via the fused C-native (5x5)
     Staeckel Jacobian (actionsFreqsJac_c): the jr,jz rows are the #1051 action
@@ -1399,6 +1438,43 @@ class actionAngleStaeckel(actionAngle):
         - 2017-12-12 - Written - Bovy (UofT)
         """
         delta = _coerce_delta_arraylike(kwargs.get("delta", self._delta))
+        # Parse args to (R,vR,vT,z,vz) for the c=True backend gate.
+        if len(args) == 5:
+            R, vR, vT, z, vz = args
+        elif len(args) == 6:
+            R, vR, vT, z, vz, phi = args
+        else:
+            self._parse_eval_args(*args)
+            R = self._eval_R
+            vR = self._eval_vR
+            vT = self._eval_vT
+            z = self._eval_z
+            vz = self._eval_vz
+        if isinstance(R, float):
+            R = numpy.array([R])
+            vR = numpy.array([vR])
+            vT = numpy.array([vT])
+            z = numpy.array([z])
+            vz = numpy.array([vz])
+        if (
+            (
+                (self._c and not ("c" in kwargs and not kwargs["c"]))
+                or (ext_loaded and ("c" in kwargs and kwargs["c"]))
+            )
+            and _check_c(self._pot)
+            and any(is_backend_array(c) for c in (R, vR, vT, z, vz))
+        ):
+            # jax/torch: differentiable (e,zmax,rperi,rap) via the C-native 4x5
+            # Jacobian (custom_vjp/autograd.Function); numpy stays on the path
+            # below (the ctypes turning-point wrapper cannot take backend arrays).
+            xp = get_namespace(R, vR, vT, z, vz)
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            u0, refu0_calc = _staeckel_c_backend_refu0(
+                self._pot, delta, R, vR, vT, z, vz, self._useu0, kwargs.pop("u0", None)
+            )
+            return _staeckel_c_grad_ecczmax(
+                self._pot, delta, R, vR, vT, z, vz, u0, useu0=refu0_calc
+            )
         umin, umax, vmin = self._uminumaxvmin(*args, **kwargs)
         xp = get_namespace(umin) if is_backend_array(umin) else numpy
         rperi = coords.uv_to_Rz(umin, numpy.pi / 2.0, delta=delta)[0]
