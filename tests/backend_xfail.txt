@@ -995,6 +995,7 @@ torch tests/test_streamdf.py::test_streamTrack_multi_parallel
 torch tests/test_streamdf.py::test_streamTrack_raises_when_spread_not_setup
 torch tests/test_streamgapdf.py::test_leadingwtrailingimpact_error
 torch tests/test_streamgapdf.py::test_trailingwleadingimpact_error
+torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_fullintegration_fastencounter
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_fullintegration_zeroforce
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_orbit_zeroforce
