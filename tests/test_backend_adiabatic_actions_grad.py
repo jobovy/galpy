@@ -53,6 +53,9 @@ _EDGE_ORBITS = {
     "planar": (1.0, 0.2, 1.1, 0.0, 0.0),
     "edge_vR0": (1.0, 0.0, 1.1, 0.1, 0.15),
     "edge_vz0": (1.0, 0.2, 1.1, 0.1, 0.0),
+    # radially circular (vR=0, vT=vc=1 for normalize=1, planar) -> rperi==rap and
+    # zmax==0, exercising the C circular (dJr row) + planar (dJz row) zero-guards.
+    "circular": (1.0, 0.0, 1.0, 0.0, 0.0),
 }
 # unbound: turning-point solve fails (sentinel) -> C zeroes the Jacobian rows.
 _DEGEN_ORBIT = (1.0, 0.3, 1.1, 0.2, 1.8)
