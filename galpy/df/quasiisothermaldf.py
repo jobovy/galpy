@@ -9,6 +9,7 @@ from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
 from ..backend import get_namespace, is_backend_array, promote_scalars
 from ..backend.interpolate import Spline1D
+from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
 from ..potential import IsochronePotential
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -507,6 +508,19 @@ class quasiisothermaldf(df):
         - 2012-08-30 - Written - Bovy (IAS)
         """
         if fixed_quad:
+            xp = get_namespace(R)
+            if xp is not numpy:
+                # backend GL quadrature (scipy fixed_quad multiplies its numpy
+                # weights by the backend integrand -> breaks torch); numpy path
+                # below is byte-identical (scipy).
+                (R,) = promote_scalars(xp, R)
+                return 2.0 * _backend_fixed_quad(
+                    xp,
+                    lambda x: self.density(R * xp.ones_like(x), x, use_physical=False),
+                    0.0,
+                    0.5,
+                    n=fixed_order,
+                )
             return (
                 2.0
                 * integrate.fixed_quad(

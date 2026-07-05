@@ -258,3 +258,49 @@ def test_vmomentdensity_mc_parity(backend):
         got = _qdf._vmomentdensity(0.9, 0.05, 1, 0, 0, mc=True, nmc=10000)
     assert is_backend_array(got)
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-9)
+
+
+# --- moment-wrapper backend parity: the gl moment engine via the public API ---
+_R0, _Z0 = 0.9, 0.08
+
+
+def _moment_calls(q):
+    return {
+        "density": q.density(_R0, _Z0, use_physical=False),
+        "sigmaR2": q.sigmaR2(_R0, _Z0, use_physical=False),
+        "sigmaz2": q.sigmaz2(_R0, _Z0, use_physical=False),
+        "sigmaRz": q.sigmaRz(_R0, _Z0, use_physical=False),
+        "sigmaT2": q.sigmaT2(_R0, _Z0, use_physical=False),
+        "meanvT": q.meanvT(_R0, _Z0, use_physical=False),
+        "meanvz": q.meanvz(_R0, _Z0, use_physical=False),
+        "tilt": q.tilt(_R0, _Z0, use_physical=False),
+        "surfacemass_z": q.surfacemass_z(_R0, use_physical=False),
+    }
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moment_wrappers_parity(backend):
+    # the moment engine's gl path through the public wrappers -- exercises the
+    # sigma*/meanv*/tilt(xp.arctan)/surfacemass_z(backend.quadrature.fixed_quad)
+    # branches on the backend and their value parity with numpy.
+    ref = {k: float(as_numpy(v)) for k, v in _moment_calls(_qdf).items()}
+    with galpy.backend.use(backend, force=True):
+        got = _moment_calls(_qdf)
+    for k, v in got.items():
+        assert is_backend_array(v), f"{k} not a backend array"
+        numpy.testing.assert_allclose(
+            float(as_numpy(v)), ref[k], rtol=1e-6, atol=1e-9, err_msg=k
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moment_array_R_parity(backend):
+    # array-R density -> the _vmomentdensity ndim-guard per-scalar recursion +
+    # xp.stack collection branch (numpy path uses numpy.array).
+    Rs = numpy.array([0.8, 1.0, 1.2])
+    zs = numpy.array([0.05, 0.1, 0.02])
+    ref = as_numpy(_qdf.density(Rs, zs, use_physical=False))
+    with galpy.backend.use(backend, force=True):
+        got = _qdf.density(Rs, zs, use_physical=False)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-6, atol=1e-9)
