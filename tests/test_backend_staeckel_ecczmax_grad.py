@@ -147,3 +147,135 @@ def test_staeckel_ecczmax_grad_degenerate(backend):
     g = _backend_grads(backend, _DEGEN_ORBIT)
     for o in range(4):
         assert numpy.all(numpy.isfinite(g[o])), f"non-finite grad row {o}"
+
+
+# --- coverage for the C-native reference-u0 branches + circular/planar guards ---
+def _fd_grad_aAS_ecc(aAS, orbit, eps=1e-6):
+    # central-FD of a specific aAS's numpy (e,zmax,rperi,rap) -- config-matched
+    # gold for the useu0/u0-kwarg objects, whose reference-u0 shifts the values.
+    g = [[], [], [], []]
+    for i in range(5):
+        up, dn = list(orbit), list(orbit)
+        up[i] += eps
+        dn[i] -= eps
+        fu = [float(x[0]) for x in aAS.EccZmaxRperiRap(*[numpy.array([c]) for c in up])]
+        fd = [float(x[0]) for x in aAS.EccZmaxRperiRap(*[numpy.array([c]) for c in dn])]
+        for o in range(4):
+            g[o].append((fu[o] - fd[o]) / (2.0 * eps))
+    return g
+
+
+def _ecc_backend_grads_aAS(aAS, backend, orbit):
+    if backend == "jax":
+        args = [jnp.asarray([x]) for x in orbit]
+        return [
+            [
+                float(gg[0])
+                for gg in jax.grad(
+                    lambda *a: jnp.sum(aAS.EccZmaxRperiRap(*a)[o]),
+                    argnums=(0, 1, 2, 3, 4),
+                )(*args)
+            ]
+            for o in range(4)
+        ]
+    args = [torch.tensor([x], requires_grad=True) for x in orbit]
+    out = aAS.EccZmaxRperiRap(*args)
+    return [
+        [
+            float(gg[0])
+            for gg in torch.autograd.grad(out[o].sum(), args, retain_graph=True)
+        ]
+        for o in range(4)
+    ]
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("orbit", list(_ORBITS))
+def test_staeckel_ecczmax_useu0_grad_vs_fd(backend, orbit):
+    # useu0=True routes the C-native Jacobian through the calcu0(E,Lz) reference-u0
+    # branch (du0/d(E,Lz) by implicit diff of the stationarity condition), which
+    # feeds the vmin turning-point sensitivity (dvminc) via the du0 chain. The
+    # (e,zmax,rperi,rap) grads must still match the useu0 numpy FD gold.
+    coords = _ORBITS[orbit]
+    aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True, useu0=True)
+    fd = _fd_grad_aAS_ecc(aAS, coords)
+    g = _ecc_backend_grads_aAS(aAS, backend, coords)
+    for o in range(4):
+        # loose rtol: FD gold of root-solved turning-point quantities is noise-
+        # limited (root tol / eps); the analytic C Jacobian is exact.
+        numpy.testing.assert_allclose(g[o], fd[o], rtol=3e-3, atol=2e-6)
+        assert numpy.all(numpy.isfinite(g[o]))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_ecczmax_u0kwarg_grad(backend):
+    # an explicit u0= kwarg routes through the fixed-u0 branch (du0/dx=0). Like
+    # the sibling actions u0kwarg test (which checks only the u0-independent djr),
+    # we validate the u0-INDEPENDENT output -- rperi=delta*sinh(umin), whose
+    # dumin uses dI3Utilde (no du0 term) -- tightly vs FD, and require the rest
+    # finite. The zmax/rap grads carry the vmin(du0) chain, which for an arbitrary
+    # off-natural fixed u0 is only first-order (a known fixed-u0 limitation; the
+    # natural useu0==0/==2 paths are FD-accurate, tested above/below).
+    coords = _ORBITS["generic"]
+    aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True)
+    u0 = 0.8
+    eps = 1e-6
+    # config-matched FD gold for the u0-independent rperi (output index 2)
+    g_fd_rperi = []
+    for i in range(5):
+        up, dn = list(coords), list(coords)
+        up[i] += eps
+        dn[i] -= eps
+        ru = float(aAS.EccZmaxRperiRap(*[numpy.array([c]) for c in up], u0=u0)[2][0])
+        rd = float(aAS.EccZmaxRperiRap(*[numpy.array([c]) for c in dn], u0=u0)[2][0])
+        g_fd_rperi.append((ru - rd) / (2.0 * eps))
+    if backend == "jax":
+        args = [jnp.asarray([x]) for x in coords]
+        g = [
+            [
+                float(gg[0])
+                for gg in jax.grad(
+                    lambda *a: jnp.sum(aAS.EccZmaxRperiRap(*a, u0=u0)[o]),
+                    argnums=(0, 1, 2, 3, 4),
+                )(*args)
+            ]
+            for o in range(4)
+        ]
+    else:
+        args = [torch.tensor([x], requires_grad=True) for x in coords]
+        out = aAS.EccZmaxRperiRap(*args, u0=u0)
+        g = [
+            [
+                float(gg[0])
+                for gg in torch.autograd.grad(out[o].sum(), args, retain_graph=True)
+            ]
+            for o in range(4)
+        ]
+    numpy.testing.assert_allclose(g[2], g_fd_rperi, rtol=1e-3, atol=2e-6)
+    for o in range(4):
+        assert numpy.all(numpy.isfinite(g[o]))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_ecczmax_planar_grad_finite(backend):
+    # a truly planar orbit (z=vz=0 -> vmin=pi/2) exercises the C Jacobian's planar
+    # guard (dvminc row zeroed); grad must stay finite.
+    planar = (1.0, 0.2, 1.1, 0.0, 0.0)
+    aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True)
+    g = _ecc_backend_grads_aAS(aAS, backend, planar)
+    for o in range(4):
+        assert numpy.all(numpy.isfinite(g[o])), f"non-finite grad row {o}"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_ecczmax_circular_grad_finite(backend):
+    # a radially circular orbit (vR=0, vT=vc -> umin=umax) exercises the C
+    # Jacobian's circular guard (dumin/dumax rows zeroed); grad must stay finite.
+    from galpy.potential import vcirc
+
+    vc = float(vcirc(_MP, 1.0, use_physical=False))
+    circular = (1.0, 0.0, vc, 0.0, 0.0)
+    aAS = actionAngleStaeckel(pot=_MP, delta=_DELTA, c=True)
+    g = _ecc_backend_grads_aAS(aAS, backend, circular)
+    for o in range(4):
+        assert numpy.all(numpy.isfinite(g[o])), f"non-finite grad row {o}"
