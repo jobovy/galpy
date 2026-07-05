@@ -121,6 +121,105 @@ def actionAngleAdiabatic_c(pot, gamma, R, vR, vT, z, vz):
     return (jr, jz, err.value)
 
 
+def actionAngleAdiabatic_actionsJac_c(pot, gamma, R, vR, vT, z, vz, order=10):
+    """
+    Use C to compute adiabatic actions (jr,jz) AND the fused (N,2,5) Jacobian
+    d(jr,jz)/d(R,vR,vT,z,vz), assembled analytically in C (#131 Adiabatic PR-2a).
+
+    Parameters
+    ----------
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Gravitational potential to compute actions in.
+    gamma : float
+        as in Lz -> Lz+gamma * J_z.
+    R, vR, vT, z, vz : numpy.ndarray
+        Phase-space coordinates.
+    order : int, optional
+        Gauss-Legendre order for the action + derivative-integral quadratures.
+
+    Returns
+    -------
+    tuple
+        (jr, jz, jac, err) with jr,jz (N,), jac (N,2,5), and error code.
+    """
+    from ..orbit.integrateFullOrbit import _parse_pot
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot, potforactions=True)
+    pot_tfuncs = _prep_tfuncs(pot_tfuncs)
+
+    jr = numpy.empty(len(R))
+    jz = numpy.empty(len(R))
+    jac = numpy.empty(len(R) * 2 * 5)
+    err = ctypes.c_int(0)
+
+    ndarrayFlags = ("C_CONTIGUOUS", "WRITEABLE")
+    func = _lib.actionAngleAdiabatic_actionsJac
+    func.argtypes = [
+        ctypes.c_int,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
+        ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_void_p,
+        ctypes.c_double,
+        ctypes.c_int,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.POINTER(ctypes.c_int),
+    ]
+
+    f_cont = [
+        R.flags["F_CONTIGUOUS"],
+        vR.flags["F_CONTIGUOUS"],
+        vT.flags["F_CONTIGUOUS"],
+        z.flags["F_CONTIGUOUS"],
+        vz.flags["F_CONTIGUOUS"],
+    ]
+    R = numpy.require(R, dtype=numpy.float64, requirements=["C", "W"])
+    vR = numpy.require(vR, dtype=numpy.float64, requirements=["C", "W"])
+    vT = numpy.require(vT, dtype=numpy.float64, requirements=["C", "W"])
+    z = numpy.require(z, dtype=numpy.float64, requirements=["C", "W"])
+    vz = numpy.require(vz, dtype=numpy.float64, requirements=["C", "W"])
+
+    func(
+        len(R),
+        R,
+        vR,
+        vT,
+        z,
+        vz,
+        ctypes.c_int(npot),
+        pot_type,
+        pot_args,
+        pot_tfuncs,
+        ctypes.c_double(gamma),
+        ctypes.c_int(order),
+        jr,
+        jz,
+        jac,
+        ctypes.byref(err),
+    )
+
+    if f_cont[0]:
+        R = numpy.asfortranarray(R)
+    if f_cont[1]:
+        vR = numpy.asfortranarray(vR)
+    if f_cont[2]:
+        vT = numpy.asfortranarray(vT)
+    if f_cont[3]:
+        z = numpy.asfortranarray(z)
+    if f_cont[4]:
+        vz = numpy.asfortranarray(vz)
+
+    return (jr, jz, jac.reshape((len(R), 2, 5)), err.value)
+
+
 def actionAngleRperiRapZmaxAdiabatic_c(pot, gamma, R, vR, vT, z, vz):
     """
     Calculate planar (Rperi,Rap) and the maximum height Zmax using the adiabatic approximation (rap = sqrt(Rap^2+Zmax^2))

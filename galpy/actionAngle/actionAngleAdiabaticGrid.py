@@ -14,7 +14,7 @@ import numpy
 from scipy import interpolate
 
 from .. import potential
-from ..backend import get_namespace
+from ..backend import as_numpy, get_namespace
 from ..backend import interpolate as backend_interpolate
 from ..backend import promote_scalars
 from ..potential.Potential import (
@@ -114,6 +114,12 @@ class actionAngleAdiabaticGrid(actionAngle):
                 numpy.sqrt(2.0 * this * thisEzZmaxs),
                 **kwargs,
             )[2]
+            # the c=True vectorized aA (no _justjz) returns a backend array under a
+            # forced backend; the grid precompute must be a WRITABLE numpy array
+            # (it feeds scipy splines + in-place table fills like jz[ii,:]/=...).
+            # as_numpy of an immutable backend array is read-only -> numpy.array
+            # copies it writable. numpy path: numpy.array(numpy) is a plain copy.
+            jz = numpy.array(as_numpy(jz))
             jz = numpy.reshape(jz, (nR, nEz))
             jzEzzmax[0:nR] = jz[:, nEz - 1]
         else:
@@ -215,6 +221,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                 numpy.zeros(len(thisRL)),
                 **kwargs,
             )[0]
+            mjr = numpy.array(as_numpy(mjr))  # writable numpy precompute; see above
             jr[:, 0:-1] = numpy.reshape(mjr, (nLz, nEr - 1))
             jrERRa[0:nLz] = jr[:, 0]
         else:
