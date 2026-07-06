@@ -7,8 +7,9 @@ from scipy import integrate, interpolate, optimize
 
 from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
-from ..backend import get_namespace, is_backend_array
+from ..backend import get_namespace, is_backend_array, promote_scalars
 from ..backend.interpolate import Spline1D
+from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
 from ..potential import IsochronePotential
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -507,6 +508,19 @@ class quasiisothermaldf(df):
         - 2012-08-30 - Written - Bovy (IAS)
         """
         if fixed_quad:
+            xp = get_namespace(R)
+            if xp is not numpy:
+                # backend GL quadrature (scipy fixed_quad multiplies its numpy
+                # weights by the backend integrand -> breaks torch); numpy path
+                # below is byte-identical (scipy).
+                (R,) = promote_scalars(xp, R)
+                return 2.0 * _backend_fixed_quad(
+                    xp,
+                    lambda x: self.density(R * xp.ones_like(x), x, use_physical=False),
+                    0.0,
+                    0.5,
+                    n=fixed_order,
+                )
             return (
                 2.0
                 * integrate.fixed_quad(
@@ -627,25 +641,30 @@ class quasiisothermaldf(df):
         **kwargs,
     ):
         """Non-physical version of vmomentdensity, otherwise the same"""
-        if isinstance(R, numpy.ndarray):
-            return numpy.array(
-                [
-                    self._vmomentdensity(
-                        r,
-                        zz,
-                        n,
-                        m,
-                        o,
-                        nsigma=nsigma,
-                        mc=mc,
-                        nmc=nmc,
-                        gl=gl,
-                        ngl=ngl,
-                        **kwargs,
-                    )
-                    for r, zz in zip(R, z)
-                ]
-            )
+        xp = get_namespace(R, z)
+        if getattr(R, "ndim", 0) > 0:
+            # array R (numpy or backend): the GL grid below is per-scalar-R, so
+            # recurse per (r,z) and collect on the resolved namespace -- xp.stack
+            # under a forced backend (so numpy-array inputs run on the backend
+            # too), numpy.array on numpy (byte-identical). 0-D backend scalars
+            # from the recursion have ndim==0 and fall through to the scalar body.
+            results = [
+                self._vmomentdensity(
+                    r,
+                    zz,
+                    n,
+                    m,
+                    o,
+                    nsigma=nsigma,
+                    mc=mc,
+                    nmc=nmc,
+                    gl=gl,
+                    ngl=ngl,
+                    **kwargs,
+                )
+                for r, zz in zip(R, z)
+            ]
+            return numpy.array(results) if xp is numpy else xp.stack(results)
         if isinstance(
             self._aA,
             (actionAngle.actionAngleAdiabatic, actionAngle.actionAngleAdiabaticGrid),
@@ -654,12 +673,16 @@ class quasiisothermaldf(df):
                 return 0.0  # we know this must be the case
         if nsigma == None:
             nsigma = _NSIGMA
+        if xp is not numpy:
+            # promote the scalar (R,z) up to the backend so xp.exp(...) etc. run
+            # on it (torch rejects Python floats); numpy path is a no-op.
+            R, z = promote_scalars(xp, R, z)
         if _sigmaR1 is None:
-            sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
+            sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
         else:
             sigmaR1 = _sigmaR1
         if _sigmaz1 is None:
-            sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+            sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         else:
             sigmaz1 = _sigmaz1
         thisvc = potential.vcirc(self._pot, R, use_physical=False)
@@ -675,7 +698,9 @@ class quasiisothermaldf(df):
                 + R * (1.0 / self._hr + 2.0 / self._hsr)
             )
         )
-        if numpy.fabs(va) > sigmaR1:
+        if is_backend_array(va):
+            va = xp.where(xp.abs(va) > sigmaR1, 0.0, va)  # avoid craziness near center
+        elif numpy.fabs(va) > sigmaR1:
             va = 0.0  # To avoid craziness near the center
         if gl:
             if ngl % 2 == 1:
@@ -692,6 +717,11 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:
+                # promote the precomputed GL node/weight tables to the backend
+                # (numpy path keeps the numpy tables -> byte-identical)
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -705,49 +735,43 @@ class quasiisothermaldf(df):
                 vRglw = glw
                 vzglw = glw
             else:
-                vRgl = nsigma * sigmaR1 / 2.0 * (glx12 + 1.0)
-                # vRgl= 1.5/2.*(glx12+1.)
-                vRgl = list(vRgl)
-                vRgl.extend(-nsigma * sigmaR1 / 2.0 * (glx12 + 1.0))
-                # vRgl.extend(-1.5/2.*(glx12+1.))
-                vRgl = numpy.array(vRgl)
-                vzgl = nsigma * sigmaz1 / 2.0 * (glx12 + 1.0)
-                # vzgl= 1.5/2.*(glx12+1.)
-                vzgl = list(vzgl)
-                vzgl.extend(-nsigma * sigmaz1 / 2.0 * (glx12 + 1.0))
-                # vzgl.extend(-1.5/2.*(glx12+1.))
-                vzgl = numpy.array(vzgl)
-                vRglw = glw12
-                vRglw = list(vRglw)
-                vRglw.extend(glw12)
-                vRglw = numpy.array(vRglw)
-                vzglw = glw12
-                vzglw = list(vzglw)
-                vzglw.extend(glw12)
-                vzglw = numpy.array(vzglw)
+                vRgl = xp.concatenate(
+                    [
+                        nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vzgl = xp.concatenate(
+                    [
+                        nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vRglw = xp.concatenate([glw12, glw12])
+                vzglw = xp.concatenate([glw12, glw12])
             vTmax = kwargs.get("vTmax", 1.5)
             vTgl = vTmax / 2.0 * (glx + 1.0)
-            # Tile everything
-            vTgl = numpy.tile(vTgl, (ngl, ngl, 1)).T
-            vRgl = numpy.tile(numpy.reshape(vRgl, (1, ngl)).T, (ngl, 1, ngl))
-            vzgl = numpy.tile(vzgl, (ngl, ngl, 1))
-            vTglw = numpy.tile(glw, (ngl, ngl, 1)).T  # also tile weights
-            vRglw = numpy.tile(numpy.reshape(vRglw, (1, ngl)).T, (ngl, 1, ngl))
-            vzglw = numpy.tile(vzglw, (ngl, ngl, 1))
+            # Tile everything (permute_dims not .T: torch errors on 3-D .T under -W)
+            vTgl = xp.permute_dims(xp.tile(vTgl, (ngl, ngl, 1)), (2, 1, 0))
+            vRgl = xp.tile(xp.reshape(vRgl, (1, ngl)).T, (ngl, 1, ngl))
+            vzgl = xp.tile(vzgl, (ngl, ngl, 1))
+            vTglw = xp.permute_dims(xp.tile(glw, (ngl, ngl, 1)), (2, 1, 0))
+            vRglw = xp.tile(xp.reshape(vRglw, (1, ngl)).T, (ngl, 1, ngl))
+            vzglw = xp.tile(vzglw, (ngl, ngl, 1))
             # evaluate
             if _glqeval is None and _jr is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
-                    R + numpy.zeros(ngl * ngl * ngl),
+                    R + xp.zeros(ngl * ngl * ngl),
                     vRgl.flatten(),
                     vTgl.flatten(),
-                    z + numpy.zeros(ngl * ngl * ngl),
+                    z + xp.zeros(ngl * ngl * ngl),
                     vzgl.flatten(),
                     log=True,
                     _return_actions=True,
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (ngl, ngl, ngl))
+                logqeval = xp.reshape(logqeval, (ngl, ngl, ngl))
             elif not _jr is None and _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -756,7 +780,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (ngl, ngl, ngl))
+                logqeval = xp.reshape(logqeval, (ngl, ngl, ngl))
             elif not _jr is None and not _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -769,13 +793,13 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (ngl, ngl, ngl))
+                logqeval = xp.reshape(logqeval, (ngl, ngl, ngl))
             else:
                 logqeval = _glqeval
             if _returngl:
                 return (
-                    numpy.sum(
-                        numpy.exp(logqeval)
+                    xp.sum(
+                        xp.exp(logqeval)
                         * vRgl**n
                         * vTgl**m
                         * vzgl**o
@@ -792,8 +816,8 @@ class quasiisothermaldf(df):
                 )
             elif _return_actions and _return_freqs:
                 return (
-                    numpy.sum(
-                        numpy.exp(logqeval)
+                    xp.sum(
+                        xp.exp(logqeval)
                         * vRgl**n
                         * vTgl**m
                         * vzgl**o
@@ -816,8 +840,8 @@ class quasiisothermaldf(df):
                 )
             elif _return_actions:
                 return (
-                    numpy.sum(
-                        numpy.exp(logqeval)
+                    xp.sum(
+                        xp.exp(logqeval)
                         * vRgl**n
                         * vTgl**m
                         * vzgl**o
@@ -835,8 +859,8 @@ class quasiisothermaldf(df):
                     jz,
                 )
             else:
-                return numpy.sum(
-                    numpy.exp(logqeval)
+                return xp.sum(
+                    xp.exp(logqeval)
                     * vRgl**n
                     * vTgl**m
                     * vzgl**o
@@ -855,23 +879,28 @@ class quasiisothermaldf(df):
                 vrs = numpy.random.normal(size=nmc)
             else:
                 vrs = _vrs
+            # mvT is baked into the vt samples when freshly drawn or when raw
+            # gaussians are supplied; defer the add so the numpy.random draw order
+            # (hence the stream) is byte-identical to the original interleaving.
+            add_mvT_to_vts = _vts is None or _rawgausssamples
             if _vts is None:
-                vts = numpy.random.normal(size=nmc) + mvT
+                vts = numpy.random.normal(size=nmc)
             else:
-                if _rawgausssamples:
-                    vts = _vts + mvT
-                else:
-                    vts = _vts
+                vts = _vts
             if _vzs is None:
                 vzs = numpy.random.normal(size=nmc)
             else:
                 vzs = _vzs
+            if xp is not numpy:  # promote the (numpy) draws to combine with backend
+                vrs, vts, vzs = promote_scalars(xp, vrs, vts, vzs)
+            if add_mvT_to_vts:
+                vts = vts + mvT
             Is = _vmomentsurfaceMCIntegrand(
                 vzs,
                 vrs,
                 vts,
-                numpy.ones(nmc) * R,
-                numpy.ones(nmc) * z,
+                xp.ones(nmc) * R,
+                xp.ones(nmc) * z,
                 self,
                 sigmaR1,
                 gamma,
@@ -884,7 +913,7 @@ class quasiisothermaldf(df):
             if _returnmc:
                 if _rawgausssamples:
                     return (
-                        numpy.mean(Is)
+                        xp.mean(Is)
                         * sigmaR1 ** (2.0 + n + m)
                         * gamma ** (1.0 + m)
                         * sigmaz1 ** (1.0 + o),
@@ -894,7 +923,7 @@ class quasiisothermaldf(df):
                     )
                 else:
                     return (
-                        numpy.mean(Is)
+                        xp.mean(Is)
                         * sigmaR1 ** (2.0 + n + m)
                         * gamma ** (1.0 + m)
                         * sigmaz1 ** (1.0 + o),
@@ -904,7 +933,7 @@ class quasiisothermaldf(df):
                     )
             else:
                 return (
-                    numpy.mean(Is)
+                    xp.mean(Is)
                     * sigmaR1 ** (2.0 + n + m)
                     * gamma ** (1.0 + m)
                     * sigmaz1 ** (1.0 + o)
@@ -1398,7 +1427,8 @@ class quasiisothermaldf(df):
                 )
                 / surfmass
             )
-            return 0.5 * numpy.arctan(2.0 * tsigmarz / (tsigmar2 - tsigmaz2))
+            xp = get_namespace(tsigmarz, tsigmar2, tsigmaz2)
+            return 0.5 * xp.arctan(2.0 * tsigmarz / (tsigmar2 - tsigmaz2))
         elif gl:
             surfmass, glqeval = self._vmomentdensity(
                 R, z, 0.0, 0.0, 0.0, gl=gl, ngl=ngl, _returngl=True, **kwargs
@@ -1421,7 +1451,8 @@ class quasiisothermaldf(df):
                 )
                 / surfmass
             )
-            return 0.5 * numpy.arctan(2.0 * tsigmarz / (tsigmar2 - tsigmaz2))
+            xp = get_namespace(tsigmarz, tsigmar2, tsigmaz2)
+            return 0.5 * xp.arctan(2.0 * tsigmarz / (tsigmar2 - tsigmaz2))
         else:
             raise NotImplementedError("Use either mc=True or gl=True")
 
@@ -2415,7 +2446,10 @@ class quasiisothermaldf(df):
         - 2012-12-22 - Written - Bovy (IAS@MPIA)
 
         """
-        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        xp = get_namespace(vR, R, z)
+        if xp is not numpy:
+            vR, R, z = promote_scalars(xp, vR, R, z)
+        sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2429,6 +2463,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2441,38 +2478,37 @@ class quasiisothermaldf(df):
                 vzglw = glw
                 vzfac = nsigma * sigmaz1  # 2 x integration over [0,nsigma*sigmaz1]
             else:
-                vzgl = nsigma * sigmaz1 / 2.0 * (glx12 + 1.0)
-                vzgl = list(vzgl)
-                vzgl.extend(-nsigma * sigmaz1 / 2.0 * (glx12 + 1.0))
-                vzgl = numpy.array(vzgl)
-                vzglw = glw12
-                vzglw = list(vzglw)
-                vzglw.extend(glw12)
-                vzglw = numpy.array(vzglw)
+                vzgl = xp.concatenate(
+                    [
+                        nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vzglw = xp.concatenate([glw12, glw12])
                 vzfac = (
                     0.5 * nsigma * sigmaz1
                 )  # integration over [-nsigma*sigmaz1,0] and [0,nsigma*sigmaz1]
             vTgl = vTmax / 2.0 * (glx + 1.0)
             vTfac = 0.5 * vTmax  # integration over [0.,vTmax]
             # Tile everything
-            vTgl = numpy.tile(vTgl, (ngl, 1)).T
-            vzgl = numpy.tile(vzgl, (ngl, 1))
-            vTglw = numpy.tile(glw, (ngl, 1)).T  # also tile weights
-            vzglw = numpy.tile(vzglw, (ngl, 1))
+            vTgl = xp.tile(vTgl, (ngl, 1)).T
+            vzgl = xp.tile(vzgl, (ngl, 1))
+            vTglw = xp.tile(glw, (ngl, 1)).T  # also tile weights
+            vzglw = xp.tile(vzglw, (ngl, 1))
             # evaluate
-            logqeval = numpy.reshape(
+            logqeval = xp.reshape(
                 self(
-                    R + numpy.zeros(ngl * ngl),
-                    vR + numpy.zeros(ngl * ngl),
+                    R + xp.zeros(ngl * ngl),
+                    vR + xp.zeros(ngl * ngl),
                     vTgl.flatten(),
-                    z + numpy.zeros(ngl * ngl),
+                    z + xp.zeros(ngl * ngl),
                     vzgl.flatten(),
                     log=True,
                     use_physical=False,
                 ),
                 (ngl, ngl),
             )
-            return numpy.sum(numpy.exp(logqeval) * vTglw * vzglw * vzfac) * vTfac
+            return xp.sum(xp.exp(logqeval) * vTglw * vzglw * vzfac) * vTfac
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)
@@ -2506,8 +2542,11 @@ class quasiisothermaldf(df):
         - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma^2/4 - Trick (MPA)
 
         """
-        sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
-        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        xp = get_namespace(vT, R, z)
+        if xp is not numpy:
+            vT, R, z = promote_scalars(xp, vT, R, z)
+        sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
+        sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2521,6 +2560,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2536,22 +2578,20 @@ class quasiisothermaldf(df):
                 vRfac = nsigma * sigmaR1  # 2 x integration over [0,nsigma*sigmaR1]
                 vzfac = nsigma * sigmaz1  # 2 x integration over [0,nsigma*sigmaz1]
             else:
-                vRgl = nsigma * sigmaR1 / 2.0 * (glx12 + 1.0)
-                vRgl = list(vRgl)
-                vRgl.extend(-nsigma * sigmaR1 / 2.0 * (glx12 + 1.0))
-                vRgl = numpy.array(vRgl)
-                vzgl = nsigma * sigmaz1 / 2.0 * (glx12 + 1.0)
-                vzgl = list(vzgl)
-                vzgl.extend(-nsigma * sigmaz1 / 2.0 * (glx12 + 1.0))
-                vzgl = numpy.array(vzgl)
-                vRglw = glw12
-                vRglw = list(vRglw)
-                vRglw.extend(glw12)
-                vRglw = numpy.array(vRglw)
-                vzglw = glw12
-                vzglw = list(vzglw)
-                vzglw.extend(glw12)
-                vzglw = numpy.array(vzglw)
+                vRgl = xp.concatenate(
+                    [
+                        nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vzgl = xp.concatenate(
+                    [
+                        nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vRglw = xp.concatenate([glw12, glw12])
+                vzglw = xp.concatenate([glw12, glw12])
                 vRfac = (
                     0.5 * nsigma * sigmaR1
                 )  # integration over [-nsigma*sigmaR1,0] and [0,nsigma*sigmaR1]
@@ -2559,24 +2599,24 @@ class quasiisothermaldf(df):
                     0.5 * nsigma * sigmaz1
                 )  # integration over [-nsigma*sigmaz1,0] and [0,nsigma*sigmaz1]
             # Tile everything
-            vRgl = numpy.tile(vRgl, (ngl, 1)).T
-            vzgl = numpy.tile(vzgl, (ngl, 1))
-            vRglw = numpy.tile(vRglw, (ngl, 1)).T  # also tile weights
-            vzglw = numpy.tile(vzglw, (ngl, 1))
+            vRgl = xp.tile(vRgl, (ngl, 1)).T
+            vzgl = xp.tile(vzgl, (ngl, 1))
+            vRglw = xp.tile(vRglw, (ngl, 1)).T  # also tile weights
+            vzglw = xp.tile(vzglw, (ngl, 1))
             # evaluate
-            logqeval = numpy.reshape(
+            logqeval = xp.reshape(
                 self(
-                    R + numpy.zeros(ngl * ngl),
+                    R + xp.zeros(ngl * ngl),
                     vRgl.flatten(),
-                    vT + numpy.zeros(ngl * ngl),
-                    z + numpy.zeros(ngl * ngl),
+                    vT + xp.zeros(ngl * ngl),
+                    z + xp.zeros(ngl * ngl),
                     vzgl.flatten(),
                     log=True,
                     use_physical=False,
                 ),
                 (ngl, ngl),
             )
-            return numpy.sum(numpy.exp(logqeval) * vRglw * vzglw * vRfac * vzfac)
+            return xp.sum(xp.exp(logqeval) * vRglw * vzglw * vRfac * vzfac)
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity2", pop=True)
@@ -2629,8 +2669,13 @@ class quasiisothermaldf(df):
         -----
         - 2012-12-22 - Written - Bovy (IAS)
         """
+        xp = get_namespace(vz, R, z)
+        if xp is not numpy:
+            # promote inputs (scalars or numpy arrays) to the backend so the GL
+            # grid arithmetic below runs on tensors (numpy path: no-op).
+            vz, R, z = promote_scalars(xp, vz, R, z)
         if _sigmaR1 is None:
-            sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
+            sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
         else:
             sigmaR1 = _sigmaR1
         if gl:
@@ -2646,6 +2691,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2658,43 +2706,42 @@ class quasiisothermaldf(df):
                 vRglw = glw
                 vRfac = nsigma * sigmaR1  # 2 x integration over [0,nsigma*sigmaR1]
             else:
-                vRgl = glx12 + 1.0
-                vRgl = list(vRgl)
-                vRgl.extend(-(glx12 + 1.0))
-                vRgl = numpy.array(vRgl)
-                vRglw = glw12
-                vRglw = list(vRglw)
-                vRglw.extend(glw12)
-                vRglw = numpy.array(vRglw)
+                vRgl = xp.concatenate([glx12 + 1.0, -(glx12 + 1.0)])
+                vRglw = xp.concatenate([glw12, glw12])
                 vRfac = (
                     0.5 * nsigma * sigmaR1
                 )  # integration over [-nsigma*sigmaR1,0] and [0,nsigma*sigmaR1]
             vTgl = vTmax / 2.0 * (glx + 1.0)
             vTfac = 0.5 * vTmax  # integration over [0.,vTmax]
             # Tile everything
-            vTgl = numpy.tile(vTgl, (ngl, 1)).T
-            vRgl = numpy.tile(vRgl, (ngl, 1))
-            vTglw = numpy.tile(glw, (ngl, 1)).T  # also tile weights
-            vRglw = numpy.tile(vRglw, (ngl, 1))
-            # If inputs are arrays, tile
-            if isinstance(R, numpy.ndarray):
+            vTgl = xp.tile(vTgl, (ngl, 1)).T
+            vRgl = xp.tile(vRgl, (ngl, 1))
+            vTglw = xp.tile(glw, (ngl, 1)).T  # also tile weights
+            vRglw = xp.tile(vRglw, (ngl, 1))
+            # If inputs are arrays, tile (permute_dims not 3-D .T: torch -W errors)
+            if getattr(R, "ndim", 0) > 0:
                 nR = len(R)
-                R = numpy.tile(R, (ngl, ngl, 1)).T.flatten()
-                z = numpy.tile(z, (ngl, ngl, 1)).T.flatten()
-                vz = numpy.tile(vz, (ngl, ngl, 1)).T.flatten()
-                vTgl = numpy.tile(vTgl, (nR, 1, 1)).flatten()
-                vRgl = numpy.tile(vRgl, (nR, 1, 1)).flatten()
-                vTglw = numpy.tile(vTglw, (nR, 1, 1))
-                vRglw = numpy.tile(vRglw, (nR, 1, 1))
+                R = xp.permute_dims(xp.tile(R, (ngl, ngl, 1)), (2, 1, 0)).flatten()
+                z = xp.permute_dims(xp.tile(z, (ngl, ngl, 1)), (2, 1, 0)).flatten()
+                vz = xp.permute_dims(xp.tile(vz, (ngl, ngl, 1)), (2, 1, 0)).flatten()
+                vTgl = xp.tile(vTgl, (nR, 1, 1)).flatten()
+                vRgl = xp.tile(vRgl, (nR, 1, 1)).flatten()
+                vTglw = xp.tile(vTglw, (nR, 1, 1))
+                vRglw = xp.tile(vRglw, (nR, 1, 1))
                 scalarOut = False
             else:
-                R = R + numpy.zeros(ngl * ngl)
-                z = z + numpy.zeros(ngl * ngl)
-                vz = vz + numpy.zeros(ngl * ngl)
+                R = R + xp.zeros(ngl * ngl)
+                z = z + xp.zeros(ngl * ngl)
+                vz = vz + xp.zeros(ngl * ngl)
                 nR = 1
                 scalarOut = True
                 vRgl = vRgl.flatten()
-            vRgl *= numpy.tile(nsigma * sigmaR1 / 2.0, (ngl, ngl, 1)).T.flatten()
+            vRgl = (
+                vRgl
+                * xp.permute_dims(
+                    xp.tile(nsigma * sigmaR1 / 2.0, (ngl, ngl, 1)), (2, 1, 0)
+                ).flatten()
+            )
             # evaluate
             if _jr is None and _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
@@ -2708,7 +2755,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (nR, ngl * ngl))
+                logqeval = xp.reshape(logqeval, (nR, ngl * ngl))
             elif not _jr is None and not _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -2721,7 +2768,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (nR, ngl * ngl))
+                logqeval = xp.reshape(logqeval, (nR, ngl * ngl))
             elif not _jr is None and _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     (_jr, _lz, _jz),
@@ -2730,7 +2777,7 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (nR, ngl * ngl))
+                logqeval = xp.reshape(logqeval, (nR, ngl * ngl))
             elif _jr is None and not _rg is None:
                 logqeval, jr, lz, jz, rg, kappa, nu, Omega = self(
                     R,
@@ -2747,20 +2794,16 @@ class quasiisothermaldf(df):
                     _return_freqs=True,
                     use_physical=False,
                 )
-                logqeval = numpy.reshape(logqeval, (nR, ngl * ngl))
-            vRglw = numpy.reshape(vRglw, (nR, ngl * ngl))
-            vTglw = numpy.reshape(vTglw, (nR, ngl * ngl))
+                logqeval = xp.reshape(logqeval, (nR, ngl * ngl))
+            vRglw = xp.reshape(vRglw, (nR, ngl * ngl))
+            vTglw = xp.reshape(vTglw, (nR, ngl * ngl))
             if scalarOut:
                 result = (
-                    numpy.sum(numpy.exp(logqeval) * vTglw * vRglw, axis=1)[0]
-                    * vRfac
-                    * vTfac
+                    xp.sum(xp.exp(logqeval) * vTglw * vRglw, axis=1)[0] * vRfac * vTfac
                 )
             else:
                 result = (
-                    numpy.sum(numpy.exp(logqeval) * vTglw * vRglw, axis=1)
-                    * vRfac
-                    * vTfac
+                    xp.sum(xp.exp(logqeval) * vTglw * vRglw, axis=1) * vRfac * vTfac
                 )
             if _return_actions and _return_freqs:
                 return (result, jr, lz, jz, rg, kappa, nu, Omega)
@@ -2804,7 +2847,10 @@ class quasiisothermaldf(df):
         - 2012-12-22 - Written - Bovy (IAS)
         - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
         """
-        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        xp = get_namespace(vR, vT, R, z)
+        if xp is not numpy:
+            vR, vT, R, z = promote_scalars(xp, vR, vT, R, z)
+        sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2818,6 +2864,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2830,28 +2879,27 @@ class quasiisothermaldf(df):
                 vzglw = glw
                 vzfac = nsigma * sigmaz1  # 2 x integration over [0,nsigma*sigmaz1]
             else:
-                vzgl = nsigma * sigmaz1 / 2.0 * (glx12 + 1.0)
-                vzgl = list(vzgl)
-                vzgl.extend(-nsigma * sigmaz1 / 2.0 * (glx12 + 1.0))
-                vzgl = numpy.array(vzgl)
-                vzglw = glw12
-                vzglw = list(vzglw)
-                vzglw.extend(glw12)
-                vzglw = numpy.array(vzglw)
+                vzgl = xp.concatenate(
+                    [
+                        nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaz1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vzglw = xp.concatenate([glw12, glw12])
                 vzfac = (
                     0.5 * nsigma * sigmaz1
                 )  # integration over [-nsigma*sigmaz1,0] and [0,nsigma*sigmaz1]
             # evaluate
             logqeval = self(
-                R + numpy.zeros(ngl),
-                vR + numpy.zeros(ngl),
-                vT + numpy.zeros(ngl),
-                z + numpy.zeros(ngl),
+                R + xp.zeros(ngl),
+                vR + xp.zeros(ngl),
+                vT + xp.zeros(ngl),
+                z + xp.zeros(ngl),
                 vzgl,
                 log=True,
                 use_physical=False,
             )
-            return numpy.sum(numpy.exp(logqeval) * vzglw * vzfac)
+            return xp.sum(xp.exp(logqeval) * vzglw * vzfac)
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity", pop=True)
@@ -2887,7 +2935,10 @@ class quasiisothermaldf(df):
         - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
 
         """
-        sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
+        xp = get_namespace(vT, vz, R, z)
+        if xp is not numpy:
+            vT, vz, R, z = promote_scalars(xp, vT, vz, R, z)
+        sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2901,6 +2952,9 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             if isinstance(
                 self._aA,
@@ -2913,28 +2967,27 @@ class quasiisothermaldf(df):
                 vRglw = glw
                 vRfac = nsigma * sigmaR1  # 2 x integration over [0,nsigma*sigmaR1]
             else:
-                vRgl = nsigma * sigmaR1 / 2.0 * (glx12 + 1.0)
-                vRgl = list(vRgl)
-                vRgl.extend(-nsigma * sigmaR1 / 2.0 * (glx12 + 1.0))
-                vRgl = numpy.array(vRgl)
-                vRglw = glw12
-                vRglw = list(vRglw)
-                vRglw.extend(glw12)
-                vRglw = numpy.array(vRglw)
+                vRgl = xp.concatenate(
+                    [
+                        nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                        -nsigma * sigmaR1 / 2.0 * (glx12 + 1.0),
+                    ]
+                )
+                vRglw = xp.concatenate([glw12, glw12])
                 vRfac = (
                     0.5 * nsigma * sigmaR1
                 )  # integration over [-nsigma*sigmaR1,0] and [0,nsigma*sigmaR1]
             # evaluate
             logqeval = self(
-                R + numpy.zeros(ngl),
+                R + xp.zeros(ngl),
                 vRgl,
-                vT + numpy.zeros(ngl),
-                z + numpy.zeros(ngl),
-                vz + numpy.zeros(ngl),
+                vT + xp.zeros(ngl),
+                z + xp.zeros(ngl),
+                vz + xp.zeros(ngl),
                 log=True,
                 use_physical=False,
             )
-            return numpy.sum(numpy.exp(logqeval) * vRglw * vRfac)
+            return xp.sum(xp.exp(logqeval) * vRglw * vRfac)
 
     @actionAngle_physical_input
     @physical_conversion("phasespacedensityvelocity", pop=True)
@@ -2969,6 +3022,9 @@ class quasiisothermaldf(df):
         - 2013-01-02 - Written - Bovy (IAS)
         - 2018-01-12 - Added Gauss-Legendre integration prefactor vTmax/2 - Trick (MPA)
         """
+        xp = get_namespace(vR, vz, R, z)
+        if xp is not numpy:
+            vR, vz, R, z = promote_scalars(xp, vR, vz, R, z)
         if gl:
             if ngl % 2 == 1:
                 raise ValueError("ngl must be even")
@@ -2982,32 +3038,35 @@ class quasiisothermaldf(df):
             else:
                 glx, glw = numpy.polynomial.legendre.leggauss(ngl)
                 glx12, glw12 = numpy.polynomial.legendre.leggauss(ngl // 2)
+            if xp is not numpy:  # promote the GL node/weight tables to the backend
+                glx, glw = xp.asarray(glx) * 1.0, xp.asarray(glw) * 1.0
+                glx12, glw12 = xp.asarray(glx12) * 1.0, xp.asarray(glw12) * 1.0
             # Evaluate everywhere
             vTgl = vTmax / 2.0 * (glx + 1.0)
             vTglw = glw
             vTfac = 0.5 * vTmax  # integration over [0.,vTmax]
             # If inputs are arrays, tile
-            if isinstance(R, numpy.ndarray):
+            if getattr(R, "ndim", 0) > 0:
                 nR = len(R)
-                R = numpy.tile(R, (ngl, 1)).T.flatten()
-                z = numpy.tile(z, (ngl, 1)).T.flatten()
-                vR = numpy.tile(vR, (ngl, 1)).T.flatten()
-                vz = numpy.tile(vz, (ngl, 1)).T.flatten()
-                vTgl = numpy.tile(vTgl, (nR, 1)).flatten()
-                vTglw = numpy.tile(vTglw, (nR, 1))
+                R = xp.tile(R, (ngl, 1)).T.flatten()
+                z = xp.tile(z, (ngl, 1)).T.flatten()
+                vR = xp.tile(vR, (ngl, 1)).T.flatten()
+                vz = xp.tile(vz, (ngl, 1)).T.flatten()
+                vTgl = xp.tile(vTgl, (nR, 1)).flatten()
+                vTglw = xp.tile(vTglw, (nR, 1))
                 scalarOut = False
             else:
-                R = R + numpy.zeros(ngl)
-                vR = vR + numpy.zeros(ngl)
-                z = z + numpy.zeros(ngl)
-                vz = vz + numpy.zeros(ngl)
+                R = R + xp.zeros(ngl)
+                vR = vR + xp.zeros(ngl)
+                z = z + xp.zeros(ngl)
+                vz = vz + xp.zeros(ngl)
                 nR = 1
                 scalarOut = True
             # evaluate
-            logqeval = numpy.reshape(
+            logqeval = xp.reshape(
                 self(R, vR, vTgl, z, vz, log=True, use_physical=False), (nR, ngl)
             )
-            out = numpy.sum(numpy.exp(logqeval) * vTglw * vTfac, axis=1)
+            out = xp.sum(xp.exp(logqeval) * vTglw * vTfac, axis=1)
             if scalarOut:
                 return out[0]
             else:
@@ -3074,16 +3133,12 @@ class quasiisothermaldf(df):
         if is_backend_array(lz):  # leaf data-guard: numpy callers stay numpy
             if self._rgInterpBackend is None:  # _precomputerg=False: rl everywhere
                 return potential.rl(self._pot, lz)
-            xp = get_namespace(lz)
-            # mirror the numpy-array indx: spline everywhere, rl a dead branch
-            # guarded so the in-range regime never root-finds a bad lz (AD-safe)
-            indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
-            lzsafe = xp.where(indx, self._precomputergLzmin, lz)
-            return xp.where(
-                indx,
-                potential.rl(self._pot, lzsafe),
-                self._rgInterpBackend(lz),
-            )
+            # _precomputerg=True: spline everywhere. This mirrors the numpy-array
+            # path, whose out-of-range rl branch is dead for a valid Lz grid
+            # (indx = (lz>Lzmax)&(lz<Lzmin) is empty when Lzmin<Lzmax), so it too
+            # only ever splines an array. AD-safe (no root-find), and it avoids the
+            # eager full-array rl solve an xp.where(indx, rl, spline) would run.
+            return self._rgInterpBackend(lz)
         if isinstance(lz, numpy.ndarray):
             indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)
             indxc = True ^ indx
@@ -3115,12 +3170,13 @@ def _vmomentsurfaceMCIntegrand(
     vz, vR, vT, R, z, df, sigmaR1, gamma, sigmaz1, mvT, n, m, o
 ):
     """Internal function that is the integrand for the vmomentsurface mass integration"""
+    xp = get_namespace(vz, vR, vT, R, z)
     return (
         vR**n
         * vT**m
         * vz**o
         * df(R, vR * sigmaR1, vT * sigmaR1 * gamma, z, vz * sigmaz1, use_physical=False)
-        * numpy.exp(vR**2.0 / 2.0 + (vT - mvT) ** 2.0 / 2.0 + vz**2.0 / 2.0)
+        * xp.exp(vR**2.0 / 2.0 + (vT - mvT) ** 2.0 / 2.0 + vz**2.0 / 2.0)
     )
 
 
