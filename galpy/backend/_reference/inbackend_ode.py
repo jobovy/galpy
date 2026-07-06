@@ -31,7 +31,8 @@ def _eom_rhs(y, pot, t, xp, dim=6):
     position, evaluates the (decorator-free) force layer -- which dispatches on the
     array type of its arguments so this runs and differentiates under any backend
     -- and rotates the planar force back to Cartesian. Returns the matching-length
-    tuple of time derivatives.
+    tuple of time derivatives. ``pot`` is a single potential or composite,
+    3D *or* native-planar (dispatched to the matching force layer).
 
     Components are indexed on the TRAILING axis (``y[..., k]``) so the same RHS
     runs for a single state ``(dim,)`` and for a batch ``(N, dim)`` (N orbits in
@@ -39,32 +40,47 @@ def _eom_rhs(y, pot, t, xp, dim=6):
     not the phase-space dimension, once a leading axis is present.
     """
     # Imported lazily so importing this module never forces the potential import
-    # graph at galpy import time.
+    # graph at galpy import time. ``pot`` is a single potential or a composite
+    # (Orbit.integrate converts a legacy list to a CompositePotential before it
+    # reaches here), dispatched below to the 3D or the native-planar force layer.
     if dim == 2:  # 1D linear potential: state [x, vx]
         from ...potential.linearPotential import _evaluatelinearForces
 
         x, vx = y[..., 0], y[..., 1]
         return vx, _evaluatelinearForces(pot, x, t=t)
 
-    from ...potential.Potential import (
-        _evaluatephitorques,
-        _evaluateRforces,
-        _evaluatezforces,
-    )
+    from ...potential.planarPotential import planarForce
 
     x, vx, yy, vy, z, vz = (y[..., i] for i in range(6))
     R = xp.sqrt(x**2 + yy**2)
     phi = xp.arctan2(yy, x)
     cosphi, sinphi = x / R, yy / R
-    # v=[vR, vT, vz]; only used by velocity-dependent/dissipative forces.
     vR = vx * cosphi + vy * sinphi
     vT = -vx * sinphi + vy * cosphi
-    v = [vR, vT, vz]
-    Rforce = _evaluateRforces(pot, R, z, phi=phi, t=t, v=v)
-    phitorque = _evaluatephitorques(pot, R, z, phi=phi, t=t, v=v)
+    if isinstance(pot, planarForce):
+        # native-planar: 2D velocity, and no z-force (the plane is symmetric).
+        from ...potential.planarPotential import (
+            _evaluateplanarphitorques,
+            _evaluateplanarRforces,
+        )
+
+        v = [vR, vT]
+        Rforce = _evaluateplanarRforces(pot, R, phi=phi, t=t, v=v)
+        phitorque = _evaluateplanarphitorques(pot, R, phi=phi, t=t, v=v)
+        az = z * 0.0
+    else:
+        from ...potential.Potential import (
+            _evaluatephitorques,
+            _evaluateRforces,
+            _evaluatezforces,
+        )
+
+        v = [vR, vT, vz]  # only used by velocity-dependent/dissipative forces
+        Rforce = _evaluateRforces(pot, R, z, phi=phi, t=t, v=v)
+        phitorque = _evaluatephitorques(pot, R, z, phi=phi, t=t, v=v)
+        az = _evaluatezforces(pot, R, z, phi=phi, t=t, v=v)
     ax = cosphi * Rforce - sinphi / R * phitorque
     ay = sinphi * Rforce + cosphi / R * phitorque
-    az = _evaluatezforces(pot, R, z, phi=phi, t=t, v=v)
     return vx, ax, vy, ay, vz, az
 
 
@@ -136,8 +152,10 @@ def integrate_orbit(
 
     Parameters
     ----------
-    pot : Potential (or list) -- must be backend-migrated for the chosen backend;
-        a 3D Potential for planar/3D orbits, a linearPotential for 1D.
+    pot : Potential or composite -- must be backend-migrated for the chosen
+        backend; a 3D or native-planar Potential for planar/3D orbits, a
+        linearPotential for 1D (a legacy list is converted to a composite by
+        Orbit.integrate before it reaches here).
     vxvv : backend array of shape (phasedim,) for one orbit, or (N, phasedim) for
         a batch of N orbits integrated in ONE solve, Orbit order -- phasedim one of
         [x,vx] (1D), [R,vR,vT] / [R,vR,vT,phi] (2D), [R,vR,vT,z,vz] /
@@ -168,8 +186,9 @@ def integrate_orbit(
     Differentiable w.r.t. ``vxvv`` (initial conditions) and, when the parameter is
     supplied as a backend array, w.r.t. the potential's parameters. ``phi`` is
     recovered from the Cartesian position, so it is wrapped to [-pi, pi] as in
-    ``Orbit``. Planar orbits are integrated as 3D with z=vz=0 (z-force vanishes in
-    the plane of a symmetric potential) and the z,vz outputs are dropped.
+    ``Orbit``. Planar orbits are integrated as 3D with z=vz=0 (a native-planar
+    component contributes no z-force; a 3D symmetric one vanishes in the plane)
+    and the z,vz outputs are dropped.
     """
     xp = get_namespace(vxvv)
     name = xp.__name__
