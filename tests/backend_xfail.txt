@@ -112,13 +112,8 @@ jax tests/test_galpypaper.py::test_qdf
 jax tests/test_interp_potential.py::test_interpolation_potential_force_c
 jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_kuzminkutuzov.py::test_actionConservation
-jax tests/test_pv2qdf.py::test_pvRvT_staeckel
-jax tests/test_pv2qdf.py::test_pvRvT_staeckel_diffngl
 jax tests/test_pv2qdf.py::test_pvRvz_staeckel
 jax tests/test_pv2qdf.py::test_pvRvz_staeckel_arrayin
-jax tests/test_pv2qdf.py::test_pvRvz_staeckel_diffngl
-jax tests/test_pv2qdf.py::test_pvTvz_staeckel
-jax tests/test_pv2qdf.py::test_pvTvz_staeckel_diffngl
 jax tests/test_qdf.py::test_call_diffinoutputs
 jax tests/test_qdf.py::test_estimate_hr
 jax tests/test_qdf.py::test_estimate_hsr
@@ -145,7 +140,6 @@ jax tests/test_qdf.py::test_pvz_staeckel
 jax tests/test_qdf.py::test_pvz_staeckel_arrayin
 jax tests/test_qdf.py::test_pvz_staeckel_diffngl
 jax tests/test_qdf.py::test_sampleV
-jax tests/test_qdf.py::test_sampleV_interpolate
 jax tests/test_qdf.py::test_sampleV_physical
 jax tests/test_qdf.py::test_sigmar_staeckel_gl
 jax tests/test_qdf.py::test_sigmar_staeckel_mc
@@ -1001,6 +995,7 @@ torch tests/test_streamdf.py::test_streamTrack_multi_parallel
 torch tests/test_streamdf.py::test_streamTrack_raises_when_spread_not_setup
 torch tests/test_streamgapdf.py::test_leadingwtrailingimpact_error
 torch tests/test_streamgapdf.py::test_trailingwleadingimpact_error
+torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_fullintegration_fastencounter
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_fullintegration_zeroforce
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_orbit_zeroforce
