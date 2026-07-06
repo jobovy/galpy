@@ -640,6 +640,11 @@ def _staeckel_c_grad_actions(pot, delta, R, vR, vT, z, vz, u0, order, useu0=Fals
     reference too when a user kwarg (useu0=False); when it is the calcu0(E,Lz)
     reference (useu0=True) the C Jacobian adds the exact dJ/du0*du0/dx term.
     First-order only."""
+    from ..orbit.integrateFullOrbit import _parse_pot
+
+    _parse_pot(
+        pot, potforactions=True
+    )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
     delta_np = numpy.atleast_1d(
         numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
     )
@@ -677,6 +682,11 @@ def _staeckel_c_grad_ecczmax(pot, delta, R, vR, vT, z, vz, u0, useu0=False):
     of the C-computed Jacobian. numpy inputs never reach here. delta is a fixed
     reference (no gradient), so the Jacobian is the partial at fixed delta.
     First-order only."""
+    from ..orbit.integrateFullOrbit import _parse_pot
+
+    _parse_pot(
+        pot, potforactions=True
+    )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
     delta_np = numpy.atleast_1d(
         numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
     )
@@ -714,6 +724,11 @@ def _staeckel_c_grad_actionsfreqs(pot, delta, R, vR, vT, z, vz, u0, order, useu0
     reaches here. First-order only; close-to-circular/planar frequency VALUES get
     the epifreq/omegac/verticalfreq substitution (host) with their Jacobian rows
     zeroed in C."""
+    from ..orbit.integrateFullOrbit import _parse_pot
+
+    _parse_pot(
+        pot, potforactions=True
+    )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
     delta_np = numpy.atleast_1d(
         numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
     )
@@ -754,6 +769,11 @@ def _staeckel_c_grad_actionsfreqsangles(
     analytically (d anglephi/dphi==1) via the backend tie. numpy never reaches here.
     First-order only; near-turning-point angle-Jacobian rows are zeroed in C (the AA
     turning-point-edge convention)."""
+    from ..orbit.integrateFullOrbit import _parse_pot
+
+    _parse_pot(
+        pot, potforactions=True
+    )  # eager: surface unsupported-pot NotImplementedError outside the jax pure_callback (matches the numpy path)
     delta_np = numpy.atleast_1d(
         numpy.asarray(stop_gradient(delta), dtype=numpy.float64)
     )
