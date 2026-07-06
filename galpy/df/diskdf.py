@@ -16,6 +16,7 @@ _INTERPDEGREE = 3
 _RMIN = 10.0**-10.0
 _MAXD_REJECTLOS = 4.0
 _PROFILE = False
+_NQUAD = 50  # fixed Gauss-Legendre order for the backend (jax/torch) moment path
 import copy
 import os
 import os.path
@@ -28,6 +29,8 @@ numpylog = numpy.lib.scimath.log  # somehow, this code produces log(negative), w
 from scipy import integrate, interpolate, optimize, stats
 
 from ..actionAngle import actionAngleAdiabatic
+from ..backend import get_namespace, is_backend_array
+from ..backend.quadrature import nested_quad
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
 from ..util import conversion, quadpack, save_pickles
@@ -181,7 +184,7 @@ class diskdf(df):
                 elif kwargs.pop("marginalizeVlos", False):
                     return self._call_marginalizevlos(args[0], **kwargs)
                 else:
-                    return numpy.real(
+                    return self._real(
                         self.eval(
                             *vRvTRToEL(
                                 args[0].vR(use_physical=False),
@@ -194,7 +197,7 @@ class diskdf(df):
                     )
             else:
                 no = args[0](args[1])
-                return numpy.real(
+                return self._real(
                     self.eval(
                         *vRvTRToEL(
                             no.vR(use_physical=False),
@@ -214,7 +217,7 @@ class diskdf(df):
             vR = numpy.array([o.vR(use_physical=False) for o in args[0]])
             vT = numpy.array([o.vT(use_physical=False) for o in args[0]])
             R = numpy.array([o.R(use_physical=False) for o in args[0]])
-            return numpy.real(
+            return self._real(
                 self.eval(*vRvTRToEL(vR, vT, R, self._beta, self._dftype))
             )
         elif isinstance(args[0], numpy.ndarray) and not (
@@ -224,11 +227,16 @@ class diskdf(df):
             vR = args[0][1]
             vT = args[0][2]
             R = args[0][0]
-            return numpy.real(
+            return self._real(
                 self.eval(*vRvTRToEL(vR, vT, R, self._beta, self._dftype))
             )
         else:
-            return numpy.real(self.eval(*args))
+            return self._real(self.eval(*args))
+
+    @staticmethod
+    def _real(x):
+        # backend arrays are already real; numpy path unwraps scimath's +i*pi
+        return x if is_backend_array(x) else numpy.real(x)
 
     def _call_marginalizevperp(self, o, **kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""
@@ -751,6 +759,29 @@ class diskdf(df):
             )
         )
 
+    def _backend_moment_prep(self, R, nsigma):
+        """Backend (jax/torch) prelude shared by the moment quadratures: returns
+        (xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi) for the velocity box."""
+        xp = get_namespace(R)
+        logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
+        sigmaR2 = self.targetSigma2(R, use_physical=False)
+        sigmaR1 = xp.sqrt(sigmaR2)
+        logsigmaR2 = xp.log(sigmaR2)
+        va = (
+            sigmaR2
+            / 2.0
+            / R**self._beta
+            * (
+                1.0 / self._gamma**2.0
+                - 1.0
+                - R * self._surfaceSigmaProfile.surfacemassDerivative(R, log=True)
+                - R * self._surfaceSigmaProfile.sigma2Derivative(R, log=True)
+            )
+        )
+        va = xp.where(xp.abs(va) > sigmaR1, 0.0, va)  # avoid craziness near center
+        vTcen = self._gamma * (R**self._beta - va) / sigmaR1
+        return xp, logSigmaR, logsigmaR2, sigmaR1, vTcen - nsigma, vTcen + nsigma
+
     @potential_physical_input
     @physical_conversion("surfacedensity", pop=True)
     def surfacemass(self, R, romberg=False, nsigma=None, relative=False):
@@ -779,6 +810,24 @@ class diskdf(df):
         """
         if nsigma == None:
             nsigma = _NSIGMA
+        # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
+        if is_backend_array(R) and not self._correct:
+            xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
+                R, nsigma
+            )
+            norm = 1.0 if relative else xp.exp(logSigmaR)
+            return (
+                nested_quad(
+                    xp,
+                    lambda vR, vT: _surfaceIntegrand(
+                        vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, self._gamma
+                    ),
+                    [(0.0, nsigma), (vTlo, vThi)],
+                    n=_NQUAD,
+                )
+                / numpy.pi
+                * norm
+            )
         logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
         sigmaR2 = self.targetSigma2(R, use_physical=False)
         sigmaR1 = numpy.sqrt(sigmaR2)
@@ -859,6 +908,24 @@ class diskdf(df):
         """
         if nsigma == None:
             nsigma = _NSIGMA
+        # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
+        if is_backend_array(R) and not self._correct:
+            xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
+                R, nsigma
+            )
+            norm = 1.0 if relative else xp.exp(logSigmaR + logsigmaR2)
+            return (
+                nested_quad(
+                    xp,
+                    lambda vR, vT: _sigma2surfaceIntegrand(
+                        vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, self._gamma
+                    ),
+                    [(0.0, nsigma), (vTlo, vThi)],
+                    n=_NQUAD,
+                )
+                / numpy.pi
+                * norm
+            )
         logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
         sigmaR2 = self.targetSigma2(R, use_physical=False)
         sigmaR1 = numpy.sqrt(sigmaR2)
@@ -972,6 +1039,40 @@ class diskdf(df):
             return 0.0
         if nsigma == None:
             nsigma = _NSIGMA
+        # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
+        if is_backend_array(R) and not self._correct:
+            xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
+                R, nsigma
+            )
+            norm = (
+                1.0
+                if relative
+                else xp.exp(logSigmaR + logsigmaR2 * (n + m) / 2.0) / self._gamma**m
+            )
+            if deriv is None:
+                integ = lambda vR, vT: _vmomentsurfaceIntegrand(
+                    vR, vT, R, self, logSigmaR, logsigmaR2, sigmaR1, self._gamma, n, m
+                )
+            else:
+                integ = lambda vR, vT: _vmomentderivsurfaceIntegrand(
+                    vR,
+                    vT,
+                    R,
+                    self,
+                    logSigmaR,
+                    logsigmaR2,
+                    sigmaR1,
+                    self._gamma,
+                    n,
+                    m,
+                    deriv,
+                )
+            return (
+                nested_quad(xp, integ, [(-nsigma, nsigma), (vTlo, vThi)], n=_NQUAD)
+                / numpy.pi
+                * norm
+                / 2.0
+            )
         logSigmaR = self.targetSurfacemass(R, log=True, use_physical=False)
         sigmaR2 = self.targetSigma2(R, use_physical=False)
         sigmaR1 = numpy.sqrt(sigmaR2)
@@ -1864,6 +1965,8 @@ class dehnendf(diskdf):
             start = time.time()
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
+        if (is_backend_array(E) or is_backend_array(L)) and not self._correct:
+            return self._eval_backend(E, L, logSigmaR, logsigmaR2)
         # Calculate Re,LE, OmegaE
         if self._beta == 0.0:
             xE = numpy.exp(E - 0.5)
@@ -1922,6 +2025,33 @@ class dehnendf(diskdf):
                 / 2.0
                 / numpy.pi
             )
+
+    def _eval_backend(self, E, L, logSigmaR, logsigmaR2):
+        """Backend (jax/torch) eval; byte-matches the numpy scimath real part.
+        exp(numpylog(X) - SRE2) = X * exp(-SRE2), so the scimath log/real pair is
+        replaced by the signed algebraic factor X (differentiable, no complex)."""
+        xp = get_namespace(E, L)
+        if self._beta == 0.0:
+            xE = xp.exp(E - 0.5)
+            olfac = L / xE - 1.0  # Omega_E (L - L_E) numerator
+        else:  # non-flat rotation curve
+            xE = (2.0 * E / (1.0 + 1.0 / self._beta)) ** (1.0 / 2.0 / self._beta)
+            olfac = xE**self._beta * (L / xE - xE**self._beta)
+        correction = xp.zeros(2)
+        SRE2 = self.targetSigma2(xE, log=True, use_physical=False) + correction[1]
+        return (
+            self._gamma
+            * xp.exp(
+                logsigmaR2
+                - SRE2
+                + self.targetSurfacemass(xE, log=True, use_physical=False)
+                - logSigmaR
+                + olfac * xp.exp(-SRE2)
+                + correction[0]
+            )
+            / 2.0
+            / numpy.pi
+        )
 
     def sample(
         self,
@@ -2123,9 +2253,16 @@ class dehnendf(diskdf):
 
     def _dlnfdR(self, R, vR, vT):
         # Calculate a bunch of stuff that we need
+        # Data-guarded: numpy math for numpy callers (dblquad integrand) even in a
+        # forced-backend context; backend math only for actual backend arrays.
+        if is_backend_array(R) or is_backend_array(vR) or is_backend_array(vT):
+            _xp = get_namespace(R, vR, vT)
+            _log, _exp = _xp.log, _xp.exp
+        else:
+            _log, _exp = numpylog, numpy.exp
         if self._beta == 0.0:
-            E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + numpylog(R)
-            xE = numpy.exp(E - 0.5)
+            E = vR**2.0 / 2.0 + vT**2.0 / 2.0 + _log(R)
+            xE = _exp(E - 0.5)
             OE = xE**-1.0
             LCE = xE
             dRedR = xE / R
@@ -2310,6 +2447,8 @@ class shudf(diskdf):
         """
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
+        if (is_backend_array(E) or is_backend_array(L)) and not self._correct:
+            return self._eval_backend(E, L, logSigmaR, logsigmaR2)
         # Calculate RL,LL, OmegaL
         if self._beta == 0.0:
             xL = L
@@ -2339,6 +2478,36 @@ class shudf(diskdf):
             / 2.0
             / numpy.pi
         )
+
+    def _eval_backend(self, E, L, logSigmaR, logsigmaR2):
+        """Backend (jax/torch) eval; byte-matches the numpy scimath real part.
+        exp(numpylog(X) - SRE2) = X * exp(-SRE2) recovers the signed factor X; the
+        xL<0 counter-rotating cut is a data branch -> xp.where (log guarded)."""
+        xp = get_namespace(E, L)
+        if self._beta == 0.0:
+            xL = L
+            xLsafe = xp.where(xL > 0.0, xL, 1.0)  # guard log on the masked side
+            eclfac = E - 0.5 - xp.log(xLsafe)  # E - E_c(L)
+        else:  # non-flat rotation curve
+            xL = L ** (1.0 / (self._beta + 1.0))
+            xLsafe = xp.where(xL > 0.0, xL, 1.0)
+            eclfac = E - 0.5 * (1.0 / self._beta + 1.0) * xLsafe ** (2.0 * self._beta)
+        correction = xp.zeros(2)
+        SRE2 = self.targetSigma2(xLsafe, log=True, use_physical=False) + correction[1]
+        value = (
+            self._gamma
+            * xp.exp(
+                logsigmaR2
+                - SRE2
+                + self.targetSurfacemass(xLsafe, log=True, use_physical=False)
+                - logSigmaR
+                - eclfac * xp.exp(-SRE2)
+                + correction[0]
+            )
+            / 2.0
+            / numpy.pi
+        )
+        return xp.where(xL < 0.0, 0.0, value)
 
     def sample(
         self,
@@ -2533,7 +2702,11 @@ class shudf(diskdf):
         if self._beta == 0.0:
             xL = L
             dRldR = vT
-            ECL = numpylog(xL) + 0.5
+            if is_backend_array(xL):  # guard log on the masked (xL<0) side
+                xp = get_namespace(xL)
+                ECL = xp.log(xp.where(xL > 0.0, xL, 1.0)) + 0.5
+            else:
+                ECL = numpylog(xL) + 0.5
             dECLEdR = 0.0
         else:  # non-flat rotation curve
             xL = L ** (1.0 / (self._beta + 1.0))
@@ -2689,8 +2862,8 @@ def _vmomentderivsurfaceIntegrand(
 
 def _vRpvTpRToEL(vR, vT, R, beta, sigmaR1, gamma, dftype="dehnen"):
     """Internal function that calculates E and L given velocities normalized by the velocity dispersion"""
-    vR *= sigmaR1
-    vT *= sigmaR1 / gamma
+    vR = vR * sigmaR1  # out-of-place (backend arrays are immutable)
+    vT = vT * (sigmaR1 / gamma)  # keep the *= grouping for numpy byte-identity
     return vRvTRToEL(vR, vT, R, beta, dftype)
 
 
@@ -3083,6 +3256,10 @@ def axipotential(R, beta=0.0):
 
     """
     if beta == 0.0:
+        if is_backend_array(R):
+            xp = get_namespace(R)
+            # scimath.log real part is log|R|; floor R==0 at _RMIN (guards AD)
+            return xp.log(xp.where(R == 0.0, _RMIN, xp.abs(R)))
         if numpy.any(R == 0.0):
             out = numpy.empty(R.shape)
             out[R == 0.0] = numpylog(_RMIN)
