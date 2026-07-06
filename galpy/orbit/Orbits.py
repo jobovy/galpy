@@ -1755,8 +1755,11 @@ class Orbit:
                     and _check_c(_potl, dxdv3d=True)
                 ):
                     return self._integrate_cstm(t, _potl, method.lower(), rtol, atol)
+                # Pass the deprecation-checked/composed potential (_potl), matching
+                # the C-STM and numpy paths, so a legacy list reaches the in-backend
+                # integrator as a composite rather than a raw list.
                 return self._integrate_inbackend(
-                    t, pot, _inbk, rtol, atol, inbackend_kwargs
+                    t, _potl, _inbk, rtol, atol, inbackend_kwargs
                 )
         if getattr(self, "_ic_backend", None) is not None and not getattr(
             self, "_ic_backend_concrete", True
