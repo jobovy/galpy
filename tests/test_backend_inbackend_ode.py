@@ -23,6 +23,7 @@ from galpy.potential import (
     DehnenCoreSphericalPotential,
     DehnenSphericalPotential,
     DoubleExponentialDiskPotential,
+    EllipticalDiskPotential,
     FlattenedPowerPotential,
     HernquistPotential,
     IsochronePotential,
@@ -39,6 +40,7 @@ from galpy.potential import (
     SCFPotential,
     SoftenedNeedleBarPotential,
     SpiralArmsPotential,
+    SteadyLogSpiralPotential,
     TriaxialHernquistPotential,
     TriaxialNFWPotential,
     TwoPowerSphericalPotential,
@@ -239,6 +241,125 @@ def test_inbackend_grad_torch_matches_jax():
     g_torch = float(ic.grad[1])
 
     numpy.testing.assert_allclose(g_torch, g_jax, rtol=1e-6, atol=1e-8)
+
+
+# --------------------- native-planar / composite potentials ---------------------
+# The in-backend RHS used to call the 3D force layer on the potential, so a
+# native-planar potential (SteadyLogSpiral/EllipticalDisk -- no z-argument) or a
+# planarCompositePotential crashed. It now dispatches to the planar force layer
+# for a planarForce (planar orbit integrated as 3D with z=vz=0, no z-force) and to
+# the 3D layer otherwise. Covers native-planar, .toPlanar(), the modern
+# planarCompositePotential (pot1+pot2), and a 3D CompositePotential -- all vs
+# galpy's C integrator. (Legacy lists are converted to a composite by
+# Orbit.integrate before reaching the integrator, so they need no special path.)
+_IC_PLANAR = [1.0, 0.1, 0.9, 0.2]  # R, vR, vT, phi
+_SPIRAL = SteadyLogSpiralPotential(amp=1.0, omegas=0.65, A=-0.035)
+_EDISK = EllipticalDiskPotential(
+    twophio=0.05, phib=25.0 / 180.0 * numpy.pi, p=0.0, tform=-150.0, tsteady=125.0
+)
+_PLANAR_POTS = [
+    ("native-SteadyLogSpiral", _SPIRAL),
+    ("native-EllipticalDisk", _EDISK),
+    ("toPlanar-LogHalo", LogarithmicHaloPotential(amp=1.0, q=0.8).toPlanar()),
+    ("composite-planar", LogarithmicHaloPotential(amp=1.0, q=0.8).toPlanar() + _SPIRAL),
+    (
+        "composite-3D",
+        MiyamotoNagaiPotential(amp=0.8, a=0.5, b=0.1)
+        + LogarithmicHaloPotential(amp=0.2, q=0.8),
+    ),
+]
+
+
+def _wrap_phi_planar(a):
+    a = numpy.array(a, dtype=float)
+    a[..., 3] = (a[..., 3] + numpy.pi) % (2 * numpy.pi) - numpy.pi
+    return a
+
+
+def _c_reference_planar(pot, ic=None):
+    o = Orbit(_IC_PLANAR if ic is None else list(ic))
+    o.integrate(_TS, pot, method="dop853_c")
+    return numpy.array([[o.R(t), o.vR(t), o.vT(t), o.phi(t)] for t in _TS])
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("name,pot", _PLANAR_POTS, ids=[p[0] for p in _PLANAR_POTS])
+def test_inbackend_planar_matches_c_jax(name, pot):
+    ref = _c_reference_planar(pot)
+    got = numpy.asarray(integrate_orbit(pot, jnp.asarray(_IC_PLANAR), jnp.asarray(_TS)))
+    numpy.testing.assert_allclose(
+        _wrap_phi_planar(got), _wrap_phi_planar(ref), rtol=1e-6, atol=1e-7
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+@pytest.mark.parametrize("name,pot", _PLANAR_POTS, ids=[p[0] for p in _PLANAR_POTS])
+def test_inbackend_planar_matches_c_torch(name, pot):
+    ref = _c_reference_planar(pot)
+    got = (
+        integrate_orbit(pot, torch.as_tensor(_IC_PLANAR), torch.as_tensor(_TS))
+        .detach()
+        .numpy()
+    )
+    numpy.testing.assert_allclose(
+        _wrap_phi_planar(got), _wrap_phi_planar(ref), rtol=1e-5, atol=1e-6
+    )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_planar_composite_grad_vs_fd_jax():
+    # d(final R)/d(vR0) through a composite-planar orbit solve, autodiff vs FD --
+    # the differentiable-evolution path an evolveddiskdf moment rides on.
+    pot = LogarithmicHaloPotential(amp=1.0, q=0.8).toPlanar() + _SPIRAL
+    ts = jnp.asarray(_TS)
+
+    def final_R(vR0):
+        ic = jnp.array([1.0, vR0, 0.9, 0.2])
+        return integrate_orbit(pot, ic, ts)[-1][0]
+
+    ad = float(jax.grad(final_R)(jnp.asarray(0.1)))
+    eps = 1e-6
+    fd = (float(final_R(0.1 + eps)) - float(final_R(0.1 - eps))) / (2 * eps)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_planar_batch_jax():
+    # a batch of planar orbits (N,4) with a composite-planar potential in one solve
+    pot = LogarithmicHaloPotential(amp=1.0, q=0.8).toPlanar() + _SPIRAL
+    ics = numpy.array([_IC_PLANAR, [0.9, 0.0, 1.0, 0.1], [1.1, -0.05, 0.85, 0.4]])
+    ref = numpy.array([_c_reference_planar(pot, ic)[-1] for ic in ics])
+    out = numpy.asarray(integrate_orbit(pot, jnp.asarray(ics), jnp.asarray(_TS)))
+    assert out.shape == (len(_TS), 3, 4)
+    numpy.testing.assert_allclose(
+        _wrap_phi_planar(out[-1]), _wrap_phi_planar(ref), rtol=1e-6, atol=1e-7
+    )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_orbit_integrate_composite_planar_end_to_end_jax():
+    # end-to-end via Orbit.integrate with a jax IC + composite-planar potential and
+    # a C-method NAME (rk6_c): a backend IC routes a C dxdv method to the
+    # differentiable in-backend integrator, and the composed potential is forwarded
+    # (not the raw list). Planar, so it takes the in-backend path (not 6D C-STM) and
+    # the final coordinate is differentiable w.r.t. the IC.
+    pot = LogarithmicHaloPotential(amp=1.0, q=0.8).toPlanar() + _SPIRAL
+
+    def final_R(vR0):
+        o = Orbit(jnp.array([1.0, vR0, 0.9, 0.2]))
+        o.integrate(jnp.asarray(_TS), pot, method="rk6_c")
+        return o.getOrbit().reshape(-1, 4)[-1, 0]
+
+    ref = _c_reference_planar(pot)[-1, 0]
+    numpy.testing.assert_allclose(
+        float(final_R(jnp.asarray(0.1))), ref, rtol=1e-6, atol=1e-7
+    )
+    ad = float(jax.grad(final_R)(jnp.asarray(0.1)))
+    eps = 1e-6
+    fd = (
+        float(final_R(jnp.asarray(0.1 + eps))) - float(final_R(jnp.asarray(0.1 - eps)))
+    ) / (2 * eps)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-7)
 
 
 # ----------------------- in-backend solver/adjoint/max_steps knobs (#102) -------
