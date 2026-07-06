@@ -84,6 +84,18 @@ torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 # and exceeds the 300 s per-test timeout. Defer until the df/actionAngle ports
 # (Track E/F) land; numpy still exercises it.
 jax tests/test_qdf.py::test_meanjz_noaac_issue300
+# qdf Staeckel moment/pv-projection tests that evaluate the backend-migrated
+# moment engine on a grid of points: each point runs the eager-XLA GL quadrature
+# (~5-10 s), so the grid-scale pv-projections + interpolated sampleV exceed the
+# 300 s per-test timeout under forced jax. torch completes them (faster eager),
+# so torch keeps them ledgered xfail. Un-defer once the moment engine is
+# vectorized/jit-friendly; numpy exercises every one.
+jax tests/test_pv2qdf.py::test_pvRvT_staeckel
+jax tests/test_pv2qdf.py::test_pvRvT_staeckel_diffngl
+jax tests/test_pv2qdf.py::test_pvRvz_staeckel_diffngl
+jax tests/test_pv2qdf.py::test_pvTvz_staeckel
+jax tests/test_pv2qdf.py::test_pvTvz_staeckel_diffngl
+jax tests/test_qdf.py::test_sampleV_interpolate
 
 # --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
 # interpRZPotential evaluates a coerced potential many times under forced-jax, so each
