@@ -942,10 +942,12 @@ class actionAngleStaeckel(actionAngle):
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot):
             Lz = R * vT
-            if any(is_backend_array(c) for c in (R, vR, vT, z, vz)):
+            # Resolve namespace first so a forced backend (numpy inputs) also routes
+            # to the C-native path; numpy stays on the plain C path below.
+            xp = get_namespace(R, vR, vT, z, vz)
+            if xp is not numpy:
                 # jax/torch: differentiable actions via the C-native 2x5 Jacobian
-                # (vjp/autograd.Function); numpy stays on the plain C path below.
-                xp = get_namespace(R, vR, vT, z, vz)
+                # (vjp/autograd.Function).
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
                 Lz = R * vT
                 u0, refu0_calc = _staeckel_c_backend_refu0(
@@ -1075,11 +1077,13 @@ class actionAngleStaeckel(actionAngle):
                 z = numpy.array([z])
                 vz = numpy.array([vz])
             Lz = R * vT
-            if any(is_backend_array(c) for c in (R, vR, vT, z, vz)):
+            # Resolve namespace first so a forced backend (numpy inputs) also routes
+            # to the C-native path; numpy stays on the plain C path below.
+            xp = get_namespace(R, vR, vT, z, vz)
+            if xp is not numpy:
                 # jax/torch: differentiable (jr,jz,Omega) via the fused C-native
                 # (5x5) Jacobian -- actions rows (#1051) + freq rows (#131), in one
                 # C pass. First-order.
-                xp = get_namespace(R, vR, vT, z, vz)
                 R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
                 Lz = R * vT
                 u0, refu0_calc = _staeckel_c_backend_refu0(
@@ -1252,11 +1256,13 @@ class actionAngleStaeckel(actionAngle):
                 vz = numpy.array([vz])
                 phi = numpy.array([phi])
             Lz = R * vT
-            if any(is_backend_array(c) for c in (R, vR, vT, z, vz)):
+            # Resolve namespace first so a forced backend (numpy inputs) also routes
+            # to the C-native path; numpy stays on the plain C path below.
+            xp = get_namespace(R, vR, vT, z, vz)
+            if xp is not numpy:
                 # jax/torch: differentiable actions, frequencies AND angles via the
                 # fused C-native Jacobian (#131 PR-B); phi enters analytically
                 # (d anglephi/dphi==1). Values byte-identical to the c=True numpy path.
-                xp = get_namespace(R, vR, vT, z, vz)
                 R, vR, vT, z, vz, phi = promote_scalars(xp, R, vR, vT, z, vz, phi)
                 Lz = R * vT
                 u0, refu0_calc = _staeckel_c_backend_refu0(
@@ -1456,18 +1462,20 @@ class actionAngleStaeckel(actionAngle):
             vT = numpy.array([vT])
             z = numpy.array([z])
             vz = numpy.array([vz])
+        # Resolve namespace first so a forced backend (numpy inputs) also routes to
+        # the C-native path; numpy stays on the turning-point path below.
+        xp = get_namespace(R, vR, vT, z, vz)
         if (
             (
                 (self._c and not ("c" in kwargs and not kwargs["c"]))
                 or (ext_loaded and ("c" in kwargs and kwargs["c"]))
             )
             and _check_c(self._pot)
-            and any(is_backend_array(c) for c in (R, vR, vT, z, vz))
+            and xp is not numpy
         ):
             # jax/torch: differentiable (e,zmax,rperi,rap) via the C-native 4x5
             # Jacobian (custom_vjp/autograd.Function); numpy stays on the path
             # below (the ctypes turning-point wrapper cannot take backend arrays).
-            xp = get_namespace(R, vR, vT, z, vz)
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             u0, refu0_calc = _staeckel_c_backend_refu0(
                 self._pot, delta, R, vR, vT, z, vz, self._useu0, kwargs.pop("u0", None)
