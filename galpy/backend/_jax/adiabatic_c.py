@@ -58,3 +58,45 @@ def actions_with_jac(host_jac, coords):
 
     _actions.defvjp(_fwd, _bwd)
     return _actions(coords)
+
+
+def ecczmax_with_jac(host_jac, coords):
+    """Differentiable (ecc, zmax, rperi, rap) with the native-C (N,4,5) Jacobian
+    as the vjp residual. Mirrors actions_with_jac (#131 Adiabatic PR-2c).
+
+    host_jac : callable taking 5 numpy (N,) coord arrays, returning
+        (ecc, zmax, rperi, rap, jac) with the 4 values (N,) and jac (N,4,5).
+    coords : tuple of 5 traced jax (N,) arrays (R,vR,vT,z,vz).
+    """
+    import jax
+
+    shape, dtype = coords[0].shape, coords[0].dtype
+
+    def _host(*cs):
+        out = host_jac(*(numpy.asarray(c, dtype=numpy.float64) for c in cs))
+        return tuple(numpy.asarray(o, dtype=dtype) for o in out)
+
+    def _call(cs):
+        cs = tuple(jax.lax.stop_gradient(c) for c in cs)
+        return jax.pure_callback(
+            _host,
+            tuple(jax.ShapeDtypeStruct(shape, dtype) for _ in range(4))
+            + (jax.ShapeDtypeStruct(shape + (4, 5), dtype),),
+            *cs,
+            vmap_method="sequential",
+        )
+
+    @jax.custom_vjp
+    def _ez(cs):
+        return _call(cs)[:4]
+
+    def _fwd(cs):
+        out = _call(cs)
+        return out[:4], out[4]  # residual = the (N,4,5) Jacobian
+
+    def _bwd(jac, ct):
+        g = sum(ct[o][:, None] * jac[:, o, :] for o in range(4))  # (N,5)
+        return (tuple(g[:, k] for k in range(5)),)
+
+    _ez.defvjp(_fwd, _bwd)
+    return _ez(coords)

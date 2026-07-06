@@ -62,6 +62,39 @@ def _adiabatic_c_grad_actions(pot, gamma, R, vR, vT, z, vz, order=10):
     )
 
 
+def _adiabatic_c_grad_ecczmax(pot, gamma, R, vR, vT, z, vz, order=10):
+    """Differentiable (ecc, zmax, rperi, rap) via the C-native Adiabatic EccZmax
+    Jacobian. For jax/torch inputs, wraps the compiled (4,5)
+    d(ecc,zmax,rperi,rap)/d(R,vR,vT,z,vz) C entry
+    (actionAngleEccZmaxRperiRapAdiabaticJac_c) in the backend custom_vjp /
+    autograd.Function: forward = the round-trip turning-point values; backward =
+    a matvec of the C Jacobian. numpy inputs never reach here. gamma is a fixed
+    scalar (no gradient); the gamma*Jz coupling into the radial Lz is handled
+    internally in C. First-order only. Mirrors _adiabatic_c_grad_actions.
+    """
+
+    def host_jac(Rn, vRn, vTn, zn, vzn):
+        ecc, zmax, rperi, rap, jac, err = (
+            actionAngleAdiabatic_c.actionAngleEccZmaxRperiRapAdiabaticJac_c(
+                pot, gamma, Rn, vRn, vTn, zn, vzn, order=order
+            )
+        )
+        return ecc, zmax, rperi, rap, jac
+
+    name = getattr(get_namespace(R, vR, vT, z, vz), "__name__", "")
+    if "jax" in name:
+        from ..backend._jax.adiabatic_c import ecczmax_with_jac
+
+        return ecczmax_with_jac(host_jac, (R, vR, vT, z, vz))
+    if "torch" in name:
+        from ..backend._torch.adiabatic_c import ecczmax_with_jac
+
+        return ecczmax_with_jac(host_jac, R, vR, vT, z, vz)
+    raise NotImplementedError(  # pragma: no cover
+        "C-native Adiabatic EccZmax gradients require a jax or torch input array."
+    )
+
+
 class actionAngleAdiabatic(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
 
@@ -482,6 +515,14 @@ class actionAngleAdiabatic(actionAngle):
             (self._c and not ("c" in kwargs and not kwargs["c"]))
             or (ext_loaded and ("c" in kwargs and kwargs["c"]))
         ) and _check_c(self._pot)
+        if use_c and xp is not numpy:
+            # C-native differentiable (ecc,zmax,rperi,rap) via the fused (4,5) C
+            # Jacobian; numpy path below is byte-identical (#131 Adiabatic PR-2c).
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            ecc, zmax, rperi, rap = _adiabatic_c_grad_ecczmax(
+                self._pot, self._gamma, R, vR, vT, z, vz
+            )
+            return (ecc, zmax, rperi, rap)
         if not use_c and xp is not numpy:
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
             return self._EccZmaxRperiRap_backend(R, vR, vT, z, vz)
