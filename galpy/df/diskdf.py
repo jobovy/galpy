@@ -810,7 +810,8 @@ class diskdf(df):
         """
         if nsigma == None:
             nsigma = _NSIGMA
-        if is_backend_array(R):
+        # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
+        if is_backend_array(R) and not self._correct:
             xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
                 R, nsigma
             )
@@ -907,7 +908,8 @@ class diskdf(df):
         """
         if nsigma == None:
             nsigma = _NSIGMA
-        if is_backend_array(R):
+        # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
+        if is_backend_array(R) and not self._correct:
             xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
                 R, nsigma
             )
@@ -1037,7 +1039,8 @@ class diskdf(df):
             return 0.0
         if nsigma == None:
             nsigma = _NSIGMA
-        if is_backend_array(R):
+        # correct=True defers to numpy (DFcorrection not backend-migrated -- PR-2)
+        if is_backend_array(R) and not self._correct:
             xp, logSigmaR, logsigmaR2, sigmaR1, vTlo, vThi = self._backend_moment_prep(
                 R, nsigma
             )
@@ -1962,7 +1965,7 @@ class dehnendf(diskdf):
             start = time.time()
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
-        if is_backend_array(E) or is_backend_array(L):
+        if (is_backend_array(E) or is_backend_array(L)) and not self._correct:
             return self._eval_backend(E, L, logSigmaR, logsigmaR2)
         # Calculate Re,LE, OmegaE
         if self._beta == 0.0:
@@ -2444,7 +2447,7 @@ class shudf(diskdf):
         """
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
-        if is_backend_array(E) or is_backend_array(L):
+        if (is_backend_array(E) or is_backend_array(L)) and not self._correct:
             return self._eval_backend(E, L, logSigmaR, logsigmaR2)
         # Calculate RL,LL, OmegaL
         if self._beta == 0.0:
