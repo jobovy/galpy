@@ -59,6 +59,11 @@ EXPORT void actionAngleAdiabatic_actions(int,double *,double *,double *,double *
 EXPORT void actionAngleAdiabatic_actionsJac(int,double *,double *,double *,double *,
 				 double *,int,int *,double *,tfuncs_type_arr,double,int,
 				 double *,double *,double *,int *);
+// C-native differentiable EccZmax/Rperi/Rap: (ecc,zmax,rperi,rap) + the fused
+// (ndata,4,5) Jacobian d(ecc,zmax,rperi,rap)/d(R,vR,vT,z,vz) (#131 Adiabatic PR-2c).
+EXPORT void actionAngleAdiabatic_EccZmaxRperiRapJac(int,double *,double *,double *,
+				 double *,double *,int,int *,double *,tfuncs_type_arr,double,int,
+				 double *,double *,double *,double *,double *,int *);
 void calcdJRAdiabatic(int,double *,double *,double *,double *,double *,double *,
 		      int,struct potentialArg *,int);
 void calcdJzAdiabatic(int,double *,double *,double *,double *,double *,
@@ -297,6 +302,144 @@ void actionAngleAdiabatic_actionsJac(int ndata,
   free(ER); free(Ez); free(Lz);
   free(rperi); free(rap); free(zmax);
   free(djzdEz); free(djzdR); free(djrdER); free(djrdLz);
+}
+// C-native differentiable EccZmax/Rperi/Rap: forward (ecc,zmax,rperi,rap) via the
+// existing turning-point solves, plus the fused (ndata,4,5) Jacobian
+// d(ecc,zmax,rperi,rap)/d(R,vR,vT,z,vz). rperi/Rap (planar apo) and zmax are 1D
+// turning-point roots, so their coord-sensitivities follow from the implicit
+// function theorem d(tp)/dcoord= -F_coord/F_r|tp -- NO action integrals. The
+// gamma*Jz coupling into the radial Lz reuses calcdJzAdiabatic (only bites when
+// gamma!=0). rap=sqrt(Rap^2+zmax^2), ecc=(rap-rperi)/(rap+rperi) chain both blocks.
+// First-order only. Degenerate rows (unbound sentinel / circular radial /
+// planar vertical) are zeroed. Mirrors actionAngleStaeckel_EccZmaxRperiRapJac.
+void actionAngleAdiabatic_EccZmaxRperiRapJac(int ndata,
+					     double *R,
+					     double *vR,
+					     double *vT,
+					     double *z,
+					     double *vz,
+					     int npot,
+					     int * pot_type,
+					     double * pot_args,
+					     tfuncs_type_arr pot_tfuncs,
+					     double gamma,
+					     int order,
+					     double *ecc,
+					     double *zmaxout,
+					     double *rperiout,
+					     double *rapout,
+					     double *jac,
+					     int * err){
+  int ii;
+  struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
+  double *ER= (double *) malloc ( ndata * sizeof(double) );
+  double *Ez= (double *) malloc ( ndata * sizeof(double) );
+  double *Lz= (double *) malloc ( ndata * sizeof(double) );
+  double *rperi= (double *) malloc ( ndata * sizeof(double) );
+  double *Rap= (double *) malloc ( ndata * sizeof(double) );
+  double *zmax= (double *) malloc ( ndata * sizeof(double) );
+  double *jz= (double *) malloc ( ndata * sizeof(double) );
+  // vertical block first (Lz-independent)
+  calcEREzL(ndata,R,vR,vT,z,vz,ER,Ez,Lz,npot,actionAngleArgs);
+  calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
+  calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,order);
+  double *djzdEz= (double *) malloc ( ndata * sizeof(double) );
+  double *djzdR=  (double *) malloc ( ndata * sizeof(double) );
+  calcdJzAdiabatic(ndata,djzdEz,djzdR,zmax,R,Ez,npot,actionAngleArgs,order);
+  // gamma injection: Lz = |R vT| + gamma*Jz, then radial effective energy
+  UNUSED int chunk= CHUNKSIZE;
+#pragma omp parallel for schedule(static,chunk) private(ii)
+  for (ii=0; ii < ndata; ii++){
+    *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
+    *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii)
+      - 0.5 * *(vT+ii) * *(vT+ii);
+  }
+  // radial block (uses the gamma-adjusted ER,Lz); Rap is the PLANAR apocenter
+  calcRapRperi(ndata,rperi,Rap,R,ER,Lz,npot,actionAngleArgs);
+  // assemble the (4,5) Jacobian per orbit
+#pragma omp parallel for schedule(static,chunk) private(ii)
+  for (ii=0; ii < ndata; ii++){
+    int kk;
+    double tR= *(R+ii), tvR= *(vR+ii), tvT= *(vT+ii), tz= *(z+ii), tvz= *(vz+ii);
+    double trperi= *(rperi+ii), tRap= *(Rap+ii), tzmax= *(zmax+ii);
+    // forward values computed uniformly (rap=sqrt(Rap^2+zmax^2), ecc from the raw
+    // rperi/Rap/zmax) so they byte-match the numpy c=True path -- INCLUDING the
+    // unbound -9999.99 sentinels (rap->14142, ecc->5.83), whose Jacobian rows the
+    // guard below zeroes.
+    double trap= sqrt(tRap*tRap + tzmax*tzmax);
+    *(ecc+ii)= (trap-trperi)/(trap+trperi);
+    *(zmaxout+ii)= tzmax; *(rperiout+ii)= trperi; *(rapout+ii)= trap;
+    if ( trperi == -9999.99 || tRap == -9999.99 || tzmax == -9999.99 ){
+      for (kk=0;kk<20;kk++) *(jac+ii*20+kk)= 0.;  // unbound -> zeroed Jacobian
+      continue;
+    }
+    double tLz= *(Lz+ii);
+    int circular= ( ( tRap - trperi ) / tRap < 0.000001 );  // radial turning pts merged
+    int planar=   ( tzmax < 0.000001 );                     // z=vz=0 -> zforce(R,0)=0
+    double s= ( tR * tvT >= 0. ) ? 1. : -1.;  // sign(R vT); Lz used fabs(R vT)
+    // forces at the INITIAL z for the elementary Ez/Lz/ER chains (reused from actionsJac)
+    double FR_R0= calcRforce(tR,0.,0.,0.,npot,actionAngleArgs);
+    double FR_Rz= calcRforce(tR,tz,0.,0.,npot,actionAngleArgs);
+    double Fz_Rz= calczforce(tR,tz,0.,0.,npot,actionAngleArgs);
+    double dEz[5]= { FR_R0 - FR_Rz, 0., 0., -Fz_Rz, tvz };
+    double bE= *(djzdEz+ii), bR= *(djzdR+ii);
+    double dJz[5];
+    for (kk=0;kk<5;kk++) dJz[kk]= bE*dEz[kk];
+    dJz[0]+= bR;
+    double dLz[5]= { s*tvT + gamma*dJz[0], 0., s*tR, gamma*dJz[3], gamma*dJz[4] };
+    double LzR2= tLz/(tR*tR);
+    double dER[5];
+    dER[0]= -FR_R0 - tLz*tLz/(tR*tR*tR) + LzR2*dLz[0];
+    dER[1]= tvR;
+    dER[2]= LzR2*dLz[2];
+    dER[3]= LzR2*dLz[3];
+    dER[4]= LzR2*dLz[4];
+    // radial turning-point sensitivities: F_R(r)= E_R - Phi(r,0) - Lz^2/(2r^2);
+    // dF_R/dr= Rforce(r,0)+Lz^2/r^3; dF_R/dcoord|_r= dER - (Lz/r^2) dLz;
+    // d(tp)/dcoord= -dF_R/dcoord / dF_R/dr. Circular (rperi==Rap) -> dF_R/dr->0: zero.
+    double drperi[5]= {0.,0.,0.,0.,0.}, dRapc[5]= {0.,0.,0.,0.,0.};
+    if ( !circular ){
+      // plunging (Lz->0 radial): rperi->0 EXACTLY (calcRapRperi assigns 0, not the
+      // -9999.99 sentinel) -> the drperi implicit-diff is 0/0; zero that row (Rap
+      // stays regular). Threshold matches calcRapRperi's own 1e-9 zero-assign.
+      int plunging= ( trperi < 1e-9 );
+      double dFRdr_ra= calcRforce(tRap,0.,0.,0.,npot,actionAngleArgs)
+	+ tLz*tLz/(tRap*tRap*tRap);
+      double dFRdr_rp= plunging ? 1. : ( calcRforce(trperi,0.,0.,0.,npot,actionAngleArgs)
+	+ tLz*tLz/(trperi*trperi*trperi) );
+      for (kk=0;kk<5;kk++){
+	dRapc[kk]= -( dER[kk] - tLz/(tRap*tRap)*dLz[kk] ) / dFRdr_ra;
+	if ( !plunging )
+	  drperi[kk]= -( dER[kk] - tLz/(trperi*trperi)*dLz[kk] ) / dFRdr_rp;
+      }
+    }
+    // vertical turning-point sensitivity: F_z(z')= Phi(R,z)-Phi(R,z')+vz^2/2;
+    // dF_z/dz'= zforce(R,zmax); dF_z/dcoord= {Rforce(R,zmax)-Rforce(R,z),0,0,-zforce(R,z),vz}.
+    // Planar (zmax->0) -> zforce(R,0)=0: zero.
+    double dzmaxc[5]= {0.,0.,0.,0.,0.};
+    if ( !planar ){
+      double dFzdz= calczforce(tR,tzmax,0.,0.,npot,actionAngleArgs);
+      double dFz[5]= { calcRforce(tR,tzmax,0.,0.,npot,actionAngleArgs) - FR_Rz,
+		       0., 0., -Fz_Rz, tvz };
+      for (kk=0;kk<5;kk++) dzmaxc[kk]= -dFz[kk]/dFzdz;
+    }
+    // geometry: rap=sqrt(Rap^2+zmax^2), ecc=(rap-rperi)/(rap+rperi)
+    double rr= (trap+trperi)*(trap+trperi);
+    double de_drperi= -2.*trap/rr, de_drap= 2.*trperi/rr;
+    for (kk=0;kk<5;kk++){
+      double drapk= ( tRap*dRapc[kk] + tzmax*dzmaxc[kk] ) / trap;
+      *(jac+ii*20+ 0*5+kk)= de_drperi*drperi[kk] + de_drap*drapk;  // ecc
+      *(jac+ii*20+ 1*5+kk)= dzmaxc[kk];                            // zmax
+      *(jac+ii*20+ 2*5+kk)= drperi[kk];                            // rperi
+      *(jac+ii*20+ 3*5+kk)= drapk;                                 // rap
+    }
+  }
+  free_potentialArgs(npot,actionAngleArgs);
+  free(actionAngleArgs);
+  free(ER); free(Ez); free(Lz);
+  free(rperi); free(Rap); free(zmax); free(jz);
+  free(djzdEz); free(djzdR);
 }
 // dJr/dE_radial = (1/(sqrt2 pi)) int_rperi^Rap dr/sqrt(F_R),
 // dJr/dLz       = -(Lz/(sqrt2 pi)) int_rperi^Rap dr/(r^2 sqrt(F_R)),
