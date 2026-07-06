@@ -325,7 +325,11 @@ def actionAngleStaeckel_EccZmaxRperiRapJac_c(
     """
     refu0mode = 0 if u0 is None else (2 if useu0 else 1)
     if u0 is None:
-        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+        # Force numpy for this coords transform: the ctypes bridge is numpy-only,
+        # but Rz_to_uv resolves get_namespace to a forced backend (which beats the
+        # numpy R,z) and then breaks on mixed numpy/backend ops. numpy stays numpy.
+        with use("numpy", force=True):
+            u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
