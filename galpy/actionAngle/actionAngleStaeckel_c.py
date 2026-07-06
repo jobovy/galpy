@@ -4,6 +4,7 @@ import ctypes.util
 import numpy
 from numpy.ctypeslib import ndpointer
 
+from ..backend import use
 from ..util import _load_extension_libs, coords
 
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
@@ -46,7 +47,11 @@ def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
     - 2012-12-01 - Written - Bovy (IAS)
     """
     if u0 is None:
-        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+        # Force numpy for this coords transform: the ctypes bridge is numpy-only,
+        # but Rz_to_uv resolves get_namespace to a forced backend (which beats the
+        # numpy R,z) and then breaks on mixed numpy/backend ops. numpy stays numpy.
+        with use("numpy", force=True):
+            u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
@@ -180,7 +185,11 @@ def actionAngleStaeckel_actionsJac_c(
     """
     refu0mode = 0 if u0 is None else (2 if useu0 else 1)
     if u0 is None:
-        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+        # Force numpy for this coords transform: the ctypes bridge is numpy-only,
+        # but Rz_to_uv resolves get_namespace to a forced backend (which beats the
+        # numpy R,z) and then breaks on mixed numpy/backend ops. numpy stays numpy.
+        with use("numpy", force=True):
+            u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
@@ -438,7 +447,11 @@ def actionAngleStaeckel_actionsFreqsJac_c(
     """
     refu0mode = 0 if u0 is None else (2 if useu0 else 1)
     if u0 is None:
-        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+        # Force numpy for this coords transform: the ctypes bridge is numpy-only,
+        # but Rz_to_uv resolves get_namespace to a forced backend (which beats the
+        # numpy R,z) and then breaks on mixed numpy/backend ops. numpy stays numpy.
+        with use("numpy", force=True):
+            u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
     from ..orbit.integrateFullOrbit import _parse_pot
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
 
@@ -518,7 +531,11 @@ def actionAngleStaeckel_actionsFreqsAnglesJac_c(
     differentiable backend tie adds phi via remainder(anglephi_raw+phi,2pi))."""
     refu0mode = 0 if u0 is None else (2 if useu0 else 1)
     if u0 is None:
-        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+        # Force numpy for this coords transform: the ctypes bridge is numpy-only,
+        # but Rz_to_uv resolves get_namespace to a forced backend (which beats the
+        # numpy R,z) and then breaks on mixed numpy/backend ops. numpy stays numpy.
+        with use("numpy", force=True):
+            u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
     from ..orbit.integrateFullOrbit import _parse_pot
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
 
@@ -711,7 +728,11 @@ def actionAngleFreqStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
     - 2012-12-01 - Written - Bovy (IAS)
     """
     if u0 is None:
-        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+        # Force numpy for this coords transform: the ctypes bridge is numpy-only,
+        # but Rz_to_uv resolves get_namespace to a forced backend (which beats the
+        # numpy R,z) and then breaks on mixed numpy/backend ops. numpy stays numpy.
+        with use("numpy", force=True):
+            u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
@@ -864,7 +885,11 @@ def actionAngleFreqAngleStaeckel_c(
     - 2013-08-27 - Written - Bovy (IAS)
     """
     if u0 is None:
-        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+        # Force numpy for this coords transform: the ctypes bridge is numpy-only,
+        # but Rz_to_uv resolves get_namespace to a forced backend (which beats the
+        # numpy R,z) and then breaks on mixed numpy/backend ops. numpy stays numpy.
+        with use("numpy", force=True):
+            u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
@@ -1029,7 +1054,11 @@ def actionAngleUminUmaxVminStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None):
     - 2017-12-12 - Written - Bovy (UofT)
     """
     if u0 is None:
-        u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
+        # Force numpy for this coords transform: the ctypes bridge is numpy-only,
+        # but Rz_to_uv resolves get_namespace to a forced backend (which beats the
+        # numpy R,z) and then breaks on mixed numpy/backend ops. numpy stays numpy.
+        with use("numpy", force=True):
+            u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
     from ..orbit.integratePlanarOrbit import _prep_tfuncs

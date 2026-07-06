@@ -33,6 +33,7 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+import galpy.backend
 from galpy.actionAngle import actionAngleStaeckel
 from galpy.backend import as_numpy, is_backend_array
 from galpy.df import quasiisothermaldf
@@ -187,3 +188,119 @@ def test_call_grad_vs_fd(backend, log):
             _qdf(*a, log=log).reshape(()).backward()
             g = vt.grad.numpy()
         numpy.testing.assert_allclose(g, gfd, rtol=8e-3, atol=1e-3)
+
+
+# ---------------------------------------------------------------------------
+# PR-4b: pv-projection (GL) + mc-path (_vmomentdensity) backend parity. These
+# integrate the migrated __call__ over a GL / Monte-Carlo velocity grid; the
+# numpy path stays byte-identical (test_qdf/test_pv2qdf unchanged). Scalar
+# inputs under a forced backend exercise the `if xp is not numpy` promotion
+# branches (promote_scalars, GL-table asarray, xp.concatenate/tile/permute_dims).
+# ---------------------------------------------------------------------------
+_PV_ARGS = {
+    "pvR": (0.1, 0.9, 0.05),
+    "pvT": (1.0, 0.9, 0.05),
+    "pvz": (0.05, 0.9, 0.05),
+    "pvRvT": (0.1, 1.0, 0.9, 0.05),
+    "pvTvz": (1.0, 0.05, 0.9, 0.05),
+    "pvRvz": (0.1, 0.05, 0.9, 0.05),
+}
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("name", list(_PV_ARGS))
+def test_pv_projection_parity(backend, name):
+    # GL pv-projection value parity numpy<->backend + backend-array output.
+    args = _PV_ARGS[name]
+    ref = as_numpy(getattr(_qdf, name)(*args, use_physical=False))
+    with galpy.backend.use(backend, force=True):
+        got = getattr(_qdf, name)(*args, use_physical=False)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvz_array_parity(backend):
+    # pvz with array (vz,R,z) input: the permute_dims 3-D-.T tiling array path.
+    vz = 0.05 * numpy.ones(2)
+    R = 0.9 * numpy.ones(2)
+    z = 0.05 * numpy.ones(2)
+    ref = as_numpy(_qdf.pvz(vz, R, z, use_physical=False))
+    with galpy.backend.use(backend, force=True):
+        got = _qdf.pvz(vz, R, z, use_physical=False)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_pvRvz_array_parity(backend):
+    # pvRvz with array (vR,vz,R,z) input: the 2-D-.T tiling array path.
+    vR = 0.1 * numpy.ones(2)
+    vz = 0.05 * numpy.ones(2)
+    R = 0.9 * numpy.ones(2)
+    z = 0.05 * numpy.ones(2)
+    ref = as_numpy(_qdf.pvRvz(vR, vz, R, z, use_physical=False))
+    with galpy.backend.use(backend, force=True):
+        got = _qdf.pvRvz(vR, vz, R, z, use_physical=False)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_vmomentdensity_mc_parity(backend):
+    # Monte-Carlo _vmomentdensity path: numpy random draws promoted to the
+    # backend, xp.mean reduction, backend-array scalar out. Re-seed both sides;
+    # the draws are then identical so parity is tight despite being an MC sum.
+    numpy.random.seed(1)
+    ref = as_numpy(_qdf._vmomentdensity(0.9, 0.05, 1, 0, 0, mc=True, nmc=10000))
+    with galpy.backend.use(backend, force=True):
+        numpy.random.seed(1)
+        got = _qdf._vmomentdensity(0.9, 0.05, 1, 0, 0, mc=True, nmc=10000)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-9)
+
+
+# --- moment-wrapper backend parity: the gl moment engine via the public API ---
+_R0, _Z0 = 0.9, 0.08
+
+
+def _moment_calls(q):
+    return {
+        "density": q.density(_R0, _Z0, use_physical=False),
+        "sigmaR2": q.sigmaR2(_R0, _Z0, use_physical=False),
+        "sigmaz2": q.sigmaz2(_R0, _Z0, use_physical=False),
+        "sigmaRz": q.sigmaRz(_R0, _Z0, use_physical=False),
+        "sigmaT2": q.sigmaT2(_R0, _Z0, use_physical=False),
+        "meanvT": q.meanvT(_R0, _Z0, use_physical=False),
+        "meanvz": q.meanvz(_R0, _Z0, use_physical=False),
+        "tilt": q.tilt(_R0, _Z0, use_physical=False),
+        "surfacemass_z": q.surfacemass_z(_R0, use_physical=False),
+    }
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moment_wrappers_parity(backend):
+    # the moment engine's gl path through the public wrappers -- exercises the
+    # sigma*/meanv*/tilt(xp.arctan)/surfacemass_z(backend.quadrature.fixed_quad)
+    # branches on the backend and their value parity with numpy.
+    ref = {k: float(as_numpy(v)) for k, v in _moment_calls(_qdf).items()}
+    with galpy.backend.use(backend, force=True):
+        got = _moment_calls(_qdf)
+    for k, v in got.items():
+        assert is_backend_array(v), f"{k} not a backend array"
+        numpy.testing.assert_allclose(
+            float(as_numpy(v)), ref[k], rtol=1e-6, atol=1e-9, err_msg=k
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_moment_array_R_parity(backend):
+    # array-R density -> the _vmomentdensity ndim-guard per-scalar recursion +
+    # xp.stack collection branch (numpy path uses numpy.array).
+    Rs = numpy.array([0.8, 1.0, 1.2])
+    zs = numpy.array([0.05, 0.1, 0.02])
+    ref = as_numpy(_qdf.density(Rs, zs, use_physical=False))
+    with galpy.backend.use(backend, force=True):
+        got = _qdf.density(Rs, zs, use_physical=False)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-6, atol=1e-9)
