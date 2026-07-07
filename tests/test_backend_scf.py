@@ -483,3 +483,28 @@ def test_tdep_jax_jit_in_t(name, pot):
         - float(pot._evaluate(_R0, _Z0, _PHI0, t=t0 - eps))
     ) / (2 * eps)
     numpy.testing.assert_allclose(g_jit, fd, rtol=1e-5, atol=1e-8)
+
+
+@pytest.mark.parametrize(
+    "name,pot,ts",
+    [(n, p, [0.0]) for n, p in CASES] + [(n, p, _TDEP_TS) for n, p in TDEP_CASES],
+    ids=CASE_IDS + TDEP_IDS,
+)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_mass_backend_parity(backend_name, name, pot, ts):
+    # SCF enclosed mass M(<R) = R^2 * sum(Acos[l=0,m=0] * dphiTilde) evaluated on a
+    # backend must match numpy. Exercises the _mass backend branch and its
+    # _coeffs_at_time coefficient source for BOTH static (fixed) and
+    # time-dependent (spline-interpolated-at-t) potentials.
+    for t in ts:
+        ref = numpy.asarray(pot._mass(_R0, t=t))
+        got = as_numpy(
+            pot._mass(_asarray(backend_name, _R0), t=_asarray(backend_name, t))
+        )
+        numpy.testing.assert_allclose(
+            got,
+            ref,
+            rtol=1e-11,
+            atol=1e-13,
+            err_msg=f"SCF[{name}]._mass backend parity ({backend_name}, t={t})",
+        )
