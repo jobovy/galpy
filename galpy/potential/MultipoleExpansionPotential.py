@@ -2928,7 +2928,11 @@ def _scf_density_multipoles(scf, r_arr, Acos, Asin):
     - 2026-07-04 - Written - Bovy (UofT)
     """
     N, L, M = Acos.shape
-    rhoT = numpy.array([scf._rhoTilde(r, N, L) for r in r_arr])  # (Nr, N, L)
+    # Construction-time numerical setup: pin to numpy so the namespace-dispatched
+    # SCF density basis runs on numpy regardless of any forced backend default
+    # (byte-identical no-op on the numpy backend).
+    with _use_backend("numpy", force=True):
+        rhoT = numpy.array([scf._rhoTilde(r, N, L) for r in r_arr])  # (Nr, N, L)
     Dcos = numpy.einsum("nlm,rnl->rlm", Acos, rhoT)
     Dsin = numpy.einsum("nlm,rnl->rlm", Asin, rhoT)
     return Dcos, Dsin
@@ -2958,14 +2962,21 @@ def _scf_rho_funcs(scf):
     cache = {}
 
     def _multipoles_at(r, t):
-        rr = numpy.atleast_1d(numpy.asarray(r, dtype=float))
-        key = rr.tobytes()
-        if key not in cache:
-            cache[key] = numpy.array([scf._rhoTilde(x, N, L) for x in rr])  # (Nr,N,L)
-        rhoT = cache[key]
-        scf._ensure_coeffs_for_time(t)
-        Dcos = numpy.einsum("nlm,rnl->rlm", scf._Acos, rhoT)
-        Dsin = numpy.einsum("nlm,rnl->rlm", scf._Asin, rhoT)
+        # Construction/evaluation-time numerical setup: pin to numpy so the
+        # namespace-dispatched SCF density basis and time-interpolation run on
+        # numpy regardless of any forced backend default (byte-identical no-op on
+        # the numpy backend).
+        with _use_backend("numpy", force=True):
+            rr = numpy.atleast_1d(numpy.asarray(r, dtype=float))
+            key = rr.tobytes()
+            if key not in cache:
+                cache[key] = numpy.array(
+                    [scf._rhoTilde(x, N, L) for x in rr]
+                )  # (Nr,N,L)
+            rhoT = cache[key]
+            scf._ensure_coeffs_for_time(t)
+            Dcos = numpy.einsum("nlm,rnl->rlm", scf._Acos, rhoT)
+            Dsin = numpy.einsum("nlm,rnl->rlm", scf._Asin, rhoT)
         return Dcos, Dsin
 
     def _make(l, m, sin):
