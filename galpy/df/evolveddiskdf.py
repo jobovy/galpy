@@ -17,6 +17,7 @@ import warnings
 import numpy
 from scipy import integrate
 
+from ..backend import device_of, get_namespace, is_backend_array
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
 from ..potential.Potential import _check_c, _check_potential_list_and_deprecate, _dim
@@ -515,14 +516,21 @@ class evolveddiskdf(df):
             nsigma = _NSIGMA
         if _PROFILE:  # pragma: no cover
             start = time_module.time()
+        # TRANSITIONAL data-guard (to be lifted when the hierarchical-grid + direct
+        # paths are backend-migrated, like the diskdf-family guards, task #117): xp
+        # is numpy unless R is actually a backend array, so a *forced* backend does
+        # NOT flip a numpy R (which would break the unmigrated direct/hierarchical
+        # paths and the fast numpy suite). For a backend R the grid velocity bounds
+        # carry R's gradient into the differentiable grid build (_buildvgrid_backend).
+        xp = get_namespace(R) if is_backend_array(R) else numpy
         if (
             hasattr(self._initdf, "_estimatemeanvR")
             and hasattr(self._initdf, "_estimatemeanvT")
             and hasattr(self._initdf, "_estimateSigmaR2")
             and hasattr(self._initdf, "_estimateSigmaT2")
         ):
-            sigmaR1 = numpy.sqrt(self._initdf._estimateSigmaR2(R, phi=az))
-            sigmaT1 = numpy.sqrt(self._initdf._estimateSigmaT2(R, phi=az))
+            sigmaR1 = xp.sqrt(self._initdf._estimateSigmaR2(R, phi=az))
+            sigmaT1 = xp.sqrt(self._initdf._estimateSigmaT2(R, phi=az))
             meanvR = self._initdf._estimatemeanvR(R, phi=az)
             meanvT = self._initdf._estimatemeanvT(R, phi=az)
         else:
@@ -530,8 +538,8 @@ class evolveddiskdf(df):
                 "No '_estimateSigmaR2' etc. functions found for initdf in evolveddf; thus using potentially slow sigmaR2 etc functions",
                 galpyWarning,
             )
-            sigmaR1 = numpy.sqrt(self._initdf.sigmaR2(R, phi=az, use_physical=False))
-            sigmaT1 = numpy.sqrt(self._initdf.sigmaT2(R, phi=az, use_physical=False))
+            sigmaR1 = xp.sqrt(self._initdf.sigmaR2(R, phi=az, use_physical=False))
+            sigmaT1 = xp.sqrt(self._initdf.sigmaT2(R, phi=az, use_physical=False))
             meanvR = self._initdf.meanvR(R, phi=az, use_physical=False)
             meanvT = self._initdf.meanvT(R, phi=az, use_physical=False)
         if _PROFILE:  # pragma: no cover
@@ -772,14 +780,17 @@ class evolveddiskdf(df):
             "In versions >1.3, the output unit of evolveddiskdf.vertexdev has been changed to radian (from degree before)",
             galpyWarning,
         )
+        # backend-agnostic arctan combiner (numpy for numpy moments -> byte-identical;
+        # the backend when the moments are backend arrays, i.e. from a backend grid)
+        xp = get_namespace(sigmaRT) if is_backend_array(sigmaRT) else numpy
         if returnGrid and (
             (isinstance(grid, bool) and grid)
             or isinstance(grid, evolveddiskdfGrid)
             or isinstance(grid, evolveddiskdfHierarchicalGrid)
         ):
-            return (-numpy.arctan(2.0 * sigmaRT / (sigmaR2 - sigmaT2)) / 2.0, grido)
+            return (-xp.arctan(2.0 * sigmaRT / (sigmaR2 - sigmaT2)) / 2.0, grido)
         else:
-            return -numpy.arctan(2.0 * sigmaRT / (sigmaR2 - sigmaT2)) / 2.0
+            return -xp.arctan(2.0 * sigmaRT / (sigmaR2 - sigmaT2)) / 2.0
 
     @potential_physical_input
     @physical_conversion("velocity", pop=True)
@@ -2845,6 +2856,13 @@ class evolveddiskdf(df):
     def _vmomentsurfacemassGrid(self, n, m, grid):
         """Internal function to evaluate vmomentsurfacemass using a grid
         rather than direct integration"""
+        # backend-agnostic reduction: numpy for a numpy grid (byte-identical),
+        # jax/torch for a backend grid.df/vRgrid/vTgrid
+        xp = get_namespace(grid.df) if is_backend_array(grid.df) else numpy
+        # matrix-vector contraction: numpy stays on numpy.dot for byte-identity
+        # (numpy.matmul differs from numpy.dot by ~ULP on non-contiguous slices);
+        # torch.dot is 1D-only so the backends use matmul (jax.matmul matches dot).
+        mv = xp.dot if xp is numpy else xp.matmul
         if len(grid.df.shape) == 3:
             tlist = True
         else:
@@ -2854,16 +2872,14 @@ class evolveddiskdf(df):
             out = []
             for ii in range(nt):
                 out.append(
-                    numpy.dot(
-                        grid.vRgrid**n, numpy.dot(grid.df[:, :, ii], grid.vTgrid**m)
-                    )
+                    mv(grid.vRgrid**n, mv(grid.df[:, :, ii], grid.vTgrid**m))
                     * (grid.vRgrid[1] - grid.vRgrid[0])
                     * (grid.vTgrid[1] - grid.vTgrid[0])
                 )
-            return numpy.array(out)
+            return xp.asarray(out)
         else:
             return (
-                numpy.dot(grid.vRgrid**n, numpy.dot(grid.df, grid.vTgrid**m))
+                mv(grid.vRgrid**n, mv(grid.df, grid.vTgrid**m))
                 * (grid.vRgrid[1] - grid.vRgrid[0])
                 * (grid.vTgrid[1] - grid.vTgrid[0])
             )
@@ -2884,6 +2900,25 @@ class evolveddiskdf(df):
         deriv,
     ):
         """Internal function to grid the vDF at a given location"""
+        # Backend-array R: one vectorized multi-orbit integrate (differentiable
+        # through the evolution) instead of the numpy per-gridpoint loop below, which
+        # stays byte-identical. TRANSITIONAL data-guard (gate on is_backend_array, not
+        # a forced backend) so a forced backend with a numpy R keeps the fast numpy
+        # loop -- no diffrax flip in the numpy suite (sigmaR1/meanvR follow R).
+        if is_backend_array(R):
+            return self._buildvgrid_backend(
+                R,
+                phi,
+                nsigma,
+                t,
+                sigmaR1,
+                sigmaT1,
+                meanvR,
+                meanvT,
+                gridpoints,
+                integrate_method,
+                deriv,
+            )
         out = evolveddiskdfGrid()
         out.sigmaR1 = sigmaR1
         out.sigmaT1 = sigmaT1
@@ -2944,6 +2979,112 @@ class evolveddiskdf(df):
             out.df[numpy.isnan(out.df)] = 0.0  # BOVY: for now
             if print_progress:
                 sys.stdout.write("\n")  # pragma: no cover
+        return out
+
+    def _buildvgrid_backend(
+        self,
+        R,
+        phi,
+        nsigma,
+        t,
+        sigmaR1,
+        sigmaT1,
+        meanvR,
+        meanvT,
+        gridpoints,
+        integrate_method,
+        deriv,
+    ):
+        """Backend (jax/torch) build of the velocity grid: ONE vectorized
+        multi-orbit integrate of all gridpoints (each orbit's backward evolution is
+        differentiable via the in-backend ODE solver) instead of the per-gridpoint
+        Python loop in _buildvgrid, so grid.df is a backend array and the moments
+        that reduce it (_vmomentsurfacemassGrid) are differentiable through the
+        orbit evolution -- d<v^n v^m>/dR (and /dparam). Mirrors __call__'s
+        non-deriv, non-marginalize path (scalar t and t-list). The numpy path
+        (_buildvgrid) is byte-identical; this runs only for backend inputs / under
+        a forced backend. deriv= (the finite-difference moment derivative) is
+        unsupported here -- differentiate the moment with autodiff instead."""
+        from .diskdf import vRvTRToEL
+
+        if deriv is not None:
+            raise NotImplementedError(
+                "evolveddiskdf grid deriv= is not supported on the jax/torch "
+                "backend; differentiate the moment with jax.grad / torch.autograd"
+            )
+        xp = get_namespace(R, sigmaR1, sigmaT1, meanvR, meanvT)
+        out = evolveddiskdfGrid()
+        out.sigmaR1 = sigmaR1
+        out.sigmaT1 = sigmaT1
+        out.meanvR = meanvR
+        out.meanvT = meanvT
+        # differentiable, backend-uniform velocity grids: torch.linspace drops the
+        # gradient w.r.t. tensor endpoints, so build lo + (hi-lo)*frac with a static
+        # frac (device-anchored to the inputs for torch CUDA); frac carries R's
+        # gradient into the grid bounds via sigmaR1(R)/meanvR(R).
+        _dev = device_of(meanvR, meanvT, sigmaR1, sigmaT1)
+        frac = xp.linspace(
+            0.0, 1.0, gridpoints, **({"device": _dev} if _dev is not None else {})
+        )
+        out.vRgrid = (meanvR - nsigma * sigmaR1) + 2.0 * nsigma * sigmaR1 * frac
+        out.vTgrid = (meanvT - nsigma * sigmaT1) + 2.0 * nsigma * sigmaT1 * frac
+        # ICs [R, vRgrid[ii], vTgrid[jj], phi], flattened in (ii=vR, jj=vT) order to
+        # match out.df[ii, jj]; R carries the gradient into every orbit's IC.
+        VR, VT = xp.meshgrid(out.vRgrid, out.vTgrid, indexing="ij")
+        vRf = xp.reshape(VR, (-1,))
+        vTf = xp.reshape(VT, (-1,))
+        ones = xp.ones_like(vRf)
+        ic = xp.stack([R * ones, vRf, vTf, phi * ones], axis=-1)  # (N, 4)
+
+        def _idf(vR, vT, Rr):  # initdf.__call__'s array path, backend-array-callable
+            E, L = vRvTRToEL(vR, vT, Rr, self._initdf._beta, self._initdf._dftype)
+            return self._initdf._real(self._initdf.eval(E, L))
+
+        def _nan0(x):
+            return xp.where(xp.isnan(x), 0.0, x)
+
+        # backend orbits integrate with the backend's own solver; a C-method NAME
+        # would route there anyway, but pick it explicitly so a non-C
+        # integrate_method (odeint/leapfrog) works too.
+        bmethod = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        tlist = isinstance(t, (list, numpy.ndarray))
+        if tlist:
+            t = numpy.atleast_1d(numpy.asarray(t))
+            nt = len(t)
+            if self._to == t[0]:  # no evolution: DF at the ICs, one per output time
+                df1 = _nan0(_idf(vRf, vTf, R * ones))
+                out.df = xp.reshape(
+                    xp.broadcast_to(df1[:, None], (df1.shape[0], nt)),
+                    (gridpoints, gridpoints, nt),
+                )
+            else:
+                # C-style output times (one per requested t) so the trajectory is
+                # sampled exactly at them; the backend solver saves at these times.
+                ts = xp.asarray(self._create_ts_tlist(t, "dopr54_c"))
+                o = Orbit(ic)
+                o.integrate(ts, self._pot, method=bmethod)
+                traj = o.getOrbit()  # (N, len(ts), 4)
+                if nt == 1:  # single time: the evolved endpoint (t -> self._to)
+                    end = traj[:, 1, :]
+                    dfvals = _nan0(_idf(end[:, 1], end[:, 2], end[:, 0]))[:, None]
+                else:  # DF along the trajectory, reversed to ascending-lag t order
+                    dfvals = _nan0(_idf(traj[..., 1], traj[..., 2], traj[..., 0]))
+                    dfvals = xp.flip(dfvals, axis=1)  # torch has no negative-step slice
+                out.df = xp.reshape(dfvals, (gridpoints, gridpoints, nt))
+        else:  # scalar t: DF at the single evolved endpoint (t -> self._to)
+            if self._to == t:  # no evolution
+                out.df = xp.reshape(
+                    _nan0(_idf(vRf, vTf, R * ones)), (gridpoints, gridpoints)
+                )
+            else:
+                ts = xp.asarray(numpy.linspace(float(t), float(self._to), 2))
+                o = Orbit(ic)
+                o.integrate(ts, self._pot, method=bmethod)
+                end = o.getOrbit()[:, -1, :]  # at self._to
+                Ro, vRo, vTo = end[:, 0], end[:, 1], end[:, 2]
+                eps = numpy.finfo(numpy.float64).eps
+                df = xp.where(Ro <= 0.0, eps, _idf(vRo, vTo, Ro))  # R<=0 -> eps
+                out.df = xp.reshape(_nan0(df), (gridpoints, gridpoints))
         return out
 
     def _create_ts_tlist(self, t, integrate_method):
@@ -3387,6 +3528,13 @@ class evolveddiskdfHierarchicalGrid:
 
     def __call__(self, n, m):
         """Call"""
+        # backend-agnostic reduction: numpy for a numpy grid (byte-identical),
+        # jax/torch for a backend grid.df. Data-guard (is_backend_array, not a
+        # forced backend) so a forced backend with a numpy grid stays numpy --
+        # torch.dot rejects a numpy array. matmul on the backends (torch.dot is
+        # 1D-only), numpy.dot on numpy for byte-identity.
+        xp = get_namespace(self.df) if is_backend_array(self.df) else numpy
+        mv = xp.dot if xp is numpy else xp.matmul
         if isinstance(self.t, (list, numpy.ndarray)):
             tlist = True
         else:
@@ -3396,19 +3544,15 @@ class evolveddiskdfHierarchicalGrid:
             out = []
             for ii in range(nt):
                 # We already multiplied in the area
-                out.append(
-                    numpy.dot(
-                        self.vRgrid**n, numpy.dot(self.df[:, :, ii], self.vTgrid**m)
-                    )
-                )
+                out.append(mv(self.vRgrid**n, mv(self.df[:, :, ii], self.vTgrid**m)))
 
             if self.subgrid is None:
-                return numpy.array(out)
+                return xp.asarray(out)
             else:
-                return numpy.array(out) + self.subgrid(n, m)
+                return xp.asarray(out) + self.subgrid(n, m)
         else:
             # We already multiplied in the area
-            thislevel = numpy.dot(self.vRgrid**n, numpy.dot(self.df, self.vTgrid**m))
+            thislevel = mv(self.vRgrid**n, mv(self.df, self.vTgrid**m))
             if self.subgrid is None:
                 return thislevel
             else:
