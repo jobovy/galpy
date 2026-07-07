@@ -101,8 +101,12 @@ def test_oned_value_parity(backend_name, pot):
     for method in _ONE_D:
         ref = numpy.asarray(getattr(pot, method)(rnp))
         got = as_numpy(getattr(pot, method)(r))
+        # rtol 1e-11 (not 1e-12): _r2deriv = 4*pi*rho - 2*F/r^3 subtracts two large
+        # terms at the smallest grid radius (r=5e-4), a cancellation that amplifies
+        # the last-ULP difference between scipy.exp1 (numpy) and the native/fallback
+        # exp1 (jax/torch) to ~7e-13 -- hardware-dependent around a 1e-12 cut.
         numpy.testing.assert_allclose(
-            got, ref, rtol=1e-12, atol=1e-14, err_msg=f"{method} ({backend_name})"
+            got, ref, rtol=1e-11, atol=1e-13, err_msg=f"{method} ({backend_name})"
         )
 
 
