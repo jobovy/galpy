@@ -19,6 +19,7 @@ from ..backend import (
     asarray_on_device,
     device_of,
     get_namespace,
+    is_backend_array,
     match_input_dtype,
 )
 from ..backend import use as _use_backend
@@ -317,11 +318,21 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         Refresh ``self._Acos``/``self._Asin`` to the cubic-spline-interpolated
         coefficients at time ``t`` (no-op for static potentials).
 
+        On the numpy path this evaluates the two scipy ``CubicSpline``
+        interpolators at the float time ``t`` and caches the result (byte-identical
+        to the original implementation). A backend (jax/torch) ``t`` is a no-op
+        here: the backend evaluation paths obtain their (differentiable-in-``t``)
+        coefficients from :meth:`_coeffs_at_time` instead, which evaluates the same
+        piecewise cubic through the active namespace (so no ``float(t)`` cast and no
+        mutable float-cache, which a jax tracer / a time array would break).
+
         Notes
         -----
         - 2026-07-02 - Written - Bovy (UofT)
+        - 2026-07-07 - Namespace-dispatched (backend t handled by _coeffs_at_time)
+          - Bovy (UofT)
         """
-        if not self._tdep:
+        if not self._tdep or is_backend_array(t):
             return
         tf = float(t)
         if self._cached_coeff_t == tf:
@@ -330,6 +341,41 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         self._Acos = self._Acos_interp(tf).reshape(N, L, M)
         self._Asin = self._Asin_interp(tf).reshape(N, L, M)
         self._cached_coeff_t = tf
+
+    def _coeffs_at_time(self, t, xp, dev):
+        """
+        Backend coefficient provider: return ``(Acos, Asin)`` for the active
+        namespace ``xp`` on device ``dev``.
+
+        For a static potential these are the fixed expansion tables. For a
+        time-dependent potential the two scipy ``CubicSpline`` interpolators (a
+        ``PPoly`` with knots ``self._tgrid`` and piecewise-cubic power-basis
+        coefficients) are evaluated at ``t`` *through ``xp``* -- a
+        ``searchsorted`` interval lookup plus Horner over the cubic -- so the
+        result is exactly differentiable in ``t`` (matching the numpy scipy
+        evaluation to ~1 ulp). A scalar ``t`` yields ``(N, L, M)`` tables; a
+        ``(P,)`` time array yields ``(P, N, L, M)`` per-point tables (used by the
+        batched, array-``t`` evaluation path).
+
+        Notes
+        -----
+        - 2026-07-07 - Written - Bovy (UofT)
+        """
+        if not self._tdep:
+            return (
+                asarray_on_device(xp, self._Acos, dev),
+                asarray_on_device(xp, self._Asin, dev),
+            )
+        N, L, M = self._coeff_shape
+        tb = asarray_on_device(xp, t, dev)
+        acos_flat = _interp_ppoly_vec(
+            xp, self._Acos_interp.x, self._Acos_interp.c, tb, dev
+        )
+        asin_flat = _interp_ppoly_vec(
+            xp, self._Asin_interp.x, self._Asin_interp.c, tb, dev
+        )
+        shape = (N, L, M) if getattr(tb, "ndim", 0) == 0 else (tb.shape[0], N, L, M)
+        return xp.reshape(acos_flat, shape), xp.reshape(asin_flat, shape)
 
     @classmethod
     def from_density(
@@ -936,14 +982,16 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
                 radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :]
             )
         # backend path: same sum with the backend-agnostic special-function
-        # router; the coefficient tables are converted to the backend once,
-        # on the input's device (CUDA support). Shape-agnostic: a SCALAR (r,
-        # theta, phi) gives the (N, L, M) sum -> scalar (unchanged), while an
-        # ARRAY of shape (P,) carries a leading point axis through one batched
-        # sum -> (P,), so the vectorized eval/dens path needs no per-point loop.
+        # router; the coefficient tables come from _coeffs_at_time (the fixed
+        # tables when static, or the interpolated-at-t tables -- differentiable in
+        # t -- when time-dependent), on the input's device (CUDA support).
+        # Shape-agnostic: a SCALAR (r, theta, phi) gives the (N, L, M) sum ->
+        # scalar (unchanged), while an ARRAY of shape (P,) carries a leading point
+        # axis through one batched sum -> (P,), so the vectorized eval/dens path
+        # needs no per-point loop. An array t makes _coeffs_at_time return
+        # per-point (P, N, L, M) tables, folded into that same batched sum.
         dev = device_of(r, theta, phi)
-        Acos = asarray_on_device(xp, self._Acos, dev)
-        Asin = asarray_on_device(xp, self._Asin, dev)
+        Acos, Asin = self._coeffs_at_time(t, xp, dev)
         radial = radial_func(r, N, L)
         PP = assoc_legendre(L, M, xp.cos(theta))
         mvec = asarray_on_device(xp, numpy.arange(0, M, dtype=float), dev)
@@ -955,14 +1003,16 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
                 radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :]
             )
         # batched: radial (N, L, P) -> (P, N, L); PP (P, L, M); azimuth (P, M);
-        # contract over (N, L, M) leaving the point axis P.
+        # contract over (N, L, M) leaving the point axis P. Acos_b/Asin_b add a
+        # leading broadcast axis for scalar-t (shared) tables and pass per-point
+        # (P, N, L, M) tables through unchanged for array t.
+        Acos_b = Acos if getattr(Acos, "ndim", 3) == 4 else Acos[None]
+        Asin_b = Asin if getattr(Asin, "ndim", 3) == 4 else Asin[None]
         radial = xp.moveaxis(radial, -1, 0)
         ang = phi[:, None] * mvec[None, :]
         mcos = xp.cos(ang)
         msin = xp.sin(ang)
-        angular = (
-            Acos[None] * mcos[:, None, None, :] + Asin[None] * msin[:, None, None, :]
-        )
+        angular = Acos_b * mcos[:, None, None, :] + Asin_b * msin[:, None, None, :]
         return xp.sum(
             radial[:, :, :, None] * angular * PP[:, None, :, :], axis=(1, 2, 3)
         )
@@ -1023,16 +1073,20 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         R = asarray_on_device(xp, R, dev) * 1.0
         z = asarray_on_device(xp, z, dev) * 1.0
         phi = asarray_on_device(xp, phi, dev) * 1.0
-        shape = (R * z * phi).shape
+        # broadcast t alongside the coords so a time-dependent potential picks up
+        # the interpolated coefficients at each point's time (scalar t -> shared).
+        t = asarray_on_device(xp, t, dev) * 1.0
+        shape = (R * z * phi * t).shape
         if shape == ():
-            return self._compute_at_point(radial_func, R, z, phi)
+            return self._compute_at_point(radial_func, R, z, phi, t=t)
         # Vectorized: flatten the broadcast coords to 1-D and evaluate ALL points
         # in one batched _compute_at_point call (no per-point Python loop, so no
         # O(P) unrolled XLA graph / per-call retrace), then reshape back.
         R = xp.reshape(xp.broadcast_to(R, shape), (-1,))
         z = xp.reshape(xp.broadcast_to(z, shape), (-1,))
         phi = xp.reshape(xp.broadcast_to(phi, shape), (-1,))
-        return xp.reshape(self._compute_at_point(radial_func, R, z, phi), shape)
+        t = xp.reshape(xp.broadcast_to(t, shape), (-1,))
+        return xp.reshape(self._compute_at_point(radial_func, R, z, phi, t=t), shape)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
@@ -1048,9 +1102,19 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         # when integrating over spherical volume, all non-zero l,m vanish
-        self._ensure_coeffs_for_time(t)
+        xp = get_namespace(R, t)
+        if xp is numpy:
+            self._ensure_coeffs_for_time(t)
+            N = len(self._Acos)
+            return R**2.0 * numpy.sum(
+                self._Acos[:, 0, 0] * self._dphiTilde(R, N, 1)[:, 0]
+            )
+        # backend path: the m=0,l=0 coefficient from _coeffs_at_time (fixed if
+        # static, interpolated-at-t and differentiable in t if time-dependent).
+        dev = device_of(R, t)
         N = len(self._Acos)
-        return R**2.0 * numpy.sum(self._Acos[:, 0, 0] * self._dphiTilde(R, N, 1)[:, 0])
+        Acos, _ = self._coeffs_at_time(t, xp, dev)
+        return R**2.0 * xp.sum(Acos[:, 0, 0] * self._dphiTilde(R, N, 1)[:, 0])
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
@@ -1250,11 +1314,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             return dPhi_dr, dPhi_dtheta, dPhi_dphi
         # backend path: same computation, but functional and cache-free (the
         # per-point Python hash cache is trace-hostile under jit and useless on
-        # traced values; numpy keeps it above). The coefficient tables are
-        # converted onto the input's device (CUDA support).
+        # traced values; numpy keeps it above). The coefficient tables come from
+        # _coeffs_at_time (fixed if static, interpolated-at-t and differentiable
+        # in t if time-dependent), on the input's device (CUDA support).
         dev = device_of(r, theta, phi)
-        Acos = asarray_on_device(xp, self._Acos, dev)
-        Asin = asarray_on_device(xp, self._Asin, dev)
+        Acos, Asin = self._coeffs_at_time(t, xp, dev)
         if getattr(r, "ndim", 0) == 0:
             # scalar: the (N, L, M) sums collapse to three scalars (unchanged).
             PP, dPP = assoc_legendre(L, M, xp.cos(theta), deriv=1)
@@ -1273,6 +1337,10 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             dPhi_dphi = -xp.sum(m * (Asin * mcos - Acos * msin) * phi_tilde * PP)
             return dPhi_dr, dPhi_dtheta, dPhi_dphi
         # batched array (P,): carry a leading point axis through the same sums.
+        # Acos_b/Asin_b add a leading broadcast axis for a scalar-t (shared) table
+        # or pass a per-point (P, N, L, M) table (array t) through unchanged.
+        Acos_b = Acos if getattr(Acos, "ndim", 3) == 4 else Acos[None]
+        Asin_b = Asin if getattr(Asin, "ndim", 3) == 4 else Asin[None]
         PP, dPP = assoc_legendre(L, M, xp.cos(theta), deriv=1)  # (P, L, M)
         PP = PP[:, None, :, :]  # (P, 1, L, M)
         dPP = dPP[:, None, :, :]
@@ -1284,13 +1352,13 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         ang = phi[:, None] * mvec[None, :]  # (P, M)
         mcos = xp.cos(ang)[:, None, None, :]  # (P, 1, 1, M)
         msin = xp.sin(ang)[:, None, None, :]
-        cos_sin_sum = Acos[None] * mcos + Asin[None] * msin  # (P, N, L, M)
+        cos_sin_sum = Acos_b * mcos + Asin_b * msin  # (P, N, L, M)
         sin_t = xp.sin(theta)[:, None, None, None]  # (P, 1, 1, 1)
         m4 = mvec[None, None, None, :]  # (1, 1, 1, M)
         dPhi_dr = -xp.sum(cos_sin_sum * PP * dphi_tilde, axis=(1, 2, 3))
         dPhi_dtheta = -xp.sum(cos_sin_sum * phi_tilde * dPP * (-sin_t), axis=(1, 2, 3))
         dPhi_dphi = -xp.sum(
-            m4 * (Asin[None] * mcos - Acos[None] * msin) * phi_tilde * PP,
+            m4 * (Asin_b * mcos - Acos_b * msin) * phi_tilde * PP,
             axis=(1, 2, 3),
         )
         return dPhi_dr, dPhi_dtheta, dPhi_dphi
@@ -1372,10 +1440,10 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # r == 0 / r == inf centre is handled by computing the generic branch
         # at a guarded radius and zeroing the result with xp.where, so both
         # branches stay finite under tracing/eager AD. The coefficient tables
-        # are converted onto the input's device (CUDA support).
+        # come from _coeffs_at_time (fixed if static, interpolated-at-t and
+        # differentiable in t if time-dependent), on the input's device.
         dev = device_of(R, z, phi)
-        Acos = asarray_on_device(xp, self._Acos, dev)
-        Asin = asarray_on_device(xp, self._Asin, dev)
+        Acos, Asin = self._coeffs_at_time(t, xp, dev)
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
         degenerate = (r == 0.0) | ~xp.isfinite(r)
         rs = xp.where(degenerate, 1.0, r)
@@ -1419,6 +1487,10 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
             )
         # batched array (P,): carry a leading point axis through the same sums;
         # each of the eight outputs is (P,), zeroed where the radius is degenerate.
+        # Acos_b/Asin_b add a leading broadcast axis for a scalar-t (shared) table
+        # or pass a per-point (P, N, L, M) table (array t) through unchanged.
+        Acos_b = Acos if getattr(Acos, "ndim", 3) == 4 else Acos[None]
+        Asin_b = Asin if getattr(Asin, "ndim", 3) == 4 else Asin[None]
         PP, dPP, d2PP = assoc_legendre(L, M, costheta, deriv=2)  # (P, L, M)
         st = sintheta[:, None, None]
         ct = costheta[:, None, None]
@@ -1434,9 +1506,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         ang = phi[:, None] * mvec[None, :]  # (P, M)
         mcos = xp.cos(ang)[:, None, None, :]  # (P, 1, 1, M)
         msin = xp.sin(ang)[:, None, None, :]
-        cos_sin = Acos[None] * mcos + Asin[None] * msin  # (P, N, L, M)
+        cos_sin = Acos_b * mcos + Asin_b * msin  # (P, N, L, M)
         m4 = mvec[None, None, None, :]  # (1, 1, 1, M)
-        dphi_coef = m4 * (Asin[None] * mcos - Acos[None] * msin)
+        dphi_coef = m4 * (Asin_b * mcos - Acos_b * msin)
         deg = degenerate
         ax = (1, 2, 3)
         return tuple(
@@ -1520,6 +1592,34 @@ def _phiTilde_basis(r, N, L, a):
             * (4 * numpy.pi) ** 0.5
         )
     return phi
+
+
+def _interp_ppoly_vec(xp, x, c, t, dev):
+    """Evaluate a scipy ``PPoly``/``CubicSpline`` with a trailing coefficient axis
+    at ``t`` through the namespace ``xp``, differentiably in ``t``.
+
+    ``x`` are the knots (shape ``(Nt,)``) and ``c`` the power-basis coefficients
+    (shape ``(k+1, Nt-1, ncoeff)``, descending degree, exactly ``CubicSpline.c``):
+    on ``x[i] <= t < x[i+1]`` the value is ``sum_j c[j, i] * (t - x[i])**(k-j)``.
+    A ``searchsorted`` interval lookup plus Horner over the (static) polynomial
+    degree; the interval index is clamped to ``[0, Nt-2]`` so a ``t`` outside the
+    grid evaluates the edge polynomial (finite extrapolation, matching scipy's
+    default ``extrapolate=True`` and byte-for-byte-equivalent to the numpy path to
+    ~1 ulp). This mirrors ``galpy.backend.interpolate.eval_ppoly`` but broadcasts
+    the ``(t - x)`` Horner factor against the extra trailing ``ncoeff`` axis so a
+    ``(P,)`` time array yields ``(P, ncoeff)`` (each point its own time). Returns
+    ``(ncoeff,)`` for a scalar ``t`` or ``(P, ncoeff)`` for a ``(P,)`` array ``t``.
+    """
+    xb = asarray_on_device(xp, numpy.asarray(x), dev)
+    cb = asarray_on_device(xp, numpy.asarray(c), dev)
+    idx = xp.clip(xp.searchsorted(xb, t, side="right") - 1, 0, cb.shape[1] - 1)
+    dt = t - xb[idx]
+    if getattr(t, "ndim", 0) != 0:
+        dt = dt[:, None]  # (P, 1): broadcast Horner over the trailing coeff axis
+    out = cb[0, idx]
+    for j in range(1, cb.shape[0]):
+        out = out * dt + cb[j, idx]
+    return out
 
 
 def _xiToR(xi, a=1):
@@ -1682,13 +1782,19 @@ def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
     - 2021-02-22 - Sped-up - Bovy (UofT)
 
     """
-    Acos = numpy.zeros((N, 1, 1), float)
-    Asin = None
-    r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-    RhoSum = numpy.einsum("j,ij", mass / (1.0 + r / a), _C(_RToxi(r, a=a), N, 1)[:, 0])
-    n = numpy.arange(0, N)
-    K = 4 * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
-    Acos[n, 0, 0] = 2 * K * RhoSum
+    # Construction-time numerical setup: pin to numpy so the particle-sum basis
+    # (via the namespace-dispatched _RToxi/_C) runs on numpy regardless of any
+    # forced backend default (byte-identical no-op on the numpy backend).
+    with _use_backend("numpy", force=True):
+        Acos = numpy.zeros((N, 1, 1), float)
+        Asin = None
+        r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+        RhoSum = numpy.einsum(
+            "j,ij", mass / (1.0 + r / a), _C(_RToxi(r, a=a), N, 1)[:, 0]
+        )
+        n = numpy.arange(0, N)
+        K = 4 * (n + 3.0 / 2) / ((n + 2) * (n + 1) * (1 + n * (n + 3.0) / 2.0))
+        Acos[n, 0, 0] = 2 * K * RhoSum
     return Acos, Asin
 
 
@@ -1802,41 +1908,45 @@ def scf_compute_coeffs_axi_nbody(pos, N, L, mass=1.0, a=1.0):
     -----
     - 2021-02-22 - Written based on general code - Bovy (UofT)
     """
-    r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-    costheta = pos[2] / r
-    mass = numpy.atleast_1d(mass)
-    Acos, Asin = numpy.zeros([N, L, 1]), None
-    Pll = numpy.ones(len(r))  # Set up Assoc. Legendre recursion
-    # (n,l) dependent constant
-    n = numpy.arange(0, N)[:, numpy.newaxis]
-    l = numpy.arange(0, L)[numpy.newaxis, :]
-    Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
-    Inl = (
-        -Knl
-        * 2.0
-        * numpy.pi
-        / 2.0 ** (8.0 * l + 6.0)
-        * gamma(n + 4.0 * l + 3.0)
-        / gamma(n + 1)
-        / (n + 2.0 * l + 1.5)
-        / gamma(2.0 * l + 1.5) ** 2
-        / numpy.sqrt(2.0 * l + 1)
-    )
-    # Set up Assoc. Legendre recursion
-    Plm = Pll
-    Plmm1 = 0.0
-    for ll in range(L):
-        # Compute Gegenbauer polys for this l
-        Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
-        phinlm = -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
-        # Acos
-        Sum = numpy.sum(mass[numpy.newaxis, :] * phinlm, axis=-1)
-        Acos[:, ll, 0] = Sum / Inl[:, ll]
-        # Recurse Assoc. Legendre
-        if ll < L:
-            tmp = Plm
-            Plm = ((2 * ll + 1.0) * costheta * Plm - ll * Plmm1) / (ll + 1)
-            Plmm1 = tmp
+    # Construction-time numerical setup: pin to numpy so the particle-sum basis
+    # (via the namespace-dispatched _RToxi/_C) runs on numpy regardless of any
+    # forced backend default (byte-identical no-op on the numpy backend).
+    with _use_backend("numpy", force=True):
+        r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+        costheta = pos[2] / r
+        mass = numpy.atleast_1d(mass)
+        Acos, Asin = numpy.zeros([N, L, 1]), None
+        Pll = numpy.ones(len(r))  # Set up Assoc. Legendre recursion
+        # (n,l) dependent constant
+        n = numpy.arange(0, N)[:, numpy.newaxis]
+        l = numpy.arange(0, L)[numpy.newaxis, :]
+        Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
+        Inl = (
+            -Knl
+            * 2.0
+            * numpy.pi
+            / 2.0 ** (8.0 * l + 6.0)
+            * gamma(n + 4.0 * l + 3.0)
+            / gamma(n + 1)
+            / (n + 2.0 * l + 1.5)
+            / gamma(2.0 * l + 1.5) ** 2
+            / numpy.sqrt(2.0 * l + 1)
+        )
+        # Set up Assoc. Legendre recursion
+        Plm = Pll
+        Plmm1 = 0.0
+        for ll in range(L):
+            # Compute Gegenbauer polys for this l
+            Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
+            phinlm = -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
+            # Acos
+            Sum = numpy.sum(mass[numpy.newaxis, :] * phinlm, axis=-1)
+            Acos[:, ll, 0] = Sum / Inl[:, ll]
+            # Recurse Assoc. Legendre
+            if ll < L:
+                tmp = Plm
+                Plm = ((2 * ll + 1.0) * costheta * Plm - ll * Plmm1) / (ll + 1)
+                Plmm1 = tmp
     return Acos, Asin
 
 
@@ -1958,56 +2068,62 @@ def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
     - 2020-11-18 - Written - Morgan Bennett (UofT)
 
     """
-    r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
-    phi = numpy.arctan2(pos[1], pos[0])
-    costheta = pos[2] / r
-    sintheta = numpy.sqrt(1.0 - costheta**2.0)
-    mass = numpy.atleast_1d(mass)
-    Acos, Asin = numpy.zeros([N, L, L]), numpy.zeros([N, L, L])
-    Pll = numpy.ones(len(r))  # Set up Assoc. Legendre recursion
-    # (n,l) dependent constant
-    n = numpy.arange(0, N)[:, numpy.newaxis]
-    l = numpy.arange(0, L)[numpy.newaxis, :]
-    Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
-    Inl = (
-        -Knl
-        * 2.0
-        * numpy.pi
-        / 2.0 ** (8.0 * l + 6.0)
-        * gamma(n + 4.0 * l + 3.0)
-        / gamma(n + 1)
-        / (n + 2.0 * l + 1.5)
-        / gamma(2.0 * l + 1.5) ** 2
-    )
-    for mm in range(L):  # Loop over m
-        cosmphi = numpy.cos(phi * mm)
-        sinmphi = numpy.sin(phi * mm)
-        # Set up Assoc. Legendre recursion
-        Plm = Pll
-        Plmm1 = 0.0
-        for ll in range(mm, L):
-            # Compute Gegenbauer polys for this l
-            Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
-            phinlm = -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
-            # Acos
-            Sum = numpy.sqrt(
-                (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
-            ) * numpy.sum((mass * cosmphi)[numpy.newaxis, :] * phinlm, axis=-1)
-            Acos[:, ll, mm] = Sum / Inl[:, ll]
-            # Asin
-            Sum = numpy.sqrt(
-                (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
-            ) * numpy.sum((mass * sinmphi)[numpy.newaxis, :] * phinlm, axis=-1)
-            Asin[:, ll, mm] = Sum / Inl[:, ll]
-            # Recurse Assoc. Legendre
-            if ll < L:
-                tmp = Plm
-                Plm = ((2 * ll + 1.0) * costheta * Plm - (ll + mm) * Plmm1) / (
-                    ll - mm + 1
+    # Construction-time numerical setup: pin to numpy so the particle-sum basis
+    # (via the namespace-dispatched _RToxi/_C) runs on numpy regardless of any
+    # forced backend default (byte-identical no-op on the numpy backend).
+    with _use_backend("numpy", force=True):
+        r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
+        phi = numpy.arctan2(pos[1], pos[0])
+        costheta = pos[2] / r
+        sintheta = numpy.sqrt(1.0 - costheta**2.0)
+        mass = numpy.atleast_1d(mass)
+        Acos, Asin = numpy.zeros([N, L, L]), numpy.zeros([N, L, L])
+        Pll = numpy.ones(len(r))  # Set up Assoc. Legendre recursion
+        # (n,l) dependent constant
+        n = numpy.arange(0, N)[:, numpy.newaxis]
+        l = numpy.arange(0, L)[numpy.newaxis, :]
+        Knl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1) * (2.0 * l + 1.0)
+        Inl = (
+            -Knl
+            * 2.0
+            * numpy.pi
+            / 2.0 ** (8.0 * l + 6.0)
+            * gamma(n + 4.0 * l + 3.0)
+            / gamma(n + 1)
+            / (n + 2.0 * l + 1.5)
+            / gamma(2.0 * l + 1.5) ** 2
+        )
+        for mm in range(L):  # Loop over m
+            cosmphi = numpy.cos(phi * mm)
+            sinmphi = numpy.sin(phi * mm)
+            # Set up Assoc. Legendre recursion
+            Plm = Pll
+            Plmm1 = 0.0
+            for ll in range(mm, L):
+                # Compute Gegenbauer polys for this l
+                Cn = _C(_RToxi(r, a=a), N, ll, singleL=True)
+                phinlm = (
+                    -((r / a) ** ll) / (1.0 + r / a) ** (2.0 * ll + 1) * Cn[:, 0] * Plm
                 )
-                Plmm1 = tmp
-        # Recurse Assoc. Legendre
-        Pll *= -(2 * mm + 1.0) * sintheta
+                # Acos
+                Sum = numpy.sqrt(
+                    (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
+                ) * numpy.sum((mass * cosmphi)[numpy.newaxis, :] * phinlm, axis=-1)
+                Acos[:, ll, mm] = Sum / Inl[:, ll]
+                # Asin
+                Sum = numpy.sqrt(
+                    (2.0 * ll + 1) * gamma(ll - mm + 1) / gamma(ll + mm + 1)
+                ) * numpy.sum((mass * sinmphi)[numpy.newaxis, :] * phinlm, axis=-1)
+                Asin[:, ll, mm] = Sum / Inl[:, ll]
+                # Recurse Assoc. Legendre
+                if ll < L:
+                    tmp = Plm
+                    Plm = ((2 * ll + 1.0) * costheta * Plm - (ll + mm) * Plmm1) / (
+                        ll - mm + 1
+                    )
+                    Plmm1 = tmp
+            # Recurse Assoc. Legendre
+            Pll *= -(2 * mm + 1.0) * sintheta
     return Acos, Asin
 
 
@@ -2104,49 +2220,58 @@ def _scf_coeffs_from_multipole(mult, N, L, M, a, radial_order, t=None):
     -----
     - 2026-07-04 - Written - Bovy (UofT)
     """
-    rmin, rmax = mult._rgrid[0], mult._rgrid[-1]
-    if t is None:  # static: use the stored density-multipole splines
-        cos_splines = mult._rho_cos_splines
-        sin_splines = mult._rho_sin_splines
-    else:  # time-dependent: interpolate rho_lm on the multipole's rgrid at time t
-        cos_splines = [[None] * M for _ in range(L)]
-        sin_splines = [[None] * M for _ in range(L)]
-        for l in range(L):
-            for mm in range(min(l + 1, M)):
-                cos_splines[l][mm] = InterpolatedUnivariateSpline(
-                    mult._rgrid, mult._rho_cos_interp[l][mm](t), k=3
-                )
-                if mm > 0:  # the m=0 sine coefficient is identically zero
-                    sin_splines[l][mm] = InterpolatedUnivariateSpline(
-                        mult._rgrid, mult._rho_sin_interp[l][mm](t), k=3
+    # Construction-time numerical setup: pin to numpy so the radial-projection
+    # basis (via the namespace-dispatched _rhoTilde_basis/_phiTilde_basis/_RToxi)
+    # runs on numpy regardless of any forced backend default (byte-identical no-op
+    # on the numpy backend).
+    with _use_backend("numpy", force=True):
+        rmin, rmax = mult._rgrid[0], mult._rgrid[-1]
+        if t is None:  # static: use the stored density-multipole splines
+            cos_splines = mult._rho_cos_splines
+            sin_splines = mult._rho_sin_splines
+        else:  # time-dependent: interpolate rho_lm on the multipole rgrid at t
+            cos_splines = [[None] * M for _ in range(L)]
+            sin_splines = [[None] * M for _ in range(L)]
+            for l in range(L):
+                for mm in range(min(l + 1, M)):
+                    cos_splines[l][mm] = InterpolatedUnivariateSpline(
+                        mult._rgrid, mult._rho_cos_interp[l][mm](t), k=3
                     )
+                    if mm > 0:  # the m=0 sine coefficient is identically zero
+                        sin_splines[l][mm] = InterpolatedUnivariateSpline(
+                            mult._rgrid, mult._rho_sin_interp[l][mm](t), k=3
+                        )
 
-    def _eval(splines, rq):
-        # density multipoles D_lm(rq) matching the multipole's extrapolation
-        # (clamp below rmin, zero above rmax); shape (L, M, len(rq))
-        out = numpy.zeros((L, M, len(rq)))
-        rr = numpy.clip(rq, rmin, rmax)
-        beyond = rq > rmax
-        for l in range(L):
-            for mm in range(min(l + 1, M)):
-                if splines[l][mm] is None:
-                    continue
-                v = splines[l][mm](rr)
-                v[beyond] = 0.0
-                out[l, mm] = v
-        return out
+        def _eval(splines, rq):
+            # density multipoles D_lm(rq) matching the multipole's extrapolation
+            # (clamp below rmin, zero above rmax); shape (L, M, len(rq))
+            out = numpy.zeros((L, M, len(rq)))
+            rr = numpy.clip(rq, rmin, rmax)
+            beyond = rq > rmax
+            for l in range(L):
+                for mm in range(min(l + 1, M)):
+                    if splines[l][mm] is None:
+                        continue
+                    v = splines[l][mm](rr)
+                    v[beyond] = 0.0
+                    out[l, mm] = v
+            return out
 
-    K = radial_order if radial_order is not None else max(2 * N + L, 200)
-    xi, w = leggauss(K)
-    rq = _xiToR(xi, a)
-    weight = w * (2.0 * a / (1.0 - xi) ** 2.0) * rq**2.0  # w * dr/dxi * r^2
-    rhoTq = numpy.array([_rhoTilde_basis(r, N, L, a) for r in rq]).transpose(1, 2, 0)
-    phiTq = numpy.array([_phiTilde_basis(r, N, L, a) for r in rq]).transpose(1, 2, 0)
-    Wnl = numpy.einsum("nlk,nlk,k->nl", rhoTq, phiTq, weight)  # (N, L), diagonal in n
-    Dcos = _eval(cos_splines, rq)
-    Dsin = _eval(sin_splines, rq)
-    Acos = numpy.einsum("lmk,nlk,k->nlm", Dcos, phiTq, weight) / Wnl[:, :, None]
-    Asin = numpy.einsum("lmk,nlk,k->nlm", Dsin, phiTq, weight) / Wnl[:, :, None]
+        K = radial_order if radial_order is not None else max(2 * N + L, 200)
+        xi, w = leggauss(K)
+        rq = _xiToR(xi, a)
+        weight = w * (2.0 * a / (1.0 - xi) ** 2.0) * rq**2.0  # w * dr/dxi * r^2
+        rhoTq = numpy.array([_rhoTilde_basis(r, N, L, a) for r in rq]).transpose(
+            1, 2, 0
+        )
+        phiTq = numpy.array([_phiTilde_basis(r, N, L, a) for r in rq]).transpose(
+            1, 2, 0
+        )
+        Wnl = numpy.einsum("nlk,nlk,k->nl", rhoTq, phiTq, weight)  # (N,L) diag in n
+        Dcos = _eval(cos_splines, rq)
+        Dsin = _eval(sin_splines, rq)
+        Acos = numpy.einsum("lmk,nlk,k->nlm", Dcos, phiTq, weight) / Wnl[:, :, None]
+        Asin = numpy.einsum("lmk,nlk,k->nlm", Dsin, phiTq, weight) / Wnl[:, :, None]
     return Acos, Asin
 
 
@@ -2307,18 +2432,23 @@ def _batched_timedep(tgrid, per_time_elems, compute):
     -----
     - 2026-07-03 - Written - Bovy (UofT)
     """
-    Nt = len(tgrid)
-    batch = _timedep_batch_size(Nt, per_time_elems)
-    if batch >= Nt:  # fits in one go
-        return compute(tgrid)
-    acos_parts = []
-    asin_parts = []
-    for start in range(0, Nt, batch):
-        Ac, As = compute(tgrid[start : start + batch])
-        acos_parts.append(Ac)
-        asin_parts.append(As)
-    Acos = numpy.concatenate(acos_parts, axis=0)
-    Asin = None if asin_parts[0] is None else numpy.concatenate(asin_parts, axis=0)
+    # Construction-time numerical setup: pin to numpy so the time-vectorized
+    # quadrature (density evaluations + the namespace-dispatched _C/_xiToR basis)
+    # runs on numpy regardless of any forced backend default (byte-identical no-op
+    # on the numpy backend).
+    with _use_backend("numpy", force=True):
+        Nt = len(tgrid)
+        batch = _timedep_batch_size(Nt, per_time_elems)
+        if batch >= Nt:  # fits in one go
+            return compute(tgrid)
+        acos_parts = []
+        asin_parts = []
+        for start in range(0, Nt, batch):
+            Ac, As = compute(tgrid[start : start + batch])
+            acos_parts.append(Ac)
+            asin_parts.append(As)
+        Acos = numpy.concatenate(acos_parts, axis=0)
+        Asin = None if asin_parts[0] is None else numpy.concatenate(asin_parts, axis=0)
     return Acos, Asin
 
 
