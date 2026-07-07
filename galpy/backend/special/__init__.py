@@ -18,6 +18,7 @@ from ._router import (
     ellipk,
     erf,
     erfc,
+    exp1,
     gamma,
     gammainc,
     gammaincc,
@@ -56,6 +57,7 @@ __all__ = [
     "k1",
     "kn",
     "sici",
+    "exp1",
     "assoc_legendre",
     "gegenbauer",
 ]
