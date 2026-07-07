@@ -913,10 +913,16 @@ jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit_rrange
 jax tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
 
 # --- REBASE-PREVIEW (main->feat/backends merge, 2026-07-07) Phase-2 gaps ---
-# main's new NUMPY-ONLY features arrive un-migrated: ExpTruncNFWPotential
-# (#976), time-dependent SCF + from_nbody + SCF<->Multipole translate
-# (#1058/#1061/#1062), sphericaldf negative-df sampling (#1032). Their
-# jax/torch parity/grad tests fail until the Phase-2 backend migration.
+# main's new NUMPY-ONLY features arrive un-migrated: time-dependent SCF +
+# from_nbody + SCF<->Multipole translate (#1058/#1061/#1062), sphericaldf
+# negative-df sampling (#1032). Their jax/torch parity/grad tests fail until the
+# Phase-2 backend migration.
+# ExpTruncNFWPotential (#976) is now backend-migrated; the few ExpTruncNFW
+# entries that remain fail only via shared torch-infrastructure tracks, not the
+# potential itself: the Python orbit/dxdv integrator feeds torch forces to the
+# numpy dop853 (like test_dxdv_3d_c_vs_python for 30+ potentials), the spherical
+# DFs are not torch-ready (constantbeta/osipkovmerritt, ~69 siblings ledgered),
+# and two bespoke tests use numpy.all/scipy.quad/float32-FD on torch outputs.
 # (test_actionAngleStaeckel_wSpherical...c[jax] = pre-existing jax-eager flake,
 #  already ledgered for torch.) Removed as each Phase-2 PR lands.
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_wSpherical_conserved_actions_c
@@ -936,27 +942,9 @@ torch tests/test_MultipoleExpansionPotential.py::test_from_scf_axi_and_spherical
 torch tests/test_MultipoleExpansionPotential.py::test_from_scf_static
 torch tests/test_MultipoleExpansionPotential.py::test_from_scf_timedep
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[ExpTruncNFWPotential]
-torch tests/test_orbit.py::test_energy_conservation_linear[ExpTruncNFWPotential--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[ExpTruncNFWPotential--10.0--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatWeaklyTDNonaxiM3SCFPotential--10.0--6.0-False]
-torch tests/test_orbit.py::test_liouville_3d_2d_bridge[ExpTruncNFWPotential]
-torch tests/test_orbit.py::test_liouville_3d[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_2ndDeriv_potential[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_amp_mult_divide[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_evaluateAndDerivs_potential[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_ExpTruncNFW_from_nfw
-torch tests/test_potential.py::test_ExpTruncNFW_nfwlimit
 torch tests/test_potential.py::test_ExpTruncNFW_smallr_series
 torch tests/test_potential.py::test_ExpTruncNFW_smallr_series_c
-torch tests/test_potential.py::test_forceAsDeriv_potential[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_normalize_potential[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_poisson_potential[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_poisson_surfdens_potential[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_potential_array_input[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_potential_at_infinity[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_potential_at_zero[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_toVertical_array[ExpTruncNFWPotential]
-torch tests/test_potential.py::test_toVertical_toPlanar[ExpTruncNFWPotential]
 torch tests/test_quantity.py::test_potential_ampunits
 torch tests/test_quantity.py::test_scf_multipole_translation_units
 torch tests/test_quantity.py::test_scfpotential_from_nbody_units
