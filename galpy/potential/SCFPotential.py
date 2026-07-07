@@ -1037,13 +1037,11 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
     def _dens(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        xp = get_namespace(R, z, phi)
-        if xp is numpy:
-            return self._evaluate_expansion(self._rhoTilde, R, z, phi, t=t)
         # the expansion tables are deliberately float64 (precision); cast the
-        # result to the input dtype at exit (no-op for float64/scalar inputs)
+        # result to the input dtype at exit (backend-agnostic; no-op for
+        # float64/scalar inputs)
         return match_input_dtype(
-            self._evaluate_expansion(self._rhoTilde, R, z, phi), R, z, phi, t
+            self._evaluate_expansion(self._rhoTilde, R, z, phi, t=t), R, z, phi, t
         )
 
     def _mass(self, R, z=None, t=0.0):
@@ -1057,12 +1055,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        xp = get_namespace(R, z, phi)
-        if xp is numpy:
-            return self._evaluate_expansion(self._phiTilde, R, z, phi, t=t)
         # float64 interior, input-dtype exit cast (see _dens)
         return match_input_dtype(
-            self._evaluate_expansion(self._phiTilde, R, z, phi), R, z, phi, t
+            self._evaluate_expansion(self._phiTilde, R, z, phi, t=t), R, z, phi, t
         )
 
     def _dphiTilde(self, r, N, L):
