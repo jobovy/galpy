@@ -31,6 +31,7 @@ _NATIVE_MISSING = {
             "kn",
             "iv",
             "sici",
+            "exp1",
         )
     ),
 }
@@ -238,6 +239,28 @@ def sici(x):
     else:
         si, ci = sp.sici(x)
     return match_input_dtype(si, x), match_input_dtype(ci, x)
+
+
+def exp1(x):
+    """Exponential integral E_1(x) for real x > 0.
+
+    numpy uses scipy.special.exp1 (byte-identical). jax has a native exp1, but it
+    routes through the non-differentiable ``expn``; ``E_1(x) = -Ei(-x)`` via the
+    differentiable ``expi`` is used instead. torch has neither exp1 nor expi, so a
+    pure-backend fallback (listed in _NATIVE_MISSING['torch']) is used. Handled
+    outside :func:`_dispatch` because jax's native override is not ``sp.exp1``.
+    """
+    xp = get_namespace(x)
+    name, sp = _backend_special(xp)
+    if name == "jax":
+        # E_1(x) = -Ei(-x); differentiable (unlike jax's exp1). expi(-inf) is NaN
+        # in jax, so guard the E_1(inf) = 0 limit (r=inf: potential-at-infinity).
+        return xp.where(xp.isinf(x), xp.zeros_like(x), -sp.expi(-x))
+    if "exp1" in _NEEDS_FALLBACK.get(name, frozenset()) or not hasattr(sp, "exp1"):
+        from ._fallback.exp1 import exp1_fallback
+
+        return match_input_dtype(exp1_fallback(xp, x), x)
+    return sp.exp1(x)
 
 
 # --- Tier 4: associated Legendre P_l^m (SCF / MultipoleExpansion) -------------
