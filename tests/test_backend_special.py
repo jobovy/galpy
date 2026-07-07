@@ -165,6 +165,7 @@ def test_fallback_table_matches_installed_backends():
     tier12 = [
         "gammaln", "gamma", "gammainc", "gammaincc", "erf", "erfc", "i0", "i1",
         "hyp2f1", "hyp1f1", "ellipk", "ellipe", "k0", "k1", "kn", "iv", "sici",
+        "exp1",
     ]  # fmt: skip
     for backend in AD_BACKENDS:
         xp = _asarray(backend, 1.0)
@@ -501,6 +502,75 @@ def test_torch_native_bessel_k_is_nondifferentiable():
         "torch.special.modified_bessel_k0 is now differentiable; it can be routed "
         "natively (with a k0/k1 name alias) instead of via the fallback"
     )
+
+
+# --- Tier 3b: exponential integral E_1 (ExpTruncNFWPotential closed forms) -----
+# numpy uses scipy; jax uses -expi(-x) (its native exp1 = expn is not twice-
+# differentiable); torch uses the series/Lentz fallback. galpy evaluates E_1 on
+# beta = (a+r)/rc > 0, spanning the small-x series and large-x CF regimes.
+_EXP1_X = numpy.array([1e-3, 0.05, 0.4, 0.9, 1.0, 1.1, 2.5, 8.0, 25.0, 60.0])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_exp1_value_parity(backend):
+    ref = scipy_special.exp1(_EXP1_X)
+    got = as_numpy(gsp.exp1(_asarray(backend, _EXP1_X)))
+    rtol = 0.0 if backend == "numpy" else 1e-10  # jax native / torch Lentz+series
+    numpy.testing.assert_allclose(
+        got, ref, rtol=rtol, atol=1e-13, err_msg=f"exp1 ({backend})"
+    )
+    # E_1(inf) = 0 must hold on every backend (potential-at-infinity / total mass)
+    assert float(as_numpy(gsp.exp1(_asarray(backend, numpy.inf)))) == 0.0
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_exp1_grad_vs_fd(backend):
+    # E_1'(x) = -e^{-x}/x. Check AD (jax -expi / torch fallback) vs central FD on
+    # both the series (x < 1) and continued-fraction (x > 1) branches.
+    eps = 1e-6
+    for x0 in (0.4, 0.9, 1.1, 2.5, 8.0):
+        fd = (
+            float(scipy_special.exp1(x0 + eps)) - float(scipy_special.exp1(x0 - eps))
+        ) / (2 * eps)
+        if backend == "jax":
+            ad = float(jax.grad(lambda x: gsp.exp1(x))(jnp.asarray(x0)))
+        else:
+            xt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+            gsp.exp1(xt).backward()
+            ad = float(xt.grad)
+        assert not numpy.isnan(ad), f"NaN grad at x={x0} ({backend})"
+        numpy.testing.assert_allclose(
+            ad, fd, rtol=1e-5, err_msg=f"exp1' at x={x0} ({backend})"
+        )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_exp1_nested_grad(backend):
+    # The constantbetadf half-integer DFs take a SECOND derivative through E_1, so
+    # the router's exp1 must be twice-differentiable. E_1''(x) = e^{-x}(1/x+1/x^2).
+    for x0 in (0.4, 2.5, 8.0):
+        exact = numpy.exp(-x0) * (1.0 / x0 + 1.0 / x0**2)
+        if backend == "jax":
+            ad2 = float(jax.grad(jax.grad(lambda x: gsp.exp1(x)))(jnp.asarray(x0)))
+        else:
+            xt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+            g = torch.autograd.grad(gsp.exp1(xt), xt, create_graph=True)[0]
+            ad2 = float(torch.autograd.grad(g, xt)[0])
+        numpy.testing.assert_allclose(
+            ad2, exact, rtol=1e-6, err_msg=f"exp1'' at x={x0} ({backend})"
+        )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_jax_native_exp1_second_deriv_unreliable():
+    # Tripwire / justification for routing jax's exp1 through -expi(-x): jax's
+    # native exp1 is implemented as expn(1, x), whose SECOND derivative (needed by
+    # the half-integer constant-beta DFs) fails to trace. If this ever stops
+    # raising, jax's native exp1 could be routed directly in the router.
+    import jax.scipy.special as jsp
+
+    with pytest.raises(Exception):
+        jax.grad(jax.grad(lambda x: jsp.exp1(x)))(jnp.asarray(2.5))
 
 
 # --- Tier 4a: associated Legendre P_l^m (SCF / MultipoleExpansion) -------------
