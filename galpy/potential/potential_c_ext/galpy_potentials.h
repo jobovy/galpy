@@ -887,6 +887,11 @@ double EinastoPotentialrevaluate(double,double,struct potentialArg *);
 double EinastoPotentialrforce(double,double,struct potentialArg *);
 double EinastoPotentialr2deriv(double,double,struct potentialArg *);
 double EinastoPotentialrdens(double,double,struct potentialArg *);
+//ExpTruncNFWPotential: uses SphericalPotential, only need revaluate, rforce, r2deriv
+double ExpTruncNFWPotentialrevaluate(double,double,struct potentialArg *);
+double ExpTruncNFWPotentialrforce(double,double,struct potentialArg *);
+double ExpTruncNFWPotentialr2deriv(double,double,struct potentialArg *);
+double ExpTruncNFWPotentialrdens(double,double,struct potentialArg *);
 
 //TriaxialGaussian: uses EllipsoidalPotential, only need psi, dens, densDeriv
 double TriaxialGaussianPotentialpsi(double,double *);

@@ -8092,6 +8092,25 @@ def test_potential_ampunits():
         )
         < 10.0**-8.0
     ), "NFWPotential w/ amp w/ units does not behave as expected"
+    # ExpTruncNFWPotential
+    pot = potential.ExpTruncNFWPotential(
+        amp=20.0 * units.Msun, a=2.0, rc=8.0, ro=ro, vo=vo
+    )
+    # Check density at r=a, which is the NFW value times exp(-a/rc)
+    assert (
+        numpy.fabs(
+            pot.dens(2.0, 0.0, use_physical=False) * conversion.dens_in_msolpc3(vo, ro)
+            - 20.0
+            * numpy.exp(-2.0 / 8.0)
+            / 4.0
+            / numpy.pi
+            / 8.0
+            / ro**3.0
+            / 10.0**9.0
+            / 4.0
+        )
+        < 10.0**-8.0
+    ), "ExpTruncNFWPotential w/ amp w/ units does not behave as expected"
     # TwoPowerTriaxialPotential
     pot = potential.TwoPowerTriaxialPotential(
         amp=20.0 * units.Msun, a=2.0, b=0.3, c=1.4, alpha=1.5, beta=3.5, ro=ro, vo=vo
@@ -10468,7 +10487,146 @@ def test_potential_paramunits():
     ), (
         "MultipoleExpansionPotential w/ 3-arg density w/ units does not behave as expected"
     )
+    # ExpTruncNFWPotential
+    pot = potential.ExpTruncNFWPotential(
+        amp=20.0 * units.Msun,
+        a=10.0 * units.kpc,
+        rc=40.0 * units.kpc,
+        ro=ro,
+        vo=vo,
+    )
+    # Check density at r=a, which is amp*exp(-a/rc)/(16 pi a^3)
+    assert (
+        numpy.fabs(
+            pot.dens(10.0 / ro, 0.0, use_physical=False)
+            * conversion.dens_in_msolpc3(vo, ro)
+            - 20.0 * numpy.exp(-10.0 / 40.0) / 16.0 / numpy.pi / 10.0**3.0 / 10.0**9.0
+        )
+        < 10.0**-8.0
+    ), "ExpTruncNFWPotential w/ parameters w/ units does not behave as expected"
+    # ExpTruncNFWPotential with the total mass set through mass= w/ units
+    pot = potential.ExpTruncNFWPotential(
+        mass=1e10 * units.Msun, a=10.0 * units.kpc, rc=40.0 * units.kpc, ro=ro, vo=vo
+    )
+    # Check that the total mass equals the requested mass (absolute and relative)
+    tmass = pot.mass(numpy.inf, use_physical=False) * conversion.mass_in_msol(vo, ro)
+    assert numpy.fabs(tmass - 1e10) < 10.0**-2.0, (
+        "ExpTruncNFWPotential w/ mass= w/ units does not behave as expected"
+    )
+    assert numpy.fabs(tmass / 1e10 - 1.0) < 10.0**-8.0, (
+        "ExpTruncNFWPotential w/ mass= w/ units does not behave as expected"
+    )
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
+    return None
+
+
+def test_scfpotential_from_nbody_units():
+    # SCFPotential.from_nbody accepts physical-unit (Quantity) particle positions,
+    # masses, and scale length, and (for the time-dependent case) a Gyr time grid,
+    # matching an equivalent build in galpy's internal units.
+    from galpy import potential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    numpy.random.seed(9)
+    n, N, L = 8000, 6, 3
+    pos_int = numpy.random.randn(3, n) * 1.5  # internal-unit positions
+    mass_int = (1e-3 / n) * numpy.ones(n)
+    # internal-unit build (no ro/vo -> physical outputs off)
+    sp_plain = potential.SCFPotential.from_nbody(
+        pos_int, N, L=L, symmetry=None, a=1.0, mass=mass_int
+    )
+    assert not sp_plain._roSet, "from_nbody w/ plain inputs unexpectedly set ro"
+    # equivalent build with Quantity inputs -> physical outputs on, same coeffs
+    ro0, vo0 = sp_plain._ro, sp_plain._vo
+    massfac = conversion.mass_in_msol(vo0, ro0)
+    sp_phys = potential.SCFPotential.from_nbody(
+        pos_int * ro0 * units.kpc,
+        N,
+        L=L,
+        symmetry=None,
+        a=1.0 * ro0 * units.kpc,
+        mass=mass_int * massfac * units.Msun,
+    )
+    assert sp_phys._roSet and sp_phys._voSet, (
+        "from_nbody w/ Quantity inputs did not turn on physical outputs"
+    )
+    assert numpy.max(numpy.fabs(sp_phys._Acos - sp_plain._Acos)) < 1e-10, (
+        "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
+    )
+    assert numpy.max(numpy.fabs(sp_phys._Asin - sp_plain._Asin)) < 1e-10, (
+        "from_nbody w/ Quantity positions/masses/a does not match internal-unit build"
+    )
+    # time-dependent: a Gyr time grid matches the equivalent internal-unit grid
+    nt = 4
+    pos_t = numpy.random.randn(3, n, nt) * 1.5
+    tg_int = numpy.linspace(0.0, 2.0, nt)
+    tg_gyr = tg_int * conversion.time_in_Gyr(vo, ro) * units.Gyr
+    sp_tint = potential.SCFPotential.from_nbody(
+        pos_t, N, L=L, symmetry=None, a=1.0, mass=mass_int, tgrid=tg_int, ro=ro, vo=vo
+    )
+    sp_tgyr = potential.SCFPotential.from_nbody(
+        pos_t, N, L=L, symmetry=None, a=1.0, mass=mass_int, tgrid=tg_gyr, ro=ro, vo=vo
+    )
+    assert numpy.all(numpy.fabs(sp_tint._tgrid - sp_tgyr._tgrid) < 1e-8), (
+        "from_nbody w/ Gyr tgrid does not match the internal-unit tgrid"
+    )
+    assert numpy.max(numpy.fabs(sp_tint._Acos_all - sp_tgyr._Acos_all)) < 1e-10, (
+        "from_nbody w/ Gyr tgrid does not match the internal-unit build"
+    )
+    # from_density likewise accepts a Gyr time grid
+    hp = potential.HernquistPotential(amp=0.5, a=1.0)
+    hp.turn_physical_off()
+    dens = lambda R, z, phi, t=0.0: (
+        hp.dens(R, z, use_physical=False)
+        * (1.0 + 0.1 * numpy.cos(2 * phi) * (1.0 + 0.05 * t))
+    )
+    sd_int = potential.SCFPotential.from_density(
+        dens, N, L=L, symmetry=None, a=1.0, tgrid=tg_int, ro=ro, vo=vo
+    )
+    sd_gyr = potential.SCFPotential.from_density(
+        dens, N, L=L, symmetry=None, a=1.0, tgrid=tg_gyr, ro=ro, vo=vo
+    )
+    assert numpy.max(numpy.fabs(sd_int._Acos_all - sd_gyr._Acos_all)) < 1e-10, (
+        "from_density w/ Gyr tgrid does not match the internal-unit build"
+    )
+    return None
+
+
+def test_scf_multipole_translation_units():
+    # SCFPotential.from_multipole and MultipoleExpansionPotential.from_scf accept
+    # physical-unit (Quantity) scale lengths / radial grids, matching the
+    # equivalent internal-unit translation.
+    from galpy import potential
+
+    ro = 8.0
+    hp = potential.HernquistPotential(amp=1.0, a=1.5)
+    hp.turn_physical_off()
+    scf = potential.SCFPotential.from_density(
+        lambda r: hp.dens(r, 0.0, use_physical=False), 8, a=1.5, symmetry="spherical"
+    )
+    rgrid = numpy.geomspace(1e-3, 100.0, 400)
+    # from_scf with the rgrid as a Quantity (kpc)
+    mult = potential.MultipoleExpansionPotential.from_scf(scf, rgrid=rgrid)
+    mult_q = potential.MultipoleExpansionPotential.from_scf(
+        scf, rgrid=rgrid * ro * units.kpc, ro=ro
+    )
+    assert (
+        numpy.fabs(
+            mult_q.dens(1.0, 0.3, 0.0, use_physical=False)
+            / mult.dens(1.0, 0.3, 0.0, use_physical=False)
+            - 1.0
+        )
+        < 1e-8
+    ), "from_scf w/ Quantity rgrid does not match the internal-unit build"
+    # from_multipole with the scale length a as a Quantity (kpc)
+    scf_plain = potential.SCFPotential.from_multipole(mult, N=8, a=1.5)
+    scf_q = potential.SCFPotential.from_multipole(
+        mult, N=8, a=1.5 * ro * units.kpc, ro=ro
+    )
+    assert numpy.max(numpy.fabs(scf_q._Acos - scf_plain._Acos)) < 1e-10, (
+        "from_multipole w/ Quantity a does not match the internal-unit build"
+    )
     return None
 
 
@@ -11359,6 +11517,50 @@ def test_SCFPotential_from_density():
     # Output density should have units of density, can just test for Quantity, other tests ensure that this is a density
     assert isinstance(sp.dens(1.0, 0.1), units.Quantity), (
         "SCF density does not return Quantity when initialized with density with units"
+    )
+    return None
+
+
+def test_ExpTruncNFWPotential_from_nfw_quantity():
+    # Test that the from_nfw classmethod handles Quantity inputs for rc and mass
+    from galpy import potential
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    nfw = potential.NFWPotential(amp=2.0, a=1.5, ro=ro, vo=vo)
+
+    # rc as a Quantity is parsed into internal units (a=1.5 internal; with
+    # ro=8 kpc, rc=80 kpc -> 80/8 = 10 internal) and matches the float input
+    p_q = potential.ExpTruncNFWPotential.from_nfw(nfw, rc=80.0 * units.kpc)
+    p_f = potential.ExpTruncNFWPotential.from_nfw(nfw, rc=80.0 / ro)
+    assert numpy.fabs(p_q.rc - 80.0 / ro) < 1e-10, (
+        "ExpTruncNFWPotential.from_nfw does not parse a Quantity rc as expected"
+    )
+    assert numpy.fabs(p_q.rc - p_f.rc) < 1e-12, (
+        "ExpTruncNFWPotential.from_nfw Quantity and float rc disagree"
+    )
+    assert p_q._roSet and p_q._voSet, (
+        "ExpTruncNFWPotential.from_nfw should inherit the NFW's physical state"
+    )
+
+    # mass as a Quantity: the resulting total mass equals the requested mass,
+    # and amp is still inherited from the NFW
+    p_m = potential.ExpTruncNFWPotential.from_nfw(nfw, mass=1e11 * units.Msun)
+    assert p_m._amp == nfw._amp, (
+        "ExpTruncNFWPotential.from_nfw(mass=Quantity) should still inherit amp"
+    )
+    mtot = p_m.mass(numpy.inf, use_physical=False) * conversion.mass_in_msol(vo, ro)
+    assert numpy.fabs(mtot - 1e11) < 1e-6 * 1e11, (
+        "ExpTruncNFWPotential.from_nfw(mass=Quantity) total mass does not match"
+    )
+
+    # the Quantity-mass result matches passing the equivalent internal-units mass
+    mass_internal = (1e11 * units.Msun).to_value(units.Msun) / conversion.mass_in_msol(
+        vo, ro
+    )
+    p_mf = potential.ExpTruncNFWPotential.from_nfw(nfw, mass=mass_internal)
+    assert numpy.fabs(p_m.rc - p_mf.rc) < 1e-10, (
+        "ExpTruncNFWPotential.from_nfw Quantity and float mass disagree"
     )
     return None
 

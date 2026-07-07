@@ -487,7 +487,12 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->phi2deriv= &SCFPotentialphi2deriv;
       potentialArgs->Rphideriv= &SCFPotentialRphideriv;
       potentialArgs->zphideriv= &SCFPotentialzphideriv;
-      potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 10);
+      // Layout header: a, isNonAxi, N, L, M, Nt (6 doubles), then either the
+      // static coefficient arrays (Nt==0) or tgrid + time-PPoly blocks (Nt>0),
+      // then 11 cache slots (type + 4 coords[R,Z,phi,t] + 6 values).
+      potentialArgs->nargs= (int) ( *(*pot_args+5) == 0
+        ? 6 + (1 + *(*pot_args+1)) * *(*pot_args+2) * *(*pot_args+3) * *(*pot_args+4) + 11
+        : 6 + *(*pot_args+5) + (1 + *(*pot_args+1)) * *(*pot_args+2) * *(*pot_args+3) * *(*pot_args+4) * 4 * ( *(*pot_args+5) - 1 ) + 11 );
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -785,6 +790,25 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rphideriv= &MultipoleExpansionPotentialRphideriv;
       potentialArgs->zphideriv= &MultipoleExpansionPotentialzphideriv;
       potentialArgs->nargs= 0; // arguments handled in the initialization code run for this potential
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
+    case 46: //ExpTruncNFWPotential
+      potentialArgs->potentialEval= &SphericalPotentialEval;
+      potentialArgs->Rforce = &SphericalPotentialRforce;
+      potentialArgs->zforce = &SphericalPotentialzforce;
+      potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->dens= &SphericalPotentialDens;
+      potentialArgs->R2deriv= &SphericalPotentialR2deriv;
+      potentialArgs->z2deriv= &SphericalPotentialz2deriv;
+      potentialArgs->Rzderiv= &SphericalPotentialRzderiv;
+      //spherical: phi2deriv, Rphideriv, zphideriv = 0 (leave NULL)
+      // Also assign functions specific to SphericalPotential
+      potentialArgs->revaluate= &ExpTruncNFWPotentialrevaluate;
+      potentialArgs->rforce= &ExpTruncNFWPotentialrforce;
+      potentialArgs->r2deriv= &ExpTruncNFWPotentialr2deriv;
+      potentialArgs->rdens= &ExpTruncNFWPotentialrdens;
+      potentialArgs->nargs = 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;

@@ -459,6 +459,15 @@ def pytest_generate_tests(metafunc):
                 "TwoPowerSphericalPotential",
                 "spherical",
             ),
+            # Closed-form (E_1-based) NFW with an exponential truncation, exactly
+            # like the other clean closed-form spherical entries above (not
+            # spline-based, so it belongs in the strict registry rather than the
+            # relaxed Einasto/interpSpherical precedent below).
+            (
+                potential.ExpTruncNFWPotential(amp=1.0, a=1.6, rc=4.0, normalize=True),
+                "ExpTruncNFWPotential",
+                "spherical",
+            ),
             # NOTE: PseudoIsothermalPotential, EinastoPotential, and
             # interpSphericalPotential all have verified-correct full 3D C Hessians
             # (hasC_dxdv3d=True; their C-vs-Python unit-deviation dxdv agrees to ~1e-7
@@ -925,6 +934,7 @@ def pytest_generate_tests(metafunc):
         pots.append("mockFlatSolidBodyRotationMultipoleExpansionPotential")
         pots.append("mockFlatWeaklyTDMultipoleExpansionPotential")
         pots.append("mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential")
+        pots.append("mockFlatWeaklyTDNonaxiM3SCFPotential")
         rmpots = [
             "Potential",
             "MWPotential",
@@ -981,6 +991,9 @@ def pytest_generate_tests(metafunc):
         jactol[
             "mockFlatWeaklyTDNonaxiM3MultipoleExpansionPotential"
         ] = -6.0  # time-dependent non-axi M=3, C integration
+        jactol[
+            "mockFlatWeaklyTDNonaxiM3SCFPotential"
+        ] = -6.0  # time-dependent non-axi M=3 SCF, C integration
         # Now generate all inputs and run tests
         tols = [tol[p] if p in tol else tol["default"] for p in pots]
         jactols = [jactol[p] if p in jactol else tol["default"] for p in pots]

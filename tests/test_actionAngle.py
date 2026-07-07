@@ -3814,6 +3814,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     hp = potential.HernquistPotential(normalize=1.0)
     jp = potential.JaffePotential(normalize=1.0)
     np = potential.NFWPotential(normalize=1.0)
+    etnp = potential.ExpTruncNFWPotential(normalize=1.0)
     ip = potential.IsochronePotential(normalize=1.0, b=1.0)
     pp = potential.PowerSphericalPotential(normalize=1.0)
     lp2 = potential.PowerSphericalPotential(normalize=1.0, alpha=2.0)
@@ -3868,12 +3869,24 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         rgrid=numpy.geomspace(1e-3, 50, 51),
         tgrid=numpy.linspace(0, 300, 11),
     )
+    scf_tdep_nonaxi_m3 = potential.SCFPotential.from_density(
+        dens=lambda R, z, phi, t=0.0: (
+            potential.HernquistPotential(normalize=1.0).dens(R, z, phi)
+            * (1.0 + 1e-9 * numpy.cos(phi + 1.3 * t))
+        ),
+        N=10,
+        L=3,
+        symmetry=None,
+        tgrid=numpy.linspace(0, 300, 11),
+    )
+    scf_tdep_nonaxi_m3.normalize(1.0)
     pots = [
         lp,
         lpb,
         hp,
         jp,
         np,
+        etnp,
         ip,
         pp,
         lp2,
@@ -3897,6 +3910,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         mep,
         mep_nonaxi,
         mep_tdep_nonaxi_m3,
+        scf_tdep_nonaxi_m3,
     ]
     for pot in pots:
         aAS = actionAngleStaeckel(pot=pot, c=True, delta=0.01)

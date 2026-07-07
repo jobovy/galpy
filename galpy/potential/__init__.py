@@ -15,6 +15,7 @@ from . import (
     DoubleExponentialDiskPotential,
     EinastoPotential,
     EllipticalDiskPotential,
+    ExpTruncNFWPotential,
     FDMDynamicalFrictionForce,
     FerrersPotential,
     FlattenedPowerPotential,
@@ -168,6 +169,7 @@ PowerSphericalPotentialwCutoff = (
 DehnenSphericalPotential = TwoPowerSphericalPotential.DehnenSphericalPotential
 DehnenCoreSphericalPotential = TwoPowerSphericalPotential.DehnenCoreSphericalPotential
 EinastoPotential = EinastoPotential.EinastoPotential
+ExpTruncNFWPotential = ExpTruncNFWPotential.ExpTruncNFWPotential
 NFWPotential = TwoPowerSphericalPotential.NFWPotential
 JaffePotential = TwoPowerSphericalPotential.JaffePotential
 HernquistPotential = TwoPowerSphericalPotential.HernquistPotential
