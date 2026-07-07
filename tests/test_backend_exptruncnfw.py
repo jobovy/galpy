@@ -184,3 +184,38 @@ def test_grad_evaluate_is_minus_rforce(backend_name, pot):
         pot._evaluate(R, torch.tensor(z0, dtype=torch.float64)).backward()
         ad = float(R.grad)
     numpy.testing.assert_allclose(ad, ref, rtol=1e-9)
+
+
+@pytest.mark.parametrize("var", ["a", "rc"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_param_grad_vs_fd(backend_name, var):
+    # d(_rforce)/d(truncation parameter): the data-first alpha-block keeps the
+    # potential differentiable w.r.t. its parameters a and rc -- constructed from a
+    # backend param and evaluated through exp1(alpha) -- vs central finite diff.
+    r0, a0, rc0, eps = 2.0, 2.0, 8.0, 1e-6
+
+    def rf_np(a, rc):
+        return float(
+            ExpTruncNFWPotential(amp=1.0, a=a, rc=rc)._rforce(numpy.asarray(r0))
+        )
+
+    def rf_b(p):  # p = the varied parameter as a backend scalar
+        a, rc = (p, rc0) if var == "a" else (a0, p)
+        return ExpTruncNFWPotential(amp=1.0, a=a, rc=rc)._rforce(
+            _asarray(backend_name, r0)
+        )
+
+    p0 = a0 if var == "a" else rc0
+    hi = (a0 + eps, rc0) if var == "a" else (a0, rc0 + eps)
+    lo = (a0 - eps, rc0) if var == "a" else (a0, rc0 - eps)
+    fd = (rf_np(*hi) - rf_np(*lo)) / (2.0 * eps)
+    if backend_name == "jax":
+        ad = float(jax.grad(rf_b)(jnp.asarray(p0)))
+    else:
+        pt = torch.tensor(p0, dtype=torch.float64, requires_grad=True)
+        rf_b(pt).backward()
+        ad = float(pt.grad)
+    assert not numpy.isnan(ad)
+    numpy.testing.assert_allclose(
+        ad, fd, rtol=1e-5, err_msg=f"d(rforce)/d{var} ({backend_name})"
+    )

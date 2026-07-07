@@ -508,7 +508,12 @@ def test_torch_native_bessel_k_is_nondifferentiable():
 # numpy uses scipy; jax uses -expi(-x) (its native exp1 = expn is not twice-
 # differentiable); torch uses the series/Lentz fallback. galpy evaluates E_1 on
 # beta = (a+r)/rc > 0, spanning the small-x series and large-x CF regimes.
-_EXP1_X = numpy.array([1e-3, 0.05, 0.4, 0.9, 1.0, 1.1, 2.5, 8.0, 25.0, 60.0])
+# spans the E1 domain reached by ExpTruncNFW: alpha=a/rc can be tiny (<1e-3 for
+# a<<rc) and beta=(a+r)/rc grows large at large r -- test both tails plus the
+# series<->continued-fraction crossover at x~1. E1(150)~5e-68 is still float64.
+_EXP1_X = numpy.array(
+    [1e-5, 1e-4, 1e-3, 0.05, 0.4, 0.9, 1.0, 1.1, 2.5, 8.0, 25.0, 60.0, 100.0, 150.0]
+)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

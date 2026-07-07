@@ -6,7 +6,7 @@ import warnings
 import numpy
 from scipy.special import exp1 as _scipy_exp1
 
-from ..backend import get_namespace
+from ..backend import get_namespace, is_backend_array
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import exp1
 from ..util import conversion, galpyWarning
@@ -73,8 +73,16 @@ class ExpTruncNFWPotential(SphericalPotential):
         # Precompute quantities involving the truncation that are reused by the
         # closed-form mass and potential integrals.
         self._alpha = a / rc
-        self._exp_alpha = numpy.exp(self._alpha)
-        self._E1_alpha = _scipy_exp1(self._alpha)
+        # data-first: a backend a/rc keeps the potential differentiable w.r.t. the
+        # truncation parameters; a plain float/numpy alpha (incl. under a forced
+        # backend) stays on scipy so construction never leaks onto jax/torch.
+        if is_backend_array(self._alpha):
+            xp = get_namespace(self._alpha)
+            self._exp_alpha = xp.exp(self._alpha)
+            self._E1_alpha = exp1(self._alpha)
+        else:
+            self._exp_alpha = numpy.exp(self._alpha)
+            self._E1_alpha = _scipy_exp1(self._alpha)
         # Dimensionless total mass M_tot/amp = F(infinity): as r->inf the two E1
         # terms of the closed-form F(r) leave exp(alpha)(1+alpha)E1(alpha) - 1.
         self._Ftot = self._exp_alpha * (1.0 + self._alpha) * self._E1_alpha - 1.0
@@ -318,7 +326,10 @@ class ExpTruncNFWPotential(SphericalPotential):
         at0 = r == 0.0
         safe = xp.where(at0, xp.ones_like(r), r)  # avoid 0/0 at the origin
         force = -self._F(safe) / (safe * safe)
-        return xp.where(at0, xp.full_like(r, zero_limit), force)
+        # zero_limit * ones_like (not full_like): keeps it an array-broadcast of a
+        # possibly-Tensor limit when a is a differentiable backend parameter
+        # (torch.full_like rejects a Tensor fill); byte-identical for numpy.
+        return xp.where(at0, zero_limit * xp.ones_like(r), force)
 
     def _r2deriv(self, r, t=0.0):
         return 4.0 * numpy.pi * self._rdens(r) - 2.0 * self._F(r) / r**3
