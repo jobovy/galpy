@@ -27,8 +27,10 @@ from galpy.potential import (
     FlattenedPowerPotential,
     HernquistPotential,
     IsochronePotential,
+    IsothermalDiskPotential,
     JaffePotential,
     KeplerPotential,
+    KGPotential,
     LogarithmicHaloPotential,
     MiyamotoNagaiPotential,
     MN3ExponentialDiskPotential,
@@ -37,6 +39,7 @@ from galpy.potential import (
     PlummerPotential,
     PowerSphericalPotential,
     PowerSphericalPotentialwCutoff,
+    RZToverticalPotential,
     SCFPotential,
     SoftenedNeedleBarPotential,
     SpiralArmsPotential,
@@ -479,3 +482,100 @@ def test_inbackend_per_orbit_times_with_knobs_torch():
     out = integrate_orbit(pot, ics, ts2, solver="dopri5", max_steps=50000)
     assert tuple(out.shape) == (len(_TS), 2, 6)
     assert bool(torch.isfinite(out).all())
+
+
+###############################################################################
+# 1D linear potentials: the in-backend ODE's dim==2 branch ([x, vx]). Same
+# diffrax/torchdiffeq path as the 3D/planar cases, exercised for the
+# linearPotential force layer (_evaluatelinearForces) -- the vertical-orbit
+# integration actionAngleVertical rides on. Covers native-linear, the
+# toVertical wrapper of a 3D potential, and a linear composite.
+###############################################################################
+_IC_1D = [0.15, 0.1]  # x, vx (1D phase space)
+_LINEAR_POTS = [
+    ("native-IsothermalDisk", IsothermalDiskPotential(amp=1.0, sigma=0.3)),
+    ("native-KG", KGPotential(K=1.15, F=0.03, D=1.8)),
+    # toVertical: the 1D vertical potential of a 3D disk at R=1 (wraps _zforce)
+    ("toVertical-MN", RZToverticalPotential(MiyamotoNagaiPotential(a=0.5, b=0.1), 1.0)),
+    (
+        "composite-linear",
+        IsothermalDiskPotential(amp=1.0, sigma=0.3)
+        + KGPotential(K=1.15, F=0.03, D=1.8),
+    ),
+]
+
+
+def _c_reference_1d(pot, ic=None):
+    o = Orbit(_IC_1D if ic is None else list(ic))
+    o.integrate(_TS, pot, method="dop853_c")
+    return numpy.array([[o.x(t), o.vx(t)] for t in _TS])
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+@pytest.mark.parametrize("name,pot", _LINEAR_POTS, ids=[p[0] for p in _LINEAR_POTS])
+def test_inbackend_1d_matches_c_jax(name, pot):
+    ref = _c_reference_1d(pot)
+    got = numpy.asarray(integrate_orbit(pot, jnp.asarray(_IC_1D), jnp.asarray(_TS)))
+    assert got.shape == (len(_TS), 2)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+@pytest.mark.parametrize("name,pot", _LINEAR_POTS, ids=[p[0] for p in _LINEAR_POTS])
+def test_inbackend_1d_matches_c_torch(name, pot):
+    ref = _c_reference_1d(pot)
+    got = (
+        integrate_orbit(pot, torch.as_tensor(_IC_1D), torch.as_tensor(_TS))
+        .detach()
+        .numpy()
+    )
+    assert got.shape == (len(_TS), 2)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-5, atol=1e-6)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_1d_grad_vs_fd_jax():
+    # d(final x)/d(vx0) through the 1D solve, autodiff vs central FD.
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.3)
+    ts = jnp.asarray(_TS)
+
+    def final_x(vx0):
+        return integrate_orbit(pot, jnp.array([0.15, vx0]), ts)[-1][0]
+
+    ad = float(jax.grad(final_x)(jnp.asarray(0.1)))
+    eps = 1e-6
+    fd = (float(final_x(0.1 + eps)) - float(final_x(0.1 - eps))) / (2 * eps)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-7)
+
+
+@pytest.mark.skipif(not (HAVE_JAX and HAVE_TORCH), reason="need jax and torch")
+def test_inbackend_1d_grad_torch_matches_jax():
+    # cross-backend: torch.autograd d(final x)/d(vx0) == jax.grad, 1D path.
+    pot = KGPotential(K=1.15, F=0.03, D=1.8)
+    jg = float(
+        jax.grad(
+            lambda v: integrate_orbit(pot, jnp.array([0.15, v]), jnp.asarray(_TS))[-1][
+                0
+            ]
+        )(jnp.asarray(0.1))
+    )
+    v = torch.tensor(0.1, dtype=torch.float64, requires_grad=True)
+    integrate_orbit(
+        pot,
+        torch.stack([torch.tensor(0.15, dtype=torch.float64), v]),
+        torch.as_tensor(_TS),
+    )[-1][0].backward()
+    numpy.testing.assert_allclose(float(v.grad), jg, rtol=1e-6, atol=1e-8)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_1d_batch_jax():
+    # a batch of 1D orbits (N,2) integrated in ONE solve vs per-orbit C.
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.3) + KGPotential(
+        K=1.15, F=0.03, D=1.8
+    )
+    ics = numpy.array([_IC_1D, [0.3, -0.05], [-0.2, 0.15]])
+    ref = numpy.array([_c_reference_1d(pot, ic)[-1] for ic in ics])
+    out = numpy.asarray(integrate_orbit(pot, jnp.asarray(ics), jnp.asarray(_TS)))
+    assert out.shape == (len(_TS), 3, 2)
+    numpy.testing.assert_allclose(out[-1], ref, rtol=1e-6, atol=1e-7)
