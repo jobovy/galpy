@@ -318,3 +318,168 @@ def test_centre_and_infinity_parity(backend_name, name, pot):
         )
     )
     numpy.testing.assert_allclose(gotc, refc, atol=1e-14)
+
+
+###############################################################################
+# Time-dependent SCF: the (Nt, N, L, M) expansion coefficients are cubic-spline
+# interpolated in time. The numpy path evaluates the scipy CubicSpline (and a
+# float-keyed cache); the backend (jax/torch) path evaluates the SAME piecewise
+# cubic through the active namespace (SCFPotential._coeffs_at_time /
+# _interp_ppoly_vec), so a time-dependent SCF
+#   1. evaluates identically across backends at scalar AND array times, and
+#   2. is DIFFERENTIABLE w.r.t. the evaluation time t (the coefficient
+#      time-interpolation flows autodiff) -- the headline new capability --
+#      cross-checked against a central finite difference of the numpy path.
+###############################################################################
+_TDEP_A = 1.7
+# a smooth, non-polynomial time dependence: d/dt is non-trivial and the cubic
+# spline genuinely interpolates between the (finely spaced) grid nodes.
+_TDEP_TGRID = numpy.linspace(0.0, 5.0, 26)
+_tdep_scale = lambda t: 1.0 + 0.05 * t + 0.02 * t**2 + 0.1 * numpy.sin(0.7 * t)
+
+
+def _make_tdep_cases():
+    rng = numpy.random.default_rng(7)
+    cases = []
+    # spherical/axisymmetric time-dependent SCF (monopole-dominated, M == 1)
+    Acos_sph = numpy.zeros((5, 1, 1))
+    Acos_sph[:, 0, 0] = rng.normal(size=5) * 0.1
+    Acos_sph[0, 0, 0] = 1.0
+    arr = numpy.array([Acos_sph * _tdep_scale(t) for t in _TDEP_TGRID])
+    cases.append(
+        ("tdep_axi", SCFPotential(amp=1.4, Acos=arr, a=_TDEP_A, tgrid=_TDEP_TGRID))
+    )
+    # non-axisymmetric time-dependent SCF (full n,l,m incl. Asin)
+    Ac = numpy.tril(rng.normal(size=(3, 3, 3)) * 0.1)
+    As = numpy.tril(rng.normal(size=(3, 3, 3)) * 0.1)
+    Ac[0, 0, 0] = 1.0
+    Aca = numpy.array([Ac * _tdep_scale(t) for t in _TDEP_TGRID])
+    Asa = numpy.array([As * _tdep_scale(t) for t in _TDEP_TGRID])
+    cases.append(
+        (
+            "tdep_nonaxi",
+            SCFPotential(amp=1.1, Acos=Aca, Asin=Asa, a=_TDEP_A, tgrid=_TDEP_TGRID),
+        )
+    )
+    return cases
+
+
+TDEP_CASES = _make_tdep_cases()
+TDEP_IDS = [name for name, _ in TDEP_CASES]
+# evaluation times: off the grid nodes (interpolation genuinely exercised),
+# spanning the grid, plus one beyond the last node (finite extrapolation).
+_TDEP_TS = [0.37, 1.83, 3.14, 4.61, 5.4]
+_TDEP_METHODS = ["_evaluate", "_dens", "_Rforce", "_zforce", "_phitorque", "_R2deriv"]
+
+
+@pytest.mark.parametrize("name,pot", TDEP_CASES, ids=TDEP_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_tdep_value_parity_scalar_t(backend_name, name, pot):
+    # A time-dependent SCF evaluated at a backend scalar time must match the numpy
+    # (scipy-CubicSpline) evaluation at that time to ~1 ulp, for every method.
+    for mname in _TDEP_METHODS:
+        method = getattr(pot, mname)
+        for t in _TDEP_TS:
+            ref = numpy.asarray(method(_R0, _Z0, _PHI0, t=t))
+            got = as_numpy(
+                method(
+                    _asarray(backend_name, _R0),
+                    _asarray(backend_name, _Z0),
+                    _asarray(backend_name, _PHI0),
+                    t=_asarray(backend_name, t),
+                )
+            )
+            numpy.testing.assert_allclose(
+                got,
+                ref,
+                rtol=1e-11,
+                atol=1e-13,
+                err_msg=f"tdep SCF[{name}].{mname} scalar-t parity "
+                f"({backend_name}, t={t})",
+            )
+
+
+@pytest.mark.parametrize("name,pot", TDEP_CASES, ids=TDEP_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_tdep_value_parity_array_t(backend_name, name, pot):
+    # A single point at an ARRAY of times: each entry picks up its own
+    # time-interpolated coefficients (the batched per-point-coefficient path).
+    t_arr = numpy.asarray(_TDEP_TS)
+    ref = numpy.asarray(pot._evaluate(_R0, _Z0, _PHI0, t=t_arr))
+    got = as_numpy(
+        pot._evaluate(
+            _asarray(backend_name, _R0),
+            _asarray(backend_name, _Z0),
+            _asarray(backend_name, _PHI0),
+            t=_asarray(backend_name, t_arr),
+        )
+    )
+    numpy.testing.assert_allclose(
+        got,
+        ref,
+        rtol=1e-11,
+        atol=1e-13,
+        err_msg=f"tdep SCF[{name}] array-t parity ({backend_name})",
+    )
+    assert got.shape == t_arr.shape
+    assert not numpy.allclose(got, got[0])  # genuinely time-dependent
+
+
+@pytest.mark.parametrize("name,pot", TDEP_CASES, ids=TDEP_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_tdep_grad_in_t_vs_finite_difference(backend_name, name, pot):
+    # HEADLINE: differentiability of a time-dependent SCF w.r.t. the evaluation
+    # time t, flowing through the cubic-spline coefficient interpolation. AD of
+    # _evaluate wrt t matches a central finite difference of the numpy _evaluate.
+    eps = 1e-6
+    for t0 in [0.37, 1.83, 3.14]:  # mid-segment points (away from the grid nodes)
+        fd = (
+            float(pot._evaluate(_R0, _Z0, _PHI0, t=t0 + eps))
+            - float(pot._evaluate(_R0, _Z0, _PHI0, t=t0 - eps))
+        ) / (2 * eps)
+        ad = _grad_in_t(backend_name, pot, t0)
+        assert abs(fd) > 1e-6  # the time dependence is non-trivial at this point
+        numpy.testing.assert_allclose(
+            ad,
+            fd,
+            rtol=1e-5,
+            atol=1e-8,
+            err_msg=f"tdep SCF[{name}] d_evaluate/dt ({backend_name}, t0={t0})",
+        )
+
+
+def _grad_in_t(backend_name, pot, t0):
+    # AD of pot._evaluate(_R0, _Z0, _PHI0, t) wrt the scalar time t.
+    R = _asarray(backend_name, _R0)
+    z = _asarray(backend_name, _Z0)
+    phi = _asarray(backend_name, _PHI0)
+    if backend_name == "jax":
+        return float(jax.grad(lambda t: pot._evaluate(R, z, phi, t=t))(jnp.asarray(t0)))
+    leaf = torch.tensor(t0, dtype=torch.float64, requires_grad=True)
+    out = pot._evaluate(R, z, phi, t=leaf)
+    out.backward()
+    return float(leaf.grad)
+
+
+@pytest.mark.parametrize("name,pot", TDEP_CASES, ids=TDEP_IDS)
+def test_tdep_jax_jit_in_t(name, pot):
+    # The time-interpolation path is jit-compatible (searchsorted / clip / Horner,
+    # no float()/md5 caches on the backend), including its gradient in t.
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not available")
+    R, z, phi = jnp.asarray(_R0), jnp.asarray(_Z0), jnp.asarray(_PHI0)
+    f = lambda t: pot._evaluate(R, z, phi, t=t)
+    t0 = 2.4
+    numpy.testing.assert_allclose(
+        float(jax.jit(f)(jnp.asarray(t0))),
+        float(pot._evaluate(_R0, _Z0, _PHI0, t=t0)),
+        rtol=1e-11,
+        atol=1e-13,
+    )
+    g_jit = float(jax.jit(jax.grad(f))(jnp.asarray(t0)))
+    eps = 1e-6
+    fd = (
+        float(pot._evaluate(_R0, _Z0, _PHI0, t=t0 + eps))
+        - float(pot._evaluate(_R0, _Z0, _PHI0, t=t0 - eps))
+    ) / (2 * eps)
+    numpy.testing.assert_allclose(g_jit, fd, rtol=1e-5, atol=1e-8)
