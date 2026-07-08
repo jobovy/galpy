@@ -342,16 +342,6 @@ jax tests/test_orbits.py::test_rguiding
 # (The 17 jax test_streamdf entries still in backend_xfail.txt are now redundant
 # -- skip wins -- and drop at the next ledger regen, which skips these.)
 jax tests/test_streamdf.py
-# --- streamdf under torch (same eager-slow blow-up) ---
-# Symmetric to the jax case: once coords is backend-aware (the coords leaf PR), the
-# torch streamdf tests no longer crash early at coords.rect_to_cyl_vec, so they run
-# streamdf's IsochroneApprox track-assembly -- millions of per-orbit eager-torch
-# integrates, rebuilt in each of the 5 pytest-split sub-shards -> the streamdf/
-# streamTrack/streamspraydf torch shard runs ~90 min and hits the job cap. streamdf
-# is not yet vectorized for torch (Track F), so defer the whole file under torch too.
-# (The 27 torch test_streamdf entries in backend_xfail.txt are now redundant -- skip
-# wins -- and drop at the next ledger regen.)
-torch tests/test_streamdf.py
 # jax-eager Staeckel Python-path freqs+angles is borderline >300s in the shard
 # (it passes in isolation and ran <300s in the regen, so it's a DROP from the
 # xfail-ledger, not a failure); skip it under jax to dodge the flaky pytest-timeout
