@@ -169,26 +169,70 @@ def fast_cholesky_invert(A, logdet=False, tiny=_TINY):
 def _rotate_to_arbitrary_vector(v, a, inv=False, _dontcutsmall=False):
     r"""Return a rotation matrix that rotates v to align with unit vector a
     i.e. R . v = |v|\hat{a}"""
-    normv = v / numpy.tile(numpy.sqrt(numpy.sum(v**2.0, axis=1)), (3, 1)).T
-    rotaxis = numpy.cross(normv, a)
-    rotaxis /= numpy.tile(numpy.sqrt(numpy.sum(rotaxis**2.0, axis=1)), (3, 1)).T
-    crossmatrix = numpy.empty((len(v), 3, 3))
-    crossmatrix[:, 0, :] = numpy.cross(rotaxis, [1, 0, 0])
-    crossmatrix[:, 1, :] = numpy.cross(rotaxis, [0, 1, 0])
-    crossmatrix[:, 2, :] = numpy.cross(rotaxis, [0, 0, 1])
-    costheta = numpy.dot(normv, a)
-    sintheta = numpy.sqrt(1.0 - costheta**2.0)
-    if inv:
-        sgn = 1.0
-    else:
-        sgn = -1.0
+    from ..backend import as_backend_constant, get_namespace, is_backend_array
+
+    # Dispatch DATA-first (not via the forced-context get_namespace): this leaf is
+    # called from numpy-context code (streamspraydf/streamgapdf/rotated potentials)
+    # that may feed it a numpy v even under a forced backend, so numpy v must take
+    # the byte-identical numpy branch regardless of the forced default.
+    if not is_backend_array(v):
+        normv = v / numpy.tile(numpy.sqrt(numpy.sum(v**2.0, axis=1)), (3, 1)).T
+        rotaxis = numpy.cross(normv, a)
+        rotaxis /= numpy.tile(numpy.sqrt(numpy.sum(rotaxis**2.0, axis=1)), (3, 1)).T
+        crossmatrix = numpy.empty((len(v), 3, 3))
+        crossmatrix[:, 0, :] = numpy.cross(rotaxis, [1, 0, 0])
+        crossmatrix[:, 1, :] = numpy.cross(rotaxis, [0, 1, 0])
+        crossmatrix[:, 2, :] = numpy.cross(rotaxis, [0, 0, 1])
+        costheta = numpy.dot(normv, a)
+        sintheta = numpy.sqrt(1.0 - costheta**2.0)
+        if inv:
+            sgn = 1.0
+        else:
+            sgn = -1.0
+        out = (
+            numpy.tile(costheta, (3, 3, 1)).T * numpy.tile(numpy.eye(3), (len(v), 1, 1))
+            + sgn * numpy.tile(sintheta, (3, 3, 1)).T * crossmatrix
+            + numpy.tile(1.0 - costheta, (3, 3, 1)).T
+            * (rotaxis[:, :, numpy.newaxis] * rotaxis[:, numpy.newaxis, :])
+        )
+        if not _dontcutsmall:
+            out[numpy.fabs(costheta - 1.0) < 10.0**-10.0] = numpy.eye(3)
+            out[numpy.fabs(costheta + 1.0) < 10.0**-10.0] = -numpy.eye(3)
+        return out
+    # genuine backend array (jax/torch): out-of-place, differentiable. The
+    # rotaxis-normalization denominator is guarded so a v parallel to a -- whose
+    # row is degenerate and cut/masked below anyway -- does not NaN-poison AD.
+    xp = get_namespace(v, a)
+    a = as_backend_constant(xp, numpy.asarray(a, dtype=float), v)
+    normv = v / xp.sqrt(xp.sum(v**2.0, axis=1))[:, None]
+    nx, ny, nz = normv[:, 0], normv[:, 1], normv[:, 2]
+    rotaxis = xp.stack(
+        [ny * a[2] - nz * a[1], nz * a[0] - nx * a[2], nx * a[1] - ny * a[0]], axis=-1
+    )
+    raxnorm = xp.sqrt(xp.sum(rotaxis**2.0, axis=1))
+    rotaxis = (
+        rotaxis / xp.where(raxnorm == 0.0, xp.ones_like(raxnorm), raxnorm)[:, None]
+    )
+    rx, ry, rz = rotaxis[:, 0], rotaxis[:, 1], rotaxis[:, 2]
+    zero = xp.zeros_like(rx)
+    crossmatrix = xp.stack(
+        [
+            xp.stack([zero, rz, -ry], axis=-1),
+            xp.stack([-rz, zero, rx], axis=-1),
+            xp.stack([ry, -rx, zero], axis=-1),
+        ],
+        axis=1,
+    )
+    costheta = xp.sum(normv * a, axis=1)
+    sintheta = xp.sqrt(1.0 - costheta**2.0)
+    sgn = 1.0 if inv else -1.0
+    eye = as_backend_constant(xp, numpy.eye(3), v)
     out = (
-        numpy.tile(costheta, (3, 3, 1)).T * numpy.tile(numpy.eye(3), (len(v), 1, 1))
-        + sgn * numpy.tile(sintheta, (3, 3, 1)).T * crossmatrix
-        + numpy.tile(1.0 - costheta, (3, 3, 1)).T
-        * (rotaxis[:, :, numpy.newaxis] * rotaxis[:, numpy.newaxis, :])
+        costheta[:, None, None] * eye
+        + sgn * sintheta[:, None, None] * crossmatrix
+        + (1.0 - costheta)[:, None, None] * (rotaxis[:, :, None] * rotaxis[:, None, :])
     )
     if not _dontcutsmall:
-        out[numpy.fabs(costheta - 1.0) < 10.0**-10.0] = numpy.eye(3)
-        out[numpy.fabs(costheta + 1.0) < 10.0**-10.0] = -numpy.eye(3)
+        out = xp.where((xp.abs(costheta - 1.0) < 1e-10)[:, None, None], eye, out)
+        out = xp.where((xp.abs(costheta + 1.0) < 1e-10)[:, None, None], -eye, out)
     return out
