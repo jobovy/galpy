@@ -1,5 +1,8 @@
 import os
+import signal
 import sys
+import threading
+import time
 
 import numpy
 import pytest
@@ -264,6 +267,41 @@ def pytest_runtest_logreport(report):
         _REGEN_STORE["failed"].add(report.nodeid)
 
 
+def _backend_force_exit(status):
+    """Force a clean process exit under a forced jax/torch backend.
+
+    First SIGKILL any leftover child processes: a multiprocessing worker/Manager
+    forked (galpy ``util.multi``) while torch's native threads were live can wedge
+    at its own shutdown and, surviving os._exit, keep the CI step's process group
+    alive. Then os._exit, bypassing the native-thread/atexit join that otherwise
+    hangs interpreter shutdown."""
+    try:
+        mypid = os.getpid()
+        for name in os.listdir("/proc"):
+            if not name.isdigit():
+                continue
+            try:
+                with open("/proc/%s/stat" % name, "rb") as fh:
+                    data = fh.read()
+                # fields after "(comm)": ppid is the 2nd (comm may contain spaces).
+                ppid = int(data[data.rindex(b")") + 2 :].split()[1])
+            except (OSError, ValueError, IndexError):
+                continue
+            if ppid == mypid:
+                try:
+                    os.kill(int(name), signal.SIGKILL)
+                except OSError:
+                    pass
+    except OSError:
+        pass
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except (OSError, ValueError):
+        pass
+    os._exit(int(status))
+
+
 @pytest.hookimpl(hookwrapper=True)
 def pytest_sessionfinish(session, exitstatus):
     """In regenerate mode, dump the failing nodeids for re-seeding the ledger; then
@@ -285,20 +323,27 @@ def pytest_sessionfinish(session, exitstatus):
                 fh.write(f"# regenerated failures for backend={backend_name}\n")
                 for nodeid in failed:
                     fh.write(f"{backend_name} {nodeid}\n")
-    # --- let junitxml + terminalreporter write everything, THEN force-exit ---
-    yield
     # A forced-backend (torch) run that exercises an unmigrated per-orbit integrate
     # loop -- streamdf's IsochroneApprox track assembly, millions of calls -- leaves
     # a native thread/resource that pytest cannot join, so the process HANGS at
     # interpreter shutdown even though all tests, the junit XML, and the summary are
     # already done (the burndown/re-fail steps read the junit, so nothing is lost).
-    # os._exit terminates immediately after everything is written. Gated to jax/torch
-    # so the numpy suite -- including the coverage job, which never passes --backend
-    # -- is untouched and its atexit/coverage flush still runs.
-    if session.config.getoption("--backend") in ("jax", "torch"):
-        sys.stdout.flush()
-        sys.stderr.flush()
-        os._exit(int(exitstatus))
+    # Force-exit after everything is written; gated to jax/torch so the numpy suite
+    # -- including the coverage job, which never passes --backend -- is untouched.
+    forced = session.config.getoption("--backend") in ("jax", "torch")
+    if forced:
+        # Backstop: arm a daemon timer BEFORE the yield so we still force-exit even
+        # if an inner sessionfinish hook (junit/terminal/plugin teardown) itself
+        # hangs so the post-yield exit below is never reached. The grace easily
+        # covers the sub-second junit + summary writes.
+        threading.Thread(
+            target=lambda: (time.sleep(60), _backend_force_exit(exitstatus)),
+            daemon=True,
+        ).start()
+    # --- let junitxml + terminalreporter write everything, THEN force-exit ---
+    yield
+    if forced:
+        _backend_force_exit(exitstatus)
 
 
 @pytest.fixture(autouse=True)
