@@ -1,4 +1,5 @@
 import os
+import sys
 
 import numpy
 import pytest
@@ -263,25 +264,41 @@ def pytest_runtest_logreport(report):
         _REGEN_STORE["failed"].add(report.nodeid)
 
 
+@pytest.hookimpl(hookwrapper=True)
 def pytest_sessionfinish(session, exitstatus):
-    """In regenerate mode, dump the failing nodeids for re-seeding the ledger."""
-    if os.environ.get(_REGEN_ENV) != "1":
-        return
-    backend_name = session.config.getoption("--backend")
-    if backend_name == "numpy":
-        return
-    failed = sorted(_REGEN_STORE["failed"])
-    outfile = _regen_outfile()
-    try:
-        os.makedirs(os.path.dirname(outfile), exist_ok=True)
-    except OSError:
-        pass
-    # Append per-backend block so one multi-backend driver can accumulate both.
-    mode = "a" if os.path.exists(outfile) else "w"
-    with open(outfile, mode) as fh:
-        fh.write(f"# regenerated failures for backend={backend_name}\n")
-        for nodeid in failed:
-            fh.write(f"{backend_name} {nodeid}\n")
+    """In regenerate mode, dump the failing nodeids for re-seeding the ledger; then
+    (under a forced jax/torch backend only) force-exit AFTER the junit XML and the
+    terminal summary have been written."""
+    # --- regen dump (before the wrapped hooks; unchanged behavior) ---
+    if os.environ.get(_REGEN_ENV) == "1":
+        backend_name = session.config.getoption("--backend")
+        if backend_name != "numpy":
+            failed = sorted(_REGEN_STORE["failed"])
+            outfile = _regen_outfile()
+            try:
+                os.makedirs(os.path.dirname(outfile), exist_ok=True)
+            except OSError:
+                pass
+            # Append per-backend block so one multi-backend driver accumulates both.
+            mode = "a" if os.path.exists(outfile) else "w"
+            with open(outfile, mode) as fh:
+                fh.write(f"# regenerated failures for backend={backend_name}\n")
+                for nodeid in failed:
+                    fh.write(f"{backend_name} {nodeid}\n")
+    # --- let junitxml + terminalreporter write everything, THEN force-exit ---
+    yield
+    # A forced-backend (torch) run that exercises an unmigrated per-orbit integrate
+    # loop -- streamdf's IsochroneApprox track assembly, millions of calls -- leaves
+    # a native thread/resource that pytest cannot join, so the process HANGS at
+    # interpreter shutdown even though all tests, the junit XML, and the summary are
+    # already done (the burndown/re-fail steps read the junit, so nothing is lost).
+    # os._exit terminates immediately after everything is written. Gated to jax/torch
+    # so the numpy suite -- including the coverage job, which never passes --backend
+    # -- is untouched and its atexit/coverage flush still runs.
+    if session.config.getoption("--backend") in ("jax", "torch"):
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(int(exitstatus))
 
 
 @pytest.fixture(autouse=True)
