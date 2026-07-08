@@ -36,8 +36,12 @@ except ImportError:  # pragma: no cover
 
 import galpy.backend
 from galpy.backend import as_numpy
-from galpy.df import constantbetaHernquistdf, constantbetaPowerLawdf
-from galpy.potential import HernquistPotential, PowerSphericalPotential
+from galpy.df import constantbetadf, constantbetaHernquistdf, constantbetaPowerLawdf
+from galpy.potential import (
+    DehnenCoreSphericalPotential,
+    HernquistPotential,
+    PowerSphericalPotential,
+)
 
 
 def _arr(backend, x):
@@ -53,6 +57,8 @@ def _is_backend_array(backend, x):
 _HP = HernquistPotential(amp=2.3, a=1.3)
 _PSI0 = float(-_HP(0, 0, use_physical=False))
 _PP = PowerSphericalPotential(amp=1.0, alpha=2.5)
+# smooth, finite core -> exercises the generic constantbetadf fE inversion
+_DC = DehnenCoreSphericalPotential(amp=2.5, a=1.15)
 
 # beta with closed-form (algebraic) fE and beta needing the hyp2f1 branch
 _ALG_BETAS = [-0.5, 0.0, 0.5]
@@ -271,6 +277,27 @@ def test_hyp2f1_domain_limit(backend):
     assert numpy.isfinite(dfh.fE(numpy.array([-0.5 * _PSI0]))[0])  # numpy OK
     with pytest.raises(NotImplementedError):
         dfh.fE(_arr(backend, numpy.array([-0.5 * _PSI0])))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_general_constantbetadf_fE_backend(backend):
+    # The generic constantbetadf (no closed form): the fE inversion integral
+    # (non-halfint beta) and the halfint derivative branch, via the backend GL
+    # fixed_quad path (_fE_backend / _deriv / _gradfunc_for). The DF is built
+    # *under the forced backend*, so this also exercises the backend
+    # construction branches (_active_autodiff / _make_gradfunc / _make_func, the
+    # backend _potInf/_Emin, and the _evalpot_asnumpy startt calibration). The
+    # scipy-adaptive numpy path on the same DF is the reference; the fixed-order
+    # GL floor is ~1e-5 for the integral inversion, ~1e-6 for the halfint case.
+    for kw, rtol in ((dict(beta=0.25), 5e-5), (dict(twobeta=-1), 1e-5)):
+        with galpy.backend.use(backend, force=True):
+            df = constantbetadf(pot=_DC, **kw)
+            Emin, pinf = float(df._Emin), float(df._potInf)
+            Es = Emin + numpy.linspace(0.1, 0.9, 7) * (pinf - Emin)
+            got = df.fE(_arr(backend, Es))
+        assert _is_backend_array(backend, got)
+        ref = df.fE(Es)  # numpy default context -> scipy-adaptive, same DF
+        numpy.testing.assert_allclose(as_numpy(got), ref, rtol=rtol)
 
 
 def _mk_hern(beta):

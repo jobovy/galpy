@@ -1,15 +1,17 @@
 # Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant
 # beta anisotropy parameter
 
+import contextlib
+
 import numpy
 from scipy import integrate, interpolate, special
 
-from ..backend import resolve_namespace
+from ..backend import as_numpy, get_namespace, is_backend_array, resolve_namespace, use
 from ..backend.quadrature import fixed_quad
 from ..potential import interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion, quadpack
-from ..util._optional_deps import _JAX_LOADED
+from ..util._optional_deps import _JAX_LOADED, _TORCH_LOADED
 from .sphericaldf import (
     _QUAD_N_DMDE,
     _QUAD_N_VMOM,
@@ -18,8 +20,76 @@ from .sphericaldf import (
     sphericaldf,
 )
 
-if _JAX_LOADED:
+# Gauss-Legendre order for the backend (jax/torch) fE inversion integral; the
+# post-substitution integrand is smooth, so this matches scipy's adaptive numpy
+# result to ~1e-6 in the physical range (the numpy path stays scipy-adaptive).
+_QUAD_N_FE = 100
+
+
+def _active_backend_name():
+    """'torch'|'jax'|'numpy' for the active galpy backend (context/forced default)."""
+    name = getattr(get_namespace(), "__name__", "")
+    if "torch" in name:
+        return "torch"
+    if name in ("jax", "jax.numpy"):
+        return "jax"
+    return "numpy"
+
+
+def _active_autodiff():
+    """Return ``(grad, vmap, name)`` for the currently-active galpy backend.
+
+    torch -> ``torch.func.grad``/``torch.func.vmap``; jax (and the numpy
+    default, so the jax path constantbetadf has always used internally stays
+    byte-identical) -> ``jax.grad``/``jax.vmap``. The nested-grad closures built
+    from these differentiate correctly under either engine because they only
+    call the backend-agnostic ``_rforce_jax``/``_ddenstwobetadr``.
+    """
+    if _active_backend_name() == "torch":
+        import torch
+
+        return torch.func.grad, torch.func.vmap, "torch"
+    if not _JAX_LOADED:  # pragma: no cover - only torch installed, numpy default
+        import torch
+
+        return torch.func.grad, torch.func.vmap, "torch"
     from jax import grad, vmap
+
+    return grad, vmap, "jax"
+
+
+def _numpy_ctx(backend_name):
+    """Force-numpy context under torch, else a no-op.
+
+    fE and the DF setup are inherently numpy (scipy interpolators + quadrature)
+    and only use the backend for the m-th density derivative (``_gradfunc``,
+    which drives its own tensors). torch rejects the numpy/scalar coords these
+    scipy paths hand to the (undecorated) potential evaluations, so under torch
+    they run on numpy; jax accepts numpy inputs natively, so its path (and the
+    numpy default) is a no-op here and stays byte-identical.
+    """
+    if backend_name == "torch":
+        return use("numpy", force=True)
+    return contextlib.nullcontext()
+
+
+def _make_gradfunc(vmapped, name):
+    """Wrap a vmapped derivative closure so it takes/returns numpy arrays.
+
+    jax's ``vmap(func)`` already accepts numpy input (auto-converted) and its
+    output flows through the numpy consumers unchanged, so it is returned as-is
+    (byte-identical). torch.func.vmap requires Tensor input, so the wrapper
+    coerces the (scipy-interpolator / quadrature) numpy input to a float64
+    Tensor and casts the result back to numpy for the numpy-based fE machinery.
+    """
+    if name != "torch":
+        return vmapped
+    import torch
+
+    def _gradfunc(r):
+        return as_numpy(vmapped(torch.as_tensor(numpy.asarray(r), dtype=torch.float64)))
+
+    return _gradfunc
 
 
 # This is the general constantbeta superclass, implementation of general
@@ -220,6 +290,16 @@ class _constantbetadf(anisotropicsphericaldf):
             / special.gamma(0.5 * (m + n - 2.0 * self._beta + 3.0))
         )
 
+    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0):
+        # No docstring so the superclass' is used. Sampling is a numpy-side
+        # (stateful-RNG) operation drawn from the interpolated fE (built with
+        # the backend's autodiff at construction); run it on numpy under torch
+        # so the returned Orbit and its accessors are numpy (see _numpy_ctx).
+        with _numpy_ctx(_active_backend_name()):
+            return sphericaldf.sample(
+                self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+            )
+
 
 class constantbetadf(_constantbetadf):
     """Class that implements DFs of the form :math:`f(E,L) = L^{-2\\beta} f_1(E)` with constant :math:`\\beta` anisotropy parameter for a given density profile"""
@@ -265,8 +345,13 @@ class constantbetadf(_constantbetadf):
         - 2021-02-14 - Written - Bovy (UofT)
 
         """
-        if not _JAX_LOADED:  # pragma: no cover
-            raise ImportError("galpy.df.constantbetadf requires the google/jax library")
+        if not (_JAX_LOADED or _TORCH_LOADED):  # pragma: no cover
+            raise ImportError(
+                "galpy.df.constantbetadf requires the google/jax or pytorch library"
+            )
+        # Functional grad/vmap for the active backend (jax by default, so the
+        # long-standing jax path stays byte-identical; torch under a torch run)
+        grad, vmap, _gradbackend = _active_autodiff()
         # Parse twobeta
         if twobeta is not None:
             beta = twobeta / 2.0
@@ -294,20 +379,9 @@ class constantbetadf(_constantbetadf):
         )
 
         self._twobeta = twobeta
-        self._halfint = False
-        if isinstance(self._twobeta, int) and self._twobeta % 2 == 1:
-            self._halfint = True
+        self._halfint = isinstance(self._twobeta, int) and self._twobeta % 2 == 1
+        if self._halfint:
             self._m = (3 - self._twobeta) // 2
-            ii = self._m - 1
-            # Compute d^m (dens x r^2beta) / d Psi^m as successive
-            # d / dr ( ...) / F_r
-            func = lambda r: (
-                self._denspot._ddenstwobetadr(r, beta=self._beta)
-                / self._pot._rforce_jax(r)
-            )
-            while ii > 0:
-                func = lambda r, func=func: grad(func)(r) / self._pot._rforce_jax(r)
-                ii -= 1
         else:
             self._m = int(numpy.floor(1.5 - self._beta))
             self._alpha = 1.5 - self._beta - self._m
@@ -317,27 +391,26 @@ class constantbetadf(_constantbetadf):
                 / special.gamma(1.0 - self._alpha)
                 / special.gamma(1.0 - self._beta)
             )
-            ii = self._m
-            # Similar d^m (dens x r^2beta) / d Psi^m as above,
-            # but because integral necessary now is over psi, we can omit
-            # the final 1/Fr to do the integral over r
-            if ii == 0:
-                func = lambda r: self._denspot._ddenstwobetadr(r, beta=self._beta)
-            else:
-                func = lambda r: (
-                    self._denspot._ddenstwobetadr(r, beta=self._beta)
-                    / self._pot._rforce_jax(r)
-                )
-            while ii > 0:
-                if ii == 1:
-                    func = lambda r, func=func: grad(func)(r)
-                else:
-                    func = lambda r, func=func: grad(func)(r) / self._pot._rforce_jax(r)
-                ii -= 1
-        self._gradfunc = vmap(func)
-        # Min and max energy
-        self._potInf = _evaluatePotentials(self._pot, self._rmax, 0)
-        self._Emin = _evaluatePotentials(self._pot, self._rmin, 0)
+        # m-th (dens r^2beta)/dPsi^m derivative for the construction backend
+        # (drives the byte-identical numpy fE path); the backend fE path rebuilds
+        # it per eval-backend (jax.func / torch.func) via _gradfunc_for.
+        self._backend = _gradbackend
+        self._gradfunc = _make_gradfunc(vmap(self._make_func(grad)), _gradbackend)
+        # Min and max energy (numpy scalars): under a forced non-numpy backend the
+        # (undecorated) potential rejects the numpy/scalar limits, so coerce the
+        # input and pull the value back to numpy (boundary coercion, not a compute
+        # island -- the differentiable fE is the backend path below).
+        xpc = get_namespace()
+        if xpc is numpy:
+            self._potInf = _evaluatePotentials(self._pot, self._rmax, 0)
+            self._Emin = _evaluatePotentials(self._pot, self._rmin, 0)
+        else:
+            self._potInf = as_numpy(
+                _evaluatePotentials(self._pot, xpc.asarray(self._rmax) * 1.0, 0)
+            )
+            self._Emin = as_numpy(
+                _evaluatePotentials(self._pot, xpc.asarray(self._rmin) * 1.0, 0)
+            )
         # Build interpolator r(pot), starting at rmin for divergent potentials
         self._rphi = self._setup_rphi_interpolator(
             r_a_min=max(1e-6, self._rmin / self._scale)
@@ -377,8 +450,9 @@ class constantbetadf(_constantbetadf):
         if rmin is None:
             rmin = self._rmin
         self._ensure_fE_interp()
-        return sphericaldf.sample(
-            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+        # via _constantbetadf.sample so the torch->numpy sampling wrap applies
+        return super().sample(
+            R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
         )
 
     def _ensure_fE_interp(self):
@@ -391,11 +465,65 @@ class constantbetadf(_constantbetadf):
                 )
             )
             Es4interp = (Es4interp * (self._Emin - self._potInf) + self._potInf)[::-1]
-            fE4interp = self.fE(Es4interp)
+            # scipy spline over the numpy energy grid: pull the (backend) fE
+            # values back to numpy for the frozen interpolator
+            fE4interp = as_numpy(self.fE(Es4interp))
             iindx = numpy.isfinite(fE4interp)
             self._fE_interp = interpolate.InterpolatedUnivariateSpline(
                 Es4interp[iindx], fE4interp[iindx], k=3, ext=3
             )
+
+    def _make_func(self, grad):
+        """Build the m-th (dens r^2beta)/dPsi^m derivative closure using ``grad``.
+
+        d/dPsi = (d/dr)/F_r, applied m times; composed purely from the
+        backend-agnostic ``_ddenstwobetadr`` / ``_rforce_jax``, so it
+        differentiates natively under jax.grad or torch.func.grad. For a
+        non-halfint DF the final 1/F_r is omitted (the fE integral is over Psi).
+        """
+        ddens = lambda r: self._denspot._ddenstwobetadr(r, beta=self._beta)
+        rforce = self._pot._rforce_jax
+        if self._halfint:
+            func = lambda r: ddens(r) / rforce(r)
+            ii = self._m - 1
+            while ii > 0:
+                func = lambda r, func=func: grad(func)(r) / rforce(r)
+                ii -= 1
+        else:
+            ii = self._m
+            func = ddens if ii == 0 else (lambda r: ddens(r) / rforce(r))
+            while ii > 0:
+                if ii == 1:
+                    func = lambda r, func=func: grad(func)(r)
+                else:
+                    func = lambda r, func=func: grad(func)(r) / rforce(r)
+                ii -= 1
+        return func
+
+    def _gradfunc_for(self, xp):
+        """Cached vmapped m-th derivative for the backend of namespace ``xp``.
+
+        Keyed on the EVAL namespace, not construction: a module-fixture DF is
+        built under numpy (jax grad) but may be evaluated under a forced-torch
+        run, so the grad operator must match the eval backend.
+        """
+        name = "torch" if "torch" in getattr(xp, "__name__", "") else "jax"
+        cache = self.__dict__.setdefault("_gradfunc_cache", {})
+        if name not in cache:
+            if name == "torch":
+                import torch
+
+                g, vm = torch.func.grad, torch.func.vmap
+            else:
+                from jax import grad as g
+                from jax import vmap as vm
+            cache[name] = vm(self._make_func(g))
+        return cache[name]
+
+    def _deriv(self, xp, r):
+        """m-th (dens r^2beta)/dPsi^m derivative at radii ``r`` (any shape),
+        via the eval-backend's autodiff (vmap over a flattened radius axis)."""
+        return self._gradfunc_for(xp)(r.reshape(-1)).reshape(r.shape)
 
     def fE(self, E):
         """
@@ -415,7 +543,13 @@ class constantbetadf(_constantbetadf):
         -----
         - 2021-02-14 - Written - Bovy (UofT)
         """
-        Eint = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
+        Ein = conversion.parse_energy(E, vo=self._vo)
+        xp = resolve_namespace(Ein)
+        if xp is numpy:  # byte-identical scipy-adaptive numpy path
+            return self._fE_numpy(E, numpy.atleast_1d(Ein))
+        return self._fE_backend(E, Ein, xp)  # backend GL fixed_quad (differentiable)
+
+    def _fE_numpy(self, E, Eint):
         out = numpy.zeros_like(Eint)
         indx = (Eint < self._potInf) * (Eint >= self._Emin)
         if self._halfint:
@@ -427,57 +561,125 @@ class constantbetadf(_constantbetadf):
                 * 2 ** (0.5 - self._beta)
                 * special.gamma(1.0 - self._beta)
             )
-        else:
-            # Now need to integrate to get fE
-            # Split integral at twice the lower limit to deal with divergence
-            # at the lower end and infinity at the upper end
-            out[indx] = numpy.array(
-                [
-                    quadpack.quadrature(
-                        lambda t: _fEintegrand_smallr(
-                            t,
-                            self._pot,
-                            tE,
-                            self._gradfunc,
-                            self._alpha,
-                            self._rphi(tE),
-                        ),
-                        10.0 ** self._logstartt(tE),
-                        self._rphi(tE) ** (1.0 - self._alpha),
-                    )[0]
-                    for tE in Eint[indx]
-                ]
+        # Now need to integrate to get fE
+        # Split integral at twice the lower limit to deal with divergence
+        # at the lower end and infinity at the upper end
+        out[indx] = numpy.array(
+            [
+                quadpack.quadrature(
+                    lambda t: _fEintegrand_smallr(
+                        t,
+                        self._pot,
+                        tE,
+                        self._gradfunc,
+                        self._alpha,
+                        self._rphi(tE),
+                    ),
+                    10.0 ** self._logstartt(tE),
+                    self._rphi(tE) ** (1.0 - self._alpha),
+                )[0]
+                for tE in Eint[indx]
+            ]
+        )
+        # Add constant part at the beginning
+        out[indx] += 10.0 ** self._logstartt(Eint[indx]) * _fEintegrand_smallr(
+            10.0 ** self._logstartt(Eint[indx]),
+            self._pot,
+            Eint[indx],
+            self._gradfunc,
+            self._alpha,
+            self._rphi(Eint[indx]),
+        )
+        # 2nd half of the integral
+        out[indx] += numpy.array(
+            [
+                quadpack.quadrature(
+                    lambda t: _fEintegrand_larger(
+                        t, self._pot, tE, self._gradfunc, self._alpha
+                    ),
+                    0.0,
+                    0.5 / self._rphi(tE),
+                )[0]
+                for tE in Eint[indx]
+            ]
+        )
+        return -out.reshape(E.shape) * self._fE_prefactor
+
+    def _fE_backend(self, E, Ein, xp):
+        # Backend (jax/torch) Gauss-Legendre version of the inversion integral,
+        # vectorized over E (node axis trails) and differentiable through the
+        # integrand (Phi(r) and the m-th density derivative _deriv). The frozen
+        # interpolators rphi/logstartt set the (non-differentiable) limits, as in
+        # _dMdE. The post-substitution integrand is smooth, matching the scipy
+        # numpy path to ~1e-6 in the physical range.
+        pinf, emin = float(self._potInf), float(self._Emin)
+        # torch.asarray rejects the negative strides of a reversed numpy grid
+        # (e.g. the [::-1] fE-interp energies), so make numpy input contiguous
+        Ein = Ein if is_backend_array(Ein) else numpy.ascontiguousarray(Ein)
+        Eb = xp.atleast_1d(xp.asarray(Ein) * 1.0)
+        indx = (Eb < pinf) & (Eb >= emin)
+        # clamp out-of-bounds E for the frozen numpy interpolators (zeroed below)
+        Enp = as_numpy(xp.where(indx, Eb, xp.ones_like(Eb) * emin))
+        rphiE = xp.asarray(self._rphi(Enp)) * 1.0
+        if self._halfint:
+            val = self._deriv(xp, rphiE) / (
+                2.0
+                * numpy.pi**1.5
+                * 2 ** (0.5 - self._beta)
+                * special.gamma(1.0 - self._beta)
             )
-            # Add constant part at the beginning
-            out[indx] += 10.0 ** self._logstartt(Eint[indx]) * _fEintegrand_smallr(
-                10.0 ** self._logstartt(Eint[indx]),
-                self._pot,
-                Eint[indx],
-                self._gradfunc,
-                self._alpha,
-                self._rphi(Eint[indx]),
+            return xp.where(indx, val, xp.zeros_like(val)).reshape(E.shape)
+        alpha = self._alpha
+        lo = xp.asarray(10.0 ** self._logstartt(Enp)) * 1.0
+        hi = rphiE ** (1.0 - alpha)
+        Eb2 = Eb[..., None]
+
+        def _raw(r):
+            diff = _evaluatePotentials(self._pot, r, 0) - Eb2
+            diffsafe = xp.where(diff > 0.0, diff, xp.ones_like(diff))
+            return xp.where(
+                diff > 0.0,
+                self._deriv(xp, r) / diffsafe**alpha,
+                xp.zeros_like(diff),
             )
-            # 2nd half of the integral
-            out[indx] += numpy.array(
-                [
-                    quadpack.quadrature(
-                        lambda t: _fEintegrand_larger(
-                            t, self._pot, tE, self._gradfunc, self._alpha
-                        ),
-                        0.0,
-                        0.5 / self._rphi(tE),
-                    )[0]
-                    for tE in Eint[indx]
-                ]
-            )
-            return -out.reshape(E.shape) * self._fE_prefactor
+
+        def _smallr(t):  # substitution r = rphiE + t^(1/(1-alpha)) regularizes
+            r = t ** (1.0 / (1.0 - alpha)) + rphiE[..., None]
+            return 1.0 / (1.0 - alpha) * t ** (alpha / (1.0 - alpha)) * _raw(r)
+
+        def _larger(t):  # substitution r = 1/t handles the r -> inf tail
+            return _raw(1.0 / t) / t**2.0
+
+        i1 = fixed_quad(xp, _smallr, lo, hi, n=_QUAD_N_FE)
+        # constant [0, lo] piece (integrand ~ const there): rectangle lo*smallr(lo)
+        csmall = lo * _smallr(lo[..., None])[..., 0]
+        i2 = fixed_quad(xp, _larger, xp.zeros_like(rphiE), 0.5 / rphiE, n=_QUAD_N_FE)
+        out = -(i1 + csmall + i2) * self._fE_prefactor
+        return xp.where(indx, out, xp.zeros_like(out)).reshape(E.shape)
+
+
+def _evalpot_asnumpy(pot, r):
+    """Phi(numpy r) as numpy, robust under a forced non-numpy backend.
+
+    The numpy fE quadrature and the construction-time startt calibration hand
+    numpy radii to the (undecorated) potential; a forced torch/jax context would
+    otherwise push those numpy inputs onto the backend (torch rejects them). numpy
+    is a strict pass-through (byte-identical); a forced backend coerces the input,
+    evaluates natively, and pulls back to numpy (the boundary-coercion pattern
+    used by _setup_rphi_interpolator, not a backend-compute island -- the
+    differentiable fE lives in the backend path).
+    """
+    xp = get_namespace()
+    if xp is numpy:
+        return _evaluatePotentials(pot, r, 0)
+    return as_numpy(_evaluatePotentials(pot, xp.asarray(r) * 1.0, 0))
 
 
 def _fEintegrand_raw(r, pot, E, dmp1nudrmp1, alpha):
     # The 'raw', i.e., direct integrand in the constant-beta inversion
     out = numpy.zeros_like(r)  # Avoid JAX item assignment issues
     # print("r",r,dmp1nudrmp1(r),(_evaluatePotentials(pot,r,0)-E))
-    out[:] = dmp1nudrmp1(r) / (_evaluatePotentials(pot, r, 0) - E) ** alpha
+    out[:] = dmp1nudrmp1(r) / (_evalpot_asnumpy(pot, r) - E) ** alpha
     out[True ^ numpy.isfinite(out)] = (
         0.0  # assume these are where denom is slightly neg.
     )
