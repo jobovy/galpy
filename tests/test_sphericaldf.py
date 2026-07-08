@@ -2145,6 +2145,28 @@ def test_constantbetadf_against_hernquist():
     return None
 
 
+def test_constantbetadf_potential_without_rforce_jax():
+    # The radial-force divisor now comes from the backend-agnostic
+    # evaluateRforces, so constantbetadf works for *any* spherical potential --
+    # including ones that never defined the old jax-only _rforce_jax method
+    # (which previously raised AttributeError). JaffePotential is such a case.
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    pot = potential.JaffePotential(amp=2.0, a=1.4)
+    assert not hasattr(pot, "_rforce_jax"), (
+        "JaffePotential unexpectedly defines _rforce_jax (test premise invalid)"
+    )
+    dfj = constantbetadf(pot=pot, beta=0.0)
+    Emin, potInf = float(dfj._Emin), float(dfj._potInf)
+    Es = Emin + numpy.array([0.1, 0.3, 0.5, 0.7, 0.9]) * (potInf - Emin)
+    fE = numpy.asarray(dfj.fE(Es))
+    assert numpy.all(numpy.isfinite(fE)), "Jaffe constantbetadf fE is not finite"
+    assert numpy.all(fE[fE != 0.0] > 0.0), "Jaffe constantbetadf fE is not positive"
+    # out-of-bounds energy -> exactly zero (E above Phi(rmax))
+    assert dfj.fE(numpy.atleast_1d(potInf + 1.0))[0] == 0.0
+    return None
+
+
 # For the following tests, we use a DehnenCoreSphericalPotential
 
 
@@ -2643,7 +2665,7 @@ def test_constantbeta_differentpotentials_dens_directint():
 def test_constantbeta_exptruncnfw_dens_directint():
     if WIN32:
         return None  # skip on Windows, because no JAX
-    # constant-beta uses the potential's _ddenstwobetadr and _rforce_jax (via
+    # constant-beta uses the potential's _ddenstwobetadr and evaluateRforces (via
     # JAX autodiff); twobeta=-1 (beta=-1/2) is the demanding half-integer case
     # (nested grad). Check the DF reproduces the ExpTruncNFW density. A finite
     # rmax is used because of the finite truncation mass.
@@ -2661,9 +2683,10 @@ def test_constantbeta_exptruncnfw_dens_directint():
     return None
 
 
-def test_exptruncnfw_ddenstwobetadr_and_rforce_jax():
-    # Direct checks of the two JAX functions that the anisotropic (OM /
-    # constant-beta) DFs use for ExpTruncNFWPotential.
+def test_exptruncnfw_ddenstwobetadr():
+    # Direct checks of the density derivative that the anisotropic (OM /
+    # constant-beta) DFs use for ExpTruncNFWPotential (the radial force divisor
+    # now comes from the backend-agnostic evaluateRforces, no _rforce_jax).
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.ExpTruncNFWPotential(amp=1.7, a=1.3, rc=8.0)
@@ -2684,13 +2707,6 @@ def test_exptruncnfw_ddenstwobetadr_and_rforce_jax():
             float(pot._ddenstwobetadr(r, beta=0)) - pot._ddensdr(r)
         ) < 1e-5 * numpy.fabs(pot._ddensdr(r)), (
             "ExpTruncNFW _ddenstwobetadr(beta=0) does not reduce to _ddensdr"
-        )
-    # _rforce_jax(r) == amp * _rforce(r) (the internal Python radial force);
-    # JAX defaults to float32, so this is the looser float32-limited check
-    for r in [0.5, 1.3, 8.0]:
-        py = pot._amp * float(pot._rforce(numpy.asarray(r)))
-        assert numpy.fabs(float(pot._rforce_jax(r)) - py) < 1e-4 * numpy.fabs(py), (
-            "ExpTruncNFW _rforce_jax does not match amp * _rforce"
         )
     return None
 

@@ -283,9 +283,9 @@ def test_hyp2f1_domain_limit(backend):
 def test_general_constantbetadf_fE_backend(backend):
     # The generic constantbetadf (no closed form): the fE inversion integral
     # (non-halfint beta) and the halfint derivative branch, via the backend GL
-    # fixed_quad path (_fE_backend / _deriv / _gradfunc_for). The DF is built
+    # fixed_quad path (_fE_backend / _deriv / _raw_gradfunc). The DF is built
     # *under the forced backend*, so this also exercises the backend
-    # construction branches (_active_autodiff / _make_gradfunc / _make_func, the
+    # construction branches (_autodiff_xp / _make_gradfunc / _make_func, the
     # backend _potInf/_Emin, and the _evalpot_asnumpy startt calibration). The
     # scipy-adaptive numpy path on the same DF is the reference; the fixed-order
     # GL floor is ~1e-5 for the integral inversion, ~1e-6 for the halfint case.
@@ -298,6 +298,47 @@ def test_general_constantbetadf_fE_backend(backend):
         assert _is_backend_array(backend, got)
         ref = df.fE(Es)  # numpy default context -> scipy-adaptive, same DF
         numpy.testing.assert_allclose(as_numpy(got), ref, rtol=rtol)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_autodiff_ops_dispatch(backend):
+    # autodiff_ops returns the functional (grad, vmap) pair for the backend's
+    # namespace and differentiates a simple scalar function correctly; numpy has
+    # no autodiff and raises. This is the engine the generic constantbetadf fE
+    # derivative chain is built with.
+    from galpy.backend import autodiff_ops
+
+    if backend == "jax":
+        grad, vmap = autodiff_ops(jnp)
+        assert grad is jax.grad and vmap is jax.vmap
+        g = vmap(grad(lambda x: x**3))(jnp.asarray([1.0, 2.0]))
+        numpy.testing.assert_allclose(as_numpy(g), [3.0, 12.0])
+    else:
+        grad, vmap = autodiff_ops(torch)
+        assert grad is torch.func.grad and vmap is torch.func.vmap
+        g = vmap(grad(lambda x: x**3))(torch.tensor([1.0, 2.0]))
+        numpy.testing.assert_allclose(as_numpy(g), [3.0, 12.0])
+    with pytest.raises(ValueError):
+        autodiff_ops(numpy)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_general_constantbetadf_cutoff_force(backend):
+    # constantbetadf on PowerSphericalPotentialwCutoff: its _Rforce re-coerces
+    # coords, so the evaluateRforces divisor is coerced twice under the fE
+    # derivative chain's vmap -- which exposes the vmap-tracer's
+    # SingleDeviceSharding device to asarray_on_device. Exercises that
+    # backend-native force path (fE finite on jax/torch).
+    from galpy.potential import PowerSphericalPotentialwCutoff
+
+    pot = PowerSphericalPotentialwCutoff(amp=1.1, alpha=1.4, rc=2.0)
+    with galpy.backend.use(backend, force=True):
+        df = constantbetadf(pot=pot, beta=0.0)
+        Emin, pinf = float(df._Emin), float(df._potInf)
+        Es = Emin + numpy.linspace(0.15, 0.9, 5) * (pinf - Emin)
+        got = as_numpy(df.fE(_arr(backend, Es)))
+    assert numpy.all(numpy.isfinite(got))
+    assert numpy.all(got[got != 0.0] > 0.0)
 
 
 def _mk_hern(beta):

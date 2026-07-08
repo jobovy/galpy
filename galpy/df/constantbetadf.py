@@ -6,9 +6,16 @@ import contextlib
 import numpy
 from scipy import integrate, interpolate, special
 
-from ..backend import as_numpy, get_namespace, is_backend_array, resolve_namespace, use
+from ..backend import (
+    as_numpy,
+    autodiff_ops,
+    get_namespace,
+    is_backend_array,
+    resolve_namespace,
+    use,
+)
 from ..backend.quadrature import fixed_quad
-from ..potential import interpSphericalPotential
+from ..potential import evaluateRforces, interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion, quadpack
 from ..util._optional_deps import _JAX_LOADED, _TORCH_LOADED
@@ -36,26 +43,22 @@ def _active_backend_name():
     return "numpy"
 
 
-def _active_autodiff():
-    """Return ``(grad, vmap, name)`` for the currently-active galpy backend.
+def _autodiff_xp():
+    """Namespace whose autodiff builds the fE derivative chain.
 
-    torch -> ``torch.func.grad``/``torch.func.vmap``; jax (and the numpy
-    default, so the jax path constantbetadf has always used internally stays
-    byte-identical) -> ``jax.grad``/``jax.vmap``. The nested-grad closures built
-    from these differentiate correctly under either engine because they only
-    call the backend-agnostic ``_rforce_jax``/``_ddenstwobetadr``.
+    Prefer jax whenever it is available (``_JAX_LOADED``), so the numpy-eval fE
+    path reproduces the historical jax-grad-fed-into-scipy computation
+    bit-for-bit; fall back to torch on a torch-only install. The nested-grad
+    closures differentiate correctly under either engine because they only call
+    the backend-agnostic ``evaluateRforces``/``_ddenstwobetadr``.
     """
-    if _active_backend_name() == "torch":
-        import torch
+    if _JAX_LOADED:
+        import jax.numpy as jnp
 
-        return torch.func.grad, torch.func.vmap, "torch"
-    if not _JAX_LOADED:  # pragma: no cover - only torch installed, numpy default
-        import torch
+        return jnp
+    import torch  # pragma: no cover - only torch installed
 
-        return torch.func.grad, torch.func.vmap, "torch"
-    from jax import grad, vmap
-
-    return grad, vmap, "jax"
+    return torch
 
 
 def _numpy_ctx(backend_name):
@@ -80,11 +83,13 @@ def _make_gradfunc(vmapped, name):
     output flows through the numpy consumers unchanged, so it is returned as-is
     (byte-identical). torch.func.vmap requires Tensor input, so the wrapper
     coerces the (scipy-interpolator / quadrature) numpy input to a float64
-    Tensor and casts the result back to numpy for the numpy-based fE machinery.
+    Tensor and casts the result back to numpy for the numpy-based fE machinery
+    (only reached on a torch-only install; with jax present the numpy-eval fE
+    path uses jax autodiff for byte-identity).
     """
     if name != "torch":
         return vmapped
-    import torch
+    import torch  # pragma: no cover - only torch installed
 
     def _gradfunc(r):
         return as_numpy(vmapped(torch.as_tensor(numpy.asarray(r), dtype=torch.float64)))
@@ -349,9 +354,9 @@ class constantbetadf(_constantbetadf):
             raise ImportError(
                 "galpy.df.constantbetadf requires the google/jax or pytorch library"
             )
-        # Functional grad/vmap for the active backend (jax by default, so the
-        # long-standing jax path stays byte-identical; torch under a torch run)
-        grad, vmap, _gradbackend = _active_autodiff()
+        # Construction autodiff engine: jax when available (byte-identical numpy
+        # fE path), else torch on a torch-only install.
+        self._backend = "jax" if _JAX_LOADED else "torch"
         # Parse twobeta
         if twobeta is not None:
             beta = twobeta / 2.0
@@ -391,11 +396,12 @@ class constantbetadf(_constantbetadf):
                 / special.gamma(1.0 - self._alpha)
                 / special.gamma(1.0 - self._beta)
             )
-        # m-th (dens r^2beta)/dPsi^m derivative for the construction backend
-        # (drives the byte-identical numpy fE path); the backend fE path rebuilds
-        # it per eval-backend (jax.func / torch.func) via _gradfunc_for.
-        self._backend = _gradbackend
-        self._gradfunc = _make_gradfunc(vmap(self._make_func(grad)), _gradbackend)
+        # numpy-facing m-th (dens r^2beta)/dPsi^m derivative for the byte-identical
+        # numpy fE path; the backend fE path reuses/rebuilds the raw vmapped
+        # closure per eval-backend via _raw_gradfunc.
+        self._gradfunc = _make_gradfunc(
+            self._raw_gradfunc(_autodiff_xp()), self._backend
+        )
         # Min and max energy (numpy scalars): under a forced non-numpy backend the
         # (undecorated) potential rejects the numpy/scalar limits, so coerce the
         # input and pull the value back to numpy (boundary coercion, not a compute
@@ -419,29 +425,36 @@ class constantbetadf(_constantbetadf):
         # 1/(Phi-E)^alpha divergence; at the end, we slightly adjust it up
         # to be sure to be above the point where things go haywire...
         if not self._halfint:
-            Es = numpy.linspace(
-                self._Emin, self._potInf + 1e-3 * (self._Emin - self._potInf), 51
-            )
-            guesspow = -17
-            guesst = 10.0 ** (guesspow * (1.0 - self._alpha))
-            startt = numpy.ones_like(Es) * guesst
-            startval = numpy.zeros_like(Es)
-            while numpy.any(startval == 0.0):
-                guesspow += 1
-                guesst = 10.0 ** (guesspow * (1.0 - self._alpha))
-                indx = startval == 0.0
-                startt[indx] = guesst
-                startval[indx] = _fEintegrand_smallr(
-                    startt[indx],
-                    self._pot,
-                    Es[indx],
-                    self._gradfunc,
-                    self._alpha,
-                    self._rphi(Es[indx]),
+            # numpy-side calibration of the integration lower limit; run it
+            # data-first (non-forced) so the jax/torch gradfunc autodiff traces
+            # on its own tracer regardless of any forced backend (evaluateRforces
+            # otherwise resolves the forced default and mismatches the tracer).
+            # Byte-identical to the numpy default, where dispatch is already
+            # data-first.
+            with use("numpy", force=False):
+                Es = numpy.linspace(
+                    self._Emin, self._potInf + 1e-3 * (self._Emin - self._potInf), 51
                 )
-            self._logstartt = interpolate.InterpolatedUnivariateSpline(
-                Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
-            )
+                guesspow = -17
+                guesst = 10.0 ** (guesspow * (1.0 - self._alpha))
+                startt = numpy.ones_like(Es) * guesst
+                startval = numpy.zeros_like(Es)
+                while numpy.any(startval == 0.0):
+                    guesspow += 1
+                    guesst = 10.0 ** (guesspow * (1.0 - self._alpha))
+                    indx = startval == 0.0
+                    startt[indx] = guesst
+                    startval[indx] = _fEintegrand_smallr(
+                        startt[indx],
+                        self._pot,
+                        Es[indx],
+                        self._gradfunc,
+                        self._alpha,
+                        self._rphi(Es[indx]),
+                    )
+                self._logstartt = interpolate.InterpolatedUnivariateSpline(
+                    Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
+                )
 
     def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):
         # Slight over-write of superclass method to first build f(E) interp
@@ -477,12 +490,13 @@ class constantbetadf(_constantbetadf):
         """Build the m-th (dens r^2beta)/dPsi^m derivative closure using ``grad``.
 
         d/dPsi = (d/dr)/F_r, applied m times; composed purely from the
-        backend-agnostic ``_ddenstwobetadr`` / ``_rforce_jax``, so it
-        differentiates natively under jax.grad or torch.func.grad. For a
-        non-halfint DF the final 1/F_r is omitted (the fE integral is over Psi).
+        backend-agnostic ``_ddenstwobetadr`` / ``evaluateRforces`` (the radial
+        force F_r = evaluateRforces(pot, r, 0)), so it differentiates natively
+        under jax.grad or torch.func.grad. For a non-halfint DF the final 1/F_r
+        is omitted (the fE integral is over Psi).
         """
         ddens = lambda r: self._denspot._ddenstwobetadr(r, beta=self._beta)
-        rforce = self._pot._rforce_jax
+        rforce = lambda r: evaluateRforces(self._pot, r, 0.0, use_physical=False)
         if self._halfint:
             func = lambda r: ddens(r) / rforce(r)
             ii = self._m - 1
@@ -500,30 +514,24 @@ class constantbetadf(_constantbetadf):
                 ii -= 1
         return func
 
-    def _gradfunc_for(self, xp):
-        """Cached vmapped m-th derivative for the backend of namespace ``xp``.
+    def _raw_gradfunc(self, xp):
+        """Cached vmapped m-th derivative built with ``xp``'s functional autodiff.
 
-        Keyed on the EVAL namespace, not construction: a module-fixture DF is
-        built under numpy (jax grad) but may be evaluated under a forced-torch
-        run, so the grad operator must match the eval backend.
+        Keyed on the canonical backend name of ``xp`` ("jax"/"torch"), not on
+        construction: a DF built with jax autodiff may be evaluated under a
+        forced-torch run, so the grad operator must match the eval backend.
         """
         name = "torch" if "torch" in getattr(xp, "__name__", "") else "jax"
         cache = self.__dict__.setdefault("_gradfunc_cache", {})
         if name not in cache:
-            if name == "torch":
-                import torch
-
-                g, vm = torch.func.grad, torch.func.vmap
-            else:
-                from jax import grad as g
-                from jax import vmap as vm
-            cache[name] = vm(self._make_func(g))
+            grad, vmap = autodiff_ops(xp)
+            cache[name] = vmap(self._make_func(grad))
         return cache[name]
 
     def _deriv(self, xp, r):
         """m-th (dens r^2beta)/dPsi^m derivative at radii ``r`` (any shape),
         via the eval-backend's autodiff (vmap over a flattened radius axis)."""
-        return self._gradfunc_for(xp)(r.reshape(-1)).reshape(r.shape)
+        return self._raw_gradfunc(xp)(r.reshape(-1)).reshape(r.shape)
 
     def fE(self, E):
         """
