@@ -300,11 +300,25 @@ jobs:
         # goal here. --session-timeout=4500 is a hard 75-min ceiling on the whole
         # shard in case a future test hangs in a signal-uninterruptible C call;
         # the job-level timeout-minutes: 90 is the final backstop above that.
+        # -W ignore::galpy.util.galpyWarningVerbose: DROP the verbose diagnostic
+        # warnings (e.g. "Using C implementation to integrate orbits", emitted on
+        # every Orbit.integrate) at the Python warnings layer so pytest never
+        # RECORDS them. --disable-pytest-warnings only hides the end-of-run summary;
+        # pytest still captures every warning (its per-test filter resets to
+        # "always"). A backend that runs an unmigrated per-orbit integrate loop
+        # (streamdf's IsochroneApprox track assembly) emits these MILLIONS of times
+        # (5.4M in the streamdf/streamTrack/streamspraydf torch shard once coords is
+        # backend-aware and the tests no longer crash early), and tearing down /
+        # exiting with that many captured warning objects hangs the shard after the
+        # tests finish. These warnings are display-gated (config verbose=False by
+        # default) so dropping them in CI is safe; real Deprecation/Future warnings
+        # are unaffected.
         set -o pipefail
         eval "pytest -p no:cacheprovider -v $TEST_FILES \
           --backend=$BACKEND \
           --timeout=300 --timeout-method=signal --session-timeout=4500 \
           -rxX --junitxml=${JUNIT_PATH} \
+          -W ignore::galpy.util.galpyWarningVerbose \
           --disable-pytest-warnings" | tee backend-pytest.log || true
     - name: Backend burndown summary
       if: ${{ always() }}
