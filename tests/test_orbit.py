@@ -12265,7 +12265,15 @@ def test_orbit_c_sigint_planar():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
-    integrators = ["dopr54_c", "rk4_c", "rk6_c", "dop853_c"]
+    integrators = [
+        "dopr54_c",
+        "rk4_c",
+        "rk6_c",
+        "dop853_c",
+        "leapfrog_c",
+        "symplec4_c",
+        "symplec6_c",
+    ]
     scriptpath = "orbitint4sigint.py"
     if not "tests" in os.getcwd():
         scriptpath = os.path.join("tests", scriptpath)
@@ -12298,6 +12306,51 @@ def test_orbit_c_sigint_planardxdv():
                 msg = p.poll()
             raise AssertionError(
                 "Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i"
+                % (integrator, msg)
+            )
+        p.stdin.close()
+        p.stdout.close()
+        p.stderr.close()
+    return None
+
+
+# Test that 6D (full) dxdv orbit integration in C gets interrupted by SIGINT: the
+# symplectic dxdv drivers estimate the step (dt=-9999.99, no explicit dt here) and
+# handle the interrupt inline, so this covers both branches for leapfrog/symplec4/6.
+def test_orbit_c_sigint_fulldxdv():
+    integrators = ["leapfrog_c", "symplec4_c", "symplec6_c"]
+    scriptpath = "orbitint4sigint.py"
+    if not "tests" in os.getcwd():
+        scriptpath = os.path.join("tests", scriptpath)
+    ntries = 10
+    for integrator in integrators:
+        p = subprocess.Popen(
+            ["python", scriptpath, integrator, "fulldxdv"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        for line in iter(p.stdout.readline, b""):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(2)
+        os.kill(p.pid, signal.SIGINT)
+        time.sleep(1)
+        cnt = 0
+        while p.poll() is None and cnt < ntries:  # wait a little longer
+            time.sleep(4)
+            cnt += 1
+
+        if p.poll() == 2 and WIN32:
+            break
+
+        if p.poll() is None or (p.poll() != 1 and p.poll() != -2):
+            if p.poll() is None:
+                msg = -100
+            else:
+                msg = p.poll()
+            raise AssertionError(
+                "Full dxdv orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i"
                 % (integrator, msg)
             )
         p.stdin.close()
