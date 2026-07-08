@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <math.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
@@ -54,6 +55,20 @@ void evalSOSDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
+// Augmented force+Hessian evaluator and symplectic variational (dxdv/stm)
+// steppers: carry nde phase-space deviation columns via the closed-form
+// drift/kick tangent maps (see integrateFullOrbit_dxdv).
+void evalRectForce_dxdv(double, double *, double *,
+			int, struct potentialArg *, int);
+void leapfrog_dxdv(int, double *, int, double, double *,
+		   int, struct potentialArg *, double, double,
+		   double *, int *);
+void symplec4_dxdv(int, double *, int, double, double *,
+		   int, struct potentialArg *, double, double,
+		   double *, int *);
+void symplec6_dxdv(int, double *, int, double, double *,
+		   int, struct potentialArg *, double, double,
+		   double *, int *);
 void initMovingObjectSplines(struct potentialArg *, double ** pot_args);
 void initChandrasekharDynamicalFrictionSplines(struct potentialArg *, double ** pot_args);
 /*
@@ -1252,34 +1267,43 @@ EXPORT void integrateFullOrbit_dxdv(double *yo,
 		      double *,int *);
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct potentialArg *);
-  // Only the non-symplectic integrators support the 12D variational (dxdv)
-  // system; Orbit.integrate_dxdv enforces this upstream
-  // (check_integrator(no_symplec=True)), so the symplectic/leapfrog/ias15
-  // odeint_types never reach here -- mirroring integratePlanarOrbit_dxdv.
+  // The non-symplectic (RK) integrators propagate the 12D deviation via the
+  // variational RHS evalRectDeriv_dxdv (dim=12); the symplectic integrators
+  // (leapfrog=0/symplec4=3/symplec6=4) instead carry the deviation through
+  // the closed-form drift/kick tangent maps of the *_dxdv steppers (nde=1
+  // deviation column). ias15 has no dxdv path and is blocked upstream by
+  // Orbit.integrate_dxdv (check_integrator).
+  odeint_func= NULL;
+  odeint_deriv_func= &evalRectDeriv_dxdv;
+  dim= 12;
   switch ( odeint_type ) {
   case 1: //RK4
     odeint_func= &bovy_rk4;
-    odeint_deriv_func= &evalRectDeriv_dxdv;
-    dim= 12;
     break;
   case 2: //RK6
     odeint_func= &bovy_rk6;
-    odeint_deriv_func= &evalRectDeriv_dxdv;
-    dim= 12;
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
-    odeint_deriv_func= &evalRectDeriv_dxdv;
-    dim= 12;
     break;
   case 6: //DOP853
     odeint_func= &dop853;
-    odeint_deriv_func= &evalRectDeriv_dxdv;
-    dim= 12;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,
-	      rtol,atol,result,err);
+  switch ( odeint_type ) {
+  case 0: //leapfrog
+    leapfrog_dxdv(1,yo,nt,dt,t,npot,potentialArgs,rtol,atol,result,err);
+    break;
+  case 3: //symplec4
+    symplec4_dxdv(1,yo,nt,dt,t,npot,potentialArgs,rtol,atol,result,err);
+    break;
+  case 4: //symplec6
+    symplec6_dxdv(1,yo,nt,dt,t,npot,potentialArgs,rtol,atol,result,err);
+    break;
+  default: //RK method selected above
+    odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,
+		rtol,atol,result,err);
+  }
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
@@ -1581,4 +1605,505 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   *a  = dFxdz*dx+dFydz*dy+dFzdz*dz
     + jac_x[6]*dx + jac_x[7]*dy + jac_x[8]*dz
     + jac_v[6]*dvx + jac_v[7]*dvy + jac_v[8]*dvz;
+}
+
+/*
+  Symplectic variational (state-transition) integration.
+
+  These mirror leapfrog/symplec4/symplec6 in galpy/util/bovy_symplecticode.c
+  (same DKD ordering, coefficients, and interior micro-step drift merges) but
+  additionally propagate nde phase-space deviation columns through the exact,
+  closed-form tangent maps of each drift and kick:
+       drift M_D = [[I, h I],[0, I]]   kick M_K = [[I, 0],[h K, I]]
+  with K the symmetric conservative Cartesian Hessian (-grad grad Phi) assembled
+  once per kick from the base position by evalRectForce_dxdv (reusing the
+  evalRectDeriv_dxdv K block). Because each elementary map is exactly symplectic
+  for a conservative (symmetric-K) system, the per-step product is symplectic to
+  machine precision. Written generally in nde (nde=1 -> 12-wide dxdv, nde=6 ->
+  42-wide STM); only nde=1 is wired here. The split arrays qo/po hold the base
+  3-vector in block 0 and deviation column j in block j (ndim=3*(nde+1)); the
+  yo/result buffers use the interleaved (pos3,vel3) blocks (6*(nde+1) wide).
+
+  Dissipative (velocity-dependent) forces never reach this path: galpy reroutes
+  symplectic+dissipative to a non-symplectic integrator upstream, so the kick is
+  always the conservative, explicit map above (no jac_x/jac_v term).
+*/
+// Augmented drift qn = q + dt p over all ndim entries (base + deviations):
+// structurally identical to leapfrog_leapq, byte-identical on the base block.
+static inline void leapq_aug(int dim, double *q, double *p, double dt,
+			     double *qn){
+  int ii;
+  for (ii=0; ii < dim; ii++) (*qn++)= (*q++) + dt * (*p++);
+}
+// Augmented kick pn = p + dt a over all ndim entries (identical to
+// leapfrog_leapp); a holds the base acceleration in block 0 and K.dq_j in
+// block j, both filled by evalRectForce_dxdv.
+static inline void leapp_aug(int dim, double *p, double dt, double *a,
+			     double *pn){
+  int ii;
+  for (ii=0; ii < dim; ii++) (*pn++)= (*p++) + dt * (*a++);
+}
+// Repack split qo/po into the interleaved (base pos3,vel3, then per-column
+// dpos3,dvel3) output layout the Python caller consumes.
+static inline void save_qp_aug(int nde, double *qo, double *po,
+			       double *result){
+  int bb, kk;
+  for (bb=0; bb <= nde; bb++) {
+    for (kk=0; kk < 3; kk++) *result++= *(qo+3*bb+kk);
+    for (kk=0; kk < 3; kk++) *result++= *(po+3*bb+kk);
+  }
+}
+// Fill a with the base acceleration (block 0, byte-identical to evalRectForce)
+// and, per deviation column j, the kick tangent K.dq_j (block j). K is the
+// conservative Cartesian Hessian assembled exactly as in evalRectDeriv_dxdv.
+void evalRectForce_dxdv(double t, double *q, double *a,
+			int nargs, struct potentialArg * potentialArgs,
+			int nde){
+  double sinphi, cosphi, x, y, phi, R, Rforce, phitorque, z;
+  double R2deriv, phi2deriv, Rphideriv, z2deriv, Rzderiv, zphideriv;
+  double RforceK, phitorqueK;
+  double dFxdx, dFxdy, dFydy, dFxdz, dFydz, dFzdz, dx, dy, dz;
+  int jj;
+  //q is rectangular so calculate R and phi (base block only)
+  x= *q;
+  y= *(q+1);
+  z= *(q+2);
+  R= sqrt(x*x+y*y);
+  phi= acos(x/R);
+  sinphi= y/R;
+  cosphi= x/R;
+  if ( y < 0. ) phi= 2.*M_PI-phi;
+  //Base acceleration: identical calls/order to evalRectForce (bit-identical
+  //base trajectory vs a plain leapfrog/symplec4/symplec6 run)
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs);
+  *a    = cosphi*Rforce-1./R*sinphi*phitorque;
+  *(a+1)= sinphi*Rforce+1./R*cosphi*phitorque;
+  *(a+2)= calczforce(R,z,phi,t,nargs,potentialArgs);
+  if ( nde == 0 ) return;
+  //Conservative Cartesian Hessian K (-grad grad Phi): same aggregators and
+  //conservative-only force (include_dissipative=0) as evalRectDeriv_dxdv
+  R2deriv= calcR2deriv(R,z,phi,t,nargs,potentialArgs);
+  phi2deriv= calcphi2deriv(R,z,phi,t,nargs,potentialArgs);
+  Rphideriv= calcRphideriv(R,z,phi,t,nargs,potentialArgs);
+  z2deriv= calcz2deriv(R,z,phi,t,nargs,potentialArgs);
+  Rzderiv= calcRzderiv(R,z,phi,t,nargs,potentialArgs);
+  zphideriv= calczphideriv(R,z,phi,t,nargs,potentialArgs);
+  RforceK= calcRforce(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
+  phitorqueK= calcphitorque(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
+  dFxdx= -cosphi*cosphi*R2deriv
+    +2.*cosphi*sinphi/R/R*phitorqueK
+    +sinphi*sinphi/R*RforceK
+    +2.*sinphi*cosphi/R*Rphideriv
+    -sinphi*sinphi/R/R*phi2deriv;
+  dFxdy= -sinphi*cosphi*R2deriv
+    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorqueK
+    -cosphi*sinphi/R*RforceK
+    -(cosphi*cosphi-sinphi*sinphi)/R*Rphideriv
+    +cosphi*sinphi/R/R*phi2deriv;
+  dFydy= -sinphi*sinphi*R2deriv
+    -2.*sinphi*cosphi/R/R*phitorqueK
+    -2.*sinphi*cosphi/R*Rphideriv
+    +cosphi*cosphi/R*RforceK
+    -cosphi*cosphi/R/R*phi2deriv;
+  dFxdz= -cosphi*Rzderiv+sinphi/R*zphideriv;
+  dFydz= -sinphi*Rzderiv-cosphi/R*zphideriv;
+  dFzdz= -z2deriv;
+  //Kick tangent per deviation column: dv_j += h K.dq_j (K symmetric)
+  for (jj=1; jj <= nde; jj++) {
+    dx= *(q+3*jj);
+    dy= *(q+3*jj+1);
+    dz= *(q+3*jj+2);
+    *(a+3*jj  )= dFxdx*dx+dFxdy*dy+dFxdz*dz;
+    *(a+3*jj+1)= dFxdy*dx+dFydy*dy+dFydz*dz;
+    *(a+3*jj+2)= dFxdz*dx+dFydz*dy+dFzdz*dz;
+  }
+}
+
+// Augmented DKD leapfrog (mirrors leapfrog in bovy_symplecticode.c).
+void leapfrog_dxdv(int nde,
+		   double * yo,
+		   int nt, double dt, double *t,
+		   int nargs, struct potentialArg * potentialArgs,
+		   double rtol, double atol,
+		   double *result, int * err){
+  int ndim= 3*(nde+1);
+  double *qo= (double *) malloc ( ndim * sizeof(double) );
+  double *po= (double *) malloc ( ndim * sizeof(double) );
+  double *q12= (double *) malloc ( ndim * sizeof(double) );
+  double *p12= (double *) malloc ( ndim * sizeof(double) );
+  double *a= (double *) malloc ( ndim * sizeof(double) );
+  int ii, jj, kk, bb;
+  //unpack interleaved (pos3,vel3) blocks into split qo/po
+  for (bb=0; bb <= nde; bb++) {
+    for (kk=0; kk < 3; kk++) {
+      *(qo+3*bb+kk)= *(yo+6*bb+kk);
+      *(po+3*bb+kk)= *(yo+6*bb+3+kk);
+    }
+  }
+  save_qp_aug(nde,qo,po,result);
+  result+= 2 * ndim;
+  *err= 0;
+  //Estimate stepsize from the BASE orbit only (dim=3): same dt a plain
+  //leapfrog run would pick, so the base trajectory is bit-identical
+  double init_dt= (*(t+1))-(*t);
+  if ( dt == -9999.99 ) {
+    dt= leapfrog_estimate_step(&evalRectForce,3,qo,po,init_dt,t,nargs,
+			       potentialArgs,rtol,atol);
+  }
+  long ndt= (long) (init_dt/dt);
+  double to= *t;
+#ifndef _WIN32
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
+#else
+  if (SetConsoleCtrlHandler(CtrlHandler, TRUE)){}
+#endif
+  for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0;
+#ifdef USING_COVERAGE
+      __gcov_dump();
+// LCOV_EXCL_START
+      __gcov_reset();
+#endif
+      break;
+// LCOV_EXCL_STOP
+    }
+    //drift half
+    leapq_aug(ndim,qo,po,dt/2.,q12);
+    //now drift full for a while
+    for (jj=0; jj < (ndt-1); jj++){
+      //kick (K at half-step position and midpoint time)
+      evalRectForce_dxdv(to+dt/2.,q12,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,po,dt,a,p12);
+      //drift
+      leapq_aug(ndim,q12,p12,dt,qo);
+      //reset
+      to= to+dt;
+      for (kk=0; kk < ndim; kk++) {
+	*(q12+kk)= *(qo+kk);
+	*(po+kk)= *(p12+kk);
+      }
+    }
+    //end with one last kick and drift
+    evalRectForce_dxdv(to+dt/2.,q12,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,po,dt,a,po);
+    leapq_aug(ndim,q12,po,dt/2.,qo);
+    to= to+dt;
+    save_qp_aug(nde,qo,po,result);
+    result+= 2 * ndim;
+  }
+#ifndef _WIN32
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
+#endif
+  free(qo);
+  free(po);
+  free(q12);
+  free(p12);
+  free(a);
+}
+
+// Augmented 4th-order Forest-Ruth symplec4 (mirrors symplec4).
+void symplec4_dxdv(int nde,
+		   double * yo,
+		   int nt, double dt, double *t,
+		   int nargs, struct potentialArg * potentialArgs,
+		   double rtol, double atol,
+		   double *result, int * err){
+  //coefficients (verbatim from bovy_symplecticode.c)
+  double c1= 0.6756035959798289;
+  double c4= c1;
+  double c2= -0.1756035959798288;
+  double c3= c2;
+  double d1= 1.3512071919596578;
+  double d3= d1;
+  double d2= -1.7024143839193153; //d4=0
+  int ndim= 3*(nde+1);
+  double *qo= (double *) malloc ( ndim * sizeof(double) );
+  double *po= (double *) malloc ( ndim * sizeof(double) );
+  double *q12= (double *) malloc ( ndim * sizeof(double) );
+  double *p12= (double *) malloc ( ndim * sizeof(double) );
+  double *a= (double *) malloc ( ndim * sizeof(double) );
+  int ii, jj, kk, bb;
+  for (bb=0; bb <= nde; bb++) {
+    for (kk=0; kk < 3; kk++) {
+      *(qo+3*bb+kk)= *(yo+6*bb+kk);
+      *(po+3*bb+kk)= *(yo+6*bb+3+kk);
+    }
+  }
+  save_qp_aug(nde,qo,po,result);
+  result+= 2 * ndim;
+  *err= 0;
+  double init_dt= (*(t+1))-(*t);
+  if ( dt == -9999.99 ) {
+    dt= symplec4_estimate_step(&evalRectForce,3,qo,po,init_dt,t,nargs,
+			       potentialArgs,rtol,atol);
+  }
+  long ndt= (long) (init_dt/dt);
+  double to= *t;
+#ifndef _WIN32
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
+#else
+  if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
+#endif
+  for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0;
+#ifdef USING_COVERAGE
+      __gcov_dump();
+// LCOV_EXCL_START
+      __gcov_reset();
+#endif
+      break;
+// LCOV_EXCL_STOP
+    }
+    //drift for c1*dt
+    leapq_aug(ndim,qo,po,c1*dt,q12);
+    to+= c1*dt;
+    //steps ignoring q4/p4 when output is not wanted
+    for (jj=0; jj < (ndt-1); jj++){
+      //kick for d1*dt
+      evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,po,d1*dt,a,p12);
+      //drift for c2*dt
+      leapq_aug(ndim,q12,p12,c2*dt,qo);
+      //kick for d2*dt
+      to+= c2*dt;
+      evalRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,p12,d2*dt,a,po);
+      //drift for c3*dt
+      leapq_aug(ndim,qo,po,c3*dt,q12);
+      to+= c3*dt;
+      //kick for d3*dt
+      evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,po,d3*dt,a,p12);
+      //drift for (c4+c1)*dt
+      leapq_aug(ndim,q12,p12,(c4+c1)*dt,qo);
+      to+= (c4+c1)*dt;
+      //reset
+      for (kk=0; kk < ndim; kk++) {
+	*(q12+kk)= *(qo+kk);
+	*(po+kk)= *(p12+kk);
+      }
+    }
+    //steps not ignoring q4/p4 when output is wanted
+    //kick for d1*dt
+    evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,po,d1*dt,a,p12);
+    //drift for c2*dt
+    leapq_aug(ndim,q12,p12,c2*dt,qo);
+    //kick for d2*dt
+    to+= c2*dt;
+    evalRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,p12,d2*dt,a,po);
+    //drift for c3*dt
+    leapq_aug(ndim,qo,po,c3*dt,q12);
+    to+= c3*dt;
+    //kick for d3*dt
+    evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,po,d3*dt,a,p12);
+    //drift for c4*dt
+    leapq_aug(ndim,q12,p12,c4*dt,qo);
+    to+= c4*dt;
+    //p4=p3
+    for (kk=0; kk < ndim; kk++) *(po+kk)= *(p12+kk);
+    save_qp_aug(nde,qo,po,result);
+    result+= 2 * ndim;
+  }
+#ifndef _WIN32
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
+#endif
+  free(qo);
+  free(po);
+  free(q12);
+  free(p12);
+  free(a);
+}
+
+// Augmented 6th-order Yoshida symplec6 (mirrors symplec6).
+void symplec6_dxdv(int nde,
+		   double * yo,
+		   int nt, double dt, double *t,
+		   int nargs, struct potentialArg * potentialArgs,
+		   double rtol, double atol,
+		   double *result, int * err){
+  //coefficients (verbatim from bovy_symplecticode.c)
+  double c1= 0.392256805238780;
+  double c8= c1;
+  double c2= 0.510043411918458;
+  double c7= c2;
+  double c3= -0.471053385409758;
+  double c6= c3;
+  double c4= 0.687531682525198e-1;
+  double c5= c4;
+  double d1= 0.784513610477560;
+  double d7= d1;
+  double d2= 0.235573213359357;
+  double d6= d2;
+  double d3= -0.117767998417887e1;
+  double d5= d3;
+  double d4= 0.131518632068391e1; //d8=0
+  int ndim= 3*(nde+1);
+  double *qo= (double *) malloc ( ndim * sizeof(double) );
+  double *po= (double *) malloc ( ndim * sizeof(double) );
+  double *q12= (double *) malloc ( ndim * sizeof(double) );
+  double *p12= (double *) malloc ( ndim * sizeof(double) );
+  double *a= (double *) malloc ( ndim * sizeof(double) );
+  int ii, jj, kk, bb;
+  for (bb=0; bb <= nde; bb++) {
+    for (kk=0; kk < 3; kk++) {
+      *(qo+3*bb+kk)= *(yo+6*bb+kk);
+      *(po+3*bb+kk)= *(yo+6*bb+3+kk);
+    }
+  }
+  save_qp_aug(nde,qo,po,result);
+  result+= 2 * ndim;
+  *err= 0;
+  double init_dt= (*(t+1))-(*t);
+  if ( dt == -9999.99 ) {
+    dt= symplec6_estimate_step(&evalRectForce,3,qo,po,init_dt,t,nargs,
+			       potentialArgs,rtol,atol);
+  }
+  long ndt= (long) (init_dt/dt);
+  double to= *t;
+#ifndef _WIN32
+  struct sigaction action;
+  memset(&action, 0, sizeof(struct sigaction));
+  action.sa_handler= handle_sigint;
+  sigaction(SIGINT,&action,NULL);
+#else
+  if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
+#endif
+  for (ii=0; ii < (nt-1); ii++){
+    if ( interrupted ) {
+      *err= -10;
+      interrupted= 0;
+#ifdef USING_COVERAGE
+      __gcov_dump();
+// LCOV_EXCL_START
+      __gcov_reset();
+#endif
+      break;
+// LCOV_EXCL_STOP
+    }
+    //drift for c1*dt
+    leapq_aug(ndim,qo,po,c1*dt,q12);
+    to+= c1*dt;
+    //steps ignoring q8/p8 when output is not wanted
+    for (jj=0; jj < (ndt-1); jj++){
+      //kick for d1*dt
+      evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,po,d1*dt,a,p12);
+      //drift for c2*dt
+      leapq_aug(ndim,q12,p12,c2*dt,qo);
+      to+= c2*dt;
+      //kick for d2*dt
+      evalRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,p12,d2*dt,a,po);
+      //drift for c3*dt
+      leapq_aug(ndim,qo,po,c3*dt,q12);
+      to+= c3*dt;
+      //kick for d3*dt
+      evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,po,d3*dt,a,p12);
+      //drift for c4*dt
+      leapq_aug(ndim,q12,p12,c4*dt,qo);
+      //kick for d4*dt
+      to+= c4*dt;
+      evalRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,p12,d4*dt,a,po);
+      //drift for c5*dt
+      leapq_aug(ndim,qo,po,c5*dt,q12);
+      to+= c5*dt;
+      //kick for d5*dt
+      evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,po,d5*dt,a,p12);
+      //drift for c6*dt
+      leapq_aug(ndim,q12,p12,c6*dt,qo);
+      //kick for d6*dt
+      to+= c6*dt;
+      evalRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,p12,d6*dt,a,po);
+      //drift for c7*dt
+      leapq_aug(ndim,qo,po,c7*dt,q12);
+      to+= c7*dt;
+      //kick for d7*dt
+      evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+      leapp_aug(ndim,po,d7*dt,a,p12);
+      //drift for (c8+c1)*dt
+      leapq_aug(ndim,q12,p12,(c8+c1)*dt,qo);
+      to+= (c8+c1)*dt;
+      //reset
+      for (kk=0; kk < ndim; kk++) {
+	*(q12+kk)= *(qo+kk);
+	*(po+kk)= *(p12+kk);
+      }
+    }
+    //steps not ignoring q8/p8 when output is wanted
+    //kick for d1*dt
+    evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,po,d1*dt,a,p12);
+    //drift for c2*dt
+    leapq_aug(ndim,q12,p12,c2*dt,qo);
+    to+= c2*dt;
+    //kick for d2*dt
+    evalRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,p12,d2*dt,a,po);
+    //drift for c3*dt
+    leapq_aug(ndim,qo,po,c3*dt,q12);
+    to+= c3*dt;
+    //kick for d3*dt
+    evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,po,d3*dt,a,p12);
+    //drift for c4*dt
+    leapq_aug(ndim,q12,p12,c4*dt,qo);
+    to+= c4*dt;
+    //kick for d4*dt
+    evalRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,p12,d4*dt,a,po);
+    //drift for c5*dt
+    leapq_aug(ndim,qo,po,c5*dt,q12);
+    to+= c5*dt;
+    //kick for d5*dt
+    evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,po,d5*dt,a,p12);
+    //drift for c6*dt
+    leapq_aug(ndim,q12,p12,c6*dt,qo);
+    //kick for d6*dt
+    to+= c6*dt;
+    evalRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,p12,d6*dt,a,po);
+    //drift for c7*dt
+    leapq_aug(ndim,qo,po,c7*dt,q12);
+    to+= c7*dt;
+    //kick for d7*dt
+    evalRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
+    leapp_aug(ndim,po,d7*dt,a,p12);
+    //drift for c8*dt
+    leapq_aug(ndim,q12,p12,c8*dt,qo);
+    to+= c8*dt;
+    //p8=p7
+    for (kk=0; kk < ndim; kk++) *(po+kk)= *(p12+kk);
+    save_qp_aug(nde,qo,po,result);
+    result+= 2 * ndim;
+  }
+#ifndef _WIN32
+  action.sa_handler= SIG_DFL;
+  sigaction(SIGINT,&action,NULL);
+#endif
+  free(qo);
+  free(po);
+  free(q12);
+  free(p12);
+  free(a);
 }

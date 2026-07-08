@@ -12951,11 +12951,25 @@ def test_integrate_dxdv_errors():
         o.integrate_dxdv(
             None, ts, potential.MWPotential, method="some non-existent integrator"
         )
-    # Test that a symplectic integrator raises for 6D orbits
-    o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
+    # The C symplectic integrators (leapfrog_c/symplec4_c/symplec6_c) DO support
+    # the 6D variational (dxdv) system via their exact drift/kick tangent maps,
+    # but the pure-Python 'leapfrog' and 'ias15_c' have no dxdv path and must
+    # still raise for 6D orbits.
+    for method in ("leapfrog", "ias15_c"):
+        o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
+        with pytest.raises(ValueError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                ts,
+                potential.MWPotential,
+                method=method,
+            )
+    # The C symplectic integrators are still rejected for planar (4D) orbits:
+    # the planar dxdv C path does not implement them.
+    o = Orbit([1.0, 0.1, 1.0, 3.0])
     with pytest.raises(ValueError) as excinfo:
         o.integrate_dxdv(
-            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
             ts,
             potential.MWPotential,
             method="symplec4_c",
