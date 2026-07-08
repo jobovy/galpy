@@ -8,6 +8,7 @@ import numpy
 from scipy import integrate, interpolate, special
 
 from ..backend import get_namespace, is_backend_array
+from ..backend._namespaces import namespace_from_arrays
 from ..orbit import Orbit
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -1308,7 +1309,9 @@ def impulse_deltav_plummer(v, y, b, w, GM, rs):
     -----
     - 2015-04-30 - Written based on Erkal's expressions - Bovy (IAS)
     """
-    xp = get_namespace(v, y, w)
+    xp = (
+        namespace_from_arrays((v, y, w)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
     if len(v.shape) == 1:
         v = xp.reshape(v, (1, 3))
         y = xp.reshape(y, (1, 1))
@@ -1378,7 +1381,9 @@ def impulse_deltav_plummer_curvedstream(v, x, b, w, x0, v0, GM, rs):
     -----
     - 2015-05-04 - Written based on above - Sanders (Cambridge)
     """
-    xp = get_namespace(v, x, w, x0, v0)
+    xp = (
+        namespace_from_arrays((v, x, w, x0, v0)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
     if len(v.shape) == 1:
         v = xp.reshape(v, (1, 3))
     if len(x.shape) == 1:
@@ -1406,7 +1411,9 @@ def HernquistX(s):
     """
     if not is_backend_array(s) and numpy.ndim(s) == 0 and s < 0.0:
         raise ValueError("s must be positive in Hernquist X function")
-    xp = get_namespace(s)
+    xp = (
+        namespace_from_arrays((s,)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
     s2 = s * s
     lt = s < 1.0
     eq = s == 1.0
@@ -1448,7 +1455,9 @@ def impulse_deltav_hernquist(v, y, b, w, GM, rs):
     - 2015-08-13 - Written using Wyn Evans calculation - Sanders (Cambridge)
 
     """
-    xp = get_namespace(v, y, w)
+    xp = (
+        namespace_from_arrays((v, y, w)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
     if len(v.shape) == 1:
         v = xp.reshape(v, (1, 3))
     nv = v.shape[0]
@@ -1521,7 +1530,9 @@ def impulse_deltav_hernquist_curvedstream(v, x, b, w, x0, v0, GM, rs):
     - 2015-08-13 - Written using Wyn Evans calculation - Sanders (Cambridge)
 
     """
-    xp = get_namespace(v, x, w, x0, v0)
+    xp = (
+        namespace_from_arrays((v, x, w, x0, v0)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
     if len(v.shape) == 1:
         v = xp.reshape(v, (1, 3))
     if len(x.shape) == 1:
