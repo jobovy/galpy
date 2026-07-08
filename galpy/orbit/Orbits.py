@@ -2369,11 +2369,11 @@ class Orbit:
             )
         # The C symplectic integrators (leapfrog_c/symplec4_c/symplec6_c) carry
         # the deviation via exact drift/kick tangent maps, so they are allowed
-        # for 3D (6D) orbits (allow_c_symplec); the planar C dxdv path does not
-        # implement them, and the pure-Python 'leapfrog'/'ias15_c' have no dxdv
-        # path, so those remain rejected.
+        # for both planar (4D) and 3D (6D) orbits (allow_c_symplec); the
+        # pure-Python 'leapfrog'/'ias15_c' have no dxdv path, so those remain
+        # rejected.
         self.check_integrator(
-            method, no_symplec=True, allow_c_symplec=self.phasedim() == 6
+            method, no_symplec=True, allow_c_symplec=self.phasedim() in (4, 6)
         )
         pot = _check_potential_list_and_deprecate(pot)
         _check_potential_dim(self, pot)
