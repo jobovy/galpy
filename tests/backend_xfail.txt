@@ -915,6 +915,14 @@ jax tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
 #  already ledgered for torch.) Removed as each Phase-2 PR lands.
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_wSpherical_conserved_actions_c
 jax tests/test_sphericaldf.py::test_eddington_sample_negative_df_regions_no_crash
+# streamspraydf backend migration: the integrate=False sampling path is now
+# backend-native (returns a jax/torch array); these two integrate=True tests
+# assign into that array in place (RvR_noint[:,ii]=...), which jax's immutable
+# arrays reject, and exercise the not-yet-backend-native integrate=True path.
+# Un-ledger when the in-backend integrator swap lands (per-particle 2D-time-grid
+# integrate). Already ledgered for torch.
+jax tests/test_streamspraydf.py::test_integrate
+jax tests/test_streamspraydf.py::test_integrate_rtnonarray
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[ExpTruncNFWPotential]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatWeaklyTDNonaxiM3SCFPotential--10.0--6.0-False]
 torch tests/test_potential.py::test_ExpTruncNFW_smallr_series
