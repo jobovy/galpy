@@ -341,6 +341,26 @@ def test_general_constantbetadf_cutoff_force(backend):
     assert numpy.all(got[got != 0.0] > 0.0)
 
 
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch-only fallback needs torch")
+def test_torch_only_install_autodiff_fallback(monkeypatch):
+    # On a torch-only install (no jax) the numpy-eval fE derivative chain is built
+    # with torch autodiff instead of jax: _autodiff_xp() returns the torch namespace
+    # and _make_gradfunc wraps a torch-vmapped closure so it takes/returns numpy.
+    # Force _JAX_LOADED=False so both torch branches run on the normal (jax+torch)
+    # CI (the end-to-end torch-built DF is covered by the --backend torch tests).
+    import sys
+
+    cbd = sys.modules["galpy.df.constantbetadf"]
+    monkeypatch.setattr(cbd, "_JAX_LOADED", False)
+    assert cbd._autodiff_xp() is torch
+    # _make_gradfunc's torch branch: numpy in -> torch grad -> numpy out.
+    vmapped = torch.func.vmap(torch.func.grad(lambda x: x**3))
+    gradfunc = cbd._make_gradfunc(vmapped, "torch")
+    out = gradfunc(numpy.array([1.0, 2.0]))
+    assert isinstance(out, numpy.ndarray)
+    numpy.testing.assert_allclose(out, [3.0, 12.0])  # d(x^3)/dx = 3 x^2
+
+
 def _mk_hern(beta):
     return constantbetaHernquistdf(pot=_HP, beta=beta)
 

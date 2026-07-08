@@ -56,7 +56,7 @@ def _autodiff_xp():
         import jax.numpy as jnp
 
         return jnp
-    import torch  # pragma: no cover - only torch installed
+    import torch
 
     return torch
 
@@ -89,7 +89,7 @@ def _make_gradfunc(vmapped, name):
     """
     if name != "torch":
         return vmapped
-    import torch  # pragma: no cover - only torch installed
+    import torch
 
     def _gradfunc(r):
         return as_numpy(vmapped(torch.as_tensor(numpy.asarray(r), dtype=torch.float64)))
