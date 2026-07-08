@@ -62,7 +62,7 @@ jobs:
           # Verbose install so that any GSL/C-extension build issues are visible
           # in CI logs.
           pip install -v ".[docs]"
-          pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib
+          pip install jupyter nbconvert nbformat papermill astropy astroquery pyvo numexpr pynbody rebound jax jaxlib array-api-compat
       - name: Cache pynbody test snapshot
         id: cache-snapshot
         uses: actions/cache@v6
