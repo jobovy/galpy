@@ -318,3 +318,41 @@ def test_linear_dxdv_pure_python_rejected():
         with pytest.raises(ValueError):
             o.integrate_dxdv([1.0, 0.0], times, pot, method=method)
     return None
+
+
+def test_linear_dxdv_dt_none_autostep():
+    # integrate_dxdv without an explicit dt (dt=None -> the -9999.99 auto-step
+    # sentinel in integrateLinearOrbit_dxdv_c).
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    times = numpy.linspace(0.0, 5.0, 101)
+    o = Orbit([0.2, 0.05])
+    o.integrate_dxdv([1.0, 0.0], times, pot, method="dopr54_c")  # no dt
+    M = numpy.asarray(o.getOrbit_dxdv())
+    assert M.shape == (101, 2)
+    assert numpy.all(numpy.isfinite(M))
+    return None
+
+
+def test_linear_dxdv_multiple_orbits():
+    # multi-orbit 1D dxdv (the parallel_map branch of integrateLinearOrbit_dxdv);
+    # each orbit's STM must match a single-orbit solve.
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
+
+    pot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    times = numpy.linspace(0.0, 5.0, 101)
+    ics = [[0.2, 0.05], [0.3, -0.02]]
+    o = Orbit(ics)
+    o.integrate_dxdv([[1.0, 0.0], [1.0, 0.0]], times, pot, method="rk4_c", dt=0.01)
+    Mmulti = numpy.asarray(o.getOrbit_dxdv())
+    assert Mmulti.shape == (2, 101, 2)
+    for ii, ic in enumerate(ics):
+        os_ = Orbit(ic)
+        os_.integrate_dxdv([1.0, 0.0], times, pot, method="rk4_c", dt=0.01)
+        numpy.testing.assert_allclose(
+            Mmulti[ii], numpy.asarray(os_.getOrbit_dxdv()), rtol=1e-10, atol=1e-12
+        )
+    return None
