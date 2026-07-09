@@ -59,7 +59,7 @@ Optional dependencies are:
   * ``tqdm`` for displaying a progress bar for certain operations (e.g., orbit integration of multiple objects at once)
   * ``numexpr`` for plotting arbitrary expressions of ``Orbit`` quantities,
   * ``numba`` for speeding up the evaluation of certain functions when using C orbit integration,
-  * ``JAX`` for use of constant-anisotropy DFs in ``galpy.df.constantbetadf``, and
+  * ``JAX`` or ``PyTorch``, together with ``array-api-compat`` (the backend-dispatch engine), for use of constant-anisotropy DFs in ``galpy.df.constantbetadf`` and galpy's other differentiable array backends — most easily installed with ``pip install galpy[jax]`` or ``pip install galpy[torch]``, which pull in both, and
   * `pynbody <https://github.com/pynbody/pynbody>`__ for use of ``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
 
 .. _detailed_installation:
