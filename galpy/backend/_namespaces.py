@@ -307,6 +307,23 @@ def namespace_for_name(name):
     raise ValueError(f"unknown galpy backend '{name}'")
 
 
+def name_of_namespace(xp):
+    """Map a resolved array namespace module to its canonical backend name.
+
+    The inverse of ``namespace_for_name``: the plain ``numpy`` module -> "numpy",
+    the ``jax.numpy`` namespace -> "jax", the array-api-compat torch namespace ->
+    "torch"; an unrecognized namespace defaults to "numpy" (defensive).
+    """
+    if xp is numpy:
+        return "numpy"
+    name = getattr(xp, "__name__", "")
+    if "jax" in name:
+        return "jax"
+    if "torch" in name:
+        return "torch"
+    return "numpy"
+
+
 def namespace_from_arrays(arrays):
     """Infer the array namespace from the (non-scalar) array arguments.
 

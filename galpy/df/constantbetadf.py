@@ -11,6 +11,7 @@ from ..backend import (
     autodiff_ops,
     get_namespace,
     is_backend_array,
+    name_of_namespace,
     resolve_namespace,
     use,
 )
@@ -35,12 +36,7 @@ _QUAD_N_FE = 100
 
 def _active_backend_name():
     """'torch'|'jax'|'numpy' for the active galpy backend (context/forced default)."""
-    name = getattr(get_namespace(), "__name__", "")
-    if "torch" in name:
-        return "torch"
-    if name in ("jax", "jax.numpy"):
-        return "jax"
-    return "numpy"
+    return name_of_namespace(get_namespace())
 
 
 def _autodiff_xp():
