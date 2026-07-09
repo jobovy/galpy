@@ -471,3 +471,36 @@ def test_streamspray_key_draws_reproducible(backend):
     numpy.testing.assert_array_equal(_np(dt1), _np(dt2))
     dt3 = sp._draw_stripping_dt(15, key=gr.key(5, backend))
     assert not numpy.allclose(_np(dt1), _np(dt3))  # different key => different draws
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_choice_backend(backend):
+    # choice on jax/torch: int a (-> range, unweighted) and array a (weighted p).
+    k = gr.key(3, backend)
+    c1 = _np(gr.choice(k, 5, shape=(9,)))
+    assert c1.shape == (9,) and c1.min() >= 0 and c1.max() < 5
+    c2 = _np(
+        gr.choice(
+            k,
+            numpy.array([10.0, 20.0, 30.0]),
+            shape=(8,),
+            p=numpy.array([0.1, 0.2, 0.7]),
+        )
+    )
+    assert c2.shape == (8,) and set(numpy.unique(c2)).issubset({10.0, 20.0, 30.0})
+    assert is_backend_array(gr.choice(k, 3, shape=(2,)))
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_scalar_shape_none(backend):
+    # shape=None -> scalar () on jax/torch (covers _tuple_shape(None)).
+    k = gr.key(4, backend)
+    for fn in (gr.uniform, gr.normal, gr.random):
+        v = fn(k, None)
+        assert is_backend_array(v) and numpy.asarray(_np(v)).shape == ()
+
+
+def test_invalid_key_raises():
+    # an unrecognized key object -> TypeError from _backend_of_key.
+    with pytest.raises(TypeError):
+        gr.uniform("not-a-key", (3,))
