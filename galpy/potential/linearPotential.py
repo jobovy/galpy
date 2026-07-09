@@ -293,6 +293,19 @@ class linearPotential:
         except AttributeError:  # pragma: no cover
             raise PotentialError("'_force' function not implemented for this potential")
 
+    def _force2deriv_nodecorator(self, x, t=0.0):
+        # Second derivative of the potential, d^2 Phi / dx^2 (the potential
+        # second derivative, matching the R2deriv/z2deriv convention). Used by
+        # the 1D variational (dxdv) equations; the RHS applies the sign to get
+        # the force gradient dF/dx = -d^2 Phi / dx^2. Separate, so it can be
+        # used during orbit integration.
+        try:
+            return self._amp * self._force2deriv(x, t=t)
+        except AttributeError:  # pragma: no cover
+            raise PotentialError(
+                "'_force2deriv' function not implemented for this potential"
+            )
+
     def plot(self, t=0.0, min=-15.0, max=15, ns=21, savefilename=None):
         """
         Plot the potential
@@ -417,6 +430,11 @@ def evaluatelinearForces(Pot, x, t=0.0):
 def _evaluatelinearForces(Pot, x, t=0.0):
     """Raw, undecorated function for internal use"""
     return Pot._force_nodecorator(x, t=t)
+
+
+def _evaluatelinearForce2derivs(Pot, x, t=0.0):
+    """Raw, undecorated d^2 Phi / dx^2 for internal use (1D variational eqns)"""
+    return Pot._force2deriv_nodecorator(x, t=t)
 
 
 @potential_list_of_potentials_input

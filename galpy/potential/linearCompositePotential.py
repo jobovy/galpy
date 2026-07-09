@@ -157,3 +157,22 @@ class linearCompositePotential(baseCompositePotential, linearPotential):
 
         """
         return sum(pot._force_nodecorator(x, t=t) for pot in self._potlist)
+
+    def _force2deriv(self, x, t=0.0):
+        """
+        Evaluate the potential second derivative d^2 Phi / dx^2 at (x,t).
+
+        Parameters
+        ----------
+        x : float
+            Position.
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            d^2 Phi / dx^2 at (x,t).
+
+        """
+        return sum(pot._force2deriv_nodecorator(x, t=t) for pot in self._potlist)

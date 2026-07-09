@@ -11,6 +11,9 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->z2deriv= NULL;
     (potentialArgs+ii)->Rzderiv= NULL;
     (potentialArgs+ii)->zphideriv= NULL;
+    // Linear (1D) second derivative for the 1D variational equations; set in
+    // the linear parse for every linear potential (verticalPotential/KG/IsoDisk).
+    (potentialArgs+ii)->linear2deriv= NULL;
     // Rectangular dissipative-force Jacobian: NULL for conservative
     // potentials and for dissipative forces without a C Jacobian; set in
     // parse_* only for dissipative forces that provide it.
@@ -359,6 +362,20 @@ double calcLinearForce(double x, double t,
   }
   potentialArgs-= nargs;
   return force;
+}
+// 1D potential second derivative d^2 Phi / dx^2, summed over components, for
+// the 1D variational (dxdv) equations. Mirrors calcLinearForce: every linear
+// potential wires linear2deriv in the linear parse, so no NULL guard is needed.
+double calcLinear2deriv(double x, double t,
+			int nargs, struct potentialArg * potentialArgs){
+  int ii;
+  double deriv= 0.;
+  for (ii=0; ii < nargs; ii++){
+    deriv+= potentialArgs->linear2deriv(x,t,potentialArgs);
+    potentialArgs++;
+  }
+  potentialArgs-= nargs;
+  return deriv;
 }
 double calcDensity(double R, double Z, double phi, double t,
 		   int nargs, struct potentialArg * potentialArgs){
