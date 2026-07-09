@@ -1215,8 +1215,10 @@ def spher_to_cyl(r, theta, phi):
     -----
     - 2016-05-20 - Written - Aladdin
     """
-    R = r * numpy.sin(theta)
-    z = r * numpy.cos(theta)
+    xp = get_namespace(r, theta, phi)
+    r, theta = promote_scalars(xp, r, theta)
+    R = r * xp.sin(theta)
+    z = r * xp.cos(theta)
     return (R, z, phi)
 
 
@@ -1619,12 +1621,14 @@ def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False, *, xp=None):
         R, phi, Z = rect_to_cyl(X, Y, Z, xp=xp)
     else:
         phi = Y
-    vr = +vx * numpy.cos(phi) + vy * numpy.sin(phi)
-    vt = -vx * numpy.sin(phi) + vy * numpy.cos(phi)
+    xp = get_namespace(vx, vy, vz, phi, xp=xp)
+    vx, vy, phi = promote_scalars(xp, vx, vy, phi)
+    vr = +vx * xp.cos(phi) + vy * xp.sin(phi)
+    vt = -vx * xp.sin(phi) + vy * xp.cos(phi)
     return (vr, vt, vz)
 
 
-def cyl_to_rect_vec(vr, vt, vz, phi):
+def cyl_to_rect_vec(vr, vt, vz, phi, *, xp=None):
     """
     Transform vectors from cylindrical to rectangular coordinate vectors.
 
@@ -1638,6 +1642,9 @@ def cyl_to_rect_vec(vr, vt, vz, phi):
         Vertical velocity.
     phi : float or numpy.ndarray
         Azimuth.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to get_namespace (e.g.
+        ``numpy`` to pin host-side bookkeeping regardless of the forced default).
 
     Returns
     -------
@@ -1648,8 +1655,10 @@ def cyl_to_rect_vec(vr, vt, vz, phi):
     -----
     - 2011-02-24 - Written - Bovy (NYU)
     """
-    vx = vr * numpy.cos(phi) - vt * numpy.sin(phi)
-    vy = vr * numpy.sin(phi) + vt * numpy.cos(phi)
+    xp = get_namespace(vr, vt, vz, phi, xp=xp)
+    vr, vt, phi = promote_scalars(xp, vr, vt, phi)
+    vx = vr * xp.cos(phi) - vt * xp.sin(phi)
+    vy = vr * xp.sin(phi) + vt * xp.cos(phi)
     return (vx, vy, vz)
 
 
