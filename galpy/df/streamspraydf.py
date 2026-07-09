@@ -5,6 +5,13 @@ from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.signal import find_peaks
 
+from ..backend import (
+    as_backend_constant,
+    as_numpy,
+    get_namespace,
+    is_backend_array,
+    use,
+)
 from ..df.df import df
 from ..orbit import Orbit
 from ..potential import MovingObjectPotential, evaluateRforces, rtide
@@ -200,14 +207,17 @@ class basestreamspraydf(df):
             n_trailing = n - n_leading
             out_l, dt_l = self._sample_tail(n_leading, integrate, leading=True)
             out_t, dt_t = self._sample_tail(n_trailing, integrate, leading=False)
-            out = numpy.hstack([out_l, out_t])
+            if is_backend_array(out_l):
+                out = get_namespace(out_l).hstack([out_l, out_t])
+            else:
+                out = numpy.hstack([out_l, out_t])
             dt = numpy.concatenate([dt_l, dt_t])
         else:
             out, dt = self._sample_tail(n, integrate, leading=tail == "leading")
         if return_orbit:
             # Output Orbit ro/vo/zo/solarmotion/roSet/voSet match progenitor
             o = Orbit(
-                vxvv=out.T,
+                vxvv=as_numpy(out).T,
                 ro=self._orig_progenitor._ro,
                 vo=self._orig_progenitor._vo,
                 zo=self._orig_progenitor._zo,
@@ -219,6 +229,7 @@ class basestreamspraydf(df):
                 o._voSet = False
             out = o
         elif _APY_UNITS and self._voSet and self._roSet:
+            out = as_numpy(out)  # astropy Quantity can't hold a backend array
             out = (
                 out[0] * self._ro * units.kpc,
                 out[1] * self._vo * units.km / units.s,
@@ -535,41 +546,44 @@ class basestreamspraydf(df):
 
     def _sample_tail(self, n, integrate, leading=True):
         """Sample n points from the specified tail."""
-        # First sample times
+        # First sample times (RNG stays numpy; coerced to the backend below)
         if self._stripping_inv_cdf is None:
             dt = numpy.random.uniform(size=n) * self._tdisrupt
         else:
             u_samples = numpy.random.uniform(size=n)
             dt = -self._stripping_inv_cdf(u_samples)
+        xp = get_namespace(dt)  # context-resolved backend (numpy under numpy)
         # Build all rotation matrices
         rot, rot_inv = self._setup_rot(dt)
         # Compute progenitor position in the instantaneous frame,
         # relative to the center orbit if necessary
-        centerx = numpy.atleast_1d(self._progenitor.x(-dt))
-        centery = numpy.atleast_1d(self._progenitor.y(-dt))
-        centerz = numpy.atleast_1d(self._progenitor.z(-dt))
-        centervx = numpy.atleast_1d(self._progenitor.vx(-dt))
-        centervy = numpy.atleast_1d(self._progenitor.vy(-dt))
-        centervz = numpy.atleast_1d(self._progenitor.vz(-dt))
+        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt)))
+        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt)))
+        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt)))
+        centervx = xp.atleast_1d(xp.asarray(self._progenitor.vx(-dt)))
+        centervy = xp.atleast_1d(xp.asarray(self._progenitor.vy(-dt)))
+        centervz = xp.atleast_1d(xp.asarray(self._progenitor.vz(-dt)))
         if not self._center is None:
-            centerx -= self._center.x(-dt)
-            centery -= self._center.y(-dt)
-            centerz -= self._center.z(-dt)
-            centervx -= self._center.vx(-dt)
-            centervy -= self._center.vy(-dt)
-            centervz -= self._center.vz(-dt)
-        xyzpt = numpy.einsum(
-            "ijk,ik->ij", rot, numpy.array([centerx, centery, centerz]).T
+            centerx = centerx - xp.asarray(self._center.x(-dt))
+            centery = centery - xp.asarray(self._center.y(-dt))
+            centerz = centerz - xp.asarray(self._center.z(-dt))
+            centervx = centervx - xp.asarray(self._center.vx(-dt))
+            centervy = centervy - xp.asarray(self._center.vy(-dt))
+            centervz = centervz - xp.asarray(self._center.vz(-dt))
+        # stack(axis=0).T matches numpy.array([...]).T's F-contiguous layout so
+        # einsum rounds byte-identically to the pre-migration numpy path.
+        xyzpt = xp.einsum(
+            "ijk,ik->ij", rot, xp.stack([centerx, centery, centerz], axis=0).T
         )
-        vxyzpt = numpy.einsum(
-            "ijk,ik->ij", rot, numpy.array([centervx, centervy, centervz]).T
+        vxyzpt = xp.einsum(
+            "ijk,ik->ij", rot, xp.stack([centervx, centervy, centervz], axis=0).T
         )
 
         # generate the initial conditions
         xst, yst, zst, vxst, vyst, vzst = self.spray_df(xyzpt, vxyzpt, dt, leading)
 
-        xyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([xst, yst, zst]).T)
-        vxyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([vxst, vyst, vzst]).T)
+        xyzs = xp.einsum("ijk,ik->ij", rot_inv, xp.stack([xst, yst, zst], axis=0).T)
+        vxyzs = xp.einsum("ijk,ik->ij", rot_inv, xp.stack([vxst, vyst, vzst], axis=0).T)
 
         absx = xyzs[:, 0]
         absy = xyzs[:, 1]
@@ -578,98 +592,105 @@ class basestreamspraydf(df):
         absvy = vxyzs[:, 1]
         absvz = vxyzs[:, 2]
         if not self._center is None:
-            absx += self._center.x(-dt)
-            absy += self._center.y(-dt)
-            absz += self._center.z(-dt)
-            absvx += self._center.vx(-dt)
-            absvy += self._center.vy(-dt)
-            absvz += self._center.vz(-dt)
+            absx = absx + xp.asarray(self._center.x(-dt))
+            absy = absy + xp.asarray(self._center.y(-dt))
+            absz = absz + xp.asarray(self._center.z(-dt))
+            absvx = absvx + xp.asarray(self._center.vx(-dt))
+            absvy = absvy + xp.asarray(self._center.vy(-dt))
+            absvz = absvz + xp.asarray(self._center.vz(-dt))
         Rs, phis, Zs = coords.rect_to_cyl(absx, absy, absz)
         vRs, vTs, vZs = coords.rect_to_cyl_vec(
             absvx, absvy, absvz, Rs, phis, Zs, cyl=True
         )
-        out = numpy.empty((6, n))
         if integrate:
             # Integrate all sampled particles as a single Orbit instance, with
             # each particle on its own time grid from its stripping time -dt[i]
             # to the present (t=0). The final time step is the present-day state.
-            o = Orbit(numpy.array([Rs, vRs, vTs, Zs, vZs, phis]).T)
-            ts = numpy.linspace(-dt, numpy.zeros(n), 10001, axis=-1)
+            # Backend ICs route to the in-backend integrator where available.
+            o = Orbit(xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0).T)
+            ts = xp.linspace(-dt, xp.zeros(n), 10001, axis=-1)
             o.integrate(ts, self._pot)
-            out[:] = o.orbit[:, -1, :].T
+            out = o.orbit[:, -1, :].T
         else:
-            out[0] = Rs
-            out[1] = vRs
-            out[2] = vTs
-            out[3] = Zs
-            out[4] = vZs
-            out[5] = phis
+            out = xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0)
         return out, dt
 
     def _setup_rot(self, dt):
+        xp = get_namespace(dt)
         n = len(dt)
-        centerx = numpy.atleast_1d(self._progenitor.x(-dt))
-        centery = numpy.atleast_1d(self._progenitor.y(-dt))
-        centerz = numpy.atleast_1d(self._progenitor.z(-dt))
+        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt)))
+        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt)))
+        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt)))
         if self._center is None:
-            L = numpy.atleast_2d(self._progenitor.L(-dt))
+            L = xp.atleast_2d(xp.asarray(self._progenitor.L(-dt)))
         # Compute relative angular momentum to the center orbit
         else:
-            centerx -= self._center.x(-dt)
-            centery -= self._center.y(-dt)
-            centerz -= self._center.z(-dt)
-            centervx = self._progenitor.vx(-dt) - self._center.vx(-dt)
-            centervy = self._progenitor.vy(-dt) - self._center.vy(-dt)
-            centervz = self._progenitor.vz(-dt) - self._center.vz(-dt)
-            L = numpy.atleast_2d(
-                numpy.array(
+            centerx = centerx - xp.asarray(self._center.x(-dt))
+            centery = centery - xp.asarray(self._center.y(-dt))
+            centerz = centerz - xp.asarray(self._center.z(-dt))
+            centervx = xp.asarray(self._progenitor.vx(-dt)) - xp.asarray(
+                self._center.vx(-dt)
+            )
+            centervy = xp.asarray(self._progenitor.vy(-dt)) - xp.asarray(
+                self._center.vy(-dt)
+            )
+            centervz = xp.asarray(self._progenitor.vz(-dt)) - xp.asarray(
+                self._center.vz(-dt)
+            )
+            L = xp.atleast_2d(
+                xp.stack(
                     [
                         centery * centervz - centerz * centervy,
                         centerz * centervx - centerx * centervz,
                         centerx * centervy - centery * centervx,
-                    ]
-                ).T
+                    ],
+                    axis=-1,
+                )
             )
-        Lnorm = L / numpy.tile(numpy.sqrt(numpy.sum(L**2.0, axis=1)), (3, 1)).T
-        z_rot = numpy.swapaxes(
-            _rotate_to_arbitrary_vector(
-                numpy.atleast_2d(Lnorm), [0.0, 0.0, 1], inv=True
-            ),
+        Lnorm = L / xp.sqrt(xp.sum(L**2.0, axis=1))[:, None]
+        z_rot = xp.swapaxes(
+            _rotate_to_arbitrary_vector(xp.atleast_2d(Lnorm), [0.0, 0.0, 1], inv=True),
             1,
             2,
         )
-        z_rot_inv = numpy.swapaxes(
-            _rotate_to_arbitrary_vector(
-                numpy.atleast_2d(Lnorm), [0.0, 0.0, 1], inv=False
-            ),
+        z_rot_inv = xp.swapaxes(
+            _rotate_to_arbitrary_vector(xp.atleast_2d(Lnorm), [0.0, 0.0, 1], inv=False),
             1,
             2,
         )
-        xyzt = numpy.einsum(
-            "ijk,ik->ij", z_rot, numpy.array([centerx, centery, centerz]).T
+        xyzt = xp.einsum(
+            "ijk,ik->ij", z_rot, xp.stack([centerx, centery, centerz], axis=0).T
         )
-        Rt = numpy.sqrt(xyzt[:, 0] ** 2.0 + xyzt[:, 1] ** 2.0)
+        Rt = xp.sqrt(xyzt[:, 0] ** 2.0 + xyzt[:, 1] ** 2.0)
         cosphi, sinphi = xyzt[:, 0] / Rt, xyzt[:, 1] / Rt
-        pa_rot = numpy.array(
+        zero, one = xp.zeros_like(cosphi), xp.ones_like(cosphi)
+        # (3,3,n).T -> (n,3,3): each row is the transpose of the numpy block.
+        pa_rot = xp.stack(
             [
-                [cosphi, -sinphi, numpy.zeros(n)],
-                [sinphi, cosphi, numpy.zeros(n)],
-                [numpy.zeros(n), numpy.zeros(n), numpy.ones(n)],
-            ]
-        ).T
-        pa_rot_inv = numpy.array(
+                xp.stack([cosphi, sinphi, zero], axis=-1),
+                xp.stack([-sinphi, cosphi, zero], axis=-1),
+                xp.stack([zero, zero, one], axis=-1),
+            ],
+            axis=1,
+        )
+        pa_rot_inv = xp.stack(
             [
-                [cosphi, sinphi, numpy.zeros(n)],
-                [-sinphi, cosphi, numpy.zeros(n)],
-                [numpy.zeros(n), numpy.zeros(n), numpy.ones(n)],
-            ]
-        ).T
-        rot = numpy.einsum("ijk,ikl->ijl", pa_rot, z_rot)
-        rot_inv = numpy.einsum("ijk,ikl->ijl", z_rot_inv, pa_rot_inv)
+                xp.stack([cosphi, -sinphi, zero], axis=-1),
+                xp.stack([sinphi, cosphi, zero], axis=-1),
+                xp.stack([zero, zero, one], axis=-1),
+            ],
+            axis=1,
+        )
+        rot = xp.einsum("ijk,ikl->ijl", pa_rot, z_rot)
+        rot_inv = xp.einsum("ijk,ikl->ijl", z_rot_inv, pa_rot_inv)
         return (rot, rot_inv)
 
     def _calc_rtide(self, Rpt, phipt, Zpt, dt):
+        xp = get_namespace(dt)
         Ms = self._progenitor_mass_fn(-dt)
+        # Anchor Ms on Rpt only when Rpt is a backend array (the spray flow);
+        # a direct numpy call keeps Ms numpy (byte-identical).
+        M = as_backend_constant(xp, Ms, Rpt) if is_backend_array(Rpt) else Ms
         try:
             rtides = rtide(
                 self._rtpot,
@@ -677,51 +698,60 @@ class basestreamspraydf(df):
                 Zpt,
                 phi=phipt,
                 t=-dt,
-                M=Ms,
+                M=M,
                 use_physical=False,
             )
         except (ValueError, TypeError):
-            rtides = numpy.array(
-                [
-                    rtide(
-                        self._rtpot,
-                        Rpt[ii],
-                        Zpt[ii],
-                        phi=phipt[ii],
-                        t=-dt[ii],
-                        M=float(Ms[ii]),
-                        use_physical=False,
-                    )
-                    for ii in range(len(Rpt))
-                ]
-            )
+            # Per-particle numpy fallback for potentials without array support;
+            # coerce the island result back to the active backend.
+            with use("numpy", force=True):
+                rtides = numpy.array(
+                    [
+                        rtide(
+                            self._rtpot,
+                            float(Rpt[ii]),
+                            float(Zpt[ii]),
+                            phi=float(phipt[ii]),
+                            t=-dt[ii],
+                            M=float(Ms[ii]),
+                            use_physical=False,
+                        )
+                        for ii in range(len(Rpt))
+                    ]
+                )
+            rtides = as_backend_constant(xp, rtides, Rpt)
         return rtides
 
     def _calc_vc(self, Rpt, phipt, Zpt, dt):
+        xp = get_namespace(dt)
         try:
-            vcs = numpy.sqrt(
+            vcs = xp.sqrt(
                 -Rpt
                 * evaluateRforces(
                     self._rtpot, Rpt, Zpt, phi=phipt, t=-dt, use_physical=False
                 )
             )
         except (ValueError, TypeError):
-            vcs = numpy.array(
-                [
-                    numpy.sqrt(
-                        -Rpt[ii]
-                        * evaluateRforces(
-                            self._rtpot,
-                            Rpt[ii],
-                            Zpt[ii],
-                            phi=phipt[ii],
-                            t=-dt[ii],
-                            use_physical=False,
+            # Per-particle numpy fallback for potentials without array support;
+            # coerce the island result back to the active backend.
+            with use("numpy", force=True):
+                vcs = numpy.array(
+                    [
+                        numpy.sqrt(
+                            -float(Rpt[ii])
+                            * evaluateRforces(
+                                self._rtpot,
+                                float(Rpt[ii]),
+                                float(Zpt[ii]),
+                                phi=float(phipt[ii]),
+                                t=-dt[ii],
+                                use_physical=False,
+                            )
                         )
-                    )
-                    for ii in range(len(Rpt))
-                ]
-            )
+                        for ii in range(len(Rpt))
+                    ]
+                )
+            vcs = as_backend_constant(xp, vcs, Rpt)
         return vcs
 
     def _parse_progenitor_mass(self, progenitor_mass):
@@ -934,17 +964,22 @@ class chen24spraydf(basestreamspraydf):
         vxst, vyst, vzst : array, shape (N,)
             Velocities of points on the stream in the progenitor coordinates.
         """
+        xp = get_namespace(dt)
         Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
         rtides = self._calc_rtide(Rpt, phipt, Zpt, dt)
 
         # Sample positions and velocities in the instantaneous frame
-        posvel = numpy.random.multivariate_normal(self._mean, self._cov, size=len(dt))
+        # (RNG stays numpy on mean/cov; the draw is coerced to the backend).
+        posvel = xp.asarray(
+            numpy.random.multivariate_normal(self._mean, self._cov, size=len(dt))
+        )
         Dr = posvel[:, 0] * rtides
-        v_esc = numpy.sqrt(2 * self._progenitor_mass_fn(-dt) / Dr)
+        Ms = as_backend_constant(xp, self._progenitor_mass_fn(-dt), Dr)
+        v_esc = xp.sqrt(2 * Ms / Dr)
         Dv = posvel[:, 3] * v_esc
         if leading:
-            Dr *= -1.0
-            Dv *= -1.0
+            Dr = Dr * -1.0
+            Dv = Dv * -1.0
 
         dR, dz, dp = coords.spher_to_cyl(
             r=Dr, theta=0.5 * numpy.pi - posvel[:, 2], phi=posvel[:, 1]
@@ -1068,6 +1103,7 @@ class fardal15spraydf(basestreamspraydf):
         vxst, vyst, vzst : array, shape (N,)
             Velocities of points on the stream in the progenitor coordinates.
         """
+        xp = get_namespace(dt)
         Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
         rtides = self._calc_rtide(Rpt, phipt, Zpt, dt)
         vcs = self._calc_vc(Rpt, phipt, Zpt, dt)
@@ -1077,23 +1113,29 @@ class fardal15spraydf(basestreamspraydf):
             vxyzpt[:, 0], vxyzpt[:, 1], vxyzpt[:, 2], Rpt, phipt, Zpt, cyl=True
         )
         # Sample positions and velocities in the instantaneous frame
-        meankvec = -self._meankvec if leading else self._meankvec
-        k = meankvec + numpy.random.normal(size=(len(dt), 6)) * self._sigkvec
+        # (RNG stays numpy; the draw and mean/sig constants are coerced).
+        meankvec = as_backend_constant(
+            xp, -self._meankvec if leading else self._meankvec, Rpt
+        )
+        sigkvec = as_backend_constant(xp, self._sigkvec, Rpt)
+        k = meankvec + xp.asarray(numpy.random.normal(size=(len(dt), 6))) * sigkvec
 
-        RpZst = numpy.array(
+        RpZst = xp.stack(
             [
                 Rpt + k[:, 0] * rtides,
                 phipt + k[:, 5] * rtides_as_frac,
                 k[:, 3] * rtides_as_frac,
-            ]
-        ).T
-        vRTZst = numpy.array(
+            ],
+            axis=-1,
+        )
+        vRTZst = xp.stack(
             [
                 vRpt * (1.0 + k[:, 1]),
                 vTpt + k[:, 2] * vcs * rtides_as_frac,
                 k[:, 4] * vcs * rtides_as_frac,
-            ]
-        ).T
+            ],
+            axis=-1,
+        )
         # Now rotate these back to the galactocentric frame
         xst, yst, zst = coords.cyl_to_rect(RpZst[:, 0], RpZst[:, 1], RpZst[:, 2])
         vxst, vyst, vzst = coords.cyl_to_rect_vec(
@@ -1198,7 +1240,7 @@ def pericenter_stripping_pdf(
     prog_copy.turn_physical_off()
     ts = numpy.linspace(0.0, -tdisrupt_internal, ngrid)
     prog_copy.integrate(ts, _check_potential_list_and_deprecate(pot))
-    r_vals = prog_copy.r(ts)
+    r_vals = as_numpy(prog_copy.r(ts))  # scipy find_peaks is numpy-only
     peaks, _ = find_peaks(-r_vals, prominence=1e-6 * float(numpy.mean(r_vals)))
     if peaks.size == 0:
         raise ValueError(
