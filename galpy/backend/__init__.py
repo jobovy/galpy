@@ -33,11 +33,13 @@ from ._resolver import (
     set_default_backend,
     use,
 )
+from .autodiff import autodiff_ops
 
 # Seed the default backend from the [backend] section of the config file.
 _seed_from_config()
 
 __all__ = [
+    "autodiff_ops",
     "get_namespace",
     "backend",
     "use",
