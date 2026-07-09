@@ -10,6 +10,10 @@
 #     * key is None            -> the GLOBAL ``numpy.random.*`` (stateful,
 #                                 byte-identical: the shim calls the exact same
 #                                 ``numpy.random.<fn>`` the code called before).
+#     * key is a ``_NumpyKey`` -> a LOCAL ``numpy.random.Generator`` (opt-in,
+#                                 jax-like: same seed reproduces the same draws
+#                                 independent of the global state; its stream is
+#                                 intentionally NOT byte-identical to the global).
 #     * key is a jax key       -> ``jax.random.*`` (a key is explicit data; the
 #                                 draw is a pure deterministic function of it).
 #     * key is a ``_TorchKey`` -> a ``torch.Generator`` seeded from the key, so
@@ -25,7 +29,7 @@
 import numpy
 
 from ..util._optional_deps import _JAX_LOADED
-from ._namespaces import namespace_for_name
+from ._namespaces import name_of_namespace, namespace_for_name
 from ._resolver import get_namespace
 
 __all__ = [
@@ -60,29 +64,44 @@ class _TorchKey:
         return f"_TorchKey(seed={self.seed})"
 
 
+class _NumpyKey:
+    """A LOCAL, reproducible numpy key: wraps a ``numpy.random.Generator``.
+
+    In contrast to ``key is None`` (which draws from the GLOBAL, stateful
+    ``numpy.random.*`` and is byte-identical to galpy's historical behaviour), a
+    ``_NumpyKey`` draws from its own ``numpy.random.default_rng(seed)`` Generator.
+    That gives numpy the same "same seed => same draws, independent of the
+    surrounding code" property jax has -- opt-in reproducibility for sampling and
+    tests -- without ever touching the global generator. Its stream is
+    DELIBERATELY different from the global legacy ``numpy.random`` (only
+    ``key is None`` is byte-identical); ``split`` spawns independent children.
+    """
+
+    __slots__ = ("gen",)
+
+    def __init__(self, gen):
+        self.gen = gen
+
+    def __repr__(self):  # pragma: no cover - debugging aid
+        return f"_NumpyKey({self.gen!r})"
+
+
 # --- backend/name/shape helpers ----------------------------------------------
-def _name_of_namespace(xp):
-    """Map a resolved namespace module to a backend name ('numpy'|'jax'|'torch')."""
-    if xp is numpy:
-        return "numpy"
-    name = getattr(xp, "__name__", "")
-    if "jax" in name:
-        return "jax"
-    if "torch" in name:
-        return "torch"
-    return "numpy"  # pragma: no cover - defensive
-
-
 def _resolve_backend_name(backend):
     """Backend name for ``key(...)``: explicit ``backend=`` or the active default."""
     if backend is None:
-        return _name_of_namespace(get_namespace())
-    return _name_of_namespace(namespace_for_name(backend))
+        return name_of_namespace(get_namespace())
+    return name_of_namespace(namespace_for_name(backend))
 
 
 def _backend_of_key(key):
-    """Dispatch: which backend a draw for ``key`` uses (numpy for ``key is None``)."""
-    if key is None:
+    """Dispatch: which backend a draw for ``key`` uses.
+
+    Both ``key is None`` (global numpy) and a ``_NumpyKey`` (local numpy
+    Generator) resolve to "numpy"; the draw functions then pick the global module
+    vs the local generator by ``isinstance(key, _NumpyKey)``.
+    """
+    if key is None or isinstance(key, _NumpyKey):
         return "numpy"
     if isinstance(key, _TorchKey):
         return "torch"
@@ -92,9 +111,23 @@ def _backend_of_key(key):
         if isinstance(key, jax.Array):
             return "jax"
     raise TypeError(
-        "galpy.backend.random: unrecognized key; pass None (numpy), a jax "
-        "key from key(seed, 'jax'), or a _TorchKey from key(seed, 'torch')"
+        "galpy.backend.random: unrecognized key; pass None (global numpy), a "
+        "_NumpyKey / jax key / _TorchKey from key(seed, backend)"
     )
+
+
+def _spawn_numpy(gen, num):
+    """Spawn ``num`` independent child Generators from a local numpy ``gen``.
+
+    Uses ``Generator.spawn`` (numpy>=1.25, SeedSequence-based independence); on
+    older numpy it derives ``num`` independent child seeds from ``gen`` (drawn
+    from the parent, so the split stays reproducible given the parent state).
+    """
+    spawn = getattr(gen, "spawn", None)
+    if spawn is not None:
+        return spawn(num)
+    child_seeds = gen.integers(0, 2**63 - 1, size=num)
+    return [numpy.random.default_rng(int(s)) for s in child_seeds]
 
 
 def _tuple_shape(shape):
@@ -125,26 +158,38 @@ def key(seed, backend=None):
     backend : {None, 'numpy', 'jax', 'torch'} or namespace module, optional
         Which backend to make a key for. ``None`` (default) uses the active
         galpy backend (``galpy.backend.get_namespace`` context/global default),
-        so ``key(s)`` under a numpy default seeds ``numpy.random`` and returns
-        ``None``, under a jax default returns a ``jax.random`` key, etc.
+        so ``key(s)`` under a numpy default seeds the GLOBAL ``numpy.random`` and
+        returns ``None`` (byte-identical), under a jax default returns a
+        ``jax.random`` key, etc. Passing ``backend='numpy'`` EXPLICITLY instead
+        opts into a local, reproducible ``_NumpyKey`` (see Notes).
 
     Returns
     -------
     key
-        ``None`` for numpy (having seeded the global ``numpy.random``), a
+        ``None`` for the active numpy default (having seeded the global
+        ``numpy.random``), a ``_NumpyKey`` for an explicit ``backend='numpy'``, a
         ``jax.random`` key for jax, or a ``_TorchKey`` for torch.
 
     Notes
     -----
-    numpy is stateful by design: ``key(seed)`` seeds the global generator and
-    returns ``None`` (the "use the global ``numpy.random``" sentinel), which is
-    exactly what keeps the numpy path byte-identical. jax/torch keys are
+    The numpy DEFAULT is stateful by design: ``key(seed)`` (``backend=None``)
+    under a numpy default seeds the global generator and returns ``None`` (the
+    "use the global ``numpy.random``" sentinel), which is exactly what keeps the
+    numpy path byte-identical. An EXPLICIT ``key(seed, backend='numpy')`` instead
+    returns a ``_NumpyKey`` wrapping a local ``numpy.random.default_rng(seed)`` --
+    giving numpy jax-like reproducibility (same seed => same draws, independent
+    of the global state) without touching the global generator; its stream is
+    intentionally not byte-identical to the global one. jax/torch keys are
     explicit stateless data threaded through ``split`` and the draw functions.
     """
     name = _resolve_backend_name(backend)
     if name == "numpy":
-        numpy.random.seed(seed)
-        return None
+        if backend is None:
+            # Active numpy default: seed the global generator, byte-identical.
+            numpy.random.seed(seed)
+            return None
+        # Explicit backend='numpy': a local, reproducible Generator key.
+        return _NumpyKey(numpy.random.default_rng(seed))
     if name == "jax":
         import jax
 
@@ -155,14 +200,18 @@ def key(seed, backend=None):
 def split(key, num=2):
     """Split ``key`` into ``num`` independent sub-keys.
 
-    Returns a tuple of ``num`` keys. For numpy this is ``(None,) * num`` -- the
-    global generator produces independent sequential draws with no substreams
-    needed. For jax it is ``jax.random.split``; for torch the child seeds are
-    drawn deterministically from ``key`` (so the split is reproducible).
+    Returns a tuple of ``num`` keys. For the global numpy key (``None``) this is
+    ``(None,) * num`` -- the global generator produces independent sequential
+    draws with no substreams needed. For a local ``_NumpyKey`` it spawns ``num``
+    independent child generators (reproducible from the parent). For jax it is
+    ``jax.random.split``; for torch the child seeds are drawn deterministically
+    from ``key`` (so the split is reproducible).
     """
     name = _backend_of_key(key)
     if name == "numpy":
-        return (None,) * num
+        if key is None:
+            return (None,) * num
+        return tuple(_NumpyKey(child) for child in _spawn_numpy(key.gen, num))
     if name == "jax":
         import jax
 
@@ -185,7 +234,9 @@ def uniform(key, shape, low=0.0, high=1.0):
     """
     name = _backend_of_key(key)
     if name == "numpy":
-        return numpy.random.uniform(low, high, size=shape)
+        if key is None:
+            return numpy.random.uniform(low, high, size=shape)
+        return key.gen.uniform(low, high, size=shape)
     if name == "jax":
         from jax import random as jrandom
 
@@ -206,7 +257,9 @@ def normal(key, shape, loc=0.0, scale=1.0):
     """
     name = _backend_of_key(key)
     if name == "numpy":
-        return numpy.random.normal(loc, scale, size=shape)
+        if key is None:
+            return numpy.random.normal(loc, scale, size=shape)
+        return key.gen.normal(loc, scale, size=shape)
     if name == "jax":
         from jax import random as jrandom
 
@@ -227,7 +280,9 @@ def random(key, shape=None):
     """
     name = _backend_of_key(key)
     if name == "numpy":
-        return numpy.random.random(size=shape)
+        if key is None:
+            return numpy.random.random(size=shape)
+        return key.gen.random(size=shape)
     if name == "jax":
         from jax import random as jrandom
 
@@ -246,7 +301,9 @@ def randint(key, shape, low, high):
     """
     name = _backend_of_key(key)
     if name == "numpy":
-        return numpy.random.randint(low, high, size=shape)
+        if key is None:
+            return numpy.random.randint(low, high, size=shape)
+        return key.gen.integers(low, high, size=shape)
     if name == "jax":
         from jax import random as jrandom
 
@@ -269,7 +326,9 @@ def choice(key, a, shape=None, p=None):
     """
     name = _backend_of_key(key)
     if name == "numpy":
-        return numpy.random.choice(a, size=shape, p=p)
+        if key is None:
+            return numpy.random.choice(a, size=shape, p=p)
+        return key.gen.choice(a, size=shape, p=p)
     if name == "jax":
         from jax import random as jrandom
 
@@ -305,7 +364,9 @@ def multivariate_normal(key, mean, cov, shape=None):
     """
     name = _backend_of_key(key)
     if name == "numpy":
-        return numpy.random.multivariate_normal(mean, cov, size=shape)
+        if key is None:
+            return numpy.random.multivariate_normal(mean, cov, size=shape)
+        return key.gen.multivariate_normal(mean, cov, size=shape)
     if name == "jax":
         from jax import random as jrandom
 

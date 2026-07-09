@@ -153,6 +153,136 @@ def test_numpy_split_is_none_tuple():
 
 
 # ----------------------------------------------------------------------------
+# de-dup: the canonical namespace->name helper (galpy.backend.name_of_namespace)
+# now shared by random.py, the special router, and constantbetadf.
+# ----------------------------------------------------------------------------
+def test_name_of_namespace_numpy_and_default():
+    from galpy.backend import name_of_namespace
+
+    assert name_of_namespace(numpy) == "numpy"
+
+    # an unrecognized namespace defaults to "numpy" (defensive branch)
+    class _Weird:
+        __name__ = "not_a_backend"
+
+    assert name_of_namespace(_Weird()) == "numpy"
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_name_of_namespace_jax():
+    from galpy.backend import name_of_namespace
+
+    # the resolved jax namespace is jax.numpy (__name__ == 'jax.numpy')
+    assert name_of_namespace(jnp) == "jax"
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_name_of_namespace_torch():
+    import array_api_compat.torch as txp
+
+    from galpy.backend import name_of_namespace
+
+    assert name_of_namespace(txp) == "torch"
+
+
+# ----------------------------------------------------------------------------
+# numpy LOCAL (jax-like) seed: key(seed, 'numpy') -> a _NumpyKey drawing from a
+# local numpy.random.Generator -- reproducible, independent of the global state,
+# and intentionally NOT byte-identical to the global stream (only key=None is).
+# ----------------------------------------------------------------------------
+def _local_draws(k):
+    return [
+        numpy.asarray(gr.uniform(k, (7,))),
+        numpy.asarray(gr.normal(k, (7,))),
+        numpy.asarray(gr.random(k, 7)),
+        numpy.asarray(gr.randint(k, (7,), 0, 50)),
+        numpy.asarray(gr.choice(k, [1.0, 2.0, 3.0, 4.0], shape=7)),
+        numpy.asarray(gr.multivariate_normal(k, _MEAN6, _SINGULAR_COV, shape=7)),
+    ]
+
+
+def test_numpy_local_key_type_not_none():
+    # explicit backend='numpy' opts into a local _NumpyKey (NOT the None sentinel)
+    from galpy.backend.random import _NumpyKey
+
+    k = gr.key(123, "numpy")
+    assert isinstance(k, _NumpyKey)
+    assert k is not None
+    # backend=None under the numpy default still returns None (byte-identical path)
+    assert gr.key(123) is None
+
+
+def test_numpy_local_key_reproducible_all_fns():
+    # same seed => identical draws across all six draw functions
+    first = _local_draws(gr.key(2024, "numpy"))
+    second = _local_draws(gr.key(2024, "numpy"))
+    for a, b in zip(first, second):
+        numpy.testing.assert_array_equal(a, b)
+
+
+def test_numpy_local_key_independent_of_global():
+    # reproducible even with intervening GLOBAL numpy.random churn between draws
+    ref = _local_draws(gr.key(2024, "numpy"))
+    k2 = gr.key(2024, "numpy")
+    numpy.random.seed(999)
+    numpy.random.random(1234)
+    numpy.random.normal(size=77)
+    got = _local_draws(k2)
+    for a, b in zip(ref, got):
+        numpy.testing.assert_array_equal(a, b)
+
+
+def test_numpy_local_key_different_seeds_differ():
+    a = numpy.asarray(gr.uniform(gr.key(1, "numpy"), (200,)))
+    b = numpy.asarray(gr.uniform(gr.key(2, "numpy"), (200,)))
+    assert not numpy.allclose(a, b)
+
+
+def test_numpy_local_split_independent_and_reproducible():
+    ka, kb = gr.split(gr.key(7, "numpy"), 2)
+    a = numpy.asarray(gr.uniform(ka, (20000,)))
+    b = numpy.asarray(gr.uniform(kb, (20000,)))
+    # distinct, essentially-uncorrelated child streams
+    assert not numpy.allclose(a, b)
+    assert abs(numpy.corrcoef(a, b)[0, 1]) < 0.05
+    # split reproducible from the same parent seed
+    ka2, kb2 = gr.split(gr.key(7, "numpy"), 2)
+    numpy.testing.assert_array_equal(a, numpy.asarray(gr.uniform(ka2, (20000,))))
+    numpy.testing.assert_array_equal(b, numpy.asarray(gr.uniform(kb2, (20000,))))
+
+
+def test_numpy_local_split_fallback_derives_seeds():
+    # numpy<1.25 lacks Generator.spawn: _spawn_numpy derives child seeds from the
+    # parent -> still independent AND reproducible (covers the fallback branch).
+    from galpy.backend.random import _spawn_numpy
+
+    class _NoSpawn:  # a Generator-like exposing only .integers (no .spawn)
+        def __init__(self, gen):
+            self._gen = gen
+
+        def integers(self, *args, **kwargs):
+            return self._gen.integers(*args, **kwargs)
+
+    kids = _spawn_numpy(_NoSpawn(numpy.random.default_rng(5)), 3)
+    assert len(kids) == 3
+    a = [numpy.asarray(g.uniform(size=8)) for g in kids]
+    assert not numpy.allclose(a[0], a[1])  # children independent
+    kids2 = _spawn_numpy(_NoSpawn(numpy.random.default_rng(5)), 3)
+    b = [numpy.asarray(g.uniform(size=8)) for g in kids2]
+    for x, y in zip(a, b):
+        numpy.testing.assert_array_equal(x, y)  # reproducible from parent seed
+
+
+def test_numpy_local_stream_differs_from_global():
+    # the local stream is DELIBERATELY not byte-identical to key=None (global);
+    # only key=None reproduces galpy's historical numpy.random draw sequence.
+    local = numpy.asarray(gr.uniform(gr.key(321, "numpy"), (10,)))
+    numpy.random.seed(321)
+    glob = numpy.asarray(gr.uniform(None, (10,)))
+    assert not numpy.array_equal(local, glob)
+
+
+# ----------------------------------------------------------------------------
 # 2. key reproducibility (jax + torch): same key => identical draws
 # ----------------------------------------------------------------------------
 @pytest.mark.parametrize("backend", AD_BACKENDS)
