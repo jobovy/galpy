@@ -301,8 +301,10 @@ class ExpTruncNFWPotential(SphericalPotential):
     def _rdens(self, r, t=0.0):
         # rho(r) / amp; the 1/(4 pi a^3) factor is carried here so that the
         # public dens(r) = rho_s exp(-r/rc) / [(r/a)(1+r/a)^2], matching the
-        # NFW amplitude convention.
-        xp = get_namespace(r)
+        # NFW amplitude convention. data-first (dispatch on r's own namespace):
+        # _ddensdr feeds the spherical DF machinery, which may pass a tracer
+        # under a forced other backend.
+        xp = namespace_from_arrays((r,)) or numpy
         r = xp.asarray(r) * 1.0  # so xp.exp gets a backend array (scalar inputs)
         a = self.a
         return xp.exp(-r / self.rc) / (4.0 * numpy.pi * a * a * r * (1.0 + r / a) ** 2)
@@ -395,26 +397,3 @@ class ExpTruncNFWPotential(SphericalPotential):
             * r ** (2.0 * beta)
             * ((2.0 * beta - 1.0) / r - 2.0 / (a + r) - 1.0 / rc)
         )
-
-    def _rforce_jax(self, r):
-        # Differentiable radial force amp*(-F(r)/r^2) for the constantbetadf
-        # machinery; the closed form suffices (DFs evaluate at r >> the small-r
-        # series threshold). Dispatches on r's OWN namespace (data-first): jax
-        # grad/vmap passes a jax tracer even under a forced-torch run. jax's
-        # native exp1 routes through the non-differentiable expn, so E_1 goes
-        # through -expi(-x); the numpy/scalar path uses scipy.
-        xp = namespace_from_arrays((r,)) or numpy
-        a, rc = self.a, self.rc
-        beta = (a + r) / rc
-        if "jax" in getattr(xp, "__name__", ""):
-            import jax.scipy.special as _jsp
-
-            e1beta = -_jsp.expi(-beta)
-        else:
-            e1beta = _scipy_exp1(beta)
-        F = (
-            self._exp_alpha * (1.0 + self._alpha) * (self._E1_alpha - e1beta)
-            - 1.0
-            + a * xp.exp(-r / rc) / (a + r)
-        )
-        return -self._amp * F / r**2.0
