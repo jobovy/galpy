@@ -9,15 +9,11 @@ import numpy
 from scipy import special
 
 from ..backend import coerce_coords, get_namespace
+from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammainc as _gammainc
 from ..util import conversion
-from ..util._optional_deps import _JAX_LOADED
 from .Potential import Potential, kms_to_kpcGyrDecorator
-
-if _JAX_LOADED:
-    import jax.numpy as jnp
-    import jax.scipy.special as jspecial
 
 
 class PowerSphericalPotentialwCutoff(Potential):
@@ -158,23 +154,11 @@ class PowerSphericalPotentialwCutoff(Potential):
             )
         )
 
-    def _rforce_jax(self, r):
-        if not _JAX_LOADED:  # pragma: no cover
-            raise ImportError(
-                "Making use of the _rforce_jax function requires the google/jax library"
-            )
-        return (
-            -self._amp
-            * 2.0
-            * numpy.pi
-            * self.rc ** (3.0 - self.alpha)
-            * jspecial.gammainc(1.5 - 0.5 * self.alpha, (r / self.rc) ** 2.0)
-            * numpy.exp(jspecial.gammaln(1.5 - 0.5 * self.alpha))
-            / r**2
-        )
-
     def _ddensdr(self, r, t=0.0):
-        xp = get_namespace(r)
+        # data-first (dispatch on r's own namespace): consumed via jax/torch
+        # autodiff by the spherical DF machinery, which may pass a tracer under a
+        # forced other backend.
+        xp = namespace_from_arrays((r,)) or numpy
         return (
             -self._amp
             * r ** (-1.0 - self.alpha)
@@ -217,13 +201,13 @@ class PowerSphericalPotentialwCutoff(Potential):
         -----
         - 2021-03-15 - Written - Lane (UofT)
         """
-        if not _JAX_LOADED:  # pragma: no cover
-            raise ImportError(
-                "Making use of _rforce_jax function requires the google/jax library"
-            )
+        # data-first (dispatch on r's own namespace): consumed via jax/torch
+        # autodiff by the spherical DF machinery, which may pass a tracer under a
+        # forced other backend.
+        xp = namespace_from_arrays((r,)) or numpy
         return (
             -self._amp
-            * jnp.exp(-((r / self.rc) ** 2.0))
+            * xp.exp(-((r / self.rc) ** 2.0))
             / r ** (self.alpha - 2.0 * beta)
             * ((self.alpha - 2.0 * beta) / r + 2.0 * r / self.rc**2.0)
         )
