@@ -366,10 +366,9 @@ def test_linear_dxdv_composite_potential():
     from galpy.orbit import Orbit
     from galpy.potential import IsothermalDiskPotential, KGPotential
 
-    comp = [
-        KGPotential(amp=1.0, K=1.15, F=0.03, D=1.8),
-        IsothermalDiskPotential(amp=0.5, sigma=0.4),
-    ]
+    comp = KGPotential(amp=1.0, K=1.15, F=0.03, D=1.8) + IsothermalDiskPotential(
+        amp=0.5, sigma=0.4
+    )
     times = numpy.linspace(0.0, 5.0, 101)
     o = Orbit([0.2, 0.05])
     o.integrate_dxdv([1.0, 0.0], times, comp, method="dop853")  # Python -> _force2deriv
