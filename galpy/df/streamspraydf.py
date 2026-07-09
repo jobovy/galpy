@@ -168,7 +168,9 @@ class basestreamspraydf(df):
 
         return None
 
-    def sample(self, n, return_orbit=True, returndt=False, integrate=True, tail=None):
+    def sample(
+        self, n, return_orbit=True, returndt=False, integrate=True, tail=None, key=None
+    ):
         """
         Sample from the DF
 
@@ -184,6 +186,8 @@ class basestreamspraydf(df):
             If True, integrate the orbits to the present time. If False, return positions at stripping (probably want to combine with returndt=True then to make sense of them!). Default is True.
         tail : str, optional
             ``'leading'``, ``'trailing'``, or ``'both'`` to override the default set at class initialization. Default is None (use the value of ``tail=`` from ``__init__``). The progenitor is integrated identically for either arm, so any override value works regardless of the initialization choice.
+        key : optional
+            Backend random key from :func:`galpy.backend.random.key`. Default None uses the global ``numpy.random`` draws (byte-identical to previous behaviour). A jax/torch key makes the stripping-time draws reproducible backend arrays from the key (common-random-numbers), the seam a future differentiable-sampling PR builds on.
 
         Returns
         -------
@@ -205,15 +209,26 @@ class basestreamspraydf(df):
         if tail == "both":
             n_leading = n // 2
             n_trailing = n - n_leading
-            out_l, dt_l = self._sample_tail(n_leading, integrate, leading=True)
-            out_t, dt_t = self._sample_tail(n_trailing, integrate, leading=False)
+            # Independent sub-keys per arm (numpy: split -> (None, None), so each
+            # arm draws sequentially from the global generator: byte-identical).
+            from ..backend import random as grandom
+
+            key_l, key_t = grandom.split(key, 2)
+            out_l, dt_l = self._sample_tail(
+                n_leading, integrate, leading=True, key=key_l
+            )
+            out_t, dt_t = self._sample_tail(
+                n_trailing, integrate, leading=False, key=key_t
+            )
             if is_backend_array(out_l):
                 out = get_namespace(out_l).hstack([out_l, out_t])
             else:
                 out = numpy.hstack([out_l, out_t])
             dt = numpy.concatenate([dt_l, dt_t])
         else:
-            out, dt = self._sample_tail(n, integrate, leading=tail == "leading")
+            out, dt = self._sample_tail(
+                n, integrate, leading=tail == "leading", key=key
+            )
         if return_orbit:
             # Output Orbit ro/vo/zo/solarmotion/roSet/voSet match progenitor
             o = Orbit(
@@ -514,15 +529,18 @@ class basestreamspraydf(df):
             def pdf_internal(t):
                 out = stripping_pdf(t * time_in_gyr * units.Gyr)
                 return out.to(1.0 / units.Gyr).value * time_in_gyr
+
         elif _t_unit_input:
 
             def pdf_internal(t):
                 return numpy.asarray(stripping_pdf(t * time_in_gyr * units.Gyr))
+
         elif _t_unit_output:
 
             def pdf_internal(t):
                 out = stripping_pdf(t)
                 return out.to(1.0 / units.Gyr).value * time_in_gyr
+
         else:
 
             def pdf_internal(t):
@@ -544,14 +562,33 @@ class basestreamspraydf(df):
             cdf_vals[unique_idx], t_grid[unique_idx], k=1, ext=3
         )
 
-    def _sample_tail(self, n, integrate, leading=True):
-        """Sample n points from the specified tail."""
-        # First sample times (RNG stays numpy; coerced to the backend below)
+    def _draw_stripping_dt(self, n, key=None):
+        """Draw n stripping-time offsets ``dt >= 0``.
+
+        The single random seam of the spray's stripping-time sampling. numpy
+        (``key is None``) is byte-identical to the historical
+        ``numpy.random.uniform`` draw; a jax/torch ``key`` from
+        :func:`galpy.backend.random.key` returns a reproducible backend array
+        (the default uniform-stripping path). The ``stripping_pdf`` inverse-CDF
+        is a scipy spline, so that path evaluates on the numpy sample for now (a
+        backend-native inverse-CDF is a later PR).
+        """
+        from ..backend import as_numpy
+        from ..backend import random as grandom
+
         if self._stripping_inv_cdf is None:
-            dt = numpy.random.uniform(size=n) * self._tdisrupt
-        else:
-            u_samples = numpy.random.uniform(size=n)
-            dt = -self._stripping_inv_cdf(u_samples)
+            return grandom.uniform(key, (n,)) * self._tdisrupt
+        u_samples = grandom.uniform(key, (n,))
+        return -self._stripping_inv_cdf(as_numpy(u_samples))
+
+    def _sample_tail(self, n, integrate, leading=True, key=None):
+        """Sample n points from the specified tail."""
+        from ..backend import as_numpy
+
+        # Stripping times: reproducible backend array when a key is threaded.
+        # Downstream frame construction and orbit integration are numpy-only for
+        # now (making them differentiable is a later PR), so pull dt to numpy.
+        dt = as_numpy(self._draw_stripping_dt(n, key=key))
         xp = get_namespace(dt)  # context-resolved backend (numpy under numpy)
         # Build all rotation matrices
         rot, rot_inv = self._setup_rot(dt)
@@ -798,11 +835,13 @@ class basestreamspraydf(df):
                 return conversion.parse_mass(
                     progenitor_mass(t_q), ro=self._ro, vo=self._vo
                 )
+
         elif _mass_unit_input:
 
             def _mass_fn(t):
                 t_q = numpy.asarray(t, dtype=float) * _time_to_quantity
                 return numpy.asarray(progenitor_mass(t_q), dtype=float)
+
         elif _mass_unit_output:
 
             def _mass_fn(t):
@@ -811,6 +850,7 @@ class basestreamspraydf(df):
                     ro=self._ro,
                     vo=self._vo,
                 )
+
         else:
 
             def _mass_fn(t):
