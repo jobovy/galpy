@@ -24,6 +24,7 @@ from ._namespaces import (
     exit_cast,
     is_backend_array,
     match_input_dtype,
+    name_of_namespace,
     resolve_namespace,
 )
 from ._resolver import (
@@ -46,6 +47,7 @@ __all__ = [
     "set_default_backend",
     "is_backend_array",
     "match_input_dtype",
+    "name_of_namespace",
     "device_of",
     "asarray_on_device",
     "as_numpy",
