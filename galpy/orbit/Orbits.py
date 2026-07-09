@@ -1743,9 +1743,15 @@ class Orbit:
         # _ic_backend is None and are untouched -> the numpy/C path is unchanged.
         ic_backend = getattr(self, "_ic_backend", None)
         if ic_backend is not None:
-            from ..backend._reference.inbackend_stm import _C_DXDV_METHODS
+            from ..backend._reference.inbackend_stm import _C_RK_METHODS
 
-            if method.lower() in _C_DXDV_METHODS:
+            # Only the Runge-Kutta dxdv methods auto-route here. The symplectic
+            # methods are deliberately excluded: symplec4_c is galpy's DEFAULT
+            # integrator, so routing it would silently reroute every internal
+            # default-method integration (e.g. streamspraydf's sample orbits) to
+            # the C-STM under a forced backend. Symplectic C-STM is still available
+            # explicitly via galpy.backend.integrate_stm / orbit_stm.integrate.
+            if method.lower() in _C_RK_METHODS:
                 _potl = _check_potential_list_and_deprecate(pot)
                 _inbk = (
                     "diffrax"

@@ -859,12 +859,14 @@ _LOWDIM_ROUTE_ACCESSORS = {
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
-def test_lowdim_orbit_integrate_routing(backend, method):
-    # Orbit(planar/1D backend IC).integrate(<dxdv C method>) routes to the C-STM:
-    # accessors stay backend arrays and match the numpy orbit.
+def test_lowdim_orbit_integrate_routing(backend):
+    # Orbit(planar/1D backend IC).integrate(<RK dxdv C method>) routes to the C-STM:
+    # accessors stay backend arrays and match the numpy orbit. (Only the Runge-Kutta
+    # methods auto-route -- see test_symplectic_not_autorouted for why symplectic
+    # methods are excluded from Orbit.integrate routing.)
     from galpy.orbit import Orbit
 
+    method = "dop853_c"
     ts = _arr(backend, _LOWDIM_TS)
     for label, pot, ic, dim in _lowdim_cases():
         o = Orbit(_arr(backend, ic))
@@ -882,6 +884,27 @@ def test_lowdim_orbit_integrate_routing(backend, method):
                 atol=1e-6,
                 err_msg=f"{label} {acc} {method} {backend}",
             )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("method", _SYMPLEC_METHODS)
+def test_symplectic_not_autorouted(backend, method):
+    # The symplectic methods are deliberately NOT auto-routed by Orbit.integrate:
+    # symplec4_c is galpy's DEFAULT integrator, so routing it would silently reroute
+    # every internal default-method integration (e.g. streamspraydf sample orbits)
+    # to the C-STM under a forced backend. So a backend IC + a symplectic method
+    # falls through to the (non-differentiable) numpy/C path -- getOrbit is numpy.
+    # Symplectic C-STM differentiation stays available via orbit_stm.integrate.
+    from galpy.orbit import Orbit
+
+    o = Orbit(_arr(backend, _IC))
+    o.integrate(_arr(backend, _LOWDIM_TS), MWPotential2014, method=method)
+    assert isinstance(o.getOrbit(), numpy.ndarray)
+    # the explicit functional interface still differentiates this same method
+    assert _is_backend(
+        backend,
+        _integ(backend, MWPotential2014, _arr(backend, _IC), _LOWDIM_TS, method),
+    )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
