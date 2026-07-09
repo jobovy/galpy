@@ -267,10 +267,12 @@ def asarray_on_device(xp, a, device, dtype=None):
         return xp.asarray(a, dtype=dtype)
     try:
         return xp.asarray(a, dtype=dtype, device=device)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, AttributeError):
         # The namespace rejects this device value/kwarg (array-api jax exposes
         # .device as the string 'cpu', and jnp.asarray(device='cpu') raises
-        # ValueError; a namespace without a device= kwarg raises TypeError):
+        # ValueError; a namespace without a device= kwarg raises TypeError; a
+        # jax vmap tracer exposes .device as a SingleDeviceSharding, which
+        # jnp.asarray(device=...) rejects with AttributeError under tracing):
         # fall back to a device-less asarray. A genuine dtype error re-raises
         # from the fallback (same dtype, no device), so it is not masked.
         return xp.asarray(a, dtype=dtype)
