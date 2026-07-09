@@ -69,11 +69,6 @@ class PlummerPotential(Potential):
         dPhidrr = -((R**2.0 + z**2.0 + self._b2) ** -1.5)
         return dPhidrr * z
 
-    def _rforce_jax(self, r):
-        # Pure arithmetic, so works for numpy and jax/torch inputs alike; used by
-        # the spherical DF machinery (e.g. constantbetadf).
-        return -self._amp * r * (r**2.0 + self._b2) ** -1.5
-
     def _dens(self, R, z, phi=0.0, t=0.0):
         return 3.0 / 4.0 / math.pi * self._b2 * (R**2.0 + z**2.0 + self._b2) ** -2.5
 
