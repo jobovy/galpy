@@ -4,7 +4,7 @@
 ###############################################################################
 import numpy
 
-from .._namespaces import match_input_dtype
+from .._namespaces import match_input_dtype, name_of_namespace
 from .._resolver import get_namespace
 
 # Per-backend functions whose NATIVE implementation is simply absent, so the
@@ -60,23 +60,18 @@ def _backend_special(xp):
     numpy -> scipy.special, jax.numpy -> jax.scipy.special,
     array_api_compat.torch -> torch.special.
     """
-    name = getattr(xp, "__name__", "")
-    if name in ("numpy", "np"):
-        import scipy.special as _sp
-
-        return "numpy", _sp
-    if name in ("jax.numpy", "jax"):
+    name = name_of_namespace(xp)  # unknown namespace -> "numpy" (defensive)
+    if name == "jax":
         import jax.scipy.special as _sp
 
         return "jax", _sp
-    if "torch" in name:
+    if name == "torch":
         import torch.special as _sp
 
         return "torch", _sp
-    # Unknown namespace: treat as numpy/scipy (defensive).
-    import scipy.special as _sp  # pragma: no cover
+    import scipy.special as _sp
 
-    return "numpy", _sp  # pragma: no cover
+    return "numpy", _sp
 
 
 def _dispatch(fnname, args, fallback, ns_args=None):
