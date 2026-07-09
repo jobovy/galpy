@@ -156,27 +156,6 @@ class PowerSphericalPotential(Potential):
         """
         return -z / (R**2.0 + z**2.0) ** (self.alpha / 2.0)
 
-    def _rforce_jax(self, r):
-        """
-        Evaluate the spherical radial force for this potential using JAX.
-
-        Parameters
-        ----------
-        r : float
-            Galactocentric spherical radius.
-
-        Returns
-        -------
-        float
-            The radial force.
-
-        Notes
-        -----
-        - 2021-02-14 - Written - Bovy (UofT)
-        """
-        # No need for actual JAX!
-        return -self._amp / r ** (self.alpha - 1.0)
-
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the second radial derivative for this potential.
