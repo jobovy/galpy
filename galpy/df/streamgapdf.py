@@ -7,6 +7,8 @@ from functools import wraps
 import numpy
 from scipy import integrate, interpolate, special
 
+from ..backend import get_namespace, is_backend_array
+from ..backend._namespaces import namespace_from_arrays
 from ..orbit import Orbit
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -1307,45 +1309,44 @@ def impulse_deltav_plummer(v, y, b, w, GM, rs):
     -----
     - 2015-04-30 - Written based on Erkal's expressions - Bovy (IAS)
     """
+    xp = (
+        namespace_from_arrays((v, y, w)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
     if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
-        y = numpy.reshape(y, (1, 1))
+        v = xp.reshape(v, (1, 3))
+        y = xp.reshape(y, (1, 1))
     nv = v.shape[0]
     # Build the rotation matrices and their inverse
     rot = _rotation_vy(v)
     rotinv = _rotation_vy(v, inv=True)
     # Rotate the Plummer sphere's velocity to the stream frames
-    tilew = numpy.sum(rot * numpy.tile(w, (nv, 3, 1)), axis=-1)
+    tilew = xp.sum(rot * w, axis=-1)
     # Use Denis' expressions
-    wperp = numpy.sqrt(tilew[:, 0] ** 2.0 + tilew[:, 2] ** 2.0)
-    wpar = numpy.sqrt(numpy.sum(v**2.0, axis=1)) - tilew[:, 1]
+    wperp = xp.sqrt(tilew[:, 0] ** 2.0 + tilew[:, 2] ** 2.0)
+    wpar = xp.sqrt(xp.sum(v**2.0, axis=1)) - tilew[:, 1]
     wmag2 = wpar**2.0 + wperp**2.0
-    wmag = numpy.sqrt(wmag2)
-    out = numpy.empty_like(v)
+    wmag = xp.sqrt(wmag2)
     denom = wmag * ((b**2.0 + rs**2.0) * wmag2 + wperp**2.0 * y**2.0)
-    out[:, 0] = (b * wmag2 * tilew[:, 2] / wperp - y * wpar * tilew[:, 0]) / denom
-    out[:, 1] = -(wperp**2.0) * y / denom
-    out[:, 2] = -(b * wmag2 * tilew[:, 0] / wperp + y * wpar * tilew[:, 2]) / denom
-    # deal w/ perpendicular impacts
-    wperp0Indx = numpy.fabs(wperp) < 10.0**-10.0
-    out[wperp0Indx, 0] = (
-        b * wmag2[wperp0Indx] - y[wperp0Indx] * wpar[wperp0Indx] * tilew[wperp0Indx, 0]
-    ) / denom[wperp0Indx]
-    out[wperp0Indx, 2] = (
-        -(
-            b * wmag2[wperp0Indx]
-            + y[wperp0Indx] * wpar[wperp0Indx] * tilew[wperp0Indx, 2]
-        )
-        / denom[wperp0Indx]
+    # perpendicular impacts: guard the dead 1/wperp branch so it does not NaN AD
+    wperp0Indx = xp.abs(wperp) < 10.0**-10.0
+    wperp_safe = xp.where(wperp0Indx, xp.ones_like(wperp), wperp)
+    col0 = xp.where(
+        wperp0Indx,
+        (b * wmag2 - y * wpar * tilew[:, 0]) / denom,
+        (b * wmag2 * tilew[:, 2] / wperp_safe - y * wpar * tilew[:, 0]) / denom,
+    )
+    col1 = -(wperp**2.0) * y / denom
+    col2 = xp.where(
+        wperp0Indx,
+        -(b * wmag2 + y * wpar * tilew[:, 2]) / denom,
+        -(b * wmag2 * tilew[:, 0] / wperp_safe + y * wpar * tilew[:, 2]) / denom,
+    )
+    out = xp.stack(
+        [xp.reshape(col0, (nv,)), xp.reshape(col1, (nv,)), xp.reshape(col2, (nv,))],
+        axis=-1,
     )
     # Rotate back to the original frame
-    return (
-        2.0
-        * GM
-        * numpy.sum(
-            rotinv * numpy.swapaxes(numpy.tile(out.T, (3, 1, 1)).T, 1, 2), axis=-1
-        )
-    )
+    return 2.0 * GM * xp.sum(rotinv * out[:, None, :], axis=-1)
 
 
 def impulse_deltav_plummer_curvedstream(v, x, b, w, x0, v0, GM, rs):
@@ -1380,33 +1381,49 @@ def impulse_deltav_plummer_curvedstream(v, x, b, w, x0, v0, GM, rs):
     -----
     - 2015-05-04 - Written based on above - Sanders (Cambridge)
     """
+    xp = (
+        namespace_from_arrays((v, x, w, x0, v0)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
     if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
+        v = xp.reshape(v, (1, 3))
     if len(x.shape) == 1:
-        x = numpy.reshape(x, (1, 3))
-    b0 = numpy.cross(w, v0)
-    b0 *= b / numpy.sqrt(numpy.sum(b0**2))
+        x = xp.reshape(x, (1, 3))
+    b0 = xp.stack(
+        [
+            w[1] * v0[2] - w[2] * v0[1],
+            w[2] * v0[0] - w[0] * v0[2],
+            w[0] * v0[1] - w[1] * v0[0],
+        ]
+    )
+    b0 = b0 * (b / xp.sqrt(xp.sum(b0**2)))
     b_ = b0 + x - x0
     w = w - v
-    wmag = numpy.sqrt(numpy.sum(w**2, axis=1))
-    bdotw = numpy.sum(b_ * w, axis=1) / wmag
-    denom = wmag * (numpy.sum(b_**2, axis=1) + rs**2 - bdotw**2)
+    wmag = xp.sqrt(xp.sum(w**2, axis=1))
+    bdotw = xp.sum(b_ * w, axis=1) / wmag
+    denom = wmag * (xp.sum(b_**2, axis=1) + rs**2 - bdotw**2)
     denom = 1.0 / denom
-    return -2.0 * GM * ((b_.T - bdotw * w.T / wmag) * denom).T
+    return -2.0 * GM * ((b_ - bdotw[:, None] * w / wmag[:, None]) * denom[:, None])
 
 
 def HernquistX(s):
     """
     Computes X function from equations (33) & (34) of Hernquist (1990)
     """
-    if s < 0.0:
+    if not is_backend_array(s) and numpy.ndim(s) == 0 and s < 0.0:
         raise ValueError("s must be positive in Hernquist X function")
-    elif s < 1.0:
-        return numpy.log((1 + numpy.sqrt(1 - s * s)) / s) / numpy.sqrt(1 - s * s)
-    elif s == 1.0:
-        return 1.0
-    else:
-        return numpy.arccos(1.0 / s) / numpy.sqrt(s * s - 1)
+    xp = (
+        namespace_from_arrays((s,)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
+    s2 = s * s
+    lt = s < 1.0
+    eq = s == 1.0
+    # branchless: guard each regime's argument so dead branches carry no NaN/inf
+    one_m_s2 = xp.where(lt, 1.0 - s2, xp.ones_like(s2))  # >0 only where used (s<1)
+    r_lt = xp.sqrt(one_m_s2)
+    val_lt = xp.log((1.0 + r_lt) / s) / r_lt
+    s_gt = xp.where(s > 1.0, s, 2.0 * xp.ones_like(s2))  # >1 only where used (s>1)
+    val_gt = xp.arccos(1.0 / s_gt) / xp.sqrt(s_gt * s_gt - 1)
+    return xp.where(lt, val_lt, xp.where(eq, xp.ones_like(s2), val_gt))
 
 
 def impulse_deltav_hernquist(v, y, b, w, GM, rs):
@@ -1438,64 +1455,46 @@ def impulse_deltav_hernquist(v, y, b, w, GM, rs):
     - 2015-08-13 - Written using Wyn Evans calculation - Sanders (Cambridge)
 
     """
+    xp = (
+        namespace_from_arrays((v, y, w)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
     if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
+        v = xp.reshape(v, (1, 3))
     nv = v.shape[0]
     # Build the rotation matrices and their inverse
     rot = _rotation_vy(v)
     rotinv = _rotation_vy(v, inv=True)
     # Rotate the Plummer sphere's velocity to the stream frames
-    tilew = numpy.sum(rot * numpy.tile(w, (nv, 3, 1)), axis=-1)
-    wperp = numpy.sqrt(tilew[:, 0] ** 2.0 + tilew[:, 2] ** 2.0)
-    wpar = numpy.sqrt(numpy.sum(v**2.0, axis=1)) - tilew[:, 1]
+    tilew = xp.sum(rot * w, axis=-1)
+    wperp = xp.sqrt(tilew[:, 0] ** 2.0 + tilew[:, 2] ** 2.0)
+    wpar = xp.sqrt(xp.sum(v**2.0, axis=1)) - tilew[:, 1]
     wmag2 = wpar**2.0 + wperp**2.0
-    wmag = numpy.sqrt(wmag2)
-    B = numpy.sqrt(b**2.0 + wperp**2.0 * y**2.0 / wmag2)
+    wmag = xp.sqrt(wmag2)
+    B = xp.sqrt(b**2.0 + wperp**2.0 * y**2.0 / wmag2)
     denom = wmag * (B**2 - rs**2)
     denom = 1.0 / denom
-    s = numpy.sqrt(2.0 * B / (rs + B))
-    HernquistXv = numpy.vectorize(HernquistX)
-    Xfac = 1.0 - 2.0 * rs / (rs + B) * HernquistXv(s)
-    out = numpy.empty_like(v)
-    out[:, 0] = (
-        (b * tilew[:, 2] / wperp - y * wpar * tilew[:, 0] / wmag2) * denom * Xfac
+    s = xp.sqrt(2.0 * B / (rs + B))
+    Xfac = 1.0 - 2.0 * rs / (rs + B) * HernquistX(s)
+    # perpendicular impacts: guard the dead 1/wperp branch so it does not NaN AD
+    wperp0Indx = xp.abs(wperp) < 10.0**-10.0
+    wperp_safe = xp.where(wperp0Indx, xp.ones_like(wperp), wperp)
+    col0 = xp.where(
+        wperp0Indx,
+        (b - y * wpar * tilew[:, 0] / wmag2) * denom * Xfac,
+        (b * tilew[:, 2] / wperp_safe - y * wpar * tilew[:, 0] / wmag2) * denom * Xfac,
     )
-    out[:, 1] = -(wperp**2.0) * y * denom * Xfac / wmag2
-    out[:, 2] = (
-        -(b * tilew[:, 0] / wperp + y * wpar * tilew[:, 2] / wmag2) * denom * Xfac
+    col1 = -(wperp**2.0) * y * denom * Xfac / wmag2
+    col2 = xp.where(
+        wperp0Indx,
+        -(b + y * wpar * tilew[:, 2] / wmag2) * denom * Xfac,
+        -(b * tilew[:, 0] / wperp_safe + y * wpar * tilew[:, 2] / wmag2) * denom * Xfac,
     )
-    # deal w/ perpendicular impacts
-    wperp0Indx = numpy.fabs(wperp) < 10.0**-10.0
-    out[wperp0Indx, 0] = (
-        (
-            b
-            - y[wperp0Indx]
-            * wpar[wperp0Indx]
-            * tilew[wperp0Indx, 0]
-            / wmag2[wperp0Indx]
-        )
-        * denom[wperp0Indx]
-        * Xfac[wperp0Indx]
-    )
-    out[wperp0Indx, 2] = (
-        -(
-            b
-            + y[wperp0Indx]
-            * wpar[wperp0Indx]
-            * tilew[wperp0Indx, 2]
-            / wmag2[wperp0Indx]
-        )
-        * denom[wperp0Indx]
-        * Xfac[wperp0Indx]
+    out = xp.stack(
+        [xp.reshape(col0, (nv,)), xp.reshape(col1, (nv,)), xp.reshape(col2, (nv,))],
+        axis=-1,
     )
     # Rotate back to the original frame
-    return (
-        2.0
-        * GM
-        * numpy.sum(
-            rotinv * numpy.swapaxes(numpy.tile(out.T, (3, 1, 1)).T, 1, 2), axis=-1
-        )
-    )
+    return 2.0 * GM * xp.sum(rotinv * out[:, None, :], axis=-1)
 
 
 def impulse_deltav_hernquist_curvedstream(v, x, b, w, x0, v0, GM, rs):
@@ -1531,23 +1530,35 @@ def impulse_deltav_hernquist_curvedstream(v, x, b, w, x0, v0, GM, rs):
     - 2015-08-13 - Written using Wyn Evans calculation - Sanders (Cambridge)
 
     """
+    xp = (
+        namespace_from_arrays((v, x, w, x0, v0)) or numpy
+    )  # data-first: leaf consumed by numpy streamgapdf setup
     if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
+        v = xp.reshape(v, (1, 3))
     if len(x.shape) == 1:
-        x = numpy.reshape(x, (1, 3))
-    b0 = numpy.cross(w, v0)
-    b0 *= b / numpy.sqrt(numpy.sum(b0**2))
+        x = xp.reshape(x, (1, 3))
+    b0 = xp.stack(
+        [
+            w[1] * v0[2] - w[2] * v0[1],
+            w[2] * v0[0] - w[0] * v0[2],
+            w[0] * v0[1] - w[1] * v0[0],
+        ]
+    )
+    b0 = b0 * (b / xp.sqrt(xp.sum(b0**2)))
     b_ = b0 + x - x0
     w = w - v
-    wmag = numpy.sqrt(numpy.sum(w**2, axis=1))
-    bdotw = numpy.sum(b_ * w, axis=1) / wmag
-    B = numpy.sqrt(numpy.sum(b_**2, axis=1) - bdotw**2)
+    wmag = xp.sqrt(xp.sum(w**2, axis=1))
+    bdotw = xp.sum(b_ * w, axis=1) / wmag
+    B = xp.sqrt(xp.sum(b_**2, axis=1) - bdotw**2)
     denom = wmag * (B**2 - rs**2)
     denom = 1.0 / denom
-    s = numpy.sqrt(2.0 * B / (rs + B))
-    HernquistXv = numpy.vectorize(HernquistX)
-    Xfac = 1.0 - 2.0 * rs / (rs + B) * HernquistXv(s)
-    return -2.0 * GM * ((b_.T - bdotw * w.T / wmag) * Xfac * denom).T
+    s = xp.sqrt(2.0 * B / (rs + B))
+    Xfac = 1.0 - 2.0 * rs / (rs + B) * HernquistX(s)
+    return (
+        -2.0
+        * GM
+        * ((b_ - bdotw[:, None] * w / wmag[:, None]) * Xfac[:, None] * denom[:, None])
+    )
 
 
 def _a_integrand(T, y, b, w, pot, compt):
@@ -2083,4 +2094,7 @@ def impulse_deltav_plummerstream_curvedstream(
 
 
 def _rotation_vy(v, inv=False):
-    return _rotate_to_arbitrary_vector(v, [0, 1, 0], inv)
+    a = [0, 1, 0]  # numpy path: list kept verbatim (byte-identical)
+    if is_backend_array(v):  # backend: anchor the target axis on v's namespace
+        a = get_namespace(v).asarray(a, dtype=v.dtype)
+    return _rotate_to_arbitrary_vector(v, a, inv)
