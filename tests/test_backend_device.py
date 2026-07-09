@@ -109,23 +109,26 @@ def test_doubleexp_scalar_R_array_z(backend):
     numpy.testing.assert_allclose(as_numpy(dp(Rb, zb2)), ref2, rtol=1e-8, atol=1e-10)
 
 
-def test_asarray_on_device_rejecting_device_fallback():
+@pytest.mark.parametrize("exc", [ValueError, TypeError, AttributeError])
+def test_asarray_on_device_rejecting_device_fallback(exc):
     # asarray_on_device (the helper the anchoring/coercion paths build on) must
     # fall back to a device-less asarray when the namespace rejects the device
-    # value (array-api jax exposes .device as the string 'cpu', and
+    # value: array-api jax exposes .device as the string 'cpu' and
     # jnp.asarray(device='cpu') raises ValueError; a namespace without a device=
-    # kwarg raises TypeError). Driven deterministically with a tiny stub so the
-    # fallback is covered on every CI runner regardless of the installed jax's
-    # .device behaviour.
+    # kwarg raises TypeError; and a jax vmap tracer exposes .device as a
+    # SingleDeviceSharding, which jnp.asarray(device=...) rejects with
+    # AttributeError under tracing. Driven deterministically with a tiny stub so
+    # the fallback is covered on every CI runner regardless of the installed
+    # jax's .device behaviour.
     from galpy.backend._namespaces import asarray_on_device
 
     class _Xp:
         def asarray(self, v, dtype=None, device=None):
             if device is not None:
-                raise ValueError(f"backend rejects device={device!r}")
+                raise exc(f"backend rejects device={device!r}")
             return numpy.asarray(v, dtype=dtype)
 
-    out = asarray_on_device(_Xp(), 2.5, "string-device-the-namespace-rejects")
+    out = asarray_on_device(_Xp(), 2.5, "device-the-namespace-rejects")
     assert float(out) == 2.5  # fell back to the device-less asarray
 
 
