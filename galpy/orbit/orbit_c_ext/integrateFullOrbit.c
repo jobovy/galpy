@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <math.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_spline.h>
@@ -54,6 +55,12 @@ void evalSOSDeriv(double, double *, double *,
 			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
+// Augmented force+Hessian evaluator (3D): fills the base acceleration and, per
+// deviation column, the closed-form kick tangent K.dq_j consumed by the generic
+// symplectic variational steppers leapfrog_dxdv/symplec4_dxdv/symplec6_dxdv in
+// bovy_symplecticode.c (see integrateFullOrbit_dxdv).
+void evalRectForce_dxdv(double, double *, double *,
+			int, struct potentialArg *, int);
 void initMovingObjectSplines(struct potentialArg *, double ** pot_args);
 void initChandrasekharDynamicalFrictionSplines(struct potentialArg *, double ** pot_args);
 /*
@@ -1252,34 +1259,46 @@ EXPORT void integrateFullOrbit_dxdv(double *yo,
 		      double *,int *);
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct potentialArg *);
-  // Only the non-symplectic integrators support the 12D variational (dxdv)
-  // system; Orbit.integrate_dxdv enforces this upstream
-  // (check_integrator(no_symplec=True)), so the symplectic/leapfrog/ias15
-  // odeint_types never reach here -- mirroring integratePlanarOrbit_dxdv.
+  // The non-symplectic (RK) integrators propagate the 12D deviation via the
+  // variational RHS evalRectDeriv_dxdv (dim=12); the symplectic integrators
+  // (leapfrog=0/symplec4=3/symplec6=4) instead carry the deviation through
+  // the closed-form drift/kick tangent maps of the *_dxdv steppers (nde=1
+  // deviation column). ias15 has no dxdv path and is blocked upstream by
+  // Orbit.integrate_dxdv (check_integrator).
+  odeint_func= NULL;
+  odeint_deriv_func= &evalRectDeriv_dxdv;
+  dim= 12;
   switch ( odeint_type ) {
   case 1: //RK4
     odeint_func= &bovy_rk4;
-    odeint_deriv_func= &evalRectDeriv_dxdv;
-    dim= 12;
     break;
   case 2: //RK6
     odeint_func= &bovy_rk6;
-    odeint_deriv_func= &evalRectDeriv_dxdv;
-    dim= 12;
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
-    odeint_deriv_func= &evalRectDeriv_dxdv;
-    dim= 12;
     break;
   case 6: //DOP853
     odeint_func= &dop853;
-    odeint_deriv_func= &evalRectDeriv_dxdv;
-    dim= 12;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,
-	      rtol,atol,result,err);
+  switch ( odeint_type ) {
+  case 0: //leapfrog
+    leapfrog_dxdv(&evalRectForce_dxdv,&evalRectForce,3,1,yo,nt,dt,t,npot,
+		  potentialArgs,rtol,atol,result,err);
+    break;
+  case 3: //symplec4
+    symplec4_dxdv(&evalRectForce_dxdv,&evalRectForce,3,1,yo,nt,dt,t,npot,
+		  potentialArgs,rtol,atol,result,err);
+    break;
+  case 4: //symplec6
+    symplec6_dxdv(&evalRectForce_dxdv,&evalRectForce,3,1,yo,nt,dt,t,npot,
+		  potentialArgs,rtol,atol,result,err);
+    break;
+  default: //RK method selected above
+    odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,
+		rtol,atol,result,err);
+  }
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
@@ -1581,4 +1600,82 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   *a  = dFxdz*dx+dFydz*dy+dFzdz*dz
     + jac_x[6]*dx + jac_x[7]*dy + jac_x[8]*dz
     + jac_v[6]*dvx + jac_v[7]*dvy + jac_v[8]*dvz;
+}
+
+/*
+  Symplectic variational (state-transition) integration for the 3D orbit. The
+  generic augmented steppers live in galpy/util/bovy_symplecticode.c
+  (leapfrog_dxdv/symplec4_dxdv/symplec6_dxdv); this file supplies only the 3D
+  augmented force evalRectForce_dxdv, which returns the base acceleration and,
+  per deviation column, the closed-form kick tangent K.dq_j with K the symmetric
+  conservative Cartesian Hessian (-grad grad Phi) assembled from the base
+  position (reusing the evalRectDeriv_dxdv K block). Dissipative forces never
+  reach this path (galpy reroutes symplectic+dissipative upstream), so the kick
+  is always the conservative, explicit map (no jac_x/jac_v term).
+*/
+// Fill a with the base acceleration (block 0, byte-identical to evalRectForce)
+// and, per deviation column j, the kick tangent K.dq_j (block j). K is the
+// conservative Cartesian Hessian assembled exactly as in evalRectDeriv_dxdv.
+void evalRectForce_dxdv(double t, double *q, double *a,
+			int nargs, struct potentialArg * potentialArgs,
+			int nde){
+  double sinphi, cosphi, x, y, phi, R, Rforce, phitorque, z;
+  double R2deriv, phi2deriv, Rphideriv, z2deriv, Rzderiv, zphideriv;
+  double RforceK, phitorqueK;
+  double dFxdx, dFxdy, dFydy, dFxdz, dFydz, dFzdz, dx, dy, dz;
+  int jj;
+  //q is rectangular so calculate R and phi (base block only)
+  x= *q;
+  y= *(q+1);
+  z= *(q+2);
+  R= sqrt(x*x+y*y);
+  phi= acos(x/R);
+  sinphi= y/R;
+  cosphi= x/R;
+  if ( y < 0. ) phi= 2.*M_PI-phi;
+  //Base acceleration: identical calls/order to evalRectForce (bit-identical
+  //base trajectory vs a plain leapfrog/symplec4/symplec6 run)
+  Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs);
+  *a    = cosphi*Rforce-1./R*sinphi*phitorque;
+  *(a+1)= sinphi*Rforce+1./R*cosphi*phitorque;
+  *(a+2)= calczforce(R,z,phi,t,nargs,potentialArgs);
+  if ( nde == 0 ) return;
+  //Conservative Cartesian Hessian K (-grad grad Phi): same aggregators and
+  //conservative-only force (include_dissipative=0) as evalRectDeriv_dxdv
+  R2deriv= calcR2deriv(R,z,phi,t,nargs,potentialArgs);
+  phi2deriv= calcphi2deriv(R,z,phi,t,nargs,potentialArgs);
+  Rphideriv= calcRphideriv(R,z,phi,t,nargs,potentialArgs);
+  z2deriv= calcz2deriv(R,z,phi,t,nargs,potentialArgs);
+  Rzderiv= calcRzderiv(R,z,phi,t,nargs,potentialArgs);
+  zphideriv= calczphideriv(R,z,phi,t,nargs,potentialArgs);
+  RforceK= calcRforce(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
+  phitorqueK= calcphitorque(R,z,phi,t,nargs,potentialArgs,0,0.,0.,0.);
+  dFxdx= -cosphi*cosphi*R2deriv
+    +2.*cosphi*sinphi/R/R*phitorqueK
+    +sinphi*sinphi/R*RforceK
+    +2.*sinphi*cosphi/R*Rphideriv
+    -sinphi*sinphi/R/R*phi2deriv;
+  dFxdy= -sinphi*cosphi*R2deriv
+    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorqueK
+    -cosphi*sinphi/R*RforceK
+    -(cosphi*cosphi-sinphi*sinphi)/R*Rphideriv
+    +cosphi*sinphi/R/R*phi2deriv;
+  dFydy= -sinphi*sinphi*R2deriv
+    -2.*sinphi*cosphi/R/R*phitorqueK
+    -2.*sinphi*cosphi/R*Rphideriv
+    +cosphi*cosphi/R*RforceK
+    -cosphi*cosphi/R/R*phi2deriv;
+  dFxdz= -cosphi*Rzderiv+sinphi/R*zphideriv;
+  dFydz= -sinphi*Rzderiv-cosphi/R*zphideriv;
+  dFzdz= -z2deriv;
+  //Kick tangent per deviation column: dv_j += h K.dq_j (K symmetric)
+  for (jj=1; jj <= nde; jj++) {
+    dx= *(q+3*jj);
+    dy= *(q+3*jj+1);
+    dz= *(q+3*jj+2);
+    *(a+3*jj  )= dFxdx*dx+dFxdy*dy+dFxdz*dz;
+    *(a+3*jj+1)= dFxdy*dx+dFydy*dy+dFydz*dz;
+    *(a+3*jj+2)= dFxdz*dx+dFydz*dy+dFzdz*dz;
+  }
 }

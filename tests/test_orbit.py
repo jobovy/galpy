@@ -12265,7 +12265,15 @@ def test_orbit_c_sigint_planar():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
-    integrators = ["dopr54_c", "rk4_c", "rk6_c", "dop853_c"]
+    integrators = [
+        "dopr54_c",
+        "rk4_c",
+        "rk6_c",
+        "dop853_c",
+        "leapfrog_c",
+        "symplec4_c",
+        "symplec6_c",
+    ]
     scriptpath = "orbitint4sigint.py"
     if not "tests" in os.getcwd():
         scriptpath = os.path.join("tests", scriptpath)
@@ -12298,6 +12306,51 @@ def test_orbit_c_sigint_planardxdv():
                 msg = p.poll()
             raise AssertionError(
                 "Full orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i"
+                % (integrator, msg)
+            )
+        p.stdin.close()
+        p.stdout.close()
+        p.stderr.close()
+    return None
+
+
+# Test that 6D (full) dxdv orbit integration in C gets interrupted by SIGINT: the
+# symplectic dxdv drivers estimate the step (dt=-9999.99, no explicit dt here) and
+# handle the interrupt inline, so this covers both branches for leapfrog/symplec4/6.
+def test_orbit_c_sigint_fulldxdv():
+    integrators = ["leapfrog_c", "symplec4_c", "symplec6_c"]
+    scriptpath = "orbitint4sigint.py"
+    if not "tests" in os.getcwd():
+        scriptpath = os.path.join("tests", scriptpath)
+    ntries = 10
+    for integrator in integrators:
+        p = subprocess.Popen(
+            ["python", scriptpath, integrator, "fulldxdv"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        for line in iter(p.stdout.readline, b""):
+            if line.startswith(b"Starting long C integration ..."):
+                break
+        time.sleep(2)
+        os.kill(p.pid, signal.SIGINT)
+        time.sleep(1)
+        cnt = 0
+        while p.poll() is None and cnt < ntries:  # wait a little longer
+            time.sleep(4)
+            cnt += 1
+
+        if p.poll() == 2 and WIN32:
+            break
+
+        if p.poll() is None or (p.poll() != 1 and p.poll() != -2):
+            if p.poll() is None:
+                msg = -100
+            else:
+                msg = p.poll()
+            raise AssertionError(
+                "Full dxdv orbit integration using %s should have been interrupted by SIGINT (CTRL-C), but was not because p.poll() == %i"
                 % (integrator, msg)
             )
         p.stdin.close()
@@ -12951,14 +13004,40 @@ def test_integrate_dxdv_errors():
         o.integrate_dxdv(
             None, ts, potential.MWPotential, method="some non-existent integrator"
         )
-    # Test that a symplectic integrator raises for 6D orbits
-    o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
-    with pytest.raises(ValueError) as excinfo:
+    # The C symplectic integrators (leapfrog_c/symplec4_c/symplec6_c) DO support
+    # the 6D variational (dxdv) system via their exact drift/kick tangent maps,
+    # but the pure-Python 'leapfrog' and 'ias15_c' have no dxdv path and must
+    # still raise for 6D orbits.
+    for method in ("leapfrog", "ias15_c"):
+        o = Orbit([1.0, 0.1, 1.0, 0.1, 0.1, 3.0])
+        with pytest.raises(ValueError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                ts,
+                potential.MWPotential,
+                method=method,
+            )
+    # The pure-Python 'leapfrog' and 'ias15_c' have no dxdv path and must
+    # still raise for planar (4D) orbits.
+    for method in ("leapfrog", "ias15_c"):
+        o = Orbit([1.0, 0.1, 1.0, 3.0])
+        with pytest.raises(ValueError) as excinfo:
+            o.integrate_dxdv(
+                [1.0, 0.0, 0.0, 0.0],
+                ts,
+                potential.MWPotential,
+                method=method,
+            )
+    # The C symplectic integrators (leapfrog_c/symplec4_c/symplec6_c) DO now
+    # support the planar (4D) variational (dxdv) system via their exact
+    # drift/kick tangent maps, so they must NOT raise.
+    for method in ("leapfrog_c", "symplec4_c", "symplec6_c"):
+        o = Orbit([1.0, 0.1, 1.0, 3.0])
         o.integrate_dxdv(
-            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
             ts,
             potential.MWPotential,
-            method="symplec4_c",
+            method=method,
         )
     return None
 

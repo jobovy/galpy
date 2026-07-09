@@ -88,6 +88,45 @@ double symplec6_estimate_step(void (*func)(double , double *, double *,int, stru
 			      double, double *,
 			      int,struct potentialArg *,
 			      double,double);
+/*
+  Symplectic variational (dxdv/state-transition) steppers. These perform plain
+  symplectic integration on the augmented state (base + nde deviation columns,
+  augmented dim = dim_base*(nde+1)): force_aug fills the base acceleration and
+  the per-column kick tangent K.dq_j; force_base is used only for the base-only
+  step estimate. yo/result use the interleaved [pos(dim_base),vel(dim_base)] x
+  (nde+1) layout. Args: force_aug, force_base, dim_base, nde, then the usual
+  (yo, nt, dt, t, nargs, potentialArgs, rtol, atol, result, err).
+*/
+void leapfrog_dxdv(void (*force_aug)(double, double *, double *,
+				     int, struct potentialArg *, int),
+		   void (*force_base)(double, double *, double *,
+				      int, struct potentialArg *),
+		   int, int,
+		   double *,
+		   int, double, double *,
+		   int, struct potentialArg *,
+		   double, double,
+		   double *, int *);
+void symplec4_dxdv(void (*force_aug)(double, double *, double *,
+				     int, struct potentialArg *, int),
+		   void (*force_base)(double, double *, double *,
+				      int, struct potentialArg *),
+		   int, int,
+		   double *,
+		   int, double, double *,
+		   int, struct potentialArg *,
+		   double, double,
+		   double *, int *);
+void symplec6_dxdv(void (*force_aug)(double, double *, double *,
+				     int, struct potentialArg *, int),
+		   void (*force_base)(double, double *, double *,
+				      int, struct potentialArg *),
+		   int, int,
+		   double *,
+		   int, double, double *,
+		   int, struct potentialArg *,
+		   double, double,
+		   double *, int *);
 #ifdef __cplusplus
 }
 #endif

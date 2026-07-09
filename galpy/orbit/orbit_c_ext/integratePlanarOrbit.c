@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <math.h>
 #include <bovy_coords.h>
 #include <bovy_symplecticode.h>
@@ -41,6 +42,12 @@ void evalPlanarSOSDerivy(double, double *, double *,
 			 int, struct potentialArg *);
 void evalPlanarRectDeriv_dxdv(double, double *, double *,
 			      int, struct potentialArg *);
+// Augmented force+Hessian evaluator (planar/2D): fills the base acceleration
+// and, per deviation column, the closed-form kick tangent K2.dq_j consumed by
+// the generic symplectic variational steppers leapfrog_dxdv/symplec4_dxdv/
+// symplec6_dxdv in bovy_symplecticode.c (see integratePlanarOrbit_dxdv).
+void evalPlanarRectForce_dxdv(double, double *, double *,
+			      int, struct potentialArg *, int);
 void initPlanarMovingObjectSplines(struct potentialArg *, double ** pot_args);
 /*
   Actual functions
@@ -959,30 +966,46 @@ EXPORT void integratePlanarOrbit_dxdv(double *yo,
 		      double *,int *);
   void (*odeint_deriv_func)(double, double *, double *,
 			    int,struct potentialArg *);
+  // Non-symplectic (RK) integrators propagate the 8D deviation via the planar
+  // variational RHS evalPlanarRectDeriv_dxdv (dim=8); the symplectic ones
+  // (leapfrog=0/symplec4=3/symplec6=4) instead carry the deviation through the
+  // closed-form drift/kick tangent maps of the shared *_dxdv steppers (nde=1
+  // deviation column, dim_base=2). ias15 has no dxdv path and is blocked upstream by
+  // Orbit.integrate_dxdv (check_integrator).
+  odeint_func= NULL;
+  odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
+  dim= 8;
   switch ( odeint_type ) {
   case 1: //RK4
     odeint_func= &bovy_rk4;
-    odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
-    dim= 8;
     break;
   case 2: //RK6
     odeint_func= &bovy_rk6;
-    odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
-    dim= 8;
     break;
   case 5: //DOPR54
     odeint_func= &bovy_dopr54;
-    odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
-    dim= 8;
     break;
   case 6: //DOP853
     odeint_func= &dop853;
-    odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
-    dim= 8;
     break;
   }
-  odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
-	      result,err);
+  switch ( odeint_type ) {
+  case 0: //leapfrog
+    leapfrog_dxdv(&evalPlanarRectForce_dxdv,&evalPlanarRectForce,2,1,yo,nt,dt,t,
+		  npot,potentialArgs,rtol,atol,result,err);
+    break;
+  case 3: //symplec4
+    symplec4_dxdv(&evalPlanarRectForce_dxdv,&evalPlanarRectForce,2,1,yo,nt,dt,t,
+		  npot,potentialArgs,rtol,atol,result,err);
+    break;
+  case 4: //symplec6
+    symplec6_dxdv(&evalPlanarRectForce_dxdv,&evalPlanarRectForce,2,1,yo,nt,dt,t,
+		  npot,potentialArgs,rtol,atol,result,err);
+    break;
+  default: //RK method selected above
+    odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
+		result,err);
+  }
   //Free allocated memory
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
@@ -1185,4 +1208,69 @@ void initPlanarMovingObjectSplines(struct potentialArg * potentialArgs, double *
 
   *pot_args = *pot_args+ (int) (1+3*nPts);
   free(t);
+}
+
+/*
+  Planar symplectic variational (state-transition) integration. The generic
+  augmented steppers live in galpy/util/bovy_symplecticode.c (leapfrog_dxdv/
+  symplec4_dxdv/symplec6_dxdv); this file supplies only the planar augmented
+  force evalPlanarRectForce_dxdv, which returns the base acceleration and, per
+  deviation column, the closed-form kick tangent K2.dq_j with K2 the symmetric
+  conservative planar Cartesian Hessian (-grad grad Phi) assembled from the base
+  position (reusing the evalPlanarRectDeriv_dxdv K2 block). Dissipative forces
+  never reach this path (galpy reroutes symplectic+dissipative upstream), so the
+  kick is always the conservative, explicit map (no jac term).
+*/
+// Fill a with the base acceleration (block 0, byte-identical to
+// evalPlanarRectForce) and, per deviation column j, the kick tangent K2.dq_j
+// (block j). K2 is the conservative planar Cartesian Hessian assembled exactly
+// as in evalPlanarRectDeriv_dxdv (symmetric: dFxdy=dFydx).
+void evalPlanarRectForce_dxdv(double t, double *q, double *a,
+			      int nargs, struct potentialArg * potentialArgs,
+			      int nde){
+  double sinphi, cosphi, x, y, phi, R, Rforce, phitorque;
+  double R2deriv, phi2deriv, Rphideriv, dFxdx, dFxdy, dFydy, dx, dy;
+  int jj;
+  //q is rectangular so calculate R and phi (base block only)
+  x= *q;
+  y= *(q+1);
+  R= sqrt(x*x+y*y);
+  phi= acos(x/R);
+  sinphi= y/R;
+  cosphi= x/R;
+  if ( y < 0. ) phi= 2.*M_PI-phi;
+  //Base acceleration: identical calls/order to evalPlanarRectForce (bit-
+  //identical base trajectory vs a plain leapfrog/symplec4/symplec6 run)
+  Rforce= calcPlanarRforce(R,phi,t,nargs,potentialArgs);
+  phitorque= calcPlanarphitorque(R,phi,t,nargs,potentialArgs);
+  *a    = cosphi*Rforce-1./R*sinphi*phitorque;
+  *(a+1)= sinphi*Rforce+1./R*cosphi*phitorque;
+  if ( nde == 0 ) return;
+  //Conservative planar Cartesian Hessian K2 (same aggregators as
+  //evalPlanarRectDeriv_dxdv, which likewise uses the conservative force)
+  R2deriv= calcPlanarR2deriv(R,phi,t,nargs,potentialArgs);
+  phi2deriv= calcPlanarphi2deriv(R,phi,t,nargs,potentialArgs);
+  Rphideriv= calcPlanarRphideriv(R,phi,t,nargs,potentialArgs);
+  dFxdx= -cosphi*cosphi*R2deriv
+    +2.*cosphi*sinphi/R/R*phitorque
+    +sinphi*sinphi/R*Rforce
+    +2.*sinphi*cosphi/R*Rphideriv
+    -sinphi*sinphi/R/R*phi2deriv;
+  dFxdy= -sinphi*cosphi*R2deriv
+    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorque
+    -cosphi*sinphi/R*Rforce
+    -(cosphi*cosphi-sinphi*sinphi)/R*Rphideriv
+    +cosphi*sinphi/R/R*phi2deriv;
+  dFydy= -sinphi*sinphi*R2deriv
+    -2.*sinphi*cosphi/R/R*phitorque
+    -2.*sinphi*cosphi/R*Rphideriv
+    +cosphi*cosphi/R*Rforce
+    -cosphi*cosphi/R/R*phi2deriv;
+  //Kick tangent per deviation column: dv_j += h K2.dq_j (K2 symmetric)
+  for (jj=1; jj <= nde; jj++) {
+    dx= *(q+2*jj);
+    dy= *(q+2*jj+1);
+    *(a+2*jj  )= dFxdx*dx+dFxdy*dy;
+    *(a+2*jj+1)= dFxdy*dx+dFydy*dy;
+  }
 }

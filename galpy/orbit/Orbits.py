@@ -1338,7 +1338,7 @@ class Orbit:
         return None
 
     @staticmethod
-    def check_integrator(method, no_symplec=False):
+    def check_integrator(method, no_symplec=False, allow_c_symplec=False):
         valid_methods = [
             "odeint",
             "leapfrog",
@@ -1353,13 +1353,15 @@ class Orbit:
             "ias15_c",
         ]
         if no_symplec:
+            # The pure-Python leapfrog and ias15_c have no variational (dxdv)
+            # path; the C symplectic integrators (leapfrog_c/symplec4_c/
+            # symplec6_c) do, so integrate_dxdv keeps them via allow_c_symplec.
             symplec_methods = [
                 "leapfrog",
-                "leapfrog_c",
-                "symplec4_c",
-                "symplec6_c",
                 "ias15_c",  # practically speaking, ias15 has the same limitations as symplectic integrators in galpy
             ]
+            if not allow_c_symplec:
+                symplec_methods += ["leapfrog_c", "symplec4_c", "symplec6_c"]
             [valid_methods.remove(symplec_method) for symplec_method in symplec_methods]
         if method.lower() not in valid_methods:
             raise ValueError(f"{method:s} is not a valid `method`")
@@ -2322,7 +2324,7 @@ class Orbit:
 
         Notes
         -----
-        - Possible integration methods are the non-symplectic ones in galpy:
+        - Possible integration methods are:
 
           - 'odeint' for scipy's odeint
           -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
@@ -2330,6 +2332,14 @@ class Orbit:
           -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+          -  'leapfrog_c' for a 2nd-order symplectic integrator in C
+          -  'symplec4_c' for a 4th-order symplectic integrator in C
+          -  'symplec6_c' for a 6th-order symplectic integrator in C
+
+          The symplectic methods carry the phase-space deviation through the
+          exact drift/kick tangent maps of the discrete integrator, so the
+          propagated deviation is symplectic to machine precision (but they
+          only support conservative forces, as for plain integration).
 
         - For 3D (6D) orbits, dissipative (velocity-dependent) forces are
           supported by the C-based methods for forces with a C implementation
@@ -2357,10 +2367,20 @@ class Orbit:
             raise AttributeError(
                 "integrate_dxdv is only implemented for 4D (planar) and 6D (3D) orbits"
             )
-        self.check_integrator(method, no_symplec=True)
+        # The C symplectic integrators (leapfrog_c/symplec4_c/symplec6_c) carry
+        # the deviation via exact drift/kick tangent maps, so they are allowed
+        # for both planar (4D) and 3D (6D) orbits (allow_c_symplec); the
+        # pure-Python 'leapfrog'/'ias15_c' have no dxdv path, so those remain
+        # rejected.
+        self.check_integrator(
+            method, no_symplec=True, allow_c_symplec=self.phasedim() in (4, 6)
+        )
         pot = _check_potential_list_and_deprecate(pot)
         _check_potential_dim(self, pot)
         _check_consistent_units(self, pot)
+        # The symplectic kick is conservative-only, so (as for plain integration)
+        # reroute symplectic+dissipative to a non-symplectic C/Python integrator.
+        method = self._check_method_dissipative_compatible(method, pot)
         # Parse t
         if _APY_LOADED and isinstance(t, units.Quantity):
             self._integrate_t_asQuantity = True
@@ -2404,9 +2424,10 @@ class Orbit:
                 allHasC = _check_c(pot) and _check_c(pot, dxdv3d=True)
             else:
                 allHasC = _check_c(pot) and _check_c(pot, dxdv=True)
-            if not ext_loaded or (
-                not allHasC and not "leapfrog" in method and not "symplec" in method
-            ):
+            # No pure-Python symplectic variational integrator exists, so (like
+            # the RK methods) fall back to odeint when the potential lacks the
+            # adequate C implementation for phase-space-volume integration.
+            if not ext_loaded or not allHasC:
                 method = "odeint"
                 if not ext_loaded:  # pragma: no cover
                     warnings.warn(
