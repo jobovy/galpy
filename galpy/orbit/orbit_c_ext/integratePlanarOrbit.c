@@ -42,21 +42,12 @@ void evalPlanarSOSDerivy(double, double *, double *,
 			 int, struct potentialArg *);
 void evalPlanarRectDeriv_dxdv(double, double *, double *,
 			      int, struct potentialArg *);
-// Augmented force+Hessian evaluator and planar symplectic variational (dxdv)
-// steppers: carry nde phase-space deviation columns via the closed-form
-// drift/kick tangent maps (see integratePlanarOrbit_dxdv). Planar (2D) analogs
-// of evalRectForce_dxdv/leapfrog_dxdv/... in integrateFullOrbit.c.
+// Augmented force+Hessian evaluator (planar/2D): fills the base acceleration
+// and, per deviation column, the closed-form kick tangent K2.dq_j consumed by
+// the generic symplectic variational steppers leapfrog_dxdv/symplec4_dxdv/
+// symplec6_dxdv in bovy_symplecticode.c (see integratePlanarOrbit_dxdv).
 void evalPlanarRectForce_dxdv(double, double *, double *,
 			      int, struct potentialArg *, int);
-void leapfrog_dxdv_planar(int, double *, int, double, double *,
-			  int, struct potentialArg *, double, double,
-			  double *, int *);
-void symplec4_dxdv_planar(int, double *, int, double, double *,
-			  int, struct potentialArg *, double, double,
-			  double *, int *);
-void symplec6_dxdv_planar(int, double *, int, double, double *,
-			  int, struct potentialArg *, double, double,
-			  double *, int *);
 void initPlanarMovingObjectSplines(struct potentialArg *, double ** pot_args);
 /*
   Actual functions
@@ -978,8 +969,8 @@ EXPORT void integratePlanarOrbit_dxdv(double *yo,
   // Non-symplectic (RK) integrators propagate the 8D deviation via the planar
   // variational RHS evalPlanarRectDeriv_dxdv (dim=8); the symplectic ones
   // (leapfrog=0/symplec4=3/symplec6=4) instead carry the deviation through the
-  // closed-form drift/kick tangent maps of the *_dxdv_planar steppers (nde=1
-  // deviation column). ias15 has no dxdv path and is blocked upstream by
+  // closed-form drift/kick tangent maps of the shared *_dxdv steppers (nde=1
+  // deviation column, dim_base=2). ias15 has no dxdv path and is blocked upstream by
   // Orbit.integrate_dxdv (check_integrator).
   odeint_func= NULL;
   odeint_deriv_func= &evalPlanarRectDeriv_dxdv;
@@ -1000,13 +991,16 @@ EXPORT void integratePlanarOrbit_dxdv(double *yo,
   }
   switch ( odeint_type ) {
   case 0: //leapfrog
-    leapfrog_dxdv_planar(1,yo,nt,dt,t,npot,potentialArgs,rtol,atol,result,err);
+    leapfrog_dxdv(&evalPlanarRectForce_dxdv,&evalPlanarRectForce,2,1,yo,nt,dt,t,
+		  npot,potentialArgs,rtol,atol,result,err);
     break;
   case 3: //symplec4
-    symplec4_dxdv_planar(1,yo,nt,dt,t,npot,potentialArgs,rtol,atol,result,err);
+    symplec4_dxdv(&evalPlanarRectForce_dxdv,&evalPlanarRectForce,2,1,yo,nt,dt,t,
+		  npot,potentialArgs,rtol,atol,result,err);
     break;
   case 4: //symplec6
-    symplec6_dxdv_planar(1,yo,nt,dt,t,npot,potentialArgs,rtol,atol,result,err);
+    symplec6_dxdv(&evalPlanarRectForce_dxdv,&evalPlanarRectForce,2,1,yo,nt,dt,t,
+		  npot,potentialArgs,rtol,atol,result,err);
     break;
   default: //RK method selected above
     odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
@@ -1217,49 +1211,16 @@ void initPlanarMovingObjectSplines(struct potentialArg * potentialArgs, double *
 }
 
 /*
-  Planar symplectic variational (state-transition) integration.
-
-  Planar (2D) analog of leapfrog_dxdv/symplec4_dxdv/symplec6_dxdv in
-  integrateFullOrbit.c: mirrors leapfrog/symplec4/symplec6 in
-  galpy/util/bovy_symplecticode.c (same DKD ordering, coefficients, and
-  interior micro-step drift merges) but additionally propagates nde phase-space
-  deviation columns through the exact, closed-form tangent maps of each drift
-  and kick:
-       drift M_D = [[I2, h I2],[0, I2]]   kick M_K = [[I2, 0],[h K2, I2]]
-  with K2 the symmetric conservative planar Cartesian Hessian (-grad grad Phi)
-  assembled once per kick from the base position by evalPlanarRectForce_dxdv
-  (reusing the evalPlanarRectDeriv_dxdv K2 block). Each elementary map is exactly
-  symplectic for a conservative (symmetric-K2) system, so the per-step product is
-  symplectic to machine precision. Only nde=1 is wired here (8-wide dxdv). The
-  split arrays qo/po hold the base 2-vector in block 0 and deviation column j in
-  block j (ndim=2*(nde+1)); the yo/result buffers use the interleaved (pos2,vel2)
-  blocks (4*(nde+1) wide). Dissipative (velocity-dependent) forces never reach
-  this path: galpy reroutes symplectic+dissipative to a non-symplectic integrator
-  upstream, so the kick is always the conservative, explicit map above.
+  Planar symplectic variational (state-transition) integration. The generic
+  augmented steppers live in galpy/util/bovy_symplecticode.c (leapfrog_dxdv/
+  symplec4_dxdv/symplec6_dxdv); this file supplies only the planar augmented
+  force evalPlanarRectForce_dxdv, which returns the base acceleration and, per
+  deviation column, the closed-form kick tangent K2.dq_j with K2 the symmetric
+  conservative planar Cartesian Hessian (-grad grad Phi) assembled from the base
+  position (reusing the evalPlanarRectDeriv_dxdv K2 block). Dissipative forces
+  never reach this path (galpy reroutes symplectic+dissipative upstream), so the
+  kick is always the conservative, explicit map (no jac term).
 */
-// Augmented drift qn = q + dt p over all ndim entries (base + deviations).
-static inline void leapq_aug_planar(int dim, double *q, double *p, double dt,
-				    double *qn){
-  int ii;
-  for (ii=0; ii < dim; ii++) (*qn++)= (*q++) + dt * (*p++);
-}
-// Augmented kick pn = p + dt a over all ndim entries; a holds the base
-// acceleration in block 0 and K2.dq_j in block j (evalPlanarRectForce_dxdv).
-static inline void leapp_aug_planar(int dim, double *p, double dt, double *a,
-				    double *pn){
-  int ii;
-  for (ii=0; ii < dim; ii++) (*pn++)= (*p++) + dt * (*a++);
-}
-// Repack split qo/po into the interleaved (base pos2,vel2, then per-column
-// dpos2,dvel2) output layout the Python caller consumes.
-static inline void save_qp_aug_planar(int nde, double *qo, double *po,
-				      double *result){
-  int bb, kk;
-  for (bb=0; bb <= nde; bb++) {
-    for (kk=0; kk < 2; kk++) *result++= *(qo+2*bb+kk);
-    for (kk=0; kk < 2; kk++) *result++= *(po+2*bb+kk);
-  }
-}
 // Fill a with the base acceleration (block 0, byte-identical to
 // evalPlanarRectForce) and, per deviation column j, the kick tangent K2.dq_j
 // (block j). K2 is the conservative planar Cartesian Hessian assembled exactly
@@ -1312,392 +1273,4 @@ void evalPlanarRectForce_dxdv(double t, double *q, double *a,
     *(a+2*jj  )= dFxdx*dx+dFxdy*dy;
     *(a+2*jj+1)= dFxdy*dx+dFydy*dy;
   }
-}
-
-// Augmented DKD leapfrog (planar; mirrors leapfrog in bovy_symplecticode.c).
-void leapfrog_dxdv_planar(int nde,
-			  double * yo,
-			  int nt, double dt, double *t,
-			  int nargs, struct potentialArg * potentialArgs,
-			  double rtol, double atol,
-			  double *result, int * err){
-  int ndim= 2*(nde+1);
-  double *qo= (double *) malloc ( ndim * sizeof(double) );
-  double *po= (double *) malloc ( ndim * sizeof(double) );
-  double *q12= (double *) malloc ( ndim * sizeof(double) );
-  double *p12= (double *) malloc ( ndim * sizeof(double) );
-  double *a= (double *) malloc ( ndim * sizeof(double) );
-  int ii, jj, kk, bb;
-  //unpack interleaved (pos2,vel2) blocks into split qo/po
-  for (bb=0; bb <= nde; bb++) {
-    for (kk=0; kk < 2; kk++) {
-      *(qo+2*bb+kk)= *(yo+4*bb+kk);
-      *(po+2*bb+kk)= *(yo+4*bb+2+kk);
-    }
-  }
-  save_qp_aug_planar(nde,qo,po,result);
-  result+= 2 * ndim;
-  *err= 0;
-  //Estimate stepsize from the BASE orbit only (dim=2): same dt a plain
-  //leapfrog run would pick, so the base trajectory is bit-identical
-  double init_dt= (*(t+1))-(*t);
-  if ( dt == -9999.99 ) {
-    dt= leapfrog_estimate_step(&evalPlanarRectForce,2,qo,po,init_dt,t,nargs,
-			       potentialArgs,rtol,atol);
-  }
-  long ndt= (long) (init_dt/dt);
-  double to= *t;
-#ifndef _WIN32
-  struct sigaction action;
-  memset(&action, 0, sizeof(struct sigaction));
-  action.sa_handler= handle_sigint;
-  sigaction(SIGINT,&action,NULL);
-#else
-  if (SetConsoleCtrlHandler(CtrlHandler, TRUE)){}
-#endif
-  for (ii=0; ii < (nt-1); ii++){
-    if ( interrupted ) {
-      *err= -10;
-      interrupted= 0;
-#ifdef USING_COVERAGE
-      __gcov_dump();
-// LCOV_EXCL_START
-      __gcov_reset();
-#endif
-      break;
-// LCOV_EXCL_STOP
-    }
-    //drift half
-    leapq_aug_planar(ndim,qo,po,dt/2.,q12);
-    //now drift full for a while
-    for (jj=0; jj < (ndt-1); jj++){
-      //kick (K at half-step position and midpoint time)
-      evalPlanarRectForce_dxdv(to+dt/2.,q12,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,po,dt,a,p12);
-      //drift
-      leapq_aug_planar(ndim,q12,p12,dt,qo);
-      //reset
-      to= to+dt;
-      for (kk=0; kk < ndim; kk++) {
-	*(q12+kk)= *(qo+kk);
-	*(po+kk)= *(p12+kk);
-      }
-    }
-    //end with one last kick and drift
-    evalPlanarRectForce_dxdv(to+dt/2.,q12,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,po,dt,a,po);
-    leapq_aug_planar(ndim,q12,po,dt/2.,qo);
-    to= to+dt;
-    save_qp_aug_planar(nde,qo,po,result);
-    result+= 2 * ndim;
-  }
-#ifndef _WIN32
-  action.sa_handler= SIG_DFL;
-  sigaction(SIGINT,&action,NULL);
-#endif
-  free(qo);
-  free(po);
-  free(q12);
-  free(p12);
-  free(a);
-}
-
-// Augmented 4th-order Forest-Ruth symplec4 (planar; mirrors symplec4).
-void symplec4_dxdv_planar(int nde,
-			  double * yo,
-			  int nt, double dt, double *t,
-			  int nargs, struct potentialArg * potentialArgs,
-			  double rtol, double atol,
-			  double *result, int * err){
-  //coefficients (verbatim from bovy_symplecticode.c)
-  double c1= 0.6756035959798289;
-  double c4= c1;
-  double c2= -0.1756035959798288;
-  double c3= c2;
-  double d1= 1.3512071919596578;
-  double d3= d1;
-  double d2= -1.7024143839193153; //d4=0
-  int ndim= 2*(nde+1);
-  double *qo= (double *) malloc ( ndim * sizeof(double) );
-  double *po= (double *) malloc ( ndim * sizeof(double) );
-  double *q12= (double *) malloc ( ndim * sizeof(double) );
-  double *p12= (double *) malloc ( ndim * sizeof(double) );
-  double *a= (double *) malloc ( ndim * sizeof(double) );
-  int ii, jj, kk, bb;
-  for (bb=0; bb <= nde; bb++) {
-    for (kk=0; kk < 2; kk++) {
-      *(qo+2*bb+kk)= *(yo+4*bb+kk);
-      *(po+2*bb+kk)= *(yo+4*bb+2+kk);
-    }
-  }
-  save_qp_aug_planar(nde,qo,po,result);
-  result+= 2 * ndim;
-  *err= 0;
-  double init_dt= (*(t+1))-(*t);
-  if ( dt == -9999.99 ) {
-    dt= symplec4_estimate_step(&evalPlanarRectForce,2,qo,po,init_dt,t,nargs,
-			       potentialArgs,rtol,atol);
-  }
-  long ndt= (long) (init_dt/dt);
-  double to= *t;
-#ifndef _WIN32
-  struct sigaction action;
-  memset(&action, 0, sizeof(struct sigaction));
-  action.sa_handler= handle_sigint;
-  sigaction(SIGINT,&action,NULL);
-#else
-  if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
-#endif
-  for (ii=0; ii < (nt-1); ii++){
-    if ( interrupted ) {
-      *err= -10;
-      interrupted= 0;
-#ifdef USING_COVERAGE
-      __gcov_dump();
-// LCOV_EXCL_START
-      __gcov_reset();
-#endif
-      break;
-// LCOV_EXCL_STOP
-    }
-    //drift for c1*dt
-    leapq_aug_planar(ndim,qo,po,c1*dt,q12);
-    to+= c1*dt;
-    //steps ignoring q4/p4 when output is not wanted
-    for (jj=0; jj < (ndt-1); jj++){
-      //kick for d1*dt
-      evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,po,d1*dt,a,p12);
-      //drift for c2*dt
-      leapq_aug_planar(ndim,q12,p12,c2*dt,qo);
-      //kick for d2*dt
-      to+= c2*dt;
-      evalPlanarRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,p12,d2*dt,a,po);
-      //drift for c3*dt
-      leapq_aug_planar(ndim,qo,po,c3*dt,q12);
-      to+= c3*dt;
-      //kick for d3*dt
-      evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,po,d3*dt,a,p12);
-      //drift for (c4+c1)*dt
-      leapq_aug_planar(ndim,q12,p12,(c4+c1)*dt,qo);
-      to+= (c4+c1)*dt;
-      //reset
-      for (kk=0; kk < ndim; kk++) {
-	*(q12+kk)= *(qo+kk);
-	*(po+kk)= *(p12+kk);
-      }
-    }
-    //steps not ignoring q4/p4 when output is wanted
-    //kick for d1*dt
-    evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,po,d1*dt,a,p12);
-    //drift for c2*dt
-    leapq_aug_planar(ndim,q12,p12,c2*dt,qo);
-    //kick for d2*dt
-    to+= c2*dt;
-    evalPlanarRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,p12,d2*dt,a,po);
-    //drift for c3*dt
-    leapq_aug_planar(ndim,qo,po,c3*dt,q12);
-    to+= c3*dt;
-    //kick for d3*dt
-    evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,po,d3*dt,a,p12);
-    //drift for c4*dt
-    leapq_aug_planar(ndim,q12,p12,c4*dt,qo);
-    to+= c4*dt;
-    //p4=p3
-    for (kk=0; kk < ndim; kk++) *(po+kk)= *(p12+kk);
-    save_qp_aug_planar(nde,qo,po,result);
-    result+= 2 * ndim;
-  }
-#ifndef _WIN32
-  action.sa_handler= SIG_DFL;
-  sigaction(SIGINT,&action,NULL);
-#endif
-  free(qo);
-  free(po);
-  free(q12);
-  free(p12);
-  free(a);
-}
-
-// Augmented 6th-order Yoshida symplec6 (planar; mirrors symplec6).
-void symplec6_dxdv_planar(int nde,
-			  double * yo,
-			  int nt, double dt, double *t,
-			  int nargs, struct potentialArg * potentialArgs,
-			  double rtol, double atol,
-			  double *result, int * err){
-  //coefficients (verbatim from bovy_symplecticode.c)
-  double c1= 0.392256805238780;
-  double c8= c1;
-  double c2= 0.510043411918458;
-  double c7= c2;
-  double c3= -0.471053385409758;
-  double c6= c3;
-  double c4= 0.687531682525198e-1;
-  double c5= c4;
-  double d1= 0.784513610477560;
-  double d7= d1;
-  double d2= 0.235573213359357;
-  double d6= d2;
-  double d3= -0.117767998417887e1;
-  double d5= d3;
-  double d4= 0.131518632068391e1; //d8=0
-  int ndim= 2*(nde+1);
-  double *qo= (double *) malloc ( ndim * sizeof(double) );
-  double *po= (double *) malloc ( ndim * sizeof(double) );
-  double *q12= (double *) malloc ( ndim * sizeof(double) );
-  double *p12= (double *) malloc ( ndim * sizeof(double) );
-  double *a= (double *) malloc ( ndim * sizeof(double) );
-  int ii, jj, kk, bb;
-  for (bb=0; bb <= nde; bb++) {
-    for (kk=0; kk < 2; kk++) {
-      *(qo+2*bb+kk)= *(yo+4*bb+kk);
-      *(po+2*bb+kk)= *(yo+4*bb+2+kk);
-    }
-  }
-  save_qp_aug_planar(nde,qo,po,result);
-  result+= 2 * ndim;
-  *err= 0;
-  double init_dt= (*(t+1))-(*t);
-  if ( dt == -9999.99 ) {
-    dt= symplec6_estimate_step(&evalPlanarRectForce,2,qo,po,init_dt,t,nargs,
-			       potentialArgs,rtol,atol);
-  }
-  long ndt= (long) (init_dt/dt);
-  double to= *t;
-#ifndef _WIN32
-  struct sigaction action;
-  memset(&action, 0, sizeof(struct sigaction));
-  action.sa_handler= handle_sigint;
-  sigaction(SIGINT,&action,NULL);
-#else
-  if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
-#endif
-  for (ii=0; ii < (nt-1); ii++){
-    if ( interrupted ) {
-      *err= -10;
-      interrupted= 0;
-#ifdef USING_COVERAGE
-      __gcov_dump();
-// LCOV_EXCL_START
-      __gcov_reset();
-#endif
-      break;
-// LCOV_EXCL_STOP
-    }
-    //drift for c1*dt
-    leapq_aug_planar(ndim,qo,po,c1*dt,q12);
-    to+= c1*dt;
-    //steps ignoring q8/p8 when output is not wanted
-    for (jj=0; jj < (ndt-1); jj++){
-      //kick for d1*dt
-      evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,po,d1*dt,a,p12);
-      //drift for c2*dt
-      leapq_aug_planar(ndim,q12,p12,c2*dt,qo);
-      to+= c2*dt;
-      //kick for d2*dt
-      evalPlanarRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,p12,d2*dt,a,po);
-      //drift for c3*dt
-      leapq_aug_planar(ndim,qo,po,c3*dt,q12);
-      to+= c3*dt;
-      //kick for d3*dt
-      evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,po,d3*dt,a,p12);
-      //drift for c4*dt
-      leapq_aug_planar(ndim,q12,p12,c4*dt,qo);
-      //kick for d4*dt
-      to+= c4*dt;
-      evalPlanarRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,p12,d4*dt,a,po);
-      //drift for c5*dt
-      leapq_aug_planar(ndim,qo,po,c5*dt,q12);
-      to+= c5*dt;
-      //kick for d5*dt
-      evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,po,d5*dt,a,p12);
-      //drift for c6*dt
-      leapq_aug_planar(ndim,q12,p12,c6*dt,qo);
-      //kick for d6*dt
-      to+= c6*dt;
-      evalPlanarRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,p12,d6*dt,a,po);
-      //drift for c7*dt
-      leapq_aug_planar(ndim,qo,po,c7*dt,q12);
-      to+= c7*dt;
-      //kick for d7*dt
-      evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-      leapp_aug_planar(ndim,po,d7*dt,a,p12);
-      //drift for (c8+c1)*dt
-      leapq_aug_planar(ndim,q12,p12,(c8+c1)*dt,qo);
-      to+= (c8+c1)*dt;
-      //reset
-      for (kk=0; kk < ndim; kk++) {
-	*(q12+kk)= *(qo+kk);
-	*(po+kk)= *(p12+kk);
-      }
-    }
-    //steps not ignoring q8/p8 when output is wanted
-    //kick for d1*dt
-    evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,po,d1*dt,a,p12);
-    //drift for c2*dt
-    leapq_aug_planar(ndim,q12,p12,c2*dt,qo);
-    to+= c2*dt;
-    //kick for d2*dt
-    evalPlanarRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,p12,d2*dt,a,po);
-    //drift for c3*dt
-    leapq_aug_planar(ndim,qo,po,c3*dt,q12);
-    to+= c3*dt;
-    //kick for d3*dt
-    evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,po,d3*dt,a,p12);
-    //drift for c4*dt
-    leapq_aug_planar(ndim,q12,p12,c4*dt,qo);
-    to+= c4*dt;
-    //kick for d4*dt
-    evalPlanarRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,p12,d4*dt,a,po);
-    //drift for c5*dt
-    leapq_aug_planar(ndim,qo,po,c5*dt,q12);
-    to+= c5*dt;
-    //kick for d5*dt
-    evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,po,d5*dt,a,p12);
-    //drift for c6*dt
-    leapq_aug_planar(ndim,q12,p12,c6*dt,qo);
-    //kick for d6*dt
-    to+= c6*dt;
-    evalPlanarRectForce_dxdv(to,qo,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,p12,d6*dt,a,po);
-    //drift for c7*dt
-    leapq_aug_planar(ndim,qo,po,c7*dt,q12);
-    to+= c7*dt;
-    //kick for d7*dt
-    evalPlanarRectForce_dxdv(to,q12,a,nargs,potentialArgs,nde);
-    leapp_aug_planar(ndim,po,d7*dt,a,p12);
-    //drift for c8*dt
-    leapq_aug_planar(ndim,q12,p12,c8*dt,qo);
-    to+= c8*dt;
-    //p8=p7
-    for (kk=0; kk < ndim; kk++) *(po+kk)= *(p12+kk);
-    save_qp_aug_planar(nde,qo,po,result);
-    result+= 2 * ndim;
-  }
-#ifndef _WIN32
-  action.sa_handler= SIG_DFL;
-  sigaction(SIGINT,&action,NULL);
-#endif
-  free(qo);
-  free(po);
-  free(q12);
-  free(p12);
-  free(a);
 }
