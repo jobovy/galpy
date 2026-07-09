@@ -7,13 +7,9 @@ from scipy import interpolate
 from ..backend import get_namespace, match_input_dtype
 from ..backend.interpolate import eval_ppoly as _ppoly_eval
 from ..backend.interpolate import spline_to_ppoly as _spline_to_ppoly_data
-from ..util._optional_deps import _JAX_LOADED
 from ..util.conversion import get_physical, physical_compatible
 from .Potential import _evaluatePotentials, _evaluateRforces
 from .SphericalPotential import SphericalPotential
-
-if _JAX_LOADED:
-    import jax.numpy as jnp
 
 
 class interpSphericalPotential(SphericalPotential):
@@ -52,13 +48,6 @@ class interpSphericalPotential(SphericalPotential):
         """
         SphericalPotential.__init__(self, amp=1.0, ro=ro, vo=vo)
         self._rgrid = rgrid
-        self._rforce_jax_rgrid = (
-            rgrid
-            if len(rgrid) > 10000
-            else numpy.geomspace(
-                1e-3 if rgrid[0] == 0.0 else rgrid[0], rgrid[-1], 10001
-            )
-        )
         # Determine whether rforce is a galpy Potential or a combined potential formed using addition (pot1+pot2+…)
         try:
             _evaluateRforces(rforce, 1.0, 0.0)
@@ -83,9 +72,6 @@ class interpSphericalPotential(SphericalPotential):
         self._rforce_grid = numpy.array([_rforce(r) for r in rgrid])
         self._force_spline = interpolate.InterpolatedUnivariateSpline(
             self._rgrid, self._rforce_grid, k=3, ext=0
-        )
-        self._rforce_jax_grid = numpy.array(
-            [self._force_spline(r) for r in self._rforce_jax_rgrid]
         )
         # Get potential and r2deriv as splines for the integral and derivative
         self._pot_spline = self._force_spline.antiderivative()
@@ -147,13 +133,6 @@ class interpSphericalPotential(SphericalPotential):
         outside = -float(self._total_mass) / rsafe**2.0
         # float64 spline interior, input-dtype exit cast (see _revaluate)
         return match_input_dtype(xp.where(r >= self._rmax, outside, inside), r)
-
-    def _rforce_jax(self, r):
-        if not _JAX_LOADED:  # pragma: no cover
-            raise ImportError(
-                "Making use of _rforce_jax function requires the google/jax library"
-            )
-        return jnp.interp(r, self._rforce_jax_rgrid, self._rforce_jax_grid)
 
     def _r2deriv(self, r, t=0.0):
         xp = get_namespace(r)
