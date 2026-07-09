@@ -356,3 +356,29 @@ def test_linear_dxdv_multiple_orbits():
             Mmulti[ii], numpy.asarray(os_.getOrbit_dxdv()), rtol=1e-10, atol=1e-12
         )
     return None
+
+
+def test_linear_dxdv_composite_potential():
+    # A composite (sum of) linear potentials: the pure-Python integrator's
+    # variational RHS calls the composite _force2deriv (sum of the components),
+    # which the C integrators bypass. Check it agrees with the C integrator (which
+    # sums the components' C linear2deriv).
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential, KGPotential
+
+    comp = [
+        KGPotential(amp=1.0, K=1.15, F=0.03, D=1.8),
+        IsothermalDiskPotential(amp=0.5, sigma=0.4),
+    ]
+    times = numpy.linspace(0.0, 5.0, 101)
+    o = Orbit([0.2, 0.05])
+    o.integrate_dxdv([1.0, 0.0], times, comp, method="dop853")  # Python -> _force2deriv
+    Mpy = numpy.asarray(o.getOrbit_dxdv())
+    assert Mpy.shape == (101, 2)
+    assert numpy.all(numpy.isfinite(Mpy))
+    oc = Orbit([0.2, 0.05])
+    oc.integrate_dxdv([1.0, 0.0], times, comp, method="rk4_c", dt=0.005)
+    numpy.testing.assert_allclose(
+        Mpy[-1], numpy.asarray(oc.getOrbit_dxdv())[-1], rtol=1e-4
+    )
+    return None
