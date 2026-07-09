@@ -73,6 +73,7 @@ from .integrateLinearOrbit import (
     _ext_loaded,
     integrateLinearOrbit,
     integrateLinearOrbit_c,
+    integrateLinearOrbit_dxdv,
 )
 from .integratePlanarOrbit import (
     integratePlanarOrbit,
@@ -2363,17 +2364,17 @@ class Orbit:
         - 2026-06-09 - Dissipative-force support in C (3D) - Bovy (UofT)
 
         """
-        if not (self.phasedim() == 4 or self.phasedim() == 6):
+        if not (self.phasedim() == 2 or self.phasedim() == 4 or self.phasedim() == 6):
             raise AttributeError(
-                "integrate_dxdv is only implemented for 4D (planar) and 6D (3D) orbits"
+                "integrate_dxdv is only implemented for 2D (linear), 4D (planar) and 6D (3D) orbits"
             )
         # The C symplectic integrators (leapfrog_c/symplec4_c/symplec6_c) carry
         # the deviation via exact drift/kick tangent maps, so they are allowed
-        # for both planar (4D) and 3D (6D) orbits (allow_c_symplec); the
+        # for linear (2D), planar (4D) and 3D (6D) orbits (allow_c_symplec); the
         # pure-Python 'leapfrog'/'ias15_c' have no dxdv path, so those remain
         # rejected.
         self.check_integrator(
-            method, no_symplec=True, allow_c_symplec=self.phasedim() in (4, 6)
+            method, no_symplec=True, allow_c_symplec=self.phasedim() in (2, 4, 6)
         )
         pot = _check_potential_list_and_deprecate(pot)
         _check_potential_dim(self, pot)
@@ -2442,7 +2443,22 @@ class Orbit:
                     )
         # Implementation with parallel_map in Python
         if True or not "_c" in method or not ext_loaded or force_map:
-            if self.dim() == 2:
+            if self.dim() == 1:
+                # 1D (linear) orbit: the deviation is a raw [dx,dv] 2-vector,
+                # so rectIn/rectOut (cyl<->rect) are moot and not passed.
+                out, msg = integrateLinearOrbit_dxdv(
+                    self._pot,
+                    self.vxvv,
+                    dxdv,
+                    t,
+                    method,
+                    progressbar=progressbar,
+                    numcores=numcores,
+                    dt=dt,
+                    rtol=rtol,
+                    atol=atol,
+                )
+            elif self.dim() == 2:
                 out, msg = integratePlanarOrbit_dxdv(
                     self._pot,
                     self.vxvv,

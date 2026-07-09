@@ -6,7 +6,10 @@ from numpy.ctypeslib import ndpointer
 from scipy import integrate
 
 from .. import potential
-from ..potential.linearPotential import _evaluatelinearForces
+from ..potential.linearPotential import (
+    _evaluatelinearForce2derivs,
+    _evaluatelinearForces,
+)
 from ..potential.verticalPotential import verticalPotential
 from ..util import _load_extension_libs, symplecticode
 from ..util._optional_deps import _TQDM_LOADED
@@ -395,3 +398,227 @@ def _linearEOM(y, t, pot):
 
     """
     return [y[1], _evaluatelinearForces(pot, y[0], t=t)]
+
+
+def integrateLinearOrbit_dxdv_c(
+    pot, yo, dyo, t, int_method, rtol=None, atol=None, dt=None
+):
+    """
+    C integrate an ode for a LinearOrbit + phase-space volume dxdv
+
+    Parameters
+    ----------
+    pot : linearPotential or a combined potential formed using addition (pot1+pot2+…)
+    yo : numpy.ndarray
+        Initial condition [q,p], shape [2]
+    dyo : numpy.ndarray
+        Initial condition [dq,dp], shape [2]
+    t : numpy.ndarray
+        Set of times at which one wants the result
+    int_method : str
+        Integration method. One of 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', 'symplec6_c', 'dopr54_c', 'dop853_c'
+    rtol : float, optional
+        Relative tolerance. Default is None
+    atol : float, optional
+        Absolute tolerance. Default is None
+    dt : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one)
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y,dy : array, shape (len(t),4) = [x,v,dx,dv]
+        err: error message if not zero, 1: maximum step reduction happened for adaptive integrators
+
+    Notes
+    -----
+    - 2026-07-08 - Written - Bovy (UofT)
+
+    """
+    rtol, atol = _parse_tol(rtol, atol)
+    npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
+    pot_tfuncs = _prep_tfuncs(pot_tfuncs)
+    int_method_c = _parse_integrator(int_method)
+    if dt is None:
+        dt = -9999.99
+    yo = numpy.concatenate((yo, dyo))
+
+    # Set up result array
+    result = numpy.empty((len(t), 4))
+    err = ctypes.c_int(0)
+
+    # Set up the C code
+    ndarrayFlags = ("C_CONTIGUOUS", "WRITEABLE")
+    integrationFunc = _lib.integrateLinearOrbit_dxdv
+    integrationFunc.argtypes = [
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_int,
+        ndpointer(dtype=numpy.int32, flags=ndarrayFlags),
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.c_void_p,
+        ctypes.c_double,
+        ctypes.c_double,
+        ctypes.c_double,
+        ndpointer(dtype=numpy.float64, flags=ndarrayFlags),
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.c_int,
+    ]
+
+    # Array requirements, first store old order
+    f_cont = [yo.flags["F_CONTIGUOUS"], t.flags["F_CONTIGUOUS"]]
+    yo = numpy.require(yo, dtype=numpy.float64, requirements=["C", "W"])
+    t = numpy.require(t, dtype=numpy.float64, requirements=["C", "W"])
+    result = numpy.require(result, dtype=numpy.float64, requirements=["C", "W"])
+
+    # Run the C code
+    integrationFunc(
+        yo,
+        ctypes.c_int(len(t)),
+        t,
+        ctypes.c_int(npot),
+        pot_type,
+        pot_args,
+        pot_tfuncs,
+        ctypes.c_double(dt),
+        ctypes.c_double(rtol),
+        ctypes.c_double(atol),
+        result,
+        ctypes.byref(err),
+        ctypes.c_int(int_method_c),
+    )
+
+    if err.value == -10:  # pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
+
+    # Reset input arrays
+    if f_cont[0]:
+        yo = numpy.asfortranarray(yo)
+    if f_cont[1]:
+        t = numpy.asfortranarray(t)
+
+    return (result, err.value)
+
+
+def integrateLinearOrbit_dxdv(
+    pot,
+    yo,
+    dyo,
+    t,
+    int_method,
+    rtol=None,
+    atol=None,
+    progressbar=True,
+    dt=None,
+    numcores=1,
+):
+    """
+    Integrate an ode for a LinearOrbit + phase-space volume dxdv
+
+    Parameters
+    ----------
+    pot : linearPotential or a combined potential formed using addition (pot1+pot2+…)
+    yo : numpy.ndarray
+        Initial condition [q,p], shape [N,2]
+    dyo : numpy.ndarray
+        Initial condition [dq,dp], shape [N,2]
+    t : numpy.ndarray
+        Set of times at which one wants the result
+    int_method : str
+        Integration method
+    rtol : float, optional
+        Relative tolerance. Default is None
+    atol : float, optional
+        Absolute tolerance. Default is None
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!).
+    dt : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one)
+    numcores : int, optional
+        Number of cores to use for multi-processing
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y,dy : array, shape (N,len(t),4) = [x,v,dx,dv]
+        err: error message if not zero, 1: maximum step reduction happened for adaptive integrators
+
+    Notes
+    -----
+    - 2026-07-08 - Written - Bovy (UofT)
+
+    """
+    # No cyl<->rect transform in 1D: the deviation is the raw [dx,dv]
+    this_yo = numpy.hstack((yo, dyo))
+    if int_method.lower() == "dop853" or int_method.lower() == "odeint":
+        if int_method.lower() == "dop853":
+            if rtol is None:
+                rtol = 1e-12
+            if atol is None:
+                atol = 1e-12
+            integrator = dop853
+            extra_kwargs = {"rtol": rtol, "atol": atol}
+        else:
+            integrator = integrate.odeint
+            extra_kwargs = {"rtol": rtol, "atol": atol}
+
+        def integrate_for_map(vxvv):
+            return integrator(_linearEOM_dxdv, vxvv, t=t, args=(pot,), **extra_kwargs)
+
+    else:  # Assume we are forcing parallel_mapping of a C integrator...
+
+        def integrate_for_map(vxvv):
+            return integrateLinearOrbit_dxdv_c(
+                pot,
+                numpy.copy(vxvv[:2]),
+                numpy.copy(vxvv[2:]),
+                t,
+                int_method,
+                dt=dt,
+                rtol=rtol,
+                atol=atol,
+            )[0]
+
+    if len(this_yo) == 1:  # Can't map a single value...
+        out = numpy.atleast_3d(integrate_for_map(this_yo[0]).T).T
+    else:
+        out = numpy.array(
+            parallel_map(
+                integrate_for_map, this_yo, progressbar=progressbar, numcores=numcores
+            )
+        )
+    return out, numpy.zeros(len(yo))
+
+
+def _linearEOM_dxdv(y, t, pot):
+    """
+    The one-dimensional variational (dxdv) equation-of-motion, state [x,v,dx,dv]
+
+    Parameters
+    ----------
+    y : list or numpy.ndarray
+        Current augmented phase-space position [x,v,dx,dv]
+    t : float
+        Current time
+    pot : linearPotential
+        LinearPotential instance
+
+    Returns
+    -------
+    list
+        dy/dt
+
+    Notes
+    -----
+    - 2026-07-08 - Bovy (UofT)
+
+    """
+    return [
+        y[1],
+        _evaluatelinearForces(pot, y[0], t=t),
+        y[3],
+        -_evaluatelinearForce2derivs(pot, y[0], t=t) * y[2],
+    ]

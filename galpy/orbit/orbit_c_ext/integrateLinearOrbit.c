@@ -34,6 +34,14 @@ void evalLinearForce(double, double *, double *,
 		     int, struct potentialArg *);
 void evalLinearDeriv(double, double *, double *,
 		     int, struct potentialArg *);
+void evalLinearDeriv_dxdv(double, double *, double *,
+			  int, struct potentialArg *);
+// Augmented force+Hessian evaluator (linear/1D) for the symplectic variational
+// steppers leapfrog_dxdv/symplec4_dxdv/symplec6_dxdv (dim_base=1): the base
+// acceleration and, per deviation column, the kick tangent K.dq_j with
+// K= dF/dx= -linear2deriv (see integrateLinearOrbit_dxdv).
+void evalLinearForce_dxdv(double, double *, double *,
+			  int, struct potentialArg *, int);
 /*
   Actual functions
 */
@@ -47,14 +55,17 @@ void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
     switch ( *(*pot_type)++ ) {
     default: //verticalPotential
       potentialArgs->linearForce= &verticalPotentialLinearForce;
+      potentialArgs->linear2deriv= &verticalPotentialLinear2deriv;
       break;
     case 31: // KGPotential
       potentialArgs->linearForce= &KGPotentialLinearForce;
+      potentialArgs->linear2deriv= &KGPotentialLinear2deriv;
       potentialArgs->nargs= 4;
       potentialArgs->ntfuncs= 0;
       break;
     case 32: // IsothermalDiskPotential
       potentialArgs->linearForce= &IsothermalDiskPotentialLinearForce;
+      potentialArgs->linear2deriv= &IsothermalDiskPotentialLinear2deriv;
       potentialArgs->nargs= 2;
       potentialArgs->ntfuncs= 0;
       break;
@@ -224,4 +235,109 @@ void evalLinearDeriv(double t, double *q, double *a,
 		     int nargs, struct potentialArg * potentialArgs){
   *a++= *(q+1);
   *a= calcLinearForce(*q,t,nargs,potentialArgs);
+}
+
+/*
+  1D (linear) variational (state-transition/dxdv) integration. Mirrors
+  integratePlanarOrbit_dxdv: the RK integrators propagate the 4D state
+  [x,v,dx,dv] via the variational RHS evalLinearDeriv_dxdv (dim=4); the
+  symplectic ones (leapfrog=0/symplec4=3/symplec6=4) carry the deviation
+  through the closed-form drift/kick tangent maps of the shared *_dxdv steppers
+  in bovy_symplecticode.c (dim_base=1, nde=1 deviation column). ias15 has no
+  dxdv path and is blocked upstream by Orbit.integrate_dxdv (check_integrator).
+  There is no cyl<->rect transform in 1D, so the deviation is the raw [dx,dv].
+*/
+EXPORT void integrateLinearOrbit_dxdv(double *yo,
+				      int nt,
+				      double *t,
+				      int npot,
+				      int * pot_type,
+				      double * pot_args,
+				      tfuncs_type_arr pot_tfuncs,
+				      double dt,
+				      double rtol,
+				      double atol,
+				      double *result,
+				      int * err,
+				      int odeint_type){
+  //Set up the forces
+  int dim;
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
+  parse_leapFuncArgs_Linear(npot,potentialArgs,&pot_type,&pot_args,&pot_tfuncs);
+  //Integrate
+  void (*odeint_func)(void (*func)(double, double *, double *,
+				   int, struct potentialArg *),
+		      int,
+		      double *,
+		      int, double, double *,
+		      int, struct potentialArg *,
+		      double, double,
+		      double *,int *);
+  void (*odeint_deriv_func)(double, double *, double *,
+			    int,struct potentialArg *);
+  odeint_func= NULL;
+  odeint_deriv_func= &evalLinearDeriv_dxdv;
+  dim= 4;
+  switch ( odeint_type ) {
+  case 1: //RK4
+    odeint_func= &bovy_rk4;
+    break;
+  case 2: //RK6
+    odeint_func= &bovy_rk6;
+    break;
+  case 5: //DOPR54
+    odeint_func= &bovy_dopr54;
+    break;
+  case 6: //DOP853
+    odeint_func= &dop853;
+    break;
+  }
+  switch ( odeint_type ) {
+  case 0: //leapfrog
+    leapfrog_dxdv(&evalLinearForce_dxdv,&evalLinearForce,1,1,yo,nt,dt,t,
+		  npot,potentialArgs,rtol,atol,result,err);
+    break;
+  case 3: //symplec4
+    symplec4_dxdv(&evalLinearForce_dxdv,&evalLinearForce,1,1,yo,nt,dt,t,
+		  npot,potentialArgs,rtol,atol,result,err);
+    break;
+  case 4: //symplec6
+    symplec6_dxdv(&evalLinearForce_dxdv,&evalLinearForce,1,1,yo,nt,dt,t,
+		  npot,potentialArgs,rtol,atol,result,err);
+    break;
+  default: //RK method selected above
+    odeint_func(odeint_deriv_func,dim,yo,nt,dt,t,npot,potentialArgs,rtol,atol,
+		result,err);
+  }
+  //Free allocated memory
+  free_potentialArgs(npot,potentialArgs);
+  free(potentialArgs);
+  //Done!
+}
+
+// RK variational RHS, state dim=4 [x,v,dx,dv]: base [v,F] and deviation
+// [dv, K.dx] with K= dF/dx= -linear2deriv (mirror evalPlanarRectDeriv_dxdv).
+void evalLinearDeriv_dxdv(double t, double *q, double *a,
+			  int nargs, struct potentialArg * potentialArgs){
+  *a++= *(q+1);
+  *a++= calcLinearForce(*q,t,nargs,potentialArgs);
+  *a++= *(q+3);
+  *a= -calcLinear2deriv(*q,t,nargs,potentialArgs) * *(q+2);
+}
+
+// Augmented force for the symplectic variational steppers (dim_base=1): fill
+// the base acceleration (block 0, byte-identical to evalLinearForce) and, per
+// deviation column j, the kick tangent K.dq_j with K= dF/dx= -linear2deriv.
+void evalLinearForce_dxdv(double t, double *q, double *a,
+			  int nargs, struct potentialArg * potentialArgs,
+			  int nde){
+  int jj;
+  double K;
+  //Base acceleration: identical call to evalLinearForce (bit-identical base)
+  *a= calcLinearForce(*q,t,nargs,potentialArgs);
+  if ( nde == 0 ) return;
+  K= -calcLinear2deriv(*q,t,nargs,potentialArgs);
+  //Kick tangent per deviation column: dv_j += h K dx_j
+  for (jj=1; jj <= nde; jj++)
+    *(a+jj)= K * *(q+jj);
 }

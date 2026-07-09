@@ -52,6 +52,10 @@ class verticalPotential(linearPotential):
             self._R, 0.0, phi=self._phi, t=t0, use_physical=False
         )
         self.hasC = Pot.hasC
+        # 1D variational (dxdv) second derivative routes to the wrapped 3D
+        # potential's z2deriv in C; that is only wired (in the full-orbit parse)
+        # for potentials with the full 3D Hessian, so gate on hasC_dxdv3d.
+        self.hasC_dxdv = getattr(Pot, "hasC_dxdv3d", False)
         # Also transfer roSet and voSet
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
@@ -138,6 +142,15 @@ class verticalPotential(linearPotential):
             self._phi if not hasattr(z, "__len__") else self._phi * numpy.ones_like(z)
         )
         return self._Pot.zforce(tR, z, phi=tphi, t=t, use_physical=False)
+
+    def _force2deriv(self, z, t=0.0):
+        # d^2 Phi / dz^2 of the wrapped 3D potential at (R,z,phi), mirroring
+        # _force (which returns the wrapped z-force); for the 1D dxdv equations.
+        tR = self._R if not hasattr(z, "__len__") else self._R * numpy.ones_like(z)
+        tphi = (
+            self._phi if not hasattr(z, "__len__") else self._phi * numpy.ones_like(z)
+        )
+        return self._Pot.z2deriv(tR, z, phi=tphi, t=t, use_physical=False)
 
 
 def RZToverticalPotential(RZPot, R):

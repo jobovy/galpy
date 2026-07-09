@@ -45,9 +45,18 @@ class IsothermalDiskPotential(linearPotential):
         self._H = sigma / numpy.sqrt(8.0 * numpy.pi * self._amp)
         self._amp = 1.0  # Need to manually set to 1, because amp is now contained in the combination of H and sigma^2
         self.hasC = True
+        self.hasC_dxdv = True  # 1D variational (dxdv) second derivative in C
 
     def _evaluate(self, x, t=0.0):
         return 2.0 * self._sigma2 * numpy.log(numpy.cosh(0.5 * x / self._H))
 
     def _force(self, x, t=0.0):
         return -self._sigma2 * numpy.tanh(0.5 * x / self._H) / self._H
+
+    def _force2deriv(self, x, t=0.0):
+        # d^2 Phi / dx^2 = sigma^2 / (2 H^2) sech^2(x/2H)
+        return (
+            self._sigma2
+            / (2.0 * self._H**2.0)
+            * (1.0 - numpy.tanh(0.5 * x / self._H) ** 2.0)
+        )

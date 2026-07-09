@@ -47,6 +47,11 @@ struct potentialArg{
 			    struct potentialArg *);
   double (*linearForce)(double x, double t,
 			 struct potentialArg *);
+  // Linear (1D) potential second derivative d^2 Phi / dx^2, for the 1D
+  // variational (dxdv) equations; the RHS applies the sign to get the force
+  // gradient K = dF/dx = -d^2 Phi / dx^2.
+  double (*linear2deriv)(double x, double t,
+			 struct potentialArg *);
   double (*dens)(double R, double Z, double phi, double t,
 		 struct potentialArg *);
   // For forces that require velocity input (e.g., dynam fric)
@@ -201,6 +206,7 @@ double calcPlanarphi2deriv(double, double, double,
 double calcPlanarRphideriv(double, double, double,
 			   int, struct potentialArg *);
 double calcLinearForce(double, double, int, struct potentialArg *);
+double calcLinear2deriv(double, double, int, struct potentialArg *);
 double calcDensity(double, double, double,double, int, struct potentialArg *);
 void rotate(double *, double *, double *, double *);
 void rotate_force(double *, double *, double *,double *);
@@ -211,6 +217,7 @@ double ZeroForce(double,double,double,double,
 		 struct potentialArg *);
 //verticalPotential
 double verticalPotentialLinearForce(double,double,struct potentialArg *);
+double verticalPotentialLinear2deriv(double,double,struct potentialArg *);
 //LogarithmicHaloPotential
 double LogarithmicHaloPotentialEval(double ,double , double, double,
 				    struct potentialArg *);
@@ -796,9 +803,11 @@ double PerfectEllipsoidPotentialmdensDeriv(double,double *);
 
 //KGPotential
 double KGPotentialLinearForce(double,double,struct potentialArg *);
+double KGPotentialLinear2deriv(double,double,struct potentialArg *);
 
 //IsothermalDiskPotential
 double IsothermalDiskPotentialLinearForce(double,double,struct potentialArg *);
+double IsothermalDiskPotentialLinear2deriv(double,double,struct potentialArg *);
 
 //DehnenSphericalPotential
 double DehnenSphericalPotentialEval(double ,double , double, double,
