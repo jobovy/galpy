@@ -1752,10 +1752,16 @@ class Orbit:
                     if "jax" in get_namespace(ic_backend).__name__
                     else "torchdiffeq"
                 )
-                if (
-                    self.phasedim() == 6
-                    and _check_c(_potl)
-                    and _check_c(_potl, dxdv3d=True)
+                # C-STM eligibility by phase-space dim: 6D needs the full C 3D
+                # Hessian (dxdv3d); planar (4D) and 1D (2D) need the C dxdv Hessian
+                # (hasC_dxdv). Otherwise fall back to the in-backend ODE solver.
+                _pdim = self.phasedim()
+                if _check_c(_potl) and (
+                    _check_c(_potl, dxdv3d=True)
+                    if _pdim == 6
+                    else _check_c(_potl, dxdv=True)
+                    if _pdim in (2, 4)
+                    else False
                 ):
                     return self._integrate_cstm(t, _potl, method.lower(), rtol, atol)
                 # Pass the deprecation-checked/composed potential (_potl), matching
