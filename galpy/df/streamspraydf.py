@@ -586,9 +586,11 @@ class basestreamspraydf(df):
         from ..backend import as_numpy, is_backend_array
 
         # Stripping times: a backend array when a key is threaded (or under a
-        # forced backend). The progenitor/center orbits are numpy-only, so query
-        # them at numpy times (dt_np); the einsum frame construction and the
-        # sample-orbit integration run on the resolved backend xp.
+        # forced backend). The progenitor/center orbits are numpy-only FOR NOW, so
+        # query them at numpy times (dt_np); a later PR makes them backend orbits
+        # so d(stream)/d(progenitor IC/FC) flows and the whole path jits / runs on
+        # GPU. The einsum frame construction + sample-orbit integration are already
+        # on the resolved backend xp.
         dt = self._draw_stripping_dt(n, key=key)
         xp = get_namespace(dt)  # context-resolved backend (numpy under numpy)
         dt_np = as_numpy(dt)
@@ -665,26 +667,33 @@ class basestreamspraydf(df):
         return out, dt
 
     def _setup_rot(self, dt):
+        from ..backend import as_numpy
+
         xp = get_namespace(dt)
+        # Progenitor/center orbits are numpy-only FOR NOW -> query at numpy times;
+        # keep xp (from dt) so the rotation-matrix arithmetic runs on the backend.
+        # A later PR makes the progenitor a backend orbit (progenitor gradients +
+        # jit/GPU), at which point these queries take backend times.
+        dt_np = as_numpy(dt)
         n = len(dt)
-        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt)))
-        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt)))
-        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt)))
+        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt_np)))
+        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt_np)))
+        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt_np)))
         if self._center is None:
-            L = xp.atleast_2d(xp.asarray(self._progenitor.L(-dt)))
+            L = xp.atleast_2d(xp.asarray(self._progenitor.L(-dt_np)))
         # Compute relative angular momentum to the center orbit
         else:
-            centerx = centerx - xp.asarray(self._center.x(-dt))
-            centery = centery - xp.asarray(self._center.y(-dt))
-            centerz = centerz - xp.asarray(self._center.z(-dt))
-            centervx = xp.asarray(self._progenitor.vx(-dt)) - xp.asarray(
-                self._center.vx(-dt)
+            centerx = centerx - xp.asarray(self._center.x(-dt_np))
+            centery = centery - xp.asarray(self._center.y(-dt_np))
+            centerz = centerz - xp.asarray(self._center.z(-dt_np))
+            centervx = xp.asarray(self._progenitor.vx(-dt_np)) - xp.asarray(
+                self._center.vx(-dt_np)
             )
-            centervy = xp.asarray(self._progenitor.vy(-dt)) - xp.asarray(
-                self._center.vy(-dt)
+            centervy = xp.asarray(self._progenitor.vy(-dt_np)) - xp.asarray(
+                self._center.vy(-dt_np)
             )
-            centervz = xp.asarray(self._progenitor.vz(-dt)) - xp.asarray(
-                self._center.vz(-dt)
+            centervz = xp.asarray(self._progenitor.vz(-dt_np)) - xp.asarray(
+                self._center.vz(-dt_np)
             )
             L = xp.atleast_2d(
                 xp.stack(
