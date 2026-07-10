@@ -583,30 +583,34 @@ class basestreamspraydf(df):
 
     def _sample_tail(self, n, integrate, leading=True, key=None):
         """Sample n points from the specified tail."""
-        from ..backend import as_numpy
+        from ..backend import as_numpy, is_backend_array
 
-        # Stripping times: reproducible backend array when a key is threaded.
-        # Downstream frame construction and orbit integration are numpy-only for
-        # now (making them differentiable is a later PR), so pull dt to numpy.
-        dt = as_numpy(self._draw_stripping_dt(n, key=key))
+        # Stripping times: a backend array when a key is threaded (or under a
+        # forced backend). The progenitor/center orbits are numpy-only FOR NOW, so
+        # query them at numpy times (dt_np); a later PR makes them backend orbits
+        # so d(stream)/d(progenitor IC/FC) flows and the whole path jits / runs on
+        # GPU. The einsum frame construction + sample-orbit integration are already
+        # on the resolved backend xp.
+        dt = self._draw_stripping_dt(n, key=key)
         xp = get_namespace(dt)  # context-resolved backend (numpy under numpy)
+        dt_np = as_numpy(dt)
         # Build all rotation matrices
         rot, rot_inv = self._setup_rot(dt)
         # Compute progenitor position in the instantaneous frame,
         # relative to the center orbit if necessary
-        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt)))
-        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt)))
-        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt)))
-        centervx = xp.atleast_1d(xp.asarray(self._progenitor.vx(-dt)))
-        centervy = xp.atleast_1d(xp.asarray(self._progenitor.vy(-dt)))
-        centervz = xp.atleast_1d(xp.asarray(self._progenitor.vz(-dt)))
+        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt_np)))
+        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt_np)))
+        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt_np)))
+        centervx = xp.atleast_1d(xp.asarray(self._progenitor.vx(-dt_np)))
+        centervy = xp.atleast_1d(xp.asarray(self._progenitor.vy(-dt_np)))
+        centervz = xp.atleast_1d(xp.asarray(self._progenitor.vz(-dt_np)))
         if not self._center is None:
-            centerx = centerx - xp.asarray(self._center.x(-dt))
-            centery = centery - xp.asarray(self._center.y(-dt))
-            centerz = centerz - xp.asarray(self._center.z(-dt))
-            centervx = centervx - xp.asarray(self._center.vx(-dt))
-            centervy = centervy - xp.asarray(self._center.vy(-dt))
-            centervz = centervz - xp.asarray(self._center.vz(-dt))
+            centerx = centerx - xp.asarray(self._center.x(-dt_np))
+            centery = centery - xp.asarray(self._center.y(-dt_np))
+            centerz = centerz - xp.asarray(self._center.z(-dt_np))
+            centervx = centervx - xp.asarray(self._center.vx(-dt_np))
+            centervy = centervy - xp.asarray(self._center.vy(-dt_np))
+            centervz = centervz - xp.asarray(self._center.vz(-dt_np))
         # stack(axis=0).T matches numpy.array([...]).T's F-contiguous layout so
         # einsum rounds byte-identically to the pre-migration numpy path.
         xyzpt = xp.einsum(
@@ -629,12 +633,12 @@ class basestreamspraydf(df):
         absvy = vxyzs[:, 1]
         absvz = vxyzs[:, 2]
         if not self._center is None:
-            absx = absx + xp.asarray(self._center.x(-dt))
-            absy = absy + xp.asarray(self._center.y(-dt))
-            absz = absz + xp.asarray(self._center.z(-dt))
-            absvx = absvx + xp.asarray(self._center.vx(-dt))
-            absvy = absvy + xp.asarray(self._center.vy(-dt))
-            absvz = absvz + xp.asarray(self._center.vz(-dt))
+            absx = absx + xp.asarray(self._center.x(-dt_np))
+            absy = absy + xp.asarray(self._center.y(-dt_np))
+            absz = absz + xp.asarray(self._center.z(-dt_np))
+            absvx = absvx + xp.asarray(self._center.vx(-dt_np))
+            absvy = absvy + xp.asarray(self._center.vy(-dt_np))
+            absvz = absvz + xp.asarray(self._center.vz(-dt_np))
         Rs, phis, Zs = coords.rect_to_cyl(absx, absy, absz)
         vRs, vTs, vZs = coords.rect_to_cyl_vec(
             absvx, absvy, absvz, Rs, phis, Zs, cyl=True
@@ -643,36 +647,53 @@ class basestreamspraydf(df):
             # Integrate all sampled particles as a single Orbit instance, with
             # each particle on its own time grid from its stripping time -dt[i]
             # to the present (t=0). The final time step is the present-day state.
-            # Backend ICs route to the in-backend integrator where available.
-            o = Orbit(xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0).T)
-            ts = xp.linspace(-dt, xp.zeros(n), 10001, axis=-1)
-            o.integrate(ts, self._pot)
+            ic_arr = xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0).T
+            o = Orbit(ic_arr)
+            if is_backend_array(ic_arr):
+                # Backend ICs -> the ADAPTIVE RK method dop853_c routes to the
+                # differentiable C-STM (the default fixed-step symplec4_c is not
+                # auto-routed). Only the present-day state is used, and dop853_c
+                # takes its own internal substeps, so integrate on a per-orbit
+                # 2-point grid [-dt_i, 0] (not the 10001-point fixed-step grid the
+                # numpy path needs) -- avoids materialising a (n, 10001, 6, 6) STM.
+                ts = xp.stack([-xp.asarray(dt_np), xp.zeros(n)], axis=-1)
+                o.integrate(ts, self._pot, method="dop853_c")
+            else:
+                ts = xp.linspace(-dt_np, xp.zeros(n), 10001, axis=-1)
+                o.integrate(ts, self._pot)  # byte-identical numpy default
             out = o.orbit[:, -1, :].T
         else:
             out = xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0)
         return out, dt
 
     def _setup_rot(self, dt):
+        from ..backend import as_numpy
+
         xp = get_namespace(dt)
+        # Progenitor/center orbits are numpy-only FOR NOW -> query at numpy times;
+        # keep xp (from dt) so the rotation-matrix arithmetic runs on the backend.
+        # A later PR makes the progenitor a backend orbit (progenitor gradients +
+        # jit/GPU), at which point these queries take backend times.
+        dt_np = as_numpy(dt)
         n = len(dt)
-        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt)))
-        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt)))
-        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt)))
+        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt_np)))
+        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt_np)))
+        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt_np)))
         if self._center is None:
-            L = xp.atleast_2d(xp.asarray(self._progenitor.L(-dt)))
+            L = xp.atleast_2d(xp.asarray(self._progenitor.L(-dt_np)))
         # Compute relative angular momentum to the center orbit
         else:
-            centerx = centerx - xp.asarray(self._center.x(-dt))
-            centery = centery - xp.asarray(self._center.y(-dt))
-            centerz = centerz - xp.asarray(self._center.z(-dt))
-            centervx = xp.asarray(self._progenitor.vx(-dt)) - xp.asarray(
-                self._center.vx(-dt)
+            centerx = centerx - xp.asarray(self._center.x(-dt_np))
+            centery = centery - xp.asarray(self._center.y(-dt_np))
+            centerz = centerz - xp.asarray(self._center.z(-dt_np))
+            centervx = xp.asarray(self._progenitor.vx(-dt_np)) - xp.asarray(
+                self._center.vx(-dt_np)
             )
-            centervy = xp.asarray(self._progenitor.vy(-dt)) - xp.asarray(
-                self._center.vy(-dt)
+            centervy = xp.asarray(self._progenitor.vy(-dt_np)) - xp.asarray(
+                self._center.vy(-dt_np)
             )
-            centervz = xp.asarray(self._progenitor.vz(-dt)) - xp.asarray(
-                self._center.vz(-dt)
+            centervz = xp.asarray(self._progenitor.vz(-dt_np)) - xp.asarray(
+                self._center.vz(-dt_np)
             )
             L = xp.atleast_2d(
                 xp.stack(
