@@ -53,13 +53,14 @@ def _bin_by_tp(tp_assign, values, tp_nodes):
         # Backend-agnostic segment mean/cov, gathered by the numpy idx one-hot.
         # ddof=1 (numpy.cov); k<2 bins -> NaN mean / zero cov, as in the loop.
         xp = get_namespace(values)
+        dev = device_of(values)  # anchor the numpy index/one-hot on values' device
         onehot = numpy.zeros((len(idx), M))
         onehot[numpy.arange(len(idx)), idx] = 1.0
-        onehot_b = xp.asarray(onehot)
-        counts_b = xp.asarray(counts.astype(float))
+        onehot_b = asarray_on_device(xp, onehot, dev)
+        counts_b = asarray_on_device(xp, counts.astype(float), dev)
         sums = xp.einsum("nm,nd->md", onehot_b, values)  # (M, D)
         raw_means = sums / xp.where(counts_b > 0, counts_b, 1.0)[:, None]
-        centered = values - raw_means[xp.asarray(idx)]  # (N, D)
+        centered = values - raw_means[asarray_on_device(xp, idx, dev)]  # (N, D)
         outer = centered[:, :, None] * centered[:, None, :]  # (N, D, D)
         cov_sums = xp.einsum("nm,nij->mij", onehot_b, outer)  # (M, D, D)
         raw_covs = cov_sums / xp.where(counts_b > 1, counts_b - 1.0, 1.0)[:, None, None]
