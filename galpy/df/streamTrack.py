@@ -5,6 +5,7 @@ from matplotlib import pyplot
 from scipy import interpolate
 from scipy.spatial import cKDTree
 
+from ..backend import as_numpy, get_namespace, is_backend_array
 from ..util import config, conversion, coords, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import physical_conversion
@@ -28,20 +29,38 @@ def _bin_by_tp(tp_assign, values, tp_nodes):
             [tp_nodes[-1] + 0.5 * dt_node],
         )
     )
-    idx = numpy.clip(numpy.searchsorted(edges, tp_assign) - 1, 0, M - 1)
+    # The bin ASSIGNMENT (which node each particle falls in) is a non-differentiable
+    # structural index -> numpy. The binned mean/cov VALUES follow ``values``.
+    idx = numpy.clip(numpy.searchsorted(edges, as_numpy(tp_assign)) - 1, 0, M - 1)
     D = values.shape[1]
-    means = numpy.full((M, D), numpy.nan)
-    covs = numpy.zeros((M, D, D))
-    counts = numpy.zeros(M, dtype=int)
-    for m in range(M):
-        sel = idx == m
-        k = int(sel.sum())
-        counts[m] = k
-        if k < 2:
-            continue
-        group = values[sel]
-        means[m] = group.mean(axis=0)
-        covs[m] = numpy.cov(group, rowvar=False)
+    counts = numpy.array([int((idx == m).sum()) for m in range(M)])
+    if is_backend_array(values):
+        # Backend-agnostic segment mean/cov, gathered by the numpy idx one-hot.
+        # ddof=1 (numpy.cov); k<2 bins -> NaN mean / zero cov, as in the loop.
+        xp = get_namespace(values)
+        onehot = numpy.zeros((len(idx), M))
+        onehot[numpy.arange(len(idx)), idx] = 1.0
+        onehot_b = xp.asarray(onehot)
+        counts_b = xp.asarray(counts.astype(float))
+        sums = xp.einsum("nm,nd->md", onehot_b, values)  # (M, D)
+        raw_means = sums / xp.where(counts_b > 0, counts_b, 1.0)[:, None]
+        centered = values - raw_means[xp.asarray(idx)]  # (N, D)
+        outer = centered[:, :, None] * centered[:, None, :]  # (N, D, D)
+        cov_sums = xp.einsum("nm,nij->mij", onehot_b, outer)  # (M, D, D)
+        raw_covs = cov_sums / xp.where(counts_b > 1, counts_b - 1.0, 1.0)[:, None, None]
+        valid = counts_b > 1
+        means = xp.where(valid[:, None], raw_means, float("nan"))
+        covs = xp.where(valid[:, None, None], raw_covs, 0.0)
+    else:
+        means = numpy.full((M, D), numpy.nan)
+        covs = numpy.zeros((M, D, D))
+        for m in range(M):
+            sel = idx == m
+            if counts[m] < 2:
+                continue
+            group = values[sel]
+            means[m] = group.mean(axis=0)
+            covs[m] = numpy.cov(group, rowvar=False)
     return means, covs, counts
 
 
@@ -146,6 +165,11 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None, velocity_weight=1
     components (last 3 columns) by this factor before computing distances.
     See :func:`_fit_track_from_particles` for usage and ``'auto'`` mode.
     """
+    # The closest-node assignment is a non-differentiable structural index
+    # (cKDTree needs numpy); the returned times route the differentiable binning.
+    points = as_numpy(points)
+    curve = as_numpy(curve)
+    curve_t = as_numpy(curve_t)
     if velocity_weight != 1.0 and curve.shape[1] == 6:
         sc = numpy.array(
             [1.0, 1.0, 1.0, velocity_weight, velocity_weight, velocity_weight]
