@@ -604,3 +604,374 @@ def test_augmented_stm_dissipative():
         numpy.testing.assert_allclose(
             (xp - xm) / (2 * eps), Ma[:, :, b], rtol=1e-4, atol=1e-5
         )
+
+
+# ===========================================================================
+#   Low-dimensional (planar 4D, 1D 2D) + symplectic C-STM
+#
+#   The augmented 42-state STM is 3D-Runge-Kutta only; symplectic 3D, planar and
+#   1D orbits have no augmented C STM and go through the per-column reference
+#   (_c_stm_forward_loop) for ANY dxdv-capable C method. The wrappers (jax
+#   custom_vjp / torch autograd.Function) and the Orbit.integrate routing are
+#   dimension-generic. NOTE: the STM is returned in the (non-canonical) cyl Orbit
+#   frame, so det M != 1 for planar/3D -- correctness is checked by
+#   finite-difference of the flow (coordinate-agnostic), NOT by Liouville here.
+# ===========================================================================
+from galpy.potential import (  # noqa: E402
+    toPlanarPotential,
+    toVerticalPotential,
+)
+
+_SYMPLEC_METHODS = ["leapfrog_c", "symplec4_c", "symplec6_c"]
+_LOWDIM_TS = numpy.linspace(0.0, 2.0, 11)
+
+
+def _parity_tol(method):
+    # the C-STM forward is the dxdv variant of the C integrator; its augmented
+    # step sequence differs slightly from base Orbit.integrate. The (low-order)
+    # symplectic methods -- leapfrog especially -- diverge a touch more than the
+    # Runge-Kutta ones, so use a looser (but still tight) forward-parity tolerance.
+    return (1e-5, 1e-6) if method in _SYMPLEC_METHODS else (1e-6, 1e-7)
+
+
+# planar (R,vR,vT,phi) and 1D (x,vx) ICs, incl. vR=0 / x=0 / vx=0 / phi=0 edges
+_PLANAR_ICS = [
+    numpy.array([1.0, 0.1, 0.9, 0.2]),  # generic
+    numpy.array([1.1, 0.0, 1.0, 0.0]),  # vR=0, phi=0 edge
+]
+_1D_ICS = [
+    numpy.array([0.1, 0.05]),  # generic
+    numpy.array([0.0, 0.1]),  # x=0 edge
+    numpy.array([0.15, 0.0]),  # vx=0 edge
+]
+
+
+def _planar_pot():
+    return toPlanarPotential(MWPotential2014)
+
+
+def _vert_pot():
+    return toVerticalPotential(MWPotential2014, 1.0)
+
+
+def _lowdim_cases():
+    # (label, pot, ic, dim)
+    return [
+        ("planar", _planar_pot(), _PLANAR_ICS[0], 4),
+        ("1D", _vert_pot(), _1D_ICS[0], 2),
+    ]
+
+
+# --------------------------------------------- method-set / dim-generic contract
+def test_dxdv_method_sets():
+    from galpy.backend._reference.inbackend_stm import (
+        _C_DXDV_METHODS,
+        _C_RK_METHODS,
+        _C_SYMPLEC_METHODS,
+    )
+
+    assert set(_C_RK_METHODS) == {"rk4_c", "rk6_c", "dopr54_c", "dop853_c"}
+    assert set(_C_SYMPLEC_METHODS) == {"leapfrog_c", "symplec4_c", "symplec6_c"}
+    assert set(_C_DXDV_METHODS) == set(_C_RK_METHODS) | set(_C_SYMPLEC_METHODS)
+
+
+@pytest.mark.parametrize(
+    "ic,dim",
+    [(_PLANAR_ICS[0], 4), (_1D_ICS[0], 2), (_IC, 6)],
+    ids=["planar", "1D", "3D"],
+)
+@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
+def test_c_stm_forward_dim_generic_shapes(ic, dim, method):
+    # host-level: c_stm_forward returns (nt,d) / (nt,d,d) for d in {2,4,6}, with
+    # M[0]=identity, for both a Runge-Kutta and a symplectic method.
+    pot = {2: _vert_pot(), 4: _planar_pot(), 6: MWPotential2014}[dim]
+    xt, M = c_stm_forward(pot, ic, _LOWDIM_TS, method, 1e-11, 1e-11)
+    assert xt.shape == (len(_LOWDIM_TS), dim)
+    assert M.shape == (len(_LOWDIM_TS), dim, dim)
+    numpy.testing.assert_allclose(M[0], numpy.eye(dim), atol=1e-12)
+
+
+# ------------------------------------------------- host-level FD-of-flow (numpy)
+@pytest.mark.parametrize(
+    "label,pot,ic,dim",
+    [
+        ("planar-rk", _planar_pot(), _PLANAR_ICS[0], 4),
+        ("planar-symp", _planar_pot(), _PLANAR_ICS[0], 4),
+        ("1D-rk", _vert_pot(), _1D_ICS[0], 2),
+        ("1D-symp", _vert_pot(), _1D_ICS[0], 2),
+        ("3D-symp", MWPotential2014, _IC, 6),
+    ],
+)
+def test_lowdim_stm_fd_of_flow(label, pot, ic, dim):
+    # the STM column b equals d(base)/d(ic_b) by central finite difference of the
+    # flow -- the coordinate-agnostic correctness check (det M != 1 in cyl here).
+    method = "symplec4_c" if "symp" in label else "dop853_c"
+    ts = numpy.linspace(0.0, 2.0, 21)
+    _, M0 = c_stm_forward(pot, ic, ts, method, 1e-12, 1e-12)
+    eps = 1e-6
+    for b in range(dim):
+        icp = ic.copy()
+        icp[b] += eps
+        icm = ic.copy()
+        icm[b] -= eps
+        xp, _ = c_stm_forward(pot, icp, ts, method, 1e-12, 1e-12)
+        xm, _ = c_stm_forward(pot, icm, ts, method, 1e-12, 1e-12)
+        numpy.testing.assert_allclose(
+            (xp - xm) / (2 * eps),
+            M0[:, :, b],
+            rtol=1e-4,
+            atol=1e-5,
+            err_msg=f"{label} column {b}",
+        )
+
+
+# ------------------------------------------------------- forward parity (both be)
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("method", ["dop853_c", "rk4_c"] + _SYMPLEC_METHODS)
+def test_lowdim_forward_matches_c(backend, method):
+    # planar + 1D wrapper forward (Runge-Kutta AND symplectic) matches the numpy C
+    # orbit across every phase-space accessor -- incl. phi wrapped to (-pi,pi].
+    from galpy.orbit import Orbit
+
+    for label, pot, ic, dim in _lowdim_cases():
+        onp = Orbit(list(ic))
+        onp.integrate(_LOWDIM_TS, pot, method=method)
+        ref = numpy.asarray(onp.getOrbit())  # (nt, dim), Orbit order
+        got = as_numpy(_integ(backend, pot, _arr(backend, ic), _LOWDIM_TS, method))
+        rtol, atol = _parity_tol(method)
+        numpy.testing.assert_allclose(
+            got, ref, rtol=rtol, atol=atol, err_msg=f"{label} {method} {backend}"
+        )
+
+
+# --------------------------------------------------------- symplectic 3D parity
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("method", _SYMPLEC_METHODS)
+def test_symplectic_3d_forward_matches_c(backend, method):
+    from galpy.orbit import Orbit
+
+    for name, pot in _pots().items():
+        o = Orbit(list(_IC))
+        o.integrate(_LOWDIM_TS, pot, method=method)
+        ref = numpy.asarray(o.getOrbit())
+        got = as_numpy(_integ(backend, pot, _arr(backend, _IC), _LOWDIM_TS, method))
+        rtol, atol = _parity_tol(method)
+        numpy.testing.assert_allclose(
+            got, ref, rtol=rtol, atol=atol, err_msg=f"{name} {method} {backend}"
+        )
+
+
+# ---------------------------------------------------------- grad vs finite-diff
+def _fd_grad_final0(pot, ic, method, ts, eps=1e-6):
+    from galpy.orbit import Orbit
+
+    def f0(x):
+        o = Orbit(list(x))
+        o.integrate(ts, pot, method=method)
+        return numpy.asarray(o.getOrbit())[-1, 0]
+
+    d = len(ic)
+    return numpy.array(
+        [
+            (f0(ic + eps * numpy.eye(d)[j]) - f0(ic - eps * numpy.eye(d)[j]))
+            / (2 * eps)
+            for j in range(d)
+        ]
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
+def test_lowdim_grad_final_vs_fd(backend, method):
+    # d(final coord 0)/d(IC) for planar + 1D, Runge-Kutta AND symplectic.
+    for label, pot, ic, dim in _lowdim_cases():
+        gfd = _fd_grad_final0(pot, ic, method, _LOWDIM_TS)
+        if backend == "jax":
+            g = as_numpy(
+                jax.grad(lambda v: _integ("jax", pot, v, _LOWDIM_TS, method)[-1, 0])(
+                    jnp.asarray(ic)
+                )
+            )
+        else:
+            v = torch.tensor(ic, requires_grad=True)
+            _integ("torch", pot, v, _LOWDIM_TS, method)[-1, 0].backward()
+            g = as_numpy(v.grad)
+        numpy.testing.assert_allclose(
+            g, gfd, rtol=1e-4, atol=1e-5, err_msg=f"{label} {method} {backend}"
+        )
+
+
+# ------------------------------------------------ jacrev == assembled STM (jax)
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
+def test_lowdim_jacrev_equals_stm(method):
+    # jacrev of the wrapper IS the custom-vjp residual M, so it must equal
+    # c_stm_forward's M exactly when computed at the SAME tolerance (1e-10 = the
+    # wrapper default; tol sets the symplectic substep count so it must match).
+    for label, pot, ic, dim in _lowdim_cases():
+        _, M = c_stm_forward(pot, ic, _LOWDIM_TS, method, 1e-10, 1e-10)
+        J = jax.jacrev(lambda v: _integ("jax", pot, v, _LOWDIM_TS, method))(
+            jnp.asarray(ic)
+        )
+        numpy.testing.assert_allclose(
+            as_numpy(J), M, rtol=1e-10, atol=1e-12, err_msg=f"{label} {method}"
+        )
+
+
+# --------------------------------------------------------------- torch gradcheck
+@pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
+@pytest.mark.parametrize(
+    "ic,pot_key", [(_PLANAR_ICS[0], "planar"), (_1D_ICS[0], "1D")], ids=["planar", "1D"]
+)
+def test_lowdim_torch_gradcheck(ic, pot_key):
+    pot = _planar_pot() if pot_key == "planar" else _vert_pot()
+    ts = numpy.linspace(0.0, 1.0, 5)
+    v = torch.tensor(ic, requires_grad=True)
+    assert torch.autograd.gradcheck(
+        lambda vv: _integ("torch", pot, vv, ts, "rk4_c"), (v,), eps=1e-6, atol=1e-4
+    )
+
+
+# ------------------------------------------------- cross-backend agreement (jax/torch)
+@pytest.mark.skipif(
+    "jax" not in BACKENDS or "torch" not in BACKENDS, reason="needs both"
+)
+@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
+def test_lowdim_torch_grad_matches_jax(method):
+    for label, pot, ic, dim in _lowdim_cases():
+        g_jax = as_numpy(
+            jax.grad(lambda v: _integ("jax", pot, v, _LOWDIM_TS, method)[-1, 0])(
+                jnp.asarray(ic)
+            )
+        )
+        v = torch.tensor(ic, requires_grad=True)
+        _integ("torch", pot, v, _LOWDIM_TS, method)[-1, 0].backward()
+        numpy.testing.assert_allclose(
+            as_numpy(v.grad), g_jax, rtol=1e-8, atol=1e-10, err_msg=f"{label} {method}"
+        )
+
+
+# --------------------------------------- Orbit.integrate routing (planar / 1D)
+_LOWDIM_ROUTE_ACCESSORS = {
+    4: ["R", "vR", "vT", "phi", "x", "y", "vx", "vy"],
+    2: ["x", "vx"],
+}
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_lowdim_orbit_integrate_routing(backend):
+    # Orbit(planar/1D backend IC).integrate(<RK dxdv C method>) routes to the C-STM:
+    # accessors stay backend arrays and match the numpy orbit. (Only the Runge-Kutta
+    # methods auto-route -- see test_symplectic_not_autorouted for why symplectic
+    # methods are excluded from Orbit.integrate routing.)
+    from galpy.orbit import Orbit
+
+    method = "dop853_c"
+    ts = _arr(backend, _LOWDIM_TS)
+    for label, pot, ic, dim in _lowdim_cases():
+        o = Orbit(_arr(backend, ic))
+        o.integrate(ts, pot, method=method)
+        assert _is_backend(backend, o.getOrbit()), f"{label} getOrbit left {backend}"
+        onp = Orbit(list(ic))
+        onp.integrate(_LOWDIM_TS, pot, method=method)
+        for acc in _LOWDIM_ROUTE_ACCESSORS[dim]:
+            val = getattr(o, acc)(ts, use_physical=False)
+            assert _is_backend(backend, val), f"{label}.{acc} left {backend}"
+            numpy.testing.assert_allclose(
+                as_numpy(val),
+                numpy.asarray(getattr(onp, acc)(_LOWDIM_TS, use_physical=False)),
+                rtol=1e-5,
+                atol=1e-6,
+                err_msg=f"{label} {acc} {method} {backend}",
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("method", _SYMPLEC_METHODS)
+def test_symplectic_not_autorouted(backend, method):
+    # The symplectic methods are deliberately NOT auto-routed by Orbit.integrate:
+    # symplec4_c is galpy's DEFAULT integrator, so routing it would silently reroute
+    # every internal default-method integration (e.g. streamspraydf sample orbits)
+    # to the C-STM under a forced backend. So a backend IC + a symplectic method
+    # falls through to the (non-differentiable) numpy/C path -- getOrbit is numpy.
+    # Symplectic C-STM differentiation stays available via orbit_stm.integrate.
+    from galpy.orbit import Orbit
+
+    o = Orbit(_arr(backend, _IC))
+    o.integrate(_arr(backend, _LOWDIM_TS), MWPotential2014, method=method)
+    assert isinstance(o.getOrbit(), numpy.ndarray)
+    # the explicit functional interface still differentiates this same method
+    assert _is_backend(
+        backend,
+        _integ(backend, MWPotential2014, _arr(backend, _IC), _LOWDIM_TS, method),
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_lowdim_orbit_integrate_full_jacobian_vs_fd(backend):
+    # the full d(final state)/d(IC) STM via reverse-mode AD of the ROUTED planar
+    # Orbit.integrate, vs central finite difference.
+    from galpy.orbit import Orbit
+
+    pot = _planar_pot()
+    ic = _PLANAR_ICS[0]
+
+    def final_np(x):
+        o = Orbit(list(x))
+        o.integrate(_LOWDIM_TS, pot, method="dop853_c")
+        return numpy.asarray(o.getOrbit())[-1]
+
+    eps = 1e-6
+    jfd = numpy.array(
+        [
+            (
+                final_np(ic + eps * numpy.eye(4)[j])
+                - final_np(ic - eps * numpy.eye(4)[j])
+            )
+            / (2 * eps)
+            for j in range(4)
+        ]
+    ).T
+
+    def final_b(v):
+        o = Orbit(v)
+        o.integrate(_arr(backend, _LOWDIM_TS), pot, method="dop853_c")
+        return o.getOrbit()[-1]
+
+    if backend == "jax":
+        jac = as_numpy(jax.jacrev(final_b)(jnp.asarray(ic)))
+    else:
+        jac = as_numpy(torch.autograd.functional.jacobian(final_b, torch.tensor(ic)))
+    numpy.testing.assert_allclose(jac, jfd, rtol=1e-4, atol=1e-5)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_lowdim_numpy_ic_unaffected(backend):
+    # a numpy/list planar or 1D IC + a dxdv C method stays the byte-identical numpy
+    # path (no routing), for a Runge-Kutta and a symplectic method.
+    from galpy.orbit import Orbit
+
+    for method in ("dop853_c", "symplec4_c"):
+        for label, pot, ic, dim in _lowdim_cases():
+            o = Orbit(list(ic))
+            o.integrate(_LOWDIM_TS, pot, method=method)
+            assert isinstance(o.getOrbit(), numpy.ndarray)
+
+
+# ----------------------------------- symplectic 3D routing + grad accessor (fd)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_symplectic_3d_grad_vs_fd(backend):
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    ts = _LOWDIM_TS
+    gfd = _fd_grad_final0(pot, _IC, "symplec4_c", ts)
+    if backend == "jax":
+        g = as_numpy(
+            jax.grad(lambda v: _integ("jax", pot, v, ts, "symplec4_c")[-1, 0])(
+                jnp.asarray(_IC)
+            )
+        )
+    else:
+        v = torch.tensor(_IC, requires_grad=True)
+        _integ("torch", pot, v, ts, "symplec4_c")[-1, 0].backward()
+        g = as_numpy(v.grad)
+    numpy.testing.assert_allclose(g, gfd, rtol=1e-4, atol=1e-5)

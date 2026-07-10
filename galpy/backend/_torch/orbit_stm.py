@@ -31,9 +31,9 @@ class _CSTMFunction(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_out):
         (M,) = ctx.saved_tensors
-        if ctx.single:  # M (nt,6,6), grad_out (nt,6) -> (6,)
+        if ctx.single:  # M (nt,d,d), grad_out (nt,d) -> (d,)
             vbar = torch.einsum("tab,ta->b", M, grad_out)
-        else:  # M (N,nt,6,6), grad_out (N,nt,6) -> (N,6)
+        else:  # M (N,nt,d,d), grad_out (N,nt,d) -> (N,d)
             vbar = torch.einsum("ntab,nta->nb", M, grad_out)
         # gradients: vxvv only; (pot, ts, method, rtol, atol) are non-differentiable
         return vbar, None, None, None, None, None
@@ -42,7 +42,7 @@ class _CSTMFunction(torch.autograd.Function):
 def integrate(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
     """Differentiable C-STM orbit integration under torch.
 
-    vxvv: torch tensor (6,) or (N,6), Orbit order. Returns (nt,6) or (N,nt,6).
-    Differentiable w.r.t. vxvv.
+    vxvv: torch tensor (d,) or (N,d), d in {6,4,2} (3D/planar/1D), Orbit order.
+    Returns (nt,d) or (N,nt,d). Differentiable w.r.t. vxvv.
     """
     return _CSTMFunction.apply(vxvv, pot, ts, method, rtol, atol)
