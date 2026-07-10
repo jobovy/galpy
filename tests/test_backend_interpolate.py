@@ -18,9 +18,12 @@ from galpy.backend.interpolate import (
     cubic_spline_coeffs,
     eval_cubic,
     interp_linear,
+    make_smoothing_spline,
     map_coordinates,
+    smoothing_spline,
     spline_filter,
 )
+from galpy.util import galpyWarning
 
 pytestmark = pytest.mark.backend_managed
 
@@ -615,3 +618,131 @@ def test_eval_ppoly_nu_past_degree_zero(backend):
         )
     )
     numpy.testing.assert_allclose(got, 0.0, atol=1e-13)
+
+
+###############################################################################
+# make_smoothing_spline / smoothing_spline: backend-aware differentiable
+# counterparts of scipy.interpolate.make_smoothing_spline (GCV) and
+# UnivariateSpline(k=3). numpy y -> scipy passthrough (byte-identical); backend
+# y -> a frozen linear operator y->fit differentiable in y. Asserts (a) value
+# parity vs scipy on clean data incl. extrapolation; (b) grad-of-fit == the
+# frozen-operator column sum; (c) the near-interpolation galpyWarning.
+###############################################################################
+_smrng = numpy.random.RandomState(7)
+_SMX = numpy.unique(numpy.sort(_smrng.uniform(-4.0, 4.0, 30)))
+_SMY = numpy.sin(_SMX) + 0.05 * _smrng.randn(len(_SMX))
+_SMSIG = numpy.full(len(_SMX), 0.05)
+_SMW = 1.0 / _SMSIG**2  # make_smoothing_spline weight = 1/variance
+_SMG = numpy.linspace(-4.6, 4.6, 41)  # query grid, extends past the data
+
+
+def test_make_smoothing_spline_numpy_passthrough():
+    # numpy y is a LITERAL scipy passthrough (bit-identical to make_smoothing_spline).
+    ref = si.make_smoothing_spline(_SMX, _SMY, w=_SMW)(_SMG)
+    numpy.testing.assert_array_equal(
+        make_smoothing_spline(_SMX, _SMY, w=_SMW)(_SMG), ref
+    )
+
+
+def test_smoothing_spline_numpy_passthrough():
+    # numpy y is a LITERAL UnivariateSpline(k=3) passthrough.
+    ref = si.UnivariateSpline(_SMX, _SMY, w=1.0 / _SMSIG, s=5.0, k=3)(_SMG)
+    numpy.testing.assert_array_equal(
+        smoothing_spline(_SMX, _SMY, w=1.0 / _SMSIG, s=5.0)(_SMG), ref
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_make_smoothing_spline_parity(backend):
+    # backend y reconstructs make_smoothing_spline's GCV fit at the query grid
+    # (including extrapolation beyond the data) to ~1e-9.
+    ref = si.make_smoothing_spline(_SMX, _SMY, w=_SMW)(_SMG)
+    spl = make_smoothing_spline(_SMX, _asarray(backend, _SMY), w=_SMW)
+    got = as_numpy(spl(_SMG))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_smoothing_spline_parity(backend):
+    # backend y reconstructs UnivariateSpline(w, s) at the query grid to ~1e-9.
+    ref = si.UnivariateSpline(_SMX, _SMY, w=1.0 / _SMSIG, s=5.0, k=3)(_SMG)
+    spl = smoothing_spline(_SMX, _asarray(backend, _SMY), w=1.0 / _SMSIG, s=5.0)
+    got = as_numpy(spl(_SMG))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize("kind", ["gcv", "fitpack"])
+def test_smoothing_spline_grad(backend, kind):
+    # AD (jax.grad / torch autograd) differentiates the frozen smoothing operator
+    # -- d(sum fit)/d(y) equals the column sum of that operator (the operator is
+    # validated against scipy by the parity tests, so this pins the AD path).
+    if kind == "gcv":
+        maker = lambda y: make_smoothing_spline(_SMX, y, w=_SMW)  # noqa: E731
+    else:
+        maker = lambda y: smoothing_spline(_SMX, y, w=1.0 / _SMSIG, s=5.0)  # noqa: E731
+    op = maker(_asarray(backend, _SMY))  # a _DiffSmoothingSpline
+    expected = op._build(_SMG)(_SMY).sum(axis=0)
+    if backend == "jax":
+        g = numpy.asarray(
+            jax.grad(lambda y: jnp.sum(maker(y)(_SMG)))(jnp.asarray(_SMY))
+        )
+    else:
+        yt = torch.tensor(_SMY, requires_grad=True)
+        torch.sum(maker(yt)(_SMG)).backward()
+        g = yt.grad.numpy()
+    numpy.testing.assert_allclose(g, expected, rtol=1e-8, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_smoothing_spline_near_interp_warns(backend, monkeypatch):
+    # When FITPACK's fit corresponds to no single penalized-p form (the
+    # near-interpolation regime), the backend reconstruction cannot reproduce it
+    # and WARNS. Forced deterministically by perturbing FITPACK's coefficients
+    # away from any penalized solution (same trick as test_backend_streamTrack).
+    import galpy.backend.interpolate as BI
+
+    real_us = BI._scipy_interpolate.UnivariateSpline
+
+    class _PerturbedSpline(real_us):
+        def get_coeffs(self):
+            c = numpy.array(real_us.get_coeffs(self), dtype=float)
+            if c.size > 2:
+                c[c.size // 2] += 0.5 * numpy.max(numpy.abs(c)) + 1e-3
+            return c
+
+    monkeypatch.setattr(BI._scipy_interpolate, "UnivariateSpline", _PerturbedSpline)
+    spl = smoothing_spline(_SMX, _asarray(backend, _SMY), w=1.0 / _SMSIG, s=1.0)
+    with pytest.warns(galpyWarning, match="near-interpolation"):
+        spl(_SMG)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize("nval", [1, 3])
+def test_make_smoothing_spline_linear_fallback(backend, nval):
+    # fewer than 5 finite points -> linear-interp / constant fallback on the
+    # backend path (shared by make_smoothing_spline and smoothing_spline).
+    x = numpy.linspace(-2.0, 2.0, nval)
+    y = numpy.array([0.1, -0.2, 0.05])[:nval] if nval > 1 else numpy.array([0.42])
+    grid = numpy.linspace(-3.0, 3.0, 15)
+    got = as_numpy(
+        make_smoothing_spline(x, _asarray(backend, y), w=numpy.ones(nval))(grid)
+    )
+    if nval == 1:
+        ref = numpy.full_like(grid, y[0])  # constant fit
+    else:
+        ref = si.interp1d(
+            x, y, kind="linear", fill_value="extrapolate", assume_sorted=True
+        )(grid)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_smoothing_spline_default_weight(backend):
+    # w=None -> unit weights (matches scipy's default) for both public makers.
+    refm = si.make_smoothing_spline(_SMX, _SMY)(_SMG)
+    gotm = as_numpy(make_smoothing_spline(_SMX, _asarray(backend, _SMY))(_SMG))
+    numpy.testing.assert_allclose(gotm, refm, rtol=1e-9, atol=1e-12)
+    refu = si.UnivariateSpline(_SMX, _SMY, s=5.0, k=3)(_SMG)
+    gotu = as_numpy(smoothing_spline(_SMX, _asarray(backend, _SMY), s=5.0)(_SMG))
+    numpy.testing.assert_allclose(gotu, refu, rtol=1e-9, atol=1e-12)
