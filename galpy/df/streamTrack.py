@@ -5,7 +5,19 @@ from matplotlib import pyplot
 from scipy import interpolate
 from scipy.spatial import cKDTree
 
-from ..backend import as_numpy, get_namespace, is_backend_array
+from ..backend import (
+    as_numpy,
+    get_namespace,
+    is_backend_array,
+    name_of_namespace,
+)
+from ..backend.interpolate import (
+    _apply_frozen_smoother,
+    _fitpack_operator,
+    _gcv_operator,
+    _linear_operator_at,
+    _smoothing_design,
+)
 from ..util import config, conversion, coords, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import physical_conversion
@@ -64,6 +76,128 @@ def _bin_by_tp(tp_assign, values, tp_nodes):
     return means, covs, counts
 
 
+def _prep_valid(x_full, y_full, sigma_full):
+    """Masked+ordered valid points and safe weights, matching _smooth_series."""
+    mask = numpy.isfinite(y_full) & numpy.isfinite(x_full)
+    idx = numpy.where(mask)[0]
+    idx = idx[numpy.argsort(x_full[idx])]
+    sig_safe = numpy.where(
+        numpy.isfinite(sigma_full) & (sigma_full > 0), sigma_full, numpy.nan
+    )
+    with numpy.errstate(invalid="ignore"):
+        sig_med = (
+            numpy.nanmedian(sig_safe)
+            if numpy.any(numpy.isfinite(sig_safe))
+            else numpy.nan
+        )
+    if not numpy.isfinite(sig_med) or sig_med == 0:
+        sig_med = 1.0
+    sv = numpy.maximum(
+        numpy.where(numpy.isfinite(sig_safe), sig_safe, sig_med)[idx], 1e-12
+    )
+    return idx, x_full[idx], y_full[idx], sv
+
+
+def _smoother_operator(xv, yv, sv, s_user, smoothing_factor):
+    """streamTrack POLICY: (t, S) for the spline paths (>=5 valid points),
+    matching the numpy _smooth_series fit. Applies the O(1) y-rescaling before
+    GCV (``make_smoothing_spline`` collapses to interpolation at galpy's small
+    internal-unit scale) and the effective-s/smoothing_factor refit choice, then
+    delegates the actual reconstruction to the backend ``_gcv_operator`` /
+    ``_fitpack_operator``. ``S @ yv`` are the (unscaled) fitted B-spline coeffs
+    (the operator is scale-agnostic; the rescaling only sets the frozen GCV
+    ``lambda`` / ``s`` hyperparameters)."""
+    if s_user is None:
+        yscale = float(numpy.nanstd(yv))  # O(1) rescale for GCV (see numpy path)
+        if not numpy.isfinite(yscale) or yscale == 0:
+            yscale = 1.0
+        w = 1.0 / ((sv / yscale) ** 2)
+        t, S = _gcv_operator(xv, yv / yscale, w)
+        if smoothing_factor == 1.0:
+            return t, S
+        # refit at s = s_gcv * smoothing_factor (s_gcv = achieved GCV SSR)
+        fit_xv = interpolate.BSpline.design_matrix(xv, t, 3).toarray() @ (S @ yv)
+        s_gcv = float(numpy.sum(((yv - fit_xv) / sv) ** 2))
+        return _fitpack_operator(xv, yv, 1.0 / sv, s_gcv * float(smoothing_factor))
+    s_val = float(s_user) * float(smoothing_factor)
+    return _fitpack_operator(xv, yv, 1.0 / sv, s_val)
+
+
+class _DiffSpline:
+    """Callable differentiable spline: ``__call__(q) = frozen_operator(y) @ y``,
+    reproducing the numpy _smooth_series fit but differentiable w.r.t. y. The
+    streamTrack POLICY (masking/safe-sigma via :func:`_prep_valid`, the GCV
+    y-rescaling and smoothing_factor choice via :func:`_smoother_operator`) is
+    computed inside ``build`` on the concrete y, so the whole thing stays
+    jit-traceable; the generic reconstruction lives in
+    :mod:`galpy.backend.interpolate`."""
+
+    def __init__(self, y, x_full, sigma_full, s_user, smoothing_factor, name):
+        self._y = y
+        self._x = numpy.asarray(x_full, dtype=float)
+        self._sigma = numpy.asarray(sigma_full, dtype=float)
+        self._s_user = s_user
+        self._sf = float(smoothing_factor)
+        self._name = name
+
+    def _build(self, q):
+        x_full, sigma_full = self._x, self._sigma
+        s_user, sf = self._s_user, self._sf
+
+        def build(y_full):
+            y_full = numpy.asarray(y_full, dtype=float)
+            Gq = numpy.zeros((len(q), y_full.shape[0]))
+            idx, xv, yv, sv = _prep_valid(x_full, y_full, sigma_full)
+            nval = len(xv)
+            if nval < 5:
+                if nval < 2:
+                    if nval == 1:
+                        Gq[:, idx[0]] = 1.0  # constant fit = yv[0]
+                    return Gq  # nval==0 -> fit 0 everywhere
+                Gq[:, idx] = _linear_operator_at(xv, q)
+                return Gq
+            t, S = _smoother_operator(xv, yv, sv, s_user, sf)
+            Gq[:, idx] = _smoothing_design(q, t) @ S
+            return Gq
+
+        return build
+
+    def __call__(self, q):
+        q = numpy.atleast_1d(numpy.asarray(q, dtype=float))
+        return _apply_frozen_smoother(self._build(q), self._y, q, self._name)
+
+
+def _smooth_series_backend(x, y, sigma, s_user, smoothing_factor):
+    """Differentiable backend counterpart of _smooth_series. The fit matches
+    scipy; the smoothing structure (lambda / knots / p / weights) is frozen from
+    the concrete y (a stop-gradient hyperparameter), so the gradient is
+    d(fit)/d(y) at fixed smoothing. ``effective_s`` is reused byte-for-byte from
+    the numpy _smooth_series path (trace-safe under jit)."""
+    x_np = numpy.asarray(x, dtype=float)
+    sigma_np = as_numpy(sigma).astype(float)
+    name = name_of_namespace(get_namespace(y))
+    spl = _DiffSpline(y, x_np, sigma_np, s_user, smoothing_factor, name)
+    if name == "jax":
+        import jax
+
+        Tracer = getattr(jax, "Tracer", None) or jax.core.Tracer
+        if isinstance(y, Tracer):
+            fdtype = jax.dtypes.canonicalize_dtype(numpy.float64)
+            eff_s = jax.pure_callback(
+                lambda yc: numpy.asarray(
+                    _smooth_series(
+                        x_np, numpy.asarray(yc), sigma_np, s_user, smoothing_factor
+                    )[1],
+                    dtype=fdtype,
+                ),
+                jax.ShapeDtypeStruct((), fdtype),
+                jax.lax.stop_gradient(y),
+            )
+            return spl, eff_s
+    eff_s = _smooth_series(x_np, as_numpy(y), sigma_np, s_user, smoothing_factor)[1]
+    return spl, eff_s
+
+
 def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
     """Fit a smoothing spline y(x) with weights derived from sigma.
 
@@ -86,7 +220,14 @@ def _smooth_series(x, y, sigma, s_user=None, smoothing_factor=1.0):
 
     Falls back to linear interpolation (effective_s=0) for fewer than 5
     valid bins.
+
+    For a backend-array ``y`` (jax/torch) the same fit is expressed as a frozen
+    linear operator ``y -> fit`` (:func:`_smooth_series_backend`), differentiable
+    in ``y`` with the smoothing structure held fixed; the numpy path below is
+    byte-identical.
     """
+    if is_backend_array(y):
+        return _smooth_series_backend(x, y, sigma, s_user, smoothing_factor)
     mask = numpy.isfinite(y) & numpy.isfinite(x)
     n_valid = int(mask.sum())
     order = numpy.argsort(x[mask])
