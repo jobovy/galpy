@@ -11,17 +11,18 @@
 # in floating point -- hence we compare the actual integrate=False sample arrays
 # at a tight rtol (not just summary statistics).
 #
-# integrate=True is deliberately NOT exercised here: routing the per-particle
-# 2D-time-grid Orbit.integrate through the in-backend differentiable integrator
-# is a separate (pending) piece of infrastructure; the unlock this file covers
-# is the integrate=False (stripping-time) sampling path.
+# integrate=True is exercised by test_sample_integrate_parity: under a backend the
+# per-particle 2D-time-grid Orbit.integrate routes to the differentiable C-STM
+# (dop853_c on a per-orbit 2-point [-dt_i, 0] grid), matching the numpy path.
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
 import numpy
 import pytest
 
-from galpy.backend import as_numpy, is_backend_array, use
+from galpy.backend import as_numpy, is_backend_array
+from galpy.backend import random as grandom
+from galpy.backend import use
 from galpy.df import chen24spraydf, fardal15spraydf
 from galpy.orbit import Orbit
 from galpy.potential import LogarithmicHaloPotential
@@ -118,3 +119,60 @@ def test_sample_tail_both_parity(cls, backend_name):
     got = _sample(df, backend_name, 200, tail="both")
     assert as_numpy(got).shape == (6, 200)
     numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-6, atol=1e-8)
+
+
+def _sample_integ(df, backend_name, n, **kwargs):
+    numpy.random.seed(_SEED)
+    with use(backend_name, force=True):
+        return df.sample(n=n, return_orbit=False, integrate=True, **kwargs)
+
+
+@pytest.mark.parametrize("cls", [fardal15spraydf, chen24spraydf])
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_sample_integrate_parity(cls, backend_name):
+    # integrate=True: the per-particle sample orbits are integrated to the present
+    # day. Under a backend the per-orbit (N, nt) integration routes to the
+    # differentiable C-STM (an RK dxdv-C method, dop853_c) and the result is a
+    # backend array matching the numpy path (which uses the fixed-step default
+    # symplec4_c) up to the two integrators' agreement (~1e-8).
+    df = _build(cls, tail="leading")
+    ref = _sample_integ(df, "numpy", 200)
+    got = _sample_integ(df, backend_name, 200)
+    if backend_name != "numpy":
+        assert is_backend_array(got), (
+            f"{cls.__name__} integrated sample should be a backend array "
+            f"under {backend_name}"
+        )
+    numpy.testing.assert_allclose(
+        as_numpy(got),
+        as_numpy(ref),
+        rtol=1e-5,
+        atol=1e-6,
+        err_msg=f"{cls.__name__} integrate=True parity ({backend_name})",
+    )
+
+
+@pytest.mark.parametrize("cls", [fardal15spraydf, chen24spraydf])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sample_standalone_key(cls, backend_name):
+    # A backend key threaded WITHOUT a forced-backend context (the documented
+    # standalone-key API): dt is a backend array, so the whole frame construction
+    # (_setup_rot -> _rotate_to_arbitrary_vector) and the sample-orbit integration
+    # run on the backend, and integrate=True returns a finite backend array. Guards
+    # the regression where _setup_rot / the rotate leaf received the raw backend dt
+    # and array_namespace(backend, [0,0,1]) / numpy.any(tensor) crashed.
+    df = _build(cls, tail="leading")
+    key = grandom.key(_SEED, backend_name)
+    numpy.random.seed(_SEED)
+    out = df.sample(n=80, return_orbit=False, integrate=True, key=key)
+    assert is_backend_array(out), (
+        f"{cls.__name__} standalone-{backend_name}-key not backend"
+    )
+    assert numpy.all(numpy.isfinite(as_numpy(out)))
+    assert as_numpy(out).shape == (6, 80)
+    # Reproducible given the same key AND the same numpy seed: the key controls the
+    # stripping-time draw, while the spray_df offset draws still use the global
+    # numpy RNG (a CRN gap for a later PR), so both sources must be reset.
+    numpy.random.seed(_SEED)
+    out2 = df.sample(n=80, return_orbit=False, integrate=True, key=key)
+    numpy.testing.assert_array_equal(as_numpy(out), as_numpy(out2))
