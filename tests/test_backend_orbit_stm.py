@@ -975,3 +975,86 @@ def test_symplectic_3d_grad_vs_fd(backend):
         _integ("torch", pot, v, ts, "symplec4_c")[-1, 0].backward()
         g = as_numpy(v.grad)
     numpy.testing.assert_allclose(g, gfd, rtol=1e-4, atol=1e-5)
+
+
+# ============================================================================
+#   Per-orbit 2D time arrays + the symplectic equispaced-snap (streamTrack
+#   prerequisites). c_stm_forward accepts a per-orbit (N, nt) time grid (each
+#   orbit integrated over its own times), and snaps an approximately-equispaced
+#   (float-rounded) grid back to an exact linspace for the symplectic methods.
+# ============================================================================
+from galpy.backend._reference.inbackend_stm import _snap_equispaced  # noqa: E402
+
+_ICS2 = numpy.array([[1.0, 0.1, 1.1, 0.05, 0.1, 0.2], [1.05, 0.0, 1.0, 0.0, 0.05, 0.4]])
+_TS2D = numpy.array([numpy.linspace(0.0, 2.0, 11), numpy.linspace(0.0, 3.0, 11)])
+
+
+@pytest.mark.parametrize("method", ["dop853_c", "symplec4_c"])
+def test_c_stm_forward_per_orbit_2d_times(method):
+    # a per-orbit (N, nt) time grid: c_stm_forward returns (N, nt, d)/(N, nt, d, d)
+    # and each orbit matches the single-orbit solve over that orbit's own times.
+    xt, M = c_stm_forward(MWPotential2014, _ICS2, _TS2D, method, 1e-10, 1e-10)
+    assert xt.shape == (2, 11, 6)
+    assert M.shape == (2, 11, 6, 6)
+    for k in range(2):
+        xk, Mk = c_stm_forward(
+            MWPotential2014, _ICS2[k], _TS2D[k], method, 1e-10, 1e-10
+        )
+        numpy.testing.assert_allclose(xt[k], xk, rtol=1e-9, atol=1e-10)
+        numpy.testing.assert_allclose(M[k], Mk, rtol=1e-9, atol=1e-10)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_orbit_integrate_per_orbit_2d_times_routing(backend):
+    # Orbit(N backend ICs).integrate(per-orbit 2D ts, dop853_c) routes to the C-STM
+    # and honors the per-orbit times: getOrbit is (N, nt, 6), matching per-orbit
+    # numpy, and stays a differentiable backend array.
+    from galpy.orbit import Orbit
+
+    o = Orbit(_arr(backend, _ICS2))
+    o.integrate(_arr(backend, _TS2D), MWPotential2014, method="dop853_c")
+    got = as_numpy(o.getOrbit())
+    assert got.shape == (2, 11, 6)
+    assert _is_backend(backend, o.getOrbit())
+    for k in range(2):
+        onp = Orbit(list(_ICS2[k]))
+        onp.integrate(_TS2D[k], MWPotential2014, method="dop853_c")
+        numpy.testing.assert_allclose(got[k], onp.getOrbit(), rtol=1e-6, atol=1e-7)
+
+
+def test_snap_equispaced_behavior():
+    # a float32-rounded fine grid is not exactly equispaced (fails galpy's isclose
+    # check); the snap restores the exact linspace for the symplectic methods, is a
+    # no-op for the Runge-Kutta methods, and leaves a genuinely non-equispaced grid
+    # (deviation >> float rounding) unchanged so integrate_dxdv still rejects it.
+    ts_f32 = (
+        numpy.linspace(-74.4, 0.0, 2001).astype(numpy.float32).astype(numpy.float64)
+    )
+    diffs = numpy.diff(ts_f32)
+    assert not numpy.all(numpy.isclose(diffs, diffs[0]))  # not exactly equispaced
+    snapped = _snap_equispaced(ts_f32, "symplec4_c")
+    numpy.testing.assert_array_equal(
+        snapped, numpy.linspace(ts_f32[0], ts_f32[-1], len(ts_f32))
+    )
+    # Runge-Kutta: no snap (accepts arbitrary times)
+    numpy.testing.assert_array_equal(_snap_equispaced(ts_f32, "dop853_c"), ts_f32)
+    # genuine non-equispaced: unchanged
+    ts_gen = numpy.array([0.0, 0.1, 0.35, 0.9, 2.0])
+    numpy.testing.assert_array_equal(_snap_equispaced(ts_gen, "symplec4_c"), ts_gen)
+
+
+def test_c_stm_forward_symplectic_float32_grid():
+    # a symplectic C-STM solve over a float32-rounded (approximately-equispaced)
+    # grid succeeds via the snap, where a raw integrate_dxdv would reject it.
+    from galpy.orbit import Orbit
+
+    ts_f32 = (
+        numpy.linspace(-40.0, 0.0, 1001).astype(numpy.float32).astype(numpy.float64)
+    )
+    ic = numpy.array([1.0, 0.1, 1.1, 0.05, 0.1, 0.2])
+    with pytest.raises(ValueError):  # raw path rejects the float-rounded grid
+        Orbit(list(ic)).integrate_dxdv(
+            numpy.eye(6)[0], ts_f32, MWPotential2014, method="symplec4_c"
+        )
+    xt, M = c_stm_forward(MWPotential2014, ic, ts_f32, "symplec4_c", 1e-10, 1e-10)
+    assert xt.shape == (1001, 6) and M.shape == (1001, 6, 6)

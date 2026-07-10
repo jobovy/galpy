@@ -34,6 +34,25 @@ _C_SYMPLEC_METHODS = ("leapfrog_c", "symplec4_c", "symplec6_c")
 _C_DXDV_METHODS = _C_RK_METHODS + _C_SYMPLEC_METHODS
 
 
+def _snap_equispaced(ts, method):
+    """Symplectic integrators require EXACTLY equispaced times. An equispaced grid
+    that passed through a lower-precision (e.g. float32) backend op arrives slightly
+    non-equispaced -- ``integrate_dxdv`` then rejects it, though the numpy path
+    (float64) never sees the drift. Snap an approximately-equispaced grid back to
+    its intended ``linspace`` (a no-op for an exact grid, and only applied to the
+    symplectic methods -- the Runge-Kutta ones accept arbitrary times). Genuinely
+    non-equispaced input deviates far more than float rounding and is returned
+    unchanged, so ``integrate_dxdv`` still rejects it exactly as numpy does.
+    """
+    if method.lower() not in _C_SYMPLEC_METHODS or ts.ndim != 1 or len(ts) < 3:
+        return ts
+    ts_lin = numpy.linspace(ts[0], ts[-1], len(ts))
+    tol = 1e-6 * max(abs(float(ts[0])), abs(float(ts[-1])), 1.0)
+    if numpy.max(numpy.abs(ts - ts_lin)) < tol:
+        return ts_lin
+    return ts
+
+
 def c_stm_forward(pot, vxvv, ts, method, rtol, atol):
     """Run the C variational integrator and return (x(t), M(t)).
 
@@ -85,11 +104,14 @@ def _c_stm_forward_augmented(pot, vxvv, ts, method, rtol, atol):
     single = vxvv.ndim == 1
     ics = vxvv[None] if single else vxvv
     ts = numpy.asarray(ts, dtype=numpy.float64)
-    nt = len(ts)
+    # ts is either a shared (nt,) grid or a per-orbit (N, nt) grid.
+    per_orbit_ts = ts.ndim == 2
+    nt = ts.shape[-1]
     eye6 = numpy.eye(6)
     int_method = method.lower()
     xts, Ms = [], []
-    for ic in ics:
+    for oi, ic in enumerate(ics):
+        ts_o = ts[oi] if per_orbit_ts else ts
         R, vR, vT, z, vz, phi = ic
         # cyl -> rect base, and the six cyl basis deviations folded to rect =
         # the columns of the cyl->rect Jacobian (basis=I), packed as the 36-block.
@@ -99,7 +121,7 @@ def _c_stm_forward_augmented(pot, vxvv, ts, method, rtol, atol):
         jac0 = coords.cyl_to_rect_jac(R, vR, vT, z, vz, phi)  # (6,6)
         dyo_block = jac0.T.reshape(-1)  # column k at offset 6k
         out, _err = integrateFullOrbit_stm_c(
-            pot, yo_rect, dyo_block, ts, int_method, rtol=rtol, atol=atol
+            pot, yo_rect, dyo_block, ts_o, int_method, rtol=rtol, atol=atol
         )  # (nt, 42)
         # base rect -> cyl (Orbit order); copy Z/vz before any reuse (views).
         Rout, phiout, Zout = coords.rect_to_cyl(
@@ -150,17 +172,20 @@ def _c_stm_forward_loop(pot, vxvv, ts, method, rtol, atol):
     vxvv = numpy.asarray(vxvv, dtype=numpy.float64)
     single = vxvv.ndim == 1
     ics = vxvv[None] if single else vxvv
+    ts = numpy.asarray(ts, dtype=numpy.float64)
+    per_orbit_ts = ts.ndim == 2  # shared (nt,) vs per-orbit (N, nt) grid
     d = ics.shape[-1]
     basis = numpy.eye(d)
     xts, Ms = [], []
-    for ic in ics:
+    for oi, ic in enumerate(ics):
+        ts_o = _snap_equispaced(ts[oi] if per_orbit_ts else ts, method)
         cols = []
         base = None
         for i in range(d):
             o = Orbit(list(ic))
             o.integrate_dxdv(
                 basis[i],
-                ts,
+                ts_o,
                 pot,
                 method=method,
                 rectIn=False,
