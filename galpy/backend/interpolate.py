@@ -31,16 +31,20 @@
 #   may jit their galpy-using code; galpy never jits internally.
 ###############################################################################
 import itertools
+import warnings
 
 import numpy
 from scipy import interpolate as _scipy_interpolate
 from scipy import ndimage as _scipy_ndimage
 
+from ..util import galpyWarning
 from ._namespaces import (
     asarray_on_device,
     device_of,
     is_backend_array,
+    name_of_namespace,
 )
+from ._resolver import get_namespace
 
 __all__ = [
     "spline_to_ppoly",
@@ -55,6 +59,8 @@ __all__ = [
     "MapCoordinates",
     "Spline1D",
     "Spline2D",
+    "make_smoothing_spline",
+    "smoothing_spline",
 ]
 
 
@@ -784,3 +790,296 @@ class Spline2D:
         return eval_rect_ppoly(
             xp, self._xbr, self._ybr, self._c, X, Y, extrapolate=self._extrapolate
         )
+
+
+###############################################################################
+#   (5) Differentiable smoothing-spline reconstruction (GCV / FITPACK).
+#
+#   ``make_smoothing_spline`` / ``smoothing_spline`` are backend-aware
+#   counterparts of ``scipy.interpolate.make_smoothing_spline`` (GCV cubic
+#   smoothing spline) and ``UnivariateSpline(k=3)``. numpy ``y`` is a literal
+#   scipy passthrough (byte-identical); a backend ``y`` (jax/torch) returns a
+#   frozen linear operator ``y -> fit`` that is differentiable in ``y`` -- the
+#   smoothing hyperparameters (GCV ``lambda`` / FITPACK knots+``p``) are frozen
+#   from the concrete ``y`` (a stop-gradient), so the gradient is d(fit)/d(y) at
+#   fixed smoothing. The reconstruction ties to scipy's private GCV solve
+#   (``_bsplines``) and to FITPACK's augmented least-squares; the numpy path is
+#   unaffected. streamTrack (which needs an extra y-rescaling POLICY) drives the
+#   lower-level ``_gcv_operator`` / ``_fitpack_operator`` directly.
+###############################################################################
+def _fpdisc(t, k=3):
+    """FITPACK fpdisc: the k-th-derivative discontinuity-jump matrix (nrint x
+    nk1) of a spline with knot vector ``t``. Used to reconstruct FITPACK's
+    penalized smoothing system for the differentiable backend path."""
+    t = numpy.asarray(t, dtype=float)
+    n = t.shape[0]
+    k1, k2 = k + 1, k + 2
+    nk1 = n - k1
+    nrint = nk1 - k
+    fac = float(nrint) / (t[nk1] - t[k1 - 1])
+    B = numpy.zeros((nrint, nk1))
+    for l_f in range(k2, nk1 + 1):
+        lmk = l_f - k1
+        h = numpy.zeros(2 * k1)
+        for j_f in range(1, k1 + 1):
+            h[j_f - 1] = t[l_f - 1] - t[l_f + j_f - k2 - 1]
+            h[j_f + k1 - 1] = t[l_f - 1] - t[l_f + j_f - 1]
+        lp = lmk
+        for j_f in range(1, k2 + 1):
+            prod = h[j_f - 1]
+            jk = j_f
+            for _i in range(k):
+                jk += 1
+                prod = prod * h[jk - 1] * fac
+            B[lmk - 1, lp - 1] = (t[lp + k1 - 1] - t[lp - 1]) / prod
+            lp += 1
+    return B
+
+
+def _smoothing_design(q, t, k=3):
+    """B-spline design matrix (len(q) x nk1) WITH extrapolation, matching scipy
+    BSpline/UnivariateSpline evaluation outside [t[k], t[-k-1]]
+    (BSpline.design_matrix forbids out-of-range points)."""
+    nk1 = len(t) - k - 1
+    return _scipy_interpolate.BSpline(t, numpy.eye(nk1), k, extrapolate=True)(q)
+
+
+def _gcv_operator(xv, yv, w):
+    """Reconstruct ``make_smoothing_spline(xv, yv, w=w)`` as a linear operator
+    y -> B-spline coeffs: freeze the GCV ``lambda`` from the concrete data, then
+    the natural-spline solve is LINEAR in y. Returns ``(t, S)`` with fitted
+    B-spline coeffs ``= S @ yv``. ``w`` is scipy's weight (``1/variance``). Ties
+    to scipy private API (``_bsplines``); the numpy path is unaffected."""
+    from scipy.interpolate._bsplines import (
+        _coeff_of_divided_diff,
+        _compute_optimal_gcv_parameter,
+    )
+    from scipy.linalg import solve_banded
+
+    n = xv.shape[0]
+    t = numpy.r_[[xv[0]] * 3, xv, [xv[-1]] * 3]
+    Xb = _scipy_interpolate.BSpline.design_matrix(xv, t, 3).toarray()
+    X = numpy.zeros((5, n))
+    for i in range(1, 4):
+        X[i, 2:-2] = Xb[i : i - 4, 3:-3][numpy.diag_indices(n - 4)]
+    X[1, 1] = Xb[0, 0]
+    X[2, :2] = ((xv[2] + xv[1] - 2 * xv[0]) * Xb[0, 0], Xb[1, 1] + Xb[1, 2])
+    X[3, :2] = ((xv[2] - xv[0]) * Xb[1, 1], Xb[2, 2])
+    X[1, -2:] = (Xb[-3, -3], (xv[-1] - xv[-3]) * Xb[-2, -2])
+    X[2, -2:] = (Xb[-2, -3] + Xb[-2, -2], (2 * xv[-1] - xv[-2] - xv[-3]) * Xb[-1, -1])
+    X[3, -2] = Xb[-1, -1]
+    wE = numpy.zeros((5, n))
+    wE[2:, 0] = _coeff_of_divided_diff(xv[:3]) / w[:3]
+    wE[1:, 1] = _coeff_of_divided_diff(xv[:4]) / w[:4]
+    for j in range(2, n - 2):
+        wE[:, j] = (
+            (xv[j + 2] - xv[j - 2])
+            * _coeff_of_divided_diff(xv[j - 2 : j + 3])
+            / w[j - 2 : j + 3]
+        )
+    wE[:-1, -2] = -_coeff_of_divided_diff(xv[-4:]) / w[-4:]
+    wE[:-2, -1] = _coeff_of_divided_diff(xv[-3:]) / w[-3:]
+    wE *= 6
+    lam = float(
+        numpy.asarray(
+            _compute_optimal_gcv_parameter(X, wE, yv.reshape(-1, 1), w)
+        ).ravel()[0]
+    )
+    # natural coeffs = Ainv @ yv; scipy's own banded LU (solve_banded) reproduces
+    # its solve even for ill-conditioned A.
+    Ainv = solve_banded((2, 2), X + lam * wE, numpy.eye(n))
+    Conv = numpy.zeros((n + 2, n))  # natural -> B-spline basis (scipy eqns)
+    Conv[2:-2, 1:-1] = numpy.eye(n - 2)
+    Conv[0, 0] = t[5] + t[4] - 2 * t[3]
+    Conv[0, 1] = 1.0
+    Conv[1, 0] = t[5] - t[3]
+    Conv[1, 1] = 1.0
+    Conv[-2, -1] = t[-4] - t[-6]
+    Conv[-2, -2] = 1.0
+    Conv[-1, -1] = 2 * t[-4] - t[-5] - t[-6]
+    Conv[-1, -2] = 1.0
+    S = Conv @ Ainv
+    return t, S
+
+
+def _fitpack_operator(xv, yv, w, s):
+    """Reconstruct ``UnivariateSpline(xv, yv, w=w, s=s, k=3)`` as a linear
+    operator y -> coeffs. Freeze FITPACK's adaptively-selected knots, then the
+    penalized fit is the augmented least-squares ``[sqrt(W) N; sqrt(p) B] c =
+    [sqrt(W) y; 0]`` -- solved via QR/SVD (``pinv``), NOT the squared-conditioned
+    normal equations, so it stays exact into the near-interpolation regime (many
+    knots). ``p`` is matched to scipy's coeffs. ``w`` is scipy's weight
+    (``1/sigma``). Returns ``(t, S)`` with fitted B-spline coeffs ``= S @ yv``.
+    Reproduces scipy to ~1e-12 except in the extreme near-interpolation regime
+    (``s`` far below the GCV optimum) where FITPACK itself does not converge (its
+    ``maxit`` warning) and its coeffs correspond to no single penalized ``p``."""
+    spl = _scipy_interpolate.UnivariateSpline(xv, yv, w=w, s=s, k=3)
+    tk = spl.get_knots()
+    t = numpy.r_[[tk[0]] * 3, tk, [tk[-1]] * 3]
+    c_np = spl.get_coeffs()
+    N = _scipy_interpolate.BSpline.design_matrix(xv, t, 3).toarray()
+    sw = w  # sqrt of the weights (W2 = sw**2)
+    A = sw[:, None] * N
+    B = _fpdisc(t, 3)
+    n = N.shape[0]
+    if B.shape[0] == 0 or numpy.linalg.norm(B) == 0.0:
+        S = numpy.linalg.pinv(A) * sw[None, :]  # 0 interior knots: weighted LSQ
+    else:
+        rhs = numpy.concatenate([sw * yv, numpy.zeros(B.shape[0])])
+
+        def cerr(lp):
+            aug = numpy.vstack([A, numpy.sqrt(numpy.exp(lp)) * B])
+            return numpy.linalg.norm(numpy.linalg.lstsq(aug, rhs, rcond=None)[0] - c_np)
+
+        grid = numpy.linspace(-70.0, 70.0, 281)  # covers small p (near-interp)
+        j = int(numpy.argmin([cerr(lp) for lp in grid]))  # to large p (heavy smoothing)
+        lo, hi = grid[max(0, j - 1)], grid[min(len(grid) - 1, j + 1)]
+        for _ in range(60):
+            m1, m2 = lo + (hi - lo) * 0.382, lo + (hi - lo) * 0.618
+            lo, hi = (lo, m2) if cerr(m1) < cerr(m2) else (m1, hi)
+        aug = numpy.vstack([A, numpy.sqrt(numpy.exp(0.5 * (lo + hi))) * B])
+        S = numpy.linalg.pinv(aug)[:, :n] * sw[None, :]
+    fit_xv = N @ (S @ yv)
+    fit_np = N @ c_np
+    # Near-interpolation: FITPACK's dense-knot fit matches no single penalized p,
+    # so the reconstruction cannot reproduce it. Warn rather than silently return
+    # an imprecise fit.
+    if numpy.linalg.norm(fit_xv - fit_np) > 1e-6 * (numpy.linalg.norm(fit_np) + 1e-300):
+        warnings.warn(
+            "smoothing_spline: the differentiable backend smoother cannot "
+            "faithfully reconstruct FITPACK's near-interpolation fit (interior "
+            "knots approach the number of points); use a larger smoothing s for "
+            "an exact backend fit. The default (GCV) smoothing is unaffected.",
+            galpyWarning,
+        )
+    return t, S
+
+
+def _linear_operator_at(xv, q):
+    """interp1d(kind='linear', fill_value='extrapolate') as a (len(q) x len(xv))
+    matrix G with fit(q) = G @ yv (yv on the sorted xv nodes)."""
+    xv = numpy.asarray(xv, dtype=float)
+    nq, n = len(q), len(xv)
+    G = numpy.zeros((nq, n))
+    for a in range(nq):
+        j = min(max(int(numpy.searchsorted(xv, q[a]) - 1), 0), n - 2)
+        wgt = (q[a] - xv[j]) / (xv[j + 1] - xv[j])
+        G[a, j] = 1.0 - wgt
+        G[a, j + 1] = wgt
+    return G
+
+
+def _apply_frozen_smoother(build, y, q, name):
+    """fit(q) = build(y_concrete) @ nan_to_num(y), differentiable in y. ``build``
+    returns the frozen (len(q) x len(y)) operator scattered to FULL indices
+    (zero columns at masked/NaN entries) so no boolean indexing of a traced y is
+    needed. The smoothing structure is frozen from the concrete y."""
+    nq, nfull = len(q), y.shape[0]
+    if name == "torch":
+        import torch
+
+        Gq = torch.as_tensor(
+            build(y.detach().cpu().numpy()), dtype=y.dtype, device=y.device
+        )
+        return Gq @ torch.nan_to_num(y)
+    import jax
+    import jax.numpy as jnp
+
+    Tracer = getattr(jax, "Tracer", None) or jax.core.Tracer
+    if isinstance(y, Tracer):
+        fdtype = jax.dtypes.canonicalize_dtype(numpy.float64)  # f32 when x64 off
+        Gq = jax.pure_callback(
+            lambda yc: build(numpy.asarray(yc)).astype(fdtype),
+            jax.ShapeDtypeStruct((nq, nfull), fdtype),
+            jax.lax.stop_gradient(y),
+        )
+    else:
+        Gq = asarray_on_device(jnp, build(numpy.asarray(y)), device_of(y))
+    return Gq @ jnp.nan_to_num(y)
+
+
+class _DiffSmoothingSpline:
+    """Callable differentiable smoothing spline: ``__call__(q) =
+    frozen_operator(y) @ y``, reproducing scipy's fit but differentiable w.r.t.
+    y. ``kind`` selects the reconstruction (``"gcv"`` -> make_smoothing_spline,
+    ``"fitpack"`` -> UnivariateSpline(s)). ``w`` is the per-point weight aligned
+    with ``x_full``/``y`` (scipy convention). Non-finite y/x are dropped; <5
+    finite points fall back to linear interpolation."""
+
+    def __init__(self, x_full, y, w_full, kind, s=0.0, name=None):
+        self._x = numpy.asarray(x_full, dtype=float)
+        self._y = y
+        self._w = numpy.asarray(w_full, dtype=float)
+        self._kind = kind
+        self._s = float(s)
+        self._name = name if name is not None else name_of_namespace(get_namespace(y))
+
+    def _build(self, q):
+        x_full, w_full, kind, s = self._x, self._w, self._kind, self._s
+
+        def build(y_full):
+            y_full = numpy.asarray(y_full, dtype=float)
+            Gq = numpy.zeros((len(q), y_full.shape[0]))
+            mask = numpy.isfinite(y_full) & numpy.isfinite(x_full)
+            idx = numpy.where(mask)[0]
+            idx = idx[numpy.argsort(x_full[idx])]
+            xv, yv, wv = x_full[idx], y_full[idx], w_full[idx]
+            nval = len(idx)
+            if nval < 5:
+                if nval < 2:
+                    if nval == 1:
+                        Gq[:, idx[0]] = 1.0  # constant fit = yv[0]
+                    return Gq  # nval==0 -> fit 0 everywhere
+                Gq[:, idx] = _linear_operator_at(xv, q)
+                return Gq
+            if kind == "gcv":
+                t, S = _gcv_operator(xv, yv, wv)
+            else:
+                t, S = _fitpack_operator(xv, yv, wv, s)
+            Gq[:, idx] = _smoothing_design(q, t) @ S
+            return Gq
+
+        return build
+
+    def __call__(self, q):
+        q = numpy.atleast_1d(numpy.asarray(q, dtype=float))
+        return _apply_frozen_smoother(self._build(q), self._y, q, self._name)
+
+
+def make_smoothing_spline(x, y, w=None):
+    """Backend-aware differentiable counterpart of
+    ``scipy.interpolate.make_smoothing_spline`` (GCV cubic smoothing spline).
+
+    numpy ``y`` -> scipy (byte-identical passthrough); a backend ``y``
+    (jax/torch) -> a frozen linear operator ``y -> fit`` differentiable in ``y``
+    (the GCV ``lambda`` is frozen from the concrete ``y``, a stop-gradient
+    hyperparameter), reproducing scipy to ~1e-11. Non-finite ``y`` are dropped;
+    fewer than 5 finite points fall back to linear interpolation. ``w`` is the
+    per-point weight ``1/variance`` (as in scipy)."""
+    if not is_backend_array(y):
+        return _scipy_interpolate.make_smoothing_spline(x, y, w=w)
+    if w is None:
+        w = numpy.ones(len(numpy.asarray(x)))
+    return _DiffSmoothingSpline(
+        numpy.asarray(x, dtype=float), y, numpy.asarray(w, dtype=float), "gcv"
+    )
+
+
+def smoothing_spline(x, y, w=None, s=0.0):
+    """Backend-aware differentiable counterpart of
+    ``scipy.interpolate.UnivariateSpline(x, y, w=w, s=s, k=3)``.
+
+    numpy ``y`` -> scipy (byte-identical passthrough); a backend ``y``
+    (jax/torch) -> a frozen linear operator ``y -> fit`` differentiable in ``y``
+    (FITPACK's knots and penalty are frozen from the concrete ``y``, a
+    stop-gradient hyperparameter), reproducing scipy to ~1e-12 outside the
+    extreme near-interpolation regime (where a ``galpyWarning`` is issued).
+    Non-finite ``y`` are dropped; fewer than 5 finite points fall back to linear
+    interpolation. ``w`` is the per-point weight ``1/sigma`` (as in scipy)."""
+    if not is_backend_array(y):
+        return _scipy_interpolate.UnivariateSpline(x, y, w=w, s=s, k=3)
+    if w is None:
+        w = numpy.ones(len(numpy.asarray(x)))
+    return _DiffSmoothingSpline(
+        numpy.asarray(x, dtype=float), y, numpy.asarray(w, dtype=float), "fitpack", s=s
+    )
