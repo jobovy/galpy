@@ -11,10 +11,9 @@
 # in floating point -- hence we compare the actual integrate=False sample arrays
 # at a tight rtol (not just summary statistics).
 #
-# integrate=True is deliberately NOT exercised here: routing the per-particle
-# 2D-time-grid Orbit.integrate through the in-backend differentiable integrator
-# is a separate (pending) piece of infrastructure; the unlock this file covers
-# is the integrate=False (stripping-time) sampling path.
+# integrate=True is exercised by test_sample_integrate_parity: under a backend the
+# per-particle 2D-time-grid Orbit.integrate routes to the differentiable C-STM
+# (dop853_c on a per-orbit 2-point [-dt_i, 0] grid), matching the numpy path.
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
@@ -118,3 +117,34 @@ def test_sample_tail_both_parity(cls, backend_name):
     got = _sample(df, backend_name, 200, tail="both")
     assert as_numpy(got).shape == (6, 200)
     numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-6, atol=1e-8)
+
+
+def _sample_integ(df, backend_name, n, **kwargs):
+    numpy.random.seed(_SEED)
+    with use(backend_name, force=True):
+        return df.sample(n=n, return_orbit=False, integrate=True, **kwargs)
+
+
+@pytest.mark.parametrize("cls", [fardal15spraydf, chen24spraydf])
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_sample_integrate_parity(cls, backend_name):
+    # integrate=True: the per-particle sample orbits are integrated to the present
+    # day. Under a backend the per-orbit (N, nt) integration routes to the
+    # differentiable C-STM (an RK dxdv-C method, dop853_c) and the result is a
+    # backend array matching the numpy path (which uses the fixed-step default
+    # symplec4_c) up to the two integrators' agreement (~1e-8).
+    df = _build(cls, tail="leading")
+    ref = _sample_integ(df, "numpy", 200)
+    got = _sample_integ(df, backend_name, 200)
+    if backend_name != "numpy":
+        assert is_backend_array(got), (
+            f"{cls.__name__} integrated sample should be a backend array "
+            f"under {backend_name}"
+        )
+    numpy.testing.assert_allclose(
+        as_numpy(got),
+        as_numpy(ref),
+        rtol=1e-5,
+        atol=1e-6,
+        err_msg=f"{cls.__name__} integrate=True parity ({backend_name})",
+    )
