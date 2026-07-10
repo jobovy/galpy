@@ -202,7 +202,10 @@ def _rotate_to_arbitrary_vector(v, a, inv=False, _dontcutsmall=False):
     # genuine backend array (jax/torch): out-of-place, differentiable. The
     # rotaxis-normalization denominator is guarded so a v parallel to a -- whose
     # row is degenerate and cut/masked below anyway -- does not NaN-poison AD.
-    xp = get_namespace(v, a)
+    # Resolve the namespace from v ONLY: a is a Python list (the target axis) and
+    # array_namespace(backend_array, list) raises outside a forced context; a is
+    # re-created as a backend constant on the next line regardless.
+    xp = get_namespace(v)
     a = as_backend_constant(xp, numpy.asarray(a, dtype=float), v)
     normv = v / xp.sqrt(xp.sum(v**2.0, axis=1))[:, None]
     nx, ny, nz = normv[:, 0], normv[:, 1], normv[:, 2]
