@@ -25,7 +25,7 @@ def integrate(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
     import jax.numpy as jnp
 
     ts_np = numpy.asarray(ts, dtype=numpy.float64)
-    nt = ts_np.shape[0]
+    nt = ts_np.shape[-1]  # per-orbit length: works for a shared (nt,) or (N, nt) grid
     d = vxvv.shape[-1]  # phase-space dim: 6 (3D), 4 (planar), 2 (1D)
 
     def _host(vxvv_np):
