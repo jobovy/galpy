@@ -583,23 +583,26 @@ def test_integrate_concrete_backend_ic_numpy_method_works():
 @pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
 def test_integrate_gradtracking_backend_ic_numpy_method_raises_torch():
     # a grad-tracking torch IC has no concrete values (self.vxvv is a placeholder),
-    # so a numpy/C method must raise rather than integrate degenerate values
+    # so a non-dxdv numpy/C method (ias15_c has no dxdv) must raise rather than
+    # integrate degenerate values. (The dxdv-capable C methods -- incl. the
+    # symplectic leapfrog_c/symplec4_c/symplec6_c -- instead route to the C-STM.)
     o = Orbit(torch.tensor(_IC, requires_grad=True))
     with pytest.raises(ValueError):
-        o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="leapfrog_c")
+        o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="ias15_c")
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 def test_integrate_traced_backend_ic_numpy_method_raises_jax():
     # under jax.grad the IC is a tracer -> placeholder self.vxvv -> a non-dxdv
-    # numpy/C method must raise (a differentiable method must be used instead). A
-    # dxdv-capable C method (dop853_c, ...) instead routes to the C-STM and IS
-    # differentiable -- see test_backend_orbit_stm.py.
+    # numpy/C method (ias15_c) must raise (a differentiable method must be used
+    # instead). A dxdv-capable C method (dop853_c, leapfrog_c, symplec4_c, ...)
+    # instead routes to the C-STM and IS differentiable -- see
+    # test_backend_orbit_stm.py.
     pot = PlummerPotential(amp=1.0, b=0.6)
 
     def run(vR0):
         o = Orbit(jnp.array([1.0, vR0, 0.9, 0.2, 0.05, 0.3]))
-        o.integrate(_TS, pot, method="leapfrog_c")
+        o.integrate(_TS, pot, method="ias15_c")
         return o.getOrbit()[-1, 0]
 
     with pytest.raises(ValueError):
