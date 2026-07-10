@@ -17,14 +17,16 @@ from .._reference.inbackend_stm import c_stm_forward
 def integrate(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
     """Differentiable C-STM orbit integration under jax.
 
-    vxvv: jax array (6,) or (N,6), Orbit order. Returns (nt,6) or (N,nt,6).
-    Differentiable w.r.t. vxvv. pot/ts/method are static (closed over).
+    vxvv: jax array (d,) or (N,d), d in {6,4,2} (3D/planar/1D), Orbit order.
+    Returns (nt,d) or (N,nt,d). Differentiable w.r.t. vxvv. pot/ts/method are
+    static (closed over).
     """
     import jax
     import jax.numpy as jnp
 
     ts_np = numpy.asarray(ts, dtype=numpy.float64)
     nt = ts_np.shape[0]
+    d = vxvv.shape[-1]  # phase-space dim: 6 (3D), 4 (planar), 2 (1D)
 
     def _host(vxvv_np):
         xt, M = c_stm_forward(
@@ -34,11 +36,11 @@ def integrate(pot, vxvv, ts, *, method="dop853_c", rtol=1e-10, atol=1e-10):
 
     def _call(v):
         single = v.ndim == 1
-        n6 = (nt, 6) if single else (v.shape[0], nt, 6)
-        n66 = (nt, 6, 6) if single else (v.shape[0], nt, 6, 6)
+        nx = (nt, d) if single else (v.shape[0], nt, d)
+        nxx = (nt, d, d) if single else (v.shape[0], nt, d, d)
         return jax.pure_callback(
             _host,
-            (jax.ShapeDtypeStruct(n6, v.dtype), jax.ShapeDtypeStruct(n66, v.dtype)),
+            (jax.ShapeDtypeStruct(nx, v.dtype), jax.ShapeDtypeStruct(nxx, v.dtype)),
             v,
             vmap_method="expand_dims",
         )
