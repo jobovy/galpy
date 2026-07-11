@@ -447,22 +447,52 @@ class basestreamspraydf(df):
         half_dense = 5001
         t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
         t_back = numpy.linspace(0.0, -track_time_range, half_dense)
-        prog = self._orig_progenitor()
-        prog.turn_physical_off()
-        prog.integrate(t_fwd, _track_pot)
-        prog.integrate(t_back, _track_pot)
         # Stitched grid spans [-T, +T] (skip the t=0 duplicate at the seam).
         track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
-        track_prog_cart = numpy.column_stack(
-            [
-                prog.x(track_t_grid),
-                prog.y(track_t_grid),
-                prog.z(track_t_grid),
-                prog.vx(track_t_grid),
-                prog.vy(track_t_grid),
-                prog.vz(track_t_grid),
-            ]
-        )
+        prog_ic_backend = getattr(self._orig_progenitor, "_ic_backend", None)
+        if is_backend_array(prog_ic_backend):
+            # Backend (jax/torch) progenitor orbit: build a DIFFERENTIABLE track
+            # curve so the fitted track carries d(track)/d(progenitor). Integrate
+            # forward and backward from the same backend IC with a differentiable
+            # C integrator (dop853_c -> C-STM when the potential has the C 3D
+            # Hessian, else the in-backend ODE), then stitch (torch has no
+            # negative-step slice, so use xp.flip). The structural time axis stays
+            # numpy. A backend track_prog_cart takes precedence over prog_orbit in
+            # StreamTrack, so we pass prog_orbit=None below.
+            xp = get_namespace(prog_ic_backend)
+            o_fwd = Orbit(prog_ic_backend)
+            o_fwd.turn_physical_off()
+            o_fwd.integrate(t_fwd, _track_pot, method="dop853_c")
+            o_back = Orbit(prog_ic_backend)
+            o_back.turn_physical_off()
+            o_back.integrate(t_back, _track_pot, method="dop853_c")
+
+            def _cart(o, ts):
+                return xp.stack(
+                    [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)],
+                    axis=-1,
+                )
+
+            track_prog_cart = xp.concat(
+                [xp.flip(_cart(o_back, t_back), axis=0), _cart(o_fwd, t_fwd)[1:]],
+                axis=0,
+            )
+            prog = None
+        else:
+            prog = self._orig_progenitor()
+            prog.turn_physical_off()
+            prog.integrate(t_fwd, _track_pot)
+            prog.integrate(t_back, _track_pot)
+            track_prog_cart = numpy.column_stack(
+                [
+                    prog.x(track_t_grid),
+                    prog.y(track_t_grid),
+                    prog.z(track_t_grid),
+                    prog.vx(track_t_grid),
+                    prog.vy(track_t_grid),
+                    prog.vz(track_t_grid),
+                ]
+            )
 
         # Inherit unit metadata from the original progenitor Orbit. Pass
         # ``ro``/``vo`` only when the progenitor had them explicitly set —
