@@ -18,6 +18,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy, is_backend_array
 from galpy.orbit import Orbit
 from galpy.potential import (
     BurkertPotential,
@@ -589,6 +590,54 @@ def test_integrate_gradtracking_backend_ic_numpy_method_raises_torch():
     o = Orbit(torch.tensor(_IC, requires_grad=True))
     with pytest.raises(ValueError):
         o.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="ias15_c")
+
+
+# --------- grad-tracking IC + SYMPLECTIC dxdv C method auto-routes to the C-STM
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("method", ["symplec4_c", "leapfrog_c", "symplec6_c"])
+def test_integrate_gradtracking_symplectic_routes_to_cstm_torch(method):
+    # A grad-tracking IC + a symplectic dxdv C method now auto-routes to the C-STM
+    # (previously raised): the orbit is a differentiable backend array matching the
+    # numpy symplectic integration to machine precision (same C integrator). A
+    # CONCRETE backend IC keeps the numpy/C path (see
+    # test_integrate_concrete_backend_ic_numpy_method_works), so a forced-backend
+    # internal default (symplec4_c) integration is never silently rerouted (#1094).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ic = torch.tensor(_IC, requires_grad=True)
+    o = Orbit(ic)
+    o.integrate(_TS, pot, method=method)
+    assert is_backend_array(o.x(_TS))
+    ref = Orbit(list(_IC))
+    ref.integrate(_TS, pot, method=method)
+    numpy.testing.assert_allclose(
+        as_numpy(o.R(_TS)), ref.R(_TS), rtol=1e-10, atol=1e-11
+    )
+    loss = torch.sum(o.R(_TS) ** 2) + torch.sum(o.vx(_TS) ** 2)
+    loss.backward()
+    g = as_numpy(ic.grad)
+    assert numpy.all(numpy.isfinite(g)) and numpy.max(numpy.abs(g)) > 0
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+def test_integrate_gradtracking_symplectic_routes_to_cstm_jax():
+    # Under jax.grad the symplec4_c default now routes to the differentiable C-STM
+    # (was a ValueError). Gradient of the final R w.r.t. an IC component is finite
+    # and matches a finite difference.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ts = numpy.linspace(0.0, 3.0, 60)
+
+    def final_R(vR0):
+        o = Orbit(jnp.array([1.0, vR0, 0.9, 0.2, 0.05, 0.3]))
+        o.integrate(ts, pot, method="symplec4_c")
+        return o.R(ts)[-1]
+
+    import jax
+
+    g = float(jax.grad(final_R)(0.1))
+    eps = 1e-6
+    fd = (float(final_R(0.1 + eps)) - float(final_R(0.1 - eps))) / (2 * eps)
+    assert numpy.isfinite(g)
+    numpy.testing.assert_allclose(g, fd, rtol=1e-4, atol=1e-6)
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
