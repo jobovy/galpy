@@ -19,6 +19,9 @@ from ..backend.interpolate import (
     _gcv_operator,
     _linear_operator_at,
     _smoothing_design,
+    cubic_spline_coeffs,
+    eval_cubic,
+    interp_linear,
 )
 from ..backend.linalg import psd_project
 from ..util import config, conversion, coords, galpyWarning
@@ -916,12 +919,23 @@ class StreamTrack:
             ``'hogg'``, ``'dehnen'``, ``'schoenrich'``, or ``[-U, V, W]``
             in km/s. Default None.
         """
+        # The parameter axis (tp_grid) is structural geometry and always stays
+        # numpy; the track/cov values are stored natively so a backend (jax/torch)
+        # track flows through the accessors differentiably. The numpy branch is
+        # byte-identical to the pre-backend body.
+        self._backend = is_backend_array(track_xyz)
         self._tp_grid = numpy.asarray(tp_grid, dtype=float).copy()
-        self._track_xyz = numpy.asarray(track_xyz, dtype=float).copy()
-        self._track_vxvyvz = numpy.asarray(track_vxvyvz, dtype=float).copy()
-        self._cov_xyz = (
-            None if cov_xyz is None else numpy.asarray(cov_xyz, dtype=float).copy()
-        )
+        if self._backend:
+            self._name = name_of_namespace(get_namespace(track_xyz))
+            self._track_xyz = track_xyz
+            self._track_vxvyvz = track_vxvyvz
+            self._cov_xyz = cov_xyz
+        else:
+            self._track_xyz = numpy.asarray(track_xyz, dtype=float).copy()
+            self._track_vxvyvz = numpy.asarray(track_vxvyvz, dtype=float).copy()
+            self._cov_xyz = (
+                None if cov_xyz is None else numpy.asarray(cov_xyz, dtype=float).copy()
+            )
         self._ninterp = len(self._tp_grid)
         self._custom_sky_transform = (
             None
@@ -954,14 +968,41 @@ class StreamTrack:
         self._solarmotion = solarmotion
 
         # Cubic-spline interpolators on the 6D track (mean only — cov() is
-        # interpolated linearly entry-by-entry for cheap PSD enforcement).
-        track_fine = numpy.column_stack([self._track_xyz, self._track_vxvyvz])
-        self._cart_splines = [
-            interpolate.InterpolatedUnivariateSpline(
-                self._tp_grid, track_fine[:, i], k=3
-            )
-            for i in range(6)
-        ]
+        # interpolated linearly entry-by-entry for cheap PSD enforcement). The
+        # backend path builds in-backend cubic coefficient tables (differentiable
+        # in the track values); the numpy path keeps the scipy splines verbatim.
+        if self._backend:
+            xp = get_namespace(track_xyz)
+            track6 = xp.stack(
+                [
+                    track_xyz[:, 0],
+                    track_xyz[:, 1],
+                    track_xyz[:, 2],
+                    track_vxvyvz[:, 0],
+                    track_vxvyvz[:, 1],
+                    track_vxvyvz[:, 2],
+                ],
+                axis=-1,
+            )  # (N, 6)
+            # not-a-knot matches numpy's InterpolatedUnivariateSpline boundary
+            # condition (natural diverges by ~1e-6 in the end intervals). On a
+            # dense track (the default ninterp=1001) the two agree to machine
+            # precision; only a very coarse track leaves a ~1e-6
+            # FITPACK-vs-tridiagonal-solver residual.
+            self._cart_coeffs = [
+                cubic_spline_coeffs(xp, self._tp_grid, track6[:, i], bc="not-a-knot")
+                for i in range(6)
+            ]
+            self._cart_splines = None
+        else:
+            track_fine = numpy.column_stack([self._track_xyz, self._track_vxvyvz])
+            self._cart_splines = [
+                interpolate.InterpolatedUnivariateSpline(
+                    self._tp_grid, track_fine[:, i], k=3
+                )
+                for i in range(6)
+            ]
+            self._cart_coeffs = None
 
     # -----------------------------------------------------------------
     # Particle-fit constructor (the streamspraydf pipeline)
@@ -1113,6 +1154,21 @@ class StreamTrack:
         return (tp_arr >= self._tp_grid[0]) & (tp_arr <= self._tp_grid[-1])
 
     def _eval_cart(self, tp):
+        if self._backend:
+            xp = get_namespace(self._track_xyz)
+            dev = device_of(self._track_xyz)
+            tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
+            in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
+            tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            rows = [
+                xp.where(
+                    in_range,
+                    eval_cubic(xp, self._tp_grid, self._cart_coeffs[i], tp_b),
+                    float("nan"),
+                )
+                for i in range(6)
+            ]
+            return xp.stack(rows, axis=0)  # (6, len)
         tp_arr = numpy.atleast_1d(tp)
         in_range = self._in_range(tp_arr)
         out = numpy.array([spl(tp_arr) for spl in self._cart_splines])  # (6, len)
@@ -1134,6 +1190,18 @@ class StreamTrack:
     def _cart_eval(self, idx, tp):
         # Out-of-range tps return NaN (not silent cubic-spline extrapolation).
         # Array tps get NaNs only at the offending entries.
+        if self._backend:
+            xp = get_namespace(self._track_xyz)
+            dev = device_of(self._track_xyz)
+            tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
+            in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
+            tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            val = xp.where(
+                in_range,
+                eval_cubic(xp, self._tp_grid, self._cart_coeffs[idx], tp_b),
+                float("nan"),
+            )
+            return self._maybe_scalar(tp, val)
         tp_arr = numpy.atleast_1d(tp)
         in_range = self._in_range(tp_arr)
         val = numpy.where(in_range, self._cart_splines[idx](tp_arr), numpy.nan)
@@ -2047,6 +2115,45 @@ class StreamTrack:
             vo_use = self._vo if vo is None else conversion.parse_velocity_kms(vo)
 
         tp = self._parse_tp(tp)
+        if self._backend:
+            # Backend track: build the (len, 6, 6) covariance functionally with xp
+            # ops (differentiable in the stored cov values), entrywise linear
+            # interp mirroring the numpy numpy.interp path. Sky-frame bases (which
+            # go through the per-point analytical Jacobian on numpy means) are a
+            # numpy-only follow-up; only galcenrect is supported here.
+            xp = get_namespace(self._cov_xyz)
+            dev = device_of(self._cov_xyz)
+            tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
+            in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
+            tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            rows = []
+            for a in range(6):
+                cols = [
+                    xp.where(
+                        in_range,
+                        interp_linear(xp, self._tp_grid, self._cov_xyz[:, a, b], tp_b),
+                        float("nan"),
+                    )
+                    for b in range(6)
+                ]
+                rows.append(xp.stack(cols, axis=-1))  # (len, 6)
+            out = xp.stack(rows, axis=-2)  # (len, 6, 6)
+            if use_phys:
+                scale = asarray_on_device(
+                    xp,
+                    numpy.array([ro_use, ro_use, ro_use, vo_use, vo_use, vo_use]),
+                    dev,
+                )
+                out = out * (scale[:, None] * scale[None, :])  # NaN · scale = NaN
+            if basis != "galcenrect":
+                raise NotImplementedError(
+                    "cov() on a backend (jax/torch) track supports only "
+                    "basis='galcenrect'; sky-frame covariance bases are a "
+                    "numpy-only follow-up."
+                )
+            if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
+                return out[0]
+            return out
         tp_arr = numpy.atleast_1d(tp)
         in_range = self._in_range(tp_arr)
         out = numpy.empty((len(tp_arr), 6, 6))
