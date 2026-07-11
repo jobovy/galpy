@@ -16,15 +16,18 @@
 ###############################################################################
 import numpy
 import pytest
+from scipy import interpolate
 
 from galpy.backend import as_numpy, is_backend_array
 from galpy.df.streamTrack import (
     _bin_by_tp,
     _closest_point_on_curve,
     _DiffSpline,
+    _fit_one_pass_backend,
+    _fit_track_from_particles,
     _smooth_series,
 )
-from galpy.util import galpyWarning
+from galpy.util import coords, galpyWarning
 
 pytestmark = pytest.mark.backend_managed
 
@@ -316,3 +319,261 @@ def test_smooth_series_backend_near_interp_warns(backend, monkeypatch):
     with pytest.warns(galpyWarning, match="near-interpolation"):
         spl, _ = _smooth_series(x, _arr(backend, y), sigma, s_user=1.0)
         spl(numpy.linspace(-5.0, 5.0, 12))
+
+
+# ---------------- PR-5: end-to-end backend stream track ----------------
+# _fit_track_from_particles produces a BACKEND (jax/torch) track from BACKEND
+# particles, differentiable in the particle values, with the numpy path
+# byte-identical. The STRUCTURE (cKDTree closest-point tp_assign, the
+# velocity-weight probe, the trim/percentile tp_grid/tp_nodes) is a numpy
+# constant; the differentiable path is offsets -> _bin_by_tp -> _smooth_series ->
+# track (+ psd_project'd covariance). Because that structure needs concrete
+# values, the FORWARD backend track and the TORCH (eager, .detach()) end-to-end
+# gradient both work through the full function; a jax.grad, being symbolic,
+# cannot pull the cKDTree assignment / scipy-smoother weights to numpy, so the
+# rigorous grad checks (FD-vs-AD, jax==torch) exercise the genuine differentiable
+# unit -- the offset->bin->smooth->track path with the structure and the
+# smoothing weights frozen (the PR-3/PR-4 building blocks composed as
+# _fit_one_pass does), which differentiates identically under jax and torch.
+
+
+def _track_case(seed=7, N=200, M=400, noise=0.02):
+    """A well-posed synthetic fit: a gently-curving progenitor arc and particles
+    = progenitor-at-random-tp + small gaussian offsets. Returns
+    ``(xv (6, N) cyl particles, prog_cart (M, 6), track_t_grid (M,))``."""
+    rng = numpy.random.RandomState(seed)
+    tg = numpy.linspace(-2.0, 2.0, M)
+    theta = 0.35 * tg
+    R0 = 1.2
+    prog_cart = numpy.column_stack(
+        [
+            R0 * numpy.cos(theta),
+            R0 * numpy.sin(theta),
+            0.12 * tg,
+            -R0 * 0.35 * numpy.sin(theta),
+            R0 * 0.35 * numpy.cos(theta),
+            numpy.full(M, 0.12),
+        ]
+    )
+    ps = [
+        interpolate.InterpolatedUnivariateSpline(tg, prog_cart[:, i], k=3)
+        for i in range(6)
+    ]
+    tps = rng.uniform(0.1, 1.6, N)  # leading arm (arm_sign=+1)
+    part = numpy.column_stack([s(tps) for s in ps]) + noise * rng.randn(N, 6)
+    x, y, zc, vx, vy, vzc = part.T
+    R, phi, z = coords.rect_to_cyl(x, y, zc)
+    vR, vT, vz = coords.rect_to_cyl_vec(vx, vy, vzc, R, phi, z, cyl=True)
+    return numpy.array([R, vR, vT, z, vz, phi]), prog_cart, tg
+
+
+_TRACK_KW = dict(arm_sign=1, ninterp=101, ntp=21, order=2, niter=0, velocity_weight=1.0)
+
+
+def _relerr(a, b, floor=1e-12):
+    a, b = numpy.asarray(a), numpy.asarray(b)
+    return float(numpy.max(numpy.abs(a - b) / numpy.maximum(numpy.abs(b), floor)))
+
+
+def _frozen_track_path(xv, prog_cart, tg):
+    """Replicate _fit_track_from_particles' structural setup to expose the frozen
+    (numpy) tp_assign/tp_nodes/tp_grid/prog_at and the smoothing weights, and
+    return a differentiable ``track(particles_cart, xp)`` closure that reproduces
+    _fit_one_pass' mean path (the differentiable unit) with the structure AND the
+    smoothing hyperparameters frozen."""
+    pc_np = coords.galcencyl_to_galcenrect(*xv)
+    ps = [
+        interpolate.InterpolatedUnivariateSpline(tg, prog_cart[:, i], k=3)
+        for i in range(6)
+    ]
+
+    def prog_at(tp):
+        tp = numpy.atleast_1d(tp)
+        return numpy.column_stack([s(tp) for s in ps])
+
+    sign_mask = tg >= 0
+    mask = numpy.broadcast_to(sign_mask[None, :], (pc_np.shape[0], sign_mask.size))
+    ta = _closest_point_on_curve(pc_np, prog_cart, tg, mask=mask, velocity_weight=1.0)
+    interior = numpy.abs(ta - tg[-1]) > 1e-3 * abs(tg[-1] - tg[0])
+    ta, pc_np = ta[interior], pc_np[interior]
+    tp_hi = float(numpy.percentile(ta, 99.0))
+    tp_grid = numpy.linspace(0.0, tp_hi, 101)
+    tp_nodes = numpy.linspace(0.0, tp_hi, 21)
+    # sigma weights + frozen effective-s (freeze GCV lambda so FD is a clean
+    # frozen-structure gradient, not d(lambda)/d(y))
+    off = pc_np - prog_at(ta)
+    _, cov0, cnt0 = _bin_by_tp(ta, off, tp_nodes)
+    with numpy.errstate(invalid="ignore"):
+        per = numpy.sqrt(numpy.diagonal(cov0, axis1=1, axis2=2))
+        sig = per / numpy.sqrt(numpy.maximum(cnt0[:, None], 1))
+        sig = numpy.where(cnt0[:, None] > 1, sig, numpy.nan)
+    means0, _, _ = _bin_by_tp(ta, off, tp_nodes)
+    s_user = [
+        float(_smooth_series(tp_nodes, means0[:, i], sig[:, i])[1]) for i in range(6)
+    ]
+    prog_grid = prog_at(tp_grid)
+
+    def track(pc, xp):
+        offsets = pc - xp.asarray(prog_at(ta))
+        means, _, _ = _bin_by_tp(ta, offsets, tp_nodes)
+        splines = [
+            _smooth_series(tp_nodes, means[:, i], sig[:, i], s_user=s_user[i])[0]
+            for i in range(6)
+        ]
+        offset_fine = xp.stack([spl(tp_grid) for spl in splines], axis=-1)
+        return xp.asarray(prog_grid) + offset_fine
+
+    return pc_np, track
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fit_track_backend_parity(backend):
+    # a backend (6, N) xv flows through _fit_track_from_particles to a BACKEND
+    # track (+ covariance) matching the numpy fit; the structural tp_grid is
+    # identical (computed on the numpy view of the particles).
+    xv, prog_cart, tg = _track_case()
+    fit_np = _fit_track_from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    fit_b = _fit_track_from_particles(_arr(backend, xv), prog_cart, tg, **_TRACK_KW)
+    assert is_backend_array(fit_b["track_xyz"])
+    assert is_backend_array(fit_b["track_vxvyvz"])
+    assert is_backend_array(fit_b["cov_xyz"])
+    numpy.testing.assert_array_equal(fit_b["tp_grid"], fit_np["tp_grid"])
+    numpy.testing.assert_allclose(
+        as_numpy(fit_b["track_xyz"]), fit_np["track_xyz"], rtol=1e-6, atol=1e-9
+    )
+    numpy.testing.assert_allclose(
+        as_numpy(fit_b["track_vxvyvz"]), fit_np["track_vxvyvz"], rtol=1e-6, atol=1e-8
+    )
+    # cov entries span down to ~0 (off-diagonals): compare with an atol scaled to
+    # the covariance magnitude rather than a pure rtol.
+    cov_scale = numpy.max(numpy.abs(fit_np["cov_xyz"]))
+    numpy.testing.assert_allclose(
+        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-6, atol=1e-6 * cov_scale
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fit_track_backend_auto_niter(backend):
+    # velocity_weight='auto' (probe pass + inner-half sigma resolution) and
+    # niter>0 (per-iteration reassignment to the current track) both run on the
+    # numpy view of a backend particles_cart and still yield a BACKEND track
+    # matching the numpy fit.
+    xv, prog_cart, tg = _track_case()
+    kw = dict(arm_sign=1, ninterp=101, ntp=21, order=2, niter=1, velocity_weight="auto")
+    fit_np = _fit_track_from_particles(xv, prog_cart, tg, **kw)
+    fit_b = _fit_track_from_particles(_arr(backend, xv), prog_cart, tg, **kw)
+    assert is_backend_array(fit_b["track_xyz"]) and is_backend_array(fit_b["cov_xyz"])
+    numpy.testing.assert_array_equal(fit_b["tp_grid"], fit_np["tp_grid"])
+    numpy.testing.assert_allclose(
+        as_numpy(fit_b["track_xyz"]), fit_np["track_xyz"], rtol=1e-6, atol=1e-9
+    )
+    cov_scale = numpy.max(numpy.abs(fit_np["cov_xyz"]))
+    numpy.testing.assert_allclose(
+        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-6, atol=1e-6 * cov_scale
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fit_track_backend_grad(backend):
+    # the track is differentiable w.r.t. the particle values: AD of sum(track_xyz)
+    # w.r.t. particles_cart (frozen structure + frozen smoothing) is finite &
+    # non-zero and matches a finite-difference through the numpy path.
+    xv, prog_cart, tg = _track_case()
+    pc_np, track = _frozen_track_path(xv, prog_cart, tg)
+
+    def loss(pc, xp):
+        return xp.sum(track(pc, xp)[:, 0:3])
+
+    if backend == "jax":
+        g = as_numpy(jax.grad(lambda pc: loss(pc, jnp))(jnp.asarray(pc_np)))
+    else:
+        pt = torch.tensor(pc_np, requires_grad=True)
+        loss(pt, torch).backward()
+        g = as_numpy(pt.grad)
+    assert numpy.isfinite(g).all()
+    assert numpy.max(numpy.abs(g)) > 0
+    eps = 1e-6
+    for i, j in [(3, 0), (30, 1), (70, 0), (120, 2)]:
+        a = pc_np.copy()
+        a[i, j] += eps
+        b = pc_np.copy()
+        b[i, j] -= eps
+        fd = (
+            float(numpy.sum(track(a, numpy)[:, 0:3]))
+            - float(numpy.sum(track(b, numpy)[:, 0:3]))
+        ) / (2 * eps)
+        if abs(g[i, j]) > 1e-3:  # skip components the track is insensitive to
+            numpy.testing.assert_allclose(g[i, j], fd, rtol=1e-3, atol=1e-7)
+
+
+@pytest.mark.skipif(
+    "jax" not in BACKENDS or "torch" not in BACKENDS, reason="need both backends"
+)
+def test_fit_track_backend_grad_jax_torch_agree():
+    # jax and torch differentiate the frozen-structure track path identically.
+    xv, prog_cart, tg = _track_case()
+    pc_np, track = _frozen_track_path(xv, prog_cart, tg)
+    gj = as_numpy(
+        jax.grad(lambda pc: jnp.sum(track(pc, jnp)[:, 0:3]))(jnp.asarray(pc_np))
+    )
+    pt = torch.tensor(pc_np, requires_grad=True)
+    torch.sum(track(pt, torch)[:, 0:3]).backward()
+    gt = as_numpy(pt.grad)
+    numpy.testing.assert_allclose(gj, gt, rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_fit_track_endtoend_torch_grad():
+    # End-to-end deliverable: torch (eager) autodiff of sum(track_xyz) w.r.t. the
+    # raw cylindrical xv_particles straight through _fit_track_from_particles --
+    # the cKDTree structure is frozen (.detach()) and the differentiable track,
+    # incl. the psd_project'd covariance, flows through _fit_one_pass_backend.
+    # (A symbolic jax.grad cannot trace the cKDTree assignment; hence torch here.)
+    xv, prog_cart, tg = _track_case()
+    xvt = torch.tensor(xv, requires_grad=True)
+    fit_t = _fit_track_from_particles(xvt, prog_cart, tg, **_TRACK_KW)
+    assert is_backend_array(fit_t["track_xyz"])
+    (torch.sum(fit_t["track_xyz"]) + torch.sum(fit_t["cov_xyz"])).backward()
+    g = as_numpy(xvt.grad)
+    assert numpy.isfinite(g).all()
+    assert numpy.max(numpy.abs(g)) > 0
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fit_one_pass_backend_forward(backend):
+    # _fit_one_pass_backend directly: a backend particles_cart with a frozen numpy
+    # structure reproduces the numpy _fit_one_pass one-pass fit (mean, velocity,
+    # and covariance) and returns backend arrays.
+    from galpy.df.streamTrack import _fit_one_pass
+
+    xv, prog_cart, tg = _track_case()
+    pc_np, _ = _frozen_track_path(xv, prog_cart, tg)
+    ps = [
+        interpolate.InterpolatedUnivariateSpline(tg, prog_cart[:, i], k=3)
+        for i in range(6)
+    ]
+
+    def prog_at(tp):
+        tp = numpy.atleast_1d(tp)
+        return numpy.column_stack([s(tp) for s in ps])
+
+    sign_mask = tg >= 0
+    mask = numpy.broadcast_to(sign_mask[None, :], (pc_np.shape[0], sign_mask.size))
+    ta = _closest_point_on_curve(pc_np, prog_cart, tg, mask=mask, velocity_weight=1.0)
+    tp_hi = float(numpy.percentile(ta, 99.0))
+    tp_grid = numpy.linspace(0.0, tp_hi, 101)
+    tp_nodes = numpy.linspace(0.0, tp_hi, 21)
+    s_um, s_uc = [None] * 6, [None] * 21
+    xyz_n, vel_n, cov_n, s_n = _fit_one_pass(
+        pc_np, ta, tp_nodes, tp_grid, prog_at, 2, s_um, s_uc
+    )
+    xyz_b, vel_b, cov_b, s_b = _fit_one_pass_backend(
+        _arr(backend, pc_np), ta, tp_nodes, tp_grid, prog_at, 2, s_um, s_uc
+    )
+    assert is_backend_array(xyz_b) and is_backend_array(cov_b)
+    numpy.testing.assert_allclose(as_numpy(xyz_b), xyz_n, rtol=1e-6, atol=1e-9)
+    numpy.testing.assert_allclose(as_numpy(vel_b), vel_n, rtol=1e-6, atol=1e-8)
+    cov_scale = numpy.max(numpy.abs(cov_n))
+    numpy.testing.assert_allclose(
+        as_numpy(cov_b), cov_n, rtol=1e-6, atol=1e-6 * cov_scale
+    )
