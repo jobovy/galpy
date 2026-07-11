@@ -540,6 +540,192 @@ def test_fit_track_endtoend_torch_grad():
     assert numpy.max(numpy.abs(g)) > 0
 
 
+###############################################################################
+# ∂track/∂progenitor: a BACKEND progenitor curve (e.g. from a differentiable
+# C-STM orbit) flows through _fit_track_from_particles so the fitted track
+# carries d(track)/d(progenitor). The progenitor is interpolated by the
+# differentiable backend cubic spline (not-a-knot BC == scipy IUS) at both the
+# assignment times (offsets = particles - prog_at(ta)) and the dense grid
+# (track = prog_grid + smoothed_offset); the numpy path stays byte-identical.
+# As with particles, a symbolic jax.grad cannot pull the cKDTree assignment /
+# smoother weights to numpy, so the rigorous jax grad goes through the frozen-
+# structure unit; the torch (eager) end-to-end grad flows through the full fn.
+###############################################################################
+
+
+def _frozen_prog_path(xv, prog_cart, tg):
+    """Expose track(prog_cart, xp) differentiable in the PROGENITOR CURVE with the
+    structure AND the smoother frozen to PRODUCTION's exact operator: the GCV
+    smoothing operator (s_user=None, the default) is extracted once from the base
+    binned means via _DiffSpline._build -- the identical operator that
+    _fit_one_pass_backend freezes through _apply_frozen_smoother. So the numpy FD
+    and the backend autograd apply the SAME operator, and this validates the real
+    d(track)/d(progenitor) production gradient, not a FITPACK-s_user proxy. prog
+    enters via the backend cubic spline at both the assignment times (offsets =
+    particles - prog_at(ta)) and the dense grid (track = prog_grid + smooth)."""
+    from galpy.backend.interpolate import cubic_spline_coeffs, eval_cubic
+
+    pc_np = coords.galcencyl_to_galcenrect(*xv)
+    sign_mask = tg >= 0
+    mask = numpy.broadcast_to(sign_mask[None, :], (pc_np.shape[0], sign_mask.size))
+    ta = _closest_point_on_curve(pc_np, prog_cart, tg, mask=mask, velocity_weight=1.0)
+    interior = numpy.abs(ta - tg[-1]) > 1e-3 * abs(tg[-1] - tg[0])
+    ta, pc_np = ta[interior], pc_np[interior]
+    tp_hi = float(numpy.percentile(ta, 99.0))
+    tp_grid = numpy.linspace(0.0, tp_hi, 101)
+    tp_nodes = numpy.linspace(0.0, tp_hi, 21)
+
+    def prog_at_np(prog, tp):
+        sp = [
+            interpolate.InterpolatedUnivariateSpline(tg, prog[:, i], k=3)
+            for i in range(6)
+        ]
+        return numpy.column_stack([s(numpy.atleast_1d(tp)) for s in sp])
+
+    off0 = pc_np - prog_at_np(prog_cart, ta)
+    means0, cov0, cnt0 = _bin_by_tp(ta, off0, tp_nodes)
+    with numpy.errstate(invalid="ignore"):
+        per = numpy.sqrt(numpy.diagonal(cov0, axis1=1, axis2=2))
+        sig = per / numpy.sqrt(numpy.maximum(cnt0[:, None], 1))
+        sig = numpy.where(cnt0[:, None] > 1, sig, numpy.nan)
+    # Freeze production's GCV smoother as a (len(tp_grid) x len(tp_nodes)) operator
+    # per coordinate, from the base means (matches _apply_frozen_smoother).
+    g_ops = [
+        _DiffSpline(means0[:, i], tp_nodes, sig[:, i], None, 1.0, "numpy")._build(
+            tp_grid
+        )(means0[:, i])
+        for i in range(6)
+    ]
+
+    def track(prog, xp):
+        if xp is numpy:
+            pa, pg = prog_at_np(prog, ta), prog_at_np(prog, tp_grid)
+        else:
+            coeffs = [
+                cubic_spline_coeffs(xp, tg, prog[:, i], bc="not-a-knot")
+                for i in range(6)
+            ]
+            pa = xp.stack(
+                [eval_cubic(xp, tg, coeffs[i], xp.asarray(ta)) for i in range(6)],
+                axis=-1,
+            )
+            pg = xp.stack(
+                [eval_cubic(xp, tg, coeffs[i], xp.asarray(tp_grid)) for i in range(6)],
+                axis=-1,
+            )
+        offsets = xp.asarray(pc_np) - pa
+        means, _, _ = _bin_by_tp(ta, offsets, tp_nodes)
+        offset_fine = xp.stack(
+            [xp.asarray(g_ops[i]) @ xp.nan_to_num(means[:, i]) for i in range(6)],
+            axis=-1,
+        )
+        return pg + offset_fine
+
+    return prog_cart, track
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fit_track_backend_prog_parity(backend):
+    # A BACKEND progenitor curve (+ backend particles) yields a BACKEND track
+    # matching the numpy fit: the progenitor is interpolated by the differentiable
+    # backend cubic spline (not-a-knot BC == scipy IUS) rather than scipy's IUS.
+    xv, prog_cart, tg = _track_case()
+    fit_np = _fit_track_from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    fit_b = _fit_track_from_particles(
+        _arr(backend, xv), _arr(backend, prog_cart), tg, **_TRACK_KW
+    )
+    assert is_backend_array(fit_b["track_xyz"]) and is_backend_array(fit_b["cov_xyz"])
+    numpy.testing.assert_array_equal(fit_b["tp_grid"], fit_np["tp_grid"])
+    numpy.testing.assert_allclose(
+        as_numpy(fit_b["track_xyz"]), fit_np["track_xyz"], rtol=1e-6, atol=1e-9
+    )
+    numpy.testing.assert_allclose(
+        as_numpy(fit_b["track_vxvyvz"]), fit_np["track_vxvyvz"], rtol=1e-6, atol=1e-8
+    )
+    cov_scale = numpy.max(numpy.abs(fit_np["cov_xyz"]))
+    numpy.testing.assert_allclose(
+        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-5, atol=1e-5 * cov_scale
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fit_track_backend_prog_numpy_particles(backend):
+    # A backend progenitor curve with NUMPY particles still fits differentiably:
+    # particles are promoted onto the progenitor's backend and the track matches.
+    xv, prog_cart, tg = _track_case()
+    fit_np = _fit_track_from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    fit_b = _fit_track_from_particles(xv, _arr(backend, prog_cart), tg, **_TRACK_KW)
+    assert is_backend_array(fit_b["track_xyz"])
+    numpy.testing.assert_allclose(
+        as_numpy(fit_b["track_xyz"]), fit_np["track_xyz"], rtol=1e-6, atol=1e-9
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_fit_track_backend_prog_grad(backend):
+    # d(track)/d(progenitor curve) via the frozen-structure unit: finite, nonzero,
+    # and matches a finite-difference through the numpy path.
+    xv, prog_cart, tg = _track_case()
+    prog0, track = _frozen_prog_path(xv, prog_cart, tg)
+
+    def loss(prog, xp):
+        return xp.sum(track(prog, xp)[:, 0:3])
+
+    if backend == "jax":
+        g = as_numpy(jax.grad(lambda p: loss(p, jnp))(jnp.asarray(prog0)))
+    else:
+        pt = torch.tensor(prog0, requires_grad=True)
+        loss(pt, torch).backward()
+        g = as_numpy(pt.grad)
+    assert numpy.isfinite(g).all()
+    assert numpy.max(numpy.abs(g)) > 0
+    eps = 1e-6
+    M = prog0.shape[0]
+    for i, j in [(M // 2, 0), (2 * M // 3, 2), (3 * M // 4, 1), (3 * M // 5, 3)]:
+        a = prog0.copy()
+        a[i, j] += eps
+        b = prog0.copy()
+        b[i, j] -= eps
+        fd = (
+            float(numpy.sum(track(a, numpy)[:, 0:3]))
+            - float(numpy.sum(track(b, numpy)[:, 0:3]))
+        ) / (2 * eps)
+        if abs(g[i, j]) > 1e-3:  # skip components the track is insensitive to
+            numpy.testing.assert_allclose(g[i, j], fd, rtol=1e-3, atol=1e-7)
+
+
+@pytest.mark.skipif(
+    "jax" not in BACKENDS or "torch" not in BACKENDS, reason="need both backends"
+)
+def test_fit_track_backend_prog_grad_jax_torch_agree():
+    # jax and torch differentiate d(track)/d(progenitor) identically.
+    xv, prog_cart, tg = _track_case()
+    prog0, track = _frozen_prog_path(xv, prog_cart, tg)
+    gj = as_numpy(
+        jax.grad(lambda p: jnp.sum(track(p, jnp)[:, 0:3]))(jnp.asarray(prog0))
+    )
+    pt = torch.tensor(prog0, requires_grad=True)
+    torch.sum(track(pt, torch)[:, 0:3]).backward()
+    gt = as_numpy(pt.grad)
+    numpy.testing.assert_allclose(gj, gt, rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_fit_track_endtoend_torch_prog_grad():
+    # End-to-end deliverable: torch (eager) autodiff of the track w.r.t. a BACKEND
+    # progenitor curve straight through _fit_track_from_particles -- d(track)/
+    # d(progenitor) flows via the backend cubic spline while the cKDTree structure
+    # is frozen (.detach()). (A symbolic jax.grad cannot trace the assignment.)
+    xv, prog_cart, tg = _track_case()
+    progt = torch.tensor(prog_cart, requires_grad=True)
+    fit_t = _fit_track_from_particles(torch.tensor(xv), progt, tg, **_TRACK_KW)
+    assert is_backend_array(fit_t["track_xyz"])
+    (torch.sum(fit_t["track_xyz"]) + torch.sum(fit_t["cov_xyz"])).backward()
+    g = as_numpy(progt.grad)
+    assert numpy.isfinite(g).all()
+    assert numpy.max(numpy.abs(g)) > 0
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_fit_one_pass_backend_forward(backend):
     # _fit_one_pass_backend directly: a backend particles_cart with a frozen numpy
