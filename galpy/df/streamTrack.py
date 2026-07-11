@@ -7,6 +7,8 @@ from scipy.spatial import cKDTree
 
 from ..backend import (
     as_numpy,
+    asarray_on_device,
+    device_of,
     get_namespace,
     is_backend_array,
     name_of_namespace,
@@ -18,6 +20,7 @@ from ..backend.interpolate import (
     _linear_operator_at,
     _smoothing_design,
 )
+from ..backend.linalg import psd_project
 from ..util import config, conversion, coords, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import physical_conversion
@@ -50,13 +53,14 @@ def _bin_by_tp(tp_assign, values, tp_nodes):
         # Backend-agnostic segment mean/cov, gathered by the numpy idx one-hot.
         # ddof=1 (numpy.cov); k<2 bins -> NaN mean / zero cov, as in the loop.
         xp = get_namespace(values)
+        dev = device_of(values)  # anchor the numpy index/one-hot on values' device
         onehot = numpy.zeros((len(idx), M))
         onehot[numpy.arange(len(idx)), idx] = 1.0
-        onehot_b = xp.asarray(onehot)
-        counts_b = xp.asarray(counts.astype(float))
+        onehot_b = asarray_on_device(xp, onehot, dev)
+        counts_b = asarray_on_device(xp, counts.astype(float), dev)
         sums = xp.einsum("nm,nd->md", onehot_b, values)  # (M, D)
         raw_means = sums / xp.where(counts_b > 0, counts_b, 1.0)[:, None]
-        centered = values - raw_means[xp.asarray(idx)]  # (N, D)
+        centered = values - raw_means[asarray_on_device(xp, idx, dev)]  # (N, D)
         outer = centered[:, :, None] * centered[:, None, :]  # (N, D, D)
         cov_sums = xp.einsum("nm,nij->mij", onehot_b, outer)  # (M, D, D)
         raw_covs = cov_sums / xp.where(counts_b > 1, counts_b - 1.0, 1.0)[:, None, None]
@@ -347,6 +351,102 @@ def _closest_point_on_curve(points, curve, curve_t, mask=None, velocity_weight=1
     return tp_out
 
 
+def _fit_one_pass_backend(
+    particles_cart,
+    tp_assign,
+    tp_nodes,
+    tp_grid,
+    prog_at_fn,
+    order,
+    s_user_mean,
+    s_user_cov,
+    smoothing_factor=1.0,
+):
+    """Backend (jax/torch) counterpart of :func:`_fit_one_pass`.
+
+    Mirrors the numpy body but keeps the track/covariance as backend arrays,
+    differentiable in the particle values: the offsets, binned mean/cov, the
+    per-coordinate smoothing splines and the PSD-projected covariance all flow
+    from the backend ``particles_cart``. The structural inputs (``tp_assign``,
+    the bin ``counts``, the progenitor curve) stay numpy and enter as frozen
+    constants. Tiny-negative variances the numpy path lets go NaN (then masks)
+    are clamped at zero here (a no-op on every real >=2-count bin) so reverse-
+    mode AD is not NaN-poisoned.
+    """
+    xp = get_namespace(particles_cart)
+    dev = device_of(particles_cart)
+
+    prog_at_particles = prog_at_fn(tp_assign)  # numpy progenitor curve
+    offsets = particles_cart - asarray_on_device(xp, prog_at_particles, dev)
+
+    means, covs, counts = _bin_by_tp(tp_assign, offsets, tp_nodes)
+    counts_b = asarray_on_device(xp, counts.astype(float), dev)
+    per_coord_sigma = xp.sqrt(xp.clip(xp.einsum("mii->mi", covs), 0.0, None))
+    sigma_of_mean = per_coord_sigma / xp.sqrt(xp.clip(counts_b[:, None], 1.0, None))
+    sigma_of_mean = xp.where(counts_b[:, None] > 1.0, sigma_of_mean, float("nan"))
+
+    eff_s_mean = []
+    offset_splines = []
+    for i in range(6):
+        spl, es = _smooth_series(
+            tp_nodes,
+            means[:, i],
+            sigma_of_mean[:, i],
+            s_user=s_user_mean[i],
+            smoothing_factor=smoothing_factor,
+        )
+        offset_splines.append(spl)
+        eff_s_mean.append(es)
+    offset_fine = xp.stack([spl(tp_grid) for spl in offset_splines], axis=-1)
+
+    prog_on_grid = prog_at_fn(tp_grid)  # numpy
+    track_fine = asarray_on_device(xp, prog_on_grid, dev) + offset_fine
+
+    eff_s_cov = []
+    cov_xyz = None
+    if order >= 2:
+        entries = {}
+        cov_idx = 0
+        for a in range(6):
+            for b in range(a, 6):
+                vals = covs[:, a, b]
+                diag_a = per_coord_sigma[:, a] ** 2
+                diag_b = per_coord_sigma[:, b] ** 2
+                sigma_c = xp.sqrt(
+                    xp.clip(
+                        (diag_a * diag_b + vals**2) / xp.clip(counts_b, 2.0, None),
+                        0.0,
+                        None,
+                    )
+                )
+                sigma_c = xp.where(counts_b > 1.0, sigma_c, float("nan"))
+                spl, es = _smooth_series(
+                    tp_nodes,
+                    vals,
+                    sigma_c,
+                    s_user=s_user_cov[cov_idx],
+                    smoothing_factor=smoothing_factor,
+                )
+                eff_s_cov.append(es)
+                cov_idx += 1
+                entries[(a, b)] = spl(tp_grid)
+        # Symmetric (ninterp, 6, 6) built functionally (no in-place assignment).
+        rows = [
+            xp.stack([entries[(min(a, b), max(a, b))] for b in range(6)], axis=-1)
+            for a in range(6)
+        ]
+        cov_fine = xp.stack(rows, axis=-2)
+        cov_fine = xp.nan_to_num(cov_fine, nan=0.0, posinf=0.0, neginf=0.0)
+        cov_xyz = psd_project(cov_fine)
+
+    return (
+        track_fine[:, 0:3],
+        track_fine[:, 3:6],
+        cov_xyz,
+        eff_s_mean + eff_s_cov,
+    )
+
+
 def _fit_one_pass(
     particles_cart,
     tp_assign,
@@ -372,6 +472,18 @@ def _fit_one_pass(
 
     Returns ``(track_xyz, track_vxvyvz, cov_xyz_or_None, smoothing_s)``.
     """
+    if is_backend_array(particles_cart):
+        return _fit_one_pass_backend(
+            particles_cart,
+            tp_assign,
+            tp_nodes,
+            tp_grid,
+            prog_at_fn,
+            order,
+            s_user_mean,
+            s_user_cov,
+            smoothing_factor=smoothing_factor,
+        )
     prog_at_particles = prog_at_fn(tp_assign)
     offsets = particles_cart - prog_at_particles
 
@@ -503,9 +615,23 @@ def _fit_track_from_particles(
 
     # Raw xv snapshot the user can pass back via ``particles=`` to refit
     # at different smoothing without re-sampling the spray DF.
-    xv_particles = numpy.asarray(xv_particles, dtype=float)
-    particles = xv_particles.copy()
-    particles_cart = coords.galcencyl_to_galcenrect(*xv_particles)
+    if not is_backend_array(xv_particles):
+        xv_particles = numpy.asarray(xv_particles, dtype=float)
+    particles = as_numpy(xv_particles).copy()
+    if is_backend_array(xv_particles):
+        # Backend (6, N) input: build particles_cart natively so it stays a
+        # differentiable backend array (galcencyl_to_galcenrect re-stacks via
+        # numpy.column_stack -> numpy; cyl_to_rect(_vec) are backend-agnostic).
+        xp = get_namespace(xv_particles)
+        R_p, vR_p, vT_p, z_p, vz_p, phi_p = xv_particles
+        x_p, y_p, z_pc = coords.cyl_to_rect(R_p, phi_p, z_p)
+        vx_p, vy_p, vz_pc = coords.cyl_to_rect_vec(vR_p, vT_p, vz_p, phi_p)
+        particles_cart = xp.stack([x_p, y_p, z_pc, vx_p, vy_p, vz_pc], axis=-1)
+    else:
+        particles_cart = coords.galcencyl_to_galcenrect(*xv_particles)
+    # Structural steps (closest-point, velocity-weight probe, filters) run on a
+    # numpy view; the differentiable track flows from the backend particles_cart.
+    pc_np = as_numpy(particles_cart)
 
     # Normalize smoothing argument into per-spline s values.
     # Length 6 = mean only; length 27 = mean (6) + covariance (21).
@@ -526,9 +652,7 @@ def _fit_track_from_particles(
     # Initial assignment: 6D closest point on the progenitor orbit,
     # restricted to the relevant arm (tp >=0 leading, <=0 trailing).
     sign_mask = (track_t_grid * arm_sign) >= 0
-    mask = numpy.broadcast_to(
-        sign_mask[None, :], (particles_cart.shape[0], sign_mask.size)
-    )
+    mask = numpy.broadcast_to(sign_mask[None, :], (pc_np.shape[0], sign_mask.size))
 
     # Resolve velocity_weight='auto' from a probe pass. Use the inner-half
     # of particles (smaller |tp_assign|) where the assignment is unambiguous,
@@ -539,9 +663,7 @@ def _fit_track_from_particles(
             raise ValueError(
                 f"velocity_weight= must be a float or 'auto', got {velocity_weight!r}"
             )
-        probe_tp = _closest_point_on_curve(
-            particles_cart, prog_cart, track_t_grid, mask=mask
-        )
+        probe_tp = _closest_point_on_curve(pc_np, prog_cart, track_t_grid, mask=mask)
         abs_probe = numpy.abs(probe_tp)
         # With size >= 20 the inner-half (median split) always has at least
         # 10 entries, so we don't need a separate inner_n < 10 fallback.
@@ -552,8 +674,8 @@ def _fit_track_from_particles(
                 numpy.abs(track_t_grid[None, :] - probe_tp[inner, None]), axis=1
             )
             prog_at_inner = prog_cart[idx_inner]
-            dpos = particles_cart[inner, :3] - prog_at_inner[:, :3]
-            dvel = particles_cart[inner, 3:] - prog_at_inner[:, 3:]
+            dpos = pc_np[inner, :3] - prog_at_inner[:, :3]
+            dvel = pc_np[inner, 3:] - prog_at_inner[:, 3:]
             sigma_pos = numpy.sqrt(numpy.mean(numpy.sum(dpos**2, axis=1)))
             sigma_vel = numpy.sqrt(numpy.mean(numpy.sum(dvel**2, axis=1)))
             if sigma_vel > 0:
@@ -569,7 +691,7 @@ def _fit_track_from_particles(
             velocity_weight = 1.0
 
     tp_assign = _closest_point_on_curve(
-        particles_cart,
+        pc_np,
         prog_cart,
         track_t_grid,
         mask=mask,
@@ -585,7 +707,8 @@ def _fit_track_from_particles(
     arc_span = abs(track_t_grid[-1] - track_t_grid[0])
     interior = numpy.abs(tp_assign - far_edge) > 1e-3 * arc_span
     tp_assign = tp_assign[interior]
-    particles_cart = particles_cart[interior]
+    particles_cart = particles_cart[interior]  # backend gather (numpy bool mask)
+    pc_np = pc_np[interior]
 
     # Sanity check: detect a histogram gap in tp_assign — a hallmark of
     # closest-point assignments that landed on a far-away revisit of the
@@ -650,7 +773,7 @@ def _fit_track_from_particles(
     # The ceiling scales with the arc span so longer streams can afford
     # finer binning — one knot every ~0.1 internal time units (≈3.6 Myr
     # at the galpy reference scale), with a floor of 201.
-    n_part = particles_cart.shape[0]
+    n_part = pc_np.shape[0]
     if ntp is None:
         max_ntp = max(201, int(abs(tp_hi - tp_lo) / 0.1))
         ntp = int(max(21, min(max_ntp, round(numpy.sqrt(n_part)))))
@@ -674,9 +797,11 @@ def _fit_track_from_particles(
             smoothing_factor=smoothing_factor,
         )
         if it < niter:
-            track_cart = numpy.column_stack([track_xyz, track_vxvyvz])
+            track_cart = numpy.column_stack(
+                [as_numpy(track_xyz), as_numpy(track_vxvyvz)]
+            )
             tp_assign = _closest_point_on_curve(
-                particles_cart,
+                pc_np,
                 track_cart,
                 tp_grid,
                 velocity_weight=velocity_weight,
