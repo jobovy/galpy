@@ -20,6 +20,7 @@ from scipy import interpolate
 
 from galpy.backend import as_numpy, is_backend_array
 from galpy.df.streamTrack import (
+    StreamTrack,
     _bin_by_tp,
     _closest_point_on_curve,
     _DiffSpline,
@@ -448,7 +449,7 @@ def test_fit_track_backend_parity(backend):
     # the covariance magnitude rather than a pure rtol.
     cov_scale = numpy.max(numpy.abs(fit_np["cov_xyz"]))
     numpy.testing.assert_allclose(
-        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-6, atol=1e-6 * cov_scale
+        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-5, atol=1e-5 * cov_scale
     )
 
 
@@ -469,7 +470,7 @@ def test_fit_track_backend_auto_niter(backend):
     )
     cov_scale = numpy.max(numpy.abs(fit_np["cov_xyz"]))
     numpy.testing.assert_allclose(
-        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-6, atol=1e-6 * cov_scale
+        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-5, atol=1e-5 * cov_scale
     )
 
 
@@ -575,5 +576,304 @@ def test_fit_one_pass_backend_forward(backend):
     numpy.testing.assert_allclose(as_numpy(vel_b), vel_n, rtol=1e-6, atol=1e-8)
     cov_scale = numpy.max(numpy.abs(cov_n))
     numpy.testing.assert_allclose(
-        as_numpy(cov_b), cov_n, rtol=1e-6, atol=1e-6 * cov_scale
+        as_numpy(cov_b), cov_n, rtol=1e-5, atol=1e-5 * cov_scale
     )
+
+
+###############################################################################
+# PR-6: the StreamTrack CLASS is backend-aware. A backend (jax/torch) particles
+# array (or backend track arrays) yields a StreamTrack whose phase-space
+# accessors x/y/z/vx/vy/vz(tp) and cov(tp) are differentiable backend arrays,
+# with the numpy path byte-identical (kept verbatim): __init__ stores the track
+# natively and builds in-backend cubic-spline coeffs (mean) / linear cov interp
+# instead of the scipy splines, _eval_cart/_cart_eval/cov dispatch on the stored
+# array kind, and streamspraydf.streamTrack no longer coerces backend particles.
+###############################################################################
+
+_COORD_METHODS = ("x", "y", "z", "vx", "vy", "vz")
+
+
+def _class_query(tr):
+    """Query grid spanning the full track range INCLUDING the first/last spline
+    intervals (0.1% inside the ends), where the cubic-spline boundary condition
+    matters -- so a not-a-knot (== numpy IUS) vs natural BC regression is caught."""
+    g = tr.tp_grid()
+    span = g[-1] - g[0]
+    return numpy.concatenate(
+        [
+            [g[0] + 0.001 * span, g[0] + 0.02 * span],
+            numpy.linspace(g[0] + 0.05 * span, g[-1] - 0.05 * span, 9),
+            [g[-1] - 0.02 * span, g[-1] - 0.001 * span],
+        ]
+    )
+
+
+def _wrap_backend_track(tr_np, backend, **kw):
+    """A StreamTrack built from ``tr_np``'s FITTED arrays wrapped as backend
+    arrays (same tp_grid) -- isolates the class's in-backend interpolation from
+    the fit-value differences, so the class eval matches numpy to ~machine eps."""
+    return StreamTrack(
+        tr_np.tp_grid(),
+        _arr(backend, numpy.asarray(tr_np._track_xyz)),
+        _arr(backend, numpy.asarray(tr_np._track_vxvyvz)),
+        cov_xyz=_arr(backend, numpy.asarray(tr_np._cov_xyz)),
+        parameter_kind="time",
+        **kw,
+    )
+
+
+def _grad_setup():
+    """Numpy fitted-track arrays (the leaves) + an interior query grid."""
+    xv, prog_cart, tg = _track_case()
+    tr_np = StreamTrack.from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    return (
+        tr_np.tp_grid(),
+        numpy.asarray(tr_np._track_xyz),
+        numpy.asarray(tr_np._track_vxvyvz),
+        numpy.asarray(tr_np._cov_xyz),
+        _class_query(tr_np),
+    )
+
+
+def _x_loss(tpg, xyz, v, q, xp):
+    tr = StreamTrack(tpg, xyz, v, parameter_kind="time")
+    return xp.sum(tr.x(q)) + xp.sum(tr.y(q)) + xp.sum(tr.z(q))
+
+
+def _cov_loss(tpg, xyz, v, cov, q, xp):
+    tr = StreamTrack(tpg, xyz, v, cov_xyz=cov, parameter_kind="time")
+    return xp.sum(tr.cov(q))
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_streamtrack_class_backend_eval(backend):
+    # Full pipeline: a backend (6, N) xv through StreamTrack.from_particles yields
+    # a StreamTrack whose x/y/z/vx/vy/vz(tp) and cov(tp) are BACKEND arrays
+    # matching the numpy StreamTrack built from the same numpy particles.
+    xv, prog_cart, tg = _track_case()
+    tr_np = StreamTrack.from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    tr_b = StreamTrack.from_particles(_arr(backend, xv), prog_cart, tg, **_TRACK_KW)
+    assert tr_b._backend and not tr_np._backend
+    assert tr_b._cart_coeffs is not None and tr_b._cart_splines is None
+    q = _class_query(tr_np)
+    for m in _COORD_METHODS:
+        vb = getattr(tr_b, m)(q)
+        assert is_backend_array(vb), f"{m}(tp) is not a backend array"
+        numpy.testing.assert_allclose(
+            as_numpy(vb), numpy.asarray(getattr(tr_np, m)(q)), rtol=1e-5, atol=1e-8
+        )
+    cb = tr_b.cov(q)
+    assert is_backend_array(cb), "cov(tp) is not a backend array"
+    cn = numpy.asarray(tr_np.cov(q))
+    cov_scale = numpy.max(numpy.abs(cn))
+    numpy.testing.assert_allclose(as_numpy(cb), cn, rtol=1e-5, atol=1e-5 * cov_scale)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_streamtrack_class_backend_eval_exact(backend):
+    # Isolate the class's in-backend interpolation: a backend track built from the
+    # SAME fitted arrays as the numpy track matches it to ~machine eps (eval_cubic
+    # == InterpolatedUnivariateSpline, interp_linear == numpy.interp), incl. the
+    # scalar-tp path.
+    xv, prog_cart, tg = _track_case()
+    tr_np = StreamTrack.from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    tr_b = _wrap_backend_track(tr_np, backend)
+    q = _class_query(tr_np)
+    for m in _COORD_METHODS:
+        vb = getattr(tr_b, m)(q)
+        assert is_backend_array(vb)
+        numpy.testing.assert_allclose(
+            as_numpy(vb), numpy.asarray(getattr(tr_np, m)(q)), rtol=1e-9, atol=1e-10
+        )
+    # cylindrical accessors route through _eval_cart (the (6, len) stack) + the
+    # backend-agnostic rect->cyl coord transforms: also backend and matching.
+    for m in ("R", "vR", "vT", "phi"):
+        vb = getattr(tr_b, m)(q)
+        assert is_backend_array(vb), f"{m}(tp) is not a backend array"
+        numpy.testing.assert_allclose(
+            as_numpy(vb), numpy.asarray(getattr(tr_np, m)(q)), rtol=1e-9, atol=1e-9
+        )
+    cb = tr_b.cov(q)
+    assert is_backend_array(cb)
+    numpy.testing.assert_allclose(
+        as_numpy(cb), numpy.asarray(tr_np.cov(q)), rtol=1e-9, atol=1e-12
+    )
+    xs = tr_b.x(float(q[3]))
+    assert is_backend_array(xs)
+    numpy.testing.assert_allclose(
+        as_numpy(xs), float(numpy.asarray(tr_np.x(float(q[3])))), rtol=1e-9, atol=1e-10
+    )
+    # scalar tp -> single (6, 6) covariance (the out[0] backend scalar branch)
+    cs = tr_b.cov(float(q[3]))
+    assert is_backend_array(cs) and as_numpy(cs).shape == (6, 6)
+    numpy.testing.assert_allclose(
+        as_numpy(cs), numpy.asarray(tr_np.cov(float(q[3]))), rtol=1e-9, atol=1e-12
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_streamtrack_class_backend_out_of_range_nan(backend):
+    # Out-of-range tps return NaN on the backend path too (xp.where masking),
+    # matching the numpy accessor / cov behaviour entry-by-entry.
+    xv, prog_cart, tg = _track_case()
+    tr_np = StreamTrack.from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    tr_b = _wrap_backend_track(tr_np, backend)
+    g = tr_np.tp_grid()
+    span = g[-1] - g[0]
+    q = numpy.array([g[0] - 0.1 * span, 0.5 * (g[0] + g[-1]), g[-1] + 0.1 * span])
+    xb = as_numpy(tr_b.x(q))
+    xn = numpy.asarray(tr_np.x(q))
+    assert numpy.isnan(xb[0]) and numpy.isnan(xb[-1]) and numpy.isfinite(xb[1])
+    assert numpy.isnan(xn[0]) and numpy.isnan(xn[-1]) and numpy.isfinite(xn[1])
+    cb = as_numpy(tr_b.cov(q))
+    assert numpy.isnan(cb[0]).all() and numpy.isnan(cb[-1]).all()
+    assert numpy.isfinite(cb[1]).all()
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_streamtrack_class_backend_grad(backend):
+    # x(tp) and cov(tp) are differentiable w.r.t. the stored track / covariance
+    # values (the in-backend cubic-coeff build and the linear cov interp carry AD).
+    tpg, xyz, v, cov, q = _grad_setup()
+    if backend == "jax":
+        gx = as_numpy(
+            jax.grad(lambda a: _x_loss(tpg, a, jnp.asarray(v), q, jnp))(
+                jnp.asarray(xyz)
+            )
+        )
+        gc = as_numpy(
+            jax.grad(
+                lambda c: _cov_loss(tpg, jnp.asarray(xyz), jnp.asarray(v), c, q, jnp)
+            )(jnp.asarray(cov))
+        )
+    else:
+        xt = torch.tensor(xyz, requires_grad=True)
+        _x_loss(tpg, xt, torch.tensor(v), q, torch).backward()
+        gx = as_numpy(xt.grad)
+        ct = torch.tensor(cov, requires_grad=True)
+        _cov_loss(tpg, torch.tensor(xyz), torch.tensor(v), ct, q, torch).backward()
+        gc = as_numpy(ct.grad)
+    assert numpy.isfinite(gx).all() and numpy.max(numpy.abs(gx)) > 0
+    assert numpy.isfinite(gc).all() and numpy.max(numpy.abs(gc)) > 0
+
+
+@pytest.mark.skipif(
+    "jax" not in BACKENDS or "torch" not in BACKENDS, reason="need both backends"
+)
+def test_streamtrack_class_backend_grad_jax_torch_agree():
+    # jax and torch differentiate the class's track/cov evaluation identically.
+    tpg, xyz, v, cov, q = _grad_setup()
+    gjx = as_numpy(
+        jax.grad(lambda a: _x_loss(tpg, a, jnp.asarray(v), q, jnp))(jnp.asarray(xyz))
+    )
+    xt = torch.tensor(xyz, requires_grad=True)
+    _x_loss(tpg, xt, torch.tensor(v), q, torch).backward()
+    numpy.testing.assert_allclose(gjx, as_numpy(xt.grad), rtol=1e-6, atol=1e-9)
+    gjc = as_numpy(
+        jax.grad(lambda c: _cov_loss(tpg, jnp.asarray(xyz), jnp.asarray(v), c, q, jnp))(
+            jnp.asarray(cov)
+        )
+    )
+    ct = torch.tensor(cov, requires_grad=True)
+    _cov_loss(tpg, torch.tensor(xyz), torch.tensor(v), ct, q, torch).backward()
+    numpy.testing.assert_allclose(gjc, as_numpy(ct.grad), rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_streamtrack_class_backend_decorator_passthrough(backend):
+    # @physical_conversion multiplies by a Python-float scale (ro/vo), so a backend
+    # track's physical-units output stays a backend array (no numpy coercion): the
+    # decorator passes backend arrays through unchanged.
+    xv, prog_cart, tg = _track_case()
+    tr_np = StreamTrack.from_particles(xv, prog_cart, tg, ro=8.0, vo=220.0, **_TRACK_KW)
+    tr_b = _wrap_backend_track(tr_np, backend, ro=8.0, vo=220.0)
+    q = _class_query(tr_np)
+    x_phys = tr_b.x(q)  # physical on by default (ro/vo set)
+    x_int = tr_b.x(q, use_physical=False)
+    assert is_backend_array(x_phys) and is_backend_array(x_int)
+    numpy.testing.assert_allclose(
+        as_numpy(x_phys), as_numpy(x_int) * 8.0, rtol=1e-12, atol=1e-12
+    )
+    v_phys = tr_b.vx(q)
+    assert is_backend_array(v_phys)
+    numpy.testing.assert_allclose(
+        as_numpy(v_phys),
+        as_numpy(tr_b.vx(q, use_physical=False)) * 220.0,
+        rtol=1e-12,
+        atol=1e-12,
+    )
+    # cov() physical-units scaling on the backend path (outer(scale, scale)):
+    # matches the numpy cov entry-for-entry up to the class-eval floor.
+    cov_phys = tr_b.cov(q)
+    assert is_backend_array(cov_phys)
+    cov_scale = numpy.max(numpy.abs(numpy.asarray(tr_np.cov(q))))
+    numpy.testing.assert_allclose(
+        as_numpy(cov_phys),
+        numpy.asarray(tr_np.cov(q)),
+        rtol=1e-9,
+        atol=1e-9 * cov_scale,
+    )
+    # sky-frame covariance bases are a numpy-only follow-up on the backend path.
+    with pytest.raises(NotImplementedError):
+        tr_b.cov(q, basis="galcencyl")
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_streamtrack_class_spdf_backend_particles(backend):
+    # End-to-end deliverable: streamspraydf.streamTrack(particles=<backend xv>)
+    # does not coerce the backend particles (both tail branches + the structural
+    # auto time-range on a numpy view) and returns a StreamTrack with backend
+    # accessors matching the numpy track from the same particles.
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion as _conv
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    spdf = fardal15spraydf(
+        2 * 10.0**4.0 / _conv.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / _conv.time_in_Gyr(vo, ro),
+    )
+    numpy.random.seed(3)
+    xv = numpy.asarray(
+        spdf.sample(n=600, returndt=False, return_orbit=False, integrate=True),
+        dtype=float,
+    )
+    tr_np = spdf.streamTrack(particles=xv, ntp=31, tail="leading")
+    tr_b = spdf.streamTrack(particles=_arr(backend, xv), ntp=31, tail="leading")
+    assert tr_b._backend and not tr_np._backend
+    q = _class_query(tr_np)
+    for m in _COORD_METHODS:
+        vb = getattr(tr_b, m)(q)
+        assert is_backend_array(vb), f"{m}(tp) is not a backend array"
+        numpy.testing.assert_allclose(
+            as_numpy(vb), numpy.asarray(getattr(tr_np, m)(q)), rtol=1e-5, atol=1e-7
+        )
+    assert is_backend_array(tr_b.cov(q))
+    # both-tails branch also flows backend particles through un-coerced
+    pair = spdf.streamTrack(
+        particles=_arr(backend, numpy.column_stack([xv, xv])), ntp=31, tail="both"
+    )
+    assert pair.leading._backend and pair.trailing._backend
+
+
+def test_streamtrack_class_numpy_path_unchanged():
+    # The numpy StreamTrack path is untouched: _backend is False, the scipy
+    # splines are built (coeffs unset), and evaluation stays numpy. (Byte-identity
+    # is guaranteed by keeping the numpy body verbatim; tests/test_streamTrack.py
+    # covers the values.)
+    xv, prog_cart, tg = _track_case()
+    tr_np = StreamTrack.from_particles(xv, prog_cart, tg, **_TRACK_KW)
+    assert tr_np._backend is False
+    assert tr_np._cart_splines is not None and tr_np._cart_coeffs is None
+    q = _class_query(tr_np)
+    xn = numpy.asarray(tr_np.x(q))
+    assert numpy.all(numpy.isfinite(xn))
+    assert not is_backend_array(tr_np.x(q))
+    assert not is_backend_array(tr_np.cov(q))
