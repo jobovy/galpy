@@ -18,7 +18,8 @@ import numpy
 import pytest
 from scipy import interpolate
 
-from galpy.backend import as_numpy, is_backend_array
+from galpy.backend import as_numpy, get_namespace, is_backend_array
+from galpy.backend.linalg import psd_project
 from galpy.df.streamTrack import (
     StreamTrack,
     _bin_by_tp,
@@ -482,8 +483,11 @@ def test_fit_track_backend_grad(backend):
     xv, prog_cart, tg = _track_case()
     pc_np, track = _frozen_track_path(xv, prog_cart, tg)
 
+    # Quadratic loss over the FULL track (position + velocity), and grad-vs-FD
+    # along many random directions -- exercises every particle entry's gradient,
+    # not a few hand-picked ones.
     def loss(pc, xp):
-        return xp.sum(track(pc, xp)[:, 0:3])
+        return xp.sum(track(pc, xp) ** 2)
 
     if backend == "jax":
         g = as_numpy(jax.grad(lambda pc: loss(pc, jnp))(jnp.asarray(pc_np)))
@@ -491,20 +495,18 @@ def test_fit_track_backend_grad(backend):
         pt = torch.tensor(pc_np, requires_grad=True)
         loss(pt, torch).backward()
         g = as_numpy(pt.grad)
-    assert numpy.isfinite(g).all()
-    assert numpy.max(numpy.abs(g)) > 0
+    assert numpy.isfinite(g).all() and numpy.max(numpy.abs(g)) > 0
+
+    def loss_np(pc):
+        return float(numpy.sum(track(pc, numpy) ** 2))
+
+    rng = numpy.random.RandomState(1234)
     eps = 1e-6
-    for i, j in [(3, 0), (30, 1), (70, 0), (120, 2)]:
-        a = pc_np.copy()
-        a[i, j] += eps
-        b = pc_np.copy()
-        b[i, j] -= eps
-        fd = (
-            float(numpy.sum(track(a, numpy)[:, 0:3]))
-            - float(numpy.sum(track(b, numpy)[:, 0:3]))
-        ) / (2 * eps)
-        if abs(g[i, j]) > 1e-3:  # skip components the track is insensitive to
-            numpy.testing.assert_allclose(g[i, j], fd, rtol=1e-3, atol=1e-7)
+    for _ in range(10):
+        v = rng.randn(*pc_np.shape)
+        v /= numpy.linalg.norm(v)
+        fd = (loss_np(pc_np + eps * v) - loss_np(pc_np - eps * v)) / (2 * eps)
+        numpy.testing.assert_allclose(float(numpy.sum(g * v)), fd, rtol=1e-5, atol=1e-7)
 
 
 @pytest.mark.skipif(
@@ -525,19 +527,120 @@ def test_fit_track_backend_grad_jax_torch_agree():
 
 @pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
 def test_fit_track_endtoend_torch_grad():
-    # End-to-end deliverable: torch (eager) autodiff of sum(track_xyz) w.r.t. the
-    # raw cylindrical xv_particles straight through _fit_track_from_particles --
-    # the cKDTree structure is frozen (.detach()) and the differentiable track,
-    # incl. the psd_project'd covariance, flows through _fit_one_pass_backend.
-    # (A symbolic jax.grad cannot trace the cKDTree assignment; hence torch here.)
+    # End-to-end deliverable: torch (eager) autodiff of the mean+covariance track
+    # w.r.t. the raw cylindrical xv straight through _fit_track_from_particles (the
+    # REAL full function; jax.grad cannot trace the cKDTree assignment). Stringent
+    # check: the production gradient EQUALS a GCV-frozen-structure gradient
+    # (cyl->cart -> interior filter -> frozen production GCV smoothers -> psd_project),
+    # which is itself grad-vs-FD-checked here -- so d(track)/d(xv) is validated on
+    # the full function without an (infeasible) end-to-end FD.
     xv, prog_cart, tg = _track_case()
     xvt = torch.tensor(xv, requires_grad=True)
     fit_t = _fit_track_from_particles(xvt, prog_cart, tg, **_TRACK_KW)
     assert is_backend_array(fit_t["track_xyz"])
-    (torch.sum(fit_t["track_xyz"]) + torch.sum(fit_t["cov_xyz"])).backward()
-    g = as_numpy(xvt.grad)
-    assert numpy.isfinite(g).all()
-    assert numpy.max(numpy.abs(g)) > 0
+    (
+        torch.sum(fit_t["track_xyz"] ** 2)
+        + torch.sum(fit_t["track_vxvyvz"] ** 2)
+        + torch.sum(fit_t["cov_xyz"] ** 2)
+    ).backward()
+    g_prod = as_numpy(xvt.grad)
+
+    # GCV-frozen-structure closure track_xv(xv) = fit(cyl_to_rect(xv)), structure
+    # (interior mask, tp grids) + GCV smoothers frozen from the base run.
+    full_pc = coords.galcencyl_to_galcenrect(*xv)
+    sign = numpy.broadcast_to((tg >= 0)[None, :], (full_pc.shape[0], tg.size))
+    ta_f = _closest_point_on_curve(
+        full_pc, prog_cart, tg, mask=sign, velocity_weight=1.0
+    )
+    interior = numpy.abs(ta_f - tg[-1]) > 1e-3 * abs(tg[-1] - tg[0])
+    ta = ta_f[interior]
+    tp_hi = float(numpy.percentile(ta, 99.0))
+    tp_grid = numpy.linspace(0.0, tp_hi, 101)
+    tp_nodes = numpy.linspace(0.0, tp_hi, 21)
+    _ps = [
+        interpolate.InterpolatedUnivariateSpline(tg, prog_cart[:, i], k=3)
+        for i in range(6)
+    ]
+    prog_at = lambda tp: numpy.column_stack([s(numpy.atleast_1d(tp)) for s in _ps])  # noqa: E731
+    off0 = full_pc[interior] - prog_at(ta)
+    means0, cov0, cnt0 = _bin_by_tp(ta, off0, tp_nodes)
+    with numpy.errstate(invalid="ignore"):
+        per0 = numpy.sqrt(numpy.clip(numpy.einsum("mii->mi", cov0), 0.0, None))
+        sig = numpy.where(
+            cnt0[:, None] > 1,
+            per0 / numpy.sqrt(numpy.maximum(cnt0[:, None], 1)),
+            numpy.nan,
+        )
+    cntc = numpy.clip(cnt0.astype(float), 2.0, None)
+    gm = [
+        _DiffSpline(means0[:, i], tp_nodes, sig[:, i], None, 1.0, "numpy")._build(
+            tp_grid
+        )(means0[:, i])
+        for i in range(6)
+    ]
+    gc = {}
+    for a in range(6):
+        for b in range(a, 6):
+            v0 = cov0[:, a, b]
+            sc = numpy.where(
+                cnt0 > 1,
+                numpy.sqrt(
+                    numpy.clip(
+                        (per0[:, a] ** 2 * per0[:, b] ** 2 + v0**2) / cntc, 0.0, None
+                    )
+                ),
+                numpy.nan,
+            )
+            gc[(a, b)] = _DiffSpline(v0, tp_nodes, sc, None, 1.0, "numpy")._build(
+                tp_grid
+            )(v0)
+    prog_grid = prog_at(tp_grid)
+
+    def track_xv(xvb, xp):
+        R, vR, vT, z, vz, phi = xvb
+        x, y, zc = coords.cyl_to_rect(R, phi, z)
+        vx, vy, vzc = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+        pc = xp.stack([x, y, zc, vx, vy, vzc], axis=-1)[interior]
+        means, covs, _ = _bin_by_tp(ta, pc - xp.asarray(prog_at(ta)), tp_nodes)
+        tmean = xp.asarray(prog_grid) + xp.stack(
+            [xp.asarray(gm[i]) @ xp.nan_to_num(means[:, i]) for i in range(6)], axis=-1
+        )
+        ent = {}
+        for a in range(6):
+            for b in range(a, 6):
+                ent[(a, b)] = xp.asarray(gc[(a, b)]) @ xp.nan_to_num(covs[:, a, b])
+        rows = [
+            xp.stack([ent[(min(a, b), max(a, b))] for b in range(6)], axis=-1)
+            for a in range(6)
+        ]
+        cov = psd_project(
+            xp.nan_to_num(xp.stack(rows, axis=-2), nan=0.0, posinf=0.0, neginf=0.0)
+        )
+        return tmean, cov
+
+    xvt2 = torch.tensor(xv, requires_grad=True)
+    xpt = get_namespace(xvt2)
+    m, c = track_xv(xvt2, xpt)
+    (torch.sum(m**2) + torch.sum(c**2)).backward()
+    g_frozen = as_numpy(xvt2.grad)
+    # production end-to-end grad == the FD-checked frozen-structure grad
+    numpy.testing.assert_allclose(g_prod, g_frozen, rtol=1e-4, atol=1e-6)
+
+    def loss_np(xv_np):
+        m, c = track_xv(xv_np, numpy)
+        return float(
+            numpy.sum(numpy.asarray(m) ** 2) + numpy.sum(numpy.asarray(c) ** 2)
+        )
+
+    rng = numpy.random.RandomState(7)
+    eps = 1e-6
+    for _ in range(8):
+        v = rng.randn(*xv.shape)
+        v /= numpy.linalg.norm(v)
+        fd = (loss_np(xv + eps * v) - loss_np(xv - eps * v)) / (2 * eps)
+        numpy.testing.assert_allclose(
+            float(numpy.sum(g_frozen * v)), fd, rtol=1e-5, atol=1e-7
+        )
 
 
 ###############################################################################
@@ -668,8 +771,10 @@ def test_fit_track_backend_prog_grad(backend):
     xv, prog_cart, tg = _track_case()
     prog0, track = _frozen_prog_path(xv, prog_cart, tg)
 
+    # Quadratic loss over the FULL track (position + velocity); grad-vs-FD along
+    # many random directions -- exercises every progenitor entry's gradient.
     def loss(prog, xp):
-        return xp.sum(track(prog, xp)[:, 0:3])
+        return xp.sum(track(prog, xp) ** 2)
 
     if backend == "jax":
         g = as_numpy(jax.grad(lambda p: loss(p, jnp))(jnp.asarray(prog0)))
@@ -677,21 +782,18 @@ def test_fit_track_backend_prog_grad(backend):
         pt = torch.tensor(prog0, requires_grad=True)
         loss(pt, torch).backward()
         g = as_numpy(pt.grad)
-    assert numpy.isfinite(g).all()
-    assert numpy.max(numpy.abs(g)) > 0
+    assert numpy.isfinite(g).all() and numpy.max(numpy.abs(g)) > 0
+
+    def loss_np(prog):
+        return float(numpy.sum(track(prog, numpy) ** 2))
+
+    rng = numpy.random.RandomState(1234)
     eps = 1e-6
-    M = prog0.shape[0]
-    for i, j in [(M // 2, 0), (2 * M // 3, 2), (3 * M // 4, 1), (3 * M // 5, 3)]:
-        a = prog0.copy()
-        a[i, j] += eps
-        b = prog0.copy()
-        b[i, j] -= eps
-        fd = (
-            float(numpy.sum(track(a, numpy)[:, 0:3]))
-            - float(numpy.sum(track(b, numpy)[:, 0:3]))
-        ) / (2 * eps)
-        if abs(g[i, j]) > 1e-3:  # skip components the track is insensitive to
-            numpy.testing.assert_allclose(g[i, j], fd, rtol=1e-3, atol=1e-7)
+    for _ in range(10):
+        v = rng.randn(*prog0.shape)
+        v /= numpy.linalg.norm(v)
+        fd = (loss_np(prog0 + eps * v) - loss_np(prog0 - eps * v)) / (2 * eps)
+        numpy.testing.assert_allclose(float(numpy.sum(g * v)), fd, rtol=1e-5, atol=1e-7)
 
 
 @pytest.mark.skipif(
@@ -713,17 +815,25 @@ def test_fit_track_backend_prog_grad_jax_torch_agree():
 @pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
 def test_fit_track_endtoend_torch_prog_grad():
     # End-to-end deliverable: torch (eager) autodiff of the track w.r.t. a BACKEND
-    # progenitor curve straight through _fit_track_from_particles -- d(track)/
-    # d(progenitor) flows via the backend cubic spline while the cKDTree structure
-    # is frozen (.detach()). (A symbolic jax.grad cannot trace the assignment.)
+    # progenitor curve straight through _fit_track_from_particles (the REAL full
+    # function; jax.grad cannot trace the cKDTree assignment). Stringent check: the
+    # production gradient EQUALS the frozen-structure gradient, which is itself
+    # grad-vs-FD-checked by test_fit_track_backend_prog_grad -- so d(track)/d(prog)
+    # is validated on the full function without an (infeasible) end-to-end FD.
     xv, prog_cart, tg = _track_case()
     progt = torch.tensor(prog_cart, requires_grad=True)
     fit_t = _fit_track_from_particles(torch.tensor(xv), progt, tg, **_TRACK_KW)
     assert is_backend_array(fit_t["track_xyz"])
-    (torch.sum(fit_t["track_xyz"]) + torch.sum(fit_t["cov_xyz"])).backward()
-    g = as_numpy(progt.grad)
-    assert numpy.isfinite(g).all()
-    assert numpy.max(numpy.abs(g)) > 0
+    (
+        torch.sum(fit_t["track_xyz"] ** 2) + torch.sum(fit_t["track_vxvyvz"] ** 2)
+    ).backward()
+    g_prod = as_numpy(progt.grad)
+
+    prog0, track = _frozen_prog_path(xv, prog_cart, tg)
+    pt = torch.tensor(prog0, requires_grad=True)
+    torch.sum(track(pt, torch) ** 2).backward()
+    g_frozen = as_numpy(pt.grad)
+    numpy.testing.assert_allclose(g_prod, g_frozen, rtol=1e-5, atol=1e-8)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
