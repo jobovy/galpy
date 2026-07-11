@@ -920,18 +920,6 @@ jax tests/test_sphericaldf.py::test_eddington_sample_negative_df_regions_no_cras
 # integrate). Already ledgered for torch.
 jax tests/test_streamspraydf.py::test_integrate
 jax tests/test_streamspraydf.py::test_integrate_rtnonarray
-# Backend-aware StreamTrack class (PR #1100): under a forced backend a fresh
-# spdf.streamTrack() now yields a BACKEND track (previously coerced to numpy in
-# StreamTrack.__init__). It supports the galcenrect phase-space track + cov, but
-# the sky-frame cov bases (sky/galsky/customsky), the sky coordinate accessors
-# (ra/dec/phi1/...), and plotting go through per-point float()/numpy Jacobians
-# not yet backend-native -> these raise/NaN. Already ledgered for torch (broader
-# torch-specific failures). Un-ledger when the backend sky-frame layer lands.
-jax tests/test_streamTrack.py::test_streamTrack_cov_basis
-jax tests/test_streamTrack.py::test_streamTrack_cov_per_call_unit_overrides
-jax tests/test_streamTrack.py::test_streamTrack_out_of_range_returns_nan
-jax tests/test_streamTrack.py::test_streamTrack_plot_smoke
-jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[ExpTruncNFWPotential]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatWeaklyTDNonaxiM3SCFPotential--10.0--6.0-False]
 torch tests/test_potential.py::test_ExpTruncNFW_smallr_series
