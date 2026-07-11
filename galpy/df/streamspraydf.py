@@ -370,7 +370,13 @@ class basestreamspraydf(df):
         # all of them for a tight bound.
         if tail == "both":
             if particles is not None:
-                xv_all = numpy.asarray(particles, dtype=float)
+                # A backend (jax/torch) particles array flows through the fit
+                # differentiably; a numpy/list input is coerced as before.
+                xv_all = (
+                    particles
+                    if is_backend_array(particles)
+                    else numpy.asarray(particles, dtype=float)
+                )
                 n_lead = xv_all.shape[1] // 2
                 xv_lead = xv_all[:, :n_lead]
                 xv_trail = xv_all[:, n_lead:]
@@ -385,7 +391,11 @@ class basestreamspraydf(df):
                 xv_all = numpy.column_stack([xv_lead, xv_trail])
         else:
             if particles is not None:
-                xv_single = numpy.asarray(particles, dtype=float)
+                xv_single = (
+                    particles
+                    if is_backend_array(particles)
+                    else numpy.asarray(particles, dtype=float)
+                )
             else:
                 xv_single, _ = self._sample_tail(n, True, leading=(tail == "leading"))
             xv_all = xv_single
@@ -398,7 +408,10 @@ class basestreamspraydf(df):
             # naturally with stream width (essential for warm /
             # dwarf-galaxy-mass progenitors whose tidal radii and
             # velocity kicks are much larger).
-            _Rs, _, _, _zs, _, _phis = xv_all
+            # Structural extent estimate (a scalar time-range bound); run on a
+            # numpy view so a backend (jax/torch) particles array doesn't turn
+            # these numpy reductions into namespace ops.
+            _Rs, _, _, _zs, _, _phis = as_numpy(xv_all)
             _xs = _Rs * numpy.cos(_phis)
             _ys = _Rs * numpy.sin(_phis)
             _px = float(self._progenitor.x(0.0))
