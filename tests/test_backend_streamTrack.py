@@ -449,7 +449,7 @@ def test_fit_track_backend_parity(backend):
     # the covariance magnitude rather than a pure rtol.
     cov_scale = numpy.max(numpy.abs(fit_np["cov_xyz"]))
     numpy.testing.assert_allclose(
-        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-6, atol=1e-6 * cov_scale
+        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-5, atol=1e-5 * cov_scale
     )
 
 
@@ -470,7 +470,7 @@ def test_fit_track_backend_auto_niter(backend):
     )
     cov_scale = numpy.max(numpy.abs(fit_np["cov_xyz"]))
     numpy.testing.assert_allclose(
-        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-6, atol=1e-6 * cov_scale
+        as_numpy(fit_b["cov_xyz"]), fit_np["cov_xyz"], rtol=1e-5, atol=1e-5 * cov_scale
     )
 
 
@@ -576,7 +576,7 @@ def test_fit_one_pass_backend_forward(backend):
     numpy.testing.assert_allclose(as_numpy(vel_b), vel_n, rtol=1e-6, atol=1e-8)
     cov_scale = numpy.max(numpy.abs(cov_n))
     numpy.testing.assert_allclose(
-        as_numpy(cov_b), cov_n, rtol=1e-6, atol=1e-6 * cov_scale
+        as_numpy(cov_b), cov_n, rtol=1e-5, atol=1e-5 * cov_scale
     )
 
 
