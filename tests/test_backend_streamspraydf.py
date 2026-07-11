@@ -176,3 +176,67 @@ def test_sample_standalone_key(cls, backend_name):
     numpy.random.seed(_SEED)
     out2 = df.sample(n=80, return_orbit=False, integrate=True, key=key)
     numpy.testing.assert_array_equal(as_numpy(out), as_numpy(out2))
+
+
+# --------------------------------------------------------------------------
+# Differentiable stream TRACK from a BACKEND progenitor orbit. A backend
+# (jax/torch) progenitor Orbit makes streamTrack integrate the dense progenitor
+# curve with the differentiable C-STM (dop853_c) instead of the numpy default and
+# stack it into a backend track_prog_cart, so the fitted track carries
+# d(track)/d(progenitor). numpy progenitor -> numpy path, byte-identical.
+# --------------------------------------------------------------------------
+_PROG_IC = [1.0, 0.1, 1.1, 0.05, 0.03, 0.2]
+
+
+def _spdf_prog(progenitor):
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    mass = 2 * 10.0**4.0 / conversion.mass_in_msol(_VO, _RO)
+    td = 4.5 / conversion.time_in_Gyr(_VO, _RO)
+    return fardal15spraydf(mass, progenitor=progenitor, pot=lp, tdisrupt=td)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_streamtrack_backend_progenitor_parity(backend_name):
+    # A BACKEND progenitor orbit yields a differentiable BACKEND track whose
+    # accessors match the numpy-progenitor track at common tp (evaluated via the
+    # accessors, since the tp_grid trim can jump a particle under the tiny C-STM-
+    # vs-default integrator difference). The progenitor curve integrates via C-STM.
+    xp = jax.numpy if backend_name == "jax" else torch
+    spdf_np = _spdf_prog(Orbit(_PROG_IC))
+    numpy.random.seed(_SEED)
+    xv, _ = spdf_np._sample_tail(300, True, leading=True)
+    xv = numpy.asarray(xv, dtype=float)
+    tr_np = spdf_np.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
+    spdf_b = _spdf_prog(Orbit(xp.asarray(_PROG_IC)))
+    tr_b = spdf_b.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
+    assert is_backend_array(tr_b._track_xyz) and is_backend_array(tr_b._track_vxvyvz)
+    g_np, g_b = numpy.asarray(tr_np.tp_grid()), numpy.asarray(tr_b.tp_grid())
+    lo, hi = max(g_np[0], g_b[0]), min(g_np[-1], g_b[-1])
+    tp = numpy.linspace(lo + 1e-6, hi - 1e-6, 100)
+    for m in ("x", "y", "z", "vx", "vy", "vz"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(tr_b, m)(tp)),
+            numpy.asarray(getattr(tr_np, m)(tp)),
+            rtol=1e-5,
+            atol=1e-6,
+            err_msg=f"streamTrack backend-progenitor {m} parity ({backend_name})",
+        )
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+def test_streamtrack_backend_progenitor_grad():
+    # End-to-end: torch autograd of the track w.r.t. the progenitor IC through the
+    # full spdf.streamTrack -- the C-STM progenitor curve makes track = prog+offset
+    # differentiable in the progenitor phase space (jax.grad cannot trace the
+    # cKDTree closest-point assignment, so torch eager here).
+    ic = torch.tensor(_PROG_IC, requires_grad=True)
+    spdf_b = _spdf_prog(Orbit(ic))
+    numpy.random.seed(_SEED)
+    xv, _ = _spdf_prog(Orbit(_PROG_IC))._sample_tail(300, True, leading=True)
+    xv = numpy.asarray(xv, dtype=float)
+    tr = spdf_b.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
+    assert is_backend_array(tr._track_xyz)
+    loss = torch.sum(tr._track_xyz**2) + torch.sum(tr._track_vxvyvz**2)
+    loss.backward()
+    g = as_numpy(ic.grad)
+    assert numpy.all(numpy.isfinite(g)) and numpy.max(numpy.abs(g)) > 0
