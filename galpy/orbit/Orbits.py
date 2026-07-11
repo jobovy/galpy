@@ -1743,15 +1743,23 @@ class Orbit:
         # _ic_backend is None and are untouched -> the numpy/C path is unchanged.
         ic_backend = getattr(self, "_ic_backend", None)
         if ic_backend is not None:
-            from ..backend._reference.inbackend_stm import _C_RK_METHODS
+            from ..backend._reference.inbackend_stm import (
+                _C_RK_METHODS,
+                _C_SYMPLEC_METHODS,
+            )
 
-            # Only the Runge-Kutta dxdv methods auto-route here. The symplectic
-            # methods are deliberately excluded: symplec4_c is galpy's DEFAULT
-            # integrator, so routing it would silently reroute every internal
-            # default-method integration (e.g. streamspraydf's sample orbits) to
-            # the C-STM under a forced backend. Symplectic C-STM is still available
-            # explicitly via galpy.backend.integrate_stm / orbit_stm.integrate.
-            if method.lower() in _C_RK_METHODS:
+            # Runge-Kutta dxdv methods auto-route for ANY backend IC. Symplectic
+            # dxdv methods (incl. galpy's DEFAULT symplec4_c) route ONLY for a
+            # grad-tracking IC: a CONCRETE backend IC has real values in self.vxvv
+            # and keeps the numpy/C path below, so a forced-backend internal
+            # default-method integration is never silently rerouted to the C-STM
+            # (bit #1094). A grad-tracking IC has no concrete values to integrate on
+            # numpy, so it needs the differentiable C-STM -- which supports the
+            # symplectic dxdv integrators via the per-column drift/kick tangent maps
+            # (the alternative for these was to raise below).
+            _ml = method.lower()
+            _concrete = getattr(self, "_ic_backend_concrete", True)
+            if _ml in _C_RK_METHODS or (_ml in _C_SYMPLEC_METHODS and not _concrete):
                 _potl = _check_potential_list_and_deprecate(pot)
                 _inbk = (
                     "diffrax"
@@ -1769,7 +1777,7 @@ class Orbit:
                     if _pdim in (2, 4)
                     else False
                 ):
-                    return self._integrate_cstm(t, _potl, method.lower(), rtol, atol)
+                    return self._integrate_cstm(t, _potl, _ml, rtol, atol)
                 # Pass the deprecation-checked/composed potential (_potl), matching
                 # the C-STM and numpy paths, so a legacy list reaches the in-backend
                 # integrator as a composite rather than a raw list.
