@@ -615,7 +615,30 @@ def test_integrate_gradtracking_symplectic_routes_to_cstm_torch(method):
     loss = torch.sum(o.R(_TS) ** 2) + torch.sum(o.vx(_TS) ** 2)
     loss.backward()
     g = as_numpy(ic.grad)
-    assert numpy.all(numpy.isfinite(g)) and numpy.max(numpy.abs(g)) > 0
+    assert numpy.all(numpy.isfinite(g))
+
+    # grad-vs-FD: the C-STM IC gradient matches a central finite difference along
+    # random directions (the orbit is a smooth function of the IC -- no structural
+    # discontinuity), to the FD truncation floor.
+    def loss_np(ic_np):
+        oo = Orbit(list(ic_np))
+        oo.integrate(_TS, pot, method=method)
+        return float(numpy.sum(oo.R(_TS) ** 2) + numpy.sum(oo.vx(_TS) ** 2))
+
+    ic0 = numpy.asarray(_IC, dtype=float)
+    rng = numpy.random.RandomState(43)
+    eps = 1e-6
+    for _ in range(4):
+        v = rng.randn(6)
+        v /= numpy.linalg.norm(v)
+        fd = (loss_np(ic0 + eps * v) - loss_np(ic0 - eps * v)) / (2 * eps)
+        numpy.testing.assert_allclose(
+            float(numpy.sum(g * v)),
+            fd,
+            rtol=1e-5,
+            atol=1e-6,
+            err_msg=f"symplectic C-STM grad-vs-FD ({method})",
+        )
 
 
 @pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
