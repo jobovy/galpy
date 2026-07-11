@@ -379,8 +379,10 @@ def _fit_one_pass_backend(
     xp = get_namespace(particles_cart)
     dev = device_of(particles_cart)
 
-    prog_at_particles = prog_at_fn(tp_assign)  # numpy progenitor curve
-    offsets = particles_cart - asarray_on_device(xp, prog_at_particles, dev)
+    prog_at_particles = prog_at_fn(tp_assign)  # backend curve stays differentiable
+    if not is_backend_array(prog_at_particles):
+        prog_at_particles = asarray_on_device(xp, prog_at_particles, dev)
+    offsets = particles_cart - prog_at_particles
 
     means, covs, counts = _bin_by_tp(tp_assign, offsets, tp_nodes)
     counts_b = asarray_on_device(xp, counts.astype(float), dev)
@@ -402,8 +404,10 @@ def _fit_one_pass_backend(
         eff_s_mean.append(es)
     offset_fine = xp.stack([spl(tp_grid) for spl in offset_splines], axis=-1)
 
-    prog_on_grid = prog_at_fn(tp_grid)  # numpy
-    track_fine = asarray_on_device(xp, prog_on_grid, dev) + offset_fine
+    prog_on_grid = prog_at_fn(tp_grid)  # backend curve stays differentiable
+    if not is_backend_array(prog_on_grid):
+        prog_on_grid = asarray_on_device(xp, prog_on_grid, dev)
+    track_fine = prog_on_grid + offset_fine
 
     eff_s_cov = []
     cov_xyz = None
@@ -586,12 +590,38 @@ def _fit_track_from_particles(
     ``1.0`` for the legacy unweighted natural-units metric.
     """
     track_t_grid = numpy.asarray(track_t_grid, dtype=float)
-    prog_cart = numpy.asarray(track_prog_cart, dtype=float)
+    # A backend progenitor curve stays a differentiable backend array (track =
+    # prog + offset flows d(track)/d(progenitor)); a numpy view drives the
+    # structural closest-point / velocity-weight probe.
+    if is_backend_array(track_prog_cart):
+        prog_cart = track_prog_cart
+    else:
+        prog_cart = numpy.asarray(track_prog_cart, dtype=float)
+    prog_cart_np = as_numpy(prog_cart)
     arm_sign = int(numpy.sign(arm_sign)) or 1
     ninterp = int(ninterp)
     order = int(order)
 
-    if prog_orbit is not None:
+    if is_backend_array(prog_cart):
+        # Backend progenitor curve: differentiable cubic interpolation so the
+        # fitted track carries d(track)/d(progenitor). not-a-knot BC matches
+        # InterpolatedUnivariateSpline (natural diverges ~1e-6 at the ends).
+        # A backend prog_cart is an explicit differentiability request, so it
+        # takes precedence over the prog_orbit numpy-interpolation reuse.
+        xpp = get_namespace(prog_cart)
+        devp = device_of(prog_cart)
+        prog_coeffs = [
+            cubic_spline_coeffs(xpp, track_t_grid, prog_cart[:, i], bc="not-a-knot")
+            for i in range(6)
+        ]
+
+        def _prog_at(tp):
+            tp_b = asarray_on_device(xpp, numpy.atleast_1d(tp), devp)
+            return xpp.stack(
+                [eval_cubic(xpp, track_t_grid, prog_coeffs[i], tp_b) for i in range(6)],
+                axis=-1,
+            )
+    elif prog_orbit is not None:
         # Reuse the Orbit's internal interpolation directly — the orbit
         # has already been integrated densely on track_t_grid.
         def _prog_at(tp):
@@ -632,6 +662,12 @@ def _fit_track_from_particles(
         particles_cart = xp.stack([x_p, y_p, z_pc, vx_p, vy_p, vz_pc], axis=-1)
     else:
         particles_cart = coords.galcencyl_to_galcenrect(*xv_particles)
+    # A backend progenitor curve with numpy particles still fits differentiably:
+    # promote particles onto the progenitor's backend so d(track)/d(progenitor)
+    # flows (numpy particles + numpy prog stays pure numpy -> byte-identical).
+    if is_backend_array(prog_cart) and not is_backend_array(particles_cart):
+        xpp = get_namespace(prog_cart)
+        particles_cart = asarray_on_device(xpp, particles_cart, device_of(prog_cart))
     # Structural steps (closest-point, velocity-weight probe, filters) run on a
     # numpy view; the differentiable track flows from the backend particles_cart.
     pc_np = as_numpy(particles_cart)
@@ -666,7 +702,7 @@ def _fit_track_from_particles(
             raise ValueError(
                 f"velocity_weight= must be a float or 'auto', got {velocity_weight!r}"
             )
-        probe_tp = _closest_point_on_curve(pc_np, prog_cart, track_t_grid, mask=mask)
+        probe_tp = _closest_point_on_curve(pc_np, prog_cart_np, track_t_grid, mask=mask)
         abs_probe = numpy.abs(probe_tp)
         # With size >= 20 the inner-half (median split) always has at least
         # 10 entries, so we don't need a separate inner_n < 10 fallback.
@@ -676,7 +712,7 @@ def _fit_track_from_particles(
             idx_inner = numpy.argmin(
                 numpy.abs(track_t_grid[None, :] - probe_tp[inner, None]), axis=1
             )
-            prog_at_inner = prog_cart[idx_inner]
+            prog_at_inner = prog_cart_np[idx_inner]
             dpos = pc_np[inner, :3] - prog_at_inner[:, :3]
             dvel = pc_np[inner, 3:] - prog_at_inner[:, 3:]
             sigma_pos = numpy.sqrt(numpy.mean(numpy.sum(dpos**2, axis=1)))
@@ -695,7 +731,7 @@ def _fit_track_from_particles(
 
     tp_assign = _closest_point_on_curve(
         pc_np,
-        prog_cart,
+        prog_cart_np,
         track_t_grid,
         mask=mask,
         velocity_weight=velocity_weight,
