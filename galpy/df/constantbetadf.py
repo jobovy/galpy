@@ -398,21 +398,12 @@ class constantbetadf(_constantbetadf):
         self._gradfunc = _make_gradfunc(
             self._raw_gradfunc(_autodiff_xp()), self._backend
         )
-        # Min and max energy (numpy scalars): under a forced non-numpy backend the
-        # (undecorated) potential rejects the numpy/scalar limits, so coerce the
-        # input and pull the value back to numpy (boundary coercion, not a compute
-        # island -- the differentiable fE is the backend path below).
-        xpc = get_namespace()
-        if xpc is numpy:
-            self._potInf = _evaluatePotentials(self._pot, self._rmax, 0)
-            self._Emin = _evaluatePotentials(self._pot, self._rmin, 0)
-        else:
-            self._potInf = as_numpy(
-                _evaluatePotentials(self._pot, xpc.asarray(self._rmax) * 1.0, 0)
-            )
-            self._Emin = as_numpy(
-                _evaluatePotentials(self._pot, xpc.asarray(self._rmin) * 1.0, 0)
-            )
+        # Min and max energy (numpy scalars): Phi(rmax)/Phi(rmin) as numpy, robust
+        # under a forced non-numpy backend (see _evalpot_asnumpy -- boundary
+        # coercion, not a compute island; the differentiable fE is the backend path
+        # below). numpy is a strict pass-through, so this stays byte-identical.
+        self._potInf = _evalpot_asnumpy(self._pot, self._rmax)
+        self._Emin = _evalpot_asnumpy(self._pot, self._rmin)
         # Build interpolator r(pot), starting at rmin for divergent potentials
         self._rphi = self._setup_rphi_interpolator(
             r_a_min=max(1e-6, self._rmin / self._scale)
