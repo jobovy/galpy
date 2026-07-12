@@ -933,8 +933,6 @@ class NFWPotential(TwoPowerSphericalPotential):
         self._backend_compatible = True
         if conc is None and rmax is None:
             self.a = a
-            self.alpha = 1
-            self.beta = 3
             if normalize or (
                 isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
             ):
@@ -962,6 +960,8 @@ class NFWPotential(TwoPowerSphericalPotential):
             # Turn on physical output, because mass is given in 1e12 Msun (see #465)
             self._roSet = True
             self._voSet = True
+        self.alpha = 1
+        self.beta = 3
         self._scale = self.a
         self.hasC = True
         self.hasC_dxdv = True
