@@ -521,3 +521,126 @@ def test_streamtrack_nonaxi_probe_numpy():
     tr = spdf.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
     assert not is_backend_array(tr._track_xyz)  # numpy potential -> numpy track
     assert numpy.all(numpy.isfinite(numpy.asarray(tr._track_xyz)))
+
+
+# --------------------------------------------------------------------------
+# FULLY JITTABLE differentiable streamspray: jax.jit(sample()) and
+# jax.jit(streamTrack()) sample INTERNALLY (no particles=) and reconstruct with the
+# jax-native path (static-shape argmin closest-point + GCV P-spline + PSD covariance),
+# so the spray sample xv(theta) FLOWS -- the generative d(track)/d(theta). The
+# track_time_range is auto-estimated (the TRUE traced particle-extent). Streams are
+# sensitive probes, so grad-vs-FD is h-CONVERGED (a single-h central difference is
+# nonlinear at h~1e-3; the linear regime is ~1e-5). jax-only (jit).
+# --------------------------------------------------------------------------
+_JIT_IC = [1.2, 0.15, 0.85, 0.08, 0.05, 0.0]
+_JIT_MASS, _JIT_TD, _JIT_N = 3e-5, 2.0, 40
+
+
+def _jit_grad_hconv(loss, x0):
+    # AD gradient + best relative error vs a central FD over a spread of h. The jitted
+    # value function is compiled once and reused across the FD points (jit caches).
+    jnp = jax.numpy
+    g = float(jax.jit(jax.grad(loss))(jnp.asarray(x0)))
+    lj = jax.jit(loss)
+    best = min(
+        abs(
+            g
+            - (float(lj(jnp.asarray(x0 + h))) - float(lj(jnp.asarray(x0 - h))))
+            / (2 * h)
+        )
+        / max(abs(g), 1e-9)
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    return g, best
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_sample_jit_grad_fd():
+    # jax.jit(sample()) is differentiable in a backend potential parameter with the
+    # spray sample xv(theta) flowing (generative gradient). The k-vector draw is
+    # reparameterized via the jax key -> AD and FD see the SAME noise.
+    key = grandom.key(_SEED, backend="jax")
+
+    def loss(amp):
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=LogarithmicHaloPotential(amp=amp, q=0.9),
+            tdisrupt=_JIT_TD,
+        )
+        return spdf.sample(_JIT_N, return_orbit=False, tail="leading", key=key)[0].sum()
+
+    g, best = _jit_grad_hconv(loss, 1.1)
+    assert numpy.isfinite(g)
+    assert best < 1e-3, f"jit sample grad-vs-FD best REL={best:.2e}"
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_jit_grad_fd():
+    # jax.jit(streamTrack()) samples INTERNALLY + reconstructs jax-natively (auto
+    # track_time_range + GCV P-spline + PSD covariance), differentiable in a backend
+    # potential parameter -- mean track AND covariance flow.
+    key = grandom.key(_SEED, backend="jax")
+
+    def loss(amp):
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=LogarithmicHaloPotential(amp=amp, q=0.9),
+            tdisrupt=_JIT_TD,
+        )
+        tr = spdf.streamTrack(
+            n=_JIT_N, tail="leading", velocity_weight=1.0, order=2, key=key
+        )
+        return tr._track_xyz.sum() + tr._cov_xyz.sum()
+
+    g, best = _jit_grad_hconv(loss, 1.1)
+    assert numpy.isfinite(g)
+    assert best < 1e-3, f"jit streamTrack grad-vs-FD best REL={best:.2e}"
+
+    # covariance is PSD (checked inside jit so cov_xyz stays a traced backend array)
+    def min_eig(amp):
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=LogarithmicHaloPotential(amp=amp, q=0.9),
+            tdisrupt=_JIT_TD,
+        )
+        tr = spdf.streamTrack(
+            n=_JIT_N, tail="leading", velocity_weight=1.0, order=2, key=key
+        )
+        return jax.numpy.min(jax.numpy.linalg.eigvalsh(tr._cov_xyz))
+
+    assert float(jax.jit(min_eig)(jax.numpy.asarray(1.1))) > -1e-9
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_tp_scale_jit():
+    # StreamTrack tp_scale mode (how jit streamTrack carries a data-dependent extent):
+    # the parameter axis is a CONCRETE normalized grid + a TRACED physical scale
+    # (physical tp = u * tp_scale), keeping the cubic-spline geometry concrete under
+    # jit while the extent stays differentiable. d(x)/d(scale) flows through both the
+    # track values and the tp->u query mapping.
+    from galpy.df.streamTrack import StreamTrack
+
+    jnp = jax.numpy
+    u = numpy.linspace(0.0, 1.0, 60)
+
+    def qx(scale):
+        tx = jnp.stack(
+            [jnp.sin(2 * jnp.pi * u) * scale, jnp.cos(2 * jnp.pi * u), u * 0.1], axis=-1
+        )
+        return StreamTrack(u, tx, tx * 0.0, tp_scale=scale).x(1.5, use_physical=False)
+
+    # physical tp=1.5, scale=3 -> u=0.5 -> sin(2pi*0.5)*3 = 0
+    numpy.testing.assert_allclose(float(jax.jit(qx)(jnp.asarray(3.0))), 0.0, atol=1e-10)
+    g = float(jax.jit(jax.grad(qx))(jnp.asarray(3.0)))
+    fd = (
+        float(jax.jit(qx)(jnp.asarray(3.0 + 1e-6)))
+        - float(jax.jit(qx)(jnp.asarray(3.0 - 1e-6)))
+    ) / 2e-6
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-8)
+    # tp_grid() returns the physical axis (u * scale)
+    cols = jnp.asarray(numpy.column_stack([u, u, u]))
+    tr = StreamTrack(u, cols * 3.0, cols, tp_scale=jnp.asarray(3.0))
+    numpy.testing.assert_allclose(as_numpy(tr.tp_grid())[-1], 3.0, rtol=1e-9)
