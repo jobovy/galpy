@@ -450,32 +450,74 @@ class basestreamspraydf(df):
         # Stitched grid spans [-T, +T] (skip the t=0 duplicate at the seam).
         track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
         prog_ic_backend = getattr(self._orig_progenitor, "_ic_backend", None)
-        if is_backend_array(prog_ic_backend):
-            # Backend (jax/torch) progenitor orbit: build a DIFFERENTIABLE track
-            # curve so the fitted track carries d(track)/d(progenitor). Integrate
-            # forward and backward from the same backend IC with a differentiable
-            # C integrator (dop853_c -> C-STM when the potential has the C 3D
-            # Hessian, else the in-backend ODE), then stitch (torch has no
-            # negative-step slice, so use xp.flip). The structural time axis stays
-            # numpy. A backend track_prog_cart takes precedence over prog_orbit in
-            # StreamTrack, so we pass prog_orbit=None below.
-            xp = get_namespace(prog_ic_backend)
-            o_fwd = Orbit(prog_ic_backend)
-            o_fwd.turn_physical_off()
-            o_fwd.integrate(t_fwd, _track_pot, method="dop853_c")
-            o_back = Orbit(prog_ic_backend)
-            o_back.turn_physical_off()
-            o_back.integrate(t_back, _track_pot, method="dop853_c")
+        # A backend (jax/torch) potential PARAMETER makes the force a backend array.
+        # Probe at the progenitor's present-day phase-space point -- a valid, non-
+        # degenerate (R, phi, z, v) so the probe also works for non-axisymmetric
+        # (phi required) and dissipative (v required) track potentials.
+        _pp = self._progenitor
+        _theta_force = evaluateRforces(
+            _track_pot,
+            float(_pp.R(0.0)),
+            float(_pp.z(0.0)),
+            phi=float(_pp.phi(0.0)),
+            v=numpy.array([float(_pp.vR(0.0)), float(_pp.vT(0.0)), float(_pp.vz(0.0))]),
+        )
+        _theta_backend = is_backend_array(_theta_force)
+
+        def _backend_curve(ic, method, xp):
+            # Integrate the progenitor fwd+back and stitch into a differentiable
+            # backend track_prog_cart (torch has no negative-step slice -> xp.flip).
+            o_f = Orbit(ic)
+            o_f.turn_physical_off()
+            o_f.integrate(t_fwd, _track_pot, method=method)
+            o_b = Orbit(ic)
+            o_b.turn_physical_off()
+            o_b.integrate(t_back, _track_pot, method=method)
 
             def _cart(o, ts):
                 return xp.stack(
-                    [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)],
-                    axis=-1,
+                    [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)], axis=-1
                 )
 
-            track_prog_cart = xp.concat(
-                [xp.flip(_cart(o_back, t_back), axis=0), _cart(o_fwd, t_fwd)[1:]],
-                axis=0,
+            return xp.concat(
+                [xp.flip(_cart(o_b, t_back), axis=0), _cart(o_f, t_fwd)[1:]], axis=0
+            )
+
+        if _theta_backend:
+            # Backend potential parameter: integrate the progenitor via the
+            # in-backend ODE (diffrax/torchdiffeq) so the fitted track carries
+            # d(track)/d(theta) -- the C-STM carries no parameter sensitivity.
+            # Coerce the progenitor IC onto the potential's backend (a backend IC
+            # additionally flows d(track)/d(prog IC)). A backend track_prog_cart
+            # takes precedence over prog_orbit in StreamTrack (prog_orbit=None).
+            xp = get_namespace(_theta_force)
+            if is_backend_array(prog_ic_backend):
+                ic = prog_ic_backend
+            else:
+                p0 = self._orig_progenitor()
+                p0.turn_physical_off()
+                ic = xp.asarray(
+                    numpy.array(
+                        [
+                            float(p0.R()),
+                            float(p0.vR()),
+                            float(p0.vT()),
+                            float(p0.z()),
+                            float(p0.vz()),
+                            float(p0.phi()),
+                        ]
+                    )
+                )
+            method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+            track_prog_cart = _backend_curve(ic, method, xp)
+            prog = None
+        elif is_backend_array(prog_ic_backend):
+            # Backend progenitor IC (numpy-parameter potential): the differentiable
+            # C integrator (dop853_c -> C-STM when the potential has the C 3D
+            # Hessian, else the in-backend ODE) carries d(track)/d(prog IC). A
+            # backend track_prog_cart takes precedence over prog_orbit below.
+            track_prog_cart = _backend_curve(
+                prog_ic_backend, "dop853_c", get_namespace(prog_ic_backend)
             )
             prog = None
         else:

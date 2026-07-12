@@ -227,36 +227,40 @@ def test_streamtrack_backend_progenitor_parity(backend_name):
         )
 
 
-def _frozen_spray_track(xv, ic0, pot, T=3.0, hd=801):
-    """Expose track(ic, xp) = fit(C-STM curve(ic)) returning the mean(6) AND
+def _frozen_spray_track(xv, base_leaf, pot=None, T=3.0, hd=801, curve=None):
+    """Expose track(leaf, xp) = fit(curve(leaf)) returning the mean(6) AND
     covariance(6x6) track, with the fit STRUCTURE (cKDTree tp_assign, trim grid)
-    and the GCV smoothers FROZEN from a base run. The progenitor IC enters ONLY
-    through the differentiable C-STM curve (Orbit.integrate(dop853_c) fwd+back,
-    stitched exactly as streamspraydf does) -> cubic-spline interp -> offsets ->
-    frozen smoothers -> track. Frozen structure => a numpy FD and the backend
-    autograd apply the identical operators, so d(track)/d(prog IC) is FD-checkable
-    (an end-to-end FD would move the cKDTree assignment + GCV lambda)."""
+    and the GCV smoothers FROZEN from a base run. ``curve(leaf, xp, t_fwd, t_back)``
+    builds the differentiable progenitor track_prog_cart -- default: the C-STM
+    dop853_c curve as a function of the progenitor IC; the theta test supplies an
+    in-backend-ODE curve as a function of a potential parameter. Frozen structure
+    => a numpy FD and the backend autograd apply the identical operators, so
+    d(track)/d(leaf) is FD-checkable (an end-to-end FD would move the cKDTree
+    assignment + GCV lambda)."""
     t_fwd = numpy.linspace(0.0, T, hd)
     t_back = numpy.linspace(0.0, -T, hd)
     tg = numpy.concatenate([t_back[::-1], t_fwd[1:]])
     pc = coords.galcencyl_to_galcenrect(*xv)
 
-    def curve(ic, xp):
-        of = Orbit(ic)
-        of.turn_physical_off()
-        of.integrate(t_fwd, pot, method="dop853_c")
-        ob = Orbit(ic)
-        ob.turn_physical_off()
-        ob.integrate(t_back, pot, method="dop853_c")
+    if curve is None:
 
-        def cart(o, ts):
-            return xp.stack(
-                [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)], axis=-1
-            )
+        def curve(ic, xp, tf, tb):
+            of = Orbit(ic)
+            of.turn_physical_off()
+            of.integrate(tf, pot, method="dop853_c")
+            ob = Orbit(ic)
+            ob.turn_physical_off()
+            ob.integrate(tb, pot, method="dop853_c")
 
-        return xp.concat(
-            [xp.flip(cart(ob, t_back), axis=0), cart(of, t_fwd)[1:]], axis=0
-        )
+            def cart(o, ts):
+                return xp.stack(
+                    [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)], axis=-1
+                )
+
+            return xp.concat([xp.flip(cart(ob, tb), axis=0), cart(of, tf)[1:]], axis=0)
+
+    def _curve(leaf, xp):
+        return curve(leaf, xp, t_fwd, t_back)
 
     def interp(cv, tp, xp):
         if xp is numpy:
@@ -271,7 +275,7 @@ def _frozen_spray_track(xv, ic0, pot, T=3.0, hd=801):
         )
 
     # base curve + frozen structure
-    base = as_numpy(curve(ic0, numpy))
+    base = as_numpy(_curve(base_leaf, numpy))
     sign = numpy.broadcast_to((tg >= 0)[None, :], (pc.shape[0], tg.size))
     ta = _closest_point_on_curve(pc, base, tg, mask=sign, velocity_weight=1.0)
     keep = numpy.abs(ta - tg[-1]) > 1e-3 * abs(tg[-1] - tg[0])
@@ -312,8 +316,8 @@ def _frozen_spray_track(xv, ic0, pot, T=3.0, hd=801):
                 tp_grid
             )(v0)
 
-    def track(ic, xp):
-        cv = curve(ic, xp)
+    def track(leaf, xp):
+        cv = _curve(leaf, xp)
         offsets = xp.asarray(pc) - interp(cv, ta, xp)
         means, covs, _ = _bin_by_tp(ta, offsets, tp_nodes)
         tmean = interp(cv, tp_grid, xp) + xp.stack(
@@ -385,3 +389,135 @@ def test_streamtrack_backend_progenitor_grad_fd(backend_name):
             atol=1e-7,
             err_msg=f"d(track)/d(prog IC) grad-vs-FD ({backend_name})",
         )
+
+
+# --------------------------------------------------------------------------
+# Differentiable stream track w.r.t. a POTENTIAL PARAMETER (theta). A backend
+# (jax/torch) potential parameter makes spdf.streamTrack integrate the
+# progenitor via the in-backend ODE (diffrax/torchdiffeq), so the fitted track
+# carries d(track)/d(theta) -- the potential-parameter gradient the C-STM
+# cannot give. Sampling is bypassed by passing particles=.
+# --------------------------------------------------------------------------
+_AMP0, _Q0 = 1.0, 0.9
+
+
+def _spdf_pot(pot):
+    mass = 2 * 10.0**4.0 / conversion.mass_in_msol(_VO, _RO)
+    td = 4.5 / conversion.time_in_Gyr(_VO, _RO)
+    return fardal15spraydf(mass, progenitor=Orbit(_PROG_IC), pot=pot, tdisrupt=td)
+
+
+def _theta_curve(leaf, xp, tf, tb):
+    # Progenitor curve as a function of theta=[amp, q]: integrate fwd+back and
+    # stitch. The backend path uses the in-backend ODE (diffrax/torchdiffeq, the
+    # differentiable-in-theta integrator); the numpy base/FD path uses dop853_c
+    # (the integrator difference's d/d(theta) is negligible -- see FD tolerance).
+    amp, q = leaf[0], leaf[1]
+    pot = LogarithmicHaloPotential(amp=amp, q=q)
+    if xp is numpy:
+        ic, method = list(numpy.asarray(_PROG_IC, dtype=float)), "dop853_c"
+    else:
+        ic = xp.asarray(_PROG_IC)
+        method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+    of = Orbit(ic)
+    of.turn_physical_off()
+    of.integrate(tf, pot, method=method)
+    ob = Orbit(ic)
+    ob.turn_physical_off()
+    ob.integrate(tb, pot, method=method)
+
+    def cart(o, ts):
+        return xp.stack(
+            [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)], axis=-1
+        )
+
+    return xp.concat([xp.flip(cart(ob, tb), axis=0), cart(of, tf)[1:]], axis=0)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_streamtrack_backend_theta_parity(backend_name):
+    # A backend potential PARAMETER routes the progenitor curve through the
+    # in-backend ODE -> a differentiable BACKEND track matching the numpy-parameter
+    # track at common tp. Sampling is bypassed with particles=.
+    xp = jax.numpy if backend_name == "jax" else torch
+    spdf_np = _spdf_pot(LogarithmicHaloPotential(amp=_AMP0, q=_Q0))
+    numpy.random.seed(_SEED)
+    xv, _ = spdf_np._sample_tail(200, True, leading=True)
+    xv = numpy.asarray(xv, dtype=float)
+    tr_np = spdf_np.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
+    spdf_b = _spdf_pot(LogarithmicHaloPotential(amp=xp.asarray(_AMP0), q=_Q0))
+    tr_b = spdf_b.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
+    assert is_backend_array(tr_b._track_xyz)
+    g_np, g_b = numpy.asarray(tr_np.tp_grid()), numpy.asarray(tr_b.tp_grid())
+    lo, hi = max(g_np[0], g_b[0]), min(g_np[-1], g_b[-1])
+    tp = numpy.linspace(lo + 1e-6, hi - 1e-6, 80)
+    for m in ("x", "y", "z", "vx", "vy", "vz"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(tr_b, m)(tp)),
+            numpy.asarray(getattr(tr_np, m)(tp)),
+            rtol=1e-5,
+            atol=1e-6,
+            err_msg=f"streamTrack backend-theta {m} parity ({backend_name})",
+        )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_streamtrack_backend_theta_grad_fd(backend_name):
+    # STRINGENT grad-vs-FD of d(track)/d(potential parameter): the progenitor curve
+    # integrates via the in-backend ODE, so the full mean+covariance track is
+    # differentiable in theta=[amp, q] (which the C-STM cannot give). Frozen
+    # structure -> d(sum(track**2))/d(theta) matches a central FD, both backends.
+    spdf_np = _spdf_pot(LogarithmicHaloPotential(amp=_AMP0, q=_Q0))
+    numpy.random.seed(_SEED)
+    xv, _ = spdf_np._sample_tail(200, True, leading=True)
+    xv = numpy.asarray(xv, dtype=float)
+    theta0 = numpy.array([_AMP0, _Q0])
+    track = _frozen_spray_track(xv, theta0, curve=_theta_curve, T=2.0, hd=401)
+
+    def loss_np(th):
+        m, c = track(numpy.asarray(th), numpy)
+        return float(
+            numpy.sum(numpy.asarray(m) ** 2) + numpy.sum(numpy.asarray(c) ** 2)
+        )
+
+    if backend_name == "jax":
+        xp = get_namespace(jax.numpy.asarray(theta0))
+
+        def L(th):
+            m, c = track(th, xp)
+            return jax.numpy.sum(m**2) + jax.numpy.sum(c**2)
+
+        g = as_numpy(jax.grad(L)(jax.numpy.asarray(theta0)))
+    else:
+        theta_t = torch.tensor(theta0, requires_grad=True)
+        m, c = track(theta_t, get_namespace(theta_t))
+        (torch.sum(m**2) + torch.sum(c**2)).backward()
+        g = as_numpy(theta_t.grad)
+    assert numpy.all(numpy.isfinite(g)) and numpy.max(numpy.abs(g)) > 0
+    eps = 1e-6
+    for k in range(2):  # amp, q
+        tp_ = theta0.copy()
+        tp_[k] += eps
+        tm_ = theta0.copy()
+        tm_[k] -= eps
+        fd = (loss_np(tp_) - loss_np(tm_)) / (2 * eps)
+        numpy.testing.assert_allclose(
+            g[k],
+            fd,
+            rtol=1e-4,
+            atol=1e-6,
+            err_msg=f"d(track)/d(theta[{k}]) grad-vs-FD ({backend_name})",
+        )
+
+
+def test_streamtrack_nonaxi_probe_numpy():
+    # Regression guard: the backend-theta force probe must NOT crash streamTrack
+    # for a non-axisymmetric numpy potential -- the probe supplies phi (and v) from
+    # the progenitor's present-day phase-space point, so evaluateRforces succeeds.
+    spdf = _spdf_pot(LogarithmicHaloPotential(normalize=1.0, b=0.8, q=0.9))
+    numpy.random.seed(_SEED)
+    xv, _ = spdf._sample_tail(120, True, leading=True)
+    xv = numpy.asarray(xv, dtype=float)
+    tr = spdf.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
+    assert not is_backend_array(tr._track_xyz)  # numpy potential -> numpy track
+    assert numpy.all(numpy.isfinite(numpy.asarray(tr._track_xyz)))
