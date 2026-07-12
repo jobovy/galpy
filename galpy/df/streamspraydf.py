@@ -462,19 +462,12 @@ class basestreamspraydf(df):
         # Stitched grid spans [-T, +T] (skip the t=0 duplicate at the seam).
         track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
         prog_ic_backend = getattr(self._orig_progenitor, "_ic_backend", None)
-        # A backend (jax/torch) potential PARAMETER makes the force a backend array.
-        # Probe at the progenitor's present-day phase-space point -- a valid, non-
-        # degenerate (R, phi, z, v) so the probe also works for non-axisymmetric
-        # (phi required) and dissipative (v required) track potentials.
-        _pp = self._progenitor
-        _theta_force = evaluateRforces(
-            _track_pot,
-            float(_pp.R(0.0)),
-            float(_pp.z(0.0)),
-            phi=float(_pp.phi(0.0)),
-            v=numpy.array([float(_pp.vR(0.0)), float(_pp.vT(0.0)), float(_pp.vz(0.0))]),
-        )
-        _theta_backend = is_backend_array(_theta_force)
+        # Backend sampling detected at construction (self._bsamp) already resolved the
+        # backend namespace + integrator (dop853_c C-STM for a concrete backend IC;
+        # the in-backend ODE for a backend theta or under jit) and made
+        # self._progenitor a backend orbit -- reuse it instead of a float() probe on
+        # self._progenitor, which would break under jit.
+        _bsamp = self._backend_sampling()
 
         def _backend_curve(ic, method, xp):
             # Integrate the progenitor fwd+back and stitch into a differentiable
@@ -495,14 +488,14 @@ class basestreamspraydf(df):
                 [xp.flip(_cart(o_b, t_back), axis=0), _cart(o_f, t_fwd)[1:]], axis=0
             )
 
-        if _theta_backend:
-            # Backend potential parameter: integrate the progenitor via the
-            # in-backend ODE (diffrax/torchdiffeq) so the fitted track carries
-            # d(track)/d(theta) -- the C-STM carries no parameter sensitivity.
-            # Coerce the progenitor IC onto the potential's backend (a backend IC
-            # additionally flows d(track)/d(prog IC)). A backend track_prog_cart
-            # takes precedence over prog_orbit in StreamTrack (prog_orbit=None).
-            xp = get_namespace(_theta_force)
+        if _bsamp is not None:
+            # Backend sampling: build the differentiable progenitor curve with the
+            # resolved namespace + integrator (dop853_c C-STM for a concrete backend
+            # IC -- preserves #1102; the in-backend ODE for a backend theta or under
+            # jit). Coerce a numpy progenitor IC onto the backend (a backend IC
+            # additionally flows d(track)/d(prog IC)). A backend track_prog_cart takes
+            # precedence over prog_orbit in StreamTrack (prog=None).
+            xp, _, _cmethod = _bsamp
             if is_backend_array(prog_ic_backend):
                 ic = prog_ic_backend
             else:
@@ -520,17 +513,7 @@ class basestreamspraydf(df):
                         ]
                     )
                 )
-            method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
-            track_prog_cart = _backend_curve(ic, method, xp)
-            prog = None
-        elif is_backend_array(prog_ic_backend):
-            # Backend progenitor IC (numpy-parameter potential): the differentiable
-            # C integrator (dop853_c -> C-STM when the potential has the C 3D
-            # Hessian, else the in-backend ODE) carries d(track)/d(prog IC). A
-            # backend track_prog_cart takes precedence over prog_orbit below.
-            track_prog_cart = _backend_curve(
-                prog_ic_backend, "dop853_c", get_namespace(prog_ic_backend)
-            )
+            track_prog_cart = _backend_curve(ic, _cmethod, xp)
             prog = None
         else:
             prog = self._orig_progenitor()
@@ -734,16 +717,28 @@ class basestreamspraydf(df):
                     ]
                 )
             )
-        # The in-backend ODE flows BOTH d/d(theta) and d/d(prog IC) and is jittable
-        # (the C-STM/dop853_c path is not traceable). Integrate on a COARSER grid than
-        # the numpy 10001: the frame queries interpolate the differentiable orbit
-        # spline (density-insensitive; 501 pts already match numpy to ~4e-11), so a
-        # dense grid would only bloat the jit graph + eager cost.
-        method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        # Choose the integrator. A backend potential PARAMETER (theta) needs the
+        # in-backend ODE (the C-STM carries no d/d(theta)). A backend progenitor IC
+        # ALONE (numpy potential) keeps the faster dop853_c C-STM when the IC is
+        # CONCRETE (eager, preserving the #1102 mechanism); a TRACED IC (under jit)
+        # falls to the in-backend ODE (C is not traceable). Concreteness is detected
+        # by whether the IC coerces to numpy (the _ic_backend_concrete idiom).
+        inbackend = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        if theta_backend:
+            method = inbackend
+        else:
+            try:
+                as_numpy(ic)  # detaches an eager torch grad-tensor; raises on a tracer
+                ic_concrete = True
+            except Exception:  # noqa: BLE001 -- traced (jit) backend IC
+                ic_concrete = False
+            method = "dop853_c" if ic_concrete else inbackend
         # NUMPY times: the grid is a fixed structural axis (not theta-dependent), so
         # keeping self.t concrete lets o.x(t)/L(t) interpolate under jit (the orbit
         # STATE is still a backend array -> differentiable). A backend-array grid
         # would be a tracer under jit and break the interpolator's numpy.asarray(t).
+        # Coarser than the numpy 10001: the frame queries interpolate the orbit spline
+        # (density-insensitive; 501 pts already match numpy to ~4e-11).
         bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
         self._progenitor = Orbit(ic)
         self._progenitor.turn_physical_off()
@@ -1080,7 +1075,7 @@ class basestreamspraydf(df):
         self._progenitor_mass_fn = _mass_fn
         self._progenitor_mass = float(self._progenitor_mass_fn(0.0))
 
-    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True, key=None):
         """
         Sample the positions and velocities around the progenitor
         Must be implemented in a subclass
@@ -1200,7 +1195,7 @@ class chen24spraydf(basestreamspraydf):
             self._cov = cov
         return None
 
-    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True, key=None):
         """
         Sample the positions and velocities around the progenitor
 
@@ -1214,6 +1209,10 @@ class chen24spraydf(basestreamspraydf):
             Time of sampling.
         leading : bool, optional
             If True, generate the leading tail. If False, generate the trailing tail. Default is True.
+        key : optional
+            Backend random key for the offset draw. Default None uses ``numpy.random``
+            (byte-identical); a jax/torch key makes it a reparameterized function of
+            the key (required for a correct gradient under jit).
 
         Returns
         -------
@@ -1222,14 +1221,16 @@ class chen24spraydf(basestreamspraydf):
         vxst, vyst, vzst : array, shape (N,)
             Velocities of points on the stream in the progenitor coordinates.
         """
+        from ..backend import random as grandom
+
         xp = get_namespace(dt)
         Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
         rtides = self._calc_rtide(Rpt, phipt, Zpt, dt)
 
-        # Sample positions and velocities in the instantaneous frame
-        # (RNG stays numpy on mean/cov; the draw is coerced to the backend).
+        # Sample positions and velocities in the instantaneous frame. numpy key
+        # (None) -> numpy.random (byte-identical); a backend key -> reparameterized.
         posvel = xp.asarray(
-            numpy.random.multivariate_normal(self._mean, self._cov, size=len(dt))
+            grandom.multivariate_normal(key, self._mean, self._cov, shape=len(dt))
         )
         Dr = posvel[:, 0] * rtides
         Ms = as_backend_constant(xp, self._progenitor_mass_fn(-dt), Dr)
