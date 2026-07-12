@@ -697,8 +697,20 @@ class basestreamspraydf(df):
             theta_backend = is_backend_array(_tf)
             if theta_backend:
                 xp = get_namespace(_tf)
-        if not (ic_backend or theta_backend):
-            # pure numpy -> C integrator, byte-identical
+        # numpy/C path (byte-identical): a pure-numpy spdf, OR a backend theta seen
+        # under a merely-FORCED context -- the all-backend suite runs a plain-numpy
+        # test under `use(backend, force=True)`, which coerces the potential's `_amp`
+        # to a backend array with no differentiable intent (and would crash the sample
+        # orbit in the unmigrated MovingObjectPotential under the in-backend ODE). A
+        # genuine backend parameter (normal env, eager or under jit) leaves plain numpy
+        # resolving to numpy, so `get_namespace(numpy.zeros(1)) is not numpy` isolates
+        # the forced case; a genuine backend IC/theta falls through to the ODE below.
+        _forced_theta = (
+            theta_backend
+            and not ic_backend
+            and get_namespace(numpy.zeros(1)) is not numpy
+        )
+        if not (ic_backend or theta_backend) or _forced_theta:
             self._progenitor.integrate(self._progenitor_times, self._pot)
             self._bsamp = None
             return
