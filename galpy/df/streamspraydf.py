@@ -413,33 +413,7 @@ class basestreamspraydf(df):
             xv_all = xv_single
 
         if track_time_range is None:
-            # Auto: estimate from the stream's spatial extent in the
-            # already-sampled particles, measure the farthest from the
-            # progenitor, convert to an orbital-time scale via the
-            # progenitor's present-day speed, and pad by 8x. Scales
-            # naturally with stream width (essential for warm /
-            # dwarf-galaxy-mass progenitors whose tidal radii and
-            # velocity kicks are much larger).
-            # Structural extent estimate (a scalar time-range bound); run on a
-            # numpy view so a backend (jax/torch) particles array doesn't turn
-            # these numpy reductions into namespace ops.
-            _Rs, _, _, _zs, _, _phis = as_numpy(xv_all)
-            _xs = _Rs * numpy.cos(_phis)
-            _ys = _Rs * numpy.sin(_phis)
-            _px = float(self._progenitor.x(0.0))
-            _py = float(self._progenitor.y(0.0))
-            _pz = float(self._progenitor.z(0.0))
-            _pv = numpy.sqrt(
-                float(self._progenitor.vx(0.0)) ** 2
-                + float(self._progenitor.vy(0.0)) ** 2
-                + float(self._progenitor.vz(0.0)) ** 2
-            )
-            _d_max = numpy.sqrt(
-                numpy.max((_xs - _px) ** 2 + (_ys - _py) ** 2 + (_zs - _pz) ** 2)
-            )
-            track_time_range = float(
-                numpy.clip(8.0 * _d_max / max(_pv, 1e-6), 1.0, self._tdisrupt)
-            )
+            track_time_range = self._auto_track_time_range(xv_all)
         else:
             track_time_range = conversion.parse_time(
                 track_time_range, ro=self._ro, vo=self._vo
@@ -750,6 +724,43 @@ class basestreamspraydf(df):
         backend for differentiable/jittable streams, else ``None`` (pure numpy).
         Set at construction by :meth:`_integrate_progenitor`."""
         return getattr(self, "_bsamp", None)
+
+    def _auto_track_time_range(self, xv_all):
+        """Concrete scalar time-range bound for the reconstructed track (``track_t``).
+
+        Eager: the accurate particle-extent estimate -- 8x the farthest particle's
+        distance from the progenitor divided by the progenitor's present-day speed,
+        clipped to ``[1, tdisrupt]`` (scales with stream width). Under jit the
+        particles + progenitor are TRACED and a concrete integration/interpolation
+        grid cannot be built from them, so fall back to a CONCRETE physics estimate
+        from the (numpy) progenitor IC: ~3 radial periods ``2*pi*R/|vT|`` clipped to
+        ``[1, tdisrupt]`` (or ``tdisrupt`` for a backend IC). Pass
+        ``track_time_range=`` explicitly for the exact particle-extent bound under jit.
+        """
+        try:
+            _Rs, _, _, _zs, _, _phis = as_numpy(xv_all)
+            _xs = _Rs * numpy.cos(_phis)
+            _ys = _Rs * numpy.sin(_phis)
+            _px = float(self._progenitor.x(0.0))
+            _py = float(self._progenitor.y(0.0))
+            _pz = float(self._progenitor.z(0.0))
+            _pv = numpy.sqrt(
+                float(self._progenitor.vx(0.0)) ** 2
+                + float(self._progenitor.vy(0.0)) ** 2
+                + float(self._progenitor.vz(0.0)) ** 2
+            )
+            _d_max = numpy.sqrt(
+                numpy.max((_xs - _px) ** 2 + (_ys - _py) ** 2 + (_zs - _pz) ** 2)
+            )
+            return float(numpy.clip(8.0 * _d_max / max(_pv, 1e-6), 1.0, self._tdisrupt))
+        except Exception:  # noqa: BLE001 -- traced (jit) particles/progenitor
+            try:
+                p0 = self._orig_progenitor()
+                p0.turn_physical_off()
+                t_orb = 2.0 * numpy.pi * float(p0.R()) / max(abs(float(p0.vT())), 1e-6)
+                return float(numpy.clip(3.0 * t_orb, 1.0, self._tdisrupt))
+            except Exception:  # noqa: BLE001 -- backend IC: no concrete estimate
+                return float(self._tdisrupt)
 
     def _sample_tail(self, n, integrate, leading=True, key=None):
         """Sample n points from the specified tail."""

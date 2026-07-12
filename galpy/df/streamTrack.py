@@ -565,6 +565,7 @@ def _fit_track_backend_jit(
     ntp,
     velocity_weight,
     smoothing_factor,
+    order=2,
 ):
     """Fully-jittable jax/torch-native stream-track reconstruction (the M2 recipe).
 
@@ -628,11 +629,31 @@ def _fit_track_backend_jit(
         [interp_linear(xp, tnodes, s[:, i], tp_grid) for i in range(6)], axis=-1
     )
     track = curve_at + off_at  # (ninterp,6) flows theta
+    cov_at = None
+    if order >= 2:
+        # 6D covariance: weighted residual scatter per node (residual = offset minus
+        # the fitted mean track), interpolated to tp_grid. cov_node = sum_n B[n,k] r r^T
+        # with B >= 0 is PSD BY CONSTRUCTION (a non-negatively-weighted sum of outer
+        # products), and linear interpolation of PSD matrices stays PSD -> no
+        # psd_project needed (which would freeze the eigenvectors and corrupt the
+        # gradient). The structure (assignment, basis) is frozen; the scatter VALUES
+        # flow, so cov carries the exact d(cov)/dtheta.
+        resid = off - xp.matmul(B, s)  # (N,6) deviation from the mean track
+        wsum = xp.clip(xp.sum(B, axis=0), 1.0, None)  # (ntp,)
+        cov_node = xp.einsum("nk,ni,nj->kij", B, resid, resid) / wsum[:, None, None]
+        cf = xp.reshape(cov_node, (ntp_int, 36))
+        cov_at = xp.reshape(
+            xp.stack(
+                [interp_linear(xp, tnodes, cf[:, e], tp_grid) for e in range(36)],
+                axis=-1,
+            ),
+            (ninterp, 6, 6),
+        )
     return {
         "tp_grid": tp_grid,
         "track_xyz": track[:, :3],
         "track_vxvyvz": track[:, 3:],
-        "cov_xyz": None,
+        "cov_xyz": cov_at,
         "smoothing_s": None,
         "particles": None,
     }
@@ -700,6 +721,7 @@ def _fit_track_from_particles(
                 ntp,
                 velocity_weight,
                 smoothing_factor,
+                order,
             )
     prog_cart_np = as_numpy(prog_cart)
 
