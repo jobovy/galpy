@@ -278,6 +278,7 @@ class basestreamspraydf(df):
         order=2,
         velocity_weight="auto",
         custom_sky_transform=None,
+        key=None,
     ):
         """
         Construct a smooth phase-space track through the stream by sampling
@@ -392,8 +393,11 @@ class basestreamspraydf(df):
                 # bit when n is odd, like sample()).
                 n_lead = n // 2
                 n_trail = n - n_lead
-                xv_lead, _ = self._sample_tail(n_lead, True, leading=True)
-                xv_trail, _ = self._sample_tail(n_trail, True, leading=False)
+                from ..backend import random as grandom
+
+                key_l, key_t = grandom.split(key)
+                xv_lead, _ = self._sample_tail(n_lead, True, leading=True, key=key_l)
+                xv_trail, _ = self._sample_tail(n_trail, True, leading=False, key=key_t)
                 xv_all = numpy.column_stack([xv_lead, xv_trail])
         else:
             if particles is not None:
@@ -403,7 +407,9 @@ class basestreamspraydf(df):
                     else numpy.asarray(particles, dtype=float)
                 )
             else:
-                xv_single, _ = self._sample_tail(n, True, leading=(tail == "leading"))
+                xv_single, _ = self._sample_tail(
+                    n, True, leading=(tail == "leading"), key=key
+                )
             xv_all = xv_single
 
         if track_time_range is None:
