@@ -1899,7 +1899,7 @@ class Orbit:
                     """numerical instabilities)""",
                     galpyWarning,
                 )
-        elif (
+        if (
             isinstance(
                 pot,
                 (
