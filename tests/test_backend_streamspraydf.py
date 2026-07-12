@@ -644,3 +644,69 @@ def test_streamtrack_tp_scale_jit():
     cols = jnp.asarray(numpy.column_stack([u, u, u]))
     tr = StreamTrack(u, cols * 3.0, cols, tp_scale=jnp.asarray(3.0))
     numpy.testing.assert_allclose(as_numpy(tr.tp_grid())[-1], 3.0, rtol=1e-9)
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_sample_jit_grad_fd_prog_ic():
+    # jax.jit over a BACKEND progenitor IC: the traced IC makes the C path
+    # inapplicable, so _integrate_progenitor routes the progenitor (and every
+    # sampled orbit) to the in-backend ODE (diffrax) -> d(stream)/d(prog IC) flows.
+    # Reparameterized noise (jax key) -> AD and FD see the same draw.
+    key = grandom.key(_SEED, backend="jax")
+
+    def loss(r0):
+        ic = jax.numpy.array([r0, 0.15, 0.85, 0.08, 0.05, 0.0])
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(ic),
+            pot=LogarithmicHaloPotential(amp=1.0, q=0.9),
+            tdisrupt=_JIT_TD,
+        )
+        return spdf.sample(_JIT_N, return_orbit=False, tail="leading", key=key)[0].sum()
+
+    g, best = _jit_grad_hconv(loss, 1.2)
+    assert numpy.isfinite(g)
+    assert best < 1e-3, f"jit sample prog-IC grad-vs-FD best REL={best:.2e}"
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for backend-theta construction")
+def test_backend_sampling_center_not_implemented():
+    # Differentiable stream sampling (a backend potential parameter -> _bsamp set)
+    # combined with a center orbit is not yet supported and must raise, not silently
+    # produce a wrong (numpy-frozen) track.
+    with pytest.raises(NotImplementedError):
+        fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=LogarithmicHaloPotential(amp=jax.numpy.asarray(1.0), q=0.9),
+            tdisrupt=_JIT_TD,
+            center=Orbit(_JIT_IC),
+        )
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for tp_scale accessors")
+def test_streamtrack_tp_scale_accessors():
+    # In tp_scale mode the full-6D eval (_eval_cart, used by R/phi/heliocentric
+    # accessors) and the covariance accessor map a PHYSICAL query tp to the concrete
+    # normalized axis (tp/tp_scale) before interpolating. Build a backend track with
+    # covariance + tp_scale and check both accessors evaluate on the physical axis.
+    from galpy.df.streamTrack import StreamTrack
+
+    jnp = jax.numpy
+    u = numpy.linspace(0.0, 1.0, 40)
+    xyz = jnp.asarray(
+        numpy.column_stack(
+            [numpy.sin(2 * numpy.pi * u) + 2.0, numpy.cos(2 * numpy.pi * u), u * 0.1]
+        )
+    )
+    vxyz = jnp.asarray(numpy.column_stack([u * 0.0 + 0.1, u * 0.0 + 0.2, u * 0.0]))
+    cov = jnp.asarray(numpy.broadcast_to(numpy.eye(6) * 0.01, (40, 6, 6)).copy())
+    tr = StreamTrack(jnp.asarray(u), xyz, vxyz, cov_xyz=cov, tp_scale=jnp.asarray(3.0))
+    # physical tp=1.5, scale=3 -> u=0.5 -> x=sin(pi)+2=2, y=cos(pi)=-1 -> R=sqrt(5)
+    numpy.testing.assert_allclose(
+        float(as_numpy(numpy.atleast_1d(tr.R(1.5, use_physical=False))[0])),
+        numpy.sqrt(5.0),
+        rtol=1e-6,
+    )
+    cov_b = as_numpy(tr.cov(1.5, use_physical=False))
+    assert cov_b.shape == (6, 6) and numpy.all(numpy.isfinite(cov_b))

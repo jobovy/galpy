@@ -915,17 +915,11 @@ class basestreamspraydf(df):
             out = xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0)
         return out, dt
 
-    def _setup_rot(self, dt, prog=None, qt=None):
-        from ..backend import as_numpy
-
-        xp = get_namespace(dt)
+    def _setup_rot(self, dt, prog, qt):
         # `prog` is a backend progenitor orbit for differentiable sampling (its
         # queries then carry d/d(theta) / d/d(prog IC)); else the numpy progenitor.
         # `qt` = progenitor query times (backend -dt for jit-safety; else numpy).
-        if prog is None:
-            prog = self._progenitor
-        if qt is None:
-            qt = -as_numpy(dt)
+        xp = get_namespace(dt)
         n = len(dt)
         centerx = xp.atleast_1d(xp.asarray(prog.x(qt)))
         centery = xp.atleast_1d(xp.asarray(prog.y(qt)))
