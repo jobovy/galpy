@@ -10948,3 +10948,41 @@ def test_orbits_MultipoleExpansionPotential_outside_interpolation_range_warning(
         "should make clear that the reported range is over all orbits"
     )
     return None
+
+
+def test_orbits_interpSphericalPotential_outside_interpolation_range_warning_with_fdm():
+    # Test that the interpSphericalPotential outside-of-interpolation-range
+    # warning still fires when the composite potential also contains an
+    # FDMDynamicalFrictionForce (used to be silently skipped, because the
+    # check was an elif chained to the FDMDynamicalFrictionForce check)
+    import warnings
+
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        FDMDynamicalFrictionForce,
+        LogarithmicHaloPotential,
+        interpSphericalPotential,
+    )
+    from galpy.util import galpyWarning
+
+    lp = LogarithmicHaloPotential(normalize=1.0)
+    ip = interpSphericalPotential(rforce=lp, rgrid=numpy.geomspace(0.5, 1.5, 101))
+    fdf = FDMDynamicalFrictionForce(GMs=0.0, rhm=0.125, dens=lp, minr=0.0001, maxr=25.0)
+    # Orbit strays outside of the interpSphericalPotential interpolation range
+    o = Orbit([1.0, 0.5, 0.3, 0.0])
+    ts = numpy.linspace(0.0, 20.0, 1001)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(ts, ip + fdf)
+        range_warnings = [
+            str(warning.message)
+            for warning in w
+            if issubclass(warning.category, galpyWarning)
+            and "outside of the interpolation range" in str(warning.message)
+        ]
+    assert len(range_warnings) == 1, (
+        "Integrating an orbit outside of the interpolation range of "
+        "interpSphericalPotential should raise a warning even when the "
+        "composite potential also contains an FDMDynamicalFrictionForce"
+    )
+    return None
