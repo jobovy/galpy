@@ -140,7 +140,7 @@ class basestreamspraydf(df):
         self._progenitor = progenitor()
         self._progenitor.turn_physical_off()
         self._progenitor_times = numpy.linspace(0.0, -self._tdisrupt, 10001)
-        self._progenitor.integrate(self._progenitor_times, self._pot)
+        self._integrate_progenitor()
         # Set up center orbit if given
         if not center is None:
             self._centerpot = (
@@ -156,6 +156,12 @@ class basestreamspraydf(df):
             self._center.integrate(self._progenitor_times, self._centerpot)
         else:
             self._center = None
+        if getattr(self, "_bsamp", None) is not None and self._center is not None:
+            raise NotImplementedError(
+                "differentiable stream sampling (backend potential parameter or "
+                "progenitor IC) is not yet supported together with center=; pass "
+                "particles= a fixed sample, or drop center="
+            )
         if progpot is not None:
             self._orig_pot = self._pot  # save pre-progpot for streamTrack
             progtrajpot = MovingObjectPotential(
@@ -666,86 +672,88 @@ class basestreamspraydf(df):
         u_samples = grandom.uniform(key, (n,))
         return -self._stripping_inv_cdf(as_numpy(u_samples))
 
-    def _backend_sampling(self):
-        """Whether the spray sampling must run on a backend (jax/torch) so the
-        sampled stream carries d(stream)/d(theta) -- a genuine backend potential
-        parameter -- and/or d(stream)/d(progenitor IC) -- a backend progenitor IC.
+    def _integrate_progenitor(self):
+        """Integrate the progenitor over ``[0, -tdisrupt]``, choosing the integrator
+        by whether the sampling must run on a backend (jax/torch) for differentiable
+        + jittable streams: a GENUINE backend potential parameter and/or a backend
+        progenitor IC -> the in-backend ODE (diffrax/torchdiffeq), so ``self._progenitor``
+        (and everything sampled from it) carries d(stream)/d(theta) and/or
+        d(stream)/d(prog IC). Otherwise the numpy/C integrator (byte-identical).
 
-        Returns ``(xp, prog_backend, sample_method)`` or ``None`` (the pure-numpy
-        path, byte-identical). ``prog_backend`` is the progenitor re-integrated over
-        ``[0, -tdisrupt]`` on the backend, so its phase-space queries carry the
-        gradient; ``sample_method`` integrates the sampled orbits: the in-backend
-        ODE (``diffrax``/``torchdiffeq``) when a backend parameter is present (the
-        C-STM carries no d/dtheta), else ``dop853_c`` (C-STM -> IC gradients only).
-        Cached on first call.
+        Detection is jit-safe: a backend IC is spotted by ``is_backend_array`` (works
+        on tracers); for a numpy IC, a force probe at the (concrete) IC point under
+        FORCED NUMPY isolates a genuine backend parameter (a traced ``amp`` survives
+        forced numpy) from a merely forced context. Sets ``self._bsamp`` =
+        ``(xp, self._progenitor, method)`` for backend sampling, else ``None``.
         """
-        cached = getattr(self, "_bsamp", "unset")
-        if cached != "unset":
-            return cached
-        _track_pot = getattr(self, "_orig_pot", self._pot)
-        _pp = self._progenitor
-        # Probe the force at the progenitor's present-day point UNDER FORCED NUMPY:
-        # a genuine backend parameter keeps the force a backend array (the tensor
-        # amp survives the forced-numpy context), while a merely forced
-        # (use('torch')) context collapses to numpy -- so only a real d/d(theta)
-        # engages the in-backend ODE. Supply phi/v so the probe is valid for
-        # non-axisymmetric and dissipative track potentials too.
-        with use("numpy", force=True):
-            _tf = evaluateRforces(
-                _track_pot,
-                float(_pp.R(0.0)),
-                float(_pp.z(0.0)),
-                phi=float(_pp.phi(0.0)),
-                v=numpy.array(
-                    [float(_pp.vR(0.0)), float(_pp.vT(0.0)), float(_pp.vz(0.0))]
-                ),
-            )
-        theta_backend = is_backend_array(_tf)
         prog_ic = getattr(self._orig_progenitor, "_ic_backend", None)
         ic_backend = is_backend_array(prog_ic)
-        if not (theta_backend or ic_backend):
+        theta_backend = False
+        xp = None
+        if ic_backend:
+            xp = get_namespace(prog_ic)
+        else:
+            _pp = self._progenitor
+            with use("numpy", force=True):
+                _tf = evaluateRforces(
+                    self._pot,
+                    float(_pp.R(0.0)),
+                    float(_pp.z(0.0)),
+                    phi=float(_pp.phi(0.0)),
+                    v=numpy.array(
+                        [float(_pp.vR(0.0)), float(_pp.vT(0.0)), float(_pp.vz(0.0))]
+                    ),
+                )
+            theta_backend = is_backend_array(_tf)
+            if theta_backend:
+                xp = get_namespace(_tf)
+        if not (ic_backend or theta_backend):
+            # pure numpy -> C integrator, byte-identical
+            self._progenitor.integrate(self._progenitor_times, self._pot)
             self._bsamp = None
-            return None
-        if self._center is not None:
-            raise NotImplementedError(
-                "differentiable stream sampling (backend potential parameter or "
-                "progenitor IC) is not yet supported together with center=; pass "
-                "particles= a fixed sample, or drop center="
-            )
-        xp = get_namespace(_tf if theta_backend else prog_ic)
+            return
         if ic_backend:
             ic = prog_ic
         else:
-            p0 = self._orig_progenitor()
-            p0.turn_physical_off()
+            _pp = self._progenitor
             ic = xp.asarray(
                 numpy.array(
                     [
-                        float(p0.R()),
-                        float(p0.vR()),
-                        float(p0.vT()),
-                        float(p0.z()),
-                        float(p0.vz()),
-                        float(p0.phi()),
+                        float(_pp.R(0.0)),
+                        float(_pp.vR(0.0)),
+                        float(_pp.vT(0.0)),
+                        float(_pp.z(0.0)),
+                        float(_pp.vz(0.0)),
+                        float(_pp.phi(0.0)),
                     ]
                 )
             )
-        sample_method = (
-            ("diffrax" if "jax" in xp.__name__ else "torchdiffeq")
-            if theta_backend
-            else "dop853_c"
-        )
-        prog_backend = Orbit(ic)
-        prog_backend.turn_physical_off()
-        prog_backend.integrate(
-            xp.asarray(self._progenitor_times), _track_pot, method=sample_method
-        )
-        self._bsamp = (xp, prog_backend, sample_method)
-        return self._bsamp
+        # The in-backend ODE flows BOTH d/d(theta) and d/d(prog IC) and is jittable
+        # (the C-STM/dop853_c path is not traceable). Integrate on a COARSER grid than
+        # the numpy 10001: the frame queries interpolate the differentiable orbit
+        # spline (density-insensitive; 501 pts already match numpy to ~4e-11), so a
+        # dense grid would only bloat the jit graph + eager cost.
+        method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        # NUMPY times: the grid is a fixed structural axis (not theta-dependent), so
+        # keeping self.t concrete lets o.x(t)/L(t) interpolate under jit (the orbit
+        # STATE is still a backend array -> differentiable). A backend-array grid
+        # would be a tracer under jit and break the interpolator's numpy.asarray(t).
+        bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
+        self._progenitor = Orbit(ic)
+        self._progenitor.turn_physical_off()
+        self._progenitor.integrate(bgrid, self._pot, method=method)
+        self._bsamp = (xp, self._progenitor, method)
+
+    def _backend_sampling(self):
+        """``(xp, backend_progenitor, sample_method)`` when the sampling runs on a
+        backend for differentiable/jittable streams, else ``None`` (pure numpy).
+        Set at construction by :meth:`_integrate_progenitor`."""
+        return getattr(self, "_bsamp", None)
 
     def _sample_tail(self, n, integrate, leading=True, key=None):
         """Sample n points from the specified tail."""
         from ..backend import as_numpy, is_backend_array
+        from ..backend import random as grandom
 
         # Stripping times are theta-independent random draws. For differentiable
         # sampling (a backend potential parameter and/or backend progenitor IC),
@@ -754,33 +762,42 @@ class basestreamspraydf(df):
         # (in-backend ODE for d/d(theta), C-STM for d/d(prog IC)); dt is coerced to a
         # backend constant so `spray_df`/`_calc_rtide` resolve to the backend. Else
         # the pure-numpy path (a keyed/forced backend still resolves xp from dt).
-        dt = self._draw_stripping_dt(n, key=key)
+        # Independent sub-keys for the stripping-time and spray-offset draws so the
+        # spray noise is reparameterized (a deterministic function of the key,
+        # theta-independent) -- essential under jit, where numpy.random bakes a
+        # per-trace constant that makes AD and FD disagree. numpy key (None) ->
+        # (None, None): sequential global draws, byte-identical.
+        k_dt, k_spray = grandom.split(key)
+        dt = self._draw_stripping_dt(n, key=k_dt)
         bsamp = self._backend_sampling()
         if bsamp is not None:
+            # backend progenitor: keep dt on the backend (no as_numpy -> jit-safe) and
+            # query it at BACKEND times qt so o.x(qt) stays traced/differentiable.
             xp, prog, sample_method = bsamp
-            dt = xp.asarray(as_numpy(dt))
+            dt = xp.asarray(dt)
+            qt = -dt
         else:
             xp = get_namespace(dt)  # context-resolved backend (numpy under numpy)
             prog = self._progenitor
             sample_method = None
-        dt_np = as_numpy(dt)
+            qt = -as_numpy(dt)  # numpy query times (byte-identical)
         # Build all rotation matrices
-        rot, rot_inv = self._setup_rot(dt, prog=prog)
+        rot, rot_inv = self._setup_rot(dt, prog=prog, qt=qt)
         # Compute progenitor position in the instantaneous frame,
         # relative to the center orbit if necessary
-        centerx = xp.atleast_1d(xp.asarray(prog.x(-dt_np)))
-        centery = xp.atleast_1d(xp.asarray(prog.y(-dt_np)))
-        centerz = xp.atleast_1d(xp.asarray(prog.z(-dt_np)))
-        centervx = xp.atleast_1d(xp.asarray(prog.vx(-dt_np)))
-        centervy = xp.atleast_1d(xp.asarray(prog.vy(-dt_np)))
-        centervz = xp.atleast_1d(xp.asarray(prog.vz(-dt_np)))
+        centerx = xp.atleast_1d(xp.asarray(prog.x(qt)))
+        centery = xp.atleast_1d(xp.asarray(prog.y(qt)))
+        centerz = xp.atleast_1d(xp.asarray(prog.z(qt)))
+        centervx = xp.atleast_1d(xp.asarray(prog.vx(qt)))
+        centervy = xp.atleast_1d(xp.asarray(prog.vy(qt)))
+        centervz = xp.atleast_1d(xp.asarray(prog.vz(qt)))
         if not self._center is None:
-            centerx = centerx - xp.asarray(self._center.x(-dt_np))
-            centery = centery - xp.asarray(self._center.y(-dt_np))
-            centerz = centerz - xp.asarray(self._center.z(-dt_np))
-            centervx = centervx - xp.asarray(self._center.vx(-dt_np))
-            centervy = centervy - xp.asarray(self._center.vy(-dt_np))
-            centervz = centervz - xp.asarray(self._center.vz(-dt_np))
+            centerx = centerx - xp.asarray(self._center.x(qt))
+            centery = centery - xp.asarray(self._center.y(qt))
+            centerz = centerz - xp.asarray(self._center.z(qt))
+            centervx = centervx - xp.asarray(self._center.vx(qt))
+            centervy = centervy - xp.asarray(self._center.vy(qt))
+            centervz = centervz - xp.asarray(self._center.vz(qt))
         # stack(axis=0).T matches numpy.array([...]).T's F-contiguous layout so
         # einsum rounds byte-identically to the pre-migration numpy path.
         xyzpt = xp.einsum(
@@ -791,7 +808,9 @@ class basestreamspraydf(df):
         )
 
         # generate the initial conditions
-        xst, yst, zst, vxst, vyst, vzst = self.spray_df(xyzpt, vxyzpt, dt, leading)
+        xst, yst, zst, vxst, vyst, vzst = self.spray_df(
+            xyzpt, vxyzpt, dt, leading, key=k_spray
+        )
 
         xyzs = xp.einsum("ijk,ik->ij", rot_inv, xp.stack([xst, yst, zst], axis=0).T)
         vxyzs = xp.einsum("ijk,ik->ij", rot_inv, xp.stack([vxst, vyst, vzst], axis=0).T)
@@ -803,12 +822,12 @@ class basestreamspraydf(df):
         absvy = vxyzs[:, 1]
         absvz = vxyzs[:, 2]
         if not self._center is None:
-            absx = absx + xp.asarray(self._center.x(-dt_np))
-            absy = absy + xp.asarray(self._center.y(-dt_np))
-            absz = absz + xp.asarray(self._center.z(-dt_np))
-            absvx = absvx + xp.asarray(self._center.vx(-dt_np))
-            absvy = absvy + xp.asarray(self._center.vy(-dt_np))
-            absvz = absvz + xp.asarray(self._center.vz(-dt_np))
+            absx = absx + xp.asarray(self._center.x(qt))
+            absy = absy + xp.asarray(self._center.y(qt))
+            absz = absz + xp.asarray(self._center.z(qt))
+            absvx = absvx + xp.asarray(self._center.vx(qt))
+            absvy = absvy + xp.asarray(self._center.vy(qt))
+            absvz = absvz + xp.asarray(self._center.vz(qt))
         Rs, phis, Zs = coords.rect_to_cyl(absx, absy, absz)
         vRs, vTs, vZs = coords.rect_to_cyl_vec(
             absvx, absvy, absvz, Rs, phis, Zs, cyl=True
@@ -821,45 +840,47 @@ class basestreamspraydf(df):
             o = Orbit(ic_arr)
             if bsamp is not None or is_backend_array(ic_arr):
                 # Backend ICs. For differentiable sampling use the resolved
-                # integrator (in-backend ODE carries d/d(theta); C-STM carries
-                # d/d(prog IC)); a merely keyed/forced backend (sample_method None)
-                # uses dop853_c -> C-STM. Only the present-day state is used, and
-                # each integrator takes its own internal substeps, so integrate on a
+                # integrator (in-backend ODE carries d/d(theta) AND d/d(prog IC),
+                # jittable); a merely keyed/forced backend (sample_method None) uses
+                # dop853_c -> C-STM. Only the present-day state is used, and each
+                # integrator takes its own internal substeps, so integrate on a
                 # per-orbit 2-point grid [-dt_i, 0] (not the 10001-point fixed-step
                 # grid the numpy path needs).
-                ts = xp.stack([-xp.asarray(dt_np), xp.zeros(n)], axis=-1)
+                ts = xp.stack([-xp.asarray(dt), xp.zeros(n)], axis=-1)
                 o.integrate(ts, self._pot, method=sample_method or "dop853_c")
             else:
-                ts = xp.linspace(-dt_np, xp.zeros(n), 10001, axis=-1)
+                ts = xp.linspace(-as_numpy(dt), xp.zeros(n), 10001, axis=-1)
                 o.integrate(ts, self._pot)  # byte-identical numpy default
             out = o.orbit[:, -1, :].T
         else:
             out = xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0)
         return out, dt
 
-    def _setup_rot(self, dt, prog=None):
+    def _setup_rot(self, dt, prog=None, qt=None):
         from ..backend import as_numpy
 
         xp = get_namespace(dt)
         # `prog` is a backend progenitor orbit for differentiable sampling (its
         # queries then carry d/d(theta) / d/d(prog IC)); else the numpy progenitor.
+        # `qt` = progenitor query times (backend -dt for jit-safety; else numpy).
         if prog is None:
             prog = self._progenitor
-        dt_np = as_numpy(dt)
+        if qt is None:
+            qt = -as_numpy(dt)
         n = len(dt)
-        centerx = xp.atleast_1d(xp.asarray(prog.x(-dt_np)))
-        centery = xp.atleast_1d(xp.asarray(prog.y(-dt_np)))
-        centerz = xp.atleast_1d(xp.asarray(prog.z(-dt_np)))
+        centerx = xp.atleast_1d(xp.asarray(prog.x(qt)))
+        centery = xp.atleast_1d(xp.asarray(prog.y(qt)))
+        centerz = xp.atleast_1d(xp.asarray(prog.z(qt)))
         if self._center is None:
-            L = xp.atleast_2d(xp.asarray(prog.L(-dt_np)))
+            L = xp.atleast_2d(xp.asarray(prog.L(qt)))
         # Compute relative angular momentum to the center orbit
         else:
-            centerx = centerx - xp.asarray(self._center.x(-dt_np))
-            centery = centery - xp.asarray(self._center.y(-dt_np))
-            centerz = centerz - xp.asarray(self._center.z(-dt_np))
-            centervx = xp.asarray(prog.vx(-dt_np)) - xp.asarray(self._center.vx(-dt_np))
-            centervy = xp.asarray(prog.vy(-dt_np)) - xp.asarray(self._center.vy(-dt_np))
-            centervz = xp.asarray(prog.vz(-dt_np)) - xp.asarray(self._center.vz(-dt_np))
+            centerx = centerx - xp.asarray(self._center.x(qt))
+            centery = centery - xp.asarray(self._center.y(qt))
+            centerz = centerz - xp.asarray(self._center.z(qt))
+            centervx = xp.asarray(prog.vx(qt)) - xp.asarray(self._center.vx(qt))
+            centervy = xp.asarray(prog.vy(qt)) - xp.asarray(self._center.vy(qt))
+            centervz = xp.asarray(prog.vz(qt)) - xp.asarray(self._center.vz(qt))
             L = xp.atleast_2d(
                 xp.stack(
                     [
@@ -986,9 +1007,14 @@ class basestreamspraydf(df):
         # (same four-branch pattern as AnyAxisymmetricRazorThinDiskPotential).
         if not callable(progenitor_mass):
             M0 = conversion.parse_mass(progenitor_mass, ro=self._ro, vo=self._vo)
-            self._progenitor_mass_fn = lambda t: (
-                M0 * numpy.ones_like(numpy.asarray(t, dtype=float))
-            )
+
+            def _scalar_mass_fn(t):
+                # backend-agnostic ones_like(t): jit-safe for a traced t; numpy
+                # byte-identical (M0 * float64 ones of t's shape).
+                xp_t = get_namespace(t)
+                return M0 * xp_t.ones_like(xp_t.asarray(t) * 1.0)
+
+            self._progenitor_mass_fn = _scalar_mass_fn
             self._progenitor_mass = M0
             return
         _mass_unit_input = False
@@ -1307,7 +1333,7 @@ class fardal15spraydf(basestreamspraydf):
         self._sigkvec = numpy.array(sigkvec)
         return None
 
-    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True, key=None):
         """
         Sample the positions and velocities around the progenitor
 
@@ -1321,6 +1347,11 @@ class fardal15spraydf(basestreamspraydf):
             Time of sampling.
         leading : bool, optional
             If True, generate the leading tail. If False, generate the trailing tail. Default is True.
+        key : optional
+            Backend random key for the action-angle offset draw. Default None uses
+            ``numpy.random`` (byte-identical). A jax/torch key makes the draw a
+            reproducible, theta-independent function of the key (reparameterization
+            -- required for a correct gradient under jit).
 
         Returns
         -------
@@ -1329,6 +1360,8 @@ class fardal15spraydf(basestreamspraydf):
         vxst, vyst, vzst : array, shape (N,)
             Velocities of points on the stream in the progenitor coordinates.
         """
+        from ..backend import random as grandom
+
         xp = get_namespace(dt)
         Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
         rtides = self._calc_rtide(Rpt, phipt, Zpt, dt)
@@ -1338,13 +1371,15 @@ class fardal15spraydf(basestreamspraydf):
         vRpt, vTpt, vZpt = coords.rect_to_cyl_vec(
             vxyzpt[:, 0], vxyzpt[:, 1], vxyzpt[:, 2], Rpt, phipt, Zpt, cyl=True
         )
-        # Sample positions and velocities in the instantaneous frame
-        # (RNG stays numpy; the draw and mean/sig constants are coerced).
+        # Sample the action-angle offsets. numpy key (None) -> numpy.random draw
+        # (byte-identical); a backend key -> a reparameterized (theta-independent)
+        # backend draw, so the gradient flows through the theta-dependent rtides/vcs
+        # and is consistent between AD and FD under jit.
         meankvec = as_backend_constant(
             xp, -self._meankvec if leading else self._meankvec, Rpt
         )
         sigkvec = as_backend_constant(xp, self._sigkvec, Rpt)
-        k = meankvec + xp.asarray(numpy.random.normal(size=(len(dt), 6))) * sigkvec
+        k = meankvec + xp.asarray(grandom.normal(key, (len(dt), 6))) * sigkvec
 
         RpZst = xp.stack(
             [
