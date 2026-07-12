@@ -1040,6 +1040,7 @@ class StreamTrack:
         vo=None,
         zo=None,
         solarmotion=None,
+        tp_scale=None,
     ):
         """Build a StreamTrack from a precomputed smooth track.
 
@@ -1083,6 +1084,13 @@ class StreamTrack:
         # track flows through the accessors differentiably. The numpy branch is
         # byte-identical to the pre-backend body.
         self._backend = is_backend_array(track_xyz)
+        # tp_scale (jit): tp_grid is a CONCRETE NORMALIZED axis (e.g. [0,1]) and the
+        # physical parameter is tp = tp_grid * tp_scale, with tp_scale a (traced)
+        # scalar. This keeps the cubic-spline geometry concrete under jax.jit (the
+        # spline matrix is assembled in numpy) while the physical extent stays
+        # data-dependent + differentiable. tp_scale=None -> tp_grid IS physical
+        # (eager, byte-identical).
+        self._tp_scale = tp_scale
         self._tp_grid = numpy.asarray(tp_grid, dtype=float).copy()
         if self._backend:
             self._name = name_of_namespace(get_namespace(track_xyz))
@@ -1186,6 +1194,7 @@ class StreamTrack:
         vo=None,
         zo=None,
         solarmotion=None,
+        tp_scale=None,
     ):
         """Build a StreamTrack by fitting a smooth curve to stream particles.
 
@@ -1292,6 +1301,7 @@ class StreamTrack:
             vo=vo,
             zo=zo,
             solarmotion=solarmotion,
+            tp_scale=tp_scale,
         )
         # Fitter outputs callers may want: the raw (xv, dt) sample the fit
         # saw, and the effective per-spline ``s`` values for reuse.
@@ -1304,6 +1314,8 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def tp_grid(self):
         """Return the fine tp grid on which the track is stored."""
+        if self._tp_scale is not None:
+            return self._tp_grid * self._tp_scale  # normalized axis -> physical
         return self._tp_grid.copy()
 
     def _in_range(self, tp_arr):
@@ -1317,8 +1329,12 @@ class StreamTrack:
             xp = get_namespace(self._track_xyz)
             dev = device_of(self._track_xyz)
             tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
-            in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
             tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            if self._tp_scale is None:
+                in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
+            else:
+                tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
+                in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
             rows = [
                 xp.where(
                     in_range,
@@ -1353,8 +1369,12 @@ class StreamTrack:
             xp = get_namespace(self._track_xyz)
             dev = device_of(self._track_xyz)
             tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
-            in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
             tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            if self._tp_scale is None:
+                in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
+            else:
+                tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
+                in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
             val = xp.where(
                 in_range,
                 eval_cubic(xp, self._tp_grid, self._cart_coeffs[idx], tp_b),
@@ -2283,8 +2303,12 @@ class StreamTrack:
             xp = get_namespace(self._cov_xyz)
             dev = device_of(self._cov_xyz)
             tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
-            in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
             tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            if self._tp_scale is None:
+                in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
+            else:
+                tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
+                in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
             rows = []
             for a in range(6):
                 cols = [

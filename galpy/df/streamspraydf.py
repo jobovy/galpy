@@ -431,10 +431,31 @@ class basestreamspraydf(df):
         # points across [-T, +T] is plenty for any plausible track —
         # finer than the spline knot density downstream.
         half_dense = 5001
-        t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
-        t_back = numpy.linspace(0.0, -track_time_range, half_dense)
-        # Stitched grid spans [-T, +T] (skip the t=0 duplicate at the seam).
-        track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
+        # When track_time_range is a TRACED scalar (jit auto-estimate), work in
+        # NORMALIZED curve coordinates: the integration times are T*u (traced) but the
+        # curve grid / reconstruction axis is the CONCRETE normalized u in [-1, 1], and
+        # T is passed to StreamTrack as tp_scale (the physical parameter is u*T). This
+        # keeps every interpolation grid concrete under jit while the physical extent
+        # stays data-dependent + differentiable. Eager (concrete T) -> physical grid,
+        # tp_scale=None (byte-identical).
+        try:
+            float(track_time_range)
+            _tp_scale = None
+        except Exception:  # noqa: BLE001 -- traced (jit) extent
+            _tp_scale = track_time_range
+        if _tp_scale is None:
+            # eager: physical integration times + physical reconstruction axis (the
+            # numpy path stays byte-identical to numpy.linspace(0, T)).
+            t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
+            t_back = numpy.linspace(0.0, -track_time_range, half_dense)
+            track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
+        else:
+            # jit: physical times T*u (traced) but normalized concrete axis u in [-1,1].
+            _u_fwd = numpy.linspace(0.0, 1.0, half_dense)
+            _u_back = numpy.linspace(0.0, -1.0, half_dense)
+            t_fwd = track_time_range * _u_fwd
+            t_back = track_time_range * _u_back
+            track_t_grid = numpy.concatenate([_u_back[::-1], _u_fwd[1:]])
         prog_ic_backend = getattr(self._orig_progenitor, "_ic_backend", None)
         # Backend sampling detected at construction (self._bsamp) already resolved the
         # backend namespace + integrator (dop853_c C-STM for a concrete backend IC;
@@ -453,14 +474,19 @@ class basestreamspraydf(df):
             o_b.turn_physical_off()
             o_b.integrate(t_back, _track_pot, method=method)
 
-            def _cart(o, ts):
-                return xp.stack(
-                    [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)], axis=-1
-                )
+            def _cart(o):
+                # Read the integrated states directly (o.orbit at the integration grid)
+                # rather than o.x(ts): the interpolator needs a concrete self.t, but
+                # under jit the integration times T*u are traced. o.orbit is cylindrical
+                # [R,vR,vT,z,vz,phi] -> convert to cartesian (galpy's exact convention).
+                ob = o.orbit
+                cyl = ob[0] if ob.ndim == 3 else ob  # (nt, 6)
+                _R, _vR, _vT, _z, _vz, _phi = (cyl[:, k] for k in range(6))
+                _x, _y, _zc = coords.cyl_to_rect(_R, _phi, _z)
+                _vx, _vy, _vzc = coords.cyl_to_rect_vec(_vR, _vT, _vz, _phi)
+                return xp.stack([_x, _y, _zc, _vx, _vy, _vzc], axis=-1)
 
-            return xp.concat(
-                [xp.flip(_cart(o_b, t_back), axis=0), _cart(o_f, t_fwd)[1:]], axis=0
-            )
+            return xp.concat([xp.flip(_cart(o_b), axis=0), _cart(o_f)[1:]], axis=0)
 
         if _bsamp is not None:
             # Backend sampling: build the differentiable progenitor curve with the
@@ -534,6 +560,7 @@ class basestreamspraydf(df):
                 vo=prog_vo,
                 zo=prog_zo,
                 solarmotion=prog_sm,
+                tp_scale=_tp_scale,
             )
 
         if tail == "both":
@@ -728,14 +755,13 @@ class basestreamspraydf(df):
     def _auto_track_time_range(self, xv_all):
         """Concrete scalar time-range bound for the reconstructed track (``track_t``).
 
-        Eager: the accurate particle-extent estimate -- 8x the farthest particle's
-        distance from the progenitor divided by the progenitor's present-day speed,
-        clipped to ``[1, tdisrupt]`` (scales with stream width). Under jit the
-        particles + progenitor are TRACED and a concrete integration/interpolation
-        grid cannot be built from them, so fall back to a CONCRETE physics estimate
-        from the (numpy) progenitor IC: ~3 radial periods ``2*pi*R/|vT|`` clipped to
-        ``[1, tdisrupt]`` (or ``tdisrupt`` for a backend IC). Pass
-        ``track_time_range=`` explicitly for the exact particle-extent bound under jit.
+        The accurate particle-extent estimate: 8x the farthest particle's distance
+        from the progenitor divided by the progenitor's present-day speed, clipped to
+        ``[1, tdisrupt]`` (scales with stream width). Eager returns a concrete float;
+        under jit (particles + progenitor TRACED) the SAME estimate is computed with
+        backend ops and returned as a TRACED scalar -- the caller then works in
+        normalized curve coordinates (concrete grids) with this as the physical scale,
+        so nothing needs a concrete extent.
         """
         try:
             _Rs, _, _, _zs, _, _phis = as_numpy(xv_all)
@@ -753,14 +779,23 @@ class basestreamspraydf(df):
                 numpy.max((_xs - _px) ** 2 + (_ys - _py) ** 2 + (_zs - _pz) ** 2)
             )
             return float(numpy.clip(8.0 * _d_max / max(_pv, 1e-6), 1.0, self._tdisrupt))
-        except Exception:  # noqa: BLE001 -- traced (jit) particles/progenitor
-            try:
-                p0 = self._orig_progenitor()
-                p0.turn_physical_off()
-                t_orb = 2.0 * numpy.pi * float(p0.R()) / max(abs(float(p0.vT())), 1e-6)
-                return float(numpy.clip(3.0 * t_orb, 1.0, self._tdisrupt))
-            except Exception:  # noqa: BLE001 -- backend IC: no concrete estimate
-                return float(self._tdisrupt)
+        except Exception:  # noqa: BLE001 -- traced (jit): same estimate, backend ops
+            xp = get_namespace(xv_all)
+            _R, _, _, _z, _, _phi = xv_all
+            _x = _R * xp.cos(_phi)
+            _y = _R * xp.sin(_phi)
+            _px = self._progenitor.x(0.0)
+            _py = self._progenitor.y(0.0)
+            _pz = self._progenitor.z(0.0)
+            _pv = xp.sqrt(
+                self._progenitor.vx(0.0) ** 2
+                + self._progenitor.vy(0.0) ** 2
+                + self._progenitor.vz(0.0) ** 2
+            )
+            _d_max = xp.sqrt(
+                xp.max((_x - _px) ** 2 + (_y - _py) ** 2 + (_z - _pz) ** 2)
+            )
+            return xp.clip(8.0 * _d_max / xp.clip(_pv, 1e-6, None), 1.0, self._tdisrupt)
 
     def _sample_tail(self, n, integrate, leading=True, key=None):
         """Sample n points from the specified tail."""
