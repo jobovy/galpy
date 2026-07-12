@@ -607,18 +607,38 @@ def _fit_track_backend_jit(
     tp_grid = numpy.linspace(tp_lo, tp_hi, ninterp)
     tnodes = numpy.linspace(tp_lo, tp_hi, ntp_int)
     # raw-data P-spline: hat basis B (N,ntp) frozen from the assignment, 2nd-diff
-    # penalty; s = (B'B + lam D'D)^-1 B'off. N >> ntp -> GCV finds a real lambda,
-    # but a fixed lambda*smoothing_factor is used here (jittable, tunable).
+    # penalty; s = (B'B + lam D'D)^-1 B'off. N >> ntp so GCV finds a real lambda.
     pos = (tp_assign - tp_lo) / (tp_hi - tp_lo) * (ntp_int - 1)
     nodes_i = asarray_on_device(xp, numpy.arange(ntp_int, dtype=float), dev)
     B = stop_gradient(xp.clip(1.0 - xp.abs(pos[:, None] - nodes_i[None, :]), 0.0, 1.0))
+    BT = xp.matrix_transpose(B)
+    BtB = xp.matmul(BT, B)  # (ntp,ntp) frozen (B is stop_gradient'd)
     D2 = asarray_on_device(xp, numpy.diff(numpy.eye(ntp_int), n=2, axis=0), dev)
-    lam = 1.0 * float(smoothing_factor)
-    A = stop_gradient(
-        xp.matmul(xp.matrix_transpose(B), B)
-        + lam * xp.matmul(xp.matrix_transpose(D2), D2)
+    DtD = xp.matmul(xp.matrix_transpose(D2), D2)
+    eye = asarray_on_device(xp, numpy.eye(ntp_int), dev)
+    # GCV lambda (STRUCTURAL, on the stop_gradient offsets -> a frozen hyperparameter,
+    # matching eager make_smoothing_spline's GCV auto-tuning): minimize
+    # N ||(I-H)off||^2 / (N - tr H)^2 over a log-spaced grid (concrete -> jittable,
+    # backend-agnostic; the grid-search + argmin unroll under jit). H = B A^-1 B',
+    # tr H = tr(A^-1 B'B). smoothing_factor scales the chosen lambda.
+    off_sg = stop_gradient(off)
+    Btoff_sg = xp.matmul(BT, off_sg)
+    lam_grid = numpy.logspace(-7.0, 5.0, 40)
+
+    def _gcv(lam):
+        a_l = BtB + lam * DtD
+        tr_h = xp.sum(xp.linalg.solve(a_l, BtB) * eye)  # tr(A^-1 B'B)
+        s_l = xp.linalg.solve(a_l, Btoff_sg)
+        resid = off_sg - xp.matmul(B, s_l)
+        return n_part * xp.sum(resid**2) / xp.clip((n_part - tr_h) ** 2, 1e-9, None)
+
+    scores = xp.stack([_gcv(float(lg)) for lg in lam_grid])  # (len(lam_grid),) frozen
+    lam = stop_gradient(
+        asarray_on_device(xp, lam_grid, dev)[xp.argmin(scores)]
+        * float(smoothing_factor)
     )
-    s = xp.linalg.solve(A, xp.matmul(xp.matrix_transpose(B), off))  # (ntp,6) flows
+    A = stop_gradient(BtB + lam * DtD)
+    s = xp.linalg.solve(A, xp.matmul(BT, off))  # (ntp,6) flows
     # interp_linear takes the grid (x) + query (r) as numpy (structural); only the
     # VALUES y stay on the backend -> the result is differentiable in y.
     curve_at = xp.stack(
