@@ -666,29 +666,114 @@ class basestreamspraydf(df):
         u_samples = grandom.uniform(key, (n,))
         return -self._stripping_inv_cdf(as_numpy(u_samples))
 
+    def _backend_sampling(self):
+        """Whether the spray sampling must run on a backend (jax/torch) so the
+        sampled stream carries d(stream)/d(theta) -- a genuine backend potential
+        parameter -- and/or d(stream)/d(progenitor IC) -- a backend progenitor IC.
+
+        Returns ``(xp, prog_backend, sample_method)`` or ``None`` (the pure-numpy
+        path, byte-identical). ``prog_backend`` is the progenitor re-integrated over
+        ``[0, -tdisrupt]`` on the backend, so its phase-space queries carry the
+        gradient; ``sample_method`` integrates the sampled orbits: the in-backend
+        ODE (``diffrax``/``torchdiffeq``) when a backend parameter is present (the
+        C-STM carries no d/dtheta), else ``dop853_c`` (C-STM -> IC gradients only).
+        Cached on first call.
+        """
+        cached = getattr(self, "_bsamp", "unset")
+        if cached != "unset":
+            return cached
+        _track_pot = getattr(self, "_orig_pot", self._pot)
+        _pp = self._progenitor
+        # Probe the force at the progenitor's present-day point UNDER FORCED NUMPY:
+        # a genuine backend parameter keeps the force a backend array (the tensor
+        # amp survives the forced-numpy context), while a merely forced
+        # (use('torch')) context collapses to numpy -- so only a real d/d(theta)
+        # engages the in-backend ODE. Supply phi/v so the probe is valid for
+        # non-axisymmetric and dissipative track potentials too.
+        with use("numpy", force=True):
+            _tf = evaluateRforces(
+                _track_pot,
+                float(_pp.R(0.0)),
+                float(_pp.z(0.0)),
+                phi=float(_pp.phi(0.0)),
+                v=numpy.array(
+                    [float(_pp.vR(0.0)), float(_pp.vT(0.0)), float(_pp.vz(0.0))]
+                ),
+            )
+        theta_backend = is_backend_array(_tf)
+        prog_ic = getattr(self._orig_progenitor, "_ic_backend", None)
+        ic_backend = is_backend_array(prog_ic)
+        if not (theta_backend or ic_backend):
+            self._bsamp = None
+            return None
+        if self._center is not None:
+            raise NotImplementedError(
+                "differentiable stream sampling (backend potential parameter or "
+                "progenitor IC) is not yet supported together with center=; pass "
+                "particles= a fixed sample, or drop center="
+            )
+        xp = get_namespace(_tf if theta_backend else prog_ic)
+        if ic_backend:
+            ic = prog_ic
+        else:
+            p0 = self._orig_progenitor()
+            p0.turn_physical_off()
+            ic = xp.asarray(
+                numpy.array(
+                    [
+                        float(p0.R()),
+                        float(p0.vR()),
+                        float(p0.vT()),
+                        float(p0.z()),
+                        float(p0.vz()),
+                        float(p0.phi()),
+                    ]
+                )
+            )
+        sample_method = (
+            ("diffrax" if "jax" in xp.__name__ else "torchdiffeq")
+            if theta_backend
+            else "dop853_c"
+        )
+        prog_backend = Orbit(ic)
+        prog_backend.turn_physical_off()
+        prog_backend.integrate(
+            xp.asarray(self._progenitor_times), _track_pot, method=sample_method
+        )
+        self._bsamp = (xp, prog_backend, sample_method)
+        return self._bsamp
+
     def _sample_tail(self, n, integrate, leading=True, key=None):
         """Sample n points from the specified tail."""
         from ..backend import as_numpy, is_backend_array
 
-        # Stripping times: a backend array when a key is threaded (or under a
-        # forced backend). The progenitor/center orbits are numpy-only FOR NOW, so
-        # query them at numpy times (dt_np); a later PR makes them backend orbits
-        # so d(stream)/d(progenitor IC/FC) flows and the whole path jits / runs on
-        # GPU. The einsum frame construction + sample-orbit integration are already
-        # on the resolved backend xp.
+        # Stripping times are theta-independent random draws. For differentiable
+        # sampling (a backend potential parameter and/or backend progenitor IC),
+        # `_backend_sampling()` returns the backend namespace, a backend progenitor
+        # orbit (whose queries carry the gradient), and the sampled-orbit integrator
+        # (in-backend ODE for d/d(theta), C-STM for d/d(prog IC)); dt is coerced to a
+        # backend constant so `spray_df`/`_calc_rtide` resolve to the backend. Else
+        # the pure-numpy path (a keyed/forced backend still resolves xp from dt).
         dt = self._draw_stripping_dt(n, key=key)
-        xp = get_namespace(dt)  # context-resolved backend (numpy under numpy)
+        bsamp = self._backend_sampling()
+        if bsamp is not None:
+            xp, prog, sample_method = bsamp
+            dt = xp.asarray(as_numpy(dt))
+        else:
+            xp = get_namespace(dt)  # context-resolved backend (numpy under numpy)
+            prog = self._progenitor
+            sample_method = None
         dt_np = as_numpy(dt)
         # Build all rotation matrices
-        rot, rot_inv = self._setup_rot(dt)
+        rot, rot_inv = self._setup_rot(dt, prog=prog)
         # Compute progenitor position in the instantaneous frame,
         # relative to the center orbit if necessary
-        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt_np)))
-        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt_np)))
-        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt_np)))
-        centervx = xp.atleast_1d(xp.asarray(self._progenitor.vx(-dt_np)))
-        centervy = xp.atleast_1d(xp.asarray(self._progenitor.vy(-dt_np)))
-        centervz = xp.atleast_1d(xp.asarray(self._progenitor.vz(-dt_np)))
+        centerx = xp.atleast_1d(xp.asarray(prog.x(-dt_np)))
+        centery = xp.atleast_1d(xp.asarray(prog.y(-dt_np)))
+        centerz = xp.atleast_1d(xp.asarray(prog.z(-dt_np)))
+        centervx = xp.atleast_1d(xp.asarray(prog.vx(-dt_np)))
+        centervy = xp.atleast_1d(xp.asarray(prog.vy(-dt_np)))
+        centervz = xp.atleast_1d(xp.asarray(prog.vz(-dt_np)))
         if not self._center is None:
             centerx = centerx - xp.asarray(self._center.x(-dt_np))
             centery = centery - xp.asarray(self._center.y(-dt_np))
@@ -734,15 +819,16 @@ class basestreamspraydf(df):
             # to the present (t=0). The final time step is the present-day state.
             ic_arr = xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0).T
             o = Orbit(ic_arr)
-            if is_backend_array(ic_arr):
-                # Backend ICs -> the ADAPTIVE RK method dop853_c routes to the
-                # differentiable C-STM (the default fixed-step symplec4_c is not
-                # auto-routed). Only the present-day state is used, and dop853_c
-                # takes its own internal substeps, so integrate on a per-orbit
-                # 2-point grid [-dt_i, 0] (not the 10001-point fixed-step grid the
-                # numpy path needs) -- avoids materialising a (n, 10001, 6, 6) STM.
+            if bsamp is not None or is_backend_array(ic_arr):
+                # Backend ICs. For differentiable sampling use the resolved
+                # integrator (in-backend ODE carries d/d(theta); C-STM carries
+                # d/d(prog IC)); a merely keyed/forced backend (sample_method None)
+                # uses dop853_c -> C-STM. Only the present-day state is used, and
+                # each integrator takes its own internal substeps, so integrate on a
+                # per-orbit 2-point grid [-dt_i, 0] (not the 10001-point fixed-step
+                # grid the numpy path needs).
                 ts = xp.stack([-xp.asarray(dt_np), xp.zeros(n)], axis=-1)
-                o.integrate(ts, self._pot, method="dop853_c")
+                o.integrate(ts, self._pot, method=sample_method or "dop853_c")
             else:
                 ts = xp.linspace(-dt_np, xp.zeros(n), 10001, axis=-1)
                 o.integrate(ts, self._pot)  # byte-identical numpy default
@@ -751,35 +837,29 @@ class basestreamspraydf(df):
             out = xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0)
         return out, dt
 
-    def _setup_rot(self, dt):
+    def _setup_rot(self, dt, prog=None):
         from ..backend import as_numpy
 
         xp = get_namespace(dt)
-        # Progenitor/center orbits are numpy-only FOR NOW -> query at numpy times;
-        # keep xp (from dt) so the rotation-matrix arithmetic runs on the backend.
-        # A later PR makes the progenitor a backend orbit (progenitor gradients +
-        # jit/GPU), at which point these queries take backend times.
+        # `prog` is a backend progenitor orbit for differentiable sampling (its
+        # queries then carry d/d(theta) / d/d(prog IC)); else the numpy progenitor.
+        if prog is None:
+            prog = self._progenitor
         dt_np = as_numpy(dt)
         n = len(dt)
-        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt_np)))
-        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt_np)))
-        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt_np)))
+        centerx = xp.atleast_1d(xp.asarray(prog.x(-dt_np)))
+        centery = xp.atleast_1d(xp.asarray(prog.y(-dt_np)))
+        centerz = xp.atleast_1d(xp.asarray(prog.z(-dt_np)))
         if self._center is None:
-            L = xp.atleast_2d(xp.asarray(self._progenitor.L(-dt_np)))
+            L = xp.atleast_2d(xp.asarray(prog.L(-dt_np)))
         # Compute relative angular momentum to the center orbit
         else:
             centerx = centerx - xp.asarray(self._center.x(-dt_np))
             centery = centery - xp.asarray(self._center.y(-dt_np))
             centerz = centerz - xp.asarray(self._center.z(-dt_np))
-            centervx = xp.asarray(self._progenitor.vx(-dt_np)) - xp.asarray(
-                self._center.vx(-dt_np)
-            )
-            centervy = xp.asarray(self._progenitor.vy(-dt_np)) - xp.asarray(
-                self._center.vy(-dt_np)
-            )
-            centervz = xp.asarray(self._progenitor.vz(-dt_np)) - xp.asarray(
-                self._center.vz(-dt_np)
-            )
+            centervx = xp.asarray(prog.vx(-dt_np)) - xp.asarray(self._center.vx(-dt_np))
+            centervy = xp.asarray(prog.vy(-dt_np)) - xp.asarray(self._center.vy(-dt_np))
+            centervz = xp.asarray(prog.vz(-dt_np)) - xp.asarray(self._center.vz(-dt_np))
             L = xp.atleast_2d(
                 xp.stack(
                     [
