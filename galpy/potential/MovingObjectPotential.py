@@ -4,8 +4,7 @@
 ###############################################################################
 import copy
 
-import numpy
-
+from ..backend import get_namespace
 from ..potential.Potential import _check_potential_list_and_deprecate
 from .PlummerPotential import PlummerPotential
 from .Potential import (
@@ -92,7 +91,8 @@ class MovingObjectPotential(Potential):
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
         # Return R force, negative of radial vector to evaluation location.
-        return -RF * (numpy.cos(phi) * xd + numpy.sin(phi) * yd) / Rdist
+        xp = get_namespace(R, z, phi)
+        return -RF * (xp.cos(phi) * xd + xp.sin(phi) * yd) / Rdist
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
@@ -112,7 +112,8 @@ class MovingObjectPotential(Potential):
         # Evaluate cylindrical radial force.
         RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
         # Return phi force, negative of phi vector to evaluate location
-        return -RF * R * (numpy.cos(phi) * yd - numpy.sin(phi) * xd) / Rdist
+        xp = get_namespace(R, z, phi)
+        return -RF * R * (xp.cos(phi) * yd - xp.sin(phi) * xd) / Rdist
 
     def _xyzHess(self, R, z, phi, t):
         """Cartesian first (phix, phiy; phiz is never needed) and second
@@ -153,7 +154,8 @@ class MovingObjectPotential(Potential):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return cp**2.0 * phixx + 2.0 * cp * sp * phixy + sp**2.0 * phiyy
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
@@ -166,14 +168,16 @@ class MovingObjectPotential(Potential):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return cp * phixz + sp * phiyz
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return R**2.0 * (
             sp**2.0 * phixx - 2.0 * cp * sp * phixy + cp**2.0 * phiyy
         ) - R * (cp * phix + sp * phiy)
@@ -182,7 +186,8 @@ class MovingObjectPotential(Potential):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return (
             R * (cp * sp * (phiyy - phixx) + (cp**2.0 - sp**2.0) * phixy)
             - sp * phix
@@ -193,7 +198,8 @@ class MovingObjectPotential(Potential):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
-        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        xp = get_namespace(R, z, phi)
+        cp, sp = xp.cos(phi), xp.sin(phi)
         return R * (cp * phiyz - sp * phixz)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
@@ -207,13 +213,19 @@ class MovingObjectPotential(Potential):
 
 
 def _cylR(R1, phi1, R2, phi2):
-    return numpy.sqrt(
-        R1**2.0 + R2**2.0 - 2.0 * R1 * R2 * numpy.cos(phi1 - phi2)
+    xp = get_namespace(R1, phi1, R2, phi2)
+    return xp.sqrt(
+        R1**2.0 + R2**2.0 - 2.0 * R1 * R2 * xp.cos(phi1 - phi2)
     )  # Cosine law
 
 
 def _cyldiff(R1, phi1, z1, R2, phi2, z2):
-    dx = R1 * numpy.cos(phi1) - R2 * numpy.cos(phi2)
-    dy = R1 * numpy.sin(phi1) - R2 * numpy.sin(phi2)
+    # Per-side namespaces: the object (subscript 1) and field (subscript 2)
+    # positions each use their own coordinates' namespace, so a numpy-orbit
+    # query mixed with backend field coords promotes through the arithmetic
+    # (torch rejects xp.cos on a bare numpy scalar).
+    xp1, xp2 = get_namespace(R1, phi1), get_namespace(R2, phi2)
+    dx = R1 * xp1.cos(phi1) - R2 * xp2.cos(phi2)
+    dy = R1 * xp1.sin(phi1) - R2 * xp2.sin(phi2)
     dz = z1 - z2
     return (dx, dy, dz)
