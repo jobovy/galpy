@@ -639,6 +639,52 @@ def test_assoc_legendre_autodiff_matches_analytic(backend):
         )
 
 
+@pytest.mark.skipif("jax" not in BACKENDS, reason="lax.scan Bonnet roll is jax-only")
+def test_assoc_legendre_traced_bonnet_scan():
+    # Under a jax trace the Bonnet l-recurrence is rolled into ONE lax.scan
+    # (_fallback.assoc_legendre._bonnet_scan_jax); eager numpy/torch/jax keep the
+    # unrolled Python loop (byte-identical, verified by the parity tests above).
+    # This asserts: (a) the roll fires (jaxpr has a scan primitive and the
+    # value-path graph is an order of magnitude smaller than the unrolled loop),
+    # (b) the traced result matches the eager loop to the XLA fma-fusion floor for
+    # every deriv level, and (c) grad-through-the-scan matches central FD.
+    L, M = 10, 5
+    x = jnp.asarray(numpy.linspace(-0.9, 0.9, 7), dtype=jnp.float64)
+
+    # (a) rolled: a scan primitive is present and the deriv=0 graph is small
+    #     (the eager double loop unrolls to ~200 eqns for these L, M).
+    eqns = jax.make_jaxpr(lambda xx: gsp.assoc_legendre(L, M, xx))(x).jaxpr.eqns
+    assert any(e.primitive.name == "scan" for e in eqns), "lax.scan roll did not fire"
+    assert len(eqns) < 60, f"deriv=0 jaxpr not rolled ({len(eqns)} eqns)"
+
+    # (b) traced (jit -> scan) vs eager (Python loop) to the XLA fma floor.
+    for d in (0, 1, 2):
+        eager = gsp.assoc_legendre(L, M, x, deriv=d)
+        traced = jax.jit(lambda xx, d=d: gsp.assoc_legendre(L, M, xx, deriv=d))(x)
+        eager = eager if isinstance(eager, tuple) else (eager,)
+        traced = traced if isinstance(traced, tuple) else (traced,)
+        for e, t in zip(eager, traced):
+            numpy.testing.assert_allclose(
+                as_numpy(t), as_numpy(e), rtol=1e-6, atol=1e-6
+            )
+
+    # (c) grad-vs-FD through the traced scan (random direction, quadratic loss).
+    x0 = jnp.asarray(numpy.linspace(-0.75, 0.8, 7), dtype=jnp.float64)
+    dirn = jax.random.normal(jax.random.PRNGKey(1), x0.shape, dtype=jnp.float64)
+    w = jnp.asarray(numpy.arange(1, L * M + 1, dtype=float)).reshape(L, M)
+
+    def loss(t):
+        P, dP = gsp.assoc_legendre(L, M, x0 + t * dirn, deriv=1)
+        return jnp.sum(w * P**2) + jnp.sum(dP[..., 4, 2] ** 2)
+
+    g = float(jax.grad(loss)(0.0))
+    errs = [abs((float(loss(h)) - float(loss(-h))) / (2 * h) - g) for h in (1e-4, 1e-6)]
+    assert errs[1] < errs[0], f"FD did not converge to the grad: {errs}"
+    numpy.testing.assert_allclose(
+        (float(loss(1e-6)) - float(loss(-1e-6))) / 2e-6, g, rtol=1e-5
+    )
+
+
 # --- Tier 4b: Gegenbauer C_n^alpha (SCF radial basis) -------------------------
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_gegenbauer_value_parity(backend):

@@ -18,7 +18,17 @@
 #   Everything is pure arithmetic built with lists + xp.stack (no in-place
 #   mutation), so it differentiates cleanly under jax and torch -- and the
 #   x-derivatives are also available straight from autodiff.
+#
+#   Under a jax trace the Bonnet l-recurrence is rolled into a single
+#   ``lax.scan`` over l (see ``_bonnet_scan_jax``): the eager Python double loop
+#   would bake all O(L*M) recurrence steps into the user's jaxpr, whereas the
+#   scan traces the recurrence body once. Eager numpy/torch/jax keep the Python
+#   loop unchanged (byte-identical); the scan carries the same values at the same
+#   iteration count, so the traced result matches the unrolled loop to the XLA
+#   fma-fusion floor (the same ~1e-11 that jitting the unrolled loop itself shows
+#   vs the eager per-op result -- the scan adds no error beyond that).
 ###############################################################################
+from ..._namespaces import under_jax_trace
 
 
 def assoc_legendre(xp, L, M, x, deriv=0):
@@ -33,27 +43,33 @@ def assoc_legendre(xp, L, M, x, deriv=0):
     # (1-x^2)^{1/2}; clip keeps it real at |x|=1 (interior x is unaffected).
     somx2 = xp.sqrt(xp.where(x * x < 1.0, 1.0 - x * x, zero))
 
-    # P[l][m] as a list-of-lists of backend arrays (functional, no mutation).
-    P = [[zero for _ in range(M)] for _ in range(L)]
-    pmm = one  # running P_m^m diagonal
-    for m in range(M):
-        if m > 0:
-            pmm = pmm * (-(2 * m - 1)) * somx2
-        if m < L:
-            P[m][m] = pmm
-        if m + 1 < L:
-            P[m + 1][m] = x * (2 * m + 1) * pmm
-        for l in range(m + 2, L):
-            P[l][m] = (x * (2 * l - 1) * P[l - 1][m] - (l + m - 1) * P[l - 2][m]) / (
-                l - m
-            )
-
     def _stack(grid):
         return xp.stack([xp.stack(row, axis=-1) for row in grid], axis=-2)
 
-    Parr = _stack(P)
-    if deriv == 0:
-        return Parr
+    # P[l][m] as a list-of-lists of backend arrays (functional, no mutation).
+    if under_jax_trace(x):  # roll the Bonnet l-recurrence into one lax.scan
+        Parr = _bonnet_scan_jax(L, M, x, somx2, one, zero)  # x.shape + (L, M)
+        if deriv == 0:  # value-only: return the scan output straight (no unstack)
+            return Parr
+        # derivatives read P[l][m]; expose the scanned rows as that list of views.
+        P = [[Parr[..., l, m] for m in range(M)] for l in range(L)]
+    else:  # eager (numpy/torch/jax): keep the unrolled Python double loop
+        P = [[zero for _ in range(M)] for _ in range(L)]
+        pmm = one  # running P_m^m diagonal
+        for m in range(M):
+            if m > 0:
+                pmm = pmm * (-(2 * m - 1)) * somx2
+            if m < L:
+                P[m][m] = pmm
+            if m + 1 < L:
+                P[m + 1][m] = x * (2 * m + 1) * pmm
+            for l in range(m + 2, L):
+                P[l][m] = (
+                    x * (2 * l - 1) * P[l - 1][m] - (l + m - 1) * P[l - 2][m]
+                ) / (l - m)
+        Parr = _stack(P)
+        if deriv == 0:
+            return Parr
 
     den = x * x - 1.0  # (x^2-1); singular only at the poles |x|=1
     pole = x * x >= 1.0  # symmetry-axis poles (cos theta = +-1)
@@ -92,3 +108,42 @@ def assoc_legendre(xp, L, M, x, deriv=0):
                     2.0 * x * dP[l][m] - l * (l + 1) * P[l][m] + (m * m) / om * P[l][m]
                 ) / om
     return Parr, dParr, _stack(d2)
+
+
+def _bonnet_scan_jax(L, M, x, somx2, one, zero):
+    """Traced-only P_l^m via a single ``lax.scan`` over l (carry the two previous
+    full m-rows). Returns ``Parr`` of shape ``x.shape + (L, M)`` (same as the
+    eager list + ``xp.stack``).
+
+    Each scanned row reproduces, element-for-element, the eager arithmetic:
+    interior/sub-diagonal m come from the Bonnet three-term recurrence (the
+    sub-diagonal falls out of it since ``P[l-2][l-1] == 0``), the diagonal m==l is
+    injected from the running P_m^m, and the m>l upper triangle is zeroed. The
+    m==l denominator (l-m == 0) is guarded to 1 so the discarded Bonnet branch
+    stays finite (AD-safe); the ``where`` then selects the diagonal value there.
+    """
+    import jax
+    import jax.numpy as jnp
+
+    # Running diagonal P_m^m for all m, via the eager m-recurrence (M small).
+    pmm = one
+    diag = [one]
+    for m in range(1, M):
+        pmm = pmm * (-(2 * m - 1)) * somx2
+        diag.append(pmm)
+    pmm_vec = jnp.stack(diag, axis=-1)  # x.shape + (M,)
+    mvec = jnp.arange(M)  # (M,)
+    xM = x[..., None]  # x.shape + (1,)
+    zeros_row = jnp.broadcast_to(zero[..., None], x.shape + (M,))
+
+    def body(carry, ll):
+        Pm1, Pm2 = carry  # P[l-1][:], P[l-2][:] rows
+        den = jnp.where(mvec == ll, 1.0, ll - mvec)  # guard 0/0 at the diagonal
+        bonnet = (xM * (2 * ll - 1) * Pm1 - (ll + mvec - 1) * Pm2) / den
+        row = jnp.where(mvec == ll, pmm_vec, bonnet)  # inject P_m^m diagonal
+        row = jnp.where(mvec > ll, zeros_row, row)  # exact 0 upper triangle
+        return (row, Pm1), row
+
+    _, Prows = jax.lax.scan(body, (zeros_row, zeros_row), jnp.arange(L))
+    # Prows: (L,) + x.shape + (M,) -> x.shape + (L, M) (matches eager _stack).
+    return jnp.moveaxis(Prows, 0, -2)
