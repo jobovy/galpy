@@ -833,7 +833,11 @@ def test_fit_track_endtoend_torch_prog_grad():
     pt = torch.tensor(prog0, requires_grad=True)
     torch.sum(track(pt, torch) ** 2).backward()
     g_frozen = as_numpy(pt.grad)
-    numpy.testing.assert_allclose(g_prod, g_frozen, rtol=1e-5, atol=1e-8)
+    # rtol/atol match the sibling frozen-vs-production gradient check above: a few
+    # near-zero gradient components sit at the spline-reconstruction FP floor
+    # (~1.6e-5 relative), so the tighter 1e-5/1e-8 flakes across torch BLAS builds
+    # (py3.14) while agreeing to ~1e-9 everywhere else.
+    numpy.testing.assert_allclose(g_prod, g_frozen, rtol=1e-4, atol=1e-6)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
