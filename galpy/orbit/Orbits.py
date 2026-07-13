@@ -6874,8 +6874,17 @@ class Orbit:
             not (_APY_LOADED and isinstance(t, units.Quantity))
             and _t_has_len
             and (len(t) == len(_self_t))
-            and numpy.all((numpy.asarray(t) == _self_t)[~numpy.isnan(_self_t)])
         )
+        if t_exact_integration_times:
+            # The value match needs a concrete t; a traced (jit) backend evaluation
+            # time cannot be compared to the grid -> fall through to the in-backend
+            # differentiable interpolator (mirrors _call_internal_backend_interp).
+            try:
+                t_exact_integration_times = bool(
+                    numpy.all((numpy.asarray(t) == _self_t)[~numpy.isnan(_self_t)])
+                )
+            except Exception:  # noqa: BLE001 -- traced backend evaluation time
+                t_exact_integration_times = False
         if _APY_LOADED and isinstance(t, units.Quantity):
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
             # Need to re-evaluate now that t has changed...
