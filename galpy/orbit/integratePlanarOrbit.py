@@ -669,7 +669,18 @@ def _finalize_pot_args(pot_args):
     Handles the case where pot_args contains numpy arrays (e.g., from
     MultipoleExpansionPotential) by concatenating chunks efficiently
     instead of converting millions of Python floats via numpy.array().
+
+    A backend (jax/torch) potential parameter -- e.g. an ``amp`` that a user
+    differentiates through -- reaches the compiled C integrator as its concrete
+    numpy value: the C path carries no d/d(parameter) sensitivity (parameter
+    gradients come from the in-backend ODE integrators, diffrax/torchdiffeq), so
+    a grad-tracking tensor is detached to numpy here. numpy potentials have no
+    backend arrays, so this is a no-op and the numpy path stays byte-identical.
     """
+    from ..backend import as_numpy, is_backend_array
+
+    if any(is_backend_array(a) for a in pot_args):
+        pot_args = [as_numpy(a) if is_backend_array(a) else a for a in pot_args]
     if any(isinstance(a, numpy.ndarray) for a in pot_args):
         chunks = []
         scalars = []
