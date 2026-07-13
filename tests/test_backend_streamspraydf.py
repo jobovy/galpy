@@ -784,6 +784,190 @@ def test_streamtrack_backend_mass_grad_fd_eager():
     assert best < 1e-6, f"eager d(track)/dM grad-vs-FD best REL={best:.2e}"
 
 
+# --------------------------------------------------------------------------
+# Differentiable stream track w.r.t. the STRIPPING-TIME DISTRIBUTION. A backend
+# (jax/torch) stripping_pdf returns a backend array, so its inverse-CDF is built +
+# inverted natively (cumulative-trapezoid CDF + searchsorted linear interp) instead
+# of via the scipy spline: the drawn stripping times dt trace the pdf parameters,
+# and — like the mass — a backend stripping_pdf is its own backend-sampling trigger.
+# This makes the mass-loss-time HISTORY (e.g. a stripping burst) fittable. Distinct
+# from a numpy stripping_pdf, which keeps the (byte-identical) scipy path.
+# --------------------------------------------------------------------------
+def _build_stripping(pdf):
+    mass = 2 * 10.0**4.0 / conversion.mass_in_msol(_VO, _RO)
+    td = 4.5 / conversion.time_in_Gyr(_VO, _RO)
+    return fardal15spraydf(
+        mass,
+        progenitor=Orbit(_PROG_IC),
+        pot=LogarithmicHaloPotential(amp=1.0, q=0.9),
+        tdisrupt=td,
+        stripping_pdf=pdf,
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_stripping_backend_inv_cdf_matches_scipy(backend_name):
+    # The backend-native inverse-CDF (searchsorted + linear interp of a cumulative-
+    # trapezoid CDF) must reproduce the numpy scipy k=1 inverse-CDF spline for the SAME
+    # pdf: draw at a shared u (same key -> same uniforms) and compare dt to scipy.
+    # Fast (no track) -> the torch coverage of the new inverse-CDF numerics.
+    xp = jax.numpy if backend_name == "jax" else torch
+    td = 4.5 / conversion.time_in_Gyr(_VO, _RO)
+    t0, sig = -0.4 * td, 0.5 * td
+
+    def pdf_np(t):
+        return numpy.exp(-(((t - t0) / sig) ** 2))
+
+    def pdf_b(t):
+        return xp.exp(-(((t - xp.asarray(t0)) / sig) ** 2))
+
+    sp_np = _build_stripping(pdf_np)
+    sp_b = _build_stripping(pdf_b)
+    assert is_backend_array(sp_b._stripping_cdf[0])
+    # a numpy pdf keeps the scipy path untouched (byte-identical)
+    assert sp_np._stripping_cdf is None and sp_np._stripping_inv_cdf is not None
+    key = grandom.key(_SEED, backend=backend_name)
+    u = as_numpy(grandom.uniform(key, (200,)))
+    dt_b = as_numpy(sp_b._draw_stripping_dt(200, key=key))
+    dt_scipy = -sp_np._stripping_inv_cdf(u)
+    numpy.testing.assert_allclose(
+        dt_b, dt_scipy, rtol=1e-9, atol=1e-9, err_msg=f"inverse-CDF ({backend_name})"
+    )
+
+
+def _stripping_track_xyz(t0, key):
+    def pdf(t):
+        return jax.numpy.exp(-(((t - t0) / (0.5 * _JIT_TD)) ** 2))
+
+    spdf = fardal15spraydf(
+        _JIT_MASS,
+        progenitor=Orbit(_JIT_IC),
+        pot=LogarithmicHaloPotential(amp=1.0, q=0.9),
+        tdisrupt=_JIT_TD,
+        stripping_pdf=pdf,
+    )
+    return spdf.streamTrack(
+        n=_JIT_N,
+        tail="leading",
+        velocity_weight=1.0,
+        order=1,
+        key=key,
+        track_time_range=2.0,
+    )._track_xyz
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_jit_grad_fd_stripping():
+    # jax.jit(streamTrack()) is differentiable in the center t0 of a Gaussian stripping
+    # burst: t0 -> the inverse-CDF -> the stripping times -> the sampled particles -> the
+    # track. Reassignment-invariant functional (mean track radius) -> grad-vs-FD.
+    jnp = jax.numpy
+    key = grandom.key(_SEED, backend="jax")
+
+    def loss(t0):
+        xyz = _stripping_track_xyz(t0, key)
+        return jnp.mean(jnp.sqrt(jnp.sum(xyz**2, axis=1)))
+
+    g, best = _jit_grad_hconv(loss, -0.4 * _JIT_TD)
+    assert numpy.isfinite(g) and abs(g) > 0
+    # AD is essentially exact; the h-converged FD floor is ~8e-8, so 1e-6 is a real
+    # regression detector (the searchsorted inverse-CDF sits a touch above the mass floor)
+    assert best < 1e-6, f"jit streamTrack d/d(t0) grad-vs-FD best REL={best:.2e}"
+
+
+# --------------------------------------------------------------------------
+# Differentiable stream track w.r.t. the PERICENTER-STRIPPING width. The built-in
+# pericenter_stripping_pdf helper builds a Gaussian mixture centered on the progenitor's
+# pericenter passages; a backend `sigma` (or a backend pot/IC) makes it return a BACKEND
+# pdf that composes with the backend inverse-CDF above, so the whole stream is jittable and
+# differentiable in the stripping WIDTH. The pericenter TIMES are found concretely (a
+# find_peaks discrete op) and frozen as a backend constant.
+# --------------------------------------------------------------------------
+_PERI_TD, _PERI_SIGMA = 12.0, 2.0  # internal units: ~3 pericenter passages of _PROG_IC
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_pericenter_stripping_pdf_backend_parity(backend_name):
+    # A backend sigma -> a backend Gaussian-mixture pericenter pdf whose VALUES match the
+    # numpy pdf (same concrete pericenter times) and which is a backend array (composes with
+    # the backend inverse-CDF). Fast (no track) -> the torch coverage of the helper.
+    from galpy.df import pericenter_stripping_pdf
+
+    xp = jax.numpy if backend_name == "jax" else torch
+    pot = LogarithmicHaloPotential(amp=1.0, q=0.9)
+    pdf_np = pericenter_stripping_pdf(Orbit(_PROG_IC), pot, _PERI_TD, _PERI_SIGMA)
+    pdf_b = pericenter_stripping_pdf(
+        Orbit(_PROG_IC), pot, _PERI_TD, xp.asarray(_PERI_SIGMA)
+    )
+    assert not is_backend_array(pdf_np(-0.5 * _PERI_TD))
+    tg = numpy.linspace(-_PERI_TD, 0.0, 60)
+    vb = pdf_b(xp.asarray(tg))
+    assert is_backend_array(vb)
+    numpy.testing.assert_allclose(
+        as_numpy(vb), pdf_np(tg), rtol=1e-9, atol=1e-12, err_msg=f"({backend_name})"
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("trigger", ["pot", "ic"])
+def test_pericenter_stripping_pdf_backend_triggers(backend_name, trigger):
+    # Not only a backend sigma: a backend pot PARAMETER (spotted by the forced-numpy force
+    # probe) or a backend progenitor IC also makes the helper return a composable backend
+    # pdf, so it works whenever the caller is already in backend-land.
+    from galpy.df import pericenter_stripping_pdf
+
+    xp = jax.numpy if backend_name == "jax" else torch
+    ic = xp.asarray(_PROG_IC) if trigger == "ic" else _PROG_IC
+    amp = xp.asarray(1.0) if trigger == "pot" else 1.0
+    pdf = pericenter_stripping_pdf(
+        Orbit(ic), LogarithmicHaloPotential(amp=amp, q=0.9), _PERI_TD, _PERI_SIGMA
+    )
+    v = pdf(xp.asarray(numpy.linspace(-_PERI_TD, 0.0, 40)))
+    assert is_backend_array(v)  # numpy sigma, but backend pot/IC -> backend pdf
+    assert numpy.all(numpy.isfinite(as_numpy(v)))
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_jit_grad_fd_pericenter_sigma():
+    # d(track)/d(stripping-burst-width sigma) through the backend pericenter pdf + the
+    # backend inverse-CDF: the pericenter TIMES are frozen (find_peaks is discrete), the
+    # Gaussian width flows. Reassignment-invariant functional -> grad-vs-FD.
+    from galpy.df import pericenter_stripping_pdf
+
+    jnp = jax.numpy
+    key = grandom.key(_SEED, backend="jax")
+    pot = LogarithmicHaloPotential(amp=1.0, q=0.9)
+
+    def loss(sigma):
+        pdf = pericenter_stripping_pdf(Orbit(_PROG_IC), pot, _PERI_TD, sigma)
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_PROG_IC),
+            pot=pot,
+            tdisrupt=_PERI_TD,
+            stripping_pdf=pdf,
+        )
+        xyz = spdf.streamTrack(
+            n=_JIT_N,
+            tail="leading",
+            velocity_weight=1.0,
+            order=1,
+            key=key,
+            track_time_range=2.0,
+        )._track_xyz
+        return jnp.mean(jnp.sqrt(jnp.sum(xyz**2, axis=1)))
+
+    g, best = _jit_grad_hconv_rel(
+        loss, _PERI_SIGMA
+    )  # sigma is O(1) -> relative FD steps
+    assert numpy.isfinite(g) and abs(g) > 0
+    # AD is essentially exact; the h-converged FD floor is ~2e-7 here (Gaussian-mixture
+    # inverse-CDF), so 1e-5 is a real regression detector with CI-robust margin.
+    assert best < 1e-5, (
+        f"jit streamTrack d/d(sigma) pericenter grad-vs-FD best REL={best:.2e}"
+    )
+
+
 @pytest.mark.skipif(jax is None, reason="jax required for backend-theta construction")
 def test_backend_sampling_center_not_implemented():
     # Differentiable stream sampling (a backend potential parameter -> _bsamp set)

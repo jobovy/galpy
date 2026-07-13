@@ -571,6 +571,7 @@ class basestreamspraydf(df):
         return _make_track(xv_single, arm_sign=(+1 if tail == "leading" else -1))
 
     def _parse_stripping_pdf(self, stripping_pdf):
+        self._stripping_cdf = None  # backend inverse-CDF grid (a differentiable pdf)
         if stripping_pdf is None:
             self._stripping_inv_cdf = None
             return
@@ -581,6 +582,7 @@ class basestreamspraydf(df):
         time_in_gyr = conversion.time_in_Gyr(self._vo, self._ro)
         _t_unit_input = False
         _t_unit_output = False
+        _pdf_backend = False
         if _APY_LOADED:
             t_probe = -0.5 * self._tdisrupt
             try:
@@ -594,14 +596,14 @@ class basestreamspraydf(df):
             if _t_unit_input:
                 try:
                     stripping_pdf(t_probe * time_in_gyr * units.Gyr).to(1.0 / units.Gyr)
-                except (AttributeError, units.UnitConversionError):
+                except (AttributeError, TypeError, units.UnitConversionError):
                     pass
                 else:
                     _t_unit_output = True
             else:
                 try:
                     stripping_pdf(t_probe).to(1.0 / units.Gyr)
-                except (AttributeError, units.UnitConversionError):
+                except (AttributeError, TypeError, units.UnitConversionError):
                     pass
                 else:
                     _t_unit_output = True
@@ -623,10 +625,37 @@ class basestreamspraydf(df):
                 return out.to(1.0 / units.Gyr).value * time_in_gyr
 
         else:
+            # A differentiable stripping_pdf returns a backend array; keep it on the
+            # backend (no numpy coercion) so the inverse-CDF traces the pdf parameters.
+            _pdf_backend = is_backend_array(stripping_pdf(-0.5 * self._tdisrupt))
+            if _pdf_backend:
 
-            def pdf_internal(t):
-                return numpy.asarray(stripping_pdf(t))
+                def pdf_internal(t):
+                    return stripping_pdf(t)
 
+            else:
+
+                def pdf_internal(t):
+                    return numpy.asarray(stripping_pdf(t))
+
+        if _pdf_backend:
+            # Backend-native inverse-CDF: a cumulative-trapezoid CDF on the fixed grid,
+            # inverted at draw time by searchsorted + linear interp (jit-safe, and
+            # differentiable in the pdf parameters via the CDF values). This is the
+            # differentiable counterpart of the scipy k=1 spline below.
+            xp = get_namespace(pdf_internal(-0.5 * self._tdisrupt))
+            t_grid = xp.asarray(numpy.linspace(-self._tdisrupt, 0.0, 10001))
+            pdf_vals = pdf_internal(t_grid)
+            dtg = t_grid[1:] - t_grid[:-1]
+            # clip increments >= 0 so the CDF is monotonic even if the pdf dips slightly
+            # negative (the numpy path raises; a jit trace cannot, so clamp instead)
+            incr = xp.clip(0.5 * (pdf_vals[1:] + pdf_vals[:-1]) * dtg, 0.0, None)
+            cdf_vals = xp.concat(
+                [xp.zeros(1, dtype=incr.dtype), xp.cumsum(incr, axis=0)]
+            )
+            self._stripping_cdf = (cdf_vals / cdf_vals[-1], t_grid)
+            self._stripping_inv_cdf = None
+            return
         t_grid = numpy.linspace(-self._tdisrupt, 0.0, 10001)
         pdf_vals = numpy.asarray(pdf_internal(t_grid), dtype=float)
         if numpy.any(pdf_vals < 0):
@@ -650,13 +679,29 @@ class basestreamspraydf(df):
         (``key is None``) is byte-identical to the historical
         ``numpy.random.uniform`` draw; a jax/torch ``key`` from
         :func:`galpy.backend.random.key` returns a reproducible backend array
-        (the default uniform-stripping path). The ``stripping_pdf`` inverse-CDF
-        is a scipy spline, so that path evaluates on the numpy sample for now (a
-        backend-native inverse-CDF is a later PR).
+        (the default uniform-stripping path). A numpy ``stripping_pdf`` inverts a
+        scipy spline on the numpy sample; a backend (differentiable) ``stripping_pdf``
+        inverts its backend CDF grid natively (searchsorted + linear interp), so the
+        drawn ``dt`` traces the pdf parameters.
         """
         from ..backend import as_numpy
         from ..backend import random as grandom
 
+        if self._stripping_cdf is not None:
+            cdf_vals, t_grid = self._stripping_cdf
+            xp = get_namespace(cdf_vals)
+            u = grandom.uniform(key, (n,))
+            u = u if is_backend_array(u) else xp.asarray(u)
+            # linear inverse-CDF: bracket u in the (monotonic) CDF, interpolate t; the
+            # bracket index is frozen (piecewise), the interp weight is differentiable.
+            idx = xp.clip(xp.searchsorted(cdf_vals, u), 1, cdf_vals.shape[0] - 1)
+            c0, c1 = cdf_vals[idx - 1], cdf_vals[idx]
+            t0, t1 = t_grid[idx - 1], t_grid[idx]
+            denom = c1 - c0
+            # guard the dead branch's div-by-zero (flat CDF ties) -- eager xp.where
+            # evaluates both sides (see the xp.where dead-branch idiom)
+            w = (u - c0) / xp.where(denom > 0, denom, xp.ones_like(denom))
+            return -(t0 + w * (t1 - t0))
         if self._stripping_inv_cdf is None:
             return grandom.uniform(key, (n,)) * self._tdisrupt
         u_samples = grandom.uniform(key, (n,))
@@ -704,15 +749,22 @@ class basestreamspraydf(df):
         mass_backend = is_backend_array(_mass_probe)
         if mass_backend and xp is None:
             xp = get_namespace(_mass_probe)
-        # numpy/C path (byte-identical): a pure-numpy spdf, OR a backend theta/mass seen
-        # under a merely-FORCED context -- the all-backend suite runs a plain-numpy test
-        # under `use(backend, force=True)`, which coerces plain inputs to backend arrays
-        # with no differentiable intent (and would crash the sample orbit in the
-        # unmigrated MovingObjectPotential under the in-backend ODE). A genuine backend IC
-        # survives even a forced context; a theta/mass under force does not, so
-        # `get_namespace(numpy.zeros(1)) is not numpy` isolates the forced case.
+        # A backend (differentiable) stripping_pdf traces the sampled orbits' STRIPPING
+        # TIMES (its inverse-CDF grid is a backend array) -- again not the progenitor
+        # curve -- so it is its own backend-sampling trigger, exactly like the mass.
+        stripping_backend = self._stripping_cdf is not None
+        if stripping_backend and xp is None:
+            xp = get_namespace(self._stripping_cdf[0])
+        # numpy/C path (byte-identical): a pure-numpy spdf, OR a backend theta/mass/
+        # stripping seen under a merely-FORCED context -- the all-backend suite runs a
+        # plain-numpy test under `use(backend, force=True)`, which coerces plain inputs
+        # to backend arrays with no differentiable intent (and would crash the sample
+        # orbit in the unmigrated MovingObjectPotential under the in-backend ODE). A
+        # genuine backend IC survives even a forced context; a theta/mass/stripping under
+        # force does not, so `get_namespace(numpy.zeros(1)) is not numpy` isolates it.
         _forced = get_namespace(numpy.zeros(1)) is not numpy
-        if not (ic_backend or ((theta_backend or mass_backend) and not _forced)):
+        _backend_trig = theta_backend or mass_backend or stripping_backend
+        if not (ic_backend or (_backend_trig and not _forced)):
             self._progenitor.integrate(self._progenitor_times, self._pot)
             self._bsamp = None
             return
@@ -739,10 +791,10 @@ class basestreamspraydf(df):
         # CONCRETE (eager, preserving the #1102 mechanism); a TRACED IC (under jit)
         # falls to the in-backend ODE (C is not traceable). Concreteness is detected
         # by whether the IC coerces to numpy (the _ic_backend_concrete idiom).
-        if theta_backend or (mass_backend and not ic_backend):
-            # A backend mass alone leaves the progenitor curve mass-independent, but its
-            # sample orbits trace the mass (via rtide) and are queried under jit -> the
-            # progenitor must be a backend orbit too, so integrate it in-backend.
+        if theta_backend or ((mass_backend or stripping_backend) and not ic_backend):
+            # A backend mass / stripping_pdf alone leaves the progenitor curve unchanged,
+            # but its sample orbits trace it (rtide / stripping times) and are queried
+            # under jit -> the progenitor must be a backend orbit too, integrate in-backend.
             method = inbackend
         else:
             try:
@@ -1565,7 +1617,11 @@ def pericenter_stripping_pdf(
         if abs(vo_internal - progenitor._vo) / progenitor._vo > 1e-8:
             raise ValueError("vo inconsistent with progenitor's vo; omit vo to inherit")
     tdisrupt_internal = conversion.parse_time(tdisrupt, ro=ro, vo=vo)
-    sigma_internal = conversion.parse_time(sigma, ro=ro, vo=vo)
+    # A backend sigma is a plain (unitless, internal-unit) array -- keep it on the backend
+    # so the returned pdf is differentiable in it; the unit parser is numpy-only.
+    sigma_internal = (
+        sigma if is_backend_array(sigma) else conversion.parse_time(sigma, ro=ro, vo=vo)
+    )
     # Integrate the progenitor and locate pericenter passages on the grid.
     # The prominence threshold rejects numerical-noise oscillations on
     # near-circular orbits.
@@ -1581,6 +1637,57 @@ def pericenter_stripping_pdf(
             "may be nearly circular; supply a custom stripping_pdf instead."
         )
     peri_times = ts[peaks]
+    # Backend mode: a backend `sigma` (fit the stripping width) -- or a backend pot / IC, so
+    # the pdf composes with a differentiable, jittable backend spdf -- returns a backend
+    # Gaussian-mixture pdf. The pericenter TIMES are found concretely (find_peaks is a
+    # discrete numpy op) and frozen as a backend constant; the mixture is differentiable in
+    # sigma. A pure-numpy call falls through to _pdf_internal below (byte-identical).
+    _peri_xp = None
+    if not sigma_is_quantity:
+        if is_backend_array(sigma):
+            _peri_xp = get_namespace(sigma)
+        elif is_backend_array(getattr(progenitor, "_ic_backend", None)):
+            _peri_xp = get_namespace(progenitor._ic_backend)
+        else:
+            # a genuine backend pot parameter survives a forced-numpy force eval
+            with use("numpy", force=True):
+                _tf = evaluateRforces(
+                    pot,
+                    float(prog_copy.R(0.0)),
+                    float(prog_copy.z(0.0)),
+                    phi=float(prog_copy.phi(0.0)),
+                    v=numpy.array(
+                        [
+                            float(prog_copy.vR(0.0)),
+                            float(prog_copy.vT(0.0)),
+                            float(prog_copy.vz(0.0)),
+                        ]
+                    ),
+                )
+            if is_backend_array(_tf):
+                _peri_xp = get_namespace(_tf)
+    if _peri_xp is not None:
+        _sqrt_2pi = float(numpy.sqrt(2.0 * numpy.pi))
+        peri_b = _peri_xp.asarray(peri_times)
+        sigma_b = (
+            sigma_internal
+            if is_backend_array(sigma_internal)
+            else _peri_xp.asarray(sigma_internal)
+        )
+
+        def _pdf_backend(t):
+            xp = get_namespace(t, sigma_b, peri_b)
+            t_arr = xp.reshape(xp.asarray(t) * 1.0, (-1,))
+            norm = 1.0 / (peri_b.shape[0] * sigma_b * _sqrt_2pi)
+            dx = (t_arr[:, None] - peri_b[None, :]) / sigma_b
+            out = norm * xp.sum(xp.exp(-0.5 * dx * dx), axis=-1)
+            out = xp.where(
+                (t_arr >= -tdisrupt_internal) & (t_arr <= 0.0), out, xp.zeros_like(out)
+            )
+            return out[0] if getattr(t, "ndim", 0) == 0 else out
+
+        _pdf_backend.pericenter_times = peri_b
+        return _pdf_backend
     # Normalized Gaussian mixture, truncated to [-tdisrupt, 0].
     norm = 1.0 / (peri_times.size * sigma_internal * numpy.sqrt(2.0 * numpy.pi))
 
