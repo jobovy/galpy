@@ -1617,7 +1617,11 @@ def pericenter_stripping_pdf(
         if abs(vo_internal - progenitor._vo) / progenitor._vo > 1e-8:
             raise ValueError("vo inconsistent with progenitor's vo; omit vo to inherit")
     tdisrupt_internal = conversion.parse_time(tdisrupt, ro=ro, vo=vo)
-    sigma_internal = conversion.parse_time(sigma, ro=ro, vo=vo)
+    # A backend sigma is a plain (unitless, internal-unit) array -- keep it on the backend
+    # so the returned pdf is differentiable in it; the unit parser is numpy-only.
+    sigma_internal = (
+        sigma if is_backend_array(sigma) else conversion.parse_time(sigma, ro=ro, vo=vo)
+    )
     # Integrate the progenitor and locate pericenter passages on the grid.
     # The prominence threshold rejects numerical-noise oscillations on
     # near-circular orbits.
@@ -1633,6 +1637,57 @@ def pericenter_stripping_pdf(
             "may be nearly circular; supply a custom stripping_pdf instead."
         )
     peri_times = ts[peaks]
+    # Backend mode: a backend `sigma` (fit the stripping width) -- or a backend pot / IC, so
+    # the pdf composes with a differentiable, jittable backend spdf -- returns a backend
+    # Gaussian-mixture pdf. The pericenter TIMES are found concretely (find_peaks is a
+    # discrete numpy op) and frozen as a backend constant; the mixture is differentiable in
+    # sigma. A pure-numpy call falls through to _pdf_internal below (byte-identical).
+    _peri_xp = None
+    if not sigma_is_quantity:
+        if is_backend_array(sigma):
+            _peri_xp = get_namespace(sigma)
+        elif is_backend_array(getattr(progenitor, "_ic_backend", None)):
+            _peri_xp = get_namespace(progenitor._ic_backend)
+        else:
+            # a genuine backend pot parameter survives a forced-numpy force eval
+            with use("numpy", force=True):
+                _tf = evaluateRforces(
+                    pot,
+                    float(prog_copy.R(0.0)),
+                    float(prog_copy.z(0.0)),
+                    phi=float(prog_copy.phi(0.0)),
+                    v=numpy.array(
+                        [
+                            float(prog_copy.vR(0.0)),
+                            float(prog_copy.vT(0.0)),
+                            float(prog_copy.vz(0.0)),
+                        ]
+                    ),
+                )
+            if is_backend_array(_tf):
+                _peri_xp = get_namespace(_tf)
+    if _peri_xp is not None:
+        _sqrt_2pi = float(numpy.sqrt(2.0 * numpy.pi))
+        peri_b = _peri_xp.asarray(peri_times)
+        sigma_b = (
+            sigma_internal
+            if is_backend_array(sigma_internal)
+            else _peri_xp.asarray(sigma_internal)
+        )
+
+        def _pdf_backend(t):
+            xp = get_namespace(t, sigma_b, peri_b)
+            t_arr = xp.reshape(xp.asarray(t) * 1.0, (-1,))
+            norm = 1.0 / (peri_b.shape[0] * sigma_b * _sqrt_2pi)
+            dx = (t_arr[:, None] - peri_b[None, :]) / sigma_b
+            out = norm * xp.sum(xp.exp(-0.5 * dx * dx), axis=-1)
+            out = xp.where(
+                (t_arr >= -tdisrupt_internal) & (t_arr <= 0.0), out, xp.zeros_like(out)
+            )
+            return out[0] if getattr(t, "ndim", 0) == 0 else out
+
+        _pdf_backend.pericenter_times = peri_b
+        return _pdf_backend
     # Normalized Gaussian mixture, truncated to [-tdisrupt, 0].
     norm = 1.0 / (peri_times.size * sigma_internal * numpy.sqrt(2.0 * numpy.pi))
 
