@@ -140,7 +140,7 @@ class basestreamspraydf(df):
         self._progenitor = progenitor()
         self._progenitor.turn_physical_off()
         self._progenitor_times = numpy.linspace(0.0, -self._tdisrupt, 10001)
-        self._progenitor.integrate(self._progenitor_times, self._pot)
+        self._integrate_progenitor()
         # Set up center orbit if given
         if not center is None:
             self._centerpot = (
@@ -156,6 +156,12 @@ class basestreamspraydf(df):
             self._center.integrate(self._progenitor_times, self._centerpot)
         else:
             self._center = None
+        if getattr(self, "_bsamp", None) is not None and self._center is not None:
+            raise NotImplementedError(
+                "differentiable stream sampling (backend potential parameter or "
+                "progenitor IC) is not yet supported together with center=; pass "
+                "particles= a fixed sample, or drop center="
+            )
         if progpot is not None:
             self._orig_pot = self._pot  # save pre-progpot for streamTrack
             progtrajpot = MovingObjectPotential(
@@ -272,6 +278,7 @@ class basestreamspraydf(df):
         order=2,
         velocity_weight="auto",
         custom_sky_transform=None,
+        key=None,
     ):
         """
         Construct a smooth phase-space track through the stream by sampling
@@ -386,8 +393,11 @@ class basestreamspraydf(df):
                 # bit when n is odd, like sample()).
                 n_lead = n // 2
                 n_trail = n - n_lead
-                xv_lead, _ = self._sample_tail(n_lead, True, leading=True)
-                xv_trail, _ = self._sample_tail(n_trail, True, leading=False)
+                from ..backend import random as grandom
+
+                key_l, key_t = grandom.split(key)
+                xv_lead, _ = self._sample_tail(n_lead, True, leading=True, key=key_l)
+                xv_trail, _ = self._sample_tail(n_trail, True, leading=False, key=key_t)
                 xv_all = numpy.column_stack([xv_lead, xv_trail])
         else:
             if particles is not None:
@@ -397,37 +407,13 @@ class basestreamspraydf(df):
                     else numpy.asarray(particles, dtype=float)
                 )
             else:
-                xv_single, _ = self._sample_tail(n, True, leading=(tail == "leading"))
+                xv_single, _ = self._sample_tail(
+                    n, True, leading=(tail == "leading"), key=key
+                )
             xv_all = xv_single
 
         if track_time_range is None:
-            # Auto: estimate from the stream's spatial extent in the
-            # already-sampled particles, measure the farthest from the
-            # progenitor, convert to an orbital-time scale via the
-            # progenitor's present-day speed, and pad by 8x. Scales
-            # naturally with stream width (essential for warm /
-            # dwarf-galaxy-mass progenitors whose tidal radii and
-            # velocity kicks are much larger).
-            # Structural extent estimate (a scalar time-range bound); run on a
-            # numpy view so a backend (jax/torch) particles array doesn't turn
-            # these numpy reductions into namespace ops.
-            _Rs, _, _, _zs, _, _phis = as_numpy(xv_all)
-            _xs = _Rs * numpy.cos(_phis)
-            _ys = _Rs * numpy.sin(_phis)
-            _px = float(self._progenitor.x(0.0))
-            _py = float(self._progenitor.y(0.0))
-            _pz = float(self._progenitor.z(0.0))
-            _pv = numpy.sqrt(
-                float(self._progenitor.vx(0.0)) ** 2
-                + float(self._progenitor.vy(0.0)) ** 2
-                + float(self._progenitor.vz(0.0)) ** 2
-            )
-            _d_max = numpy.sqrt(
-                numpy.max((_xs - _px) ** 2 + (_ys - _py) ** 2 + (_zs - _pz) ** 2)
-            )
-            track_time_range = float(
-                numpy.clip(8.0 * _d_max / max(_pv, 1e-6), 1.0, self._tdisrupt)
-            )
+            track_time_range = self._auto_track_time_range(xv_all)
         else:
             track_time_range = conversion.parse_time(
                 track_time_range, ro=self._ro, vo=self._vo
@@ -445,38 +431,89 @@ class basestreamspraydf(df):
         # points across [-T, +T] is plenty for any plausible track —
         # finer than the spline knot density downstream.
         half_dense = 5001
-        t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
-        t_back = numpy.linspace(0.0, -track_time_range, half_dense)
-        # Stitched grid spans [-T, +T] (skip the t=0 duplicate at the seam).
-        track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
+        # When track_time_range is a TRACED scalar (jit auto-estimate), work in
+        # NORMALIZED curve coordinates: the integration times are T*u (traced) but the
+        # curve grid / reconstruction axis is the CONCRETE normalized u in [-1, 1], and
+        # T is passed to StreamTrack as tp_scale (the physical parameter is u*T). This
+        # keeps every interpolation grid concrete under jit while the physical extent
+        # stays data-dependent + differentiable. Eager (concrete T) -> physical grid,
+        # tp_scale=None (byte-identical).
+        try:
+            float(track_time_range)
+            _tp_scale = None
+        except Exception:  # noqa: BLE001 -- traced (jit) extent
+            _tp_scale = track_time_range
+        if _tp_scale is None:
+            # eager: physical integration times + physical reconstruction axis (the
+            # numpy path stays byte-identical to numpy.linspace(0, T)).
+            t_fwd = numpy.linspace(0.0, track_time_range, half_dense)
+            t_back = numpy.linspace(0.0, -track_time_range, half_dense)
+            track_t_grid = numpy.concatenate([t_back[::-1], t_fwd[1:]])
+        else:
+            # jit: physical times T*u (traced) but normalized concrete axis u in [-1,1].
+            _u_fwd = numpy.linspace(0.0, 1.0, half_dense)
+            _u_back = numpy.linspace(0.0, -1.0, half_dense)
+            t_fwd = track_time_range * _u_fwd
+            t_back = track_time_range * _u_back
+            track_t_grid = numpy.concatenate([_u_back[::-1], _u_fwd[1:]])
         prog_ic_backend = getattr(self._orig_progenitor, "_ic_backend", None)
-        if is_backend_array(prog_ic_backend):
-            # Backend (jax/torch) progenitor orbit: build a DIFFERENTIABLE track
-            # curve so the fitted track carries d(track)/d(progenitor). Integrate
-            # forward and backward from the same backend IC with a differentiable
-            # C integrator (dop853_c -> C-STM when the potential has the C 3D
-            # Hessian, else the in-backend ODE), then stitch (torch has no
-            # negative-step slice, so use xp.flip). The structural time axis stays
-            # numpy. A backend track_prog_cart takes precedence over prog_orbit in
-            # StreamTrack, so we pass prog_orbit=None below.
-            xp = get_namespace(prog_ic_backend)
-            o_fwd = Orbit(prog_ic_backend)
-            o_fwd.turn_physical_off()
-            o_fwd.integrate(t_fwd, _track_pot, method="dop853_c")
-            o_back = Orbit(prog_ic_backend)
-            o_back.turn_physical_off()
-            o_back.integrate(t_back, _track_pot, method="dop853_c")
+        # Backend sampling detected at construction (self._bsamp) already resolved the
+        # backend namespace + integrator (dop853_c C-STM for a concrete backend IC;
+        # the in-backend ODE for a backend theta or under jit) and made
+        # self._progenitor a backend orbit -- reuse it instead of a float() probe on
+        # self._progenitor, which would break under jit.
+        _bsamp = self._backend_sampling()
 
-            def _cart(o, ts):
-                return xp.stack(
-                    [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)],
-                    axis=-1,
+        def _backend_curve(ic, method, xp):
+            # Integrate the progenitor fwd+back and stitch into a differentiable
+            # backend track_prog_cart (torch has no negative-step slice -> xp.flip).
+            o_f = Orbit(ic)
+            o_f.turn_physical_off()
+            o_f.integrate(t_fwd, _track_pot, method=method)
+            o_b = Orbit(ic)
+            o_b.turn_physical_off()
+            o_b.integrate(t_back, _track_pot, method=method)
+
+            def _cart(o):
+                # Read the integrated states directly (o.orbit at the integration grid)
+                # rather than o.x(ts): the interpolator needs a concrete self.t, but
+                # under jit the integration times T*u are traced. o.orbit is cylindrical
+                # [R,vR,vT,z,vz,phi] -> convert to cartesian (galpy's exact convention).
+                ob = o.orbit
+                cyl = ob[0] if ob.ndim == 3 else ob  # (nt, 6)
+                _R, _vR, _vT, _z, _vz, _phi = (cyl[:, k] for k in range(6))
+                _x, _y, _zc = coords.cyl_to_rect(_R, _phi, _z)
+                _vx, _vy, _vzc = coords.cyl_to_rect_vec(_vR, _vT, _vz, _phi)
+                return xp.stack([_x, _y, _zc, _vx, _vy, _vzc], axis=-1)
+
+            return xp.concat([xp.flip(_cart(o_b), axis=0), _cart(o_f)[1:]], axis=0)
+
+        if _bsamp is not None:
+            # Backend sampling: build the differentiable progenitor curve with the
+            # resolved namespace + integrator (dop853_c C-STM for a concrete backend
+            # IC -- preserves #1102; the in-backend ODE for a backend theta or under
+            # jit). Coerce a numpy progenitor IC onto the backend (a backend IC
+            # additionally flows d(track)/d(prog IC)). A backend track_prog_cart takes
+            # precedence over prog_orbit in StreamTrack (prog=None).
+            xp, _, _cmethod = _bsamp
+            if is_backend_array(prog_ic_backend):
+                ic = prog_ic_backend
+            else:
+                p0 = self._orig_progenitor()
+                p0.turn_physical_off()
+                ic = xp.asarray(
+                    numpy.array(
+                        [
+                            float(p0.R()),
+                            float(p0.vR()),
+                            float(p0.vT()),
+                            float(p0.z()),
+                            float(p0.vz()),
+                            float(p0.phi()),
+                        ]
+                    )
                 )
-
-            track_prog_cart = xp.concat(
-                [xp.flip(_cart(o_back, t_back), axis=0), _cart(o_fwd, t_fwd)[1:]],
-                axis=0,
-            )
+            track_prog_cart = _backend_curve(ic, _cmethod, xp)
             prog = None
         else:
             prog = self._orig_progenitor()
@@ -523,6 +560,7 @@ class basestreamspraydf(df):
                 vo=prog_vo,
                 zo=prog_zo,
                 solarmotion=prog_sm,
+                tp_scale=_tp_scale,
             )
 
         if tail == "both":
@@ -624,36 +662,201 @@ class basestreamspraydf(df):
         u_samples = grandom.uniform(key, (n,))
         return -self._stripping_inv_cdf(as_numpy(u_samples))
 
+    def _integrate_progenitor(self):
+        """Integrate the progenitor over ``[0, -tdisrupt]``, choosing the integrator
+        by whether the sampling must run on a backend (jax/torch) for differentiable
+        + jittable streams: a GENUINE backend potential parameter and/or a backend
+        progenitor IC -> the in-backend ODE (diffrax/torchdiffeq), so ``self._progenitor``
+        (and everything sampled from it) carries d(stream)/d(theta) and/or
+        d(stream)/d(prog IC). Otherwise the numpy/C integrator (byte-identical).
+
+        Detection is jit-safe: a backend IC is spotted by ``is_backend_array`` (works
+        on tracers); for a numpy IC, a force probe at the (concrete) IC point under
+        FORCED NUMPY isolates a genuine backend parameter (a traced ``amp`` survives
+        forced numpy) from a merely forced context. Sets ``self._bsamp`` =
+        ``(xp, self._progenitor, method)`` for backend sampling, else ``None``.
+        """
+        prog_ic = getattr(self._orig_progenitor, "_ic_backend", None)
+        ic_backend = is_backend_array(prog_ic)
+        theta_backend = False
+        xp = None
+        if ic_backend:
+            xp = get_namespace(prog_ic)
+        else:
+            _pp = self._progenitor
+            with use("numpy", force=True):
+                _tf = evaluateRforces(
+                    self._pot,
+                    float(_pp.R(0.0)),
+                    float(_pp.z(0.0)),
+                    phi=float(_pp.phi(0.0)),
+                    v=numpy.array(
+                        [float(_pp.vR(0.0)), float(_pp.vT(0.0)), float(_pp.vz(0.0))]
+                    ),
+                )
+            theta_backend = is_backend_array(_tf)
+            if theta_backend:
+                xp = get_namespace(_tf)
+        # numpy/C path (byte-identical): a pure-numpy spdf, OR a backend theta seen
+        # under a merely-FORCED context -- the all-backend suite runs a plain-numpy
+        # test under `use(backend, force=True)`, which coerces the potential's `_amp`
+        # to a backend array with no differentiable intent (and would crash the sample
+        # orbit in the unmigrated MovingObjectPotential under the in-backend ODE). A
+        # genuine backend parameter (normal env, eager or under jit) leaves plain numpy
+        # resolving to numpy, so `get_namespace(numpy.zeros(1)) is not numpy` isolates
+        # the forced case; a genuine backend IC/theta falls through to the ODE below.
+        _forced_theta = (
+            theta_backend
+            and not ic_backend
+            and get_namespace(numpy.zeros(1)) is not numpy
+        )
+        if not (ic_backend or theta_backend) or _forced_theta:
+            self._progenitor.integrate(self._progenitor_times, self._pot)
+            self._bsamp = None
+            return
+        if ic_backend:
+            ic = prog_ic
+        else:
+            _pp = self._progenitor
+            ic = xp.asarray(
+                numpy.array(
+                    [
+                        float(_pp.R(0.0)),
+                        float(_pp.vR(0.0)),
+                        float(_pp.vT(0.0)),
+                        float(_pp.z(0.0)),
+                        float(_pp.vz(0.0)),
+                        float(_pp.phi(0.0)),
+                    ]
+                )
+            )
+        # Choose the integrator. A backend potential PARAMETER (theta) needs the
+        # in-backend ODE (the C-STM carries no d/d(theta)). A backend progenitor IC
+        # ALONE (numpy potential) keeps the faster dop853_c C-STM when the IC is
+        # CONCRETE (eager, preserving the #1102 mechanism); a TRACED IC (under jit)
+        # falls to the in-backend ODE (C is not traceable). Concreteness is detected
+        # by whether the IC coerces to numpy (the _ic_backend_concrete idiom).
+        inbackend = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        if theta_backend:
+            method = inbackend
+        else:
+            try:
+                as_numpy(ic)  # detaches an eager torch grad-tensor; raises on a tracer
+                ic_concrete = True
+            except Exception:  # noqa: BLE001 -- traced (jit) backend IC
+                ic_concrete = False
+            method = "dop853_c" if ic_concrete else inbackend
+        # NUMPY times: the grid is a fixed structural axis (not theta-dependent), so
+        # keeping self.t concrete lets o.x(t)/L(t) interpolate under jit (the orbit
+        # STATE is still a backend array -> differentiable). A backend-array grid
+        # would be a tracer under jit and break the interpolator's numpy.asarray(t).
+        # Coarser than the numpy 10001: the frame queries interpolate the orbit spline
+        # (density-insensitive; 501 pts already match numpy to ~4e-11).
+        bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
+        self._progenitor = Orbit(ic)
+        self._progenitor.turn_physical_off()
+        self._progenitor.integrate(bgrid, self._pot, method=method)
+        self._bsamp = (xp, self._progenitor, method)
+
+    def _backend_sampling(self):
+        """``(xp, backend_progenitor, sample_method)`` when the sampling runs on a
+        backend for differentiable/jittable streams, else ``None`` (pure numpy).
+        Set at construction by :meth:`_integrate_progenitor`."""
+        return getattr(self, "_bsamp", None)
+
+    def _auto_track_time_range(self, xv_all):
+        """Concrete scalar time-range bound for the reconstructed track (``track_t``).
+
+        The accurate particle-extent estimate: 8x the farthest particle's distance
+        from the progenitor divided by the progenitor's present-day speed, clipped to
+        ``[1, tdisrupt]`` (scales with stream width). Eager returns a concrete float;
+        under jit (particles + progenitor TRACED) the SAME estimate is computed with
+        backend ops and returned as a TRACED scalar -- the caller then works in
+        normalized curve coordinates (concrete grids) with this as the physical scale,
+        so nothing needs a concrete extent.
+        """
+        try:
+            _Rs, _, _, _zs, _, _phis = as_numpy(xv_all)
+            _xs = _Rs * numpy.cos(_phis)
+            _ys = _Rs * numpy.sin(_phis)
+            _px = float(self._progenitor.x(0.0))
+            _py = float(self._progenitor.y(0.0))
+            _pz = float(self._progenitor.z(0.0))
+            _pv = numpy.sqrt(
+                float(self._progenitor.vx(0.0)) ** 2
+                + float(self._progenitor.vy(0.0)) ** 2
+                + float(self._progenitor.vz(0.0)) ** 2
+            )
+            _d_max = numpy.sqrt(
+                numpy.max((_xs - _px) ** 2 + (_ys - _py) ** 2 + (_zs - _pz) ** 2)
+            )
+            return float(numpy.clip(8.0 * _d_max / max(_pv, 1e-6), 1.0, self._tdisrupt))
+        except Exception:  # noqa: BLE001 -- traced (jit): same estimate, backend ops
+            xp = get_namespace(xv_all)
+            _R, _, _, _z, _, _phi = xv_all
+            _x = _R * xp.cos(_phi)
+            _y = _R * xp.sin(_phi)
+            _px = self._progenitor.x(0.0)
+            _py = self._progenitor.y(0.0)
+            _pz = self._progenitor.z(0.0)
+            _pv = xp.sqrt(
+                self._progenitor.vx(0.0) ** 2
+                + self._progenitor.vy(0.0) ** 2
+                + self._progenitor.vz(0.0) ** 2
+            )
+            _d_max = xp.sqrt(
+                xp.max((_x - _px) ** 2 + (_y - _py) ** 2 + (_z - _pz) ** 2)
+            )
+            return xp.clip(8.0 * _d_max / xp.clip(_pv, 1e-6, None), 1.0, self._tdisrupt)
+
     def _sample_tail(self, n, integrate, leading=True, key=None):
         """Sample n points from the specified tail."""
         from ..backend import as_numpy, is_backend_array
+        from ..backend import random as grandom
 
-        # Stripping times: a backend array when a key is threaded (or under a
-        # forced backend). The progenitor/center orbits are numpy-only FOR NOW, so
-        # query them at numpy times (dt_np); a later PR makes them backend orbits
-        # so d(stream)/d(progenitor IC/FC) flows and the whole path jits / runs on
-        # GPU. The einsum frame construction + sample-orbit integration are already
-        # on the resolved backend xp.
-        dt = self._draw_stripping_dt(n, key=key)
-        xp = get_namespace(dt)  # context-resolved backend (numpy under numpy)
-        dt_np = as_numpy(dt)
+        # Stripping times are theta-independent random draws. For differentiable
+        # sampling (a backend potential parameter and/or backend progenitor IC),
+        # `_backend_sampling()` returns the backend namespace, a backend progenitor
+        # orbit (whose queries carry the gradient), and the sampled-orbit integrator
+        # (in-backend ODE for d/d(theta), C-STM for d/d(prog IC)); dt is coerced to a
+        # backend constant so `spray_df`/`_calc_rtide` resolve to the backend. Else
+        # the pure-numpy path (a keyed/forced backend still resolves xp from dt).
+        # Independent sub-keys for the stripping-time and spray-offset draws so the
+        # spray noise is reparameterized (a deterministic function of the key,
+        # theta-independent) -- essential under jit, where numpy.random bakes a
+        # per-trace constant that makes AD and FD disagree. numpy key (None) ->
+        # (None, None): sequential global draws, byte-identical.
+        k_dt, k_spray = grandom.split(key)
+        dt = self._draw_stripping_dt(n, key=k_dt)
+        bsamp = self._backend_sampling()
+        if bsamp is not None:
+            # backend progenitor: keep dt on the backend (no as_numpy -> jit-safe) and
+            # query it at BACKEND times qt so o.x(qt) stays traced/differentiable.
+            xp, prog, sample_method = bsamp
+            dt = xp.asarray(dt)
+            qt = -dt
+        else:
+            xp = get_namespace(dt)  # context-resolved backend (numpy under numpy)
+            prog = self._progenitor
+            sample_method = None
+            qt = -as_numpy(dt)  # numpy query times (byte-identical)
         # Build all rotation matrices
-        rot, rot_inv = self._setup_rot(dt)
+        rot, rot_inv = self._setup_rot(dt, prog=prog, qt=qt)
         # Compute progenitor position in the instantaneous frame,
         # relative to the center orbit if necessary
-        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt_np)))
-        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt_np)))
-        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt_np)))
-        centervx = xp.atleast_1d(xp.asarray(self._progenitor.vx(-dt_np)))
-        centervy = xp.atleast_1d(xp.asarray(self._progenitor.vy(-dt_np)))
-        centervz = xp.atleast_1d(xp.asarray(self._progenitor.vz(-dt_np)))
+        centerx = xp.atleast_1d(xp.asarray(prog.x(qt)))
+        centery = xp.atleast_1d(xp.asarray(prog.y(qt)))
+        centerz = xp.atleast_1d(xp.asarray(prog.z(qt)))
+        centervx = xp.atleast_1d(xp.asarray(prog.vx(qt)))
+        centervy = xp.atleast_1d(xp.asarray(prog.vy(qt)))
+        centervz = xp.atleast_1d(xp.asarray(prog.vz(qt)))
         if not self._center is None:
-            centerx = centerx - xp.asarray(self._center.x(-dt_np))
-            centery = centery - xp.asarray(self._center.y(-dt_np))
-            centerz = centerz - xp.asarray(self._center.z(-dt_np))
-            centervx = centervx - xp.asarray(self._center.vx(-dt_np))
-            centervy = centervy - xp.asarray(self._center.vy(-dt_np))
-            centervz = centervz - xp.asarray(self._center.vz(-dt_np))
+            centerx = centerx - xp.asarray(self._center.x(qt))
+            centery = centery - xp.asarray(self._center.y(qt))
+            centerz = centerz - xp.asarray(self._center.z(qt))
+            centervx = centervx - xp.asarray(self._center.vx(qt))
+            centervy = centervy - xp.asarray(self._center.vy(qt))
+            centervz = centervz - xp.asarray(self._center.vz(qt))
         # stack(axis=0).T matches numpy.array([...]).T's F-contiguous layout so
         # einsum rounds byte-identically to the pre-migration numpy path.
         xyzpt = xp.einsum(
@@ -664,7 +867,9 @@ class basestreamspraydf(df):
         )
 
         # generate the initial conditions
-        xst, yst, zst, vxst, vyst, vzst = self.spray_df(xyzpt, vxyzpt, dt, leading)
+        xst, yst, zst, vxst, vyst, vzst = self.spray_df(
+            xyzpt, vxyzpt, dt, leading, key=k_spray
+        )
 
         xyzs = xp.einsum("ijk,ik->ij", rot_inv, xp.stack([xst, yst, zst], axis=0).T)
         vxyzs = xp.einsum("ijk,ik->ij", rot_inv, xp.stack([vxst, vyst, vzst], axis=0).T)
@@ -676,12 +881,12 @@ class basestreamspraydf(df):
         absvy = vxyzs[:, 1]
         absvz = vxyzs[:, 2]
         if not self._center is None:
-            absx = absx + xp.asarray(self._center.x(-dt_np))
-            absy = absy + xp.asarray(self._center.y(-dt_np))
-            absz = absz + xp.asarray(self._center.z(-dt_np))
-            absvx = absvx + xp.asarray(self._center.vx(-dt_np))
-            absvy = absvy + xp.asarray(self._center.vy(-dt_np))
-            absvz = absvz + xp.asarray(self._center.vz(-dt_np))
+            absx = absx + xp.asarray(self._center.x(qt))
+            absy = absy + xp.asarray(self._center.y(qt))
+            absz = absz + xp.asarray(self._center.z(qt))
+            absvx = absvx + xp.asarray(self._center.vx(qt))
+            absvy = absvy + xp.asarray(self._center.vy(qt))
+            absvz = absvz + xp.asarray(self._center.vz(qt))
         Rs, phis, Zs = coords.rect_to_cyl(absx, absy, absz)
         vRs, vTs, vZs = coords.rect_to_cyl_vec(
             absvx, absvy, absvz, Rs, phis, Zs, cyl=True
@@ -692,52 +897,43 @@ class basestreamspraydf(df):
             # to the present (t=0). The final time step is the present-day state.
             ic_arr = xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0).T
             o = Orbit(ic_arr)
-            if is_backend_array(ic_arr):
-                # Backend ICs -> the ADAPTIVE RK method dop853_c routes to the
-                # differentiable C-STM (the default fixed-step symplec4_c is not
-                # auto-routed). Only the present-day state is used, and dop853_c
-                # takes its own internal substeps, so integrate on a per-orbit
-                # 2-point grid [-dt_i, 0] (not the 10001-point fixed-step grid the
-                # numpy path needs) -- avoids materialising a (n, 10001, 6, 6) STM.
-                ts = xp.stack([-xp.asarray(dt_np), xp.zeros(n)], axis=-1)
-                o.integrate(ts, self._pot, method="dop853_c")
+            if bsamp is not None or is_backend_array(ic_arr):
+                # Backend ICs. For differentiable sampling use the resolved
+                # integrator (in-backend ODE carries d/d(theta) AND d/d(prog IC),
+                # jittable); a merely keyed/forced backend (sample_method None) uses
+                # dop853_c -> C-STM. Only the present-day state is used, and each
+                # integrator takes its own internal substeps, so integrate on a
+                # per-orbit 2-point grid [-dt_i, 0] (not the 10001-point fixed-step
+                # grid the numpy path needs).
+                ts = xp.stack([-xp.asarray(dt), xp.zeros(n)], axis=-1)
+                o.integrate(ts, self._pot, method=sample_method or "dop853_c")
             else:
-                ts = xp.linspace(-dt_np, xp.zeros(n), 10001, axis=-1)
+                ts = xp.linspace(-as_numpy(dt), xp.zeros(n), 10001, axis=-1)
                 o.integrate(ts, self._pot)  # byte-identical numpy default
             out = o.orbit[:, -1, :].T
         else:
             out = xp.stack([Rs, vRs, vTs, Zs, vZs, phis], axis=0)
         return out, dt
 
-    def _setup_rot(self, dt):
-        from ..backend import as_numpy
-
+    def _setup_rot(self, dt, prog, qt):
+        # `prog` is a backend progenitor orbit for differentiable sampling (its
+        # queries then carry d/d(theta) / d/d(prog IC)); else the numpy progenitor.
+        # `qt` = progenitor query times (backend -dt for jit-safety; else numpy).
         xp = get_namespace(dt)
-        # Progenitor/center orbits are numpy-only FOR NOW -> query at numpy times;
-        # keep xp (from dt) so the rotation-matrix arithmetic runs on the backend.
-        # A later PR makes the progenitor a backend orbit (progenitor gradients +
-        # jit/GPU), at which point these queries take backend times.
-        dt_np = as_numpy(dt)
         n = len(dt)
-        centerx = xp.atleast_1d(xp.asarray(self._progenitor.x(-dt_np)))
-        centery = xp.atleast_1d(xp.asarray(self._progenitor.y(-dt_np)))
-        centerz = xp.atleast_1d(xp.asarray(self._progenitor.z(-dt_np)))
+        centerx = xp.atleast_1d(xp.asarray(prog.x(qt)))
+        centery = xp.atleast_1d(xp.asarray(prog.y(qt)))
+        centerz = xp.atleast_1d(xp.asarray(prog.z(qt)))
         if self._center is None:
-            L = xp.atleast_2d(xp.asarray(self._progenitor.L(-dt_np)))
+            L = xp.atleast_2d(xp.asarray(prog.L(qt)))
         # Compute relative angular momentum to the center orbit
         else:
-            centerx = centerx - xp.asarray(self._center.x(-dt_np))
-            centery = centery - xp.asarray(self._center.y(-dt_np))
-            centerz = centerz - xp.asarray(self._center.z(-dt_np))
-            centervx = xp.asarray(self._progenitor.vx(-dt_np)) - xp.asarray(
-                self._center.vx(-dt_np)
-            )
-            centervy = xp.asarray(self._progenitor.vy(-dt_np)) - xp.asarray(
-                self._center.vy(-dt_np)
-            )
-            centervz = xp.asarray(self._progenitor.vz(-dt_np)) - xp.asarray(
-                self._center.vz(-dt_np)
-            )
+            centerx = centerx - xp.asarray(self._center.x(qt))
+            centery = centery - xp.asarray(self._center.y(qt))
+            centerz = centerz - xp.asarray(self._center.z(qt))
+            centervx = xp.asarray(prog.vx(qt)) - xp.asarray(self._center.vx(qt))
+            centervy = xp.asarray(prog.vy(qt)) - xp.asarray(self._center.vy(qt))
+            centervz = xp.asarray(prog.vz(qt)) - xp.asarray(self._center.vz(qt))
             L = xp.atleast_2d(
                 xp.stack(
                     [
@@ -864,9 +1060,14 @@ class basestreamspraydf(df):
         # (same four-branch pattern as AnyAxisymmetricRazorThinDiskPotential).
         if not callable(progenitor_mass):
             M0 = conversion.parse_mass(progenitor_mass, ro=self._ro, vo=self._vo)
-            self._progenitor_mass_fn = lambda t: (
-                M0 * numpy.ones_like(numpy.asarray(t, dtype=float))
-            )
+
+            def _scalar_mass_fn(t):
+                # backend-agnostic ones_like(t): jit-safe for a traced t; numpy
+                # byte-identical (M0 * float64 ones of t's shape).
+                xp_t = get_namespace(t)
+                return M0 * xp_t.ones_like(xp_t.asarray(t) * 1.0)
+
+            self._progenitor_mass_fn = _scalar_mass_fn
             self._progenitor_mass = M0
             return
         _mass_unit_input = False
@@ -926,7 +1127,7 @@ class basestreamspraydf(df):
         self._progenitor_mass_fn = _mass_fn
         self._progenitor_mass = float(self._progenitor_mass_fn(0.0))
 
-    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True, key=None):
         """
         Sample the positions and velocities around the progenitor
         Must be implemented in a subclass
@@ -1046,7 +1247,7 @@ class chen24spraydf(basestreamspraydf):
             self._cov = cov
         return None
 
-    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True, key=None):
         """
         Sample the positions and velocities around the progenitor
 
@@ -1060,6 +1261,10 @@ class chen24spraydf(basestreamspraydf):
             Time of sampling.
         leading : bool, optional
             If True, generate the leading tail. If False, generate the trailing tail. Default is True.
+        key : optional
+            Backend random key for the offset draw. Default None uses ``numpy.random``
+            (byte-identical); a jax/torch key makes it a reparameterized function of
+            the key (required for a correct gradient under jit).
 
         Returns
         -------
@@ -1068,14 +1273,16 @@ class chen24spraydf(basestreamspraydf):
         vxst, vyst, vzst : array, shape (N,)
             Velocities of points on the stream in the progenitor coordinates.
         """
+        from ..backend import random as grandom
+
         xp = get_namespace(dt)
         Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
         rtides = self._calc_rtide(Rpt, phipt, Zpt, dt)
 
-        # Sample positions and velocities in the instantaneous frame
-        # (RNG stays numpy on mean/cov; the draw is coerced to the backend).
+        # Sample positions and velocities in the instantaneous frame. numpy key
+        # (None) -> numpy.random (byte-identical); a backend key -> reparameterized.
         posvel = xp.asarray(
-            numpy.random.multivariate_normal(self._mean, self._cov, size=len(dt))
+            grandom.multivariate_normal(key, self._mean, self._cov, shape=len(dt))
         )
         Dr = posvel[:, 0] * rtides
         Ms = as_backend_constant(xp, self._progenitor_mass_fn(-dt), Dr)
@@ -1185,7 +1392,7 @@ class fardal15spraydf(basestreamspraydf):
         self._sigkvec = numpy.array(sigkvec)
         return None
 
-    def spray_df(self, xyzpt, vxyzpt, dt, leading=True):
+    def spray_df(self, xyzpt, vxyzpt, dt, leading=True, key=None):
         """
         Sample the positions and velocities around the progenitor
 
@@ -1199,6 +1406,11 @@ class fardal15spraydf(basestreamspraydf):
             Time of sampling.
         leading : bool, optional
             If True, generate the leading tail. If False, generate the trailing tail. Default is True.
+        key : optional
+            Backend random key for the action-angle offset draw. Default None uses
+            ``numpy.random`` (byte-identical). A jax/torch key makes the draw a
+            reproducible, theta-independent function of the key (reparameterization
+            -- required for a correct gradient under jit).
 
         Returns
         -------
@@ -1207,6 +1419,8 @@ class fardal15spraydf(basestreamspraydf):
         vxst, vyst, vzst : array, shape (N,)
             Velocities of points on the stream in the progenitor coordinates.
         """
+        from ..backend import random as grandom
+
         xp = get_namespace(dt)
         Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
         rtides = self._calc_rtide(Rpt, phipt, Zpt, dt)
@@ -1216,13 +1430,15 @@ class fardal15spraydf(basestreamspraydf):
         vRpt, vTpt, vZpt = coords.rect_to_cyl_vec(
             vxyzpt[:, 0], vxyzpt[:, 1], vxyzpt[:, 2], Rpt, phipt, Zpt, cyl=True
         )
-        # Sample positions and velocities in the instantaneous frame
-        # (RNG stays numpy; the draw and mean/sig constants are coerced).
+        # Sample the action-angle offsets. numpy key (None) -> numpy.random draw
+        # (byte-identical); a backend key -> a reparameterized (theta-independent)
+        # backend draw, so the gradient flows through the theta-dependent rtides/vcs
+        # and is consistent between AD and FD under jit.
         meankvec = as_backend_constant(
             xp, -self._meankvec if leading else self._meankvec, Rpt
         )
         sigkvec = as_backend_constant(xp, self._sigkvec, Rpt)
-        k = meankvec + xp.asarray(numpy.random.normal(size=(len(dt), 6))) * sigkvec
+        k = meankvec + xp.asarray(grandom.normal(key, (len(dt), 6))) * sigkvec
 
         RpZst = xp.stack(
             [
