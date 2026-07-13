@@ -43,7 +43,7 @@ class RingPotential(Potential):
         a = conversion.parse_length(a, ro=self._ro)
         self.a = a
         self.a2 = self.a**2
-        self._amp /= 2.0 * numpy.pi * self.a
+        self._amp = self._amp / (2.0 * numpy.pi * self.a)
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
