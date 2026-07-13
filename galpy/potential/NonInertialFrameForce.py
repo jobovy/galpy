@@ -14,7 +14,6 @@ from ..backend import (
     coerce_coords,
     get_namespace,
     is_backend_array,
-    promote_scalars,
 )
 from ..util import conversion, coords, galpyWarning
 from .DissipativeForce import DissipativeForce
@@ -287,13 +286,19 @@ class NonInertialFrameForce(DissipativeForce):
         x, y, z, vx, vy, vz = coerce_coords(xp, x, y, z, vx, vy, vz)
         ref = x
 
+        def _anchor(c):
+            # keep a backend (grad-carrying) comp; anchor a scalar/numpy const on the
+            # coords' device/dtype via the shared helper (device-safe on GPU, where an
+            # all-scalar _vec would otherwise land on CPU and mismatch the backend force)
+            return c if is_backend_array(c) else as_backend_constant(xp, c, ref)
+
         def _vec(comps):
             # 1D vector from (possibly backend, grad-carrying) scalar comps;
             # stack (not asarray) preserves the autograd graph
             return (
                 numpy.asarray(comps)
                 if numpy_input
-                else xp.stack(promote_scalars(xp, *comps))
+                else xp.stack([_anchor(c) for c in comps])
             )
 
         def _mat(rows):
@@ -301,7 +306,7 @@ class NonInertialFrameForce(DissipativeForce):
             return (
                 numpy.asarray(rows)
                 if numpy_input
-                else xp.stack([xp.stack(promote_scalars(xp, *r)) for r in rows])
+                else xp.stack([xp.stack([_anchor(c) for c in r]) for r in rows])
             )
 
         def _mv(mat, vecarr):  # matrix (3x3) times vector (3): torch.dot is 1D-only
