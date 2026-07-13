@@ -227,36 +227,40 @@ def test_streamtrack_backend_progenitor_parity(backend_name):
         )
 
 
-def _frozen_spray_track(xv, ic0, pot, T=3.0, hd=801):
-    """Expose track(ic, xp) = fit(C-STM curve(ic)) returning the mean(6) AND
+def _frozen_spray_track(xv, base_leaf, pot=None, T=3.0, hd=801, curve=None):
+    """Expose track(leaf, xp) = fit(curve(leaf)) returning the mean(6) AND
     covariance(6x6) track, with the fit STRUCTURE (cKDTree tp_assign, trim grid)
-    and the GCV smoothers FROZEN from a base run. The progenitor IC enters ONLY
-    through the differentiable C-STM curve (Orbit.integrate(dop853_c) fwd+back,
-    stitched exactly as streamspraydf does) -> cubic-spline interp -> offsets ->
-    frozen smoothers -> track. Frozen structure => a numpy FD and the backend
-    autograd apply the identical operators, so d(track)/d(prog IC) is FD-checkable
-    (an end-to-end FD would move the cKDTree assignment + GCV lambda)."""
+    and the GCV smoothers FROZEN from a base run. ``curve(leaf, xp, t_fwd, t_back)``
+    builds the differentiable progenitor track_prog_cart -- default: the C-STM
+    dop853_c curve as a function of the progenitor IC; the theta test supplies an
+    in-backend-ODE curve as a function of a potential parameter. Frozen structure
+    => a numpy FD and the backend autograd apply the identical operators, so
+    d(track)/d(leaf) is FD-checkable (an end-to-end FD would move the cKDTree
+    assignment + GCV lambda)."""
     t_fwd = numpy.linspace(0.0, T, hd)
     t_back = numpy.linspace(0.0, -T, hd)
     tg = numpy.concatenate([t_back[::-1], t_fwd[1:]])
     pc = coords.galcencyl_to_galcenrect(*xv)
 
-    def curve(ic, xp):
-        of = Orbit(ic)
-        of.turn_physical_off()
-        of.integrate(t_fwd, pot, method="dop853_c")
-        ob = Orbit(ic)
-        ob.turn_physical_off()
-        ob.integrate(t_back, pot, method="dop853_c")
+    if curve is None:
 
-        def cart(o, ts):
-            return xp.stack(
-                [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)], axis=-1
-            )
+        def curve(ic, xp, tf, tb):
+            of = Orbit(ic)
+            of.turn_physical_off()
+            of.integrate(tf, pot, method="dop853_c")
+            ob = Orbit(ic)
+            ob.turn_physical_off()
+            ob.integrate(tb, pot, method="dop853_c")
 
-        return xp.concat(
-            [xp.flip(cart(ob, t_back), axis=0), cart(of, t_fwd)[1:]], axis=0
-        )
+            def cart(o, ts):
+                return xp.stack(
+                    [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)], axis=-1
+                )
+
+            return xp.concat([xp.flip(cart(ob, tb), axis=0), cart(of, tf)[1:]], axis=0)
+
+    def _curve(leaf, xp):
+        return curve(leaf, xp, t_fwd, t_back)
 
     def interp(cv, tp, xp):
         if xp is numpy:
@@ -271,7 +275,7 @@ def _frozen_spray_track(xv, ic0, pot, T=3.0, hd=801):
         )
 
     # base curve + frozen structure
-    base = as_numpy(curve(ic0, numpy))
+    base = as_numpy(_curve(base_leaf, numpy))
     sign = numpy.broadcast_to((tg >= 0)[None, :], (pc.shape[0], tg.size))
     ta = _closest_point_on_curve(pc, base, tg, mask=sign, velocity_weight=1.0)
     keep = numpy.abs(ta - tg[-1]) > 1e-3 * abs(tg[-1] - tg[0])
@@ -312,8 +316,8 @@ def _frozen_spray_track(xv, ic0, pot, T=3.0, hd=801):
                 tp_grid
             )(v0)
 
-    def track(ic, xp):
-        cv = curve(ic, xp)
+    def track(leaf, xp):
+        cv = _curve(leaf, xp)
         offsets = xp.asarray(pc) - interp(cv, ta, xp)
         means, covs, _ = _bin_by_tp(ta, offsets, tp_nodes)
         tmean = interp(cv, tp_grid, xp) + xp.stack(
@@ -385,3 +389,324 @@ def test_streamtrack_backend_progenitor_grad_fd(backend_name):
             atol=1e-7,
             err_msg=f"d(track)/d(prog IC) grad-vs-FD ({backend_name})",
         )
+
+
+# --------------------------------------------------------------------------
+# Differentiable stream track w.r.t. a POTENTIAL PARAMETER (theta). A backend
+# (jax/torch) potential parameter makes spdf.streamTrack integrate the
+# progenitor via the in-backend ODE (diffrax/torchdiffeq), so the fitted track
+# carries d(track)/d(theta) -- the potential-parameter gradient the C-STM
+# cannot give. Sampling is bypassed by passing particles=.
+# --------------------------------------------------------------------------
+_AMP0, _Q0 = 1.0, 0.9
+
+
+def _spdf_pot(pot):
+    mass = 2 * 10.0**4.0 / conversion.mass_in_msol(_VO, _RO)
+    td = 4.5 / conversion.time_in_Gyr(_VO, _RO)
+    return fardal15spraydf(mass, progenitor=Orbit(_PROG_IC), pot=pot, tdisrupt=td)
+
+
+def _theta_curve(leaf, xp, tf, tb):
+    # Progenitor curve as a function of theta=[amp, q]: integrate fwd+back and
+    # stitch. The backend path uses the in-backend ODE (diffrax/torchdiffeq, the
+    # differentiable-in-theta integrator); the numpy base/FD path uses dop853_c
+    # (the integrator difference's d/d(theta) is negligible -- see FD tolerance).
+    amp, q = leaf[0], leaf[1]
+    pot = LogarithmicHaloPotential(amp=amp, q=q)
+    if xp is numpy:
+        ic, method = list(numpy.asarray(_PROG_IC, dtype=float)), "dop853_c"
+    else:
+        ic = xp.asarray(_PROG_IC)
+        method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+    of = Orbit(ic)
+    of.turn_physical_off()
+    of.integrate(tf, pot, method=method)
+    ob = Orbit(ic)
+    ob.turn_physical_off()
+    ob.integrate(tb, pot, method=method)
+
+    def cart(o, ts):
+        return xp.stack(
+            [o.x(ts), o.y(ts), o.z(ts), o.vx(ts), o.vy(ts), o.vz(ts)], axis=-1
+        )
+
+    return xp.concat([xp.flip(cart(ob, tb), axis=0), cart(of, tf)[1:]], axis=0)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_streamtrack_backend_theta_parity(backend_name):
+    # A backend potential PARAMETER routes the progenitor curve through the
+    # in-backend ODE -> a differentiable BACKEND track matching the numpy-parameter
+    # track at common tp. Sampling is bypassed with particles=.
+    xp = jax.numpy if backend_name == "jax" else torch
+    spdf_np = _spdf_pot(LogarithmicHaloPotential(amp=_AMP0, q=_Q0))
+    numpy.random.seed(_SEED)
+    xv, _ = spdf_np._sample_tail(200, True, leading=True)
+    xv = numpy.asarray(xv, dtype=float)
+    tr_np = spdf_np.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
+    spdf_b = _spdf_pot(LogarithmicHaloPotential(amp=xp.asarray(_AMP0), q=_Q0))
+    tr_b = spdf_b.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
+    assert is_backend_array(tr_b._track_xyz)
+    g_np, g_b = numpy.asarray(tr_np.tp_grid()), numpy.asarray(tr_b.tp_grid())
+    lo, hi = max(g_np[0], g_b[0]), min(g_np[-1], g_b[-1])
+    tp = numpy.linspace(lo + 1e-6, hi - 1e-6, 80)
+    for m in ("x", "y", "z", "vx", "vy", "vz"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(tr_b, m)(tp)),
+            numpy.asarray(getattr(tr_np, m)(tp)),
+            rtol=1e-5,
+            atol=1e-6,
+            err_msg=f"streamTrack backend-theta {m} parity ({backend_name})",
+        )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_streamtrack_backend_theta_grad_fd(backend_name):
+    # STRINGENT grad-vs-FD of d(track)/d(potential parameter): the progenitor curve
+    # integrates via the in-backend ODE, so the full mean+covariance track is
+    # differentiable in theta=[amp, q] (which the C-STM cannot give). Frozen
+    # structure -> d(sum(track**2))/d(theta) matches a central FD, both backends.
+    spdf_np = _spdf_pot(LogarithmicHaloPotential(amp=_AMP0, q=_Q0))
+    numpy.random.seed(_SEED)
+    xv, _ = spdf_np._sample_tail(200, True, leading=True)
+    xv = numpy.asarray(xv, dtype=float)
+    theta0 = numpy.array([_AMP0, _Q0])
+    track = _frozen_spray_track(xv, theta0, curve=_theta_curve, T=2.0, hd=401)
+
+    def loss_np(th):
+        m, c = track(numpy.asarray(th), numpy)
+        return float(
+            numpy.sum(numpy.asarray(m) ** 2) + numpy.sum(numpy.asarray(c) ** 2)
+        )
+
+    if backend_name == "jax":
+        xp = get_namespace(jax.numpy.asarray(theta0))
+
+        def L(th):
+            m, c = track(th, xp)
+            return jax.numpy.sum(m**2) + jax.numpy.sum(c**2)
+
+        g = as_numpy(jax.grad(L)(jax.numpy.asarray(theta0)))
+    else:
+        theta_t = torch.tensor(theta0, requires_grad=True)
+        m, c = track(theta_t, get_namespace(theta_t))
+        (torch.sum(m**2) + torch.sum(c**2)).backward()
+        g = as_numpy(theta_t.grad)
+    assert numpy.all(numpy.isfinite(g)) and numpy.max(numpy.abs(g)) > 0
+    eps = 1e-6
+    for k in range(2):  # amp, q
+        tp_ = theta0.copy()
+        tp_[k] += eps
+        tm_ = theta0.copy()
+        tm_[k] -= eps
+        fd = (loss_np(tp_) - loss_np(tm_)) / (2 * eps)
+        numpy.testing.assert_allclose(
+            g[k],
+            fd,
+            rtol=1e-4,
+            atol=1e-6,
+            err_msg=f"d(track)/d(theta[{k}]) grad-vs-FD ({backend_name})",
+        )
+
+
+def test_streamtrack_nonaxi_probe_numpy():
+    # Regression guard: the backend-theta force probe must NOT crash streamTrack
+    # for a non-axisymmetric numpy potential -- the probe supplies phi (and v) from
+    # the progenitor's present-day phase-space point, so evaluateRforces succeeds.
+    spdf = _spdf_pot(LogarithmicHaloPotential(normalize=1.0, b=0.8, q=0.9))
+    numpy.random.seed(_SEED)
+    xv, _ = spdf._sample_tail(120, True, leading=True)
+    xv = numpy.asarray(xv, dtype=float)
+    tr = spdf.streamTrack(particles=xv, tail="leading", velocity_weight=1.0)
+    assert not is_backend_array(tr._track_xyz)  # numpy potential -> numpy track
+    assert numpy.all(numpy.isfinite(numpy.asarray(tr._track_xyz)))
+
+
+# --------------------------------------------------------------------------
+# FULLY JITTABLE differentiable streamspray: jax.jit(sample()) and
+# jax.jit(streamTrack()) sample INTERNALLY (no particles=) and reconstruct with the
+# jax-native path (static-shape argmin closest-point + GCV P-spline + PSD covariance),
+# so the spray sample xv(theta) FLOWS -- the generative d(track)/d(theta). The
+# track_time_range is auto-estimated (the TRUE traced particle-extent). Streams are
+# sensitive probes, so grad-vs-FD is h-CONVERGED (a single-h central difference is
+# nonlinear at h~1e-3; the linear regime is ~1e-5). jax-only (jit).
+# --------------------------------------------------------------------------
+_JIT_IC = [1.2, 0.15, 0.85, 0.08, 0.05, 0.0]
+_JIT_MASS, _JIT_TD, _JIT_N = 3e-5, 2.0, 40
+
+
+def _jit_grad_hconv(loss, x0):
+    # AD gradient + best relative error vs a central FD over a spread of h. The jitted
+    # value function is compiled once and reused across the FD points (jit caches).
+    jnp = jax.numpy
+    g = float(jax.jit(jax.grad(loss))(jnp.asarray(x0)))
+    lj = jax.jit(loss)
+    best = min(
+        abs(
+            g
+            - (float(lj(jnp.asarray(x0 + h))) - float(lj(jnp.asarray(x0 - h))))
+            / (2 * h)
+        )
+        / max(abs(g), 1e-9)
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    return g, best
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_sample_jit_grad_fd():
+    # jax.jit(sample()) is differentiable in a backend potential parameter with the
+    # spray sample xv(theta) flowing (generative gradient). The k-vector draw is
+    # reparameterized via the jax key -> AD and FD see the SAME noise.
+    key = grandom.key(_SEED, backend="jax")
+
+    def loss(amp):
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=LogarithmicHaloPotential(amp=amp, q=0.9),
+            tdisrupt=_JIT_TD,
+        )
+        return spdf.sample(_JIT_N, return_orbit=False, tail="leading", key=key)[0].sum()
+
+    g, best = _jit_grad_hconv(loss, 1.1)
+    assert numpy.isfinite(g)
+    assert best < 1e-3, f"jit sample grad-vs-FD best REL={best:.2e}"
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_jit_grad_fd():
+    # jax.jit(streamTrack()) samples INTERNALLY + reconstructs jax-natively (auto
+    # track_time_range + GCV P-spline + PSD covariance), differentiable in a backend
+    # potential parameter -- mean track AND covariance flow.
+    key = grandom.key(_SEED, backend="jax")
+
+    def loss(amp):
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=LogarithmicHaloPotential(amp=amp, q=0.9),
+            tdisrupt=_JIT_TD,
+        )
+        tr = spdf.streamTrack(
+            n=_JIT_N, tail="leading", velocity_weight=1.0, order=2, key=key
+        )
+        return tr._track_xyz.sum() + tr._cov_xyz.sum()
+
+    g, best = _jit_grad_hconv(loss, 1.1)
+    assert numpy.isfinite(g)
+    assert best < 1e-3, f"jit streamTrack grad-vs-FD best REL={best:.2e}"
+
+    # covariance is PSD (checked inside jit so cov_xyz stays a traced backend array)
+    def min_eig(amp):
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=LogarithmicHaloPotential(amp=amp, q=0.9),
+            tdisrupt=_JIT_TD,
+        )
+        tr = spdf.streamTrack(
+            n=_JIT_N, tail="leading", velocity_weight=1.0, order=2, key=key
+        )
+        return jax.numpy.min(jax.numpy.linalg.eigvalsh(tr._cov_xyz))
+
+    assert float(jax.jit(min_eig)(jax.numpy.asarray(1.1))) > -1e-9
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_tp_scale_jit():
+    # StreamTrack tp_scale mode (how jit streamTrack carries a data-dependent extent):
+    # the parameter axis is a CONCRETE normalized grid + a TRACED physical scale
+    # (physical tp = u * tp_scale), keeping the cubic-spline geometry concrete under
+    # jit while the extent stays differentiable. d(x)/d(scale) flows through both the
+    # track values and the tp->u query mapping.
+    from galpy.df.streamTrack import StreamTrack
+
+    jnp = jax.numpy
+    u = numpy.linspace(0.0, 1.0, 60)
+
+    def qx(scale):
+        tx = jnp.stack(
+            [jnp.sin(2 * jnp.pi * u) * scale, jnp.cos(2 * jnp.pi * u), u * 0.1], axis=-1
+        )
+        return StreamTrack(u, tx, tx * 0.0, tp_scale=scale).x(1.5, use_physical=False)
+
+    # physical tp=1.5, scale=3 -> u=0.5 -> sin(2pi*0.5)*3 = 0
+    numpy.testing.assert_allclose(float(jax.jit(qx)(jnp.asarray(3.0))), 0.0, atol=1e-10)
+    g = float(jax.jit(jax.grad(qx))(jnp.asarray(3.0)))
+    fd = (
+        float(jax.jit(qx)(jnp.asarray(3.0 + 1e-6)))
+        - float(jax.jit(qx)(jnp.asarray(3.0 - 1e-6)))
+    ) / 2e-6
+    numpy.testing.assert_allclose(g, fd, rtol=1e-5, atol=1e-8)
+    # tp_grid() returns the physical axis (u * scale)
+    cols = jnp.asarray(numpy.column_stack([u, u, u]))
+    tr = StreamTrack(u, cols * 3.0, cols, tp_scale=jnp.asarray(3.0))
+    numpy.testing.assert_allclose(as_numpy(tr.tp_grid())[-1], 3.0, rtol=1e-9)
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_sample_jit_grad_fd_prog_ic():
+    # jax.jit over a BACKEND progenitor IC: the traced IC makes the C path
+    # inapplicable, so _integrate_progenitor routes the progenitor (and every
+    # sampled orbit) to the in-backend ODE (diffrax) -> d(stream)/d(prog IC) flows.
+    # Reparameterized noise (jax key) -> AD and FD see the same draw.
+    key = grandom.key(_SEED, backend="jax")
+
+    def loss(r0):
+        ic = jax.numpy.array([r0, 0.15, 0.85, 0.08, 0.05, 0.0])
+        spdf = fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(ic),
+            pot=LogarithmicHaloPotential(amp=1.0, q=0.9),
+            tdisrupt=_JIT_TD,
+        )
+        return spdf.sample(_JIT_N, return_orbit=False, tail="leading", key=key)[0].sum()
+
+    g, best = _jit_grad_hconv(loss, 1.2)
+    assert numpy.isfinite(g)
+    assert best < 1e-3, f"jit sample prog-IC grad-vs-FD best REL={best:.2e}"
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for backend-theta construction")
+def test_backend_sampling_center_not_implemented():
+    # Differentiable stream sampling (a backend potential parameter -> _bsamp set)
+    # combined with a center orbit is not yet supported and must raise, not silently
+    # produce a wrong (numpy-frozen) track.
+    with pytest.raises(NotImplementedError):
+        fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=LogarithmicHaloPotential(amp=jax.numpy.asarray(1.0), q=0.9),
+            tdisrupt=_JIT_TD,
+            center=Orbit(_JIT_IC),
+        )
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for tp_scale accessors")
+def test_streamtrack_tp_scale_accessors():
+    # In tp_scale mode the full-6D eval (_eval_cart, used by R/phi/heliocentric
+    # accessors) and the covariance accessor map a PHYSICAL query tp to the concrete
+    # normalized axis (tp/tp_scale) before interpolating. Build a backend track with
+    # covariance + tp_scale and check both accessors evaluate on the physical axis.
+    from galpy.df.streamTrack import StreamTrack
+
+    jnp = jax.numpy
+    u = numpy.linspace(0.0, 1.0, 40)
+    xyz = jnp.asarray(
+        numpy.column_stack(
+            [numpy.sin(2 * numpy.pi * u) + 2.0, numpy.cos(2 * numpy.pi * u), u * 0.1]
+        )
+    )
+    vxyz = jnp.asarray(numpy.column_stack([u * 0.0 + 0.1, u * 0.0 + 0.2, u * 0.0]))
+    cov = jnp.asarray(numpy.broadcast_to(numpy.eye(6) * 0.01, (40, 6, 6)).copy())
+    tr = StreamTrack(jnp.asarray(u), xyz, vxyz, cov_xyz=cov, tp_scale=jnp.asarray(3.0))
+    # physical tp=1.5, scale=3 -> u=0.5 -> x=sin(pi)+2=2, y=cos(pi)=-1 -> R=sqrt(5)
+    numpy.testing.assert_allclose(
+        float(as_numpy(numpy.atleast_1d(tr.R(1.5, use_physical=False))[0])),
+        numpy.sqrt(5.0),
+        rtol=1e-6,
+    )
+    cov_b = as_numpy(tr.cov(1.5, use_physical=False))
+    assert cov_b.shape == (6, 6) and numpy.all(numpy.isfinite(cov_b))

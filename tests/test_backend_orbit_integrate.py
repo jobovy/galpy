@@ -787,3 +787,26 @@ def test_inbackend_integrate_orbit_numpy_input_raises():
             numpy.array(_IC),
             numpy.linspace(0.0, 1.0, 5),
         )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+def test_backend_param_via_c_integrator_detaches():
+    # A backend (jax) potential PARAMETER reaches the compiled C integrator as its
+    # concrete numpy value (_finalize_pot_args detaches it), so the trajectory is
+    # byte-identical to the pure-numpy parameter (the C path carries no d/d(param)).
+    o = Orbit(_IC)
+    o.integrate(_TS, PlummerPotential(amp=jnp.asarray(1.0), b=0.6), method="dop853_c")
+    ref = Orbit(_IC)
+    ref.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="dop853_c")
+    numpy.testing.assert_array_equal(numpy.asarray(o.R(_TS)), numpy.asarray(ref.R(_TS)))
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+def test_accessor_jittable_at_traced_grid_times():
+    # o.R(t) at exact-grid times must be jittable: a TRACED query time cannot be
+    # value-compared to the stored grid (numpy.asarray on a tracer raises), so it
+    # falls through to the in-backend interpolator and still returns the trajectory.
+    ob = Orbit(jnp.asarray(_IC))
+    ob.integrate(_TS, PlummerPotential(amp=1.0, b=0.6), method="dop853_c")
+    val = float(jax.jit(lambda tq: ob.R(tq)[-1])(jnp.asarray(_TS)))
+    numpy.testing.assert_allclose(val, float(as_numpy(ob.R(_TS))[-1]), rtol=1e-6)
