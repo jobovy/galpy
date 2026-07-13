@@ -9,6 +9,12 @@ import warnings
 import numpy
 import numpy.linalg
 
+from ..backend import (
+    asarray_on_device,
+    device_of,
+    get_namespace,
+    is_backend_array,
+)
 from ..util import conversion, coords, galpyWarning
 from .DissipativeForce import DissipativeForce
 
@@ -262,48 +268,87 @@ class NonInertialFrameForce(DissipativeForce):
     def _force(self, R, z, phi, t, v):
         """Internal function that computes the fictitious forces in rectangular
         coordinates"""
-        new_hash = hashlib.md5(
-            numpy.array([R, phi, z, v[0], v[1], v[2], t])
-        ).hexdigest()
-        if new_hash == self._force_hash:
-            return self._cached_force
+        xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+        numpy_input = xp is numpy
+        if numpy_input:
+            # Single-entry input cache: numpy path only (a backend trace cannot
+            # be md5-hashed, and caching eager backend arrays defeats the trace)
+            new_hash = hashlib.md5(
+                numpy.array([R, phi, z, v[0], v[1], v[2], t])
+            ).hexdigest()
+            if new_hash == self._force_hash:
+                return self._cached_force
         x, y, z = coords.cyl_to_rect(R, phi, z)
         vx, vy, vz = coords.cyl_to_rect_vec(v[0], v[1], v[2], phi)
-        force = numpy.zeros(3)
+        dev = None if numpy_input else device_of(x, y, vx, vy, vz)
+
+        def _coerce(c):
+            return c if is_backend_array(c) else asarray_on_device(xp, c, dev)
+
+        def _vec(comps):
+            # 1D vector from (possibly backend, grad-carrying) scalar comps;
+            # stack (not asarray) preserves the autograd graph
+            return (
+                numpy.asarray(comps)
+                if numpy_input
+                else xp.stack([_coerce(c) for c in comps])
+            )
+
+        def _mat(rows):
+            # 3x3 matrix from scalar comps (stack preserves autograd graph)
+            return (
+                numpy.asarray(rows)
+                if numpy_input
+                else xp.stack([xp.stack([_coerce(c) for c in r]) for r in rows])
+            )
+
+        def _const(a):
+            # Anchor a stored numpy constant (matrix/vector) on the backend
+            # device; byte-identical pass-through on the numpy path
+            return a if numpy_input else asarray_on_device(xp, a, dev)
+
+        def _mv(mat, vecarr):  # matrix (3x3) times vector (3): torch.dot is 1D-only
+            return numpy.dot(mat, vecarr) if numpy_input else xp.matmul(mat, vecarr)
+
+        force = numpy.zeros(3) if numpy_input else _vec([0.0, 0.0, 0.0])
         if self._rot_acc:
             if self._const_freq:
                 tOmega = self._Omega
                 tOmega2 = self._Omega2
             elif self._Omega_as_func:
-                tOmega = self._Omega_py(t)
-                tOmega2 = numpy.linalg.norm(tOmega) ** 2.0
+                tOmega = (
+                    self._Omega_py(t)
+                    if self._omegaz_only
+                    else _vec([self._Omega[0](t), self._Omega[1](t), self._Omega[2](t)])
+                )
+                tOmega2 = xp.linalg.norm(tOmega) ** 2.0
             else:
-                tOmega = self._Omega + self._Omegadot * t
-                tOmega2 = numpy.linalg.norm(tOmega) ** 2.0
+                tOmega = _const(self._Omega) + _const(self._Omegadot) * t
+                tOmega2 = xp.linalg.norm(tOmega) ** 2.0
             if self._omegaz_only:
-                force += -2.0 * tOmega * numpy.array(
-                    [-vy, vx, 0.0]
-                ) + tOmega2 * numpy.array([x, y, 0.0])
+                force += -2.0 * tOmega * _vec([-vy, vx, 0.0]) + tOmega2 * _vec(
+                    [x, y, 0.0]
+                )
                 if self._lin_acc:
-                    force += -2.0 * tOmega * numpy.array(
+                    force += -2.0 * tOmega * _vec(
                         [-self._v0[1](t), self._v0[0](t), 0.0]
-                    ) + tOmega2 * numpy.array([self._x0[0](t), self._x0[1](t), 0.0])
+                    ) + tOmega2 * _vec([self._x0[0](t), self._x0[1](t), 0.0])
                 if not self._const_freq:
                     if self._Omega_as_func:
-                        force -= self._Omegadot_py(t) * numpy.array([-y, x, 0.0])
+                        force -= self._Omegadot_py(t) * _vec([-y, x, 0.0])
                         if self._lin_acc:
-                            force -= self._Omegadot_py(t) * numpy.array(
+                            force -= self._Omegadot_py(t) * _vec(
                                 [-self._x0[1](t), self._x0[0](t), 0.0]
                             )
                     else:
-                        force -= self._Omegadot * numpy.array([-y, x, 0.0])
+                        force -= self._Omegadot * _vec([-y, x, 0.0])
                         if self._lin_acc:
-                            force -= self._Omegadot * numpy.array(
+                            force -= self._Omegadot * _vec(
                                 [-self._x0[1](t), self._x0[0](t), 0.0]
                             )
             else:
                 if self._Omega_as_func:
-                    self._Omega_for_cross = numpy.array(
+                    Omega_for_cross = _mat(
                         [
                             [0.0, -self._Omega[2](t), self._Omega[1](t)],
                             [self._Omega[2](t), 0.0, -self._Omega[0](t)],
@@ -311,57 +356,59 @@ class NonInertialFrameForce(DissipativeForce):
                         ]
                     )
                     if not self._const_freq:
-                        self._Omegadot_for_cross = numpy.array(
+                        Omegadot_for_cross = _mat(
                             [
                                 [0.0, -self._Omegadot[2](t), self._Omegadot[1](t)],
                                 [self._Omegadot[2](t), 0.0, -self._Omegadot[0](t)],
                                 [-self._Omegadot[1](t), self._Omegadot[0](t), 0.0],
                             ]
                         )
+                else:
+                    Omega_for_cross = _const(self._Omega_for_cross)
+                    if not self._const_freq:
+                        Omegadot_for_cross = _const(self._Omegadot_for_cross)
+                if not numpy_input and not is_backend_array(tOmega):
+                    tOmega = _const(tOmega)  # anchor the stored numpy constant
+                xyz = _vec([x, y, z])
                 force += (
-                    -2.0 * numpy.dot(self._Omega_for_cross, numpy.array([vx, vy, vz]))
-                    + tOmega2 * numpy.array([x, y, z])
-                    - tOmega * numpy.dot(tOmega, numpy.array([x, y, z]))
+                    -2.0 * _mv(Omega_for_cross, _vec([vx, vy, vz]))
+                    + tOmega2 * xyz
+                    - tOmega * xp.dot(tOmega, xyz)
                 )
                 if self._lin_acc:
+                    v0 = _vec([self._v0[0](t), self._v0[1](t), self._v0[2](t)])
+                    x0 = _vec([self._x0[0](t), self._x0[1](t), self._x0[2](t)])
                     force += (
-                        -2.0 * numpy.dot(self._Omega_for_cross, self._v0_py(t))
-                        + tOmega2 * self._x0_py(t)
-                        - tOmega * numpy.dot(tOmega, self._x0_py(t))
+                        -2.0 * _mv(Omega_for_cross, v0)
+                        + tOmega2 * x0
+                        - tOmega * xp.dot(tOmega, x0)
                     )
                 if not self._const_freq:
                     if (
                         not self._Omega_as_func
                     ):  # Already included above when Omega=func
-                        force -= (
-                            2.0
-                            * t
-                            * numpy.dot(
-                                self._Omegadot_for_cross, numpy.array([vx, vy, vz])
-                            )
-                        )
-                    force -= numpy.dot(self._Omegadot_for_cross, numpy.array([x, y, z]))
+                        force -= 2.0 * t * _mv(Omegadot_for_cross, _vec([vx, vy, vz]))
+                    force -= _mv(Omegadot_for_cross, xyz)
                     if self._lin_acc:
                         if not self._Omega_as_func:
-                            force -= (
-                                2.0
-                                * t
-                                * numpy.dot(self._Omegadot_for_cross, self._v0_py(t))
-                            )
-                        force -= numpy.dot(self._Omegadot_for_cross, self._x0_py(t))
+                            force -= 2.0 * t * _mv(Omegadot_for_cross, v0)
+                        force -= _mv(Omegadot_for_cross, x0)
         if self._lin_acc:
-            force -= self._a0_py(t)
-        self._force_hash = new_hash
-        self._cached_force = force
+            force -= _vec([self._a0[0](t), self._a0[1](t), self._a0[2](t)])
+        if numpy_input:
+            self._force_hash = new_hash
+            self._cached_force = force
         return force
 
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
         force = self._force(R, z, phi, t, v)
-        return numpy.cos(phi) * force[0] + numpy.sin(phi) * force[1]
+        xp = get_namespace(phi, force[0])
+        return xp.cos(phi) * force[0] + xp.sin(phi) * force[1]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
         force = self._force(R, z, phi, t, v)
-        return R * (-numpy.sin(phi) * force[0] + numpy.cos(phi) * force[1])
+        xp = get_namespace(phi, force[0])
+        return R * (-xp.sin(phi) * force[0] + xp.cos(phi) * force[1])
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
         return self._force(R, z, phi, t, v)[2]
