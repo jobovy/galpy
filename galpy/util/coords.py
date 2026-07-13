@@ -80,7 +80,7 @@ from functools import wraps
 
 import numpy
 
-from ..backend import get_namespace, promote_scalars
+from ..backend import get_namespace, is_backend_array, promote_scalars
 from ..util import _rotate_to_arbitrary_vector
 from ..util._optional_deps import _APY_LOADED
 from ..util.config import __config__
@@ -2606,12 +2606,13 @@ def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
     -----
     - 2015-02-13 - Written - Trick (MPIA)
     """
+    xp = get_namespace(R, z)
     g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
     term = R**2 + z**2 - a - g
     discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
-    l = 0.5 * (term + numpy.sqrt(discr))
-    n = 0.5 * (term - numpy.sqrt(discr))
+    l = 0.5 * (term + xp.sqrt(discr))
+    n = 0.5 * (term - xp.sqrt(discr))
     if isinstance(z, float) and z == 0.0:
         l = R**2 - a
         n = -g
@@ -2645,11 +2646,16 @@ def Rz_to_lambdanu_jac(R, z, Delta=1.0):
     - 2015-02-13 - Written - Trick (MPIA).
     """
 
+    xp = get_namespace(R, z)
     discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
-    dldR = R * (1.0 + (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
-    dndR = R * (1.0 - (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
-    dldz = z * (1.0 + (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
-    dndz = z * (1.0 - (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
+    dldR = R * (1.0 + (R**2 + z**2 + Delta**2) / xp.sqrt(discr))
+    dndR = R * (1.0 - (R**2 + z**2 + Delta**2) / xp.sqrt(discr))
+    dldz = z * (1.0 + (R**2 + z**2 - Delta**2) / xp.sqrt(discr))
+    dndz = z * (1.0 - (R**2 + z**2 - Delta**2) / xp.sqrt(discr))
+    if is_backend_array(R) or is_backend_array(z):
+        return xp.stack(
+            [xp.stack([dldR, dldz], axis=0), xp.stack([dndR, dndz], axis=0)], axis=0
+        )
     dim = numpy.amax([len(numpy.atleast_1d(R)), len(numpy.atleast_1d(z))])
     jac = numpy.zeros((2, 2, dim))
     jac[0, 0, :] = dldR
@@ -2712,6 +2718,27 @@ def Rz_to_lambdanu_hess(R, z, Delta=1.0):
     )
     d2ldRdz = 2.0 * R * z / discr**0.5 * (1.0 - ((R2 + z2) ** 2 - D**4) / discr)
     d2ndRdz = 2.0 * R * z / discr**0.5 * (-1.0 + ((R2 + z2) ** 2 - D**4) / discr)
+    if is_backend_array(R) or is_backend_array(z):
+        xp = get_namespace(R, z)
+        return xp.stack(
+            [
+                xp.stack(
+                    [
+                        xp.stack([d2ldR2, d2ldRdz], axis=0),
+                        xp.stack([d2ldRdz, d2ldz2], axis=0),
+                    ],
+                    axis=0,
+                ),
+                xp.stack(
+                    [
+                        xp.stack([d2ndR2, d2ndRdz], axis=0),
+                        xp.stack([d2ndRdz, d2ndz2], axis=0),
+                    ],
+                    axis=0,
+                ),
+            ],
+            axis=0,
+        )
     dim = numpy.amax([len(numpy.atleast_1d(R)), len(numpy.atleast_1d(z))])
     hess = numpy.zeros((2, 2, 2, dim))
     # Hessian for lambda:

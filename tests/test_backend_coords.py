@@ -182,3 +182,95 @@ def test_grad_through(backend_name):
     numpy.testing.assert_allclose(gR, numpy.sin(theta0), rtol=1e-10)
     numpy.testing.assert_allclose(gvx, numpy.cos(phi0), rtol=1e-10)
     numpy.testing.assert_allclose(gvr, numpy.cos(numpy.arctan2(Y0, X0)), rtol=1e-10)
+
+
+###############################################################################
+# Rz_to_lambdanu / _jac / _hess: the prolate-spheroidal (R,z)->(lambda,nu)
+# transform behind KuzminKutuzovStaeckelPotential. These did raw numpy.sqrt and
+# numpy.zeros + in-place assignment, so a jax/torch trace over the force eval
+# crashed (TracerArrayConversionError). Now they namespace-swap the sqrt (numpy
+# path byte-identical) and take an is_backend_array-gated xp.stack build for
+# backend inputs. z=0 is included as an edge (the general formula is exact and
+# differentiable there; the numpy z==0 special-case is skipped for backends).
+###############################################################################
+_LN_R = numpy.array([0.5, 1.0, 1.2, 2.3, 0.8])
+_LN_Z = numpy.array([0.0, 0.3, -0.7, 1.5, 0.2])
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_lambdanu_value_parity(backend_name):
+    A = lambda a: _asarray(backend_name, a)
+    ref_l, ref_n = coords.Rz_to_lambdanu(_LN_R, _LN_Z, ac=5.0, Delta=1.4)
+    ref_jac = coords.Rz_to_lambdanu_jac(_LN_R, _LN_Z, Delta=1.4)
+    ref_hess = coords.Rz_to_lambdanu_hess(_LN_R, _LN_Z, Delta=1.4)
+    l, n = coords.Rz_to_lambdanu(A(_LN_R), A(_LN_Z), ac=5.0, Delta=1.4)
+    jac = coords.Rz_to_lambdanu_jac(A(_LN_R), A(_LN_Z), Delta=1.4)
+    hess = coords.Rz_to_lambdanu_hess(A(_LN_R), A(_LN_Z), Delta=1.4)
+    numpy.testing.assert_allclose(as_numpy(l), ref_l, rtol=1e-13, atol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(n), ref_n, rtol=1e-13, atol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(jac), ref_jac, rtol=1e-13, atol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(hess), ref_hess, rtol=1e-13, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_kuzminkutuzov_force_traces(backend_name):
+    from galpy.potential import (
+        KuzminKutuzovStaeckelPotential,
+        evaluateR2derivs,
+        evaluateRforces,
+        evaluatezforces,
+    )
+
+    kp = KuzminKutuzovStaeckelPotential(amp=1.3, ac=5.0, Delta=1.0)
+    R0, z0 = 1.2, 0.3
+    if backend_name == "jax":
+        R, z = jnp.asarray(R0), jnp.asarray(z0)
+        assert isinstance(evaluateRforces(kp, R, z), jax.Array)
+        gR = jax.jacfwd(lambda RR: evaluateRforces(kp, RR, z))(R)
+        gz = jax.jacfwd(lambda zz: evaluatezforces(kp, R, zz))(z)
+        assert bool(jnp.isfinite(gR)) and bool(jnp.isfinite(gz))
+        jf = jax.jit(lambda RR, zz: evaluateRforces(kp, RR, zz))
+        assert bool(jnp.isfinite(jf(R, z)))
+        # autodiff self-consistency: d(Rforce)/dR == -R2deriv
+        numpy.testing.assert_allclose(
+            float(gR), -float(evaluateR2derivs(kp, R, z)), rtol=1e-10
+        )
+        # differentiable w.r.t. the Delta parameter (goes through the transform)
+        gd = jax.jacfwd(
+            lambda d: evaluateRforces(
+                KuzminKutuzovStaeckelPotential(amp=1.3, ac=5.0, Delta=d), R, z
+            )
+        )(jnp.asarray(1.0))
+        assert bool(jnp.isfinite(gd))
+    else:
+        R = torch.tensor(R0, requires_grad=True)
+        z = torch.tensor(z0, requires_grad=True)
+        f = evaluateRforces(kp, R, z)
+        assert isinstance(f, torch.Tensor)
+        (gR,) = torch.autograd.grad(f, R, create_graph=True)
+        assert bool(torch.isfinite(gR))
+        r2 = evaluateR2derivs(kp, R.detach(), z.detach())
+        numpy.testing.assert_allclose(float(gR.detach()), -float(r2), rtol=1e-10)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_kuzminkutuzov_force_grad_fd(backend_name):
+    from galpy.potential import KuzminKutuzovStaeckelPotential, evaluateRforces
+
+    kp = KuzminKutuzovStaeckelPotential(amp=1.3, ac=5.0, Delta=1.2)
+    R0, z0 = 1.3, 0.4
+    if backend_name == "jax":
+        g_ad = float(
+            jax.jacfwd(lambda RR: evaluateRforces(kp, RR, jnp.asarray(z0)))(
+                jnp.asarray(R0)
+            )
+        )
+    else:
+        R = torch.tensor(R0, requires_grad=True)
+        (g,) = torch.autograd.grad(evaluateRforces(kp, R, torch.tensor(z0)), R)
+        g_ad = float(g)
+    # numpy central finite difference must show O(h^2) convergence to the AD grad
+    f = lambda R: float(evaluateRforces(kp, R, z0))
+    errs = [abs((f(R0 + h) - f(R0 - h)) / (2.0 * h) - g_ad) for h in (1e-3, 1e-4)]
+    assert errs[0] < 1e-6
+    assert errs[1] < errs[0] / 50.0
