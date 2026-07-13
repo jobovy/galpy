@@ -580,8 +580,14 @@ def _fit_track_backend_jit(
     Positions + velocities only (``cov_xyz=None``); a jittable covariance pass is a
     follow-up. Returns the same dict shape as :func:`_fit_track_from_particles`.
     """
-    xp = get_namespace(prog_cart)
-    dev = device_of(prog_cart)
+    # Resolve the backend from whichever input carries it: a potential-parameter
+    # gradient traces the curve, a progenitor-mass gradient traces only the
+    # particles. Coerce the (possibly numpy) curve onto that backend so every op
+    # below is namespace-consistent.
+    _ref = xv_particles if is_backend_array(xv_particles) else prog_cart
+    xp = get_namespace(_ref)
+    dev = device_of(_ref)
+    prog_cart = asarray_on_device(xp, prog_cart, dev)
     n_part = xv_particles.shape[1]
     # particles (6,N) cyl -> (N,6) cart, natively (differentiable)
     R_p, vR_p, vT_p, z_p, vz_p, phi_p = xv_particles
@@ -724,25 +730,35 @@ def _fit_track_from_particles(
     arm_sign = int(numpy.sign(arm_sign)) or 1
     ninterp = int(ninterp)
     order = int(order)
+
     # jit / traced-backend path: the numpy/scipy structural reconstruction below
     # (cKDTree, make_smoothing_spline, boolean-mask filtering, percentile) cannot run
     # on tracers -> the fully jittable jax/torch-native reconstruction. Eager backend
     # arrays coerce to numpy fine, so they keep the (byte-identical-structured) path.
-    if is_backend_array(prog_cart):
+    # EITHER the progenitor curve OR the particles being traced forces the native
+    # path: a potential-parameter gradient traces the curve, while a progenitor-mass
+    # gradient traces only the particles (via the tidal radius) and not the curve.
+    def _traced(a):
+        if not is_backend_array(a):
+            return False
         try:
-            as_numpy(prog_cart)
-        except Exception:  # noqa: BLE001 -- traced (jit) backend curve
-            return _fit_track_backend_jit(
-                xv_particles,
-                prog_cart,
-                track_t_grid,
-                arm_sign,
-                ninterp,
-                ntp,
-                velocity_weight,
-                smoothing_factor,
-                order,
-            )
+            as_numpy(a)
+            return False
+        except Exception:  # noqa: BLE001 -- traced (jit) backend array
+            return True
+
+    if _traced(prog_cart) or _traced(xv_particles):
+        return _fit_track_backend_jit(
+            xv_particles,
+            prog_cart,
+            track_t_grid,
+            arm_sign,
+            ninterp,
+            ntp,
+            velocity_weight,
+            smoothing_factor,
+            order,
+        )
     prog_cart_np = as_numpy(prog_cart)
 
     if is_backend_array(prog_cart):
