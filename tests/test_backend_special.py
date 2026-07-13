@@ -641,23 +641,37 @@ def test_assoc_legendre_autodiff_matches_analytic(backend):
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="lax.scan Bonnet roll is jax-only")
 def test_assoc_legendre_traced_bonnet_scan():
-    # Under a jax trace the Bonnet l-recurrence is rolled into ONE lax.scan
-    # (_fallback.assoc_legendre._bonnet_scan_jax); eager numpy/torch/jax keep the
-    # unrolled Python loop (byte-identical, verified by the parity tests above).
-    # This asserts: (a) the roll fires (jaxpr has a scan primitive and the
-    # value-path graph is an order of magnitude smaller than the unrolled loop),
-    # (b) the traced result matches the eager loop to the XLA fma-fusion floor for
-    # every deriv level, and (c) grad-through-the-scan matches central FD.
+    # Under a jax trace the value Bonnet l-recurrence is rolled into ONE lax.scan
+    # (_bonnet_scan_jax) and the derivative tables are computed by vectorized ops
+    # over static (l, m) grids (_legendre_dP_jax/_legendre_d2_jax); eager
+    # numpy/torch/jax keep the unrolled Python loops (byte-identical, verified by
+    # the parity tests above + the origin byte-diff harness). This asserts: (a) the
+    # value roll fires (scan primitive; small deriv=0 graph) and the derivative
+    # tables are rolled (deriv=1/2 graphs an order of magnitude below the unrolled
+    # loop), (b) the traced result matches the eager loop to the XLA fma floor for
+    # every deriv level, (c) parity holds AT the poles x=+-1 (m==0 finite entries
+    # exact, m>=1 NaN positions match), and (d) grad through the traced derivative
+    # tables matches central FD.
     L, M = 10, 5
     x = jnp.asarray(numpy.linspace(-0.9, 0.9, 7), dtype=jnp.float64)
 
-    # (a) rolled: a scan primitive is present and the deriv=0 graph is small
-    #     (the eager double loop unrolls to ~200 eqns for these L, M).
-    eqns = jax.make_jaxpr(lambda xx: gsp.assoc_legendre(L, M, xx))(x).jaxpr.eqns
-    assert any(e.primitive.name == "scan" for e in eqns), "lax.scan roll did not fire"
-    assert len(eqns) < 60, f"deriv=0 jaxpr not rolled ({len(eqns)} eqns)"
+    # (a) rolled: scan primitive present; deriv=0 graph small (eager unrolls to
+    #     ~200 eqns) and the deriv=1/2 derivative-table graphs are far below the
+    #     eager-unrolled ~600/~1000 eqns.
+    def _neqns(d):
+        def f(xx):
+            out = gsp.assoc_legendre(L, M, xx, deriv=d)
+            return out if d == 0 else sum(o.sum() for o in out)
 
-    # (b) traced (jit -> scan) vs eager (Python loop) to the XLA fma floor.
+        return len(jax.make_jaxpr(f)(x).jaxpr.eqns)
+
+    eqns0 = jax.make_jaxpr(lambda xx: gsp.assoc_legendre(L, M, xx))(x).jaxpr.eqns
+    assert any(e.primitive.name == "scan" for e in eqns0), "lax.scan roll did not fire"
+    assert len(eqns0) < 60, f"deriv=0 jaxpr not rolled ({len(eqns0)} eqns)"
+    assert _neqns(1) < 150, "deriv=1 derivative table not rolled"
+    assert _neqns(2) < 250, "deriv=2 derivative table not rolled"
+
+    # (b) traced (jit) vs eager (Python loop) to the XLA fma floor, all deriv.
     for d in (0, 1, 2):
         eager = gsp.assoc_legendre(L, M, x, deriv=d)
         traced = jax.jit(lambda xx, d=d: gsp.assoc_legendre(L, M, xx, deriv=d))(x)
@@ -668,14 +682,27 @@ def test_assoc_legendre_traced_bonnet_scan():
                 as_numpy(t), as_numpy(e), rtol=1e-6, atol=1e-6
             )
 
-    # (c) grad-vs-FD through the traced scan (random direction, quadratic loss).
+    # (c) parity at the poles x=+-1: m==0 derivative columns are finite (exact
+    #     closed form) and the m>=1 NaN pattern matches the eager loop.
+    xp1 = jnp.asarray([1.0, -1.0], dtype=jnp.float64)
+    for d in (1, 2):
+        eager = gsp.assoc_legendre(L, M, xp1, deriv=d)
+        traced = jax.jit(lambda xx, d=d: gsp.assoc_legendre(L, M, xx, deriv=d))(xp1)
+        for e, t in zip(eager, traced):
+            en, tn = as_numpy(e), as_numpy(t)
+            assert numpy.array_equal(numpy.isnan(en), numpy.isnan(tn))  # NaN pattern
+            fin = ~numpy.isnan(en)
+            assert numpy.array_equal(tn[fin], en[fin])  # finite entries bit-exact
+
+    # (d) grad-vs-FD through the traced derivative tables (random direction,
+    #     quadratic loss mixing P, dP and d2), interior x (no poles).
     x0 = jnp.asarray(numpy.linspace(-0.75, 0.8, 7), dtype=jnp.float64)
     dirn = jax.random.normal(jax.random.PRNGKey(1), x0.shape, dtype=jnp.float64)
     w = jnp.asarray(numpy.arange(1, L * M + 1, dtype=float)).reshape(L, M)
 
     def loss(t):
-        P, dP = gsp.assoc_legendre(L, M, x0 + t * dirn, deriv=1)
-        return jnp.sum(w * P**2) + jnp.sum(dP[..., 4, 2] ** 2)
+        P, dP, d2 = gsp.assoc_legendre(L, M, x0 + t * dirn, deriv=2)
+        return jnp.sum(w * dP**2) + jnp.sum(d2[..., 5, 1] ** 2) + jnp.sum(P[..., 4, 2])
 
     g = float(jax.grad(loss)(0.0))
     errs = [abs((float(loss(h)) - float(loss(-h))) / (2 * h) - g) for h in (1e-4, 1e-6)]

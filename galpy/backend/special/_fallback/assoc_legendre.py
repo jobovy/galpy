@@ -46,30 +46,35 @@ def assoc_legendre(xp, L, M, x, deriv=0):
     def _stack(grid):
         return xp.stack([xp.stack(row, axis=-1) for row in grid], axis=-2)
 
-    # P[l][m] as a list-of-lists of backend arrays (functional, no mutation).
-    if under_jax_trace(x):  # roll the Bonnet l-recurrence into one lax.scan
+    # Traced: roll the value recurrence into one lax.scan and compute the
+    # derivative tables (which are pointwise in Parr, not recurrences) by
+    # vectorized ops over static (l, m) grids. Eager keeps the Python loops below.
+    if under_jax_trace(x):
         Parr = _bonnet_scan_jax(L, M, x, somx2, one, zero)  # x.shape + (L, M)
-        if deriv == 0:  # value-only: return the scan output straight (no unstack)
-            return Parr
-        # derivatives read P[l][m]; expose the scanned rows as that list of views.
-        P = [[Parr[..., l, m] for m in range(M)] for l in range(L)]
-    else:  # eager (numpy/torch/jax): keep the unrolled Python double loop
-        P = [[zero for _ in range(M)] for _ in range(L)]
-        pmm = one  # running P_m^m diagonal
-        for m in range(M):
-            if m > 0:
-                pmm = pmm * (-(2 * m - 1)) * somx2
-            if m < L:
-                P[m][m] = pmm
-            if m + 1 < L:
-                P[m + 1][m] = x * (2 * m + 1) * pmm
-            for l in range(m + 2, L):
-                P[l][m] = (
-                    x * (2 * l - 1) * P[l - 1][m] - (l + m - 1) * P[l - 2][m]
-                ) / (l - m)
-        Parr = _stack(P)
         if deriv == 0:
             return Parr
+        dParr = _legendre_dP_jax(L, M, x, Parr)
+        if deriv == 1:
+            return Parr, dParr
+        return Parr, dParr, _legendre_d2_jax(L, M, x, Parr, dParr)
+
+    # Eager (numpy/torch/jax): the original unrolled Python double loops.
+    P = [[zero for _ in range(M)] for _ in range(L)]
+    pmm = one  # running P_m^m diagonal
+    for m in range(M):
+        if m > 0:
+            pmm = pmm * (-(2 * m - 1)) * somx2
+        if m < L:
+            P[m][m] = pmm
+        if m + 1 < L:
+            P[m + 1][m] = x * (2 * m + 1) * pmm
+        for l in range(m + 2, L):
+            P[l][m] = (x * (2 * l - 1) * P[l - 1][m] - (l + m - 1) * P[l - 2][m]) / (
+                l - m
+            )
+    Parr = _stack(P)
+    if deriv == 0:
+        return Parr
 
     den = x * x - 1.0  # (x^2-1); singular only at the poles |x|=1
     pole = x * x >= 1.0  # symmetry-axis poles (cos theta = +-1)
@@ -147,3 +152,67 @@ def _bonnet_scan_jax(L, M, x, somx2, one, zero):
     _, Prows = jax.lax.scan(body, (zeros_row, zeros_row), jnp.arange(L))
     # Prows: (L,) + x.shape + (M,) -> x.shape + (L, M) (matches eager _stack).
     return jnp.moveaxis(Prows, 0, -2)
+
+
+def _legendre_dP_jax(L, M, x, Parr):
+    """Traced-only dP/dx table, vectorized over static (l, m) grids.
+
+    Each entry is pointwise in ``Parr`` (not a recurrence): reproduces the eager
+    per-(l, m) formula element-for-element -- interior/m>=1 from ``num / (x^2-1)``
+    (diverging at the poles, as scipy does), the m==0 column from the guarded
+    ``num / (x^2-1)_safe`` with the closed pole form P_l'(+-1) = x^{l+1} l(l+1)/2.
+    P[l-1][m] comes from a 1-shifted ``Parr`` (the upper-triangle zeros make the
+    l==m edge fall out). The poles are guarded so the discarded m==0 branch stays
+    finite (AD-safe); ``x^{l+1}`` at the poles is taken by parity, not a
+    negative-base float power (which would NaN under vectorization).
+    """
+    import jax.numpy as jnp
+
+    lg = jnp.arange(L)[:, None]  # (L, 1)
+    mg = jnp.arange(M)[None, :]  # (1, M)
+    xg = x[..., None, None]  # x.shape + (1, 1)
+    onef = jnp.ones_like(xg)
+    den = xg * xg - 1.0
+    pole = xg * xg >= 1.0
+    den_safe = jnp.where(pole, onef, den)
+    # P[l-1][m]: shift Parr down one along l, zero-fill l=0 (matches the eager
+    # ``plm1 = P[l-1][m] if l-1>=m else zero`` via Parr's upper-triangle zeros).
+    Pm1 = jnp.concatenate(
+        [jnp.zeros_like(Parr[..., :1, :]), Parr[..., :-1, :]], axis=-2
+    )
+    num = lg * xg * Parr - (lg + mg) * Pm1
+    # m==0 uses den_safe (also finite in its dead branch), m>=1 uses den.
+    dP_gen = num / jnp.where(mg == 0, den_safe, den)
+    # (+-1)^{l+1} at the poles = x^{l+1} there, by parity (avoids a NaN power).
+    xpow = jnp.where((x < 0)[..., None, None] & ((lg + 1) % 2 == 1), -onef, onef)
+    dP_m0 = jnp.where(pole, xpow * (lg * (lg + 1) / 2.0), dP_gen)
+    dP = jnp.where(mg == 0, dP_m0, dP_gen)
+    return jnp.where(lg < mg, jnp.zeros_like(dP), dP)  # upper triangle -> 0
+
+
+def _legendre_d2_jax(L, M, x, Parr, dParr):
+    """Traced-only d2P/dx2 table, vectorized over static (l, m) grids.
+
+    Pointwise in ``Parr`` and ``dParr`` (the Legendre ODE), reproducing the eager
+    per-(l, m) formula: m==0 from ``(2x dP - l(l+1) P) / (1-x^2)_safe`` with the
+    closed pole limit (l-1)l(l+1)(l+2)/8, m>=1 from the full ODE over ``(1-x^2)``
+    (diverging at the poles). The m==0 denominator is guarded (om_safe) so its
+    dead branch stays finite (AD-safe).
+    """
+    import jax.numpy as jnp
+
+    lg = jnp.arange(L)[:, None]
+    mg = jnp.arange(M)[None, :]
+    xg = x[..., None, None]
+    onef = jnp.ones_like(xg)
+    om = 1.0 - xg * xg
+    pole = xg * xg >= 1.0
+    om_safe = jnp.where(pole, onef, om)
+    om_col = jnp.where(mg == 0, om_safe, om)  # guard the dead m==0 branch
+    base = 2.0 * xg * dParr - lg * (lg + 1) * Parr
+    gen = base / om_safe
+    coef_pole = (lg - 1) * lg * (lg + 1) * (lg + 2) / 8.0
+    d2_m0 = jnp.where(pole, coef_pole * onef, gen)
+    d2_mge1 = (base + (mg * mg) / om_col * Parr) / om_col
+    d2 = jnp.where(mg == 0, d2_m0, d2_mge1)
+    return jnp.where(lg < mg, jnp.zeros_like(d2), d2)  # upper triangle -> 0
