@@ -1,7 +1,6 @@
 import numpy
 import scipy.special as sp
 
-from ..backend import get_namespace
 from ..backend import special as _backend_special
 from ..util import conversion
 from .ChandrasekharDynamicalFrictionForce import (
@@ -274,8 +273,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         )
         return xp.minimum(C, C_cdm)
 
-    def _calc_force_backend(self, R, phi, z, v, t):
-        xp = get_namespace(R, z, v[0], v[1], v[2])
+    def _calc_force_backend(self, R, phi, z, v, t, xp):
         r = xp.sqrt(R**2.0 + z**2.0)
         vs = xp.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
         if self._const_FDMfactor:

@@ -8,7 +8,7 @@ import hashlib
 import numpy
 from scipy import interpolate, special
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import get_namespace
 from ..backend import special as _backend_special
 from ..backend.interpolate import Spline1D
 from ..util import conversion
@@ -256,26 +256,10 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
             )
 
-    @staticmethod
-    def _inputs_are_backend(R, z, phi, t, v):
-        # A single genuine backend (jax/torch) array anywhere routes to the
-        # jit/grad-safe path; a pure-numpy call (even under a forced-backend
-        # context) stays byte-identical.
-        return (
-            is_backend_array(R)
-            or is_backend_array(z)
-            or is_backend_array(phi)
-            or is_backend_array(t)
-            or is_backend_array(v[0])
-            or is_backend_array(v[1])
-            or is_backend_array(v[2])
-        )
-
-    def _calc_force_backend(self, R, phi, z, v, t):
+    def _calc_force_backend(self, R, phi, z, v, t, xp):
         # jit/grad-safe common friction factor for backend inputs; no hashing/
         # caching (traced arrays are unhashable). Returns the scalar that the
         # cylindrical force components are built from.
-        xp = get_namespace(R, z, v[0], v[1], v[2])
         r = xp.sqrt(R**2.0 + z**2.0)
         vs = xp.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
         sr = self.sigmar(r)
@@ -286,8 +270,9 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return xp.where(r < self._minr, xp.zeros_like(force), force)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
-        if self._inputs_are_backend(R, z, phi, t, v):
-            return self._calc_force_backend(R, phi, z, v, t) * v[0]
+        xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+        if xp is not numpy:
+            return self._calc_force_backend(R, phi, z, v, t, xp) * v[0]
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()
@@ -296,8 +281,9 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return self._cached_force * v[0]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
-        if self._inputs_are_backend(R, z, phi, t, v):
-            return self._calc_force_backend(R, phi, z, v, t) * v[1] * R
+        xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+        if xp is not numpy:
+            return self._calc_force_backend(R, phi, z, v, t, xp) * v[1] * R
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()
@@ -306,8 +292,9 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return self._cached_force * v[1] * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
-        if self._inputs_are_backend(R, z, phi, t, v):
-            return self._calc_force_backend(R, phi, z, v, t) * v[2]
+        xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
+        if xp is not numpy:
+            return self._calc_force_backend(R, phi, z, v, t, xp) * v[2]
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()
