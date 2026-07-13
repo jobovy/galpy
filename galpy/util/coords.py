@@ -2606,7 +2606,7 @@ def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
     -----
     - 2015-02-13 - Written - Trick (MPIA)
     """
-    xp = get_namespace(R, z)
+    xp = get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
     g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
     term = R**2 + z**2 - a - g
@@ -2646,7 +2646,7 @@ def Rz_to_lambdanu_jac(R, z, Delta=1.0):
     - 2015-02-13 - Written - Trick (MPIA).
     """
 
-    xp = get_namespace(R, z)
+    xp = get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
     discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
     dldR = R * (1.0 + (R**2 + z**2 + Delta**2) / xp.sqrt(discr))
     dndR = R * (1.0 - (R**2 + z**2 + Delta**2) / xp.sqrt(discr))
