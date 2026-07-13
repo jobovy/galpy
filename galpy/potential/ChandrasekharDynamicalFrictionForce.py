@@ -8,6 +8,9 @@ import hashlib
 import numpy
 from scipy import interpolate, special
 
+from ..backend import get_namespace, is_backend_array
+from ..backend import special as _backend_special
+from ..backend.interpolate import Spline1D
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
 from .Potential import _check_c, _check_potential_list_and_deprecate, evaluateDensities
@@ -146,9 +149,10 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                     fill_value="extrapolate",
                 )(self._sigmar_rs_4interp[nanrs_indx])
         self.sigmar_orig = sigmar
-        self.sigmar = interpolate.InterpolatedUnivariateSpline(
-            self._sigmar_rs_4interp, self._sigmars_4interp, k=3
-        )
+        # Backend-agnostic spline: numpy queries hit the scipy spline
+        # (byte-identical), backend (jax/torch) queries evaluate the frozen
+        # piecewise-polynomial through the namespace (jit/grad-safe).
+        self.sigmar = Spline1D(self._sigmar_rs_4interp, self._sigmars_4interp, k=3)
         if const_lnLambda:
             self._lnLambda = const_lnLambda
         else:
@@ -217,6 +221,24 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             lnLambda = 0.5 * numpy.log(1.0 + Lambda**2.0)
         return lnLambda
 
+    def _lnLambda_backend(self, r, v, xp):
+        # jit/grad-safe Coulomb logarithm for backend (jax/torch) inputs; value
+        # matches lnLambda(). The rhm/GM-over-v^2 selection is an xp.where; the
+        # rhm==0 (black-hole default) case is handled in Python (static attr) so
+        # the r/gamma/rhm dead branch (division by zero) never poisons autodiff.
+        if self._lnLambda:
+            return self._lnLambda
+        GMvs = self._ms / v**2.0
+        if self._rhm == 0.0:
+            Lambda = r / self._gamma / GMvs
+        else:
+            Lambda = xp.where(
+                GMvs < self._rhm,
+                r / self._gamma / self._rhm,
+                r / self._gamma / GMvs,
+            )
+        return 0.5 * xp.log(1.0 + Lambda**2.0)
+
     def _calc_force(self, R, phi, z, v, t):
         r = numpy.sqrt(R**2.0 + z**2.0)
         if r < self._minr:
@@ -234,7 +256,38 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
             )
 
+    @staticmethod
+    def _inputs_are_backend(R, z, phi, t, v):
+        # A single genuine backend (jax/torch) array anywhere routes to the
+        # jit/grad-safe path; a pure-numpy call (even under a forced-backend
+        # context) stays byte-identical.
+        return (
+            is_backend_array(R)
+            or is_backend_array(z)
+            or is_backend_array(phi)
+            or is_backend_array(t)
+            or is_backend_array(v[0])
+            or is_backend_array(v[1])
+            or is_backend_array(v[2])
+        )
+
+    def _calc_force_backend(self, R, phi, z, v, t):
+        # jit/grad-safe common friction factor for backend inputs; no hashing/
+        # caching (traced arrays are unhashable). Returns the scalar that the
+        # cylindrical force components are built from.
+        xp = get_namespace(R, z, v[0], v[1], v[2])
+        r = xp.sqrt(R**2.0 + z**2.0)
+        vs = xp.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
+        sr = self.sigmar(r)
+        X = vs * _INVSQRTTWO / sr
+        Xfactor = _backend_special.erf(X) - 2.0 * X * _INVSQRTPI * xp.exp(-(X**2.0))
+        lnLambda = self._lnLambda_backend(r, vs, xp)
+        force = -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
+        return xp.where(r < self._minr, xp.zeros_like(force), force)
+
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
+        if self._inputs_are_backend(R, z, phi, t, v):
+            return self._calc_force_backend(R, phi, z, v, t) * v[0]
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()
@@ -243,6 +296,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return self._cached_force * v[0]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
+        if self._inputs_are_backend(R, z, phi, t, v):
+            return self._calc_force_backend(R, phi, z, v, t) * v[1] * R
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()
@@ -251,6 +306,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return self._cached_force * v[1] * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
+        if self._inputs_are_backend(R, z, phi, t, v):
+            return self._calc_force_backend(R, phi, z, v, t) * v[2]
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()

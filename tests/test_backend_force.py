@@ -95,18 +95,16 @@ def _rforce_backend(backend_name, obj, R, z, v=None):
 
 
 # (label, force-like object, needs-velocity, backend_ok). backend_ok marks
-# whether the object's OWN _Rforce/_zforce compute path is backend-clean: the
-# HernquistPotential is (fully analytic), but ChandrasekharDynamicalFrictionForce
-# still evaluates scipy.special.erf + numpy.exp/log internally, which on a
-# jax/torch array both COERCE the result back to numpy AND emit a numpy-2.0
-# __array_wrap__ DeprecationWarning (promoted to an error under the CI
-# -W error::DeprecationWarning). So for the dissipative force only the numpy path
-# is exercised here; its jax/torch parity, backend-array return, and AD are all
-# deferred to the dissipative-force migration (a separate concern from the swept
-# base-class Force.rforce plumbing, which the HernquistPotential case covers).
+# whether the object's OWN _Rforce/_zforce compute path is backend-clean: both
+# the HernquistPotential (fully analytic) and now the
+# ChandrasekharDynamicalFrictionForce are -- its sigma_r spline, erf and the
+# r<minr / Coulomb-log branches were migrated to galpy.backend. Deeper
+# dissipative-force coverage (jit/jacfwd, the FDM regimes, grad-vs-FD across
+# cases) lives in tests/test_backend_dynamfric.py; here the dissipative case
+# just rides the shared Force.rforce plumbing alongside the HernquistPotential.
 _CASES = [
     ("HernquistPotential", _HERN, False, True),
-    ("ChandrasekharDynamicalFrictionForce", _CDF, True, False),
+    ("ChandrasekharDynamicalFrictionForce", _CDF, True, True),
 ]
 _CASE_IDS = [c[0] for c in _CASES]
 
