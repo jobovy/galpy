@@ -10,10 +10,11 @@ import numpy
 import numpy.linalg
 
 from ..backend import (
-    asarray_on_device,
-    device_of,
+    as_backend_constant,
+    coerce_coords,
     get_namespace,
     is_backend_array,
+    promote_scalars,
 )
 from ..util import conversion, coords, galpyWarning
 from .DissipativeForce import DissipativeForce
@@ -280,10 +281,11 @@ class NonInertialFrameForce(DissipativeForce):
                 return self._cached_force
         x, y, z = coords.cyl_to_rect(R, phi, z)
         vx, vy, vz = coords.cyl_to_rect_vec(v[0], v[1], v[2], phi)
-        dev = None if numpy_input else device_of(x, y, vx, vy, vz)
-
-        def _coerce(c):
-            return c if is_backend_array(c) else asarray_on_device(xp, c, dev)
+        # Bring the coordinate/velocity inputs onto the active backend (numpy =
+        # byte-identical pass-through); stored numpy constants are anchored on a
+        # coerced coordinate (ref) via as_backend_constant.
+        x, y, z, vx, vy, vz = coerce_coords(xp, x, y, z, vx, vy, vz)
+        ref = x
 
         def _vec(comps):
             # 1D vector from (possibly backend, grad-carrying) scalar comps;
@@ -291,7 +293,7 @@ class NonInertialFrameForce(DissipativeForce):
             return (
                 numpy.asarray(comps)
                 if numpy_input
-                else xp.stack([_coerce(c) for c in comps])
+                else xp.stack(promote_scalars(xp, *comps))
             )
 
         def _mat(rows):
@@ -299,13 +301,8 @@ class NonInertialFrameForce(DissipativeForce):
             return (
                 numpy.asarray(rows)
                 if numpy_input
-                else xp.stack([xp.stack([_coerce(c) for c in r]) for r in rows])
+                else xp.stack([xp.stack(promote_scalars(xp, *r)) for r in rows])
             )
-
-        def _const(a):
-            # Anchor a stored numpy constant (matrix/vector) on the backend
-            # device; byte-identical pass-through on the numpy path
-            return a if numpy_input else asarray_on_device(xp, a, dev)
 
         def _mv(mat, vecarr):  # matrix (3x3) times vector (3): torch.dot is 1D-only
             return numpy.dot(mat, vecarr) if numpy_input else xp.matmul(mat, vecarr)
@@ -323,7 +320,10 @@ class NonInertialFrameForce(DissipativeForce):
                 )
                 tOmega2 = xp.linalg.norm(tOmega) ** 2.0
             else:
-                tOmega = _const(self._Omega) + _const(self._Omegadot) * t
+                tOmega = (
+                    as_backend_constant(xp, self._Omega, ref)
+                    + as_backend_constant(xp, self._Omegadot, ref) * t
+                )
                 tOmega2 = xp.linalg.norm(tOmega) ** 2.0
             if self._omegaz_only:
                 force += -2.0 * tOmega * _vec([-vy, vx, 0.0]) + tOmega2 * _vec(
@@ -364,11 +364,16 @@ class NonInertialFrameForce(DissipativeForce):
                             ]
                         )
                 else:
-                    Omega_for_cross = _const(self._Omega_for_cross)
+                    Omega_for_cross = as_backend_constant(
+                        xp, self._Omega_for_cross, ref
+                    )
                     if not self._const_freq:
-                        Omegadot_for_cross = _const(self._Omegadot_for_cross)
+                        Omegadot_for_cross = as_backend_constant(
+                            xp, self._Omegadot_for_cross, ref
+                        )
                 if not numpy_input and not is_backend_array(tOmega):
-                    tOmega = _const(tOmega)  # anchor the stored numpy constant
+                    # anchor the stored numpy constant
+                    tOmega = as_backend_constant(xp, tOmega, ref)
                 xyz = _vec([x, y, z])
                 force += (
                     -2.0 * _mv(Omega_for_cross, _vec([vx, vy, vz]))
