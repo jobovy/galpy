@@ -669,6 +669,121 @@ def test_sample_jit_grad_fd_prog_ic():
     assert best < 1e-3, f"jit sample prog-IC grad-vs-FD best REL={best:.2e}"
 
 
+# --------------------------------------------------------------------------
+# Differentiable stream track w.r.t. the PROGENITOR MASS. A backend (jax/torch)
+# progenitor mass -- a constant M or a time-varying M(t) -- traces the tidal radius
+# rtide -> the spray SCALE, so the sampled particles (and the fitted track) carry
+# d(track)/d(mass) even though the progenitor CURVE is mass-independent (it is
+# integrated in-backend so the jittable reconstruction stays on the backend). This
+# is the mass-loss-history gradient the potential/IC gradients cannot give. Grad-vs-FD
+# uses reassignment-INVARIANT functionals (the frozen-assignment AD equals the true
+# gradient there; an index-wise loss is dominated by the discrete-assignment jitter).
+# --------------------------------------------------------------------------
+def _mass_track_xyz(m, key=None):
+    spdf = fardal15spraydf(
+        m,
+        progenitor=Orbit(_JIT_IC),
+        pot=LogarithmicHaloPotential(amp=1.0, q=0.9),
+        tdisrupt=_JIT_TD,
+    )
+    return spdf.streamTrack(
+        n=_JIT_N,
+        tail="leading",
+        velocity_weight=1.0,
+        order=1,
+        key=key,
+        track_time_range=2.0,
+    )._track_xyz
+
+
+def _jit_grad_hconv_rel(loss, x0):
+    # As _jit_grad_hconv but with RELATIVE FD steps x0*(1+-h): the mass is O(1e-5), so
+    # an absolute step would flip its sign (rtide((-M)**(1/3)) -> NaN).
+    jnp = jax.numpy
+    g = float(jax.jit(jax.grad(loss))(jnp.asarray(x0)))
+    lj = jax.jit(loss)
+    best = min(
+        abs(
+            g
+            - (
+                float(lj(jnp.asarray(x0 * (1 + h))))
+                - float(lj(jnp.asarray(x0 * (1 - h))))
+            )
+            / (2 * x0 * h)
+        )
+        / max(abs(g), 1e-9)
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    return g, best
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_jit_grad_fd_mass():
+    # jax.jit(streamTrack()) is differentiable in a CONSTANT backend progenitor mass:
+    # M scales rtide -> the spray offsets -> the track. A reassignment-invariant
+    # functional (sum over the track) makes the frozen-assignment AD match the true FD.
+    key = grandom.key(_SEED, backend="jax")
+
+    def loss(m):
+        return _mass_track_xyz(m, key=key).sum()
+
+    g, best = _jit_grad_hconv_rel(loss, _JIT_MASS)
+    assert numpy.isfinite(g) and abs(g) > 0
+    # the AD gradient is essentially exact; the h-converged FD floor is ~2e-8 here,
+    # so 1e-6 is a real regression detector (not a loose finite-difference sanity check)
+    assert best < 1e-6, f"jit streamTrack d/dM grad-vs-FD best REL={best:.2e}"
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_jit_grad_fd_mass_evolving():
+    # A time-varying M(t)=M0*exp(rate*t) makes the mass-LOSS HISTORY differentiable:
+    # d(track)/d(rate) flows through rtide at each stripping time. Uses a
+    # reassignment-invariant smooth functional (mean track radius) where AD == FD.
+    jnp = jax.numpy
+    key = grandom.key(_SEED, backend="jax")
+    M0 = _JIT_MASS
+
+    def loss(rate):
+        xyz = _mass_track_xyz(lambda t: M0 * jnp.exp(rate * t), key=key)
+        return jnp.mean(jnp.sqrt(jnp.sum(xyz**2, axis=1)))
+
+    g, best = _jit_grad_hconv(loss, 0.05)
+    assert numpy.isfinite(g) and abs(g) > 0
+    assert best < 1e-6, f"jit streamTrack d/d(rate) grad-vs-FD best REL={best:.2e}"
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for eager AD")
+def test_streamtrack_backend_mass_grad_fd_eager():
+    # EAGER (non-jit) d(track)/d(mass): jax.grad traces the particles (mass -> rtide ->
+    # spray), so the generative reconstruction stays on the backend and the mass
+    # gradient flows without jit. FD reuses the same key (reparameterized noise) with
+    # RELATIVE steps (the mass is O(1e-5)); reassignment-invariant sum-of-squares.
+    # (torch takes the same namespace-generic path -- validated locally; its eager
+    # generative reconstruction is minutes-slow, as for every jit-only generative test.)
+    jnp = jax.numpy
+    key = grandom.key(_SEED, backend="jax")
+    M0 = _JIT_MASS
+
+    def loss(m):
+        return jnp.sum(_mass_track_xyz(m, key=key) ** 2)
+
+    # FD is jitted so it takes the SAME jax-native reconstruction as the (traced) AD; a
+    # concrete non-jit forward would fall to the numpy reconstruction and not match.
+    lj = jax.jit(loss)
+
+    def val(m):
+        return float(lj(jnp.asarray(m)))
+
+    g = float(jax.grad(loss)(jnp.asarray(M0)))
+    assert numpy.isfinite(g) and abs(g) > 0
+    best = min(
+        abs(g - (val(M0 * (1 + h)) - val(M0 * (1 - h))) / (2 * M0 * h))
+        / max(abs(g), 1e-9)
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert best < 1e-6, f"eager d(track)/dM grad-vs-FD best REL={best:.2e}"
+
+
 @pytest.mark.skipif(jax is None, reason="jax required for backend-theta construction")
 def test_backend_sampling_center_not_implemented():
     # Differentiable stream sampling (a backend potential parameter -> _bsamp set)
