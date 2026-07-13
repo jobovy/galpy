@@ -697,23 +697,26 @@ class basestreamspraydf(df):
             theta_backend = is_backend_array(_tf)
             if theta_backend:
                 xp = get_namespace(_tf)
-        # numpy/C path (byte-identical): a pure-numpy spdf, OR a backend theta seen
-        # under a merely-FORCED context -- the all-backend suite runs a plain-numpy
-        # test under `use(backend, force=True)`, which coerces the potential's `_amp`
-        # to a backend array with no differentiable intent (and would crash the sample
-        # orbit in the unmigrated MovingObjectPotential under the in-backend ODE). A
-        # genuine backend parameter (normal env, eager or under jit) leaves plain numpy
-        # resolving to numpy, so `get_namespace(numpy.zeros(1)) is not numpy` isolates
-        # the forced case; a genuine backend IC/theta falls through to the ODE below.
-        _forced_theta = (
-            theta_backend
-            and not ic_backend
-            and get_namespace(numpy.zeros(1)) is not numpy
-        )
-        if not (ic_backend or theta_backend) or _forced_theta:
+        # A backend progenitor MASS (a differentiable M or M(t)) traces the sampled
+        # orbits -- via the tidal radius rtide -- but NOT the mass-independent
+        # progenitor curve, so it is its own backend-sampling trigger.
+        _mass_probe = self._progenitor_mass_fn(0.0)
+        mass_backend = is_backend_array(_mass_probe)
+        if mass_backend and xp is None:
+            xp = get_namespace(_mass_probe)
+        # numpy/C path (byte-identical): a pure-numpy spdf, OR a backend theta/mass seen
+        # under a merely-FORCED context -- the all-backend suite runs a plain-numpy test
+        # under `use(backend, force=True)`, which coerces plain inputs to backend arrays
+        # with no differentiable intent (and would crash the sample orbit in the
+        # unmigrated MovingObjectPotential under the in-backend ODE). A genuine backend IC
+        # survives even a forced context; a theta/mass under force does not, so
+        # `get_namespace(numpy.zeros(1)) is not numpy` isolates the forced case.
+        _forced = get_namespace(numpy.zeros(1)) is not numpy
+        if not (ic_backend or ((theta_backend or mass_backend) and not _forced)):
             self._progenitor.integrate(self._progenitor_times, self._pot)
             self._bsamp = None
             return
+        inbackend = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
         if ic_backend:
             ic = prog_ic
         else:
@@ -736,8 +739,10 @@ class basestreamspraydf(df):
         # CONCRETE (eager, preserving the #1102 mechanism); a TRACED IC (under jit)
         # falls to the in-backend ODE (C is not traceable). Concreteness is detected
         # by whether the IC coerces to numpy (the _ic_backend_concrete idiom).
-        inbackend = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
-        if theta_backend:
+        if theta_backend or (mass_backend and not ic_backend):
+            # A backend mass alone leaves the progenitor curve mass-independent, but its
+            # sample orbits trace the mass (via rtide) and are queried under jit -> the
+            # progenitor must be a backend orbit too, so integrate it in-backend.
             method = inbackend
         else:
             try:
@@ -1063,8 +1068,9 @@ class basestreamspraydf(df):
 
             def _scalar_mass_fn(t):
                 # backend-agnostic ones_like(t): jit-safe for a traced t; numpy
-                # byte-identical (M0 * float64 ones of t's shape).
-                xp_t = get_namespace(t)
+                # byte-identical (M0 * float64 ones of t's shape). Resolve from M0 too
+                # so a differentiable backend M broadcasts on a plain-float t (torch).
+                xp_t = get_namespace(M0, t)
                 return M0 * xp_t.ones_like(xp_t.asarray(t) * 1.0)
 
             self._progenitor_mass_fn = _scalar_mass_fn
@@ -1117,15 +1123,22 @@ class basestreamspraydf(df):
                 )
 
         else:
+            # A differentiable M(t) returns a backend array; detect it once so _mass_fn
+            # keeps the backend result (jit-safe, traces the mass) rather than coercing
+            # to numpy. A numpy callable takes the byte-identical branch unchanged.
+            _mass_backend_out = is_backend_array(progenitor_mass(0.0))
 
             def _mass_fn(t):
+                if _mass_backend_out or is_backend_array(t):
+                    return progenitor_mass(t)
                 return numpy.asarray(
                     progenitor_mass(numpy.asarray(t, dtype=float)),
                     dtype=float,
                 )
 
         self._progenitor_mass_fn = _mass_fn
-        self._progenitor_mass = float(self._progenitor_mass_fn(0.0))
+        _pm0 = self._progenitor_mass_fn(0.0)
+        self._progenitor_mass = _pm0 if is_backend_array(_pm0) else float(_pm0)
 
     def spray_df(self, xyzpt, vxyzpt, dt, leading=True, key=None):
         """
