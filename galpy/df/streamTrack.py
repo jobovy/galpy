@@ -13,6 +13,7 @@ from ..backend import (
     is_backend_array,
     name_of_namespace,
 )
+from ..backend._namespaces import stop_gradient
 from ..backend.interpolate import (
     _apply_frozen_smoother,
     _fitpack_operator,
@@ -555,6 +556,129 @@ def _fit_one_pass(
     return track_fine[:, 0:3], track_fine[:, 3:6], cov_xyz, eff_s_mean + eff_s_cov
 
 
+def _fit_track_backend_jit(
+    xv_particles,
+    prog_cart,
+    track_t_grid,
+    arm_sign,
+    ninterp,
+    ntp,
+    velocity_weight,
+    smoothing_factor,
+    order=2,
+):
+    """Fully-jittable jax/torch-native stream-track reconstruction (the M2 recipe).
+
+    Runs when the inputs are TRACED (under ``jax.jit``), where the numpy/scipy
+    frozen-operator path (cKDTree, ``make_smoothing_spline``, boolean-mask
+    filtering, ``numpy.percentile``) cannot run. Static shapes throughout; the
+    structural choices (closest-point assignment, P-spline basis, penalty weight)
+    are ``stop_gradient``'d while the offset VALUES flow, so ``xv(theta)`` carries
+    ``d(track)/dtheta``. The parameter axis (``tp_grid``) is a FIXED concrete grid
+    over the arm (the StreamTrack axis is structural, not differentiated).
+
+    Positions + velocities only (``cov_xyz=None``); a jittable covariance pass is a
+    follow-up. Returns the same dict shape as :func:`_fit_track_from_particles`.
+    """
+    xp = get_namespace(prog_cart)
+    dev = device_of(prog_cart)
+    n_part = xv_particles.shape[1]
+    # particles (6,N) cyl -> (N,6) cart, natively (differentiable)
+    R_p, vR_p, vT_p, z_p, vz_p, phi_p = xv_particles
+    x_p, y_p, z_pc = coords.cyl_to_rect(R_p, phi_p, z_p)
+    vx_p, vy_p, vz_pc = coords.cyl_to_rect_vec(vR_p, vT_p, vz_p, phi_p)
+    pc = xp.stack([x_p, y_p, z_pc, vx_p, vy_p, vz_pc], axis=-1)  # (N,6) flows
+    tt = asarray_on_device(xp, track_t_grid, dev)
+    vw = 1.0 if isinstance(velocity_weight, str) else float(velocity_weight)
+    scale = asarray_on_device(xp, numpy.array([1.0, 1.0, 1.0, vw, vw, vw]), dev)
+    # 6D velocity-weighted closest point on the arm (STRUCTURE -> stop_gradient)
+    pcs = stop_gradient(pc) * scale
+    cvs = stop_gradient(prog_cart) * scale
+    d2 = xp.sum((pcs[:, None, :] - cvs[None, :, :]) ** 2, axis=-1)  # (N,M)
+    arm = asarray_on_device(xp, numpy.asarray((track_t_grid * arm_sign) >= 0), dev)
+    d2 = xp.where(arm[None, :], d2, asarray_on_device(xp, numpy.array(numpy.inf), dev))
+    idx = stop_gradient(xp.argmin(d2, axis=1))  # (N,)
+    off = pc - prog_cart[idx]  # (N,6) offset VALUES flow theta
+    tp_assign = stop_gradient(tt[idx])  # (N,)
+    # fixed concrete tp grids over the arm
+    T = float(abs(track_t_grid[-1] if arm_sign > 0 else track_t_grid[0]))
+    tp_lo, tp_hi = (0.0, T) if arm_sign > 0 else (-T, 0.0)
+    ntp_int = int(ntp) if ntp is not None else int(max(21, round(numpy.sqrt(n_part))))
+    tp_grid = numpy.linspace(tp_lo, tp_hi, ninterp)
+    tnodes = numpy.linspace(tp_lo, tp_hi, ntp_int)
+    # raw-data P-spline: hat basis B (N,ntp) frozen from the assignment, 2nd-diff
+    # penalty; s = (B'B + lam D'D)^-1 B'off. N >> ntp so GCV finds a real lambda.
+    pos = (tp_assign - tp_lo) / (tp_hi - tp_lo) * (ntp_int - 1)
+    nodes_i = asarray_on_device(xp, numpy.arange(ntp_int, dtype=float), dev)
+    B = stop_gradient(xp.clip(1.0 - xp.abs(pos[:, None] - nodes_i[None, :]), 0.0, 1.0))
+    BT = xp.matrix_transpose(B)
+    BtB = xp.matmul(BT, B)  # (ntp,ntp) frozen (B is stop_gradient'd)
+    D2 = asarray_on_device(xp, numpy.diff(numpy.eye(ntp_int), n=2, axis=0), dev)
+    DtD = xp.matmul(xp.matrix_transpose(D2), D2)
+    eye = asarray_on_device(xp, numpy.eye(ntp_int), dev)
+    # GCV lambda (STRUCTURAL, on the stop_gradient offsets -> a frozen hyperparameter,
+    # matching eager make_smoothing_spline's GCV auto-tuning): minimize
+    # N ||(I-H)off||^2 / (N - tr H)^2 over a log-spaced grid (concrete -> jittable,
+    # backend-agnostic; the grid-search + argmin unroll under jit). H = B A^-1 B',
+    # tr H = tr(A^-1 B'B). smoothing_factor scales the chosen lambda.
+    off_sg = stop_gradient(off)
+    Btoff_sg = xp.matmul(BT, off_sg)
+    lam_grid = numpy.logspace(-7.0, 5.0, 40)
+
+    def _gcv(lam):
+        a_l = BtB + lam * DtD
+        tr_h = xp.sum(xp.linalg.solve(a_l, BtB) * eye)  # tr(A^-1 B'B)
+        s_l = xp.linalg.solve(a_l, Btoff_sg)
+        resid = off_sg - xp.matmul(B, s_l)
+        return n_part * xp.sum(resid**2) / xp.clip((n_part - tr_h) ** 2, 1e-9, None)
+
+    scores = xp.stack([_gcv(float(lg)) for lg in lam_grid])  # (len(lam_grid),) frozen
+    lam = stop_gradient(
+        asarray_on_device(xp, lam_grid, dev)[xp.argmin(scores)]
+        * float(smoothing_factor)
+    )
+    A = stop_gradient(BtB + lam * DtD)
+    s = xp.linalg.solve(A, xp.matmul(BT, off))  # (ntp,6) flows
+    # interp_linear takes the grid (x) + query (r) as numpy (structural); only the
+    # VALUES y stay on the backend -> the result is differentiable in y.
+    curve_at = xp.stack(
+        [interp_linear(xp, track_t_grid, prog_cart[:, i], tp_grid) for i in range(6)],
+        axis=-1,
+    )
+    off_at = xp.stack(
+        [interp_linear(xp, tnodes, s[:, i], tp_grid) for i in range(6)], axis=-1
+    )
+    track = curve_at + off_at  # (ninterp,6) flows theta
+    cov_at = None
+    if order >= 2:
+        # 6D covariance: weighted residual scatter per node (residual = offset minus
+        # the fitted mean track), interpolated to tp_grid. cov_node = sum_n B[n,k] r r^T
+        # with B >= 0 is PSD BY CONSTRUCTION (a non-negatively-weighted sum of outer
+        # products), and linear interpolation of PSD matrices stays PSD -> no
+        # psd_project needed (which would freeze the eigenvectors and corrupt the
+        # gradient). The structure (assignment, basis) is frozen; the scatter VALUES
+        # flow, so cov carries the exact d(cov)/dtheta.
+        resid = off - xp.matmul(B, s)  # (N,6) deviation from the mean track
+        wsum = xp.clip(xp.sum(B, axis=0), 1.0, None)  # (ntp,)
+        cov_node = xp.einsum("nk,ni,nj->kij", B, resid, resid) / wsum[:, None, None]
+        cf = xp.reshape(cov_node, (ntp_int, 36))
+        cov_at = xp.reshape(
+            xp.stack(
+                [interp_linear(xp, tnodes, cf[:, e], tp_grid) for e in range(36)],
+                axis=-1,
+            ),
+            (ninterp, 6, 6),
+        )
+    return {
+        "tp_grid": tp_grid,
+        "track_xyz": track[:, :3],
+        "track_vxvyvz": track[:, 3:],
+        "cov_xyz": cov_at,
+        "smoothing_s": None,
+        "particles": None,
+    }
+
+
 def _fit_track_from_particles(
     xv_particles,
     track_prog_cart,
@@ -597,10 +721,29 @@ def _fit_track_from_particles(
         prog_cart = track_prog_cart
     else:
         prog_cart = numpy.asarray(track_prog_cart, dtype=float)
-    prog_cart_np = as_numpy(prog_cart)
     arm_sign = int(numpy.sign(arm_sign)) or 1
     ninterp = int(ninterp)
     order = int(order)
+    # jit / traced-backend path: the numpy/scipy structural reconstruction below
+    # (cKDTree, make_smoothing_spline, boolean-mask filtering, percentile) cannot run
+    # on tracers -> the fully jittable jax/torch-native reconstruction. Eager backend
+    # arrays coerce to numpy fine, so they keep the (byte-identical-structured) path.
+    if is_backend_array(prog_cart):
+        try:
+            as_numpy(prog_cart)
+        except Exception:  # noqa: BLE001 -- traced (jit) backend curve
+            return _fit_track_backend_jit(
+                xv_particles,
+                prog_cart,
+                track_t_grid,
+                arm_sign,
+                ninterp,
+                ntp,
+                velocity_weight,
+                smoothing_factor,
+                order,
+            )
+    prog_cart_np = as_numpy(prog_cart)
 
     if is_backend_array(prog_cart):
         # Backend progenitor curve: differentiable cubic interpolation so the
@@ -917,6 +1060,7 @@ class StreamTrack:
         vo=None,
         zo=None,
         solarmotion=None,
+        tp_scale=None,
     ):
         """Build a StreamTrack from a precomputed smooth track.
 
@@ -960,6 +1104,13 @@ class StreamTrack:
         # track flows through the accessors differentiably. The numpy branch is
         # byte-identical to the pre-backend body.
         self._backend = is_backend_array(track_xyz)
+        # tp_scale (jit): tp_grid is a CONCRETE NORMALIZED axis (e.g. [0,1]) and the
+        # physical parameter is tp = tp_grid * tp_scale, with tp_scale a (traced)
+        # scalar. This keeps the cubic-spline geometry concrete under jax.jit (the
+        # spline matrix is assembled in numpy) while the physical extent stays
+        # data-dependent + differentiable. tp_scale=None -> tp_grid IS physical
+        # (eager, byte-identical).
+        self._tp_scale = tp_scale
         self._tp_grid = numpy.asarray(tp_grid, dtype=float).copy()
         if self._backend:
             self._name = name_of_namespace(get_namespace(track_xyz))
@@ -1063,6 +1214,7 @@ class StreamTrack:
         vo=None,
         zo=None,
         solarmotion=None,
+        tp_scale=None,
     ):
         """Build a StreamTrack by fitting a smooth curve to stream particles.
 
@@ -1169,6 +1321,7 @@ class StreamTrack:
             vo=vo,
             zo=zo,
             solarmotion=solarmotion,
+            tp_scale=tp_scale,
         )
         # Fitter outputs callers may want: the raw (xv, dt) sample the fit
         # saw, and the effective per-spline ``s`` values for reuse.
@@ -1181,6 +1334,8 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def tp_grid(self):
         """Return the fine tp grid on which the track is stored."""
+        if self._tp_scale is not None:
+            return self._tp_grid * self._tp_scale  # normalized axis -> physical
         return self._tp_grid.copy()
 
     def _in_range(self, tp_arr):
@@ -1194,8 +1349,12 @@ class StreamTrack:
             xp = get_namespace(self._track_xyz)
             dev = device_of(self._track_xyz)
             tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
-            in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
             tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            if self._tp_scale is None:
+                in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
+            else:
+                tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
+                in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
             rows = [
                 xp.where(
                     in_range,
@@ -1230,8 +1389,12 @@ class StreamTrack:
             xp = get_namespace(self._track_xyz)
             dev = device_of(self._track_xyz)
             tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
-            in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
             tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            if self._tp_scale is None:
+                in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
+            else:
+                tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
+                in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
             val = xp.where(
                 in_range,
                 eval_cubic(xp, self._tp_grid, self._cart_coeffs[idx], tp_b),
@@ -2160,8 +2323,12 @@ class StreamTrack:
             xp = get_namespace(self._cov_xyz)
             dev = device_of(self._cov_xyz)
             tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
-            in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
             tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            if self._tp_scale is None:
+                in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
+            else:
+                tp_b = tp_b / self._tp_scale  # physical -> normalized (traced)
+                in_range = (tp_b >= self._tp_grid[0]) & (tp_b <= self._tp_grid[-1])
             rows = []
             for a in range(6):
                 cols = [
