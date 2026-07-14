@@ -4,7 +4,7 @@
 ###############################################################################
 import copy
 
-from ..backend import get_namespace
+from ..backend import as_backend_constant, get_namespace, is_backend_array
 from ..potential.Potential import _check_potential_list_and_deprecate
 from .PlummerPotential import PlummerPotential
 from .Potential import (
@@ -212,20 +212,45 @@ class MovingObjectPotential(Potential):
         return evaluateDensities(self._pot, Rdist, zd, t=t, use_physical=False)
 
 
+def _backend_ref(*vals):
+    """First backend array among vals (the device/dtype anchor), or None."""
+    for v in vals:
+        if is_backend_array(v):
+            return v
+    return None
+
+
+def _onto_backend(xp, ref, *vals):
+    """Bring numpy/python scalars onto the backend anchored on ref, so the whole
+    calculation is single-namespace. numpy path (ref is None) is a pass-through
+    -> byte-identical. Needed because the moving object's orbit position is a
+    numpy scalar while the field coords may be jax/torch, and torch rejects
+    mixed numpy-scalar / torch-tensor arithmetic (jax tolerates it)."""
+    if ref is None:
+        return vals
+    return tuple(
+        v if is_backend_array(v) else as_backend_constant(xp, v, ref) for v in vals
+    )
+
+
 def _cylR(R1, phi1, R2, phi2):
     xp = get_namespace(R1, phi1, R2, phi2)
+    R1, phi1, R2, phi2 = _onto_backend(
+        xp, _backend_ref(R1, phi1, R2, phi2), R1, phi1, R2, phi2
+    )
     return xp.sqrt(
         R1**2.0 + R2**2.0 - 2.0 * R1 * R2 * xp.cos(phi1 - phi2)
     )  # Cosine law
 
 
 def _cyldiff(R1, phi1, z1, R2, phi2, z2):
-    # Per-side namespaces: the object (subscript 1) and field (subscript 2)
-    # positions each use their own coordinates' namespace, so a numpy-orbit
-    # query mixed with backend field coords promotes through the arithmetic
-    # (torch rejects xp.cos on a bare numpy scalar).
-    xp1, xp2 = get_namespace(R1, phi1), get_namespace(R2, phi2)
-    dx = R1 * xp1.cos(phi1) - R2 * xp2.cos(phi2)
-    dy = R1 * xp1.sin(phi1) - R2 * xp2.sin(phi2)
+    # The orbit position (subscript 1) is a numpy scalar; the field coords
+    # (subscript 2) may be jax/torch. Bring everything onto the field backend so
+    # the arithmetic is single-namespace (torch rejects mixed numpy/torch ops).
+    xp = get_namespace(R1, phi1, z1, R2, phi2, z2)
+    ref = _backend_ref(R1, phi1, z1, R2, phi2, z2)
+    R1, phi1, z1, R2, phi2, z2 = _onto_backend(xp, ref, R1, phi1, z1, R2, phi2, z2)
+    dx = R1 * xp.cos(phi1) - R2 * xp.cos(phi2)
+    dy = R1 * xp.sin(phi1) - R2 * xp.sin(phi2)
     dz = z1 - z2
     return (dx, dy, dz)
