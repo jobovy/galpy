@@ -7,6 +7,8 @@ import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 
+from ..backend import get_namespace, is_backend_array, match_input_dtype
+from ..backend.interpolate import eval_rect_ppoly, rect_bivariate_to_ppoly
 from ..util import _load_extension_libs, multi
 from ..util.conversion import physical_conversion
 from .Potential import Potential
@@ -21,6 +23,10 @@ def scalarVectorDecorator(func):
 
     @wraps(func)
     def scalar_wrapper(*args, **kwargs):
+        if is_backend_array(args[1]) or is_backend_array(args[2]):
+            # backend (jax/torch) R/z: skip the numpy scalar/vector normalization;
+            # the inner function's backend branch broadcasts (R,z) natively.
+            return func(*args, **kwargs)
         if (
             numpy.array(args[1]).shape == () and numpy.array(args[2]).shape == ()
         ):  # only if both R and z are scalars
@@ -53,12 +59,18 @@ def zsymDecorator(odd):
     def wrapper(func):
         @wraps(func)
         def zsym_wrapper(*args, **kwargs):
+            R, z = args[1], args[2]
+            backend = is_backend_array(R) or is_backend_array(z)
             if args[0]._zsym:
-                out = func(args[0], args[1], numpy.fabs(args[2]), **kwargs)
+                absz = get_namespace(R, z).abs(z) if backend else numpy.fabs(z)
+                out = func(args[0], R, absz, **kwargs)
             else:
                 out = func(*args, **kwargs)
             if odd and args[0]._zsym:
-                return sign(args[2]) * out
+                if backend:
+                    xp = get_namespace(R, z)
+                    return xp.where(z < 0.0, -1.0, 1.0) * out
+                return sign(z) * out
             else:
                 return out
 
@@ -600,12 +612,43 @@ class interpRZPotential(Potential):
                 )
         return None
 
+    def _grid_ppoly(self, which):
+        """Lazily build & cache the backend tensor-product PPoly block for the
+        interpolated 2D quantity ``which`` (``pot``/``rforce``/``zforce``/
+        ``r2deriv``/``z2deriv``/``rzderiv``/``dens``). Built once, on first
+        backend use, from the SAME scipy ``RectBivariateSpline`` the numpy path
+        uses, so the backend interpolation reuses its knots/coefficients. numpy
+        setup is untouched (no extra work for numpy-only users)."""
+        attr = "_" + which + "PPoly"
+        pp = getattr(self, attr, None)
+        if pp is None:
+            pp = rect_bivariate_to_ppoly(getattr(self, "_" + which + "Interp"))
+            setattr(self, attr, pp)
+        return pp
+
+    def _eval_grid_backend(self, which, R, z, *, log_transform=False):
+        """Backend (jax/torch) evaluation of an interpolated 2D quantity: the same
+        frozen tensor-product spline as the numpy ``.ev`` path, evaluated through
+        namespace-agnostic ``eval_rect_ppoly`` (searchsorted + 2D Horner), so the
+        value is computed natively and is exactly autodifferentiable w.r.t. (R,z).
+        Matches ``RectBivariateSpline.ev`` to ~1 ulp; like scipy's ``.ev`` it
+        extrapolates the edge polynomial outside the grid (finite, NaN-free)."""
+        xp = get_namespace(R, z)
+        xbr, ybr, c = self._grid_ppoly(which)
+        Rq = xp.log(R) if self._logR else R
+        out = eval_rect_ppoly(xp, xbr, ybr, c, Rq, z, extrapolate=True)
+        if log_transform:
+            out = xp.exp(out) - 10.0**-10.0
+        return match_input_dtype(out, R, z)
+
     @scalarVectorDecorator
     @zsymDecorator(False)
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         from ..potential import evaluatePotentials
 
         if self._interpPot:
+            if is_backend_array(R) or is_backend_array(z):
+                return self._eval_grid_backend("pot", R, z)
             out = numpy.empty(R.shape)
             indx = (
                 (R >= self._rgrid[0])
@@ -635,6 +678,8 @@ class interpRZPotential(Potential):
         from ..potential import evaluateRforces
 
         if self._interpRforce:
+            if is_backend_array(R) or is_backend_array(z):
+                return self._eval_grid_backend("rforce", R, z)
             out = numpy.empty(R.shape)
             indx = (
                 (R >= self._rgrid[0])
@@ -664,6 +709,8 @@ class interpRZPotential(Potential):
         from ..potential import evaluatezforces
 
         if self._interpzforce:
+            if is_backend_array(R) or is_backend_array(z):
+                return self._eval_grid_backend("zforce", R, z)
             out = numpy.empty(R.shape)
             indx = (
                 (R >= self._rgrid[0])
@@ -702,6 +749,8 @@ class interpRZPotential(Potential):
     def _R2deriv_interpolated(self, R, z):
         from ..potential import evaluateR2derivs
 
+        if is_backend_array(R) or is_backend_array(z):
+            return self._eval_grid_backend("r2deriv", R, z)
         out = numpy.empty(R.shape)
         indx = (
             (R >= self._rgrid[0])
@@ -739,6 +788,8 @@ class interpRZPotential(Potential):
     def _z2deriv_interpolated(self, R, z):
         from ..potential import evaluatez2derivs
 
+        if is_backend_array(R) or is_backend_array(z):
+            return self._eval_grid_backend("z2deriv", R, z)
         out = numpy.empty(R.shape)
         indx = (
             (R >= self._rgrid[0])
@@ -776,6 +827,8 @@ class interpRZPotential(Potential):
     def _Rzderiv_interpolated(self, R, z):
         from ..potential import evaluateRzderivs
 
+        if is_backend_array(R) or is_backend_array(z):
+            return self._eval_grid_backend("rzderiv", R, z)
         out = numpy.empty(R.shape)
         indx = (
             (R >= self._rgrid[0])
@@ -806,6 +859,8 @@ class interpRZPotential(Potential):
         from ..potential import evaluateDensities
 
         if self._interpDens:
+            if is_backend_array(R) or is_backend_array(z):
+                return self._eval_grid_backend("dens", R, z, log_transform=True)
             out = numpy.empty(R.shape)
             indx = (
                 (R >= self._rgrid[0])
