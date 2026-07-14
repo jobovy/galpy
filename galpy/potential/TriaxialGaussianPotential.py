@@ -86,7 +86,9 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         self._twosigma2 = 2.0 * self._sigma**2
         self._scale = self._sigma
         # Adjust amp
-        self._amp /= (2.0 * numpy.pi) ** 1.5 * self._sigma**3.0 * self._b * self._c
+        self._amp = self._amp / (
+            (2.0 * numpy.pi) ** 1.5 * self._sigma**3.0 * self._b * self._c
+        )
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
