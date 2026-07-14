@@ -219,3 +219,28 @@ def test_grad_vs_fd_phi(backend_name):
         for h in (1e-3, 1e-4, 1e-5, 1e-6)
     )
     assert best < 1e-7, best
+
+
+# --- numpy query UNDER a forced backend (the integrator / gate-bypass path) ----
+@pytest.mark.parametrize("mop_id,mop", _MOPS, ids=[m[0] for m in _MOPS])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_numpy_query_under_forced_backend(backend_name, mop_id, mop):
+    # A bare numpy/python query made UNDER a forced backend -- what the C/Python
+    # orbit integrator (and any consumer that skips the input-coercion gate)
+    # does -- must be pinned to numpy by the _numpy_ctx_for_numpy_inputs
+    # decorator: no torch.cos/sqrt(numpy) crash, no jax/torch array leaking back
+    # into the numpy integrator, and the value equals the plain-numpy result.
+    import galpy.backend
+
+    for method in _METHODS:
+        for R, z, phi, t in _POINTS:
+            ref = float(getattr(mop, method)(R, z, phi=phi, t=t))
+            with galpy.backend.use(backend_name, force=True):
+                got = float(getattr(mop, method)(R, z, phi=phi, t=t))  # numpy inputs
+            numpy.testing.assert_allclose(
+                got,
+                ref,
+                rtol=1e-12,
+                atol=0.0,
+                err_msg=f"{mop_id} {method} numpy-under-forced-{backend_name}",
+            )
