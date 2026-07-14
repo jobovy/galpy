@@ -3,8 +3,11 @@
 #                             a moving object
 ###############################################################################
 import copy
+from functools import wraps
 
-from ..backend import as_backend_constant, get_namespace, is_backend_array
+import numpy
+
+from ..backend import as_backend_constant, get_namespace, is_backend_array, use
 from ..potential.Potential import _check_potential_list_and_deprecate
 from .PlummerPotential import PlummerPotential
 from .Potential import (
@@ -19,6 +22,35 @@ from .Potential import (
     evaluatez2derivs,
     evaluatezforces,
 )
+
+_NUMPY_PROBE = numpy.ones(1)
+
+
+def _numpy_ctx_for_numpy_inputs(method):
+    """Compute on numpy for a numpy/python query made under a FORCED backend.
+
+    The moving object's kernel potential and the ``cos/sin`` projections resolve
+    their namespace from the data; under a forced backend a bare numpy query
+    (e.g. from the C/Python orbit integrator or any consumer that skips the
+    input-coercion gate) would otherwise route into the backend -- the kernel's
+    own gate coerces the shifted coords to jax/torch and a backend array leaks
+    back into the numpy integrator (and ``torch.cos/sqrt(numpy)`` crashes). Pin
+    such a query to numpy. Genuine backend-array inputs, and any query in an
+    unforced numpy context, run unchanged (numpy path byte-identical)."""
+
+    @wraps(method)
+    def wrapper(self, R, z, phi=0.0, t=0.0):
+        if (
+            is_backend_array(R)
+            or is_backend_array(z)
+            or is_backend_array(phi)
+            or get_namespace(_NUMPY_PROBE) is numpy
+        ):
+            return method(self, R, z, phi, t)
+        with use("numpy", force=True):
+            return method(self, R, z, phi, t)
+
+    return wrapper
 
 
 class MovingObjectPotential(Potential):
@@ -74,6 +106,7 @@ class MovingObjectPotential(Potential):
         self.hasC_dxdv3d = _check_c(self._pot, dxdv3d=True)
         return None
 
+    @_numpy_ctx_for_numpy_inputs
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
@@ -81,6 +114,7 @@ class MovingObjectPotential(Potential):
         # Evaluate potential
         return evaluatePotentials(self._pot, Rdist, orbz - z, t=t, use_physical=False)
 
+    @_numpy_ctx_for_numpy_inputs
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
@@ -94,6 +128,7 @@ class MovingObjectPotential(Potential):
         xp = get_namespace(R, z, phi)
         return -RF * (xp.cos(phi) * xd + xp.sin(phi) * yd) / Rdist
 
+    @_numpy_ctx_for_numpy_inputs
     def _zforce(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
@@ -103,6 +138,7 @@ class MovingObjectPotential(Potential):
         # Evaluate and return z force
         return -evaluatezforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
+    @_numpy_ctx_for_numpy_inputs
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
@@ -150,6 +186,7 @@ class MovingObjectPotential(Potential):
         phizz = z2d
         return (phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz)
 
+    @_numpy_ctx_for_numpy_inputs
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
@@ -158,12 +195,14 @@ class MovingObjectPotential(Potential):
         cp, sp = xp.cos(phi), xp.sin(phi)
         return cp**2.0 * phixx + 2.0 * cp * sp * phixy + sp**2.0 * phiyy
 
+    @_numpy_ctx_for_numpy_inputs
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
         )
         return phizz
 
+    @_numpy_ctx_for_numpy_inputs
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
@@ -172,6 +211,7 @@ class MovingObjectPotential(Potential):
         cp, sp = xp.cos(phi), xp.sin(phi)
         return cp * phixz + sp * phiyz
 
+    @_numpy_ctx_for_numpy_inputs
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
@@ -182,6 +222,7 @@ class MovingObjectPotential(Potential):
             sp**2.0 * phixx - 2.0 * cp * sp * phixy + cp**2.0 * phiyy
         ) - R * (cp * phix + sp * phiy)
 
+    @_numpy_ctx_for_numpy_inputs
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
@@ -194,6 +235,7 @@ class MovingObjectPotential(Potential):
             + cp * phiy
         )
 
+    @_numpy_ctx_for_numpy_inputs
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         phix, phiy, phixx, phixy, phiyy, phixz, phiyz, phizz = self._xyzHess(
             R, z, phi, t
@@ -202,6 +244,7 @@ class MovingObjectPotential(Potential):
         cp, sp = xp.cos(phi), xp.sin(phi)
         return R * (cp * phiyz - sp * phixz)
 
+    @_numpy_ctx_for_numpy_inputs
     def _dens(self, R, z, phi=0.0, t=0.0):
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
