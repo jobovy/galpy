@@ -165,7 +165,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             self._lnLambda = const_lnLambda
         else:
             self._lnLambda = False
-        self._amp *= 4.0 * numpy.pi
+        self._amp = self._amp * (4.0 * numpy.pi)
         self._force_hash = None
         self.hasC = _check_c(self._dens_pot, dens=True)
         # The rectangular force Jacobian (dF/dx, dF/dv) for the 3D variational
@@ -181,7 +181,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
     def GMs(self, gms):
         gms = conversion.parse_mass(gms, ro=self._ro, vo=self._vo)
-        self._amp *= gms / self._ms
+        self._amp = self._amp * (gms / self._ms)
         self._ms = gms
         # Reset the hash
         self._force_hash = None

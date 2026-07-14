@@ -85,7 +85,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         self.a2 = self.a**2
         self._scale = self.a
         # Adjust amp
-        self._amp *= self.a / (numpy.pi**2 * self._b * self._c)
+        self._amp = self._amp * (self.a / (numpy.pi**2 * self._b * self._c))
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
