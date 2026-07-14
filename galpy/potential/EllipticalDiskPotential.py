@@ -79,7 +79,7 @@ class EllipticalDiskPotential(planarPotential):
         cp = conversion.parse_energy(cp, vo=self._vo)
         sp = conversion.parse_energy(sp, vo=self._vo)
         # Back to old definition
-        self._amp /= r1**p
+        self._amp = self._amp / (r1**p)
         self.hasC = True
         self._backend_compatible = True
         self.hasC_dxdv = True
