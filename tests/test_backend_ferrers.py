@@ -1,17 +1,24 @@
 ###############################################################################
 # test_backend_ferrers.py: backend tests for FerrersPotential.
 #
-# Ferrers' potential / force / 2nd-derivative methods evaluate a
-# scipy.integrate.quad integral over concrete inputs, so they produce identical
-# VALUES under numpy / jax / torch (eager evaluation with concrete arrays) but
-# are NOT jax-traceable through the quadrature (that is the Pspecial-deferred
-# path). This module therefore:
-#   1. checks numpy / jax / torch value parity for every migrated compute method
-#      (this drives the traced-path branch of the per-instance md5 force cache,
-#      `if xp is not numpy: return self._xyzforces(...)`),
-#   2. checks the fully-arithmetic _dens (the only autodiff-friendly method):
-#      value parity AND that its eager-both-branch xp.where guard gives a finite
-#      gradient on the m2 >= 1 (outside-ellipsoid) dead branch instead of NaN.
+# Ferrers' potential / force / 2nd-derivative methods evaluate an ellipsoidal
+# integral from a confocal lower limit to infinity. numpy inputs keep the
+# scipy.integrate.quad adaptive path (byte-identical to before); jax/torch
+# inputs route to a fixed-order Gauss-Legendre semi-infinite quadrature
+# (galpy.backend.quadrature) with the lower limit found by the backend brentq
+# (galpy.backend.optimize), so the whole force/2nd-deriv chain is now
+# jit/grad-safe under a trace (not just eager). This module checks:
+#   1. numpy / jax / torch value parity for every migrated compute method. The
+#      backend GL path is MORE accurate than scipy's adaptive quadrature, so the
+#      2nd-derivative methods differ from the numpy reference by scipy's own
+#      adaptive-tolerance floor (~1e-6), not to machine precision.
+#   2. the migrated force integral is TRACEABLE: jax.jacfwd / jax.jit and torch
+#      autograd over evaluateRforces/evaluatezforces return finite values, and
+#      eager jax/torch return backend arrays.
+#   3. the force gradient w.r.t. R h-converges to a central finite difference
+#      (jax and torch), the stringent grad-vs-FD check.
+#   4. the fully-arithmetic _dens: value parity AND a finite (0) gradient on the
+#      m2 >= 1 (outside-ellipsoid) dead branch instead of NaN.
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
@@ -19,7 +26,11 @@ import numpy
 import pytest
 
 from galpy.backend import as_numpy
-from galpy.potential import FerrersPotential
+from galpy.potential import (
+    FerrersPotential,
+    evaluateRforces,
+    evaluatezforces,
+)
 
 # This module manages backends explicitly, so it is exempt from the global
 # --backend force fixture.
@@ -39,6 +50,7 @@ except ImportError:  # pragma: no cover
 try:
     import torch
 
+    torch.set_default_dtype(torch.float64)
     BACKENDS.append("torch")
 except ImportError:  # pragma: no cover
     torch = None
@@ -50,20 +62,18 @@ AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 _FE = FerrersPotential(amp=1.3, a=1.5, n=2, b=0.9, c=0.7, pa=0.3, omegab=1.0)
 
 # Every migrated compute method (all scalar in their quadrature, so probed at a
-# scalar point).
-_METHODS = [
-    "_evaluate",
-    "_Rforce",
-    "_zforce",
-    "_phitorque",
+# scalar point). The 2nd-derivative methods only match the scipy reference to
+# its adaptive-tolerance floor (the GL path is the more accurate one).
+_FIRST_ORDER = ["_evaluate", "_Rforce", "_zforce", "_phitorque", "_dens"]
+_SECOND_ORDER = [
     "_R2deriv",
     "_z2deriv",
     "_Rzderiv",
     "_phi2deriv",
     "_Rphideriv",
     "_phizderiv",
-    "_dens",
 ]
+_METHODS = _FIRST_ORDER + _SECOND_ORDER
 _R0, _Z0, _PHI0, _T0 = 1.2, 0.3, 0.4, 0.0
 
 
@@ -80,9 +90,10 @@ def _asarray(backend_name, x):
 @pytest.mark.parametrize("backend_name", BACKENDS)
 def test_value_parity(backend_name, method):
     # numpy / jax / torch agree at a scalar (R, z, phi, t), all on the active
-    # backend (the rotated cos/sin de-rotation needs a same-namespace phi/t under
-    # torch). The traced backends take the `if xp is not numpy` direct-compute
-    # path of _cached_xyzforces (no md5 cache) for the force methods.
+    # backend. numpy vs numpy is exact (the numpy path is byte-identical); the
+    # backend GL quadrature matches the scipy reference to ~1e-9 for the
+    # forces/potential and to scipy's adaptive floor (~1e-6) for the 2nd
+    # derivatives (GL being the more accurate of the two).
     ref = float(
         getattr(_FE, method)(
             numpy.asarray(_R0), numpy.asarray(_Z0), numpy.asarray(_PHI0), _T0
@@ -98,9 +109,106 @@ def test_value_parity(backend_name, method):
             )
         )
     )
+    if backend_name == "numpy":
+        rtol, atol = 0.0, 0.0  # numpy path is byte-identical
+    elif method in _SECOND_ORDER:
+        rtol, atol = 1e-6, 1e-8
+    else:
+        rtol, atol = 1e-9, 1e-11
     numpy.testing.assert_allclose(
-        got, ref, rtol=1e-11, atol=1e-13, err_msg=f"Ferrers.{method} ({backend_name})"
+        got, ref, rtol=rtol, atol=atol, err_msg=f"Ferrers.{method} ({backend_name})"
     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_traced_force_finite(backend_name):
+    # The migrated force integral is now traceable: jax.jit / jax.jacfwd and
+    # torch autograd over the public force evaluators return finite values (the
+    # exact failure -- numpy.roots on a traced lower limit -- that defined this
+    # gap). Probed at both an inside- and an outside-ellipsoid point.
+    for R0 in (0.6, 2.5):
+        z0, phi0, t0 = 0.3, 0.4, 0.1
+        if backend_name == "jax":
+            args = (jnp.asarray(z0), jnp.asarray(phi0), jnp.asarray(t0))
+            val = jax.jit(
+                lambda R: evaluateRforces(_FE, R, args[0], phi=args[1], t=args[2])
+            )(jnp.asarray(R0))
+            jac = jax.jacfwd(
+                lambda R: evaluateRforces(_FE, R, args[0], phi=args[1], t=args[2])
+            )(jnp.asarray(R0))
+            assert numpy.isfinite(float(val))
+            assert numpy.isfinite(float(jac))
+        else:
+            Rt = torch.tensor(R0, requires_grad=True)
+            val = evaluateRforces(
+                _FE, Rt, torch.tensor(z0), phi=torch.tensor(phi0), t=torch.tensor(t0)
+            )
+            val.backward()
+            assert numpy.isfinite(float(val.detach()))
+            assert numpy.isfinite(float(Rt.grad))
+
+
+@pytest.mark.parametrize("force", ["R", "z"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_force_grad_vs_finite_difference(backend_name, force):
+    # Stringent grad-vs-FD: the force gradient w.r.t. R h-converges to a central
+    # finite difference (a central-FD error ~ h^2), at both an inside and an
+    # outside point. This exercises the differentiable confocal lower limit
+    # (brentq implicit-function gradient) and the GL quadrature together.
+    fn = {"R": evaluateRforces, "z": evaluatezforces}[force]
+    z0, phi0, t0 = 0.3, 0.4, 0.1
+
+    def num_force(R):
+        return float(
+            fn(_FE, numpy.asarray(R), numpy.asarray(z0), phi=numpy.asarray(phi0), t=t0)
+        )
+
+    for R0 in (0.6, 2.5):
+        if backend_name == "jax":
+            ad = float(
+                jax.jacfwd(
+                    lambda R: fn(
+                        _FE,
+                        R,
+                        jnp.asarray(z0),
+                        phi=jnp.asarray(phi0),
+                        t=jnp.asarray(t0),
+                    )
+                )(jnp.asarray(R0))
+            )
+        else:
+            Rt = torch.tensor(R0, requires_grad=True)
+            fn(
+                _FE, Rt, torch.tensor(z0), phi=torch.tensor(phi0), t=torch.tensor(t0)
+            ).backward()
+            ad = float(Rt.grad)
+        # central FD, shrink h and require the relative error to shrink with it.
+        prev = None
+        for h in (1e-3, 1e-4, 1e-5):
+            fd = (num_force(R0 + h) - num_force(R0 - h)) / (2 * h)
+            rel = abs(ad - fd) / (abs(fd) + 1e-30)
+            if prev is not None:
+                # central FD is O(h^2): each 10x smaller h shrinks the error ~100x
+                assert rel < prev, f"{force}@{R0} not h-converging: {prev} -> {rel}"
+            prev = rel
+        assert rel < 1e-8, f"{force}@{R0} grad-vs-FD not converged: {rel}"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_eager_returns_backend_array(backend_name):
+    # Eager (concrete backend arrays) still returns a backend array (not a numpy
+    # scalar) from the migrated force path.
+    val = evaluateRforces(
+        _FE,
+        _asarray(backend_name, _R0),
+        _asarray(backend_name, _Z0),
+        phi=_asarray(backend_name, _PHI0),
+        t=_asarray(backend_name, _T0),
+    )
+    if backend_name == "jax":
+        assert isinstance(val, jax.Array)
+    else:
+        assert torch.is_tensor(val)
 
 
 @pytest.mark.parametrize("backend_name", BACKENDS)
@@ -123,7 +231,7 @@ def test_dens_inside_outside_value_parity(backend_name):
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_dens_grad_inside_vs_finite_difference(backend_name):
-    # _dens is the one fully-arithmetic (autodiff-friendly) method. Inside the
+    # _dens is a fully-arithmetic (autodiff-friendly) method. Inside the
     # ellipsoid AD(d_dens/dR) matches central FD.
     R0, z0 = 0.3, 0.05
     eps = 1e-6
