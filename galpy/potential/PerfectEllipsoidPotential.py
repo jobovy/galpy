@@ -92,7 +92,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         if self._aligned and numpy.fabs(self._b - 1.0) < 1e-10 and self._c < 1.0:
             self._delta = self.a * numpy.sqrt(1.0 - self._c2)
         # Adjust amp
-        self._amp *= self.a / (numpy.pi**2 * self._b * self._c)
+        self._amp = self._amp * (self.a / (numpy.pi**2 * self._b * self._c))
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)

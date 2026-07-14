@@ -72,7 +72,7 @@ class FlattenedPowerPotential(Potential):
         self.q2 = q**2.0
         self.core2 = core**2.0
         # Back to old definition
-        self._amp *= r1**self.alpha
+        self._amp = self._amp * (r1**self.alpha)
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
