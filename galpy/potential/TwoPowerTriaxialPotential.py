@@ -121,7 +121,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
                 / special.gamma(self.betaminusalpha)
             )
         # Adjust amp
-        self._amp /= 4.0 * numpy.pi * self.a**3
+        self._amp = self._amp / (4.0 * numpy.pi * self.a**3)
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
@@ -276,7 +276,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         self._scale = self.a
         # Adjust amp
         self.a4 = self.a**4
-        self._amp /= 4.0 * numpy.pi * self.a**3
+        self._amp = self._amp / (4.0 * numpy.pi * self.a**3)
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
@@ -396,7 +396,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         self._scale = self.a
         # Adjust amp
         self.a2 = self.a**2
-        self._amp /= 4.0 * numpy.pi * self.a2 * self.a
+        self._amp = self._amp / (4.0 * numpy.pi * self.a2 * self.a)
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
@@ -555,7 +555,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         # Adjust amp
         self.a3 = self.a**3
-        self._amp /= 4.0 * numpy.pi * self.a3
+        self._amp = self._amp / (4.0 * numpy.pi * self.a3)
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
