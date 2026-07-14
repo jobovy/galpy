@@ -6,6 +6,15 @@
 import numpy
 from scipy import integrate, special
 
+from ..backend import (
+    asarray_on_device,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    match_input_dtype,
+)
+from ..backend import quadrature as _bquad
+from ..backend import special as _bspecial
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .Potential import Potential, check_potential_inputs_not_arrays
@@ -30,6 +39,17 @@ _R2DERIV_ZFLOOR = 1e-9
 
 if _APY_LOADED:
     from astropy import units
+
+# Gauss-Legendre nodes per panel on the differentiable backend path (the numpy
+# path keeps scipy's adaptive quad and is byte-identical). The a=R (m->1)
+# singularity is handled by a symmetric plain-GL split at R (0, R, 2R, inf); the
+# principal-value cancellation degrades if nodes cluster too close to R, so a
+# moderate order is deliberate.
+_GLORDER = 100
+# m = 4aR/((a+R)^2+z^2) <= 1 analytically (equality at a=R), but rounding can tip
+# it just above 1 near a=R -> sqrt(1-m) of a negative -> NaN in the AGM elliptic
+# fallback. Clamp strictly below 1 (only fires on the rounding artifact).
+_ELLIP_M_CAP = 1.0 - 1e-15
 
 
 # The zforce integrand carries a factor 1/((a-R)^2+z^2): a peak of width ~|z|
@@ -158,6 +178,9 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
+        # jax/torch-traceable forces (differentiable) via backend Gauss-Legendre
+        # quadrature; the numpy path stays scipy-adaptive and byte-identical.
+        self._backend_compatible = True
         # Parse surface density: does it have units? does it expect them?
         if _APY_LOADED:
             _sdens_unit_input = False
@@ -206,8 +229,67 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         ):  # pragma: no cover
             self.normalize(normalize)
 
+    # -----------------------------------------------------------------------
+    # Backend (jax/torch) helpers
+    #
+    # A backend-array input routes here. When a gradient is actually being taken
+    # -- a jax/functorch tracer, or a grad-tracking torch tensor -- the compute
+    # is in-backend fixed-order Gauss-Legendre so it differentiates. A PLAIN
+    # concrete backend scalar instead reuses scipy's accurate adaptive quad
+    # (byte-consistent with the numpy path; GL cannot resolve the a=R principal
+    # value / small-z sheet structure that the derivative tests FD-probe at
+    # z~1e-8, and cannot form the z=0 Hadamard-type second-derivative), and the
+    # scipy value is wrapped as a backend array so no downstream ``xp.`` op meets
+    # a bare python float.
+    # -----------------------------------------------------------------------
+    def _bk_split_quad(self, integrand, R, xp, dev):
+        # int_0^inf integrand(a) da as [0, R] + [R, 2R] + [2R, inf); the
+        # symmetric plain-GL split at R handles the a=R (m->1) singularity.
+        zero = xp.zeros_like(R)
+        two_R = 2.0 * R
+        return (
+            _bquad.fixed_quad(xp, integrand, zero, R, n=_GLORDER, device=dev)
+            + _bquad.fixed_quad(xp, integrand, R, two_R, n=_GLORDER, device=dev)
+            + _bquad.fixed_quad_semiinfinite(
+                xp, integrand, two_R, n=_GLORDER, device=dev
+            )
+        )
+
+    @staticmethod
+    def _bk_m_aRz(a, R, z2, xp):
+        aRz = (a + R) ** 2.0 + z2
+        m = xp.minimum(4.0 * a * R / aRz, _ELLIP_M_CAP * xp.ones_like(aRz))
+        return m, aRz
+
+    def _bk_dispatch(self, numpy_fn, gl_fn, R, z):
+        xp = get_namespace(R, z)
+        dev = device_of(R, z)
+        if not (
+            getattr(R, "requires_grad", False) or getattr(z, "requires_grad", False)
+        ):
+            try:  # plain concrete backend input: reuse scipy's accurate value
+                Rf, zf = float(R), float(z)
+            except Exception:  # tracer: in-backend differentiable GL
+                pass
+            else:
+                # numpy.asarray keeps scipy's float64 value at full precision
+                # (asarray_on_device of a bare python float would drop to torch's
+                # float32 default, and match_input_dtype's later up-cast cannot
+                # recover the lost digits -> a derivative test's dr=1e-8 FD blows
+                # up); match_input_dtype then honours the input's own dtype.
+                return match_input_dtype(
+                    asarray_on_device(xp, numpy.asarray(numpy_fn(Rf, zf)), dev), R, z
+                )
+        return match_input_dtype(gl_fn(R, z, xp, dev), R, z)  # differentiate: GL
+
+    # ------------------------------ potential ------------------------------
     @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        if is_backend_array(R) or is_backend_array(z):
+            return self._bk_dispatch(self._evaluate_numpy, self._evaluate_gl, R, z)
+        return self._evaluate_numpy(R, z)
+
+    def _evaluate_numpy(self, R, z):
         if R == 0 and z == 0:
             return self._pot_zero
         elif numpy.isinf(R**2 + z**2):
@@ -223,8 +305,24 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             + integrate.quad(potint, 2 * R, numpy.inf)[0]
         )
 
+    def _evaluate_gl(self, R, z, xp, dev):
+        z2 = z**2
+        sdens = self._sdens
+
+        def potint(a):
+            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            return a * sdens(a) / xp.sqrt(aRz) * _bspecial.ellipk(m)
+
+        return -4.0 * self._bk_split_quad(potint, R, xp, dev)
+
+    # ------------------------------- Rforce --------------------------------
     @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
+        if is_backend_array(R) or is_backend_array(z):
+            return self._bk_dispatch(self._Rforce_numpy, self._Rforce_gl, R, z)
+        return self._Rforce_numpy(R, z)
+
+    def _Rforce_numpy(self, R, z):
         R2 = R**2
         z2 = z**2
 
@@ -254,8 +352,36 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             + integrate.quad(rforceint, 2 * R, numpy.inf)[0]
         )
 
+    def _Rforce_gl(self, R, z, xp, dev):
+        R2 = R**2
+        z2 = z**2
+        sdens = self._sdens
+
+        def rforceint(a):
+            a2 = a**2
+            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            return (
+                a
+                * sdens(a)
+                * (
+                    (a2 - R2 + z2) * _bspecial.ellipe(m)
+                    - ((a - R) ** 2 + z2) * _bspecial.ellipk(m)
+                )
+                / R
+                / ((a - R) ** 2 + z2)
+                / xp.sqrt(aRz)
+            )
+
+        return 2.0 * self._bk_split_quad(rforceint, R, xp, dev)
+
+    # ------------------------------- zforce --------------------------------
     @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0.0, t=0.0):
+        if is_backend_array(R) or is_backend_array(z):
+            return self._bk_dispatch(self._zforce_numpy, self._zforce_gl, R, z)
+        return self._zforce_numpy(R, z)
+
+    def _zforce_numpy(self, R, z):
         if z == 0:
             return 0.0
         z2 = z**2
@@ -272,8 +398,30 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         return -4 * z * _quad_apeak(zforceint, R, z)
 
+    def _zforce_gl(self, R, z, xp, dev):
+        # z==0 is the disk plane (zforce=0 by symmetry) but the integrand has a
+        # non-integrable 1/(a-R)^2 pole there; guard the dead branch with z_safe.
+        z_safe = xp.where(z == 0, xp.ones_like(z), z)
+        z2 = z_safe**2
+        sdens = self._sdens
+
+        def zforceint(a):
+            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            return (
+                a * sdens(a) * _bspecial.ellipe(m) / ((a - R) ** 2 + z2) / xp.sqrt(aRz)
+            )
+
+        integral = self._bk_split_quad(zforceint, R, xp, dev)
+        return xp.where(z == 0, xp.zeros_like(z), -4.0 * z * integral)
+
+    # ------------------------------ R2deriv --------------------------------
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        if is_backend_array(R) or is_backend_array(z):
+            return self._bk_dispatch(self._R2deriv_numpy, self._R2deriv_gl, R, z)
+        return self._R2deriv_numpy(R, z)
+
+    def _R2deriv_numpy(self, R, z):
         R2 = R**2
         az = numpy.fabs(z)
         if az < _R2DERIV_ZFLOOR:
@@ -317,8 +465,44 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         return _finite_part_quad(r2derivint, R, az, self._sdens(R) / 2.0)
 
+    def _R2deriv_gl(self, R, z, xp, dev):
+        R2 = R**2
+        z2 = z**2
+        sdens = self._sdens
+
+        def r2derivint(a):
+            a2 = a**2
+            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            return (
+                a
+                * sdens(a)
+                * (
+                    -(
+                        (
+                            (a2 - 3.0 * R2) * (a2 - R2) ** 2
+                            + (3.0 * a2**2 + 2.0 * a2 * R2 + 3.0 * R2**2) * z2
+                            + (3.0 * a2 + 7.0 * R2) * z**4
+                            + z**6
+                        )
+                        * _bspecial.ellipe(m)
+                    )
+                    + ((a - R) ** 2 + z2)
+                    * ((a2 - R2) ** 2 + 2.0 * (a2 + 2.0 * R2) * z2 + z**4)
+                    * _bspecial.ellipk(m)
+                )
+                / (2.0 * R2 * ((a - R) ** 2 + z2) ** 2 * aRz**1.5)
+            )
+
+        return -4.0 * self._bk_split_quad(r2derivint, R, xp, dev)
+
+    # ------------------------------ z2deriv --------------------------------
     @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        if is_backend_array(R) or is_backend_array(z):
+            return self._bk_dispatch(self._z2deriv_numpy, self._z2deriv_gl, R, z)
+        return self._z2deriv_numpy(R, z)
+
+    def _z2deriv_numpy(self, R, z):
         R2 = R**2
         az = numpy.fabs(z)
         if az < _R2DERIV_ZFLOOR:
@@ -351,8 +535,37 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         # -Sigma(R)/2 -- exactly minus R2deriv's. Verified to 5e-10.
         return _finite_part_quad(z2derivint, R, az, -self._sdens(R) / 2.0)
 
+    def _z2deriv_gl(self, R, z, xp, dev):
+        R2 = R**2
+        z2 = z**2
+        sdens = self._sdens
+
+        def z2derivint(a):
+            a2 = a**2
+            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            return (
+                a
+                * sdens(a)
+                * (
+                    -(
+                        ((a2 - R2) ** 2 - 2.0 * (a2 + R2) * z2 - 3.0 * z**4)
+                        * _bspecial.ellipe(m)
+                    )
+                    - z2 * ((a - R) ** 2 + z2) * _bspecial.ellipk(m)
+                )
+                / (((a - R) ** 2 + z2) ** 2 * aRz**1.5)
+            )
+
+        return -4.0 * self._bk_split_quad(z2derivint, R, xp, dev)
+
+    # ------------------------------ Rzderiv --------------------------------
     @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        if is_backend_array(R) or is_backend_array(z):
+            return self._bk_dispatch(self._Rzderiv_numpy, self._Rzderiv_gl, R, z)
+        return self._Rzderiv_numpy(R, z)
+
+    def _Rzderiv_numpy(self, R, z):
         R2 = R**2
         z2 = z**2
 
@@ -384,6 +597,40 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             )
 
         return -2 * z * _quad_apeak(rzderivint, R, z)
+
+    def _Rzderiv_gl(self, R, z, xp, dev):
+        R2 = R**2
+        # z==0 -> Rzderiv=0 by symmetry; guard the 1/(a-R)^2 pole with z_safe.
+        z_safe = xp.where(z == 0, xp.ones_like(z), z)
+        z2 = z_safe**2
+        sdens = self._sdens
+
+        def rzderivint(a):
+            a2 = a**2
+            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            return (
+                a
+                * sdens(a)
+                * (
+                    -(
+                        (
+                            a**4
+                            - 7.0 * R**4
+                            - 6.0 * R2 * z2
+                            + z2**2
+                            + 2.0 * a2 * (3.0 * R2 + z2)
+                        )
+                        * _bspecial.ellipe(m)
+                    )
+                    + ((a - R) ** 2 + z2) * (a2 - R2 + z2) * _bspecial.ellipk(m)
+                )
+                / R
+                / ((a - R) ** 2 + z2) ** 2
+                / aRz**1.5
+            )
+
+        integral = self._bk_split_quad(rzderivint, R, xp, dev)
+        return xp.where(z == 0, xp.zeros_like(z), -2.0 * z * integral)
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         return self._sdens(R)

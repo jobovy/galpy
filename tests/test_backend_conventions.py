@@ -135,10 +135,10 @@ _MIGRATED_SAMPLE = [
     "KuzminKutuzovStaeckelPotential",
     "PseudoIsothermalPotential",
     "RazorThinExponentialDiskPotential",
+    "AnyAxisymmetricRazorThinDiskPotential",
 ]
 _UNMIGRATED_SAMPLE = [
     "AnySphericalPotential",
-    "AnyAxisymmetricRazorThinDiskPotential",
 ]
 
 
@@ -223,16 +223,26 @@ def test_coerce_coords_branches(backend):
 def test_scalar_only_gate_spares_unmigrated_potential(backend):
     # The check_potential_inputs_not_arrays decorator coerces R, z, phi onto the
     # active backend ONLY for _backend_compatible potentials. An UNMIGRATED
-    # scalar-only potential (AnyAxisymmetricRazorThinDiskPotential: bare
-    # scipy.integrate.quad / numpy internals) must keep its plain python-float
-    # inputs even under a forced backend, or those internals crash ("'<' not
-    # supported between numpy.ndarray and Tensor"). Regression guard for the
-    # decorator's _backend_compatible gate.
+    # scalar-only potential must keep its plain python-float inputs even under a
+    # forced backend, or its bare scipy.integrate.quad / numpy internals crash
+    # ("sqrt(): argument must be Tensor, not float" / "'<' not supported between
+    # numpy.ndarray and Tensor"). Regression guard for the decorator's
+    # _backend_compatible gate. AnyAxisymmetricRazorThinDiskPotential is now
+    # migrated (its force is backend-native), so use a forced-flag synthetic that
+    # pins _backend_compatible=False and keeps the scipy scalar path (mirrors the
+    # negative-example-fragility pattern in the auto-memory).
     import galpy.backend
 
-    pot = potential.AnyAxisymmetricRazorThinDiskPotential(normalize=1.0)
+    class _UnmigratedDisk(potential.AnyAxisymmetricRazorThinDiskPotential):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self._backend_compatible = False  # pin: decorator must NOT coerce
+
+    pot = _UnmigratedDisk(normalize=1.0)
     assert potential._check_backend_compatible(pot) is False
     ref = float(pot._evaluate(0.9, 0.1, 0.0, 0.0))
     with galpy.backend.use(backend, force=True):
+        # flag False -> R, z stay python floats -> is_backend_array False ->
+        # the scipy scalar path runs and returns a plain float, no crash.
         got = float(pot._evaluate(0.9, 0.1, 0.0, 0.0))
     numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=0.0)
