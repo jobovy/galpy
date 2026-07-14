@@ -58,7 +58,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         rc = conversion.parse_length(rc, ro=self._ro)
         self.alpha = alpha
         # Back to old definition
-        self._amp *= r1**self.alpha
+        self._amp = self._amp * (r1**self.alpha)
         self.rc = rc
         self._scale = self.rc
         self._backend_compatible = True

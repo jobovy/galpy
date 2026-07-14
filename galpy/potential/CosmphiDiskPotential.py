@@ -82,7 +82,7 @@ class CosmphiDiskPotential(planarPotential):
         sp = conversion.parse_energy(sp, vo=self._vo)
         # Back to old definition
         self._r1p = r1**p
-        self._amp /= self._r1p
+        self._amp = self._amp / (self._r1p)
         self.hasC = False
         self._m = int(m)  # make sure this is an int
         if cp is None or sp is None:
