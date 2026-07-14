@@ -14,9 +14,17 @@ import numpy
 from scipy import integrate
 from scipy.special import gamma
 
-from ..backend import get_namespace, zeros_like_backend
+from ..backend import get_namespace, is_backend_array, zeros_like_backend
+from ..backend.optimize import brentq
+from ..backend.quadrature import fixed_quad_semiinfinite
 from ..util import conversion, coords
 from .Potential import Potential
+
+# Gauss-Legendre order for the backend (jax/torch) branch of the ellipsoidal
+# integrals; the 'recip' semi-infinite substitution makes the Ferrers integrand
+# smooth, so this converges immediately (order 50 already matches scipy to
+# ~1e-13). numpy inputs keep the scipy adaptive path (byte-identical).
+_GLORDER = 100
 
 
 class FerrersPotential(Potential):
@@ -389,14 +397,24 @@ def _potInt(x, y, z, a2, b2, c2, n):
     A = sqrt((tau+a)(tau+b)(tau+c)) and B = (1-x^2/(tau+a)-y^2/(tau+b)-z^2/(tau+c))
     from lambda to infty with respect to tau.
     The lower limit lambda is given by lowerlim function.
+    numpy inputs use scipy.integrate.quad (byte-identical); backend inputs use a
+    fixed-order Gauss-Legendre semi-infinite quadrature (jit/grad-safe).
     """
+    if not (is_backend_array(x) or is_backend_array(y) or is_backend_array(z)):
+
+        def integrand(tau):
+            return _FracInt(x, y, z, a2, b2, c2, tau, n + 1, numpy)
+
+        return integrate.quad(
+            integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf
+        )[0]
+    xp = get_namespace(x, y, z)
+    ll = _lowerlim_backend(x**2, y**2, z**2, a2, b2, c2, xp)
 
     def integrand(tau):
-        return _FracInt(x, y, z, a2, b2, c2, tau, n + 1)
+        return _FracInt(x, y, z, a2, b2, c2, tau, n + 1, xp)
 
-    return integrate.quad(integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf)[
-        0
-    ]
+    return fixed_quad_semiinfinite(xp, integrand, ll, n=_GLORDER, kind="recip")
 
 
 def _forceInt(x, y, z, a2, b2, c2, n, i):
@@ -405,18 +423,35 @@ def _forceInt(x, y, z, a2, b2, c2, n, i):
     A = sqrt((tau+a)(tau+b)(tau+c)) and B = (1-x^2/(tau+a)-y^2/(tau+b)-z^2/(tau+c))
     from lambda to infty with respect to tau.
     The lower limit lambda is given by lowerlim function.
+    numpy inputs use scipy.integrate.quad (byte-identical); backend inputs use a
+    fixed-order Gauss-Legendre semi-infinite quadrature (jit/grad-safe).
     """
+    if not (is_backend_array(x) or is_backend_array(y) or is_backend_array(z)):
+
+        def integrand(tau):
+            return (
+                (x * (i == 0) + y * (i == 1) + z * (i == 2))
+                / (a2 * (i == 0) + b2 * (i == 1) + c2 * (i == 2) + tau)
+                * _FracInt(x, y, z, a2, b2, c2, tau, n, numpy)
+            )
+
+        return integrate.quad(
+            integrand,
+            lowerlim(x**2, y**2, z**2, a2, b2, c2),
+            numpy.inf,
+            epsabs=1e-12,
+        )[0]
+    xp = get_namespace(x, y, z)
+    ll = _lowerlim_backend(x**2, y**2, z**2, a2, b2, c2, xp)
 
     def integrand(tau):
         return (
             (x * (i == 0) + y * (i == 1) + z * (i == 2))
             / (a2 * (i == 0) + b2 * (i == 1) + c2 * (i == 2) + tau)
-            * _FracInt(x, y, z, a2, b2, c2, tau, n)
+            * _FracInt(x, y, z, a2, b2, c2, tau, n, xp)
         )
 
-    return integrate.quad(
-        integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf, epsabs=1e-12
-    )[0]
+    return fixed_quad_semiinfinite(xp, integrand, ll, n=_GLORDER, kind="recip")
 
 
 def _2ndDerivInt(x, y, z, a2, b2, c2, n, i, j):
@@ -432,10 +467,10 @@ def _2ndDerivInt(x, y, z, a2, b2, c2, n, i, j):
     This is a second derivative of _potInt.
     """
 
-    def integrand(tau):
+    def _integrand(tau, xp):
         if i != j:
             return (
-                _FracInt(x, y, z, a2, b2, c2, tau, n - 1)
+                _FracInt(x, y, z, a2, b2, c2, tau, n - 1, xp)
                 * n
                 * (1.0 + (-1.0 - 2.0 * x / (tau + a2)) * (i == 0 or j == 0))
                 * (1.0 + (-1.0 - 2.0 * y / (tau + b2)) * (i == 1 or j == 1))
@@ -444,22 +479,33 @@ def _2ndDerivInt(x, y, z, a2, b2, c2, n, i, j):
         else:
             var2 = x**2 * (i == 0) + y**2 * (i == 1) + z**2 * (i == 2)
             coef2 = a2 * (i == 0) + b2 * (i == 1) + c2 * (i == 2)
-            return _FracInt(x, y, z, a2, b2, c2, tau, n - 1) * n * (4.0 * var2) / (
+            return _FracInt(x, y, z, a2, b2, c2, tau, n - 1, xp) * n * (4.0 * var2) / (
                 tau + coef2
-            ) ** 2 + _FracInt(x, y, z, a2, b2, c2, tau, n) * (-2.0 / (tau + coef2))
+            ) ** 2 + _FracInt(x, y, z, a2, b2, c2, tau, n, xp) * (-2.0 / (tau + coef2))
 
-    return integrate.quad(integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf)[
-        0
-    ]
+    if not (is_backend_array(x) or is_backend_array(y) or is_backend_array(z)):
+        return integrate.quad(
+            lambda tau: _integrand(tau, numpy),
+            lowerlim(x**2, y**2, z**2, a2, b2, c2),
+            numpy.inf,
+        )[0]
+    xp = get_namespace(x, y, z)
+    ll = _lowerlim_backend(x**2, y**2, z**2, a2, b2, c2, xp)
+    return fixed_quad_semiinfinite(
+        xp, lambda tau: _integrand(tau, xp), ll, n=_GLORDER, kind="recip"
+    )
 
 
-def _FracInt(x, y, z, a, b, c, tau, n):
+def _FracInt(x, y, z, a, b, c, tau, n, xp=numpy):
     """Returns
                 1                     x^2       y^2       z^2
     -------------------------- (1 - ------- - ------- - -------)^n
     sqrt(tau+a)(tau+b)(tau+c))       tau+a     tau+b     tau+c
+
+    ``xp`` is the array namespace of the inputs; for numpy inputs
+    ``xp.sqrt`` is ``numpy.sqrt`` so this is byte-identical.
     """
-    denom = numpy.sqrt((a + tau) * (b + tau) * (c + tau))
+    denom = xp.sqrt((a + tau) * (b + tau) * (c + tau))
     return (1.0 - x**2 / (a + tau) - y**2 / (b + tau) - z**2 / (c + tau)) ** n / denom
 
 
@@ -477,3 +523,26 @@ def lowerlim(x, y, z, a, b, c):
         return ll[0].real
     else:
         return 0.0
+
+
+def _lowerlim_backend(x, y, z, a, b, c, xp):
+    """Backend (jax/torch) counterpart of :func:`lowerlim`.
+
+    ``x, y, z`` are the SQUARED coordinates and ``a, b, c`` the squared axis
+    parameters (as ``lowerlim`` is called). The lower limit is the real positive
+    root of ``g(t) = x/(a+t) + y/(b+t) + z/(c+t) - 1`` (the confocal-ellipsoid
+    coordinate) when the point is outside (``g(0) > 0``), else 0. ``g`` is
+    monotonically decreasing on ``[0, inf)`` from ``g(0) > 0`` to ``-1``, so the
+    root is bracketed by ``[0, x+y+z+a+b+c]`` (``t* < x+y+z``); ``brentq`` returns
+    it with the implicit-function gradient. The inside case (no sign change) is
+    masked to 0 by ``xp.where``; its bisection value stays finite so the eager
+    dead branch never poisons AD.
+    """
+    outside = (x / a + y / b + z / c) > 1.0
+    hi = x + y + z + a + b + c
+
+    def g(t):
+        return x / (a + t) + y / (b + t) + z / (c + t) - 1.0
+
+    root = brentq(g, zeros_like_backend(xp, hi), hi)
+    return xp.where(outside, root, xp.zeros_like(root))
