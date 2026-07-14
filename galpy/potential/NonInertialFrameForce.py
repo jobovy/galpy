@@ -413,11 +413,16 @@ class NonInertialFrameForce(DissipativeForce):
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
         force = self._force(R, z, phi, t, v)
         xp = get_namespace(phi, force[0])
+        # phi may arrive as a bare python/numpy scalar while force is a backend
+        # array (the DissipativeForce path skips the input-coercion gate); torch
+        # rejects cos() on a python float, so anchor phi on the force namespace.
+        phi = phi if is_backend_array(phi) else as_backend_constant(xp, phi, force[0])
         return xp.cos(phi) * force[0] + xp.sin(phi) * force[1]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
         force = self._force(R, z, phi, t, v)
         xp = get_namespace(phi, force[0])
+        phi = phi if is_backend_array(phi) else as_backend_constant(xp, phi, force[0])
         return R * (-xp.sin(phi) * force[0] + xp.cos(phi) * force[1])
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
