@@ -53,7 +53,9 @@ class PowerSphericalPotential(Potential):
         self.alpha = alpha
         # Back to old definition
         if self.alpha != 3.0:
-            self._amp *= r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
+            self._amp = self._amp * (
+                r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
+            )
         self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)

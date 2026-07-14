@@ -75,7 +75,7 @@ class MN3ExponentialDiskPotential(Potential):
         self._hz = hz
         self._scale = self._hr
         # Adjust amp for definition
-        self._amp *= 4.0 * numpy.pi * self._hr**2.0 * self._hz
+        self._amp = self._amp * (4.0 * numpy.pi * self._hr**2.0 * self._hz)
         # First determine b/rd
         if sech:
             self._brd = _b_sechhz(self._hz / self._hr)
