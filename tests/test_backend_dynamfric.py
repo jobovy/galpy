@@ -87,8 +87,10 @@ def _m_for_kr(target):
 
 # (label, force). Covers: classical friction with a finite half-mass radius,
 # the rhm=0 black-hole default (r/gamma/rhm dead branch = division by zero,
-# guarded in Python on the static attr), the GMvs<rhm Coulomb-log branch, and
-# the three FDM kr-regimes (zero-velocity Cin, intermediate interp, dispersion).
+# guarded in Python on the static attr), the GMvs<rhm Coulomb-log branch, the
+# constant-Coulomb-log / constant-FDM-factor shortcuts (const_lnLambda /
+# const_FDMfactor -- the backend const branch that skips the r/v computation),
+# and the three FDM kr-regimes (zero-velocity Cin, intermediate interp, dispersion).
 _CASES = [
     ("CDF", ChandrasekharDynamicalFrictionForce(GMs=0.05, rhm=0.1, dens=_NFW)),
     (
@@ -98,6 +100,23 @@ _CASES = [
     (
         "CDF-rhmbranch",
         ChandrasekharDynamicalFrictionForce(GMs=0.001, rhm=2.0, dens=_NFW),
+    ),
+    (
+        "CDF-constlnLambda",
+        ChandrasekharDynamicalFrictionForce(
+            GMs=0.05, rhm=0.1, dens=_NFW, const_lnLambda=3.0
+        ),
+    ),
+    (
+        "FDM-constfactor",
+        FDMDynamicalFrictionForce(
+            GMs=0.05,
+            rhm=0.1,
+            dens=_NFW,
+            m=_m_for_kr(0.5),
+            sigmar=_SIGMAR,
+            const_FDMfactor=2.0,
+        ),
     ),
     (
         "FDM-zero",
