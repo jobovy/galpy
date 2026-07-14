@@ -8,7 +8,7 @@ import hashlib
 import numpy
 from scipy import interpolate, special
 
-from ..backend import get_namespace
+from ..backend import get_namespace, is_backend_array
 from ..backend import special as _backend_special
 from ..backend.interpolate import Spline1D
 from ..util import conversion
@@ -270,8 +270,13 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return xp.where(r < self._minr, xp.zeros_like(force), force)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
-        xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
-        if xp is not numpy:
+        # Dispatch on the DATA, not get_namespace: this DissipativeForce is queried
+        # via a path that skips the input-coercion gate, so under a forced backend
+        # get_namespace would return that backend for bare python/numpy inputs and
+        # send them into the backend arithmetic (torch.sqrt(float) crashes). Only
+        # genuine backend arrays take the backend path; else the numpy/cache path.
+        if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
+            xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
             return self._calc_force_backend(R, phi, z, v, t, xp) * v[0]
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
@@ -281,8 +286,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return self._cached_force * v[0]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
-        xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
-        if xp is not numpy:
+        if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
+            xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
             return self._calc_force_backend(R, phi, z, v, t, xp) * v[1] * R
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
@@ -292,8 +297,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return self._cached_force * v[1] * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
-        xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
-        if xp is not numpy:
+        if is_backend_array(R) or is_backend_array(z) or is_backend_array(v[0]):
+            xp = get_namespace(R, z, phi, t, v[0], v[1], v[2])
             return self._calc_force_backend(R, phi, z, v, t, xp) * v[2]
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
