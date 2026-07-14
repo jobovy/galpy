@@ -144,13 +144,19 @@ class AnySphericalPotential(SphericalPotential):
 
             xp = get_namespace(r)
             # -M(r)/r - 4 pi int_r^inf rho(a) a da (tail via the recip s=1/u^2-1
-            # substitution, differentiable in r). No r == 0 / isinf branching:
-            # under a trace r is a generic array (those scalar edges are the
-            # numpy-only path below).
+            # substitution, differentiable in r). The scalar edges r == 0
+            # (M/r -> 0/0) and r == inf (both terms -> 0) DO reach this path from
+            # the forced-backend test_potential; evaluate the bulk formula at a
+            # safe r (keeps the dead where-branch finite for reverse-mode AD too)
+            # and select the precomputed edge values.
+            edge = (r == 0) | xp.isinf(r)
+            r_safe = xp.where(edge, xp.ones_like(r), r)
             tail = fixed_quad_semiinfinite(
-                xp, lambda a: self._rawdens(a) * a, r, kind="recip"
+                xp, lambda a: self._rawdens(a) * a, r_safe, kind="recip"
             )
-            return -self._rawmass(r) / r - 4.0 * numpy.pi * tail
+            bulk = -self._rawmass(r_safe) / r_safe - 4.0 * numpy.pi * tail
+            out = xp.where(r == 0, self._pot_zero, bulk)
+            return xp.where(xp.isinf(r), self._pot_inf, out)
         if r == 0:
             return self._pot_zero
         elif numpy.isinf(r):
