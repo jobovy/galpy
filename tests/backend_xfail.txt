@@ -813,7 +813,6 @@ torch tests/test_potential.py::test_mass_spher_analytic
 torch tests/test_potential.py::test_mass_spher_z
 torch tests/test_potential.py::test_McMillan17
 torch tests/test_potential.py::test_MWPotential2014
-torch tests/test_potential.py::test_normalize_potential[AnyAxisymmetricRazorThinDiskPotential]
 torch tests/test_potential.py::test_normalize_potential[AnySphericalPotential]
 torch tests/test_potential.py::test_OblateStaeckelWrapperPotential_againstKuzmin
 torch tests/test_potential.py::test_poisson_potential[AnySphericalPotential]
