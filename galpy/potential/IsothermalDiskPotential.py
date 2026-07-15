@@ -4,7 +4,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace
+from ..backend import get_namespace, is_backend_array
 from ..util import conversion
 from .linearPotential import linearPotential
 
@@ -43,7 +43,13 @@ class IsothermalDiskPotential(linearPotential):
         linearPotential.__init__(self, amp=amp, ro=ro, vo=vo)
         sigma = conversion.parse_velocity(sigma, vo=self._vo)
         self._sigma2 = sigma**2.0
-        self._H = sigma / numpy.sqrt(8.0 * numpy.pi * self._amp)
+        # amp is folded into the scale height H; make the sqrt backend-aware so a
+        # jax/torch amp differentiates through H. Dispatch on is_backend_array
+        # (NOT get_namespace): a plain numpy amp must stay numpy even under a
+        # forced backend (torch.sqrt rejects a bare python/numpy scalar), so the
+        # numpy path is byte-identical.
+        xp = get_namespace(self._amp) if is_backend_array(self._amp) else numpy
+        self._H = sigma / xp.sqrt(8.0 * numpy.pi * self._amp)
         self._amp = 1.0  # Need to manually set to 1, because amp is now contained in the combination of H and sigma^2
         self.hasC = True
         self.hasC_dxdv = True  # 1D variational (dxdv) second derivative in C
