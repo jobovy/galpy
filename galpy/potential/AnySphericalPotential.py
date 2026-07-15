@@ -4,6 +4,7 @@
 import numpy
 from scipy import integrate
 
+from ..backend import get_namespace, is_backend_array
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .SphericalPotential import SphericalPotential
@@ -45,12 +46,15 @@ class AnySphericalPotential(SphericalPotential):
 
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo)
-        # Force methods (_rforce/_revaluate) close over scipy.integrate.quad with
-        # a SCALAR upper limit (_rawmass takes r[0] of an array), so they are
-        # scalar-only: an array input silently collapses to its first element.
-        # Tell Potential.mass to drive the backend GL quadrature node-by-node
+        # numpy path: _rawmass closes over scipy.integrate.quad with a SCALAR
+        # upper limit (r[0] of an array), so the force is scalar-only -- an
+        # array input silently collapses to its first element. Tell
+        # Potential.mass to drive the backend GL quadrature node-by-node
         # (vectorized=False) instead of feeding the whole node array.
         self._force_accepts_arrays = False
+        # A jax/torch coord routes _rawmass / the _revaluate tail to in-backend
+        # Gauss-Legendre quadrature (see below); flag as backend-capable.
+        self._backend_compatible = True
         # Parse density: does it have units? does it expect them?
         if _APY_LOADED:
             _dens_unit_input = False
@@ -85,13 +89,6 @@ class AnySphericalPotential(SphericalPotential):
                 )
         if not hasattr(self, "_rawdens"):  # unitless
             self._rawdens = dens
-        self._rawmass = lambda r: (
-            4.0
-            * numpy.pi
-            * integrate.quad(
-                lambda a: a**2 * self._rawdens(a), 0, numpy.atleast_1d(r).flatten()[0]
-            )[0]
-        )
         # The potential at zero, try to figure out whether it's finite
         _zero_msg = integrate.quad(
             lambda a: a * self._rawdens(a), 0, numpy.inf, full_output=True
@@ -119,8 +116,47 @@ class AnySphericalPotential(SphericalPotential):
             self.normalize(normalize)
         return None
 
+    def _rawmass(self, r):
+        r"""Enclosed mass :math:`4\pi\int_0^r a^2\rho(a)\,da`.
+
+        numpy: scipy.integrate.quad with a SCALAR upper limit (byte-identical to
+        the historical closure -- an array ``r`` collapses to ``r[0]``). A
+        jax/torch ``r`` routes to in-backend fixed-order Gauss-Legendre so the
+        mass (and the force / 2nd derivative built on it) differentiates w.r.t.
+        ``r`` and through the density's parameters.
+        """
+        if is_backend_array(r):
+            from ..backend.quadrature import quad as _bk_quad
+
+            return 4.0 * numpy.pi * _bk_quad(lambda a: a**2 * self._rawdens(a), 0.0, r)
+        return (
+            4.0
+            * numpy.pi
+            * integrate.quad(
+                lambda a: a**2 * self._rawdens(a), 0, numpy.atleast_1d(r).flatten()[0]
+            )[0]
+        )
+
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
+        if is_backend_array(r):
+            from ..backend.quadrature import fixed_quad_semiinfinite
+
+            xp = get_namespace(r)
+            # -M(r)/r - 4 pi int_r^inf rho(a) a da (tail via the recip s=1/u^2-1
+            # substitution, differentiable in r). The scalar edges r == 0
+            # (M/r -> 0/0) and r == inf (both terms -> 0) DO reach this path from
+            # the forced-backend test_potential; evaluate the bulk formula at a
+            # safe r (keeps the dead where-branch finite for reverse-mode AD too)
+            # and select the precomputed edge values.
+            edge = (r == 0) | xp.isinf(r)
+            r_safe = xp.where(edge, xp.ones_like(r), r)
+            tail = fixed_quad_semiinfinite(
+                xp, lambda a: self._rawdens(a) * a, r_safe, kind="recip"
+            )
+            bulk = -self._rawmass(r_safe) / r_safe - 4.0 * numpy.pi * tail
+            out = xp.where(r == 0, self._pot_zero, bulk)
+            return xp.where(xp.isinf(r), self._pot_inf, out)
         if r == 0:
             return self._pot_zero
         elif numpy.isinf(r):
