@@ -210,3 +210,39 @@ def test_torch_eager_and_value(name, fn, pt, p):
 @pytest.mark.parametrize("name,fn,pt,p", FLAT, ids=IDS)
 def test_torch_autograd_matches_fd(name, fn, pt, p):
     _torch_grad_fd(fn, p, pt)
+
+
+# ==================== amp as a backend array =============================== #
+# IsothermalDiskPotential folds amp into the scale height H via a backend-aware
+# sqrt (the is_backend_array(self._amp) branch in __init__). A jax/torch amp
+# must therefore differentiate through H -- exercise d(force)/d(amp) and pin it
+# to a central finite difference. The numpy FD reference builds with a plain
+# python-float amp, so it also guards that path staying byte-identical.
+def _isodisk_force_of_amp(amp, x):
+    return IsothermalDiskPotential(amp=amp, sigma=0.5).force(x, use_physical=False)
+
+
+def _amp_fd(a, x0, h=1e-6):
+    fp = float(_isodisk_force_of_amp(a + h, x0))
+    fm = float(_isodisk_force_of_amp(a - h, x0))
+    return (fp - fm) / (2.0 * h)
+
+
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+def test_jax_amp_grad_matches_fd():
+    a0, x0 = 1.3, 0.7
+    grad = float(
+        jax.grad(lambda a: _isodisk_force_of_amp(a, jnp.asarray(x0)))(jnp.asarray(a0))
+    )
+    fd = _amp_fd(a0, x0)
+    assert numpy.isclose(grad, fd, rtol=1e-4, atol=1e-6), (grad, fd)
+
+
+@pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
+def test_torch_amp_grad_matches_fd():
+    a0, x0 = 1.3, 0.7
+    at = torch.as_tensor(a0, dtype=torch.float64).requires_grad_(True)
+    _isodisk_force_of_amp(at, torch.as_tensor(x0, dtype=torch.float64)).backward()
+    grad = float(at.grad)
+    fd = _amp_fd(a0, x0)
+    assert numpy.isclose(grad, fd, rtol=1e-4, atol=1e-6), (grad, fd)
