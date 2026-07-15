@@ -120,6 +120,22 @@ def test_jax_traced_force_finite():
     )
 
 
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_default_surfdens_jit_safe():
+    # The DEFAULT surfdens is now backend-agnostic (was a bare ``numpy.exp`` that calls
+    # __array__ on a jit tracer), so a DEFAULT-constructed disk -- how the potential-zoo
+    # differentiability sweep builds it -- is jit/jacfwd-safe too. numpy path unchanged
+    # (is_backend_array guard: numpy / python-float / Quantity R keep numpy.exp).
+    pot = AnyAxisymmetricRazorThinDiskPotential()  # default surfdens
+    R0, z0 = 1.1, 0.3
+    ref = float(evaluateRforces(pot, numpy.float64(R0), numpy.float64(z0)))
+    rf = lambda R: evaluateRforces(pot, R, jnp.asarray(z0))
+    jR = float(jax.jit(rf)(jnp.asarray(R0)))
+    gR = float(jax.jacfwd(rf)(jnp.asarray(R0)))
+    assert numpy.isfinite(jR) and numpy.isfinite(gR)
+    numpy.testing.assert_allclose(jR, ref, rtol=1e-10, atol=1e-12)
+
+
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_rforce_grad_vs_fd(backend_name):
     # d(Rforce)/dR via autodiff vs central finite differences, h-converging (not a
