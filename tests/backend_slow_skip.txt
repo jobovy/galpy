@@ -338,9 +338,26 @@ jax tests/test_orbits.py::test_rguiding
 # slow (a local run did not finish in >500 s) and blows the 300 s per-test CI
 # timeout -> recorded as un-ledgered FAILED. The numpy/C paths are unaffected and
 # byte-identical; the faster scalar-omega variants are xfail-ledgered separately.
-# Skip until the frame-force path is vectorized (own burndown bucket).
+# Skip until the frame-force path is vectorized (own burndown bucket). The WHOLE
+# func/vec-omega family is borderline (~250-500 s under jax eager-XLA vs the 300 s
+# per-test CI timeout), so it surfaces as un-ledgered FAILED one test at a time on
+# whichever runner is slowest (3 confirmed: the two below + arbitraryaxisrotation_
+# funcomega); all func/vec-omega tests that are torch-xfail-ledgered but had no jax
+# entry are slow-skipped together here to stop the recurring per-PR flake.
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz
+jax tests/test_noninertial.py::test_accellsrframe_funcomegaz
+jax tests/test_noninertial.py::test_accellsrframe_funcomegaz_2d
+jax tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz
+jax tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz_2D
+jax tests/test_noninertial.py::test_accellsrframe_vecomegaz
+jax tests/test_noninertial.py::test_accellsrframe_vecomegaz_2d
+jax tests/test_noninertial.py::test_cinterp_funcomegaz
+jax tests/test_noninertial.py::test_cinterp_vecfuncomega
+jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomegaz
+jax tests/test_noninertial.py::test_lsrframe_vecomegaz
+jax tests/test_noninertial.py::test_lsrframe_vecomegaz_2d
+jax tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega
 
 # --- streamdf under jax (Track F streamdf vectorization) ---
 # The closed-form actionAngleIsochrone backend migration (same PR) makes
