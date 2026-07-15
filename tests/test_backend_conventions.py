@@ -136,8 +136,6 @@ _MIGRATED_SAMPLE = [
     "PseudoIsothermalPotential",
     "RazorThinExponentialDiskPotential",
     "AnyAxisymmetricRazorThinDiskPotential",
-]
-_UNMIGRATED_SAMPLE = [
     "AnySphericalPotential",
 ]
 
@@ -149,20 +147,27 @@ def test_backend_compatible_true(clsname):
     assert cbc(getattr(potential, clsname)(normalize=1.0)) is True
 
 
-@pytest.mark.parametrize("clsname", _UNMIGRATED_SAMPLE)
-def test_backend_compatible_false(clsname):
+def test_backend_compatible_false():
     from galpy.potential import _check_backend_compatible as cbc
 
-    assert cbc(getattr(potential, clsname)(normalize=1.0)) is False
+    # Synthetic "unmigrated" leaf: a migrated potential with the flag forced
+    # off. A real-potential negative sample rots the moment its members land
+    # their backend PRs (AnySpherical/AnyAxisym did), so force the flag instead.
+    p = potential.MiyamotoNagaiPotential(normalize=1.0)
+    p._backend_compatible = False
+    assert cbc(p) is False
 
 
 def test_check_backend_compatible_semantics():
     from galpy.potential import _check_backend_compatible as cbc
 
     mn = potential.MiyamotoNagaiPotential(normalize=1.0)
-    # AnySphericalPotential is still unmigrated on this branch
-    unmig = potential.AnySphericalPotential(normalize=1.0)
-    unmig2 = potential.AnySphericalPotential(normalize=1.0)
+    # Synthetic "unmigrated" leaves: the flag forced off (robust to migration,
+    # see test_backend_compatible_false).
+    unmig = potential.MiyamotoNagaiPotential(normalize=1.0)
+    unmig._backend_compatible = False
+    unmig2 = potential.MiyamotoNagaiPotential(normalize=1.0)
+    unmig2._backend_compatible = False
     # combined potential: all members must be compatible
     assert cbc([mn, potential.NFWPotential(normalize=1.0)]) is True
     assert cbc([mn, unmig]) is False
