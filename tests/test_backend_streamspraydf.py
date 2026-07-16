@@ -968,21 +968,6 @@ def test_streamtrack_jit_grad_fd_pericenter_sigma():
     )
 
 
-@pytest.mark.skipif(jax is None, reason="jax required for backend-theta construction")
-def test_backend_sampling_center_not_implemented():
-    # Differentiable stream sampling (a backend potential parameter -> _bsamp set)
-    # combined with a center orbit is not yet supported and must raise, not silently
-    # produce a wrong (numpy-frozen) track.
-    with pytest.raises(NotImplementedError):
-        fardal15spraydf(
-            _JIT_MASS,
-            progenitor=Orbit(_JIT_IC),
-            pot=LogarithmicHaloPotential(amp=jax.numpy.asarray(1.0), q=0.9),
-            tdisrupt=_JIT_TD,
-            center=Orbit(_JIT_IC),
-        )
-
-
 @pytest.mark.skipif(jax is None, reason="jax required for tp_scale accessors")
 def test_streamtrack_tp_scale_accessors():
     # In tp_scale mode the full-6D eval (_eval_cart, used by R/phi/heliocentric
@@ -1009,3 +994,163 @@ def test_streamtrack_tp_scale_accessors():
     )
     cov_b = as_numpy(tr.cov(1.5, use_physical=False))
     assert cov_b.shape == (6, 6) and numpy.all(numpy.isfinite(cov_b))
+
+
+# --------------------------------------------------------------------------
+# Differentiable satellite / moving-object-hosted streams via center=. When the
+# sampling runs on a backend the center orbit is integrated in-backend (like the
+# progenitor), so ``self._center.x(qt)`` is jit-queryable at a traced qt and the stream
+# carries d(track)/d(centerpot theta) and d(track)/d(center IC). The center has its OWN
+# backend-trigger detection: a DISTINCT centerpot (a satellite that needs e.g. a
+# dynamical-friction potential) with a numpy pot promotes the theta-independent
+# progenitor to a backend orbit too, so both are queryable at the same traced qt. numpy
+# center= stays byte-identical (its _bsamp is None -> the unchanged numpy sampler).
+# --------------------------------------------------------------------------
+_CENTER_IC = [1.25, 0.12, 0.9, 0.06, 0.04, 0.1]
+
+
+def _center_theta_track_xyz(camp, key=None):
+    # case 2: pot numpy, a DISTINCT centerpot carries the differentiable amp.
+    return (
+        fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=LogarithmicHaloPotential(amp=1.0, q=0.9),
+            tdisrupt=_JIT_TD,
+            center=Orbit(_CENTER_IC),
+            centerpot=LogarithmicHaloPotential(amp=camp, q=0.9),
+        )
+        .streamTrack(
+            n=_JIT_N,
+            tail="leading",
+            velocity_weight=1.0,
+            order=1,
+            key=key,
+            track_time_range=2.0,
+        )
+        ._track_xyz
+    )
+
+
+def _center_ic_track_xyz(cic, key=None):
+    # case 3: pot/centerpot numpy, the center IC carries the gradient.
+    lp = LogarithmicHaloPotential(amp=1.0, q=0.9)
+    return (
+        fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=lp,
+            tdisrupt=_JIT_TD,
+            center=Orbit(cic),
+            centerpot=lp,
+        )
+        .streamTrack(
+            n=_JIT_N,
+            tail="leading",
+            velocity_weight=1.0,
+            order=1,
+            key=key,
+            track_time_range=2.0,
+        )
+        ._track_xyz
+    )
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for backend center=")
+def test_center_backend_value_parity_and_numpy_path():
+    # numpy center= is the numpy path (_bsamp None, byte-identical); a backend centerpot
+    # theta (case 2) or backend center IC (case 3) promotes both the center AND the
+    # theta-independent progenitor to backend orbits, and the backend sample matches the
+    # numpy sample to the in-backend-ODE-vs-C-integrator floor.
+    jnp = jax.numpy
+    lp = LogarithmicHaloPotential(amp=1.0, q=0.9)
+
+    def build(centerpot, center_ic):
+        return fardal15spraydf(
+            _JIT_MASS,
+            progenitor=Orbit(_JIT_IC),
+            pot=lp,
+            tdisrupt=_JIT_TD,
+            center=Orbit(center_ic),
+            centerpot=centerpot,
+        )
+
+    def samp(sp, n=30):
+        numpy.random.seed(_SEED)
+        xv, _ = sp._sample_tail(n, True, leading=True)
+        return numpy.asarray(xv, dtype=float)
+
+    sp_np = build(lp, _CENTER_IC)
+    assert getattr(sp_np, "_bsamp", None) is None  # numpy center= -> numpy path
+    xv_np = samp(sp_np)
+    assert numpy.all(numpy.isfinite(xv_np))
+    # case 2: distinct backend centerpot theta -> both prog + center are backend orbits
+    sp2 = build(LogarithmicHaloPotential(amp=jnp.asarray(1.0), q=0.9), _CENTER_IC)
+    assert getattr(sp2, "_bsamp", None) is not None
+    assert is_backend_array(sp2._center.x(-0.3))
+    assert is_backend_array(sp2._progenitor.x(-0.3))
+    numpy.testing.assert_allclose(samp(sp2), xv_np, rtol=0, atol=1e-6)
+    # case 3: backend center IC
+    sp3 = build(lp, jnp.asarray(_CENTER_IC))
+    assert getattr(sp3, "_bsamp", None) is not None
+    assert is_backend_array(sp3._center.x(-0.3))
+    numpy.testing.assert_allclose(samp(sp3), xv_np, rtol=0, atol=1e-6)
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for backend center=")
+def test_center_backend_concrete_progenitor_ic():
+    # A CONCRETE backend progenitor IC (eager) already sets _bsamp with the fast dop853_c
+    # C-STM method (numpy pot, the #1102 mechanism); with center= the center follows on
+    # the SAME eager dop853_c path -- exercises the bsamp-already-set branch and the
+    # concrete-center dop853_c method choice (vs the in-backend ODE for a traced/theta case).
+    jnp = jax.numpy
+    lp = LogarithmicHaloPotential(amp=1.0, q=0.9)
+    sp = fardal15spraydf(
+        _JIT_MASS,
+        progenitor=Orbit(jnp.asarray(_JIT_IC)),
+        pot=lp,
+        tdisrupt=_JIT_TD,
+        center=Orbit(_CENTER_IC),
+        centerpot=lp,
+    )
+    bsamp = getattr(sp, "_bsamp", None)
+    assert bsamp is not None and bsamp[2] == "dop853_c"
+    assert is_backend_array(sp._center.x(-0.3))
+    numpy.random.seed(_SEED)
+    xv, _ = sp._sample_tail(30, True, leading=True)
+    assert numpy.all(numpy.isfinite(numpy.asarray(xv, dtype=float)))
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_jit_grad_fd_center_theta():
+    # jax.jit(streamTrack()) with a satellite-hosted stream is differentiable in a
+    # DISTINCT centerpot parameter (pot numpy): centerpot theta -> the center orbit ->
+    # the frame transform -> the track. The progenitor is promoted to a backend orbit so
+    # both are jit-queryable at the same traced qt. Reassignment-invariant sum functional.
+    key = grandom.key(_SEED, backend="jax")
+
+    def loss(camp):
+        return _center_theta_track_xyz(camp, key=key).sum()
+
+    g, best = _jit_grad_hconv(loss, 1.0)
+    assert numpy.isfinite(g) and abs(g) > 0
+    assert best < 1e-4, (
+        f"jit streamTrack center= d/d(centerpot theta) grad-vs-FD best REL={best:.2e}"
+    )
+
+
+@pytest.mark.skipif(jax is None, reason="jax required for jit tests")
+def test_streamtrack_jit_grad_fd_center_ic():
+    # d(track)/d(center IC): a backend center IC (case 3) flows through the center orbit
+    # -> the frame transform -> the track. Perturb the center's initial R.
+    jnp = jax.numpy
+    key = grandom.key(_SEED, backend="jax")
+    rest = jnp.asarray(numpy.array(_CENTER_IC)[1:])
+
+    def loss(R0):
+        cic = jnp.concatenate([jnp.reshape(R0, (1,)), rest])
+        return _center_ic_track_xyz(cic, key=key).sum()
+
+    g, best = _jit_grad_hconv(loss, _CENTER_IC[0])
+    assert numpy.isfinite(g) and abs(g) > 0
+    assert best < 1e-4, f"jit streamTrack center-IC grad-vs-FD best REL={best:.2e}"
