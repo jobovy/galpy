@@ -34,13 +34,24 @@ _GLORDER = 100
 _ELLIP_M_CAP = 1.0 - 1e-15
 
 
+def _default_surfdens(R):
+    # Backend-agnostic default so the GL/backend force path is jit/trace-safe: the
+    # surface density is evaluated on the (traced) GL nodes, and bare ``numpy.exp`` calls
+    # ``__array__()`` on a jax tracer. Dispatch on is_backend_array (NOT get_namespace):
+    # a numpy / python-float / Quantity R stays on ``numpy.exp`` -> byte-identical and the
+    # constructor's unit-detection probe is unchanged; only a genuine backend array takes
+    # the namespace's exp.
+    xp = get_namespace(R) if is_backend_array(R) else numpy
+    return 1.5 * xp.exp(-3.0 * R)
+
+
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
     """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\\Sigma(R)`"""
 
     def __init__(
         self,
         amp=1.0,
-        surfdens=lambda R: 1.5 * numpy.exp(-3.0 * R),
+        surfdens=_default_surfdens,
         normalize=False,
         ro=None,
         vo=None,
