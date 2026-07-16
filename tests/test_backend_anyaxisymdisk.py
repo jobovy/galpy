@@ -28,7 +28,11 @@ import pytest
 from galpy.backend import get_namespace, is_backend_array
 from galpy.potential import (
     AnyAxisymmetricRazorThinDiskPotential,
+    evaluatePotentials,
+    evaluateR2derivs,
     evaluateRforces,
+    evaluateRzderivs,
+    evaluatez2derivs,
     evaluatezforces,
 )
 
@@ -103,6 +107,36 @@ def test_eager_force_returns_backend_array_matching_numpy(backend_name):
             numpy.testing.assert_allclose(float(gotz), refz, rtol=1e-10, atol=1e-12)
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_traced_potential_and_2ndderivs_backend(backend_name):
+    # The backend GL path for the POTENTIAL and the three SECOND derivatives
+    # (_evaluate_gl / _R2deriv_gl / _z2deriv_gl / _Rzderiv_gl) is taken only for a TRACER
+    # (jax) or a requires_grad tensor (torch) -- a CONCRETE backend scalar reuses scipy
+    # via _bk_dispatch. #1121 landed these ~36 GL lines with NO traced backend test (only
+    # the forces were traced), so feat/backends coverage jumped 15->51. Trace over each
+    # (jit for jax, requires_grad for torch) so the GL branch runs, and check the value
+    # matches the numpy/scipy reference (z != 0: the 2nd derivs are singular in the plane).
+    R0, z0 = 1.3, 0.25
+    for fn in (
+        evaluatePotentials,
+        evaluateR2derivs,
+        evaluatez2derivs,
+        evaluateRzderivs,
+    ):
+        ref = float(fn(_POT, numpy.float64(R0), numpy.float64(z0)))
+        if backend_name == "jax":
+            got = jax.jit(lambda R, fn=fn: fn(_POT, R, jnp.asarray(z0)))(
+                jnp.asarray(R0)
+            )
+        else:
+            Rt = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
+            got = fn(_POT, Rt, torch.tensor(z0, dtype=torch.float64))
+        assert is_backend_array(got), (fn.__name__, backend_name)
+        numpy.testing.assert_allclose(
+            float(got), ref, rtol=1e-6, atol=1e-8, err_msg=fn.__name__
+        )
+
+
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 def test_jax_traced_force_finite():
     # The exact failure that defined this gap: jax.jacfwd / jax.jit over the
@@ -118,6 +152,22 @@ def test_jax_traced_force_finite():
     numpy.testing.assert_allclose(
         float(jR), float(evaluateRforces(_POT, numpy.float64(1.2), numpy.float64(0.3)))
     )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_default_surfdens_jit_safe():
+    # The DEFAULT surfdens is now backend-agnostic (was a bare ``numpy.exp`` that calls
+    # __array__ on a jit tracer), so a DEFAULT-constructed disk -- how the potential-zoo
+    # differentiability sweep builds it -- is jit/jacfwd-safe too. numpy path unchanged
+    # (is_backend_array guard: numpy / python-float / Quantity R keep numpy.exp).
+    pot = AnyAxisymmetricRazorThinDiskPotential()  # default surfdens
+    R0, z0 = 1.1, 0.3
+    ref = float(evaluateRforces(pot, numpy.float64(R0), numpy.float64(z0)))
+    rf = lambda R: evaluateRforces(pot, R, jnp.asarray(z0))
+    jR = float(jax.jit(rf)(jnp.asarray(R0)))
+    gR = float(jax.jacfwd(rf)(jnp.asarray(R0)))
+    assert numpy.isfinite(jR) and numpy.isfinite(gR)
+    numpy.testing.assert_allclose(jR, ref, rtol=1e-10, atol=1e-12)
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)

@@ -102,12 +102,10 @@ _R0, _Z0, _PHI0 = 1.1, 0.13, 0.2
 
 # jit / trace-safety: raw-numpy potentials that cannot be traced (identical set
 # on jax and torch). Matches the audit jit-gap list (constructible subset).
-KNOWN_JIT_GAP_NAMES = {
-    # Only AnyAxisym remains eager-only under a trace (its recip / AGM-elliptic
-    # fallback path still hits raw numpy). AnySpherical / Ferrers / KuzminKutuzov
-    # / Ring burned down as the fix/backend-* PRs landed -- verified by the sweep.
-    "AnyAxisymmetricRazorThinDiskPotential",
-}
+# FULLY BURNED DOWN: every constructible potential in the zoo is now jit-safe. The
+# last entry, AnyAxisymmetricRazorThinDiskPotential, was fixed in #1127 (its default
+# surfdens made backend-agnostic so it no longer hits raw numpy.exp on a traced GL node).
+KNOWN_JIT_GAP_NAMES = set()
 KNOWN_JIT_GAPS = {(name, b) for name in KNOWN_JIT_GAP_NAMES for b in AD_BACKENDS}
 
 # amp-gradient gaps -- ALL burned down. The in-place `self._amp *= ...`
