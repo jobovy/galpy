@@ -19,6 +19,7 @@ else:
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..backend import as_backend_constant, get_namespace, is_backend_array
 from ..backend import special as _bspecial
+from ..backend.quadrature import quad as _backend_quad
 from ..orbit import Orbit
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import (
@@ -41,6 +42,11 @@ if _APY_LOADED:
 _INTERPDURINGSETUP = True
 _USEINTERP = True
 _USESIMPLE = True
+# Fixed Gauss-Legendre order for the backend (jax/torch) path of the stripping-
+# time moments (meantdAngle/sigtdAngle); the numpy path keeps scipy's adaptive
+# quad (byte-identical). High enough that the smooth p(t|dangle) integrand
+# reproduces the adaptive result within the physical regime.
+_MOMENT_QUAD_N = 100
 # cast a wide net
 _TWOPIWRAPS = numpy.arange(-4, 5) * 2.0 * numpy.pi
 
@@ -2751,6 +2757,34 @@ class streamdf(df):
         - 2013-12-05 - Written - Bovy (IAS)
 
         """
+        # backend (jax/torch) dangle -> in-backend GL quad (the numpy branch's
+        # scipy adaptive quad is kept byte-identical). The denom==0 progenitor /
+        # far-field control flow becomes xp.where; num/denom is dead-branch guarded.
+        if is_backend_array(dangle):
+            xp = get_namespace(dangle)
+            meandO = as_backend_constant(xp, self._meandO, dangle)
+            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
+            tdis = as_backend_constant(xp, self._tdisrupt, dangle)
+            Tlow = dangle / (meandO + 3.0 * xp.sqrt(sig))
+            # ptdAngle is exactly 0 for t >= tdisrupt, so clamp the upper limit
+            # there: the integral is unchanged but the t=tdisrupt jump leaves the
+            # GL interval, restoring fast convergence of the smooth peak.
+            Thigh = xp.minimum(dangle / (meandO - 3.0 * xp.sqrt(sig)), tdis)
+            num = _backend_quad(
+                lambda x: x * self.ptdAngle(x, dangle), Tlow, Thigh, n=_MOMENT_QUAD_N
+            )
+            denom = _backend_quad(
+                self.ptdAngle, Tlow, Thigh, (dangle,), n=_MOMENT_QUAD_N
+            )
+            denom_zero = denom == 0.0
+            denom_safe = xp.where(denom_zero, xp.ones_like(denom), denom)
+            ratio = num / denom_safe
+            # denom==0 -> 0 near the progenitor, tdisrupt far from it
+            near_prog = dangle / meandO < self._tdisrupt / 10.0
+            zero_case = xp.where(
+                near_prog, xp.zeros_like(ratio), tdis + xp.zeros_like(ratio)
+            )
+            return xp.where(denom_zero, zero_case, ratio)
         Tlow = dangle / (self._meandO + 3.0 * numpy.sqrt(self._sortedSigOEig[2]))
         Thigh = dangle / (self._meandO - 3.0 * numpy.sqrt(self._sortedSigOEig[2]))
         num = integrate.quad(lambda x: x * self.ptdAngle(x, dangle), Tlow, Thigh)[0]
@@ -2784,6 +2818,37 @@ class streamdf(df):
         - 2013-12-05 - Written - Bovy (IAS)
 
         """
+        # backend (jax/torch) dangle -> in-backend GL quad; numpy keeps scipy's
+        # adaptive quad byte-identical. sqrt(var) is dead-branch guarded so a
+        # round-off-negative var or denom==0 does not NaN-poison AD.
+        if is_backend_array(dangle):
+            xp = get_namespace(dangle)
+            meandO = as_backend_constant(xp, self._meandO, dangle)
+            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
+            tdis = as_backend_constant(xp, self._tdisrupt, dangle)
+            Tlow = dangle / (meandO + 3.0 * xp.sqrt(sig))
+            # clamp the upper limit at tdisrupt (ptdAngle==0 beyond it) to keep the
+            # jump out of the GL interval -- see meantdAngle
+            Thigh = xp.minimum(dangle / (meandO - 3.0 * xp.sqrt(sig)), tdis)
+            numsig2 = _backend_quad(
+                lambda x: x**2.0 * self.ptdAngle(x, dangle),
+                Tlow,
+                Thigh,
+                n=_MOMENT_QUAD_N,
+            )
+            nummean = _backend_quad(
+                lambda x: x * self.ptdAngle(x, dangle), Tlow, Thigh, n=_MOMENT_QUAD_N
+            )
+            denom = _backend_quad(
+                self.ptdAngle, Tlow, Thigh, (dangle,), n=_MOMENT_QUAD_N
+            )
+            denom_zero = denom == 0.0
+            denom_safe = xp.where(denom_zero, xp.ones_like(denom), denom)
+            var = numsig2 / denom_safe - (nummean / denom_safe) ** 2.0
+            var_pos = var > 0.0
+            var_safe = xp.where(var_pos, var, xp.ones_like(var))
+            s = xp.where(var_pos, xp.sqrt(var_safe), xp.zeros_like(var))
+            return xp.where(denom_zero, xp.zeros_like(s), s)
         Tlow = dangle / (self._meandO + 3.0 * numpy.sqrt(self._sortedSigOEig[2]))
         Thigh = dangle / (self._meandO - 3.0 * numpy.sqrt(self._sortedSigOEig[2]))
         numsig2 = integrate.quad(

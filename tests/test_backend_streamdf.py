@@ -206,3 +206,71 @@ def test_meanOmega_3d_value_parity_and_grad(sdf, backend_name):
     assert best < 1e-5 * abs(ad) + 1e-8, (
         f"meanOmega3D grad {backend_name}: best={best:.2e}"
     )
+
+
+###############################################################################
+# Phase A.2: the stripping-time moments meantdAngle / sigtdAngle.
+#
+# Both integrate the (Phase-A.1) p(t|dangle) over [Tlow, Thigh]. The numpy path
+# keeps scipy's adaptive quad (byte-identical -- the else-branch is verbatim); a
+# jax/torch dangle routes to in-backend fixed-order Gauss-Legendre (galpy.backend
+# .quadrature.quad) with the upper limit clamped at tdisrupt, where p(t|dangle)
+# jumps to 0 -- so the GL interval stays smooth and converges fast. The denom==0
+# progenitor/far-field control flow becomes xp.where and num/denom (and the
+# sqrt(var) in sigtdAngle) are dead-branch guarded so AD stays finite.
+#
+# Value parity floors at ~1e-6 in the clamped far field: that residual is scipy's
+# OWN adaptive error at the t=tdisrupt jump (the clamped-GL integrand is smooth
+# and more accurate), so this is the expected adaptive-vs-GL floor, not a backend
+# error. Below dangle~0.43 (Thigh < tdisrupt, no clamp) parity is ~1e-15.
+###############################################################################
+_TDMOMENTS = [
+    ("meantdAngle", lambda s, d: s.meantdAngle(d, use_physical=False)),
+    ("sigtdAngle", lambda s, d: s.sigtdAngle(d, use_physical=False)),
+]
+# 0.3 = unclamped (Thigh < tdisrupt, GL ~machine-precise); 0.8 = clamped far field.
+_TDMOMENT_DANGLES = [0.3, 0.8]
+
+
+@pytest.mark.parametrize("dangle", _TDMOMENT_DANGLES)
+@pytest.mark.parametrize("name,fn", _TDMOMENTS, ids=[m[0] for m in _TDMOMENTS])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_tdmoment_value_parity(sdf, backend_name, name, fn, dangle):
+    ref = float(fn(sdf, dangle))
+    got = float(fn(sdf, _arr(backend_name, dangle)))
+    # rtol 1e-5: fixed-GL vs scipy adaptive; the ~1e-6 clamped-field floor is
+    # scipy's error at the t=tdisrupt jump, not the backend's.
+    numpy.testing.assert_allclose(
+        got, ref, rtol=1e-5, atol=1e-8, err_msg=f"{name} {backend_name} dangle={dangle}"
+    )
+
+
+@pytest.mark.parametrize("dangle", _TDMOMENT_DANGLES)
+@pytest.mark.parametrize("name,fn", _TDMOMENTS, ids=[m[0] for m in _TDMOMENTS])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_tdmoment_grad_vs_fd(sdf, backend_name, name, fn, dangle):
+    # d(moment)/d(dangle) AD must h-converge to a central FD of the SAME backend
+    # (GL) path. The forward values feeding the FD are value-parity-validated
+    # above, so this is a stringent check of the gradient (FD-of-scipy is noisier
+    # than the AD near the jump, so it is not the reference here).
+    if backend_name == "jax":
+        ad = float(jax.grad(lambda d: fn(sdf, d))(jnp.asarray(dangle)))
+
+        def fdfun(d):
+            return float(fn(sdf, jnp.asarray(d)))
+    else:
+        dt = torch.tensor(dangle, dtype=torch.float64, requires_grad=True)
+        fn(sdf, dt).backward()
+        ad = float(dt.grad)
+
+        def fdfun(d):
+            return float(fn(sdf, torch.tensor(d, dtype=torch.float64)))
+
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(ad - (fdfun(dangle + h) - fdfun(dangle - h)) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert best < 1e-5 * abs(ad) + 1e-6, (
+        f"{name} {backend_name} dangle={dangle} grad-vs-FD best={best:.2e}"
+    )
