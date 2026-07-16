@@ -748,6 +748,40 @@ def test_gegenbauer_grad_vs_fd(backend):
     numpy.testing.assert_allclose(ad, fd, rtol=1e-5)
 
 
+@pytest.mark.skipif(
+    "jax" not in BACKENDS, reason="lax.scan Gegenbauer roll is jax-only"
+)
+def test_gegenbauer_traced_scan():
+    # Under a jax trace the n-recurrence is rolled into ONE lax.scan
+    # (_gegenbauer_scan_jax); eager numpy/torch/jax keep the unrolled Python loop
+    # (byte-identical, covered by the parity tests above). Assert: (a) the scan
+    # fires and the jaxpr is small AND N-independent (the eager loop unrolls O(N)),
+    # (b) traced == eager to the XLA fma floor across N, (c) grad through the scan
+    # matches the eager grad.
+    alpha = 2 * 2 + 1.5  # SCF radial basis uses alpha = 2l + 3/2
+    x = jnp.asarray(numpy.linspace(-0.9, 0.9, 7), dtype=jnp.float64)
+
+    # (a) rolled: scan primitive present and the jaxpr is small + N-independent
+    #     (the eager loop would grow ~O(N)).
+    e10 = jax.make_jaxpr(lambda xx: gsp.gegenbauer(10, alpha, xx))(x).jaxpr.eqns
+    e24 = jax.make_jaxpr(lambda xx: gsp.gegenbauer(24, alpha, xx))(x).jaxpr.eqns
+    assert any(e.primitive.name == "scan" for e in e10), "lax.scan roll did not fire"
+    assert len(e10) < 30, f"jaxpr not rolled ({len(e10)} eqns)"
+    assert len(e10) == len(e24), "rolled jaxpr must be N-independent"
+
+    # (b) traced (jit) vs eager (Python loop) to the XLA fma floor, several N.
+    for N in (5, 10, 24):
+        eager = as_numpy(gsp.gegenbauer(N, alpha, x))
+        traced = as_numpy(jax.jit(lambda xx, N=N: gsp.gegenbauer(N, alpha, xx))(x))
+        numpy.testing.assert_allclose(traced, eager, rtol=1e-6, atol=1e-6)
+
+    # (c) grad through the traced scan matches the eager grad.
+    x0 = jnp.asarray(0.3)
+    g_eager = float(jax.grad(lambda xx: gsp.gegenbauer(12, alpha, xx).sum())(x0))
+    g_jit = float(jax.jit(jax.grad(lambda xx: gsp.gegenbauer(12, alpha, xx).sum()))(x0))
+    numpy.testing.assert_allclose(g_jit, g_eager, rtol=1e-6, atol=1e-9)
+
+
 # --- edge-case hardening: poles, domain endpoints, AD plateaus, numpy params ---
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_assoc_legendre_pole_derivs(backend):
