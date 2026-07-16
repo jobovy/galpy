@@ -14,7 +14,7 @@ import math
 import numpy
 from scipy import integrate
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import as_backend_constant, get_namespace, is_backend_array
 from ..util import _rotate_to_arbitrary_vector, conversion
 from .Potential import Potential
 
@@ -450,6 +450,23 @@ class EllipsoidalPotential(Potential):
         return 0.0
 
 
+def _gl_node_factors(xp, ref, glx, glw, b2, c2):
+    # Backend node factors for the vectorised GL sum, each an (nglx,) backend
+    # array anchored on ``ref``: the combined weight/denominator and the three
+    # 1/(axis^2 + tau) shells. glx/glw/b2/c2 are all numpy constants, so the
+    # per-node factors are numpy -> as_backend_constant (a genuine array, not a
+    # weak scalar, so exact backend dtype is intended).
+    s2 = glx**2
+    t = 1.0 / s2 - 1.0
+    denom = numpy.sqrt((1.0 + (b2 - 1.0) * s2) * (1.0 + (c2 - 1.0) * s2))
+    return (
+        as_backend_constant(xp, glw / denom, ref),
+        as_backend_constant(xp, 1.0 / (1.0 + t), ref),
+        as_backend_constant(xp, 1.0 / (b2 + t), ref),
+        as_backend_constant(xp, 1.0 / (c2 + t), ref),
+    )
+
+
 def _potInt(x, y, z, psi, b2, c2, xp=numpy, glx=None, glw=None):
     r"""int_0^\infty [psi(m)-psi(\infy)]/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau"""
 
@@ -462,6 +479,16 @@ def _potInt(x, y, z, psi, b2, c2, xp=numpy, glx=None, glw=None):
     if glx is None:
         # scipy.integrate fallback (glorder=None): numpy-only, deferred to Pspecial
         return integrate.quad(integrand, 0.0, 1.0)[0]
+    if is_backend_array(x) or is_backend_array(y) or is_backend_array(z):
+        # Backend (jax/torch): evaluate all nglx nodes at once on a trailing node
+        # axis (psi broadcasts) -> one xp.sum, collapsing the nglx-copy Python
+        # loop into a single vectorised graph. numpy keeps the loop (byte-identical).
+        wfac, inv1t, invb2t, invc2t = _gl_node_factors(xp, x, glx, glw, b2, c2)
+        x2 = xp.asarray(x)[..., None] ** 2
+        y2 = xp.asarray(y)[..., None] ** 2
+        z2 = xp.asarray(z)[..., None] ** 2
+        m = xp.sqrt(x2 * inv1t + y2 * invb2t + z2 * invc2t)
+        return xp.sum(wfac * psi(m), axis=-1)
     result = 0.0
     x2 = x**2
     y2 = y**2
@@ -503,6 +530,18 @@ def _forceInt_all(x, y, z, dens, b2, c2, xp=numpy, glx=None, glw=None):
             _forceInt(x, y, z, dens, b2, c2, 1),
             _forceInt(x, y, z, dens, b2, c2, 2),
         )
+    if is_backend_array(x) or is_backend_array(y) or is_backend_array(z):
+        # Backend: all nglx nodes at once (see _potInt); numpy keeps the loop.
+        wfac, inv1t, invb2t, invc2t = _gl_node_factors(xp, x, glx, glw, b2, c2)
+        xb = xp.asarray(x)[..., None]
+        yb = xp.asarray(y)[..., None]
+        zb = xp.asarray(z)[..., None]
+        m = xp.sqrt(xb**2 * inv1t + yb**2 * invb2t + zb**2 * invc2t)
+        common = wfac * dens(m)
+        Fx = xp.sum(common * xb * inv1t, axis=-1)
+        Fy = xp.sum(common * yb * invb2t, axis=-1)
+        Fz = xp.sum(common * zb * invc2t, axis=-1)
+        return Fx, Fy, Fz
     Fx = Fy = Fz = 0.0
     x2 = x**2
     y2 = y**2
@@ -567,6 +606,29 @@ def _2ndDerivInt_all(x, y, z, dens, densDeriv, b2, c2, xp=numpy, glx=None, glw=N
             _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 1, 1),
             _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 1, 2),
             _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 2, 2),
+        )
+    if is_backend_array(x) or is_backend_array(y) or is_backend_array(z):
+        # Backend: all nglx nodes at once (see _potInt); numpy keeps the loop.
+        wfac, inv1t, invb2t, invc2t = _gl_node_factors(xp, x, glx, glw, b2, c2)
+        xb = xp.asarray(x)[..., None]
+        yb = xp.asarray(y)[..., None]
+        zb = xp.asarray(z)[..., None]
+        m = xp.sqrt(xb**2 * inv1t + yb**2 * invb2t + zb**2 * invc2t)
+        dens_val = dens(m)
+        dd = wfac * densDeriv(m) / m
+        xi = xb * inv1t
+        yi = yb * invb2t
+        zi = zb * invc2t
+        dd_xi = dd * xi
+        dd_yi = dd * yi
+        dd_zi = dd * zi
+        return (
+            xp.sum(dd_xi * xi + wfac * dens_val * inv1t, axis=-1),
+            xp.sum(dd_xi * yi, axis=-1),
+            xp.sum(dd_xi * zi, axis=-1),
+            xp.sum(dd_yi * yi + wfac * dens_val * invb2t, axis=-1),
+            xp.sum(dd_yi * zi, axis=-1),
+            xp.sum(dd_zi * zi + wfac * dens_val * invc2t, axis=-1),
         )
     xx = xy = xz = yy = yz = zz = 0.0
     x2 = x**2
