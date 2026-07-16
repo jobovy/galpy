@@ -7099,24 +7099,37 @@ class Orbit:
         Differentiable w.r.t. ``orb``; shared by the shared-grid
         (``_call_internal_backend_interp``) and per-orbit-grid
         (``_indiv_t_backend_interp``) backend off-grid evaluators."""
-        from ..backend.interpolate import Spline1D
+        from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
 
         xp = get_namespace(orb)
         pd = self.phasedim()
         k = 3 if grid.shape[0] > 3 else 1
         bc = "not-a-knot" if k == 3 else "natural"
 
-        def _spl(y):
-            return Spline1D(grid, y, k=k, ext=0, bc=bc)(tq)
-
-        if pd == 4 or pd == 6:  # interpolate x,y (not R,phi) -> dodge the 2pi wrap
-            xv = _spl(orb[:, 0] * xp.cos(orb[:, -1]))
-            yv = _spl(orb[:, 0] * xp.sin(orb[:, -1]))
-            cols = [xp.sqrt(xv * xv + yv * yv)]
-            cols += [_spl(orb[:, ii]) for ii in range(1, pd - 1)]
-            cols.append(xp.arctan2(yv, xv))
+        # The columns to spline (x,y instead of R,phi for pd 4/6 to dodge the 2pi
+        # wrap), all on the SAME grid.
+        if pd == 4 or pd == 6:
+            ycols = [orb[:, 0] * xp.cos(orb[:, -1]), orb[:, 0] * xp.sin(orb[:, -1])]
+            ycols += [orb[:, ii] for ii in range(1, pd - 1)]
         else:
-            cols = [_spl(orb[:, ii]) for ii in range(pd)]
+            ycols = [orb[:, ii] for ii in range(pd)]
+
+        if k == 3:
+            # One multi-RHS cubic solve for ALL columns at once (the tridiagonal
+            # matrix is grid-geometry only, shared across columns) -> pd-fold fewer
+            # dense factorizations than one Spline1D per column. ext=0 is the
+            # eval_ppoly default (extrapolate=True).
+            coeffs = cubic_spline_coeffs(xp, grid, xp.stack(ycols, axis=-1), bc=bc)
+            vals = eval_ppoly(xp, grid, coeffs, tq)  # (nt_q, len(ycols))
+            splined = [vals[..., j] for j in range(len(ycols))]
+        else:
+            splined = [Spline1D(grid, y, k=k, ext=0, bc=bc)(tq) for y in ycols]
+
+        if pd == 4 or pd == 6:
+            xv, yv = splined[0], splined[1]
+            cols = [xp.sqrt(xv * xv + yv * yv), *splined[2:], xp.arctan2(yv, xv)]
+        else:
+            cols = splined
         return xp.stack(cols)  # (phasedim, nt_q)
 
     def _indiv_t_backend_interp(self, t_arr, has_time_axis):
