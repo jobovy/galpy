@@ -151,17 +151,12 @@ class basestreamspraydf(df):
             assert conversion.physical_compatible(self, self._centerpot), (
                 "Physical conversion for the center potential is not consistent with that of the basestreamspraydf object being initialized"
             )
+            self._orig_center = center  # kept for its _ic_backend (like the progenitor)
             self._center = center()
             self._center.turn_physical_off()
-            self._center.integrate(self._progenitor_times, self._centerpot)
+            self._integrate_center()
         else:
             self._center = None
-        if getattr(self, "_bsamp", None) is not None and self._center is not None:
-            raise NotImplementedError(
-                "differentiable stream sampling (backend potential parameter or "
-                "progenitor IC) is not yet supported together with center=; pass "
-                "particles= a fixed sample, or drop center="
-            )
         if progpot is not None:
             self._orig_pot = self._pot  # save pre-progpot for streamTrack
             progtrajpot = MovingObjectPotential(
@@ -814,6 +809,110 @@ class basestreamspraydf(df):
         self._progenitor.turn_physical_off()
         self._progenitor.integrate(bgrid, self._pot, method=method)
         self._bsamp = (xp, self._progenitor, method)
+
+    def _integrate_center(self):
+        """Integrate the center orbit -- in-backend when the sampling runs on a backend,
+        else numpy/C (byte-identical).
+
+        A backend center makes ``self._center.x(qt)`` jit-queryable at a traced ``qt`` and
+        carries d(stream)/d(center IC) and d(stream)/d(centerpot theta). The center gets
+        its OWN backend-trigger detection because ``self._centerpot`` can hold a different
+        backend theta than ``self._pot`` (a satellite whose orbit needs e.g. a
+        dynamical-friction potential): a backend center IC (``is_backend_array``, a genuine
+        trigger even under a forced context) or a genuine backend ``centerpot`` force (a
+        force probe under FORCED NUMPY, excluding a merely-forced context) drives
+        differentiable center= sampling even when the progenitor itself is pure numpy. In
+        that case the (theta-independent) progenitor is re-integrated in-backend too, so
+        both orbits are queryable at the same traced qt. Method: the in-backend ODE for a
+        backend centerpot theta / traced IC / any traced-progenitor context; else dop853_c
+        (eager, faster).
+        """
+        _c = self._center
+        # The center's own backend triggers (cases the progenitor-side detection misses).
+        cic_backend = getattr(self._orig_center, "_ic_backend", None)
+        ic_backend = is_backend_array(cic_backend)
+        with use("numpy", force=True):
+            _cf = evaluateRforces(
+                self._centerpot,
+                float(_c.R(0.0)),
+                float(_c.z(0.0)),
+                phi=float(_c.phi(0.0)),
+                v=numpy.array(
+                    [float(_c.vR(0.0)), float(_c.vT(0.0)), float(_c.vz(0.0))]
+                ),  # a dynamical-friction centerpot is velocity-dependent
+            )
+        centerpot_theta = is_backend_array(_cf)
+        _forced = get_namespace(numpy.zeros(1)) is not numpy
+        center_trig = ic_backend or (centerpot_theta and not _forced)
+        bsamp = getattr(self, "_bsamp", None)
+        if bsamp is None and not center_trig:
+            # pure numpy/C path -- byte-identical to the pre-backend center integration.
+            self._center.integrate(self._progenitor_times, self._centerpot)
+            return
+        # Resolve the backend namespace: from the progenitor-side _bsamp if present, else
+        # from the center trigger (and then promote the numpy progenitor to a backend orbit).
+        if bsamp is not None:
+            xp, _, prog_method = bsamp
+        else:
+            xp = get_namespace(cic_backend) if ic_backend else get_namespace(_cf)
+        inbackend = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        if bsamp is None:
+            self._promote_progenitor_backend(xp, inbackend)
+            _, _, prog_method = self._bsamp
+        # center IC: a genuine backend IC (d/d center-IC) else coerce the numpy IC.
+        if ic_backend:
+            ic = cic_backend
+        else:
+            ic = xp.asarray(
+                numpy.array(
+                    [
+                        float(_c.R(0.0)),
+                        float(_c.vR(0.0)),
+                        float(_c.vT(0.0)),
+                        float(_c.z(0.0)),
+                        float(_c.vz(0.0)),
+                        float(_c.phi(0.0)),
+                    ]
+                )
+            )
+        try:
+            as_numpy(ic)  # raises on a tracer
+            ic_concrete = True
+        except Exception:  # noqa: BLE001 -- traced (jit) backend IC
+            ic_concrete = False
+        if centerpot_theta or not ic_concrete or prog_method != "dop853_c":
+            method = inbackend
+        else:
+            method = "dop853_c"
+        bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)  # match the progenitor grid
+        self._center = Orbit(ic)
+        self._center.turn_physical_off()
+        self._center.integrate(bgrid, self._centerpot, method=method)
+
+    def _promote_progenitor_backend(self, xp, inbackend):
+        """Re-integrate a pure-numpy progenitor as a backend orbit (theta/mass-independent
+        curve, so the physics is unchanged) so it is queryable at a traced qt. Needed when
+        a center-only backend trigger (centerpot theta / center IC) drives differentiable
+        center= sampling while ``self._pot`` carries no backend parameter. Sets ``_bsamp``.
+        """
+        p = self._progenitor
+        ic = xp.asarray(
+            numpy.array(
+                [
+                    float(p.R(0.0)),
+                    float(p.vR(0.0)),
+                    float(p.vT(0.0)),
+                    float(p.z(0.0)),
+                    float(p.vz(0.0)),
+                    float(p.phi(0.0)),
+                ]
+            )
+        )
+        bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
+        self._progenitor = Orbit(ic)
+        self._progenitor.turn_physical_off()
+        self._progenitor.integrate(bgrid, self._pot, method=inbackend)
+        self._bsamp = (xp, self._progenitor, inbackend)
 
     def _backend_sampling(self):
         """``(xp, backend_progenitor, sample_method)`` when the sampling runs on a
