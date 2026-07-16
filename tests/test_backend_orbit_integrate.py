@@ -494,6 +494,32 @@ def test_integrate_multiorbit_inbackend_offgrid_scalar_and_call():
     numpy.testing.assert_allclose(numpy.asarray(osnap.R()), Rs, rtol=1e-10)
 
 
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_inbackend_offgrid_phasedim5_no_phi():
+    # Off-grid eval of a phasedim-5 (R,vR,vT,z,vz -- no phi) in-backend orbit hits
+    # the non-(4/6) branch of _backend_spline_orbit (no x/y-wrap reconstruction):
+    # all columns are splined directly. The batched cubic must match a scipy
+    # not-a-knot CubicSpline of the SAME backend trajectory (isolates the interp).
+    from scipy.interpolate import CubicSpline
+
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    o = Orbit(jnp.asarray([1.0, 0.1, 1.1, 0.05, 0.02]))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    assert o.phasedim() == 5
+    toff = jnp.asarray([0.37, 2.15, 4.9])
+    assert "jax" in type(o.R(toff)).__module__  # stayed on the backend
+    traj = numpy.asarray(o.getOrbit())  # (nt, 5): R, vR, vT, z, vz
+    for col, acc in [(0, "R"), (1, "vR"), (3, "z"), (4, "vz")]:
+        cs = CubicSpline(numpy.asarray(_TS), traj[:, col], bc_type="not-a-knot")
+        numpy.testing.assert_allclose(
+            numpy.asarray(getattr(o, acc)(toff)),
+            cs(numpy.asarray(toff)),
+            rtol=1e-6,
+            atol=1e-7,
+            err_msg=f"phasedim-5 off-grid {acc}",
+        )
+
+
 # ----------------------------------------- all phase-space dimensions (not just 6)
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 @pytest.mark.parametrize(
