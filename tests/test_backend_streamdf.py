@@ -274,3 +274,106 @@ def test_tdmoment_grad_vs_fd(sdf, backend_name, name, fn, dangle):
     assert best < 1e-5 * abs(ad) + 1e-6, (
         f"{name} {backend_name} dangle={dangle} grad-vs-FD best={best:.2e}"
     )
+
+
+###############################################################################
+# Phase A.3: the nested-quad perpendicular-angle moments (pangledAngle,
+# meanangledAngle, sigangledAngle) + the _pangledAnglet leaf.
+#
+# meanangledAngle/sigangledAngle are ratios of 2-D integrals (outer over
+# angleperp, inner over t via the batched pangledAngle). numpy keeps scipy's
+# adaptive quad (byte-identical); a jax/torch dangle routes to nested in-backend
+# GL (fixed_quad), so d(moment)/d(dangle) flows and jits. meanangledAngle is 0 by
+# odd symmetry (x*pangledAngle over [aplow,-aplow]) so it gets a reference-match
+# to that analytic zero; the meaningful grad target is sigangledAngle (even x^2).
+# Value parity is ~1e-13 (the inner [0,tdisrupt] integrand is smooth, no
+# straddled jump); grad-vs-FD h-converges to ~1e-13.
+###############################################################################
+_ANGLED_DANGLES = [0.3, 0.6, 1.0]
+
+
+@pytest.mark.parametrize("dangle", _ANGLED_DANGLES)
+@pytest.mark.parametrize("simple", [False, True], ids=["full", "simple"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sigangled_value_parity(sdf, backend_name, simple, dangle):
+    ref = float(sdf.sigangledAngle(dangle, simple=simple, use_physical=False))
+    got = float(
+        sdf.sigangledAngle(
+            _arr(backend_name, dangle), simple=simple, use_physical=False
+        )
+    )
+    # full nested GL matches scipy ~1e-13; the simple estimate rides on the A.2
+    # meantdAngle (clamped-GL floor ~1e-6), so allow a looser rtol there.
+    rtol = 1e-5 if simple else 1e-9
+    numpy.testing.assert_allclose(
+        got, ref, rtol=rtol, atol=1e-10, err_msg=f"sigangled simple={simple} d={dangle}"
+    )
+
+
+@pytest.mark.parametrize("dangle", _ANGLED_DANGLES)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sigangled_grad_vs_fd(sdf, backend_name, dangle):
+    def fn(s, d):
+        return s.sigangledAngle(d, use_physical=False)
+
+    if backend_name == "jax":
+        ad = float(jax.grad(lambda d: fn(sdf, d))(jnp.asarray(dangle)))
+
+        def fdfun(d):
+            return float(fn(sdf, jnp.asarray(d)))
+    else:
+        dt = torch.tensor(dangle, dtype=torch.float64, requires_grad=True)
+        fn(sdf, dt).backward()
+        ad = float(dt.grad)
+
+        def fdfun(d):
+            return float(fn(sdf, torch.tensor(d, dtype=torch.float64)))
+
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(ad - (fdfun(dangle + h) - fdfun(dangle - h)) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert best < 1e-5 * abs(ad) + 1e-8, (
+        f"sigangled grad {backend_name} d={dangle} best={best:.2e}"
+    )
+
+
+@pytest.mark.parametrize("dangle", _ANGLED_DANGLES)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_meanangled_is_zero(sdf, backend_name, dangle):
+    # meanangledAngle == 0 by odd-integrand symmetry (numpy returns exactly 0);
+    # the backend must match that analytic zero (not merely be finite).
+    got = float(sdf.meanangledAngle(_arr(backend_name, dangle), use_physical=False))
+    assert abs(got) < 1e-12, f"meanangled {backend_name} d={dangle} = {got}"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_pangledAngle_array_parity_and_grad(sdf, backend_name):
+    # p(angle_perp|dangle) over an array of angleperp: batched-inner-quad value
+    # parity + d(sum)/d(dangle) h-converges.
+    ap = numpy.array([0.0, 0.01, -0.01, 0.02])
+    ref = numpy.asarray(sdf.pangledAngle(ap, 0.6))
+    got = numpy.asarray(
+        sdf.pangledAngle(_arr(backend_name, ap), _arr(backend_name, 0.6))
+    )
+    assert got.shape == ref.shape
+    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-12)
+    if backend_name == "jax":
+        ad = float(
+            jax.grad(lambda d: sdf.pangledAngle(jnp.asarray(ap), d).sum())(
+                jnp.asarray(0.6)
+            )
+        )
+    else:
+        dt = torch.tensor(0.6, dtype=torch.float64, requires_grad=True)
+        sdf.pangledAngle(torch.tensor(ap, dtype=torch.float64), dt).sum().backward()
+        ad = float(dt.grad)
+    h = 1e-5
+    fd = (
+        float(sdf.pangledAngle(ap, 0.6 + h).sum())
+        - float(sdf.pangledAngle(ap, 0.6 - h).sum())
+    ) / (2 * h)
+    assert abs(ad - fd) < 1e-4 * abs(fd) + 1e-8, (
+        f"pangledAngle grad {backend_name}: {ad} vs {fd}"
+    )
