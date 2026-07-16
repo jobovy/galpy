@@ -17,6 +17,8 @@ else:
     from scipy.special import logsumexp
 
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
+from ..backend import as_backend_constant, get_namespace, is_backend_array
+from ..backend import special as _bspecial
 from ..orbit import Orbit
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import (
@@ -2288,6 +2290,18 @@ class streamdf(df):
         apar = conversion.parse_angle(apar)
         if tdisrupt is None:
             tdisrupt = self._tdisrupt
+        # A backend (jax/torch) Opar/apar routes to xp.where (the numpy in-place mask
+        # write is not jit/grad-safe); the Gaussian value depends on Opar smoothly so
+        # d/d(Opar) flows, while the ts=apar/Opar cut only feeds the (non-differentiated)
+        # where-condition. numpy stays byte-identical.
+        if is_backend_array(Opar) or is_backend_array(apar):
+            xp = get_namespace(Opar, apar)
+            meandO = as_backend_constant(xp, self._meandO, Opar)
+            sig = as_backend_constant(xp, self._sortedSigOEig[2], Opar)
+            Opar = xp.asarray(Opar)
+            ts = apar / Opar
+            dens = xp.exp(-0.5 * (Opar - meandO) ** 2.0 / sig) / xp.sqrt(sig)
+            return xp.where((ts < tdisrupt) & (ts >= 0.0), dens, xp.zeros_like(dens))
         Opar = numpy.array(Opar)
         out = numpy.zeros_like(Opar)
         # Compute ts
@@ -2398,7 +2412,13 @@ class streamdf(df):
         if tdisrupt is None:
             tdisrupt = self._tdisrupt
         dOmin = dangle / tdisrupt
-        # Normalize to 1 close to progenitor
+        # Normalize to 1 close to progenitor. A backend (jax/torch) dangle routes to the
+        # backend erf so d(density)/d(dangle) flows; numpy stays scipy (byte-identical).
+        if is_backend_array(dangle):
+            xp = get_namespace(dangle)
+            meandO = as_backend_constant(xp, self._meandO, dangle)
+            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
+            return 0.5 * (1.0 + _bspecial.erf((meandO - dOmin) / xp.sqrt(2.0 * sig)))
         return 0.5 * (
             1.0
             + special.erf(
@@ -2562,6 +2582,26 @@ class streamdf(df):
         if tdisrupt is None:
             tdisrupt = self._tdisrupt
         dOmin = dangle / tdisrupt
+        # backend (jax/torch) dangle -> native erf/exp/sqrt (d(meanOmega)/d(dangle)
+        # flows); numpy stays scipy (byte-identical). sqrt(2/pi) is a constant.
+        if is_backend_array(dangle):
+            xp = get_namespace(dangle)
+            meandO = as_backend_constant(xp, self._meandO, dangle)
+            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
+            dO1D = (
+                numpy.sqrt(2.0 / numpy.pi)
+                * xp.sqrt(sig)
+                * xp.exp(-0.5 * (meandO - dOmin) ** 2.0 / sig)
+                / (1.0 + _bspecial.erf((meandO - dOmin) / xp.sqrt(2.0 * sig)))
+            ) + meandO
+            if oned:
+                return dO1D
+            return (
+                as_backend_constant(xp, self._progenitor_Omega, dangle)
+                + dO1D
+                * as_backend_constant(xp, self._dsigomeanProgDirection, dangle)
+                * offset_sign
+            )
         meandO = self._meandO
         dO1D = (
             numpy.sqrt(2.0 / numpy.pi)
@@ -2603,6 +2643,23 @@ class streamdf(df):
 
         """
         dOmin = dangle / self._tdisrupt
+        if is_backend_array(dangle):
+            xp = get_namespace(dangle)
+            meandO = as_backend_constant(xp, self._meandO, dangle)
+            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
+            sO1D2 = (
+                (
+                    numpy.sqrt(2.0 / numpy.pi)
+                    * xp.sqrt(sig)
+                    * (meandO + dOmin)
+                    * xp.exp(-0.5 * (meandO - dOmin) ** 2.0 / sig)
+                    / (1.0 + _bspecial.erf((meandO - dOmin) / xp.sqrt(2.0 * sig)))
+                )
+                + meandO**2.0
+                + sig
+            )
+            mO = self.meanOmega(dangle, oned=True, use_physical=False)
+            return xp.sqrt(sO1D2 - mO**2.0)
         meandO = self._meandO
         sO1D2 = (
             (
@@ -2644,6 +2701,24 @@ class streamdf(df):
         - 2013-12-05 - Written - Bovy (IAS).
 
         """
+        # backend (jax/torch) t/dangle -> xp.where (the numpy in-place mask write is not
+        # jit/grad-safe). Guard the dead branch: dO = dangle / t -> inf at t=0, and
+        # dO**2 * exp(-inf) = inf*0 = nan poisons AD, so evaluate on a masked-safe t.
+        if is_backend_array(t) or is_backend_array(dangle):
+            xp = get_namespace(t, dangle)
+            meandO = as_backend_constant(xp, self._meandO, dangle)
+            sig = as_backend_constant(xp, self._sortedSigOEig[2], dangle)
+            t = xp.asarray(t)
+            mask = (t > 0.0) & (t < self._tdisrupt)
+            t_safe = xp.where(mask, t, xp.ones_like(t))
+            dO = dangle / t_safe
+            val = (
+                dO**2.0
+                / dangle
+                * xp.exp(-0.5 * (dO - meandO) ** 2.0 / sig)
+                / xp.sqrt(sig)
+            )
+            return xp.where(mask, val, xp.zeros_like(val))
         t = numpy.array(t)
         out = numpy.zeros_like(t)
         dO = dangle / t[(t > 0.0) * (t < self._tdisrupt)]
