@@ -135,6 +135,11 @@ def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
         r = xp.clip(r, xb[0], xb[-1])
     idx = xp.clip(xp.searchsorted(xb, r, side="right") - 1, 0, cb.shape[1] - 1)
     dr = r - xb[idx]
+    if cb.ndim == 3:
+        # Batched coefficients (4, n-1, m): m independent splines on the SAME grid
+        # (see cubic_spline_coeffs with 2-D y). cb[j, idx] carries the trailing m
+        # axis; give dr a matching trailing axis so the Horner step broadcasts.
+        dr = dr[..., None]
     k = cb.shape[0] - 1  # polynomial degree
     if nu == 0:
         out = cb[0, idx]
@@ -193,8 +198,13 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
     if n < 3:
         raise ValueError("cubic_spline_coeffs requires at least 3 points")
     h = xb[1:] - xb[:-1]  # (n-1,)
+    # A 2-D y of shape (n, m) means m independent splines on the SAME grid -> one
+    # multi-RHS solve (xp.linalg.solve handles the (n, m) rhs), m-fold fewer dense
+    # factorizations. Broadcast the (n-1,) geometry factor h over the m columns;
+    # a 1-D y keeps h unchanged, so that path is byte-identical.
+    hh = h[:, None] if yb.ndim == 2 else h
     # slopes of the secants
-    dslope = (yb[1:] - yb[:-1]) / h  # (n-1,)
+    dslope = (yb[1:] - yb[:-1]) / hh  # (n-1,) or (n-1, m)
 
     # Tridiagonal system A M = rhs for the second derivatives M (length n).
     # Interior rows i=1..n-2:  h[i-1] M[i-1] + 2(h[i-1]+h[i]) M[i] + h[i] M[i+1]
@@ -239,11 +249,11 @@ def cubic_spline_coeffs(xp, x, y, bc="natural"):
 
     # power-basis coefficients on each interval (descending degree to match
     # spline_to_ppoly / Horner in eval_ppoly): c[0]=cubic, c[3]=constant.
-    a3 = (M[1:] - M[:-1]) / (6.0 * h)
+    a3 = (M[1:] - M[:-1]) / (6.0 * hh)
     a2 = M[:-1] / 2.0
-    a1 = dslope - h * (2.0 * M[:-1] + M[1:]) / 6.0
+    a1 = dslope - hh * (2.0 * M[:-1] + M[1:]) / 6.0
     a0 = yb[:-1]
-    return xp.stack([a3, a2, a1, a0], axis=0)  # (4, n-1)
+    return xp.stack([a3, a2, a1, a0], axis=0)  # (4, n-1) or (4, n-1, m)
 
 
 def eval_cubic(xp, x, coeffs, r, *, nu=0, extrapolate=True):
