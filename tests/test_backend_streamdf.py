@@ -377,3 +377,17 @@ def test_pangledAngle_array_parity_and_grad(sdf, backend_name):
     assert abs(ad - fd) < 1e-4 * abs(fd) + 1e-8, (
         f"pangledAngle grad {backend_name}: {ad} vs {fd}"
     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sigangled_assumezeromean_false(sdf, backend_name):
+    # assumeZeroMean=False computes the nummean integral explicitly (the odd
+    # integrand ~0 by symmetry); covers that backend branch + matches numpy.
+    d = 0.6
+    ref = float(sdf.sigangledAngle(d, assumeZeroMean=False, use_physical=False))
+    got = float(
+        sdf.sigangledAngle(
+            _arr(backend_name, d), assumeZeroMean=False, use_physical=False
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-10)
