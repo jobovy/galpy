@@ -175,3 +175,34 @@ def test_ptdAngle_where_and_grad(sdf, backend_name):
     assert abs(ad - fd) < 1e-4 * abs(fd) + 1e-6, (
         f"ptdAngle grad {backend_name}: {ad} vs {fd}"
     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_meanOmega_3d_value_parity_and_grad(sdf, backend_name):
+    # meanOmega's default (oned=False) returns the full 3-vector mean frequency
+    # (progenitor_Omega + dO1D * dsigomeanProgDirection * sign); meanOmega1D only
+    # exercises the oned=True return, so cover the 3-vector backend path here.
+    ref = numpy.asarray(sdf.meanOmega(_DANGLE, use_physical=False))
+    got = numpy.asarray(sdf.meanOmega(_arr(backend_name, _DANGLE), use_physical=False))
+    assert ref.shape == (3,)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
+
+    # grad of a quadratic loss on the 3-vector AD must h-converge to a central FD
+    # of the numpy path (stringent, not finite-and-nonzero).
+    def loss(d):
+        return (sdf.meanOmega(d, use_physical=False) ** 2.0).sum()
+
+    if backend_name == "jax":
+        ad = float(jax.grad(loss)(jnp.asarray(_DANGLE)))
+    else:
+        dt = torch.tensor(_DANGLE, dtype=torch.float64, requires_grad=True)
+        loss(dt).backward()
+        ad = float(dt.grad)
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(ad - (float(loss(_DANGLE + h)) - float(loss(_DANGLE - h))) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert best < 1e-5 * abs(ad) + 1e-8, (
+        f"meanOmega3D grad {backend_name}: best={best:.2e}"
+    )
