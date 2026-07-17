@@ -69,7 +69,7 @@ def test_isotropic_hernquist_dens_massprofile():
         lambda r: (
             pot.mass(r)
             / pot.mass(
-                numpy.amax(samp.r()),
+                numpy.amax(as_numpy(samp.r())),
             )
         ),
         tol,
@@ -83,7 +83,7 @@ def test_isotropic_hernquist_singler_is_atsingler():
     dfh = isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp = dfh.sample(R=1.3, z=0.0, n=100000)
-    assert numpy.all(numpy.fabs(samp.r() - 1.3) < 1e-8), (
+    assert numpy.all(numpy.fabs(as_numpy(samp.r()) - 1.3) < 1e-8), (
         "Sampling a spherical distribution function at a single r does not produce orbits at a single r"
     )
     return None
@@ -127,13 +127,13 @@ def test_isotropic_hernquist_givenr_are_atgivenr():
     assert len(samp) == len(r), (
         "Length of sample with given r array is not equal to length of r"
     )
-    assert numpy.all(numpy.fabs(samp.r() - r) < 1e-8), (
+    assert numpy.all(numpy.fabs(as_numpy(samp.r()) - r) < 1e-8), (
         "Sampling a spherical distribution function at given r does not produce orbits at these given r"
     )
-    assert numpy.all(numpy.fabs(samp.R() - r * numpy.sin(theta)) < 1e-8), (
+    assert numpy.all(numpy.fabs(as_numpy(samp.R()) - r * numpy.sin(theta)) < 1e-8), (
         "Sampling a spherical distribution function at given R does not produce orbits at these given R"
     )
-    assert numpy.all(numpy.fabs(samp.z() - r * numpy.cos(theta)) < 1e-8), (
+    assert numpy.all(numpy.fabs(as_numpy(samp.z()) - r * numpy.cos(theta)) < 1e-8), (
         "Sampling a spherical distribution function at given z does not produce orbits at these given z"
     )
     return None
@@ -155,7 +155,7 @@ def test_isotropic_hernquist_dens_massprofile_forcemassinterpolation():
         lambda r: (
             pot.mass(r)
             / pot.mass(
-                numpy.amax(samp.r()),
+                numpy.amax(as_numpy(samp.r())),
             )
         ),
         tol,
@@ -272,10 +272,10 @@ def test_isotropic_hernquist_beta_directint():
 def test_isotropic_hernquist_energyoutofbounds():
     pot = potential.HernquistPotential(amp=2.3, a=1.3)
     dfh = isotropicHernquistdf(pot=pot)
-    assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1),))) < 1e-8), (
-        "Evaluating the isotropic Hernquist DF at E > 0 does not give zero"
-    )
-    assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-4,))) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfh((numpy.arange(0.1, 10.0, 0.1),)))) < 1e-8
+    ), "Evaluating the isotropic Hernquist DF at E > 0 does not give zero"
+    assert numpy.all(numpy.fabs(as_numpy(dfh((pot(0, 0) - 1e-4,)))) < 1e-8), (
         "Evaluating the isotropic Hernquist DF at E < -GM/a does not give zero"
     )
     return None
@@ -396,7 +396,10 @@ def test_anisotropic_hernquist_dens_massprofile():
         samp = dfh.sample(n=100000)
         tol = 5 * 1e-3
         check_spherical_massprofile(
-            samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=1000
+            samp,
+            lambda r: pot.mass(r) / pot.mass(numpy.amax(as_numpy(samp.r()))),
+            tol,
+            skip=1000,
         )
     return None
 
@@ -531,7 +534,10 @@ def test_anisotropic_hernquist_dMdE_betap05():
         return 4.0 * numpy.pi**3.0 * rE**2.0 * dfh.fE(E)
 
     E = numpy.linspace(0.99 * pot(0, 0), pot(numpy.inf, 0) + 1e-6, 1001)
-    assert numpy.all(numpy.fabs(dMdE_betap05_analytic(E, dfh) - dfh.dMdE(E)) < tol), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dMdE_betap05_analytic(E, dfh)) - as_numpy(dfh.dMdE(E)))
+        < tol
+    ), (
         "Anisotropic Hernquist DF dMdE for beta=0.5 does not agree with analytic expression"
     )
     return None
@@ -542,10 +548,10 @@ def test_anisotropic_hernquist_energyoutofbounds():
     betas = [-0.7, -0.5, -0.4, 0.0, 0.3, 0.5]
     for beta in betas:
         dfh = constantbetaHernquistdf(pot=pot, beta=beta)
-        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-            "Evaluating the anisotropic Hernquist DF at E > 0 does not give zero"
-        )
-        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+        assert numpy.all(
+            numpy.fabs(as_numpy(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+        ), "Evaluating the anisotropic Hernquist DF at E > 0 does not give zero"
+        assert numpy.all(numpy.fabs(as_numpy(dfh((pot(0, 0) - 1e-4, 1.1)))) < 1e-8), (
             "Evaluating the anisotropic Hernquist DF at E < -GM/a does not give zero"
         )
     return None
@@ -621,7 +627,10 @@ def test_osipkovmerritt_hernquist_dens_massprofile():
         samp = dfh.sample(n=100000)
         tol = 5 * 1e-3
         check_spherical_massprofile(
-            samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=1000
+            samp,
+            lambda r: pot.mass(r) / pot.mass(numpy.amax(as_numpy(samp.r()))),
+            tol,
+            skip=1000,
         )
     return None
 
@@ -794,14 +803,14 @@ def test_osipkovmerritt_hernquist_Qoutofbounds():
     ras = [0.3, 2.3, 5.7]
     for ra in ras:
         dfh = osipkovmerrittHernquistdf(pot=pot, ra=ra)
-        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-            "Evaluating the Osipkov-Merritt Hernquist DF at E > 0 does not give zero"
-        )
+        assert numpy.all(
+            numpy.fabs(as_numpy(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+        ), "Evaluating the Osipkov-Merritt Hernquist DF at E > 0 does not give zero"
         # The next one is not actually a physical orbit...
-        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((pot(0, 0) - 1e-1, 0.1)))) < 1e-8), (
             "Evaluating the Osipkov-Merritt Hernquist DF at E < -GM/a does not give zero"
         )
-        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((-1e-4, 1.1)))) < 1e-8), (
             "Evaluating the Osipkov-Merritt Hernquist DF at Q < 0 does not give zero"
         )
     return None
@@ -877,7 +886,10 @@ def test_osipkovmerritt_nfw_dens_massprofile():
         samp = dfh.sample(n=100000)
         tol = 7 * 1e-3
         check_spherical_massprofile(
-            samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=1000
+            samp,
+            lambda r: pot.mass(r) / pot.mass(numpy.amax(as_numpy(samp.r()))),
+            tol,
+            skip=1000,
         )
     return None
 
@@ -1012,14 +1024,14 @@ def test_osipkovmerritt_nfw_Qoutofbounds():
     ras = [2.3, 5.7]
     for ra in ras:
         dfh = osipkovmerrittNFWdf(pot=pot, ra=ra)
-        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-            "Evaluating the Osipkov-Merritt NFW DF at E > 0 does not give zero"
-        )
+        assert numpy.all(
+            numpy.fabs(as_numpy(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+        ), "Evaluating the Osipkov-Merritt NFW DF at E > 0 does not give zero"
         # The next one is not actually a physical orbit...
-        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((pot(0, 0) - 1e-1, 0.1)))) < 1e-8), (
             "Evaluating the Osipkov-Merritt NFW DF at E < -GM/a does not give zero"
         )
-        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((-1e-4, 1.1)))) < 1e-8), (
             "Evaluating the Osipkov-Merritt NFW DF at Q < 0 does not give zero"
         )
     return None
@@ -1055,7 +1067,10 @@ def test_isotropic_plummer_dens_massprofile():
     samp = dfp.sample(n=100000)
     tol = 5 * 1e-3
     check_spherical_massprofile(
-        samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=1000
+        samp,
+        lambda r: pot.mass(r) / pot.mass(numpy.amax(as_numpy(samp.r()))),
+        tol,
+        skip=1000,
     )
     return None
 
@@ -1140,10 +1155,10 @@ def test_isotropic_plummer_dMdE_integral():
 def test_isotropic_plummer_energyoutofbounds():
     pot = potential.PlummerPotential(amp=2.3, b=1.3)
     dfp = isotropicPlummerdf(pot=pot)
-    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-        "Evaluating the isotropic Plummer DF at E > 0 does not give zero"
-    )
-    assert numpy.all(numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+    ), "Evaluating the isotropic Plummer DF at E > 0 does not give zero"
+    assert numpy.all(numpy.fabs(as_numpy(dfp((pot(0, 0) - 1e-4, 1.1)))) < 1e-8), (
         "Evaluating the isotropic Plummer DF at E < Phi(0) does not give zero"
     )
     return None
@@ -1179,7 +1194,10 @@ def test_isotropic_nfw_dens_massprofile():
     samp = dfp.sample(n=100000)
     tol = 7 * 1e-3
     check_spherical_massprofile(
-        samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=1000
+        samp,
+        lambda r: pot.mass(r) / pot.mass(numpy.amax(as_numpy(samp.r()))),
+        tol,
+        skip=1000,
     )
     return None
 
@@ -1255,10 +1273,10 @@ def test_isotropic_nfw_beta_directint():
 def test_isotropic_nfw_energyoutofbounds():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     dfp = isotropicNFWdf(pot=pot)
-    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-        "Evaluating the isotropic NFW DF at E > 0 does not give zero"
-    )
-    assert numpy.all(numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+    ), "Evaluating the isotropic NFW DF at E > 0 does not give zero"
+    assert numpy.all(numpy.fabs(as_numpy(dfp((pot(0, 0) - 1e-4, 1.1)))) < 1e-8), (
         "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
     )
     return None
@@ -1270,9 +1288,9 @@ def test_isotropic_nfw_widrow_against_improved():
     dfp = isotropicNFWdf(pot=pot)
     dfpw = isotropicNFWdf(pot=pot, widrow=True)
     Es = numpy.linspace(-dfp._Etildemax * 0.999, 0, 101, endpoint=False)
-    assert numpy.all(numpy.fabs(1.0 - dfp.fE(Es) / dfpw.fE(Es)) < 1e-2), (
-        "isotropic NFW with widrow=True does not agree on f(E) with widrow=False"
-    )
+    assert numpy.all(
+        numpy.fabs(1.0 - as_numpy(dfp.fE(Es)) / as_numpy(dfpw.fE(Es))) < 1e-2
+    ), "isotropic NFW with widrow=True does not agree on f(E) with widrow=False"
     return None
 
 
@@ -1311,7 +1329,9 @@ def test_isotropic_eddington_selfconsist_dehnencore_dens_massprofile():
     tol = 5 * 1e-3
     check_spherical_massprofile(
         samp,
-        lambda r: potential.mass(pot, r) / potential.mass(pot, numpy.amax(samp.r())),
+        lambda r: (
+            potential.mass(pot, r) / potential.mass(pot, numpy.amax(as_numpy(samp.r())))
+        ),
         tol,
         skip=1000,
     )
@@ -1389,10 +1409,10 @@ def test_isotropic_eddington_selfconsist_dehnencore_beta_directint():
 def test_isotropic_eddington_selfconsist_dehnencore_energyoutofbounds():
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     dfp = eddingtondf(pot=pot)
-    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-        "Evaluating the eddington DF at E > 0 does not give zero"
-    )
-    assert numpy.all(numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+    ), "Evaluating the eddington DF at E > 0 does not give zero"
+    assert numpy.all(numpy.fabs(as_numpy(dfp((pot(0, 0) - 1e-4, 1.1)))) < 1e-8), (
         "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
     )
     return None
@@ -1432,7 +1452,7 @@ def test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile():
     tol = 5 * 1e-3
     check_spherical_massprofile(
         samp,
-        lambda r: denspot.mass(r) / denspot.mass(numpy.amax(samp.r())),
+        lambda r: denspot.mass(r) / denspot.mass(numpy.amax(as_numpy(samp.r()))),
         tol,
         skip=1000,
     )
@@ -1536,10 +1556,10 @@ def test_isotropic_eddington_dehnencore_in_nfw_energyoutofbounds():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     dfp = eddingtondf(pot=pot, denspot=denspot)
-    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-        "Evaluating the isotropic NFW DF at E > 0 does not give zero"
-    )
-    assert numpy.all(numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+    ), "Evaluating the isotropic NFW DF at E > 0 does not give zero"
+    assert numpy.all(numpy.fabs(as_numpy(dfp((pot(0, 0) - 1e-4, 1.1)))) < 1e-8), (
         "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
     )
     return None
@@ -1559,7 +1579,7 @@ def test_eddington_powerspherical_massprofile():
         samp,
         lambda r: (
             (pot.mass(r) - pot.mass(rmin))
-            / (pot.mass(numpy.amax(samp.r())) - pot.mass(rmin))
+            / (pot.mass(numpy.amax(as_numpy(samp.r()))) - pot.mass(rmin))
         ),
         tol,
         skip=1000,
@@ -1650,7 +1670,10 @@ def test_king_dens_massprofile():
     samp = dfk.sample(n=100000)
     tol = 1e-2
     check_spherical_massprofile(
-        samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=4000
+        samp,
+        lambda r: pot.mass(r) / pot.mass(numpy.amax(as_numpy(samp.r()))),
+        tol,
+        skip=4000,
     )
     return None
 
@@ -1771,7 +1794,10 @@ def test_osipkovmerritt_selfconsist_dehnencore_dens_massprofile(
         samp = dfh.sample(n=100000)
         tol = 5 * 1e-3
         check_spherical_massprofile(
-            samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=1000
+            samp,
+            lambda r: pot.mass(r) / pot.mass(numpy.amax(as_numpy(samp.r()))),
+            tol,
+            skip=1000,
         )
     return None
 
@@ -1901,14 +1927,14 @@ def test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds(
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras, osipkovmerritt_dfs_selfconsist):
-        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-            "Evaluating the Osipkov-Merritt DF at E > 0 does not give zero"
-        )
+        assert numpy.all(
+            numpy.fabs(as_numpy(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+        ), "Evaluating the Osipkov-Merritt DF at E > 0 does not give zero"
         # The next one is not actually a physical orbit...
-        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((pot(0, 0) - 1e-1, 0.1)))) < 1e-8), (
             "Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero"
         )
-        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((-1e-4, 1.1)))) < 1e-8), (
             "Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero"
         )
     return None
@@ -1967,7 +1993,7 @@ def test_osipkovmerritt_dehnencore_in_nfw_dens_massprofile(
         tol = 5 * 1e-3
         check_spherical_massprofile(
             samp,
-            lambda r: denspot.mass(r) / denspot.mass(numpy.amax(samp.r())),
+            lambda r: denspot.mass(r) / denspot.mass(numpy.amax(as_numpy(samp.r()))),
             tol,
             skip=1000,
         )
@@ -2112,14 +2138,14 @@ def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds(
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras, osipkovmerritt_dfs_dehnencore_in_nfw):
-        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-            "Evaluating the Osipkov-Merritt DF at E > 0 does not give zero"
-        )
+        assert numpy.all(
+            numpy.fabs(as_numpy(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+        ), "Evaluating the Osipkov-Merritt DF at E > 0 does not give zero"
         # The next one is not actually a physical orbit...
-        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((pot(0, 0) - 1e-1, 0.1)))) < 1e-8), (
             "Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero"
         )
-        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((-1e-4, 1.1)))) < 1e-8), (
             "Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero"
         )
     return None
@@ -2224,7 +2250,10 @@ def test_constantbeta_selfconsist_dehnencore_dens_massprofile(
         samp = dfh.sample(n=100000)
         tol = 5 * 1e-3
         check_spherical_massprofile(
-            samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=1000
+            samp,
+            lambda r: pot.mass(r) / pot.mass(numpy.amax(as_numpy(samp.r()))),
+            tol,
+            skip=1000,
         )
     return None
 
@@ -2373,14 +2402,14 @@ def test_constantbeta_selfconsist_dehnencore_Qoutofbounds(
     twobetas = [-1]
     constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
-        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-            "Evaluating the constant-beta DF at E > 0 does not give zero"
-        )
+        assert numpy.all(
+            numpy.fabs(as_numpy(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+        ), "Evaluating the constant-beta DF at E > 0 does not give zero"
         # The next one is not actually a physical orbit...
-        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((pot(0, 0) - 1e-1, 0.1)))) < 1e-8), (
             "Evaluating the constant-beta DF at E < -GM/a does not give zero"
         )
-        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((-1e-4, 1.1)))) < 1e-8), (
             "Evaluating the constantbeta DF at Q < 0 does not give zero"
         )
     return None
@@ -2398,10 +2427,12 @@ def test_constantbeta_selfconsist_dehnencore_rmin_inbounds(
     rmin = 0.5
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         samp = dfh.sample(n=1000000, rmin=rmin)
-        assert numpy.min(samp.r()) >= rmin, "Sample minimum r less than rmin"
+        assert numpy.min(as_numpy(samp.r())) >= rmin, "Sample minimum r less than rmin"
         # Change rmin
         samp = dfh.sample(n=1000000, rmin=rmin + 1.0)
-        assert numpy.min(samp.r()) >= rmin + 1.0, "Sample minimum r less than rmin"
+        assert numpy.min(as_numpy(samp.r())) >= rmin + 1.0, (
+            "Sample minimum r less than rmin"
+        )
     return None
 
 
@@ -2464,7 +2495,7 @@ def test_constantbeta_dehnencore_in_nfw_dens_massprofile(
         tol = 5 * 1e-3
         check_spherical_massprofile(
             samp,
-            lambda r: denspot.mass(r) / denspot.mass(numpy.amax(samp.r())),
+            lambda r: denspot.mass(r) / denspot.mass(numpy.amax(as_numpy(samp.r()))),
             tol,
             skip=1000,
         )
@@ -2537,14 +2568,14 @@ def test_constantbeta_dehnencore_in_nfw_Qoutofbounds(
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     betas = [0.25]
     for beta, dfh in zip(betas, constantbeta_dfs_dehnencore_in_nfw):
-        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
-            "Evaluating the constantbeta DF at E > 0 does not give zero"
-        )
+        assert numpy.all(
+            numpy.fabs(as_numpy(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1)))) < 1e-8
+        ), "Evaluating the constantbeta DF at E > 0 does not give zero"
         # The next one is not actually a physical orbit...
-        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((pot(0, 0) - 1e-1, 0.1)))) < 1e-8), (
             "Evaluating the constantbeta DF at E < -GM/a does not give zero"
         )
-        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+        assert numpy.all(numpy.fabs(as_numpy(dfh((-1e-4, 1.1)))) < 1e-8), (
             "Evaluating the constantbeta DF at Q < 0 does not give zero"
         )
     return None
@@ -3305,7 +3336,7 @@ def test_isotropic_powerlaw_dens_massprofile():
         samp,
         lambda r: (
             (pot.mass(r) - pot.mass(1e-4))
-            / (pot.mass(numpy.amax(samp.r())) - pot.mass(1e-4))
+            / (pot.mass(numpy.amax(as_numpy(samp.r()))) - pot.mass(1e-4))
         ),
         tol,
         skip=4000,
@@ -3317,7 +3348,7 @@ def test_isotropic_powerlaw_singler_is_atsingler():
     dfp = isotropicPowerLawdf(pot=pot, rmax=100.0, rmin=1e-4)
     numpy.random.seed(10)
     samp = dfp.sample(R=1.3, z=0.0, n=1000)
-    assert numpy.all(numpy.fabs(samp.r() - 1.3) < 1e-8), (
+    assert numpy.all(numpy.fabs(as_numpy(samp.r()) - 1.3) < 1e-8), (
         "Sampling at a single r does not produce orbits at that r"
     )
 
@@ -3424,18 +3455,24 @@ def test_isotropic_powerlaw_diffcalls():
     R, vR, vT, z, vz, phi = 1.1, 0.3, 0.2, 0.9, -0.2, 2.4
     assert (
         numpy.fabs(
-            dfp(R, vR, vT, z, vz, phi)
-            - dfp((pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),))
+            as_numpy(dfp(R, vR, vT, z, vz, phi))
+            - as_numpy(dfp((pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),)))
         )
         < 1e-8
     ), "Calling isotropic power-law DF with R,vR,... or E does not give same answer"
     assert (
         numpy.fabs(
-            dfp(R, vR, vT, z, vz, phi)
-            - dfp(
-                (
-                    pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
-                    numpy.sqrt(numpy.sum(Orbit([R, vR, vT, z, vz, phi]).L() ** 2.0)),
+            as_numpy(dfp(R, vR, vT, z, vz, phi))
+            - as_numpy(
+                dfp(
+                    (
+                        pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
+                        numpy.sqrt(
+                            numpy.sum(
+                                as_numpy(Orbit([R, vR, vT, z, vz, phi]).L()) ** 2.0
+                            )
+                        ),
+                    )
                 )
             )
         )
@@ -3468,7 +3505,7 @@ def test_constantbeta_powerlaw_dens_massprofile():
         samp,
         lambda r: (
             (pot.mass(r) - pot.mass(1e-4))
-            / (pot.mass(numpy.amax(samp.r())) - pot.mass(1e-4))
+            / (pot.mass(numpy.amax(as_numpy(samp.r()))) - pot.mass(1e-4))
         ),
         tol,
         skip=4000,
@@ -3588,7 +3625,7 @@ def test_osipkovmerritt_powerlaw_dens_massprofile():
         samp,
         lambda r: (
             (pot.mass(r) - pot.mass(1e-4))
-            / (pot.mass(numpy.amax(samp.r())) - pot.mass(1e-4))
+            / (pot.mass(numpy.amax(as_numpy(samp.r()))) - pot.mass(1e-4))
         ),
         tol,
         skip=4000,
@@ -3756,9 +3793,9 @@ def check_spherical_massprofile(samp, mass_profile, tol, skip=100):
     cumul_mass = numpy.linspace(0.0, 1.0, len(rs))
     for ii in range(len(rs) // skip - 1):
         indx = (ii + 1) * skip
-        assert numpy.fabs(cumul_mass[indx] - mass_profile(cumul_rs[indx])) < tol, (
-            "Mass profile of samples does not agree with analytical one"
-        )
+        assert (
+            numpy.fabs(cumul_mass[indx] - as_numpy(mass_profile(cumul_rs[indx]))) < tol
+        ), "Mass profile of samples does not agree with analytical one"
     return None
 
 

@@ -4,6 +4,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.potential import (
     HernquistPotential,
     MiyamotoNagaiPotential,
@@ -1256,7 +1257,7 @@ def test_time_dependent_array_t_evaluate():
 
     mp = _make_tdep_axi_mp(L=2)
     t_arr = numpy.array([0.0, 1.0, 2.5, 5.0])
-    vals = evaluatePotentials(mp, 1.0, 0.0, t=t_arr)
+    vals = as_numpy(evaluatePotentials(mp, 1.0, 0.0, t=t_arr))
     assert vals.shape == (4,), f"Expected shape (4,), got {vals.shape}"
     assert numpy.all(numpy.isfinite(vals))
     # Values should change with time
@@ -1603,7 +1604,7 @@ def test_time_dependent_nonaxi_array_t():
 
     mp = _make_tdep_nonaxi_sincos_mp(L=3)
     t_arr = numpy.array([0.0, 1.0, 2.5, 5.0])
-    vals = evaluatePotentials(mp, 1.0, 0.5, phi=0.7, t=t_arr)
+    vals = as_numpy(evaluatePotentials(mp, 1.0, 0.5, phi=0.7, t=t_arr))
     assert vals.shape == (4,), f"Expected shape (4,), got {vals.shape}"
     assert numpy.all(numpy.isfinite(vals))
     assert not numpy.all(vals == vals[0]), "Values should vary with time"
@@ -1734,7 +1735,7 @@ def test_time_dependent_nonaxi_array_density():
     hp = HernquistPotential(amp=2.0, a=1.0)
     mp = _make_tdep_nonaxi_sincos_mp(L=3)
     R_arr = numpy.array([0.5, 1.0, 2.0])
-    d = evaluateDensities(mp, R_arr, 0.0, phi=0.5, t=1.0, use_physical=False)
+    d = as_numpy(evaluateDensities(mp, R_arr, 0.0, phi=0.5, t=1.0, use_physical=False))
     assert d.shape == (3,), f"Expected shape (3,), got {d.shape}"
     assert numpy.all(numpy.isfinite(d))
 
@@ -1825,7 +1826,7 @@ def test_finalize_pot_args_trailing_scalars():
     ts = numpy.linspace(0, 1, 21)
     o.integrate(ts, mp + pp, method="dop853_c")
     # Energy approximately conserved (time-dep perturbation is very weak: 1e-6*t)
-    E = o.E(ts)
+    E = as_numpy(o.E(ts))
     dE = numpy.max(numpy.abs((E - E[0]) / E[0]))
     assert dE < 1e-4, f"Energy not conserved: dE/E = {dE:.2e}"
 
