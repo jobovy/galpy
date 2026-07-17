@@ -23,7 +23,7 @@ elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
 else:
     from scipy.special import logsumexp
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import as_numpy, get_namespace, is_backend_array
 from ..potential import (
     _INF,
     CompositePotential,
@@ -3844,6 +3844,14 @@ class Orbit:
                         )
                     else:  # pragma: no cover
                         raise
+            # Analytic Staeckel is a numpy/C computation; estimateDeltaStaeckel
+            # (or a user-passed value) may be a backend tensor under a forced
+            # backend, so bring delta back to a writable numpy array (jax's
+            # as_numpy view is read-only, and delta is clipped in place below)
+            # before the numpy/C machinery consumes it. No-op for numpy -> the
+            # numpy path stays byte-identical.
+            if is_backend_array(delta):
+                delta = numpy.array(as_numpy(delta))
             if numpy.all(delta == 1e-6):
                 self._setupaA(pot=pot, type="spherical")
             else:
@@ -3868,9 +3876,18 @@ class Orbit:
             )
         elif self.dim() == 3:
             Einf = evaluatePotentials(self._aAPot, _INF, 0.0, use_physical=False)
+        # The analytic path is a numpy/C computation, but under a forced backend
+        # evaluatePotentials and E return backend arrays; bring both Einf and the
+        # energy back to numpy so the unbound mask stays a plain numpy index into
+        # the numpy/C EccZmaxRperiRap arrays (no-op for numpy -> byte-identical).
+        if is_backend_array(Einf):
+            Einf = as_numpy(Einf)
         if numpy.isnan(Einf):
             Einf = numpy.inf  # Just try to proceed as best as possible, don't make assumptions about the potential
-        indx = self.E(pot=self._aAPot, use_physical=False, dontreshape=True) < Einf
+        indx = (
+            as_numpy(self.E(pot=self._aAPot, use_physical=False, dontreshape=True))
+            < Einf
+        )
         if hasattr(self._aA, "_delta"):
             if hasattr(self._aA._delta, "__len__"):
                 aAkwargs = {"delta": self._aA._delta[indx]}
@@ -4990,9 +5007,9 @@ class Orbit:
         thiso = self._call_internal(*args, **kwargs)
         xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 3:
-            return xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0).T
+            return _backend_T(xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0))
         else:
-            return xp.abs(thiso[0]).T
+            return _backend_T(xp.abs(thiso[0]))
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5171,11 +5188,11 @@ class Orbit:
         thiso = self._call_internal(*args, **kwargs)
         xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 1:
-            return thiso[0].T
+            return _backend_T(thiso[0])
         elif self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use x()")
         else:
-            return (thiso[0] * xp.cos(thiso[-1, :])).T
+            return _backend_T(thiso[0] * xp.cos(thiso[-1, :]))
 
     @physical_conversion("position")
     @shapeDecorator
@@ -5209,7 +5226,7 @@ class Orbit:
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use y()")
         else:
-            return (thiso[0] * xp.sin(thiso[-1, :])).T
+            return _backend_T(thiso[0] * xp.sin(thiso[-1, :]))
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5241,11 +5258,13 @@ class Orbit:
         thiso = self._call_internal(*args, **kwargs)
         xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 1:
-            return thiso[1].T
+            return _backend_T(thiso[1])
         elif self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use vx()")
         else:
-            return (thiso[1] * xp.cos(thiso[-1]) - thiso[2] * xp.sin(thiso[-1])).T
+            return _backend_T(
+                thiso[1] * xp.cos(thiso[-1]) - thiso[2] * xp.sin(thiso[-1])
+            )
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5279,7 +5298,9 @@ class Orbit:
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use vy()")
         else:
-            return (thiso[2] * xp.cos(thiso[-1]) + thiso[1] * xp.sin(thiso[-1])).T
+            return _backend_T(
+                thiso[2] * xp.cos(thiso[-1]) + thiso[1] * xp.sin(thiso[-1])
+            )
 
     @physical_conversion("frequency-kmskpc")
     @shapeDecorator
@@ -5342,9 +5363,9 @@ class Orbit:
         xp, thiso = _resolve_accessor_namespace(thiso)
         if self.dim() == 3:
             r = xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
-            return ((thiso[0] * thiso[1] + thiso[3] * thiso[4]) / r).T
+            return _backend_T((thiso[0] * thiso[1] + thiso[3] * thiso[4]) / r)
         else:
-            return thiso[1].T
+            return _backend_T(thiso[1])
 
     @physical_conversion("velocity")
     @shapeDecorator
@@ -5379,7 +5400,7 @@ class Orbit:
             raise AttributeError("Orbit must be 3D to use vtheta()")
         else:
             r = xp.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
-            return ((thiso[1] * thiso[3] - thiso[0] * thiso[4]) / r).T
+            return _backend_T((thiso[1] * thiso[3] - thiso[0] * thiso[4]) / r)
 
     @physical_conversion("angle")
     @shapeDecorator
@@ -5407,7 +5428,7 @@ class Orbit:
         if self.dim() != 3:
             raise AttributeError("Orbit must be 3D to use theta()")
         else:
-            return xp.arctan2(thiso[0], thiso[3]).T
+            return _backend_T(xp.arctan2(thiso[0], thiso[3]))
 
     def align_to_orbit(self, center_phi1=180.0):
         r"""

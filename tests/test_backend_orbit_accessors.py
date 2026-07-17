@@ -484,3 +484,105 @@ def test_orbit_characteristic_numpy_path_unchanged():
         numpy.testing.assert_allclose(
             float(numpy.asarray(val)), _c_ref_char(name), rtol=1e-12
         )
+
+
+# --------------------- forced-backend fixes on a NON-integrated orbit ----------
+# Under `use(<backend>, force=True)` two fixes land:
+#   1. derived accessors whose 1-D result is reversed with a raw `.T`
+#      (x/y/vx/vy/r/vr/vtheta/theta) -> `_backend_T` (removes a torch
+#      warn-once UserWarning; no value or return-type change), and
+#   2. o.rperi/rap/zmax(analytic=True), whose numpy/C Staeckel machinery crashed
+#      on a backend delta/Einf/energy mask (numpy.all/isnan/sum-on-a-tensor) ->
+#      `as_numpy` at those boundaries, so the analytic path stays numpy and
+#      returns a numpy scalar.
+# The full E/ER/Ez/Jacobi energy-accessor backend migration is a separate
+# follow-up PR; those accessors are UNCHANGED here (they behave as on the base).
+from galpy import backend as _galpy_backend  # noqa: E402
+from galpy.potential import LogarithmicHaloPotential  # noqa: E402
+
+_LP = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+_IC_E = [1.0, 0.2, 0.9, 0.1, 0.05, 0.0]  # R, vR, vT, z, vz, phi (bound, z!=0)
+_ANALYTIC = ["rperi", "rap", "zmax"]
+# derived accessors whose 1-D result used a raw `.T` (torch warn-once deprecation)
+_TSIB = ["x", "y", "vx", "vy", "r", "vr", "vtheta", "theta"]
+
+
+def _analytic_np_ref(name):
+    return float(
+        numpy.asarray(
+            getattr(Orbit(list(_IC_E)), name)(
+                analytic=True, pot=_LP, use_physical=False
+            )
+        )
+    )
+
+
+# The analytic path calls o.E internally; under a forced backend that (still
+# unmigrated) energy assembly emits the numpy-2 __array_wrap__ DeprecationWarning
+# -- a deferred, separate issue, NOT introduced by the analytic fix -- so tolerate
+# it here so the -W error coverage shard stays green.
+@pytest.mark.filterwarnings("ignore:.*__array_wrap__.*:DeprecationWarning")
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+@pytest.mark.parametrize("name", _ANALYTIC)
+def test_analytic_char_forced_jax_matches_numpy(name):
+    # the analytic Staeckel path is a numpy/C computation -> returns a numpy scalar
+    with _galpy_backend.use("jax", force=True):
+        val = getattr(Orbit(list(_IC_E)), name)(
+            analytic=True, pot=_LP, use_physical=False
+        )
+    assert isinstance(val, (float, numpy.floating, numpy.ndarray))
+    numpy.testing.assert_allclose(
+        float(numpy.asarray(val)), _analytic_np_ref(name), rtol=1e-10, atol=1e-12
+    )
+
+
+@pytest.mark.filterwarnings("ignore:.*__array_wrap__.*:DeprecationWarning")
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("name", _ANALYTIC)
+def test_analytic_char_forced_torch_matches_numpy(name):
+    with _galpy_backend.use("torch", force=True):
+        val = getattr(Orbit(list(_IC_E)), name)(
+            analytic=True, pot=_LP, use_physical=False
+        )
+    assert isinstance(val, (float, numpy.floating, numpy.ndarray))
+    numpy.testing.assert_allclose(
+        float(numpy.asarray(val)), _analytic_np_ref(name), rtol=1e-10, atol=1e-12
+    )
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax not installed")
+@pytest.mark.parametrize("acc", _TSIB)
+def test_sibling_accessor_forced_jax_matches_numpy(acc):
+    # derived accessors whose 1-D result is reversed with `.T` -> a backend array
+    # on the same (correct) values as numpy (the `.T`-on-1D fix).
+    ref = numpy.asarray(getattr(Orbit(list(_IC_E)), acc)(use_physical=False))
+    with _galpy_backend.use("jax", force=True):
+        val = getattr(Orbit(list(_IC_E)), acc)(use_physical=False)
+    assert isinstance(val, jax.Array), f"{acc} left the jax backend"
+    got = numpy.asarray(val)
+    if acc in _WRAP:
+        got, ref = _wrap(got), _wrap(ref)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-12)
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch not installed")
+@pytest.mark.parametrize("acc", _TSIB)
+def test_sibling_accessor_forced_torch_matches_numpy(acc):
+    ref = numpy.asarray(getattr(Orbit(list(_IC_E)), acc)(use_physical=False))
+    with _galpy_backend.use("torch", force=True):
+        val = getattr(Orbit(list(_IC_E)), acc)(use_physical=False)
+    assert isinstance(val, torch.Tensor), f"{acc} left the torch backend"
+    got = val.detach().cpu().numpy()
+    if acc in _WRAP:
+        got, ref = _wrap(got), _wrap(ref)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-12)
+
+
+def test_analytic_char_numpy_path_unchanged():
+    # a numpy orbit's rperi/rap/zmax(analytic=True) are unaffected by the dispatch
+    for name in _ANALYTIC:
+        val = getattr(Orbit(list(_IC_E)), name)(
+            analytic=True, pot=_LP, use_physical=False
+        )
+        assert isinstance(val, (float, numpy.floating, numpy.ndarray))
+        assert numpy.isfinite(float(numpy.asarray(val)))
