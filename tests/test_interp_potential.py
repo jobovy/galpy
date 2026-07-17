@@ -1,6 +1,7 @@
 import numpy
 
 from galpy import potential
+from galpy.backend import as_numpy
 
 
 class _MisBroadcastPotential(potential.Potential):
@@ -136,10 +137,10 @@ def test_interpolation_potential():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(mr, mz)
-                - potential.evaluatePotentials(potential.MWPotential, mr, mz)
+                as_numpy(rzpot(mr, mz))
+                - as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatePotentials(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
         )
         < 10.0**-6.0
     ), "RZPot interpolation w/ interpRZPotential fails for vector input"
@@ -159,10 +160,10 @@ def test_interpolation_potential():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(mr, mz)
-                - potential.evaluatePotentials(potential.MWPotential, mr, mz)
+                as_numpy(rzpot(mr, mz))
+                - as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatePotentials(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
         )
         < 10.0**-6.0
     ), "RZPot interpolation w/ interpRZPotential fails for vector input, w/ logR"
@@ -183,10 +184,10 @@ def test_interpolation_potential():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(mr, mz)
-                - potential.evaluatePotentials(potential.MWPotential, mr, mz)
+                as_numpy(rzpot(mr, mz))
+                - as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatePotentials(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-6.0
     ), "RZPot interpolation w/ interpRZPotential fails for vector input, w/o zsym"
@@ -207,10 +208,10 @@ def test_interpolation_potential():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(mr, mz)
-                - potential.evaluatePotentials(potential.MWPotential, mr, mz)
+                as_numpy(rzpot(mr, mz))
+                - as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatePotentials(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-6.0
     ), (
@@ -236,13 +237,17 @@ def test_interpolation_potential_diffinputs():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(rs, zs[10])
-                - potential.evaluatePotentials(
-                    potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                as_numpy(rzpot(rs, zs[10]))
+                - as_numpy(
+                    potential.evaluatePotentials(
+                        potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                    )
                 )
             )
-            / potential.evaluatePotentials(
-                potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+            / as_numpy(
+                potential.evaluatePotentials(
+                    potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                )
             )
         )
         < 10.0**-6.0
@@ -251,13 +256,17 @@ def test_interpolation_potential_diffinputs():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(rs[10], zs)
-                - potential.evaluatePotentials(
-                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                as_numpy(rzpot(rs[10], zs))
+                - as_numpy(
+                    potential.evaluatePotentials(
+                        potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                    )
                 )
             )
-            / potential.evaluatePotentials(
-                potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+            / as_numpy(
+                potential.evaluatePotentials(
+                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                )
             )
         )
         < 10.0**-6.0
@@ -285,10 +294,10 @@ def test_interpolation_potential_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(mr, mz)
-                - potential.evaluatePotentials(potential.MWPotential, mr, mz)
+                as_numpy(rzpot(mr, mz))
+                - as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatePotentials(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
         )
         < 10.0**-6.0
     ), "RZPot interpolation w/ interpRZPotential fails for vector input, using C"
@@ -305,10 +314,10 @@ def test_interpolation_potential_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(mr, mz)
-                - potential.evaluatePotentials(potential.MWPotential, mr, mz)
+                as_numpy(rzpot(mr, mz))
+                - as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatePotentials(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-6.0
     ), (
@@ -332,10 +341,10 @@ def test_interpolation_potential_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(mr, mz)
-                - potential.evaluatePotentials(potential.MWPotential, mr, mz)
+                as_numpy(rzpot(mr, mz))
+                - as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatePotentials(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
         )
         < 10.0**-6.0
     ), (
@@ -359,10 +368,10 @@ def test_interpolation_potential_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(mr, mz)
-                - potential.evaluatePotentials(potential.MWPotential, mr, mz)
+                as_numpy(rzpot(mr, mz))
+                - as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatePotentials(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-6.0
     ), (
@@ -389,15 +398,19 @@ def test_interpolation_potential_diffinputs_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(rs, zs[10])
-                - potential.evaluatePotentials(
-                    potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                as_numpy(rzpot(rs, zs[10]))
+                - as_numpy(
+                    potential.evaluatePotentials(
+                        potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                    )
                 )
             )
-            / potential.evaluatePotentials(
-                potential.MWPotential,
-                rs,
-                zs[10] * numpy.ones(len(rs)),
+            / as_numpy(
+                potential.evaluatePotentials(
+                    potential.MWPotential,
+                    rs,
+                    zs[10] * numpy.ones(len(rs)),
+                )
             )
         )
         < 10.0**-6.0
@@ -406,13 +419,17 @@ def test_interpolation_potential_diffinputs_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(rs[10], zs)
-                - potential.evaluatePotentials(
-                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                as_numpy(rzpot(rs[10], zs))
+                - as_numpy(
+                    potential.evaluatePotentials(
+                        potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                    )
                 )
             )
-            / potential.evaluatePotentials(
-                potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+            / as_numpy(
+                potential.evaluatePotentials(
+                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                )
             )
         )
         < 10.0**-6.0
@@ -440,10 +457,10 @@ def test_interpolation_potential_c_vdiffgridsizes():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot(mr, mz)
-                - potential.evaluatePotentials(potential.MWPotential, mr, mz)
+                as_numpy(rzpot(mr, mz))
+                - as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatePotentials(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatePotentials(potential.MWPotential, mr, mz))
         )
         < 10.0**-6.0
     ), "RZPot interpolation w/ interpRZPotential fails for vector input, using C"
@@ -636,20 +653,20 @@ def test_interpolation_potential_force():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(mr, mz)
-                - potential.evaluateRforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.Rforce(mr, mz))
+                - as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateRforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
         )
         < 10.0**-5.0
     ), "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input"
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(mr, mz)
-                - potential.evaluatezforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.zforce(mr, mz))
+                - as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatezforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
         )
         < 10.0**-5.0
     ), "RZPot interpolation of zforce w/ interpRZPotential fails for vector input"
@@ -670,10 +687,10 @@ def test_interpolation_potential_force():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(mr, mz)
-                - potential.evaluateRforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.Rforce(mr, mz))
+                - as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateRforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
         )
         < 10.0**-5.0
     ), (
@@ -682,10 +699,10 @@ def test_interpolation_potential_force():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(mr, mz)
-                - potential.evaluatezforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.zforce(mr, mz))
+                - as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatezforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
         )
         < 10.0**-5.0
     ), (
@@ -709,10 +726,10 @@ def test_interpolation_potential_force():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(mr, mz)
-                - potential.evaluateRforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.Rforce(mr, mz))
+                - as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateRforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
         )
         < 4.0 * 10.0**-5.0
     ), (
@@ -721,10 +738,10 @@ def test_interpolation_potential_force():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(mr, mz)
-                - potential.evaluatezforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.zforce(mr, mz))
+                - as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatezforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
         )
         < 4.0 * 10.0**-5.0
     ), (
@@ -748,10 +765,10 @@ def test_interpolation_potential_force():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(mr, mz)
-                - potential.evaluateRforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.Rforce(mr, mz))
+                - as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateRforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-5.0
     ), (
@@ -760,10 +777,10 @@ def test_interpolation_potential_force():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(mr, mz)
-                - potential.evaluatezforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.zforce(mr, mz))
+                - as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatezforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-5.0
     ), (
@@ -790,13 +807,17 @@ def test_interpolation_potential_force_diffinputs():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(rs, zs[10])
-                - potential.evaluateRforces(
-                    potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                as_numpy(rzpot.Rforce(rs, zs[10]))
+                - as_numpy(
+                    potential.evaluateRforces(
+                        potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                    )
                 )
             )
-            / potential.evaluateRforces(
-                potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+            / as_numpy(
+                potential.evaluateRforces(
+                    potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                )
             )
         )
         < 10.0**-5.0
@@ -806,13 +827,17 @@ def test_interpolation_potential_force_diffinputs():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(rs, zs[10])
-                - potential.evaluatezforces(
-                    potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                as_numpy(rzpot.zforce(rs, zs[10]))
+                - as_numpy(
+                    potential.evaluatezforces(
+                        potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                    )
                 )
             )
-            / potential.evaluatezforces(
-                potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+            / as_numpy(
+                potential.evaluatezforces(
+                    potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                )
             )
         )
         < 10.0**-5.0
@@ -823,13 +848,17 @@ def test_interpolation_potential_force_diffinputs():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(rs[10], zs)
-                - potential.evaluateRforces(
-                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                as_numpy(rzpot.Rforce(rs[10], zs))
+                - as_numpy(
+                    potential.evaluateRforces(
+                        potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                    )
                 )
             )
-            / potential.evaluateRforces(
-                potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+            / as_numpy(
+                potential.evaluateRforces(
+                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                )
             )
         )
         < 10.0**-6.0
@@ -837,13 +866,17 @@ def test_interpolation_potential_force_diffinputs():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(rs[10], zs)
-                - potential.evaluatezforces(
-                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                as_numpy(rzpot.zforce(rs[10], zs))
+                - as_numpy(
+                    potential.evaluatezforces(
+                        potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                    )
                 )
             )
-            / potential.evaluatezforces(
-                potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+            / as_numpy(
+                potential.evaluatezforces(
+                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                )
             )
         )
         < 10.0**-6.0
@@ -873,10 +906,10 @@ def test_interpolation_potential_force_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(mr, mz)
-                - potential.evaluateRforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.Rforce(mr, mz))
+                - as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateRforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
         )
         < 10.0**-5.0
     ), (
@@ -885,10 +918,10 @@ def test_interpolation_potential_force_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(mr, mz)
-                - potential.evaluatezforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.zforce(mr, mz))
+                - as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatezforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-5.0
     ), (
@@ -908,14 +941,16 @@ def test_interpolation_potential_force_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(mr, mz)
-                - potential.evaluateRforces(
-                    potential.MWPotential,
-                    mr,
-                    mz,
+                as_numpy(rzpot.Rforce(mr, mz))
+                - as_numpy(
+                    potential.evaluateRforces(
+                        potential.MWPotential,
+                        mr,
+                        mz,
+                    )
                 )
             )
-            / potential.evaluateRforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-5.0
     ), (
@@ -924,10 +959,10 @@ def test_interpolation_potential_force_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(mr, mz)
-                - potential.evaluatezforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.zforce(mr, mz))
+                - as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatezforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-5.0
     ), (
@@ -952,10 +987,10 @@ def test_interpolation_potential_force_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(mr, mz)
-                - potential.evaluateRforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.Rforce(mr, mz))
+                - as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateRforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
         )
         < 10.0**-5.0
     ), (
@@ -964,10 +999,10 @@ def test_interpolation_potential_force_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(mr, mz)
-                - potential.evaluatezforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.zforce(mr, mz))
+                - as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatezforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
         )
         < 10.0**-5.0
     ), (
@@ -992,10 +1027,10 @@ def test_interpolation_potential_force_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(mr, mz)
-                - potential.evaluateRforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.Rforce(mr, mz))
+                - as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateRforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-5.0
     ), (
@@ -1004,10 +1039,10 @@ def test_interpolation_potential_force_c():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(mr, mz)
-                - potential.evaluatezforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.zforce(mr, mz))
+                - as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatezforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
         )
         < 2.0 * 10.0**-5.0
     ), (
@@ -1239,10 +1274,10 @@ def test_interpolation_potential_rzderiv():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rzderiv(mr, mz)
-                - potential.evaluateRzderivs(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.Rzderiv(mr, mz))
+                - as_numpy(potential.evaluateRzderivs(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateRzderivs(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRzderivs(potential.MWPotential, mr, mz))
         )
         < 10.0**-10.0
     ), (
@@ -1282,7 +1317,8 @@ def test_interpolation_potential_secondderivs():
         vdirect = fdirect(potential.MWPotential, mr, mz)
         # Rzderiv crosses zero (odd in z), so guard the relative error
         relerr = numpy.amax(
-            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+            numpy.fabs(as_numpy(vinterp) - as_numpy(vdirect))
+            / (numpy.fabs(as_numpy(vdirect)) + 1e-8)
         )
         assert relerr < 10.0**-3.0, (
             f"RZPot interpolation of {name} w/ interpRZPotential fails for vector input by {relerr:g}"
@@ -1310,7 +1346,8 @@ def test_interpolation_potential_secondderivs():
         vinterp = finterp(mr, mz)
         vdirect = fdirect(potential.MWPotential, mr, mz)
         relerr = numpy.amax(
-            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+            numpy.fabs(as_numpy(vinterp) - as_numpy(vdirect))
+            / (numpy.fabs(as_numpy(vdirect)) + 1e-8)
         )
         assert relerr < 10.0**-5.0, (
             f"RZPot interpolation of {name} w/ interpRZPotential fails for vector input, w/ logR by {relerr:g}"
@@ -1337,7 +1374,8 @@ def test_interpolation_potential_secondderivs():
         vinterp = finterp(mr, mz)
         vdirect = fdirect(potential.MWPotential, mr, mz)
         relerr = numpy.amax(
-            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+            numpy.fabs(as_numpy(vinterp) - as_numpy(vdirect))
+            / (numpy.fabs(as_numpy(vdirect)) + 1e-8)
         )
         # coarser z grid (same number of points over twice the range) ->
         # interpolation-limited at the few-x-1e-3 level near the sharp
@@ -1382,7 +1420,8 @@ def test_interpolation_potential_secondderivs_c():
         vinterp = finterp(mr, mz)
         vdirect = fdirect(potential.MWPotential, mr, mz)
         relerr = numpy.amax(
-            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+            numpy.fabs(as_numpy(vinterp) - as_numpy(vdirect))
+            / (numpy.fabs(as_numpy(vdirect)) + 1e-8)
         )
         # the C cubic B-spline uses mirror boundary conditions, which add an
         # O(h^2) boundary layer at the grid edges (and, for the odd-in-z
@@ -1447,7 +1486,8 @@ def test_interpolation_potential_secondderivs_c():
         vinterp = finterp(mr, mz)
         vdirect = fdirect(potential.MWPotential, mr, mz)
         relerr = numpy.amax(
-            numpy.fabs(vinterp - vdirect) / (numpy.fabs(vdirect) + 1e-8)
+            numpy.fabs(as_numpy(vinterp) - as_numpy(vdirect))
+            / (numpy.fabs(as_numpy(vdirect)) + 1e-8)
         )
         assert relerr < 10.0**-2.0, (
             f"RZPot interpolation of {name} w/ interpRZPotential fails for vector input, w/o logR, in C by {relerr:g}"
@@ -1575,10 +1615,10 @@ def test_interpolation_potential_dens():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.dens(mr, mz)
-                - potential.evaluateDensities(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.dens(mr, mz))
+                - as_numpy(potential.evaluateDensities(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateDensities(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateDensities(potential.MWPotential, mr, mz))
         )
         < 4.0 * 10.0**-6.0
     ), "RZPot interpolation of density w/ interpRZPotential fails for vector input"
@@ -1598,10 +1638,10 @@ def test_interpolation_potential_dens():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.dens(mr, mz)
-                - potential.evaluateDensities(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.dens(mr, mz))
+                - as_numpy(potential.evaluateDensities(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateDensities(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateDensities(potential.MWPotential, mr, mz))
         )
         < 4.0 * 10.0**-6.0
     ), (
@@ -1624,10 +1664,10 @@ def test_interpolation_potential_dens():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.dens(mr, mz)
-                - potential.evaluateDensities(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.dens(mr, mz))
+                - as_numpy(potential.evaluateDensities(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateDensities(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateDensities(potential.MWPotential, mr, mz))
         )
         < 4.0 * 10.0**-6.0
     ), (
@@ -1650,10 +1690,10 @@ def test_interpolation_potential_dens():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.dens(mr, mz)
-                - potential.evaluateDensities(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.dens(mr, mz))
+                - as_numpy(potential.evaluateDensities(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateDensities(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateDensities(potential.MWPotential, mr, mz))
         )
         < 4.0 * 10.0**-6.0
     ), (
@@ -1679,13 +1719,17 @@ def test_interpolation_potential_dens_diffinputs():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.dens(rs, zs[10])
-                - potential.evaluateDensities(
-                    potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                as_numpy(rzpot.dens(rs, zs[10]))
+                - as_numpy(
+                    potential.evaluateDensities(
+                        potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                    )
                 )
             )
-            / potential.evaluateDensities(
-                potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+            / as_numpy(
+                potential.evaluateDensities(
+                    potential.MWPotential, rs, zs[10] * numpy.ones(len(rs))
+                )
             )
         )
         < 4.0 * 10.0**-6.0
@@ -1696,13 +1740,17 @@ def test_interpolation_potential_dens_diffinputs():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.dens(rs[10], zs)
-                - potential.evaluateDensities(
-                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                as_numpy(rzpot.dens(rs[10], zs))
+                - as_numpy(
+                    potential.evaluateDensities(
+                        potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                    )
                 )
             )
-            / potential.evaluateDensities(
-                potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+            / as_numpy(
+                potential.evaluateDensities(
+                    potential.MWPotential, rs[10] * numpy.ones(len(zs)), zs
+                )
             )
         )
         < 4.0 * 10.0**-6.0
@@ -1802,8 +1850,11 @@ def test_interpolation_potential_vcirc():
     # Test all at the same time to use vector evaluation
     assert numpy.all(
         numpy.fabs(
-            (rzpot.vcirc(rs) - potential.vcirc(potential.MWPotential, rs))
-            / potential.vcirc(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.vcirc(rs))
+                - as_numpy(potential.vcirc(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.vcirc(potential.MWPotential, rs))
         )
         < 10.0**-6.0
     ), "RZPot interpolation of vcirc w/ interpRZPotential fails for vector input"
@@ -1818,8 +1869,11 @@ def test_interpolation_potential_vcirc():
     rs = numpy.linspace(0.01, 20.0, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.vcirc(rs) - potential.vcirc(potential.MWPotential, rs))
-            / potential.vcirc(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.vcirc(rs))
+                - as_numpy(potential.vcirc(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.vcirc(potential.MWPotential, rs))
         )
         < 10.0**-6.0
     ), (
@@ -1837,8 +1891,11 @@ def test_interpolation_potential_vcirc():
     rs = numpy.linspace(0.01, 2.0, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.vcirc(rs) - potential.vcirc(potential.MWPotential, rs))
-            / potential.vcirc(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.vcirc(rs))
+                - as_numpy(potential.vcirc(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.vcirc(potential.MWPotential, rs))
         )
         < 10.0**-6.0
     ), "RZPot interpolation of vcirc w/ interpRZPotential fails for vector input"
@@ -1919,8 +1976,11 @@ def test_interpolation_potential_dvcircdR():
     # Test all at the same time to use vector evaluation
     assert numpy.all(
         numpy.fabs(
-            (rzpot.dvcircdR(rs) - potential.dvcircdR(potential.MWPotential, rs))
-            / potential.dvcircdR(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.dvcircdR(rs))
+                - as_numpy(potential.dvcircdR(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.dvcircdR(potential.MWPotential, rs))
         )
         < 10.0**-5.0
     ), "RZPot interpolation of dvcircdR w/ interpRZPotential fails for vector input"
@@ -1935,8 +1995,11 @@ def test_interpolation_potential_dvcircdR():
     rs = numpy.linspace(0.01, 20.0, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.dvcircdR(rs) - potential.dvcircdR(potential.MWPotential, rs))
-            / potential.dvcircdR(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.dvcircdR(rs))
+                - as_numpy(potential.dvcircdR(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.dvcircdR(potential.MWPotential, rs))
         )
         < 10.0**-5.0
     ), (
@@ -1954,8 +2017,11 @@ def test_interpolation_potential_dvcircdR():
     rs = numpy.linspace(0.01, 2.0, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.dvcircdR(rs) - potential.dvcircdR(potential.MWPotential, rs))
-            / potential.dvcircdR(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.dvcircdR(rs))
+                - as_numpy(potential.dvcircdR(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.dvcircdR(potential.MWPotential, rs))
         )
         < 10.0**-5.0
     ), "RZPot interpolation of dvcircdR w/ interpRZPotential fails for vector input"
@@ -2036,8 +2102,11 @@ def test_interpolation_potential_epifreq():
     # Test all at the same time to use vector evaluation
     assert numpy.all(
         numpy.fabs(
-            (rzpot.epifreq(rs) - potential.epifreq(potential.MWPotential, rs))
-            / potential.epifreq(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.epifreq(rs))
+                - as_numpy(potential.epifreq(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.epifreq(potential.MWPotential, rs))
         )
         < 10.0**-5.0
     ), "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"
@@ -2052,8 +2121,11 @@ def test_interpolation_potential_epifreq():
     rs = numpy.linspace(0.01, 20.0, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.epifreq(rs) - potential.epifreq(potential.MWPotential, rs))
-            / potential.epifreq(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.epifreq(rs))
+                - as_numpy(potential.epifreq(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.epifreq(potential.MWPotential, rs))
         )
         < 10.0**-5.0
     ), (
@@ -2071,8 +2143,11 @@ def test_interpolation_potential_epifreq():
     rs = numpy.linspace(0.01, 2.0, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.epifreq(rs) - potential.epifreq(potential.MWPotential, rs))
-            / potential.epifreq(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.epifreq(rs))
+                - as_numpy(potential.epifreq(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.epifreq(potential.MWPotential, rs))
         )
         < 10.0**-5.0
     ), "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"
@@ -2091,8 +2166,11 @@ def test_interpolation_potential_epifreq_smalln():
     rs = numpy.linspace(1.1, 1.2, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.epifreq(rs) - potential.epifreq(potential.MWPotential, rs))
-            / potential.epifreq(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.epifreq(rs))
+                - as_numpy(potential.epifreq(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.epifreq(potential.MWPotential, rs))
         )
         < 10.0**-2.0
     ), (
@@ -2108,8 +2186,11 @@ def test_interpolation_potential_epifreq_smalln():
     rs = numpy.linspace(1.1, 1.2, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.epifreq(rs) - potential.epifreq(potential.MWPotential, rs))
-            / potential.epifreq(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.epifreq(rs))
+                - as_numpy(potential.epifreq(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.epifreq(potential.MWPotential, rs))
         )
         < 10.0**-2.0
     ), (
@@ -2198,8 +2279,11 @@ def test_interpolation_potential_verticalfreq():
     # Test all at the same time to use vector evaluation
     assert numpy.all(
         numpy.fabs(
-            (rzpot.verticalfreq(rs) - potential.verticalfreq(potential.MWPotential, rs))
-            / potential.verticalfreq(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.verticalfreq(rs))
+                - as_numpy(potential.verticalfreq(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.verticalfreq(potential.MWPotential, rs))
         )
         < 10.0**-5.0
     ), "RZPot interpolation of verticalfreq w/ interpRZPotential fails for vector input"
@@ -2214,8 +2298,11 @@ def test_interpolation_potential_verticalfreq():
     rs = numpy.linspace(0.01, 20.0, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.verticalfreq(rs) - potential.verticalfreq(potential.MWPotential, rs))
-            / potential.verticalfreq(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.verticalfreq(rs))
+                - as_numpy(potential.verticalfreq(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.verticalfreq(potential.MWPotential, rs))
         )
         < 10.0**-5.0
     ), (
@@ -2233,8 +2320,11 @@ def test_interpolation_potential_verticalfreq():
     rs = numpy.linspace(0.01, 2.0, 20)
     assert numpy.all(
         numpy.fabs(
-            (rzpot.verticalfreq(rs) - potential.verticalfreq(potential.MWPotential, rs))
-            / potential.verticalfreq(potential.MWPotential, rs)
+            (
+                as_numpy(rzpot.verticalfreq(rs))
+                - as_numpy(potential.verticalfreq(potential.MWPotential, rs))
+            )
+            / as_numpy(potential.verticalfreq(potential.MWPotential, rs))
         )
         < 10.0**-5.0
     ), "RZPot interpolation of verticalfreq w/ interpRZPotential fails for vector input"
