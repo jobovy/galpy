@@ -3,7 +3,7 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -59,6 +59,7 @@ class HomogeneousSpherePotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         # safe denominator so the (dead) outside branch cannot produce a
@@ -68,6 +69,7 @@ class HomogeneousSpherePotential(Potential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
@@ -75,6 +77,7 @@ class HomogeneousSpherePotential(Potential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
@@ -82,6 +85,7 @@ class HomogeneousSpherePotential(Potential):
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
@@ -93,6 +97,7 @@ class HomogeneousSpherePotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
@@ -104,6 +109,7 @@ class HomogeneousSpherePotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
@@ -115,6 +121,7 @@ class HomogeneousSpherePotential(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         return xp.where(
