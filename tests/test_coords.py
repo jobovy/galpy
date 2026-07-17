@@ -8,6 +8,7 @@ _NUMPY_GE_1_22 = (_NUMPY_VERSION > parse_version("1.21")) * (
 import astropy
 import pytest
 
+from galpy.backend import as_numpy
 from galpy.util import coords
 
 _APY3 = astropy.__version__ > "3"
@@ -2385,6 +2386,7 @@ def test_uv_to_Rz():
     # Also test for arrays
     os = numpy.ones(2)
     R, z = coords.uv_to_Rz(os * u, os * v, delta=3.0)
+    R, z = as_numpy(R), as_numpy(z)
     assert numpy.all(numpy.fabs(R - 2.0) < 10.0**-10.0), (
         "uv_to_Rz conversion did not work as expected"
     )
@@ -2406,6 +2408,7 @@ def test_Rz_to_uv():
     # Also test for arrays
     os = numpy.ones(2)
     ut, vt = coords.Rz_to_uv(*coords.uv_to_Rz(u * os, v * os, delta=3.0), delta=3.0)
+    ut, vt = as_numpy(ut), as_numpy(vt)
     assert numpy.all(numpy.fabs(ut - u) < 10.0**-10.0), (
         "Rz_to_uvz conversion did not work as expected"
     )
@@ -2428,6 +2431,7 @@ def test_Rz_to_coshucosv():
     # Also test for arrays
     os = numpy.ones(2)
     coshu, cosv = coords.Rz_to_coshucosv(R * os, z * os, delta=3.0)
+    coshu, cosv = as_numpy(coshu), as_numpy(cosv)
     assert numpy.all(numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0), (
         "Rz_to_coshucosv conversion did notwork as expected"
     )
@@ -2449,6 +2453,7 @@ def test_uv_to_Rz_oblate():
     # Also test for arrays
     os = numpy.ones(2)
     R, z = coords.uv_to_Rz(os * u, os * v, delta=3.0, oblate=True)
+    R, z = as_numpy(R), as_numpy(z)
     assert numpy.all(numpy.fabs(R - 2.5) < 10.0**-10.0), (
         "uv_to_Rz conversion did not work as expected"
     )
@@ -2474,6 +2479,7 @@ def test_Rz_to_uv_oblate():
     ut, vt = coords.Rz_to_uv(
         *coords.uv_to_Rz(u * os, v * os, delta=3.0, oblate=True), delta=3.0, oblate=True
     )
+    ut, vt = as_numpy(ut), as_numpy(vt)
     assert numpy.all(numpy.fabs(ut - u) < 10.0**-10.0), (
         "Rz_to_uvz conversion did not work as expected"
     )
@@ -2496,6 +2502,7 @@ def test_Rz_to_coshucosv_oblate():
     # Also test for arrays
     os = numpy.ones(2)
     coshu, cosv = coords.Rz_to_coshucosv(R * os, z * os, delta=3.0, oblate=True)
+    coshu, cosv = as_numpy(coshu), as_numpy(cosv)
     assert numpy.all(numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0), (
         "Rz_to_coshucosv conversion did notwork as expected"
     )

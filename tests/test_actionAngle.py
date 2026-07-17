@@ -29,7 +29,7 @@ def test_actionAngleHarmonic_conserved_actions():
     ntimes = 1001
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    js = aAH(obs.x(times), obs.vx(times))
+    js = as_numpy(aAH(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(
         numpy.fabs(js - numpy.tile(numpy.mean(js), (len(times), 1)).T)
     ) / numpy.mean(js)
@@ -53,8 +53,12 @@ def test_actionAngleHarmonic_linear_angles():
     ntimes = 1001
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    acfs_init = aAH.actionsFreqsAngles(obs.x(), obs.vx())  # to check the init. angles
-    acfs = aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    acfs_init = tuple(
+        as_numpy(a) for a in aAH.actionsFreqsAngles(obs.x(), obs.vx())
+    )  # to check the init. angles
+    acfs = tuple(
+        as_numpy(a) for a in aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    )
     angle = dePeriod(numpy.reshape(acfs[2], (1, len(times)))).flatten()
     # Do linear fit to the angle, check that deviations are small, check
     # that the slope is the frequency
@@ -76,8 +80,8 @@ def test_actionAngleHarmonic_linear_angles():
     assert (
         numpy.all(
             numpy.fabs(
-                aAH.actionsFreqs(obs.x(times), obs.vx(times))[1]
-                - aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))[1]
+                as_numpy(aAH.actionsFreqs(obs.x(times), obs.vx(times))[1])
+                - as_numpy(aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))[1])
             )
         )
         < 1e-100
@@ -326,8 +330,8 @@ def test_actionAngleVertical_Harmonic_actions():
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    js = aAH(obs.x(times), obs.vx(times))
-    jsv = aAV(obs.x(times), obs.vx(times))
+    js = as_numpy(aAH(obs.x(times), obs.vx(times)))
+    jsv = as_numpy(aAV(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
     assert maxdj < 10.0**-10.0, (
         "Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%"
@@ -362,8 +366,8 @@ def test_actionAngleVertical_Harmonic_actionsFreqs():
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    js, os = aAH.actionsFreqs(obs.x(times), obs.vx(times))
-    jsv, osv = aAV.actionsFreqs(obs.x(times), obs.vx(times))
+    js, os = (as_numpy(a) for a in aAH.actionsFreqs(obs.x(times), obs.vx(times)))
+    jsv, osv = (as_numpy(a) for a in aAV.actionsFreqs(obs.x(times), obs.vx(times)))
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
     assert maxdj < 10.0**-10.0, (
         "Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%"
@@ -403,8 +407,12 @@ def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    js, os, anss = aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
-    jsv, osv, anssv = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    js, os, anss = (
+        as_numpy(a) for a in aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    )
+    jsv, osv, anssv = (
+        as_numpy(a) for a in aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    )
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
     assert maxdj < 10.0**-10.0, (
         "Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%"
@@ -738,16 +746,19 @@ def test_actionAngleIsochrone_kepler_actions():
     obs = Orbit([1.1, 0.3, 1.2, 0.2, 0.5, 2.0])
     times = numpy.linspace(0.0, 100.0, 101)
     obs.integrate(times, ip, method="dopr54_c")
-    jrs, jps, jzs = aAI(
-        obs.R(times),
-        obs.vR(times),
-        obs.vT(times),
-        obs.z(times),
-        obs.vz(times),
-        obs.phi(times),
+    jrs, jps, jzs = (
+        as_numpy(a)
+        for a in aAI(
+            obs.R(times),
+            obs.vR(times),
+            obs.vT(times),
+            obs.z(times),
+            obs.vz(times),
+            obs.phi(times),
+        )
     )
-    jc = ip._amp / numpy.sqrt(-2.0 * obs.E())
-    L = numpy.sqrt(numpy.sum(obs.L() ** 2.0))
+    jc = as_numpy(ip._amp) / numpy.sqrt(-2.0 * as_numpy(obs.E()))
+    L = numpy.sqrt(numpy.sum(as_numpy(obs.L()) ** 2.0))
     # Jr = Jc-L
     assert numpy.all(numpy.fabs(jrs - (jc - L)) < 10.0**-5.0), (
         "Radial action for the Kepler potential not correct"
@@ -771,16 +782,19 @@ def test_actionAngleIsochrone_kepler_freqs():
     obs = Orbit([1.1, 0.3, 1.2, 0.2, 0.5, 2.0])
     times = numpy.linspace(0.0, 100.0, 101)
     obs.integrate(times, ip, method="dopr54_c")
-    _, _, _, ors, ops, ozs = aAI.actionsFreqs(
-        obs.R(times),
-        obs.vR(times),
-        obs.vT(times),
-        obs.z(times),
-        obs.vz(times),
-        obs.phi(times),
+    _, _, _, ors, ops, ozs = (
+        as_numpy(a)
+        for a in aAI.actionsFreqs(
+            obs.R(times),
+            obs.vR(times),
+            obs.vT(times),
+            obs.z(times),
+            obs.vz(times),
+            obs.phi(times),
+        )
     )
-    jc = ip._amp / numpy.sqrt(-2.0 * obs.E())
-    oc = ip._amp**2.0 / jc**3.0  # (BT08 eqn. E4)
+    jc = as_numpy(ip._amp) / numpy.sqrt(-2.0 * as_numpy(obs.E()))
+    oc = as_numpy(ip._amp) ** 2.0 / jc**3.0  # (BT08 eqn. E4)
     assert numpy.all(numpy.fabs(ors - oc) < 10.0**-10.0), (
         "Radial frequency for the Kepler potential not correct"
     )
@@ -803,16 +817,19 @@ def test_actionAngleIsochrone_kepler_angles():
     obs = Orbit([1.1, 0.3, 1.2, 0.2, 0.5, 2.0])
     times = numpy.linspace(0.0, 100.0, 101)
     obs.integrate(times, ip, method="dopr54_c")
-    _, _, _, _, _, _, ars, aps, azs = aAI.actionsFreqsAngles(
-        obs.R(times),
-        obs.vR(times),
-        obs.vT(times),
-        obs.z(times),
-        obs.vz(times),
-        obs.phi(times),
+    _, _, _, _, _, _, ars, aps, azs = (
+        as_numpy(a)
+        for a in aAI.actionsFreqsAngles(
+            obs.R(times),
+            obs.vR(times),
+            obs.vT(times),
+            obs.z(times),
+            obs.vz(times),
+            obs.phi(times),
+        )
     )
-    jc = ip._amp / numpy.sqrt(-2.0 * obs.E())
-    oc = ip._amp**2.0 / jc**3.0  # (BT08 eqn. E4)
+    jc = as_numpy(ip._amp) / numpy.sqrt(-2.0 * as_numpy(obs.E()))
+    oc = as_numpy(ip._amp) ** 2.0 / jc**3.0  # (BT08 eqn. E4)
     # theta_r = Or x times + theta_r,0
     assert numpy.all(numpy.fabs(ars - oc * times - ars[0]) < 10.0**-10.0), (
         "Radial angle for the Kepler potential not correct"
