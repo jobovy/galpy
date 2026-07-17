@@ -16,7 +16,9 @@ else:
     from scipy.special import assoc_legendre_p_all
 
 from ..backend import (
+    as_numpy,
     asarray_on_device,
+    coerce_coords,
     device_of,
     get_namespace,
     is_backend_array,
@@ -473,9 +475,10 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
                 param = [1] * numOfParam
                 try:
                     dens(*param).to(units.kg / units.m**3)
-                except (AttributeError, units.UnitConversionError):
+                except (AttributeError, units.UnitConversionError, TypeError):
                     # We'll just assume that unit conversion means density
-                    # is scalar Quantity
+                    # is scalar Quantity. TypeError: a backend (torch) tensor
+                    # has a .to() that rejects a unit -> treat as non-physical.
                     pass
                 else:
                     ro = internal_ro
@@ -857,12 +860,15 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         xp = get_namespace(r)
         if xp is numpy:
             return _rhoTilde_basis(r, N, L, self._a)
-        # backend path: same expression, functional (no in-place writes); the
-        # constant (n,l) grids are built in numpy and converted once, on the
-        # input's device (CUDA support). For a scalar r this returns (N, L); for
-        # an array r of shape (P,) (the vectorized eval path) K gains a trailing
-        # point axis (N, L, 1) and l moves to (L, 1) so the r-prefactor is (L, P)
+        # backend path: coerce r first (a direct call may pass a python/numpy
+        # scalar) so _RToxi/xp ops below see a backend array. Same expression,
+        # functional (no in-place writes); the constant (n,l) grids are built in
+        # numpy and converted once, on the input's device (CUDA support). For a
+        # scalar r this returns (N, L); for an array r of shape (P,) (the
+        # vectorized eval path) K gains a trailing point axis (N, L, 1) and l
+        # moves to (L, 1) so the r-prefactor is (L, P)
         # and the result is (N, L, P) -- one batched call, no per-point loop.
+        (r,) = coerce_coords(xp, r)
         xi = _RToxi(r, self._a)
         CC = _C(xi, N, L)
         a = self._a
@@ -917,6 +923,8 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # array r of shape (P,) (the vectorized eval path) it sits on axis 0 so
         # the r-dependent prefactor broadcasts to (L, P) and, against CC (N, L, P),
         # gives (N, L, P) -- one batched call instead of a per-point Python loop.
+        # Coerce r: a direct call may pass a python/numpy scalar that xp.where rejects.
+        (r,) = coerce_coords(xp, r)
         xi = _RToxi(r, self._a)
         CC = _C(xi, N, L)
         a = self._a
@@ -1126,6 +1134,10 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
 
     def _dphiTilde(self, r, N, L):
         xp = get_namespace(r)
+        # Coerce r first (a direct call may pass a python scalar; 0.0 ** -1 would
+        # raise, and _RToxi must see a backend array to route to its backend
+        # path); numpy pass-through keeps the numpy branch byte-identical.
+        (r,) = coerce_coords(xp, r)
         a = self._a
         xi = _RToxi(r, self._a)
         dC = _dC(xi, N, L)
@@ -1167,6 +1179,10 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # factors are already folded into the algebra below. (r=0 -- the centre
         # -- is a removable singularity never hit along an orbit; guarded.)
         xp = get_namespace(r)
+        # Coerce r first (a direct call may pass a python/numpy scalar the xp.where
+        # guards below reject, and _RToxi must see a backend array to route to its
+        # backend path); numpy pass-through keeps the numpy branch byte-identical.
+        (r,) = coerce_coords(xp, r)
         a = self._a
         xi = _RToxi(r, a)
         CC = _C(xi, N, L)
@@ -1442,6 +1458,9 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
         # branches stay finite under tracing/eager AD. The coefficient tables
         # come from _coeffs_at_time (fixed if static, interpolated-at-t and
         # differentiable in t if time-dependent), on the input's device.
+        # Coerce inputs: a direct call may pass python/numpy scalars that the
+        # xp.isfinite / xp.where degenerate-point guards below reject.
+        R, z, phi = coerce_coords(xp, R, z, phi)
         dev = device_of(R, z, phi)
         Acos, Asin = self._coeffs_at_time(t, xp, dev)
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
@@ -1627,8 +1646,11 @@ def _xiToR(xi, a=1):
 
 
 def _RToxi(r, a=1):
-    xp = get_namespace(r)
-    if xp is numpy:
+    # Leaf helper consumed by both the numpy coefficient setup and the backend
+    # evaluation: dispatch on the DATA, not the (possibly forced) namespace, so a
+    # numpy/scalar r stays numpy (byte-identical, keeps numpy parents working)
+    # while a backend array routes to the differentiable backend path.
+    if not is_backend_array(r):
         out = numpy.divide((r / a - 1.0), (r / a + 1.0), where=True ^ numpy.isinf(r))
         if numpy.any(numpy.isinf(r)):
             if hasattr(r, "__len__"):
@@ -1639,8 +1661,20 @@ def _RToxi(r, a=1):
     # backend path: functional version of the above. The division is computed
     # at a guarded radius (inf/inf = NaN would poison tracing/eager AD) and the
     # r = inf entries are set to the xi = 1 limit with xp.where.
+    xp = get_namespace(r)
     rsafe = xp.where(xp.isinf(r), 0.0, r)
     return xp.where(xp.isinf(r), 1.0, (rsafe / a - 1.0) / (rsafe / a + 1.0))
+
+
+def _coeff_dens_numpy(val):
+    """Cast a coefficient-quadrature density value to numpy.
+
+    The coefficient setup runs under a forced-numpy context, but a user density
+    that closes over a backend-amp potential still returns a backend array; cast
+    it to numpy so the numpy quadrature works. No-op (byte-identical) for
+    numpy/Quantity outputs, which are not backend arrays.
+    """
+    return as_numpy(val) if is_backend_array(val) else val
 
 
 def _C(xi, N, L, alpha=lambda x: 2 * x + 3.0 / 2, singleL=False):
@@ -1856,7 +1890,7 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
             param[0] = R
             return (
                 a**3.0
-                * dens(*param, **dens_kw)
+                * _coeff_dens_numpy(dens(*param, **dens_kw))
                 * (1 + xi) ** 2.0
                 * (1 - xi) ** -3.0
                 * _C(xi, N, 1)[:, 0]
@@ -2008,7 +2042,7 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
             )
             param[0] = R
             param[1] = z
-            return phi_nl * dV * dens(*param, **dens_kw)
+            return phi_nl * dV * _coeff_dens_numpy(dens(*param, **dens_kw))
 
         Acos = numpy.zeros((N, L, 1), float)
         Asin = None
@@ -2339,7 +2373,7 @@ def scf_compute_coeffs(
             )
 
             return (
-                dens(R, z, phi, **dens_kw)
+                _coeff_dens_numpy(dens(R, z, phi, **dens_kw))
                 * phi_nl[numpy.newaxis, :, :, :]
                 * numpy.array([numpy.cos(m * phi), numpy.sin(m * phi)])
                 * dV
