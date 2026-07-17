@@ -19,6 +19,7 @@ else:
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..backend import as_backend_constant, get_namespace, is_backend_array
 from ..backend import special as _bspecial
+from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..backend.quadrature import quad as _backend_quad
 from ..orbit import Orbit
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -47,6 +48,11 @@ _USESIMPLE = True
 # quad (byte-identical). High enough that the smooth p(t|dangle) integrand
 # reproduces the adaptive result within the physical regime.
 _MOMENT_QUAD_N = 100
+# Fixed GL orders for the backend path of the nested-quadrature perpendicular-
+# angle moments (meanangledAngle/sigangledAngle): N_X over the outer angleperp
+# integral, N_T over the inner p(angle_perp|t) integral. numpy keeps scipy quad.
+_ANGLE_QUAD_NX = 100
+_ANGLE_QUAD_NT = 150
 # cast a wide net
 _TWOPIWRAPS = numpy.arange(-4, 5) * 2.0 * numpy.pi
 
@@ -2884,6 +2890,21 @@ class streamdf(df):
         - 2013-12-06 - Written - Bovy (IAS)
 
         """
+        # backend (jax/torch): one batched inner GL quad over t in [0, tdisrupt]
+        # for every angleperp at once (angleperp on a leading axis, the t nodes on
+        # the trailing one), replacing the numpy per-angleperp scipy-quad loop.
+        if is_backend_array(angleperp) or is_backend_array(dangle):
+            xp = get_namespace(angleperp, dangle)
+            ap = xp.asarray(angleperp)
+            tdis = as_backend_constant(xp, self._tdisrupt, ap)
+            out = _backend_fixed_quad(
+                xp,
+                lambda tn: self._pangledAnglet(tn, ap[..., None], dangle, smallest),
+                xp.zeros_like(tdis),
+                tdis,
+                n=_ANGLE_QUAD_NT,
+            )
+            return xp.reshape(out, ap.shape)
         angleperp = numpy.array(angleperp)
         out = numpy.zeros_like(angleperp)
         out = numpy.array(
@@ -2922,6 +2943,35 @@ class streamdf(df):
             eigIndx = 0
         else:
             eigIndx = 1
+        # backend (jax/torch): outer GL quad over angleperp of the batched
+        # pangledAngle; numpy keeps scipy quad. num is ~0 by odd symmetry;
+        # denom==0/nan far-field/progenitor control flow becomes xp.where.
+        if is_backend_array(dangle):
+            xp = get_namespace(dangle)
+            aplow = numpy.amax(
+                [
+                    numpy.sqrt(self._sortedSigOEig[eigIndx]) * self._tdisrupt * 5.0,
+                    self._sigangle,
+                ]
+            )
+            apb = as_backend_constant(xp, aplow, dangle)
+            num = _backend_fixed_quad(
+                xp,
+                lambda x: x * self.pangledAngle(x, dangle, smallest),
+                apb,
+                -apb,
+                n=_ANGLE_QUAD_NX,
+            )
+            denom = _backend_fixed_quad(
+                xp,
+                lambda x: self.pangledAngle(x, dangle, smallest),
+                apb,
+                -apb,
+                n=_ANGLE_QUAD_NX,
+            )
+            bad = (denom == 0.0) | xp.isnan(denom)
+            denom_safe = xp.where(bad, xp.ones_like(denom), denom)
+            return xp.where(bad, xp.zeros_like(denom), num / denom_safe)
         aplow = numpy.amax(
             [
                 numpy.sqrt(self._sortedSigOEig[eigIndx]) * self._tdisrupt * 5.0,
@@ -2966,6 +3016,50 @@ class streamdf(df):
             eigIndx = 0
         else:
             eigIndx = 1
+        # backend (jax/torch): the simple estimate reuses the backend meantdAngle;
+        # otherwise the nested outer GL quad (numsig2/denom) with sqrt/denom
+        # dead-branch guarded. numpy keeps scipy quad.
+        if is_backend_array(dangle):
+            xp = get_namespace(dangle)
+            sig = as_backend_constant(xp, self._sortedSigOEig[eigIndx], dangle)
+            if simple:
+                dt = self.meantdAngle(dangle, use_physical=False)
+                sigangle2 = as_backend_constant(xp, self._sigangle2, dangle)
+                return xp.sqrt(sigangle2 + sig * dt**2.0)
+            aplow = numpy.amax(
+                [
+                    numpy.sqrt(self._sortedSigOEig[eigIndx]) * self._tdisrupt * 5.0,
+                    self._sigangle,
+                ]
+            )
+            apb = as_backend_constant(xp, aplow, dangle)
+            numsig2 = _backend_fixed_quad(
+                xp,
+                lambda x: x**2.0 * self.pangledAngle(x, dangle),
+                apb,
+                -apb,
+                n=_ANGLE_QUAD_NX,
+            )
+            if not assumeZeroMean:
+                nummean = _backend_fixed_quad(
+                    xp,
+                    lambda x: x * self.pangledAngle(x, dangle),
+                    apb,
+                    -apb,
+                    n=_ANGLE_QUAD_NX,
+                )
+            else:
+                nummean = 0.0
+            denom = _backend_fixed_quad(
+                xp, lambda x: self.pangledAngle(x, dangle), apb, -apb, n=_ANGLE_QUAD_NX
+            )
+            bad = (denom == 0.0) | xp.isnan(denom)
+            denom_safe = xp.where(bad, xp.ones_like(denom), denom)
+            var = numsig2 / denom_safe - (nummean / denom_safe) ** 2.0
+            var_pos = var > 0.0
+            var_safe = xp.where(var_pos, var, xp.ones_like(var))
+            s = xp.where(var_pos, xp.sqrt(var_safe), xp.zeros_like(var))
+            return xp.where(bad, xp.zeros_like(s), s)
         if simple:
             dt = self.meantdAngle(dangle, use_physical=False)
             return numpy.sqrt(self._sigangle2 + self._sortedSigOEig[eigIndx] * dt**2.0)
@@ -2996,6 +3090,25 @@ class streamdf(df):
             eigIndx = 0
         else:
             eigIndx = 1
+        # backend (jax/torch): N(angleperp;t) * ptdAngle(t). ptdAngle already
+        # self-masks t<=0 & t>=tdisrupt and t^2*sig+sigangle2 is always > 0, so no
+        # xp.where/dead-branch guard is needed (unlike the numpy masked write).
+        if (
+            is_backend_array(t)
+            or is_backend_array(angleperp)
+            or is_backend_array(dangle)
+        ):
+            xp = get_namespace(t, angleperp, dangle)
+            t = xp.asarray(t)
+            angleperp = xp.asarray(angleperp)
+            sig = as_backend_constant(xp, self._sortedSigOEig[eigIndx], t)
+            sigangle2 = as_backend_constant(xp, self._sigangle2, t)
+            denom_g = t**2.0 * sig + sigangle2
+            return (
+                xp.exp(-0.5 * angleperp**2.0 / denom_g)
+                / xp.sqrt(denom_g)
+                * self.ptdAngle(t, dangle)
+            )
         angleperp = numpy.array(angleperp)
         t = numpy.array(t)
         out = numpy.zeros_like(angleperp)
