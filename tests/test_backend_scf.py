@@ -508,3 +508,65 @@ def test_mass_backend_parity(backend_name, name, pot, ts):
             atol=1e-13,
             err_msg=f"SCF[{name}]._mass backend parity ({backend_name}, t={t})",
         )
+
+
+###############################################################################
+# Forced-backend coercion regression tests (burndown wave: expansion family).
+# Under a forced backend (use(..., force=True)) the expwhole* DiskSCF catalogue
+# potentials used to crash: _RToxi hit xp.isinf on a python/numpy scalar, and
+# the from_density coefficient quadrature multiplied numpy basis arrays by a
+# backend-array density (a user density closing over a backend-amp potential
+# returns backend arrays even in the numpy-force setup). These assert the fixes.
+###############################################################################
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_RToxi_parity(backend_name):
+    # _RToxi on a backend array (incl. the r = inf -> xi = 1 limit, handled by
+    # the xp.where(isinf) branch) matches the numpy transform.
+    from galpy.potential.SCFPotential import _RToxi
+
+    rr = numpy.array([0.05, 0.5, 1.3, 5.0, numpy.inf])
+    numpy.testing.assert_allclose(
+        as_numpy(_RToxi(_asarray(backend_name, rr), a=numpy.pi)),
+        _RToxi(rr, a=numpy.pi),
+        rtol=1e-13,
+        atol=1e-14,
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_RToxi_data_dispatch(backend_name):
+    # Leaf data-guard: under a forced backend a numpy/scalar r stays numpy (so
+    # the numpy coefficient setup / numpy parents keep working), while a genuine
+    # backend array routes to the backend path.
+    from galpy import backend as _b
+    from galpy.backend import is_backend_array
+    from galpy.potential.SCFPotential import _RToxi
+
+    with _b.use(backend_name, force=True):
+        assert not is_backend_array(_RToxi(1.4, a=1.3))
+        assert not is_backend_array(_RToxi(numpy.linspace(0.1, 5.0, 5), a=1.3))
+        assert is_backend_array(_RToxi(_asarray(backend_name, 2.0), a=1.3))
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("symmetry", ["spherical", "axisymmetric"])
+def test_from_density_backend_amp_closure(backend_name, symmetry):
+    # from_density's coefficient quadrature runs on numpy, but a user density
+    # closing over a backend-amp potential returns backend arrays even there; the
+    # setup must cast them to numpy (and the .to() units probe must treat a
+    # backend array as non-physical) so the coefficients match the numpy build.
+    from galpy import backend as _b
+    from galpy.potential import HernquistPotential
+
+    def build():
+        hp = HernquistPotential(amp=2.0, a=1.3)
+        return SCFPotential.from_density(
+            lambda R, z: hp.dens(R, z), 6, 2, a=1.3, symmetry=symmetry
+        )
+
+    ref = numpy.asarray(build()._Acos)
+    with _b.use(backend_name, force=True):
+        got = as_numpy(build()._Acos)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
