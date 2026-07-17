@@ -112,7 +112,12 @@ class eddingtondf(isotropicsphericaldf):
                     sorted(1.0 - numpy.geomspace(1e-4, 0.5, 101)),
                 )
             )
-            Es4interp = (Es4interp * (self._Emin - self._potInf) + self._potInf)[::-1]
+            # scipy/backend spline table is built on a numpy grid; under a
+            # forced backend the potential bounds are backend scalars, so pull
+            # them numpy-side (no-op on the numpy path)
+            Emin = as_numpy(self._Emin)
+            potInf = as_numpy(self._potInf)
+            Es4interp = (Es4interp * (Emin - potInf) + potInf)[::-1]
             xp = get_namespace()  # context/forced default only (grid is numpy)
             if xp is numpy:
                 fE4interp = self.fE(Es4interp)
