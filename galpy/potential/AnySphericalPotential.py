@@ -67,14 +67,14 @@ class AnySphericalPotential(SphericalPotential):
             if _dens_unit_input:
                 try:
                     dens(1.0 * units.kpc).to(units.Msun / units.pc**3)
-                except (AttributeError, units.UnitConversionError):
+                except (AttributeError, units.UnitConversionError, TypeError):
                     pass
                 else:
                     _dens_unit_output = True
             else:
                 try:
                     dens(1.0).to(units.Msun / units.pc**3)
-                except (AttributeError, units.UnitConversionError):
+                except (AttributeError, units.UnitConversionError, TypeError):
                     pass
                 else:
                     _dens_unit_output = True
