@@ -17,9 +17,11 @@ from scipy.interpolate import (
 )
 
 from ..backend import (
+    as_numpy,
     asarray_on_device,
     device_of,
     get_namespace,
+    is_backend_array,
     match_input_dtype,
 )
 from ..backend import use as _use_backend
@@ -773,6 +775,16 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
+        # Under a forced backend a user density that closes over a backend-amp
+        # potential returns a backend array even in this numpy-force setup; cast
+        # to numpy so the numpy quadrature/tables work (byte-identical no-op for
+        # numpy/Quantity, which are not backend arrays).
+        _raw_dens_func = dens_func
+
+        def dens_func(R, z, phi):
+            val = _raw_dens_func(R, z, phi)
+            return as_numpy(val) if is_backend_array(val) else val
+
         Nr = len(rgrid)
         rho_cos = numpy.zeros((Nr, L, M))
         rho_sin = numpy.zeros((Nr, L, M))
