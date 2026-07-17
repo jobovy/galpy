@@ -7264,18 +7264,51 @@ class Orbit:
         descending = self_t.shape[0] > 1 and self_t[1] < self_t[0]
         grid = numpy.array(self_t[::-1]) if descending else self_t
 
-        def _interp_one(orb):  # (nt_grid, phasedim) -> (phasedim, nt_query)
-            # backward integration -> flip orb to match the ascending grid
-            o = xp.flip(orb, axis=0) if descending else orb
-            return self._backend_spline_orbit(o, grid, tq)
+        size = self.orbit.shape[0]
+        pd = self.phasedim()
+        if grid.shape[0] > 3 and size > 1:
+            # Cross-orbit batching: all orbits share ONE grid, so every one of the
+            # size*pd spline columns shares the SAME tridiagonal matrix -> a single
+            # multi-RHS cubic solve for the whole batch (vs one per-orbit
+            # _backend_spline_orbit -- itself one solve -- looped size times). Falls
+            # back below for a <=3-point (k=1) grid or a single orbit.
+            from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
 
-        # self.orbit is (size, nt_grid, phasedim); spline each orbit on the shared
-        # grid and stack on the trailing (orbit) axis -> (phasedim, nt_query, size).
-        # size == 1 (single orbit) reproduces the prior (phasedim, nt, 1) layout.
-        out = xp.stack(
-            [_interp_one(self.orbit[ii]) for ii in range(self.orbit.shape[0])],
-            axis=-1,
-        )
+            orb = xp.flip(self.orbit, axis=1) if descending else self.orbit
+            if pd == 4 or pd == 6:  # spline x=Rcos(phi), y=Rsin(phi) (not R, phi)
+                rr = orb[:, :, 0]
+                ph = orb[:, :, -1]
+                cols = [rr * xp.cos(ph), rr * xp.sin(ph)]
+                cols += [orb[:, :, ii] for ii in range(1, pd - 1)]
+            else:
+                cols = [orb[:, :, ii] for ii in range(pd)]
+            # (size, nt_grid, pd) -> (nt_grid, size*pd): one RHS matrix.
+            Ycols = xp.reshape(
+                xp.permute_dims(xp.stack(cols, axis=-1), (1, 0, 2)),
+                (grid.shape[0], size * pd),
+            )
+            coeffs = cubic_spline_coeffs(xp, grid, Ycols, bc="not-a-knot")
+            vals = xp.reshape(
+                eval_ppoly(xp, grid, coeffs, tq), (tq.shape[0], size, pd)
+            )  # (nt_query, size, pd)
+            if pd == 4 or pd == 6:  # recover R, phi from the splined x, y
+                xv, yv = vals[..., 0], vals[..., 1]
+                rec = [xp.sqrt(xv * xv + yv * yv)]
+                rec += [vals[..., j] for j in range(2, pd)]
+                rec.append(xp.arctan2(yv, xv))
+                out = xp.stack(rec, axis=0)  # (phasedim, nt_query, size)
+            else:
+                out = xp.permute_dims(vals, (2, 0, 1))  # (phasedim, nt_query, size)
+        else:
+
+            def _interp_one(orb):  # (nt_grid, phasedim) -> (phasedim, nt_query)
+                # backward integration -> flip orb to match the ascending grid
+                o = xp.flip(orb, axis=0) if descending else orb
+                return self._backend_spline_orbit(o, grid, tq)
+
+            # spline each orbit on the shared grid and stack on the trailing
+            # (orbit) axis; size == 1 reproduces the prior (phasedim, nt, 1) layout.
+            out = xp.stack([_interp_one(self.orbit[ii]) for ii in range(size)], axis=-1)
         if scalar:
             return out[:, 0]  # (phasedim, size)
         return out  # (phasedim, nt_query, size)
