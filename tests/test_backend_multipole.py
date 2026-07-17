@@ -589,3 +589,35 @@ def test_tdep_diskmep_composite_jax():
         numpy.testing.assert_allclose(
             got, ref, rtol=1e-12, atol=1e-12, err_msg=f"composite TD DiskMEP {meth}"
         )
+
+
+###############################################################################
+# Forced-backend coercion regression test (burndown wave: expansion family).
+# Under a forced backend the expwhole* DiskMultipole catalogue potentials used
+# to crash in from_density: _compute_rho_lm multiplied numpy Legendre/weight
+# arrays by a backend-array density (a user density closing over a backend-amp
+# potential returns backend arrays even in the numpy-force setup). This asserts
+# the density-value cast keeps the coefficient tables (hence the potential)
+# identical to the numpy build.
+###############################################################################
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("symmetry", ["spherical", "axisymmetric"])
+def test_from_density_backend_amp_closure(backend_name, symmetry):
+    from galpy import backend as _b
+    from galpy.potential import HernquistPotential
+    from galpy.potential import evaluatePotentials as ep
+
+    def build():
+        hp = HernquistPotential(amp=2.0, a=1.3)
+        return MultipoleExpansionPotential.from_density(
+            lambda R, z: hp.dens(R, z), L=4, symmetry=symmetry
+        )
+
+    pts = [(0.75, 0.2, 0.4), (1.5, -0.3, 1.1)]
+    ref = numpy.array([ep(build(), R, z, phi=phi) for R, z, phi in pts])
+    with _b.use(backend_name, force=True):
+        pt = build()
+        got = numpy.array([as_numpy(ep(pt, R, z, phi=phi)) for R, z, phi in pts])
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
