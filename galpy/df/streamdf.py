@@ -4358,6 +4358,17 @@ def calcaAJac(
     -----
     - 2013-11-25 - Written - Bovy (IAS)
     """
+    # Backend (jax/torch): exact AD Jacobian; numpy path below is byte-identical.
+    if is_backend_array(xv) or is_backend_array(xv[0]):
+        return _calcaAJac_backend(
+            xv,
+            aA,
+            freqs=freqs,
+            dOdJ=dOdJ,
+            actionsFreqsAngles=actionsFreqsAngles,
+            lb=lb,
+            coordFunc=coordFunc,
+        )
     if lb:
         coordFunc = lambda x: lbCoordFunc(xv, vo, ro, R0, Zsun, vsun)
     if not coordFunc is None:
@@ -4434,6 +4445,46 @@ def calcaAJac(
         jac2[4, :] = jac[4, :]
         jac2[5, :] = jac[5, :]
         jac = numpy.dot(jac2, numpy.linalg.inv(jac))[0:3, 0:3]
+    return jac
+
+
+def _calcaAJac_backend(
+    xv, aA, freqs=False, dOdJ=False, actionsFreqsAngles=False, lb=False, coordFunc=None
+):
+    """Backend (jax/torch) AD path for calcaAJac: exact d(J,Omega,theta)/d(x,v).
+
+    Differentiates ``aA.actionsFreqsAngles`` (itself backend-differentiable) with
+    ``galpy.backend.jacobian`` -- exact (no finite-difference truncation) and
+    itself differentiable, so d(Jacobian)/d(potential/progenitor params) flows
+    (higher-order AD). The numpy finite-difference path is untouched. ``coordFunc``
+    and ``lb`` are unsupported here (the stream track never uses them on the
+    backend) and raise NotImplementedError.
+    """
+    if lb or coordFunc is not None:
+        raise NotImplementedError(
+            "calcaAJac backend (jax/torch) path supports only coordFunc=None, lb=False"
+        )
+    from ..backend.jacobian import jacobian
+
+    # Ensure a single (6,) backend vector so AD differentiates w.r.t. all of x,v.
+    if not is_backend_array(xv):
+        xp0 = get_namespace(xv[0])
+        xv = xp0.stack([xp0.reshape(xp0.asarray(c), ()) for c in xv])
+    xp = get_namespace(xv)
+
+    def _map(v):  # (6,) -> (9,): actions(0:3), freqs(3:6), angles(6:9)
+        acfs = aA.actionsFreqsAngles(v[0], v[1], v[2], v[3], v[4], v[5])
+        return xp.stack([xp.reshape(o, ()) for o in acfs])
+
+    A = jacobian(_map, xv, xp=xp)  # 9x6, exact AD Jacobian
+    if actionsFreqsAngles:
+        return A
+    # 6x6: (freqs|actions) rows over angle rows, mirroring the numpy construction.
+    top = A[3:6] if freqs else A[0:3]
+    jac = xp.concat([top, A[6:9]], axis=0)
+    if dOdJ:
+        jac2 = xp.concat([A[3:6], A[6:9]], axis=0)  # freqs over angles
+        jac = (jac2 @ xp.linalg.inv(jac))[0:3, 0:3]
     return jac
 
 

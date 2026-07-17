@@ -41,6 +41,8 @@ except ImportError:  # pragma: no cover
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 
 from galpy.actionAngle import actionAngleIsochroneApprox
+from galpy.backend import as_numpy
+from galpy.df.streamdf import calcaAJac
 from galpy.orbit import Orbit
 from galpy.potential import LogarithmicHaloPotential
 from galpy.util import conversion
@@ -391,3 +393,128 @@ def test_sigangled_assumezeromean_false(sdf, backend_name):
         )
     )
     numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-10)
+
+
+###############################################################################
+# Phase B.1: calcaAJac -- the AA-map Jacobian d(J,Omega,theta)/d(x,v), the
+# foundation of the stream-track spine.
+#
+# numpy: verbatim finite differences (byte-identical; dispatched by is_backend_
+# array, the numpy branch is untouched). jax/torch: the EXACT Jacobian by
+# autodiff of aA.actionsFreqsAngles (galpy.backend.jacobian -> jax.jacrev /
+# torch.autograd.functional.jacobian). jacfwd / vectorize=True are unavailable
+# because the C-STM orbit integrator is a custom_vjp (jax) / custom autograd
+# Function (torch). AD matches the numpy FD to its truncation floor (~1e-5) and
+# is ITSELF differentiable: d(Jacobian)/d(potential q) flows (higher-order AD --
+# the point of Phase B, a differentiable track).
+#
+# The default C-STM integrator carries IC gradients (the Jacobian itself, tested
+# fast below); the higher-order d(Jac)/d(q) needs the in-backend ODE integrator
+# (diffrax/torchdiffeq), exercised with a reduced tintJ so the second-order solve
+# stays affordable. Its FD reference is the EXACT C-STM Jacobian at q +/- h (no
+# inner finite differences), so the outer central FD h-converges cleanly.
+###############################################################################
+_XV = numpy.array([1.0, 0.2, 0.9, 0.1, 0.05, 0.0])
+
+
+@pytest.fixture(scope="module")
+def aA_iso():
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    return actionAngleIsochroneApprox(pot=lp, b=0.8)
+
+
+@pytest.mark.parametrize(
+    "flags,shape",
+    [
+        (dict(actionsFreqsAngles=True), (9, 6)),  # used per-chunk by the track
+        (dict(dOdJ=True), (3, 3)),  # dOmega/dJ used in streamdf.__init__
+        (dict(freqs=True), (6, 6)),  # freqs+angles rows
+        (dict(), (6, 6)),  # actions+angles rows
+    ],
+    ids=["actionsFreqsAngles", "dOdJ", "freqs", "actions"],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_calcaAJac_ad_equals_fd(aA_iso, backend_name, flags, shape):
+    # Backend AD Jacobian == numpy FD Jacobian to the numpy FD truncation floor.
+    fd = calcaAJac(_XV.copy(), aA_iso, **flags)
+    ad = as_numpy(calcaAJac(_arr(backend_name, _XV), aA_iso, **flags))
+    assert fd.shape == shape and tuple(ad.shape) == shape
+    err = numpy.max(numpy.abs(ad - fd))
+    assert err < 5e-4, f"{backend_name} {flags}: max|AD-FD|={err:.2e}"
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_calcaAJac_backend_rejects_lb_coordfunc(aA_iso, backend_name):
+    # lb / coordFunc are unsupported on the backend path; they raise (not misbehave).
+    for kw in (dict(lb=True), dict(coordFunc=lambda x: x)):
+        with pytest.raises(NotImplementedError):
+            calcaAJac(_arr(backend_name, _XV), aA_iso, actionsFreqsAngles=True, **kw)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_calcaAJac_backend_accepts_scalar_list(aA_iso, backend_name):
+    # A list of per-coordinate backend scalars is stacked into the (6,) vector
+    # (covers the non-(6,)-array input branch); result matches the array form.
+    xv_list = [_arr(backend_name, float(v)) for v in _XV]
+    ad_list = as_numpy(calcaAJac(xv_list, aA_iso, actionsFreqsAngles=True))
+    ad_vec = as_numpy(
+        calcaAJac(_arr(backend_name, _XV), aA_iso, actionsFreqsAngles=True)
+    )
+    numpy.testing.assert_allclose(ad_list, ad_vec, rtol=1e-10, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_calcaAJac_higher_order_grad_vs_fd(backend_name):
+    # d(sum(W*Jac))/d(potential q) flows (higher-order AD). FD reference = exact
+    # C-STM Jacobian at q +/- h (no inner FD), so the central difference is clean.
+    tintJ, ntintJ = 8.0, 800
+    Wn = numpy.random.default_rng(0).standard_normal((9, 6))
+
+    def cstm_loss(qval):
+        lp = LogarithmicHaloPotential(normalize=1.0, q=qval)
+        aAq = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=tintJ, ntintJ=ntintJ)
+        J = as_numpy(calcaAJac(_arr(backend_name, _XV), aAq, actionsFreqsAngles=True))
+        return float((Wn * J).sum())
+
+    if backend_name == "jax":
+        W = jnp.asarray(Wn)
+
+        def loss(qq):
+            lp = LogarithmicHaloPotential(normalize=1.0, q=qq)
+            aAq = actionAngleIsochroneApprox(
+                pot=lp,
+                b=0.8,
+                tintJ=tintJ,
+                ntintJ=ntintJ,
+                integrate_method="diffrax",
+                integrate_kwargs={"adjoint": "direct", "max_steps": 20000},
+            )
+            return jnp.sum(
+                W * calcaAJac(jnp.asarray(_XV), aAq, actionsFreqsAngles=True)
+            )
+
+        ad = float(jax.grad(loss)(jnp.asarray(0.9)))
+    else:
+        W = torch.tensor(Wn, dtype=torch.float64)
+        q = torch.tensor(0.9, dtype=torch.float64, requires_grad=True)
+        lp = LogarithmicHaloPotential(normalize=1.0, q=q)
+        aAq = actionAngleIsochroneApprox(
+            pot=lp, b=0.8, tintJ=tintJ, ntintJ=ntintJ, integrate_method="torchdiffeq"
+        )
+        L = (
+            W
+            * calcaAJac(
+                torch.tensor(_XV, dtype=torch.float64), aAq, actionsFreqsAngles=True
+            )
+        ).sum()
+        ad = float(torch.autograd.grad(L, q)[0])
+
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(ad - (cstm_loss(0.9 + h) - cstm_loss(0.9 - h)) / (2 * h))
+        for h in (1e-3, 1e-4, 1e-5)
+    )
+    # clean C-STM FD floors ~3e-5 at h=1e-4; a wrong grad would miss by O(|ad|).
+    assert best < 1e-4 * abs(ad) + 1e-4, (
+        f"{backend_name} higher-order grad-vs-FD best={best:.2e}"
+    )
