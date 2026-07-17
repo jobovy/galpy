@@ -331,3 +331,29 @@ def test_setup_rphi_interpolator_forced(backend):
     gb = got(_arr(backend, Es))
     assert _is_backend_array(backend, gb)
     numpy.testing.assert_allclose(as_numpy(gb), ref(Es), rtol=1e-10)
+
+
+# Orbit.E()/L() accessors trip a pre-existing numpy __array_wrap__ deprecation on
+# torch tensors (Orbits.py, outside the df scope); ignore just that one here.
+@pytest.mark.filterwarnings(
+    "ignore:__array_wrap__ must accept context:DeprecationWarning"
+)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_call_orbit_forced(backend):
+    # __call__'s Orbit branch builds |L| = sqrt(sum L^2); under a forced backend
+    # Orbit.L() is a backend array, so the reduction runs in the active namespace
+    # (numpy.sum(tensor) would raise TypeError). numpy path stays byte-identical.
+    from galpy.orbit import Orbit
+
+    ic = [0.6, 0.05, 0.2, 0.02, 0.03, 1.0]  # bound -> nonzero f
+    ref = as_numpy(_DF(Orbit(ic)))
+    assert numpy.all(ref > 0.0)
+    with galpy.backend.use(backend, force=True):
+        got = _DF(Orbit(ic))
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12)
+    # the anisotropic base actually consumes |L| in _call_internal
+    ani = _IsoAsAniso(pot=_HP)
+    ref_a = as_numpy(ani(Orbit(ic)))
+    with galpy.backend.use(backend, force=True):
+        got_a = ani(Orbit(ic))
+    numpy.testing.assert_allclose(as_numpy(got_a), ref_a, rtol=1e-12)

@@ -209,11 +209,13 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         xp = resolve_namespace(v, r)
         if hasattr(self, "_logfQ_interp"):
             # scipy interpolator (general OM df) is numpy-only; sampling numpy-side
+            # (the potential eval stays on the active backend, so pull it numpy-side
+            # before the scipy spline; no-op on the numpy path)
             v, r = as_numpy(v), as_numpy(r)
             return (
                 numpy.exp(
                     self._logfQ_interp(
-                        -_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0
+                        -as_numpy(_evaluatePotentials(self._pot, r, 0)) - 0.5 * v**2.0
                     )
                 )
                 * v**2.0
@@ -403,10 +405,13 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                     sorted(1.0 - numpy.geomspace(1e-8, 0.5, 101)),
                 )
             )
-            Qs4interp = -(
-                Qs4interp * (self._edf._Emin - self._edf._potInf) + self._edf._potInf
-            )
-            fQ4interp = numpy.log(self.fQ(Qs4interp))
+            # scipy spline table is inherently numpy (no backend spline here);
+            # under a forced backend the potential bounds and fQ come back as
+            # backend scalars, so pull them numpy-side (no-op on the numpy path)
+            Emin = as_numpy(self._edf._Emin)
+            potInf = as_numpy(self._edf._potInf)
+            Qs4interp = -(Qs4interp * (Emin - potInf) + potInf)
+            fQ4interp = numpy.log(as_numpy(self.fQ(Qs4interp)))
             iindx = numpy.isfinite(fQ4interp)
             self._logfQ_interp = interpolate.InterpolatedUnivariateSpline(
                 Qs4interp[iindx], fQ4interp[iindx], k=3, ext=3
