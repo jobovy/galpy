@@ -4,7 +4,7 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from .Potential import Potential
 
 
@@ -51,21 +51,25 @@ class SphericalPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._revaluate(r, t=t)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._rforce(r, t=t) * R / r
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._rforce(r, t=t) * z / r
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * R**2.0 / r**2.0
@@ -74,6 +78,7 @@ class SphericalPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * z**2.0 / r**2.0
@@ -82,6 +87,7 @@ class SphericalPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * R * z / r**2.0
@@ -90,6 +96,7 @@ class SphericalPotential(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._rdens(r, t=t)
 
