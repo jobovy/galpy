@@ -8630,7 +8630,7 @@ def test_scf_analytic_2ndderiv():
     # pole so the angular derivatives stay finite.
     axi, nonaxi = pots
     N, L, _ = axi._Acos.shape
-    assert numpy.all(axi._d2phiTilde(0.0, N, L) == 0.0), (
+    assert numpy.all(as_numpy(axi._d2phiTilde(0.0, N, L)) == 0.0), (
         "SCF _d2phiTilde should vanish at r=0"
     )
     assert axi._compute_spher_2nd_derivs_at_point(0.0, 0.0, 0.0) == (
