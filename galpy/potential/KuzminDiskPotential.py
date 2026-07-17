@@ -7,7 +7,7 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -65,6 +65,7 @@ class KuzminDiskPotential(Potential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return -xp.sign(z) * self._denom(R, z) ** -1.5 * (self._a + xp.abs(z))
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
@@ -72,6 +73,7 @@ class KuzminDiskPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         a = self._a
         return (
             self._denom(R, z) ** -1.5
@@ -80,6 +82,7 @@ class KuzminDiskPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return -3 * xp.sign(z) * R * (self._a + xp.abs(z)) * self._denom(R, z) ** -2.5
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
@@ -87,8 +90,10 @@ class KuzminDiskPotential(Potential):
 
     def _mass(self, R, z=None, t=0.0):
         xp = get_namespace(R)
+        (R,) = coerce_coords(xp, R)
         return 1.0 - self._a / xp.sqrt(R**2.0 + self._a**2.0)
 
     def _denom(self, R, z):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return R**2.0 + (self._a + xp.abs(z)) ** 2.0
