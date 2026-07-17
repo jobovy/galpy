@@ -4,6 +4,7 @@ import numpy
 import pytest
 
 from galpy import df, potential
+from galpy.backend import as_numpy
 from galpy.orbit import Orbit
 from galpy.potential import MultipoleExpansionPotential, SCFPotential
 from galpy.util import coords
@@ -1054,17 +1055,20 @@ def test_from_density():
 ##This is used to test whether input as arrays works
 def ArrayTest(scf, params):
     def compareFunctions(func, result, i):
+        # as_numpy: no-op on the numpy path (byte-identical); casts a jax/torch
+        # scalar to numpy so the numpy assertions below work under a forced backend.
+        expected = as_numpy(func(R[i], z[i], phi[i]))
         if numpy.isnan(result[i]):
-            return numpy.isnan(func(R[i], z[i], phi[i]))
+            return numpy.isnan(expected)
         if numpy.isinf(result[i]):
-            return numpy.isinf(func(R[i], z[i], phi[i]))
-        return numpy.all(numpy.fabs(result[i] - func(R[i], z[i], phi[i])) < EPS)
+            return numpy.isinf(expected)
+        return numpy.all(numpy.fabs(result[i] - expected) < EPS)
 
-    potential = scf(*params).flatten()
-    density = scf.dens(*params).flatten()
-    Rforce = scf.Rforce(*params).flatten()
-    zforce = scf.zforce(*params).flatten()
-    phitorque = scf.phitorque(*params).flatten()
+    potential = as_numpy(scf(*params).flatten())
+    density = as_numpy(scf.dens(*params).flatten())
+    Rforce = as_numpy(scf.Rforce(*params).flatten())
+    zforce = as_numpy(scf.zforce(*params).flatten())
+    phitorque = as_numpy(scf.phitorque(*params).flatten())
 
     R, z, phi = params
     shape = numpy.array(R * z * phi).shape
