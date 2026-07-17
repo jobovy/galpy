@@ -9,6 +9,7 @@ from scipy import special
 
 from ..backend import (
     asarray_on_device,
+    coerce_coords,
     device_of,
     get_namespace,
     match_input_dtype,
@@ -533,10 +534,12 @@ class DoubleExponentialDiskPotential(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return xp.exp(-self._alpha * R - self._beta * xp.abs(z))
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return (
             2.0
             * xp.exp(-self._alpha * R)
