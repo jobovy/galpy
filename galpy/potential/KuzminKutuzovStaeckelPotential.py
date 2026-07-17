@@ -8,7 +8,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion  # for prolate spherical coordinate transforms
 from ..util import coords
 from .Potential import Potential
@@ -65,11 +65,13 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         return -1.0 / (xp.sqrt(l) + xp.sqrt(n))
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         dldR = xp.asarray(jac[0, 0])
@@ -78,6 +80,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         dldz = xp.asarray(jac[0, 1])
@@ -86,6 +89,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
@@ -103,6 +107,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
@@ -120,6 +125,7 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)

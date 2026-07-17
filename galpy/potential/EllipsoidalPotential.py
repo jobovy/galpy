@@ -14,7 +14,12 @@ import math
 import numpy
 from scipy import integrate
 
-from ..backend import as_backend_constant, get_namespace, is_backend_array
+from ..backend import (
+    as_backend_constant,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+)
 from ..util import _rotate_to_arbitrary_vector, conversion
 from .Potential import Potential
 
@@ -185,6 +190,7 @@ class EllipsoidalPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
