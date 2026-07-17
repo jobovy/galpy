@@ -4096,6 +4096,18 @@ def _determine_stream_track_single(
     thetasTrack,
     prefer_ad=True,
 ):
+    # Backend (jax/torch) orbit -> pure, differentiable, vmap-ready path; numpy below is byte-identical.
+    if is_backend_array(progenitorTrack(trackt).vxvv[0]):
+        return _determine_stream_track_single_backend(
+            aA,
+            progenitorTrack,
+            trackt,
+            progenitor_angle,
+            sigMeanSign,
+            dsigomeanProgDirection,
+            meanOmega,
+            thetasTrack,
+        )
     # Setup output
     allAcfsTrack = numpy.empty(9)
     alljacsTrack = numpy.empty((6, 6))
@@ -4154,6 +4166,64 @@ def _determine_stream_track_single(
         [allAcfsTrack, alljacsTrack, allinvjacsTrack, ObsTrack, ObsTrackAA, detdOdJ],
         dtype="object",
     )
+
+
+def _determine_stream_track_single_backend(
+    aA,
+    progenitorTrack,
+    trackt,
+    progenitor_angle,
+    sigMeanSign,
+    dsigomeanProgDirection,
+    meanOmega,
+    thetasTrack,
+):
+    """Backend (jax/torch) path of ``_determine_stream_track_single``.
+
+    Pure function of its inputs (no numpy item-assignment/empty): every array is
+    built with ``xp.stack``/``xp.concat`` so it is differentiable and vmap-ready
+    (Phase B.3). Returns a plain tuple of backend arrays (the numpy path keeps its
+    ``dtype=object`` array); the caller unpacks ``multiOut[0..5]`` for both.
+    """
+    xv0 = progenitorTrack(trackt).vxvv[0]  # (R,vR,vT,z,vz,phi), a (6,) backend array
+    xp = get_namespace(xv0)
+    # actions/freqs/angles at the progenitor point (9,)
+    tacfs = aA.actionsFreqsAngles(xv0[0], xv0[1], xv0[2], xv0[3], xv0[4], xv0[5])
+    allAcfsTrack = xp.stack([xp.reshape(v, ()) for v in tacfs])
+    # exact AD Jacobian d(J,Omega,theta)/d(x,v) (9x6)
+    tjac = calcaAJac(xv0, aA, actionsFreqsAngles=True, _initacfs=tacfs)
+    alljacsTrack = tjac[3:, :]  # freqs+angles rows (6x6)
+    tinvjac = xp.linalg.inv(alljacsTrack)
+    allinvjacsTrack = tinvjac
+    # detdOdJ: actions+angles rows (static indices 0,1,2,6,7,8) instead of a bool mask
+    aa_rows = xp.concat([tjac[0:3], tjac[6:9]], axis=0)
+    dOdJ = (alljacsTrack @ xp.linalg.inv(aa_rows))[0:3, 0:3]
+    detdOdJ = xp.linalg.det(dOdJ)
+    # angle/freq offsets (constant w.r.t. the orbit), coerced into the backend namespace
+    theseAngles = xp.remainder(
+        as_backend_constant(
+            xp,
+            progenitor_angle + thetasTrack * sigMeanSign * dsigomeanProgDirection,
+            xv0,
+        ),
+        2.0 * numpy.pi,
+    )
+    diffAngles = theseAngles - allAcfsTrack[6:]
+    # boolean-mask in-place wrap -> xp.where (both branches evaluated, so no dead-branch)
+    diffAngles = xp.where(
+        diffAngles > numpy.pi, diffAngles - 2.0 * numpy.pi, diffAngles
+    )
+    diffAngles = xp.where(
+        diffAngles < -numpy.pi, diffAngles + 2.0 * numpy.pi, diffAngles
+    )
+    thisFreq = as_backend_constant(
+        xp, numpy.asarray(meanOmega(thetasTrack)).reshape(-1), xv0
+    )
+    diffFreqs = thisFreq - allAcfsTrack[3:6]
+    ObsTrackAA = xp.concat([thisFreq, theseAngles], axis=0)
+    # ObsTrack = tinvjac @ (diffFreqs|diffAngles) + progenitor (R,vR,vT,z,vz,phi) == xv0
+    ObsTrack = tinvjac @ xp.concat([diffFreqs, diffAngles], axis=0) + xv0
+    return (allAcfsTrack, alljacsTrack, allinvjacsTrack, ObsTrack, ObsTrackAA, detdOdJ)
 
 
 def _determine_stream_track_TM_single(

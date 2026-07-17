@@ -41,10 +41,10 @@ except ImportError:  # pragma: no cover
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 
 from galpy.actionAngle import actionAngleIsochroneApprox
-from galpy.backend import as_numpy
-from galpy.df.streamdf import calcaAJac
+from galpy.backend import as_numpy, get_namespace
+from galpy.df.streamdf import _determine_stream_track_single, calcaAJac
 from galpy.orbit import Orbit
-from galpy.potential import LogarithmicHaloPotential
+from galpy.potential import IsochronePotential, LogarithmicHaloPotential
 from galpy.util import conversion
 
 
@@ -531,3 +531,150 @@ def test_calcaAJac_numpy_prefers_ad(aA_iso):
     out = calcaAJac(_XV.copy(), aA_iso, actionsFreqsAngles=True)
     assert isinstance(out, numpy.ndarray) and tuple(out.shape) == (9, 6)
     numpy.testing.assert_allclose(out, ad_ref, rtol=1e-10, atol=1e-12)
+
+
+###############################################################################
+# Phase B.2: _determine_stream_track_single -- the per-chunk track workhorse.
+#
+# Dual-path (dispatched by is_backend_array on the per-chunk phase-space point):
+# the numpy branch is the verbatim original (byte-identical); a backend orbit
+# routes to _determine_stream_track_single_backend -- a PURE function (no numpy
+# item-assignment: xp.stack/concat build every array) so it is differentiable and
+# vmap-ready (Phase B.3). Returns a plain tuple of backend arrays (numpy keeps its
+# dtype=object array); the boolean-mask angle wrap becomes xp.where, numpy.mod
+# becomes xp.remainder, the actions+angles row select uses static indices.
+###############################################################################
+
+
+class _OrbAtT:
+    # Stand-in exposing .vxvv[0] = the backend phase-space at trackt (what B.3's
+    # backend-preserving per-chunk orbit-eval will feed the workhorse; today
+    # Orbit.__call__ numpy-coerces the interpolated point).
+    def __init__(self, xv):
+        self.vxvv = xv[None, :]
+
+
+def _track_args():
+    d = numpy.array([1.0, 0.5, -0.3])
+    dsig = d / numpy.linalg.norm(d)
+    progenitor_angle = numpy.array([2.9, 0.5, 1.1])
+
+    def meanOmega(x):
+        return numpy.array([1.3, 0.85, 0.95]) * (1.0 + 0.01 * (x + 1.0))
+
+    return (progenitor_angle, 1.0, dsig, meanOmega, 0.05)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_determine_stream_track_single_value_parity(aA_iso, backend_name):
+    # Backend path == numpy path at the identical phase-space point (all 6 outputs);
+    # both use the exact AD Jacobian, so they agree far below the 1e-5 AD-vs-FD floor.
+    args = _track_args()
+    out_np = _determine_stream_track_single(
+        aA_iso, lambda t: Orbit(_XV.copy()), 0.0, *args
+    )
+    xv_b = _arr(backend_name, _XV)
+    out_b = _determine_stream_track_single(aA_iso, lambda t: _OrbAtT(xv_b), 0.0, *args)
+    assert (
+        isinstance(out_np, numpy.ndarray) and out_np.dtype == object
+    )  # numpy unchanged
+    assert isinstance(out_b, tuple) and len(out_b) == 6  # backend: plain tuple
+    for i in range(6):
+        a = numpy.asarray(out_np[i], dtype=float)
+        b = as_numpy(out_b[i]).astype(float)
+        assert a.shape == b.shape
+        numpy.testing.assert_allclose(b, a, rtol=1e-9, atol=1e-9, err_msg=f"out[{i}]")
+
+
+# A smooth NONLINEAR mock AA (jacrev/2nd-order AD well-defined everywhere): the
+# real AAs cannot supply the 2nd derivative ObsTrack's gradient needs (isochrone
+# Approx integrates its auxiliary orbit via the C-STM pure_callback = 1st-order
+# only; the analytic isochrone AA's arccos/where angle jacrev NaN-poisons) -- both
+# are AA-migration limits UPSTREAM of B.2. The mock isolates B.2's OWN assembly
+# gradient (calcaAJac jacrev+inv, det, where-wrap, remainder, matmul, offset).
+class _MockAA:
+    def actionsFreqsAngles(self, R, vR, vT, z, vz, phi):
+        xp = get_namespace(R)
+
+        def r(e):
+            return xp.reshape(e, (1,))
+
+        return (
+            r(R * R + 0.1 * vR * vR),
+            r(R * vT),
+            r(z * z + 0.1 * vz * vz + 0.5),
+            r(1.0 + 0.2 * R * R + 0.1 * vT + 0.05 * z * vz),
+            r(0.8 + 0.1 * R + 0.05 * vR * vR + 0.02 * R * vT),
+            r(0.9 + 0.15 * z * z + 0.1 * vz + 0.03 * R),
+            r(R + 0.3 * vR + phi + 0.1 * R * z + 0.05 * xp.sin(vT)),
+            r(phi + 0.2 * vT + 0.1 * z + 0.05 * vR * vz),
+            r(0.5 * z + 0.1 * vz + 0.2 + 0.05 * R + 0.02 * z * R),
+        )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_determine_stream_track_single_grad_vs_fd(backend_name):
+    # d(sum(W*ObsTrack))/d(R0) through a real in-backend (diffrax/torchdiffeq) orbit
+    # + the backend assembly must h-converge to a central FD (stringent).
+    ip = IsochronePotential(normalize=1.0, b=1.2)
+    ts = numpy.linspace(0.0, 2.0, 41)
+    ic = [1.0, 0.15, 0.85, 0.2, 0.18, 0.0]
+    tt = 0.6
+    args = _track_args()
+    Wn = numpy.array([0.3, -0.7, 1.1, 0.5, -0.2, 0.9])
+    method = "diffrax" if backend_name == "jax" else "torchdiffeq"
+
+    def obstrack_np(R0):
+        o = Orbit(_arr(backend_name, [R0] + ic[1:]))
+        o.integrate(_arr(backend_name, ts), ip, method=method)
+        xv = _arr(
+            backend_name,
+            [
+                float(as_numpy(o.R(tt))),
+                float(as_numpy(o.vR(tt))),
+                float(as_numpy(o.vT(tt))),
+                float(as_numpy(o.z(tt))),
+                float(as_numpy(o.vz(tt))),
+                float(as_numpy(o.phi(tt))),
+            ],
+        )
+        out = _determine_stream_track_single(
+            _MockAA(), lambda t: _OrbAtT(xv), tt, *args
+        )
+        return float(numpy.sum(Wn * as_numpy(out[3])))
+
+    if backend_name == "jax":
+        W = jnp.asarray(Wn)
+
+        def loss(R0):
+            o = Orbit(jnp.array([R0, ic[1], ic[2], ic[3], ic[4], ic[5]]))
+            o.integrate(jnp.asarray(ts), ip, method="diffrax")
+            xv = jnp.stack([o.R(tt), o.vR(tt), o.vT(tt), o.z(tt), o.vz(tt), o.phi(tt)])
+            out = _determine_stream_track_single(
+                _MockAA(), lambda t: _OrbAtT(xv), tt, *args
+            )
+            return jnp.sum(W * out[3])
+
+        ad = float(jax.grad(loss)(jnp.asarray(1.0)))
+    else:
+        W = torch.tensor(Wn, dtype=torch.float64)
+        R0 = torch.tensor(1.0, dtype=torch.float64, requires_grad=True)
+        o = Orbit(
+            torch.stack([R0] + [torch.tensor(v, dtype=torch.float64) for v in ic[1:]])
+        )
+        o.integrate(torch.as_tensor(ts), ip, method="torchdiffeq")
+        xv = torch.stack([o.R(tt), o.vR(tt), o.vT(tt), o.z(tt), o.vz(tt), o.phi(tt)])
+        out = _determine_stream_track_single(
+            _MockAA(), lambda t: _OrbAtT(xv), tt, *args
+        )
+        (W * out[3]).sum().backward()
+        ad = float(R0.grad)
+
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(ad - (obstrack_np(1.0 + h) - obstrack_np(1.0 - h)) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert best < 1e-4 * abs(ad) + 1e-6, (
+        f"{backend_name} ObsTrack grad-vs-FD best={best:.2e}"
+    )
