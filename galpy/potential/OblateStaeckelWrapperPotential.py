@@ -11,7 +11,7 @@ import numpy
 
 from galpy.util import conversion, coords
 
-from ..backend import get_namespace, promote_scalars
+from ..backend import coerce_coords, get_namespace, promote_scalars
 from .Potential import (
     _APY_LOADED,
     _evaluatePotentials,
@@ -136,6 +136,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
            2017-12-15 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi, t)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -171,6 +172,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
            2017-12-15 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi, t)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -206,6 +208,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
            2017-01-21 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi, t)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -269,6 +272,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
            2017-01-21 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi, t)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -332,6 +336,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
            2017-01-22 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi, t)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -383,11 +388,13 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
     def _U(self, u):
         """Approximated U(u) = cosh^2(u) Phi(u,pi/2)"""
         xp = get_namespace(u)
+        (u,) = coerce_coords(xp, u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         return xp.cosh(u) ** 2.0 * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
 
     def _dUdu(self, u):
         xp = get_namespace(u)
+        (u,) = coerce_coords(xp, u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         # 1e-12 bc force should win the 0/0 battle
         return 2.0 * xp.cosh(u) * xp.sinh(u) * _evaluatePotentials(
@@ -399,6 +406,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     def _d2Udu2(self, u):
         xp = get_namespace(u)
+        (u,) = coerce_coords(xp, u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         tRforce = _evaluateRforces(self._pot, Rz0[0], Rz0[1])
         tzforce = _evaluatezforces(self._pot, Rz0[0], Rz0[1])
@@ -435,6 +443,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     def _dVdv(self, v):
         xp = get_namespace(v)
+        (v,) = coerce_coords(xp, v)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         return -2.0 * xp.sin(v) * xp.cos(v) * _evaluatePotentials(
             self._pot, R0z[0], R0z[1]
@@ -445,6 +454,7 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
 
     def _d2Vdv2(self, v):
         xp = get_namespace(v)
+        (v,) = coerce_coords(xp, v)
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         tRforce = _evaluateRforces(self._pot, R0z[0], R0z[1])
         tzforce = _evaluatezforces(self._pot, R0z[0], R0z[1])
