@@ -8,7 +8,7 @@ import math
 
 import numpy
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..backend import special as bspecial
 from ..util import conversion
 from .Potential import Potential
@@ -73,6 +73,7 @@ class RazorThinExponentialDiskPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         if self._new:
             if xp.abs(z) < 10.0**-6.0:
                 y = 0.5 * self._alpha * R
@@ -105,6 +106,7 @@ class RazorThinExponentialDiskPotential(Potential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         # move the numpy GL nodes/weights onto the backend first, so products
         # like R * glx are same-namespace (a torch tensor * a numpy array trips
         # numpy's __array_wrap__); xp.asarray is a no-op on numpy (byte-identical)
@@ -162,6 +164,7 @@ class RazorThinExponentialDiskPotential(Potential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         glx = xp.asarray(self._glx)
         glw = xp.asarray(self._glw)
         if self._new:
@@ -214,6 +217,7 @@ class RazorThinExponentialDiskPotential(Potential):
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         if self._new:
             if xp.abs(z) < 10.0**-6.0:
                 y = 0.5 * self._alpha * R
@@ -232,10 +236,12 @@ class RazorThinExponentialDiskPotential(Potential):
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return xp.exp(-self._alpha * R)
 
     def _mass(self, R, z=None, t=0.0):
         xp = get_namespace(R)
+        (R,) = coerce_coords(xp, R)
         return (
             2.0
             * math.pi
