@@ -37,6 +37,7 @@ except ImportError:  # pragma: no cover
 import galpy.backend
 from galpy.backend import as_numpy
 from galpy.df import (
+    osipkovmerrittdf,
     osipkovmerrittHernquistdf,
     osipkovmerrittNFWdf,
     osipkovmerrittPowerLawdf,
@@ -285,3 +286,44 @@ def test_sample_numpy_side_forced(backend, tag):
                 <= 1e-8 * numpy.median(numpy.fabs(numpy.asarray(r))) + 1e-10
             ), "plaw sample bulk not bit-identical -> real backend divergence"
             numpy.testing.assert_allclose(g, r, rtol=1e-3, atol=1e-3)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_general_fQ_interp_forced_construction(backend):
+    # the GENERAL (numeric) osipkovmerrittdf built under a forced backend: its
+    # helper eddingtondf's _Emin/_potInf are backend scalars, so _ensure_fQ_interp
+    # (a scipy InterpolatedUnivariateSpline on a numpy grid, queried numpy-side in
+    # _p_v_at_r) pulls the grid bounds + fQ numpy-side (else numpy_grid * tensor
+    # raises). The frozen numpy table matches pure numpy; numpy path byte-identical.
+    ref_df = osipkovmerrittdf(pot=_HP, ra=2.3)
+    ref_df._ensure_fQ_interp()
+    with galpy.backend.use(backend, force=True):
+        dfb = osipkovmerrittdf(pot=_HP, ra=2.3)
+        dfb._ensure_fQ_interp()
+    knots = ref_df._logfQ_interp.get_knots()
+    Qs = 0.5 * (knots[:-1] + knots[1:])
+    got = as_numpy(dfb._logfQ_interp(Qs))
+    exp = ref_df._logfQ_interp(Qs)
+    reldiff = numpy.fabs(got - exp) / numpy.fabs(exp)
+    # the bulk of the numpy-side table matches pure numpy to fp noise; a few
+    # deep-tail knots differ (the migrated eddington fE is finite there where the
+    # scipy-adaptive fE hits a turning-point NaN that numpy filters out), but they
+    # are physically negligible and do not affect sampling (next test). A real
+    # regression shifts the WHOLE table, not a near-tail handful (cf. plaw sample).
+    assert numpy.median(reldiff) < 1e-7, "fQ table bulk diverges -> real backend bug"
+    assert numpy.max(numpy.fabs(got - exp)) < 0.05
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_general_sample_forced_construction(backend):
+    # end-to-end sample() of the general OM df built under a forced backend:
+    # sampling is numpy-side (numpy RNG draws unchanged), so draws match pure numpy
+    # to the numpy-side fQ-table's fp noise.
+    numpy.random.seed(24)
+    ref = osipkovmerrittdf(pot=_HP, ra=2.3).sample(n=80, return_orbit=False)
+    numpy.random.seed(24)
+    with galpy.backend.use(backend, force=True):
+        got = osipkovmerrittdf(pot=_HP, ra=2.3).sample(n=80, return_orbit=False)
+    for g, r in zip(got, ref):
+        assert isinstance(g, numpy.ndarray) and not _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(g, r, rtol=1e-6, atol=1e-8)
