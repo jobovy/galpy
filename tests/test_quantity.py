@@ -15,6 +15,8 @@ _NUMPY_1_22 = (_NUMPY_VERSION > parse_version("1.21")) * (
 )  # For testing 1.22/1.24 precision issues
 from astropy import constants, units
 
+from galpy.backend import as_numpy  # noqa: E402
+
 sdf_sanders15 = None  # so we can set this up and then use in other tests
 sdf_sanders15_nou = None  # so we can set this up and then use in other tests
 
@@ -11472,7 +11474,8 @@ def test_SCFPotential_from_density():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, rs, use_physical=False) / hp.dens(rs, rs, use_physical=False)
+            - as_numpy(sp.dens(rs, rs, use_physical=False))
+            / as_numpy(hp.dens(rs, rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree when initialized with density with units"
@@ -11491,7 +11494,8 @@ def test_SCFPotential_from_density():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, rs, use_physical=False) / hp.dens(rs, rs, use_physical=False)
+            - as_numpy(sp.dens(rs, rs, use_physical=False))
+            / as_numpy(hp.dens(rs, rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree when initialized with density with units"
@@ -11507,7 +11511,8 @@ def test_SCFPotential_from_density():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, rs, use_physical=False) / hp.dens(rs, rs, use_physical=False)
+            - as_numpy(sp.dens(rs, rs, use_physical=False))
+            / as_numpy(hp.dens(rs, rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree when initialized with density with units"
@@ -14236,7 +14241,10 @@ def test_estimateDeltaStaeckel_method_value():
             estimateDeltaStaeckel(pot, 1.1 * numpy.ones(3), 0.1 * numpy.ones(3))
             .to(units.kpc)
             .value
-            - estimateDeltaStaeckel(potu, 1.1 * numpy.ones(3), 0.1 * numpy.ones(3)) * ro
+            - as_numpy(
+                estimateDeltaStaeckel(potu, 1.1 * numpy.ones(3), 0.1 * numpy.ones(3))
+            )
+            * ro
         )
         < 10.0**-8.0
     ), "estimateDeltaStaeckel function does not return Quantity with the right value"
@@ -17664,12 +17672,20 @@ def test_sphericaldf_sample():
     numpy.random.seed(10)
     sam_nou = dfh.sample(R=1.0 / ro, z=0.0 / ro, phi=10.0 / 180.0 * numpy.pi, n=2)
     assert numpy.all(
-        numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.r(use_physical=False))
+            - as_numpy(sam_nou.r(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units"
     )
     assert numpy.all(
-        numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.vr(use_physical=False))
+            - as_numpy(sam_nou.vr(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units"
     )
@@ -17687,12 +17703,20 @@ def test_sphericaldf_sample():
         R=arr / ro, z=arr * 0.0 / ro, phi=arr * 10.0 / 180.0 * numpy.pi, n=len(arr)
     )
     assert numpy.all(
-        numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.r(use_physical=False))
+            - as_numpy(sam_nou.r(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units"
     )
     assert numpy.all(
-        numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.vr(use_physical=False))
+            - as_numpy(sam_nou.vr(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input R,z,phi with units does not agree with that returned by sampline with input R,z,phi without units"
     )
@@ -17702,7 +17726,11 @@ def test_sphericaldf_sample():
     numpy.random.seed(10)
     sam_nou = dfh.sample(n=2, rmin=1.1 / ro)
     assert numpy.all(
-        numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        numpy.fabs(
+            as_numpy(sam.r(use_physical=False))
+            - as_numpy(sam_nou.r(use_physical=False))
+        )
+        < 1e-8
     ), (
         "Sample returned by sphericaldf.sample with input rmin with units does not agree with that returned by sampline with input rmin without units"
     )
@@ -18877,12 +18905,19 @@ def test_streamspraydf_setup_paramsAsQuantity():
         numpy.random.seed(10)
         sam_nou = spdf_bovy14_nou.sample(n=2)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
@@ -18923,12 +18958,19 @@ def test_streamspraydf_sample_orbit():
         numpy.random.seed(10)
         sam_nou = spdf_bovy14_nou.sample(n=2)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
@@ -18969,35 +19011,43 @@ def test_streamspraydf_sample_RvR():
         numpy.random.seed(10)
         sam_nou, dt_nou = spdf_bovy14_nou.sample(n=2, return_orbit=False, returndt=True)
         assert numpy.all(
-            numpy.fabs(sam[0].to_value(units.kpc) / ro - sam_nou[0]) < 1e-8
+            numpy.fabs(sam[0].to_value(units.kpc) / ro - as_numpy(sam_nou[0])) < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam[1].to_value(units.km / units.s) / vo - sam_nou[1]) < 1e-8
+            numpy.fabs(sam[1].to_value(units.km / units.s) / vo - as_numpy(sam_nou[1]))
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam[2].to_value(units.km / units.s) / vo - sam_nou[2]) < 1e-8
+            numpy.fabs(sam[2].to_value(units.km / units.s) / vo - as_numpy(sam_nou[2]))
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam[3].to_value(units.kpc) / ro - sam_nou[3]) < 1e-8
+            numpy.fabs(sam[3].to_value(units.kpc) / ro - as_numpy(sam_nou[3])) < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(sam[4].to_value(units.km / units.s) / vo - sam_nou[4]) < 1e-8
+            numpy.fabs(sam[4].to_value(units.km / units.s) / vo - as_numpy(sam_nou[4]))
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
-        assert numpy.all(numpy.fabs(sam[5].to_value(units.rad) - sam_nou[5]) < 1e-8), (
+        assert numpy.all(
+            numpy.fabs(sam[5].to_value(units.rad) - as_numpy(sam_nou[5])) < 1e-8
+        ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         )
         assert numpy.all(
-            numpy.fabs(dt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro) - dt_nou)
+            numpy.fabs(
+                dt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro)
+                - as_numpy(dt_nou)
+            )
             < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
@@ -19046,12 +19096,19 @@ def test_streamspraydf_progmass_callable_unitfulin_unitfulout():
         numpy.random.seed(10)
         sam_nou = spdf_nou.sample(n=4)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with Quantity-in/out callable progenitor_mass is inconsistent with the internal-units twin"
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         ), (
             "Sample returned by streamspraydf.sample with Quantity-in/out callable progenitor_mass is inconsistent with the internal-units twin"
@@ -19097,10 +19154,17 @@ def test_streamspraydf_progmass_callable_unitlessin_unitfulout():
         numpy.random.seed(11)
         sam_nou = spdf_nou.sample(n=4)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         )
 
@@ -19143,10 +19207,17 @@ def test_streamspraydf_progmass_callable_unitfulin_unitlessout():
         numpy.random.seed(12)
         sam_nou = spdf_nou.sample(n=4)
         assert numpy.all(
-            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+            numpy.fabs(
+                as_numpy(sam.r(use_physical=False))
+                - as_numpy(sam_nou.r(use_physical=False))
+            )
+            < 1e-8
         )
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            numpy.fabs(
+                as_numpy(sam.vr(use_physical=False))
+                - as_numpy(sam_nou.vr(use_physical=False))
+            )
             < 1e-8
         )
 
