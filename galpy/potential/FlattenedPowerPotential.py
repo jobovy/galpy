@@ -8,7 +8,7 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -86,6 +86,7 @@ class FlattenedPowerPotential(Potential):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if self.alpha == 0.0:
             xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
             return 1.0 / 2.0 * xp.log(R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
             m2 = self.core2 + R**2.0 + z**2.0 / self.q2
