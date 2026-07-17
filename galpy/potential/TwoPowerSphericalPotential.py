@@ -11,7 +11,7 @@ import math
 import numpy
 from scipy import optimize
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..backend.special import gamma as _gamma
 from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
@@ -100,6 +100,7 @@ class TwoPowerSphericalPotential(Potential):
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
         elif self.beta == 3.0:
             xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 (1.0 / self.a)
@@ -118,6 +119,7 @@ class TwoPowerSphericalPotential(Potential):
             )
         else:
             xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
             r = (
                 xp.sqrt(R**2.0 + z**2.0) + 1e-11
             )  # avoid division by zero and numerical instability of the hyp2f1 function
@@ -151,6 +153,7 @@ class TwoPowerSphericalPotential(Potential):
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
         else:
             xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -R
@@ -171,6 +174,7 @@ class TwoPowerSphericalPotential(Potential):
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
         else:
             xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -z
@@ -187,6 +191,7 @@ class TwoPowerSphericalPotential(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a / r) ** self.alpha
@@ -259,6 +264,7 @@ class TwoPowerSphericalPotential(Potential):
     @_limit_at_infinite_radius("RR")
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
         hyper = _hyp2f1(
@@ -284,6 +290,7 @@ class TwoPowerSphericalPotential(Potential):
     @_limit_at_infinite_radius("Rz")
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
         hyper = _hyp2f1(
@@ -307,6 +314,7 @@ class TwoPowerSphericalPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return self._R2deriv(xp.abs(z), R)  # Spherical potential
 
     def _mass(self, R, z=None, t=0.0):
@@ -382,6 +390,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
             return self._specialSelf._evaluate(R, z, phi=phi, t=t)
         else:  # valid for alpha != 2, 3
             xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
             r = xp.sqrt(R**2.0 + z**2.0)
             return -(1.0 - 1.0 / (1.0 + self.a / r) ** (2.0 - self.alpha)) / (
                 self.a * (2.0 - self.alpha) * (3.0 - self.alpha)
@@ -392,6 +401,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
             return self._specialSelf._Rforce(R, z, phi=phi, t=t)
         else:
             xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -R
@@ -404,6 +414,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         if self._specialSelf is not None:
             return self._specialSelf._R2deriv(R, z, phi=phi, t=t)
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         a, alpha = self.a, self.alpha
         r = xp.sqrt(R**2.0 + z**2.0)
         # formula not valid for alpha=2,3, (integers?)
@@ -419,6 +430,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
             return self._specialSelf._zforce(R, z, phi=phi, t=t)
         else:
             xp = get_namespace(R, z)
+            R, z = coerce_coords(xp, R, z)
             r = xp.sqrt(R**2.0 + z**2.0)
             return (
                 -z
@@ -434,6 +446,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         if self._specialSelf is not None:
             return self._specialSelf._Rzderiv(R, z, phi=phi, t=t)
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         a, alpha = self.a, self.alpha
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
@@ -442,6 +455,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a / r) ** self.alpha
@@ -501,15 +515,18 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return -(1.0 - 1.0 / (1.0 + self.a / r) ** 2.0) / (6.0 * self.a)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return -R / (xp.sqrt(R**2.0 + z**2.0) + self.a) ** 3.0 / 3.0
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return -(
             ((2.0 * R**2.0 - z**2.0) - self.a * r) / (3.0 * r * (r + self.a) ** 4.0)
@@ -517,6 +534,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return -z / (self.a + r) ** 3.0 / 3.0
 
@@ -525,12 +543,14 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         a = self.a
         r = xp.sqrt(R**2.0 + z**2.0)
         return -(R * z / r / (a + r) ** 4.0)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return 1.0 / (1.0 + r / self.a) ** 4.0 / 4.0 / math.pi / self.a**3.0
 
@@ -587,20 +607,24 @@ class HernquistPotential(DehnenSphericalPotential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return -1.0 / (1.0 + xp.sqrt(R**2.0 + z**2.0) / self.a) / 2.0 / self.a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * z**2.0 + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
@@ -611,6 +635,7 @@ class HernquistPotential(DehnenSphericalPotential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
@@ -622,6 +647,7 @@ class HernquistPotential(DehnenSphericalPotential):
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         # R == a is a removable singularity of the generic branch (Rma -> 0,
         # (a^2-R^2) -> 0, (r^2-a^2) -> 0): use the closed-form limit there. Both
@@ -756,20 +782,24 @@ class JaffePotential(DehnenSphericalPotential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         return -xp.log(1.0 + self.a / xp.sqrt(R**2.0 + z**2.0)) / self.a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * (z**2.0 - R**2.0) + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
@@ -779,6 +809,7 @@ class JaffePotential(DehnenSphericalPotential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
@@ -790,6 +821,7 @@ class JaffePotential(DehnenSphericalPotential):
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         # R == a is a removable singularity of the generic branch (Rma -> 0,
         # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
@@ -952,6 +984,7 @@ class NFWPotential(TwoPowerSphericalPotential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         # -special.xlogy(1/r, 1+r/a) == -(1/r)*log(1+r/a), with xlogy's
         # convention that the result is 0 where the prefactor 1/r is 0 (i.e.
@@ -968,6 +1001,7 @@ class NFWPotential(TwoPowerSphericalPotential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return R * (
@@ -976,6 +1010,7 @@ class NFWPotential(TwoPowerSphericalPotential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return z * (
@@ -984,6 +1019,7 @@ class NFWPotential(TwoPowerSphericalPotential):
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return (
@@ -1001,6 +1037,7 @@ class NFWPotential(TwoPowerSphericalPotential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return (
@@ -1019,6 +1056,7 @@ class NFWPotential(TwoPowerSphericalPotential):
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         # R == a is a removable singularity of the generic branch (Rma -> 0,
         # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
@@ -1058,6 +1096,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         if z is not None:
             raise AttributeError  # use general implementation
         xp = get_namespace(R)
+        (R,) = coerce_coords(xp, R)
         return xp.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a)
 
     @conversion.physical_conversion("position", pop=False)
