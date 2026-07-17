@@ -4,7 +4,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace, zeros_like_backend
+from ..backend import coerce_coords, get_namespace, zeros_like_backend
 from ..util import conversion
 from .Potential import (
     _evaluatePotentials,
@@ -126,18 +126,21 @@ class KuzminLikeWrapperPotential(WrapperPotential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         return _evaluatePotentials(
             self._pot, self._xi(R, z), zeros_like_backend(xp, R), phi=phi, t=t
         )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         return _evaluateRforces(
             self._pot, self._xi(R, z), zeros_like_backend(xp, R), phi=phi, t=t
         ) * self._dxidR(R, z)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         return _evaluateRforces(
             self._pot, self._xi(R, z), zeros_like_backend(xp, R), phi=phi, t=t
         ) * self._dxidz(R, z)
@@ -147,6 +150,7 @@ class KuzminLikeWrapperPotential(WrapperPotential):
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         zero = zeros_like_backend(xp, R)
         return evaluateR2derivs(
             self._pot, self._xi(R, z), zero, phi=phi, t=t
@@ -156,6 +160,7 @@ class KuzminLikeWrapperPotential(WrapperPotential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         zero = zeros_like_backend(xp, R)
         return evaluateR2derivs(
             self._pot, self._xi(R, z), zero, phi=phi, t=t
@@ -165,6 +170,7 @@ class KuzminLikeWrapperPotential(WrapperPotential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         zero = zeros_like_backend(xp, R)
         return evaluateR2derivs(
             self._pot, self._xi(R, z), zero, phi=phi, t=t
