@@ -518,3 +518,16 @@ def test_calcaAJac_higher_order_grad_vs_fd(backend_name):
     assert best < 1e-4 * abs(ad) + 1e-4, (
         f"{backend_name} higher-order grad-vs-FD best={best:.2e}"
     )
+
+
+@pytest.mark.skipif(not AD_BACKENDS, reason="needs a float64-capable AD backend")
+def test_calcaAJac_numpy_prefers_ad(aA_iso):
+    # A PLAIN-NUMPY xv now returns the EXACT AD Jacobian (jax x64 / torch), not FD:
+    # the result is a numpy ndarray equal to the active AD backend's _calcaAJac_backend
+    # (data-driven, no forced backend), deliberately breaking numpy byte-identity.
+    ad_ref = as_numpy(
+        calcaAJac(_arr(AD_BACKENDS[0], _XV), aA_iso, actionsFreqsAngles=True)
+    )
+    out = calcaAJac(_XV.copy(), aA_iso, actionsFreqsAngles=True)
+    assert isinstance(out, numpy.ndarray) and tuple(out.shape) == (9, 6)
+    numpy.testing.assert_allclose(out, ad_ref, rtol=1e-10, atol=1e-12)
