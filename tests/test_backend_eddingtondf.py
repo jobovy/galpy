@@ -204,3 +204,36 @@ def test_ensure_fE_interp_forced(backend):
     gb = dfb._fE_interp(_arr(backend, Es))
     assert _is_backend_array(backend, gb)
     numpy.testing.assert_allclose(as_numpy(gb), ref_df._fE_interp(Es), rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_ensure_fE_interp_forced_construction(backend):
+    # DF CONSTRUCTED under a forced backend (the real harness case): _Emin/_potInf
+    # are backend scalars, so the numpy interpolation-grid bounds must be pulled
+    # numpy-side (else numpy_grid * tensor raises). Construction-outside (the test
+    # above) leaves them numpy and misses this. The f(E) interp still matches
+    # pure numpy.
+    ref_df = eddingtondf(pot=HernquistPotential(amp=2.3, a=1.3))
+    ref_df._ensure_fE_interp()
+    with galpy.backend.use(backend, force=True):
+        dfb = eddingtondf(pot=HernquistPotential(amp=2.3, a=1.3))
+        dfb._ensure_fE_interp()
+    Es = _egrid(ref_df)
+    numpy.testing.assert_allclose(dfb._fE_interp(Es), ref_df._fE_interp(Es), rtol=1e-6)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_forced_construction(backend):
+    # end-to-end sample() with the DF built under a forced backend: exercises the
+    # _ensure_fE_interp grid-bound coercion through the public sampling entry.
+    ref_df = eddingtondf(pot=HernquistPotential(amp=2.3, a=1.3))
+    numpy.random.seed(321)
+    ref = ref_df.sample(n=100, return_orbit=False)
+    numpy.random.seed(321)
+    with galpy.backend.use(backend, force=True):
+        got = eddingtondf(pot=HernquistPotential(amp=2.3, a=1.3)).sample(
+            n=100, return_orbit=False
+        )
+    for g, r in zip(got, ref):
+        assert isinstance(g, numpy.ndarray) and not _is_backend_array(backend, g)
+        numpy.testing.assert_allclose(g, r, rtol=1e-7, atol=1e-8)
