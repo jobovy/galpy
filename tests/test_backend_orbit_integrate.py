@@ -520,6 +520,28 @@ def test_integrate_inbackend_offgrid_phasedim5_no_phi():
         )
 
 
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_integrate_multiorbit_inbackend_offgrid_phasedim5():
+    # A MULTI-orbit phasedim-5 (no phi) batch exercises the cross-orbit batched
+    # interp's non-(4/6) branch (all size*pd columns spliced into one solve, with
+    # the permute-dims output layout); each orbit's off-grid eval must match its
+    # single-orbit reference.
+    pot = PlummerPotential(amp=1.0, b=0.6)
+    ic = numpy.array([[1.0, 0.1, 1.1, 0.05, 0.02], [0.9, 0.0, 1.0, 0.1, -0.03]])
+    o = Orbit(jnp.asarray(ic))
+    o.integrate(jnp.asarray(_TS), pot, method="diffrax")
+    assert o.phasedim() == 5 and o.shape == (2,)
+    toff = jnp.asarray([0.37, 2.15, 4.9])
+    got = numpy.asarray(o.R(toff))  # (size, nt_query)
+    assert got.shape == (2, len(toff))
+    for kk in range(2):
+        ok = Orbit(jnp.asarray(ic[kk]))
+        ok.integrate(jnp.asarray(_TS), pot, method="diffrax")
+        numpy.testing.assert_allclose(
+            got[kk], numpy.asarray(ok.R(toff)), rtol=1e-6, atol=1e-7
+        )
+
+
 # ----------------------------------------- all phase-space dimensions (not just 6)
 @pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
 @pytest.mark.parametrize(
