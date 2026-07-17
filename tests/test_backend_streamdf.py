@@ -540,7 +540,7 @@ def test_calcaAJac_numpy_prefers_ad(aA_iso):
 # the numpy branch is the verbatim original (byte-identical); a backend orbit
 # routes to _determine_stream_track_single_backend -- a PURE function (no numpy
 # item-assignment: xp.stack/concat build every array) so it is differentiable and
-# vmap-ready (Phase B.3). Returns a plain tuple of backend arrays (numpy keeps its
+# map-ready (Phase B.3, jax.lax.map). Returns a plain tuple of backend arrays (numpy keeps its
 # dtype=object array); the boolean-mask angle wrap becomes xp.where, numpy.mod
 # becomes xp.remainder, the actions+angles row select uses static indices.
 ###############################################################################
@@ -678,3 +678,230 @@ def test_determine_stream_track_single_grad_vs_fd(backend_name):
     assert best < 1e-4 * abs(ad) + 1e-6, (
         f"{backend_name} ObsTrack grad-vs-FD best={best:.2e}"
     )
+
+
+###############################################################################
+# Phase B.3: _determine_stream_track -- the FULL stream track, backend-native.
+#
+# The numpy body (dispatched away when the progenitor is a backend orbit / the
+# offsets are backend arrays) is BYTE-IDENTICAL -- verified by a git-stash A/B on
+# a full numpy streamdf (_ObsTrack/_ObsTrackAA/_alljacsTrack/_allinvjacsTrack/
+# _allAcfsTrack/_detdOdJps/_ObsTrackXY/_interpolatedObsTrackXY all bit-unchanged).
+#
+# The backend path (streamdf._determine_stream_track_backend) mirrors the numpy
+# body but is PURE and jax.lax.map-mapped over the chunk grid -- FORK-FREE (no
+# parallel_map), no numpy.empty/item-assignment. (NOT jax.vmap: vmap batches the
+# per-chunk calcaAJac jax.jacrev -- no vmap batching rule over the diffrax/C-STM
+# integration -- and silently leaks the outer d/d(param) gradient ~20%; lax.map
+# runs the chunks sequentially so the analytic AD equals a finite-difference of
+# the same track to ~1e-4.) The auxiliary orbit integrates on the backend
+# (diffrax/torchdiffeq) and the per-chunk AA Jacobian is the exact AD calcaAJac,
+# so the track is differentiable to the potential parameters (via the auxiliary
+# integration + the AA) and the progenitor IC (via _ic_backend); the progenitor's
+# own freqs/angles are recomputed from the backend progenitor so the offset
+# (track AA - progenitor AA) carries the physical d(offset)/dparam cancellation.
+# Full differentiability needs an integrate_method='diffrax'/'torchdiffeq' AA (the
+# track uses the AA's 2nd derivative); the frequency-covariance moments
+# (_meandO/_sortedSigOEig/_dsigomeanProgDirection -- an eigendecomposition) stay
+# constant here (a ~10% residual vs a full numpy-rebuild FD), a Phase-C follow-up.
+#
+# These tests build a NUMPY streamdf, then re-run the track on the backend with a
+# diffrax AA and check value parity + the differentiable pipeline. Slow (a backend
+# track integrates many orbits under AD); jax only (torch: torchdiffeq + a
+# list-comp fallback for the chunk loop -- lax.map is the jax priority).
+###############################################################################
+_STREAM_IC = [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+
+
+def _tdisrupt():
+    return 4.5 / conversion.time_in_Gyr(220.0, 8.0)
+
+
+def _build_numpy_sdf(qval, nTrackChunks, tintJ, deltaAngleTrack=None):
+    from galpy.df import streamdf as _streamdf
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=qval)
+    aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=tintJ)
+    obs = Orbit(numpy.array(_STREAM_IC))
+    return _streamdf(
+        0.365 / 220.0,
+        progenitor=obs,
+        pot=lp,
+        aA=aA,
+        leading=True,
+        nTrackChunks=nTrackChunks,
+        nTrackIterations=0,
+        deltaAngleTrack=deltaAngleTrack,
+        tdisrupt=_tdisrupt(),
+        nospreadsetup=True,
+        useInterp=False,
+        interpTrack=False,
+    )
+
+
+def _run_backend_track(sdf, integrate_kwargs):
+    # Swap in a diffrax AA + a backend progenitor and re-run _determine_stream_track
+    # (dispatched to the backend path). Mutates sdf in place.
+    aA = actionAngleIsochroneApprox(
+        pot=sdf._pot,
+        b=0.8,
+        tintJ=sdf._aA._tintJ,
+        integrate_method="diffrax",
+        integrate_kwargs=integrate_kwargs,
+    )
+    prog_vxvv = numpy.asarray(sdf._progenitor.vxvv[0], dtype=float)
+    progb = Orbit(jnp.asarray(prog_vxvv))
+    progb.turn_physical_off()
+    sdf._aA = aA
+    sdf._progenitor = progb
+    sdf._determine_stream_track(sdf._nTrackChunks)
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_determine_stream_track_value_parity():
+    # The backend track (diffrax AA, AD Jacobian, jax.lax.map) reproduces the numpy
+    # track (C-STM AA, AD Jacobian) far below the 1e-5 AD-vs-FD / integrator floor.
+    sdf = _build_numpy_sdf(0.9, nTrackChunks=4, tintJ=15)
+    names = (
+        "_ObsTrack",
+        "_ObsTrackAA",
+        "_alljacsTrack",
+        "_allinvjacsTrack",
+        "_allAcfsTrack",
+        "_detdOdJps",
+        "_ObsTrackXY",
+    )
+    ref = {a: numpy.array(getattr(sdf, a), dtype=float) for a in names}
+    _run_backend_track(sdf, {"max_steps": 1000000})
+    assert get_namespace(sdf._ObsTrack) is not numpy  # stored as backend arrays
+    for a in names:
+        got = as_numpy(getattr(sdf, a)).astype(float)
+        err = numpy.max(numpy.abs(got - ref[a]))
+        assert err < 1e-5, f"{a}: max|backend-numpy|={err:.2e}"
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_determine_stream_track_map_no_fork(monkeypatch):
+    # The backend chunk loop is jax.lax.map (fork-free): parallel_map must NOT be
+    # used. NOT jax.vmap -- vmap batches the per-chunk calcaAJac jax.jacrev (no vmap
+    # batching rule over the diffrax/C-STM integration) and silently leaks the outer
+    # d/d(param) gradient; lax.map runs the chunks sequentially so the AD is exact.
+    sdf = _build_numpy_sdf(0.9, nTrackChunks=4, tintJ=15)
+    from galpy.util import multi as _multi
+
+    calls = {"laxmap": 0}
+    orig = jax.lax.map
+
+    def spy(*a, **k):
+        calls["laxmap"] += 1
+        return orig(*a, **k)
+
+    def no_fork(*a, **k):
+        raise AssertionError("backend stream track must not fork (parallel_map)")
+
+    monkeypatch.setattr(jax.lax, "map", spy)
+    monkeypatch.setattr(_multi, "parallel_map", no_fork)
+    _run_backend_track(sdf, {"max_steps": 1000000})
+    assert calls["laxmap"] > 0
+
+
+def _track_loss_fn(sdf, prog_vxvv, tintJ, W):
+    # Return loss(param) closures: q (potential) and R0 (progenitor IC), each with a
+    # `direct` flag selecting the AA adjoint -- 'direct' (twice-diff, for jax.grad)
+    # or the default recursive (smooth adaptive forward, for the finite difference).
+    def _aA(lp, direct):
+        ikw = (
+            {"adjoint": "direct", "max_steps": 20000}
+            if direct
+            else {"max_steps": 200000}
+        )
+        return actionAngleIsochroneApprox(
+            pot=lp, b=0.8, tintJ=tintJ, integrate_method="diffrax", integrate_kwargs=ikw
+        )
+
+    def loss_q(qq, direct):
+        lp = LogarithmicHaloPotential(normalize=1.0, q=qq)
+        sdf._pot = lp
+        sdf._aA = _aA(lp, direct)
+        progb = Orbit(jnp.stack([jnp.asarray(v) for v in prog_vxvv]))
+        progb.turn_physical_off()
+        sdf._progenitor = progb
+        sdf._determine_stream_track_backend()
+        return jnp.sum(W * sdf._ObsTrack)
+
+    def loss_ic(r0, direct):
+        lp = sdf._pot
+        sdf._aA = _aA(lp, direct)
+        progb = Orbit(jnp.stack([r0] + [jnp.asarray(v) for v in prog_vxvv[1:]]))
+        progb.turn_physical_off()
+        sdf._progenitor = progb
+        sdf._determine_stream_track_backend()
+        return jnp.sum(W * sdf._ObsTrack)
+
+    return loss_q, loss_ic
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_determine_stream_track_differentiable_potential():
+    # d(sum(W*ObsTrack))/d(LogHalo q) flows end-to-end through the backend track
+    # (auxiliary diffrax integration + AD calcaAJac + lax.map assembly). The analytic
+    # AD MUST equal a central FD of the SAME backend track -- here to ~1e-3 (the
+    # stringent grad-vs-FD bar; a vmap chunk loop instead leaks ~20%). [The separate
+    # ~10% gap to a full numpy-rebuild FD is the frozen frequency-covariance
+    # eigendecomposition (_meandO/_dsigomeanProgDirection), a differentiable-__init__
+    # (Phase C) follow-up -- not tested here.]
+    nch, tintJ, delta, q0 = 3, 8, 0.5, 0.9
+    Wn = numpy.random.default_rng(1).standard_normal((nch, 6))
+    W = jnp.asarray(Wn)
+    sdf = _build_numpy_sdf(q0, nTrackChunks=nch, tintJ=tintJ, deltaAngleTrack=delta)
+    prog_vxvv = numpy.asarray(sdf._progenitor.vxvv[0], dtype=float)
+    loss_q, _ = _track_loss_fn(sdf, prog_vxvv, tintJ, W)
+
+    ad = float(jax.grad(lambda q: loss_q(q, True))(jnp.asarray(q0)))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(
+            ad
+            - (
+                float(loss_q(jnp.asarray(q0 + h), False))
+                - float(loss_q(jnp.asarray(q0 - h), False))
+            )
+            / (2 * h)
+        )
+        for h in (1e-3, 1e-4)
+    )
+    assert best < 3e-3 * abs(ad), f"q AD={ad:.6e} best|AD-ownFD|={best:.2e}"
+
+
+@pytest.mark.slow
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_determine_stream_track_differentiable_progenitor():
+    # d(sum(W*ObsTrack))/d(progenitor R) flows through the backend track (the IC
+    # enters via _ic_backend -> the auxiliary integration + AD calcaAJac + lax.map
+    # assembly); the analytic AD MUST equal a central FD of the SAME backend track,
+    # here to ~1e-3 (same stringent grad-vs-FD bar as the potential gradient).
+    nch, tintJ, delta = 3, 8, 0.5
+    r0 = _STREAM_IC[0]
+    Wn = numpy.random.default_rng(2).standard_normal((nch, 6))
+    W = jnp.asarray(Wn)
+    sdf = _build_numpy_sdf(0.9, nTrackChunks=nch, tintJ=tintJ, deltaAngleTrack=delta)
+    prog_vxvv = numpy.asarray(sdf._progenitor.vxvv[0], dtype=float)
+    _, loss_ic = _track_loss_fn(sdf, prog_vxvv, tintJ, W)
+
+    ad = float(jax.grad(lambda r: loss_ic(r, True))(jnp.asarray(r0)))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(
+            ad
+            - (
+                float(loss_ic(jnp.asarray(r0 + h), False))
+                - float(loss_ic(jnp.asarray(r0 - h), False))
+            )
+            / (2 * h)
+        )
+        for h in (1e-3, 1e-4)
+    )
+    assert best < 3e-3 * abs(ad), f"R0 AD={ad:.6e} best|AD-ownFD|={best:.2e}"

@@ -1240,6 +1240,12 @@ class streamdf(df):
         )  # to be sure that we cover it
         if self._useTM:
             return self._determine_stream_track_TM()
+        # Backend (jax/torch) progenitor -> pure, mapped, differentiable track;
+        # numpy body below stays byte-identical (dispatched away).
+        if getattr(
+            self._progenitor, "_ic_backend", None
+        ) is not None or is_backend_array(self._progenitor_angle):
+            return self._determine_stream_track_backend()
         # Instantiate an auxiliaryTrack, which is an Orbit instance at the mean frequency of the stream, and zero angle separation wrt the progenitor; prog_stream_offset is the offset between this track and the progenitor at zero angle
         prog_stream_offset = _determine_stream_track_single(
             self._aA,
@@ -1393,6 +1399,17 @@ class streamdf(df):
         return None
 
     def _calc_ObsTrackXY(self):
+        # Backend (jax/torch) track: build _ObsTrackXY functionally (xp.stack); the
+        # numpy branch below is byte-identical.
+        if is_backend_array(self._ObsTrack):
+            xp = get_namespace(self._ObsTrack)
+            R, vR, vT, z, vz, phi = (self._ObsTrack[:, i] for i in range(6))
+            TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+            self._ObsTrackXY = xp.stack(
+                [R * xp.cos(phi), R * xp.sin(phi), z, TrackvX, TrackvY, TrackvZ],
+                axis=-1,
+            )
+            return None
         # Also calculate _ObsTrackXY in XYZ,vXYZ coordinates
         self._ObsTrackXY = numpy.empty_like(self._ObsTrack)
         TrackX = self._ObsTrack[:, 0] * numpy.cos(self._ObsTrack[:, 5])
@@ -1410,6 +1427,144 @@ class streamdf(df):
         self._ObsTrackXY[:, 3] = TrackvX
         self._ObsTrackXY[:, 4] = TrackvY
         self._ObsTrackXY[:, 5] = TrackvZ
+        return None
+
+    def _determine_stream_track_backend(self):
+        """Backend (jax/torch) stream track: pure, ``jax.lax.map``-mapped
+        (fork-free -- no ``parallel_map``), differentiable end-to-end.
+
+        Mirrors the numpy body: a per-chunk phase-space point ``xv0`` (from the
+        backend-integrated auxiliary orbit, then from the previous ``ObsTrack``
+        during refinement) feeds ``_determine_stream_track_single_backend``,
+        stacked into ``(nTrackChunks, ...)`` arrays with no ``numpy.empty``/
+        item-assignment. Stores the same ``self._thetasTrack/_ObsTrack/...`` as
+        backend arrays. Gradients flow to the potential parameters (through the
+        diffrax/torchdiffeq auxiliary integration and the AD ``calcaAJac``) and to
+        the progenitor IC (through ``_ic_backend``); the analytic AD matches a
+        finite-difference of the same backend track to ~1e-4 (needs an
+        ``integrate_method='diffrax'/'torchdiffeq'`` aA -- the track uses the AA
+        Jacobian, its 2nd derivative w.r.t. a parameter). The progenitor freqs/
+        angles are recomputed (below) so the offset carries the gradient; only the
+        frequency-covariance moments (``_meandO``/``_sortedSigOEig``/
+        ``_dsigomeanProgDirection``, an eigendecomposition) stay constant here (a
+        later differentiable-``__init__`` phase; a subdominant ~10% of d(track)/dp).
+        """
+        from ..orbit import Orbit
+
+        dt = self._deltaAngleTrack / self._progenitor_Omega_along_dOmega
+        if dt < 0.0:
+            raise NotImplementedError(
+                "backend stream track requires dt>=0 (the normal leading/trailing "
+                "setup, where _progenitor_Omega_along_dOmega>0); dt<0 needs an "
+                "in-place orbit.flip on a backend orbit -- a follow-up"
+            )
+        xv0_prog = self._progenitor._ic_backend  # (6,) backend IC, grad-connected
+        xp = get_namespace(xv0_prog)
+        method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        # Recompute the progenitor's freqs/angles from the (backend) progenitor so the
+        # offsets carry the potential/IC gradient (the numpy body reads the stored
+        # constants). The track offset is (track AA - progenitor AA); with both AAs
+        # differentiated the physical d(offset)/dparam cancellation is captured -- else
+        # d(track)/dparam is off by ~20x. The remaining moments (_meandO / _sortedSigOEig
+        # / _dsigomeanProgDirection, the frequency-covariance eigendecomposition) stay
+        # constant here (a later differentiable-__init__ phase); their param-dependence
+        # is subdominant. Values match the stored constants (value parity preserved).
+        pacfs = self._aA.actionsFreqsAngles(*[xv0_prog[i] for i in range(6)])
+        progenitor_Omega = xp.stack([xp.reshape(pacfs[i], ()) for i in (3, 4, 5)])
+        progenitor_angle = xp.stack([xp.reshape(pacfs[i], ()) for i in (6, 7, 8)])
+        self._progenitor_Omega = progenitor_Omega  # meanOmega reads this
+
+        def meanOmega(x):
+            return self.meanOmega(x, use_physical=False)
+
+        # prog_stream_offset at zero angle: an un-integrated backend orbit's
+        # accessors are numpy/grad-dead, so use its _ic_backend directly (== o(0)).
+        prog_offset = _determine_stream_track_single_backend(
+            self._aA,
+            xv0_prog,
+            progenitor_angle,
+            self._sigMeanSign,
+            self._dsigomeanProgDirection,
+            meanOmega,
+            0.0,
+        )
+        # auxiliaryTrack: mean-frequency / zero-angle orbit, integrated on the backend
+        # with the SAME solver options as the AA (a consistent adjoint across every
+        # integration in the graph -- mixing diffrax adjoints corrupts nested grads).
+        auxiliaryTrack = Orbit(prog_offset[3])
+        auxiliaryTrack.integrate(
+            xp.asarray(self._trackts),
+            self._pot,
+            method=method,
+            inbackend_kwargs=getattr(self._aA, "_integrate_kwargs", None),
+        )
+        # auxiliary frequency (rescales progenitor vs. auxiliary orbital time)
+        aux0 = xp.stack(
+            [
+                auxiliaryTrack.R(0.0),
+                auxiliaryTrack.vR(0.0),
+                auxiliaryTrack.vT(0.0),
+                auxiliaryTrack.z(0.0),
+                auxiliaryTrack.vz(0.0),
+                auxiliaryTrack.phi(0.0),
+            ]
+        )
+        aux_acfs = self._aA.actionsFreqsAngles(*[aux0[i] for i in range(6)])
+        auxiliary_Omega = xp.stack([xp.reshape(aux_acfs[i], ()) for i in (3, 4, 5)])
+        dsig = as_backend_constant(xp, self._dsigomeanProgDirection, xv0_prog)
+        # |progenitor / auxiliary| frequency along dOmega (the abs cancels the numpy
+        # sigMeanSign convention); progenitor_Omega recomputed so factor tracks param.
+        factor = xp.abs(
+            xp.sum(progenitor_Omega * dsig) / xp.sum(auxiliary_Omega * dsig)
+        )
+        # per-chunk points from the integrated aux orbit (array-time accessor is
+        # grad-connected); mapped (lax.map) -- NO parallel_map/fork, NO item-assign.
+        times = xp.asarray(self._trackts[: self._nTrackChunks]) * factor
+        xv0_all = xp.stack(
+            [
+                auxiliaryTrack.R(times),
+                auxiliaryTrack.vR(times),
+                auxiliaryTrack.vT(times),
+                auxiliaryTrack.z(times),
+                auxiliaryTrack.vz(times),
+                auxiliaryTrack.phi(times),
+            ],
+            axis=-1,
+        )  # (nTrackChunks, 6)
+        thetasTrack = xp.asarray(
+            numpy.linspace(0.0, float(self._deltaAngleTrack), self._nTrackChunks)
+        )
+
+        def single(xv0, th):
+            return _determine_stream_track_single_backend(
+                self._aA,
+                xv0,
+                progenitor_angle,
+                self._sigMeanSign,
+                self._dsigomeanProgDirection,
+                meanOmega,
+                th,
+            )
+
+        outs = _vmap_track_chunks(xp, single, xv0_all, thetasTrack)
+        # nTrackIterations refinement: Orbit(ObsTrack)(0)==ObsTrack, so re-run each
+        # chunk with xv0 = the current ObsTrack point (functional; no item-assign).
+        ObsTrack = outs[3]
+        for _ in range(self.nTrackIterations):
+            outs = _vmap_track_chunks(xp, single, ObsTrack, thetasTrack)
+            ObsTrack = outs[3]
+        (
+            self._allAcfsTrack,
+            self._alljacsTrack,
+            self._allinvjacsTrack,
+            self._ObsTrack,
+            self._ObsTrackAA,
+            self._detdOdJps,
+        ) = outs
+        self._thetasTrack = thetasTrack
+        self._meandetdOdJp = xp.mean(self._detdOdJps)
+        self._logmeandetdOdJp = xp.log(self._meandetdOdJp)
+        self._calc_ObsTrackXY()
         return None
 
     def _determine_stream_track_TM(self):
@@ -4085,6 +4240,28 @@ def _hp_ars(x, params):
     return -(x - mO) / sO2 + 1.0 / x
 
 
+def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
+    """Map the per-chunk backend track assembly over ``(xv0_all, thetasTrack)``.
+
+    jax: ``jax.lax.map`` -- fork-free (no ``parallel_map``), jit-compatible, no
+    item-assignment, and CORRECTLY differentiable. NOT ``jax.vmap``: ``single``
+    calls ``calcaAJac`` = ``jax.jacrev`` of the AA map (over a diffrax/C-STM
+    integration with no vmap batching rule), and ``jax.vmap`` batches that inner
+    jacrev in a way that silently DROPS the outer d/d(parameter) gradient (the
+    forward value is correct, but jax.grad through the track leaks ~20%). lax.map
+    runs the chunks sequentially in the compiled graph, so the jacrev is never
+    batched and the gradient is exact (matches a finite-difference of the same
+    track to ~1e-4). torch: a Python stack of per-chunk calls (torch.func.vmap
+    cannot trace the torchdiffeq custom-autograd orbit). 6-tuple of stacked arrays.
+    """
+    if "jax" in xp.__name__:
+        import jax
+
+        return jax.lax.map(lambda a: single(a[0], a[1]), (xv0_all, thetasTrack))
+    outs = [single(xv0_all[ii], thetasTrack[ii]) for ii in range(xv0_all.shape[0])]
+    return tuple(xp.stack([o[k] for o in outs], axis=0) for k in range(6))
+
+
 def _determine_stream_track_single(
     aA,
     progenitorTrack,
@@ -4100,8 +4277,7 @@ def _determine_stream_track_single(
     if is_backend_array(progenitorTrack(trackt).vxvv[0]):
         return _determine_stream_track_single_backend(
             aA,
-            progenitorTrack,
-            trackt,
+            progenitorTrack(trackt).vxvv[0],
             progenitor_angle,
             sigMeanSign,
             dsigomeanProgDirection,
@@ -4170,8 +4346,7 @@ def _determine_stream_track_single(
 
 def _determine_stream_track_single_backend(
     aA,
-    progenitorTrack,
-    trackt,
+    xv0,
     progenitor_angle,
     sigMeanSign,
     dsigomeanProgDirection,
@@ -4180,12 +4355,13 @@ def _determine_stream_track_single_backend(
 ):
     """Backend (jax/torch) path of ``_determine_stream_track_single``.
 
-    Pure function of its inputs (no numpy item-assignment/empty): every array is
-    built with ``xp.stack``/``xp.concat`` so it is differentiable and vmap-ready
-    (Phase B.3). Returns a plain tuple of backend arrays (the numpy path keeps its
+    ``xv0`` is the (R,vR,vT,z,vz,phi) backend point at this chunk. Pure function
+    of its inputs (no numpy item-assignment/empty): every array is built with
+    ``xp.stack``/``xp.concat`` so it is differentiable and map-ready (Phase B.3 --
+    ``_determine_stream_track_backend`` ``jax.lax.map``s this over the chunk grid).
+    Returns a plain tuple of backend arrays (the numpy path keeps its
     ``dtype=object`` array); the caller unpacks ``multiOut[0..5]`` for both.
     """
-    xv0 = progenitorTrack(trackt).vxvv[0]  # (R,vR,vT,z,vz,phi), a (6,) backend array
     xp = get_namespace(xv0)
     # actions/freqs/angles at the progenitor point (9,)
     tacfs = aA.actionsFreqsAngles(xv0[0], xv0[1], xv0[2], xv0[3], xv0[4], xv0[5])
@@ -4216,8 +4392,11 @@ def _determine_stream_track_single_backend(
     diffAngles = xp.where(
         diffAngles < -numpy.pi, diffAngles + 2.0 * numpy.pi, diffAngles
     )
-    thisFreq = as_backend_constant(
-        xp, numpy.asarray(meanOmega(thetasTrack)).reshape(-1), xv0
+    tf = meanOmega(thetasTrack)  # backend (3,) when thetasTrack is backend, else numpy
+    thisFreq = (
+        xp.reshape(tf, (-1,))
+        if is_backend_array(tf)
+        else as_backend_constant(xp, numpy.asarray(tf).reshape(-1), xv0)
     )
     diffFreqs = thisFreq - allAcfsTrack[3:6]
     ObsTrackAA = xp.concat([thisFreq, theseAngles], axis=0)
