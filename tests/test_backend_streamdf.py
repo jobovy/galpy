@@ -521,16 +521,19 @@ def test_calcaAJac_higher_order_grad_vs_fd(backend_name):
 
 
 @pytest.mark.skipif(not AD_BACKENDS, reason="needs a float64-capable AD backend")
-def test_calcaAJac_numpy_prefers_ad(aA_iso):
-    # A PLAIN-NUMPY xv now returns the EXACT AD Jacobian (jax x64 / torch), not FD:
-    # the result is a numpy ndarray equal to the active AD backend's _calcaAJac_backend
-    # (data-driven, no forced backend), deliberately breaking numpy byte-identity.
-    ad_ref = as_numpy(
-        calcaAJac(_arr(AD_BACKENDS[0], _XV), aA_iso, actionsFreqsAngles=True)
-    )
-    out = calcaAJac(_XV.copy(), aA_iso, actionsFreqsAngles=True)
-    assert isinstance(out, numpy.ndarray) and tuple(out.shape) == (9, 6)
-    numpy.testing.assert_allclose(out, ad_ref, rtol=1e-10, atol=1e-12)
+def test_calcaAJac_numpy_stays_fd(aA_iso):
+    # A plain-numpy xv keeps the historical finite-difference Jacobian (byte-identical
+    # to numpy-only installs) even when jax/torch is available -- it must NOT silently
+    # route to a backend AD path. A backend xv gets the exact AD Jacobian instead; the
+    # two agree only at the coarse one-sided-FD-vs-AD floor (some Jacobian entries differ
+    # ~1%), which is exactly why the differentiable track is worth having.
+    fd = calcaAJac(_XV.copy(), aA_iso, actionsFreqsAngles=True)
+    assert type(fd) is numpy.ndarray and tuple(fd.shape) == (9, 6)
+    for backend_name in AD_BACKENDS:
+        ad = as_numpy(
+            calcaAJac(_arr(backend_name, _XV), aA_iso, actionsFreqsAngles=True)
+        )
+        numpy.testing.assert_allclose(ad, fd, rtol=2e-2, atol=1e-4)
 
 
 ###############################################################################
@@ -567,8 +570,12 @@ def _track_args():
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_determine_stream_track_single_value_parity(aA_iso, backend_name):
-    # Backend path == numpy path at the identical phase-space point (all 6 outputs);
-    # both use the exact AD Jacobian, so they agree far below the 1e-5 AD-vs-FD floor.
+    # Backend path == numpy path at the identical phase-space point (all 6 outputs).
+    # The numpy path uses the finite-difference aA Jacobian and the backend path the
+    # exact AD Jacobian, so out[1] (the freq/angle Jacobian) agrees only at the coarse
+    # one-sided-FD floor (~5e-5 abs, ~100% rel on near-zero entries). Every other output
+    # -- actions/freqs/angles, inverse Jacobian, ObsTrack, ObsTrackAA, detdOdJ -- matches
+    # far below the 1e-5 integrator floor.
     args = _track_args()
     out_np = _determine_stream_track_single(
         aA_iso, lambda t: Orbit(_XV.copy()), 0.0, *args
@@ -579,11 +586,19 @@ def test_determine_stream_track_single_value_parity(aA_iso, backend_name):
         isinstance(out_np, numpy.ndarray) and out_np.dtype == object
     )  # numpy unchanged
     assert isinstance(out_b, tuple) and len(out_b) == 6  # backend: plain tuple
+    # Per-output atol at the honest FD-vs-AD floor: actions/freqs/angles (out[0]) and the
+    # AA track (out[4]) are Jacobian-independent (~1e-12); the freq/angle Jacobian (out[1])
+    # differs ~5e-5, its inverse (out[2]) ~2e-3 (matrix inversion amplifies the FD error),
+    # which propagates ~1e-4 into ObsTrack (out[3]); detdOdJ (out[5]) stays ~1e-6. Tight
+    # gradient correctness is covered separately by the mock-AA grad-vs-FD test.
+    atols = [1e-9, 2e-4, 5e-3, 5e-4, 1e-9, 1e-5]
     for i in range(6):
         a = numpy.asarray(out_np[i], dtype=float)
         b = as_numpy(out_b[i]).astype(float)
         assert a.shape == b.shape
-        numpy.testing.assert_allclose(b, a, rtol=1e-9, atol=1e-9, err_msg=f"out[{i}]")
+        numpy.testing.assert_allclose(
+            b, a, rtol=2e-2, atol=atols[i], err_msg=f"out[{i}]"
+        )
 
 
 # A smooth NONLINEAR mock AA (jacrev/2nd-order AD well-defined everywhere): the
@@ -760,8 +775,12 @@ def _run_backend_track(sdf, integrate_kwargs):
 @pytest.mark.slow
 @pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
 def test_determine_stream_track_value_parity():
-    # The backend track (diffrax AA, AD Jacobian, jax.lax.map) reproduces the numpy
-    # track (C-STM AA, AD Jacobian) far below the 1e-5 AD-vs-FD / integrator floor.
+    # The backend track (diffrax AA, exact AD Jacobian, jax.lax.map) reproduces the numpy
+    # track (C-STM AA, finite-difference Jacobian). The physical track (_ObsTrack/_ObsTrackXY),
+    # actions/angles and detdOdJ match far below the 1e-5 integrator floor; only the stored
+    # freq/angle Jacobian _alljacsTrack (~5e-5) and its inverse _allinvjacsTrack (~9e-3, matrix
+    # inversion amplifies the FD error) agree at the coarser one-sided-FD-vs-AD floor, since
+    # numpy keeps FD there while the backend uses exact AD.
     sdf = _build_numpy_sdf(0.9, nTrackChunks=4, tintJ=15)
     names = (
         "_ObsTrack",
@@ -775,10 +794,14 @@ def test_determine_stream_track_value_parity():
     ref = {a: numpy.array(getattr(sdf, a), dtype=float) for a in names}
     _run_backend_track(sdf, {"max_steps": 1000000})
     assert get_namespace(sdf._ObsTrack) is not numpy  # stored as backend arrays
+    # FD-vs-AD floor only for the stored Jacobian and its (inversion-amplified) inverse;
+    # every physical/AA quantity stays at the tight integrator floor.
+    fd_floor = {"_alljacsTrack": 1e-4, "_allinvjacsTrack": 2e-2}
     for a in names:
         got = as_numpy(getattr(sdf, a)).astype(float)
         err = numpy.max(numpy.abs(got - ref[a]))
-        assert err < 1e-5, f"{a}: max|backend-numpy|={err:.2e}"
+        tol = fd_floor.get(a, 1e-5)
+        assert err < tol, f"{a}: max|backend-numpy|={err:.2e}"
 
 
 @pytest.mark.slow

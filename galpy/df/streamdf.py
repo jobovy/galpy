@@ -17,7 +17,7 @@ else:
     from scipy.special import logsumexp
 
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
-from ..backend import as_backend_constant, as_numpy, get_namespace, is_backend_array
+from ..backend import as_backend_constant, get_namespace, is_backend_array
 from ..backend import special as _bspecial
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..backend.quadrature import quad as _backend_quad
@@ -197,6 +197,8 @@ class streamdf(df):
         -----
         - 2013-09-16 - Started - Bovy (IAS)
         - 2013-11-25 - Started over - Bovy (IAS)
+
+        - The stream track can be set up in a differentiable, jax/torch-native way by passing the progenitor phase-space coordinates as a jax or torch array: the action-angle Jacobian (``calcaAJac``) is then computed with exact automatic differentiation instead of finite differences, and the whole track is differentiable with respect to the potential and progenitor parameters. A plain-numpy progenitor keeps the historical (byte-identical) finite-difference setup.
         """
         if custom_transform is not None:
             warnings.warn(
@@ -261,9 +263,6 @@ class streamdf(df):
             self._multi = multiprocessing.cpu_count()
         else:
             self._multi = multi
-        # multi forks parallel_map; jax/torch-after-fork deadlocks, so multi
-        # instances stay on fork-safe FD (single-process keeps the exact AD Jacobian).
-        self._prefer_ad_jac = self._multi is None
         # Keep the caller's Orbit (unit metadata intact) for streamTrack
         # construction; _progenitor_setup turns physical off on a copy.
         self._orig_progenitor = progenitor
@@ -347,7 +346,6 @@ class streamdf(df):
                 dxv=None,
                 dOdJ=True,
                 _initacfs=acfs,
-                prefer_ad=self._prefer_ad_jac,
             )
         self._dOdJpInv = numpy.linalg.inv(self._dOdJp)
         self._dOdJpEig = _real_eig(self._dOdJp)
@@ -498,7 +496,6 @@ class streamdf(df):
             self._dsigomeanProgDirection,
             lambda x: self.meanOmega(x, use_physical=False),
             0.0,
-            prefer_ad=self._prefer_ad_jac,
         )  # angle = 0
         # Setup the new progenitor orbit
         progenitor = Orbit(prog_stream_offset[3])
@@ -1256,7 +1253,6 @@ class streamdf(df):
             self._dsigomeanProgDirection,
             lambda x: self.meanOmega(x, use_physical=False),
             0.0,
-            prefer_ad=self._prefer_ad_jac,
         )  # angle = 0
         auxiliaryTrack = Orbit(prog_stream_offset[3])
         if dt < 0.0:
@@ -1298,7 +1294,6 @@ class streamdf(df):
                     self._dsigomeanProgDirection,
                     lambda x: self.meanOmega(x, use_physical=False),
                     thetasTrack[ii],
-                    prefer_ad=self._prefer_ad_jac,
                 )
                 allAcfsTrack[ii, :] = multiOut[0]
                 alljacsTrack[ii, :, :] = multiOut[1]
@@ -1322,7 +1317,6 @@ class streamdf(df):
                         self._dsigomeanProgDirection,
                         lambda x: self.meanOmega(x, use_physical=False),
                         thetasTrack[x],
-                        prefer_ad=self._prefer_ad_jac,
                     )
                 ),
                 range(self._nTrackChunks),
@@ -1350,7 +1344,6 @@ class streamdf(df):
                         self._dsigomeanProgDirection,
                         lambda x: self.meanOmega(x, use_physical=False),
                         thetasTrack[ii],
-                        prefer_ad=self._prefer_ad_jac,
                     )
                     allAcfsTrack[ii, :] = multiOut[0]
                     alljacsTrack[ii, :, :] = multiOut[1]
@@ -1370,7 +1363,6 @@ class streamdf(df):
                             self._dsigomeanProgDirection,
                             lambda x: self.meanOmega(x, use_physical=False),
                             thetasTrack[x],
-                            prefer_ad=self._prefer_ad_jac,
                         )
                     ),
                     range(self._nTrackChunks),
@@ -4271,7 +4263,6 @@ def _determine_stream_track_single(
     dsigomeanProgDirection,
     meanOmega,
     thetasTrack,
-    prefer_ad=True,
 ):
     # Backend (jax/torch) orbit -> pure, differentiable, vmap-ready path; numpy below is byte-identical.
     if is_backend_array(progenitorTrack(trackt).vxvv[0]):
@@ -4305,7 +4296,6 @@ def _determine_stream_track_single(
         actionsFreqsAngles=True,
         lb=False,
         _initacfs=tacfs,
-        prefer_ad=prefer_ad,
     )
     alljacsTrack[:, :] = tjac[3:, :]
     tinvjac = numpy.linalg.inv(tjac[3:, :])
@@ -4577,7 +4567,6 @@ def calcaAJac(
     Zsun=0.0208,
     vsun=[-11.1, 8.0 * 30.24, 7.25],
     _initacfs=None,
-    prefer_ad=True,
 ):
     """
     Calculate the Jacobian d(J,theta)/d(x,v)
@@ -4614,8 +4603,6 @@ def calcaAJac(
         If set, this is a function that takes xv and returns R,vR,vT,z,vz,phi in normalized units (units where vc=1 at r=1 if the potential is normalized that way, for example)
     _initacfs: list, optional
         If set, this is a list of the actions, frequencies, and angles at xv
-    prefer_ad: bool, optional
-        If True (default) and a float64-capable AD backend (jax x64 / torch) is installed, compute the exact autodiff Jacobian for a plain-numpy xv instead of finite differences; set False on multi-processing streamdf instances (AD-after-fork deadlocks)
 
     Returns
     -------
@@ -4626,7 +4613,7 @@ def calcaAJac(
     -----
     - 2013-11-25 - Written - Bovy (IAS)
     """
-    # Backend (jax/torch): exact AD Jacobian; numpy path below is finite-difference.
+    # Backend (jax/torch): exact AD Jacobian; numpy path below is byte-identical.
     if is_backend_array(xv) or is_backend_array(xv[0]):
         return _calcaAJac_backend(
             xv,
@@ -4637,15 +4624,6 @@ def calcaAJac(
             lb=lb,
             coordFunc=coordFunc,
         )
-    # Plain numpy: prefer the EXACT AD Jacobian over FD when a float64-capable AD
-    # backend is installed (approved: shifts the track ~1e-5 to the more accurate value).
-    # prefer_ad=False (multi/parallel_map instances) keeps FD -- AD-after-fork deadlocks.
-    if prefer_ad and coordFunc is None and not lb:
-        _ad = _calcaAJac_numpy_ad(
-            xv, aA, freqs=freqs, dOdJ=dOdJ, actionsFreqsAngles=actionsFreqsAngles
-        )
-        if _ad is not None:
-            return _ad
     if lb:
         coordFunc = lambda x: lbCoordFunc(xv, vo, ro, R0, Zsun, vsun)
     if not coordFunc is None:
@@ -4763,36 +4741,6 @@ def _calcaAJac_backend(
         jac2 = xp.concat([A[3:6], A[6:9]], axis=0)  # freqs over angles
         jac = (jac2 @ xp.linalg.inv(jac))[0:3, 0:3]
     return jac
-
-
-def _calcaAJac_numpy_ad(xv, aA, freqs=False, dOdJ=False, actionsFreqsAngles=False):
-    """Exact AD Jacobian for a plain-numpy ``xv``, or None if no float64 AD backend.
-
-    Routes the numpy caller through the exact autodiff path (data-driven: the
-    backend ``xv`` dispatches the AA map to that backend) instead of the finite-
-    difference hack, returning a numpy array. Selection never silently degrades
-    precision: jax only when x64 is enabled (a float32 Jacobian would be worse
-    than float64 FD), else torch (float64-safe), else None (caller uses FD).
-    """
-    from ..util._optional_deps import _JAX_LOADED, _TORCH_LOADED
-
-    xvn = numpy.asarray(xv)
-    kw = dict(freqs=freqs, dOdJ=dOdJ, actionsFreqsAngles=actionsFreqsAngles)
-    if _JAX_LOADED:
-        import jax
-
-        if jax.config.read("jax_enable_x64"):
-            import jax.numpy as jnp
-
-            return numpy.asarray(
-                as_numpy(_calcaAJac_backend(jnp.asarray(xvn), aA, **kw))
-            )
-    if _TORCH_LOADED:
-        import torch
-
-        txv = torch.as_tensor(xvn, dtype=torch.float64)
-        return numpy.asarray(as_numpy(_calcaAJac_backend(txv, aA, **kw)))
-    return None
 
 
 def lbCoordFunc(xv, vo, ro, R0, Zsun, vsun):
