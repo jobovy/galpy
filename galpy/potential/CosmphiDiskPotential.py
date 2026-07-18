@@ -3,7 +3,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion
 from .planarPotential import planarPotential
 
@@ -109,6 +109,7 @@ class CosmphiDiskPotential(planarPotential):
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         inside = R < self._rb
         # Both branches contain a power of R that is singular at R=0 (the inside
         # rbp/R**p for p>0, the outside R**p for p<0). Under the eager xp.where
@@ -132,6 +133,7 @@ class CosmphiDiskPotential(planarPotential):
 
     def _Rforce(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         inside = R < self._rb
         R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
         R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
@@ -150,6 +152,7 @@ class CosmphiDiskPotential(planarPotential):
 
     def _phitorque(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         inside = R < self._rb
         R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
         R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
@@ -166,6 +169,7 @@ class CosmphiDiskPotential(planarPotential):
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         inside = R < self._rb
         R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
         R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
@@ -183,6 +187,7 @@ class CosmphiDiskPotential(planarPotential):
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         inside = R < self._rb
         R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
         R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
@@ -200,6 +205,7 @@ class CosmphiDiskPotential(planarPotential):
 
     def _Rphideriv(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         inside = R < self._rb
         R_in = xp.where(inside, R, xp.ones_like(R * 1.0))
         R_out = xp.where(inside, xp.ones_like(R * 1.0), R)
