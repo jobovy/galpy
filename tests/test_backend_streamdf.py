@@ -41,7 +41,7 @@ except ImportError:  # pragma: no cover
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 
 from galpy.actionAngle import actionAngleIsochroneApprox
-from galpy.backend import as_numpy, get_namespace
+from galpy.backend import as_numpy, get_namespace, is_backend_array
 from galpy.backend.jacobian import jacobian
 from galpy.df.streamdf import (
     _determine_stream_spread_single,
@@ -1165,6 +1165,32 @@ def test_cyl_to_rect_jac_backend(backend_name, nargs):
     ref = _coords.cyl_to_rect_jac(*[numpy.asarray(a) for a in args])
     got = as_numpy(_coords.cyl_to_rect_jac(*[_arr(backend_name, a) for a in args]))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_cart_and_interp_cov_backend_coerce_and_guard(backend_name):
+    # The backend twin's defensive branches: the nC<4 guard (cubic spline needs
+    # >=4 knots) and the numpy-input coercion that fires when it is reached via a
+    # MIXED dispatch (one of chunk_covs/_ObsTrack backend, the other numpy). The
+    # coercion must be value-preserving, so each mixed call matches the all-backend
+    # reference (same seed -> same data).
+    mk = lambda a: _arr(backend_name, a)
+    # (a) nC < 4 -> ValueError
+    m3, covs3 = _mock_spread_sdf(3, mk)
+    with pytest.raises(ValueError, match="nTrackChunks"):
+        m3._cart_and_interp_cov_backend(mk(covs3))
+    # reference: fully-backend inputs
+    m_all, covs = _mock_spread_sdf(5, mk)
+    xy_ref = as_numpy(m_all._cart_and_interp_cov_backend(mk(covs))[0])
+    # (b) numpy chunk_covs + backend _ObsTrack -> coerce chunk_covs
+    xy_b = m_all._cart_and_interp_cov_backend(covs)[0]
+    assert is_backend_array(xy_b)
+    numpy.testing.assert_allclose(as_numpy(xy_b), xy_ref, rtol=1e-11, atol=1e-12)
+    # (c) backend chunk_covs + numpy _ObsTrack/_thetasTrack -> coerce those
+    m_nobs, covs2 = _mock_spread_sdf(5, numpy.asarray)
+    xy_n = m_nobs._cart_and_interp_cov_backend(mk(covs2))[0]
+    assert is_backend_array(xy_n)
+    numpy.testing.assert_allclose(as_numpy(xy_n), xy_ref, rtol=1e-11, atol=1e-12)
 
 
 ###############################################################################

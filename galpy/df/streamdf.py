@@ -1864,7 +1864,12 @@ class streamdf(df):
         by O(eps / eigenvalue_gap)), whereas ``eigh`` stays orthonormal so the
         backend reconstruction is exact. Elsewhere the two agree to ~1e-14.
         """
-        xp = get_namespace(chunk_covs, self._ObsTrack)
+        # Derive the backend from whichever input is already a backend array (the
+        # dispatcher enters here if EITHER chunk_covs or _ObsTrack is backend), so a
+        # mixed dispatch does not trip array-api's "multiple namespaces"; the numpy
+        # one is then coerced onto that backend below.
+        ref0 = chunk_covs if is_backend_array(chunk_covs) else self._ObsTrack
+        xp = get_namespace(ref0)
         nC = self._nTrackChunks
         if nC < 4:  # not-a-knot cubic spline needs >= 4 knots (numpy IUS(k=3) too)
             raise ValueError("backend _cart_and_interp_cov requires nTrackChunks >= 4")
