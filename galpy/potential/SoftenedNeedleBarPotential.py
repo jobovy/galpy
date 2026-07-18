@@ -7,7 +7,7 @@ import math
 
 import numpy
 
-from ..backend import get_namespace
+from ..backend import get_namespace, is_backend_array
 from ..util import conversion
 from .Potential import Potential
 
@@ -166,10 +166,10 @@ class SoftenedNeedleBarPotential(Potential):
         # de-rotation angle; depends only on t, so its namespace follows t: a
         # concrete (Python/numpy) t -> numpy.cos/sin (a plain coefficient that
         # broadcasts into any backend's forces); a traced t (the in-backend
-        # integrator, or autodiff wrt time) -> that backend's cos/sin. (A bare
-        # math.cos/sin would break a tracer -- including a 0-d tracer, which has
-        # ndim 0 -- and torch's cos/sin reject a plain Python-float angle.)
-        xpt = get_namespace(t)
+        # integrator, or autodiff wrt time) -> that backend's cos/sin. Guard on
+        # is_backend_array(t): under a forced backend get_namespace(t) would return
+        # that backend and torch's cos/sin reject the plain Python-float angle.
+        xpt = get_namespace(t) if is_backend_array(t) else numpy
         tp = self._pa + self._omegab * t
         cp, sp = xpt.cos(tp), xpt.sin(tp)
         return (cp * Fx - sp * Fy, sp * Fx + cp * Fy, Fz)
