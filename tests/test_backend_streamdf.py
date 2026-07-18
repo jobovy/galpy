@@ -42,7 +42,12 @@ AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 
 from galpy.actionAngle import actionAngleIsochroneApprox
 from galpy.backend import as_numpy, get_namespace
-from galpy.df.streamdf import _determine_stream_track_single, calcaAJac
+from galpy.backend.jacobian import jacobian
+from galpy.df.streamdf import (
+    _determine_stream_track_single,
+    _vmap_track_chunks,
+    calcaAJac,
+)
 from galpy.orbit import Orbit
 from galpy.potential import IsochronePotential, LogarithmicHaloPotential
 from galpy.util import conversion
@@ -732,7 +737,9 @@ def _tdisrupt():
     return 4.5 / conversion.time_in_Gyr(220.0, 8.0)
 
 
-def _build_numpy_sdf(qval, nTrackChunks, tintJ, deltaAngleTrack=None):
+def _build_numpy_sdf(
+    qval, nTrackChunks, tintJ, deltaAngleTrack=None, nTrackIterations=0
+):
     from galpy.df import streamdf as _streamdf
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=qval)
@@ -745,7 +752,7 @@ def _build_numpy_sdf(qval, nTrackChunks, tintJ, deltaAngleTrack=None):
         aA=aA,
         leading=True,
         nTrackChunks=nTrackChunks,
-        nTrackIterations=0,
+        nTrackIterations=nTrackIterations,
         deltaAngleTrack=deltaAngleTrack,
         tdisrupt=_tdisrupt(),
         nospreadsetup=True,
@@ -781,7 +788,9 @@ def test_determine_stream_track_value_parity():
     # freq/angle Jacobian _alljacsTrack (~5e-5) and its inverse _allinvjacsTrack (~9e-3, matrix
     # inversion amplifies the FD error) agree at the coarser one-sided-FD-vs-AD floor, since
     # numpy keeps FD there while the backend uses exact AD.
-    sdf = _build_numpy_sdf(0.9, nTrackChunks=4, tintJ=15)
+    # nTrackIterations=1 also exercises the backend refinement loop (both the numpy
+    # reference and the backend re-run refine once, so parity is unaffected).
+    sdf = _build_numpy_sdf(0.9, nTrackChunks=4, tintJ=15, nTrackIterations=1)
     names = (
         "_ObsTrack",
         "_ObsTrackAA",
@@ -928,3 +937,44 @@ def test_determine_stream_track_differentiable_progenitor():
         for h in (1e-3, 1e-4)
     )
     assert best < 3e-3 * abs(ad), f"R0 AD={ad:.6e} best|AD-ownFD|={best:.2e}"
+
+
+###############################################################################
+# Coverage for the backend-dispatch branches calcaAJac / the jax track do not hit.
+###############################################################################
+@pytest.mark.skipif(not AD_BACKENDS, reason="needs a jax/torch backend")
+def test_jacobian_infers_namespace_when_xp_none():
+    # calcaAJac always passes xp= explicitly; the helper also infers the namespace
+    # from x when xp is None (jacobian of v -> 2v is 2*I).
+    be = AD_BACKENDS[0]
+    x = _arr(be, numpy.array([0.3, -0.7, 1.1]))
+    jac = as_numpy(jacobian(lambda v: 2.0 * v, x))
+    numpy.testing.assert_allclose(jac, 2.0 * numpy.eye(3), atol=1e-12)
+
+
+def test_jacobian_rejects_numpy_namespace():
+    # numpy has no autodiff -> the helper raises rather than silently degrading.
+    with pytest.raises(ValueError, match="jax or torch"):
+        jacobian(lambda v: v, numpy.zeros(3), xp=numpy)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="needs torch")
+def test_vmap_track_chunks_torch_stack():
+    # The non-jax path of _vmap_track_chunks stacks a Python list of per-chunk
+    # 6-tuples (jax uses lax.map; torch cannot trace torch.func.vmap over the
+    # torchdiffeq custom-autograd orbit). Exercised with a trivial `single`.
+    import torch
+
+    xp = get_namespace(torch.zeros(1))
+    xv0 = torch.arange(6.0).reshape(3, 2)  # 3 chunks
+    thetas = torch.tensor([0.1, 0.2, 0.3])
+
+    def single(xv0_i, theta_i):
+        return tuple(xv0_i.sum() + theta_i + k for k in range(6))
+
+    out = _vmap_track_chunks(xp, single, xv0, thetas)
+    assert isinstance(out, tuple) and len(out) == 6
+    for k in range(6):
+        assert tuple(out[k].shape) == (3,)
+        expected = numpy.array([float(xv0[i].sum() + thetas[i] + k) for i in range(3)])
+        numpy.testing.assert_allclose(as_numpy(out[k]), expected, atol=1e-12)
