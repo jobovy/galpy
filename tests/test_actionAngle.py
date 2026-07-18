@@ -6318,32 +6318,41 @@ def test_orbit_interface_unbound_complexshape_adiabatic():
         obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True),
         obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True),
     )
-    assert numpy.all(numpy.fabs(jr[:, 0] - aAA(obs[:, 0])[0]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jp[:, 0] - aAA(obs[:, 0])[1]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jz[:, 0] - aAA(obs[:, 0])[2]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
     assert numpy.all(
-        numpy.fabs(e[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[0]) < 10.0**-10.0
+        numpy.fabs(jr[:, 0] - as_numpy(aAA(obs[:, 0])[0])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(zmax[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[1]) < 10.0**-10.0
+        numpy.fabs(jp[:, 0] - as_numpy(aAA(obs[:, 0])[1])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(rperi[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[2]) < 10.0**-10.0
+        numpy.fabs(jz[:, 0] - as_numpy(aAA(obs[:, 0])[2])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(rap[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[3]) < 10.0**-10.0
+        numpy.fabs(e[:, 0] - as_numpy(aAA.EccZmaxRperiRap(obs[:, 0])[0])) < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(zmax[:, 0] - as_numpy(aAA.EccZmaxRperiRap(obs[:, 0])[1]))
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(rperi[:, 0] - as_numpy(aAA.EccZmaxRperiRap(obs[:, 0])[2]))
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(rap[:, 0] - as_numpy(aAA.EccZmaxRperiRap(obs[:, 0])[3]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
@@ -6411,62 +6420,74 @@ def test_orbit_interface_unbound_complexshape_staeckel():
         obs.rperi(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
         obs.rap(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
     )
-    assert numpy.all(numpy.fabs(jr[:, 0] - aAS(obs[:, 0])[0]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jp[:, 0] - aAS(obs[:, 0])[1]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jz[:, 0] - aAS(obs[:, 0])[2]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
     assert numpy.all(
-        numpy.fabs(omr[:, 0] - aAS.actionsFreqs(obs[:, 0])[3]) < 10.0**-10.0
+        numpy.fabs(jr[:, 0] - as_numpy(aAS(obs[:, 0])[0])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(omp[:, 0] - aAS.actionsFreqs(obs[:, 0])[4]) < 10.0**-10.0
+        numpy.fabs(jp[:, 0] - as_numpy(aAS(obs[:, 0])[1])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(omz[:, 0] - aAS.actionsFreqs(obs[:, 0])[5]) < 10.0**-10.0
+        numpy.fabs(jz[:, 0] - as_numpy(aAS(obs[:, 0])[2])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(wr[:, 0] - aAS.actionsFreqsAngles(obs[:, 0])[6]) < 10.0**-10.0
+        numpy.fabs(omr[:, 0] - as_numpy(aAS.actionsFreqs(obs[:, 0])[3])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(wp[:, 0] - aAS.actionsFreqsAngles(obs[:, 0])[7]) < 10.0**-10.0
+        numpy.fabs(omp[:, 0] - as_numpy(aAS.actionsFreqs(obs[:, 0])[4])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(wz[:, 0] - aAS.actionsFreqsAngles(obs[:, 0])[8]) < 10.0**-10.0
+        numpy.fabs(omz[:, 0] - as_numpy(aAS.actionsFreqs(obs[:, 0])[5])) < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(e[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[0]) < 10.0**-10.0
+        numpy.fabs(wr[:, 0] - as_numpy(aAS.actionsFreqsAngles(obs[:, 0])[6]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(zmax[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[1]) < 10.0**-10.0
+        numpy.fabs(wp[:, 0] - as_numpy(aAS.actionsFreqsAngles(obs[:, 0])[7]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(rperi[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[2]) < 10.0**-10.0
+        numpy.fabs(wz[:, 0] - as_numpy(aAS.actionsFreqsAngles(obs[:, 0])[8]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.all(
-        numpy.fabs(rap[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[3]) < 10.0**-10.0
+        numpy.fabs(e[:, 0] - as_numpy(aAS.EccZmaxRperiRap(obs[:, 0])[0])) < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(zmax[:, 0] - as_numpy(aAS.EccZmaxRperiRap(obs[:, 0])[1]))
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(rperi[:, 0] - as_numpy(aAS.EccZmaxRperiRap(obs[:, 0])[2]))
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(rap[:, 0] - as_numpy(aAS.EccZmaxRperiRap(obs[:, 0])[3]))
+        < 10.0**-10.0
     ), (
         "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
@@ -6527,26 +6548,8 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.71)  # just a dummy delta
     bound_indx = numpy.array([True, False, True, False, True, False])
     assert numpy.all(
-        numpy.fabs(jr[:, 0] - aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[0])
-        < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(
-        numpy.fabs(jp[:, 0] - aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[1])
-        < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(
-        numpy.fabs(jz[:, 0] - aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[2])
-        < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(
         numpy.fabs(
-            omr[:, 0] - aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[3]
+            jr[:, 0] - as_numpy(aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[0])
         )
         < 10.0**-10.0
     ), (
@@ -6554,7 +6557,7 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     )
     assert numpy.all(
         numpy.fabs(
-            omp[:, 0] - aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[4]
+            jp[:, 0] - as_numpy(aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[1])
         )
         < 10.0**-10.0
     ), (
@@ -6562,7 +6565,34 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     )
     assert numpy.all(
         numpy.fabs(
-            omz[:, 0] - aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[5]
+            jz[:, 0] - as_numpy(aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[2])
+        )
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(
+            omr[:, 0]
+            - as_numpy(aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[3])
+        )
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(
+            omp[:, 0]
+            - as_numpy(aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[4])
+        )
+        < 10.0**-10.0
+    ), (
+        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    )
+    assert numpy.all(
+        numpy.fabs(
+            omz[:, 0]
+            - as_numpy(aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[5])
         )
         < 10.0**-10.0
     ), (
@@ -6571,7 +6601,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             wr[:, 0]
-            - aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[6]
+            - as_numpy(
+                aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[6]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -6580,7 +6612,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             wp[:, 0]
-            - aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[7]
+            - as_numpy(
+                aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[7]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -6589,7 +6623,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             wz[:, 0]
-            - aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[8]
+            - as_numpy(
+                aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[8]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -6598,7 +6634,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             e[:, 0]
-            - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[0]
+            - as_numpy(
+                aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[0]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -6607,7 +6645,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             zmax[:, 0]
-            - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[1]
+            - as_numpy(
+                aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[1]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -6616,7 +6656,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             rperi[:, 0]
-            - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[2]
+            - as_numpy(
+                aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[2]
+            )
         )
         < 10.0**-10.0
     ), (
@@ -6625,7 +6667,9 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(
             rap[:, 0]
-            - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[3]
+            - as_numpy(
+                aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[3]
+            )
         )
         < 10.0**-10.0
     ), (

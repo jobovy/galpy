@@ -1483,15 +1483,15 @@ def test_orbit_method_value():
     ), "Orbit method Jacobi does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014).to(units.km / units.s * units.kpc).value
-            - oc.L(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.L(pot=MWPotential2014).to(units.km / units.s * units.kpc).value)
+            - as_numpy(oc.L(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Lz(pot=MWPotential2014).to(units.km / units.s * units.kpc).value
-            - oc.Lz(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.Lz(pot=MWPotential2014).to(units.km / units.s * units.kpc).value)
+            - as_numpy(oc.Lz(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value as Quantity"
@@ -1811,15 +1811,15 @@ def test_orbit_method_value_turnquantityoff():
     ), "Orbit method Jacobi does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014, quantity=False)
-            - oc.L(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.L(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.L(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Lz(pot=MWPotential2014, quantity=False)
-            - oc.Lz(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.Lz(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.Lz(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when Quantity turned off"
@@ -3125,310 +3125,451 @@ def test_orbits_method_value():
     oc.turn_physical_off()
     assert numpy.all(
         numpy.fabs(
-            o.E(pot=MWPotential2014).to(units.km**2 / units.s**2).value
-            - oc.E(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.E(pot=MWPotential2014).to(units.km**2 / units.s**2).value)
+            - as_numpy(oc.E(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method E does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.ER(pot=MWPotential2014).to(units.km**2 / units.s**2).value
-            - oc.ER(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.ER(pot=MWPotential2014).to(units.km**2 / units.s**2).value)
+            - as_numpy(oc.ER(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method ER does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Ez(pot=MWPotential2014).to(units.km**2 / units.s**2).value
-            - oc.Ez(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.Ez(pot=MWPotential2014).to(units.km**2 / units.s**2).value)
+            - as_numpy(oc.Ez(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method Ez does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Jacobi(pot=MWPotential2014).to(units.km**2 / units.s**2).value
-            - oc.Jacobi(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.Jacobi(pot=MWPotential2014).to(units.km**2 / units.s**2).value)
+            - as_numpy(oc.Jacobi(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method Jacobi does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014).to(units.km / units.s * units.kpc).value
-            - oc.L(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.L(pot=MWPotential2014).to(units.km / units.s * units.kpc).value)
+            - as_numpy(oc.L(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Lz(pot=MWPotential2014).to(units.km / units.s * units.kpc).value
-            - oc.Lz(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.Lz(pot=MWPotential2014).to(units.km / units.s * units.kpc).value)
+            - as_numpy(oc.Lz(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.rap(pot=MWPotential2014, analytic=True).to(units.kpc).value
-            - oc.rap(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.rap(pot=MWPotential2014, analytic=True).to(units.kpc).value)
+            - as_numpy(oc.rap(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rap does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.rperi(pot=MWPotential2014, analytic=True).to(units.kpc).value
-            - oc.rperi(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.rperi(pot=MWPotential2014, analytic=True).to(units.kpc).value)
+            - as_numpy(oc.rperi(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rperi does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.rguiding(pot=MWPotential2014).to(units.kpc).value
-            - oc.rguiding(pot=MWPotential2014) * o._ro
+            as_numpy(o.rguiding(pot=MWPotential2014).to(units.kpc).value)
+            - as_numpy(oc.rguiding(pot=MWPotential2014) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rguiding does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.rE(pot=MWPotential2014).to(units.kpc).value
-            - oc.rE(pot=MWPotential2014) * o._ro
+            as_numpy(o.rE(pot=MWPotential2014).to(units.kpc).value)
+            - as_numpy(oc.rE(pot=MWPotential2014) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rE does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.LcE(pot=MWPotential2014).to(units.kpc * units.km / units.s).value
-            - oc.LcE(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(
+                o.LcE(pot=MWPotential2014).to(units.kpc * units.km / units.s).value
+            )
+            - as_numpy(oc.LcE(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method LcE does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.zmax(pot=MWPotential2014, analytic=True).to(units.kpc).value
-            - oc.zmax(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.zmax(pot=MWPotential2014, analytic=True).to(units.kpc).value)
+            - as_numpy(oc.zmax(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method zmax does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.jr(pot=MWPotential2014, type="staeckel", delta=0.5)
-            .to(units.km / units.s * units.kpc)
-            .value
-            - oc.jr(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            as_numpy(
+                o.jr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.km / units.s * units.kpc)
+                .value
+            )
+            - as_numpy(
+                oc.jr(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jr does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.jp(pot=MWPotential2014, type="staeckel", delta=4.0 * units.kpc)
-            .to(units.km / units.s * units.kpc)
-            .value
-            - oc.jp(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            as_numpy(
+                o.jp(pot=MWPotential2014, type="staeckel", delta=4.0 * units.kpc)
+                .to(units.km / units.s * units.kpc)
+                .value
+            )
+            - as_numpy(
+                oc.jp(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jp does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8 * 8.0 * units.kpc)
-            .to(units.km / units.s * units.kpc)
-            .value
-            - oc.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8) * o._ro * o._vo
+            as_numpy(
+                o.jz(
+                    pot=MWPotential2014, type="isochroneapprox", b=0.8 * 8.0 * units.kpc
+                )
+                .to(units.km / units.s * units.kpc)
+                .value
+            )
+            - as_numpy(
+                oc.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8)
+                * o._ro
+                * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jz does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.wr(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.rad).value
-            - oc.wr(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.rad)
+                .value
+            )
+            - as_numpy(oc.wr(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wr does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.wp(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.rad).value
-            - oc.wp(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wp(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.rad)
+                .value
+            )
+            - as_numpy(oc.wp(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wp does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.wz(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.rad).value
-            - oc.wz(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.rad)
+                .value
+            )
+            - as_numpy(oc.wz(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wz does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Tr(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.Gyr).value
-            - oc.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tr does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Tp(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.Gyr).value
-            - oc.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tp does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Tz(pot=MWPotential2014, type="staeckel", delta=0.5).to(units.Gyr).value
-            - oc.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tz does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
-            .to(1 / units.Gyr)
-            .value
-            - oc.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(1 / units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Or does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
-            .to(1 / units.Gyr)
-            .value
-            - oc.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(1 / units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Opbit method Or does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            .to(1 / units.Gyr)
-            .value
-            - oc.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                .to(1 / units.Gyr)
+                .value
+            )
+            - as_numpy(
+                oc.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Ozbit method Or does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.time().to(units.Gyr).value
-            - oc.time() * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(o.time().to(units.Gyr).value)
+            - as_numpy(oc.time() * conversion.time_in_Gyr(o._vo, o._ro))
         )
         < 10.0**-8.0
     ), "Orbit method time does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.R().to(units.kpc).value - oc.R() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.R().to(units.kpc).value) - as_numpy(oc.R() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method R does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.r().to(units.kpc).value - oc.r() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.r().to(units.kpc).value) - as_numpy(oc.r() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method r does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vR().to(units.km / units.s).value - oc.vR() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vR().to(units.km / units.s).value) - as_numpy(oc.vR() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vR does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vT().to(units.km / units.s).value - oc.vT() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vT().to(units.km / units.s).value) - as_numpy(oc.vT() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vT does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.z().to(units.kpc).value - oc.z() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.z().to(units.kpc).value) - as_numpy(oc.z() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method z does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vz().to(units.km / units.s).value - oc.vz() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vz().to(units.km / units.s).value) - as_numpy(oc.vz() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vz does not return the correct value as Quantity"
-    assert numpy.all(numpy.fabs(o.phi().to(units.rad).value - oc.phi()) < 10.0**-8.0), (
-        "Orbit method phi does not return the correct value as Quantity"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.phi().to(units.rad).value) - as_numpy(oc.phi()))
+        < 10.0**-8.0
+    ), "Orbit method phi does not return the correct value as Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.vphi().to(units.km / units.s / units.kpc).value
-            - oc.vphi() * o._vo / o._ro
+            as_numpy(o.vphi().to(units.km / units.s / units.kpc).value)
+            - as_numpy(oc.vphi() * o._vo / o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method vphi does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.x().to(units.kpc).value - oc.x() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.x().to(units.kpc).value) - as_numpy(oc.x() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method x does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.y().to(units.kpc).value - oc.y() * o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.y().to(units.kpc).value) - as_numpy(oc.y() * o._ro))
+        < 10.0**-8.0
     ), "Orbit method y does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vx().to(units.km / units.s).value - oc.vx() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vx().to(units.km / units.s).value) - as_numpy(oc.vx() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vx does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vy().to(units.km / units.s).value - oc.vy() * o._vo) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.vy().to(units.km / units.s).value) - as_numpy(oc.vy() * o._vo)
+        )
+        < 10.0**-8.0
     ), "Orbit method vy does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.ra().to(units.deg).value - oc.ra(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.ra().to(units.deg).value) - as_numpy(oc.ra(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method ra does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.dec().to(units.deg).value - oc.dec(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.dec().to(units.deg).value) - as_numpy(oc.dec(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method dec does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.ll().to(units.deg).value - oc.ll(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.ll().to(units.deg).value) - as_numpy(oc.ll(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method ll does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.bb().to(units.deg).value - oc.bb(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.bb().to(units.deg).value) - as_numpy(oc.bb(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method bb does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.dist().to(units.kpc).value - oc.dist(quantity=False)) < 10.0**-8.0
+        numpy.fabs(
+            as_numpy(o.dist().to(units.kpc).value) - as_numpy(oc.dist(quantity=False))
+        )
+        < 10.0**-8.0
     ), "Orbit method dist does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.pmra().to(units.mas / units.yr).value - oc.pmra(quantity=False))
+        numpy.fabs(
+            as_numpy(o.pmra().to(units.mas / units.yr).value)
+            - as_numpy(oc.pmra(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method pmra does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.pmdec().to(units.mas / units.yr).value - oc.pmdec(quantity=False))
+        numpy.fabs(
+            as_numpy(o.pmdec().to(units.mas / units.yr).value)
+            - as_numpy(oc.pmdec(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method pmdec does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.pmll().to(units.mas / units.yr).value - oc.pmll(quantity=False))
+        numpy.fabs(
+            as_numpy(o.pmll().to(units.mas / units.yr).value)
+            - as_numpy(oc.pmll(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method pmll does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.pmbb().to(units.mas / units.yr).value - oc.pmbb(quantity=False))
+        numpy.fabs(
+            as_numpy(o.pmbb().to(units.mas / units.yr).value)
+            - as_numpy(oc.pmbb(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method pmbb does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vlos().to(units.km / units.s).value - oc.vlos(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vlos().to(units.km / units.s).value)
+            - as_numpy(oc.vlos(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vlos does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vra().to(units.km / units.s).value - oc.vra(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vra().to(units.km / units.s).value)
+            - as_numpy(oc.vra(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vra does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vdec().to(units.km / units.s).value - oc.vdec(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vdec().to(units.km / units.s).value)
+            - as_numpy(oc.vdec(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vdec does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vll().to(units.km / units.s).value - oc.vll(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vll().to(units.km / units.s).value)
+            - as_numpy(oc.vll(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vll does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.vbb().to(units.km / units.s).value - oc.vbb(quantity=False))
+        numpy.fabs(
+            as_numpy(o.vbb().to(units.km / units.s).value)
+            - as_numpy(oc.vbb(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method vbb does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.helioX().to(units.kpc).value - oc.helioX(quantity=False))
+        numpy.fabs(
+            as_numpy(o.helioX().to(units.kpc).value)
+            - as_numpy(oc.helioX(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method helioX does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.helioY().to(units.kpc).value - oc.helioY(quantity=False))
+        numpy.fabs(
+            as_numpy(o.helioY().to(units.kpc).value)
+            - as_numpy(oc.helioY(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method helioY does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.helioZ().to(units.kpc).value - oc.helioZ(quantity=False))
+        numpy.fabs(
+            as_numpy(o.helioZ().to(units.kpc).value)
+            - as_numpy(oc.helioZ(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method helioZ does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.U().to(units.km / units.s).value - oc.U(quantity=False))
+        numpy.fabs(
+            as_numpy(o.U().to(units.km / units.s).value)
+            - as_numpy(oc.U(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method U does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.V().to(units.km / units.s).value - oc.V(quantity=False))
+        numpy.fabs(
+            as_numpy(o.V().to(units.km / units.s).value)
+            - as_numpy(oc.V(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method V does not return the correct value as Quantity"
     assert numpy.all(
-        numpy.fabs(o.W().to(units.km / units.s).value - oc.W(quantity=False))
+        numpy.fabs(
+            as_numpy(o.W().to(units.km / units.s).value)
+            - as_numpy(oc.W(quantity=False))
+        )
         < 10.0**-8.0
     ), "Orbit method W does not return the correct value as Quantity"
     return None
@@ -3463,64 +3604,64 @@ def test_orbits_method_value_turnquantityoff():
     oc.turn_physical_off()
     assert numpy.all(
         numpy.fabs(
-            o.E(pot=MWPotential2014, quantity=False)
-            - oc.E(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.E(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.E(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method E does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.ER(pot=MWPotential2014, quantity=False)
-            - oc.ER(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.ER(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.ER(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method ER does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Ez(pot=MWPotential2014, quantity=False)
-            - oc.Ez(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.Ez(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.Ez(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method Ez does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Jacobi(pot=MWPotential2014, quantity=False)
-            - oc.Jacobi(pot=MWPotential2014) * o._vo**2.0
+            as_numpy(o.Jacobi(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.Jacobi(pot=MWPotential2014) * o._vo**2.0)
         )
         < 10.0**-8.0
     ), "Orbit method Jacobi does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014, quantity=False)
-            - oc.L(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.L(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.L(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Lz(pot=MWPotential2014, quantity=False)
-            - oc.Lz(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.Lz(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.Lz(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.rap(pot=MWPotential2014, analytic=True, quantity=False)
-            - oc.rap(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.rap(pot=MWPotential2014, analytic=True, quantity=False))
+            - as_numpy(oc.rap(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rap does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.rperi(pot=MWPotential2014, analytic=True, quantity=False)
-            - oc.rperi(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.rperi(pot=MWPotential2014, analytic=True, quantity=False))
+            - as_numpy(oc.rperi(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rperi does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.rguiding(pot=MWPotential2014, quantity=False)
-            - oc.rguiding(pot=MWPotential2014) * o._ro
+            as_numpy(o.rguiding(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.rguiding(pot=MWPotential2014) * o._ro)
         )
         < 10.0**-8.0
     ), (
@@ -3528,167 +3669,225 @@ def test_orbits_method_value_turnquantityoff():
     )
     assert numpy.all(
         numpy.fabs(
-            o.rE(pot=MWPotential2014, quantity=False)
-            - oc.rE(pot=MWPotential2014) * o._ro
+            as_numpy(o.rE(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.rE(pot=MWPotential2014) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method rE does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.LcE(pot=MWPotential2014, quantity=False)
-            - oc.LcE(pot=MWPotential2014) * o._ro * o._vo
+            as_numpy(o.LcE(pot=MWPotential2014, quantity=False))
+            - as_numpy(oc.LcE(pot=MWPotential2014) * o._ro * o._vo)
         )
         < 10.0**-8.0
     ), "Orbit method LcE does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.zmax(pot=MWPotential2014, analytic=True, quantity=False)
-            - oc.zmax(pot=MWPotential2014, analytic=True) * o._ro
+            as_numpy(o.zmax(pot=MWPotential2014, analytic=True, quantity=False))
+            - as_numpy(oc.zmax(pot=MWPotential2014, analytic=True) * o._ro)
         )
         < 10.0**-8.0
     ), "Orbit method zmax does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.jr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.jr(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            as_numpy(
+                o.jr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.jr(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jr does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.jp(
-                pot=MWPotential2014,
-                type="staeckel",
-                delta=4.0 * units.kpc,
-                quantity=False,
+            as_numpy(
+                o.jp(
+                    pot=MWPotential2014,
+                    type="staeckel",
+                    delta=4.0 * units.kpc,
+                    quantity=False,
+                )
             )
-            - oc.jp(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            - as_numpy(
+                oc.jp(pot=MWPotential2014, type="staeckel", delta=0.5) * o._ro * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jp does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.jz(
-                pot=MWPotential2014,
-                type="isochroneapprox",
-                b=0.8 * 8.0 * units.kpc,
-                quantity=False,
+            as_numpy(
+                o.jz(
+                    pot=MWPotential2014,
+                    type="isochroneapprox",
+                    b=0.8 * 8.0 * units.kpc,
+                    quantity=False,
+                )
             )
-            - oc.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8) * o._ro * o._vo
+            - as_numpy(
+                oc.jz(pot=MWPotential2014, type="isochroneapprox", b=0.8)
+                * o._ro
+                * o._vo
+            )
         )
         < 10.0**-8.0
     ), "Orbit method jz does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.wr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.wr(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(oc.wr(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wr does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.wp(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.wp(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wp(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(oc.wp(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wp does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.wz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.wz(pot=MWPotential2014, type="staeckel", delta=0.5)
+            as_numpy(
+                o.wz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(oc.wz(pot=MWPotential2014, type="staeckel", delta=0.5))
         )
         < 10.0**-8.0
     ), "Orbit method wz does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Tr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tr(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Tr(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tr does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Tp(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tp(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Tp(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tp does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Tz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Tz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Tz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.time_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Tz does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Or(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Or(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Or(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Orbit method Or does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Op(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Op(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Op(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Opbit method Or does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.Oz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
-            - oc.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
-            * conversion.freq_in_Gyr(o._vo, o._ro)
+            as_numpy(
+                o.Oz(pot=MWPotential2014, type="staeckel", delta=0.5, quantity=False)
+            )
+            - as_numpy(
+                oc.Oz(pot=MWPotential2014, type="staeckel", delta=0.5)
+                * conversion.freq_in_Gyr(o._vo, o._ro)
+            )
         )
         < 10.0**-8.0
     ), "Ozbit method Or does not return the correct value when Quantity turned off"
     assert numpy.all(
         numpy.fabs(
-            o.time(quantity=False) - oc.time() * conversion.time_in_Gyr(o._vo, o._ro)
+            as_numpy(o.time(quantity=False))
+            - as_numpy(oc.time() * conversion.time_in_Gyr(o._vo, o._ro))
         )
         < 10.0**-8.0
     ), "Orbit method time does not return the correct value when Quantity turned off"
-    assert numpy.all(numpy.fabs(o.R(quantity=False) - oc.R() * o._ro) < 10.0**-8.0), (
-        "Orbit method R does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.r(quantity=False) - oc.r() * o._ro) < 10.0**-8.0), (
-        "Orbit method r does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vR(quantity=False) - oc.vR() * o._vo) < 10.0**-8.0), (
-        "Orbit method vR does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vT(quantity=False) - oc.vT() * o._vo) < 10.0**-8.0), (
-        "Orbit method vT does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.z(quantity=False) - oc.z() * o._ro) < 10.0**-8.0), (
-        "Orbit method z does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vz(quantity=False) - oc.vz() * o._vo) < 10.0**-8.0), (
-        "Orbit method vz does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.phi(quantity=False) - oc.phi()) < 10.0**-8.0), (
-        "Orbit method phi does not return the correct value when Quantity turned off"
-    )
     assert numpy.all(
-        numpy.fabs(o.vphi(quantity=False) - oc.vphi() * o._vo / o._ro) < 10.0**-8.0
+        numpy.fabs(as_numpy(o.R(quantity=False)) - as_numpy(oc.R() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method R does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.r(quantity=False)) - as_numpy(oc.r() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method r does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vR(quantity=False)) - as_numpy(oc.vR() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vR does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vT(quantity=False)) - as_numpy(oc.vT() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vT does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.z(quantity=False)) - as_numpy(oc.z() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method z does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vz(quantity=False)) - as_numpy(oc.vz() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vz does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.phi(quantity=False)) - as_numpy(oc.phi())) < 10.0**-8.0
+    ), "Orbit method phi does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(
+            as_numpy(o.vphi(quantity=False)) - as_numpy(oc.vphi() * o._vo / o._ro)
+        )
+        < 10.0**-8.0
     ), "Orbit method vphi does not return the correct value when Quantity turned off"
-    assert numpy.all(numpy.fabs(o.x(quantity=False) - oc.x() * o._ro) < 10.0**-8.0), (
-        "Orbit method x does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.y(quantity=False) - oc.y() * o._ro) < 10.0**-8.0), (
-        "Orbit method y does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vx(quantity=False) - oc.vx() * o._vo) < 10.0**-8.0), (
-        "Orbit method vx does not return the correct value when Quantity turned off"
-    )
-    assert numpy.all(numpy.fabs(o.vy(quantity=False) - oc.vy() * o._vo) < 10.0**-8.0), (
-        "Orbit method vy does not return the correct value when Quantity turned off"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.x(quantity=False)) - as_numpy(oc.x() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method x does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.y(quantity=False)) - as_numpy(oc.y() * o._ro))
+        < 10.0**-8.0
+    ), "Orbit method y does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vx(quantity=False)) - as_numpy(oc.vx() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vx does not return the correct value when Quantity turned off"
+    assert numpy.all(
+        numpy.fabs(as_numpy(o.vy(quantity=False)) - as_numpy(oc.vy() * o._vo))
+        < 10.0**-8.0
+    ), "Orbit method vy does not return the correct value when Quantity turned off"
     return None
 
 
@@ -6514,8 +6713,8 @@ def test_potential_method_inputAsQuantity_Rzaskwargs():
     ), "Potential method rtide does not return the correct value when input is Quantity"
     assert numpy.all(
         numpy.fabs(
-            pot.ttensor(R=1.1 * ro, z=0.1 * ro, use_physical=False)
-            - potu.ttensor(1.1, 0.1)
+            as_numpy(pot.ttensor(R=1.1 * ro, z=0.1 * ro, use_physical=False))
+            - as_numpy(potu.ttensor(1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -6523,8 +6722,10 @@ def test_potential_method_inputAsQuantity_Rzaskwargs():
     )
     assert numpy.all(
         numpy.fabs(
-            pot.ttensor(R=1.1 * ro, z=0.1 * ro, eigenval=True, use_physical=False)
-            - potu.ttensor(1.1, 0.1, eigenval=True)
+            as_numpy(
+                pot.ttensor(R=1.1 * ro, z=0.1 * ro, eigenval=True, use_physical=False)
+            )
+            - as_numpy(potu.ttensor(1.1, 0.1, eigenval=True))
         )
         < 10.0**-8.0
     ), (
@@ -7522,8 +7723,8 @@ def test_potential_function_inputAsQuantity_Rzaskwargs():
     )
     assert numpy.all(
         numpy.fabs(
-            potential.ttensor(pot, R=1.1 * ro, z=0.1 * ro, use_physical=False)
-            - potential.ttensor(potu, 1.1, 0.1)
+            as_numpy(potential.ttensor(pot, R=1.1 * ro, z=0.1 * ro, use_physical=False))
+            - as_numpy(potential.ttensor(potu, 1.1, 0.1))
         )
         < 10.0**-8.0
     ), (
@@ -7531,10 +7732,12 @@ def test_potential_function_inputAsQuantity_Rzaskwargs():
     )
     assert numpy.all(
         numpy.fabs(
-            potential.ttensor(
-                pot, R=1.1 * ro, z=0.1 * ro, eigenval=True, use_physical=False
+            as_numpy(
+                potential.ttensor(
+                    pot, R=1.1 * ro, z=0.1 * ro, eigenval=True, use_physical=False
+                )
             )
-            - potential.ttensor(potu, 1.1, 0.1, eigenval=True)
+            - as_numpy(potential.ttensor(potu, 1.1, 0.1, eigenval=True))
         )
         < 10.0**-8.0
     ), (
