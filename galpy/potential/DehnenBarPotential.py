@@ -3,7 +3,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -162,8 +162,9 @@ class DehnenBarPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -192,8 +193,9 @@ class DehnenBarPotential(Potential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -218,8 +220,9 @@ class DehnenBarPotential(Potential):
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -242,8 +245,9 @@ class DehnenBarPotential(Potential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -260,8 +264,9 @@ class DehnenBarPotential(Potential):
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -286,8 +291,9 @@ class DehnenBarPotential(Potential):
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -310,8 +316,9 @@ class DehnenBarPotential(Potential):
 
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -331,8 +338,9 @@ class DehnenBarPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -353,8 +361,9 @@ class DehnenBarPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
@@ -378,8 +387,9 @@ class DehnenBarPotential(Potential):
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
         # Calculate relevant time
-        smooth = self._smooth(t)
         xp = get_namespace(R, z, phi, t)
+        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
+        smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         bad = r2 == 0.0
