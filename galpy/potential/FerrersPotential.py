@@ -14,7 +14,12 @@ import numpy
 from scipy import integrate
 from scipy.special import gamma
 
-from ..backend import get_namespace, is_backend_array, zeros_like_backend
+from ..backend import (
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    zeros_like_backend,
+)
 from ..backend.optimize import brentq
 from ..backend.quadrature import fixed_quad_semiinfinite
 from ..util import conversion, coords
@@ -117,14 +122,17 @@ class FerrersPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
+        xp = get_namespace(R, z)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         if not self.isNonAxi:
-            phi = zeros_like_backend(get_namespace(R, z), R)
+            phi = zeros_like_backend(xp, R)
         x, y, z = coords.cyl_to_rect(R, phi, z)
         # rotation into the aligned frame: rot(t) @ [x, y] without array stacking
         # (numpy.array([x, y]) stacking is the torch-concat backend blocker). The
-        # rotation angle follows t (concrete t -> numpy coefficient; traced t ->
-        # that backend), like SoftenedNeedleBarPotential.
-        xpt = get_namespace(t)
+        # rotation angle follows t: a concrete scalar t -> numpy coefficient (broadcasts
+        # against backend coords under force; byte-identical for numpy), a traced backend
+        # t -> that backend (differentiable), like SoftenedNeedleBarPotential.
+        xpt = get_namespace(t) if is_backend_array(t) else numpy
         ang = self._pa + self._omegab * t
         ca, sa = xpt.cos(ang), xpt.sin(ang)
         x, y = ca * x + sa * y, -sa * x + ca * y
@@ -147,6 +155,7 @@ class FerrersPotential(Potential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
@@ -154,6 +163,7 @@ class FerrersPotential(Potential):
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
@@ -161,6 +171,7 @@ class FerrersPotential(Potential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         _, _, Fz = self._cached_xyzforces(R, z, phi, t, xp)
@@ -176,10 +187,10 @@ class FerrersPotential(Potential):
         Fx = self._xforce_xyz(x, y, z)
         Fy = self._yforce_xyz(x, y, z)
         Fz = self._zforce_xyz(x, y, z)
-        # de-rotation angle; follows t (concrete t -> numpy coefficient that
-        # broadcasts; traced t -> that backend's cos/sin), as in
-        # SoftenedNeedleBarPotential.
-        xpt = get_namespace(t)
+        # de-rotation angle; follows t (concrete scalar t -> numpy coefficient that
+        # broadcasts against backend coords; traced backend t -> that backend's cos/sin),
+        # as in SoftenedNeedleBarPotential.
+        xpt = get_namespace(t) if is_backend_array(t) else numpy
         tp = self._pa + self._omegab * t
         cp, sp = xpt.cos(tp), xpt.sin(tp)
         return (cp * Fx - sp * Fy, sp * Fx + cp * Fy, Fz)
@@ -410,9 +421,14 @@ def _potInt(x, y, z, a2, b2, c2, n):
         )[0]
     xp = get_namespace(x, y, z)
     ll = _lowerlim_backend(x**2, y**2, z**2, a2, b2, c2, xp)
+    # fixed_quad_semiinfinite appends a trailing quadrature-node axis to ll, so the
+    # integrand's tau carries that axis; give the coordinates the same trailing axis
+    # (no-op broadcast for a scalar point, correct for an ARRAY of points -- e.g. the
+    # per-time positions Orbit.E() evaluates at once).
+    xe, ye, ze = x[..., None], y[..., None], z[..., None]
 
     def integrand(tau):
-        return _FracInt(x, y, z, a2, b2, c2, tau, n + 1, xp)
+        return _FracInt(xe, ye, ze, a2, b2, c2, tau, n + 1, xp)
 
     return fixed_quad_semiinfinite(xp, integrand, ll, n=_GLORDER, kind="recip")
 
@@ -443,12 +459,15 @@ def _forceInt(x, y, z, a2, b2, c2, n, i):
         )[0]
     xp = get_namespace(x, y, z)
     ll = _lowerlim_backend(x**2, y**2, z**2, a2, b2, c2, xp)
+    # trailing quadrature-node axis on the coordinates (see _potInt): scalar-safe,
+    # and correct for an array of evaluation points.
+    xe, ye, ze = x[..., None], y[..., None], z[..., None]
 
     def integrand(tau):
         return (
-            (x * (i == 0) + y * (i == 1) + z * (i == 2))
+            (xe * (i == 0) + ye * (i == 1) + ze * (i == 2))
             / (a2 * (i == 0) + b2 * (i == 1) + c2 * (i == 2) + tau)
-            * _FracInt(x, y, z, a2, b2, c2, tau, n, xp)
+            * _FracInt(xe, ye, ze, a2, b2, c2, tau, n, xp)
         )
 
     return fixed_quad_semiinfinite(xp, integrand, ll, n=_GLORDER, kind="recip")
@@ -467,32 +486,35 @@ def _2ndDerivInt(x, y, z, a2, b2, c2, n, i, j):
     This is a second derivative of _potInt.
     """
 
-    def _integrand(tau, xp):
+    def _integrand(tau, xp, X, Y, Z):
         if i != j:
             return (
-                _FracInt(x, y, z, a2, b2, c2, tau, n - 1, xp)
+                _FracInt(X, Y, Z, a2, b2, c2, tau, n - 1, xp)
                 * n
-                * (1.0 + (-1.0 - 2.0 * x / (tau + a2)) * (i == 0 or j == 0))
-                * (1.0 + (-1.0 - 2.0 * y / (tau + b2)) * (i == 1 or j == 1))
-                * (1.0 + (-1.0 - 2.0 * z / (tau + c2)) * (i == 2 or j == 2))
+                * (1.0 + (-1.0 - 2.0 * X / (tau + a2)) * (i == 0 or j == 0))
+                * (1.0 + (-1.0 - 2.0 * Y / (tau + b2)) * (i == 1 or j == 1))
+                * (1.0 + (-1.0 - 2.0 * Z / (tau + c2)) * (i == 2 or j == 2))
             )
         else:
-            var2 = x**2 * (i == 0) + y**2 * (i == 1) + z**2 * (i == 2)
+            var2 = X**2 * (i == 0) + Y**2 * (i == 1) + Z**2 * (i == 2)
             coef2 = a2 * (i == 0) + b2 * (i == 1) + c2 * (i == 2)
-            return _FracInt(x, y, z, a2, b2, c2, tau, n - 1, xp) * n * (4.0 * var2) / (
+            return _FracInt(X, Y, Z, a2, b2, c2, tau, n - 1, xp) * n * (4.0 * var2) / (
                 tau + coef2
-            ) ** 2 + _FracInt(x, y, z, a2, b2, c2, tau, n, xp) * (-2.0 / (tau + coef2))
+            ) ** 2 + _FracInt(X, Y, Z, a2, b2, c2, tau, n, xp) * (-2.0 / (tau + coef2))
 
     if not (is_backend_array(x) or is_backend_array(y) or is_backend_array(z)):
         return integrate.quad(
-            lambda tau: _integrand(tau, numpy),
+            lambda tau: _integrand(tau, numpy, x, y, z),
             lowerlim(x**2, y**2, z**2, a2, b2, c2),
             numpy.inf,
         )[0]
     xp = get_namespace(x, y, z)
     ll = _lowerlim_backend(x**2, y**2, z**2, a2, b2, c2, xp)
+    # trailing quadrature-node axis on the coordinates (see _potInt): scalar-safe,
+    # correct for an array of evaluation points.
+    xe, ye, ze = x[..., None], y[..., None], z[..., None]
     return fixed_quad_semiinfinite(
-        xp, lambda tau: _integrand(tau, xp), ll, n=_GLORDER, kind="recip"
+        xp, lambda tau: _integrand(tau, xp, xe, ye, ze), ll, n=_GLORDER, kind="recip"
     )
 
 
