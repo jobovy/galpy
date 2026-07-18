@@ -354,6 +354,7 @@ jax tests/test_noninertial.py::test_accellsrframe_vecomegaz
 jax tests/test_noninertial.py::test_accellsrframe_vecomegaz_2d
 jax tests/test_noninertial.py::test_cinterp_funcomegaz
 jax tests/test_noninertial.py::test_cinterp_vecfuncomega
+jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomegaz
 jax tests/test_noninertial.py::test_lsrframe_vecomegaz
 jax tests/test_noninertial.py::test_lsrframe_vecomegaz_2d
