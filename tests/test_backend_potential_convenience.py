@@ -150,6 +150,24 @@ def test_numpy_baseline_finite(name, fn, pt):
         assert numpy.all(numpy.isfinite(out)), (name, p.__class__.__name__, out)
 
 
+@pytest.mark.skipif(not (_HAS_JAX or _HAS_TORCH), reason="needs a backend")
+@pytest.mark.parametrize(
+    "backend_name", [b for b, h in (("jax", _HAS_JAX), ("torch", _HAS_TORCH)) if h]
+)
+def test_vterm_forced_backend_runs_on_backend(backend_name):
+    # Under a forced backend, vterm(numpy longitude) must COERCE the scalar onto
+    # the backend and run there (the whole point of the forced suite), not data-
+    # guard back to numpy -- and the value must still match the numpy reference.
+    from galpy.backend import as_numpy, is_backend_array, use
+
+    for p in _pots():
+        ref = float(p.vterm(30.0, deg=True, use_physical=False))
+        with use(backend_name, force=True):
+            got = p.vterm(30.0, deg=True, use_physical=False)
+        assert is_backend_array(got), f"vterm forced-{backend_name} fell back to numpy"
+        numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-10, atol=1e-12)
+
+
 @pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
 @pytest.mark.parametrize("name,fn,pt", FLAT, ids=FLAT_IDS)
 def test_jax_eager_array_and_value(name, fn, pt):
