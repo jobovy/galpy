@@ -1053,3 +1053,115 @@ def test_determine_stream_spread_single_grad_vs_fd(backend_name):
     assert best < 1e-5 * abs(ad) + 1e-6, (
         f"spread grad-vs-FD {backend_name} best={best:.2e}"
     )
+
+
+###############################################################################
+# Phase C.2: _cart_and_interp_cov -- eigen-slerp interpolation of the 6x6 covs.
+# numpy path byte-identical; backend twin: eigh (not eig) + functional sign-align
+# + backend-native eigenvalue cubic spline + guarded slerp + reconstruction.
+###############################################################################
+from galpy.util import coords as _coords
+
+
+def _mock_spread_sdf(nC, xp_mk):
+    # Minimal object exposing the attributes _cart_and_interp_cov reads. Random
+    # but reproducible ObsTrack + SPD chunk covariances + monotone theta grids.
+    from galpy.df.streamdf import streamdf as _cls
+
+    rng = numpy.random.default_rng(7)
+    dtheta = 1.3
+    thetas = numpy.linspace(0.0, dtheta, nC)
+    interp = numpy.linspace(0.0, dtheta, 6 * nC)
+    obs = rng.standard_normal((nC, 6)) * 0.3 + numpy.array(
+        [1.1, 0.05, 1.0, 0.1, 0.02, 0.3]
+    )
+    covs = numpy.empty((nC, 6, 6))
+    for ii in range(nC):
+        A = rng.standard_normal((6, 6))
+        covs[ii] = A @ A.T + 3.0 * numpy.eye(6)  # SPD
+
+    class _M:
+        pass
+
+    m = _M()
+    m._nTrackChunks = nC
+    m._ObsTrack = xp_mk(obs)
+    m._thetasTrack = thetas
+    m._interpolatedThetasTrack = interp
+    m._cart_and_interp_cov = _cls._cart_and_interp_cov.__get__(m)
+    m._cart_and_interp_cov_backend = _cls._cart_and_interp_cov_backend.__get__(m)
+    return m, covs
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_cart_and_interp_cov_value_parity(backend_name):
+    m_np, covs = _mock_spread_sdf(5, numpy.asarray)
+    xy_np, interp_np = m_np._cart_and_interp_cov(covs)
+    m_b, _ = _mock_spread_sdf(5, lambda a: _arr(backend_name, a))
+    xy_b, interp_b = m_b._cart_and_interp_cov(_arr(backend_name, covs))
+    # chunk-level Cartesian covariance == numpy to machine precision;
+    # interpolated matches to the eigh-vs-eig + spline floor.
+    numpy.testing.assert_allclose(as_numpy(xy_b), xy_np, rtol=1e-11, atol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(interp_b), interp_np, rtol=1e-9, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_cart_and_interp_cov_grad_vs_fd(backend_name):
+    # d(sum allErrCovsXY)/d(chunk_covs[0,0,0]) AD h-converges to a central FD of numpy.
+    m_np, covs = _mock_spread_sdf(5, numpy.asarray)
+
+    def loss_np(c):
+        return float(m_np._cart_and_interp_cov(c)[0].sum())
+
+    if backend_name == "jax":
+        m_b, _ = _mock_spread_sdf(5, jnp.asarray)
+
+        def loss(c):
+            return m_b._cart_and_interp_cov(c)[0].sum()
+
+        ad = float(jax.grad(loss)(jnp.asarray(covs))[0, 0, 0])
+    else:
+        m_b, _ = _mock_spread_sdf(5, lambda a: torch.tensor(a))
+        ct = torch.tensor(covs, requires_grad=True)
+        m_b._cart_and_interp_cov(ct)[0].sum().backward()
+        ad = float(ct.grad[0, 0, 0])
+    best = float("inf")
+    for h in (1e-4, 1e-5, 1e-6):
+        cp, cm = covs.copy(), covs.copy()
+        cp[0, 0, 0] += h
+        cm[0, 0, 0] -= h
+        best = min(best, abs(ad - (loss_np(cp) - loss_np(cm)) / (2 * h)))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    assert best < 1e-5 * abs(ad) + 1e-6, (
+        f"cart_and_interp grad {backend_name} {best:.2e}"
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_cart_and_interp_cov_slerp_degeneracy_finite(backend_name):
+    # Near-identical adjacent chunks drive the slerp Omega->0 (numpy NaNs there,
+    # unguarded / sin(Omega)); the backend must stay finite in value AND gradient.
+    m_b, covs = _mock_spread_sdf(5, lambda a: _arr(backend_name, a))
+    covs[1] = covs[0]  # identical adjacent covariance -> parallel eigenvectors
+    if backend_name == "jax":
+        cb = jnp.asarray(covs)
+        out = m_b._cart_and_interp_cov(cb)
+        g = jax.grad(lambda c: m_b._cart_and_interp_cov(c)[1].sum())(cb)
+        assert bool(jnp.all(jnp.isfinite(out[1]))) and bool(jnp.all(jnp.isfinite(g)))
+    else:
+        cb = torch.tensor(covs, requires_grad=True)
+        out = m_b._cart_and_interp_cov(cb)
+        out[1].sum().backward()
+        assert bool(torch.all(torch.isfinite(out[1]))) and bool(
+            torch.all(torch.isfinite(cb.grad))
+        )
+
+
+@pytest.mark.parametrize("nargs", [3, 6])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_cyl_to_rect_jac_backend(backend_name, nargs):
+    rng = numpy.random.default_rng(1)
+    args = rng.standard_normal(nargs)
+    ref = _coords.cyl_to_rect_jac(*[numpy.asarray(a) for a in args])
+    got = as_numpy(_coords.cyl_to_rect_jac(*[_arr(backend_name, a) for a in args]))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)

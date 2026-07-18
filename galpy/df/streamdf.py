@@ -17,8 +17,9 @@ else:
     from scipy.special import logsumexp
 
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
-from ..backend import as_backend_constant, get_namespace, is_backend_array
+from ..backend import as_backend_constant, as_numpy, get_namespace, is_backend_array
 from ..backend import special as _bspecial
+from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..backend.quadrature import quad as _backend_quad
 from ..orbit import Orbit
@@ -1734,6 +1735,8 @@ class streamdf(df):
         then eigen-slerp interpolate it onto ``_interpolatedThetasTrack``.
         Returns ``(allErrCovsXY, interpolatedAllErrCovsXY)``.
         """
+        if is_backend_array(chunk_covs) or is_backend_array(self._ObsTrack):
+            return self._cart_and_interp_cov_backend(chunk_covs)
         nC = self._nTrackChunks
         allErrCovsXY = numpy.empty_like(chunk_covs)
         eigvals = numpy.empty((nC, 6))
@@ -1790,6 +1793,130 @@ class streamdf(df):
                     numpy.diag(interpolatedEigval[:, ii]), interpolatedEigvec[ii].T
                 ),
             )
+        return allErrCovsXY, interpolated
+
+    def _cart_and_interp_cov_backend(self, chunk_covs):
+        """Backend (jax/torch) twin of :meth:`_cart_and_interp_cov`.
+
+        Functional throughout (numpy item-assignment -> ``xp.stack``/``xp.where``).
+
+        The per-chunk Cartesian covariance ``allErrCovsXY`` = ``tjac @ cov @
+        tjac.T`` is backend-native and DIFFERENTIABLE w.r.t. ``chunk_covs`` and
+        ``_ObsTrack`` -- the priority output.
+
+        The fine-grid ``interpolated`` covariance is reconstructed from
+        eigenvalue-splined + eigenvector-slerped chunks:
+          * symmetric covariance -> ``xp.linalg.eigh`` (real, ascending-sorted,
+            stable), matching the numpy ``argsort`` order; eigenvector sign
+            differences vs ``numpy.linalg.eig`` are removed by the sign-alignment
+            and are invariant in the reconstructed covariance;
+          * eigenvalues are cubic-splined natively in ``xp`` (see the inline note
+            below): a scipy spline on a jax tracer would break tracing of the
+            whole function, so the backend uses ``cubic_spline_coeffs`` (matching
+            scipy to ~1e-15) -- ``interpolated`` is thus fully backend-native and
+            differentiable w.r.t. both the eigenvalues and the eigenvectors;
+          * the slerp ``/ sin(Omega)`` is a 0/0 trap as ``Omega -> 0``: it is
+            guarded (arccos fed a value bounded away from +-1 where degenerate,
+            with a linear-interpolation fallback) so both value and gradient stay
+            finite (both ``xp.where`` branches are finite). NOTE the numpy path
+            has a latent 0/0 -> NaN here (unguarded ``/ numpy.sin(Omega)``); the
+            backend produces the correct finite linear-interpolation limit.
+
+        The backend ``interpolated`` therefore intentionally diverges from the
+        numpy path at TWO degeneracies, and is the more accurate party at both:
+        (a) the slerp Omega -> 0 NaN above; and (b) eigenvalue NEAR-degeneracy --
+        the numpy path reconstructs with ``V diag(lambda) V.T`` from
+        ``numpy.linalg.eig``, whose eigenvectors go NON-orthonormal as two
+        eigenvalues approach each other (its own node reconstruction then drifts
+        by O(eps / eigenvalue_gap)), whereas ``eigh`` stays orthonormal so the
+        backend reconstruction is exact. Elsewhere the two agree to ~1e-14.
+        """
+        xp = get_namespace(chunk_covs, self._ObsTrack)
+        nC = self._nTrackChunks
+        if nC < 4:  # not-a-knot cubic spline needs >= 4 knots (numpy IUS(k=3) too)
+            raise ValueError("backend _cart_and_interp_cov requires nTrackChunks >= 4")
+        # Coerce onto the backend; a backend array passes through untouched so its
+        # gradient is preserved (do NOT round-trip _ObsTrack/chunk_covs via numpy).
+        if not is_backend_array(chunk_covs):
+            chunk_covs = as_backend_constant(xp, chunk_covs, self._ObsTrack)
+        ref = chunk_covs
+        ObsTrack = self._ObsTrack
+        if not is_backend_array(ObsTrack):
+            ObsTrack = as_backend_constant(xp, ObsTrack, ref)
+        thetas = self._thetasTrack
+        if not is_backend_array(thetas):
+            thetas = as_backend_constant(xp, thetas, ref)
+        # allErrCovsXY = tjac @ cov @ tjac.T per chunk (the differentiable output).
+        covsxy = []
+        for ii in range(nC):
+            tjac = coords.cyl_to_rect_jac(*ObsTrack[ii])
+            covsxy.append(tjac @ (chunk_covs[ii] @ xp.matrix_transpose(tjac)))
+        allErrCovsXY = xp.stack(covsxy)  # (nC, 6, 6)
+        # Eigendecompose (symmetric -> eigh: real, ascending) + sign-align the
+        # eigenvectors chunk-to-chunk (numpy carries eigDir[jj]; start from e_0).
+        e0 = as_backend_constant(xp, numpy.array([1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), ref)
+        prev = [e0] * 6
+        eigvals_list, eigvecs_list = [], []
+        for ii in range(nC):
+            w, v = xp.linalg.eigh(allErrCovsXY[ii])  # ascending eigvals, columns
+            cols = []
+            for jj in range(6):
+                vj = v[:, jj]
+                vj = xp.where(xp.sum(prev[jj] * vj) < 0.0, -vj, vj)
+                cols.append(vj)
+                prev[jj] = vj
+            eigvecs_list.append(xp.stack(cols, axis=1))  # (6, 6) columns
+            eigvals_list.append(w)
+        eigvecs = xp.stack(eigvecs_list)  # (nC, 6, 6)
+        eigvals = xp.stack(eigvals_list)  # (nC, 6)
+        # Eigenvalue spline: the numpy path uses a scipy cubic
+        # InterpolatedUnivariateSpline, but scipy on a jax TRACER breaks tracing
+        # (`as_numpy` of a tracer raises), which would make the WHOLE function --
+        # allErrCovsXY included -- non-jittable/non-differentiable under jax. So
+        # the backend spline is built natively (galpy.backend.interpolate mode 2:
+        # cubic_spline_coeffs, a tridiagonal solve in xp); bc='not-a-knot' matches
+        # scipy's InterpolatedUnivariateSpline(k=3) to ~1e-15, and it is
+        # jax-traceable AND differentiable w.r.t. the eigenvalues (so the fine
+        # grid is differentiable too -- exceeding the Phase-E deferral). The numpy
+        # path is untouched (still scipy, byte-identical).
+        thetas_np = as_numpy(thetas)  # spline knots are geometry (concrete)
+        interpThetas_np = self._interpolatedThetasTrack  # host bookkeeping (numpy)
+        nInterp = len(interpThetas_np)
+        interpThetas = as_backend_constant(xp, interpThetas_np, ref)
+        coeffs = cubic_spline_coeffs(xp, thetas_np, eigvals, bc="not-a-knot")
+        interpolatedEigval = eval_ppoly(
+            xp, thetas_np, coeffs, interpThetas
+        )  # (nInterp, 6)
+        # Eigenvector slerp (backend-native, differentiable), 0/0-guarded.
+        interpolatedEigvec = as_backend_constant(xp, numpy.zeros((nInterp, 6, 6)), ref)
+        for ii in range(nC - 1):
+            v0, v1 = eigvecs[ii], eigvecs[ii + 1]  # (6, 6) each, cols = eigvecs
+            dots = xp.sum(v0 * v1, axis=0)  # (6,)
+            c = xp.clip(dots, -1.0, 1.0)
+            sin2 = 1.0 - c * c  # sin^2(Omega) >= 0
+            degenerate = sin2 < 1e-14  # Omega -> 0 (or pi): slerp is 0/0
+            # feed arccos a value with a FINITE derivative where degenerate (0,
+            # not +-1 where arccos' = inf) so no inf*0 = NaN under AD.
+            c_safe = xp.where(degenerate, xp.zeros_like(c), c)
+            Om = xp.arccos(c_safe)  # (6,) finite value + grad
+            sinOm = xp.sin(Om)  # nonzero (== 1 where degenerate)
+            t = (interpThetas - thetas[ii]) / (thetas[ii + 1] - thetas[ii])  # (nI,)
+            mask = (t >= 0.0) & (t <= 1.0)  # (nInterp,)
+            A = xp.sin((1.0 - t)[:, None] * Om[None, :])  # (nInterp, 6)
+            B = xp.sin(t[:, None] * Om[None, :])  # (nInterp, 6)
+            slerp = (
+                A[:, None, :] * v0[None, :, :] + B[:, None, :] * v1[None, :, :]
+            ) / sinOm[None, None, :]
+            linear = (1.0 - t)[:, None, None] * v0[None, :, :] + t[:, None, None] * v1[
+                None, :, :
+            ]
+            val = xp.where(degenerate[None, None, :], linear, slerp)  # (nI, 6, 6)
+            interpolatedEigvec = xp.where(mask[:, None, None], val, interpolatedEigvec)
+        # Reconstruct V @ diag(lambda) @ V.T on the fine grid.
+        Vt = xp.matrix_transpose(interpolatedEigvec)  # (nInterp, 6, 6)
+        interpolated = xp.matmul(
+            interpolatedEigvec, interpolatedEigval[:, :, None] * Vt
+        )
         return allErrCovsXY, interpolated
 
     def _determine_stream_spreadLB(
