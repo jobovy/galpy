@@ -25,7 +25,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, use
 from galpy.potential import (
     FerrersPotential,
     evaluateRforces,
@@ -275,3 +275,48 @@ def test_dens_grad_outside_is_finite(backend_name):
         ad = 0.0 if R.grad is None else float(R.grad)
     assert numpy.isfinite(ad), f"Ferrers _dens outside grad not finite ({backend_name})"
     assert ad == 0.0
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_rotating_scalar_t_under_forced_backend(backend_name):
+    # The orbit integrator hands the force a scalar Python-float t while the
+    # coordinates are backend arrays. Under a FORCED backend get_namespace(t) would
+    # resolve to that backend and torch.cos(python_float) raises (the rotating-bar
+    # t-anchoring gap); the concrete-t rotation coefficient must fall back to numpy
+    # (byte-identical, broadcasts into the backend force). Checked at a scalar float
+    # t != 0 so the omegab*t de-rotation is actually exercised, against numpy.
+    R0, z0, phi0, t0 = 1.1, 0.15, 0.35, 0.7  # scalar Python-float t
+    methods = ("_Rforce", "_zforce", "_phitorque")
+    ref = numpy.array(
+        [
+            float(
+                getattr(_FE, m)(
+                    numpy.asarray(R0), numpy.asarray(z0), numpy.asarray(phi0), t0
+                )
+            )
+            for m in methods
+        ]
+    )
+    with use(backend_name, force=True):
+        got = numpy.array(
+            [
+                float(
+                    as_numpy(
+                        getattr(_FE, m)(
+                            _asarray(backend_name, R0),
+                            _asarray(backend_name, z0),
+                            _asarray(backend_name, phi0),
+                            t0,
+                        )
+                    )
+                )
+                for m in methods
+            ]
+        )
+    numpy.testing.assert_allclose(
+        got,
+        ref,
+        rtol=1e-9,
+        atol=1e-11,
+        err_msg=f"Ferrers rotating scalar-t ({backend_name})",
+    )

@@ -122,9 +122,10 @@ class FerrersPotential(Potential):
         x, y, z = coords.cyl_to_rect(R, phi, z)
         # rotation into the aligned frame: rot(t) @ [x, y] without array stacking
         # (numpy.array([x, y]) stacking is the torch-concat backend blocker). The
-        # rotation angle follows t (concrete t -> numpy coefficient; traced t ->
-        # that backend), like SoftenedNeedleBarPotential.
-        xpt = get_namespace(t)
+        # rotation angle follows t: a concrete scalar t -> numpy coefficient (broadcasts
+        # against backend coords under force; byte-identical for numpy), a traced backend
+        # t -> that backend (differentiable), like SoftenedNeedleBarPotential.
+        xpt = get_namespace(t) if is_backend_array(t) else numpy
         ang = self._pa + self._omegab * t
         ca, sa = xpt.cos(ang), xpt.sin(ang)
         x, y = ca * x + sa * y, -sa * x + ca * y
@@ -176,10 +177,10 @@ class FerrersPotential(Potential):
         Fx = self._xforce_xyz(x, y, z)
         Fy = self._yforce_xyz(x, y, z)
         Fz = self._zforce_xyz(x, y, z)
-        # de-rotation angle; follows t (concrete t -> numpy coefficient that
-        # broadcasts; traced t -> that backend's cos/sin), as in
-        # SoftenedNeedleBarPotential.
-        xpt = get_namespace(t)
+        # de-rotation angle; follows t (concrete scalar t -> numpy coefficient that
+        # broadcasts against backend coords; traced backend t -> that backend's cos/sin),
+        # as in SoftenedNeedleBarPotential.
+        xpt = get_namespace(t) if is_backend_array(t) else numpy
         tp = self._pa + self._omegab * t
         cp, sp = xpt.cos(tp), xpt.sin(tp)
         return (cp * Fx - sp * Fy, sp * Fx + cp * Fy, Fz)
