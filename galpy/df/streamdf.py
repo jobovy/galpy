@@ -1682,12 +1682,45 @@ class streamdf(df):
         :meth:`streamTrack` so ``track.cov`` matches the streamspraydf
         convention.
         """
-        allErrCovs = numpy.empty((self._nTrackChunks, 6, 6))
-        allErrCovsLocal = numpy.empty((self._nTrackChunks, 6, 6))
         sigOmega_fn = lambda x: self.sigOmega(x, use_physical=False)
         sigAngle_fn = lambda y: self.sigangledAngle(
             y, simple=simple, use_physical=False
         )
+        if is_backend_array(self._allinvjacsTrack):
+            # Backend (jax/torch) track: assemble the per-chunk covariances
+            # functionally (xp.stack, no numpy.empty item-assignment) so the spread
+            # is backend-native/jit/GPU and differentiable through the track. The
+            # frozen (numpy) sigomatrixEig is coerced onto the backend as a constant
+            # (its own differentiability w.r.t. the progenitor freq-covariance is a
+            # later step); the deprecated LB pipeline stays numpy and is skipped.
+            xp = get_namespace(self._allinvjacsTrack)
+            sigEig = (
+                as_backend_constant(xp, self._sigomatrixEig[0], self._allinvjacsTrack),
+                as_backend_constant(xp, self._sigomatrixEig[1], self._allinvjacsTrack),
+            )
+            thetas = as_backend_constant(xp, self._thetasTrack, self._allinvjacsTrack)
+            fulls, locals_ = [], []
+            for ii in range(self._nTrackChunks):
+                f, l = _determine_stream_spread_single(
+                    sigEig,
+                    thetas[ii],
+                    sigOmega_fn,
+                    sigAngle_fn,
+                    self._allinvjacsTrack[ii],
+                )
+                fulls.append(f)
+                locals_.append(l)
+            self._allErrCovs = xp.stack(fulls)
+            allErrCovsLocal = xp.stack(locals_)
+            self._allErrCovsXY, self._interpolatedAllErrCovsXY = (
+                self._cart_and_interp_cov(self._allErrCovs)
+            )
+            self._allErrCovsLocalXY, self._interpolatedAllErrCovsLocalXY = (
+                self._cart_and_interp_cov(allErrCovsLocal)
+            )
+            return None
+        allErrCovs = numpy.empty((self._nTrackChunks, 6, 6))
+        allErrCovsLocal = numpy.empty((self._nTrackChunks, 6, 6))
         if self._multi is None:
             for ii in range(self._nTrackChunks):
                 allErrCovs[ii], allErrCovsLocal[ii] = _determine_stream_spread_single(

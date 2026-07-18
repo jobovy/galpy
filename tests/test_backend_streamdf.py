@@ -1165,3 +1165,49 @@ def test_cyl_to_rect_jac_backend(backend_name, nargs):
     ref = _coords.cyl_to_rect_jac(*[numpy.asarray(a) for a in args])
     got = as_numpy(_coords.cyl_to_rect_jac(*[_arr(backend_name, a) for a in args]))
     numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+
+
+###############################################################################
+# Phase C.4: _determine_stream_spread pipeline dispatches to the backend when the
+# track (_allinvjacsTrack) is a backend array -- assembles the per-chunk covs
+# functionally + reuses the C.2 eigen-slerp interpolation.
+###############################################################################
+@pytest.mark.slow
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_determine_stream_spread_backend_pipeline(backend_name):
+    import copy
+
+    from galpy.df import streamdf as _cls
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=15)
+    obs = Orbit(numpy.array(_STREAM_IC))
+    sdf = _cls(
+        0.365 / 220.0,
+        progenitor=obs,
+        pot=lp,
+        aA=aA,
+        leading=True,
+        nTrackChunks=5,
+        nTrackIterations=0,
+        tdisrupt=_tdisrupt(),
+    )
+    # Same invjacs/ObsTrack on the backend -> isolates the pipeline from the track
+    # FD-vs-AD floor; the backend spread must match the numpy spread to ~machine.
+    s = copy.copy(sdf)
+    s._allinvjacsTrack = _arr(backend_name, numpy.array(sdf._allinvjacsTrack))
+    s._ObsTrack = _arr(backend_name, numpy.array(sdf._ObsTrack))
+    s._determine_stream_spread()
+    for attr in (
+        "_allErrCovsXY",
+        "_interpolatedAllErrCovsXY",
+        "_allErrCovsLocalXY",
+        "_interpolatedAllErrCovsLocalXY",
+    ):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(s, attr)),
+            numpy.array(getattr(sdf, attr)),
+            rtol=1e-10,
+            atol=1e-12,
+            err_msg=f"{attr} ({backend_name})",
+        )
