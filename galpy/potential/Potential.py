@@ -1627,6 +1627,7 @@ class Potential(Force):
             l = conversion.parse_angle(l)
             deg = False
         xp = get_namespace(l)
+        (l,) = coerce_coords(xp, l)
         if deg:
             sinl = xp.sin(l / 180.0 * numpy.pi)
         else:
