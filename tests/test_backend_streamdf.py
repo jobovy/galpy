@@ -44,7 +44,9 @@ from galpy.actionAngle import actionAngleIsochroneApprox
 from galpy.backend import as_numpy, get_namespace
 from galpy.backend.jacobian import jacobian
 from galpy.df.streamdf import (
+    _determine_stream_spread_single,
     _determine_stream_track_single,
+    _real_eig,
     _vmap_track_chunks,
     calcaAJac,
 )
@@ -978,3 +980,76 @@ def test_vmap_track_chunks_torch_stack():
         assert tuple(out[k].shape) == (3,)
         expected = numpy.array([float(xv0[i].sum() + thetas[i] + k) for i in range(3)])
         numpy.testing.assert_allclose(as_numpy(out[k]), expected, atol=1e-12)
+
+
+###############################################################################
+# Phase C: _determine_stream_spread_single -- the per-chunk covariance assembly.
+# numpy path is byte-identical; a backend sigomatrixEig / invjac routes to a
+# PURE/functional twin (item-assignment -> xp.where/xp.concat) so the 6x6 stream
+# covariance differentiates w.r.t. the frequency covariance, the dispersions and
+# the track Jacobian.
+###############################################################################
+def _spread_inputs():
+    rng = numpy.random.default_rng(3)
+    A = rng.standard_normal((3, 3))
+    sigo = A @ A.T + 3.0 * numpy.eye(3)  # SPD frequency covariance
+    eig = _real_eig(sigo)  # (eigvals(3,), eigvecs(3,3))
+    invjac = rng.standard_normal((6, 6))
+    return eig, invjac
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_determine_stream_spread_single_value_parity(backend_name):
+    eig, invjac = _spread_inputs()
+    theta = 0.7
+    sigOm = lambda t: 0.5 + 0.0 * t
+    sigAn = lambda t: 0.3 + 0.0 * t
+    f_np, l_np = _determine_stream_spread_single(
+        eig, numpy.asarray(theta), sigOm, sigAn, invjac
+    )
+    eb = (_arr(backend_name, eig[0]), _arr(backend_name, eig[1]))
+    f_b, l_b = _determine_stream_spread_single(
+        eb, _arr(backend_name, theta), sigOm, sigAn, _arr(backend_name, invjac)
+    )
+    numpy.testing.assert_allclose(as_numpy(f_b), f_np, rtol=1e-11, atol=1e-13)
+    numpy.testing.assert_allclose(as_numpy(l_b), l_np, rtol=1e-11, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_determine_stream_spread_single_grad_vs_fd(backend_name):
+    # d(sum full_cov + sum local_cov)/d(invjac[0,0]) AD h-converges to a central FD
+    # of the numpy path (the covariance is now differentiable through the assembly).
+    eig, invjac = _spread_inputs()
+    theta = 0.7
+    sigOm = lambda t: 0.5 + 0.0 * t
+    sigAn = lambda t: 0.3 + 0.0 * t
+
+    def loss_np(J):
+        f, l = _determine_stream_spread_single(eig, theta, sigOm, sigAn, J)
+        return float(f.sum() + l.sum())
+
+    if backend_name == "jax":
+        eb = (jnp.asarray(eig[0]), jnp.asarray(eig[1]))
+
+        def loss(J):
+            f, l = _determine_stream_spread_single(eb, theta, sigOm, sigAn, J)
+            return f.sum() + l.sum()
+
+        ad = float(jax.grad(loss)(jnp.asarray(invjac))[0, 0])
+    else:
+        Jt = torch.tensor(invjac, requires_grad=True)
+        eb = (torch.tensor(eig[0]), torch.tensor(eig[1]))
+        f, l = _determine_stream_spread_single(eb, theta, sigOm, sigAn, Jt)
+        (f.sum() + l.sum()).backward()
+        ad = float(Jt.grad[0, 0])
+    best = float("inf")
+    for h in (1e-4, 1e-5, 1e-6):
+        Jp, Jm = invjac.copy(), invjac.copy()
+        Jp[0, 0] += h
+        Jm[0, 0] -= h
+        fd = (loss_np(Jp) - loss_np(Jm)) / (2 * h)
+        best = min(best, abs(ad - fd))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    assert best < 1e-5 * abs(ad) + 1e-6, (
+        f"spread grad-vs-FD {backend_name} best={best:.2e}"
+    )

@@ -4515,6 +4515,10 @@ def _determine_stream_spread_single(
       matching the streamspraydf-streamTrack convention. Used by
       :meth:`streamdf.streamTrack` to populate the StreamTrack's ``cov``.
     """
+    if is_backend_array(allinvjacsTrack) or is_backend_array(sigomatrixEig[1]):
+        return _determine_stream_spread_single_backend(
+            sigomatrixEig, thetasTrack, sigOmega, sigAngle, allinvjacsTrack
+        )
     inv_eigvecs = numpy.linalg.inv(sigomatrixEig[1])
     sigObig2 = sigOmega(thetasTrack) ** 2.0
     tsigOdiag = copy.copy(sigomatrixEig[0])
@@ -4549,6 +4553,56 @@ def _determine_stream_spread_single(
     local_diag = numpy.ones(3) * sigangle2
     local_cov = _assemble(local_diag, parallel_corr_zero=False)
 
+    return full_cov, local_cov
+
+
+def _determine_stream_spread_single_backend(
+    sigomatrixEig, thetasTrack, sigOmega, sigAngle, allinvjacsTrack
+):
+    """Backend (jax/torch) twin of :func:`_determine_stream_spread_single`.
+
+    Pure/functional: the numpy item-assignments (``tsigOdiag[argmax]=``,
+    ``full_diag[parallel_idx]=``, ``correlations[p,p]=0``, the 4 block writes into
+    ``fullMatrix``) become ``xp.where`` / ``xp.concat`` so the covariance
+    differentiates w.r.t. the frequency covariance (``sigomatrixEig``), the
+    dispersions (``sigOmega``/``sigAngle``) and the track Jacobian
+    (``allinvjacsTrack``). Reproduces the numpy assembly exactly.
+    """
+    xp = get_namespace(allinvjacsTrack)
+    eigvals, eigvecs = sigomatrixEig[0], sigomatrixEig[1]
+    inv_eigvecs = xp.linalg.inv(eigvecs)
+    ar = xp.arange(eigvals.shape[0])  # (3,)
+    sigObig2 = sigOmega(thetasTrack) ** 2.0
+    # replace the largest frequency eigenvalue with the along-stream dispersion
+    tsigOdiag = xp.where(ar == xp.argmax(eigvals), sigObig2, eigvals)
+    tsigO = eigvecs @ (xp.diag(tsigOdiag) @ inv_eigvecs)
+    sigangle2 = (
+        sigAngle(thetasTrack) ** 2.0 if hasattr(sigAngle, "__call__") else sigAngle**2.0
+    )
+    parallel_idx = xp.argmax(tsigOdiag)
+
+    def _assemble(tsigadiag, parallel_corr_zero):
+        tsiga = eigvecs @ (xp.diag(tsigadiag) @ inv_eigvecs)
+        # numpy.diag(0.5*ones(3)) * sqrt(tsigOdiag*tsigadiag) == diag(0.5*sqrt(...))
+        corr_diag = 0.5 * xp.sqrt(tsigOdiag * tsigadiag)
+        if parallel_corr_zero:
+            corr_diag = xp.where(
+                ar == parallel_idx, xp.zeros_like(corr_diag), corr_diag
+            )
+        correlations = eigvecs @ (xp.diag(corr_diag) @ inv_eigvecs)
+        fullMatrix = xp.concat(
+            [
+                xp.concat([tsigO, correlations.T], axis=1),  # [:3,:3], [:3,3:]
+                xp.concat([correlations, tsiga], axis=1),  # [3:,:3], [3:,3:]
+            ],
+            axis=0,
+        )
+        return allinvjacsTrack @ (fullMatrix @ allinvjacsTrack.T)
+
+    full_diag = xp.where(ar == parallel_idx, xp.ones_like(ar * 1.0), sigangle2)
+    full_cov = _assemble(full_diag, parallel_corr_zero=True)
+    local_diag = sigangle2 * xp.ones_like(ar * 1.0)
+    local_cov = _assemble(local_diag, parallel_corr_zero=False)
     return full_cov, local_cov
 
 
