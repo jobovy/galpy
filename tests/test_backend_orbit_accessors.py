@@ -19,6 +19,7 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy, is_backend_array, use
 from galpy.orbit import Orbit
 from galpy.potential import PlummerPotential
 
@@ -586,3 +587,36 @@ def test_analytic_char_numpy_path_unchanged():
         )
         assert isinstance(val, (float, numpy.floating, numpy.ndarray))
         assert numpy.isfinite(float(numpy.asarray(val)))
+
+
+# --- numerical-reduction accessors under a FORCED backend on a numpy orbit ------
+# zmax/rap/rperi/e reduce the integrated trajectory with xp.max/min/abs. Under a
+# forced backend get_namespace(numpy_zs) resolves to that backend, so
+# torch.abs(numpy)/torch.max(numpy) raised -- the exact crash that blocked the
+# streamdf progenitor setup (zmax on a numpy orbit) under forced torch. The
+# data-guard (is_backend_array(data) ? backend : numpy) keeps a numpy orbit numpy.
+_NUM_ACCESSORS = ["zmax", "rap", "rperi", "e"]
+_FORCE_BACKENDS = [b for b, h in [("jax", HAVE_JAX), ("torch", HAVE_TORCH)] if h]
+
+
+@pytest.mark.parametrize("acc", _NUM_ACCESSORS)
+@pytest.mark.parametrize("backend_name", _FORCE_BACKENDS)
+def test_numerical_accessor_forced_backend_on_numpy_orbit(acc, backend_name):
+    o = Orbit(list(_IC))
+    o.turn_physical_off()
+    o.integrate(_TS, _POT, method="dop853_c")  # numpy integration
+    ref = float(getattr(o, acc)())
+    with use(backend_name, force=True):
+        raw = getattr(o, acc)()
+        # the point of the forced backend is that the accessor RUNS on the
+        # backend (coerces the numpy trajectory onto it), not that it silently
+        # falls back to numpy -- lock that in.
+        assert is_backend_array(raw), f"{acc} forced-{backend_name} not on backend"
+        got = float(as_numpy(raw))
+    numpy.testing.assert_allclose(
+        got,
+        ref,
+        rtol=1e-12,
+        atol=1e-14,
+        err_msg=f"{acc} forced-{backend_name} numpy orbit",
+    )

@@ -23,7 +23,7 @@ elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
 else:
     from scipy.special import logsumexp
 
-from ..backend import as_numpy, get_namespace, is_backend_array
+from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
 from ..potential import (
     _INF,
     CompositePotential,
@@ -2262,6 +2262,7 @@ class Orbit:
         interpolation range [rmin, rmax] of the potential potname"""
         rs = self.r(self.t, use_physical=False)
         xp = get_namespace(rs)
+        (rs,) = coerce_coords(xp, rs)
         outside = xp.any((rs < rmin) | (rs > rmax), axis=-1)
         if not xp.any(outside):
             return
@@ -4046,6 +4047,7 @@ class Orbit:
             )
         rs = self.r(self.t, use_physical=False, dontreshape=True)
         xp = get_namespace(rs)
+        (rs,) = coerce_coords(xp, rs)
         return (xp.max(rs, axis=-1) - xp.min(rs, axis=-1)) / (
             xp.max(rs, axis=-1) + xp.min(rs, axis=-1)
         )
@@ -4096,6 +4098,7 @@ class Orbit:
             )
         rs = self.r(self.t, use_physical=False, dontreshape=True)
         xp = get_namespace(rs)
+        (rs,) = coerce_coords(xp, rs)
         return xp.max(rs, axis=-1)
 
     @physical_conversion("position")
@@ -4144,6 +4147,7 @@ class Orbit:
             )
         rs = self.r(self.t, use_physical=False, dontreshape=True)
         xp = get_namespace(rs)
+        (rs,) = coerce_coords(xp, rs)
         return xp.min(rs, axis=-1)
 
     @physical_conversion("position")
@@ -4378,6 +4382,7 @@ class Orbit:
             )
         zs = self.z(self.t, use_physical=False, dontreshape=True)
         xp = get_namespace(zs)
+        (zs,) = coerce_coords(xp, zs)
         return xp.max(xp.abs(zs), axis=-1)
 
     @physical_conversion("action")
