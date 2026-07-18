@@ -25,7 +25,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, use
 from galpy.potential import (
     FerrersPotential,
     evaluateRforces,
@@ -275,3 +275,89 @@ def test_dens_grad_outside_is_finite(backend_name):
         ad = 0.0 if R.grad is None else float(R.grad)
     assert numpy.isfinite(ad), f"Ferrers _dens outside grad not finite ({backend_name})"
     assert ad == 0.0
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_rotating_scalar_t_under_forced_backend(backend_name):
+    # The orbit integrator hands the force a scalar Python-float t while the
+    # coordinates are backend arrays. Under a FORCED backend get_namespace(t) would
+    # resolve to that backend and torch.cos(python_float) raises (the rotating-bar
+    # t-anchoring gap); the concrete-t rotation coefficient must fall back to numpy
+    # (byte-identical, broadcasts into the backend force). Checked at a scalar float
+    # t != 0 so the omegab*t de-rotation is actually exercised, against numpy.
+    R0, z0, phi0, t0 = 1.1, 0.15, 0.35, 0.7  # scalar Python-float t
+    methods = ("_Rforce", "_zforce", "_phitorque")
+    ref = numpy.array(
+        [
+            float(
+                getattr(_FE, m)(
+                    numpy.asarray(R0), numpy.asarray(z0), numpy.asarray(phi0), t0
+                )
+            )
+            for m in methods
+        ]
+    )
+    with use(backend_name, force=True):
+        got = numpy.array(
+            [
+                float(
+                    as_numpy(
+                        getattr(_FE, m)(
+                            _asarray(backend_name, R0),
+                            _asarray(backend_name, z0),
+                            _asarray(backend_name, phi0),
+                            t0,
+                        )
+                    )
+                )
+                for m in methods
+            ]
+        )
+    numpy.testing.assert_allclose(
+        got,
+        ref,
+        rtol=1e-9,
+        atol=1e-11,
+        err_msg=f"Ferrers rotating scalar-t ({backend_name})",
+    )
+
+
+@pytest.mark.parametrize("method", ["_evaluate", "_Rforce", "_zforce", "_phitorque"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_array_coords_under_forced_backend(backend_name, method):
+    # Orbit.E() evaluates the potential/forces at an ARRAY of points in one call
+    # (all orbit times at once). The backend GL quadrature must broadcast the
+    # coordinate array against the quadrature nodes -- a scalar-only integrand
+    # produces wrong cross-terms (the energy-conservation gap). Checked against the
+    # numpy per-point reference under a FORCED backend (the orbit-integration
+    # context; a scalar float t also exercises the rotating de-rotation).
+    Rs = numpy.array([1.1, 0.8, 1.4, 0.6])
+    zs = numpy.array([0.1, -0.2, 0.05, 0.3])
+    ps = numpy.array([0.2, 0.5, -0.1, 0.4])
+    t0 = 0.1
+    ref = numpy.array(
+        [
+            float(
+                getattr(_FE, method)(
+                    numpy.asarray(R), numpy.asarray(z), numpy.asarray(p), t0
+                )
+            )
+            for R, z, p in zip(Rs, zs, ps)
+        ]
+    )
+    with use(backend_name, force=True):
+        got = as_numpy(
+            getattr(_FE, method)(
+                _asarray(backend_name, Rs),
+                _asarray(backend_name, zs),
+                _asarray(backend_name, ps),
+                t0,
+            )
+        )
+    numpy.testing.assert_allclose(
+        numpy.asarray(got).ravel(),
+        ref,
+        rtol=1e-9,
+        atol=1e-11,
+        err_msg=f"Ferrers.{method} array coords ({backend_name})",
+    )
