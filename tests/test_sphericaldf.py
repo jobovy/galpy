@@ -321,8 +321,8 @@ def test_isotropic_hernquist_diffcalls():
     # Calculate E directly
     assert (
         numpy.fabs(
-            dfh(R, vR, vT, z, vz, phi)
-            - dfh((pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),))
+            as_numpy(dfh(R, vR, vT, z, vz, phi))
+            - as_numpy(dfh((pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),)))
         )
         < 1e-8
     ), (
@@ -331,11 +331,17 @@ def test_isotropic_hernquist_diffcalls():
     # Also L
     assert (
         numpy.fabs(
-            dfh(R, vR, vT, z, vz, phi)
-            - dfh(
-                (
-                    pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
-                    numpy.sqrt(numpy.sum(Orbit([R, vR, vT, z, vz, phi]).L() ** 2.0)),
+            as_numpy(dfh(R, vR, vT, z, vz, phi))
+            - as_numpy(
+                dfh(
+                    (
+                        pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
+                        numpy.sqrt(
+                            numpy.sum(
+                                as_numpy(Orbit([R, vR, vT, z, vz, phi]).L() ** 2.0)
+                            )
+                        ),
+                    )
                 )
             )
         )
@@ -345,7 +351,10 @@ def test_isotropic_hernquist_diffcalls():
     )
     # Also as orbit
     assert (
-        numpy.fabs(dfh(R, vR, vT, z, vz, phi) - dfh(Orbit([R, vR, vT, z, vz, phi])))
+        numpy.fabs(
+            as_numpy(dfh(R, vR, vT, z, vz, phi))
+            - as_numpy(dfh(Orbit([R, vR, vT, z, vz, phi])))
+        )
         < 1e-8
     ), (
         "Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
@@ -828,13 +837,17 @@ def test_osipkovmerritt_hernquist_diffcalls():
         # Calculate E directly and L from Orbit
         assert (
             numpy.fabs(
-                dfh(R, vR, vT, z, vz, phi)
-                - dfh(
-                    (
-                        pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
-                        numpy.sqrt(
-                            numpy.sum(Orbit([R, vR, vT, z, vz, phi]).L() ** 2.0)
-                        ),
+                as_numpy(dfh(R, vR, vT, z, vz, phi))
+                - as_numpy(
+                    dfh(
+                        (
+                            pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
+                            numpy.sqrt(
+                                numpy.sum(
+                                    as_numpy(Orbit([R, vR, vT, z, vz, phi]).L() ** 2.0)
+                                )
+                            ),
+                        )
                     )
                 )
             )
@@ -844,7 +857,10 @@ def test_osipkovmerritt_hernquist_diffcalls():
         )
         # Also as orbit
         assert (
-            numpy.fabs(dfh(R, vR, vT, z, vz, phi) - dfh(Orbit([R, vR, vT, z, vz, phi])))
+            numpy.fabs(
+                as_numpy(dfh(R, vR, vT, z, vz, phi))
+                - as_numpy(dfh(Orbit([R, vR, vT, z, vz, phi])))
+            )
             < 1e-8
         ), (
             "Calling the Osipkov-Merritt isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
@@ -1596,9 +1612,9 @@ def test_eddington_hernquist_dMdE():
     Emin = pot(0.0, 0.0)
     Emax = pot(numpy.inf, 0.0)
     E = numpy.linspace(0.99 * Emin, Emax - 0.001, 1001)
-    assert numpy.all(numpy.fabs(dfe.dMdE(E) / dfi.dMdE(E) - 1.0) < 1e-4), (
-        "dMdE for isotropic Hernquist DF does not agree with exact solution"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dfe.dMdE(E)) / as_numpy(dfi.dMdE(E)) - 1.0) < 1e-4
+    ), "dMdE for isotropic Hernquist DF does not agree with exact solution"
     return None
 
 
@@ -3218,14 +3234,16 @@ def test_pvr_interpolator_large_rmax_sampling():
     dfh = eddingtondf(pot=pot, rmax=rmax)
     numpy.random.seed(42)
     samp = dfh.sample(n=10000)
-    rs = samp.r()
-    vs = numpy.sqrt(samp.vR() ** 2 + samp.vz() ** 2 + samp.vT() ** 2)
+    rs = as_numpy(samp.r())
+    vs = as_numpy(numpy.sqrt(samp.vR() ** 2 + samp.vz() ** 2 + samp.vT() ** 2))
     # All velocities should be <= escape velocity at their radius
-    vescs = numpy.sqrt(
-        2.0
-        * (
-            potential.evaluatePotentials(pot, rmax, 0.0)
-            - potential.evaluatePotentials(pot, rs, numpy.zeros_like(rs))
+    vescs = as_numpy(
+        numpy.sqrt(
+            2.0
+            * (
+                potential.evaluatePotentials(pot, rmax, 0.0)
+                - potential.evaluatePotentials(pot, rs, numpy.zeros_like(rs))
+            )
         )
     )
     assert numpy.all(vs <= vescs * 1.01), (
