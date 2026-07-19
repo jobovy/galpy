@@ -80,7 +80,12 @@ from functools import wraps
 
 import numpy
 
-from ..backend import get_namespace, is_backend_array, promote_scalars
+from ..backend import (
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+)
 from ..util import _rotate_to_arbitrary_vector
 from ..util._optional_deps import _APY_LOADED
 from ..util.config import __config__
@@ -1690,6 +1695,8 @@ def cyl_to_rect_jac(*args):
     -----
     - 2013-12-09 - Written - Bovy (IAS)
     """
+    if any(is_backend_array(a) for a in args):
+        return _cyl_to_rect_jac_backend(*args)
     out = numpy.zeros((6, 6))
     if len(args) == 3:
         R, phi, Z = args
@@ -1716,6 +1723,44 @@ def cyl_to_rect_jac(*args):
         out = out[:3, outIndx]
         out[:, [1, 2]] = out[:, [2, 1]]
     return out
+
+
+def _cyl_to_rect_jac_backend(*args):
+    """Backend (jax/torch) twin of :func:`cyl_to_rect_jac`.
+
+    Builds the Jacobian FUNCTIONALLY (rows assembled with ``xp.stack``, no
+    numpy item-assignment) so it is traceable/differentiable w.r.t. the
+    cylindrical coordinates. Reproduces both the 3-arg spatial and 6-arg
+    phase-space branches exactly; the 3-arg column-swap is baked into the
+    stacked column order.
+    """
+    xp = get_namespace(*args)
+    args = coerce_coords(xp, *args)
+    if len(args) == 3:
+        R, phi, Z = args
+        cp, sp = xp.cos(phi), xp.sin(phi)
+        zero, one = xp.zeros_like(R), xp.ones_like(R)
+        # columns already in the post-swap order [d/dR, d/dphi, d/dZ]
+        return xp.stack(
+            [
+                xp.stack([cp, -R * sp, zero]),
+                xp.stack([sp, R * cp, zero]),
+                xp.stack([zero, zero, one]),
+            ]
+        )
+    R, vR, vT, Z, vZ, phi = args
+    cp, sp = xp.cos(phi), xp.sin(phi)
+    zero, one = xp.zeros_like(R), xp.ones_like(R)
+    return xp.stack(
+        [
+            xp.stack([cp, zero, zero, zero, zero, -R * sp]),
+            xp.stack([sp, zero, zero, zero, zero, R * cp]),
+            xp.stack([zero, zero, zero, one, zero, zero]),
+            xp.stack([zero, cp, -sp, zero, zero, -vT * cp - vR * sp]),
+            xp.stack([zero, sp, cp, zero, zero, -vT * sp + vR * cp]),
+            xp.stack([zero, zero, zero, zero, one, zero]),
+        ]
+    )
 
 
 def galcenrect_to_XYZ_jac(*args, **kwargs):
