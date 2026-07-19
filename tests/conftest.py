@@ -358,6 +358,10 @@ def _galpy_force_backend(request):
         import jax
 
         jax.config.update("jax_enable_x64", True)
+    elif backend_name == "torch":  # galpy's tolerances assume float64
+        import torch
+
+        torch.set_default_dtype(torch.float64)
     with backend.use(backend_name, force=True):
         yield
 
