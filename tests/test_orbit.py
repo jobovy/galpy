@@ -1185,7 +1185,7 @@ def test_dxdv_3d_closed_form_stm_harmonic():
     # potential is exactly harmonic (outside it is Keplerian)
     o = Orbit(ic)
     o.integrate(times, pot, method="dop853_c")
-    r = numpy.sqrt(o.x(times) ** 2.0 + o.y(times) ** 2.0 + o.z(times) ** 2.0)
+    r = _to_numpy(numpy.sqrt(o.x(times) ** 2.0 + o.y(times) ** 2.0 + o.z(times) ** 2.0))
     assert numpy.amax(r) < 0.9 * pot.R, (
         "test precondition: the orbit must stay well inside the homogeneous "
         "sphere for the potential to be exactly harmonic along it"
@@ -5440,7 +5440,7 @@ def test_integrate_SOS_3D():
     psis = numpy.linspace(0.0, 20.0 * numpy.pi, 1001)
     for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
         o.integrate_SOS(psis, pot, method=method)
-        Es = o.E(o.t)
+        Es = _to_numpy(o.E(o.t))
         assert (numpy.std(Es) / numpy.mean(Es)) ** 2.0 < 10.0**-10, (
             f"Energy is not conserved by integrate_sos for method={method}"
         )
@@ -9857,7 +9857,10 @@ def test_physical_output():
         # Test angular momentun
         if ii > 0:
             assert numpy.all(
-                numpy.fabs(o.L() / vo / ro - o.L(use_physical=False)) < 10.0**-10.0
+                numpy.fabs(
+                    _to_numpy(o.L()) / vo / ro - _to_numpy(o.L(use_physical=False))
+                )
+                < 10.0**-10.0
             ), "o.L() output for Orbit setup with ro=,vo= does not work as expected"
         # Test action-angle functions
         if ii == 1:
@@ -10029,7 +10032,8 @@ def test_physical_output_off():
         # Test angular momentun
         if ii > 0:
             assert numpy.all(
-                numpy.fabs(o.L() - o.L(use_physical=False)) < 10.0**-10.0
+                numpy.fabs(_to_numpy(o.L()) - _to_numpy(o.L(use_physical=False)))
+                < 10.0**-10.0
             ), (
                 "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned off"
             )
@@ -10201,7 +10205,8 @@ def test_physical_output_on():
         # Test angular momentun
         if ii > 0:
             assert numpy.all(
-                numpy.fabs(o.L() - o_orig.L(use_physical=True)) < 10.0**-10.0
+                numpy.fabs(_to_numpy(o.L()) - _to_numpy(o_orig.L(use_physical=True)))
+                < 10.0**-10.0
             ), (
                 "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned back on"
             )
@@ -11737,8 +11742,8 @@ def test_orbit_method_inputro_quantity():
     ), "Orbit method Jacobi does not return the correct value when input ro is Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014, ro=ro * units.kpc)
-            - o.L(pot=MWPotential2014, ro=ro)
+            _to_numpy(o.L(pot=MWPotential2014, ro=ro * units.kpc))
+            - _to_numpy(o.L(pot=MWPotential2014, ro=ro))
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when input ro is Quantity"
@@ -11995,8 +12000,8 @@ def test_orbit_method_inputvo_quantity():
     ), "Orbit method Jacobi does not return the correct value when input vo is Quantity"
     assert numpy.all(
         numpy.fabs(
-            o.L(pot=MWPotential2014, vo=vo * units.km / units.s)
-            - o.L(pot=MWPotential2014, vo=vo)
+            _to_numpy(o.L(pot=MWPotential2014, vo=vo * units.km / units.s))
+            - _to_numpy(o.L(pot=MWPotential2014, vo=vo))
         )
         < 10.0**-8.0
     ), "Orbit method L does not return the correct value when input vo is Quantity"
