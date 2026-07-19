@@ -1370,6 +1370,14 @@ def test_spline_inverse_cdf_float32_raises():
         spline_inverse_cdf_sample(numpy, og, cg, numpy.float32(0.5))
 
 
+def test_spline_inverse_cdf_too_few_points_raises():
+    # the not-a-knot cubic spline needs >= 4 knots (real grids use ~1000).
+    with pytest.raises(ValueError, match="at least 4"):
+        spline_inverse_cdf_sample(
+            numpy, numpy.array([0.1, 0.3, 0.6]), numpy.array([0.0, 0.5, 1.0]), 0.5
+        )
+
+
 # --- (d) distributional parity vs the OLD ARS (numpy path) --------------------
 def test_sample_aAt_distribution_vs_ars(sdf):
     # Draw the along-eigenvector frequency both ways and KS-test them. Fixed seeds
