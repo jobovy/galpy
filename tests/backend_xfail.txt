@@ -352,16 +352,13 @@ torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
 torch tests/test_sphericaldf.py::test_constantbeta_selfconsist_dehnencore_dMdE_integral
 torch tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
-torch tests/test_sphericaldf.py::test_eddington_hernquist_dMdE
 torch tests/test_sphericaldf.py::test_eddington_powerspherical_divergent_auto_rmin
 torch tests/test_sphericaldf.py::test_eddington_powerspherical_massprofile
 torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_directint
 torch tests/test_sphericaldf.py::test_isotropic_hernquist_dMdE_integral
-torch tests/test_sphericaldf.py::test_isotropic_hernquist_diffcalls
 torch tests/test_sphericaldf.py::test_isotropic_plummer_dMdE_integral
 torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
 torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
-torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_diffcalls
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[0.5]
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[2.0]
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[5.0]
@@ -369,7 +366,6 @@ torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_nonself_dens_direc
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[0.5]
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[2.0]
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[5.0]
-torch tests/test_sphericaldf.py::test_pvr_interpolator_large_rmax_sampling
 torch tests/test_streamTrack.py::test_streamTrackPair_particles_property
 torch tests/test_streamTrack.py::test_streamTrack_cov_basis
 torch tests/test_streamTrack.py::test_streamTrack_cov_per_call_unit_overrides
