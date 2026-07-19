@@ -267,6 +267,7 @@ def test_tdmoment_grad_vs_fd(sdf, backend_name, name, fn, dangle):
 
         def fdfun(d):
             return float(fn(sdf, jnp.asarray(d)))
+
     else:
         dt = torch.tensor(dangle, dtype=torch.float64, requires_grad=True)
         fn(sdf, dt).backward()
@@ -330,6 +331,7 @@ def test_sigangled_grad_vs_fd(sdf, backend_name, dangle):
 
         def fdfun(d):
             return float(fn(sdf, jnp.asarray(d)))
+
     else:
         dt = torch.tensor(dangle, dtype=torch.float64, requires_grad=True)
         fn(sdf, dt).backward()
@@ -1237,3 +1239,257 @@ def test_determine_stream_spread_backend_pipeline(backend_name):
             atol=1e-12,
             err_msg=f"{attr} ({backend_name})",
         )
+
+
+###############################################################################
+# Phase D: backend-native, differentiable inverse-CDF sampling (replaces ARS).
+#
+# _sample_aAt draws the frequency along the largest eigenvalue by cubic-spline
+# inversion of the closed-form tilted-Gaussian CDF (galpy.backend.sampling.
+# spline_inverse_cdf_sample) instead of adaptive rejection (util.ars). The SAME
+# algorithm runs on numpy/jax/torch, dispatching only the RNG source + namespace
+# on the `key`. numpy is INTENTIONALLY not byte-identical to the old ARS (a
+# different exact sampler on a shifted RNG stream, user-approved); the sampled
+# DISTRIBUTION is preserved (KS-indistinguishable, moments match). The payoff:
+# with a backend key the draw is a reproducible backend array, differentiable
+# w.r.t. the distribution parameters (mO/sigma^2) and jit/GPU-able (no rejection
+# loop, static shapes) -- proven below by grad-vs-FD h-convergence.
+###############################################################################
+import copy as _copy
+
+from galpy.backend import random as grandom
+from galpy.backend.sampling import (
+    ensure_strictly_increasing,
+    spline_inverse_cdf_sample,
+)
+
+
+def _xp_of(backend_name):
+    return numpy if backend_name == "numpy" else get_namespace(_arr(backend_name, 1.0))
+
+
+def _tilted_grids(xp, mO, s2):
+    """(omega_grid, cdf_grid) for p(O) ~ O exp(-0.5 (O-mO)^2/s2), O>0, built in xp
+    so the grids carry the gradient w.r.t. mO/s2 (mirrors streamdf's builder)."""
+    from galpy.backend import special as _bspecial
+
+    s = xp.sqrt(s2)
+    frac = xp.asarray(numpy.linspace(0.0, 1.0, 1000))
+    lo = xp.maximum(mO - 8.0 * s, mO * 0.0 + 1e-8)
+    hi = mO + 8.0 * s
+    og = lo + (hi - lo) * frac
+    rt2 = numpy.sqrt(2.0)
+    rt2pi = numpy.sqrt(2.0 * numpy.pi)
+    Phi = lambda z: 0.5 * (1.0 + _bspecial.erf(z / rt2))
+    pref = s * mO * rt2pi
+    e0 = xp.exp(-0.5 * mO**2.0 / s2)
+    G = pref * (Phi((og - mO) / s) - Phi(-mO / s)) + s2 * (
+        e0 - xp.exp(-0.5 * (og - mO) ** 2.0 / s2)
+    )
+    Ginf = pref * Phi(mO / s) + s2 * e0
+    return og, ensure_strictly_increasing(xp, G / Ginf)
+
+
+# --- (a) the reusable utility: cross-backend agreement with the SAME uniforms --
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_spline_inverse_cdf_cross_backend(backend_name):
+    # Same u on numpy and the backend -> the deterministic inverse-CDF transform
+    # must agree to ~spline precision (the real cross-backend check).
+    mO, s2 = 0.0068388883, 1.2991775883e-06
+    u = numpy.random.default_rng(7).uniform(size=4000)
+    og_n, cg_n = _tilted_grids(numpy, mO, s2)
+    ref = spline_inverse_cdf_sample(numpy, og_n, cg_n, u)
+    xp = _xp_of(backend_name)
+    og_b, cg_b = _tilted_grids(xp, xp.asarray(mO), xp.asarray(s2))
+    got = spline_inverse_cdf_sample(xp, og_b, cg_b, xp.asarray(u))
+    numpy.testing.assert_allclose(
+        as_numpy(got), ref, rtol=0, atol=1e-12, err_msg=backend_name
+    )
+
+
+# --- (b) the differentiability payoff: grad-vs-FD through the sampler ----------
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_spline_inverse_cdf_grad_vs_fd(backend_name):
+    # d/d(mO), d/d(s2) of a quadratic loss on the samples (fixed u) must
+    # h-converge to a central FD -- the reason inverse-CDF was chosen over ARS.
+    mO0, s20 = 0.0068388883, 1.2991775883e-06
+    u = numpy.random.default_rng(3).uniform(size=3000)
+    xp = _xp_of(backend_name)
+
+    def loss_np(mO, s2):
+        og, cg = _tilted_grids(numpy, mO, s2)
+        return float(numpy.mean(spline_inverse_cdf_sample(numpy, og, cg, u) ** 2))
+
+    def loss_xp(mO, s2):
+        og, cg = _tilted_grids(xp, mO, s2)
+        return xp.mean(spline_inverse_cdf_sample(xp, og, cg, xp.asarray(u)) ** 2)
+
+    if backend_name == "jax":
+        g = jax.grad(loss_xp, argnums=(0, 1))(jnp.asarray(mO0), jnp.asarray(s20))
+        ad_mO, ad_s2 = float(g[0]), float(g[1])
+    else:
+        mO_t = torch.tensor(mO0, dtype=torch.float64, requires_grad=True)
+        s2t = torch.tensor(s20, dtype=torch.float64, requires_grad=True)
+        loss_xp(mO_t, s2t).backward()
+        ad_mO, ad_s2 = float(mO_t.grad), float(s2t.grad)
+    assert numpy.isfinite(ad_mO) and numpy.isfinite(ad_s2)
+    best_mO = min(
+        abs(ad_mO - (loss_np(mO0 + h, s20) - loss_np(mO0 - h, s20)) / (2 * h))
+        for h in (1e-6, 1e-7, 1e-8)
+    )
+    best_s2 = min(
+        abs(ad_s2 - (loss_np(mO0, s20 + h) - loss_np(mO0, s20 - h)) / (2 * h))
+        for h in (1e-10, 1e-11, 1e-12)
+    )
+    assert best_mO < 1e-4 * abs(ad_mO) + 1e-9, f"{backend_name} d/dmO {best_mO:.2e}"
+    assert best_s2 < 1e-4 * abs(ad_s2) + 1e-9, f"{backend_name} d/ds2 {best_s2:.2e}"
+
+
+# --- (c) jit: a fixed-n sample runs under jax.jit (no rejection loop) ----------
+def test_spline_inverse_cdf_jit():
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+    mO0, s20 = 0.0068388883, 1.2991775883e-06
+    u = jnp.asarray(numpy.random.default_rng(1).uniform(size=500))
+
+    def sample(mO, s2):
+        og, cg = _tilted_grids(jnp, mO, s2)
+        return jnp.mean(spline_inverse_cdf_sample(jnp, og, cg, u))
+
+    jitted = float(jax.jit(sample)(jnp.asarray(mO0), jnp.asarray(s20)))
+    eager = float(sample(jnp.asarray(mO0), jnp.asarray(s20)))
+    numpy.testing.assert_allclose(jitted, eager, rtol=0, atol=1e-12)
+
+
+# --- (d) distributional parity vs the OLD ARS (numpy path) --------------------
+def test_sample_aAt_distribution_vs_ars(sdf):
+    # Draw the along-eigenvector frequency both ways and KS-test them. Fixed seeds
+    # -> deterministic; at n=1e5 a same-distribution KS statistic is ~0.006, so a
+    # comfortable threshold both proves parity and is non-flaky.
+    from scipy import stats
+
+    from galpy.util.ars import ars
+
+    mO, s2 = sdf._meandO, sdf._sortedSigOEig[2]
+
+    def h_ars(x, p):
+        return -0.5 * (x - p[0]) ** 2.0 / p[1] + numpy.log(x)
+
+    def hp_ars(x, p):
+        return -(x - p[0]) / p[1] + 1.0 / x
+
+    n = 100000
+    numpy.random.seed(20)
+    old = numpy.array(
+        ars(
+            [0.0, 0.0],
+            [True, False],
+            [mO - numpy.sqrt(s2), mO + numpy.sqrt(s2)],
+            h_ars,
+            hp_ars,
+            nsamples=n,
+            hxparams=(mO, s2),
+            maxn=100,
+        )
+    )
+    u = numpy.random.default_rng(20).uniform(size=n)
+    og, cg = sdf._dOmega_inverse_cdf_grid(numpy, mO, s2, u)
+    new = spline_inverse_cdf_sample(numpy, og, cg, u)
+    ks = stats.ks_2samp(old, new)
+    assert ks.statistic < 0.02, f"KS stat {ks.statistic:.4f} (p={ks.pvalue:.3f})"
+    assert abs(new.mean() / old.mean() - 1.0) < 0.02, "dO1 mean differs from ARS"
+    assert abs(new.std() / old.std() - 1.0) < 0.02, "dO1 std differs from ARS"
+
+
+# --- (e) the streamdf-level sampler: cross-backend, key, grad, jit -------------
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sample_aAt_cross_backend_same_u(sdf, backend_name):
+    # sdf's own grid builder + the sampler, same u across numpy and the backend.
+    mO, s2 = sdf._meandO, sdf._sortedSigOEig[2]
+    u = numpy.random.default_rng(11).uniform(size=2000)
+    og_n, cg_n = sdf._dOmega_inverse_cdf_grid(numpy, mO, s2, u)
+    ref = spline_inverse_cdf_sample(numpy, og_n, cg_n, u)
+    xp = _xp_of(backend_name)
+    og_b, cg_b = sdf._dOmega_inverse_cdf_grid(
+        xp, xp.asarray(mO), xp.asarray(s2), xp.asarray(u)
+    )
+    got = spline_inverse_cdf_sample(xp, og_b, cg_b, xp.asarray(u))
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sample_aAt_backend_key_runs(sdf, backend_name):
+    # A backend key drives _sample_aAt end-to-end (the returnaAdt path) and yields
+    # backend arrays of the right shape with dt in [0, tdisrupt].
+    k = grandom.key(5, backend=backend_name)
+    Om, angle, dt = sdf._sample_aAt(1000, key=k)
+    assert is_backend_array(Om) and Om.shape == (3, 1000)
+    assert angle.shape == (3, 1000) and dt.shape == (1000,)
+    dtn = as_numpy(dt)
+    assert dtn.min() >= 0.0 and dtn.max() <= sdf._tdisrupt
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sample_aAt_grad_vs_fd(sdf, backend_name):
+    # d/d(mO), d/d(s2) of a quadratic loss on _sample_aAt's (Om, angle) at a FIXED
+    # backend key (fixed u) h-converges to a central FD (backend eager at +/- h).
+    mO0, s20 = sdf._meandO, sdf._sortedSigOEig[2]
+    xp = _xp_of(backend_name)
+
+    def loss(mO, s2):
+        s = _copy.copy(sdf)
+        s._meandO = mO
+        s._sortedSigOEig = [sdf._sortedSigOEig[0], sdf._sortedSigOEig[1], s2]
+        Om, angle, dt = s._sample_aAt(1500, key=grandom.key(9, backend=backend_name))
+        return xp.mean(Om**2) + xp.mean(angle**2)
+
+    def fd(mO, s2):
+        return float(as_numpy(loss(xp.asarray(mO), xp.asarray(s2))))
+
+    if backend_name == "jax":
+        g = jax.grad(loss, argnums=(0, 1))(jnp.asarray(mO0), jnp.asarray(s20))
+        ad_mO, ad_s2 = float(g[0]), float(g[1])
+    else:
+        mO_t = torch.tensor(mO0, dtype=torch.float64, requires_grad=True)
+        s2t = torch.tensor(s20, dtype=torch.float64, requires_grad=True)
+        loss(mO_t, s2t).backward()
+        ad_mO, ad_s2 = float(mO_t.grad), float(s2t.grad)
+    assert numpy.isfinite(ad_mO) and numpy.isfinite(ad_s2)
+    best_mO = min(
+        abs(ad_mO - (fd(mO0 + h, s20) - fd(mO0 - h, s20)) / (2 * h))
+        for h in (1e-7, 1e-8)
+    )
+    best_s2 = min(
+        abs(ad_s2 - (fd(mO0, s20 + h) - fd(mO0, s20 - h)) / (2 * h))
+        for h in (1e-10, 1e-11)
+    )
+    assert best_mO < 1e-4 * abs(ad_mO) + 1e-8, f"{backend_name} d/dmO {best_mO:.2e}"
+    assert best_s2 < 1e-4 * abs(ad_s2) + 1e-8, f"{backend_name} d/ds2 {best_s2:.2e}"
+
+
+def test_sample_aAt_jit(sdf):
+    # _sample_aAt at a fixed n runs under jax.jit (static shapes, no rejection).
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+
+    def sample(mO, s2):
+        s = _copy.copy(sdf)
+        s._meandO = mO
+        s._sortedSigOEig = [sdf._sortedSigOEig[0], sdf._sortedSigOEig[1], s2]
+        Om, angle, dt = s._sample_aAt(400, key=grandom.key(2, backend="jax"))
+        return jnp.mean(Om)
+
+    mO, s2 = jnp.asarray(sdf._meandO), jnp.asarray(sdf._sortedSigOEig[2])
+    numpy.testing.assert_allclose(
+        float(jax.jit(sample)(mO, s2)), float(sample(mO, s2)), rtol=0, atol=1e-10
+    )
+
+
+def test_sample_t_numpy_byte_identical(sdf):
+    # sample_t(key=None) is byte-identical to the historical numpy.random.uniform
+    # draw times tdisrupt (the one part of the sampler that stays byte-identical).
+    numpy.random.seed(77)
+    got = sdf.sample_t(2000, key=None)
+    numpy.random.seed(77)
+    ref = numpy.random.uniform(size=2000) * sdf._tdisrupt
+    numpy.testing.assert_array_equal(got, ref)
