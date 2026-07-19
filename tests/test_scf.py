@@ -934,8 +934,8 @@ def test_physical_dens_spherical():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, 0.0, use_physical=False)
-            / hp.dens(rs, 0.0, use_physical=False)
+            - as_numpy(sp.dens(rs, 0.0, use_physical=False))
+            / as_numpy(hp.dens(rs, 0.0, use_physical=False))
         )
         < 1e-10
     ), (
@@ -955,8 +955,8 @@ def test_physical_dens_axi():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, 0.0, use_physical=False)
-            / hp.dens(rs, 0.0, use_physical=False)
+            - as_numpy(sp.dens(rs, 0.0, use_physical=False))
+            / as_numpy(hp.dens(rs, 0.0, use_physical=False))
         )
         < 1e-10
     ), (
@@ -976,8 +976,8 @@ def test_physical_dens():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, 0.0, use_physical=False)
-            / hp.dens(rs, 0.0, use_physical=False)
+            - as_numpy(sp.dens(rs, 0.0, use_physical=False))
+            / as_numpy(hp.dens(rs, 0.0, use_physical=False))
         )
         < 1e-10
     ), (
@@ -999,8 +999,8 @@ def test_from_density_hernquist():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp_direct.dens(rs, 0.0, use_physical=False)
-            / sp_from.dens(rs, 0.0, use_physical=False)
+            - as_numpy(sp_direct.dens(rs, 0.0, use_physical=False))
+            / as_numpy(sp_from.dens(rs, 0.0, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree between direct init and from_density init"
@@ -1021,8 +1021,8 @@ def test_from_density_axi():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp_direct.dens(rs, rs, use_physical=False)
-            / sp_from.dens(rs, rs, use_physical=False)
+            - as_numpy(sp_direct.dens(rs, rs, use_physical=False))
+            / as_numpy(sp_from.dens(rs, rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree between direct init and from_density init"
@@ -1041,8 +1041,8 @@ def test_from_density():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp_direct.dens(rs, rs, phi=rs, use_physical=False)
-            / sp_from.dens(rs, rs, phi=rs, use_physical=False)
+            - as_numpy(sp_direct.dens(rs, rs, phi=rs, use_physical=False))
+            / as_numpy(sp_from.dens(rs, rs, phi=rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree between direct init and from_density init"
@@ -1415,7 +1415,9 @@ def test_tdep_array_t_broadcast():
 
     sp = _make_tdep_nonaxi()
     t_arr = numpy.array([0.0, 1.0, 2.5, 3.9])
-    vals = evaluatePotentials(sp, 1.0, 0.5, phi=0.7, t=t_arr, use_physical=False)
+    vals = as_numpy(
+        evaluatePotentials(sp, 1.0, 0.5, phi=0.7, t=t_arr, use_physical=False)
+    )
     assert vals.shape == (4,)
     assert numpy.all(numpy.isfinite(vals))
     assert not numpy.all(vals == vals[0]), "potential should vary with time"
@@ -1592,8 +1594,8 @@ def test_tdep_from_density_potential_instance():
         assert numpy.all(
             numpy.fabs(
                 1.0
-                - sp.dens(rs, 0.0, t=t, use_physical=False)
-                / static.dens(rs, 0.0, use_physical=False)
+                - as_numpy(sp.dens(rs, 0.0, t=t, use_physical=False))
+                / as_numpy(static.dens(rs, 0.0, use_physical=False))
             )
             < 1e-8
         )
@@ -1615,7 +1617,7 @@ def test_tdep_from_density_axi():
     )
     assert sp._tdep is True
     assert sp.isNonAxi is False
-    assert numpy.all(sp._Asin_all == 0.0)
+    assert numpy.all(as_numpy(sp._Asin_all) == 0.0)
     static = SCFPotential.from_density(
         axi_density2, 10, L=10, a=a, symmetry="axi", radial_order=30, costheta_order=12
     )
@@ -1623,8 +1625,8 @@ def test_tdep_from_density_axi():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, rs, t=3.0, use_physical=False)
-            / static.dens(rs, rs, use_physical=False)
+            - as_numpy(sp.dens(rs, rs, t=3.0, use_physical=False))
+            / as_numpy(static.dens(rs, rs, use_physical=False))
         )
         < 1e-8
     )
@@ -1643,8 +1645,8 @@ def test_tdep_from_density_constant_no_t():
     for t in [0.0, 3.3]:
         assert numpy.all(
             numpy.fabs(
-                sp.dens(rs, 0.0, t=t, use_physical=False)
-                - static.dens(rs, 0.0, use_physical=False)
+                as_numpy(sp.dens(rs, 0.0, t=t, use_physical=False))
+                - as_numpy(static.dens(rs, 0.0, use_physical=False))
             )
             < 1e-12
         )
