@@ -446,23 +446,15 @@ jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot_nullpotential
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
-torch tests/test_potential.py::test_2ndDeriv_potential[mockTimeDependentAmplitudeWrapperPotential]
 torch tests/test_potential.py::test_2ndDeriv_potential[specialSpiralArmsPotential]
-torch tests/test_potential.py::test_dehnen_bar_python_c_consistency
-torch tests/test_potential.py::test_evaluateAndDerivs_potential[mockTimeDependentAmplitudeWrapperPotential]
-torch tests/test_potential.py::test_forceAsDeriv_potential[mockTimeDependentAmplitudeWrapperPotential]
 torch tests/test_potential.py::test_forceAsDeriv_potential[specialSpiralArmsPotential]
 torch tests/test_potential.py::test_integration_RotateAndTiltWrapper_timedependent_forcecache
 torch tests/test_potential.py::test_mass_spher
 torch tests/test_potential.py::test_mass_spher_analytic
 torch tests/test_potential.py::test_mass_spher_z
 torch tests/test_potential.py::test_MWPotential2014
-torch tests/test_potential.py::test_OblateStaeckelWrapperPotential_againstKuzmin
-torch tests/test_potential.py::test_poisson_potential[mockTimeDependentAmplitudeWrapperPotential]
 torch tests/test_potential.py::test_rE_MWPotential2014
 torch tests/test_potential.py::test_rforce_dissipative
-torch tests/test_potential.py::test_vterm
-torch tests/test_potential.py::test_vtermnegl_issue314
 
 # --- jax single-orbit: action-angle accessors (Track E) ---
 # o.jr()/jz()/e()/zmax()/rperi()/rap() and physical/quantity/plotting paths that call
@@ -509,7 +501,6 @@ jax tests/test_sphericaldf.py::test_eddington_sample_negative_df_regions_no_cras
 # integrate). Already ledgered for torch.
 jax tests/test_streamspraydf.py::test_integrate
 jax tests/test_streamspraydf.py::test_integrate_rtnonarray
-torch tests/test_potential.py::test_ExpTruncNFW_smallr_series_c
 torch tests/test_scf.py::test_static_c_orbit_parity
 torch tests/test_scf.py::test_tdep_array_t_broadcast
 torch tests/test_scf.py::test_tdep_c_beyond_tgrid
