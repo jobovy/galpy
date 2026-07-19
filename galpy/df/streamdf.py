@@ -4377,8 +4377,11 @@ class streamdf(df):
         lo = xp.maximum(mO - 8.0 * s, mO * 0.0 + 1e-8)
         hi = mO + 8.0 * s
         og = lo + (hi - lo) * frac
-        # closed-form tilted-Gaussian CDF F(O) = G(O)/G(inf)
-        Phi = lambda z: 0.5 * (1.0 + _bspecial.erf(z / _SQRT2))
+        # closed-form tilted-Gaussian CDF F(O) = G(O)/G(inf). numpy (key=None) uses
+        # scipy erf; a backend key uses the differentiable backend erf. (_bspecial.erf
+        # mis-dispatches to the FORCED backend on a numpy input -> torch.erf(numpy).)
+        _erf = special.erf if xp is numpy else _bspecial.erf
+        Phi = lambda z: 0.5 * (1.0 + _erf(z / _SQRT2))
         pref = s * mO * _SQRT2PI
         expo0 = xp.exp(-0.5 * mO**2.0 / sig)
         G = pref * (Phi((og - mO) / s) - Phi(-mO / s)) + sig * (
