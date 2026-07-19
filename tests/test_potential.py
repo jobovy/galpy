@@ -5715,11 +5715,11 @@ def test_ExpTruncNFW_smallr_series_c():
         "ExpTruncNFW plunging orbit did not reach the small-r series regime"
     )
     # C and pure-Python orbits agree (C series branch == Python series branch)
-    assert numpy.amax(numpy.fabs(oc.r(ts) - op.r(ts))) < 1e-10, (
+    assert numpy.amax(numpy.fabs(as_numpy(oc.r(ts)) - as_numpy(op.r(ts)))) < 1e-10, (
         "ExpTruncNFWPotential C and Python plunging orbits disagree"
     )
     # energy is conserved across the plunge (series branch is accurate)
-    Ec = oc.E(ts)
+    Ec = as_numpy(oc.E(ts))
     assert numpy.amax(numpy.fabs(Ec - Ec[0])) < 1e-10, (
         "ExpTruncNFWPotential energy not conserved through the small-r plunge"
     )
@@ -7345,12 +7345,20 @@ def test_OblateStaeckelWrapperPotential_againstKuzmin():
     asp = potential.OblateStaeckelWrapperPotential(pot=kzp, delta=delta, u0=1.2)
     us = numpy.linspace(0.0, 3.0, 1001)
     assert (
-        numpy.amax(numpy.fabs(asp._U(us) + kzp._amp / delta * numpy.cosh(us))) < 1e-10
+        numpy.amax(
+            numpy.fabs(
+                as_numpy(asp._U(us)) + as_numpy(kzp._amp) / delta * numpy.cosh(us)
+            )
+        )
+        < 1e-10
     ), "OblateStaeckelWrapped KuzminDisk does not have the expected U(u)"
     vs = numpy.linspace(0.0, numpy.pi, 1001)
     assert (
         numpy.amax(
-            numpy.fabs(asp._V(vs) + kzp._amp / delta * numpy.fabs(numpy.cos(vs)))
+            numpy.fabs(
+                as_numpy(asp._V(vs))
+                + as_numpy(kzp._amp) / delta * numpy.fabs(numpy.cos(vs))
+            )
         )
         < 1e-10
     ), "OblateStaeckelWrapped KuzminDisk does not have the expected V(v)"
@@ -11280,9 +11288,9 @@ def test_dehnen_bar_python_c_consistency():
     orb_p.integrate(ts, pot=pot, method="dop853")
     orb_c.integrate(ts, pot=pot, method="dop853_c")
     # check equal
-    assert numpy.all(numpy.fabs(orb_p.E(ts) / orb_c.E(ts) - 1.0) < 10.0**-10), (
-        "C orbit integration in a Dehnen bar potential does not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(orb_p.E(ts)) / as_numpy(orb_c.E(ts)) - 1.0) < 10.0**-10
+    ), "C orbit integration in a Dehnen bar potential does not work as expected"
 
 
 # Test the rm2 definition of EinastoPotential
