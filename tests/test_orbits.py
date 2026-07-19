@@ -8619,18 +8619,19 @@ def test_EccZmaxRperiRap_num_againstorbit_3d():
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.e()[ii] - list_os[ii].e()) < 1e-10), (
-            "Evaluating Orbits e does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.zmax()[ii] - list_os[ii].zmax()) < 1e-10), (
-            "Evaluating Orbits zmax does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.rperi()[ii] - list_os[ii].rperi()) < 1e-10), (
-            "Evaluating Orbits rperi does not agree with Orbit"
-        )
-        assert numpy.all(numpy.fabs(os.rap()[ii] - list_os[ii].rap()) < 1e-10), (
-            "Evaluating Orbits rap does not agree with Orbit"
-        )
+        assert numpy.all(
+            numpy.fabs(_to_numpy(os.e()[ii]) - _to_numpy(list_os[ii].e())) < 1e-10
+        ), "Evaluating Orbits e does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_to_numpy(os.zmax()[ii]) - _to_numpy(list_os[ii].zmax())) < 1e-10
+        ), "Evaluating Orbits zmax does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_to_numpy(os.rperi()[ii]) - _to_numpy(list_os[ii].rperi()))
+            < 1e-10
+        ), "Evaluating Orbits rperi does not agree with Orbit"
+        assert numpy.all(
+            numpy.fabs(_to_numpy(os.rap()[ii]) - _to_numpy(list_os[ii].rap())) < 1e-10
+        ), "Evaluating Orbits rap does not agree with Orbit"
     return None
 
 
@@ -9972,7 +9973,9 @@ def test_physical_output_off():
         "o.Ez() output for Orbit setup with vo= does not work as expected when turned off"
     )
     # Test angular momentun
-    assert numpy.all(numpy.fabs(o.L() - o.L(use_physical=False)) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(_to_numpy(o.L()) - _to_numpy(o.L(use_physical=False))) < 10.0**-10.0
+    ), (
         "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned off"
     )
     # Test action-angle functions
@@ -10130,7 +10133,8 @@ def test_physical_output_on():
         )
         # Test angular momentun
         assert numpy.all(
-            numpy.fabs(o.L() - o_orig.L(use_physical=True)) < 10.0**-10.0
+            numpy.fabs(_to_numpy(o.L()) - _to_numpy(o_orig.L(use_physical=True)))
+            < 10.0**-10.0
         ), (
             "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned back on"
         )
@@ -10657,7 +10661,9 @@ def test_orbits_interpSphericalPotential_outside_interpolation_range_warning():
         "Warning for multiple orbits outside of the interpolation range "
         "should make clear that the reported range is over all orbits"
     )
-    expected_range = f"{numpy.amin(o.rperi()):.3f},{numpy.amax(o.rap()):.3f}"
+    expected_range = (
+        f"{numpy.amin(_to_numpy(o.rperi())):.3f},{numpy.amax(_to_numpy(o.rap())):.3f}"
+    )
     assert expected_range in range_warnings[0], (
         "Warning for multiple orbits outside of the interpolation range "
         "should report amin(rperi) and amax(rap) over all orbits"
