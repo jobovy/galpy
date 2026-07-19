@@ -465,3 +465,5 @@ torch tests/test_scf.py::test_tdep_c_full_dxdv
 torch tests/test_scf.py::test_tdep_c_orbit_nonaxi
 torch tests/test_scf.py::test_tdep_c_orbit_spherical
 torch tests/test_sphericaldf.py::test_eddington_sample_negative_df_regions_no_crash
+torch tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
+torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
