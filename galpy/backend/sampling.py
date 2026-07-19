@@ -156,5 +156,15 @@ def spline_inverse_cdf_sample(xp, omega_grid, cdf_grid, u):
         cdf_grid[-1]]`` is clamped to that range (returns the edge ``omega``),
         so the sample never leaves ``[omega_grid[0], omega_grid[-1]]``.
     """
+    # The cubic-spline tridiagonal solve is singular in float32 (the
+    # near-zero tail steps fall below float32 eps), which returns SILENT NaN
+    # under jax's default (no jax_enable_x64) rather than failing loudly. galpy's
+    # backends run in float64; fail clearly instead of poisoning the samples.
+    if xp.finfo(cdf_grid.dtype).bits < 64:
+        raise ValueError(
+            "spline_inverse_cdf_sample requires float64 grids (the CDF-inversion "
+            "spline solve is singular in float32 and would return silent NaN); "
+            "for jax set jax_enable_x64=True."
+        )
     coeffs = _natknot_coeffs(xp, cdf_grid, omega_grid)
     return eval_ppoly(xp, cdf_grid, coeffs, u, extrapolate="clip")

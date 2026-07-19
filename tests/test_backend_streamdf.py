@@ -1361,6 +1361,15 @@ def test_spline_inverse_cdf_jit():
     numpy.testing.assert_allclose(jitted, eager, rtol=0, atol=1e-12)
 
 
+def test_spline_inverse_cdf_float32_raises():
+    # float32 makes the tridiagonal solve singular (silent NaN under jax's
+    # default). The sampler must fail LOUDLY, not poison the samples.
+    og = numpy.linspace(0.1, 0.6, 300).astype(numpy.float32)
+    cg = numpy.linspace(0.0, 1.0, 300).astype(numpy.float32)
+    with pytest.raises(ValueError, match="float64"):
+        spline_inverse_cdf_sample(numpy, og, cg, numpy.float32(0.5))
+
+
 # --- (d) distributional parity vs the OLD ARS (numpy path) --------------------
 def test_sample_aAt_distribution_vs_ars(sdf):
     # Draw the along-eigenvector frequency both ways and KS-test them. Fixed seeds
