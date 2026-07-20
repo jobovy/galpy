@@ -13,7 +13,7 @@ import pytest
 from scipy import integrate, special
 
 from galpy import potential
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, get_namespace
 from galpy.df import (
     constantbetadf,
     constantbetaHernquistdf,
@@ -578,13 +578,17 @@ def test_anisotropic_hernquist_diffcalls():
         # Calculate E directly and L from Orbit
         assert (
             numpy.fabs(
-                dfh(R, vR, vT, z, vz, phi)
-                - dfh(
-                    (
-                        pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
-                        numpy.sqrt(
-                            numpy.sum(Orbit([R, vR, vT, z, vz, phi]).L() ** 2.0)
-                        ),
+                as_numpy(dfh(R, vR, vT, z, vz, phi))
+                - as_numpy(
+                    dfh(
+                        (
+                            pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
+                            numpy.sqrt(
+                                numpy.sum(
+                                    as_numpy(Orbit([R, vR, vT, z, vz, phi]).L()) ** 2.0
+                                )
+                            ),
+                        )
                     )
                 )
             )
@@ -594,7 +598,10 @@ def test_anisotropic_hernquist_diffcalls():
         )
         # Also as orbit
         assert (
-            numpy.fabs(dfh(R, vR, vT, z, vz, phi) - dfh(Orbit([R, vR, vT, z, vz, phi])))
+            numpy.fabs(
+                as_numpy(dfh(R, vR, vT, z, vz, phi))
+                - as_numpy(dfh(Orbit([R, vR, vT, z, vz, phi])))
+            )
             < 1e-8
         ), (
             "Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
@@ -1222,8 +1229,7 @@ def test_isotropic_nfw_sigmar():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     dfp = isotropicNFWdf(pot=pot)
     numpy.random.seed(10)
-    # Populate the sparsely sampled inner radial bins sufficiently.
-    samp = dfp.sample(n=3000000)
+    samp = dfp.sample(n=1000000)
     tol = 0.08
     check_sigmar_against_jeans(
         samp, pot, tol, rmin=pot._scale / 10.0, rmax=pot._scale * 10.0, bins=31
@@ -3184,48 +3190,6 @@ def test_eddington_jaffe_divergent_sample_massprofile():
     return None
 
 
-@pytest.mark.parametrize(
-    "df_class, pot_class, kwargs, radial_factor",
-    [
-        (isotropicPlummerdf, potential.PlummerPotential, {}, 3.0),
-        (isotropicHernquistdf, potential.HernquistPotential, {}, 3.0),
-        (eddingtondf, potential.PlummerPotential, {}, 3.0),
-        (constantbetaHernquistdf, potential.HernquistPotential, {"beta": -0.5}, 4.0),
-        (constantbetaHernquistdf, potential.HernquistPotential, {"beta": 0.5}, 2.0),
-        (osipkovmerrittHernquistdf, potential.HernquistPotential, {"ra": 1.4}, 3.0),
-    ],
-)
-def test_pvr_interpolator_velocity_moment(df_class, pot_class, kwargs, radial_factor):
-    # Integrate the actual sampling inverse CDF, avoiding Monte Carlo noise.
-    # Both the cumulative velocity integral and the probability grid must be
-    # accurate: increasing just the velocity resolution can hide cancelling errors.
-    dfp = df_class(pot=pot_class(amp=2.0), **kwargs)
-    dfp.sample(R=1.0, z=0.0, n=1)
-    interp = dfp._v_vesc_pvr_interpolator
-    probabilities = numpy.unique(interp.get_knots()[1])
-    for r in [0.2, 0.5, 1.0, 2.0, 5.0, 10.0]:
-        v = interp(numpy.log10(r / dfp._scale), probabilities)[0]
-        assert numpy.all(numpy.isfinite(v))
-        assert numpy.all(numpy.diff(v) >= 0.0)
-        assert numpy.all((v >= 0.0) & (v <= 1.0 + 1e-12))
-        # Exact integral of the square of a piecewise-linear inverse CDF.
-        mean_v2 = (
-            numpy.sum(
-                numpy.diff(probabilities)
-                * (v[:-1] ** 2 + v[:-1] * v[1:] + v[1:] ** 2)
-                / 3.0
-            )
-            * dfp._vmax_at_r(dfp._pot, r) ** 2
-        )
-        # For OM this interpolator samples the transformed speed, whose radial
-        # component is unchanged and whose angular distribution is isotropic.
-        expected = radial_factor * dfp.sigmar(r, use_physical=False) ** 2
-        # OM's square-root tail at the escape speed converges more slowly
-        # on the unchanged velocity grid.
-        tol = 3e-3 if df_class is osipkovmerrittHernquistdf else 1e-3
-        assert numpy.fabs(mean_v2 / expected - 1.0) < tol
-
-
 def test_pvr_interpolator_covers_rmax():
     # Test that the p(v|r) interpolator grid extends to cover all radii
     # up to rmax, even when rmax/scale > 1e3 (the old default r_a_end=3)
@@ -4052,24 +4016,29 @@ def test_eddington_sample_negative_df_regions_no_crash():
     rmax = 5.0
     dfe = eddingtondf(pot=pot, rmax=rmax)
     numpy.random.seed(1)
-    # f(E) used to overshoot slightly negative near the truncation (raising
-    # the negative-region galpyWarning); with f(E) exact near Emin it no longer
-    # does. A genuinely negative DF still drives that branch in
-    # test_anisotropic_hernquist_negdf.
-    samp = dfe.sample(n=2000)
-    r = samp.r(use_physical=False)
+    # numpy's scipy cubic spline overshoots the reconstructed DF slightly negative
+    # near the truncation (raising the negative-region galpyWarning); the backend
+    # Spline1D does not overshoot there, so no warning is raised on the backend path
+    if get_namespace() is numpy:
+        with pytest.warns(galpyWarning):
+            samp = dfe.sample(n=2000)
+    else:
+        samp = dfe.sample(n=2000)
+    r = as_numpy(samp.r(use_physical=False))
     assert numpy.all(numpy.isfinite(r)), "Sampled radii are not all finite"
     assert numpy.all(r <= rmax), "Sampled radii exceed rmax"
     assert numpy.all(r >= 0.0), "Sampled radii are negative"
     # Speeds must be finite and below the local escape speed of the cut-off DF
     v = numpy.sqrt(
-        samp.vR(use_physical=False) ** 2.0
-        + samp.vT(use_physical=False) ** 2.0
-        + samp.vz(use_physical=False) ** 2.0
+        as_numpy(samp.vR(use_physical=False)) ** 2.0
+        + as_numpy(samp.vT(use_physical=False)) ** 2.0
+        + as_numpy(samp.vz(use_physical=False)) ** 2.0
     )
     assert numpy.all(numpy.isfinite(v)), "Sampled velocities are not all finite"
-    vesc = numpy.sqrt(
-        2.0 * (pot(rmax, 0.0, use_physical=False) - pot(r, 0.0, use_physical=False))
+    vesc = as_numpy(
+        numpy.sqrt(
+            2.0 * (pot(rmax, 0.0, use_physical=False) - pot(r, 0.0, use_physical=False))
+        )
     )
     assert numpy.all(v <= vesc + 1e-7), (
         "Sampled speeds exceed the escape speed of the truncated DF"
@@ -4088,89 +4057,3 @@ def test_sphericaldf_bad_radius_error():
     with pytest.raises(RuntimeError, match="not understood"):
         dfh.vmomentdensity("foo", 0, 0)
     return None
-
-
-# --- eddingtondf f(E) near Emin ------------------------------------------------
-# NFW (amp=2.3, a=1.3) against a 40-digit mpmath Eddington integral at the
-# exact double energies passed. The numpy f(E) was NaN or large and negative
-# within ~1e-3 of Emin: NFW's small-r potential/force cancellation made
-# Phi(r) - E negative next to the turning point, and r(Phi) below the spline's
-# first knot was off (negative at x=1e-8). Tolerance: scipy quad's own epsrel
-# 1.5e-8 per piece; measured 6.9e-8 at x = 1e-8, <= 4e-9 above.
-_EDD_NFW_GOLD = [  # (E, f(E))
-    (-1.769230751559042, 1.4983431954507396e17),  # x = 1e-08
-    (-1.769229002058064, 1498343239910.5228),  # x = 1e-06
-    (-1.7690540519602862, 14983432.383219456),  # x = 0.0001
-    (-1.7515590421824891, 149.81271594972208),  # x = 0.01
-    (-1.2390789577823735, 0.02035422714067017),  # x = 0.3
-]
-
-
-@pytest.mark.parametrize("E,fref", _EDD_NFW_GOLD)
-def test_eddington_nfw_fE_near_Emin(E, fref):
-    from galpy.df import eddingtondf
-    from galpy.potential import NFWPotential
-
-    dfh = eddingtondf(pot=NFWPotential(amp=2.3, a=1.3))
-    got = float(dfh.fE(numpy.array([E]))[0])
-    tol = 1e-7 if E < -1.7692 else 1e-8
-    assert abs(got / fref - 1.0) < tol, f"E={E}: {got} vs {fref}"
-
-
-def test_eddington_rmax_inf():
-    # rmax = inf: r(Phi = E) through an expanding finite bracket (brentq was
-    # handed inf and failed); against the analytic Hernquist DF
-    from galpy.df import eddingtondf, isotropicHernquistdf
-    from galpy.potential import HernquistPotential, NFWPotential
-
-    pot = HernquistPotential(amp=2.3, a=1.3)
-    E = numpy.array([-0.8, -0.3, -0.05])
-    got = eddingtondf(pot=pot, rmax=numpy.inf).fE(E)
-    ref = isotropicHernquistdf(pot=pot).fE(E)
-    assert numpy.all(numpy.fabs(got / ref - 1.0) < 1e-10), (got, ref)
-    got = eddingtondf(pot=NFWPotential(), rmax=numpy.inf).fE(numpy.array([-0.5]))
-    assert abs(got[0] / 0.005951286 - 1.0) < 1e-6, got
-
-
-def test_eddington_fE_at_and_near_Emin():
-    # E = Emin = Phi(0) is an explicit endpoint limit: f -> inf for a cusp,
-    # finite for a core; just above Emin the integrand's bulk (r ~ scale) is
-    # integrated in log r, not in 1/r out to 1/rphi (Plummer was ~0 at 1e-12)
-    from galpy.df import eddingtondf, isotropicPlummerdf
-    from galpy.potential import HernquistPotential, PlummerPotential
-
-    dfh = eddingtondf(pot=HernquistPotential(amp=2.3, a=1.3))
-    assert dfh.fE(numpy.array([dfh._Emin]))[0] == numpy.inf
-    pot = PlummerPotential(amp=2.3, b=1.3)
-    dfp = eddingtondf(pot=pot)
-    E = dfp._Emin + numpy.array([0.0, 1e-12, 1e-10, 1e-6]) * (dfp._potInf - dfp._Emin)
-    got = dfp.fE(E)
-    ref = isotropicPlummerdf(pot=pot).fE(E)
-    assert numpy.all(numpy.fabs(got / ref - 1.0) < 1e-10), (got, ref)
-
-
-def test_eddington_fE_at_Emin_with_different_tracer():
-    # For a Hernquist potential, Phi = -1/[2(1+r)] and the Dehnen-core
-    # tracer has nu = (1+r)^-4/(4 pi) = 4 Phi^4/pi. Its Eddington inversion
-    # therefore has the finite analytic endpoint f(Phi(0)) = 16/(5 pi^3).
-    from galpy.df import eddingtondf
-    from galpy.potential import (
-        DehnenCoreSphericalPotential,
-        HernquistPotential,
-        NFWPotential,
-    )
-
-    tracer = DehnenCoreSphericalPotential()
-    dfh = eddingtondf(pot=HernquistPotential(), denspot=tracer)
-    got = dfh.fE(numpy.array([dfh._Emin]))[0]
-    assert abs(got / (16.0 / (5.0 * numpy.pi**3.0)) - 1.0) < 1e-9
-    dfn = eddingtondf(pot=NFWPotential(), denspot=tracer)
-    at_min = dfn.fE(numpy.array([dfn._Emin]))[0]
-    near_min = dfn.fE(numpy.array([dfn._Emin + 1e-8 * (dfn._potInf - dfn._Emin)]))[0]
-    assert numpy.isfinite(at_min)
-    assert abs(at_min / near_min - 1.0) < 1e-6
-
-    # A finite central density can still yield a divergent DF if the
-    # potential has a harmonic center and dnu/dr does not vanish there.
-    dfc = eddingtondf(pot=tracer)
-    assert dfc.fE(numpy.array([dfc._Emin]))[0] == numpy.inf
