@@ -19,7 +19,7 @@ else:
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..backend import as_backend_constant, as_numpy, get_namespace, is_backend_array
 from ..backend import special as _bspecial
-from ..backend.interpolate import cubic_spline_coeffs, eval_ppoly
+from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..backend.quadrature import quad as _backend_quad
 from ..orbit import Orbit
@@ -2099,6 +2099,8 @@ class streamdf(df):
         """Build interpolations of the stream track"""
         if hasattr(self, "_interpolatedThetasTrack"):
             return None  # Already did this
+        if is_backend_array(self._ObsTrack):
+            return self._interpolate_stream_track_backend()
         TrackX = self._ObsTrack[:, 0] * numpy.cos(self._ObsTrack[:, 5])
         TrackY = self._ObsTrack[:, 0] * numpy.sin(self._ObsTrack[:, 5])
         TrackZ = self._ObsTrack[:, 3]
@@ -2178,6 +2180,58 @@ class streamdf(df):
         self._interpolatedObsTrack[:, 5] = tphi
         return None
 
+    def _interpolate_stream_track_backend(self):
+        """Backend (jax/torch) twin of :meth:`_interpolate_stream_track`.
+
+        Dispatched when the assembled track ``_ObsTrack`` is a backend array.
+        Functional throughout (numpy item-assignment -> ``xp.stack``). The six
+        coordinate splines (``_interpTrackX/Y/Z/vX/vY/vZ``) are built in-backend
+        via :class:`galpy.backend.interpolate.Spline1D` (mode 2:
+        ``cubic_spline_coeffs`` with ``bc='not-a-knot'``, matching scipy's
+        ``InterpolatedUnivariateSpline(k=3)`` to ~1e-13), so the interpolated
+        track is backend-native and DIFFERENTIABLE w.r.t. the track
+        (``_ObsTrack``). The knots/fine grid are geometry (numpy host
+        bookkeeping); the fine grid is coerced onto the backend to evaluate so
+        the gradient flows. The numpy path is untouched (still scipy,
+        byte-identical).
+        """
+        xp = get_namespace(self._ObsTrack)
+        ObsTrack = self._ObsTrack
+        thetas_np = as_numpy(self._thetasTrack)  # spline knots are geometry (concrete)
+        phi = ObsTrack[:, 5]
+        TrackX = ObsTrack[:, 0] * xp.cos(phi)
+        TrackY = ObsTrack[:, 0] * xp.sin(phi)
+        TrackZ = ObsTrack[:, 3]
+        TrackvX, TrackvY, TrackvZ = coords.cyl_to_rect_vec(
+            ObsTrack[:, 1], ObsTrack[:, 2], ObsTrack[:, 4], phi
+        )
+        # In-backend cubic splines (differentiable in the track y-values); the
+        # scipy IUS(k=3) not-a-knot boundary condition is reproduced natively.
+        self._interpTrackX = Spline1D(thetas_np, TrackX, k=3, ext=0, bc="not-a-knot")
+        self._interpTrackY = Spline1D(thetas_np, TrackY, k=3, ext=0, bc="not-a-knot")
+        self._interpTrackZ = Spline1D(thetas_np, TrackZ, k=3, ext=0, bc="not-a-knot")
+        self._interpTrackvX = Spline1D(thetas_np, TrackvX, k=3, ext=0, bc="not-a-knot")
+        self._interpTrackvY = Spline1D(thetas_np, TrackvY, k=3, ext=0, bc="not-a-knot")
+        self._interpTrackvZ = Spline1D(thetas_np, TrackvZ, k=3, ext=0, bc="not-a-knot")
+        # Fine grid: geometry (numpy host bookkeeping, matching the numpy path);
+        # coerce onto the backend to evaluate so d(track)/d(_ObsTrack) flows.
+        self._interpolatedThetasTrack = numpy.linspace(
+            0.0, float(self._deltaAngleTrack), self.nInterpolatedTrackChunks
+        )
+        interpThetas = as_backend_constant(xp, self._interpolatedThetasTrack, ObsTrack)
+        iX = self._interpTrackX(interpThetas)
+        iY = self._interpTrackY(interpThetas)
+        iZ = self._interpTrackZ(interpThetas)
+        ivX = self._interpTrackvX(interpThetas)
+        ivY = self._interpTrackvY(interpThetas)
+        ivZ = self._interpTrackvZ(interpThetas)
+        self._interpolatedObsTrackXY = xp.stack([iX, iY, iZ, ivX, ivY, ivZ], axis=1)
+        # Also in cylindrical coordinates (backend-aware coords helpers).
+        tR, tphi, tZ = coords.rect_to_cyl(iX, iY, iZ)
+        tvR, tvT, tvZ = coords.rect_to_cyl_vec(ivX, ivY, ivZ, tR, tphi, tZ, cyl=True)
+        self._interpolatedObsTrack = xp.stack([tR, tvR, tvT, tZ, tvZ, tphi], axis=1)
+        return None
+
     def _interpolate_stream_track_aA(self):
         """Build interpolations of the stream track in action-angle coordinates"""
         if hasattr(self, "_interpolatedObsTrackAA"):
@@ -2185,6 +2239,8 @@ class streamdf(df):
         # Calculate 1D meanOmega on a fine grid in angle and interpolate
         if not hasattr(self, "_interpolatedThetasTrack"):
             self._interpolate_stream_track()
+        if is_backend_array(self._ObsTrack):
+            return self._interpolate_stream_track_aA_backend()
         dmOs = numpy.array(
             [
                 self.meanOmega(da, oned=True, use_physical=False)
@@ -2212,6 +2268,45 @@ class streamdf(df):
             self._interpolatedObsTrackAA[ii, 3:] = numpy.mod(
                 self._interpolatedObsTrackAA[ii, 3:], 2.0 * numpy.pi
             )
+        return None
+
+    def _interpolate_stream_track_aA_backend(self):
+        """Backend (jax/torch) twin of :meth:`_interpolate_stream_track_aA`.
+
+        Dispatched when the track is a backend array. ``dmOs`` (the 1D mean
+        frequency offset on the fine angle grid) routes through the backend
+        :meth:`meanOmega`, and the frequency/angle blocks are assembled
+        functionally, so ``_interpolatedObsTrackAA`` is backend-native and
+        differentiable w.r.t. the frequency-covariance scalars / progenitor AA.
+        ``_interpTrackAAdmeanOmegaOneD`` is rebuilt in-backend for API parity
+        (it is not read downstream). The numpy path is untouched (byte-identical).
+        """
+        xp = get_namespace(self._ObsTrack)
+        interpThetas_np = self._interpolatedThetasTrack  # host bookkeeping (numpy)
+        interpThetas = as_backend_constant(xp, interpThetas_np, self._ObsTrack)
+        dmOs = xp.stack(
+            [
+                self.meanOmega(interpThetas[ii], oned=True, use_physical=False)
+                for ii in range(interpThetas.shape[0])
+            ]
+        )  # (nInterp,)
+        # Vestigial spline (rebuilt for API parity; not read downstream).
+        self._interpTrackAAdmeanOmegaOneD = Spline1D(
+            interpThetas_np, dmOs, k=3, ext=0, bc="not-a-knot"
+        )
+        progOmega = as_backend_constant(xp, self._progenitor_Omega, self._ObsTrack)
+        progAngle = as_backend_constant(xp, self._progenitor_angle, self._ObsTrack)
+        dsig = as_backend_constant(
+            xp, self._dsigomeanProgDirection, self._ObsTrack
+        )  # (3,)
+        sign = self._sigMeanSign
+        Omega_block = progOmega[None, :] + dmOs[:, None] * dsig[None, :] * sign
+        angle_block = xp.remainder(
+            progAngle[None, :] + interpThetas[:, None] * dsig[None, :] * sign,
+            2.0 * numpy.pi,
+        )
+        concat = getattr(xp, "concat", None) or xp.concatenate
+        self._interpolatedObsTrackAA = concat([Omega_block, angle_block], axis=1)
         return None
 
     def calc_stream_lb(self, vo=None, ro=None, R0=None, Zsun=None, vsun=None):

@@ -1510,3 +1510,248 @@ def test_sample_t_numpy_byte_identical(sdf):
     numpy.random.seed(77)
     ref = numpy.random.uniform(size=2000) * sdf._tdisrupt
     numpy.testing.assert_array_equal(got, ref)
+
+
+###############################################################################
+# Phase E: _interpolate_stream_track / _interpolate_stream_track_aA -- the
+# stream-track interpolation splines.
+#
+# numpy path byte-identical (scipy InterpolatedUnivariateSpline(k=3), the
+# else-branch is the verbatim original -- verified by a git-stash A/B: the
+# interpTrackX/Y/Z/vX/vY/vZ evaluations, _interpolatedObsTrackXY and
+# _interpolatedObsTrack are bit-unchanged). Backend twins
+# (_interpolate_stream_track_backend / _interpolate_stream_track_aA_backend),
+# dispatched when the assembled track _ObsTrack is a backend array, build the six
+# coordinate splines in-backend via Spline1D (cubic_spline_coeffs, bc='not-a-knot'
+# == scipy IUS(k=3) to ~1e-13) and assemble the fine-grid track functionally, so
+# the interpolated track (and the AA track) is backend-native and DIFFERENTIABLE
+# w.r.t. the track (_ObsTrack) / the frequency-covariance scalars.
+###############################################################################
+def _mock_track_sdf(nC, nInterp, mk):
+    # Minimal object exposing what _interpolate_stream_track reads: a backend
+    # ObsTrack + a monotone theta grid. R (col 0) kept positive so rect<->cyl is
+    # well-defined.
+    from galpy.df.streamdf import streamdf as _cls
+
+    rng = numpy.random.default_rng(11)
+    dtheta = 1.3
+    obs = rng.standard_normal((nC, 6)) * 0.15 + numpy.array(
+        [1.1, 0.05, 1.0, 0.1, 0.02, 0.3]
+    )
+
+    class _M:
+        pass
+
+    m = _M()
+    m._nTrackChunks = nC
+    m._ObsTrack = mk(obs)
+    m._thetasTrack = numpy.linspace(0.0, dtheta, nC)
+    m._deltaAngleTrack = dtheta
+    m.nInterpolatedTrackChunks = nInterp
+    m._interpolate_stream_track = _cls._interpolate_stream_track.__get__(m)
+    m._interpolate_stream_track_backend = (
+        _cls._interpolate_stream_track_backend.__get__(m)
+    )
+    return m, obs
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_interpolate_stream_track_value_parity(backend_name):
+    nC, nI = 8, 301
+    m_np, _ = _mock_track_sdf(nC, nI, numpy.asarray)
+    m_np._interpolate_stream_track()
+    m_b, _ = _mock_track_sdf(nC, nI, lambda a: _arr(backend_name, a))
+    m_b._interpolate_stream_track()
+    assert is_backend_array(m_b._interpolatedObsTrackXY)
+    assert is_backend_array(m_b._interpolatedObsTrack)
+    q = numpy.linspace(-0.1, 1.4, 53)  # incl. out-of-range (ext=0 extrapolation)
+    qb = _arr(backend_name, q)
+    for n in ("X", "Y", "Z", "vX", "vY", "vZ"):
+        numpy.testing.assert_allclose(
+            as_numpy(getattr(m_b, "_interpTrack" + n)(qb)),
+            getattr(m_np, "_interpTrack" + n)(q),
+            rtol=1e-11,
+            atol=1e-12,
+            err_msg=f"interpTrack{n} ({backend_name})",
+        )
+    numpy.testing.assert_allclose(
+        as_numpy(m_b._interpolatedObsTrackXY),
+        m_np._interpolatedObsTrackXY,
+        rtol=1e-11,
+        atol=1e-12,
+    )
+    numpy.testing.assert_allclose(
+        as_numpy(m_b._interpolatedObsTrack),
+        m_np._interpolatedObsTrack,
+        rtol=1e-11,
+        atol=1e-12,
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_interpolate_stream_track_derivative_parity(backend_name):
+    # Spline1D.derivative() on the backend spline == scipy IUS.derivative() on the
+    # numpy path (used by streamdf.length(phys=True)).
+    nC, nI = 8, 51
+    m_np, _ = _mock_track_sdf(nC, nI, numpy.asarray)
+    m_np._interpolate_stream_track()
+    m_b, _ = _mock_track_sdf(nC, nI, lambda a: _arr(backend_name, a))
+    m_b._interpolate_stream_track()
+    q = numpy.linspace(0.0, 1.3, 37)
+    qb = _arr(backend_name, q)
+    numpy.testing.assert_allclose(
+        as_numpy(m_b._interpTrackX.derivative()(qb)),
+        m_np._interpTrackX.derivative()(q),
+        rtol=1e-9,
+        atol=1e-9,
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_interpolate_stream_track_grad_vs_fd(backend_name):
+    # d(sum interpTrackX(q))/d(_ObsTrack[0,0]) AD h-converges to a central FD of
+    # the numpy path (stringent, not finite-and-nonzero).
+    nC, nI = 8, 101
+    q = numpy.linspace(0.0, 1.3, 41)
+
+    def loss_np(o):
+        m, _ = _mock_track_sdf(nC, nI, numpy.asarray)
+        m._ObsTrack = o
+        m._interpolate_stream_track()
+        return float(numpy.sum(m._interpTrackX(q)))
+
+    _, obs = _mock_track_sdf(nC, nI, numpy.asarray)
+    if backend_name == "jax":
+
+        def loss(o):
+            m, _ = _mock_track_sdf(nC, nI, jnp.asarray)
+            m._ObsTrack = o
+            m._interpolate_stream_track()
+            return jnp.sum(m._interpTrackX(jnp.asarray(q)))
+
+        ad = float(jax.grad(loss)(jnp.asarray(obs))[0, 0])
+    else:
+        obs_t = torch.tensor(obs, requires_grad=True)
+        m, _ = _mock_track_sdf(nC, nI, lambda a: a)
+        m._ObsTrack = obs_t
+        m._interpolate_stream_track()
+        torch.sum(m._interpTrackX(torch.tensor(q))).backward()
+        ad = float(obs_t.grad[0, 0])
+    best = float("inf")
+    for h in (1e-4, 1e-5, 1e-6):
+        op, om = obs.copy(), obs.copy()
+        op[0, 0] += h
+        om[0, 0] -= h
+        best = min(best, abs(ad - (loss_np(op) - loss_np(om)) / (2 * h)))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    assert best < 1e-5 * abs(ad) + 1e-6, f"track grad {backend_name} {best:.2e}"
+
+
+def _backendify_track(sdf, mk):
+    # A shallow copy of a real (numpy) streamdf with the assembled track and the
+    # AA scalars promoted to a backend array, and the cached interpolation
+    # dropped, so _interpolate_stream_track[_aA] dispatch to their backend twins.
+    s = _copy.copy(sdf)
+    for a in (
+        "_ObsTrack",
+        "_progenitor_Omega",
+        "_progenitor_angle",
+        "_dsigomeanProgDirection",
+        "_meandO",
+        "_sortedSigOEig",
+    ):
+        setattr(s, a, mk(numpy.asarray(getattr(sdf, a))))
+    for a in (
+        "_interpolatedThetasTrack",
+        "_interpolatedObsTrackXY",
+        "_interpolatedObsTrack",
+        "_interpolatedObsTrackAA",
+    ):
+        if hasattr(s, a):
+            delattr(s, a)
+    return s
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_interpolate_stream_track_real_sdf_parity(sdf, backend_name):
+    # The real Bovy(2014) track promoted to the backend, rebuilt INSIDE a forced-
+    # backend context (mirrors the --backend shard's namespace/coercion). Both the
+    # physical track (_interpolatedObsTrackXY/_interpolatedObsTrack) and the AA
+    # track (_interpolatedObsTrackAA) match the numpy setup to ~1e-11.
+    from galpy import backend as _bk
+
+    ref_XY = numpy.asarray(sdf._interpolatedObsTrackXY)
+    ref_Track = numpy.asarray(sdf._interpolatedObsTrack)
+    ref_AA = numpy.asarray(sdf._interpolatedObsTrackAA)
+    mk = lambda a: _arr(backend_name, a)
+    with _bk.use(backend_name, force=True):
+        s = _backendify_track(sdf, mk)
+        s._interpolate_stream_track()
+        s._interpolate_stream_track_aA()
+        assert is_backend_array(s._interpolatedObsTrackXY)
+        assert is_backend_array(s._interpolatedObsTrack)
+        assert is_backend_array(s._interpolatedObsTrackAA)
+        got_XY = as_numpy(s._interpolatedObsTrackXY)
+        got_Track = as_numpy(s._interpolatedObsTrack)
+        got_AA = as_numpy(s._interpolatedObsTrackAA)
+    numpy.testing.assert_allclose(got_XY, ref_XY, rtol=1e-11, atol=1e-12)
+    numpy.testing.assert_allclose(got_Track, ref_Track, rtol=1e-11, atol=1e-12)
+    numpy.testing.assert_allclose(got_AA, ref_AA, rtol=1e-11, atol=1e-12)
+
+
+def _mock_aa_sdf(mk, meandO, nInterp=121):
+    from galpy.df.streamdf import streamdf as _cls
+
+    dsig = numpy.array([0.3, 0.8, 0.5])
+    dsig = dsig / numpy.linalg.norm(dsig)
+
+    class _M:
+        pass
+
+    m = _M()
+    m._ObsTrack = mk(numpy.zeros((5, 6)))  # dispatch + namespace only
+    m._interpolatedThetasTrack = numpy.linspace(0.0, 1.4, nInterp)
+    m._meandO = meandO
+    m._sortedSigOEig = mk(numpy.array([0.0, 0.0, 3.1e-4]))
+    m._tdisrupt = 12.0
+    m._sigMeanSign = 1.0
+    m._progenitor_Omega = mk(numpy.array([0.31, 0.55, -0.42]))
+    m._progenitor_angle = mk(numpy.array([1.1, 2.2, 0.7]))
+    m._dsigomeanProgDirection = mk(dsig)
+    m._interpolate_stream_track_aA_backend = (
+        _cls._interpolate_stream_track_aA_backend.__get__(m)
+    )
+    m.meanOmega = _cls.meanOmega.__get__(m)
+    return m
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_interpolate_stream_track_aA_grad_vs_fd(backend_name):
+    # d(sum _interpolatedObsTrackAA)/d(_meandO) AD h-converges to a central FD of
+    # the numpy build (the AA track is differentiable via meanOmega's dmOs).
+    md0 = 0.021
+
+    def loss_np(md):
+        m = _mock_aa_sdf(numpy.asarray, float(md))
+        m._interpolate_stream_track_aA_backend()
+        return float(numpy.sum(m._interpolatedObsTrackAA))
+
+    if backend_name == "jax":
+
+        def loss(md):
+            m = _mock_aa_sdf(jnp.asarray, md)
+            m._interpolate_stream_track_aA_backend()
+            return jnp.sum(m._interpolatedObsTrackAA)
+
+        ad = float(jax.grad(loss)(jnp.asarray(md0)))
+    else:
+        mdt = torch.tensor(md0, requires_grad=True)
+        m = _mock_aa_sdf(lambda a: torch.tensor(a), mdt)
+        m._interpolate_stream_track_aA_backend()
+        torch.sum(m._interpolatedObsTrackAA).backward()
+        ad = float(mdt.grad)
+    best = float("inf")
+    for h in (1e-5, 1e-6, 1e-7):
+        best = min(best, abs(ad - (loss_np(md0 + h) - loss_np(md0 - h)) / (2 * h)))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    assert best < 1e-4 * abs(ad) + 1e-6, f"aA grad {backend_name} {best:.2e}"
