@@ -734,6 +734,34 @@ class Spline1D:
             extrapolate=self._extrapolate,
         )
 
+    def derivative(self, n=1):
+        """Return a callable for the ``n``-th derivative.
+
+        Mirrors ``scipy.interpolate.InterpolatedUnivariateSpline.derivative()``:
+        ``self.derivative(n)(r) == self(r, nu=n)``. On the numpy (mode-1) path
+        this delegates to the fitted scipy spline's own ``.derivative()``
+        (BYTE-IDENTICAL to using scipy directly); on a backend spline it returns
+        a lightweight callable that evaluates the SAME power-basis polynomial
+        with ``nu=n`` (the analytic derivative, agreeing with scipy to ~1 ulp),
+        so the derivative stays differentiable in both the evaluation point and
+        -- for a mode-2 in-backend spline -- the ``y`` values.
+        """
+        if self._spl is not None:
+            return self._spl.derivative(n=n)
+        return _Spline1DDerivative(self, n)
+
+
+class _Spline1DDerivative:
+    """The ``n``-th derivative of a backend :class:`Spline1D`, callable at ``r``
+    (``== spl(r, nu=n)``); returned by :meth:`Spline1D.derivative`."""
+
+    def __init__(self, spl, n):
+        self._spl = spl
+        self._n = n
+
+    def __call__(self, r):
+        return self._spl(r, nu=self._n)
+
 
 class Spline2D:
     """Backend-agnostic 2D tensor-product spline over a rectangular grid.
