@@ -15,7 +15,7 @@ from ..backend import (
     use,
 )
 from ..backend._namespaces import namespace_from_arrays
-from ..backend.quadrature import fixed_quad
+from ..backend.quadrature import fixed_quad, simpson
 from ..orbit import Orbit
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -1735,28 +1735,13 @@ def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
     )
 
 
-def _simpson_backend(xp, y, x):
-    # Composite Simpson's rule over a uniform grid, differentiable and
-    # backend-agnostic: the drop-in for scipy.integrate.simpson at the
-    # orbit-integration acceleration integral. ``y`` is (..., nt, 3), ``x`` the
-    # (nt,) uniform time grid with nt odd (even # of intervals); integrates over
-    # the time axis (axis=-2) with the standard [1, 4, 2, ..., 4, 1] weights.
-    nt = y.shape[-2]
-    h = x[1] - x[0]
-    weights = numpy.ones(nt)
-    weights[1:-1:2] = 4.0
-    weights[2:-1:2] = 2.0
-    weights = xp.asarray(weights, dtype=y.dtype) * (h / 3.0)
-    return xp.sum(weights[:, None] * y, axis=-2)
-
-
 def _impulse_deltav_general_orbitintegration_backend(
     v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
 ):
     # Backend (jax/torch) twin of impulse_deltav_general_orbitintegration: the
     # per-star Orbit.integrate loop becomes ONE batched in-backend differentiable
     # ODE solve (diffrax for jax, torchdiffeq for torch), and the negative-step
-    # trajectory reversal / scipy.simpson become xp.flip / _simpson_backend, so
+    # trajectory reversal / scipy.simpson become xp.flip / quadrature.simpson, so
     # the kick is differentiable w.r.t. the orbit ICs (v, x), b, w and the
     # perturber's potential params (galpot's params flow through the ODE). Needs
     # galpot's forces to return backend arrays (a real Potential does; a test
@@ -1796,7 +1781,7 @@ def _impulse_deltav_general_orbitintegration_backend(
     r = xp.sqrt(xp.sum(X**2, axis=-1))  # (nstar, nt)
     Rf = xp.reshape(evaluateRforces(pot, xp.reshape(r, (-1,)), 0.0), r.shape)
     acc = (Rf / r)[:, :, None] * X  # (nstar, nt, 3)
-    return _simpson_backend(xp, acc, alltimes)
+    return simpson(xp, acc, alltimes)
 
 
 def impulse_deltav_general_orbitintegration(
