@@ -513,3 +513,34 @@ def nested_quad(xp, integrand, bounds, *, n=50, device=None):
     axes = tuple(range(-d, 0))
     result = xp.sum(wgrid * vals, axis=axes)
     return match_input_dtype(result, *cast_coords)
+
+
+def simpson(xp, y, x, axis=-2):
+    """Composite Simpson's rule over a UNIFORM grid, backend-agnostic and
+    differentiable -- a drop-in for scipy.integrate.simpson on a uniform grid.
+
+    Integrates ``y`` over ``axis`` using ``x`` (the uniform sample grid;
+    ``x.shape[0]`` must be odd, i.e. an even number of intervals) with the
+    standard [1, 4, 2, ..., 4, 1] weights. Differentiable w.r.t. ``y`` and (via
+    the step ``h``) ``x``; the integer weights are static.
+
+    Parameters
+    ----------
+    xp : module
+        The array namespace (numpy / jax.numpy / array-api-compat torch).
+    y : array
+        Values to integrate; the integration axis has an odd number of samples.
+    x : array
+        The uniform sample grid.
+    axis : int, optional
+        The integration axis. Default -2.
+    """
+    n = y.shape[axis]
+    h = x[1] - x[0]
+    weights = numpy.ones(n)
+    weights[1:-1:2] = 4.0
+    weights[2:-1:2] = 2.0
+    shape = [1] * y.ndim
+    shape[axis] = n
+    weights = xp.asarray(weights, dtype=y.dtype).reshape(tuple(shape)) * (h / 3.0)
+    return xp.sum(weights * y, axis=axis)
