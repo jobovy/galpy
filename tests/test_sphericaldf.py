@@ -13,7 +13,7 @@ import pytest
 from scipy import integrate, special
 
 from galpy import potential
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, get_namespace
 from galpy.df import (
     constantbetadf,
     constantbetaHernquistdf,
@@ -4016,21 +4016,29 @@ def test_eddington_sample_negative_df_regions_no_crash():
     rmax = 5.0
     dfe = eddingtondf(pot=pot, rmax=rmax)
     numpy.random.seed(1)
-    with pytest.warns(galpyWarning):
+    # numpy's scipy cubic spline overshoots the reconstructed DF slightly negative
+    # near the truncation (raising the negative-region galpyWarning); the backend
+    # Spline1D does not overshoot there, so no warning is raised on the backend path
+    if get_namespace() is numpy:
+        with pytest.warns(galpyWarning):
+            samp = dfe.sample(n=2000)
+    else:
         samp = dfe.sample(n=2000)
-    r = samp.r(use_physical=False)
+    r = as_numpy(samp.r(use_physical=False))
     assert numpy.all(numpy.isfinite(r)), "Sampled radii are not all finite"
     assert numpy.all(r <= rmax), "Sampled radii exceed rmax"
     assert numpy.all(r >= 0.0), "Sampled radii are negative"
     # Speeds must be finite and below the local escape speed of the cut-off DF
     v = numpy.sqrt(
-        samp.vR(use_physical=False) ** 2.0
-        + samp.vT(use_physical=False) ** 2.0
-        + samp.vz(use_physical=False) ** 2.0
+        as_numpy(samp.vR(use_physical=False)) ** 2.0
+        + as_numpy(samp.vT(use_physical=False)) ** 2.0
+        + as_numpy(samp.vz(use_physical=False)) ** 2.0
     )
     assert numpy.all(numpy.isfinite(v)), "Sampled velocities are not all finite"
-    vesc = numpy.sqrt(
-        2.0 * (pot(rmax, 0.0, use_physical=False) - pot(r, 0.0, use_physical=False))
+    vesc = as_numpy(
+        numpy.sqrt(
+            2.0 * (pot(rmax, 0.0, use_physical=False) - pot(r, 0.0, use_physical=False))
+        )
     )
     assert numpy.all(v <= vesc + 1e-7), (
         "Sampled speeds exceed the escape speed of the truncated DF"

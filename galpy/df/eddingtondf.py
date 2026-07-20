@@ -69,12 +69,14 @@ class eddingtondf(isotropicsphericaldf):
         self._dnudr = (
             self._denspot._ddensdr
             if not isinstance(self._denspot, CompositePotential)
-            else lambda r: numpy.sum([p._ddensdr(r) for p in self._denspot])
+            # builtin sum keeps r's shape (numpy.sum collapses the vectorized
+            # backend node array); byte-identical for the scalar-r numpy path
+            else lambda r: sum(p._ddensdr(r) for p in self._denspot)
         )
         self._d2nudr2 = (
             self._denspot._d2densdr2
             if not isinstance(self._denspot, CompositePotential)
-            else lambda r: numpy.sum([p._d2densdr2(r) for p in self._denspot])
+            else lambda r: sum(p._d2densdr2(r) for p in self._denspot)
         )
         self._potInf = _evaluatePotentials(pot, self._rmax, 0)
         self._Emin = _evaluatePotentials(pot, self._rmin, 0)
