@@ -7,7 +7,12 @@ from scipy import integrate, interpolate, optimize
 
 from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
-from ..backend import get_namespace, is_backend_array, promote_scalars
+from ..backend import (
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+)
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
 from ..orbit import Orbit
@@ -242,6 +247,7 @@ class quasiisothermaldf(df):
             # if isinstance(jr,(list,numpy.ndarray)) and len(jr) > 1: jr= jr[0]
             # if isinstance(jz,(list,numpy.ndarray)) and len(jz) > 1: jz= jz[0]
         xp = get_namespace(jr, lz, jz)
+        jr, lz, jz = coerce_coords(xp, jr, lz, jz)  # torch rejects python-float xp.abs
         if (
             not isinstance(lz, numpy.ndarray)
             and not is_backend_array(lz)
@@ -1035,10 +1041,13 @@ class quasiisothermaldf(df):
         **kwargs,
     ):
         """Non-physical version of jmomentdensity, otherwise the same"""
+        xp = get_namespace(R, z)
         if nsigma == None:
             nsigma = _NSIGMA
-        sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
-        sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
+        if xp is not numpy:  # promote scalar (R,z) so xp.exp etc. run on backend
+            R, z = promote_scalars(xp, R, z)
+        sigmaR1 = self._sr * xp.exp((self._refr - R) / self._hsr)
+        sigmaz1 = self._sz * xp.exp((self._refr - R) / self._hsz)
         thisvc = potential.vcirc(self._pot, R, use_physical=False)
         # Use the asymmetric drift equation to estimate va
         gamma = numpy.sqrt(0.5)
@@ -1052,7 +1061,9 @@ class quasiisothermaldf(df):
                 + R * (1.0 / self._hr + 2.0 / self._hsr)
             )
         )
-        if numpy.fabs(va) > sigmaR1:
+        if is_backend_array(va):
+            va = xp.where(xp.abs(va) > sigmaR1, 0.0, va)  # avoid craziness near center
+        elif numpy.fabs(va) > sigmaR1:
             va = 0.0  # To avoid craziness near the center
         if mc:
             mvT = (thisvc - va) / gamma / sigmaR1
@@ -1060,20 +1071,26 @@ class quasiisothermaldf(df):
                 vrs = numpy.random.normal(size=nmc)
             else:
                 vrs = _vrs
+            # defer the mvT add so the numpy.random draw order is byte-identical
+            add_mvT_to_vts = _vts is None
             if _vts is None:
-                vts = numpy.random.normal(size=nmc) + mvT
+                vts = numpy.random.normal(size=nmc)
             else:
                 vts = _vts
             if _vzs is None:
                 vzs = numpy.random.normal(size=nmc)
             else:
                 vzs = _vzs
+            if xp is not numpy:  # promote the (numpy) draws to combine with backend
+                vrs, vts, vzs = promote_scalars(xp, vrs, vts, vzs)
+            if add_mvT_to_vts:
+                vts = vts + mvT
             Is = _jmomentsurfaceMCIntegrand(
                 vzs,
                 vrs,
                 vts,
-                numpy.ones(nmc) * R,
-                numpy.ones(nmc) * z,
+                xp.ones(nmc) * R,
+                xp.ones(nmc) * z,
                 self,
                 sigmaR1,
                 gamma,
@@ -1085,13 +1102,13 @@ class quasiisothermaldf(df):
             )
             if _returnmc:
                 return (
-                    numpy.mean(Is) * sigmaR1**2.0 * gamma * sigmaz1,
+                    xp.mean(Is) * sigmaR1**2.0 * gamma * sigmaz1,
                     vrs,
                     vts,
                     vzs,
                 )
             else:
-                return numpy.mean(Is) * sigmaR1**2.0 * gamma * sigmaz1
+                return xp.mean(Is) * sigmaR1**2.0 * gamma * sigmaz1
         else:  # pragma: no cover because this is too slow; a warning is shown
             warnings.warn(
                 "Calculations using direct numerical integration using tplquad is not recommended and extremely slow; it has also not been carefully tested",
@@ -3199,6 +3216,7 @@ def _jmomentsurfaceMCIntegrand(
     vz, vR, vT, R, z, df, sigmaR1, gamma, sigmaz1, mvT, n, m, o
 ):
     """Internal function that is the integrand for the vmomentsurface mass integration"""
+    xp = get_namespace(vz, vR, vT, R, z)
     return df(
         R,
         vR * sigmaR1,
@@ -3207,4 +3225,4 @@ def _jmomentsurfaceMCIntegrand(
         vz * sigmaz1,
         use_physical=False,
         func=(lambda x, y, z: x**n * y**m * z**o),
-    ) * numpy.exp(vR**2.0 / 2.0 + (vT - mvT) ** 2.0 / 2.0 + vz**2.0 / 2.0)
+    ) * xp.exp(vR**2.0 / 2.0 + (vT - mvT) ** 2.0 / 2.0 + vz**2.0 / 2.0)
