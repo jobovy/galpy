@@ -1,3 +1,10 @@
+# REGEN prune (2026-07-19, full-matrix REGEN run 29701145224 on feat/backends
+# AFTER the float64 conftest fix #1160): --backend torch had been running in
+# float32, so a class of precision-sensitive tests failed with float32-eps
+# errors that looked like numerical gaps. In float64 they pass -> -81 entries
+# (torch 283->204, jax 89->87), 0 new failures / 0 regressions (all 44 shards
+# completed). See tests/conftest.py torch.set_default_dtype(float64).
+#
 # REGEN-MILESTONE prune (2026-07-18, full-matrix REGEN run 29622626024 on
 # feat/backends 77b8cd32 -- all 44 jax+torch shards ran to completion, no
 # session-timeout truncation, and the regenerated set is a strict SUBSET of the
@@ -151,13 +158,10 @@ torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
 torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_angles
 torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_freqs
 torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_plotting
-torch tests/test_actionAngle.py::test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit
-torch tests/test_actionAngle.py::test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit
 torch tests/test_actionAngle.py::test_actionAngleSpherical_almostnoninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleSpherical_noninclinedorbit_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleSpherical_otherIsochrone_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_Isochrone_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c
@@ -165,7 +169,6 @@ torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_actions_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_conserved_EccZmaxRperiRap_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_conserved_actions_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_indivdelta_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
@@ -191,56 +194,21 @@ torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_int
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
-torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actions
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
 torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
-torch tests/test_actionAngle.py::test_orbit_interface_unbound_complexshape_adiabatic
-torch tests/test_actionAngle.py::test_orbit_interface_unbound_complexshape_staeckel
-torch tests/test_actionAngle.py::test_orbit_interface_unbound_staeckeldelta_handling
 torch tests/test_actionAngle.py::test_physical_vertical
 torch tests/test_dynamfric.py::test_dynamfric_c
 torch tests/test_dynamfric.py::test_dynamfric_c_minr
-torch tests/test_galpypaper.py::test_adinvariance
 torch tests/test_galpypaper.py::test_orbmethods
 torch tests/test_galpypaper.py::test_qdf
 torch tests/test_interp_potential.py::test_interpolation_potential_force_c_vdiffgridsizes
 torch tests/test_interp_potential.py::test_interpolation_potential_force_notinterpolated
-torch tests/test_noninertial.py::test_accellsrframe_funcomegaz
-torch tests/test_noninertial.py::test_accellsrframe_funcomegaz_2d
-torch tests/test_noninertial.py::test_accellsrframe_scalaromegaz
-torch tests/test_noninertial.py::test_accellsrframe_scalaromegaz_2d
-torch tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz
-torch tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz_2D
-torch tests/test_noninertial.py::test_accellsrframe_vecomegaz
-torch tests/test_noninertial.py::test_accellsrframe_vecomegaz_2d
-torch tests/test_noninertial.py::test_arbitraryaxisrotation
-torch tests/test_noninertial.py::test_arbitraryaxisrotation_nullpotential
-torch tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
-torch tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot_nullpotential
-torch tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
-torch tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
-torch tests/test_noninertial.py::test_linacc_changingacc_xyz
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalaromegaz
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomegaz
-torch tests/test_noninertial.py::test_linacc_changingacc_z
-torch tests/test_noninertial.py::test_linacc_constantacc_x_2d
-torch tests/test_noninertial.py::test_linacc_constantacc_xyz
-torch tests/test_noninertial.py::test_linacc_constantacc_z
-torch tests/test_noninertial.py::test_lsrframe_scalaromegaz
-torch tests/test_noninertial.py::test_lsrframe_scalaromegaz_2d
-torch tests/test_noninertial.py::test_lsrframe_vecomegaz
-torch tests/test_noninertial.py::test_lsrframe_vecomegaz_2d
-torch tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation
-torch tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega
-torch tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_omegadot
-torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz
 torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz
-torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz_2d
-torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz
 torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
 torch tests/test_orbit.py::test_analytic_zmax
 torch tests/test_orbit.py::test_bruteSOS_2Dx
@@ -260,7 +228,6 @@ torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialHernquistPotential]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialJaffePotential]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialNFWPotential]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TwoPowerTriaxialPotential]
-torch tests/test_orbit.py::test_eccentricity
 torch tests/test_orbit.py::test_energy_conservation_linear[BurkertPotentialNoC--10.0-False]
 torch tests/test_orbit.py::test_energy_conservation_linear[RazorThinExponentialDiskPotential--10.0-False]
 torch tests/test_orbit.py::test_energy_jacobi_conservation[RazorThinExponentialDiskPotential--10.0--9.0-False]
@@ -284,10 +251,6 @@ torch tests/test_orbits.py::test_bruteSOS_2Dy
 torch tests/test_orbits.py::test_plotBruteSOS
 torch tests/test_pv2qdf.py::test_pvRvz_staeckel_arrayin
 torch tests/test_qdf.py::test_call_diffinoutputs
-torch tests/test_qdf.py::test_estimate_hr
-torch tests/test_qdf.py::test_estimate_hsr
-torch tests/test_qdf.py::test_estimate_hsz
-torch tests/test_qdf.py::test_estimate_hz
 torch tests/test_qdf.py::test_jmomentdensity_diffinoutputs
 torch tests/test_qdf.py::test_jmomentdensity_physical
 torch tests/test_qdf.py::test_meanjr
@@ -327,13 +290,10 @@ torch tests/test_sphericaldf.py::test_anisotropic_hernquist_diffcalls
 torch tests/test_sphericaldf.py::test_constantbeta_differentpotentials_dens_directint
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
-torch tests/test_sphericaldf.py::test_constantbeta_selfconsist_dehnencore_dMdE_integral
 torch tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
 torch tests/test_sphericaldf.py::test_eddington_powerspherical_divergent_auto_rmin
 torch tests/test_sphericaldf.py::test_eddington_powerspherical_massprofile
 torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_directint
-torch tests/test_sphericaldf.py::test_isotropic_hernquist_dMdE_integral
-torch tests/test_sphericaldf.py::test_isotropic_plummer_dMdE_integral
 torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
 torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
 torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[0.5]
@@ -354,22 +314,10 @@ torch tests/test_streamTrack.py::test_streamTrack_plot_smoke
 torch tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian
 torch tests/test_streamTrack.py::test_streamTrack_smoothing_factor
 torch tests/test_streamTrack.py::test_streamTrack_smoothing_variants
-torch tests/test_streamdf.py::test_2ndsetup
-torch tests/test_streamdf.py::test_Rnorm_Vnorm_deprecation
 torch tests/test_streamdf.py::test_bovy14_callMargXZ
-torch tests/test_streamdf.py::test_custom_transform_deprecation
-torch tests/test_streamdf.py::test_fardalpot_trackaa
 torch tests/test_streamdf.py::test_fardalwmwpot_trackaa
 torch tests/test_streamdf.py::test_plotting
-torch tests/test_streamdf.py::test_progenitor_coordtransformparams
-torch tests/test_streamdf.py::test_setup_progIsTrack
-torch tests/test_streamdf.py::test_streamTrack_custom_sky_transform_equatorial_to_galactic
-torch tests/test_streamdf.py::test_streamTrack_custom_sky_transform_per_call_override
-torch tests/test_streamdf.py::test_streamTrack_custom_sky_transform_setter
 torch tests/test_streamdf.py::test_streamTrack_multi_parallel
-torch tests/test_streamdf.py::test_streamTrack_raises_when_spread_not_setup
-torch tests/test_streamgapdf.py::test_leadingwtrailingimpact_error
-torch tests/test_streamgapdf.py::test_trailingwleadingimpact_error
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_fullintegration_fastencounter
 torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_orbit_zeroforce
@@ -384,34 +332,12 @@ torch tests/test_streamspraydf.py::test_pericenter_stripping_pdf_eccentric_orbit
 torch tests/test_streamspraydf.py::test_pericenter_stripping_pdf_end_to_end
 torch tests/test_streamspraydf.py::test_pericenter_stripping_pdf_inherits_rovo_from_progenitor
 torch tests/test_streamspraydf.py::test_sample_bovy14
-torch tests/test_noninertial.py::test_cinterp_combined_rotlin
-torch tests/test_noninertial.py::test_cinterp_constant_a0_noop
-torch tests/test_noninertial.py::test_cinterp_constfreq_lin
-torch tests/test_noninertial.py::test_cinterp_func_a0_2d
-torch tests/test_noninertial.py::test_cinterp_func_a0_3d
-torch tests/test_noninertial.py::test_cinterp_funcomegaz
-torch tests/test_noninertial.py::test_cinterp_input_type_combinations
-torch tests/test_noninertial.py::test_cinterp_linear_a0_exact
-torch tests/test_noninertial.py::test_cinterp_n_resolution
-torch tests/test_noninertial.py::test_cinterp_omega_func_no_omegadot_derived
-torch tests/test_noninertial.py::test_cinterp_scalar_only_and_constant_funcs
-torch tests/test_noninertial.py::test_cinterp_vecfuncomega
-torch tests/test_noninertial.py::test_cinterp_wrapper_and_movingobject_combo
 jax tests/test_noninertial.py::test_arbitraryaxisrotation
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_nullpotential
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot_nullpotential
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
-torch tests/test_potential.py::test_2ndDeriv_potential[specialSpiralArmsPotential]
-torch tests/test_potential.py::test_forceAsDeriv_potential[specialSpiralArmsPotential]
 torch tests/test_potential.py::test_integration_RotateAndTiltWrapper_timedependent_forcecache
-torch tests/test_potential.py::test_mass_spher
-torch tests/test_potential.py::test_mass_spher_analytic
-torch tests/test_potential.py::test_mass_spher_z
-torch tests/test_potential.py::test_MWPotential2014
 torch tests/test_potential.py::test_rE_MWPotential2014
-torch tests/test_potential.py::test_rforce_dissipative
 
 # --- jax single-orbit: action-angle accessors (Track E) ---
 # o.jr()/jz()/e()/zmax()/rperi()/rap() and physical/quantity/plotting paths that call
