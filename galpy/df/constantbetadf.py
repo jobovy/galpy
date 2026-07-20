@@ -9,13 +9,14 @@ from scipy import integrate, interpolate, special
 from ..backend import (
     as_numpy,
     autodiff_ops,
+    device_of,
     get_namespace,
     is_backend_array,
     name_of_namespace,
     resolve_namespace,
     use,
 )
-from ..backend.quadrature import fixed_quad
+from ..backend.quadrature import fixed_quad, fixed_quad_semiinfinite
 from ..potential import evaluateRforces, interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion, quadpack
@@ -272,20 +273,24 @@ class _constantbetadf(anisotropicsphericaldf):
         # and the vmax(r) integration limit; the node axis trails
         rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
         Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0)) * 1.0)[..., None]
+        integrand = lambda v: (
+            v ** (2.0 - 2.0 * self._beta + m + n) * self.fE(Phir_b + 0.5 * v**2.0)
+        )
+        if numpy.isinf(as_numpy(self._potInf)):
+            # divergent potential (Phi(inf)=inf): v_esc is infinite, so map the
+            # tail [0, inf) instead of integrating to an infinite limit (NaN)
+            integral = fixed_quad_semiinfinite(
+                xp, integrand, 0.0, n=_QUAD_N_VMOM, kind="recip", device=device_of(rb)
+            )
+        else:
+            integral = fixed_quad(
+                xp, integrand, 0.0, self._vmax_at_r(self._pot, rb), n=_QUAD_N_VMOM
+            )
         return (
             2.0
             * numpy.pi
             * rb ** (-2.0 * self._beta)
-            * fixed_quad(
-                xp,
-                lambda v: (
-                    v ** (2.0 - 2.0 * self._beta + m + n)
-                    * self.fE(Phir_b + 0.5 * v**2.0)
-                ),
-                0.0,
-                self._vmax_at_r(self._pot, rb),
-                n=_QUAD_N_VMOM,
-            )
+            * integral
             * special.gamma(m / 2.0 - self._beta + 1.0)
             * special.gamma((n + 1) / 2.0)
             / special.gamma(0.5 * (m + n - 2.0 * self._beta + 3.0))
