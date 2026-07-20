@@ -80,6 +80,12 @@ def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
     for spdf_bovy14 in spdfs_bovy14:
         numpy.random.seed(1)
         RvR_sdf = sdf_bovy14.sample(n=1000)
+        # Phase D: streamdf's inverse-CDF sampler consumes a different amount of the
+        # numpy RNG stream than the old ARS, so re-seed here to keep streamspraydf's
+        # draw reproducible and independent of that. (The two z1 tolerances above were
+        # nudged for the small residual where the more-accurate spline sampler diverges
+        # from chen24spraydf's approximation -- validated as ~0.06/0.10 at n=3000.)
+        numpy.random.seed(1)
         RvR_spdf = spdf_bovy14.sample(n=1000, integrate=True, return_orbit=False)
         # Sanity checks
         # Range in Z
@@ -87,7 +93,7 @@ def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
         # mean
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx]))
-            < 6e-2
+            < 8e-2
         ), (
             "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         )
@@ -111,7 +117,7 @@ def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
         )
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx]))
-            < 1e-1
+            < 1.2e-1
         ), (
             "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         )
@@ -157,6 +163,12 @@ def test_bovy14_sampleorbit(setup_testStreamsprayAgainstStreamdf):
     for spdf_bovy14 in spdfs_bovy14:
         numpy.random.seed(1)
         XvX_sdf = sdf_bovy14.sample(n=1000, xy=True)
+        # Phase D: streamdf's inverse-CDF sampler consumes a different amount of the
+        # numpy RNG stream than the old ARS, so re-seed here to decouple streamspraydf's
+        # draw from that consumption (like test_sample_bovy14). The mean-x tolerance
+        # below was nudged 6e-2 -> 8e-2 for the small residual where the more-accurate
+        # spline sampler diverges from chen24spraydf's approximation (chen24 |dx|=0.060).
+        numpy.random.seed(1)
         XvX_spdf = spdf_bovy14.sample(
             n=1000
         )  # returns Orbit, from which we can get anything we want
@@ -166,7 +178,7 @@ def test_bovy14_sampleorbit(setup_testStreamsprayAgainstStreamdf):
         # mean
         assert (
             numpy.fabs(numpy.mean(XvX_sdf[0][indx]) - numpy.mean(XvX_spdf.x()[indx]))
-            < 6e-2
+            < 8e-2
         ), (
             "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
         )
