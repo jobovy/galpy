@@ -2,7 +2,7 @@
 import numpy
 from scipy import integrate, interpolate, special
 
-from ..backend import as_numpy, resolve_namespace
+from ..backend import as_numpy, device_of, resolve_namespace
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..potential import evaluateDensities
 from ..potential.Potential import _evaluatePotentials
@@ -257,18 +257,31 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
                 / special.gamma(0.5 * (m + n + 3.0))
                 / (1 + r**2.0 / self._ra2) ** (m / 2 + 1)
             )
-        # jax/torch: fixed-order GL over v, differentiable in r; node axis trails
+        # jax/torch: GL after v = vmax sin(theta), which cancels the fQ endpoint
+        # singularity (power-law fQ ~ Q^{-1/2} as Q -> 0 at v = vmax); node axis trails
         rb = xp.asarray(r) * 1.0  # coerce: torch potentials reject numpy coords
         Phir_b = (xp.asarray(_evaluatePotentials(self._pot, rb, 0)) * 1.0)[..., None]
+        vmax = (xp.asarray(self._vmax_at_r(self._pot, rb)) * 1.0)[..., None]
+
+        def _integrand(theta):
+            v = vmax * xp.sin(theta)
+            return (
+                v ** (2.0 + m + n)
+                * self.fQ(-Phir_b - 0.5 * v**2.0)
+                * vmax
+                * xp.cos(theta)
+            )
+
         return (
             2.0
             * numpy.pi
             * fixed_quad(
                 xp,
-                lambda v: v ** (2.0 + m + n) * self.fQ(-Phir_b - 0.5 * v**2.0),
+                _integrand,
                 0.0,
-                self._vmax_at_r(self._pot, rb),
+                numpy.pi / 2.0,
                 n=_QUAD_N_VMOM,
+                device=device_of(rb),
             )
             * special.gamma(m / 2.0 + 1.0)
             * special.gamma((n + 1) / 2.0)
