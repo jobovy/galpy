@@ -597,6 +597,32 @@ def test_spline1d_mode2_k1_deriv(backend):
     numpy.testing.assert_allclose(dval, slope, atol=1e-12)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_spline1d_derivative_method(backend):
+    # Spline1D.derivative()(r) == self(r, nu=1), mirroring scipy IUS.derivative().
+    # mode-1 (numpy y) delegates to the fitted scipy spline's own .derivative()
+    # (byte-identical to scipy); mode-2 (backend y) returns a callable evaluating
+    # the analytic derivative of the same power-basis cubic.
+    ref = si.InterpolatedUnivariateSpline(_XG, _YG, k=3).derivative()(_RQ)
+    # mode 1: numpy-fitted spline, evaluated under each backend
+    s1 = Spline1D(_XG, _YG, k=3)
+    got1 = as_numpy(s1.derivative()(_asarray(backend, _RQ)))
+    numpy.testing.assert_allclose(got1, ref, rtol=1e-9, atol=1e-12)
+    if backend == "numpy":
+        # mode-1 numpy path is scipy's own derivative spline (byte-identical)
+        numpy.testing.assert_array_equal(s1.derivative()(_RQ), ref)
+        return
+    # mode 2: in-backend cubic (natural bc) -> match scipy CubicSpline derivative
+    ref2 = si.CubicSpline(_XG, _YG, bc_type="natural").derivative()(_RQ)
+    s2 = Spline1D(_XG, _asarray(backend, _YG), k=3, bc="natural")
+    got2 = as_numpy(s2.derivative()(_asarray(backend, _RQ)))
+    numpy.testing.assert_allclose(got2, ref2, rtol=1e-9, atol=1e-12)
+    # derivative() agrees with the nu=1 call on the same instance
+    numpy.testing.assert_allclose(
+        got2, as_numpy(s2(_asarray(backend, _RQ), nu=1)), rtol=1e-12, atol=1e-12
+    )
+
+
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_eval_ppoly_nu_past_degree_zero(backend):
     # The backend eval_ppoly returns zeros for a derivative order past the
