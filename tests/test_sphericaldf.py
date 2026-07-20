@@ -578,13 +578,17 @@ def test_anisotropic_hernquist_diffcalls():
         # Calculate E directly and L from Orbit
         assert (
             numpy.fabs(
-                dfh(R, vR, vT, z, vz, phi)
-                - dfh(
-                    (
-                        pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
-                        numpy.sqrt(
-                            numpy.sum(Orbit([R, vR, vT, z, vz, phi]).L() ** 2.0)
-                        ),
+                as_numpy(dfh(R, vR, vT, z, vz, phi))
+                - as_numpy(
+                    dfh(
+                        (
+                            pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),
+                            numpy.sqrt(
+                                numpy.sum(
+                                    as_numpy(Orbit([R, vR, vT, z, vz, phi]).L()) ** 2.0
+                                )
+                            ),
+                        )
                     )
                 )
             )
@@ -594,7 +598,10 @@ def test_anisotropic_hernquist_diffcalls():
         )
         # Also as orbit
         assert (
-            numpy.fabs(dfh(R, vR, vT, z, vz, phi) - dfh(Orbit([R, vR, vT, z, vz, phi])))
+            numpy.fabs(
+                as_numpy(dfh(R, vR, vT, z, vz, phi))
+                - as_numpy(dfh(Orbit([R, vR, vT, z, vz, phi])))
+            )
             < 1e-8
         ), (
             "Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
