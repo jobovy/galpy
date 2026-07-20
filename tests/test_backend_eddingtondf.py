@@ -38,6 +38,7 @@ from galpy.potential import (
     DehnenCoreSphericalPotential,
     HernquistPotential,
     NFWPotential,
+    PowerSphericalPotential,
 )
 
 
@@ -237,3 +238,16 @@ def test_sample_forced_construction(backend):
     for g, r in zip(got, ref):
         assert isinstance(g, numpy.ndarray) and not _is_backend_array(backend, g)
         numpy.testing.assert_allclose(g, r, rtol=1e-7, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_powerspherical_mass_array_fallback(backend):
+    # PowerSpherical denspot: mass(denspot, array) raises under the backend in
+    # _make_cmf_interpolator, so the CMF construction falls back to the per-r
+    # backend loop (the except-RuntimeError branch). Samples stay numpy-side.
+    pot = PowerSphericalPotential(amp=1.3, alpha=1.4)
+    with galpy.backend.use(backend, force=True):
+        numpy.random.seed(654)
+        got = eddingtondf(pot=pot, rmax=5.0).sample(n=50, rmin=0.1, return_orbit=False)
+    assert not _is_backend_array(backend, got[0])
+    assert len(got[0]) == 50 and numpy.all(numpy.isfinite(got[0]))

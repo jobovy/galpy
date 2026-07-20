@@ -180,6 +180,21 @@ def test_moments_parity(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_vmomentdensity_divergent_potential(backend):
+    # a divergent potential (alpha<2 -> Phi(inf)=inf -> v_esc=inf) drives the base
+    # _vmomentdensity onto the fixed_quad_semiinfinite branch (integrate the v_esc=inf
+    # tail via a reciprocal map instead of to an infinite fixed_quad limit -> NaN)
+    # (correctness of the divergent case is covered by test_sphericaldf's
+    # test_constantbeta_differentpotentials_dens_directint; here we just need the
+    # backend semiinfinite branch to run and return a finite, positive density.)
+    df = constantbetadf(pot=PowerSphericalPotential(amp=1.3, alpha=1.9), twobeta=-1)
+    got = df.vmomentdensity(_arr(backend, 1.3), 0, 0)
+    assert _is_backend_array(backend, got)
+    val = float(as_numpy(got))
+    assert numpy.isfinite(val) and val > 0.0
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_dMdE_parity(backend):
     # anisotropic constant-beta dM/dE (GL after the r = rphi - s^2 turning-point
     # substitution). rtol 1e-5 is the numpy adaptive-quad floor at the
