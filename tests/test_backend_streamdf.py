@@ -1755,3 +1755,206 @@ def test_interpolate_stream_track_aA_grad_vs_fd(backend_name):
         best = min(best, abs(ad - (loss_np(md0 + h) - loss_np(md0 - h)) / (2 * h)))
     assert numpy.isfinite(ad) and abs(ad) > 0
     assert best < 1e-4 * abs(ad) + 1e-6, f"aA grad {backend_name} {best:.2e}"
+
+
+###############################################################################
+# _approxaAInv -- the linear track inverse (frequency-angle -> R,vR,vT,z,vz,phi)
+# that sample(returnaAdt=False) applies to every drawn (Omega, angle). The numpy
+# body (dispatched away when the query points OR the assembled track are backend
+# arrays) is BYTE-IDENTICAL -- verified by a git-stash A/B on a real numpy sdf,
+# out-of-band, for both interp=True/False (array_equal, maxdiff 0.0).
+#
+# The backend twin (_approxaAInv_backend) vectorises the per-point loop. Every
+# discrete selection -- the 9**3 wrap (argmin over the cross-product norm), the
+# closest interp/non-interp track point, the two Jacobian indices (the numpy
+# data-dependent branch becomes clamped indices + xp.where) -- is a stop-gradient
+# integer argmin that GATHERs the continuous track/Jacobian rows it points at
+# (reparameterised nearest-neighbour). The gradient flows through dOa (the
+# offset), the gathered _interpolatedObsTrack/_allinvjacsTrack, and the smoothing
+# weight, NOT through the index. Proven below: value parity, grad-vs-FD (the
+# query offset AND the gather-gradient) and end-to-end differentiable sampling.
+###############################################################################
+def _approxaainv_query(sdf, n=16):
+    # realistic frequency/angle query points from the numpy sampler (seeded)
+    numpy.random.seed(202)
+    Om, angle, _ = sdf._sample_aAt(n, key=None)
+    return numpy.vstack([Om, angle])  # (6,n): Or,Op,Oz, ar,ap,az
+
+
+def _np_inv(sdf, Q, interp):
+    return numpy.asarray(
+        sdf._approxaAInv(Q[0], Q[1], Q[2], Q[3], Q[4], Q[5], interp=interp)
+    )
+
+
+@pytest.mark.parametrize("interp", [True, False], ids=["interp", "noninterp"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaAInv_value_parity(sdf, backend_name, interp):
+    # backend _approxaAInv == the numpy path to ~1e-11 at the same query points,
+    # with the query points built INSIDE the forced-backend context.
+    from galpy import backend as _bk
+
+    Q = _approxaainv_query(sdf)
+    ref = _np_inv(sdf, Q, interp)
+    with _bk.use(backend_name, force=True):
+        Qb = [_arr(backend_name, Q[i]) for i in range(6)]
+        out = sdf._approxaAInv(*Qb, interp=interp)
+        assert is_backend_array(out)
+        got = as_numpy(out)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaAInv_grad_vs_fd_query(sdf, backend_name):
+    # d(sum W*out)/d(query offset) AD h-converges to a central FD of the numpy
+    # path (the gradient flows through dOa and the smoothing weight; the discrete
+    # nearest-neighbour indices are stop-gradient).
+    Q = _approxaainv_query(sdf)
+    n = Q.shape[1]
+    rng = numpy.random.RandomState(7)
+    W, Dir = rng.randn(6, n), rng.randn(6, n)
+    interp = True
+
+    def loss_np(Qm):
+        return float(numpy.sum(W * _np_inv(sdf, Qm, interp)))
+
+    if backend_name == "jax":
+
+        def loss(qf):
+            Qm = qf.reshape(6, n)
+            out = sdf._approxaAInv(*(Qm[i] for i in range(6)), interp=interp)
+            return jnp.sum(jnp.asarray(W) * out)
+
+        g = numpy.asarray(jax.grad(loss)(jnp.asarray(Q.ravel()))).reshape(6, n)
+    else:
+        qt = torch.tensor(Q, requires_grad=True)
+        out = sdf._approxaAInv(*(qt[i] for i in range(6)), interp=interp)
+        (torch.as_tensor(W) * out).sum().backward()
+        g = qt.grad.numpy()
+    ad = float(numpy.sum(g * Dir))
+    best = min(
+        abs(ad - (loss_np(Q + h * Dir) - loss_np(Q - h * Dir)) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    assert best < 1e-5 * abs(ad) + 1e-6, f"{backend_name} query grad {best:.2e}"
+
+
+@pytest.mark.parametrize(
+    "attr,idx",
+    [("_allinvjacsTrack", "jac"), ("_interpolatedObsTrack", "closest")],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaAInv_grad_vs_fd_table(sdf, backend_name, attr, idx):
+    # the gather-gradient: d(sum W*out)/d(a gathered track/Jacobian entry) AD
+    # h-converges to a central FD of the numpy path (grad flows through the
+    # nearest-neighbour gather into the continuous table row).
+    Q = _approxaainv_query(sdf)
+    n = Q.shape[1]
+    W = numpy.random.RandomState(3).randn(6, n)
+    interp = True
+    # an index actually gathered by query point 0
+    ci = sdf._find_closest_trackpointaA(*[Q[i][0] for i in range(6)], interp=True)
+    ji = sdf._find_closest_trackpointaA(*[Q[i][0] for i in range(6)], interp=False)
+    entry = (int(ji), 2, 3) if idx == "jac" else (int(ci), 1)
+    base = numpy.asarray(getattr(sdf, attr))
+
+    def loss_np(delta):
+        s = _copy.copy(sdf)
+        T = base.copy()
+        T[entry] += delta
+        setattr(s, attr, T)
+        return float(numpy.sum(W * _np_inv(s, Q, interp)))
+
+    Qb = [_arr(backend_name, Q[i]) for i in range(6)]
+    if backend_name == "jax":
+
+        def loss(Tflat):
+            s = _copy.copy(sdf)
+            setattr(s, attr, Tflat.reshape(base.shape))
+            out = s._approxaAInv_backend(*Qb, interp=interp)
+            return jnp.sum(jnp.asarray(W) * out)
+
+        ad = float(
+            numpy.asarray(jax.grad(loss)(jnp.asarray(base.ravel()))).reshape(
+                base.shape
+            )[entry]
+        )
+    else:
+        T = torch.tensor(base, requires_grad=True)
+        s = _copy.copy(sdf)
+        setattr(s, attr, T)
+        out = s._approxaAInv_backend(*Qb, interp=interp)
+        (torch.as_tensor(W) * out).sum().backward()
+        ad = float(T.grad.numpy()[entry])
+    best = min(
+        abs(ad - (loss_np(h) - loss_np(-h)) / (2 * h)) for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    assert best < 1e-5 * abs(ad) + 1e-6, f"{backend_name} {attr} grad {best:.2e}"
+
+
+@pytest.mark.parametrize("interp", [True, False], ids=["interp", "noninterp"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaAInv_sample_forced_backend(sdf, backend_name, interp):
+    # sample(returnaAdt=False) composes _sample_aAt -> _approxaAInv_backend under a
+    # forced backend: a backend array of shape (6,n) that matches the numpy path
+    # fed the same (backend-key) draws.
+    from galpy import backend as _bk
+
+    n = 150
+    k = grandom.key(3, backend=backend_name)
+    Om, angle, _ = sdf._sample_aAt(n, key=k)
+    ref = numpy.asarray(
+        sdf._approxaAInv(
+            *(as_numpy(Om[i]) for i in range(3)),
+            *(as_numpy(angle[i]) for i in range(3)),
+            interp=interp,
+        )
+    )
+    with _bk.use(backend_name, force=True):
+        RvR = sdf.sample(n, returnaAdt=False, interp=interp, key=k)
+    assert is_backend_array(RvR) and tuple(RvR.shape) == (6, n)
+    numpy.testing.assert_allclose(as_numpy(RvR), ref, rtol=1e-11, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaAInv_sample_grad_vs_fd(sdf, backend_name):
+    # end-to-end: d(sum z^2)/d(progenitor angle) through the WHOLE sample path.
+    # _progenitor_angle feeds both the angle draw (_sample_aAt) and the wrap
+    # disambiguation (_approxaAInv_backend); a fixed backend key gives common
+    # random numbers so the central FD is valid.
+    from galpy import backend as _bk
+
+    n, comp, interp = 150, 0, True
+    base = numpy.asarray(sdf._progenitor_angle)
+    key = grandom.key(8, backend=backend_name)
+    xp = _xp_of(backend_name)
+
+    def loss(paval, differentiable=False):
+        s = _copy.copy(sdf)
+        if differentiable and backend_name == "jax":
+            s._progenitor_angle = jnp.asarray(base).at[comp].set(paval)
+        elif differentiable:
+            pa = torch.tensor(base).clone()
+            pa[comp] = paval
+            s._progenitor_angle = pa
+        else:
+            pa = base.copy()
+            pa[comp] = float(as_numpy(paval))
+            s._progenitor_angle = _arr(backend_name, pa)
+        with _bk.use(backend_name, force=True):
+            return xp.sum(s.sample(n, returnaAdt=False, interp=interp, key=key)[3] ** 2)
+
+    if backend_name == "jax":
+        ad = float(jax.grad(lambda p: loss(p, True))(jnp.asarray(base[comp])))
+    else:
+        pv = torch.tensor(base[comp], requires_grad=True)
+        loss(pv, True).backward()
+        ad = float(pv.grad)
+    best = min(
+        abs(ad - float(as_numpy(loss(base[comp] + h) - loss(base[comp] - h))) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    assert best < 1e-4 * abs(ad) + 1e-6, f"{backend_name} sample grad {best:.2e}"
