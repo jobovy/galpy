@@ -251,14 +251,6 @@ torch tests/test_orbits.py::test_bruteSOS_2Dy
 torch tests/test_orbits.py::test_plotBruteSOS
 torch tests/test_pv2qdf.py::test_pvRvz_staeckel_arrayin
 torch tests/test_qdf.py::test_call_diffinoutputs
-torch tests/test_qdf.py::test_jmomentdensity_diffinoutputs
-torch tests/test_qdf.py::test_jmomentdensity_physical
-torch tests/test_qdf.py::test_meanjr
-torch tests/test_qdf.py::test_meanjr_center
-torch tests/test_qdf.py::test_meanjz
-torch tests/test_qdf.py::test_meanjz_noaac_issue300
-torch tests/test_qdf.py::test_meanlz
-torch tests/test_qdf.py::test_pvz_staeckel_arrayin
 torch tests/test_qdf.py::test_sampleV
 torch tests/test_qdf.py::test_sampleV_interpolate
 torch tests/test_qdf.py::test_sampleV_physical
