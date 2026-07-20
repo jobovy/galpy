@@ -25,7 +25,6 @@ from ..backend.quadrature import quad as _backend_quad
 from ..orbit import Orbit
 from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import (
-    ars,
     conversion,
     coords,
     fast_cholesky_invert,
@@ -56,6 +55,14 @@ _ANGLE_QUAD_NX = 100
 _ANGLE_QUAD_NT = 150
 # cast a wide net
 _TWOPIWRAPS = numpy.arange(-4, 5) * 2.0 * numpy.pi
+# Spline inverse-CDF frequency sampler (_sample_aAt): number of grid points for
+# the tilted-Gaussian CDF and the fixed [0, 1] grid fraction (the sample grid is
+# lo + (hi-lo)*_DO1_FRAC so the endpoint gradient survives on torch). erf/CDF
+# closed-form constants.
+_DO1_NGRID = 1000
+_DO1_FRAC = numpy.linspace(0.0, 1.0, _DO1_NGRID)
+_SQRT2 = numpy.sqrt(2.0)
+_SQRT2PI = numpy.sqrt(2.0 * numpy.pi)
 
 
 def _real_eig(a):
@@ -4154,7 +4161,14 @@ class streamdf(df):
 
     ################################SAMPLE THE DF##################################
     def sample(
-        self, n, returnaAdt=False, returndt=False, interp=None, xy=False, lb=False
+        self,
+        n,
+        returnaAdt=False,
+        returndt=False,
+        interp=None,
+        xy=False,
+        lb=False,
+        key=None,
     ):
         """
         Sample from the DF.
@@ -4173,6 +4187,14 @@ class streamdf(df):
             If True, return Galactocentric rectangular coordinates. Default is False.
         lb : bool, optional
             If True, return Galactic l,b,d,vlos,pmll,pmbb coordinates. Default is False.
+        key : optional
+            Backend random key from :func:`galpy.backend.random.key`. Default None
+            uses the global ``numpy.random`` draws (the numpy path). A jax/torch key
+            makes the frequency/angle/time draws reproducible backend arrays
+            (common-random-numbers), so ``returnaAdt=True`` returns differentiable,
+            jit/GPU-able ``(Omega,angle,dt)``. [The full (R,vR,...) propagation still
+            goes through the numpy ``_approxaAInv``; a backend key with
+            ``returnaAdt=False`` therefore needs the Phase-E backend track inverse.]
 
         Returns
         -------
@@ -4182,9 +4204,10 @@ class streamdf(df):
         Notes
         -----
         - 2013-12-22 - Written - Bovy (IAS)
+        - 2026-07-19 - Backend-native inverse-CDF sampler + ``key`` - Bovy (UofT)
         """
         # First sample frequencies
-        Om, angle, dt = self._sample_aAt(n)
+        Om, angle, dt = self._sample_aAt(n, key=key)
         if returnaAdt:
             if _APY_UNITS and self._voSet and self._roSet:
                 Om = units.Quantity(
@@ -4332,39 +4355,101 @@ class streamdf(df):
                     )
                 return out
 
-    def _sample_aAt(self, n):
-        """Sampling frequencies, angles, and times part of sampling"""
-        # Sample frequency along largest eigenvalue using ARS
-        dO1s = ars.ars(
-            [0.0, 0.0],
-            [True, False],
-            [
-                self._meandO - numpy.sqrt(self._sortedSigOEig[2]),
-                self._meandO + numpy.sqrt(self._sortedSigOEig[2]),
-            ],
-            _h_ars,
-            _hp_ars,
-            nsamples=n,
-            hxparams=(self._meandO, self._sortedSigOEig[2]),
-            maxn=100,
+    def _dOmega_inverse_cdf_grid(self, xp, mO, sig, ref):
+        """(omega_grid, cdf_grid) for the frequency law along the largest eigenvalue.
+
+        The frequency offset follows the tilted Gaussian
+        ``p(O) propto O * exp(-0.5 (O - mO)**2 / sig)`` on ``O > 0`` (``mO`` the
+        mean offset ``_meandO``, ``sig`` the variance ``_sortedSigOEig[2]``), whose
+        CDF is closed form (validated against the historical ARS draw). The grid is
+        ``O in [max(eps, mO - 8 sqrt(sig)), mO + 8 sqrt(sig)]`` with
+        ``_DO1_NGRID`` points; both the sample axis and the CDF are built through
+        ``xp``, so on a backend they carry the gradient w.r.t. ``mO``/``sig`` and
+        trace under jit. ``ref`` anchors the fixed grid fraction on the inputs'
+        dtype/device.
+        """
+        from ..backend.sampling import ensure_strictly_increasing
+
+        s = xp.sqrt(sig)
+        # fixed [0, 1] fraction, anchored on the inputs (built as lo + (hi-lo)*frac
+        # rather than xp.linspace so the endpoint gradient survives on torch)
+        frac = as_backend_constant(xp, _DO1_FRAC, ref)
+        lo = xp.maximum(mO - 8.0 * s, mO * 0.0 + 1e-8)
+        hi = mO + 8.0 * s
+        og = lo + (hi - lo) * frac
+        # closed-form tilted-Gaussian CDF F(O) = G(O)/G(inf). numpy (key=None) uses
+        # scipy erf; a backend key uses the differentiable backend erf. (_bspecial.erf
+        # mis-dispatches to the FORCED backend on a numpy input -> torch.erf(numpy).)
+        _erf = special.erf if xp is numpy else _bspecial.erf
+        Phi = lambda z: 0.5 * (1.0 + _erf(z / _SQRT2))
+        pref = s * mO * _SQRT2PI
+        expo0 = xp.exp(-0.5 * mO**2.0 / sig)
+        G = pref * (Phi((og - mO) / s) - Phi(-mO / s)) + sig * (
+            expo0 - xp.exp(-0.5 * (og - mO) ** 2.0 / sig)
         )
-        dO1s = numpy.array(dO1s) * self._sigMeanSign
-        dO2s = numpy.random.normal(size=n) * numpy.sqrt(self._sortedSigOEig[1])
-        dO3s = numpy.random.normal(size=n) * numpy.sqrt(self._sortedSigOEig[0])
-        # Rotate into dOs in R,phi,z coordinates
-        dO = numpy.vstack((dO3s, dO2s, dO1s))
-        dO = numpy.dot(self._sigomatrixEig[1][:, self._sigomatrixEigsortIndx], dO)
-        Om = dO + numpy.tile(self._progenitor_Omega.T, (n, 1)).T
+        Ginf = pref * Phi(mO / s) + sig * expo0
+        # saturated float tails can leave zero steps -> project to strictly increasing
+        cg = ensure_strictly_increasing(xp, G / Ginf)
+        return og, cg
+
+    def _sample_aAt(self, n, key=None):
+        """Sampling frequencies, angles, and times part of sampling.
+
+        Backend-native, unified across numpy/jax/torch: the frequency along the
+        largest eigenvalue is drawn by spline inverse-CDF sampling (replacing the
+        historical adaptive-rejection ``ars``), the other frequencies/angles by
+        Gaussians, and the time by a uniform -- the SAME algorithm on every
+        backend, dispatching only the RNG source and the namespace on ``key``.
+        ``key=None`` draws from the global ``numpy.random`` (numpy path); a jax/
+        torch key from :func:`galpy.backend.random.key` returns reproducible,
+        differentiable, jit/GPU-able backend arrays.
+
+        numpy is intentionally NOT byte-identical to the old ARS path (the draw is
+        a different, exact sampler on a shifted RNG stream); the sampled
+        DISTRIBUTION is preserved (KS-indistinguishable, moments match).
+        """
+        from ..backend import random as grandom
+        from ..backend.sampling import spline_inverse_cdf_sample
+
+        # independent sub-keys so each draw is a pure function of the key (jit/
+        # reparameterization-safe): dO1 (uniform, inverse-CDF), dO2/dO3 (normal),
+        # da (normal), dt (uniform). numpy key None -> (None,)*5 (global draws).
+        k_dO1, k_dO2, k_dO3, k_da, k_dt = grandom.split(key, 5)
+        u1 = grandom.uniform(k_dO1, (n,))
+        # dispatch the namespace on the key, NOT get_namespace(u1): key=None stays
+        # numpy even under a forced-backend context (so the numpy _approxaAInv
+        # downstream is fed numpy), a backend key follows its own draws.
+        xp = numpy if key is None else get_namespace(u1)
+        mO = as_backend_constant(xp, self._meandO, u1)
+        sig2 = as_backend_constant(xp, self._sortedSigOEig[2], u1)
+        # Sample frequency along the largest eigenvalue via spline inverse-CDF
+        og, cg = self._dOmega_inverse_cdf_grid(xp, mO, sig2, u1)
+        dO1s = spline_inverse_cdf_sample(xp, og, cg, u1) * self._sigMeanSign
+        dO2s = grandom.normal(k_dO2, (n,)) * xp.sqrt(
+            as_backend_constant(xp, self._sortedSigOEig[1], u1)
+        )
+        dO3s = grandom.normal(k_dO3, (n,)) * xp.sqrt(
+            as_backend_constant(xp, self._sortedSigOEig[0], u1)
+        )
+        # Rotate into dOs in R,phi,z coordinates (stack matches vstack layout)
+        dO = xp.stack([dO3s, dO2s, dO1s], axis=0)
+        rotM = as_backend_constant(
+            xp, self._sigomatrixEig[1][:, self._sigomatrixEigsortIndx], u1
+        )
+        dO = rotM @ dO
+        progOmega = as_backend_constant(xp, self._progenitor_Omega, u1)
+        Om = dO + progOmega[:, None]
         # Also generate angles
-        da = numpy.random.normal(size=(3, n)) * self._sigangle
+        da = grandom.normal(k_da, (3, n)) * as_backend_constant(xp, self._sigangle, u1)
         # And a random time
-        dt = self.sample_t(n)
+        dt = self.sample_t(n, key=k_dt)
         # Integrate the orbits relative to the progenitor
-        da += dO * numpy.tile(dt, (3, 1))
-        angle = da + numpy.tile(self._progenitor_angle.T, (n, 1)).T
+        da = da + dO * dt[None, :]
+        progAngle = as_backend_constant(xp, self._progenitor_angle, u1)
+        angle = da + progAngle[:, None]
         return (Om, angle, dt)
 
-    def sample_t(self, n):
+    def sample_t(self, n, key=None):
         """
         Sample the time since the progenitor was stripped
 
@@ -4372,6 +4457,11 @@ class streamdf(df):
         ----------
         n : int
             Number of points to return
+        key : optional
+            Backend random key from :func:`galpy.backend.random.key`. Default None
+            uses the global ``numpy.random.uniform`` draw (byte-identical to the
+            historical behaviour); a jax/torch key returns a reproducible backend
+            array of stripping times.
 
         Returns
         -------
@@ -4381,20 +4471,13 @@ class streamdf(df):
         Notes
         -----
         - 2015-09-16 - Written - Bovy (UofT)
+        - 2026-07-19 - Added ``key`` for backend draws - Bovy (UofT)
         """
-        return numpy.random.uniform(size=n) * self._tdisrupt
+        from ..backend import random as grandom
 
-
-def _h_ars(x, params):
-    """ln p(Omega) for ARS"""
-    mO, sO2 = params
-    return -0.5 * (x - mO) ** 2.0 / sO2 + numpy.log(x)
-
-
-def _hp_ars(x, params):
-    """d ln p(Omega) / d Omega for ARS"""
-    mO, sO2 = params
-    return -(x - mO) / sO2 + 1.0 / x
+        u = grandom.uniform(key, (n,))
+        xp = numpy if key is None else get_namespace(u)
+        return u * as_backend_constant(xp, self._tdisrupt, u)
 
 
 def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
