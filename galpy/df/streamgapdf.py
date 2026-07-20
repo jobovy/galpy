@@ -1253,11 +1253,12 @@ class streamgapdf(streamdf.streamdf):
         return None
 
     ################################SAMPLE THE DF##################################
-    def _sample_aAt(self, n):
+    def _sample_aAt(self, n, key=None):
         """Sampling frequencies, angles, and times part of sampling, for stream with gap"""
         # Use streamdf's _sample_aAt to generate unperturbed frequencies,
-        # angles
-        Om, angle, dt = super()._sample_aAt(n)
+        # angles (the gap kicks below are numpy-only, so a backend key is not
+        # supported for the gap DF; key is threaded for the numpy path/signature).
+        Om, angle, dt = super()._sample_aAt(n, key=key)
         # Now rewind angles by timpact, apply the kicks, and run forward again
         dangle_at_impact = (
             angle
