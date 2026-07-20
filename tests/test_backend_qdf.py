@@ -260,6 +260,20 @@ def test_vmomentdensity_mc_parity(backend):
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-9)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_jmomentdensity_mc_parity(backend):
+    # Monte-Carlo _jmomentdensity path: promote_scalars on (R,z) and on the numpy
+    # draws, the xp.where va-clamp, xp.mean reduction -- the backend-only branches
+    # (the numpy result is byte-identical). Re-seed both sides for a tight MC match.
+    numpy.random.seed(2)
+    ref = as_numpy(_qdf._jmomentdensity(0.9, 0.05, 0, 0, 0, mc=True, nmc=10000))
+    with galpy.backend.use(backend, force=True):
+        numpy.random.seed(2)
+        got = _qdf._jmomentdensity(0.9, 0.05, 0, 0, 0, mc=True, nmc=10000)
+    assert is_backend_array(got)
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-9)
+
+
 # --- moment-wrapper backend parity: the gl moment engine via the public API ---
 _R0, _Z0 = 0.9, 0.08
 
