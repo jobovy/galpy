@@ -127,18 +127,9 @@ jax tests/test_quantity.py::test_streamgapdf_setup_impactparamsAsQuantity
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dMdE_integral
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_directint
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
-jax tests/test_sphericaldf.py::test_constantbeta_differentpotentials_dens_directint
 jax tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_directint
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
-jax tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[0.5]
-jax tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[2.0]
-jax tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[5.0]
-jax tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_nonself_dens_directint
-jax tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[0.5]
-jax tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[2.0]
-jax tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[5.0]
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
 torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor_c
 torch tests/test_FDMdynamfric.py::test_dynamfric_c
@@ -278,23 +269,11 @@ torch tests/test_quantity.py::test_streamgapdf_sample
 torch tests/test_quantity.py::test_streamgapdf_setup_impactparamsAsQuantity
 torch tests/test_sphericaldf.py::test_anisotropic_hernquist_dMdE_integral
 torch tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_directint
-torch tests/test_sphericaldf.py::test_anisotropic_hernquist_diffcalls
-torch tests/test_sphericaldf.py::test_constantbeta_differentpotentials_dens_directint
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
 torch tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
-torch tests/test_sphericaldf.py::test_eddington_powerspherical_divergent_auto_rmin
-torch tests/test_sphericaldf.py::test_eddington_powerspherical_massprofile
-torch tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_directint
 torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
 torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
-torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[0.5]
-torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[2.0]
-torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_dens_directint[5.0]
-torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_nonself_dens_directint
-torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[0.5]
-torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[2.0]
-torch tests/test_sphericaldf.py::test_osipkovmerritt_powerlaw_sigmar_directint[5.0]
 torch tests/test_streamTrack.py::test_streamTrackPair_particles_property
 torch tests/test_streamTrack.py::test_streamTrack_cov_basis
 torch tests/test_streamTrack.py::test_streamTrack_cov_per_call_unit_overrides
@@ -367,7 +346,6 @@ jax tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
 # and two bespoke tests use numpy.all/scipy.quad/float32-FD on torch outputs.
 # (test_actionAngleStaeckel_wSpherical...c[jax] = pre-existing jax-eager flake,
 #  already ledgered for torch.) Removed as each Phase-2 PR lands.
-jax tests/test_sphericaldf.py::test_eddington_sample_negative_df_regions_no_crash
 # streamspraydf backend migration: the integrate=False sampling path is now
 # backend-native (returns a jax/torch array); these two integrate=True tests
 # assign into that array in place (RvR_noint[:,ii]=...), which jax's immutable
@@ -382,6 +360,5 @@ torch tests/test_scf.py::test_tdep_c_dynamical_friction_dens
 torch tests/test_scf.py::test_tdep_c_full_dxdv
 torch tests/test_scf.py::test_tdep_c_orbit_nonaxi
 torch tests/test_scf.py::test_tdep_c_orbit_spherical
-torch tests/test_sphericaldf.py::test_eddington_sample_negative_df_regions_no_crash
 torch tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
 torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
