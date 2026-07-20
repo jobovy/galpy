@@ -2,6 +2,7 @@
 import numpy
 
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
+from galpy.backend import as_numpy
 from galpy.df import quasiisothermaldf
 
 # fiducial setup uses these
@@ -1215,9 +1216,10 @@ def test_pvz_staeckel_arrayin():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     R, z = 0.8, 0.1
-    pvz = qdf.pvz(0.05 * numpy.ones(2), R * numpy.ones(2), z * numpy.ones(2))
+    pvz = as_numpy(qdf.pvz(0.05 * numpy.ones(2), R * numpy.ones(2), z * numpy.ones(2)))
     assert numpy.all(
-        numpy.fabs(numpy.log(pvz) - numpy.log(qdf.pvz(0.05, R, z))) < 10.0**-10.0
+        numpy.fabs(numpy.log(pvz) - numpy.log(as_numpy(qdf.pvz(0.05, R, z))))
+        < 10.0**-10.0
     ), (
         "pvz calculated with R and z array input does not equal to calculated with scalar input"
     )
