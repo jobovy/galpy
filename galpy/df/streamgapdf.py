@@ -7,8 +7,15 @@ from functools import wraps
 import numpy
 from scipy import integrate, interpolate, special
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import (
+    coerce_coords,
+    device_of,
+    get_namespace,
+    is_backend_array,
+    use,
+)
 from ..backend._namespaces import namespace_from_arrays
+from ..backend.quadrature import fixed_quad
 from ..orbit import Orbit
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -1578,6 +1585,56 @@ def _deltav_integrate(y, b, w, pot):
     )
 
 
+# Number of Gauss-Legendre nodes for the backend (jax/torch) twin of the
+# scipy.integrate.quad acceleration integral. High enough that the fixed-order
+# rule reproduces the adaptive scipy result to the suite's tolerances on the
+# smooth impulse integrand after the t=T/(1-T^2) tail substitution.
+_GENERAL_QUAD_N = 100
+
+
+def _impulse_deltav_general_backend(v, y, b, w, pot):
+    # Backend (jax/torch) twin of impulse_deltav_general: the per-component
+    # scipy.integrate.quad over [-1, 1] becomes a single vectorised fixed-order
+    # Gauss-Legendre pass (all stars x 3 components x nodes at once), so the kick
+    # is differentiable w.r.t. v, y, b, w and the perturber's potential params.
+    xp = get_namespace(v, y, w)
+    v, y, w = coerce_coords(xp, v, y, w)
+    if v.ndim == 1:
+        v = xp.reshape(v, (1, 3))
+    nv = v.shape[0]
+    y = xp.reshape(y, (nv,))
+    rot = _rotation_vy(v)
+    rotinv = _rotation_vy(v, inv=True)
+    # Rotate the subhalo's velocity to the per-star stream frames, then subtract
+    # |v| from the y-component (the numpy path's in-place tilew[:, 1] -= |v|).
+    tilew = xp.sum(rot * w, axis=-1)
+    vmag = xp.sqrt(xp.sum(v**2.0, axis=1))
+    zeros = xp.zeros_like(vmag)
+    tilew = tilew - xp.stack([zeros, vmag, zeros], axis=-1)
+    wmag = xp.sqrt(tilew[:, 0] ** 2 + tilew[:, 2] ** 2)
+    b0 = b * xp.stack([-tilew[:, 2] / wmag, zeros, tilew[:, 0] / wmag], axis=-1)
+    ehat = xp.asarray([0.0, 1.0, 0.0], dtype=v.dtype)
+
+    def integrand(T):  # T: (n,) GL nodes on [-1, 1] -> (nv, 3, n)
+        t = T / (1 - T * T)
+        # X[i, c, k] = b0[i, c] + tilew[i, c] * t[k] + y[i] * ehat[c]
+        X = (
+            b0[:, :, None]
+            + tilew[:, :, None] * t[None, None, :]
+            + (y[:, None] * ehat[None, :])[:, :, None]
+        )
+        r = xp.sqrt(xp.sum(X**2, axis=1))  # (nv, n)
+        Rf = xp.reshape(evaluateRforces(pot, xp.reshape(r, (-1,)), 0.0), r.shape)
+        jac = (1 + T * T) / (1 - T * T) ** 2
+        return jac[None, None, :] * Rf[:, None, :] * X / r[:, None, :]
+
+    deltav = fixed_quad(
+        xp, integrand, -1.0, 1.0, n=_GENERAL_QUAD_N, device=device_of(v)
+    )  # (nv, 3)
+    # Rotate back to the original frame
+    return xp.sum(rotinv * deltav[:, None, :], axis=-1)
+
+
 def impulse_deltav_general(v, y, b, w, pot):
     """
     Calculate the delta velocity to due an encounter with a general spherical potential in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
@@ -1606,6 +1663,11 @@ def impulse_deltav_general(v, y, b, w, pot):
     - 2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
     pot = _check_potential_list_and_deprecate(pot)
+    # data-first: a jax/torch input routes to the vectorised, differentiable
+    # backend twin; numpy/list inputs keep the byte-identical scipy.quad path
+    # below (also when consumed by numpy streamgapdf setup under a forced backend)
+    if is_backend_array(v) or is_backend_array(y) or is_backend_array(w):
+        return _impulse_deltav_general_backend(v, y, b, w, pot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     nv = v.shape[0]
@@ -1673,6 +1735,70 @@ def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
     )
 
 
+def _simpson_backend(xp, y, x):
+    # Composite Simpson's rule over a uniform grid, differentiable and
+    # backend-agnostic: the drop-in for scipy.integrate.simpson at the
+    # orbit-integration acceleration integral. ``y`` is (..., nt, 3), ``x`` the
+    # (nt,) uniform time grid with nt odd (even # of intervals); integrates over
+    # the time axis (axis=-2) with the standard [1, 4, 2, ..., 4, 1] weights.
+    nt = y.shape[-2]
+    h = x[1] - x[0]
+    weights = numpy.ones(nt)
+    weights[1:-1:2] = 4.0
+    weights[2:-1:2] = 2.0
+    weights = xp.asarray(weights, dtype=y.dtype) * (h / 3.0)
+    return xp.sum(weights[:, None] * y, axis=-2)
+
+
+def _impulse_deltav_general_orbitintegration_backend(
+    v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
+):
+    # Backend (jax/torch) twin of impulse_deltav_general_orbitintegration: the
+    # per-star Orbit.integrate loop becomes ONE batched in-backend differentiable
+    # ODE solve (diffrax for jax, torchdiffeq for torch), and the negative-step
+    # trajectory reversal / scipy.simpson become xp.flip / _simpson_backend, so
+    # the kick is differentiable w.r.t. the orbit ICs (v, x), b, w and the
+    # perturber's potential params (galpot's params flow through the ODE). Needs
+    # galpot's forces to return backend arrays (a real Potential does; a test
+    # double whose force returns a bare Python scalar does not -> numpy path).
+    xp = get_namespace(v, x, w)
+    method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+    v, x, w, x0, v0 = coerce_coords(xp, v, x, w, x0, v0)
+    if v.ndim == 1:
+        v = xp.reshape(v, (1, 3))
+    if x.ndim == 1:
+        x = xp.reshape(x, (1, 3))
+    b0 = xp.linalg.cross(w, v0)
+    b0 = b0 * (b / xp.sqrt(xp.sum(b0**2)))
+    times = xp.linspace(0.0, tmax, nsamp)
+    R, phi, z = coords.rect_to_cyl(x[:, 0], x[:, 1], x[:, 2])
+    vR, vp, vz = coords.rect_to_cyl_vec(v[:, 0], v[:, 1], v[:, 2], R, phi, z, cyl=True)
+    ic = xp.stack([R, vR, vp, z, vz, phi], axis=-1)  # (nstar, 6)
+
+    def _cart(o):
+        # Read the integrated states (o.orbit at the grid) directly; convert
+        # cylindrical [R, vR, vT, z, vz, phi] -> cartesian (galpy's convention).
+        orb = o.orbit  # (nstar, nt, 6)
+        _R, _vR, _vT, _z, _vz, _phi = (orb[:, :, k] for k in range(6))
+        _xc, _yc, _zc = coords.cyl_to_rect(_R, _phi, _z)
+        return xp.stack([_xc, _yc, _zc], axis=-1)  # (nstar, nt, 3)
+
+    ofwd = Orbit(ic)
+    ofwd.turn_physical_off()
+    ofwd.integrate(times, galpot, method=method)
+    oback = Orbit(ic)
+    oback.turn_physical_off()
+    oback.integrate(-times, galpot, method=method)
+    # Stitch the reversed backward leg (t: -tmax..0) to the forward leg (t: 0..tmax)
+    xres = xp.concat([xp.flip(_cart(oback), axis=1), _cart(ofwd)[:, 1:, :]], axis=1)
+    alltimes = xp.concat([-xp.flip(times, axis=0), times[1:]], axis=0)
+    X = b0 + xres - x0 - alltimes[:, None] * w[None, :]  # (nstar, nt, 3)
+    r = xp.sqrt(xp.sum(X**2, axis=-1))  # (nstar, nt)
+    Rf = xp.reshape(evaluateRforces(pot, xp.reshape(r, (-1,)), 0.0), r.shape)
+    acc = (Rf / r)[:, :, None] * X  # (nstar, nt, 3)
+    return _simpson_backend(xp, acc, alltimes)
+
+
 def impulse_deltav_general_orbitintegration(
     v,
     x,
@@ -1727,36 +1853,47 @@ def impulse_deltav_general_orbitintegration(
     - 2015-08-17 - Written - Sanders (Cambridge)
     """
     galpot = _check_potential_list_and_deprecate(galpot)
-    if len(v.shape) == 1:
-        v = numpy.reshape(v, (1, 3))
-    if len(x.shape) == 1:
-        x = numpy.reshape(x, (1, 3))
-    nstar, ndim = numpy.shape(v)
-    b0 = numpy.cross(w, v0)
-    b0 *= b / numpy.sqrt(numpy.sum(b0**2))
-    times = numpy.linspace(0.0, tmax, nsamp)
-    xres = numpy.zeros(shape=(len(x), nsamp * 2 - 1, 3))
-    R, phi, z = coords.rect_to_cyl(x[:, 0], x[:, 1], x[:, 2])
-    vR, vp, vz = coords.rect_to_cyl_vec(v[:, 0], v[:, 1], v[:, 2], R, phi, z, cyl=True)
-    for i in range(nstar):
-        o = Orbit([R[i], vR[i], vp[i], z[i], vz[i], phi[i]])
-        o.integrate(times, galpot, method=integrate_method)
-        xres[i, nsamp:, 0] = o.x(times)[1:]
-        xres[i, nsamp:, 1] = o.y(times)[1:]
-        xres[i, nsamp:, 2] = o.z(times)[1:]
-        oreverse = o.flip()
-        oreverse.integrate(times, galpot, method=integrate_method)
-        xres[i, :nsamp, 0] = oreverse.x(times)[::-1]
-        xres[i, :nsamp, 1] = oreverse.y(times)[::-1]
-        xres[i, :nsamp, 2] = oreverse.z(times)[::-1]
-    times = numpy.concatenate((-times[::-1], times[1:]))
-    nsamp = len(times)
-    X = b0 + xres - x0 - numpy.outer(times, w)
-    r = numpy.sqrt(numpy.sum(X**2, axis=-1))
-    acc = (numpy.reshape(evaluateRforces(pot, r.flatten(), 0.0), (nstar, nsamp)) / r)[
-        :, :, numpy.newaxis
-    ] * X
-    return integrate.simpson(acc, x=times, axis=1)
+    # data-first: jax/torch inputs route to the batched, differentiable in-backend
+    # ODE twin; numpy/list inputs keep the byte-identical per-orbit C-integration
+    # path below, forced onto numpy so a forced backend does not leak into the
+    # (unmigrated) numpy Orbit accessors / negative-step slices.
+    if is_backend_array(v) or is_backend_array(x) or is_backend_array(w):
+        return _impulse_deltav_general_orbitintegration_backend(
+            v, x, b, w, x0, v0, pot, tmax, galpot, nsamp
+        )
+    with use("numpy", force=True):
+        if len(v.shape) == 1:
+            v = numpy.reshape(v, (1, 3))
+        if len(x.shape) == 1:
+            x = numpy.reshape(x, (1, 3))
+        nstar, ndim = numpy.shape(v)
+        b0 = numpy.cross(w, v0)
+        b0 *= b / numpy.sqrt(numpy.sum(b0**2))
+        times = numpy.linspace(0.0, tmax, nsamp)
+        xres = numpy.zeros(shape=(len(x), nsamp * 2 - 1, 3))
+        R, phi, z = coords.rect_to_cyl(x[:, 0], x[:, 1], x[:, 2])
+        vR, vp, vz = coords.rect_to_cyl_vec(
+            v[:, 0], v[:, 1], v[:, 2], R, phi, z, cyl=True
+        )
+        for i in range(nstar):
+            o = Orbit([R[i], vR[i], vp[i], z[i], vz[i], phi[i]])
+            o.integrate(times, galpot, method=integrate_method)
+            xres[i, nsamp:, 0] = o.x(times)[1:]
+            xres[i, nsamp:, 1] = o.y(times)[1:]
+            xres[i, nsamp:, 2] = o.z(times)[1:]
+            oreverse = o.flip()
+            oreverse.integrate(times, galpot, method=integrate_method)
+            xres[i, :nsamp, 0] = oreverse.x(times)[::-1]
+            xres[i, :nsamp, 1] = oreverse.y(times)[::-1]
+            xres[i, :nsamp, 2] = oreverse.z(times)[::-1]
+        times = numpy.concatenate((-times[::-1], times[1:]))
+        nsamp = len(times)
+        X = b0 + xres - x0 - numpy.outer(times, w)
+        r = numpy.sqrt(numpy.sum(X**2, axis=-1))
+        acc = (
+            numpy.reshape(evaluateRforces(pot, r.flatten(), 0.0), (nstar, nsamp)) / r
+        )[:, :, numpy.newaxis] * X
+        return integrate.simpson(acc, x=times, axis=1)
 
 
 def impulse_deltav_general_fullplummerintegration(
