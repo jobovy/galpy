@@ -55,6 +55,12 @@ _ANGLE_QUAD_NX = 100
 _ANGLE_QUAD_NT = 150
 # cast a wide net
 _TWOPIWRAPS = numpy.arange(-4, 5) * 2.0 * numpy.pi
+# The 9**3 wrap grid, angle-independent factor of the per-point meshgrid
+# (da = _WRAP_COMBO + (angle - progenitor_angle)); precomputed for the
+# vectorised backend _approxaAInv wrap disambiguation.
+_WRAP_COMBO = numpy.stack(
+    numpy.meshgrid(_TWOPIWRAPS, _TWOPIWRAPS, _TWOPIWRAPS, indexing="xy")
+).T.reshape((len(_TWOPIWRAPS) ** 3, 3))
 # Spline inverse-CDF frequency sampler (_sample_aAt): number of grid points for
 # the tilted-Gaussian CDF and the fixed [0, 1] grid fraction (the sample grid is
 # lo + (hi-lo)*_DO1_FRAC so the endpoint gradient survives on torch). erf/CDF
@@ -3734,6 +3740,11 @@ class streamdf(df):
             ar = numpy.array([ar])
             ap = numpy.array([ap])
             az = numpy.array([az])
+        _track_aa = getattr(
+            self, "_interpolatedObsTrackAA" if interp else "_ObsTrackAA", None
+        )
+        if is_backend_array(Or) or is_backend_array(_track_aa):
+            return self._approxaAInv_backend(Or, Op, Oz, ar, ap, az, interp=interp)
         # Calculate apar, angle offset along the stream
         closestIndx = [
             self._find_closest_trackpointaA(
@@ -3813,6 +3824,82 @@ class streamdf(df):
             else:
                 out[:, ii] += self._ObsTrack[closestIndx[ii]]
         return out
+
+    def _approxaAInv_backend(self, Or, Op, Oz, ar, ap, az, interp=True):
+        """Backend (jax/torch) path of ``_approxaAInv``, vectorised over the query
+        points. Every discrete selection (the 9**3 wrap, the closest track point,
+        the two Jacobian indices) is a stop-gradient integer argmin that GATHERs
+        the continuous track/Jacobian values it points at (reparameterised
+        nearest-neighbour): the gradient flows through dOa, the gathered tables
+        and the smoothing weight, NOT through the index. Returns a (6,N) array."""
+        # backend query points OR a backend-built track routes here; resolve the
+        # namespace off whichever reference is a backend array (never mix).
+        ref = next(
+            (
+                x
+                for x in (Or, self._allinvjacsTrack, self._ObsTrack)
+                if is_backend_array(x)
+            ),
+            Or,
+        )
+        xp = get_namespace(ref)
+
+        def _const(v):  # frozen numpy table/query -> backend; backend passes through
+            return v if is_backend_array(v) else as_backend_constant(xp, v, ref)
+
+        q = xp.stack(
+            [xp.reshape(_const(v), (-1,)) for v in (Or, Op, Oz, ar, ap, az)], axis=-1
+        )
+        n = q.shape[0]
+
+        if interp:
+            track_aa = _const(self._interpolatedObsTrackAA)
+            thetas_closest = _const(self._interpolatedThetasTrack)
+            track_obs = _const(self._interpolatedObsTrack)
+        else:
+            track_aa = _const(self._ObsTrackAA)
+            thetas_closest = _const(self._thetasTrack)
+            track_obs = _const(self._ObsTrack)
+        thetasTrack = _const(self._thetasTrack)  # non-interp, drives the Jacobian indx
+        allinvjacs = _const(self._allinvjacsTrack)
+        prog_angle = _const(self._progenitor_angle)
+        dsig = _const(self._dsigomeanProgDirection)
+        wrap_combo = as_backend_constant(xp, _WRAP_COMBO, q)
+        # Wrap disambiguation: dapar continuous through the angles, wrap SELECTION discrete
+        da = wrap_combo[None, :, :] + (q[:, 3:6] - prog_angle)[:, None, :]  # (n,729,3)
+        cross = xp.linalg.cross(da, xp.broadcast_to(dsig, da.shape), axis=-1)
+        widx = xp.argmin(xp.linalg.vector_norm(cross, axis=-1), axis=-1)  # (n,) int
+        dapar = (da @ dsig)[xp.arange(n), widx] * self._sigMeanSign  # (n,)
+        # Discrete closest/Jacobian track points (argmin -> integer, stop-gradient)
+        closestIndx = xp.argmin(
+            xp.abs(dapar[:, None] - thetas_closest[None, :]), axis=-1
+        )
+        jacIndx = xp.argmin(xp.abs(dapar[:, None] - thetasTrack[None, :]), axis=-1)
+        dOa = q - track_aa[closestIndx]  # (n,6), grad through q and the gather
+        # 2nd Jacobian point: data-dependent branch -> clamped indices + xp.where
+        K2 = thetasTrack.shape[0]
+        jm1 = xp.clip(jacIndx - 1, 0, K2 - 1)
+        jp1 = xp.clip(jacIndx + 1, 0, K2 - 1)
+        dmJacIndx = xp.abs(dapar - thetasTrack[jacIndx])
+        dm1 = xp.abs(dapar - thetasTrack[jm1])
+        dm2 = xp.abs(dapar - thetasTrack[jp1])
+        choose_minus = (jacIndx != 0) & ((jacIndx == K2 - 1) | (dm1 < dm2))
+        jacIndx2 = xp.where(choose_minus, jm1, jp1)  # integer
+        dmJacIndx2 = xp.where(choose_minus, dm1, dm2)  # continuous
+        ampJacIndx = dmJacIndx / (dmJacIndx + dmJacIndx2)  # (n,)
+        # Wrap the angle offsets to [-pi,pi)
+        dOa = xp.concat(
+            [
+                dOa[:, :3],
+                xp.remainder(dOa[:, 3:6] + numpy.pi, 2.0 * numpy.pi) - numpy.pi,
+            ],
+            axis=-1,
+        )
+        M = (1.0 - ampJacIndx)[:, None, None] * allinvjacs[jacIndx] + ampJacIndx[
+            :, None, None
+        ] * allinvjacs[jacIndx2]  # (n,6,6)
+        out = xp.einsum("nij,nj->ni", M, dOa) + track_obs[closestIndx]  # (n,6)
+        return out.T
 
     ################################EVALUATE THE DF################################
     def __call__(self, *args, **kwargs):
