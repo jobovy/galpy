@@ -1545,8 +1545,11 @@ def test_tdep_c_dynamical_friction_dens():
     op = Orbit(init)
     oc.integrate(ts, sp + cdf, method="dop853_c")
     op.integrate(ts, sp + cdf, method="dop853")
-    assert numpy.all(numpy.isfinite(oc.r(ts)))
-    assert numpy.max(numpy.fabs(oc.r(ts) - op.r(ts))) < 1e-4
+    # as_numpy: under a forced backend the accessors return backend arrays and
+    # numpy.isfinite/fabs reject them (numpy path passes through unchanged)
+    oc_r, op_r = as_numpy(oc.r(ts)), as_numpy(op.r(ts))
+    assert numpy.all(numpy.isfinite(oc_r))
+    assert numpy.max(numpy.fabs(oc_r - op_r)) < 1e-4
 
 
 # ---------------------- from_density time dependence ----------------------

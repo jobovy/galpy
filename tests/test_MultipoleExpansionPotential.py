@@ -4,7 +4,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, is_backend_array
 from galpy.potential import (
     HernquistPotential,
     MiyamotoNagaiPotential,
@@ -1244,8 +1244,12 @@ def test_time_dependent_density_at_multiple_times():
     cached_after_t1 = mp._cached_t
     d2 = evaluateDensities(mp, 1.0, 0.0, t=t2)
     cached_after_t2 = mp._cached_t
-    assert cached_after_t1 == t1
-    assert cached_after_t2 == t2
+    if not is_backend_array(d1):
+        # _cached_t is a numpy-path implementation detail: the backend density
+        # path (_backend_dens) computes functionally and never populates it.
+        assert cached_after_t1 == t1
+        assert cached_after_t2 == t2
+    d1, d2 = as_numpy(d1), as_numpy(d2)
     assert d1 != d2, "Density should differ at different times"
     # Density should increase with time since factor is (1 + 0.1*t)
     assert d2 > d1, "Density at t=4 should be larger than at t=1"
@@ -1581,12 +1585,14 @@ def test_time_dependent_nonaxi_c_orbit():
     ts = numpy.linspace(0, 2, 51)
     o.integrate(ts, mp, method="dop853_c")
     # For a time-dependent potential energy is not conserved, but should be bounded
-    E = o.E(ts)
+    # as_numpy: forced-backend accessors return backend arrays (numpy no-op)
+    E = as_numpy(o.E(ts))
     assert numpy.all(numpy.isfinite(E)), "Orbit energy not finite"
     # Compare C orbit to Python orbit for consistency
     o_py = Orbit([1.0, 0.1, 1.1, 0.1, 0.05, 0.3])
     o_py.integrate(ts, mp, method="odeint")
-    assert numpy.max(numpy.abs(o.R(ts) - o_py.R(ts))) / numpy.mean(o.R(ts)) < 0.01, (
+    oR, opyR = as_numpy(o.R(ts)), as_numpy(o_py.R(ts))
+    assert numpy.max(numpy.abs(oR - opyR)) / numpy.mean(oR) < 0.01, (
         "C and Python orbits disagree"
     )
 
