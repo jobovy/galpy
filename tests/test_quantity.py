@@ -12587,29 +12587,35 @@ def test_actionAngle_method_value():
     )
     assert (
         numpy.fabs(
-            aA(-0.2, 0.1).to(units.kpc * units.km / units.s).value
-            - aAnu(-0.2, 0.1) * ro * vo
+            as_numpy(aA(-0.2, 0.1).to(units.kpc * units.km / units.s).value)
+            - as_numpy(aAnu(-0.2, 0.1) * ro * vo)
         )
         < 10.0**-8.0
     ), "actionAngle function __call__ does not return Quantity with the right value"
     assert (
         numpy.fabs(
-            aA.actionsFreqs(-0.2, 0.1)[0].to(units.kpc * units.km / units.s).value
-            - aAnu.actionsFreqs(-0.2, 0.1)[0] * ro * vo
+            as_numpy(
+                aA.actionsFreqs(-0.2, 0.1)[0].to(units.kpc * units.km / units.s).value
+            )
+            - as_numpy(aAnu.actionsFreqs(-0.2, 0.1)[0] * ro * vo)
         )
         < 10.0**-8.0
     ), "actionAngle function actionsFreqs does not return Quantity with the right value"
     assert (
         numpy.fabs(
-            aA.actionsFreqs(-0.2, 0.1)[1].to(1 / units.Gyr).value
-            - aAnu.actionsFreqs(-0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
+            as_numpy(aA.actionsFreqs(-0.2, 0.1)[1].to(1 / units.Gyr).value)
+            - as_numpy(aAnu.actionsFreqs(-0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro))
         )
         < 10.0**-8.0
     ), "actionAngle function actionsFreqs does not return Quantity with the right value"
     assert (
         numpy.fabs(
-            aA.actionsFreqsAngles(-0.2, 0.1)[0].to(units.kpc * units.km / units.s).value
-            - aAnu.actionsFreqsAngles(-0.2, 0.1)[0] * ro * vo
+            as_numpy(
+                aA.actionsFreqsAngles(-0.2, 0.1)[0]
+                .to(units.kpc * units.km / units.s)
+                .value
+            )
+            - as_numpy(aAnu.actionsFreqsAngles(-0.2, 0.1)[0] * ro * vo)
         )
         < 10.0**-8.0
     ), (
@@ -12617,8 +12623,10 @@ def test_actionAngle_method_value():
     )
     assert (
         numpy.fabs(
-            aA.actionsFreqsAngles(-0.2, 0.1)[1].to(1 / units.Gyr).value
-            - aAnu.actionsFreqsAngles(-0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
+            as_numpy(aA.actionsFreqsAngles(-0.2, 0.1)[1].to(1 / units.Gyr).value)
+            - as_numpy(
+                aAnu.actionsFreqsAngles(-0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
+            )
         )
         < 10.0**-8.0
     ), (
@@ -12626,8 +12634,8 @@ def test_actionAngle_method_value():
     )
     assert (
         numpy.fabs(
-            aA.actionsFreqsAngles(-0.2, 0.1)[2].to(units.rad).value
-            - aAnu.actionsFreqsAngles(-0.2, 0.1)[2]
+            as_numpy(aA.actionsFreqsAngles(-0.2, 0.1)[2].to(units.rad).value)
+            - as_numpy(aAnu.actionsFreqsAngles(-0.2, 0.1)[2])
         )
         < 10.0**-8.0
     ), (
@@ -12639,20 +12647,26 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12661,11 +12675,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12674,10 +12692,14 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12686,11 +12708,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12699,10 +12725,12 @@ def test_actionAngle_method_value():
     for ii in range(6, 9):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.rad)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.rad)
+                    .value
+                )
+                - as_numpy(aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12710,10 +12738,12 @@ def test_actionAngle_method_value():
         )
     assert (
         numpy.fabs(
-            aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
-            .to(units.dimensionless_unscaled)
-            .value
-            - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+            as_numpy(
+                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+                .to(units.dimensionless_unscaled)
+                .value
+            )
+            - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0])
         )
         < 10.0**-8.0
     ), (
@@ -12722,8 +12752,12 @@ def test_actionAngle_method_value():
     for ii in range(1, 4):
         assert (
             numpy.fabs(
-                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii].to(units.kpc).value
-                - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro
+                as_numpy(
+                    aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc)
+                    .value
+                )
+                - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro)
             )
             < 10.0**-8.0
         ), (
@@ -12736,22 +12770,28 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0, ro=9.0 * units.kpc)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * 9.0 * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0, ro=9.0 * units.kpc)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * 9.0 * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(
-                    1.1, 0.1, 1.1, 0.1, 0.2, 0.0, vo=230.0 * units.km / units.s
-                )[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * 230.0
+                as_numpy(
+                    aA.actionsFreqs(
+                        1.1, 0.1, 1.1, 0.1, 0.2, 0.0, vo=230.0 * units.km / units.s
+                    )[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * 230.0
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12760,11 +12800,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12773,10 +12817,14 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12785,11 +12833,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12798,10 +12850,12 @@ def test_actionAngle_method_value():
     for ii in range(6, 9):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.rad)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.rad)
+                    .value
+                )
+                - as_numpy(aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12809,10 +12863,12 @@ def test_actionAngle_method_value():
         )
     assert (
         numpy.fabs(
-            aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
-            .to(units.dimensionless_unscaled)
-            .value
-            - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+            as_numpy(
+                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+                .to(units.dimensionless_unscaled)
+                .value
+            )
+            - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0])
         )
         < 10.0**-8.0
     ), (
@@ -12821,8 +12877,12 @@ def test_actionAngle_method_value():
     for ii in range(1, 4):
         assert (
             numpy.fabs(
-                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii].to(units.kpc).value
-                - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro
+                as_numpy(
+                    aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc)
+                    .value
+                )
+                - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro)
             )
             < 10.0**-8.0
         ), (
@@ -12834,19 +12894,23 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     assert (
         numpy.fabs(
-            aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
-            .to(units.dimensionless_unscaled)
-            .value
-            - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+            as_numpy(
+                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+                .to(units.dimensionless_unscaled)
+                .value
+            )
+            - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0])
         )
         < 10.0**-8.0
     ), (
@@ -12855,8 +12919,12 @@ def test_actionAngle_method_value():
     for ii in range(1, 4):
         assert (
             numpy.fabs(
-                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii].to(units.kpc).value
-                - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro
+                as_numpy(
+                    aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc)
+                    .value
+                )
+                - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro)
             )
             < 10.0**-8.0
         ), (
@@ -12868,20 +12936,26 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12890,11 +12964,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12903,10 +12981,14 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12915,11 +12997,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12928,10 +13014,12 @@ def test_actionAngle_method_value():
     for ii in range(6, 9):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.rad)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.rad)
+                    .value
+                )
+                - as_numpy(aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii])
             )
             < 10.0**-8.0
         ), (
@@ -12939,10 +13027,12 @@ def test_actionAngle_method_value():
         )
     assert (
         numpy.fabs(
-            aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
-            .to(units.dimensionless_unscaled)
-            .value
-            - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+            as_numpy(
+                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0]
+                .to(units.dimensionless_unscaled)
+                .value
+            )
+            - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0])
         )
         < 10.0**-8.0
     ), (
@@ -12951,8 +13041,12 @@ def test_actionAngle_method_value():
     for ii in range(1, 4):
         assert (
             numpy.fabs(
-                aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii].to(units.kpc).value
-                - aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro
+                as_numpy(
+                    aA.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc)
+                    .value
+                )
+                - as_numpy(aAnu.EccZmaxRperiRap(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro)
             )
             < 10.0**-8.0
         ), (
@@ -12964,20 +13058,26 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(aAnu(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo)
             )
             < 10.0**-8.0
         ), "actionAngle function __call__ does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12986,11 +13086,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -12999,10 +13103,14 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.kpc * units.km / units.s)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.kpc * units.km / units.s)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
+                )
             )
             < 10.0**-8.0
         ), (
@@ -13011,11 +13119,15 @@ def test_actionAngle_method_value():
     for ii in range(3, 6):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(1 / units.Gyr)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(1 / units.Gyr)
+                    .value
+                )
+                - as_numpy(
+                    aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
@@ -13024,10 +13136,12 @@ def test_actionAngle_method_value():
     for ii in range(6, 9):
         assert (
             numpy.fabs(
-                aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
-                .to(units.rad)
-                .value
-                - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                as_numpy(
+                    aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
+                    .to(units.rad)
+                    .value
+                )
+                - as_numpy(aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii])
             )
             < 10.0**-8.0
         ), (
@@ -13049,10 +13163,12 @@ def test_actionAngle_method_value():
     for ii in range(2):
         assert (
             numpy.fabs(
-                aA(0.1, -0.2, ro=ro * units.kpc, vo=vo * units.km / units.s)[ii]
-                .to(correct_unit[ii])
-                .value
-                - aAnu(0.1, -0.2)[ii] * correct_fac[ii]
+                as_numpy(
+                    aA(0.1, -0.2, ro=ro * units.kpc, vo=vo * units.km / units.s)[ii]
+                    .to(correct_unit[ii])
+                    .value
+                )
+                - as_numpy(aAnu(0.1, -0.2)[ii] * correct_fac[ii])
             )
             < 10.0**-8.0
         ), (
@@ -13063,8 +13179,8 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.xvFreqs(0.1, -0.2)[ii].to(correct_unit[ii]).value
-                - aAnu.xvFreqs(0.1, -0.2)[ii] * correct_fac[ii]
+                as_numpy(aA.xvFreqs(0.1, -0.2)[ii].to(correct_unit[ii]).value)
+                - as_numpy(aAnu.xvFreqs(0.1, -0.2)[ii] * correct_fac[ii])
             )
             < 10.0**-8.0
         ), (
@@ -13072,8 +13188,8 @@ def test_actionAngle_method_value():
         )
     assert (
         numpy.fabs(
-            aA.Freqs(0.1).to(1 / units.Gyr).value
-            - aAnu.Freqs(0.1) * conversion.freq_in_Gyr(vo, ro)
+            as_numpy(aA.Freqs(0.1).to(1 / units.Gyr).value)
+            - as_numpy(aAnu.Freqs(0.1) * conversion.freq_in_Gyr(vo, ro))
         )
         < 10.0**-8.0
     ), "actionAngleInverse function Freqs does not return Quantity with the right value"
@@ -13094,19 +13210,21 @@ def test_actionAngle_method_value():
     for ii in range(6):
         assert (
             numpy.fabs(
-                aA(
-                    0.1,
-                    1.1,
-                    0.1,
-                    0.1,
-                    0.2,
-                    0.0,
-                    ro=ro * units.kpc,
-                    vo=vo * units.km / units.s,
-                )[ii]
-                .to(correct_unit[ii])
-                .value
-                - aAnu(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii]
+                as_numpy(
+                    aA(
+                        0.1,
+                        1.1,
+                        0.1,
+                        0.1,
+                        0.2,
+                        0.0,
+                        ro=ro * units.kpc,
+                        vo=vo * units.km / units.s,
+                    )[ii]
+                    .to(correct_unit[ii])
+                    .value
+                )
+                - as_numpy(aAnu(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii])
             )
             < 10.0**-8.0
         ), (
@@ -13137,8 +13255,14 @@ def test_actionAngle_method_value():
     for ii in range(9):
         assert (
             numpy.fabs(
-                aA.xvFreqs(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii].to(correct_unit[ii]).value
-                - aAnu.xvFreqs(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii]
+                as_numpy(
+                    aA.xvFreqs(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii]
+                    .to(correct_unit[ii])
+                    .value
+                )
+                - as_numpy(
+                    aAnu.xvFreqs(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii]
+                )
             )
             < 10.0**-8.0
         ), (
@@ -13147,8 +13271,10 @@ def test_actionAngle_method_value():
     for ii in range(3):
         assert (
             numpy.fabs(
-                aA.Freqs(0.1, 1.1, 0.1)[ii].to(1 / units.Gyr).value
-                - aAnu.Freqs(0.1, 1.1, 0.1)[ii] * conversion.freq_in_Gyr(vo, ro)
+                as_numpy(aA.Freqs(0.1, 1.1, 0.1)[ii].to(1 / units.Gyr).value)
+                - as_numpy(
+                    aAnu.Freqs(0.1, 1.1, 0.1)[ii] * conversion.freq_in_Gyr(vo, ro)
+                )
             )
             < 10.0**-8.0
         ), (
