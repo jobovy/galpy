@@ -424,3 +424,78 @@ def test_kick_track_grad_vs_fd(_gapdf_kick, backend):
         numpy.testing.assert_allclose(ad_dir, fd, rtol=1e-6, atol=1e-9)
     finally:
         _reset_kick_numpy(sdf, deltav_np)
+
+
+# --------------------------------------------------------------------------
+# Gap-track Phase 3: the backend gap DF-evaluation layer (pOparapar / minOpar /
+# _density_par / meanOmega). Value parity on both backends; torch grad-vs-FD
+# (density/meanOmega are torch-differentiable w.r.t. the velocity kick; jax
+# differentiability through minOpar's argmin integration-limit is a follow-up).
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gapdf_eval_value_parity(_gapdf_kick, backend):
+    sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
+    dangles = [0.05, 0.1, 0.2, 0.3]
+    Opar_arr = numpy.linspace(-0.5, 0.8, 25)
+    ref_dens = {d: float(sdf._density_par(d)) for d in dangles}
+    ref_mO = {
+        d: float(sdf.meanOmega(d, oned=True, use_physical=False)) for d in dangles
+    }
+    ref_min = {d: float(sdf.minOpar(d)) for d in dangles}
+    ref_pO = {d: sdf.pOparapar(Opar_arr.copy(), d).copy() for d in dangles}
+    try:
+        sdf._kick_deltav = _to_backend(backend, deltav_np)
+        sdf._determine_deltaOmegaTheta_kick(3)
+        assert is_backend_array(sdf._kick_interpdOpar_poly.c)
+        for d in dangles:
+            numpy.testing.assert_allclose(
+                float(as_numpy(sdf._density_par(d))), ref_dens[d], rtol=1e-6
+            )
+            numpy.testing.assert_allclose(
+                float(as_numpy(sdf.meanOmega(d, oned=True, use_physical=False))),
+                ref_mO[d],
+                rtol=1e-6,
+            )
+            numpy.testing.assert_allclose(
+                float(as_numpy(sdf.minOpar(d))), ref_min[d], rtol=1e-6, atol=1e-12
+            )
+            numpy.testing.assert_allclose(
+                as_numpy(sdf.pOparapar(_to_backend(backend, Opar_arr), d)),
+                ref_pO[d],
+                rtol=1e-6,
+                atol=1e-10,
+            )
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
+
+
+@pytest.mark.skipif("torch" not in BACKENDS, reason="torch not installed")
+@pytest.mark.parametrize("method", ["_density_par", "meanOmega"])
+def test_gapdf_eval_grad_vs_fd_torch(_gapdf_kick, method):
+    # d(density|meanOmega)/d(deltav) is exact vs central FD (h-converged) -- the
+    # gap density/mean-frequency are differentiable w.r.t. the velocity kick,
+    # hence w.r.t. the perturber via the #1167 impulse.
+    sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
+    dangle = 0.15
+    rng = numpy.random.RandomState(4)
+    d = rng.randn(*deltav_np.shape)
+    d /= numpy.linalg.norm(d)
+
+    def loss(x):
+        sdf._kick_deltav = x
+        sdf._determine_deltaOmegaTheta_kick(3)
+        if method == "_density_par":
+            return sdf._density_par(dangle)
+        return sdf.meanOmega(dangle, oned=True, use_physical=False)
+
+    try:
+        tv = torch.tensor(deltav_np, requires_grad=True)
+        loss(tv).backward()
+        ad = float(numpy.sum(as_numpy(tv.grad) * d))
+        h = 1e-4
+        fp = float(as_numpy(loss(torch.as_tensor(deltav_np + h * d))))
+        fm = float(as_numpy(loss(torch.as_tensor(deltav_np - h * d))))
+        fd = (fp - fm) / (2.0 * h)
+        numpy.testing.assert_allclose(ad, fd, rtol=1e-4, atol=1e-9)
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
