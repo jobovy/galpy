@@ -274,17 +274,11 @@ torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_d
 torch tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
 torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
 torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
-torch tests/test_streamTrack.py::test_streamTrackPair_particles_property
 torch tests/test_streamTrack.py::test_streamTrack_cov_basis
 torch tests/test_streamTrack.py::test_streamTrack_cov_per_call_unit_overrides
-torch tests/test_streamTrack.py::test_streamTrack_iteration_changes_track
 torch tests/test_streamTrack.py::test_streamTrack_out_of_range_returns_nan
-torch tests/test_streamTrack.py::test_streamTrack_physical_accessors_all
-torch tests/test_streamTrack.py::test_streamTrack_physical_length_spread
 torch tests/test_streamTrack.py::test_streamTrack_plot_smoke
 torch tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian
-torch tests/test_streamTrack.py::test_streamTrack_smoothing_factor
-torch tests/test_streamTrack.py::test_streamTrack_smoothing_variants
 torch tests/test_streamdf.py::test_bovy14_callMargXZ
 torch tests/test_streamdf.py::test_fardalwmwpot_trackaa
 torch tests/test_streamdf.py::test_plotting
