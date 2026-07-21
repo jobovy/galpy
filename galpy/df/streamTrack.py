@@ -2618,12 +2618,14 @@ class StreamTrack:
         line = pyplot.plot(v1, v2, **kwargs)
         if spread > 0 and self._cov_xyz is not None and d2 in self._COORD_BASIS:
             basis, idx = self._COORD_BASIS[d2]
-            cov = self.cov(
-                tp,
-                basis=basis,
-                ro=ro,
-                vo=vo,
-                use_physical=use_physical,
+            cov = as_numpy(  # plot spread band feeds matplotlib -> numpy
+                self.cov(
+                    tp,
+                    basis=basis,
+                    ro=ro,
+                    vo=vo,
+                    use_physical=use_physical,
+                )
             )
             s2 = numpy.sqrt(numpy.maximum(cov[:, idx, idx], 0.0))
             color = line[0].get_color() if line else None
