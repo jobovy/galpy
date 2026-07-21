@@ -441,6 +441,10 @@ def test_gapdf_eval_value_parity(_gapdf_kick, backend):
     ref_mO = {
         d: float(sdf.meanOmega(d, oned=True, use_physical=False)) for d in dangles
     }
+    # 3D (oned=False) meanOmega -> exercises the is_backend_array(dO1D) combine
+    ref_mO3d = {
+        d: numpy.asarray(sdf.meanOmega(d, use_physical=False)).copy() for d in dangles
+    }
     ref_min = {d: float(sdf.minOpar(d)) for d in dangles}
     ref_pO = {d: sdf.pOparapar(Opar_arr.copy(), d).copy() for d in dangles}
     try:
@@ -455,6 +459,12 @@ def test_gapdf_eval_value_parity(_gapdf_kick, backend):
                 float(as_numpy(sdf.meanOmega(d, oned=True, use_physical=False))),
                 ref_mO[d],
                 rtol=1e-6,
+            )
+            numpy.testing.assert_allclose(
+                as_numpy(sdf.meanOmega(d, use_physical=False)),
+                ref_mO3d[d],
+                rtol=1e-6,
+                atol=1e-10,
             )
             numpy.testing.assert_allclose(
                 float(as_numpy(sdf.minOpar(d))), ref_min[d], rtol=1e-6, atol=1e-12
@@ -497,5 +507,22 @@ def test_gapdf_eval_grad_vs_fd_torch(_gapdf_kick, method):
         fm = float(as_numpy(loss(torch.as_tensor(deltav_np - h * d))))
         fd = (fp - fm) / (2.0 * h)
         numpy.testing.assert_allclose(ad, fd, rtol=1e-4, atol=1e-9)
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_gapdf_kick_spline_order_1(_gapdf_kick, backend):
+    # Exercise the k=1 (piecewise-linear) backend poly build: _coeffs only exists
+    # for the k=3 cubic, so k=1 synthesizes poly.c = [slope, y_left].
+    sdf, _ref, deltav_np, _theta, _evals = _gapdf_kick
+    try:
+        sdf._kick_deltav = _to_backend(backend, deltav_np)
+        sdf._determine_deltaOmegaTheta_kick(1)
+        assert sdf._kick_spline_order == 1
+        assert is_backend_array(sdf._kick_interpdOpar_poly.c)
+        assert sdf._kick_interpdOpar_poly.c.shape[0] == 2  # [slope, y_left]
+        # the DF-eval layer still evaluates on the k=1 pw-linear kick
+        assert numpy.isfinite(float(as_numpy(sdf._density_par(0.1))))
     finally:
         _reset_kick_numpy(sdf, deltav_np)
