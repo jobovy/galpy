@@ -3,6 +3,7 @@ import copy
 import multiprocessing
 import warnings
 from functools import wraps
+from types import SimpleNamespace
 
 import numpy
 from scipy import integrate, interpolate, special
@@ -14,9 +15,10 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
-    use,
 )
-from ..backend._namespaces import namespace_from_arrays, under_jax_trace
+from ..backend import special as _bspecial
+from ..backend import use
+from ..backend._namespaces import namespace_from_arrays
 from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad, simpson
 from ..orbit import Orbit
@@ -261,6 +263,8 @@ class streamgapdf(streamdf.streamdf):
         """
         Opar = conversion.parse_frequency(Opar, ro=self._ro, vo=self._vo)
         apar = conversion.parse_angle(apar)
+        if is_backend_array(Opar) or is_backend_array(self._kick_dOap):
+            return self._pOparapar_backend(Opar, apar)
         Opar = numpy.array(Opar)
         out = numpy.zeros_like(Opar)
         # Compute ts and where they were at impact for all
@@ -278,6 +282,25 @@ class streamgapdf(streamdf.streamdf):
             tdisrupt=self._tdisrupt - self._timpact,
         )
         return out
+
+    def _pOparapar_backend(self, Opar, apar):
+        # Backend twin of pOparapar: evaluate the smooth model in BOTH
+        # stripped-before/after-impact regimes on the full array and select with
+        # xp.where (the numpy masked writes out[afterIndx]= are not AD/vmap-safe).
+        # The unselected regime's inputs are finite (impact_check_range zeros the
+        # out-of-range kick), so neither branch NaN-poisons the gradient.
+        xp = get_namespace(Opar, self._kick_dOap)
+        Opar = xp.asarray(Opar)
+        ts = apar / Opar
+        apar_impact = apar - Opar * self._timpact
+        dOpar_impact = self._kick_interpdOpar(apar_impact)
+        Opar_b4impact = Opar - dOpar_impact
+        afterIndx = (ts < self._timpact) & (ts >= 0.0)
+        p_after = super().pOparapar(Opar, apar)
+        p_before = super().pOparapar(
+            Opar_b4impact, apar_impact, tdisrupt=self._tdisrupt - self._timpact
+        )
+        return xp.where(afterIndx, p_after, p_before)
 
     def _density_par(self, dangle, tdisrupt=None, approx=True, higherorder=None):
         """The raw density as a function of parallel angle,
@@ -310,6 +333,10 @@ class streamgapdf(streamdf.streamdf):
     ):
         """Compute the density as a function of parallel angle using the
         spline representation + approximations"""
+        if is_backend_array(self._kick_interpdOpar_poly.c) or is_backend_array(dangle):
+            return self._density_par_approx_backend(
+                dangle, tdisrupt, _return_array=_return_array, higherorder=higherorder
+            )
         # First construct the breakpoints for this dangle
         Oparb = (dangle - self._kick_interpdOpar_poly.x) / self._timpact
         # Find the lower limit of the integration in the pw-linear-kick approx.
@@ -355,11 +382,63 @@ class streamgapdf(streamdf.streamdf):
         )
         return out
 
+    def _density_par_approx_backend(
+        self, dangle, tdisrupt, _return_array=False, higherorder=False
+    ):
+        # Backend twin of _density_par_approx (higherorder=False path -- the
+        # default): the per-interval Gaussian integral via the backend erf over
+        # the differentiable pw-cubic-kick breakpoints, plus the tail term.
+        if higherorder:  # pragma: no cover - non-default; needs the moment recursion
+            raise NotImplementedError(
+                "streamgapdf higherorderTrack=True is not yet supported on the "
+                "jax/torch backend"
+            )
+        poly = self._kick_interpdOpar_poly
+        xp = get_namespace(poly.c)
+        px = as_backend_constant(xp, poly.x, poly.c)
+        meandO = as_backend_constant(xp, numpy.asarray(self._meandO), poly.c)
+        sig = as_backend_constant(xp, numpy.asarray(self._sortedSigOEig[2]), poly.c)
+        c1 = poly.c[-1]  # dOpar value at the left knot of each interval
+        c2 = poly.c[-2]  # dOpar slope
+        Oparb = (dangle - px) / self._timpact
+        lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
+        # numpy does Oparb[lowbindx+1] = Oparb[lowbindx] - lowx (in place); rebuild
+        # functionally (lowbindx is a concrete stop-gradient int, lowx is backend).
+        Oparb = xp.concat(
+            [
+                Oparb[: lowbindx + 1],
+                (Oparb[lowbindx] - lowx)[None],
+                Oparb[lowbindx + 2 :],
+            ]
+        )
+        sqrt2sig = xp.sqrt(2.0 * sig)
+        Oparb_roll = xp.roll(Oparb, -1)
+        a = Oparb[:-1] - c1 - meandO
+        b = (
+            Oparb_roll[:-1]
+            - c1
+            - meandO
+            - c2 * self._timpact * (Oparb - Oparb_roll)[:-1]
+        )
+        out = (
+            0.5
+            / (1.0 + c2 * self._timpact)
+            * (_bspecial.erf(a / sqrt2sig) - _bspecial.erf(b / sqrt2sig))
+        )
+        if _return_array:
+            return out
+        # numpy.sum(out[:lowbindx+1]) -> mask-sum (avoid a data-dependent slice)
+        mask = xp.arange(out.shape[0]) <= lowbindx
+        out = xp.sum(xp.where(mask, out, 0.0))
+        # integration to infinity
+        out = out + 0.5 * (1.0 + _bspecial.erf((meandO - Oparb[0]) / sqrt2sig))
+        return out
+
     def _density_par_approx_higherorder(
         self, Oparb, lowbindx, _return_array=False, gaussxpolyInt=None
     ):
         """Contribution from non-linear spline terms"""
-        spline_order = self._kick_interpdOpar_raw._eval_args[2]
+        spline_order = self._kick_spline_order
         if spline_order == 1:  # pragma: no cover
             return 0.0
         # Form all Gaussian-like integrals necessary
@@ -449,6 +528,8 @@ class streamgapdf(streamdf.streamdf):
         """
         if tdisrupt is None:
             tdisrupt = self._tdisrupt
+        if is_backend_array(self._kick_interpdOpar_poly.c) or is_backend_array(dangle):
+            return self._minOpar_backend(dangle, tdisrupt, _return_raw=_return_raw)
         # First construct the breakpoints for this dangle
         Oparb = (dangle - self._kick_interpdOpar_poly.x[:-1]) / self._timpact
         # Find the lower limit of the integration in the pw-linear-kick approx.
@@ -463,6 +544,29 @@ class streamgapdf(streamdf.streamdf):
         )
         lowx[lowx < 0.0] = numpy.inf
         lowbindx = numpy.argmin(lowx)
+        if _return_raw:
+            return (lowbindx, lowx[lowbindx])
+        else:
+            return Oparb[lowbindx] - lowx[lowbindx]
+
+    def _minOpar_backend(self, dangle, tdisrupt, _return_raw=False):
+        # Backend twin of minOpar. The pw-linear lower Opar limit; the argmin
+        # over intervals is a concrete stop-gradient integer that gathers the
+        # continuous (differentiable) lowx/Oparb values it points at.
+        poly = self._kick_interpdOpar_poly
+        xp = get_namespace(poly.c)
+        px = as_backend_constant(xp, poly.x, poly.c)
+        Oparb = (dangle - px[:-1]) / self._timpact
+        lowx = (
+            (Oparb - poly.c[-1]) * (tdisrupt - self._timpact)
+            + Oparb * self._timpact
+            - dangle
+        ) / (
+            (tdisrupt - self._timpact) * (1.0 + poly.c[-2] * self._timpact)
+            + self._timpact
+        )
+        lowx = xp.where(lowx < 0.0, float("inf"), lowx)
+        lowbindx = int(as_numpy(xp.argmin(lowx)))
         if _return_raw:
             return (lowbindx, lowx[lowbindx])
         else:
@@ -529,14 +633,27 @@ class streamgapdf(streamdf.streamdf):
         dO1D = num / denom
         if oned:
             return dO1D
-        else:
+        if is_backend_array(dO1D):
+            # coerce the (possibly numpy) frozen progenitor constants into the
+            # result namespace before the 3D combine
+            xp = get_namespace(dO1D)
             return (
-                self._progenitor_Omega
-                + dO1D * self._dsigomeanProgDirection * self._sigMeanSign
+                as_backend_constant(xp, self._progenitor_Omega, dO1D)
+                + dO1D
+                * as_backend_constant(xp, self._dsigomeanProgDirection, dO1D)
+                * self._sigMeanSign
             )
+        return (
+            self._progenitor_Omega
+            + dO1D * self._dsigomeanProgDirection * self._sigMeanSign
+        )
 
     def _meanOmega_num_approx(self, dangle, tdisrupt, higherorder=False):
         """Compute the numerator going into meanOmega using the direct integration of the spline representation"""
+        if is_backend_array(self._kick_interpdOpar_poly.c) or is_backend_array(dangle):
+            return self._meanOmega_num_approx_backend(
+                dangle, tdisrupt, higherorder=higherorder
+            )
         # First construct the breakpoints for this dangle
         Oparb = (dangle - self._kick_interpdOpar_poly.x) / self._timpact
         # Find the lower limit of the integration in the pw-linear-kick approx.
@@ -600,9 +717,62 @@ class streamgapdf(streamdf.streamdf):
         )
         return out
 
+    def _meanOmega_num_approx_backend(self, dangle, tdisrupt, higherorder=False):
+        # Backend twin of _meanOmega_num_approx (higherorder=False -- default):
+        # the per-interval mean-frequency numerator (Gaussian moment integrals
+        # via backend exp/erf over the differentiable pw-cubic-kick breakpoints).
+        if higherorder:  # pragma: no cover - non-default; needs the moment recursion
+            raise NotImplementedError(
+                "streamgapdf higherorderTrack=True is not yet supported on the "
+                "jax/torch backend"
+            )
+        poly = self._kick_interpdOpar_poly
+        xp = get_namespace(poly.c)
+        px = as_backend_constant(xp, poly.x, poly.c)
+        meandO = as_backend_constant(xp, numpy.asarray(self._meandO), poly.c)
+        sig = as_backend_constant(xp, numpy.asarray(self._sortedSigOEig[2]), poly.c)
+        c1 = poly.c[-1]
+        c2 = poly.c[-2]
+        Oparb = (dangle - px) / self._timpact
+        lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
+        Oparb = xp.concat(
+            [
+                Oparb[: lowbindx + 1],
+                (Oparb[lowbindx] - lowx)[None],
+                Oparb[lowbindx + 2 :],
+            ]
+        )
+        Oparb_roll = xp.roll(Oparb, -1)
+        onepc2t = 1.0 + c2 * self._timpact
+        dens_arr = self._density_par_approx(dangle, tdisrupt, _return_array=True)
+        term1 = (Oparb[:-1] + (meandO + c1 - Oparb[:-1]) / onepc2t) * dens_arr
+        term2 = (
+            xp.sqrt(sig / 2.0 / numpy.pi)
+            / onepc2t**2.0
+            * (
+                xp.exp(
+                    -0.5
+                    * (Oparb[:-1] - c1 - onepc2t * (Oparb - Oparb_roll)[:-1] - meandO)
+                    ** 2.0
+                    / sig
+                )
+                - xp.exp(-0.5 * (Oparb[:-1] - c1 - meandO) ** 2.0 / sig)
+            )
+        )
+        mask = xp.arange(term1.shape[0]) <= lowbindx
+        out = xp.sum(xp.where(mask, term1 + term2, 0.0))
+        sqrt2sig = xp.sqrt(2.0 * sig)
+        out = out + 0.5 * (
+            numpy.sqrt(2.0 / numpy.pi)
+            * xp.sqrt(sig)
+            * xp.exp(-0.5 * (meandO - Oparb[0]) ** 2.0 / sig)
+            + meandO * (1.0 + _bspecial.erf((meandO - Oparb[0]) / sqrt2sig))
+        )
+        return out
+
     def _meanOmega_num_approx_higherorder(self, Oparb, lowbindx):
         """Contribution from non-linear spline terms"""
-        spline_order = self._kick_interpdOpar_raw._eval_args[2]
+        spline_order = self._kick_spline_order
         if spline_order == 1:  # pragma: no cover
             return 0.0
         # Form all Gaussian-like integrals necessary
@@ -712,6 +882,9 @@ class streamgapdf(streamdf.streamdf):
         # Propagate deltav(angle) -> delta (Omega,theta) [angle]
         if is_backend_array(self._kick_deltav):
             return self._determine_deltaOmegaTheta_kick_backend(spline_order)
+        # Stored for the DF-eval layer (mode-2 Spline1D has no _eval_args); on
+        # the numpy path this equals _kick_interpdOpar_raw._eval_args[2].
+        self._kick_spline_order = spline_order
         # Cylindrical coordinates of the perturbed points
         vXp = self._kick_interpolatedObsTrackXY[:, 3] + self._kick_deltav[:, 0]
         vYp = self._kick_interpolatedObsTrackXY[:, 4] + self._kick_deltav[:, 1]
@@ -827,6 +1000,7 @@ class streamgapdf(streamdf.streamdf):
         # flows through deltav and the gathered continuous rows.
         kv = self._kick_deltav
         xp = get_namespace(kv)
+        self._kick_spline_order = spline_order
         trkXY = as_backend_constant(xp, self._kick_interpolatedObsTrackXY, kv)
         trk = as_backend_constant(xp, self._kick_interpolatedObsTrack, kv)
         vXp = trkXY[:, 3] + kv[:, 0]
@@ -915,29 +1089,24 @@ class streamgapdf(streamdf.streamdf):
         # Derivative of dOpar (Spline1D.derivative supports the mode-2 backend
         # spline and stays differentiable in the y values)
         self._kick_interpdOpar_dapar = self._kick_interpdOpar_raw.derivative(1)
-        # Piecewise-polynomial representation of dOpar. Phase-3 island: the gap
-        # DF-evaluation layer that reads _kick_interpdOpar_poly (_density_par/
-        # meanOmega/minOpar) is still numpy, and the breakpoints depend only on
-        # the numpy angle grid, so build it from a numpy fit; a differentiable
-        # .c is deferred to the DF-eval (Phase 3) migration. Skip it under a jax
-        # trace: as_numpy on a tracer raises, and the (numpy-only) PPoly is not
-        # consumed while differentiating the backend kick interpolants (the
-        # concrete build already populated it).
-        if not under_jax_trace(self._kick_dOap):
-            dOpar_y = as_numpy((self._kick_dOap[:, :3] @ progdir) * self._sigMeanSign)
-            _np_dOpar_spl = interpolate.InterpolatedUnivariateSpline(
-                thetas, dOpar_y, k=spline_order
-            )
-            ppoly = interpolate.PPoly.from_spline(_np_dOpar_spl._eval_args)
-            nzIndx = numpy.nonzero(
-                (numpy.roll(ppoly.x, -1) - ppoly.x > 0)
-                * (numpy.arange(len(ppoly.x)) < len(ppoly.x) // 2)
-                + (ppoly.x - numpy.roll(ppoly.x, 1) > 0)
-                * (numpy.arange(len(ppoly.x)) >= len(ppoly.x) // 2)
-            )
-            self._kick_interpdOpar_poly = interpolate.PPoly(
-                ppoly.c[:, nzIndx[0][:-1]], ppoly.x[nzIndx[0]]
-            )
+        # Piecewise-polynomial representation of dOpar, backend-native and
+        # differentiable (replaces the numpy-island PPoly): the mode-2 Spline1D's
+        # own power-basis cubic coeffs ARE the scipy-PPoly layout on each
+        # [x[i], x[i+1]) -- c[-1]=value at the left knot, c[-2]=slope -- so
+        # _coeffs is a drop-in for poly.c that carries the deltav gradient, while
+        # poly.x is the (numpy) angle grid (geometry, no gradient). The DF-eval
+        # layer reads only .x/.c. No zero-range-interval pruning is needed: the
+        # angle grid is a uniform linspace (unlike FITPACK's reduced knots).
+        if self._kick_spline_order == 3:
+            poly_c = self._kick_interpdOpar_raw._coeffs
+        else:  # k == 1: piecewise-linear -> [slope, y_left]
+            xk = self._kick_interpdOpar_raw._x
+            yk = self._kick_interpdOpar_raw._y
+            slope = (yk[1:] - yk[:-1]) / as_backend_constant(xp, xk[1:] - xk[:-1], yk)
+            poly_c = xp.stack([slope, yk[:-1]], axis=0)
+        self._kick_interpdOpar_poly = SimpleNamespace(
+            x=self._kick_interpdOpar_raw._x, c=poly_c
+        )
         return None
 
     # Functions that evaluate the interpolated kicks, but also check the range
