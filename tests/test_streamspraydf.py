@@ -5,6 +5,7 @@ import numpy
 import pytest
 
 from galpy.actionAngle import actionAngleIsochroneApprox
+from galpy.backend import as_numpy  # backend result -> numpy for value assertions
 from galpy.df import chen24spraydf, fardal15spraydf, streamdf, streamspraydf
 from galpy.orbit import Orbit
 from galpy.potential import (
@@ -79,14 +80,16 @@ def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
     sdf_bovy14, spdfs_bovy14 = setup_testStreamsprayAgainstStreamdf
     for spdf_bovy14 in spdfs_bovy14:
         numpy.random.seed(1)
-        RvR_sdf = sdf_bovy14.sample(n=1000)
+        RvR_sdf = as_numpy(sdf_bovy14.sample(n=1000))
         # Phase D: streamdf's inverse-CDF sampler consumes a different amount of the
         # numpy RNG stream than the old ARS, so re-seed here to keep streamspraydf's
         # draw reproducible and independent of that. (The two z1 tolerances above were
         # nudged for the small residual where the more-accurate spline sampler diverges
         # from chen24spraydf's approximation -- validated as ~0.06/0.10 at n=3000.)
         numpy.random.seed(1)
-        RvR_spdf = spdf_bovy14.sample(n=1000, integrate=True, return_orbit=False)
+        RvR_spdf = as_numpy(
+            spdf_bovy14.sample(n=1000, integrate=True, return_orbit=False)
+        )
         # Sanity checks
         # Range in Z
         indx = (RvR_sdf[3] > 4.0 / 8.0) * (RvR_sdf[3] < 5.0 / 8.0)
@@ -162,7 +165,7 @@ def test_bovy14_sampleorbit(setup_testStreamsprayAgainstStreamdf):
     sdf_bovy14, spdfs_bovy14 = setup_testStreamsprayAgainstStreamdf
     for spdf_bovy14 in spdfs_bovy14:
         numpy.random.seed(1)
-        XvX_sdf = sdf_bovy14.sample(n=1000, xy=True)
+        XvX_sdf = as_numpy(sdf_bovy14.sample(n=1000, xy=True))
         # Phase D: streamdf's inverse-CDF sampler consumes a different amount of the
         # numpy RNG stream than the old ARS, so re-seed here to decouple streamspraydf's
         # draw from that consumption (like test_sample_bovy14). The mean-x tolerance
@@ -177,19 +180,25 @@ def test_bovy14_sampleorbit(setup_testStreamsprayAgainstStreamdf):
         indx = (XvX_sdf[2] > 4.0 / 8.0) * (XvX_sdf[2] < 5.0 / 8.0)
         # mean
         assert (
-            numpy.fabs(numpy.mean(XvX_sdf[0][indx]) - numpy.mean(XvX_spdf.x()[indx]))
+            numpy.fabs(
+                numpy.mean(XvX_sdf[0][indx]) - numpy.mean(as_numpy(XvX_spdf.x())[indx])
+            )
             < 8e-2
         ), (
             "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
         )
         assert (
-            numpy.fabs(numpy.mean(XvX_sdf[1][indx]) - numpy.mean(XvX_spdf.y()[indx]))
+            numpy.fabs(
+                numpy.mean(XvX_sdf[1][indx]) - numpy.mean(as_numpy(XvX_spdf.y())[indx])
+            )
             < 2e-1
         ), (
             "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
         )
         assert (
-            numpy.fabs(numpy.mean(XvX_sdf[4][indx]) - numpy.mean(XvX_spdf.vy()[indx]))
+            numpy.fabs(
+                numpy.mean(XvX_sdf[4][indx]) - numpy.mean(as_numpy(XvX_spdf.vy())[indx])
+            )
             < 3e-2
         ), (
             "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
@@ -207,6 +216,9 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
         RvR_noint, dt_noint = spdf_bovy14.sample(
             n=100, return_orbit=False, returndt=True, integrate=False
         )
+        # numpy.array (not as_numpy alone): jax->numpy is read-only, but the loop
+        # below writes RvR_noint in place; force a writable copy (torch/numpy too)
+        RvR_noint, dt_noint = numpy.array(as_numpy(RvR_noint)), as_numpy(dt_noint)
         # and integrate
         for ii in range(len(dt_noint)):
             to = Orbit(RvR_noint[:, ii])
@@ -224,6 +236,7 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
         RvR, dt = spdf_bovy14.sample(
             n=100, return_orbit=False, returndt=True, integrate=True
         )
+        RvR, dt = as_numpy(RvR), as_numpy(dt)
         # Should agree
         assert numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10, (
             "Times not the same when sampling with and without integrating"
@@ -259,6 +272,9 @@ def test_integrate_rtnonarray():
         RvR_noint, dt_noint = spdf_bovy14.sample(
             n=100, return_orbit=False, returndt=True, integrate=False
         )
+        # numpy.array (not as_numpy alone): jax->numpy is read-only, but the loop
+        # below writes RvR_noint in place; force a writable copy (torch/numpy too)
+        RvR_noint, dt_noint = numpy.array(as_numpy(RvR_noint)), as_numpy(dt_noint)
         # and integrate
         for ii in range(len(dt_noint)):
             to = Orbit(RvR_noint[:, ii])
@@ -276,6 +292,7 @@ def test_integrate_rtnonarray():
         RvR, dt = spdf_bovy14.sample(
             n=100, return_orbit=False, returndt=True, integrate=True
         )
+        RvR, dt = as_numpy(RvR), as_numpy(dt)
         # Should agree
         assert numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10, (
             "Times not the same when sampling with and without integrating"
@@ -354,12 +371,15 @@ def test_center():
         )
         # Generate stream
         numpy.random.seed(1)
-        stream_RvR = spdf.sample(n=300, return_orbit=False, integrate=True)
+        stream_RvR = as_numpy(spdf.sample(n=300, return_orbit=False, integrate=True))
         stream_pos = coords.cyl_to_rect(stream_RvR[0], stream_RvR[5], stream_RvR[3])
-        # Stream should lie on a circle with radius R_in_lmc
-        stream_R_wrt_LMC = numpy.sqrt(
-            (stream_pos[0] - o.x(use_physical=False)) ** 2.0
-            + (stream_pos[1] - o.y(use_physical=False)) ** 2.0
+        # Stream should lie on a circle with radius R_in_lmc (cyl_to_rect coerces to the
+        # forced backend, so pull the assembled radius back to numpy for the assertions).
+        stream_R_wrt_LMC = as_numpy(
+            numpy.sqrt(
+                (stream_pos[0] - o.x(use_physical=False)) ** 2.0
+                + (stream_pos[1] - o.y(use_physical=False)) ** 2.0
+            )
         )
         assert numpy.fabs(numpy.mean(stream_R_wrt_LMC) - R_in_lmc) < 0.1, (
             "Stream generated in the LMC does not appear to be on a circle within the LMC"
@@ -516,6 +536,7 @@ def test_integrate_with_prog():
     )
     numpy.random.seed(4)
     RvR, dt = spdf.sample(n=100, return_orbit=False, returndt=True, integrate=True)
+    RvR, dt = as_numpy(RvR), as_numpy(dt)
     # With the progenitor's potential, but set to zero-mass
     spdf = chen24spraydf(
         2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
@@ -529,6 +550,7 @@ def test_integrate_with_prog():
     RvR_withprog, dt_withprog = spdf.sample(
         n=100, return_orbit=False, returndt=True, integrate=True
     )
+    RvR_withprog, dt_withprog = as_numpy(RvR_withprog), as_numpy(dt_withprog)
     # Should agree
     assert numpy.amax(numpy.fabs(dt - dt_withprog)) < 1e-10, (
         "Times not the same when sampling with and without prognitor's potential"
@@ -557,6 +579,7 @@ def test_chen24spraydf_default_parameters():
     RvR_default, dt_default = spdf.sample(
         n=100, return_orbit=False, returndt=True, integrate=True
     )
+    RvR_default, dt_default = as_numpy(RvR_default), as_numpy(dt_default)
     # Modified parameters, but only slightly
     spdf = chen24spraydf(
         2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
@@ -578,6 +601,7 @@ def test_chen24spraydf_default_parameters():
     )
     numpy.random.seed(4)
     RvR, dt = spdf.sample(n=100, return_orbit=False, returndt=True, integrate=True)
+    RvR, dt = as_numpy(RvR), as_numpy(dt)
     # Should agree
     assert numpy.amax(numpy.fabs(dt_default - dt)) < 1e-10, (
         "Times not the same when changing the default parameters"
@@ -1116,7 +1140,7 @@ def test_pericenter_stripping_pdf_eccentric_orbit_finds_peris():
     lp, obs, ro, vo, _, tdisrupt = _bovy14_setup()
     sigma = 0.05 / conversion.time_in_Gyr(vo, ro)
     pdf = pericenter_stripping_pdf(obs, lp, tdisrupt, sigma)
-    pts = pdf.pericenter_times
+    pts = as_numpy(pdf.pericenter_times)
     assert pts.size >= 5
     # Pericenter spacings should be nearly constant (one radial period).
     spacings = numpy.diff(pts)
@@ -1149,9 +1173,10 @@ def test_pericenter_stripping_pdf_end_to_end():
     )
     numpy.random.seed(123)
     _, dt = spdf.sample(n=1500, returndt=True, integrate=False, return_orbit=False)
+    dt = as_numpy(dt)
     # Each sample's -dt should be near some pericenter time.
     distances = numpy.min(
-        numpy.fabs(-dt[:, None] - pdf.pericenter_times[None, :]), axis=1
+        numpy.fabs(-dt[:, None] - as_numpy(pdf.pericenter_times)[None, :]), axis=1
     )
     # Most should be within ~3 sigma of a pericenter.
     frac_close = numpy.mean(distances < 3.0 * sigma)
@@ -1171,7 +1196,7 @@ def test_pericenter_stripping_pdf_cuts_off_at_tdisrupt():
     assert pdf(0.001) == 0.0
     assert pdf(-tdisrupt - 0.001) == 0.0
     outside = numpy.array([1.0, -tdisrupt - 0.5, -2.0 * tdisrupt])
-    assert numpy.all(pdf(outside) == 0.0)
+    assert numpy.all(as_numpy(pdf(outside)) == 0.0)
     # Inside, at least one of the pericenter centers is non-zero.
     assert pdf(pdf.pericenter_times[0]) > 0.0
 
@@ -1192,7 +1217,7 @@ def test_pericenter_stripping_pdf_inherits_rovo_from_progenitor():
     tdisrupt = 4.5 / conversion.time_in_Gyr(vo, ro)
     sigma = 0.05 / conversion.time_in_Gyr(vo, ro)
     pdf = pericenter_stripping_pdf(obs_with_units, lp, tdisrupt, sigma)
-    assert pdf.pericenter_times.size > 0
+    assert as_numpy(pdf.pericenter_times).size > 0
 
 
 def test_pericenter_stripping_pdf_rovo_mismatch_raises():
