@@ -308,6 +308,10 @@ class actionAngleIsochroneApprox(actionAngle):
         xp = get_namespace(R, vR, vT, z, vz)
         if xp is not numpy:
             R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            # ts/maxn are passed positionally below; drop from kwargs so they are
+            # not also forwarded ("got multiple values for argument 'ts'")
+            kwargs.pop("ts", None)
+            kwargs.pop("maxn", None)
             return self._actionsFreqsAngles_backend(
                 R, vR, vT, z, vz, phi, ts, maxn, **kwargs
             )
