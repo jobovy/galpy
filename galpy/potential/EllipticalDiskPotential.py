@@ -112,6 +112,7 @@ class EllipticalDiskPotential(planarPotential):
         if self._tform is None:
             return 1.0
         xp = get_namespace(t)
+        (t,) = coerce_coords(xp, t)
         deltat = t - self._tform
         xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
         growth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
