@@ -8,13 +8,16 @@ import numpy
 from scipy import integrate, interpolate, special
 
 from ..backend import (
+    as_backend_constant,
+    as_numpy,
     coerce_coords,
     device_of,
     get_namespace,
     is_backend_array,
     use,
 )
-from ..backend._namespaces import namespace_from_arrays
+from ..backend._namespaces import namespace_from_arrays, under_jax_trace
+from ..backend.interpolate import Spline1D
 from ..backend.quadrature import fixed_quad, simpson
 from ..orbit import Orbit
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
@@ -31,6 +34,14 @@ def impact_check_range(func):
 
     @wraps(func)
     def impact_wrapper(*args, **kwargs):
+        if is_backend_array(args[1]):
+            # backend da: evaluate the (extrapolating, finite) raw spline on the
+            # full array and zero out-of-range entries with xp.where (item-assign
+            # would break autodiff/vmap); mirrors the numpy mask below.
+            da = args[1]
+            xp = get_namespace(da)
+            good = (da < args[0]._deltaAngleTrackImpact) & (da > 0.0)
+            return xp.where(good, func(args[0], da), 0.0)
         if isinstance(args[1], numpy.ndarray):
             out = numpy.zeros(len(args[1]))
             goodIndx = (args[1] < args[0]._deltaAngleTrackImpact) * (args[1] > 0.0)
@@ -699,6 +710,8 @@ class streamgapdf(streamdf.streamdf):
 
     def _determine_deltaOmegaTheta_kick(self, spline_order):
         # Propagate deltav(angle) -> delta (Omega,theta) [angle]
+        if is_backend_array(self._kick_deltav):
+            return self._determine_deltaOmegaTheta_kick_backend(spline_order)
         # Cylindrical coordinates of the perturbed points
         vXp = self._kick_interpolatedObsTrackXY[:, 3] + self._kick_deltav[:, 0]
         vYp = self._kick_interpolatedObsTrackXY[:, 4] + self._kick_deltav[:, 1]
@@ -801,6 +814,130 @@ class streamgapdf(streamdf.streamdf):
         self._kick_interpdOpar_poly = interpolate.PPoly(
             ppoly.c[:, nzIndx[0][:-1]], ppoly.x[nzIndx[0]]
         )
+        return None
+
+    def _determine_deltaOmegaTheta_kick_backend(self, spline_order):
+        # Backend (jax/torch) twin of _determine_deltaOmegaTheta_kick: propagate
+        # the differentiable velocity kick deltav(angle) -> delta(Omega,theta)
+        # along the near-impact track. The frozen numpy track/AA tables are
+        # coerced into the kick's namespace via as_backend_constant; the six
+        # dO/da(angle) interpolants become differentiable-in-y Spline1D's. The
+        # per-angle closest-point/Jacobian selection inside _approxaA is a
+        # stop-gradient integer gather (see _approxaA_backend) -- the gradient
+        # flows through deltav and the gathered continuous rows.
+        kv = self._kick_deltav
+        xp = get_namespace(kv)
+        trkXY = as_backend_constant(xp, self._kick_interpolatedObsTrackXY, kv)
+        trk = as_backend_constant(xp, self._kick_interpolatedObsTrack, kv)
+        vXp = trkXY[:, 3] + kv[:, 0]
+        vYp = trkXY[:, 4] + kv[:, 1]
+        vZp = trkXY[:, 5] + kv[:, 2]
+        vRp, vTp, vZp = coords.rect_to_cyl_vec(
+            vXp, vYp, vZp, trk[:, 0], trk[:, 5], trk[:, 3], cyl=True
+        )
+        # Abuse streamdf functions for the (O,a) -> (R,vR) transform (as numpy);
+        # pass a backend R so _approxaA dispatches to its backend twin (its guard
+        # tests R/_track, not vR).
+        self._interpolatedObsTrack = self._kick_interpolatedObsTrack
+        self._ObsTrack = self._gap_ObsTrack
+        self._interpolatedObsTrackXY = self._kick_interpolatedObsTrackXY
+        self._ObsTrackXY = self._gap_ObsTrackXY
+        self._alljacsTrack = self._gap_alljacsTrack
+        self._interpolatedObsTrackAA = self._kick_interpolatedObsTrackAA
+        self._ObsTrackAA = self._gap_ObsTrackAA
+        self._nTrackChunks = self._nTrackChunksImpact
+        Oap = self._approxaA(
+            trk[:, 0],
+            vRp,
+            vTp,
+            trk[:, 3],
+            vZp,
+            trk[:, 5],
+            interp=True,
+            cindx=range(len(self._kick_interpolatedObsTrackAA)),
+        )
+        delattr(self, "_interpolatedObsTrack")
+        delattr(self, "_ObsTrack")
+        delattr(self, "_interpolatedObsTrackXY")
+        delattr(self, "_ObsTrackXY")
+        delattr(self, "_alljacsTrack")
+        delattr(self, "_interpolatedObsTrackAA")
+        delattr(self, "_ObsTrackAA")
+        delattr(self, "_nTrackChunks")
+        aa = as_backend_constant(xp, self._kick_interpolatedObsTrackAA, Oap)
+        self._kick_dOap = Oap.T - aa
+        thetas = self._kick_interpolatedThetasTrack
+        self._kick_interpdOr_raw = Spline1D(
+            thetas, self._kick_dOap[:, 0], k=spline_order
+        )
+        self._kick_interpdOp_raw = Spline1D(
+            thetas, self._kick_dOap[:, 1], k=spline_order
+        )
+        self._kick_interpdOz_raw = Spline1D(
+            thetas, self._kick_dOap[:, 2], k=spline_order
+        )
+        self._kick_interpdar_raw = Spline1D(
+            thetas, self._kick_dOap[:, 3], k=spline_order
+        )
+        self._kick_interpdap_raw = Spline1D(
+            thetas, self._kick_dOap[:, 4], k=spline_order
+        )
+        self._kick_interpdaz_raw = Spline1D(
+            thetas, self._kick_dOap[:, 5], k=spline_order
+        )
+        # Parallel/perpendicular frequencies
+        eigvecs = as_backend_constant(
+            xp, self._sigomatrixEig[1][:, self._sigomatrixEigsortIndx], Oap
+        )
+        dOaparperp = self._kick_dOap[:, :3] @ eigvecs
+        # numpy does an in-place _kick_dOaparperp[:,2] *= sign; rebuild
+        # functionally (backend arrays are immutable/AD-unfriendly in place)
+        self._kick_dOaparperp = xp.stack(
+            [
+                dOaparperp[:, 0],
+                dOaparperp[:, 1],
+                dOaparperp[:, 2] * self._sigMeanSign,
+            ],
+            axis=-1,
+        )
+        progdir = as_backend_constant(xp, self._dsigomeanProgDirection, Oap)
+        self._kick_interpdOpar_raw = Spline1D(
+            thetas,
+            (self._kick_dOap[:, :3] @ progdir) * self._sigMeanSign,
+            k=spline_order,
+        )
+        self._kick_interpdOperp0_raw = Spline1D(
+            thetas, self._kick_dOaparperp[:, 0], k=spline_order
+        )
+        self._kick_interpdOperp1_raw = Spline1D(
+            thetas, self._kick_dOaparperp[:, 1], k=spline_order
+        )
+        # Derivative of dOpar (Spline1D.derivative supports the mode-2 backend
+        # spline and stays differentiable in the y values)
+        self._kick_interpdOpar_dapar = self._kick_interpdOpar_raw.derivative(1)
+        # Piecewise-polynomial representation of dOpar. Phase-3 island: the gap
+        # DF-evaluation layer that reads _kick_interpdOpar_poly (_density_par/
+        # meanOmega/minOpar) is still numpy, and the breakpoints depend only on
+        # the numpy angle grid, so build it from a numpy fit; a differentiable
+        # .c is deferred to the DF-eval (Phase 3) migration. Skip it under a jax
+        # trace: as_numpy on a tracer raises, and the (numpy-only) PPoly is not
+        # consumed while differentiating the backend kick interpolants (the
+        # concrete build already populated it).
+        if not under_jax_trace(self._kick_dOap):
+            dOpar_y = as_numpy((self._kick_dOap[:, :3] @ progdir) * self._sigMeanSign)
+            _np_dOpar_spl = interpolate.InterpolatedUnivariateSpline(
+                thetas, dOpar_y, k=spline_order
+            )
+            ppoly = interpolate.PPoly.from_spline(_np_dOpar_spl._eval_args)
+            nzIndx = numpy.nonzero(
+                (numpy.roll(ppoly.x, -1) - ppoly.x > 0)
+                * (numpy.arange(len(ppoly.x)) < len(ppoly.x) // 2)
+                + (ppoly.x - numpy.roll(ppoly.x, 1) > 0)
+                * (numpy.arange(len(ppoly.x)) >= len(ppoly.x) // 2)
+            )
+            self._kick_interpdOpar_poly = interpolate.PPoly(
+                ppoly.c[:, nzIndx[0][:-1]], ppoly.x[nzIndx[0]]
+            )
         return None
 
     # Functions that evaluate the interpolated kicks, but also check the range
