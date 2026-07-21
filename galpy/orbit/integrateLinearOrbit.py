@@ -6,6 +6,7 @@ from numpy.ctypeslib import ndpointer
 from scipy import integrate
 
 from .. import potential
+from ..backend import as_numpy, use
 from ..potential.linearPotential import (
     _evaluatelinearForce2derivs,
     _evaluatelinearForces,
@@ -315,7 +316,7 @@ def integrateLinearOrbit(
         def integrate_for_map(idx):
             vxvv = yo[idx]
             return symplecticode.leapfrog(
-                lambda x, t=0.0: _evaluatelinearForces(pot, x, t=t),
+                lambda x, t=0.0: as_numpy(_evaluatelinearForces(pot, x, t=t)),
                 numpy.array(vxvv),
                 _t_for(idx),
                 rtol=rtol,
@@ -358,20 +359,24 @@ def integrateLinearOrbit(
                 atol=atol,
             )[0]
 
-    if len(yo) == 1:  # Can't map a single value...
-        return numpy.atleast_3d(integrate_for_map(0).T).T, 0
-    else:
-        return (
-            numpy.array(
-                parallel_map(
-                    integrate_for_map,
-                    numpy.arange(len(yo)),
-                    numcores=numcores,
-                    progressbar=progressbar,
-                )
-            ),
-            numpy.zeros(len(yo)),
-        )
+    # The Python symplectic/ODE integrators are numpy-only; force numpy so a
+    # migrated potential's force eval returns numpy (byte-identical: no-op under
+    # numpy) rather than a backend tensor the numpy integrator can't combine with.
+    with use("numpy", force=True):
+        if len(yo) == 1:  # Can't map a single value...
+            return numpy.atleast_3d(integrate_for_map(0).T).T, 0
+        else:
+            return (
+                numpy.array(
+                    parallel_map(
+                        integrate_for_map,
+                        numpy.arange(len(yo)),
+                        numcores=numcores,
+                        progressbar=progressbar,
+                    )
+                ),
+                numpy.zeros(len(yo)),
+            )
 
 
 def _linearEOM(y, t, pot):
@@ -397,7 +402,7 @@ def _linearEOM(y, t, pot):
     - 2010-07-13 - Bovy (NYU)
 
     """
-    return [y[1], _evaluatelinearForces(pot, y[0], t=t)]
+    return [y[1], as_numpy(_evaluatelinearForces(pot, y[0], t=t))]
 
 
 def integrateLinearOrbit_dxdv_c(
