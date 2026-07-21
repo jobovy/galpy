@@ -292,3 +292,135 @@ def test_hernquistX_grad_vs_fd(backend, s0):
         HernquistX(st).backward()
         g = float(st.grad)
     numpy.testing.assert_allclose(g, gfd, rtol=1e-5, atol=1e-7)
+
+
+# --------------------------------------------------------------------------
+# Gap-track Phase 2b: the backend twin of _determine_deltaOmegaTheta_kick --
+# propagate the velocity kick deltav(angle) -> delta(Omega,theta)(angle) along
+# the near-impact track and build the differentiable dO/da(angle) interpolants.
+# --------------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def _gapdf_kick():
+    # A real (numpy) Sanders15 trailing gap DF; capture the numpy reference of
+    # the kick track, then each test swaps _kick_deltav to a backend array and
+    # re-runs the (fast) kick propagation, restoring numpy state afterwards.
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamgapdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    prog = Orbit(
+        [
+            2.6556151742081835,
+            0.2183747276300308,
+            0.67876510797240575,
+            -2.0143395648974671,
+            -0.3273737682604374,
+            0.24218273922966019,
+        ]
+    )
+    V0, R0 = 220.0, 8.0
+    sigv = 0.365 * (10.0 / 2.0) ** (1.0 / 3.0)
+    sdf = streamgapdf(
+        sigv / V0,
+        progenitor=prog,
+        pot=lp,
+        aA=aAI,
+        leading=False,
+        nTrackChunks=26,
+        nTrackIterations=1,
+        sigMeanOffset=4.5,
+        tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
+        vo=V0,
+        ro=R0,
+        impactb=0.0,
+        subhalovel=numpy.array([6.82200571, 132.7700529, 149.4174464]) / V0,
+        timpact=0.88 / conversion.time_in_Gyr(V0, R0),
+        impact_angle=-2.34,
+        GM=10.0**-2.0 / conversion.mass_in_1010msol(V0, R0),
+        rs=0.625 / R0,
+    )
+    deltav_np = numpy.asarray(sdf._kick_deltav).copy()
+    theta = numpy.linspace(1e-4, sdf._deltaAngleTrackImpact * 0.999, 40)
+    evals = (
+        "_kick_interpdOr",
+        "_kick_interpdOp",
+        "_kick_interpdOz",
+        "_kick_interpdar",
+        "_kick_interpdap",
+        "_kick_interpdaz",
+        "_kick_interpdOpar",
+        "_kick_interpdOperp0",
+        "_kick_interpdOperp1",
+    )
+    ref = {
+        "dOap": sdf._kick_dOap.copy(),
+        "evals": {e: getattr(sdf, e)(theta).copy() for e in evals},
+    }
+    return sdf, ref, deltav_np, theta, evals
+
+
+def _reset_kick_numpy(sdf, deltav_np):
+    sdf._kick_deltav = deltav_np
+    sdf._determine_deltaOmegaTheta_kick(3)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kick_track_value_parity(_gapdf_kick, backend):
+    # The backend twin reproduces the numpy kick track to the Spline1D-vs-scipy
+    # floor, and dispatch actually fires (the outputs are backend arrays).
+    sdf, ref, deltav_np, theta, evals = _gapdf_kick
+    try:
+        sdf._kick_deltav = _to_backend(backend, deltav_np)
+        sdf._determine_deltaOmegaTheta_kick(3)
+        assert is_backend_array(sdf._kick_dOap)
+        numpy.testing.assert_allclose(
+            as_numpy(sdf._kick_dOap), ref["dOap"], rtol=1e-9, atol=1e-11
+        )
+        thb = _to_backend(backend, theta)
+        for name in evals:
+            bv = as_numpy(getattr(sdf, name)(thb))
+            numpy.testing.assert_allclose(
+                bv, ref["evals"][name], rtol=1e-7, atol=1e-9, err_msg=name
+            )
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_kick_track_grad_vs_fd(_gapdf_kick, backend):
+    # d(sum w * _kick_interpdOpar(theta)) / d(deltav) is exact vs central FD --
+    # the frequency/angle kick is differentiable in the velocity kick (composes
+    # with the #1167 impulse's d(deltav)/d(perturber)).
+    sdf, ref, deltav_np, theta, evals = _gapdf_kick
+    rng = numpy.random.RandomState(3)
+    w = rng.randn(len(theta))
+
+    def loss(dv_backend, th_backend, w_backend):
+        sdf._kick_deltav = dv_backend
+        sdf._determine_deltaOmegaTheta_kick(3)
+        return (w_backend * sdf._kick_interpdOpar(th_backend)).sum()
+
+    try:
+        thb = _to_backend(backend, theta)
+        wb = _to_backend(backend, w)
+        # direction for the FD check
+        d = rng.randn(*deltav_np.shape)
+        d /= numpy.linalg.norm(d)
+        if backend == "jax":
+            g = jax.grad(lambda dv: loss(dv, thb, wb))(jnp.asarray(deltav_np))
+            ad_dir = float(numpy.sum(as_numpy(g) * d))
+        else:
+            dv = torch.tensor(deltav_np, requires_grad=True)
+            loss(dv, thb, wb).backward()
+            ad_dir = float(numpy.sum(as_numpy(dv.grad) * d))
+        h = 1e-3
+        lp = float(as_numpy(loss(_to_backend(backend, deltav_np + h * d), thb, wb)))
+        lm = float(as_numpy(loss(_to_backend(backend, deltav_np - h * d), thb, wb)))
+        fd = (lp - lm) / (2.0 * h)
+        numpy.testing.assert_allclose(ad_dir, fd, rtol=1e-6, atol=1e-9)
+    finally:
+        _reset_kick_numpy(sdf, deltav_np)
