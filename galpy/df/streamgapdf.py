@@ -394,12 +394,15 @@ class streamgapdf(streamdf.streamdf):
                 "jax/torch backend"
             )
         poly = self._kick_interpdOpar_poly
-        xp = get_namespace(poly.c)
-        px = as_backend_constant(xp, poly.x, poly.c)
-        meandO = as_backend_constant(xp, numpy.asarray(self._meandO), poly.c)
-        sig = as_backend_constant(xp, numpy.asarray(self._sortedSigOEig[2]), poly.c)
-        c1 = poly.c[-1]  # dOpar value at the left knot of each interval
-        c2 = poly.c[-2]  # dOpar slope
+        # namespace from the backend operand (poly.c or dangle); coerce the other
+        ref = poly.c if is_backend_array(poly.c) else dangle
+        xp = get_namespace(ref)
+        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
+        px = as_backend_constant(xp, poly.x, ref)
+        meandO = as_backend_constant(xp, numpy.asarray(self._meandO), ref)
+        sig = as_backend_constant(xp, numpy.asarray(self._sortedSigOEig[2]), ref)
+        c1 = c[-1]  # dOpar value at the left knot of each interval
+        c2 = c[-2]  # dOpar slope
         Oparb = (dangle - px) / self._timpact
         lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
         # numpy does Oparb[lowbindx+1] = Oparb[lowbindx] - lowx (in place); rebuild
@@ -554,17 +557,19 @@ class streamgapdf(streamdf.streamdf):
         # over intervals is a concrete stop-gradient integer that gathers the
         # continuous (differentiable) lowx/Oparb values it points at.
         poly = self._kick_interpdOpar_poly
-        xp = get_namespace(poly.c)
-        px = as_backend_constant(xp, poly.x, poly.c)
+        # dispatch triggers on backend poly.c OR backend dangle; resolve the
+        # namespace from whichever is backend and coerce the other (a numpy-built
+        # DF queried with a backend dangle, e.g. d/d(angle), stays on the backend)
+        ref = poly.c if is_backend_array(poly.c) else dangle
+        xp = get_namespace(ref)
+        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
+        px = as_backend_constant(xp, poly.x, ref)
         Oparb = (dangle - px[:-1]) / self._timpact
         lowx = (
-            (Oparb - poly.c[-1]) * (tdisrupt - self._timpact)
+            (Oparb - c[-1]) * (tdisrupt - self._timpact)
             + Oparb * self._timpact
             - dangle
-        ) / (
-            (tdisrupt - self._timpact) * (1.0 + poly.c[-2] * self._timpact)
-            + self._timpact
-        )
+        ) / ((tdisrupt - self._timpact) * (1.0 + c[-2] * self._timpact) + self._timpact)
         lowx = xp.where(lowx < 0.0, float("inf"), lowx)
         lowbindx = int(as_numpy(xp.argmin(lowx)))
         if _return_raw:
@@ -727,12 +732,15 @@ class streamgapdf(streamdf.streamdf):
                 "jax/torch backend"
             )
         poly = self._kick_interpdOpar_poly
-        xp = get_namespace(poly.c)
-        px = as_backend_constant(xp, poly.x, poly.c)
-        meandO = as_backend_constant(xp, numpy.asarray(self._meandO), poly.c)
-        sig = as_backend_constant(xp, numpy.asarray(self._sortedSigOEig[2]), poly.c)
-        c1 = poly.c[-1]
-        c2 = poly.c[-2]
+        # namespace from the backend operand (poly.c or dangle); coerce the other
+        ref = poly.c if is_backend_array(poly.c) else dangle
+        xp = get_namespace(ref)
+        c = poly.c if is_backend_array(poly.c) else as_backend_constant(xp, poly.c, ref)
+        px = as_backend_constant(xp, poly.x, ref)
+        meandO = as_backend_constant(xp, numpy.asarray(self._meandO), ref)
+        sig = as_backend_constant(xp, numpy.asarray(self._sortedSigOEig[2]), ref)
+        c1 = c[-1]
+        c2 = c[-2]
         Oparb = (dangle - px) / self._timpact
         lowbindx, lowx = self.minOpar(dangle, tdisrupt, _return_raw=True)
         Oparb = xp.concat(
