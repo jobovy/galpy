@@ -1071,10 +1071,10 @@ def test_interpolation_potential_force_c_vdiffgridsizes():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.Rforce(mr, mz)
-                - potential.evaluateRforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.Rforce(mr, mz))
+                - as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluateRforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluateRforces(potential.MWPotential, mr, mz))
         )
         < 10.0**-6.0
     ), (
@@ -1083,10 +1083,10 @@ def test_interpolation_potential_force_c_vdiffgridsizes():
     assert numpy.all(
         numpy.fabs(
             (
-                rzpot.zforce(mr, mz)
-                - potential.evaluatezforces(potential.MWPotential, mr, mz)
+                as_numpy(rzpot.zforce(mr, mz))
+                - as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
             )
-            / potential.evaluatezforces(potential.MWPotential, mr, mz)
+            / as_numpy(potential.evaluatezforces(potential.MWPotential, mr, mz))
         )
         < 10.0**-6.0
     ), (
