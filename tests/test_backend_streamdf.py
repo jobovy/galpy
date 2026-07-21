@@ -1958,3 +1958,177 @@ def test_approxaAInv_sample_grad_vs_fd(sdf, backend_name):
     )
     assert numpy.isfinite(ad) and abs(ad) > 0
     assert best < 1e-4 * abs(ad) + 1e-6, f"{backend_name} sample grad {best:.2e}"
+
+
+###############################################################################
+# _approxaA -- the FORWARD linear track map ((R,vR,vT,z,vz,phi) -> (O,a)) that
+# streamgapdf's _determine_deltaOmegaTheta_kick applies to every kicked point (a
+# Phase-2a prerequisite of the streamgapdf gap-track work). The numpy body
+# (dispatched away when the query points OR the assembled track are backend
+# arrays) is BYTE-IDENTICAL -- verified by a git-stash A/B on a real numpy sdf,
+# out-of-band, for interp=True/False AND the cindx=range identity path
+# (array_equal, maxdiff 0.0).
+#
+# The backend twin (_approxaA_backend) vectorises the per-point loop. Every
+# discrete selection -- the closest interp/non-interp track point and the two
+# Jacobian indices (numpy's data-dependent branch -> clamped indices + xp.where)
+# -- is a stop-gradient integer argmin over the Cartesian (X,Y,Z) distance that
+# GATHERs the continuous track/Jacobian rows it points at (reparameterised
+# nearest-neighbour). The gradient flows through dxv (the offset), the gathered
+# _interpolatedObsTrack/_alljacsTrack/_interpolatedObsTrackAA rows and the
+# smoothing weight, NOT the index. Proven below: value parity (incl. the
+# cindx identity path), grad-vs-FD for the query offset AND the gather-gradient.
+###############################################################################
+def _approxaa_query(sdf, n=16):
+    # realistic config-space query points: interpolated-track config points
+    # perturbed off the track (near-but-not-ON a chunk -> smooth smoothing weight)
+    numpy.random.seed(321)
+    npts = sdf._interpolatedObsTrack.shape[0]
+    sel = numpy.linspace(0, npts - 1, n).astype(int)
+    base = numpy.asarray(sdf._interpolatedObsTrack)[sel]
+    return (base + 0.01 * numpy.random.randn(n, 6)).T  # (6,n): R,vR,vT,z,vz,phi
+
+
+def _np_fwd(sdf, Q, interp):
+    return numpy.asarray(
+        sdf._approxaA(Q[0], Q[1], Q[2], Q[3], Q[4], Q[5], interp=interp)
+    )
+
+
+@pytest.mark.parametrize("interp", [True, False], ids=["interp", "noninterp"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaA_value_parity(sdf, backend_name, interp):
+    # backend _approxaA == the numpy path to ~1e-11 at the same query points,
+    # with the query points built INSIDE the forced-backend context.
+    from galpy import backend as _bk
+
+    Q = _approxaa_query(sdf)
+    ref = _np_fwd(sdf, Q, interp)
+    with _bk.use(backend_name, force=True):
+        Qb = [_arr(backend_name, Q[i]) for i in range(6)]
+        out = sdf._approxaA(*Qb, interp=interp)
+        assert is_backend_array(out)
+        got = as_numpy(out)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-12)
+
+
+@pytest.mark.parametrize("interp", [True, False], ids=["interp", "noninterp"])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaA_cindx_identity_parity(sdf, backend_name, interp):
+    # the cindx path streamgapdf._determine_deltaOmegaTheta_kick uses: query the
+    # track points themselves with cindx=range(N) (identity closest-point map).
+    from galpy import backend as _bk
+
+    track = sdf._interpolatedObsTrack if interp else sdf._ObsTrack
+    Q = numpy.asarray(track).T  # (6,N)
+    cindx = range(Q.shape[1])
+    ref = numpy.asarray(
+        sdf._approxaA(*(Q[i] for i in range(6)), interp=interp, cindx=cindx)
+    )
+    with _bk.use(backend_name, force=True):
+        Qb = [_arr(backend_name, Q[i]) for i in range(6)]
+        out = sdf._approxaA(*Qb, interp=interp, cindx=cindx)
+        assert is_backend_array(out)
+        got = as_numpy(out)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaA_grad_vs_fd_query(sdf, backend_name):
+    # d(sum W*out)/d(query point) AD h-converges to a central FD of the numpy path
+    # (grad flows through dxv and the smoothing weight; the discrete
+    # nearest-neighbour indices are stop-gradient).
+    Q = _approxaa_query(sdf)
+    n = Q.shape[1]
+    rng = numpy.random.RandomState(7)
+    W, Dir = rng.randn(6, n), rng.randn(6, n)
+    interp = True
+
+    def loss_np(Qm):
+        return float(numpy.sum(W * _np_fwd(sdf, Qm, interp)))
+
+    if backend_name == "jax":
+
+        def loss(qf):
+            Qm = qf.reshape(6, n)
+            out = sdf._approxaA(*(Qm[i] for i in range(6)), interp=interp)
+            return jnp.sum(jnp.asarray(W) * out)
+
+        g = numpy.asarray(jax.grad(loss)(jnp.asarray(Q.ravel()))).reshape(6, n)
+    else:
+        qt = torch.tensor(Q, requires_grad=True)
+        out = sdf._approxaA(*(qt[i] for i in range(6)), interp=interp)
+        (torch.as_tensor(W) * out).sum().backward()
+        g = qt.grad.numpy()
+    ad = float(numpy.sum(g * Dir))
+    best = min(
+        abs(ad - (loss_np(Q + h * Dir) - loss_np(Q - h * Dir)) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    assert best < 1e-5 * abs(ad) + 1e-6, f"{backend_name} query grad {best:.2e}"
+
+
+@pytest.mark.parametrize(
+    "attr,idx",
+    [
+        ("_alljacsTrack", "jac"),
+        ("_interpolatedObsTrack", "closest"),
+        ("_interpolatedObsTrackAA", "aa"),
+    ],
+)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_approxaA_grad_vs_fd_table(sdf, backend_name, attr, idx):
+    # the gather-gradient: d(sum W*out)/d(a gathered track/Jacobian entry) AD
+    # h-converges to a central FD of the numpy path (grad flows through the
+    # Cartesian nearest-neighbour gather into the continuous table row).
+    Q = _approxaa_query(sdf)
+    n = Q.shape[1]
+    W = numpy.random.RandomState(3).randn(6, n)
+    interp = True
+    # indices actually gathered by query point 0 (Cartesian nearest-neighbour)
+    X0 = Q[0][0] * numpy.cos(Q[5][0])
+    Y0 = Q[0][0] * numpy.sin(Q[5][0])
+    Z0 = Q[3][0]
+    ci = sdf._find_closest_trackpoint(
+        X0, Y0, Z0, Q[3][0], Q[4][0], Q[5][0], interp=True, xy=True, usev=False
+    )
+    ji = sdf._find_closest_trackpoint(
+        Q[0][0], Q[1][0], Q[2][0], Q[3][0], Q[4][0], Q[5][0], interp=False, xy=False
+    )
+    entry = (int(ji), 2, 3) if idx == "jac" else (int(ci), 1)
+    base = numpy.asarray(getattr(sdf, attr))
+
+    def loss_np(delta):
+        s = _copy.copy(sdf)
+        T = base.copy()
+        T[entry] += delta
+        setattr(s, attr, T)
+        return float(numpy.sum(W * _np_fwd(s, Q, interp)))
+
+    Qb = [_arr(backend_name, Q[i]) for i in range(6)]
+    if backend_name == "jax":
+
+        def loss(Tflat):
+            s = _copy.copy(sdf)
+            setattr(s, attr, Tflat.reshape(base.shape))
+            out = s._approxaA_backend(*Qb, interp=interp)
+            return jnp.sum(jnp.asarray(W) * out)
+
+        ad = float(
+            numpy.asarray(jax.grad(loss)(jnp.asarray(base.ravel()))).reshape(
+                base.shape
+            )[entry]
+        )
+    else:
+        T = torch.tensor(base, requires_grad=True)
+        s = _copy.copy(sdf)
+        setattr(s, attr, T)
+        out = s._approxaA_backend(*Qb, interp=interp)
+        (torch.as_tensor(W) * out).sum().backward()
+        ad = float(T.grad.numpy()[entry])
+    best = min(
+        abs(ad - (loss_np(h) - loss_np(-h)) / (2 * h)) for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    assert best < 1e-5 * abs(ad) + 1e-6, f"{backend_name} {attr} grad {best:.2e}"
