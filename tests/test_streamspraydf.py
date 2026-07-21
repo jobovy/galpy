@@ -216,7 +216,9 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
         RvR_noint, dt_noint = spdf_bovy14.sample(
             n=100, return_orbit=False, returndt=True, integrate=False
         )
-        RvR_noint, dt_noint = as_numpy(RvR_noint), as_numpy(dt_noint)
+        # numpy.array (not as_numpy alone): jax->numpy is read-only, but the loop
+        # below writes RvR_noint in place; force a writable copy (torch/numpy too)
+        RvR_noint, dt_noint = numpy.array(as_numpy(RvR_noint)), as_numpy(dt_noint)
         # and integrate
         for ii in range(len(dt_noint)):
             to = Orbit(RvR_noint[:, ii])
@@ -270,7 +272,9 @@ def test_integrate_rtnonarray():
         RvR_noint, dt_noint = spdf_bovy14.sample(
             n=100, return_orbit=False, returndt=True, integrate=False
         )
-        RvR_noint, dt_noint = as_numpy(RvR_noint), as_numpy(dt_noint)
+        # numpy.array (not as_numpy alone): jax->numpy is read-only, but the loop
+        # below writes RvR_noint in place; force a writable copy (torch/numpy too)
+        RvR_noint, dt_noint = numpy.array(as_numpy(RvR_noint)), as_numpy(dt_noint)
         # and integrate
         for ii in range(len(dt_noint)):
             to = Orbit(RvR_noint[:, ii])
