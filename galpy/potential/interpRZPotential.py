@@ -67,9 +67,12 @@ def zsymDecorator(odd):
             else:
                 out = func(*args, **kwargs)
             if odd and args[0]._zsym:
-                if backend:
-                    xp = get_namespace(R, z)
-                    return xp.where(z < 0.0, -1.0, 1.0) * out
+                # out can be a backend array even for numpy R,z under a forced
+                # backend (the interpolated force resolves the forced namespace),
+                # so key the sign correction off the output, not the inputs
+                if is_backend_array(out):
+                    xp = get_namespace(out)
+                    return xp.where(xp.asarray(z) < 0.0, -1.0, 1.0) * out
                 return sign(z) * out
             else:
                 return out
