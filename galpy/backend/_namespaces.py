@@ -194,16 +194,24 @@ def match_input_dtype(out, *coords):
         if target is not None and target != numpy.float64:
             return numpy.asarray(out, dtype=target)[()]
         return out
+    xp = namespace_from_arrays((out,))
+    # Normalise every coord dtype to ``out``'s namespace: an unmigrated potential
+    # (or the Python integrator) can hand mixed numpy+backend coords, so ``dtypes``
+    # carries a numpy dtype object alongside a torch dtype -- torch's ``result_type``
+    # (and ``astype``) reject a numpy dtype. ``_backend_dtype`` is a strict
+    # pass-through when ``xp is numpy`` (numpy path byte-identical) and maps a numpy
+    # dtype to the backend's same-named dtype otherwise.
+    dtypes = [_backend_dtype(xp, dtype) for dtype in dtypes]
     if all(dtype == dtypes[0] for dtype in dtypes):
         target = dtypes[0]
     else:
-        target = namespace_from_arrays((out,)).result_type(*dtypes)
+        target = xp.result_type(*dtypes)
     if target == out_dtype:
         return out
     if isinstance(out, (numpy.ndarray, numpy.generic)):
         # plain numpy: ndarray.astype works on every supported numpy version
         return out.astype(target)
-    return namespace_from_arrays((out,)).astype(out, target)
+    return xp.astype(out, target)
 
 
 def device_of(*coords):

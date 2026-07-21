@@ -669,3 +669,44 @@ def test_backend_dtype_passes_through_nongeneric_numpy_dtype(backend):
     )
     # numpy stays a strict pass-through on the same input (xp is numpy guard).
     assert _backend_dtype(numpy, _NONGENERIC_NPDTYPE) is _NONGENERIC_NPDTYPE
+
+
+@pytest.mark.parametrize(
+    "backend", [b for b in ("jax", "torch") if globals()[b] is not None]
+)
+def test_match_input_dtype_mixed_framework_coords(backend):
+    # An unmigrated potential (or the Python integrator) can hand a backend
+    # ``out`` alongside MIXED numpy+backend coord dtypes -- a raw numpy dtype
+    # object sitting next to a torch dtype. torch's result_type/astype reject a
+    # numpy dtype, so match_input_dtype must normalise every coord dtype to
+    # ``out``'s namespace first. (Regression: SCF/Multipole time-dependent C
+    # orbits under a forced torch backend.)
+    from galpy.backend import get_namespace
+
+    if backend == "jax":
+        out = jnp.asarray([1.0, 2.0])
+    else:
+        out = torch.tensor([1.0, 2.0], dtype=torch.float64)
+    # a numpy scalar whose dtype matches ``out``'s precision
+    np_same = numpy.zeros((), dtype=str(out.dtype).split(".")[-1])
+    # mixed numpy-dtype + backend-dtype coords, matching precision -> no cast,
+    # same object back (normalise-to-namespace, all-equal branch)
+    assert match_input_dtype(out, np_same, out[0]) is out
+    # all-numpy same-precision coords with a backend ``out``: the all-equal
+    # branch that previously handed a numpy dtype straight to astype -> no cast
+    assert match_input_dtype(out, np_same, np_same) is out
+    if backend == "torch":
+        # mixed numpy-float32 + torch-float64 -> result_type else-branch -> f64,
+        # equals ``out`` dtype so a no-op
+        assert (
+            match_input_dtype(
+                out,
+                numpy.array([0.5], dtype=numpy.float32),
+                torch.tensor(0.3, dtype=torch.float64),
+            )
+            is out
+        )
+        # genuine narrowing: all numpy-float32 coords -> torch.float32 astype cast
+        cast = match_input_dtype(out, numpy.array([0.5], dtype=numpy.float32))
+        assert cast.dtype == torch.float32
+        assert get_namespace(cast) is not numpy
