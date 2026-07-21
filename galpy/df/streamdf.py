@@ -3601,6 +3601,11 @@ class streamdf(df):
             z = numpy.array([z])
             vz = numpy.array([vz])
             phi = numpy.array([phi])
+        _track = getattr(self, "_interpolatedObsTrack" if interp else "_ObsTrack", None)
+        if is_backend_array(R) or is_backend_array(_track):
+            return self._approxaA_backend(
+                R, vR, vT, z, vz, phi, interp=interp, cindx=cindx
+            )
         X = R * numpy.cos(phi)
         Y = R * numpy.sin(phi)
         Z = z
@@ -3702,6 +3707,83 @@ class streamdf(df):
             else:
                 out[:, ii] += self._ObsTrackAA[closestIndx[ii]]
         return out
+
+    def _approxaA_backend(self, R, vR, vT, z, vz, phi, interp=True, cindx=None):
+        """Backend (jax/torch) path of ``_approxaA`` -- the FORWARD linear track map
+        (R,vR,vT,z,vz,phi) -> (O,a) -- vectorised over the query points. The closest
+        interp/non-interp track point and the two Jacobian indices are stop-gradient
+        integer argmins over the Cartesian (X,Y,Z) distance to the track that GATHER
+        the continuous track/Jacobian rows they point at (reparameterised
+        nearest-neighbour): the gradient flows through dxv (the offset), the gathered
+        _interpolatedObsTrack/_alljacsTrack rows and the smoothing weight, NOT the
+        index. The numpy data-dependent 2nd-Jacobian branch becomes clamped indices +
+        xp.where. Returns a (6,N) array."""
+        ref = next(
+            (x for x in (R, self._alljacsTrack, self._ObsTrack) if is_backend_array(x)),
+            R,
+        )
+        xp = get_namespace(ref)
+
+        def _const(v):  # frozen numpy table/query -> backend; backend passes through
+            return v if is_backend_array(v) else as_backend_constant(xp, v, ref)
+
+        q = xp.stack(
+            [xp.reshape(_const(v), (-1,)) for v in (R, vR, vT, z, vz, phi)], axis=-1
+        )  # (n,6)
+        n = q.shape[0]
+        idx = xp.arange(n)
+        # Cartesian position of the query drives every nearest-track-point argmin
+        X = q[:, 0] * xp.cos(q[:, 5])
+        Y = q[:, 0] * xp.sin(q[:, 5])
+        Z = q[:, 3]
+        xyz = xp.stack([X, Y, Z], axis=-1)  # (n,3)
+        obs_xy = _const(self._ObsTrackXY)  # (K,6); non-interp, drives the Jacobian indx
+        dxy = xyz[:, None, :] - obs_xy[None, :, :3]
+        dist2_obs = xp.sum(dxy * dxy, axis=-1)  # (n,K): reused for indx + smoothing
+        jac_argmin = xp.argmin(dist2_obs, axis=-1)  # (n,) int, stop-gradient
+        if interp:
+            track_obs = _const(self._interpolatedObsTrack)
+            track_aa = _const(self._interpolatedObsTrackAA)
+        else:
+            track_obs = _const(self._ObsTrack)
+            track_aa = _const(self._ObsTrackAA)
+        # Closest track point (for dxv and the additive AA offset)
+        if cindx is not None:
+            closestIndx = xp.asarray(numpy.asarray(list(cindx)))
+        elif interp:
+            interp_xy = _const(self._interpolatedObsTrackXY)
+            dxyi = xyz[:, None, :] - interp_xy[None, :, :3]
+            closestIndx = xp.argmin(xp.sum(dxyi * dxyi, axis=-1), axis=-1)
+        else:
+            closestIndx = jac_argmin
+        jacIndx = jac_argmin if interp else closestIndx
+        dxv = q - track_obs[closestIndx]  # (n,6), grad through q and the gather
+        # 2nd Jacobian point: data-dependent branch -> clamped indices + xp.where
+        K = dist2_obs.shape[1]
+        jm1 = xp.clip(jacIndx - 1, 0, K - 1)
+        jp1 = xp.clip(jacIndx + 1, 0, K - 1)
+        dmJacIndx = dist2_obs[idx, jacIndx]  # min sq dist (continuous gather in X,Y,Z)
+        dm1 = dist2_obs[idx, jm1]
+        dm2 = dist2_obs[idx, jp1]
+        choose_minus = (jacIndx != 0) & ((jacIndx == K - 1) | (dm1 < dm2))
+        jacIndx2 = xp.where(choose_minus, jm1, jp1)  # integer
+        dmJacIndx2 = xp.where(choose_minus, dm1, dm2)  # continuous
+        sq, sq2 = xp.sqrt(dmJacIndx), xp.sqrt(dmJacIndx2)
+        ampJacIndx = sq / (sq + sq2)  # (n,)
+        # Make sure phi hasn't wrapped around (only the phi offset, index 5)
+        dxv = xp.concat(
+            [
+                dxv[:, :5],
+                xp.remainder(dxv[:, 5:6] + numpy.pi, 2.0 * numpy.pi) - numpy.pi,
+            ],
+            axis=-1,
+        )
+        alljacs = _const(self._alljacsTrack)
+        M = (1.0 - ampJacIndx)[:, None, None] * alljacs[jacIndx] + ampJacIndx[
+            :, None, None
+        ] * alljacs[jacIndx2]  # (n,6,6)
+        out = xp.einsum("nij,nj->ni", M, dxv) + track_aa[closestIndx]  # (n,6)
+        return out.T
 
     def _approxaAInv(self, Or, Op, Oz, ar, ap, az, interp=True):
         """
