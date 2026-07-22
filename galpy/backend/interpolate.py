@@ -52,6 +52,7 @@ __all__ = [
     "cubic_spline_coeffs",
     "eval_cubic",
     "interp_linear",
+    "interp_bilinear",
     "rect_bivariate_to_ppoly",
     "native_rect_cubic_coeffs",
     "eval_rect_ppoly",
@@ -314,6 +315,74 @@ def interp_linear(xp, x, y, r, *, nu=0, extrapolate=True):
     if nu == 1:
         return slope
     return slope * 0.0
+
+
+def interp_bilinear(xp, x, y, Z, X, Y, *, extrapolate=True):
+    """Bilinear interpolation of grid values ``Z(x, y)`` at points ``(X, Y)``.
+
+    The tensor-product degree-1 analogue of :func:`interp_linear`: two
+    ``searchsorted`` interval lookups (one per axis) and a bilinear blend of the
+    four surrounding grid corners, all through namespace ops -- so the value is
+    computed natively and is differentiable w.r.t. the query points ``X``/``Y``,
+    the grid VALUES ``Z``, and (when they are backend arrays) the knot positions
+    ``x``/``y``. Points are paired ELEMENTWISE (``X`` and ``Y`` broadcast
+    together, matching ``RectBivariateSpline.ev`` / ``grid=False``), not on an
+    outer product.
+
+    This reproduces ``scipy.interpolate.RectBivariateSpline(x, y, Z, kx=1, ky=1,
+    s=0).ev`` -- which IS exact bilinear interpolation on the grid -- to ~1e-13
+    in range. scipy CONSTANT-extrapolates a degree-1 ``RectBivariateSpline``
+    beyond the grid (the edge value), matched here by ``extrapolate='clip'`` /
+    ``'const'`` / ``3`` (clamp ``(X, Y)`` into the grid first). ``extrapolate=
+    True`` instead extends the edge cell linearly (finite extrapolation, matching
+    :func:`interp_linear`), keeping dead ``xp.where`` branches NaN-free.
+
+    ``x`` (length ``nx``) and ``y`` (length ``ny``) must be increasing; ``Z`` has
+    shape ``(nx, ny)``. A backend ``x``/``y``/``Z`` is kept in the namespace
+    (differentiable knots/values); a numpy grid is materialised onto the query's
+    device (the numpy path is byte-identical -- ``numpy.asarray`` of a numpy array
+    is a no-op).
+    """
+    dev = device_of(X, Y, Z, y, x)
+    xb = (
+        x * 1.0 if is_backend_array(x) else asarray_on_device(xp, numpy.asarray(x), dev)
+    )
+    yb = (
+        y * 1.0 if is_backend_array(y) else asarray_on_device(xp, numpy.asarray(y), dev)
+    )
+    Zb = (
+        Z * 1.0 if is_backend_array(Z) else asarray_on_device(xp, numpy.asarray(Z), dev)
+    )
+    if extrapolate is not True:
+        if extrapolate not in ("clip", "const", 3):
+            raise ValueError(
+                "interp_bilinear extrapolate must be True, 'clip', 'const', or 3; "
+                f"got {extrapolate!r}"
+            )
+        X = xp.clip(X, xb[0], xb[-1])
+        Y = xp.clip(Y, yb[0], yb[-1])
+    # per-axis interval index in [0, n-2]
+    ix = xp.clip(xp.searchsorted(xb, X, side="right") - 1, 0, xb.shape[0] - 2)
+    iy = xp.clip(xp.searchsorted(yb, Y, side="right") - 1, 0, yb.shape[0] - 2)
+    x0 = xb[ix]
+    x1 = xb[ix + 1]
+    y0 = yb[iy]
+    y1 = yb[iy + 1]
+    # (x1 - x0), (y1 - y0) are strictly positive geometry differences (grids
+    # increasing) -> no dead-branch guard needed (denominators never zero).
+    tx = (X - x0) / (x1 - x0)
+    ty = (Y - y0) / (y1 - y0)
+    # gather the 4 corner values (elementwise advanced indexing over the query)
+    z00 = Zb[ix, iy]
+    z01 = Zb[ix, iy + 1]
+    z10 = Zb[ix + 1, iy]
+    z11 = Zb[ix + 1, iy + 1]
+    return (
+        z00 * (1.0 - tx) * (1.0 - ty)
+        + z10 * tx * (1.0 - ty)
+        + z01 * (1.0 - tx) * ty
+        + z11 * tx * ty
+    )
 
 
 ###############################################################################

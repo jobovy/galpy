@@ -235,10 +235,14 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         v, r = xp.asarray(v) * 1.0, xp.asarray(r) * 1.0
         return self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0) * v**2.0
 
-    def _sample_v(self, r, eta, n=1):
-        """Generate velocity samples"""
+    def _sample_v(self, r, eta, n=1, key=None):
+        """Generate velocity samples
+
+        OM sampling is numpy-side (``osipkovmerrittdf.sample`` rejects a backend
+        key), so ``key`` is always ``None`` here and threaded through for
+        signature parity."""
         # Use super-class method to obtain v*[1+r^2/ra^2*sin^2eta]
-        out = super()._sample_v(r, eta, n=n)
+        out = super()._sample_v(r, eta, n=n, key=key)
         # Transform to v
         return out / numpy.sqrt(1.0 + r**2.0 / self._ra2 * numpy.sin(eta) ** 2.0)
 
