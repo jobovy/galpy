@@ -95,14 +95,18 @@ class eddingtondf(isotropicsphericaldf):
             r_a_min=max(1e-6, self._rmin / self._scale)
         )
 
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):
+    def sample(
+        self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None, key=None
+    ):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
         if rmin is None:
             rmin = self._rmin
         self._ensure_fE_interp()
+        # isotropic: a backend key drives the general (no closed-form _icmf)
+        # interp_linear inverse-CDF radial sampler + isotropic angles
         return sphericaldf.sample(
-            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin, key=key
         )
 
     def _ensure_fE_interp(self):
