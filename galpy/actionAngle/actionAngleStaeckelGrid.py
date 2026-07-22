@@ -424,7 +424,11 @@ class actionAngleStaeckelGrid(actionAngle):
         C kernel, the ``actionAngleStaeckel`` action solve) run as they do on
         numpy; their outputs are brought onto the backend for the elementwise
         energy math and the native fits. The values match the numpy(scipy) grid
-        to grid-parity tolerance. Reductions/clips use ``xp.where``/``xp.max``
+        to grid-parity tolerance; the fit-produced tables agree to ~1e-13, while
+        the ``_u0``-derived tables agree to ~1e-7 because ``calcu0`` is
+        ill-conditioned (a 1-ULP-reorder difference in the energy handed to the
+        root-find amplifies ~1e8 -- a benign floating-point sensitivity, not a
+        native-fit error). Reductions/clips use ``xp.where``/``xp.max``
         (numpy's in-place boolean-index writes are jax-immutable).
         """
         vc = potential.vcirc(self._pot, self._Rmax)

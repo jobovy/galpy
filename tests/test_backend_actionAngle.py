@@ -2029,24 +2029,33 @@ def test_staeckelgrid_native_setup_backend_arrays(backend):
         g = actionAngleStaeckelGrid(
             pot=MWPotential2014, delta=0.45, nE=12, npsi=12, nLz=14, c=True
         )
-        for a in (
-            "_Lzs",
-            "_RL",
-            "_ERL",
-            "_ERa",
-            "_jr",
-            "_jz",
-            "_u0",
-            "_jrLzE",
-            "_jzLzE",
-        ):
+        # every frozen table is a backend array (GPU-resident, no numpy island)
+        _tight = ("_Lzs", "_RL", "_ERL", "_ERa", "_jr", "_jz", "_jrLzE", "_jzLzE")
+        for a in _tight + ("_u0",):
             assert _is_backend_array(backend, getattr(g, a)), a
+        # ... AND the tables match the numpy(scipy) grid: the solver-lifted /
+        # native-fit tables to ~1e-13, and the C-solver-sensitive _u0 to ~1e-7 (a
+        # 1-ULP-reorder E fed to the ill-conditioned calcu0 amplifies ~1e8; see
+        # _build_grid_backend). This is the load-bearing native-setup parity check
+        # (the single-orbit query below only floors at ~1e-3 on the shared,
+        # pre-existing query path, so it can't pin the tables this PR produces).
+        for a in _tight:
+            numpy.testing.assert_allclose(
+                as_numpy(getattr(g, a)),
+                numpy.asarray(getattr(ref, a)),
+                rtol=1e-6,
+                atol=1e-8,
+                err_msg=a,
+            )
+        numpy.testing.assert_allclose(
+            as_numpy(g._u0), numpy.asarray(ref._u0), rtol=1e-4, atol=1e-6
+        )
         xp = galpy_backend.get_namespace()
         got_a = g(*[xp.asarray(v) for v in _NATIVE_S])
-    # Sanity parity vs the numpy(scipy) grid (a coarse c=True grid: the exact
-    # native-fit parity is pinned by the flip tests + the numpy-shard
-    # test_staeckelgrid_parity; here the query-path/solver backend parity floors
-    # the agreement at ~1e-5 rel).
+    # coarse query sanity: the shared query-path/solver backend parity floors this
+    # well-conditioned orbit at ~1e-3 rel (near-circular edge orbits diverge more,
+    # a pre-existing _grid_common_backend floor unrelated to the native fits); the
+    # native-fit parity is pinned by the table checks above + the flip tests.
     for r, gg in zip(ref_a, got_a):
         numpy.testing.assert_allclose(
             as_numpy(gg), numpy.asarray(r), rtol=1e-3, atol=1e-5
