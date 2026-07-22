@@ -685,6 +685,7 @@ class SpiralArmsPotential(Potential):
     def _gamma(self, R, phi):
         """Return gamma. (eqn 3 in the paper)"""
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         return self._N * (
             phi - self._phi_ref - xp.log(R / self._r_ref) / self._tan_alpha
         )
