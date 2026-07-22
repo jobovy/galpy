@@ -6,7 +6,7 @@ import math
 
 import numpy
 
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion
 from .WrapperPotential import parentWrapperPotential
 
@@ -68,6 +68,7 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
             # forced-backend) Python/numpy-scalar t stays byte-identical and does
             # not feed a Python scalar to a backend's exp (torch rejects that).
             return math.exp(arg)
+        (arg,) = coerce_coords(xp, arg)
         return xp.exp(arg)
 
     def _wrap(self, attribute, *args, **kwargs):
