@@ -15247,7 +15247,9 @@ def test_integrate_negative_time():
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-7
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-7
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a negative time"
         )
@@ -15257,7 +15259,9 @@ def test_integrate_negative_time():
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-4
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-4
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time"
         )
@@ -15288,7 +15292,9 @@ def test_integrate_backwards():
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-7
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-7
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a negative time"
         )
@@ -15298,7 +15304,9 @@ def test_integrate_backwards():
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-4
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-4
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time"
         )
@@ -15308,7 +15316,9 @@ def test_integrate_backwards():
         o = Orbit([1.0, 0.1, 1.1, 0.1, 0.1, 0.1])
         o.integrate(times, MWPotential2014 + dp, method=method)
         assert (
-            numpy.std(o.Jacobi(times)) / numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-4
+            numpy.std(_to_numpy(o.Jacobi(times)))
+            / numpy.fabs(numpy.mean(_to_numpy(o.Jacobi(times))))
+            < 1e-4
         ), (
             f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time"
         )
