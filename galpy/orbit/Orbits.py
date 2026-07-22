@@ -3319,7 +3319,7 @@ class Orbit:
                     )
                     + thiso[1] ** 2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
@@ -3346,7 +3346,7 @@ class Orbit:
                     + thiso[1] ** 2.0 / 2.0
                     + thiso[2] ** 2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
@@ -3374,7 +3374,7 @@ class Orbit:
                     + thiso[1] ** 2.0 / 2.0
                     + thiso[2] ** 2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
@@ -3409,7 +3409,7 @@ class Orbit:
                     + thiso[2] ** 2.0 / 2.0
                     + vz**2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
@@ -3445,7 +3445,7 @@ class Orbit:
                     + thiso[2] ** 2.0 / 2.0
                     + vz**2.0 / 2.0
                 ).T
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError, RuntimeError):
                 out = (
                     numpy.array(
                         [
