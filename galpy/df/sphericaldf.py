@@ -24,13 +24,15 @@ import scipy.interpolate
 from scipy import integrate, special
 
 from ..backend import (
+    as_backend_constant,
     as_numpy,
     exit_cast,
     get_namespace,
     is_backend_array,
-    resolve_namespace,
 )
-from ..backend.interpolate import Spline1D
+from ..backend import random as grandom
+from ..backend import resolve_namespace
+from ..backend.interpolate import Spline1D, interp_linear
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..orbit import Orbit
 from ..potential import (
@@ -545,7 +547,9 @@ class sphericaldf(df):
         )
 
     ############################### SAMPLING THE DF################################
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0):
+    def sample(
+        self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0, key=None
+    ):
         """
         Sample the DF
 
@@ -563,6 +567,14 @@ class sphericaldf(df):
             If True, return an orbit.Orbit instance. If False, return a tuple of (R,vR,vT,z,vz,phi). Default is True.
         rmin : float, Quantity, optional
             Minimum radius at which to sample. Default is 0.
+        key : optional
+            Backend random key from :func:`galpy.backend.random.key`. Default
+            ``None`` uses the global ``numpy.random`` draws (the numpy path,
+            byte-identical to galpy's historical behaviour). A jax/torch key
+            makes the radial + analytic-angle position sampling backend-native
+            (reproducible, differentiable in the CDF/potential, GPU/jit-able)
+            and returns backend-array coordinates (use ``return_orbit=False`` to
+            keep them; the Orbit constructor materializes numpy). Default None.
 
         Returns
         -------
@@ -573,20 +585,31 @@ class sphericaldf(df):
         -----
         - When specifying position, it is necessary to specify both R and z; if phi is not set in this case, it is sampled
         - 2020-07-22 - Written - Lane (UofT)
+        - 2026-07-21 - Added backend ``key`` for differentiable radial/angle sampling - Bovy (UofT)
         """
         rmin = conversion.parse_length(rmin, ro=self._ro)
         if hasattr(self, "_rmin_sampling") and rmin != self._rmin_sampling:
             # Build new grids, easiest
-            if hasattr(self, "_xi_cmf_interpolator"):
-                delattr(self, "_xi_cmf_interpolator")
-            if hasattr(self, "_v_vesc_pvr_interpolator"):
-                delattr(self, "_v_vesc_pvr_interpolator")
+            for attr in ("_xi_cmf_grids", "_xi_cmf_spline", "_v_vesc_pvr_interpolator"):
+                if hasattr(self, attr):
+                    delattr(self, attr)
         self._rmin_sampling = conversion.parse_length(rmin, ro=self._ro)
+        # dispatch the namespace on the key, NOT get_namespace(): key=None keeps
+        # the whole assembly numpy (byte-identical) even under a forced backend;
+        # a backend key follows its own draws into the active namespace.
+        # Split into INDEPENDENT sub-keys for the radial, position-angle, and
+        # velocity-angle draws: each angle helper re-splits its key internally, so
+        # handing the SAME key to both would make split() return identical sub-keys
+        # (velocity angles = deterministic fn of position angles -> biased joint
+        # distribution). key=None -> split returns (None, None, None) -> the global
+        # numpy generator draws sequentially -> byte-identical.
+        key_r, key_pos, key_vel = grandom.split(key, 3)
         if R is None or z is None:  # Full 6D samples
-            r = self._sample_r(n=n)
-            phi, theta = self._sample_position_angles(n=n)
-            R = r * numpy.sin(theta)
-            z = r * numpy.cos(theta)
+            r = self._sample_r(n=n, key=key_r)
+            phi, theta = self._sample_position_angles(n=n, key=key_pos)
+            xp = numpy if key is None else get_namespace(r)
+            R = r * xp.sin(theta)
+            z = r * xp.cos(theta)
         else:  # 3D velocity samples
             R = conversion.parse_length(R, ro=self._ro)
             z = conversion.parse_length(z, ro=self._ro)
@@ -607,6 +630,8 @@ class sphericaldf(df):
                 z = z * numpy.ones(n)
             r = numpy.sqrt(R**2.0 + z**2.0)
             theta = numpy.arctan2(R, z)
+            # the fixed-position branch stays numpy-side (R,z pulled in above)
+            xp = numpy
             if phi is None:  # Otherwise assume phi input type matches R,z
                 phi, _ = self._sample_position_angles(n=n)
             else:
@@ -618,13 +643,24 @@ class sphericaldf(df):
                     if not hasattr(phi, "__len__") or len(phi) < n
                     else phi
                 )
-        eta, psi = self._sample_velocity_angles(r, n=n)
+        # gate the key on xp: the full-6D branch follows the backend key; the
+        # fixed-position (R,z) branch stays numpy-side (xp is numpy there)
+        eta, psi = self._sample_velocity_angles(
+            r, n=n, key=None if xp is numpy else key_vel
+        )
+        # velocity magnitude is still numpy-side (_sample_v is PR-2); coerce the
+        # numpy velocity pieces into xp so a backend key assembles backend
+        # velocities (numpy*tensor raises under torch). key=None -> xp is numpy
+        # -> as_backend_constant is a no-op (byte-identical).
         v = self._sample_v(r, eta, n=n)
-        vr = v * numpy.cos(eta)
-        vtheta = v * numpy.sin(eta) * numpy.cos(psi)
-        vT = v * numpy.sin(eta) * numpy.sin(psi)
-        vR = vr * numpy.sin(theta) + vtheta * numpy.cos(theta)
-        vz = vr * numpy.cos(theta) - vtheta * numpy.sin(theta)
+        v = v if is_backend_array(v) else as_backend_constant(xp, v, r)
+        eta = eta if is_backend_array(eta) else as_backend_constant(xp, eta, r)
+        psi = psi if is_backend_array(psi) else as_backend_constant(xp, psi, r)
+        vr = v * xp.cos(eta)
+        vtheta = v * xp.sin(eta) * xp.cos(psi)
+        vT = v * xp.sin(eta) * xp.sin(psi)
+        vR = vr * xp.sin(theta) + vtheta * xp.cos(theta)
+        vz = vr * xp.cos(theta) - vtheta * xp.sin(theta)
         if return_orbit:
             o = Orbit(vxvv=numpy.array([R, vR, vT, z, vz, phi]).T)
             if self._roSet and self._voSet:
@@ -640,7 +676,7 @@ class sphericaldf(df):
                 phi = units.Quantity(phi) * units.rad
             return (R, vR, vT, z, vz, phi)
 
-    def _sample_r(self, n=1):
+    def _sample_r(self, n=1, key=None):
         """Generate radial position samples from potential
         Note - the function interpolates the normalized CMF onto the variable
         xi defined as:
@@ -648,18 +684,51 @@ class sphericaldf(df):
         .. math:: \\xi = \\frac{r/a-1}{r/a+1}
 
         so that xi is in the range [-1,1], which corresponds to an r range of
-        [0,infinity)"""
-        rand_mass_frac = numpy.random.uniform(size=n)
+        [0,infinity)
+
+        ``key=None`` draws the mass fractions from the global ``numpy.random``
+        (byte-identical numpy path); a backend key draws backend uniforms and
+        returns a backend array, differentiable in the CDF/potential."""
+        rand_mass_frac = grandom.uniform(key, n)
         if hasattr(self, "_icmf"):
+            # closed-form / grid inverse-CMF; the analytic families and kingdf
+            # dispatch on the namespace of rand_mass_frac (backend -> backend)
             r_samples = self._icmf(rand_mass_frac)
+        elif is_backend_array(rand_mass_frac):
+            # backend inverse-CDF: differentiable in the CDF knots via a linear
+            # interp_linear on the (possibly backend, possibly frozen) mass grid
+            xp = get_namespace(rand_mass_frac)
+            cdf_grid, xi_grid = self._get_cmf_grids()
+            cg = (
+                cdf_grid
+                if is_backend_array(cdf_grid)
+                else as_backend_constant(xp, cdf_grid, rand_mass_frac)
+            )
+            xg = as_backend_constant(xp, as_numpy(xi_grid), rand_mass_frac)
+            xi_samples = interp_linear(xp, cg, xg, rand_mass_frac, extrapolate="clip")
+            # r = _xiToR inlined in-namespace (numpy.divide would drop the graph);
+            # parenthesized to match _xiToR's a*((1+xi)/(1-xi)) association exactly
+            r_samples = self._scale * ((1.0 + xi_samples) / (1.0 - xi_samples))
         else:
-            if not hasattr(self, "_xi_cmf_interpolator"):
-                self._xi_cmf_interpolator = self._make_cmf_interpolator()
-            xi_samples = self._xi_cmf_interpolator(rand_mass_frac)
+            # numpy path: byte-identical scipy k=1 inverse-CMF spline
+            if not hasattr(self, "_xi_cmf_spline"):
+                cdf_grid, xi_grid = self._get_cmf_grids()
+                self._xi_cmf_spline = Spline1D(
+                    as_numpy(cdf_grid), as_numpy(xi_grid), k=1
+                )
+            xi_samples = self._xi_cmf_spline(rand_mass_frac)
             r_samples = _xiToR(xi_samples, a=self._scale)
-        # a forced backend makes the deterministic icdf eval a backend array;
-        # samples are numpy-side by design
+        # numpy path (key=None) is numpy-side by design (a forced backend can make
+        # the deterministic icdf eval a backend array); a backend key keeps it
+        if is_backend_array(rand_mass_frac):
+            return r_samples
         return as_numpy(r_samples)
+
+    def _get_cmf_grids(self):
+        """Cache and return the (cdf_grid, xi_grid) inverse-CMF tables."""
+        if not hasattr(self, "_xi_cmf_grids"):
+            self._xi_cmf_grids = self._make_cmf_interpolator()
+        return self._xi_cmf_grids
 
     def _make_cmf_interpolator(self):
         """Create the interpolator object for calculating radii from the CMF
@@ -703,24 +772,34 @@ class sphericaldf(df):
             ms -= mass(self._denspot, self._rmin_sampling, use_physical=False)
             mnorm -= mass(self._denspot, self._rmin_sampling, use_physical=False)
         ms /= mnorm
-        # mass() may have evaluated on a (forced) backend; the icdf table is numpy
-        ms = as_numpy(ms)
-        # Add total mass point to avoid extrapolation beyond rmax
-        if numpy.isinf(self._rmax):
-            xis = numpy.append(xis, 1)
-            ms = numpy.append(ms, 1)
+        # Add the total-mass endpoint so the inverse-CMF never extrapolates
+        # beyond rmax. The xi grid is fixed geometry (numpy); ms is the CDF.
+        xis = numpy.append(xis, 1.0 if numpy.isinf(self._rmax) else ximax)
+        if is_backend_array(ms):
+            # backend context: KEEP ms a backend array so the inverse-CDF sample
+            # is differentiable in the CDF knots (interp_linear in _sample_r); the
+            # numpy path (key=None) as_numpy's it back for the byte-identical spline
+            end = as_backend_constant(xp, numpy.array([1.0]), ms)
+            concat = getattr(xp, "concat", None) or xp.concatenate
+            ms = concat([ms, end])
         else:
-            # For finite rmax, add the endpoint to ensure r <= rmax
-            xis = numpy.append(xis, ximax)
+            # numpy path: the icdf table is numpy (byte-identical scipy k=1 spline)
+            ms = as_numpy(ms)
             ms = numpy.append(ms, 1)
-        # backend-agnostic inverse-CDF: numpy queries hit the scipy spline
-        # (byte-identical); backend queries evaluate the frozen table natively
-        return Spline1D(ms, xis, k=1)
+        return ms, xis
 
-    def _sample_position_angles(self, n=1):
-        """Generate spherical angle samples"""
-        phi_samples = numpy.random.uniform(size=n) * 2 * numpy.pi
-        theta_samples = numpy.arccos(1.0 - 2 * numpy.random.uniform(size=n))
+    def _sample_position_angles(self, n=1, key=None):
+        """Generate spherical angle samples
+
+        ``key=None`` draws from the global ``numpy.random`` (byte-identical: phi
+        first, then theta); a backend key splits into two independent sub-keys and
+        returns backend arrays (analytic, differentiable in the draws)."""
+        kphi, ktheta = grandom.split(key, 2)
+        u_phi = grandom.uniform(kphi, n)
+        u_theta = grandom.uniform(ktheta, n)
+        xp = numpy if key is None else get_namespace(u_phi)
+        phi_samples = u_phi * 2.0 * numpy.pi
+        theta_samples = xp.arccos(1.0 - 2.0 * u_theta)
         return phi_samples, theta_samples
 
     def _sample_v(self, r, eta, n=1):
@@ -732,16 +811,24 @@ class sphericaldf(df):
                 else 3
             )
             self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(r_a_end=r_a_end)
-        # samples are numpy-side by design (_vmax_at_r follows a forced backend)
+        # samples are numpy-side by design (scipy interpolator; _vmax_at_r follows
+        # a forced backend); a backend-key r arrives as a backend array, so pull it
+        # numpy-side -- numpy.log10(<torch tensor>) trips the numpy-2.0
+        # __array_wrap__ deprecation (an error under the coverage shard's -W error)
+        r = as_numpy(r)
         return self._v_vesc_pvr_interpolator(
             numpy.log10(r / self._scale), numpy.random.uniform(size=n), grid=False
         ) * as_numpy(self._vmax_at_r(self._pot, r))
 
-    def _sample_velocity_angles(self, r, n=1):
+    def _sample_velocity_angles(self, r, n=1, key=None):
         """Generate samples of angles that set radial vs tangential
-        velocities"""
-        eta_samples = self._sample_eta(r, n)
-        psi_samples = numpy.random.uniform(size=n) * 2 * numpy.pi
+        velocities
+
+        ``key=None`` draws from the global ``numpy.random`` (byte-identical: eta
+        first, then psi); a backend key splits into independent eta/psi sub-keys."""
+        keta, kpsi = grandom.split(key, 2)
+        eta_samples = self._sample_eta(r, n, key=keta)
+        psi_samples = grandom.uniform(kpsi, n) * 2.0 * numpy.pi
         return eta_samples, psi_samples
 
     def _vmax_at_r(self, pot, r, **kwargs):
@@ -1078,9 +1165,14 @@ class isotropicsphericaldf(sphericaldf):
             / special.gamma(m // 2 + n // 2 + 1.5)
         )
 
-    def _sample_eta(self, r, n=1):
-        """Sample the angle eta which defines radial vs tangential velocities"""
-        return numpy.arccos(1.0 - 2.0 * numpy.random.uniform(size=n))
+    def _sample_eta(self, r, n=1, key=None):
+        """Sample the angle eta which defines radial vs tangential velocities
+
+        Isotropic: eta is analytic (``arccos(1-2u)``). ``key=None`` is the
+        byte-identical numpy draw; a backend key returns a backend array."""
+        u = grandom.uniform(key, n)
+        xp = numpy if key is None else get_namespace(u)
+        return xp.arccos(1.0 - 2.0 * u)
 
     def _p_v_at_r(self, v, r):
         xp = resolve_namespace(v, r)
