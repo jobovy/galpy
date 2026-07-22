@@ -782,7 +782,11 @@ class sphericaldf(df):
                 else 3
             )
             self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(r_a_end=r_a_end)
-        # samples are numpy-side by design (_vmax_at_r follows a forced backend)
+        # samples are numpy-side by design (scipy interpolator; _vmax_at_r follows
+        # a forced backend); a backend-key r arrives as a backend array, so pull it
+        # numpy-side -- numpy.log10(<torch tensor>) trips the numpy-2.0
+        # __array_wrap__ deprecation (an error under the coverage shard's -W error)
+        r = as_numpy(r)
         return self._v_vesc_pvr_interpolator(
             numpy.log10(r / self._scale), numpy.random.uniform(size=n), grid=False
         ) * as_numpy(self._vmax_at_r(self._pot, r))
