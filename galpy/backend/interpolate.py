@@ -283,9 +283,10 @@ def interp_linear(xp, x, y, r, *, nu=0, extrapolate=True):
     dev = device_of(r, y, x)
     # A backend (jax/torch) ``x`` is kept in the namespace so the knot positions
     # are differentiable and jit-traceable (the inverse-CDF case, where
-    # ``x = cdf_grid`` is the parameter-dependent quantity -- mirrors
-    # ``sampling._natknot_coeffs``); a plain numpy/list grid (the frozen-Spline1D
-    # / structural-grid case) is materialized on ``r``'s device. The numpy path
+    # ``x = cdf_grid`` is the parameter-dependent quantity -- as in
+    # ``sampling.linear_inverse_cdf_sample``); a plain numpy/list grid (the
+    # frozen-Spline1D / structural-grid case) is materialized on ``r``'s device.
+    # The numpy path
     # is byte-identical (``numpy.asarray`` of a numpy array is a no-op).
     if is_backend_array(x):
         xb = x * 1.0
