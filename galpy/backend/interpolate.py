@@ -53,6 +53,7 @@ __all__ = [
     "eval_cubic",
     "interp_linear",
     "rect_bivariate_to_ppoly",
+    "native_rect_cubic_coeffs",
     "eval_rect_ppoly",
     "spline_filter",
     "map_coordinates",
@@ -376,6 +377,50 @@ def rect_bivariate_to_ppoly(spl):
     return xbr, ybr, out
 
 
+def native_rect_cubic_coeffs(xp, x, y, z):
+    """Native tensor-product not-a-knot cubic fit matching ``RectBivariateSpline``.
+
+    ``RectBivariateSpline(x, y, z, kx=3, ky=3, s=0)`` (FITPACK ``regrid_smth``) is
+    a tensor product of 1D interpolating cubic B-splines; for ``s=0`` FITPACK
+    places its interior knots at the data points ``x[2..n-3]``, which is exactly
+    NOT-A-KNOT placement -- so the fit is the tensor product of two not-a-knot 1D
+    cubics, separable on a full grid. This builds that block ENTIRELY in ``xp``
+    (two batched calls to :func:`cubic_spline_coeffs`), returning ``(xbr, ybr, c)``
+    in the :func:`eval_rect_ppoly` layout (``xbr`` ``(nx,)``, ``ybr`` ``(ny,)``,
+    ``c`` ``(4, 4, nx-1, ny-1)``). Matches ``RectBivariateSpline.ev`` to ~2e-15
+    and is differentiable w.r.t. the grid VALUES ``z`` (the point of going
+    native: the frozen scipy fit severs that gradient). The numpy path keeps
+    using scipy via :func:`rect_bivariate_to_ppoly` (byte-identical); this is the
+    jax/torch fit. ``x``/``y`` are grid geometry (numpy); ``z`` is ``(nx, ny)``.
+
+    Step 1 fits a not-a-knot cubic in X for every y-column at once -> x-power
+    coefficients ``cx`` ``(4, nx-1, ny)``. Step 2 fits, for each x-power, a
+    not-a-knot cubic in Y across the ``ny`` columns (again batched over the x
+    intervals): fixing the x-cell, each x-power coefficient is itself the unique
+    not-a-knot Y-interpolant of its grid values, so the tensor product is exact.
+    """
+    x = numpy.asarray(x, dtype=float)
+    y = numpy.asarray(y, dtype=float)
+    dev = device_of(z)
+    # step 1: not-a-knot cubic in X for all ny columns -> (4, nx-1, ny)
+    cx = cubic_spline_coeffs(xp, x, z, bc="not-a-knot")
+    # step 2: for each x-power px, not-a-knot cubic in Y across the columns. Feed
+    # cx[px] transposed to (ny, nx-1) so the batched (2-D y) solve fits one Y
+    # spline per x-interval -> (4, ny-1, nx-1); swap back to (4, nx-1, ny-1).
+    rows = [
+        xp.swapaxes(
+            cubic_spline_coeffs(xp, y, xp.swapaxes(cx[px], -1, -2), bc="not-a-knot"),
+            -1,
+            -2,
+        )
+        for px in range(4)
+    ]
+    c = xp.stack(rows, axis=0)  # (4, 4, nx-1, ny-1)
+    xbr = asarray_on_device(xp, x, dev)
+    ybr = asarray_on_device(xp, y, dev)
+    return xbr, ybr, c
+
+
 def eval_rect_ppoly(xp, xbr, ybr, c, X, Y, *, extrapolate=True):
     """Evaluate a tensor-product piecewise polynomial at points ``(X, Y)``.
 
@@ -426,23 +471,146 @@ def eval_rect_ppoly(xp, xbr, ybr, c, X, Y, *, extrapolate=True):
 #       scipy.ndimage.map_coordinates(filtered, coords, order=3, prefilter=False).
 #
 #   This is the StaeckelGrid jr/jz/ecc/zmax/rperi/rap evaluator. As in the
-#   design for the splines above, the EXPENSIVE part -- the spline PREFILTER --
-#   is done ONCE at setup in numpy via scipy.ndimage.spline_filter (so the
-#   stored coefficient grid is byte-identical to today's grid). Only the
-#   per-query interpolation off the prefiltered coefficients is reimplemented
-#   backend-agnostically, with the SAME centred cubic B-spline kernel scipy uses
-#   -- so the backend result matches scipy.ndimage.map_coordinates to ~1e-14 and
-#   the numpy path is a literal scipy passthrough (byte-identical).
+#   design for the splines above, the per-query interpolation off the
+#   prefiltered coefficients is reimplemented backend-agnostically, with the
+#   SAME centred cubic B-spline kernel scipy uses -- so the backend result
+#   matches scipy.ndimage.map_coordinates to ~1e-14 and the numpy path is a
+#   literal scipy passthrough (byte-identical).
+#
+#   The PREFILTER itself (:func:`spline_filter`) is dual-path: a numpy grid is a
+#   literal ``scipy.ndimage.spline_filter`` passthrough (byte-identical to the
+#   grids today); a backend (jax/torch) grid is prefiltered NATIVELY through
+#   namespace ops (:func:`_spline_filter_native`), so the coefficient grid stays
+#   a backend array (GPU-resident, differentiable w.r.t. the grid VALUES) and
+#   the whole grid-table build differentiates through to the query.
 ###############################################################################
-def spline_filter(grid, order=3):
-    """Prefilter ``grid`` for cubic ``map_coordinates`` (scipy passthrough).
+# Cubic (order-3) B-spline prefilter (recursive IIR B-spline filter (Thevenaz), mode=
+# 'mirror'): single pole z1 = sqrt(3) - 2, overall gain (1-z1)(1-1/z1).
+_SPLINE_Z1_ORDER3 = numpy.sqrt(3.0) - 2.0
+_SPLINE_GAIN_ORDER3 = (1.0 - _SPLINE_Z1_ORDER3) * (1.0 - 1.0 / _SPLINE_Z1_ORDER3)
 
-    Thin wrapper over ``scipy.ndimage.spline_filter`` run at SETUP in numpy, so
-    the stored coefficient grid is byte-identical to the grids today. The
-    coefficients then feed the backend-agnostic :func:`map_coordinates` below
-    (called with ``prefilter=False`` since the prefilter happened here).
+
+def _spline_causal_init_weights(n, z):
+    """Static weights ``w`` (length ``n``) so ``init_causal = sum_i w[i] c[i]`` for
+    the mode='mirror' cubic prefilter -- a whole-sample-symmetric boundary
+    (period ``2n-2``). The init is a fixed linear combination (geometry only), so
+    it is a plain dot product: differentiable and jit-safe."""
+    i = numpy.arange(n)
+    w = numpy.zeros(n, dtype=numpy.float64)
+    w[0] = 1.0
+    w[n - 1] += z ** (n - 1)
+    mid = (i >= 1) & (i <= n - 2)
+    im = i[mid]
+    w[mid] += z**im + z ** (2 * n - 2 - im)
+    w /= 1.0 - z ** (2 * n - 2)
+    return w
+
+
+def _spline_causal_scan(xp, gained, init0, z):
+    """Causal recursion ``c[k] = gained[k] + z c[k-1]`` along the last axis
+    (``c[0] = init0``). jax uses ``lax.scan`` (so the n embedded steps roll into a
+    single traced loop); numpy/torch use a static Python loop over the short grid
+    axis. Both are differentiable w.r.t. ``gained``."""
+    L = gained.shape[-1]
+    if name_of_namespace(xp) == "jax":
+        import jax
+        import jax.numpy as jnp
+
+        xs = jnp.moveaxis(gained[..., 1:], -1, 0)  # (L-1, ...)
+
+        def step(carry, x_k):
+            new = x_k + z * carry
+            return new, new
+
+        _, ys = jax.lax.scan(step, init0, xs)
+        ys = jnp.moveaxis(ys, 0, -1)
+        return jnp.concatenate([init0[..., None], ys], axis=-1)
+    cols = [init0]
+    prev = init0
+    for k in range(1, L):
+        prev = gained[..., k] + z * prev
+        cols.append(prev)
+    return xp.stack(cols, axis=-1)
+
+
+def _spline_anticausal_scan(xp, c, z):
+    """Anticausal recursion ``c[k] = z (c[k+1] - c[k])`` along the last axis with
+    the mode='mirror' terminal init, applied to the post-causal coefficients."""
+    L = c.shape[-1]
+    init_last = (z / (z * z - 1.0)) * (z * c[..., L - 2] + c[..., L - 1])
+    if name_of_namespace(xp) == "jax":
+        import jax
+        import jax.numpy as jnp
+
+        xs = jnp.moveaxis(c[..., : L - 1], -1, 0)[::-1]  # c[L-2], ..., c[0]
+
+        def step(carry, c_k):
+            new = z * (carry - c_k)
+            return new, new
+
+        _, ys = jax.lax.scan(step, init_last, xs)
+        ys = jnp.moveaxis(ys, 0, -1)[..., ::-1]  # -> k=0..L-2
+        return jnp.concatenate([ys, init_last[..., None]], axis=-1)
+    cols = [None] * L
+    cols[L - 1] = init_last
+    nxt = init_last
+    for k in range(L - 2, -1, -1):
+        nxt = z * (nxt - c[..., k])
+        cols[k] = nxt
+    return xp.stack(cols, axis=-1)
+
+
+def _spline_filter1d_native(
+    xp, arr, axis, z=_SPLINE_Z1_ORDER3, gain=_SPLINE_GAIN_ORDER3
+):
+    """Native cubic (order=3) spline prefilter of ``arr`` along ``axis``, mode=
+    'mirror' -- matching ``scipy.ndimage.spline_filter1d(order=3, mode='mirror')``
+    through namespace ops (so a backend array stays a differentiable backend
+    array). ``xp.swapaxes`` brings ``axis`` to the last position for the scans."""
+    moved = xp.swapaxes(arr, axis, -1)
+    L = moved.shape[-1]
+    if L <= 1:
+        return arr
+    gained = moved * gain
+    w = _spline_causal_init_weights(L, z)
+    wv = asarray_on_device(xp, w, device_of(gained))
+    init0 = xp.sum(gained * wv, axis=-1)  # static dot over the last axis
+    caus = _spline_causal_scan(xp, gained, init0, z)
+    out = _spline_anticausal_scan(xp, caus, z)
+    return xp.swapaxes(out, axis, -1)
+
+
+def _spline_filter_native(xp, arr, z=_SPLINE_Z1_ORDER3, gain=_SPLINE_GAIN_ORDER3):
+    """Native N-D cubic spline_filter (mode='mirror'): filter along every axis.
+
+    Matches ``scipy.ndimage.spline_filter(arr, order=3)`` (~1e-13 on grid data)
+    through namespace ops, so a backend ``arr`` stays a backend array
+    differentiable w.r.t. its VALUES. The numpy path never routes here (see
+    :func:`spline_filter`); this is the jax/torch prefilter."""
+    out = arr
+    for axis in range(arr.ndim):
+        out = _spline_filter1d_native(xp, out, axis, z=z, gain=gain)
+    return out
+
+
+def spline_filter(grid, order=3):
+    """Prefilter ``grid`` for cubic ``map_coordinates`` (dual-path).
+
+    A numpy ``grid`` is a literal ``scipy.ndimage.spline_filter`` passthrough
+    (byte-identical to the grids today). A backend (jax/torch) ``grid`` is
+    prefiltered NATIVELY via :func:`_spline_filter_native`, so the coefficient
+    grid stays a backend array (GPU-resident and differentiable w.r.t. the grid
+    values) -- this is what lets an action-angle grid table build entirely on the
+    backend and differentiate through to the query. The coefficients then feed
+    the backend-agnostic :func:`map_coordinates` below (with ``prefilter=False``,
+    since the prefilter happened here). Only order=3 is supported on the backend
+    path (galpy's only use); the numpy path forwards any order to scipy.
     """
-    return _scipy_ndimage.spline_filter(numpy.asarray(grid), order=order)
+    if not is_backend_array(grid):
+        return _scipy_ndimage.spline_filter(numpy.asarray(grid), order=order)
+    if order != 3:  # pragma: no cover - galpy only uses cubic on the backend path
+        raise NotImplementedError("backend spline_filter only implements order=3")
+    return _spline_filter_native(get_namespace(grid), grid)
 
 
 def _cubic_bspline_weights(xp, f):
@@ -545,8 +713,11 @@ def map_coordinates(filtered, coords, order=3, mode="nearest", prefilter=False):
     import array_api_compat
 
     xp = array_api_compat.array_namespace(coords)
-    dev = device_of(coords)
-    cb = asarray_on_device(xp, numpy.asarray(filtered), dev)
+    dev = device_of(coords, filtered)
+    # A backend ``filtered`` (native prefilter, GPU-resident/differentiable) stays
+    # on its backend; a numpy ``filtered`` is materialised onto the coords' device.
+    filt = filtered if is_backend_array(filtered) else numpy.asarray(filtered)
+    cb = asarray_on_device(xp, filt, dev)
     shape = cb.shape
     D = cb.ndim
     # coords is (D, M): split into per-dimension rows. base = floor index, frac =
@@ -777,12 +948,24 @@ class _Spline1DDerivative:
 class Spline2D:
     """Backend-agnostic 2D tensor-product spline over a rectangular grid.
 
-    Frozen (mode 1) only: built from a grid ``(x, y, z)`` or a pre-fitted scipy
-    ``RectBivariateSpline``, and frozen to a tensor-product power-basis block.
-    ``__call__(X, Y)`` on numpy input calls ``RectBivariateSpline.ev``
-    (BYTE-IDENTICAL to scipy); on backend arrays it evaluates the frozen block
-    through ``eval_rect_ppoly`` (differentiable w.r.t. the evaluation points).
-    Serves interpRZPotential and the DF ``RectBivariateSpline`` tables.
+    Two construction modes:
+
+    - **mode 1 (frozen, eval-point-differentiable)** -- built from numpy
+      ``(x, y, z)`` or a pre-fitted scipy ``RectBivariateSpline`` and frozen to a
+      tensor-product power-basis block. ``__call__(X, Y)`` on numpy input calls
+      ``RectBivariateSpline.ev`` (BYTE-IDENTICAL to scipy); on backend arrays it
+      evaluates the frozen block through ``eval_rect_ppoly`` (differentiable
+      w.r.t. the evaluation points).
+
+    - **mode 2 (in-backend, differentiable in z)** -- triggered when ``z`` is a
+      backend (jax/torch) array (and ``spl`` is not given). The tensor-product
+      not-a-knot cubic coefficients are built natively via
+      :func:`native_rect_cubic_coeffs` (matching ``RectBivariateSpline(s=0)``), so
+      the spline is differentiable w.r.t. the grid VALUES ``z`` -- the capability
+      the frozen scipy fit cannot provide (a parameter-dependent 2D table).
+
+    Serves interpRZPotential, the action-angle grids, and the DF
+    ``RectBivariateSpline`` tables.
 
     Parameters
     ----------
@@ -801,6 +984,19 @@ class Spline2D:
     """
 
     def __init__(self, x=None, y=None, z=None, kx=3, ky=3, spl=None, ext=0):
+        self._extrapolate = True if ext in (0, "extrapolate") else "const"
+        if spl is None and is_backend_array(z):
+            # mode 2 (in-backend, differentiable in z): a backend ``z`` builds the
+            # tensor-product not-a-knot cubic block NATIVELY (matching
+            # RectBivariateSpline(s=0)), so the fit stays a backend array and is
+            # differentiable w.r.t. the grid values. cubic only (galpy's use).
+            if kx != 3 or ky != 3:
+                raise ValueError("Spline2D mode-2 (backend z) supports only kx=ky=3")
+            self._spl = None
+            self._xbr, self._ybr, self._c = native_rect_cubic_coeffs(
+                get_namespace(z), x, y, z
+            )
+            return
         if spl is None:
             spl = _scipy_interpolate.RectBivariateSpline(
                 numpy.asarray(x, dtype=float),
@@ -810,7 +1006,6 @@ class Spline2D:
                 ky=ky,
             )
         self._spl = spl
-        self._extrapolate = True if ext in (0, "extrapolate") else "const"
         self._xbr, self._ybr, self._c = rect_bivariate_to_ppoly(spl)
 
     def __call__(self, X, Y, grid=False):
@@ -823,8 +1018,26 @@ class Spline2D:
         on the outer (tensor) product of ``X`` and ``Y``, matching scipy's
         default ``RectBivariateSpline.__call__``.
         """
-        if not (is_backend_array(X) or is_backend_array(Y)):
+        numpy_query = not (is_backend_array(X) or is_backend_array(Y))
+        if numpy_query and self._spl is not None:
             return self._spl(X, Y, grid=grid)
+        if numpy_query:
+            # mode-2 (backend-native) block queried with numpy points: evaluate
+            # the native coeffs through numpy (materialised off the backend).
+            xp = numpy
+            Xa = numpy.asarray(X, dtype=float)
+            Ya = numpy.asarray(Y, dtype=float)
+            xbr, ybr, c = (
+                numpy.asarray(self._xbr),
+                numpy.asarray(self._ybr),
+                numpy.asarray(self._c),
+            )
+            if grid:
+                Xa = Xa[:, None]
+                Ya = Ya[None, :]
+            return eval_rect_ppoly(
+                xp, xbr, ybr, c, Xa, Ya, extrapolate=self._extrapolate
+            )
         import array_api_compat
 
         ref = X if is_backend_array(X) else Y

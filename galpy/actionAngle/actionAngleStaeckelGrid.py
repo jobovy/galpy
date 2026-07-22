@@ -14,9 +14,14 @@ import numpy
 from scipy import interpolate, ndimage, optimize
 
 from .. import potential
-from ..backend import get_namespace
+from ..backend import (
+    as_numpy,
+    asarray_on_device,
+    device_of,
+    get_namespace,
+)
 from ..backend import interpolate as backend_interpolate
-from ..backend import is_backend_array, promote_scalars
+from ..backend import is_backend_array, promote_scalars, use
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -98,6 +103,15 @@ class actionAngleStaeckelGrid(actionAngle):
         )
         # Build grid
         self._Lzmin = 0.01
+        xp = get_namespace()
+        if xp is not numpy:
+            # Forced/default backend: build the whole grid ON the backend so the
+            # frozen tables are backend arrays (GPU-resident) fit NATIVELY, and the
+            # grid build differentiates through to the query. The numpy body below
+            # is left byte-identical (scipy).
+            self._build_grid_backend(xp, nE, npsi, nLz, numcores, interpecc)
+            self._check_consistent_units()
+            return None
         self._Lzs = numpy.linspace(
             self._Lzmin, self._Rmax * potential.vcirc(self._pot, self._Rmax), nLz
         )
@@ -339,52 +353,289 @@ class actionAngleStaeckelGrid(actionAngle):
         return None
 
     def _build_backend_interp(self, y, interpecc):
-        """Wrap the fitted scipy interpolators for jax/torch evaluation (numpy
-        path is byte-identical -- the wrappers delegate to scipy on numpy input).
+        """Build the jax/torch eval wrappers from the RAW frozen tables (dual-path).
+
+        On the numpy path the tables are numpy, so the Spline1D/Spline2D/
+        MapCoordinates wrappers fit scipy internally and are byte-identical to the
+        scipy interpolators used by the numpy ``_evaluate``; on a forced backend
+        the tables are backend arrays, so the wrappers fit NATIVELY (Spline2D
+        not-a-knot cubic, native spline_filter) and stay backend arrays,
+        differentiable through to the query. ``bc='not-a-knot'`` matches FITPACK's
+        s=0 interpolating cubic on the backend (mode-2) path; it is ignored on the
+        numpy (scipy) path.
         """
-        self._logu0Interp_b = backend_interpolate.Spline2D(spl=self._logu0Interp)
+        xp = get_namespace(self._u0)  # numpy or the forced/data backend
+        Lz_geom = as_numpy(self._Lzs)  # fit x-geometry (breakpoints) is numpy
+        self._logu0Interp_b = backend_interpolate.Spline2D(
+            Lz_geom, as_numpy(y), xp.log(self._u0)
+        )
         self._jrLzInterp_b = backend_interpolate.Spline1D(
-            self._Lzs, numpy.log(self._jrLzE + 10.0**-5.0), k=3
+            Lz_geom, xp.log(self._jrLzE + 10.0**-5.0), k=3, bc="not-a-knot"
         )
         self._jzLzInterp_b = backend_interpolate.Spline1D(
-            self._Lzs, numpy.log(self._jzLzE + 10.0**-5.0), k=3
+            Lz_geom, xp.log(self._jzLzE + 10.0**-5.0), k=3, bc="not-a-knot"
         )
         self._ERLInterp_b = backend_interpolate.Spline1D(
-            self._Lzs, numpy.log(-(self._ERL - self._ERLmax)), k=3
+            Lz_geom, xp.log(-(self._ERL - self._ERLmax)), k=3, bc="not-a-knot"
         )
         self._ERaInterp_b = backend_interpolate.Spline1D(
-            self._Lzs, numpy.log(-(self._ERa - self._ERamax)), k=3
+            Lz_geom, xp.log(-(self._ERa - self._ERamax)), k=3, bc="not-a-knot"
         )
         # The filtered grids feed the backend cubic map_coordinates (mode/order
         # matching the scipy calls in _evaluate/_EccZmaxRperiRap).
         self._jrMap_b = backend_interpolate.MapCoordinates(
-            numpy.log(self._jr + 10.0**-10.0)
+            xp.log(self._jr + 10.0**-10.0)
         )
         self._jzMap_b = backend_interpolate.MapCoordinates(
-            numpy.log(self._jz + 10.0**-10.0)
+            xp.log(self._jz + 10.0**-10.0)
         )
         if interpecc:
             self._zmaxLzInterp_b = backend_interpolate.Spline1D(
-                self._Lzs, numpy.log(self._zmaxLzE + 10.0**-5.0), k=3
+                Lz_geom, xp.log(self._zmaxLzE + 10.0**-5.0), k=3, bc="not-a-knot"
             )
             self._rperiLzInterp_b = backend_interpolate.Spline1D(
-                self._Lzs, numpy.log(self._rperiLzE + 10.0**-5.0), k=3
+                Lz_geom, xp.log(self._rperiLzE + 10.0**-5.0), k=3, bc="not-a-knot"
             )
             self._rapLzInterp_b = backend_interpolate.Spline1D(
-                self._Lzs, numpy.log(self._rapLzE + 10.0**-5.0), k=3
+                Lz_geom, xp.log(self._rapLzE + 10.0**-5.0), k=3, bc="not-a-knot"
             )
             self._eccMap_b = backend_interpolate.MapCoordinates(
-                numpy.log(self._ecc + 10.0**-10.0)
+                xp.log(self._ecc + 10.0**-10.0)
             )
             self._zmaxMap_b = backend_interpolate.MapCoordinates(
-                numpy.log(self._zmax + 10.0**-10.0)
+                xp.log(self._zmax + 10.0**-10.0)
             )
             self._rperiMap_b = backend_interpolate.MapCoordinates(
-                numpy.log(self._rperi + 10.0**-10.0)
+                xp.log(self._rperi + 10.0**-10.0)
             )
             self._rapMap_b = backend_interpolate.MapCoordinates(
-                numpy.log(self._rap + 10.0**-10.0)
+                xp.log(self._rap + 10.0**-10.0)
             )
+        return None
+
+    def _build_grid_backend(self, xp, nE, npsi, nLz, numcores, interpecc):
+        """Backend (jax/torch) counterpart of the numpy grid build.
+
+        Produces the SAME frozen-table attributes as the numpy path
+        (``_Lzs, _RL, _ERL, _ERa, _u0, _jr, _jz, _jrLzE, _jzLzE`` + the interpecc
+        analogues), but as BACKEND arrays fit NATIVELY -- so the tables are
+        GPU-resident and the grid build differentiates through to the query. The
+        non-differentiable per-orbit solvers (``rl``, the ``calcu0`` root-find /
+        C kernel, the ``actionAngleStaeckel`` action solve) run as they do on
+        numpy; their outputs are brought onto the backend for the elementwise
+        energy math and the native fits. The values match the numpy(scipy) grid
+        to grid-parity tolerance; the fit-produced tables agree to ~1e-13, while
+        the ``_u0``-derived tables agree to ~1e-7 because ``calcu0`` is
+        ill-conditioned (a 1-ULP-reorder difference in the energy handed to the
+        root-find amplifies ~1e8 -- a benign floating-point sensitivity, not a
+        native-fit error). Reductions/clips use ``xp.where``/``xp.max``
+        (numpy's in-place boolean-index writes are jax-immutable).
+        """
+        vc = potential.vcirc(self._pot, self._Rmax)
+        dev = device_of(vc)
+        # --- Lz grid (differentiable in Lzmax = Rmax*vcirc) ---
+        frac = asarray_on_device(xp, numpy.linspace(0.0, 1.0, nLz), dev)
+        self._Lzs = self._Lzmin + frac * (self._Rmax * vc - self._Lzmin)
+        self._Lzmax = self._Lzs[-1]
+        self._nLz = nLz
+        # rl root-find (non-differentiable) -> RL, brought onto the backend
+        with use("numpy", force=True):
+            RL_np = numpy.array(
+                [potential.rl(self._pot, as_numpy(l)) for l in self._Lzs]
+            )
+        self._RL = asarray_on_device(xp, RL_np, dev)
+        self._ERL = (
+            _evaluatePotentials(self._pot, self._RL, xp.zeros(self._nLz))
+            + self._Lzs**2.0 / 2.0 / self._RL**2.0
+        )
+        self._ERLmax = xp.max(self._ERL) + 1.0
+        self._Ramax = 200.0 / 8.0
+        self._ERa = (
+            _evaluatePotentials(self._pot, self._Ramax, 0.0)
+            + self._Lzs**2.0 / 2.0 / self._Ramax**2.0
+        )
+        self._ERamax = xp.max(self._ERa) + 1.0
+        y = asarray_on_device(xp, numpy.linspace(0.0, 1.0, nE), dev)
+        self._nE = nE
+        psis = asarray_on_device(
+            xp, numpy.linspace(0.0, 1.0, npsi) * numpy.pi / 2.0, dev
+        )
+        self._npsi = npsi
+        # --- u0 grid (via the numpy calcu0 solver) ---
+        thisLzs = _tileT_flat(xp, self._Lzs, nE)
+        thisERL = _tileT_flat(xp, self._ERL, nE)
+        thisERa = _tileT_flat(xp, self._ERa, nE)
+        this = xp.reshape(xp.tile(y, (nLz, 1)), (-1,))
+        thisE = _invEfunc(
+            _Efunc(thisERa, thisERL)
+            + this * (_Efunc(thisERL, thisERL) - _Efunc(thisERa, thisERL)),
+            thisERL,
+        )
+        if isinstance(self._pot, potential.interpRZPotential) and hasattr(
+            self._pot, "_origPot"
+        ):
+            u0pot = self._pot._origPot
+        else:
+            u0pot = self._pot
+        with use("numpy", force=True):
+            thisE_np = as_numpy(thisE)
+            thisLzs_np = as_numpy(thisLzs)
+            if self._c:
+                mu0 = actionAngleStaeckel_c.actionAngleStaeckel_calcu0(
+                    thisE_np, thisLzs_np, u0pot, self._delta
+                )[0]
+            else:
+                mu0 = numpy.array(
+                    [self.calcu0(thisE_np[x], thisLzs_np[x]) for x in range(nE * nLz)]
+                )
+        u0 = asarray_on_device(xp, numpy.reshape(mu0, (nLz, nE)), dev)
+        thisR = self._delta * xp.sinh(u0)
+        thisv = xp.reshape(
+            self.vatu0(
+                xp.reshape(thisE, (-1,)),
+                xp.reshape(thisLzs, (-1,)),
+                xp.reshape(u0, (-1,)),
+                xp.reshape(thisR, (-1,)),
+            ),
+            (nLz, nE),
+        )
+        self.thisv = thisv
+        # tile over psi (mirrors the numpy layout exactly)
+        thisLzs = xp.reshape(thisLzs, (nLz, nE))
+        thispsi = xp.reshape(xp.tile(psis, (nLz, nE, 1)), (-1,))
+        thisLzs = xp.reshape(
+            _revT(xp, xp.tile(_revT(xp, thisLzs), (npsi, 1, 1))), (-1,)
+        )
+        thisR = xp.reshape(_revT(xp, xp.tile(_revT(xp, thisR), (npsi, 1, 1))), (-1,))
+        thisv = xp.reshape(_revT(xp, xp.tile(_revT(xp, thisv), (npsi, 1, 1))), (-1,))
+        mjr, mlz, mjz = self._aA(
+            thisR,
+            thisv * xp.cos(thispsi),
+            thisLzs / thisR,
+            xp.zeros(thisR.shape[0]),
+            thisv * xp.sin(thispsi),
+            fixed_quad=True,
+        )
+        if interpecc:
+            mecc, mzmax, mrperi, mrap = self._aA.EccZmaxRperiRap(
+                thisR,
+                thisv * xp.cos(thispsi),
+                thisLzs / thisR,
+                xp.zeros(thisR.shape[0]),
+                thisv * xp.sin(thispsi),
+            )
+        if isinstance(self._pot, potential.interpRZPotential) and hasattr(
+            self._pot, "_origPot"
+        ):
+            # Interpolated potentials have problems with extreme orbits: recompute
+            # the 9999.99 flags with the original potential (rare; numpy solver).
+            bad = (mjr == 9999.99) | (mjz == 9999.99)
+            if int(as_numpy(xp.sum(bad))) > 0:
+                bad_np = as_numpy(bad)
+                with use("numpy", force=True):
+                    tmpaA = actionAngleStaeckel.actionAngleStaeckel(
+                        pot=self._pot._origPot, delta=self._delta, c=self._c
+                    )
+                    R_np = as_numpy(thisR)
+                    v_np = as_numpy(thisv)
+                    psi_np = as_numpy(thispsi)
+                    Lz_np = as_numpy(thisLzs)
+                    rjr, _, rjz = tmpaA(
+                        R_np[bad_np],
+                        v_np[bad_np] * numpy.cos(psi_np[bad_np]),
+                        Lz_np[bad_np] / R_np[bad_np],
+                        numpy.zeros(int(bad_np.sum())),
+                        v_np[bad_np] * numpy.sin(psi_np[bad_np]),
+                        fixed_quad=True,
+                    )
+                    mjr_np = as_numpy(mjr).copy()
+                    mjz_np = as_numpy(mjz).copy()
+                    mjr_np[bad_np] = rjr
+                    mjz_np[bad_np] = rjz
+                mjr = asarray_on_device(xp, mjr_np, dev)
+                mjz = asarray_on_device(xp, mjz_np, dev)
+                if interpecc:
+                    with use("numpy", force=True):
+                        recc, rzmax, rrperi, rrap = tmpaA.EccZmaxRperiRap(
+                            R_np[bad_np],
+                            v_np[bad_np] * numpy.cos(psi_np[bad_np]),
+                            Lz_np[bad_np] / R_np[bad_np],
+                            numpy.zeros(int(bad_np.sum())),
+                            v_np[bad_np] * numpy.sin(psi_np[bad_np]),
+                        )
+                        mecc_np = as_numpy(mecc).copy()
+                        mzmax_np = as_numpy(mzmax).copy()
+                        mrperi_np = as_numpy(mrperi).copy()
+                        mrap_np = as_numpy(mrap).copy()
+                        mecc_np[bad_np] = recc
+                        mzmax_np[bad_np] = rzmax
+                        mrperi_np[bad_np] = rrperi
+                        mrap_np[bad_np] = rrap
+                    mecc = asarray_on_device(xp, mecc_np, dev)
+                    mzmax = asarray_on_device(xp, mzmax_np, dev)
+                    mrperi = asarray_on_device(xp, mrperi_np, dev)
+                    mrap = asarray_on_device(xp, mrap_np, dev)
+        jr = xp.reshape(mjr, (nLz, nE, npsi))
+        jz = xp.reshape(mjz, (nLz, nE, npsi))
+        if interpecc:
+            ecc = xp.reshape(mecc, (nLz, nE, npsi))
+            zmax = xp.reshape(mzmax, (nLz, nE, npsi))
+            rperi = xp.reshape(mrperi, (nLz, nE, npsi))
+            rap = xp.reshape(mrap, (nLz, nE, npsi))
+        # per-Lz maxima (nanmax over the non-9999.99 / finite entries)
+        jrLzE = xp.stack([_nanmax_ne(xp, jr[ii], 9999.99) for ii in range(nLz)])
+        jzLzE = xp.stack([_nanmax_ne(xp, jz[ii], 9999.99) for ii in range(nLz)])
+        jrLzE = _fill_zeros_minpos(xp, jrLzE)
+        jzLzE = _fill_zeros_minpos(xp, jzLzE)
+        if interpecc:
+            zmaxLzE = xp.stack([_max_finite(xp, zmax[ii]) for ii in range(nLz)])
+            rperiLzE = xp.stack([_max_finite(xp, rperi[ii]) for ii in range(nLz)])
+            rapLzE = xp.stack([_max_finite(xp, rap[ii]) for ii in range(nLz)])
+            zmaxLzE = _fill_zeros_minpos(xp, zmaxLzE)
+            rperiLzE = _fill_zeros_minpos(xp, rperiLzE)
+            rapLzE = _fill_zeros_minpos(xp, rapLzE)
+        # normalize + clamp (jr>1 -> 1; NaN -> 0)
+        jr = jr / jrLzE[:, None, None]
+        jz = jz / jzLzE[:, None, None]
+        jr = xp.where(jr > 1.0, 1.0, jr)
+        jz = xp.where(jz > 1.0, 1.0, jz)
+        jr = xp.where(xp.isnan(jr), 0.0, jr)
+        jz = xp.where(xp.isnan(jz), 0.0, jz)
+        if interpecc:
+            # ecc is NOT normalized by a per-Lz maximum (unlike zmax/rperi/rap).
+            zmax = zmax / zmaxLzE[:, None, None]
+            rperi = rperi / rperiLzE[:, None, None]
+            rap = rap / rapLzE[:, None, None]
+            ecc = xp.where(ecc < 0.0, 0.0, ecc)
+            ecc = xp.where(ecc > 1.0, 1.0, ecc)
+            ecc = xp.where(xp.isnan(ecc), 0.0, ecc)
+            ecc = xp.where(xp.isinf(ecc), 1.0, ecc)
+            zmax = xp.where(zmax > 1.0, 1.0, zmax)
+            zmax = xp.where(xp.isnan(zmax), 0.0, zmax)
+            zmax = xp.where(xp.isinf(zmax), 1.0, zmax)
+            rperi = xp.where(rperi > 1.0, 1.0, rperi)
+            rperi = xp.where(xp.isnan(rperi), 0.0, rperi)
+            rperi = xp.where(xp.isinf(rperi), 0.0, rperi)
+            rap = xp.where(rap > 1.0, 1.0, rap)
+            rap = xp.where(xp.isnan(rap), 0.0, rap)
+            rap = xp.where(xp.isinf(rap), 1.0, rap)
+        # store the frozen tables (backend arrays)
+        self._jr = jr
+        self._jz = jz
+        self._u0 = u0
+        self._jrLzE = jrLzE
+        self._jzLzE = jzLzE
+        if interpecc:
+            self._ecc = ecc
+            self._zmax = zmax
+            self._rperi = rperi
+            self._rap = rap
+            self._zmaxLzE = zmaxLzE
+            self._rperiLzE = rperiLzE
+            self._rapLzE = rapLzE
+        # native fits + backend eval wrappers (no scipy fits: numpy _evaluate is
+        # never reached under a forced backend)
+        self._build_backend_interp(y, interpecc)
         return None
 
     def _evaluate(self, *args, **kwargs):
@@ -1104,4 +1355,39 @@ def _Efunc(E, *args):
 def _invEfunc(Ef, *args):
     """Inverse of Efunc"""
     #    return Ef**2.+args[0]
-    return numpy.exp(Ef) + args[0] - 10.0**-10.0
+    xp = get_namespace(Ef) if is_backend_array(Ef) else numpy
+    return xp.exp(Ef) + args[0] - 10.0**-10.0
+
+
+def _revT(xp, a):
+    """Full-axis-reversing transpose (numpy ``.T`` for any ndim), namespace-generic."""
+    return xp.permute_dims(a, tuple(reversed(range(a.ndim))))
+
+
+def _tileT_flat(xp, a, reps):
+    """``(tile(a, (reps, 1)).T).flatten()`` -- the numpy grid-tiling idiom, in xp.
+    ``a`` is 1-D (n,); returns (n*reps,) with ``a`` varying slowest."""
+    return xp.reshape(xp.matrix_transpose(xp.tile(a, (reps, 1))), (-1,))
+
+
+def _nanmax_ne(xp, slc, exclude):
+    """``nanmax`` over the entries of ``slc`` that are neither NaN nor ``exclude``
+    (matches ``numpy.nanmax(slc[slc != exclude])`` on the physical grid, where at
+    least one valid entry remains)."""
+    neg_inf = asarray_on_device(xp, numpy.array(-numpy.inf), device_of(slc))
+    masked = xp.where((slc != exclude) & ~xp.isnan(slc), slc, neg_inf)
+    return xp.max(masked)
+
+
+def _max_finite(xp, slc):
+    """``numpy.amax(slc[numpy.isfinite(slc)])`` -- max over the finite entries."""
+    neg_inf = asarray_on_device(xp, numpy.array(-numpy.inf), device_of(slc))
+    return xp.max(xp.where(xp.isfinite(slc), slc, neg_inf))
+
+
+def _fill_zeros_minpos(xp, a):
+    """Replace zero entries with the minimum strictly-positive entry (mirrors
+    ``a[a == 0.0] = numpy.nanmin(a[a > 0.0])``)."""
+    pos_inf = asarray_on_device(xp, numpy.array(numpy.inf), device_of(a))
+    minpos = xp.min(xp.where(a > 0.0, a, pos_inf))
+    return xp.where(a == 0.0, minpos, a)
