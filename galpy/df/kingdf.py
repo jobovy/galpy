@@ -2,9 +2,14 @@
 import numpy
 from scipy import integrate, interpolate, special
 
-from ..backend import get_namespace, is_backend_array, resolve_namespace
+from ..backend import (
+    as_backend_constant,
+    get_namespace,
+    is_backend_array,
+    resolve_namespace,
+)
 from ..backend import special as _bspecial
-from ..backend.interpolate import Spline1D
+from ..backend.interpolate import Spline1D, interp_linear
 from ..util import conversion
 from .df import df
 from .sphericaldf import isotropicsphericaldf
@@ -80,17 +85,36 @@ class kingdf(isotropicsphericaldf):
             self, pot=pot, scale=self.r0, rmax=self.rt, ro=ro, vo=vo
         )
         self._potInf = self._pot(self.rt, 0.0, use_physical=False)
-        # Setup inverse cumulative mass function for radius sampling
-        self._icmf = interpolate.InterpolatedUnivariateSpline(
-            self._mass_scale * self._scalefree_kdf._cumul_mass / self.M,
-            self._radius_scale * self._scalefree_kdf._r,
-            k=1,
+        # Setup inverse cumulative mass function for radius sampling: store the
+        # (normalized cumulative-mass, radius) grids so a backend key can sample
+        # r via a differentiable interp_linear, plus the scipy k=1 spline for the
+        # byte-identical numpy path (see _icmf below).
+        self._icmf_cmf_grid = (
+            self._mass_scale * self._scalefree_kdf._cumul_mass / self.M
+        )
+        self._icmf_r_grid = self._radius_scale * self._scalefree_kdf._r
+        self._icmf_spline = interpolate.InterpolatedUnivariateSpline(
+            self._icmf_cmf_grid, self._icmf_r_grid, k=1
         )
         # Setup velocity DF interpolator for velocity sampling here
         self._rmin_sampling = 0.0
         self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(
             r_a_end=numpy.log10(self.rt / self._scale)
         )
+
+    def _icmf(self, ms):
+        """Inverse cumulative mass function for radius sampling.
+
+        ``ms`` is the normalized mass fraction in [0, 1]. numpy queries hit the
+        byte-identical scipy k=1 spline; a backend ``ms`` (from a backend
+        ``sample(key=...)``) is sampled by a differentiable linear interp on the
+        stored (cumulative-mass, radius) grids."""
+        if not is_backend_array(ms):
+            return self._icmf_spline(ms)
+        xp = get_namespace(ms)
+        x = as_backend_constant(xp, self._icmf_cmf_grid, ms)
+        y = as_backend_constant(xp, self._icmf_r_grid, ms)
+        return interp_linear(xp, x, y, ms, extrapolate="clip")
 
     def dens(self, r):
         return self._scalefree_kdf.dens(r / self._radius_scale) * self._density_scale
