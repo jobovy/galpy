@@ -108,6 +108,7 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
         # anchored on the inputs so the wrapped potential sees backend arrays
         # (torch functions require Tensors) on the right device/dtype.
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         zero = 0.0 if xp is numpy else xp.zeros_like(R)
         Rp = self._Rp if xp is numpy else self._Rp + xp.zeros_like(z)
         return (
@@ -133,6 +134,7 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
            2026-01-14 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         zero = 0.0 if xp is numpy else xp.zeros_like(R)
         return _evaluateRforces(self._pot, R, zero)
 
@@ -153,6 +155,7 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
            2026-01-14 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         Rp = self._Rp if xp is numpy else self._Rp + xp.zeros_like(z)
         return _evaluatezforces(self._pot, Rp, z)
 
@@ -173,6 +176,7 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
            2026-01-14 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         zero = 0.0 if xp is numpy else xp.zeros_like(R)
         return evaluateR2derivs(self._pot, R, zero, use_physical=False)
 
@@ -193,6 +197,7 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
            2026-01-14 - Written - Bovy (UofT)
         """
         xp = get_namespace(R, z, phi, t)
+        R, z = coerce_coords(xp, R, z)
         Rp = self._Rp if xp is numpy else self._Rp + xp.zeros_like(z)
         return evaluatez2derivs(self._pot, Rp, z, use_physical=False)
 
