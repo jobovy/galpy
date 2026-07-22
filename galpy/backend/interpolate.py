@@ -271,14 +271,25 @@ def interp_linear(xp, x, y, r, *, nu=0, extrapolate=True):
     """Piecewise-linear interpolation of ``(x, y)`` at ``r``, built in ``xp``.
 
     ``searchsorted`` for the interval + a lerp; trivially differentiable w.r.t.
-    both ``r`` and ``y``. ``x`` must be increasing. ``extrapolate=True`` extends
+    ``r`` and ``y``, and (when ``x`` is a backend array) w.r.t. the knot
+    positions ``x`` too -- the differentiable-linear-inverse-CDF case. ``x`` must
+    be increasing. ``extrapolate=True`` extends
     the edge line beyond the ends (matching ``eval_ppoly``'s finite
     extrapolation); ``'clip'``/``'const'``/``3`` clamp ``r`` to the range first
     (edge value beyond the ends). ``nu=1`` returns the (per-interval constant)
     secant slope; ``nu>1`` returns zeros.
     """
     dev = device_of(r, y, x)
-    xb = asarray_on_device(xp, numpy.asarray(x), dev) * 1.0
+    # A backend (jax/torch) ``x`` is kept in the namespace so the knot positions
+    # are differentiable and jit-traceable (the inverse-CDF case, where
+    # ``x = cdf_grid`` is the parameter-dependent quantity -- mirrors
+    # ``sampling._natknot_coeffs``); a plain numpy/list grid (the frozen-Spline1D
+    # / structural-grid case) is materialized on ``r``'s device. The numpy path
+    # is byte-identical (``numpy.asarray`` of a numpy array is a no-op).
+    if is_backend_array(x):
+        xb = x * 1.0
+    else:
+        xb = asarray_on_device(xp, numpy.asarray(x), dev) * 1.0
     yb = y * 1.0
     if extrapolate is not True:
         if extrapolate not in ("clip", "const", 3):
