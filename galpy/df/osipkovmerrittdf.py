@@ -2,7 +2,9 @@
 import numpy
 from scipy import integrate, interpolate, special
 
-from ..backend import as_numpy, device_of, resolve_namespace
+from ..backend import as_numpy, device_of
+from ..backend import random as grandom
+from ..backend import resolve_namespace
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..potential import evaluateDensities
 from ..potential.Potential import _evaluatePotentials
@@ -403,14 +405,25 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             )
         )
 
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):
+    def sample(
+        self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None, key=None
+    ):
         # Slight over-write of superclass method to first build f(Q) interp
         # No docstring so superclass' is used
         if rmin is None:
             rmin = self._rmin
         self._ensure_fQ_interp()
+        # Backend-key velocity sampling for anisotropic DFs is deferred (the eta
+        # sampler needs a backend inverse-CDF); reject a jax/torch key clearly.
+        if grandom._backend_of_key(key) != "numpy":
+            raise NotImplementedError(
+                "backend-key (jax/torch) sampling is not yet supported for "
+                "anisotropic DFs (constantbetadf/osipkovmerrittdf); pass "
+                "key=None for numpy sampling. Backend anisotropic velocity "
+                "sampling is a planned follow-up."
+            )
         return sphericaldf.sample(
-            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin, key=key
         )
 
     def _ensure_fQ_interp(self):

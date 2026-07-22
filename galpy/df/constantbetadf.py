@@ -13,9 +13,9 @@ from ..backend import (
     get_namespace,
     is_backend_array,
     name_of_namespace,
-    resolve_namespace,
-    use,
 )
+from ..backend import random as grandom
+from ..backend import resolve_namespace, use
 from ..backend.quadrature import fixed_quad, fixed_quad_semiinfinite
 from ..potential import evaluateRforces, interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
@@ -300,14 +300,33 @@ class _constantbetadf(anisotropicsphericaldf):
             / special.gamma(0.5 * (m + n - 2.0 * self._beta + 3.0))
         )
 
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0):
+    def sample(
+        self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0, key=None
+    ):
         # No docstring so the superclass' is used. Sampling is a numpy-side
         # (stateful-RNG) operation drawn from the interpolated fE (built with
         # the backend's autodiff at construction); run it on numpy under torch
         # so the returned Orbit and its accessors are numpy (see _numpy_ctx).
+        # Backend-key velocity sampling for anisotropic DFs is deferred (the eta
+        # sampler needs a backend inverse-CDF); reject a jax/torch key clearly
+        # rather than silently returning numpy or a broken mixed result.
+        if grandom._backend_of_key(key) != "numpy":
+            raise NotImplementedError(
+                "backend-key (jax/torch) sampling is not yet supported for "
+                "anisotropic DFs (constantbetadf/osipkovmerrittdf); pass "
+                "key=None for numpy sampling. Backend anisotropic velocity "
+                "sampling is a planned follow-up."
+            )
         with _numpy_ctx(_active_backend_name()):
             return sphericaldf.sample(
-                self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+                self,
+                R=R,
+                z=z,
+                phi=phi,
+                n=n,
+                return_orbit=return_orbit,
+                rmin=rmin,
+                key=key,
             )
 
 
@@ -452,16 +471,19 @@ class constantbetadf(_constantbetadf):
                     Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
                 )
 
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):
+    def sample(
+        self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None, key=None
+    ):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
         # Use self._rmin as default if rmin is not specified
         if rmin is None:
             rmin = self._rmin
         self._ensure_fE_interp()
-        # via _constantbetadf.sample so the torch->numpy sampling wrap applies
+        # via _constantbetadf.sample so the torch->numpy sampling wrap (and the
+        # backend-key guard) applies
         return super().sample(
-            R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+            R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin, key=key
         )
 
     def _ensure_fE_interp(self):

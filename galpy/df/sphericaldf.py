@@ -568,9 +568,16 @@ class sphericaldf(df):
         # dispatch the namespace on the key, NOT get_namespace(): key=None keeps
         # the whole assembly numpy (byte-identical) even under a forced backend;
         # a backend key follows its own draws into the active namespace.
+        # Split into INDEPENDENT sub-keys for the radial, position-angle, and
+        # velocity-angle draws: each angle helper re-splits its key internally, so
+        # handing the SAME key to both would make split() return identical sub-keys
+        # (velocity angles = deterministic fn of position angles -> biased joint
+        # distribution). key=None -> split returns (None, None, None) -> the global
+        # numpy generator draws sequentially -> byte-identical.
+        key_r, key_pos, key_vel = grandom.split(key, 3)
         if R is None or z is None:  # Full 6D samples
-            r = self._sample_r(n=n, key=key)
-            phi, theta = self._sample_position_angles(n=n, key=key)
+            r = self._sample_r(n=n, key=key_r)
+            phi, theta = self._sample_position_angles(n=n, key=key_pos)
             xp = numpy if key is None else get_namespace(r)
             R = r * xp.sin(theta)
             z = r * xp.cos(theta)
@@ -610,7 +617,7 @@ class sphericaldf(df):
         # gate the key on xp: the full-6D branch follows the backend key; the
         # fixed-position (R,z) branch stays numpy-side (xp is numpy there)
         eta, psi = self._sample_velocity_angles(
-            r, n=n, key=None if xp is numpy else key
+            r, n=n, key=None if xp is numpy else key_vel
         )
         # velocity magnitude is still numpy-side (_sample_v is PR-2); coerce the
         # numpy velocity pieces into xp so a backend key assembles backend
@@ -670,8 +677,9 @@ class sphericaldf(df):
             )
             xg = as_backend_constant(xp, as_numpy(xi_grid), rand_mass_frac)
             xi_samples = interp_linear(xp, cg, xg, rand_mass_frac, extrapolate="clip")
-            # r = _xiToR inlined in-namespace (numpy.divide would drop the graph)
-            r_samples = self._scale * (1.0 + xi_samples) / (1.0 - xi_samples)
+            # r = _xiToR inlined in-namespace (numpy.divide would drop the graph);
+            # parenthesized to match _xiToR's a*((1+xi)/(1-xi)) association exactly
+            r_samples = self._scale * ((1.0 + xi_samples) / (1.0 - xi_samples))
         else:
             # numpy path: byte-identical scipy k=1 inverse-CMF spline
             if not hasattr(self, "_xi_cmf_spline"):

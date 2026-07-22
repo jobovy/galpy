@@ -511,3 +511,48 @@ def test_sample_r_grad_vs_fd_scale(backend):
         abs(g - (sumr(1.3 + h) - sumr(1.3 - h)) / (2 * h)) for h in (1e-3, 1e-4, 1e-5)
     )
     assert best < 1e-5 * abs(g) + 1e-7, f"scale-grad {backend} best={best:.2e}"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_backend_key_angles_independent(backend):
+    # regression: sample() must hand each angle sampler an INDEPENDENT sub-key.
+    # A prior bug passed the SAME parent key to the position- and velocity-angle
+    # samplers, which each re-split it identically -> the velocity polar angle
+    # became a deterministic function of the azimuthal position angle -> a biased
+    # joint (position, velocity) distribution. Isotropic -> E[vz] = 0, so the
+    # correlation showed up as a systematic mean(vz) offset (was ~ +0.033).
+    df = isotropicHernquistdf(pot=_HP)
+    vz = numpy.concatenate(
+        [
+            as_numpy(df.sample(n=6000, return_orbit=False, key=_key(backend, s))[4])
+            for s in (1, 2, 3)
+        ]
+    )
+    assert abs(numpy.mean(vz)) < 0.012, (
+        f"mean(vz)={numpy.mean(vz):.4f} -- correlated angle sub-keys?"
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_eddington_general_backend_reachable(backend):
+    # the general (no closed-form _icmf) interp_linear inverse-CDF branch is
+    # reachable via the public eddingtondf.sample(key=...) and returns backend
+    # coordinates -- isotropic velocity sampling is backend-native
+    coords = eddingtondf(pot=_HP).sample(n=300, return_orbit=False, key=_key(backend))
+    for c in coords:
+        assert _is_backend_array(backend, c)
+
+
+@pytest.mark.skipif(not BACKENDS, reason="no backend installed")
+def test_sample_anisotropic_backend_key_raises():
+    # anisotropic velocity-angle sampling on a backend key is deferred; a clear
+    # NotImplementedError beats a confusing TypeError / a silent numpy result.
+    # key=None (numpy) still works. Backend-independent (the guard keys off the
+    # key type), so run it once.
+    from galpy.df import constantbetadf, osipkovmerrittdf
+
+    backend = BACKENDS[0]
+    for df in (constantbetadf(pot=_HP, beta=-0.2), osipkovmerrittdf(pot=_HP, ra=1.5)):
+        with pytest.raises(NotImplementedError):
+            df.sample(n=10, return_orbit=False, key=_key(backend))
+        df.sample(n=10, return_orbit=False)  # numpy path still works
