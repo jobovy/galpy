@@ -543,6 +543,68 @@ def test_sample_eddington_general_backend_reachable(backend):
         assert _is_backend_array(backend, c)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_v_native_pvr_parity(backend):
+    # the native bilinear inverse-CDF pvr must reproduce the scipy
+    # RectBivariateSpline(kx=1, ky=1) it dual-paths, at the SAME (log10 r/a, u)
+    # query points, to ~1e-13 -- so a backend-key velocity equals the numpy one
+    # given the same uniforms.
+    df = isotropicHernquistdf(pot=_HP)
+    df.sample(n=1, return_orbit=False)  # build the pvr interpolator
+    pvr = df._v_vesc_pvr_interpolator
+    rng = numpy.random.default_rng(5)
+    X = rng.uniform(-2.0, 2.0, 300)  # log10(r/a)
+    Y = rng.uniform(0.0, 1.0, 300)  # velocity uniform
+    ref = pvr(X, Y, grid=False)  # scipy path
+    got = as_numpy(pvr(_arr(backend, X), _arr(backend, Y), grid=False))  # native
+    numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_v_grad_vs_fd_r(backend):
+    # d(sampled velocity)/d(r): the backend-key velocity magnitude is a
+    # differentiable function of the backend r (through both the pvr query
+    # log10(r/a) and vmax(r)). Random directional AD must h-converge to a central
+    # FD of the numpy path (fixed velocity uniforms = common random numbers).
+    xp = _ns(backend)
+    df = isotropicHernquistdf(pot=_HP)
+    df.sample(n=1, return_orbit=False)  # build the pvr interpolator
+    pvr = df._v_vesc_pvr_interpolator
+    scale = df._scale
+    rng = numpy.random.default_rng(6)
+    r0 = rng.uniform(0.3, 4.0, 20)
+    u_v = rng.uniform(0.05, 0.95, 20)  # fixed velocity uniforms (CRN)
+    d = rng.standard_normal(r0.shape)
+    d /= numpy.linalg.norm(d)
+
+    def sumv_np(r):
+        v = pvr(numpy.log10(r / scale), u_v, grid=False) * as_numpy(
+            df._vmax_at_r(df._pot, r)
+        )
+        return numpy.sum(v)
+
+    def loss_b(r_b):
+        v = pvr(xp.log10(r_b / scale), _arr(backend, u_v), grid=False) * df._vmax_at_r(
+            df._pot, r_b
+        )
+        return xp.sum(v)
+
+    with galpy.backend.use(backend, force=True):
+        if backend == "jax":
+            g = numpy.asarray(jax.grad(loss_b)(jnp.asarray(r0)))
+        else:
+            rt = torch.tensor(r0, requires_grad=True)
+            loss_b(rt).backward()
+            g = rt.grad.numpy()
+    ad = float(numpy.dot(g, d))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(ad - (sumv_np(r0 + h * d) - sumv_np(r0 - h * d)) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert best < 1e-4 * abs(ad) + 1e-7, f"v-grad {backend} best={best:.2e}"
+
+
 @pytest.mark.skipif(not BACKENDS, reason="no backend installed")
 def test_sample_anisotropic_backend_key_raises():
     # anisotropic velocity-angle sampling on a backend key is deferred; a clear
