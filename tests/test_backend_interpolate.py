@@ -17,9 +17,11 @@ from galpy.backend.interpolate import (
     Spline2D,
     cubic_spline_coeffs,
     eval_cubic,
+    eval_rect_ppoly,
     interp_linear,
     make_smoothing_spline,
     map_coordinates,
+    native_rect_cubic_coeffs,
     smoothing_spline,
     spline_filter,
 )
@@ -56,6 +58,12 @@ def _xp(backend):
         "jax": jnp if jax else None,
         "torch": txp if torch else None,
     }[backend]
+
+
+def _is_backend(backend, x):
+    from galpy.backend import is_backend_array
+
+    return is_backend_array(x) if backend != "numpy" else not is_backend_array(x)
 
 
 def _asarray(backend, x, requires_grad=False):
@@ -772,3 +780,175 @@ def test_smoothing_spline_default_weight(backend):
     refu = si.UnivariateSpline(_SMX, _SMY, s=5.0, k=3)(_SMG)
     gotu = as_numpy(smoothing_spline(_SMX, _asarray(backend, _SMY), s=5.0)(_SMG))
     numpy.testing.assert_allclose(gotu, refu, rtol=1e-9, atol=1e-12)
+
+
+###############################################################################
+# NATIVE FITS (backend-native, GPU-resident, differentiable) -- the dual-path
+# spline_filter (backend grid -> native recursive prefilter) and the tensor-product
+# not-a-knot cubic fit native_rect_cubic_coeffs (backend z -> RectBivariateSpline
+# s=0 match). These back the actionAngleStaeckelGrid/AdiabaticGrid setup on the
+# backend so the frozen tables stay backend arrays and the build differentiates
+# through to the query. All run under the numpy-default shard (jax+torch
+# installed) so numpy.op(<tensor>) deprecation traps surface.
+###############################################################################
+_NF_RNG = numpy.random.default_rng(20240722)
+_NF_G1D = _NF_RNG.standard_normal(21)
+_NF_G2D = _NF_RNG.standard_normal((15, 18))
+_NF_G3D = _NF_RNG.standard_normal((7, 8, 6))
+# a realistic (strictly-positive, log-transformed) StaeckelGrid-like table
+_NF_GRID_REAL = numpy.log(_NF_RNG.uniform(0.05, 3.0, (9, 11, 7)))
+_MC3 = numpy.vstack(
+    [_NF_RNG.uniform(0.0, _NF_GRID_REAL.shape[d] - 1.0, 25) for d in range(3)]
+)
+
+
+def test_spline_filter_numpy_byte_identical():
+    # numpy grid -> literal scipy.ndimage.spline_filter passthrough.
+    for g in (_NF_G1D, _NF_G2D, _NF_G3D):
+        numpy.testing.assert_array_equal(
+            spline_filter(g), sndi.spline_filter(g, order=3)
+        )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline_filter_native_vs_scipy(backend):
+    # a backend grid takes the NATIVE recursive prefilter and matches scipy to ~1e-13,
+    # while staying a backend array (GPU-resident, no numpy island).
+    for g in (_NF_G1D, _NF_G2D, _NF_G3D, _NF_GRID_REAL):
+        ref = sndi.spline_filter(g, order=3)
+        out = spline_filter(_asarray(backend, g))
+        assert _is_backend(backend, out)
+        numpy.testing.assert_allclose(as_numpy(out), ref, rtol=1e-11, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_mapcoordinates_native_filtered_vs_scipy(backend):
+    # MapCoordinates built from a BACKEND grid prefilters natively (backend-array
+    # coefficients) yet reproduces the full scipy pipeline at ~1e-12.
+    mc = MapCoordinates(_asarray(backend, _NF_GRID_REAL), order=3)
+    assert _is_backend(backend, mc.filtered)
+    ref = sndi.map_coordinates(
+        sndi.spline_filter(_NF_GRID_REAL, order=3),
+        _MC3,
+        order=3,
+        prefilter=False,
+        mode="nearest",
+    )
+    got = as_numpy(mc(_asarray(backend, _MC3)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline_filter_grad_vs_fd(backend):
+    # d(0.5||spline_filter(g)||^2)/dg through the native prefilter, directional
+    # (random unit direction), central-FD-converged. This is the differentiability
+    # the grid-table build needs (scipy's prefilter severs it).
+    g0 = _NF_GRID_REAL
+    V = _NF_RNG.standard_normal(g0.shape)
+    V /= numpy.linalg.norm(V)
+
+    def loss(xp, arr):
+        return 0.5 * xp.sum(spline_filter(arr) ** 2)
+
+    if backend == "jax":
+        gb = jnp.asarray(g0)
+        grad = jax.grad(lambda a: loss(jnp, a))(gb)
+        dd = float(jnp.sum(grad * jnp.asarray(V)))
+
+        def _l(a):
+            return float(loss(jnp, jnp.asarray(a)))
+
+        # jit-safe: jax.jit == eager
+        numpy.testing.assert_allclose(
+            float(jax.jit(lambda a: loss(jnp, a))(gb)), _l(g0), rtol=1e-12, atol=1e-12
+        )
+    else:
+        gt = torch.tensor(g0, requires_grad=True)
+        loss(txp, gt).backward()
+        dd = float(torch.sum(gt.grad * torch.as_tensor(V)))
+
+        def _l(a):
+            return float(loss(txp, torch.as_tensor(a)))
+
+    fd = (_l(g0 + 1e-4 * V) - _l(g0 - 1e-4 * V)) / 2e-4
+    numpy.testing.assert_allclose(dd, fd, rtol=1e-6, atol=1e-9)
+
+
+# --- native tensor-product not-a-knot cubic fit (RectBivariateSpline s=0) ---
+_NF_X = numpy.linspace(0.0, 3.0, 16)
+_NF_Y = numpy.linspace(-1.0, 2.0, 19)
+_NFXX, _NFYY = numpy.meshgrid(_NF_X, _NF_Y, indexing="ij")
+_NF_Z_SMOOTH = numpy.sin(1.3 * _NFXX) * numpy.cos(0.7 * _NFYY) + 0.2 * _NFXX * _NFYY
+_NF_Z_RAND = _NF_RNG.standard_normal((16, 19))
+_NF_XQ = _NF_RNG.uniform(0.05, 2.95, 400)
+_NF_YQ = _NF_RNG.uniform(-0.95, 1.95, 400)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("z", [_NF_Z_SMOOTH, _NF_Z_RAND])
+def test_native_rect_cubic_coeffs_vs_scipy(backend, z):
+    # native tensor-product not-a-knot cubic == RectBivariateSpline(s=0).ev to
+    # ~2e-13 on smooth + random data; the coeffs stay a backend array.
+    xp = _xp(backend)
+    spl = si.RectBivariateSpline(_NF_X, _NF_Y, z, kx=3, ky=3, s=0.0)
+    ref = spl.ev(_NF_XQ, _NF_YQ)
+    xbr, ybr, c = native_rect_cubic_coeffs(xp, _NF_X, _NF_Y, _asarray(backend, z))
+    assert _is_backend(backend, c)
+    got = as_numpy(
+        eval_rect_ppoly(
+            xp, xbr, ybr, c, _asarray(backend, _NF_XQ), _asarray(backend, _NF_YQ)
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline2d_mode2_native_vs_scipy(backend):
+    # Spline2D with a BACKEND z builds the native fit (mode 2) and matches scipy's
+    # RectBivariateSpline.ev; the block stays a backend array.
+    spl = si.RectBivariateSpline(_NF_X, _NF_Y, _NF_Z_SMOOTH, kx=3, ky=3, s=0.0)
+    ref = spl.ev(_NF_XQ, _NF_YQ)
+    s2 = Spline2D(_NF_X, _NF_Y, _asarray(backend, _NF_Z_SMOOTH))
+    assert s2._spl is None and _is_backend(backend, s2._c)
+    got = as_numpy(s2(_asarray(backend, _NF_XQ), _asarray(backend, _NF_YQ)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_native_rect_cubic_grad_vs_fd(backend):
+    # d(0.5||fit(z).ev(Xq,Yq)||^2)/dz through the native 2D fit, directional,
+    # central-FD-converged + jit-safe (jax) -- the y-value differentiability the
+    # frozen scipy fit cannot provide.
+    z0 = _NF_Z_RAND
+    V = _NF_RNG.standard_normal(z0.shape)
+    V /= numpy.linalg.norm(V)
+
+    def loss(xp, cast, zz):
+        xbr, ybr, c = native_rect_cubic_coeffs(xp, _NF_X, _NF_Y, zz)
+        return 0.5 * xp.sum(
+            eval_rect_ppoly(xp, xbr, ybr, c, cast(_NF_XQ), cast(_NF_YQ)) ** 2
+        )
+
+    if backend == "jax":
+        zb = jnp.asarray(z0)
+        grad = jax.grad(lambda zz: loss(jnp, jnp.asarray, zz))(zb)
+        dd = float(jnp.sum(grad * jnp.asarray(V)))
+        numpy.testing.assert_allclose(
+            float(jax.jit(lambda zz: loss(jnp, jnp.asarray, zz))(zb)),
+            float(loss(jnp, jnp.asarray, zb)),
+            rtol=1e-12,
+            atol=1e-12,
+        )
+
+        def _l(a):
+            return float(loss(jnp, jnp.asarray, jnp.asarray(a)))
+    else:
+        zt = torch.tensor(z0, requires_grad=True)
+        loss(txp, torch.as_tensor, zt).backward()
+        dd = float(torch.sum(zt.grad * torch.as_tensor(V)))
+
+        def _l(a):
+            return float(loss(txp, torch.as_tensor, torch.as_tensor(a)))
+
+    fd = (_l(z0 + 1e-4 * V) - _l(z0 - 1e-4 * V)) / 2e-4
+    numpy.testing.assert_allclose(dd, fd, rtol=1e-6, atol=1e-9)
