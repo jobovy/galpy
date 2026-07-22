@@ -213,8 +213,12 @@ class _constantbetadf(anisotropicsphericaldf):
         )
         return xp.where(pos, prefac * fE * integral, xp.zeros_like(fE))
 
-    def _sample_eta(self, r, n=1):
-        """Sample the angle eta which defines radial vs tangential velocities"""
+    def _sample_eta(self, r, n=1, key=None):
+        """Sample the angle eta which defines radial vs tangential velocities
+
+        ``key`` is accepted (threaded from ``_sample_velocity_angles``) but the
+        anisotropic eta sampler stays numpy-side for now (backend eta is a later
+        migration); ``key=None`` is byte-identical."""
         if not hasattr(self, "_coseta_icmf_interp"):
             # Cumulative dist for cos(eta) =
             # 0.5 + x 2F1(0.5,beta,1.5,x^2)/sqrt(pi)/Gamma(1-beta)*Gamma(1.5-beta)

@@ -187,8 +187,12 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             )
         )
 
-    def _sample_eta(self, r, n=1):
-        """Sample the angle eta which defines radial vs tangential velocities"""
+    def _sample_eta(self, r, n=1, key=None):
+        """Sample the angle eta which defines radial vs tangential velocities
+
+        ``key`` is accepted (threaded from ``_sample_velocity_angles``) but the
+        anisotropic eta sampler stays numpy-side for now (backend eta is a later
+        migration); ``key=None`` is byte-identical."""
         # cumulative distribution of x = cos eta satisfies
         # x/(sqrt(A+1 -A* x^2)) = 2 b - 1 = c
         # where b \in [0,1] and A = (r/ra)^2

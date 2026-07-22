@@ -34,13 +34,18 @@ except ImportError:  # pragma: no cover
     torch = None
 
 import galpy.backend
-from galpy.df import isotropicHernquistdf
+from galpy.backend import random as grandom
+from galpy.backend.interpolate import interp_linear
+from galpy.df import eddingtondf, isotropicHernquistdf
 from galpy.df.sphericaldf import (
     anisotropicsphericaldf,
     isotropicsphericaldf,
     sphericaldf,
 )
 from galpy.potential import HernquistPotential
+
+if torch is not None:
+    import array_api_compat.torch as _TXP
 
 
 def _arr(backend, x):
@@ -357,3 +362,152 @@ def test_call_orbit_forced(backend):
     with galpy.backend.use(backend, force=True):
         got_a = ani(Orbit(ic))
     numpy.testing.assert_allclose(as_numpy(got_a), ref_a, rtol=1e-12)
+
+
+###############################################################################
+# Backend-native, differentiable radial + analytic-angle sampling via a backend
+# ``key`` (interp_linear inverse-CDF). The numpy path (key=None) is byte-
+# identical and covered by test_sphericaldf; here we exercise the backend key.
+###############################################################################
+def _key(backend, seed=7):
+    return grandom.key(seed, backend)
+
+
+def _ns(backend):
+    return jnp if backend == "jax" else _TXP
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_r_interp_linear_same_u_parity(backend):
+    # feed the SAME uniforms to interp_linear on the DF's (cdf, xi) grid under
+    # numpy vs the backend -> identical inverse-CDF samples (the whole radial
+    # sampler is a deterministic function of the uniforms)
+    xp = _ns(backend)
+    df = eddingtondf(pot=_HP)
+    df.sample(n=1, return_orbit=False)  # build the (cdf, xi) grids
+    ms, xis = df._get_cmf_grids()
+    u = numpy.random.uniform(size=400)
+    ref = interp_linear(numpy, ms, xis, u, extrapolate="clip")
+    got = interp_linear(
+        xp, _arr(backend, ms), _arr(backend, xis), _arr(backend, u), extrapolate="clip"
+    )
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-11, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_backend_key_coords_and_distribution(backend):
+    # a full sample() under a backend key returns backend-array coordinates and
+    # reproduces the analytic Hernquist mass profile + azimuthal symmetry
+    import tests.test_sphericaldf as T
+    from galpy.orbit import Orbit
+
+    df = isotropicHernquistdf(pot=_HP)
+    R, vR, vT, z, vz, phi = df.sample(n=4000, return_orbit=False, key=_key(backend))
+    for c in (R, z, phi, vR, vz, vT):
+        assert _is_backend_array(backend, c)
+    a = _HP.a
+    samp = Orbit(
+        vxvv=numpy.array(
+            [
+                as_numpy(R),
+                as_numpy(vR),
+                as_numpy(vT),
+                as_numpy(z),
+                as_numpy(vz),
+                as_numpy(phi),
+            ]
+        ).T
+    )
+    T.check_spherical_massprofile(
+        samp, lambda r: r**2.0 / (r + a) ** 2.0, 0.05, skip=1000
+    )
+    T.check_azimuthal_symmetry(samp, 1, 0.05)
+    # king also samples r backend-native via its grid _icmf
+    from galpy.df import kingdf
+
+    Rk, _, _, zk, _, _ = kingdf(W0=3.0, M=2.0, rt=1.5).sample(
+        n=1000, return_orbit=False, key=_key(backend)
+    )
+    assert _is_backend_array(backend, Rk) and _is_backend_array(backend, zk)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_r_grad_vs_fd_cdf_grid(backend):
+    # d(sample_r)/d(cdf_grid): the interp_linear inverse-CDF is differentiable in
+    # the CDF knots (the parameter-dependent quantity). Random directional AD
+    # must h-converge to a central FD of the numpy path.
+    df = eddingtondf(pot=_HP)
+    df.sample(n=1, return_orbit=False)
+    ms, xis = df._get_cmf_grids()
+    scale = _HP._scale
+    u = numpy.random.uniform(size=200)
+    rng = numpy.random.default_rng(0)
+    d = rng.standard_normal(ms.shape)
+    d /= numpy.linalg.norm(d)
+
+    def sumr_np(cdf):
+        xi = interp_linear(numpy, cdf, xis, u, extrapolate="clip")
+        return numpy.sum(scale * (1.0 + xi) / (1.0 - xi))
+
+    if backend == "jax":
+
+        def sumr(cdf):
+            xi = interp_linear(
+                jnp, cdf, jnp.asarray(xis), jnp.asarray(u), extrapolate="clip"
+            )
+            return jnp.sum(scale * (1.0 + xi) / (1.0 - xi))
+
+        g = numpy.asarray(jax.grad(sumr)(jnp.asarray(ms)))
+    else:
+        c = torch.tensor(ms, requires_grad=True)
+        xi = interp_linear(
+            _TXP, c, torch.tensor(xis), torch.tensor(u), extrapolate="clip"
+        )
+        (scale * (1.0 + xi) / (1.0 - xi)).sum().backward()
+        g = c.grad.numpy()
+    ad = float(numpy.dot(g, d))
+    assert numpy.isfinite(ad) and abs(ad) > 0
+    best = min(
+        abs(ad - (sumr_np(ms + h * d) - sumr_np(ms - h * d)) / (2 * h))
+        for h in (1e-4, 1e-5, 1e-6)
+    )
+    assert best < 1e-4 * abs(ad) + 1e-7, f"cdf-grad {backend} best={best:.2e}"
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_r_grad_vs_fd_scale(backend):
+    # d(sum sample_r)/d(a): Hernquist scale radius via the analytic (backend-
+    # native) _icmf, differentiated through _sample_r with a fixed backend key
+    # (CRN -> same uniforms). AD must h-converge to a central FD.
+    key = _key(backend, 3)
+
+    def make(aval):
+        d = isotropicHernquistdf(pot=HernquistPotential(amp=2.3, a=1.3))
+        d._pot.a = aval  # differentiable leaf on a fresh pot (no shared-obj leak)
+        return d
+
+    if backend == "jax":
+        g = float(
+            jax.grad(lambda a: jnp.sum(make(a)._sample_r(n=150, key=key)))(
+                jnp.asarray(1.3)
+            )
+        )
+        out = make(jnp.asarray(1.3))._sample_r(n=150, key=key)
+        u = numpy.asarray(grandom.uniform(key, 150))
+    else:
+        at = torch.tensor(1.3, requires_grad=True)
+        out = make(at)._sample_r(n=150, key=key)
+        out.sum().backward()
+        g = float(at.grad)
+        u = grandom.uniform(key, 150).numpy()
+    assert _is_backend_array(backend, out)
+    assert numpy.isfinite(g) and abs(g) > 0
+    sq = numpy.sqrt(u)
+
+    def sumr(a):
+        return numpy.sum(a * sq / (1.0 - sq))
+
+    best = min(
+        abs(g - (sumr(1.3 + h) - sumr(1.3 - h)) / (2 * h)) for h in (1e-3, 1e-4, 1e-5)
+    )
+    assert best < 1e-5 * abs(g) + 1e-7, f"scale-grad {backend} best={best:.2e}"
