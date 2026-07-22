@@ -618,3 +618,20 @@ def test_sample_anisotropic_backend_key_raises():
         with pytest.raises(NotImplementedError):
             df.sample(n=10, return_orbit=False, key=_key(backend))
         df.sample(n=10, return_orbit=False)  # numpy path still works
+
+
+def test_pvr_interpolator_getattr_delegation():
+    # _PVRInterpolator delegates unknown attributes (e.g. get_knots) to the
+    # wrapped scipy spline so it is a drop-in for the RectBivariateSpline it
+    # replaces, and guards `_spl` to raise AttributeError (not recurse) before
+    # `_spl` is assigned.
+    from galpy.df.sphericaldf import _PVRInterpolator
+
+    df = isotropicHernquistdf(pot=_HP)
+    df.sample(n=1, return_orbit=False)  # builds the numpy pvr (has ._spl)
+    pvr = df._v_vesc_pvr_interpolator
+    assert pvr.get_knots() is not None  # delegated to the scipy spline (line 196)
+    # a wrapper with no `_spl` raises AttributeError via the guard, not RecursionError
+    bare = _PVRInterpolator.__new__(_PVRInterpolator)
+    with pytest.raises(AttributeError):
+        bare.some_missing_attr  # noqa: B018  (triggers __getattr__ -> _spl guard)
