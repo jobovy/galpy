@@ -61,7 +61,7 @@ _TWOPIWRAPS = numpy.arange(-4, 5) * 2.0 * numpy.pi
 _WRAP_COMBO = numpy.stack(
     numpy.meshgrid(_TWOPIWRAPS, _TWOPIWRAPS, _TWOPIWRAPS, indexing="xy")
 ).T.reshape((len(_TWOPIWRAPS) ** 3, 3))
-# Spline inverse-CDF frequency sampler (_sample_aAt): number of grid points for
+# Linear inverse-CDF frequency sampler (_sample_aAt): number of grid points for
 # the tilted-Gaussian CDF and the fixed [0, 1] grid fraction (the sample grid is
 # lo + (hi-lo)*_DO1_FRAC so the endpoint gradient survives on torch). erf/CDF
 # closed-form constants.
@@ -4660,7 +4660,7 @@ class streamdf(df):
         """Sampling frequencies, angles, and times part of sampling.
 
         Backend-native, unified across numpy/jax/torch: the frequency along the
-        largest eigenvalue is drawn by spline inverse-CDF sampling (replacing the
+        largest eigenvalue is drawn by linear inverse-CDF sampling (replacing the
         historical adaptive-rejection ``ars``), the other frequencies/angles by
         Gaussians, and the time by a uniform -- the SAME algorithm on every
         backend, dispatching only the RNG source and the namespace on ``key``.
@@ -4673,7 +4673,7 @@ class streamdf(df):
         DISTRIBUTION is preserved (KS-indistinguishable, moments match).
         """
         from ..backend import random as grandom
-        from ..backend.sampling import spline_inverse_cdf_sample
+        from ..backend.sampling import linear_inverse_cdf_sample
 
         # independent sub-keys so each draw is a pure function of the key (jit/
         # reparameterization-safe): dO1 (uniform, inverse-CDF), dO2/dO3 (normal),
@@ -4686,9 +4686,10 @@ class streamdf(df):
         xp = numpy if key is None else get_namespace(u1)
         mO = as_backend_constant(xp, self._meandO, u1)
         sig2 = as_backend_constant(xp, self._sortedSigOEig[2], u1)
-        # Sample frequency along the largest eigenvalue via spline inverse-CDF
+        # Sample frequency along the largest eigenvalue via linear inverse-CDF
+        # (monotone-robust, no cubic overshoot; matches sphericaldf #1181).
         og, cg = self._dOmega_inverse_cdf_grid(xp, mO, sig2, u1)
-        dO1s = spline_inverse_cdf_sample(xp, og, cg, u1) * self._sigMeanSign
+        dO1s = linear_inverse_cdf_sample(xp, og, cg, u1) * self._sigMeanSign
         dO2s = grandom.normal(k_dO2, (n,)) * xp.sqrt(
             as_backend_constant(xp, self._sortedSigOEig[1], u1)
         )
