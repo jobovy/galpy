@@ -1989,3 +1989,128 @@ def test_staeckelgrid_vatu0_backend(backend):
     )  # backend -> xp.where branch
     assert _is_backend_array(backend, vb)
     numpy.testing.assert_allclose(as_numpy(vb), vn, rtol=1e-10, atol=1e-12)
+
+
+###############################################################################
+# NATIVE grid SETUP under a forced backend: the grid built inside a forced
+# jax/torch context stores its frozen tables as BACKEND arrays (GPU-resident, no
+# numpy island) fit NATIVELY, matches the numpy(scipy) grid to grid-parity, and
+# the build differentiates through to the query (the capability the frozen scipy
+# fit severs). These build their own grid under a forced backend, so they are
+# backend_managed and skip cleanly when the backend is absent.
+###############################################################################
+_NATIVE_S = (
+    numpy.array([1.1, 0.8, 1.3]),
+    numpy.array([0.1, -0.2, 0.05]),
+    numpy.array([0.9, 0.6, 1.0]),
+    numpy.array([0.1, -0.15, 0.08]),
+    numpy.array([0.08, 0.1, -0.05]),
+)
+
+
+def _staeckelgrid_numpy_ref():
+    from galpy.potential import MWPotential2014
+
+    return actionAngleStaeckelGrid(
+        pot=MWPotential2014, delta=0.45, nE=12, npsi=12, nLz=14, c=True
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckelgrid_native_setup_backend_arrays(backend):
+    # A grid built inside a forced backend stores its frozen tables as backend
+    # arrays (GPU-resident, no numpy island) and matches the numpy(scipy) grid.
+    from galpy import backend as galpy_backend
+    from galpy.potential import MWPotential2014
+
+    ref = _staeckelgrid_numpy_ref()
+    ref_a = ref(*_NATIVE_S)
+    with galpy_backend.use(backend, force=True):
+        g = actionAngleStaeckelGrid(
+            pot=MWPotential2014, delta=0.45, nE=12, npsi=12, nLz=14, c=True
+        )
+        # every frozen table is a backend array (GPU-resident, no numpy island)
+        _tight = ("_Lzs", "_RL", "_ERL", "_ERa", "_jr", "_jz", "_jrLzE", "_jzLzE")
+        for a in _tight + ("_u0",):
+            assert _is_backend_array(backend, getattr(g, a)), a
+        # ... AND the tables match the numpy(scipy) grid: the solver-lifted /
+        # native-fit tables to ~1e-13, and the C-solver-sensitive _u0 to ~1e-7 (a
+        # 1-ULP-reorder E fed to the ill-conditioned calcu0 amplifies ~1e8; see
+        # _build_grid_backend). This is the load-bearing native-setup parity check
+        # (the single-orbit query below only floors at ~1e-3 on the shared,
+        # pre-existing query path, so it can't pin the tables this PR produces).
+        for a in _tight:
+            numpy.testing.assert_allclose(
+                as_numpy(getattr(g, a)),
+                numpy.asarray(getattr(ref, a)),
+                rtol=1e-6,
+                atol=1e-8,
+                err_msg=a,
+            )
+        numpy.testing.assert_allclose(
+            as_numpy(g._u0), numpy.asarray(ref._u0), rtol=1e-4, atol=1e-6
+        )
+        xp = galpy_backend.get_namespace()
+        got_a = g(*[xp.asarray(v) for v in _NATIVE_S])
+    # coarse query sanity: the shared query-path/solver backend parity floors this
+    # well-conditioned orbit at ~1e-3 rel (near-circular edge orbits diverge more,
+    # a pre-existing _grid_common_backend floor unrelated to the native fits); the
+    # native-fit parity is pinned by the table checks above + the flip tests.
+    for r, gg in zip(ref_a, got_a):
+        numpy.testing.assert_allclose(
+            as_numpy(gg), numpy.asarray(r), rtol=1e-3, atol=1e-5
+        )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckelgrid_native_setup_differentiable(backend):
+    # d(sum Jz^2 / 2)/d(the log-jz grid table) flows through the NATIVE
+    # spline_filter fit + native map_coordinates query -- directional, central-FD
+    # converged. This is differentiability THROUGH the grid-table build, which the
+    # frozen scipy prefilter cannot provide.
+    from galpy import backend as galpy_backend
+    from galpy.backend._namespaces import stop_gradient as sg
+    from galpy.backend.interpolate import MapCoordinates
+    from galpy.potential import MWPotential2014
+
+    with galpy_backend.use(backend, force=True):
+        g = actionAngleStaeckelGrid(
+            pot=MWPotential2014, delta=0.45, nE=12, npsi=12, nLz=14, c=True
+        )
+        xp = galpy_backend.get_namespace()
+        args = [xp.asarray(v) for v in _NATIVE_S]
+        Lz, _, cz = g._grid_common_backend(xp, *args)
+        cz, Lz = sg(cz), sg(Lz)
+        baseL = sg(xp.log(g._jz + 1e-10))
+        fac = sg(xp.exp(g._jzLzInterp_b(Lz)) - 1e-5)
+        rng = numpy.random.default_rng(3)
+        V = rng.standard_normal(as_numpy(baseL).shape)
+        V /= numpy.linalg.norm(V)
+
+        def loss(L):
+            jz = (xp.exp(MapCoordinates(L)(cz)) - 1e-10) * fac
+            return 0.5 * xp.sum(jz**2)
+
+        if backend == "jax":
+            grad = jax.grad(loss)(baseL)
+            dd = float(jnp.sum(grad * jnp.asarray(V)))
+            # jit-safe: jax.jit == eager
+            numpy.testing.assert_allclose(
+                float(jax.jit(loss)(baseL)), float(loss(baseL)), rtol=1e-11, atol=1e-11
+            )
+
+            def _l(a):
+                return float(loss(jnp.asarray(a)))
+        else:
+            bt = baseL.clone().detach().requires_grad_(True)
+            loss(bt).backward()
+            dd = float(torch.sum(bt.grad * torch.as_tensor(V)))
+
+            def _l(a):
+                with torch.no_grad():
+                    return float(loss(torch.as_tensor(a)))
+
+        baseL_np = as_numpy(baseL)
+        fd = (_l(baseL_np + 1e-4 * V) - _l(baseL_np - 1e-4 * V)) / 2e-4
+        assert _is_backend_array(backend, grad if backend == "jax" else bt.grad)
+    numpy.testing.assert_allclose(dd, fd, rtol=1e-5, atol=1e-8)
