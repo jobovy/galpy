@@ -8,6 +8,7 @@ PY_GE_314 = sys.version_info >= (3, 14)
 import numpy
 
 from galpy import potential
+from galpy.backend import as_numpy
 from galpy.util import galpyWarning
 
 
@@ -109,7 +110,7 @@ def test_FDMDynamicalFrictionForce_const_FDMfactor():
     o.integrate(t, Loghalo + fdf, method="dop853")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce with constant FDM factor does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
@@ -163,7 +164,7 @@ def test_FDMDynamicalFrictionForce_const_FDMfactor_c():
     o.integrate(t, Loghalo + fdf, method="dop853_c")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce with constant FDM factor does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
