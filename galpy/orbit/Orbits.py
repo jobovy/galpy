@@ -6779,6 +6779,8 @@ class Orbit:
                 cross = self.y(self.t, use_physical=False, dontreshape=True)
             else:
                 cross = self.x(self.t, use_physical=False, dontreshape=True)
+        # numpy-based crossing detection below; forced-backend cross -> numpy
+        cross = as_numpy(cross)
         shifts = numpy.roll(cross, -1, axis=1)
         crossindx = (cross[:, :-1] < 0.0) * (shifts[:, :-1] > 0.0)
         anycrossindx = numpy.sum(crossindx, axis=0).astype("bool")
