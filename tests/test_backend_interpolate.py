@@ -274,6 +274,126 @@ def test_interp_linear_bad_extrapolate():
         interp_linear(numpy, _XG, _YG, _RQ, extrapolate="nope")
 
 
+# --- interp_bilinear: degree-1 tensor-product interp (the spherical-DF pvr) ----
+# scipy RectBivariateSpline(kx=1, ky=1, s=0) IS exact bilinear interpolation, and
+# CONSTANT-extrapolates beyond the grid (edge value) -> matched by clip.
+_BX = numpy.linspace(-3.0, 3.0, 20)  # log10(r/a)-like abscissa
+_BY = numpy.linspace(0.0, 1.0, 15)  # uniform-CDF-like abscissa
+numpy.random.seed(4)
+_BZ_RAND = numpy.random.uniform(0.0, 1.0, (_BX.size, _BY.size))
+# a monotone-in-CDF, smooth-in-r "realistic" v/vesc-like grid
+_BZ_REAL = (
+    (numpy.tanh(_BX)[:, None] * 0.0 + 1.0)
+    * numpy.sqrt(_BY)[None, :]
+    * (1.0 - 0.3 / (1.0 + numpy.exp(-_BX))[:, None])
+)
+
+
+@pytest.mark.parametrize("Z", [_BZ_RAND, _BZ_REAL])
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_interp_bilinear_parity(backend, Z):
+    # native bilinear must reproduce RectBivariateSpline(kx=1, ky=1).ev to ~1e-13
+    # (in-range and clamped out-of-range), on a random and a realistic grid.
+    from galpy.backend.interpolate import interp_bilinear
+
+    spl = si.RectBivariateSpline(_BX, _BY, Z, kx=1, ky=1)
+    rng = numpy.random.default_rng(1)
+    X = rng.uniform(-4.0, 4.0, 60)  # includes out-of-range in X
+    Y = rng.uniform(0.0, 1.0, 60)  # in-range in Y (the CDF axis)
+    ref = spl.ev(X, Y)
+    xp = _xp(backend)
+    got = as_numpy(
+        interp_bilinear(
+            xp,
+            _asarray(backend, _BX),
+            _asarray(backend, _BY),
+            _asarray(backend, Z),
+            _asarray(backend, X),
+            _asarray(backend, Y),
+            extrapolate="clip",
+        )
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_interp_bilinear_grad_vs_fd(backend):
+    # d(value)/d(X), d/d(Y), and d/d(Z-values): random directional AD must
+    # h-converge to a central FD of the numpy bilinear (matches scipy).
+    from galpy.backend.interpolate import interp_bilinear
+
+    rng = numpy.random.default_rng(2)
+    X0 = rng.uniform(-2.5, 2.5, 12)
+    Y0 = rng.uniform(0.05, 0.95, 12)
+    Z0 = _BZ_RAND
+
+    def val_np(x, y, z):
+        return interp_bilinear(numpy, _BX, _BY, z, x, y, extrapolate="clip")
+
+    def loss_np(x, y, z):
+        return numpy.sum(val_np(x, y, z))
+
+    dX = rng.standard_normal(X0.shape)
+    dX /= numpy.linalg.norm(dX)
+    dY = rng.standard_normal(Y0.shape)
+    dY /= numpy.linalg.norm(dY)
+    dZ = rng.standard_normal(Z0.shape)
+    dZ /= numpy.linalg.norm(dZ)
+    if backend == "jax":
+
+        def loss(x, y, z):
+            return jnp.sum(interp_bilinear(jnp, _BX, _BY, z, x, y, extrapolate="clip"))
+
+        gx, gy, gz = jax.grad(loss, argnums=(0, 1, 2))(
+            jnp.asarray(X0), jnp.asarray(Y0), jnp.asarray(Z0)
+        )
+        gx, gy, gz = numpy.asarray(gx), numpy.asarray(gy), numpy.asarray(gz)
+    else:
+        xt = torch.tensor(X0, requires_grad=True)
+        yt = torch.tensor(Y0, requires_grad=True)
+        zt = torch.tensor(Z0, requires_grad=True)
+        interp_bilinear(
+            _xp("torch"), _BX, _BY, zt, xt, yt, extrapolate="clip"
+        ).sum().backward()
+        gx, gy, gz = xt.grad.numpy(), yt.grad.numpy(), zt.grad.numpy()
+    adX, adY, adZ = (
+        float(numpy.dot(gx, dX)),
+        float(numpy.dot(gy, dY)),
+        float(numpy.sum(gz * dZ)),
+    )
+    for ad, fn in (
+        (adX, lambda h: loss_np(X0 + h * dX, Y0, Z0)),
+        (adY, lambda h: loss_np(X0, Y0 + h * dY, Z0)),
+        (adZ, lambda h: loss_np(X0, Y0, Z0 + h * dZ)),
+    ):
+        best = min(abs(ad - (fn(h) - fn(-h)) / (2 * h)) for h in (1e-4, 1e-5, 1e-6))
+        assert best < 1e-5 * abs(ad) + 1e-8, f"{backend} bilinear grad best={best:.2e}"
+
+
+@pytest.mark.parametrize("backend", ["jax"] if "jax" in BACKENDS else [])
+def test_interp_bilinear_jit_equals_eager(backend):
+    # jit(interp_bilinear) == eager (pure namespace ops, jit-safe).
+    from galpy.backend.interpolate import interp_bilinear
+
+    X = jnp.asarray(numpy.linspace(-3.5, 3.5, 30))
+    Y = jnp.asarray(numpy.linspace(0.0, 1.0, 30))
+    bx, by, bz = jnp.asarray(_BX), jnp.asarray(_BY), jnp.asarray(_BZ_RAND)
+
+    def f(x, y):
+        return interp_bilinear(jnp, bx, by, bz, x, y, extrapolate="clip")
+
+    eager = numpy.asarray(f(X, Y))
+    jitted = numpy.asarray(jax.jit(f)(X, Y))
+    numpy.testing.assert_allclose(jitted, eager, rtol=0.0, atol=1e-14)
+
+
+def test_interp_bilinear_bad_extrapolate():
+    from galpy.backend.interpolate import interp_bilinear
+
+    with pytest.raises(ValueError):
+        interp_bilinear(numpy, _BX, _BY, _BZ_RAND, _BX[:3], _BY[:3], extrapolate="nope")
+
+
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_spline1d_mode2_linear(backend):
     # mode 2 with k=1: in-backend piecewise-linear; numpy AND backend queries of
