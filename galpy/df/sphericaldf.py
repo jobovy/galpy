@@ -32,7 +32,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace
-from ..backend.interpolate import Spline1D, interp_linear
+from ..backend.interpolate import Spline1D, interp_bilinear, interp_linear
 from ..backend.quadrature import fixed_quad, nested_quad
 from ..orbit import Orbit
 from ..potential import (
@@ -155,6 +155,80 @@ def _input_scales(obj, kwargs):
     ro = conversion.parse_length_kpc(kwargs.get("ro", None))
     vo = conversion.parse_velocity_kms(kwargs.get("vo", None))
     return obj._ro if ro is None else ro, obj._vo if vo is None else vo
+
+class _PVRInterpolator:
+    """Dual-path inverse-CDF v/vesc interpolator for spherical-DF velocity
+    sampling.
+
+    Wraps the ``p(v|r)`` inverse cumulative-distribution table built by
+    :meth:`sphericaldf._make_pvr_interpolator`. A numpy query evaluates the
+    frozen scipy ``RectBivariateSpline`` (``kx=ky=1``, BYTE-IDENTICAL to galpy's
+    historical sampler); a backend (jax/torch) query evaluates the SAME bilinear
+    interpolation natively via :func:`galpy.backend.interpolate.interp_bilinear`,
+    so the sampled ``v/vesc`` is a backend array differentiable in the query
+    (``log10(r/scale)``) and GPU/jit-able. scipy CONSTANT-extrapolates a degree-1
+    ``RectBivariateSpline`` beyond the grid; the backend path matches with
+    ``extrapolate='clip'``. On a backend build the raw grids are held as backend
+    arrays (GPU-resident); a numpy build keeps them numpy and materialises them
+    onto the query's device if a backend query arrives.
+
+    Parameters
+    ----------
+    x_grid : numpy.ndarray
+        ``log10(r/a)`` grid (first axis), shape ``(n_r_a,)``.
+    y_grid : numpy.ndarray
+        Uniform CDF grid in ``[0, 1]`` (second axis), shape ``(n_pvr,)``.
+    z_grid : numpy.ndarray
+        ``v/vesc`` values, shape ``(n_r_a, n_pvr)``.
+    xp : module
+        The forced/context-default namespace at build time; a non-numpy ``xp``
+        stores the grids as backend arrays.
+    """
+
+    def __init__(self, x_grid, y_grid, z_grid, xp):
+        # scipy spline for the byte-identical numpy path
+        self._spl = scipy.interpolate.RectBivariateSpline(
+            x_grid, y_grid, z_grid, kx=1, ky=1
+        )
+        if xp is numpy:
+            self._x, self._y, self._z = x_grid, y_grid, z_grid
+        else:
+            self._x = xp.asarray(x_grid) * 1.0
+            self._y = xp.asarray(y_grid) * 1.0
+            self._z = xp.asarray(z_grid) * 1.0
+
+    def __getattr__(self, name):
+        # Delegate unknown attributes (e.g. get_knots, tck) to the scipy spline
+        # so the wrapper is a drop-in for the RectBivariateSpline it replaces.
+        # Guard _spl to avoid infinite recursion before it is assigned.
+        if name == "_spl":
+            raise AttributeError(name)
+        return getattr(self._spl, name)
+
+    def __call__(self, X, Y, grid=False):
+        """Evaluate ``v/vesc`` at query points ``(X, Y)`` (paired elementwise).
+
+        A numpy ``X`` delegates to the scipy spline (byte-identical); a backend
+        ``X`` runs the native bilinear interpolation."""
+        if not is_backend_array(X):
+            return self._spl(X, Y, grid=grid)
+        xp = get_namespace(X)
+        xg = (
+            self._x
+            if is_backend_array(self._x)
+            else as_backend_constant(xp, self._x, X)
+        )
+        yg = (
+            self._y
+            if is_backend_array(self._y)
+            else as_backend_constant(xp, self._y, X)
+        )
+        zg = (
+            self._z
+            if is_backend_array(self._z)
+            else as_backend_constant(xp, self._z, X)
+        )
+        return interp_bilinear(xp, xg, yg, zg, X, Y, extrapolate="clip")
 
 
 class sphericaldf(df):
@@ -597,13 +671,13 @@ class sphericaldf(df):
         # dispatch the namespace on the key, NOT get_namespace(): key=None keeps
         # the whole assembly numpy (byte-identical) even under a forced backend;
         # a backend key follows its own draws into the active namespace.
-        # Split into INDEPENDENT sub-keys for the radial, position-angle, and
-        # velocity-angle draws: each angle helper re-splits its key internally, so
-        # handing the SAME key to both would make split() return identical sub-keys
-        # (velocity angles = deterministic fn of position angles -> biased joint
-        # distribution). key=None -> split returns (None, None, None) -> the global
-        # numpy generator draws sequentially -> byte-identical.
-        key_r, key_pos, key_vel = grandom.split(key, 3)
+        # Split into INDEPENDENT sub-keys for the radial, position-angle,
+        # velocity-angle, and velocity-magnitude draws: each helper re-splits its
+        # key internally, so handing the SAME key to two would make split() return
+        # identical sub-keys (biased joint distribution). key=None -> split returns
+        # (None,)*4 -> the global numpy generator draws sequentially in the SAME
+        # order (r, position angles, velocity angles, velocity) -> byte-identical.
+        key_r, key_pos, key_vel, key_v = grandom.split(key, 4)
         if R is None or z is None:  # Full 6D samples
             r = self._sample_r(n=n, key=key_r)
             phi, theta = self._sample_position_angles(n=n, key=key_pos)
@@ -648,11 +722,12 @@ class sphericaldf(df):
         eta, psi = self._sample_velocity_angles(
             r, n=n, key=None if xp is numpy else key_vel
         )
-        # velocity magnitude is still numpy-side (_sample_v is PR-2); coerce the
-        # numpy velocity pieces into xp so a backend key assembles backend
-        # velocities (numpy*tensor raises under torch). key=None -> xp is numpy
-        # -> as_backend_constant is a no-op (byte-identical).
-        v = self._sample_v(r, eta, n=n)
+        # velocity magnitude: a backend key evaluates the inverse-CDF pvr natively
+        # at the backend r (differentiable); coerce any numpy pieces into xp so a
+        # backend key assembles backend velocities (numpy*tensor raises under
+        # torch). key=None -> xp is numpy -> as_backend_constant is a no-op
+        # (byte-identical).
+        v = self._sample_v(r, eta, n=n, key=None if xp is numpy else key_v)
         v = v if is_backend_array(v) else as_backend_constant(xp, v, r)
         eta = eta if is_backend_array(eta) else as_backend_constant(xp, eta, r)
         psi = psi if is_backend_array(psi) else as_backend_constant(xp, psi, r)
@@ -802,8 +877,15 @@ class sphericaldf(df):
         theta_samples = xp.arccos(1.0 - 2.0 * u_theta)
         return phi_samples, theta_samples
 
-    def _sample_v(self, r, eta, n=1):
-        """Generate velocity samples: typically the total velocity, but not for OM"""
+    def _sample_v(self, r, eta, n=1, key=None):
+        """Generate velocity samples: typically the total velocity, but not for OM.
+
+        ``key=None`` draws the velocity uniform from the global ``numpy.random``
+        and queries the scipy pvr interpolator numpy-side (byte-identical). A
+        backend key draws a backend uniform, evaluates the same inverse-CDF pvr
+        NATIVELY (bilinear) at the BACKEND ``r``, and multiplies by the backend
+        ``vmax`` -- so the sampled velocity is a backend array differentiable in
+        ``r`` (and hence, through the radial inverse-CDF, in the CDF/potential)."""
         if not hasattr(self, "_v_vesc_pvr_interpolator"):
             r_a_end = (
                 max(numpy.log10(self._rmax / self._scale), 3)
@@ -811,14 +893,24 @@ class sphericaldf(df):
                 else 3
             )
             self._v_vesc_pvr_interpolator = self._make_pvr_interpolator(r_a_end=r_a_end)
-        # samples are numpy-side by design (scipy interpolator; _vmax_at_r follows
-        # a forced backend); a backend-key r arrives as a backend array, so pull it
-        # numpy-side -- numpy.log10(<torch tensor>) trips the numpy-2.0
-        # __array_wrap__ deprecation (an error under the coverage shard's -W error)
-        r = as_numpy(r)
+        if key is None:
+            # numpy path: byte-identical scipy pvr + global-numpy uniform. A
+            # backend-key r may arrive as a backend array (forced backend); pull it
+            # numpy-side -- numpy.log10(<torch tensor>) trips the numpy-2.0
+            # __array_wrap__ deprecation (an error under the coverage shard's -W
+            # error).
+            r = as_numpy(r)
+            return self._v_vesc_pvr_interpolator(
+                numpy.log10(r / self._scale), numpy.random.uniform(size=n), grid=False
+            ) * as_numpy(self._vmax_at_r(self._pot, r))
+        # backend key: native bilinear inverse-CDF pvr at (log10(r/scale),
+        # backend-uniform), times the backend vmax -- r stays a backend array
+        # (differentiable, GPU/jit-able); no as_numpy / numpy-op-on-tensor here.
+        xp = get_namespace(r)
+        u = grandom.uniform(key, n)
         return self._v_vesc_pvr_interpolator(
-            numpy.log10(r / self._scale), numpy.random.uniform(size=n), grid=False
-        ) * as_numpy(self._vmax_at_r(self._pot, r))
+            xp.log10(r / self._scale), u, grid=False
+        ) * self._vmax_at_r(self._pot, r)
 
     def _sample_velocity_angles(self, r, n=1, key=None):
         """Generate samples of angles that set radial vs tangential
@@ -947,13 +1039,16 @@ class sphericaldf(df):
             v_vesc_samples_reg = cml_pvr_inv_interp(pvr_samples_reg)
             icdf_pvr_grid_reg[:, i] = pvr_samples_reg
             icdf_v_vesc_grid_reg[:, i] = v_vesc_samples_reg
-        # Create the interpolator
-        return scipy.interpolate.RectBivariateSpline(
+        # Create the dual-path inverse-CDF interpolator: a numpy query hits the
+        # scipy RectBivariateSpline (kx=ky=1, byte-identical); a backend query
+        # evaluates the same bilinear interpolation natively. On a backend build
+        # the raw grids are stored as backend arrays (GPU-resident); otherwise
+        # they stay numpy and a stray backend query materialises them per-call.
+        return _PVRInterpolator(
             numpy.log10(r_a_grid[0, :]),
             icdf_pvr_grid_reg[:, 0],
             icdf_v_vesc_grid_reg.T,
-            kx=1,
-            ky=1,
+            get_namespace(),  # forced/context default (numpy build -> numpy grids)
         )
 
     def _setup_rphi_interpolator(self, r_a_min=1e-6, r_a_max=1e6, nra=10001):
