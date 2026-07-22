@@ -2462,8 +2462,10 @@ def test_bruteSOS_2Dx():
             force_map="rk" in method,
             surface="x",
         )
-        xs = orbits.x(orbits.t)
-        vxs = orbits.vx(orbits.t)
+        from galpy.backend import as_numpy
+
+        xs = as_numpy(orbits.x(orbits.t))
+        vxs = as_numpy(orbits.vx(orbits.t))
         assert (numpy.fabs(xs[~numpy.isnan(xs)]) < 10.0**-3.0).all(), (
             f"x on SOS is not zero for bruteSOS for method={method}"
         )
@@ -2493,8 +2495,10 @@ def test_bruteSOS_2Dy():
             force_map="rk" in method,
             surface="y",
         )
-        ys = orbits.y(orbits.t)
-        vys = orbits.vy(orbits.t)
+        from galpy.backend import as_numpy
+
+        ys = as_numpy(orbits.y(orbits.t))
+        vys = as_numpy(orbits.vy(orbits.t))
         assert (numpy.fabs(ys[~numpy.isnan(ys)]) < 10.0**-3.0).all(), (
             f"y on SOS is not zero for bruteSOS for method={method}"
         )
