@@ -605,19 +605,55 @@ def test_sample_v_grad_vs_fd_r(backend):
     assert best < 1e-4 * abs(ad) + 1e-7, f"v-grad {backend} best={best:.2e}"
 
 
-@pytest.mark.skipif(not BACKENDS, reason="no backend installed")
-def test_sample_anisotropic_backend_key_raises():
-    # anisotropic velocity-angle sampling on a backend key is deferred; a clear
-    # NotImplementedError beats a confusing TypeError / a silent numpy result.
-    # key=None (numpy) still works. Backend-independent (the guard keys off the
-    # key type), so run it once.
+def _ellipsoid_beta(coords):
+    """Velocity-anisotropy beta (and the two tangential/radial dispersion ratios)
+    from a spherical-DF sample's cylindrical (R, vR, vT, z, vz)."""
+    R, vR, vT, z, vz = (as_numpy(c) for c in coords[:5])
+    r = numpy.sqrt(R**2.0 + z**2.0)
+    vr = (R * vR + z * vz) / r  # spherical radial
+    vtot2 = vR**2.0 + vT**2.0 + vz**2.0
+    vphi2 = vT**2.0  # azimuthal (spherical phi = cyl T)
+    vth2 = vtot2 - vr**2.0 - vphi2  # spherical polar
+    sr2, sth2, sph2 = numpy.mean(vr**2.0), numpy.mean(vth2), numpy.mean(vphi2)
+    return 1.0 - (sth2 + sph2) / (2.0 * sr2), sth2 / sr2, sph2 / sr2
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sample_anisotropic_backend_key_distribution(backend):
+    # constantbeta/osipkovmerritt sample() under a backend key now returns
+    # backend-array coordinates whose velocity ellipsoid reproduces the analytic
+    # anisotropy (the eta inverse-CDF is backend-native: constantbeta inverts a
+    # fixed 1-D cos-eta CDF via interp_linear, OM the closed-form r-dependent
+    # inversion). key=None stays byte-identical (test_sphericaldf).
     from galpy.df import constantbetadf, osipkovmerrittdf
 
-    backend = BACKENDS[0]
-    for df in (constantbetadf(pot=_HP, beta=-0.2), osipkovmerrittdf(pot=_HP, ra=1.5)):
-        with pytest.raises(NotImplementedError):
-            df.sample(n=10, return_orbit=False, key=_key(backend))
-        df.sample(n=10, return_orbit=False)  # numpy path still works
+    n = 40000
+    # constant-beta: beta is r-independent -> the ellipsoid beta equals the true
+    # beta and each tangential/radial dispersion ratio equals 1 - beta.
+    cbeta = -0.2
+    cb = constantbetadf(pot=_HP, beta=cbeta)
+    cb_coords = cb.sample(n=n, return_orbit=False, key=_key(backend))
+    for c in cb_coords:
+        assert _is_backend_array(backend, c)
+    b_est, rth, rph = _ellipsoid_beta(cb_coords)
+    assert numpy.isfinite(b_est), f"constantbeta beta_est not finite ({b_est})"
+    assert abs(b_est - cbeta) < 0.04, f"constantbeta beta_est={b_est:.3f} vs {cbeta}"
+    assert abs(rth - (1.0 - cbeta)) < 0.06 and abs(rph - (1.0 - cbeta)) < 0.06, (
+        f"constantbeta ratios vth2/vr2={rth:.3f} vph2/vr2={rph:.3f} vs {1.0 - cbeta}"
+    )
+    cb.sample(n=5, return_orbit=False)  # numpy (key=None) path still works
+
+    # Osipkov-Merritt: beta(r) varies with r, so the mixed-radius ellipsoid beta
+    # must match an independent numpy sample of the same size (both float64).
+    om = osipkovmerrittdf(pot=_HP, ra=1.5)
+    om_coords = om.sample(n=n, return_orbit=False, key=_key(backend))
+    for c in om_coords:
+        assert _is_backend_array(backend, c)
+    b_be = _ellipsoid_beta(om_coords)[0]
+    numpy.random.seed(4)
+    b_np = _ellipsoid_beta(om.sample(n=n, return_orbit=False))[0]
+    assert numpy.isfinite(b_be), f"OM beta_est not finite ({b_be})"
+    assert abs(b_be - b_np) < 0.03, f"OM beta backend={b_be:.3f} numpy={b_np:.3f}"
 
 
 def test_pvr_interpolator_getattr_delegation():
@@ -630,7 +666,7 @@ def test_pvr_interpolator_getattr_delegation():
     df = isotropicHernquistdf(pot=_HP)
     df.sample(n=1, return_orbit=False)  # builds the numpy pvr (has ._spl)
     pvr = df._v_vesc_pvr_interpolator
-    assert pvr.get_knots() is not None  # delegated to the scipy spline (line 196)
+    assert pvr.get_knots() is not None  # delegated to the scipy spline
     # a wrapper with no `_spl` raises AttributeError via the guard, not RecursionError
     bare = _PVRInterpolator.__new__(_PVRInterpolator)
     with pytest.raises(AttributeError):
