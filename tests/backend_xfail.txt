@@ -1,3 +1,26 @@
+# REGEN-MILESTONE prune (2026-07-23, full-matrix REGEN run 29979778304 on
+# feat/backends c08577ff -- post-#1185; all 44 jax+torch shards ran to
+# completion (conclusion=success), no session-timeout truncation, and the
+# regenerated set is a strict SUBSET of the checked-in ledger: 0 new failures /
+# 0 regressions). torch 177->99 (-78), jax 77->54 (-23) = -101 (2 of the jax
+# drops re-homed to backend_slow_skip.txt, see EXCEPTION below). Burns down the
+# XPASS backlog accumulated since the last regen from source-fix PRs that landed
+# WITHOUT pruning (strict=False xfails stay green): #1182 native StaeckelGrid/
+# AdiabaticGrid backend-build + #1186 coverage (StaeckelGrid/AdiabaticGrid
+# actions_c + EccZmaxRperiRap_c now pass under both backends), #1183 native pvr,
+# #1184 streamdf linear sampler, #1185 sphericaldf anisotropic-eta (anisotropic
+# Hernquist dMdE/directint now pass), plus SCF time-dependent, streamspraydf,
+# streamgapdf, and orbit dxdv-wrapper / SOS / bruteSOS clusters. Regenerated via
+# the CI workflow (workflow_dispatch regen=true) -- authoritative real-CI env,
+# NOT a local run (a local clean-CPU regen had env-specific false failures, e.g.
+# test_streamgapdf_sample, that CI passes). EXCEPTION: 2 jax
+# test_arbitraryaxisrotation_{omegadot,omegafunc_nullpotential} that the regen run
+# happened to pass are moved to backend_slow_skip.txt, NOT pruned -- they are
+# eager-XLA TIMEOUT-flaky (~250-500s under jax vs the 300s per-test CI timeout;
+# pass in a fast run, FAIL as a timeout under load). A timeout OVERRIDES xfail
+# (records FAILED), so slow-skip -- not xfail -- is the correct home; see the
+# jax noninertial func/vec-omega block in backend_slow_skip.txt.
+#
 # REGEN prune (2026-07-19, full-matrix REGEN run 29701145224 on feat/backends
 # AFTER the float64 conftest fix #1160): --backend torch had been running in
 # float32, so a class of precision-sensitive tests failed with float32-eps
@@ -65,19 +88,10 @@
 # tests unrunnable-until-vectorized go in backend_slow_skip.txt instead, not here)
 
 jax tests/test_FDMdynamfric.py::test_dynamfric_c
-jax tests/test_MultipoleExpansionPotential.py::test_time_dependent_density_at_multiple_times
 jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
-jax tests/test_actionAngle.py::test_MWPotential_warning_staeckel
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_angles
-jax tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_freqs
-jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_Isochrone_actions
 jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
-jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c
-jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_actions_c
-jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_conserved_EccZmaxRperiRap_c
-jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_conserved_actions_c
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
@@ -109,8 +123,6 @@ jax tests/test_dynamfric.py::test_dynamfric_c
 jax tests/test_interp_potential.py::test_interpolation_potential_force_c
 jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_qdf.py::test_call_diffinoutputs
-jax tests/test_quantity.py::test_actionAngleIsochroneApprox_method_ts_units
-jax tests/test_quantity.py::test_actionAngleStaeckelGrid_setup_delta_units
 jax tests/test_quantity.py::test_actionAngle_method_turnphysicaloff
 jax tests/test_quantity.py::test_potential_function_turnphysicaloff
 jax tests/test_quantity.py::test_potential_method_turnphysicaloff
@@ -118,47 +130,20 @@ jax tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
 jax tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 jax tests/test_quantity.py::test_sphericaldf_method_value
 jax tests/test_quantity.py::test_sphericaldf_sample_outputunits
-jax tests/test_quantity.py::test_streamgapdf_inputAsQuantity
-jax tests/test_quantity.py::test_streamgapdf_method_returntype
-jax tests/test_quantity.py::test_streamgapdf_method_returnunit
-jax tests/test_quantity.py::test_streamgapdf_method_value
-jax tests/test_quantity.py::test_streamgapdf_sample
-jax tests/test_quantity.py::test_streamgapdf_setup_impactparamsAsQuantity
-jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dMdE_integral
-jax tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_directint
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
 jax tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
 jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
-torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
-torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor_c
 torch tests/test_FDMdynamfric.py::test_dynamfric_c
 torch tests/test_FDMdynamfric.py::test_dynamfric_c_minr
-torch tests/test_MultipoleExpansionPotential.py::test_time_dependent_density_at_multiple_times
-torch tests/test_MultipoleExpansionPotential.py::test_time_dependent_nonaxi_c_orbit
-torch tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_dgamma_dR
-torch tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_gamma
-torch tests/test_actionAngle.py::test_MWPotential_warning_adiabatic
-torch tests/test_actionAngle.py::test_MWPotential_warning_staeckel
-torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_Isochrone_actions
-torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basicAndConserved_actions
-torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basic_actions_c
-torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_conserved_actions_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_angles
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_freqs
 torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_plotting
 torch tests/test_actionAngle.py::test_actionAngleSpherical_almostnoninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleSpherical_noninclinedorbit_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_Isochrone_actions
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
-torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basic_actions_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_conserved_EccZmaxRperiRap_c
-torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_conserved_actions_c
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
@@ -193,8 +178,6 @@ torch tests/test_dynamfric.py::test_dynamfric_c
 torch tests/test_dynamfric.py::test_dynamfric_c_minr
 torch tests/test_galpypaper.py::test_orbmethods
 torch tests/test_galpypaper.py::test_qdf
-torch tests/test_interp_potential.py::test_interpolation_potential_force_c_vdiffgridsizes
-torch tests/test_interp_potential.py::test_interpolation_potential_force_notinterpolated
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalaromegaz
@@ -202,13 +185,6 @@ torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecom
 torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
 torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
 torch tests/test_orbit.py::test_analytic_zmax
-torch tests/test_orbit.py::test_bruteSOS_2Dx
-torch tests/test_orbit.py::test_bruteSOS_2Dy
-torch tests/test_orbit.py::test_cylsepwrapper_dxdv_3d_c_vs_python_tight
-torch tests/test_orbit.py::test_doubleexp_dxdv_3d_c_vs_python
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[CylindricallySeparablePotentialWrapper]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[DehnenSmoothWrapperPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[GaussianAmplitudeWrapperPotential]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_oblate]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_triaxial]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PowerTriaxialPotential]
@@ -219,56 +195,27 @@ torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialHernquistPotential]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialJaffePotential]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialNFWPotential]
 torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TwoPowerTriaxialPotential]
-torch tests/test_orbit.py::test_energy_conservation_linear[BurkertPotentialNoC--10.0-False]
-torch tests/test_orbit.py::test_energy_conservation_linear[RazorThinExponentialDiskPotential--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[RazorThinExponentialDiskPotential--10.0--9.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSteadyLogSpiralPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatTransientLogSpiralPotential--10.0--10.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockSlowFlatEllipticalDiskPotential--10.0--6.0-False]
-torch tests/test_orbit.py::test_energy_jacobi_conservation[mockSlowFlatSteadyLogSpiralPotential--10.0--8.0-False]
-torch tests/test_orbit.py::test_integrate_backwards
-torch tests/test_orbit.py::test_integrate_dxdv_3d_staeckelwrappers_require_wrapped_hessian
 torch tests/test_orbit.py::test_integrate_indiv_t_1D
 torch tests/test_orbit.py::test_integrate_indiv_t_python_paths
-torch tests/test_orbit.py::test_integrate_negative_time
-torch tests/test_orbit.py::test_logspiral_planar_dxdv_c_vs_python
 torch tests/test_orbit.py::test_lyapunov_c_vs_python
 torch tests/test_orbit.py::test_lyapunov_spectrum_consistency
 torch tests/test_orbit.py::test_orbit_obs_Orbits_issue322
 torch tests/test_orbit.py::test_orbit_obsvel_Orbits_issue322
-torch tests/test_orbit.py::test_plotBruteSOS
-torch tests/test_orbits.py::test_bruteSOS_2Dx
-torch tests/test_orbits.py::test_bruteSOS_2Dy
-torch tests/test_orbits.py::test_plotBruteSOS
-torch tests/test_pv2qdf.py::test_pvRvz_staeckel_arrayin
 torch tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_qdf.py::test_sampleV
 torch tests/test_qdf.py::test_sampleV_interpolate
 torch tests/test_qdf.py::test_sampleV_physical
-torch tests/test_quantity.py::test_actionAngleIsochroneApprox_method_ts_units
-torch tests/test_quantity.py::test_actionAngleStaeckelGrid_setup_delta_units
 torch tests/test_quantity.py::test_actionAngle_method_turnphysicaloff
-torch tests/test_quantity.py::test_actionAngle_method_value
 torch tests/test_quantity.py::test_potential_function_turnphysicaloff
 torch tests/test_quantity.py::test_potential_method_turnphysicaloff
 torch tests/test_quantity.py::test_potential_paramunits
 torch tests/test_quantity.py::test_quasiisothermaldf_interpolate_sample
-torch tests/test_quantity.py::test_quasiisothermaldf_method_inputAsQuantity
-torch tests/test_quantity.py::test_quasiisothermaldf_method_inputAsQuantity_special
 torch tests/test_quantity.py::test_quasiisothermaldf_method_returntype
 torch tests/test_quantity.py::test_quasiisothermaldf_method_returnunit
 torch tests/test_quantity.py::test_quasiisothermaldf_method_value
 torch tests/test_quantity.py::test_quasiisothermaldf_sample
 torch tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 torch tests/test_quantity.py::test_sphericaldf_method_value
-torch tests/test_quantity.py::test_streamgapdf_inputAsQuantity
-torch tests/test_quantity.py::test_streamgapdf_method_returntype
-torch tests/test_quantity.py::test_streamgapdf_method_returnunit
-torch tests/test_quantity.py::test_streamgapdf_method_value
-torch tests/test_quantity.py::test_streamgapdf_sample
-torch tests/test_quantity.py::test_streamgapdf_setup_impactparamsAsQuantity
-torch tests/test_sphericaldf.py::test_anisotropic_hernquist_dMdE_integral
-torch tests/test_sphericaldf.py::test_anisotropic_hernquist_dens_directint
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
 torch tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
@@ -283,25 +230,8 @@ torch tests/test_streamdf.py::test_bovy14_callMargXZ
 torch tests/test_streamdf.py::test_fardalwmwpot_trackaa
 torch tests/test_streamdf.py::test_plotting
 torch tests/test_streamdf.py::test_streamTrack_multi_parallel
-torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general
-torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_fullintegration_fastencounter
-torch tests/test_streamgapdf_impulse.py::test_impulse_deltav_general_orbit_zeroforce
-torch tests/test_streamspraydf.py::test_bovy14_sampleorbit
-torch tests/test_streamspraydf.py::test_center
-torch tests/test_streamspraydf.py::test_chen24spraydf_default_parameters
-torch tests/test_streamspraydf.py::test_integrate
-torch tests/test_streamspraydf.py::test_integrate_rtnonarray
-torch tests/test_streamspraydf.py::test_integrate_with_prog
-torch tests/test_streamspraydf.py::test_pericenter_stripping_pdf_cuts_off_at_tdisrupt
-torch tests/test_streamspraydf.py::test_pericenter_stripping_pdf_eccentric_orbit_finds_peris
-torch tests/test_streamspraydf.py::test_pericenter_stripping_pdf_end_to_end
-torch tests/test_streamspraydf.py::test_pericenter_stripping_pdf_inherits_rovo_from_progenitor
-torch tests/test_streamspraydf.py::test_sample_bovy14
 jax tests/test_noninertial.py::test_arbitraryaxisrotation
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
-torch tests/test_potential.py::test_integration_RotateAndTiltWrapper_timedependent_forcecache
 torch tests/test_potential.py::test_rE_MWPotential2014
 
 # --- jax single-orbit: action-angle accessors (Track E) ---
@@ -346,13 +276,5 @@ jax tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
 # arrays reject, and exercise the not-yet-backend-native integrate=True path.
 # Un-ledger when the in-backend integrator swap lands (per-particle 2D-time-grid
 # integrate). Already ledgered for torch.
-jax tests/test_streamspraydf.py::test_integrate
-jax tests/test_streamspraydf.py::test_integrate_rtnonarray
-torch tests/test_scf.py::test_static_c_orbit_parity
-torch tests/test_scf.py::test_tdep_c_beyond_tgrid
-torch tests/test_scf.py::test_tdep_c_dynamical_friction_dens
-torch tests/test_scf.py::test_tdep_c_full_dxdv
-torch tests/test_scf.py::test_tdep_c_orbit_nonaxi
-torch tests/test_scf.py::test_tdep_c_orbit_spherical
 torch tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
 torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
