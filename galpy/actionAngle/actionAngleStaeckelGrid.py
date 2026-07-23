@@ -555,8 +555,14 @@ class actionAngleStaeckelGrid(actionAngle):
                 mjr = asarray_on_device(xp, mjr_np, dev)
                 mjz = asarray_on_device(xp, mjz_np, dev)
                 if interpecc:
+                    # ecc-family recompute uses the INTERP-potential Staeckel
+                    # (self._aA), matching the numpy grid build (which uses
+                    # self._aA.EccZmaxRperiRap here, not the orig-potential
+                    # tmpaA used for the jr/jz sentinels above); now that
+                    # interpRZPotential evaluates in-backend this stays in sync
+                    # so the backend ecc/zmax/rperi/rap grids == the numpy ones.
                     with use("numpy", force=True):
-                        recc, rzmax, rrperi, rrap = tmpaA.EccZmaxRperiRap(
+                        recc, rzmax, rrperi, rrap = self._aA.EccZmaxRperiRap(
                             R_np[bad_np],
                             v_np[bad_np] * numpy.cos(psi_np[bad_np]),
                             Lz_np[bad_np] / R_np[bad_np],

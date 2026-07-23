@@ -23,9 +23,10 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, is_backend_array
 from galpy.potential import (
     MiyamotoNagaiPotential,
+    MWPotential2014,
     evaluatePotentials,
     evaluateRforces,
     interpRZPotential,
@@ -111,7 +112,10 @@ def test_value_parity(backend_name, pot):
     z = _asarray(backend_name, _ZS)
     for method in _METHODS:
         ref = numpy.asarray(getattr(pot, method)(_RS, _ZS))
-        got = as_numpy(getattr(pot, method)(R, z))
+        raw = getattr(pot, method)(R, z)
+        if backend_name != "numpy":
+            assert is_backend_array(raw), f"{method} not a backend array"
+        got = as_numpy(raw)
         numpy.testing.assert_allclose(
             got, ref, rtol=1e-9, atol=1e-11, err_msg=f"{CASE_IDS}.{method}"
         )
@@ -192,3 +196,150 @@ def test_grad_pot_wrt_z_vs_fd(backend_name, pot):
         y.backward()
         ad = float(zt.grad)
     numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-7)
+
+
+###############################################################################
+# 1D interpolators (vcirc / dvcircdR / epifreq / verticalfreq). Each is a 1D
+# InterpolatedUnivariateSpline of the corresponding original-potential quantity
+# on the R-grid. numpy keeps calling the scipy spline (byte-identical); the
+# jax/torch path evaluates the SAME frozen piecewise polynomial (spline_to_ppoly
+# + eval_ppoly), so values match scipy to ~1 ulp and the quantity is exactly
+# autodifferentiable in R.
+###############################################################################
+_1D_METHODS = ["vcirc", "dvcircdR", "epifreq", "verticalfreq"]
+
+
+def _build_1d(logR):
+    base = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.1)
+    rgrid = (numpy.log(0.05), numpy.log(16.0), 31) if logR else (0.05, 16.0, 31)
+    return interpRZPotential(
+        RZPot=base,
+        rgrid=rgrid,
+        zgrid=(0.0, 1.0, 5),
+        logR=logR,
+        interpvcirc=True,
+        interpdvcircdr=True,
+        interpepifreq=True,
+        interpverticalfreq=True,
+    )
+
+
+CASES_1D = [_build_1d(True), _build_1d(False)]
+
+# Interior R grid (inside [0.05, 16.0] so the on-grid interpolant is exercised).
+_RS_1D = numpy.array([0.3, 0.8, 1.0, 1.3, 2.5, 8.0])
+
+
+@pytest.mark.parametrize("pot", CASES_1D, ids=CASE_IDS)
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_1d_value_parity(backend_name, pot):
+    R = _asarray(backend_name, _RS_1D)
+    for method in _1D_METHODS:
+        ref = numpy.asarray(getattr(pot, method)(_RS_1D, use_physical=False))
+        raw = getattr(pot, method)(R, use_physical=False)
+        if backend_name != "numpy":
+            assert is_backend_array(raw), f"{method} not a backend array"
+        numpy.testing.assert_allclose(
+            as_numpy(raw), ref, rtol=1e-9, atol=1e-11, err_msg=method
+        )
+
+
+@pytest.mark.parametrize("pot", CASES_1D, ids=CASE_IDS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_1d_grad_vcirc_vs_fd(backend_name, pot):
+    # d(vcirc)/dR: AD vs central FD on the numpy/scipy-spline path.
+    eps = 1e-5
+    R0 = 1.15
+
+    def f_np(Rv):
+        return float(pot.vcirc(numpy.asarray([Rv]), use_physical=False)[0])
+
+    fd = (f_np(R0 + eps) - f_np(R0 - eps)) / (2 * eps)
+    if backend_name == "jax":
+        ad = float(
+            jax.grad(lambda Rv: pot.vcirc(Rv, use_physical=False))(jnp.asarray(R0))
+        )
+    else:
+        Rt = torch.tensor(R0, dtype=torch.float64, requires_grad=True)
+        pot.vcirc(Rt, use_physical=False).backward()
+        ad = float(Rt.grad)
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-7)
+
+
+def test_1d_jax_traced_finite():
+    if jax is None:  # pragma: no cover
+        pytest.skip("jax not installed")
+    Rj = jnp.asarray(_RS_1D)
+    for pot in CASES_1D:
+        for method in _1D_METHODS:
+            fn = getattr(pot, method)
+            jitted = jax.jit(lambda R_: fn(R_, use_physical=False))(Rj)
+            assert numpy.all(numpy.isfinite(as_numpy(jitted)))
+
+
+###############################################################################
+# StaeckelGrid interpecc divergence (the payoff of the interpRZ backend
+# migration). A grid built under a forced backend recomputes the bad (extreme)
+# orbits' (ecc,zmax,rperi,rap) with the INTERP-potential Staeckel (self._aA) --
+# exactly as the numpy build does -- now that interpRZPotential evaluates in the
+# backend. Before the fix the backend build used the ORIGINAL-potential Staeckel
+# (tmpaA), so the backend ecc/rperi tables diverged ~O(1) (>90%) from the numpy
+# grid on off-grid orbits; here we assert backend == numpy at off-grid orbits.
+###############################################################################
+def _interprz_for_grid():
+    return interpRZPotential(
+        RZPot=MWPotential2014,
+        rgrid=(numpy.log(0.01), numpy.log(20.0), 41),
+        zgrid=(0.0, 1.0, 41),
+        logR=True,
+        interpPot=True,
+        interpRforce=True,
+        interpzforce=True,
+        enable_c=True,
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_staeckelgrid_interpecc_divergence_fixed(backend_name):
+    from galpy.actionAngle import actionAngleStaeckelGrid
+    from galpy.backend import use
+
+    if backend_name == "torch":
+        # Building a StaeckelGrid on an interpRZPotential under forced torch hits a
+        # SEPARATE pre-existing numpy-scalar-under-forced-torch issue in
+        # _build_grid_backend (torch.sqrt rejects the numpy-scalar vcirc(Rmax));
+        # jax tolerates numpy scalars). It crashes identically on the base branch
+        # and is unrelated to the tmpaA->self._aA divergence fix under test here,
+        # which is backend-agnostic and verified on jax.
+        pytest.skip("StaeckelGrid-on-interpRZ build under forced torch: pre-existing")
+
+    ipot = _interprz_for_grid()
+    delta, nE, npsi, nLz = 0.45, 16, 16, 18
+    g_np = actionAngleStaeckelGrid(
+        pot=ipot, delta=delta, nE=nE, npsi=npsi, nLz=nLz, interpecc=True, c=True
+    )
+    with use(backend_name, force=True):
+        g_be = actionAngleStaeckelGrid(
+            pot=ipot, delta=delta, nE=nE, npsi=npsi, nLz=nLz, interpecc=True, c=True
+        )
+    # realistic bound, interior off-grid orbits (well inside the E/Lz grid)
+    rng = numpy.random.default_rng(1)
+    N = 25
+    R = rng.uniform(0.6, 1.8, N)
+    vR = rng.uniform(-0.12, 0.12, N)
+    vT = rng.uniform(0.65, 1.05, N)
+    z = rng.uniform(-0.18, 0.18, N)
+    vz = rng.uniform(-0.12, 0.12, N)
+    ref = g_np.EccZmaxRperiRap(R, vR, vT, z, vz)
+    with use(backend_name, force=True):
+        got = g_be.EccZmaxRperiRap(
+            *[_asarray(backend_name, v) for v in (R, vR, vT, z, vz)]
+        )
+    for name, r, gg in zip(("ecc", "zmax", "rperi", "rap"), ref, got):
+        assert is_backend_array(gg), f"{name} not a backend array"
+        # after the fix backend==numpy at the shared query-path floor (~1e-2);
+        # the pre-fix tmpaA bug diverged ecc/rperi by >90% (maxabs ~5), so this
+        # 2e-2 tolerance cleanly separates fixed from buggy.
+        numpy.testing.assert_allclose(
+            as_numpy(gg), numpy.asarray(r), rtol=2e-2, atol=2e-2, err_msg=name
+        )
