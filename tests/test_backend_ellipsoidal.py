@@ -549,6 +549,43 @@ def test_anchor_phi_dtypeless_scalar_R_anchors_float64(backend_name):
     assert _anchor_phi(0.5, 1.0, numpy) == 0.5  # numpy short-circuit, untouched
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_anchor_phi_numpy_R_anchors_float64(backend_name):
+    # Regression: under a forced backend R can arrive as a numpy array/scalar (an
+    # un-coerced coordinate in the dxdv/variational path). R.dtype is then a numpy
+    # dtype that torch.asarray / jax reject -- _anchor_phi must trust R.dtype only
+    # for backend-array R and otherwise anchor phi to xp.float64. Fixes the
+    # test_orbit dxdv_3d_c[Triaxial*/PerfectEllipsoid*] TypeError "asarray():
+    # argument 'dtype' must be torch.dtype, not numpy.dtypes.Float64DType".
+    import galpy.backend
+    from galpy.potential.EllipsoidalPotential import _anchor_phi
+
+    with galpy.backend.use(backend_name, force=True):
+        xp = galpy.backend.get_namespace()
+        for R in (numpy.array([1.0, 2.0]), numpy.float64(1.0)):
+            out = _anchor_phi(0.5, R, xp)  # must NOT raise on the numpy dtype
+            assert galpy.backend.is_backend_array(out)
+            assert "float64" in str(out.dtype)
+            assert as_numpy(out) == 0.5
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_anchor_phi_preserves_backend_float32_R(backend_name):
+    # A backend float32 R still anchors phi to float32 (input-dtype anchoring);
+    # only numpy / dtype-less R falls back to float64. Guards against a naive
+    # "just force float64" fix that would silently promote genuine float32 inputs.
+    import galpy.backend
+    from galpy.potential.EllipsoidalPotential import _anchor_phi
+
+    with galpy.backend.use(backend_name, force=True):
+        xp = galpy.backend.get_namespace()
+        R32 = xp.asarray([1.0, 2.0], dtype=xp.float32)
+        out = _anchor_phi(0.5, R32, xp)
+    assert "float32" in str(out.dtype), (
+        f"{backend_name}: backend float32 R should anchor phi to float32, got {out.dtype}"
+    )
+
+
 def test_evaluate_xyz_namespace_fallback():
     # _evaluate_xyz infers the backend from its (x,y,z) arguments when called
     # without an explicit ``xp`` (the public _evaluate always passes one, so this
