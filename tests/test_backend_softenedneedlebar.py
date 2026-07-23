@@ -50,7 +50,18 @@ AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
 
 # Rotated (pa) and rotating (omegab) so the cos/sin de-rotation is exercised.
 _SN = SoftenedNeedleBarPotential(amp=1.2, a=1.0, c=0.5, pa=0.3, omegab=1.4)
+# Triaxial (b != 0) so the full closed-form Hessian (incl. the b-dependent pzz
+# term) is exercised.
+_SNB = SoftenedNeedleBarPotential(amp=1.2, a=1.0, b=0.3, c=0.5, pa=0.3, omegab=1.4)
 _METHODS = ["_evaluate", "_Rforce", "_zforce", "_phitorque", "_dens"]
+_HESS_METHODS = [
+    "_R2deriv",
+    "_z2deriv",
+    "_phi2deriv",
+    "_Rzderiv",
+    "_Rphideriv",
+    "_phizderiv",
+]
 _R0, _Z0, _PHI0, _T0 = 1.2, 0.3, 0.4, 0.0
 
 
@@ -189,3 +200,151 @@ def test_eager_returns_backend_array(backend_name):
         _asarray(backend_name, 0.1),
     )
     assert is_backend_array(out)
+
+
+# --- numpy-scalar coords under a FORCED backend (the dxdv_3d_c-vs-python gap) ---
+# Non-axisymmetric phi and t != 0 so the rotating bar frame is fully exercised.
+_R1, _Z1, _PHI1, _T1 = 1.3, 0.35, 0.9, 0.6
+
+
+def _fresh_triax():
+    # A fresh (cold-cache) triaxial instance. The numpy Hessian md5 cache is
+    # per-instance, so a shared instance whose cache was warmed by a numpy call
+    # would mask the pre-fix backend gap (a cache hit returns the numpy value
+    # without ever running the backend code); fresh instances keep every
+    # forced-backend check an honest regression.
+    return SoftenedNeedleBarPotential(amp=1.2, a=1.0, b=0.3, c=0.5, pa=0.3, omegab=1.4)
+
+
+# numpy reference values, on a dedicated instance never used for a forced call.
+_REF_POT = _fresh_triax()
+
+
+def _numpy_ref(method):
+    return float(
+        getattr(_REF_POT, method)(
+            numpy.asarray(_R1), numpy.asarray(_Z1), numpy.asarray(_PHI1), _T1
+        )
+    )
+
+
+@pytest.mark.parametrize("method", _METHODS + _HESS_METHODS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_numpy_scalar_coords_under_forced_backend(backend_name, method):
+    # The python orbit integrator (test_dxdv_3d_c_vs_python) hands the raw force
+    # and second-derivative methods NUMPY-SCALAR coords while the backend is
+    # FORCED. get_namespace then resolves to the backend but the coords stay
+    # numpy, and torch.cos/sqrt(numpy.float64) raises -- both in the forces and
+    # in the previously-unmigrated Hessian (numpy.cos/sin/sqrt + an md5 cache).
+    # The fix coerces coords at the boundary and gives the Hessian a backend
+    # branch; every method must match the numpy reference.
+    ref = _numpy_ref(method)
+    pot = _fresh_triax()  # cold cache: the forced call must run backend code
+    with use(backend_name, force=True):
+        got = float(
+            as_numpy(
+                getattr(pot, method)(
+                    numpy.float64(_R1),
+                    numpy.float64(_Z1),
+                    numpy.float64(_PHI1),
+                    numpy.float64(_T1),
+                )
+            )
+        )
+    numpy.testing.assert_allclose(
+        got,
+        ref,
+        rtol=1e-11,
+        atol=1e-13,
+        err_msg=f"SoftenedNeedle.{method} numpy-scalar coords, forced {backend_name}",
+    )
+
+
+# Each second derivative equals -d(migrated force)/d(coord); cross-terms are
+# checked against the force whose FD is cheapest to reason about.
+_HESS_FD = [
+    ("_R2deriv", "_Rforce", "R"),
+    ("_z2deriv", "_zforce", "z"),
+    ("_phi2deriv", "_phitorque", "phi"),
+    ("_Rzderiv", "_Rforce", "z"),
+    ("_Rphideriv", "_phitorque", "R"),
+    ("_phizderiv", "_phitorque", "z"),
+]
+
+
+@pytest.mark.parametrize("deriv,force_method,wrt", _HESS_FD)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_hessian_grad_vs_finite_difference(backend_name, deriv, force_method, wrt):
+    # Stringent grad-vs-FD: each migrated second derivative equals
+    # -d(migrated force)/d(coord) by central finite difference, h-converging as
+    # h^2. This catches sign/factor transcription errors in the backend Hessian
+    # branch that the numpy A/B byte-identity check cannot (the numpy path is
+    # unchanged, so a backend-only typo would not show up there).
+    idx = {"R": 0, "z": 1, "phi": 2}[wrt]
+    pot = _fresh_triax()
+
+    def force_at(coords):
+        with use(backend_name, force=True):
+            return float(
+                as_numpy(
+                    getattr(pot, force_method)(
+                        numpy.float64(coords[0]),
+                        numpy.float64(coords[1]),
+                        numpy.float64(coords[2]),
+                        numpy.float64(_T1),
+                    )
+                )
+            )
+
+    with use(backend_name, force=True):
+        analytic = float(
+            as_numpy(
+                getattr(pot, deriv)(
+                    numpy.float64(_R1),
+                    numpy.float64(_Z1),
+                    numpy.float64(_PHI1),
+                    numpy.float64(_T1),
+                )
+            )
+        )
+    prev = None
+    for h in (1e-3, 1e-4, 1e-5):
+        cp = [_R1, _Z1, _PHI1]
+        cm = [_R1, _Z1, _PHI1]
+        cp[idx] += h
+        cm[idx] -= h
+        fd = -(force_at(cp) - force_at(cm)) / (2.0 * h)
+        rel = abs(analytic - fd) / (abs(fd) + 1e-30)
+        if prev is not None:  # central FD error ~ h^2: shrinks as h shrinks
+            assert rel <= prev + 1e-11
+        prev = rel
+    assert rel < 1e-6, (
+        f"SoftenedNeedle {deriv} grad-vs-FD rel={rel:.2e} ({backend_name})"
+    )
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+@pytest.mark.parametrize("method", _HESS_METHODS)
+def test_hessian_jit_matches_numpy(method):
+    # The Hessian backend branch must be trace-safe: no per-instance md5 cache
+    # (hashing a tracer is illegal) and no numpy.cos/sin/sqrt (which would strip a
+    # tracer to numpy / raise a TracerArrayConversionError under jit). jax.jit
+    # compiles each second derivative and it matches the numpy reference.
+    ref = _numpy_ref(method)
+    pot = _fresh_triax()
+    f = jax.jit(lambda R, z, phi, t: getattr(pot, method)(R, z, phi, t))
+    got = float(
+        f(
+            jnp.asarray(_R1),
+            jnp.asarray(_Z1),
+            jnp.asarray(_PHI1),
+            jnp.asarray(_T1),
+        )
+    )
+    numpy.testing.assert_allclose(
+        got,
+        ref,
+        rtol=1e-11,
+        atol=1e-13,
+        err_msg=f"SoftenedNeedle.{method} jax.jit",
+    )
