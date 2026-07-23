@@ -7,7 +7,7 @@ import math
 
 import numpy
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import coerce_coords, get_namespace, is_backend_array
 from ..util import conversion
 from .Potential import Potential
 
@@ -96,48 +96,58 @@ class SoftenedNeedleBarPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         x, y, z = self._compute_xyz(R, phi, z, t)
         Tp, Tm = self._compute_TpTm(x, y, z)
         return xp.log((x - self._a + Tm) / (x + self._a + Tp)) / 2.0 / self._a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
         return xp.cos(phi) * Fx + xp.sin(phi) * Fy
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
         return R * (-xp.sin(phi) * Fx + xp.cos(phi) * Fy)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         _, _, Fz = self._cached_xyzforces(R, z, phi, t, xp)
         return Fz
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        self._compute_cylhess(R, z, phi, t)
-        return self._cached_d2RR
+        xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
+        return self._cached_cylhess(R, z, phi, t, xp)[0]
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        self._compute_cylhess(R, z, phi, t)
-        return self._cached_d2zz
+        xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
+        return self._cached_cylhess(R, z, phi, t, xp)[1]
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        self._compute_cylhess(R, z, phi, t)
-        return self._cached_d2phiphi
+        xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
+        return self._cached_cylhess(R, z, phi, t, xp)[2]
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        self._compute_cylhess(R, z, phi, t)
-        return self._cached_d2Rz
+        xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
+        return self._cached_cylhess(R, z, phi, t, xp)[3]
 
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        self._compute_cylhess(R, z, phi, t)
-        return self._cached_d2Rphi
+        xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
+        return self._cached_cylhess(R, z, phi, t, xp)[4]
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        self._compute_cylhess(R, z, phi, t)
-        return self._cached_d2phiz
+        xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
+        return self._cached_cylhess(R, z, phi, t, xp)[5]
 
     def OmegaP(self):
         return self._omegab
@@ -187,21 +197,33 @@ class SoftenedNeedleBarPotential(Potential):
             self._force_hash = new_hash
         return self._cached_Fx, self._cached_Fy, self._cached_Fz
 
-    def _compute_cylhess(self, R, z, phi, t):
-        # Compute all six cylindrical second derivatives. In the bar-aligned
-        # frame (phid = phi - pa - omegab t, x = R cos phid, y = R sin phid)
-        # the Cartesian Hessian of Phi = ln[(x-a+Tm)/(x+a+Tp)]/(2a) is
-        # closed-form; the cylindrical Hessian then follows from the standard
-        # polar transformation evaluated at phid (the rigid rotation only
-        # shifts the azimuth, so d/dphi = d/dphid).
+    def _cached_cylhess(self, R, z, phi, t, xp):
+        # numpy gets a per-instance hash cache (the six derivative methods share
+        # one Hessian evaluation); jax/torch compute directly so the traced path
+        # never reads/writes self-state (illegal under tracing, and md5-hashing a
+        # tracer is illegal too). Mirrors _cached_xyzforces.
+        if xp is not numpy:
+            return self._compute_cylhess(R, z, phi, t, xp)
         new_hash = hashlib.md5(numpy.array([R, phi, z, t])).hexdigest()
-        if new_hash == self._hess_hash:
-            return
+        if new_hash != self._hess_hash:
+            self._cached_hess = self._compute_cylhess(R, z, phi, t, numpy)
+            self._hess_hash = new_hash
+        return self._cached_hess
+
+    def _compute_cylhess(self, R, z, phi, t, xp):
+        # Compute all six cylindrical second derivatives, returned in the order
+        # (d2RR, d2zz, d2phiphi, d2Rz, d2Rphi, d2phiz). In the bar-aligned frame
+        # (phid = phi - pa - omegab t, x = R cos phid, y = R sin phid) the
+        # Cartesian Hessian of Phi = ln[(x-a+Tm)/(x+a+Tp)]/(2a) is closed-form;
+        # the cylindrical Hessian then follows from the standard polar
+        # transformation evaluated at phid (the rigid rotation only shifts the
+        # azimuth, so d/dphi = d/dphid). Backend-agnostic (xp.cos/sin/sqrt): the
+        # numpy path is byte-identical, jax/torch stay on the backend.
         a, b, c2 = self._a, self._b, self._c2
         phid = phi - self._pa - self._omegab * t
-        cd, sd = numpy.cos(phid), numpy.sin(phid)
+        cd, sd = xp.cos(phid), xp.sin(phid)
         x, y = R * cd, R * sd
-        zc = numpy.sqrt(z**2.0 + c2)
+        zc = xp.sqrt(z**2.0 + c2)
         u = b + zc
         s2 = y**2.0 + u**2.0
         Tp, Tm = self._compute_TpTm(x, y, z)
@@ -225,17 +247,17 @@ class SoftenedNeedleBarPotential(Potential):
             / 2.0
             / a
         )
-        self._hess_hash = new_hash
-        self._cached_d2RR = cd**2.0 * pxx + 2.0 * cd * sd * pxy + sd**2.0 * pyy
-        self._cached_d2phiphi = R**2.0 * (
+        d2RR = cd**2.0 * pxx + 2.0 * cd * sd * pxy + sd**2.0 * pyy
+        d2phiphi = R**2.0 * (
             sd**2.0 * pxx - 2.0 * sd * cd * pxy + cd**2.0 * pyy
         ) - R * (cd * px + sd * py)
-        self._cached_d2Rphi = R * (
-            -sd * cd * pxx + (cd**2.0 - sd**2.0) * pxy + sd * cd * pyy
-        ) + (-sd * px + cd * py)
-        self._cached_d2Rz = cd * pxz + sd * pyz
-        self._cached_d2zz = pzz
-        self._cached_d2phiz = R * (-sd * pxz + cd * pyz)
+        d2Rphi = R * (-sd * cd * pxx + (cd**2.0 - sd**2.0) * pxy + sd * cd * pyy) + (
+            -sd * px + cd * py
+        )
+        d2Rz = cd * pxz + sd * pyz
+        d2zz = pzz
+        d2phiz = R * (-sd * pxz + cd * pyz)
+        return (d2RR, d2zz, d2phiphi, d2Rz, d2Rphi, d2phiz)
 
     def _xforce_xyz(self, x, y, z, Tp, Tm):
         return -2.0 * x / Tp / Tm / (Tp + Tm)
@@ -267,6 +289,7 @@ class SoftenedNeedleBarPotential(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         xp = get_namespace(R, z, phi)
+        R, z, phi = coerce_coords(xp, R, z, phi)
         x, y, z = self._compute_xyz(R, phi, z, t)
         zc = xp.sqrt(z**2.0 + self._c2)
         bzc2 = (self._b + zc) ** 2.0
