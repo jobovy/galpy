@@ -9726,6 +9726,27 @@ def _check_voSet(orb, kwargs, funcName):
         )
 
 
+def _coerce_obs_thiso(thiso, obs):
+    """Bring ``thiso`` and the components of a list/ndarray ``obs`` onto one
+    backend namespace for the helio/UVW accessors' non-Orbit ``obs`` branch.
+
+    Under a forced backend the observer components (``obs.x()`` ... which the
+    caller assembles into ``obs=[...]``) are backend tensors while a
+    numpy-integrated ``thiso`` is a numpy array, so ``thiso -
+    arctan2(obs[1], obs[0])`` mixes the two and raises. Resolving the namespace
+    from ``thiso`` and the ``obs`` components together and coercing both onto it
+    fixes the whole branch at once. The numpy path is a strict pass-through
+    (``get_namespace`` -> numpy, ``coerce_coords`` returns its inputs object-
+    identically), so it stays byte-identical. Returns ``(xp, thiso, obs)`` with
+    ``obs`` as a list.
+    """
+    obs_parts = list(obs)
+    xp = get_namespace(thiso, *obs_parts)
+    (thiso,) = coerce_coords(xp, thiso)
+    obs = list(coerce_coords(xp, *obs_parts))
+    return xp, thiso, obs
+
+
 def _helioXYZ(orb, thiso, *args, **kwargs):
     """Calculate heliocentric rectangular coordinates"""
     obs, ro, vo = _parse_radec_kwargs(orb, kwargs, thiso=thiso)
@@ -9733,11 +9754,12 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
         raise AttributeError("orbit must track azimuth to use radeclbd functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            xp, thiso, obs = _coerce_obs_thiso(thiso, obs)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0],
-                thiso[3] - numpy.arctan2(obs[1], obs[0]),
-                numpy.zeros_like(thiso[0]),
-                Xsun=numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0) / ro,
+                thiso[3] - xp.arctan2(obs[1], obs[0]),
+                xp.zeros_like(thiso[0]),
+                Xsun=xp.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0) / ro,
                 Zsun=obs[2] / ro,
                 _extra_rot=False,
             ).T
@@ -9764,11 +9786,12 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
             obs.turn_physical_on()
     else:  # FullOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            xp, thiso, obs = _coerce_obs_thiso(thiso, obs)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
-                thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
+                thiso[5, :] - xp.arctan2(obs[1], obs[0]),
                 thiso[3, :],
-                Xsun=numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0) / ro,
+                Xsun=xp.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0) / ro,
                 Zsun=obs[2] / ro,
             ).T
         else:  # Orbit instance
@@ -9816,11 +9839,12 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
         raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
         if isinstance(obs, (numpy.ndarray, list)):
-            Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
+            xp, thiso, obs = _coerce_obs_thiso(thiso, obs)
+            Xsun = xp.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
-                thiso[3, :] - numpy.arctan2(obs[1], obs[0]),
-                numpy.zeros_like(thiso[0]),
+                thiso[3, :] - xp.arctan2(obs[1], obs[0]),
+                xp.zeros_like(thiso[0]),
                 Xsun=Xsun / ro,
                 Zsun=obs[2] / ro,
                 _extra_rot=False,
@@ -9828,9 +9852,9 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
             vX, vY, vZ = coords.galcencyl_to_vxvyvz(
                 thiso[1, :],
                 thiso[2, :],
-                numpy.zeros_like(thiso[0]),
-                thiso[3, :] - numpy.arctan2(obs[1], obs[0]),
-                vsun=numpy.array(  # have to rotate
+                xp.zeros_like(thiso[0]),
+                thiso[3, :] - xp.arctan2(obs[1], obs[0]),
+                vsun=xp.stack(  # have to rotate
                     [
                         obs[3] * obs[0] / Xsun / vo + obs[4] * obs[1] / Xsun / vo,
                         -obs[3] * obs[1] / Xsun / vo + obs[4] * obs[0] / Xsun / vo,
@@ -9902,10 +9926,11 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
             obs.turn_physical_on()
     else:  # FullOrbit
         if isinstance(obs, (numpy.ndarray, list)):
-            Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
+            xp, thiso, obs = _coerce_obs_thiso(thiso, obs)
+            Xsun = xp.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
-                thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
+                thiso[5, :] - xp.arctan2(obs[1], obs[0]),
                 thiso[3, :],
                 Xsun=Xsun / ro,
                 Zsun=obs[2] / ro,
@@ -9914,8 +9939,8 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
                 thiso[1, :],
                 thiso[2, :],
                 thiso[4, :],
-                thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
-                vsun=numpy.array(  # have to rotate
+                thiso[5, :] - xp.arctan2(obs[1], obs[0]),
+                vsun=xp.stack(  # have to rotate
                     [
                         obs[3] * obs[0] / Xsun / vo + obs[4] * obs[1] / Xsun / vo,
                         -obs[3] * obs[1] / Xsun / vo + obs[4] * obs[0] / Xsun / vo,

@@ -19,7 +19,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, is_backend_array, use
 from galpy.util import coords
 
 # This module manages backends explicitly (parametrizes over them), so it is
@@ -274,3 +274,33 @@ def test_kuzminkutuzov_force_grad_fd(backend_name):
     errs = [abs((f(R0 + h) - f(R0 - h)) / (2.0 * h) - g_ad) for h in (1e-3, 1e-4)]
     assert errs[0] < 1e-6
     assert errs[1] < errs[0] / 50.0
+
+
+# --- uv_to_Rz individual-delta coercion (numpy delta under a forced backend) --
+# actionAngleStaeckel's EccZmaxRperiRap with a per-point ``delta`` array feeds
+# uv_to_Rz a numpy ``delta`` while u, v get promoted onto the (forced) backend;
+# before promoting delta too the prolate/oblate ``delta * xp.sinh(u)`` raised
+# ``numpy.ndarray * Tensor`` on torch. Reproduced under a *forced* backend (the
+# resolver short-circuits to the backend, so a numpy delta reaches the backend
+# ops) -- matching the ledgered test. Proves it now runs on the backend and
+# matches the numpy reference (prolate & oblate, array & scalar delta).
+_U = numpy.array([0.5, 0.7, 1.3, 0.2])
+_V = numpy.array([1.1, 0.9, 0.4, 2.0])
+_DELTA = numpy.array([0.2, 0.4, 0.6, 0.35])
+
+
+@pytest.mark.parametrize("oblate", [False, True])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_uv_to_Rz_indiv_delta_forced_backend(backend_name, oblate):
+    Rref, zref = coords.uv_to_Rz(_U, _V, delta=_DELTA, oblate=oblate)
+    Rref2, zref2 = coords.uv_to_Rz(_U, _V, delta=0.85, oblate=oblate)
+    with use(backend_name, force=True):
+        # numpy u, v, delta under a forced backend: delta must be promoted too
+        R, z = coords.uv_to_Rz(_U, _V, delta=_DELTA, oblate=oblate)
+        assert is_backend_array(R) and is_backend_array(z)
+        # a scalar (python-float) delta must also survive
+        R2, z2 = coords.uv_to_Rz(_U, _V, delta=0.85, oblate=oblate)
+    numpy.testing.assert_allclose(as_numpy(R), Rref, rtol=1e-13, atol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(z), zref, rtol=1e-13, atol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(R2), Rref2, rtol=1e-13, atol=1e-14)
+    numpy.testing.assert_allclose(as_numpy(z2), zref2, rtol=1e-13, atol=1e-14)
