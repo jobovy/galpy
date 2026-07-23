@@ -4018,34 +4018,22 @@ class streamdf(df):
         # First parse log
         log = kwargs.pop("log", True)
         dOmega, dangle = self.prepData4Call(*args, **kwargs)
-        # Namespace of the (possibly backend) frequency/angle offsets: torch's
-        # reductions take ``dim=`` not ``axis=``, so route the sums through the
-        # resolved namespace (``xp.sum`` accepts the array-api ``axis`` kwarg).
-        # Follow the DATA (data-guard), not the forced default: a numpy dOmega
-        # keeps numpy.sum (byte-identical, and it stays a valid reduction under a
-        # forced backend where the stored numpy constants keep the offsets numpy),
-        # while a backend dOmega (the callMarg path, whose coords transforms
-        # produce tensors) routes to xp.sum. The stored numpy constants
-        # (``self._sigomatrixinv`` ...) are not yet coerced onto the backend, so
-        # the surrounding ``numpy.dot``/``numpy.log`` still round-trip tensors
-        # through numpy -- a deferred Track F migration of the full ``__call__``.
-        xp = get_namespace(dOmega) if is_backend_array(dOmega) else numpy
         # Omega part
         dOmega4dfOmega = (
             dOmega - numpy.tile(self._dsigomeanProg.T, (dOmega.shape[1], 1)).T
         )
         logdfOmega = (
             -0.5
-            * xp.sum(
+            * numpy.sum(
                 dOmega4dfOmega * numpy.dot(self._sigomatrixinv, dOmega4dfOmega), axis=0
             )
             - 0.5 * self._sigomatrixLogdet
             + numpy.log(numpy.fabs(numpy.dot(self._dsigomeanProgDirection, dOmega)))
         )
         # Angle part
-        dangle2 = xp.sum(dangle**2.0, axis=0)
-        dOmega2 = xp.sum(dOmega**2.0, axis=0)
-        dOmegaAngle = xp.sum(dOmega * dangle, axis=0)
+        dangle2 = numpy.sum(dangle**2.0, axis=0)
+        dOmega2 = numpy.sum(dOmega**2.0, axis=0)
+        dOmegaAngle = numpy.sum(dOmega * dangle, axis=0)
         logdfA = (
             -0.5 / self._sigangle2 * (dangle2 - dOmegaAngle**2.0 / dOmega2)
             - 2.0 * self._lnsigangle
