@@ -2,7 +2,7 @@
 import numpy
 from scipy import integrate, interpolate, special
 
-from ..backend import as_numpy, device_of
+from ..backend import as_numpy, device_of, get_namespace
 from ..backend import random as grandom
 from ..backend import resolve_namespace
 from ..backend.quadrature import fixed_quad, nested_quad
@@ -192,23 +192,36 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
     def _sample_eta(self, r, n=1, key=None):
         """Sample the angle eta which defines radial vs tangential velocities
 
-        ``key`` is accepted (threaded from ``_sample_velocity_angles``) but the
-        anisotropic eta sampler stays numpy-side for now (backend eta is a later
-        migration); ``key=None`` is byte-identical."""
+        The cos(eta) inverse-CDF is CLOSED-FORM (r-dependent through
+        A = (r/ra)^2), so no grid is needed: ``key=None`` draws from the global
+        ``numpy.random`` (byte-identical); a backend key draws backend uniforms
+        (magnitude + symmetric sign) and evaluates the SAME analytic inversion
+        in-namespace -- so eta is a backend array differentiable in r."""
         # cumulative distribution of x = cos eta satisfies
         # x/(sqrt(A+1 -A* x^2)) = 2 b - 1 = c
         # where b \in [0,1] and A = (r/ra)^2
         # Solved by
         # x = c sqrt(1+[r/ra]^2) / sqrt( [r/ra]^2 c^2 + 1 ) for c > 0 [b > 0.5]
         # and symmetric wrt c
-        c = numpy.random.uniform(size=n)
-        x = (
-            c
-            * numpy.sqrt(1 + r**2.0 / self._ra2)
-            / numpy.sqrt(r**2.0 / self._ra2 * c**2.0 + 1)
-        )
-        x *= numpy.random.choice([1.0, -1.0], size=n)
-        return numpy.arccos(x)
+        if key is None:
+            # numpy path (byte-identical)
+            c = numpy.random.uniform(size=n)
+            x = (
+                c
+                * numpy.sqrt(1 + r**2.0 / self._ra2)
+                / numpy.sqrt(r**2.0 / self._ra2 * c**2.0 + 1)
+            )
+            x *= numpy.random.choice([1.0, -1.0], size=n)
+            return numpy.arccos(x)
+        # backend key: same analytic inversion, in-namespace and differentiable
+        # in r; independent sub-keys for the magnitude uniform and the sign
+        kc, ks = grandom.split(key, 2)
+        c = grandom.uniform(kc, n)
+        xp = get_namespace(c)
+        A = xp.asarray(r) ** 2.0 / self._ra2  # coerce: r is the backend sample r
+        x = c * xp.sqrt(1.0 + A) / xp.sqrt(A * c**2.0 + 1.0)
+        sign = grandom.choice(ks, xp.asarray([1.0, -1.0]), shape=n)
+        return xp.arccos(x * sign)
 
     def _p_v_at_r(self, v, r):
         """p( v*sqrt[1+r^2/ra^2*sin^2eta] | r) used in sampling"""
@@ -238,13 +251,17 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
     def _sample_v(self, r, eta, n=1, key=None):
         """Generate velocity samples
 
-        OM sampling is numpy-side (``osipkovmerrittdf.sample`` rejects a backend
-        key), so ``key`` is always ``None`` here and threaded through for
-        signature parity."""
+        ``key=None`` is the byte-identical numpy path; a backend key returns a
+        backend velocity (the base pvr sampler is native, so the r/eta transform
+        below runs in-namespace, differentiable in r and eta)."""
         # Use super-class method to obtain v*[1+r^2/ra^2*sin^2eta]
         out = super()._sample_v(r, eta, n=n, key=key)
         # Transform to v
-        return out / numpy.sqrt(1.0 + r**2.0 / self._ra2 * numpy.sin(eta) ** 2.0)
+        if key is None:
+            return out / numpy.sqrt(1.0 + r**2.0 / self._ra2 * numpy.sin(eta) ** 2.0)
+        xp = get_namespace(out, eta)
+        rb = xp.asarray(r) ** 2.0
+        return out / xp.sqrt(1.0 + rb / self._ra2 * xp.sin(eta) ** 2.0)
 
     def _vmomentdensity(self, r, n, m):
         if m % 2 == 1 or n % 2 == 1:
@@ -417,15 +434,9 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         if rmin is None:
             rmin = self._rmin
         self._ensure_fQ_interp()
-        # Backend-key velocity sampling for anisotropic DFs is deferred (the eta
-        # sampler needs a backend inverse-CDF); reject a jax/torch key clearly.
-        if grandom._backend_of_key(key) != "numpy":
-            raise NotImplementedError(
-                "backend-key (jax/torch) sampling is not yet supported for "
-                "anisotropic DFs (constantbetadf/osipkovmerrittdf); pass "
-                "key=None for numpy sampling. Backend anisotropic velocity "
-                "sampling is a planned follow-up."
-            )
+        # key=None keeps the whole assembly numpy (byte-identical); a backend key
+        # makes the radial, angle (native analytic eta inverse-CDF), and velocity
+        # sampling backend-native (differentiable, GPU/jit-able).
         return sphericaldf.sample(
             self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin, key=key
         )
