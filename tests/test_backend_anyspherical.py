@@ -22,6 +22,7 @@ import pytest
 from galpy.backend import as_numpy
 from galpy.potential import (
     AnySphericalPotential,
+    evaluateDensities,
     evaluatePotentials,
     evaluater2derivs,
     evaluateRforces,
@@ -214,7 +215,12 @@ def test_units_density_backend_value_parity(backend_name):
     for R0, z0 in _RZ:
         R = _asarray(backend_name, R0)
         z = _asarray(backend_name, z0)
-        for fn in (evaluatePotentials, evaluateRforces, evaluater2derivs):
+        for fn in (
+            evaluatePotentials,
+            evaluateRforces,
+            evaluater2derivs,
+            evaluateDensities,
+        ):
             ref = fn(pot, R0, z0, use_physical=False)
             with warnings.catch_warnings():
                 warnings.simplefilter("error", DeprecationWarning)
