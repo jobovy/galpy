@@ -14,6 +14,8 @@
 # finite-and-nonzero). Backends that are not installed self-skip, so this is
 # green on numpy alone.
 ###############################################################################
+import warnings
+
 import numpy
 import pytest
 
@@ -24,6 +26,7 @@ from galpy.potential import (
     evaluater2derivs,
     evaluateRforces,
 )
+from galpy.util._optional_deps import _APY_LOADED
 
 # This module manages backends explicitly (parametrizes over them), so it is
 # exempt from the global --backend force fixture.
@@ -176,3 +179,52 @@ def test_rforce_grad_vs_fd_amp(backend_name):
     fp = float(evaluateRforces(AnySphericalPotential(amp=amp0 + h, dens=_dens), R0, z0))
     fm = float(evaluateRforces(AnySphericalPotential(amp=amp0 - h, dens=_dens), R0, z0))
     numpy.testing.assert_allclose(ad, (fp - fm) / (2.0 * h), rtol=1e-6, atol=1e-8)
+
+
+# ==================== units-based density on the backend ================== #
+# A units-based density runs through astropy Quantity arithmetic, which strips a
+# jax/torch quadrature node to numpy (and emits a numpy-2 __array__ deprecation).
+# The backend integrands then did `numpy * Tensor`, which RAISES. Such a density
+# is inherently non-differentiable, so it is now evaluated on the numpy node and
+# the result anchored back on the backend (AnySphericalPotential._backend_dens).
+# Assert: no raise, a backend array, numpy value parity, and -- crucially, since
+# build.yml runs test_backend*.py under numpy with `-W error` -- NO Deprecation/
+# FutureWarning escapes the units evaluation.
+@pytest.mark.skipif(not _APY_LOADED, reason="astropy not installed")
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_units_density_backend_value_parity(backend_name):
+    from astropy import units
+
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+
+    def dens_units(r):
+        return (
+            0.64
+            / r
+            / (1.0 + r) ** 3
+            * conversion.dens_in_msolpc3(vo, ro)
+            * units.Msun
+            / units.pc**3
+        )
+
+    pot = AnySphericalPotential(dens=dens_units, ro=ro, vo=vo)
+    assert pot._dens_needs_numpy
+    for R0, z0 in _RZ:
+        R = _asarray(backend_name, R0)
+        z = _asarray(backend_name, z0)
+        for fn in (evaluatePotentials, evaluateRforces, evaluater2derivs):
+            ref = fn(pot, R0, z0, use_physical=False)
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", DeprecationWarning)
+                warnings.simplefilter("error", FutureWarning)
+                got = fn(pot, R, z, use_physical=False)
+            assert backend_name in type(got).__module__, (fn.__name__, type(got))
+            numpy.testing.assert_allclose(
+                as_numpy(got),
+                ref,
+                rtol=1e-8,
+                atol=1e-9,
+                err_msg=f"{fn.__name__} R={R0} ({backend_name})",
+            )
