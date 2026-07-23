@@ -1072,3 +1072,46 @@ def test_native_rect_cubic_grad_vs_fd(backend):
 
     fd = (_l(z0 + 1e-4 * V) - _l(z0 - 1e-4 * V)) / 2e-4
     numpy.testing.assert_allclose(dd, fd, rtol=1e-6, atol=1e-9)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline_filter_native_degenerate_axis(backend):
+    # A length<=1 axis takes the _spline_filter1d_native early-return (nothing to
+    # prefilter along it); the native prefilter still matches scipy (which leaves
+    # such an axis unchanged). Covers the L<=1 short-circuit.
+    for g in (numpy.array([3.7]), numpy.arange(6.0).reshape(1, 6)):
+        ref = sndi.spline_filter(g, order=3)
+        out = spline_filter(_asarray(backend, g))
+        assert _is_backend(backend, out)
+        numpy.testing.assert_allclose(as_numpy(out), ref, rtol=1e-11, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline2d_mode2_bad_k(backend):
+    # A backend z selects mode 2 (native fit); mode 2 only implements bicubic, so a
+    # non-cubic degree raises. Covers the kx/ky!=3 guard.
+    with pytest.raises(ValueError):
+        Spline2D(_NF_X, _NF_Y, _asarray(backend, _NF_Z_SMOOTH), kx=2)
+    with pytest.raises(ValueError):
+        Spline2D(_NF_X, _NF_Y, _asarray(backend, _NF_Z_SMOOTH), ky=2)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_spline2d_mode2_numpy_query(backend):
+    # A mode-2 (backend-native) Spline2D queried with NUMPY points materialises the
+    # native coeffs off the backend and evaluates through numpy -- both point-eval
+    # (grid=False) and outer-product (grid=True) -- matching scipy .ev / __call__.
+    spl = si.RectBivariateSpline(_NF_X, _NF_Y, _NF_Z_SMOOTH, kx=3, ky=3, s=0.0)
+    from galpy.backend import is_backend_array
+
+    s2 = Spline2D(_NF_X, _NF_Y, _asarray(backend, _NF_Z_SMOOTH))
+    assert s2._spl is None  # mode 2 (no scipy spline stored)
+    # grid=False: numpy points paired elementwise (like .ev), returns a numpy array
+    got = s2(_NF_XQ, _NF_YQ)
+    assert not is_backend_array(got)
+    numpy.testing.assert_allclose(got, spl.ev(_NF_XQ, _NF_YQ), rtol=1e-11, atol=1e-12)
+    # grid=True: outer product of numpy X,Y (like scipy __call__)
+    Xg = numpy.array([0.4, 1.1, 2.6])
+    Yg = numpy.array([-0.5, 0.3, 1.2, 1.8])
+    got_g = s2(Xg, Yg, grid=True)
+    numpy.testing.assert_allclose(got_g, spl(Xg, Yg, grid=True), rtol=1e-11, atol=1e-12)
