@@ -7,6 +7,7 @@ import numpy
 from scipy import integrate, interpolate, special
 
 from ..backend import (
+    as_backend_constant,
     as_numpy,
     autodiff_ops,
     device_of,
@@ -16,6 +17,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace, use
+from ..backend.interpolate import interp_linear
 from ..backend.quadrature import fixed_quad, fixed_quad_semiinfinite
 from ..potential import evaluateRforces, interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
@@ -216,9 +218,13 @@ class _constantbetadf(anisotropicsphericaldf):
     def _sample_eta(self, r, n=1, key=None):
         """Sample the angle eta which defines radial vs tangential velocities
 
-        ``key`` is accepted (threaded from ``_sample_velocity_angles``) but the
-        anisotropic eta sampler stays numpy-side for now (backend eta is a later
-        migration); ``key=None`` is byte-identical."""
+        eta is drawn from the FIXED (r-independent) distribution
+        p(eta) ∝ sin(eta)^(1-2β) by inverting its cos(eta) CDF. ``key=None``
+        draws from the global ``numpy.random`` and inverts the CDF with the
+        scipy ``interp1d`` (byte-identical); a backend key draws a backend
+        uniform and inverts the SAME frozen (coseta_cmf, cosetas) inverse-CDF
+        grid natively via ``interp_linear`` -- so eta is a backend array
+        differentiable in the CDF grid (and hence, via the grid, in β)."""
         if not hasattr(self, "_coseta_icmf_interp"):
             # Cumulative dist for cos(eta) =
             # 0.5 + x 2F1(0.5,beta,1.5,x^2)/sqrt(pi)/Gamma(1-beta)*Gamma(1.5-beta)
@@ -231,10 +237,25 @@ class _constantbetadf(anisotropicsphericaldf):
                 * special.gamma(1.5 - self._beta)
                 + 0.5
             )
+            # cache the raw grids for the backend inverse-CDF (the numpy path
+            # keeps using the scipy interp1d below, byte-identically)
+            self._coseta_cmf_grid = coseta_cmf
+            self._cosetas_grid = cosetas
             self._coseta_icmf_interp = interpolate.interp1d(
                 coseta_cmf, cosetas, bounds_error=False, fill_value="extrapolate"
             )
-        return numpy.arccos(self._coseta_icmf_interp(numpy.random.uniform(size=n)))
+        if key is None:
+            # numpy path (byte-identical): global-numpy uniform + scipy interp1d
+            return numpy.arccos(self._coseta_icmf_interp(numpy.random.uniform(size=n)))
+        # backend key: native linear inverse-CDF on the frozen (coseta_cmf,
+        # cosetas) grid -- extrapolate=True matches interp1d(fill_value=
+        # "extrapolate"); eta is a backend array differentiable in the CDF grid
+        u = grandom.uniform(key, n)
+        xp = get_namespace(u)
+        cg = as_backend_constant(xp, self._coseta_cmf_grid, u)
+        vg = as_backend_constant(xp, self._cosetas_grid, u)
+        coseta = interp_linear(xp, cg, vg, u, extrapolate=True)
+        return xp.arccos(coseta)
 
     def _p_v_at_r(self, v, r):
         xp = resolve_namespace(v, r)
@@ -303,31 +324,37 @@ class _constantbetadf(anisotropicsphericaldf):
     def sample(
         self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0, key=None
     ):
-        # No docstring so the superclass' is used. Sampling is a numpy-side
-        # (stateful-RNG) operation drawn from the interpolated fE (built with
-        # the backend's autodiff at construction); run it on numpy under torch
-        # so the returned Orbit and its accessors are numpy (see _numpy_ctx).
-        # Backend-key velocity sampling for anisotropic DFs is deferred (the eta
-        # sampler needs a backend inverse-CDF); reject a jax/torch key clearly
-        # rather than silently returning numpy or a broken mixed result.
-        if grandom._backend_of_key(key) != "numpy":
-            raise NotImplementedError(
-                "backend-key (jax/torch) sampling is not yet supported for "
-                "anisotropic DFs (constantbetadf/osipkovmerrittdf); pass "
-                "key=None for numpy sampling. Backend anisotropic velocity "
-                "sampling is a planned follow-up."
-            )
-        with _numpy_ctx(_active_backend_name()):
-            return sphericaldf.sample(
-                self,
-                R=R,
-                z=z,
-                phi=phi,
-                n=n,
-                return_orbit=return_orbit,
-                rmin=rmin,
-                key=key,
-            )
+        # No docstring so the superclass' is used.
+        # key=None (numpy sampling): a numpy-side (stateful-RNG) operation drawn
+        # from the interpolated fE (built with the backend's autodiff at
+        # construction); run it on numpy under torch so the scipy interpolators/
+        # quadrature don't see torch scalars and the returned Orbit is numpy
+        # (see _numpy_ctx -- byte-identical numpy pass-through). A backend key
+        # follows its OWN draws into jax/torch (the eta inverse-CDF and the
+        # velocity magnitude are backend-native, differentiable, GPU/jit-able),
+        # so it must NOT force numpy -- that would override the data dispatch.
+        if grandom._backend_of_key(key) == "numpy":
+            with _numpy_ctx(_active_backend_name()):
+                return sphericaldf.sample(
+                    self,
+                    R=R,
+                    z=z,
+                    phi=phi,
+                    n=n,
+                    return_orbit=return_orbit,
+                    rmin=rmin,
+                    key=key,
+                )
+        return sphericaldf.sample(
+            self,
+            R=R,
+            z=z,
+            phi=phi,
+            n=n,
+            return_orbit=return_orbit,
+            rmin=rmin,
+            key=key,
+        )
 
 
 class constantbetadf(_constantbetadf):
