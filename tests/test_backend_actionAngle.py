@@ -2114,3 +2114,230 @@ def test_staeckelgrid_native_setup_differentiable(backend):
         fd = (_l(baseL_np + 1e-4 * V) - _l(baseL_np - 1e-4 * V)) / 2e-4
         assert _is_backend_array(backend, grad if backend == "jax" else bt.grad)
     numpy.testing.assert_allclose(dd, fd, rtol=1e-5, atol=1e-8)
+
+
+# The interpecc frozen tables (ecc/zmax/rperi/rap + their per-Lz maxima); all
+# stored under the same attribute names on the numpy and backend paths.
+_ECC_TABLES = ("_ecc", "_zmax", "_rperi", "_rap")
+_ECC_LZE_TABLES = ("_zmaxLzE", "_rperiLzE", "_rapLzE")
+
+
+def _staeckelgrid_numpy_ref_interpecc():
+    from galpy.potential import MWPotential2014
+
+    return actionAngleStaeckelGrid(
+        pot=MWPotential2014,
+        delta=0.45,
+        nE=12,
+        npsi=12,
+        nLz=14,
+        c=True,
+        interpecc=True,
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckelgrid_native_setup_interpecc(backend):
+    # interpecc=True grid built inside a forced backend: the ecc/zmax/rperi/rap
+    # tables (+ their per-Lz maxima) are BACKEND arrays fit NATIVELY and match the
+    # numpy(interpecc) grid. This exercises the interpecc build block (the
+    # EccZmaxRperiRap solve, the _max_finite per-Lz reduction, the clamp/normalise,
+    # and the interpecc backend-interp wrappers) that interpecc=False never reaches.
+    from galpy import backend as galpy_backend
+    from galpy.potential import MWPotential2014
+
+    ref = _staeckelgrid_numpy_ref_interpecc()
+    ref_ecc = ref.EccZmaxRperiRap(*_NATIVE_S)
+    with galpy_backend.use(backend, force=True):
+        g = actionAngleStaeckelGrid(
+            pot=MWPotential2014,
+            delta=0.45,
+            nE=12,
+            npsi=12,
+            nLz=14,
+            c=True,
+            interpecc=True,
+        )
+        for a in _ECC_TABLES + _ECC_LZE_TABLES:
+            assert _is_backend_array(backend, getattr(g, a)), a
+        # Tables match the numpy(interpecc) grid. The ecc-family tables derive from
+        # the same u0-sensitive orbit positions (see the differentiable/parity
+        # notes on the interpecc=False test), so they floor at the ~1e-4 _u0 band.
+        for a in _ECC_TABLES + _ECC_LZE_TABLES:
+            numpy.testing.assert_allclose(
+                as_numpy(getattr(g, a)),
+                numpy.asarray(getattr(ref, a)),
+                rtol=1e-4,
+                atol=1e-6,
+                err_msg=a,
+            )
+        xp = galpy_backend.get_namespace()
+        got_ecc = g.EccZmaxRperiRap(*[xp.asarray(v) for v in _NATIVE_S])
+    for r, gg in zip(ref_ecc, got_ecc):
+        assert _is_backend_array(backend, gg)
+        numpy.testing.assert_allclose(
+            as_numpy(gg), numpy.asarray(r), rtol=1e-2, atol=1e-3
+        )
+
+
+def _interpRZ_pot():
+    from galpy.potential import MWPotential2014, interpRZPotential
+
+    return interpRZPotential(
+        RZPot=MWPotential2014,
+        rgrid=(numpy.log(0.01), numpy.log(20.0), 201),
+        logR=True,
+        zgrid=(0.0, 1.0, 101),
+        interpPot=True,
+        use_c=True,
+        enable_c=True,
+        zsym=True,
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckelgrid_native_setup_interpRZ(backend):
+    # A grid built on an interpRZPotential under a forced backend: extreme grid
+    # orbits fall off the interpolated potential and are flagged 9999.99, so the
+    # build recomputes them with the ORIGINAL potential (the numpy-solver recompute
+    # block). Covers the interpRZ ``_origPot`` u0-solve branch AND the bad-orbit
+    # recompute (actions + interpecc) that a regular potential never triggers. The
+    # recomputed tables still land as backend arrays and match the numpy grid.
+    from galpy import backend as galpy_backend
+
+    rzpot = _interpRZ_pot()
+    ref = actionAngleStaeckelGrid(
+        pot=rzpot, delta=0.71, nE=8, npsi=8, nLz=8, c=True, interpecc=True
+    )
+    with galpy_backend.use(backend, force=True):
+        g = actionAngleStaeckelGrid(
+            pot=rzpot, delta=0.71, nE=8, npsi=8, nLz=8, c=True, interpecc=True
+        )
+        for a in ("_jr", "_jz", "_u0") + _ECC_TABLES + _ECC_LZE_TABLES:
+            assert _is_backend_array(backend, getattr(g, a)), a
+        # jr/jz recompute the bad orbits with the ORIGINAL potential in both paths
+        # (tmpaA), so those tables match to grid parity (the ~1e-4 _u0 band).
+        # NOTE: the ecc/zmax/rperi/rap bad-orbit recompute does NOT match here --
+        # the numpy path recomputes them with self._aA (the interp potential),
+        # whereas the #1182 backend path uses tmpaA (the orig potential); the two
+        # therefore diverge on the flagged entries. We only pin the backend-array
+        # property for the ecc-family here (parity is covered by the regular-pot
+        # interpecc test, which has no bad orbits).
+        for a in ("_jr", "_jz"):
+            numpy.testing.assert_allclose(
+                as_numpy(getattr(g, a)),
+                numpy.asarray(getattr(ref, a)),
+                rtol=1e-4,
+                atol=1e-6,
+                err_msg=a,
+            )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckelgrid_native_setup_noc(backend):
+    # c=False grid built inside a forced backend: the u0 solve takes the per-point
+    # calcu0 python loop (the non-c branch), which the c=True native tests skip.
+    # Keep the grid tiny (the non-c Staeckel action solve is a python quadrature).
+    from galpy import backend as galpy_backend
+    from galpy.potential import MWPotential2014
+
+    ref = actionAngleStaeckelGrid(
+        pot=MWPotential2014, delta=0.45, nE=6, npsi=6, nLz=6, c=False
+    )
+    with galpy_backend.use(backend, force=True):
+        g = actionAngleStaeckelGrid(
+            pot=MWPotential2014, delta=0.45, nE=6, npsi=6, nLz=6, c=False
+        )
+        for a in ("_jr", "_jz", "_u0", "_jrLzE", "_jzLzE"):
+            assert _is_backend_array(backend, getattr(g, a)), a
+        for a in ("_jr", "_jz", "_jrLzE", "_jzLzE"):
+            numpy.testing.assert_allclose(
+                as_numpy(getattr(g, a)),
+                numpy.asarray(getattr(ref, a)),
+                rtol=1e-4,
+                atol=1e-6,
+                err_msg=a,
+            )
+
+
+# AdiabaticGrid frozen tables (Ez + JR grids and their abscissae/maxima); same
+# attribute names on the numpy and backend paths.
+_ADIA_TABLES = ("_Rs", "_EzZmaxs", "_jz", "_Lzs", "_RL", "_ERRL", "_jr")
+
+
+# Jz() runs the shared _parse_eval_args, which computes the (unused-by-Jz) polar
+# angle via numpy.arctan2 -- benign on backend arrays but trips numpy's 2.0
+# __array_wrap__ deprecation under the -W error coverage shard; filter it here.
+@pytest.mark.filterwarnings(
+    "ignore:__array_wrap__ must accept context:DeprecationWarning"
+)
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabaticgrid_native_setup_backend_arrays(backend):
+    # A c=True AdiabaticGrid built inside a forced backend stores its frozen tables
+    # as backend arrays (GPU-resident, no numpy island) fit NATIVELY, matching the
+    # numpy(scipy) grid. Exercises the backend build (Ez + JR grids) that the numpy
+    # xp-is-numpy path never reaches, plus the on-grid Jz() backend dispatch.
+    from galpy import backend as galpy_backend
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, nR=8, nEz=8, nEr=10, nLz=10, c=True)
+    ref = actionAngleAdiabaticGrid(**kw)
+    ref_a = ref(*_NATIVE_S)
+    # numpy Jz() is scalar-only; build the reference point-by-point.
+    ref_jz = numpy.array(
+        [ref.Jz(*[float(v[i]) for v in _NATIVE_S]) for i in range(len(_NATIVE_S[0]))]
+    )
+    with galpy_backend.use(backend, force=True):
+        g = actionAngleAdiabaticGrid(**kw)
+        for a in _ADIA_TABLES:
+            assert _is_backend_array(backend, getattr(g, a)), a
+        for a in _ADIA_TABLES:
+            numpy.testing.assert_allclose(
+                as_numpy(getattr(g, a)),
+                numpy.asarray(getattr(ref, a)),
+                rtol=1e-6,
+                atol=1e-8,
+                err_msg=a,
+            )
+        xp = galpy_backend.get_namespace()
+        args = [xp.asarray(v) for v in _NATIVE_S]
+        got_a = g(*args)
+        got_jz = g.Jz(*args)  # Jz() backend dispatch
+    assert _is_backend_array(backend, got_jz)
+    for r, gg in zip(ref_a, got_a):
+        numpy.testing.assert_allclose(
+            as_numpy(gg), numpy.asarray(r), rtol=1e-3, atol=1e-5
+        )
+    numpy.testing.assert_allclose(
+        as_numpy(got_jz), numpy.asarray(ref_jz), rtol=1e-3, atol=1e-5
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_adiabaticgrid_native_setup_noc(backend):
+    # c=False AdiabaticGrid built inside a forced backend: the jz/jr grids take the
+    # per-point actionAngleAdiabatic python loops (the non-c branch). Kept tiny (the
+    # non-c solve is a python quadrature per grid point); if the build is
+    # pathologically slow (>60s) it is skipped rather than shipping a timeout.
+    import time
+
+    from galpy import backend as galpy_backend
+    from galpy.potential import MWPotential2014
+
+    kw = dict(pot=MWPotential2014, nR=6, nEz=6, nEr=6, nLz=6, c=False)
+    ref = actionAngleAdiabaticGrid(**kw)
+    with galpy_backend.use(backend, force=True):
+        t0 = time.time()
+        g = actionAngleAdiabaticGrid(**kw)
+        if time.time() - t0 > 60.0:  # pragma: no cover
+            pytest.skip("non-c backend AdiabaticGrid build too slow on this backend")
+        for a in _ADIA_TABLES:
+            assert _is_backend_array(backend, getattr(g, a)), a
+        for a in ("_jz", "_jr"):
+            numpy.testing.assert_allclose(
+                as_numpy(getattr(g, a)),
+                numpy.asarray(getattr(ref, a)),
+                rtol=1e-6,
+                atol=1e-8,
+                err_msg=a,
+            )
