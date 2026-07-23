@@ -359,6 +359,8 @@ jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomeg
 jax tests/test_noninertial.py::test_lsrframe_vecomegaz
 jax tests/test_noninertial.py::test_lsrframe_vecomegaz_2d
 jax tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
 
 # --- streamdf under jax (Track F streamdf vectorization) ---
 # The closed-form actionAngleIsochrone backend migration (same PR) makes
