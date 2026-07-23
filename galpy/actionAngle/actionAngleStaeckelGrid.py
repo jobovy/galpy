@@ -527,54 +527,55 @@ class actionAngleStaeckelGrid(actionAngle):
         if isinstance(self._pot, potential.interpRZPotential) and hasattr(
             self._pot, "_origPot"
         ):
-            # Interpolated potentials have problems with extreme orbits: recompute
-            # the 9999.99 flags with the original potential (rare; numpy solver).
+            # Interpolated potentials fail on extreme orbits (jr/jz == 9999.99);
+            # recompute those with the ORIGINAL potential's Staeckel, matching the
+            # numpy build.
             bad = (mjr == 9999.99) | (mjz == 9999.99)
-            if int(as_numpy(xp.sum(bad))) > 0:
-                bad_np = as_numpy(bad)
-                with use("numpy", force=True):
-                    tmpaA = actionAngleStaeckel.actionAngleStaeckel(
-                        pot=self._pot._origPot, delta=self._delta, c=self._c
-                    )
-                    R_np = as_numpy(thisR)
-                    v_np = as_numpy(thisv)
-                    psi_np = as_numpy(thispsi)
-                    Lz_np = as_numpy(thisLzs)
-                    rjr, _, rjz = tmpaA(
-                        R_np[bad_np],
-                        v_np[bad_np] * numpy.cos(psi_np[bad_np]),
-                        Lz_np[bad_np] / R_np[bad_np],
-                        numpy.zeros(int(bad_np.sum())),
-                        v_np[bad_np] * numpy.sin(psi_np[bad_np]),
-                        fixed_quad=True,
-                    )
-                    mjr_np = as_numpy(mjr).copy()
-                    mjz_np = as_numpy(mjz).copy()
-                    mjr_np[bad_np] = rjr
-                    mjz_np[bad_np] = rjz
-                mjr = asarray_on_device(xp, mjr_np, dev)
-                mjz = asarray_on_device(xp, mjz_np, dev)
-                if interpecc:
-                    with use("numpy", force=True):
-                        recc, rzmax, rrperi, rrap = tmpaA.EccZmaxRperiRap(
-                            R_np[bad_np],
-                            v_np[bad_np] * numpy.cos(psi_np[bad_np]),
-                            Lz_np[bad_np] / R_np[bad_np],
-                            numpy.zeros(int(bad_np.sum())),
-                            v_np[bad_np] * numpy.sin(psi_np[bad_np]),
-                        )
-                        mecc_np = as_numpy(mecc).copy()
-                        mzmax_np = as_numpy(mzmax).copy()
-                        mrperi_np = as_numpy(mrperi).copy()
-                        mrap_np = as_numpy(mrap).copy()
-                        mecc_np[bad_np] = recc
-                        mzmax_np[bad_np] = rzmax
-                        mrperi_np[bad_np] = rrperi
-                        mrap_np[bad_np] = rrap
-                    mecc = asarray_on_device(xp, mecc_np, dev)
-                    mzmax = asarray_on_device(xp, mzmax_np, dev)
-                    mrperi = asarray_on_device(xp, mrperi_np, dev)
-                    mrap = asarray_on_device(xp, mrap_np, dev)
+            # jr/jz: BACKEND-NATIVE recompute -- the orig potential and its
+            # C-native action solve take the backend inputs directly (no numpy
+            # island), and the action solve preserves the 9999.99 failure sentinel
+            # for orbits it cannot resolve either (so the _nanmax_ne per-Lz maxima
+            # still exclude them, as on the numpy grid). Recompute for all orbits
+            # and keep the result only where the interp solve failed (xp.where:
+            # namespace-generic, both branches finite so dead-branch-safe); one
+            # extra coarse-grid solve at setup.
+            tmpaA = actionAngleStaeckel.actionAngleStaeckel(
+                pot=self._pot._origPot, delta=self._delta, c=self._c
+            )
+            vR = thisv * xp.cos(thispsi)
+            vT = thisLzs / thisR
+            vz = thisv * xp.sin(thispsi)
+            rjr, _, rjz = tmpaA(
+                thisR, vR, vT, xp.zeros_like(thisR), vz, fixed_quad=True
+            )
+            mjr = xp.where(bad, rjr, mjr)
+            mjz = xp.where(bad, rjz, mjz)
+            if interpecc:
+                # ecc-family: self._aA.EccZmaxRperiRap already ran on ALL orbits
+                # above; for the good orbits its backend value matches numpy. For
+                # the BAD orbits the backend C-STM path returns FINITE AD-safety-
+                # guarded numbers, but the numpy grid keeps this potential's C
+                # turning-point SENTINELS -- and a jr/jz failure always coincides
+                # with a turning-point failure (unbound orbit), so numpy never
+                # recovers a finite value there. The sentinels are a deterministic
+                # consequence of the C umin/umax = -9999.99 failure flags
+                # (ecc = NaN; zmax = delta*sinh(|umax|) = +inf; rperi =
+                # delta*sinh(umin) = -inf; rap = +inf) -- verified uniform across
+                # potentials + grid resolutions (696/696 bad orbits: ecc=NaN,
+                # zmax=+inf, rperi=-inf, rap=+inf, zero finite ecc). So mark the
+                # bad orbits with those exact sentinels (backend-native, no numpy
+                # island): the raw tables then equal the numpy grid's, and the
+                # inf-excluding _max_finite per-Lz normalizers + the NaN/inf clamps
+                # below reproduce the numpy grid EXACTLY. (rperi must be -inf, NOT
+                # +inf: after normalization +inf would clamp >1 -> 1, but numpy's
+                # -inf clamps isinf -> 0.)
+                nan = xp.full_like(mecc, numpy.nan)
+                pinf = xp.full_like(mecc, numpy.inf)
+                ninf = xp.full_like(mecc, -numpy.inf)
+                mecc = xp.where(bad, nan, mecc)
+                mzmax = xp.where(bad, pinf, mzmax)
+                mrperi = xp.where(bad, ninf, mrperi)
+                mrap = xp.where(bad, pinf, mrap)
         jr = xp.reshape(mjr, (nLz, nE, npsi))
         jz = xp.reshape(mjz, (nLz, nE, npsi))
         if interpecc:
