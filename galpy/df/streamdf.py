@@ -17,7 +17,13 @@ else:
     from scipy.special import logsumexp
 
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
-from ..backend import as_backend_constant, as_numpy, get_namespace, is_backend_array
+from ..backend import (
+    as_backend_constant,
+    as_numpy,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+)
 from ..backend import special as _bspecial
 from ..backend.interpolate import Spline1D, cubic_spline_coeffs, eval_ppoly
 from ..backend.quadrature import fixed_quad as _backend_fixed_quad
@@ -4018,6 +4024,8 @@ class streamdf(df):
         # First parse log
         log = kwargs.pop("log", True)
         dOmega, dangle = self.prepData4Call(*args, **kwargs)
+        if is_backend_array(dOmega) or is_backend_array(dangle):
+            return self._call_backend(dOmega, dangle, log)
         # Omega part
         dOmega4dfOmega = (
             dOmega - numpy.tile(self._dsigomeanProg.T, (dOmega.shape[1], 1)).T
@@ -4056,6 +4064,56 @@ class streamdf(df):
         else:
             return numpy.exp(out)
 
+    def _call_backend(self, dOmega, dangle, log):
+        """Backend (jax/torch) twin of the :meth:`__call__` tail: the log stream
+        DF from the frequency/angle offsets ``(dOmega, dangle)``, each ``(3,n)``.
+
+        Reproduces the numpy assembly exactly (numpy stays byte-identical via the
+        :meth:`__call__` dispatch), functionally so it differentiates w.r.t. the
+        offsets. The frozen numpy constants (``_dsigomeanProg`` etc.) are brought
+        into the active namespace via :func:`as_backend_constant`; the scalar
+        dispersions are exact python floats (weak scalars, no dtype upcast)."""
+        ref = dOmega if is_backend_array(dOmega) else dangle
+        xp = get_namespace(ref)
+        dOmega, dangle = promote_scalars(xp, dOmega, dangle)
+
+        def C(v):  # frozen numpy vector/matrix -> backend, anchored on the offsets
+            return as_backend_constant(xp, numpy.asarray(v), ref)
+
+        dsigomeanProg = C(self._dsigomeanProg)  # (3,)
+        sigomatrixinv = C(self._sigomatrixinv)  # (3,3)
+        dsigomeanProgDirection = C(self._dsigomeanProgDirection)  # (3,)
+        sigmatrixLogdet = float(self._sigomatrixLogdet)
+        sigangle2 = float(self._sigangle2)
+        lnsigangle = float(self._lnsigangle)
+        sigangle = float(self._sigangle)
+        tdisrupt = float(self._tdisrupt)
+        logmeandetdOdJp = float(self._logmeandetdOdJp)
+        sqrt2 = float(numpy.sqrt(2.0))
+        # Omega part (dsigomeanProg broadcasts over the n query points)
+        dOmega4dfOmega = dOmega - xp.reshape(dsigomeanProg, (-1, 1))
+        logdfOmega = (
+            -0.5
+            * xp.sum(dOmega4dfOmega * xp.matmul(sigomatrixinv, dOmega4dfOmega), axis=0)
+            - 0.5 * sigmatrixLogdet
+            + xp.log(xp.abs(xp.matmul(dsigomeanProgDirection, dOmega)))
+        )
+        # Angle part
+        dangle2 = xp.sum(dangle**2.0, axis=0)
+        dOmega2 = xp.sum(dOmega**2.0, axis=0)
+        dOmegaAngle = xp.sum(dOmega * dangle, axis=0)
+        logdfA = (
+            -0.5 / sigangle2 * (dangle2 - dOmegaAngle**2.0 / dOmega2)
+            - 2.0 * lnsigangle
+            - 0.5 * xp.log(dOmega2)
+        )
+        # Finite stripping part
+        a0 = dOmegaAngle / sqrt2 / sigangle / xp.sqrt(dOmega2)
+        ad = xp.sqrt(dOmega2) / sqrt2 / sigangle * (tdisrupt - dOmegaAngle / dOmega2)
+        loga = xp.log((_bspecial.erf(a0) + _bspecial.erf(ad)) / 2.0)
+        out = logdfA + logdfOmega + loga + logmeandetdOdJp
+        return out if log else xp.exp(out)
+
     def prepData4Call(self, *args, **kwargs):
         """
         Prepare stream data for the __call__ method.
@@ -4092,6 +4150,19 @@ class streamdf(df):
         # First calculate the actionAngle coordinates if they're not given
         # as such
         freqsAngles = self._parse_call_args(*args, **kwargs)
+        if is_backend_array(freqsAngles):
+            # Backend (jax/torch): the single-wrap angle resolution as functional
+            # xp.where (the numpy in-place mask-assignment below is jax-untraceable);
+            # the two conditions are disjoint after the first, so sequential where
+            # matches. numpy path unchanged (byte-identical).
+            xp = get_namespace(freqsAngles)
+            prog_O = as_backend_constant(xp, self._progenitor_Omega, freqsAngles)
+            prog_a = as_backend_constant(xp, self._progenitor_angle, freqsAngles)
+            dOmega = freqsAngles[:3, :] - xp.reshape(prog_O, (-1, 1))
+            dangle = freqsAngles[3:, :] - xp.reshape(prog_a, (-1, 1))
+            dangle = xp.where(dangle < -4.0, dangle + 2.0 * numpy.pi, dangle)
+            dangle = xp.where(dangle > 4.0, dangle - 2.0 * numpy.pi, dangle)
+            return (dOmega, dangle)
         dOmega = (
             freqsAngles[:3, :]
             - numpy.tile(self._progenitor_Omega.T, (freqsAngles.shape[1], 1)).T
@@ -4322,6 +4393,25 @@ class streamdf(df):
         else:
             addLogDet = 0.0
         logdf = self(iR, ivR, ivT, iZ, ivZ, iphi, log=True)
+        if is_backend_array(logdf):
+            # Backend (jax/torch): the marginalization reduction on the
+            # backend, so the result stays a backend array (scipy.logsumexp would
+            # silently np.asarray it back to numpy). numpy path below unchanged.
+            xp = get_namespace(logdf)
+            arg = (
+                logdf
+                + as_backend_constant(xp, numpy.log(iXw.flatten()), logdf)
+                + as_backend_constant(xp, numpy.log(iYw.flatten()), logdf)
+                + as_backend_constant(xp, numpy.log(iZw.flatten()), logdf)
+                + as_backend_constant(xp, numpy.log(ivXw.flatten()), logdf)
+                + as_backend_constant(xp, numpy.log(ivYw.flatten()), logdf)
+                + as_backend_constant(xp, numpy.log(ivZw.flatten()), logdf)
+            )
+            if is_backend_array(gaussvar):
+                det_term = 0.5 * xp.log(xp.linalg.det(gaussvar))
+            else:
+                det_term = float(0.5 * numpy.log(numpy.linalg.det(gaussvar)))
+            return _bspecial.logsumexp(arg) + det_term + float(addLogDet)
         return (
             logsumexp(
                 logdf
