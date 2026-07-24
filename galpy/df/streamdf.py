@@ -4407,10 +4407,10 @@ class streamdf(df):
                 + as_backend_constant(xp, numpy.log(ivYw.flatten()), logdf)
                 + as_backend_constant(xp, numpy.log(ivZw.flatten()), logdf)
             )
-            if is_backend_array(gaussvar):
-                det_term = 0.5 * xp.log(xp.linalg.det(gaussvar))
-            else:
-                det_term = float(0.5 * numpy.log(numpy.linalg.det(gaussvar)))
+            # gaussvar comes from gaussApprox, which stays numpy (frozen numpy
+            # covariance tables + numpy xy), so det_term is a numpy scalar float
+            # that broadcasts into the backend logsumexp result.
+            det_term = float(0.5 * numpy.log(numpy.linalg.det(gaussvar)))
             return _bspecial.logsumexp(arg) + det_term + float(addLogDet)
         return (
             logsumexp(
