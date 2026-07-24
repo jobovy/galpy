@@ -23,7 +23,7 @@ import numpy
 from packaging.version import Version
 from scipy import integrate, optimize
 
-from ..backend import coerce_coords, get_namespace, is_backend_array
+from ..backend import backend_input, coerce_coords, get_namespace, is_backend_array
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -236,6 +236,7 @@ class Potential(Force):
         return None
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("energy", pop=True)
     def __call__(self, R, z, phi=0.0, t=0.0, dR=0, dphi=0):
         """
@@ -293,6 +294,7 @@ class Potential(Force):
             )
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
     def Rforce(self, R, z, phi=0.0, t=0.0):
         """
@@ -322,6 +324,7 @@ class Potential(Force):
         return self._Rforce_nodecorator(R, z, phi=phi, t=t)
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
     def zforce(self, R, z, phi=0.0, t=0.0):
         """
@@ -351,6 +354,7 @@ class Potential(Force):
         return self._zforce_nodecorator(R, z, phi=phi, t=t)
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("energy", pop=True)
     def phitorque(self, R, z, phi=0.0, t=0.0):
         """
@@ -379,6 +383,7 @@ class Potential(Force):
         return self._phitorque_nodecorator(R, z, phi=phi, t=t)
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
     def R2deriv(self, R, z, phi=0.0, t=0.0):
         """
@@ -413,6 +418,7 @@ class Potential(Force):
             )
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
     def z2deriv(self, R, z, phi=0.0, t=0.0):
         """
@@ -447,6 +453,7 @@ class Potential(Force):
             )
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("energy", pop=True)
     def phi2deriv(self, R, z, phi=0.0, t=0.0):
         """
@@ -482,6 +489,7 @@ class Potential(Force):
             return 0.0
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
     def Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
@@ -516,6 +524,7 @@ class Potential(Force):
             )
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
     def Rphideriv(self, R, z, phi=0.0, t=0.0):
         """
@@ -551,6 +560,7 @@ class Potential(Force):
             return 0.0
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
     def phizderiv(self, R, z, phi=0.0, t=0.0):
         """
@@ -587,6 +597,7 @@ class Potential(Force):
             return 0.0
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
     def r2deriv(self, R, z, phi=0.0, t=0.0):
         """
@@ -625,6 +636,7 @@ class Potential(Force):
         ) * z / r
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("density", pop=True)
     def dens(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
         """
@@ -672,6 +684,7 @@ class Potential(Force):
             )
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("surfacedensity", pop=True)
     def surfdens(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
         """
@@ -757,6 +770,7 @@ class Potential(Force):
         )[0]
 
     @potential_physical_input
+    @backend_input("R", "z", "t")
     @physical_conversion("mass", pop=True)
     def mass(self, R, z=None, t=0.0, forceint=False):
         """
@@ -870,6 +884,7 @@ class Potential(Force):
         return rhalf(self, t=t, INF=INF, use_physical=False)
 
     @potential_physical_input
+    @backend_input("R", "t")
     @physical_conversion("time", pop=True)
     def tdyn(self, R, t=0.0):
         """
@@ -1271,6 +1286,7 @@ class Potential(Force):
         )
 
     @potential_physical_input
+    @backend_input("R", "phi", "t")
     @physical_conversion("velocity", pop=True)
     def vcirc(self, R, phi=None, t=0.0):
         """
@@ -1303,6 +1319,7 @@ class Potential(Force):
         )
 
     @potential_physical_input
+    @backend_input("R", "phi", "t")
     @physical_conversion("frequency", pop=True)
     def dvcircdR(self, R, phi=None, t=0.0):
         """
@@ -1338,6 +1355,7 @@ class Potential(Force):
         )
 
     @potential_physical_input
+    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
     def omegac(self, R, t=0.0):
         """
@@ -1364,6 +1382,7 @@ class Potential(Force):
         return xp.sqrt(-self.Rforce(R, 0.0, t=t, use_physical=False) / R)
 
     @potential_physical_input
+    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
     def epifreq(self, R, t=0.0):
         """
@@ -1393,6 +1412,7 @@ class Potential(Force):
         )
 
     @potential_physical_input
+    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
     def verticalfreq(self, R, t=0.0):
         """
@@ -1450,6 +1470,7 @@ class Potential(Force):
         return lindbladR(self, OmegaP, m=m, t=t, use_physical=False, **kwargs)
 
     @potential_physical_input
+    @backend_input("R", "t")
     @physical_conversion("velocity", pop=True)
     def vesc(self, R, t=0.0):
         """
@@ -1565,6 +1586,7 @@ class Potential(Force):
         return LcE(self, E, t=t, use_physical=False)
 
     @potential_physical_input
+    @backend_input("R", "z", "t")
     @physical_conversion("dimensionless", pop=True)
     def flattening(self, R, z, t=0.0):
         """
@@ -1797,6 +1819,7 @@ class Potential(Force):
             )
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("position", pop=True)
     def rtide(self, R, z, phi=0.0, t=0.0, M=None):
         """
@@ -1844,6 +1867,7 @@ class Potential(Force):
         return (M / (omegac2 - d2phidr2)) ** (1.0 / 3.0)
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
     def ttensor(self, R, z, phi=0.0, t=0.0, eigenval=False):
         """
@@ -2007,6 +2031,7 @@ class PotentialError(Exception):  # pragma: no cover
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("energy", pop=True)
 @potential_list_of_potentials_input
 def evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
@@ -2055,6 +2080,7 @@ def _evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("density", pop=True)
 @potential_list_of_potentials_input
 def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
@@ -2097,6 +2123,7 @@ def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("surfacedensity", pop=True)
 @potential_list_of_potentials_input
 def evaluateSurfaceDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
@@ -2140,6 +2167,7 @@ def evaluateSurfaceDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "t")
 @physical_conversion("mass", pop=True)
 @potential_list_of_potentials_input
 def mass(Pot, R, z=None, t=0.0, forceint=False):
@@ -2180,6 +2208,7 @@ def mass(Pot, R, z=None, t=0.0, forceint=False):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("force", pop=True)
 @potential_list_of_potentials_input
 def evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
@@ -2235,6 +2264,7 @@ def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("energy", pop=True)
 @potential_list_of_potentials_input
 def evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
@@ -2290,6 +2320,7 @@ def _evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("force", pop=True)
 @potential_list_of_potentials_input
 def evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
@@ -2345,6 +2376,7 @@ def _evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("force", pop=True)
 @potential_list_of_potentials_input
 def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
@@ -2394,6 +2426,7 @@ def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
 @potential_list_of_potentials_input
 def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
@@ -2433,6 +2466,7 @@ def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
 @potential_list_of_potentials_input
 def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
@@ -2472,6 +2506,7 @@ def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
 @potential_list_of_potentials_input
 def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
@@ -2511,6 +2546,7 @@ def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("energy", pop=True)
 @potential_list_of_potentials_input
 def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
@@ -2550,6 +2586,7 @@ def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("force", pop=True)
 @potential_list_of_potentials_input
 def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
@@ -2589,6 +2626,7 @@ def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("force", pop=True)
 @potential_list_of_potentials_input
 def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
@@ -2628,6 +2666,7 @@ def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
 @potential_list_of_potentials_input
 def evaluater2derivs(Pot, R, z, phi=None, t=0.0):
@@ -3131,6 +3170,7 @@ def plotSurfaceDensities(
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "t")
 @physical_conversion("frequency", pop=True)
 @potential_list_of_potentials_input
 def epifreq(Pot, R, t=0.0):
@@ -3161,6 +3201,7 @@ def epifreq(Pot, R, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "t")
 @physical_conversion("frequency", pop=True)
 @potential_list_of_potentials_input
 def verticalfreq(Pot, R, t=0.0):
@@ -3191,6 +3232,7 @@ def verticalfreq(Pot, R, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "t")
 @physical_conversion("dimensionless", pop=True)
 @potential_list_of_potentials_input
 def flattening(Pot, R, z, t=0.0):
@@ -3553,6 +3595,7 @@ def _lindbladR_eq(R, Pot, OmegaP, m, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "t")
 @physical_conversion("frequency", pop=True)
 @potential_list_of_potentials_input
 def omegac(Pot, R, t=0.0):
@@ -3592,6 +3635,7 @@ def omegac(Pot, R, t=0.0):
 
 
 @potential_physical_input
+@backend_input("R", "phi", "t")
 @physical_conversion("velocity", pop=True)
 @potential_list_of_potentials_input
 def vcirc(Pot, R, phi=None, t=0.0):
@@ -3637,6 +3681,7 @@ def vcirc(Pot, R, phi=None, t=0.0):
 
 
 @potential_physical_input
+@backend_input("R", "phi", "t")
 @physical_conversion("frequency", pop=True)
 @potential_list_of_potentials_input
 def dvcircdR(Pot, R, phi=None, t=0.0):
@@ -3696,6 +3741,7 @@ def dvcircdR(Pot, R, phi=None, t=0.0):
 
 
 @potential_physical_input
+@backend_input("R", "t")
 @physical_conversion("velocity", pop=True)
 @potential_list_of_potentials_input
 def vesc(Pot, R, t=0.0):
@@ -4448,6 +4494,7 @@ def kms_to_kpcGyrDecorator(func):
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("position", pop=True)
 def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
     """
@@ -4500,6 +4547,7 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
 def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
     """
@@ -4828,6 +4876,7 @@ def _rhalfFindStart(rh, pot, tot_mass, t=0.0, lower=False):
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "t")
 @physical_conversion("time", pop=True)
 def tdyn(Pot, R, t=0.0):
     """
