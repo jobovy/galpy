@@ -19,7 +19,7 @@ import warnings
 import numpy
 from numpy import linalg
 
-from ..backend import get_namespace, is_backend_array, promote_scalars
+from ..backend import as_numpy, get_namespace, is_backend_array, promote_scalars
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -530,6 +530,11 @@ class actionAngleIsochroneApprox(actionAngle):
             vz.flatten(),
             phi.flatten(),
         )
+        # Plotting is a matplotlib consumption boundary (numpy): pull the
+        # actions/frequencies/angles back to numpy so the downstream numpy.roll/
+        # cumsum/median/reshape stay on one namespace under a forced backend.
+        # as_numpy is a strict pass-through on numpy, so this is byte-identical.
+        acfs = tuple(as_numpy(a) for a in acfs)
         if type == "jr" or type == "lz" or type == "jz":
             jrI = numpy.reshape(acfs[0], R.shape)[:, :-1]
             jzI = numpy.reshape(acfs[2], R.shape)[:, :-1]
