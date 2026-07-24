@@ -4,7 +4,7 @@
 import numpy
 from scipy import integrate
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import as_backend_constant, as_numpy, get_namespace, is_backend_array
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.quadpack import quad_over_limits
@@ -56,6 +56,11 @@ class AnySphericalPotential(SphericalPotential):
         # A jax/torch coord routes _rawmass / the _revaluate tail to in-backend
         # Gauss-Legendre quadrature (see below); flag as backend-capable.
         self._backend_compatible = True
+        # A units-based density is numpy-only (astropy Quantity arithmetic
+        # strips a jax/torch node to numpy); on a backend node it is evaluated
+        # on numpy and the result anchored back on the backend (see
+        # _backend_dens). Set True below when the density involves units.
+        self._dens_needs_numpy = False
         # Parse density: does it have units? does it expect them?
         if _APY_LOADED:
             _dens_unit_input = False
@@ -88,6 +93,7 @@ class AnySphericalPotential(SphericalPotential):
                 self._rawdens = lambda R: conversion.parse_dens(
                     dens(R), ro=self._ro, vo=self._vo
                 )
+            self._dens_needs_numpy = _dens_unit_input or _dens_unit_output
         if not hasattr(self, "_rawdens"):  # unitless
             self._rawdens = dens
         # The potential at zero, try to figure out whether it's finite
@@ -117,6 +123,23 @@ class AnySphericalPotential(SphericalPotential):
             self.normalize(normalize)
         return None
 
+    def _backend_dens(self, a):
+        """Evaluate the density, keeping the backend-quadrature path type-clean.
+
+        A units-based ``dens`` runs through astropy Quantity arithmetic, which
+        strips a jax/torch node to numpy (emitting a numpy-2 ``__array__``
+        deprecation) and yields numpy -- and ``numpy * Tensor`` then raises. Such
+        a density is inherently non-differentiable, so on a backend node it is
+        evaluated on the numpy node and the result anchored back on the node's
+        backend/dtype/device. A backend-native (differentiable) density and the
+        numpy path both pass through untouched (``is_backend_array(a)`` is False
+        for numpy), so the numpy path stays byte-identical.
+        """
+        if is_backend_array(a) and self._dens_needs_numpy:
+            d = numpy.asarray(self._rawdens(as_numpy(a)))
+            return as_backend_constant(get_namespace(a), d, a)
+        return self._rawdens(a)
+
     def _rawmass(self, r):
         r"""Enclosed mass :math:`4\pi\int_0^r a^2\rho(a)\,da`.
 
@@ -129,7 +152,11 @@ class AnySphericalPotential(SphericalPotential):
         if is_backend_array(r):
             from ..backend.quadrature import quad as _bk_quad
 
-            return 4.0 * numpy.pi * _bk_quad(lambda a: a**2 * self._rawdens(a), 0.0, r)
+            return (
+                4.0
+                * numpy.pi
+                * _bk_quad(lambda a: a**2 * self._backend_dens(a), 0.0, r)
+            )
         return (
             4.0
             * numpy.pi
@@ -153,7 +180,7 @@ class AnySphericalPotential(SphericalPotential):
             edge = (r == 0) | xp.isinf(r)
             r_safe = xp.where(edge, xp.ones_like(r), r)
             tail = fixed_quad_semiinfinite(
-                xp, lambda a: self._rawdens(a) * a, r_safe, kind="recip"
+                xp, lambda a: self._backend_dens(a) * a, r_safe, kind="recip"
             )
             bulk = -self._rawmass(r_safe) / r_safe - 4.0 * numpy.pi * tail
             out = xp.where(r == 0, self._pot_zero, bulk)
@@ -179,7 +206,7 @@ class AnySphericalPotential(SphericalPotential):
         return -self._rawmass(r) / r**2
 
     def _r2deriv(self, r, t=0.0):
-        return -2 * self._rawmass(r) / r**3.0 + 4.0 * numpy.pi * self._rawdens(r)
+        return -2 * self._rawmass(r) / r**3.0 + 4.0 * numpy.pi * self._backend_dens(r)
 
     def _rdens(self, r, t=0.0):
-        return self._rawdens(r)
+        return self._backend_dens(r)
