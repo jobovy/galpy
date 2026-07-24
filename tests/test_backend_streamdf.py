@@ -2025,3 +2025,85 @@ def test_approxaA_grad_vs_fd_table(sdf, backend_name, attr, idx):
     )
     assert numpy.isfinite(ad) and abs(ad) > 0
     assert best < 1e-5 * abs(ad) + 1e-6, f"{backend_name} {attr} grad {best:.2e}"
+
+
+# --- callMarg / __call__ marginalized-PDF reduction on a backend --------------
+# streamdf.callMarg feeds __call__ phase-space coords from the migrated
+# coords.rect_to_cyl transforms; under a FORCED backend those become tensors, so
+# __call__'s numpy.sum(...,axis=0) reduction (torch takes dim=, not axis=) raised
+# "sum() got an unexpected keyword argument 'axis'" -- the crash behind
+# test_streamdf.py::test_bovy14_callMargXZ. The dual-path migration (_call_backend,
+# prepData4Call's xp.where wrap, the callMarg _bspecial.logsumexp reduction) runs
+# the WHOLE marginalized PDF on the data's namespace and RETURNS a backend array
+# (scipy.logsumexp would silently np.asarray it back to numpy). numpy is
+# byte-identical (the else-branches are the verbatim original). Forced backend is
+# required because callMarg builds its integration coords internally from the
+# numpy gaussApprox/meshgrid, so only a forced context makes rect_to_cyl tensorise.
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_callMarg_reduction_backend_parity_and_type(sdf, backend_name):
+    from galpy import backend
+
+    meanp, _ = sdf.gaussApprox([None, None, 2.0 / 8.0, None, None, None])
+    xy = [float(meanp[0]), None, 2.0 / 8.0, None, None, None]  # p(X|Z) at the peak
+    ref = float(sdf.callMarg(xy))  # numpy path
+    ref2 = float(sdf.callMarg(xy, ngl=6, nsigma=3.1))
+    with backend.use(backend_name, force=True):
+        got = sdf.callMarg(xy)
+        got2 = sdf.callMarg(xy, ngl=6, nsigma=3.1)
+        # the marginalization must stay on the backend, not silently exit to numpy
+        assert is_backend_array(got), (
+            f"{backend_name}: callMarg must return a backend array, got {type(got)}"
+        )
+        assert is_backend_array(got2)
+    numpy.testing.assert_allclose(
+        float(as_numpy(got)),
+        ref,
+        rtol=1e-10,
+        atol=0.0,
+        err_msg=f"callMarg {backend_name}",
+    )
+    numpy.testing.assert_allclose(
+        float(as_numpy(got2)),
+        ref2,
+        rtol=1e-10,
+        atol=0.0,
+        err_msg=f"callMarg ngl6/nsigma3.1 {backend_name}",
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_call_backend_value_and_grad(sdf, backend_name):
+    # __call__ (the migrated reduction kernel) at a well-within-stream track point:
+    # value parity + d(logDF)/d(R) h-converges to a central FD of the numpy path.
+    # For jax the kernel is additionally jax.jit'd -- it must TRACE the migrated
+    # path (no ConcretizationError / no in-place-assignment error).
+    tp = numpy.asarray(
+        sdf._interpolatedObsTrack[500]
+    )  # (R,vR,vT,z,vz,phi) on the track
+    R, vR, vT, z, vz, phi = (numpy.array([v]) for v in tp)
+    ref = float(numpy.asarray(sdf(R, vR, vT, z, vz, phi, log=True))[0])
+    assert numpy.isfinite(ref)
+    rest = [_arr(backend_name, a) for a in (vR, vT, z, vz, phi)]
+    if backend_name == "jax":
+
+        def kernel(Rv):
+            return sdf(Rv, *rest, log=True)[0]
+
+        got = float(jax.jit(kernel)(_arr(backend_name, R)))
+        # grad matches the (1,) input shape -> index the single element
+        ad = float(numpy.asarray(jax.jit(jax.grad(kernel))(_arr(backend_name, R)))[0])
+    else:
+        Rt = torch.tensor(R, dtype=torch.float64, requires_grad=True)
+        out = sdf(Rt, *rest, log=True)[0]
+        got = float(out.detach())
+        out.backward()
+        ad = float(Rt.grad[0])
+    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=0.0)
+    h = 1e-6
+    fd = (
+        float(numpy.asarray(sdf(R + h, vR, vT, z, vz, phi, log=True))[0])
+        - float(numpy.asarray(sdf(R - h, vR, vT, z, vz, phi, log=True))[0])
+    ) / (2 * h)
+    assert numpy.isfinite(ad) and abs(ad - fd) < 1e-5 * abs(fd) + 1e-6, (
+        f"{backend_name} __call__ grad {ad} vs FD {fd}"
+    )
