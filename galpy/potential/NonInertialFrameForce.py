@@ -319,7 +319,7 @@ class NonInertialFrameForce(DissipativeForce):
                 tOmega2 = self._Omega2
             elif self._Omega_as_func:
                 tOmega = (
-                    self._Omega_py(t)
+                    _anchor(self._Omega_py(t))
                     if self._omegaz_only
                     else _vec([self._Omega[0](t), self._Omega[1](t), self._Omega[2](t)])
                 )
