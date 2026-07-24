@@ -35,6 +35,7 @@
 import numpy
 import pytest
 
+from galpy.backend import use
 from galpy.potential import (
     IsothermalDiskPotential,
     KGPotential,
@@ -246,3 +247,31 @@ def test_torch_amp_grad_matches_fd():
     grad = float(at.grad)
     fd = _amp_fd(a0, x0)
     assert numpy.isclose(grad, fd, rtol=1e-4, atol=1e-6), (grad, fd)
+
+
+# ============ raw compute methods under a FORCED backend ================== #
+# Regression (scalar-under-forced-backend): the python orbit integrator calls
+# IsothermalDiskPotential._evaluate/_force/_force2deriv DIRECTLY with a
+# numpy-scalar x (the integrator RHS bypasses the @physical_input coercion gate,
+# unlike the p(x)/p.force(x)/evaluatelinear* public entries which coerce). Under
+# a forced backend get_namespace(x) then resolves to jax/torch while x stays a
+# numpy scalar, so xp.tanh/xp.cosh(x) raised (torch rejects numpy.float64).
+# Assert no raise, a backend array, and numpy value parity.
+@pytest.mark.parametrize("backend_name", ["jax", "torch"])
+def test_isodisk_raw_methods_numpy_scalar_forced_backend(backend_name):
+    if backend_name == "jax" and not _HAS_JAX:  # pragma: no cover
+        pytest.skip("jax not installed")
+    if backend_name == "torch" and not _HAS_TORCH:  # pragma: no cover
+        pytest.skip("torch not installed")
+    p = IsothermalDiskPotential(amp=1.0, sigma=1.0)
+    methods = ("_evaluate", "_force", "_force2deriv")
+    for x0 in (0.5, -0.3, 1.7):
+        x = numpy.float64(x0)
+        ref = {m: float(getattr(p, m)(x)) for m in methods}
+        with use(backend_name, force=True):
+            for m in methods:
+                got = getattr(p, m)(x)
+                assert backend_name in type(got).__module__, (m, type(got))
+                numpy.testing.assert_allclose(
+                    float(got), ref[m], rtol=1e-12, atol=1e-14, err_msg=f"{m} x={x0}"
+                )
