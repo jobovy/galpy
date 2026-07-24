@@ -31,6 +31,21 @@ import inspect
 from ._coerce import coerce_coords
 from ._resolver import get_namespace
 
+# Test-only jit seam. None in normal galpy operation (galpy never jits itself --
+# the no-internal-jit policy); the test suite's --backend jax-jit dimension sets
+# this so every decorated kernel is traced through jax.jit with the declared
+# (coerced) coords as the traced inputs. (torch-compile is a deferred follow-up.)
+_JIT_MODE = None  # None | "jax"
+
+
+def set_jit_mode(mode):
+    """Enable jit wrapping of decorated kernels (tests/conftest only).
+
+    mode in {None, "jax"}. galpy itself never calls this.
+    """
+    global _JIT_MODE
+    _JIT_MODE = mode
+
 
 def backend_kernel(*coord_names):
     """Resolve the array namespace from the named coordinate arguments, coerce
@@ -97,7 +112,33 @@ def backend_kernel(*coord_names):
                 else:  # keyword, or a defaulted coord we now pass explicitly
                     kwargs[key] = cv
             kwargs["xp"] = xp
-            return fn(*args, **kwargs)
+            if _JIT_MODE is None:
+                return fn(*args, **kwargs)
+            # Test jit dimension: trace the kernel through jax.jit over the declared
+            # coords that are actual backend arrays (now coerced, so traceable),
+            # closing over everything else -- self, xp, and any None/scalar declared
+            # coord (e.g. phi=None axisymmetric) -- as static. Fresh per call: this
+            # tests traceability, not speed. All coerced coords (incl. the static
+            # ones) are already placed in args/kwargs above. (torch.compile is
+            # deferred: its dynamo cannot trace the more complex kernels.)
+            import jax
+
+            from ._namespaces import is_backend_array
+
+            frozen_args, frozen_kwargs = list(args), dict(kwargs)
+            trace_slots = [sl for sl, cv in zip(locs, coerced) if is_backend_array(cv)]
+            trace_vals = [cv for cv in coerced if is_backend_array(cv)]
+
+            def _call_with(coord_vals):
+                a2, k2 = list(frozen_args), dict(frozen_kwargs)
+                for (kind, key), cv in zip(trace_slots, coord_vals):
+                    if kind == 0:
+                        a2[key] = cv
+                    else:
+                        k2[key] = cv
+                return fn(*a2, **k2)
+
+            return jax.jit(_call_with)(trace_vals)
 
         return wrapper
 

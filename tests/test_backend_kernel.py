@@ -3,6 +3,21 @@ import pytest
 
 from galpy.backend import backend_kernel
 
+# These tests manage their own backend (backend_managed), so the --backend fixture
+# that sets float64 precision does not run; galpy's tolerances assume float64.
+try:
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+except ImportError:  # pragma: no cover
+    jax = None
+try:
+    import torch
+
+    torch.set_default_dtype(torch.float64)
+except ImportError:  # pragma: no cover
+    torch = None
+
 
 class _Toy:
     """Minimal carrier exercising the decorator's coord-coercion + xp injection."""
@@ -70,3 +85,44 @@ def test_kernel_coerces_under_forced_backend(name):
         v = t.one(numpy.float64(2.0))
         assert is_backend_array(v)
         assert numpy.isclose(float(v), numpy.log(2.0))
+
+
+@pytest.mark.backend_managed
+def test_kernel_jit_mode_matches_eager():
+    # The jit seam (galpy.backend._kernel._JIT_MODE, driven by the --backend jax-jit
+    # test dimension): a decorated kernel traced through jax.jit must return the same
+    # value as eager. Exercise the decorator directly (_Toy, multiple declared coords)
+    # and a real potential entry point (Hernquist). (torch-compile is deferred: its
+    # dynamo cannot trace the more complex kernels.)
+    pytest.importorskip("jax")
+    import jax.numpy as jnp
+
+    from galpy import backend
+    from galpy.backend import _kernel, as_numpy
+    from galpy.potential import (
+        HernquistPotential,
+        evaluatePotentials,
+        evaluateRforces,
+    )
+
+    R = jnp.asarray(1.3, dtype=jnp.float64)
+    z = jnp.asarray(0.2, dtype=jnp.float64)
+    phi = jnp.asarray(0.4, dtype=jnp.float64)
+    pot = HernquistPotential(amp=1.2, a=0.9)
+    with backend.use("jax", force=True):
+        calls = [
+            lambda: _Toy().ev(R, z, phi=phi),
+            lambda: evaluatePotentials(pot, R, z),
+            lambda: evaluateRforces(pot, R, z),
+        ]
+        for call in calls:
+            _kernel.set_jit_mode(None)
+            eager = call()
+            _kernel.set_jit_mode("jax")
+            try:
+                jitted = call()
+            finally:
+                _kernel.set_jit_mode(None)
+            numpy.testing.assert_allclose(
+                as_numpy(jitted), as_numpy(eager), rtol=1e-9, atol=1e-11
+            )

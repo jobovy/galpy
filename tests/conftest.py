@@ -154,14 +154,22 @@ def _load_backend_skip(backend_name):
     return _load_backend_nodeids(_backend_skip_path(), backend_name)
 
 
+# The jit-dimension backend maps to a base array backend plus a _JIT_MODE that
+# wraps every @backend_kernel kernel in jax.jit. Ledger/regen key off the full
+# name ("jax-jit"), so it gets its own xfail list. (torch-compile is deferred:
+# its dynamo cannot trace the more complex kernels.)
+_JIT_BACKENDS = {"jax-jit": "jax"}
+
+
 def pytest_addoption(parser):
-    # Force a single array backend for the whole run (numpy|jax|torch). With
-    # numpy (default) this is a no-op, so the existing suite is unchanged.
+    # Force a single array backend for the whole run (numpy|jax|torch|jax-jit).
+    # With numpy (default) this is a no-op, so the existing suite is unchanged.
+    # jax-jit forces the base backend AND traces each backend kernel through jax.jit.
     parser.addoption(
         "--backend",
         action="store",
         default="numpy",
-        help="Array backend to force for the test run: numpy|jax|torch",
+        help="Array backend to force: numpy|jax|torch|jax-jit",
     )
 
 
@@ -330,7 +338,11 @@ def pytest_sessionfinish(session, exitstatus):
     # already done (the burndown/re-fail steps read the junit, so nothing is lost).
     # Force-exit after everything is written; gated to jax/torch so the numpy suite
     # -- including the coverage job, which never passes --backend -- is untouched.
-    forced = session.config.getoption("--backend") in ("jax", "torch")
+    forced = session.config.getoption("--backend") in (
+        "jax",
+        "torch",
+        "jax-jit",
+    )
     if forced:
         # Backstop: arm a daemon timer BEFORE the yield so we still force-exit even
         # if an inner sessionfinish hook (junit/terminal/plugin teardown) itself
@@ -354,16 +366,30 @@ def _galpy_force_backend(request):
         return
     from galpy import backend  # lazy: keep galpy import out of collection
 
-    if backend_name == "jax":  # galpy's tolerances assume float64
+    # jax-jit / torch-compile: force the base backend AND wrap every @backend_kernel
+    # kernel in jax.jit / torch.compile via galpy.backend._kernel._JIT_MODE.
+    base = _JIT_BACKENDS.get(backend_name, backend_name)
+    jit_mode = base if backend_name in _JIT_BACKENDS else None
+
+    if base == "jax":  # galpy's tolerances assume float64
         import jax
 
         jax.config.update("jax_enable_x64", True)
-    elif backend_name == "torch":  # galpy's tolerances assume float64
+    elif base == "torch":  # galpy's tolerances assume float64
         import torch
 
         torch.set_default_dtype(torch.float64)
-    with backend.use(backend_name, force=True):
-        yield
+    with backend.use(base, force=True):
+        if jit_mode is None:
+            yield
+        else:
+            from galpy.backend import _kernel
+
+            _kernel.set_jit_mode(jit_mode)
+            try:
+                yield
+            finally:
+                _kernel.set_jit_mode(None)
 
 
 def _liouville3d_tdep_amp(t):
