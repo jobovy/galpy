@@ -27,7 +27,7 @@
 import numpy
 import pytest
 
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, use
 from galpy.potential import (
     NonInertialFrameForce,
     evaluatephitorques,
@@ -169,6 +169,32 @@ def test_force_returns_backend_array(backend_name, name):
         assert backend_name in _module_of(f), (
             f"{name}: force left the {backend_name} namespace ({_module_of(f)})"
         )
+
+
+@pytest.mark.parametrize("name", _CONFIGS)
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_force_numpy_scalar_under_forced_backend(backend_name, name):
+    # Regression (scalar-under-forced-backend): the python orbit integrator
+    # feeds _force numpy-scalar coords/velocities under a FORCED backend -- the
+    # DissipativeForce RHS bypasses the @physical_input coercion gate. get_namespace
+    # then resolves to the backend while the coords stay numpy, so a strict-typed
+    # call raised: for the scalar-function config, tOmega = Omega(t) is a numpy
+    # scalar and torch.linalg.norm rejected it. Assert no raise, a backend array,
+    # and numpy value parity (a fresh pot each time so the md5 cache never leaks).
+    ref = numpy.asarray(_build(name)._force(_R0, _Z0, _PHI0, _T0, list(_V0)))
+    pot = _build(name)
+    R = numpy.float64(_R0)
+    z = numpy.float64(_Z0)
+    phi = numpy.float64(_PHI0)
+    t = numpy.float64(_T0)
+    v = [numpy.float64(vv) for vv in _V0]
+    with use(backend_name, force=True):
+        f = pot._force(R, z, phi, t, v)
+    assert backend_name in _module_of(f), (
+        f"{name}: forced-{backend_name} _force is {_module_of(f)}, expected a backend array"
+    )
+    got = numpy.asarray([float(as_numpy(fi)) for fi in f])
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14, err_msg=name)
 
 
 @pytest.mark.parametrize("name", _CONFIGS)
