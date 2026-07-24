@@ -2341,3 +2341,37 @@ def test_adiabaticgrid_native_setup_noc(backend):
                 atol=1e-8,
                 err_msg=a,
             )
+
+
+# --- actionAngleIsochroneApprox.plot() under a forced backend ------------------
+# plot() computes actions/freqs/angles then reduces them with numpy.roll /
+# numpy.cumsum / numpy.median / numpy.reshape for the matplotlib scatter. Under a
+# forced backend those acfs are tensors: numpy.reshape(tensor) returns a tensor
+# but numpy.roll(tensor) returns numpy, so ``numpy.roll(a) - a`` raised
+# ``numpy.ndarray - Tensor`` (test_actionAngleIsochroneApprox_plotting). Pulling
+# acfs back to numpy at this matplotlib consumption boundary (as_numpy) keeps the
+# whole reduction block on one namespace. Smoke test: the plots must build.
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_isochroneapprox_plot_forced_backend(backend):
+    from galpy import backend as gb
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
+    from matplotlib import pyplot
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAIA = actionAngleIsochroneApprox(pot=lp, b=0.8, tintJ=20.0, ntintJ=2000)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    try:
+        with gb.use(backend, force=True):
+            aAIA.plot(obs, type="jr")
+            aAIA.plot(obs, type="jz")
+            aAIA.plot(obs, type="araz")
+            aAIA.plot(obs, type="araphi", deperiod=True)
+            aAIA.plot(obs, type="azaphi", deperiod=True, downsample=True)
+    finally:
+        pyplot.close("all")
