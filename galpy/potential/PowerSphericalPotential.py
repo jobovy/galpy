@@ -11,7 +11,7 @@ import math
 import numpy
 from scipy import special
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel
 from ..util import conversion
 from .Potential import Potential
 
@@ -66,7 +66,8 @@ class PowerSphericalPotential(Potential):
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         Evaluate the potential at R,z
 
@@ -90,8 +91,6 @@ class PowerSphericalPotential(Potential):
         -----
         - Started: 2010-07-10 by Bovy (NYU)
         """
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         if self.alpha == 2.0:
             return xp.log(r2) / 2.0
@@ -238,7 +237,8 @@ class PowerSphericalPotential(Potential):
         """
         return -self.alpha * R * z * (R**2.0 + z**2.0) ** (-1.0 - self.alpha / 2.0)
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         Evaluate the density for this potential.
 
@@ -262,8 +262,6 @@ class PowerSphericalPotential(Potential):
         -----
         - 2013-01-09 - Written - Bovy (IAS)
         """
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         return (3.0 - self.alpha) / 4.0 / math.pi / r**self.alpha
 
