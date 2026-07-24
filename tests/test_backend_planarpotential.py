@@ -37,7 +37,9 @@
 import numpy
 import pytest
 
+from galpy.backend import use
 from galpy.potential import (
+    HenonHeilesPotential,
     HernquistPotential,
     LogarithmicHaloPotential,
     MiyamotoNagaiPotential,
@@ -278,3 +280,43 @@ def test_phitorque_axi_jax_grad_zero(p):
         )
     )
     assert grad == 0.0, grad
+
+
+# ============ HenonHeiles raw methods under a FORCED backend =============== #
+# Regression (scalar-under-forced-backend): the python orbit integrator calls
+# HenonHeilesPotential._evaluate/_Rforce/_phitorque (and the 2nd derivatives)
+# DIRECTLY with numpy-scalar (R, phi) -- the integrator RHS bypasses the
+# @physical_input coercion gate. Under a forced backend get_namespace(R, phi)
+# resolves to jax/torch while phi stays a numpy scalar, so xp.sin/cos(3*phi)
+# raised (torch rejects numpy.float64). Assert no raise, a backend array, and
+# numpy value parity. (HenonHeiles is the potential behind test_lyapunov_*.)
+@pytest.mark.parametrize("backend_name", ["jax", "torch"])
+def test_henonheiles_raw_methods_numpy_scalar_forced_backend(backend_name):
+    if backend_name == "jax" and not _HAS_JAX:  # pragma: no cover
+        pytest.skip("jax not installed")
+    if backend_name == "torch" and not _HAS_TORCH:  # pragma: no cover
+        pytest.skip("torch not installed")
+    p = HenonHeilesPotential(amp=1.3)
+    methods = (
+        "_evaluate",
+        "_Rforce",
+        "_phitorque",
+        "_R2deriv",
+        "_phi2deriv",
+        "_Rphideriv",
+    )
+    for R0, phi0 in [(1.2, 0.7), (0.5, -2.1), (2.3, 3.14159)]:
+        R = numpy.float64(R0)
+        phi = numpy.float64(phi0)
+        ref = {m: float(getattr(p, m)(R, phi)) for m in methods}
+        with use(backend_name, force=True):
+            for m in methods:
+                got = getattr(p, m)(R, phi)
+                assert backend_name in type(got).__module__, (m, type(got))
+                numpy.testing.assert_allclose(
+                    float(got),
+                    ref[m],
+                    rtol=1e-12,
+                    atol=1e-14,
+                    err_msg=f"{m} R={R0} phi={phi0}",
+                )

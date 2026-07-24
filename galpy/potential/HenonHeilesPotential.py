@@ -1,7 +1,7 @@
 ###############################################################################
 #   HenonHeilesPotential: the Henon-Heiles (1964) potential
 ###############################################################################
-from ..backend import get_namespace
+from ..backend import coerce_coords, get_namespace
 from .planarPotential import planarPotential
 
 
@@ -38,24 +38,30 @@ class HenonHeilesPotential(planarPotential):
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         return 0.5 * R * R * (1.0 + 2.0 / 3.0 * R * xp.sin(3.0 * phi))
 
     def _Rforce(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         return -R * (1.0 + R * xp.sin(3.0 * phi))
 
     def _phitorque(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         return -(R**3.0) * xp.cos(3.0 * phi)
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         return 1.0 + 2.0 * R * xp.sin(3.0 * phi)
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         return -3.0 * R**3.0 * xp.sin(3.0 * phi)
 
     def _Rphideriv(self, R, phi=0.0, t=0.0):
         xp = get_namespace(R, phi)
+        R, phi = coerce_coords(xp, R, phi)
         return 3.0 * R**2.0 * xp.cos(3.0 * phi)
