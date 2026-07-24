@@ -7,7 +7,7 @@ import copy
 import numpy
 from scipy import integrate
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel, coerce_coords, get_namespace
 from ..backend.special import logsumexp
 from .Potential import Potential
 
@@ -298,32 +298,26 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
 
         return (th, tH, tdH)
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Here and below: out-of-place accumulation (out = out + ...) instead of
         # += so torch autograd never sees an in-place op; identical numpy values.
-        xp = get_namespace(R, z)
-        # Coerce R/z onto the active backend so xp.sqrt and the Sigma/hz closures
-        # (xp.exp/xp.abs(...)) receive backend arrays, not numpy/python; numpy
-        # pass-through keeps this byte-identical.
-        R, z = coerce_coords(xp, R, z)
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me(R, z, phi=phi, t=t, use_physical=False)
         for a, s, H in zip(self._Sigma_amp, self._Sigma, self._Hz):
             out = out + 4.0 * numpy.pi * a * s(r) * H(z)
         return out
 
-    def _Rforce(self, R, z, phi=0, t=0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0, t=0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.Rforce(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, H in zip(self._Sigma_amp, self._dSigmadR, self._Hz):
             out = out - 4.0 * numpy.pi * a * ds(r) * H(z) * R / r
         return out
 
-    def _zforce(self, R, z, phi=0, t=0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0, t=0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.zforce(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, H, dH in zip(
@@ -335,9 +329,8 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
     def _phitorque(self, R, z, phi=0.0, t=0.0):
         return self._me.phitorque(R, z, phi=phi, t=t, use_physical=False)
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.R2deriv(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, d2s, H in zip(
@@ -353,9 +346,8 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             )
         return out
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.z2deriv(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(
@@ -379,9 +371,8 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             )
         return out
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.Rzderiv(R, z, phi=phi, t=t, use_physical=False)
         for a, ds, d2s, H, dH in zip(
@@ -398,9 +389,8 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         return self._me.phi2deriv(R, z, phi=phi, t=t, use_physical=False)
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         out = self._me.dens(R, z, phi=phi, t=t, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(

@@ -7,7 +7,7 @@ import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
 
-from ..backend import get_namespace, is_backend_array, match_input_dtype
+from ..backend import backend_kernel, get_namespace, is_backend_array, match_input_dtype
 from ..backend.interpolate import (
     eval_ppoly,
     eval_rect_ppoly,
@@ -548,14 +548,14 @@ class interpRZPotential(Potential):
             setattr(self, attr, pp)
         return pp
 
-    def _eval_grid_backend(self, which, R, z, *, log_transform=False):
+    @backend_kernel("R", "z")
+    def _eval_grid_backend(self, which, R, z, *, log_transform=False, xp=None):
         """Backend (jax/torch) evaluation of an interpolated 2D quantity: the same
         frozen tensor-product spline as the numpy ``.ev`` path, evaluated through
         namespace-agnostic ``eval_rect_ppoly`` (searchsorted + 2D Horner), so the
         value is computed natively and is exactly autodifferentiable w.r.t. (R,z).
         Matches ``RectBivariateSpline.ev`` to ~1 ulp; like scipy's ``.ev`` it
         extrapolates the edge polynomial outside the grid (finite, NaN-free)."""
-        xp = get_namespace(R, z)
         xbr, ybr, c = self._grid_ppoly(which)
         Rq = xp.log(R) if self._logR else R
         out = eval_rect_ppoly(xp, xbr, ybr, c, Rq, z, extrapolate=True)
@@ -577,7 +577,8 @@ class interpRZPotential(Potential):
             setattr(self, attr, pp)
         return pp
 
-    def _eval_grid_backend_1d(self, which, R):
+    @backend_kernel("R")
+    def _eval_grid_backend_1d(self, which, R, *, xp=None):
         """Backend (jax/torch) evaluation of an interpolated 1D quantity: the same
         frozen spline as the numpy ``InterpolatedUnivariateSpline`` call, through
         namespace-agnostic ``eval_ppoly`` (searchsorted + Horner), so the value is
@@ -585,7 +586,6 @@ class interpRZPotential(Potential):
         to ~1 ulp; like scipy (ext=0) it extrapolates the edge polynomial outside
         the grid (finite, NaN-free) -- the backend path is on-grid interpolation
         only (the numpy off-grid fallback to the orig potential is numpy-only)."""
-        xp = get_namespace(R)
         x, c = self._grid_ppoly1d(which)
         Rq = xp.log(R) if self._logR else R
         out = eval_ppoly(xp, x, c, Rq, extrapolate=True)
