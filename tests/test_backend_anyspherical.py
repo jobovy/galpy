@@ -234,3 +234,26 @@ def test_units_density_backend_value_parity(backend_name):
                 atol=1e-9,
                 err_msg=f"{fn.__name__} R={R0} ({backend_name})",
             )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_backend_dens_numpy_fallback_and_mass(backend_name):
+    # Exercise the two internal branches that a units-based density drives on a
+    # backend node -- WITHOUT astropy (not installed in this shard). _dens_needs_numpy
+    # is only *set* via the astropy unit-detection in __init__, but the branch it
+    # gates is independent of astropy, so force it on a plain-numpy-density potential:
+    #   _backend_dens: evaluate the density on the numpy node, anchor back on the
+    #                  backend (the path a units density needs; numpy * Tensor raises).
+    #   _rawmass:      a backend r routes to in-backend Gauss-Legendre quadrature.
+    # Both must return a backend array whose value matches the numpy path.
+    pot = AnySphericalPotential(amp=1.3, dens=_dens)
+    assert not pot._dens_needs_numpy  # plain numpy density: normally False
+    pot._dens_needs_numpy = True  # force the numpy-eval-and-anchor branch
+    r0 = 1.7
+    r = _asarray(backend_name, r0)
+    d = pot._backend_dens(r)
+    assert backend_name in type(d).__module__
+    numpy.testing.assert_allclose(as_numpy(d), pot._rawdens(r0), rtol=1e-12)
+    m = pot._rawmass(r)
+    assert backend_name in type(m).__module__
+    numpy.testing.assert_allclose(as_numpy(m), pot._rawmass(r0), rtol=1e-5)
