@@ -8,7 +8,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel
 from ..util import conversion  # for prolate spherical coordinate transforms
 from ..util import coords
 from .Potential import Potential
@@ -63,33 +63,29 @@ class KuzminKutuzovStaeckelPotential(Potential):
         self.hasC_dxdv = True
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         return -1.0 / (xp.sqrt(l) + xp.sqrt(n))
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         dldR = xp.asarray(jac[0, 0])
         dndR = xp.asarray(jac[1, 0])
         return -(dldR * self._lderiv(l, n) + dndR * self._nderiv(l, n))
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         dldz = xp.asarray(jac[0, 1])
         dndz = xp.asarray(jac[1, 1])
         return -(dldz * self._lderiv(l, n) + dndz * self._nderiv(l, n))
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
@@ -105,9 +101,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
             + 2.0 * dldR * dndR * self._lnderiv(l, n)
         )
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
@@ -123,9 +118,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
             + 2.0 * dldz * dndz * self._lnderiv(l, n)
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
@@ -143,7 +137,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
             + (dldR * dndz + dldz * dndR) * self._lnderiv(l, n)
         )
 
-    def _lderiv(self, l, n):
+    @backend_kernel("l", "n")
+    def _lderiv(self, l, n, *, xp=None):
         """
         Evaluate the derivative w.r.t. lambda for this potential.
 
@@ -163,10 +158,10 @@ class KuzminKutuzovStaeckelPotential(Potential):
         -----
         - 2015-02-15 - Written - Trick (MPIA)
         """
-        xp = get_namespace(l, n)
         return 0.5 / xp.sqrt(l) / (xp.sqrt(l) + xp.sqrt(n)) ** 2
 
-    def _nderiv(self, l, n):
+    @backend_kernel("l", "n")
+    def _nderiv(self, l, n, *, xp=None):
         """
         Evaluate the derivative w.r.t. nu for this potential.
 
@@ -187,10 +182,10 @@ class KuzminKutuzovStaeckelPotential(Potential):
         - 2015-02-15 - Written - Trick (MPIA)
 
         """
-        xp = get_namespace(l, n)
         return 0.5 / xp.sqrt(n) / (xp.sqrt(l) + xp.sqrt(n)) ** 2
 
-    def _l2deriv(self, l, n):
+    @backend_kernel("l", "n")
+    def _l2deriv(self, l, n, *, xp=None):
         """
         Evaluate the second derivative w.r.t. lambda for this potential.
 
@@ -211,12 +206,12 @@ class KuzminKutuzovStaeckelPotential(Potential):
         - 2015-02-15 - Written - Trick (MPIA)
 
         """
-        xp = get_namespace(l, n)
         number = -3.0 * xp.sqrt(l) - xp.sqrt(n)
         denom = 4.0 * l**1.5 * (xp.sqrt(l) + xp.sqrt(n)) ** 3
         return number / denom
 
-    def _n2deriv(self, l, n):
+    @backend_kernel("l", "n")
+    def _n2deriv(self, l, n, *, xp=None):
         """
         Evaluate the second derivative w.r.t. nu for this potential.
 
@@ -237,12 +232,12 @@ class KuzminKutuzovStaeckelPotential(Potential):
         - 2015-02-15 - Written - Trick (MPIA)
 
         """
-        xp = get_namespace(l, n)
         number = -xp.sqrt(l) - 3.0 * xp.sqrt(n)
         denom = 4.0 * n**1.5 * (xp.sqrt(l) + xp.sqrt(n)) ** 3
         return number / denom
 
-    def _lnderiv(self, l, n):
+    @backend_kernel("l", "n")
+    def _lnderiv(self, l, n, *, xp=None):
         """
         Evaluate the mixed derivative w.r.t. lambda and nu for this potential.
 
@@ -263,5 +258,4 @@ class KuzminKutuzovStaeckelPotential(Potential):
         - 2015-02-13 - Written - Trick (MPIA)
 
         """
-        xp = get_namespace(l, n)
         return -0.5 / (xp.sqrt(l) * xp.sqrt(n) * (xp.sqrt(l) + xp.sqrt(n)) ** 3)

@@ -7,7 +7,7 @@ import math
 
 import numpy
 
-from ..backend import coerce_coords, get_namespace, is_backend_array
+from ..backend import backend_kernel, get_namespace, is_backend_array
 from ..util import conversion
 from .Potential import Potential
 
@@ -94,71 +94,61 @@ class SoftenedNeedleBarPotential(Potential):
         self.isNonAxi = True
         return None
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         x, y, z = self._compute_xyz(R, phi, z, t)
         Tp, Tm = self._compute_TpTm(x, y, z)
         return xp.log((x - self._a + Tm) / (x + self._a + Tp)) / 2.0 / self._a
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
         return xp.cos(phi) * Fx + xp.sin(phi) * Fy
 
-    def _phitorque(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _phitorque(self, R, z, phi=0.0, t=0.0, *, xp=None):
         Fx, Fy, _ = self._cached_xyzforces(R, z, phi, t, xp)
         return R * (-xp.sin(phi) * Fx + xp.cos(phi) * Fy)
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         _, _, Fz = self._cached_xyzforces(R, z, phi, t, xp)
         return Fz
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return self._cached_cylhess(R, z, phi, t, xp)[0]
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return self._cached_cylhess(R, z, phi, t, xp)[1]
 
-    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return self._cached_cylhess(R, z, phi, t, xp)[2]
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return self._cached_cylhess(R, z, phi, t, xp)[3]
 
-    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return self._cached_cylhess(R, z, phi, t, xp)[4]
 
-    def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _phizderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return self._cached_cylhess(R, z, phi, t, xp)[5]
 
     def OmegaP(self):
         return self._omegab
 
-    def _compute_xyz(self, R, phi, z, t):
-        xp = get_namespace(R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _compute_xyz(self, R, phi, z, t, *, xp=None):
         ang = phi - self._pa - self._omegab * t
         return (R * xp.cos(ang), R * xp.sin(ang), z)
 
-    def _compute_TpTm(self, x, y, z):
-        xp = get_namespace(x, y, z)
+    @backend_kernel("x", "y", "z")
+    def _compute_TpTm(self, x, y, z, *, xp=None):
         secondpart = y**2.0 + (self._b + xp.sqrt(self._c2 + z**2.0)) ** 2.0
         return (
             xp.sqrt((self._a + x) ** 2.0 + secondpart),
@@ -262,8 +252,8 @@ class SoftenedNeedleBarPotential(Potential):
     def _xforce_xyz(self, x, y, z, Tp, Tm):
         return -2.0 * x / Tp / Tm / (Tp + Tm)
 
-    def _yforce_xyz(self, x, y, z, Tp, Tm):
-        xp = get_namespace(x, y, z)
+    @backend_kernel("x", "y", "z")
+    def _yforce_xyz(self, x, y, z, Tp, Tm, *, xp=None):
         return (
             -y
             / 2.0
@@ -273,8 +263,8 @@ class SoftenedNeedleBarPotential(Potential):
             / (y**2.0 + (self._b + xp.sqrt(z**2.0 + self._c2)) ** 2.0)
         )
 
-    def _zforce_xyz(self, x, y, z, Tp, Tm):
-        xp = get_namespace(x, y, z)
+    @backend_kernel("x", "y", "z")
+    def _zforce_xyz(self, x, y, z, Tp, Tm, *, xp=None):
         zc = xp.sqrt(z**2.0 + self._c2)
         return (
             -z
@@ -287,9 +277,8 @@ class SoftenedNeedleBarPotential(Potential):
             / zc
         )
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         x, y, z = self._compute_xyz(R, phi, z, t)
         zc = xp.sqrt(z**2.0 + self._c2)
         bzc2 = (self._b + zc) ** 2.0

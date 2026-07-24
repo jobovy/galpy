@@ -11,7 +11,7 @@ import numpy
 
 from galpy.util import conversion, coords
 
-from ..backend import coerce_coords, get_namespace, promote_scalars
+from ..backend import backend_kernel, get_namespace, promote_scalars
 from .Potential import (
     _APY_LOADED,
     _evaluatePotentials,
@@ -119,7 +119,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         return (self._U(u) - self._V(v)) / _staeckel_prefactor(u, v)
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         NAME:
            _Rforce
@@ -135,8 +136,6 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-12-15 - Written - Bovy (UofT)
         """
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -155,7 +154,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             / prefac**2.0
         )
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         NAME:
            _zforce
@@ -171,8 +171,6 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-12-15 - Written - Bovy (UofT)
         """
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -191,7 +189,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             / prefac**2.0
         )
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         NAME:
            _R2deriv
@@ -207,8 +206,6 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-01-21 - Written - Bovy (UofT)
         """
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -255,7 +252,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             dprefacdu * xp.cosh(u) * xp.sin(v) + dprefacdv * xp.sinh(u) * xp.cos(v)
         ) / self._delta
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         NAME:
            _z2deriv
@@ -271,8 +269,6 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-01-21 - Written - Bovy (UofT)
         """
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -319,7 +315,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             -dprefacdu * xp.sinh(u) * xp.cos(v) + dprefacdv * xp.cosh(u) * xp.sin(v)
         ) / self._delta
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         NAME:
            _Rzderiv
@@ -335,8 +332,6 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         HISTORY:
            2017-01-22 - Written - Bovy (UofT)
         """
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi = coerce_coords(xp, R, z, phi)
         u, v = coords.Rz_to_uv(R, z, delta=self._delta)
         prefac = _staeckel_prefactor(u, v)
         dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
@@ -385,16 +380,14 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             dprefacdu * xp.cosh(u) * xp.sin(v) + dprefacdv * xp.sinh(u) * xp.cos(v)
         ) / self._delta
 
-    def _U(self, u):
+    @backend_kernel("u")
+    def _U(self, u, *, xp=None):
         """Approximated U(u) = cosh^2(u) Phi(u,pi/2)"""
-        xp = get_namespace(u)
-        (u,) = coerce_coords(xp, u)
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         return xp.cosh(u) ** 2.0 * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
 
-    def _dUdu(self, u):
-        xp = get_namespace(u)
-        (u,) = coerce_coords(xp, u)
+    @backend_kernel("u")
+    def _dUdu(self, u, *, xp=None):
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         # 1e-12 bc force should win the 0/0 battle
         return 2.0 * xp.cosh(u) * xp.sinh(u) * _evaluatePotentials(
@@ -404,9 +397,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             + _evaluatezforces(self._pot, Rz0[0], Rz0[1]) * Rz0[1] * xp.tanh(u)
         )
 
-    def _d2Udu2(self, u):
-        xp = get_namespace(u)
-        (u,) = coerce_coords(xp, u)
+    @backend_kernel("u")
+    def _d2Udu2(self, u, *, xp=None):
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
         tRforce = _evaluateRforces(self._pot, Rz0[0], Rz0[1])
         tzforce = _evaluatezforces(self._pot, Rz0[0], Rz0[1])
@@ -441,9 +433,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             self._pot, R0z[0], R0z[1]
         )
 
-    def _dVdv(self, v):
-        xp = get_namespace(v)
-        (v,) = coerce_coords(xp, v)
+    @backend_kernel("v")
+    def _dVdv(self, v, *, xp=None):
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         return -2.0 * xp.sin(v) * xp.cos(v) * _evaluatePotentials(
             self._pot, R0z[0], R0z[1]
@@ -452,9 +443,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             - _evaluatezforces(self._pot, R0z[0], R0z[1]) * R0z[1] * xp.tan(v)
         )
 
-    def _d2Vdv2(self, v):
-        xp = get_namespace(v)
-        (v,) = coerce_coords(xp, v)
+    @backend_kernel("v")
+    def _d2Vdv2(self, v, *, xp=None):
         R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
         tRforce = _evaluateRforces(self._pot, R0z[0], R0z[1])
         tzforce = _evaluatezforces(self._pot, R0z[0], R0z[1])

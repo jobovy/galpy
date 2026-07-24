@@ -9,9 +9,8 @@ from scipy import special
 
 from ..backend import (
     asarray_on_device,
-    coerce_coords,
+    backend_kernel,
     device_of,
-    get_namespace,
     match_input_dtype,
 )
 from ..util import conversion
@@ -155,7 +154,8 @@ class DoubleExponentialDiskPotential(Potential):
         ):  # pragma: no cover
             self.normalize(normalize)
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0, dR=0, dphi=0):
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, dR=0, dphi=0, *, xp=None):
         """
         Evaluate the potential at (R,z)
 
@@ -181,7 +181,6 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
         # the Ogata quadrature nodes/weights are deliberately float64
         # (precision); the result is cast to the input dtype at exit (no-op
         # for float64/scalar inputs), so keep the original inputs for that.
@@ -243,7 +242,8 @@ class DoubleExponentialDiskPotential(Potential):
             return match_input_dtype(xp.reshape(out, outShape), *in_coords)
 
     @check_potential_inputs_not_arrays
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         Evaluate radial force K_R  (R,z)
 
@@ -269,7 +269,6 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         fun = lambda x: (
@@ -301,7 +300,8 @@ class DoubleExponentialDiskPotential(Potential):
         )
 
     @check_potential_inputs_not_arrays
-    def _zforce(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         Evaluate vertical force K_z  (R,z)
 
@@ -327,7 +327,6 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         fun = lambda x: (
@@ -357,7 +356,8 @@ class DoubleExponentialDiskPotential(Potential):
         return match_input_dtype(out * (2.0 * (z > 0.0) - 1.0), R, z, phi, t)
 
     @check_potential_inputs_not_arrays
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         Evaluate radial force K_R (R,z) R2 derivative
 
@@ -382,7 +382,6 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-27 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         fun = lambda x: (
@@ -421,7 +420,8 @@ class DoubleExponentialDiskPotential(Potential):
         )
 
     @check_potential_inputs_not_arrays
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         Evaluate vertical force K_Z (R,z) Z2 derivative
 
@@ -446,7 +446,6 @@ class DoubleExponentialDiskPotential(Potential):
         - 2012-12-26 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         fun = lambda x: (
@@ -480,7 +479,8 @@ class DoubleExponentialDiskPotential(Potential):
         )
 
     @check_potential_inputs_not_arrays
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         """
         Evaluate mixed R,z derivative d2phi/dR/dz.
 
@@ -505,7 +505,6 @@ class DoubleExponentialDiskPotential(Potential):
         - 2013-08-28 - Written - Bovy (IAS)
         - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
-        xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
         fun = lambda x: (
@@ -532,14 +531,12 @@ class DoubleExponentialDiskPotential(Potential):
         # float64 quadrature interior, input-dtype exit cast (see _evaluate)
         return match_input_dtype(out * (2.0 * (z > 0.0) - 1.0), R, z, phi, t)
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return xp.exp(-self._alpha * R - self._beta * xp.abs(z))
 
-    def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _surfdens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return (
             2.0
             * xp.exp(-self._alpha * R)

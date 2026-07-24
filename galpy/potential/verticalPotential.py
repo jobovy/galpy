@@ -1,6 +1,6 @@
 import numpy
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import backend_kernel, get_namespace, is_backend_array
 from ..util import conversion
 from ._repr_utils import _build_physical_output_string, _strip_physical_output_info
 from .DissipativeForce import _isDissipative
@@ -196,17 +196,17 @@ class _BatchedVerticalPotential(verticalPotential):
         verticalPotential.__init__(self, Pot, R=R0, phi=phi, t0=t0)
         self._R = R
 
-    def _Rb(self, z):
+    @backend_kernel("z")
+    def _Rb(self, z, *, xp=None):
         # Reshape the batch R to broadcast against z (leading-axis aligned).
-        xp = get_namespace(z)
         R = self._R
         extra = z.ndim - R.ndim
         if extra > 0:
             R = xp.reshape(R, R.shape + (1,) * extra)
         return R
 
-    def _evaluate(self, z, t=0.0):
-        xp = get_namespace(z)
+    @backend_kernel("z")
+    def _evaluate(self, z, t=0.0, *, xp=None):
         Rb = self._Rb(z)
         tphi = self._phi * xp.ones_like(z)
         full = self._Pot(Rb, z, phi=tphi, t=t, use_physical=False)

@@ -11,7 +11,7 @@ import math
 import numpy
 from scipy import optimize
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel, coerce_coords, get_namespace
 from ..backend.special import gamma as _gamma
 from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
@@ -179,9 +179,8 @@ class TwoPowerSphericalPotential(Potential):
                 )
             )
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a / r) ** self.alpha
@@ -251,9 +250,8 @@ class TwoPowerSphericalPotential(Potential):
             * (self.a * (2.0 * beta - self.alpha) + r * (2.0 * beta - self.beta))
         )
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
         hyper = _hyp2f1(
@@ -276,9 +274,8 @@ class TwoPowerSphericalPotential(Potential):
         term3 = -A * R**2 * r ** (-self.alpha - 1.0) / self.a * hyper_deriv
         return term1 + term2 + term3
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         A = self.a ** (self.alpha - 3.0) / (3.0 - self.alpha)
         hyper = _hyp2f1(
@@ -300,9 +297,8 @@ class TwoPowerSphericalPotential(Potential):
         term2 = -A * R * r ** (-self.alpha - 1.0) * z / self.a * hyper_deriv
         return term1 + term2
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return self._R2deriv(xp.abs(z), R)  # Spherical potential
 
     def _mass(self, R, z=None, t=0.0):
@@ -441,9 +437,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
             R * z * r ** (-2.0 - alpha) * (a + r) ** (alpha - 4.0) * (3 * r + a * alpha)
         ) / (alpha - 3)
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a / r) ** self.alpha
@@ -501,44 +496,38 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         self.hasC_dens = True
         return None
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return -(1.0 - 1.0 / (1.0 + self.a / r) ** 2.0) / (6.0 * self.a)
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return -R / (xp.sqrt(R**2.0 + z**2.0) + self.a) ** 3.0 / 3.0
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return -(
             ((2.0 * R**2.0 - z**2.0) - self.a * r) / (3.0 * r * (r + self.a) ** 4.0)
         )
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return -z / (self.a + r) ** 3.0 / 3.0
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         return self._R2deriv(z, R, phi=phi, t=t)
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         a = self.a
         r = xp.sqrt(R**2.0 + z**2.0)
         return -(R * z / r / (a + r) ** 4.0)
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return 1.0 / (1.0 + r / self.a) ** 4.0 / 4.0 / math.pi / self.a**3.0
 
@@ -593,26 +582,22 @@ class HernquistPotential(DehnenSphericalPotential):
         self.hasC_dens = True
         return None
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return -1.0 / (1.0 + xp.sqrt(R**2.0 + z**2.0) / self.a) / 2.0 / self.a
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / self.a / sqrtRz / (1.0 + sqrtRz / self.a) ** 2.0 / 2.0 / self.a
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * z**2.0 + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
@@ -621,9 +606,8 @@ class HernquistPotential(DehnenSphericalPotential):
             / 2.0
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
@@ -633,9 +617,8 @@ class HernquistPotential(DehnenSphericalPotential):
             / 2.0
         )
 
-    def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _surfdens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         # R == a is a removable singularity of the generic branch (Rma -> 0,
         # (a^2-R^2) -> 0, (r^2-a^2) -> 0): use the closed-form limit there. Both
@@ -768,26 +751,22 @@ class JaffePotential(DehnenSphericalPotential):
         self.hasC_dens = True
         return None
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return -xp.log(1.0 + self.a / xp.sqrt(R**2.0 + z**2.0)) / self.a
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -R / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return -z / sqrtRz**3.0 / (1.0 + self.a / sqrtRz)
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             (self.a * (z**2.0 - R**2.0) + (z**2.0 - 2.0 * R**2.0) * sqrtRz)
@@ -795,9 +774,8 @@ class JaffePotential(DehnenSphericalPotential):
             / (self.a + sqrtRz) ** 2.0
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         sqrtRz = xp.sqrt(R**2.0 + z**2.0)
         return (
             -R
@@ -807,9 +785,8 @@ class JaffePotential(DehnenSphericalPotential):
             * (self.a + sqrtRz) ** -2.0
         )
 
-    def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _surfdens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         # R == a is a removable singularity of the generic branch (Rma -> 0,
         # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches
@@ -970,9 +947,8 @@ class NFWPotential(TwoPowerSphericalPotential):
         self._nemo_accname = "NFW"
         return None
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         # -special.xlogy(1/r, 1+r/a) == -(1/r)*log(1+r/a), with xlogy's
         # convention that the result is 0 where the prefactor 1/r is 0 (i.e.
@@ -987,27 +963,24 @@ class NFWPotential(TwoPowerSphericalPotential):
         out = xp.where(atinf, xp.zeros_like(r * 1.0), bulk)
         return xp.where(at0, -1.0 / self.a * xp.ones_like(r * 1.0), out)
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return R * (
             1.0 / Rz / (self.a + sqrtRz) - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
         )
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return z * (
             1.0 / Rz / (self.a + sqrtRz) - xp.log(1.0 + sqrtRz / self.a) / sqrtRz / Rz
         )
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return (
@@ -1023,9 +996,8 @@ class NFWPotential(TwoPowerSphericalPotential):
             / (self.a + sqrtRz) ** 2.0
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         Rz = R**2.0 + z**2.0
         sqrtRz = xp.sqrt(Rz)
         return (
@@ -1042,9 +1014,8 @@ class NFWPotential(TwoPowerSphericalPotential):
             * (self.a + sqrtRz) ** -2.0
         )
 
-    def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _surfdens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         # R == a is a removable singularity of the generic branch (Rma -> 0,
         # R^2-a^2 -> 0): use the closed-form limit there. Both xp.where branches

@@ -3,7 +3,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel, get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -160,10 +160,9 @@ class DehnenBarPotential(Potential):
         growth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
         return xp.where(t < self._tform, 0.0, xp.where(t < self._tsteady, growth, 1.0))
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -191,10 +190,9 @@ class DehnenBarPotential(Potential):
             * R2_over_r2
         )
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -218,10 +216,9 @@ class DehnenBarPotential(Potential):
             * xp.where(r <= self._rb, inner, outer)
         )
 
-    def _phitorque(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _phitorque(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -243,10 +240,9 @@ class DehnenBarPotential(Potential):
             * R2_over_r2
         )
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -262,10 +258,9 @@ class DehnenBarPotential(Potential):
             * xp.where(r <= self._rb, inner, outer)
         )
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -289,10 +284,9 @@ class DehnenBarPotential(Potential):
             * xp.where(r <= self._rb, inner, outer)
         )
 
-    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -314,10 +308,9 @@ class DehnenBarPotential(Potential):
             * R2_over_r2
         )
 
-    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -336,10 +329,9 @@ class DehnenBarPotential(Potential):
             * xp.where(r <= self._rb, inner, outer)
         )
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -359,10 +351,9 @@ class DehnenBarPotential(Potential):
             * xp.where(r <= self._rb, inner, outer)
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
@@ -385,10 +376,9 @@ class DehnenBarPotential(Potential):
             * xp.where(r <= self._rb, inner, outer)
         )
 
-    def _phizderiv(self, R, z, phi=0.0, t=0.0):
+    @backend_kernel("R", "z", "phi", "t")
+    def _phizderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Calculate relevant time
-        xp = get_namespace(R, z, phi, t)
-        R, z, phi, t = coerce_coords(xp, R, z, phi, t)
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)

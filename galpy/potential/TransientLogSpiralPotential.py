@@ -3,7 +3,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel, coerce_coords, get_namespace
 from ..util import conversion
 from .planarPotential import planarPotential
 
@@ -101,9 +101,8 @@ class TransientLogSpiralPotential(planarPotential):
         (t,) = coerce_coords(xpt, t)
         return xpt.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
 
-    def _evaluate(self, R, phi=0.0, t=0.0):
-        xp = get_namespace(R, phi, t)
-        R, phi = coerce_coords(xp, R, phi)
+    @backend_kernel("R", "phi", "t")
+    def _evaluate(self, R, phi=0.0, t=0.0, *, xp=None):
         return (
             self._A
             * self._envelope(t)
@@ -114,9 +113,8 @@ class TransientLogSpiralPotential(planarPotential):
             )
         )
 
-    def _Rforce(self, R, phi=0.0, t=0.0):
-        xp = get_namespace(R, phi, t)
-        R, phi = coerce_coords(xp, R, phi)
+    @backend_kernel("R", "phi", "t")
+    def _Rforce(self, R, phi=0.0, t=0.0, *, xp=None):
         return (
             self._A
             * self._envelope(t)
@@ -127,9 +125,8 @@ class TransientLogSpiralPotential(planarPotential):
             )
         )
 
-    def _phitorque(self, R, phi=0.0, t=0.0):
-        xp = get_namespace(R, phi, t)
-        R, phi = coerce_coords(xp, R, phi)
+    @backend_kernel("R", "phi", "t")
+    def _phitorque(self, R, phi=0.0, t=0.0, *, xp=None):
         return (
             -self._A
             * self._envelope(t)

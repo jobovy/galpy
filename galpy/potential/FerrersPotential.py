@@ -15,6 +15,7 @@ from scipy import integrate
 from scipy.special import gamma
 
 from ..backend import (
+    backend_kernel,
     coerce_coords,
     get_namespace,
     is_backend_array,
@@ -253,8 +254,8 @@ class FerrersPotential(Potential):
             )
         )
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -273,8 +274,8 @@ class FerrersPotential(Potential):
             + 2.0 * xp.cos(phi) * xp.sin(phi) * phixy
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -293,8 +294,8 @@ class FerrersPotential(Potential):
         x, y, z = self._compute_xyz(R, phi, z, t)
         return self._2ndderiv_xyz(x, y, z, 2, 2)
 
-    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -318,8 +319,8 @@ class FerrersPotential(Potential):
             - 2.0 * xp.cos(phi) * xp.sin(phi) * phixy
         ) + R * (xp.cos(phi) * Fx + xp.sin(phi) * Fy)
 
-    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -344,8 +345,8 @@ class FerrersPotential(Potential):
             - xp.cos(phi) * Fy
         )
 
-    def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _phizderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = zeros_like_backend(xp, R)
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -381,8 +382,8 @@ class FerrersPotential(Potential):
             )
         )
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         x, y, z = self._compute_xyz(R, phi, z, t)
         m2 = x**2 / self._a2 + y**2 / self._b2 + z**2 / self._c2
         if xp is numpy:
