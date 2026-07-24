@@ -4,7 +4,7 @@
 ###############################################################################
 import math
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel, get_namespace
 from .Potential import Potential
 
 
@@ -49,54 +49,47 @@ class SphericalPotential(Potential):
         """Implement using the Poisson equation in case this isn't implemented"""
         return (self._r2deriv(r, t=t) - 2.0 * self._rforce(r, t=t) / r) / 4.0 / math.pi
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._revaluate(r, t=t)
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._rforce(r, t=t) * R / r
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._rforce(r, t=t) * z / r
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * R**2.0 / r**2.0
             - self._rforce(r, t=t) * z**2.0 / r**3.0
         )
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * z**2.0 / r**2.0
             - self._rforce(r, t=t) * R**2.0 / r**3.0
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * R * z / r**2.0
             + self._rforce(r, t=t) * R * z / r**3.0
         )
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return self._rdens(r, t=t)
 

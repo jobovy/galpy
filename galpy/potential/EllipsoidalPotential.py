@@ -16,7 +16,7 @@ from scipy import integrate
 
 from ..backend import (
     as_backend_constant,
-    coerce_coords,
+    backend_kernel,
     get_namespace,
     is_backend_array,
 )
@@ -190,9 +190,8 @@ class EllipsoidalPotential(Potential):
         Fz_ = rot[0, 2] * Fx + rot[1, 2] * Fy + rot[2, 2] * Fz
         return Fx_, Fy_, Fz_
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -261,8 +260,8 @@ class EllipsoidalPotential(Potential):
             self._force_hash = new_hash
         return Fx, Fy, Fz
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -270,8 +269,8 @@ class EllipsoidalPotential(Potential):
         Fx, Fy, _ = self._compute_forces(x, y, z, xp)
         return xp.cos(phi) * Fx + xp.sin(phi) * Fy
 
-    def _phitorque(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _phitorque(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -279,8 +278,8 @@ class EllipsoidalPotential(Potential):
         Fx, Fy, _ = self._compute_forces(x, y, z, xp)
         return R * (-xp.sin(phi) * Fx + xp.cos(phi) * Fy)
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -336,8 +335,8 @@ class EllipsoidalPotential(Potential):
             self._2ndderiv_hash = new_hash
         return xx, xy, xz, yy, yz, zz
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -353,8 +352,8 @@ class EllipsoidalPotential(Potential):
             + 2.0 * xp.cos(phi) * xp.sin(phi) * phixy
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -366,8 +365,8 @@ class EllipsoidalPotential(Potential):
         _, _, phixz, _, phiyz, _ = self._compute_2ndderivs(x, y, z, xp)
         return xp.cos(phi) * phixz + xp.sin(phi) * phiyz
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -379,8 +378,8 @@ class EllipsoidalPotential(Potential):
         _, _, _, _, _, phizz = self._compute_2ndderivs(x, y, z, xp)
         return phizz
 
-    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -397,8 +396,8 @@ class EllipsoidalPotential(Potential):
             - 2.0 * xp.cos(phi) * xp.sin(phi) * phixy
         ) + R * (xp.cos(phi) * Fx + xp.sin(phi) * Fy)
 
-    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -416,8 +415,8 @@ class EllipsoidalPotential(Potential):
             - xp.cos(phi) * Fy
         )
 
-    def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _phizderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if not self.isNonAxi:
             phi = 0.0
         phi = _anchor_phi(phi, R, xp)
@@ -429,8 +428,8 @@ class EllipsoidalPotential(Potential):
         _, _, phixz, _, phiyz, _ = self._compute_2ndderivs(x, y, z, xp)
         return R * (xp.cos(phi) * phiyz - xp.sin(phi) * phixz)
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         phi = _anchor_phi(phi, R, xp)
         x, y = R * xp.cos(phi), R * xp.sin(phi)
         if self._aligned:
