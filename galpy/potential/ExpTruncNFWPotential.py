@@ -6,7 +6,7 @@ import warnings
 import numpy
 from scipy.special import exp1 as _scipy_exp1
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import backend_kernel, get_namespace, is_backend_array
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import exp1
 from ..util import conversion, galpyWarning
@@ -239,23 +239,23 @@ class ExpTruncNFWPotential(SphericalPotential):
         out._voSet = nfw._voSet
         return out
 
-    def _F(self, r):
+    @backend_kernel("r")
+    def _F(self, r, *, xp=None):
         # F(r) = M(<r) / amp = int_0^r s e^{-s/rc} / (a+s)^2 ds, the
         # dimensionless enclosed-mass scale (so that _rforce = -F(r)/r^2 in
         # amp-units). For r << a, rc the two E1 terms cancel; use a Taylor
         # series in r there instead. Both branches are finite and smooth on the
         # whole domain (the split is for precision only), so the masked-out side
         # cannot NaN-poison AD -- a plain xp.where suffices.
-        xp = get_namespace(r)
         r = xp.asarray(r) * 1.0
         small = r < self._small_r_thresh
         return xp.where(small, self._F_series(r), self._F_closed(r))
 
-    def _F_closed(self, r):
+    @backend_kernel("r")
+    def _F_closed(self, r, *, xp=None):
         # F(r) = exp(alpha)(1+alpha)[E1(alpha) - E1(beta)] - 1
         #        + a exp(-r/rc)/(a+r),
         # with alpha = a/rc and beta = (a+r)/rc.
-        xp = get_namespace(r)
         r = xp.asarray(r) * 1.0  # so beta is a backend array (router/dtype match)
         a, rc = self.a, self.rc
         beta = (a + r) / rc
@@ -265,13 +265,13 @@ class ExpTruncNFWPotential(SphericalPotential):
             + a * xp.exp(-r / rc) / (a + r)
         )
 
-    def _F_series(self, r):
+    @backend_kernel("r")
+    def _F_series(self, r, *, xp=None):
         # Taylor expansion of F(r) about r=0 (through O(r^5)):
         # F(r) = (1/a^2) [ r^2/2 - (r^3/3)(1/rc + 2/a)
         #                + (r^4/4)(1/(2 rc^2) + 2/(rc a) + 3/a^2)
         #                - (r^5/5)(1/(6 rc^3) + 1/(rc^2 a)
         #                         + 3/(rc a^2) + 4/a^3) + ... ]
-        xp = get_namespace(r)
         r = xp.asarray(r) * 1.0  # match _F_closed's namespace (direct-call parity)
         a, rc = self.a, self.rc
         c2 = 0.5
@@ -288,11 +288,11 @@ class ExpTruncNFWPotential(SphericalPotential):
         )
         return (r * r / (a * a)) * (c2 + r * (c3 + r * (c4 + r * c5)))
 
-    def _G(self, r):
+    @backend_kernel("r")
+    def _G(self, r, *, xp=None):
         # G(r) := 4 pi int_r^inf rho(s) s ds / amp
         #       = exp(-r/rc)/(a+r) - exp(alpha) E1(beta) / rc,
         # the outer-shell contribution to the potential.
-        xp = get_namespace(r)
         r = xp.asarray(r) * 1.0  # so beta is a backend array (router/dtype match)
         a, rc = self.a, self.rc
         beta = (a + r) / rc
@@ -309,20 +309,20 @@ class ExpTruncNFWPotential(SphericalPotential):
         a = self.a
         return xp.exp(-r / self.rc) / (4.0 * numpy.pi * a * a * r * (1.0 + r / a) ** 2)
 
-    def _revaluate(self, r, t=0.0):
+    @backend_kernel("r")
+    def _revaluate(self, r, t=0.0, *, xp=None):
         # Phi(r)/amp = -[F(r)/r + G(r)]. F(r) ~ r^2/(2 a^2) near the origin, so
         # F/r has a finite (zero) limit there that we substitute by hand to
         # avoid a 0/0 NaN (e.g. eddingtondf seeds its rphi spline at r=0).
-        xp = get_namespace(r)
         r = xp.asarray(r) * 1.0
         at0 = r == 0.0
         safe = xp.where(at0, xp.ones_like(r), r)  # avoid 0/0 at the origin
         FoverR = xp.where(at0, xp.zeros_like(r), self._F(safe) / safe)
         return -(FoverR + self._G(r))
 
-    def _rforce(self, r, t=0.0):
+    @backend_kernel("r")
+    def _rforce(self, r, t=0.0, *, xp=None):
         # -F(r)/r^2, with the finite r->0 limit -1/(2 a^2) substituted by hand.
-        xp = get_namespace(r)
         r = xp.asarray(r) * 1.0
         zero_limit = -0.5 / (self.a * self.a)
         at0 = r == 0.0

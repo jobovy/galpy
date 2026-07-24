@@ -5,7 +5,7 @@
 import math
 import warnings
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel, coerce_coords, get_namespace
 from ..util import conversion, galpyWarning
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -94,27 +94,24 @@ class LogarithmicHaloPotential(Potential):
             R, z = coerce_coords(xp, R, z)
             return 1.0 / 2.0 * xp.log(R**2.0 + (z / self._q) ** 2.0 + self._core2)
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             return -Rt2 / R / (Rt2 + (z / self._q) ** 2.0 + self._core2)
         else:
             return -R / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             return -z / self._q**2.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
         else:
             return -z / self._q**2.0 / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
 
-    def _phitorque(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _phitorque(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             return (
@@ -127,9 +124,8 @@ class LogarithmicHaloPotential(Potential):
         else:
             return 0
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             R2 = R**2.0
             Rt2 = R2 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
@@ -169,9 +165,8 @@ class LogarithmicHaloPotential(Potential):
                 / (R**2.0 + (z / self._q) ** 2.0 + self._core2) ** 2.0
             )
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
@@ -180,9 +175,8 @@ class LogarithmicHaloPotential(Potential):
             denom = 1.0 / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
             return denom - 2.0 * R**2.0 * denom**2.0
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
@@ -191,9 +185,8 @@ class LogarithmicHaloPotential(Potential):
             denom = 1.0 / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
             return denom / self._q**2.0 - 2.0 * z**2.0 * denom**2.0 / self._q**4.0
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             return (
@@ -213,9 +206,8 @@ class LogarithmicHaloPotential(Potential):
                 / (R**2.0 + (z / self._q) ** 2.0 + self._core2) ** 2.0
             )
 
-    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
@@ -226,9 +218,8 @@ class LogarithmicHaloPotential(Potential):
         else:
             return 0.0
 
-    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
@@ -236,9 +227,8 @@ class LogarithmicHaloPotential(Potential):
         else:
             return 0.0
 
-    def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z, phi)
-        R, z, phi = coerce_coords(xp, R, z, phi)
+    @backend_kernel("R", "z", "phi")
+    def _phizderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * xp.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)

@@ -10,7 +10,7 @@
 import numpy
 from scipy import special
 
-from ..backend import get_namespace
+from ..backend import backend_kernel
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -102,19 +102,19 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 
-    def _psi(self, m):
+    @backend_kernel("m")
+    def _psi(self, m, *, xp=None):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        xp = get_namespace(m)
         return -self._twosigma2 * xp.exp(-(m**2.0) / self._twosigma2)
 
-    def _mdens(self, m):
+    @backend_kernel("m")
+    def _mdens(self, m, *, xp=None):
         """Density as a function of m"""
-        xp = get_namespace(m)
         return xp.exp(-(m**2) / self._twosigma2)
 
-    def _mdens_deriv(self, m):
+    @backend_kernel("m")
+    def _mdens_deriv(self, m, *, xp=None):
         """Derivative of the density as a function of m"""
-        xp = get_namespace(m)
         return -2.0 * m * xp.exp(-(m**2) / self._twosigma2) / self._twosigma2
 
     def _mass(self, R, z=None, t=0.0):

@@ -8,7 +8,7 @@ import math
 
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel
 from ..backend import special as bspecial
 from ..util import conversion
 from .Potential import Potential
@@ -71,9 +71,8 @@ class RazorThinExponentialDiskPotential(Potential):
         ):  # pragma: no cover
             self.normalize(normalize)
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self._new:
             if xp.abs(z) < 10.0**-6.0:
                 y = 0.5 * self._alpha * R
@@ -104,9 +103,8 @@ class RazorThinExponentialDiskPotential(Potential):
             "Not new=True not implemented for RazorThinExponentialDiskPotential"
         )
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # move the numpy GL nodes/weights onto the backend first, so products
         # like R * glx are same-namespace (a torch tensor * a numpy array trips
         # numpy's __array_wrap__); xp.asarray is a no-op on numpy (byte-identical)
@@ -162,9 +160,8 @@ class RazorThinExponentialDiskPotential(Potential):
             "Not new=True not implemented for RazorThinExponentialDiskPotential"
         )
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         glx = xp.asarray(self._glx)
         glw = xp.asarray(self._glw)
         if self._new:
@@ -215,9 +212,8 @@ class RazorThinExponentialDiskPotential(Potential):
             "Not new=True not implemented for RazorThinExponentialDiskPotential"
         )
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         if self._new:
             if xp.abs(z) < 10.0**-6.0:
                 y = 0.5 * self._alpha * R
@@ -234,14 +230,12 @@ class RazorThinExponentialDiskPotential(Potential):
     def _z2deriv(self, R, z, phi=0.0, t=0.0):  # pragma: no cover
         return math.inf
 
-    def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _surfdens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return xp.exp(-self._alpha * R)
 
-    def _mass(self, R, z=None, t=0.0):
-        xp = get_namespace(R)
-        (R,) = coerce_coords(xp, R)
+    @backend_kernel("R")
+    def _mass(self, R, z=None, t=0.0, *, xp=None):
         return (
             2.0
             * math.pi

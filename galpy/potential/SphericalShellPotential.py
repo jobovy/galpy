@@ -4,7 +4,7 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace
+from ..backend import backend_kernel
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
 
@@ -58,37 +58,37 @@ class SphericalShellPotential(SphericalPotential):
         self.hasC = False
         self.hasC_dxdv = False
 
-    def _revaluate(self, r, t=0.0):
+    @backend_kernel("r")
+    def _revaluate(self, r, t=0.0, *, xp=None):
         """The potential as a function of r"""
-        xp = get_namespace(r)
         inside = r <= self.a
         # safe r so the (dead) outside branch cannot produce -1/0 at r == 0
         safe = xp.where(inside, xp.ones_like(r * 1.0), r)
         return xp.where(inside, -1.0 / self.a * xp.ones_like(r * 1.0), -1.0 / safe)
 
-    def _rforce(self, r, t=0.0):
+    @backend_kernel("r")
+    def _rforce(self, r, t=0.0, *, xp=None):
         """The force as a function of r"""
-        xp = get_namespace(r)
         inside = r <= self.a
         safe = xp.where(inside, xp.ones_like(r * 1.0), r)
         return xp.where(inside, xp.zeros_like(r * 1.0), -1 / safe**2.0)
 
-    def _r2deriv(self, r, t=0.0):
+    @backend_kernel("r")
+    def _r2deriv(self, r, t=0.0, *, xp=None):
         """The second radial derivative as a function of r"""
-        xp = get_namespace(r)
         inside = r <= self.a
         safe = xp.where(inside, xp.ones_like(r * 1.0), r)
         return xp.where(inside, xp.zeros_like(r * 1.0), -2.0 / safe**3.0)
 
-    def _rdens(self, r, t=0.0):
+    @backend_kernel("r")
+    def _rdens(self, r, t=0.0, *, xp=None):
         """The density as a function of r"""
-        xp = get_namespace(r)
         return xp.where(
             r != self.a, xp.zeros_like(r * 1.0), math.inf * xp.ones_like(r * 1.0)
         )
 
-    def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _surfdens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # h is real only where R <= a; use a safe argument so the dead
         # (R > a) branch cannot produce sqrt(negative) = NaN
         outside = R > self.a

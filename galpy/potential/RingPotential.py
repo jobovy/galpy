@@ -3,7 +3,7 @@
 ###############################################################################
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel
 from ..backend.special import ellipe, ellipk
 from ..util import conversion
 from .Potential import Potential
@@ -57,16 +57,14 @@ class RingPotential(Potential):
         self.hasC = False
         self.hasC_dxdv = False
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         # Stable as r -> infty
         m = 4.0 * self.a / ((xp.sqrt(R) + self.a / xp.sqrt(R)) ** 2 + z**2 / R)
         return -4.0 * self.a / xp.sqrt((R + self.a) ** 2 + z**2) * ellipk(m)
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         m = 4.0 * R * self.a / ((R + self.a) ** 2 + z**2)
         return (
             -2.0
@@ -90,9 +88,8 @@ class RingPotential(Potential):
             * ellipe(m)
         )
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         Raz2 = (R + self.a) ** 2 + z**2
         Raz = xp.sqrt(Raz2)
         m = 4.0 * R * self.a / Raz2

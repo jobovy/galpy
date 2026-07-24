@@ -15,7 +15,7 @@ import math
 import numpy
 from scipy import special
 
-from ..backend import get_namespace
+from ..backend import backend_kernel, get_namespace
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -410,9 +410,9 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 
-    def _psi(self, m):
+    @backend_kernel("m")
+    def _psi(self, m, *, xp=None):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        xp = get_namespace(m)
         return (
             2.0
             * self.a2

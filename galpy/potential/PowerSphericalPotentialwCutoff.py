@@ -8,7 +8,7 @@
 import numpy
 from scipy import special
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel
 from ..backend._namespaces import namespace_from_arrays
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammainc as _gammainc
@@ -72,9 +72,8 @@ class PowerSphericalPotentialwCutoff(Potential):
         self.hasC_dens = True
         self._nemo_accname = "PowSphwCut"
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         # guard r=0 in the dead branch (the 1/r term -> 0/0=NaN there) so the
         # xp.where stays finite under autodiff/jit; the value at r=0 is 0.
@@ -110,37 +109,32 @@ class PowerSphericalPotentialwCutoff(Potential):
             / r**2.0
         )
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R * R + z * z)
         return self._rforce(r) * R / r
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R * R + z * z)
         return self._rforce(r) * z / r
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R * R + z * z)
         return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * xp.exp(
             -((r / self.rc) ** 2.0)
         ) * R**2.0 + self._mass(r) / r**5.0 * (z**2.0 - 2.0 * R**2.0)
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R * R + z * z)
         return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * xp.exp(
             -((r / self.rc) ** 2.0)
         ) * z**2.0 + self._mass(r) / r**5.0 * (R**2.0 - 2.0 * z**2.0)
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R * R + z * z)
         return (
             R
@@ -166,8 +160,8 @@ class PowerSphericalPotentialwCutoff(Potential):
             * (2.0 * r**2.0 / self.rc**2.0 + self.alpha)
         )
 
-    def _d2densdr2(self, r, t=0.0):
-        xp = get_namespace(r)
+    @backend_kernel("r")
+    def _d2densdr2(self, r, t=0.0, *, xp=None):
         return (
             self._amp
             * r ** (-2.0 - self.alpha)
@@ -212,9 +206,8 @@ class PowerSphericalPotentialwCutoff(Potential):
             * ((self.alpha - 2.0 * beta) / r + 2.0 * r / self.rc**2.0)
         )
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         return 1.0 / r**self.alpha * xp.exp(-((r / self.rc) ** 2.0))
 

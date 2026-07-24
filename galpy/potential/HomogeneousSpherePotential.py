@@ -3,7 +3,7 @@
 ###############################################################################
 import math
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel
 from ..util import conversion
 from .Potential import Potential
 
@@ -57,9 +57,8 @@ class HomogeneousSpherePotential(Potential):
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         # safe denominator so the (dead) outside branch cannot produce a
@@ -67,25 +66,22 @@ class HomogeneousSpherePotential(Potential):
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
         return xp.where(inside, r2 - 3.0 * self._R2, -2.0 * self._R3 / xp.sqrt(safe))
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
         return xp.where(inside, -2.0 * R, -2.0 * self._R3 * R / safe**1.5)
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
         return xp.where(inside, -2.0 * z, -2.0 * self._R3 * z / safe**1.5)
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
@@ -95,9 +91,8 @@ class HomogeneousSpherePotential(Potential):
             2.0 * self._R3 / safe**1.5 - 6.0 * self._R3 * R**2.0 / safe**2.5,
         )
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
@@ -107,9 +102,8 @@ class HomogeneousSpherePotential(Potential):
             2.0 * self._R3 / safe**1.5 - 6.0 * self._R3 * z**2.0 / safe**2.5,
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         safe = xp.where(inside, xp.ones_like(r2 * 1.0), r2)
@@ -119,9 +113,8 @@ class HomogeneousSpherePotential(Potential):
             -6.0 * self._R3 * R * z / safe**2.5,
         )
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         inside = r2 < self._R2
         return xp.where(

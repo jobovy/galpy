@@ -6,7 +6,7 @@ import math
 
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel
 from ..util import conversion
 from .Potential import Potential
 
@@ -57,9 +57,8 @@ class PseudoIsothermalPotential(Potential):
             self.normalize(normalize)
         return None
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         if isinstance(r, (float, int)):  # numpy/python scalar fast path
@@ -76,16 +75,14 @@ class PseudoIsothermalPotential(Potential):
         ) / self._a
         return xp.where(r == 0, 1.0 / self._a, out)
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         return -(1.0 / r - self._a / r2 * xp.arctan(r / self._a)) / self._a * R / r
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         return -(1.0 / r - self._a / r2 * xp.arctan(r / self._a)) / self._a * z / r
@@ -93,9 +90,8 @@ class PseudoIsothermalPotential(Potential):
     def _dens(self, R, z, phi=0.0, t=0.0):
         return 1.0 / (1.0 + (R**2.0 + z**2.0) / self._a2) / 4.0 / math.pi / self._a3
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         return (
@@ -105,9 +101,8 @@ class PseudoIsothermalPotential(Potential):
             + self._a / r2 / r * (3.0 * R**2.0 / r2 - 1.0) * xp.arctan(r / self._a)
         ) / self._a
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         return (
@@ -117,9 +112,8 @@ class PseudoIsothermalPotential(Potential):
             + self._a / r2 / r * (3.0 * z**2.0 / r2 - 1.0) * xp.arctan(r / self._a)
         ) / self._a
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         r = xp.sqrt(r2)
         return (

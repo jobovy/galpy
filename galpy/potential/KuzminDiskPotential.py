@@ -7,7 +7,7 @@
 ###############################################################################
 import math
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel
 from ..util import conversion
 from .Potential import Potential
 
@@ -63,37 +63,32 @@ class KuzminDiskPotential(Potential):
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         return -(self._denom(R, z) ** -1.5) * R
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return -xp.sign(z) * self._denom(R, z) ** -1.5 * (self._a + xp.abs(z))
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         return self._denom(R, z) ** -1.5 - 3.0 * R**2 * self._denom(R, z) ** -2.5
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         a = self._a
         return (
             self._denom(R, z) ** -1.5
             - 3.0 * (a + xp.abs(z)) ** 2.0 * self._denom(R, z) ** -2.5
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         return -3 * xp.sign(z) * R * (self._a + xp.abs(z)) * self._denom(R, z) ** -2.5
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         return self._a * (R**2 + self._a**2) ** -1.5 / 2.0 / math.pi
 
-    def _mass(self, R, z=None, t=0.0):
-        xp = get_namespace(R)
-        (R,) = coerce_coords(xp, R)
+    @backend_kernel("R")
+    def _mass(self, R, z=None, t=0.0, *, xp=None):
         return 1.0 - self._a / xp.sqrt(R**2.0 + self._a**2.0)
 
-    def _denom(self, R, z):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _denom(self, R, z, *, xp=None):
         return R**2.0 + (self._a + xp.abs(z)) ** 2.0

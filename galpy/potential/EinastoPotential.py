@@ -5,7 +5,7 @@ import numpy
 from scipy import special
 from scipy.optimize import fsolve
 
-from ..backend import get_namespace
+from ..backend import backend_kernel
 from ..backend.special import gamma as _gamma
 from ..backend.special import gammaincc as _gammaincc
 from ..util import conversion
@@ -98,9 +98,9 @@ class EinastoPotential(SphericalPotential):
         self.hasC_dens = True
         return None
 
-    def _revaluate(self, r, t=0.0):
+    @backend_kernel("r")
+    def _revaluate(self, r, t=0.0, *, xp=None):
         """Potential as a function of r and time"""
-        xp = get_namespace(r)
         s = r / self.h
         # r == 0 is handled by the separate `core` branch below; eager backends
         # evaluate BOTH xp.where branches, so the generic branch must stay

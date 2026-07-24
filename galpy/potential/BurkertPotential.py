@@ -3,7 +3,7 @@
 ###############################################################################
 import math
 
-from ..backend import get_namespace
+from ..backend import backend_kernel
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
 
@@ -58,9 +58,9 @@ class BurkertPotential(SphericalPotential):
         self.hasC_dens = True
         return None
 
-    def _revaluate(self, r, t=0.0):
+    @backend_kernel("r")
+    def _revaluate(self, r, t=0.0, *, xp=None):
         """Potential as a function of r and time"""
-        xp = get_namespace(r)
         x = r / self.a
         # special.xlogy(2/x, 1+x**2) == (2/x)*log(1+x**2), but with the convention
         # that it is 0 where the prefactor is 0 (i.e. as x -> infty, where the bare
@@ -90,8 +90,8 @@ class BurkertPotential(SphericalPotential):
     #                                +2.*(1.+x)*numpy.log(1.+x)
     #                                +(1.-x)*numpy.log(1.+x**2.))
 
-    def _rforce(self, r, t=0.0):
-        xp = get_namespace(r)
+    @backend_kernel("r")
+    def _rforce(self, r, t=0.0, *, xp=None):
         x = r / self.a
         return (
             self.a
@@ -116,8 +116,8 @@ class BurkertPotential(SphericalPotential):
         x = r / self.a
         return 1.0 / (1.0 + x) / (1.0 + x**2.0)
 
-    def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
+    @backend_kernel("R", "z")
+    def _surfdens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r = xp.sqrt(R**2.0 + z**2.0)
         x = r / self.a
         Rpa = xp.sqrt(R**2.0 + self.a**2.0)

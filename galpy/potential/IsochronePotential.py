@@ -7,7 +7,7 @@
 ###############################################################################
 import math
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import backend_kernel
 from ..util import conversion
 from .Potential import Potential
 
@@ -58,32 +58,28 @@ class IsochronePotential(Potential):
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
         self.hasC_dens = True
 
-    def _evaluate(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _evaluate(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return -1.0 / (self.b + rb)
 
-    def _Rforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         dPhidrr = -1.0 / rb / (self.b + rb) ** 2.0
         return dPhidrr * R
 
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _zforce(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         dPhidrr = -1.0 / rb / (self.b + rb) ** 2.0
         return dPhidrr * z
 
-    def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _R2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return (
@@ -96,9 +92,8 @@ class IsochronePotential(Potential):
             / (self.b + rb) ** 3.0
         )
 
-    def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _z2deriv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return (
@@ -111,16 +106,14 @@ class IsochronePotential(Potential):
             / (self.b + rb) ** 3.0
         )
 
-    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return -R * z * (self.b + 3.0 * rb) / rb**3.0 / (self.b + rb) ** 3.0
 
-    def _dens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _dens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return (
@@ -131,9 +124,8 @@ class IsochronePotential(Potential):
             / math.pi
         )
 
-    def _surfdens(self, R, z, phi=0.0, t=0.0):
-        xp = get_namespace(R, z)
-        R, z = coerce_coords(xp, R, z)
+    @backend_kernel("R", "z")
+    def _surfdens(self, R, z, phi=0.0, t=0.0, *, xp=None):
         r2 = R**2.0 + z**2.0
         rb = xp.sqrt(r2 + self.b2)
         return (
