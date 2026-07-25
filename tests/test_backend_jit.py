@@ -145,6 +145,11 @@ _POTS = _default_constructible()
 _CASES = [(n, e) for n in _POTS for e in _ENTRY]
 
 
+def _fresh(name):
+    """A newly constructed instance, with no lazily-built state carried over."""
+    return type(_POTS[name])()
+
+
 # Absolute floor for the comparison. Some entry points are mathematically ZERO
 # and are computed by cancellation -- DehnenBarPotential.dens (a pure-potential
 # perturbation) lands on ~7e-20, KuzminDiskPotential.dens (razor-thin, so no
@@ -167,7 +172,7 @@ def _reference(pot, entry):
 @pytest.mark.skipif("jax is None")
 @pytest.mark.parametrize("name,entry", _CASES)
 def test_jax_jit_traces_public_entry_point(name, entry):
-    pot = _POTS[name]
+    pot = _fresh(name)
     ref = _reference(pot, entry)
     if ref is None:
         pytest.skip(f"{name}.{entry} not applicable")
@@ -198,7 +203,12 @@ def test_jax_jit_traces_public_entry_point(name, entry):
 @pytest.mark.skipif("not _TORCH_COMPILES")
 @pytest.mark.parametrize("name,entry", _CASES)
 def test_torch_compile_traces_public_entry_point(name, entry):
-    pot = _POTS[name]
+    # A FRESH instance, not the shared one: several potentials build their
+    # backend tables lazily on the first backend call, so a shared instance
+    # makes the verdict depend on whether another case for the same potential
+    # already warmed it -- which under xdist depends on worker assignment. The
+    # contract worth measuring is "can I compile a potential I just built".
+    pot = _fresh(name)
     ref = _reference(pot, entry)
     if ref is None:
         pytest.skip(f"{name}.{entry} not applicable")
