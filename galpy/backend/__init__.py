@@ -17,6 +17,7 @@ from ._coerce import (
     promote_scalars,
     zeros_like_backend,
 )
+from ._input import backend_input
 from ._namespaces import (
     as_numpy,
     asarray_on_device,
@@ -41,6 +42,7 @@ _seed_from_config()
 
 __all__ = [
     "autodiff_ops",
+    "backend_input",
     "get_namespace",
     "backend",
     "use",
