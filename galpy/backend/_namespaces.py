@@ -248,16 +248,21 @@ def _backend_dtype(xp, dtype):
     ``None``; jax accepts numpy dtypes natively, so only a numpy dtype handed to
     a backend that does not expose it as-is gets translated (``getattr`` falls
     back to the original dtype when the backend has no same-named attribute).
+
+    A backend dtype (``torch.float64``) is recognised structurally rather than
+    by letting ``numpy`` raise on it: ``torch.compile`` turns that ``TypeError``
+    into an ``InternalTorchDynamoError`` instead of letting the ``except`` below
+    catch it, which would make every traced call through here fail.
     """
     if dtype is None or xp is numpy:
         return dtype
+    if not isinstance(dtype, (numpy.dtype, str, type)):
+        return dtype  # a backend dtype already: nothing to map
     try:
-        is_numpy_dtype = numpy.issubdtype(dtype, numpy.generic)
-    except TypeError:  # not a numpy dtype (already a torch.dtype): leave it
+        name = numpy.dtype(dtype).name
+    except TypeError:  # not a dtype numpy understands: leave it
         return dtype
-    if not is_numpy_dtype:
-        return dtype
-    return getattr(xp, numpy.dtype(dtype).name, dtype)
+    return getattr(xp, name, dtype)
 
 
 def asarray_on_device(xp, a, device, dtype=None):
