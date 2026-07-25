@@ -48,6 +48,11 @@ on:
         type: boolean
         required: false
         default: false
+      jit:
+        description: 'Run the whole suite TRACED (jax.jit / torch.compile at every galpy entry point); burndown lists are keyed "<backend>-jit"'
+        type: boolean
+        required: false
+        default: false
 
 # The report job posts a sticky PR comment on pull_request runs.
 permissions:
@@ -278,6 +283,12 @@ jobs:
       env:
         TEST_FILES: ${{ matrix.TEST_FILES }}
         BACKEND: ${{ matrix.BACKEND }}
+        # workflow_dispatch(jit=true): trace every galpy entry point instead of
+        # running eager. Same shards, same ledger machinery -- conftest keys the
+        # burndown lists "<backend>-jit" so traced gaps stay separate from eager
+        # ones. Dispatch-only for now: tracing costs roughly what eager jax does
+        # again, and the eager jax matrix already sits near the session timeout.
+        JIT_FLAG: ${{ github.event.inputs.jit == 'true' && '--jit' || '' }}
       run: |
         # -rxX reports XFAIL/XPASS; junit xml drives the burndown summary and the
         # report job's per-file table. Do NOT pass -W error here: under a backend
@@ -313,7 +324,7 @@ jobs:
         # (xfail/xpass reporting via -rxX and pytest.warns are unaffected.)
         set -o pipefail
         eval "pytest -p no:cacheprovider -v $TEST_FILES \
-          --backend=$BACKEND \
+          --backend=$BACKEND ${JIT_FLAG} \
           --timeout=300 --timeout-method=signal --session-timeout=4500 \
           -rxX --junitxml=${JUNIT_PATH} \
           -p no:warnings" | tee backend-pytest.log || true
