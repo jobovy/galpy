@@ -2548,12 +2548,7 @@ def calcu0(E, Lz, pot, delta):
     return out
 
 
-# coerce_backend=False: the migrated body resolves its own namespace from the
-# coordinate data (get_namespace) and never feeds numpy/Python coords into a
-# backend evaluator, so coordinate coercion is unnecessary; keeping it off also
-# preserves the byte-identical numpy/Quantity path (the decorator's get_namespace
-# probe is skipped) regardless of any ambient backend default.
-@potential_physical_input(coerce_backend=False)
+@potential_physical_input
 @physical_conversion("position", pop=True)
 def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
     """
