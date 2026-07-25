@@ -5,11 +5,10 @@
 #
 ###############################################################################
 import copy
-import inspect
 import math as m
 import numbers
 import warnings
-from functools import partial, wraps
+from functools import wraps
 from typing import Any, Tuple
 
 import numpy
@@ -1067,23 +1066,15 @@ def physical_conversion_tuple(quantities, pop=False):
     return wrapper
 
 
-def potential_physical_input(method=None, *, coerce_backend=True):
+def potential_physical_input(method):
     """Decorator to convert inputs to Potential functions from physical
     to internal coordinates.
 
-    Parameters
-    ----------
-    coerce_backend : bool, optional
-        When True (default), coordinate inputs are coerced onto the active array
-        backend for backend-migrated targets (the torch-scalar fix; see below).
-        Set False on Potential-taking utility functions that consume a potential's
-        evaluator output but do their own numpy-only computation on the
-        coordinates (estimateDeltaStaeckel, estimateBIsochrone, jeans.sigmar/
-        sigmalos), so those coordinates stay numpy even when the potential itself
-        is backend-migrated.
+    Backend coercion of the coordinate inputs is NOT done here -- it is owned by
+    the backend-specific ``@backend_input`` boundary decorator (galpy.backend),
+    stacked just inside this one on the potential/df entry points, keeping the
+    backend concern separate from this legacy unit-handling decorator.
     """
-    if method is None:
-        return partial(potential_physical_input, coerce_backend=coerce_backend)
 
     @wraps(method)
     def wrapper(*args, **kwargs):
@@ -1149,36 +1140,6 @@ def potential_physical_input(method=None, *, coerce_backend=True):
             and isinstance(kwargs["zmax"], units.Quantity)
         ):
             kwargs["zmax"] = kwargs["zmax"].to(units.kpc).value / ro
-        # Coerce coordinate inputs onto the active backend so torch's strict
-        # scalar handling (torch.sqrt(numpy.float64) etc.) does not reject them.
-        # Gated so it is a no-op on the numpy path (xp is numpy) and on unmigrated
-        # targets (_check_backend_compatible); only the coordinate args/kwargs are
-        # coerced, not control kwargs (dR/dphi/dz/zmax/M).
-        if coerce_backend:
-            from ..backend import coerce_coords, get_namespace
-            from ..potential import _check_backend_compatible
-
-            xp = get_namespace(*args[1:])
-            if xp is not numpy and _check_backend_compatible(Pot):
-                args = (args[0],) + coerce_coords(xp, *args[1:])
-                for _key in ("phi", "t", "R", "z", "x", "v"):
-                    if _key in kwargs:
-                        (kwargs[_key],) = coerce_coords(xp, kwargs[_key])
-                # Default kwargs (B): when phi/t fall back to their SIGNATURE
-                # default (a Python float the caller never passed, so neither
-                # args nor kwargs holds it), inject the coerced default so the
-                # backend never sees a raw float (torch.sin(0.0) raises). Stays
-                # strictly inside the non-numpy + backend-compatible guard so the
-                # numpy path never rebinds/injects kwargs (byte-identical).
-                params = list(inspect.signature(method).parameters.values())
-                for _idx, _p in enumerate(params):
-                    if (
-                        _p.name in ("phi", "t")
-                        and _p.default is not inspect.Parameter.empty
-                        and _idx >= len(args)
-                        and _p.name not in kwargs
-                    ):
-                        (kwargs[_p.name],) = coerce_coords(xp, _p.default)
         return method(*args, **kwargs)
 
     return wrapper
