@@ -5,7 +5,7 @@
 ###############################################################################
 import copy
 
-from ..backend import get_namespace
+from ..backend import backend_input, get_namespace
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -317,6 +317,7 @@ class Force:
             return 0.0
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
     def rforce(self, R, z, **kwargs):
         """

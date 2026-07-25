@@ -8,6 +8,7 @@ from scipy import integrate, interpolate, optimize
 from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
 from ..backend import (
+    backend_input,
     coerce_coords,
     get_namespace,
     is_backend_array,
