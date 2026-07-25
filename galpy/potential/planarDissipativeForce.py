@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 
+from ..backend import backend_input
 from ..util.conversion import physical_conversion, potential_physical_input
 from .planarForce import planarForce
 
@@ -34,6 +35,7 @@ class planarDissipativeForce(planarForce):
         self.isConservative = False
 
     @potential_physical_input
+    @backend_input("R", "phi", "t", "v")
     @physical_conversion("force", pop=True)
     def Rforce(self, R, phi=0.0, t=0.0, v=None):
         """
@@ -63,6 +65,7 @@ class planarDissipativeForce(planarForce):
         return self._Rforce_nodecorator(R, phi=phi, t=t, v=v)
 
     @potential_physical_input
+    @backend_input("R", "phi", "t", "v")
     @physical_conversion("energy", pop=True)
     def phitorque(self, R, phi=0.0, t=0.0, v=None):
         """
