@@ -13,21 +13,26 @@
 # _NOT_TRACEABLE with its error and reason, so the gaps are auditable and the
 # list is a burndown list rather than silent breakage.
 ###############################################################################
+import atexit
 import os
+import shutil
+import tempfile
 
 import numpy
 import pytest
 
 pytestmark = pytest.mark.backend_managed
 
-# torch.compile writes its generated kernels to one inductor cache directory.
-# Concurrent xdist workers collide there and it surfaces as an InductorError
-# wrapping an ImportError on a half-written .so. Must be set before torch loads.
-_worker = os.environ.get("PYTEST_XDIST_WORKER")
-if _worker:  # pragma: no cover - only set under xdist
-    os.environ.setdefault(
-        "TORCHINDUCTOR_CACHE_DIR", f"/tmp/torchinductor_galpy_{_worker}"
-    )
+# torch.compile caches generated kernels on DISK, and that cache decides the
+# verdict here: with it warm, potentials that fail a cold compile can pass, so
+# the same code gives different burndown lists on consecutive runs. Concurrent
+# xdist workers additionally collide in the shared directory, which surfaces as
+# an InductorError wrapping an ImportError on a half-written .so. Give every run
+# -- and every worker -- a private, empty cache, so what is measured is always
+# the cold compile a user actually hits. Must be set before torch is imported.
+_cache_dir = tempfile.mkdtemp(prefix="torchinductor_galpy_")
+os.environ["TORCHINDUCTOR_CACHE_DIR"] = _cache_dir
+atexit.register(shutil.rmtree, _cache_dir, True)
 
 try:
     import jax
@@ -176,9 +181,17 @@ def test_jax_jit_traces_public_entry_point(name, entry):
         if expected_fail:
             pytest.xfail(f"{name}.{entry} not jax-traceable: {type(exc).__name__}")
         raise
-    assert not expected_fail, (
-        f"{name}.{entry} now traces under jax.jit -- remove it from _NOT_TRACEABLE"
-    )
+    if expected_fail:
+        # A listed gap is either untraceable (raised above) or traces to the
+        # WRONG value -- TwoPowerSpherical compiles and returns inf. Check the
+        # value before declaring it fixed, or a wrong-value gap looks like an
+        # XPASS and gets deleted from the list while still being broken.
+        if not numpy.allclose(got, ref, rtol=1e-6, atol=_ATOL):
+            pytest.xfail(f"{name}.{entry} traces but does not match eager")
+        pytest.fail(
+            f"{name}.{entry} now traces under jax.jit AND matches eager"
+            " -- remove it from _NOT_TRACEABLE"
+        )
     numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=_ATOL)
 
 
@@ -200,9 +213,17 @@ def test_torch_compile_traces_public_entry_point(name, entry):
         if expected_fail:
             pytest.xfail(f"{name}.{entry} not torch-compilable: {type(exc).__name__}")
         raise
-    assert not expected_fail, (
-        f"{name}.{entry} now compiles under torch -- remove it from _NOT_TRACEABLE"
-    )
+    if expected_fail:
+        # A listed gap is either untraceable (raised above) or traces to the
+        # WRONG value -- TwoPowerSpherical compiles and returns inf. Check the
+        # value before declaring it fixed, or a wrong-value gap looks like an
+        # XPASS and gets deleted from the list while still being broken.
+        if not numpy.allclose(got, ref, rtol=1e-6, atol=_ATOL):
+            pytest.xfail(f"{name}.{entry} compiles but does not match eager")
+        pytest.fail(
+            f"{name}.{entry} now compiles under torch AND matches eager"
+            " -- remove it from _NOT_TRACEABLE"
+        )
     numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=_ATOL)
 
 
