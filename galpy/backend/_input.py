@@ -39,6 +39,7 @@ from functools import wraps
 import numpy
 
 from ._coerce import coerce_coords
+from ._compat import is_backend_compatible
 from ._namespaces import is_backend_array
 from ._resolver import get_namespace
 
@@ -48,10 +49,14 @@ _EMPTY = inspect.Parameter.empty
 def _backend_ready(target):
     """True if ``target``'s compute methods can take backend arrays.
 
-    TEMPORARY compatibility guard, not part of the decorator's design: an entry
-    point that carries ``@backend_input`` should simply coerce. It is still here
-    because a handful of potentials are not migrated and break when their
-    coordinates arrive as jax/torch arrays -- measured, not assumed:
+    Thin alias of ``is_backend_compatible`` (the general galpy-object check),
+    named for what the decorator uses it for and kept as the place to document
+    WHY the decorator asks at all.
+
+    The question is a TEMPORARY compatibility guard, not part of the decorator's
+    design: an entry point that carries ``@backend_input`` should simply coerce.
+    It is still asked because a handful of potentials are not migrated and break
+    when their coordinates arrive as jax/torch arrays -- measured, not assumed:
 
       * ``interpRZPotential`` (scipy interpolation) diverges from the numpy path
         at the grid edge -- at (R,z)=(0.5,0.0) the force is off by 3.3% and the
@@ -60,24 +65,10 @@ def _backend_ready(target):
         ``self._orb.R(t)``, so a coerced ``t`` reaches a numpy lookup as a jax
         tracer under jit (``TracerArrayConversionError``).
 
-    df classes are not Forces, so ``_check_backend_compatible`` reports False for
-    every one of them; a backend-ready df opts in by setting
-    ``_backend_compatible = True`` itself.
-
     Drop this guard -- and this function -- once those are backend-native; the
     lists in tests/test_backend_input.py track what is left.
     """
-    # Deferred (galpy.backend loads before galpy.potential); reached only off the
-    # numpy path, so the numpy hot path pays neither the import nor the flatten.
-    from ..potential import _check_backend_compatible
-    from ..potential import flatten as flatten_potential
-
-    if _check_backend_compatible(flatten_potential(target)):
-        return True
-    # A df is not a Force, so _check_backend_compatible always says False for one.
-    # Backend-ready dfs opt in with the same ``_backend_compatible`` flag the
-    # potentials use, so the boundary can fire for them too.
-    return bool(getattr(target, "_backend_compatible", False))
+    return is_backend_compatible(target)
 
 
 def _coerce_one(xp, val):
