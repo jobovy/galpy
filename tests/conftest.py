@@ -349,6 +349,13 @@ def pytest_sessionfinish(session, exitstatus):
     # Force-exit after everything is written; gated to jax/torch so the numpy suite
     # -- including the coverage job, which never passes --backend -- is untouched.
     forced = session.config.getoption("--backend") in ("jax", "torch")
+    # ... but never from an xdist WORKER: os._exit there kills the worker before
+    # it reports back, and the controller records "node down: Not properly
+    # terminated" and writes no junit -- losing the whole run's results at 99%.
+    # The hang this guards against is a single-process shutdown problem; under
+    # xdist the controller reaps the workers.
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        forced = False
     if forced:
         # Backstop: arm a daemon timer BEFORE the yield so we still force-exit even
         # if an inner sessionfinish hook (junit/terminal/plugin teardown) itself
