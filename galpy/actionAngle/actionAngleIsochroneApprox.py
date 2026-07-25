@@ -1196,11 +1196,7 @@ def _backend_dePeriod(xp, arr):
     return arr + _TWOPI * addto
 
 
-# coerce_backend=False: the migrated body resolves its own namespace from the
-# coordinate data (get_namespace) and routes backend arrays through the
-# backend-agnostic brentq, so coordinate coercion is unnecessary and the
-# byte-identical numpy/Quantity path is preserved.
-@potential_physical_input(coerce_backend=False)
+@potential_physical_input
 @physical_conversion("position", pop=True)
 def estimateBIsochrone(pot, R, z, phi=None):
     """
