@@ -69,12 +69,43 @@ def jit(mode):
         _JIT_CTX.reset(token)
 
 
+def _scalar_or_none(val):
+    """``val`` as a float if it is a scalar parameter, else None."""
+    if isinstance(val, bool) or isinstance(val, (int, float)):
+        return float(val)
+    if getattr(val, "ndim", None) == 0 and getattr(val, "dtype", None) is not None:
+        try:
+            return float(val)
+        except (TypeError, ValueError):  # pragma: no cover - exotic 0-d dtype
+            return None
+    return None
+
+
+def _object_key(obj):
+    """Identity PLUS the object's scalar parameters.
+
+    Identity alone is wrong. A traced function reads ``self._amp`` at trace time,
+    so its value is baked into the trace as a constant; ``pot.normalize(0.5)``
+    then mutates ``_amp`` without changing the cache key and the next call
+    silently returns the PREVIOUS normalization's numbers. Mixing the scalar
+    attributes into the key retraces when a parameter changes. Array-valued
+    attributes (coefficient tables) are left on identity: they are big, and
+    galpy replaces rather than mutates them.
+    """
+    scalars = []
+    for name, attr in vars(obj).items():
+        as_float = _scalar_or_none(attr)
+        if as_float is not None:
+            scalars.append((name, as_float))
+    scalars.sort()
+    return (id(obj), tuple(scalars))
+
+
 def _static_key(val):
     """A hashable key standing in for a static argument.
 
     Unhashable static arguments are ordinary here -- a list of potentials is the
-    standard
-    way to pass a composite potential -- so fall back to identity for those. jax
+    standard way to pass a composite -- so fall back to identity for those. jax
     keeps its static arguments alive in the trace cache, so an id kept as a key
     cannot be recycled onto a different object while the entry is live.
     """
@@ -82,6 +113,8 @@ def _static_key(val):
         return (tuple, tuple(_static_key(v) for v in val))
     if isinstance(val, dict):
         return (dict, tuple((k, _static_key(v)) for k, v in sorted(val.items())))
+    if hasattr(val, "__dict__"):  # a potential/df/orbit: parameters can change
+        return _object_key(val)
     try:
         hash(val)
     except TypeError:

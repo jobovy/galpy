@@ -126,6 +126,22 @@ def test_jax_reuses_the_compiled_trace():
 
 
 @pytest.mark.skipif("jax is None")
+def test_jax_retraces_after_a_parameter_changes():
+    """A trace bakes self._amp in as a constant, so a cache keyed on the
+    potential's IDENTITY alone would keep returning the previous
+    normalization's numbers after normalize() -- silently wrong, not an error.
+    """
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+    R, z = jnp.asarray(1.0), jnp.asarray(0.0)
+    with gb.jit("jax"):
+        first = float(pot.Rforce(R, z))
+        pot.normalize(0.5)
+        second = float(pot.Rforce(R, z))
+    numpy.testing.assert_allclose(first, -1.0, rtol=1e-10)
+    numpy.testing.assert_allclose(second, -0.5, rtol=1e-10)
+
+
+@pytest.mark.skipif("jax is None")
 def test_jax_nested_boundaries_do_not_retrace():
     """Entry points call each other; only the outermost may trace."""
     from galpy.backend._jit import _TRACING
