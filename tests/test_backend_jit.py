@@ -13,10 +13,21 @@
 # _NOT_TRACEABLE with its error and reason, so the gaps are auditable and the
 # list is a burndown list rather than silent breakage.
 ###############################################################################
+import os
+
 import numpy
 import pytest
 
 pytestmark = pytest.mark.backend_managed
+
+# torch.compile writes its generated kernels to one inductor cache directory.
+# Concurrent xdist workers collide there and it surfaces as an InductorError
+# wrapping an ImportError on a half-written .so. Must be set before torch loads.
+_worker = os.environ.get("PYTEST_XDIST_WORKER")
+if _worker:  # pragma: no cover - only set under xdist
+    os.environ.setdefault(
+        "TORCHINDUCTOR_CACHE_DIR", f"/tmp/torchinductor_galpy_{_worker}"
+    )
 
 try:
     import jax
@@ -31,6 +42,16 @@ try:
     torch.set_default_dtype(torch.float64)
 except ImportError:  # pragma: no cover
     torch = None
+
+if torch is not None:
+    # Every case compiles the SAME lambda code object with a different closure,
+    # so dynamo counts them as recompiles of one frame. Past its cache-size limit
+    # (default 8) it stops tracing that frame and silently falls back to eager --
+    # and an untraceable potential then "passes". That made a serial run green
+    # and an xdist run red for identical code, and it hid real gaps. Raise the
+    # limits past the case count so every case is really traced.
+    torch._dynamo.config.cache_size_limit = 4096
+    torch._dynamo.config.accumulated_cache_size_limit = 8192
 
 if torch is not None:  # pragma: no cover - depends on the interpreter version
     # torch.compile trails the Python release (dynamo refuses to run on a Python
@@ -75,6 +96,18 @@ _NOT_TRACEABLE = {
     ("DiskMultipoleExpansionPotential", "Rforce", "torch"),
     ("DiskMultipoleExpansionPotential", "zforce", "torch"),
     ("DiskMultipoleExpansionPotential", "dens", "torch"),
+    # Writes into a numpy scalar (`TypeError: 'numpy.float64' object does not
+    # support item assignment`): the coefficient path indexes an array that is
+    # 0-d once the coordinates are tensors.
+    ("MultipoleExpansionPotential", "__call__", "torch"),
+    ("MultipoleExpansionPotential", "Rforce", "torch"),
+    ("MultipoleExpansionPotential", "zforce", "torch"),
+    ("MultipoleExpansionPotential", "dens", "torch"),
+    # Compiles, but returns inf where eager returns -0.1979: the compiled graph
+    # evaluates the DEAD side of an xp.where (the alpha/beta special-case
+    # branch), which is singular at these parameters. Same hazard as the
+    # AD-NaN-poisoning one, surfacing through inductor instead of a gradient.
+    ("TwoPowerSphericalPotential", "__call__", "torch"),
     # torch dynamo cannot trace this yet (InternalTorchDynamoError); it takes a
     # user-supplied Python callable for the surface density.
     ("AnyAxisymmetricRazorThinDiskPotential", "__call__", "torch"),
@@ -158,11 +191,6 @@ def test_torch_compile_traces_public_entry_point(name, entry):
         pytest.skip(f"{name}.{entry} not applicable")
     fn = _ENTRY[entry]
     expected_fail = (name, entry, "torch") in _NOT_TRACEABLE
-    # Without this the verdict depends on how many compiles ran before in this
-    # process: once dynamo hits its cache-size limit it stops tracing a frame and
-    # silently falls back to eager, so an untraceable potential "passes". That
-    # made a serial run green and an xdist run red for the same code.
-    torch._dynamo.reset()
     try:
         compiled = torch.compile(
             lambda R, z: fn(pot, R, z), fullgraph=False, dynamic=False
