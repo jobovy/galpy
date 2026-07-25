@@ -17,7 +17,7 @@ import warnings
 import numpy
 from scipy import integrate
 
-from ..backend import device_of, get_namespace, is_backend_array
+from ..backend import backend_input, device_of, get_namespace, is_backend_array
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
 from ..potential.Potential import _check_c, _check_potential_list_and_deprecate, _dim

@@ -26,6 +26,7 @@ from scipy import integrate, special
 from ..backend import (
     as_backend_constant,
     as_numpy,
+    backend_input,
     exit_cast,
     get_namespace,
     is_backend_array,
