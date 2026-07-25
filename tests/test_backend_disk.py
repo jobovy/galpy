@@ -502,11 +502,13 @@ def test_doubleexp_grad_z_vs_finite_difference(backend_name):
 
 
 ###############################################################################
-# RazorThinExponentialDiskPotential: dedicated tests for the scalar-only
-# (the `if xp.abs(z) < 1e-6` / `if R < 10.` branches) Bessel-quadrature methods.
-# These exercise the jax/torch paths of the backend special router (i0/i1/k0/k1)
-# and, in _R2deriv at z==0, the I_2 = I_0 - (2/y) I_1 recurrence (_iv2) that
-# replaces scipy.special.iv on the traced backends.
+# RazorThinExponentialDiskPotential: dedicated tests for the scalar
+# Bessel-quadrature methods. The in-plane closed form vs. the two-panel
+# quadrature (was `if xp.abs(z) < 1e-6`) and the empty second panel at R >= 10
+# (was `if R < 10.`) are now xp.where / xp.maximum selections, so these methods
+# trace. The tests exercise the jax/torch paths of the backend special router
+# (i0/i1/k0/k1) and, in _R2deriv at z==0, the I_2 = I_0 - (2/y) I_1 recurrence
+# (_iv2) that replaces scipy.special.iv on the traced backends.
 ###############################################################################
 _RAZOR = RazorThinExponentialDiskPotential(amp=1.0, hr=0.4)
 # Points cover: z==0 (the closed-form Bessel branch), z!=0 with R<10 (the
@@ -554,6 +556,30 @@ def test_razorthin_R2deriv_iv2_recurrence(backend_name):
             rtol=1e-10,
             atol=1e-13,
             err_msg=f"RazorThin._R2deriv at R={R0} ({backend_name})",
+        )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("method", ["__call__", "Rforce", "zforce"])
+def test_razorthin_public_methods_jit_traceable(method):
+    # The public potential / Rforce / zforce entry points trace under jax.jit:
+    # they used to hit `if xp.abs(z) < 1e-6` (and `if R < 10.`) on a traced
+    # value -> TracerBoolConversionError. jit must reproduce the eager value at
+    # every point: both sides of the |z| < 1e-6 cut and R >= 10, where the
+    # [R, 10] quadrature panel collapses to zero width.
+    def call(R, z):
+        return _RAZOR(R, z) if method == "__call__" else getattr(_RAZOR, method)(R, z)
+
+    jitted = jax.jit(call)
+    for R0, z0 in _RAZOR_ZERO_POINTS + _RAZOR_ZNZ_POINTS + [(1.3, 1e-9), (12.0, 0.0)]:
+        got = float(jitted(jnp.asarray(R0), jnp.asarray(z0)))
+        ref = float(call(R0, z0))
+        numpy.testing.assert_allclose(
+            got,
+            ref,
+            rtol=1e-11,
+            atol=1e-14,
+            err_msg=f"jit RazorThin.{method} at (R,z)=({R0},{z0})",
         )
 
 
