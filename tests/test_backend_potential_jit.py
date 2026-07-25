@@ -1,5 +1,5 @@
 ###############################################################################
-# test_backend_jit.py: the boundary-jit dimension.
+# test_backend_potential_jit.py: the boundary-jit dimension, for POTENTIALS.
 #
 # galpy is meant to be jit/compile-COMPATIBLE (never self-jitting, see the
 # no-internal-jit rule). This module asserts that by tracing PUBLIC entry points
@@ -8,10 +8,18 @@
 # coordinate coercion) traces away, so what is measured is the real user-facing
 # contract: "can I jit a galpy call?".
 #
-# Coverage is the whole zoo: every concrete Potential subclass that constructs
-# with no required arguments. Anything that cannot be traced must be listed in
-# _NOT_TRACEABLE with its error and reason, so the gaps are auditable and the
-# list is a burndown list rather than silent breakage.
+# Coverage is the whole potential zoo: every concrete Potential subclass that
+# constructs with no required arguments. Anything that cannot be traced must be
+# listed in _NOT_TRACEABLE with its error and reason, so the gaps are auditable
+# and the list is a burndown list rather than silent breakage.
+#
+# POTENTIALS ONLY, hence the name: this is the fast always-on check for the one
+# object type. Making the REST of galpy jittable -- orbits, action-angle, DFs,
+# streams -- is not this file's job and must not be bolted onto it; that is the
+# suite-wide trace mode (`pytest <any file> --backend jax --jit`), which runs
+# the existing tests traced and keeps its own "<backend>-jit" burndown lists.
+# Expect siblings here only if some other object type needs a comparable
+# fast always-on check of its own (test_backend_orbit_jit.py, ...).
 ###############################################################################
 import atexit
 import os
