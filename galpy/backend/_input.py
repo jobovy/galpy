@@ -40,6 +40,7 @@ import numpy
 
 from ._coerce import coerce_coords
 from ._compat import is_backend_compatible
+from ._jit import NOT_TRACED, traced_call
 from ._namespaces import is_backend_array
 from ._resolver import get_namespace
 
@@ -189,6 +190,12 @@ def backend_input(*coords):
                 for c, ii, dflt in defaults:
                     if ii >= nargs and c not in kwargs:
                         kwargs[c] = _coerce_one(xp, dflt)
+                # Under an opt-in trace mode this boundary is also where the
+                # jit/compile happens: the declared coordinates are the traced
+                # arguments and everything else is static. Off by default.
+                out = traced_call(method, args, kwargs, slots, nargs)
+                if out is not NOT_TRACED:
+                    return out
             return method(*args, **kwargs)
 
         return wrapper
