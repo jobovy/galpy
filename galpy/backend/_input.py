@@ -60,6 +60,10 @@ def _backend_ready(target):
         ``self._orb.R(t)``, so a coerced ``t`` reaches a numpy lookup as a jax
         tracer under jit (``TracerArrayConversionError``).
 
+    df classes are not Forces, so ``_check_backend_compatible`` reports False for
+    every one of them; a backend-ready df opts in by setting
+    ``_backend_compatible = True`` itself.
+
     Drop this guard -- and this function -- once those are backend-native; the
     lists in tests/test_backend_input.py track what is left.
     """
@@ -68,7 +72,12 @@ def _backend_ready(target):
     from ..potential import _check_backend_compatible
     from ..potential import flatten as flatten_potential
 
-    return _check_backend_compatible(flatten_potential(target))
+    if _check_backend_compatible(flatten_potential(target)):
+        return True
+    # A df is not a Force, so _check_backend_compatible always says False for one.
+    # Backend-ready dfs opt in with the same ``_backend_compatible`` flag the
+    # potentials use, so the boundary can fire for them too.
+    return bool(getattr(target, "_backend_compatible", False))
 
 
 def _coerce_one(xp, val):
@@ -79,6 +88,14 @@ def _coerce_one(xp, val):
     element-wise and rebuilding the container keeps each element's autograd
     graph; stacking it into one array with a single ``asarray`` detaches them.
     """
+    # A Quantity is not a coordinate value yet -- it still carries units. Some
+    # entry points strip units INSIDE the body (sphericaldf.sigmar does
+    # `r = conversion.parse_length(r, ro=self._ro)`) rather than through an outer
+    # units decorator, so the boundary can be handed one; asarray() of a Quantity
+    # yields garbage that the later parse turns into NaN. Pass it through and let
+    # the body parse it. Detected by duck-typing so this stays astropy-free.
+    if hasattr(val, "unit"):
+        return val
     if isinstance(val, (list, tuple)):
         return type(val)(coerce_coords(xp, *val))
     (out,) = coerce_coords(xp, val)
