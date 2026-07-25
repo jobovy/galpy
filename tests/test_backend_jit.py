@@ -32,6 +32,18 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+if torch is not None:  # pragma: no cover - depends on the interpreter version
+    # torch.compile trails the Python release (dynamo refuses to run on a Python
+    # it does not support yet), so probe the capability rather than assuming that
+    # `import torch` implies it. CI runs this shard on 3.10 through 3.14.
+    try:
+        torch.compile(lambda x: x + 1.0, fullgraph=True)(torch.tensor(1.0))
+        _TORCH_COMPILES = True
+    except Exception:
+        _TORCH_COMPILES = False
+else:  # pragma: no cover
+    _TORCH_COMPILES = False
+
 import galpy.potential as gp
 from galpy.potential import Potential
 
@@ -137,7 +149,7 @@ def test_jax_jit_traces_public_entry_point(name, entry):
     numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=_ATOL)
 
 
-@pytest.mark.skipif("torch is None")
+@pytest.mark.skipif("not _TORCH_COMPILES")
 @pytest.mark.parametrize("name,entry", _CASES)
 def test_torch_compile_traces_public_entry_point(name, entry):
     pot = _POTS[name]
