@@ -628,15 +628,15 @@ def test_torch_grad_flows_through_exit_cast():
 ###############################################################################
 # _backend_dtype translation policy. asarray_on_device translates a *numpy*
 # dtype taken off a coordinate to the active backend's same-named dtype so
-# torch.asarray(x, dtype=numpy.float64) (which raises) works. A numpy dtype
-# whose scalar .type is NOT a numpy.generic subclass -- numpy's variable-width
-# StringDType, whose .type is the Python ``str`` -- is recognised as a numpy
-# dtype yet has no backend equivalent, so it must be returned unchanged rather
-# than translated (the not-a-generic branch). Covered under jax AND torch.
+# torch.asarray(x, dtype=numpy.float64) (which raises) works. Anything the
+# backend has no same-named equivalent for must come back unchanged: a numpy
+# dtype with no backend twin (numpy's variable-width StringDType), the
+# backend's OWN dtype (torch.float64), and a name numpy cannot parse at all.
+# Covered under jax AND torch.
 ###############################################################################
-# A real numpy dtype with numpy.issubdtype(d, numpy.generic) == False (StringDType
-# resolves to the Python ``str`` scalar, which is not a numpy.generic subclass);
-# numpy < 2.0 has no such dtype, so the assertion self-skips there.
+# A real numpy dtype with no same-named backend attribute (numpy >= 2.0's
+# StringDType, whose .name is "StringDType128"); numpy < 2.0 has no such dtype,
+# so the assertion self-skips there.
 _NONGENERIC_NPDTYPE = None
 if hasattr(numpy, "dtypes") and hasattr(numpy.dtypes, "StringDType"):
     _cand = numpy.dtypes.StringDType()
@@ -652,9 +652,8 @@ if hasattr(numpy, "dtypes") and hasattr(numpy.dtypes, "StringDType"):
     "backend", [b for b in ("jax", "torch") if globals()[b] is not None]
 )
 def test_backend_dtype_passes_through_nongeneric_numpy_dtype(backend):
-    # _backend_dtype must leave a recognised-but-non-generic numpy dtype
-    # untouched (no backend has a same-named equivalent to translate to), under
-    # both jax and torch. This is the only path through the not-a-generic branch.
+    # _backend_dtype must leave a numpy dtype the backend has no same-named
+    # attribute for untouched (the getattr default), under both jax and torch.
     from galpy.backend import get_namespace
     from galpy.backend._namespaces import _backend_dtype
 
@@ -669,6 +668,38 @@ def test_backend_dtype_passes_through_nongeneric_numpy_dtype(backend):
     )
     # numpy stays a strict pass-through on the same input (xp is numpy guard).
     assert _backend_dtype(numpy, _NONGENERIC_NPDTYPE) is _NONGENERIC_NPDTYPE
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_backend_dtype_passes_through_a_backend_dtype():
+    # A backend's OWN dtype is recognised STRUCTURALLY (it is not a numpy
+    # dtype, str or type) rather than by letting numpy.dtype() raise on it:
+    # under torch.compile that TypeError surfaces as an
+    # InternalTorchDynamoError which the except clause never sees, so every
+    # traced call through here would fail. torch is the only backend with a
+    # dtype object of its own -- a jax array's .dtype IS a numpy dtype.
+    from galpy.backend import get_namespace
+    from galpy.backend._namespaces import _backend_dtype
+
+    xp = get_namespace(torch.tensor([1.0, 2.0], dtype=torch.float64))
+    assert _backend_dtype(xp, torch.float64) is torch.float64
+
+
+@pytest.mark.parametrize(
+    "backend", [b for b in ("jax", "torch") if globals()[b] is not None]
+)
+def test_backend_dtype_leaves_an_unparseable_dtype_alone(backend):
+    # A dtype-shaped name numpy cannot parse at all is returned unchanged
+    # rather than raising out of a coordinate coercion.
+    from galpy.backend import get_namespace
+    from galpy.backend._namespaces import _backend_dtype
+
+    if backend == "jax":
+        arr = jnp.asarray([1.0, 2.0])
+    else:
+        arr = torch.tensor([1.0, 2.0], dtype=torch.float64)
+    xp = get_namespace(arr)
+    assert _backend_dtype(xp, "not-a-dtype") == "not-a-dtype"
 
 
 @pytest.mark.parametrize(
