@@ -598,3 +598,47 @@ def test_razorthin_evaluate_grad_identity(backend_name):
             rtol=1e-7,
             err_msg=f"RazorThin AD(_evaluate)==-_Rforce at R={R0} ({backend_name})",
         )
+
+
+@pytest.mark.parametrize("method", ["_evaluate", "_Rforce", "_zforce"])
+def test_razorthin_vectorised_equals_elementwise(method):
+    # RazorThin's quadrature broadcasts its Gauss-Legendre nodes against the
+    # coordinates, so the reduction MUST name the node axis: xp.sum(...) without
+    # axis=-1 also collapses the DATA axis and returns one value for every
+    # point. That is silent -- and galpy's Phi call IS vectorised (Orbit.E(ts)
+    # evaluates all times at once), so it corrupts energies rather than raising.
+    # Regression for the #1201 energy-conservation failure.
+    pot = RazorThinExponentialDiskPotential(amp=1.0, hr=0.4)
+    f = getattr(pot, method)
+    # spans both branch boundaries: |z|<1e-6 (in-plane closed form) and the
+    # R=10 quadrature-panel split.
+    pts = [
+        (0.8, 0.1),
+        (1.0, 0.3),
+        (1.5, -0.2),
+        (2.0, 0.05),
+        (5.0, 1.0),
+        (9.99, 0.2),
+        (10.5, 0.7),
+        (149.0, 0.4),
+        (1.0, 0.0),
+    ]
+    elementwise = numpy.array([float(f(R, z)) for R, z in pts])
+    # the (N,1) shape galpy itself passes when evaluating along an orbit
+    R2 = numpy.array([[p[0]] for p in pts])
+    z2 = numpy.array([[p[1]] for p in pts])
+    vec2 = numpy.asarray(f(R2, z2))
+    assert vec2.shape == (len(pts), 1), (
+        f"{method}: vectorised call collapsed the data axis -> {vec2.shape}"
+    )
+    numpy.testing.assert_array_equal(
+        numpy.ravel(vec2),
+        elementwise,
+        err_msg=f"{method}: (N,1) result differs from per-point evaluation",
+    )
+    # and plain 1-D
+    vec1 = numpy.asarray(
+        f(numpy.array([p[0] for p in pts]), numpy.array([p[1] for p in pts]))
+    )
+    assert vec1.shape == (len(pts),), f"{method}: 1-D shape {vec1.shape}"
+    numpy.testing.assert_array_equal(vec1, elementwise, err_msg=f"{method}: 1-D")

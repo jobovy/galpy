@@ -94,15 +94,25 @@ class RazorThinExponentialDiskPotential(Potential):
             # raises). xp.asarray on the numpy path is a no-op (byte-identical).
             ks = xp.asarray(kalphamax * 0.5 * (self._glx + 1.0))
             weights = xp.asarray(kalphamax * self._glw)
-            sqrtp = xp.sqrt(z_safe**2.0 + (ks + R) ** 2.0)
-            sqrtm = xp.sqrt(z_safe**2.0 + (ks - R) ** 2.0)
+            # The nodes broadcast on a NEW TRAILING axis and the quadrature
+            # reduces only that axis, so the coordinate shape is preserved.
+            # Reducing every axis instead collapses the DATA axis too and
+            # returns one Phi for every point -- silently, and galpy's Phi call
+            # IS vectorised (Orbit.E(ts) evaluates all times at once), so that
+            # is a wrong answer rather than an error.
+            Rb = xp.asarray(R)[..., None]
+            zb = xp.asarray(z_safe)[..., None]
+            sqrtp = xp.sqrt(zb**2.0 + (ks + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks - Rb) ** 2.0)
             evalInt = (
                 xp.arcsin(2.0 * ks / (sqrtp + sqrtm))
                 * ks
                 * bspecial.k0(self._alpha * ks)
             )
             return xp.where(
-                inplane, inplane_val, -2.0 * self._alpha * xp.sum(weights * evalInt)
+                inplane,
+                inplane_val,
+                -2.0 * self._alpha * xp.sum(weights * evalInt, axis=-1),
             )
         raise NotImplementedError(
             "Not new=True not implemented for RazorThinExponentialDiskPotential"
@@ -131,30 +141,34 @@ class RazorThinExponentialDiskPotential(Potential):
                 * y
                 * (bspecial.i0(y) * bspecial.k0(y) - bspecial.i1(y) * bspecial.k1(y))
             )
-            kalphamax1 = R
+            # Nodes live on a NEW TRAILING axis and the quadrature reduces only
+            # that axis, so the coordinate shape is preserved (see _evaluate).
+            Rb = xp.asarray(R)[..., None]
+            zb = xp.asarray(z_safe)[..., None]
+            kalphamax1 = Rb
             ks1 = kalphamax1 * 0.5 * (glx + 1.0)
             weights1 = kalphamax1 * glw
-            sqrtp = xp.sqrt(z_safe**2.0 + (ks1 + R) ** 2.0)
-            sqrtm = xp.sqrt(z_safe**2.0 + (ks1 - R) ** 2.0)
+            sqrtp = xp.sqrt(zb**2.0 + (ks1 + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks1 - Rb) ** 2.0)
             evalInt1 = (
                 ks1**2.0
                 * bspecial.k0(ks1 * self._alpha)
-                * ((ks1 + R) / sqrtp - (ks1 - R) / sqrtm)
-                / xp.sqrt(R**2.0 + z_safe**2.0 - ks1**2.0 + sqrtp * sqrtm)
+                * ((ks1 + Rb) / sqrtp - (ks1 - Rb) / sqrtm)
+                / xp.sqrt(Rb**2.0 + zb**2.0 - ks1**2.0 + sqrtp * sqrtm)
                 / (sqrtp + sqrtm)
             )
             # [R,10] panel: max(R,10) gives it zero width -- so exactly zero
             # weights -- for R >= 10, replacing the old `if R < 10.`
-            kalphamax2 = xp.maximum(R, 10.0 * xp.ones_like(R * 1.0))
+            kalphamax2 = xp.maximum(Rb, 10.0 * xp.ones_like(Rb * 1.0))
             ks2 = (kalphamax2 - kalphamax1) * 0.5 * (glx + 1.0) + kalphamax1
             weights2 = (kalphamax2 - kalphamax1) * glw
-            sqrtp = xp.sqrt(z_safe**2.0 + (ks2 + R) ** 2.0)
-            sqrtm = xp.sqrt(z_safe**2.0 + (ks2 - R) ** 2.0)
+            sqrtp = xp.sqrt(zb**2.0 + (ks2 + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks2 - Rb) ** 2.0)
             evalInt2 = (
                 ks2**2.0
                 * bspecial.k0(ks2 * self._alpha)
-                * ((ks2 + R) / sqrtp - (ks2 - R) / sqrtm)
-                / xp.sqrt(R**2.0 + z_safe**2.0 - ks2**2.0 + sqrtp * sqrtm)
+                * ((ks2 + Rb) / sqrtp - (ks2 - Rb) / sqrtm)
+                / xp.sqrt(Rb**2.0 + zb**2.0 - ks2**2.0 + sqrtp * sqrtm)
                 / (sqrtp + sqrtm)
             )
             return xp.where(
@@ -163,7 +177,7 @@ class RazorThinExponentialDiskPotential(Potential):
                 -2.0
                 * math.sqrt(2.0)
                 * self._alpha
-                * xp.sum(weights1 * evalInt1 + weights2 * evalInt2),
+                * xp.sum(weights1 * evalInt1 + weights2 * evalInt2, axis=-1),
             )
         raise NotImplementedError(
             "Not new=True not implemented for RazorThinExponentialDiskPotential"
@@ -181,28 +195,31 @@ class RazorThinExponentialDiskPotential(Potential):
             # the [R,10] panel for R >= 10 (the old `if R < 10.`).
             inplane = xp.abs(z) < 10.0**-6.0
             z_safe = xp.where(inplane, xp.ones_like(z * 1.0), z)
-            kalphamax1 = R
+            # Nodes on a NEW TRAILING axis, reduce only that axis (see _evaluate).
+            Rb = xp.asarray(R)[..., None]
+            zb = xp.asarray(z_safe)[..., None]
+            kalphamax1 = Rb
             ks1 = kalphamax1 * 0.5 * (glx + 1.0)
             weights1 = kalphamax1 * glw
-            sqrtp = xp.sqrt(z_safe**2.0 + (ks1 + R) ** 2.0)
-            sqrtm = xp.sqrt(z_safe**2.0 + (ks1 - R) ** 2.0)
+            sqrtp = xp.sqrt(zb**2.0 + (ks1 + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks1 - Rb) ** 2.0)
             evalInt1 = (
                 ks1**2.0
                 * bspecial.k0(ks1 * self._alpha)
                 * (1.0 / sqrtp + 1.0 / sqrtm)
-                / xp.sqrt(R**2.0 + z_safe**2.0 - ks1**2.0 + sqrtp * sqrtm)
+                / xp.sqrt(Rb**2.0 + zb**2.0 - ks1**2.0 + sqrtp * sqrtm)
                 / (sqrtp + sqrtm)
             )
-            kalphamax2 = xp.maximum(R, 10.0 * xp.ones_like(R * 1.0))
+            kalphamax2 = xp.maximum(Rb, 10.0 * xp.ones_like(Rb * 1.0))
             ks2 = (kalphamax2 - kalphamax1) * 0.5 * (glx + 1.0) + kalphamax1
             weights2 = (kalphamax2 - kalphamax1) * glw
-            sqrtp = xp.sqrt(z_safe**2.0 + (ks2 + R) ** 2.0)
-            sqrtm = xp.sqrt(z_safe**2.0 + (ks2 - R) ** 2.0)
+            sqrtp = xp.sqrt(zb**2.0 + (ks2 + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks2 - Rb) ** 2.0)
             evalInt2 = (
                 ks2**2.0
                 * bspecial.k0(ks2 * self._alpha)
                 * (1.0 / sqrtp + 1.0 / sqrtm)
-                / xp.sqrt(R**2.0 + z_safe**2.0 - ks2**2.0 + sqrtp * sqrtm)
+                / xp.sqrt(Rb**2.0 + zb**2.0 - ks2**2.0 + sqrtp * sqrtm)
                 / (sqrtp + sqrtm)
             )
             return xp.where(
@@ -212,7 +229,7 @@ class RazorThinExponentialDiskPotential(Potential):
                 * 2.0
                 * math.sqrt(2.0)
                 * self._alpha
-                * xp.sum(weights1 * evalInt1 + weights2 * evalInt2),
+                * xp.sum(weights1 * evalInt1 + weights2 * evalInt2, axis=-1),
             )
         raise NotImplementedError(
             "Not new=True not implemented for RazorThinExponentialDiskPotential"
