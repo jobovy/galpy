@@ -16,6 +16,7 @@ import numpy
 from scipy import special
 
 from ..backend import get_namespace
+from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -137,13 +138,15 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
 
     def _psi(self, m):
         r"""\psi(m) = -\int_{m^2}^\infty d m'^2 \rho(m'^2)"""
+        # backend hyp2f1 (scipy on numpy, byte-identical): scipy.special.hyp2f1
+        # converts a traced/tensor m to numpy, which is not jit-traceable
         if self.twominusalpha == 0.0:
             return (
                 -2.0
                 * self.a**2
                 * (self.a / m) ** self.betaminusalpha
                 / self.betaminusalpha
-                * special.hyp2f1(
+                * _hyp2f1(
                     self.betaminusalpha,
                     self.betaminusalpha,
                     self.betaminusalpha + 1,
@@ -158,7 +161,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
                     self.psi_inf
                     - (m / self.a) ** self.twominusalpha
                     / self.twominusalpha
-                    * special.hyp2f1(
+                    * _hyp2f1(
                         self.twominusalpha,
                         self.betaminusalpha,
                         self.threeminusalpha,
