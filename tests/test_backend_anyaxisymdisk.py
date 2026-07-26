@@ -232,3 +232,54 @@ def test_vcirc_no_longer_crashes(backend_name):
     ref = float(pot.vcirc(1.3, use_physical=False))
     got = float(pot.vcirc(_scalar(backend_name, 1.3), use_physical=False))
     numpy.testing.assert_allclose(got, ref, rtol=1e-10)
+
+
+def _no_torch_compile_deprecations():
+    """Suppress torch's own import-time DeprecationWarnings during a compile.
+
+    ``torch.compile`` lazily imports ``torch._inductor``, whose mkldnn module
+    warns on ``torch.jit.script_method`` at class-definition time. A per-test
+    ``filterwarnings`` mark cannot suppress it (a module-level
+    ``error::DeprecationWarning`` pytestmark is applied last and wins), so
+    filter it here, around the call itself.
+    """
+    import contextlib
+    import warnings
+
+    @contextlib.contextmanager
+    def _ctx():
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            yield
+
+    return _ctx()
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_torch_compile_takes_the_backend_gl_path():
+    # Regression: under torch.compile the dispatch must pick the in-backend GL
+    # quadrature, exactly as a jax tracer does. Its concreteness probe is
+    # ``float(R)``, which a jax tracer answers by raising -- but dynamo makes it
+    # a symbolic scalar, so the probe took the scipy branch and dynamo then
+    # traced scipy's adaptive quad and died on numpy.unique's data-dependent
+    # output shape (InductorError: DynamicOutputShapeException aten.unique_dim).
+    # ``under_trace`` asks dynamo directly instead.
+    #
+    # The DEFAULT (inductor) compile backend is deliberate: with backend="eager"
+    # a graph break silently rescues the scipy branch, so the bug would not
+    # show. Only ``_evaluate`` is compiled -- the forces take minutes to codegen
+    # the 3-panel/100-node GL graph and add no coverage.
+    R0 = torch.tensor(1.1, dtype=torch.float64)
+    z0 = torch.tensor(0.2, dtype=torch.float64)
+    ref = float(evaluatePotentials(_POT, R0, z0))  # eager (scipy) value
+    torch._dynamo.reset()
+    with _no_torch_compile_deprecations():
+        got = float(
+            torch.compile(
+                lambda R, z: evaluatePotentials(_POT, R, z),
+                fullgraph=False,
+                dynamic=False,
+            )(R0, z0)
+        )
+    # GL vs scipy adaptive quad differ only at the quadrature floor
+    numpy.testing.assert_allclose(got, ref, rtol=1e-10)
