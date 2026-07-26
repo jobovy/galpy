@@ -23,7 +23,13 @@ import numpy
 from packaging.version import Version
 from scipy import integrate, optimize
 
-from ..backend import backend_input, coerce_coords, get_namespace, is_backend_array
+from ..backend import (
+    backend_input,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    is_backend_compatible,
+)
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -4368,10 +4374,11 @@ def _check_c(Pot, dxdv=False, dxdv3d=False, dens=False):
 def _check_backend_compatible(Pot):
     """
     Check whether a potential (or combined/wrapped potential) has backend-aware
-    compute methods (jax/torch). Gates the coordinate coercion in
-    potential_physical_input. Mirrors ``_check_c``: a list iff every member is; a
-    wrapper iff it is itself backend-aware AND the wrapped potential is; a leaf
-    reads its ``_backend_compatible`` flag (default False, set in __init__).
+    compute methods (jax/torch).
+
+    Potential-facing alias of ``galpy.backend.is_backend_compatible``, the
+    general check that answers the same question for any galpy object; see there
+    for the recursion (list, composite, wrapper, leaf flag).
 
     Parameters
     ----------
@@ -4386,45 +4393,10 @@ def _check_backend_compatible(Pot):
     Notes
     -----
     - 2026-06-15 - Written - Bovy (UofT)
+    - 2026-07-24 - Generalized to all galpy objects in galpy.backend - Bovy (UofT)
 
     """
-    Pot = flatten(Pot)
-    from ..potential import linearPotential, planarForce
-    from .baseCompositePotential import baseCompositePotential
-    from .WrapperPotential import (
-        WrapperPotential,
-        parentWrapperPotential,
-        planarWrapperPotential,
-    )
-
-    if isinstance(Pot, list):
-        return bool(
-            numpy.all(
-                numpy.array([_check_backend_compatible(p) for p in Pot], dtype="bool")
-            )
-        )
-    elif isinstance(Pot, baseCompositePotential):
-        # A (planar/linear)CompositePotential delegates to its members through
-        # the no-decorator internal path (no per-member coercion), so coercion
-        # must fire at the OUTER boundary; it is backend-compatible iff every
-        # component is (mirrors the list branch). flatten leaves a composite
-        # as-is, so this must precede the generic Force branch (a composite IS
-        # a Force).
-        return _check_backend_compatible(Pot._potlist)
-    elif isinstance(
-        Pot, (parentWrapperPotential, WrapperPotential, planarWrapperPotential)
-    ):
-        return bool(
-            getattr(Pot, "_backend_compatible", False)
-            * _check_backend_compatible(Pot._pot)
-        )
-    elif (
-        isinstance(Pot, Force)
-        or isinstance(Pot, planarForce)
-        or isinstance(Pot, linearPotential)
-    ):
-        return getattr(Pot, "_backend_compatible", False)
-    return False
+    return is_backend_compatible(Pot)
 
 
 def _dim(Pot):
