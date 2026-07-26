@@ -105,16 +105,18 @@ class RazorThinExponentialDiskPotential(Potential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         if self._new:
-            if xp.abs(z) < 10.0**-6.0:
-                y = 0.5 * self._alpha * R
-                return (
-                    -math.pi
-                    * R
-                    * (
-                        bspecial.i0(y) * bspecial.k1(y)
-                        - bspecial.i1(y) * bspecial.k0(y)
-                    )
-                )
+            # In-plane closed form vs. the Gauss-Legendre integral: xp.where,
+            # not a python `if`, so this traces. Both branches run eagerly, so
+            # each gets a dead-side guard (Bessel at R=0, integrand at z=0).
+            inplane = xp.abs(z) < 10.0**-6.0
+            R_safe = xp.where(inplane, R, xp.ones_like(R * 1.0))
+            z_safe = xp.where(inplane, xp.ones_like(z * 1.0), z)
+            y = 0.5 * self._alpha * R_safe
+            inplane_val = (
+                -math.pi
+                * R_safe
+                * (bspecial.i0(y) * bspecial.k1(y) - bspecial.i1(y) * bspecial.k0(y))
+            )
             kalphamax = 10.0
             # ks/weights are built from the float64 Gauss-Legendre nodes; move
             # them onto the active backend/device anchored on the inputs so that
@@ -122,14 +124,26 @@ class RazorThinExponentialDiskPotential(Potential):
             # raises). xp.asarray on the numpy path is a no-op (byte-identical).
             ks = xp.asarray(kalphamax * 0.5 * (self._glx + 1.0))
             weights = xp.asarray(kalphamax * self._glw)
-            sqrtp = xp.sqrt(z**2.0 + (ks + R) ** 2.0)
-            sqrtm = xp.sqrt(z**2.0 + (ks - R) ** 2.0)
+            # The nodes broadcast on a NEW TRAILING axis and the quadrature
+            # reduces only that axis, so the coordinate shape is preserved.
+            # Reducing every axis instead collapses the DATA axis too and
+            # returns one Phi for every point -- silently, and galpy's Phi call
+            # IS vectorised (Orbit.E(ts) evaluates all times at once), so that
+            # is a wrong answer rather than an error.
+            Rb = xp.asarray(R)[..., None]
+            zb = xp.asarray(z_safe)[..., None]
+            sqrtp = xp.sqrt(zb**2.0 + (ks + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks - Rb) ** 2.0)
             evalInt = (
                 xp.arcsin(2.0 * ks / (sqrtp + sqrtm))
                 * ks
                 * bspecial.k0(self._alpha * ks)
             )
-            return -2.0 * self._alpha * xp.sum(weights * evalInt)
+            return xp.where(
+                inplane,
+                inplane_val,
+                -2.0 * self._alpha * xp.sum(weights * evalInt, axis=-1),
+            )
         raise NotImplementedError(
             "Not new=True not implemented for RazorThinExponentialDiskPotential"
         )
@@ -144,48 +158,60 @@ class RazorThinExponentialDiskPotential(Potential):
         glw = xp.asarray(self._glw)
         if self._new:
             # if R > 6.: return self._kp(R,z)
-            if xp.abs(z) < 10.0**-6.0:
-                y = 0.5 * self._alpha * R
-                return (
-                    -2.0
-                    * math.pi
-                    * y
-                    * (
-                        bspecial.i0(y) * bspecial.k0(y)
-                        - bspecial.i1(y) * bspecial.k1(y)
-                    )
-                )
-            kalphamax1 = R
-            ks1, weights1 = self._inner_nodes(R)
-            sqrtp = xp.sqrt(z**2.0 + (ks1 + R) ** 2.0)
-            sqrtm = xp.sqrt(z**2.0 + (ks1 - R) ** 2.0)
+            # xp.where in place of the data-dependent `if`s: in-plane closed
+            # form (R_safe: Bessel diverges at R=0) vs the [0,R]+[R,10]
+            # quadrature (z_safe: its integrand is 0/0 at z=0 for k>R).
+            inplane = xp.abs(z) < 10.0**-6.0
+            R_safe = xp.where(inplane, R, xp.ones_like(R * 1.0))
+            z_safe = xp.where(inplane, xp.ones_like(z * 1.0), z)
+            y = 0.5 * self._alpha * R_safe
+            inplane_val = (
+                -2.0
+                * math.pi
+                * y
+                * (bspecial.i0(y) * bspecial.k0(y) - bspecial.i1(y) * bspecial.k1(y))
+            )
+            # Nodes live on a NEW TRAILING axis and the quadrature reduces only
+            # that axis, so the coordinate shape is preserved (see _evaluate).
+            Rb = xp.asarray(R)[..., None]
+            zb = xp.asarray(z_safe)[..., None]
+            # main's substituted nodes (k = R(1-v^2)): the Jacobian's zero sits on
+            # the k=R square-root singularity, ~5e-5 instead of ~5e-3. Rb carries the
+            # trailing node axis, so the helpers broadcast to (..., n) unchanged.
+            ks1, weights1 = self._inner_nodes(Rb)
+            sqrtp = xp.sqrt(zb**2.0 + (ks1 + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks1 - Rb) ** 2.0)
             evalInt1 = (
                 ks1**2.0
                 * bspecial.k0(ks1 * self._alpha)
-                * ((ks1 + R) / sqrtp - (ks1 - R) / sqrtm)
-                / xp.sqrt(R**2.0 + z**2.0 - ks1**2.0 + sqrtp * sqrtm)
+                * ((ks1 + Rb) / sqrtp - (ks1 - Rb) / sqrtm)
+                / xp.sqrt(Rb**2.0 + zb**2.0 - ks1**2.0 + sqrtp * sqrtm)
                 / (sqrtp + sqrtm)
             )
-            if R < 10.0:
-                kalphamax2 = 10.0
-                ks2, weights2 = self._outer_nodes(R, kalphamax2)
-                sqrtp = xp.sqrt(z**2.0 + (ks2 + R) ** 2.0)
-                sqrtm = xp.sqrt(z**2.0 + (ks2 - R) ** 2.0)
-                evalInt2 = (
-                    ks2**2.0
-                    * bspecial.k0(ks2 * self._alpha)
-                    * ((ks2 + R) / sqrtp - (ks2 - R) / sqrtm)
-                    / xp.sqrt(R**2.0 + z**2.0 - ks2**2.0 + sqrtp * sqrtm)
-                    / (sqrtp + sqrtm)
-                )
-                return (
-                    -2.0
-                    * math.sqrt(2.0)
-                    * self._alpha
-                    * xp.sum(weights1 * evalInt1 + weights2 * evalInt2)
-                )
-            else:
-                return -2.0 * math.sqrt(2.0) * self._alpha * xp.sum(weights1 * evalInt1)
+            # [R,10] panel: max(R,10) gives it zero width -- so exactly zero
+            # weights -- for R >= 10, replacing the old `if R < 10.`
+            kalphamax2 = xp.maximum(Rb, 10.0 * xp.ones_like(Rb * 1.0))
+            # k = R + u^2, umax = sqrt(kmax-R): at R >= 10 kmax == Rb so umax == 0 and
+            # the weights are EXACTLY zero -- the same empty-panel trick as the linear
+            # map it replaces (verified 0.0, not merely small).
+            ks2, weights2 = self._outer_nodes(Rb, kalphamax2)
+            sqrtp = xp.sqrt(zb**2.0 + (ks2 + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks2 - Rb) ** 2.0)
+            evalInt2 = (
+                ks2**2.0
+                * bspecial.k0(ks2 * self._alpha)
+                * ((ks2 + Rb) / sqrtp - (ks2 - Rb) / sqrtm)
+                / xp.sqrt(Rb**2.0 + zb**2.0 - ks2**2.0 + sqrtp * sqrtm)
+                / (sqrtp + sqrtm)
+            )
+            return xp.where(
+                inplane,
+                inplane_val,
+                -2.0
+                * math.sqrt(2.0)
+                * self._alpha
+                * xp.sum(weights1 * evalInt1 + weights2 * evalInt2, axis=-1),
+            )
         raise NotImplementedError(
             "Not new=True not implemented for RazorThinExponentialDiskPotential"
         )
@@ -197,46 +223,50 @@ class RazorThinExponentialDiskPotential(Potential):
         glw = xp.asarray(self._glw)
         if self._new:
             # if R > 6.: return self._kp(R,z)
-            if xp.abs(z) < 10.0**-6.0:
-                return 0.0
-            kalphamax1 = R
-            ks1, weights1 = self._inner_nodes(R)
-            sqrtp = xp.sqrt(z**2.0 + (ks1 + R) ** 2.0)
-            sqrtm = xp.sqrt(z**2.0 + (ks1 - R) ** 2.0)
+            # zforce = 0 in the plane, where the integrand has 1/|z| poles ->
+            # z_safe guards the eagerly-evaluated dead branch; max(R,10) empties
+            # the [R,10] panel for R >= 10 (the old `if R < 10.`).
+            inplane = xp.abs(z) < 10.0**-6.0
+            z_safe = xp.where(inplane, xp.ones_like(z * 1.0), z)
+            # Nodes on a NEW TRAILING axis, reduce only that axis (see _evaluate).
+            Rb = xp.asarray(R)[..., None]
+            zb = xp.asarray(z_safe)[..., None]
+            # main's substituted nodes (k = R(1-v^2)): the Jacobian's zero sits on
+            # the k=R square-root singularity, ~5e-5 instead of ~5e-3. Rb carries the
+            # trailing node axis, so the helpers broadcast to (..., n) unchanged.
+            ks1, weights1 = self._inner_nodes(Rb)
+            sqrtp = xp.sqrt(zb**2.0 + (ks1 + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks1 - Rb) ** 2.0)
             evalInt1 = (
                 ks1**2.0
                 * bspecial.k0(ks1 * self._alpha)
                 * (1.0 / sqrtp + 1.0 / sqrtm)
-                / xp.sqrt(R**2.0 + z**2.0 - ks1**2.0 + sqrtp * sqrtm)
+                / xp.sqrt(Rb**2.0 + zb**2.0 - ks1**2.0 + sqrtp * sqrtm)
                 / (sqrtp + sqrtm)
             )
-            if R < 10.0:
-                kalphamax2 = 10.0
-                ks2, weights2 = self._outer_nodes(R, kalphamax2)
-                sqrtp = xp.sqrt(z**2.0 + (ks2 + R) ** 2.0)
-                sqrtm = xp.sqrt(z**2.0 + (ks2 - R) ** 2.0)
-                evalInt2 = (
-                    ks2**2.0
-                    * bspecial.k0(ks2 * self._alpha)
-                    * (1.0 / sqrtp + 1.0 / sqrtm)
-                    / xp.sqrt(R**2.0 + z**2.0 - ks2**2.0 + sqrtp * sqrtm)
-                    / (sqrtp + sqrtm)
-                )
-                return (
-                    -z
-                    * 2.0
-                    * math.sqrt(2.0)
-                    * self._alpha
-                    * xp.sum(weights1 * evalInt1 + weights2 * evalInt2)
-                )
-            else:
-                return (
-                    -z
-                    * 2.0
-                    * math.sqrt(2.0)
-                    * self._alpha
-                    * xp.sum(weights1 * evalInt1)
-                )
+            kalphamax2 = xp.maximum(Rb, 10.0 * xp.ones_like(Rb * 1.0))
+            # k = R + u^2, umax = sqrt(kmax-R): at R >= 10 kmax == Rb so umax == 0 and
+            # the weights are EXACTLY zero -- the same empty-panel trick as the linear
+            # map it replaces (verified 0.0, not merely small).
+            ks2, weights2 = self._outer_nodes(Rb, kalphamax2)
+            sqrtp = xp.sqrt(zb**2.0 + (ks2 + Rb) ** 2.0)
+            sqrtm = xp.sqrt(zb**2.0 + (ks2 - Rb) ** 2.0)
+            evalInt2 = (
+                ks2**2.0
+                * bspecial.k0(ks2 * self._alpha)
+                * (1.0 / sqrtp + 1.0 / sqrtm)
+                / xp.sqrt(Rb**2.0 + zb**2.0 - ks2**2.0 + sqrtp * sqrtm)
+                / (sqrtp + sqrtm)
+            )
+            return xp.where(
+                inplane,
+                xp.zeros_like(z * 1.0),
+                -z
+                * 2.0
+                * math.sqrt(2.0)
+                * self._alpha
+                * xp.sum(weights1 * evalInt1 + weights2 * evalInt2, axis=-1),
+            )
         raise NotImplementedError(
             "Not new=True not implemented for RazorThinExponentialDiskPotential"
         )
