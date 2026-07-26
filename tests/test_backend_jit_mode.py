@@ -182,3 +182,34 @@ def test_torch_compiled_matches_eager():
     except Exception as exc:  # pragma: no cover - torch.compile unsupported here
         pytest.skip(f"torch.compile unavailable: {type(exc).__name__}")
     numpy.testing.assert_allclose(traced, eager, rtol=1e-12, atol=1e-14)
+
+
+def test_set_jit_switches_mode_without_the_context_manager():
+    # set_jit is public API (galpy.backend.set_jit): turn tracing on and off
+    # without `with`. The jit() context manager is sugar over it, so every other
+    # test here goes through the manager and never exercises the setter itself.
+    assert gb.jit_mode() == "off"
+    try:
+        gb.set_jit("jax")
+        assert gb.jit_mode() == "jax"
+        gb.set_jit("torch")
+        assert gb.jit_mode() == "torch"
+    finally:
+        gb.set_jit("off")
+    assert gb.jit_mode() == "off"
+
+
+def test_static_key_falls_back_to_identity_for_an_unhashable_without_dict():
+    # _static_key's last resort. A set is unhashable AND has no __dict__, so it
+    # misses the list/tuple/dict branches and _object_key alike -- identity is
+    # its only route. The semantics that matter: keyed by IDENTITY, not value,
+    # so two equal-but-distinct objects must not collide in the trace cache.
+    from galpy.backend._jit import _static_key
+
+    a, b = {1, 2}, {1, 2}
+    assert a == b, "the two objects are equal but distinct"
+    assert _static_key(a) == _static_key(a), "must be stable for one object"
+    assert _static_key(a) != _static_key(b), (
+        "equal-but-distinct unhashables must key differently -- sharing a key "
+        "would hand one object's compiled trace to the other"
+    )
