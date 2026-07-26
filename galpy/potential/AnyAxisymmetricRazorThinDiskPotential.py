@@ -15,6 +15,7 @@ from ..backend import (
 )
 from ..backend import quadrature as _bquad
 from ..backend import special as _bspecial
+from ..backend._namespaces import under_trace
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .Potential import Potential, check_potential_inputs_not_arrays
@@ -276,7 +277,11 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         xp = get_namespace(R, z)
         dev = device_of(R, z)
         if not (
-            getattr(R, "requires_grad", False) or getattr(z, "requires_grad", False)
+            getattr(R, "requires_grad", False)
+            or getattr(z, "requires_grad", False)
+            # torch.compile does not raise from the float() probe below (dynamo
+            # makes it symbolic) and would trace scipy's quad instead: ask.
+            or under_trace(R, z)
         ):
             try:  # plain concrete backend input: reuse scipy's accurate value
                 Rf, zf = float(R), float(z)
