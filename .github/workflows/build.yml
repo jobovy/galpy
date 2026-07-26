@@ -71,7 +71,12 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: false
             REQUIRES_NUMBA: false
-            REQUIRES_JAX: false
+            # units-through-a-backend: the only shard here with astropy that can
+            # also force a backend (tests/test_backend*.py is deliberately
+            # astropy-free), so it is where a Quantity-on-a-backend test can
+            # run. jax alone is enough -- the boundary's Quantity passthrough
+            # returns before any backend call, so it is backend-independent.
+            REQUIRES_JAX: true
           - os: ubuntu-latest
             python-version: "3.14"
             TEST_FILES: tests/test_orbit.py -k 'test_energy_jacobi_conservation or from_name'
