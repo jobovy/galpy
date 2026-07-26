@@ -235,6 +235,11 @@ class _PVRInterpolator:
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
 
+    # The radius-based evaluators below are backend-native (they resolve their
+    # namespace from the data and exit-cast), so the @backend_input boundary may
+    # coerce their coordinates. Mirrors the potentials' opt-in flag.
+    _backend_compatible = True
+
     def __init__(self, pot=None, denspot=None, rmax=None, scale=None, ro=None, vo=None):
         """
         Initializes a spherical DF
@@ -432,7 +437,7 @@ class sphericaldf(df):
             Ei,
         )
 
-    @potential_physical_input
+    @backend_input("r")
     def vmomentdensity(self, r, n, m, **kwargs):
         """
         Calculate an arbitrary moment of the velocity distribution at r times the density.
@@ -534,7 +539,7 @@ class sphericaldf(df):
             )
         )
 
-    @potential_physical_input
+    @backend_input("r")
     @physical_conversion("velocity", pop=True)
     def sigmar(self, r):
         """
@@ -561,7 +566,7 @@ class sphericaldf(df):
             xp.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0)), r
         )
 
-    @potential_physical_input
+    @backend_input("r")
     @physical_conversion("velocity", pop=True)
     def sigmat(self, r):
         """
@@ -589,7 +594,7 @@ class sphericaldf(df):
             xp.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0)), r
         )
 
-    @potential_physical_input
+    @backend_input("r")
     def beta(self, r, ro=None, vo=None):
         """
         Calculate the anisotropy at radius r.

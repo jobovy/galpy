@@ -17,6 +17,7 @@ from ._coerce import (
     promote_scalars,
     zeros_like_backend,
 )
+from ._compat import is_backend_compatible
 from ._input import backend_input
 from ._namespaces import (
     as_numpy,
@@ -48,6 +49,7 @@ __all__ = [
     "use",
     "set_default_backend",
     "is_backend_array",
+    "is_backend_compatible",
     "match_input_dtype",
     "name_of_namespace",
     "device_of",
