@@ -13,9 +13,9 @@
 # Scope notes (see the module docstrings / the PR's deferred list):
 #   * The Gauss-Legendre quadrature path (glorder set, the default) is migrated;
 #     the scipy.integrate fallback (glorder=None) is deferred (Pspecial PR).
-#   * TwoPowerTriaxialPotential._evaluate uses scipy.special.hyp2f1 in _psi and
-#     is therefore NOT migrated (its forces/2nd-derivs/dens, which only use the
-#     pure-arithmetic _mdens, ARE migrated).
+#   * TwoPowerTriaxialPotential._psi routes through the backend hyp2f1 (scipy on
+#     numpy, pure-backend fallback on jax/torch), so its _evaluate is migrated
+#     too; the fallback puts it ~1e-13 (not machine precision) from scipy.
 #   * The rotated (zvec/pa) compute path -- _rotate_to_aligned /
 #     _rotate_force_back applied to forces, density, and the potential -- is
 #     backend-agnostic and is exercised here with explicit rotated instances.
@@ -79,8 +79,8 @@ COMMON_METHODS = [
     "_phizderiv",
     "_dens",
 ]
-# _evaluate is migrated for every subclass whose _psi is namespace-clean; it is
-# deferred for TwoPowerTriaxialPotential (psi uses scipy.special.hyp2f1).
+# _evaluate is migrated for every subclass in this family (every _psi is either
+# namespace-clean or routes through the backend special router).
 EVAL = ["_evaluate"]
 
 # (name, instance, methods); aligned (default) instances exercise the migrated
@@ -92,11 +92,16 @@ _CASES = [
     ("Hernquist", TriaxialHernquistPotential(amp=1.3, a=1.5, b=0.9, c=0.7), EVAL),
     ("Jaffe", TriaxialJaffePotential(amp=1.3, a=1.5, b=0.9, c=0.7), EVAL),
     ("NFW", TriaxialNFWPotential(amp=1.3, a=1.5, b=0.9, c=0.7), EVAL),
-    # TwoPower: _evaluate deferred (hyp2f1), but forces/2nd-derivs/dens migrated.
     (
         "TwoPower",
         TwoPowerTriaxialPotential(amp=1.3, a=1.5, alpha=1.5, beta=3.5, b=0.9, c=0.7),
-        [],
+        EVAL,
+    ),
+    # alpha=2 takes _psi's other (twominusalpha == 0) hyp2f1 branch.
+    (
+        "TwoPower-alpha2",
+        TwoPowerTriaxialPotential(amp=1.3, a=1.5, alpha=2.0, beta=4.0, b=0.9, c=0.7),
+        EVAL,
     ),
 ]
 
@@ -104,7 +109,7 @@ _CASES = [
 # _rotate_force_back) is backend-agnostic; a prior review flagged it had no
 # coverage. Only the forces, density, and (where migrated) potential are defined
 # for rotated frames -- the 2nd derivatives raise NotImplementedError -- so the
-# rotated cases use a reduced method list. TwoPower's _evaluate stays deferred.
+# rotated cases use a reduced method list.
 _ROT_KW = dict(zvec=[0.0, 1.0, 1.0], pa=0.3)
 _ROT_METHODS = ["_Rforce", "_zforce", "_phitorque", "_dens"]
 _ROT_CASES = [
@@ -143,7 +148,7 @@ _ROT_CASES = [
         TwoPowerTriaxialPotential(
             amp=1.3, a=1.5, alpha=1.5, beta=3.5, b=0.9, c=0.7, **_ROT_KW
         ),
-        [],
+        EVAL,
     ),
 ]
 
@@ -204,7 +209,15 @@ def test_value_parity(backend_name, pot, method):
             _asarray(backend_name, _PHIS),
         )
     )
-    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-14)
+    # TwoPower's _evaluate goes through the hyp2f1 router -- scipy on numpy, the
+    # pure-backend fallback on jax/torch -- which agrees to ~1e-13, not to
+    # machine precision like the elementary-function _psi of the others.
+    rtol = (
+        1e-11
+        if method == "_evaluate" and isinstance(pot, TwoPowerTriaxialPotential)
+        else 1e-12
+    )
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-14)
 
 
 # --- exact analytic-identity gradient checks ----------------------------------
@@ -274,15 +287,14 @@ def _method_migrated(name, eval_migrated):
 
     Forces, 2nd derivatives, and density depend only on the pure-arithmetic
     _mdens/_mdens_deriv and are migrated for every potential here; _evaluate is
-    deferred for potentials whose _psi uses scipy.special (TwoPower)."""
+    migrated wherever the potential's _psi is (all of them, currently)."""
     if name == "_evaluate":
         return eval_migrated
     return name in COMMON_METHODS
 
 
 # Build (pot, lower, var, higher) params for every identity pair whose BOTH
-# methods are migrated for that (aligned) potential. TwoPower keeps the six
-# force/2nd-deriv pairs but drops the three _evaluate pairs (psi uses hyp2f1).
+# methods are migrated for that (aligned) potential.
 _IDENTITY_PARAMS = []
 for _name, _pot, _eval in _CASES:
     _eval_migrated = _eval == EVAL
@@ -311,6 +323,38 @@ def test_force_and_hessian_identities(backend_name, pot, lower, var, higher):
         )
     )
     numpy.testing.assert_allclose(ad, ref, rtol=1e-9)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize(
+    "pot",
+    [
+        pytest.param(
+            TwoPowerTriaxialPotential(
+                amp=1.3, a=1.5, alpha=1.5, beta=3.5, b=0.9, c=0.7
+            ),
+            id="TwoPower",
+        ),
+        pytest.param(
+            TwoPowerTriaxialPotential(
+                amp=1.3, a=1.5, alpha=2.0, beta=4.0, b=0.9, c=0.7
+            ),
+            id="TwoPower-alpha2",
+        ),
+    ],
+)
+def test_twopower_public_call_jit_traceable(pot):
+    # The public potential evaluation traces under jax.jit now that _psi uses
+    # the backend hyp2f1 router: scipy.special.hyp2f1 called numpy.asarray() on
+    # the traced m -> TracerArrayConversionError. Both _psi branches are probed
+    # (alpha=2 is the twominusalpha == 0 one), and jit must match eager.
+    jitted = jax.jit(lambda R, z, phi: pot(R, z, phi))
+    for R0, z0, phi0 in [(1.3, 0.4, 0.5), (0.4, -0.7, 0.0), (3.0, 0.0, 1.2)]:
+        got = float(jitted(jnp.asarray(R0), jnp.asarray(z0), jnp.asarray(phi0)))
+        ref = float(pot(jnp.asarray(R0), jnp.asarray(z0), jnp.asarray(phi0)))
+        numpy.testing.assert_allclose(
+            got, ref, rtol=1e-13, err_msg=f"jit TwoPower at ({R0},{z0},{phi0})"
+        )
 
 
 @pytest.mark.parametrize("pot", _MASS_POTS)
