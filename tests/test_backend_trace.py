@@ -132,3 +132,29 @@ def test_untraceable_setup_runs_scipy_setup_under_compile():
             torch.tensor(2.0, dtype=torch.float64)
         )
     assert float(got) == 20.0
+
+
+def test_helpers_take_the_fallback_when_torch_is_not_imported():
+    # Both helpers guard on `"torch" not in sys.modules` so that a numpy-only
+    # run never pays the torch import -- that guard IS the contract, not an
+    # optimisation. The coverage shard always has torch imported, so these two
+    # fallbacks are only reachable by hiding it.
+    import sys
+    from unittest import mock
+
+    built = []
+
+    @untraceable_setup
+    def build(x):
+        built.append(x)
+        return 2 * x
+
+    with mock.patch.dict(sys.modules):  # copies; restored on exit
+        sys.modules.pop("torch", None)
+        # under_trace: nothing is being traced, and torch is not consulted
+        assert under_trace(numpy.array([1.0, 2.0])) is False
+        # untraceable_setup: calls straight through, undecorated semantics
+        assert build(21) == 42
+        # the point of the guard: neither helper imported torch to answer
+        assert "torch" not in sys.modules, "the numpy-only path must not import torch"
+    assert built == [21], "the wrapped builder must run exactly once"
