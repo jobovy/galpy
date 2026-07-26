@@ -95,12 +95,14 @@ _ENTRY = {
 # (potential, entry, backend) that cannot be traced yet, with the failure mode.
 # Shrink this list; do not grow it without a stated reason.
 _NOT_TRACEABLE = {
-    # Data-dependent Python branch on a traced value (TracerBoolConversionError).
-    ("RazorThinExponentialDiskPotential", "__call__", "jax"),
-    ("RazorThinExponentialDiskPotential", "Rforce", "jax"),
-    ("RazorThinExponentialDiskPotential", "zforce", "jax"),
-    # numpy conversion of a traced array (TracerArrayConversionError).
-    ("TwoPowerTriaxialPotential", "__call__", "jax"),
+    # Same root cause as the TwoPowerSpherical entry below, and newly EXPOSED
+    # (not caused) by routing _psi through the backend hyp2f1: scipy's hyp2f1
+    # converts a traced value to numpy, so the backend router is required for
+    # jax -- and under inductor that router's own xp.where evaluates a singular
+    # dead side, giving inf where eager is finite. Fixing the router's
+    # dead-branch guards removes BOTH of these entries; tracked separately so
+    # this PR stays scoped to the two potentials.
+    ("TwoPowerTriaxialPotential", "__call__", "torch"),
     # Compiles, but returns inf where eager returns -0.1979: the compiled graph
     # evaluates the DEAD side of an xp.where (the alpha/beta special-case
     # branch), which is singular at these parameters. Same hazard as the

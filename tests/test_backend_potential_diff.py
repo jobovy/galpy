@@ -30,9 +30,12 @@
 # limitations (some potentials reject array inputs on numpy too) that are
 # orthogonal to backend trace-safety. It uses jax.jacfwd (not jax.jit) on the
 # jax side: jacfwd/torch-autograd operate on concrete primals, so a
-# differentiable-but-not-jit-compilable potential (data-dependent branch, e.g.
-# RazorThinExponentialDisk) is correctly NOT counted as a gap -- the target
-# class here is raw-numpy potentials that cannot be traced at all.
+# differentiable-but-not-jit-compilable potential (one whose python branch is
+# taken on a concrete value) is correctly NOT counted as a gap -- the target
+# class here is raw-numpy potentials that cannot be traced at all. Those
+# remaining `if <traced>` branches are fixed one family at a time (the
+# RazorThinExponentialDisk in-plane/panel selections became xp.where/xp.maximum;
+# the jax.jit coverage lives in that potential's own backend test module).
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
