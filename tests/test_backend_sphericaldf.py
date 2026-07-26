@@ -710,7 +710,14 @@ def test_quantity_radius_is_not_coerced(backend_name):
     # sigmar strips units INSIDE the body (conversion.parse_length), so the
     # boundary is handed a Quantity; coercing it produced NaN. It must pass
     # through and let the body parse it.
-    from astropy import units
+    #
+    # End-to-end with a REAL Quantity, so it needs astropy AND a backend -- no
+    # CI job has both (this shard is the only one running test_backend*.py and
+    # it is astropy-free), so this runs locally and skips in CI. The boundary
+    # branch itself is covered there without astropy, by the duck-typed stub in
+    # test_backend_input.py::test_quantity_coordinate_passes_through; importing
+    # astropy unconditionally here is a hard ERROR on this shard, not a skip.
+    units = pytest.importorskip("astropy.units")
 
     df = isotropicHernquistdf(pot=_HP, ro=8.0, vo=220.0)
     ref = float(df.sigmar(100.0 * units.pc, use_physical=False))
