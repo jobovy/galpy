@@ -386,3 +386,15 @@ jax tests/test_streamTrack.py
 # FAILED. torch runs it fine (also dropped). Un-skip when the Python Staeckel path
 # is jit-fast under jax.
 jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
+# jax-eager dynamical friction: these two spend the full 300 s per-test timeout,
+# which pytest-timeout delivers as a SIGNAL. Landing mid-jax-operation it leaves
+# jax's thread-local trace state as None, and then EVERY later test in the shard
+# dies at its first jax op with `AttributeError: 'NoneType' object has no
+# attribute 'process_primitive'` -- including at potential construction
+# (normalize() -> Rforce -> asarray). So a slow ledgered-xfail here does not
+# merely fail itself, it poisons the process; whether the damage lands is pure
+# timing, which is why the shard was green until an unrelated change shifted it.
+# Skipping means the timeout is never spent. torch runs both fine (107 s worst).
+# Un-skip when the jax dynamical-friction path is vectorized.
+jax tests/test_dynamfric.py::test_dynamfric_c
+jax tests/test_FDMdynamfric.py::test_dynamfric_c
