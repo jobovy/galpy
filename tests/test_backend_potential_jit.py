@@ -101,32 +101,11 @@ _NOT_TRACEABLE = {
     ("RazorThinExponentialDiskPotential", "zforce", "jax"),
     # numpy conversion of a traced array (TracerArrayConversionError).
     ("TwoPowerTriaxialPotential", "__call__", "jax"),
-    # The lazy backend table build (_backend_static_data -> scipy PPoly /
-    # scipy.special.binom) runs inside the FIRST traced call and dynamo cannot
-    # trace scipy. Calling the potential once eagerly first is a user-side
-    # workaround: it then compiles and matches eager exactly.
-    ("DiskMultipoleExpansionPotential", "__call__", "torch"),
-    ("DiskMultipoleExpansionPotential", "Rforce", "torch"),
-    ("DiskMultipoleExpansionPotential", "zforce", "torch"),
-    ("DiskMultipoleExpansionPotential", "dens", "torch"),
-    # Writes into a numpy scalar (`TypeError: 'numpy.float64' object does not
-    # support item assignment`): the coefficient path indexes an array that is
-    # 0-d once the coordinates are tensors.
-    ("MultipoleExpansionPotential", "__call__", "torch"),
-    ("MultipoleExpansionPotential", "Rforce", "torch"),
-    ("MultipoleExpansionPotential", "zforce", "torch"),
-    ("MultipoleExpansionPotential", "dens", "torch"),
     # Compiles, but returns inf where eager returns -0.1979: the compiled graph
     # evaluates the DEAD side of an xp.where (the alpha/beta special-case
     # branch), which is singular at these parameters. Same hazard as the
     # AD-NaN-poisoning one, surfacing through inductor instead of a gradient.
     ("TwoPowerSphericalPotential", "__call__", "torch"),
-    # torch dynamo cannot trace this yet (InternalTorchDynamoError); it takes a
-    # user-supplied Python callable for the surface density.
-    ("AnyAxisymmetricRazorThinDiskPotential", "__call__", "torch"),
-    ("AnyAxisymmetricRazorThinDiskPotential", "Rforce", "torch"),
-    ("AnyAxisymmetricRazorThinDiskPotential", "zforce", "torch"),
-    ("AnyAxisymmetricRazorThinDiskPotential", "dens", "torch"),
 }
 
 
