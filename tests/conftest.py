@@ -154,6 +154,14 @@ def _load_backend_skip(backend_name):
     return _load_backend_nodeids(_backend_skip_path(), backend_name)
 
 
+def _run_backend(config):
+    """Name the burndown lists are keyed by: "jax", or "jax-jit" when traced."""
+    name = config.getoption("--backend")
+    if name != "numpy" and config.getoption("--jit"):
+        return f"{name}-jit"
+    return name
+
+
 def pytest_addoption(parser):
     # Force a single array backend for the whole run (numpy|jax|torch). With
     # numpy (default) this is a no-op, so the existing suite is unchanged.
@@ -162,6 +170,16 @@ def pytest_addoption(parser):
         action="store",
         default="numpy",
         help="Array backend to force for the test run: numpy|jax|torch",
+    )
+    # Run the WHOLE suite traced: every galpy entry point is wrapped in jax.jit
+    # or torch.compile at the @backend_input boundary. The burndown lists are
+    # keyed "<backend>-jit", so eager and traced gaps are tracked separately.
+    parser.addoption(
+        "--jit",
+        action="store_true",
+        default=False,
+        help="Trace every galpy entry point with the --backend framework "
+        "(jax.jit / torch.compile)",
     )
 
 
@@ -208,7 +226,7 @@ def pytest_collection_modifyitems(config, items):
     everything not slow-skipped runs and its real outcome is recorded in
     pytest_sessionfinish.
     """
-    backend_name = config.getoption("--backend")
+    backend_name = _run_backend(config)
     if backend_name == "numpy":
         return
     # Slow-skip applies in all modes (incl. regen) so the unrunnable tests never
@@ -309,7 +327,7 @@ def pytest_sessionfinish(session, exitstatus):
     terminal summary have been written."""
     # --- regen dump (before the wrapped hooks; unchanged behavior) ---
     if os.environ.get(_REGEN_ENV) == "1":
-        backend_name = session.config.getoption("--backend")
+        backend_name = _run_backend(session.config)
         if backend_name != "numpy":
             failed = sorted(_REGEN_STORE["failed"])
             outfile = _regen_outfile()
@@ -331,6 +349,13 @@ def pytest_sessionfinish(session, exitstatus):
     # Force-exit after everything is written; gated to jax/torch so the numpy suite
     # -- including the coverage job, which never passes --backend -- is untouched.
     forced = session.config.getoption("--backend") in ("jax", "torch")
+    # ... but never from an xdist WORKER: os._exit there kills the worker before
+    # it reports back, and the controller records "node down: Not properly
+    # terminated" and writes no junit -- losing the whole run's results at 99%.
+    # The hang this guards against is a single-process shutdown problem; under
+    # xdist the controller reaps the workers.
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        forced = False
     if forced:
         # Backstop: arm a daemon timer BEFORE the yield so we still force-exit even
         # if an inner sessionfinish hook (junit/terminal/plugin teardown) itself
@@ -362,6 +387,10 @@ def _galpy_force_backend(request):
         import torch
 
         torch.set_default_dtype(torch.float64)
+    if request.config.getoption("--jit"):
+        with backend.use(backend_name, force=True), backend.jit(backend_name):
+            yield
+        return
     with backend.use(backend_name, force=True):
         yield
 
