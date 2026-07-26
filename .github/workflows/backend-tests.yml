@@ -31,11 +31,18 @@ on:
   push:
     branches:
       - feat/backends
+      - feat/backends-develop
   pull_request:
-    # Only sub-PRs that TARGET the integration branch, so they get the full
+    # Only sub-PRs that TARGET an integration branch, so they get the full
     # per-file backend table before merge -- NOT every PR in the repo.
+    # feat/backends-develop is where the backend work now accumulates before
+    # being reviewed and rebased onto feat/backends; without it here a PR based
+    # there would run the numpy matrix and all-clear but NOT this suite, i.e.
+    # the jax/torch dimension would go unverified on exactly the branch whose
+    # whole purpose is that dimension.
     branches:
       - feat/backends
+      - feat/backends-develop
   schedule:
     - cron: '0 20 * * 2'
   # Manual trigger: run the full all-backend suite on demand and (optionally)
@@ -77,20 +84,28 @@ jobs:
   # GATED to run on push-to-feat/backends, the weekly schedule, a manual
   # workflow_dispatch, OR a pull_request whose BASE is feat/backends (so a sub-PR
   # into the integration branch gets the full per-file table before merge).
-  # Because the whole workflow only fires for feat/backends (push/PR branch
-  # filters above), it never runs on ordinary pushes/PRs elsewhere in the repo;
-  # the job-level `if` additionally pins the PR case to base==feat/backends.
+  # Because the whole workflow only fires for feat/backends and
+  # feat/backends-develop (push/PR branch filters above), it never runs on
+  # ordinary pushes/PRs elsewhere in the repo; the job-level `if` additionally
+  # pins the PR case to those two base branches.
   backend-suite:
     name: backend ${{ matrix.BACKEND }} ${{ matrix.TEST_FILES }}
     runs-on: ubuntu-latest
     # Backstop: even with the per-test --timeout below, cap the whole shard so a
     # pathological accumulation of slow tests can't keep the report job waiting.
-    timeout-minutes: 90
+    # 180, not 90, because a jit=true dispatch traces every entry point and costs
+    # roughly what eager jax does again; at 90 a traced shard is killed mid-run
+    # and reports as a red indistinguishable from a real failure.
+    timeout-minutes: 180
     if: |
       github.event_name == 'schedule'
       || github.event_name == 'workflow_dispatch'
-      || (github.event_name == 'push' && github.ref == 'refs/heads/feat/backends')
-      || (github.event_name == 'pull_request' && github.base_ref == 'feat/backends')
+      || (github.event_name == 'push'
+          && (github.ref == 'refs/heads/feat/backends'
+              || github.ref == 'refs/heads/feat/backends-develop'))
+      || (github.event_name == 'pull_request'
+          && (github.base_ref == 'feat/backends'
+              || github.base_ref == 'feat/backends-develop'))
     strategy:
       fail-fast: false
       matrix:
