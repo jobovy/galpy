@@ -215,6 +215,31 @@ def test_sequence_coordinate_is_coerced_element_wise(backend_name):
     assert all(is_backend_array(c) for c in seen["v"])
 
 
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_quantity_coordinate_passes_through(backend_name):
+    # @backend_input is only correct INSIDE something that has already stripped
+    # units. Some entry points strip them in the body instead -- sphericaldf.sigmar
+    # does `r = conversion.parse_length(r, ro=self._ro)` -- so the boundary can be
+    # handed a Quantity. asarray() of a Quantity yields garbage that the later
+    # parse turns into NaN, so it must pass through untouched. Uses a stub rather
+    # than astropy: the coverage shard runs without it.
+    class _Quantityish:
+        unit = "kpc"
+        value = 1.1
+
+    q = _Quantityish()
+    seen = {}
+
+    @backend_input("R", "z")
+    def probe(pot, R, z):
+        seen.update(R=R, z=z)
+
+    with backend.use(backend_name, force=True):
+        probe(_pot(), q, 0.2)
+    assert seen["R"] is q, "a Quantity-like coordinate must not be coerced"
+    assert is_backend_array(seen["z"]), "plain coordinates alongside it still coerce"
+
+
 # Coordinate parameter names used across galpy's entry points. A decorated entry
 # point must declare every one of these that it takes -- an undeclared
 # coordinate is silently NOT coerced, which the decoration-time check (which only
@@ -282,7 +307,8 @@ def test_decorated_entry_points_are_registered():
 
 # Whole modules whose public entry points deliberately do NOT coerce yet, with
 # the blocker for each. These are the burndown list: decorate them as the blocker
-# clears. (Under the old coerce_backend gate these modules could carry the
+# clears -- sphericaldf/kingdf came off it once sphericaldf opted in
+# (``_backend_compatible``) and its radius entry points declared their coordinate. (Under the old coerce_backend gate these modules could carry the
 # decorator harmlessly because _check_backend_compatible returned False for every
 # df, so it never fired; with the gate gone, decorating them would route real
 # calls onto an incomplete backend path.)
@@ -294,8 +320,6 @@ _UNDECORATED_MODULES = {
     "diskdf.py": "backend evaluation path incomplete",
     "evolveddiskdf.py": "grid deriv= unsupported on jax/torch",
     "quasiisothermaldf.py": "sampling + adiabatic action-Jacobian C callback",
-    "sphericaldf.py": "sigmar/sigmat return NaN for a coerced radius",
-    "kingdf.py": "inherits sphericaldf.sigmar",
     "streamdf.py": "not yet migrated to the coercion boundary",
     "streamgapdf.py": "not yet migrated to the coercion boundary",
     "streamspraydf.py": "not yet migrated to the coercion boundary",

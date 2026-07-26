@@ -87,7 +87,6 @@
 # format: <backend> <nodeid>   (conftest applies xfail(strict=False) per backend;
 # tests unrunnable-until-vectorized go in backend_slow_skip.txt instead, not here)
 
-jax tests/test_FDMdynamfric.py::test_dynamfric_c
 jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
@@ -119,7 +118,6 @@ jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_point
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
 jax tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
 jax tests/test_actionAngle.py::test_physical_vertical
-jax tests/test_dynamfric.py::test_dynamfric_c
 jax tests/test_interp_potential.py::test_interpolation_potential_force_c
 jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_qdf.py::test_call_diffinoutputs
