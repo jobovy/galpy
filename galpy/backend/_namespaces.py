@@ -2,6 +2,8 @@
 #   galpy.backend._namespaces: helpers mapping backend names to array
 #   namespaces and small namespace-agnostic utilities.
 ###############################################################################
+from functools import wraps
+
 import numpy
 
 from ..util._optional_deps import (
@@ -70,6 +72,67 @@ def under_jax_trace(*xs):
     import jax
 
     return any(isinstance(x, jax.core.Tracer) for x in xs)
+
+
+def under_trace(*xs):
+    """True iff one of ``xs`` is being TRACED rather than concretely evaluated.
+
+    The backend-agnostic generalisation of ``under_jax_trace``, for the "do I
+    have a concrete value?" probes that pick an out-of-backend (scipy/numpy)
+    computation when they do. A jax tracer answers by raising from ``float(x)``;
+    a torch tensor under ``torch.compile`` does NOT -- dynamo turns ``float(x)``
+    into a symbolic scalar, so the probe wrongly takes the concrete branch and
+    drags the scipy/numpy code into the graph (where it dies on a data-dependent
+    output shape). ``torch.compiler.is_compiling()`` is dynamo's own answer.
+    False on numpy, and on plain (untraced) jax/torch arrays.
+    """
+    import sys
+
+    if under_jax_trace(*xs):
+        return True
+    if "torch" not in sys.modules:
+        return False
+    import torch
+
+    return torch.compiler.is_compiling() and any(
+        isinstance(x, torch.Tensor) for x in xs
+    )
+
+
+def untraceable_setup(method):
+    """Mark a lazy SETUP/table builder so a tracer never traces it.
+
+    The table-backed potentials build their constant backend tables lazily and
+    memoize them on the instance, so numpy-only users never pay for the build.
+    That build is pure numpy/scipy (FITPACK splines, PPoly basis changes,
+    ``scipy.special.comb``, ...) and is not traceable: when the very FIRST call
+    happens to be inside a ``torch.compile`` region, dynamo tries to trace the
+    scipy code and dies (``scipy.special.comb`` -> "'numpy.float64' object does
+    not support item assignment"). It is also pointless to trace -- the result
+    is a dict of constants, identical on every call.
+
+    ``torch.compiler.disable`` tells dynamo to run the builder eagerly (as an
+    opaque call) and feed its constants back into the graph. torch is imported
+    only if it is ALREADY imported, so numpy-only runs never touch it, and the
+    disabled view is built once and reused. jax needs nothing here: a lazy build
+    under ``jax.jit`` sees concrete (untraced) values because the tables depend
+    on nothing traced.
+    """
+    disabled = []
+
+    @wraps(method)
+    def wrapper(*args, **kwargs):
+        import sys
+
+        if "torch" not in sys.modules:
+            return method(*args, **kwargs)
+        if not disabled:
+            import torch
+
+            disabled.append(torch.compiler.disable(method))
+        return disabled[0](*args, **kwargs)
+
+    return wrapper
 
 
 def under_torch_grad(*xs):
