@@ -502,11 +502,13 @@ def test_doubleexp_grad_z_vs_finite_difference(backend_name):
 
 
 ###############################################################################
-# RazorThinExponentialDiskPotential: dedicated tests for the scalar-only
-# (the `if xp.abs(z) < 1e-6` / `if R < 10.` branches) Bessel-quadrature methods.
-# These exercise the jax/torch paths of the backend special router (i0/i1/k0/k1)
-# and, in _R2deriv at z==0, the I_2 = I_0 - (2/y) I_1 recurrence (_iv2) that
-# replaces scipy.special.iv on the traced backends.
+# RazorThinExponentialDiskPotential: dedicated tests for the scalar
+# Bessel-quadrature methods. The in-plane closed form vs. the two-panel
+# quadrature (was `if xp.abs(z) < 1e-6`) and the empty second panel at R >= 10
+# (was `if R < 10.`) are now xp.where / xp.maximum selections, so these methods
+# trace. The tests exercise the jax/torch paths of the backend special router
+# (i0/i1/k0/k1) and, in _R2deriv at z==0, the I_2 = I_0 - (2/y) I_1 recurrence
+# (_iv2) that replaces scipy.special.iv on the traced backends.
 ###############################################################################
 _RAZOR = RazorThinExponentialDiskPotential(amp=1.0, hr=0.4)
 # Points cover: z==0 (the closed-form Bessel branch), z!=0 with R<10 (the
@@ -557,6 +559,30 @@ def test_razorthin_R2deriv_iv2_recurrence(backend_name):
         )
 
 
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("method", ["__call__", "Rforce", "zforce"])
+def test_razorthin_public_methods_jit_traceable(method):
+    # The public potential / Rforce / zforce entry points trace under jax.jit:
+    # they used to hit `if xp.abs(z) < 1e-6` (and `if R < 10.`) on a traced
+    # value -> TracerBoolConversionError. jit must reproduce the eager value at
+    # every point: both sides of the |z| < 1e-6 cut and R >= 10, where the
+    # [R, 10] quadrature panel collapses to zero width.
+    def call(R, z):
+        return _RAZOR(R, z) if method == "__call__" else getattr(_RAZOR, method)(R, z)
+
+    jitted = jax.jit(call)
+    for R0, z0 in _RAZOR_ZERO_POINTS + _RAZOR_ZNZ_POINTS + [(1.3, 1e-9), (12.0, 0.0)]:
+        got = float(jitted(jnp.asarray(R0), jnp.asarray(z0)))
+        ref = float(call(R0, z0))
+        numpy.testing.assert_allclose(
+            got,
+            ref,
+            rtol=1e-11,
+            atol=1e-14,
+            err_msg=f"jit RazorThin.{method} at (R,z)=({R0},{z0})",
+        )
+
+
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
 def test_razorthin_evaluate_grad_identity(backend_name):
     # AD(_evaluate wrt R) == -_Rforce at z==0 (closed-form Bessel branch); guards
@@ -572,3 +598,47 @@ def test_razorthin_evaluate_grad_identity(backend_name):
             rtol=1e-7,
             err_msg=f"RazorThin AD(_evaluate)==-_Rforce at R={R0} ({backend_name})",
         )
+
+
+@pytest.mark.parametrize("method", ["_evaluate", "_Rforce", "_zforce"])
+def test_razorthin_vectorised_equals_elementwise(method):
+    # RazorThin's quadrature broadcasts its Gauss-Legendre nodes against the
+    # coordinates, so the reduction MUST name the node axis: xp.sum(...) without
+    # axis=-1 also collapses the DATA axis and returns one value for every
+    # point. That is silent -- and galpy's Phi call IS vectorised (Orbit.E(ts)
+    # evaluates all times at once), so it corrupts energies rather than raising.
+    # Regression for the #1201 energy-conservation failure.
+    pot = RazorThinExponentialDiskPotential(amp=1.0, hr=0.4)
+    f = getattr(pot, method)
+    # spans both branch boundaries: |z|<1e-6 (in-plane closed form) and the
+    # R=10 quadrature-panel split.
+    pts = [
+        (0.8, 0.1),
+        (1.0, 0.3),
+        (1.5, -0.2),
+        (2.0, 0.05),
+        (5.0, 1.0),
+        (9.99, 0.2),
+        (10.5, 0.7),
+        (149.0, 0.4),
+        (1.0, 0.0),
+    ]
+    elementwise = numpy.array([float(f(R, z)) for R, z in pts])
+    # the (N,1) shape galpy itself passes when evaluating along an orbit
+    R2 = numpy.array([[p[0]] for p in pts])
+    z2 = numpy.array([[p[1]] for p in pts])
+    vec2 = numpy.asarray(f(R2, z2))
+    assert vec2.shape == (len(pts), 1), (
+        f"{method}: vectorised call collapsed the data axis -> {vec2.shape}"
+    )
+    numpy.testing.assert_array_equal(
+        numpy.ravel(vec2),
+        elementwise,
+        err_msg=f"{method}: (N,1) result differs from per-point evaluation",
+    )
+    # and plain 1-D
+    vec1 = numpy.asarray(
+        f(numpy.array([p[0] for p in pts]), numpy.array([p[1] for p in pts]))
+    )
+    assert vec1.shape == (len(pts),), f"{method}: 1-D shape {vec1.shape}"
+    numpy.testing.assert_array_equal(vec1, elementwise, err_msg=f"{method}: 1-D")
