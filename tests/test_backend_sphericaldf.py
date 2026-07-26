@@ -671,3 +671,43 @@ def test_pvr_interpolator_getattr_delegation():
     bare = _PVRInterpolator.__new__(_PVRInterpolator)
     with pytest.raises(AttributeError):
         bare.some_missing_attr  # noqa: B018  (triggers __getattr__ -> _spl guard)
+
+
+@pytest.mark.parametrize("backend_name", BACKENDS)
+def test_coercion_boundary_fires_for_sphericaldf(backend_name):
+    # sphericaldf opts into the @backend_input boundary (_backend_compatible), so
+    # its radius entry points COERCE: under a forced backend they must return a
+    # backend array rather than silently computing on numpy, and must agree with
+    # the numpy path. Before the opt-in the guard reported False for every df
+    # (a df is not a Force), so the decoration could never fire.
+    df = isotropicHernquistdf(pot=_HP)
+    ref = {
+        "sigmar": float(df.sigmar(1.3, use_physical=False)),
+        "sigmat": float(df.sigmat(1.3, use_physical=False)),
+        "beta": float(df.beta(1.3)),
+        "vmomentdensity": float(df.vmomentdensity(1.3, 0, 0)),
+    }
+    with galpy.backend.use(backend_name, force=True):
+        got = {
+            "sigmar": df.sigmar(1.3, use_physical=False),
+            "sigmat": df.sigmat(1.3, use_physical=False),
+            "beta": df.beta(1.3),
+            "vmomentdensity": df.vmomentdensity(1.3, 0, 0),
+        }
+    for name, val in got.items():
+        assert galpy.backend.is_backend_array(val), (
+            f"{name} did not stay on the {backend_name} backend"
+        )
+        # ~1e-9: the backend quadrature sums in a different order than numpy's,
+        # so this checks agreement, not bit-parity.
+        numpy.testing.assert_allclose(
+            float(as_numpy(val)), ref[name], rtol=1e-7, err_msg=name
+        )
+
+
+# The Quantity-radius regression (a Quantity handed to the @backend_input
+# boundary must pass through, not be coerced into NaN) lives in
+# tests/test_quantity.py: it needs a REAL Quantity, and this shard is
+# deliberately astropy-free, so an astropy import here is a hard error rather
+# than a skip. The boundary branch itself is covered without astropy by
+# test_backend_input.py::test_quantity_coordinate_passes_through.
