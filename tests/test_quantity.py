@@ -1,4 +1,6 @@
 # Make sure to set configuration, needs to be before any galpy imports
+import importlib.util
+
 import pytest
 from packaging.version import parse as parse_version
 
@@ -16,6 +18,11 @@ _NUMPY_1_22 = (_NUMPY_VERSION > parse_version("1.21")) * (
 from astropy import constants, units
 
 from galpy.backend import as_numpy  # noqa: E402
+
+# Backends installed here, for the units-through-a-backend regressions. Probed
+# rather than imported: importing torch/jax costs seconds and most of this file
+# does not need them.
+_BACKENDS = [b for b in ("jax", "torch") if importlib.util.find_spec(b) is not None]  # noqa: E402
 
 sdf_sanders15 = None  # so we can set this up and then use in other tests
 sdf_sanders15_nou = None  # so we can set this up and then use in other tests
@@ -17734,6 +17741,37 @@ def test_sphericaldf_method_returnunit():
             "sphericaldf method sigmar does not return Quantity with the right units"
         )
     return None
+
+
+@pytest.mark.parametrize("backend_name", _BACKENDS)
+def test_sphericaldf_quantity_radius_is_not_coerced_on_a_backend(backend_name):
+    # sigmar strips units INSIDE the body (conversion.parse_length), so the
+    # @backend_input boundary is handed a Quantity; coercing it produced NaN.
+    # It must pass through and let the body parse it.
+    #
+    # This lives here rather than in tests/test_backend_sphericaldf.py because
+    # it needs a REAL Quantity AND a forced backend: tests/test_backend*.py runs
+    # in a single CI job that is deliberately astropy-free, so an astropy import
+    # there is a hard error. This shard has astropy in both workflows.
+    import galpy.backend
+    from galpy import potential
+    from galpy.df import isotropicHernquistdf
+
+    if backend_name == "jax":
+        # Every tests/test_backend_*.py enables x64 at import; this file does
+        # not, and jax defaults to float32, which lands ~3e-6 from the numpy
+        # reference. Set it here (no jax array exists yet, so it takes effect)
+        # so the comparison is float64-vs-float64.
+        import jax
+
+        jax.config.update("jax_enable_x64", True)
+    pot = potential.HernquistPotential(amp=2.0, a=1.3)
+    dfh = isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0)
+    ref = float(dfh.sigmar(100.0 * units.pc, use_physical=False))
+    with galpy.backend.use(backend_name, force=True):
+        got = float(as_numpy(dfh.sigmar(100.0 * units.pc, use_physical=False)))
+    assert numpy.isfinite(got), "Quantity radius produced a non-finite result"
+    numpy.testing.assert_allclose(got, ref, rtol=1e-7)
 
 
 def test_sphericaldf_method_value():

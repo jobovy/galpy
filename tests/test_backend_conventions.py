@@ -171,6 +171,10 @@ def test_check_backend_compatible_semantics():
     # combined potential: all members must be compatible
     assert cbc([mn, potential.NFWPotential(normalize=1.0)]) is True
     assert cbc([mn, unmig]) is False
+    # composite potential (pot1+pot2): delegates to its components, so it is
+    # compatible iff every component is (mirrors the list branch)
+    assert cbc(mn + potential.NFWPotential(normalize=1.0)) is True
+    assert cbc(mn + unmig) is False
     # wrapper: own flag AND wrapped potential
     assert cbc(potential.OblateStaeckelWrapperPotential(pot=mn)) is True
     assert (
