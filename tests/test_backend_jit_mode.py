@@ -84,16 +84,22 @@ def test_jax_traced_matches_eager(entry):
 
 @pytest.mark.skipif("jax is None")
 def test_jax_traces_with_an_unhashable_static():
-    """A list of potentials is the ordinary way to pass a composite; it is a
-    static argument and unhashable, which plain jax.jit would reject."""
-    pots = [
-        MiyamotoNagaiPotential(normalize=1.0),
-        LogarithmicHaloPotential(normalize=1.0),
-    ]
+    """A composite potential is a STATIC argument and is unhashable, which
+    plain jax.jit rejects -- traced_call keys it structurally instead.
+
+    Built with ``+`` rather than as a list: both are unhashable, so either
+    exercises the same path, but passing a list is deprecated and the coverage
+    shard runs with -W error::DeprecationWarning.
+    """
+    pot = MiyamotoNagaiPotential(normalize=1.0) + LogarithmicHaloPotential(
+        normalize=1.0
+    )
+    with pytest.raises(TypeError):  # the premise: plain jax.jit could not key it
+        hash(pot)
     R, z = jnp.asarray(_R0), jnp.asarray(_Z0)
-    eager = float(evaluateRforces(pots, R, z))
+    eager = float(evaluateRforces(pot, R, z))
     with gb.jit("jax"):
-        traced = float(evaluateRforces(pots, R, z))
+        traced = float(evaluateRforces(pot, R, z))
     numpy.testing.assert_allclose(traced, eager, rtol=1e-12, atol=1e-14)
 
 
