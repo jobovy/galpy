@@ -194,14 +194,11 @@ def _make_registry():
         ),
         ("TriaxialJaffe", TriaxialJaffePotential(amp=1.3, a=1.5, b=0.9, c=0.7)),
         ("TriaxialNFW", TriaxialNFWPotential(amp=1.3, a=1.5, b=0.9, c=0.7)),
-        # _evaluate deferred (hyp2f1); the forces are migrated
         (
             "TwoPowerTriaxial-generic",
             TwoPowerTriaxialPotential(
                 amp=1.3, a=1.5, alpha=1.5, beta=3.5, b=0.9, c=0.7
             ),
-            "3d",
-            ("_Rforce",),
         ),
         # --- halo / bar / non-axisymmetric family -----------------------------
         ("LogarithmicHalo", LogarithmicHaloPotential(amp=1.3, q=0.8, core=0.1)),
