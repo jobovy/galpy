@@ -621,3 +621,59 @@ def test_from_density_backend_amp_closure(backend_name, symmetry):
         pt = build()
         got = numpy.array([as_numpy(ep(pt, R, z, phi=phi)) for R, z, phi in pts])
     numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
+
+
+def _no_torch_compile_deprecations():
+    """Suppress torch's own import-time DeprecationWarnings during a compile.
+
+    ``torch.compile`` lazily imports ``torch._inductor``, whose mkldnn module
+    warns on ``torch.jit.script_method`` at class-definition time. A per-test
+    ``filterwarnings`` mark cannot suppress it (a module-level
+    ``error::DeprecationWarning`` pytestmark is applied last and wins), so
+    filter it here, around the call itself.
+    """
+    import contextlib
+    import warnings
+
+    @contextlib.contextmanager
+    def _ctx():
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            yield
+
+    return _ctx()
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_torch_compile_cold_lazy_table_build():
+    # Regression: the backend constant tables are built lazily and memoized, so
+    # a potential whose FIRST evaluation happens inside a torch.compile region
+    # had dynamo trace the pure-scipy builder (PPoly.from_bernstein_basis ->
+    # scipy.special.comb -> "'numpy.float64' object does not support item
+    # assignment"). ``untraceable_setup`` runs the builder eagerly instead. The
+    # instance is built fresh here so the trace really is the cold path.
+    from galpy.potential import DiskMultipoleExpansionPotential
+
+    def build():
+        return DiskMultipoleExpansionPotential(
+            dens=lambda R, z: (
+                13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
+            ),
+            Sigma={"h": 1.0 / 3.0, "type": "exp", "amp": 1.0},
+            hz={"type": "exp", "h": 1.0 / 27.0},
+            L=3,
+            rgrid=numpy.geomspace(1e-2, 20, 51),
+        )
+
+    R0 = torch.tensor(1.1, dtype=torch.float64)
+    z0 = torch.tensor(0.2, dtype=torch.float64)
+    ref = float(build().Rforce(R0, z0))  # warm/eager reference
+    cold = build()  # never evaluated outside the trace
+    torch._dynamo.reset()
+    with _no_torch_compile_deprecations():
+        got = float(
+            torch.compile(
+                lambda R, z: cold.Rforce(R, z), fullgraph=False, dynamic=False
+            )(R0, z0)
+        )
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12)

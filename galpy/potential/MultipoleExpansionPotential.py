@@ -25,6 +25,7 @@ from ..backend import (
     match_input_dtype,
 )
 from ..backend import use as _use_backend
+from ..backend._namespaces import untraceable_setup
 from ..backend.special import assoc_legendre
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -2239,6 +2240,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         """Constant numpy tables for the backend path (static or TD layout)."""
         return self._backend_tdep_data() if self._tdep else self._backend_static_data()
 
+    @untraceable_setup
     def _backend_static_data(self):
         """Build (once) the numpy constant tables for the backend path.
 
@@ -2301,6 +2303,7 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         )
         return self._backend_data
 
+    @untraceable_setup
     def _backend_tdep_data(self):
         """Build (once) the numpy constant tables for the time-dependent
         backend path.
