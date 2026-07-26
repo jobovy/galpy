@@ -19,6 +19,7 @@ from ._coerce import (
 )
 from ._compat import is_backend_compatible
 from ._input import backend_input
+from ._jit import jit, jit_mode, set_jit
 from ._namespaces import (
     as_numpy,
     asarray_on_device,
@@ -44,6 +45,9 @@ _seed_from_config()
 __all__ = [
     "autodiff_ops",
     "backend_input",
+    "jit",
+    "jit_mode",
+    "set_jit",
     "get_namespace",
     "backend",
     "use",
