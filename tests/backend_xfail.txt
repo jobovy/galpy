@@ -278,42 +278,32 @@ torch tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
 torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
 
 # --- jax-jit: the suite run TRACED (pytest --backend jax --jit) ---
-# tests/test_potential.py, 2026-07-26: 49 of ~1300 tests fail under jax.jit that
-# pass eager (down from a 100-entry baseline on 2026-07-25), i.e. ~96% of the
-# potential suite already runs fully traced. They cluster by potential, not by
-# test. Cleared so far: RazorThinExponentialDisk and TwoPowerTriaxial (the two
-# the boundary-jit file used to list -- that file's _NOT_TRACEABLE is now empty)
-# and the log spirals. What remains:
-#   * Multipole / SCF (nonaxiDisk*)         ~12
-#   * noGL NFW / Triaxial                    ~8  -- these integrate with
-#     scipy.integrate.quad, which is untraceable by construction rather than by
-#     a stray numpy call; needs galpy.backend.quadrature.quad, whose dispatch
-#     follows the LIMITS and args, so the coordinates must be threaded through
-#     args= rather than captured in the integrand's closure.
-#   * AnyAxisymmetricRazorThinDisk           ~4  -- separate _bk_dispatch path
-#   * long tail                             ~25
+# tests/test_potential.py, 2026-07-27: 28 of ~1300 tests fail under jax.jit that
+# pass eager (baseline was 100 on 2026-07-25), i.e. ~98% of the potential suite
+# runs fully traced. Cleared: RazorThinExponentialDisk, TwoPowerTriaxial, the log
+# spirals, the noGL ellipsoidals, and the DiskSCF/Multipole fixtures. What
+# remains, and why -- these are NOT all "not migrated yet":
+#   * `test_poisson_surfdens_potential`     ~15  -- `Potential.surfdens`'s Poisson
+#     fallback traces once routed through backend quadrature, but fixed-order GL
+#     needs an order that SCALES WITH THE RANGE (n=100 is 3.7e-4 at |z|=10, n=400
+#     reaches 2.6e-14). A constant order is accurate only inside whatever range
+#     was tested and silently wrong outside it, so this needs a range-aware
+#     scheme, not a swap. Attempted and reverted deliberately.
+#   * AnyAxisymmetricRazorThinDisk           ~4  -- BY DESIGN, not a defect. Its
+#     backend path deliberately uses GL so gradients exist, while concrete input
+#     reuses scipy; the class comment states GL cannot resolve the a=R principal
+#     value or form the z=0 Hadamard-type 2nd derivative. Under a trace the input
+#     IS a tracer, so the traced value is knowingly less accurate there.
+#   * one-offs                               ~9  -- Cautun20, DehnenBinney98,
+#     ExpDisk_special, McMillan17, mass_spheroidal, plotting, ...
 # Only reachable via workflow_dispatch(jit=true); shrink it.
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[nonaxiDiskMultipoleExpansionPotential]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[oblatenoGLNFWPotential]
 jax-jit tests/test_potential.py::test_Cautun20
 jax-jit tests/test_potential.py::test_DehnenBinney98
-jax-jit tests/test_potential.py::test_DiskSCFPotential_againstDoubleExp
 jax-jit tests/test_potential.py::test_ExpDisk_special
 jax-jit tests/test_potential.py::test_McMillan17
-jax-jit tests/test_potential.py::test_amp_mult_divide[fullyRotatednoGLTriaxialNFWPotential]
-jax-jit tests/test_potential.py::test_amp_mult_divide[nonaxiDiskMultipoleExpansionPotential]
-jax-jit tests/test_potential.py::test_amp_mult_divide[nonaxiDiskSCFPotential]
-jax-jit tests/test_potential.py::test_amp_mult_divide[oblatenoGLNFWPotential]
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[nonaxiDiskMultipoleExpansionPotential]
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[nonaxiDiskSCFPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[fullyRotatednoGLTriaxialNFWPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[nonaxiDiskMultipoleExpansionPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[nonaxiDiskSCFPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[oblatenoGLNFWPotential]
 jax-jit tests/test_potential.py::test_mass_spheroidal
 jax-jit tests/test_potential.py::test_plotting
-jax-jit tests/test_potential.py::test_poisson_potential[nonaxiDiskMultipoleExpansionPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[BurkertPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[DoubleExponentialDiskPotential]
@@ -334,11 +324,4 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndT
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[testMWPotential]
 jax-jit tests/test_potential.py::test_potential_at_infinity[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_potential_at_infinity[nonaxiDiskMultipoleExpansionPotential]
-jax-jit tests/test_potential.py::test_potential_at_infinity[nonaxiDiskSCFPotential]
-jax-jit tests/test_potential.py::test_potential_at_infinity[oblatenoGLNFWPotential]
 jax-jit tests/test_potential.py::test_potential_at_zero[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_potential_at_zero[fullyRotatednoGLTriaxialNFWPotential]
-jax-jit tests/test_potential.py::test_potential_at_zero[nonaxiDiskMultipoleExpansionPotential]
-jax-jit tests/test_potential.py::test_potential_at_zero[nonaxiDiskSCFPotential]
-jax-jit tests/test_potential.py::test_potential_at_zero[oblatenoGLNFWPotential]
