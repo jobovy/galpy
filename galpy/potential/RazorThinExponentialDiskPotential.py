@@ -8,7 +8,7 @@ import math
 
 import numpy
 
-from ..backend import coerce_coords, get_namespace
+from ..backend import coerce_coords, get_namespace, has_concrete_truth_value
 from ..backend import special as bspecial
 from ..util import conversion
 from .Potential import Potential
@@ -275,17 +275,28 @@ class RazorThinExponentialDiskPotential(Potential):
         xp = get_namespace(R, z)
         R, z = coerce_coords(xp, R, z)
         if self._new:
-            if xp.abs(z) < 10.0**-6.0:
-                y = 0.5 * self._alpha * R
-                return math.pi * self._alpha * (
-                    bspecial.i0(y) * bspecial.k0(y) - bspecial.i1(y) * bspecial.k1(y)
-                ) + math.pi / 4.0 * self._alpha**2.0 * R * (
-                    bspecial.i1(y) * (3.0 * bspecial.k0(y) + bspecial.kn(2, y))
-                    - bspecial.k1(y) * (3.0 * bspecial.i0(y) + bspecial.iv(2, y))
-                )
-            raise AttributeError(
-                "'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0"
+            # Off-plane has no closed form here, so this is a DOMAIN check, not a
+            # vectorisation guard -- there is no second formula to select. The
+            # in-plane value depends only on R, so evaluating it everywhere is
+            # safe (no dead-branch NaN hazard) and only the mask decides.
+            inplane = xp.abs(z) < 10.0**-6.0
+            y = 0.5 * self._alpha * R
+            val = math.pi * self._alpha * (
+                bspecial.i0(y) * bspecial.k0(y) - bspecial.i1(y) * bspecial.k1(y)
+            ) + math.pi / 4.0 * self._alpha**2.0 * R * (
+                bspecial.i1(y) * (3.0 * bspecial.k0(y) + bspecial.kn(2, y))
+                - bspecial.k1(y) * (3.0 * bspecial.i0(y) + bspecial.iv(2, y))
             )
+            allin = xp.all(inplane)
+            if not has_concrete_truth_value(allin):
+                # Traced: the domain cannot be decided at trace time, so return
+                # NaN off-plane rather than refusing to trace at all.
+                return xp.where(inplane, val, xp.asarray(xp.nan))
+            if not allin:
+                raise AttributeError(
+                    "'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0"
+                )
+            return val
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):  # pragma: no cover
         return math.inf
