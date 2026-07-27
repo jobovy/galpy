@@ -1,11 +1,47 @@
+import atexit
 import os
+import shutil
 import signal
 import sys
+import tempfile
 import threading
 import time
 
 import numpy
 import pytest
+
+# torch.compile caches generated kernels on DISK, and that cache changes the
+# verdict of every test that compiles: with it warm, code that fails a cold
+# compile can pass, so consecutive runs disagree. Concurrent xdist workers also
+# collide in the shared directory, which surfaces as an InductorError wrapping
+# an ImportError on a half-written .so. Give every process -- and so every
+# worker, which imports this file itself -- a private, empty cache, so what is
+# measured is always the cold compile a user actually hits. Set here rather than
+# per test module because it must land before torch is imported ANYWHERE, and it
+# applies equally to the always-on jit shard and to `--backend torch --jit`.
+_inductor_cache = tempfile.mkdtemp(prefix="torchinductor_galpy_")
+os.environ["TORCHINDUCTOR_CACHE_DIR"] = _inductor_cache
+atexit.register(shutil.rmtree, _inductor_cache, True)
+
+
+def torch_compiles():
+    """Whether torch.compile actually WORKS on this interpreter.
+
+    dynamo trails the Python release and refuses to run on one it does not
+    support yet, so `import torch` succeeding does not imply that compiling
+    works, and CI runs the backend shards on 3.10 through 3.14. Probing is only
+    reliable this way. Deliberately a function, not a module-level constant, so
+    importing this conftest never drags torch into a numpy-only session.
+    """
+    try:
+        import torch
+    except ImportError:  # pragma: no cover - torch not installed
+        return False
+    try:
+        torch.compile(lambda x: x + 1.0, fullgraph=True)(torch.tensor(1.0))
+        return True
+    except Exception:  # pragma: no cover - interpreter-dependent
+        return False
 
 
 def _to_numpy(x):
