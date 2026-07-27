@@ -23,6 +23,26 @@ def _is_python_scalar(x):
     return x is None or isinstance(x, (bool, int, float, complex))
 
 
+def has_concrete_truth_value(x):
+    """True if a Python ``bool`` can be read from the 0-d/scalar ``x`` right now.
+
+    False exactly when ``x`` is a traced value (jax/torch): under a trace a
+    comparison is a tracer with no truth value, so `if` on it raises. That lets a
+    routine keep its eager error path -- raise on an out-of-domain input, where
+    the check is a real check -- and degrade to an elementwise select while
+    tracing, instead of simply failing to trace.
+
+    ``x`` must already be reduced to a scalar/0-d (e.g. via ``xp.all``): a
+    multi-element numpy array has no truth value either, and would be reported
+    here as non-concrete.
+    """
+    try:
+        bool(x)
+    except Exception:
+        return False
+    return True
+
+
 def is_backend_array(x):
     """True if ``x`` is a non-numpy backend array (a jax or torch array/tensor).
 
