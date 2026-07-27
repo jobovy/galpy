@@ -15,7 +15,7 @@ try:
 except ImportError:
     _PYNBODY_LOADED = False
 from galpy import orbit, potential
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, get_namespace
 from galpy.util import _rotate_to_arbitrary_vector, coords
 
 try:
@@ -6803,9 +6803,11 @@ def test_DiskSCFPotential_againstDoubleExp():
     dscfp = potential.DiskSCFPotential(
         dens=lambda R, z: dp.dens(R, z),
         Sigma_amp=1.0,
-        Sigma=lambda R: numpy.exp(-3.0 * R),
-        dSigmadR=lambda R: -3.0 * numpy.exp(-3.0 * R),
-        d2SigmadR2=lambda R: 9.0 * numpy.exp(-3.0 * R),
+        # namespace-agnostic so the same fixture runs under --jit; xp.exp IS
+        # numpy.exp on the numpy path, so eager values are unchanged
+        Sigma=lambda R: get_namespace(R).exp(-3.0 * R),
+        dSigmadR=lambda R: -3.0 * get_namespace(R).exp(-3.0 * R),
+        d2SigmadR2=lambda R: 9.0 * get_namespace(R).exp(-3.0 * R),
         hz={"type": "exp", "h": 1.0 / 27.0},
         a=1.0,
         N=10,
@@ -12038,32 +12040,63 @@ class altExpwholeDiskSCFPotential(DiskSCFPotential):
         return None
 
 
+def _exp_disk_profile_callables(thp):
+    """dens/Sigma/hz callables shared by the nonaxi DiskSCF and
+    DiskMultipoleExpansion mocks, written namespace-agnostically.
+
+    These are USER-supplied callables. galpy traces whatever the user hands it,
+    so a numpy-only lambda cannot be traced -- that is correct behaviour, not a
+    galpy gap. Resolving the namespace from the argument keeps the numpy path
+    byte-identical (``xp.exp`` IS ``numpy.exp`` for numpy input) while letting
+    the same fixture run under ``--jit``.
+    """
+    from galpy.backend import get_namespace
+
+    def dens(R, z, phi):
+        xp = get_namespace(R, z)
+        return 13.5 * xp.exp(-3.0 * R) * xp.exp(-27.0 * xp.abs(z)) + thp.dens(
+            R, z, phi=phi
+        )
+
+    def sigma(R):
+        return get_namespace(R).exp(-3.0 * R)
+
+    def dsigmadr(R):
+        return -3.0 * get_namespace(R).exp(-3.0 * R)
+
+    def d2sigmadr2(R):
+        return 9.0 * get_namespace(R).exp(-3.0 * R)
+
+    def hz(z):
+        xp = get_namespace(z)
+        return 13.5 * xp.exp(-27.0 * xp.abs(z))
+
+    def Hz(z):
+        xp = get_namespace(z)
+        return (xp.exp(-27.0 * xp.abs(z)) - 1.0 + 27.0 * xp.abs(z)) / 54.0
+
+    def dHzdz(z):
+        xp = get_namespace(z)
+        return 0.5 * xp.sign(z) * (1.0 - xp.exp(-27.0 * xp.abs(z)))
+
+    return dict(
+        dens=dens,
+        Sigma_amp=[0.5, 0.5],
+        Sigma=[sigma, sigma],
+        dSigmadR=[dsigmadr, dsigmadr],
+        d2SigmadR2=[d2sigmadr2, d2sigmadr2],
+        hz=hz,
+        Hz=Hz,
+        dHzdz=dHzdz,
+    )
+
+
 class nonaxiDiskSCFPotential(DiskSCFPotential):
     def __init__(self):
         thp = triaxialHernquistPotential()
         DiskSCFPotential.__init__(
             self,
-            dens=lambda R, z, phi: (
-                13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
-                + thp.dens(R, z, phi=phi)
-            ),
-            Sigma_amp=[0.5, 0.5],
-            Sigma=[lambda R: numpy.exp(-3.0 * R), lambda R: numpy.exp(-3.0 * R)],
-            dSigmadR=[
-                lambda R: -3.0 * numpy.exp(-3.0 * R),
-                lambda R: -3.0 * numpy.exp(-3.0 * R),
-            ],
-            d2SigmadR2=[
-                lambda R: 9.0 * numpy.exp(-3.0 * R),
-                lambda R: 9.0 * numpy.exp(-3.0 * R),
-            ],
-            hz=lambda z: 13.5 * numpy.exp(-27.0 * numpy.fabs(z)),
-            Hz=lambda z: (
-                (numpy.exp(-27.0 * numpy.fabs(z)) - 1.0 + 27.0 * numpy.fabs(z)) / 54.0
-            ),
-            dHzdz=lambda z: (
-                0.5 * numpy.sign(z) * (1.0 - numpy.exp(-27.0 * numpy.fabs(z)))
-            ),
+            **_exp_disk_profile_callables(thp),
             N=5,
             L=5,
         )
@@ -12115,27 +12148,7 @@ class nonaxiDiskMultipoleExpansionPotential(DiskMultipoleExpansionPotential):
         thp = triaxialHernquistPotential()
         DiskMultipoleExpansionPotential.__init__(
             self,
-            dens=lambda R, z, phi: (
-                13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
-                + thp.dens(R, z, phi=phi)
-            ),
-            Sigma_amp=[0.5, 0.5],
-            Sigma=[lambda R: numpy.exp(-3.0 * R), lambda R: numpy.exp(-3.0 * R)],
-            dSigmadR=[
-                lambda R: -3.0 * numpy.exp(-3.0 * R),
-                lambda R: -3.0 * numpy.exp(-3.0 * R),
-            ],
-            d2SigmadR2=[
-                lambda R: 9.0 * numpy.exp(-3.0 * R),
-                lambda R: 9.0 * numpy.exp(-3.0 * R),
-            ],
-            hz=lambda z: 13.5 * numpy.exp(-27.0 * numpy.fabs(z)),
-            Hz=lambda z: (
-                (numpy.exp(-27.0 * numpy.fabs(z)) - 1.0 + 27.0 * numpy.fabs(z)) / 54.0
-            ),
-            dHzdz=lambda z: (
-                0.5 * numpy.sign(z) * (1.0 - numpy.exp(-27.0 * numpy.fabs(z)))
-            ),
+            **_exp_disk_profile_callables(thp),
             L=5,
         )
         return None
