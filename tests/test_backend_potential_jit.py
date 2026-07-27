@@ -21,26 +21,13 @@
 # Expect siblings here only if some other object type needs a comparable
 # fast always-on check of its own (test_backend_orbit_jit.py, ...).
 ###############################################################################
-import atexit
-import os
-import shutil
-import tempfile
-
 import numpy
 import pytest
 
 pytestmark = pytest.mark.backend_managed
 
-# torch.compile caches generated kernels on DISK, and that cache decides the
-# verdict here: with it warm, potentials that fail a cold compile can pass, so
-# the same code gives different burndown lists on consecutive runs. Concurrent
-# xdist workers additionally collide in the shared directory, which surfaces as
-# an InductorError wrapping an ImportError on a half-written .so. Give every run
-# -- and every worker -- a private, empty cache, so what is measured is always
-# the cold compile a user actually hits. Must be set before torch is imported.
-_cache_dir = tempfile.mkdtemp(prefix="torchinductor_galpy_")
-os.environ["TORCHINDUCTOR_CACHE_DIR"] = _cache_dir
-atexit.register(shutil.rmtree, _cache_dir, True)
+# NB: the private TORCHINDUCTOR_CACHE_DIR that makes every compile below a COLD
+# one is set in conftest.py, which pytest imports before this module.
 
 try:
     import jax
@@ -66,17 +53,9 @@ if torch is not None:
     torch._dynamo.config.cache_size_limit = 4096
     torch._dynamo.config.accumulated_cache_size_limit = 8192
 
-if torch is not None:  # pragma: no cover - depends on the interpreter version
-    # torch.compile trails the Python release (dynamo refuses to run on a Python
-    # it does not support yet), so probe the capability rather than assuming that
-    # `import torch` implies it. CI runs this shard on 3.10 through 3.14.
-    try:
-        torch.compile(lambda x: x + 1.0, fullgraph=True)(torch.tensor(1.0))
-        _TORCH_COMPILES = True
-    except Exception:
-        _TORCH_COMPILES = False
-else:  # pragma: no cover
-    _TORCH_COMPILES = False
+from conftest import torch_compiles
+
+_TORCH_COMPILES = torch_compiles()
 
 import galpy.potential as gp
 from galpy.potential import Potential
@@ -94,21 +73,10 @@ _ENTRY = {
 
 # (potential, entry, backend) that cannot be traced yet, with the failure mode.
 # Shrink this list; do not grow it without a stated reason.
-_NOT_TRACEABLE = {
-    # Same root cause as the TwoPowerSpherical entry below, and newly EXPOSED
-    # (not caused) by routing _psi through the backend hyp2f1: scipy's hyp2f1
-    # converts a traced value to numpy, so the backend router is required for
-    # jax -- and under inductor that router's own xp.where evaluates a singular
-    # dead side, giving inf where eager is finite. Fixing the router's
-    # dead-branch guards removes BOTH of these entries; tracked separately so
-    # this PR stays scoped to the two potentials.
-    ("TwoPowerTriaxialPotential", "__call__", "torch"),
-    # Compiles, but returns inf where eager returns -0.1979: the compiled graph
-    # evaluates the DEAD side of an xp.where (the alpha/beta special-case
-    # branch), which is singular at these parameters. Same hazard as the
-    # AD-NaN-poisoning one, surfacing through inductor instead of a gradient.
-    ("TwoPowerSphericalPotential", "__call__", "torch"),
-}
+# EMPTY: every default-constructible potential in the zoo now traces under both
+# jax.jit and torch.compile, on all four entry points. Keep it that way -- a new
+# entry here is a regression, not a TODO, unless it comes with a stated reason.
+_NOT_TRACEABLE = set()
 
 
 def _default_constructible():
