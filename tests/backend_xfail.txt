@@ -278,72 +278,41 @@ torch tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
 torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
 
 # --- jax-jit: the suite run TRACED (pytest --backend jax --jit) ---
-# Baseline for tests/test_potential.py, 2026-07-25: 100 of ~1300 tests fail
-# under jax.jit that pass eager, i.e. ~92% of the potential suite already runs
-# fully traced. They cluster by potential, not by test: RazorThinExponentialDisk
-# and TwoPowerTriaxial (data-dependent Python branch / numpy conversion of a
-# tracer -- the same two the boundary-jit file lists), and the
-# Multipole/SCF/interp families. Fixing those potentials clears most of this
-# list at once. Only reachable via workflow_dispatch(jit=true); shrink it.
+# tests/test_potential.py, 2026-07-26: 49 of ~1300 tests fail under jax.jit that
+# pass eager (down from a 100-entry baseline on 2026-07-25), i.e. ~96% of the
+# potential suite already runs fully traced. They cluster by potential, not by
+# test. Cleared so far: RazorThinExponentialDisk and TwoPowerTriaxial (the two
+# the boundary-jit file used to list -- that file's _NOT_TRACEABLE is now empty)
+# and the log spirals. What remains:
+#   * Multipole / SCF (nonaxiDisk*)         ~12
+#   * noGL NFW / Triaxial                    ~8  -- these integrate with
+#     scipy.integrate.quad, which is untraceable by construction rather than by
+#     a stray numpy call; needs galpy.backend.quadrature.quad, whose dispatch
+#     follows the LIMITS and args, so the coordinates must be threaded through
+#     args= rather than captured in the integrand's closure.
+#   * AnyAxisymmetricRazorThinDisk           ~4  -- separate _bk_dispatch path
+#   * long tail                             ~25
+# Only reachable via workflow_dispatch(jit=true); shrink it.
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[RazorThinExponentialDiskPotential]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[SteadyLogSpiralPotential]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[TransientLogSpiralPotential]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[mockSteadyLogSpiralPotentialT1]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[mockSteadyLogSpiralPotentialTm1Omega0]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[mockSteadyLogSpiralPotentialTm1]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[mockSteadyLogSpiralPotentialTm5]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[mockTransientLogSpiralPotential]
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[nonaxiDiskMultipoleExpansionPotential]
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[oblatenoGLNFWPotential]
 jax-jit tests/test_potential.py::test_Cautun20
-jax-jit tests/test_potential.py::test_DehnenBar_special
 jax-jit tests/test_potential.py::test_DehnenBinney98
 jax-jit tests/test_potential.py::test_DiskSCFPotential_againstDoubleExp
 jax-jit tests/test_potential.py::test_ExpDisk_special
-jax-jit tests/test_potential.py::test_ExpTruncNFW_smallr_series_c
-jax-jit tests/test_potential.py::test_InterpSnapshotRZPotential_pickling
 jax-jit tests/test_potential.py::test_McMillan17
-jax-jit tests/test_potential.py::test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d_dxdv
-jax-jit tests/test_potential.py::test_amp_mult_divide[HernquistTwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_amp_mult_divide[JaffeTwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_amp_mult_divide[NFWTwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_amp_mult_divide[RazorThinExponentialDiskPotential]
-jax-jit tests/test_potential.py::test_amp_mult_divide[TwoPowerTriaxialPotential]
 jax-jit tests/test_potential.py::test_amp_mult_divide[fullyRotatednoGLTriaxialNFWPotential]
-jax-jit tests/test_potential.py::test_amp_mult_divide[mockInterpSnapshotRZPotential]
-jax-jit tests/test_potential.py::test_amp_mult_divide[mockTimeDependentMultipoleExpansionPotential]
 jax-jit tests/test_potential.py::test_amp_mult_divide[nonaxiDiskMultipoleExpansionPotential]
 jax-jit tests/test_potential.py::test_amp_mult_divide[nonaxiDiskSCFPotential]
 jax-jit tests/test_potential.py::test_amp_mult_divide[oblatenoGLNFWPotential]
-jax-jit tests/test_potential.py::test_dehnen_bar_python_c_consistency
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[RazorThinExponentialDiskPotential]
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[SteadyLogSpiralPotential]
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[TransientLogSpiralPotential]
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[mockSteadyLogSpiralPotentialT1]
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[mockSteadyLogSpiralPotentialTm1Omega0]
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[mockSteadyLogSpiralPotentialTm1]
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[mockSteadyLogSpiralPotentialTm5]
-jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[mockTransientLogSpiralPotential]
 jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[nonaxiDiskMultipoleExpansionPotential]
 jax-jit tests/test_potential.py::test_evaluateAndDerivs_potential[nonaxiDiskSCFPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[HernquistTwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[JaffeTwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[NFWTwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[RazorThinExponentialDiskPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[TwoPowerTriaxialPotential]
 jax-jit tests/test_potential.py::test_forceAsDeriv_potential[fullyRotatednoGLTriaxialNFWPotential]
-jax-jit tests/test_potential.py::test_forceAsDeriv_potential[mockInterpSnapshotRZPotential]
 jax-jit tests/test_potential.py::test_forceAsDeriv_potential[nonaxiDiskMultipoleExpansionPotential]
 jax-jit tests/test_potential.py::test_forceAsDeriv_potential[nonaxiDiskSCFPotential]
 jax-jit tests/test_potential.py::test_forceAsDeriv_potential[oblatenoGLNFWPotential]
-jax-jit tests/test_potential.py::test_integration_RotateAndTiltWrapper
-jax-jit tests/test_potential.py::test_integration_RotateAndTiltWrapper_timedependent_forcecache
-jax-jit tests/test_potential.py::test_mass_spher_z
 jax-jit tests/test_potential.py::test_mass_spheroidal
-jax-jit tests/test_potential.py::test_normalize_potential[RazorThinExponentialDiskPotential]
 jax-jit tests/test_potential.py::test_plotting
-jax-jit tests/test_potential.py::test_poisson_potential[RazorThinExponentialDiskPotential]
 jax-jit tests/test_potential.py::test_poisson_potential[nonaxiDiskMultipoleExpansionPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[BurkertPotential]
@@ -364,24 +333,12 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndT
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[testMWPotential]
-jax-jit tests/test_potential.py::test_potential_array_input[TwoPowerTriaxialPotential]
 jax-jit tests/test_potential.py::test_potential_at_infinity[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_potential_at_infinity[mockMultipoleExpansionAxiPotential]
 jax-jit tests/test_potential.py::test_potential_at_infinity[nonaxiDiskMultipoleExpansionPotential]
 jax-jit tests/test_potential.py::test_potential_at_infinity[nonaxiDiskSCFPotential]
 jax-jit tests/test_potential.py::test_potential_at_infinity[oblatenoGLNFWPotential]
 jax-jit tests/test_potential.py::test_potential_at_zero[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_potential_at_zero[HernquistTwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_potential_at_zero[NFWTwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_potential_at_zero[TwoPowerTriaxialPotential]
 jax-jit tests/test_potential.py::test_potential_at_zero[fullyRotatednoGLTriaxialNFWPotential]
-jax-jit tests/test_potential.py::test_potential_at_zero[mockInterpSnapshotRZPotential]
 jax-jit tests/test_potential.py::test_potential_at_zero[nonaxiDiskMultipoleExpansionPotential]
 jax-jit tests/test_potential.py::test_potential_at_zero[nonaxiDiskSCFPotential]
 jax-jit tests/test_potential.py::test_potential_at_zero[oblatenoGLNFWPotential]
-jax-jit tests/test_potential.py::test_rE_powervc
-jax-jit tests/test_potential.py::test_toVertical_array[TwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_toVertical_toPlanar[DiskMultipoleExpansionPotential]
-jax-jit tests/test_potential.py::test_toVertical_toPlanar[RazorThinExponentialDiskPotential]
-jax-jit tests/test_potential.py::test_toVertical_toPlanar[TwoPowerTriaxialPotential]
-jax-jit tests/test_potential.py::test_vtermnegl_issue314

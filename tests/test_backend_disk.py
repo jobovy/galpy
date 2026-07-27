@@ -20,6 +20,7 @@ from galpy.potential import (
     KGPotential,
     KuzminDiskPotential,
     MiyamotoNagaiPotential,
+    PotentialError,
     RazorThinExponentialDiskPotential,
 )
 
@@ -581,6 +582,56 @@ def test_razorthin_public_methods_jit_traceable(method):
             atol=1e-14,
             err_msg=f"jit RazorThin.{method} at (R,z)=({R0},{z0})",
         )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_razorthin_R2deriv_domain_decidable_vs_traced():
+    # R2deriv is only defined in the plane; off-plane it raises. That is a DOMAIN
+    # check, not a vectorisation guard, so it is resolved by "decide when the
+    # domain is decidable, NaN only when it is not":
+    #   * concrete input  -> raise, exactly as before (eager contract preserved)
+    #   * traced input    -> NaN off-plane, so the method traces at all
+    # Both branches are exercised here because only the traced one reaches
+    # `xp.where`, and only the concrete one reaches the raise.
+    R0 = 1.3
+    # concrete: still raises, on plain numpy AND on a concrete jax array
+    with pytest.raises((AttributeError, PotentialError)):
+        _RAZOR.R2deriv(R0, 0.5)
+    with pytest.raises((AttributeError, PotentialError)):
+        _RAZOR._R2deriv(jnp.asarray(R0), jnp.asarray(0.5))
+    # traced: in-plane matches eager, off-plane is NaN
+    jitted = jax.jit(lambda R, z: _RAZOR._R2deriv(R, z))
+    inplane = float(jitted(jnp.asarray(R0), jnp.asarray(0.0)))
+    numpy.testing.assert_allclose(
+        inplane, float(_RAZOR._R2deriv(R0, 0.0)), rtol=1e-11, atol=1e-14
+    )
+    assert numpy.isnan(float(jitted(jnp.asarray(R0), jnp.asarray(0.5))))
+    # and elementwise on a mixed array: in-plane entries keep their value
+    mixed = as_numpy(
+        jax.jit(lambda R, z: _RAZOR._R2deriv(R, z))(
+            jnp.asarray([R0, R0]), jnp.asarray([0.0, 0.5])
+        )
+    )
+    numpy.testing.assert_allclose(mixed[0], inplane, rtol=1e-11, atol=1e-14)
+    assert numpy.isnan(mixed[1])
+
+
+def test_has_concrete_truth_value_is_false_only_under_a_trace():
+    # The helper behind the domain check above. A concrete 0-d value has a truth
+    # value; a tracer does not. Pinning both directions keeps the domain check
+    # from silently degrading to "always NaN" (which would hide bad input) or
+    # "always raise" (which would stop it tracing).
+    from galpy.backend import has_concrete_truth_value
+
+    assert has_concrete_truth_value(numpy.asarray(True))
+    assert has_concrete_truth_value(False)
+    if "jax" in BACKENDS:
+        assert has_concrete_truth_value(jnp.asarray(True))
+        seen = []
+        jax.jit(lambda x: seen.append(has_concrete_truth_value(x < 1.0)) or x)(
+            jnp.asarray(0.5)
+        )
+        assert seen == [False], "a tracer must report no concrete truth value"
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
