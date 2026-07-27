@@ -11,6 +11,7 @@
 import numpy
 import pytest
 import scipy.special as scipy_special
+from conftest import torch_compiles
 
 from galpy.backend import as_numpy
 from galpy.backend import special as gsp
@@ -41,6 +42,7 @@ except ImportError:  # pragma: no cover
     torch = None
 
 AD_BACKENDS = [b for b in BACKENDS if b != "numpy"]
+_TORCH_COMPILES = torch_compiles()
 
 
 def _asarray(backend, x, requires_grad=False):
@@ -282,7 +284,10 @@ def test_hyp2f1_value_parity(backend, a, b, c):
     z = -_HYP2F1_W
     ref = scipy_special.hyp2f1(a, b, c, z)
     got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
-    rtol = 0.0 if backend == "numpy" else 1e-9  # fallback quadrature at r/a<~50
+    # numpy routes to scipy itself (exact); the jax/torch fallback quadrature
+    # measures 1.35e-14 worst-case over this grid, so 1e-12 keeps ~70x headroom
+    # for libm differences across platforms while still pinning real accuracy.
+    rtol = 0.0 if backend == "numpy" else 1e-12
     numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-10)
 
 
@@ -295,6 +300,27 @@ def test_hyp2f1_extreme_z_bounded_error(backend, a, b, c):
     ref = scipy_special.hyp2f1(a, b, c, z)
     got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-4, atol=1e-8)
+
+
+@pytest.mark.skipif("'torch' not in BACKENDS or not _TORCH_COMPILES")
+@pytest.mark.parametrize("a,b,c", _HYP2F1_CASES, ids=[str(x) for x in _HYP2F1_CASES])
+def test_hyp2f1_survives_inductor_fusion(a, b, c):
+    # Regression: inductor's FUSED expm1 (unlike its standalone one, which is
+    # exact) degenerates to exp(x)-1 for tiny arguments and returns 0 there. The
+    # fallback's first quadrature node sits at XL ~ 1e-49, so T became 0, then
+    # T**(B-1) with B-1 < 0 became inf, and the whole quadrature was inf -- at
+    # EVERY z, not just extreme ones. That made TwoPowerSpherical/-Triaxial
+    # compile to inf while eager was correct, i.e. SILENTLY wrong output rather
+    # than an error. Compare compiled against scipy, not merely against eager,
+    # so a regression that breaks both paths at once still fails.
+    z = -_HYP2F1_W
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    compiled = torch.compile(
+        lambda zz: gsp.hyp2f1(a, b, c, zz), fullgraph=False, dynamic=False
+    )
+    got = as_numpy(compiled(_asarray("torch", z)))
+    assert numpy.all(numpy.isfinite(got)), "inductor reintroduced the inf blow-up"
+    numpy.testing.assert_allclose(got, ref, rtol=1e-9, atol=1e-10)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
