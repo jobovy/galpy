@@ -142,36 +142,40 @@ class TransientLogSpiralPotential(planarPotential):
         )
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
-        chi = self._alpha * numpy.log(R) - self._m * (
-            phi - self._omegas * t - self._gamma
-        )
+        xp = get_namespace(R, phi, t)
+        R, phi = coerce_coords(xp, R, phi)
+        chi = self._alpha * xp.log(R) - self._m * (phi - self._omegas * t - self._gamma)
         return (
             self._A
-            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            * self._envelope(t)
             / R**2.0
-            * (numpy.sin(chi) - self._alpha * numpy.cos(chi))
+            * (xp.sin(chi) - self._alpha * xp.cos(chi))
         )
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):
+        xp = get_namespace(R, phi, t)
+        R, phi = coerce_coords(xp, R, phi)
         return (
             -self._A
-            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            * self._envelope(t)
             / self._alpha
             * self._m**2.0
-            * numpy.cos(
-                self._alpha * numpy.log(R)
+            * xp.cos(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
 
     def _Rphideriv(self, R, phi=0.0, t=0.0):
+        xp = get_namespace(R, phi, t)
+        R, phi = coerce_coords(xp, R, phi)
         return (
             self._A
-            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            * self._envelope(t)
             * self._m
             / R
-            * numpy.cos(
-                self._alpha * numpy.log(R)
+            * xp.cos(
+                self._alpha * xp.log(R)
                 - self._m * (phi - self._omegas * t - self._gamma)
             )
         )
