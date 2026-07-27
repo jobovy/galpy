@@ -87,7 +87,15 @@ def hyp2f1_fallback(xp, a, b, c, z):
     L = xp.log1p(w_for_int)[..., None]  # (..., 1)
     wb = w_for_int[..., None]
     XL = X * L  # (..., N)
-    T = xp.expm1(XL) / wb
+    # T = expm1(XL)/|z|, but X = xi^k puts the first node at XL ~ 1e-49, where
+    # inductor's FUSED expm1 (its standalone one is exact) degenerates to
+    # exp(x)-1 and returns 0; T**(B-1) with B < 1 is then inf and poisons the
+    # quadrature at EVERY z. Factor out expm1(u)/u -> 1 and series it below the
+    # crossover instead, so nothing tiny ever reaches expm1.
+    small = XL < 1e-8
+    u_safe = xp.where(small, xp.ones_like(XL), XL)
+    ratio = xp.where(small, 1.0 + XL / 2.0 + XL**2.0 / 6.0, xp.expm1(u_safe) / u_safe)
+    T = XL * ratio / wb
     dt = xp.exp(XL) * L / wb
     integ = T ** (B - 1.0) * (1.0 - T) ** (q - 1.0) * (1.0 + wb * T) ** (-A) * dt * dX
     val_int = pref * xp.sum(integ * wg, axis=-1)
