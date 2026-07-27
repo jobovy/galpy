@@ -358,14 +358,19 @@ class actionAngleVertical(actionAngle):
 
         lim = xp.sqrt(xmax)
 
-        def integrand(s):  # s: (n,) -> (N, n); t = lim*s, x = xmax - t^2
-            t = lim[:, None] * s[None, :]
-            xi = xmax[:, None] - t**2.0
+        def integrand(s):  # s: (n,) -> (..., n); t = lim*s, x = xmax - t^2
+            # `...` not `:` so a 0-d xmax/E works too: under a trace a scalar
+            # input stays 0-d, and `[:, None]` on 0-d raises IndexError. The
+            # nodes broadcast on a NEW TRAILING axis that fixed_quad reduces
+            # (axis=-1), so the input shape is preserved either way.
+            t = lim[..., None] * s
+            xi = xmax[..., None] - t**2.0
             rad = 2.0 * (
-                E[:, None] - evaluatelinearPotentials(self._pot, xi, use_physical=False)
+                E[..., None]
+                - evaluatelinearPotentials(self._pot, xi, use_physical=False)
             )
             rad = xp.where(rad > 0.0, rad, xp.zeros_like(rad))  # clip (AD guard)
-            return xp.sqrt(rad) * 2.0 * t * lim[:, None]  # dx = 2t dt, dt = lim ds
+            return xp.sqrt(rad) * 2.0 * t * lim[..., None]  # dx = 2t dt, dt = lim ds
 
         # device=: scalar limits, so anchor the GL nodes on the input device (xmax)
         # -- else torch raises on CUDA input. No-op on numpy (device_of -> None).
@@ -384,13 +389,14 @@ class actionAngleVertical(actionAngle):
         lim = xp.sqrt(xmax)
 
         def integrand(s):
-            t = lim[:, None] * s[None, :]
-            xi = xmax[:, None] - t**2.0
+            t = lim[..., None] * s
+            xi = xmax[..., None] - t**2.0
             rad = 2.0 * (
-                E[:, None] - evaluatelinearPotentials(self._pot, xi, use_physical=False)
+                E[..., None]
+                - evaluatelinearPotentials(self._pot, xi, use_physical=False)
             )
             rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))  # 2t->0 there anyway
-            return 2.0 * t / xp.sqrt(rad) * lim[:, None]
+            return 2.0 * t / xp.sqrt(rad) * lim[..., None]
 
         return (
             numpy.pi
@@ -415,13 +421,14 @@ class actionAngleVertical(actionAngle):
         span = hi - lo
 
         def integrand(s):  # t = lo + span*s, xi = xmax - t^2
-            t = lo[:, None] + span[:, None] * s[None, :]
-            xi = xmax[:, None] - t**2.0
+            t = lo[..., None] + span[..., None] * s
+            xi = xmax[..., None] - t**2.0
             rad = 2.0 * (
-                E[:, None] - evaluatelinearPotentials(self._pot, xi, use_physical=False)
+                E[..., None]
+                - evaluatelinearPotentials(self._pot, xi, use_physical=False)
             )
             rad = xp.where(rad > 0.0, rad, xp.ones_like(rad))
-            return 2.0 * t / xp.sqrt(rad) * span[:, None]  # dx = 2t dt, dt = span ds
+            return 2.0 * t / xp.sqrt(rad) * span[..., None]  # dx = 2t dt, dt = span ds
 
         angle = Omega * fixed_quad(
             xp, integrand, 0.0, 1.0, n=_BACKEND_GL_ORDER, device=device_of(xmax)
