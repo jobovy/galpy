@@ -20,6 +20,7 @@ from ..backend import (
     get_namespace,
     is_backend_array,
 )
+from ..backend.quadrature import quad as bquad
 from ..util import _rotate_to_arbitrary_vector, conversion
 from .Potential import Potential
 
@@ -478,15 +479,20 @@ def _gl_node_factors(xp, ref, glx, glw, b2, c2):
 def _potInt(x, y, z, psi, b2, c2, xp=numpy, glx=None, glw=None):
     r"""int_0^\infty [psi(m)-psi(\infy)]/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau"""
 
-    def integrand(s):
+    def integrand(s, x=x, y=y, z=z):
         t = 1 / s**2.0 - 1.0
         return psi(
-            numpy.sqrt(x**2.0 / (1.0 + t) + y**2.0 / (b2 + t) + z**2.0 / (c2 + t))
-        ) / numpy.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
+            xp.sqrt(x**2.0 / (1.0 + t) + y**2.0 / (b2 + t) + z**2.0 / (c2 + t))
+        ) / xp.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
 
     if glx is None:
-        # scipy.integrate fallback (glorder=None): numpy-only, deferred to Pspecial
-        return integrate.quad(integrand, 0.0, 1.0)[0]
+        # glorder=None: adaptive quadrature. bquad delegates to
+        # scipy.integrate.quad for numpy (byte-identical) and uses fixed-order
+        # Gauss-Legendre for jax/torch, which scipy's adaptive quad cannot be:
+        # it drives a Python callable with concrete floats. Coordinates go
+        # through args= (not just the closure) because bquad's dispatch follows
+        # the limits and args.
+        return bquad(integrand, 0.0, 1.0, args=(x, y, z))
     if is_backend_array(x) or is_backend_array(y) or is_backend_array(z):
         # Backend (jax/torch): evaluate all nglx nodes at once on a trailing node
         # axis (psi broadcasts) -> one xp.sum, collapsing the nglx-copy Python
@@ -510,23 +516,22 @@ def _potInt(x, y, z, psi, b2, c2, xp=numpy, glx=None, glw=None):
     return result
 
 
-def _forceInt(x, y, z, dens, b2, c2, i):
-    """Force integral fallback using scipy.integrate.quad (scalar inputs only).
-    Used by _forceInt_all when glorder is None."""
+def _forceInt(x, y, z, dens, b2, c2, i, xp=numpy):
+    """Force integral for glorder=None (see _potInt for the bquad rationale)."""
 
-    def integrand(s):
+    def integrand(s, x=x, y=y, z=z):
         t = 1 / s**2.0 - 1.0
         return (
-            dens(numpy.sqrt(x**2.0 / (1.0 + t) + y**2.0 / (b2 + t) + z**2.0 / (c2 + t)))
+            dens(xp.sqrt(x**2.0 / (1.0 + t) + y**2.0 / (b2 + t) + z**2.0 / (c2 + t)))
             * (
                 x / (1.0 + t) * (i == 0)
                 + y / (b2 + t) * (i == 1)
                 + z / (c2 + t) * (i == 2)
             )
-            / numpy.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
+            / xp.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
         )
 
-    return integrate.quad(integrand, 0.0, 1.0)[0]
+    return bquad(integrand, 0.0, 1.0, args=(x, y, z))
 
 
 def _forceInt_all(x, y, z, dens, b2, c2, xp=numpy, glx=None, glw=None):
@@ -534,9 +539,9 @@ def _forceInt_all(x, y, z, dens, b2, c2, xp=numpy, glx=None, glw=None):
     if glx is None:
         # scipy.integrate fallback (glorder=None): numpy-only, deferred to Pspecial
         return (
-            _forceInt(x, y, z, dens, b2, c2, 0),
-            _forceInt(x, y, z, dens, b2, c2, 1),
-            _forceInt(x, y, z, dens, b2, c2, 2),
+            _forceInt(x, y, z, dens, b2, c2, 0, xp),
+            _forceInt(x, y, z, dens, b2, c2, 1, xp),
+            _forceInt(x, y, z, dens, b2, c2, 2, xp),
         )
     if is_backend_array(x) or is_backend_array(y) or is_backend_array(z):
         # Backend: all nglx nodes at once (see _potInt); numpy keeps the loop.
@@ -570,13 +575,12 @@ def _forceInt_all(x, y, z, dens, b2, c2, xp=numpy, glx=None, glw=None):
     return Fx, Fy, Fz
 
 
-def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j):
-    """2nd-derivative integral fallback using scipy.integrate.quad (scalar inputs
-    only). Used by _2ndDerivInt_all when glorder is None."""
+def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j, xp=numpy):
+    """2nd-derivative integral for glorder=None (see _potInt for the rationale)."""
 
-    def integrand(s):
+    def integrand(s, x=x, y=y, z=z):
         t = 1 / s**2.0 - 1.0
-        m = numpy.sqrt(x**2.0 / (1.0 + t) + y**2.0 / (b2 + t) + z**2.0 / (c2 + t))
+        m = xp.sqrt(x**2.0 / (1.0 + t) + y**2.0 / (b2 + t) + z**2.0 / (c2 + t))
         return (
             densDeriv(m)
             * (
@@ -597,9 +601,9 @@ def _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, i, j):
                 + 1.0 / (b2 + t) * (i == 1)
                 + 1.0 / (c2 + t) * (i == 2)
             )
-        ) / numpy.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
+        ) / xp.sqrt((1.0 + (b2 - 1.0) * s**2.0) * (1.0 + (c2 - 1.0) * s**2.0))
 
-    return integrate.quad(integrand, 0.0, 1.0)[0]
+    return bquad(integrand, 0.0, 1.0, args=(x, y, z))
 
 
 def _2ndDerivInt_all(x, y, z, dens, densDeriv, b2, c2, xp=numpy, glx=None, glw=None):
@@ -608,12 +612,12 @@ def _2ndDerivInt_all(x, y, z, dens, densDeriv, b2, c2, xp=numpy, glx=None, glw=N
     if glx is None:
         # scipy.integrate fallback (glorder=None): numpy-only, deferred to Pspecial
         return (
-            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 0, 0),
-            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 0, 1),
-            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 0, 2),
-            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 1, 1),
-            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 1, 2),
-            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 2, 2),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 0, 0, xp),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 0, 1, xp),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 0, 2, xp),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 1, 1, xp),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 1, 2, xp),
+            _2ndDerivInt(x, y, z, dens, densDeriv, b2, c2, 2, 2, xp),
         )
     if is_backend_array(x) or is_backend_array(y) or is_backend_array(z):
         # Backend: all nglx nodes at once (see _potInt); numpy keeps the loop.
