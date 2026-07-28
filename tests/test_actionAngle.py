@@ -59,7 +59,7 @@ def test_actionAngleHarmonic_linear_angles():
     acfs = tuple(
         as_numpy(a) for a in aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
     )
-    angle = dePeriod(numpy.reshape(acfs[2], (1, len(times)))).flatten()
+    angle = as_numpy(dePeriod(numpy.reshape(acfs[2], (1, len(times))))).flatten()
     # Do linear fit to the angle, check that deviations are small, check
     # that the slope is the frequency
     linfit = numpy.polyfit(times, angle, 1)
@@ -228,7 +228,7 @@ def test_actionAngleVertical_linear_angles():
     obs.integrate(times, isopot)
     acfs_init = aAV.actionsFreqsAngles(obs.x(), obs.vx())  # to check the init. angles
     acfs = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
-    angle = dePeriod(numpy.reshape(acfs[2], (1, len(times)))).flatten()
+    angle = as_numpy(dePeriod(numpy.reshape(acfs[2], (1, len(times))))).flatten()
     # Do linear fit to the angle, check that deviations are small, check
     # that the slope is the frequency
     linfit = numpy.polyfit(times, angle, 1)
@@ -8591,9 +8591,9 @@ def check_actionAngle_linear_angles(
     # backend; bring them to numpy for the reductions below (identity on numpy).
     acfs = tuple(as_numpy(a) for a in acfs)
     acfs_init = tuple(as_numpy(a) for a in acfs_init)
-    ar = dePeriod(numpy.reshape(acfs[6], (1, len(times)))).flatten()
-    ap = dePeriod(numpy.reshape(acfs[7], (1, len(times)))).flatten()
-    az = dePeriod(numpy.reshape(acfs[8], (1, len(times)))).flatten()
+    ar = as_numpy(dePeriod(numpy.reshape(acfs[6], (1, len(times))))).flatten()
+    ap = as_numpy(dePeriod(numpy.reshape(acfs[7], (1, len(times))))).flatten()
+    az = as_numpy(dePeriod(numpy.reshape(acfs[8], (1, len(times))))).flatten()
     # Do linear fit to radial angle, check that deviations are small, check
     # that the slope is the frequency
     if acfs_init[6].ndim > 0:

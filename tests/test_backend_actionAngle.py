@@ -2375,3 +2375,41 @@ def test_isochroneapprox_plot_forced_backend(backend):
             aAIA.plot(obs, type="azaphi", deperiod=True, downsample=True)
     finally:
         pyplot.close("all")
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_dePeriod_backend_matches_numpy(backend):
+    """dePeriod runs ON the backend and reproduces the original formula exactly.
+
+    One implementation now serves both paths, so this pins what collapsing them
+    could break: the result is a backend array (not silently converted to numpy
+    en route), and both paths equal the pre-migration numpy formula bit-for-bit
+    on data where the -2pi wraps actually fire. Steps are kept well under the
+    -6.0 detection threshold so every wrap registers -- with larger steps a wrap
+    produces a jump of only 2pi - step, which the threshold misses.
+    """
+    import galpy.backend as gb
+    from galpy.actionAngle import dePeriod
+
+    rng = numpy.random.default_rng(20260727)
+    arr = numpy.mod(
+        numpy.cumsum(rng.uniform(0.02, 0.2, size=(3, 900)), axis=1), 2.0 * numpy.pi
+    )
+    wrapped = (arr - numpy.roll(arr, 1, axis=1)) < -6.0
+    nwrap = int(wrapped.sum())
+    assert nwrap > 20, f"test data must exercise the wrap branch, got {nwrap}"
+    # the pre-migration implementation, spelled out as the reference
+    expected = arr + 2.0 * numpy.pi * numpy.cumsum(wrapped.astype(int), axis=1)
+
+    assert numpy.array_equal(dePeriod(arr), expected), (
+        "numpy path is not byte-identical"
+    )
+
+    with gb.use(backend, force=True):
+        got = dePeriod(arr)
+        assert gb.is_backend_array(got), (
+            "dePeriod fell back to numpy under a forced backend"
+        )
+    assert numpy.array_equal(as_numpy(got), expected), (
+        f"max |backend - numpy| = {numpy.abs(as_numpy(got) - expected).max()!r}"
+    )
