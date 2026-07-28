@@ -19,7 +19,13 @@ import warnings
 import numpy
 from numpy import linalg
 
-from ..backend import as_numpy, get_namespace, is_backend_array, promote_scalars
+from ..backend import (
+    as_numpy,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+)
 from ..backend.optimize import brentq as _backend_brentq
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -1080,17 +1086,17 @@ class actionAngleIsochroneApprox(actionAngle):
             mid = ts.shape[0] // 2
             lz = R[:, mid] * vT[:, mid]
         # angle-fit (axisymmetric): build A and solve the per-orbit least squares
-        angleRT = _backend_dePeriod(xp, xp.reshape(acfs[6], R.shape))
+        angleRT = dePeriod(xp.reshape(acfs[6], R.shape))
         acfs7 = xp.reshape(acfs[7], R.shape)
         # anglephi is decreasing for retrograde orbits -> fit 2pi-anglephi instead
         med = _backend_median(xp, acfs7 - _backend_roll1(xp, acfs7), axis=1)
         negFreqIndx = med < 0.0
         anglephiT = xp.where(
             negFreqIndx[:, None],
-            _backend_dePeriod(xp, _TWOPI - acfs7),
-            _backend_dePeriod(xp, acfs7),
+            dePeriod(_TWOPI - acfs7),
+            dePeriod(acfs7),
         )
-        angleZT = _backend_dePeriod(xp, xp.reshape(acfs[8], R.shape))
+        angleZT = dePeriod(xp.reshape(acfs[8], R.shape))
         nt = ts.shape[0]
         no = R.shape[0]
         nonAxi = _isNonAxi(self._pot)
@@ -1186,14 +1192,6 @@ def _backend_median(xp, arr, axis=1):
     s = xp.sort(arr, axis=axis)
     n = arr.shape[axis]
     return 0.5 * (s[:, (n - 1) // 2] + s[:, n // 2])
-
-
-def _backend_dePeriod(xp, arr):
-    """Backend dePeriod: make periodic angles increase linearly (axis=1)."""
-    diff = arr - _backend_roll1(xp, arr)
-    w = diff < -6.0
-    addto = xp.cumsum(xp.astype(w, arr.dtype), axis=1)
-    return arr + _TWOPI * addto
 
 
 @potential_physical_input
@@ -1296,7 +1294,11 @@ def estimateBIsochrone(pot, R, z, phi=None):
 
 def dePeriod(arr):
     """make an array of periodic angles increase linearly"""
-    diff = arr - numpy.roll(arr, 1, axis=1)
+    # Coerce, don't just resolve: under a forced backend get_namespace() returns
+    # that backend even for a numpy `arr`, and torch.roll rejects an ndarray.
+    xp = get_namespace(arr)
+    (arr,) = coerce_coords(xp, arr)
+    diff = arr - _backend_roll1(xp, arr)
     w = diff < -6.0
-    addto = numpy.cumsum(w.astype(int), axis=1)
+    addto = xp.cumsum(xp.astype(w, arr.dtype), axis=1)
     return arr + _TWOPI * addto
