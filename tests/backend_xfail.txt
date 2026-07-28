@@ -296,19 +296,6 @@ torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
 #   * one-offs                               ~9  -- Cautun20, DehnenBinney98,
 #     ExpDisk_special, McMillan17, mass_spheroidal, plotting, ...
 # Only reachable via workflow_dispatch(jit=true); shrink it.
-# tests/test_sphericaldf.py, 2026-07-28: `constantbetadf.fE` itself is not
-# traceable -- it still converts a tracer to numpy (constantbetadf.py:735 has an
-# `_evalpot_asnumpy` escape hatch in the general-beta integrand, the likely site).
-# Measured, not guessed: the three sibling `dehnencore_in_nfw_*` tests monkeypatch
-# `dfh.fE = lambda x: dfh._fE_interp(x)` and now PASS traced, because the f(E)
-# spline builder became backend-native; `grep -c "dfh.fE = lambda"` over the file
-# is exactly 3 and matches the flip count. The five below call the real `fE`.
-# Un-ledger when fE is migrated. Eager jax/torch and numpy are all green.
-jax-jit tests/test_sphericaldf.py::test_constantbeta_differentpotentials_dens_directint
-jax-jit tests/test_sphericaldf.py::test_constantbeta_exptruncnfw_dens_directint
-jax-jit tests/test_sphericaldf.py::test_constantbeta_selfconsist_dehnencore_dens_directint
-jax-jit tests/test_sphericaldf.py::test_constantbeta_selfconsist_dehnencore_meanvr_directint
-jax-jit tests/test_sphericaldf.py::test_constantbeta_selfconsist_dehnencore_sigmar_directint
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_Cautun20
 jax-jit tests/test_potential.py::test_DehnenBinney98
