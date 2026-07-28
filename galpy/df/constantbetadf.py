@@ -17,7 +17,7 @@ from ..backend import (
 )
 from ..backend import random as grandom
 from ..backend import resolve_namespace, use
-from ..backend.interpolate import interp_linear
+from ..backend.interpolate import Spline1D, interp_linear
 from ..backend.quadrature import fixed_quad, fixed_quad_semiinfinite
 from ..potential import evaluateRforces, interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
@@ -494,7 +494,10 @@ class constantbetadf(_constantbetadf):
                         self._alpha,
                         self._rphi(Es[indx]),
                     )
-                self._logstartt = interpolate.InterpolatedUnivariateSpline(
+                # numpy queries hit the scipy spline (byte-identical); backend
+                # queries evaluate the frozen table natively, so the traced fE
+                # path can keep its integration limits on-backend
+                self._logstartt = Spline1D(
                     Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
                 )
 
@@ -653,9 +656,10 @@ class constantbetadf(_constantbetadf):
         Ein = Ein if is_backend_array(Ein) else numpy.ascontiguousarray(Ein)
         Eb = xp.atleast_1d(xp.asarray(Ein) * 1.0)
         indx = (Eb < pinf) & (Eb >= emin)
-        # clamp out-of-bounds E for the frozen numpy interpolators (zeroed below)
-        Enp = as_numpy(xp.where(indx, Eb, xp.ones_like(Eb) * emin))
-        rphiE = xp.asarray(self._rphi(Enp)) * 1.0
+        # clamp out-of-bounds E (zeroed below); rphi/logstartt are both Spline1D,
+        # so the clamped energies stay on-backend and the limits stay traceable
+        Ecl = xp.where(indx, Eb, xp.ones_like(Eb) * emin)
+        rphiE = self._rphi(Ecl) * 1.0
         if self._halfint:
             val = self._deriv(xp, rphiE) / (
                 2.0
@@ -665,7 +669,7 @@ class constantbetadf(_constantbetadf):
             )
             return xp.where(indx, val, xp.zeros_like(val)).reshape(E.shape)
         alpha = self._alpha
-        lo = xp.asarray(10.0 ** self._logstartt(Enp)) * 1.0
+        lo = 10.0 ** self._logstartt(Ecl) * 1.0
         hi = rphiE ** (1.0 - alpha)
         Eb2 = Eb[..., None]
 
