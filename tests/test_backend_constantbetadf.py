@@ -315,6 +315,33 @@ def test_general_constantbetadf_fE_backend(backend):
         numpy.testing.assert_allclose(as_numpy(got), ref, rtol=rtol)
 
 
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_generic_fE_jit_traceable():
+    # The generic constantbetadf reads its fE integration limits off two frozen
+    # interpolators, r(Phi) and log10(startt). Both used to be queried with a
+    # concrete numpy energy (as_numpy of the clamped E), which made fE
+    # untraceable: under jax.jit that clamped energy is a tracer and the
+    # conversion raises. Both are Spline1D now, so the clamp stays on-backend.
+    # Covers both branches -- twobeta=-1 (half-integer, queries only r(Phi)) and
+    # beta=0.25 (the inversion integral, which also queries log10(startt)) --
+    # and the out-of-bounds clamp, which is the line that used to force numpy.
+    for kw in (dict(twobeta=-1), dict(beta=0.25)):
+        with galpy.backend.use("jax", force=True):
+            df = constantbetadf(pot=_DC, **kw)
+            Emin, pinf = float(df._Emin), float(df._potInf)
+            Es = numpy.concatenate(
+                [
+                    Emin + numpy.linspace(0.1, 0.9, 7) * (pinf - Emin),
+                    [pinf + 1.0, Emin - 1.0],  # out of bounds -> exactly zero
+                ]
+            )
+            eager = as_numpy(df.fE(jnp.asarray(Es)))
+            traced = as_numpy(jax.jit(df.fE)(jnp.asarray(Es)))
+        # tracing must not perturb the value: same kernel, same GL nodes
+        numpy.testing.assert_allclose(traced, eager, rtol=1e-12, atol=0.0)
+        assert numpy.all(traced[-2:] == 0.0)
+
+
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_autodiff_ops_dispatch(backend):
     # autodiff_ops returns the functional (grad, vmap) pair for the backend's
