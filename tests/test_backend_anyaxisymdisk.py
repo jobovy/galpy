@@ -384,3 +384,30 @@ def test_degenerate_guards_do_not_break_gradients_jax():
                 rels.append(abs(ad - fd) / abs(fd))
             assert rels[-1] < 1e-9, f"R={R0}: AD vs FD rel={rels[-1]:g}"
             assert rels[-1] < rels[0], f"R={R0}: no h-convergence {rels}"
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_degenerate_guards_do_not_break_gradients_torch():
+    """Same gradient check on torch: `requires_grad` also selects the GL path.
+
+    Worth having on both backends rather than trusting jax to speak for torch --
+    the guards are namespace-agnostic, so this is the assertion that says so.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    with gb.use("torch", force=True):
+        z, ph, t = torch.tensor(0.2), torch.tensor(0.0), torch.tensor(0.0)
+
+        def f(Rv):
+            return evaluatePotentials(tp, Rv, z, phi=ph, t=t)
+
+        for R0 in (0.3, 1.0, 3.0):
+            R = torch.tensor(R0, requires_grad=True)
+            f(R).backward()
+            ad = float(R.grad)
+            h = 1e-5
+            fd = float((f(torch.tensor(R0 + h)) - f(torch.tensor(R0 - h))) / (2.0 * h))
+            rel = abs(ad - fd) / abs(fd)
+            assert rel < 1e-9, f"torch R={R0}: AD vs FD rel={rel:g}"
