@@ -2948,20 +2948,24 @@ class streamdf(df):
                 > 0.0
             ):
                 ll = (
-                    dePeriod(
-                        self._interpolatedObsTrackLB[:, 0][:, numpy.newaxis].T
-                        * numpy.pi
-                        / 180.0
+                    as_numpy(
+                        dePeriod(
+                            self._interpolatedObsTrackLB[:, 0][:, numpy.newaxis].T
+                            * numpy.pi
+                            / 180.0
+                        )
                     ).T
                     * 180.0
                     / numpy.pi
                 )
             else:
                 ll = (
-                    dePeriod(
-                        self._interpolatedObsTrackLB[::-1, 0][:, numpy.newaxis].T
-                        * numpy.pi
-                        / 180.0
+                    as_numpy(
+                        dePeriod(
+                            self._interpolatedObsTrackLB[::-1, 0][:, numpy.newaxis].T
+                            * numpy.pi
+                            / 180.0
+                        )
                     ).T[::-1]
                     * 180.0
                     / numpy.pi
@@ -2974,20 +2978,24 @@ class streamdf(df):
                 > 0.0
             ):
                 bb = (
-                    dePeriod(
-                        self._interpolatedObsTrackLB[:, 1][:, numpy.newaxis].T
-                        * numpy.pi
-                        / 180.0
+                    as_numpy(
+                        dePeriod(
+                            self._interpolatedObsTrackLB[:, 1][:, numpy.newaxis].T
+                            * numpy.pi
+                            / 180.0
+                        )
                     ).T
                     * 180.0
                     / numpy.pi
                 )
             else:
                 bb = (
-                    dePeriod(
-                        self._interpolatedObsTrackLB[::-1, 1][:, numpy.newaxis].T
-                        * numpy.pi
-                        / 180.0
+                    as_numpy(
+                        dePeriod(
+                            self._interpolatedObsTrackLB[::-1, 1][:, numpy.newaxis].T
+                            * numpy.pi
+                            / 180.0
+                        )
                     ).T[::-1]
                     * 180.0
                     / numpy.pi
