@@ -16,6 +16,7 @@ import numpy
 from scipy import special
 
 from ..backend import get_namespace
+from ..backend import special as _bspecial
 from ..backend.special import hyp2f1 as _hyp2f1
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
@@ -183,8 +184,6 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
-        # Pspecial-blocked: closed-form mass requires scipy.special.hyp2f1, which
-        # has no backend-agnostic (jax/torch array-API) replacement -> numpy only.
         return (
             4.0
             * numpy.pi
@@ -193,7 +192,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
             / (3.0 - self.alpha)
             * self._b
             * self._c
-            * special.hyp2f1(
+            * _bspecial.hyp2f1(
                 3.0 - self.alpha, self.betaminusalpha, 4.0 - self.alpha, -R / self.a
             )
         )
