@@ -301,7 +301,6 @@ jax-jit tests/test_potential.py::test_Cautun20
 jax-jit tests/test_potential.py::test_DehnenBinney98
 jax-jit tests/test_potential.py::test_ExpDisk_special
 jax-jit tests/test_potential.py::test_McMillan17
-jax-jit tests/test_potential.py::test_mass_spheroidal
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[DoubleExponentialDiskPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
