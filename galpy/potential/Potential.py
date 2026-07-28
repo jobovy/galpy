@@ -732,14 +732,18 @@ class Potential(Force):
         ----------
         R : float or Quantity
             Cylindrical Galactocentric radius.
-        z : float or Quantity
-            Vertical height.
+        z : float, Quantity, or None
+            Vertical height; the integral runs over ``[-z, z]``. Pass ``None`` for
+            the whole line, ``int_{-inf}^{+inf}``. ``None`` rather than ``inf``
+            because the choice must be structural: under a jax/torch trace the
+            magnitude of a ``z=inf`` argument is not inspectable, so asking for the
+            whole line by value cannot work there (it yields NaN).
         phi : float or Quantity, optional
             Azimuth (default: 0.0).
         t : float or Quantity, optional
             Time (default: 0.0).
         forcepoisson : bool, optional
-            If True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists (default: False).
+            If True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists (default: False). Ignored when ``z is None``, which always integrates the density directly.
 
         Returns
         -------
@@ -752,6 +756,29 @@ class Potential(Force):
         - 2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
 
         """
+        if z is None:
+            # Whole line, Sigma(R) = int_{-inf}^{+inf} rho dz'. This is a
+            # STRUCTURAL request -- ``z is None`` is decided on a Python object,
+            # never on a value -- which is the point: under a trace the magnitude
+            # of a ``z=inf`` argument is unknowable, so asking for the whole line
+            # by value cannot work. Integrating the density directly also avoids
+            # the +-inf boundary terms the Poisson route below would need.
+            xp = get_namespace(R, phi, t)
+            if xp is numpy:  # same scipy call the z=inf spelling makes: identical
+                return (
+                    self._amp
+                    * integrate.quad(
+                        lambda x: self._dens(R, x, phi=phi, t=t),
+                        -numpy.inf,
+                        numpy.inf,
+                    )[0]
+                )
+            return self._amp * _bquad.symmetric_quad(
+                xp,
+                lambda x: self._dens(_node_axis(R), x, phi=_node_axis(phi), t=t),
+                numpy.inf,  # a local constant, so concrete even inside a trace
+                n=50,
+            )
         try:
             if forcepoisson:
                 raise AttributeError  # Hack!
