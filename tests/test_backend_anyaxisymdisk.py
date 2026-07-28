@@ -283,3 +283,70 @@ def test_torch_compile_takes_the_backend_gl_path():
         )
     # GL vs scipy adaptive quad differ only at the quadrature floor
     numpy.testing.assert_allclose(got, ref, rtol=1e-10)
+
+
+# --- degenerate radii under a trace -----------------------------------------
+# The a=R split makes R=0 and R=inf special: at R=0 the [0,R] and [R,2R] panels
+# have zero width while the integrand is 0/0 there, so they evaluate to 0*nan;
+# at R=inf every panel spans an infinite range. Both returned NaN under a trace
+# while the concrete scipy path was finite. Guarded in _bk_split_quad.
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_degenerate_radii_traced_match_numpy_jax():
+    """Phi(0) and Phi(inf) trace to the concrete values, not NaN.
+
+    Must jit: eagerly the input is concrete and the scipy branch is taken, so an
+    eager run would never touch the guarded quadrature. Compared by VALUE
+    against the numpy path -- asserting merely 'not NaN' would pass on any
+    finite garbage, and Phi(0) is a real number (~-2.79) worth pinning.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    for R in (0.0, numpy.inf):
+        ref = float(evaluatePotentials(tp, R, 0, phi=0.0, t=0.0))
+        with gb.use("jax", force=True):
+            got = float(
+                jax.jit(
+                    lambda Rv: evaluatePotentials(
+                        tp,
+                        Rv,
+                        jnp.asarray(0.0),
+                        phi=jnp.asarray(0.0),
+                        t=jnp.asarray(0.0),
+                    )
+                )(jnp.asarray(R))
+            )
+        assert numpy.isfinite(got), f"R={R}: traced gave {got}"
+        numpy.testing.assert_allclose(got, ref, rtol=1e-8, atol=1e-12)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_finite_radii_unchanged_by_degenerate_guards_jax():
+    """The guards must not perturb ordinary radii -- they only select branches.
+
+    Tolerance is the pre-existing traced-GL vs scipy-adaptive floor for this
+    potential, not a licence for the guards to move anything: a guard that
+    accidentally clamped a finite R would miss by far more than this.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    for R in (0.3, 1.0, 3.0):
+        ref = float(evaluatePotentials(tp, R, 0.2, phi=0.0, t=0.0))
+        with gb.use("jax", force=True):
+            got = float(
+                jax.jit(
+                    lambda Rv: evaluatePotentials(
+                        tp,
+                        Rv,
+                        jnp.asarray(0.2),
+                        phi=jnp.asarray(0.0),
+                        t=jnp.asarray(0.0),
+                    )
+                )(jnp.asarray(R))
+            )
+        numpy.testing.assert_allclose(got, ref, rtol=1e-9)
