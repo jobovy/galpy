@@ -109,38 +109,6 @@ class eddingtondf(isotropicsphericaldf):
             self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin, key=key
         )
 
-    def _ensure_fE_interp(self):
-        """Build the f(E) interpolator if not already built."""
-        if not hasattr(self, "_fE_interp"):
-            Es4interp = numpy.hstack(
-                (
-                    numpy.geomspace(1e-8, 0.5, 101, endpoint=False),
-                    sorted(1.0 - numpy.geomspace(1e-4, 0.5, 101)),
-                )
-            )
-            # scipy/backend spline table is built on a numpy grid; under a
-            # forced backend the potential bounds are backend scalars, so pull
-            # them numpy-side (no-op on the numpy path)
-            Emin = as_numpy(self._Emin)
-            potInf = as_numpy(self._potInf)
-            Es4interp = (Es4interp * (Emin - potInf) + potInf)[::-1]
-            xp = get_namespace()  # context/forced default only (grid is numpy)
-            if xp is numpy:
-                fE4interp = self.fE(Es4interp)
-                iindx = numpy.isfinite(fE4interp)
-                self._fE_interp = interpolate.InterpolatedUnivariateSpline(
-                    Es4interp[iindx], fE4interp[iindx], k=3, ext=3
-                )
-            else:
-                # forced backend: one vectorized fE eval, pulled numpy-side for
-                # the frozen table (Spline1D queries numpy scipy / backend native);
-                # ascontiguousarray drops the [::-1] negative stride (torch rejects)
-                fE4interp = as_numpy(self.fE(numpy.ascontiguousarray(Es4interp)))
-                iindx = numpy.isfinite(fE4interp)
-                self._fE_interp = Spline1D(
-                    Es4interp[iindx], fE4interp[iindx], k=3, ext=3
-                )
-
     def fE(self, E):
         """
         Calculate the energy portion of a DF computed using the Eddington inversion
