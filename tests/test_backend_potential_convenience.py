@@ -487,3 +487,66 @@ def test_normalize_jax_backend(norm):
     assert "jax" in type(amp).__module__
     numpy.testing.assert_allclose(float(numpy.asarray(amp)), float(ref_amp), rtol=1e-12)
     numpy.testing.assert_allclose(float(numpy.asarray(rf)), -norm, rtol=1e-10)
+
+
+# --- surfdens under a trace ------------------------------------------------
+# surfdens integrates over [-z, z]. Whenever the limit is CONCRETE -- numpy and
+# eager jax/torch alike -- scipy is used, exactly as before. The backend
+# Gauss-Legendre rule is reached only when the limit is a tracer, so these tests
+# must jit; running them eagerly would take the scipy branch and assert nothing
+# about the new code.
+
+
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+@pytest.mark.parametrize(
+    "potname", ["HernquistPotential", "NFWPotential", "JaffePotential"]
+)
+def test_surfdens_poisson_traced_matches_analytic_jax(potname):
+    """Traced Poisson-route surfdens matches the analytic value, at LARGE |z| too.
+
+    |z| = 10 is the discriminating case: a single 100-node GL panel over
+    [-10, 10] is only ~1e-4 there, because the integrand's mass sits near z' = 0
+    and evenly spread nodes miss it. The split-at-zero, node-clustered rule holds
+    at every |z|, so the tolerance is set near the numerical floor -- a
+    regression to one plain panel fails here rather than passing quietly.
+    """
+    import galpy.backend as gb
+    from galpy import potential
+
+    tp = getattr(potential, potname)()
+    tp.normalize(1.0)
+    for R in (0.5, 2.0):
+        for z in (0.25, 10.0):
+            analytic = tp.surfdens(R, z, use_physical=False)
+            with gb.use("jax", force=True):
+                got = jax.jit(
+                    lambda Rv, zv: tp.surfdens(
+                        Rv, zv, forcepoisson=True, use_physical=False
+                    )
+                )(jnp.asarray(R), jnp.asarray(z))
+            rel = numpy.abs(float(got) - analytic) / numpy.abs(analytic)
+            assert rel < 1e-10, f"{potname} R={R} z={z}: rel={rel:g}"
+
+
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+def test_surfdens_analytic_route_traced_matches_numpy_jax():
+    """The ANALYTIC `_surfdens` route traces too, not just the Poisson branch.
+
+    FlattenedPower has no closed-form surface density, so `surfdens` falls
+    through to the generic `Potential._surfdens`; that route needed the same
+    treatment and is a separate code path from the Poisson one.
+    """
+    import galpy.backend as gb
+    from galpy import potential
+
+    tp = potential.FlattenedPowerPotential()
+    tp.normalize(1.0)
+    for R in (0.5, 2.0):
+        for z in (0.25, 10.0):
+            ref = tp.surfdens(R, z, use_physical=False)
+            with gb.use("jax", force=True):
+                got = jax.jit(lambda Rv, zv: tp.surfdens(Rv, zv, use_physical=False))(
+                    jnp.asarray(R), jnp.asarray(z)
+                )
+            rel = numpy.abs(float(got) - ref) / numpy.abs(ref)
+            assert rel < 1e-10, f"FlattenedPower R={R} z={z}: rel={rel:g}"
