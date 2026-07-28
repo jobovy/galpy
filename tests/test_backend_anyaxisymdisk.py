@@ -350,3 +350,37 @@ def test_finite_radii_unchanged_by_degenerate_guards_jax():
                 )(jnp.asarray(R))
             )
         numpy.testing.assert_allclose(got, ref, rtol=1e-9)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_degenerate_guards_do_not_break_gradients_jax():
+    """The xp.where guards must not poison AD.
+
+    Both guards evaluate their dead branch (that is what xp.where does eagerly),
+    so a nan there would reach the gradient even though the value is correct.
+    Checked as grad-vs-central-FD with h-convergence rather than
+    finite-and-nonzero: halving h must improve agreement, which a nan-poisoned or
+    merely-plausible derivative would not do.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    with gb.use("jax", force=True):
+
+        def f(R):
+            return evaluatePotentials(
+                tp, R, jnp.asarray(0.2), phi=jnp.asarray(0.0), t=jnp.asarray(0.0)
+            )
+
+        g = jax.grad(f)
+        for R0 in (0.3, 1.0, 3.0):
+            ad = float(g(jnp.asarray(R0)))
+            rels = []
+            for h in (1e-4, 1e-5):
+                fd = float(
+                    (f(jnp.asarray(R0 + h)) - f(jnp.asarray(R0 - h))) / (2.0 * h)
+                )
+                rels.append(abs(ad - fd) / abs(fd))
+            assert rels[-1] < 1e-9, f"R={R0}: AD vs FD rel={rels[-1]:g}"
+            assert rels[-1] < rels[0], f"R={R0}: no h-convergence {rels}"
