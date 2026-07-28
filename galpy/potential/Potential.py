@@ -27,9 +27,11 @@ from ..backend import (
     backend_input,
     coerce_coords,
     get_namespace,
+    has_concrete_truth_value,
     is_backend_array,
     is_backend_compatible,
 )
+from ..backend import quadrature as _bquad
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -109,6 +111,36 @@ def potential_positional_arg(func):
         return func(Pot, *args, **kwargs)
 
     return wrapper
+
+
+def _quad_needs_backend(xp, absz):
+    """True only when scipy.integrate.quad CANNOT be used: the limit is a tracer.
+
+    The backend Gauss-Legendre rule exists here for exactly one reason -- under a
+    trace scipy is unusable, so the integral must be built from array ops.
+    Whenever the limit is concrete (numpy, and eager jax/torch alike) scipy is
+    still the better tool: it is adaptive, it handles an infinite limit by
+    transformation (``jeans.sigmalos`` integrates the whole line of sight), and it
+    calls the integrand node-by-node so scalar-only potentials keep working.
+
+    Gating on concreteness rather than on "does this potential accept an array"
+    matters because the latter is NOT decidable: `_force_accepts_arrays` sees only
+    the top-level type, and a potential that composes or wraps a scalar-only one
+    forwards through its own undecorated ``_Rforce`` and so looks array-safe.
+    Concreteness is decidable, and it leaves every eager path untouched.
+    """
+    if xp is numpy:
+        return False
+    return not has_concrete_truth_value(xp.all(xp.isfinite(absz)))
+
+
+def _node_axis(v):
+    """Add a trailing axis so a fixed coordinate broadcasts against quadrature nodes.
+
+    Only for genuine arrays: ``phi`` may arrive as None (the density does not
+    need it) or as a plain float, and a 0-d array already broadcasts.
+    """
+    return v[..., None] if getattr(v, "ndim", 0) else v
 
 
 def _force_accepts_arrays(pot):
@@ -726,20 +758,41 @@ class Potential(Force):
             return self._amp * self._surfdens(R, z, phi=phi, t=t)
         except AttributeError:
             # Use the Poisson equation to get the surface density
+            xp = get_namespace(R, z, phi, t)
+
+            def poisson_integrand(Rv, pv):
+                return lambda x: (
+                    -self.Rforce(Rv, x, phi=pv, t=t, use_physical=False) / Rv
+                    + self.R2deriv(Rv, x, phi=pv, t=t, use_physical=False)
+                    + self.phi2deriv(Rv, x, phi=pv, t=t, use_physical=False) / Rv**2.0
+                )
+
+            # numpy.fabs on a backend array emits a NumPy 2 __array_wrap__
+            # DeprecationWarning, which the coverage shard turns into an error.
+            absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
+            if not _quad_needs_backend(xp, absz):
+                inner = integrate.quad(poisson_integrand(R, phi), -absz, absz)[0]
+            else:
+                # Fixed-order GL over the whole [-z, z] needs an order that grows
+                # with the range (n=100 is only 3.7e-4 at |z|=10). Splitting at
+                # z=0 and clustering nodes toward the split puts them where a
+                # decaying integrand has its mass, and does so RELATIVE to the
+                # range, so one node count holds at every |z|.
+                # [..., None] so R/phi broadcast against the trailing node axis
+                # (0-d becomes (1,), which broadcasts either way).
+                inner = _bquad.transformed_quad(
+                    xp,
+                    poisson_integrand(_node_axis(R), _node_axis(phi)),
+                    -absz,
+                    absz,
+                    n=50,
+                    interior_point=0.0,
+                )
             return (
                 (
-                    -self.zforce(R, numpy.fabs(z), phi=phi, t=t, use_physical=False)
-                    + self.zforce(R, -numpy.fabs(z), phi=phi, t=t, use_physical=False)
-                    + integrate.quad(
-                        lambda x: (
-                            -self.Rforce(R, x, phi=phi, t=t, use_physical=False) / R
-                            + self.R2deriv(R, x, phi=phi, t=t, use_physical=False)
-                            + self.phi2deriv(R, x, phi=phi, t=t, use_physical=False)
-                            / R**2.0
-                        ),
-                        -numpy.fabs(z),
-                        numpy.fabs(z),
-                    )[0]
+                    -self.zforce(R, absz, phi=phi, t=t, use_physical=False)
+                    + self.zforce(R, -absz, phi=phi, t=t, use_physical=False)
+                    + inner
                 )
                 / 4.0
                 / numpy.pi
@@ -771,9 +824,24 @@ class Potential(Force):
         - 2021-04-19 - Adjusted for non-z-symmetric densities by Bovy (UofT).
 
         """
-        return integrate.quad(
-            lambda x: self._dens(R, x, phi=phi, t=t), -numpy.fabs(z), numpy.fabs(z)
-        )[0]
+        # Same dual path as the Poisson branch of surfdens(): numpy keeps scipy
+        # (byte-identical), a backend takes the split-at-zero, node-clustered GL
+        # rule so it traces and stays accurate at large |z|. Scalar-only
+        # potentials keep scipy either way -- they reject the node array.
+        xp = get_namespace(R, z, phi, t)
+        absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
+        if not _quad_needs_backend(xp, absz):
+            return integrate.quad(
+                lambda x: self._dens(R, x, phi=phi, t=t), -absz, absz
+            )[0]
+        return _bquad.transformed_quad(
+            xp,
+            lambda x: self._dens(_node_axis(R), x, phi=_node_axis(phi), t=t),
+            -absz,
+            absz,
+            n=50,
+            interior_point=0.0,
+        )
 
     @potential_physical_input
     @backend_input("R", "z", "t")
