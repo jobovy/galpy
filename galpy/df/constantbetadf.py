@@ -513,24 +513,6 @@ class constantbetadf(_constantbetadf):
             R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin, key=key
         )
 
-    def _ensure_fE_interp(self):
-        """Build the f(E) interpolator if not already built."""
-        if not hasattr(self, "_fE_interp"):
-            Es4interp = numpy.hstack(
-                (
-                    numpy.geomspace(1e-8, 0.5, 101, endpoint=False),
-                    sorted(1.0 - numpy.geomspace(1e-4, 0.5, 101)),
-                )
-            )
-            Es4interp = (Es4interp * (self._Emin - self._potInf) + self._potInf)[::-1]
-            # scipy spline over the numpy energy grid: pull the (backend) fE
-            # values back to numpy for the frozen interpolator
-            fE4interp = as_numpy(self.fE(Es4interp))
-            iindx = numpy.isfinite(fE4interp)
-            self._fE_interp = interpolate.InterpolatedUnivariateSpline(
-                Es4interp[iindx], fE4interp[iindx], k=3, ext=3
-            )
-
     def _make_func(self, grad):
         """Build the m-th (dens r^2beta)/dPsi^m derivative closure using ``grad``.
 
