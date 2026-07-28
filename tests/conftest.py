@@ -143,7 +143,19 @@ def _load_backend_nodeids(path, backend_name):
 
     Shared by the xfail-ledger and the slow-skip list (same format). Lines may
     carry trailing "# ..." comments; blank/comment-only lines are ignored.
+
+    A traced backend ("<backend>-jit") INHERITS the eager "<backend>" entries.
+    Tracing does not repair an eager failure -- it cannot fix a numerical gap, a
+    `_reject_backend` guard, or an out-of-scope family -- and it only makes a
+    slow test slower, since the trace has to compile first. So "<backend>-jit"
+    means exactly **"applies ONLY when traced"**, and the eager lists stay the
+    single place a shared entry is written and later pruned. The rule lives here
+    rather than in the three callers because it is a property of the backend
+    name, not of which list is being read.
     """
+    names = {backend_name}
+    if backend_name.endswith("-jit"):
+        names.add(backend_name[: -len("-jit")])
     entries = set()
     if not os.path.exists(path):
         return entries
@@ -156,7 +168,7 @@ def _load_backend_nodeids(path, backend_name):
             if len(parts) != 2:
                 continue
             be, nodeid = parts[0].strip(), parts[1].strip()
-            if be == backend_name:
+            if be in names:
                 entries.add(nodeid)
     return entries
 
@@ -164,6 +176,23 @@ def _load_backend_nodeids(path, backend_name):
 def _load_ledger(backend_name):
     """Return the set of ledger nodeids for the given backend, or empty set."""
     return _load_backend_nodeids(_ledger_path(), backend_name)
+
+
+def _regen_entries(backend_name, failed):
+    """Sorted nodeids to write for a regen run of `backend_name`.
+
+    Regen xfails nothing, so a traced run reports the eager failures too. Those
+    are already inherited from the eager list, so writing them again duplicates
+    every entry and leaves two places to prune. Emit only what fails ONLY when
+    traced -- which is what "-jit" means.
+    """
+    failed = set(failed)
+    if backend_name.endswith("-jit"):
+        eager = _load_backend_nodeids(_ledger_path(), backend_name[: -len("-jit")])
+        # A base entry ("::test_y") covers every parametrization of that test,
+        # the same way the xfail hook matches it.
+        failed = {n for n in failed if n not in eager and _strip_param(n) not in eager}
+    return sorted(failed)
 
 
 def _load_slow_skip(backend_name):
@@ -365,7 +394,7 @@ def pytest_sessionfinish(session, exitstatus):
     if os.environ.get(_REGEN_ENV) == "1":
         backend_name = _run_backend(session.config)
         if backend_name != "numpy":
-            failed = sorted(_REGEN_STORE["failed"])
+            failed = _regen_entries(backend_name, _REGEN_STORE["failed"])
             outfile = _regen_outfile()
             try:
                 os.makedirs(os.path.dirname(outfile), exist_ok=True)
