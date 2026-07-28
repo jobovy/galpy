@@ -8,9 +8,9 @@
 #
 ###############################################################################
 import numpy
-from scipy import special
 
 from ..backend import get_namespace
+from ..backend import special as _bspecial
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -120,8 +120,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
             raise AttributeError  # Hack to fall back to general
-        # Pspecial-blocked: closed-form mass requires scipy.special.erf, which has
-        # no backend-agnostic (jax/torch array-API) replacement -> numpy only.
+        xp = get_namespace(R)
         return (
             numpy.pi
             * self._b
@@ -130,7 +129,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
             * self._sigma
             * (
                 numpy.sqrt(2.0 * numpy.pi)
-                * special.erf(R / self._sigma / numpy.sqrt(2.0))
-                - 2.0 * R / self._sigma * numpy.exp(-(R**2.0) / self._twosigma2)
+                * _bspecial.erf(R / self._sigma / numpy.sqrt(2.0))
+                - 2.0 * R / self._sigma * xp.exp(-(R**2.0) / self._twosigma2)
             )
         )
