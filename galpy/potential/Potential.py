@@ -73,11 +73,23 @@ def check_potential_inputs_not_arrays(func):
 
     @wraps(func)
     def func_wrapper(self, R, z, phi, t):
-        if (
-            (hasattr(R, "shape") and R.shape != () and len(R) > 1)
-            or (hasattr(z, "shape") and z.shape != () and len(z) > 1)
-            or (hasattr(phi, "shape") and phi.shape != () and len(phi) > 1)
-            or (hasattr(t, "shape") and t.shape != () and len(t) > 1)
+        arrays = [
+            x
+            for x in (R, z, phi, t)
+            if hasattr(x, "shape") and x.shape != () and len(x) > 1
+        ]
+        # Opt-in escape hatch: a potential whose BACKEND evaluation broadcasts
+        # over a trailing node axis (``_backend_accepts_arrays``) may be handed
+        # the whole Gauss-Legendre node array, which is what lets the traced
+        # surfdens/mass quadratures evaluate it in one vectorised call instead
+        # of unrolling one traced call per node. Gated on every array argument
+        # being a BACKEND array, so the documented numpy contract -- these
+        # methods take scalars -- is unchanged, and so a numpy array cannot
+        # reach a potential that dispatches to bare-numpy/scipy internals for
+        # non-backend input.
+        if arrays and not (
+            getattr(self, "_backend_accepts_arrays", False)
+            and all(is_backend_array(x) for x in arrays)
         ):
             raise TypeError(
                 f"Methods in {self.__class__.__name__} do not accept array inputs. Please input scalars"
@@ -137,15 +149,6 @@ def _quad_needs_backend(xp, absz):
     if xp is numpy:
         return False
     return under_trace(absz)
-
-
-def _node_axis(v):
-    """Add a trailing axis so a fixed coordinate broadcasts against quadrature nodes.
-
-    Only for genuine arrays: ``phi`` may arrive as None (the density does not
-    need it) or as a plain float, and a 0-d array already broadcasts.
-    """
-    return v[..., None] if getattr(v, "ndim", 0) else v
 
 
 def _force_accepts_arrays(pot):
@@ -780,7 +783,9 @@ class Potential(Force):
                 )
             return self._amp * _bquad.symmetric_quad(
                 xp,
-                lambda x: self._dens(_node_axis(R), x, phi=_node_axis(phi), t=t),
+                lambda x: self._dens(
+                    _bquad.node_axis(R), x, phi=_bquad.node_axis(phi), t=t
+                ),
                 numpy.inf,  # a local constant, so concrete even inside a trace
                 n=50,
             )
@@ -820,7 +825,7 @@ class Potential(Force):
                 # (0-d becomes (1,), which broadcasts either way).
                 inner = _bquad.symmetric_quad(
                     xp,
-                    poisson_integrand(_node_axis(R), _node_axis(phi)),
+                    poisson_integrand(_bquad.node_axis(R), _bquad.node_axis(phi)),
                     absz,
                     n=50,
                     interior_point=0.0,
@@ -876,7 +881,9 @@ class Potential(Force):
             )[0]
         return _bquad.symmetric_quad(
             xp,
-            lambda x: self._dens(_node_axis(R), x, phi=_node_axis(phi), t=t),
+            lambda x: self._dens(
+                _bquad.node_axis(R), x, phi=_bquad.node_axis(phi), t=t
+            ),
             absz,
             n=50,
             interior_point=0.0,
