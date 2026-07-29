@@ -4409,12 +4409,23 @@ def test_ExpDisk_special():
     # Check the PotentialError for z=/=0 evaluation of R2deriv of RazorThinDiskPotential
     rp = potential.RazorThinExponentialDiskPotential(normalize=1.0)
     try:
-        rp.R2deriv(1.0, 0.1)
+        rpR2deriv = rp.R2deriv(1.0, 0.1)
     except potential.PotentialError:
-        pass
+        pass  # off-plane is outside the domain: the documented refusal
     else:
-        raise AssertionError(
-            "RazorThinExponentialDiskPotential's R2deriv did not raise AttributeError for z=/= 0 input"
+        # Under a trace the domain cannot be decided at trace time -- z is a
+        # tracer -- so refusing would mean refusing to trace at all. The chosen
+        # contract there is NaN off-plane instead. That is the ONLY circumstance
+        # in which not raising is acceptable: on numpy the refusal still stands.
+        from galpy.backend import get_namespace
+
+        assert get_namespace(1.0) is not numpy, (
+            "RazorThinExponentialDiskPotential's R2deriv did not raise "
+            "PotentialError for z=/=0 input on the numpy path"
+        )
+        assert numpy.isnan(as_numpy(rpR2deriv)), (
+            "RazorThinExponentialDiskPotential's R2deriv neither raised nor "
+            f"returned NaN for z=/=0 input; got {rpR2deriv!r}"
         )
     return None
 
