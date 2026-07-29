@@ -807,10 +807,9 @@ class Potential(Force):
                 # range, so one node count holds at every |z|.
                 # [..., None] so R/phi broadcast against the trailing node axis
                 # (0-d becomes (1,), which broadcasts either way).
-                inner = _bquad.transformed_quad(
+                inner = _bquad.symmetric_quad(
                     xp,
                     poisson_integrand(_node_axis(R), _node_axis(phi)),
-                    -absz,
                     absz,
                     n=50,
                     interior_point=0.0,
@@ -861,10 +860,9 @@ class Potential(Force):
             return integrate.quad(
                 lambda x: self._dens(R, x, phi=phi, t=t), -absz, absz
             )[0]
-        return _bquad.transformed_quad(
+        return _bquad.symmetric_quad(
             xp,
             lambda x: self._dens(_node_axis(R), x, phi=_node_axis(phi), t=t),
-            -absz,
             absz,
             n=50,
             interior_point=0.0,
