@@ -550,3 +550,103 @@ def test_surfdens_analytic_route_traced_matches_numpy_jax():
                 )
             rel = numpy.abs(float(got) - ref) / numpy.abs(ref)
             assert rel < 1e-10, f"FlattenedPower R={R} z={z}: rel={rel:g}"
+
+
+# --- whole-line surfdens, surfdens(R, z=None) -------------------------------
+# The whole line has to be asked for STRUCTURALLY, because under a trace the
+# magnitude of a z=inf argument is not inspectable (it used to come back NaN).
+# numpy keeps the same scipy call the z=inf spelling makes, so both spellings
+# must agree exactly there; the backend rule is a fixed-order GL pair of
+# semi-infinite halves, so it is compared by value, not merely for finiteness.
+
+_WHOLELINE_POTS = [
+    "LogarithmicHaloPotential",  # generic density-integral route
+    "MiyamotoNagaiPotential",  # has its own analytic _surfdens (bypassed)
+    "DoubleExponentialDiskPotential",  # analytic _surfdens that already did inf
+]
+
+
+@pytest.mark.parametrize(
+    "potname", ["LogarithmicHaloPotential", "MiyamotoNagaiPotential"]
+)
+def test_surfdens_wholeline_numpy_matches_inf_spelling(potname):
+    """On numpy, z=None is the SAME scipy integral as the z=inf spelling.
+
+    Byte-equality, not a tolerance: both spellings must reach
+    ``scipy.integrate.quad(..., -inf, inf)``. If z=None ever drifts onto the
+    backend GL rule on numpy this fails, which is the point -- it would silently
+    change every numpy caller (jeans.sigmalos among them).
+
+    DoubleExponentialDisk is excluded deliberately: its analytic ``_surfdens``
+    already handles z=inf, so the two spellings take different (both correct)
+    routes there. That case is covered below.
+    """
+    from galpy import potential
+
+    tp = getattr(potential, potname)()
+    tp.normalize(1.0)
+    for R in (0.5, 2.0):
+        by_value = tp.surfdens(R, numpy.inf, use_physical=False)
+        structural = tp.surfdens(R, None, use_physical=False)
+        assert float(by_value).hex() == float(structural).hex(), (
+            f"{potname} R={R}: z=inf {by_value!r} != z=None {structural!r}"
+        )
+
+
+def test_surfdens_wholeline_agrees_with_analytic_inf_form():
+    """Where a potential HAS an inf-capable closed form, the whole-line integral
+    must reproduce it -- that is what says the integral is right, not merely
+    self-consistent. DoubleExponentialDisk is the one such case today; the two
+    routes differ only at quadrature level (~4e-14), not structurally.
+    """
+    from galpy import potential
+
+    tp = potential.DoubleExponentialDiskPotential()
+    tp.normalize(1.0)
+    for R in (0.5, 2.0):
+        analytic = tp.surfdens(R, numpy.inf, use_physical=False)
+        integral = tp.surfdens(R, None, use_physical=False)
+        rel = numpy.abs(integral - analytic) / numpy.abs(analytic)
+        assert rel < 1e-12, f"R={R}: analytic {analytic!r} vs integral {integral!r}"
+
+
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+@pytest.mark.parametrize("potname", _WHOLELINE_POTS)
+def test_surfdens_wholeline_traced_matches_numpy_jax(potname):
+    """Traced whole-line surfdens matches numpy. Every one of these was NaN before.
+
+    Must jit: eagerly the limit is concrete and scipy is used, so an eager run
+    would assert nothing about the semi-infinite backend rule. Tolerance is set
+    just above the measured floor (worst 7.0e-13, MiyamotoNagai), so a
+    regression to a single finite-range panel -- which returns NaN here -- fails
+    loudly rather than passing.
+    """
+    import galpy.backend as gb
+    from galpy import potential
+
+    tp = getattr(potential, potname)()
+    tp.normalize(1.0)
+    for R in (0.5, 2.0):
+        ref = tp.surfdens(R, None, use_physical=False)
+        with gb.use("jax", force=True):
+            got = jax.jit(lambda Rv: tp.surfdens(Rv, None, use_physical=False))(
+                jnp.asarray(R)
+            )
+        rel = numpy.abs(float(got) - ref) / numpy.abs(ref)
+        assert rel < 5e-12, f"{potname} R={R}: rel={rel:g}"
+
+
+@pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
+def test_surfdens_wholeline_eager_torch_matches_numpy():
+    """Eager torch takes the backend rule too (the namespace, not the limit, picks it)."""
+    import galpy.backend as gb
+    from galpy import potential
+
+    tp = potential.LogarithmicHaloPotential(q=1.0)
+    tp.normalize(1.0)
+    ref = tp.surfdens(1.0, None, use_physical=False)
+    with gb.use("torch", force=True):
+        got = tp.surfdens(torch.tensor(1.0), None, use_physical=False)
+    assert torch.is_tensor(got)
+    rel = numpy.abs(float(got) - ref) / numpy.abs(ref)
+    assert rel < 5e-12, f"torch whole-line: rel={rel:g}"

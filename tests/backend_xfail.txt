@@ -305,5 +305,3 @@ jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThi
 jax-jit tests/test_potential.py::test_ExpDisk_special
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[DoubleExponentialDiskPotential]
-jax-jit tests/test_potential.py::test_potential_at_infinity[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_potential_at_zero[AnyAxisymmetricRazorThinDiskPotential]

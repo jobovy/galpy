@@ -47,6 +47,7 @@ from ._namespaces import (
     device_of,
     is_backend_array,
     match_input_dtype,
+    under_trace,
 )
 
 # Default number of Gauss-Legendre nodes for the public backend ``quad``. High
@@ -437,6 +438,58 @@ def transformed_quad(xp, integrand, a, b, *, n=50, interior_point=None, device=N
     int_r = (b - c) * xp.sum(wX * vals_r, axis=-1)
     result = int_l + int_r
     return match_input_dtype(result, a, b, c)
+
+
+def symmetric_quad(xp, integrand, b, *, n=50, interior_point=0.0, device=None):
+    r"""``int_{-|b|}^{|b|} integrand(s) ds``, for finite **or infinite** ``b``.
+
+    A finite ``b`` is handed to `transformed_quad`, which splits at
+    ``interior_point`` and clusters nodes there. An infinite ``b`` cannot go
+    through any finite-range rule: the affine map sends the nodes to +-inf and
+    the weighted sum is nan. It is split into two semi-infinite halves instead,
+    each mapped by `fixed_quad_semiinfinite`.
+
+    The two halves are integrated separately rather than doubling one of them,
+    because the integrand need not be even in ``s`` -- an offset or tilted
+    wrapper potential is not.
+
+    Only a *concretely* infinite ``b`` takes the split path; a traced ``b`` of
+    unknown magnitude keeps the finite rule, since the choice cannot be made
+    inside a trace.
+
+    Parameters
+    ----------
+    xp : module
+        Array namespace.
+    integrand : callable
+        Called with the quadrature nodes.
+    b : float or array
+        Limit; the interval is ``[-|b|, |b|]``. May be ``inf``. Pass the RAW
+        limit, not one already mapped through the namespace: the finite/infinite
+        choice is made from it and a namespace op would have made it a tracer.
+    n : int, optional
+        Gauss-Legendre order (default 50).
+    interior_point : float, optional
+        Split point for the finite branch (default 0.0).
+    device : optional
+        Device to anchor the nodes on.
+    """
+    # Decide on the RAW limit, before it touches the namespace. Inside a trace
+    # ``xp.abs(numpy.inf)`` is already a tracer -- jax traces the op rather than
+    # folding it -- so asking about the converted limit always answers "unknown"
+    # and the infinite branch would be unreachable. A Python/numpy ``b`` is still
+    # concrete here and answers directly.
+    if not under_trace(b) and not bool(numpy.all(numpy.isfinite(numpy.asarray(b)))):
+        zero = asarray_on_device(xp, 0.0, device)
+        return fixed_quad_semiinfinite(
+            xp, integrand, zero, n=n, device=device
+        ) + fixed_quad_semiinfinite(
+            xp, lambda u: integrand(-u), zero, n=n, device=device
+        )
+    absb = numpy.fabs(b) if xp is numpy else xp.abs(b)
+    return transformed_quad(
+        xp, integrand, -absb, absb, n=n, interior_point=interior_point, device=device
+    )
 
 
 def nested_quad(xp, integrand, bounds, *, n=50, device=None):

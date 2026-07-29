@@ -254,9 +254,9 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
         called_surfdens = surfdens(R)
     elif surfdens is None:
         if densPot:
-            called_surfdens = evaluateSurfaceDensities(
-                Pot, R, numpy.inf, use_physical=False
-            )
+            # z=None asks for the whole line structurally; z=inf would be a value
+            # a trace cannot inspect (it returns NaN under jit).
+            called_surfdens = evaluateSurfaceDensities(Pot, R, None, use_physical=False)
         # xp.isnan == numpy.isnan on the numpy path (byte-identical); the
         # surfdens is a scalar here (scipy.quad / the R-scalar backend path).
         if not densPot or xp.isnan(called_surfdens):
