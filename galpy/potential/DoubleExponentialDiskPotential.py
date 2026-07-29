@@ -14,6 +14,7 @@ from ..backend import (
     get_namespace,
     match_input_dtype,
 )
+from ..backend.quadrature import node_axis
 from ..util import conversion
 from .Potential import Potential, check_potential_inputs_not_arrays
 
@@ -58,6 +59,10 @@ class DoubleExponentialDiskPotential(Potential):
         \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R-|z|/h_z\\right)
 
     """
+
+    # Ogata-quadrature evaluation broadcasts over the trailing node axis, so
+    # backend arrays are safe (the scalars-only contract still holds on numpy).
+    _backend_accepts_arrays = True
 
     def __init__(
         self,
@@ -272,14 +277,18 @@ class DoubleExponentialDiskPotential(Potential):
         xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
+        # node_axis so R/z broadcast against the trailing Ogata-node axis; a
+        # no-op for scalars, so their values are unchanged bit for bit.
+        Rb = node_axis(R)
+        zb = node_axis(z)
         fun = lambda x: (
             x
-            * (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
+            * (self._alpha**2.0 + (x / Rb) ** 2.0) ** -1.5
             * (
-                self._beta * xp.exp(-x / R * xp.abs(z))
-                - x / R * xp.exp(-self._beta * xp.abs(z))
+                self._beta * xp.exp(-x / Rb * xp.abs(zb))
+                - x / Rb * xp.exp(-self._beta * xp.abs(zb))
             )
-            / (self._beta**2.0 - (x / R) ** 2.0)
+            / (self._beta**2.0 - (x / Rb) ** 2.0)
         )
         # float64 quadrature interior, input-dtype exit cast (see _evaluate)
         return match_input_dtype(
@@ -293,6 +302,7 @@ class DoubleExponentialDiskPotential(Potential):
                     fun(asarray_on_device(xp, self._de_j1_xs, dev)),
                     asarray_on_device(xp, self._de_j1_weights, dev),
                 ),
+                axis=-1,
             ),
             R,
             z,
@@ -330,12 +340,16 @@ class DoubleExponentialDiskPotential(Potential):
         xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
+        # node_axis so R/z broadcast against the trailing Ogata-node axis; a
+        # no-op for scalars, so their values are unchanged bit for bit.
+        Rb = node_axis(R)
+        zb = node_axis(z)
         fun = lambda x: (
-            (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
+            (self._alpha**2.0 + (x / Rb) ** 2.0) ** -1.5
             * x
-            / R
-            * (xp.exp(-x / R * xp.abs(z)) - xp.exp(-self._beta * xp.abs(z)))
-            / (self._beta**2.0 - (x / R) ** 2.0)
+            / Rb
+            * (xp.exp(-x / Rb * xp.abs(zb)) - xp.exp(-self._beta * xp.abs(zb)))
+            / (self._beta**2.0 - (x / Rb) ** 2.0)
         )
         out = (
             -4.0
@@ -349,6 +363,7 @@ class DoubleExponentialDiskPotential(Potential):
                     fun(asarray_on_device(xp, self._de_j0_xs, dev)),
                     asarray_on_device(xp, self._de_j0_weights, dev),
                 ),
+                axis=-1,
             )
         )
         # Odd in z: out for z > 0, -out otherwise. The +-1.0 factor is exact
@@ -385,14 +400,18 @@ class DoubleExponentialDiskPotential(Potential):
         xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
+        # node_axis so R/z broadcast against the trailing Ogata-node axis; a
+        # no-op for scalars, so their values are unchanged bit for bit.
+        Rb = node_axis(R)
+        zb = node_axis(z)
         fun = lambda x: (
             x**2
-            * (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
+            * (self._alpha**2.0 + (x / Rb) ** 2.0) ** -1.5
             * (
-                self._beta * xp.exp(-x / R * xp.abs(z))
-                - x / R * xp.exp(-self._beta * xp.abs(z))
+                self._beta * xp.exp(-x / Rb * xp.abs(zb))
+                - x / Rb * xp.exp(-self._beta * xp.abs(zb))
             )
-            / (self._beta**2.0 - (x / R) ** 2.0)
+            / (self._beta**2.0 - (x / Rb) ** 2.0)
         )
         # float64 quadrature interior, input-dtype exit cast (see _evaluate)
         return match_input_dtype(
@@ -413,6 +432,7 @@ class DoubleExponentialDiskPotential(Potential):
                     / asarray_on_device(xp, self._de_j1_xs, dev),
                     asarray_on_device(xp, self._de_j1_weights, dev),
                 ),
+                axis=-1,
             ),
             R,
             z,
@@ -449,15 +469,19 @@ class DoubleExponentialDiskPotential(Potential):
         xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
+        # node_axis so R/z broadcast against the trailing Ogata-node axis; a
+        # no-op for scalars, so their values are unchanged bit for bit.
+        Rb = node_axis(R)
+        zb = node_axis(z)
         fun = lambda x: (
-            (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
+            (self._alpha**2.0 + (x / Rb) ** 2.0) ** -1.5
             * x
-            / R
+            / Rb
             * (
-                x / R * xp.exp(-x / R * xp.abs(z))
-                - self._beta * xp.exp(-self._beta * xp.abs(z))
+                x / Rb * xp.exp(-x / Rb * xp.abs(zb))
+                - self._beta * xp.exp(-self._beta * xp.abs(zb))
             )
-            / (self._beta**2.0 - (x / R) ** 2.0)
+            / (self._beta**2.0 - (x / Rb) ** 2.0)
         )
         # float64 quadrature interior, input-dtype exit cast (see _evaluate)
         return match_input_dtype(
@@ -472,6 +496,7 @@ class DoubleExponentialDiskPotential(Potential):
                     fun(asarray_on_device(xp, self._de_j0_xs, dev)),
                     asarray_on_device(xp, self._de_j0_weights, dev),
                 ),
+                axis=-1,
             ),
             R,
             z,
@@ -508,11 +533,15 @@ class DoubleExponentialDiskPotential(Potential):
         xp = get_namespace(R, z)
         # float64 Ogata tables anchored on the input's device (see _evaluate)
         dev = device_of(R, z)
+        # node_axis so R/z broadcast against the trailing Ogata-node axis; a
+        # no-op for scalars, so their values are unchanged bit for bit.
+        Rb = node_axis(R)
+        zb = node_axis(z)
         fun = lambda x: (
-            (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
-            * (x / R) ** 2.0
-            * (xp.exp(-x / R * xp.abs(z)) - xp.exp(-self._beta * xp.abs(z)))
-            / (self._beta**2.0 - (x / R) ** 2.0)
+            (self._alpha**2.0 + (x / Rb) ** 2.0) ** -1.5
+            * (x / Rb) ** 2.0
+            * (xp.exp(-x / Rb * xp.abs(zb)) - xp.exp(-self._beta * xp.abs(zb)))
+            / (self._beta**2.0 - (x / Rb) ** 2.0)
         )
         out = (
             -4.0
@@ -526,6 +555,7 @@ class DoubleExponentialDiskPotential(Potential):
                     fun(asarray_on_device(xp, self._de_j1_xs, dev)),
                     asarray_on_device(xp, self._de_j1_weights, dev),
                 ),
+                axis=-1,
             )
         )
         # Odd in z (see _zforce): exact +-1.0 factor instead of an if on z.
