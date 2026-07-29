@@ -318,5 +318,4 @@ jax-jit tests/test_orbit.py::test_eccentricity
 # the a=R principal value is resolved; same root cause as test_2ndDeriv below.
 torch-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_ExpDisk_special
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
