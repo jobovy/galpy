@@ -283,3 +283,131 @@ def test_torch_compile_takes_the_backend_gl_path():
         )
     # GL vs scipy adaptive quad differ only at the quadrature floor
     numpy.testing.assert_allclose(got, ref, rtol=1e-10)
+
+
+# --- degenerate radii under a trace -----------------------------------------
+# The a=R split makes R=0 and R=inf special: at R=0 the [0,R] and [R,2R] panels
+# have zero width while the integrand is 0/0 there, so they evaluate to 0*nan;
+# at R=inf every panel spans an infinite range. Both returned NaN under a trace
+# while the concrete scipy path was finite. Guarded in _bk_split_quad.
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_degenerate_radii_traced_match_numpy_jax():
+    """Phi(0) and Phi(inf) trace to the concrete values, not NaN.
+
+    Must jit: eagerly the input is concrete and the scipy branch is taken, so an
+    eager run would never touch the guarded quadrature. Compared by VALUE
+    against the numpy path -- asserting merely 'not NaN' would pass on any
+    finite garbage, and Phi(0) is a real number (~-2.79) worth pinning.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    for R in (0.0, numpy.inf):
+        ref = float(evaluatePotentials(tp, R, 0, phi=0.0, t=0.0))
+        with gb.use("jax", force=True):
+            got = float(
+                jax.jit(
+                    lambda Rv: evaluatePotentials(
+                        tp,
+                        Rv,
+                        jnp.asarray(0.0),
+                        phi=jnp.asarray(0.0),
+                        t=jnp.asarray(0.0),
+                    )
+                )(jnp.asarray(R))
+            )
+        assert numpy.isfinite(got), f"R={R}: traced gave {got}"
+        numpy.testing.assert_allclose(got, ref, rtol=1e-8, atol=1e-12)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_finite_radii_unchanged_by_degenerate_guards_jax():
+    """The guards must not perturb ordinary radii -- they only select branches.
+
+    Tolerance is the pre-existing traced-GL vs scipy-adaptive floor for this
+    potential, not a licence for the guards to move anything: a guard that
+    accidentally clamped a finite R would miss by far more than this.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    for R in (0.3, 1.0, 3.0):
+        ref = float(evaluatePotentials(tp, R, 0.2, phi=0.0, t=0.0))
+        with gb.use("jax", force=True):
+            got = float(
+                jax.jit(
+                    lambda Rv: evaluatePotentials(
+                        tp,
+                        Rv,
+                        jnp.asarray(0.2),
+                        phi=jnp.asarray(0.0),
+                        t=jnp.asarray(0.0),
+                    )
+                )(jnp.asarray(R))
+            )
+        numpy.testing.assert_allclose(got, ref, rtol=1e-9)
+
+
+@pytest.mark.skipif(jax is None, reason="jax not installed")
+def test_degenerate_guards_do_not_break_gradients_jax():
+    """The xp.where guards must not poison AD.
+
+    Both guards evaluate their dead branch (that is what xp.where does eagerly),
+    so a nan there would reach the gradient even though the value is correct.
+    Checked as grad-vs-central-FD with h-convergence rather than
+    finite-and-nonzero: halving h must improve agreement, which a nan-poisoned or
+    merely-plausible derivative would not do.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    with gb.use("jax", force=True):
+
+        def f(R):
+            return evaluatePotentials(
+                tp, R, jnp.asarray(0.2), phi=jnp.asarray(0.0), t=jnp.asarray(0.0)
+            )
+
+        g = jax.grad(f)
+        for R0 in (0.3, 1.0, 3.0):
+            ad = float(g(jnp.asarray(R0)))
+            rels = []
+            for h in (1e-4, 1e-5):
+                fd = float(
+                    (f(jnp.asarray(R0 + h)) - f(jnp.asarray(R0 - h))) / (2.0 * h)
+                )
+                rels.append(abs(ad - fd) / abs(fd))
+            assert rels[-1] < 1e-9, f"R={R0}: AD vs FD rel={rels[-1]:g}"
+            assert rels[-1] < rels[0], f"R={R0}: no h-convergence {rels}"
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_degenerate_guards_do_not_break_gradients_torch():
+    """Same gradient check on torch: `requires_grad` also selects the GL path.
+
+    Worth having on both backends rather than trusting jax to speak for torch --
+    the guards are namespace-agnostic, so this is the assertion that says so.
+    """
+    import galpy.backend as gb
+
+    tp = AnyAxisymmetricRazorThinDiskPotential()
+    tp.normalize(1.0)
+    with gb.use("torch", force=True):
+        z, ph, t = torch.tensor(0.2), torch.tensor(0.0), torch.tensor(0.0)
+
+        def f(Rv):
+            return evaluatePotentials(tp, Rv, z, phi=ph, t=t)
+
+        for R0 in (0.3, 1.0, 3.0):
+            R = torch.tensor(R0, requires_grad=True)
+            f(R).backward()
+            ad = float(R.grad)
+            h = 1e-5
+            fd = float((f(torch.tensor(R0 + h)) - f(torch.tensor(R0 - h))) / (2.0 * h))
+            rel = abs(ad - fd) / abs(fd)
+            assert rel < 1e-9, f"torch R={R0}: AD vs FD rel={rel:g}"
