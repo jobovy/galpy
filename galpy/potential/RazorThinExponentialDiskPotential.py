@@ -8,8 +8,9 @@ import math
 
 import numpy
 
-from ..backend import coerce_coords, get_namespace, has_concrete_truth_value
+from ..backend import coerce_coords, get_namespace
 from ..backend import special as bspecial
+from ..backend._namespaces import under_trace
 from ..util import conversion
 from .Potential import Potential
 
@@ -288,9 +289,12 @@ class RazorThinExponentialDiskPotential(Potential):
                 - bspecial.k1(y) * (3.0 * bspecial.i0(y) + bspecial.iv(2, y))
             )
             allin = xp.all(inplane)
-            if not has_concrete_truth_value(allin):
+            if under_trace(z):
                 # Traced: the domain cannot be decided at trace time, so return
-                # NaN off-plane rather than refusing to trace at all.
+                # NaN off-plane rather than refusing to trace at all. Asked via
+                # under_trace, not a concreteness probe: dynamo makes float(x)
+                # symbolic, so a probe answers "decidable" under torch.compile and
+                # this falls through to the raise below instead of the NaN.
                 return xp.where(inplane, val, xp.asarray(xp.nan))
             if not allin:
                 raise AttributeError(
