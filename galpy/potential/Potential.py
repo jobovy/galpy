@@ -27,11 +27,11 @@ from ..backend import (
     backend_input,
     coerce_coords,
     get_namespace,
-    has_concrete_truth_value,
     is_backend_array,
     is_backend_compatible,
 )
 from ..backend import quadrature as _bquad
+from ..backend._namespaces import under_trace
 from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -114,24 +114,29 @@ def potential_positional_arg(func):
 
 
 def _quad_needs_backend(xp, absz):
-    """True only when scipy.integrate.quad CANNOT be used: the limit is a tracer.
+    """True only when scipy.integrate.quad CANNOT be used: we are inside a trace.
 
     The backend Gauss-Legendre rule exists here for exactly one reason -- under a
     trace scipy is unusable, so the integral must be built from array ops.
-    Whenever the limit is concrete (numpy, and eager jax/torch alike) scipy is
-    still the better tool: it is adaptive, it handles an infinite limit by
-    transformation (``jeans.sigmalos`` integrates the whole line of sight), and it
-    calls the integrand node-by-node so scalar-only potentials keep working.
+    Outside a trace (numpy, and eager jax/torch alike) scipy is still the better
+    tool: it is adaptive, and it calls the integrand node-by-node so scalar-only
+    potentials keep working.
 
-    Gating on concreteness rather than on "does this potential accept an array"
+    Gating on tracedness rather than on "does this potential accept an array"
     matters because the latter is NOT decidable: `_force_accepts_arrays` sees only
     the top-level type, and a potential that composes or wraps a scalar-only one
     forwards through its own undecorated ``_Rforce`` and so looks array-safe.
-    Concreteness is decidable, and it leaves every eager path untouched.
+
+    ``under_trace`` and NOT a concreteness probe: under ``torch.compile`` dynamo
+    turns ``float(x)`` into a symbolic scalar, so a probe answers "concrete", the
+    scipy branch runs inside the compiled region, and the result was silently
+    wrong -- AnyAxisymmetricRazorThinDisk's surfdens came back 2.2e-15 instead of
+    0.0662, order-dependently. ``under_trace`` asks
+    ``torch.compiler.is_compiling()``, which dynamo cannot fool.
     """
     if xp is numpy:
         return False
-    return not has_concrete_truth_value(xp.all(xp.isfinite(absz)))
+    return under_trace(absz)
 
 
 def _node_axis(v):
