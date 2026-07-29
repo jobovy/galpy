@@ -257,15 +257,30 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
     def _bk_split_quad(self, integrand, R, xp, dev):
         # int_0^inf integrand(a) da as [0, R] + [R, 2R] + [2R, inf); the
         # symmetric plain-GL split at R handles the a=R (m->1) singularity.
-        zero = xp.zeros_like(R)
-        two_R = 2.0 * R
-        return (
-            _bquad.fixed_quad(xp, integrand, zero, R, n=_GLORDER, device=dev)
-            + _bquad.fixed_quad(xp, integrand, R, two_R, n=_GLORDER, device=dev)
-            + _bquad.fixed_quad_semiinfinite(
-                xp, integrand, two_R, n=_GLORDER, device=dev
+        #
+        # Both degenerate radii need a guard, or the traced path returns NaN
+        # where the concrete scipy path is finite:
+        #   R = 0   -- the first two panels have zero width, but the integrand is
+        #              0/0 at a=0, so they evaluate to 0*nan. The tail alone is
+        #              then the whole [0, inf) integral, which is exactly right.
+        #   R = inf -- every panel spans an infinite range. All of these
+        #              quantities vanish as R -> inf, so the answer is 0.
+        # Selected with xp.where (no data-dependent branch, so it traces), and
+        # each dead branch is evaluated at a harmless R so a nan cannot leak back
+        # through a gradient.
+        finite = xp.isfinite(R)
+        Rs = xp.where(finite, R, xp.ones_like(R))
+        positive = Rs > 0
+        Rp = xp.where(positive, Rs, xp.ones_like(Rs))
+        inner = _bquad.fixed_quad(
+            xp, integrand, xp.zeros_like(Rp), Rp, n=_GLORDER, device=dev
+        ) + _bquad.fixed_quad(xp, integrand, Rp, 2.0 * Rp, n=_GLORDER, device=dev)
+        out = xp.where(positive, inner, xp.zeros_like(inner)) + (
+            _bquad.fixed_quad_semiinfinite(
+                xp, integrand, 2.0 * Rs, n=_GLORDER, device=dev
             )
         )
+        return xp.where(finite, out, xp.zeros_like(out))
 
     @staticmethod
     def _bk_m_aRz(a, R, z2, xp):
