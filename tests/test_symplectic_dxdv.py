@@ -14,6 +14,8 @@
 import numpy
 import pytest
 
+from galpy.backend import as_numpy
+
 SYMPLECTIC = ["leapfrog_c", "symplec4_c", "symplec6_c"]
 ORDER = {"leapfrog_c": 2, "symplec4_c": 4, "symplec6_c": 6}
 
@@ -291,8 +293,14 @@ def test_symplectic_dxdv_closed_form_harmonic():
     o = Orbit(_IC)
     times_pre = numpy.linspace(0.0, T, 51)
     o.integrate(times_pre, pot, method="dop853_c")
-    r = numpy.sqrt(o.x(times_pre) ** 2 + o.y(times_pre) ** 2 + o.z(times_pre) ** 2)
-    assert numpy.amax(r) < 0.9 * pot.R
+    # as_numpy: the accessors return backend arrays under a forced backend and
+    # numpy.amax dispatches to Tensor.max(axis=, out=), which torch rejects.
+    r = numpy.sqrt(
+        as_numpy(o.x(times_pre)) ** 2
+        + as_numpy(o.y(times_pre)) ** 2
+        + as_numpy(o.z(times_pre)) ** 2
+    )
+    assert numpy.amax(r) < 0.9 * float(pot.R)
     # order-appropriate absolute tolerances at dt=0.02 (a lower-order method
     # cannot reach a higher-order method's bound)
     abstol = {"leapfrog_c": 1e-3, "symplec4_c": 1e-6, "symplec6_c": 1e-9}
@@ -518,8 +526,8 @@ def test_symplectic_dxdv_planar_closed_form_harmonic():
     o = Orbit(_IC_p)
     tpre = numpy.linspace(0.0, T, 51)
     o.integrate(tpre, pot, method="dop853_c")
-    r = numpy.sqrt(o.x(tpre) ** 2 + o.y(tpre) ** 2)
-    assert numpy.amax(r) < 0.9 * hs.R
+    r = numpy.sqrt(as_numpy(o.x(tpre)) ** 2 + as_numpy(o.y(tpre)) ** 2)
+    assert numpy.amax(r) < 0.9 * float(hs.R)
     abstol = {"leapfrog_c": 1e-3, "symplec4_c": 1e-6, "symplec6_c": 1e-9}
     for method in SYMPLECTIC:
         dt = 0.02
