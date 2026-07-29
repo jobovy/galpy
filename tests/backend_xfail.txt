@@ -301,6 +301,15 @@ torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
 # with e=5.4e-6 against a 1e-8 tolerance. Passes eager jax. Un-ledger if the
 # tolerance is ever made backend-aware.
 jax-jit tests/test_orbit.py::test_eccentricity
+# torch-jit, 2026-07-29: the FIRST torch-jit entries. Until now torch.compile
+# never reached the traced quadrature at all -- `_quad_needs_backend` used a
+# concreteness probe, and dynamo makes float(x) symbolic, so torch silently took
+# the scipy branch (and could return a wrong number: AnyAxisym surfdens came back
+# 2.2e-15 instead of 0.0662, order-dependently). With the gate on `under_trace`,
+# torch now takes the same GL path as jax and hits the same scalar-only-inputs
+# decorator. Same cause as the jax-jit entries just below; fix both together.
+torch-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
+torch-jit tests/test_potential.py::test_poisson_surfdens_potential[DoubleExponentialDiskPotential]
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_ExpDisk_special
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
