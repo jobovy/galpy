@@ -301,6 +301,28 @@ torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
 # with e=5.4e-6 against a 1e-8 tolerance. Passes eager jax. Un-ledger if the
 # tolerance is ever made backend-aware.
 jax-jit tests/test_orbit.py::test_eccentricity
+# tests/test_interp_potential.py, 2026-07-29: found by running this file traced
+# for the first time. Both PASS eager and fail only under --jit, and both compare
+# an interpRZPotential grid built with use_c=True against the same grid built in
+# Python, to 1e-14. Traced, that Python-side construction loses one to two digits:
+#
+#             pot grid   rforce grid   (bar 1e-14)
+#   eager     2.665e-15    1.776e-15
+#   jax --jit 5.596e-14    6.621e-13
+#
+# So this is NUMERICAL over-tolerance, not a wrong result -- the traced grid is
+# still right to ~1e-13.
+#
+# Root cause, localised: of MWPotential's three components only NFW moves
+# (MiyamotoNagai 3.5e-16, Hernquist 5.8e-16, NFW 1.1e-14), and its jax EAGER
+# value is BIT-IDENTICAL to numpy while its jitted value differs -- reproducibly,
+# same answer every run. So XLA compiles NFW's log1p(r/a)/(r/a) differently from
+# how it evaluates it eagerly, which is exactly the cancellation-prone shape for
+# that to show. A jit-mode numerical characteristic, not a galpy defect: nothing
+# to fix in the potential. Recorded rather than papered over, because the only
+# real remedy is a backend-aware tolerance and loosening one needs Jo's sign-off.
+jax-jit tests/test_interp_potential.py::test_interpolation_potential_use_c
+jax-jit tests/test_interp_potential.py::test_interpolation_potential_force_use_c
 # torch-jit, 2026-07-29: the FIRST torch-jit entries. Until now torch.compile
 # never reached the traced quadrature at all -- `_quad_needs_backend` used a
 # concreteness probe, and dynamo makes float(x) symbolic, so torch silently took
@@ -318,5 +340,4 @@ jax-jit tests/test_orbit.py::test_eccentricity
 # the a=R principal value is resolved; same root cause as test_2ndDeriv below.
 torch-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_ExpDisk_special
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
