@@ -211,6 +211,21 @@ def gauss_legendre_nodes(n, a=0.0, b=1.0):
     return nodes, weights
 
 
+def node_axis(v):
+    """Add a trailing axis so a fixed coordinate broadcasts against quadrature nodes.
+
+    Every rule in this module calls its integrand with a node array carrying a
+    trailing node axis, so any quantity the integrand closes over needs one too
+    once the caller passes arrays rather than scalars. Applying this is a no-op
+    for a scalar or 0-d input -- those already broadcast -- which is what lets a
+    call site adopt it without perturbing its scalar results at all.
+
+    Leaves non-arrays alone: a coordinate may arrive as ``None`` (an integrand
+    that does not need it) or as a plain float.
+    """
+    return v[..., None] if getattr(v, "ndim", 0) else v
+
+
 def _gl01_on(xp, n, dev):
     """[0, 1] GL nodes/weights as backend arrays on device ``dev`` (float64)."""
     x01, w01 = gauss_legendre_01(n)
