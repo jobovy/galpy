@@ -32,32 +32,106 @@ from ._quadrature import gauss_legendre_01
 _NODES = 128
 
 
+# Terms for the series route below. Its argument is z/(z-1), so accuracy is set
+# by how close that is to 1, i.e. by |z| -- not much by the parameters (even the
+# worst conditioning, a = b, is exact at |z| <~ 5). Measured worst case over the
+# both-non-positive triples galpy's DFs request plus a = b:
+#     |z|      1       5       20      50      200     500
+#     rel err  0       4e-14   9e-13   2e-6    7e-3    5e-2
+# 512 is chosen so that at |z| = 50 this matches what the quadrature route above
+# actually delivers there (also ~2e-6), i.e. up to |z| = 50 the series route is
+# no less accurate than the one galpy already ships. Past that it falls off
+# faster, because its convergence is algebraic in the term count rather than
+# spectral -- reaching the quadrature's ~5e-6 at |z| = 500 would need >2048
+# terms. galpy's own anisotropic DFs call this branch at |z| < 1 (measured), so
+# the exact range covers real use with a wide margin.
+_SERIES_TERMS = 512
+
+
+def _in_regime(a, b, c):
+    """True when the Euler integral below can be used for these parameters."""
+    return (a > 0 and (c - a) >= 1.0) or (b > 0 and (c - b) >= 1.0)
+
+
 def _euler_labeling(a, b, c):
     """Pick (B, A) with {A,B}={a,b}, B>0 and c-B >= 1.
 
     Requiring c-B >= 1 keeps the (1-t)^{c-B-1} endpoint non-singular so the
-    fixed-order quadrature stays accurate; galpy's 2F1 calls always satisfy
-    this (c-a is 1 or 2). A configuration with c-max(a,b) < 1 would need the
-    t=1 endpoint regularized too, so it raises rather than return a
-    low-accuracy value.
+    fixed-order quadrature stays accurate. Callers check _in_regime first; the
+    raise is a guard against reaching the integral with parameters it cannot
+    represent, and names BOTH conditions, because the binding one is often the
+    sign: with a and b both non-positive there is no admissible B at all, even
+    though c - max(a, b) >= 1 may well hold.
     """
     if a > 0 and (c - a) >= 1.0:
         return a, b
     if b > 0 and (c - b) >= 1.0:
         return b, a
     raise NotImplementedError(
-        f"hyp2f1 fallback requires c - max(a, b) >= 1 (galpy's regime); "
+        "hyp2f1 Euler integral needs some P in {a, b} with P > 0 and c - P >= 1; "
         f"got (a={a}, b={b}, c={c})"
     )
 
 
+def _pfaff_series(xp, a, b, c, z):
+    r"""2F1(a, b; c; z) for z <= 0 by Gauss series in the Pfaff variable.
+
+    Used when no transformation puts a parameter in the Euler integral's range,
+    which happens exactly when a and b are both non-positive. The two Pfaff
+    transformations are
+
+        2F1(a,b;c;z) = (1-z)^{-a} 2F1(a, c-b; c; x),  C-A-B = b-a
+                     = (1-z)^{-b} 2F1(c-a, b; c; x),  C-A-B = a-b
+
+    with x = z/(z-1) in [0, 1) for z <= 0. Taking whichever puts max(a, b) in
+    the c-. slot gives C-A-B = |a-b| > 0, so the series converges even in the
+    x -> 1 (z -> -inf) limit. |a-b| is invariant under Euler's transformation,
+    so this is the best conditioning available -- there is no relabeling that
+    converges faster.
+    """
+    if b > a:
+        A, B, pref_exp = a, c - b, -a
+    else:
+        A, B, pref_exp = c - a, b, -b
+    x = z / (z - 1.0)
+    term = xp.ones_like(x)
+    total = xp.ones_like(x)
+    for n in range(_SERIES_TERMS):
+        term = term * ((A + n) * (B + n) / ((c + n) * (n + 1.0))) * x
+        total = total + term
+    return (1.0 - z) ** pref_exp * total
+
+
 def hyp2f1_fallback(xp, a, b, c, z):
-    r"""2F1(a, b; c; z) for real z <= 0 via the boundary-layer Euler integral.
+    r"""2F1(a, b; c; z) for real z <= 0.
 
     a, b, c are scalars (galpy potential parameters); z is a backend array
     (or scalar) with z <= 0.
+
+    Three routes, in order of preference:
+
+    1. the boundary-layer Euler integral, when the parameters admit it;
+    2. Euler's transformation 2F1(a,b;c;z) = (1-z)^{c-a-b} 2F1(c-a,c-b;c;z),
+       which leaves z alone -- so the integral's z <= 0 machinery applies
+       verbatim -- and rescues the case where the only positive parameter has
+       c - P < 1 (e.g. a=-3.2, b=4.4, c=5.2 becomes 8.4, 0.8, 5.2);
+    3. otherwise a Gauss series, see _pfaff_series. Reached only when a and b
+       are both non-positive, where no transformation lands a parameter in the
+       integral's range.
+
+    Note a Pfaff transformation is NOT usable for route 2: it maps z <= 0 to
+    z/(z-1) in [0, 1), and the integral's substitutions assume z <= 0.
     """
     z = xp.asarray(z) * 1.0
+    if not _in_regime(a, b, c):
+        if _in_regime(c - a, c - b, c):
+            return (1.0 - z) ** (c - a - b) * _euler_integral(xp, c - a, c - b, c, z)
+        return _pfaff_series(xp, a, b, c, z)
+    return _euler_integral(xp, a, b, c, z)
+
+
+def _euler_integral(xp, a, b, c, z):
+    r"""2F1(a, b; c; z) for real z <= 0 via the boundary-layer Euler integral."""
     w = -z  # >= 0
     B, A = _euler_labeling(a, b, c)
     q = c - B  # exponent of (1-t) is q-1
