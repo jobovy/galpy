@@ -2413,3 +2413,39 @@ def test_dePeriod_backend_matches_numpy(backend):
     assert numpy.array_equal(as_numpy(got), expected), (
         f"max |backend - numpy| = {numpy.abs(as_numpy(got) - expected).max()!r}"
     )
+
+
+# The C Staeckel entry flags an unbound orbit by returning 9999.99 in EVERY
+# output. Its numpy wrapper protects that sentinel from the final azimuth wrap
+# (actionAngleStaeckel_c.py, `badAngle = Anglephi != 9999.99`); the differentiable
+# jax/torch wrappers around the same C call did not, so anglephi came back as
+# 9999.99 mod 2pi = 3.442 -- indistinguishable from an ordinary angle, and
+# quietly below any "is this unbound?" threshold a caller might use.
+_UNBOUND_ORBIT = (1.0, 0.1, 10.0, 0.1, 0.0, 0.0)  # vT=10 -> unbound in MWPotential
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_staeckel_unbound_sentinel_survives_the_azimuth_wrap(backend):
+    import galpy.backend as gb
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential2014
+
+    aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.71, c=True)
+
+    def _flat(out):
+        return [float(numpy.asarray(as_numpy(x)).ravel()[0]) for x in out]
+
+    ref = _flat(aAS.actionsFreqsAngles(*_UNBOUND_ORBIT))
+    with gb.use(backend, force=True):
+        got = _flat(aAS.actionsFreqsAngles(*_UNBOUND_ORBIT))
+    names = ("jr", "Lz", "jz", "Omegar", "Omegaphi", "Omegaz", "ar", "aphi", "az")
+    # Exact: the sentinel is a constant the C code writes, so every output the
+    # backend produces for an unbound orbit must equal numpy's bit for bit --
+    # there is no arithmetic left to disagree about.
+    for name, a, b in zip(names, ref, got):
+        assert a == b, f"{backend}: {name} = {b!r}, numpy gives {a!r}"
+    # and specifically that anglephi was not folded
+    assert got[7] == 9999.99, (
+        f"{backend}: anglephi = {got[7]!r}; 9999.99 mod 2pi is "
+        f"{9999.99 % (2.0 * numpy.pi)!r}, so the sentinel was wrapped"
+    )
