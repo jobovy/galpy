@@ -283,15 +283,21 @@ def test_sample_numpy_side_forced(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_hyp2f1_domain_limit(backend):
-    # The shared galpy.backend.special.hyp2f1 fallback (Euler labeling requires
-    # a positive parameter B with c-B>=1) cannot reach the general-beta
-    # Hernquist DF for beta>=0.5 (b=1-2beta<=0 after the Pfaff transform); the
-    # numpy path (scipy) is unaffected. This locks that documented boundary.
-    dfh = constantbetaHernquistdf(pot=_HP, beta=0.7)
-    assert numpy.isfinite(dfh.fE(numpy.array([-0.5 * _PSI0]))[0])  # numpy OK
-    with pytest.raises(NotImplementedError):
-        dfh.fE(_arr(backend, numpy.array([-0.5 * _PSI0])))
+@pytest.mark.parametrize("beta", [0.5, 0.7, 0.9])
+def test_general_beta_hernquist_past_the_old_hyp2f1_limit(backend, beta):
+    # beta >= 0.5 gives b = 1-2beta <= 0, so BOTH 2F1 parameters are
+    # non-positive and no Euler labeling exists. The fallback used to raise
+    # NotImplementedError here, which made this whole DF family numpy-only; it
+    # now takes the Pfaff series route (see the hyp2f1 fallback). scipy on the
+    # numpy path is the reference, and the agreement is at double precision --
+    # the series is exact at the |z| these DFs evaluate at -- so this is a tight
+    # bound, not a smoke check.
+    dfh = constantbetaHernquistdf(pot=_HP, beta=beta)
+    Es = numpy.array([-0.8, -0.5, -0.3]) * _PSI0
+    ref = dfh.fE(Es)
+    assert numpy.all(numpy.isfinite(ref))
+    got = as_numpy(dfh.fE(_arr(backend, Es)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=0.0)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
