@@ -451,6 +451,99 @@ def test_hyp2f1_fallback_alt_labeling(backend):
     numpy.testing.assert_allclose(got, ref, rtol=1e-6, atol=1e-8)
 
 
+# Parameter sets the Euler integral cannot take directly. galpy's own anisotropic
+# DFs request all three (measured by instrumenting the fallback over
+# test_sphericaldf), and before the transformation/series routes existed each one
+# raised NotImplementedError.
+_HYP2F1_EULER_TRANSFORMED = [
+    (-3.2, 4.4, 5.2),  # only positive parameter has c-b = 0.8 < 1
+    (2.0, 2.0, 2.5),  # c-a = c-b = 0.5 < 1, both positive
+]
+_HYP2F1_BOTH_NONPOSITIVE = [
+    (-0.98, -0.04, 2.98),  # |a-b| = 0.94
+    (-0.51, -0.98, 2.51),  # |a-b| = 0.47
+    (-0.5, -0.5, 2.51),  # a == b: |a-b| = 0, the series' worst conditioning
+]
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize(
+    "a,b,c", _HYP2F1_EULER_TRANSFORMED, ids=[str(x) for x in _HYP2F1_EULER_TRANSFORMED]
+)
+def test_hyp2f1_fallback_euler_transformed(backend, a, b, c):
+    # Euler's transformation, 2F1(a,b;c;z) = (1-z)^(c-a-b) 2F1(c-a,c-b;c;z),
+    # leaves z alone, so the quadrature's z<=0 machinery applies verbatim to the
+    # transformed parameters. Accuracy is therefore the quadrature's own: this
+    # measures 1e-14 across the whole grid, so 1e-12 is a real bound, not a
+    # smoke check. Includes z=0 (where 2F1=1 exactly) and r/a=500.
+    z = -numpy.array([0.0, 1e-3, 0.06, 0.617, 1.0, 5.0, 50.0, 500.0])
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize(
+    "a,b,c", _HYP2F1_BOTH_NONPOSITIVE, ids=[str(x) for x in _HYP2F1_BOTH_NONPOSITIVE]
+)
+def test_hyp2f1_fallback_both_parameters_nonpositive(backend, a, b, c):
+    # With a and b both non-positive there is no admissible Euler labeling under
+    # ANY of the four standard transformations, so this routes to the Pfaff
+    # series. Over |z| <= 20 that is exact to double precision even for a == b
+    # (measured worst case 9e-13), which is where galpy's DFs actually call it
+    # (|z| < 1). The looser large-|z| behaviour is pinned separately below so
+    # this bound stays tight enough to catch a real regression.
+    z = -numpy.array([0.0, 1e-3, 0.06, 0.617, 1.0, 5.0, 20.0])
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_hyp2f1_series_route_degrades_but_stays_bounded(backend):
+    # The counterpart: past |z| ~ 50 the series route falls off, because its
+    # convergence is algebraic in the term count rather than spectral. Pin the
+    # documented behaviour (2e-6 at |z|=50, see _SERIES_TERMS) so that neither a
+    # silent accuracy loss nor a divergence goes unnoticed.
+    a, b, c = -0.51, -0.98, 2.51
+    z = -numpy.array([50.0])
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    rel = numpy.max(numpy.fabs(got / ref - 1.0))
+    assert rel < 1e-5, f"series route worse than documented at |z|=50: {rel:.2e}"
+    assert rel > 1e-9, (
+        "series route is now MORE accurate than documented at |z|=50 "
+        f"({rel:.2e}); if _SERIES_TERMS grew, refresh the table in its comment"
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+@pytest.mark.parametrize(
+    "a,b,c",
+    _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE,
+    ids=[str(x) for x in _HYP2F1_EULER_TRANSFORMED + _HYP2F1_BOTH_NONPOSITIVE],
+)
+def test_hyp2f1_new_routes_grad_vs_fd(backend, a, b, c):
+    # Both new routes must differentiate, not merely evaluate: the DFs that need
+    # them are consumed by gradient-based work. Central differences on scipy is
+    # the reference, so this checks the derivative of the RIGHT function and not
+    # just self-consistency of the backend graph.
+    x0, eps = 0.617, 1e-6
+
+    def f_np(w):
+        return float(scipy_special.hyp2f1(a, b, c, -w))
+
+    fd = (f_np(x0 + eps) - f_np(x0 - eps)) / (2 * eps)
+    if backend == "jax":
+        ad = float(jax.grad(lambda w: gsp.hyp2f1(a, b, c, -w))(jnp.asarray(x0)))
+    else:
+        wt = torch.tensor(x0, dtype=torch.float64, requires_grad=True)
+        gsp.hyp2f1(a, b, c, -wt).backward()
+        ad = float(wt.grad)
+    assert not numpy.isnan(ad), f"gradient is NaN for ({a}, {b}, {c})"
+    numpy.testing.assert_allclose(ad, fd, rtol=1e-6)
+
+
 def test_fallback_unsupported_regimes_raise():
     # The fallbacks raise (rather than silently return a low-accuracy value)
     # outside the regime galpy needs and they are accurate in.
