@@ -86,6 +86,22 @@
 #
 # format: <backend> <nodeid>   (conftest applies xfail(strict=False) per backend;
 # tests unrunnable-until-vectorized go in backend_slow_skip.txt instead, not here)
+#
+# READING THE COUNT (2026-07-29). The headline entry count overstates the
+# remaining migration work, because a third of it is ONE class that refuses
+# backends by construction:
+#
+#   total entries        156
+#   actionAngleVerticalInverse  48   (24 jax + 24 torch)
+#   -------------------------------
+#   reducible by fixes  108
+#
+# `actionAngleVerticalInverse._reject_backend` raises NotImplementedError as soon
+# as a backend is active (it builds scipy interpolation / ndimage grids), so those
+# 48 CANNOT be burned down by incremental backend fixes -- they move only if that
+# class is migrated, which is a scoping decision, not a bug hunt. Counting them
+# alongside the reducible 108 makes the ledger look ~44% larger than the work it
+# actually represents. Split it before quoting the number as progress.
 
 jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
