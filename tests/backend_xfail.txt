@@ -91,16 +91,16 @@
 # remaining migration work, because more than a third of it is ONE class that
 # refuses backends by construction:
 #
-#   total entries        128
+#   total entries        122
 #   actionAngleVerticalInverse  48   (24 jax + 24 torch)
 #   -------------------------------
-#   reducible by fixes   80
+#   reducible by fixes   74
 #
 # `actionAngleVerticalInverse._reject_backend` raises NotImplementedError as soon
 # as a backend is active (it builds scipy interpolation / ndimage grids), so those
 # 48 CANNOT be burned down by incremental backend fixes -- they move only if that
 # class is migrated, which is a scoping decision, not a bug hunt. Counting them
-# alongside the reducible 80 makes the ledger look ~56% larger than the work it
+# alongside the reducible 74 makes the ledger look ~56% larger than the work it
 # actually represents. Split it before quoting the number as progress.
 #
 # STALENESS. xfail here is non-strict, so an entry that has since been fixed
@@ -159,9 +159,6 @@ jax tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 jax tests/test_quantity.py::test_sphericaldf_method_value
 jax tests/test_quantity.py::test_sphericaldf_sample_outputunits
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
-jax tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
-jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
-jax tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
 torch tests/test_FDMdynamfric.py::test_dynamfric_c
 torch tests/test_FDMdynamfric.py::test_dynamfric_c_minr
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
@@ -223,9 +220,6 @@ torch tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 torch tests/test_quantity.py::test_sphericaldf_method_value
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
-torch tests/test_sphericaldf.py::test_constantbetadf_against_hernquist
-torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits
-torch tests/test_sphericaldf.py::test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation
 torch tests/test_streamTrack.py::test_streamTrack_cov_basis
 torch tests/test_streamTrack.py::test_streamTrack_cov_per_call_unit_overrides
 torch tests/test_streamTrack.py::test_streamTrack_out_of_range_returns_nan
