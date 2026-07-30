@@ -152,7 +152,17 @@ def actionsfreqsangles_with_jac(host_jac, coords, phi):
 
     _afa.defvjp(_fwd, _bwd)
     raw = _afa(coords)  # 8 values, differentiable w.r.t. the 5 coords via ajac/ojac
-    anglephi = jnp.remainder(raw[6] + phi, 2.0 * jnp.pi)
+    # C flags an unbound orbit by returning 9999.99 in every output, and that
+    # sentinel must survive the azimuth wrap -- folding it gives 3.44, which reads
+    # as an ordinary angle. The numpy C wrapper guards this the same way
+    # (actionAngleStaeckel_c.py, `badAngle = Anglephi != 9999.99`); the literal is
+    # the C ABI's, spelled out here as it is in every other consumer rather than
+    # importing it from galpy.actionAngle, which this module is imported BY.
+    # where() on the data, not a branch, so it still traces; both sides are finite,
+    # so the dead one cannot poison the gradient.
+    anglephi = jnp.where(
+        raw[6] == 9999.99, raw[6], jnp.remainder(raw[6] + phi, 2.0 * jnp.pi)
+    )
     return raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], anglephi, raw[7]
 
 
