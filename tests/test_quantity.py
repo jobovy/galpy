@@ -17,7 +17,7 @@ _NUMPY_1_22 = (_NUMPY_VERSION > parse_version("1.21")) * (
 )  # For testing 1.22/1.24 precision issues
 from astropy import constants, units
 
-from galpy.backend import as_numpy  # noqa: E402
+from galpy.backend import as_numpy, is_backend_array  # noqa: E402
 
 # Backends installed here, for the units-through-a-backend regressions. Probed
 # rather than imported: importing torch/jax costs seconds and most of this file
@@ -11582,25 +11582,46 @@ def test_potential_method_turnphysicalon():
     return None
 
 
+def _plain_scalar_no_units(v):
+    """True when ``v`` is a plain number, i.e. what turn_physical_off() promises.
+
+    Replaces a bare ``isinstance(v, float)``, which is numpy-specific: under a
+    forced backend galpy returns a 0-d BACKEND array by design (that is what makes
+    these calls traceable), so the float check fails on a correct result.
+
+    On numpy this is EXACTLY as strict as the old check -- the first two branches
+    are all a numpy result can reach, so a Python float (incl. ``numpy.float64``,
+    a float subclass) passes and a 0-d ``ndarray`` still does not, because
+    ``is_backend_array`` answers False for numpy arrays. Only jax/torch 0-d arrays
+    are newly accepted. A Quantity is never acceptable: dropping units is the
+    whole point of turn_physical_off().
+    """
+    if isinstance(v, units.Quantity):
+        return False
+    if isinstance(v, float):
+        return True
+    return is_backend_array(v) and numpy.ndim(as_numpy(v)) == 0
+
+
 def test_potential_method_turnphysicaloff():
     from galpy import potential
 
     # 3D
     pot = potential.BurkertPotential(ro=7.0 * units.kpc)
     pot.turn_physical_off()
-    assert isinstance(pot(1.1, 0.1), float), (
+    assert _plain_scalar_no_units(pot(1.1, 0.1)), (
         "Potential method does not return float when turn_physical_off has been called"
     )
     # 2D
     pot = potential.EllipticalDiskPotential(ro=6.0 * units.kpc)
     pot.turn_physical_off()
-    assert isinstance(pot(1.1, phi=0.1), float), (
+    assert _plain_scalar_no_units(pot(1.1, phi=0.1)), (
         "Potential method does not return float when turn_physical_off has been called"
     )
     # 1D
     pot = potential.KGPotential(ro=5.0 * units.kpc)
     pot.turn_physical_off()
-    assert isinstance(pot(1.1), float), (
+    assert _plain_scalar_no_units(pot(1.1)), (
         "Potential method does not return float when turn_physical_off has been called"
     )
     return None
@@ -11683,37 +11704,38 @@ def test_potential_function_turnphysicaloff():
     # 3D
     pot = potential.BurkertPotential(ro=7.0 * units.kpc)
     potential.turn_physical_off(pot)
-    assert isinstance(potential.evaluatePotentials(pot, 1.1, 0.1), float), (
+    assert _plain_scalar_no_units(potential.evaluatePotentials(pot, 1.1, 0.1)), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     pot = potential.CompositePotential([potential.BurkertPotential(ro=7.0 * units.kpc)])
     potential.turn_physical_off(pot)
-    assert isinstance(potential.evaluatePotentials(pot, 1.1, 0.1), float), (
+    assert _plain_scalar_no_units(potential.evaluatePotentials(pot, 1.1, 0.1)), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     # 2D
     pot = potential.EllipticalDiskPotential(ro=6.0 * units.kpc)
     potential.turn_physical_off(pot)
-    assert isinstance(potential.evaluateplanarPotentials(pot, 1.1, phi=0.1), float), (
+    assert _plain_scalar_no_units(
+        potential.evaluateplanarPotentials(pot, 1.1, phi=0.1)
+    ), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     pot = potential.planarCompositePotential([pot])
     potential.turn_physical_off(pot)
-    assert isinstance(
+    assert _plain_scalar_no_units(
         potential.evaluateplanarPotentials(pot, 1.1, phi=0.1),
-        float,
     ), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     # 1D
     pot = potential.KGPotential(ro=5.0 * units.kpc)
     potential.turn_physical_off(pot)
-    assert isinstance(potential.evaluatelinearPotentials(pot, 1.1), float), (
+    assert _plain_scalar_no_units(potential.evaluatelinearPotentials(pot, 1.1)), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     cpot = potential.linearCompositePotential([pot])
     potential.turn_physical_off(cpot)
-    assert isinstance(potential.evaluatelinearPotentials(cpot, 1.1), float), (
+    assert _plain_scalar_no_units(potential.evaluatelinearPotentials(cpot, 1.1)), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     return None
@@ -13631,14 +13653,14 @@ def test_actionAngle_method_turnphysicaloff():
 
     aA = actionAngleIsochrone(b=0.8, ro=7.0 * units.kpc, vo=230.0 * units.km / units.s)
     aA.turn_physical_off()
-    assert isinstance(aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0], float), (
+    assert _plain_scalar_no_units(aA(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0]), (
         "actionAngle method does not return float when turn_physical_off has been called"
     )
-    assert isinstance(aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0], float), (
-        "actionAngle method does not return float when turn_physical_off has been called"
-    )
-    assert isinstance(
-        aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0], float
+    assert _plain_scalar_no_units(
+        aA.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0]
+    ), "actionAngle method does not return float when turn_physical_off has been called"
+    assert _plain_scalar_no_units(
+        aA.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[0][0]
     ), "actionAngle method does not return float when turn_physical_off has been called"
     return None
 
