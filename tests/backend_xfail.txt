@@ -91,16 +91,16 @@
 # remaining migration work, because more than a third of it is ONE class that
 # refuses backends by construction:
 #
-#   total entries        122
+#   total entries        120
 #   actionAngleVerticalInverse  48   (24 jax + 24 torch)
 #   -------------------------------
-#   reducible by fixes   74
+#   reducible by fixes   72
 #
 # `actionAngleVerticalInverse._reject_backend` raises NotImplementedError as soon
 # as a backend is active (it builds scipy interpolation / ndimage grids), so those
 # 48 CANNOT be burned down by incremental backend fixes -- they move only if that
 # class is migrated, which is a scoping decision, not a bug hunt. Counting them
-# alongside the reducible 74 makes the ledger look ~56% larger than the work it
+# alongside the reducible 72 makes the ledger look ~56% larger than the work it
 # actually represents. Split it before quoting the number as progress.
 #
 # STALENESS. xfail here is non-strict, so an entry that has since been fixed
@@ -126,7 +126,6 @@ jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
 jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
-jax tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_bisect
@@ -168,7 +167,6 @@ torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleSpherical_noninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical_bisect
