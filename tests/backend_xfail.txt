@@ -87,21 +87,40 @@
 # format: <backend> <nodeid>   (conftest applies xfail(strict=False) per backend;
 # tests unrunnable-until-vectorized go in backend_slow_skip.txt instead, not here)
 #
-# READING THE COUNT (2026-07-29). The headline entry count overstates the
-# remaining migration work, because a third of it is ONE class that refuses
-# backends by construction:
+# READING THE COUNT (2026-07-30). The headline entry count overstates the
+# remaining migration work, because more than a third of it is ONE class that
+# refuses backends by construction:
 #
-#   total entries        150
+#   total entries        130
 #   actionAngleVerticalInverse  48   (24 jax + 24 torch)
 #   -------------------------------
-#   reducible by fixes  102
+#   reducible by fixes   82
 #
 # `actionAngleVerticalInverse._reject_backend` raises NotImplementedError as soon
 # as a backend is active (it builds scipy interpolation / ndimage grids), so those
 # 48 CANNOT be burned down by incremental backend fixes -- they move only if that
 # class is migrated, which is a scoping decision, not a bug hunt. Counting them
-# alongside the reducible 108 makes the ledger look ~44% larger than the work it
+# alongside the reducible 82 makes the ledger look ~56% larger than the work it
 # actually represents. Split it before quoting the number as progress.
+#
+# STALENESS. xfail here is non-strict, so an entry that has since been fixed
+# keeps passing silently (XPASS) and keeps inflating the count -- it does not
+# announce itself, and the shard still exits 0. Entries only leave when someone
+# re-measures, so expect stale ones any time this file is quoted as progress.
+#
+# Cheapest way to re-measure, no extra CI cost: a PR into an integration branch
+# already runs the whole backend matrix, and every shard uploads its JUnit XML as
+# a `backend-junit-<backend>-<files>` artifact. Download a completed run's
+# artifacts and take (ledgered AND passed), where passed = a <testcase> with no
+# skipped/failure/error child. That covers all 44 shards at once. Note the six
+# `-jit` entries will show up as unobserved: this workflow has no --jit dimension,
+# so they are unmeasured rather than stale.
+#
+# Do NOT re-measure on a dev box instead. The backend matrix is python 3.14 and
+# shards test_orbit into 5 pytest-split groups; a local py3.13 unsplit run of the
+# same files disagreed on exactly one entry
+# (test_analytic_ecc_rperi_rap: passes locally, xfails in CI group g3). Same
+# blind spot that made an earlier local regen report false failures.
 
 jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
@@ -148,13 +167,11 @@ torch tests/test_FDMdynamfric.py::test_dynamfric_c
 torch tests/test_FDMdynamfric.py::test_dynamfric_c_minr
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
-torch tests/test_actionAngle.py::test_actionAngleIsochroneApprox_plotting
 torch tests/test_actionAngle.py::test_actionAngleSpherical_almostnoninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles_fixed_quad
 torch tests/test_actionAngle.py::test_actionAngleSpherical_noninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
-torch tests/test_actionAngle.py::test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap
 torch tests/test_actionAngle.py::test_actionAngleStaeckel_unboundr_angles_c
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_convergence_warnings
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_freqs_wrtVertical
@@ -192,30 +209,13 @@ torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funco
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalaromegaz
 torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomegaz
-torch tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
 torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
-torch tests/test_orbit.py::test_analytic_zmax
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_oblate]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PerfectEllipsoidPotential_triaxial]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[PowerTriaxialPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[SoftenedNeedleBarPotential_static]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialGaussianPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialHernquistPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialJaffePotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TriaxialNFWPotential]
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[TwoPowerTriaxialPotential]
-torch tests/test_orbit.py::test_integrate_indiv_t_1D
-torch tests/test_orbit.py::test_integrate_indiv_t_python_paths
-torch tests/test_orbit.py::test_lyapunov_c_vs_python
-torch tests/test_orbit.py::test_lyapunov_spectrum_consistency
 torch tests/test_orbit.py::test_orbit_obs_Orbits_issue322
 torch tests/test_orbit.py::test_orbit_obsvel_Orbits_issue322
 torch tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_qdf.py::test_sampleV
 torch tests/test_qdf.py::test_sampleV_interpolate
 torch tests/test_qdf.py::test_sampleV_physical
-torch tests/test_quantity.py::test_potential_paramunits
 torch tests/test_quantity.py::test_quasiisothermaldf_interpolate_sample
 torch tests/test_quantity.py::test_quasiisothermaldf_method_returntype
 torch tests/test_quantity.py::test_quasiisothermaldf_method_returnunit
@@ -233,7 +233,6 @@ torch tests/test_streamTrack.py::test_streamTrack_cov_per_call_unit_overrides
 torch tests/test_streamTrack.py::test_streamTrack_out_of_range_returns_nan
 torch tests/test_streamTrack.py::test_streamTrack_plot_smoke
 torch tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian
-torch tests/test_streamdf.py::test_bovy14_callMargXZ
 torch tests/test_streamdf.py::test_fardalwmwpot_trackaa
 torch tests/test_streamdf.py::test_plotting
 torch tests/test_streamdf.py::test_streamTrack_multi_parallel
