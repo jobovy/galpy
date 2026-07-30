@@ -91,10 +91,10 @@
 # remaining migration work, because a third of it is ONE class that refuses
 # backends by construction:
 #
-#   total entries        156
+#   total entries        150
 #   actionAngleVerticalInverse  48   (24 jax + 24 torch)
 #   -------------------------------
-#   reducible by fixes  108
+#   reducible by fixes  102
 #
 # `actionAngleVerticalInverse._reject_backend` raises NotImplementedError as soon
 # as a backend is active (it builds scipy interpolation / ndimage grids), so those
@@ -136,9 +136,6 @@ jax tests/test_actionAngle.py::test_physical_vertical
 jax tests/test_interp_potential.py::test_interpolation_potential_force_c
 jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_qdf.py::test_call_diffinoutputs
-jax tests/test_quantity.py::test_actionAngle_method_turnphysicaloff
-jax tests/test_quantity.py::test_potential_function_turnphysicaloff
-jax tests/test_quantity.py::test_potential_method_turnphysicaloff
 jax tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
 jax tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 jax tests/test_quantity.py::test_sphericaldf_method_value
@@ -218,9 +215,6 @@ torch tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_qdf.py::test_sampleV
 torch tests/test_qdf.py::test_sampleV_interpolate
 torch tests/test_qdf.py::test_sampleV_physical
-torch tests/test_quantity.py::test_actionAngle_method_turnphysicaloff
-torch tests/test_quantity.py::test_potential_function_turnphysicaloff
-torch tests/test_quantity.py::test_potential_method_turnphysicaloff
 torch tests/test_quantity.py::test_potential_paramunits
 torch tests/test_quantity.py::test_quasiisothermaldf_interpolate_sample
 torch tests/test_quantity.py::test_quasiisothermaldf_method_returntype
