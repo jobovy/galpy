@@ -91,16 +91,16 @@
 # remaining migration work, because more than a third of it is ONE class that
 # refuses backends by construction:
 #
-#   total entries        130
+#   total entries        128
 #   actionAngleVerticalInverse  48   (24 jax + 24 torch)
 #   -------------------------------
-#   reducible by fixes   82
+#   reducible by fixes   80
 #
 # `actionAngleVerticalInverse._reject_backend` raises NotImplementedError as soon
 # as a backend is active (it builds scipy interpolation / ndimage grids), so those
 # 48 CANNOT be burned down by incremental backend fixes -- they move only if that
 # class is migrated, which is a scoping decision, not a bug hunt. Counting them
-# alongside the reducible 82 makes the ledger look ~56% larger than the work it
+# alongside the reducible 80 makes the ledger look ~56% larger than the work it
 # actually represents. Split it before quoting the number as progress.
 #
 # STALENESS. xfail here is non-strict, so an entry that has since been fixed
@@ -151,7 +151,6 @@ jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_inter
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
 jax tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
-jax tests/test_actionAngle.py::test_physical_vertical
 jax tests/test_interp_potential.py::test_interpolation_potential_force_c
 jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_qdf.py::test_call_diffinoutputs
@@ -200,7 +199,6 @@ torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_poi
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
 torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
-torch tests/test_actionAngle.py::test_physical_vertical
 torch tests/test_dynamfric.py::test_dynamfric_c
 torch tests/test_dynamfric.py::test_dynamfric_c_minr
 torch tests/test_galpypaper.py::test_orbmethods
