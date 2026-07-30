@@ -1203,22 +1203,26 @@ def physical_conversion_actionAngle(quantity, pop=False):
                     fac = [1.0, ro, ro, ro]
                     if _APY_UNITS:
                         u = [1.0, units.kpc, units.kpc, units.kpc]
-                if _APY_UNITS:
-                    newOut = ()
-                    try:
-                        for ii in range(len(out)):
-                            newOut = newOut + (
-                                units.Quantity(out[ii] * fac[ii], unit=u[ii]),
-                            )
-                    except TypeError:  # happens if out = scalar
-                        newOut = units.Quantity(out * fac[0], unit=u[0])
+                # `out` is either a SEQUENCE of separate quantities -- the 3D
+                # actions, or any (actions,freqs[,angles]) return -- or ONE
+                # array-valued quantity, which is what a 1D __call__ gives back
+                # (J alone). len() cannot tell those apart, because a
+                # length-N array has a len() too, so dispatch on the type: for
+                # a 1D __call__, `fac` is 3 long and scaling element-by-element
+                # silently returned a tuple of scalars below length 4 and raised
+                # IndexError at or above it.
+                if isinstance(out, (tuple, list)):
+                    if _APY_UNITS:
+                        newOut = tuple(
+                            units.Quantity(out[ii] * fac[ii], unit=u[ii])
+                            for ii in range(len(out))
+                        )
+                    else:
+                        newOut = tuple(out[ii] * fac[ii] for ii in range(len(out)))
+                elif _APY_UNITS:
+                    newOut = units.Quantity(out * fac[0], unit=u[0])
                 else:
-                    newOut = ()
-                    try:
-                        for ii in range(len(out)):
-                            newOut = newOut + (out[ii] * fac[ii],)
-                    except TypeError:  # happens if out = scalar
-                        newOut = out * fac[0]
+                    newOut = out * fac[0]
                 return newOut
             else:
                 return method(*args, **kwargs)
