@@ -496,6 +496,90 @@ def test_physical_vertical():
     return None
 
 
+def test_physical_1d_call_container_matches_natural():
+    # A 1D __call__ returns ONE quantity -- the action J -- not a sequence of
+    # them, so turning physical output on must not change the container. It used
+    # to: physical_conversion_actionAngle scaled element-by-element against a
+    # three-long factor list, which silently tuple-ified the result below length
+    # four and raised IndexError at or above it.
+    from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
+    from galpy.potential import IsothermalDiskPotential
+
+    ro, vo = 7.0, 230.0
+    pairs = (
+        (
+            actionAngleVertical(
+                pot=IsothermalDiskPotential(amp=1.0, sigma=0.5), ro=ro, vo=vo
+            ),
+            actionAngleVertical(pot=IsothermalDiskPotential(amp=1.0, sigma=0.5)),
+        ),
+        (
+            actionAngleHarmonic(omega=1.1, ro=ro, vo=vo),
+            actionAngleHarmonic(omega=1.1),
+        ),
+    )
+    for aA, aAnu in pairs:
+        name = aA.__class__.__name__
+        # 4 and 9 are past the old three-element ceiling, 1-3 below it
+        for n in (1, 2, 3, 4, 9):
+            x = numpy.linspace(-0.15, 0.2, n)
+            vx = numpy.linspace(0.05, 0.2, n)
+            phys = aA(x, vx)
+            nat = as_numpy(aAnu(x, vx))
+            assert not isinstance(phys, tuple), (
+                f"{name}: physical __call__ returned a tuple for n={n}, but the "
+                "natural call returns a single array of actions"
+            )
+            phys = as_numpy(phys)
+            assert phys.shape == nat.shape, (
+                f"{name}: physical __call__ gave shape {phys.shape} for n={n}, "
+                f"natural gave {nat.shape}"
+            )
+            # The decorator's only arithmetic is one multiply by ro*vo, so this
+            # holds exactly -- no tolerance needed or wanted.
+            assert numpy.all(phys == nat * (ro * vo)), (
+                f"{name}: physical __call__ for n={n} is not the natural value "
+                f"times ro*vo\n  physical: {phys!r}\n  natural*ro*vo: "
+                f"{nat * (ro * vo)!r}"
+            )
+    return None
+
+
+def test_physical_3d_call_stays_a_tuple():
+    # The counterpart to the test above: 3D methods genuinely return several
+    # separate quantities, and that must keep being a tuple whose entries are
+    # scaled by their own factors. Pins the discriminator in
+    # physical_conversion_actionAngle from being "simplified" back to len().
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential2014
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    aA = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, ro=ro, vo=vo)
+    aAnu = actionAngleStaeckel(pot=MWPotential2014, delta=0.45)
+    o = (1.0, 0.1, 1.1, 0.1, 0.03, 0.2)
+    for meth, nout in (("__call__", 3), ("actionsFreqs", 6), ("EccZmaxRperiRap", 4)):
+        phys = getattr(aA, meth)(*o[:5])
+        assert isinstance(phys, tuple) and len(phys) == nout, (
+            f"actionAngleStaeckel.{meth} physical output should be a {nout}-tuple, "
+            f"got {type(phys).__name__} of length {numpy.size(phys)}"
+        )
+    # and the per-entry factors still differ: actions scale by ro*vo, the
+    # frequencies by freq_in_Gyr, which a single shared factor would break
+    aFphys = aA.actionsFreqs(*o[:5])
+    aFnat = aAnu.actionsFreqs(*o[:5])
+    for ii in range(3):
+        assert numpy.all(as_numpy(aFphys[ii]) == as_numpy(aFnat[ii]) * (ro * vo)), (
+            f"actionsFreqs entry {ii} (an action) is not scaled by ro*vo"
+        )
+    freqfac = conversion.freq_in_Gyr(vo, ro)
+    for ii in range(3, 6):
+        assert numpy.all(as_numpy(aFphys[ii]) == as_numpy(aFnat[ii]) * freqfac), (
+            f"actionsFreqs entry {ii} (a frequency) is not scaled by freq_in_Gyr"
+        )
+    return None
+
+
 # Basic sanity checking of the actionAngleIsochrone actions
 def test_actionAngleIsochrone_basic_actions():
     from galpy.actionAngle import actionAngleIsochrone
