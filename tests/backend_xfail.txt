@@ -91,16 +91,16 @@
 # remaining migration work, because more than a third of it is ONE class that
 # refuses backends by construction:
 #
-#   total entries        120
+#   total entries        109
 #   actionAngleVerticalInverse  48   (24 jax + 24 torch)
 #   -------------------------------
-#   reducible by fixes   72
+#   reducible by fixes   61
 #
 # `actionAngleVerticalInverse._reject_backend` raises NotImplementedError as soon
 # as a backend is active (it builds scipy interpolation / ndimage grids), so those
 # 48 CANNOT be burned down by incremental backend fixes -- they move only if that
 # class is migrated, which is a scoping decision, not a bug hunt. Counting them
-# alongside the reducible 72 makes the ledger look ~56% larger than the work it
+# alongside the reducible 61 makes the ledger look ~56% larger than the work it
 # actually represents. Split it before quoting the number as progress.
 #
 # STALENESS. xfail here is non-strict, so an entry that has since been fixed
@@ -158,8 +158,6 @@ jax tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 jax tests/test_quantity.py::test_sphericaldf_method_value
 jax tests/test_quantity.py::test_sphericaldf_sample_outputunits
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
-torch tests/test_FDMdynamfric.py::test_dynamfric_c
-torch tests/test_FDMdynamfric.py::test_dynamfric_c_minr
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
 torch tests/test_actionAngle.py::test_actionAngleSpherical_almostnoninclinedorbit_linear_angles
@@ -194,14 +192,7 @@ torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_poi
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
 torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
-torch tests/test_dynamfric.py::test_dynamfric_c
-torch tests/test_dynamfric.py::test_dynamfric_c_minr
-torch tests/test_galpypaper.py::test_orbmethods
 torch tests/test_galpypaper.py::test_qdf
-torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
-torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalaromegaz
-torch tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomegaz
 torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
 torch tests/test_orbit.py::test_orbit_obs_Orbits_issue322
 torch tests/test_orbit.py::test_orbit_obsvel_Orbits_issue322
@@ -212,7 +203,6 @@ torch tests/test_qdf.py::test_sampleV_physical
 torch tests/test_quantity.py::test_quasiisothermaldf_interpolate_sample
 torch tests/test_quantity.py::test_quasiisothermaldf_method_returntype
 torch tests/test_quantity.py::test_quasiisothermaldf_method_returnunit
-torch tests/test_quantity.py::test_quasiisothermaldf_method_value
 torch tests/test_quantity.py::test_quasiisothermaldf_sample
 torch tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 torch tests/test_quantity.py::test_sphericaldf_method_value
@@ -228,7 +218,6 @@ torch tests/test_streamdf.py::test_plotting
 torch tests/test_streamdf.py::test_streamTrack_multi_parallel
 jax tests/test_noninertial.py::test_arbitraryaxisrotation
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
-torch tests/test_potential.py::test_rE_MWPotential2014
 
 # --- jax single-orbit: action-angle accessors (Track E) ---
 # o.jr()/jz()/e()/zmax()/rperi()/rap() and physical/quantity/plotting paths that call
