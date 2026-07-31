@@ -6,6 +6,7 @@ import numpy
 
 from .KuijkenDubinskiDiskExpansionPotential import (
     KuijkenDubinskiDiskExpansionPotential,
+    _default_dens,
 )
 from .MultipoleExpansionPotential import MultipoleExpansionPotential
 
@@ -33,7 +34,7 @@ class DiskMultipoleExpansionPotential(KuijkenDubinskiDiskExpansionPotential):
         self,
         amp=1.0,
         normalize=False,
-        dens=lambda R, z: 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z)),
+        dens=_default_dens,
         Sigma={"type": "exp", "h": 1.0 / 3.0, "amp": 1.0},
         hz={"type": "exp", "h": 1.0 / 27.0},
         Sigma_amp=None,
