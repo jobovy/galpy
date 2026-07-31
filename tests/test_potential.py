@@ -4030,11 +4030,15 @@ def test_rE_MWPotential2014():
         ) ** 2.0 / 2.0 + potential.evaluatePotentials(potential.MWPotential2014, r, 0.0)
 
     rmin, rmax = 1e-8, 1e5
-    Emin = Ec(rmin)
-    Emax = Ec(rmax)
+    # Ec returns a backend array under a forced backend; land the energy grid on
+    # numpy at the source so linspace does not carry Tensors into the comparison
+    Emin = as_numpy(Ec(rmin))
+    Emax = as_numpy(Ec(rmax))
     Es = numpy.linspace(Emin, Emax, 101)
-    rEs = numpy.array([potential.rE(potential.MWPotential2014, E) for E in Es])
-    Ecs = numpy.array([Ec(rE) for rE in rEs])
+    rEs = numpy.array(
+        [as_numpy(potential.rE(potential.MWPotential2014, E)) for E in Es]
+    )
+    Ecs = numpy.array([as_numpy(Ec(rE)) for rE in rEs])
     assert numpy.amax(numpy.fabs(Ecs - Es)) < 1e-8, (
         "rE method does not give the expected result for MWPotential2014"
     )
