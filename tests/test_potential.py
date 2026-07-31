@@ -14037,3 +14037,30 @@ class mockKuzminLikeWrapperPotential(KuzminLikeWrapperPotential):
             a=1.0,
             b=0.1,
         )
+
+
+# The units wrapper is dropped from the pickled state only when the density
+# needs numpy, and `_dens_needs_numpy` can only become True under astropy -- so
+# the coverage shard, which has no astropy, never reaches that branch. Force the
+# flag instead of requiring the optional dependency, and assert the contract
+# directly: the wrapper leaves the state, the callable it wraps stays, and
+# unpickling rebuilds an equivalent wrapper.
+def test_pickling_potential_drops_units_wrapper():
+    import pickle
+
+    tp = potential.AnySphericalPotential(dens=_pickletest_spherical_dens)
+    tp._dens_needs_numpy = True  # pretend the density came in with units
+    state = tp.__getstate__()
+    assert "_rawdens" not in state, (
+        "the units wrapper must not be pickled -- it is a closure"
+    )
+    assert state["_dens_input"] is _pickletest_spherical_dens, (
+        "the wrapped callable must stay in the state, or the density is lost"
+    )
+    up = pickle.loads(pickle.dumps(tp))
+    assert hasattr(up, "_rawdens"), "__setstate__ must rebuild the wrapper"
+    for r in [0.5, 1.0, 2.0]:
+        assert up.dens(r, 0.0, use_physical=False) == tp.dens(
+            r, 0.0, use_physical=False
+        ), "rebuilt density differs from the original"
+    return None
