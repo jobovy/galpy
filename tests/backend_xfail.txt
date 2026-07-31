@@ -91,16 +91,16 @@
 # remaining migration work, because more than a third of it is ONE class that
 # refuses backends by construction:
 #
-#   total entries        109
+#   total entries        107
 #   actionAngleVerticalInverse  48   (24 jax + 24 torch)
 #   -------------------------------
-#   reducible by fixes   61
+#   reducible by fixes   59
 #
 # `actionAngleVerticalInverse._reject_backend` raises NotImplementedError as soon
 # as a backend is active (it builds scipy interpolation / ndimage grids), so those
 # 48 CANNOT be burned down by incremental backend fixes -- they move only if that
 # class is migrated, which is a scoping decision, not a bug hunt. Counting them
-# alongside the reducible 61 makes the ledger look ~56% larger than the work it
+# alongside the reducible 59 makes the ledger look ~56% larger than the work it
 # actually represents. Split it before quoting the number as progress.
 #
 # STALENESS. xfail here is non-strict, so an entry that has since been fixed
@@ -194,8 +194,6 @@ torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsA
 torch tests/test_actionAngle.py::test_actionAngleVertical_linear_angles
 torch tests/test_galpypaper.py::test_qdf
 torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
-torch tests/test_orbit.py::test_orbit_obs_Orbits_issue322
-torch tests/test_orbit.py::test_orbit_obsvel_Orbits_issue322
 torch tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_qdf.py::test_sampleV
 torch tests/test_qdf.py::test_sampleV_interpolate
