@@ -1,6 +1,8 @@
 ###############################################################################
 #   AnySphericalPotential: Potential of an arbitrary spherical density
 ###############################################################################
+import copy
+
 import numpy
 from scipy import integrate
 
@@ -13,13 +15,19 @@ if _APY_LOADED:
     from astropy import units
 
 
+def _default_dens(r):
+    # A module-level function rather than a lambda so the default potential is
+    # picklable (a lambda is looked up by qualname, which <lambda> has not).
+    return 0.64 / r / (1 + r) ** 3
+
+
 class AnySphericalPotential(SphericalPotential):
     """Class that implements the potential of an arbitrary spherical density distribution :math:`\\rho(r)`"""
 
     def __init__(
         self,
         amp=1.0,
-        dens=lambda r: 0.64 / r / (1 + r) ** 3,
+        dens=_default_dens,
         normalize=False,
         ro=None,
         vo=None,
@@ -60,41 +68,31 @@ class AnySphericalPotential(SphericalPotential):
         # on numpy and the result anchored back on the backend (see
         # _backend_dens). Set True below when the density involves units.
         self._dens_needs_numpy = False
+        self._dens_input = dens
+        self._dens_unit_input = False
+        self._dens_unit_output = False
         # Parse density: does it have units? does it expect them?
         if _APY_LOADED:
-            _dens_unit_input = False
             try:
                 dens(1)
             except (units.UnitConversionError, units.UnitTypeError):
-                _dens_unit_input = True
-            _dens_unit_output = False
-            if _dens_unit_input:
+                self._dens_unit_input = True
+            if self._dens_unit_input:
                 try:
                     dens(1.0 * units.kpc).to(units.Msun / units.pc**3)
                 except (AttributeError, units.UnitConversionError, TypeError):
                     pass
                 else:
-                    _dens_unit_output = True
+                    self._dens_unit_output = True
             else:
                 try:
                     dens(1.0).to(units.Msun / units.pc**3)
                 except (AttributeError, units.UnitConversionError, TypeError):
                     pass
                 else:
-                    _dens_unit_output = True
-            if _dens_unit_input and _dens_unit_output:
-                self._rawdens = lambda R: conversion.parse_dens(
-                    dens(R * self._ro * units.kpc), ro=self._ro, vo=self._vo
-                )
-            elif _dens_unit_input:
-                self._rawdens = lambda R: dens(R * self._ro * units.kpc)
-            elif _dens_unit_output:
-                self._rawdens = lambda R: conversion.parse_dens(
-                    dens(R), ro=self._ro, vo=self._vo
-                )
-            self._dens_needs_numpy = _dens_unit_input or _dens_unit_output
-        if not hasattr(self, "_rawdens"):  # unitless
-            self._rawdens = dens
+                    self._dens_unit_output = True
+            self._dens_needs_numpy = self._dens_unit_input or self._dens_unit_output
+        self._set_rawdens()
         # The potential at zero, try to figure out whether it's finite
         _zero_msg = integrate.quad(
             lambda a: a * self._rawdens(a), 0, numpy.inf, full_output=True
@@ -120,6 +118,41 @@ class AnySphericalPotential(SphericalPotential):
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover
             self.normalize(normalize)
+        return None
+
+    def _set_rawdens(self):
+        """Wrap the input density so it takes and returns internal units.
+
+        Called from ``__init__`` and again on unpickling, because the wrappers
+        are closures (see ``__getstate__``).
+        """
+        dens = self._dens_input
+        if self._dens_unit_input and self._dens_unit_output:
+            self._rawdens = lambda R: conversion.parse_dens(
+                dens(R * self._ro * units.kpc), ro=self._ro, vo=self._vo
+            )
+        elif self._dens_unit_input:
+            self._rawdens = lambda R: dens(R * self._ro * units.kpc)
+        elif self._dens_unit_output:
+            self._rawdens = lambda R: conversion.parse_dens(
+                dens(R), ro=self._ro, vo=self._vo
+            )
+        else:  # unitless: use the input density directly
+            self._rawdens = dens
+        return None
+
+    # Pickling functions
+    def __getstate__(self):
+        pdict = copy.copy(self.__dict__)
+        if self._dens_needs_numpy:
+            # rm the units wrapper (a lambda); _dens_input it closes over stays,
+            # so a dens that is itself unpicklable still raises, as it should
+            del pdict["_rawdens"]
+        return pdict
+
+    def __setstate__(self, pdict):
+        self.__dict__ = pdict
+        self._set_rawdens()
         return None
 
     def _backend_dens(self, a):
