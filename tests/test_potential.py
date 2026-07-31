@@ -109,17 +109,7 @@ def _make_pots_pickle():
     # normalize membership minus the mock potentials defined in this module
     # (which are not attributes of galpy.potential), because this test is about
     # what the library exports, not about the mocks.
-    pots = [p for p in _make_pots_normalize() if hasattr(potential, p)]
-    # The multipole potentials hold scipy BPoly splines (`_I_inner_cos` etc.).
-    # scipy 1.18 caches the array namespace -- a MODULE -- on its spline objects,
-    # so anything holding one raises "cannot pickle 'module' object ... when
-    # serializing dict item '_xp' ... BPoly state". That is upstream and predates
-    # this test: MultipoleExpansionPotential is affected too and nothing here
-    # touches it. Excluded until it is reproduced against scipy 1.18 and either
-    # fixed (drop the cached namespace on the way out) or reported upstream.
-    for p in ["MultipoleExpansionPotential", "DiskMultipoleExpansionPotential"]:
-        pots.remove(p)
-    return pots
+    return [p for p in _make_pots_normalize() if hasattr(potential, p)]
 
 
 def _make_pots_forceAsDeriv():
@@ -1302,6 +1292,12 @@ def test_pickling_potential_user_callables():
         ),
         # non-axisymmetric: takes the other branch of _set_dens_funcs
         "DiskSCF nonaxi": potential.DiskSCFPotential(dens=_pickletest_dens_nonaxi),
+        # non-axisymmetric multipole: the ONLY configuration that populates the
+        # _I_*_sin spline attributes, so an axisymmetric case alone would not
+        # exercise half of what __getstate__ has to pack
+        "DiskMultipole nonaxi": potential.DiskMultipoleExpansionPotential(
+            dens=_pickletest_dens_nonaxi
+        ),
         "AnySpherical": potential.AnySphericalPotential(
             dens=_pickletest_spherical_dens
         ),
