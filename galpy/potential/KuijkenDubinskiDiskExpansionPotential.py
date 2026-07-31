@@ -12,6 +12,13 @@ from ..backend.special import logsumexp
 from .Potential import Potential
 
 
+def _default_dens(R, z):
+    # Shared default for this class and its subclasses. A module-level function
+    # rather than a lambda so the default potentials are picklable (a lambda is
+    # looked up by qualname, which <lambda> has not).
+    return 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
+
+
 class KuijkenDubinskiDiskExpansionPotential(Potential):
     """Base class for disk+halo potentials using the Kuijken & Dubinski (1995)
     technique. This class contains all shared logic for decomposing a potential
@@ -33,7 +40,7 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
     def __init__(
         self,
         amp=1.0,
-        dens=lambda R, z: 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z)),
+        dens=_default_dens,
         Sigma={"type": "exp", "h": 1.0 / 3.0, "amp": 1.0},
         hz={"type": "exp", "h": 1.0 / 27.0},
         Sigma_amp=None,
@@ -49,6 +56,15 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
         self.isNonAxi = dens.__code__.co_argcount == 3
         self._parse_Sigma(Sigma_amp, Sigma, dSigmadR, d2SigmadR2)
         self._parse_hz(hz, Hz, dHzdz)
+        self._inputdens_arg = dens
+        self._set_dens_funcs()
+
+    def _set_dens_funcs(self):
+        """Build the input-density and phiME-density closures.
+
+        Called from ``__init__`` and again on unpickling (see ``__getstate__``).
+        """
+        dens = self._inputdens_arg
         if self.isNonAxi:
             self._inputdens = dens
         else:
@@ -82,6 +98,37 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
                 self._dHzdz,
                 self._Sigma_amp,
             )
+        return None
+
+    # Pickling functions
+    def __getstate__(self):
+        pdict = copy.copy(self.__dict__)
+        # rm the closures; everything they are built from is kept, so an
+        # unpicklable *user-provided* callable still raises, as it should
+        del pdict["_inputdens"], pdict["_phiME_dens_func"]
+        if self._Sigma_dict is not None:  # profiles parsed from a dict spec
+            del (
+                pdict["_Sigma_amp"],
+                pdict["_Sigma"],
+                pdict["_dSigmadR"],
+                pdict["_d2SigmadR2"],
+            )
+        if self._hz_dict is not None:
+            del pdict["_hz"], pdict["_Hz"], pdict["_dHzdz"]
+        return pdict
+
+    def __setstate__(self, pdict):
+        self.__dict__ = pdict
+        # Re-parse the dict-specified profiles, as __init__ does: _parse_*_dict
+        # reads the spec off self._Sigma / self._hz
+        if self._Sigma_dict is not None:
+            self._Sigma = self._Sigma_dict
+            self._parse_Sigma_dict()
+        if self._hz_dict is not None:
+            self._hz = self._hz_dict
+            self._parse_hz_dict()
+        self._set_dens_funcs()
+        return None
 
     def _finish_init(self, normalize):
         """Called by subclasses after setting self._me."""
