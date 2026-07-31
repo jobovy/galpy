@@ -16830,7 +16830,7 @@ def test_quasiisothermaldf_method_value():
     assert (
         numpy.fabs(
             qdf(o).to(1 / units.kpc**3 / (units.km / units.s) ** 3).value
-            - qdfnou(o) / ro**3 / vo**3
+            - as_numpy(qdfnou(o)) / ro**3 / vo**3
         )
         < 10.0**-8.0
     ), "quasiisothermaldf method __call__ does not return correct Quantity"

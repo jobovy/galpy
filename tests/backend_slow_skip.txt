@@ -398,3 +398,9 @@ jax tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles
 # Un-skip when the jax dynamical-friction path is vectorized.
 jax tests/test_dynamfric.py::test_dynamfric_c
 jax tests/test_FDMdynamfric.py::test_dynamfric_c
+# torch test_dynamfric_c: with the assertion-site ndarray/Tensor collision fixed
+# it no longer aborts early, and integrating orbits WITH dynamical friction under
+# torch eager then takes 3598s (measured) -- 12x the 300s per-test CI timeout. A
+# timeout records FAILED and overrides xfail, so this is a slow-skip, not an
+# xfail. Its siblings are fine: FDM test_dynamfric_c 208s, both _minr 36s.
+torch tests/test_dynamfric.py::test_dynamfric_c
