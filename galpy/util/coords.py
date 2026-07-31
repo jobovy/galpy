@@ -2045,56 +2045,63 @@ def galcencyl_to_galcenrect(R, vR, vT, z, vz, phi):
     return numpy.column_stack([x, y, zc, vx, vy, vzc])
 
 
-def galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz):
+def galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz, *, xp=None):
     """
     Calculate the Jacobian of the Galactocentric rectangular → cylindrical
     coordinates transformation, evaluated at the given point.
 
     Parameters
     ----------
-    x, y, z : float
+    x, y, z : float or array
         Galactocentric Cartesian position.
-    vx, vy, vz : float
+    vx, vy, vz : float or array
         Galactocentric Cartesian velocity.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to get_namespace (e.g.
+        ``numpy`` to pin host-side bookkeeping regardless of the forced default).
 
     Returns
     -------
-    numpy.ndarray
+    array
         6x6 Jacobian of ``(R, vR, vT, z, vz, phi)`` w.r.t. ``(x, y, z, vx, vy, vz)``.
+        Batched inputs give a ``(..., 6, 6)`` stack.
 
     Notes
     -----
     - 2026-04-26 - Written - Bovy (UofT)
+    - 2026-07-31 - Backend-agnostic (rows stacked, not item-assigned) - Claude
     """
-    R = numpy.sqrt(x * x + y * y)
-    if R == 0.0:
-        R = 1e-30
+    xp = get_namespace(x, y, z, vx, vy, vz, xp=xp)
+    x, y, vx, vy = promote_scalars(xp, x, y, vx, vy)
+    R = xp.sqrt(x * x + y * y)
+    # was `if R == 0.0: R = 1e-30`; array inputs and tracing need the branch
+    # expressed as a select
+    R = xp.where(R == 0.0, 1e-30, R)
     cp = x / R
     sp = y / R
     vR_ = cp * vx + sp * vy
     vT_ = -sp * vx + cp * vy
-    J = numpy.zeros((6, 6))
-    # row 0: R = sqrt(x²+y²)
-    J[0, 0] = cp
-    J[0, 1] = sp
-    # row 1: vR = cos(phi) * vx + sin(phi) * vy (depends on phi via x, y)
-    J[1, 0] = -sp * vT_ / R
-    J[1, 1] = cp * vT_ / R
-    J[1, 3] = cp
-    J[1, 4] = sp
-    # row 2: vT = -sin(phi) * vx + cos(phi) * vy
-    J[2, 0] = sp * vR_ / R
-    J[2, 1] = -cp * vR_ / R
-    J[2, 3] = -sp
-    J[2, 4] = cp
-    # row 3: z = z
-    J[3, 2] = 1.0
-    # row 4: vz = vz
-    J[4, 5] = 1.0
-    # row 5: phi = atan2(y, x)
-    J[5, 0] = -sp / R
-    J[5, 1] = cp / R
-    return J
+    o = xp.zeros_like(cp)
+    i = xp.ones_like(cp)
+    # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
+    # immutable, and stacking is what makes a batched (..., 6, 6) fall out.
+    return xp.stack(
+        [
+            # row 0: R = sqrt(x²+y²)
+            xp.stack([cp, sp, o, o, o, o], axis=-1),
+            # row 1: vR = cos(phi) * vx + sin(phi) * vy (depends on phi via x, y)
+            xp.stack([-sp * vT_ / R, cp * vT_ / R, o, cp, sp, o], axis=-1),
+            # row 2: vT = -sin(phi) * vx + cos(phi) * vy
+            xp.stack([sp * vR_ / R, -cp * vR_ / R, o, -sp, cp, o], axis=-1),
+            # row 3: z = z
+            xp.stack([o, o, i, o, o, o], axis=-1),
+            # row 4: vz = vz
+            xp.stack([o, o, o, o, o, i], axis=-1),
+            # row 5: phi = atan2(y, x)
+            xp.stack([-sp / R, cp / R, o, o, o, o], axis=-1),
+        ],
+        axis=-2,
+    )
 
 
 def galsky_to_sky_jac(*args, **kwargs):
