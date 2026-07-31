@@ -9373,6 +9373,23 @@ class _1DInterp:
         return self._ip(t)[:, None]
 
 
+def _obs_asnumpy(obs):
+    """Land a user-supplied ``obs=`` sequence on numpy.
+
+    ``obs`` is a reference position, and under a forced backend a user builds it
+    the natural way -- ``obs=[o.x(t), o.y(t), 0.]`` -- which yields backend
+    arrays while the integrated orbit state stays numpy. The branches that
+    consume it are written in numpy (``numpy.arctan2``/``numpy.sqrt``/
+    ``numpy.zeros_like``), so a backend element there raises ndarray-vs-Tensor.
+
+    This makes ``obs=`` ACCEPT backend arrays; it does not migrate those
+    accessors, which stay numpy by construction. A no-op for numpy input, so the
+    numpy path is byte-identical, and a read-only cast is fine because obs is
+    only ever read here.
+    """
+    return [as_numpy(o) if is_backend_array(o) else o for o in obs]
+
+
 def _from_name_oneobject(name, obs):
     """
     Query Simbad for the phase-space coordinates of one object.
@@ -9733,6 +9750,7 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
         raise AttributeError("orbit must track azimuth to use radeclbd functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0],
                 thiso[3] - numpy.arctan2(obs[1], obs[0]),
@@ -9764,6 +9782,7 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
             obs.turn_physical_on()
     else:  # FullOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
                 thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
@@ -9816,6 +9835,7 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
         raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
@@ -9902,6 +9922,7 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
             obs.turn_physical_on()
     else:  # FullOrbit
         if isinstance(obs, (numpy.ndarray, list)):
+            obs = _obs_asnumpy(obs)
             Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
             X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0, :],
