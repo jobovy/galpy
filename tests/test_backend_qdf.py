@@ -318,3 +318,52 @@ def test_moment_array_R_parity(backend):
         got = _qdf.density(Rs, zs, use_physical=False)
     assert is_backend_array(got)
     numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-6, atol=1e-9)
+
+
+# --- sampler numpy boundary -------------------------------------------------
+# The rejection samplers are numpy end to end (numpy.random proposals, numpy
+# fancy-indexing, a numpy output array), but under a forced backend the DF value
+# they accept/reject on comes back as a backend array, and `Tensor > ndarray`
+# raises. quasiisothermaldf lands the DF value (and fmin_powell's optimum) on
+# numpy where they enter that arithmetic. What the sampler returns is therefore
+# plain numpy on every backend -- that is the contract these tests pin.
+#
+# The samples are NOT bit-identical to the numpy path: fmin_powell converges in a
+# slightly different number of evaluations on a backend (46 vs 37 here), so maxVT
+# differs in its last bits and shifts the proposals. Measured max |difference|
+# over a 12-sample draw is 4.5e-10, so 1e-8 is a ~20x margin -- tight enough that
+# a real regression in the boundary (wrong values, wrong draw order) cannot pass.
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sampleV_returns_numpy(backend):
+    numpy.random.seed(17)
+    ref = _qdf.sampleV(0.9, 0.05, n=12, use_physical=False)
+    with galpy.backend.use(backend, force=True):
+        numpy.random.seed(17)
+        got = _qdf.sampleV(0.9, 0.05, n=12, use_physical=False)
+    assert isinstance(got, numpy.ndarray), (
+        f"sampleV under forced {backend} must return a numpy array, got {type(got)}"
+    )
+    assert not is_backend_array(got)
+    assert got.shape == ref.shape == (12, 3)
+    numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-8)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_sampleV_interpolate_returns_numpy(backend):
+    # sampleV_interpolate drives the second sampler, _sampleV_preoptimized, whose
+    # accept step is a separate site from sampleV's.
+    # the (R, z) spread has to cover several R_pixel/z_pixel cells, or the
+    # internal RectBivariateSpline gets a degenerate grid
+    Rs = numpy.linspace(0.7, 1.3, 40)
+    zs = numpy.linspace(0.02, 0.3, 40)
+    numpy.random.seed(23)
+    ref = _qdf.sampleV_interpolate(Rs, zs, 0.1, 0.05, use_physical=False)
+    with galpy.backend.use(backend, force=True):
+        numpy.random.seed(23)
+        got = _qdf.sampleV_interpolate(Rs, zs, 0.1, 0.05, use_physical=False)
+    assert isinstance(got, numpy.ndarray), (
+        f"sampleV_interpolate under forced {backend} must return numpy, got {type(got)}"
+    )
+    assert not is_backend_array(got)
+    assert got.shape == ref.shape == (40, 3)
+    numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-8)
