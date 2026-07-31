@@ -2179,7 +2179,12 @@ class quasiisothermaldf(df):
         # so squeeze out single dimensions by hand
         maxVT = numpy.squeeze(
             optimize.fmin_powell(
-                (lambda x: -self(R, 0.0, x, z, 0.0, log=True, use_physical=False)), 1.0
+                (
+                    lambda x: (
+                        -as_numpy(self(R, 0.0, x, z, 0.0, log=True, use_physical=False))
+                    )
+                ),
+                1.0,
             )
         )
         # as_numpy: fmin_powell's optimum is fed straight into the numpy
@@ -2340,8 +2345,16 @@ class quasiisothermaldf(df):
                         optimize.fmin_powell(
                             (
                                 lambda x: (
-                                    -self(
-                                        R, 0.0, x, z, 0.0, log=True, use_physical=False
+                                    -as_numpy(
+                                        self(
+                                            R,
+                                            0.0,
+                                            x,
+                                            z,
+                                            0.0,
+                                            log=True,
+                                            use_physical=False,
+                                        )
                                     )
                                 )
                             ),
