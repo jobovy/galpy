@@ -791,9 +791,9 @@ def test_sampleV():
         < 0.05
     ), "sampleV vR stddev is not equal to sigmaR"
     # test vT
-    assert numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015, (
-        "sampleV vT mean is not equal to meanvT"
-    )
+    assert (
+        numpy.fabs(numpy.mean(samples[:, 1] - as_numpy(qdf.meanvT(0.8, 0.1)))) < 0.015
+    ), "sampleV vT mean is not equal to meanvT"
     assert (
         numpy.fabs(
             numpy.log(numpy.std(samples[:, 1])) - 0.5 * numpy.log(qdf.sigmaT2(0.8, 0.1))
@@ -832,7 +832,8 @@ def test_sampleV_physical():
     ), "sampleV vR stddev is not equal to sigmaR"
     # test vT
     assert (
-        numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1, vo=vo))) < 0.015 * vo
+        numpy.fabs(numpy.mean(samples[:, 1] - as_numpy(qdf.meanvT(0.8, 0.1, vo=vo))))
+        < 0.015 * vo
     ), "sampleV vT mean is not equal to meanvT"
     assert (
         numpy.fabs(
@@ -892,9 +893,10 @@ def test_sampleV_interpolate():
             < 0.05
         ), "sampleV interpolate vR stddev is not equal to sigmaR"
         # test vT
-        assert numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015, (
-            "sampleV interpolate vT mean is not equal to meanvT"
-        )
+        assert (
+            numpy.fabs(numpy.mean(samples[:, 1] - as_numpy(qdf.meanvT(0.8, 0.1))))
+            < 0.015
+        ), "sampleV interpolate vT mean is not equal to meanvT"
         assert (
             numpy.fabs(
                 numpy.log(numpy.std(samples[:, 1]))

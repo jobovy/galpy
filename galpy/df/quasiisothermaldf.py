@@ -8,6 +8,7 @@ from scipy import integrate, interpolate, optimize
 from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
 from ..backend import (
+    as_numpy,
     coerce_coords,
     get_namespace,
     is_backend_array,
@@ -2178,10 +2179,20 @@ class quasiisothermaldf(df):
         # so squeeze out single dimensions by hand
         maxVT = numpy.squeeze(
             optimize.fmin_powell(
-                (lambda x: -self(R, 0.0, x, z, 0.0, log=True, use_physical=False)), 1.0
+                (
+                    lambda x: (
+                        -as_numpy(self(R, 0.0, x, z, 0.0, log=True, use_physical=False))
+                    )
+                ),
+                1.0,
             )
         )
-        logmaxVD = self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
+        # as_numpy: fmin_powell's optimum is fed straight into the numpy
+        # rejection arithmetic below; under a forced backend self() hands back a
+        # backend scalar here too. No-op on numpy.
+        logmaxVD = as_numpy(
+            self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
+        )
         # Now rejection-sample
         vRs = []
         vTs = []
@@ -2192,15 +2203,22 @@ class quasiisothermaldf(df):
             propvR = numpy.random.normal(size=nmore) * 2.0 * self._sr
             propvT = numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT
             propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
+            # as_numpy: the rejection sampler below is numpy (numpy.random draws,
+            # numpy fancy-indexing, a numpy output array), but under a forced
+            # backend self() returns a backend array for array coords, and
+            # `Tensor > ndarray` raises. Land it here, where it enters the numpy
+            # code, rather than at the comparison. No-op on numpy.
             VDatprop = (
-                self(
-                    R + numpy.zeros(nmore),
-                    propvR,
-                    propvT,
-                    z + numpy.zeros(nmore),
-                    propvz,
-                    log=True,
-                    use_physical=False,
+                as_numpy(
+                    self(
+                        R + numpy.zeros(nmore),
+                        propvR,
+                        propvT,
+                        z + numpy.zeros(nmore),
+                        propvz,
+                        log=True,
+                        use_physical=False,
+                    )
                 )
                 - logmaxVD
             )
@@ -2327,8 +2345,16 @@ class quasiisothermaldf(df):
                         optimize.fmin_powell(
                             (
                                 lambda x: (
-                                    -self(
-                                        R, 0.0, x, z, 0.0, log=True, use_physical=False
+                                    -as_numpy(
+                                        self(
+                                            R,
+                                            0.0,
+                                            x,
+                                            z,
+                                            0.0,
+                                            log=True,
+                                            use_physical=False,
+                                        )
                                     )
                                 )
                             ),
@@ -2389,7 +2415,12 @@ class quasiisothermaldf(df):
         # Determine the maximum of the velocity distribution
         maxVR = numpy.zeros(length)
         maxVz = numpy.zeros(length)
-        logmaxVD = self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
+        # as_numpy: fmin_powell's optimum is fed straight into the numpy
+        # rejection arithmetic below; under a forced backend self() hands back a
+        # backend scalar here too. No-op on numpy.
+        logmaxVD = as_numpy(
+            self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
+        )
         # Now rejection-sample
         # Initialize boolean index of position remaining to be sampled
         remain_indx = numpy.full(length, True)
@@ -2400,15 +2431,18 @@ class quasiisothermaldf(df):
                 numpy.random.normal(size=nmore) * 2.0 * self._sr + maxVT[remain_indx]
             )
             propvz = numpy.random.normal(size=nmore) * 2.0 * self._sz
+            # as_numpy for the same reason as in sampleV above
             VDatprop = (
-                self(
-                    R[remain_indx],
-                    propvR,
-                    propvT,
-                    z[remain_indx],
-                    propvz,
-                    log=True,
-                    use_physical=False,
+                as_numpy(
+                    self(
+                        R[remain_indx],
+                        propvR,
+                        propvT,
+                        z[remain_indx],
+                        propvz,
+                        log=True,
+                        use_physical=False,
+                    )
                 )
                 - logmaxVD[remain_indx]
             )
