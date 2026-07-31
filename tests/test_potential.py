@@ -17,6 +17,7 @@ except ImportError:
 from galpy import orbit, potential
 from galpy.backend import as_numpy, get_namespace
 from galpy.util import _rotate_to_arbitrary_vector, coords
+from galpy.util._optional_deps import _APY_LOADED
 
 try:
     import torch as _torch
@@ -99,6 +100,24 @@ def _make_pots_normalize():
         rmpots.append("DoubleExponentialDiskPotential")
         rmpots.append("RazorThinExponentialDiskPotential")
     for p in rmpots:
+        pots.remove(p)
+    return pots
+
+
+def _make_pots_pickle():
+    # Every default-constructible potential class that galpy itself ships: the
+    # normalize membership minus the mock potentials defined in this module
+    # (which are not attributes of galpy.potential), because this test is about
+    # what the library exports, not about the mocks.
+    pots = [p for p in _make_pots_normalize() if hasattr(potential, p)]
+    # The multipole potentials hold scipy BPoly splines (`_I_inner_cos` etc.).
+    # scipy 1.18 caches the array namespace -- a MODULE -- on its spline objects,
+    # so anything holding one raises "cannot pickle 'module' object ... when
+    # serializing dict item '_xp' ... BPoly state". That is upstream and predates
+    # this test: MultipoleExpansionPotential is affected too and nothing here
+    # touches it. Excluded until it is reproduced against scipy 1.18 and either
+    # fixed (drop the cached namespace on the way out) or reported upstream.
+    for p in ["MultipoleExpansionPotential", "DiskMultipoleExpansionPotential"]:
         pots.remove(p)
     return pots
 
@@ -1103,6 +1122,7 @@ _TOVERTICAL_ARRAY_POTS = _make_pots_toVertical_array()
 _AT_ZERO_POTS = _make_pots_potential_at_zero()
 _AT_INFINITY_POTS = _make_pots_potential_at_infinity()
 _TOVERTICAL_TOPLANAR_POTS = _make_pots_toVertical_toPlanar()
+_PICKLE_POTS = _make_pots_pickle()
 
 
 # Test whether the normalization of the potential works
@@ -1160,6 +1180,180 @@ def test_normalize_potential_extra():
     assert (tp.vcirc(1.0) ** 2.0 - 0.5) ** 2.0 < 10.0**-16.0, (
         "Normalization of %s potential fails" % "RingPotential"
     )
+    return None
+
+
+# Potentials have to survive a pickle round-trip: multiprocessing ships them to
+# worker processes by pickling them, and galpy.util.save_pickles is public API.
+@pytest.mark.parametrize("potname", _PICKLE_POTS)
+def test_pickling_potential(potname):
+    import pickle
+
+    tp = getattr(potential, potname)()
+    up = pickle.loads(pickle.dumps(tp))
+    # Exact equality, not a tolerance: unpickling has to reproduce the object,
+    # so every method has to return the identical float
+    nchecked = 0
+    for R, z in [(0.5, 0.125), (1.0, 0.0), (2.0, -0.75)]:
+        for method in ["__call__", "Rforce", "zforce", "dens"]:
+            try:
+                expected = getattr(tp, method)(R, z)
+            except Exception:  # not supported by this potential/at this point
+                continue
+            assert getattr(up, method)(R, z) == expected, (
+                f"Unpickled {potname}.{method}({R}, {z}) differs from the original"
+            )
+            nchecked += 1
+    assert nchecked > 0, f"No method of {potname} could be checked after unpickling"
+    return None
+
+
+# The callables the pickling tests below hand to potentials live at module level
+# on purpose: a function defined inside the test body is a local object, which
+# pickle cannot look up by name any more than it can a lambda, so the tests
+# would fail on their own fixtures rather than on the potential.
+def _pickletest_dens(R, z):
+    return 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
+
+
+def _pickletest_dens_nonaxi(R, z, phi):
+    return _pickletest_dens(R, z) * (1.0 + 0.05 * numpy.cos(phi))
+
+
+def _pickletest_Sigma(R):
+    return numpy.exp(-R / 0.3)
+
+
+def _pickletest_dSigmadR(R):
+    return -numpy.exp(-R / 0.3) / 0.3
+
+
+def _pickletest_d2SigmadR2(R):
+    return numpy.exp(-R / 0.3) / 0.3**2.0
+
+
+def _pickletest_hz(z):
+    return 1.0 / 2.0 / 0.04 * numpy.exp(-numpy.fabs(z) / 0.04)
+
+
+def _pickletest_Hz(z):
+    return (numpy.exp(-numpy.fabs(z) / 0.04) - 1.0 + numpy.fabs(z) / 0.04) * 0.04 / 2.0
+
+
+def _pickletest_dHzdz(z):
+    return 0.5 * numpy.sign(z) * (1.0 - numpy.exp(-numpy.fabs(z) / 0.04))
+
+
+def _pickletest_spherical_dens(r):
+    return 0.64 / r / (1.0 + r) ** 3.0
+
+
+if _APY_LOADED:
+    from astropy import units as _pickletest_units
+
+    def _pickletest_dens_unit_output(r):
+        return (
+            (0.64 / r / (1.0 + r) ** 3.0)
+            * _pickletest_units.Msun
+            / _pickletest_units.pc**3.0
+        )
+
+    def _pickletest_dens_unit_input(r):
+        return (
+            0.64
+            / (r / _pickletest_units.kpc)
+            / (1.0 + r / _pickletest_units.kpc) ** 3.0
+        )
+
+    def _pickletest_dens_unit_both(r):
+        return (
+            (
+                0.64
+                / (r / _pickletest_units.kpc)
+                / (1.0 + r / _pickletest_units.kpc) ** 3.0
+            )
+            * _pickletest_units.Msun
+            / _pickletest_units.pc**3.0
+        )
+
+
+# The potentials that take user-supplied callables build closures out of them,
+# which pickle cannot look up by name; these are the configurations of those
+# potentials that the default constructor does not reach.
+def test_pickling_potential_user_callables():
+    import pickle
+
+    dens = _pickletest_dens
+    pots = {
+        # dict-specified profiles: the closures are built by _parse_Sigma_dict /
+        # _parse_hz_dict, so both profile types of each have to be re-derivable
+        "DiskSCF exp/exp": potential.DiskSCFPotential(dens=dens),
+        "DiskSCF expwhole/sech2": potential.DiskSCFPotential(
+            Sigma={"type": "expwhole", "h": 1.0 / 3.0, "amp": 1.0, "Rhole": 0.5},
+            hz={"type": "sech2", "h": 1.0 / 27.0},
+        ),
+        # user-supplied profile callables: kept as-is, only the phiME closure
+        # around them is rebuilt
+        "DiskSCF callables": potential.DiskSCFPotential(
+            Sigma=_pickletest_Sigma,
+            dSigmadR=_pickletest_dSigmadR,
+            d2SigmadR2=_pickletest_d2SigmadR2,
+            Sigma_amp=1.0,
+            hz=_pickletest_hz,
+            Hz=_pickletest_Hz,
+            dHzdz=_pickletest_dHzdz,
+        ),
+        # non-axisymmetric: takes the other branch of _set_dens_funcs
+        "DiskSCF nonaxi": potential.DiskSCFPotential(dens=_pickletest_dens_nonaxi),
+        "AnySpherical": potential.AnySphericalPotential(
+            dens=_pickletest_spherical_dens
+        ),
+    }
+    for label, tp in pots.items():
+        up = pickle.loads(pickle.dumps(tp))
+        for R, z in [(0.8, 0.05), (1.0, 0.0), (1.3, -0.2)]:
+            for method in ["__call__", "Rforce", "zforce", "dens"]:
+                assert getattr(up, method)(R, z) == getattr(tp, method)(R, z), (
+                    f"Unpickled {label}.{method}({R}, {z}) differs from the original"
+                )
+    return None
+
+
+# A density given in / expecting astropy units is wrapped in a unit-adapting
+# closure, one per combination of (input has units, output has units)
+@pytest.mark.skipif(not _APY_LOADED, reason="astropy not installed")
+def test_pickling_potential_unitful_dens():
+    import pickle
+
+    for label, dens in [
+        ("output", _pickletest_dens_unit_output),
+        ("input", _pickletest_dens_unit_input),
+        ("both", _pickletest_dens_unit_both),
+    ]:
+        tp = potential.AnySphericalPotential(dens=dens, ro=8.0, vo=220.0)
+        up = pickle.loads(pickle.dumps(tp))
+        for r in [0.5, 1.0, 2.0]:
+            assert up.dens(r, 0.0, use_physical=False) == tp.dens(
+                r, 0.0, use_physical=False
+            ), f"Unpickled AnySphericalPotential (units in/out: {label}) dens differs"
+            assert up.Rforce(r, 0.0, use_physical=False) == tp.Rforce(
+                r, 0.0, use_physical=False
+            ), f"Unpickled AnySphericalPotential (units in/out: {label}) Rforce differs"
+    return None
+
+
+# A user-supplied lambda still cannot be pickled -- that is a documented
+# limitation (same as FDMDynamicalFrictionForce's sigmar=), and the fix above
+# must not paper over it by silently dropping the density
+def test_pickling_potential_lambda_raises():
+    import pickle
+
+    for tp in [
+        potential.AnySphericalPotential(dens=lambda r: 0.5 / r**3.0),
+        potential.DiskSCFPotential(dens=lambda R, z: numpy.exp(-R - numpy.fabs(z))),
+    ]:
+        with pytest.raises((AttributeError, pickle.PicklingError)):
+            pickle.dumps(tp)
     return None
 
 
@@ -13843,3 +14037,30 @@ class mockKuzminLikeWrapperPotential(KuzminLikeWrapperPotential):
             a=1.0,
             b=0.1,
         )
+
+
+# The units wrapper is dropped from the pickled state only when the density
+# needs numpy, and `_dens_needs_numpy` can only become True under astropy -- so
+# the coverage shard, which has no astropy, never reaches that branch. Force the
+# flag instead of requiring the optional dependency, and assert the contract
+# directly: the wrapper leaves the state, the callable it wraps stays, and
+# unpickling rebuilds an equivalent wrapper.
+def test_pickling_potential_drops_units_wrapper():
+    import pickle
+
+    tp = potential.AnySphericalPotential(dens=_pickletest_spherical_dens)
+    tp._dens_needs_numpy = True  # pretend the density came in with units
+    state = tp.__getstate__()
+    assert "_rawdens" not in state, (
+        "the units wrapper must not be pickled -- it is a closure"
+    )
+    assert state["_dens_input"] is _pickletest_spherical_dens, (
+        "the wrapped callable must stay in the state, or the density is lost"
+    )
+    up = pickle.loads(pickle.dumps(tp))
+    assert hasattr(up, "_rawdens"), "__setstate__ must rebuild the wrapper"
+    for r in [0.5, 1.0, 2.0]:
+        assert up.dens(r, 0.0, use_physical=False) == tp.dens(
+            r, 0.0, use_physical=False
+        ), "rebuilt density differs from the original"
+    return None
