@@ -4,6 +4,19 @@ import pytest
 
 from galpy import potential
 from galpy.backend import as_numpy
+
+
+def _np_rw(x):
+    """as_numpy, but WRITABLE.
+
+    jax arrays are immutable, so as_numpy hands back a read-only view and the
+    in-place `+=` the reference arithmetic below uses raises "output array is
+    read-only". torch's cast happens to be writable, which is why this only
+    shows up on jax. Copy so both backends behave the same.
+    """
+    return numpy.array(as_numpy(x), copy=True)
+
+
 from galpy.orbit import Orbit
 from galpy.util import coords
 
@@ -1575,9 +1588,9 @@ def test_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
         # numpy inputs, so the reference arithmetic below (which mixes in the
         # plain-numpy x0/v0 callables) would hit ndarray-vs-Tensor. Land them
         # back on numpy here, as the orbit accessors above already are.
-        Rp, phip, _ = (as_numpy(c) for c in coords.rect_to_cyl(op_xs, op_ys, op_zs))
+        Rp, phip, _ = (_np_rw(c) for c in coords.rect_to_cyl(op_xs, op_ys, op_zs))
         phip += omega * ts + omegadot * ts**2.0 / 2.0
-        op_xs, op_ys, _ = (as_numpy(c) for c in coords.cyl_to_rect(Rp, phip, op_zs))
+        op_xs, op_ys, _ = (_np_rw(c) for c in coords.cyl_to_rect(Rp, phip, op_zs))
         op_vxs = as_numpy(op.vx(ts)) + v0[0](ts)
         op_vys = as_numpy(op.vy(ts)) + v0[1](ts)
         op_vzs = as_numpy(op.vz(ts)) + v0[2](ts)
@@ -1589,10 +1602,10 @@ def test_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
             as_numpy(op.y(ts)) + x0[1](ts),
             as_numpy(op.z(ts)) + x0[2](ts),
         )
-        vRp, vTp = as_numpy(vRp), as_numpy(vTp)
+        vRp, vTp = _np_rw(vRp), _np_rw(vTp)
         vTp += omega * Rp + omegadot * ts * Rp
         op_vxs, op_vys, _ = (
-            as_numpy(c) for c in coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
+            _np_rw(c) for c in coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
         )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
@@ -1683,9 +1696,9 @@ def test_linacc_changingacc_xyz_accellsrframe_vecomegaz():
         # numpy inputs, so the reference arithmetic below (which mixes in the
         # plain-numpy x0/v0 callables) would hit ndarray-vs-Tensor. Land them
         # back on numpy here, as the orbit accessors above already are.
-        Rp, phip, _ = (as_numpy(c) for c in coords.rect_to_cyl(op_xs, op_ys, op_zs))
+        Rp, phip, _ = (_np_rw(c) for c in coords.rect_to_cyl(op_xs, op_ys, op_zs))
         phip += omega * ts + omegadot * ts**2.0 / 2.0
-        op_xs, op_ys, _ = (as_numpy(c) for c in coords.cyl_to_rect(Rp, phip, op_zs))
+        op_xs, op_ys, _ = (_np_rw(c) for c in coords.cyl_to_rect(Rp, phip, op_zs))
         op_vxs = as_numpy(op.vx(ts)) + v0[0](ts)
         op_vys = as_numpy(op.vy(ts)) + v0[1](ts)
         op_vzs = as_numpy(op.vz(ts)) + v0[2](ts)
@@ -1697,10 +1710,10 @@ def test_linacc_changingacc_xyz_accellsrframe_vecomegaz():
             as_numpy(op.y(ts)) + x0[1](ts),
             as_numpy(op.z(ts)) + x0[2](ts),
         )
-        vRp, vTp = as_numpy(vRp), as_numpy(vTp)
+        vRp, vTp = _np_rw(vRp), _np_rw(vTp)
         vTp += omega * Rp + omegadot * ts * Rp
         op_vxs, op_vys, _ = (
-            as_numpy(c) for c in coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
+            _np_rw(c) for c in coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
         )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
@@ -1793,9 +1806,9 @@ def test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz():
         # numpy inputs, so the reference arithmetic below (which mixes in the
         # plain-numpy x0/v0 callables) would hit ndarray-vs-Tensor. Land them
         # back on numpy here, as the orbit accessors above already are.
-        Rp, phip, _ = (as_numpy(c) for c in coords.rect_to_cyl(op_xs, op_ys, op_zs))
+        Rp, phip, _ = (_np_rw(c) for c in coords.rect_to_cyl(op_xs, op_ys, op_zs))
         phip += omega * ts + omegadot * ts**2.0 / 2.0 + omegadotdot * ts**3.0 / 6.0
-        op_xs, op_ys, _ = (as_numpy(c) for c in coords.cyl_to_rect(Rp, phip, op_zs))
+        op_xs, op_ys, _ = (_np_rw(c) for c in coords.cyl_to_rect(Rp, phip, op_zs))
         op_vxs = as_numpy(op.vx(ts)) + v0[0](ts)
         op_vys = as_numpy(op.vy(ts)) + v0[1](ts)
         op_vzs = as_numpy(op.vz(ts)) + v0[2](ts)
@@ -1807,10 +1820,10 @@ def test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz():
             as_numpy(op.y(ts)) + x0[1](ts),
             as_numpy(op.z(ts)) + x0[2](ts),
         )
-        vRp, vTp = as_numpy(vRp), as_numpy(vTp)
+        vRp, vTp = _np_rw(vRp), _np_rw(vTp)
         vTp += omega * Rp + omegadot * ts * Rp + omegadotdot * ts**2.0 / 2.0 * Rp
         op_vxs, op_vys, _ = (
-            as_numpy(c) for c in coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
+            _np_rw(c) for c in coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
         )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
@@ -1907,9 +1920,9 @@ def test_linacc_changingacc_xyz_accellsrframe_funcomegaz():
         # numpy inputs, so the reference arithmetic below (which mixes in the
         # plain-numpy x0/v0 callables) would hit ndarray-vs-Tensor. Land them
         # back on numpy here, as the orbit accessors above already are.
-        Rp, phip, _ = (as_numpy(c) for c in coords.rect_to_cyl(op_xs, op_ys, op_zs))
+        Rp, phip, _ = (_np_rw(c) for c in coords.rect_to_cyl(op_xs, op_ys, op_zs))
         phip += omega * ts + omegadot * ts**2.0 / 2.0 + omegadotdot * ts**3.0 / 6.0
-        op_xs, op_ys, _ = (as_numpy(c) for c in coords.cyl_to_rect(Rp, phip, op_zs))
+        op_xs, op_ys, _ = (_np_rw(c) for c in coords.cyl_to_rect(Rp, phip, op_zs))
         op_vxs = as_numpy(op.vx(ts)) + v0[0](ts)
         op_vys = as_numpy(op.vy(ts)) + v0[1](ts)
         op_vzs = as_numpy(op.vz(ts)) + v0[2](ts)
@@ -1921,10 +1934,10 @@ def test_linacc_changingacc_xyz_accellsrframe_funcomegaz():
             as_numpy(op.y(ts)) + x0[1](ts),
             as_numpy(op.z(ts)) + x0[2](ts),
         )
-        vRp, vTp = as_numpy(vRp), as_numpy(vTp)
+        vRp, vTp = _np_rw(vRp), _np_rw(vTp)
         vTp += omega * Rp + omegadot * ts * Rp + omegadotdot * ts**2.0 / 2.0 * Rp
         op_vxs, op_vys, _ = (
-            as_numpy(c) for c in coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
+            _np_rw(c) for c in coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
         )
         assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
             f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
