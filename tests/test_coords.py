@@ -2719,7 +2719,7 @@ def test_pupv_to_vRvz_oblate():
 def test_lbd_to_XYZ_jac():
     # Just position
     l, b, d = 180.0, 30.0, 2.0
-    jac = coords.lbd_to_XYZ_jac(l, b, d, degree=True)
+    jac = as_numpy(coords.lbd_to_XYZ_jac(l, b, d, degree=True))
     assert numpy.fabs(jac[0, 0] - 0.0) < 10.0**-10.0, (
         "lbd_to_XYZ_jac calculation did not work as expected"
     )
@@ -2750,7 +2750,7 @@ def test_lbd_to_XYZ_jac():
     # 6D
     l, b, d = 3.0 * numpy.pi / 2.0, numpy.pi / 6.0, 2.0
     vr, pmll, pmbb = 10.0, 20.0, -30.0
-    jac = coords.lbd_to_XYZ_jac(l, b, d, vr, pmll, pmbb, degree=False)
+    jac = as_numpy(coords.lbd_to_XYZ_jac(l, b, d, vr, pmll, pmbb, degree=False))
     assert numpy.fabs(jac[0, 0] - numpy.sqrt(3.0)) < 10.0**-9.0, (
         "lbd_to_XYZ_jac calculation did not work as expected"
     )
@@ -2854,28 +2854,28 @@ def test_XYZ_to_lbd_jac_inverse():
     # composing them should give the identity (no LAPACK round-off).
     l, b, d = 0.7, 0.3, 5.0
     vlos, pmll, pmbb = 30.0, -2.5, 1.7
-    J_fwd = coords.lbd_to_XYZ_jac(l, b, d, vlos, pmll, pmbb, degree=False)
+    J_fwd = as_numpy(coords.lbd_to_XYZ_jac(l, b, d, vlos, pmll, pmbb, degree=False))
     X, Y, Z = coords.lbd_to_XYZ(l, b, d, degree=False)
     vX, vY, vZ = coords.vrpmllpmbb_to_vxvyvz(
         vlos, pmll, pmbb, l, b, d, XYZ=False, degree=False
     )
-    J_inv = coords.XYZ_to_lbd_jac(X, Y, Z, vX, vY, vZ, degree=False)
+    J_inv = as_numpy(coords.XYZ_to_lbd_jac(X, Y, Z, vX, vY, vZ, degree=False))
     assert numpy.allclose(J_inv @ J_fwd, numpy.eye(6), atol=1e-12), (
         "XYZ_to_lbd_jac · lbd_to_XYZ_jac != I"
     )
     # 3x3 spatial-only branch
-    J_fwd3 = coords.lbd_to_XYZ_jac(l, b, d, degree=False)
-    J_inv3 = coords.XYZ_to_lbd_jac(X, Y, Z, degree=False)
+    J_fwd3 = as_numpy(coords.lbd_to_XYZ_jac(l, b, d, degree=False))
+    J_inv3 = as_numpy(coords.XYZ_to_lbd_jac(X, Y, Z, degree=False))
     assert numpy.allclose(J_inv3 @ J_fwd3, numpy.eye(3), atol=1e-12), (
         "XYZ_to_lbd_jac (spatial 3x3) · lbd_to_XYZ_jac != I"
     )
     # degree=True: l, b output rows scaled by 180/π
-    J_inv_deg = coords.XYZ_to_lbd_jac(X, Y, Z, vX, vY, vZ, degree=True)
+    J_inv_deg = as_numpy(coords.XYZ_to_lbd_jac(X, Y, Z, vX, vY, vZ, degree=True))
     assert numpy.allclose(J_inv_deg[0], J_inv[0] * 180.0 / numpy.pi)
     assert numpy.allclose(J_inv_deg[1], J_inv[1] * 180.0 / numpy.pi)
     assert numpy.allclose(J_inv_deg[2:], J_inv[2:])
     # Same scaling rule on the 3x3-only branch
-    J_inv3_deg = coords.XYZ_to_lbd_jac(X, Y, Z, degree=True)
+    J_inv3_deg = as_numpy(coords.XYZ_to_lbd_jac(X, Y, Z, degree=True))
     assert numpy.allclose(J_inv3_deg[0], J_inv3[0] * 180.0 / numpy.pi)
     assert numpy.allclose(J_inv3_deg[1], J_inv3[1] * 180.0 / numpy.pi)
     assert numpy.allclose(J_inv3_deg[2], J_inv3[2])
@@ -2941,7 +2941,7 @@ def test_galcenrect_to_galcencyl_jac():
         )
         return numpy.array([R, vR, vT, zc, vZ, phi])
 
-    J = coords.galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz)
+    J = as_numpy(coords.galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz))
     J_fd = _finite_difference_jac(fwd, numpy.array([x, y, z, vx, vy, vz]))
     assert numpy.allclose(J, J_fd, atol=1e-7), (
         f"galcenrect_to_galcencyl_jac mismatch with FD, max diff "
@@ -2950,11 +2950,67 @@ def test_galcenrect_to_galcencyl_jac():
     return None
 
 
+def test_galcenrect_to_XYZ_jac():
+    # Check the analytic Jacobian against central finite differences of the
+    # forward transform it differentiates. Both the 3-arg (spatial) and 6-arg
+    # (spatial+velocity) forms, and a non-zero Zsun so the sin(theta) entries
+    # are actually exercised (Zsun=0 would leave them zero and hide a sign).
+    Xsun, Zsun = 8.2, 0.025
+    x, y, z, vx, vy, vz = 1.3, -0.7, 0.4, 12.0, -215.0, 7.0
+
+    # NOTE _extra_rot=False: galcenrect_to_XYZ_jac differentiates the transform
+    # WITHOUT the extra rotation, while galcenrect_to_XYZ defaults to
+    # _extra_rot=True. Against the default forward transform the analytic
+    # Jacobian is off by ~1.5e-6 (vs 1.9e-10 here) -- a pre-existing mismatch,
+    # not introduced by the backend migration. See the note in the PR: callers
+    # that pair the Jacobian with a default-argument forward call (e.g.
+    # streamTrack._analytical_jacobian) inherit that small inconsistency.
+    def fwd(state):
+        X, Y, Z = coords.galcenrect_to_XYZ(
+            state[0], state[1], state[2], Xsun=Xsun, Zsun=Zsun, _extra_rot=False
+        )
+        vX, vY, vZ = coords.galcenrect_to_vxvyvz(
+            state[3], state[4], state[5], Xsun=Xsun, Zsun=Zsun, _extra_rot=False
+        )
+        return numpy.array([X, Y, Z, vX, vY, vZ])
+
+    J = as_numpy(
+        coords.galcenrect_to_XYZ_jac(x, y, z, vx, vy, vz, Xsun=Xsun, Zsun=Zsun)
+    )
+    s0 = numpy.array([x, y, z, vx, vy, vz])
+    J_fd = numpy.empty((6, 6))
+    for k in range(6):
+        # step scaled to the component: the velocities are O(200), so a fixed
+        # absolute h makes the differenced values lose ~8 digits to roundoff
+        hk = 1e-6 * max(1.0, abs(s0[k]))
+        dk = numpy.zeros(6)
+        dk[k] = hk
+        J_fd[:, k] = (fwd(s0 + dk) - fwd(s0 - dk)) / (2.0 * hk)
+    assert numpy.max(numpy.abs(J - J_fd)) < 1e-9, (
+        "galcenrect_to_XYZ_jac does not match finite differences of the forward "
+        f"transform: max|J - J_fd| = {numpy.max(numpy.abs(J - J_fd))}"
+    )
+    # 3-arg form is the spatial sub-block of the 6-arg one
+    J3 = as_numpy(coords.galcenrect_to_XYZ_jac(x, y, z, Xsun=Xsun, Zsun=Zsun))
+    assert J3.shape == (3, 3), "galcenrect_to_XYZ_jac 3-arg form is not 3x3"
+    assert numpy.all(J3 == J[:3, :3]), (
+        "galcenrect_to_XYZ_jac 3-arg form is not the spatial block of the 6-arg form"
+    )
+    # a negative Xsun flips the sign() entries; check that branch too
+    Jneg = as_numpy(
+        coords.galcenrect_to_XYZ_jac(x, y, z, vx, vy, vz, Xsun=-Xsun, Zsun=Zsun)
+    )
+    assert numpy.sign(Jneg[2, 0]) == -numpy.sign(J[2, 0]), (
+        "galcenrect_to_XYZ_jac sign(Xsun) branch did not flip"
+    )
+    return None
+
+
 def test_galcenrect_to_galcencyl_jac_on_z_axis():
     # On the z-axis (R=0) the Jacobian is singular; the implementation
     # falls back to a tiny epsilon so the matrix stays finite. Check that
     # the call returns a finite 6x6.
-    J = coords.galcenrect_to_galcencyl_jac(0.0, 0.0, 1.0, 10.0, 20.0, 30.0)
+    J = as_numpy(coords.galcenrect_to_galcencyl_jac(0.0, 0.0, 1.0, 10.0, 20.0, 30.0))
     assert J.shape == (6, 6)
     assert numpy.all(numpy.isfinite(J))
 
@@ -2964,10 +3020,10 @@ def test_XYZ_to_lbd_jac_at_celestial_pole():
     # and the (l, b) angular coordinates are undefined; the implementation
     # should still produce a finite 3x3 (and 6x6 with velocities) without
     # NaNs by picking an arbitrary tangent (cl, sl) = (1, 0).
-    J = coords.XYZ_to_lbd_jac(0.0, 0.0, 1.0)
+    J = as_numpy(coords.XYZ_to_lbd_jac(0.0, 0.0, 1.0))
     assert J.shape == (3, 3)
     assert numpy.all(numpy.isfinite(J))
-    J6 = coords.XYZ_to_lbd_jac(0.0, 0.0, 1.0, 10.0, 20.0, 30.0)
+    J6 = as_numpy(coords.XYZ_to_lbd_jac(0.0, 0.0, 1.0, 10.0, 20.0, 30.0))
     assert J6.shape == (6, 6)
     assert numpy.all(numpy.isfinite(J6))
 
