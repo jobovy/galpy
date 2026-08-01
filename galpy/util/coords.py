@@ -97,6 +97,37 @@ _APY_COORDS *= _APY_LOADED
 _DEGTORAD = numpy.pi / 180.0
 
 
+def _galcen_rot(Xsun, Zsun):
+    """Galactocentric -> heliocentric rotation, plus the ``dgc`` offset scalars.
+
+    Depends only on ``Xsun``/``Zsun``, which are configuration, never traced
+    data -- so this stays numpy even on a backend and is a compile-time
+    constant under a trace. Shape (3, 3) for scalar Xsun, (3, 3, N) when
+    Xsun/Zsun are arrays.
+    """
+    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    zero = numpy.zeros_like(costheta)
+    one = numpy.ones_like(costheta)
+    rot = numpy.array(
+        [
+            [-costheta, zero, -sintheta],
+            [zero, one, zero],
+            [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
+        ]
+    )
+    batched = isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+    return rot, dgc, zero, batched
+
+
+def _apply_galcen_rot(xp, rot, data, batched, dev):
+    """``rot @ data`` for backend ``data`` (3, N); mirrors the numpy einsum."""
+    rot = asarray_on_device(xp, rot, dev)
+    if batched:  # (3, 3, N) . (3, N) -> (3, N), i.e. einsum("ijk,jk->ik")
+        return xp.sum(rot * data[None, :, :], axis=1)
+    return rot @ data
+
+
 def _scale_angle_rows(xp, m, factor=1.0 / _DEGTORAD, nrows=2):
     """Scale the first ``nrows`` rows of Jacobian ``m`` by ``factor``.
 
@@ -1107,6 +1138,7 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     ).T
 
 
+@backendNative
 @scalarDecorator
 def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
@@ -1140,32 +1172,30 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
-    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
-    costheta, sintheta = Xsun / dgc, Zsun / dgc
-    zero = numpy.zeros_like(costheta)
-    one = numpy.ones_like(costheta)
+    rot, dgc, zero, batched = _galcen_rot(Xsun, Zsun)
+    offset = numpy.array([dgc, zero, zero])
+    xp = get_namespace(X, Y, Z)
+    if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
+        out = (
+            numpy.einsum(
+                "ijk,jk->ik" if batched else "ij,jk->ik",
+                rot,
+                numpy.array([X, Y, Z]),
+            ).T
+            + offset.T
+        )
+        if _extra_rot:
+            return numpy.dot(galcen_extra_rot.T, out.T).T
+        return out
+    X, Y, Z = promote_scalars(xp, X, Y, Z)
+    dev = device_of(X)
     out = (
-        numpy.einsum(
-            (
-                "ijk,jk->ik"
-                if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-                else "ij,jk->ik"
-            ),
-            numpy.array(
-                [
-                    [-costheta, zero, -sintheta],
-                    [zero, one, zero],
-                    [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
-                ]
-            ),
-            numpy.array([X, Y, Z]),
-        ).T
-        + numpy.array([dgc, zero, zero]).T
+        _apply_galcen_rot(xp, rot, xp.stack([X, Y, Z]), batched, dev).T
+        + asarray_on_device(xp, offset, dev).T
     )
     if _extra_rot:
-        return numpy.dot(galcen_extra_rot.T, out.T).T
-    else:
-        return out
+        return (asarray_on_device(xp, galcen_extra_rot.T, dev) @ out.T).T
+    return out
 
 
 def rect_to_cyl(X, Y, Z, *, xp=None):
@@ -1479,6 +1509,7 @@ def vxvyvz_to_galcencyl(
     ).T
 
 
+@backendNative
 @scalarDecorator
 def galcenrect_to_vxvyvz(
     vXg, vYg, vZg, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
@@ -1515,29 +1546,24 @@ def galcenrect_to_vxvyvz(
     - 2017-10-24 - Allowed Xsun/Zsun/vsun to be arrays - Bovy (UofT)
     - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
     """
-    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
-    costheta, sintheta = Xsun / dgc, Zsun / dgc
-    zero = numpy.zeros_like(costheta)
-    one = numpy.ones_like(costheta)
-    out = numpy.einsum(
-        (
-            "ijk,jk->ik"
-            if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-            else "ij,jk->ik"
-        ),
-        numpy.array(
-            [
-                [-costheta, zero, -sintheta],
-                [zero, one, zero],
-                [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
-            ]
-        ),
-        numpy.array([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]]),
-    ).T
-    if _extra_rot:
-        return numpy.dot(galcen_extra_rot.T, out.T).T
-    else:
+    rot, _, _, batched = _galcen_rot(Xsun, Zsun)
+    xp = get_namespace(vXg, vYg, vZg)
+    if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
+        out = numpy.einsum(
+            "ijk,jk->ik" if batched else "ij,jk->ik",
+            rot,
+            numpy.array([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]]),
+        ).T
+        if _extra_rot:
+            return numpy.dot(galcen_extra_rot.T, out.T).T
         return out
+    vXg, vYg, vZg = promote_scalars(xp, vXg, vYg, vZg)
+    dev = device_of(vXg)
+    data = xp.stack([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]])
+    out = _apply_galcen_rot(xp, rot, data, batched, dev).T
+    if _extra_rot:
+        return (asarray_on_device(xp, galcen_extra_rot.T, dev) @ out.T).T
+    return out
 
 
 @scalarDecorator
