@@ -672,6 +672,7 @@ def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
     return vrvlvb
 
 
+@backendNative
 @scalarDecorator
 @degreeDecorator([], [0, 1])
 def XYZ_to_lbd(X, Y, Z, degree=False):
@@ -700,15 +701,24 @@ def XYZ_to_lbd(X, Y, Z, degree=False):
     - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     # Whether to use degrees and scalar input is handled by decorators
-    d = numpy.sqrt(X**2.0 + Y**2.0 + Z**2.0)
-    b = numpy.arcsin(Z / d)
-    l = numpy.arctan2(Y, X)
-    l[l < 0.0] += 2.0 * numpy.pi
-    out = numpy.empty((len(d), 3))
-    out[:, 0] = l
-    out[:, 1] = b
-    out[:, 2] = d
-    return out
+    xp = get_namespace(X, Y, Z)
+    if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
+        d = numpy.sqrt(X**2.0 + Y**2.0 + Z**2.0)
+        b = numpy.arcsin(Z / d)
+        l = numpy.arctan2(Y, X)
+        l[l < 0.0] += 2.0 * numpy.pi
+        out = numpy.empty((len(d), 3))
+        out[:, 0] = l
+        out[:, 1] = b
+        out[:, 2] = d
+        return out
+    X, Y, Z = promote_scalars(xp, X, Y, Z)
+    d = xp.sqrt(X**2.0 + Y**2.0 + Z**2.0)
+    b = xp.arcsin(Z / d)
+    l = xp.arctan2(Y, X)
+    # was `l[l < 0.0] += 2pi`: a masked in-place add, which backend arrays reject
+    l = xp.where(l < 0.0, l + 2.0 * numpy.pi, l)
+    return xp.stack([l, b, d], axis=-1)
 
 
 @scalarDecorator
