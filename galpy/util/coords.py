@@ -1972,79 +1972,117 @@ def XYZ_to_lbd_jac(*args, **kwargs):
     else:
         raise ValueError("XYZ_to_lbd_jac expects 3 or 6 arguments")
 
+    xp = get_namespace(*args, xp=kwargs.get("xp", None))
+    X, Y, Z = promote_scalars(xp, X, Y, Z)
+    if with_vel:
+        vX, vY, vZ = promote_scalars(xp, vX, vY, vZ)
     R2 = X * X + Y * Y
-    D = numpy.sqrt(R2 + Z * Z)
-    r = numpy.sqrt(R2)
+    D = xp.sqrt(R2 + Z * Z)
+    r = xp.sqrt(R2)
     cb = r / D
     sb = Z / D
     # On the celestial pole (r==0) ``l`` is undefined; pick (cl, sl) = (1, 0)
     # so the spatial inverse stays finite (consistent with atan2(0, 0) = 0).
-    if r == 0.0:
-        cl, sl = 1.0, 0.0
-    else:
-        cl = X / r
-        sl = Y / r
+    # Each xp.where's dead branch is computed too (eagerly and under a trace),
+    # so divide by a safe denominator or the 0/0 NaN poisons the gradient.
+    at_pole = r == 0.0
+    r_safe = xp.where(at_pole, 1.0, r)
+    cl = xp.where(at_pole, 1.0, X / r_safe)
+    sl = xp.where(at_pole, 0.0, Y / r_safe)
 
-    out = numpy.zeros((6, 6) if with_vel else (3, 3))
-    # Position 3x3: ∂(l, b, D)/∂(X, Y, Z)
-    if cb != 0.0:  # else: at the pole, ∂l/∂(X, Y) blows up — leave as zero
-        out[0, 0] = -sl / (D * cb)
-        out[0, 1] = cl / (D * cb)
-    out[1, 0] = -sb * cl / D
-    out[1, 1] = -sb * sl / D
-    out[1, 2] = cb / D
-    out[2, 0] = cb * cl
-    out[2, 1] = cb * sl
-    out[2, 2] = sb
+    o = xp.zeros_like(cb)
+    # Position 3x3: ∂(l, b, D)/∂(X, Y, Z). At the pole ∂l/∂(X, Y) blows up, so
+    # those two entries stay zero (same convention as the scalar version).
+    Dcb = D * cb
+    Dcb_safe = xp.where(Dcb == 0.0, 1.0, Dcb)
+    dl_dX = xp.where(Dcb == 0.0, 0.0, -sl / Dcb_safe)
+    dl_dY = xp.where(Dcb == 0.0, 0.0, cl / Dcb_safe)
+    P = xp.stack(
+        [
+            xp.stack([dl_dX, dl_dY, o], axis=-1),
+            xp.stack([-sb * cl / D, -sb * sl / D, cb / D], axis=-1),
+            xp.stack([cb * cl, cb * sl, sb], axis=-1),
+        ],
+        axis=-2,
+    )
+
+    def _degree_scale(m):
+        # was `out[0, :] *= 1/_DEGTORAD` on rows 0 and 1
+        if not kwargs.get("degree", False):
+            return m
+        n = m.shape[-2]
+        s = xp.stack(
+            [xp.full_like(cb, 1.0 / _DEGTORAD)] * 2 + [xp.ones_like(cb)] * (n - 2),
+            axis=-1,
+        )
+        return m * s[..., :, None]
 
     if not with_vel:
-        if kwargs.get("degree", False):
-            out[0, :] *= 1.0 / _DEGTORAD
-            out[1, :] *= 1.0 / _DEGTORAD
-        return out
+        return _degree_scale(P)
 
     # Velocity 3x3: ∂(vlos, pmll, pmbb)/∂(vX, vY, vZ) at fixed position.
     # forward velocity block is R · diag(1, K·D, K·D) with R orthonormal
     # ⇒ inverse = diag(1, 1/(K·D), 1/(K·D)) · Rᵀ.
     KD = _K * D
-    out[3, 3] = cl * cb
-    out[3, 4] = sl * cb
-    out[3, 5] = sb
-    if KD != 0.0:  # pragma: no branch (D > 0 always — guard catches the
-        # heliocentric-origin singularity if a caller passes (X, Y, Z) = 0)
-        out[4, 3] = -sl / KD
-        out[4, 4] = cl / KD
-        out[5, 3] = -cl * sb / KD
-        out[5, 4] = -sl * sb / KD
-        out[5, 5] = cb / KD
+    # D > 0 always; the guard catches a caller passing (X, Y, Z) = 0.
+    sing = KD == 0.0
+    KD_safe = xp.where(sing, 1.0, KD)
+    M = xp.stack(
+        [
+            xp.stack([cl * cb, sl * cb, sb], axis=-1),
+            xp.stack(
+                [
+                    xp.where(sing, 0.0, -sl / KD_safe),
+                    xp.where(sing, 0.0, cl / KD_safe),
+                    o,
+                ],
+                axis=-1,
+            ),
+            xp.stack(
+                [
+                    xp.where(sing, 0.0, -cl * sb / KD_safe),
+                    xp.where(sing, 0.0, -sl * sb / KD_safe),
+                    xp.where(sing, 0.0, cb / KD_safe),
+                ],
+                axis=-1,
+            ),
+        ],
+        axis=-2,
+    )
 
     # Bottom-left coupling: -inv(M) · Q · inv(P).
     # Q is the velocity-vs-position block of lbd_to_XYZ_jac, evaluated at
     # the current vlos/pmll/pmbb (themselves derived from vX,vY,vZ via the
     # velocity inverse just computed).
     vlos = cl * cb * vX + sl * cb * vY + sb * vZ
-    if KD != 0.0:
-        pmll = (-sl * vX + cl * vY) / KD
-        pmbb = (-cl * sb * vX - sl * sb * vY + cb * vZ) / KD
-    else:  # pragma: no cover (defensive: Sun is never the track mean)
-        pmll = 0.0
-        pmbb = 0.0
-    Q = numpy.zeros((3, 3))
-    Q[0, 0] = -sl * cb * vlos - cl * KD * pmll + sb * sl * KD * pmbb
-    Q[0, 1] = -cl * sb * vlos - cb * cl * KD * pmbb
-    Q[0, 2] = -sl * _K * pmll - sb * cl * _K * pmbb
-    Q[1, 0] = cl * cb * vlos - sl * KD * pmll - cl * sb * KD * pmbb
-    Q[1, 1] = -sl * sb * vlos - sl * cb * KD * pmbb
-    Q[1, 2] = cl * _K * pmll - sl * sb * _K * pmbb
-    Q[2, 0] = 0.0
-    Q[2, 1] = cb * vlos - sb * KD * pmbb
-    Q[2, 2] = cb * _K * pmbb
-    out[3:6, 0:3] = -out[3:6, 3:6] @ Q @ out[0:3, 0:3]
-
-    if kwargs.get("degree", False):
-        out[0, :] *= 1.0 / _DEGTORAD
-        out[1, :] *= 1.0 / _DEGTORAD
-    return out
+    pmll = xp.where(sing, 0.0, (-sl * vX + cl * vY) / KD_safe)
+    pmbb = xp.where(sing, 0.0, (-cl * sb * vX - sl * sb * vY + cb * vZ) / KD_safe)
+    Q = xp.stack(
+        [
+            xp.stack(
+                [
+                    -sl * cb * vlos - cl * KD * pmll + sb * sl * KD * pmbb,
+                    -cl * sb * vlos - cb * cl * KD * pmbb,
+                    -sl * _K * pmll - sb * cl * _K * pmbb,
+                ],
+                axis=-1,
+            ),
+            xp.stack(
+                [
+                    cl * cb * vlos - sl * KD * pmll - cl * sb * KD * pmbb,
+                    -sl * sb * vlos - sl * cb * KD * pmbb,
+                    cl * _K * pmll - sl * sb * _K * pmbb,
+                ],
+                axis=-1,
+            ),
+            xp.stack([o, cb * vlos - sb * KD * pmbb, cb * _K * pmbb], axis=-1),
+        ],
+        axis=-2,
+    )
+    C = -M @ Q @ P
+    Z3 = xp.zeros_like(P)
+    out = xp.concat([xp.concat([P, Z3], axis=-1), xp.concat([C, M], axis=-1)], axis=-2)
+    return _degree_scale(out)
 
 
 def galcencyl_to_galcenrect(R, vR, vT, z, vz, phi):
