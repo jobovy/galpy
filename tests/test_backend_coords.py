@@ -304,3 +304,49 @@ def test_uv_to_Rz_indiv_delta_forced_backend(backend_name, oblate):
     numpy.testing.assert_allclose(as_numpy(z), zref, rtol=1e-13, atol=1e-14)
     numpy.testing.assert_allclose(as_numpy(R2), Rref2, rtol=1e-13, atol=1e-14)
     numpy.testing.assert_allclose(as_numpy(z2), zref2, rtol=1e-13, atol=1e-14)
+
+
+# --- degreeDecorator's backend branch + lb_to_radec's rotation branch --------
+# Two lines that a numpy-only run can never reach, and the coverage-uploading
+# shards run numpy (see the backend-branch coverage note): degreeDecorator's
+# `if is_backend_array(out): scale = asarray_on_device(...)` and the
+# rotation-matrix branch of lb_to_radec, which numpy skips because astropy is
+# present. Exercised here with a real backend array, which is the only way to
+# reach them.
+_LDEG = numpy.array([12.0, 200.0, 351.0])
+_BDEG = numpy.array([-40.0, 5.0, 62.0])
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_lb_to_radec_backend_branch_matches_numpy(backend_name):
+    # Backend-vs-numpy parity. NOTE the reference path is environment
+    # dependent: with astropy present numpy uses SkyCoord, and on the
+    # astropy-free test_backend shard it uses the same rotation matrix as the
+    # backend. Both agree to roundoff (astropy-vs-rotation measured at
+    # ~1.6e-15 rad), so the assertion holds either way.
+    ref = coords.lb_to_radec(_LDEG, _BDEG, degree=True)
+    with use(backend_name, force=True):
+        got = coords.lb_to_radec(_LDEG, _BDEG, degree=True)
+        assert is_backend_array(got), "lb_to_radec did not preserve the backend"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=0, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_degree_decorator_scales_backend_output(backend_name):
+    # degree=True must scale the output columns for a backend array too; this
+    # is the `is_backend_array(out)` branch of degreeDecorator.
+    ref_deg = coords.lb_to_radec(_LDEG, _BDEG, degree=True)
+    ref_rad = coords.lb_to_radec(
+        numpy.radians(_LDEG), numpy.radians(_BDEG), degree=False
+    )
+    with use(backend_name, force=True):
+        got_deg = coords.lb_to_radec(_LDEG, _BDEG, degree=True)
+        got_rad = coords.lb_to_radec(
+            numpy.radians(_LDEG), numpy.radians(_BDEG), degree=False
+        )
+    # the degree output is exactly 180/pi times the radian one, elementwise
+    numpy.testing.assert_allclose(
+        as_numpy(got_deg), numpy.degrees(as_numpy(got_rad)), rtol=1e-13, atol=0
+    )
+    numpy.testing.assert_allclose(as_numpy(got_deg), ref_deg, rtol=0, atol=1e-12)
+    numpy.testing.assert_allclose(as_numpy(got_rad), ref_rad, rtol=0, atol=1e-13)
