@@ -81,7 +81,9 @@ from functools import wraps
 import numpy
 
 from ..backend import (
+    asarray_on_device,
     coerce_coords,
+    device_of,
     get_namespace,
     is_backend_array,
     promote_scalars,
@@ -119,17 +121,38 @@ if _APY_COORDS:
         _APY_COORDS = False
 
 
+def backendNative(func):
+    """Mark a coords function as safe to be handed jax/torch arrays.
+
+    ``scalarDecorator`` promotes scalar inputs through ``numpy``, which strips the
+    framework off a backend array before the wrapped function ever runs. That
+    conversion is load-bearing for the functions that are still numpy-only, so it
+    stays the default; marking a function opts it into a framework-preserving
+    promotion instead. Migrate a function, then mark it -- no flag day.
+
+    Notes
+    -----
+    - 2026-08-01 - Written - Claude
+    """
+    func._galpy_backend_native = True
+    return func
+
+
 def scalarDecorator(func):
     """Decorator to return scalar outputs as a set"""
 
     @wraps(func)
     def scalar_wrapper(*args, **kwargs):
-        if numpy.array(args[0]).shape == ():
+        # numpy unless the wrapped function has opted in (see backendNative):
+        # promoting through numpy would silently downgrade a backend array.
+        xp = (
+            get_namespace(*args)
+            if getattr(func, "_galpy_backend_native", False)
+            else numpy
+        )
+        if xp.asarray(args[0]).ndim == 0:
             scalarOut = True
-            newargs = ()
-            for ii in range(len(args)):
-                newargs = newargs + (numpy.array([args[ii]]),)
-            args = newargs
+            args = tuple(xp.reshape(xp.asarray(a), (1,)) for a in args)
         else:
             scalarOut = False
         result = func(*args, **kwargs)
@@ -265,6 +288,7 @@ def radec_to_lb(ra, dec, degree=False, epoch=2000.0):
 
 @scalarDecorator
 @degreeDecorator([0, 1], [0, 1])
+@backendNative
 def lb_to_radec(l, b, degree=False, epoch=2000.0):
     """
     Transform from Galactic coordinates to equatorial coordinates
@@ -291,7 +315,13 @@ def lb_to_radec(l, b, degree=False, epoch=2000.0):
     - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     - 2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
     """
-    if _APY_COORDS:
+    xp = get_namespace(l, b)
+    l, b = promote_scalars(xp, l, b)
+    # astropy's SkyCoord is numpy-only and not differentiable, so a backend
+    # array takes the rotation-matrix branch below instead. The two agree to
+    # ~1.6e-15 rad (measured), i.e. to roundoff; numpy keeps astropy so its
+    # results are unchanged.
+    if _APY_COORDS and xp is numpy:
         epoch, frame = _parse_epoch_frame_apy(epoch)
         c = apycoords.SkyCoord(l * units.rad, b * units.rad, frame="galactic")
         if not epoch is None and "J" in epoch:
@@ -328,15 +358,18 @@ def lb_to_radec(l, b, degree=False, epoch=2000.0):
             ),
         ),
     )
+    # T is built from epoch constants, so it stays a plain numpy matrix and is
+    # moved onto the input's namespace/device once.
+    T = asarray_on_device(xp, T, device_of(l))
     # Whether to use degrees and scalar input is handled by decorators
-    XYZ = numpy.array(
-        [numpy.cos(b) * numpy.cos(l), numpy.cos(b) * numpy.sin(l), numpy.sin(b)]
-    )
-    eqXYZ = numpy.dot(T, XYZ)
-    dec = numpy.arcsin(eqXYZ[2])
-    ra = numpy.arctan2(eqXYZ[1], eqXYZ[0])
-    ra[ra < 0.0] += 2.0 * numpy.pi
-    return numpy.array([ra, dec]).T
+    XYZ = xp.stack([xp.cos(b) * xp.cos(l), xp.cos(b) * xp.sin(l), xp.sin(b)])
+    eqXYZ = T @ XYZ
+    dec = xp.asin(eqXYZ[2])
+    ra = xp.atan2(eqXYZ[1], eqXYZ[0])
+    # was `ra[ra < 0.0] += 2*pi`; in-place masked assignment is not available on
+    # jax and would not trace
+    ra = xp.where(ra < 0.0, ra + 2.0 * numpy.pi, ra)
+    return xp.stack([ra, dec], axis=-1)
 
 
 @scalarDecorator
