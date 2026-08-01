@@ -201,8 +201,18 @@ def degreeDecorator(inDegrees, outDegrees):
                 ]
             out = func(*args, **kwargs)
             if isdeg:
+                # was `out[:, i] *= 180/pi`; in-place column assignment is not
+                # available on jax. Multiplying by a row of ones with 180/pi in
+                # the converted columns is the same arithmetic per element.
+                scale = numpy.ones(out.shape[-1])
                 for i in outDegrees:
-                    out[:, i] *= 180.0 / numpy.pi
+                    scale[i] = 180.0 / numpy.pi
+                # Dispatch on what `out` actually IS, not on the forced default:
+                # this decorator also wraps functions that are still numpy-only,
+                # whose `out` is a plain ndarray even under a forced backend.
+                if is_backend_array(out):
+                    scale = asarray_on_device(get_namespace(out), scale, device_of(out))
+                out = out * scale
             return out
 
         return wrapped
@@ -744,9 +754,12 @@ def pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False, epoch=2000.0):
     theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
     # Whether to use degrees and scalar input is handled by decorators
     radec = lb_to_radec(l, b, degree=False, epoch=epoch)
+    xp = get_namespace(radec)
     ra = radec[:, 0]
     dec = radec[:, 1]
-    dec[dec == dec_ngp] += 10.0**-16  # deal w/ pole.
+    # deal w/ pole; was `dec[dec == dec_ngp] += 1e-16`, an in-place masked
+    # assignment that jax does not support
+    dec = xp.where(dec == dec_ngp, dec + 10.0**-16, dec)
     sindec_ngp = numpy.sin(dec_ngp)
     cosdec_ngp = numpy.cos(dec_ngp)
     sindec = numpy.sin(dec)

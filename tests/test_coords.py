@@ -292,7 +292,7 @@ def test_lb_to_radec():
     _turn_off_apy()
     ra, dec = 120, 60.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
-    rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=2000.0)
+    rat, dect = as_numpy(coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=2000.0))
     assert numpy.fabs(ra - rat) < 10.0**-10.0, (
         "lb_to_radec is not the inverse of radec_to_lb"
     )
@@ -303,7 +303,7 @@ def test_lb_to_radec():
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=2000.0
     )
-    rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=False, epoch=2000.0)
+    rat, dect = as_numpy(coords.lb_to_radec(lb[0], lb[1], degree=False, epoch=2000.0))
     assert numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0, (
         "lb_to_radec is not the inverse of radec_to_lb"
     )
@@ -318,7 +318,9 @@ def test_lb_to_radec():
         degree=False,
         epoch=2000.0,
     )
-    ratdect = coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=False, epoch=2000.0)
+    ratdect = as_numpy(
+        coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=False, epoch=2000.0)
+    )
     rat = ratdect[:, 0]
     dect = ratdect[:, 1]
     assert numpy.all(numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0), (
@@ -329,7 +331,7 @@ def test_lb_to_radec():
     )
     # Also test for a negative l
     l, b = 240.0, 60.0
-    ra, dec = coords.lb_to_radec(l, b, degree=True)
+    ra, dec = as_numpy(coords.lb_to_radec(l, b, degree=True))
     lt, bt = coords.radec_to_lb(ra, dec, degree=True)
     assert numpy.fabs(lt - l) < 10.0**-10.0, (
         "lb_to_radec is not the inverse of radec_to_lb"
@@ -345,7 +347,7 @@ def test_lb_to_radec():
 def test_lb_to_radec_apy():
     ra, dec = 120, 60.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
-    rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=2000.0)
+    rat, dect = as_numpy(coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=2000.0))
     assert numpy.fabs(ra - rat) < 10.0**-10.0, (
         "lb_to_radec is not the inverse of radec_to_lb"
     )
@@ -356,7 +358,7 @@ def test_lb_to_radec_apy():
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=2000.0
     )
-    rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=False, epoch=2000.0)
+    rat, dect = as_numpy(coords.lb_to_radec(lb[0], lb[1], degree=False, epoch=2000.0))
     assert numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0, (
         "lb_to_radec is not the inverse of radec_to_lb"
     )
@@ -371,7 +373,9 @@ def test_lb_to_radec_apy():
         degree=False,
         epoch=2000.0,
     )
-    ratdect = coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=False, epoch=2000.0)
+    ratdect = as_numpy(
+        coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=False, epoch=2000.0)
+    )
     rat = ratdect[:, 0]
     dect = ratdect[:, 1]
     assert numpy.all(numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0), (
@@ -382,7 +386,7 @@ def test_lb_to_radec_apy():
     )
     # Also test for a negative l
     l, b = 240.0, 60.0
-    ra, dec = coords.lb_to_radec(l, b, degree=True)
+    ra, dec = as_numpy(coords.lb_to_radec(l, b, degree=True))
     lt, bt = coords.radec_to_lb(ra, dec, degree=True)
     assert numpy.fabs(lt - l) < 10.0**-10.0, (
         "lb_to_radec is not the inverse of radec_to_lb"
@@ -397,7 +401,7 @@ def test_lb_to_radec_apy():
 def test_lb_to_radec_apy_icrs():
     ra, dec = 120, 60.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=None)
-    rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=None)
+    rat, dect = as_numpy(coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=None))
     assert numpy.fabs(ra - rat) < 10.0**-10.0, (
         "lb_to_radec is not the inverse of radec_to_lb"
     )
@@ -408,7 +412,7 @@ def test_lb_to_radec_apy_icrs():
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=None
     )
-    rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=False, epoch=None)
+    rat, dect = as_numpy(coords.lb_to_radec(lb[0], lb[1], degree=False, epoch=None))
     assert numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0, (
         "lb_to_radec is not the inverse of radec_to_lb"
     )
@@ -423,7 +427,7 @@ def test_lb_to_radec_apy_icrs():
         degree=False,
         epoch=None,
     )
-    ratdect = coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=False, epoch=None)
+    ratdect = as_numpy(coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=False, epoch=None))
     rat = ratdect[:, 0]
     dect = ratdect[:, 1]
     assert numpy.all(numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0), (
@@ -434,7 +438,7 @@ def test_lb_to_radec_apy_icrs():
     )
     # Also test for a negative l
     l, b = 240.0, 60.0
-    ra, dec = coords.lb_to_radec(l, b, degree=True)
+    ra, dec = as_numpy(coords.lb_to_radec(l, b, degree=True))
     lt, bt = coords.radec_to_lb(ra, dec, degree=True)
     assert numpy.fabs(lt - l) < 10.0**-10.0, (
         "lb_to_radec is not the inverse of radec_to_lb"
@@ -3035,7 +3039,7 @@ def test_galsky_to_sky_jac():
     pmll, pmbb = 5.0, -3.0
 
     def fwd(s):
-        radec = coords.lb_to_radec(s[0], s[1], degree=False)
+        radec = as_numpy(coords.lb_to_radec(s[0], s[1], degree=False))
         pmrd = coords.pmllpmbb_to_pmrapmdec(s[3], s[4], s[0], s[1], degree=False)
         return numpy.array([radec[0], radec[1], s[2], pmrd[0], pmrd[1], s[5]])
 
@@ -3661,7 +3665,7 @@ def test_align_to_orbit():
     # The orbit point should land at phi1=180, phi2≈0 (default center_phi1)
     XYZ = coords.galcenrect_to_XYZ(x, y, z, Xsun=Xsun, Zsun=Zsun)
     lbd = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True)
-    radec = coords.lb_to_radec(lbd[0], lbd[1], degree=True)
+    radec = as_numpy(coords.lb_to_radec(lbd[0], lbd[1], degree=True))
     p12 = coords.radec_to_custom(
         numpy.atleast_1d(radec[0]),
         numpy.atleast_1d(radec[1]),
