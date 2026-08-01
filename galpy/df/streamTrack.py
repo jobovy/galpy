@@ -2340,6 +2340,7 @@ class StreamTrack:
             dev = device_of(self._cov_xyz)
             tp_arr = numpy.atleast_1d(numpy.asarray(tp, dtype=float))
             tp_b = asarray_on_device(xp, tp_arr, dev)  # backend query axis
+            tp_for_jac = tp_b  # physical tp (pre-normalization) for the Jacobian
             if self._tp_scale is None:
                 in_range = asarray_on_device(xp, self._in_range(tp_arr), dev)
             else:
@@ -2364,25 +2365,18 @@ class StreamTrack:
                     dev,
                 )
                 out = out * (scale[:, None] * scale[None, :])  # NaN · scale = NaN
-            if basis != "galcenrect":
-                raise NotImplementedError(
-                    "cov() on a backend (jax/torch) track supports only "
-                    "basis='galcenrect'; sky-frame covariance bases are a "
-                    "numpy-only follow-up."
-                )
-            if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
-                return out[0]
-            return out
-        tp_arr = numpy.atleast_1d(tp)
-        in_range = self._in_range(tp_arr)
-        out = numpy.empty((len(tp_arr), 6, 6))
-        for a in range(6):
-            for b in range(6):
-                vals = numpy.interp(tp_arr, self._tp_grid, self._cov_xyz[:, a, b])
-                out[:, a, b] = numpy.where(in_range, vals, numpy.nan)
-        if use_phys:
-            scale = numpy.array([ro_use, ro_use, ro_use, vo_use, vo_use, vo_use])
-            out = out * numpy.outer(scale, scale)  # NaN · scale = NaN
+        else:
+            tp_arr = numpy.atleast_1d(tp)
+            tp_for_jac = tp_arr
+            in_range = self._in_range(tp_arr)
+            out = numpy.empty((len(tp_arr), 6, 6))
+            for a in range(6):
+                for b in range(6):
+                    vals = numpy.interp(tp_arr, self._tp_grid, self._cov_xyz[:, a, b])
+                    out[:, a, b] = numpy.where(in_range, vals, numpy.nan)
+            if use_phys:
+                scale = numpy.array([ro_use, ro_use, ro_use, vo_use, vo_use, vo_use])
+                out = out * numpy.outer(scale, scale)  # NaN · scale = NaN
 
         if basis != "galcenrect":
             # When use_phys=True we thread the resolved ro/vo through the
@@ -2394,17 +2388,22 @@ class StreamTrack:
             jac_ro = ro_use if use_phys else None
             jac_vo = vo_use if use_phys else None
             jac_use_phys = True if use_phys else None
-            for k, tp_k in enumerate(tp_arr):
-                if not in_range[k]:
-                    continue  # out[k] already NaN; skip the Jacobian
-                J = self._analytical_jacobian(
-                    tp_k,
-                    basis,
-                    ro=jac_ro,
-                    vo=jac_vo,
-                    use_physical=jac_use_phys,
-                )
-                out[k] = J @ out[k] @ J.T
+            # Per-tp Jacobian, stacked then applied as one (len, 6, 6) matmul.
+            # Stacking rather than assigning into out[k] keeps this valid for
+            # immutable backend arrays. galsky_to_sky_jac/sky_to_customsky_jac
+            # are still scalar-only, so the assembly stays a comprehension;
+            # making those two broadcast is a follow-up. Out-of-range tp carry
+            # NaN in both out and J, and NaN survives the matmul.
+            xpJ = get_namespace(out) if self._backend else numpy
+            J = xpJ.stack(
+                [
+                    self._analytical_jacobian(
+                        tp_k, basis, ro=jac_ro, vo=jac_vo, use_physical=jac_use_phys
+                    )
+                    for tp_k in tp_for_jac
+                ]
+            )
+            out = J @ out @ xpJ.swapaxes(J, -1, -2)
 
         if numpy.isscalar(tp) or (hasattr(tp, "ndim") and tp.ndim == 0):
             return out[0]
@@ -2416,9 +2415,9 @@ class StreamTrack:
     # -----------------------------------------------------------------
     def _cart_mean_at(self, tp, ro=None, vo=None, use_physical=None):
         """Mean (x, y, z, vx, vy, vz) at ``tp`` in the track's physical
-        state (kpc, km/s when physical is on, else internal). The optional
-        ``ro``/``vo``/``use_physical`` kwargs are forwarded to the mean
-        accessors so callers can request a specific unit choice."""
+        state (kpc, km/s when physical is on, else internal), shape (6,).
+        The optional ``ro``/``vo``/``use_physical`` kwargs are forwarded to
+        the mean accessors so callers can request a specific unit choice."""
         kw = {"quantity": False}
         if use_physical is not None:
             kw["use_physical"] = use_physical
@@ -2426,16 +2425,17 @@ class StreamTrack:
             kw["ro"] = ro
         if vo is not None:
             kw["vo"] = vo
-        return numpy.array(
-            [
-                float(self.x(tp, **kw)),
-                float(self.y(tp, **kw)),
-                float(self.z(tp, **kw)),
-                float(self.vx(tp, **kw)),
-                float(self.vy(tp, **kw)),
-                float(self.vz(tp, **kw)),
-            ]
-        )
+        comps = [
+            self.x(tp, **kw),
+            self.y(tp, **kw),
+            self.z(tp, **kw),
+            self.vx(tp, **kw),
+            self.vy(tp, **kw),
+            self.vz(tp, **kw),
+        ]
+        # No float(): casting here would sever the trace and the gradient.
+        xp = get_namespace(*comps) if self._backend else numpy
+        return xp.stack([xp.asarray(c) for c in comps])
 
     def _analytical_jacobian(self, tp, basis, ro=None, vo=None, use_physical=None):
         """6x6 analytical Jacobian d(basis)/d(galcenrect) at the track mean.
@@ -2477,53 +2477,48 @@ class StreamTrack:
         # Evaluate the mean in heliocentric Cartesian for downstream chains.
         XYZ_mean = coords.galcenrect_to_XYZ(x, y, z, Xsun=ro, Zsun=zo)
         vxyz_mean = coords.galcenrect_to_vxvyvz(vx, vy, vz, Xsun=ro, Zsun=zo)
-        X, Y, Z = float(XYZ_mean[0]), float(XYZ_mean[1]), float(XYZ_mean[2])
-        vX, vY, vZ = float(vxyz_mean[0]), float(vxyz_mean[1]), float(vxyz_mean[2])
+        # NOT float(): these are the traced state, and casting severs both the
+        # trace and the gradient. ro/zo above stay floats -- they are config.
+        X, Y, Z = XYZ_mean[0], XYZ_mean[1], XYZ_mean[2]
+        vX, vY, vZ = vxyz_mean[0], vxyz_mean[1], vxyz_mean[2]
         # (2) helio_XYZ → galsky. Note: lbd_to_XYZ_jac uses the order
         # (l, b, d, vlos, pmll, pmbb); XYZ_to_lbd_jac inherits that order,
         # so we permute its output to match our galsky basis ordering
         # (l, b, d, pmll, pmbb, vlos).
         J_xyz_to_lbd = coords.XYZ_to_lbd_jac(X, Y, Z, vX, vY, vZ, degree=False)
+        xp = get_namespace(J_xyz_to_lbd, J1)
         perm = numpy.array([0, 1, 2, 4, 5, 3])
-        J_galsky = numpy.eye(6)[perm] @ J_xyz_to_lbd @ J1  # l, b in radians
+        P = asarray_on_device(xp, numpy.eye(6)[perm], device_of(J_xyz_to_lbd))
+        J_galsky = P @ J_xyz_to_lbd @ J1  # l, b in radians
         if basis == "galsky":
-            J_galsky = J_galsky.copy()
-            J_galsky[0] *= 1.0 / coords._DEGTORAD
-            J_galsky[1] *= 1.0 / coords._DEGTORAD
-            return J_galsky
+            return coords._scale_angle_rows(xp, J_galsky)
 
         # (3) galsky → sky. Need (l, b, pmll, pmbb) for the position-vs-PM
         # cross block; recover them from the heliocentric Cartesian state.
         lbd_mean = coords.XYZ_to_lbd(X, Y, Z, degree=False)
-        l = float(lbd_mean[0])
-        b = float(lbd_mean[1])
+        l = lbd_mean[0]
+        b = lbd_mean[1]
         vrpm = coords.vxvyvz_to_vrpmllpmbb(vX, vY, vZ, X, Y, Z, XYZ=True, degree=False)
-        pmll = float(vrpm[1])
-        pmbb = float(vrpm[2])
+        pmll = vrpm[1]
+        pmbb = vrpm[2]
         J_galsky_to_sky = coords.galsky_to_sky_jac(l, b, pmll, pmbb, degree=False)
         J_sky = J_galsky_to_sky @ J_galsky  # ra, dec in radians
         if basis == "sky":
-            J_sky = J_sky.copy()
-            J_sky[0] *= 1.0 / coords._DEGTORAD
-            J_sky[1] *= 1.0 / coords._DEGTORAD
-            return J_sky
+            return coords._scale_angle_rows(xp, J_sky)
 
         # (4) sky → customsky. Need (ra, dec, pmra, pmdec) at the mean for
         # the PM-vs-position cross block.
         radec = coords.lb_to_radec(l, b, degree=False)
-        ra = float(radec[0])
-        dec_val = float(radec[1])
+        ra = radec[0]
+        dec_val = radec[1]
         pmrd = coords.pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False)
-        pmra = float(pmrd[0])
-        pmdec = float(pmrd[1])
+        pmra = pmrd[0]
+        pmdec = pmrd[1]
         J_sky_to_cs = coords.sky_to_customsky_jac(
             ra, dec_val, pmra, pmdec, T=self._custom_sky_transform, degree=False
         )
         J_cs = J_sky_to_cs @ J_sky  # phi1, phi2 in radians
-        J_cs = J_cs.copy()
-        J_cs[0] *= 1.0 / coords._DEGTORAD
-        J_cs[1] *= 1.0 / coords._DEGTORAD
-        return J_cs
+        return coords._scale_angle_rows(xp, J_cs)
 
     # -----------------------------------------------------------------
     # Unit toggles
