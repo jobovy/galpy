@@ -420,14 +420,14 @@ def test_streamTrack_out_of_range_returns_nan(_simple_spdf):
     assert numpy.isnan(xs[2])
     # cov() honors the same convention; out-of-range entries are NaN
     Cs = track.cov(tps)
-    assert numpy.all(numpy.isnan(Cs[0]))
-    assert numpy.all(numpy.isfinite(Cs[1]))
-    assert numpy.all(numpy.isnan(Cs[2]))
+    assert numpy.all(numpy.isnan(as_numpy(Cs[0])))
+    assert numpy.all(numpy.isfinite(as_numpy(Cs[1])))
+    assert numpy.all(numpy.isnan(as_numpy(Cs[2])))
     # cov(basis=...) too — NaN entries skip the Jacobian path safely
     Cs_sky = track.cov(tps, basis="sky")
-    assert numpy.all(numpy.isnan(Cs_sky[0]))
-    assert numpy.all(numpy.isfinite(Cs_sky[1]))
-    assert numpy.all(numpy.isnan(Cs_sky[2]))
+    assert numpy.all(numpy.isnan(as_numpy(Cs_sky[0])))
+    assert numpy.all(numpy.isfinite(as_numpy(Cs_sky[1])))
+    assert numpy.all(numpy.isnan(as_numpy(Cs_sky[2])))
 
 
 def test_streamTrack_order1_no_cov(_simple_spdf):
