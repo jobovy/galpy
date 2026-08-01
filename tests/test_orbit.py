@@ -16,6 +16,8 @@ import numpy
 import pytest
 from conftest import _to_numpy
 
+from galpy.backend import as_numpy
+
 PY2 = sys.version < "3"
 _APY3 = astropy.__version__ > "3"
 from test_actionAngle import reset_warning_registry
@@ -5978,7 +5980,6 @@ def test_bruteSOS_2Dx():
             force_map="rk" in method,
             surface="x",
         )
-        from galpy.backend import as_numpy
 
         xs = as_numpy(o.x(o.t))
         vxs = as_numpy(o.vx(o.t))
@@ -6003,7 +6004,6 @@ def test_bruteSOS_2Dy():
             force_map="rk" in method,
             surface="y",
         )
-        from galpy.backend import as_numpy
 
         ys = as_numpy(o.y(o.t))
         vys = as_numpy(o.vy(o.t))
@@ -10881,13 +10881,13 @@ def test_SkyCoord():
     ras = numpy.array([s.ra.degree for s in o.SkyCoord(times)])
     decs = numpy.array([s.dec.degree for s in o.SkyCoord(times)])
     dists = numpy.array([s.distance.kpc for s in o.SkyCoord(times)])
-    assert numpy.all(numpy.fabs(ras - o.ra(times)) < 10.0**-13.0), (
+    assert numpy.all(numpy.fabs(ras - as_numpy(o.ra(times))) < 10.0**-13.0), (
         "Orbit SkyCoord ra and direct ra do not agree"
     )
-    assert numpy.all(numpy.fabs(decs - o.dec(times)) < 10.0**-13.0), (
+    assert numpy.all(numpy.fabs(decs - as_numpy(o.dec(times))) < 10.0**-13.0), (
         "Orbit SkyCoord dec and direct dec do not agree"
     )
-    assert numpy.all(numpy.fabs(dists - o.dist(times)) < 10.0**-13.0), (
+    assert numpy.all(numpy.fabs(dists - as_numpy(o.dist(times))) < 10.0**-13.0), (
         "Orbit SkyCoord distance and direct distance do not agree"
     )
     # Check that the GC frame parameters are correctly propagated
