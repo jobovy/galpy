@@ -1851,51 +1851,71 @@ def lbd_to_XYZ_jac(*args, **kwargs):
     -----
     - 2013-12-09 - Written - Bovy (IAS)
     """
-    out = numpy.zeros((6, 6))
     if len(args) == 3:
         l, b, D = args
         vlos, pmll, pmbb = 0.0, 0.0, 0.0
     elif len(args) == 6:
         l, b, D, vlos, pmll, pmbb = args
-    if kwargs.get("degree", False):
-        l *= _DEGTORAD
-        b *= _DEGTORAD
-    cl = numpy.cos(l)
-    sl = numpy.sin(l)
-    cb = numpy.cos(b)
-    sb = numpy.sin(b)
-    out[0, 0] = -D * cb * sl
-    out[0, 1] = -D * sb * cl
-    out[0, 2] = cb * cl
-    out[1, 0] = D * cb * cl
-    out[1, 1] = -D * sb * sl
-    out[1, 2] = cb * sl
-    out[2, 1] = D * cb
-    out[2, 2] = sb
+    xp = get_namespace(*args, xp=kwargs.get("xp", None))
+    l, b, D, vlos, pmll, pmbb = promote_scalars(xp, l, b, D, vlos, pmll, pmbb)
+    degree = kwargs.get("degree", False)
+    if degree:
+        # out-of-place: `l *= ...` would mutate a caller's tensor
+        l = l * _DEGTORAD
+        b = b * _DEGTORAD
+    cl = xp.cos(l)
+    sl = xp.sin(l)
+    cb = xp.cos(b)
+    sb = xp.sin(b)
+    o = xp.zeros_like(cl)
+    # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
+    # immutable, and stacking is what makes a batched (..., 6, 6) fall out.
+    rows = [
+        xp.stack([-D * cb * sl, -D * sb * cl, cb * cl, o, o, o], axis=-1),
+        xp.stack([D * cb * cl, -D * sb * sl, cb * sl, o, o, o], axis=-1),
+        xp.stack([o, D * cb, sb, o, o, o], axis=-1),
+    ]
+    if len(args) == 6:
+        rows += [
+            xp.stack(
+                [
+                    -sl * cb * vlos - cl * _K * D * pmll + sb * sl * _K * D * pmbb,
+                    -cl * sb * vlos - cb * cl * _K * D * pmbb,
+                    -sl * _K * pmll - sb * cl * _K * pmbb,
+                    cl * cb,
+                    -sl * _K * D,
+                    -cl * sb * _K * D,
+                ],
+                axis=-1,
+            ),
+            xp.stack(
+                [
+                    cl * cb * vlos - sl * _K * D * pmll - cl * sb * _K * D * pmbb,
+                    -sl * sb * vlos - sl * cb * _K * D * pmbb,
+                    cl * _K * pmll - sl * sb * _K * pmbb,
+                    sl * cb,
+                    cl * _K * D,
+                    -sl * sb * _K * D,
+                ],
+                axis=-1,
+            ),
+            xp.stack(
+                [o, cb * vlos - sb * _K * D * pmbb, cb * _K * pmbb, sb, o, cb * _K * D],
+                axis=-1,
+            ),
+        ]
+    out = xp.stack(rows, axis=-2)
     if len(args) == 3:
-        if kwargs.get("degree", False):
-            out[:, 0] *= _DEGTORAD
-            out[:, 1] *= _DEGTORAD
-        return out[:3, :3]
-    out[3, 0] = -sl * cb * vlos - cl * _K * D * pmll + sb * sl * _K * D * pmbb
-    out[3, 1] = -cl * sb * vlos - cb * cl * _K * D * pmbb
-    out[3, 2] = -sl * _K * pmll - sb * cl * _K * pmbb
-    out[3, 3] = cl * cb
-    out[3, 4] = -sl * _K * D
-    out[3, 5] = -cl * sb * _K * D
-    out[4, 0] = cl * cb * vlos - sl * _K * D * pmll - cl * sb * _K * D * pmbb
-    out[4, 1] = -sl * sb * vlos - sl * cb * _K * D * pmbb
-    out[4, 2] = cl * _K * pmll - sl * sb * _K * pmbb
-    out[4, 3] = sl * cb
-    out[4, 4] = cl * _K * D
-    out[4, 5] = -sl * sb * _K * D
-    out[5, 1] = cb * vlos - sb * _K * D * pmbb
-    out[5, 2] = cb * _K * pmbb
-    out[5, 3] = sb
-    out[5, 5] = cb * _K * D
-    if kwargs.get("degree", False):
-        out[:, 0] *= _DEGTORAD
-        out[:, 1] *= _DEGTORAD
+        out = out[..., :3, :3]
+    if degree:
+        # was `out[:, 0] *= _DEGTORAD` on columns 0 and 1
+        n = out.shape[-1]
+        col = xp.stack(
+            [_DEGTORAD * xp.ones_like(cl), _DEGTORAD * xp.ones_like(cl)]
+            + [xp.ones_like(cl)] * (n - 2),
+            axis=-1,
+        )
+        out = out * col[..., None, :]
     return out
 
 
