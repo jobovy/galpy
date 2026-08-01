@@ -200,11 +200,6 @@ torch tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 torch tests/test_quantity.py::test_sphericaldf_method_value
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
-torch tests/test_streamTrack.py::test_streamTrack_cov_basis
-torch tests/test_streamTrack.py::test_streamTrack_cov_per_call_unit_overrides
-torch tests/test_streamTrack.py::test_streamTrack_out_of_range_returns_nan
-torch tests/test_streamTrack.py::test_streamTrack_plot_smoke
-torch tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian
 torch tests/test_streamdf.py::test_fardalwmwpot_trackaa
 torch tests/test_streamdf.py::test_plotting
 torch tests/test_streamdf.py::test_streamTrack_multi_parallel
