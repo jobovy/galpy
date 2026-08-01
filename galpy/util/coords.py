@@ -1797,20 +1797,28 @@ def galcenrect_to_XYZ_jac(*args, **kwargs):
 
     """
     Xsun = kwargs.get("Xsun", 1.0)
-    dgc = numpy.sqrt(Xsun**2.0 + kwargs.get("Zsun", 0.0) ** 2.0)
-    costheta, sintheta = Xsun / dgc, kwargs.get("Zsun", 0.0) / dgc
-    out = numpy.zeros((6, 6))
-    out[0, 0] = -costheta
-    out[0, 2] = -sintheta
-    out[1, 1] = 1.0
-    out[2, 0] = -numpy.sign(Xsun) * sintheta
-    out[2, 2] = numpy.sign(Xsun) * costheta
-    out[3, 3] = -costheta
-    out[3, 5] = -sintheta
-    out[4, 4] = 1.0
-    out[5, 3] = -numpy.sign(Xsun) * sintheta
-    out[5, 5] = numpy.sign(Xsun) * costheta
-    return out[: len(args), : len(args)]
+    Zsun = kwargs.get("Zsun", 0.0)
+    xp = get_namespace(*args, Xsun, Zsun, xp=kwargs.get("xp", None))
+    Xsun, Zsun = promote_scalars(xp, Xsun, Zsun)
+    dgc = xp.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    sgn = xp.sign(Xsun)
+    o = xp.zeros_like(costheta)
+    i = xp.ones_like(costheta)
+    # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
+    # immutable, and stacking is what makes a batched (..., 6, 6) fall out.
+    out = xp.stack(
+        [
+            xp.stack([-costheta, o, -sintheta, o, o, o], axis=-1),
+            xp.stack([o, i, o, o, o, o], axis=-1),
+            xp.stack([-sgn * sintheta, o, sgn * costheta, o, o, o], axis=-1),
+            xp.stack([o, o, o, -costheta, o, -sintheta], axis=-1),
+            xp.stack([o, o, o, o, i, o], axis=-1),
+            xp.stack([o, o, o, -sgn * sintheta, o, sgn * costheta], axis=-1),
+        ],
+        axis=-2,
+    )
+    return out[..., : len(args), : len(args)]
 
 
 def lbd_to_XYZ_jac(*args, **kwargs):
@@ -1843,51 +1851,71 @@ def lbd_to_XYZ_jac(*args, **kwargs):
     -----
     - 2013-12-09 - Written - Bovy (IAS)
     """
-    out = numpy.zeros((6, 6))
     if len(args) == 3:
         l, b, D = args
         vlos, pmll, pmbb = 0.0, 0.0, 0.0
     elif len(args) == 6:
         l, b, D, vlos, pmll, pmbb = args
-    if kwargs.get("degree", False):
-        l *= _DEGTORAD
-        b *= _DEGTORAD
-    cl = numpy.cos(l)
-    sl = numpy.sin(l)
-    cb = numpy.cos(b)
-    sb = numpy.sin(b)
-    out[0, 0] = -D * cb * sl
-    out[0, 1] = -D * sb * cl
-    out[0, 2] = cb * cl
-    out[1, 0] = D * cb * cl
-    out[1, 1] = -D * sb * sl
-    out[1, 2] = cb * sl
-    out[2, 1] = D * cb
-    out[2, 2] = sb
+    xp = get_namespace(*args, xp=kwargs.get("xp", None))
+    l, b, D, vlos, pmll, pmbb = promote_scalars(xp, l, b, D, vlos, pmll, pmbb)
+    degree = kwargs.get("degree", False)
+    if degree:
+        # out-of-place: `l *= ...` would mutate a caller's tensor
+        l = l * _DEGTORAD
+        b = b * _DEGTORAD
+    cl = xp.cos(l)
+    sl = xp.sin(l)
+    cb = xp.cos(b)
+    sb = xp.sin(b)
+    o = xp.zeros_like(cl)
+    # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
+    # immutable, and stacking is what makes a batched (..., 6, 6) fall out.
+    rows = [
+        xp.stack([-D * cb * sl, -D * sb * cl, cb * cl, o, o, o], axis=-1),
+        xp.stack([D * cb * cl, -D * sb * sl, cb * sl, o, o, o], axis=-1),
+        xp.stack([o, D * cb, sb, o, o, o], axis=-1),
+    ]
+    if len(args) == 6:
+        rows += [
+            xp.stack(
+                [
+                    -sl * cb * vlos - cl * _K * D * pmll + sb * sl * _K * D * pmbb,
+                    -cl * sb * vlos - cb * cl * _K * D * pmbb,
+                    -sl * _K * pmll - sb * cl * _K * pmbb,
+                    cl * cb,
+                    -sl * _K * D,
+                    -cl * sb * _K * D,
+                ],
+                axis=-1,
+            ),
+            xp.stack(
+                [
+                    cl * cb * vlos - sl * _K * D * pmll - cl * sb * _K * D * pmbb,
+                    -sl * sb * vlos - sl * cb * _K * D * pmbb,
+                    cl * _K * pmll - sl * sb * _K * pmbb,
+                    sl * cb,
+                    cl * _K * D,
+                    -sl * sb * _K * D,
+                ],
+                axis=-1,
+            ),
+            xp.stack(
+                [o, cb * vlos - sb * _K * D * pmbb, cb * _K * pmbb, sb, o, cb * _K * D],
+                axis=-1,
+            ),
+        ]
+    out = xp.stack(rows, axis=-2)
     if len(args) == 3:
-        if kwargs.get("degree", False):
-            out[:, 0] *= _DEGTORAD
-            out[:, 1] *= _DEGTORAD
-        return out[:3, :3]
-    out[3, 0] = -sl * cb * vlos - cl * _K * D * pmll + sb * sl * _K * D * pmbb
-    out[3, 1] = -cl * sb * vlos - cb * cl * _K * D * pmbb
-    out[3, 2] = -sl * _K * pmll - sb * cl * _K * pmbb
-    out[3, 3] = cl * cb
-    out[3, 4] = -sl * _K * D
-    out[3, 5] = -cl * sb * _K * D
-    out[4, 0] = cl * cb * vlos - sl * _K * D * pmll - cl * sb * _K * D * pmbb
-    out[4, 1] = -sl * sb * vlos - sl * cb * _K * D * pmbb
-    out[4, 2] = cl * _K * pmll - sl * sb * _K * pmbb
-    out[4, 3] = sl * cb
-    out[4, 4] = cl * _K * D
-    out[4, 5] = -sl * sb * _K * D
-    out[5, 1] = cb * vlos - sb * _K * D * pmbb
-    out[5, 2] = cb * _K * pmbb
-    out[5, 3] = sb
-    out[5, 5] = cb * _K * D
-    if kwargs.get("degree", False):
-        out[:, 0] *= _DEGTORAD
-        out[:, 1] *= _DEGTORAD
+        out = out[..., :3, :3]
+    if degree:
+        # was `out[:, 0] *= _DEGTORAD` on columns 0 and 1
+        n = out.shape[-1]
+        col = xp.stack(
+            [_DEGTORAD * xp.ones_like(cl), _DEGTORAD * xp.ones_like(cl)]
+            + [xp.ones_like(cl)] * (n - 2),
+            axis=-1,
+        )
+        out = out * col[..., None, :]
     return out
 
 
@@ -1944,79 +1972,117 @@ def XYZ_to_lbd_jac(*args, **kwargs):
     else:
         raise ValueError("XYZ_to_lbd_jac expects 3 or 6 arguments")
 
+    xp = get_namespace(*args, xp=kwargs.get("xp", None))
+    X, Y, Z = promote_scalars(xp, X, Y, Z)
+    if with_vel:
+        vX, vY, vZ = promote_scalars(xp, vX, vY, vZ)
     R2 = X * X + Y * Y
-    D = numpy.sqrt(R2 + Z * Z)
-    r = numpy.sqrt(R2)
+    D = xp.sqrt(R2 + Z * Z)
+    r = xp.sqrt(R2)
     cb = r / D
     sb = Z / D
     # On the celestial pole (r==0) ``l`` is undefined; pick (cl, sl) = (1, 0)
     # so the spatial inverse stays finite (consistent with atan2(0, 0) = 0).
-    if r == 0.0:
-        cl, sl = 1.0, 0.0
-    else:
-        cl = X / r
-        sl = Y / r
+    # Each xp.where's dead branch is computed too (eagerly and under a trace),
+    # so divide by a safe denominator or the 0/0 NaN poisons the gradient.
+    at_pole = r == 0.0
+    r_safe = xp.where(at_pole, 1.0, r)
+    cl = xp.where(at_pole, 1.0, X / r_safe)
+    sl = xp.where(at_pole, 0.0, Y / r_safe)
 
-    out = numpy.zeros((6, 6) if with_vel else (3, 3))
-    # Position 3x3: ∂(l, b, D)/∂(X, Y, Z)
-    if cb != 0.0:  # else: at the pole, ∂l/∂(X, Y) blows up — leave as zero
-        out[0, 0] = -sl / (D * cb)
-        out[0, 1] = cl / (D * cb)
-    out[1, 0] = -sb * cl / D
-    out[1, 1] = -sb * sl / D
-    out[1, 2] = cb / D
-    out[2, 0] = cb * cl
-    out[2, 1] = cb * sl
-    out[2, 2] = sb
+    o = xp.zeros_like(cb)
+    # Position 3x3: ∂(l, b, D)/∂(X, Y, Z). At the pole ∂l/∂(X, Y) blows up, so
+    # those two entries stay zero (same convention as the scalar version).
+    Dcb = D * cb
+    Dcb_safe = xp.where(Dcb == 0.0, 1.0, Dcb)
+    dl_dX = xp.where(Dcb == 0.0, 0.0, -sl / Dcb_safe)
+    dl_dY = xp.where(Dcb == 0.0, 0.0, cl / Dcb_safe)
+    P = xp.stack(
+        [
+            xp.stack([dl_dX, dl_dY, o], axis=-1),
+            xp.stack([-sb * cl / D, -sb * sl / D, cb / D], axis=-1),
+            xp.stack([cb * cl, cb * sl, sb], axis=-1),
+        ],
+        axis=-2,
+    )
+
+    def _degree_scale(m):
+        # was `out[0, :] *= 1/_DEGTORAD` on rows 0 and 1
+        if not kwargs.get("degree", False):
+            return m
+        n = m.shape[-2]
+        s = xp.stack(
+            [xp.full_like(cb, 1.0 / _DEGTORAD)] * 2 + [xp.ones_like(cb)] * (n - 2),
+            axis=-1,
+        )
+        return m * s[..., :, None]
 
     if not with_vel:
-        if kwargs.get("degree", False):
-            out[0, :] *= 1.0 / _DEGTORAD
-            out[1, :] *= 1.0 / _DEGTORAD
-        return out
+        return _degree_scale(P)
 
     # Velocity 3x3: ∂(vlos, pmll, pmbb)/∂(vX, vY, vZ) at fixed position.
     # forward velocity block is R · diag(1, K·D, K·D) with R orthonormal
     # ⇒ inverse = diag(1, 1/(K·D), 1/(K·D)) · Rᵀ.
     KD = _K * D
-    out[3, 3] = cl * cb
-    out[3, 4] = sl * cb
-    out[3, 5] = sb
-    if KD != 0.0:  # pragma: no branch (D > 0 always — guard catches the
-        # heliocentric-origin singularity if a caller passes (X, Y, Z) = 0)
-        out[4, 3] = -sl / KD
-        out[4, 4] = cl / KD
-        out[5, 3] = -cl * sb / KD
-        out[5, 4] = -sl * sb / KD
-        out[5, 5] = cb / KD
+    # D > 0 always; the guard catches a caller passing (X, Y, Z) = 0.
+    sing = KD == 0.0
+    KD_safe = xp.where(sing, 1.0, KD)
+    M = xp.stack(
+        [
+            xp.stack([cl * cb, sl * cb, sb], axis=-1),
+            xp.stack(
+                [
+                    xp.where(sing, 0.0, -sl / KD_safe),
+                    xp.where(sing, 0.0, cl / KD_safe),
+                    o,
+                ],
+                axis=-1,
+            ),
+            xp.stack(
+                [
+                    xp.where(sing, 0.0, -cl * sb / KD_safe),
+                    xp.where(sing, 0.0, -sl * sb / KD_safe),
+                    xp.where(sing, 0.0, cb / KD_safe),
+                ],
+                axis=-1,
+            ),
+        ],
+        axis=-2,
+    )
 
     # Bottom-left coupling: -inv(M) · Q · inv(P).
     # Q is the velocity-vs-position block of lbd_to_XYZ_jac, evaluated at
     # the current vlos/pmll/pmbb (themselves derived from vX,vY,vZ via the
     # velocity inverse just computed).
     vlos = cl * cb * vX + sl * cb * vY + sb * vZ
-    if KD != 0.0:
-        pmll = (-sl * vX + cl * vY) / KD
-        pmbb = (-cl * sb * vX - sl * sb * vY + cb * vZ) / KD
-    else:  # pragma: no cover (defensive: Sun is never the track mean)
-        pmll = 0.0
-        pmbb = 0.0
-    Q = numpy.zeros((3, 3))
-    Q[0, 0] = -sl * cb * vlos - cl * KD * pmll + sb * sl * KD * pmbb
-    Q[0, 1] = -cl * sb * vlos - cb * cl * KD * pmbb
-    Q[0, 2] = -sl * _K * pmll - sb * cl * _K * pmbb
-    Q[1, 0] = cl * cb * vlos - sl * KD * pmll - cl * sb * KD * pmbb
-    Q[1, 1] = -sl * sb * vlos - sl * cb * KD * pmbb
-    Q[1, 2] = cl * _K * pmll - sl * sb * _K * pmbb
-    Q[2, 0] = 0.0
-    Q[2, 1] = cb * vlos - sb * KD * pmbb
-    Q[2, 2] = cb * _K * pmbb
-    out[3:6, 0:3] = -out[3:6, 3:6] @ Q @ out[0:3, 0:3]
-
-    if kwargs.get("degree", False):
-        out[0, :] *= 1.0 / _DEGTORAD
-        out[1, :] *= 1.0 / _DEGTORAD
-    return out
+    pmll = xp.where(sing, 0.0, (-sl * vX + cl * vY) / KD_safe)
+    pmbb = xp.where(sing, 0.0, (-cl * sb * vX - sl * sb * vY + cb * vZ) / KD_safe)
+    Q = xp.stack(
+        [
+            xp.stack(
+                [
+                    -sl * cb * vlos - cl * KD * pmll + sb * sl * KD * pmbb,
+                    -cl * sb * vlos - cb * cl * KD * pmbb,
+                    -sl * _K * pmll - sb * cl * _K * pmbb,
+                ],
+                axis=-1,
+            ),
+            xp.stack(
+                [
+                    cl * cb * vlos - sl * KD * pmll - cl * sb * KD * pmbb,
+                    -sl * sb * vlos - sl * cb * KD * pmbb,
+                    cl * _K * pmll - sl * sb * _K * pmbb,
+                ],
+                axis=-1,
+            ),
+            xp.stack([o, cb * vlos - sb * KD * pmbb, cb * _K * pmbb], axis=-1),
+        ],
+        axis=-2,
+    )
+    C = -M @ Q @ P
+    Z3 = xp.zeros_like(P)
+    out = xp.concat([xp.concat([P, Z3], axis=-1), xp.concat([C, M], axis=-1)], axis=-2)
+    return _degree_scale(out)
 
 
 def galcencyl_to_galcenrect(R, vR, vT, z, vz, phi):
@@ -2045,56 +2111,63 @@ def galcencyl_to_galcenrect(R, vR, vT, z, vz, phi):
     return numpy.column_stack([x, y, zc, vx, vy, vzc])
 
 
-def galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz):
+def galcenrect_to_galcencyl_jac(x, y, z, vx, vy, vz, *, xp=None):
     """
     Calculate the Jacobian of the Galactocentric rectangular → cylindrical
     coordinates transformation, evaluated at the given point.
 
     Parameters
     ----------
-    x, y, z : float
+    x, y, z : float or array
         Galactocentric Cartesian position.
-    vx, vy, vz : float
+    vx, vy, vz : float or array
         Galactocentric Cartesian velocity.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to get_namespace (e.g.
+        ``numpy`` to pin host-side bookkeeping regardless of the forced default).
 
     Returns
     -------
-    numpy.ndarray
+    array
         6x6 Jacobian of ``(R, vR, vT, z, vz, phi)`` w.r.t. ``(x, y, z, vx, vy, vz)``.
+        Batched inputs give a ``(..., 6, 6)`` stack.
 
     Notes
     -----
     - 2026-04-26 - Written - Bovy (UofT)
+    - 2026-07-31 - Backend-agnostic (rows stacked, not item-assigned) - Claude
     """
-    R = numpy.sqrt(x * x + y * y)
-    if R == 0.0:
-        R = 1e-30
+    xp = get_namespace(x, y, z, vx, vy, vz, xp=xp)
+    x, y, vx, vy = promote_scalars(xp, x, y, vx, vy)
+    R = xp.sqrt(x * x + y * y)
+    # was `if R == 0.0: R = 1e-30`; array inputs and tracing need the branch
+    # expressed as a select
+    R = xp.where(R == 0.0, 1e-30, R)
     cp = x / R
     sp = y / R
     vR_ = cp * vx + sp * vy
     vT_ = -sp * vx + cp * vy
-    J = numpy.zeros((6, 6))
-    # row 0: R = sqrt(x²+y²)
-    J[0, 0] = cp
-    J[0, 1] = sp
-    # row 1: vR = cos(phi) * vx + sin(phi) * vy (depends on phi via x, y)
-    J[1, 0] = -sp * vT_ / R
-    J[1, 1] = cp * vT_ / R
-    J[1, 3] = cp
-    J[1, 4] = sp
-    # row 2: vT = -sin(phi) * vx + cos(phi) * vy
-    J[2, 0] = sp * vR_ / R
-    J[2, 1] = -cp * vR_ / R
-    J[2, 3] = -sp
-    J[2, 4] = cp
-    # row 3: z = z
-    J[3, 2] = 1.0
-    # row 4: vz = vz
-    J[4, 5] = 1.0
-    # row 5: phi = atan2(y, x)
-    J[5, 0] = -sp / R
-    J[5, 1] = cp / R
-    return J
+    o = xp.zeros_like(cp)
+    i = xp.ones_like(cp)
+    # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
+    # immutable, and stacking is what makes a batched (..., 6, 6) fall out.
+    return xp.stack(
+        [
+            # row 0: R = sqrt(x²+y²)
+            xp.stack([cp, sp, o, o, o, o], axis=-1),
+            # row 1: vR = cos(phi) * vx + sin(phi) * vy (depends on phi via x, y)
+            xp.stack([-sp * vT_ / R, cp * vT_ / R, o, cp, sp, o], axis=-1),
+            # row 2: vT = -sin(phi) * vx + cos(phi) * vy
+            xp.stack([sp * vR_ / R, -cp * vR_ / R, o, -sp, cp, o], axis=-1),
+            # row 3: z = z
+            xp.stack([o, o, i, o, o, o], axis=-1),
+            # row 4: vz = vz
+            xp.stack([o, o, o, o, o, i], axis=-1),
+            # row 5: phi = atan2(y, x)
+            xp.stack([-sp / R, cp / R, o, o, o, o], axis=-1),
+        ],
+        axis=-2,
+    )
 
 
 def galsky_to_sky_jac(*args, **kwargs):
