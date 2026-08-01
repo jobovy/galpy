@@ -97,6 +97,20 @@ _APY_COORDS *= _APY_LOADED
 _DEGTORAD = numpy.pi / 180.0
 
 
+def _scale_angle_rows(xp, m, factor=1.0 / _DEGTORAD, nrows=2):
+    """Scale the first ``nrows`` rows of Jacobian ``m`` by ``factor``.
+
+    Out-of-place: the ``m[0] *= ...`` this replaces cannot be traced.
+    """
+    base = m[..., 0, 0]
+    s = xp.stack(
+        [xp.full_like(base, factor)] * nrows
+        + [xp.ones_like(base)] * (m.shape[-2] - nrows),
+        axis=-1,
+    )
+    return m * s[..., :, None]
+
+
 if _APY_LOADED:
     import astropy.coordinates as apycoords
     from astropy import units
@@ -2054,14 +2068,7 @@ def XYZ_to_lbd_jac(*args, **kwargs):
 
     def _degree_scale(m):
         # was `out[0, :] *= 1/_DEGTORAD` on rows 0 and 1
-        if not kwargs.get("degree", False):
-            return m
-        n = m.shape[-2]
-        s = xp.stack(
-            [xp.full_like(cb, 1.0 / _DEGTORAD)] * 2 + [xp.ones_like(cb)] * (n - 2),
-            axis=-1,
-        )
-        return m * s[..., :, None]
+        return _scale_angle_rows(xp, m) if kwargs.get("degree", False) else m
 
     if not with_vel:
         return _degree_scale(P)
