@@ -3075,8 +3075,10 @@ def test_sky_to_customsky_jac():
     pmra, pmdec = 4.0, -1.5
 
     def fwd(s):
-        p12 = coords.radec_to_custom(s[0], s[1], T=T, degree=False)
-        pm12 = coords.pmrapmdec_to_custom(s[3], s[4], s[0], s[1], T=T, degree=False)
+        p12 = as_numpy(coords.radec_to_custom(s[0], s[1], T=T, degree=False))
+        pm12 = as_numpy(
+            coords.pmrapmdec_to_custom(s[3], s[4], s[0], s[1], T=T, degree=False)
+        )
         return numpy.array([p12[0], p12[1], s[2], pm12[0], pm12[1], s[5]])
 
     J = coords.sky_to_customsky_jac(ra, dec, pmra, pmdec, T=T, degree=False)
@@ -3319,7 +3321,7 @@ def test_cyl_to_rect_jac():
 def test_radec_to_custom_valueerror():
     # Test the radec_to_custom without T raises a ValueError
     with pytest.raises(ValueError):
-        xieta = coords.radec_to_custom(20.0, 30.0)
+        xieta = as_numpy(coords.radec_to_custom(20.0, 30.0))
     return None
 
 
@@ -3353,7 +3355,7 @@ def test_radec_to_custom_againstlb():
         ),
     )
     lb_direct = coords.radec_to_lb(ra, dec, degree=True)
-    lb_custom = coords.radec_to_custom(ra, dec, T=T.T, degree=True)
+    lb_custom = as_numpy(coords.radec_to_custom(ra, dec, T=T.T, degree=True))
     assert numpy.fabs(lb_direct[0] - lb_custom[0]) < 10.0**-8.0, (
         "radec_to_custom for transformation to l,b does not work properly"
     )
@@ -3363,7 +3365,7 @@ def test_radec_to_custom_againstlb():
     # Array
     s = numpy.arange(2)
     lb_direct = coords.radec_to_lb(ra * s, dec * s, degree=True)
-    lb_custom = coords.radec_to_custom(ra * s, dec * s, T=T.T, degree=True)
+    lb_custom = as_numpy(coords.radec_to_custom(ra * s, dec * s, T=T.T, degree=True))
     assert numpy.all(numpy.fabs(lb_direct - lb_custom) < 10.0**-8.0), (
         "radec_to_custom for transformation to l,b does not work properly"
     )
@@ -3391,7 +3393,7 @@ def test_radec_to_custom_pal5():
             ]
         ),
     )
-    xieta = coords.radec_to_custom(_RAPAL5, _DECPAL5, T=_TPAL5, degree=False)
+    xieta = as_numpy(coords.radec_to_custom(_RAPAL5, _DECPAL5, T=_TPAL5, degree=False))
 
     def checkrng(x, xpct, dom, shift):
         return numpy.fabs(((numpy.fabs(x - xpct) + shift) % dom) - shift)
@@ -3404,7 +3406,7 @@ def test_radec_to_custom_pal5():
         "radec_to_custom does not work properly for Pal 5 transformation"
     )
     # One more, rough estimate based on visual inspection of plot
-    xieta = coords.radec_to_custom(240.0, 6.0, T=_TPAL5, degree=True)
+    xieta = as_numpy(coords.radec_to_custom(240.0, 6.0, T=_TPAL5, degree=True))
     assert checkrng(xieta[0], 11.0, 2 * numpy.pi, 0) < 0.2, (
         "radec_to_custom does not work properly for Pal 5 transformation"
     )
@@ -3417,7 +3419,7 @@ def test_radec_to_custom_pal5():
 def test_pmrapmdec_to_custom_valueerror():
     # Test the pmrapmdec_to_custom without T raises a ValueError
     with pytest.raises(ValueError):
-        xieta = coords.pmrapmdec_to_custom(1.0, 1.0, 20.0, 30.0)
+        xieta = as_numpy(coords.pmrapmdec_to_custom(1.0, 1.0, 20.0, 30.0))
     return None
 
 
@@ -3452,7 +3454,9 @@ def test_pmrapmdec_to_custom_againstlb():
         ),
     )
     pmlb_direct = coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=True)
-    pmlb_custom = coords.pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=T.T, degree=True)
+    pmlb_custom = as_numpy(
+        coords.pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=T.T, degree=True)
+    )
     assert numpy.fabs(pmlb_direct[0] - pmlb_custom[0]) < 10.0**-8.0, (
         "pmrapmdec_to_custom for transformation to pml,pmb does not work properly"
     )
@@ -3477,7 +3481,7 @@ def test_pmrapmdec_to_custom_againstlb():
 def test_custom_to_radec_valueerror():
     # Test the custom_to_radec without T raises a ValueError
     with pytest.raises(ValueError):
-        xieta = coords.custom_to_radec(20.0, 30.0)
+        xieta = as_numpy(coords.custom_to_radec(20.0, 30.0))
     return None
 
 
@@ -3511,7 +3515,7 @@ def test_custom_to_radec_againstlb():  # FIXME COMPARE TO DOCUMENT
         ),
     )
     lb_direct = coords.radec_to_lb(ra, dec, degree=True)
-    lb_custom = coords.custom_to_radec(ra, dec, T=T, degree=True)
+    lb_custom = as_numpy(coords.custom_to_radec(ra, dec, T=T, degree=True))
     assert numpy.fabs(lb_direct[0] - lb_custom[0]) < 10.0**-8.0, (
         "custom_to_radec for transformation to l,b does not work properly"
     )
@@ -3521,7 +3525,7 @@ def test_custom_to_radec_againstlb():  # FIXME COMPARE TO DOCUMENT
     # Array
     s = numpy.arange(2)
     lb_direct = coords.radec_to_lb(ra * s, dec * s, degree=True)
-    lb_custom = coords.custom_to_radec(ra * s, dec * s, T=T, degree=True)
+    lb_custom = as_numpy(coords.custom_to_radec(ra * s, dec * s, T=T, degree=True))
     assert numpy.all(numpy.fabs(lb_direct - lb_custom) < 10.0**-8.0), (
         "radec_to_custom for transformation to l,b does not work properly"
     )
@@ -3549,7 +3553,9 @@ def test_custom_to_radec_pal5():  # FIXME COMPARE TO DOCUMENT
             ]
         ),
     )
-    xieta = coords.custom_to_radec(_RAPAL5, _DECPAL5, T=_TPAL5.T, degree=False)
+    xieta = as_numpy(
+        coords.custom_to_radec(_RAPAL5, _DECPAL5, T=_TPAL5.T, degree=False)
+    )
 
     def checkrng(x, xpct, dom, shift):
         return numpy.fabs(((numpy.fabs(x - xpct) + shift) % dom) - shift)
@@ -3562,7 +3568,7 @@ def test_custom_to_radec_pal5():  # FIXME COMPARE TO DOCUMENT
         "custom_to_radec does not work properly for Pal 5 transformation"
     )
     # One more, rough estimate based on visual inspection of plot
-    xieta = coords.custom_to_radec(240.0, 6.0, T=_TPAL5.T, degree=True)
+    xieta = as_numpy(coords.custom_to_radec(240.0, 6.0, T=_TPAL5.T, degree=True))
     assert checkrng(xieta[0], 11.0, 2 * numpy.pi, 0) < 0.2, (
         "custom_to_radec does not work properly for Pal 5 transformation"
     )
@@ -3575,7 +3581,7 @@ def test_custom_to_radec_pal5():  # FIXME COMPARE TO DOCUMENT
 def test_custom_to_pmrapmdec_valueerror():
     # Test the pmrapmdec_to_custom without T raises a ValueError
     with pytest.raises(ValueError):
-        xieta = coords.custom_to_pmrapmdec(1.0, 1.0, 20.0, 30.0)
+        xieta = as_numpy(coords.custom_to_pmrapmdec(1.0, 1.0, 20.0, 30.0))
     return None
 
 
@@ -3610,7 +3616,9 @@ def test_custom_to_pmrapmdec_againstlb():
         ),
     )
     pmlb_direct = coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=True)
-    pmlb_custom = coords.custom_to_pmrapmdec(pmra, pmdec, ra, dec, T=T, degree=True)
+    pmlb_custom = as_numpy(
+        coords.custom_to_pmrapmdec(pmra, pmdec, ra, dec, T=T, degree=True)
+    )
 
     assert numpy.fabs(pmlb_direct[0] - pmlb_custom[0]) < 10.0**-8.0, (
         "custom_to_pmrapmdec for transformation to pml,pmb does not work properly"

@@ -2384,26 +2384,31 @@ def sky_to_customsky_jac(*args, **kwargs):
     T = kwargs.get("T", None)
     if T is None:
         raise ValueError("sky_to_customsky_jac requires T= rotation matrix")
+    xp = get_namespace(ra, dec, pmra, pmdec, xp=kwargs.get("xp", None))
+    ra, dec, pmra, pmdec = promote_scalars(xp, ra, dec, pmra, pmdec)
     if kwargs.get("degree", False):
         ra = ra * _DEGTORAD
         dec = dec * _DEGTORAD
-    sindec = numpy.sin(dec)
-    cosdec = numpy.cos(dec)
+    sindec = xp.sin(dec)
+    cosdec = xp.cos(dec)
+    # The pole depends only on T, never on the traced inputs, so pinning it to
+    # host floats costs no gradient and keeps it out of the graph.
     ra_pole, dec_pole = custom_to_radec(0.0, numpy.pi / 2.0, T=T)
-    sinr_rp = numpy.sin(ra - ra_pole)
-    cosr_rp = numpy.cos(ra - ra_pole)
+    ra_pole = float(ra_pole)
+    dec_pole = float(dec_pole)
+    sinr_rp = xp.sin(ra - ra_pole)
+    cosr_rp = xp.cos(ra - ra_pole)
     sindec_p = numpy.sin(dec_pole)
     cosdec_p = numpy.cos(dec_pole)
     kappa2 = sindec_p * cosdec - cosdec_p * sindec * cosr_rp
     sigma2 = sinr_rp * cosdec_p
     nrm2_2 = kappa2 * kappa2 + sigma2 * sigma2
-    nrm2 = numpy.sqrt(nrm2_2)
+    nrm2 = xp.sqrt(nrm2_2)
     cosa2 = kappa2 / nrm2
     sina2 = sigma2 / nrm2
-    p12 = radec_to_custom(
-        numpy.atleast_1d(ra), numpy.atleast_1d(dec), T=T, degree=False
-    )
-    cosphi2 = numpy.cos(float(p12[0, 1]))
+    p12 = radec_to_custom(xp.atleast_1d(ra), xp.atleast_1d(dec), T=T, degree=False)
+    # keep as an array: float() would sever the trace and the gradient
+    cosphi2 = xp.cos(xp.reshape(xp.asarray(p12), (-1, 2))[0, 1])
     dsig2_dra = cosdec_p * cosr_rp
     dkap2_dra = cosdec_p * sindec * sinr_rp
     dkap2_ddec = -sindec_p * sindec - cosdec_p * cosdec * cosr_rp
@@ -2419,23 +2424,29 @@ def sky_to_customsky_jac(*args, **kwargs):
     dphi1_ddec = sina2 / cosphi2
     dphi2_dra = -sina2 * cosdec
     dphi2_ddec = cosa2
-    out = numpy.zeros((6, 6))
-    out[0, 0] = dphi1_dra
-    out[0, 1] = dphi1_ddec
-    out[1, 0] = dphi2_dra
-    out[1, 1] = dphi2_ddec
-    out[2, 2] = 1.0
-    out[3, 0] = pmphi2 * dalpha2_dra
-    out[3, 1] = pmphi2 * dalpha2_ddec
-    out[3, 3] = cosa2
-    out[3, 4] = sina2
-    out[4, 0] = -pmphi1 * dalpha2_dra
-    out[4, 1] = -pmphi1 * dalpha2_ddec
-    out[4, 3] = -sina2
-    out[4, 4] = cosa2
-    out[5, 5] = 1.0
+    o = xp.zeros_like(xp.reshape(cosa2, ()))
+    i1 = o + 1.0
+
+    def _r(*v):
+        return xp.stack([xp.reshape(xp.asarray(x), ()) for x in v])
+
+    # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
+    # immutable.
+    out = xp.stack(
+        [
+            _r(dphi1_dra, dphi1_ddec, o, o, o, o),
+            _r(dphi2_dra, dphi2_ddec, o, o, o, o),
+            _r(o, o, i1, o, o, o),
+            _r(pmphi2 * dalpha2_dra, pmphi2 * dalpha2_ddec, o, cosa2, sina2, o),
+            _r(-pmphi1 * dalpha2_dra, -pmphi1 * dalpha2_ddec, o, -sina2, cosa2, o),
+            _r(o, o, o, o, o, i1),
+        ]
+    )
     if kwargs.get("degree", False):
-        out[3:5, 0:2] *= _DEGTORAD
+        # was `out[3:5, 0:2] *= _DEGTORAD` (in-place block assignment)
+        blk = numpy.ones((6, 6))
+        blk[3:5, 0:2] = _DEGTORAD
+        out = out * asarray_on_device(xp, blk, device_of(out))
     return out
 
 
@@ -2976,6 +2987,7 @@ def lambdanu_to_Rz(l, n, ac=5.0, Delta=1.0):
 
 @scalarDecorator
 @degreeDecorator([0, 1], [0, 1])
+@backendNative
 def radec_to_custom(ra, dec, T=None, degree=False):
     """
     Transform from equatorial coordinates to a custom set of sky coordinates
@@ -3004,16 +3016,18 @@ def radec_to_custom(ra, dec, T=None, degree=False):
     """
     if T is None:
         raise ValueError("Must set T= for radec_to_custom")
+    xp = get_namespace(ra, dec)
+    ra, dec = promote_scalars(xp, ra, dec)
+    T = asarray_on_device(xp, numpy.asarray(T), device_of(ra))
     # Whether to use degrees and scalar input is handled by decorators
-    XYZ = numpy.array(
-        [numpy.cos(dec) * numpy.cos(ra), numpy.cos(dec) * numpy.sin(ra), numpy.sin(dec)]
-    )
-    galXYZ = numpy.dot(T, XYZ)
-    b = numpy.arcsin(galXYZ[2])  # [-pi/2, pi/2]
-    l = numpy.arctan2(galXYZ[1], galXYZ[0])
-    l[l < 0] += 2 * numpy.pi  # fix range to [0, 2 pi]
-    out = numpy.array([l, b])
-    return out.T
+    XYZ = xp.stack([xp.cos(dec) * xp.cos(ra), xp.cos(dec) * xp.sin(ra), xp.sin(dec)])
+    galXYZ = T @ XYZ
+    b = xp.asin(galXYZ[2])  # [-pi/2, pi/2]
+    l = xp.atan2(galXYZ[1], galXYZ[0])
+    # fix range to [0, 2 pi]; was `l[l < 0] += 2*pi`, an in-place masked
+    # assignment that jax does not support
+    l = xp.where(l < 0, l + 2 * numpy.pi, l)
+    return xp.stack([l, b], axis=-1)
 
 
 @scalarDecorator
@@ -3051,8 +3065,17 @@ def pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=None, degree=False):
         raise ValueError("Must set T= for pmrapmdec_to_custom")
     # Need to figure out ra_ngp and dec_ngp for this custom set of sky coords
     ra_ngp, dec_ngp = custom_to_radec(0.0, numpy.pi / 2, T=T)
+    # The pole depends only on T, never on the inputs, so pin it to host floats:
+    # radec_to_custom is backend-native now and would otherwise hand back a
+    # backend scalar that collides with numpy inputs here.
+    ra_ngp = float(ra_ngp)
+    dec_ngp = float(dec_ngp)
     # Whether to use degrees and scalar input is handled by decorators
-    dec[dec == dec_ngp] += 10.0**-16  # deal w/ pole.
+    # was `dec[dec == dec_ngp] += 1e-16`; in-place masked assignment. Dispatch on
+    # what dec IS: this function is not backend-native, so under a forced backend
+    # its dec is still a plain ndarray and the forced namespace would reject it.
+    _xp = get_namespace(dec) if is_backend_array(dec) else numpy
+    dec = _xp.where(dec == dec_ngp, dec + 10.0**-16, dec)  # deal w/ pole.
     sindec_ngp = numpy.sin(dec_ngp)
     cosdec_ngp = numpy.cos(dec_ngp)
     sindec = numpy.sin(dec)
