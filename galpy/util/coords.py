@@ -2261,26 +2261,30 @@ def galsky_to_sky_jac(*args, **kwargs):
     else:
         raise ValueError("galsky_to_sky_jac expects 2 or 4 arguments")
     epoch = kwargs.get("epoch", 2000.0)
+    xp = get_namespace(l, b, pmll, pmbb, xp=kwargs.get("xp", None))
+    l, b, pmll, pmbb = promote_scalars(xp, l, b, pmll, pmbb)
     if kwargs.get("degree", False):
         l = l * _DEGTORAD
         b = b * _DEGTORAD
     _, dec_ngp, ra_ngp = get_epoch_angles(epoch)
-    cosb = numpy.cos(b)
-    radec = lb_to_radec(numpy.atleast_1d(l), numpy.atleast_1d(b), degree=False)
-    ra = float(radec[0, 0] if radec.ndim == 2 else radec[0])
-    dec_val = float(radec[0, 1] if radec.ndim == 2 else radec[1])
-    sindec = numpy.sin(dec_val)
-    cosdec = numpy.cos(dec_val)
+    cosb = xp.cos(b)
+    # keep ra/dec as arrays: float() would sever the trace and the gradient
+    radec = lb_to_radec(xp.atleast_1d(l), xp.atleast_1d(b), degree=False)
+    radec = xp.reshape(xp.asarray(radec), (-1, 2))
+    ra = radec[0, 0]
+    dec_val = radec[0, 1]
+    sindec = xp.sin(dec_val)
+    cosdec = xp.cos(dec_val)
     sindec_ngp = numpy.sin(dec_ngp)
     cosdec_ngp = numpy.cos(dec_ngp)
-    sin_rrngp = numpy.sin(ra - ra_ngp)
-    cos_rrngp = numpy.cos(ra - ra_ngp)
+    sin_rrngp = xp.sin(ra - ra_ngp)
+    cos_rrngp = xp.cos(ra - ra_ngp)
     # cos α, sin α match ``pmllpmbb_to_pmrapmdec`` (κ, σ are the
     # un-normalized numerator/denominator; nrm² = κ² + σ²).
     kappa = sindec_ngp * cosdec - cosdec_ngp * sindec * cos_rrngp
     sigma = sin_rrngp * cosdec_ngp
     nrm2 = kappa * kappa + sigma * sigma
-    nrm = numpy.sqrt(nrm2)
+    nrm = xp.sqrt(nrm2)
     cosa = kappa / nrm
     sina = sigma / nrm
     # dα/d(ra, dec) via α = atan2(σ, κ) ⇒ dα = (κ·dσ − σ·dκ)/(κ²+σ²).
@@ -2298,27 +2302,33 @@ def galsky_to_sky_jac(*args, **kwargs):
     pmdec = sina * pmll + cosa * pmbb
     dalpha_dl = dalpha_dra * dra_dl + dalpha_ddec * ddec_dl
     dalpha_db = dalpha_dra * dra_db + dalpha_ddec * ddec_db
-    out = numpy.zeros((6, 6))
-    out[0, 0] = dra_dl
-    out[0, 1] = dra_db
-    out[1, 0] = ddec_dl
-    out[1, 1] = ddec_db
-    out[2, 2] = 1.0  # D pass-through
-    out[3, 0] = -pmdec * dalpha_dl
-    out[3, 1] = -pmdec * dalpha_db
-    out[3, 3] = cosa
-    out[3, 4] = -sina
-    out[4, 0] = pmra * dalpha_dl
-    out[4, 1] = pmra * dalpha_db
-    out[4, 3] = sina
-    out[4, 4] = cosa
-    out[5, 5] = 1.0  # vlos pass-through
+    o = xp.zeros_like(xp.reshape(cosa, ()))
+    i1 = o + 1.0
+
+    # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
+    # immutable.
+    def _r(*v):
+        return xp.stack([xp.reshape(xp.asarray(x), ()) for x in v])
+
+    out = xp.stack(
+        [
+            _r(dra_dl, dra_db, o, o, o, o),
+            _r(ddec_dl, ddec_db, o, o, o, o),
+            _r(o, o, i1, o, o, o),  # D pass-through
+            _r(-pmdec * dalpha_dl, -pmdec * dalpha_db, o, cosa, -sina, o),
+            _r(pmra * dalpha_dl, pmra * dalpha_db, o, sina, cosa, o),
+            _r(o, o, o, o, o, i1),  # vlos pass-through
+        ]
+    )
     if kwargs.get("degree", False):
         # input cols 0,1 (l, b) and output rows 0,1 (ra, dec) in degrees.
         # Angular-vs-angular entries: dimensionless, unchanged. PM-vs-angle
         # cols scale by π/180; angle-vs-PM (none, those entries are zero
         # in this Jacobian); PM-vs-PM entries unchanged.
-        out[3:5, 0:2] *= _DEGTORAD
+        # was `out[3:5, 0:2] *= _DEGTORAD` (in-place block assignment)
+        blk = numpy.ones((6, 6))
+        blk[3:5, 0:2] = _DEGTORAD
+        out = out * asarray_on_device(xp, blk, device_of(out))
         # angle-vs-(D, PM, vlos) entries: also need scaling? Output rows 0,1
         # in degrees means ∂(ra_deg)/∂X = (1/_DEGTORAD)·∂(ra_rad)/∂X for any X
         # that is not itself an angle. But this Jacobian has zeros there for
