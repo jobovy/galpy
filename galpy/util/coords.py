@@ -614,6 +614,7 @@ def vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=False):
 
 @scalarDecorator
 @degreeDecorator([3, 4], [])
+@backendNative
 def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
     """
     Transform velocities in the rectangular Galactic coordinate frame to the spherical Galactic coordinate frame (can take vector inputs)
@@ -648,14 +649,34 @@ def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
     - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     # Whether to use degrees and scalar input is handled by decorators
+    xp = get_namespace(vx, vy, vz, l, b, d)
     if XYZ:  # undo the incorrect conversion that the decorator did
         if degree:
-            l *= 180.0 / numpy.pi
-            b *= 180.0 / numpy.pi
+            if xp is numpy:
+                l *= 180.0 / numpy.pi
+                b *= 180.0 / numpy.pi
+            else:  # backend arrays are immutable -- do not mutate in place
+                l = l * (180.0 / numpy.pi)
+                b = b * (180.0 / numpy.pi)
         lbd = XYZ_to_lbd(l, b, d, degree=False)
         l = lbd[:, 0]
         b = lbd[:, 1]
         d = lbd[:, 2]
+    if xp is not numpy:
+        # (R.T * invxyz.T).sum(-1) contracts to a per-point matvec by R. The
+        # (3, 3, N) build by element assignment and the two in-place row
+        # divisions are what backend arrays reject, so write the three
+        # components out directly.
+        cl, sl, cb, sb = xp.cos(l), xp.sin(l), xp.cos(b), xp.sin(b)
+        dK = d * _K
+        return xp.stack(
+            [
+                cl * cb * vx + sl * cb * vy + sb * vz,
+                (-sl * vx + cl * vy) / dK,
+                (-cl * sb * vx - sl * sb * vy + cb * vz) / dK,
+            ],
+            axis=-1,
+        )
     R = numpy.zeros((3, 3, len(l)))
     R[0, 0] = numpy.cos(l) * numpy.cos(b)
     R[0, 1] = -numpy.sin(l)
@@ -672,9 +693,9 @@ def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
     return vrvlvb
 
 
-@backendNative
 @scalarDecorator
 @degreeDecorator([], [0, 1])
+@backendNative
 def XYZ_to_lbd(X, Y, Z, degree=False):
     """
     Transform from rectangular Galactic coordinates to spherical Galactic coordinates (works with vector inputs)
@@ -1148,8 +1169,8 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     ).T
 
 
-@backendNative
 @scalarDecorator
+@backendNative
 def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     Transform rectangular Galactocentric to XYZ coordinates (wrt Sun) coordinates.
@@ -1519,8 +1540,8 @@ def vxvyvz_to_galcencyl(
     ).T
 
 
-@backendNative
 @scalarDecorator
+@backendNative
 def galcenrect_to_vxvyvz(
     vXg, vYg, vZg, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
 ):
