@@ -1797,20 +1797,28 @@ def galcenrect_to_XYZ_jac(*args, **kwargs):
 
     """
     Xsun = kwargs.get("Xsun", 1.0)
-    dgc = numpy.sqrt(Xsun**2.0 + kwargs.get("Zsun", 0.0) ** 2.0)
-    costheta, sintheta = Xsun / dgc, kwargs.get("Zsun", 0.0) / dgc
-    out = numpy.zeros((6, 6))
-    out[0, 0] = -costheta
-    out[0, 2] = -sintheta
-    out[1, 1] = 1.0
-    out[2, 0] = -numpy.sign(Xsun) * sintheta
-    out[2, 2] = numpy.sign(Xsun) * costheta
-    out[3, 3] = -costheta
-    out[3, 5] = -sintheta
-    out[4, 4] = 1.0
-    out[5, 3] = -numpy.sign(Xsun) * sintheta
-    out[5, 5] = numpy.sign(Xsun) * costheta
-    return out[: len(args), : len(args)]
+    Zsun = kwargs.get("Zsun", 0.0)
+    xp = get_namespace(*args, Xsun, Zsun, xp=kwargs.get("xp", None))
+    Xsun, Zsun = promote_scalars(xp, Xsun, Zsun)
+    dgc = xp.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    sgn = xp.sign(Xsun)
+    o = xp.zeros_like(costheta)
+    i = xp.ones_like(costheta)
+    # Rows stacked rather than assigned into a zeros((6,6)): jax arrays are
+    # immutable, and stacking is what makes a batched (..., 6, 6) fall out.
+    out = xp.stack(
+        [
+            xp.stack([-costheta, o, -sintheta, o, o, o], axis=-1),
+            xp.stack([o, i, o, o, o, o], axis=-1),
+            xp.stack([-sgn * sintheta, o, sgn * costheta, o, o, o], axis=-1),
+            xp.stack([o, o, o, -costheta, o, -sintheta], axis=-1),
+            xp.stack([o, o, o, o, i, o], axis=-1),
+            xp.stack([o, o, o, -sgn * sintheta, o, sgn * costheta], axis=-1),
+        ],
+        axis=-2,
+    )
+    return out[..., : len(args), : len(args)]
 
 
 def lbd_to_XYZ_jac(*args, **kwargs):
