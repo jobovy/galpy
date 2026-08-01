@@ -1113,9 +1113,22 @@ def test_streamtrack_class_backend_decorator_passthrough(backend):
         rtol=1e-9,
         atol=1e-9 * cov_scale,
     )
-    # sky-frame covariance bases are a numpy-only follow-up on the backend path.
-    with pytest.raises(NotImplementedError):
-        tr_b.cov(q, basis="galcencyl")
+    # cov(basis=...) rotates on the backend path: the result stays a backend
+    # array and matches the numpy track entry-for-entry. 'galcencyl' is the
+    # basis reachable here -- the sky bases additionally route through
+    # coords.galcenrect_to_XYZ, which is not yet @backendNative and so
+    # promotes through numpy unless a backend is forced; they are covered
+    # under a forced backend by tests/test_streamTrack.py.
+    cb = tr_b.cov(q, basis="galcencyl")
+    assert is_backend_array(cb)
+    ref = numpy.asarray(tr_np.cov(q, basis="galcencyl"))
+    numpy.testing.assert_allclose(
+        as_numpy(cb),
+        ref,
+        rtol=1e-9,
+        atol=1e-9 * numpy.max(numpy.abs(ref)),
+        err_msg="backend cov(basis='galcencyl') does not match numpy",
+    )
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
