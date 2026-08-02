@@ -2000,19 +2000,23 @@ class streamdf(df):
         obskwargs["vo"] = vo
         obskwargs["obs"] = obs
         obskwargs["quantity"] = False
+        # as_numpy: the Orbit sky accessors preserve the framework now that the
+        # coords chain is backend-native, but these are host-side scale factors
+        # multiplied into numpy covariance arrays below. streamdf itself is not
+        # backend-migrated, so the boundary is here, explicitly, rather than as
+        # a numpy/Tensor collision deeper in.
+        _dist = as_numpy(self._progenitor.dist(**obskwargs))
+        _vlos = as_numpy(self._progenitor.vlos(**obskwargs))
+        _pmll = as_numpy(self._progenitor.pmll(**obskwargs))
+        _pmbb = as_numpy(self._progenitor.pmbb(**obskwargs))
+        _pm = numpy.sqrt(_pmll**2.0 + _pmbb**2.0)
         self._ErrCovsLBScale = [
             180.0,
             90.0,
-            self._progenitor.dist(**obskwargs),
-            numpy.fabs(self._progenitor.vlos(**obskwargs)),
-            numpy.sqrt(
-                self._progenitor.pmll(**obskwargs) ** 2.0
-                + self._progenitor.pmbb(**obskwargs) ** 2.0
-            ),
-            numpy.sqrt(
-                self._progenitor.pmll(**obskwargs) ** 2.0
-                + self._progenitor.pmbb(**obskwargs) ** 2.0
-            ),
+            _dist,
+            numpy.fabs(_vlos),
+            _pm,
+            _pm,
         ]
         allErrCovsEigvalLB = numpy.empty((len(self._thetasTrack), 6))
         allErrCovsEigvecLB = numpy.empty_like(self._allErrCovs)
@@ -5279,7 +5283,18 @@ def calcaAJac(
     - 2013-11-25 - Written - Bovy (IAS)
     """
     # Backend (jax/torch): exact AD Jacobian; numpy path below is byte-identical.
-    if is_backend_array(xv) or is_backend_array(xv[0]):
+    # lb/coordFunc are not implemented on the backend path. They used to be
+    # unreachable there because xv arrived as numpy; now that the coords chain
+    # is backend-native it can arrive as a backend array, so land it on numpy
+    # and take the finite-difference path -- which is exactly what happened
+    # before, rather than raising at the user.
+    _is_backend = is_backend_array(xv) or is_backend_array(xv[0])
+    if _is_backend and (lb or coordFunc is not None):
+        # numpy.array (not as_numpy alone): jax's cast is read-only and the
+        # finite-difference path below writes into xv in place.
+        xv = numpy.array(as_numpy(xv))
+        _is_backend = False
+    if _is_backend:
         return _calcaAJac_backend(
             xv,
             aA,
