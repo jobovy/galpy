@@ -5290,7 +5290,9 @@ def calcaAJac(
     # before, rather than raising at the user.
     _is_backend = is_backend_array(xv) or is_backend_array(xv[0])
     if _is_backend and (lb or coordFunc is not None):
-        xv = as_numpy(xv)
+        # numpy.array (not as_numpy alone): jax's cast is read-only and the
+        # finite-difference path below writes into xv in place.
+        xv = numpy.array(as_numpy(xv))
         _is_backend = False
     if _is_backend:
         return _calcaAJac_backend(
