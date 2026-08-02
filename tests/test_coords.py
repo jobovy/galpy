@@ -540,7 +540,7 @@ def test_lbd_to_XYZ():
 def test_XYZ_to_lbd():
     l, b, d = 90.0, 30.0, 1.0
     XYZ = coords.lbd_to_XYZ(l, b, d, degree=True)
-    lt, bt, dt = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True)
+    lt, bt, dt = as_numpy(coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True))
     assert numpy.fabs(lt - l) < 10.0**-10.0, (
         "XYZ_to_lbd conversion does not work as expected"
     )
@@ -552,7 +552,7 @@ def test_XYZ_to_lbd():
     )
     # Also test for degree=False
     XYZ = coords.lbd_to_XYZ(l / 180.0 * numpy.pi, b / 180.0 * numpy.pi, d, degree=False)
-    lt, bt, dt = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=False)
+    lt, bt, dt = as_numpy(coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=False))
     assert numpy.fabs(lt - l / 180.0 * numpy.pi) < 10.0**-10.0, (
         "XYZ_to_lbd conversion does not work as expected"
     )
@@ -567,7 +567,7 @@ def test_XYZ_to_lbd():
     XYZ = coords.lbd_to_XYZ(
         os * l / 180.0 * numpy.pi, os * b / 180.0 * numpy.pi, os * d, degree=False
     )
-    lbdt = coords.XYZ_to_lbd(XYZ[:, 0], XYZ[:, 1], XYZ[:, 2], degree=False)
+    lbdt = as_numpy(coords.XYZ_to_lbd(XYZ[:, 0], XYZ[:, 1], XYZ[:, 2], degree=False))
     assert numpy.all(numpy.fabs(lbdt[:, 0] - l / 180.0 * numpy.pi) < 10.0**-10.0), (
         "XYZ_to_lbd conversion does not work as expected"
     )
@@ -656,7 +656,7 @@ def test_vrpmllpmbb_to_vxvyvz():
 def test_vxvyvz_to_vrpmllpmbb():
     vx, vy, vz = -20.0 * 4.740470463496208, 10.0, -10.0 * 4.740470463496208
     X, Y, Z = 0.0, 1.0, 0.0
-    vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True)
+    vrpmllpmbb = as_numpy(coords.vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True))
     assert numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0, (
         "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     )
@@ -667,7 +667,9 @@ def test_vxvyvz_to_vrpmllpmbb():
         "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     )
     # also try with degree=True (that shouldn't fail!)
-    vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True, degree=True)
+    vrpmllpmbb = as_numpy(
+        coords.vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True, degree=True)
+    )
     assert numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0, (
         "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     )
@@ -678,8 +680,8 @@ def test_vxvyvz_to_vrpmllpmbb():
         "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     )
     # also for lbd
-    vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
-        vx, vy, vz, 90.0, 0.0, 1.0, XYZ=False, degree=True
+    vrpmllpmbb = as_numpy(
+        coords.vxvyvz_to_vrpmllpmbb(vx, vy, vz, 90.0, 0.0, 1.0, XYZ=False, degree=True)
     )
     assert numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0, (
         "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
@@ -691,8 +693,10 @@ def test_vxvyvz_to_vrpmllpmbb():
         "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     )
     # also for lbd, not in degree
-    vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
-        vx, vy, vz, numpy.pi / 2.0, 0.0, 1.0, XYZ=False, degree=False
+    vrpmllpmbb = as_numpy(
+        coords.vxvyvz_to_vrpmllpmbb(
+            vx, vy, vz, numpy.pi / 2.0, 0.0, 1.0, XYZ=False, degree=False
+        )
     )
     assert numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0, (
         "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
@@ -705,15 +709,17 @@ def test_vxvyvz_to_vrpmllpmbb():
     )
     # and for arrays
     os = numpy.ones(2)
-    vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
-        os * vx,
-        os * vy,
-        os * vz,
-        os * numpy.pi / 2.0,
-        os * 0.0,
-        os,
-        XYZ=False,
-        degree=False,
+    vrpmllpmbb = as_numpy(
+        coords.vxvyvz_to_vrpmllpmbb(
+            os * vx,
+            os * vy,
+            os * vz,
+            os * numpy.pi / 2.0,
+            os * 0.0,
+            os,
+            XYZ=False,
+            degree=False,
+        )
     )
     assert numpy.all(numpy.fabs(vrpmllpmbb[:, 0] - 10.0) < 10.0**-9.0), (
         "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
@@ -1487,7 +1493,7 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
 
 def test_galcenrect_to_vxvyvz():
     vxg, vyg, vzg = -15.0, -10.0, 35.0
-    vxyz = coords.galcenrect_to_vxvyvz(vxg, vyg, vzg, vsun=[-5.0, 10.0, 5.0])
+    vxyz = as_numpy(coords.galcenrect_to_vxvyvz(vxg, vyg, vzg, vsun=[-5.0, 10.0, 5.0]))
     assert numpy.fabs(vxyz[0] - 10.0) < 10.0**-4.0, (
         "galcenrect_to_vxvyvz conversion did not work as expected"
     )
@@ -1499,8 +1505,10 @@ def test_galcenrect_to_vxvyvz():
     )
     # Also for arrays
     os = numpy.ones(2)
-    vxyz = coords.galcenrect_to_vxvyvz(
-        os * vxg, os * vyg, os * vzg, vsun=[-5.0, 10.0, 5.0]
+    vxyz = as_numpy(
+        coords.galcenrect_to_vxvyvz(
+            os * vxg, os * vyg, os * vzg, vsun=[-5.0, 10.0, 5.0]
+        )
     )
     assert numpy.all(numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0), (
         "galcenrect_to_vxvyvz conversion did not work as expected"
@@ -1532,7 +1540,9 @@ def test_galcenrect_to_vxvyvz_asInverse():
     # Test that galcenrect_to_vxvyvz is the inverse of vxvyvz_to_galcenrect
     vx, vy, vz = -15.0, -10.0, 35.0
     vxg, vyg, vzg = coords.vxvyvz_to_galcenrect(vx, vy, vz, vsun=[-5.0, 10.0, 5.0])
-    vxt, vyt, vzt = coords.galcenrect_to_vxvyvz(vxg, vyg, vzg, vsun=[-5.0, 10.0, 5.0])
+    vxt, vyt, vzt = as_numpy(
+        coords.galcenrect_to_vxvyvz(vxg, vyg, vzg, vsun=[-5.0, 10.0, 5.0])
+    )
     assert numpy.fabs(vx - vxt) < 10.0**-14.0, (
         "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
     )
@@ -1547,8 +1557,10 @@ def test_galcenrect_to_vxvyvz_asInverse():
     vxyzg = coords.vxvyvz_to_galcenrect(
         vx * os, vy * os, vz * os, vsun=[-5.0, 10.0, 5.0]
     )
-    vxyzt = coords.galcenrect_to_vxvyvz(
-        vxyzg[:, 0], vxyzg[:, 1], vxyzg[:, 2], vsun=[-5.0, 10.0, 5.0]
+    vxyzt = as_numpy(
+        coords.galcenrect_to_vxvyvz(
+            vxyzg[:, 0], vxyzg[:, 1], vxyzg[:, 2], vsun=[-5.0, 10.0, 5.0]
+        )
     )
     assert numpy.all(numpy.fabs(vxyzt[:, 0] - vx * os) < 10.0**-10.0), (
         "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
@@ -1568,13 +1580,15 @@ def test_galcenrect_to_vxvyvz_vecXsun():
         numpy.array([-10.0, -10.0]),
         numpy.array([35.0, 35.0]),
     )
-    vxyz = coords.galcenrect_to_vxvyvz(
-        vxg,
-        vyg,
-        vzg,
-        vsun=[-5.0, 10.0, 5.0],
-        Xsun=numpy.array([1.1, 1.0]),
-        Zsun=numpy.array([0.0, 0.0]),
+    vxyz = as_numpy(
+        coords.galcenrect_to_vxvyvz(
+            vxg,
+            vyg,
+            vzg,
+            vsun=[-5.0, 10.0, 5.0],
+            Xsun=numpy.array([1.1, 1.0]),
+            Zsun=numpy.array([0.0, 0.0]),
+        )
     )
     assert numpy.all(numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0), (
         "galcenrect_to_vxvyvz conversion did not work as expected"
@@ -1594,8 +1608,10 @@ def test_galcenrect_to_vxvyvz_vecvsun():
         numpy.array([-10.0, -20.0]),
         numpy.array([35.0, 32.5]),
     )
-    vxyz = coords.galcenrect_to_vxvyvz(
-        vxg, vyg, vzg, vsun=numpy.array([[-5.0, 10.0, 5.0], [5.0, 0.0, 2.5]]).T
+    vxyz = as_numpy(
+        coords.galcenrect_to_vxvyvz(
+            vxg, vyg, vzg, vsun=numpy.array([[-5.0, 10.0, 5.0], [5.0, 0.0, 2.5]]).T
+        )
     )
     assert numpy.all(numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0), (
         "galcenrect_to_vxvyvz conversion did not work as expected"
@@ -1615,13 +1631,15 @@ def test_galcenrect_to_vxvyvz_vecXsunvsun():
         numpy.array([-10.0, -20.0]),
         numpy.array([35.0, 32.5]),
     )
-    vxyz = coords.galcenrect_to_vxvyvz(
-        vxg,
-        vyg,
-        vzg,
-        vsun=numpy.array([[-5.0, 10.0, 5.0], [5.0, 0.0, 2.5]]).T,
-        Xsun=numpy.array([1.1, 1.0]),
-        Zsun=numpy.array([0.0, 0.0]),
+    vxyz = as_numpy(
+        coords.galcenrect_to_vxvyvz(
+            vxg,
+            vyg,
+            vzg,
+            vsun=numpy.array([[-5.0, 10.0, 5.0], [5.0, 0.0, 2.5]]).T,
+            Xsun=numpy.array([1.1, 1.0]),
+            Zsun=numpy.array([0.0, 0.0]),
+        )
     )
     assert numpy.all(numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0), (
         "galcenrect_to_vxvyvz conversion did not work as expected"
@@ -1658,8 +1676,8 @@ def test_galcencyl_to_vxvyvz_asInverse():
     vrg, vtg, vzg = coords.vxvyvz_to_galcencyl(
         vx, vy, vz, 0.0, phi, 0.0, vsun=[-5.0, 10.0, 5.0], galcen=True
     )
-    vxt, vyt, vzt = coords.galcencyl_to_vxvyvz(
-        vrg, vtg, vzg, phi, vsun=[-5.0, 10.0, 5.0]
+    vxt, vyt, vzt = as_numpy(
+        coords.galcencyl_to_vxvyvz(vrg, vtg, vzg, phi, vsun=[-5.0, 10.0, 5.0])
     )
     assert numpy.fabs(vx - vxt) < 10.0**-14.0, (
         "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
@@ -1684,8 +1702,10 @@ def test_galcencyl_to_vxvyvz_asInverse():
         vsun=[-5.0, 10.0, 5.0],
         galcen=True,
     )
-    vxyzt = coords.galcencyl_to_vxvyvz(
-        vrtzg[:, 0], vrtzg[:, 1], vrtzg[:, 2], phi * os, vsun=[-5.0, 10.0, 5.0]
+    vxyzt = as_numpy(
+        coords.galcencyl_to_vxvyvz(
+            vrtzg[:, 0], vrtzg[:, 1], vrtzg[:, 2], phi * os, vsun=[-5.0, 10.0, 5.0]
+        )
     )
     assert numpy.all(numpy.fabs(vxyzt[:, 0] - vx * os) < 10.0**-10.0), (
         "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
@@ -1923,8 +1943,8 @@ def test_pmllpmbb_to_pmrapmdec():
     # This is a random l,b
     ll, bb = 132.0, -20.4
     pmll, pmbb = 10.0, 20.0
-    pmra, pmdec = coords.pmllpmbb_to_pmrapmdec(
-        pmll, pmbb, ll, bb, degree=True, epoch=1950.0
+    pmra, pmdec = as_numpy(
+        coords.pmllpmbb_to_pmrapmdec(pmll, pmbb, ll, bb, degree=True, epoch=1950.0)
     )
     assert (
         numpy.fabs(
@@ -1936,8 +1956,10 @@ def test_pmllpmbb_to_pmrapmdec():
     ll, bb = numpy.pi - 0.001, numpy.pi / 2.0 - 0.001
     pmll, pmbb = 10.0, 20.0
     os = numpy.ones(2)
-    pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
-        os * pmll, os * pmbb, os * ll, os * bb, degree=False, epoch=1950.0
+    pmrapmdec = as_numpy(
+        coords.pmllpmbb_to_pmrapmdec(
+            os * pmll, os * pmbb, os * ll, os * bb, degree=False, epoch=1950.0
+        )
     )
     pmra = pmrapmdec[:, 0]
     pmdec = pmrapmdec[:, 1]
@@ -1951,8 +1973,10 @@ def test_pmllpmbb_to_pmrapmdec():
     ll, bb = numpy.pi, numpy.pi / 2.0
     pmll, pmbb = 10.0, 20.0
     os = numpy.ones(2)
-    pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
-        os * pmll, os * pmbb, os * ll, os * bb, degree=False, epoch=1950.0
+    pmrapmdec = as_numpy(
+        coords.pmllpmbb_to_pmrapmdec(
+            os * pmll, os * pmbb, os * ll, os * bb, degree=False, epoch=1950.0
+        )
     )
     pmra = pmrapmdec[:, 0]
     pmdec = pmrapmdec[:, 1]
@@ -1966,8 +1990,8 @@ def test_pmllpmbb_to_pmrapmdec():
     ra, dec = numpy.pi, numpy.pi / 2.0
     ll, bb = coords.radec_to_lb(ra, dec, degree=False, epoch=1950.0)
     pmll, pmbb = 10.0, 20.0
-    pmra, pmdec = coords.pmllpmbb_to_pmrapmdec(
-        pmll, pmbb, ll, bb, degree=False, epoch=1950.0
+    pmra, pmdec = as_numpy(
+        coords.pmllpmbb_to_pmrapmdec(pmll, pmbb, ll, bb, degree=False, epoch=1950.0)
     )
     assert (
         numpy.fabs(
