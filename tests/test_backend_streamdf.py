@@ -453,11 +453,21 @@ def test_calcaAJac_ad_equals_fd(aA_iso, backend_name, flags, shape):
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
-def test_calcaAJac_backend_rejects_lb_coordfunc(aA_iso, backend_name):
-    # lb / coordFunc are unsupported on the backend path; they raise (not misbehave).
+def test_calcaAJac_backend_lb_coordfunc_falls_back_to_numpy(aA_iso, backend_name):
+    # lb / coordFunc have no backend implementation. They used to be unreachable
+    # with a backend xv, so the guard raised; now that the coords chain is
+    # backend-native the stream track reaches here with lb=True, so the call
+    # lands on numpy and takes the finite-difference path -- exactly what it did
+    # before. Assert it MATCHES numpy rather than merely not raising: the
+    # fallback silently gives up AD, so a wrong value would otherwise be
+    # invisible (jax's as_numpy cast is read-only, and the FD path writes in
+    # place -- that bug passed a "does not raise" check on torch).
     for kw in (dict(lb=True), dict(coordFunc=lambda x: x)):
-        with pytest.raises(NotImplementedError):
+        got = as_numpy(
             calcaAJac(_arr(backend_name, _XV), aA_iso, actionsFreqsAngles=True, **kw)
+        )
+        ref = calcaAJac(numpy.array(_XV), aA_iso, actionsFreqsAngles=True, **kw)
+        numpy.testing.assert_allclose(got, ref, rtol=1e-13, atol=1e-15)
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
