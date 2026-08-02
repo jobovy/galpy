@@ -502,3 +502,28 @@ def test_galcen_rot_array_Xsun_and_extra_rot(backend_name, extra_rot):
                 atol=1e-13 * max(numpy.max(numpy.abs(ref)), 1.0),
                 err_msg=f"{what} mismatch ({tag}, _extra_rot={extra_rot})",
             )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_vxvyvz_to_vrpmllpmbb_XYZ_degree_backend(backend_name):
+    # XYZ=True + degree=True is the one combination with its own backend branch:
+    # degreeDecorator has already converted args 3/4 deg->rad, which is wrong when
+    # they are X/Y rather than l/b, so the body undoes it. numpy undoes it in
+    # place (`l *= ...`); backend arrays are immutable, so there is a separate
+    # out-of-place branch. Nothing else in the suite passes both flags with
+    # backend arrays, which left those two lines the only uncovered ones in
+    # coords.py.
+    X = numpy.array([1.2, -0.7, 0.3])
+    Y = numpy.array([-0.4, 0.9, 1.1])
+    Z = numpy.array([0.25, -0.6, 0.8])
+    vx = numpy.array([10.0, -20.0, 5.0])
+    vy = numpy.array([-30.0, 15.0, 25.0])
+    vz = numpy.array([7.0, -3.0, 12.0])
+    ref = coords.vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True, degree=True)
+    got = coords.vxvyvz_to_vrpmllpmbb(
+        *[_as_backend(backend_name, a) for a in (vx, vy, vz, X, Y, Z)],
+        XYZ=True,
+        degree=True,
+    )
+    assert _all_backend(got), "XYZ+degree backend path fell back to numpy"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-13, atol=1e-15)
