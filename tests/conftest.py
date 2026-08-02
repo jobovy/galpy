@@ -200,10 +200,14 @@ def _load_slow_skip(backend_name):
     return _load_backend_nodeids(_slow_skip_path(), backend_name)
 
 
-# Tests skipped under a backend because they exercise NO backend-relevant code and
-# depend on a flaky external service (e.g. Orbit.from_name's SIMBAD network lookup),
-# so running them under a forced backend only risks flaking the deterministic
-# all-backend gate for ~zero coverage. Distinct from backend_slow_skip.txt
+# Tests skipped under a backend for a PERMANENT reason -- one no amount of porting
+# work will change. Two kinds qualify: (a) the test exercises NO backend-relevant
+# code and depends on a flaky external service (e.g. Orbit.from_name's SIMBAD
+# network lookup), so running it under a forced backend only risks flaking the
+# deterministic all-backend gate for ~zero coverage; (b) the test belongs to a
+# family that is out of scope for the backend goal and stays _reject_backend-
+# guarded (actionAngleVerticalInverse), so it fails by design and always will.
+# Distinct from backend_slow_skip.txt
 # (slow-but-meaningful, a burndown that shrinks as ports vectorize): these are a
 # PERMANENT exclusion, not pending work, so they are NOT part of any burndown.
 # numpy still exercises them. Same "<backend> <nodeid>" format.
@@ -314,7 +318,8 @@ def pytest_collection_modifyitems(config, items):
     if backend_skip:
         exempt_marker = pytest.mark.skip(
             reason=f"backend-skip: not backend-meaningful under {backend_name} "
-            "(external-service/network/flaky); see tests/backend_skip.txt"
+            "(external-service/network/flaky, or an out-of-scope family); "
+            "see tests/backend_skip.txt"
         )
         for item in items:
             if item.nodeid not in skipped_ids and _matches(item.nodeid, backend_skip):
