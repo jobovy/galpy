@@ -667,6 +667,9 @@ def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
         # (3, 3, N) build by element assignment and the two in-place row
         # divisions are what backend arrays reject, so write the three
         # components out directly.
+        # promote first: under a forced backend the inputs can still be numpy,
+        # and torch.cos(ndarray) raises rather than coercing
+        l, b, d, vx, vy, vz = promote_scalars(xp, l, b, d, vx, vy, vz)
         cl, sl, cb, sb = xp.cos(l), xp.sin(l), xp.cos(b), xp.sin(b)
         dK = d * _K
         return xp.stack(
@@ -858,6 +861,7 @@ def pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False, epoch=2000.0):
             * numpy.array([[pmll, pmll], [pmbb, pmbb]]).T
         ).sum(-1)
     # that contraction is a per-point rotation of (pmll, pmbb) by phi
+    pmll, pmbb = promote_scalars(xp, pmll, pmbb)
     return xp.stack(
         [cosphi * pmll - sinphi * pmbb, sinphi * pmll + cosphi * pmbb], axis=-1
     )
