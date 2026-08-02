@@ -77,12 +77,10 @@ def test_actionAngleHarmonic_linear_angles():
         "Maximum deviation from linear trend in the angles is %g" % maxdev
     )
     # Finally test that the frequency returned by actionsFreqs == that from actionsFreqsAngles
-    assert (
-        numpy.all(
-            numpy.fabs(
-                as_numpy(aAH.actionsFreqs(obs.x(times), obs.vx(times))[1])
-                - as_numpy(aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))[1])
-            )
+    assert numpy.all(
+        numpy.fabs(
+            as_numpy(aAH.actionsFreqs(obs.x(times), obs.vx(times))[1])
+            - as_numpy(aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))[1])
         )
         < 1e-100
     ), (
@@ -246,12 +244,10 @@ def test_actionAngleVertical_linear_angles():
         "Maximum deviation from linear trend in the angles is %g" % maxdev
     )
     # Finally test that the frequency returned by actionsFreqs == that from actionsFreqsAngles
-    assert (
-        numpy.all(
-            numpy.fabs(
-                aAV.actionsFreqs(obs.x(times), obs.vx(times))[1]
-                - aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))[1]
-            )
+    assert numpy.all(
+        numpy.fabs(
+            as_numpy(aAV.actionsFreqs(obs.x(times), obs.vx(times))[1])
+            - as_numpy(aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))[1])
         )
         < 1e-100
     ), (
