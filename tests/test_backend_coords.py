@@ -350,3 +350,111 @@ def test_degree_decorator_scales_backend_output(backend_name):
     )
     numpy.testing.assert_allclose(as_numpy(got_deg), ref_deg, rtol=0, atol=1e-12)
     numpy.testing.assert_allclose(as_numpy(got_rad), ref_rad, rtol=0, atol=1e-13)
+
+
+# ---------------------------------------------------------------------------
+# The galcenrect -> heliocentric -> sky chain (#184).
+#
+# Each of these was plain @scalarDecorator, so it promoted its inputs through
+# numpy and silently returned numpy even when handed a backend array. That is
+# what made streamTrack's sky-frame cov() raise "Multiple namespaces" on an
+# unforced mixed track and "Can't call numpy() on Tensor that requires grad"
+# under a gradient.
+#
+# These assert the RETURN TYPE, not just the values, and that is deliberate:
+# a byte-identity check cannot distinguish a working migration from one that
+# does nothing, because the numpy path is unchanged either way. During this
+# migration @backendNative was briefly placed as the OUTERMOST decorator, which
+# marks the scalarDecorator wrapper rather than the function scalarDecorator
+# inspects -- every migration was inert and every value check still passed.
+# Only a type assertion catches that.
+# ---------------------------------------------------------------------------
+_CHAIN_CASES = {
+    "galcenrect_to_XYZ": lambda c, a: c.galcenrect_to_XYZ(
+        a["x"], a["y"], a["z"], Xsun=1.0, Zsun=0.02
+    ),
+    "galcenrect_to_vxvyvz": lambda c, a: c.galcenrect_to_vxvyvz(
+        a["vx"], a["vy"], a["vz"], Xsun=1.0, Zsun=0.02
+    ),
+    "XYZ_to_lbd": lambda c, a: c.XYZ_to_lbd(a["x"], a["y"], a["z"], degree=False),
+    "vxvyvz_to_vrpmllpmbb": lambda c, a: c.vxvyvz_to_vrpmllpmbb(
+        a["vx"], a["vy"], a["vz"], a["x"], a["y"], a["z"], XYZ=True, degree=False
+    ),
+    "pmllpmbb_to_pmrapmdec": lambda c, a: c.pmllpmbb_to_pmrapmdec(
+        a["pmll"], a["pmbb"], a["l"], a["b"], degree=False
+    ),
+}
+
+
+def _chain_args():
+    rng = numpy.random.default_rng(19)
+    n = 7
+    return {
+        "x": rng.normal(size=n) + 1.5,
+        "y": rng.normal(size=n),
+        "z": 0.4 * rng.normal(size=n),
+        "vx": rng.normal(size=n),
+        "vy": rng.normal(size=n) + 1.0,
+        "vz": 0.3 * rng.normal(size=n),
+        "l": rng.random(size=n) * 5.0,
+        "b": (rng.random(size=n) - 0.5),
+        "pmll": rng.normal(size=n),
+        "pmbb": rng.normal(size=n),
+    }
+
+
+def _as_backend(backend_name, arr):
+    """A real backend array while the AMBIENT backend stays numpy."""
+    if backend_name == "jax":
+        import jax
+
+        jax.config.update("jax_enable_x64", True)
+        import jax.numpy as jnp
+
+        return jnp.asarray(arr)
+    import torch
+
+    return torch.tensor(numpy.asarray(arr, dtype=float), dtype=torch.float64)
+
+
+def _all_backend(res):
+    """True when every array in ``res`` is a backend array (res may be a tuple)."""
+    parts = res if isinstance(res, tuple) else (res,)
+    return all(is_backend_array(a) for a in parts)
+
+
+@pytest.mark.parametrize("shape", ["scalar", "array"])
+@pytest.mark.parametrize("name", sorted(_CHAIN_CASES))
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_sky_chain_preserves_backend_and_matches_numpy(backend_name, name, shape):
+    # Two things this test is careful about, both learned the hard way:
+    #
+    # 1. UNFORCED. Under `use(..., force=True)` these recover even with the
+    #    marker misplaced, because get_namespace reports the caller's intent and
+    #    the body's promote_scalars re-coerces. Forcing hides the bug.
+    # 2. SCALAR inputs. scalarDecorator only rewrites its arguments when they
+    #    are 0-d (`if xp.asarray(args[0]).ndim == 0`), so with array inputs the
+    #    marker is never consulted and the test passes either way. streamTrack
+    #    calls these per-tp with scalars, which is why it was the thing that
+    #    broke. Verified: with @backendNative moved outermost, scalar-in returns
+    #    a tuple of numpy float64 and this test fails; array-in stays Tensor.
+    args = _chain_args()
+    if shape == "scalar":
+        args = {k: v[0] for k, v in args.items()}
+    call = _CHAIN_CASES[name]
+    ref = numpy.asarray(call(coords, args))
+    bargs = {k: _as_backend(backend_name, v) for k, v in args.items()}
+    got = call(coords, bargs)
+    assert _all_backend(got), f"{name} dropped back to numpy ({shape}, unforced)"
+    flat = (
+        numpy.asarray([as_numpy(a) for a in got])
+        if isinstance(got, tuple)
+        else as_numpy(got)
+    )
+    numpy.testing.assert_allclose(
+        flat,
+        ref,
+        rtol=1e-13,
+        atol=1e-13 * max(numpy.max(numpy.abs(ref)), 1.0),
+        err_msg=f"{name} backend value does not match numpy ({shape})",
+    )
