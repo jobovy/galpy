@@ -798,6 +798,7 @@ def pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=False, epoch=2000.0):
 
 @scalarDecorator
 @degreeDecorator([2, 3], [])
+@backendNative
 def pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False, epoch=2000.0):
     """
     Rotate proper motions in (l,b) into proper motions in (ra,dec)
@@ -836,24 +837,30 @@ def pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False, epoch=2000.0):
     # deal w/ pole; was `dec[dec == dec_ngp] += 1e-16`, an in-place masked
     # assignment that jax does not support
     dec = xp.where(dec == dec_ngp, dec + 10.0**-16, dec)
-    sindec_ngp = numpy.sin(dec_ngp)
+    sindec_ngp = numpy.sin(dec_ngp)  # epoch angles: config, never traced
     cosdec_ngp = numpy.cos(dec_ngp)
-    sindec = numpy.sin(dec)
-    cosdec = numpy.cos(dec)
-    sinrarangp = numpy.sin(ra - ra_ngp)
-    cosrarangp = numpy.cos(ra - ra_ngp)
+    sindec = xp.sin(dec)
+    cosdec = xp.cos(dec)
+    sinrarangp = xp.sin(ra - ra_ngp)
+    cosrarangp = xp.cos(ra - ra_ngp)
     # These were replaced by Poleski (2013)'s equivalent form that is better at the poles
     # cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     # sinphi= sinrarangp*cosdec_ngp/cosb
     cosphi = sindec_ngp * cosdec - cosdec_ngp * sindec * cosrarangp
     sinphi = sinrarangp * cosdec_ngp
-    norm = numpy.sqrt(cosphi**2.0 + sinphi**2.0)
-    cosphi /= norm
-    sinphi /= norm
-    return (
-        numpy.array([[cosphi, sinphi], [-sinphi, cosphi]]).T
-        * numpy.array([[pmll, pmll], [pmbb, pmbb]]).T
-    ).sum(-1)
+    norm = xp.sqrt(cosphi**2.0 + sinphi**2.0)
+    # was `cosphi /= norm` / `sinphi /= norm`: in-place, which jax rejects
+    cosphi = cosphi / norm
+    sinphi = sinphi / norm
+    if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
+        return (
+            numpy.array([[cosphi, sinphi], [-sinphi, cosphi]]).T
+            * numpy.array([[pmll, pmll], [pmbb, pmbb]]).T
+        ).sum(-1)
+    # that contraction is a per-point rotation of (pmll, pmbb) by phi
+    return xp.stack(
+        [cosphi * pmll - sinphi * pmbb, sinphi * pmll + cosphi * pmbb], axis=-1
+    )
 
 
 def cov_pmrapmdec_to_pmllpmbb(cov_pmradec, ra, dec, degree=False, epoch=2000.0):
