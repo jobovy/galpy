@@ -9498,22 +9498,22 @@ def test_getOrbit():
     vzs = o.vz(times)
     phis = o.phi(times)
     orbarray = o.getOrbit()
-    assert numpy.all(numpy.fabs(Rs - orbarray[:, 0])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(Rs - orbarray[:, 0]) < 10.0**-16.0), (
         "getOrbit does not work as expected for R"
     )
-    assert numpy.all(numpy.fabs(vRs - orbarray[:, 1])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(vRs - orbarray[:, 1]) < 10.0**-16.0), (
         "getOrbit does not work as expected for vR"
     )
-    assert numpy.all(numpy.fabs(vTs - orbarray[:, 2])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(vTs - orbarray[:, 2]) < 10.0**-16.0), (
         "getOrbit does not work as expected for vT"
     )
-    assert numpy.all(numpy.fabs(zs - orbarray[:, 3])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(zs - orbarray[:, 3]) < 10.0**-16.0), (
         "getOrbit does not work as expected for z"
     )
-    assert numpy.all(numpy.fabs(vzs - orbarray[:, 4])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(vzs - orbarray[:, 4]) < 10.0**-16.0), (
         "getOrbit does not work as expected for vz"
     )
-    assert numpy.all(numpy.fabs(phis - orbarray[:, 5])) < 10.0**-16.0, (
+    assert numpy.all(numpy.fabs(phis - orbarray[:, 5]) < 10.0**-16.0), (
         "getOrbit does not work as expected for phi"
     )
     return None
