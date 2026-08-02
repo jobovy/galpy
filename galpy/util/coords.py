@@ -97,6 +97,37 @@ _APY_COORDS *= _APY_LOADED
 _DEGTORAD = numpy.pi / 180.0
 
 
+def _galcen_rot(Xsun, Zsun):
+    """Galactocentric -> heliocentric rotation, plus the ``dgc`` offset scalars.
+
+    Depends only on ``Xsun``/``Zsun``, which are configuration, never traced
+    data -- so this stays numpy even on a backend and is a compile-time
+    constant under a trace. Shape (3, 3) for scalar Xsun, (3, 3, N) when
+    Xsun/Zsun are arrays.
+    """
+    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    zero = numpy.zeros_like(costheta)
+    one = numpy.ones_like(costheta)
+    rot = numpy.array(
+        [
+            [-costheta, zero, -sintheta],
+            [zero, one, zero],
+            [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
+        ]
+    )
+    batched = isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+    return rot, dgc, zero, batched
+
+
+def _apply_galcen_rot(xp, rot, data, batched, dev):
+    """``rot @ data`` for backend ``data`` (3, N); mirrors the numpy einsum."""
+    rot = asarray_on_device(xp, rot, dev)
+    if batched:  # (3, 3, N) . (3, N) -> (3, N), i.e. einsum("ijk,jk->ik")
+        return xp.sum(rot * data[None, :, :], axis=1)
+    return rot @ data
+
+
 def _scale_angle_rows(xp, m, factor=1.0 / _DEGTORAD, nrows=2):
     """Scale the first ``nrows`` rows of Jacobian ``m`` by ``factor``.
 
@@ -583,6 +614,7 @@ def vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=False):
 
 @scalarDecorator
 @degreeDecorator([3, 4], [])
+@backendNative
 def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
     """
     Transform velocities in the rectangular Galactic coordinate frame to the spherical Galactic coordinate frame (can take vector inputs)
@@ -617,14 +649,37 @@ def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
     - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     # Whether to use degrees and scalar input is handled by decorators
+    xp = get_namespace(vx, vy, vz, l, b, d)
     if XYZ:  # undo the incorrect conversion that the decorator did
         if degree:
-            l *= 180.0 / numpy.pi
-            b *= 180.0 / numpy.pi
+            if xp is numpy:
+                l *= 180.0 / numpy.pi
+                b *= 180.0 / numpy.pi
+            else:  # backend arrays are immutable -- do not mutate in place
+                l = l * (180.0 / numpy.pi)
+                b = b * (180.0 / numpy.pi)
         lbd = XYZ_to_lbd(l, b, d, degree=False)
         l = lbd[:, 0]
         b = lbd[:, 1]
         d = lbd[:, 2]
+    if xp is not numpy:
+        # (R.T * invxyz.T).sum(-1) contracts to a per-point matvec by R. The
+        # (3, 3, N) build by element assignment and the two in-place row
+        # divisions are what backend arrays reject, so write the three
+        # components out directly.
+        # promote first: under a forced backend the inputs can still be numpy,
+        # and torch.cos(ndarray) raises rather than coercing
+        l, b, d, vx, vy, vz = promote_scalars(xp, l, b, d, vx, vy, vz)
+        cl, sl, cb, sb = xp.cos(l), xp.sin(l), xp.cos(b), xp.sin(b)
+        dK = d * _K
+        return xp.stack(
+            [
+                cl * cb * vx + sl * cb * vy + sb * vz,
+                (-sl * vx + cl * vy) / dK,
+                (-cl * sb * vx - sl * sb * vy + cb * vz) / dK,
+            ],
+            axis=-1,
+        )
     R = numpy.zeros((3, 3, len(l)))
     R[0, 0] = numpy.cos(l) * numpy.cos(b)
     R[0, 1] = -numpy.sin(l)
@@ -643,6 +698,7 @@ def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
 
 @scalarDecorator
 @degreeDecorator([], [0, 1])
+@backendNative
 def XYZ_to_lbd(X, Y, Z, degree=False):
     """
     Transform from rectangular Galactic coordinates to spherical Galactic coordinates (works with vector inputs)
@@ -669,15 +725,24 @@ def XYZ_to_lbd(X, Y, Z, degree=False):
     - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     # Whether to use degrees and scalar input is handled by decorators
-    d = numpy.sqrt(X**2.0 + Y**2.0 + Z**2.0)
-    b = numpy.arcsin(Z / d)
-    l = numpy.arctan2(Y, X)
-    l[l < 0.0] += 2.0 * numpy.pi
-    out = numpy.empty((len(d), 3))
-    out[:, 0] = l
-    out[:, 1] = b
-    out[:, 2] = d
-    return out
+    xp = get_namespace(X, Y, Z)
+    if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
+        d = numpy.sqrt(X**2.0 + Y**2.0 + Z**2.0)
+        b = numpy.arcsin(Z / d)
+        l = numpy.arctan2(Y, X)
+        l[l < 0.0] += 2.0 * numpy.pi
+        out = numpy.empty((len(d), 3))
+        out[:, 0] = l
+        out[:, 1] = b
+        out[:, 2] = d
+        return out
+    X, Y, Z = promote_scalars(xp, X, Y, Z)
+    d = xp.sqrt(X**2.0 + Y**2.0 + Z**2.0)
+    b = xp.arcsin(Z / d)
+    l = xp.arctan2(Y, X)
+    # was `l[l < 0.0] += 2pi`: a masked in-place add, which backend arrays reject
+    l = xp.where(l < 0.0, l + 2.0 * numpy.pi, l)
+    return xp.stack([l, b, d], axis=-1)
 
 
 @scalarDecorator
@@ -736,6 +801,7 @@ def pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=False, epoch=2000.0):
 
 @scalarDecorator
 @degreeDecorator([2, 3], [])
+@backendNative
 def pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False, epoch=2000.0):
     """
     Rotate proper motions in (l,b) into proper motions in (ra,dec)
@@ -774,24 +840,31 @@ def pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False, epoch=2000.0):
     # deal w/ pole; was `dec[dec == dec_ngp] += 1e-16`, an in-place masked
     # assignment that jax does not support
     dec = xp.where(dec == dec_ngp, dec + 10.0**-16, dec)
-    sindec_ngp = numpy.sin(dec_ngp)
+    sindec_ngp = numpy.sin(dec_ngp)  # epoch angles: config, never traced
     cosdec_ngp = numpy.cos(dec_ngp)
-    sindec = numpy.sin(dec)
-    cosdec = numpy.cos(dec)
-    sinrarangp = numpy.sin(ra - ra_ngp)
-    cosrarangp = numpy.cos(ra - ra_ngp)
+    sindec = xp.sin(dec)
+    cosdec = xp.cos(dec)
+    sinrarangp = xp.sin(ra - ra_ngp)
+    cosrarangp = xp.cos(ra - ra_ngp)
     # These were replaced by Poleski (2013)'s equivalent form that is better at the poles
     # cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
     # sinphi= sinrarangp*cosdec_ngp/cosb
     cosphi = sindec_ngp * cosdec - cosdec_ngp * sindec * cosrarangp
     sinphi = sinrarangp * cosdec_ngp
-    norm = numpy.sqrt(cosphi**2.0 + sinphi**2.0)
-    cosphi /= norm
-    sinphi /= norm
-    return (
-        numpy.array([[cosphi, sinphi], [-sinphi, cosphi]]).T
-        * numpy.array([[pmll, pmll], [pmbb, pmbb]]).T
-    ).sum(-1)
+    norm = xp.sqrt(cosphi**2.0 + sinphi**2.0)
+    # was `cosphi /= norm` / `sinphi /= norm`: in-place, which jax rejects
+    cosphi = cosphi / norm
+    sinphi = sinphi / norm
+    if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
+        return (
+            numpy.array([[cosphi, sinphi], [-sinphi, cosphi]]).T
+            * numpy.array([[pmll, pmll], [pmbb, pmbb]]).T
+        ).sum(-1)
+    # that contraction is a per-point rotation of (pmll, pmbb) by phi
+    pmll, pmbb = promote_scalars(xp, pmll, pmbb)
+    return xp.stack(
+        [cosphi * pmll - sinphi * pmbb, sinphi * pmll + cosphi * pmbb], axis=-1
+    )
 
 
 def cov_pmrapmdec_to_pmllpmbb(cov_pmradec, ra, dec, degree=False, epoch=2000.0):
@@ -1108,6 +1181,7 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
 
 
 @scalarDecorator
+@backendNative
 def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     Transform rectangular Galactocentric to XYZ coordinates (wrt Sun) coordinates.
@@ -1140,32 +1214,30 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
-    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
-    costheta, sintheta = Xsun / dgc, Zsun / dgc
-    zero = numpy.zeros_like(costheta)
-    one = numpy.ones_like(costheta)
+    rot, dgc, zero, batched = _galcen_rot(Xsun, Zsun)
+    offset = numpy.array([dgc, zero, zero])
+    xp = get_namespace(X, Y, Z)
+    if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
+        out = (
+            numpy.einsum(
+                "ijk,jk->ik" if batched else "ij,jk->ik",
+                rot,
+                numpy.array([X, Y, Z]),
+            ).T
+            + offset.T
+        )
+        if _extra_rot:
+            return numpy.dot(galcen_extra_rot.T, out.T).T
+        return out
+    X, Y, Z = promote_scalars(xp, X, Y, Z)
+    dev = device_of(X)
     out = (
-        numpy.einsum(
-            (
-                "ijk,jk->ik"
-                if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-                else "ij,jk->ik"
-            ),
-            numpy.array(
-                [
-                    [-costheta, zero, -sintheta],
-                    [zero, one, zero],
-                    [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
-                ]
-            ),
-            numpy.array([X, Y, Z]),
-        ).T
-        + numpy.array([dgc, zero, zero]).T
+        _apply_galcen_rot(xp, rot, xp.stack([X, Y, Z]), batched, dev).T
+        + asarray_on_device(xp, offset, dev).T
     )
     if _extra_rot:
-        return numpy.dot(galcen_extra_rot.T, out.T).T
-    else:
-        return out
+        return (asarray_on_device(xp, galcen_extra_rot.T, dev) @ out.T).T
+    return out
 
 
 def rect_to_cyl(X, Y, Z, *, xp=None):
@@ -1480,6 +1552,7 @@ def vxvyvz_to_galcencyl(
 
 
 @scalarDecorator
+@backendNative
 def galcenrect_to_vxvyvz(
     vXg, vYg, vZg, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
 ):
@@ -1515,29 +1588,24 @@ def galcenrect_to_vxvyvz(
     - 2017-10-24 - Allowed Xsun/Zsun/vsun to be arrays - Bovy (UofT)
     - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
     """
-    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
-    costheta, sintheta = Xsun / dgc, Zsun / dgc
-    zero = numpy.zeros_like(costheta)
-    one = numpy.ones_like(costheta)
-    out = numpy.einsum(
-        (
-            "ijk,jk->ik"
-            if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-            else "ij,jk->ik"
-        ),
-        numpy.array(
-            [
-                [-costheta, zero, -sintheta],
-                [zero, one, zero],
-                [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
-            ]
-        ),
-        numpy.array([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]]),
-    ).T
-    if _extra_rot:
-        return numpy.dot(galcen_extra_rot.T, out.T).T
-    else:
+    rot, _, _, batched = _galcen_rot(Xsun, Zsun)
+    xp = get_namespace(vXg, vYg, vZg)
+    if xp is numpy:  # unchanged arithmetic: the numpy path stays byte-identical
+        out = numpy.einsum(
+            "ijk,jk->ik" if batched else "ij,jk->ik",
+            rot,
+            numpy.array([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]]),
+        ).T
+        if _extra_rot:
+            return numpy.dot(galcen_extra_rot.T, out.T).T
         return out
+    vXg, vYg, vZg = promote_scalars(xp, vXg, vYg, vZg)
+    dev = device_of(vXg)
+    data = xp.stack([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]])
+    out = _apply_galcen_rot(xp, rot, data, batched, dev).T
+    if _extra_rot:
+        return (asarray_on_device(xp, galcen_extra_rot.T, dev) @ out.T).T
+    return out
 
 
 @scalarDecorator

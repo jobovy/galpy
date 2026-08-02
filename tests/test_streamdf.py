@@ -5,6 +5,7 @@ import numpy
 import pytest
 from scipy import integrate, interpolate
 
+from galpy.backend import as_numpy
 from galpy.util import coords
 
 
@@ -1118,7 +1119,9 @@ def test_density_ll_wsampling(bovy14_setup):
             X, Y, Z, Xsun=sdf_bovy14._R0, Zsun=sdf_bovy14._Zsun
         )
         l, b, d = coords.XYZ_to_lbd(X, Y, Z, degree=True)
-        return l
+        # coords preserves the framework under a forced backend; this local
+        # helper is compared against a numpy sample below
+        return as_numpy(l)
 
     LB = sdf_bovy14.sample(n=10000, lb=True)
     apar1, apar2 = 0.1, 0.6
