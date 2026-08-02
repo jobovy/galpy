@@ -1115,3 +1115,30 @@ def test_spline2d_mode2_numpy_query(backend):
     Yg = numpy.array([-0.5, 0.3, 1.2, 1.8])
     got_g = s2(Xg, Yg, grid=True)
     numpy.testing.assert_allclose(got_g, spl(Xg, Yg, grid=True), rtol=1e-11, atol=1e-12)
+
+
+def test_eval_ppoly_survives_vmap_of_grad_torch():
+    # eval_ppoly reads its coefficients at a COMPUTED index (from searchsorted).
+    # Plain `a[idx]` is fine under torch's vmap alone and under grad alone, but
+    # raises inside the composition vmap(grad(...)) -- which is exactly what
+    # galpy/backend/autodiff.py builds for the fE chain. Hence the take()-based
+    # _take0. Guard the composition itself, not either layer.
+    torch = pytest.importorskip("torch")
+    import array_api_compat.torch as xp
+
+    from galpy.backend.interpolate import cubic_spline_coeffs, eval_ppoly
+
+    x = torch.linspace(0.5, 4.0, 24, dtype=torch.float64)
+    y = torch.sin(x) + 0.3 * x**2
+    c = cubic_spline_coeffs(xp, x, y)
+
+    def f(r):
+        return eval_ppoly(xp, x, c, r.reshape(())).reshape(())
+
+    rs = torch.tensor([0.8, 1.7, 2.9, 3.6], dtype=torch.float64)
+    got = torch.vmap(torch.func.grad(f))(rs)
+    # Compare against the analytic derivative of the same spline (nu=1), which
+    # eval_ppoly computes on a separate code path -- so this is a real value
+    # check, not just "it did not raise".
+    ref = eval_ppoly(xp, x, c, rs, nu=1)
+    numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-11, atol=1e-13)
