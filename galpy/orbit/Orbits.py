@@ -9639,9 +9639,11 @@ def _fit_orbit_mlogl(
             Xsun=obs[0] / ro,
             Zsun=obs[2] / ro,
         ).T
+        # out-of-place: X is a backend array now that galcenrect_to_XYZ is
+        # backend-native, and the old masked in-place add sat behind a
+        # data-dependent Python branch. numpy values unchanged.
         bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-        if True in bad_indx:  # pragma: no cover
-            X[bad_indx] += ro / 10000.0
+        X = get_namespace(X).where(bad_indx, X + ro / 10000.0, X)
         lbdvrpmllpmbb = coords.rectgal_to_sphergal(
             X * ro, Y * ro, Z * ro, vX * vo, vY * vo, vZ * vo, degree=True
         )
@@ -9816,9 +9818,14 @@ def _lbd(orb, thiso, *args, **kwargs):
     """Calculate l,b, and d"""
     obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True, thiso=thiso)
     X, Y, Z = _helioXYZ(orb, thiso, *args, **kwargs)
+    # nudge the exact origin off itself so the l/b arctan2 is well defined.
+    # Was `if True in bad_indx: X[bad_indx] += 1e-15` -- an in-place masked add
+    # behind a data-dependent Python branch, and X is a backend array now that
+    # galcenrect_to_XYZ is backend-native. xp.where is both out-of-place and
+    # traceable; the numpy values are unchanged.
     bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-    if True in bad_indx:
-        X[bad_indx] += 1e-15
+    xp = get_namespace(X)
+    X = xp.where(bad_indx, X + 1e-15, X)
     return coords.XYZ_to_lbd(X, Y, Z, degree=True)
 
 
@@ -10004,9 +10011,11 @@ def _lbdvrpmllpmbb(orb, thiso, *args, **kwargs):
     """Calculate l,b,d,vr,pmll,pmbb"""
     obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True, thiso=thiso)
     X, Y, Z, vX, vY, vZ = _XYZvxvyvz(orb, thiso, *args, **kwargs)
+    # out-of-place: X is a backend array now that galcenrect_to_XYZ is
+    # backend-native, and the old masked in-place add sat behind a
+    # data-dependent Python branch. numpy values unchanged.
     bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-    if True in bad_indx:
-        X[bad_indx] += ro / 10000.0
+    X = get_namespace(X).where(bad_indx, X + ro / 10000.0, X)
     return coords.rectgal_to_sphergal(X, Y, Z, vX, vY, vZ, degree=True)
 
 
