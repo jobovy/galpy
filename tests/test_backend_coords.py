@@ -458,3 +458,47 @@ def test_sky_chain_preserves_backend_and_matches_numpy(backend_name, name, shape
         atol=1e-13 * max(numpy.max(numpy.abs(ref)), 1.0),
         err_msg=f"{name} backend value does not match numpy ({shape})",
     )
+
+
+@pytest.mark.parametrize("extra_rot", [True, False])
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_galcen_rot_array_Xsun_and_extra_rot(backend_name, extra_rot):
+    # _galcen_rot has two shapes: a (3, 3) rotation for scalar Xsun/Zsun and a
+    # (3, 3, N) one when they are arrays, and _apply_galcen_rot contracts them
+    # differently (matmul vs a per-point sum). The scalar/default case is
+    # covered above; this exercises the batched branch and _extra_rot=False,
+    # which the streamTrack path never reaches.
+    rng = numpy.random.default_rng(23)
+    n = 6
+    x, y, z = rng.normal(size=n) + 1.5, rng.normal(size=n), 0.3 * rng.normal(size=n)
+    vx, vy, vz = rng.normal(size=n), rng.normal(size=n) + 1.0, 0.2 * rng.normal(size=n)
+    Xarr, Zarr = 1.0 + 0.1 * rng.random(n), 0.02 * rng.random(n)
+    for Xs, Zs, tag in ((1.0, 0.02, "scalar"), (Xarr, Zarr, "array")):
+        ref_x = numpy.asarray(
+            coords.galcenrect_to_XYZ(x, y, z, Xsun=Xs, Zsun=Zs, _extra_rot=extra_rot)
+        )
+        ref_v = numpy.asarray(
+            coords.galcenrect_to_vxvyvz(
+                vx, vy, vz, Xsun=Xs, Zsun=Zs, _extra_rot=extra_rot
+            )
+        )
+        bx, by, bz = (_as_backend(backend_name, a) for a in (x, y, z))
+        bvx, bvy, bvz = (_as_backend(backend_name, a) for a in (vx, vy, vz))
+        got_x = coords.galcenrect_to_XYZ(
+            bx, by, bz, Xsun=Xs, Zsun=Zs, _extra_rot=extra_rot
+        )
+        got_v = coords.galcenrect_to_vxvyvz(
+            bvx, bvy, bvz, Xsun=Xs, Zsun=Zs, _extra_rot=extra_rot
+        )
+        assert _all_backend(got_x), (
+            f"XYZ dropped to numpy ({tag}, extra_rot={extra_rot})"
+        )
+        assert _all_backend(got_v), f"v dropped to numpy ({tag}, extra_rot={extra_rot})"
+        for got, ref, what in ((got_x, ref_x, "XYZ"), (got_v, ref_v, "vxvyvz")):
+            numpy.testing.assert_allclose(
+                as_numpy(got),
+                ref,
+                rtol=1e-13,
+                atol=1e-13 * max(numpy.max(numpy.abs(ref)), 1.0),
+                err_msg=f"{what} mismatch ({tag}, _extra_rot={extra_rot})",
+            )
