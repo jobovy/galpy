@@ -224,43 +224,6 @@ torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
 # with e=5.4e-6 against a 1e-8 tolerance. Passes eager jax. Un-ledger if the
 # tolerance is ever made backend-aware.
 jax-jit tests/test_orbit.py::test_eccentricity
-# tests/test_interp_potential.py, 2026-07-29: found by running this file traced
-# for the first time. Both PASS eager and fail only under --jit, and both compare
-# an interpRZPotential grid built with use_c=True against the same grid built in
-# Python, to 1e-14. Traced, that Python-side construction loses one to two digits:
-#
-#             pot grid   rforce grid   (bar 1e-14)
-#   eager     2.665e-15    1.776e-15
-#   jax --jit 5.596e-14    6.621e-13
-#
-# So this is NUMERICAL over-tolerance, not a wrong result -- the traced grid is
-# still right to ~1e-13.
-#
-# Root cause, localised: of MWPotential's three components only NFW moves
-# (MiyamotoNagai 3.5e-16, Hernquist 5.8e-16, NFW 1.1e-14), and its jax EAGER
-# value is BIT-IDENTICAL to numpy while its jitted value differs -- reproducibly,
-# same answer every run. So XLA compiles NFW's log1p(r/a)/(r/a) differently from
-# how it evaluates it eagerly, which is exactly the cancellation-prone shape for
-# that to show. A jit-mode numerical characteristic, not a galpy defect: nothing
-# to fix in the potential. Recorded rather than papered over, because the only
-# real remedy is a backend-aware tolerance and loosening one needs Jo's sign-off.
-jax-jit tests/test_interp_potential.py::test_interpolation_potential_use_c
-jax-jit tests/test_interp_potential.py::test_interpolation_potential_force_use_c
-# torch-jit, 2026-07-29: the FIRST torch-jit entries. Until now torch.compile
-# never reached the traced quadrature at all -- `_quad_needs_backend` used a
-# concreteness probe, and dynamo makes float(x) symbolic, so torch silently took
-# the scipy branch (and could return a wrong number: AnyAxisym surfdens came back
-# 2.2e-15 instead of 0.0662, order-dependently). With the gate on `under_trace`,
-# torch now takes the same GL path as jax.
-#
-# The remaining AnyAxisymmetricRazorThinDisk entries are NOT the scalar-only
-# decorator (DoubleExponentialDisk had the same symptom and was fixed by making
-# its Ogata evaluation broadcast over the node axis). They are the razor-thin
-# sheet: its traced GL integrand is exact to 1.6e-12 at |z|=1e-2 but degrades to
-# 6e-2 at 1e-3, 17x at 1e-4 and 2e4x at 1e-5, and the Poisson quadrature clusters
-# its nodes at z=0 precisely there. Opening the array gate for this potential
-# would convert a loud TypeError into a silently wrong ~0, so it stays shut until
-# the a=R principal value is resolved; same root cause as test_2ndDeriv below.
 torch-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
