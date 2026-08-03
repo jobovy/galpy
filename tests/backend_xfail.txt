@@ -144,8 +144,6 @@ torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
 torch tests/test_qdf.py::test_call_diffinoutputs
-torch tests/test_quantity.py::test_quasiisothermaldf_method_returntype
-torch tests/test_quantity.py::test_quasiisothermaldf_method_returnunit
 torch tests/test_quantity.py::test_sphericaldf_method_inputAsQuantity
 torch tests/test_quantity.py::test_sphericaldf_method_value
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
