@@ -87,6 +87,28 @@ def spline_to_ppoly(spl):
     return numpy.append(ppoly.x[:-1][keep], ppoly.x[-1]), ppoly.c[:, keep]
 
 
+def _take0(xp, a, idx):
+    """``a[idx]`` along axis 0, written so torch survives ``vmap(grad(...))``.
+
+    Plain ``a[idx]`` with a *computed* index is fine under vmap alone and under
+    grad alone, but raises inside the composition that autodiff.py builds for
+    the fE chain. ``take`` is batched correctly; the reshape carries 0-d ``idx``
+    (one scalar per vmap element) through, since ``take`` wants a 1-D index.
+    """
+    if xp is numpy:
+        # numpy stays on the original expression: take() on a 0-d index returns
+        # a 0-d ARRAY where a[idx] returns a numpy SCALAR, and callers here
+        # (interpSphericalPotential._revaluate) depend on the scalar.
+        return a[idx]
+    flat = xp.reshape(idx, (-1,))
+    # xp may be the RAW torch module (not array-api-compat's), whose take() has
+    # no axis kwarg; and jax/numpy have no index_select. Prefer whichever the
+    # namespace actually provides -- both mean "gather along axis 0".
+    sel = getattr(xp, "index_select", None)
+    out = sel(a, 0, flat) if sel is not None else xp.take(a, flat, axis=0)
+    return xp.reshape(out, tuple(idx.shape) + tuple(a.shape[1:]))
+
+
 def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
     """Evaluate a piecewise polynomial in the power basis at ``r``.
 
@@ -136,7 +158,7 @@ def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
         # division/log), so this stays AD-friendly.
         r = xp.clip(r, xb[0], xb[-1])
     idx = xp.clip(xp.searchsorted(xb, r, side="right") - 1, 0, cb.shape[1] - 1)
-    dr = r - xb[idx]
+    dr = r - _take0(xp, xb, idx)
     if cb.ndim == 3:
         # Batched coefficients (4, n-1, m): m independent splines on the SAME grid
         # (see cubic_spline_coeffs with 2-D y). cb[j, idx] carries the trailing m
@@ -144,13 +166,13 @@ def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
         dr = dr[..., None]
     k = cb.shape[0] - 1  # polynomial degree
     if nu == 0:
-        out = cb[0, idx]
+        out = _take0(xp, cb[0], idx)
         for j in range(1, cb.shape[0]):
-            out = out * dr + cb[j, idx]
+            out = out * dr + _take0(xp, cb[j], idx)
         return out
     if nu > k:
         # derivative past the degree is identically zero (broadcast over r)
-        return cb[0, idx] * 0.0
+        return _take0(xp, cb[0], idx) * 0.0
     # Analytic nu-th derivative of sum_j c[j]*(dr)**(k-j): the term of original
     # power p=k-j survives with the falling-factorial factor p*(p-1)*...*(p-nu+1)
     # and reduced power p-nu. Horner over the surviving (descending-power) terms.
@@ -160,7 +182,7 @@ def eval_ppoly(xp, x, c, r, *, nu=0, extrapolate=True):
         fall = 1.0
         for m in range(nu):
             fall *= p - m
-        term = cb[j, idx] * fall
+        term = _take0(xp, cb[j], idx) * fall
         out = term if out is None else out * dr + term
     return out
 
