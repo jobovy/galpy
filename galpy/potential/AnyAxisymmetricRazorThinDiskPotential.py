@@ -120,7 +120,10 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         def rforceint(a):
             a2 = a**2
             aRz = (a + R) ** 2.0 + z2
-            faRoveraRz = 4 * a * R / aRz
+            # m = 4aR/((a+R)^2+z^2) <= 1 analytically (equality at a=R, z=0), but
+            # rounding tips it just above 1 for tiny |z|, and scipy's ellipe/ellipk
+            # return nan there. Fires only on that artifact, so values are unchanged.
+            faRoveraRz = numpy.minimum(4 * a * R / aRz, 1.0)
             return (
                 a
                 * self._sdens(a)
@@ -146,7 +149,10 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         def zforceint(a):
             aRz = (a + R) ** 2.0 + z2
-            faRoveraRz = 4 * a * R / aRz
+            # m = 4aR/((a+R)^2+z^2) <= 1 analytically (equality at a=R, z=0), but
+            # rounding tips it just above 1 for tiny |z|, and scipy's ellipe/ellipk
+            # return nan there. Fires only on that artifact, so values are unchanged.
+            faRoveraRz = numpy.minimum(4 * a * R / aRz, 1.0)
             return (
                 a
                 * self._sdens(a)
@@ -172,7 +178,10 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         def r2derivint(a):
             a2 = a**2
             aRz = (a + R) ** 2.0 + z2
-            faRoveraRz = 4 * a * R / aRz
+            # m = 4aR/((a+R)^2+z^2) <= 1 analytically (equality at a=R, z=0), but
+            # rounding tips it just above 1 for tiny |z|, and scipy's ellipe/ellipk
+            # return nan there. Fires only on that artifact, so values are unchanged.
+            faRoveraRz = numpy.minimum(4 * a * R / aRz, 1.0)
             return (
                 a
                 * self._sdens(a)
@@ -206,7 +215,10 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         def z2derivint(a):
             a2 = a**2
             aRz = (a + R) ** 2.0 + z2
-            faRoveraRz = 4 * a * R / aRz
+            # m = 4aR/((a+R)^2+z^2) <= 1 analytically (equality at a=R, z=0), but
+            # rounding tips it just above 1 for tiny |z|, and scipy's ellipe/ellipk
+            # return nan there. Fires only on that artifact, so values are unchanged.
+            faRoveraRz = numpy.minimum(4 * a * R / aRz, 1.0)
             return (
                 a
                 * self._sdens(a)
@@ -233,7 +245,10 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         def rzderivint(a):
             a2 = a**2
             aRz = (a + R) ** 2.0 + z2
-            faRoveraRz = 4 * a * R / aRz
+            # m = 4aR/((a+R)^2+z^2) <= 1 analytically (equality at a=R, z=0), but
+            # rounding tips it just above 1 for tiny |z|, and scipy's ellipe/ellipk
+            # return nan there. Fires only on that artifact, so values are unchanged.
+            faRoveraRz = numpy.minimum(4 * a * R / aRz, 1.0)
             return (
                 a
                 * self._sdens(a)

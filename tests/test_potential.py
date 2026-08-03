@@ -13679,3 +13679,32 @@ class mockKuzminLikeWrapperPotential(KuzminLikeWrapperPotential):
             a=1.0,
             b=0.1,
         )
+
+
+def test_anyaxisymrazorthin_smallz_no_nan():
+    # The zforce/evaluate/deriv integrands form m = 4aR/((a+R)^2+z^2), which is
+    # <= 1 analytically but rounds just above 1 for tiny |z| -- and scipy's
+    # ellipe/ellipk return nan there. Before the clamp, zforce was nan for
+    # roughly 1e-30 <= |z| <= 1e-12 (z=0 itself is special-cased, so the band
+    # was invisible to every existing test). An ODE solver drifting off the
+    # plane by roundoff lands in it and poisons the whole orbit.
+    tp = potential.AnyAxisymmetricRazorThinDiskPotential(normalize=1.0)
+    zs = numpy.array([1e-30, 1e-25, 1e-20, 1e-16, 1e-12, 1e-8, 1e-6])
+    fz = numpy.array([tp.zforce(1.0, z, use_physical=False) for z in zs])
+    assert numpy.all(numpy.isfinite(fz)), (
+        f"zforce non-finite at small |z|: {zs[~numpy.isfinite(fz)]}"
+    )
+    # Not just finiteness: Fz is O(z) as z -> 0, so Fz/z must approach a single
+    # constant. A wrong-but-finite value would pass an isfinite-only check.
+    # Only below |z| ~ 1e-8 -- above that the near-sheet term takes over and
+    # Fz/z is genuinely no longer constant (it is ~ -4e5 by |z| = 1e-6).
+    lin = zs <= 1e-8
+    ratios = fz[lin] / zs[lin]
+    assert numpy.all(numpy.fabs(ratios / ratios[0] - 1.0) < 1e-6), (
+        f"zforce is not linear in z as z->0: Fz/z = {ratios}"
+    )
+    # and the other methods stay finite there too
+    for name in ("__call__", "Rforce", "R2deriv", "z2deriv", "Rzderiv"):
+        vals = numpy.array([getattr(tp, name)(1.0, z, use_physical=False) for z in zs])
+        assert numpy.all(numpy.isfinite(vals)), f"{name} non-finite at small |z|"
+    return None
