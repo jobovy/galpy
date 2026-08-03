@@ -217,8 +217,17 @@ def test_adiabatic_ecczmax_grad_jit():
     if "jax" not in BACKENDS:  # pragma: no cover
         pytest.skip("jax not installed")
     coords = _ORBITS["generic"]
-    f = jax.jit(lambda *a: jnp.sum(_AA.EccZmaxRperiRap(*a)[0]))
-    g = jax.jit(jax.grad(lambda *a: jnp.sum(_AA.EccZmaxRperiRap(*a)[0]), argnums=0))
+    fn = lambda *a: jnp.sum(_AA.EccZmaxRperiRap(*a)[0])  # noqa: E731
+    f, g = jax.jit(fn), jax.jit(jax.grad(fn, argnums=0))
     args = [jnp.asarray([x]) for x in coords]
-    assert numpy.isfinite(float(f(*args)))
-    assert numpy.all(numpy.isfinite(numpy.asarray(g(*args))))
+    # "jit survival" means jit must not CHANGE the value, so compare against the
+    # eager result -- a jitted gradient that is wrong but finite passed before.
+    numpy.testing.assert_allclose(
+        float(f(*args)), float(fn(*args)), rtol=1e-12, atol=1e-14
+    )
+    numpy.testing.assert_allclose(
+        numpy.asarray(g(*args)),
+        numpy.asarray(jax.grad(fn, argnums=0)(*args)),
+        rtol=1e-10,
+        atol=1e-12,
+    )
