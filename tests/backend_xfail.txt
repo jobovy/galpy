@@ -197,6 +197,7 @@ jax tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
 # integrate). Already ledgered for torch.
 torch tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
 torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
+torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
 
 # --- jax-jit: the suite run TRACED (pytest --backend jax --jit) ---
 # tests/test_potential.py, 2026-07-27: 28 of ~1300 tests fail under jax.jit that
