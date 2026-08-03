@@ -442,7 +442,23 @@ def test_orbit_integrate_inbackend_kwargs_jax():
         return o.getOrbit().reshape(-1, len(_IC))[-1, 0]  # final R
 
     h = float(jax.hessian(final_R)(jnp.asarray(0.1)))
-    assert numpy.isfinite(h)
+    # Not just "is finite": the kwargs only pick solver knobs, so the AD Hessian
+    # must MATCH a central finite-difference of jax.grad, h-converged. A wrong
+    # but finite Hessian (e.g. adjoint silently not threading) passed before.
+    g = jax.grad(final_R)
+
+    def fd(step):
+        return float(
+            (g(jnp.asarray(0.1 + step)) - g(jnp.asarray(0.1 - step))) / (2.0 * step)
+        )
+
+    fd_coarse, fd_fine = fd(1e-4), fd(5e-5)
+    assert abs(fd_coarse - fd_fine) <= 1e-3 * (abs(fd_fine) + 1e-8), (
+        f"FD not converged: {fd_coarse:.8g} vs {fd_fine:.8g}"
+    )
+    assert abs(h - fd_fine) <= 1e-5 * (abs(fd_fine) + 1e-8), (
+        f"AD Hessian {h:.8g} != FD-of-grad {fd_fine:.8g}"
+    )
 
 
 @pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
