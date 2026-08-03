@@ -1,7 +1,28 @@
 import numpy
 
 from galpy import potential
-from galpy.backend import as_numpy
+from galpy.backend import as_numpy, jit_mode
+
+# The use_c=True/use_c=False grid comparisons below hold to a few ulp eagerly but
+# lose one to two digits under --jit, where the Python side is built traced:
+#
+#             pot grid   rforce grid   (eager bar 1e-14 / 1e-13)
+#   eager     2.665e-15    1.776e-15
+#   jax --jit 5.596e-14    6.621e-13
+#
+# Localised: of MWPotential's three components only NFW moves (MiyamotoNagai
+# 3.5e-16, Hernquist 5.8e-16, NFW 1.1e-14), and its jax EAGER value is
+# bit-identical to numpy while its jitted value differs, reproducibly. XLA
+# compiles NFW's log1p(r/a)/(r/a) differently from how it evaluates it eagerly --
+# exactly the cancellation-prone shape for that to show. A jit-mode numerical
+# characteristic, not a galpy defect, so the traced comparison gets a wider bound
+# (~5x headroom over what was measured); eager/numpy bounds are unchanged.
+_TRACED_GRID_TOL_FACTOR = 30.0
+
+
+def _grid_tol(eager_tol):
+    """``eager_tol``, widened only when the suite is running traced."""
+    return eager_tol * _TRACED_GRID_TOL_FACTOR if jit_mode() != "off" else eager_tol
 
 
 class _MisBroadcastPotential(potential.Potential):
@@ -487,8 +508,10 @@ def test_interpolation_potential_use_c():
         zsym=True,
         use_c=True,
     )
-    assert numpy.all(numpy.fabs(rzpot._potGrid - rzpot_c._potGrid) < 10.0**-14.0), (
-        "Potential interpolation grid calculated with use_c does not agree with that calculated in python"
+    assert numpy.all(
+        numpy.fabs(rzpot._potGrid - rzpot_c._potGrid) < _grid_tol(10.0**-14.0)
+    ), (
+        f"Potential interpolation grid calculated with use_c does not agree with that calculated in python, max diff = {numpy.amax(numpy.fabs(rzpot._potGrid - rzpot_c._potGrid))}"
     )
     return None
 
@@ -1118,12 +1141,12 @@ def test_interpolation_potential_force_use_c():
         use_c=True,
     )
     assert numpy.all(
-        numpy.fabs(rzpot._rforceGrid - rzpot_c._rforceGrid) < 10.0**-13.0
+        numpy.fabs(rzpot._rforceGrid - rzpot_c._rforceGrid) < _grid_tol(10.0**-13.0)
     ), (
         f"Potential interpolation grid of Rforce  calculated with use_c does not agree with that calculated in python, max diff = {numpy.amax(numpy.fabs(rzpot._rforceGrid - rzpot_c._rforceGrid))}"
     )
     assert numpy.all(
-        numpy.fabs(rzpot._zforceGrid - rzpot_c._zforceGrid) < 10.0**-13.0
+        numpy.fabs(rzpot._zforceGrid - rzpot_c._zforceGrid) < _grid_tol(10.0**-13.0)
     ), (
         f"Potential interpolation grid of zforce  calculated with use_c does not agree with that calculated in python, max diff = {numpy.amax(numpy.fabs(rzpot._zforceGrid - rzpot_c._zforceGrid))}"
     )
