@@ -101,7 +101,11 @@ def _take0(xp, a, idx):
         # (interpSphericalPotential._revaluate) depend on the scalar.
         return a[idx]
     flat = xp.reshape(idx, (-1,))
-    out = xp.take(a, flat, axis=0)
+    # xp may be the RAW torch module (not array-api-compat's), whose take() has
+    # no axis kwarg; and jax/numpy have no index_select. Prefer whichever the
+    # namespace actually provides -- both mean "gather along axis 0".
+    sel = getattr(xp, "index_select", None)
+    out = sel(a, 0, flat) if sel is not None else xp.take(a, flat, axis=0)
     return xp.reshape(out, tuple(idx.shape) + tuple(a.shape[1:]))
 
 
