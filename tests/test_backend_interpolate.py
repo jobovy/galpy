@@ -1142,3 +1142,23 @@ def test_eval_ppoly_survives_vmap_of_grad_torch():
     # check, not just "it did not raise".
     ref = eval_ppoly(xp, x, c, rs, nu=1)
     numpy.testing.assert_allclose(as_numpy(got), as_numpy(ref), rtol=1e-11, atol=1e-13)
+
+
+@pytest.mark.parametrize("nu", [0, 1, 2, 3, 5])
+def test_eval_ppoly_derivative_orders_match_scipy_numpy(nu):
+    # Covers eval_ppoly's three coefficient-read paths on NUMPY: the nu==0
+    # Horner loop, the nu>k identically-zero shortcut (k==3 here, so nu==5
+    # exercises it), and the analytic falling-factorial branch for 0<nu<=k.
+    # scipy's PPoly.derivative is the independent reference -- these are value
+    # checks, not "did not raise".
+    from galpy.backend.interpolate import eval_ppoly
+
+    x = numpy.linspace(0.5, 4.0, 24)
+    y = numpy.sin(x) + 0.3 * x**2
+    spl = si.CubicSpline(x, y, bc_type="natural")
+    pp = si.PPoly(spl.c, spl.x)
+    c = cubic_spline_coeffs(numpy, x, y)
+    r = numpy.array([0.7, 1.3, 2.2, 3.1, 3.9])
+    got = eval_ppoly(numpy, x, c, r, nu=nu)
+    ref = numpy.zeros_like(r) if nu > 3 else pp.derivative(nu)(r) if nu else pp(r)
+    numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-12)
