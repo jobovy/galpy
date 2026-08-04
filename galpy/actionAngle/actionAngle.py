@@ -10,6 +10,21 @@ from ..util.conversion import (
     physical_conversion_actionAngle,
 )
 
+# Gauss-Legendre order for the backend (jax/torch) action/freq/angle quadratures,
+# shared by the action-angle classes so the choice is made in one place.
+#
+# For ACTIONS, 50 matches scipy's adaptive quadrature to <1e-7 over the physical
+# orbit range (incl. near-radial L/Lcirc~1e-2: <1e-12 vs a tight reference); only
+# at pathological L/Lcirc<~1e-4 does scipy's own adaptive quad fail to ~1e-5.
+#
+# For ANGLES the floor is ~2e-6, i.e. ~20x looser, because the angle integrand
+# keeps the sqrt turning-point behaviour on a partial interval. Measured on
+# test_actionAngleSpherical_linear_angles: the deviation is 3.3e-6 at n=50,
+# 1.8e-6 at n=200, and 3.5e-6 at n=400 -- it does NOT converge, and round-off in
+# the larger node sum eventually makes it worse. Raising this constant is
+# therefore not a way to close a backend-vs-numpy angle gap.
+_BACKEND_GL_ORDER = 50
+
 
 # Metaclass for copying docstrings from subclass methods, first func
 # to copy func
