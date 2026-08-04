@@ -17892,15 +17892,19 @@ def test_sphericaldf_method_value():
     import galpy.util._optional_deps
 
     galpy.util._optional_deps._APY_UNITS = False  # Hack
-    assert_physical_matches_natural(
-        dfh.vmomentdensity(1.1, 0, 2),
-        dfh_nou.vmomentdensity(1.1, 0, 2)
-        * conversion.mass_in_msol(vo, ro)
-        * vo**2
-        / ro**3,
-        "sphericaldf method vmomentdensity does not return correct Quantity",
-    )
-    galpy.util._optional_deps._APY_UNITS = True  # Hack
+    try:
+        assert_physical_matches_natural(
+            dfh.vmomentdensity(1.1, 0, 2),
+            dfh_nou.vmomentdensity(1.1, 0, 2)
+            * conversion.mass_in_msol(vo, ro)
+            * vo**2
+            / ro**3,
+            "sphericaldf method vmomentdensity does not return correct Quantity",
+        )
+    finally:
+        # Restore even on failure: a leaked flag turns one red into many, by
+        # denying Quantities to every later test in the session.
+        galpy.util._optional_deps._APY_UNITS = True  # Hack
     assert_physical_matches_natural(
         dfh.vmomentdensity(1.1, 0, 2)
         .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
