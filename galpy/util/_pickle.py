@@ -10,10 +10,12 @@ Rebuilding is done at the **base** class (``PPoly``/``BPoly``), not at
 signature: ``CubicSpline(x, y)`` takes samples, not ``(c, x)`` coefficients, so
 ``type(obj)(obj.c, obj.x)`` raises "`x` must be 1-dimensional". Rebuilding a
 ``CubicSpline`` as a ``PPoly`` reproduces its values exactly (bit-for-bit) and
-keeps the ``.c``/``.x``/evaluation API that callers use; only the subclass
-identity is lost, and nothing in galpy branches on it. ``PPoly.construct_fast``
-would preserve the subclass but returns an object that is itself still
-unpicklable, so it is not an option.
+keeps the ``.c``/``.x``/evaluation API that callers use. Only the subclass
+identity is lost, which is safe here because no galpy code branches on it:
+the only ``isinstance`` checks against these types in the library are the ones
+below, and every consumer of a packed attribute uses just ``__call__``, ``.x``
+or ``.c``. ``PPoly.construct_fast`` would preserve the subclass but returns an
+object that is itself still unpicklable, so it is not an option.
 """
 
 import copy
