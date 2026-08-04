@@ -4,7 +4,7 @@ import pickle
 import numpy
 from scipy import integrate
 
-from ..backend import backend_input, get_namespace
+from ..backend import backend_input, get_namespace, is_backend_compatible
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -569,6 +569,13 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self.hasC = RZPot.hasC and _hasC_planar
         self.hasC_dxdv = RZPot.hasC_dxdv and _hasC_planar
         self.hasC_dens = RZPot.hasC_dens
+        # Capability flags are derived from the wrapped potential, exactly as
+        # hasC is above: an adapter is only as backend-aware as what it adapts.
+        # Without this the object falls through to the leaf branch of
+        # is_backend_compatible and reads its own (absent) flag, so the
+        # coercion boundary rejects it even when the wrapped potential is
+        # migrated.
+        self._backend_compatible = is_backend_compatible(RZPot)
         return None
 
     def __repr__(self):
@@ -748,6 +755,13 @@ class planarPotentialFromFullPotential(planarPotential):
         self.hasC = Pot.hasC and _hasC_planar
         self.hasC_dxdv = Pot.hasC_dxdv and _hasC_planar
         self.hasC_dens = Pot.hasC_dens
+        # Capability flags are derived from the wrapped potential, exactly as
+        # hasC is above: an adapter is only as backend-aware as what it adapts.
+        # Without this the object falls through to the leaf branch of
+        # is_backend_compatible and reads its own (absent) flag, so the
+        # coercion boundary rejects it even when the wrapped potential is
+        # migrated.
+        self._backend_compatible = is_backend_compatible(Pot)
         return None
 
     def __repr__(self):
