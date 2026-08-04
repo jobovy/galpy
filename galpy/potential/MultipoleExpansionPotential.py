@@ -29,6 +29,7 @@ from ..backend._namespaces import untraceable_setup
 from ..backend.special import assoc_legendre
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
+from ..util._pickle import SplinePickleMixin
 from ..util.special import compute_legendre, sph_harm_normalization
 from .Potential import Potential
 from .SphericalHarmonicPotentialMixin import SphericalHarmonicPotentialMixin
@@ -52,35 +53,9 @@ if _types.ModuleType not in _copy._deepcopy_dispatch:  # pragma: no branch
     _copy._deepcopy_dispatch[_types.ModuleType] = lambda module, memo: module
 
 
-# scipy 1.18 caches the array namespace -- a MODULE -- on PPoly/BPoly instances
-# (`_xp`), so any object holding one raises "cannot pickle 'module' object". The
-# coefficients themselves pickle fine, so drop the scipy object on the way out and
-# rebuild it through the public constructor on the way back in; that round-trips
-# bit-identically. Stripping `_xp` alone does NOT work -- scipy never recreates it
-# and the restored spline then raises AttributeError when evaluated.
-_SPLINE_SURROGATE = "__galpy_spline__"
-
-
-def _pack_splines(obj):
-    """Replace scipy piecewise-polynomials in a nested list with plain tuples."""
-    if isinstance(obj, (PPoly, BPoly)):
-        return (_SPLINE_SURROGATE, type(obj), obj.c, obj.x, obj.extrapolate, obj.axis)
-    if isinstance(obj, list):
-        return [_pack_splines(v) for v in obj]
-    return obj
-
-
-def _unpack_splines(obj):
-    """Inverse of _pack_splines."""
-    if isinstance(obj, tuple) and len(obj) == 6 and obj[0] == _SPLINE_SURROGATE:
-        _, cls, c, x, extrapolate, axis = obj
-        return cls(c, x, extrapolate=extrapolate, axis=axis)
-    if isinstance(obj, list):
-        return [_unpack_splines(v) for v in obj]
-    return obj
-
-
-class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
+class MultipoleExpansionPotential(
+    Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin
+):
     r"""Class that implements a gravitational potential computed via multipole expansion of an arbitrary density distribution.
 
     This class decomposes a user-supplied density function into real spherical harmonics on a radial grid,
@@ -137,30 +112,24 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
     second derivatives at arbitrary times within the ``tgrid`` range during orbit integration.
     """
 
-    # Attributes holding scipy piecewise-polynomials. The _sin pair exists only
-    # for a non-axisymmetric density, so both cases must be covered -- an
-    # axisymmetric-only check finds half the set.
+    # Attributes holding scipy piecewise-polynomials. The _sin set exists only
+    # for a non-axisymmetric density, and the *_interp set only for a
+    # time-dependent one, so all four combinations must be listed -- checking a
+    # single configuration finds a fraction of the set. (Measured: a
+    # time-dependent expansion has NO _I_inner_cos at all, only
+    # _I_inner_cos_interp, so the static names alone cover none of it.)
     _PICKLE_SPLINE_ATTRS = (
         "_I_inner_cos",
         "_I_inner_sin",
         "_I_outer_cos",
         "_I_outer_sin",
+        "_I_inner_cos_interp",
+        "_I_inner_sin_interp",
+        "_I_outer_cos_interp",
+        "_I_outer_sin_interp",
+        "_rho_cos_interp",
+        "_rho_sin_interp",
     )
-
-    # Pickling functions (see _pack_splines)
-    def __getstate__(self):
-        pdict = _copy.copy(self.__dict__)
-        for name in self._PICKLE_SPLINE_ATTRS:
-            if name in pdict:
-                pdict[name] = _pack_splines(pdict[name])
-        return pdict
-
-    def __setstate__(self, pdict):
-        self.__dict__ = pdict
-        for name in self._PICKLE_SPLINE_ATTRS:
-            if name in self.__dict__:
-                setattr(self, name, _unpack_splines(self.__dict__[name]))
-        return None
 
     def __init__(
         self,
