@@ -30,6 +30,8 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import assert_jit_matches_eager
+
 from galpy.actionAngle import actionAngleStaeckel
 from galpy.actionAngle.actionAngleStaeckel import _staeckel_actions
 from galpy.backend import get_namespace
@@ -215,9 +217,7 @@ def test_staeckel_action_grad_jit(backend, c):
             return jnp.sum(_staeckel_actions(jnp, *args, _MP, _DELTA, _ORDER)[0])
 
     R0 = jnp.asarray([coords[0]])
-    eager = jax.grad(djr_dR)(R0)
-    jitted = jax.jit(jax.grad(djr_dR))(R0)
-    numpy.testing.assert_allclose(float(jitted[0]), float(eager[0]), rtol=1e-12)
+    assert_jit_matches_eager(jax.grad(djr_dR), R0, rtol=1e-12, atol=0.0)
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
