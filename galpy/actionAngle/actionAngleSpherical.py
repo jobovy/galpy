@@ -22,15 +22,9 @@ from ..potential.Potential import (
     _evaluatePotentials,
 )
 from ..util import quadpack
-from .actionAngle import UnboundError, actionAngle
+from .actionAngle import _BACKEND_GL_ORDER, UnboundError, actionAngle
 
 _EPS = 10.0**-15.0
-# Gauss-Legendre order for the backend (jax/torch) action/freq/angle quadratures.
-# 50 matches scipy's adaptive quadrature to <1e-7 over the physical orbit range
-# (incl. near-radial L/Lcirc~1e-2: <1e-12 vs a tight reference); only at
-# pathological L/Lcirc<~1e-4 does scipy's own adaptive quad fail to ~1e-5, an
-# irreducible quadrature-method difference where higher order does not help.
-_BACKEND_GL_ORDER = 50
 
 
 class actionAngleSpherical(actionAngle):
