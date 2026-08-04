@@ -21,6 +21,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.backend import as_numpy
 from galpy.potential import (
@@ -672,7 +673,12 @@ def test_twopower_generic_jax_jit(pot, method):
         pytest.skip("jax not installed")
     f = getattr(pot, method)
     R0, z0 = 1.3, 0.4
-    jitted = jax.jit(lambda R: f(R, jnp.asarray(z0)))
-    got = float(jitted(jnp.asarray(R0)))
     ref = float(f(numpy.asarray(R0), numpy.asarray(z0)))
-    numpy.testing.assert_allclose(got, ref, rtol=1e-12)
+    assert_jit_matches_eager(
+        lambda R: f(R, jnp.asarray(z0)),
+        jnp.asarray(R0),
+        rtol=1e-12,
+        atol=0.0,
+        ref=ref,
+        err_msg=method,
+    )
