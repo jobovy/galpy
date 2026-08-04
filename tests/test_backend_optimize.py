@@ -91,9 +91,33 @@ def test_backend_root_value(backend):
     a = xp.asarray(0.0)
     b = xp.asarray(numpy.pi / 2.0)
     root = brentq(lambda x, t: xp.cos(x) - t, a, b, args=(theta,))
+    # Tight on purpose: the Newton polish puts this at machine precision, so a
+    # loose rtol here would not notice a backend falling back to the raw
+    # bisection root (~1e-14) -- which is precisely what torch used to do.
     numpy.testing.assert_allclose(
-        float(_to_np(root)), float(numpy.arccos(0.3)), rtol=1e-9
+        float(_to_np(root)), float(numpy.arccos(0.3)), rtol=1e-15
     )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_backend_root_is_polished_not_bracket_limited(backend):
+    # The FORWARD value must be Newton-polished, not the bisection midpoint.
+    # Bisection stops at the final bracket half-width (~1e-14 here); callers
+    # that then form sqrt(f(root)) amplify that residual -- actionAngleVertical's
+    # Omega divides by sqrt(2(E-Phi(xmax))) and turned a 4e-14 residual into a
+    # 6e-10 frequency error. torch used to skip the polish whenever nothing
+    # required grad, i.e. on exactly the plain forward path the suite runs.
+    xp = _xp(backend)
+    a, b = xp.asarray(0.0), xp.asarray(numpy.pi / 2.0)
+    root = float(_to_np(brentq(lambda x: xp.cos(x) - 0.3, a, b)))
+    eps = numpy.finfo(float).eps
+    exact = float(numpy.arccos(0.3))
+    assert abs(root - exact) < 4.0 * eps * abs(exact), (
+        f"{backend} root off by {abs(root - exact):.3e}, "
+        f"more than a few ulp -- polish missing?"
+    )
+    # and the residual itself is at machine level, not bracket level
+    assert abs(numpy.cos(root) - 0.3) < 4.0 * eps
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)

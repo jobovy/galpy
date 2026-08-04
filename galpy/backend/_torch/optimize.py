@@ -55,7 +55,19 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
         torch.is_grad_enabled()
         and (fx0.requires_grad or _needs_grad(a) or _needs_grad(b))
     ):
-        return x0
+        # Still take the Newton step, for the VALUE. Bisection alone stops at
+        # the final bracket half-width (~1e-14 here), and callers that go on to
+        # form sqrt(f(x0)) amplify that residual -- actionAngleVertical's Omega
+        # divides by sqrt(2(E-Phi(xmax))) and turned a 4e-14 residual into a
+        # 6e-10 frequency error, while jax (which always polishes) stayed at
+        # 1e-13. df/dx needs autograd, so enable it locally and detach: the
+        # returned tensor still carries no graph, which is what this branch is
+        # for (callers here go straight to .numpy()).
+        with torch.enable_grad():
+            xr = x0.clone().requires_grad_(True)
+            fxr = f(xr)
+            (dfdx,) = torch.autograd.grad(fxr, xr, grad_outputs=torch.ones_like(fxr))
+        return (x0 - fx0 / _nonzero(dfdx.detach(), xp)).detach()
     # x-slot leaf for the elementwise df/dx (a fresh copy that requires grad in
     # the x argument only; the parameters keep their own grad tracking through f).
     xr = x0.clone().requires_grad_(True)
