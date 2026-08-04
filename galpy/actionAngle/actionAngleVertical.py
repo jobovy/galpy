@@ -15,11 +15,7 @@ from scipy import integrate, optimize
 from ..backend import device_of, get_namespace, promote_scalars
 from ..potential.linearPotential import evaluatelinearPotentials
 from ..potential.Potential import _check_potential_list_and_deprecate
-from .actionAngle import actionAngle
-
-# Gauss-Legendre order for the backend (jax/torch) action/freq/angle quadratures
-# (matches actionAngleSpherical's choice).
-_BACKEND_GL_ORDER = 50
+from .actionAngle import _BACKEND_GL_ORDER, actionAngle
 
 
 class actionAngleVertical(actionAngle):
