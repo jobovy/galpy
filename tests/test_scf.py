@@ -545,6 +545,42 @@ def test_from_nbody_timedep():
         assert numpy.fabs(a1 - a2) < 1e-9
 
 
+def test_timedep_pickling():
+    # scipy 1.18 caches the array namespace -- a module -- on the CubicSpline
+    # coefficient interpolators, so a time-dependent SCF raised "cannot pickle
+    # 'module' object". The default-constructible sweep in test_potential cannot
+    # see this, because a time-dependent SCF has to be built explicitly.
+    import pickle
+
+    N, L, M, nt = 2, 3, 1, 5
+    Acos = numpy.zeros((nt, N, L, M))
+    Acos[:, 0, 0, 0] = 1.0 + 0.1 * numpy.arange(nt)
+    tgrid = numpy.linspace(0.0, 1.0, nt)
+    sp = SCFPotential(Acos=Acos, tgrid=tgrid)
+    assert hasattr(sp, "_Acos_interp"), "expected the time-interpolated branch"
+    # sample on nodes and between them, so both the interpolation and the
+    # node-exact paths are compared
+    ts = [tgrid[0], 0.15, tgrid[2], 0.87, tgrid[-1]]
+    before = [
+        [
+            getattr(sp, m)(1.2, 0.3, phi=0.4, t=t, use_physical=False)
+            for m in ["__call__", "Rforce", "zforce", "dens"]
+        ]
+        for t in ts
+    ]
+    restored = pickle.loads(pickle.dumps(sp))
+    after = [
+        [
+            getattr(restored, m)(1.2, 0.3, phi=0.4, t=t, use_physical=False)
+            for m in ["__call__", "Rforce", "zforce", "dens"]
+        ]
+        for t in ts
+    ]
+    # the coefficients round-trip exactly, so the values must be bit-identical;
+    # anything looser would not notice a rebuilt-but-subtly-different spline
+    numpy.testing.assert_array_equal(numpy.array(after), numpy.array(before))
+
+
 def test_from_nbody_timedep_2d_mass():
     # A per-snapshot mass array [n,nt] is accepted and, when constant across
     # snapshots, matches the [n] mass build.
