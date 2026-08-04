@@ -22,6 +22,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.backend import as_numpy
 from galpy.potential import SCFPotential
@@ -262,10 +263,15 @@ def test_jax_jit(name, pot):
     phi = jnp.asarray(_PHI0)
     for mname in ["_evaluate", "_Rforce", "_zforce", "_phitorque", "_R2deriv"]:
         method = getattr(pot, mname)
-        ref = float(method(_R0, _Z0, _PHI0))
-        got = float(jax.jit(method)(R, z, phi))
-        numpy.testing.assert_allclose(
-            got, ref, rtol=1e-12, atol=1e-14, err_msg=f"SCF[{name}].{mname} jit"
+        assert_jit_matches_eager(
+            method,
+            R,
+            z,
+            phi,
+            rtol=1e-12,
+            atol=1e-14,
+            ref=float(method(_R0, _Z0, _PHI0)),
+            err_msg=f"SCF[{name}].{mname} jit",
         )
     # gradient under jit as well
     g = float(jax.jit(jax.grad(lambda R: pot._evaluate(R, z, phi)))(R))
@@ -470,11 +476,13 @@ def test_tdep_jax_jit_in_t(name, pot):
     R, z, phi = jnp.asarray(_R0), jnp.asarray(_Z0), jnp.asarray(_PHI0)
     f = lambda t: pot._evaluate(R, z, phi, t=t)
     t0 = 2.4
-    numpy.testing.assert_allclose(
-        float(jax.jit(f)(jnp.asarray(t0))),
-        float(pot._evaluate(_R0, _Z0, _PHI0, t=t0)),
+    assert_jit_matches_eager(
+        f,
+        jnp.asarray(t0),
         rtol=1e-11,
         atol=1e-13,
+        ref=float(pot._evaluate(_R0, _Z0, _PHI0, t=t0)),
+        err_msg=f"SCF[{name}] tdep jit in t",
     )
     g_jit = float(jax.jit(jax.grad(f))(jnp.asarray(t0)))
     eps = 1e-6

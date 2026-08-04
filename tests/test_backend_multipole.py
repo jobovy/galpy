@@ -37,6 +37,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.backend import as_numpy
 from galpy.potential import MiyamotoNagaiPotential, MultipoleExpansionPotential
@@ -317,9 +318,9 @@ def test_jax_jit_matches(pot):
     phi = jnp.asarray(_PHIS)
     for method in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
         fn = getattr(pot, method)
-        ref = numpy.asarray(fn(R, z, phi))
-        got = numpy.asarray(jax.jit(fn)(R, z, phi))
-        numpy.testing.assert_allclose(got, ref, rtol=1e-15, atol=1e-15)
+        assert_jit_matches_eager(
+            fn, R, z, phi, rtol=1e-15, atol=1e-15, err_msg=f"multipole.{method}"
+        )
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)
@@ -545,9 +546,9 @@ def test_tdep_jax_jit_matches(pot):
     t = jnp.asarray(1.21)
     for method in ["_evaluate", "_Rforce", "_R2deriv", "_dens"]:
         fn = getattr(pot, method)
-        ref = numpy.asarray(fn(R, z, phi, t))
-        got = numpy.asarray(jax.jit(fn)(R, z, phi, t))
-        numpy.testing.assert_allclose(got, ref, rtol=1e-12, atol=1e-13)
+        assert_jit_matches_eager(
+            fn, R, z, phi, t, rtol=1e-12, atol=1e-13, err_msg=f"tdep.{method}"
+        )
 
 
 @pytest.mark.skipif(jax is None, reason="jax not available")
