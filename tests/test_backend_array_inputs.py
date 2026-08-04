@@ -156,3 +156,44 @@ def test_doubleexp_traced_poisson_surfdens_matches_numpy():
     assert numpy.fabs(traced - ref) / numpy.fabs(ref) < 1e-10, (
         f"traced Poisson surfdens {traced!r} does not reproduce numpy {ref!r}"
     )
+
+
+def test_planar_adapter_inherits_backend_compatibility():
+    # planarPotentialFromRZPotential / planarPotentialFromFullPotential are
+    # ADAPTERS: neither a composite nor a WrapperPotential, so
+    # is_backend_compatible falls through to its leaf branch and reads the
+    # adapter's own flag. Deriving that flag from the wrapped potential (the way
+    # hasC already is) is what lets the coercion boundary accept a planar view of
+    # a migrated potential.
+    #
+    # The negative case uses a SYNTHETIC opted-out potential rather than a real
+    # one, so the test cannot silently stop testing anything when that real
+    # potential is later migrated.
+    from galpy.backend import is_backend_compatible
+    from galpy.potential import MiyamotoNagaiPotential, Potential
+
+    class _Unmigrated(Potential):
+        def __init__(self):
+            Potential.__init__(self, amp=1.0)
+            self._backend_compatible = False
+            self.hasC = False
+            self.hasC_dxdv = False
+            self.hasC_dens = False
+
+        def _evaluate(self, R, z, phi=0.0, t=0.0):
+            return -1.0 / numpy.sqrt(R**2.0 + z**2.0)
+
+        def _Rforce(self, R, z, phi=0.0, t=0.0):
+            return -R / (R**2.0 + z**2.0) ** 1.5
+
+    migrated = MiyamotoNagaiPotential(normalize=1.0)
+    unmigrated = _Unmigrated()
+    assert is_backend_compatible(migrated.toPlanar()), (
+        "planar view of a migrated potential must be backend-compatible"
+    )
+    assert not is_backend_compatible(unmigrated.toPlanar()), (
+        "planar view of an unmigrated potential must STILL be rejected -- the "
+        "flag has to track what is wrapped, not simply be asserted"
+    )
+    # and composing them must not launder the unmigrated one
+    assert not is_backend_compatible([migrated.toPlanar(), unmigrated.toPlanar()])
