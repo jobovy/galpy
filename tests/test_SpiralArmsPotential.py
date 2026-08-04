@@ -1,12 +1,6 @@
-import numpy
-from packaging.version import parse as parse_version
-
-_NUMPY_VERSION = parse_version(numpy.__version__)
-_NUMPY_1_23 = (_NUMPY_VERSION > parse_version("1.22")) * (
-    _NUMPY_VERSION < parse_version("1.27")
-)  # For testing 1.23/1.24/1.25/1.26 precision issues
 import unittest
 
+import numpy
 from numpy.testing import assert_allclose
 
 from galpy.potential import SpiralArmsPotential as spiral
@@ -1214,7 +1208,10 @@ class TestSpiralArmsPotential(unittest.TestCase):
     def test_phi2deriv(self):
         """Test phi2deriv against a numerical derivative -d(phitorque) / d(phi)."""
         dx = 1e-8
-        rtol = rtol = _NUMPY_1_23 * 3e-7 + (1 - _NUMPY_1_23) * 1e-7
+        # Compared against a finite difference with dx = 1e-8 below, so the
+        # reference is amplification-bound: FD divides by dx, turning a
+        # last-bit force difference (~1e-13) into ~1e-5 in the reference.
+        rtol = 3e-7
 
         pot = spiral()
         R, z = 0.3, 0
@@ -1632,7 +1629,8 @@ class TestSpiralArmsPotential(unittest.TestCase):
     def test_Rzderiv(self):
         """Test Rzderiv against a numerical derivative."""
         dx = 1e-8
-        rtol = _NUMPY_1_23 * 3e-6 + (1 - _NUMPY_1_23) * 1e-6
+        # Amplification-bound finite-difference reference; see test_phi2deriv.
+        rtol = 3e-6
 
         pot = spiral()
         R, z, phi, t = 1, 0, 0, 0
