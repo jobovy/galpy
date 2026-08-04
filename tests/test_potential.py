@@ -1467,8 +1467,18 @@ def test_2ndDeriv_potential(potname):
                         continue  # Not implemented, or badly defined
                     if p == "CoreNFWTwoPowerSphericalPotential":
                         continue  # Not implemented, or badly defined
-                    # Excluding KuzminDiskPotential at z = 0
-                    if p == "KuzminDiskPotential" and Zs[jj] == 0:
+                    # Excluding razor-thin disks at z = 0: Fz jumps from
+                    # +2 pi Sigma to -2 pi Sigma across the plane, so d Fz/dz is
+                    # a delta function there and this difference quotient has
+                    # nothing finite to converge to.
+                    if (
+                        p
+                        in (
+                            "KuzminDiskPotential",
+                            "AnyAxisymmetricRazorThinDiskPotential",
+                        )
+                        and Zs[jj] == 0
+                    ):
                         continue
                     dz = 10.0**-8.0
                     newz = Zs[jj] + dz
@@ -1496,8 +1506,18 @@ def test_2ndDeriv_potential(potname):
         ):
             for ii in range(len(Rs)):
                 for jj in range(len(Zs)):
-                    # Excluding KuzminDiskPotential at z = 0
-                    if p == "KuzminDiskPotential" and Zs[jj] == 0:
+                    # Excluding razor-thin disks at z = 0: FR has a |z| kink
+                    # across the plane, so d FR/dz jumps by +-2 pi Sigma'(R)
+                    # while Rzderiv is 0 there by symmetry -- the difference
+                    # quotient has nothing finite to converge to.
+                    if (
+                        p
+                        in (
+                            "KuzminDiskPotential",
+                            "AnyAxisymmetricRazorThinDiskPotential",
+                        )
+                        and Zs[jj] == 0
+                    ):
                         continue
                     #                    if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
                     dz = 10.0**-8.0
