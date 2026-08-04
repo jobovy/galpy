@@ -34,6 +34,8 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import assert_jit_matches_eager
+
 from galpy.actionAngle import actionAngleAdiabatic
 from galpy.potential import MiyamotoNagaiPotential
 
@@ -218,16 +220,8 @@ def test_adiabatic_ecczmax_grad_jit():
         pytest.skip("jax not installed")
     coords = _ORBITS["generic"]
     fn = lambda *a: jnp.sum(_AA.EccZmaxRperiRap(*a)[0])  # noqa: E731
-    f, g = jax.jit(fn), jax.jit(jax.grad(fn, argnums=0))
     args = [jnp.asarray([x]) for x in coords]
     # "jit survival" means jit must not CHANGE the value, so compare against the
     # eager result -- a jitted gradient that is wrong but finite passed before.
-    numpy.testing.assert_allclose(
-        float(f(*args)), float(fn(*args)), rtol=1e-12, atol=1e-14
-    )
-    numpy.testing.assert_allclose(
-        numpy.asarray(g(*args)),
-        numpy.asarray(jax.grad(fn, argnums=0)(*args)),
-        rtol=1e-10,
-        atol=1e-12,
-    )
+    assert_jit_matches_eager(fn, *args, rtol=1e-12, atol=1e-14)
+    assert_jit_matches_eager(jax.grad(fn, argnums=0), *args, rtol=1e-10, atol=1e-12)
