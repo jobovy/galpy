@@ -28,6 +28,7 @@ from ..backend import use as _use_backend
 from ..backend.special import assoc_legendre, gegenbauer
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
+from ..util._pickle import SplinePickleMixin
 from ..util.special import compute_legendre, sph_harm_normalization
 from .Potential import Potential
 
@@ -37,7 +38,7 @@ if _APY_LOADED:
 from .SphericalHarmonicPotentialMixin import SphericalHarmonicPotentialMixin
 
 
-class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
+class SCFPotential(Potential, SphericalHarmonicPotentialMixin, SplinePickleMixin):
     """Class that implements the `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`_ Self-Consistent-Field-type potential.
     Note that we divide the amplitude by 2 such that :math:`Acos = \\delta_{0n}\\delta_{0l}\\delta_{0m}` and :math:`Asin = 0` corresponds to :ref:`Galpy's Hernquist Potential <hernquist_potential>`.
 
@@ -85,6 +86,10 @@ class SCFPotential(Potential, SphericalHarmonicPotentialMixin):
     derivatives, and density at arbitrary times within (or, by extrapolation,
     outside) the ``tgrid`` range in both Python and C (for orbit integration).
     """
+
+    # Cubic-spline time interpolators over the coefficient arrays; created only
+    # by the time-dependent branch, so SplinePickleMixin skips them when absent.
+    _PICKLE_SPLINE_ATTRS = ("_Acos_interp", "_Asin_interp")
 
     def __init__(
         self,

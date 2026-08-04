@@ -315,6 +315,32 @@ def test_sanders15_leading_setup(setup_sanders15_leading):
 
 
 # Some very basic tests
+def test_sanders15_pickling(setup_sanders15_trailing):
+    # scipy 1.18 caches the array namespace -- a module -- on PPoly, and the
+    # numpy kick path stores one in _kick_interpdOpar_poly, so a built
+    # streamgapdf raised "cannot pickle 'module' object". Measured: that is the
+    # only unpicklable attribute on the object.
+    import pickle
+
+    sdf_sanders15, _ = setup_sanders15_trailing
+    restored = pickle.loads(pickle.dumps(sdf_sanders15))
+    poly, rpoly = sdf_sanders15._kick_interpdOpar_poly, restored._kick_interpdOpar_poly
+    # the piecewise polynomial itself must come back unchanged, not merely close
+    numpy.testing.assert_array_equal(rpoly.c, poly.c)
+    numpy.testing.assert_array_equal(rpoly.x, poly.x)
+    # and it must still evaluate: the mean-Omega kick reads it downstream
+    das = numpy.linspace(
+        sdf_sanders15._kick_interpdOpar_poly.x[0] + 1e-3,
+        sdf_sanders15._kick_interpdOpar_poly.x[-1] - 1e-3,
+        7,
+    )
+    numpy.testing.assert_array_equal(
+        numpy.array([restored._kick_interpdOpar(da) for da in das]),
+        numpy.array([sdf_sanders15._kick_interpdOpar(da) for da in das]),
+    )
+    return None
+
+
 def test_nTrackIterations(setup_sanders15_trailing):
     # Load the streamgapdf objects
     sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
