@@ -1203,6 +1203,10 @@ def _pickletest_dens(R, z):
     return 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
 
 
+def _pickletest_dens_tdep(R, z, t=0.0):
+    return (1.0 + 0.2 * numpy.sin(0.7 * t)) * _pickletest_dens(R, z)
+
+
 def _pickletest_dens_nonaxi(R, z, phi):
     return _pickletest_dens(R, z) * (1.0 + 0.05 * numpy.cos(phi))
 
@@ -1267,6 +1271,63 @@ if _APY_LOADED:
 # The potentials that take user-supplied callables build closures out of them,
 # which pickle cannot look up by name; these are the configurations of those
 # potentials that the default constructor does not reach.
+def test_getstate_leaks_no_scipy_splines():
+    import pickle
+
+    # scipy 1.18 cannot pickle PPoly/BPoly/CubicSpline (it caches the array
+    # namespace -- a module -- on them), so no __getstate__ may leave one in the
+    # state it returns.
+    #
+    # Asserted STRUCTURALLY rather than by listing attribute names. The
+    # name-list approach has now missed the same class of case three times: the
+    # attributes only a TIME-DEPENDENT expansion creates (_I_*_interp, _rho_*_interp
+    # on Multipole; _Acos_interp on SCF) are absent from a static instance, and a
+    # time-dependent potential is not default-constructible so the enumeration in
+    # _make_pots_pickle never sees one.
+    from scipy.interpolate import BPoly, PPoly
+
+    def find_splines(obj):
+        if isinstance(obj, (PPoly, BPoly)):
+            return [obj]
+        if isinstance(obj, (list, tuple)):
+            return [s for item in obj for s in find_splines(item)]
+        if isinstance(obj, dict):
+            return [s for item in obj.values() for s in find_splines(item)]
+        return []
+
+    _mn = potential.MiyamotoNagaiPotential(amp=1.3, a=0.5, b=0.3)
+    _rgrid = numpy.geomspace(0.05, 20.0, 30)
+    _tgrid = numpy.linspace(0.0, 2.0, 5)
+    cases = {
+        "Multipole static": potential.MultipoleExpansionPotential.from_density(
+            _pickletest_dens, L=4, symmetry="axisymmetric", rgrid=_rgrid
+        ),
+        # the configuration that populates the _interp attributes at all
+        "Multipole time-dependent": potential.MultipoleExpansionPotential.from_density(
+            _pickletest_dens_tdep,
+            L=4,
+            symmetry="axisymmetric",
+            rgrid=_rgrid,
+            tgrid=_tgrid,
+        ),
+    }
+    for name, pot in cases.items():
+        state = pot.__getstate__()
+        leaked = find_splines(state)
+        assert not leaked, (
+            f"{name}: __getstate__ leaks {len(leaked)} scipy "
+            f"{type(leaked[0]).__name__} object(s), which scipy 1.18 cannot pickle"
+        )
+        # spline-free is necessary but not sufficient -- the packed attributes
+        # must actually pickle. Whole-object pickling is NOT asserted here:
+        # from_density stores an internal lambda, so any potential built through
+        # it is unpicklable for an unrelated reason (the closure issue), which
+        # would mask exactly what this test is checking.
+        for attr in pot._PICKLE_SPLINE_ATTRS:
+            if attr in state:
+                pickle.dumps(state[attr])
+
+
 def test_pickling_potential_user_callables():
     import pickle
 
