@@ -129,8 +129,6 @@ jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_ac
 jax tests/test_interp_potential.py::test_interpolation_potential_force_c
 jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_qdf.py::test_call_diffinoutputs
-jax tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
-jax tests/test_quantity.py::test_sphericaldf_sample_outputunits
 jax tests/test_sphericaldf.py::test_anisotropic_hernquist_negdf
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
@@ -191,8 +189,6 @@ jax tests/test_diskdf.py::test_dehnendf_sample_powerrise_returnROrbit
 # arrays reject, and exercise the not-yet-backend-native integrate=True path.
 # Un-ledger when the in-backend integrator swap lands (per-particle 2D-time-grid
 # integrate). Already ledgered for torch.
-torch tests/test_quantity.py::test_sphericaldf_densitymatch_issue677
-torch tests/test_quantity.py::test_sphericaldf_sample_outputunits
 torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
 
 # --- jax-jit: the suite run TRACED (pytest --backend jax --jit) ---
