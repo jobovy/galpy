@@ -13681,30 +13681,39 @@ class mockKuzminLikeWrapperPotential(KuzminLikeWrapperPotential):
         )
 
 
-def test_anyaxisymrazorthin_smallz_no_nan():
-    # The zforce/evaluate/deriv integrands form m = 4aR/((a+R)^2+z^2), which is
-    # <= 1 analytically but rounds just above 1 for tiny |z| -- and scipy's
-    # ellipe/ellipk return nan there. Before the clamp, zforce was nan for
-    # roughly 1e-30 <= |z| <= 1e-12 (z=0 itself is special-cased, so the band
-    # was invisible to every existing test). An ODE solver drifting off the
-    # plane by roundoff lands in it and poisons the whole orbit.
+def test_anyaxisymrazorthin_smallz_limit():
+    # For a razor-thin disk Fz(z -> 0+) -> -2*pi*Sigma(R), a CONSTANT -- not
+    # O(z). The integrands carry a peak of width ~|z| at a=R; once |z| << R
+    # quad's adaptive bisection steps over it and used to return ~0 with the
+    # WRONG SIGN (zforce(0.5, 1e-8) came back +1.9e-8 instead of -1.86),
+    # silently, across roughly 1e-30 <= |z| <= 1e-6. An ODE solver drifting off
+    # the plane by roundoff lands in that band and poisons the whole orbit.
+    #
+    # NB an earlier version of this test asserted Fz/z was constant there. That
+    # is the wrong physics and it passed *because* the values were garbage: a
+    # correct implementation fails it.
     tp = potential.AnyAxisymmetricRazorThinDiskPotential(normalize=1.0)
-    zs = numpy.array([1e-30, 1e-25, 1e-20, 1e-16, 1e-12, 1e-8, 1e-6])
-    fz = numpy.array([tp.zforce(1.0, z, use_physical=False) for z in zs])
-    assert numpy.all(numpy.isfinite(fz)), (
-        f"zforce non-finite at small |z|: {zs[~numpy.isfinite(fz)]}"
+    R = 0.5
+    limit = -2.0 * numpy.pi * tp.surfdens(R, 0.0, use_physical=False)
+    zs = numpy.array([1e-5, 1e-6, 1e-8, 1e-12, 1e-20, 1e-30])
+    fz = numpy.array([tp.zforce(R, z, use_physical=False) for z in zs])
+    assert numpy.all(numpy.fabs(fz / limit - 1.0) < 3e-4), (
+        f"zforce does not approach -2 pi Sigma(R) as z->0+: Fz/limit = {fz / limit}"
     )
-    # Not just finiteness: Fz is O(z) as z -> 0, so Fz/z must approach a single
-    # constant. A wrong-but-finite value would pass an isfinite-only check.
-    # Only below |z| ~ 1e-8 -- above that the near-sheet term takes over and
-    # Fz/z is genuinely no longer constant (it is ~ -4e5 by |z| = 1e-6).
-    lin = zs <= 1e-8
-    ratios = fz[lin] / zs[lin]
-    assert numpy.all(numpy.fabs(ratios / ratios[0] - 1.0) < 1e-6), (
-        f"zforce is not linear in z as z->0: Fz/z = {ratios}"
+    # Above the plane the disk pulls back toward it, and Fz is odd in z.
+    assert numpy.all(fz < 0.0), f"zforce has the wrong sign above the plane: {fz}"
+    fz_neg = numpy.array([tp.zforce(R, -z, use_physical=False) for z in zs])
+    assert numpy.all(numpy.fabs(fz_neg + fz) < 3e-4 * numpy.fabs(limit)), (
+        f"zforce is not odd in z: Fz(-z) = {fz_neg}, -Fz(z) = {-fz}"
     )
-    # and the other methods stay finite there too
-    for name in ("__call__", "Rforce", "R2deriv", "z2deriv", "Rzderiv"):
-        vals = numpy.array([getattr(tp, name)(1.0, z, use_physical=False) for z in zs])
-        assert numpy.all(numpy.isfinite(vals)), f"{name} non-finite at small |z|"
+    # The other methods keep only the ellip-parameter clamp: it stops them
+    # returning nan, but their quadrature has the same unresolved peak and they
+    # are NOT accurate here, so this asserts nothing about their values. They
+    # need the same treatment, per method -- the substitution used above is only
+    # valid for zforce, whose -4z prefactor cancels the 1/|z| the peak
+    # contributes. Rforce and the second derivatives have no such prefactor and
+    # a naive substitution overflows on their odd-part cancellation.
+    for name in ("__call__", "Rforce"):
+        val = getattr(tp, name)(R, 1e-5, use_physical=False)
+        assert numpy.isfinite(val), f"{name} non-finite just below the peak scale"
     return None

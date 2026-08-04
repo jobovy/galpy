@@ -14,6 +14,53 @@ if _APY_LOADED:
     from astropy import units
 
 
+# The zforce integrand carries a factor 1/((a-R)^2+z^2): a peak of width ~|z|
+# centred on a=R. quad subdivides adaptively from panels of order R, so once
+# |z| << R it steps over the peak entirely and returns a value that is not
+# merely inaccurate but wrong by orders of magnitude and of the wrong sign
+# (zforce(0.5, 1e-8) came back +1.9e-8 instead of -1.86).
+#
+# Substituting a = R + |z| t maps the peak to unit width: (a-R)^2+z^2 becomes
+# z^2 (1+t^2) *analytically*, so the small quantity is never formed by
+# subtraction and the result stays correct however small |z| is; da = |z| dt
+# then cancels the 1/|z| that the peak contributes, against the -4z prefactor.
+#
+# Only applied where that cancellation makes the substituted integrand finite,
+# i.e. zforce. Above the threshold, and at z == 0, the original quadrature is
+# used verbatim so its values are unchanged.
+_PEAK_SUB_ZR = 1e-4  # substitute when |z| < _PEAK_SUB_ZR * R
+_PEAK_SUB_T = 1.0e4  # near-region half-width, in units of |z|
+
+
+def _quad_apeak(f, R, z):
+    """Integrate ``f(a, d2)`` over ``a`` in [0, inf), resolving the a=R peak.
+
+    ``f`` receives the exact ``d2 = (a-R)**2 + z**2`` as its second argument so
+    the substituted branch can supply ``z**2 (1+t**2)`` rather than re-forming
+    it by subtraction.
+    """
+    az = numpy.fabs(z)
+    g = lambda a: f(a, (a - R) ** 2.0 + z**2.0)
+    # z == 0 is the genuinely singular case (callers special-case it) and the
+    # substitution would divide by |z|, so it stays on the original path.
+    if az == 0.0 or az >= _PEAK_SUB_ZR * R:
+        return (
+            integrate.quad(g, 0, 2 * R, points=[R])[0]
+            + integrate.quad(g, 2 * R, numpy.inf)[0]
+        )
+    z2 = z**2.0
+    tlim = min(_PEAK_SUB_T, R / az)
+    lo, hi = R - az * tlim, R + az * tlim
+    return (
+        integrate.quad(
+            lambda t: f(R + az * t, z2 * (1.0 + t * t)) * az, -tlim, tlim, limit=200
+        )[0]
+        + integrate.quad(g, 0, lo, limit=200)[0]
+        + integrate.quad(g, hi, 2 * R, limit=200)[0]
+        + integrate.quad(g, 2 * R, numpy.inf, limit=200)[0]
+    )
+
+
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
     """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\\Sigma(R)`"""
 
@@ -147,28 +194,17 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             return 0.0
         z2 = z**2
 
-        def zforceint(a):
+        def zforceint(a, d2):
             aRz = (a + R) ** 2.0 + z2
             # m = 4aR/((a+R)^2+z^2) <= 1 analytically (equality at a=R, z=0), but
             # rounding tips it just above 1 for tiny |z|, and scipy's ellipe/ellipk
             # return nan there. Fires only on that artifact, so values are unchanged.
             faRoveraRz = numpy.minimum(4 * a * R / aRz, 1.0)
             return (
-                a
-                * self._sdens(a)
-                * special.ellipe(faRoveraRz)
-                / ((a - R) ** 2 + z2)
-                / numpy.sqrt(aRz)
+                a * self._sdens(a) * special.ellipe(faRoveraRz) / d2 / numpy.sqrt(aRz)
             )
 
-        return (
-            -4
-            * z
-            * (
-                integrate.quad(zforceint, 0, 2 * R, points=[R])[0]
-                + integrate.quad(zforceint, 2 * R, numpy.inf)[0]
-            )
-        )
+        return -4 * z * _quad_apeak(zforceint, R, z)
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
