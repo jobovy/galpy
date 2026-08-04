@@ -28,6 +28,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.potential import (
     AdiabaticContractionWrapperPotential,
@@ -441,12 +442,14 @@ def test_chain_jax_grad_and_jit():
         )
     )
     numpy.testing.assert_allclose(g, refF, rtol=1e-9)
-    jitted = float(
-        jax.jit(lambda R, z: _CHAIN._Rforce(R, z, phi=0.0, t=0.15))(
-            jnp.asarray(R0), jnp.asarray(z0)
-        )
+    assert_jit_matches_eager(
+        lambda R, z: _CHAIN._Rforce(R, z, phi=0.0, t=0.15),
+        jnp.asarray(R0),
+        jnp.asarray(z0),
+        rtol=1e-12,
+        atol=0.0,
+        ref=-refF,
     )
-    numpy.testing.assert_allclose(jitted, -refF, rtol=1e-12)
 
 
 # --- planar (2D) wrappers -------------------------------------------------------------
