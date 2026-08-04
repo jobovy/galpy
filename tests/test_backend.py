@@ -17,6 +17,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy import backend
 from galpy.backend import as_numpy
@@ -137,8 +138,7 @@ def test_jax_vmap_and_jit(pot):
     R = jnp.asarray(_RS)
     z = jnp.asarray(_ZS)
     ref = numpy.asarray(pot._Rforce(numpy.asarray(_RS), numpy.asarray(_ZS)))
-    jitted = numpy.asarray(jax.jit(pot._Rforce)(R, z))
-    numpy.testing.assert_allclose(jitted, ref, rtol=1e-12)
+    assert_jit_matches_eager(pot._Rforce, R, z, rtol=1e-12, atol=0.0, ref=ref)
     vmapped = numpy.asarray(jax.vmap(pot._Rforce)(R, z))
     numpy.testing.assert_allclose(vmapped, ref, rtol=1e-12)
 
