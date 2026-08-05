@@ -47,10 +47,6 @@ if _APY_LOADED:
 # principal-value cancellation degrades if nodes cluster too close to R, so a
 # moderate order is deliberate.
 _GLORDER = 100
-# m = 4aR/((a+R)^2+z^2) <= 1 analytically (equality at a=R), but rounding can tip
-# it just above 1 near a=R -> sqrt(1-m) of a negative -> NaN in the AGM elliptic
-# fallback. Clamp strictly below 1 (only fires on the rounding artifact).
-_ELLIP_M_CAP = 1.0 - 1e-15
 
 
 # The zforce integrand carries a factor 1/((a-R)^2+z^2): a peak of width ~|z|
@@ -283,10 +279,18 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         return xp.where(finite, out, xp.zeros_like(out))
 
     @staticmethod
-    def _bk_m_aRz(a, R, z2, xp):
+    def _bk_m1_aRz(a, R, z2, xp):
+        """Return (1-m, aRz) for m = 4aR/((a+R)^2+z^2), complement formed exactly.
+
+        1-m = ((a-R)^2+z^2)/((a+R)^2+z^2) identically, so it is built from the
+        quantities the integrands already carry instead of by the subtraction
+        1 - 4aR/aRz, which rounds to 0 for |z| << R and sends K to inf. It also
+        lies in [0,1] by construction, so m = 1-m1 can never round above 1 and
+        no clamp is needed to keep E out of sqrt(negative).
+        """
         aRz = (a + R) ** 2.0 + z2
-        m = xp.minimum(4.0 * a * R / aRz, _ELLIP_M_CAP * xp.ones_like(aRz))
-        return m, aRz
+        m1 = ((a - R) ** 2.0 + z2) / aRz
+        return m1, aRz
 
     def _bk_dispatch(self, numpy_fn, gl_fn, R, z):
         xp = get_namespace(R, z)
@@ -341,8 +345,8 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         sdens = self._sdens
 
         def potint(a):
-            m, aRz = self._bk_m_aRz(a, R, z2, xp)
-            return a * sdens(a) / xp.sqrt(aRz) * _bspecial.ellipk(m)
+            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
+            return a * sdens(a) / xp.sqrt(aRz) * _bspecial.ellipkm1(m1)
 
         return -4.0 * self._bk_split_quad(potint, R, xp, dev)
 
@@ -390,13 +394,13 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         def rforceint(a):
             a2 = a**2
-            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
             return (
                 a
                 * sdens(a)
                 * (
-                    (a2 - R2 + z2) * _bspecial.ellipe(m)
-                    - ((a - R) ** 2 + z2) * _bspecial.ellipk(m)
+                    (a2 - R2 + z2) * _bspecial.ellipe(1.0 - m1)
+                    - ((a - R) ** 2 + z2) * _bspecial.ellipkm1(m1)
                 )
                 / R
                 / ((a - R) ** 2 + z2)
@@ -437,9 +441,13 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         sdens = self._sdens
 
         def zforceint(a):
-            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
             return (
-                a * sdens(a) * _bspecial.ellipe(m) / ((a - R) ** 2 + z2) / xp.sqrt(aRz)
+                a
+                * sdens(a)
+                * _bspecial.ellipe(1.0 - m1)
+                / ((a - R) ** 2 + z2)
+                / xp.sqrt(aRz)
             )
 
         integral = self._bk_split_quad(zforceint, R, xp, dev)
@@ -503,7 +511,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         def r2derivint(a):
             a2 = a**2
-            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
             return (
                 a
                 * sdens(a)
@@ -515,11 +523,11 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
                             + (3.0 * a2 + 7.0 * R2) * z**4
                             + z**6
                         )
-                        * _bspecial.ellipe(m)
+                        * _bspecial.ellipe(1.0 - m1)
                     )
                     + ((a - R) ** 2 + z2)
                     * ((a2 - R2) ** 2 + 2.0 * (a2 + 2.0 * R2) * z2 + z**4)
-                    * _bspecial.ellipk(m)
+                    * _bspecial.ellipkm1(m1)
                 )
                 / (2.0 * R2 * ((a - R) ** 2 + z2) ** 2 * aRz**1.5)
             )
@@ -573,16 +581,16 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         def z2derivint(a):
             a2 = a**2
-            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
             return (
                 a
                 * sdens(a)
                 * (
                     -(
                         ((a2 - R2) ** 2 - 2.0 * (a2 + R2) * z2 - 3.0 * z**4)
-                        * _bspecial.ellipe(m)
+                        * _bspecial.ellipe(1.0 - m1)
                     )
-                    - z2 * ((a - R) ** 2 + z2) * _bspecial.ellipk(m)
+                    - z2 * ((a - R) ** 2 + z2) * _bspecial.ellipkm1(m1)
                 )
                 / (((a - R) ** 2 + z2) ** 2 * aRz**1.5)
             )
@@ -638,7 +646,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
         def rzderivint(a):
             a2 = a**2
-            m, aRz = self._bk_m_aRz(a, R, z2, xp)
+            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
             return (
                 a
                 * sdens(a)
@@ -651,9 +659,9 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
                             + z2**2
                             + 2.0 * a2 * (3.0 * R2 + z2)
                         )
-                        * _bspecial.ellipe(m)
+                        * _bspecial.ellipe(1.0 - m1)
                     )
-                    + ((a - R) ** 2 + z2) * (a2 - R2 + z2) * _bspecial.ellipk(m)
+                    + ((a - R) ** 2 + z2) * (a2 - R2 + z2) * _bspecial.ellipkm1(m1)
                 )
                 / R
                 / ((a - R) ** 2 + z2) ** 2
