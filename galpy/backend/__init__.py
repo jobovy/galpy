@@ -30,6 +30,7 @@ from ._namespaces import (
     match_input_dtype,
     name_of_namespace,
     resolve_namespace,
+    restrict_to_single_thread,
 )
 from ._resolver import (
     _seed_from_config,
@@ -63,6 +64,7 @@ __all__ = [
     "as_numpy",
     "exit_cast",
     "resolve_namespace",
+    "restrict_to_single_thread",
     "as_backend_constant",
     "coerce_coords",
     "promote_scalars",
