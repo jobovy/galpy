@@ -1467,8 +1467,18 @@ def test_2ndDeriv_potential(potname):
                         continue  # Not implemented, or badly defined
                     if p == "CoreNFWTwoPowerSphericalPotential":
                         continue  # Not implemented, or badly defined
-                    # Excluding KuzminDiskPotential at z = 0
-                    if p == "KuzminDiskPotential" and Zs[jj] == 0:
+                    # Excluding razor-thin disks at z = 0: Fz jumps from
+                    # +2 pi Sigma to -2 pi Sigma across the plane, so d Fz/dz is
+                    # a delta function there and this difference quotient has
+                    # nothing finite to converge to.
+                    if (
+                        p
+                        in (
+                            "KuzminDiskPotential",
+                            "AnyAxisymmetricRazorThinDiskPotential",
+                        )
+                        and Zs[jj] == 0
+                    ):
                         continue
                     dz = 10.0**-8.0
                     newz = Zs[jj] + dz
@@ -1496,8 +1506,18 @@ def test_2ndDeriv_potential(potname):
         ):
             for ii in range(len(Rs)):
                 for jj in range(len(Zs)):
-                    # Excluding KuzminDiskPotential at z = 0
-                    if p == "KuzminDiskPotential" and Zs[jj] == 0:
+                    # Excluding razor-thin disks at z = 0: FR has a |z| kink
+                    # across the plane, so d FR/dz jumps by +-2 pi Sigma'(R)
+                    # while Rzderiv is 0 there by symmetry -- the difference
+                    # quotient has nothing finite to converge to.
+                    if (
+                        p
+                        in (
+                            "KuzminDiskPotential",
+                            "AnyAxisymmetricRazorThinDiskPotential",
+                        )
+                        and Zs[jj] == 0
+                    ):
                         continue
                     #                    if p == 'RazorThinExponentialDiskPotential': continue #Not implemented, or badly defined
                     dz = 10.0**-8.0
@@ -13679,3 +13699,41 @@ class mockKuzminLikeWrapperPotential(KuzminLikeWrapperPotential):
             a=1.0,
             b=0.1,
         )
+
+
+def test_anyaxisymrazorthin_smallz_limit():
+    # For a razor-thin disk Fz(z -> 0+) -> -2*pi*Sigma(R), a CONSTANT -- not
+    # O(z). The integrands carry a peak of width ~|z| at a=R; once |z| << R
+    # quad's adaptive bisection steps over it and used to return ~0 with the
+    # WRONG SIGN (zforce(0.5, 1e-8) came back +1.9e-8 instead of -1.86),
+    # silently, across roughly 1e-30 <= |z| <= 1e-6. An ODE solver drifting off
+    # the plane by roundoff lands in that band and poisons the whole orbit.
+    #
+    # NB an earlier version of this test asserted Fz/z was constant there. That
+    # is the wrong physics and it passed *because* the values were garbage: a
+    # correct implementation fails it.
+    tp = potential.AnyAxisymmetricRazorThinDiskPotential(normalize=1.0)
+    R = 0.5
+    limit = -2.0 * numpy.pi * tp.surfdens(R, 0.0, use_physical=False)
+    zs = numpy.array([1e-5, 1e-6, 1e-8, 1e-12, 1e-20, 1e-30])
+    fz = numpy.array([tp.zforce(R, z, use_physical=False) for z in zs])
+    assert numpy.all(numpy.fabs(fz / limit - 1.0) < 3e-4), (
+        f"zforce does not approach -2 pi Sigma(R) as z->0+: Fz/limit = {fz / limit}"
+    )
+    # Above the plane the disk pulls back toward it, and Fz is odd in z.
+    assert numpy.all(fz < 0.0), f"zforce has the wrong sign above the plane: {fz}"
+    fz_neg = numpy.array([tp.zforce(R, -z, use_physical=False) for z in zs])
+    assert numpy.all(numpy.fabs(fz_neg + fz) < 3e-4 * numpy.fabs(limit)), (
+        f"zforce is not odd in z: Fz(-z) = {fz_neg}, -Fz(z) = {-fz}"
+    )
+    # The other methods keep only the ellip-parameter clamp: it stops them
+    # returning nan, but their quadrature has the same unresolved peak and they
+    # are NOT accurate here, so this asserts nothing about their values. They
+    # need the same treatment, per method -- the substitution used above is only
+    # valid for zforce, whose -4z prefactor cancels the 1/|z| the peak
+    # contributes. Rforce and the second derivatives have no such prefactor and
+    # a naive substitution overflows on their odd-part cancellation.
+    for name in ("__call__", "Rforce"):
+        val = getattr(tp, name)(R, 1e-5, use_physical=False)
+        assert numpy.isfinite(val), f"{name} non-finite just below the peak scale"
+    return None
