@@ -1,3 +1,18 @@
+# BURNED BY #1255 (2026-08-05). Six torch actionAngle angle/freq entries -- the
+# ~1e-7 precision cluster that was queued up as a TOLERANCE batch -- are pruned
+# here as a straight fix, with no tolerance touched. #1255 Newton-polishes the
+# root that `brentq` returns, and actionAngleSpherical / actionAngleVertical angle
+# computations are root-find consumers, so a more accurate root closes the gap.
+# Verified by A/B rather than inferred from the coincidence:
+#     pre-#1255  (7696c88e, own C build)  torch --runxfail   FAILED x6
+#     post-#1255 (this tree)              torch --runxfail   passed x6
+# and by the CI artifacts either side of the boundary (skip TYPE read, so an
+# xfail is not confused with a slow-skip):
+#     run 31022290797  base 18ddfd9b = #1255   XPASS x6
+#     run 30997129449  base 7696c88e = #1254   xfail x6
+#     run 30982182601  base 7b6f5ae4 = #1252   xfail x6
+#     run 30953851163  base c34abfa3           xfail x6
+#
 # SOURCE-FIX burn + RE-HOME (2026-08-05). Two entries burned by fixes in this
 # same PR: jax SpiralArms test_Rzderiv (the test's finite-difference reference was
 # built with dx=1e-8, which amplifies a 1.9e-13 float64 reassociation in Rforce by
@@ -143,13 +158,7 @@ jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
-torch tests/test_actionAngle.py::test_actionAngleSpherical_almostnoninclinedorbit_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles
-torch tests/test_actionAngle.py::test_actionAngleSpherical_linear_angles_fixed_quad
-torch tests/test_actionAngle.py::test_actionAngleSpherical_noninclinedorbit_linear_angles
 torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
-torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
-torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
 torch tests/test_qdf.py::test_call_diffinoutputs
 
 # --- jax single-orbit: action-angle accessors (Track E) ---
