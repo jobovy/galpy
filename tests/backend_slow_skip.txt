@@ -9,44 +9,15 @@
 #
 # format: <backend> <nodeid>   (same as backend_xfail.txt)
 #
-# --- jax spherical-DF sampling/quadrature (Track F spherical-DF migration) ---
-# These sample (300k CDF inversions) and integrate the DF by scipy at scalar
-# points; under forced-jax every scalar evaluation dispatches an XLA graph, so
-# each test runs minutes. Selected by measured CI duration >= 90 s on the
-# all-backend runs 27500392935 + 27503988401 (complete shard wall 3111 s ->
-# ~1450 s after skip; slowest survivor 84 s = >3x headroom under 300 s). The
-# Track F spherical-DF backend migration (vectorized sampling + GL quadrature)
-# makes them fast; delete these lines as it lands. (Distinct from Track A #39,
-# which vectorizes the SCF/assoc_legendre *potential* path.)
-jax tests/test_sphericaldf.py::test_constantbeta_dehnencore_in_nfw_dens_massprofile
-jax tests/test_sphericaldf.py::test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric
-jax tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
-jax tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_dens_directint
-jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dMdE_integral
-jax tests/test_sphericaldf.py::test_eddington_differentpotentials_dens_directint
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_dens_directint
-jax tests/test_sphericaldf.py::test_eddington_powerspherical_divergent_auto_rmin
-jax tests/test_sphericaldf.py::test_eddington_powerspherical_massprofile
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_meanvr_directint
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_rmin
-jax tests/test_sphericaldf.py::test_eddington_interpolatedpotentials_sigmar
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_beta_directint
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_dens_spherically_symmetric
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar
-jax tests/test_sphericaldf.py::test_isotropic_eddington_dehnencore_in_nfw_sigmar_directint
+# --- jax King-model sigmar: the one spherical-DF test Track F did NOT make fast ---
+# The other 27 jax spherical-DF deferrals were retired once the Track F backend
+# migration landed. This one still exceeds the 300 s per-test timeout by a wide
+# margin: called directly (the slow-skip has no bypass, so pytest would just skip
+# it) it passes in 1028.6 s under forced jax. CI runs ~0.71x this box's wall time
+# on the same code, so that still projects to ~730 s. Needs KingPotential
+# vectorization, not merely the sampling port.
 jax tests/test_sphericaldf.py::test_king_sigmar
-jax tests/test_sphericaldf.py::test_king_sigmar_directint
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_beta
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_dens_massprofile
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar
-jax tests/test_sphericaldf.py::test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint
-jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_massprofile
-jax tests/test_sphericaldf.py::test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric
-jax tests/test_sphericaldf.py::test_pvr_interpolator_rmax_default_vs_explicit
-
+#
 # --- jax multi-orbit (test_orbits.py): slow battery (Track D/E) ---
 # Surface-of-section, multi-orbit dxdv (Python STM reference), C-fallback,
 # rE/LcE root-finds and Chandrasekhar friction integrate orbits under forced
