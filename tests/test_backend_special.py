@@ -955,6 +955,42 @@ def test_ellipk_ellipe_negative_m_and_unit(backend):
     numpy.testing.assert_allclose(as_numpy(gsp.ellipe(_asarray(backend, 1.0))), 1.0)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_ellipkm1_stays_exact_where_ellipk_cannot(backend):
+    # K(m) near m=1 can only be reached through the complement: reconstructing
+    # the argument as 1-m1 collapses to exactly 1.0 once m1 drops below an ulp,
+    # and ellipk(1.0) is inf. ellipkm1 takes m1 directly, so it stays finite and
+    # accurate all the way down. (This is how the razor-thin-disk integrands hit
+    # it: their 1-m = ((a-R)^2+z^2)/((a+R)^2+z^2) vanishes as z -> 0 at a = R.)
+    m1 = numpy.array([0.9, 0.5, 1e-3, 1e-9, 1e-15, 1e-16, 1e-20, 1e-100, 1e-300])
+    got = as_numpy(gsp.ellipkm1(_asarray(backend, m1)))
+    numpy.testing.assert_allclose(got, scipy_special.ellipkm1(m1), rtol=1e-13)
+    assert numpy.all(numpy.isfinite(got))
+    # the route this replaces really does fail on the same inputs
+    assert numpy.isinf(scipy_special.ellipk(1.0 - m1[-1]))
+    # and agrees with ellipk wherever ellipk is still usable
+    numpy.testing.assert_allclose(
+        as_numpy(gsp.ellipkm1(_asarray(backend, m1[:3]))),
+        as_numpy(gsp.ellipk(_asarray(backend, 1.0 - m1[:3]))),
+        rtol=1e-13,
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_ellipkm1_grad_matches_closed_form(backend):
+    # dK/dm1 = -dK/dm = -(E(m) - (1-m) K(m)) / (2 m (1-m)), evaluated at m = 1-m1.
+    for x in (0.3, 1e-3, 1e-6):
+        m = 1.0 - x
+        ref = -(scipy_special.ellipe(m) - x * scipy_special.ellipk(m)) / (2.0 * m * x)
+        if backend == "jax":
+            got = float(jax.grad(lambda t: gsp.ellipkm1(t))(jnp.asarray(x)))
+        else:
+            t = torch.tensor(x, dtype=torch.float64, requires_grad=True)
+            gsp.ellipkm1(t).backward()
+            got = float(t.grad)
+        numpy.testing.assert_allclose(got, ref, rtol=1e-11)
+
+
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_ellipe_negative_m_grad_finite(backend):
     # dE/dm = (E-K)/(2m) is finite for m<0 (sqrt(m) must not enter the E series).
