@@ -82,6 +82,19 @@ def test_numpy_returns_python_float():
     assert out == 1.5
 
 
+def _dfdx_at(backend, f, x):
+    """d f/dx at a point, via whichever AD the backend provides."""
+    if backend == "torch":
+        import torch
+
+        xr = torch.tensor(float(x), requires_grad=True)
+        (g,) = torch.autograd.grad(f(xr), xr)
+        return float(g)
+    import jax
+
+    return float(jax.grad(lambda t: f(t))(float(x)))
+
+
 # --- backend path: value at the root ----------------------------------------
 @pytest.mark.parametrize("backend", AD_BACKENDS)
 def test_backend_root_value(backend):
@@ -91,9 +104,33 @@ def test_backend_root_value(backend):
     a = xp.asarray(0.0)
     b = xp.asarray(numpy.pi / 2.0)
     root = brentq(lambda x, t: xp.cos(x) - t, a, b, args=(theta,))
+    # Tight on purpose: the Newton polish puts this at machine precision, so a
+    # loose rtol here would not notice a backend falling back to the raw
+    # bisection root (~1e-14) -- which is precisely what torch used to do.
     numpy.testing.assert_allclose(
-        float(_to_np(root)), float(numpy.arccos(0.3)), rtol=1e-9
+        float(_to_np(root)), float(numpy.arccos(0.3)), rtol=1e-15
     )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_backend_root_is_polished_not_bracket_limited(backend):
+    # The FORWARD value must be Newton-polished, not the bisection midpoint.
+    # Bisection stops at the final bracket half-width (~1e-14 here); callers
+    # that then form sqrt(f(root)) amplify that residual -- actionAngleVertical's
+    # Omega divides by sqrt(2(E-Phi(xmax))) and turned a 4e-14 residual into a
+    # 6e-10 frequency error. torch used to skip the polish whenever nothing
+    # required grad, i.e. on exactly the plain forward path the suite runs.
+    xp = _xp(backend)
+    a, b = xp.asarray(0.0), xp.asarray(numpy.pi / 2.0)
+    root = float(_to_np(brentq(lambda x: xp.cos(x) - 0.3, a, b)))
+    eps = numpy.finfo(float).eps
+    exact = float(numpy.arccos(0.3))
+    assert abs(root - exact) < 4.0 * eps * abs(exact), (
+        f"{backend} root off by {abs(root - exact):.3e}, "
+        f"more than a few ulp -- polish missing?"
+    )
+    # and the residual itself is at machine level, not bracket level
+    assert abs(numpy.cos(root) - 0.3) < 4.0 * eps
 
 
 @pytest.mark.parametrize("backend", AD_BACKENDS)
@@ -276,3 +313,59 @@ def test_vectorized_grad_jacobian(backend):
     numpy.testing.assert_allclose(
         diag, [_exact_dxstar_dtheta(t) for t in theta0], rtol=1e-5
     )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_backend_root_survives_nan_derivative(backend):
+    # f can be perfectly finite AT the root and still hand back a NaN df/dx:
+    # xp.where evaluates both sides eagerly, so an unguarded dead branch
+    # (sqrt of a negative) poisons the gradient while the value is fine.
+    # The Newton polish divides by that derivative, so before nonzero_slope
+    # learned to treat non-finite like zero, TORCH returned nan here -- and it
+    # reached dehnendf's sampler as a nan mean sampled radius, three CI failures
+    # deep from here. jax already survived this (its jvp forward mode selects
+    # the live tangent, where torch's reverse mode does 0 * nan); it is
+    # parametrized over both so the two backends stay pinned to one answer.
+    xp = _xp(backend)
+    ones = xp.ones_like(xp.asarray(1.0))
+
+    def f(x):
+        # root of x - 0.5 is 0.5, which lies in the x < 1 branch; the OTHER
+        # branch is sqrt(negative) there -> value nan, derivative nan.
+        return xp.where(x < 1.0, x - 0.5, xp.sqrt(x - ones))
+
+    a, b = xp.asarray(0.0), xp.asarray(0.9)
+
+    # the premise: df/dx really is NaN at the root, else this test proves nothing
+    dfdx = _dfdx_at(backend, f, 0.5)
+    assert numpy.isnan(dfdx), f"{backend}: premise broken, df/dx = {dfdx}"
+
+    root = float(_to_np(brentq(f, a, b)))
+    assert not numpy.isnan(root), f"{backend} returned nan instead of a root"
+    assert abs(root - 0.5) < 8.0 * numpy.finfo(float).eps, (
+        f"{backend} root {root!r} is not 0.5"
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_backend_root_survives_nan_function_value(backend):
+    # The one that actually bit: f(x0) itself non-finite. Bisection only ever
+    # consumes SIGNS of f, so it still hands back a usable bracket root -- but
+    # the Newton step then subtracts nan/d and destroys it. dehnendf's sampler
+    # hits this via sqrt(2(E-Phi) - L^2/x^2) going imaginary for some draws,
+    # which surfaced as a nan MEAN sampled radius in three test_diskdf tests.
+    #
+    # Guarding only the SLOPE (nonzero_slope) does not help here and I measured
+    # that: the step has to be guarded.
+    xp = _xp(backend)
+
+    def f(x):
+        # sign is correct everywhere on [0, 0.9] so bisection converges to 0.5,
+        # but the value is nan in a thin band straddling the root.
+        val = x - 0.5
+        return xp.where(xp.abs(val) < 1e-12, xp.asarray(float("nan")), val)
+
+    a, b = xp.asarray(0.0), xp.asarray(0.9)
+    root = float(_to_np(brentq(f, a, b)))
+    assert not numpy.isnan(root), f"{backend} returned nan instead of a root"
+    assert abs(root - 0.5) < 1e-9, f"{backend} root {root!r} is not 0.5"
