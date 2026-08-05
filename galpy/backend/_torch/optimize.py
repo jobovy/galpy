@@ -25,7 +25,7 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     """
     import torch
 
-    from ..optimize import bisect_root
+    from ..optimize import bisect_root, newton_polish
 
     # Bisection root, detached: its branchy comparisons carry no useful gradient,
     # so x0 is a constant w.r.t. the parameters; the Newton step restores the
@@ -55,7 +55,19 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
         torch.is_grad_enabled()
         and (fx0.requires_grad or _needs_grad(a) or _needs_grad(b))
     ):
-        return x0
+        # Still take the Newton step, for the VALUE. Bisection alone stops at
+        # the final bracket half-width (~1e-14 here), and callers that go on to
+        # form sqrt(f(x0)) amplify that residual -- actionAngleVertical's Omega
+        # divides by sqrt(2(E-Phi(xmax))) and turned a 4e-14 residual into a
+        # 6e-10 frequency error, while jax (which always polishes) stayed at
+        # 1e-13. df/dx needs autograd, so enable it locally and detach: the
+        # returned tensor still carries no graph, which is what this branch is
+        # for (callers here go straight to .numpy()).
+        with torch.enable_grad():
+            xr = x0.clone().requires_grad_(True)
+            fxr = f(xr)
+            (dfdx,) = torch.autograd.grad(fxr, xr, grad_outputs=torch.ones_like(fxr))
+        return newton_polish(x0, fx0, dfdx.detach(), xp).detach()
     # x-slot leaf for the elementwise df/dx (a fresh copy that requires grad in
     # the x argument only; the parameters keep their own grad tracking through f).
     xr = x0.clone().requires_grad_(True)
@@ -69,17 +81,4 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     # fxr carries the parameter dependence of f(x0) (xr is detached from params);
     # dfdx carries df/dx and its parameter dependence. x0 is constant. So the
     # Newton step is differentiable w.r.t. every parameter f closes over.
-    return x0 - fxr / _nonzero(dfdx, xp)
-
-
-def _nonzero(d, xp):
-    """Replace (near-)zero slopes by a tiny same-sign value so 1/d stays finite.
-
-    A vanishing df/dx is a genuinely ill-posed root (tangential crossing); rather
-    than emit inf/NaN that would poison reverse-mode AD, floor |d| at a tiny
-    epsilon keeping its sign. Dead-branch guarded: both ``xp.where`` sides are
-    evaluated eagerly, and the flooring keeps every branch finite.
-    """
-    ones = xp.ones_like(d)
-    sign = xp.where(d >= 0, ones, -ones)
-    return sign * xp.maximum(xp.abs(d), 1e-300 * ones)
+    return newton_polish(x0, fxr, dfdx, xp)
