@@ -14,7 +14,7 @@ from .._resolver import get_namespace
 # add the native version. (numpy always has the full scipy.special.)
 _NATIVE_MISSING = {
     # jax.scipy.special has i0/i1 and sici but no general-order iv.
-    "jax": frozenset(("ellipk", "ellipe", "k0", "k1", "kn", "iv")),
+    "jax": frozenset(("ellipk", "ellipkm1", "ellipe", "k0", "k1", "kn", "iv")),
     # torch.special lacks all of these. (It does have modified_bessel_k0/k1, but
     # they are NOT differentiable -- no autograd backward -- and there is no kn,
     # so the k0/k1/kn fallbacks are used; the router sees no torch.special.k0.)
@@ -23,6 +23,7 @@ _NATIVE_MISSING = {
         (
             "gamma",
             "ellipk",
+            "ellipkm1",
             "ellipe",
             "hyp2f1",
             "hyp1f1",
@@ -183,6 +184,13 @@ def ellipk(m):
     from ._fallback.elliptic import ellipk_fallback
 
     return _dispatch("ellipk", (m,), ellipk_fallback)
+
+
+def ellipkm1(m1):
+    # K(1-m1) from the complement, for callers that know 1-m exactly.
+    from ._fallback.elliptic import ellipkm1_fallback
+
+    return _dispatch("ellipkm1", (m1,), ellipkm1_fallback)
 
 
 def ellipe(m):
