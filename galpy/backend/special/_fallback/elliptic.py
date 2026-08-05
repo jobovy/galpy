@@ -12,8 +12,13 @@
 _AGM_NITER = 16
 
 
-def _agm_KE(xp, m):
+def _agm_KE(xp, m, m1=None):
     r"""Both K(m) and E(m) from a single arithmetic-geometric-mean iteration.
+
+    ``m1`` is the complement 1-m. Callers that know it exactly (``ellipkm1``)
+    pass it in, so the quantity controlling K's singularity is never formed by
+    the subtraction 1-m -- which rounds to 0 for m within an ulp of 1 and
+    sends K to inf even though the true value is finite.
 
     K(m) = pi / (2 * AGM(1, sqrt(1-m))),
     E(m) = K(m) * (1 - sum_{n>=0} 2^{n-1} c_n^2),
@@ -25,12 +30,13 @@ def _agm_KE(xp, m):
     """
     m = xp.asarray(m) * 1.0
     one = xp.ones_like(m)
+    m1 = 1.0 - m if m1 is None else xp.asarray(m1) * 1.0
     # At m==1 (b0=0) the AGM reaches 0 only asymptotically; run it on a safe
     # argument and substitute the exact limits K=+inf, E=1 afterwards (AD-safe).
-    on_edge = m == 1.0
+    on_edge = m1 == 0.0
     ms = xp.where(on_edge, 0.5 * one, m)
     a = one
-    b = xp.sqrt(1.0 - ms)  # real for all m < 1, incl. m < 0
+    b = xp.sqrt(xp.where(on_edge, 0.5 * one, m1))  # real for m < 1, incl. m < 0
     # sum starts at n=0 with weight 2^{-1} and c_0^2 = ms exactly (sqrt(ms) would
     # be nan for m < 0, NaN-poisoning E; K depends only on b = sqrt(1-ms))
     p = 0.5
@@ -58,3 +64,14 @@ def ellipk_fallback(xp, m):
 def ellipe_fallback(xp, m):
     """Complete elliptic integral of the second kind E(m) (scipy m-convention)."""
     return _agm_KE(xp, m)[1]
+
+
+def ellipkm1_fallback(xp, m1):
+    """K(1-m1) from the complement m1, mirroring ``scipy.special.ellipkm1``.
+
+    For m1 << 1 this is the only accurate way in: K's argument would otherwise
+    have to be reconstructed as 1-m1, which for m1 below an ulp collapses to
+    exactly 1.0 and returns +inf.
+    """
+    m1 = xp.asarray(m1) * 1.0
+    return _agm_KE(xp, 1.0 - m1, m1=m1)[0]
