@@ -153,8 +153,6 @@
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
 jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
-jax tests/test_interp_potential.py::test_interpolation_potential_force_c
-jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
