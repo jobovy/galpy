@@ -141,9 +141,6 @@ torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
 torch tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
-torch tests/test_streamdf.py::test_fardalwmwpot_trackaa
-torch tests/test_streamdf.py::test_plotting
-torch tests/test_streamdf.py::test_streamTrack_multi_parallel
 jax tests/test_noninertial.py::test_arbitraryaxisrotation
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
 
