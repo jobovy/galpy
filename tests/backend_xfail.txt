@@ -1,3 +1,16 @@
+# SOURCE-FIX burn + RE-HOME (2026-08-05). Two entries burned by fixes in this
+# same PR: jax SpiralArms test_Rzderiv (the test's finite-difference reference was
+# built with dx=1e-8, which amplifies a 1.9e-13 float64 reassociation in Rforce by
+# 5e7; dx=1e-6 makes the reference ~150x more accurate) and torch
+# test_constantbeta_interpolatedpotentials_beta (interpSphericalPotential froze
+# _Phi0/_Phimax as Tensors while _total_mass/_rmax stayed numpy). Separately, the
+# 2 jax test_arbitraryaxisrotation{,_omegafunc} entries are RE-HOMED to
+# backend_slow_skip.txt, not pruned: timed under `--backend jax --runxfail` they
+# PASS at 581.6 s and 559.9 s, i.e. ~2x the 300 s per-test CI timeout -- the same
+# TIMEOUT class as their 3 siblings re-homed on 2026-07-23 below, and the two
+# slowest members of it. Re-homing is bookkeeping accuracy, not burndown: the
+# xfail ledger drops 2 and the deferred list gains 2.
+#
 # REGEN-MILESTONE prune (2026-07-23, full-matrix REGEN run 29979778304 on
 # feat/backends c08577ff -- post-#1185; all 44 jax+torch shards ran to
 # completion (conclusion=success), no session-timeout truncation, and the
@@ -122,7 +135,6 @@
 # (test_analytic_ecc_rperi_rap: passes locally, xfails in CI group g3). Same
 # blind spot that made an earlier local regen report false failures.
 
-jax tests/test_SpiralArmsPotential.py::TestSpiralArmsPotential::test_Rzderiv
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
 jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
@@ -140,9 +152,6 @@ torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqs
 torch tests/test_actionAngle.py::test_actionAngleVertical_Harmonic_actionsFreqsAngles
 torch tests/test_qdf.py::test_call_diffinoutputs
-torch tests/test_sphericaldf.py::test_constantbeta_interpolatedpotentials_beta
-jax tests/test_noninertial.py::test_arbitraryaxisrotation
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
 
 # --- jax single-orbit: action-angle accessors (Track E) ---
 # o.jr()/jz()/e()/zmax()/rperi()/rap() and physical/quantity/plotting paths that call

@@ -332,6 +332,20 @@ jax tests/test_noninertial.py::test_lsrframe_vecomegaz_2d
 jax tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
+# Re-homed from backend_xfail.txt 2026-08-05: same class as the block above, and
+# the two slowest members of it. Timed under `--backend jax --runxfail` (nothing
+# masked), whole -k arbitraryaxisrotation family:
+#   PASS 581.6s test_arbitraryaxisrotation           <- was xfail-ledgered
+#   PASS 559.9s test_arbitraryaxisrotation_omegafunc <- was xfail-ledgered
+#   PASS 182.0s test_python_vs_c_arbitraryaxisrotation_omegadot
+#   PASS 159.1s test_arbitraryaxisrotation_omegadot_nullpotential
+#   PASS 140.1s test_arbitraryaxisrotation_nullpotential
+#   PASS 116.9s test_python_vs_c_arbitraryaxisrotation
+# Both PASS, at ~2x the 300 s per-test CI timeout -- they are not numerical gaps,
+# they never finish. Every sibling that runs UNDER 300 s is in neither list, so
+# the split is exactly the runtime one. Not a burndown: xfail -2, deferred +2.
+jax tests/test_noninertial.py::test_arbitraryaxisrotation
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
 
 # --- streamdf under jax (Track F streamdf vectorization) ---
 # The closed-form actionAngleIsochrone backend migration (same PR) makes

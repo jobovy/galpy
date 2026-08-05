@@ -435,10 +435,24 @@ def pytest_sessionfinish(session, exitstatus):
             target=lambda: (time.sleep(60), _backend_force_exit(exitstatus)),
             daemon=True,
         ).start()
-    # --- let junitxml + terminalreporter write everything, THEN force-exit ---
+    # --- let junitxml write, THEN hand off to pytest_unconfigure ---
     yield
     if forced:
-        _backend_force_exit(exitstatus)
+        # NOT here: pytest's short summary ("N passed, M failed") is emitted by
+        # TerminalReporter AFTER this hook unwinds, so force-exiting at this
+        # point silently truncates every forced-backend log to a row of dots --
+        # junit is intact, but a human reading CI sees no counts. Defer to
+        # pytest_unconfigure, which runs last; the 60 s daemon armed above still
+        # covers a hang in the summary itself.
+        session.config._galpy_force_exit_status = exitstatus
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_unconfigure(config):
+    """Force-exit the forced-backend run once the terminal summary is out."""
+    status = getattr(config, "_galpy_force_exit_status", None)
+    if status is not None:
+        _backend_force_exit(status)
 
 
 @pytest.fixture(autouse=True)
