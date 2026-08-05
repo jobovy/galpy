@@ -31,6 +31,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import platform
+import sys
 
 import numpy
 
@@ -56,6 +57,21 @@ except ImportError:  # pragma: no cover
     _TQDM_LOADED = False
 
 __all__ = ("parallel_map",)
+
+
+def _restrict_child():
+    """Make the forked child safe for whatever array backend it inherited.
+
+    Called first thing in the child. torch's intra-op pool does not survive
+    ``fork``: the child inherits pool state it cannot use and deadlocks on its
+    first parallel region. Capping the child at one thread stops the pool being
+    re-entered, and is the right split anyway -- with one process per core, one
+    thread per process is full occupancy rather than ``ncpus``-fold
+    oversubscription.
+    """
+    torch = sys.modules.get("torch")
+    if torch is not None:
+        torch.set_num_threads(1)
 
 
 def worker(
@@ -87,6 +103,7 @@ def worker(
     pbar_proc : ?
         process to use to display the progressbar
     """
+    _restrict_child()
     vals = []
 
     progressbar *= _TQDM_LOADED
