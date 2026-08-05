@@ -443,3 +443,25 @@ def namespace_from_arrays(arrays):
     # Non-numpy arrays only reach here (numpy is handled by the fast path above),
     # so this returns the jax / array-api-compat-torch namespace.
     return array_api_compat.array_namespace(*arrs)
+
+
+def restrict_to_single_thread():
+    """Cap the array backends at one compute thread, for a forked child.
+
+    ``galpy.util.multi.parallel_map`` forks (spawn cannot pickle the mapped
+    closures, #457). torch's intra-op thread pool does not survive ``fork``: the
+    child inherits pool state it cannot use and deadlocks on its first parallel
+    region, hanging the parent in ``proc.join()`` forever. Calling this first
+    thing in the child stops the pool from being re-entered -- and one thread per
+    child is the right split anyway, since one process per core already
+    saturates the machine.
+
+    No-op when torch is not loaded. jax has no equivalent knob (it warns at
+    every ``os.fork`` that a deadlock is likely, and the only cure available
+    there is not forking at all), so jax is deliberately not handled here.
+    """
+    import sys
+
+    torch = sys.modules.get("torch")
+    if torch is not None:
+        torch.set_num_threads(1)

@@ -87,6 +87,12 @@ def worker(
     pbar_proc : ?
         process to use to display the progressbar
     """
+    # Forked children must not re-enter an inherited torch thread pool; see
+    # galpy.backend.restrict_to_single_thread. Imported here, not at module
+    # scope, to keep galpy.util.multi importable without galpy.backend.
+    from ..backend import restrict_to_single_thread
+
+    restrict_to_single_thread()
     vals = []
 
     progressbar *= _TQDM_LOADED
