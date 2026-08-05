@@ -25,7 +25,7 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     """
     import torch
 
-    from ..optimize import bisect_root
+    from ..optimize import bisect_root, newton_polish
 
     # Bisection root, detached: its branchy comparisons carry no useful gradient,
     # so x0 is a constant w.r.t. the parameters; the Newton step restores the
@@ -67,7 +67,7 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
             xr = x0.clone().requires_grad_(True)
             fxr = f(xr)
             (dfdx,) = torch.autograd.grad(fxr, xr, grad_outputs=torch.ones_like(fxr))
-        return (x0 - fx0 / _nonzero(dfdx.detach(), xp)).detach()
+        return newton_polish(x0, fx0, dfdx.detach(), xp).detach()
     # x-slot leaf for the elementwise df/dx (a fresh copy that requires grad in
     # the x argument only; the parameters keep their own grad tracking through f).
     xr = x0.clone().requires_grad_(True)
@@ -81,17 +81,4 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     # fxr carries the parameter dependence of f(x0) (xr is detached from params);
     # dfdx carries df/dx and its parameter dependence. x0 is constant. So the
     # Newton step is differentiable w.r.t. every parameter f closes over.
-    return x0 - fxr / _nonzero(dfdx, xp)
-
-
-def _nonzero(d, xp):
-    """Replace (near-)zero slopes by a tiny same-sign value so 1/d stays finite.
-
-    A vanishing df/dx is a genuinely ill-posed root (tangential crossing); rather
-    than emit inf/NaN that would poison reverse-mode AD, floor |d| at a tiny
-    epsilon keeping its sign. Dead-branch guarded: both ``xp.where`` sides are
-    evaluated eagerly, and the flooring keeps every branch finite.
-    """
-    ones = xp.ones_like(d)
-    sign = xp.where(d >= 0, ones, -ones)
-    return sign * xp.maximum(xp.abs(d), 1e-300 * ones)
+    return newton_polish(x0, fxr, dfdx, xp)
