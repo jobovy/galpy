@@ -216,3 +216,15 @@ jax-jit tests/test_orbit.py::test_eccentricity
 torch-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
+
+# --- torch --jit: parallel_map's fork is fixed for EAGER torch only ----------
+# The child-side torch.set_num_threads(1) cure (fix/parallel-map-fork-safety)
+# makes eager torch survive parallel_map's fork, and these three are un-ledgered
+# for plain `torch` above. Under `--jit` they still do not work: torch.compile
+# brings its own process/CUDA state across the fork. Measured 2026-08-05 --
+# CUDA torch gives "Cannot re-initialize CUDA in forked subprocess", and with
+# CUDA_VISIBLE_DEVICES='' the run wedged past a 900 s timeout. Keeping them
+# ledgered under torch-jit so a workflow_dispatch(jit=true) stays honest.
+torch-jit tests/test_streamdf.py::test_fardalwmwpot_trackaa
+torch-jit tests/test_streamdf.py::test_plotting
+torch-jit tests/test_streamdf.py::test_streamTrack_multi_parallel
