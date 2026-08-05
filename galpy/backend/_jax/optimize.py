@@ -26,6 +26,8 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     import jax
     import jax.numpy as jnp
 
+    from ..optimize import newton_polish
+
     x0 = jax.lax.stop_gradient(_bisect_root(f, a, b, xp, xtol=xtol, maxiter=maxiter))
     # df/dx at x0 via a forward-mode directional derivative along the all-ones
     # tangent (exact df/dx for an elementwise f); the value fx0 comes for free.
@@ -33,7 +35,7 @@ def brentq_backend(f, a, b, xp, *, xtol, maxiter):
     # One Newton step: exact root for a locally-linear f, and -- since x0 is a
     # constant w.r.t. theta and fx0 ~ 0 -- its theta-gradient is the implicit
     # one. Guard a (near-)singular slope so AD never sees a 0/0.
-    return x0 - fx0 / _nonzero(dfx0, xp)
+    return newton_polish(x0, fx0, dfx0, xp)
 
 
 def _bisect_root(f, a, b, xp, *, xtol, maxiter):
@@ -62,16 +64,3 @@ def _bisect_root(f, a, b, xp, *, xtol, maxiter):
         0, n, lambda _, c: bisect_step(c[0], c[1], slo, f, xp), (lo, hi)
     )
     return 0.5 * (lo + hi)
-
-
-def _nonzero(d, xp):
-    """Replace (near-)zero slopes by a tiny same-sign value so 1/d stays finite.
-
-    A vanishing df/dx is a genuinely ill-posed root (tangential crossing); rather
-    than emit inf/NaN that would poison reverse-mode AD, floor |d| at a tiny
-    epsilon keeping its sign. Dead-branch guarded: both ``xp.where`` sides are
-    evaluated eagerly, and the flooring keeps every branch finite.
-    """
-    ones = xp.ones_like(d)
-    sign = xp.where(d >= 0, ones, -ones)
-    return sign * xp.maximum(xp.abs(d), 1e-300 * ones)

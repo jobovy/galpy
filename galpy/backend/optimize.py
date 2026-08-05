@@ -211,3 +211,59 @@ def bisect_root(f, a, b, xp, *, xtol, maxiter):
     for _ in range(n):
         lo, hi = bisect_step(lo, hi, slo, f, xp)
     return 0.5 * (lo + hi)
+
+
+def nonzero_slope(d, xp):
+    """Sanitise a Newton denominator so ``1 / d`` is always finite.
+
+    Two ill-posed cases, both of which occur:
+
+    * a **vanishing** ``df/dx`` -- a tangential crossing, where the root is
+      genuinely ill-conditioned. Floor ``|d|`` at a tiny epsilon, keeping the
+      sign, rather than emit inf.
+    * a **non-finite** ``df/dx``. ``f`` can be perfectly finite at the root and
+      still hand back a NaN derivative: an unguarded ``xp.where`` dead branch is
+      evaluated eagerly, so ``f(x0)=0`` with ``df/dx=nan``. That nan flowed
+      through the Newton step and out into caller results -- it reached
+      dehnendf's sampled radii as a nan mean. Substitute a unit slope; since
+      ``f(x0)`` is ~0 at the bisection root, the polish then degrades to a no-op
+      instead of destroying the answer.
+
+    The NaN case is torch-only in practice: torch takes df/dx in reverse mode,
+    where ``where``'s backward masks with zero and ``0 * nan`` is nan, while jax
+    uses ``jax.jvp`` and forward mode simply selects the live tangent (measured
+    -- jax returns the right root on the same input either way). It is guarded
+    for both anyway, because which mode a backend uses is not something callers
+    of a root-finder should have to know.
+
+    Shared rather than duplicated: the jax and torch halves carried verbatim
+    copies of this. Both ``xp.where`` sides are evaluated eagerly and every
+    branch here stays finite, so this is itself dead-branch safe.
+    """
+    ones = xp.ones_like(d)
+    d = xp.where(xp.isfinite(d), d, ones)
+    sign = xp.where(d >= 0, ones, -ones)
+    return sign * xp.maximum(xp.abs(d), 1e-300 * ones)
+
+
+def newton_polish(x0, fx0, dfdx, xp):
+    """One safeguarded Newton step from the bisection root ``x0``.
+
+    The polish exists to buy precision the bracket cannot: bisection stops at
+    the final half-width, and callers that go on to form ``sqrt(f(root))``
+    amplify that residual. But it must never make the answer WORSE than the
+    root it is polishing, and there are two ways it can:
+
+    * ``df/dx`` non-finite or vanishing -- handled by :func:`nonzero_slope`;
+    * ``f(x0)`` itself non-finite. This happens for real. dehnendf's sampler
+      evaluates ``sqrt(2(E - Phi) - L^2/x^2)``, which goes imaginary for some
+      draws, so ``f(x0)`` is nan while bisection -- which only ever consumes
+      SIGNS of ``f`` -- still returned a usable bracket root. Subtracting a nan
+      step then destroyed a root that was fine.
+
+    So: take the step only where it is finite, and keep ``x0`` elsewhere. The
+    guard is on the STEP rather than on the result so that the fallback branch
+    never has a nan flowing into it.
+    """
+    step = fx0 / nonzero_slope(dfdx, xp)
+    return x0 - xp.where(xp.isfinite(step), step, xp.zeros_like(step))
