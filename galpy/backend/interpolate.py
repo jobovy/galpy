@@ -737,7 +737,7 @@ def _cubic_bspline_weights(xp, f):
     return out  # list of 4 weight arrays
 
 
-def map_coordinates(filtered, coords, order=3, mode="nearest", prefilter=False):
+def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
     """Backend-agnostic cubic ``map_coordinates`` off a prefiltered grid.
 
     A drop-in for ``scipy.ndimage.map_coordinates(filtered, coords, order=3,
@@ -767,12 +767,18 @@ def map_coordinates(filtered, coords, order=3, mode="nearest", prefilter=False):
         Spline order; only ``3`` (cubic) is implemented for the backend path
         (the numpy path forwards any order to scipy). Default 3.
     mode : str, optional
-        Boundary mode for taps outside ``[0, n_d - 1]``. Only ``'nearest'``
-        (clamp the tap index to the edge) is implemented on the backend path; it
-        is forwarded to scipy on the numpy path. The action-angle grids clamp
-        their coordinates in-range before calling, so the boundary mode is
-        rarely exercised, but ``'nearest'`` is the documented/default choice.
-        Default ``'nearest'``.
+        Boundary mode for taps outside ``[0, n_d - 1]``. Default ``'mirror'``,
+        which is the PAIR to :func:`spline_filter`'s ``mode='mirror'`` prefilter:
+        filter-then-evaluate only reconstructs the input when the two modes
+        match. Only ``'mirror'`` and ``'nearest'`` are implemented on the backend
+        path; both are forwarded to scipy on the numpy path.
+
+        Clamping the *coordinates* in-range does NOT make the boundary mode
+        irrelevant -- the cubic kernel's *taps* still reach outside at a query on
+        or near an edge node. With ``'nearest'`` on mirror-prefiltered
+        coefficients the error at boundary nodes reached 6.8 in a log-valued
+        actionAngle grid (~875x in the value) while the interior stayed exact,
+        which is why interior-only tests never saw it.
     prefilter : bool, optional
         Whether to prefilter inside this call. The intended usage prefilters once
         at setup via :func:`spline_filter` and passes ``prefilter=False`` here;
@@ -798,9 +804,9 @@ def map_coordinates(filtered, coords, order=3, mode="nearest", prefilter=False):
         raise NotImplementedError(
             "backend map_coordinates only implements order=3 (cubic)"
         )
-    if mode != "nearest":  # pragma: no cover - galpy uses the clamped path
+    if mode not in ("mirror", "nearest"):  # pragma: no cover
         raise NotImplementedError(
-            "backend map_coordinates only implements mode='nearest'"
+            "backend map_coordinates only implements mode='mirror'|'nearest'"
         )
     import array_api_compat
 
@@ -833,7 +839,13 @@ def map_coordinates(filtered, coords, order=3, mode="nearest", prefilter=False):
         wt = None
         for d in range(D):
             idx_d = base[d] + offs[combo[d]]
-            idx_d = xp.clip(idx_d, 0, shape[d] - 1)
+            if mode == "mirror":
+                # Whole-sample symmetric fold, the pair to spline_filter's
+                # mode='mirror': i<0 -> -i ; i>n-1 -> 2(n-1)-i.
+                hi = shape[d] - 1
+                idx_d = hi - xp.abs(hi - xp.abs(idx_d))
+            else:  # 'nearest': clamp the tap index to the edge
+                idx_d = xp.clip(idx_d, 0, shape[d] - 1)
             gather_idx.append(idx_d)
             w_d = weights[d][combo[d]]
             wt = w_d if wt is None else wt * w_d
@@ -865,10 +877,11 @@ class MapCoordinates:
     order : int, optional
         Spline order (default 3, cubic).
     mode : str, optional
-        Boundary mode for the backend path (default ``'nearest'``).
+        Boundary mode (default ``'mirror'``, pairing with the prefilter -- see
+        :func:`map_coordinates`).
     """
 
-    def __init__(self, grid, order=3, mode="nearest"):
+    def __init__(self, grid, order=3, mode="mirror"):
         self._order = order
         self._mode = mode
         self._filtered = spline_filter(grid, order=order)

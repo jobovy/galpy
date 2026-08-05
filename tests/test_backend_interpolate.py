@@ -612,8 +612,13 @@ def test_map_coordinates_vs_scipy(backend):
     # ndimage cubic map_coordinates: setup-time scipy spline_filter prefilter,
     # then backend interpolation off the coefficients. numpy byte-identical;
     # jax/torch ~1e-12 vs scipy.ndimage.map_coordinates.
+    #
+    # The reference MUST use the same boundary mode as spline_filter (mirror).
+    # These refs previously pinned mode="nearest" to match what the evaluator
+    # happened to do, so both sides shared one wrong rule and agreed by
+    # construction -- see test_map_coordinates_reproduces_every_node_* below.
     filt = spline_filter(_MGRID, order=3)
-    ref = sndi.map_coordinates(filt, _MCOORDS, order=3, prefilter=False, mode="nearest")
+    ref = sndi.map_coordinates(filt, _MCOORDS, order=3, prefilter=False, mode="mirror")
     got = as_numpy(map_coordinates(filt, _asarray(backend, _MCOORDS)))
     rtol = 0.0 if backend == "numpy" else 1e-12
     numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-13)
@@ -622,7 +627,7 @@ def test_map_coordinates_vs_scipy(backend):
 def test_map_coordinates_numpy_byte_identical():
     # numpy path is a literal scipy.ndimage.map_coordinates passthrough.
     filt = spline_filter(_MGRID, order=3)
-    ref = sndi.map_coordinates(filt, _MCOORDS, order=3, prefilter=False, mode="nearest")
+    ref = sndi.map_coordinates(filt, _MCOORDS, order=3, prefilter=False, mode="mirror")
     numpy.testing.assert_array_equal(map_coordinates(filt, _MCOORDS), ref)
 
 
@@ -633,7 +638,7 @@ def test_mapcoordinates_class_matches_function(backend):
     mc = MapCoordinates(_MGRID, order=3)
     numpy.testing.assert_array_equal(mc.filtered, spline_filter(_MGRID, order=3))
     ref = sndi.map_coordinates(
-        mc.filtered, _MCOORDS, order=3, prefilter=False, mode="nearest"
+        mc.filtered, _MCOORDS, order=3, prefilter=False, mode="mirror"
     )
     got = as_numpy(mc(_asarray(backend, _MCOORDS)))
     rtol = 0.0 if backend == "numpy" else 1e-12
@@ -952,7 +957,7 @@ def test_mapcoordinates_native_filtered_vs_scipy(backend):
         _MC3,
         order=3,
         prefilter=False,
-        mode="nearest",
+        mode="mirror",
     )
     got = as_numpy(mc(_asarray(backend, _MC3)))
     numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-12)
@@ -1162,3 +1167,57 @@ def test_eval_ppoly_derivative_orders_match_scipy_numpy(nu):
     got = eval_ppoly(numpy, x, c, r, nu=nu)
     ref = numpy.zeros_like(r) if nu > 3 else pp.derivative(nu)(r) if nu else pp(r)
     numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=1e-12)
+
+
+# --- boundary-node reproduction (the check that was missing) -----------------
+# Every probe above draws query points from the interior extent, where no cubic
+# tap reaches outside the array and so EVERY boundary mode agrees. That is why a
+# mismatched evaluator mode survived: with mode='nearest' on mode='mirror'
+# prefiltered coefficients, boundary-node error reached 6.8 in a log-valued
+# actionAngle grid (~875x in the value) while the interior stayed exact.
+#
+# filter+evaluate must return the input at EVERY node, edges included. One
+# assertion pins the filter/evaluator mode pairing; interior-only probes cannot.
+_BN_SHAPE = (6, 7, 5)
+_BN_GRID = _rng.uniform(0.1, 2.0, _BN_SHAPE)
+_BN_NODES = numpy.indices(_BN_SHAPE).reshape(3, -1).astype(float)
+
+
+def _bn_on_boundary(shape):
+    onb = numpy.zeros(shape, dtype=bool)
+    for d in range(len(shape)):
+        sl = [slice(None)] * len(shape)
+        sl[d] = 0
+        onb[tuple(sl)] = True
+        sl[d] = shape[d] - 1
+        onb[tuple(sl)] = True
+    return onb.ravel()
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_map_coordinates_reproduces_every_node_including_boundaries(backend):
+    filt = spline_filter(_BN_GRID, order=3)
+    got = as_numpy(map_coordinates(filt, _asarray(backend, _BN_NODES)))
+    err = numpy.abs(got - _BN_GRID.ravel())
+    onb = _bn_on_boundary(_BN_SHAPE)
+    # Reported separately: a boundary-only regression must not hide behind a
+    # healthy interior, and that asymmetry IS the signature of a mode mismatch.
+    assert err[~onb].max() < 1e-12, (
+        f"interior nodes not reproduced: max|err| = {err[~onb].max():.3e}"
+    )
+    assert err[onb].max() < 1e-12, (
+        f"BOUNDARY nodes not reproduced: max|err| = {err[onb].max():.3e} "
+        f"(interior fine at {err[~onb].max():.3e}) -- the evaluator's boundary "
+        "mode does not match spline_filter's mode='mirror'"
+    )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_map_coordinates_nearest_still_available(backend):
+    # 'nearest' remains selectable and still matches scipy; only the DEFAULT moved.
+    filt = spline_filter(_BN_GRID, order=3)
+    ref = sndi.map_coordinates(
+        filt, _BN_NODES, order=3, prefilter=False, mode="nearest"
+    )
+    got = as_numpy(map_coordinates(filt, _asarray(backend, _BN_NODES), mode="nearest"))
+    numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-12)
