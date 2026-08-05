@@ -234,3 +234,13 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetric
 torch-jit tests/test_streamdf.py::test_fardalwmwpot_trackaa
 torch-jit tests/test_streamdf.py::test_plotting
 torch-jit tests/test_streamdf.py::test_streamTrack_multi_parallel
+# A units-based density is NOT TRACEABLE, and this is by construction rather
+# than a defect. AnySphericalPotential._backend_dens deliberately evaluates such
+# a density on the numpy node --  astropy Quantity arithmetic strips a jax/torch
+# node to numpy, so the density is inherently non-differentiable -- and anchors
+# the result back (see its docstring). That routes through as_numpy(), i.e.
+# numpy.asarray(), which a tracer cannot satisfy. Eager jax/torch are fine: a
+# concrete array converts. Un-ledger only if units handling ever becomes
+# backend-native; there is nothing to fix in the test.
+jax-jit tests/test_potential.py::test_pickling_potential_unitful_dens
+jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
