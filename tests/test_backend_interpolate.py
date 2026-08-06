@@ -1221,3 +1221,13 @@ def test_map_coordinates_nearest_still_available(backend):
     )
     got = as_numpy(map_coordinates(filt, _asarray(backend, _BN_NODES), mode="nearest"))
     numpy.testing.assert_allclose(got, ref, rtol=0.0, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_map_coordinates_rejects_unimplemented_mode(backend):
+    # The mode guard is reachable only with backend-array coords (numpy coords
+    # are a scipy passthrough that accepts every scipy mode), and this PR widened
+    # it from 'nearest' to 'mirror'|'nearest' -- so cover it rather than pragma it.
+    filt = spline_filter(_BN_GRID, order=3)
+    with pytest.raises(NotImplementedError, match="mirror.*nearest"):
+        map_coordinates(filt, _asarray(backend, _BN_NODES), mode="reflect")

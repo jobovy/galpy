@@ -804,7 +804,7 @@ def map_coordinates(filtered, coords, order=3, mode="mirror", prefilter=False):
         raise NotImplementedError(
             "backend map_coordinates only implements order=3 (cubic)"
         )
-    if mode not in ("mirror", "nearest"):  # pragma: no cover
+    if mode not in ("mirror", "nearest"):
         raise NotImplementedError(
             "backend map_coordinates only implements mode='mirror'|'nearest'"
         )
