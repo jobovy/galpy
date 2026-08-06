@@ -4,7 +4,7 @@
 import numpy
 from scipy import interpolate
 
-from ..backend import get_namespace, match_input_dtype
+from ..backend import as_numpy, get_namespace, match_input_dtype
 from ..backend.interpolate import eval_ppoly as _ppoly_eval
 from ..backend.interpolate import spline_to_ppoly as _spline_to_ppoly_data
 from ..util.conversion import get_physical, physical_compatible
@@ -75,7 +75,14 @@ class interpSphericalPotential(SphericalPotential):
         )
         # Get potential and r2deriv as splines for the integral and derivative
         self._pot_spline = self._force_spline.antiderivative()
-        self._Phi0 = Phi0 + self._pot_spline(self._rgrid[0])
+        # Freeze Phi0 on the numpy side: every other derived scalar here comes
+        # from a scipy spline and is numpy, and _revaluate's numpy branch mixes
+        # them directly. Built under a forced backend, _evaluatePotentials returns
+        # a backend scalar, which used to make _Phi0/_Phimax backend arrays while
+        # _total_mass/_rmax stayed numpy -- numpy expression + Tensor on line ~105.
+        # Nothing is lost: the splines are scipy, so parameter gradients are
+        # already unavailable, and the backend branch coerces with xp.asarray.
+        self._Phi0 = as_numpy(Phi0) + self._pot_spline(self._rgrid[0])
         self._r2deriv_spline = self._force_spline.derivative()
         # Piecewise-power (PPoly) representation of the three splines for the
         # non-numpy backends (see _ppoly_eval). The antiderivative/derivative
