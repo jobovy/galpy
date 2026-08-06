@@ -80,7 +80,20 @@ jax tests/test_qdf.py::test_sampleV_interpolate
 # runners (proactive defer, same rationale as test_MultipoleExpansion_deepcopy below):
 #  - test_interpolation_potential_c (263 s), _secondderivs_c (274 s)  [test_interp_potential]
 #  - test_2ndDeriv_potential[mockInterpRZPotentialwSecondDerivs] (263 s)  [test_potential]
+# RE-HOMED here from backend_xfail.txt 2026-08-05: two more of the same family that
+# were mis-filed as xfail. Timed with `--backend jax --runxfail` over the WHOLE file
+# (36 passed, 4 skipped, 0 FAILED -- the 4 skips are the entries already listed here):
+#   PASS 1311.1s test_interpolation_potential_force_c        <- was xfail-ledgered
+#   PASS  989.8s test_interpolation_potential_secondderivs   <- was xfail-ledgered
+#   PASS  203.7s test_interpolation_potential_force_c_vdiffgridsizes
+#   PASS  144.9s test_interpolation_potential
+# They PASS, at 4.4x and 3.3x the 300 s timeout, so they are not numerical gaps --
+# they never finish, time out, record FAILED, and the xfail absorbs it. Every sibling
+# under 300 s is in neither list. Bookkeeping, not burndown: xfail -2, deferred +2;
+# skipping them also returns ~38 min of jax shard time per run.
 # Defer all until interpRZ is backend-vectorized (group d); numpy runs them, values correct.
+jax tests/test_interp_potential.py::test_interpolation_potential_force_c
+jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs
 jax tests/test_interp_potential.py::test_interpolation_potential_dens
 jax tests/test_interp_potential.py::test_interpolation_potential_force
 jax tests/test_interp_potential.py::test_interpolation_potential_c
@@ -332,6 +345,20 @@ jax tests/test_noninertial.py::test_lsrframe_vecomegaz_2d
 jax tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
+# Re-homed from backend_xfail.txt 2026-08-05: same class as the block above, and
+# the two slowest members of it. Timed under `--backend jax --runxfail` (nothing
+# masked), whole -k arbitraryaxisrotation family:
+#   PASS 581.6s test_arbitraryaxisrotation           <- was xfail-ledgered
+#   PASS 559.9s test_arbitraryaxisrotation_omegafunc <- was xfail-ledgered
+#   PASS 182.0s test_python_vs_c_arbitraryaxisrotation_omegadot
+#   PASS 159.1s test_arbitraryaxisrotation_omegadot_nullpotential
+#   PASS 140.1s test_arbitraryaxisrotation_nullpotential
+#   PASS 116.9s test_python_vs_c_arbitraryaxisrotation
+# Both PASS, at ~2x the 300 s per-test CI timeout -- they are not numerical gaps,
+# they never finish. Every sibling that runs UNDER 300 s is in neither list, so
+# the split is exactly the runtime one. Not a burndown: xfail -2, deferred +2.
+jax tests/test_noninertial.py::test_arbitraryaxisrotation
+jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
 
 # --- streamdf under jax (Track F streamdf vectorization) ---
 # The closed-form actionAngleIsochrone backend migration (same PR) makes
