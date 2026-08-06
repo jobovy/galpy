@@ -1190,7 +1190,16 @@ def test_pickling_potential(potname):
                 expected = getattr(tp, method)(R, z)
             except Exception:  # not supported by this potential/at this point
                 continue
-            assert getattr(up, method)(R, z) == expected, (
+            got = getattr(up, method)(R, z)
+            # Exact equality, with one carve-out: a NaN has to compare equal to
+            # itself. Under a trace some potentials return NaN off-domain by
+            # design (RazorThinExponentialDisk._R2deriv: the domain cannot be
+            # decided at trace time), and `nan == nan` is False, so a plain ==
+            # fails on two values that in fact agree.
+            both_nan = bool(numpy.isnan(as_numpy(got))) and bool(
+                numpy.isnan(as_numpy(expected))
+            )
+            assert both_nan or got == expected, (
                 f"Unpickled {potname}.{method}({R}, {z}) differs from the original"
             )
             nchecked += 1
@@ -1203,7 +1212,8 @@ def test_pickling_potential(potname):
 # pickle cannot look up by name any more than it can a lambda, so the tests
 # would fail on their own fixtures rather than on the potential.
 def _pickletest_dens(R, z):
-    return 13.5 * numpy.exp(-3.0 * R) * numpy.exp(-27.0 * numpy.fabs(z))
+    xp = get_namespace(R, z)
+    return 13.5 * xp.exp(-3.0 * R) * xp.exp(-27.0 * xp.abs(z))
 
 
 def _pickletest_dens_tdep(R, z, t=0.0):
@@ -1215,27 +1225,30 @@ def _pickletest_dens_nonaxi(R, z, phi):
 
 
 def _pickletest_Sigma(R):
-    return numpy.exp(-R / 0.3)
+    return get_namespace(R).exp(-R / 0.3)
 
 
 def _pickletest_dSigmadR(R):
-    return -numpy.exp(-R / 0.3) / 0.3
+    return -get_namespace(R).exp(-R / 0.3) / 0.3
 
 
 def _pickletest_d2SigmadR2(R):
-    return numpy.exp(-R / 0.3) / 0.3**2.0
+    return get_namespace(R).exp(-R / 0.3) / 0.3**2.0
 
 
 def _pickletest_hz(z):
-    return 1.0 / 2.0 / 0.04 * numpy.exp(-numpy.fabs(z) / 0.04)
+    xp = get_namespace(z)
+    return 1.0 / 2.0 / 0.04 * xp.exp(-xp.abs(z) / 0.04)
 
 
 def _pickletest_Hz(z):
-    return (numpy.exp(-numpy.fabs(z) / 0.04) - 1.0 + numpy.fabs(z) / 0.04) * 0.04 / 2.0
+    xp = get_namespace(z)
+    return (xp.exp(-xp.abs(z) / 0.04) - 1.0 + xp.abs(z) / 0.04) * 0.04 / 2.0
 
 
 def _pickletest_dHzdz(z):
-    return 0.5 * numpy.sign(z) * (1.0 - numpy.exp(-numpy.fabs(z) / 0.04))
+    xp = get_namespace(z)
+    return 0.5 * xp.sign(z) * (1.0 - xp.exp(-xp.abs(z) / 0.04))
 
 
 def _pickletest_spherical_dens(r):

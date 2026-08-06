@@ -1631,7 +1631,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
 
     def test_Rzderiv(self):
         """Test Rzderiv against a numerical derivative."""
-        dx = 1e-8
+        dx = 1e-6
         rtol = _NUMPY_1_23 * 3e-6 + (1 - _NUMPY_1_23) * 1e-6
 
         pot = spiral()
