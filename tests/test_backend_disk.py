@@ -11,6 +11,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.backend import as_numpy
 from galpy.potential import (
@@ -571,13 +572,17 @@ def test_razorthin_public_methods_jit_traceable(method):
     def call(R, z):
         return _RAZOR(R, z) if method == "__call__" else getattr(_RAZOR, method)(R, z)
 
-    jitted = jax.jit(call)
     for R0, z0 in _RAZOR_ZERO_POINTS + _RAZOR_ZNZ_POINTS + [(1.3, 1e-9), (12.0, 0.0)]:
-        got = float(jitted(jnp.asarray(R0), jnp.asarray(z0)))
-        ref = float(call(R0, z0))
-        numpy.testing.assert_allclose(
-            got,
-            ref,
+        # ref= keeps the plain-float eager call as the reference, so this still
+        # crosses float input against traced-array input; the helper adds the
+        # jaxpr check that the trace really consumes R and z. zforce is exactly
+        # 0 at z=0 but still depends on its arguments -- the check is structural,
+        # not numerical, so those points pass it too.
+        assert_jit_matches_eager(
+            call,
+            jnp.asarray(R0),
+            jnp.asarray(z0),
+            ref=float(call(R0, z0)),
             rtol=1e-11,
             atol=1e-14,
             err_msg=f"jit RazorThin.{method} at (R,z)=({R0},{z0})",
