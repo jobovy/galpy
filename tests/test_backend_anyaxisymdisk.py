@@ -411,3 +411,72 @@ def test_degenerate_guards_do_not_break_gradients_torch():
             fd = float((f(torch.tensor(R0 + h)) - f(torch.tensor(R0 - h))) / (2.0 * h))
             rel = abs(ad - fd) / abs(fd)
             assert rel < 1e-9, f"torch R={R0}: AD vs FD rel={rel:g}"
+
+
+# --- small-|z| quadrature: the regime every probe above skips --------------
+# _ZS is [0.15, 0.3, 0.25, 0.4] and the traced 2nd-deriv test uses z=0.25, so no
+# backend test ever entered 0 < |z| << R. That is exactly where the plain
+# two-panel GL split failed: the integrand has a peak of width ~|z| at a=R, and
+# once |z| drops below the Legendre node spacing near the panel edge the peak
+# falls BETWEEN nodes. Measured before the graded split, R=1:
+#     z/R    1e-06     1e-04     1e-03     3e-03
+#     rel    3.67e+03  1.15e+03  8.38e-01  5.79e-04
+# numpy is immune because scipy's quad(..., points=[R]) subdivides adaptively.
+# This reaches users as a wrong GRADIENT too, not just a wrong jit value, since
+# _bk_dispatch routes requires_grad input down the same GL path.
+_SMALL_ZS = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+
+
+def _traced_call(backend_name, fn, R, z):
+    """Evaluate fn on the GL path (jit for jax, requires_grad for torch)."""
+    if backend_name == "jax":
+        return float(
+            jax.jit(lambda RR: fn(_POT, RR, jnp.asarray(z, dtype=jnp.float64)))(
+                jnp.asarray(R, dtype=jnp.float64)
+            )
+        )
+    Rt = torch.tensor(R, dtype=torch.float64, requires_grad=True)
+    return float(fn(_POT, Rt, torch.tensor(z, dtype=torch.float64)))
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("z", _SMALL_ZS)
+def test_second_derivs_at_small_z_match_scipy(backend_name, z):
+    """The GL path must track scipy down to |z|/R ~ 1e-6, not just at |z| >= 0.15."""
+    R = 1.0
+    for fn in (evaluateR2derivs, evaluatez2derivs):
+        ref = float(fn(_POT, numpy.float64(R), numpy.float64(z)))
+        got = _traced_call(backend_name, fn, R, z)
+        rel = abs(got - ref) / abs(ref)
+        assert rel < 1e-4, (
+            f"{fn.__name__} on {backend_name} at z={z:g} is off by {rel:.2e}; "
+            "the a=R peak (width ~|z|) is not resolved by the quadrature"
+        )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("z", [0.0, 1e-3, 1e-2, 0.125])
+def test_rforce_finite_difference_in_R_stays_clean(backend_name, z):
+    """A finite difference of Rforce in R must still reproduce R2deriv.
+
+    Panel edges scale with R, so refining them toward a=R can make the
+    quadrature error vary non-smoothly in R -- harmless for the value, fatal for
+    a caller's finite difference, which divides by dr=1e-8. An earlier
+    unconditionally-graded version passed every accuracy check above and was
+    wrong here by 193%. z=0 is the sensitive case and is included deliberately.
+    """
+    R = 1.0
+    dr = 1e-8
+    dr = (R + dr) - R  # representable
+    f0 = _traced_call(backend_name, evaluateRforces, R, z)
+    f1 = _traced_call(backend_name, evaluateRforces, R + dr, z)
+    fd = (f0 - f1) / dr
+    # At z=0 the analytic 2nd derivative is a divergent integral, so compare the
+    # FD against the numpy/scipy value rather than the backend's own.
+    ref = float(evaluateR2derivs(_POT, numpy.float64(R), numpy.float64(z)))
+    rel = abs(fd - ref) / abs(ref)
+    assert rel < 1e-3, (
+        f"FD of Rforce on {backend_name} at z={z:g} gives {fd:.8e} vs "
+        f"R2deriv {ref:.8e} (rel {rel:.2e}) -- the quadrature error is not "
+        "varying smoothly in R"
+    )
