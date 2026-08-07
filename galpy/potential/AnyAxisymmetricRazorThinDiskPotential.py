@@ -139,7 +139,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
     # scipy value is wrapped as a backend array so no downstream ``xp.`` op meets
     # a bare python float.
     # -----------------------------------------------------------------------
-    def _bk_split_quad(self, integrand, R, xp, dev, z=None, K=24, n=50):
+    def _bk_split_quad(self, integrand, R, xp, dev, z, K=24, n=50):
         # int_0^inf integrand(a) da as [0, R] + [R, 2R] + [2R, inf); the
         # symmetric plain-GL split at R handles the a=R (m->1) singularity.
         #
@@ -157,44 +157,39 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         Rs = xp.where(finite, R, xp.ones_like(R))
         positive = Rs > 0
         Rp = xp.where(positive, Rs, xp.ones_like(Rs))
-        if z is None:
-            inner = _bquad.fixed_quad(
-                xp, integrand, xp.zeros_like(Rp), Rp, n=_GLORDER, device=dev
-            ) + _bquad.fixed_quad(xp, integrand, Rp, 2.0 * Rp, n=_GLORDER, device=dev)
-        else:
-            # Dyadic panels graded toward the a=R peak (width ~|z|), issued as ONE
-            # batched fixed_quad over a leading panel axis: as separate calls the
-            # jit graph is ~16x more expensive to compile.
-            #
-            # dmin bounds how close panels may approach a=R. At z=0 the integral
-            # is singular there and marching panels in makes a finite difference
-            # of this potential in R blow up, so grading is switched off; for
-            # z>0 the peak is genuinely resolvable and the FD stays clean.
-            ones = xp.ones_like(Rp)
-            half = 0.5 * Rp
-            dmin = xp.where(
-                xp.abs(z) * ones > 0.0,
-                xp.minimum(4.0 * xp.abs(z) * ones, half),
-                half,
-            )
-            # dk decreasing: R/2, R/4, ... (clamped at dmin), so R-dk ascends
-            # and R+dk descends -- the right side is the one needing a reverse.
-            dk = [xp.maximum(Rp * (2.0**-k), dmin) for k in range(1, K + 1)]
-            left = [Rp - d for d in dk]  # ascending, ends near R
-            right = [Rp + d for d in dk][::-1]  # ascending, starts near R
-            lo = [xp.zeros_like(Rp)] + left + [Rp] + right
-            hi = left + [Rp] + right + [2.0 * Rp]
-            inner = xp.sum(
-                _bquad.fixed_quad(
-                    xp,
-                    integrand,
-                    xp.stack(lo, axis=-1),
-                    xp.stack(hi, axis=-1),
-                    n=n,
-                    device=dev,
-                ),
-                axis=-1,
-            )
+        # Dyadic panels graded toward the a=R peak (width ~|z|), issued as ONE
+        # batched fixed_quad over a leading panel axis: as separate calls the
+        # jit graph is ~16x more expensive to compile.
+        #
+        # dmin bounds how close panels may approach a=R. At z=0 the integral
+        # is singular there and marching panels in makes a finite difference
+        # of this potential in R blow up, so grading is switched off; for
+        # z>0 the peak is genuinely resolvable and the FD stays clean.
+        ones = xp.ones_like(Rp)
+        half = 0.5 * Rp
+        dmin = xp.where(
+            xp.abs(z) * ones > 0.0,
+            xp.minimum(4.0 * xp.abs(z) * ones, half),
+            half,
+        )
+        # dk decreasing: R/2, R/4, ... (clamped at dmin), so R-dk ascends
+        # and R+dk descends -- the right side is the one needing a reverse.
+        dk = [xp.maximum(Rp * (2.0**-k), dmin) for k in range(1, K + 1)]
+        left = [Rp - d for d in dk]  # ascending, ends near R
+        right = [Rp + d for d in dk][::-1]  # ascending, starts near R
+        lo = [xp.zeros_like(Rp)] + left + [Rp] + right
+        hi = left + [Rp] + right + [2.0 * Rp]
+        inner = xp.sum(
+            _bquad.fixed_quad(
+                xp,
+                integrand,
+                xp.stack(lo, axis=-1),
+                xp.stack(hi, axis=-1),
+                n=n,
+                device=dev,
+            ),
+            axis=-1,
+        )
         out = xp.where(positive, inner, xp.zeros_like(inner)) + (
             _bquad.fixed_quad_semiinfinite(
                 xp, integrand, 2.0 * Rs, n=_GLORDER, device=dev
