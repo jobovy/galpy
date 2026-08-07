@@ -7,6 +7,10 @@
 #      evolveddiskdf - top-level class that represents a distribution function
 ###############################################################################
 _NSIGMA = 4.0
+# GL nodes per dimension for the backend direct (grid-free) moment integral.
+# In polar coordinates the integrand is smooth, so 50^2 nodes is ample and
+# costs FEWER orbit integrations than the default grid path's 101^2.
+_DIRECT_GL_ORDER = 50
 _NTS = 1000
 _PROFILE = False
 import copy
@@ -18,6 +22,7 @@ import numpy
 from scipy import integrate
 
 from ..backend import device_of, get_namespace, is_backend_array
+from ..backend import quadrature as _bquad
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
 from ..potential.Potential import _check_c, _check_potential_list_and_deprecate, _dim
@@ -598,11 +603,32 @@ class evolveddiskdf(df):
                     return self._vmomentsurfacemassHierarchicalGrid(n, m, grido)
         # Calculate the initdf moment and then calculate the ratio
         initvmoment = self._initdf.vmomentsurfacemass(R, n, m, nsigma=nsigma, phi=phi)
-        if initvmoment == 0.0:
-            initvmoment = 1.0
+        # TRANSITIONAL data-guard, mirroring _buildvgrid's gate on is_backend_array
+        # (not on a forced namespace): a forced backend with a plain-float R keeps
+        # the adaptive scipy path, so the fast numpy suite does not get flipped onto
+        # orbit integration. Only a genuine backend R takes the differentiable route.
+        _direct_backend = is_backend_array(R)
+        xp = get_namespace(R, sigmaR1, sigmaT1, meanvR, meanvT)
+        if not _direct_backend:
+            if initvmoment == 0.0:
+                initvmoment = 1.0
+        else:
+            # Same guard, selected rather than branched: under a trace the
+            # comparison is a tracer and `if` raises TracerBoolConversionError.
+            # Kept OFF the numpy path deliberately -- xp.where would return a 0-d
+            # array there, changing the public return type from a float.
+            initvmoment = xp.where(initvmoment == 0.0, 1.0, initvmoment)
         norm = sigmaR1 ** (n + 1) * sigmaT1 ** (m + 1) * initvmoment
         if isinstance(t, (list, numpy.ndarray)):
             raise OSError("list of times is only supported with grid-based calculation")
+        if _direct_backend:
+            return (
+                self._vmomentsurface_direct_backend(
+                    R, az, t, n, m, nsigma, sigmaR1, sigmaT1, meanvR, meanvT, xp
+                )
+                / initvmoment
+                * norm
+            )
         return (
             dblquad(
                 _vmomentsurfaceIntegrand,
@@ -621,6 +647,61 @@ class evolveddiskdf(df):
                 epsabs=epsabs,
             )[0]
             * norm
+        )
+
+    def _vmomentsurface_direct_backend(
+        self, R, az, t, n, m, nsigma, sigmaR1, sigmaT1, meanvR, meanvT, xp
+    ):
+        r"""Direct (grid-free) velocity moment on a backend, differentiably.
+
+        The numpy path integrates the normalised velocity plane with an adaptive
+        ``dblquad`` over a DISC of radius ``nsigma`` centred on
+        ``(meanvT/sigmaT1, meanvR/sigmaR1)``. scipy calls ``float()`` on its
+        integrand, so under a backend that silently breaks the graph -- the VALUE
+        comes out right (scipy just computes eagerly) while ``jax.grad`` raises
+        ``ConcretizationTypeError``. Hence a separate backend branch; numpy keeps
+        the adaptive rule untouched and stays byte-identical.
+
+        Substituting polar coordinates about the disc centre,
+
+            vT = meanvT/sigmaT1 + r cos(theta),  vR = meanvR/sigmaR1 + r sin(theta)
+
+        maps the disc EXACTLY onto the rectangle r in [0, nsigma],
+        theta in [0, 2 pi] with Jacobian ``r``, so the fixed-order tensor-product
+        rule in ``nested_quad`` applies directly. That also removes the
+        ``sqrt(nsigma^2 - ...)`` inner limits, whose square-root endpoints are
+        exactly what a fixed-order rule resolves worst.
+
+        Returns the integral WITHOUT the ``1/initvmoment`` factor; the caller
+        applies it, matching the numpy path's ordering.
+        """
+        vT_c = meanvT / sigmaT1
+        vR_c = meanvR / sigmaR1
+
+        def _integrand(r, th):
+            # vR, vT here are NORMALISED (units of sigmaR1 / sigmaT1), matching
+            # _vmomentsurfaceIntegrand's convention: the moment weight vR**n vT**m
+            # uses them as-is, but the orbit ICs need PHYSICAL velocities, which is
+            # what _df_at_velocities_backend expects (_buildvgrid_backend feeds it
+            # meanv +- nsigma*sigma, not normalised units).
+            vT = vT_c + r * xp.cos(th)
+            vR = vR_c + r * xp.sin(th)
+            shape = vT.shape
+            dfv = self._df_at_velocities_backend(
+                R,
+                az,
+                t,
+                xp.reshape(vR * sigmaR1, (-1,)),
+                xp.reshape(vT * sigmaT1, (-1,)),
+                xp,
+            )
+            return vR**n * vT**m * xp.reshape(dfv, shape) * r  # r = polar Jacobian
+
+        return _bquad.nested_quad(
+            xp,
+            _integrand,
+            [[0.0, nsigma], [0.0, 2.0 * numpy.pi]],
+            n=_DIRECT_GL_ORDER,
         )
 
     @potential_physical_input
@@ -3005,8 +3086,6 @@ class evolveddiskdf(df):
         (_buildvgrid) is byte-identical; this runs only for backend inputs / under
         a forced backend. deriv= (the finite-difference moment derivative) is
         unsupported here -- differentiate the moment with autodiff instead."""
-        from .diskdf import vRvTRToEL
-
         if deriv is not None:
             raise NotImplementedError(
                 "evolveddiskdf grid deriv= is not supported on the jax/torch "
@@ -3033,6 +3112,27 @@ class evolveddiskdf(df):
         VR, VT = xp.meshgrid(out.vRgrid, out.vTgrid, indexing="ij")
         vRf = xp.reshape(VR, (-1,))
         vTf = xp.reshape(VT, (-1,))
+        dfvals = self._df_at_velocities_backend(R, phi, t, vRf, vTf, xp)
+        if isinstance(t, (list, numpy.ndarray)):
+            nt = len(numpy.atleast_1d(numpy.asarray(t)))
+            out.df = xp.reshape(dfvals, (gridpoints, gridpoints, nt))
+        else:
+            out.df = xp.reshape(dfvals, (gridpoints, gridpoints))
+        return out
+
+    def _df_at_velocities_backend(self, R, phi, t, vRf, vTf, xp):
+        """Evolved DF at arbitrary backend velocity POINTS ``(vRf, vTf)``, flat.
+
+        Shared by the grid build (``_buildvgrid_backend``, which reshapes this to
+        its meshgrid) and by the direct moment integral (which contracts it
+        against quadrature weights), so the batched multi-orbit integrate and the
+        gradient plumbing around it live in ONE place rather than being copied
+        per caller. ``R`` carries its gradient into every orbit's IC.
+
+        Returns ``(N,)`` for a scalar ``t`` and ``(N, nt)`` for a list of times.
+        """
+        from .diskdf import vRvTRToEL
+
         ones = xp.ones_like(vRf)
         ic = xp.stack([R * ones, vRf, vTf, phi * ones], axis=-1)  # (N, 4)
 
@@ -3047,45 +3147,36 @@ class evolveddiskdf(df):
         # would route there anyway, but pick it explicitly so a non-C
         # integrate_method (odeint/leapfrog) works too.
         bmethod = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
-        tlist = isinstance(t, (list, numpy.ndarray))
-        if tlist:
+        if isinstance(t, (list, numpy.ndarray)):
             t = numpy.atleast_1d(numpy.asarray(t))
             nt = len(t)
             if self._to == t[0]:  # no evolution: DF at the ICs, one per output time
                 df1 = _nan0(_idf(vRf, vTf, R * ones))
-                out.df = xp.reshape(
-                    xp.broadcast_to(df1[:, None], (df1.shape[0], nt)),
-                    (gridpoints, gridpoints, nt),
-                )
-            else:
-                # C-style output times (one per requested t) so the trajectory is
-                # sampled exactly at them; the backend solver saves at these times.
-                ts = xp.asarray(self._create_ts_tlist(t, "dopr54_c"))
-                o = Orbit(ic)
-                o.integrate(ts, self._pot, method=bmethod)
-                traj = o.getOrbit()  # (N, len(ts), 4)
-                if nt == 1:  # single time: the evolved endpoint (t -> self._to)
-                    end = traj[:, 1, :]
-                    dfvals = _nan0(_idf(end[:, 1], end[:, 2], end[:, 0]))[:, None]
-                else:  # DF along the trajectory, reversed to ascending-lag t order
-                    dfvals = _nan0(_idf(traj[..., 1], traj[..., 2], traj[..., 0]))
-                    dfvals = xp.flip(dfvals, axis=1)  # torch has no negative-step slice
-                out.df = xp.reshape(dfvals, (gridpoints, gridpoints, nt))
-        else:  # scalar t: DF at the single evolved endpoint (t -> self._to)
-            if self._to == t:  # no evolution
-                out.df = xp.reshape(
-                    _nan0(_idf(vRf, vTf, R * ones)), (gridpoints, gridpoints)
-                )
-            else:
-                ts = xp.asarray(numpy.linspace(float(t), float(self._to), 2))
-                o = Orbit(ic)
-                o.integrate(ts, self._pot, method=bmethod)
-                end = o.getOrbit()[:, -1, :]  # at self._to
-                Ro, vRo, vTo = end[:, 0], end[:, 1], end[:, 2]
-                eps = numpy.finfo(numpy.float64).eps
-                df = xp.where(Ro <= 0.0, eps, _idf(vRo, vTo, Ro))  # R<=0 -> eps
-                out.df = xp.reshape(_nan0(df), (gridpoints, gridpoints))
-        return out
+                return xp.broadcast_to(df1[:, None], (df1.shape[0], nt))
+            # C-style output times (one per requested t) so the trajectory is
+            # sampled exactly at them; the backend solver saves at these times.
+            ts = xp.asarray(self._create_ts_tlist(t, "dopr54_c"))
+            o = Orbit(ic)
+            o.integrate(ts, self._pot, method=bmethod)
+            traj = o.getOrbit()  # (N, len(ts), 4)
+            if nt == 1:  # single time: the evolved endpoint (t -> self._to)
+                end = traj[:, 1, :]
+                return _nan0(_idf(end[:, 1], end[:, 2], end[:, 0]))[:, None]
+            # DF along the trajectory, reversed to ascending-lag t order
+            dfvals = _nan0(_idf(traj[..., 1], traj[..., 2], traj[..., 0]))
+            return xp.flip(dfvals, axis=1)  # torch has no negative-step slice
+        # scalar t: DF at the single evolved endpoint (t -> self._to)
+        if self._to == t:  # no evolution
+            return _nan0(_idf(vRf, vTf, R * ones))
+        ts = xp.asarray(numpy.linspace(float(t), float(self._to), 2))
+        o = Orbit(ic)
+        o.integrate(ts, self._pot, method=bmethod)
+        end = o.getOrbit()[:, -1, :]  # at self._to
+        Ro, vRo, vTo = end[:, 0], end[:, 1], end[:, 2]
+        eps = numpy.finfo(numpy.float64).eps
+        # R<=0 -> eps; this guard is deliberately absent from the t-list branch
+        # above, matching the pre-extraction behaviour exactly.
+        return _nan0(xp.where(Ro <= 0.0, eps, _idf(vRo, vTo, Ro)))
 
     def _create_ts_tlist(self, t, integrate_method):
         # Check input
