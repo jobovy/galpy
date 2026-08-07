@@ -290,3 +290,85 @@ def test_reduction_grad_vs_df(backend):
         moment_of_df(dt).backward()
         g_elem = float(dt.grad[idx])
     numpy.testing.assert_allclose(g_elem, expect, rtol=1e-8)
+
+
+# --- direct (grid-free) moment on a backend -------------------------------
+# Everything above exercises grid=True. The direct path had NO backend coverage
+# at all, which is why its non-differentiability went unnoticed: scipy's dblquad
+# computes the VALUE correctly under a backend (it just evaluates eagerly with
+# concrete floats), so any value-only check passes while jax.grad raises
+# ConcretizationTypeError because scipy calls float() on the tracer.
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_direct_moment_value_matches_numpy(backend):
+    # Polar-GL direct path vs numpy's adaptive dblquad. These are different
+    # quadrature rules, so this is a correctness check at quadrature tolerance,
+    # not a parity check.
+    edf = _make_edf()
+    ref = edf.vmomentsurfacemass(_R, 0, 0, phi=_PHI, grid=False, nsigma=3.0)
+    with use(backend, force=True):
+        got = edf.vmomentsurfacemass(
+            _scalar(backend, _R), 0, 0, phi=_PHI, grid=False, nsigma=3.0
+        )
+        assert is_backend_array(got), "direct path fell back to numpy"
+    numpy.testing.assert_allclose(float(as_numpy(got)), ref, rtol=1e-4)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_direct_moment_grad_through_evolution_vs_fd(backend):
+    # The point of the whole exercise: d(moment)/dR through the ORBIT EVOLUTION
+    # on the direct path. Before the backend branch this raised
+    # ConcretizationTypeError. FD is taken on the backend itself so the
+    # comparison is integrator- and quadrature-consistent (see
+    # test_moment_grad_through_evolution_vs_fd).
+    edf = _make_edf()
+    h = 1e-5
+
+    def val(R):
+        with use(backend, force=True):
+            return float(
+                as_numpy(
+                    edf.vmomentsurfacemass(R, 0, 0, phi=_PHI, grid=False, nsigma=3.0)
+                )
+            )
+
+    gfd = (val(_scalar(backend, _R + h)) - val(_scalar(backend, _R - h))) / (2.0 * h)
+    if backend == "jax":
+        with use("jax", force=True):
+            g = float(
+                jax.grad(
+                    lambda R: jnp.asarray(
+                        edf.vmomentsurfacemass(
+                            R, 0, 0, phi=_PHI, grid=False, nsigma=3.0
+                        )
+                    ).reshape(())
+                )(jnp.asarray(_R))
+            )
+    else:
+        Rt = torch.tensor(_R, requires_grad=True)
+        with use("torch", force=True):
+            edf.vmomentsurfacemass(Rt, 0, 0, phi=_PHI, grid=False, nsigma=3.0).reshape(
+                ()
+            ).backward()
+        g = float(Rt.grad)
+    numpy.testing.assert_allclose(g, gfd, rtol=2e-4, atol=1e-7)
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax required for jit")
+def test_direct_moment_jit_matches_eager():
+    # The direct path is not merely differentiable but TRACEABLE: the
+    # `if initvmoment == 0.0` guard is selected with xp.where on the backend
+    # (numpy keeps the branch, so its float return type is unchanged). Without
+    # that this raises TracerBoolConversionError.
+    edf = _make_edf()
+
+    def call(R):
+        return jnp.asarray(
+            edf.vmomentsurfacemass(R, 0, 0, phi=_PHI, grid=False, nsigma=3.0)
+        ).reshape(())
+
+    with use("jax", force=True):
+        eager = float(call(jnp.asarray(_R)))
+        jitted = float(jax.jit(call)(jnp.asarray(_R)))
+    numpy.testing.assert_allclose(jitted, eager, rtol=1e-12, atol=1e-14)
