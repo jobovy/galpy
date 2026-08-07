@@ -251,9 +251,6 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetric
 # CUDA torch gives "Cannot re-initialize CUDA in forked subprocess", and with
 # CUDA_VISIBLE_DEVICES='' the run wedged past a 900 s timeout. Keeping them
 # ledgered under torch-jit so a workflow_dispatch(jit=true) stays honest.
-torch-jit tests/test_streamdf.py::test_fardalwmwpot_trackaa
-torch-jit tests/test_streamdf.py::test_plotting
-torch-jit tests/test_streamdf.py::test_streamTrack_multi_parallel
 # A units-based density is NOT TRACEABLE, and this is by construction rather
 # than a defect. AnySphericalPotential._backend_dens deliberately evaluates such
 # a density on the numpy node --  astropy Quantity arithmetic strips a jax/torch
