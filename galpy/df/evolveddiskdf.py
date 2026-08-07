@@ -7,6 +7,10 @@
 #      evolveddiskdf - top-level class that represents a distribution function
 ###############################################################################
 _NSIGMA = 4.0
+# GL nodes per dimension for the backend direct (grid-free) moment integral.
+# In polar coordinates the integrand is smooth, so 50^2 nodes is ample and
+# costs FEWER orbit integrations than the default grid path's 101^2.
+_DIRECT_GL_ORDER = 50
 _NTS = 1000
 _PROFILE = False
 import copy
@@ -18,6 +22,7 @@ import numpy
 from scipy import integrate
 
 from ..backend import device_of, get_namespace, is_backend_array
+from ..backend import quadrature as _bquad
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
 from ..potential.Potential import _check_c, _check_potential_list_and_deprecate, _dim
@@ -598,11 +603,27 @@ class evolveddiskdf(df):
                     return self._vmomentsurfacemassHierarchicalGrid(n, m, grido)
         # Calculate the initdf moment and then calculate the ratio
         initvmoment = self._initdf.vmomentsurfacemass(R, n, m, nsigma=nsigma, phi=phi)
-        if initvmoment == 0.0:
-            initvmoment = 1.0
+        xp = get_namespace(R, sigmaR1, sigmaT1, meanvR, meanvT)
+        if xp is numpy:
+            if initvmoment == 0.0:
+                initvmoment = 1.0
+        else:
+            # Same guard, but selected rather than branched: under a trace the
+            # comparison is a tracer and `if` raises TracerBoolConversionError.
+            # Kept OFF the numpy path deliberately -- xp.where would return a 0-d
+            # array there, changing the public return type from a float.
+            initvmoment = xp.where(initvmoment == 0.0, 1.0, initvmoment)
         norm = sigmaR1 ** (n + 1) * sigmaT1 ** (m + 1) * initvmoment
         if isinstance(t, (list, numpy.ndarray)):
             raise OSError("list of times is only supported with grid-based calculation")
+        if xp is not numpy:
+            return (
+                self._vmomentsurface_direct_backend(
+                    R, az, t, n, m, nsigma, sigmaR1, sigmaT1, meanvR, meanvT, xp
+                )
+                / initvmoment
+                * norm
+            )
         return (
             dblquad(
                 _vmomentsurfaceIntegrand,
@@ -621,6 +642,61 @@ class evolveddiskdf(df):
                 epsabs=epsabs,
             )[0]
             * norm
+        )
+
+    def _vmomentsurface_direct_backend(
+        self, R, az, t, n, m, nsigma, sigmaR1, sigmaT1, meanvR, meanvT, xp
+    ):
+        r"""Direct (grid-free) velocity moment on a backend, differentiably.
+
+        The numpy path integrates the normalised velocity plane with an adaptive
+        ``dblquad`` over a DISC of radius ``nsigma`` centred on
+        ``(meanvT/sigmaT1, meanvR/sigmaR1)``. scipy calls ``float()`` on its
+        integrand, so under a backend that silently breaks the graph -- the VALUE
+        comes out right (scipy just computes eagerly) while ``jax.grad`` raises
+        ``ConcretizationTypeError``. Hence a separate backend branch; numpy keeps
+        the adaptive rule untouched and stays byte-identical.
+
+        Substituting polar coordinates about the disc centre,
+
+            vT = meanvT/sigmaT1 + r cos(theta),  vR = meanvR/sigmaR1 + r sin(theta)
+
+        maps the disc EXACTLY onto the rectangle r in [0, nsigma],
+        theta in [0, 2 pi] with Jacobian ``r``, so the fixed-order tensor-product
+        rule in ``nested_quad`` applies directly. That also removes the
+        ``sqrt(nsigma^2 - ...)`` inner limits, whose square-root endpoints are
+        exactly what a fixed-order rule resolves worst.
+
+        Returns the integral WITHOUT the ``1/initvmoment`` factor; the caller
+        applies it, matching the numpy path's ordering.
+        """
+        vT_c = meanvT / sigmaT1
+        vR_c = meanvR / sigmaR1
+
+        def _integrand(r, th):
+            # vR, vT here are NORMALISED (units of sigmaR1 / sigmaT1), matching
+            # _vmomentsurfaceIntegrand's convention: the moment weight vR**n vT**m
+            # uses them as-is, but the orbit ICs need PHYSICAL velocities, which is
+            # what _df_at_velocities_backend expects (_buildvgrid_backend feeds it
+            # meanv +- nsigma*sigma, not normalised units).
+            vT = vT_c + r * xp.cos(th)
+            vR = vR_c + r * xp.sin(th)
+            shape = vT.shape
+            dfv = self._df_at_velocities_backend(
+                R,
+                az,
+                t,
+                xp.reshape(vR * sigmaR1, (-1,)),
+                xp.reshape(vT * sigmaT1, (-1,)),
+                xp,
+            )
+            return vR**n * vT**m * xp.reshape(dfv, shape) * r  # r = polar Jacobian
+
+        return _bquad.nested_quad(
+            xp,
+            _integrand,
+            [[0.0, nsigma], [0.0, 2.0 * numpy.pi]],
+            n=_DIRECT_GL_ORDER,
         )
 
     @potential_physical_input
