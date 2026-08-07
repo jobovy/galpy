@@ -22,6 +22,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.backend import as_numpy, is_backend_array
 from galpy.potential import (
@@ -134,16 +135,36 @@ def test_public_value_parity(backend_name, pot):
 
 
 @pytest.mark.parametrize("pot", CASES, ids=CASE_IDS)
-def test_jax_traced_finite(pot):
+def test_jax_traced_matches_numpy_and_fd(pot):
+    # Finiteness says nothing: a trace that folded its arguments away is finite
+    # too. Pin the traced VALUE to the plain-numpy one (and let
+    # assert_jit_matches_eager check the jaxpr really consumes its arguments),
+    # and the traced DERIVATIVE to central FD.
     if jax is None:  # pragma: no cover
         pytest.skip("jax not installed")
     Rj = jnp.asarray(_RS)
     zj = jnp.asarray(_ZS)
+    h = 1e-5
     for fn in (evaluatePotentials, evaluateRforces):
-        jitted = jax.jit(lambda R_, z_: fn(pot, R_, z_))(Rj, zj)
-        assert numpy.all(numpy.isfinite(as_numpy(jitted)))
-        jac = jax.jacfwd(lambda R_: fn(pot, R_, zj))(Rj)
-        assert numpy.all(numpy.isfinite(as_numpy(jac)))
+        assert_jit_matches_eager(
+            lambda R_, z_, _f=fn: _f(pot, R_, z_),
+            Rj,
+            zj,
+            rtol=1e-14,
+            atol=0.0,
+            ref=numpy.asarray(fn(pot, _RS, _ZS)),
+            err_msg=fn.__name__,
+        )
+        # elementwise in R, so the Jacobian is exactly diagonal
+        jac = as_numpy(jax.jacfwd(lambda R_, _f=fn: _f(pot, R_, zj))(Rj))
+        offdiag = jac - numpy.diag(numpy.diag(jac))
+        assert numpy.all(offdiag == 0.0), f"{fn.__name__}: Jacobian not diagonal"
+        fd = (
+            numpy.asarray(fn(pot, _RS + h, _ZS)) - numpy.asarray(fn(pot, _RS - h, _ZS))
+        ) / (2.0 * h)
+        numpy.testing.assert_allclose(
+            numpy.diag(jac), fd, rtol=2e-9, err_msg=f"{fn.__name__} d/dR vs FD"
+        )
 
 
 # One interior (R,z) point; grad w.r.t. R (Rforce) and z (potential).
@@ -266,15 +287,21 @@ def test_1d_grad_vcirc_vs_fd(backend_name, pot):
     numpy.testing.assert_allclose(ad, fd, rtol=1e-5, atol=1e-7)
 
 
-def test_1d_jax_traced_finite():
+def test_1d_jax_traced_matches_numpy():
     if jax is None:  # pragma: no cover
         pytest.skip("jax not installed")
     Rj = jnp.asarray(_RS_1D)
-    for pot in CASES_1D:
+    for case_id, pot in zip(CASE_IDS, CASES_1D):
         for method in _1D_METHODS:
             fn = getattr(pot, method)
-            jitted = jax.jit(lambda R_: fn(R_, use_physical=False))(Rj)
-            assert numpy.all(numpy.isfinite(as_numpy(jitted)))
+            assert_jit_matches_eager(
+                lambda R_, _f=fn: _f(R_, use_physical=False),
+                Rj,
+                rtol=1e-14,
+                atol=0.0,
+                ref=numpy.asarray(fn(_RS_1D, use_physical=False)),
+                err_msg=f"{method} ({case_id})",
+            )
 
 
 ###############################################################################
