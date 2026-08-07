@@ -261,6 +261,82 @@ def test_semiinfinite_grad_in_limit(backend):
     numpy.testing.assert_allclose(ga, -numpy.exp(-a0), rtol=1e-5)
 
 
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("eps", [1.0, 1e-2, 1e-4, 1e-6])
+def test_semiinfinite_scale_makes_the_map_resolve_small_structure(backend, eps):
+    # The map's node spacing in s just above the lower limit is O(L/n**2), so
+    # with the default L=1 an integrand whose structure sits on a scale eps<<1
+    # is simply not sampled -- and no n rescues it. Passing scale=eps makes the
+    # map scale-invariant, so the error becomes INDEPENDENT of eps.
+    #   int_eps^inf ds / (1 + (s/eps)**2) = eps * pi/4
+    xp = _xp(backend)
+    got = float(
+        numpy.asarray(
+            fixed_quad_semiinfinite(
+                xp, lambda s: 1.0 / (1.0 + (s / eps) ** 2), eps, n=50, scale=eps
+            )
+        )
+    )
+    numpy.testing.assert_allclose(got, eps * numpy.pi / 4.0, rtol=1e-13)
+    #   int_0^inf ds / (eps**2 + s**2) = pi / (2 eps), via the 'tan' map
+    got = float(
+        numpy.asarray(
+            fixed_quad_semiinfinite(
+                xp,
+                lambda s: 1.0 / (eps**2 + s**2),
+                0.0,
+                n=50,
+                kind="tan",
+                scale=eps,
+            )
+        )
+    )
+    numpy.testing.assert_allclose(got, numpy.pi / (2.0 * eps), rtol=1e-13)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_semiinfinite_scale_broadcasts_against_the_limit(backend):
+    # One call, three lower limits spanning six decades, each with its own
+    # scale: the whole point is that a batched caller (jeans.sigmar over an r
+    # grid) gets every element resolved, not just the O(1) ones.
+    xp = _xp(backend)
+    eps = xp.asarray([1.0, 1e-3, 1e-6])
+    got = numpy.asarray(
+        fixed_quad_semiinfinite(
+            xp,
+            lambda s: 1.0 / (1.0 + (s / eps[..., None]) ** 2),
+            eps,
+            n=50,
+            scale=eps,
+        )
+    )
+    ref = numpy.asarray([1.0, 1e-3, 1e-6]) * numpy.pi / 4.0
+    numpy.testing.assert_allclose(got, ref, rtol=1e-13)
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_semiinfinite_scale_grad_in_limit(backend):
+    # d/da int_a^inf f = -f(a); at a = eps with f = 1/(1+(s/eps)**2) that is
+    # exactly -1/2, independent of eps. Differentiating through a SCALED map is
+    # the path jeans.sigmar's r-gradient takes.
+    eps = 1e-5
+
+    def f(s):
+        return 1.0 / (1.0 + (s / eps) ** 2)
+
+    if backend == "jax":
+        ga = float(
+            jax.grad(lambda a: fixed_quad_semiinfinite(jnp, f, a, n=50, scale=eps))(
+                jnp.asarray(eps)
+            )
+        )
+    else:
+        at = torch.tensor(eps, requires_grad=True)
+        fixed_quad_semiinfinite(txp, f, at, n=50, scale=eps).backward()
+        ga = float(at.grad)
+    numpy.testing.assert_allclose(ga, -0.5, rtol=1e-10)
+
+
 # ---------------------------------------------------------------------------
 # Public definite-integral API: quad / gauss_legendre. numpy -> scipy (byte-
 # identical value); jax/torch -> fixed-order GL, differentiable in params AND
