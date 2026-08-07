@@ -26,6 +26,21 @@
 # slowest members of it. Re-homing is bookkeeping accuracy, not burndown: the
 # xfail ledger drops 2 and the deferred list gains 2.
 #
+# SOURCE-FIX burn (2026-08-05, map_coordinates boundary mode). The JAX
+# StaeckelGrid_basicAndConserved entry is pruned here: the circular-orbit JR it
+# asserts goes 4.836e-14 -> 6.04e-24 once the evaluator's boundary mode is paired
+# with the mode='mirror' prefilter (assert is < 1e-16). Measured whole-file,
+# --runxfail: jax 3 failures -> 2, no new failures, numpy 209/209 unchanged.
+#
+# The TORCH entry of the same test deliberately STAYS. There the fix clears the JR
+# and Jz asserts but a later eccentricity assert still fails (1.53e-10). That
+# residual is NOT interpolation -- both backends now match scipy to 3.55e-15 --
+# it is setup-time grid construction under a forced backend:
+#     grids built on numpy, called under backend : jax 6.38e-12, torch 6.38e-12
+#     grids BUILT under the forced backend       : jax 0.0,      torch 1.53e-10
+# i.e. the evaluation path is backend-agnostic; construction is not. Separate
+# (deferred setup-path) work, so the torch entry remains ledgered and honest.
+#
 # REGEN-MILESTONE prune (2026-07-23, full-matrix REGEN run 29979778304 on
 # feat/backends c08577ff -- post-#1185; all 44 jax+torch shards ran to
 # completion (conclusion=success), no session-timeout truncation, and the
@@ -152,7 +167,6 @@
 
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
-jax tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
 jax tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
