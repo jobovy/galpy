@@ -18,6 +18,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.potential import (
     HernquistPotential,
@@ -545,11 +546,17 @@ def test_surfdens_analytic_route_traced_matches_numpy_jax():
         for z in (0.25, 10.0):
             ref = tp.surfdens(R, z, use_physical=False)
             with gb.use("jax", force=True):
-                got = jax.jit(lambda Rv, zv: tp.surfdens(Rv, zv, use_physical=False))(
-                    jnp.asarray(R), jnp.asarray(z)
+                # the helper also checks the jaxpr consumes (Rv, zv): a trace
+                # that folded them into a constant would match `ref` too
+                assert_jit_matches_eager(
+                    lambda Rv, zv: tp.surfdens(Rv, zv, use_physical=False),
+                    jnp.asarray(R),
+                    jnp.asarray(z),
+                    rtol=1e-10,
+                    atol=0.0,
+                    ref=ref,
+                    err_msg=f"FlattenedPower R={R} z={z}",
                 )
-            rel = numpy.abs(float(got) - ref) / numpy.abs(ref)
-            assert rel < 1e-10, f"FlattenedPower R={R} z={z}: rel={rel:g}"
 
 
 # --- whole-line surfdens, surfdens(R, z=None) -------------------------------
@@ -629,11 +636,14 @@ def test_surfdens_wholeline_traced_matches_numpy_jax(potname):
     for R in (0.5, 2.0):
         ref = tp.surfdens(R, None, use_physical=False)
         with gb.use("jax", force=True):
-            got = jax.jit(lambda Rv: tp.surfdens(Rv, None, use_physical=False))(
-                jnp.asarray(R)
+            assert_jit_matches_eager(
+                lambda Rv: tp.surfdens(Rv, None, use_physical=False),
+                jnp.asarray(R),
+                rtol=5e-12,
+                atol=0.0,
+                ref=ref,
+                err_msg=f"{potname} R={R}",
             )
-        rel = numpy.abs(float(got) - ref) / numpy.abs(ref)
-        assert rel < 5e-12, f"{potname} R={R}: rel={rel:g}"
 
 
 @pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
