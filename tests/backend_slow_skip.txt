@@ -402,3 +402,14 @@ jax tests/test_FDMdynamfric.py::test_dynamfric_c
 # timeout records FAILED and overrides xfail, so this is a slow-skip, not an
 # xfail. Its siblings are fine: FDM test_dynamfric_c 208s, both _minr 36s.
 torch tests/test_dynamfric.py::test_dynamfric_c
+
+# torch-jit: interpRZPotential's grid build under torch.compile does not finish
+# inside the 300 s cap. MEASURED 2026-08-07 by an A/B run for the parallel_map
+# fork fix in this same PR: both arms (with and without the fix) gave the
+# IDENTICAL 2 failed / 38 passed at 300.0 s, 1530 s vs 1549 s total -- so this is
+# torch.compile cost, NOT the fork deadlock that fix cures. Nothing trips these
+# today only because backend-tests' normal runs carry no --jit dimension; they
+# are listed here so a workflow_dispatch(jit=true) run does not surface them as
+# a surprise red. Un-defer when the per-force-call overhead work lands.
+torch-jit tests/test_interp_potential.py::test_interpolation_potential_force_c  # 300s (timeout)
+torch-jit tests/test_interp_potential.py::test_interpolation_potential_secondderivs  # 300s (timeout)
