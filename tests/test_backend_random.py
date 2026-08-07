@@ -16,6 +16,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.backend import as_numpy as _np
 from galpy.backend import is_backend_array
@@ -376,9 +377,10 @@ def test_jax_jit():
         return jnp.sum(theta + jnp.exp(theta) * gr.normal(key, (5,)))
 
     th = jnp.asarray(0.7)
-    assert abs(float(jax.jit(f)(th)) - float(f(th))) < 1e-12
-    g = jax.grad(f)
-    assert abs(float(jax.jit(g)(th)) - float(g(th))) < 1e-10
+    # assert_jit_matches_eager also checks the jaxpr consumes theta -- a trace
+    # that folded the draw and theta into a constant would compare equal here.
+    assert_jit_matches_eager(f, th, rtol=0.0, atol=1e-12)
+    assert_jit_matches_eager(jax.grad(f), th, rtol=0.0, atol=1e-10)
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
