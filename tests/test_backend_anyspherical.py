@@ -8,16 +8,17 @@
 # derivative become jit- and grad-safe under a trace.
 #
 # This proves: eager jax/torch return backend arrays matching numpy; jax.jacfwd
-# and jax.jit over evaluateRforces are finite (THE gap that defined this
-# migration); and the force gradient w.r.t. R and w.r.t. the amp parameter
-# h-converges to a central finite difference (a stringent grad-vs-FD check, not
-# finite-and-nonzero). Backends that are not installed self-skip, so this is
-# green on numpy alone.
+# and jax.jit over evaluateRforces reproduce the numpy force and its central-FD
+# derivative (THE gap that defined this migration); and the force gradient
+# w.r.t. R and w.r.t. the amp parameter h-converges to a central finite
+# difference (a stringent grad-vs-FD check, not finite-and-nonzero). Backends
+# that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
 import warnings
 
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.backend import as_numpy
 from galpy.potential import (
@@ -104,21 +105,35 @@ def test_eager_backend_value_parity(backend_name, pot):
 
 @pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
 @pytest.mark.parametrize("pot", POTS, ids=POT_IDS)
-def test_jacfwd_and_jit_rforces_finite(pot):
-    # THE gap: jax.jacfwd / jax.jit over evaluateRforces must be finite (the old
-    # numpy.atleast_1d + scipy.integrate.quad internals crashed under a trace).
+def test_jacfwd_and_jit_rforces_match_numpy(pot):
+    # THE gap this migration closed: jax.jacfwd / jax.jit over evaluateRforces
+    # (the old numpy.atleast_1d + scipy.integrate.quad internals crashed under a
+    # trace). Finiteness alone would not distinguish a working trace from one
+    # that folded its argument away, so both are pinned to a value: the jit
+    # against the numpy force, the jacfwd against central FD, at every (R, z).
     for R0, z0 in _RZ:
         z = jnp.asarray(z0)
 
-        def rf(R):
-            return evaluateRforces(pot, R, z)
+        def rf(R, _z=z):
+            return evaluateRforces(pot, R, _z)
 
-        g = jax.jacfwd(rf)(jnp.asarray(R0))
-        assert bool(jnp.isfinite(g)), f"jacfwd non-finite at R={R0}"
-        jv = jax.jit(rf)(jnp.asarray(R0))
-        assert bool(jnp.isfinite(jv)), f"jit non-finite at R={R0}"
+        assert_jit_matches_eager(
+            rf,
+            jnp.asarray(R0),
+            rtol=1e-14,
+            atol=0.0,
+            ref=evaluateRforces(pot, R0, z0),
+            err_msg=f"Rforce at R={R0}",
+        )
+        h = 1e-5
+        fd = (evaluateRforces(pot, R0 + h, z0) - evaluateRforces(pot, R0 - h, z0)) / (
+            2.0 * h
+        )
         numpy.testing.assert_allclose(
-            float(jv), evaluateRforces(pot, R0, z0), rtol=1e-8
+            float(as_numpy(jax.jacfwd(rf)(jnp.asarray(R0)))),
+            fd,
+            rtol=1e-8,
+            err_msg=f"jacfwd d(Rforce)/dR vs FD at R={R0}",
         )
 
 
