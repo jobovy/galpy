@@ -29,7 +29,7 @@ numpylog = numpy.lib.scimath.log  # somehow, this code produces log(negative), w
 from scipy import integrate, interpolate, optimize, stats
 
 from ..actionAngle import actionAngleAdiabatic
-from ..backend import get_namespace, is_backend_array
+from ..backend import as_numpy, get_namespace, is_backend_array
 from ..backend.quadrature import nested_quad
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
@@ -265,8 +265,8 @@ class diskdf(df):
             * (
                 1.0 / self._gamma**2.0
                 - 1.0
-                - R * self._surfaceSigmaProfile.surfacemassDerivative(R, log=True)
-                - R * self._surfaceSigmaProfile.sigma2Derivative(R, log=True)
+                - R * self._ssp("surfacemassDerivative", R, log=True)
+                - R * self._ssp("sigma2Derivative", R, log=True)
             )
         )
         if numpy.fabs(va) > sigmaR1:
@@ -345,8 +345,8 @@ class diskdf(df):
             * (
                 1.0 / self._gamma**2.0
                 - 1.0
-                - R * self._surfaceSigmaProfile.surfacemassDerivative(R, log=True)
-                - R * self._surfaceSigmaProfile.sigma2Derivative(R, log=True)
+                - R * self._ssp("surfacemassDerivative", R, log=True)
+                - R * self._ssp("sigma2Derivative", R, log=True)
             )
         )
         if numpy.fabs(va) > sigmaR1:
@@ -421,7 +421,7 @@ class diskdf(df):
         -----
         - 2010-03-28 - Written - Bovy (NYU)
         """
-        return self._surfaceSigmaProfile.sigma2(R, log=log)
+        return self._ssp("sigma2", R, log=log)
 
     @potential_physical_input
     @physical_conversion("surfacedensity", pop=True)
@@ -446,7 +446,26 @@ class diskdf(df):
         - 2010-03-28 - Written - Bovy (NYU)
 
         """
-        return self._surfaceSigmaProfile.surfacemass(R, log=log)
+        return self._ssp("surfacemass", R, log=log)
+
+    # --- surfaceSigmaProfile boundary -------------------------------------
+    # surfaceSigmaProfile is backend-native and its @backend_input boundary
+    # coerces R under a FORCED context, so a numpy caller gets a Tensor back.
+    # diskdf is NOT migrated: its numpy branches feed scipy quad and numpylog,
+    # which cannot take Tensors (numpylog's complex result promotes against a
+    # Tensor into a complex Tensor that _real cannot unwrap). Until diskdf
+    # itself is migrated, the CONSUMER guards its own boundary here -- every
+    # call into the profile goes through one of these four, so the guard cannot
+    # be bypassed by adding a call site.
+    #
+    # Deliberately NOT a proxy object wrapping _surfaceSigmaProfile: the profile
+    # is passed on to other df constructors and into ARS `hxparams`, and its
+    # `__class__.__name__` builds the dfcorrection save filename -- a wrapper
+    # would silently change that filename and regenerate corrections instead of
+    # loading them.
+    def _ssp(self, name, R, **kwargs):
+        out = getattr(self._surfaceSigmaProfile, name)(R, **kwargs)
+        return out if is_backend_array(R) else as_numpy(out)
 
     @physical_conversion("surfacedensitydistance", pop=True)
     def targetSurfacemassLOS(self, d, l, log=False, deg=True):
@@ -483,9 +502,9 @@ class diskdf(df):
         d = conversion.parse_length(d, ro=self._ro)
         R, phi = _dlToRphi(d, lrad)
         if log:
-            return self._surfaceSigmaProfile.surfacemass(R, log=log) + numpylog(d)
+            return self._ssp("surfacemass", R, log=log) + numpylog(d)
         else:
-            return self._surfaceSigmaProfile.surfacemass(R, log=log) * d
+            return self._ssp("surfacemass", R, log=log) * d
 
     @physical_conversion("surfacedensitydistance", pop=True)
     def surfacemassLOS(
@@ -754,8 +773,8 @@ class diskdf(df):
             * (
                 1.0 / self._gamma**2.0
                 - 1.0
-                - R * self._surfaceSigmaProfile.surfacemassDerivative(R, log=True)
-                - R * self._surfaceSigmaProfile.sigma2Derivative(R, log=True)
+                - R * self._ssp("surfacemassDerivative", R, log=True)
+                - R * self._ssp("sigma2Derivative", R, log=True)
             )
         )
 
@@ -774,8 +793,8 @@ class diskdf(df):
             * (
                 1.0 / self._gamma**2.0
                 - 1.0
-                - R * self._surfaceSigmaProfile.surfacemassDerivative(R, log=True)
-                - R * self._surfaceSigmaProfile.sigma2Derivative(R, log=True)
+                - R * self._ssp("surfacemassDerivative", R, log=True)
+                - R * self._ssp("sigma2Derivative", R, log=True)
             )
         )
         va = xp.where(xp.abs(va) > sigmaR1, 0.0, va)  # avoid craziness near center
@@ -844,8 +863,8 @@ class diskdf(df):
             * (
                 1.0 / self._gamma**2.0
                 - 1.0
-                - R * self._surfaceSigmaProfile.surfacemassDerivative(R, log=True)
-                - R * self._surfaceSigmaProfile.sigma2Derivative(R, log=True)
+                - R * self._ssp("surfacemassDerivative", R, log=True)
+                - R * self._ssp("sigma2Derivative", R, log=True)
             )
         )
         if numpy.fabs(va) > sigmaR1:
@@ -942,8 +961,8 @@ class diskdf(df):
             * (
                 1.0 / self._gamma**2.0
                 - 1.0
-                - R * self._surfaceSigmaProfile.surfacemassDerivative(R, log=True)
-                - R * self._surfaceSigmaProfile.sigma2Derivative(R, log=True)
+                - R * self._ssp("surfacemassDerivative", R, log=True)
+                - R * self._ssp("sigma2Derivative", R, log=True)
             )
         )
         if numpy.fabs(va) > sigmaR1:
@@ -1089,8 +1108,8 @@ class diskdf(df):
             * (
                 1.0 / self._gamma**2.0
                 - 1.0
-                - R * self._surfaceSigmaProfile.surfacemassDerivative(R, log=True)
-                - R * self._surfaceSigmaProfile.sigma2Derivative(R, log=True)
+                - R * self._ssp("surfacemassDerivative", R, log=True)
+                - R * self._ssp("sigma2Derivative", R, log=True)
             )
         )
         if numpy.fabs(va) > sigmaR1:
@@ -2157,11 +2176,7 @@ class dehnendf(diskdf):
         # Then sample Lz
         LCE = xE ** (self._beta + 1.0)
         OR = xE ** (self._beta - 1.0)
-        Lz = (
-            self._surfaceSigmaProfile.sigma2(xE)
-            * numpylog(stats.uniform.rvs(size=n))
-            / OR
-        )
+        Lz = self._ssp("sigma2", xE) * numpylog(stats.uniform.rvs(size=n)) / OR
         if self._correct:
             Lz *= self._corr.correct(xE, log=False)[1, :]
         Lz += LCE
@@ -2343,11 +2358,11 @@ class dehnendf(diskdf):
                 OE = xE ** (self._beta - 1.0)
                 LCE = xE ** (self._beta + 1.0)
         L = R * vT
-        sigma2xE = self._surfaceSigmaProfile.sigma2(xE, log=False)
+        sigma2xE = self._ssp("sigma2", xE, log=False)
         return (
-            self._surfaceSigmaProfile.surfacemassDerivative(xE, log=True)
+            self._ssp("surfacemassDerivative", xE, log=True)
             - (1.0 + OE * (L - LCE) / sigma2xE)
-            * self._surfaceSigmaProfile.sigma2Derivative(xE, log=True)
+            * self._ssp("sigma2Derivative", xE, log=True)
             + (L - LCE) / sigma2xE * (self._beta - 1.0) * xE ** (self._beta - 2.0)
             - OE * (self._beta + 1.0) / sigma2xE * xE**self._beta
         )
@@ -2367,7 +2382,7 @@ class dehnendf(diskdf):
                 )
                 xE = (2.0 * E / (1.0 + 1.0 / self._beta)) ** (1.0 / 2.0 / self._beta)
                 OE = xE ** (self._beta - 1.0)
-        sigma2xE = self._surfaceSigmaProfile.sigma2(xE, log=False)
+        sigma2xE = self._ssp("sigma2", xE, log=False)
         return OE / sigma2xE
 
 
@@ -2611,7 +2626,7 @@ class shudf(diskdf):
             ECL = numpylog(xL) + 0.5
         else:
             ECL = 0.5 * (1.0 / self._beta + 1.0) * xL ** (2.0 * self._beta)
-        E = -self._surfaceSigmaProfile.sigma2(xL) * numpylog(stats.uniform.rvs(size=n))
+        E = -self._ssp("sigma2", xL) * numpylog(stats.uniform.rvs(size=n))
         if self._correct:
             E *= self._corr.correct(xL, log=False)[1, :]
         E += ECL
@@ -2715,11 +2730,10 @@ class shudf(diskdf):
             dECLdRl = (1.0 + self._beta) * xL ** (2.0 * self._beta - 1)
             dEdR = R ** (2.0 * self._beta - 1.0)
             dECLEdR = dECLdRl * dRldR - dEdR
-        sigma2xL = self._surfaceSigmaProfile.sigma2(xL, log=False)
+        sigma2xL = self._ssp("sigma2", xL, log=False)
         return (
-            self._surfaceSigmaProfile.surfacemassDerivative(xL, log=True)
-            - (1.0 + (ECL - E) / sigma2xL)
-            * self._surfaceSigmaProfile.sigma2Derivative(xL, log=True)
+            self._ssp("surfacemassDerivative", xL, log=True)
+            - (1.0 + (ECL - E) / sigma2xL) * self._ssp("sigma2Derivative", xL, log=True)
         ) * dRldR + dECLEdR / sigma2xL
 
     def _dlnfdvR(self, R, vR, vT):
@@ -2729,7 +2743,7 @@ class shudf(diskdf):
             xL = L
         else:  # non-flat rotation curve
             xL = L ** (1.0 / (self._beta + 1.0))
-        sigma2xL = self._surfaceSigmaProfile.sigma2(xL, log=False)
+        sigma2xL = self._ssp("sigma2", xL, log=False)
         return -vR / sigma2xL
 
     def _dlnfdvT(self, R, vR, vT):
@@ -2747,11 +2761,10 @@ class shudf(diskdf):
             dECLdRl = (1.0 + self._beta) * xL ** (2.0 * self._beta - 1)
             dEdvT = vT
             dECLEdvT = dECLdRl * dRldvT - dEdvT
-        sigma2xL = self._surfaceSigmaProfile.sigma2(xL, log=False)
+        sigma2xL = self._ssp("sigma2", xL, log=False)
         return (
-            self._surfaceSigmaProfile.surfacemassDerivative(xL, log=True)
-            - (1.0 + (ECL - E) / sigma2xL)
-            * self._surfaceSigmaProfile.sigma2Derivative(xL, log=True)
+            self._ssp("surfacemassDerivative", xL, log=True)
+            - (1.0 + (ECL - E) / sigma2xL) * self._ssp("sigma2Derivative", xL, log=True)
         ) * dRldvT + dECLEdvT / sigma2xL
 
 
@@ -3368,13 +3381,13 @@ def _vtmaxEq(vT, R, diskdf):
         LCE = xE ** (diskdf._beta + 1.0)
         dxEdvT = xE / 2.0 / diskdf._beta / E * vT
     L = R * vT
-    sigma2xE = diskdf._surfaceSigmaProfile.sigma2(xE, log=False)
+    sigma2xE = diskdf._ssp("sigma2", xE, log=False)
     return (
         OE * R / sigma2xE
         + (
-            diskdf._surfaceSigmaProfile.surfacemassDerivative(xE, log=True)
+            diskdf._ssp("surfacemassDerivative", xE, log=True)
             - (1.0 + OE * (L - LCE) / sigma2xE)
-            * diskdf._surfaceSigmaProfile.sigma2Derivative(xE, log=True)
+            * diskdf._ssp("sigma2Derivative", xE, log=True)
             + (L - LCE) / sigma2xE * (diskdf._beta - 1.0) * xE ** (diskdf._beta - 2.0)
             - OE * (diskdf._beta + 1.0) / sigma2xE * xE**diskdf._beta
         )
