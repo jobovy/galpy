@@ -82,3 +82,32 @@ def test_surfaceSigmaProfile_grad_matches_derivative(backend):
         p.surfacemass(t).backward()
         g = float(t.grad)
     numpy.testing.assert_allclose(g, p.surfacemassDerivative(R0), rtol=1e-8)
+
+
+# --- forced backend with numpy-typed input -----------------------------------
+# The tests above pass ACTUAL backend arrays, so they exercise the backend branch
+# whether or not a data-guard is present. The guard that used to sit here,
+#     xp = get_namespace(R) if is_backend_array(R) else numpy
+# only misbehaved for the case they never cover: a plain float under a FORCED
+# backend. `get_namespace` already honours a forced context (it returns
+# jax.numpy/torch for a numpy scalar), so the guard discarded the forced
+# namespace exactly when get_namespace would have supplied it, and the profile
+# silently computed on numpy inside a backend run.
+#
+# A type assertion is legitimate here (unlike jeans, where an exit-cast made it
+# pass for the wrong reason): measured, the guarded version returned float64 on
+# BOTH jax and torch, the coerced version returns a backend array on both.
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("name", _SSP_METHODS)
+def test_forced_backend_runs_on_backend_for_numpy_input(backend, name):
+    from galpy.backend import use
+
+    p = expSurfaceSigmaProfile(params=(1.0 / 3.0, 1.0, 0.2))
+    ref = getattr(p, name)(0.9)
+    with use(backend, force=True):
+        got = getattr(p, name)(numpy.float64(0.9))
+    assert _is_backend_array(backend, got), (
+        f"{name} returned {type(got).__name__} under a FORCED {backend} backend: "
+        "numpy-typed input is still being computed on numpy"
+    )
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-12, atol=1e-14)
