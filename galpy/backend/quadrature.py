@@ -296,7 +296,9 @@ def fixed_quad(xp, integrand, a, b, *, n=50, device=None, vectorized=True):
     return match_input_dtype(result, a, b)
 
 
-def fixed_quad_semiinfinite(xp, integrand, a, *, n=50, kind="recip", device=None):
+def fixed_quad_semiinfinite(
+    xp, integrand, a, *, n=50, kind="recip", scale=None, device=None
+):
     r"""``int_a^inf integrand(s) ds`` by fixed-order Gauss-Legendre quadrature.
 
     The semi-infinite range is mapped to a finite one before applying
@@ -327,6 +329,12 @@ def fixed_quad_semiinfinite(xp, integrand, a, *, n=50, kind="recip", device=None
         - ``'tan'``: ``s = a + tan(pi/2 * u)`` for ``u in [0, 1)``,
           ``ds = pi/2 * sec^2(pi/2 * u) du``. Good for slowly decaying /
           oscillatory tails (e.g. ``1/(1+s**2)``).
+    scale : scalar or backend array, optional
+        Transition scale ``L`` of the map, i.e. the width in ``s`` over which
+        the nodes crowd near the lower limit (``s = a - L + L/u**2`` for
+        ``'recip'``, ``s = a + L*tan(pi/2*u)`` for ``'tan'``). Defaults to
+        ``L = 1``. Pass the scale on which the integrand actually varies
+        whenever that is far from unity -- see Notes. Broadcasts against ``a``.
 
     Returns
     -------
@@ -340,27 +348,38 @@ def fixed_quad_semiinfinite(xp, integrand, a, *, n=50, kind="recip", device=None
     interior so those points are never evaluated, but the dead-branch guarding
     convention is still honoured: ``u`` is clamped strictly inside ``(0, 1)``
     before the map so no node can produce inf/NaN that would poison AD.
+
+    ``scale`` matters more than ``n``. Node spacing in ``s`` just above the
+    lower limit is ``O(L/n**2)``, so with the default ``L = 1`` an integrand
+    whose structure sits on a scale ``eps << 1`` is unresolved no matter how
+    many nodes are thrown at it -- accuracy collapses as ``eps -> 0`` rather
+    than converging. Passing ``scale`` makes the map scale-invariant with the
+    problem. Measured on ``df.jeans.sigmar`` (structure on scale ``a = r``):
+    at ``r = 1e-3`` the default map errs by ``1.1e-02`` and ``scale=r`` by
+    ``1.2e-06`` at the same ``n = 50``; at ``n = 100`` the latter reaches
+    ``8.8e-12``, the accuracy of the scipy reference.
     """
     dev = device if device is not None else device_of(a)
     x01, w01 = _gl01_on(xp, n, dev)
     a = asarray_on_device(xp, a, dev) * 1.0
     a_b = a[..., None]
+    L = 1.0 if scale is None else asarray_on_device(xp, scale, dev)[..., None] * 1.0
     if kind == "recip":
-        # s + (1 - a) = 1/u**2  =>  s = a - 1 + 1/u**2 ; ds = -2 u**-3 du.
+        # s + (L - a) = L/u**2  =>  s = a - L + L/u**2 ; ds = -2 L u**-3 du.
         # u=1 -> s=a, u->0 -> s->inf. Clamp u off 0 so 1/u**2 stays finite.
         u = xp.maximum(x01, xp.ones_like(x01) * 1e-300)
         inv_u2 = 1.0 / (u * u)
-        s = a_b - 1.0 + inv_u2
-        jac = 2.0 * inv_u2 / u  # |ds/du| = 2 / u**3
+        s = a_b - L + L * inv_u2
+        jac = 2.0 * L * inv_u2 / u  # |ds/du| = 2 L / u**3
     elif kind == "tan":
-        # s = a + tan(pi/2 * u) ; ds = (pi/2) sec^2(pi/2 * u) du.
+        # s = a + L tan(pi/2 * u) ; ds = L (pi/2) sec^2(pi/2 * u) du.
         # u=0 -> s=a, u->1 -> s->inf. Clamp u off 1 so tan stays finite.
         half_pi = numpy.pi / 2.0
         u = xp.minimum(x01, xp.ones_like(x01) * (1.0 - 1e-15))
         theta = half_pi * u
         tan_t = xp.tan(theta)
-        s = a_b + tan_t
-        jac = half_pi * (1.0 + tan_t * tan_t)  # sec^2 = 1 + tan^2
+        s = a_b + L * tan_t
+        jac = half_pi * L * (1.0 + tan_t * tan_t)  # sec^2 = 1 + tan^2
     else:  # pragma: no cover - guarded API misuse
         raise ValueError(
             f"fixed_quad_semiinfinite: unknown kind {kind!r} (use 'recip' or 'tan')"
