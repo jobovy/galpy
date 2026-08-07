@@ -402,3 +402,13 @@ jax tests/test_FDMdynamfric.py::test_dynamfric_c
 # timeout records FAILED and overrides xfail, so this is a slow-skip, not an
 # xfail. Its siblings are fine: FDM test_dynamfric_c 208s, both _minr 36s.
 torch tests/test_dynamfric.py::test_dynamfric_c
+
+# torch-jit: parallel_map DEADLOCKS under --jit (measured 2026-08-07: 12 forked
+# children all parked in futex_wait_queue, parent in do_wait, 64 min, 0% CPU
+# anywhere in the tree). The eager-torch fix (cap the child to 1 torch thread)
+# does not cover the traced path. A HANG cannot be xfailed -- an xfail-ledger
+# entry still RUNS the test, so it burns the shard's whole budget and lands as a
+# timeout instead of the expected failure. Skip until the --jit fork path is fixed.
+torch-jit tests/test_streamdf.py::test_streamTrack_multi_parallel
+torch-jit tests/test_streamdf.py::test_plotting
+torch-jit tests/test_streamdf.py::test_fardalwmwpot_trackaa
