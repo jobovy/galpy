@@ -188,3 +188,48 @@ def test_sigmar_small_r_matches_closed_form(backend, r):
     assert numpy.fabs(float(as_numpy(got)) - exact) < 1e-10, (
         f"sigmar off by {numpy.fabs(float(as_numpy(got)) - exact):.3e} at r={r}"
     )
+
+
+# --- jit ---------------------------------------------------------------------
+# sigmar carries no @backend_input decorator, so it is NOT a trace boundary and
+# the `--jit` harness never traces it as a unit: passing under `--backend jax
+# --jit` says nothing about whether it is jit-compatible. Trace it explicitly.
+# `scale=r` puts the caller's r inside the quadrature MAP (not just the limit),
+# which is the part that has to survive a tracer.
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+@pytest.mark.parametrize("r", [1e-3, 1e-2, 0.1, 1.0, 5.0])
+def test_sigmar_jit_matches_eager(r):
+    from backend_jit_helpers import assert_jit_matches_eager
+
+    from galpy.potential import LogarithmicHaloPotential
+
+    # A CONVERGENT configuration: dens ~ r**0.1 with beta(r) = -3r. (Pairing a
+    # rising density with a constant beta=0.5 makes the Jeans integrand ~x**0.1
+    # and the integral divergent -- the GL rule then returns a large number that
+    # barely moves with r, which is not a code defect.)
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    assert_jit_matches_eager(
+        lambda x: jeans.sigmar(
+            lp, x, beta=lambda y: -3.0 * y, dens=lambda y: y**0.1, use_physical=False
+        ),
+        jnp.asarray(r),
+        rtol=1e-13,
+        atol=0.0,
+        err_msg=f"sigmar under jit at r={r}",
+    )
+
+
+@pytest.mark.skipif("jax" not in BACKENDS, reason="jax not installed")
+def test_sigmar_jit_of_grad_matches_eager_grad():
+    # The differentiable path has to survive tracing too, not just the value.
+    from backend_jit_helpers import assert_jit_matches_eager
+
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    g = jax.grad(
+        lambda x: jeans.sigmar(
+            lp, x, beta=lambda y: -3.0 * y, dens=lambda y: y**0.1, use_physical=False
+        )
+    )
+    assert_jit_matches_eager(g, jnp.asarray(0.5), rtol=1e-11, atol=0.0)
