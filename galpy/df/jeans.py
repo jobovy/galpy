@@ -2,7 +2,7 @@
 import numpy
 from scipy import integrate
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import get_namespace
 from ..backend.quadrature import fixed_quad_semiinfinite, quad
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
@@ -50,7 +50,7 @@ def sigmar(Pot, r, dens=None, beta=0.0):
             phi=numpy.pi / 4.0,
             use_physical=False,
         )
-    xp = get_namespace(r) if is_backend_array(r) else numpy
+    xp = get_namespace(r)
     if xp is numpy:
         # numpy path: scipy.integrate.quad over [r, inf) -- byte-identical.
         if callable(beta):
@@ -79,9 +79,19 @@ def sigmar(Pot, r, dens=None, beta=0.0):
             / intFactor(r)
         )
     # jax/torch: fixed-order Gauss-Legendre on the mapped semi-infinite range,
-    # differentiable in r and through the potential's parameters.
+    # differentiable in r and through the potential's parameters. Coerce r onto
+    # the resolved namespace first: under a forced backend the caller may still
+    # pass a numpy/Python scalar, and then `quad` below returns a plain float
+    # that `xp.exp` rejects (torch: "argument 'input' must be Tensor, not float").
+    r = xp.asarray(r)
     if callable(beta):
-        intFactor = lambda x: xp.exp(2.0 * quad(lambda y: beta(y) / y, 1.0, x))
+        # Substitute y = exp(t): int_1^x beta(y)/y dy = int_0^ln(x) beta(e^t) dt.
+        # The nodes of the outer map run out to very large x, where fixed-order
+        # GL on the raw 1/y integrand is hopeless (it has to resolve a log over
+        # decades); in t it is smooth and bounded over a range of length ln(x).
+        intFactor = lambda x: xp.exp(
+            2.0 * quad(lambda t: beta(xp.exp(t)), 0.0, xp.log(x))
+        )
     else:
         intFactor = lambda x: x ** (2.0 * beta)
     return xp.sqrt(
@@ -99,6 +109,12 @@ def sigmar(Pot, r, dens=None, beta=0.0):
                 )
             ),
             r,
+            # The integrand varies on scale r, so the map must too: with the
+            # default unit scale, accuracy collapses as r -> 0 (1.1e-2 at
+            # r=1e-3) instead of converging. n=100 then reaches scipy's own
+            # accuracy there; n=50 leaves 1.2e-6.
+            n=100,
+            scale=r,
         )
         / dens(r)
         / intFactor(r)
@@ -136,7 +152,7 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
     - 2018-08-27 - Written - Bovy (UofT)
     """
     Pot = _check_potential_list_and_deprecate(Pot)
-    xp = get_namespace(R) if is_backend_array(R) else numpy
+    xp = get_namespace(R)
     if dens is None:
         densPot = True
         dens = lambda r: evaluateDensities(
