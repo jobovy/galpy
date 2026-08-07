@@ -603,12 +603,17 @@ class evolveddiskdf(df):
                     return self._vmomentsurfacemassHierarchicalGrid(n, m, grido)
         # Calculate the initdf moment and then calculate the ratio
         initvmoment = self._initdf.vmomentsurfacemass(R, n, m, nsigma=nsigma, phi=phi)
+        # TRANSITIONAL data-guard, mirroring _buildvgrid's gate on is_backend_array
+        # (not on a forced namespace): a forced backend with a plain-float R keeps
+        # the adaptive scipy path, so the fast numpy suite does not get flipped onto
+        # orbit integration. Only a genuine backend R takes the differentiable route.
+        _direct_backend = is_backend_array(R)
         xp = get_namespace(R, sigmaR1, sigmaT1, meanvR, meanvT)
-        if xp is numpy:
+        if not _direct_backend:
             if initvmoment == 0.0:
                 initvmoment = 1.0
         else:
-            # Same guard, but selected rather than branched: under a trace the
+            # Same guard, selected rather than branched: under a trace the
             # comparison is a tracer and `if` raises TracerBoolConversionError.
             # Kept OFF the numpy path deliberately -- xp.where would return a 0-d
             # array there, changing the public return type from a float.
@@ -616,7 +621,7 @@ class evolveddiskdf(df):
         norm = sigmaR1 ** (n + 1) * sigmaT1 ** (m + 1) * initvmoment
         if isinstance(t, (list, numpy.ndarray)):
             raise OSError("list of times is only supported with grid-based calculation")
-        if xp is not numpy:
+        if _direct_backend:
             return (
                 self._vmomentsurface_direct_backend(
                     R, az, t, n, m, nsigma, sigmaR1, sigmaT1, meanvR, meanvT, xp
