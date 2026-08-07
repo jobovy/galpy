@@ -11,7 +11,8 @@
 ###############################################################################
 import numpy
 
-from ..backend import get_namespace, is_backend_array
+from ..backend import get_namespace
+from ..backend._input import backend_input
 
 
 class surfaceSigmaProfile:
@@ -109,6 +110,12 @@ class surfaceSigmaProfile:
 class expSurfaceSigmaProfile(surfaceSigmaProfile):
     """Exponential surface density and sigma_R^2 class"""
 
+    # The R-based evaluators below are backend-native, so @backend_input may
+    # coerce R. Declared on THIS class, not the base: a user subclass of
+    # surfaceSigmaProfile may still be numpy-only. Without this flag the
+    # decorator is inert -- _input.py gates coercion on _backend_ready(self).
+    _backend_compatible = True
+
     def __init__(self, params=(1.0 / 3.0, 1.0, 0.2)):
         """
         Initialize an exponential surface density and sigma_R^2 profile.
@@ -126,6 +133,7 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         surfaceSigmaProfile.__init__(self)
         self._params = params
 
+    @backend_input("R")
     def surfacemass(self, R, log=False):
         """
         Return the surface density profile at this R.
@@ -149,9 +157,10 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -R / self._params[0]
         else:
-            xp = get_namespace(R) if is_backend_array(R) else numpy
+            xp = get_namespace(R)
             return xp.exp(-R / self._params[0])
 
+    @backend_input("R")
     def surfacemassDerivative(self, R, log=False):
         """
         Return the derivative wrt R of the surface density profile at this R.
@@ -175,9 +184,10 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -1.0 / self._params[0]
         else:
-            xp = get_namespace(R) if is_backend_array(R) else numpy
+            xp = get_namespace(R)
             return -xp.exp(-R / self._params[0]) / self._params[0]
 
+    @backend_input("R")
     def sigma2(self, R, log=False):
         """
         Return the radial velocity variance at this R.
@@ -201,9 +211,10 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return 2.0 * numpy.log(self._params[2]) - 2.0 * (R - 1.0) / self._params[1]
         else:
-            xp = get_namespace(R) if is_backend_array(R) else numpy
+            xp = get_namespace(R)
             return self._params[2] ** 2.0 * xp.exp(-2.0 * (R - 1.0) / self._params[1])
 
+    @backend_input("R")
     def sigma2Derivative(self, R, log=False):
         """
         Return the derivative wrt R of the sigma_R^2 profile at this R
@@ -228,7 +239,7 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
         if log:
             return -2.0 / self._params[1]
         else:
-            xp = get_namespace(R) if is_backend_array(R) else numpy
+            xp = get_namespace(R)
             return (
                 self._params[2] ** 2.0
                 * xp.exp(-2.0 * (R - 1.0) / self._params[1])
