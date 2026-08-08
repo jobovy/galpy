@@ -16,7 +16,6 @@
 # it) it passes in 1028.6 s under forced jax. CI runs ~0.71x this box's wall time
 # on the same code, so that still projects to ~730 s. Needs KingPotential
 # vectorization, not merely the sampling port.
-jax tests/test_sphericaldf.py::test_king_sigmar
 #
 # --- jax multi-orbit (test_orbits.py): slow battery (Track D/E) ---
 # Surface-of-section, multi-orbit dxdv (Python STM reference), C-fallback,
@@ -51,11 +50,6 @@ jax tests/test_qdf.py::test_meanjz_noaac_issue300
 # 300 s per-test timeout under forced jax. torch completes them (faster eager),
 # so torch keeps them ledgered xfail. Un-defer once the moment engine is
 # vectorized/jit-friendly; numpy exercises every one.
-jax tests/test_pv2qdf.py::test_pvRvT_staeckel
-jax tests/test_pv2qdf.py::test_pvRvT_staeckel_diffngl
-jax tests/test_pv2qdf.py::test_pvRvz_staeckel_diffngl
-jax tests/test_pv2qdf.py::test_pvTvz_staeckel
-jax tests/test_pv2qdf.py::test_pvTvz_staeckel_diffngl
 jax tests/test_qdf.py::test_sampleV_interpolate
 
 # --- jax interpRZ timeouts / near-timeouts (Track A/d interpRZ 2D-interp vectorization) ---
