@@ -29,7 +29,7 @@ numpylog = numpy.lib.scimath.log  # somehow, this code produces log(negative), w
 from scipy import integrate, interpolate, optimize, stats
 
 from ..actionAngle import actionAngleAdiabatic
-from ..backend import as_numpy, get_namespace, is_backend_array
+from ..backend import as_numpy, get_namespace, is_backend_array, use
 from ..backend.quadrature import nested_quad
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
@@ -463,9 +463,28 @@ class diskdf(df):
     # `__class__.__name__` builds the dfcorrection save filename -- a wrapper
     # would silently change that filename and regenerate corrections instead of
     # loading them.
+    # Three cases, because the cost of getting this wrong is measured in
+    # minutes: diskdf's scipy-quad path calls in here ~133k times per oortA().
+    #   * R is a backend array -> the caller is on the backend; go straight in.
+    #   * plain R, numpy active -> the common path. Skip the @backend_input
+    #     wrapper via __wrapped__: it can only be a no-op here (coerce_coords
+    #     returns numpy coords object-identical), and at this call count even a
+    #     no-op wrapper is worth ~12%.
+    #   * plain R, a backend FORCED -> a plain float resolves to that backend,
+    #     so leaving it alone coerces a scalar in and converts it back out on
+    #     every call. Pin numpy for the duration instead. The profile stays
+    #     island-free: it is the CONSUMER choosing numpy for its own numpy-only
+    #     quadrature, not the leaf dispatching on dtype.
     def _ssp(self, name, R, **kwargs):
-        out = getattr(self._surfaceSigmaProfile, name)(R, **kwargs)
-        return out if is_backend_array(R) else as_numpy(out)
+        ssp = self._surfaceSigmaProfile
+        bound = getattr(ssp, name)
+        if is_backend_array(R):
+            return bound(R, **kwargs)
+        if get_namespace(R) is numpy:
+            inner = getattr(bound, "__wrapped__", None)
+            return inner(ssp, R, **kwargs) if inner is not None else bound(R, **kwargs)
+        with use("numpy", force=True):
+            return as_numpy(bound(R, **kwargs))
 
     @physical_conversion("surfacedensitydistance", pop=True)
     def targetSurfacemassLOS(self, d, l, log=False, deg=True):
