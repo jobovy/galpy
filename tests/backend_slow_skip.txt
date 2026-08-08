@@ -403,12 +403,13 @@ jax tests/test_FDMdynamfric.py::test_dynamfric_c
 # xfail. Its siblings are fine: FDM test_dynamfric_c 208s, both _minr 36s.
 torch tests/test_dynamfric.py::test_dynamfric_c
 
-# torch-jit: parallel_map DEADLOCKS under --jit (measured 2026-08-07: 12 forked
-# children all parked in futex_wait_queue, parent in do_wait, 64 min, 0% CPU
-# anywhere in the tree). The eager-torch fix (cap the child to 1 torch thread)
-# does not cover the traced path. A HANG cannot be xfailed -- an xfail-ledger
-# entry still RUNS the test, so it burns the shard's whole budget and lands as a
-# timeout instead of the expected failure. Skip until the --jit fork path is fixed.
-torch-jit tests/test_streamdf.py::test_streamTrack_multi_parallel
-torch-jit tests/test_streamdf.py::test_plotting
-torch-jit tests/test_streamdf.py::test_fardalwmwpot_trackaa
+# torch-jit: interpRZPotential's grid build under torch.compile does not finish
+# inside the 300 s cap. MEASURED 2026-08-07 by an A/B run for the parallel_map
+# fork fix in this same PR: both arms (with and without the fix) gave the
+# IDENTICAL 2 failed / 38 passed at 300.0 s, 1530 s vs 1549 s total -- so this is
+# torch.compile cost, NOT the fork deadlock that fix cures. Nothing trips these
+# today only because backend-tests' normal runs carry no --jit dimension; they
+# are listed here so a workflow_dispatch(jit=true) run does not surface them as
+# a surprise red. Un-defer when the per-force-call overhead work lands.
+torch-jit tests/test_interp_potential.py::test_interpolation_potential_force_c  # 300s (timeout)
+torch-jit tests/test_interp_potential.py::test_interpolation_potential_secondderivs  # 300s (timeout)
