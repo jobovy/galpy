@@ -58,3 +58,39 @@ def assert_jit_matches_eager(fn, *args, rtol=1e-12, atol=1e-14, err_msg="", ref=
     got = as_numpy(jax.jit(fn)(*args))
     numpy.testing.assert_allclose(got, expected, rtol=rtol, atol=atol, err_msg=err_msg)
     return got
+
+
+def count_boundary_crossings(fn, backend):
+    """Run ``fn()`` under a forced backend; count non-numpy ``coerce_coords`` calls.
+
+    The ``@backend_input`` boundary costs ~178 us per crossing under a forced
+    backend. That is harmless at a few calls and ruinous inside a loop -- and it
+    is invisible to ordinary assertions, because the values stay correct and only
+    the time changes (galpy #1261/#1268, and the adapter forwards fixed after).
+
+    Callers pass inputs that are ALREADY backend arrays, so a correctly-written
+    internal forward reaches the undecorated inner evaluator and crosses **zero**
+    times; any nonzero count means it went back through a decorated public entry.
+
+    Pair every such assertion with a negative control that is *expected* to cross
+    (e.g. a deliberately unmigrated second-derivative forward). Without one, a
+    counter that silently stopped working makes the whole check pass vacuously.
+    """
+    import galpy.backend._input as _bi
+    from galpy.backend import use
+
+    real = _bi.coerce_coords
+    n = [0]
+
+    def spy(xp, *coords):
+        if xp is not numpy:
+            n[0] += 1
+        return real(xp, *coords)
+
+    _bi.coerce_coords = spy
+    try:
+        with use(backend, force=True):
+            fn()
+    finally:
+        _bi.coerce_coords = real
+    return n[0]
