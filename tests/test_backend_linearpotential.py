@@ -275,3 +275,71 @@ def test_isodisk_raw_methods_numpy_scalar_forced_backend(backend_name):
                 numpy.testing.assert_allclose(
                     float(got), ref[m], rtol=1e-12, atol=1e-14, err_msg=f"{m} x={x0}"
                 )
+
+
+###############################################################################
+# Boundary-crossing guard for the vertical->3D adapter forwards.
+#
+# verticalPotential wraps a 3D potential at fixed (R,phi). Those forwards used
+# to go through the DECORATED public API (self._Pot(...), .zforce), so under a
+# forced backend every call re-entered @backend_input and paid a coercion --
+# actionAngleVertical.Jz crossed 1708 times per call because of it.
+#
+# The values stay correct when that regresses; only time changes. So this
+# watches the coercion, not the result.
+###############################################################################
+
+
+def _count_vertical_coercions(fn, backend):
+    """Run fn() under a forced backend; count non-numpy coerce_coords calls."""
+    import galpy.backend._input as _bi
+
+    real = _bi.coerce_coords
+    n = [0]
+
+    def spy(xp, *coords):
+        if xp is not numpy:
+            n[0] += 1
+        return real(xp, *coords)
+
+    _bi.coerce_coords = spy
+    try:
+        with use(backend, force=True):
+            fn()
+    finally:
+        _bi.coerce_coords = real
+    return n[0]
+
+
+def _assert_vertical_adapters_do_not_recross(backend, mk):
+    from galpy.potential import MiyamotoNagaiPotential
+
+    vp = toVerticalPotential(MiyamotoNagaiPotential(a=0.5, b=0.05, normalize=1.0), 1.0)
+    z = mk([0.1])
+    for name, fn in [
+        ("verticalPotential._evaluate", lambda: vp._evaluate(z, t=0.0)),
+        ("verticalPotential._force", lambda: vp._force(z, t=0.0)),
+    ]:
+        assert _count_vertical_coercions(fn, backend) == 0, (
+            f"{name} re-crossed the @backend_input boundary; it should forward "
+            "to the undecorated inner evaluator"
+        )
+    # Negative control: _force2deriv is deliberately NOT migrated (there is no
+    # _evaluatez2derivs), so it must still cross. Without this, a spy that
+    # stopped working would make the assertions above pass vacuously.
+    assert _count_vertical_coercions(lambda: vp._force2deriv(z, t=0.0), backend) > 0, (
+        "control failed: _force2deriv should still cross, so a zero here means "
+        "the counter is broken, not that the code improved"
+    )
+
+
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+def test_vertical_adapter_forwards_do_not_recross_boundary_jax():
+    _assert_vertical_adapters_do_not_recross("jax", jnp.asarray)
+
+
+@pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
+def test_vertical_adapter_forwards_do_not_recross_boundary_torch():
+    _assert_vertical_adapters_do_not_recross(
+        "torch", lambda v: torch.tensor(v, dtype=torch.float64)
+    )
