@@ -36,6 +36,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import count_boundary_crossings
 
 from galpy.backend import use
 from galpy.potential import (
@@ -336,27 +337,6 @@ def test_henonheiles_raw_methods_numpy_scalar_forced_backend(backend_name):
 ###############################################################################
 
 
-def _count_coercions(fn, backend):
-    """Run fn() under a forced backend; count non-numpy coerce_coords calls."""
-    import galpy.backend._input as _bi
-
-    real = _bi.coerce_coords
-    n = [0]
-
-    def spy(xp, *coords):
-        if xp is not numpy:
-            n[0] += 1
-        return real(xp, *coords)
-
-    _bi.coerce_coords = spy
-    try:
-        with use(backend, force=True):
-            fn()
-    finally:
-        _bi.coerce_coords = real
-    return n[0]
-
-
 def _adapter_targets(mk):
     """(name, thunk) for the five migrated forwards, plus the R2deriv control."""
     from galpy.potential import DehnenBarPotential
@@ -377,7 +357,7 @@ def _adapter_targets(mk):
 def _assert_adapters_do_not_recross(backend, mk):
     migrated, control = _adapter_targets(mk)
     for name, fn in migrated:
-        assert _count_coercions(fn, backend) == 0, (
+        assert count_boundary_crossings(fn, backend) == 0, (
             f"{name} re-crossed the @backend_input boundary; it should forward "
             "to the undecorated inner evaluator"
         )
@@ -385,7 +365,7 @@ def _assert_adapters_do_not_recross(backend, mk):
     # _evaluateR2derivs exists), so it still crosses. Without this, a spy that
     # silently stopped working would make every assertion above pass vacuously.
     cname, cfn = control
-    assert _count_coercions(cfn, backend) > 0, (
+    assert count_boundary_crossings(cfn, backend) > 0, (
         f"control failed: {cname} should still cross, so a zero here means the "
         "counter is broken, not that the code improved"
     )
