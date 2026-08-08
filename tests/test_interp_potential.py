@@ -2225,3 +2225,54 @@ def test_interpolation_potential_verticalfreq_notinterpolated():
             f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = {r:g} by {vfdiff:g}"
         )
     return None
+
+
+# Regression test for the units bug: interpRZPotential built from a potential
+# with ro/vo set stored PHYSICAL values in its grids (and in the off-grid
+# fallback), while the interpolator is queried in internal units. The
+# potential came out a factor vo^2 too large, forces by force_in_kmsMyr, and
+# dens/R2deriv/epifreq/verticalfreq were wrong regardless of use_c because
+# those grids have no C implementation. See galpy #212.
+def test_interpRZPotential_units_set_matches_unitless():
+    import numpy
+
+    from galpy.potential import MiyamotoNagaiPotential, interpRZPotential
+
+    grid = dict(rgrid=(0.5, 1.5, 21), zgrid=(0.0, 0.2, 11), logR=False)
+    with_units = MiyamotoNagaiPotential(a=0.5, b=0.05, normalize=1.0, ro=8.0, vo=220.0)
+    unitless = MiyamotoNagaiPotential(a=0.5, b=0.05, normalize=1.0)
+
+    # (R, z) on the grid and off it -- the off-grid branch falls back to the
+    # original potential and had the same defect.
+    checks = [
+        (
+            dict(interpPot=True, use_c=False),
+            lambda p, R, z: p(R, z, use_physical=False),
+        ),
+        (dict(interpPot=True, use_c=True), lambda p, R, z: p(R, z, use_physical=False)),
+        (
+            dict(interpRforce=True, use_c=False),
+            lambda p, R, z: p.Rforce(R, z, use_physical=False),
+        ),
+        (
+            dict(interpzforce=True, use_c=False),
+            lambda p, R, z: p.zforce(R, z, use_physical=False),
+        ),
+        (dict(interpDens=True), lambda p, R, z: p.dens(R, z, use_physical=False)),
+        (dict(interpR2deriv=True), lambda p, R, z: p.R2deriv(R, z, use_physical=False)),
+        (dict(interpepifreq=True), lambda p, R, z: p.epifreq(R, use_physical=False)),
+        (
+            dict(interpverticalfreq=True),
+            lambda p, R, z: p.verticalfreq(R, use_physical=False),
+        ),
+    ]
+    for kwargs, evaluate in checks:
+        ip_units = interpRZPotential(RZPot=with_units, **grid, **kwargs)
+        ip_plain = interpRZPotential(RZPot=unitless, **grid, **kwargs)
+        for R, z in [(1.05, 0.07), (3.0, 0.5)]:  # on-grid, then off-grid
+            got = float(evaluate(ip_units, R, z))
+            want = float(evaluate(ip_plain, R, z))
+            assert numpy.fabs(got - want) < 1e-12 * numpy.fabs(want), (
+                f"interpRZPotential with ro/vo set disagrees with the unitless "
+                f"build for {kwargs} at (R,z)=({R},{z}): {got} vs {want}"
+            )
