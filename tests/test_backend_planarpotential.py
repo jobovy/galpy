@@ -36,6 +36,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import count_boundary_crossings
 
 from galpy.backend import use
 from galpy.potential import (
@@ -320,3 +321,63 @@ def test_henonheiles_raw_methods_numpy_scalar_forced_backend(backend_name):
                     atol=1e-14,
                     err_msg=f"{m} R={R0} phi={phi0}",
                 )
+
+
+###############################################################################
+# Boundary-crossing guard for the planar->3D adapter forwards.
+#
+# The adapters used to forward through the DECORATED public API
+# (self._Pot(...), .Rforce, .phitorque). Under a forced backend each of those
+# re-enters @backend_input and pays a coercion, so a caller that evaluates a
+# planar potential in a loop pays it per iteration: actionAngleSpherical's
+# rperi/rap bisection crossed 981 times per actions() call because of this.
+#
+# Values stay correct when that regresses -- the only symptom is time -- so no
+# ordinary assertion catches it. This watches the coercion itself.
+###############################################################################
+
+
+def _adapter_targets(mk):
+    """(name, thunk) for the five migrated forwards, plus the R2deriv control."""
+    from galpy.potential import DehnenBarPotential
+
+    axi = toPlanarPotential(MiyamotoNagaiPotential(a=0.5, b=0.05, normalize=1.0))
+    bar = toPlanarPotential(DehnenBarPotential(omegab=1.8, rb=0.6, Af=0.03))
+    R, phi = mk([1.0]), mk([0.3])
+    migrated = [
+        ("axi._evaluate", lambda: axi._evaluate(R, t=0.0)),
+        ("axi._Rforce", lambda: axi._Rforce(R, t=0.0)),
+        ("bar._evaluate", lambda: bar._evaluate(R, phi=phi, t=0.0)),
+        ("bar._Rforce", lambda: bar._Rforce(R, phi=phi, t=0.0)),
+        ("bar._phitorque", lambda: bar._phitorque(R, phi=phi, t=0.0)),
+    ]
+    return migrated, ("axi._R2deriv", lambda: axi._R2deriv(R, t=0.0))
+
+
+def _assert_adapters_do_not_recross(backend, mk):
+    migrated, control = _adapter_targets(mk)
+    for name, fn in migrated:
+        assert count_boundary_crossings(fn, backend) == 0, (
+            f"{name} re-crossed the @backend_input boundary; it should forward "
+            "to the undecorated inner evaluator"
+        )
+    # Negative control: _R2deriv is deliberately NOT migrated (no
+    # _evaluateR2derivs exists), so it still crosses. Without this, a spy that
+    # silently stopped working would make every assertion above pass vacuously.
+    cname, cfn = control
+    assert count_boundary_crossings(cfn, backend) > 0, (
+        f"control failed: {cname} should still cross, so a zero here means the "
+        "counter is broken, not that the code improved"
+    )
+
+
+@pytest.mark.skipif(not _HAS_JAX, reason="jax not installed")
+def test_planar_adapter_forwards_do_not_recross_boundary_jax():
+    _assert_adapters_do_not_recross("jax", jnp.asarray)
+
+
+@pytest.mark.skipif(not _HAS_TORCH, reason="torch not installed")
+def test_planar_adapter_forwards_do_not_recross_boundary_torch():
+    _assert_adapters_do_not_recross(
+        "torch", lambda v: torch.tensor(v, dtype=torch.float64)
+    )
