@@ -261,3 +261,17 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetric
 # backend-native; there is nothing to fix in the test.
 jax-jit tests/test_potential.py::test_pickling_potential_unitful_dens
 jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
+
+# jax-jit: actionAngleStaeckelGrid, MEASURED 2026-08-07 on the first traced run of
+# test_actionAngle.py (whole file, regen mode). This nodeid is ledgered for EAGER
+# TORCH but NOT for jax, and `-jit` inherits only the SAME backend's eager
+# entries -- so jax-jit was uncovered and would red a workflow_dispatch(jit=true).
+# It is a tolerance case, not a defect: the test asks a COMPUTED circular-orbit
+# eccentricity to vanish to 1e-16.
+#     eager jax   passes (no jax entry in the CI-regenerated ledger)
+#     jax-jit     e = 9.363e-12   vs 1e-16
+#     torch-jit   e = 1.5305e-10  vs 1e-16   (covered, inherits the torch entry)
+# Tracing is entitled to reassociate, so eager and traced landing on different
+# sides of an absolute 1e-16 bar is expected. Un-ledger if that bar is ever made
+# backend-aware; the tolerance proposal itself is separate and needs sign-off.
+jax-jit tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
