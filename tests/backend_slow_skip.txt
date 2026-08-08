@@ -84,16 +84,14 @@ jax tests/test_interp_potential.py::test_interpolation_potential_c
 jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs_c
 jax tests/test_potential.py::test_2ndDeriv_potential[mockInterpRZPotentialwSecondDerivs]
 
-# --- jax actionAngleAdiabatic cylsep timeout (Track E action-angle, not yet jax-migrated) ---
-# test_actionAngleAdiabatic_conserved_actions_cylsep integrates the vertical action over a
-# CylindricallySeparable potential; under forced-jax the integration dispatches eager-jax
-# per step and exceeds the 300 s timeout. AdiabaticGrid_basicAndConserved_actions is its
-# sibling timeout (the AA-native-redesign regen ran without --timeout on a fast box, so it
-# "passed" slowly there and was wrongly dropped from the xfail-ledger; CI's 300 s timeout
-# fails it). Both are clean Timeouts, not wrong values; numpy runs them.
-# Defer until action-angle is backend-migrated/vectorized (Track E).
-jax tests/test_actionAngle.py::test_actionAngleAdiabatic_conserved_actions_cylsep
-jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basicAndConserved_actions
+# (2026-08-08) The two jax actionAngleAdiabatic timeouts that lived here are
+# un-deferred: they were deferred because the vertical path dispatched eager-jax
+# per integration step, which is exactly what the adapter/closure fixes removed
+# (aAAdiabatic.actions: 4166 -> 251 -> 9 boundary crossings). Measured on this
+# branch, forced jax, C extension loaded:
+#     test_actionAngleAdiabaticGrid_basicAndConserved_actions   59.60 s
+#     test_actionAngleAdiabatic_conserved_actions_cylsep        27.44 s
+# vs the 300 s cap; CI runs jax shards at ~0.71x local, so ~42 s and ~19 s there.
 
 # --- jax test_galpypaper diskdf (Track F: diskdf) ---
 # The five test_diskdf.py sampling entries that used to sit here were MEASURED STALE
