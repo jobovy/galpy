@@ -109,17 +109,15 @@ jax tests/test_potential.py::test_2ndDeriv_potential[mockInterpRZPotentialwSecon
 # run, and absence of measurement is not evidence of speed.
 jax tests/test_galpypaper.py::test_diskdf
 
-# --- jax dissipative-force + MovingObject/orbit timeouts (#960 coercion ascent) ---
-# #960's coercion newly exercises these under forced-jax: ChandrasekharDynamicalFriction
-# __init__ builds its sigma_r interpolation with per-scalar XLA dispatch, the
-# RZTo*/toVertical conversion tests construct such forces, and MovingObject integrates
-# an embedded Orbit -- all exceed the 300 s timeout (or hit the un-migrated-Orbit
-# interpolation error). Defer until the dissipative forces (Track B group-b) and Orbit
-# (Track D) are backend-migrated; numpy still exercises them.
-jax tests/test_potential.py::test_rforce_dissipative
-jax tests/test_potential.py::test_RZToplanarPotential
-jax tests/test_potential.py::test_RZToverticalPotential
-jax tests/test_potential.py::test_toVerticalPotential
+# (2026-08-08) Four entries from the #960 dissipative/MovingObject timeout block
+# are un-deferred: measured under forced jax with the C extension, they are
+#     test_toVerticalPotential      1.86 s      test_rforce_dissipative    1.05 s
+#     test_RZToplanarPotential      0.28 s      test_RZToverticalPotential 0.08 s
+# against the 300 s cap -- a >150x margin. Timed in isolation, not in the full
+# test_potential.py shard ([[handpicked-nodeid-batch-is-not-a-context]]); the
+# margin makes context effects implausible, and un-deferring puts them back in
+# the CI shard, which is the full-context check. If any is slow or fails there,
+# re-defer with the shard measurement attached.
 jax tests/test_potential.py::test_MovingObject_2ndderivs_fd
 # test_MultipoleExpansion_deepcopy (#980's regression test): deepcopies + fully
 # re-evaluates 4 Multipole potentials (incl. from_density L=4) over a grid x times x
