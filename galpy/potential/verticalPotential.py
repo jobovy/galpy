@@ -11,6 +11,8 @@ from .Potential import (
     PotentialError,
     _check_backend_compatible,
     _check_potential_list_and_deprecate,
+    _evaluatePotentials,
+    _evaluatezforces,
 )
 
 
@@ -122,7 +124,7 @@ class verticalPotential(linearPotential):
         xp = get_namespace(z) if is_backend_array(z) else numpy
         tR = self._R if not hasattr(z, "__len__") else self._R * xp.ones_like(z)
         tphi = self._phi if not hasattr(z, "__len__") else self._phi * xp.ones_like(z)
-        return self._Pot(tR, z, phi=tphi, t=t, use_physical=False) - self._midplanePot
+        return _evaluatePotentials(self._Pot, tR, z, phi=tphi, t=t) - self._midplanePot
 
     def _force(self, z, t=0.0):
         """
@@ -153,7 +155,7 @@ class verticalPotential(linearPotential):
         xp = get_namespace(z) if is_backend_array(z) else numpy
         tR = self._R if not hasattr(z, "__len__") else self._R * xp.ones_like(z)
         tphi = self._phi if not hasattr(z, "__len__") else self._phi * xp.ones_like(z)
-        return self._Pot.zforce(tR, z, phi=tphi, t=t, use_physical=False)
+        return _evaluatezforces(self._Pot, tR, z, phi=tphi, t=t)
 
     def _force2deriv(self, z, t=0.0):
         # d^2 Phi / dz^2 of the wrapped 3D potential at (R,z,phi), mirroring
@@ -209,8 +211,8 @@ class _BatchedVerticalPotential(verticalPotential):
         xp = get_namespace(z)
         Rb = self._Rb(z)
         tphi = self._phi * xp.ones_like(z)
-        full = self._Pot(Rb, z, phi=tphi, t=t, use_physical=False)
-        mid = self._Pot(Rb, 0.0 * z, phi=tphi, t=t, use_physical=False)
+        full = _evaluatePotentials(self._Pot, Rb, z, phi=tphi, t=t)
+        mid = _evaluatePotentials(self._Pot, Rb, 0.0 * z, phi=tphi, t=t)
         return full - mid
 
 
