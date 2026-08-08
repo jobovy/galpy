@@ -246,7 +246,10 @@ class interpRZPotential(Potential):
                 for ii in range(len(self._rgrid)):
                     for jj in range(len(self._zgrid)):
                         potGrid[ii, jj] = evaluatePotentials(
-                            self._origPot, self._rgrid[ii], self._zgrid[jj]
+                            self._origPot,
+                            self._rgrid[ii],
+                            self._zgrid[jj],
+                            use_physical=False,
                         )
                 self._potGrid = potGrid
             if self._logR:
@@ -271,7 +274,10 @@ class interpRZPotential(Potential):
                 for ii in range(len(self._rgrid)):
                     for jj in range(len(self._zgrid)):
                         rforceGrid[ii, jj] = evaluateRforces(
-                            self._origPot, self._rgrid[ii], self._zgrid[jj]
+                            self._origPot,
+                            self._rgrid[ii],
+                            self._zgrid[jj],
+                            use_physical=False,
                         )
                 self._rforceGrid = rforceGrid
             if self._logR:
@@ -296,7 +302,10 @@ class interpRZPotential(Potential):
                 for ii in range(len(self._rgrid)):
                     for jj in range(len(self._zgrid)):
                         zforceGrid[ii, jj] = evaluatezforces(
-                            self._origPot, self._rgrid[ii], self._zgrid[jj]
+                            self._origPot,
+                            self._rgrid[ii],
+                            self._zgrid[jj],
+                            use_physical=False,
                         )
                 self._zforceGrid = zforceGrid
             if self._logR:
@@ -324,7 +333,10 @@ class interpRZPotential(Potential):
             for ii in range(len(self._rgrid)):
                 for jj in range(len(self._zgrid)):
                     r2derivGrid[ii, jj] = evaluateR2derivs(
-                        self._origPot, self._rgrid[ii], self._zgrid[jj]
+                        self._origPot,
+                        self._rgrid[ii],
+                        self._zgrid[jj],
+                        use_physical=False,
                     )
             self._r2derivGrid = r2derivGrid
             if self._logR:
@@ -346,7 +358,10 @@ class interpRZPotential(Potential):
             for ii in range(len(self._rgrid)):
                 for jj in range(len(self._zgrid)):
                     z2derivGrid[ii, jj] = evaluatez2derivs(
-                        self._origPot, self._rgrid[ii], self._zgrid[jj]
+                        self._origPot,
+                        self._rgrid[ii],
+                        self._zgrid[jj],
+                        use_physical=False,
                     )
             self._z2derivGrid = z2derivGrid
             if self._logR:
@@ -368,7 +383,10 @@ class interpRZPotential(Potential):
             for ii in range(len(self._rgrid)):
                 for jj in range(len(self._zgrid)):
                     rzderivGrid[ii, jj] = evaluateRzderivs(
-                        self._origPot, self._rgrid[ii], self._zgrid[jj]
+                        self._origPot,
+                        self._rgrid[ii],
+                        self._zgrid[jj],
+                        use_physical=False,
                     )
             self._rzderivGrid = rzderivGrid
             if self._logR:
@@ -390,7 +408,10 @@ class interpRZPotential(Potential):
             for ii in range(len(self._rgrid)):
                 for jj in range(len(self._zgrid)):
                     densGrid[ii, jj] = evaluateDensities(
-                        self._origPot, self._rgrid[ii], self._zgrid[jj]
+                        self._origPot,
+                        self._rgrid[ii],
+                        self._zgrid[jj],
+                        use_physical=False,
                     )
             self._densGrid = densGrid
             if self._logR:
@@ -416,13 +437,17 @@ class interpRZPotential(Potential):
 
             if not numcores is None:
                 self._vcircGrid = multi.parallel_map(
-                    (lambda x: vcirc(self._origPot, self._rgrid[x])),
+                    (
+                        lambda x: vcirc(
+                            self._origPot, self._rgrid[x], use_physical=False
+                        )
+                    ),
                     list(range(len(self._rgrid))),
                     numcores=numcores,
                 )
             else:
                 self._vcircGrid = numpy.array(
-                    [vcirc(self._origPot, r) for r in self._rgrid]
+                    [vcirc(self._origPot, r, use_physical=False) for r in self._rgrid]
                 )
             if self._logR:
                 self._vcircInterp = interpolate.InterpolatedUnivariateSpline(
@@ -437,13 +462,20 @@ class interpRZPotential(Potential):
 
             if not numcores is None:
                 self._dvcircdrGrid = multi.parallel_map(
-                    (lambda x: dvcircdR(self._origPot, self._rgrid[x])),
+                    (
+                        lambda x: dvcircdR(
+                            self._origPot, self._rgrid[x], use_physical=False
+                        )
+                    ),
                     list(range(len(self._rgrid))),
                     numcores=numcores,
                 )
             else:
                 self._dvcircdrGrid = numpy.array(
-                    [dvcircdR(self._origPot, r) for r in self._rgrid]
+                    [
+                        dvcircdR(self._origPot, r, use_physical=False)
+                        for r in self._rgrid
+                    ]
                 )
             if self._logR:
                 self._dvcircdrInterp = interpolate.InterpolatedUnivariateSpline(
@@ -459,14 +491,18 @@ class interpRZPotential(Potential):
             if not numcores is None:
                 self._epifreqGrid = numpy.array(
                     multi.parallel_map(
-                        (lambda x: epifreq(self._origPot, self._rgrid[x])),
+                        (
+                            lambda x: epifreq(
+                                self._origPot, self._rgrid[x], use_physical=False
+                            )
+                        ),
                         list(range(len(self._rgrid))),
                         numcores=numcores,
                     )
                 )
             else:
                 self._epifreqGrid = numpy.array(
-                    [epifreq(self._origPot, r) for r in self._rgrid]
+                    [epifreq(self._origPot, r, use_physical=False) for r in self._rgrid]
                 )
             indx = True ^ numpy.isnan(self._epifreqGrid)
             if numpy.sum(indx) < 4:
@@ -492,13 +528,20 @@ class interpRZPotential(Potential):
 
             if not numcores is None:
                 self._verticalfreqGrid = multi.parallel_map(
-                    (lambda x: verticalfreq(self._origPot, self._rgrid[x])),
+                    (
+                        lambda x: verticalfreq(
+                            self._origPot, self._rgrid[x], use_physical=False
+                        )
+                    ),
                     list(range(len(self._rgrid))),
                     numcores=numcores,
                 )
             else:
                 self._verticalfreqGrid = numpy.array(
-                    [verticalfreq(self._origPot, r) for r in self._rgrid]
+                    [
+                        verticalfreq(self._origPot, r, use_physical=False)
+                        for r in self._rgrid
+                    ]
                 )
             if self._logR:
                 self._verticalfreqInterp = interpolate.InterpolatedUnivariateSpline(
@@ -533,11 +576,11 @@ class interpRZPotential(Potential):
                         out[indx] = self._potInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
                 out[True ^ indx] = evaluatePotentials(
-                    self._origPot, R[True ^ indx], z[True ^ indx]
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
                 )
             return out
         else:
-            return evaluatePotentials(self._origPot, R, z)
+            return evaluatePotentials(self._origPot, R, z, use_physical=False)
 
     @scalarVectorDecorator
     @zsymDecorator(False)
@@ -562,11 +605,11 @@ class interpRZPotential(Potential):
                         out[indx] = self._rforceInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
                 out[True ^ indx] = evaluateRforces(
-                    self._origPot, R[True ^ indx], z[True ^ indx]
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
                 )
             return out
         else:
-            return evaluateRforces(self._origPot, R, z)
+            return evaluateRforces(self._origPot, R, z, use_physical=False)
 
     @scalarVectorDecorator
     @zsymDecorator(True)
@@ -593,18 +636,18 @@ class interpRZPotential(Potential):
                         out[indx] = self._zforceInterp.ev(R[indx], z[indx])
             if numpy.sum(True ^ indx) > 0:
                 out[True ^ indx] = evaluatezforces(
-                    self._origPot, R[True ^ indx], z[True ^ indx]
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
                 )
             return out
         else:
-            return evaluatezforces(self._origPot, R, z)
+            return evaluatezforces(self._origPot, R, z, use_physical=False)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         if not self._interpR2deriv:
             # Not interpolated: pass through to the original potential
             from ..potential import evaluateR2derivs
 
-            return evaluateR2derivs(self._origPot, R, z)
+            return evaluateR2derivs(self._origPot, R, z, use_physical=False)
         return self._R2deriv_interpolated(R, z)
 
     @scalarVectorDecorator
@@ -632,7 +675,7 @@ class interpRZPotential(Potential):
                     out[indx] = self._r2derivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
             out[True ^ indx] = evaluateR2derivs(
-                self._origPot, R[True ^ indx], z[True ^ indx]
+                self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
             )
         return out
 
@@ -641,7 +684,7 @@ class interpRZPotential(Potential):
             # Not interpolated: pass through to the original potential
             from ..potential import evaluatez2derivs
 
-            return evaluatez2derivs(self._origPot, R, z)
+            return evaluatez2derivs(self._origPot, R, z, use_physical=False)
         return self._z2deriv_interpolated(R, z)
 
     @scalarVectorDecorator
@@ -669,7 +712,7 @@ class interpRZPotential(Potential):
                     out[indx] = self._z2derivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
             out[True ^ indx] = evaluatez2derivs(
-                self._origPot, R[True ^ indx], z[True ^ indx]
+                self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
             )
         return out
 
@@ -678,7 +721,7 @@ class interpRZPotential(Potential):
             # Not interpolated: pass through to the original potential
             from ..potential import evaluateRzderivs
 
-            return evaluateRzderivs(self._origPot, R, z)
+            return evaluateRzderivs(self._origPot, R, z, use_physical=False)
         return self._Rzderiv_interpolated(R, z)
 
     @scalarVectorDecorator
@@ -706,7 +749,7 @@ class interpRZPotential(Potential):
                     out[indx] = self._rzderivInterp.ev(R[indx], z[indx])
         if numpy.sum(True ^ indx) > 0:
             out[True ^ indx] = evaluateRzderivs(
-                self._origPot, R[True ^ indx], z[True ^ indx]
+                self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
             )
         return out
 
@@ -735,11 +778,11 @@ class interpRZPotential(Potential):
                     )
             if numpy.sum(True ^ indx) > 0:
                 out[True ^ indx] = evaluateDensities(
-                    self._origPot, R[True ^ indx], z[True ^ indx]
+                    self._origPot, R[True ^ indx], z[True ^ indx], use_physical=False
                 )
             return out
         else:
-            return evaluateDensities(self._origPot, R, z)
+            return evaluateDensities(self._origPot, R, z, use_physical=False)
 
     @physical_conversion("velocity", pop=True)
     @scalarDecorator
@@ -755,10 +798,12 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._vcircInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = vcirc(self._origPot, R[True ^ indx])
+                out[True ^ indx] = vcirc(
+                    self._origPot, R[True ^ indx], use_physical=False
+                )
             return out
         else:
-            return vcirc(self._origPot, R)
+            return vcirc(self._origPot, R, use_physical=False)
 
     @physical_conversion("frequency", pop=True)
     @scalarDecorator
@@ -774,10 +819,12 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._dvcircdrInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = dvcircdR(self._origPot, R[True ^ indx])
+                out[True ^ indx] = dvcircdR(
+                    self._origPot, R[True ^ indx], use_physical=False
+                )
             return out
         else:
-            return dvcircdR(self._origPot, R)
+            return dvcircdR(self._origPot, R, use_physical=False)
 
     @physical_conversion("frequency", pop=True)
     @scalarDecorator
@@ -793,10 +840,12 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._epifreqInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = epifreq(self._origPot, R[True ^ indx])
+                out[True ^ indx] = epifreq(
+                    self._origPot, R[True ^ indx], use_physical=False
+                )
             return out
         else:
-            return epifreq(self._origPot, R)
+            return epifreq(self._origPot, R, use_physical=False)
 
     @physical_conversion("frequency", pop=True)
     @scalarDecorator
@@ -812,10 +861,12 @@ class interpRZPotential(Potential):
                 else:
                     out[indx] = self._verticalfreqInterp(R[indx])
             if numpy.sum(True ^ indx) > 0:
-                out[True ^ indx] = verticalfreq(self._origPot, R[True ^ indx])
+                out[True ^ indx] = verticalfreq(
+                    self._origPot, R[True ^ indx], use_physical=False
+                )
             return out
         else:
-            return verticalfreq(self._origPot, R)
+            return verticalfreq(self._origPot, R, use_physical=False)
 
 
 def calc_potential_c(pot, R, z, rforce=False, zforce=False):
