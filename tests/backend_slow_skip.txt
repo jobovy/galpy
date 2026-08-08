@@ -101,17 +101,20 @@ jax tests/test_potential.py::test_2ndDeriv_potential[mockInterpRZPotentialwSecon
 jax tests/test_actionAngle.py::test_actionAngleAdiabatic_conserved_actions_cylsep
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_basicAndConserved_actions
 
-# --- jax diskdf sampling pass-but-slow (AA-native-redesign exposure, Track F: diskdf) ---
-# Making actionAngle run REAL jax flips diskdf sampling onto the jax path; with the
-# orbit 0-d-time len() fix these now PASS but run 39-238 s each under jax-eager (300 s
-# CI timeout risk), as diskdf samples ~300 orbits per call with no vectorization. These
-# are the ones that PASS slowly; the ones that still fail at a deeper diskdf gap are
-# in backend_xfail.txt. Un-skip when diskdf is vectorized for jax (Track F).
-jax tests/test_diskdf.py::test_dehnendf_sample_flat_returnROrbit
-jax tests/test_diskdf.py::test_shudf_sample_flat_returnOrbit
-jax tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit
-jax tests/test_diskdf.py::test_shudf_sample_flat_returnROrbit_rrange
-jax tests/test_diskdf.py::test_shudf_sample_powerrise_returnROrbit
+# --- jax test_galpypaper diskdf (Track F: diskdf) ---
+# The five test_diskdf.py sampling entries that used to sit here were MEASURED STALE
+# 2026-08-07 and un-deferred: whole file, entries lifted, `--backend=jax --timeout=300`,
+# 129 passed / 0 failed, all five well inside the 240 s margin --
+#   test_dehnendf_sample_flat_returnROrbit       178.6 s   (60% of cap)
+#   test_shudf_sample_flat_returnROrbit_rrange    64.2 s
+#   test_shudf_sample_powerrise_returnROrbit      60.4 s
+#   test_shudf_sample_flat_returnOrbit            57.3 s
+#   test_shudf_sample_flat_returnROrbit           30.6 s
+# They went fast under the batched in-backend integrator / C-STM routing, NOT under the
+# diskdf boundary fix landing alongside this: an A/B across that fix gives a median
+# ratio of 0.97x on these five (178.6 vs 182.3, 57.3 vs 53.4, ...), i.e. no effect.
+# This one stays: test_galpypaper.py is a different file and was NOT covered by that
+# run, and absence of measurement is not evidence of speed.
 jax tests/test_galpypaper.py::test_diskdf
 
 # --- jax dissipative-force + MovingObject/orbit timeouts (#960 coercion ascent) ---
