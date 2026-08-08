@@ -2449,3 +2449,42 @@ def test_staeckel_unbound_sentinel_survives_the_azimuth_wrap(backend):
         f"{backend}: anglephi = {got[7]!r}; 9999.99 mod 2pi is "
         f"{9999.99 % (2.0 * numpy.pi)!r}, so the sentinel was wrapped"
     )
+
+
+###############################################################################
+# Boundary-crossing guard for actionAngleVertical's backend path.
+#
+# Its bracketing/root-find closure and quadrature integrands used to call the
+# DECORATED evaluatelinearPotentials, so under a forced backend every bisection
+# iteration re-entered @backend_input: 244 of the crossings in one
+# actionsFreqs() call came from that closure alone.
+#
+# Values stay correct when this regresses -- only time changes -- so this
+# watches the coercion itself, as for the planar/vertical adapters.
+###############################################################################
+
+
+def _mk(backend, v):
+    return jnp.asarray(v) if backend == "jax" else torch.tensor(v, dtype=torch.float64)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_aavertical_backend_path_uses_undecorated_evaluators(backend):
+    from backend_jit_helpers import count_boundary_crossings
+
+    from galpy.potential import MWPotential2014, toVerticalPotential
+
+    aAV = actionAngleVertical(pot=toVerticalPotential(MWPotential2014, 1.0))
+    x, vx = _mk(backend, [0.1]), _mk(backend, [0.05])
+
+    # The whole backend call still crosses for OTHER reasons (the vertical
+    # adapter, fixed separately), so pin the closure's own contribution: with the
+    # undecorated inner it must be a small constant, not one crossing per
+    # bisection iteration. 244 was the regressed value; the bracketing schedule
+    # is 80 steps, so anything >=80 means the per-iteration crossing is back.
+    n = count_boundary_crossings(lambda: aAV.actionsFreqs(x, vx), backend)
+    assert n < 80, (
+        f"actionAngleVertical backend path crossed the @backend_input boundary "
+        f"{n} times; the bracketing/root-find closure should call the "
+        "undecorated _evaluatelinearPotentials, not the decorated entry point"
+    )
