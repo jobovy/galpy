@@ -20,6 +20,9 @@ from .Potential import (
     Potential,
     PotentialError,
     _check_potential_list_and_deprecate,
+    _evaluatephitorques,
+    _evaluatePotentials,
+    _evaluateRforces,
     lindbladR,
     plotEscapecurve,
     plotRotcurve,
@@ -621,7 +624,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         -----
         - 2010-07-13 - Written - Bovy (NYU)
         """
-        return self._Pot(R, 0.0, t=t, use_physical=False)
+        return _evaluatePotentials(self._Pot, R, 0.0, t=t)
 
     def _Rforce(self, R, phi=0.0, t=0.0):
         """
@@ -645,7 +648,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         -----
         - Written on 2010-07-13 by Bovy (NYU).
         """
-        return self._Pot.Rforce(R, 0.0, t=t, use_physical=False)
+        return _evaluateRforces(self._Pot, R, 0.0, t=t)
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         """
@@ -808,7 +811,7 @@ class planarPotentialFromFullPotential(planarPotential):
         - 2016-06-02: Written - Bovy (UofT)
 
         """
-        return self._Pot(R, 0.0, phi=phi, t=t, use_physical=False)
+        return _evaluatePotentials(self._Pot, R, 0.0, phi=phi, t=t)
 
     def _Rforce(self, R, phi=0.0, t=0.0):
         """
@@ -833,7 +836,7 @@ class planarPotentialFromFullPotential(planarPotential):
         - Written on 2016-06-02 by Bovy (UofT)
 
         """
-        return self._Pot.Rforce(R, 0.0, phi=phi, t=t, use_physical=False)
+        return _evaluateRforces(self._Pot, R, 0.0, phi=phi, t=t)
 
     def _phitorque(self, R, phi=0.0, t=0.0):
         """
@@ -858,7 +861,7 @@ class planarPotentialFromFullPotential(planarPotential):
         - 2016-06-02: Written - Bovy (UofT)
 
         """
-        return self._Pot.phitorque(R, 0.0, phi=phi, t=t, use_physical=False)
+        return _evaluatephitorques(self._Pot, R, 0.0, phi=phi, t=t)
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         """
