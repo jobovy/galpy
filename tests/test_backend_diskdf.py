@@ -87,6 +87,55 @@ def test_moment_parity(backend, dfname, df, fn):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "fn", ["surfacemass", "surfacemassDerivative", "sigma2", "sigma2Derivative"]
+)
+def test_ssp_plain_scalar_stays_on_numpy(backend, fn, monkeypatch):
+    # diskdf's scipy-quad path calls the surface/sigma profile with PLAIN scalars
+    # ~133k times per oortA(). Under a forced backend a plain float resolves to
+    # that backend, so if _ssp lets it through, every one of those is a scalar
+    # coerced in and converted back out -- measured at an 8.7x traced slowdown
+    # (25.3 s vs 2.9 s for one oortA) when it regressed.
+    #
+    # Asserting on the RETURN VALUE cannot see that: _ssp casts back with
+    # as_numpy either way, so the round trip is invisible except as float noise
+    # -- which jax happens to show and torch does not. Watch the coercion itself
+    # instead, so the guard works the same on both backends.
+    import galpy.backend._input as _bi
+
+    real, entered = _bi.coerce_coords, []
+
+    def spy(xp, *coords):
+        entered.append(getattr(xp, "__name__", str(xp)))
+        return real(xp, *coords)
+
+    monkeypatch.setattr(_bi, "coerce_coords", spy)
+
+    ref = getattr(_dehnen._surfaceSigmaProfile, fn)(0.8)
+    with use(backend, force=True):
+        got = _dehnen._ssp(fn, 0.8)
+    on_backend = [n for n in entered if "numpy" != n]
+    assert not on_backend, f"{fn}: plain scalar coerced onto {on_backend}"
+    assert not is_backend_array(got), f"{fn}: plain scalar leaked onto {backend}"
+    numpy.testing.assert_array_equal(got, ref, err_msg=f"{fn}: value changed")
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize(
+    "fn", ["surfacemass", "surfacemassDerivative", "sigma2", "sigma2Derivative"]
+)
+def test_ssp_backend_array_uses_backend(backend, fn):
+    # The other half of the same contract: pinning numpy for plain scalars must
+    # not undo the migration, so a real backend array still gets the backend
+    # path (and stays differentiable there).
+    ref = float(getattr(_dehnen._surfaceSigmaProfile, fn)(0.8))
+    with use(backend, force=True):
+        got = _dehnen._ssp(fn, _scalar(backend, 0.8))
+    assert is_backend_array(got), f"{fn}: backend array fell back to numpy"
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-14, atol=1e-300)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 @pytest.mark.parametrize("dfname,df", _DFS)
 @pytest.mark.parametrize("fn", ["surfacemass", "sigmaR2"])
 def test_moment_grad_vs_fd(backend, dfname, df, fn):
