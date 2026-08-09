@@ -271,3 +271,47 @@ jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
 # Tracing is entitled to reassociate, so eager and traced landing on different
 # sides of an absolute 1e-16 bar is expected. Un-ledger if that bar is ever made
 # backend-aware; the tolerance proposal itself is separate and needs sign-off.
+
+# --- jax-jit: test_potential, surfaced by the 10-file traced sweep (2026-08-09) ---
+# These are NOT new breakage. test_potential.py has only per-test eager
+# slow-skip entries (never a whole-file one), so the rest of the file already
+# ran traced before gh#1279 -- nobody was looking, because no workflow runs
+# --jit. The sweep is the first time the file was measured traced end to end
+# (1385 cases, 3692 s). All 8 pass EAGER; this is traced-only exposure.
+#
+# Three distinct causes, deliberately kept as xfail (burndown) rather than
+# permanent skip, because each is plausibly fixable:
+#
+# 1) RotateAndTiltWrapperPotential refuses array input BY DESIGN
+#    ("Methods in RotateAndTiltWrapperPotential do not accept array inputs.
+#    Please input scalars"), and tracing turns scalars into 0-d traced arrays,
+#    so the guard fires on input it was never meant to reject. All 5 fail in
+#    0.0-0.1 s -- they refuse immediately, they do not compute. Fix is either to
+#    let the guard accept 0-d, or an explicit decision that these stay out.
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
+#
+# 2) jax ConcretizationTypeError -- "Abstract tracer value encountered where a
+#    concrete value is expected". A genuine traceability gap in two composite MW
+#    potentials: something concrete-only (a float(), a Python if) on a traced
+#    value.
+jax-jit tests/test_potential.py::test_McMillan17
+jax-jit tests/test_potential.py::test_Cautun20
+#
+# 3) AnyAxisym: the TRACED potential is wrong at exactly the disk plane.
+#    Measured at (R,z) = (0.5, 0.0):
+#        eager  Phi(z=0) = -1.7599930722150277  Phi(z=1e-8) = -1.7599930722110944
+#               -> one-sided dPhi/dz = -3.9e-04, consistent
+#        jit    Phi(z=0) = -1.7599195947859025  Phi(z=1e-8) = -1.7599930535685753
+#               -> one-sided dPhi/dz = +7.35e+03, which is what the test reports
+#    i.e. traced Phi at z==0 is off by ~7.3e-5 from its own neighbour, and the
+#    test's ONE-SIDED difference divides that by dz=1e-8. zforce(0.5,0)=0 is
+#    correct; the derivative is the wrong side.
+#    A/B'd against pre-gh#1278 by swapping only that file: byte-identical
+#    (7.345878e+03 both). PRE-EXISTING, not the geometric-grading change.
+#    The suspect is the z==0 degenerate ladder (`ratio` is 1 there, so the
+#    panels collapse), which the dyadic version had too.
+jax-jit tests/test_potential.py::test_forceAsDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
