@@ -794,45 +794,53 @@ class Potential(Force):
                 raise AttributeError  # Hack!
             return self._amp * self._surfdens(R, z, phi=phi, t=t)
         except AttributeError:
-            # Use the Poisson equation to get the surface density
-            xp = get_namespace(R, z, phi, t)
+            return self._surfdens_poisson(R, z, phi=phi, t=t)
 
-            def poisson_integrand(Rv, pv):
-                return lambda x: (
-                    -self.Rforce(Rv, x, phi=pv, t=t, use_physical=False) / Rv
-                    + self.R2deriv(Rv, x, phi=pv, t=t, use_physical=False)
-                    + self.phi2deriv(Rv, x, phi=pv, t=t, use_physical=False) / Rv**2.0
-                )
+    def _surfdens_poisson(self, R, z, phi=0.0, t=0.0):
+        """Surface density from the Poisson equation.
 
-            # numpy.fabs on a backend array emits a NumPy 2 __array_wrap__
-            # DeprecationWarning, which the coverage shard turns into an error.
-            absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
-            if not _quad_needs_backend(xp, absz):
-                inner = integrate.quad(poisson_integrand(R, phi), -absz, absz)[0]
-            else:
-                # Fixed-order GL over the whole [-z, z] needs an order that grows
-                # with the range (n=100 is only 3.7e-4 at |z|=10). Splitting at
-                # the mid-plane and clustering nodes toward the split puts them
-                # where a decaying integrand has its mass, and does so RELATIVE
-                # to the range, so one node count holds at every |z|.
-                # [..., None] so R/phi broadcast against the trailing node axis
-                # (0-d becomes (1,), which broadcasts either way).
-                inner = _bquad.symmetric_quad(
-                    xp,
-                    poisson_integrand(_bquad.node_axis(R), _bquad.node_axis(phi)),
-                    absz,
-                    n=50,
-                    interior_point=self._vertical_quad_interior(xp, R, absz, phi, t),
-                )
-            return (
-                (
-                    -self.zforce(R, absz, phi=phi, t=t, use_physical=False)
-                    + self.zforce(R, -absz, phi=phi, t=t, use_physical=False)
-                    + inner
-                )
-                / 4.0
-                / numpy.pi
+        Split out of ``surfdens`` so a composite can delegate it component-wise
+        (every term below is additive over the components), the same way
+        ``CompositePotential._surfdens`` delegates the direct route.
+        """
+        xp = get_namespace(R, z, phi, t)
+
+        def poisson_integrand(Rv, pv):
+            return lambda x: (
+                -self.Rforce(Rv, x, phi=pv, t=t, use_physical=False) / Rv
+                + self.R2deriv(Rv, x, phi=pv, t=t, use_physical=False)
+                + self.phi2deriv(Rv, x, phi=pv, t=t, use_physical=False) / Rv**2.0
             )
+
+        # numpy.fabs on a backend array emits a NumPy 2 __array_wrap__
+        # DeprecationWarning, which the coverage shard turns into an error.
+        absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
+        if not _quad_needs_backend(xp, absz):
+            inner = integrate.quad(poisson_integrand(R, phi), -absz, absz)[0]
+        else:
+            # Fixed-order GL over the whole [-z, z] needs an order that grows
+            # with the range (n=100 is only 3.7e-4 at |z|=10). Splitting at the
+            # mid-plane and clustering nodes toward the split puts them where a
+            # decaying integrand has its mass, and does so RELATIVE to the
+            # range, so one node count holds at every |z|.
+            # [..., None] so R/phi broadcast against the trailing node axis
+            # (0-d becomes (1,), which broadcasts either way).
+            inner = _bquad.symmetric_quad(
+                xp,
+                poisson_integrand(_bquad.node_axis(R), _bquad.node_axis(phi)),
+                absz,
+                n=50,
+                interior_point=self._vertical_quad_interior(xp, R, absz, phi, t),
+            )
+        return (
+            (
+                -self.zforce(R, absz, phi=phi, t=t, use_physical=False)
+                + self.zforce(R, -absz, phi=phi, t=t, use_physical=False)
+                + inner
+            )
+            / 4.0
+            / numpy.pi
+        )
 
     def _vertical_quad_split(self, R, phi=0.0, t=0.0):
         """z at which this potential's mid-plane crosses the vertical line at
@@ -846,17 +854,21 @@ class Potential(Force):
     def _vertical_quad_interior(self, xp, R, absz, phi, t):
         """``_vertical_quad_split`` clamped into the integration range.
 
-        A split outside ``[-|z|, |z|]`` would invert a panel. Clamping
-        degenerates that panel to zero width instead, which is still exact:
-        the mid-plane is then outside the range and the integrand is monotonic
-        across it, so clustering at the near end is what we want anyway.
+        A split outside ``[-|z|, |z|]`` would invert a panel, and clamping it to
+        the boundary is worse than useless: that degenerates one panel to zero
+        width and throws away the clustering entirely. Measured on the tilted
+        (near edge-on) wrappers, where the crossing runs off to large |z|,
+        clamping cost 2-6x accuracy versus just splitting at 0. So fall back to
+        0 whenever the mid-plane does not actually cross the interval.
         """
         c = self._vertical_quad_split(R, phi=phi, t=t)
         # Ordinary potentials keep the literal 0.0 they used before this hook
         # existed, so their quadrature is untouched.
         if isinstance(c, float) and c == 0.0:
             return 0.0
-        return xp.clip(c, -absz, absz)
+        # xp.where, not a Python branch: c is traced. Both arms are finite, so
+        # there is no dead-branch NaN to poison reverse-mode AD.
+        return xp.where((c > -absz) & (c < absz), c, 0.0)
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
