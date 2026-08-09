@@ -275,3 +275,24 @@ jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
 # sides of an absolute 1e-16 bar is expected. Un-ledger if that bar is ever made
 # backend-aware; the tolerance proposal itself is separate and needs sign-off.
 jax-jit tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
+
+# --- jax-jit: test_streamdf, surfaced by the slow-skip inheritance split ---
+# The eager `jax` slow-skip covers the WHOLE FILE, so under the old inheritance
+# rule these never ran traced either. Traced they run (79 cases, 704 s total,
+# median 0.08 s, NONE over the 240 s margin) and 10 fail with one shared root:
+#
+#   TypeError: JAX arrays are immutable and do not support in-place item
+#              assignment
+#
+# i.e. streamdf writes into arrays it has already built. One defect, ten tests;
+# un-ledger together when the assignments become out-of-place.
+jax-jit tests/test_streamdf.py::test_bovy14_track_spread
+jax-jit tests/test_streamdf.py::test_calc_stream_lb_deprecation
+jax-jit tests/test_streamdf.py::test_fardalpot_trackaa
+jax-jit tests/test_streamdf.py::test_fardalwmwpot_trackaa
+jax-jit tests/test_streamdf.py::test_plotting
+jax-jit tests/test_streamdf.py::test_setup_progIsTrack
+jax-jit tests/test_streamdf.py::test_streamTrack_custom_sky_transform_equatorial_to_galactic
+jax-jit tests/test_streamdf.py::test_streamTrack_custom_sky_transform_per_call_override
+jax-jit tests/test_streamdf.py::test_streamTrack_custom_sky_transform_setter
+jax-jit tests/test_streamdf.py::test_streamTrack_raises_when_spread_not_setup
