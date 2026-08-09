@@ -306,3 +306,29 @@ torch tests/test_dynamfric.py::test_dynamfric_c
 # a surprise red. Un-defer when the per-force-call overhead work lands.
 torch-jit tests/test_interp_potential.py::test_interpolation_potential_force_c  # 300s (timeout)
 torch-jit tests/test_interp_potential.py::test_interpolation_potential_secondderivs  # 300s (timeout)
+
+# --- jax-jit: measured under `--backend jax --jit`, 2026-08-09 ---
+# These exist because the slow-skip list no longer inherits eager entries (see
+# _load_backend_nodeids): a traced run defers only what is measured slow WHEN
+# TRACED. Measured serially -- ALONE on the machine -- because concurrent jax
+# processes each size their thread pool to the core count and oversubscribe,
+# which inflated an earlier set of these numbers by up to 6x.
+#
+# tests/test_noninertial.py, whole file, C extension present:
+#     53 cases -> 53 PASSED, 0 failed.  total 6308 s, median 11.1 s,
+#     9 over the 240 s margin (80% of the 300 s per-test cap).
+#
+# So of the 19 eager `jax` entries for this file, 11 are FAST traced and now run
+# (0.2 s - 210.9 s; nine under 20 s). Only these 9 stay deferred. One of them
+# was never eager-ledgered at all -- tracing made it SLOWER -- which inheritance
+# could not have surfaced.
+jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation  # 616s traced
+jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc  # 573s
+jax-jit tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz  # 529s
+jax-jit tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz  # 477s
+jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot  # 454s
+jax-jit tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz  # 437s
+jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential  # 386s
+jax-jit tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega  # 381s
+# NOT in the eager jax list: fast eager, 354 s traced. Tracing made it slower.
+jax-jit tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz  # 354s
