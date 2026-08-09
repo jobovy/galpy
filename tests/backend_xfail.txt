@@ -271,4 +271,3 @@ jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
 # Tracing is entitled to reassociate, so eager and traced landing on different
 # sides of an absolute 1e-16 bar is expected. Un-ledger if that bar is ever made
 # backend-aware; the tolerance proposal itself is separate and needs sign-off.
-jax-jit tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions

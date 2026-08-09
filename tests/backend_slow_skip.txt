@@ -341,3 +341,27 @@ jax-jit tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accel
 # clear 240 s, so the split is unchanged.
 jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 452s traced
 jax-jit tests/test_streamTrack.py::test_streamTrack_with_progpot  # 314s traced
+
+# --- jax-jit: measured by the 10-file traced sweep (2026-08-09) ---
+# gh#1279 stopped `-jit` inheriting the eager slow-skip list, which un-deferred
+# 54 jax entries across 10 files that had never been measured TRACED. This is
+# that measurement: each file run whole, C extension present, alone on the
+# machine (concurrent jax oversubscribes the XLA CPU pool and inflates timings),
+# with --timeout=300 --timeout-method=signal so a slow test fails and the
+# session still writes its junitxml.
+#
+# Of 17 eager entries across the 8 files measured so far, 8 survive traced and
+# 11 do not. Two of the 8 were NEVER eager entries -- inheritance only
+# propagates eager entries forward, so it could not have found them at all.
+jax-jit tests/test_dynamfric.py::test_dynamfric_c  # 300s cap traced
+jax-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit  # 300s cap
+jax-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor  # 300s cap
+jax-jit tests/test_interp_potential.py::test_interpolation_potential_force_c  # 300s cap
+jax-jit tests/test_qdf.py::test_sampleV_interpolate  # 300s cap
+jax-jit tests/test_orbits.py::test_SOS_3D  # 300s cap (269s eager -> SLOWER traced)
+# NOT an eager entry: tracing alone makes these slow, so inheritance could never
+# have produced them.
+jax-jit tests/test_orbits.py::test_bruteSOS_3D  # 277s traced -- the only entry
+                                                # INSIDE the 240-300s band; every
+                                                # other keeper hit the cap
+jax-jit tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles  # 300s cap
