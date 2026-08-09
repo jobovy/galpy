@@ -36,7 +36,6 @@ jax tests/test_orbits.py::test_SOS_3D  # 269s -- inside the cap, but within 20% 
 # integration that finishes under the timeout, so only central_limit is deferred.)
 jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
-torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 
 # --- jax quasi-isothermal DF (Track F df migration) ---
 # quasiisothermaldf is not yet backend-migrated; this test does many nested
@@ -180,19 +179,6 @@ jax tests/test_orbit.py::test_zmax  # 300s (failed)
 # >150s and was xfail (which still EXECUTES -> ~300s timeout each, ~65min total ->
 # the torch orbit shard hung near the 4500s cap). slow_skip (NOT executed) instead;
 # numpy covers them. (Same eager-EOM reason as the jax dxdv slow_skips.)
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[const_lnLambda]
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[minr_gate]
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_fd_of_flow_branches[sigma_clamp]
-torch tests/test_orbit.py::test_chandrasekhar_dxdv_phase_volume_law
-torch tests/test_orbit.py::test_dissipative_dxdv_python_raises
-torch tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_FDMfactor]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[const_lnLambda_cdm_cutoff]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[intermediate]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[rhm_coulomb_log_cdm_cutoff]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[sigma_clamp]
-torch tests/test_orbit.py::test_fdm_dxdv_fd_of_flow_branches[zerovel]
-torch tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic
 
 # --- jax orbit: heavy eager-jax tests (>~45s) -- per-CI-group session-cap fit ---
 # Variational/wrapper/sigint/triaxial-liouville tests run 45-150s each on the dev
@@ -381,3 +367,11 @@ jax-jit tests/test_orbit.py::test_integrate_negative_time  # 300s cap
 # on where the margin sits; the other 12 hit the cap outright.
 jax-jit tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]  # 296s
 jax-jit tests/test_orbit.py::test_liouville_planar  # 265s
+
+# torch-jit: measured by the 2026-08-09 torch sweep (duration vs the 240s
+# margin; --timeout-method=signal cannot interrupt C-bound tests, so PASS
+# does not imply under-cap -- these are classified by junitxml time).
+torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
+torch-jit tests/test_orbit.py::test_interprz_dxdv_3d
+torch-jit tests/test_orbit.py::test_analytic_zmax
+torch-jit tests/test_orbit.py::test_liouville_planar
