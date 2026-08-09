@@ -163,6 +163,36 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
     def __getattr__(self, attribute):
         return super().__getattr__(attribute)
 
+    def _vertical_quad_split(self, R, phi=0.0, t=0.0):
+        """z where the WRAPPED potential's mid-plane crosses the vertical line
+        at (R, phi).
+
+        ``_rect_transformed`` maps (R, phi, z) to ``rot @ (x,y,z) + offset``, so
+        the wrapped z' vanishes at
+
+            z = -(rot[2,0] x + rot[2,1] y + offset[2]) / rot[2,2] .
+
+        Rotating or offsetting the potential moves its disk plane away from
+        z = 0, and the vertical quadratures cluster their nodes at the split;
+        splitting at 0 then samples a sharply-peaked density where it is flat.
+        Edge-on (rot[2,2] == 0) has no crossing -- the wrapped plane contains
+        the line of integration -- so keep 0 there.
+        """
+        if self._norot and self._offset is None:
+            return 0.0
+        xp = get_namespace(R, phi)
+        r22 = 1.0 if self._norot else self._rot[2, 2]
+        if r22 == 0.0:
+            return 0.0
+        num = 0.0
+        if not self._norot:
+            x, y, _ = coords.cyl_to_rect(R, phi, 0.0 * R)
+            rot2 = as_backend_constant(xp, self._rot[2, :2], x)
+            num = num + rot2[0] * x + rot2[1] * y
+        if self._offset is not None:
+            num = num + as_backend_constant(xp, self._offset, R)[2]
+        return -num / r22
+
     def _rect_transformed(self, xp, R, z, phi, guard_inf=False):
         """Rectangular coordinates in the rotated/tilted (+offset) frame.
 

@@ -812,9 +812,9 @@ class Potential(Force):
             else:
                 # Fixed-order GL over the whole [-z, z] needs an order that grows
                 # with the range (n=100 is only 3.7e-4 at |z|=10). Splitting at
-                # z=0 and clustering nodes toward the split puts them where a
-                # decaying integrand has its mass, and does so RELATIVE to the
-                # range, so one node count holds at every |z|.
+                # the mid-plane and clustering nodes toward the split puts them
+                # where a decaying integrand has its mass, and does so RELATIVE
+                # to the range, so one node count holds at every |z|.
                 # [..., None] so R/phi broadcast against the trailing node axis
                 # (0-d becomes (1,), which broadcasts either way).
                 inner = _bquad.symmetric_quad(
@@ -822,7 +822,7 @@ class Potential(Force):
                     poisson_integrand(_bquad.node_axis(R), _bquad.node_axis(phi)),
                     absz,
                     n=50,
-                    interior_point=0.0,
+                    interior_point=self._vertical_quad_interior(xp, R, absz, phi, t),
                 )
             return (
                 (
@@ -833,6 +833,30 @@ class Potential(Force):
                 / 4.0
                 / numpy.pi
             )
+
+    def _vertical_quad_split(self, R, phi=0.0, t=0.0):
+        """z at which this potential's mid-plane crosses the vertical line at
+        (R, phi) -- where the vertical quadratures below should split.
+
+        Zero unless a subclass displaces or tilts its structure relative to
+        z = 0; see ``RotateAndTiltWrapperPotential``.
+        """
+        return 0.0
+
+    def _vertical_quad_interior(self, xp, R, absz, phi, t):
+        """``_vertical_quad_split`` clamped into the integration range.
+
+        A split outside ``[-|z|, |z|]`` would invert a panel. Clamping
+        degenerates that panel to zero width instead, which is still exact:
+        the mid-plane is then outside the range and the integrand is monotonic
+        across it, so clustering at the near end is what we want anyway.
+        """
+        c = self._vertical_quad_split(R, phi=phi, t=t)
+        # Ordinary potentials keep the literal 0.0 they used before this hook
+        # existed, so their quadrature is untouched.
+        if isinstance(c, float) and c == 0.0:
+            return 0.0
+        return xp.clip(c, -absz, absz)
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
@@ -861,9 +885,12 @@ class Potential(Force):
 
         """
         # Same dual path as the Poisson branch of surfdens(): numpy keeps scipy
-        # (byte-identical), a backend takes the split-at-zero, node-clustered GL
-        # rule so it traces and stays accurate at large |z|. Scalar-only
-        # potentials keep scipy either way -- they reject the node array.
+        # (byte-identical), a backend takes the split-at-the-mid-plane,
+        # node-clustered GL rule so it traces and stays accurate at large |z|.
+        # Scalar-only potentials keep scipy either way -- they reject the node
+        # array. The split matters far more here than in the Poisson branch:
+        # this integrand is the density, which for a displaced disk is sharply
+        # peaked off z=0 (6.4e-2 error vs 1.8e-4) -- see _vertical_quad_split.
         xp = get_namespace(R, z, phi, t)
         absz = numpy.fabs(z) if xp is numpy else xp.abs(z)
         if not _quad_needs_backend(xp, absz):
@@ -877,7 +904,7 @@ class Potential(Force):
             ),
             absz,
             n=50,
-            interior_point=0.0,
+            interior_point=self._vertical_quad_interior(xp, R, absz, phi, t),
         )
 
     @potential_physical_input
