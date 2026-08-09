@@ -365,3 +365,19 @@ jax-jit tests/test_orbits.py::test_bruteSOS_3D  # 277s traced -- the only entry
                                                 # INSIDE the 240-300s band; every
                                                 # other keeper hit the cap
 jax-jit tests/test_actionAngle.py::test_actionAngleStaeckel_python_c_freqsAngles  # 300s cap
+
+# --- jax-jit: test_orbit, the 10th and last file of the sweep ---
+# 581 cases, 7605 s traced, 0 non-timeout failures. Its eager `jax` list had 25
+# entries; 7 survive traced. Note this file runs OPPOSITE to the sweep average
+# (two-thirds of eager entries elsewhere did NOT survive) -- per-file variation
+# is exactly what a single inheritance rule cannot express.
+jax-jit tests/test_orbit.py::test_zmax  # 300s cap
+jax-jit tests/test_orbit.py::test_analytic_ecc_rperi_rap  # 300s cap
+jax-jit tests/test_orbit.py::test_analytic_zmax  # 300s cap
+jax-jit tests/test_orbit.py::test_integrate_backwards  # 300s cap
+jax-jit tests/test_orbit.py::test_integrate_negative_time  # 300s cap
+# Inside the 240-300 s band -- judgement calls, not cap hits. Together with
+# test_bruteSOS_3D (277 s) these are the only 3 of 15 entries whose fate turns
+# on where the margin sits; the other 12 hit the cap outright.
+jax-jit tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]  # 296s
+jax-jit tests/test_orbit.py::test_liouville_planar  # 265s
