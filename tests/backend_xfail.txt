@@ -305,10 +305,21 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndT
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
 #
-# 2) jax ConcretizationTypeError -- "Abstract tracer value encountered where a
-#    concrete value is expected". A genuine traceability gap in two composite MW
-#    potentials: something concrete-only (a float(), a Python if) on a traced
-#    value.
+# 2) jax ConcretizationTypeError -- and the two share ONE root: `mass()` is not
+#    traceable, because it integrates with scipy.integrate.quad, which calls
+#    float() on its limits/result and so rejects a tracer. From the tracebacks:
+#
+#      McMillan17  Potential.mass -> KuijkenDubinskiDiskExpansionPotential._mass
+#                  (L485: `integrate.quad(_integrand, 0.0, numpy.pi)`)
+#                  -> scipy _quadpack_py.py:626 -> ConcretizationTypeError
+#      Cautun20    fails at CONSTRUCTION, not evaluation: mwpotentials.py:86 ->
+#                  Cautun20.py:105 -> AdiabaticContractionWrapperPotential
+#                  .__init__ L95 -> Potential.mass (L2317) -> same wall
+#
+#    So this is not "two composite potentials are odd" -- it is one missing
+#    backend-native mass quadrature, hit once during evaluation and once during
+#    a wrapper's __init__. Fixing mass to use the backend quadrature (as the
+#    other migrations did) should clear both together.
 jax-jit tests/test_potential.py::test_McMillan17
 jax-jit tests/test_potential.py::test_Cautun20
 #
