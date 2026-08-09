@@ -96,3 +96,20 @@ torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_int
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform
 torch tests/test_actionAngle.py::test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect
+
+# --- jax-jit: streamdf's useTM tests reach actionAngleTorus ---
+# "NotImplementedError: actionAngleTorus wraps the external Torus C++ library
+# and is not jax-..." -- the same standing decision that excludes
+# test_actionAngleTorus from the all-backend suite: an external C++ wrapper is
+# out of scope for the backend goal, so this is a PERMANENT exclusion, not a
+# burndown item. Surfaced by the slow-skip inheritance split; the eager `jax`
+# whole-file slow-skip had been hiding them.
+#
+# Entered as jax-jit rather than jax because jax-jit is what was measured. The
+# guard is backend-shaped rather than trace-shaped so eager would very likely
+# fail the same way, but the eager case stays masked by the whole-file
+# slow-skip, so claiming it would be asserting past the evidence.
+jax-jit tests/test_streamdf.py::test_bovy14_useTM
+jax-jit tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
+jax-jit tests/test_streamdf.py::test_bovy14_useTM_poterror
+jax-jit tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
