@@ -579,6 +579,10 @@ _SPLIT_CASES = [
         dict(zvec=[_S3, _S3, _S3], galaxy_pa=0.4, offset=[1.0, 1.0, 1.0]),
     ),
     ("edge-on", dict(zvec=[0.0, 1.0, 0.0], galaxy_pa=0.3, offset=None)),
+    # Degenerate but constructible: identity rotation and no offset, i.e. a
+    # wrapper that displaces nothing. Takes the early return, which must hand
+    # back a plain 0.0 -- callers use that to skip the xp.where entirely.
+    ("no-op", dict(zvec=[0.0, 0.0, 1.0], galaxy_pa=0.0, offset=None)),
 ]
 
 
@@ -590,12 +594,19 @@ def test_vertical_quad_split_is_the_mid_plane_crossing(case):
     would catch a sign error or a transposed rotation that a self-consistent
     re-derivation would not.
     """
-    _, kw = case
+    name, kw = case
     pot = RotateAndTiltWrapperPotential(pot=_MWLIKE, **kw)
     for R, phi in ((0.5, 0.0), (1.3, 0.9), (0.2, 2.7)):
-        c = float(pot._vertical_quad_split(R, phi=phi))
+        raw = pot._vertical_quad_split(R, phi=phi)
+        c = float(raw)
         zp = float(pot._rect_transformed(numpy, R, c, phi)[2])
-        if kw["zvec"] == [0.0, 1.0, 0.0]:
+        if name == "no-op":
+            # Nothing is displaced, so the mid-plane is z = 0 and the method
+            # must say so via the early return -- a plain float, not an array
+            # from the solve below, which is what lets callers skip the
+            # xp.where and keeps this off the traced path entirely.
+            assert type(raw) is float and raw == 0.0
+        elif kw["zvec"] == [0.0, 1.0, 0.0]:
             # Edge-on: the wrapped plane contains the line of integration, so
             # there is no unique crossing and the split must stay at 0.
             assert c == 0.0
@@ -661,4 +672,55 @@ def test_composite_delegates_both_surfdens_routes():
         _P._surfdens(comp, R, z, phi=phi, t=0.0),
         rtol=1e-12,
         atol=1e-14,
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_composite_surfdens_delegation_runs_on_a_backend(backend_name):
+    """Run both delegating branches, and pin what they must return.
+
+    The structural test above proves the overrides exist; nothing was executing
+    them, because ``get_namespace`` only resolves away from numpy once the
+    inputs are backend arrays. The contract both routes owe is the sum over the
+    NON-dissipative components, so a wrong component list, a missing
+    ``use_physical=False``, or a dropped ``isDissipative`` filter each move the
+    number; the friction term is here to make that last one bite.
+
+    The private methods are called directly with backend scalars rather than
+    through ``surfdens``: a composite holding a dissipative force is not
+    backend-compatible, so ``@backend_input`` skips the coercion and ``z``
+    would arrive as a float while ``get_namespace`` still resolves to the
+    forced backend. That mismatch is real but pre-existing (it reproduces on
+    develop without these overrides) and belongs to its own fix, not here.
+    """
+    from galpy import backend
+    from galpy.backend import as_numpy
+    from galpy.potential import (
+        ChandrasekharDynamicalFrictionForce,
+        CompositePotential,
+    )
+
+    off = RotateAndTiltWrapperPotential(
+        pot=_MWLIKE, zvec=None, galaxy_pa=None, offset=[1.0, 1.0, 1.0]
+    )
+    hern = HernquistPotential(amp=0.4, a=0.6)
+    comp = CompositePotential(
+        [off, hern, ChandrasekharDynamicalFrictionForce(GMs=0.01, rhm=0.1, dens=hern)]
+    )
+    R, z, phi = 0.5, 2.0, 0.3
+    parts = (off, hern)
+    # The density route delegates to the public surfdens, which applies each
+    # component's own _amp; the Poisson route delegates to _surfdens_poisson,
+    # which already carries it. Mirror both exactly.
+    want = sum(
+        float(p.surfdens(R, z, phi=phi, t=0.0, use_physical=False)) for p in parts
+    )
+    want_poisson = sum(float(p._surfdens_poisson(R, z, phi=phi, t=0.0)) for p in parts)
+    Rb, zb, phib = (_toscalar(backend_name, v) for v in (R, z, phi))
+    with backend.use(backend_name, force=True):
+        got = comp._surfdens(Rb, zb, phi=phib, t=0.0)
+        got_poisson = comp._surfdens_poisson(Rb, zb, phi=phib, t=0.0)
+    numpy.testing.assert_allclose(float(as_numpy(got)), want, rtol=1e-10, atol=0.0)
+    numpy.testing.assert_allclose(
+        float(as_numpy(got_poisson)), want_poisson, rtol=1e-8, atol=0.0
     )
