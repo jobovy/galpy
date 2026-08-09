@@ -345,3 +345,9 @@ jax-jit tests/test_potential.py::test_Cautun20
 #    digits, traced does not. Cause not yet identified; do not start from the
 #    quadrature ladder.
 jax-jit tests/test_potential.py::test_forceAsDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
+
+# torch-jit defects found by the 2026-08-09 torch sweep.
+# AnyAxisym traced GL forces ~1e-6; reproduces on jax too
+torch-jit tests/test_potential.py::test_forceAsDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
+# same AnyAxisym root cause seen through an orbit (e=5.4e-6 vs 1e-8)
+torch-jit tests/test_orbit.py::test_eccentricity
