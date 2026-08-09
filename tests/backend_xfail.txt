@@ -271,4 +271,77 @@ jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
 # Tracing is entitled to reassociate, so eager and traced landing on different
 # sides of an absolute 1e-16 bar is expected. Un-ledger if that bar is ever made
 # backend-aware; the tolerance proposal itself is separate and needs sign-off.
-jax-jit tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
+
+# --- jax-jit: test_potential, surfaced by the 10-file traced sweep (2026-08-09) ---
+# These are NOT new breakage. test_potential.py has only per-test eager
+# slow-skip entries (never a whole-file one), so the rest of the file already
+# ran traced before gh#1279 -- nobody was looking, because no workflow runs
+# --jit. The sweep is the first time the file was measured traced end to end
+# (1385 cases, 3692 s). All 8 pass EAGER; this is traced-only exposure.
+#
+# Three distinct causes, deliberately kept as xfail (burndown) rather than
+# permanent skip, because each is plausibly fixable:
+#
+# 1) RotateAndTiltWrapperPotential refuses array input BY DESIGN
+#    ("Methods in RotateAndTiltWrapperPotential do not accept array inputs.
+#    Please input scalars"), and tracing turns scalars into traced arrays.
+#    The guard in Potential.py is NOT a blanket refusal:
+#
+#        if arrays and not (getattr(self, "_backend_accepts_arrays", False)
+#                           and all(is_backend_array(x) for x in arrays)):
+#
+#    Under tracing the `is_backend_array` half is satisfied, so what actually
+#    trips is that **RotateAndTiltWrapperPotential never sets
+#    `_backend_accepts_arrays`**. So this is a one-flag opt-in, NOT a guard
+#    rewrite -- but the flag must not be flipped without first verifying the
+#    wrapper computes correctly on array input, since the gate exists precisely
+#    to keep arrays out of potentials with bare-numpy/scipy internals. (The
+#    AnyAxisym opt-out is deliberate for exactly that reason; this one looks
+#    unverified rather than intentional, which is why it is xfail and not skip.)
+#    All 5 fail in 0.0-0.1 s -- they refuse immediately, they never compute.
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
+#
+# 2) jax ConcretizationTypeError -- and the two share ONE root: `mass()` is not
+#    traceable, because it integrates with scipy.integrate.quad, which calls
+#    float() on its limits/result and so rejects a tracer. From the tracebacks:
+#
+#      McMillan17  Potential.mass -> KuijkenDubinskiDiskExpansionPotential._mass
+#                  (L485: `integrate.quad(_integrand, 0.0, numpy.pi)`)
+#                  -> scipy _quadpack_py.py:626 -> ConcretizationTypeError
+#      Cautun20    fails at CONSTRUCTION, not evaluation: mwpotentials.py:86 ->
+#                  Cautun20.py:105 -> AdiabaticContractionWrapperPotential
+#                  .__init__ L95 -> Potential.mass (L2317) -> same wall
+#
+#    So this is not "two composite potentials are odd" -- it is one missing
+#    backend-native mass quadrature, hit once during evaluation and once during
+#    a wrapper's __init__. Fixing mass to use the backend quadrature (as the
+#    other migrations did) should clear both together.
+jax-jit tests/test_potential.py::test_McMillan17
+jax-jit tests/test_potential.py::test_Cautun20
+#
+# 3) AnyAxisym: the TRACED potential is wrong at exactly the disk plane.
+#    Measured at (R,z) = (0.5, 0.0):
+#        eager  Phi(z=0) = -1.7599930722150277  Phi(z=1e-8) = -1.7599930722110944
+#               -> one-sided dPhi/dz = -3.9e-04, consistent
+#        jit    Phi(z=0) = -1.7599195947859025  Phi(z=1e-8) = -1.7599930535685753
+#               -> one-sided dPhi/dz = +7.35e+03, which is what the test reports
+#    i.e. traced Phi at z==0 is off by ~7.3e-5 from its own neighbour, and the
+#    test's ONE-SIDED difference divides that by dz=1e-8. zforce(0.5,0)=0 is
+#    correct; the derivative is the wrong side.
+#    A/B'd against pre-gh#1278 by swapping only that file (verified the two
+#    versions really differ -- dyadic `xp.maximum(Rp * 2**-k, dmin)` vs
+#    geometric `ratio = dmin/half`): byte-identical failure, 7.345878e+03 on
+#    both sides. PRE-EXISTING, not the geometric-grading change.
+#
+#    NOTE the A/B also FALSIFIES the obvious suspect. The z==0 degenerate
+#    ladder (`ratio` is 1 there, so the panels collapse) exists only in the
+#    geometric version -- the dyadic one has no `ratio` at all -- yet both fail
+#    identically. So the cause is common to both ladders and is NOT the grading.
+#    It is eager-vs-traced: eager has Phi(z=0) and Phi(z=1e-8) agreeing to 11
+#    digits, traced does not. Cause not yet identified; do not start from the
+#    quadrature ladder.
+jax-jit tests/test_potential.py::test_forceAsDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
