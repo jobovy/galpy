@@ -209,18 +209,7 @@ jax tests/test_orbit.py::test_integrate_indiv_t_python_paths  # 300s (failed)
 # entry are slow-skipped together here to stop the recurring per-PR flake.
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz
-jax tests/test_noninertial.py::test_accellsrframe_funcomegaz
-jax tests/test_noninertial.py::test_accellsrframe_funcomegaz_2d
-jax tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz
-jax tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz_2D
-jax tests/test_noninertial.py::test_accellsrframe_vecomegaz
-jax tests/test_noninertial.py::test_accellsrframe_vecomegaz_2d
-jax tests/test_noninertial.py::test_cinterp_funcomegaz
-jax tests/test_noninertial.py::test_cinterp_vecfuncomega
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomegaz
-jax tests/test_noninertial.py::test_lsrframe_vecomegaz
-jax tests/test_noninertial.py::test_lsrframe_vecomegaz_2d
 jax tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
