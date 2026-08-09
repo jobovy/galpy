@@ -46,7 +46,7 @@ def test_FDMDynamicalFrictionForce_central_limit():
     o.integrate(t, Loghalo + fdf, method="dop853_c")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce in the central limit does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
 
@@ -56,7 +56,7 @@ def test_FDMDynamicalFrictionForce_central_limit():
     o.integrate(t, Loghalo + fdf, method="dop853")
 
     # Compare to analytical solution
-    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.r(t)) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce in the central limit does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
