@@ -5,7 +5,6 @@
 import copy
 
 import numpy
-from scipy import integrate
 
 from ..backend import coerce_coords, get_namespace
 from ..backend.special import logsumexp
@@ -469,20 +468,28 @@ class KuijkenDubinskiDiskExpansionPotential(Potential):
             raise AttributeError  # Hack to fall back to general
         out = self._me.mass(R, z=None, use_physical=False)
         r = R
+        # Same shell quadrature as Potential.mass: numpy -> scipy (byte-identical),
+        # jax/torch -> backend Gauss-Legendre, so the mass differentiates wrt R.
+        from ..backend.quadrature import quad as _bk_quad
+
+        xp = get_namespace(R)
 
         def _integrand(theta):
             # ~ rforce
-            tz = r * numpy.cos(theta)
-            tR = r * numpy.sin(theta)
+            tz = r * xp.cos(theta)
+            tR = r * xp.sin(theta)
             out = 0.0
             for a, s, ds, H, dH in zip(
                 self._Sigma_amp, self._Sigma, self._dSigmadR, self._Hz, self._dHzdz
             ):
-                out += a * ds(r) * H(tz) * tR**2
-                out += a * (ds(r) * H(tz) * tz / r + s(r) * dH(tz)) * tz * r
-            return out * numpy.sin(theta)
+                out = out + a * ds(r) * H(tz) * tR**2
+                out = out + a * (ds(r) * H(tz) * tz / r + s(r) * dH(tz)) * tz * r
+            return out * xp.sin(theta)
 
-        return out + 2.0 * numpy.pi * integrate.quad(_integrand, 0.0, numpy.pi)[0]
+        # Anchor the constant limits on the namespace so dispatch follows R.
+        return out + 2.0 * numpy.pi * _bk_quad(
+            _integrand, xp.asarray(0.0), xp.asarray(numpy.pi)
+        )
 
 
 def phiME_dens(R, z, phi, dens, Sigma, dSigmadR, d2SigmadR2, hz, Hz, dHzdz, Sigma_amp):
