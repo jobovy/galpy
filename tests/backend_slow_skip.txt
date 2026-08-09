@@ -372,10 +372,6 @@ jax-jit tests/test_orbit.py::test_liouville_planar  # 265s
 # margin; --timeout-method=signal cannot interrupt C-bound tests, so PASS
 # does not imply under-cap -- these are classified by junitxml time).
 torch-jit tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
-torch-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
-torch-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
-torch-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
-torch-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
 torch-jit tests/test_orbit.py::test_interprz_dxdv_3d
 torch-jit tests/test_orbit.py::test_analytic_zmax
 torch-jit tests/test_orbit.py::test_liouville_planar
