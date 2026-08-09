@@ -16,9 +16,13 @@
 #
 # Design note: a PLAIN concrete backend scalar reuses scipy's accurate value
 # (wrapped as a backend array); native GL runs only when a gradient is actually
-# taken (a tracer, or a grad-tracking torch tensor). GL cannot resolve the
-# small-z sheet structure the derivative FD-probes hit, so the concrete path
-# stays scipy-accurate while the differentiable path stays native.
+# taken (a tracer, or a grad-tracking torch tensor), which keeps a concrete
+# backend value bit-for-bit equal to the numpy one.
+#
+# That split is NOT because GL is the less accurate of the two: with panels
+# graded geometrically to dmin, GL tracks scipy to ~1e-15 wherever scipy is
+# trustworthy and stays correct at |z| = 1e-12, where scipy's own quad steps
+# over the a=R peak and returns nan.
 #
 # Backends that are not installed self-skip, so this is green on numpy alone.
 ###############################################################################
@@ -479,4 +483,35 @@ def test_rforce_finite_difference_in_R_stays_clean(backend_name, z):
         f"FD of Rforce on {backend_name} at z={z:g} gives {fd:.8e} vs "
         f"R2deriv {ref:.8e} (rel {rel:.2e}) -- the quadrature error is not "
         "varying smoothly in R"
+    )
+
+
+# The panel ladder graded toward a=R used to be dyadic (R/2, R/4, ... clamped at
+# dmin ~ 4|z|), which bottoms out at R*2**-K: for |z| below that the innermost
+# panel never reaches the peak and the force decays toward zero instead of
+# toward the sheet limit. K=24 is 0.5% low at |z|=1e-10 and ~95% low at 1e-12.
+# Spanning geometrically to dmin instead resolves the peak at any |z| with the
+# same K (so the jit graph does not grow).
+#
+# This is checked against the ANALYTIC sheet limit rather than against numpy:
+# scipy's own quad has the same peak problem here and is nan by |z|=1e-10
+# (galpy #1276 is the sibling defect in RazorThinExponentialDiskPotential), so
+# numpy is not a usable reference this far in.
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+@pytest.mark.parametrize("R", [0.7, 1.0, 1.6])
+@pytest.mark.parametrize("z,tol", [(1e-10, 1e-7), (1e-12, 2e-5)])
+def test_zforce_at_tiny_z_reaches_sheet_limit(backend_name, R, z, tol):
+    """zforce -> -2 pi Sigma(R) as |z| -> 0+, on the differentiable GL path.
+
+    Bars are set just above the measured deviation (2.1e-8 at 1e-10, 3.9e-6 at
+    1e-12); the dyadic ladder misses them by 2.2e-3 and 0.92 respectively, so
+    this fails loudly if the grading regresses rather than merely drifting.
+    """
+    limit = -2.0 * numpy.pi * float(_surfdens(numpy.float64(R)))
+    got = _traced_call(backend_name, evaluatezforces, R, z)
+    rel = abs(got / limit - 1.0)
+    assert rel < tol, (
+        f"zforce on {backend_name} at R={R:g}, z={z:g} is {got:.8e} vs the "
+        f"sheet limit {limit:.8e} (rel {rel:.2e}) -- the a=R peak is not "
+        "resolved, so the graded panels are not reaching dmin"
     )
