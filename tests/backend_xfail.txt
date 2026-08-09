@@ -299,11 +299,6 @@ jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
 #    AnyAxisym opt-out is deliberate for exactly that reason; this one looks
 #    unverified rather than intentional, which is why it is xfail and not skip.)
 #    All 5 fail in 0.0-0.1 s -- they refuse immediately, they never compute.
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
 #
 # 2) jax ConcretizationTypeError -- and the two share ONE root: `mass()` is not
 #    traceable, because it integrates with scipy.integrate.quad, which calls
@@ -320,8 +315,6 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14
 #    backend-native mass quadrature, hit once during evaluation and once during
 #    a wrapper's __init__. Fixing mass to use the backend quadrature (as the
 #    other migrations did) should clear both together.
-jax-jit tests/test_potential.py::test_McMillan17
-jax-jit tests/test_potential.py::test_Cautun20
 #
 # 3) AnyAxisym: the TRACED potential is wrong at exactly the disk plane.
 #    Measured at (R,z) = (0.5, 0.0):
@@ -344,4 +337,9 @@ jax-jit tests/test_potential.py::test_Cautun20
 #    It is eager-vs-traced: eager has Phi(z=0) and Phi(z=1e-8) agreeing to 11
 #    digits, traced does not. Cause not yet identified; do not start from the
 #    quadrature ladder.
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
+jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
 jax-jit tests/test_potential.py::test_forceAsDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
