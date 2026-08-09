@@ -2026,10 +2026,13 @@ class streamdf(df):
         for ii in range(self._nTrackChunks):
             tjacXY = coords.galcenrect_to_XYZ_jac(*self._ObsTrackXY[ii])
             tjacLB = coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii], degree=True)
-            tjacLB[:3, :] /= ro
-            tjacLB[3:, :] /= vo
-            for jj in range(6):
-                tjacLB[:, jj] *= self._ErrCovsLBScale[jj]
+            # Out-of-place: lbd_to_XYZ_jac returns a backend array under a forced
+            # backend, and jax arrays reject in-place item assignment. Per element
+            # (i,j) this is still (a_ij / r_i) * s_j -- the same two operations in
+            # the same order as the row-divides and the column-multiply loop it
+            # replaces -- so numpy is byte-identical.
+            tjacLB = tjacLB / numpy.array([ro, ro, ro, vo, vo, vo])[:, numpy.newaxis]
+            tjacLB = tjacLB * numpy.asarray(self._ErrCovsLBScale)
             tjac = numpy.dot(numpy.linalg.inv(tjacLB), tjacXY)
             allErrCovsLB[ii] = numpy.dot(
                 tjac, numpy.dot(self._allErrCovsXY[ii], tjac.T)
