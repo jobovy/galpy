@@ -284,10 +284,21 @@ jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
 #
 # 1) RotateAndTiltWrapperPotential refuses array input BY DESIGN
 #    ("Methods in RotateAndTiltWrapperPotential do not accept array inputs.
-#    Please input scalars"), and tracing turns scalars into 0-d traced arrays,
-#    so the guard fires on input it was never meant to reject. All 5 fail in
-#    0.0-0.1 s -- they refuse immediately, they do not compute. Fix is either to
-#    let the guard accept 0-d, or an explicit decision that these stay out.
+#    Please input scalars"), and tracing turns scalars into traced arrays.
+#    The guard in Potential.py is NOT a blanket refusal:
+#
+#        if arrays and not (getattr(self, "_backend_accepts_arrays", False)
+#                           and all(is_backend_array(x) for x in arrays)):
+#
+#    Under tracing the `is_backend_array` half is satisfied, so what actually
+#    trips is that **RotateAndTiltWrapperPotential never sets
+#    `_backend_accepts_arrays`**. So this is a one-flag opt-in, NOT a guard
+#    rewrite -- but the flag must not be flipped without first verifying the
+#    wrapper computes correctly on array input, since the gate exists precisely
+#    to keep arrays out of potentials with bare-numpy/scipy internals. (The
+#    AnyAxisym opt-out is deliberate for exactly that reason; this one looks
+#    unverified rather than intentional, which is why it is xfail and not skip.)
+#    All 5 fail in 0.0-0.1 s -- they refuse immediately, they never compute.
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
