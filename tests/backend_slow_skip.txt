@@ -332,3 +332,12 @@ jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpote
 jax-jit tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega  # 381s
 # NOT in the eager jax list: fast eager, 354 s traced. Tracing made it slower.
 jax-jit tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz  # 354s
+# tests/test_streamTrack.py, whole file, serial: 45 cases -> 45 PASSED,
+# total 1215 s, median 8.7 s, 2 over the 240 s margin. The eager `jax` entry is
+# the WHOLE FILE (per-track eager XLA dispatch blows the shard); traced, 43 of
+# 45 run and only these two stay. Serial vs the earlier concurrent numbers moved
+# 498->452 and 348->314 s -- ~10% inflation, not the 6x that test_noninertial
+# saw, because this run had one competitor rather than four. Either way both
+# clear 240 s, so the split is unchanged.
+jax-jit tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # 452s traced
+jax-jit tests/test_streamTrack.py::test_streamTrack_with_progpot  # 314s traced
