@@ -54,21 +54,40 @@ def test_jit_inherits_eager(tmp_path):
     }
 
 
-def test_jit_inheritance_applies_to_every_list(tmp_path, monkeypatch):
-    """Ledger, slow-skip and permanent-skip all inherit -- one shared rule.
+def test_jit_inheritance_is_per_list_not_per_backend(tmp_path, monkeypatch):
+    """FAILURE lists inherit eager entries; the SLOWNESS list does not.
 
-    A test too slow to run eager is slower still traced (it must compile first),
-    and a test excluded for hitting the network is excluded however it is run.
+    The rule used to be "every list inherits", justified by "a test too slow to
+    run eager is slower still traced (it must compile first)". That is false,
+    and measurably so: the dominant eager cost in this suite is per-call
+    dispatch, which is exactly what tracing removes. test_streamdf.py is
+    slow-skipped under jax because it takes >90 min eager (the shard cancels);
+    traced it is 13 min for the whole file, with a 0.11 s median test.
+
+    So inheritance is a property of WHICH LIST is being read:
+
+      xfail ledger    inherit -- tracing cannot repair a numerical gap, a
+                                 `_reject_backend` guard, or an out-of-scope family
+      permanent skip  inherit -- a test excluded for hitting the network is
+                                 excluded however it is run
+      slow-skip       DO NOT  -- tracing changes runtime in BOTH directions, so a
+                                 traced run must defer only what is measured slow
+                                 WHEN TRACED
     """
     path = _ledger(tmp_path, "jax tests/test_a.py::test_eager_only\n")
     for attr in ("_ledger_path", "_slow_skip_path", "_backend_skip_path"):
         monkeypatch.setattr(conftest, attr, lambda path=path: path)
-    for loader in (
-        conftest._load_ledger,
-        conftest._load_slow_skip,
-        conftest._load_backend_skip,
-    ):
+    for loader in (conftest._load_ledger, conftest._load_backend_skip):
         assert loader("jax-jit") == {"tests/test_a.py::test_eager_only"}, loader
+    # The whole point of the split: an eager slow-skip entry does NOT silence
+    # the traced run, so tests that tracing makes fast start running again.
+    assert conftest._load_slow_skip("jax-jit") == set()
+    # ... while a traced-only entry still applies, and the eager list is
+    # unaffected in both directions.
+    jit_path = _ledger(tmp_path, "jax-jit tests/test_a.py::test_traced_only\n")
+    monkeypatch.setattr(conftest, "_slow_skip_path", lambda: jit_path)
+    assert conftest._load_slow_skip("jax-jit") == {"tests/test_a.py::test_traced_only"}
+    assert conftest._load_slow_skip("jax") == set()
 
 
 def test_regen_of_traced_run_drops_inherited_eager_entries(tmp_path, monkeypatch):
