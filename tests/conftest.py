@@ -138,23 +138,31 @@ def _strip_param(nodeid):
     return nodeid.split("[", 1)[0]
 
 
-def _load_backend_nodeids(path, backend_name):
+def _load_backend_nodeids(path, backend_name, inherit_eager=True):
     """Parse a "<backend> <nodeid>" file, returning the nodeids for one backend.
 
     Shared by the xfail-ledger and the slow-skip list (same format). Lines may
     carry trailing "# ..." comments; blank/comment-only lines are ignored.
 
-    A traced backend ("<backend>-jit") INHERITS the eager "<backend>" entries.
-    Tracing does not repair an eager failure -- it cannot fix a numerical gap, a
-    `_reject_backend` guard, or an out-of-scope family -- and it only makes a
-    slow test slower, since the trace has to compile first. So "<backend>-jit"
-    means exactly **"applies ONLY when traced"**, and the eager lists stay the
-    single place a shared entry is written and later pruned. The rule lives here
-    rather than in the three callers because it is a property of the backend
-    name, not of which list is being read.
+    With `inherit_eager`, a traced backend ("<backend>-jit") also picks up the
+    eager "<backend>" entries, so "<backend>-jit" means "applies ONLY when
+    traced" and the eager list stays the single place a shared entry is written
+    and later pruned.
+
+    That is right for FAILURES and wrong for SLOWNESS, so it is a property of
+    the list being read, not of the backend name:
+
+    * xfail-ledger (inherit): tracing cannot repair an eager failure -- not a
+      numerical gap, a `_reject_backend` guard, or an out-of-scope family.
+    * slow-skip (do NOT inherit): tracing changes the runtime in BOTH
+      directions. The dominant eager cost in this suite is per-call dispatch,
+      which is exactly what tracing removes -- the streamdf and streamTrack
+      entries below name "per-trackpoint XLA dispatch" as their reason and say
+      to un-skip once jit-vectorized. Inheriting made them unmeasurable under
+      --jit: skipped for a cost the traced run may not pay.
     """
     names = {backend_name}
-    if backend_name.endswith("-jit"):
+    if inherit_eager and backend_name.endswith("-jit"):
         names.add(backend_name[: -len("-jit")])
     entries = set()
     if not os.path.exists(path):
@@ -196,8 +204,12 @@ def _regen_entries(backend_name, failed):
 
 
 def _load_slow_skip(backend_name):
-    """Return the set of slow-skip nodeids for the given backend, or empty set."""
-    return _load_backend_nodeids(_slow_skip_path(), backend_name)
+    """Return the set of slow-skip nodeids for the given backend, or empty set.
+
+    No eager inheritance: a traced run defers only what is measured slow WHEN
+    TRACED. See _load_backend_nodeids.
+    """
+    return _load_backend_nodeids(_slow_skip_path(), backend_name, inherit_eager=False)
 
 
 # Tests skipped under a backend for a PERMANENT reason -- one no amount of porting
