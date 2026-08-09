@@ -166,11 +166,8 @@
 # blind spot that made an earlier local regen report false failures.
 
 jax tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
-jax tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
 jax tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
-torch tests/test_actionAngle.py::test_actionAngleAdiabatic_linear_angles_cylsep
-torch tests/test_actionAngle.py::test_actionAngleStaeckelGrid_basicAndConserved_actions
 torch tests/test_qdf.py::test_call_diffinoutputs
 
 # --- jax single-orbit: action-angle accessors (Track E) ---
