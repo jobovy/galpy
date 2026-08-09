@@ -188,7 +188,12 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         if self._norot and self._offset is None:
             return 0.0
         xp = get_namespace(R, phi)
-        r22 = 1.0 if self._norot else self._rot[2, 2]
+        # float(), not the numpy scalar: dividing a backend array by a
+        # numpy.float64 hands the op to numpy, which emits the numpy-2.0
+        # __array_wrap__ deprecation (96 of them across the traced-torch
+        # surfdens tests). A plain float stays a weak scalar, so it also will
+        # not upcast a float32 backend array the way as_backend_constant would.
+        r22 = 1.0 if self._norot else float(self._rot[2, 2])
         if r22 == 0.0:
             return 0.0
         num = 0.0
