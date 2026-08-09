@@ -320,8 +320,6 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14
 #    backend-native mass quadrature, hit once during evaluation and once during
 #    a wrapper's __init__. Fixing mass to use the backend quadrature (as the
 #    other migrations did) should clear both together.
-jax-jit tests/test_potential.py::test_McMillan17
-jax-jit tests/test_potential.py::test_Cautun20
 #
 # 3) AnyAxisym: the TRACED potential is wrong at exactly the disk plane.
 #    Measured at (R,z) = (0.5, 0.0):
