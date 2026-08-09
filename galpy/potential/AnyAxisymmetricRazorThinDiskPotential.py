@@ -283,9 +283,17 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             xp.minimum(4.0 * xp.abs(z) * ones, half),
             half,
         )
-        # dk decreasing: R/2, R/4, ... (clamped at dmin), so R-dk ascends
-        # and R+dk descends -- the right side is the one needing a reverse.
-        dk = [xp.maximum(Rp * (2.0**-k), dmin) for k in range(1, K + 1)]
+        # dk decreasing R/2 -> dmin, so R-dk ascends and R+dk descends -- the
+        # right side is the one needing a reverse.
+        #
+        # Geometric in dmin/half rather than dyadic: a fixed R/2, R/4, ...
+        # ladder only reaches R*2**-K, so for |z| < R*2**-K/4 it never gets
+        # near the peak and the answer degrades (K=24 is 0.5% low at
+        # |z|=1e-10, R=1). Spanning to dmin instead resolves the peak at any
+        # |z| with the SAME K, so the jit graph does not grow.
+        # ratio is 1 exactly at z==0, where grading is off by construction.
+        ratio = dmin / half
+        dk = [half * ratio ** (k / (K - 1.0)) for k in range(K)]
         left = [Rp - d for d in dk]  # ascending, ends near R
         right = [Rp + d for d in dk][::-1]  # ascending, starts near R
         lo = [xp.zeros_like(Rp)] + left + [Rp] + right
