@@ -340,6 +340,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         # -Sigma(R)/2 -- exactly minus R2deriv's. Verified to 5e-10.
         return _finite_part_quad(z2derivint, R, az, -self._sdens(R) / 2.0)
 
+    @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         R2 = R**2
         z2 = z**2

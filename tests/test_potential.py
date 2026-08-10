@@ -13883,3 +13883,34 @@ def test_anyaxisymmetricrazorthindisk_second_derivs_at_z0():
             f"{ref:e} (this was 5.1e-07 at R=0.2 before the fix)"
         )
     return None
+
+
+def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
+    """Every evaluation method must keep @check_potential_inputs_not_arrays.
+
+    This potential integrates with scipy.quad, which needs scalars; the decorator
+    is what turns an array call into a clean TypeError instead of a wrong number
+    or an opaque failure deep in the integrand.
+
+    Pinning the SET, not one method, and pinning the CONTRACT rather than the
+    decorator's presence: the gold-value test above calls Rzderiv with scalars,
+    so it passes whether or not the decorator is attached. A rewrite of these
+    methods dropped `@check_potential_inputs_not_arrays` from `_Rzderiv` while
+    every other test stayed green -- exactly the blind spot this closes.
+    """
+    p = potential.AnyAxisymmetricRazorThinDiskPotential(
+        surfdens=lambda R: numpy.exp(-R / 0.3)
+    )
+    arr = numpy.array([0.8, 1.2])
+    for name in ("__call__", "Rforce", "zforce", "R2deriv", "z2deriv", "Rzderiv"):
+        meth = getattr(p, name)
+        # scalar still works -- proves the method is live, so a NameError or a
+        # deleted method cannot masquerade as the TypeError we want below
+        assert numpy.isfinite(meth(1.0, 0.1, use_physical=False)), (
+            f"{name} is not usable on scalars"
+        )
+        with pytest.raises(TypeError):
+            meth(arr, 0.1, use_physical=False)
+        with pytest.raises(TypeError):
+            meth(1.0, arr, use_physical=False)
+    return None
