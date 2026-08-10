@@ -159,7 +159,6 @@ jax tests/test_streamspraydf.py::test_center
 # steps per-force-call (~1 ms each) and exceeds the per-test budget. They validate
 # C-vs-Python STM numerics, which the numpy run already covers; the differentiable
 # in-backend (diffrax/torchdiffeq) STM is covered by tests/test_backend_orbit_stm.py.
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[OblateStaeckelWrapperPotential]  # 289s -- inside the cap, but within 20% of it
 jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_norot_offset]  # 300s (failed)
 jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_offset]  # 290s -- inside the cap, but within 20% of it
 jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # 300s (failed)
@@ -173,10 +172,6 @@ jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic  # 620s -- O
 # Python force eval) + a few integrate paths that step in Python under jax. Track A
 # force vectorization / Track D in-backend default will let these un-defer.
 jax tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[FerrersPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[RazorThinExponentialDiskPotential--10.0--9.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockSpecialRotatingFlatSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[nestedListPotential--10.0--10.0-False]
 jax tests/test_orbit.py::test_integrate_backwards  # 300s (failed)
 jax tests/test_orbit.py::test_integrate_negative_time  # 300s (failed)
 jax tests/test_orbit.py::test_zmax  # 300s (failed)
@@ -193,14 +188,6 @@ jax tests/test_orbit.py::test_zmax  # 300s (failed)
 # box (~2.4x on the CI runner); even 5-way duration-split, a group clustering several
 # overflows the 4500s shard cap (jax orbit group 3 timed out). Defer the heaviest
 # until Track D vectorization; the faster majority stays un-deferred. numpy runs all.
-jax tests/test_orbit.py::test_energy_jacobi_conservation[AnySphericalPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[DoubleExponentialDiskPotential--6.0--6.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatCorotatingRotationSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSolidBodyRotationPlanarSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSolidBodyRotationSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockFlatSpiralArmsPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockRotatedAndTiltedMWP14WrapperPotential--10.0--10.0-False]
-jax tests/test_orbit.py::test_energy_jacobi_conservation[mockRotatingFlatSpiralArmsPotential--10.0--10.0-False]
 jax tests/test_orbit.py::test_integrate_indiv_t_python_paths  # 300s (failed)
 
 # --- jax NonInertialFrameForce func/vec-omega (eager-XLA timeout) ---
@@ -217,18 +204,7 @@ jax tests/test_orbit.py::test_integrate_indiv_t_python_paths  # 300s (failed)
 # entry are slow-skipped together here to stop the recurring per-PR flake.
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
 jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz
-jax tests/test_noninertial.py::test_accellsrframe_funcomegaz
-jax tests/test_noninertial.py::test_accellsrframe_funcomegaz_2d
-jax tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz
-jax tests/test_noninertial.py::test_accellsrframe_vecfuncomegaz_2D
-jax tests/test_noninertial.py::test_accellsrframe_vecomegaz
-jax tests/test_noninertial.py::test_accellsrframe_vecomegaz_2d
-jax tests/test_noninertial.py::test_cinterp_funcomegaz
-jax tests/test_noninertial.py::test_cinterp_vecfuncomega
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_vecomegaz
-jax tests/test_noninertial.py::test_lsrframe_vecomegaz
-jax tests/test_noninertial.py::test_lsrframe_vecomegaz_2d
 jax tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
