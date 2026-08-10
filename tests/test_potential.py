@@ -13820,3 +13820,52 @@ def test_razorthinexponentialdisk_forces_at_the_closedform_handover():
             f"{numpy.fabs(hi / lo - 1.0):e} across the |z|=1e-6 handover at R={R}"
         )
     return None
+
+
+# AnyAxisymmetricRazorThinDiskPotential's second derivatives are Hadamard
+# finite-part integrals: the integrand diverges as C/(a-R)^2 with the SAME sign
+# on both sides of a=R, so the halves add rather than cancel. Evaluating them
+# with a rule built for integrable singularities (QUADPACK's QAGP, via
+# points=[R]) returned an extrapolation artifact -- ~1e-5 for R2deriv and ~5e-7
+# for z2deriv at small R, improving outward as the singularity weakens.
+def test_anyaxisymmetricrazorthindisk_second_derivs_at_z0():
+    # Gold values: the Hankel-transform form of each derivative, evaluated with
+    #   mpmath.quadosc at 25 dps over the Bessel zeros, for Sigma(R)=exp(-R/0.3):
+    #     R2deriv = -2pi Int k^2 (J1(kR)/(kR) - J0(kR)) Sigmatilde(k) dk
+    #     z2deriv = -2pi Int k^2 J0(kR) Sigmatilde(k) dk
+    #   with Sigmatilde(k) = hr^2 (1+(k hr)^2)^(-3/2), hr = 0.3.
+    gold_R2 = {
+        0.1: 5.5888795714e00,
+        0.2: 6.0373468138e-01,
+        0.3: -1.1823292800e00,
+        0.5: -1.9316472211e00,
+        1.0: -1.0271497109e00,
+        2.0: -1.7859053254e-01,
+    }
+    gold_z2 = {
+        0.1: -2.0840815646e01,
+        0.2: -9.5528281577e00,
+        0.3: -4.6392259813e00,
+        0.5: -8.7079146148e-01,
+        1.0: 3.8734081084e-01,
+        2.0: 9.7856791896e-02,
+    }
+    p = potential.AnyAxisymmetricRazorThinDiskPotential(
+        surfdens=lambda R: numpy.exp(-R / 0.3)
+    )
+    for R, ref in gold_R2.items():
+        got = p.R2deriv(R, 0.0, use_physical=False)
+        assert numpy.fabs(got / ref - 1.0) < 1e-8, (
+            f"AnyAxisym R2deriv({R}, 0) = {got:e} is "
+            f"{numpy.fabs(got / ref - 1.0):e} relative from the Hankel reference "
+            f"{ref:e}; the finite part at a=R is not being taken (this was "
+            "9.9e-06 at R=0.2 before the fix)"
+        )
+    for R, ref in gold_z2.items():
+        got = p.z2deriv(R, 0.0, use_physical=False)
+        assert numpy.fabs(got / ref - 1.0) < 1e-8, (
+            f"AnyAxisym z2deriv({R}, 0) = {got:e} is "
+            f"{numpy.fabs(got / ref - 1.0):e} relative from the Hankel reference "
+            f"{ref:e} (this was 5.1e-07 at R=0.2 before the fix)"
+        )
+    return None
