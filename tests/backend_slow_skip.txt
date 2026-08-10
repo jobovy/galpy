@@ -36,6 +36,14 @@ jax tests/test_orbits.py::test_SOS_3D  # 269s -- inside the cap, but within 20% 
 # integration that finishes under the timeout, so only central_limit is deferred.)
 jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 jax tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_const_FDMfactor
+# RE-DEFERRED 2026-08-09 (gh#1284 removed this line; that was wrong). The comment
+# above says torch central_limit "finishes under the timeout" -- measured, it does
+# not: >438 s on an IDLE 72-core box against the 300 s cap, and it timed out in CI
+# on gh#1286. gh#1284's un-defer rested on a run where the test crashed early on
+# the numpy-on-Tensor collision it was simultaneously fixing (6.47 s to raise
+# TypeError), so the "fast" reading measured a fail-fast, not the work. Torch is
+# the same un-vectorized dissipative path as jax above; it belongs here with them.
+torch tests/test_FDMdynamfric.py::test_FDMDynamicalFrictionForce_central_limit
 
 # --- jax quasi-isothermal DF (Track F df migration) ---
 # quasiisothermaldf is not yet backend-migrated; this test does many nested
