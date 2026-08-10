@@ -22,9 +22,10 @@ from .Potential import Potential, check_potential_inputs_not_arrays
 #     0.2    5.9e-08    1.9e-09
 #     1.0    2.4e-09    4.5e-09
 #
-# i.e. up to ~6e-8, falling ~linearly in z (5.9e-09 by z=1e-10, ~1e-11 by
-# z=1e-12). Both derivatives use this constant, and z2deriv moves LESS across the
-# floor than R2deriv does, so the bound is set by R2deriv at small R.
+# i.e. up to ~6e-8, set by R2deriv at small R. The movement is exactly linear in
+# z -- measured, not extrapolated: R=0.2 R2deriv gives 5.937e-08, 5.937e-09 and
+# 5.937e-11 at z = 1e-9, 1e-10 and 1e-12. Both derivatives use this constant, and
+# z2deriv moves LESS across the floor than R2deriv does.
 _R2DERIV_ZFLOOR = 1e-9
 
 if _APY_LOADED:
