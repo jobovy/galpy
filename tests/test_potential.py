@@ -12997,6 +12997,15 @@ class testMWPotential(Potential):
             self._potlist, R, z, phi=phi, t=t, forcepoisson=forcepoisson
         )
 
+    def _surfdens_poisson(self, R, z, phi=0.0, t=0.0):
+        # Completes the delegation: Potential.surfdens(forcepoisson=True) raises
+        # before it reaches _surfdens above, so without this the Poisson route
+        # would integrate at THIS object's mid-plane (0) instead of at each
+        # component's own -- wrong for a displaced or tilted component.
+        return evaluateSurfaceDensities(
+            self._potlist, R, z, phi=phi, t=t, forcepoisson=True
+        )
+
     def vcirc(self, R):
         return potential.vcirc(self._potlist, R)
 
