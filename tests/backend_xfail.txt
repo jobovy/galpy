@@ -299,11 +299,6 @@ jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
 #    AnyAxisym opt-out is deliberate for exactly that reason; this one looks
 #    unverified rather than intentional, which is why it is xfail and not skip.)
 #    All 5 fail in 0.0-0.1 s -- they refuse immediately, they never compute.
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination]
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedTiltedOffsetMWP14WrapperPotential]
-jax-jit tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
 #
 # 2) jax ConcretizationTypeError -- and the two share ONE root: `mass()` is not
 #    traceable, because it integrates with scipy.integrate.quad, which calls
