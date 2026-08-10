@@ -340,5 +340,38 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         # -Sigma(R)/2 -- exactly minus R2deriv's. Verified to 5e-10.
         return _finite_part_quad(z2derivint, R, az, -self._sdens(R) / 2.0)
 
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        R2 = R**2
+        z2 = z**2
+
+        def rzderivint(a, u, d2):
+            aRz = (a + R) ** 2.0 + z2
+            # m = 4aR/((a+R)^2+z^2), and 1-m = d2/aRz exactly. Taking K from that
+            # complement never forms 1-m by subtraction, which rounds to 0 for
+            # tiny |z| and sends ellipk to inf. E is bounded, so clamping m only
+            # guards the >1 rounding artifact there.
+            m = numpy.minimum(4 * a * R / aRz, 1.0)
+            # Both coefficients are written in u = a-R, the point they are built
+            # about: the E one vanishes at (a=R, z=0) and the K one factors
+            # through d2. Forming either from a and R cancels away for |z| << R.
+            ecoeff = (
+                u * (16.0 * R2 * R + 4.0 * R * z2 + 4.0 * R * u * u)
+                + u * u * (12.0 * R2 + 2.0 * z2)
+                + u**4
+                - 4.0 * R2 * z2
+                + z2 * z2
+            )
+            kcoeff = d2 * (2.0 * R * u + d2)
+            return (
+                a
+                * self._sdens(a)
+                * (-ecoeff * special.ellipe(m) + kcoeff * special.ellipkm1(d2 / aRz))
+                / R
+                / d2**2
+                / aRz**1.5
+            )
+
+        return -2 * z * _quad_apeak(rzderivint, R, z)
+
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         return self._sdens(R)

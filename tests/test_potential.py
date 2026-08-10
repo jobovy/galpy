@@ -13861,6 +13861,20 @@ def test_anyaxisymmetricrazorthindisk_second_derivs_at_z0():
             f"{ref:e}; the finite part at a=R is not being taken (this was "
             "9.9e-06 at R=0.2 before the fix)"
         )
+    # _Rzderiv is NOT touched by this change, but the R2deriv/z2deriv edits sit
+    # directly around it in the file, so pin that it still exists and is right --
+    # a splice that silently dropped it would otherwise pass every other test.
+    gold_Rz = {  # -2pi Int k^2 J1(kR) exp(-kz) Sigmatilde(k) dk, at z=1e-3
+        0.2: -1.0683375594e01,
+        0.5: -3.9465142998e00,
+        1.0: -7.4727577704e-01,
+    }
+    for R, ref in gold_Rz.items():
+        got = p.Rzderiv(R, 1e-3, use_physical=False)
+        assert numpy.fabs(got / ref - 1.0) < 1e-8, (
+            f"AnyAxisym Rzderiv({R}, 1e-3) = {got:e} differs from the Hankel "
+            f"reference {ref:e} by {numpy.fabs(got / ref - 1.0):e}"
+        )
     for R, ref in gold_z2.items():
         got = p.z2deriv(R, 0.0, use_physical=False)
         assert numpy.fabs(got / ref - 1.0) < 1e-8, (
