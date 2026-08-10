@@ -787,7 +787,6 @@ class Potential(Force):
                     _bquad.node_axis(R), x, phi=_bquad.node_axis(phi), t=t
                 ),
                 numpy.inf,  # a local constant, so concrete even inside a trace
-                n=50,
             )
         try:
             if forcepoisson:
@@ -829,7 +828,6 @@ class Potential(Force):
                 xp,
                 poisson_integrand(_bquad.node_axis(R), _bquad.node_axis(phi)),
                 absz,
-                n=50,
                 interior_point=self._vertical_quad_interior(xp, R, absz, phi, t),
             )
         return (
@@ -915,7 +913,6 @@ class Potential(Force):
                 _bquad.node_axis(R), x, phi=_bquad.node_axis(phi), t=t
             ),
             absz,
-            n=50,
             interior_point=self._vertical_quad_interior(xp, R, absz, phi, t),
         )
 
