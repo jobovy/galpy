@@ -668,6 +668,7 @@ class Potential(Force):
                         ),
                         -numpy.fabs(z),
                         numpy.fabs(z),
+                        epsabs=0.0,
                     )[0]
                 )
                 / 4.0
@@ -700,8 +701,18 @@ class Potential(Force):
         - 2021-04-19 - Adjusted for non-z-symmetric densities by Bovy (UofT).
 
         """
+        # epsabs=0 so the criterion is purely RELATIVE. quad's default
+        # epsabs=1.49e-8 is absolute, so a vertical integral whose own value is
+        # at or below ~1e-8 in internal units passes the absolute test on the
+        # first crude estimate and returns immediately, reporting success while
+        # being ~1e-5 wrong. That happens for truncated profiles and for any
+        # potential far from the plane -- MWPotential2014[0] at R=1, |z|=5
+        # integrates to 8.2e-9 and came back 9.6e-6 relative off.
         return integrate.quad(
-            lambda x: self._dens(R, x, phi=phi, t=t), -numpy.fabs(z), numpy.fabs(z)
+            lambda x: self._dens(R, x, phi=phi, t=t),
+            -numpy.fabs(z),
+            numpy.fabs(z),
+            epsabs=0.0,
         )[0]
 
     @potential_physical_input

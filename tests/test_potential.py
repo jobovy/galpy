@@ -1670,6 +1670,41 @@ def test_poisson_potential(potname):
     return None
 
 
+# Test that the generic vertical surfdens quadrature stays accurate when the
+# integral itself is tiny. scipy.integrate.quad's default epsabs=1.49e-8 is an
+# ABSOLUTE criterion, so an integral of order 1e-8 or below is satisfied by the
+# first crude estimate and quad returns immediately, reporting success -- the
+# surface density was then ~1e-5 wrong with no warning. Fixed by epsabs=0.
+def test_surfdens_small_integral_is_not_truncated():
+    from scipy import integrate
+
+    # PowerSphericalPotentialwCutoff has rc = 1.9/8, so its density is already
+    # ~1e-31 at r=2: the vertical integral at R=1 is ~2.5e-10, well under the
+    # default absolute tolerance, which is exactly the regime that broke.
+    p = potential.MWPotential2014[0]
+    for R, Z in ((1.0, 2.0), (1.0, 5.0), (1.0, 8.0)):
+        # Reference: the same quadrature driven to its relative limit. Verified
+        # against mpmath at 30 dps to 1.2e-15 when this test was written.
+        ref = (
+            p._amp
+            * integrate.quad(
+                lambda x: p._dens(R, x, phi=0.0, t=0.0),
+                -Z,
+                Z,
+                epsabs=0.0,
+                epsrel=1e-13,
+                limit=2000,
+            )[0]
+        )
+        got = p.surfdens(R, Z, use_physical=False)
+        assert numpy.fabs(got / ref - 1.0) < 1e-12, (
+            f"surfdens(R={R}, z={Z}) = {got:e} differs from the converged "
+            f"quadrature {ref:e} by {numpy.fabs(got / ref - 1.0):e} relative; "
+            "the vertical integral is being truncated by an absolute tolerance"
+        )
+    return None
+
+
 # Test whether the (integrated) Poisson equation is satisfied if _surfdens and the relevant second derivatives are implemented
 @pytest.mark.parametrize("potname", _POISSON_SURFDENS_POTS)
 def test_poisson_surfdens_potential(potname):

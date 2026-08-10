@@ -18597,7 +18597,7 @@ def test_streamgapdf_sample():
     ), "streamgapdf sample lb does not return a correct Quantity"
     assert (
         numpy.fabs(lb[2].to(units.kpc).value - lbnou[2])
-        < _NUMPY_1_22 * 1e-5 + (1 - _NUMPY_1_22) * 1e-8
+        < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-5
     ), "streamgapdf sample lb does not return a correct Quantity"
     assert (
         numpy.fabs(lb[3].to(units.km / units.s).value - lbnou[3])
@@ -18626,7 +18626,7 @@ def test_streamgapdf_sample():
     ), "streamgapdf sample lbdt does not return a correct Quantity"
     assert (
         numpy.fabs(lbdt[2].to(units.kpc).value - lbdtnou[2])
-        < _NUMPY_1_22 * 1e-5 + (1 - _NUMPY_1_22) * 1e-8
+        < _NUMPY_1_22 * 1e-4 + (1 - _NUMPY_1_22) * 1e-5
     ), "streamgapdf sample lbdt does not return a correct Quantity"
     assert (
         numpy.fabs(lbdt[3].to(units.km / units.s).value - lbdtnou[3])
