@@ -10,11 +10,21 @@ from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .Potential import Potential, check_potential_inputs_not_arrays
 
-# Below this |z|, R2deriv is indistinguishable from its z=0 limit: measured
-# against an mpmath Hankel reference the true value moves by only 5.9e-09 between
-# z=0 and z=1e-10 (and ~1e-11 by z=1e-12), while the finite-|z| quadrature branch
-# degrades there. Snapping costs ~6e-9 and avoids a decade in which neither
-# branch is accurate.
+# Below this |z| both second derivatives are indistinguishable from their z=0
+# limits, so we evaluate the z=0 branch: the finite-|z| branch degrades here (the
+# offset d is not representable relative to R), and this avoids a decade in which
+# neither branch is accurate.
+#
+# Worst case is at the floor itself. Relative movement of the TRUE value between
+# z=0 and z=1e-9, vs an mpmath Hankel reference:
+#
+#     R      R2deriv    z2deriv
+#     0.2    5.9e-08    1.9e-09
+#     1.0    2.4e-09    4.5e-09
+#
+# i.e. up to ~6e-8, falling ~linearly in z (5.9e-09 by z=1e-10, ~1e-11 by
+# z=1e-12). Both derivatives use this constant, and z2deriv moves LESS across the
+# floor than R2deriv does, so the bound is set by R2deriv at small R.
 _R2DERIV_ZFLOOR = 1e-9
 
 if _APY_LOADED:
