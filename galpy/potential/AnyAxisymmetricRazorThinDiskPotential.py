@@ -10,6 +10,13 @@ from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .Potential import Potential, check_potential_inputs_not_arrays
 
+# Below this |z|, R2deriv is indistinguishable from its z=0 limit: measured
+# against an mpmath Hankel reference the true value moves by only 5.9e-09 between
+# z=0 and z=1e-10 (and ~1e-11 by z=1e-12), while the finite-|z| quadrature branch
+# degrades there. Snapping costs ~6e-9 and avoids a decade in which neither
+# branch is accurate.
+_R2DERIV_ZFLOOR = 1e-9
+
 if _APY_LOADED:
     from astropy import units
 
@@ -220,41 +227,72 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         R2 = R**2
-        z2 = z**2
+        az = numpy.fabs(z)
+        if az < _R2DERIV_ZFLOOR:
+            az = 0.0
+        z2 = az**2
 
-        def r2derivint(a):
-            a2 = a**2
-            aRz = (a + R) ** 2.0 + z2
-            # m = 4aR/((a+R)^2+z^2), and 1-m = ((a-R)^2+z^2)/((a+R)^2+z^2) exactly.
-            # Taking K from that complement never forms 1-m by subtraction, which
-            # rounds to 0 for tiny |z| and sends ellipk to inf. E is bounded, so
-            # clamping m only guards the >1 rounding artifact there.
-            m = numpy.minimum(4 * a * R / aRz, 1.0)
-            km1 = ((a - R) ** 2.0 + z2) / aRz
+        def r2derivint(d):
+            """The integrand as a function of the OFFSET d = a - R.
+
+            Parameterised by d, never by a, so the offset is never formed by
+            subtraction: at R=0.2 the float64 spacing is 2.8e-17, so recovering
+            d=1e-10 from ``a - R`` carries 8e-8 relative error, which
+            ``1/(d^2+z^2)^2`` then amplifies. Every ingredient is exact in d:
+            ``a^2-R^2 = d(2R+d)`` and ``(a-R)^2+z^2 = d^2+z^2``.
+            """
+            a = R + d
+            a2 = R2 + 2.0 * R * d + d * d
+            dz = d * d + z2  # (a-R)^2 + z^2, exactly
+            a2mR2 = d * (2.0 * R + d)  # a^2 - R^2, exactly
+            aRz = (2.0 * R + d) ** 2.0 + z2
+            m = numpy.minimum(4.0 * a * R / aRz, 1.0)
             return (
                 a
                 * self._sdens(a)
                 * (
                     -(
                         (
-                            (a2 - 3.0 * R2) * (a2 - R2) ** 2
+                            (a2 - 3.0 * R2) * a2mR2**2
                             + (3.0 * a2**2 + 2.0 * a2 * R2 + 3.0 * R2**2) * z2
-                            + (3.0 * a2 + 7.0 * R2) * z**4
-                            + z**6
+                            + (3.0 * a2 + 7.0 * R2) * z2**2
+                            + z2**3
                         )
                         * special.ellipe(m)
                     )
-                    + ((a - R) ** 2 + z2)
-                    * ((a2 - R2) ** 2 + 2.0 * (a2 + 2.0 * R2) * z2 + z**4)
-                    * special.ellipkm1(km1)
+                    + dz
+                    * (a2mR2**2 + 2.0 * (a2 + 2.0 * R2) * z2 + z2**2)
+                    * special.ellipkm1(dz / aRz)
                 )
-                / (2.0 * R2 * ((a - R) ** 2 + z2) ** 2 * ((a + R) ** 2 + z2) ** 1.5)
+                / (2.0 * R2 * dz**2 * aRz**1.5)
             )
 
-        return -4 * (
-            integrate.quad(r2derivint, 0, 2 * R, points=[R])[0]
-            + integrate.quad(r2derivint, 2 * R, numpy.inf)[0]
-        )
+        # Symmetrise about d=0. The integrand behaves as C/d^2 + B/d + integrable
+        # with C = Sigma(R)/2; pairing +-d cancels the odd B/d term exactly, so
+        # only C has to be handled -- and C needs no derivative of Sigma.
+        def sym(u):
+            return r2derivint(u) + r2derivint(-u)
+
+        C = self._sdens(R) / 2.0
+        if z2 == 0.0:
+            # At z=0 the integral exists only as a Hadamard finite part: the
+            # integrand diverges as C/d^2 with the SAME sign either side, so the
+            # two halves add rather than cancel. Subtract the singular model and
+            # add back its finite part, -2C/R over the symmetric panel.
+            inner = (
+                integrate.quad(lambda u: sym(u) - 2.0 * C / (u * u), 0.0, R)[0]
+                - 2.0 * C / R
+            )
+        else:
+            # d = z*sinh(t) gives log-spaced coverage from z out to R with no
+            # endpoint crowding, so the width-z peak is resolved at any z.
+            # (d = z*tan(t) fails: arctan(R/z) lands within ~5e-10 of pi/2, where
+            # tan is quantised -- the same representability trap one level up.)
+            tmax = numpy.arcsinh(R / az)
+            inner = integrate.quad(
+                lambda t: sym(az * numpy.sinh(t)) * az * numpy.cosh(t), 0.0, tmax
+            )[0]
+        return -4 * (inner + integrate.quad(r2derivint, R, numpy.inf)[0])
 
     @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
