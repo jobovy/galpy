@@ -67,6 +67,28 @@ class RazorThinExponentialDiskPotential(Potential):
         ):  # pragma: no cover
             self.normalize(normalize)
 
+    def _inner_nodes(self, R):
+        """Substituted Gauss-Legendre nodes/weights for the inner panel [0, R].
+
+        As ``|z| -> 0`` the force integrands carry a factor
+        ``1/sqrt(R^2+z^2-k^2+sqrtp*sqrtm)`` with a square-root singularity
+        exactly at the panel edge ``k=R``, against which fixed-order
+        Gauss-Legendre converges only algebraically -- n=3000 still leaves 1e-4.
+        Substituting ``k = R(1-v^2)`` puts the Jacobian's zero (``2Rv``)
+        precisely where that factor blows up, so the product is smooth and the
+        same 100 nodes reach ~5e-5 instead of ~5e-3: better than n=3000, at no
+        extra integrand evaluations. Weights follow this module's convention of
+        carrying the full panel width rather than half of it.
+        """
+        v = 0.5 * (self._glx + 1.0)
+        return R * (1.0 - v**2.0), 2.0 * R * v * self._glw
+
+    def _outer_nodes(self, R, kmax):
+        """The same, for the outer panel [R, kmax], via ``k = R + u^2``."""
+        umax = numpy.sqrt(kmax - R)
+        u = umax * 0.5 * (self._glx + 1.0)
+        return R + u**2.0, 2.0 * umax * u * self._glw
+
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if self._new:
             if numpy.fabs(z) < 10.0**-6.0:
@@ -103,16 +125,7 @@ class RazorThinExponentialDiskPotential(Potential):
                     * (special.i0(y) * special.k0(y) - special.i1(y) * special.k1(y))
                 )
             kalphamax1 = R
-            # k = R(1-v^2). As z->0 the 1/sqrt(R^2+z^2-k^2+sqrtp*sqrtm) factor
-            # below has a square-root singularity exactly at the panel edge k=R,
-            # against which fixed-order Gauss-Legendre converges only
-            # algebraically (n=3000 still leaves 1e-4). This substitution's
-            # Jacobian 2Rv vanishes precisely where that factor blows up, so the
-            # product is smooth and the same 100 nodes reach ~5e-5 instead of
-            # ~5e-3 -- better than n=3000, at no extra integrand evaluations.
-            v1 = 0.5 * (self._glx + 1.0)
-            ks1 = kalphamax1 * (1.0 - v1**2.0)
-            weights1 = 2.0 * kalphamax1 * v1 * self._glw
+            ks1, weights1 = self._inner_nodes(R)
             sqrtp = numpy.sqrt(z**2.0 + (ks1 + R) ** 2.0)
             sqrtm = numpy.sqrt(z**2.0 + (ks1 - R) ** 2.0)
             evalInt1 = (
@@ -124,11 +137,7 @@ class RazorThinExponentialDiskPotential(Potential):
             )
             if R < 10.0:
                 kalphamax2 = 10.0
-                # k = R + u^2: the same singularity seen from the right panel.
-                umax = numpy.sqrt(kalphamax2 - kalphamax1)
-                u2 = umax * 0.5 * (self._glx + 1.0)
-                ks2 = kalphamax1 + u2**2.0
-                weights2 = 2.0 * umax * u2 * self._glw
+                ks2, weights2 = self._outer_nodes(R, kalphamax2)
                 sqrtp = numpy.sqrt(z**2.0 + (ks2 + R) ** 2.0)
                 sqrtm = numpy.sqrt(z**2.0 + (ks2 - R) ** 2.0)
                 evalInt2 = (
@@ -161,16 +170,7 @@ class RazorThinExponentialDiskPotential(Potential):
             if numpy.fabs(z) < 10.0**-6.0:
                 return 0.0
             kalphamax1 = R
-            # k = R(1-v^2). As z->0 the 1/sqrt(R^2+z^2-k^2+sqrtp*sqrtm) factor
-            # below has a square-root singularity exactly at the panel edge k=R,
-            # against which fixed-order Gauss-Legendre converges only
-            # algebraically (n=3000 still leaves 1e-4). This substitution's
-            # Jacobian 2Rv vanishes precisely where that factor blows up, so the
-            # product is smooth and the same 100 nodes reach ~5e-5 instead of
-            # ~5e-3 -- better than n=3000, at no extra integrand evaluations.
-            v1 = 0.5 * (self._glx + 1.0)
-            ks1 = kalphamax1 * (1.0 - v1**2.0)
-            weights1 = 2.0 * kalphamax1 * v1 * self._glw
+            ks1, weights1 = self._inner_nodes(R)
             sqrtp = numpy.sqrt(z**2.0 + (ks1 + R) ** 2.0)
             sqrtm = numpy.sqrt(z**2.0 + (ks1 - R) ** 2.0)
             evalInt1 = (
@@ -182,11 +182,7 @@ class RazorThinExponentialDiskPotential(Potential):
             )
             if R < 10.0:
                 kalphamax2 = 10.0
-                # k = R + u^2: the same singularity seen from the right panel.
-                umax = numpy.sqrt(kalphamax2 - kalphamax1)
-                u2 = umax * 0.5 * (self._glx + 1.0)
-                ks2 = kalphamax1 + u2**2.0
-                weights2 = 2.0 * umax * u2 * self._glw
+                ks2, weights2 = self._outer_nodes(R, kalphamax2)
                 sqrtp = numpy.sqrt(z**2.0 + (ks2 + R) ** 2.0)
                 sqrtm = numpy.sqrt(z**2.0 + (ks2 - R) ** 2.0)
                 evalInt2 = (
