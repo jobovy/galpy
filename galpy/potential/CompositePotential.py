@@ -1,6 +1,9 @@
 ###############################################################################
 #   CompositePotential.py: class that represents a combination of potentials
 ###############################################################################
+import numpy
+
+from ..backend import get_namespace
 from ..util.conversion import physical_compatible
 from .baseCompositePotential import baseCompositePotential
 from .DissipativeForce import DissipativeForce, _isDissipative
@@ -278,6 +281,76 @@ class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
         """
         return sum(
             pot.dens(R, z, phi=phi, t=t, use_physical=False)
+            for pot in self._potlist
+            if not pot.isDissipative
+        )
+
+    def _surfdens(self, R, z, phi=0.0, t=0.0):
+        """
+        Evaluate the surface density.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius.
+        z : float
+            Vertical height.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Surface density at (R,z,phi,t).
+
+        """
+        # Sigma of a sum is the sum of the Sigmas, so integrate each component
+        # separately on a backend: each then splits its vertical quadrature at
+        # its OWN mid-plane (see Potential._vertical_quad_split). Integrating
+        # the summed density instead splits at this composite's plane, which is
+        # 0 -- wrong for any displaced or tilted component. numpy keeps the
+        # inherited single scipy quadrature, so its result is byte-identical.
+        xp = get_namespace(R, z, phi, t)
+        if xp is numpy:
+            return Potential._surfdens(self, R, z, phi=phi, t=t)
+        return sum(
+            pot.surfdens(R, z, phi=phi, t=t, use_physical=False)
+            for pot in self._potlist
+            if not pot.isDissipative
+        )
+
+    def _surfdens_poisson(self, R, z, phi=0.0, t=0.0):
+        """
+        Evaluate the surface density via the Poisson equation.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius.
+        z : float
+            Vertical height.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Surface density at (R,z,phi,t).
+
+        """
+        # Forces and their derivatives are additive, so the Poisson route is too
+        # -- delegate for the same reason as _surfdens above, so each component
+        # splits its quadrature at its own mid-plane. numpy keeps the inherited
+        # single scipy quadrature and stays byte-identical.
+        xp = get_namespace(R, z, phi, t)
+        if xp is numpy:
+            return Potential._surfdens_poisson(self, R, z, phi=phi, t=t)
+        return sum(
+            pot._surfdens_poisson(R, z, phi=phi, t=t)
             for pot in self._potlist
             if not pot.isDissipative
         )
