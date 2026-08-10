@@ -614,6 +614,39 @@ def test_vertical_quad_split_is_the_mid_plane_crossing(case):
             assert abs(zp) < 1e-12, f"z' = {zp:e} at the split {c:e}"
 
 
+def test_vertical_quad_interior_falls_back_to_zero_outside_the_range():
+    """The clamp is a fall-back to 0, NOT a clamp to the boundary.
+
+    Both arms of the ``xp.where`` are asserted. Pinning the reject arm is the
+    point: clamping a runaway crossing to +/-|z| degenerates one panel to zero
+    width and measured 2-6x WORSE than splitting at 0, so "outside the range"
+    has to return 0.0 and not ``+/-absz``.
+    """
+    pot = RotateAndTiltWrapperPotential(
+        pot=_MWLIKE, zvec=None, galaxy_pa=None, offset=[1.0, 1.0, 1.0]
+    )
+    R, phi = 0.5, 0.0
+    c = float(pot._vertical_quad_split(R, phi=phi))
+    assert c != 0.0, "this case is supposed to displace the mid-plane"
+
+    # Crossing inside [-|z|, |z|]: used as-is, to full precision.
+    inside = pot._vertical_quad_interior(numpy, R, 10.0 * abs(c), phi, 0.0)
+    assert float(inside) == c
+
+    # Crossing outside: 0.0, and specifically not the nearer boundary.
+    outside = pot._vertical_quad_interior(numpy, R, 0.5 * abs(c), phi, 0.0)
+    assert float(outside) == 0.0
+
+    # The boundary itself is excluded (a split AT +/-|z| is the zero-width
+    # panel the fall-back exists to avoid).
+    edge = pot._vertical_quad_interior(numpy, R, abs(c), phi, 0.0)
+    assert float(edge) == 0.0
+
+    # An ordinary potential never gets here: it short-circuits to a plain
+    # float, which is what keeps its quadrature byte-identical.
+    assert type(_MWLIKE._vertical_quad_interior(numpy, R, 1.0, phi, 0.0)) is float
+
+
 def test_vertical_split_makes_the_density_quadrature_accurate():
     """The split is worth ~8 orders on a displaced disk, and z=0 is not enough.
 
