@@ -2276,3 +2276,48 @@ def test_interpRZPotential_units_set_matches_unitless():
                 f"interpRZPotential with ro/vo set disagrees with the unitless "
                 f"build for {kwargs} at (R,z)=({R},{z}): {got} vs {want}"
             )
+
+
+# The vectorised grid build must fall back to cell-by-cell sampling for a
+# potential that does not broadcast. AnySphericalPotential is the hard case: it
+# neither raises nor broadcasts correctly for the forces -- it silently returns
+# different numbers for array input -- so a try/except alone is not enough and
+# the whole interpolation grid would be built from wrong values.
+def test_interpRZPotential_grid_falls_back_for_nonbroadcasting_potential():
+    import importlib
+
+    import numpy
+
+    from galpy.potential import AnySphericalPotential, interpRZPotential
+
+    M = importlib.import_module("galpy.potential.interpRZPotential")
+    pot = AnySphericalPotential(
+        dens=lambda r: 1.0 / 4.0 / numpy.pi / r**2.0 / (1.0 + r) ** 2.0, normalize=1.0
+    )
+    kw = dict(
+        interpRforce=True,
+        interpzforce=True,
+        rgrid=(numpy.log(0.05), numpy.log(5.0), 11),
+        zgrid=(0.0, 0.5, 7),
+        logR=True,
+        use_c=False,
+        enable_c=False,
+        zsym=True,
+    )
+    got = interpRZPotential(RZPot=pot, **kw)
+    # Reference: the pure cell-by-cell path, which is what the grids must equal.
+    real = M._grid_eval
+    M._grid_eval = lambda ev, p, rg, zg: numpy.array(
+        [[ev(p, r, z, use_physical=False) for z in zg] for r in rg]
+    )
+    try:
+        ref = interpRZPotential(RZPot=pot, **kw)
+    finally:
+        M._grid_eval = real
+    for g in ("_rforceGrid", "_zforceGrid"):
+        assert numpy.array_equal(getattr(got, g), getattr(ref, g), equal_nan=True), (
+            f"interpRZPotential {g} does not match the cell-by-cell reference for "
+            "a non-broadcasting potential; the vectorised path was accepted when "
+            "it should have fallen back"
+        )
+    return None
