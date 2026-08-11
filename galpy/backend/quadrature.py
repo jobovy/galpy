@@ -474,7 +474,7 @@ def transformed_quad(xp, integrand, a, b, *, n=50, interior_point=None, device=N
     return match_input_dtype(result, a, b, c)
 
 
-def symmetric_quad(xp, integrand, b, *, n=50, interior_point=0.0, device=None):
+def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=None):
     r"""``int_{-|b|}^{|b|} integrand(s) ds``, for finite **or infinite** ``b``.
 
     A finite ``b`` is handed to `transformed_quad`, which splits at
@@ -502,7 +502,10 @@ def symmetric_quad(xp, integrand, b, *, n=50, interior_point=0.0, device=None):
         limit, not one already mapped through the namespace: the finite/infinite
         choice is made from it and a namespace op would have made it a tracer.
     n : int, optional
-        Gauss-Legendre order (default 50).
+        Gauss-Legendre order (default ``_QUAD_N``, as for `quad`). 50 is not
+        enough for the vertical surface-density integrals: measured against
+        mpmath, it degrades to 1.4e-08 at |z|=20 and 2.6e-05 at (R=0.01,
+        |z|=50), where ``_QUAD_N`` stays at machine precision.
     interior_point : float, optional
         Split point for the finite branch (default 0.0).
     device : optional
