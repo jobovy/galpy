@@ -2321,3 +2321,50 @@ def test_interpRZPotential_grid_falls_back_for_nonbroadcasting_potential():
             "it should have fallen back"
         )
     return None
+
+
+def test_grid_spot_check_cells_covers_every_grid_size():
+    """`_spot_check_cells` must be in-bounds and useful at ANY grid size.
+
+    The sample replaced a two-full-row check (2*nz cells, 502 at the default
+    251x251) with ~19 cells, so its behaviour at the extremes is the thing that
+    needs pinning, not its behaviour at 251.
+    """
+    import importlib
+
+    M = importlib.import_module("galpy.potential.interpRZPotential")
+
+    # 1. in-bounds and duplicate-free everywhere, including 1-wide grids
+    for nR in list(range(1, 14)) + [21, 51, 251, 1001]:
+        for nz in list(range(1, 14)) + [21, 51, 251, 1001]:
+            cells = M._spot_check_cells(nR, nz)
+            assert len(cells) == len(set(cells)), f"duplicates at {nR}x{nz}"
+            for ii, jj in cells:
+                assert 0 <= ii < nR and 0 <= jj < nz, (
+                    f"_spot_check_cells({nR},{nz}) returned out-of-bounds ({ii},{jj})"
+                )
+
+    # 2. degenerate grid samples NOTHING: nR-1 would be -1, and an empty grid is
+    #    already rejected downstream by the spline fitter, which names the real
+    #    problem ("(mx>kx) failed ... mx=0"). Sampling here would preempt that
+    #    with a bare IndexError from an internal helper.
+    for nR, nz in ((0, 5), (5, 0), (0, 0)):
+        assert M._spot_check_cells(nR, nz) == [], f"{nR}x{nz} should sample nothing"
+
+    # 3. small grids are covered EXHAUSTIVELY (the index set dedupes), so the
+    #    cheap sample never trades away coverage where checking is cheap anyway
+    for nR, nz in ((1, 1), (2, 2), (3, 3), (2, 5), (3, 5)):
+        assert len(M._spot_check_cells(nR, nz)) == nR * nz, (
+            f"{nR}x{nz} should be exhaustive"
+        )
+
+    # 4. and it saturates rather than growing with the grid -- the whole point
+    assert len(M._spot_check_cells(251, 251)) == len(M._spot_check_cells(1001, 1001))
+    assert len(M._spot_check_cells(251, 251)) < 25, "sample should stay ~19 cells"
+
+    # 5. both R edges and both z edges are always sampled: a broadcasting bug
+    #    that only bites at a boundary must not sit between samples
+    cells = M._spot_check_cells(251, 251)
+    assert any(ii == 0 for ii, _ in cells) and any(ii == 250 for ii, _ in cells)
+    assert any(jj == 0 for _, jj in cells) and any(jj == 250 for _, jj in cells)
+    return None
