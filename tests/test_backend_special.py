@@ -1047,3 +1047,36 @@ def test_router_promotes_numpy_scalar_params_torch():
     p_py = PSPC(alpha=1.3, rc=2.0)
     p_np = PSPC(alpha=numpy.float64(1.3), rc=2.0)
     assert torch.allclose(p_py._rforce(r), p_np._rforce(r))
+
+
+# 0 < z < 1 was UNTESTED until 2026-08-11: every grid above uses z = -_HYP2F1_W,
+# i.e. z <= 0. The fallback is built for z <= 0 and, applied to positive z, was
+# returning the first-order Taylor series 1 + (ab/c)z -- 5.1e-03 wrong at z=0.1
+# rising to 6.4e-01 at z=0.95, silently. galpy itself only passes z <= 0
+# (TwoPowerSphericalPotential spans -15.8 .. -0.06) so nothing in-tree was
+# affected, which is exactly why no test caught it. It now enters via Pfaff,
+# 2F1(a,b;c;z) = (1-z)^{-a} 2F1(a, c-b; c; z/(z-1)), landing on the z <= 0 domain.
+_HYP2F1_ZPOS = numpy.array([1e-8, 0.05, 0.1, 0.4, 0.8, 0.95, 0.999])
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+@pytest.mark.parametrize("a,b,c", _HYP2F1_CASES, ids=[str(x) for x in _HYP2F1_CASES])
+def test_hyp2f1_positive_z_matches_scipy(backend, a, b, c):
+    z = _HYP2F1_ZPOS
+    ref = scipy_special.hyp2f1(a, b, c, z)
+    got = as_numpy(gsp.hyp2f1(a, b, c, _asarray(backend, z)))
+    # Same bar as the z <= 0 parity test: Pfaff reuses that machinery, so the
+    # accuracy is the same modulo the (1-z)^{-a} prefactor. Measured worst case
+    # over this grid is 9.9e-07, on the one parameter set whose z <= 0 accuracy
+    # is itself ~4e-06 (a pre-existing floor, not introduced by the transform),
+    # so 1e-5 pins the transform without re-litigating that floor.
+    rtol = 0.0 if backend == "numpy" else 1e-5
+    numpy.testing.assert_allclose(got, ref, rtol=rtol, atol=1e-10)
+    # And pin the specific failure mode: the old code returned the 2-term series,
+    # so assert we are NOT that. Without this the test would still pass if a
+    # future change silently reverted to a low-order truncation at small z.
+    if backend != "numpy":
+        two_term = 1.0 + (a * b / c) * z
+        assert numpy.max(numpy.abs(got - two_term)) > 1e-3, (
+            "hyp2f1 looks like the first-order Taylor series again"
+        )
