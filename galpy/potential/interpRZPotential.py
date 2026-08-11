@@ -86,6 +86,26 @@ def scalarDecorator(func):
     return scalar_wrapper
 
 
+def _spot_check_cells(nR, nz):
+    """Deterministic (i, j) sample for verifying a vectorised grid.
+
+    A 3x5 lattice over both axes -- so both R edges, both z edges, all four
+    corners and the interior -- plus the two diagonals, which break the lattice
+    alignment so a stride-periodic bug cannot sit entirely between samples.
+    ~19 cells regardless of grid size, against 2*nz for a two-row check (502 at
+    the default 251x251): measured 31x cheaper on the potentials where this
+    actually costs anything.
+    """
+    ii = sorted({0, nR // 2, nR - 1})
+    jj = sorted({0, nz // 4, nz // 2, 3 * nz // 4, nz - 1})
+    cells = {(a, b) for a in ii for b in jj}
+    for k in range(4):  # both diagonals, off-lattice
+        f = k / 3.0
+        cells.add((int(f * (nR - 1)), int(f * (nz - 1))))
+        cells.add((int(f * (nR - 1)), int((1.0 - f) * (nz - 1))))
+    return sorted(cells)
+
+
 def _grid_eval(evaluator, pot, rgrid, zgrid):
     """Sample ``evaluator(pot, R, z)`` on the ``(rgrid, zgrid)`` tensor grid.
 
@@ -95,21 +115,36 @@ def _grid_eval(evaluator, pot, rgrid, zgrid):
 
     Two things can go wrong with the vectorised call, and both are handled:
 
-    * the potential rejects an array outright (``AnySphericalPotential``, and
-      anything composing or wrapping one) -- it raises, and we loop;
+    * the potential rejects an array outright -- it raises, and we loop;
     * the potential neither raises nor broadcasts correctly. This is the
       dangerous one, because a ``try/except`` sails straight past it and the
       whole interpolation grid is then built from wrong numbers. Measured
       2026-08-10, ``AnySphericalPotential`` does exactly that: its array results
       differ from the cell-by-cell ones in 95 % of cells, silently.
 
+    **Composites are not a special case and do not need one.** A list or a
+    ``CompositePotential`` broadcasts iff its components do, because the
+    evaluator just sums them. Verified over all 56 pairwise composites (both
+    spellings) of 8 individually-vectorisable potentials: **none** fell back.
+    Only a composite *containing* an array-unsafe component -- in practice
+    ``AnySphericalPotential`` -- falls back, which is the correct outcome, since
+    the sum is then as wrong as its worst term.
+
     So the vectorised result is accepted only after it reproduces the scalar
-    path **bit for bit** on the first and last grid rows. Bit-for-bit rather
-    than within a tolerance is deliberate: the point of this is to be a pure
-    speed-up, so anything that would move a shipped value falls back instead.
-    Across a 19-potential zoo x the 7 sampled quantities, 94 of 108 combinations
-    are bit-identical over the entire grid, 9 raise, and 5 (all
+    path **bit for bit** on a spot-check sample (see `_spot_check_cells`).
+    Bit-for-bit rather than within a tolerance is deliberate: the point of this
+    is to be a pure speed-up, so anything that would move a shipped value falls
+    back instead. Across a 19-potential zoo x the 7 sampled quantities, 94 of
+    108 combinations are bit-identical over the entire grid, 9 raise, and 5 (all
     ``AnySphericalPotential``) differ and are caught here.
+
+    The sample is ~19 cells rather than two whole rows. That is a deliberate
+    trade: it costs 31x less on potentials where a scalar call is expensive
+    (``DoubleExponentialDiskPotential``: 0.008 s vs 0.251 s), at the price of
+    being probabilistic for a *sparse* disagreement. It is not probabilistic for
+    the failure this actually guards against -- a broadcasting bug is a
+    whole-array phenomenon, and the one real instance disagrees in 95 % of
+    cells, which ~19 independent samples miss with probability 5e-25.
     """
     nR, nz = len(rgrid), len(zgrid)
 
@@ -127,14 +162,12 @@ def _grid_eval(evaluator, pot, rgrid, zgrid):
         return _loop()
     if grid.shape != (nR, nz):
         return _loop()
-    for ii in (0, nR - 1):  # 2 of nR rows, so ~1 % of the work at the default 251
-        row = numpy.array(
-            [
-                evaluator(pot, rgrid[ii], zgrid[jj], use_physical=False)
-                for jj in range(nz)
-            ]
-        )
-        if not numpy.array_equal(grid[ii], row, equal_nan=True):
+    for ii, jj in _spot_check_cells(nR, nz):
+        if not numpy.array_equal(
+            grid[ii, jj],
+            evaluator(pot, rgrid[ii], zgrid[jj], use_physical=False),
+            equal_nan=True,
+        ):
             return _loop()
     return grid
 
