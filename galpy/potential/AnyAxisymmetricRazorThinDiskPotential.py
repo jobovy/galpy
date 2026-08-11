@@ -10,6 +10,24 @@ from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .Potential import Potential, check_potential_inputs_not_arrays
 
+# Below this |z| both second derivatives are indistinguishable from their z=0
+# limits, so we evaluate the z=0 branch: the finite-|z| branch degrades here (the
+# offset d is not representable relative to R), and this avoids a decade in which
+# neither branch is accurate.
+#
+# Worst case is at the floor itself. Relative movement of the TRUE value between
+# z=0 and z=1e-9, vs an mpmath Hankel reference:
+#
+#     R      R2deriv    z2deriv
+#     0.2    5.9e-08    1.9e-09
+#     1.0    2.4e-09    4.5e-09
+#
+# i.e. up to ~6e-8, set by R2deriv at small R. The movement is exactly linear in
+# z -- measured, not extrapolated: R=0.2 R2deriv gives 5.937e-08, 5.937e-09 and
+# 5.937e-11 at z = 1e-9, 1e-10 and 1e-12. Both derivatives use this constant, and
+# z2deriv moves LESS across the floor than R2deriv does.
+_R2DERIV_ZFLOOR = 1e-9
+
 if _APY_LOADED:
     from astropy import units
 
@@ -68,6 +86,43 @@ def _quad_apeak(f, R, z):
         + integrate.quad(g, hi, 2 * R, limit=200)[0]
         + integrate.quad(g, 2 * R, numpy.inf, limit=200)[0]
     )
+
+
+def _finite_part_quad(integrand_d, R, az, C):
+    """Integrate ``integrand_d(d)`` over the disc, as a Hadamard finite part.
+
+    ``integrand_d`` is parameterised by the OFFSET ``d = a - R`` so the offset is
+    never formed by subtraction: at R=0.2 the float64 spacing is 2.8e-17, so
+    recovering d=1e-10 from ``a - R`` carries 8e-8 relative error, which the
+    ``1/(d^2+z^2)^2`` factor then amplifies.
+
+    Near d=0 the integrand behaves as ``C/d^2 + B/d + integrable``. Symmetrising
+    about d=0 cancels the odd ``B/d`` term exactly, so only ``C`` is needed --
+    and ``C`` never involves a derivative of the surface density.
+
+    At z=0 the integral exists only as a finite part: the integrand diverges as
+    ``C/d^2`` with the SAME sign either side, so the halves add rather than
+    cancel. Subtract the singular model and add back its finite part, ``-2C/R``.
+    For z>0 there is a peak of width ~z instead; ``d = z*sinh(t)`` gives
+    log-spaced coverage from z out to R with no endpoint crowding.
+    (``d = z*tan(t)`` fails -- ``arctan(R/z)`` lands within ~5e-10 of pi/2, where
+    tan is quantised: the same representability trap one level up.)
+    """
+
+    def sym(u):
+        return integrand_d(u) + integrand_d(-u)
+
+    if az == 0.0:
+        inner = (
+            integrate.quad(lambda u: sym(u) - 2.0 * C / (u * u), 0.0, R)[0]
+            - 2.0 * C / R
+        )
+    else:
+        tmax = numpy.arcsinh(R / az)
+        inner = integrate.quad(
+            lambda t: sym(az * numpy.sinh(t)) * az * numpy.cosh(t), 0.0, tmax
+        )[0]
+    return -4 * (inner + integrate.quad(integrand_d, R, numpy.inf)[0])
 
 
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
@@ -220,73 +275,81 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         R2 = R**2
-        z2 = z**2
+        az = numpy.fabs(z)
+        if az < _R2DERIV_ZFLOOR:
+            az = 0.0
+        z2 = az**2
 
-        def r2derivint(a):
-            a2 = a**2
-            aRz = (a + R) ** 2.0 + z2
-            # m = 4aR/((a+R)^2+z^2), and 1-m = ((a-R)^2+z^2)/((a+R)^2+z^2) exactly.
-            # Taking K from that complement never forms 1-m by subtraction, which
-            # rounds to 0 for tiny |z| and sends ellipk to inf. E is bounded, so
-            # clamping m only guards the >1 rounding artifact there.
-            m = numpy.minimum(4 * a * R / aRz, 1.0)
-            km1 = ((a - R) ** 2.0 + z2) / aRz
+        def r2derivint(d):
+            """The integrand as a function of the OFFSET d = a - R.
+
+            Parameterised by d, never by a, so the offset is never formed by
+            subtraction: at R=0.2 the float64 spacing is 2.8e-17, so recovering
+            d=1e-10 from ``a - R`` carries 8e-8 relative error, which
+            ``1/(d^2+z^2)^2`` then amplifies. Every ingredient is exact in d:
+            ``a^2-R^2 = d(2R+d)`` and ``(a-R)^2+z^2 = d^2+z^2``.
+            """
+            a = R + d
+            a2 = R2 + 2.0 * R * d + d * d
+            dz = d * d + z2  # (a-R)^2 + z^2, exactly
+            a2mR2 = d * (2.0 * R + d)  # a^2 - R^2, exactly
+            aRz = (2.0 * R + d) ** 2.0 + z2
+            m = numpy.minimum(4.0 * a * R / aRz, 1.0)
             return (
                 a
                 * self._sdens(a)
                 * (
                     -(
                         (
-                            (a2 - 3.0 * R2) * (a2 - R2) ** 2
+                            (a2 - 3.0 * R2) * a2mR2**2
                             + (3.0 * a2**2 + 2.0 * a2 * R2 + 3.0 * R2**2) * z2
-                            + (3.0 * a2 + 7.0 * R2) * z**4
-                            + z**6
+                            + (3.0 * a2 + 7.0 * R2) * z2**2
+                            + z2**3
                         )
                         * special.ellipe(m)
                     )
-                    + ((a - R) ** 2 + z2)
-                    * ((a2 - R2) ** 2 + 2.0 * (a2 + 2.0 * R2) * z2 + z**4)
-                    * special.ellipkm1(km1)
+                    + dz
+                    * (a2mR2**2 + 2.0 * (a2 + 2.0 * R2) * z2 + z2**2)
+                    * special.ellipkm1(dz / aRz)
                 )
-                / (2.0 * R2 * ((a - R) ** 2 + z2) ** 2 * ((a + R) ** 2 + z2) ** 1.5)
+                / (2.0 * R2 * dz**2 * aRz**1.5)
             )
 
-        return -4 * (
-            integrate.quad(r2derivint, 0, 2 * R, points=[R])[0]
-            + integrate.quad(r2derivint, 2 * R, numpy.inf)[0]
-        )
+        return _finite_part_quad(r2derivint, R, az, self._sdens(R) / 2.0)
 
     @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         R2 = R**2
-        z2 = z**2
+        az = numpy.fabs(z)
+        if az < _R2DERIV_ZFLOOR:
+            az = 0.0
+        z2 = az**2
 
-        def z2derivint(a):
-            a2 = a**2
-            aRz = (a + R) ** 2.0 + z2
-            # m = 4aR/((a+R)^2+z^2), and 1-m = ((a-R)^2+z^2)/((a+R)^2+z^2) exactly.
-            # Taking K from that complement never forms 1-m by subtraction, which
-            # rounds to 0 for tiny |z| and sends ellipk to inf. E is bounded, so
-            # clamping m only guards the >1 rounding artifact there.
-            m = numpy.minimum(4 * a * R / aRz, 1.0)
-            km1 = ((a - R) ** 2.0 + z2) / aRz
+        def z2derivint(d):
+            """As for R2deriv: parameterised by the offset d = a - R."""
+            a = R + d
+            a2 = R2 + 2.0 * R * d + d * d
+            dz = d * d + z2  # (a-R)^2 + z^2, exactly
+            a2mR2 = d * (2.0 * R + d)  # a^2 - R^2, exactly
+            aRz = (2.0 * R + d) ** 2.0 + z2
+            m = numpy.minimum(4.0 * a * R / aRz, 1.0)
             return (
                 a
                 * self._sdens(a)
                 * (
                     -(
-                        ((a2 - R2) ** 2 - 2.0 * (a2 + R2) * z2 - 3.0 * z**4)
+                        (a2mR2**2 - 2.0 * (a2 + R2) * z2 - 3.0 * z2**2)
                         * special.ellipe(m)
                     )
-                    - z2 * ((a - R) ** 2 + z2) * special.ellipkm1(km1)
+                    - z2 * dz * special.ellipkm1(dz / aRz)
                 )
-                / (((a - R) ** 2 + z2) ** 2 * ((a + R) ** 2 + z2) ** 1.5)
+                / (dz**2 * aRz**1.5)
             )
 
-        return -4 * (
-            integrate.quad(z2derivint, 0, 2 * R, points=[R])[0]
-            + integrate.quad(z2derivint, 2 * R, numpy.inf)[0]
-        )
+        # At z=0 the K term carries a z^2 factor and drops out entirely, leaving
+        # -a Sigma(a) E(m) / (d^2 (a+R)), so the singular coefficient is
+        # -Sigma(R)/2 -- exactly minus R2deriv's. Verified to 5e-10.
+        return _finite_part_quad(z2derivint, R, az, -self._sdens(R) / 2.0)
 
     @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
