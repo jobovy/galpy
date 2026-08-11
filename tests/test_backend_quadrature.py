@@ -15,6 +15,7 @@ from galpy.backend.quadrature import (
     gauss_legendre_nodes,
     nested_quad,
     quad,
+    symmetric_quad,
     transformed_quad,
 )
 
@@ -584,3 +585,55 @@ def test_device_hint_cuda():
         txp, lambda s: sc * torch.exp(-s), 0.0, 5.0, n=60, device=cuda
     ).backward()
     numpy.testing.assert_allclose(float(sc.grad.cpu()), e5 / 2.0, rtol=1e-6)
+
+
+def test_symmetric_quad_default_order_resolves_extreme_aspect_ratio():
+    """The default order must handle R << |z| on a real galpy integrand.
+
+    This is the case the vertical surface-density quadrature actually ships:
+    ``Potential._surfdens``/``_surfdens_poisson`` integrate the density over
+    ``[-|z|, |z|]`` with this rule, and under a trace there is no scipy to fall
+    back to. At R=0.01, |z|=50 the integrand has structure on scale ~R across a
+    5000:1 range, which is where a fixed-order rule runs out first.
+
+    All three arms are asserted, because the pass alone would not show the bar
+    discriminates:
+
+    * n=200 vs the reference -- validates the ARBITER. scipy is the reference
+      here, so it has to be shown converging to the same value the rule does;
+      otherwise a disagreement could be scipy's fault, not the rule's.
+    * the default order -- the actual contract.
+    * n=50 -- must FAIL the bar. Without this the test would still pass if the
+      default were lowered back to 50, which is exactly the regression it
+      exists to catch.
+    """
+    from scipy import integrate
+
+    from galpy.potential import MWPotential2014
+
+    p = MWPotential2014[0]  # PowerSphericalPotentialwCutoff: cusped and truncated
+    R, Z = 0.01, 50.0
+    f = lambda x: p._dens(R, float(x), phi=0.0, t=0.0)  # noqa: E731
+    fv = lambda s: numpy.array(  # noqa: E731
+        [f(v) for v in numpy.atleast_1d(s).ravel()]
+    ).reshape(numpy.shape(s))
+
+    # epsabs=0 -- a pure RELATIVE criterion. scipy's default epsabs=1.49e-8 is
+    # absolute and silently truncates integrals whose value is near it (galpy
+    # gh#1289); it does not bite at this R, but the reference must not depend on
+    # that luck.
+    ref = integrate.quad(f, -Z, Z, epsabs=0, epsrel=1e-13, limit=2000)[0]
+
+    def rel(**kw):
+        got = float(symmetric_quad(numpy, fv, Z, interior_point=0.0, **kw))
+        return abs(got - ref) / abs(ref)
+
+    assert rel(n=200) < 1e-12, "reference and the rule disagree -- arbiter suspect"
+    # No n= : this asserts on the DEFAULT, which is the thing that can regress.
+    # Passing n=_QUAD_N here instead would still pass if someone lowered the
+    # default, since it would be pinning the constant rather than the default.
+    assert rel() < 1e-9, f"symmetric_quad's DEFAULT order is too low here: {rel():.2e}"
+    assert rel(n=50) > 1e-7, (
+        f"n=50 was supposed to be visibly wrong here ({rel(n=50):.2e}); if it is "
+        "not, this test no longer discriminates and the bar needs re-deriving"
+    )
