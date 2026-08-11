@@ -2368,3 +2368,52 @@ def test_grid_spot_check_cells_covers_every_grid_size():
     assert any(ii == 0 for ii, _ in cells) and any(ii == 250 for ii, _ in cells)
     assert any(jj == 0 for _, jj in cells) and any(jj == 250 for _, jj in cells)
     return None
+
+
+def test_grid_eval_falls_back_when_the_vectorised_call_returns_a_bad_shape():
+    """A vectorised call that neither raises nor returns (nR, nz) must fall back.
+
+    `_grid_eval` has three fallbacks and the other two are exercised by real
+    potentials: `AnySphericalPotential` RAISES on an array (the try/except), and
+    the non-broadcasting case above is caught by the bit-for-bit spot check. The
+    third -- a call that returns successfully with the WRONG SHAPE -- has no
+    potential in the zoo that does it, so it needs a synthetic evaluator or it
+    stays untested.
+
+    That branch matters: without it a wrong-shaped result would flow into
+    RectBivariateSpline and fail far from the cause, or silently broadcast.
+    """
+    import importlib
+
+    import numpy
+
+    M = importlib.import_module("galpy.potential.interpRZPotential")
+    rg = numpy.linspace(0.3, 1.4, 5)
+    zg = numpy.linspace(0.0, 0.2, 4)
+    pot = potential.MiyamotoNagaiPotential(normalize=1.0)
+
+    calls = {"n": 0}
+
+    def bad_shape(p, R, z, use_physical=False):
+        # Array call -> return a transposed/flat result of the wrong shape;
+        # scalar calls (the loop) behave normally so the fallback can succeed.
+        if numpy.ndim(R) > 0:
+            calls["n"] += 1
+            return numpy.zeros(numpy.size(R) + 1)
+        return potential.evaluatePotentials(p, R, z, use_physical=False)
+
+    got = M._grid_eval(bad_shape, pot, rg, zg)
+    assert calls["n"] == 1, "the vectorised call should be attempted exactly once"
+    assert got.shape == (len(rg), len(zg)), "fallback must produce the (nR, nz) grid"
+    # and it must be the true cell-by-cell answer, not the zeros the bad call gave
+    ref = numpy.array(
+        [
+            [potential.evaluatePotentials(pot, r, z, use_physical=False) for z in zg]
+            for r in rg
+        ]
+    )
+    assert numpy.array_equal(got, ref), (
+        "wrong-shaped vectorised result was accepted instead of falling back"
+    )
+    assert not numpy.any(got == 0.0), "fallback returned the bad call's zeros"
+    return None
