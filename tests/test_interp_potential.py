@@ -2417,3 +2417,49 @@ def test_grid_eval_falls_back_when_the_vectorised_call_returns_a_bad_shape():
     )
     assert not numpy.any(got == 0.0), "fallback returned the bad call's zeros"
     return None
+
+
+def test_grid_eval_falls_back_when_the_vectorised_call_raises():
+    """A vectorised call that RAISES must fall back to the cell-by-cell loop.
+
+    This is the third of `_grid_eval`'s fallbacks and, like the wrong-shape one
+    above, no potential in the zoo reaches it: `AnySphericalPotential`, the
+    motivating case, neither raises nor broadcasts -- it returns silently WRONG
+    values and is caught by the spot check instead. So the `except` arm needs a
+    synthetic evaluator or it stays untested, which is exactly what codecov
+    flagged on this branch.
+
+    Worth keeping and therefore worth testing: a scalar-only potential must
+    still build a correct grid rather than propagating its own TypeError out of
+    interpRZPotential's constructor.
+    """
+    import importlib
+
+    import numpy
+
+    M = importlib.import_module("galpy.potential.interpRZPotential")
+    rg = numpy.linspace(0.4, 1.2, 5)
+    zg = numpy.linspace(0.0, 0.25, 4)
+    pot = potential.MiyamotoNagaiPotential(normalize=1.0)
+
+    calls = {"n": 0}
+
+    def scalar_only(p, R, z, use_physical=False):
+        if numpy.ndim(R) > 0:
+            calls["n"] += 1
+            raise TypeError("this potential only accepts scalars")
+        return potential.evaluatePotentials(p, R, z, use_physical=False)
+
+    got = M._grid_eval(scalar_only, pot, rg, zg)
+    assert calls["n"] == 1, "the vectorised call should be attempted exactly once"
+    ref = numpy.array(
+        [
+            [potential.evaluatePotentials(pot, r, z, use_physical=False) for z in zg]
+            for r in rg
+        ]
+    )
+    assert got.shape == (len(rg), len(zg)), "fallback must produce the (nR, nz) grid"
+    assert numpy.array_equal(got, ref), (
+        "the raising vectorised call must fall back to the exact cell-by-cell grid"
+    )
+    return None
