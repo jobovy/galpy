@@ -13772,3 +13772,51 @@ def test_anyaxisymrazorthin_smallz_limit():
         val = getattr(tp, name)(R, 1e-5, use_physical=False)
         assert numpy.isfinite(val), f"{name} non-finite just below the peak scale"
     return None
+
+
+# The RazorThinExponentialDiskPotential force quadrature has a square-root
+# singularity at the panel edge k=R as |z| -> 0 (the 1/sqrt(R^2+z^2-k^2+...)
+# factor), against which fixed-order Gauss-Legendre converges only
+# algebraically. Just above the |z|=1e-6 handover -- where the exact Bessel
+# closed form is given up -- that cost ~3 significant digits. The nodes are
+# substituted so the Jacobian cancels the singularity; this pins the result.
+def test_razorthinexponentialdisk_forces_at_the_closedform_handover():
+    from scipy import special
+
+    hr = 1.0 / 3.0
+    alpha = 1.0 / hr
+    p = potential.RazorThinExponentialDiskPotential(amp=1.0, hr=hr)
+
+    def exact_Rforce(R):
+        # The z=0 limit in closed form; verified against an mpmath quadrature of
+        # the same integral at 40 dps to <= 2.8e-9 when this test was written.
+        y = 0.5 * alpha * R
+        return (
+            -2.0
+            * numpy.pi
+            * y
+            * (special.i0(y) * special.k0(y) - special.i1(y) * special.k1(y))
+        )
+
+    # |z| <= 1e-5 so the true vertical dependence (which is what the closed form
+    # does NOT capture) stays far below the quadrature error being pinned.
+    for R in (0.5, 1.0, 2.0, 4.0):
+        ref = exact_Rforce(R)
+        for z in (1e-6, 1e-5):
+            got = p.Rforce(R, z, use_physical=False)
+            rel = numpy.fabs(got / ref - 1.0)
+            assert rel < 2e-4, (
+                f"RazorThinExponentialDiskPotential.Rforce({R}, {z}) is {rel:e} "
+                f"relative from the exact z->0 limit; the endpoint singularity at "
+                "k=R is not being resolved (this was 5.2e-03 before the node "
+                "substitution)"
+            )
+    # The two branches must also join smoothly across the handover.
+    for R in (0.5, 1.0, 2.0):
+        lo = p.Rforce(R, 9.99e-7, use_physical=False)  # closed-form branch
+        hi = p.Rforce(R, 1.001e-6, use_physical=False)  # quadrature branch
+        assert numpy.fabs(hi / lo - 1.0) < 2e-4, (
+            f"RazorThinExponentialDiskPotential.Rforce jumps by "
+            f"{numpy.fabs(hi / lo - 1.0):e} across the |z|=1e-6 handover at R={R}"
+        )
+    return None
