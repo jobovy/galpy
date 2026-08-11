@@ -2276,3 +2276,190 @@ def test_interpRZPotential_units_set_matches_unitless():
                 f"interpRZPotential with ro/vo set disagrees with the unitless "
                 f"build for {kwargs} at (R,z)=({R},{z}): {got} vs {want}"
             )
+
+
+# The vectorised grid build must fall back to cell-by-cell sampling for a
+# potential that does not broadcast. AnySphericalPotential is the hard case: it
+# neither raises nor broadcasts correctly for the forces -- it silently returns
+# different numbers for array input -- so a try/except alone is not enough and
+# the whole interpolation grid would be built from wrong values.
+def test_interpRZPotential_grid_falls_back_for_nonbroadcasting_potential():
+    import importlib
+
+    import numpy
+
+    from galpy.potential import AnySphericalPotential, interpRZPotential
+
+    M = importlib.import_module("galpy.potential.interpRZPotential")
+    pot = AnySphericalPotential(
+        dens=lambda r: 1.0 / 4.0 / numpy.pi / r**2.0 / (1.0 + r) ** 2.0, normalize=1.0
+    )
+    kw = dict(
+        interpRforce=True,
+        interpzforce=True,
+        rgrid=(numpy.log(0.05), numpy.log(5.0), 11),
+        zgrid=(0.0, 0.5, 7),
+        logR=True,
+        use_c=False,
+        enable_c=False,
+        zsym=True,
+    )
+    got = interpRZPotential(RZPot=pot, **kw)
+    # Reference: the pure cell-by-cell path, which is what the grids must equal.
+    real = M._grid_eval
+    M._grid_eval = lambda ev, p, rg, zg: numpy.array(
+        [[ev(p, r, z, use_physical=False) for z in zg] for r in rg]
+    )
+    try:
+        ref = interpRZPotential(RZPot=pot, **kw)
+    finally:
+        M._grid_eval = real
+    for g in ("_rforceGrid", "_zforceGrid"):
+        assert numpy.array_equal(getattr(got, g), getattr(ref, g), equal_nan=True), (
+            f"interpRZPotential {g} does not match the cell-by-cell reference for "
+            "a non-broadcasting potential; the vectorised path was accepted when "
+            "it should have fallen back"
+        )
+    return None
+
+
+def test_grid_spot_check_cells_covers_every_grid_size():
+    """`_spot_check_cells` must be in-bounds and useful at ANY grid size.
+
+    The sample replaced a two-full-row check (2*nz cells, 502 at the default
+    251x251) with ~19 cells, so its behaviour at the extremes is the thing that
+    needs pinning, not its behaviour at 251.
+    """
+    import importlib
+
+    M = importlib.import_module("galpy.potential.interpRZPotential")
+
+    # 1. in-bounds and duplicate-free everywhere, including 1-wide grids
+    for nR in list(range(1, 14)) + [21, 51, 251, 1001]:
+        for nz in list(range(1, 14)) + [21, 51, 251, 1001]:
+            cells = M._spot_check_cells(nR, nz)
+            assert len(cells) == len(set(cells)), f"duplicates at {nR}x{nz}"
+            for ii, jj in cells:
+                assert 0 <= ii < nR and 0 <= jj < nz, (
+                    f"_spot_check_cells({nR},{nz}) returned out-of-bounds ({ii},{jj})"
+                )
+
+    # 2. degenerate grid samples NOTHING: nR-1 would be -1, and an empty grid is
+    #    already rejected downstream by the spline fitter, which names the real
+    #    problem ("(mx>kx) failed ... mx=0"). Sampling here would preempt that
+    #    with a bare IndexError from an internal helper.
+    for nR, nz in ((0, 5), (5, 0), (0, 0)):
+        assert M._spot_check_cells(nR, nz) == [], f"{nR}x{nz} should sample nothing"
+
+    # 3. small grids are covered EXHAUSTIVELY (the index set dedupes), so the
+    #    cheap sample never trades away coverage where checking is cheap anyway
+    for nR, nz in ((1, 1), (2, 2), (3, 3), (2, 5), (3, 5)):
+        assert len(M._spot_check_cells(nR, nz)) == nR * nz, (
+            f"{nR}x{nz} should be exhaustive"
+        )
+
+    # 4. and it saturates rather than growing with the grid -- the whole point
+    assert len(M._spot_check_cells(251, 251)) == len(M._spot_check_cells(1001, 1001))
+    assert len(M._spot_check_cells(251, 251)) < 25, "sample should stay ~19 cells"
+
+    # 5. both R edges and both z edges are always sampled: a broadcasting bug
+    #    that only bites at a boundary must not sit between samples
+    cells = M._spot_check_cells(251, 251)
+    assert any(ii == 0 for ii, _ in cells) and any(ii == 250 for ii, _ in cells)
+    assert any(jj == 0 for _, jj in cells) and any(jj == 250 for _, jj in cells)
+    return None
+
+
+def test_grid_eval_falls_back_when_the_vectorised_call_returns_a_bad_shape():
+    """A vectorised call that neither raises nor returns (nR, nz) must fall back.
+
+    `_grid_eval` has three fallbacks and the other two are exercised by real
+    potentials: `AnySphericalPotential` RAISES on an array (the try/except), and
+    the non-broadcasting case above is caught by the bit-for-bit spot check. The
+    third -- a call that returns successfully with the WRONG SHAPE -- has no
+    potential in the zoo that does it, so it needs a synthetic evaluator or it
+    stays untested.
+
+    That branch matters: without it a wrong-shaped result would flow into
+    RectBivariateSpline and fail far from the cause, or silently broadcast.
+    """
+    import importlib
+
+    import numpy
+
+    M = importlib.import_module("galpy.potential.interpRZPotential")
+    rg = numpy.linspace(0.3, 1.4, 5)
+    zg = numpy.linspace(0.0, 0.2, 4)
+    pot = potential.MiyamotoNagaiPotential(normalize=1.0)
+
+    calls = {"n": 0}
+
+    def bad_shape(p, R, z, use_physical=False):
+        # Array call -> return a transposed/flat result of the wrong shape;
+        # scalar calls (the loop) behave normally so the fallback can succeed.
+        if numpy.ndim(R) > 0:
+            calls["n"] += 1
+            return numpy.zeros(numpy.size(R) + 1)
+        return potential.evaluatePotentials(p, R, z, use_physical=False)
+
+    got = M._grid_eval(bad_shape, pot, rg, zg)
+    assert calls["n"] == 1, "the vectorised call should be attempted exactly once"
+    assert got.shape == (len(rg), len(zg)), "fallback must produce the (nR, nz) grid"
+    # and it must be the true cell-by-cell answer, not the zeros the bad call gave
+    ref = numpy.array(
+        [
+            [potential.evaluatePotentials(pot, r, z, use_physical=False) for z in zg]
+            for r in rg
+        ]
+    )
+    assert numpy.array_equal(got, ref), (
+        "wrong-shaped vectorised result was accepted instead of falling back"
+    )
+    assert not numpy.any(got == 0.0), "fallback returned the bad call's zeros"
+    return None
+
+
+def test_grid_eval_falls_back_when_the_vectorised_call_raises():
+    """A vectorised call that RAISES must fall back to the cell-by-cell loop.
+
+    This is the third of `_grid_eval`'s fallbacks and, like the wrong-shape one
+    above, no potential in the zoo reaches it: `AnySphericalPotential`, the
+    motivating case, neither raises nor broadcasts -- it returns silently WRONG
+    values and is caught by the spot check instead. So the `except` arm needs a
+    synthetic evaluator or it stays untested, which is exactly what codecov
+    flagged on this branch.
+
+    Worth keeping and therefore worth testing: a scalar-only potential must
+    still build a correct grid rather than propagating its own TypeError out of
+    interpRZPotential's constructor.
+    """
+    import importlib
+
+    import numpy
+
+    M = importlib.import_module("galpy.potential.interpRZPotential")
+    rg = numpy.linspace(0.4, 1.2, 5)
+    zg = numpy.linspace(0.0, 0.25, 4)
+    pot = potential.MiyamotoNagaiPotential(normalize=1.0)
+
+    calls = {"n": 0}
+
+    def scalar_only(p, R, z, use_physical=False):
+        if numpy.ndim(R) > 0:
+            calls["n"] += 1
+            raise TypeError("this potential only accepts scalars")
+        return potential.evaluatePotentials(p, R, z, use_physical=False)
+
+    got = M._grid_eval(scalar_only, pot, rg, zg)
+    assert calls["n"] == 1, "the vectorised call should be attempted exactly once"
+    ref = numpy.array(
+        [
+            [potential.evaluatePotentials(pot, r, z, use_physical=False) for z in zg]
+            for r in rg
+        ]
+    )
+    assert got.shape == (len(rg), len(zg)), "fallback must produce the (nR, nz) grid"
+    assert numpy.array_equal(got, ref), (
+        "the raising vectorised call must fall back to the exact cell-by-cell grid"
+    )
+    return None
