@@ -96,6 +96,11 @@ def _spot_check_cells(nR, nz):
     the default 251x251): measured 31x cheaper on the potentials where this
     actually costs anything.
     """
+    if nR < 1 or nz < 1:
+        # Degenerate grid: nR-1 would index -1. Sample nothing and let the
+        # spline fitter reject it as it already did before this spot check
+        # existed ("(mx>kx) failed ... mx=0"), which names the real problem.
+        return []
     ii = sorted({0, nR // 2, nR - 1})
     jj = sorted({0, nz // 4, nz // 2, 3 * nz // 4, nz - 1})
     cells = {(a, b) for a in ii for b in jj}
