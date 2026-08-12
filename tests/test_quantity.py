@@ -17801,18 +17801,28 @@ def test_sphericaldf_quantity_radius_is_not_coerced_on_a_backend(backend_name):
         import jax
 
         jax.config.update("jax_enable_x64", True)
-    pot = potential.HernquistPotential(amp=2.0, a=1.3)
-    dfh = isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0)
-    # Pin the reference to numpy. Under the all-backend harness's --jit mode the
-    # WHOLE test runs inside a forced backend + jit context, so an unpinned
-    # reference is computed on the same path as `got` -- if that path drops the
-    # Quantity's unit, both sides are wrong by the same factor and the assertion
-    # passes vacuously. It did: traced sigmar(100 pc) returned the value for
-    # r = 100 in INTERNAL units, 0.685 relative off, and this test still passed.
+
+    def _sigmar():
+        pot = potential.HernquistPotential(amp=2.0, a=1.3)
+        return isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0).sigmar(
+            100.0 * units.pc, use_physical=False
+        )
+
+    # Build AND evaluate each df under one backend. Two reasons:
+    #  * the reference must be pinned to numpy -- under the harness's --jit mode
+    #    the whole test runs inside a forced backend, so an unpinned reference
+    #    is computed on the same path as `got`, and if that path drops the
+    #    Quantity's unit both sides are wrong by the same factor and this
+    #    assertion passes VACUOUSLY. It did: traced sigmar(100 pc) returned the
+    #    value for r = 100 in INTERNAL units, 0.685 relative off, still "passing".
+    #  * a df CONSTRUCTED under one backend caches arrays of that backend, and
+    #    meeting them from another raises (Tensor / jaxlib ArrayImpl). Reusing
+    #    one object across backends is a separate hazard from the units contract
+    #    under test here, so each arm gets its own.
     with galpy.backend.use("numpy", force=True):
-        ref = float(dfh.sigmar(100.0 * units.pc, use_physical=False))
+        ref = float(_sigmar())
     with galpy.backend.use(backend_name, force=True):
-        got = float(as_numpy(dfh.sigmar(100.0 * units.pc, use_physical=False)))
+        got = float(as_numpy(_sigmar()))
     assert numpy.isfinite(got), "Quantity radius produced a non-finite result"
     numpy.testing.assert_allclose(got, ref, rtol=1e-7)
 
