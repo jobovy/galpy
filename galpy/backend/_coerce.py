@@ -61,6 +61,7 @@ import numpy
 from ._namespaces import (
     _is_floating_dtype,
     asarray_on_device,
+    default_device,
     device_of,
     is_backend_array,
 )
@@ -100,6 +101,12 @@ def coerce_coords(xp, *coords, device=None):
     if xp is numpy:
         return coords
     dev = device_of(*coords) if device is None else device
+    if dev is not None and dev == default_device(xp):
+        # placing there is what asarray does anyway, and naming it explicitly
+        # costs ~3x (it commits instead of letting the backend place) -- see
+        # default_device. Only a NON-default anchor (a CUDA sibling on a
+        # CPU-default run) is worth paying for.
+        dev = None
     out = []
     for c in coords:
         if c is None:
