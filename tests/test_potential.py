@@ -14276,17 +14276,23 @@ def test_anyaxisymrazorthin_smallz_limit():
     # NB an earlier version of this test asserted Fz/z was constant there. That
     # is the wrong physics and it passed *because* the values were garbage: a
     # correct implementation fails it.
+    # as_numpy at every readout: under a forced backend these return Tensors, and
+    # numpy.all/numpy.fabs on a Tensor raise (numpy forwards axis=/out=, which
+    # torch rejects). The assertions below are about VALUES, so cast once here
+    # rather than teaching each one about backends; as_numpy is a no-op on numpy.
     tp = potential.AnyAxisymmetricRazorThinDiskPotential(normalize=1.0)
     R = 0.5
-    limit = -2.0 * numpy.pi * tp.surfdens(R, 0.0, use_physical=False)
+    limit = float(as_numpy(-2.0 * numpy.pi * tp.surfdens(R, 0.0, use_physical=False)))
     zs = numpy.array([1e-5, 1e-6, 1e-8, 1e-12, 1e-20, 1e-30])
-    fz = numpy.array([tp.zforce(R, z, use_physical=False) for z in zs])
+    fz = numpy.array([float(as_numpy(tp.zforce(R, z, use_physical=False))) for z in zs])
     assert numpy.all(numpy.fabs(fz / limit - 1.0) < 3e-4), (
         f"zforce does not approach -2 pi Sigma(R) as z->0+: Fz/limit = {fz / limit}"
     )
     # Above the plane the disk pulls back toward it, and Fz is odd in z.
     assert numpy.all(fz < 0.0), f"zforce has the wrong sign above the plane: {fz}"
-    fz_neg = numpy.array([tp.zforce(R, -z, use_physical=False) for z in zs])
+    fz_neg = numpy.array(
+        [float(as_numpy(tp.zforce(R, -z, use_physical=False))) for z in zs]
+    )
     assert numpy.all(numpy.fabs(fz_neg + fz) < 3e-4 * numpy.fabs(limit)), (
         f"zforce is not odd in z: Fz(-z) = {fz_neg}, -Fz(z) = {-fz}"
     )
@@ -14298,7 +14304,7 @@ def test_anyaxisymrazorthin_smallz_limit():
     # contributes. Rforce and the second derivatives have no such prefactor and
     # a naive substitution overflows on their odd-part cancellation.
     for name in ("__call__", "Rforce"):
-        val = getattr(tp, name)(R, 1e-5, use_physical=False)
+        val = float(as_numpy(getattr(tp, name)(R, 1e-5, use_physical=False)))
         assert numpy.isfinite(val), f"{name} non-finite just below the peak scale"
     return None
 
