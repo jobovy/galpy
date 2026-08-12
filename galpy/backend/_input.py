@@ -193,7 +193,7 @@ def backend_input(*coords):
                 # Under an opt-in trace mode this boundary is also where the
                 # jit/compile happens: the declared coordinates are the traced
                 # arguments and everything else is static. Off by default.
-                out = traced_call(method, args, kwargs, slots, nargs)
+                out = traced_call(method, args, kwargs, slots, nargs, xp)
                 if out is not NOT_TRACED:
                     return out
             return method(*args, **kwargs)

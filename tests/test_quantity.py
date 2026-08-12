@@ -17803,7 +17803,14 @@ def test_sphericaldf_quantity_radius_is_not_coerced_on_a_backend(backend_name):
         jax.config.update("jax_enable_x64", True)
     pot = potential.HernquistPotential(amp=2.0, a=1.3)
     dfh = isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0)
-    ref = float(dfh.sigmar(100.0 * units.pc, use_physical=False))
+    # Pin the reference to numpy. Under the all-backend harness's --jit mode the
+    # WHOLE test runs inside a forced backend + jit context, so an unpinned
+    # reference is computed on the same path as `got` -- if that path drops the
+    # Quantity's unit, both sides are wrong by the same factor and the assertion
+    # passes vacuously. It did: traced sigmar(100 pc) returned the value for
+    # r = 100 in INTERNAL units, 0.685 relative off, and this test still passed.
+    with galpy.backend.use("numpy", force=True):
+        ref = float(dfh.sigmar(100.0 * units.pc, use_physical=False))
     with galpy.backend.use(backend_name, force=True):
         got = float(as_numpy(dfh.sigmar(100.0 * units.pc, use_physical=False)))
     assert numpy.isfinite(got), "Quantity radius produced a non-finite result"

@@ -178,7 +178,7 @@ def _torch_compiled(method):
     return torch.compile(call, fullgraph=False, dynamic=False)
 
 
-def traced_call(method, args, kwargs, slots, nargs):
+def traced_call(method, args, kwargs, slots, nargs, xp=None):
     """Run ``method`` under the active trace mode, or return ``NOT_TRACED``.
 
     ``slots`` is ``@backend_input``'s precomputed (name, positional index) list:
@@ -187,6 +187,13 @@ def traced_call(method, args, kwargs, slots, nargs):
     """
     mode = _JIT_CTX.get()
     if mode == "off" or _TRACING.get():
+        return NOT_TRACED
+    # The trace mode names ONE framework, but the caller can be on a DIFFERENT
+    # one inside it: a test that enters use("torch", force=True) while the
+    # harness runs --backend jax --jit gets torch-coerced coordinates handed to
+    # a jax.jit, which raises "Error interpreting argument ... as an abstract
+    # array". Trace only what this mode can actually trace; run the rest eager.
+    if xp is not None and not getattr(xp, "__name__", "").startswith(mode):
         return NOT_TRACED
     if mode == "torch":
         compiled = _JITTED.get((method, "torch"))
