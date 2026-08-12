@@ -821,9 +821,9 @@ class Potential(Force):
             # first crude estimate and returns success while being ~1e-5 wrong --
             # MWPotential2014[0] at R=1, |z|=5 integrates to 8.2e-9 and came back
             # 9.6e-6 relative off.
-            inner = integrate.quad(
-                poisson_integrand(R, phi), -absz, absz, epsabs=0.0
-            )[0]
+            inner = integrate.quad(poisson_integrand(R, phi), -absz, absz, epsabs=0.0)[
+                0
+            ]
         else:
             # Fixed-order GL over the whole [-z, z] needs an order that grows
             # with the range (n=100 is only 3.7e-4 at |z|=10). Splitting at the
