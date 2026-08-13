@@ -553,3 +553,51 @@ def test_units_decorator_is_outside_the_jit_boundary(module_path):
         "the jit trace and raise TracerArrayConversionError; put "
         "@physical_conversion above @backend_input."
     )
+
+
+def test_no_module_hand_rolls_namespace_detection():
+    """Backend identity is asked via name_of_namespace, not by inspecting __name__.
+
+    galpy.backend.name_of_namespace maps a resolved namespace to "numpy"/"jax"/
+    "torch". Modules that re-derive that from ``xp.__name__`` are re-implementing
+    it, and the re-implementation is only accidentally correct: ``"torch" in
+    xp.__name__`` works, ``xp.__name__.startswith("torch")`` does NOT, because the
+    torch namespace is ``array_api_compat.torch``. That exact slip disabled torch
+    tracing everywhere in galpy/backend/_jit.py and no test noticed -- an untraced
+    call returns the same values a traced one does, so only a coverage delta
+    caught it.
+
+    Asking through the helper makes the invariant structural instead of a
+    convention every author has to remember.
+    """
+    import ast
+    import pathlib
+
+    import galpy
+
+    root = pathlib.Path(galpy.__file__).parent
+    # _namespaces.py DEFINES the mapping, so it is the one place that may look at
+    # __name__ directly.
+    allowed = {"_namespaces.py"}
+    offenders = []
+    for path in sorted(root.rglob("*.py")):
+        if path.name in allowed:
+            continue
+        try:
+            tree = ast.parse(path.read_text())
+        except SyntaxError:  # pragma: no cover - galpy always parses
+            continue
+        for node in ast.walk(tree):
+            # `<something>.__name__` compared against, or searched for, a backend
+            # name -- in either argument order.
+            if not isinstance(node, ast.Compare):
+                continue
+            src = ast.unparse(node)
+            if "__name__" not in src:
+                continue
+            if any(f'"{b}"' in src or f"'{b}'" in src for b in ("jax", "torch")):
+                offenders.append(f"{path.relative_to(root)}:{node.lineno}: {src}")
+    assert not offenders, (
+        "modules deriving the backend name from __name__ instead of calling "
+        "galpy.backend.name_of_namespace:\n  " + "\n  ".join(offenders)
+    )
