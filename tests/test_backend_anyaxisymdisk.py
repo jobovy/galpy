@@ -515,3 +515,61 @@ def test_zforce_at_tiny_z_reaches_sheet_limit(backend_name, R, z, tol):
         f"sheet limit {limit:.8e} (rel {rel:.2e}) -- the a=R peak is not "
         "resolved, so the graded panels are not reaching dmin"
     )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_traced_second_derivs_match_numpy_through_the_midplane(backend_name):
+    # MUST be traced. _bk_dispatch deliberately routes concrete eager input back
+    # to scipy, so an eager version of this test would compare scipy against
+    # scipy and pass no matter how wrong the GL path is -- which is exactly why
+    # the defect below survived: the suite asserted z == 0 only in the eager
+    # test.
+    #
+    # The backend path used to run ONE generic graded-panel rule for all six
+    # methods, while numpy handles the a=R singularity analytically. At z == 0
+    # that integral is a non-integrable c/d^2 divergence, so no amount of panel
+    # grading converges it and traced R2deriv came out ~3.8e+03 relative error --
+    # four orders of magnitude wrong, and reachable from user code, since traced
+    # epifreq() evaluates R2deriv at z=0. Both second derivatives now go through
+    # the same Hadamard finite part numpy uses.
+    #
+    # The tolerances are MEASURED accuracy with modest headroom, not round
+    # numbers: at z == 0 the finite-part integrand is a difference of two
+    # ~1/u**2 quantities, so ~1e-5 is its floor there, tightening rapidly as |z|
+    # lifts off the plane.
+    import warnings
+
+    import galpy.backend
+
+    grid = ((0.0, 1e-4), (1e-10, 1e-4), (1e-8, 1e-6), (1e-6, 1e-8), (1e-4, 1e-10))
+    for fn in (evaluateR2derivs, evaluatez2derivs):
+        for R in (0.5, 1.0, 2.0):
+            # numpy references OUTSIDE the forced context: taken inside, the
+            # boundary coerces them onto the traced path and the comparison
+            # becomes traced-vs-itself.
+            refs = [
+                float(fn(_POT, numpy.float64(R), numpy.float64(z))) for z, _ in grid
+            ]
+            # torch emits its own script_method DeprecationWarning the first
+            # time torch.compile runs in a process. Under the numpy-default run
+            # this test is that first use, and the suite turns warnings into
+            # errors -- so filter that one warning narrowly rather than losing
+            # the torch arm of the assertion.
+            with (
+                warnings.catch_warnings(),
+                galpy.backend.use(backend_name, force=True),
+                galpy.backend.jit(backend_name),
+            ):
+                warnings.filterwarnings(
+                    "ignore", message=".*script_method.*", category=DeprecationWarning
+                )
+                for (z, tol), ref in zip(grid, refs):
+                    got = fn(_POT, _scalar(backend_name, R), _scalar(backend_name, z))
+                    assert is_backend_array(got), (
+                        f"{fn.__name__} fell back off the backend at R={R}, z={z}"
+                    )
+                    rel = abs(1.0 - float(got) / ref)
+                    assert rel < tol, (
+                        f"{backend_name} traced {fn.__name__} at R={R}, z={z}: "
+                        f"rel err {rel:.2e} exceeds {tol:.0e} (numpy {ref:.6e})"
+                    )
