@@ -8,6 +8,7 @@ import numpy
 import pytest
 
 from galpy.backend.quadrature import (
+    finite_part_quad,
     fixed_quad,
     fixed_quad_semiinfinite,
     gauss_legendre,
@@ -636,4 +637,64 @@ def test_symmetric_quad_default_order_resolves_extreme_aspect_ratio():
     assert rel(n=50) > 1e-7, (
         f"n=50 was supposed to be visibly wrong here ({rel(n=50):.2e}); if it is "
         "not, this test no longer discriminates and the bar needs re-deriving"
+    )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_finite_part_quad_matches_the_analytic_finite_part(backend):
+    # Construct an integrand whose finite part is known in closed form, rather
+    # than comparing against another quadrature: f(u) = c/u**2 + exp(-u) gives
+    # sym(u) = 2c/u**2 + (exp(-u) + exp(u)), so the rule's subtraction removes
+    # the singular model exactly and
+    #     int_0^b [sym(u) - 2c/u**2] du - 2c/b = 2 sinh(b) - 2c/b.
+    xp = _xp(backend)
+    c, b = 0.75, 1.3
+
+    def f(u):
+        return c / (u * u) + xp.exp(-u)
+
+    got = finite_part_quad(xp, f, xp.asarray(b), c=c, peak_width=xp.asarray(0.0), n=200)
+    expected = 2.0 * numpy.sinh(b) - 2.0 * c / b
+    numpy.testing.assert_allclose(float(got), expected, rtol=1e-10, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_finite_part_quad_peaked_branch_is_the_plain_integral(backend):
+    # peak_width > 0 selects u = w sinh(t) over [0, asinh(b/w)], which is exactly
+    # int_0^b sym(u) du -- no finite part, because there is no singularity to
+    # subtract. With a smooth f that integral is 2 sinh(b) again, and the answer
+    # must not depend on w: the substitution only redistributes the nodes.
+    xp = _xp(backend)
+    b = 1.3
+
+    def f(u):
+        return xp.exp(-u)
+
+    expected = 2.0 * numpy.sinh(b)
+    for w in (1e-6, 1e-3, 0.5):
+        got = finite_part_quad(
+            xp, f, xp.asarray(b), c=0.0, peak_width=xp.asarray(w), n=200
+        )
+        numpy.testing.assert_allclose(
+            float(got), expected, rtol=1e-9, atol=1e-11, err_msg=f"peak_width={w}"
+        )
+
+
+@pytest.mark.parametrize("backend", AD_BACKENDS)
+def test_finite_part_quad_branches_on_a_traced_peak_width(backend):
+    # peak_width is data, so the branch cannot be a python if. Both arms are
+    # evaluated; the guarded width is what keeps asinh(b/0) from poisoning the
+    # taken arm. Check the selection is right at w == 0 AND that no nan leaks.
+    xp = _xp(backend)
+    c, b = 0.75, 1.3
+
+    def f(u):
+        return c / (u * u) + xp.exp(-u)
+
+    at_zero = float(
+        finite_part_quad(xp, f, xp.asarray(b), c=c, peak_width=xp.asarray(0.0), n=200)
+    )
+    assert numpy.isfinite(at_zero)
+    numpy.testing.assert_allclose(
+        at_zero, 2.0 * numpy.sinh(b) - 2.0 * c / b, rtol=1e-10, atol=1e-12
     )
