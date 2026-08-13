@@ -317,8 +317,8 @@ class Force:
             return 0.0
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def rforce(self, R, z, **kwargs):
         """
         Evaluate the spherical radial force F_r (R,z).

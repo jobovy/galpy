@@ -283,8 +283,8 @@ class Potential(Force):
         return None
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def __call__(self, R, z, phi=0.0, t=0.0, dR=0, dphi=0):
         """
         Evaluate the potential at the specified position and time.
@@ -341,8 +341,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def Rforce(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the cylindrical radial force F_R.
@@ -371,8 +371,8 @@ class Potential(Force):
         return self._Rforce_nodecorator(R, z, phi=phi, t=t)
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def zforce(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the vertical force F_z.
@@ -401,8 +401,8 @@ class Potential(Force):
         return self._zforce_nodecorator(R, z, phi=phi, t=t)
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def phitorque(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the azimuthal torque.
@@ -430,8 +430,8 @@ class Potential(Force):
         return self._phitorque_nodecorator(R, z, phi=phi, t=t)
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the second radial derivative.
@@ -465,8 +465,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the second vertical derivative.
@@ -500,8 +500,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def phi2deriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the second azimuthal derivative.
@@ -536,8 +536,8 @@ class Potential(Force):
             return 0.0
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the mixed R,z derivative.
@@ -571,8 +571,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def Rphideriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the mixed radial, azimuthal derivative.
@@ -607,8 +607,8 @@ class Potential(Force):
             return 0.0
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def phizderiv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the mixed azimuthal, vertical derivative.
@@ -644,8 +644,8 @@ class Potential(Force):
             return 0.0
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def r2deriv(self, R, z, phi=0.0, t=0.0):
         """
         Evaluate the second spherical radial derivative.
@@ -683,8 +683,8 @@ class Potential(Force):
         ) * z / r
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("density", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def dens(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
         """
         Evaluate the density rho(R,z,t).
@@ -731,8 +731,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("surfacedensity", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def surfdens(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
         """
         Evaluate the surface density Sigma(R,z,phi,t) = int_{-z}^{+z} dz' rho(R,z',phi,t).
@@ -929,8 +929,8 @@ class Potential(Force):
         )
 
     @potential_physical_input
-    @backend_input("R", "z", "t")
     @physical_conversion("mass", pop=True)
+    @backend_input("R", "z", "t")
     def mass(self, R, z=None, t=0.0, forceint=False):
         """
         Evaluate the mass enclosed.
@@ -1043,8 +1043,8 @@ class Potential(Force):
         return rhalf(self, t=t, INF=INF, use_physical=False)
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("time", pop=True)
+    @backend_input("R", "t")
     def tdyn(self, R, t=0.0):
         """
         Calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
@@ -1445,8 +1445,8 @@ class Potential(Force):
         )
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "phi", "t")
     def vcirc(self, R, phi=None, t=0.0):
         """
         Calculate the circular velocity at R in this potential.
@@ -1478,8 +1478,8 @@ class Potential(Force):
         )
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "phi", "t")
     def dvcircdR(self, R, phi=None, t=0.0):
         """
         Calculate the derivative of the circular velocity at R with respect to R in this potential.
@@ -1514,8 +1514,8 @@ class Potential(Force):
         )
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def omegac(self, R, t=0.0):
         """
         Calculate the circular angular speed at R in this potential.
@@ -1541,8 +1541,8 @@ class Potential(Force):
         return xp.sqrt(-self.Rforce(R, 0.0, t=t, use_physical=False) / R)
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def epifreq(self, R, t=0.0):
         """
         Calculate the epicycle frequency at R in this potential.
@@ -1571,8 +1571,8 @@ class Potential(Force):
         )
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def verticalfreq(self, R, t=0.0):
         """
         Calculate the vertical frequency at R in this potential.
@@ -1629,8 +1629,8 @@ class Potential(Force):
         return lindbladR(self, OmegaP, m=m, t=t, use_physical=False, **kwargs)
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "t")
     def vesc(self, R, t=0.0):
         """
         Calculate the escape velocity at R for this potential.
@@ -1745,8 +1745,8 @@ class Potential(Force):
         return LcE(self, E, t=t, use_physical=False)
 
     @potential_physical_input
-    @backend_input("R", "z", "t")
     @physical_conversion("dimensionless", pop=True)
+    @backend_input("R", "z", "t")
     def flattening(self, R, z, t=0.0):
         """
         Calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
@@ -1978,8 +1978,8 @@ class Potential(Force):
             )
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("position", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def rtide(self, R, z, phi=0.0, t=0.0, M=None):
         """
         Calculate the tidal radius for object of mass M assuming a circular orbit
@@ -2026,8 +2026,8 @@ class Potential(Force):
         return (M / (omegac2 - d2phidr2)) ** (1.0 / 3.0)
 
     @potential_physical_input
-    @backend_input("R", "z", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "z", "phi", "t")
     def ttensor(self, R, z, phi=0.0, t=0.0, eigenval=False):
         """
         Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
@@ -2190,8 +2190,8 @@ class PotentialError(Exception):  # pragma: no cover
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("energy", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
     """
@@ -2239,8 +2239,8 @@ def _evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("density", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
     """
@@ -2282,8 +2282,8 @@ def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("surfacedensity", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateSurfaceDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
     """
@@ -2326,8 +2326,8 @@ def evaluateSurfaceDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "t")
 @physical_conversion("mass", pop=True)
+@backend_input("R", "z", "t")
 @potential_list_of_potentials_input
 def mass(Pot, R, z=None, t=0.0, forceint=False):
     """
@@ -2367,8 +2367,8 @@ def mass(Pot, R, z=None, t=0.0, forceint=False):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
     """
@@ -2423,8 +2423,8 @@ def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("energy", pop=True)
+@backend_input("R", "z", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
     """
@@ -2479,8 +2479,8 @@ def _evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
     """
@@ -2535,8 +2535,8 @@ def _evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t", "v")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
     """
@@ -2585,8 +2585,8 @@ def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2625,8 +2625,8 @@ def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2665,8 +2665,8 @@ def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2705,8 +2705,8 @@ def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("energy", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2745,8 +2745,8 @@ def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2785,8 +2785,8 @@ def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("force", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -2825,8 +2825,8 @@ def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 @potential_list_of_potentials_input
 def evaluater2derivs(Pot, R, z, phi=None, t=0.0):
     """
@@ -3329,8 +3329,8 @@ def plotSurfaceDensities(
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("frequency", pop=True)
+@backend_input("R", "t")
 @potential_list_of_potentials_input
 def epifreq(Pot, R, t=0.0):
     """
@@ -3360,8 +3360,8 @@ def epifreq(Pot, R, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("frequency", pop=True)
+@backend_input("R", "t")
 @potential_list_of_potentials_input
 def verticalfreq(Pot, R, t=0.0):
     """
@@ -3391,8 +3391,8 @@ def verticalfreq(Pot, R, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "t")
 @physical_conversion("dimensionless", pop=True)
+@backend_input("R", "z", "t")
 @potential_list_of_potentials_input
 def flattening(Pot, R, z, t=0.0):
     """
@@ -3758,8 +3758,8 @@ def _lindbladR_eq(R, Pot, OmegaP, m, t=0.0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("frequency", pop=True)
+@backend_input("R", "t")
 @potential_list_of_potentials_input
 def omegac(Pot, R, t=0.0):
     """
@@ -3798,8 +3798,8 @@ def omegac(Pot, R, t=0.0):
 
 
 @potential_physical_input
-@backend_input("R", "phi", "t")
 @physical_conversion("velocity", pop=True)
+@backend_input("R", "phi", "t")
 @potential_list_of_potentials_input
 def vcirc(Pot, R, phi=None, t=0.0):
     """
@@ -3844,8 +3844,8 @@ def vcirc(Pot, R, phi=None, t=0.0):
 
 
 @potential_physical_input
-@backend_input("R", "phi", "t")
 @physical_conversion("frequency", pop=True)
+@backend_input("R", "phi", "t")
 @potential_list_of_potentials_input
 def dvcircdR(Pot, R, phi=None, t=0.0):
     """
@@ -3904,8 +3904,8 @@ def dvcircdR(Pot, R, phi=None, t=0.0):
 
 
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("velocity", pop=True)
+@backend_input("R", "t")
 @potential_list_of_potentials_input
 def vesc(Pot, R, t=0.0):
     """
@@ -4623,8 +4623,8 @@ def kms_to_kpcGyrDecorator(func):
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("position", pop=True)
+@backend_input("R", "z", "phi", "t")
 def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
     """
     Calculate the tidal radius for object of mass M assuming a circular orbit as
@@ -4676,8 +4676,8 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "z", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "z", "phi", "t")
 def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
     """
     Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
@@ -5005,8 +5005,8 @@ def _rhalfFindStart(rh, pot, tot_mass, t=0.0, lower=False):
 @potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "t")
 @physical_conversion("time", pop=True)
+@backend_input("R", "t")
 def tdyn(Pot, R, t=0.0):
     """
     Calculate the dynamical time from tdyn^2 = 3pi/[G<rho>].

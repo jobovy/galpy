@@ -577,8 +577,8 @@ class sphericaldf(df):
             )
         )
 
-    @backend_input("r")
     @physical_conversion("velocity", pop=True)
+    @backend_input("r")
     def sigmar(self, r):
         """
         Calculate the radial velocity dispersion at radius r.
@@ -604,8 +604,8 @@ class sphericaldf(df):
             xp.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0)), r
         )
 
-    @backend_input("r")
     @physical_conversion("velocity", pop=True)
+    @backend_input("r")
     def sigmat(self, r):
         """
         Calculate the tangential velocity dispersion at radius r.
