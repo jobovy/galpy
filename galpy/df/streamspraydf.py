@@ -10,6 +10,7 @@ from ..backend import (
     as_numpy,
     get_namespace,
     is_backend_array,
+    name_of_namespace,
     use,
 )
 from ..df.df import df
@@ -763,7 +764,7 @@ class basestreamspraydf(df):
             self._progenitor.integrate(self._progenitor_times, self._pot)
             self._bsamp = None
             return
-        inbackend = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        inbackend = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
         if ic_backend:
             ic = prog_ic
         else:
@@ -855,7 +856,7 @@ class basestreamspraydf(df):
             xp, _, prog_method = bsamp
         else:
             xp = get_namespace(cic_backend) if ic_backend else get_namespace(_cf)
-        inbackend = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        inbackend = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
         if bsamp is None:
             self._promote_progenitor_backend(xp, inbackend)
             _, _, prog_method = self._bsamp
