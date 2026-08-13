@@ -370,23 +370,66 @@ def test_coordinate_entry_points_are_decorated_or_listed():
 
     import galpy
 
+    def _decorators(node):
+        return {
+            (
+                d.func.id
+                if isinstance(d, ast.Call) and isinstance(d.func, ast.Name)
+                else getattr(d, "id", None)
+            )
+            for d in node.decorator_list
+        }
+
     stray = []
     for path in sorted(pathlib.Path(galpy.__file__).parent.rglob("*.py")):
         try:
             tree = ast.parse(path.read_text())
         except SyntaxError:  # pragma: no cover - galpy always parses
             continue
+        # Names in this module that DO coerce. A public entry point may parse its
+        # input units and then hand the bare coordinate to one of these -- that is
+        # the shape required to keep astropy outside the trace boundary, since
+        # @backend_input has to sit inside the unit parsing, not around it. Such a
+        # method still coerces; it just does it one call down.
+        coercing = {
+            n.name
+            for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and "backend_input" in _decorators(n)
+        }
+
+        def _delegates_to_coercing(node, coords):
+            """True if ``node`` hands one of ``coords`` to a coercing function.
+
+            Requiring the coordinate to actually reach the call is what keeps this
+            from becoming a loophole: merely mentioning a decorated helper
+            somewhere in the body would excuse an entry point whose own arguments
+            never get coerced at all.
+            """
+            for call in ast.walk(node):
+                if not isinstance(call, ast.Call):
+                    continue
+                fn = call.func
+                name = (
+                    fn.attr
+                    if isinstance(fn, ast.Attribute)
+                    else getattr(fn, "id", None)
+                )
+                if name not in coercing:
+                    continue
+                passed = {
+                    sub.id
+                    for arg in list(call.args) + [k.value for k in call.keywords]
+                    for sub in ast.walk(arg)
+                    if isinstance(sub, ast.Name)
+                }
+                if passed & coords:
+                    return True
+            return False
+
         for node in ast.walk(tree):
             if not isinstance(node, ast.FunctionDef) or node.name.startswith("_"):
                 continue
-            names = {
-                (
-                    d.func.id
-                    if isinstance(d, ast.Call) and isinstance(d.func, ast.Name)
-                    else getattr(d, "id", None)
-                )
-                for d in node.decorator_list
-            }
+            names = _decorators(node)
             if "physical_conversion" not in names or "backend_input" in names:
                 continue
             named = [a.arg for a in node.args.posonlyargs + node.args.args][1:]
@@ -394,6 +437,7 @@ def test_coordinate_entry_points_are_decorated_or_listed():
                 set(named) & _COORD_NAMES
                 and (path.name, node.name) not in _UNDECORATED_BY_DESIGN
                 and path.name not in _UNDECORATED_MODULES
+                and not _delegates_to_coercing(node, set(named) & _COORD_NAMES)
             ):
                 stray.append(f"{path.name}::{node.name}({', '.join(named)})")
     assert not stray, (
