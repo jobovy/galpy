@@ -15,6 +15,7 @@ from ..backend import (
     device_of,
     get_namespace,
     is_backend_array,
+    name_of_namespace,
 )
 from ..backend import special as _bspecial
 from ..backend import use
@@ -2068,7 +2069,7 @@ def _impulse_deltav_general_orbitintegration_backend(
     # galpot's forces to return backend arrays (a real Potential does; a test
     # double whose force returns a bare Python scalar does not -> numpy path).
     xp = get_namespace(v, x, w)
-    method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+    method = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
     v, x, w, x0, v0 = coerce_coords(xp, v, x, w, x0, v0)
     if v.ndim == 1:
         v = xp.reshape(v, (1, 3))

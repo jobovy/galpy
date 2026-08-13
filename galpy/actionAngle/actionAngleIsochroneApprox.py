@@ -24,6 +24,7 @@ from ..backend import (
     coerce_coords,
     get_namespace,
     is_backend_array,
+    name_of_namespace,
     promote_scalars,
 )
 from ..backend.optimize import brentq as _backend_brentq
@@ -1252,7 +1253,11 @@ def estimateBIsochrone(pot, R, z, phi=None):
             bs = bs[~xp.isnan(bs)]
             # array-api-compat torch's median returns the lower central order
             # statistic for even counts; quantile(.,0.5) matches numpy.median.
-            bmed = xp.quantile(bs, 0.5) if "torch" in xp.__name__ else xp.median(bs)
+            bmed = (
+                xp.quantile(bs, 0.5)
+                if name_of_namespace(xp) == "torch"
+                else xp.median(bs)
+            )
             return xp.stack([xp.amin(bs), bmed, xp.amax(bs)])
         if phi is None:
             phi = [None for r in R]
