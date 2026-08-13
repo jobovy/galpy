@@ -23,6 +23,8 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 
+from ._namespaces import name_of_namespace
+
 # "off" | "jax" | "torch". Process-wide, like the backend selection itself.
 _JIT_CTX = ContextVar("galpy_jit_mode", default="off")
 # Set while a traced call is on the stack. Entry points call each other
@@ -193,7 +195,13 @@ def traced_call(method, args, kwargs, slots, nargs, xp=None):
     # harness runs --backend jax --jit gets torch-coerced coordinates handed to
     # a jax.jit, which raises "Error interpreting argument ... as an abstract
     # array". Trace only what this mode can actually trace; run the rest eager.
-    if xp is not None and not getattr(xp, "__name__", "").startswith(mode):
+    #
+    # Compare through name_of_namespace, NOT a startswith on __name__: the torch
+    # namespace is array_api_compat.torch, whose __name__ does not begin with
+    # "torch", so a prefix test silently disables torch tracing everywhere.
+    # numpy coordinates stay traceable -- both jax.jit and torch.compile accept
+    # them, and only a different BACKEND framework has to stay eager.
+    if xp is not None and name_of_namespace(xp) not in (mode, "numpy"):
         return NOT_TRACED
     if mode == "torch":
         compiled = _JITTED.get((method, "torch"))
