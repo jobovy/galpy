@@ -40,8 +40,8 @@ class planarPotential(planarForce):
         self.isConservative = True
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "phi", "t")
     def __call__(self, R, phi=0.0, t=0.0, dR=0, dphi=0):
         """
         Evaluate the potential.
@@ -96,8 +96,8 @@ class planarPotential(planarForce):
             )
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "phi", "t")
     def Rforce(self, R, phi=0.0, t=0.0):
         r"""
         Evaluate the radial force.
@@ -124,8 +124,8 @@ class planarPotential(planarForce):
         return self._Rforce_nodecorator(R, phi=phi, t=t)
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "phi", "t")
     def phitorque(self, R, phi=0.0, t=0.0):
         """
         Evaluate the azimuthal torque = - d Phi / d phi.
@@ -152,8 +152,8 @@ class planarPotential(planarForce):
         return self._phitorque_nodecorator(R, phi=phi, t=t)
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
+    @backend_input("R", "phi", "t")
     def R2deriv(self, R, phi=0.0, t=0.0):
         """
         Evaluate the second radial derivative.
@@ -184,8 +184,8 @@ class planarPotential(planarForce):
             )
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "phi", "t")
     def phi2deriv(self, R, phi=0.0, t=0.0):
         """
         Evaluate the second azimuthal derivative.
@@ -217,8 +217,8 @@ class planarPotential(planarForce):
             )
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "phi", "t")
     def Rphideriv(self, R, phi=0.0, t=0.0):
         """
         Evaluate the mixed radial and azimuthal derivative.
@@ -250,8 +250,8 @@ class planarPotential(planarForce):
             )
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def epifreq(self, R, t=0.0):
         """
         Calculate the epicycle frequency at R in this potential.
@@ -280,8 +280,8 @@ class planarPotential(planarForce):
         )
 
     @potential_physical_input
-    @backend_input("R", "phi", "t")
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "phi", "t")
     def vcirc(self, R, phi=None, t=0.0):
         """
         Calculate the circular velocity at R in potential Pot.
@@ -310,8 +310,8 @@ class planarPotential(planarForce):
         return xp.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
+    @backend_input("R", "t")
     def omegac(self, R, t=0.0):
         """
         Calculate the circular angular speed at R in potential Pot.
@@ -456,8 +456,8 @@ class planarAxiPotential(planarPotential):
         return lindbladR(self, OmegaP, m=m, t=t, use_physical=False, **kwargs)
 
     @potential_physical_input
-    @backend_input("R", "t")
     @physical_conversion("velocity", pop=True)
+    @backend_input("R", "t")
     def vesc(self, R, t=0.0):
         """
         Calculate the escape velocity at R for the potential.
@@ -1013,8 +1013,8 @@ def toPlanarPotential(Pot):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "phi", "t")
 @physical_conversion("energy", pop=True)
+@backend_input("R", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     """
@@ -1067,8 +1067,8 @@ def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "phi", "t", "v")
 @physical_conversion("force", pop=True)
+@backend_input("R", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """
@@ -1131,8 +1131,8 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "phi", "t", "v")
 @physical_conversion("energy", pop=True)
+@backend_input("R", "phi", "t", "v")
 @potential_list_of_potentials_input
 def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     """
@@ -1194,8 +1194,8 @@ def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
-@backend_input("R", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
+@backend_input("R", "phi", "t")
 @potential_list_of_potentials_input
 def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
     """
