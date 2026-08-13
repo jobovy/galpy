@@ -461,7 +461,6 @@ class sphericaldf(df):
             Ei,
         )
 
-    @backend_input("r")
     def vmomentdensity(self, r, n, m, **kwargs):
         """
         Calculate an arbitrary moment of the velocity distribution at r times the density.
@@ -494,18 +493,29 @@ class sphericaldf(df):
         if vo is None and hasattr(self, "_voSet") and self._voSet:
             vo = self._vo
         vo = conversion.parse_velocity_kms(vo)
+        # The @backend_input boundary wraps only the compute below, so the
+        # Quantity is built out here rather than inside the trace -- astropy
+        # calls __array__, which a tracer refuses. Same principle as the
+        # physical_conversion/backend_input decorator order enforced by
+        # test_backend_conventions; this method carries no units decorator to
+        # reorder, so the split is done by hand.
+        out = self._vmomentdensity_backend(r, n, m)
         if use_physical and vo is not None and ro is not None:
             fac = conversion.mass_in_msol(vo, ro) * vo ** (n + m) / ro**3
-            out = self._vmomentdensity(r, n, m)
             if _optional_deps._APY_UNITS:
                 u = units.Msun / units.kpc**3 * (units.km / units.s) ** (n + m)
                 # a Quantity is a consumption boundary: astropy can't hold a
                 # backend array (#1052), so cast unconditionally
                 return units.Quantity(as_numpy(out) * fac, unit=u)
             else:
-                return exit_cast(out, r) * fac
+                return out * fac
         else:
-            return exit_cast(self._vmomentdensity(r, n, m), r)
+            return out
+
+    @backend_input("r")
+    def _vmomentdensity_backend(self, r, n, m):
+        """Traced half of ``vmomentdensity``: no units may be built in here."""
+        return exit_cast(self._vmomentdensity(r, n, m), r)
 
     def _vmomentdensity(self, r, n, m):
         xp = resolve_namespace(r)
@@ -563,7 +573,6 @@ class sphericaldf(df):
         )
 
     @physical_conversion("velocity", pop=True)
-    @backend_input("r")
     def sigmar(self, r):
         """
         Calculate the radial velocity dispersion at radius r.
@@ -582,14 +591,23 @@ class sphericaldf(df):
         -----
         - 2020-09-04 - Written - Bovy (UofT)
         """
-        r = conversion.parse_length(r, ro=self._ro)
+        # Parse input units OUT HERE, before the @backend_input boundary on the
+        # helper. A Quantity handed to the boundary is converted by jit through
+        # __array__, which yields the bare VALUE and silently drops the unit --
+        # sigmar(1 * u.pc) would then compute at r = 1 in INTERNAL units.
+        # Potentials avoid this because @potential_physical_input strips input
+        # units outside the boundary; these df methods parse inline, so the
+        # parse is hoisted and only the compute is traced.
+        return self._sigmar_backend(conversion.parse_length(r, ro=self._ro))
+
+    @backend_input("r")
+    def _sigmar_backend(self, r):
         xp = resolve_namespace(r)  # numpy path: xp.sqrt == numpy.sqrt (byte-identical)
         return exit_cast(
             xp.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0)), r
         )
 
     @physical_conversion("velocity", pop=True)
-    @backend_input("r")
     def sigmat(self, r):
         """
         Calculate the tangential velocity dispersion at radius r.
@@ -609,13 +627,16 @@ class sphericaldf(df):
         - 2020-09-04 - Written - Bovy (UofT)
 
         """
-        r = conversion.parse_length(r, ro=self._ro)
+        # units parsed outside the boundary -- see sigmar
+        return self._sigmat_backend(conversion.parse_length(r, ro=self._ro))
+
+    @backend_input("r")
+    def _sigmat_backend(self, r):
         xp = resolve_namespace(r)  # numpy path: xp.sqrt == numpy.sqrt (byte-identical)
         return exit_cast(
             xp.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0)), r
         )
 
-    @backend_input("r")
     def beta(self, r):
         """
         Calculate the anisotropy at radius r.
@@ -635,7 +656,11 @@ class sphericaldf(df):
         - 2020-09-04 - Written - Bovy (UofT)
 
         """
-        r = conversion.parse_length(r, ro=self._ro)
+        # units parsed outside the boundary -- see sigmar
+        return self._beta_backend(conversion.parse_length(r, ro=self._ro))
+
+    @backend_input("r")
+    def _beta_backend(self, r):
         return exit_cast(
             1.0 - self._vmomentdensity(r, 0, 2) / 2.0 / self._vmomentdensity(r, 2, 0), r
         )
