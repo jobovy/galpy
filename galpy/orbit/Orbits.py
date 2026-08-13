@@ -23,7 +23,13 @@ elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
 else:
     from scipy.special import logsumexp
 
-from ..backend import as_numpy, coerce_coords, get_namespace, is_backend_array
+from ..backend import (
+    as_numpy,
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    name_of_namespace,
+)
 from ..potential import (
     _INF,
     CompositePotential,
@@ -1763,7 +1769,7 @@ class Orbit:
                 _potl = _check_potential_list_and_deprecate(pot)
                 _inbk = (
                     "diffrax"
-                    if "jax" in get_namespace(ic_backend).__name__
+                    if name_of_namespace(get_namespace(ic_backend)) == "jax"
                     else "torchdiffeq"
                 )
                 # C-STM eligibility by phase-space dim: 6D needs the full C 3D
@@ -2234,7 +2240,7 @@ class Orbit:
         else:
             t = numpy.atleast_1d(numpy.asarray(t, dtype=float))
             ts = xp.asarray(t)
-        if "jax" in xp.__name__:
+        if name_of_namespace(xp) == "jax":
             from ..backend._jax import orbit_stm
         else:
             from ..backend._torch import orbit_stm
