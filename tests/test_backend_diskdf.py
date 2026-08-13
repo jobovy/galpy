@@ -105,9 +105,11 @@ def test_ssp_plain_scalar_stays_on_numpy(backend, fn, monkeypatch):
 
     real, entered = _bi.coerce_coords, []
 
-    def spy(xp, *coords):
+    def spy(xp, *coords, **kwargs):
+        # **kwargs: coerce_coords grew a device= anchor; a positional-only spy
+        # turns every call through it into a TypeError.
         entered.append(getattr(xp, "__name__", str(xp)))
-        return real(xp, *coords)
+        return real(xp, *coords, **kwargs)
 
     monkeypatch.setattr(_bi, "coerce_coords", spy)
 
