@@ -125,17 +125,3 @@ torch tests/test_streamdf.py::test_bovy14_useTM
 torch tests/test_streamdf.py::test_bovy14_useTM_approxConstTrackFreq
 torch tests/test_streamdf.py::test_bovy14_useTM_poterror
 torch tests/test_streamdf.py::test_bovy14_useTM_useTMHessian
-
-# --- jax --jit: the potential is DEFINED BY a user-supplied numpy callable ---
-# AnyAxisymmetricRazorThinDiskPotential takes a `surfdens` callable and evaluates
-# it INSIDE the traced region (a 50x50 Gauss-Legendre grid). These two tests hand
-# it numpy/astropy lambdas, e.g.
-#     surfdens=lambda R: numpy.exp(-R / (1 * units.kpc)) * units.Msun / units.kpc**2
-# Under jit R is a tracer, so numpy.exp(tracer) calls __array__ and
-# tracer * PrefixUnit has no meaning. No amount of galpy work makes an arbitrary
-# numpy callback traceable -- the LIBRARY is jit-compatible, the user's function
-# is not. Verified by construction: the same potential with a backend-agnostic
-# callable (xp = get_namespace(R); xp.exp(-R)) traces cleanly and agrees with
-# numpy to 1e-12 (-4.259385343504565 vs -4.259385343503407).
-jax-jit tests/test_quantity.py::test_potential_paramunits
-jax-jit tests/test_quantity.py::test_anyaxisymmetricrazorpotential_unitson
