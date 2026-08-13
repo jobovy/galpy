@@ -253,8 +253,8 @@ class linearPotential:
         return None
 
     @potential_physical_input
-    @backend_input("x", "t")
     @physical_conversion("energy", pop=True)
+    @backend_input("x", "t")
     def __call__(self, x, t=0.0):
         """
         Evaluate the potential.
@@ -289,8 +289,8 @@ class linearPotential:
             )
 
     @potential_physical_input
-    @backend_input("x", "t")
     @physical_conversion("force", pop=True)
+    @backend_input("x", "t")
     def force(self, x, t=0.0):
         """
         Evaluate the force.
@@ -386,8 +386,8 @@ class linearPotential:
 @potential_positional_arg
 @potential_list_of_potentials_input
 @potential_physical_input
-@backend_input("x", "t")
 @physical_conversion("energy", pop=True)
+@backend_input("x", "t")
 def evaluatelinearPotentials(Pot, x, t=0.0):
     """
     Evaluate the sum of a combination of potentials.
@@ -427,8 +427,8 @@ def _evaluatelinearPotentials(Pot, x, t=0.0):
 @potential_positional_arg
 @potential_list_of_potentials_input
 @potential_physical_input
-@backend_input("x", "t")
 @physical_conversion("force", pop=True)
+@backend_input("x", "t")
 def evaluatelinearForces(Pot, x, t=0.0):
     """
     Evaluate the forces due to a combination of potentials.
