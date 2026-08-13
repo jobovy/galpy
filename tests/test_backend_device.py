@@ -156,3 +156,41 @@ def test_mixed_coords_cross_device_cuda():
     zc = torch.tensor([0.3, 0.6], device="cuda")
     de = DEDP()(1.5, zc)
     assert de.device.type == "cuda"
+    # A numpy ARRAY sibling, not a scalar. The scalar cases above pass even with
+    # a per-coordinate device anchor, because torch accepts a 0-dim CPU tensor
+    # in a binary op with a CUDA one -- only a non-0-dim numpy sibling exposes a
+    # split anchor. Both orders, since the anchor must not depend on which
+    # coordinate happens to be the backend array.
+    for R, z in (
+        (torch.tensor([1.2, 1.3], device="cuda"), numpy.array([0.1, 0.2])),
+        (numpy.array([1.2, 1.3]), torch.tensor([0.1, 0.2], device="cuda")),
+    ):
+        out = evaluateRforces(_scf(), R, z, phi=0.0)
+        assert out.device.type == "cuda"
+
+
+@pytest.mark.skipif(torch is None, reason="needs torch")
+def test_backend_input_anchors_all_coords_on_one_device():
+    """Every declared coordinate of a call must land on ONE device.
+
+    Coercing them one at a time gives each its own anchor, so a numpy sibling
+    anchors to None -> the backend default device while a CUDA coordinate stays
+    on the GPU. Uses torch's ``meta`` device as a second device so this runs on
+    every runner: without a shared anchor the numpy coordinate lands on ``cpu``
+    and the assertion below fails, exactly as it would on a real GPU.
+    """
+    from galpy.backend._input import backend_input
+
+    class _Target:
+        _backend_compatible = True
+
+        @backend_input("R", "z", "phi")
+        def evaluate(self, R, z, phi=0.0):
+            return R, z, phi
+
+    R, z, phi = _Target().evaluate(
+        torch.tensor([1.2, 1.3], device="meta"), numpy.array([0.1, 0.2]), phi=0.3
+    )
+    assert {R.device.type, z.device.type, phi.device.type} == {"meta"}, (
+        f"split anchor: R={R.device}, z={z.device}, phi={phi.device}"
+    )

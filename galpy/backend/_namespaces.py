@@ -320,6 +320,29 @@ def device_of(*coords):
     return None
 
 
+_DEFAULT_DEVICE = {}
+
+
+def default_device(xp):
+    """Device ``xp`` places a new array on when none is requested.
+
+    Asking an explicit device of ``asarray`` is not free -- it commits the array
+    rather than letting the backend place it, measured at 397.6 us/call against
+    134.6 us/call for ``device=None`` on jax CPU. The coordinate boundary is
+    crossed in a tight loop during an orbit integration, so paying that on every
+    coercion turned a 1.7 s dxdv test into a 300 s timeout (galpy #1300). Callers
+    compare against this to skip the device keyword when it cannot change
+    placement anyway. Cached because asking costs an allocation.
+    """
+    key = getattr(xp, "__name__", None) or repr(xp)
+    if key not in _DEFAULT_DEVICE:
+        try:
+            _DEFAULT_DEVICE[key] = getattr(xp.asarray(0.0), "device", None)
+        except Exception:  # pragma: no cover - namespace without asarray/device
+            _DEFAULT_DEVICE[key] = None
+    return _DEFAULT_DEVICE[key]
+
+
 def _backend_dtype(xp, dtype):
     """Map a numpy dtype to the active backend's dtype.
 
