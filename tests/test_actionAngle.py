@@ -7133,6 +7133,14 @@ def test_actionAngleVerticalInverse_coeffs_exactpointtransform():
     ), (
         "nSn coefficients using the exact point transformation are not orders of magnitude smaller than without a point transformation"
     )
+    # Also check the edge case of a grid consisting only of the E=0 torus,
+    # for which the point transformation is the identity
+    aAVI0 = actionAngleVerticalInverse(
+        pot=isopot, nta=32, Es=[0.0], use_pointtransform="exact"
+    )
+    assert numpy.all(aAVI0._nSn == 0.0), (
+        "nSn coefficients of the E=0 torus are not all zero when using the exact point transformation"
+    )
     return None
 
 
