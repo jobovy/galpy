@@ -23,6 +23,8 @@
 from contextlib import contextmanager
 from contextvars import ContextVar
 
+from ._namespaces import name_of_namespace
+
 # "off" | "jax" | "torch". Process-wide, like the backend selection itself.
 _JIT_CTX = ContextVar("galpy_jit_mode", default="off")
 # Set while a traced call is on the stack. Entry points call each other
@@ -178,7 +180,7 @@ def _torch_compiled(method):
     return torch.compile(call, fullgraph=False, dynamic=False)
 
 
-def traced_call(method, args, kwargs, slots, nargs):
+def traced_call(method, args, kwargs, slots, nargs, xp=None):
     """Run ``method`` under the active trace mode, or return ``NOT_TRACED``.
 
     ``slots`` is ``@backend_input``'s precomputed (name, positional index) list:
@@ -187,6 +189,19 @@ def traced_call(method, args, kwargs, slots, nargs):
     """
     mode = _JIT_CTX.get()
     if mode == "off" or _TRACING.get():
+        return NOT_TRACED
+    # The trace mode names ONE framework, but the caller can be on a DIFFERENT
+    # one inside it: a test that enters use("torch", force=True) while the
+    # harness runs --backend jax --jit gets torch-coerced coordinates handed to
+    # a jax.jit, which raises "Error interpreting argument ... as an abstract
+    # array". Trace only what this mode can actually trace; run the rest eager.
+    #
+    # Compare through name_of_namespace, NOT a startswith on __name__: the torch
+    # namespace is array_api_compat.torch, whose __name__ does not begin with
+    # "torch", so a prefix test silently disables torch tracing everywhere.
+    # numpy coordinates stay traceable -- both jax.jit and torch.compile accept
+    # them, and only a different BACKEND framework has to stay eager.
+    if xp is not None and name_of_namespace(xp) not in (mode, "numpy"):
         return NOT_TRACED
     if mode == "torch":
         compiled = _JITTED.get((method, "torch"))
