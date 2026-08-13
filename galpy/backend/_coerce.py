@@ -61,12 +61,13 @@ import numpy
 from ._namespaces import (
     _is_floating_dtype,
     asarray_on_device,
+    default_device,
     device_of,
     is_backend_array,
 )
 
 
-def coerce_coords(xp, *coords):
+def coerce_coords(xp, *coords, device=None):
     """Bring coordinate inputs onto the active backend's array type.
 
     The dominant non-numpy failure mode is "the namespace resolved to a backend
@@ -86,12 +87,26 @@ def coerce_coords(xp, *coords):
         the backend's float64 -- galpy's interior precision; a bare ``asarray``
         of a Python float would give torch float32 and miss the tolerances.
 
+    ``device`` overrides the device the coerced coordinates land on. Without it
+    the anchor is derived from ``coords`` alone, which is only right when the
+    caller passes every coordinate of a call at once: coercing them one at a
+    time gives each its own anchor, so a numpy coordinate anchors to None (the
+    backend default device, i.e. CPU for torch) while its CUDA siblings stay on
+    the GPU, and the evaluator is handed a split-device coordinate set. Callers
+    that coerce coordinate-by-coordinate pass the shared anchor explicitly.
+
     The numpy backend is a strict pass-through (``coords`` returned object-
     identical) -> the numpy path stays byte-identical.
     """
     if xp is numpy:
         return coords
-    dev = device_of(*coords)
+    dev = device_of(*coords) if device is None else device
+    if dev is not None and dev == default_device(xp):
+        # placing there is what asarray does anyway, and naming it explicitly
+        # costs ~3x (it commits instead of letting the backend place) -- see
+        # default_device. Only a NON-default anchor (a CUDA sibling on a
+        # CPU-default run) is worth paying for.
+        dev = None
     out = []
     for c in coords:
         if c is None:
