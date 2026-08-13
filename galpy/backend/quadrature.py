@@ -529,6 +529,83 @@ def symmetric_quad(xp, integrand, b, *, n=_QUAD_N, interior_point=0.0, device=No
     )
 
 
+def finite_part_quad(xp, integrand, b, *, c, peak_width, n=_QUAD_N, device=None):
+    r"""``int_0^b [f(u) + f(-u)] du`` for ``f`` singular as ``c/u^2`` at ``u = 0``.
+
+    The symmetrised integrand is what makes this well posed: an odd ``B/u`` term
+    cancels exactly between ``f(u)`` and ``f(-u)``, so only the even ``c/u^2``
+    part needs handling and ``c`` never involves a derivative of ``f``.
+
+    ``peak_width`` is the scale over which ``f`` varies near the origin (for a
+    razor-thin disk, ``|z|``), and it selects between two regimes:
+
+    * ``peak_width == 0`` -- the integral exists only as a Hadamard finite part:
+      the halves add rather than cancel, so the singular model is subtracted and
+      its finite part ``-2c/b`` added back.
+    * ``peak_width > 0`` -- there is a peak of width ``~peak_width`` instead, and
+      ``u = peak_width * sinh(t)`` gives log-spaced coverage from ``peak_width``
+      out to ``b`` with no endpoint crowding.
+
+    Both branches are evaluated (a traced ``peak_width`` cannot be branched on),
+    so the sinh branch is computed at a guarded width -- ``asinh(b/0)`` would be
+    ``inf`` and would poison the gradient of the branch that is actually taken.
+
+    NOTE ON NODE PLACEMENT. ``f(u) + f(-u) - 2c/u^2`` is a difference of two
+    ``~1/u^2`` quantities, so it loses roughly two digits per decade of ``u`` and
+    is pure noise below ``u ~ 1e-7 b``. Fixed-order Gauss-Legendre is used
+    precisely because its smallest node sits at ``~b/n^2``, just above that
+    floor. Do NOT substitute a rule that clusters harder at the endpoint:
+    tanh-sinh reaches ``u ~ 1e-20 b`` and DIVERGES here (measured: 1e6 relative
+    error at n=200, 1e21 at n=400, nan at n=800). The limit is floating-point
+    cancellation, not the quadrature order.
+
+    Parameters
+    ----------
+    xp : module
+        Array namespace.
+    integrand : callable
+        ``f(u)``, called with the quadrature nodes (vectorised over a trailing
+        node axis). It is called at both ``+u`` and ``-u``.
+    b : array
+        Upper limit; the interval is ``[0, b]``.
+    c : array
+        Coefficient of the ``1/u^2`` singularity in ``f(u) + f(-u)``, i.e. the
+        symmetrised integrand behaves as ``2c/u^2`` near the origin.
+    peak_width : array
+        Width of the near-origin structure; ``0`` selects the finite part.
+    n : int, optional
+        Gauss-Legendre order.
+    device : optional
+        Device to anchor the nodes on.
+
+    Notes
+    -----
+    - 2026-08-13 - Written - Bovy (UofT)
+    """
+    zero = asarray_on_device(xp, 0.0, device)
+
+    def sym(u):
+        return integrand(u) + integrand(-u)
+
+    finite_part = (
+        fixed_quad(
+            xp, lambda u: sym(u) - 2.0 * c / (u * u), zero, b, n=n, device=device
+        )
+        - 2.0 * c / b
+    )
+    wide = peak_width > 0.0
+    w = xp.where(wide, peak_width, xp.ones_like(peak_width))
+    peaked = fixed_quad(
+        xp,
+        lambda t: sym(w * xp.sinh(t)) * w * xp.cosh(t),
+        zero,
+        xp.asinh(b / w),
+        n=n,
+        device=device,
+    )
+    return xp.where(wide, peaked, finite_part)
+
+
 def nested_quad(xp, integrand, bounds, *, n=50, device=None):
     r"""Tensor-product fixed-order GL over a hyper-rectangle.
 
