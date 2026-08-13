@@ -34,8 +34,8 @@ class planarDissipativeForce(planarForce):
         self.isDissipative = True
 
     @potential_physical_input
-    @backend_input("R", "phi", "t", "v")
     @physical_conversion("force", pop=True)
+    @backend_input("R", "phi", "t", "v")
     def Rforce(self, R, phi=0.0, t=0.0, v=None):
         """
         Evaluate cylindrical radial force F_R  (R,phi).
@@ -64,8 +64,8 @@ class planarDissipativeForce(planarForce):
         return self._Rforce_nodecorator(R, phi=phi, t=t, v=v)
 
     @potential_physical_input
-    @backend_input("R", "phi", "t", "v")
     @physical_conversion("energy", pop=True)
+    @backend_input("R", "phi", "t", "v")
     def phitorque(self, R, phi=0.0, t=0.0, v=None):
         """
         Evaluate the azimuthal torque F_phi (R, phi, t, v).
