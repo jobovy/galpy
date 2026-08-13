@@ -553,33 +553,56 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
     def _R2deriv_gl(self, R, z, xp, dev):
         R2 = R**2
-        z2 = z**2
+        # Mirror the numpy floor: below it the finite-|z| branch cannot resolve
+        # the peak, and numpy evaluates the z=0 limit instead. Without it the
+        # sinh branch of finite_part_quad is entered at a width where the
+        # substitution cannot work.
+        az = xp.abs(z)
+        az = xp.where(az < _R2DERIV_ZFLOOR, xp.zeros_like(az), az)
+        z2 = az**2
         sdens = self._sdens
 
-        def r2derivint(a):
-            a2 = a**2
-            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
+        def r2derivint(d):
+            # Parameterised by the OFFSET d = a - R, never by a: a^2-R^2 =
+            # d(2R+d) and (a-R)^2+z^2 = d^2+z^2 are exact in d, whereas
+            # recovering d from a-R loses the digits that 1/(d^2+z^2)^2 then
+            # amplifies. m1 = dz/aRz is 1-m exactly, since aRz - dz = 4 R a.
+            a = R + d
+            a2 = R2 + 2.0 * R * d + d * d
+            dz = d * d + z2
+            a2mR2 = d * (2.0 * R + d)
+            aRz = (2.0 * R + d) ** 2.0 + z2
+            m1 = dz / aRz
             return (
                 a
                 * sdens(a)
                 * (
                     -(
                         (
-                            (a2 - 3.0 * R2) * (a2 - R2) ** 2
+                            (a2 - 3.0 * R2) * a2mR2**2
                             + (3.0 * a2**2 + 2.0 * a2 * R2 + 3.0 * R2**2) * z2
-                            + (3.0 * a2 + 7.0 * R2) * z**4
-                            + z**6
+                            + (3.0 * a2 + 7.0 * R2) * z2**2
+                            + z2**3
                         )
                         * _bspecial.ellipe(1.0 - m1)
                     )
-                    + ((a - R) ** 2 + z2)
-                    * ((a2 - R2) ** 2 + 2.0 * (a2 + 2.0 * R2) * z2 + z**4)
+                    + dz
+                    * (a2mR2**2 + 2.0 * (a2 + 2.0 * R2) * z2 + z2**2)
                     * _bspecial.ellipkm1(m1)
                 )
-                / (2.0 * R2 * ((a - R) ** 2 + z2) ** 2 * aRz**1.5)
+                / (2.0 * R2 * dz**2 * aRz**1.5)
             )
 
-        return -4.0 * self._bk_split_quad(r2derivint, R, xp, dev, z)
+        # Hadamard finite part, as the numpy path does: the a=R singularity is
+        # a non-integrable c/d^2 divergence, so no amount of panel grading
+        # converges it -- the generic split_quad rule used here before was ~1e4
+        # off at the midplane.
+        return -4.0 * (
+            _bquad.finite_part_quad(
+                xp, r2derivint, R, c=sdens(R) / 2.0, peak_width=az, device=dev
+            )
+            + _bquad.fixed_quad_semiinfinite(xp, r2derivint, R, device=dev)
+        )
 
     # ------------------------------ z2deriv --------------------------------
     @check_potential_inputs_not_arrays
@@ -623,26 +646,48 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
     def _z2deriv_gl(self, R, z, xp, dev):
         R2 = R**2
-        z2 = z**2
+        # Mirror the numpy floor: below it the finite-|z| branch cannot resolve
+        # the peak, and numpy evaluates the z=0 limit instead. Without it the
+        # sinh branch of finite_part_quad is entered at a width where the
+        # substitution cannot work.
+        az = xp.abs(z)
+        az = xp.where(az < _R2DERIV_ZFLOOR, xp.zeros_like(az), az)
+        z2 = az**2
         sdens = self._sdens
 
-        def z2derivint(a):
-            a2 = a**2
-            m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
+        def z2derivint(d):
+            # Parameterised by the OFFSET d = a - R, never by a: a^2-R^2 =
+            # d(2R+d) and (a-R)^2+z^2 = d^2+z^2 are exact in d, whereas
+            # recovering d from a-R loses the digits that 1/(d^2+z^2)^2 then
+            # amplifies. m1 = dz/aRz is 1-m exactly, since aRz - dz = 4 R a.
+            a = R + d
+            a2 = R2 + 2.0 * R * d + d * d
+            dz = d * d + z2
+            a2mR2 = d * (2.0 * R + d)
+            aRz = (2.0 * R + d) ** 2.0 + z2
+            m1 = dz / aRz
             return (
                 a
                 * sdens(a)
                 * (
                     -(
-                        ((a2 - R2) ** 2 - 2.0 * (a2 + R2) * z2 - 3.0 * z**4)
+                        (a2mR2**2 - 2.0 * (a2 + R2) * z2 - 3.0 * z2**2)
                         * _bspecial.ellipe(1.0 - m1)
                     )
-                    - z2 * ((a - R) ** 2 + z2) * _bspecial.ellipkm1(m1)
+                    - z2 * dz * _bspecial.ellipkm1(m1)
                 )
-                / (((a - R) ** 2 + z2) ** 2 * aRz**1.5)
+                / (dz**2 * aRz**1.5)
             )
 
-        return -4.0 * self._bk_split_quad(z2derivint, R, xp, dev, z)
+        # At z=0 the K term carries a z^2 factor and drops out, leaving
+        # -a Sigma(a) E(m) / (d^2 (a+R)), so the singular coefficient is
+        # -Sigma(R)/2 -- exactly minus R2deriv's.
+        return -4.0 * (
+            _bquad.finite_part_quad(
+                xp, z2derivint, R, c=-sdens(R) / 2.0, peak_width=az, device=dev
+            )
+            + _bquad.fixed_quad_semiinfinite(xp, z2derivint, R, device=dev)
+        )
 
     # ------------------------------ Rzderiv --------------------------------
     @check_potential_inputs_not_arrays
