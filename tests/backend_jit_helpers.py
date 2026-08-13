@@ -82,10 +82,13 @@ def count_boundary_crossings(fn, backend):
     real = _bi.coerce_coords
     n = [0]
 
-    def spy(xp, *coords):
+    def spy(xp, *coords, **kwargs):
+        # **kwargs so the spy keeps matching coerce_coords' signature: it grew a
+        # device= anchor, and a positional-only spy turns that into a TypeError
+        # in every test that counts crossings.
         if xp is not numpy:
             n[0] += 1
-        return real(xp, *coords)
+        return real(xp, *coords, **kwargs)
 
     _bi.coerce_coords = spy
     try:
