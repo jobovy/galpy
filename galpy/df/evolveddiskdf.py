@@ -21,7 +21,7 @@ import warnings
 import numpy
 from scipy import integrate
 
-from ..backend import device_of, get_namespace, is_backend_array
+from ..backend import device_of, get_namespace, is_backend_array, name_of_namespace
 from ..backend import quadrature as _bquad
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
@@ -3146,7 +3146,7 @@ class evolveddiskdf(df):
         # backend orbits integrate with the backend's own solver; a C-method NAME
         # would route there anyway, but pick it explicitly so a non-C
         # integrate_method (odeint/leapfrog) works too.
-        bmethod = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        bmethod = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
         if isinstance(t, (list, numpy.ndarray)):
             t = numpy.atleast_1d(numpy.asarray(t))
             nt = len(t)
