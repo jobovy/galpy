@@ -551,7 +551,7 @@ class constantbetadf(_constantbetadf):
         construction: a DF built with jax autodiff may be evaluated under a
         forced-torch run, so the grad operator must match the eval backend.
         """
-        name = "torch" if "torch" in getattr(xp, "__name__", "") else "jax"
+        name = name_of_namespace(xp)
         cache = self.__dict__.setdefault("_gradfunc_cache", {})
         if name not in cache:
             grad, vmap = autodiff_ops(xp)
