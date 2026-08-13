@@ -22,6 +22,7 @@ from ..backend import (
     as_numpy,
     get_namespace,
     is_backend_array,
+    name_of_namespace,
     promote_scalars,
 )
 from ..backend import special as _bspecial
@@ -1472,7 +1473,7 @@ class streamdf(df):
             )
         xv0_prog = self._progenitor._ic_backend  # (6,) backend IC, grad-connected
         xp = get_namespace(xv0_prog)
-        method = "diffrax" if "jax" in xp.__name__ else "torchdiffeq"
+        method = "diffrax" if name_of_namespace(xp) == "jax" else "torchdiffeq"
         # Recompute the progenitor's freqs/angles from the (backend) progenitor so the
         # offsets carry the potential/IC gradient (the numpy body reads the stored
         # constants). The track offset is (track AA - progenitor AA); with both AAs
@@ -4864,7 +4865,7 @@ def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
     track to ~1e-4). torch: a Python stack of per-chunk calls (torch.func.vmap
     cannot trace the torchdiffeq custom-autograd orbit). 6-tuple of stacked arrays.
     """
-    if "jax" in xp.__name__:
+    if name_of_namespace(xp) == "jax":
         import jax
 
         return jax.lax.map(lambda a: single(a[0], a[1]), (xv0_all, thetasTrack))
