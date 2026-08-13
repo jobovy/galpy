@@ -474,3 +474,82 @@ def test_scalar_only_gate_spares_unmigrated_potential(backend):
         # the scipy scalar path runs and returns a plain float, no crash.
         got = float(pot._evaluate(0.9, 0.1, 0.0, 0.0))
     numpy.testing.assert_allclose(got, ref, rtol=1e-10, atol=0.0)
+
+
+###############################################################################
+# Decorator ORDER: the jit boundary must sit inside the units layer.
+#
+# Decorators apply bottom-up, so a method written
+#
+#     @backend_input("R", "z")      <- jit boundary
+#     @physical_conversion("force")  <- builds the Quantity
+#
+# attaches output units INSIDE the traced region, and Quantity.__new__ calls
+# __array__, which a tracer refuses (TracerArrayConversionError). Putting
+# physical_conversion OUTSIDE means the trace returns a concrete array and the
+# units are attached afterwards, which is both traceable and what the eager
+# path already does. This was 75 sites across 7 files, every one in the wrong
+# order, costing 33 jax --jit failures that had been mis-diagnosed as "astropy
+# and tracing are incompatible by design".
+###############################################################################
+
+_UNITS_DECORATORS = (
+    "physical_conversion",
+    "physical_conversion_tuple",
+    "physical_conversion_actionAngle",
+    "physical_conversion_actionAngleInverse",
+)
+
+
+def _decorator_name(dec):
+    """Bare name of a decorator node, whether or not it is called."""
+    node = dec.func if isinstance(dec, ast.Call) else dec
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return node.id if isinstance(node, ast.Name) else None
+
+
+def _order_violations(path):
+    """(qualname, units_idx, boundary_idx) where the boundary is OUTSIDE units."""
+    out = []
+    for node in ast.walk(ast.parse(path.read_text())):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        names = [_decorator_name(d) for d in node.decorator_list]
+        if "backend_input" not in names:
+            continue
+        units = [ii for ii, n in enumerate(names) if n in _UNITS_DECORATORS]
+        if not units:
+            continue
+        boundary = names.index("backend_input")
+        # decorator_list is source order, i.e. OUTERMOST first: a lower index is
+        # further out. The units decorator must be outside the boundary.
+        if min(units) > boundary:
+            out.append((node.name, min(units), boundary))
+    return out
+
+
+_UNITS_BOUNDARY_FILES = sorted(
+    p
+    for p in pathlib.Path(potential.__file__).parent.parent.rglob("*.py")
+    if "backend_input" in p.read_text() and "physical_conversion" in p.read_text()
+)
+
+
+def test_units_boundary_files_are_found():
+    """Guard the glob: an empty file list would make the check below vacuous."""
+    assert len(_UNITS_BOUNDARY_FILES) >= 5, (
+        f"only {len(_UNITS_BOUNDARY_FILES)} files carry both decorators; the "
+        "search is probably broken"
+    )
+
+
+@pytest.mark.parametrize("module_path", _UNITS_BOUNDARY_FILES, ids=lambda p: p.stem)
+def test_units_decorator_is_outside_the_jit_boundary(module_path):
+    violations = _order_violations(module_path)
+    assert not violations, (
+        f"{module_path.name}: @backend_input is OUTSIDE the units decorator on "
+        f"{[v[0] for v in violations]}. The Quantity would then be built inside "
+        "the jit trace and raise TracerArrayConversionError; put "
+        "@physical_conversion above @backend_input."
+    )
