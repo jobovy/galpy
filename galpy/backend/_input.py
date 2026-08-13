@@ -41,7 +41,7 @@ import numpy
 from ._coerce import coerce_coords
 from ._compat import is_backend_compatible
 from ._jit import NOT_TRACED, traced_call
-from ._namespaces import is_backend_array
+from ._namespaces import device_of, is_backend_array
 from ._resolver import get_namespace
 
 _EMPTY = inspect.Parameter.empty
@@ -72,7 +72,7 @@ def _backend_ready(target):
     return is_backend_compatible(target)
 
 
-def _coerce_one(xp, val):
+def _coerce_one(xp, val, device=None):
     """Coerce a single declared coordinate, preserving a sequence as a sequence.
 
     A coordinate may be a sequence -- the ``[vR,vT,vz]`` velocity of the
@@ -89,8 +89,8 @@ def _coerce_one(xp, val):
     if hasattr(val, "unit"):
         return val
     if isinstance(val, (list, tuple)):
-        return type(val)(coerce_coords(xp, *val))
-    (out,) = coerce_coords(xp, val)
+        return type(val)(coerce_coords(xp, *val, device=device))
+    (out,) = coerce_coords(xp, val, device=device)
     return out
 
 
@@ -177,19 +177,26 @@ def backend_input(*coords):
             on_backend = [val for val in probe if is_backend_array(val)]
             xp = get_namespace(*(on_backend or probe))
             if xp is not numpy and _backend_ready(args[0]):
+                # ONE device anchor for the whole call. Coercing each coordinate
+                # on its own would let each derive its own: a numpy/python
+                # coordinate anchors to None -> the backend default device (CPU
+                # for torch) while its CUDA siblings stay on the GPU, and the
+                # evaluator gets a split-device coordinate set -- a mixed-device
+                # error in some potentials, a silent GPU->CPU transfer in others.
+                dev = device_of(*probe)
                 newargs = None
                 for c, ii in slots:
                     if ii is not None and ii < nargs:
                         if newargs is None:
                             newargs = list(args)
-                        newargs[ii] = _coerce_one(xp, newargs[ii])
+                        newargs[ii] = _coerce_one(xp, newargs[ii], dev)
                     elif c in kwargs:
-                        kwargs[c] = _coerce_one(xp, kwargs[c])
+                        kwargs[c] = _coerce_one(xp, kwargs[c], dev)
                 if newargs is not None:
                     args = tuple(newargs)
                 for c, ii, dflt in defaults:
                     if ii >= nargs and c not in kwargs:
-                        kwargs[c] = _coerce_one(xp, dflt)
+                        kwargs[c] = _coerce_one(xp, dflt, dev)
                 # Under an opt-in trace mode this boundary is also where the
                 # jit/compile happens: the declared coordinates are the traced
                 # arguments and everything else is static. Off by default.
