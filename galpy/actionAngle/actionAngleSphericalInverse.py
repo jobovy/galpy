@@ -662,7 +662,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 if b[jj] > 0:
                     score = 1.0 + numpy.sqrt(1.0 + racore**2.0 / b[jj] ** 2.0)
                     cosetacore = (1.0 - b[jj] / ca[jj] * (score - 2.0)) / ea[jj]
-                else:
+                else:  # pragma: no cover
                     cosetacore = (1.0 - racore / ca[jj]) / ea[jj]
                 etacore = numpy.arccos(numpy.clip(cosetacore, -1.0, 1.0))
                 ycore = yspl_eta(etacore)

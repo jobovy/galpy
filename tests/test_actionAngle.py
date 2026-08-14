@@ -8159,6 +8159,123 @@ def test_actionAngleSphericalInverse_exactpointtransform():
     return None
 
 
+# Test that the polynomial point transformation of the spherical inverse
+# also recovers an example orbit (the machinery absorbs the polynomial's
+# imperfection in the mapping coefficients)
+def test_actionAngleSphericalInverse_wrtSpherical_pointtransform():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    aASI = actionAngleSphericalInverse(
+        pot=logpot, nta=8 * 128, Es=[E], Ls=[L], use_pointtransform=True, pt_deg=5
+    )
+    R, vR, vT, z, vz, phi = numpy.array(
+        aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+    ).flatten()
+    dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(
+                    [R - o.R(), vR - o.vR(), vT - o.vT(), z - o.z(), vz - o.vz(), dphi]
+                )
+            )
+        )
+        < 1e-8
+    ), (
+        "actionAngleSphericalInverse with a polynomial point transformation is not the inverse of actionAngleSpherical for an example orbit"
+    )
+    return None
+
+
+# Test that the spherical inverse also works when using only bisection
+def test_actionAngleSphericalInverse_wrtSpherical_bisect():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    aASI = actionAngleSphericalInverse(
+        pot=logpot, nta=8 * 128, Es=[E], Ls=[L], bisect=True
+    )
+    R, vR, vT, z, vz, phi = numpy.array(
+        aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+    ).flatten()
+    dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(
+                    [R - o.R(), vR - o.vR(), vT - o.vT(), z - o.z(), vz - o.vz(), dphi]
+                )
+            )
+        )
+        < 1e-8
+    ), (
+        "actionAngleSphericalInverse with bisection is not the inverse of actionAngleSpherical for an example orbit"
+    )
+    return None
+
+
+# Test that the actionAngleSphericalInverse plots run
+def test_actionAngleSphericalInverse_plotting():
+    import matplotlib.pyplot as pyplot
+
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=logpot, nta=128, Es=[E], Ls=[L], use_pointtransform="exact"
+        )
+        aASInopt = actionAngleSphericalInverse(pot=logpot, nta=128, Es=[E], Ls=[L])
+    gs = aASInopt.plot_convergence(E, L, return_gridspec=True)
+    aASI.plot_convergence(E, L, overplot=gs)
+    pyplot.close()
+    aASInopt.plot_power(E, L)
+    aASI.plot_power(E, L, ls="--")
+    pyplot.close()
+    aASInopt.plot_orbit(E, L)
+    pyplot.close()
+    return None
+
+
+def test_nullpotential_error():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import NullPotential
+
+    np = NullPotential()
+    aAS = actionAngleStaeckel(pot=np, delta=1.0)
+    with pytest.raises(NotImplementedError) as excinfo:
+        aAS(1.0, 0.0, 1.0, 0.1, 0.0)
+        pytest.fail(
+            "Calculating actionAngle coordinates in C for a NullPotential should have given a NotImplementedError, but did not"
+        )
+    return None
+
+
 def check_actionAngleIsochroneInverse_wrtIsochrone(
     pot, aAI, aAII, obs, tol, ntimes=1001
 ):
