@@ -202,10 +202,10 @@ def _grid_eval(evaluator, pot, rgrid, zgrid):
     for ii, jj in _spot_check_cells(nR, nz):
         ref = numpy.asarray(evaluator(pot, rgrid[ii], zgrid[jj], use_physical=False))
         got = numpy.asarray(grid[ii, jj])
-        if rtol == 0.0:
-            if not numpy.array_equal(got, ref, equal_nan=True):
-                return _loop()
-        elif not numpy.allclose(got, ref, rtol=rtol, atol=0.0, equal_nan=True):
+        # rtol=0 atol=0 makes allclose exactly `array_equal` (verified over nan,
+        # +-inf, -0.0 and denormals), so numpy keeps bit-for-bit through the same
+        # single expression -- no backend-only branch to leave uncovered.
+        if not numpy.allclose(got, ref, rtol=rtol, atol=0.0, equal_nan=True):
             return _loop()
     return grid
 
