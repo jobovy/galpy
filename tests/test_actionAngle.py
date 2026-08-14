@@ -8490,6 +8490,245 @@ def test_actionAngleSphericalInverse_wrtSpherical_retrograde():
     return None
 
 
+# Tests of the interpolated actionAngleSphericalInverse need fixtures to set
+# up the interpolation grid of tori
+@pytest.fixture(scope="module")
+def setup_actionAngleSphericalInverse_interpolated_exactpointtransform():
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=logpot,
+            nta=128,
+            setup_interp=True,
+            Rmax=3.0,
+            Rinf=20.0,
+            nE=31,
+            nL=31,
+            use_pointtransform="exact",
+        )
+    return aASI, logpot
+
+
+@pytest.fixture(scope="module")
+def setup_actionAngleSphericalInverse_interpolated():
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=logpot,
+            nta=128,
+            setup_interp=True,
+            Rmax=3.0,
+            Rinf=20.0,
+            nE=31,
+            nL=31,
+            use_pointtransform=False,
+        )
+    return aASI, logpot
+
+
+# Test that the interpolated actionAngleSphericalInverse is the inverse of
+# actionAngleSpherical for orbits in between the grid points, including
+# near-circular and retrograde ones
+def test_actionAngleSphericalInverse_wrtSpherical_interpolation(
+    setup_actionAngleSphericalInverse_interpolated_exactpointtransform,
+):
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+
+    aASI, logpot = setup_actionAngleSphericalInverse_interpolated_exactpointtransform
+    aAS = actionAngleSpherical(pot=logpot)
+    for vxvv, tol in [
+        ([1.0, 0.4, 1.0, 0.2, 0.3, 0.0], 1e-5),
+        ([1.0, 0.4, -1.0, 0.2, 0.3, 0.0], 1e-5),  # retrograde
+        ([1.0, 0.03, 1.02, 0.02, 0.02, 1.0], 1e-3),  # near-circular
+    ]:
+        o = Orbit(vxvv)
+        jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+            o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+        )
+        R, vR, vT, z, vz, phi = numpy.array(
+            aASI(jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+        ).flatten()
+        dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    numpy.array(
+                        [
+                            R - o.R(),
+                            vR - o.vR(),
+                            vT - o.vT(),
+                            z - o.z(),
+                            vz - o.vz(),
+                            dphi,
+                        ]
+                    )
+                )
+            )
+            < tol
+        ), (
+            f"Interpolated actionAngleSphericalInverse is not the inverse of actionAngleSpherical for an example orbit {vxvv}"
+        )
+    return None
+
+
+def test_actionAngleSphericalInverse_freqs_wrtSpherical_interpolation(
+    setup_actionAngleSphericalInverse_interpolated_exactpointtransform,
+):
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+
+    aASI, logpot = setup_actionAngleSphericalInverse_interpolated_exactpointtransform
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    jr, jphi, jz, Or, Op, Oz, _, _, _ = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    OmR, Omp, Omz = aASI.Freqs(jr[0], jphi[0], jz[0])
+    assert numpy.fabs((OmR - Or[0]) / Or[0]) < 1e-3, (
+        "Radial frequency computed using the interpolated actionAngleSphericalInverse does not agree with that computed by actionAngleSpherical"
+    )
+    assert numpy.fabs((Omp - Op[0]) / Op[0]) < 1e-3, (
+        "Azimuthal frequency computed using the interpolated actionAngleSphericalInverse does not agree with that computed by actionAngleSpherical"
+    )
+    assert numpy.fabs((Omz - Oz[0]) / Oz[0]) < 1e-3, (
+        "Vertical frequency computed using the interpolated actionAngleSphericalInverse does not agree with that computed by actionAngleSpherical"
+    )
+    return None
+
+
+# Test that the torus mapped by the interpolated actionAngleSphericalInverse
+# conserves energy
+def test_actionAngleSphericalInverse_orbit_interpolation(
+    setup_actionAngleSphericalInverse_interpolated_exactpointtransform,
+):
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatePotentials
+
+    aASI, logpot = setup_actionAngleSphericalInverse_interpolated_exactpointtransform
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    jr, jphi, jz, _, _, _, _, _, _ = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    angs = numpy.linspace(0.0, 2.0 * numpy.pi, 101)
+    R, vR, vT, z, vz, phi = aASI(jr[0], jphi[0], jz[0], angs, 0.0 * angs, angs)
+    Ei = (vR**2.0 + vT**2.0 + vz**2.0) / 2.0 + evaluatePotentials(logpot, R, z)
+    assert numpy.nanmax(numpy.fabs(Ei - E) / numpy.fabs(E)) < 1e-5, (
+        "Energy is not conserved along the torus of the interpolated actionAngleSphericalInverse"
+    )
+    return None
+
+
+# Test that the interpolated actionAngleSphericalInverse also works without a
+# point transformation
+def test_actionAngleSphericalInverse_wrtSpherical_interpolation_nopointtransform(
+    setup_actionAngleSphericalInverse_interpolated,
+):
+    from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+
+    aASI, logpot = setup_actionAngleSphericalInverse_interpolated
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    R, vR, vT, z, vz, phi = numpy.array(
+        aASI(jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+    ).flatten()
+    dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(
+                    [R - o.R(), vR - o.vR(), vT - o.vT(), z - o.z(), vz - o.vz(), dphi]
+                )
+            )
+        )
+        < 1e-5
+    ), (
+        "Interpolated actionAngleSphericalInverse without point transformation is not the inverse of actionAngleSpherical for an example orbit"
+    )
+    return None
+
+
+# Test that the interpolated actionAngleSphericalInverse works with the
+# polynomial point transformation and with pt_only evaluation of the exact one
+def test_actionAngleSphericalInverse_wrtSpherical_interpolation_pointtransform():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASIpoly = actionAngleSphericalInverse(
+            pot=logpot,
+            nta=128,
+            setup_interp=True,
+            Rmax=3.0,
+            Rinf=20.0,
+            nE=16,
+            nL=16,
+            use_pointtransform=True,
+        )
+        aASIptonly = actionAngleSphericalInverse(
+            pot=logpot,
+            nta=128,
+            setup_interp=True,
+            Rmax=3.0,
+            Rinf=20.0,
+            nE=16,
+            nL=16,
+            use_pointtransform="exact",
+            pt_only=True,
+        )
+    for aASI, tol, label in [
+        (aASIpoly, 1e-2, "polynomial"),
+        (aASIptonly, 1e-3, "pt_only"),
+    ]:
+        R, vR, vT, z, vz, phi = numpy.array(
+            aASI(jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+        ).flatten()
+        dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    numpy.array(
+                        [
+                            R - o.R(),
+                            vR - o.vR(),
+                            vT - o.vT(),
+                            z - o.z(),
+                            vz - o.vz(),
+                            dphi,
+                        ]
+                    )
+                )
+            )
+            < tol
+        ), (
+            f"Interpolated actionAngleSphericalInverse with the {label} point transformation is not the inverse of actionAngleSpherical for an example orbit"
+        )
+    return None
+
+
 def test_nullpotential_error():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.potential import NullPotential

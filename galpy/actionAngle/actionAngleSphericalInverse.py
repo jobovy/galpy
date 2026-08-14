@@ -19,6 +19,7 @@ from scipy import integrate, interpolate, ndimage, optimize
 from ..potential import (
     IsochronePotential,
     dvcircdR,
+    epifreq,
     evaluatePotentials,
     evaluateRforces,
     rl,
@@ -37,6 +38,11 @@ try:
     from astropy import units
 except ImportError:
     _APY_LOADED = False
+
+
+def _evs(spl, iL, ix, **kwargs):
+    # Scalar evaluation of a RectBivariateSpline (.ev returns a size-1 array)
+    return spl.ev(iL, ix, **kwargs).item()
 
 
 def _solve_kepler(k, theta, maxiter, tol=1e-14):
@@ -212,8 +218,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
             # self._ERRamax= numpy.amax(self._ERRa)+1.
             # self._ERRaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
             #                                                           numpy.log(-(self._ERRa-self._ERRamax)),k=3)
+            # Space the normalized energies x quadratically, because torus
+            # properties like rperi/rap and the Fourier/point-transformation
+            # coefficients behave as sqrt(E-E_circular) near the circular-orbit
+            # edge of the grid; on a quadratic grid they are smooth functions
+            # of the grid index, so spline interpolation over the grid
+            # converges at full order
             self._internal_Es = (
-                numpy.tile(numpy.linspace(0.0, 1.0, self._nE), (self._nL, 1))
+                numpy.tile(numpy.linspace(0.0, 1.0, self._nE) ** 2.0, (self._nL, 1))
             ).flatten() * (
                 numpy.tile(self._ERRa - self._ERRL, (self._nE, 1)).T
             ).flatten() + (numpy.tile(self._ERRL, (self._nE, 1)).T).flatten()
@@ -224,6 +236,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
             # self._internal_Es= self._internal_Es.flatten()
             # self._internal_Ls= self._internal_Ls.flatten()
         self._L2 = self._internal_Ls**2
+        # Total number of tori (nE*nL for the interpolation grid)
+        self._ntori = len(self._internal_Es)
         # Compute actions, frequencies, and rperi/rap for each (E,L), to do
         # this, setup orbit at radius of circular orbit for given L
         rls = numpy.array(
@@ -244,23 +258,52 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
             - self._L2 / rls**2.0
         )
+        self._circIndx = numpy.zeros(len(rls), dtype="bool")
         if setup_interp:
+            # The lower edge of the energy grid consists of exactly circular
+            # orbits, which we treat analytically in the epicyclic limit,
+            # because the numerical action/frequency computation breaks down
+            # there
             vrls[:: self._nE] = 0.0
-        self._jr, _, _, self._Omegar, _, self._Omegaz = self._aAS.actionsFreqs(
-            rls,
-            vrls,
-            self._internal_Ls / rls,
-            numpy.zeros_like(rls),
-            numpy.zeros_like(rls),
-        )
-        # Also need rperi and rap
-        _, _, self._rperi, self._rap = self._aAS.EccZmaxRperiRap(
-            rls,
-            vrls,
-            self._internal_Ls / rls,
-            numpy.zeros_like(rls),
-            numpy.zeros_like(rls),
-        )
+            self._circIndx[:: self._nE] = True
+        self._jr = numpy.zeros(len(rls))
+        self._Omegar = numpy.empty(len(rls))
+        self._Omegaz = numpy.empty(len(rls))
+        self._rperi = numpy.empty(len(rls))
+        self._rap = numpy.empty(len(rls))
+        gIndx = True ^ self._circIndx
+        if numpy.any(gIndx):
+            (
+                self._jr[gIndx],
+                _,
+                _,
+                self._Omegar[gIndx],
+                _,
+                self._Omegaz[gIndx],
+            ) = self._aAS.actionsFreqs(
+                rls[gIndx],
+                vrls[gIndx],
+                self._internal_Ls[gIndx] / rls[gIndx],
+                numpy.zeros(numpy.sum(gIndx)),
+                numpy.zeros(numpy.sum(gIndx)),
+            )
+            # Also need rperi and rap
+            _, _, self._rperi[gIndx], self._rap[gIndx] = self._aAS.EccZmaxRperiRap(
+                rls[gIndx],
+                vrls[gIndx],
+                self._internal_Ls[gIndx] / rls[gIndx],
+                numpy.zeros(numpy.sum(gIndx)),
+                numpy.zeros(numpy.sum(gIndx)),
+            )
+        if numpy.any(self._circIndx):
+            self._Omegar[self._circIndx] = numpy.array(
+                [epifreq(self._pot, r) for r in rls[self._circIndx]]
+            )
+            self._Omegaz[self._circIndx] = (
+                vcirc(self._pot, rls[self._circIndx]) / rls[self._circIndx]
+            )
+            self._rperi[self._circIndx] = rls[self._circIndx]
+            self._rap[self._circIndx] = rls[self._circIndx]
         self._OmegazoverOmegar = self._Omegaz / self._Omegar
         # First need to determine appropriate IsochronePotentials
         ampb = (
@@ -386,12 +429,17 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
         # Store mean(jra) as probably a better approx. of jr
         self._jr_orig = copy.copy(self._jr)
-        self._jr = numpy.mean(self._jra, axis=1)
+        self._jr = numpy.nanmean(self._jra, axis=1)
         # Store better approximation to Omegar and Omegaz
         self._Omegar_orig = copy.copy(self._Omegar)
         self._Omegaz_orig = copy.copy(self._Omegaz)
-        self._Omegar /= numpy.nanmean(self._djradjr, axis=1)
+        with numpy.errstate(invalid="ignore"):
+            self._Omegar /= numpy.nanmean(self._djradjr, axis=1)
         self._Omegaz = self._OmegazoverOmegar * self._Omegar
+        # The degenerate circular tori are treated in the epicyclic limit
+        self._jr[self._circIndx] = 0.0
+        self._Omegar[self._circIndx] = self._Omegar_orig[self._circIndx]
+        self._Omegaz[self._circIndx] = self._Omegaz_orig[self._circIndx]
         # Compute Fourier expansions
         self._nforSn = numpy.arange(self._jra.shape[1] // 2 + 1)
         self._nSn = (
@@ -430,6 +478,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             / self._jra.shape[1]
         )
 
+        # The degenerate circular tori have vanishing coefficients in the
+        # epicyclic limit
+        self._nSn[self._circIndx] = 0.0
+        self._dSndJr[self._circIndx] = 0.0
+        self._dSndLish[self._circIndx] = 0.0
         # Interpolation of small, noisy coeffs doesn't work, so set to zero
         if setup_interp:
             self._nSn[numpy.fabs(self._nSn) < 1e-16] = 0.0
@@ -474,11 +527,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
         if self._pt_exact:
             return self._setup_pointtransform_exact(pt_nra, Etilde)
         ramesh = numpy.linspace(0.0, 1.0, pt_nra)
-        self._pt_coeffs = numpy.empty((self._nE, pt_deg + 1))
-        self._pt_deriv_coeffs = numpy.empty((self._nE, pt_deg))
-        self._pt_deriv2_coeffs = numpy.empty((self._nE, pt_deg - 1))
+        self._pt_coeffs = numpy.empty((self._ntori, pt_deg + 1))
+        self._pt_deriv_coeffs = numpy.empty((self._ntori, pt_deg))
+        self._pt_deriv2_coeffs = numpy.empty((self._ntori, pt_deg - 1))
 
-        for ii in range(self._nE):
+        for ii in range(self._ntori):
             if self._jr[ii] < 1e-10:  # Just use identity for small J
                 self._pt_coeffs[ii] = 0.0
                 self._pt_coeffs[ii, 1] = 1.0
@@ -486,7 +539,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 self._pt_deriv2_coeffs[ii] = 0.0
                 self._pt_rperi[ii] = self._rperi[ii]
                 self._pt_rap[ii] = self._rap[ii]
-                coeffs = self._pt_coeffs[ii]  # to start next fit
+                # Next fit warm-starts from the identity mapping, whose
+                # free-parameter vector is all zeros
+                coeffs = numpy.zeros(pt_deg - 3)
                 continue
             Ea = Etilde[ii]
             ip = IsochronePotential(amp=self._amp[ii], b=self._b[ii])
@@ -564,8 +619,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 start_coeffs = [0.0]
                 start_coeffs.extend([0.0 for jj in range(pt_deg - 4)])
             else:
-                # Start from previous best fit
-                start_coeffs = coeffs[2::] / coeffs[1]
+                # Start from previous best fit's free-parameter vector
+                start_coeffs = coeffs
             coeffs = optimize.leastsq(opt_func, start_coeffs)[0]
             # Extract full Chebyshev parameters from constrained optimization
 
@@ -593,10 +648,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
             ccoeffs/= chebyshev.chebval(1,ccoeffs)# map exact [0,1] --> [0,1]
             """
 
-            coeffs = ccoeffs
-            self._pt_coeffs[ii] = coeffs
-            self._pt_deriv_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=1)
-            self._pt_deriv2_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=2)
+            # coeffs keeps the free-parameter vector to warm-start the next fit
+            self._pt_coeffs[ii] = ccoeffs
+            self._pt_deriv_coeffs[ii] = polynomial.polyder(ccoeffs, m=1)
+            self._pt_deriv2_coeffs[ii] = polynomial.polyder(ccoeffs, m=2)
         return None
 
     def _setup_pointtransform_exact(self, pt_nra, Etilde):
@@ -623,11 +678,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             -self._pt_pad * dmesh, 1.0 + self._pt_pad * dmesh, nmext
         )
         # Initialize all tori to the identity mapping (also used for small J)
-        self._pt_coeffs = numpy.tile(self._pt_samesh, (self._nE, 1))
-        self._pt_deriv_coeffs = numpy.ones((self._nE, nmext))
-        self._pt_deriv2_coeffs = numpy.zeros((self._nE, nmext))
-        self._pt_dpsi_coeffs = numpy.zeros((self._nE, nmext))
-        self._pt_dpsi_apo = numpy.zeros(self._nE)
+        self._pt_coeffs = numpy.tile(self._pt_samesh, (self._ntori, 1))
+        self._pt_deriv_coeffs = numpy.ones((self._ntori, nmext))
+        self._pt_deriv2_coeffs = numpy.zeros((self._ntori, nmext))
+        self._pt_dpsi_coeffs = numpy.zeros((self._ntori, nmext))
+        self._pt_dpsi_apo = numpy.zeros(self._ntori)
         # For a circular orbit, the auxiliary torus is circular as well and
         # its radius equals that of the true circular orbit, because matching
         # the frequencies matches the circular angular frequency L/r^2; the
@@ -742,7 +797,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             thhigh = numpy.pi + dth * numpy.arange(1, self._pt_pad + 1)
             # Kepler-equation parameter of the auxiliary torus
             kepk = ea * ca / (ca + b)
-            for jj, ii in enumerate(numpy.arange(self._nE)[gIndx]):
+            for jj, ii in enumerate(numpy.arange(self._ntori)[gIndx]):
                 yspl_eta = interpolate.InterpolatedUnivariateSpline(
                     etamesh, ys[jj], k=self._exact_pt_spl_deg
                 )
@@ -828,12 +883,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._pot,
             isoaa_helper,
             (
-                numpy.tile(numpy.arange(self._nE, dtype="float"), (rs.shape[1], 1)).T
+                numpy.tile(numpy.arange(self._ntori, dtype="float"), (rs.shape[1], 1)).T
                 if self._pt_exact
                 else numpy.rollaxis(numpy.tile(self._pt_coeffs, (rs.shape[1], 1, 1)), 1)
             ),
             (
-                numpy.tile(numpy.arange(self._nE, dtype="float"), (rs.shape[1], 1)).T
+                numpy.tile(numpy.arange(self._ntori, dtype="float"), (rs.shape[1], 1)).T
                 if self._pt_exact
                 else numpy.rollaxis(
                     numpy.tile(self._pt_deriv_coeffs, (rs.shape[1], 1, 1)), 1
@@ -875,10 +930,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 + tL2 / 2.0 / tptrperi**2.0
             )
             catmp = -tamp / 2.0 / Ettmp - tb
-            eatmp = numpy.sqrt(1.0 - tL2 / tamp / catmp * (1.0 + tb / catmp))
+            eatmp = numpy.sqrt(
+                numpy.clip(1.0 - tL2 / tamp / catmp * (1.0 + tb / catmp), 0.0, None)
+            )
             ktmp = eatmp * catmp / (catmp + tb)
             eta = _solve_kepler(
-                ktmp, numpy.tile(self._thetaa, (self._nE, 1)), self._maxiter
+                ktmp, numpy.tile(self._thetaa, (self._ntori, 1)), self._maxiter
             )
             utmp = catmp * (1.0 - eatmp * numpy.cos(eta))
             rgrid = numpy.sqrt(utmp * (utmp + 2.0 * tb))
@@ -903,7 +960,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             # ptcoeffs-style arguments carry the row index of each point's
             # torus in the grid of tori instead of polynomial coefficients
             ptcoeffsgrid = numpy.tile(
-                numpy.arange(self._nE, dtype="float"), (self._nta, 1)
+                numpy.arange(self._ntori, dtype="float"), (self._nta, 1)
             ).T
             ptderivcoeffsgrid = ptcoeffsgrid
             ptderiv2coeffsgrid = ptcoeffsgrid
@@ -939,6 +996,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # We'll fill in the -v part using the +v, also remove rperi/rap
         unconv[:, 0] = False
         unconv[:, self._nta // 2 :] = False
+        # Also don't bother with the degenerate circular tori
+        unconv[self._circIndx] = False
         dta = (ta[unconv] - mta[unconv] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         unconv[unconv] = numpy.fabs(dta) > self._angle_tol
         # Don't allow too big steps
@@ -1572,34 +1631,105 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     ################### FUNCTIONS FOR INTERPOLATION BETWEEN TORI###############
     def _setup_interp(self):
+        # Interpolate between the tori of the (L,E) grid, using as grid
+        # coordinates (iL,ix), the (fractional) indices into the uniform grid
+        # in L and into the uniform grid in the normalized energy
+        # x = (E-E[R_L])/(E[Rinf,L]-E[R_L]); tori are looked up by (jr,L),
+        # inverting the interpolated jr(iL,ix) for ix using Newton's method
         self._nnSn = self._nSn.shape[1]  # won't be confusing...
-        # self.Jr= interpolate.RectBivariateSpline(\
-        #    XXX,self._Ls,numpy.reshape(self._jr,(self._nE,self._nL)),
-        #    kx=3,ky=3,s=0.)
-        """
-        self._Emin= self._Es[0]
-        self._Emax= self._Es[-1]
-        self._nSnFiltered= ndimage.spline_filter(self._nSn,order=3)
-        self._dSndJFiltered= ndimage.spline_filter(self._dSndJ,order=3)
-        self.J= interpolate.InterpolatedUnivariateSpline(self._Es,self._js,k=3)
-        self.E= interpolate.InterpolatedUnivariateSpline(self._js,self._Es,k=3)
-        self.OmegaHO= interpolate.InterpolatedUnivariateSpline(self._Es,
-                                                               self._OmegaHO,
-                                                               k=3)
-        self.Omega= interpolate.InterpolatedUnivariateSpline(self._Es,
-                                                             self._Omegas,
-                                                             k=3)
-        """
+        shape2 = (self._nL, self._nE)
+        iLs = numpy.arange(self._nL)
+        ixs = numpy.arange(self._nE)
+
+        def _rbs(arr):
+            return interpolate.RectBivariateSpline(
+                iLs, ixs, numpy.reshape(arr, shape2), kx=3, ky=3, s=0.0
+            )
+
+        self._jrInterp = _rbs(self._jr)
+        self._EInterp = _rbs(self._internal_Es)
+        self._OmegarInterp = _rbs(self._Omegar)
+        self._OmegazInterp = _rbs(self._Omegaz)
+        self._OmegazoverOmegarInterp = _rbs(self._OmegazoverOmegar)
+        self._ampInterp = _rbs(self._amp)
+        self._bInterp = _rbs(self._b)
+        self._rperiInterp = _rbs(self._rperi)
+        self._rapInterp = _rbs(self._rap)
+        self._ptrperiInterp = _rbs(self._pt_rperi)
+        self._ptrapInterp = _rbs(self._pt_rap)
+        if self._pt_exact:
+            self._dpsiapoInterp = _rbs(self._pt_dpsi_apo)
+        # Interpolation of small, noisy coeffs doesn't work, so set to zero
+        self._nSn[numpy.fabs(self._nSn) < 1e-16] = 0.0
+        self._dSndJr[numpy.fabs(self._dSndJr) < 1e-15] = 0.0
+        self._dSndLish[numpy.fabs(self._dSndLish) < 1e-15] = 0.0
+        self._nSnFiltered = ndimage.spline_filter(
+            numpy.reshape(self._nSn, shape2 + (self._nnSn,)), order=3
+        )
+        self._dSndJrFiltered = ndimage.spline_filter(
+            numpy.reshape(self._dSndJr, shape2 + (self._nnSn,)), order=3
+        )
+        self._dSndLishFiltered = ndimage.spline_filter(
+            numpy.reshape(self._dSndLish, shape2 + (self._nnSn,)), order=3
+        )
+        # Point transformation: reshape to (nL,nE,:) and filter, for direct
+        # evaluation at fractional (iL,ix) grid coordinates
+        if self._pt_exact:
+            self._pt_filtered_interp = tuple(
+                ndimage.spline_filter(
+                    numpy.reshape(arr, shape2 + (arr.shape[1],)),
+                    order=self._exact_pt_spl_deg,
+                )
+                for arr in (
+                    self._pt_coeffs,
+                    self._pt_deriv_coeffs,
+                    self._pt_deriv2_coeffs,
+                    self._pt_dpsi_coeffs,
+                )
+            )
+        else:
+            self._ptcoeffsFiltered = ndimage.spline_filter(
+                numpy.reshape(self._pt_coeffs, shape2 + (self._pt_coeffs.shape[1],)),
+                order=3,
+            )
         return None
 
-    def _coords_for_map_coords(self, E):
-        coords = numpy.empty((2, self._nnSn * len(E)))
-        coords[0] = numpy.tile(
-            (E - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0),
-            (self._nnSn, 1),
-        ).T.flatten()
-        coords[1] = numpy.tile(self._nforSn - 1, (len(E), 1)).flatten()
-        return coords
+    def _gridcoords(self, jr, L):
+        # Compute the (fractional) grid coordinates (iL,ix) of the torus
+        # (jr,L), solving the interpolated jr(iL,ix) = jr for ix
+        if L < self._Lmin or L > self._Lmax:
+            raise ValueError(
+                "Given angular momentum is outside of the interpolation grid"
+            )
+        iL = float((L - self._Lmin) / (self._Lmax - self._Lmin) * (self._nL - 1.0))
+        ix = 0.5 * (self._nE - 1.0)
+        for _ in range(100):
+            djrdix = _evs(self._jrInterp, iL, ix, dy=1)
+            dix = -(_evs(self._jrInterp, iL, ix) - jr) / djrdix
+            ix = float(numpy.clip(ix + dix, 0.0, self._nE - 1.0))
+            if numpy.fabs(dix) < 1e-12:
+                break
+        if numpy.fabs(_evs(self._jrInterp, iL, ix) - jr) > 1e-8 * (
+            numpy.fabs(jr) + 1e-10
+        ):
+            raise ValueError("Given radial action is outside of the interpolation grid")
+        return iL, ix
+
+    def _coeffs_for_interp(self, filtered, iL, ix, order=3):
+        # Evaluate a (nL,nE,ncoeff) spline-filtered array at fractional grid
+        # coordinates (iL,ix), returning the interpolated coefficient row
+        ncoeff = filtered.shape[2]
+        return ndimage.map_coordinates(
+            filtered,
+            [
+                iL * numpy.ones(ncoeff),
+                ix * numpy.ones(ncoeff),
+                numpy.arange(ncoeff, dtype="float"),
+            ],
+            order=order,
+            prefilter=False,
+            mode="mirror",
+        )
 
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
@@ -1703,7 +1833,33 @@ class actionAngleSphericalInverse(actionAngleInverse):
             tptrperi = self._pt_rperi[indx]
             tptrap = self._pt_rap[indx]
         else:
-            pass
+            L = jz + numpy.fabs(jphi)
+            iL, ix = self._gridcoords(jr, L)
+            tE = _evs(self._EInterp, iL, ix)
+            tnSn = self._coeffs_for_interp(self._nSnFiltered, iL, ix)
+            tdSndJr = self._coeffs_for_interp(self._dSndJrFiltered, iL, ix)
+            tdSndLish = self._coeffs_for_interp(self._dSndLishFiltered, iL, ix)
+            tOmegazoverOmegar = _evs(self._OmegazoverOmegarInterp, iL, ix)
+            tOmegar = _evs(self._OmegarInterp, iL, ix)
+            tOmegaz = _evs(self._OmegazInterp, iL, ix)
+            isoaainv = actionAngleIsochroneInverse(
+                ip=IsochronePotential(
+                    amp=_evs(self._ampInterp, iL, ix),
+                    b=_evs(self._bInterp, iL, ix),
+                )
+            )
+            trperi = _evs(self._rperiInterp, iL, ix)
+            trap = _evs(self._rapInterp, iL, ix)
+            tptrperi = _evs(self._ptrperiInterp, iL, ix)
+            tptrap = _evs(self._ptrapInterp, iL, ix)
+            if self._pt_exact:
+                # Interpolated point transformation is evaluated directly at
+                # the fractional (iL,ix) coordinates below
+                tptcoeffs = tptderivcoeffs = tptderiv2coeffs = None
+            else:
+                tptcoeffs = self._coeffs_for_interp(self._ptcoeffsFiltered, iL, ix)
+                tptderivcoeffs = polynomial.polyder(tptcoeffs, m=1)
+                tptderiv2coeffs = polynomial.polyder(tptcoeffs, m=2)
         if self._pt_exact and self._pt_only:
             # For the exact point transformation, the generating-function
             # mapping (J,theta) -> (JA,thetaA) is the identity, so we can
@@ -1861,24 +2017,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # Now convert orbital-plane^A --> orbital-plane
         if self._pt_exact:
             sanorm = (ra - tptrperi) / (tptrap - tptrperi)
-            r = trperi + (trap - trperi) * _ptra_eval(
-                sanorm,
-                indx,
-                self._pt_filtered[0],
-                self._pt_nmesh,
-                self._exact_pt_spl_deg,
-            )
-            piprime = (
-                (trap - trperi)
-                / (tptrap - tptrperi)
-                * _ptra_eval(
-                    sanorm,
-                    indx,
-                    self._pt_filtered[1],
-                    self._pt_nmesh,
-                    self._exact_pt_spl_deg,
-                )
-            )
             # Delta-psi is stored as a function of the auxiliary radial angle
             # in [0,pi] (outgoing branch); the incoming branch follows from
             # its symmetry Delta-psi(2 pi - theta) = 2 Delta-psi(pi)
@@ -1886,15 +2024,56 @@ class actionAngleSphericalInverse(actionAngleInverse):
             thetaafold = numpy.atleast_1d(anglera) % (2.0 * numpy.pi)
             dpsiflip = thetaafold > numpy.pi
             thetaafold[dpsiflip] = 2.0 * numpy.pi - thetaafold[dpsiflip]
-            dpsival = _ptra_eval(
-                thetaafold / numpy.pi,
-                indx,
-                self._pt_filtered[3],
-                self._pt_nmesh,
-                self._exact_pt_spl_deg,
-            )
-            tdpsiapo = self._pt_dpsi_apo[indx]
+            thnorm = thetaafold / numpy.pi
+            if self._interp:
+
+                def _pt_ev(arr3d, coord):
+                    meshcoord = (
+                        coord * (self._pt_nmesh - 1.0)
+                        + (arr3d.shape[2] - self._pt_nmesh) / 2.0
+                    )
+                    return ndimage.map_coordinates(
+                        arr3d,
+                        [
+                            iL * numpy.ones_like(coord),
+                            ix * numpy.ones_like(coord),
+                            meshcoord,
+                        ],
+                        order=self._exact_pt_spl_deg,
+                        prefilter=False,
+                        mode="mirror",
+                    )
+
+                yval = _pt_ev(self._pt_filtered_interp[0], sanorm)
+                dyval = _pt_ev(self._pt_filtered_interp[1], sanorm)
+                dpsival = _pt_ev(self._pt_filtered_interp[3], thnorm)
+                tdpsiapo = _evs(self._dpsiapoInterp, iL, ix)
+            else:
+                yval = _ptra_eval(
+                    sanorm,
+                    indx,
+                    self._pt_filtered[0],
+                    self._pt_nmesh,
+                    self._exact_pt_spl_deg,
+                )
+                dyval = _ptra_eval(
+                    sanorm,
+                    indx,
+                    self._pt_filtered[1],
+                    self._pt_nmesh,
+                    self._exact_pt_spl_deg,
+                )
+                dpsival = _ptra_eval(
+                    thnorm,
+                    indx,
+                    self._pt_filtered[3],
+                    self._pt_nmesh,
+                    self._exact_pt_spl_deg,
+                )
+                tdpsiapo = self._pt_dpsi_apo[indx]
             dpsival = numpy.where(dpsiflip, 2.0 * tdpsiapo - dpsival, dpsival)
+            r = trperi + (trap - trperi) * yval
+            piprime = (trap - trperi) / (tptrap - tptrperi) * dyval
             psi = psia + dpsival
         else:
             r = (trap - trperi) * polynomial.polyval(
@@ -1985,7 +2164,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
             tOmegar = self._Omegar[indx]
             tOmegaz = self._Omegaz[indx]
         else:
-            pass
+            L = jz + numpy.fabs(jphi)
+            iL, ix = self._gridcoords(jr, L)
+            tOmegar = _evs(self._OmegarInterp, iL, ix)
+            tOmegaz = _evs(self._OmegazInterp, iL, ix)
         return (tOmegar, numpy.sign(jphi) * tOmegaz, tOmegaz)
 
 

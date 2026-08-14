@@ -527,28 +527,37 @@ class _actionAngleIsochroneHelper:
         return (-2.0 * E) ** 1.5 / self.amp
 
     def rperirap(self, E, L2):
-        if self.b == 0:
-            a = -self.amp / 2.0 / E
-            me2 = L2 / self.amp / a
-            e = numpy.sqrt(1.0 - me2)
-            rperi = a * (1.0 - e)
-            rap = a * (1.0 + e)
-        else:
-            smin = (
-                0.5
-                * (
-                    (2.0 * E - self.amp / self.b)
-                    + numpy.sqrt(
-                        (2.0 * E - self.amp / self.b) ** 2.0
-                        + 2.0 * E * (4.0 * self.amp / self.b + L2 / self.b**2.0)
-                    )
+        # Kepler (b=0) limit
+        a = -self.amp / 2.0 / E
+        me2 = L2 / self.amp / a
+        e = numpy.sqrt(1.0 - me2)
+        rperi_kepler = a * (1.0 - e)
+        rap_kepler = a * (1.0 + e)
+        if numpy.ndim(self.b) == 0 and self.b == 0:
+            return (rperi_kepler, rap_kepler)
+        # General isochrone, with b replaced by one where b=0 to avoid
+        # dividing by zero (those entries take the Kepler values below)
+        bsafe = numpy.where(self.b > 0, self.b, 1.0)
+        smin = (
+            0.5
+            * (
+                (2.0 * E - self.amp / bsafe)
+                + numpy.sqrt(
+                    (2.0 * E - self.amp / bsafe) ** 2.0
+                    + 2.0 * E * (4.0 * self.amp / bsafe + L2 / bsafe**2.0)
                 )
-                / E
             )
-            smax = 2.0 - self.amp / E / self.b - smin
-            rperi = smin * numpy.sqrt(1.0 - 2.0 / smin) * self.b
-            rap = smax * numpy.sqrt(1.0 - 2.0 / smax) * self.b
-        return (rperi, rap)
+            / E
+        )
+        smax = 2.0 - self.amp / E / bsafe - smin
+        rperi = smin * numpy.sqrt(1.0 - 2.0 / smin) * bsafe
+        rap = smax * numpy.sqrt(1.0 - 2.0 / smax) * bsafe
+        if numpy.ndim(self.b) == 0:
+            return (rperi, rap)
+        return (
+            numpy.where(self.b > 0, rperi, rperi_kepler),
+            numpy.where(self.b > 0, rap, rap_kepler),
+        )
 
     def drdEL_constant_angler(self, r, vr2, E, L, dEdr, dEdL, vrneg=False):
         """Function used in actionAngleSphericalInverse to determine dEA/dE and dEA/dL: derivative of the radius r wrt E and L necessary to have constant angler"""
