@@ -53,6 +53,8 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import assert_jit_matches_eager
+
 from galpy.backend import as_numpy
 from galpy.potential import (
     ChandrasekharDynamicalFrictionForce,
@@ -219,14 +221,18 @@ def test_dynamfric_jax_jit_jacfwd_finite(label, obj):
             use_physical=False,
         )
 
-    jitted = float(jax.jit(fR)(jnp.asarray(_R0)))
-    jac = float(jax.jacfwd(fR)(jnp.asarray(_R0)))
-    assert numpy.isfinite(jitted), f"{label}: jit not finite"
-    assert numpy.isfinite(jac), f"{label}: jacfwd not finite"
-    # jit value must equal the eager numpy Rforce
-    numpy.testing.assert_allclose(
-        jitted, _np_forces(obj, _R0)[0], rtol=1e-10, atol=1e-13
+    # jit value must equal the eager numpy Rforce, supplied via ref=; the helper
+    # additionally rejects a trace that folded R0 away into a constant.
+    assert_jit_matches_eager(
+        fR,
+        jnp.asarray(_R0),
+        rtol=1e-10,
+        atol=1e-13,
+        ref=_np_forces(obj, _R0)[0],
+        err_msg=label,
     )
+    jac = float(jax.jacfwd(fR)(jnp.asarray(_R0)))
+    assert numpy.isfinite(jac), f"{label}: jacfwd not finite"
 
 
 @pytest.mark.filterwarnings("error::DeprecationWarning")
