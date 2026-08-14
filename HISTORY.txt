@@ -1,6 +1,18 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- Added an exact, ODE-based point transformation to
+  ``actionAngleVerticalInverse`` (``use_pointtransform="exact"``): instead of
+  fitting a polynomial approximation, solve the ordinary differential equation
+  that defines the point transformation mapping each torus exactly onto its
+  auxiliary harmonic-oscillator torus. All mapping coefficients then vanish to
+  within the tolerance of the ODE solution (settable with ``exact_pt_tol``)
+  and the point transformation by itself constitutes the complete torus
+  mapping. With ``pt_only=True``, the inverse transformation is evaluated using
+  the point transformation alone (much faster evaluation); the mapping
+  coefficients are still computed at setup as a diagnostic of the accuracy of
+  the point transformation and a warning is issued if they are not small.
+
 - Added time-dependent support to ``SCFPotential``: each expansion coefficient
   ``Acos`` and ``Asin`` can now be a function of time. Pass a ``tgrid`` together
   with ``Acos``/``Asin`` given either as callables ``f(t)`` returning the

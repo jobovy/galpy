@@ -7020,6 +7020,245 @@ def test_actionAngleVerticalInverse_orbit_pointtransform():
 
 
 # Test that actionAngleVerticalInverse is the inverse of actionAngleVertical
+# when using the exact (ODE-based) point transformation
+def test_actionAngleVerticalInverse_wrtVertical_exactpointtransform():
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
+
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=isopot)
+    # Check a few orbits
+    x, vx = 0.1, -0.3
+    obs = Orbit([x, vx])
+    times = numpy.linspace(0.0, 30.0, 1001)
+    obs.integrate(times, isopot)
+    j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    # Set up actionAngleVerticalInverse for this energy
+    aAVI = actionAngleVerticalInverse(
+        pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform="exact"
+    )
+    xi, vxi = aAVI(aAVI.J(obs.E()), a)
+    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform"
+    )
+    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform"
+    )
+    return None
+
+
+def test_actionAngleVerticalInverse_freqs_wrtVertical_exactpointtransform():
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
+
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=isopot)
+    x, vx = 0.1, -0.3
+    obs = Orbit([x, vx])
+    aAVI = actionAngleVerticalInverse(
+        pot=isopot, nta=4 * 128, Es=[obs.E(pot=isopot)], use_pointtransform="exact"
+    )
+    # The accuracy of the exact point transformation is set by the tolerance
+    # of its ODE solution (rtol=1e-12), which limits the frequency to ~1e-10
+    # relative accuracy (unlike the polynomial point transformation, whose
+    # imperfection is absorbed to machine precision by the S_n coefficients)
+    tol = -9.0
+    Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
+    # Compute frequency with actionAngleHarmonic
+    _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
+    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+        "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using the exact point transform"
+    )
+    return None
+
+
+# Test that orbit from actionAngleVerticalInverse is the same as an integrated
+# orbit when using the exact (ODE-based) point transformation
+def test_actionAngleVerticalInverse_orbit_exactpointtransform():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential, evaluatelinearPotentials
+
+    # Set up instance
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAVI = actionAngleVerticalInverse(
+        pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform="exact"
+    )
+
+    ta = numpy.linspace(0.0, 2.0 * numpy.pi, 1001)
+    x, v = aAVI(aAVI.J(1.0), ta)
+    # Compute energy and check whether it's conserved
+    E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
+    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
+        "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using the exact point transform"
+    )
+    # Now traverse the orbit at the frequency rate and check against orbit integration
+    Om = aAVI.Freqs(aAVI.J(1.0))
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
+    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    orb = Orbit([x[0], v[0]])
+    orb.integrate(ts, isopot)
+    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+        "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using the exact point transform"
+    )
+    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+        "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using the exact point transform"
+    )
+    return None
+
+
+# Test that the exact (ODE-based) point transformation maps the torus exactly
+# onto a harmonic-oscillator torus: all nSn coefficients should be zero to
+# within the accuracy of the ODE solution / spline representation (~1e-10),
+# unlike for the polynomial point transformation or no point transformation
+def test_actionAngleVerticalInverse_coeffs_exactpointtransform():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAVI = actionAngleVerticalInverse(
+        pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform="exact"
+    )
+    assert numpy.nanmax(numpy.fabs(aAVI._nSn)) < 1e-9, (
+        "nSn coefficients using the exact point transformation are not all close to zero"
+    )
+    # Compare against no point transformation, where the coefficients are O(0.01-1)
+    aAVI_nopt = actionAngleVerticalInverse(
+        pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform=False
+    )
+    assert numpy.nanmax(numpy.fabs(aAVI._nSn)) < 1e-6 * numpy.nanmax(
+        numpy.fabs(aAVI_nopt._nSn)
+    ), (
+        "nSn coefficients using the exact point transformation are not orders of magnitude smaller than without a point transformation"
+    )
+    # Also check the edge case of a grid consisting only of the E=0 torus,
+    # for which the point transformation is the identity
+    aAVI0 = actionAngleVerticalInverse(
+        pot=isopot, nta=32, Es=[0.0], use_pointtransform="exact"
+    )
+    assert numpy.all(aAVI0._nSn == 0.0), (
+        "nSn coefficients of the E=0 torus are not all zero when using the exact point transformation"
+    )
+    return None
+
+
+# Test that evaluating with the point transformation only (skipping the
+# generating-function mapping, which is the identity for the exact point
+# transformation) agrees with the full machinery and conserves energy
+def test_actionAngleVerticalInverse_orbit_exactpointtransform_ptonly():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential, evaluatelinearPotentials
+
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAVI = actionAngleVerticalInverse(
+        pot=isopot,
+        nta=4 * 128,
+        Es=[0.1, 1.0, 10.0],
+        use_pointtransform="exact",
+        pt_only=True,
+    )
+    aAVIfull = actionAngleVerticalInverse(
+        pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform="exact"
+    )
+    ta = numpy.linspace(0.0, 2.0 * numpy.pi, 1001)
+    x, v = aAVI(aAVI.J(1.0), ta)
+    # pt_only agrees with the full machinery at the level of the accuracy of
+    # the point transformation itself
+    xf, vf = aAVIfull(aAVIfull.J(1.0), ta)
+    assert numpy.amax(numpy.fabs(x - xf)) < 1e-8, (
+        "pt_only evaluation does not agree with the full generating-function evaluation for the exact point transformation"
+    )
+    assert numpy.amax(numpy.fabs(v - vf)) < 1e-8, (
+        "pt_only evaluation does not agree with the full generating-function evaluation for the exact point transformation"
+    )
+    # Compute energy and check whether it's conserved
+    E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
+    assert numpy.std(E) / numpy.mean(E) < 1e-9, (
+        "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using pt_only evaluation"
+    )
+    # Now traverse the orbit at the frequency rate and check against orbit integration
+    Om = aAVI.Freqs(aAVI.J(1.0))
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
+    x, v = aAVI(aAVI.J(1.0), Om * ts)
+    orb = Orbit([x[0], v[0]])
+    orb.integrate(ts, isopot)
+    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
+        "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using pt_only evaluation"
+    )
+    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
+        "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using pt_only evaluation"
+    )
+    return None
+
+
+# Test the pt_only diagnostics: a warning when the point transformation is not
+# accurate enough and errors when pt_only is combined with a
+# non-exact point transformation
+def test_actionAngleVerticalInverse_ptonly_warnings_errors():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+    from galpy.util import galpyWarning
+
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    # Loose ODE tolerance --> coefficients not small --> warning
+    with pytest.warns(galpyWarning, match="not accurate enough"):
+        actionAngleVerticalInverse(
+            pot=isopot,
+            nta=128,
+            Es=[1.0],
+            use_pointtransform="exact",
+            pt_only=True,
+            exact_pt_tol=1e-4,
+        )
+    # pt_only requires the exact point transformation
+    with pytest.raises(ValueError):
+        actionAngleVerticalInverse(
+            pot=isopot, nta=128, Es=[1.0], use_pointtransform=True, pt_only=True
+        )
+    with pytest.raises(ValueError):
+        actionAngleVerticalInverse(
+            pot=isopot, nta=128, Es=[1.0], use_pointtransform=False, pt_only=True
+        )
+    return None
+
+
+# Test that actionAngleVerticalInverse with the exact point transformation
+# also works when using only bisection to solve equations
+def test_actionAngleVerticalInverse_wrtVertical_exactpointtransform_bisect():
+    from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
+
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aAV = actionAngleVertical(pot=isopot)
+    # Check a few orbits
+    x, vx = 0.1, -0.3
+    obs = Orbit([x, vx])
+    times = numpy.linspace(0.0, 30.0, 1001)
+    obs.integrate(times, isopot)
+    j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    # Set up actionAngleVerticalInverse for this energy
+    aAVI = actionAngleVerticalInverse(
+        pot=isopot,
+        nta=4 * 128,
+        Es=[obs.E()],
+        use_pointtransform="exact",
+        bisect=True,
+    )
+    xi, vxi = aAVI(aAVI.J(obs.E()), a)
+    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform and bisection"
+    )
+    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using the exact point transform and bisection"
+    )
+    return None
+
+
+# Test that actionAngleVerticalInverse is the inverse of actionAngleVertical
 # when using only bisection to solve equations
 def test_actionAngleVerticalInverse_wrtVertical_bisect():
     from galpy.actionAngle import actionAngleVertical, actionAngleVerticalInverse
@@ -7241,6 +7480,22 @@ def setup_actionAngleVerticalInverse_interpolated_pointtransform():
     return aA1Dinv, isopot
 
 
+@pytest.fixture(scope="module")
+def setup_actionAngleVerticalInverse_interpolated_exactpointtransform():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
+    aA1Dinv = actionAngleVerticalInverse(
+        pot=isopot,
+        nta=2 * 128,
+        Es=numpy.linspace(0.0, 4.0, 1001),
+        setup_interp=True,
+        use_pointtransform="exact",
+    )
+    return aA1Dinv, isopot
+
+
 # Test that actionAngleVerticalInverse is the inverse of actionAngleVertical
 def test_actionAngleVerticalInverse_wrtVertical_interpolation(
     setup_actionAngleVerticalInverse_interpolated,
@@ -7397,6 +7652,83 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(
     return None
 
 
+# Test that actionAngleVerticalInverse is the inverse of actionAngleVertical
+def test_actionAngleVerticalInverse_wrtVertical_interpolation_exactpointtransform(
+    setup_actionAngleVerticalInverse_interpolated_exactpointtransform,
+):
+    from galpy.actionAngle import actionAngleVertical
+    from galpy.orbit import Orbit
+
+    aAVI, isopot = setup_actionAngleVerticalInverse_interpolated_exactpointtransform
+    aAV = actionAngleVertical(pot=isopot)
+    # Check a few orbits
+    x, vx = 0.1, -0.3
+    obs = Orbit([x, vx])
+    times = numpy.linspace(0.0, 30.0, 1001)
+    obs.integrate(times, isopot)
+    j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    xi, vxi = aAVI(aAVI.J(obs.E()), a)
+    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
+        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and the exact point transformation"
+    )
+    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
+        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and the exact point transformation"
+    )
+    return None
+
+
+def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_exactpointtransform(
+    setup_actionAngleVerticalInverse_interpolated_exactpointtransform,
+):
+    from galpy.actionAngle import actionAngleVertical
+    from galpy.orbit import Orbit
+
+    aAVI, isopot = setup_actionAngleVerticalInverse_interpolated_exactpointtransform
+    aAV = actionAngleVertical(pot=isopot)
+    x, vx = 0.1, -0.3
+    obs = Orbit([x, vx])
+    tol = -7.5
+    Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
+    # Compute frequency with actionAngleHarmonic
+    _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
+    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
+        "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation and the exact point transformation"
+    )
+    return None
+
+
+# Test that orbit from actionAngleVerticalInverse is the same as an integrated orbit
+def test_actionAngleVerticalInverse_orbit_interpolation_exactpointtransform(
+    setup_actionAngleVerticalInverse_interpolated_exactpointtransform,
+):
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatelinearPotentials
+
+    aAVI, isopot = setup_actionAngleVerticalInverse_interpolated_exactpointtransform
+
+    ta = numpy.linspace(0.0, 2.0 * numpy.pi, 1001)
+    Ei = 1.3132
+    x, v = aAVI(aAVI.J(Ei), ta)
+    # Compute energy and check whether it's conserved
+    E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
+    assert numpy.std(E) / numpy.mean(E) < 1e-8, (
+        "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation and the exact point transformation"
+    )
+    # Now traverse the orbit at the frequency rate and check against orbit integration
+    Om = aAVI.Freqs(aAVI.J(Ei))
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
+    x, v = aAVI(aAVI.J(Ei), Om * ts)
+    orb = Orbit([x[0], v[0]])
+    orb.integrate(ts, isopot)
+    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-7, (
+        "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and the exact point transformation"
+    )
+    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-7, (
+        "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and the exact point transformation"
+    )
+    return None
+
+
 def test_actionAngleVerticalInverse_plotting():
     import matplotlib.pyplot as pyplot
 
@@ -7411,14 +7743,20 @@ def test_actionAngleVerticalInverse_plotting():
     aAVIpt = actionAngleVerticalInverse(
         pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform=True
     )
+    aAVIept = actionAngleVerticalInverse(
+        pot=isopot, nta=4 * 128, Es=[0.1, 1.0, 10.0], use_pointtransform="exact"
+    )
 
     gs = aAVI.plot_convergence(1.0, return_gridspec=True)
     aAVIpt.plot_convergence(1.0, overplot=gs)
+    aAVIept.plot_convergence(1.0, overplot=gs)
     pyplot.close()
     gs = aAVI.plot_power(0.1, return_gridspec=True)
     gs = aAVI.plot_power([0.1, 1.0, 10.0], overplot=gs)
+    gs = aAVIept.plot_power([0.1, 1.0, 10.0], overplot=gs)
     pyplot.close()
     aAVI.plot_orbit(1.0)
+    aAVIept.plot_orbit(1.0)
     pyplot.close()
     return None
 

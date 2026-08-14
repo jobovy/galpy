@@ -14,7 +14,7 @@ import numpy
 from matplotlib import cm, gridspec, pyplot
 from matplotlib.ticker import NullFormatter
 from numpy.polynomial import chebyshev, polynomial
-from scipy import interpolate, ndimage, optimize
+from scipy import integrate, interpolate, ndimage, optimize
 
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
 from ..potential.Potential import _check_potential_list_and_deprecate
@@ -38,6 +38,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
         use_pointtransform=False,
         pt_deg=7,
         pt_nxa=301,
+        exact_pt_spl_deg=5,
+        exact_pt_tol=1e-12,
+        pt_only=False,
         maxiter=100,
         angle_tol=1e-12,
         bisect=False,
@@ -55,12 +58,18 @@ class actionAngleVerticalInverse(actionAngleInverse):
             number of auxiliary angles to sample the torus at when mapping the torus
         setup_interp : bool
             if True, setup interpolation grids that allow any torus within the E range to be accessed through interpolation
-        use_pointtransform : bool
-            if True, use a point transformation to improve the accuracy of the mapping
+        use_pointtransform : bool or str
+            if True, use a point transformation to improve the accuracy of the mapping; use "exact" to solve for the point transformation that makes the torus exactly a harmonic-oscillator torus by solving an ordinary differential equation (rather than using a polynomial approximation)
         pt_deg : int
-            degree of the point transformation polynomial
+            degree of the point transformation polynomial (not used when use_pointtransform == "exact")
         pt_nxa : int
             number of points to use in the point transformation
+        exact_pt_spl_deg : int
+            degree of the spline used to represent the exact point transformation (only used when use_pointtransform == "exact")
+        exact_pt_tol : float
+            absolute and relative tolerance of the ODE solution defining the exact point transformation; sets the floor of the mapping coefficients (only used when use_pointtransform == "exact")
+        pt_only : bool
+            if True, evaluate the inverse transformation using the exact point transformation alone, skipping the generating-function mapping, which is the identity for a perfect point transformation (only allowed when use_pointtransform == "exact"); the mapping coefficients are still computed at setup as a diagnostic of the accuracy of the point transformation and a warning is issued if they are not small
         maxiter : int
             maximum number of iterations of root-finding algorithms
         angle_tol : float
@@ -114,10 +123,33 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # The following work properly for arrays of omega
         self._hoaa = actionAngleHarmonic(omega=self._OmegaHO)
         self._hoaainv = actionAngleHarmonicInverse(omega=self._OmegaHO)
-        if use_pointtransform and pt_deg > 1:
+        if (
+            isinstance(use_pointtransform, str)
+            and use_pointtransform.lower() == "exact"
+        ):
+            self._pt_exact = True
+            self._exact_pt_spl_deg = exact_pt_spl_deg
+            self._exact_pt_tol = exact_pt_tol
+            self._pt_only = pt_only
+            self._setup_pointtransform(pt_deg, pt_nxa)
+        elif use_pointtransform and pt_deg > 1:
+            if pt_only:
+                raise ValueError(
+                    'pt_only=True is only supported for use_pointtransform="exact"'
+                )
+            self._pt_exact = False
+            self._pt_only = False
+            self._exact_pt_spl_deg = None
             self._setup_pointtransform(pt_deg - (1 - pt_deg % 2), pt_nxa)  # make odd
         else:
+            if pt_only:
+                raise ValueError(
+                    'pt_only=True is only supported for use_pointtransform="exact"'
+                )
             # Setup identity point transformation
+            self._pt_exact = False
+            self._pt_only = False
+            self._exact_pt_spl_deg = None
             self._pt_deg = 1
             self._pt_nxa = pt_nxa
             self._pt_xmaxs = self._xmaxs
@@ -125,6 +157,21 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._pt_coeffs[:, 1] = 1.0
             self._pt_deriv_coeffs = numpy.ones((self._nE, 1))
             self._pt_deriv2_coeffs = numpy.zeros((self._nE, 1))
+        # Extra keyword arguments to pass to _anglea, _ja, ... for the exact
+        # point transformation (which the polynomial evaluation doesn't need);
+        # for the exact point transformation, the positional ptcoeffs-style
+        # arguments of those functions instead carry the (possibly fractional)
+        # row index of each point's torus in the grid
+        self._pt_eval_kwargs = (
+            dict(
+                pt_exact=True,
+                pt_filtered=self._pt_filtered,
+                pt_nmesh=self._pt_nmesh,
+                pt_spl_deg=self._exact_pt_spl_deg,
+            )
+            if self._pt_exact
+            else dict()
+        )
         # Now map all tori
         self._nta = nta
         self._thetaa = numpy.linspace(0.0, 2.0 * numpy.pi * (1.0 - 1.0 / nta), nta)
@@ -141,6 +188,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._ptderivcoeffsgrid,
             self._xmaxgrid,
             self._ptxmaxgrid,
+            **self._pt_eval_kwargs,
         )
         self._djadj = (
             _djadj(
@@ -153,6 +201,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 self._ptderiv2coeffsgrid,
                 self._xmaxgrid,
                 self._ptxmaxgrid,
+                **self._pt_eval_kwargs,
             )
             * numpy.atleast_2d(self._Omegas / self._OmegaHO).T
         )  # In case not 1!
@@ -197,6 +246,21 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._Omegas[self._Es < 1e-10] = self._Omegas[1]
         self._nSn[self._js < 1e-10] = 0.0
         self._dSndJ[self._js < 1e-10] = 0.0
+        # When evaluating using the point transformation only, the computed
+        # mapping coefficients serve as a diagnostic of the accuracy of the
+        # point transformation: they should all be close to zero
+        if self._pt_exact and self._pt_only:
+            relnSn = numpy.nanmax(numpy.fabs(self._nSn)) / numpy.nanmax(
+                numpy.fabs(self._js) + 1e-15
+            )
+            maxdSndJ = numpy.nanmax(numpy.fabs(self._dSndJ))
+            if relnSn > 1e-8 or maxdSndJ > 1e-8:
+                warnings.warn(
+                    "Point transformation is not accurate enough for pt_only=True evaluation: the generating-function mapping that pt_only skips is not negligible (max |nSn|/max J = {:.2e}, max |dSndJ| = {:.2e}); decrease exact_pt_tol and/or increase pt_nxa, or use pt_only=False".format(
+                        relnSn, maxdSndJ
+                    ),
+                    galpyWarning,
+                )
         # Setup interpolation if requested
         if setup_interp:
             self._interp = True
@@ -209,11 +273,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # Setup a point transformation for each torus
         self._pt_deg = pt_deg
         self._pt_nxa = pt_nxa
+        self._pt_xmaxs = numpy.sqrt(2.0 * self._js / self._OmegaHO)
+        if self._pt_exact:
+            return self._setup_pointtransform_exact(pt_nxa)
         xamesh = numpy.linspace(-1.0, 1.0, pt_nxa)
         self._pt_coeffs = numpy.empty((self._nE, pt_deg + 1))
         self._pt_deriv_coeffs = numpy.empty((self._nE, pt_deg))
         self._pt_deriv2_coeffs = numpy.empty((self._nE, pt_deg - 1))
-        self._pt_xmaxs = numpy.sqrt(2.0 * self._js / self._OmegaHO)
         for ii in range(self._nE):
             if self._js[ii] < 1e-10:  # Just use identity for small J
                 self._pt_coeffs[ii] = 0.0
@@ -275,6 +341,109 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._pt_deriv2_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=2)
         return None
 
+    def _setup_pointtransform_exact(self, pt_nxa):
+        # Setup the exact point transformation for each torus by solving the
+        # ordinary differential equation d pi / d xa = v / va that it
+        # satisfies; the result is stored as the normalized mapping
+        # x/xmax(xa/ptxmax) sampled on the fixed mesh self._pt_xamesh and is
+        # evaluated using spline interpolation. _pt_deriv_coeffs and
+        # _pt_deriv2_coeffs are not used in this case (derivatives come from
+        # the spline), but are kept for shape compatibility
+        # The mapping is stored sampled on a mesh that extends beyond the
+        # [-1,1] range of the normalized coordinate, because the stored
+        # arrays are evaluated using ndimage 2D-spline interpolation whose
+        # mirror boundary condition would otherwise distort the interpolation
+        # near the turning points; the padding pushes that edge artifact,
+        # which decays geometrically, well below the ODE tolerance inside
+        # [-1,1]
+        self._pt_nmesh = 2 * pt_nxa - 1
+        self._pt_pad = 4 * self._exact_pt_spl_deg + 16
+        dmesh = 2.0 / (self._pt_nmesh - 1.0)
+        self._pt_xamesh = numpy.linspace(
+            -1.0 - self._pt_pad * dmesh,
+            1.0 + self._pt_pad * dmesh,
+            self._pt_nmesh + 2 * self._pt_pad,
+        )
+        # Initialize all tori to the identity mapping (which remains the
+        # mapping used for small J); for the exact point transformation, the
+        # deriv arrays hold the derivatives of the normalized mapping with
+        # respect to the normalized coordinate sampled on the same mesh
+        self._pt_coeffs = numpy.tile(self._pt_xamesh, (self._nE, 1))
+        self._pt_deriv_coeffs = numpy.ones_like(self._pt_coeffs)
+        self._pt_deriv2_coeffs = numpy.zeros_like(self._pt_coeffs)
+        xanormmesh = numpy.linspace(0.0, 1.0, pt_nxa)
+        # Just use the identity for small J
+        zIndx = self._js < 1e-10
+        self._pt_xmaxs[zIndx] = self._xmaxs[zIndx] + 1e-10  # avoid /0
+        gIndx = True ^ zIndx
+        if numpy.any(gIndx):
+            # Aux. torus = harmonic-oscillator torus with the same action
+            # (because omega = Omega, this is also the same-frequency torus)
+            Eas = self._js[gIndx] * self._OmegaHO[gIndx]
+            Es = self._Es[gIndx]
+            omegas = self._OmegaHO[gIndx]
+            xmaxs = self._xmaxs[gIndx]
+            ptxmaxs = self._pt_xmaxs[gIndx]
+
+            # Solve for all tori in a single vectorized ODE solve, using the
+            # shared normalized coordinate s = xa/ptxmax as the independent
+            # variable
+            def dptdxanorm(s, x):
+                # d pi / d (xa/ptxmax) = ptxmax * v / va
+                v2 = 2.0 * (Es - evaluatelinearPotentials(self._pot, x))
+                v2[v2 < 0.0] = 1e-20  # Just to get/keep going
+                va2 = 2.0 * Eas - omegas**2.0 * (s * ptxmaxs) ** 2.0
+                va2[va2 < 0.0] = 1e-16
+                return ptxmaxs * numpy.sqrt(v2 / va2)
+
+            # Integrate up to the second-to-last mesh point only, because the
+            # ODE is singular (0/0) at the turning point xa = ptxmax itself;
+            # the value there is set by the boundary condition that the
+            # turning point maps exactly onto the turning point (the mapping
+            # is smooth through the turning point, so the spline representation
+            # remains accurate over the final mesh interval)
+            sol = integrate.solve_ivp(
+                dptdxanorm,
+                [0.0, xanormmesh[-2]],
+                numpy.zeros(numpy.sum(gIndx)),
+                t_eval=xanormmesh[:-1],
+                rtol=self._exact_pt_tol,
+                atol=self._exact_pt_tol,
+                method="DOP853",
+            )
+            if not sol.success:  # pragma: no cover
+                raise RuntimeError(
+                    "Solving the ODE that defines the exact point transformation failed, full message: "
+                    + sol.message
+                )
+            ynorm = sol.y / numpy.atleast_2d(xmaxs).T
+            # The turning point must map exactly onto the turning point
+            ynorm = numpy.hstack((ynorm, numpy.ones((ynorm.shape[0], 1))))
+            # Odd reflection onto the full [-1,1] mesh (symmetric potential)
+            ynormfull = numpy.hstack((-ynorm[:, :0:-1], ynorm))
+            # Represent as a spline and sample the mapping and its
+            # derivatives on the extended mesh (polynomial extrapolation of
+            # the end pieces beyond [-1,1], see above)
+            coremesh = numpy.linspace(-1.0, 1.0, self._pt_nmesh)
+            for tynorm, ii in zip(ynormfull, numpy.arange(self._nE)[gIndx]):
+                tspl = interpolate.InterpolatedUnivariateSpline(
+                    coremesh, tynorm, k=self._exact_pt_spl_deg
+                )
+                self._pt_coeffs[ii] = tspl(self._pt_xamesh)
+                self._pt_deriv_coeffs[ii] = tspl(self._pt_xamesh, nu=1)
+                self._pt_deriv2_coeffs[ii] = tspl(self._pt_xamesh, nu=2)
+        # Store spline-filtered versions for fast 2D-spline evaluation of the
+        # mapping and its derivatives at (torus,xa/ptxmax) points
+        self._pt_filtered = tuple(
+            ndimage.spline_filter(arr, order=self._exact_pt_spl_deg)
+            for arr in (
+                self._pt_coeffs,
+                self._pt_deriv_coeffs,
+                self._pt_deriv2_coeffs,
+            )
+        )
+        return None
+
     def _create_xgrid(self):
         # Find x grid for regular grid in auxiliary angle (thetaa)
         # in practice only need to map 0 < thetaa < pi/2  to +x with +v bc symm
@@ -282,15 +451,31 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # grid in x (at +v)
         xgrid = numpy.linspace(-1.0, 1.0, 2 * self._nta)
         xs = xgrid * numpy.atleast_2d(self._pt_xmaxs).T
+        if self._pt_exact:
+            # For the exact point transformation, the positional
+            # ptcoeffs-style arguments carry the row index of each point's
+            # torus in the grid of tori instead of polynomial coefficients
+            tptcoeffs = numpy.tile(
+                numpy.arange(self._nE, dtype="float"), (xs.shape[1], 1)
+            ).T
+            tptderivcoeffs = tptcoeffs
+        else:
+            tptcoeffs = numpy.rollaxis(
+                numpy.tile(self._pt_coeffs, (xs.shape[1], 1, 1)), 1
+            )
+            tptderivcoeffs = numpy.rollaxis(
+                numpy.tile(self._pt_deriv_coeffs, (xs.shape[1], 1, 1)), 1
+            )
         xta = _anglea(
             xs,
             numpy.tile(self._Es, (xs.shape[1], 1)).T,
             self._pot,
             numpy.tile(self._hoaa._omega, (xs.shape[1], 1)).T,
-            numpy.rollaxis(numpy.tile(self._pt_coeffs, (xs.shape[1], 1, 1)), 1),
-            numpy.rollaxis(numpy.tile(self._pt_deriv_coeffs, (xs.shape[1], 1, 1)), 1),
+            tptcoeffs,
+            tptderivcoeffs,
             numpy.tile(self._xmaxs, (xs.shape[1], 1)).T,
             numpy.tile(self._pt_xmaxs, (xs.shape[1], 1)).T,
+            **self._pt_eval_kwargs,
         )
         xta[numpy.isnan(xta)] = 0.0  # Zero energy orbit -> NaN
         # Now use Newton-Raphson to iterate to a regular grid
@@ -303,17 +488,33 @@ class actionAngleVerticalInverse(actionAngleInverse):
             axis=2,
         )
         xgrid = xgrid[cindx].T * numpy.atleast_2d(self._pt_xmaxs).T
+        if self._pt_exact:
+            # With the exact point transformation, the auxiliary angle is
+            # simply the harmonic-oscillator angle of xa on the auxiliary
+            # torus, so the grid follows in closed form; the Newton-Raphson
+            # iteration below then merely polishes this to be exactly
+            # consistent with the stored spline representation
+            xgrid = numpy.atleast_2d(self._pt_xmaxs).T * numpy.sin(self._thetaa)
         Egrid = numpy.tile(self._Es, (self._nta, 1)).T
         omegagrid = numpy.tile(self._hoaa._omega, (self._nta, 1)).T
         xmaxgrid = numpy.tile(self._xmaxs, (self._nta, 1)).T
         ptxmaxgrid = numpy.tile(self._pt_xmaxs, (self._nta, 1)).T
-        ptcoeffsgrid = numpy.rollaxis(numpy.tile(self._pt_coeffs, (self._nta, 1, 1)), 1)
-        ptderivcoeffsgrid = numpy.rollaxis(
-            numpy.tile(self._pt_deriv_coeffs, (self._nta, 1, 1)), 1
-        )
-        ptderiv2coeffsgrid = numpy.rollaxis(
-            numpy.tile(self._pt_deriv2_coeffs, (self._nta, 1, 1)), 1
-        )
+        if self._pt_exact:
+            ptcoeffsgrid = numpy.tile(
+                numpy.arange(self._nE, dtype="float"), (self._nta, 1)
+            ).T
+            ptderivcoeffsgrid = ptcoeffsgrid
+            ptderiv2coeffsgrid = ptcoeffsgrid
+        else:
+            ptcoeffsgrid = numpy.rollaxis(
+                numpy.tile(self._pt_coeffs, (self._nta, 1, 1)), 1
+            )
+            ptderivcoeffsgrid = numpy.rollaxis(
+                numpy.tile(self._pt_deriv_coeffs, (self._nta, 1, 1)), 1
+            )
+            ptderiv2coeffsgrid = numpy.rollaxis(
+                numpy.tile(self._pt_deriv2_coeffs, (self._nta, 1, 1)), 1
+            )
         ta = _anglea(
             xgrid,
             Egrid,
@@ -323,6 +524,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             ptderivcoeffsgrid,
             xmaxgrid,
             ptxmaxgrid,
+            **self._pt_eval_kwargs,
         )
         mta = numpy.tile(self._thetaa, (len(self._Es), 1))
         # Now iterate
@@ -347,6 +549,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ptderiv2coeffsgrid[unconv],
                 xmaxgrid[unconv],
                 ptxmaxgrid[unconv],
+                **self._pt_eval_kwargs,
             )
             dta = (ta[unconv] - mta[unconv] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             dx = -dta / dtadx
@@ -369,6 +572,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ptderivcoeffsgrid[unconv],
                 xmaxgrid[unconv],
                 ptxmaxgrid[unconv],
+                **self._pt_eval_kwargs,
             )
             ta[unconv] = newta
             unconv[unconv] = numpy.fabs(dta) > self._angle_tol
@@ -410,6 +614,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                         ptderivcoeffsgrid[unconv],
                         xmaxgrid[unconv],
                         ptxmaxgrid[unconv],
+                        **self._pt_eval_kwargs,
                     )
                     + 2.0 * numpy.pi
                 ) % (2.0 * numpy.pi)
@@ -447,6 +652,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             xmaxgrid[:, self._nta // 4 + 1 : 3 * self._nta // 4],
             ptxmaxgrid[:, self._nta // 4 + 1 : 3 * self._nta // 4],
             vsign=-1.0,
+            **self._pt_eval_kwargs,
         )
         self._dta = (ta - mta + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         self._mta = mta
@@ -501,11 +707,16 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 E,
                 self._pot,
                 self._OmegaHO[indx],
-                self._pt_coeffs[indx],
-                numpy.tile(self._pt_deriv_coeffs[indx], (numpy.sum(True ^ negv), 1)),
+                indx * one if self._pt_exact else self._pt_coeffs[indx],
+                indx * one
+                if self._pt_exact
+                else numpy.tile(
+                    self._pt_deriv_coeffs[indx], (numpy.sum(True ^ negv), 1)
+                ),
                 self._xmaxs[indx] * one,
                 self._pt_xmaxs[indx] * one,
                 vsign=1.0,
+                **self._pt_eval_kwargs,
             )
             one = numpy.ones(numpy.sum(negv))
             thetaa_out[negv] = _anglea(
@@ -513,11 +724,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 E,
                 self._pot,
                 self._OmegaHO[indx],
-                self._pt_coeffs[indx],
-                numpy.tile(self._pt_deriv_coeffs[indx], (numpy.sum(negv), 1)),
+                indx * one if self._pt_exact else self._pt_coeffs[indx],
+                indx * one
+                if self._pt_exact
+                else numpy.tile(self._pt_deriv_coeffs[indx], (numpy.sum(negv), 1)),
                 self._xmaxs[indx] * one,
                 self._pt_xmaxs[indx] * one,
                 vsign=-1.0,
+                **self._pt_eval_kwargs,
             )
             plot.plot(
                 self._thetaa,
@@ -886,9 +1100,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
             Es=[E],
             nta=self._nta,
             setup_interp=False,
-            use_pointtransform=self._pt_deg > 1,
+            use_pointtransform="exact" if self._pt_exact else self._pt_deg > 1,
             pt_deg=self._pt_deg,
             pt_nxa=self._pt_nxa,
+            exact_pt_spl_deg=(self._exact_pt_spl_deg if self._pt_exact else 5),
         )
         # Check whether S_n is matched
         pyplot.subplot(2, 3, 1)
@@ -1091,98 +1306,149 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tptxmax = self.ptxmax(tE)
             tptcoeffs = self.pt_coeffs(tE)[0]
             tptderivcoeffs = self.pt_deriv_coeffs(tE)[0]
-        # First we need to solve for a<nglea
-        angle = numpy.atleast_1d(angle)
-        anglea = copy.copy(angle)
-        # Now iterate Newton's method
-        cntr = 0
-        unconv = numpy.ones(len(angle), dtype="bool")
-        ta = anglea + 2.0 * numpy.sum(
-            tdSndJ * numpy.sin(self._nforSn * numpy.atleast_2d(anglea).T), axis=1
-        )
-        dta = (ta - angle + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-        unconv[unconv] = numpy.fabs(dta) > self._angle_tol
-        # Don't allow too big steps
-        maxda = 2.0 * numpy.pi / 101
-        while not self._bisect:
-            danglea = 1.0 + 2.0 * numpy.sum(
-                self._nforSn
-                * tdSndJ
-                * numpy.cos(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
-                axis=1,
-            )
-            dta = (ta[unconv] - angle[unconv] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-            da = -dta / danglea
-            da[numpy.fabs(da) > maxda] = (numpy.sign(da) * maxda)[
-                numpy.fabs(da) > maxda
-            ]
-            anglea[unconv] += da
-            unconv[unconv] = numpy.fabs(dta) > self._angle_tol
-            newta = anglea[unconv] + 2.0 * numpy.sum(
-                tdSndJ * numpy.sin(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
-                axis=1,
-            )
-            ta[unconv] = newta
-            cntr += 1
-            if numpy.sum(unconv) == 0:
-                break
-            if cntr > self._maxiter:  # pragma: no cover
-                warnings.warn(
-                    "Angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)".format(
-                        self._maxiter
-                    ),
-                    galpyWarning,
-                )
-                break
-        # Fallback onto simple bisection in case of non-convergence
-        if self._bisect or cntr > self._maxiter:
-            # Reset cntr
+        if self._pt_exact and self._pt_only:
+            # For the exact point transformation, the generating-function
+            # mapping (J,theta) -> (JA,thetaA) is the identity, so we can
+            # skip solving for the auxiliary angles and action
+            angle = numpy.atleast_1d(angle)
+            anglea = copy.copy(angle)
+            ja = j * numpy.ones_like(angle)
+        else:
+            # First we need to solve for a<nglea
+            angle = numpy.atleast_1d(angle)
+            anglea = copy.copy(angle)
+            # Now iterate Newton's method
             cntr = 0
-            trya_min = numpy.zeros(numpy.sum(unconv))
-            da = 2.0 * numpy.pi
-            while True:
-                da *= 0.5
-                anglea[unconv] = trya_min + da
-                newta = (
-                    anglea[unconv]
-                    + 2.0
-                    * numpy.sum(
-                        tdSndJ
-                        * numpy.sin(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
-                        axis=1,
-                    )
-                    + 2.0 * numpy.pi
-                ) % (2.0 * numpy.pi)
-                dta = (newta - angle[unconv] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-                trya_min[newta < angle[unconv]] = anglea[unconv][newta < angle[unconv]]
+            unconv = numpy.ones(len(angle), dtype="bool")
+            ta = anglea + 2.0 * numpy.sum(
+                tdSndJ * numpy.sin(self._nforSn * numpy.atleast_2d(anglea).T), axis=1
+            )
+            dta = (ta - angle + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            unconv[unconv] = numpy.fabs(dta) > self._angle_tol
+            # Don't allow too big steps
+            maxda = 2.0 * numpy.pi / 101
+            while not self._bisect:
+                danglea = 1.0 + 2.0 * numpy.sum(
+                    self._nforSn
+                    * tdSndJ
+                    * numpy.cos(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
+                    axis=1,
+                )
+                dta = (ta[unconv] - angle[unconv] + numpy.pi) % (
+                    2.0 * numpy.pi
+                ) - numpy.pi
+                da = -dta / danglea
+                da[numpy.fabs(da) > maxda] = (numpy.sign(da) * maxda)[
+                    numpy.fabs(da) > maxda
+                ]
+                anglea[unconv] += da
                 unconv[unconv] = numpy.fabs(dta) > self._angle_tol
-                trya_min = trya_min[numpy.fabs(dta) > self._angle_tol]
+                newta = anglea[unconv] + 2.0 * numpy.sum(
+                    tdSndJ
+                    * numpy.sin(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
+                    axis=1,
+                )
+                ta[unconv] = newta
                 cntr += 1
                 if numpy.sum(unconv) == 0:
                     break
                 if cntr > self._maxiter:  # pragma: no cover
                     warnings.warn(
-                        "Angle mapping with bisection did not converge in {} iterations".format(
+                        "Angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)".format(
                             self._maxiter
-                        )
-                        + " for angles:"
-                        + "".join(f" {k:g}" for k in sorted(set(angle[unconv]))),
+                        ),
                         galpyWarning,
                     )
                     break
-        # Then compute the auxiliary action
-        ja = j + 2.0 * numpy.sum(
-            tnSn * numpy.cos(self._nforSn * numpy.atleast_2d(anglea).T), axis=1
-        )
+            # Fallback onto simple bisection in case of non-convergence
+            if self._bisect or cntr > self._maxiter:
+                # Reset cntr
+                cntr = 0
+                trya_min = numpy.zeros(numpy.sum(unconv))
+                da = 2.0 * numpy.pi
+                while True:
+                    da *= 0.5
+                    anglea[unconv] = trya_min + da
+                    newta = (
+                        anglea[unconv]
+                        + 2.0
+                        * numpy.sum(
+                            tdSndJ
+                            * numpy.sin(
+                                self._nforSn * numpy.atleast_2d(anglea[unconv]).T
+                            ),
+                            axis=1,
+                        )
+                        + 2.0 * numpy.pi
+                    ) % (2.0 * numpy.pi)
+                    dta = (newta - angle[unconv] + numpy.pi) % (
+                        2.0 * numpy.pi
+                    ) - numpy.pi
+                    trya_min[newta < angle[unconv]] = anglea[unconv][
+                        newta < angle[unconv]
+                    ]
+                    unconv[unconv] = numpy.fabs(dta) > self._angle_tol
+                    trya_min = trya_min[numpy.fabs(dta) > self._angle_tol]
+                    cntr += 1
+                    if numpy.sum(unconv) == 0:
+                        break
+                    if cntr > self._maxiter:  # pragma: no cover
+                        warnings.warn(
+                            "Angle mapping with bisection did not converge in {} iterations".format(
+                                self._maxiter
+                            )
+                            + " for angles:"
+                            + "".join(f" {k:g}" for k in sorted(set(angle[unconv]))),
+                            galpyWarning,
+                        )
+                        break
+            # Then compute the auxiliary action
+            ja = j + 2.0 * numpy.sum(
+                tnSn * numpy.cos(self._nforSn * numpy.atleast_2d(anglea).T), axis=1
+            )
         hoaainv = actionAngleHarmonicInverse(omega=tOmegaHO)
         xa, va = hoaainv(ja, anglea)
-        x = txmax * polynomial.polyval((xa / tptxmax).T, tptcoeffs.T, tensor=False).T
-        v = (
-            va
-            / tptxmax
-            * txmax
-            * polynomial.polyval((xa / tptxmax).T, tptderivcoeffs.T, tensor=False).T
-        )
+        if self._pt_exact:
+            # Row coordinate of this torus in the grid of tori; fractional
+            # for interpolated tori, in which case the 2D spline evaluation
+            # interpolates the point transformation between the grid tori
+            trowcoord = (
+                float(indx)
+                if not self._interp
+                else float(
+                    (tE - self._Emin) / (self._Emax - self._Emin) * (self._nE - 1.0)
+                )
+            )
+            x = txmax * _ptxa_eval(
+                xa / tptxmax,
+                trowcoord,
+                self._pt_filtered[0],
+                self._pt_nmesh,
+                self._exact_pt_spl_deg,
+            )
+            v = (
+                va
+                / tptxmax
+                * txmax
+                * _ptxa_eval(
+                    xa / tptxmax,
+                    trowcoord,
+                    self._pt_filtered[1],
+                    self._pt_nmesh,
+                    self._exact_pt_spl_deg,
+                )
+            )
+        else:
+            x = (
+                txmax
+                * polynomial.polyval((xa / tptxmax).T, tptcoeffs.T, tensor=False).T
+            )
+            v = (
+                va
+                / tptxmax
+                * txmax
+                * polynomial.polyval((xa / tptxmax).T, tptderivcoeffs.T, tensor=False).T
+            )
         return (x, v, tOmega)
 
     def _Freqs(self, j, **kwargs):
@@ -1218,7 +1484,70 @@ class actionAngleVerticalInverse(actionAngleInverse):
         return tOmega
 
 
-def _anglea(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax, vsign=1.0):
+def _ptxa_eval(xanorm, rowcoord, pt_filtered_arr, pt_nmesh, pt_spl_deg):
+    """
+    Evaluate the exact point transformation (or one of its derivatives) with
+    respect to the normalized coordinate xa/ptxmax, using 2D spline
+    interpolation of the (torus,mesh) grid on which it is stored
+
+    Parameters
+    ----------
+    xanorm : numpy.ndarray
+        Normalized position(s) xa/ptxmax at which to evaluate.
+    rowcoord : numpy.ndarray or float
+        (Possibly fractional, for tori obtained through interpolation) row
+        index of the torus of each evaluation point in the grid of tori;
+        scalars are broadcast against xanorm.
+    pt_filtered_arr : numpy.ndarray
+        Spline-filtered (torus,mesh) grid of the normalized mapping x/xmax
+        (or of one of its derivatives with respect to the normalized
+        coordinate) sampled on the fixed mesh.
+    pt_nmesh : int
+        Number of mesh points (the size of pt_filtered_arr's second
+        dimension).
+    pt_spl_deg : int
+        Degree of the interpolating spline (must match the order used to
+        filter pt_filtered_arr).
+
+    Returns
+    -------
+    numpy.ndarray
+        The normalized mapping (or its derivative) at xanorm.
+
+    Notes
+    -----
+    - 2026-08-13 - Written - Bovy (UofT)
+
+    """
+    xanorm = numpy.atleast_1d(numpy.asarray(xanorm, dtype="float"))
+    rowcoord = numpy.broadcast_to(numpy.asarray(rowcoord, dtype="float"), xanorm.shape)
+    meshcoord = (xanorm + 1.0) * (pt_nmesh - 1.0) / 2.0 + (
+        pt_filtered_arr.shape[1] - pt_nmesh
+    ) / 2.0
+    return ndimage.map_coordinates(
+        pt_filtered_arr,
+        [rowcoord.reshape(-1), meshcoord.reshape(-1)],
+        order=pt_spl_deg,
+        prefilter=False,
+        mode="mirror",
+    ).reshape(xanorm.shape)
+
+
+def _anglea(
+    xa,
+    E,
+    pot,
+    omega,
+    ptcoeffs,
+    ptderivcoeffs,
+    xmax,
+    ptxmax,
+    vsign=1.0,
+    pt_exact=False,
+    pt_filtered=None,
+    pt_nmesh=None,
+    pt_spl_deg=5,
+):
     """
     Compute the auxiliary angle in the harmonic-oscillator for a grid in x and E
 
@@ -1255,29 +1584,64 @@ def _anglea(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax, vsign=1.0)
 
     """
     # Compute v
-    x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
+    if pt_exact:
+        x = xmax * _ptxa_eval(
+            xa / ptxmax, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
+        )
+    else:
+        x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
     v2 = 2.0 * (E - evaluatelinearPotentials(pot, x))
     v2[v2 < 0] = 0.0
     v2[numpy.fabs(xa) == ptxmax] = 0.0  # just in case the pt mapping has small issues
-    piprime = (
-        xmax
-        / ptxmax
-        * polynomial.polyval((xa / ptxmax).T, ptderivcoeffs.T, tensor=False).T
-    )
+    if pt_exact:
+        piprime = (
+            xmax
+            / ptxmax
+            * _ptxa_eval(xa / ptxmax, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
+        )
+    else:
+        piprime = (
+            xmax
+            / ptxmax
+            * polynomial.polyval((xa / ptxmax).T, ptderivcoeffs.T, tensor=False).T
+        )
     # J=0 special case:
-    piprime[(xmax == 0.0) * (ptxmax == xmax + 1e-10)] = polynomial.polyval(
-        (
-            xa[(xmax == 0.0) * (ptxmax == xmax + 1e-10)]
-            / ptxmax[(xmax == 0.0) * (ptxmax == xmax + 1e-10)]
-        ).T,
-        ptderivcoeffs[(xmax == 0.0) * (ptxmax == xmax + 1e-10)].T,
-        tensor=False,
-    ).T
+    zindx = (xmax == 0.0) * (ptxmax == xmax + 1e-10)
+    if numpy.any(zindx):
+        if pt_exact:
+            piprime[zindx] = _ptxa_eval(
+                xa[zindx] / ptxmax[zindx],
+                numpy.asarray(ptcoeffs)[zindx]
+                if numpy.ndim(ptcoeffs) > 0
+                else ptcoeffs,
+                pt_filtered[1],
+                pt_nmesh,
+                pt_spl_deg,
+            )
+        else:
+            piprime[zindx] = polynomial.polyval(
+                (xa[zindx] / ptxmax[zindx]).T,
+                ptderivcoeffs[zindx].T,
+                tensor=False,
+            ).T
     return numpy.arctan2(omega * xa, vsign * numpy.sqrt(v2) / piprime)
 
 
 def _danglea(
-    xa, E, pot, omega, ptcoeffs, ptderivcoeffs, ptderiv2coeffs, xmax, ptxmax, vsign=1.0
+    xa,
+    E,
+    pot,
+    omega,
+    ptcoeffs,
+    ptderivcoeffs,
+    ptderiv2coeffs,
+    xmax,
+    ptxmax,
+    vsign=1.0,
+    pt_exact=False,
+    pt_filtered=None,
+    pt_nmesh=None,
+    pt_spl_deg=5,
 ):
     """
     Compute the derivative of the auxiliary angle in the harmonic-oscillator for a grid in x and E at constant E
@@ -1317,21 +1681,35 @@ def _danglea(
 
     """
     # Compute v
-    x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
+    if pt_exact:
+        x = xmax * _ptxa_eval(
+            xa / ptxmax, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
+        )
+        piprime = (
+            xmax
+            / ptxmax
+            * _ptxa_eval(xa / ptxmax, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
+        )
+        piprime2 = (
+            xmax
+            / ptxmax**2.0
+            * _ptxa_eval(xa / ptxmax, ptcoeffs, pt_filtered[2], pt_nmesh, pt_spl_deg)
+        )
+    else:
+        x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
+        piprime = (
+            xmax
+            / ptxmax
+            * polynomial.polyval((xa / ptxmax).T, ptderivcoeffs.T, tensor=False).T
+        )
+        piprime2 = (
+            xmax
+            / ptxmax**2.0
+            * polynomial.polyval((xa / ptxmax).T, ptderiv2coeffs.T, tensor=False).T
+        )
     v2 = 2.0 * (E - evaluatelinearPotentials(pot, x))
     v2[v2 < 1e-15] = 1e-15
-    piprime = (
-        xmax
-        / ptxmax
-        * polynomial.polyval((xa / ptxmax).T, ptderivcoeffs.T, tensor=False).T
-    )
     anglea = numpy.arctan2(omega * xa * piprime, vsign * numpy.sqrt(v2))
-
-    piprime2 = (
-        xmax
-        / ptxmax**2.0
-        * polynomial.polyval((xa / ptxmax).T, ptderiv2coeffs.T, tensor=False).T
-    )
     return (
         omega
         * numpy.cos(anglea) ** 2.0
@@ -1343,7 +1721,20 @@ def _danglea(
     )
 
 
-def _ja(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax):
+def _ja(
+    xa,
+    E,
+    pot,
+    omega,
+    ptcoeffs,
+    ptderivcoeffs,
+    xmax,
+    ptxmax,
+    pt_exact=False,
+    pt_filtered=None,
+    pt_nmesh=None,
+    pt_spl_deg=5,
+):
     """
     Compute the auxiliary action in the harmonic-oscillator for a grid in x and E
 
@@ -1377,14 +1768,24 @@ def _ja(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax):
     - 2018-11-22 - Added point transformation - Bovy (UofT)
 
     """
-    x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
+    if pt_exact:
+        x = xmax * _ptxa_eval(
+            xa / ptxmax, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
+        )
+        piprime = (
+            xmax
+            / ptxmax
+            * _ptxa_eval(xa / ptxmax, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
+        )
+    else:
+        x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
+        piprime = (
+            xmax
+            / ptxmax
+            * polynomial.polyval((xa / ptxmax).T, ptderivcoeffs.T, tensor=False).T
+        )
     v2over2 = E - evaluatelinearPotentials(pot, x)
     v2over2[v2over2 < 0.0] = 0.0
-    piprime = (
-        xmax
-        / ptxmax
-        * polynomial.polyval((xa / ptxmax).T, ptderivcoeffs.T, tensor=False).T
-    )
     out = numpy.empty_like(xa)
     gIndx = True ^ ((xmax == 0.0) * (ptxmax == xmax + 1e-10))
     out[gIndx] = (
@@ -1396,7 +1797,21 @@ def _ja(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax):
     return out
 
 
-def _djadj(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, ptderiv2coeffs, xmax, ptxmax):
+def _djadj(
+    xa,
+    E,
+    pot,
+    omega,
+    ptcoeffs,
+    ptderivcoeffs,
+    ptderiv2coeffs,
+    xmax,
+    ptxmax,
+    pt_exact=False,
+    pt_filtered=None,
+    pt_nmesh=None,
+    pt_spl_deg=5,
+):
     """
     Compute the derivative of the auxiliary action in the harmonic-oscillator wrt the action for a grid in x and E
 
@@ -1431,27 +1846,52 @@ def _djadj(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, ptderiv2coeffs, xmax, ptx
     - 2018-04-14 - Written - Bovy (UofT)
     - 2018-11-23 - Added point transformation - Bovy (UofT)
     """
-    x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
+    if pt_exact:
+        x = xmax * _ptxa_eval(
+            xa / ptxmax, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
+        )
+        piprime = (
+            xmax
+            / ptxmax
+            * _ptxa_eval(xa / ptxmax, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
+        )
+        piprime2 = (
+            xmax
+            / ptxmax**2.0
+            * _ptxa_eval(xa / ptxmax, ptcoeffs, pt_filtered[2], pt_nmesh, pt_spl_deg)
+        )
+    else:
+        x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
+        piprime = (
+            xmax
+            / ptxmax
+            * polynomial.polyval((xa / ptxmax).T, ptderivcoeffs.T, tensor=False).T
+        )
+        piprime2 = (
+            xmax
+            / ptxmax**2.0
+            * polynomial.polyval((xa / ptxmax).T, ptderiv2coeffs.T, tensor=False).T
+        )
     v2 = 2.0 * (E - evaluatelinearPotentials(pot, x))
-    piprime = (
-        xmax
-        / ptxmax
-        * polynomial.polyval((xa / ptxmax).T, ptderivcoeffs.T, tensor=False).T
-    )
-    piprime2 = (
-        xmax
-        / ptxmax**2.0
-        * polynomial.polyval((xa / ptxmax).T, ptderiv2coeffs.T, tensor=False).T
-    )
     # J=0 special case:
-    piprime[(xmax == 0.0) * (ptxmax == xmax + 1e-10)] = polynomial.polyval(
-        (
-            x[(xmax == 0.0) * (ptxmax == xmax + 1e-10)]
-            / ptxmax[(xmax == 0.0) * (ptxmax == xmax + 1e-10)]
-        ).T,
-        ptderivcoeffs[(xmax == 0.0) * (ptxmax == xmax + 1e-10)].T,
-        tensor=False,
-    ).T
+    zindx = (xmax == 0.0) * (ptxmax == xmax + 1e-10)
+    if numpy.any(zindx):
+        if pt_exact:
+            piprime[zindx] = _ptxa_eval(
+                x[zindx] / ptxmax[zindx],
+                numpy.asarray(ptcoeffs)[zindx]
+                if numpy.ndim(ptcoeffs) > 0
+                else ptcoeffs,
+                pt_filtered[1],
+                pt_nmesh,
+                pt_spl_deg,
+            )
+        else:
+            piprime[zindx] = polynomial.polyval(
+                (x[zindx] / ptxmax[zindx]).T,
+                ptderivcoeffs[zindx].T,
+                tensor=False,
+            ).T
     gIndx = True ^ ((xmax == 0.0) * (ptxmax == xmax + 1e-10))
     dxAdE = numpy.empty_like(xa)
     dxAdE[gIndx] = (
