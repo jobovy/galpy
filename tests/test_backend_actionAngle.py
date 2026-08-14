@@ -38,6 +38,8 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import assert_jit_matches_eager
+
 from galpy.actionAngle import (
     actionAngleAdiabatic,
     actionAngleAdiabaticGrid,
@@ -2095,9 +2097,7 @@ def test_staeckelgrid_native_setup_differentiable(backend):
             grad = jax.grad(loss)(baseL)
             dd = float(jnp.sum(grad * jnp.asarray(V)))
             # jit-safe: jax.jit == eager
-            numpy.testing.assert_allclose(
-                float(jax.jit(loss)(baseL)), float(loss(baseL)), rtol=1e-11, atol=1e-11
-            )
+            assert_jit_matches_eager(loss, baseL, rtol=1e-11, atol=1e-11)
 
             def _l(a):
                 return float(loss(jnp.asarray(a)))
