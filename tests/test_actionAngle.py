@@ -8391,6 +8391,105 @@ def test_actionAngleSphericalInverse_exactpointtransform_ptonly():
     return None
 
 
+# Test that traversing an exact-point-transformation torus at the frequency
+# rate agrees with direct orbit integration; this covers both radial branches
+# (Delta-psi is odd around the turning points, which single-point round trips
+# at vr > 0 do not probe)
+def test_actionAngleSphericalInverse_orbit_exactpointtransform():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=logpot, nta=8 * 128, Es=[E], Ls=[L], use_pointtransform="exact"
+        )
+    OmR, Omp, Omz = aASI.Freqs(aASI._jr[0], jphi[0], jz[0])
+    ts = numpy.linspace(0.0, 3.0 * 2.0 * numpy.pi / OmR, 1001)
+    R, vR, vT, z, vz, phi = aASI(
+        aASI._jr[0],
+        jphi[0],
+        jz[0],
+        ar[0] + OmR * ts,
+        ap[0] + Omp * ts,
+        az[0] + Omz * ts,
+    )
+    orb = Orbit([R[0], vR[0], vT[0], z[0], vz[0], phi[0]])
+    orb.integrate(ts, logpot, method="dop853_c")
+    dphi = (phi - orb.phi(ts) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    for derr, name in zip(
+        [
+            R - orb.R(ts),
+            vR - orb.vR(ts),
+            vT - orb.vT(ts),
+            z - orb.z(ts),
+            vz - orb.vz(ts),
+            dphi,
+        ],
+        ["R", "vR", "vT", "z", "vz", "phi"],
+    ):
+        assert numpy.amax(numpy.fabs(derr)) < 1e-7, (
+            f"{name} does not agree with that of the integrated orbit along the torus of the LogarithmicHaloPotential when using the exact point transformation"
+        )
+    return None
+
+
+# Test that actionAngleSphericalInverse also works for retrograde orbits
+# (jphi < 0; the sign of jphi matters in the node-passage reconstruction)
+def test_actionAngleSphericalInverse_wrtSpherical_retrograde():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, -1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    for use_pt in [False, "exact"]:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            aASI = actionAngleSphericalInverse(
+                pot=logpot, nta=8 * 128, Es=[E], Ls=[L], use_pointtransform=use_pt
+            )
+        R, vR, vT, z, vz, phi = numpy.array(
+            aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+        ).flatten()
+        dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    numpy.array(
+                        [
+                            R - o.R(),
+                            vR - o.vR(),
+                            vT - o.vT(),
+                            z - o.z(),
+                            vz - o.vz(),
+                            dphi,
+                        ]
+                    )
+                )
+            )
+            < 1e-8
+        ), (
+            "actionAngleSphericalInverse is not the inverse of actionAngleSpherical for a retrograde orbit"
+        )
+    return None
+
+
 def test_nullpotential_error():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.potential import NullPotential

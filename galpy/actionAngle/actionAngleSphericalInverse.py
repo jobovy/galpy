@@ -627,6 +627,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._pt_deriv_coeffs = numpy.ones((self._nE, nmext))
         self._pt_deriv2_coeffs = numpy.zeros((self._nE, nmext))
         self._pt_dpsi_coeffs = numpy.zeros((self._nE, nmext))
+        self._pt_dpsi_apo = numpy.zeros(self._nE)
         # For a circular orbit, the auxiliary torus is circular as well and
         # its radius equals that of the true circular orbit, because matching
         # the frequencies matches the circular angular frequency L/r^2; the
@@ -729,6 +730,18 @@ class actionAngleSphericalInverse(actionAngleInverse):
             # those, sampling it on the extended mesh (polynomial
             # extrapolation of the end pieces beyond [0,1])
             sacore = numpy.linspace(0.0, 1.0, self._pt_nmesh)
+            # Delta-psi is a smooth, odd function of the auxiliary radial
+            # angle around both turning points, but has a sqrt branch as a
+            # function of sa there (sa is quadratic in time at the turning
+            # points while Delta-psi is linear), so it is stored on a uniform
+            # mesh in the auxiliary radial angle in [0,pi] (same index layout
+            # as the sa mesh), padded with its exact odd extensions
+            thetacore = numpy.linspace(0.0, numpy.pi, self._pt_nmesh)
+            dth = numpy.pi / (self._pt_nmesh - 1.0)
+            thlow = -dth * numpy.arange(self._pt_pad, 0, -1)
+            thhigh = numpy.pi + dth * numpy.arange(1, self._pt_pad + 1)
+            # Kepler-equation parameter of the auxiliary torus
+            kepk = ea * ca / (ca + b)
             for jj, ii in enumerate(numpy.arange(self._nE)[gIndx]):
                 yspl_eta = interpolate.InterpolatedUnivariateSpline(
                     etamesh, ys[jj], k=self._exact_pt_spl_deg
@@ -751,9 +764,32 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 self._pt_coeffs[ii] = tspl(self._pt_samesh)
                 self._pt_deriv_coeffs[ii] = tspl(self._pt_samesh, nu=1)
                 self._pt_deriv2_coeffs[ii] = tspl(self._pt_samesh, nu=2)
-                self._pt_dpsi_coeffs[ii] = interpolate.InterpolatedUnivariateSpline(
-                    sacore, dpsispl_eta(etacore), k=self._exact_pt_spl_deg
-                )(self._pt_samesh)
+                # Solve the Kepler equation for eta on the uniform mesh in
+                # the auxiliary radial angle; eta - k sin(eta) is strictly
+                # increasing, so bisection always converges (Newton diverges
+                # near eta = 0 for the nearly-radial tori, where k -> 1)
+                etlo = numpy.zeros(self._pt_nmesh)
+                ethi = numpy.pi * numpy.ones(self._pt_nmesh)
+                for _ in range(53):
+                    etath = 0.5 * (etlo + ethi)
+                    fmid = etath - kepk[jj] * numpy.sin(etath) - thetacore
+                    ethi = numpy.where(fmid > 0.0, etath, ethi)
+                    etlo = numpy.where(fmid > 0.0, etlo, etath)
+                etath = 0.5 * (etlo + ethi)
+                dpsith = dpsispl_eta(etath)
+                dpsith[0] = 0.0
+                dpsi_apo = dpsith[-1]
+                self._pt_dpsi_apo[ii] = dpsi_apo
+                dpsithspl = interpolate.InterpolatedUnivariateSpline(
+                    thetacore, dpsith, k=self._exact_pt_spl_deg
+                )
+                self._pt_dpsi_coeffs[ii] = numpy.concatenate(
+                    (
+                        -dpsithspl(-thlow),
+                        dpsith,
+                        2.0 * dpsi_apo - dpsithspl(2.0 * numpy.pi - thhigh),
+                    )
+                )
         # Store spline-filtered versions for fast 2D-spline evaluation
         self._pt_filtered = tuple(
             ndimage.spline_filter(arr, order=self._exact_pt_spl_deg)
@@ -1843,13 +1879,23 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     self._exact_pt_spl_deg,
                 )
             )
-            psi = psia + _ptra_eval(
-                sanorm,
+            # Delta-psi is stored as a function of the auxiliary radial angle
+            # in [0,pi] (outgoing branch); the incoming branch follows from
+            # its symmetry Delta-psi(2 pi - theta) = 2 Delta-psi(pi)
+            #                                          - Delta-psi(theta)
+            thetaafold = numpy.atleast_1d(anglera) % (2.0 * numpy.pi)
+            dpsiflip = thetaafold > numpy.pi
+            thetaafold[dpsiflip] = 2.0 * numpy.pi - thetaafold[dpsiflip]
+            dpsival = _ptra_eval(
+                thetaafold / numpy.pi,
                 indx,
                 self._pt_filtered[3],
                 self._pt_nmesh,
                 self._exact_pt_spl_deg,
             )
+            tdpsiapo = self._pt_dpsi_apo[indx]
+            dpsival = numpy.where(dpsiflip, 2.0 * tdpsiapo - dpsival, dpsival)
+            psi = psia + dpsival
         else:
             r = (trap - trperi) * polynomial.polyval(
                 ((ra - tptrperi) / (tptrap - tptrperi)).T, tptcoeffs.T, tensor=False
@@ -1879,13 +1925,18 @@ class actionAngleSphericalInverse(actionAngleInverse):
         R = sintheta * r
         z = costheta * r
         if lowerl > 0.0:
-            sinu = z / R / numpy.sqrt(L**2.0 / jphi**2.0 - 1.0)
+            # Same as z / R / sqrt(L^2/jphi^2-1), but with the sign of jphi
+            # included, as in the computation of the ascending node above
+            sinu = z / R * jphi / L / lowerl
             pindx = (sinu > 1.0) * numpy.isfinite(sinu)
             sinu[pindx] = 1.0
             pindx = (sinu < -1.0) * numpy.isfinite(sinu)
             sinu[pindx] = -1.0
             u = numpy.arcsin(sinu)
-            u[vt > 0.0] = numpy.pi - u[vt > 0.0]
+            # Branch of u flips with the sign of the real polar velocity
+            # vtheta, not the in-plane tangential velocity vt (they differ in
+            # windows of width |Delta-psi| around psi = +/- pi/2)
+            u[vtheta > 0.0] = numpy.pi - u[vtheta > 0.0]
             phi = asc + u
         else:
             phi = psi
