@@ -28,6 +28,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.backend import get_namespace, is_backend_array
 from galpy.potential import (
@@ -168,10 +169,11 @@ def test_default_surfdens_jit_safe():
     R0, z0 = 1.1, 0.3
     ref = float(evaluateRforces(pot, numpy.float64(R0), numpy.float64(z0)))
     rf = lambda R: evaluateRforces(pot, R, jnp.asarray(z0))
-    jR = float(jax.jit(rf)(jnp.asarray(R0)))
+    # ref= compares the traced array call against the plain-float numpy value;
+    # the helper additionally rejects a trace that folded R away to a constant.
+    assert_jit_matches_eager(rf, jnp.asarray(R0), rtol=1e-10, atol=1e-12, ref=ref)
     gR = float(jax.jacfwd(rf)(jnp.asarray(R0)))
-    assert numpy.isfinite(jR) and numpy.isfinite(gR)
-    numpy.testing.assert_allclose(jR, ref, rtol=1e-10, atol=1e-12)
+    assert numpy.isfinite(gR)
 
 
 @pytest.mark.parametrize("backend_name", AD_BACKENDS)

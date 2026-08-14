@@ -9,6 +9,7 @@ import numpy
 import pytest
 import scipy.interpolate as si
 import scipy.ndimage as sndi
+from backend_jit_helpers import assert_jit_matches_eager
 
 from galpy.backend import as_numpy
 from galpy.backend.interpolate import (
@@ -382,9 +383,7 @@ def test_interp_bilinear_jit_equals_eager(backend):
     def f(x, y):
         return interp_bilinear(jnp, bx, by, bz, x, y, extrapolate="clip")
 
-    eager = numpy.asarray(f(X, Y))
-    jitted = numpy.asarray(jax.jit(f)(X, Y))
-    numpy.testing.assert_allclose(jitted, eager, rtol=0.0, atol=1e-14)
+    assert_jit_matches_eager(f, X, Y, rtol=0.0, atol=1e-14)
 
 
 def test_interp_bilinear_bad_extrapolate():
