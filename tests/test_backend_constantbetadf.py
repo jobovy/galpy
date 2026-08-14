@@ -34,6 +34,8 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import assert_jit_matches_eager
+
 import galpy.backend
 from galpy.backend import as_numpy
 from galpy.df import constantbetadf, constantbetaHernquistdf, constantbetaPowerLawdf
@@ -341,10 +343,10 @@ def test_generic_fE_jit_traceable():
                     [pinf + 1.0, Emin - 1.0],  # out of bounds -> exactly zero
                 ]
             )
-            eager = as_numpy(df.fE(jnp.asarray(Es)))
-            traced = as_numpy(jax.jit(df.fE)(jnp.asarray(Es)))
-        # tracing must not perturb the value: same kernel, same GL nodes
-        numpy.testing.assert_allclose(traced, eager, rtol=1e-12, atol=0.0)
+            # tracing must not perturb the value: same kernel, same GL nodes
+            traced = assert_jit_matches_eager(
+                df.fE, jnp.asarray(Es), rtol=1e-12, atol=0.0
+            )
         assert numpy.all(traced[-2:] == 0.0)
 
 

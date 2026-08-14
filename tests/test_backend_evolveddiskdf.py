@@ -46,6 +46,8 @@ try:
 except ImportError:  # pragma: no cover
     torch = None
 
+from backend_jit_helpers import assert_jit_matches_eager
+
 from galpy.backend import as_numpy, is_backend_array, use
 from galpy.df import dehnendf, evolveddiskdf
 from galpy.potential import (
@@ -369,6 +371,7 @@ def test_direct_moment_jit_matches_eager():
         ).reshape(())
 
     with use("jax", force=True):
-        eager = float(call(jnp.asarray(_R)))
-        jitted = float(jax.jit(call)(jnp.asarray(_R)))
-    numpy.testing.assert_allclose(jitted, eager, rtol=1e-12, atol=1e-14)
+        # assert_jit_matches_eager also checks the jaxpr CONSUMES its argument: a
+        # trace that folded it away returns a constant and would match eager
+        # vacuously, which a bare allclose cannot see.
+        assert_jit_matches_eager(call, jnp.asarray(_R), rtol=1e-12, atol=1e-14)
