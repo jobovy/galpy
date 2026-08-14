@@ -89,7 +89,6 @@ jax tests/test_interp_potential.py::test_interpolation_potential_dens
 jax tests/test_interp_potential.py::test_interpolation_potential_force
 jax tests/test_interp_potential.py::test_interpolation_potential_c
 jax tests/test_interp_potential.py::test_interpolation_potential_secondderivs_c
-jax tests/test_potential.py::test_2ndDeriv_potential[mockInterpRZPotentialwSecondDerivs]
 
 # (2026-08-08) The two jax actionAngleAdiabatic timeouts that lived here are
 # un-deferred: they were deferred because the vertical path dispatched eager-jax
