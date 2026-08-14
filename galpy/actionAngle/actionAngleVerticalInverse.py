@@ -40,6 +40,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         pt_nxa=301,
         exact_pt_spl_deg=5,
         exact_pt_tol=1e-12,
+        pt_only=False,
         maxiter=100,
         angle_tol=1e-12,
         bisect=False,
@@ -67,6 +68,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
             degree of the spline used to represent the exact point transformation (only used when use_pointtransform == "exact")
         exact_pt_tol : float
             absolute and relative tolerance of the ODE solution defining the exact point transformation; sets the floor of the mapping coefficients (only used when use_pointtransform == "exact")
+        pt_only : bool
+            if True, evaluate the inverse transformation using the exact point transformation alone, skipping the generating-function mapping, which is the identity for a perfect point transformation (only allowed when use_pointtransform == "exact"); the mapping coefficients are still computed at setup as a diagnostic of the accuracy of the point transformation and a warning is issued if they are not small
         maxiter : int
             maximum number of iterations of root-finding algorithms
         angle_tol : float
@@ -127,14 +130,25 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._pt_exact = True
             self._exact_pt_spl_deg = exact_pt_spl_deg
             self._exact_pt_tol = exact_pt_tol
+            self._pt_only = pt_only
             self._setup_pointtransform(pt_deg, pt_nxa)
         elif use_pointtransform and pt_deg > 1:
+            if pt_only:
+                raise ValueError(
+                    'pt_only=True is only supported for use_pointtransform="exact"'
+                )
             self._pt_exact = False
+            self._pt_only = False
             self._exact_pt_spl_deg = None
             self._setup_pointtransform(pt_deg - (1 - pt_deg % 2), pt_nxa)  # make odd
         else:
+            if pt_only:
+                raise ValueError(
+                    'pt_only=True is only supported for use_pointtransform="exact"'
+                )
             # Setup identity point transformation
             self._pt_exact = False
+            self._pt_only = False
             self._exact_pt_spl_deg = None
             self._pt_deg = 1
             self._pt_nxa = pt_nxa
@@ -232,6 +246,21 @@ class actionAngleVerticalInverse(actionAngleInverse):
             self._Omegas[self._Es < 1e-10] = self._Omegas[1]
         self._nSn[self._js < 1e-10] = 0.0
         self._dSndJ[self._js < 1e-10] = 0.0
+        # When evaluating using the point transformation only, the computed
+        # mapping coefficients serve as a diagnostic of the accuracy of the
+        # point transformation: they should all be close to zero
+        if self._pt_exact and self._pt_only:
+            relnSn = numpy.nanmax(numpy.fabs(self._nSn)) / numpy.nanmax(
+                numpy.fabs(self._js) + 1e-15
+            )
+            maxdSndJ = numpy.nanmax(numpy.fabs(self._dSndJ))
+            if relnSn > 1e-8 or maxdSndJ > 1e-8:
+                warnings.warn(
+                    "Point transformation is not accurate enough for pt_only=True evaluation: the generating-function mapping that pt_only skips is not negligible (max |nSn|/max J = {:.2e}, max |dSndJ| = {:.2e}); decrease exact_pt_tol and/or increase pt_nxa, or use pt_only=False".format(
+                        relnSn, maxdSndJ
+                    ),
+                    galpyWarning,
+                )
         # Setup interpolation if requested
         if setup_interp:
             self._interp = True
@@ -1277,89 +1306,106 @@ class actionAngleVerticalInverse(actionAngleInverse):
             tptxmax = self.ptxmax(tE)
             tptcoeffs = self.pt_coeffs(tE)[0]
             tptderivcoeffs = self.pt_deriv_coeffs(tE)[0]
-        # First we need to solve for a<nglea
-        angle = numpy.atleast_1d(angle)
-        anglea = copy.copy(angle)
-        # Now iterate Newton's method
-        cntr = 0
-        unconv = numpy.ones(len(angle), dtype="bool")
-        ta = anglea + 2.0 * numpy.sum(
-            tdSndJ * numpy.sin(self._nforSn * numpy.atleast_2d(anglea).T), axis=1
-        )
-        dta = (ta - angle + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-        unconv[unconv] = numpy.fabs(dta) > self._angle_tol
-        # Don't allow too big steps
-        maxda = 2.0 * numpy.pi / 101
-        while not self._bisect:
-            danglea = 1.0 + 2.0 * numpy.sum(
-                self._nforSn
-                * tdSndJ
-                * numpy.cos(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
-                axis=1,
-            )
-            dta = (ta[unconv] - angle[unconv] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-            da = -dta / danglea
-            da[numpy.fabs(da) > maxda] = (numpy.sign(da) * maxda)[
-                numpy.fabs(da) > maxda
-            ]
-            anglea[unconv] += da
-            unconv[unconv] = numpy.fabs(dta) > self._angle_tol
-            newta = anglea[unconv] + 2.0 * numpy.sum(
-                tdSndJ * numpy.sin(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
-                axis=1,
-            )
-            ta[unconv] = newta
-            cntr += 1
-            if numpy.sum(unconv) == 0:
-                break
-            if cntr > self._maxiter:  # pragma: no cover
-                warnings.warn(
-                    "Angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)".format(
-                        self._maxiter
-                    ),
-                    galpyWarning,
-                )
-                break
-        # Fallback onto simple bisection in case of non-convergence
-        if self._bisect or cntr > self._maxiter:
-            # Reset cntr
+        if self._pt_exact and self._pt_only:
+            # For the exact point transformation, the generating-function
+            # mapping (J,theta) -> (JA,thetaA) is the identity, so we can
+            # skip solving for the auxiliary angles and action
+            angle = numpy.atleast_1d(angle)
+            anglea = copy.copy(angle)
+            ja = j * numpy.ones_like(angle)
+        else:
+            # First we need to solve for a<nglea
+            angle = numpy.atleast_1d(angle)
+            anglea = copy.copy(angle)
+            # Now iterate Newton's method
             cntr = 0
-            trya_min = numpy.zeros(numpy.sum(unconv))
-            da = 2.0 * numpy.pi
-            while True:
-                da *= 0.5
-                anglea[unconv] = trya_min + da
-                newta = (
-                    anglea[unconv]
-                    + 2.0
-                    * numpy.sum(
-                        tdSndJ
-                        * numpy.sin(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
-                        axis=1,
-                    )
-                    + 2.0 * numpy.pi
-                ) % (2.0 * numpy.pi)
-                dta = (newta - angle[unconv] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-                trya_min[newta < angle[unconv]] = anglea[unconv][newta < angle[unconv]]
+            unconv = numpy.ones(len(angle), dtype="bool")
+            ta = anglea + 2.0 * numpy.sum(
+                tdSndJ * numpy.sin(self._nforSn * numpy.atleast_2d(anglea).T), axis=1
+            )
+            dta = (ta - angle + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            unconv[unconv] = numpy.fabs(dta) > self._angle_tol
+            # Don't allow too big steps
+            maxda = 2.0 * numpy.pi / 101
+            while not self._bisect:
+                danglea = 1.0 + 2.0 * numpy.sum(
+                    self._nforSn
+                    * tdSndJ
+                    * numpy.cos(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
+                    axis=1,
+                )
+                dta = (ta[unconv] - angle[unconv] + numpy.pi) % (
+                    2.0 * numpy.pi
+                ) - numpy.pi
+                da = -dta / danglea
+                da[numpy.fabs(da) > maxda] = (numpy.sign(da) * maxda)[
+                    numpy.fabs(da) > maxda
+                ]
+                anglea[unconv] += da
                 unconv[unconv] = numpy.fabs(dta) > self._angle_tol
-                trya_min = trya_min[numpy.fabs(dta) > self._angle_tol]
+                newta = anglea[unconv] + 2.0 * numpy.sum(
+                    tdSndJ
+                    * numpy.sin(self._nforSn * numpy.atleast_2d(anglea[unconv]).T),
+                    axis=1,
+                )
+                ta[unconv] = newta
                 cntr += 1
                 if numpy.sum(unconv) == 0:
                     break
                 if cntr > self._maxiter:  # pragma: no cover
                     warnings.warn(
-                        "Angle mapping with bisection did not converge in {} iterations".format(
+                        "Angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)".format(
                             self._maxiter
-                        )
-                        + " for angles:"
-                        + "".join(f" {k:g}" for k in sorted(set(angle[unconv]))),
+                        ),
                         galpyWarning,
                     )
                     break
-        # Then compute the auxiliary action
-        ja = j + 2.0 * numpy.sum(
-            tnSn * numpy.cos(self._nforSn * numpy.atleast_2d(anglea).T), axis=1
-        )
+            # Fallback onto simple bisection in case of non-convergence
+            if self._bisect or cntr > self._maxiter:
+                # Reset cntr
+                cntr = 0
+                trya_min = numpy.zeros(numpy.sum(unconv))
+                da = 2.0 * numpy.pi
+                while True:
+                    da *= 0.5
+                    anglea[unconv] = trya_min + da
+                    newta = (
+                        anglea[unconv]
+                        + 2.0
+                        * numpy.sum(
+                            tdSndJ
+                            * numpy.sin(
+                                self._nforSn * numpy.atleast_2d(anglea[unconv]).T
+                            ),
+                            axis=1,
+                        )
+                        + 2.0 * numpy.pi
+                    ) % (2.0 * numpy.pi)
+                    dta = (newta - angle[unconv] + numpy.pi) % (
+                        2.0 * numpy.pi
+                    ) - numpy.pi
+                    trya_min[newta < angle[unconv]] = anglea[unconv][
+                        newta < angle[unconv]
+                    ]
+                    unconv[unconv] = numpy.fabs(dta) > self._angle_tol
+                    trya_min = trya_min[numpy.fabs(dta) > self._angle_tol]
+                    cntr += 1
+                    if numpy.sum(unconv) == 0:
+                        break
+                    if cntr > self._maxiter:  # pragma: no cover
+                        warnings.warn(
+                            "Angle mapping with bisection did not converge in {} iterations".format(
+                                self._maxiter
+                            )
+                            + " for angles:"
+                            + "".join(f" {k:g}" for k in sorted(set(angle[unconv]))),
+                            galpyWarning,
+                        )
+                        break
+            # Then compute the auxiliary action
+            ja = j + 2.0 * numpy.sum(
+                tnSn * numpy.cos(self._nforSn * numpy.atleast_2d(anglea).T), axis=1
+            )
         hoaainv = actionAngleHarmonicInverse(omega=tOmegaHO)
         xa, va = hoaainv(ja, anglea)
         if self._pt_exact:
