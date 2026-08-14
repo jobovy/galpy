@@ -8104,13 +8104,13 @@ def test_actionAngleSphericalInverse_wrtIsochrone():
     return None
 
 
-# Test the current state of the exact point transformation for the spherical
-# inverse: the mapping coefficients become small, but the accuracy of the
-# mapped torus is currently limited to ~1e-4 by the grid construction and the
-# Delta-psi integration; these loose tolerances document that baseline and
-# will be tightened when the grid construction and point-transformation
-# storage/evaluation are reworked (see the fast-orbits PR plan, PRs 2b/2c)
-def test_actionAngleSphericalInverse_exactpointtransform_baseline():
+# Test the exact point transformation for the spherical inverse: because the
+# exact point transformation (which includes the zeta'/Delta-psi term) maps
+# each torus exactly onto an isochrone torus, ALL mapping-coefficient sets
+# vanish to within the accuracy of the ODE solution -- the
+# (J,theta) -> (J^A,theta^A) mapping is the identity, as for the 1D case --
+# and the round trip is exact at that same level
+def test_actionAngleSphericalInverse_exactpointtransform():
     from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
@@ -8124,14 +8124,21 @@ def test_actionAngleSphericalInverse_exactpointtransform_baseline():
         o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
     )
     with warnings.catch_warnings():
-        # The grid construction currently does not always converge for the
-        # exact point transformation
+        # A few grid points immediately adjacent to the turning points only
+        # converge through the bisection fallback, after a cosmetic
+        # Newton-Raphson warning
         warnings.simplefilter("ignore")
         aASI = actionAngleSphericalInverse(
             pot=logpot, nta=8 * 128, Es=[E], Ls=[L], use_pointtransform="exact"
         )
-    assert numpy.nanmax(numpy.fabs(aASI._nSn)) < 1e-6, (
-        "Mapping coefficients are not small when using the exact point transformation"
+    assert numpy.nanmax(numpy.fabs(aASI._nSn)) < 1e-10, (
+        "nSn mapping coefficients do not all vanish when using the exact point transformation"
+    )
+    assert numpy.nanmax(numpy.fabs(aASI._dSndJr)) < 1e-8, (
+        "dSndJr mapping coefficients do not all vanish when using the exact point transformation"
+    )
+    assert numpy.nanmax(numpy.fabs(aASI._dSndLish)) < 1e-8, (
+        "dSndL mapping coefficients do not all vanish when using the exact point transformation"
     )
     R, vR, vT, z, vz, phi = numpy.array(
         aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
@@ -8145,9 +8152,9 @@ def test_actionAngleSphericalInverse_exactpointtransform_baseline():
                 )
             )
         )
-        < 1e-3
+        < 1e-8
     ), (
-        "actionAngleSphericalInverse with the exact point transformation does not roughly recover an example orbit"
+        "actionAngleSphericalInverse with the exact point transformation is not the inverse of actionAngleSpherical for an example orbit"
     )
     return None
 
