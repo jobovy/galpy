@@ -1,7 +1,7 @@
 import numpy
 
 from galpy import potential
-from galpy.backend import as_numpy, jit_mode
+from galpy.backend import as_numpy, get_namespace, jit_mode, name_of_namespace
 
 # The use_c=True/use_c=False grid comparisons below hold to a few ulp eagerly but
 # lose one to two digits under --jit, where the Python side is built traced:
@@ -19,10 +19,23 @@ from galpy.backend import as_numpy, jit_mode
 # (~5x headroom over what was measured); eager/numpy bounds are unchanged.
 _TRACED_GRID_TOL_FACTOR = 30.0
 
+# Same class of effect one level down, and it applies to EAGER jax/torch too:
+# the grid is built by one vectorised whole-mesh call, which associates a
+# composite potential's component sum differently from the cell-by-cell scalar
+# call the C grid is compared against. Measured on the 101x101 MWPotential
+# use_c grid: 11.2 ULP against a 7.0 ULP (1e-14) bound. 5x gives ~3x headroom
+# over that while still asserting agreement to ~35 ULP, i.e. near machine
+# precision. numpy is unaffected -- it keeps the original bound exactly.
+_BACKEND_GRID_TOL_FACTOR = 5.0
+
 
 def _grid_tol(eager_tol):
-    """``eager_tol``, widened only when the suite is running traced."""
-    return eager_tol * _TRACED_GRID_TOL_FACTOR if jit_mode() != "off" else eager_tol
+    """``eager_tol``, widened when traced or when a backend built the grid."""
+    if jit_mode() != "off":
+        return eager_tol * _TRACED_GRID_TOL_FACTOR
+    if name_of_namespace(get_namespace()) != "numpy":
+        return eager_tol * _BACKEND_GRID_TOL_FACTOR
+    return eager_tol
 
 
 def test_errors():
