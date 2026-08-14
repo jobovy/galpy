@@ -237,7 +237,6 @@ torch tests/test_orbit.py::test_analytic_ecc_rperi_rap
 # tolerance is ever made backend-aware.
 jax-jit tests/test_orbit.py::test_eccentricity
 torch-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
-jax-jit tests/test_potential.py::test_2ndDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
 jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetricRazorThinDiskPotential]
 
 # --- torch --jit: parallel_map's fork is fixed for EAGER torch only ----------
