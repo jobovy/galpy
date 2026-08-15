@@ -142,10 +142,7 @@ jax tests/test_potential.py::test_MultipoleExpansion_deepcopy
 # slow-skip (correct-but-too-slow) until SCF/Multipole/wrapper eval is vectorized on
 # jax. torch fails these FAST at construction (0.0 s) -> they stay in the torch xfail-
 # ledger; numpy exercises all of them.
-jax tests/test_potential.py::test_Cautun20
 jax tests/test_potential.py::test_DehnenBinney98
-jax tests/test_potential.py::test_McMillan17
-jax tests/test_potential.py::test_diskscf_overflow
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
