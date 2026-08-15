@@ -665,7 +665,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # (in particular, d Delta-psi / d eta = L [1/pi^2 - 1/ra^2] G(eta)
         # exactly, with no divergence at the turning points). The result is
         # stored as the normalized mapping y = (r-rperi)/(rap-rperi) as a
-        # function of sa = (ra-ptrperi)/(ptrap-ptrperi) sampled on a fixed
+        # function of ya = (ra-ptrperi)/(ptrap-ptrperi) sampled on a fixed
         # mesh (padded beyond [0,1], because the 2D-spline evaluation's
         # mirror boundary would otherwise distort the interpolation near the
         # turning points) and is evaluated using 2D spline interpolation,
@@ -674,11 +674,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._pt_pad = 4 * self._exact_pt_spl_deg + 16
         dmesh = 1.0 / (pt_nra - 1.0)
         nmext = pt_nra + 2 * self._pt_pad
-        self._pt_samesh = numpy.linspace(
+        self._pt_yamesh = numpy.linspace(
             -self._pt_pad * dmesh, 1.0 + self._pt_pad * dmesh, nmext
         )
         # Initialize all tori to the identity mapping (also used for small J)
-        self._pt_coeffs = numpy.tile(self._pt_samesh, (self._ntori, 1))
+        self._pt_coeffs = numpy.tile(self._pt_yamesh, (self._ntori, 1))
         self._pt_deriv_coeffs = numpy.ones((self._ntori, nmext))
         self._pt_deriv2_coeffs = numpy.zeros((self._ntori, nmext))
         self._pt_dpsi_coeffs = numpy.zeros((self._ntori, nmext))
@@ -776,21 +776,21 @@ class actionAngleSphericalInverse(actionAngleInverse):
             ys[:, 0] = 0.0
             ys[:, -1] = 1.0
             # Resample onto the fixed mesh in the normalized auxiliary radius
-            # sa in two stages: first represent the solution as a spline in
+            # ya in two stages: first represent the solution as a spline in
             # the eccentric anomaly, on whose uniform grid the spline is
-            # well-conditioned (the solution's sampling in sa clusters
+            # well-conditioned (the solution's sampling in ya clusters
             # quadratically near the turning points, where a direct spline
-            # would be noisy), then evaluate it at the closed-form eta(sa) of
-            # the uniform core sa mesh and build the final spline through
+            # would be noisy), then evaluate it at the closed-form eta(ya) of
+            # the uniform core ya mesh and build the final spline through
             # those, sampling it on the extended mesh (polynomial
             # extrapolation of the end pieces beyond [0,1])
-            sacore = numpy.linspace(0.0, 1.0, self._pt_nmesh)
+            yacore = numpy.linspace(0.0, 1.0, self._pt_nmesh)
             # Delta-psi is a smooth, odd function of the auxiliary radial
             # angle around both turning points, but has a sqrt branch as a
-            # function of sa there (sa is quadratic in time at the turning
+            # function of ya there (ya is quadratic in time at the turning
             # points while Delta-psi is linear), so it is stored on a uniform
             # mesh in the auxiliary radial angle in [0,pi] (same index layout
-            # as the sa mesh), padded with its exact odd extensions
+            # as the ya mesh), padded with its exact odd extensions
             thetacore = numpy.linspace(0.0, numpy.pi, self._pt_nmesh)
             dth = numpy.pi / (self._pt_nmesh - 1.0)
             thlow = -dth * numpy.arange(self._pt_pad, 0, -1)
@@ -804,7 +804,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 dpsispl_eta = interpolate.InterpolatedUnivariateSpline(
                     etamesh, dpsis[jj], k=self._exact_pt_spl_deg
                 )
-                racore = ptrperi[jj] + (ptrap[jj] - ptrperi[jj]) * sacore
+                racore = ptrperi[jj] + (ptrap[jj] - ptrperi[jj]) * yacore
                 # Inverse of the relation above: u = sqrt(b^2+r^2) - b
                 cosetacore = (
                     1.0 - (numpy.sqrt(b[jj] ** 2.0 + racore**2.0) - b[jj]) / ca[jj]
@@ -814,11 +814,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 ycore[0] = 0.0
                 ycore[-1] = 1.0
                 tspl = interpolate.InterpolatedUnivariateSpline(
-                    sacore, ycore, k=self._exact_pt_spl_deg
+                    yacore, ycore, k=self._exact_pt_spl_deg
                 )
-                self._pt_coeffs[ii] = tspl(self._pt_samesh)
-                self._pt_deriv_coeffs[ii] = tspl(self._pt_samesh, nu=1)
-                self._pt_deriv2_coeffs[ii] = tspl(self._pt_samesh, nu=2)
+                self._pt_coeffs[ii] = tspl(self._pt_yamesh)
+                self._pt_deriv_coeffs[ii] = tspl(self._pt_yamesh, nu=1)
+                self._pt_deriv2_coeffs[ii] = tspl(self._pt_yamesh, nu=2)
                 # Solve the Kepler equation for eta on the uniform mesh in
                 # the auxiliary radial angle; eta - k sin(eta) is strictly
                 # increasing, so bisection always converges (Newton diverges
@@ -2016,7 +2016,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             asc = phia - u
         # Now convert orbital-plane^A --> orbital-plane
         if self._pt_exact:
-            sanorm = (ra - tptrperi) / (tptrap - tptrperi)
+            yanorm = (ra - tptrperi) / (tptrap - tptrperi)
             # Delta-psi is stored as a function of the auxiliary radial angle
             # in [0,pi] (outgoing branch); the incoming branch follows from
             # its symmetry Delta-psi(2 pi - theta) = 2 Delta-psi(pi)
@@ -2044,20 +2044,20 @@ class actionAngleSphericalInverse(actionAngleInverse):
                         mode="mirror",
                     )
 
-                yval = _pt_ev(self._pt_filtered_interp[0], sanorm)
-                dyval = _pt_ev(self._pt_filtered_interp[1], sanorm)
+                yval = _pt_ev(self._pt_filtered_interp[0], yanorm)
+                dyval = _pt_ev(self._pt_filtered_interp[1], yanorm)
                 dpsival = _pt_ev(self._pt_filtered_interp[3], thnorm)
                 tdpsiapo = _evs(self._dpsiapoInterp, iL, ix)
             else:
                 yval = _ptra_eval(
-                    sanorm,
+                    yanorm,
                     indx,
                     self._pt_filtered[0],
                     self._pt_nmesh,
                     self._exact_pt_spl_deg,
                 )
                 dyval = _ptra_eval(
-                    sanorm,
+                    yanorm,
                     indx,
                     self._pt_filtered[1],
                     self._pt_nmesh,
@@ -2171,20 +2171,20 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return (tOmegar, numpy.sign(jphi) * tOmegaz, tOmegaz)
 
 
-def _ptra_eval(sanorm, rowcoord, pt_filtered_arr, pt_nmesh, pt_spl_deg):
+def _ptra_eval(yanorm, rowcoord, pt_filtered_arr, pt_nmesh, pt_spl_deg):
     """
     NAME:
        _ptra_eval
     PURPOSE:
        evaluate the exact point transformation (or one of its derivatives or
        its Delta-psi shift) with respect to the normalized coordinate
-       sa = (ra-ptrperi)/(ptrap-ptrperi), using 2D spline interpolation of
+       ya = (ra-ptrperi)/(ptrap-ptrperi), using 2D spline interpolation of
        the (torus,mesh) grid on which it is stored
     INPUT:
-       sanorm - normalized radial position(s) on the auxiliary torus
+       yanorm - normalized radial position(s) on the auxiliary torus
        rowcoord - (possibly fractional) row index of the torus of each
                   evaluation point in the grid of tori; scalars are
-                  broadcast against sanorm
+                  broadcast against yanorm
        pt_filtered_arr - spline-filtered (torus,mesh) grid of the normalized
                          mapping (or of one of its derivatives, or of
                          Delta-psi) sampled on the fixed padded mesh
@@ -2192,20 +2192,20 @@ def _ptra_eval(sanorm, rowcoord, pt_filtered_arr, pt_nmesh, pt_spl_deg):
        pt_spl_deg - degree of the interpolating spline (must match the order
                     used to filter pt_filtered_arr)
     OUTPUT:
-       the normalized mapping (or derivative/Delta-psi) at sanorm
+       the normalized mapping (or derivative/Delta-psi) at yanorm
     HISTORY:
        2026-08-14 - Written - Bovy (UofT)
     """
-    sanorm = numpy.atleast_1d(numpy.asarray(sanorm, dtype="float"))
-    rowcoord = numpy.broadcast_to(numpy.asarray(rowcoord, dtype="float"), sanorm.shape)
-    meshcoord = sanorm * (pt_nmesh - 1.0) + (pt_filtered_arr.shape[1] - pt_nmesh) / 2.0
+    yanorm = numpy.atleast_1d(numpy.asarray(yanorm, dtype="float"))
+    rowcoord = numpy.broadcast_to(numpy.asarray(rowcoord, dtype="float"), yanorm.shape)
+    meshcoord = yanorm * (pt_nmesh - 1.0) + (pt_filtered_arr.shape[1] - pt_nmesh) / 2.0
     return ndimage.map_coordinates(
         pt_filtered_arr,
         [rowcoord.reshape(-1), meshcoord.reshape(-1)],
         order=pt_spl_deg,
         prefilter=False,
         mode="mirror",
-    ).reshape(sanorm.shape)
+    ).reshape(yanorm.shape)
 
 
 def _anglera(
@@ -2251,15 +2251,15 @@ def _anglera(
     HISTORY:
        2020-05-22 - Written based on earlier code - Bovy (UofT)
     """
-    sanorm = (ra - ptrperi) / (ptrap - ptrperi)
+    yanorm = (ra - ptrperi) / (ptrap - ptrperi)
     # Compute vr
     if pt_exact:
         r = rperi + (rap - rperi) * _ptra_eval(
-            sanorm, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
+            yanorm, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
         )
     else:
         r = (rap - rperi) * polynomial.polyval(
-            sanorm.T, ptcoeffs.T, tensor=False
+            yanorm.T, ptcoeffs.T, tensor=False
         ).T + rperi
     vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
     vr2[vr2 < 0.0] = 0.0
@@ -2267,13 +2267,13 @@ def _anglera(
         piprime = (
             (rap - rperi)
             / (ptrap - ptrperi)
-            * _ptra_eval(sanorm, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
+            * _ptra_eval(yanorm, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
         )
     else:
         piprime = (
             (rap - rperi)
             / (ptrap - ptrperi)
-            * polynomial.polyval(sanorm.T, ptderivcoeffs.T, tensor=False).T
+            * polynomial.polyval(yanorm.T, ptderivcoeffs.T, tensor=False).T
         )
     return isoaa_helper.angler(ra, vr2 * piprime**-2.0, L, reuse=False, vrneg=vrneg)
 
@@ -2323,35 +2323,35 @@ def _danglera(
     HISTORY:
        2020-05-22 - Written based on earlier code - Bovy (UofT)
     """
-    sanorm = (ra - ptrperi) / (ptrap - ptrperi)
+    yanorm = (ra - ptrperi) / (ptrap - ptrperi)
     # Compute vr
     if pt_exact:
         r = rperi + (rap - rperi) * _ptra_eval(
-            sanorm, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
+            yanorm, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
         )
         piprime = (
             (rap - rperi)
             / (ptrap - ptrperi)
-            * _ptra_eval(sanorm, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
+            * _ptra_eval(yanorm, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
         )
         piprime2 = (
             (rap - rperi)
             / (ptrap - ptrperi) ** 2.0
-            * _ptra_eval(sanorm, ptcoeffs, pt_filtered[2], pt_nmesh, pt_spl_deg)
+            * _ptra_eval(yanorm, ptcoeffs, pt_filtered[2], pt_nmesh, pt_spl_deg)
         )
     else:
         r = (rap - rperi) * polynomial.polyval(
-            sanorm.T, ptcoeffs.T, tensor=False
+            yanorm.T, ptcoeffs.T, tensor=False
         ).T + rperi
         piprime = (
             (rap - rperi)
             / (ptrap - ptrperi)
-            * polynomial.polyval(sanorm.T, ptderivcoeffs.T, tensor=False).T
+            * polynomial.polyval(yanorm.T, ptderivcoeffs.T, tensor=False).T
         )
         piprime2 = (
             (rap - rperi)
             / (ptrap - ptrperi) ** 2.0
-            * polynomial.polyval(sanorm.T, ptderiv2coeffs.T, tensor=False).T
+            * polynomial.polyval(yanorm.T, ptderiv2coeffs.T, tensor=False).T
         )
     vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
     vr2[vr2 < 0.0] = 0.0
@@ -2407,25 +2407,25 @@ def _jraora(
     HISTORY:
        2020-05-23 - Written based on earlier code - Bovy (UofT)
     """
-    sanorm = (ra - ptrperi) / (ptrap - ptrperi)
+    yanorm = (ra - ptrperi) / (ptrap - ptrperi)
     # Compute vr
     if pt_exact:
         r = rperi + (rap - rperi) * _ptra_eval(
-            sanorm, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
+            yanorm, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
         )
         piprime = (
             (rap - rperi)
             / (ptrap - ptrperi)
-            * _ptra_eval(sanorm, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
+            * _ptra_eval(yanorm, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
         )
     else:
         r = (rap - rperi) * polynomial.polyval(
-            sanorm.T, ptcoeffs.T, tensor=False
+            yanorm.T, ptcoeffs.T, tensor=False
         ).T + rperi
         piprime = (
             (rap - rperi)
             / (ptrap - ptrperi)
-            * polynomial.polyval(sanorm.T, ptderivcoeffs.T, tensor=False).T
+            * polynomial.polyval(yanorm.T, ptderivcoeffs.T, tensor=False).T
         )
     vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
     vr2[vr2 < 0.0] = 0.0
@@ -2480,35 +2480,35 @@ def _djradjrLish(
     HISTORY:
        2020-05-23 - Written based on earlier code - Bovy (UofT)
     """
-    sanorm = (ra - ptrperi) / (ptrap - ptrperi)
+    yanorm = (ra - ptrperi) / (ptrap - ptrperi)
     # Compute vr
     if pt_exact:
         r = rperi + (rap - rperi) * _ptra_eval(
-            sanorm, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
+            yanorm, ptcoeffs, pt_filtered[0], pt_nmesh, pt_spl_deg
         )
         piprime = (
             (rap - rperi)
             / (ptrap - ptrperi)
-            * _ptra_eval(sanorm, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
+            * _ptra_eval(yanorm, ptcoeffs, pt_filtered[1], pt_nmesh, pt_spl_deg)
         )
         piprime2 = (
             (rap - rperi)
             / (ptrap - ptrperi) ** 2.0
-            * _ptra_eval(sanorm, ptcoeffs, pt_filtered[2], pt_nmesh, pt_spl_deg)
+            * _ptra_eval(yanorm, ptcoeffs, pt_filtered[2], pt_nmesh, pt_spl_deg)
         )
     else:
         r = (rap - rperi) * polynomial.polyval(
-            sanorm.T, ptcoeffs.T, tensor=False
+            yanorm.T, ptcoeffs.T, tensor=False
         ).T + rperi
         piprime = (
             (rap - rperi)
             / (ptrap - ptrperi)
-            * polynomial.polyval(sanorm.T, ptderivcoeffs.T, tensor=False).T
+            * polynomial.polyval(yanorm.T, ptderivcoeffs.T, tensor=False).T
         )
         piprime2 = (
             (rap - rperi)
             / (ptrap - ptrperi) ** 2.0
-            * polynomial.polyval(sanorm.T, ptderiv2coeffs.T, tensor=False).T
+            * polynomial.polyval(yanorm.T, ptderiv2coeffs.T, tensor=False).T
         )
     vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
     vr2[vr2 < 0.0] = 0.0
