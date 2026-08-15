@@ -226,7 +226,7 @@ class RazorThinExponentialDiskPotential(Potential):
             )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):  # pragma: no cover
-        return numpy.infty
+        return numpy.inf
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         return numpy.exp(-self._alpha * R)
