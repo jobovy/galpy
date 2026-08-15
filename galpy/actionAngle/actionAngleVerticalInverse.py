@@ -344,7 +344,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
     def _setup_pointtransform_exact(self, pt_nxa):
         # Setup the exact point transformation for each torus by solving the
         # ordinary differential equation d pi / d xa = v / va that it
-        # satisfies; the result is stored as the normalized mapping
+        # satisfies, integrated in the auxiliary harmonic-oscillator angle,
+        # in which form it is regular everywhere (including at the turning
+        # point); the result is stored as the normalized mapping
         # x/xmax(xa/ptxmax) sampled on the fixed mesh self._pt_xamesh and is
         # evaluated using spline interpolation. _pt_deriv_coeffs and
         # _pt_deriv2_coeffs are not used in this case (derivatives come from
@@ -379,34 +381,39 @@ class actionAngleVerticalInverse(actionAngleInverse):
         if numpy.any(gIndx):
             # Aux. torus = harmonic-oscillator torus with the same action
             # (because omega = Omega, this is also the same-frequency torus)
-            Eas = self._js[gIndx] * self._OmegaHO[gIndx]
             Es = self._Es[gIndx]
             omegas = self._OmegaHO[gIndx]
             xmaxs = self._xmaxs[gIndx]
-            ptxmaxs = self._pt_xmaxs[gIndx]
-
+            ng = numpy.sum(gIndx)
             # Solve for all tori in a single vectorized ODE solve, using the
-            # shared normalized coordinate s = xa/ptxmax as the independent
-            # variable
-            def dptdxanorm(s, x):
-                # d pi / d (xa/ptxmax) = ptxmax * v / va
-                v2 = 2.0 * (Es - evaluatelinearPotentials(self._pot, x))
-                v2[v2 < 0.0] = 1e-20  # Just to get/keep going
-                va2 = 2.0 * Eas - omegas**2.0 * (s * ptxmaxs) ** 2.0
-                va2[va2 < 0.0] = 1e-16
-                return ptxmaxs * numpy.sqrt(v2 / va2)
+            # auxiliary harmonic-oscillator angle thetaa as the independent
+            # variable and writing the normalized position as y = x/xmax =
+            # sin(chi) [while xa/ptxmax = sin(thetaa)], in which form the
+            # equation dchi/dthetaa = sqrt(Q)/(omega xmax), with
+            # Q = v^2/(1-y^2), is regular over the whole quarter period,
+            # including at the turning point, where Q -> -F(xmax) xmax
+            Qmax = -evaluatelinearForces(self._pot, xmaxs) * xmaxs
 
-            # Integrate up to the second-to-last mesh point only, because the
-            # ODE is singular (0/0) at the turning point xa = ptxmax itself;
-            # the value there is set by the boundary condition that the
-            # turning point maps exactly onto the turning point (the mapping
-            # is smooth through the turning point, so the spline representation
-            # remains accurate over the final mesh interval)
+            def deriv_thetaa(thetaa, chi):
+                y = numpy.sin(chi)
+                v2 = 2.0 * (Es - evaluatelinearPotentials(self._pot, xmaxs * y))
+                v2[v2 < 0.0] = 0.0
+                omy2 = 1.0 - y**2.0
+                Q = numpy.empty(ng)
+                reg = omy2 > 1e-6
+                Q[reg] = v2[reg] / omy2[reg]
+                Q[True ^ reg] = Qmax[True ^ reg]
+                Q[Q < 0.0] = 0.0
+                return numpy.sqrt(Q) / omegas / xmaxs
+
+            thetaamesh = numpy.linspace(
+                0.0, numpy.pi / 2.0, numpy.amax([4 * pt_nxa, 801])
+            )
             sol = integrate.solve_ivp(
-                dptdxanorm,
-                [0.0, xanormmesh[-2]],
-                numpy.zeros(numpy.sum(gIndx)),
-                t_eval=xanormmesh[:-1],
+                deriv_thetaa,
+                [0.0, numpy.pi / 2.0],
+                numpy.zeros(ng),
+                t_eval=thetaamesh,
                 rtol=self._exact_pt_tol,
                 atol=self._exact_pt_tol,
                 method="DOP853",
@@ -416,9 +423,24 @@ class actionAngleVerticalInverse(actionAngleInverse):
                     "Solving the ODE that defines the exact point transformation failed, full message: "
                     + sol.message
                 )
-            ynorm = sol.y / numpy.atleast_2d(xmaxs).T
+            ys = numpy.sin(sol.y)
+            ys[:, 0] = 0.0
             # The turning point must map exactly onto the turning point
-            ynorm = numpy.hstack((ynorm, numpy.ones((ynorm.shape[0], 1))))
+            ys[:, -1] = 1.0
+            # Resample onto the uniform mesh in s = xa/ptxmax in two stages:
+            # first represent the solution as a spline in thetaa, on whose
+            # uniform grid the spline is well-conditioned (the solution's
+            # sampling clusters quadratically in s near the turning point,
+            # where a direct spline would be noisy), then evaluate it at the
+            # closed-form thetaa(s) = arcsin(s) of the uniform s mesh
+            thetaa_of_s = numpy.arcsin(xanormmesh)
+            ynorm = numpy.empty((ng, pt_nxa))
+            for jj in range(ng):
+                ynorm[jj] = interpolate.InterpolatedUnivariateSpline(
+                    thetaamesh, ys[jj], k=self._exact_pt_spl_deg
+                )(thetaa_of_s)
+            ynorm[:, 0] = 0.0
+            ynorm[:, -1] = 1.0
             # Odd reflection onto the full [-1,1] mesh (symmetric potential)
             ynormfull = numpy.hstack((-ynorm[:, :0:-1], ynorm))
             # Represent as a spline and sample the mapping and its
