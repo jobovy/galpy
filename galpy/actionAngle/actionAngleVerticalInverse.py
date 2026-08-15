@@ -427,18 +427,19 @@ class actionAngleVerticalInverse(actionAngleInverse):
             ys[:, 0] = 0.0
             # The turning point must map exactly onto the turning point
             ys[:, -1] = 1.0
-            # Resample onto the uniform mesh in s = xa/ptxmax in two stages:
-            # first represent the solution as a spline in thetaa, on whose
-            # uniform grid the spline is well-conditioned (the solution's
-            # sampling clusters quadratically in s near the turning point,
-            # where a direct spline would be noisy), then evaluate it at the
-            # closed-form thetaa(s) = arcsin(s) of the uniform s mesh
-            thetaa_of_s = numpy.arcsin(xanormmesh)
+            # Resample onto the uniform mesh in ya = xa/ptxmax in two
+            # stages: first represent the solution as a spline in thetaa, on
+            # whose uniform grid the spline is well-conditioned (the
+            # solution's sampling clusters quadratically in ya near the
+            # turning point, where a direct spline would be noisy), then
+            # evaluate it at the closed-form thetaa(ya) = arcsin(ya) of the
+            # uniform ya mesh
+            thetaa_of_ya = numpy.arcsin(xanormmesh)
             ynorm = numpy.empty((ng, pt_nxa))
             for jj in range(ng):
                 ynorm[jj] = interpolate.InterpolatedUnivariateSpline(
                     thetaamesh, ys[jj], k=self._exact_pt_spl_deg
-                )(thetaa_of_s)
+                )(thetaa_of_ya)
             ynorm[:, 0] = 0.0
             ynorm[:, -1] = 1.0
             # Odd reflection onto the full [-1,1] mesh (symmetric potential)
