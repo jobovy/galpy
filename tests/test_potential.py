@@ -773,7 +773,6 @@ def _make_pots_potential_array_input():
     rmpots.append("DoubleExponentialDiskPotential")
     rmpots.append("RazorThinExponentialDiskPotential")
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
-    rmpots.append("AnySphericalPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("HomogeneousSpherePotential")
     # These cannot be setup without arguments
