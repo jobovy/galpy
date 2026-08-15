@@ -8258,6 +8258,33 @@ def test_actionAngleSphericalInverse_wrtSpherical_bisect():
     return None
 
 
+# Test that the bisection angle solve of actionAngleSphericalInverse warns
+# when it does not converge
+def test_actionAngleSphericalInverse_convergence_warnings():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=logpot, nta=128, Es=[E], Ls=[L], bisect=True, maxiter=1
+        )
+    with pytest.warns(
+        galpyWarning, match="Radial angle mapping with bisection did not converge"
+    ):
+        aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+    return None
+
+
 # Test that the actionAngleSphericalInverse plots run
 def test_actionAngleSphericalInverse_plotting():
     import matplotlib.pyplot as pyplot
