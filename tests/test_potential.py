@@ -15,7 +15,7 @@ try:
 except ImportError:
     _PYNBODY_LOADED = False
 from galpy import orbit, potential
-from galpy.backend import as_numpy, get_namespace
+from galpy.backend import as_numpy, get_namespace, is_backend_array
 from galpy.util import _rotate_to_arbitrary_vector, coords
 from galpy.util._optional_deps import _APY_LOADED
 
@@ -14265,6 +14265,24 @@ def test_razorthinexponentialdisk_forces_at_the_closedform_handover():
     return None
 
 
+def _anyaxisym_surfdens(R):
+    """Sigma(R) = exp(-R/0.3), usable on every path AnyAxisym evaluates it on.
+
+    Dispatch on ``is_backend_array``, NOT on ``get_namespace``, copying
+    ``AnyAxisymmetricRazorThinDiskPotential._default_surfdens``, whose comment
+    spells out why: under a FORCED backend ``get_namespace`` returns that
+    backend's namespace even for a plain float, and ``torch.exp`` rejects a
+    float where ``jax.numpy.exp`` accepts one. The potential's concrete-scalar
+    branch hands ``_sdens`` a Python float (it reuses scipy's adaptive quad
+    there), so a bare ``get_namespace(R).exp`` raises
+    ``TypeError: exp(): argument 'input' must be Tensor, not float`` on torch --
+    measured, not hypothesised. Guarding this way keeps a numpy / float / Quantity
+    R on ``numpy.exp`` (byte-identical) and sends only a real backend array to
+    the namespace, which is what the traced run needs.
+    """
+    return (get_namespace(R) if is_backend_array(R) else numpy).exp(-R / 0.3)
+
+
 # AnyAxisymmetricRazorThinDiskPotential's second derivatives are Hadamard
 # finite-part integrals: the integrand diverges as C/(a-R)^2 with the SAME sign
 # on both sides of a=R, so the halves add rather than cancel. Evaluating them
@@ -14294,11 +14312,11 @@ def test_anyaxisymmetricrazorthindisk_second_derivs_at_z0():
         2.0: 9.7856791896e-02,
     }
     p = potential.AnyAxisymmetricRazorThinDiskPotential(
-        # get_namespace, not numpy: identical function, but numpy.exp on a
-        # tracer raises TracerArrayConversionError, so the --jit run failed here
-        # for a reason that had nothing to do with the potential. The mpmath gold
-        # values below are for exactly Sigma(R)=exp(-R/0.3) and are unaffected.
-        surfdens=lambda R: get_namespace(R).exp(-R / 0.3)
+        # Not bare numpy.exp: it raises TracerArrayConversionError on a tracer,
+        # so the --jit run failed here for a reason that had nothing to do with
+        # the potential. Same function either way, so the mpmath gold values
+        # below (for exactly Sigma(R)=exp(-R/0.3)) are unaffected.
+        surfdens=_anyaxisym_surfdens
     )
     for R, ref in gold_R2.items():
         got = p.R2deriv(R, 0.0, use_physical=False)
@@ -14346,11 +14364,11 @@ def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
     every other test stayed green -- exactly the blind spot this closes.
     """
     p = potential.AnyAxisymmetricRazorThinDiskPotential(
-        # get_namespace, not numpy: identical function, but numpy.exp on a
-        # tracer raises TracerArrayConversionError, so the --jit run failed here
-        # for a reason that had nothing to do with the potential. The mpmath gold
-        # values below are for exactly Sigma(R)=exp(-R/0.3) and are unaffected.
-        surfdens=lambda R: get_namespace(R).exp(-R / 0.3)
+        # Not bare numpy.exp: it raises TracerArrayConversionError on a tracer,
+        # so the --jit run failed here for a reason that had nothing to do with
+        # the potential. Same function either way, so the mpmath gold values
+        # below (for exactly Sigma(R)=exp(-R/0.3)) are unaffected.
+        surfdens=_anyaxisym_surfdens
     )
     arr = numpy.array([0.8, 1.2])
     for name in ("__call__", "Rforce", "zforce", "R2deriv", "z2deriv", "Rzderiv"):
