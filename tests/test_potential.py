@@ -14294,7 +14294,11 @@ def test_anyaxisymmetricrazorthindisk_second_derivs_at_z0():
         2.0: 9.7856791896e-02,
     }
     p = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: numpy.exp(-R / 0.3)
+        # get_namespace, not numpy: identical function, but numpy.exp on a
+        # tracer raises TracerArrayConversionError, so the --jit run failed here
+        # for a reason that had nothing to do with the potential. The mpmath gold
+        # values below are for exactly Sigma(R)=exp(-R/0.3) and are unaffected.
+        surfdens=lambda R: get_namespace(R).exp(-R / 0.3)
     )
     for R, ref in gold_R2.items():
         got = p.R2deriv(R, 0.0, use_physical=False)
@@ -14342,7 +14346,11 @@ def test_anyaxisymmetricrazorthindisk_all_methods_reject_arrays():
     every other test stayed green -- exactly the blind spot this closes.
     """
     p = potential.AnyAxisymmetricRazorThinDiskPotential(
-        surfdens=lambda R: numpy.exp(-R / 0.3)
+        # get_namespace, not numpy: identical function, but numpy.exp on a
+        # tracer raises TracerArrayConversionError, so the --jit run failed here
+        # for a reason that had nothing to do with the potential. The mpmath gold
+        # values below are for exactly Sigma(R)=exp(-R/0.3) and are unaffected.
+        surfdens=lambda R: get_namespace(R).exp(-R / 0.3)
     )
     arr = numpy.array([0.8, 1.2])
     for name in ("__call__", "Rforce", "zforce", "R2deriv", "z2deriv", "Rzderiv"):
