@@ -8630,6 +8630,21 @@ def test_actionAngleSphericalInverse_orbit_interpolation(
     return None
 
 
+# Test that the interpolated actionAngleSphericalInverse raises for tori
+# outside of the interpolation grid
+def test_actionAngleSphericalInverse_interpolation_outside_grid(
+    setup_actionAngleSphericalInverse_interpolated_exactpointtransform,
+):
+    aASI, _ = setup_actionAngleSphericalInverse_interpolated_exactpointtransform
+    # Angular momentum outside of the grid
+    with pytest.raises(ValueError):
+        aASI(0.05, 100.0, 0.0, 0.1, 0.1, 0.1)
+    # Radial action outside of the grid
+    with pytest.raises(ValueError):
+        aASI(1e4, 1.0, 0.1, 0.1, 0.1, 0.1)
+    return None
+
+
 # Test that the interpolated actionAngleSphericalInverse also works without a
 # point transformation
 def test_actionAngleSphericalInverse_wrtSpherical_interpolation_nopointtransform(
