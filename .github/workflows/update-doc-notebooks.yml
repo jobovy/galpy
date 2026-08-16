@@ -13,6 +13,11 @@ on:
         required: false
         default: false
         type: boolean
+      debug_transcript:
+        description: 'If the diff analysis produces nothing, also print the final assistant message (model prose — may quote tool output; opt in deliberately)'
+        required: false
+        default: false
+        type: boolean
   pull_request:
     # Run on PRs that touch this workflow, so changes to the workflow itself can
     # be exercised before merge. pull_request events always behave as dry runs:
@@ -436,7 +441,20 @@ jobs:
             jq -r 'type, (if type == "array" then .[0] else . end | keys | join(","))' "$EXEC_FILE" || true
           }
           echo "::endgroup::"
-          echo "::group::Final assistant message (model prose only, no tool output)"
+          # The skeleton above is an allowlist of structural fields, so no tool
+          # output can reach it. The final assistant message is different: it is
+          # model prose, and a model can quote tool output back at you. That is
+          # far less exposure than show_full_output, but it is not provably
+          # safe, so it is opt-in per run rather than something a scheduled run
+          # publishes on its own. Usually the skeleton alone answers the
+          # question — whether Write was called, with what target, and whether
+          # any tool result errored.
+          if [ "${{ inputs.debug_transcript }}" != "true" ]; then
+            echo "Final assistant message withheld. To include it, re-run via" \
+                 "workflow_dispatch with debug_transcript: true."
+            exit 0
+          fi
+          echo "::group::Final assistant message (opt-in; model prose)"
           jq -r '[(if type == "array" then .[] else . end) | select(.type == "assistant")][-1]
                  | .message.content[]? | select(.type == "text") | .text' "$EXEC_FILE" 2>/dev/null \
             || echo "(could not extract)"
