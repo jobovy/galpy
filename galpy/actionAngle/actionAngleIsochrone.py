@@ -453,21 +453,11 @@ class _actionAngleIsochroneHelper:
         c = -self.amp / 2.0 / E - self.b
         e2 = 1.0 - L * L / self.amp / c * (1.0 + self.b / c)
         e = numpy.sqrt(e2)
-        if isinstance(self.b, numpy.ndarray):
-            s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
-            coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
-            pindx = self.b == 0.0
-            coseta[pindx] = 1 / e[pindx] * (1.0 - r[pindx] / c[pindx])
-        else:
-            if self.b == 0.0:
-                coseta = 1 / e * (1.0 - r / c)
-            else:
-                s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
-                coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
-        pindx = coseta > 1.0
-        coseta[pindx] = 1.0
-        pindx = coseta < -1.0
-        coseta[pindx] = -1.0
+        # Using b (s-2) = sqrt(b^2+r^2) - b, which needs no special case for
+        # the Kepler limit b = 0 and does not divide by b
+        coseta = numpy.clip(
+            (1.0 - (numpy.sqrt(self.b**2.0 + r**2.0) - self.b) / c) / e, -1.0, 1.0
+        )
         eta = numpy.arccos(coseta)
         if vrneg:
             eta = 2.0 * numpy.pi - eta
@@ -483,21 +473,11 @@ class _actionAngleIsochroneHelper:
         L2overampc = L2 / self.amp / self._c
         e2 = 1.0 - L2overampc * (1.0 + self.b / self._c)
         self._e = numpy.sqrt(e2)
-        if isinstance(self.b, numpy.ndarray):
-            s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
-            coseta = 1 / self._e * (1.0 - self.b / self._c * (s - 2.0))
-            pindx = self.b == 0.0
-            coseta[pindx] = 1 / self._e[pindx] * (1.0 - r[pindx] / self._c[pindx])
-        else:
-            if self.b == 0.0:
-                coseta = 1 / self._e * (1.0 - r / self._c)
-            else:
-                s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
-                coseta = 1 / self._e * (1.0 - self.b / self._c * (s - 2.0))
-        pindx = coseta > 1.0
-        coseta[pindx] = 1.0
-        pindx = coseta < -1.0
-        coseta[pindx] = -1.0
+        coseta = numpy.clip(
+            (1.0 - (numpy.sqrt(self.b**2.0 + r**2.0) - self.b) / self._c) / self._e,
+            -1.0,
+            1.0,
+        )
         self._eta = numpy.arccos(coseta)
         if vrneg:
             self._eta = 2.0 * numpy.pi - self._eta
@@ -565,21 +545,11 @@ class _actionAngleIsochroneHelper:
         c = -self.amp / 2.0 / E - self.b
         e2 = 1.0 - L2 / self.amp / c * (1.0 + self.b / c)
         e = numpy.sqrt(e2)
-        if isinstance(self.b, numpy.ndarray):
-            s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
-            coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
-            pindx = self.b == 0.0
-            coseta[pindx] = 1 / e[pindx] * (1.0 - r[pindx] / c[pindx])
-        else:
-            if self.b == 0.0:
-                coseta = 1 / e * (1.0 - r / c)
-            else:
-                s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
-                coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
-        pindx = coseta > 1.0
-        coseta[pindx] = 1.0
-        pindx = coseta < -1.0
-        coseta[pindx] = -1.0
+        # Using b (s-2) = sqrt(b^2+r^2) - b, which needs no special case for
+        # the Kepler limit b = 0 and does not divide by b
+        coseta = numpy.clip(
+            (1.0 - (numpy.sqrt(self.b**2.0 + r**2.0) - self.b) / c) / e, -1.0, 1.0
+        )
         eta = numpy.arccos(coseta)
         if vrneg:
             eta = 2.0 * numpy.pi - eta
@@ -598,7 +568,8 @@ class _actionAngleIsochroneHelper:
             + dedLfac * L2 / 4.0 / c** 2.0 / E** 2 * (1.0 + 2.0 * self.b / c)
         )
         return (
-            numfordrdE / (r / self.b**2.0 / (s - 1.0) - numfordrdE * dEdr),
+            numfordrdE
+            / (r / self.b / numpy.sqrt(self.b**2.0 + r**2.0) - numfordrdE * dEdr),
             (
                 -dedLfac
                 * (
@@ -608,7 +579,7 @@ class _actionAngleIsochroneHelper:
                 + dcdLfac * dcdLoverdEdL * dEdL
             )
             / (
-                r / self.b**2.0 / (s - 1.0)
+                r / self.b / numpy.sqrt(self.b**2.0 + r**2.0)
                 - dcdLfac * dcdLoverdrdL
                 - dedLfac * L2o2GMc2etc * dcdLoverdrdL
             ),
