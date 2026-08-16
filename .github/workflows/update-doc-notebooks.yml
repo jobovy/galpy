@@ -233,9 +233,12 @@ jobs:
         # --max-turns is deliberately generous: the analysis is inherently
         # long-running (it decodes every embedded PNG in ~27 notebooks), and
         # a full pass has been observed to need 55 turns. claude-code-action
-        # only began enforcing --max-turns from claude_args in Aug 2026, so a
-        # limit that had been silently ignored suddenly became live; keep the
-        # headroom well above the observed need.
+        # only began enforcing --max-turns from claude_args in Aug 2026
+        # (v1.0.188), so a limit that had been silently ignored suddenly became
+        # live. Enforcement is a post-run check: the agent is NOT cut off at the
+        # limit; the action fails the step afterwards if num_turns exceeded it.
+        # A cap below what a full pass needs therefore throws away completed
+        # work. Keep the headroom well above the observed need.
         id: claude-analysis
         if: steps.check-changes.outputs.changed == 'true'
         continue-on-error: true
@@ -383,18 +386,24 @@ jobs:
             {
               echo "## :warning: Claude diff analysis failed"
               echo ""
-              echo "Most likely the \`CLAUDE_CODE_OAUTH_TOKEN\` repository secret has expired or been revoked."
-              echo "Regenerate it locally with \`claude setup-token\` and update the secret at"
-              echo "[Settings → Secrets and variables → Actions](${{ github.server_url }}/${{ github.repository }}/settings/secrets/actions)."
+              echo "Check the \`Claude diff analysis\` step log above for the exact error. The two"
+              echo "known causes:"
               echo ""
-              echo "See the \`Claude diff analysis\` step log above for the exact error."
+              echo "1. The \`CLAUDE_CODE_OAUTH_TOKEN\` repository secret has expired or been revoked."
+              echo "   Regenerate it locally with \`claude setup-token\` and update the secret at"
+              echo "   [Settings → Secrets and variables → Actions](${{ github.server_url }}/${{ github.repository }}/settings/secrets/actions)."
+              echo "2. The agent used more turns than \`--max-turns\` allows. The action checks this"
+              echo "   *after* the run and fails the step, logging \"exceeding the configured maximum\"."
+              echo "   Raise \`--max-turns\` in this workflow; nothing is wrong with the token."
             } >> "$GITHUB_STEP_SUMMARY"
           else
             # This step only runs when there ARE notebook changes, so reaching
             # here means the analysis step exited 0 without leaving anything at
-            # /tmp/nb_analysis.md — Claude ran but produced no deliverable (e.g.
-            # it was cut short by --max-turns, or wrote to a different path).
+            # /tmp/nb_analysis.md — Claude ran but produced no deliverable.
             # Say so explicitly; a silent "skipped" hides a broken analysis.
+            # This is what happened on 2026-08-15 (run 31869287125): the agent
+            # returned success after 24 turns and wrote nothing, and the PR was
+            # opened claiming the analysis had been skipped.
             echo "::warning::Claude diff analysis produced no /tmp/nb_analysis.md despite notebook changes"
             {
               echo "## :warning: Claude diff analysis produced no output"
@@ -498,7 +507,7 @@ jobs:
           else
             {
               echo "> [!WARNING]"
-              echo "> **Diff analysis produced no output.** The analysis step exited successfully but never wrote its summary file, so this PR has no re-run diff summary — most likely the agent was cut short (see \`--max-turns\` in the workflow) rather than finding nothing to report. See the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+              echo "> **Diff analysis produced no output.** The analysis step exited successfully but never wrote its summary file, so this PR has no re-run diff summary. This is not 'nothing to report' — the notebooks did change. See the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}); to capture the agent transcript, rerun via \`workflow_dispatch\` with \`dry_run: true\` and \`show_full_output: true\` on the analysis step."
               echo ""
               echo "_Review the rendered notebook diffs manually for this rerun._"
             } >> pr_body.md
