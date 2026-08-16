@@ -56,6 +56,7 @@ from galpy.actionAngle import (
     estimateDeltaStaeckel,
 )
 from galpy.potential import (
+    AnyAxisymmetricRazorThinDiskPotential,
     HernquistPotential,
     IsochronePotential,
     IsothermalDiskPotential,
@@ -2488,3 +2489,37 @@ def test_aavertical_backend_path_uses_undecorated_evaluators(backend):
         f"{n} times; the bracketing/root-find closure should call the "
         "undecorated _evaluatelinearPotentials, not the decorated entry point"
     )
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_estimateDeltaStaeckel_scalar_only_potential(backend):
+    # A potential whose evaluators reject a whole-array call makes _delta2(R, z)
+    # raise, and estimateDeltaStaeckel falls back to evaluating element by
+    # element. MWPotential2014 in the parity test above is array-capable, so
+    # that fallback had no coverage at all.
+    #
+    # Measured which potential actually takes it, rather than trusting the
+    # source comment: AnyAxisymmetricRazorThinDiskPotential does.
+    # DoubleExponentialDiskPotential -- named in that comment -- does NOT: its
+    # public methods carry the scalar-only decorator, but estimateDeltaStaeckel
+    # goes through the internal _evaluateRforces/_evaluatezforces, which bypass
+    # it, so the array call simply succeeds.
+    pot = AnyAxisymmetricRazorThinDiskPotential(surfdens=lambda R: numpy.exp(-R / 0.3))
+    # Deliberately NOT the _EST_R/_EST_Z grid the parity test uses: on that one
+    # delta^2 goes negative for this potential and both paths return NaN, so an
+    # allclose would compare NaN to NaN and pass while asserting nothing. These
+    # points give finite deltas, and the finiteness is asserted below so a
+    # regression to NaN fails instead of passing vacuously.
+    R = numpy.array([0.4, 0.6, 0.8, 1.0])
+    z = numpy.array([0.3, 0.4, 0.5, 0.6])
+    ref = numpy.asarray(estimateDeltaStaeckel(pot, R, z, no_median=True))
+    got = estimateDeltaStaeckel(pot, _arr(backend, R), _arr(backend, z), no_median=True)
+    assert _is_backend_array(backend, got)
+    assert numpy.all(numpy.isfinite(ref)) and numpy.all(
+        numpy.isfinite(as_numpy(got))
+    ), (
+        "estimateDeltaStaeckel scalar-only fallback returned NaN; the comparison "
+        "below would then be vacuous"
+    )
+    numpy.testing.assert_allclose(as_numpy(got), ref, rtol=1e-8, atol=1e-10)
+    return None
