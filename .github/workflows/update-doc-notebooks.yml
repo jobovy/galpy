@@ -15,8 +15,16 @@ on:
         type: boolean
   pull_request:
     # Run on PRs that touch this workflow, so changes to the workflow itself can
-    # be exercised end-to-end before merge. pull_request events always behave as
-    # dry runs: notebooks are executed and uploaded as an artifact; no PR opened.
+    # be exercised before merge. pull_request events always behave as dry runs:
+    # notebooks are executed and uploaded as an artifact; no PR opened.
+    #
+    # CAVEAT: this cannot exercise the `Claude diff analysis` step. anthropics/
+    # claude-code-action validates that the workflow file is byte-identical to
+    # the copy on the default branch, so on any branch or PR that edits THIS
+    # file the action skips itself — and it exits with success, not failure.
+    # Everything else (execution, change detection, pre-commit, artifact) is
+    # still covered; to test the analysis step, merge first and then run
+    # workflow_dispatch with dry_run: true from main.
     paths:
       - '.github/workflows/update-doc-notebooks.yml'
 
@@ -409,10 +417,14 @@ jobs:
               echo "## :warning: Claude diff analysis produced no output"
               echo ""
               echo "The analysis step exited successfully but never wrote \`/tmp/nb_analysis.md\`,"
-              echo "so this run has no diff summary. The agent transcript is hidden by default;"
-              echo "to see it, rerun this workflow via \`workflow_dispatch\` with \`dry_run: true\`"
-              echo "and either enable \`show_full_output: true\` on the \`Claude diff analysis\` step"
-              echo "or re-run with debug logging."
+              echo "so this run has no diff summary. Check the step log for which case this is:"
+              echo ""
+              echo "1. \`Skipping action due to workflow validation\` — this run is on a branch"
+              echo "   whose copy of this workflow file differs from the default branch, so the"
+              echo "   action skipped itself. Expected on workflow-editing branches; not a bug."
+              echo "2. The agent ran and returned success without writing the file. The transcript"
+              echo "   is hidden by default — rerun via \`workflow_dispatch\` with \`dry_run: true\`"
+              echo "   from the default branch and \`show_full_output: true\` on the analysis step."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Stage analysis file for dry-run artifact
