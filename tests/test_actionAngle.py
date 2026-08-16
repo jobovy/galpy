@@ -7916,6 +7916,20 @@ def test_actionAngleVerticalInverse_notE_errors():
 
 
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
+def test_nullpotential_error():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import NullPotential
+
+    np = NullPotential()
+    aAS = actionAngleStaeckel(pot=np, delta=1.0)
+    with pytest.raises(NotImplementedError) as excinfo:
+        aAS(1.0, 0.0, 1.0, 0.1, 0.0)
+        pytest.fail(
+            "Calculating actionAngle coordinates in C for a NullPotential should have given a NotImplementedError, but did not"
+        )
+    return None
+
+
 # ----- Tests of actionAngleSphericalInverse -----
 
 
@@ -8135,20 +8149,6 @@ def test_actionAngleSphericalInverse_exactpointtransform_baseline():
     ), (
         "actionAngleSphericalInverse with the exact point transformation does not roughly recover an example orbit"
     )
-    return None
-
-
-def test_nullpotential_error():
-    from galpy.actionAngle import actionAngleStaeckel
-    from galpy.potential import NullPotential
-
-    np = NullPotential()
-    aAS = actionAngleStaeckel(pot=np, delta=1.0)
-    with pytest.raises(NotImplementedError) as excinfo:
-        aAS(1.0, 0.0, 1.0, 0.1, 0.0)
-        pytest.fail(
-            "Calculating actionAngle coordinates in C for a NullPotential should have given a NotImplementedError, but did not"
-        )
     return None
 
 
