@@ -8630,6 +8630,37 @@ def test_actionAngleSphericalInverse_orbit_interpolation(
     return None
 
 
+# Test the scalar-parameter branches of the isochrone helper's rperi/rap
+# computation (the spherical inverse always calls it with array parameters)
+def test_actionAngleIsochroneHelper_rperirap_scalar():
+    from galpy.actionAngle.actionAngleIsochrone import _actionAngleIsochroneHelper
+    from galpy.potential import IsochronePotential
+
+    # Scalar b > 0: check that vr^2 vanishes at the returned turning points
+    ip = IsochronePotential(amp=2.0, b=0.8)
+    helper = _actionAngleIsochroneHelper(ip=ip)
+    E, L2 = -0.5, 0.75
+    rperi, rap = helper.rperirap(E, L2)
+    for r in [rperi, rap]:
+        vr2 = 2.0 * (E - ip(r, 0.0)) - L2 / r**2.0
+        assert numpy.fabs(vr2) < 1e-10, (
+            "rperirap with scalar b > 0 does not return the turning points"
+        )
+    # Scalar b = 0 (Kepler): rperi/rap = a (1 -/+ e)
+    ipk = IsochronePotential(amp=1.0, b=0.0)
+    helperk = _actionAngleIsochroneHelper(ip=ipk)
+    a, L2 = 1.0, 0.75
+    rperi, rap = helperk.rperirap(-1.0 / (2.0 * a), L2)
+    e = numpy.sqrt(1.0 - L2 / a)
+    assert numpy.fabs(rperi - a * (1.0 - e)) < 1e-10, (
+        "rperirap with b = 0 does not return the Kepler pericenter"
+    )
+    assert numpy.fabs(rap - a * (1.0 + e)) < 1e-10, (
+        "rperirap with b = 0 does not return the Kepler apocenter"
+    )
+    return None
+
+
 # Test that the interpolated actionAngleSphericalInverse raises for tori
 # outside of the interpolation grid
 def test_actionAngleSphericalInverse_interpolation_outside_grid(
