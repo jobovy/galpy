@@ -124,32 +124,37 @@ def _grid_eval(evaluator, pot, rgrid, zgrid):
     * the potential neither raises nor broadcasts correctly. This is the
       dangerous one, because a ``try/except`` sails straight past it and the
       whole interpolation grid is then built from wrong numbers. Measured
-      2026-08-10, ``AnySphericalPotential`` does exactly that: its array results
-      differ from the cell-by-cell ones in 95 % of cells, silently.
+      2026-08-10, ``AnySphericalPotential`` did exactly that: its array results
+      differed from the cell-by-cell ones in 95 % of cells, silently. That
+      potential has since been fixed, so this branch is now exercised only by
+      the synthetic mis-broadcaster in
+      ``test_grid_eval_falls_back_on_silent_misbroadcast`` -- deliberately, so
+      the guard keeps its own test rather than depending on some other
+      component staying buggy.
 
     **Composites are not a special case and do not need one.** A list or a
     ``CompositePotential`` broadcasts iff its components do, because the
     evaluator just sums them. Verified over all 56 pairwise composites (both
     spellings) of 8 individually-vectorisable potentials: **none** fell back.
-    Only a composite *containing* an array-unsafe component -- in practice
-    ``AnySphericalPotential`` -- falls back, which is the correct outcome, since
-    the sum is then as wrong as its worst term.
+    Only a composite *containing* an array-unsafe component falls back, which is
+    the correct outcome, since the sum is then as wrong as its worst term.
 
     So the vectorised result is accepted only after it reproduces the scalar
     path **bit for bit** on a spot-check sample (see `_spot_check_cells`).
     Bit-for-bit rather than within a tolerance is deliberate: the point of this
     is to be a pure speed-up, so anything that would move a shipped value falls
     back instead. Across a 19-potential zoo x the 7 sampled quantities, 94 of
-    108 combinations are bit-identical over the entire grid, 9 raise, and 5 (all
-    ``AnySphericalPotential``) differ and are caught here.
+    108 combinations were bit-identical over the entire grid, 9 raised, and 5
+    (all ``AnySphericalPotential``, before it was fixed) differed and were
+    caught here.
 
     The sample is ~19 cells rather than two whole rows. That is a deliberate
     trade: it costs 31x less on potentials where a scalar call is expensive
     (``DoubleExponentialDiskPotential``: 0.008 s vs 0.251 s), at the price of
     being probabilistic for a *sparse* disagreement. It is not probabilistic for
     the failure this actually guards against -- a broadcasting bug is a
-    whole-array phenomenon, and the one real instance disagrees in 95 % of
-    cells, which ~19 independent samples miss with probability 5e-25.
+    whole-array phenomenon, and the one real instance seen so far disagreed in
+    95 % of cells, which ~19 independent samples miss with probability 5e-25.
     """
     nR, nz = len(rgrid), len(zgrid)
 
