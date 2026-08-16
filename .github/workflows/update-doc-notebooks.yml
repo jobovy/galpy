@@ -381,6 +381,66 @@ jobs:
 
             Be concise. Do not narrate steps in the output — the reader wants
             findings, not your process.
+      - name: Diff-analysis debug skeleton
+        # Runs ONLY when the analysis produced nothing, so healthy runs print
+        # nothing. Emits the shape of the agent run — message types, tool names,
+        # the basename of any file written, error flags, and the final assistant
+        # message — so a silent no-output run leaves evidence behind instead of
+        # dying with the runner.
+        #
+        # Deliberately NOT `show_full_output: true`, whose own documentation
+        # warns it "outputs ALL Claude messages including tool execution results
+        # which may contain secrets, API keys, or other sensitive information".
+        # Tool RESULTS are the hazard: this action rewrites the git remote with
+        # an app token and writes a credentials config under RUNNER_TEMP, so a
+        # `git remote -v` or a Read of that path would publish a live credential
+        # to this permanently-public log. Everything below is an allowlist —
+        # never add a filter that emits tool_result content.
+        if: >-
+          steps.check-changes.outputs.changed == 'true' &&
+          steps.claude-analysis.outputs.execution_file != ''
+        env:
+          EXEC_FILE: ${{ steps.claude-analysis.outputs.execution_file }}
+        run: |
+          # Healthy run — nothing to diagnose. (Written as an explicit `if`
+          # rather than `[ ... ] && exit 0`, whose interaction with `set -e` is
+          # a well-known footgun.)
+          if [ -s /tmp/nb_analysis.md ]; then
+            exit 0
+          fi
+          if [ ! -s "$EXEC_FILE" ]; then
+            echo "No execution file at '$EXEC_FILE' — the action exited before running the agent."
+            exit 0
+          fi
+          echo "::group::Agent run skeleton"
+          jq -r '
+            (if type == "array" then .[] else . end)
+            | if .type == "assistant" then
+                "assistant | " + ([.message.content[]?
+                  | if .type == "tool_use" then
+                      "tool:" + .name
+                      + (if (.input.file_path // "") != ""
+                         then "(" + (.input.file_path | split("/") | last) + ")" else "" end)
+                    elif .type == "text" then "text[" + (.text | length | tostring) + " chars]"
+                    else .type end] | join(" "))
+              elif .type == "user" then
+                "user      | " + ([.message.content[]? | select(.type == "tool_result")
+                  | "tool_result" + (if .is_error then "(ERROR)" else "" end)] | join(" "))
+              elif .type == "result" then
+                "RESULT    | subtype=" + (.subtype // "?")
+                + " turns=" + ((.num_turns // 0) | tostring)
+                + " cost=" + ((.total_cost_usd // 0) | tostring)
+              else .type end
+          ' "$EXEC_FILE" 2>/dev/null || {
+            echo "Unexpected transcript shape; top-level type and first-element keys:"
+            jq -r 'type, (if type == "array" then .[0] else . end | keys | join(","))' "$EXEC_FILE" || true
+          }
+          echo "::endgroup::"
+          echo "::group::Final assistant message (model prose only, no tool output)"
+          jq -r '[(if type == "array" then .[] else . end) | select(.type == "assistant")][-1]
+                 | .message.content[]? | select(.type == "text") | .text' "$EXEC_FILE" 2>/dev/null \
+            || echo "(could not extract)"
+          echo "::endgroup::"
       - name: Surface diff analysis to Actions step summary
         # Visible in the GitHub Actions UI for any run (dry-run or scheduled),
         # so dry-runs — which don't open a PR — still expose what Claude
