@@ -3137,10 +3137,14 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
             # array-capable potentials evaluate the whole array at once
             delta2 = _delta2(R, z)
         except (TypeError, RuntimeError):
-            # scalar-only potentials (e.g. DoubleExponentialDisk, which rejects
-            # array inputs on every path) evaluate element-by-element; each scalar
-            # is a backend scalar so the migrated scalar path still runs on the
-            # backend.
+            # potentials whose evaluators reject a whole-array call are done
+            # element-by-element; each scalar is a backend scalar so the migrated
+            # scalar path still runs on the backend. Measured 2026-08-16, the
+            # potential that actually lands here is
+            # AnyAxisymmetricRazorThinDiskPotential -- NOT DoubleExponentialDisk,
+            # which this comment used to name: its scalar-only decorator sits on
+            # the public methods, and the calls above go through the internal
+            # _evaluateRforces/_evaluatezforces, which bypass it.
             delta2 = xp.stack([_delta2(R[ii], z[ii]) for ii in range(len(R))])
         indx = (delta2 < delta0**2.0) & (
             (delta2 > -(10.0**-10.0)) | bool(pot_includes_scf)
