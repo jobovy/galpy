@@ -243,15 +243,16 @@ jobs:
         # written to /tmp/nb_analysis.md. Failure is non-fatal — we fall
         # back to a clear warning in the PR body and on the step summary.
         #
-        # --max-turns is deliberately generous: the analysis is inherently
-        # long-running (it decodes every embedded PNG in ~27 notebooks), and
-        # a full pass has been observed to need 55 turns. claude-code-action
-        # only began enforcing --max-turns from claude_args in Aug 2026
-        # (v1.0.188), so a limit that had been silently ignored suddenly became
-        # live. Enforcement is a post-run check: the agent is NOT cut off at the
-        # limit; the action fails the step afterwards if num_turns exceeded it.
-        # A cap below what a full pass needs therefore throws away completed
-        # work. Keep the headroom well above the observed need.
+        # KNOWN ISSUE, deliberately not fixed here: --max-turns is 40, but a
+        # full pass has been observed to need 55 (the 2026-07-16 run). It used
+        # to be harmless because claude-code-action ignored --max-turns from
+        # claude_args; v1.0.188 (Aug 2026) began enforcing it. Enforcement is a
+        # post-run check — the agent is NOT cut off at the limit; the action
+        # fails the step afterwards if num_turns exceeded it — so a cap below
+        # what a full pass needs discards a completed analysis and reports it
+        # as a step failure. Raise this to ~120 before relying on the analysis
+        # again. It is left at 40 for now so that the runs investigating the
+        # empty-analysis failure change one variable at a time.
         id: claude-analysis
         if: steps.check-changes.outputs.changed == 'true'
         continue-on-error: true
@@ -261,7 +262,7 @@ jobs:
           claude_args: |
             --model sonnet
             --allowed-tools "Bash,Read,Write"
-            --max-turns 120
+            --max-turns 40
           prompt: |
             You are reviewing an automated re-render of galpy's tutorial notebooks
             against the upstream `main` branch. The current working tree contains
@@ -406,7 +407,13 @@ jobs:
           steps.claude-analysis.outputs.execution_file != ''
         env:
           EXEC_FILE: ${{ steps.claude-analysis.outputs.execution_file }}
+          # Passed in so the audit below can literal-match them. Secrets in env
+          # are not logged, and Actions masks them if they ever are.
+          AUDIT_SECRET_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AUDIT_SECRET_2: ${{ steps.claude-analysis.outputs.github_token }}
+          AUDIT_SECRET_3: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set +x   # never trace this step; the audit handles secret values
           # Healthy run — nothing to diagnose. (Written as an explicit `if`
           # rather than `[ ... ] && exit 0`, whose interaction with `set -e` is
           # a well-known footgun.)
@@ -417,6 +424,12 @@ jobs:
             echo "No execution file at '$EXEC_FILE' — the action exited before running the agent."
             exit 0
           fi
+          # Everything is staged to a file first and audited before ANY of it
+          # reaches the log, so a filter that turns out to be leakier than
+          # intended fails closed instead of publishing.
+          stage="${RUNNER_TEMP}/nb_debug_stage.txt"
+          : > "$stage"
+          {
           echo "::group::Agent run skeleton"
           jq -r '
             (if type == "array" then .[] else . end)
@@ -449,16 +462,65 @@ jobs:
           # publishes on its own. Usually the skeleton alone answers the
           # question — whether Write was called, with what target, and whether
           # any tool result errored.
-          if [ "${{ inputs.debug_transcript }}" != "true" ]; then
+          if [ "${{ inputs.debug_transcript }}" = "true" ]; then
+            echo "::group::Final assistant message (opt-in; model prose)"
+            jq -r '[(if type == "array" then .[] else . end) | select(.type == "assistant")][-1]
+                   | .message.content[]? | select(.type == "text") | .text' "$EXEC_FILE" 2>/dev/null \
+              || echo "(could not extract)"
+            echo "::endgroup::"
+          else
             echo "Final assistant message withheld. To include it, re-run via" \
                  "workflow_dispatch with debug_transcript: true."
+          fi
+          } > "$stage" 2>&1
+          # ---- audit: nothing above has been printed yet ----
+          # 1. Literal match against the credential values this job actually
+          #    holds. Empty values are skipped — an empty needle matches every
+          #    line and would withhold the output on every run.
+          needles="${RUNNER_TEMP}/nb_audit_needles.txt"
+          : > "$needles"
+          for v in "$AUDIT_SECRET_1" "$AUDIT_SECRET_2" "$AUDIT_SECRET_3"; do
+            if [ -n "$v" ] && [ "${#v}" -ge 12 ]; then
+              printf '%s\n' "$v" >> "$needles"
+            fi
+          done
+          findings=""
+          if [ -s "$needles" ] && grep -qFf "$needles" "$stage"; then
+            findings="literal-credential-value"
+          fi
+          rm -f "$needles"
+          # 2. Credential-SHAPED strings, for anything not in this job's env.
+          #    Entries are name|regex; the regex must not contain '|'.
+          audit_rules=(
+            "github-token|gh[pousr]_[A-Za-z0-9]{16,}"
+            "github-pat|github_pat_[A-Za-z0-9_]{20,}"
+            "anthropic-key|sk-ant-[A-Za-z0-9_-]{16,}"
+            "aws-access-key|AKIA[0-9A-Z]{16}"
+            "url-embedded-credentials|https://[^/@[:space:]]+:[^/@[:space:]]+@"
+            "x-access-token|x-access-token:"
+            "private-key-block|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+            "bearer-header|[Aa]uthorization: *[Bb]earer [A-Za-z0-9._-]+"
+          )
+          for entry in "${audit_rules[@]}"; do
+            rule="${entry%%|*}"
+            re="${entry#*|}"
+            # -e is required: a pattern starting with '-' (the PRIVATE KEY rule)
+            # is otherwise parsed as an option and the rule silently never fires.
+            if grep -qE -e "$re" "$stage"; then
+              findings="${findings:+$findings,}$rule"
+            fi
+          done
+          if [ -n "$findings" ]; then
+            # Report the RULE NAME only — never the match itself.
+            echo "::warning::Diff-analysis debug output withheld by audit (matched: $findings)."
+            echo "The debug output matched a credential pattern and was NOT printed."
+            echo "Matched rules: $findings"
+            echo "Inspect it by re-running with a private fork, or tighten the filters."
+            rm -f "$stage"
             exit 0
           fi
-          echo "::group::Final assistant message (opt-in; model prose)"
-          jq -r '[(if type == "array" then .[] else . end) | select(.type == "assistant")][-1]
-                 | .message.content[]? | select(.type == "text") | .text' "$EXEC_FILE" 2>/dev/null \
-            || echo "(could not extract)"
-          echo "::endgroup::"
+          cat "$stage"
+          rm -f "$stage"
       - name: Surface diff analysis to Actions step summary
         # Visible in the GitHub Actions UI for any run (dry-run or scheduled),
         # so dry-runs — which don't open a PR — still expose what Claude
