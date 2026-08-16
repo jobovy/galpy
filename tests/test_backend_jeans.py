@@ -233,3 +233,23 @@ def test_sigmar_jit_of_grad_matches_eager_grad():
         )
     )
     assert_jit_matches_eager(g, jnp.asarray(0.5), rtol=1e-11, atol=0.0)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_jeans_sigmalos_userdens_surfdens_fallback(backend):
+    # dens= supplied and surfdens=None: galpy cannot ask the potential for a
+    # surface density, so sigmalos falls back to integrating dens along the
+    # line of sight itself. The parity tests above always let the potential
+    # supply both, so the BACKEND limb of that fallback
+    # (2 * fixed_quad_semiinfinite, as against scipy.quad on numpy) had no
+    # coverage at all -- a defensive branch reachable only through this
+    # argument combination.
+    dens = lambda r: _HP.dens(r, 0.0, use_physical=False)
+    for R0 in (0.8, 1.4):
+        ref = jeans.sigmalos(_HP, R0, dens=dens, use_physical=False)
+        got = jeans.sigmalos(_HP, _arr(backend, R0), dens=dens, use_physical=False)
+        assert _is_backend_array(backend, got)
+        numpy.testing.assert_allclose(
+            as_numpy(got), numpy.asarray(ref), rtol=1e-6, atol=1e-9
+        )
+    return None
