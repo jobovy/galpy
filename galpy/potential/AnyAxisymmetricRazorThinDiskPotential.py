@@ -340,19 +340,23 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             # makes it symbolic) and would trace scipy's quad instead: ask.
             or under_trace(R, z)
         ):
-            try:  # plain concrete backend input: reuse scipy's accurate value
-                Rf, zf = float(R), float(z)
-            except Exception:  # tracer: in-backend differentiable GL
-                pass
-            else:
-                # numpy.asarray keeps scipy's float64 value at full precision
-                # (asarray_on_device of a bare python float would drop to torch's
-                # float32 default, and match_input_dtype's later up-cast cannot
-                # recover the lost digits -> a derivative test's dr=1e-8 FD blows
-                # up); match_input_dtype then honours the input's own dtype.
-                return match_input_dtype(
-                    asarray_on_device(xp, numpy.asarray(numpy_fn(Rf, zf)), dev), R, z
-                )
+            # plain concrete backend input: reuse scipy's accurate value. No
+            # try/except around float(): every caller is guarded by
+            # @check_potential_inputs_not_arrays, so R and z are scalar here, and
+            # the tracer cases that used to need the guard (grad, jit, vmap,
+            # vmap-of-grad, torch.compile) are all diverted by the requires_grad
+            # / under_trace test above -- verified by tracing each of them. A
+            # float() failure now would be a genuine surprise, and should raise
+            # rather than silently switch to a different quadrature.
+            Rf, zf = float(R), float(z)
+            # numpy.asarray keeps scipy's float64 value at full precision
+            # (asarray_on_device of a bare python float would drop to torch's
+            # float32 default, and match_input_dtype's later up-cast cannot
+            # recover the lost digits -> a derivative test's dr=1e-8 FD blows
+            # up); match_input_dtype then honours the input's own dtype.
+            return match_input_dtype(
+                asarray_on_device(xp, numpy.asarray(numpy_fn(Rf, zf)), dev), R, z
+            )
         return match_input_dtype(gl_fn(R, z, xp, dev), R, z)  # differentiate: GL
 
     # ------------------------------ potential ------------------------------
