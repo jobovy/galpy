@@ -2450,6 +2450,50 @@ def test_wrapper_pickling():
     return None
 
 
+# dens/surfdens array input for the two potentials whose branches this covers.
+# test_potential_array_input only exercises the potential, the forces and the
+# second derivatives, so the array branches of _rdens/_surfdens have no coverage
+# there; both are selected across the discontinuity on purpose.
+def test_shell_sphere_dens_surfdens_array_input():
+    from galpy.potential import HomogeneousSpherePotential, SphericalShellPotential
+
+    sp = SphericalShellPotential()
+    hs = HomogeneousSpherePotential()
+    # straddle the shell radius / sphere edge, where the two branches meet
+    R = numpy.array([0.2 * sp.a, sp.a, 1.5 * sp.a, 3.0])
+    z = numpy.zeros_like(R)
+    got = numpy.asarray(sp.dens(R, z))
+    ref = numpy.array([sp.dens(r, zz) for r, zz in zip(R, z)])
+    assert numpy.array_equal(got, ref), (
+        "SphericalShellPotential dens does not match element-by-element for array input"
+    )
+    # surfdens: avoid R == a exactly, where h -> 0 and BOTH the scalar and the
+    # array branch divide by zero; straddle it instead, and pick z on either
+    # side of h so the non-zero branch is actually selected, not just evaluated
+    Rs = numpy.array([0.2 * sp.a, 0.9 * sp.a, 1.5 * sp.a])
+    zs = numpy.array([0.0, 0.99 * sp.a, 0.0])
+    got = numpy.asarray(sp.surfdens(Rs, zs))
+    ref = numpy.array([sp.surfdens(r, zz) for r, zz in zip(Rs, zs)])
+    assert numpy.array_equal(got, ref), (
+        "SphericalShellPotential surfdens does not match element-by-element for array input"
+    )
+    assert numpy.any(got > 0.0) and numpy.any(got == 0.0), (
+        "SphericalShellPotential surfdens test did not exercise both branches"
+    )
+    Rh = numpy.array([0.1, numpy.sqrt(hs._R2), 2.0])
+    zh = numpy.zeros_like(Rh)
+    got = numpy.asarray(hs.dens(Rh, zh))
+    ref = numpy.array([hs.dens(r, zz) for r, zz in zip(Rh, zh)])
+    assert numpy.array_equal(got, ref), (
+        "HomogeneousSpherePotential dens does not match element-by-element for array input"
+    )
+    # and the array answer must not be a single value broadcast everywhere
+    assert not numpy.all(got == got[0]), (
+        "HomogeneousSpherePotential dens collapsed to one value for array input"
+    )
+    return None
+
+
 # Test whether potentials that support array input do so correctly
 @pytest.mark.parametrize("potname", _ARRAYINPUT_POTS)
 def test_potential_array_input(potname):
