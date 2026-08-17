@@ -1,7 +1,7 @@
 import numpy
 
 from galpy import potential
-from galpy.backend import as_numpy, jit_mode
+from galpy.backend import as_numpy, get_namespace, jit_mode, name_of_namespace
 
 # The use_c=True/use_c=False grid comparisons below hold to a few ulp eagerly but
 # lose one to two digits under --jit, where the Python side is built traced:
@@ -19,10 +19,23 @@ from galpy.backend import as_numpy, jit_mode
 # (~5x headroom over what was measured); eager/numpy bounds are unchanged.
 _TRACED_GRID_TOL_FACTOR = 30.0
 
+# Same class of effect one level down, and it applies to EAGER jax/torch too:
+# the grid is built by one vectorised whole-mesh call, which associates a
+# composite potential's component sum differently from the cell-by-cell scalar
+# call the C grid is compared against. Measured on the 101x101 MWPotential
+# use_c grid: 11.2 ULP against a 7.0 ULP (1e-14) bound. 5x gives ~3x headroom
+# over that while still asserting agreement to ~35 ULP, i.e. near machine
+# precision. numpy is unaffected -- it keeps the original bound exactly.
+_BACKEND_GRID_TOL_FACTOR = 5.0
+
 
 def _grid_tol(eager_tol):
-    """``eager_tol``, widened only when the suite is running traced."""
-    return eager_tol * _TRACED_GRID_TOL_FACTOR if jit_mode() != "off" else eager_tol
+    """``eager_tol``, widened when traced or when a backend built the grid."""
+    if jit_mode() != "off":
+        return eager_tol * _TRACED_GRID_TOL_FACTOR
+    if name_of_namespace(get_namespace()) != "numpy":
+        return eager_tol * _BACKEND_GRID_TOL_FACTOR
+    return eager_tol
 
 
 class _MisBroadcastPotential(potential.Potential):
@@ -2451,7 +2464,29 @@ def test_interpRZPotential_units_set_matches_unitless():
 # neither raises nor broadcasts correctly for the forces -- it silently returns
 # different numbers for array input -- so a try/except alone is not enough and
 # the whole interpolation grid would be built from wrong values.
-def test_interpRZPotential_grid_falls_back_for_nonbroadcasting_potential():
+def test_interpRZPotential_grid_matches_the_cell_by_cell_path():
+    """The shipped grid must not deviate from the scalar path by more than the
+    grid guard permits -- end to end, through the constructor.
+
+    ``AnySphericalPotential`` is the real motivating case, but only on numpy:
+    there its whole-mesh call disagrees with the scalar path in 76 of 77 cells
+    by up to 0.94 relative, the rtol=0 guard rejects it, and the grid is the
+    cell-by-cell loop's output bit for bit. On jax/torch the backend path
+    broadcasts correctly, so the guard legitimately ACCEPTS the vectorised grid
+    and the two agree only up to reassociation.
+
+    This test previously demanded bit-equality on every backend. That was stable
+    only while the guard ITSELF compared bit for bit, which coupled the two: any
+    ULP difference forced a fallback, and a fallback is cell-by-cell by
+    construction. Once the guard gained its 1e-14 reassociation allowance -- the
+    point of which is that a 201x201 MWPotential build stops falling back 1643x
+    over ULP noise -- a sub-allowance difference is accepted, and demanding
+    bit-equality here contradicts the guard's own contract. It failed exactly
+    that way on the jax shard while passing on numpy and in isolation.
+
+    The fallback BRANCH is pinned separately and deterministically, on every
+    backend, by ``test_grid_eval_falls_back_when_the_vectorised_call_disagrees``.
+    """
     import importlib
 
     import numpy
@@ -2482,11 +2517,21 @@ def test_interpRZPotential_grid_falls_back_for_nonbroadcasting_potential():
         ref = interpRZPotential(RZPot=pot, **kw)
     finally:
         M._grid_eval = real
+    # Bit for bit on numpy, where the guard compares with rtol=0 and this
+    # potential's whole-mesh call is wrong by up to 0.94 relative, so the
+    # fallback ALWAYS fires and its output is the cell-by-cell loop by
+    # construction. On a backend the guard allows 1e-14 of reassociation, so
+    # demanding bit-equality here would contradict the guard's own contract --
+    # see the note in the docstring above.
+    tol = 0.0 if name_of_namespace(get_namespace()) == "numpy" else 1e-14
+    if tol and jit_mode() != "off":
+        tol *= _TRACED_GRID_TOL_FACTOR
     for g in ("_rforceGrid", "_zforceGrid"):
-        assert numpy.array_equal(getattr(got, g), getattr(ref, g), equal_nan=True), (
-            f"interpRZPotential {g} does not match the cell-by-cell reference for "
-            "a non-broadcasting potential; the vectorised path was accepted when "
-            "it should have fallen back"
+        a, b = as_numpy(getattr(got, g)), as_numpy(getattr(ref, g))
+        assert numpy.allclose(a, b, rtol=tol, atol=0.0, equal_nan=True), (
+            f"interpRZPotential {g} deviates from the cell-by-cell reference by "
+            f"more than the grid guard permits (rtol={tol:g}); worst relative "
+            f"difference {numpy.nanmax(numpy.abs(a - b) / numpy.abs(b)):.3e}"
         )
     return None
 
@@ -2538,15 +2583,98 @@ def test_grid_spot_check_cells_covers_every_grid_size():
     return None
 
 
+def test_grid_eval_falls_back_when_the_vectorised_call_disagrees():
+    """A vectorised call that is the right SHAPE but the wrong VALUE must fall back.
+
+    This is the spot-check arm of `_grid_eval`, and it is the one the guard
+    exists for: `AnySphericalPotential` neither raises nor broadcasts, it returns
+    silently wrong numbers. Driving it through that real potential only exercises
+    the arm on numpy, because on a backend it broadcasts correctly -- so the arm
+    needs a synthetic evaluator to be pinned on jax/torch at all, exactly as its
+    two sibling fallbacks (bad shape, raises) already are.
+
+    Two disagreements are checked, and both are deliberately far below anything a
+    real broadcasting bug produces (that one is 0.94 relative):
+
+    * a whole-array offset, the shape a broadcasting bug actually takes;
+    * a single wrong cell, at a location the sample is known to visit, which
+      pins the coupling between `_spot_check_cells` and the guard rather than
+      just the guard alone.
+
+    The perturbation is 1e-13 relative, which brackets the guard's threshold
+    tightly from both sides: 10x above the 1e-14 allowance so it must be caught,
+    ~60x above the 1.6e-15 reassociation the allowance exists to tolerate so a
+    correct vectorised call is still accepted, and ~13 orders below the real
+    defect. It therefore pins the tolerance itself, not just the branch -- at
+    rtol=1e-12, the value first tried on this PR, this test fails.
+    """
+    import importlib
+
+    import numpy
+
+    M = importlib.import_module("galpy.potential.interpRZPotential")
+    rg = numpy.linspace(0.35, 1.3, 5)
+    zg = numpy.linspace(0.0, 0.22, 4)
+    pot = potential.MiyamotoNagaiPotential(normalize=1.0)
+    ref = numpy.array(
+        [
+            [potential.evaluatePotentials(pot, r, z, use_physical=False) for z in zg]
+            for r in rg
+        ]
+    )
+    # a cell the sample is known to visit, so the single-cell case cannot pass
+    # merely by being missed
+    sampled = M._spot_check_cells(len(rg), len(zg))
+    assert sampled, "the sample must be non-empty for this test to mean anything"
+    si, sj = sampled[0]
+    _NUDGE = 1e-13
+
+    def _make(kind):
+        calls = {"n": 0}
+        mask = numpy.ones((len(rg), len(zg)))
+        if kind == "all":
+            mask[:, :] = 1.0 + _NUDGE
+        else:
+            mask[si, sj] = 1.0 + _NUDGE
+
+        def ev(p, R, z, use_physical=False):
+            out = potential.evaluatePotentials(p, R, z, use_physical=False)
+            if numpy.ndim(R) > 0:
+                calls["n"] += 1
+                # multiply by a namespace-MATCHED mask so the perturbed result
+                # stays a backend array: converting to numpy here would send the
+                # guard down its rtol=0 numpy branch and quietly stop testing the
+                # tolerance arm on jax/torch, which is the arm at issue
+                return out * get_namespace(out).asarray(mask)
+            return out
+
+        return ev, calls
+
+    for kind in ("all", "one"):
+        ev, calls = _make(kind)
+        got = as_numpy(M._grid_eval(ev, pot, rg, zg))
+        assert calls["n"] == 1, "the vectorised call should be attempted exactly once"
+        assert got.shape == (len(rg), len(zg)), (
+            f"[{kind}] fallback must produce the (nR, nz) grid"
+        )
+        # the fallback's output is the scalar loop, so this is exact even on a
+        # backend -- no tolerance needed, and none wanted: a tolerance here would
+        # also pass if the perturbed vectorised grid had been accepted
+        assert numpy.array_equal(got, ref), (
+            f"[{kind}] a vectorised grid wrong by {_NUDGE:g} relative was accepted; "
+            f"worst relative difference from the cell-by-cell path "
+            f"{numpy.nanmax(numpy.abs(got - ref) / numpy.abs(ref)):.3e}"
+        )
+    return None
+
+
 def test_grid_eval_falls_back_when_the_vectorised_call_returns_a_bad_shape():
     """A vectorised call that neither raises nor returns (nR, nz) must fall back.
 
-    `_grid_eval` has three fallbacks and the other two are exercised by real
-    potentials: `AnySphericalPotential` RAISES on an array (the try/except), and
-    the non-broadcasting case above is caught by the bit-for-bit spot check. The
-    third -- a call that returns successfully with the WRONG SHAPE -- has no
-    potential in the zoo that does it, so it needs a synthetic evaluator or it
-    stays untested.
+    `_grid_eval` has three fallbacks. The value-disagreement one is covered by
+    the test above, and the raising one by the test below; this third -- a call
+    that returns successfully with the WRONG SHAPE -- has no potential in the zoo
+    that does it, so it needs a synthetic evaluator or it stays untested.
 
     That branch matters: without it a wrong-shaped result would flow into
     RectBivariateSpline and fail far from the cause, or silently broadcast.
