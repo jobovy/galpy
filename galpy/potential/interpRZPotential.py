@@ -196,9 +196,18 @@ def _grid_eval(evaluator, pot, rgrid, zgrid):
     # between a whole-mesh call and a scalar one, so an exact test rejects a
     # CORRECT vectorised result (measured: 2 of 9 cells, worst 1.6e-15) and
     # falls back for every cell -- 1643x on a 201x201 MWPotential build. A
-    # relative tolerance still catches the failure this guards against by ~13
-    # orders: AnySphericalPotential disagrees in 95% of cells, not in the ULPs.
-    rtol = 0.0 if not is_backend_array(raw) else 1e-12
+    # relative tolerance still catches the failure this guards against: the
+    # disagreement it exists to catch is not in the ULPs.
+    #
+    # 1e-14, i.e. ~6x the measured 1.6e-15 reassociation, NOT 1e-12. The first
+    # attempt used 1e-12 on the reasoning that "600x the observed difference"
+    # was safely tight; CI disproved that -- with 1e-12 the guard ACCEPTED a
+    # vectorised AnySphericalPotential grid that
+    # test_interpRZPotential_grid_falls_back_for_nonbroadcasting_potential
+    # requires it to reject. Keep the margin over ULP noise small enough that
+    # the tolerance stays a reassociation allowance rather than a correctness
+    # allowance.
+    rtol = 0.0 if not is_backend_array(raw) else 1e-14
     for ii, jj in _spot_check_cells(nR, nz):
         ref = numpy.asarray(evaluator(pot, rgrid[ii], zgrid[jj], use_physical=False))
         got = numpy.asarray(grid[ii, jj])
