@@ -141,10 +141,7 @@ jax tests/test_potential.py::test_MultipoleExpansion_deepcopy
 # slow-skip (correct-but-too-slow) until SCF/Multipole/wrapper eval is vectorized on
 # jax. torch fails these FAST at construction (0.0 s) -> they stay in the torch xfail-
 # ledger; numpy exercises all of them.
-jax tests/test_potential.py::test_Cautun20
 jax tests/test_potential.py::test_DehnenBinney98
-jax tests/test_potential.py::test_McMillan17
-jax tests/test_potential.py::test_diskscf_overflow
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockOffsetMWP14WrapperPotential]
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotential]
 jax tests/test_potential.py::test_poisson_surfdens_potential[mockRotatedAndTiltedMWP14WrapperPotentialwInclination]
@@ -158,22 +155,17 @@ jax tests/test_streamspraydf.py::test_center
 # steps per-force-call (~1 ms each) and exceeds the per-test budget. They validate
 # C-vs-Python STM numerics, which the numpy run already covers; the differentiable
 # in-backend (diffrax/torchdiffeq) STM is covered by tests/test_backend_orbit_stm.py.
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_norot_offset]  # 300s (failed)
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_offset]  # 290s -- inside the cap, but within 20% of it
-jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # 300s (failed)
-jax tests/test_orbit.py::test_interprz_dxdv_3d  # 300s (failed)
-jax tests/test_orbit.py::test_liouville_planar  # 300s (failed)
-jax tests/test_orbit.py::test_lyapunov_spectrum_consistency  # 300s (failed)
-jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic  # 620s -- OVERRAN the 300s cap but reported passed (signal timeout cannot interrupt C)
+jax tests/test_orbit.py::test_dxdv_3d_c_vs_python[RotateAndTiltWrapperPotential_tiltedTriaxialNFW]  # >420s (measured 2026-08-15, timed out)
+jax tests/test_orbit.py::test_liouville_planar  # >420s (measured 2026-08-15, timed out)
+jax tests/test_orbit.py::test_lyapunov_spectrum_consistency  # PASSES in 662s (measured 2026-08-15) -- genuinely performance-gated
+jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic  # PASSES in 1535s (measured 2026-08-15) -- genuinely performance-gated
 
-# --- jax single-orbit: misc slow (no-C-force potentials + Python-integrator paths) ---
-# energy/Jacobi over no-C-force potentials (Ferrers/*NoC: C integrator falls back to
-# Python force eval) + a few integrate paths that step in Python under jax. Track A
-# force vectorization / Track D in-backend default will let these un-defer.
-jax tests/test_orbit.py::test_energy_jacobi_conservation[BurkertPotentialNoC--10.0--10.0-False]
-jax tests/test_orbit.py::test_integrate_backwards  # 300s (failed)
-jax tests/test_orbit.py::test_integrate_negative_time  # 300s (failed)
-jax tests/test_orbit.py::test_zmax  # 300s (failed)
+# --- jax single-orbit: misc slow (Python-integrator paths) ---
+# Integrate paths that step in Python under jax. Track A force vectorization /
+# Track D in-backend default will let this un-defer. The energy/Jacobi and zmax
+# entries that used to sit here were measured fast enough on 2026-08-15 and are
+# now un-deferred.
+jax tests/test_orbit.py::test_integrate_backwards  # >420s (measured 2026-08-15, timed out)
 
 # --- torch orbit: dissipative/variational dxdv battery (slow under torch) ---
 # Chandrasekhar/FDM friction + lyapunov + a dxdv c_vs_python integrate the
@@ -187,7 +179,7 @@ jax tests/test_orbit.py::test_zmax  # 300s (failed)
 # box (~2.4x on the CI runner); even 5-way duration-split, a group clustering several
 # overflows the 4500s shard cap (jax orbit group 3 timed out). Defer the heaviest
 # until Track D vectorization; the faster majority stays un-deferred. numpy runs all.
-jax tests/test_orbit.py::test_integrate_indiv_t_python_paths  # 300s (failed)
+jax tests/test_orbit.py::test_integrate_indiv_t_python_paths  # >420s (measured 2026-08-15, timed out)
 
 # --- jax NonInertialFrameForce func/vec-omega (eager-XLA timeout) ---
 # The func/vec omega_z frame-force variants build a per-timestep interpolation of
