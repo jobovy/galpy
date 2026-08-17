@@ -659,6 +659,30 @@ def test_finite_part_quad_matches_the_analytic_finite_part(backend):
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
+def test_finite_part_quad_removes_a_residual_log(backend):
+    # Subtracting the c/u**2 model kills the pole but not necessarily the rest:
+    # a real integrand (AnyAxisym's R2deriv) leaves a LOG behind, which caps
+    # plain Gauss-Legendre at 1/n**2. Build that case exactly, with a closed
+    # form to check against rather than another quadrature:
+    #     f(u) = c/u**2 - L*ln|u| + exp(-u)
+    #   sym(u) = 2c/u**2 - 2L*ln|u| + 2cosh(u)
+    # so the finite part is
+    #     int_0^b [sym - 2c/u**2] du - 2c/b
+    #       = -2L*(b*ln b - b) + 2 sinh(b) - 2c/b.
+    # At n=200 the old rule (no log handling) was 5.9e-06 off here; the point of
+    # the tolerance below is that it is nowhere near that.
+    xp = _xp(backend)
+    c, b, L = 0.75, 1.3, 2.5
+
+    def f(u):
+        return c / (u * u) - L * xp.log(xp.abs(u)) + xp.exp(-u)
+
+    got = finite_part_quad(xp, f, xp.asarray(b), c=c, peak_width=xp.asarray(0.0), n=200)
+    expected = -2.0 * L * (b * numpy.log(b) - b) + 2.0 * numpy.sinh(b) - 2.0 * c / b
+    numpy.testing.assert_allclose(float(got), expected, rtol=1e-9, atol=1e-12)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
 def test_finite_part_quad_peaked_branch_is_the_plain_integral(backend):
     # peak_width > 0 selects u = w sinh(t) over [0, asinh(b/w)], which is exactly
     # int_0^b sym(u) du -- no finite part, because there is no singularity to
