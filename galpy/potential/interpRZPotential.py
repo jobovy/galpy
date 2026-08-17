@@ -186,17 +186,32 @@ def _grid_eval(evaluator, pot, rgrid, zgrid):
 
     Rmesh, zmesh = numpy.meshgrid(rgrid, zgrid, indexing="ij")
     try:
-        grid = numpy.asarray(evaluator(pot, Rmesh, zmesh, use_physical=False))
+        raw = evaluator(pot, Rmesh, zmesh, use_physical=False)
+        grid = numpy.asarray(raw)
     except Exception:  # scalar-only potentials must be driven cell by cell
         return _loop()
     if grid.shape != (nR, nz):
         return _loop()
+    # numpy compares bit for bit; jax/torch reassociate reductions differently
+    # between a whole-mesh call and a scalar one, so an exact test rejects a
+    # CORRECT vectorised result (measured: 2 of 9 cells, worst 1.6e-15) and
+    # falls back for every cell -- 1643x on a 201x201 MWPotential build. A
+    # relative tolerance still catches the failure this guards against: the
+    # disagreement it exists to catch is not in the ULPs.
+    #
+    # 1e-14, i.e. ~6x the measured 1.6e-15 reassociation, NOT 1e-12: the margin
+    # over ULP noise has to stay small enough that this is a reassociation
+    # allowance and not a correctness allowance. The bound is pinned from both
+    # sides by test_grid_eval_falls_back_when_the_vectorised_call_disagrees,
+    # which injects a 1e-13 relative error that 1e-14 catches and 1e-12 does not.
+    rtol = 0.0 if not is_backend_array(raw) else 1e-14
     for ii, jj in _spot_check_cells(nR, nz):
-        if not numpy.array_equal(
-            grid[ii, jj],
-            evaluator(pot, rgrid[ii], zgrid[jj], use_physical=False),
-            equal_nan=True,
-        ):
+        ref = numpy.asarray(evaluator(pot, rgrid[ii], zgrid[jj], use_physical=False))
+        got = numpy.asarray(grid[ii, jj])
+        # rtol=0 atol=0 makes allclose exactly `array_equal` (verified over nan,
+        # +-inf, -0.0 and denormals), so numpy keeps bit-for-bit through the same
+        # single expression -- no backend-only branch to leave uncovered.
+        if not numpy.allclose(got, ref, rtol=rtol, atol=0.0, equal_nan=True):
             return _loop()
     return grid
 
