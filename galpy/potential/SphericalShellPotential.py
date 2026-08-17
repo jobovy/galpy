@@ -58,6 +58,13 @@ class SphericalShellPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """The potential as a function of r"""
+        if numpy.ndim(r) > 0:
+            inside = r <= self.a
+            # where() evaluates the outside expression everywhere, and r == 0 is
+            # inside the shell, so keep the dead branch's divisor finite
+            return numpy.where(
+                inside, -1.0 / self.a, -1.0 / numpy.where(inside, 1.0, r)
+            )
         if r <= self.a:
             return -1.0 / self.a
         else:
@@ -65,6 +72,9 @@ class SphericalShellPotential(SphericalPotential):
 
     def _rforce(self, r, t=0.0):
         """The force as a function of r"""
+        if numpy.ndim(r) > 0:
+            inside = r <= self.a
+            return numpy.where(inside, 0.0, -1 / numpy.where(inside, 1.0, r) ** 2.0)
         if r <= self.a:
             return 0.0
         else:
@@ -72,6 +82,9 @@ class SphericalShellPotential(SphericalPotential):
 
     def _r2deriv(self, r, t=0.0):
         """The second radial derivative as a function of r"""
+        if numpy.ndim(r) > 0:
+            inside = r <= self.a
+            return numpy.where(inside, 0.0, -2.0 / numpy.where(inside, 1.0, r) ** 3.0)
         if r <= self.a:
             return 0.0
         else:
@@ -79,12 +92,22 @@ class SphericalShellPotential(SphericalPotential):
 
     def _rdens(self, r, t=0.0):
         """The density as a function of r"""
+        if numpy.ndim(r) > 0:
+            return numpy.where(r != self.a, 0.0, numpy.inf)
         if r != self.a:
             return 0.0
         else:  # pragma: no cover
-            return numpy.infty
+            return numpy.inf
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
+        if numpy.ndim(R) > 0 or numpy.ndim(z) > 0:
+            R, z = numpy.broadcast_arrays(R, z)
+            outside = R > self.a
+            # keep a2 - R**2 >= 0 in the dead branch so sqrt does not warn
+            h = numpy.sqrt(self.a2 - numpy.where(outside, 0.0, R) ** 2)
+            return numpy.where(
+                outside | (z < h), 0.0, 1.0 / (2.0 * numpy.pi * self.a * h)
+            )
         if R > self.a:
             return 0.0
         h = numpy.sqrt(self.a2 - R**2)

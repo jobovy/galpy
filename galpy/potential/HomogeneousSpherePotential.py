@@ -57,6 +57,14 @@ class HomogeneousSpherePotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
+        if numpy.ndim(r2) > 0:
+            inside = r2 < self._R2
+            # guard the outside expression: it is evaluated everywhere by
+            # where(), and r2 == 0 is inside the sphere
+            r2_safe = numpy.where(inside, 1.0, r2)
+            return numpy.where(
+                inside, r2 - 3.0 * self._R2, -2.0 * self._R3 / numpy.sqrt(r2_safe)
+            )
         if r2 < self._R2:
             return r2 - 3.0 * self._R2
         else:
@@ -64,6 +72,12 @@ class HomogeneousSpherePotential(Potential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
+        if numpy.ndim(r2) > 0:
+            inside = r2 < self._R2
+            # guard the outside expression: it is evaluated everywhere by
+            # where(), and r2 == 0 is inside the sphere
+            r2_safe = numpy.where(inside, 1.0, r2)
+            return numpy.where(inside, -2.0 * R, -2.0 * self._R3 * R / r2_safe**1.5)
         if r2 < self._R2:
             return -2.0 * R
         else:
@@ -71,6 +85,12 @@ class HomogeneousSpherePotential(Potential):
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
+        if numpy.ndim(r2) > 0:
+            inside = r2 < self._R2
+            # guard the outside expression: it is evaluated everywhere by
+            # where(), and r2 == 0 is inside the sphere
+            r2_safe = numpy.where(inside, 1.0, r2)
+            return numpy.where(inside, -2.0 * z, -2.0 * self._R3 * z / r2_safe**1.5)
         if r2 < self._R2:
             return -2.0 * z
         else:
@@ -78,6 +98,16 @@ class HomogeneousSpherePotential(Potential):
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
+        if numpy.ndim(r2) > 0:
+            inside = r2 < self._R2
+            # guard the outside expression: it is evaluated everywhere by
+            # where(), and r2 == 0 is inside the sphere
+            r2_safe = numpy.where(inside, 1.0, r2)
+            return numpy.where(
+                inside,
+                2.0 * numpy.ones_like(r2),
+                2.0 * self._R3 / r2_safe**1.5 - 6.0 * self._R3 * R**2.0 / r2_safe**2.5,
+            )
         if r2 < self._R2:
             return 2.0
         else:
@@ -85,6 +115,16 @@ class HomogeneousSpherePotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
+        if numpy.ndim(r2) > 0:
+            inside = r2 < self._R2
+            # guard the outside expression: it is evaluated everywhere by
+            # where(), and r2 == 0 is inside the sphere
+            r2_safe = numpy.where(inside, 1.0, r2)
+            return numpy.where(
+                inside,
+                2.0 * numpy.ones_like(r2),
+                2.0 * self._R3 / r2_safe**1.5 - 6.0 * self._R3 * z**2.0 / r2_safe**2.5,
+            )
         if r2 < self._R2:
             return 2.0
         else:
@@ -92,6 +132,14 @@ class HomogeneousSpherePotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
+        if numpy.ndim(r2) > 0:
+            inside = r2 < self._R2
+            # guard the outside expression: it is evaluated everywhere by
+            # where(), and r2 == 0 is inside the sphere
+            r2_safe = numpy.where(inside, 1.0, r2)
+            return numpy.where(
+                inside, numpy.zeros_like(r2), -6.0 * self._R3 * R * z / r2_safe**2.5
+            )
         if r2 < self._R2:
             return 0.0
         else:
@@ -99,6 +147,14 @@ class HomogeneousSpherePotential(Potential):
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         r2 = R**2.0 + z**2.0
+        if numpy.ndim(r2) > 0:
+            inside = r2 < self._R2
+            # guard the outside expression: it is evaluated everywhere by
+            # where(), and r2 == 0 is inside the sphere
+            r2_safe = numpy.where(inside, 1.0, r2)
+            return numpy.where(
+                inside, 1.5 / numpy.pi * numpy.ones_like(r2), numpy.zeros_like(r2)
+            )
         if r2 < self._R2:
             return 1.5 / numpy.pi
         else:
