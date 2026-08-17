@@ -55,6 +55,20 @@ from ._namespaces import (
 # scipy.integrate.quad to the suite's tolerances; raise ``n`` for stiffer ones.
 _QUAD_N = 100
 
+# Sample points u = b * 10**-k for the residual-log slope in finite_part_quad.
+# The window is measured, not guessed: above k ~ 3 the O(u) part of the residual
+# biases the slope, below k ~ 5 the c/u^2 cancellation noise does. k = 2..4 and
+# k = 4..6 both degrade to ~1e-8 where this window holds ~1e-10.
+_LOG_K = numpy.array([3.0, 3.5, 4.0, 4.5, 5.0])
+_LOG_U = 10.0**-_LOG_K
+# A least-squares slope against -ln(u) collapses to fixed weights: the spacing
+# in -ln(u) is (k - kbar) * ln 10 regardless of b, so only the k's enter. The
+# weights sum to zero, so any constant part of the residual cancels exactly and
+# only the log survives.
+_LOG_W = (_LOG_K - _LOG_K.mean()) / (
+    numpy.log(10.0) * ((_LOG_K - _LOG_K.mean()) ** 2).sum()
+)
+
 # Cache of (nodes, weights) on [0, 1] keyed by order, as numpy float64 constants.
 _GL01_CACHE = {}
 
@@ -582,15 +596,43 @@ def finite_part_quad(xp, integrand, b, *, c, peak_width, n=_QUAD_N, device=None)
     -----
     - 2026-08-13 - Written - Bovy (UofT)
     """
-    zero = asarray_on_device(xp, 0.0, device)
+    dev = device if device is not None else device_of(b)
+    zero = asarray_on_device(xp, 0.0, dev)
 
     def sym(u):
         return integrand(u) + integrand(-u)
 
+    def residual(u):
+        return sym(u) - 2.0 * c / (u * u)
+
+    # Removing the c/u^2 model kills the pole but generally leaves a LOG:
+    # residual(u) = -lam ln(u) + A + O(u). That is what caps plain GL at 1/n^2
+    # here (measured on AnyAxisym R2deriv: 6.65e-4, 1.67e-4, 4.18e-5, 1.05e-5 at
+    # n = 100, 200, 400, 800 -- algebraic, where GL on a smooth integrand is
+    # exponential). So remove it the same way: subtract lam*ln(u/b), whose exact
+    # integral over [0, b] is -lam*b, and add that back. The remainder is
+    # bounded at the origin and GL is fast again -- 2e-4 -> 6e-11 at the SAME
+    # n=100, i.e. the gain is smoothness, not nodes.
+    #
+    # lam is measured, never derived: it is not a closed form (it runs over
+    # 44.8 to 2e-4 across R for one potential, and both ellipe and ellipkm1
+    # feed it), and it has to hold for an arbitrary caller. This is plain
+    # arithmetic on integrand samples, so it stays traceable and
+    # differentiable. Costs 10 extra integrand evaluations against 2n.
+    lam = xp.sum(
+        asarray_on_device(xp, _LOG_W, dev)
+        * residual(b * asarray_on_device(xp, _LOG_U, dev))
+    )
     finite_part = (
         fixed_quad(
-            xp, lambda u: sym(u) - 2.0 * c / (u * u), zero, b, n=n, device=device
+            xp,
+            lambda u: residual(u) + lam * xp.log(u / b),
+            zero,
+            b,
+            n=n,
+            device=device,
         )
+        + lam * b
         - 2.0 * c / b
     )
     wide = peak_width > 0.0
