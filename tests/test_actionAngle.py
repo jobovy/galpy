@@ -8159,6 +8159,31 @@ def test_actionAngleSphericalInverse_exactpointtransform():
     return None
 
 
+# Test that the solve of the Kepler-like equation for the auxiliary
+# eccentric anomaly warns when it does not converge
+def test_actionAngleSphericalInverse_exactpointtransform_kepler_warning():
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        with pytest.warns(galpyWarning, match="Kepler-like equation"):
+            actionAngleSphericalInverse(
+                pot=logpot,
+                nta=128,
+                Es=[E],
+                Ls=[L],
+                use_pointtransform="exact",
+                maxiter=1,
+            )
+    return None
+
+
 # Test that the polynomial point transformation of the spherical inverse
 # also recovers an example orbit (the machinery absorbs the polynomial's
 # imperfection in the mapping coefficients)

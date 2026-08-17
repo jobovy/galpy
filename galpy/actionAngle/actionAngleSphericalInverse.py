@@ -39,6 +39,55 @@ except ImportError:
     _APY_LOADED = False
 
 
+def _solve_kepler(k, theta, maxiter, tol=1e-14):
+    """Solve the Kepler-like equation eta - k sin(eta) = theta for eta,
+    for arrays of k and theta (in [0,2pi]) broadcast against each other.
+    Because the left-hand side increases monotonically in eta, the root is
+    always bracketed by theta and pi (eta >= theta before apocenter and
+    eta <= theta after it), so we can safeguard Newton-Raphson with
+    bisection: the Newton-Raphson iteration converges quadratically except
+    near eta = 0 for nearly-radial tori (where k -> 1 and the derivative
+    vanishes), where the bisection fallback takes over. Only the entries
+    that have not converged yet are iterated."""
+    k, theta = numpy.broadcast_arrays(k, theta)
+    shape = theta.shape
+    k = numpy.ascontiguousarray(k, dtype="float").flatten()
+    theta = numpy.ascontiguousarray(theta, dtype="float").flatten()
+    eta = copy.copy(theta)
+    brlo = numpy.minimum(theta, numpy.pi)
+    brhi = numpy.maximum(theta, numpy.pi)
+    unconv = numpy.ones(theta.shape, dtype="bool")
+    cntr = 0
+    while numpy.any(unconv):
+        teta, tk = eta[unconv], k[unconv]
+        tbrlo, tbrhi = brlo[unconv], brhi[unconv]
+        f = teta - tk * numpy.sin(teta) - theta[unconv]
+        tbrlo = numpy.where(f <= 0.0, teta, tbrlo)
+        tbrhi = numpy.where(f >= 0.0, teta, tbrhi)
+        with numpy.errstate(divide="ignore", invalid="ignore"):
+            newteta = teta - f / (1.0 - tk * numpy.cos(teta))
+        # Fall back onto bisection when Newton-Raphson leaves the bracket
+        bisect = (
+            (newteta <= tbrlo) + (newteta >= tbrhi) + (True ^ numpy.isfinite(newteta))
+        )
+        newteta[bisect] = 0.5 * (tbrlo[bisect] + tbrhi[bisect])
+        conv = numpy.fabs(newteta - teta) < tol
+        eta[unconv] = newteta
+        brlo[unconv] = tbrlo
+        brhi[unconv] = tbrhi
+        unconv[numpy.where(unconv)[0][conv]] = False
+        cntr += 1
+        if cntr > maxiter:
+            warnings.warn(
+                "Solving the Kepler-like equation for the auxiliary eccentric anomaly did not converge in {} iterations".format(
+                    maxiter
+                ),
+                galpyWarning,
+            )
+            break
+    return eta.reshape(shape)
+
+
 class actionAngleSphericalInverse(actionAngleInverse):
     """Inverse action-angle formalism for spherical potentials"""
 
@@ -526,7 +575,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # satisfies, together with the Delta-psi (zeta') shift of the
         # in-plane angle. The system is integrated using the auxiliary
         # torus' eccentric anomaly eta as the independent variable and
-        # y = sin^2(phi/2) as the dependent variable for the normalized
+        # y = sin^2(chi/2) as the dependent variable for the normalized
         # radius, in which form it is regular at both turning points
         # (in particular, d Delta-psi / d eta = L [1/pi^2 - 1/ra^2] G(eta)
         # exactly, with no divergence at the turning points). The result is
@@ -548,6 +597,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._pt_deriv_coeffs = numpy.ones((self._nE, nmext))
         self._pt_deriv2_coeffs = numpy.zeros((self._nE, nmext))
         self._pt_dpsi_coeffs = numpy.zeros((self._nE, nmext))
+        # For a circular orbit, the auxiliary torus is circular as well and
+        # its radius equals that of the true circular orbit, because matching
+        # the frequencies matches the circular angular frequency L/r^2; the
+        # turning points of the auxiliary torus are therefore those of the
+        # true one (evaluating the general expression would divide by zero)
         zIndx = self._jr < 1e-10
         self._pt_rperi[zIndx] = self._rperi[zIndx]
         self._pt_rap[zIndx] = self._rap[zIndx]
@@ -583,22 +637,16 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
 
             def deriv_eta(eta, state):
-                phi = state[:ng]
+                chi = state[:ng]
                 dpsi_unused = state[ng:]  # noqa: F841
-                y = numpy.sin(phi / 2.0) ** 2.0
+                y = numpy.sin(chi / 2.0) ** 2.0
                 r = rperi + deltar * y
-                # Radius along the auxiliary torus at this eccentric anomaly
-                siso = 2.0 + ca / numpy.where(b > 0, b, 1.0) * (
-                    1.0 - ea * numpy.cos(eta)
-                )
-                ra = numpy.where(
-                    b > 0,
-                    b
-                    * numpy.sqrt(
-                        numpy.clip(siso * (siso - 2.0), a_min=0.0, a_max=None)
-                    ),
-                    ca * (1.0 - ea * numpy.cos(eta)),
-                )
+                # Radius along the auxiliary torus at this eccentric
+                # anomaly; writing it in terms of u = b (s-1) - b, that is,
+                # r^A = sqrt[u (u+2b)], avoids dividing by the isochrone
+                # scale b and is regular in the Kepler limit b -> 0
+                u = ca * (1.0 - ea * numpy.cos(eta))
+                ra = numpy.sqrt(u * (u + 2.0 * b))
                 # G = (d ra / d eta) / vra = b (s-1) sqrt[(b+c)/GM], which
                 # is regular at the turning points
                 G = numpy.sqrt(b**2.0 + ra**2.0) * numpy.sqrt((b + ca) / amp)
@@ -616,9 +664,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 Q[lowIndx] = Qperi[lowIndx]
                 Q[hiIndx] = Qap[hiIndx]
                 Q[Q < 0.0] = 0.0
-                dphideta = G / deltar * numpy.sqrt(Q)
+                dchideta = G / deltar * numpy.sqrt(Q)
                 ddpsideta = L * (1.0 / r**2.0 - 1.0 / ra**2.0) * G
-                return numpy.concatenate((dphideta, ddpsideta))
+                return numpy.concatenate((dchideta, ddpsideta))
 
             etamesh = numpy.linspace(0.0, numpy.pi, numpy.amax([pt_nra, 201]))
             sol = integrate.solve_ivp(
@@ -635,10 +683,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     "Solving the ODE that defines the exact point transformation failed, full message: "
                     + sol.message
                 )
-            phis = sol.y[:ng]
+            chis = sol.y[:ng]
             dpsis = sol.y[ng:]
             # The turning point must map exactly onto the turning point
-            ys = numpy.sin(phis / 2.0) ** 2.0
+            ys = numpy.sin(chis / 2.0) ** 2.0
             ys[:, 0] = 0.0
             ys[:, -1] = 1.0
             # Resample onto the fixed mesh in the normalized auxiliary radius
@@ -659,11 +707,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     etamesh, dpsis[jj], k=self._exact_pt_spl_deg
                 )
                 racore = ptrperi[jj] + (ptrap[jj] - ptrperi[jj]) * sacore
-                if b[jj] > 0:
-                    score = 1.0 + numpy.sqrt(1.0 + racore**2.0 / b[jj] ** 2.0)
-                    cosetacore = (1.0 - b[jj] / ca[jj] * (score - 2.0)) / ea[jj]
-                else:  # pragma: no cover
-                    cosetacore = (1.0 - racore / ca[jj]) / ea[jj]
+                # Inverse of the relation above: u = sqrt(b^2+r^2) - b
+                cosetacore = (
+                    1.0 - (numpy.sqrt(b[jj] ** 2.0 + racore**2.0) - b[jj]) / ca[jj]
+                ) / ea[jj]
                 etacore = numpy.arccos(numpy.clip(cosetacore, -1.0, 1.0))
                 ycore = yspl_eta(etacore)
                 ycore[0] = 0.0
@@ -764,23 +811,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             catmp = -tamp / 2.0 / Ettmp - tb
             eatmp = numpy.sqrt(1.0 - tL2 / tamp / catmp * (1.0 + tb / catmp))
             ktmp = eatmp * catmp / (catmp + tb)
-            tthetaa = numpy.tile(self._thetaa, (self._nE, 1))
-            eta = copy.copy(tthetaa)
-            for _ in range(100):
-                deta = -(eta - ktmp * numpy.sin(eta) - tthetaa) / (
-                    1.0 - ktmp * numpy.cos(eta)
-                )
-                eta += deta
-                if numpy.max(numpy.fabs(deta)) < 1e-14:
-                    break
-            sisotmp = 2.0 + catmp / numpy.where(tb > 0, tb, 1.0) * (
-                1.0 - eatmp * numpy.cos(eta)
+            eta = _solve_kepler(
+                ktmp, numpy.tile(self._thetaa, (self._nE, 1)), self._maxiter
             )
-            rgrid = numpy.where(
-                tb > 0,
-                tb * numpy.sqrt(numpy.clip(sisotmp * (sisotmp - 2.0), 0.0, None)),
-                catmp * (1.0 - eatmp * numpy.cos(eta)),
-            )
+            utmp = catmp * (1.0 - eatmp * numpy.cos(eta))
+            rgrid = numpy.sqrt(utmp * (utmp + 2.0 * tb))
         Egrid = numpy.tile(self._internal_Es, (self._nta, 1)).T
         Lgrid = numpy.tile(self._internal_Ls, (self._nta, 1)).T
         L2grid = Lgrid**2
