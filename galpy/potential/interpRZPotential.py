@@ -199,14 +199,11 @@ def _grid_eval(evaluator, pot, rgrid, zgrid):
     # relative tolerance still catches the failure this guards against: the
     # disagreement it exists to catch is not in the ULPs.
     #
-    # 1e-14, i.e. ~6x the measured 1.6e-15 reassociation, NOT 1e-12. The first
-    # attempt used 1e-12 on the reasoning that "600x the observed difference"
-    # was safely tight; CI disproved that -- with 1e-12 the guard ACCEPTED a
-    # vectorised AnySphericalPotential grid that
-    # test_interpRZPotential_grid_falls_back_for_nonbroadcasting_potential
-    # requires it to reject. Keep the margin over ULP noise small enough that
-    # the tolerance stays a reassociation allowance rather than a correctness
-    # allowance.
+    # 1e-14, i.e. ~6x the measured 1.6e-15 reassociation, NOT 1e-12: the margin
+    # over ULP noise has to stay small enough that this is a reassociation
+    # allowance and not a correctness allowance. The bound is pinned from both
+    # sides by test_grid_eval_falls_back_when_the_vectorised_call_disagrees,
+    # which injects a 1e-13 relative error that 1e-14 catches and 1e-12 does not.
     rtol = 0.0 if not is_backend_array(raw) else 1e-14
     for ii, jj in _spot_check_cells(nR, nz):
         ref = numpy.asarray(evaluator(pot, rgrid[ii], zgrid[jj], use_physical=False))
