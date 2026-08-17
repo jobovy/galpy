@@ -6,6 +6,7 @@ from scipy import integrate
 
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
+from ..util.quadpack import quad_over_limits
 from .SphericalPotential import SphericalPotential
 
 if _APY_LOADED:
@@ -79,12 +80,9 @@ class AnySphericalPotential(SphericalPotential):
                 )
         if not hasattr(self, "_rawdens"):  # unitless
             self._rawdens = dens
+
         self._rawmass = lambda r: (
-            4.0
-            * numpy.pi
-            * integrate.quad(
-                lambda a: a**2 * self._rawdens(a), 0, numpy.atleast_1d(r).flatten()[0]
-            )[0]
+            4.0 * numpy.pi * quad_over_limits(lambda a: a**2 * self._rawdens(a), 0, r)
         )
         # The potential at zero, try to figure out whether it's finite
         _zero_msg = integrate.quad(
@@ -115,20 +113,21 @@ class AnySphericalPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
+        # r == 0 / isinf(r) are per-element questions, so an array r has to be
+        # handled element by element; scipy's quad wants a scalar limit anyway.
+        if numpy.ndim(r) == 0:
+            return self._revaluate_scalar(r)
+        rr = numpy.asarray(r)
+        return numpy.reshape([self._revaluate_scalar(x) for x in rr.ravel()], rr.shape)
+
+    def _revaluate_scalar(self, r):
         if r == 0:
             return self._pot_zero
         elif numpy.isinf(r):
             return self._pot_inf
         else:
-            return (
-                -self._rawmass(r) / r
-                - 4.0
-                * numpy.pi
-                * integrate.quad(
-                    lambda a: self._rawdens(a) * a,
-                    numpy.atleast_1d(r).flatten()[0],
-                    numpy.inf,
-                )[0]
+            return -self._rawmass(r) / r - 4.0 * numpy.pi * quad_over_limits(
+                lambda a: self._rawdens(a) * a, r, numpy.inf
             )
 
     def _rforce(self, r, t=0.0):
