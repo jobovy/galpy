@@ -1275,9 +1275,22 @@ def test_forceAsDeriv_potential(potname):
                 dz = 10.0**-8.0
                 newZ = Zs[jj] + dz
                 dz = newZ - Zs[jj]  # Representable number
-                mpotderivz = (
-                    tp(Rs[ii], Zs[jj], phi=1.0) - tp(Rs[ii], Zs[jj] + dz, phi=1.0)
-                ) / dz
+                if Zs[jj] == 0.0:
+                    # At the midplane Phi may have a |z| KINK -- a razor-thin
+                    # disk's is exactly 2*pi*Sigma(R)*|z| -- and there the
+                    # one-sided difference measures the one-sided slope, which
+                    # is +2*pi*Sigma(R), not dPhi/dz. Phi is even in z about a
+                    # midplane where Fz vanishes, so the CENTRED difference is
+                    # the right probe: it is 0 for the kink and -Fz for a smooth
+                    # potential, and it is O(dz^2) rather than O(dz) accurate.
+                    mpotderivz = (
+                        tp(Rs[ii], Zs[jj] - dz, phi=1.0)
+                        - tp(Rs[ii], Zs[jj] + dz, phi=1.0)
+                    ) / (2.0 * dz)
+                else:
+                    mpotderivz = (
+                        tp(Rs[ii], Zs[jj], phi=1.0) - tp(Rs[ii], Zs[jj] + dz, phi=1.0)
+                    ) / dz
                 tzforce = potential.evaluatezforces(tp, Rs[ii], Zs[jj], phi=1.0)
                 if tzforce**2.0 < 10.0**ttol:
                     assert mpotderivz**2.0 < 10.0**ttol, (
