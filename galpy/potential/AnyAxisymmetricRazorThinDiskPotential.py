@@ -37,6 +37,10 @@ from .Potential import Potential, check_potential_inputs_not_arrays
 # 5.937e-11 at z = 1e-9, 1e-10 and 1e-12. Both derivatives use this constant, and
 # z2deriv moves LESS across the floor than R2deriv does.
 _R2DERIV_ZFLOOR = 1e-9
+# Relative floor on |z|/R for the traced zforce; see _zforce_gl for why it is
+# relative and where 1e-8 comes from (6 orders above the measured ~1e-14 onset,
+# 4 orders inside the 3e-4 the small-z limit test asks for).
+_ZFORCE_ZFLOOR_REL = 1e-8
 
 if _APY_LOADED:
     from astropy import units
@@ -487,8 +491,32 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
     def _zforce_gl(self, R, z, xp, dev):
         # z==0 is the disk plane (zforce=0 by symmetry) but the integrand has a
         # non-integrable 1/(a-R)^2 pole there; guard the dead branch with z_safe.
+        #
+        # |z| is also floored RELATIVE to R. The peak at a=R has width ~|z|, and
+        # _bk_split_quad grades its panels to it by forming edges R +/- d and,
+        # in the integrand, a - R -- both by subtraction. Once |z|/R falls to a
+        # few tens of machine epsilon those stop being representable, the
+        # innermost panels collapse to zero width and the 1/((a-R)^2+z^2) pole
+        # is sampled at a == R. Measured onset (traced, vs -2 pi Sigma(R)):
+        #
+        #     R       0.05      0.2       0.5       2.0
+        #     z/R     3.2e-15   3.2e-15   1.0e-14   1.0e-14      (~14-45 eps)
+        #
+        # i.e. SCALE-FREE in z/R, which is why the floor is relative -- an
+        # absolute one would be wrong at small R. Flooring is not an
+        # approximation being smuggled in: Fz(z->0+) is exactly -2 pi Sigma(R)
+        # for a razor-thin disk, the integral goes as 1/|z|, so -4 |z| I(|z|)
+        # evaluated AT the floor already is that limit. The floor sits 6 orders
+        # above the 1e-14 onset, so the quadrature is only ever used where it is
+        # accurate, and the limit's own error at the floor is O(z/R) ~ 1e-8.
+        # numpy needs none of this: _quad_apeak splits on scipy's points=[R],
+        # which stays finite, and it saturates INSIDE tolerance instead.
+        az = xp.maximum(xp.abs(z), _ZFORCE_ZFLOOR_REL * xp.abs(R))
+        # R == 0 (with z == 0) would leave az == 0 and put the pole back; that
+        # branch is dead, but keep it finite so it cannot poison a gradient.
+        az = xp.where(az > 0, az, xp.ones_like(az))
         z_safe = xp.where(z == 0, xp.ones_like(z), z)
-        z2 = z_safe**2
+        z2 = az**2
         sdens = self._sdens
 
         def zforceint(a):
@@ -501,8 +529,13 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
                 / xp.sqrt(aRz)
             )
 
-        integral = self._bk_split_quad(zforceint, R, xp, dev, z)
-        return xp.where(z == 0, xp.zeros_like(z), -4.0 * z * integral)
+        # az, not z, on BOTH sides: the panel grading must see the floored width
+        # it was integrated at, and -4 |z| I(|z|) is what tends to the limit. Fz
+        # is odd in z, so the sign is reapplied here rather than carried through.
+        integral = self._bk_split_quad(zforceint, R, xp, dev, az)
+        return xp.where(
+            z == 0, xp.zeros_like(z), -4.0 * xp.sign(z_safe) * az * integral
+        )
 
     # ------------------------------ R2deriv --------------------------------
     @check_potential_inputs_not_arrays
