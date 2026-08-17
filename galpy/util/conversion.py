@@ -539,9 +539,18 @@ def check_parser_input_type(func):
 
     @wraps(func)
     def parse_x_wrapper(x, **kwargs):
+        # A backend array (jax/torch, possibly traced) is accepted and passed
+        # through unscaled -- it carries no units, so it is treated as already in
+        # galpy's internal units, exactly like a plain Python float would be. This
+        # is what lets potential parameters be differentiated (d/dtheta). Detection
+        # is import-light and gated on the optional-dependency flags, so the
+        # numpy/number/Quantity paths below are byte-identical to before.
+        from ..backend import is_backend_array
+
         if (
             not x is None
             and not isinstance(x, numbers.Number)
+            and not is_backend_array(x)
             and not (
                 isinstance(x, numpy.ndarray)
                 and (x.size == 0 or isinstance(x.flatten()[0], numbers.Number))
@@ -1049,7 +1058,13 @@ def physical_conversion_tuple(quantities, pop=False):
 
 def potential_physical_input(method):
     """Decorator to convert inputs to Potential functions from physical
-    to internal coordinates"""
+    to internal coordinates.
+
+    Backend coercion of the coordinate inputs is NOT done here -- it is owned by
+    the backend-specific ``@backend_input`` boundary decorator (galpy.backend),
+    stacked just inside this one on the potential/df entry points, keeping the
+    backend concern separate from this legacy unit-handling decorator.
+    """
 
     @wraps(method)
     def wrapper(*args, **kwargs):

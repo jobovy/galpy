@@ -5,8 +5,7 @@
 ###############################################################################
 import copy
 
-import numpy
-
+from ..backend import backend_input, get_namespace
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
 from ..util.conversion import (
@@ -318,6 +317,7 @@ class Force:
             return 0.0
 
     @potential_physical_input
+    @backend_input("R", "z", "phi", "t")
     @physical_conversion("force", pop=True)
     def rforce(self, R, z, **kwargs):
         """
@@ -346,7 +346,9 @@ class Force:
         - 2016-06-20 - Written - Bovy (UofT)
 
         """
-        r = numpy.sqrt(R**2.0 + z**2.0)
+        xp = get_namespace(R, z)
+        # asarray so torch.sqrt accepts a Python-float/numpy-scalar radicand (no-op on numpy)
+        r = xp.sqrt(xp.asarray(R**2.0 + z**2.0))
         kwargs["use_physical"] = False
         return self.Rforce(R, z, **kwargs) * R / r + self.zforce(R, z, **kwargs) * z / r
 

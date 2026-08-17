@@ -5,6 +5,7 @@ import pickle
 
 import numpy
 
+from ..backend import backend_input
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -31,6 +32,8 @@ class linearPotential:
         self.hasC = False
         self.hasC_dxdv = False
         self.hasC_dens = False
+        # Backend-aware compute methods? Set True on migrated potentials.
+        self._backend_compatible = False
         # Parse ro and vo
         if ro is None:
             self._ro = config.__config__.getfloat("normalization", "ro")
@@ -228,6 +231,7 @@ class linearPotential:
         return None
 
     @potential_physical_input
+    @backend_input("x", "t")
     @physical_conversion("energy", pop=True)
     def __call__(self, x, t=0.0):
         """
@@ -262,6 +266,7 @@ class linearPotential:
             )
 
     @potential_physical_input
+    @backend_input("x", "t")
     @physical_conversion("force", pop=True)
     def force(self, x, t=0.0):
         """
@@ -356,6 +361,7 @@ class linearPotential:
 @potential_positional_arg
 @potential_list_of_potentials_input
 @potential_physical_input
+@backend_input("x", "t")
 @physical_conversion("energy", pop=True)
 def evaluatelinearPotentials(Pot, x, t=0.0):
     """
@@ -396,6 +402,7 @@ def _evaluatelinearPotentials(Pot, x, t=0.0):
 @potential_positional_arg
 @potential_list_of_potentials_input
 @potential_physical_input
+@backend_input("x", "t")
 @physical_conversion("force", pop=True)
 def evaluatelinearForces(Pot, x, t=0.0):
     """

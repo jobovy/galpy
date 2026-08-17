@@ -4,6 +4,7 @@ import numpy
 import pytest
 
 from galpy import df, potential
+from galpy.backend import as_numpy
 from galpy.orbit import Orbit
 from galpy.potential import MultipoleExpansionPotential, SCFPotential
 from galpy.util import coords
@@ -933,8 +934,8 @@ def test_physical_dens_spherical():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, 0.0, use_physical=False)
-            / hp.dens(rs, 0.0, use_physical=False)
+            - as_numpy(sp.dens(rs, 0.0, use_physical=False))
+            / as_numpy(hp.dens(rs, 0.0, use_physical=False))
         )
         < 1e-10
     ), (
@@ -954,8 +955,8 @@ def test_physical_dens_axi():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, 0.0, use_physical=False)
-            / hp.dens(rs, 0.0, use_physical=False)
+            - as_numpy(sp.dens(rs, 0.0, use_physical=False))
+            / as_numpy(hp.dens(rs, 0.0, use_physical=False))
         )
         < 1e-10
     ), (
@@ -975,8 +976,8 @@ def test_physical_dens():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, 0.0, use_physical=False)
-            / hp.dens(rs, 0.0, use_physical=False)
+            - as_numpy(sp.dens(rs, 0.0, use_physical=False))
+            / as_numpy(hp.dens(rs, 0.0, use_physical=False))
         )
         < 1e-10
     ), (
@@ -998,8 +999,8 @@ def test_from_density_hernquist():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp_direct.dens(rs, 0.0, use_physical=False)
-            / sp_from.dens(rs, 0.0, use_physical=False)
+            - as_numpy(sp_direct.dens(rs, 0.0, use_physical=False))
+            / as_numpy(sp_from.dens(rs, 0.0, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree between direct init and from_density init"
@@ -1020,8 +1021,8 @@ def test_from_density_axi():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp_direct.dens(rs, rs, use_physical=False)
-            / sp_from.dens(rs, rs, use_physical=False)
+            - as_numpy(sp_direct.dens(rs, rs, use_physical=False))
+            / as_numpy(sp_from.dens(rs, rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree between direct init and from_density init"
@@ -1040,8 +1041,8 @@ def test_from_density():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp_direct.dens(rs, rs, phi=rs, use_physical=False)
-            / sp_from.dens(rs, rs, phi=rs, use_physical=False)
+            - as_numpy(sp_direct.dens(rs, rs, phi=rs, use_physical=False))
+            / as_numpy(sp_from.dens(rs, rs, phi=rs, use_physical=False))
         )
         < 1e-10
     ), "SCF density does not agree between direct init and from_density init"
@@ -1054,17 +1055,20 @@ def test_from_density():
 ##This is used to test whether input as arrays works
 def ArrayTest(scf, params):
     def compareFunctions(func, result, i):
+        # as_numpy: no-op on the numpy path (byte-identical); casts a jax/torch
+        # scalar to numpy so the numpy assertions below work under a forced backend.
+        expected = as_numpy(func(R[i], z[i], phi[i]))
         if numpy.isnan(result[i]):
-            return numpy.isnan(func(R[i], z[i], phi[i]))
+            return numpy.isnan(expected)
         if numpy.isinf(result[i]):
-            return numpy.isinf(func(R[i], z[i], phi[i]))
-        return numpy.all(numpy.fabs(result[i] - func(R[i], z[i], phi[i])) < EPS)
+            return numpy.isinf(expected)
+        return numpy.all(numpy.fabs(result[i] - expected) < EPS)
 
-    potential = scf(*params).flatten()
-    density = scf.dens(*params).flatten()
-    Rforce = scf.Rforce(*params).flatten()
-    zforce = scf.zforce(*params).flatten()
-    phitorque = scf.phitorque(*params).flatten()
+    potential = as_numpy(scf(*params).flatten())
+    density = as_numpy(scf.dens(*params).flatten())
+    Rforce = as_numpy(scf.Rforce(*params).flatten())
+    zforce = as_numpy(scf.zforce(*params).flatten())
+    phitorque = as_numpy(scf.phitorque(*params).flatten())
 
     R, z, phi = params
     shape = numpy.array(R * z * phi).shape
@@ -1411,7 +1415,9 @@ def test_tdep_array_t_broadcast():
 
     sp = _make_tdep_nonaxi()
     t_arr = numpy.array([0.0, 1.0, 2.5, 3.9])
-    vals = evaluatePotentials(sp, 1.0, 0.5, phi=0.7, t=t_arr, use_physical=False)
+    vals = as_numpy(
+        evaluatePotentials(sp, 1.0, 0.5, phi=0.7, t=t_arr, use_physical=False)
+    )
     assert vals.shape == (4,)
     assert numpy.all(numpy.isfinite(vals))
     assert not numpy.all(vals == vals[0]), "potential should vary with time"
@@ -1539,8 +1545,11 @@ def test_tdep_c_dynamical_friction_dens():
     op = Orbit(init)
     oc.integrate(ts, sp + cdf, method="dop853_c")
     op.integrate(ts, sp + cdf, method="dop853")
-    assert numpy.all(numpy.isfinite(oc.r(ts)))
-    assert numpy.max(numpy.fabs(oc.r(ts) - op.r(ts))) < 1e-4
+    # as_numpy: under a forced backend the accessors return backend arrays and
+    # numpy.isfinite/fabs reject them (numpy path passes through unchanged)
+    oc_r, op_r = as_numpy(oc.r(ts)), as_numpy(op.r(ts))
+    assert numpy.all(numpy.isfinite(oc_r))
+    assert numpy.max(numpy.fabs(oc_r - op_r)) < 1e-4
 
 
 # ---------------------- from_density time dependence ----------------------
@@ -1588,8 +1597,8 @@ def test_tdep_from_density_potential_instance():
         assert numpy.all(
             numpy.fabs(
                 1.0
-                - sp.dens(rs, 0.0, t=t, use_physical=False)
-                / static.dens(rs, 0.0, use_physical=False)
+                - as_numpy(sp.dens(rs, 0.0, t=t, use_physical=False))
+                / as_numpy(static.dens(rs, 0.0, use_physical=False))
             )
             < 1e-8
         )
@@ -1611,7 +1620,7 @@ def test_tdep_from_density_axi():
     )
     assert sp._tdep is True
     assert sp.isNonAxi is False
-    assert numpy.all(sp._Asin_all == 0.0)
+    assert numpy.all(as_numpy(sp._Asin_all) == 0.0)
     static = SCFPotential.from_density(
         axi_density2, 10, L=10, a=a, symmetry="axi", radial_order=30, costheta_order=12
     )
@@ -1619,8 +1628,8 @@ def test_tdep_from_density_axi():
     assert numpy.all(
         numpy.fabs(
             1.0
-            - sp.dens(rs, rs, t=3.0, use_physical=False)
-            / static.dens(rs, rs, use_physical=False)
+            - as_numpy(sp.dens(rs, rs, t=3.0, use_physical=False))
+            / as_numpy(static.dens(rs, rs, use_physical=False))
         )
         < 1e-8
     )
@@ -1639,8 +1648,8 @@ def test_tdep_from_density_constant_no_t():
     for t in [0.0, 3.3]:
         assert numpy.all(
             numpy.fabs(
-                sp.dens(rs, 0.0, t=t, use_physical=False)
-                - static.dens(rs, 0.0, use_physical=False)
+                as_numpy(sp.dens(rs, 0.0, t=t, use_physical=False))
+                - as_numpy(static.dens(rs, 0.0, use_physical=False))
             )
             < 1e-12
         )

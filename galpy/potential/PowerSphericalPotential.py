@@ -6,9 +6,12 @@
 #                          rho(r)= ---------
 #                                   r^\alpha
 ###############################################################################
+import math
+
 import numpy
 from scipy import special
 
+from ..backend import coerce_coords, get_namespace
 from ..util import conversion
 from .Potential import Potential
 
@@ -50,7 +53,10 @@ class PowerSphericalPotential(Potential):
         self.alpha = alpha
         # Back to old definition
         if self.alpha != 3.0:
-            self._amp *= r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
+            self._amp = self._amp * (
+                r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
+            )
+        self._backend_compatible = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -84,16 +90,21 @@ class PowerSphericalPotential(Potential):
         -----
         - Started: 2010-07-10 by Bovy (NYU)
         """
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
         r2 = R**2.0 + z**2.0
         if self.alpha == 2.0:
-            return numpy.log(r2) / 2.0
-        elif isinstance(r2, (float, int)) and r2 == 0 and self.alpha > 2:
-            return -numpy.inf
+            return xp.log(r2) / 2.0
+        elif self.alpha > 2:
+            # potential -> -inf at the center; use a safe r2 so the singular
+            # branch (0**negative) cannot produce a NaN/inf that poisons
+            # reverse-mode gradients, then patch in -inf where r2 == 0.
+            bad = r2 == 0.0
+            safe = xp.where(bad, xp.ones_like(r2 * 1.0), r2)
+            out = -(safe ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
+            return xp.where(bad, -math.inf, out)
         else:
-            out = -(r2 ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
-            if isinstance(r2, numpy.ndarray) and self.alpha > 2:
-                out[r2 == 0] = -numpy.inf
-            return out
+            return -(r2 ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
@@ -146,27 +157,6 @@ class PowerSphericalPotential(Potential):
         - 2010-07-10 - Written - Bovy (NYU)
         """
         return -z / (R**2.0 + z**2.0) ** (self.alpha / 2.0)
-
-    def _rforce_jax(self, r):
-        """
-        Evaluate the spherical radial force for this potential using JAX.
-
-        Parameters
-        ----------
-        r : float
-            Galactocentric spherical radius.
-
-        Returns
-        -------
-        float
-            The radial force.
-
-        Notes
-        -----
-        - 2021-02-14 - Written - Bovy (UofT)
-        """
-        # No need for actual JAX!
-        return -self._amp / r ** (self.alpha - 1.0)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
@@ -272,8 +262,10 @@ class PowerSphericalPotential(Potential):
         -----
         - 2013-01-09 - Written - Bovy (IAS)
         """
-        r = numpy.sqrt(R**2.0 + z**2.0)
-        return (3.0 - self.alpha) / 4.0 / numpy.pi / r**self.alpha
+        xp = get_namespace(R, z)
+        R, z = coerce_coords(xp, R, z)
+        r = xp.sqrt(R**2.0 + z**2.0)
+        return (3.0 - self.alpha) / 4.0 / math.pi / r**self.alpha
 
     def _ddensdr(self, r, t=0.0):
         """

@@ -14,6 +14,14 @@ import numpy
 from scipy import interpolate
 
 from .. import potential
+from ..backend import (
+    as_numpy,
+    asarray_on_device,
+    device_of,
+    get_namespace,
+)
+from ..backend import interpolate as backend_interpolate
+from ..backend import promote_scalars, use
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -26,7 +34,11 @@ _PRINTOUTSIDEGRID = False
 
 
 class actionAngleAdiabaticGrid(actionAngle):
-    """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
+    """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation
+
+    jax/torch input is supported and differentiable, but evaluates the
+    interpolation grid only (no off-grid fallback): inputs must lie within the
+    grid, whereas the numpy path falls back to a per-point solve off-grid."""
 
     def __init__(
         self,
@@ -84,6 +96,15 @@ class actionAngleAdiabaticGrid(actionAngle):
         self._Rmin = 0.01
         # Set up the actionAngleAdiabatic object that we will use to interpolate
         self._aA = actionAngleAdiabatic(pot=self._pot, gamma=self._gamma, c=self._c)
+        xp = get_namespace()
+        if xp is not numpy:
+            # Forced/default backend: build the whole grid ON the backend so the
+            # frozen tables are backend arrays (GPU-resident) fit NATIVELY, and the
+            # build differentiates through to the query. numpy body below is left
+            # byte-identical (scipy).
+            self._build_grid_backend(xp, nR, nEz, nEr, nLz, numcores, **kwargs)
+            self._check_consistent_units()
+            return None
         # Build grid for Ez, first calculate Ez(zmax;R) function
         self._Rs = numpy.linspace(self._Rmin, self._Rmax, nR)
         self._EzZmaxs = _evaluatePotentials(
@@ -107,6 +128,12 @@ class actionAngleAdiabaticGrid(actionAngle):
                 numpy.sqrt(2.0 * this * thisEzZmaxs),
                 **kwargs,
             )[2]
+            # the c=True vectorized aA (no _justjz) returns a backend array under a
+            # forced backend; the grid precompute must be a WRITABLE numpy array
+            # (it feeds scipy splines + in-place table fills like jz[ii,:]/=...).
+            # as_numpy of an immutable backend array is read-only -> numpy.array
+            # copies it writable. numpy path: numpy.array(numpy) is a plain copy.
+            jz = numpy.array(as_numpy(jz))
             jz = numpy.reshape(jz, (nR, nEz))
             jzEzzmax[0:nR] = jz[:, nEz - 1]
         else:
@@ -208,6 +235,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                 numpy.zeros(len(thisRL)),
                 **kwargs,
             )[0]
+            mjr = numpy.array(as_numpy(mjr))  # writable numpy precompute; see above
             jr[:, 0:-1] = numpy.reshape(mjr, (nLz, nEr - 1))
             jrERRa[0:nLz] = jr[:, 0]
         else:
@@ -274,8 +302,189 @@ class actionAngleAdiabaticGrid(actionAngle):
         self._jrInterp = interpolate.RectBivariateSpline(
             self._Lzs, y, jr, kx=3, ky=3, s=0.0
         )
+        # Backend-agnostic eval wrappers from the SAME fitted scipy objects
+        # (numpy path is byte-identical -- the wrappers delegate to scipy).
+        self._build_backend_interp(jzEzzmax, jrERRa)
         # Check the units
         self._check_consistent_units()
+        return None
+
+    def _build_backend_interp(self, jzEzzmax, jrERRa):
+        """Build the jax/torch eval wrappers from the RAW frozen tables (dual-path).
+
+        On the numpy path the tables are numpy, so the Spline1D/Spline2D wrappers
+        fit scipy internally (byte-identical to the scipy interpolators the numpy
+        ``_evaluate`` uses); on a forced backend the tables are backend arrays, so
+        the wrappers fit NATIVELY (Spline2D not-a-knot cubic) and stay backend
+        arrays, differentiable through to the query. ``bc='not-a-knot'`` matches
+        FITPACK's s=0 interpolating cubic on the mode-2 path (ignored on numpy).
+        """
+        xp = get_namespace(self._jz)
+        Rs = as_numpy(self._Rs)
+        Lzs = as_numpy(self._Lzs)
+        y_ez = numpy.linspace(0.0, 1.0, self._jz.shape[1])
+        y_er = numpy.linspace(0.0, 1.0, self._jr.shape[1])
+        # jz / jr tables are fit directly (NOT logged).
+        self._jzInterp_b = backend_interpolate.Spline2D(Rs, y_ez, self._jz)
+        self._jrInterp_b = backend_interpolate.Spline2D(Lzs, y_er, self._jr)
+        self._EzZmaxsInterp_b = backend_interpolate.Spline1D(
+            Rs, xp.log(self._EzZmaxs), k=3, bc="not-a-knot"
+        )
+        self._jzEzmaxInterp_b = backend_interpolate.Spline1D(
+            Rs, xp.log(jzEzzmax + 10.0**-5.0), k=3, bc="not-a-knot"
+        )
+        self._RLInterp_b = backend_interpolate.Spline1D(
+            Lzs, self._RL, k=3, bc="not-a-knot"
+        )
+        self._ERRLInterp_b = backend_interpolate.Spline1D(
+            Lzs, xp.log(-(self._ERRL - self._ERRLmax)), k=3, bc="not-a-knot"
+        )
+        self._ERRaInterp_b = backend_interpolate.Spline1D(
+            Lzs, xp.log(-(self._ERRa - self._ERRamax)), k=3, bc="not-a-knot"
+        )
+        self._jrERRaInterp_b = backend_interpolate.Spline1D(
+            Lzs, xp.log(jrERRa + 10.0**-5.0), k=3, bc="not-a-knot"
+        )
+        return None
+
+    def _build_grid_backend(self, xp, nR, nEz, nEr, nLz, numcores, **kwargs):
+        """Backend (jax/torch) counterpart of the numpy grid build.
+
+        Produces the SAME frozen-table attributes as the numpy path
+        (``_Rs, _EzZmaxs, _jz, _Lzs, _RL, _ERRL, _ERRa, _jr`` + the derived
+        maxima) as BACKEND arrays fit NATIVELY, so the tables are GPU-resident
+        and the build differentiates through to the query. The non-differentiable
+        per-orbit solvers (``rl``, the c=False ``actionAngleAdiabatic`` loop) run
+        as on numpy; the vectorised c=True action solve returns backend arrays
+        directly. Values match the numpy(scipy) grid to grid-parity tolerance.
+        """
+        # --- Ez grid ---
+        self._Rs = asarray_on_device(
+            xp, numpy.linspace(self._Rmin, self._Rmax, nR), None
+        )
+        self._EzZmaxs = _evaluatePotentials(
+            self._pot, self._Rs, self._zmax * xp.ones(nR)
+        ) - _evaluatePotentials(self._pot, self._Rs, xp.zeros(nR))
+        dev = device_of(self._EzZmaxs)
+        y = asarray_on_device(xp, numpy.linspace(0.0, 1.0, nEz), dev)
+        thisRs = _tileT_flat(xp, self._Rs, nEz)
+        thisEzZmaxs = _tileT_flat(xp, self._EzZmaxs, nEz)
+        this = xp.reshape(xp.tile(y, (nR, 1)), (-1,))
+        if self._c:
+            jz = self._aA(
+                thisRs,
+                xp.zeros(nR * nEz),
+                xp.ones(nR * nEz),  # these two r dummies
+                xp.zeros(nR * nEz),
+                xp.sqrt(2.0 * this * thisEzZmaxs),
+                **kwargs,
+            )[2]
+            jz = xp.reshape(jz, (nR, nEz))
+        else:
+            # c=False actionAngleAdiabatic per-point loop: run as numpy, bring back.
+            with use("numpy", force=True):
+                Rs_np = as_numpy(self._Rs)
+                Ez_np = as_numpy(self._EzZmaxs)
+                y_np = as_numpy(y)
+                jz_np = numpy.zeros((nR, nEz))
+                for ii in range(nR):
+                    for jj in range(nEz):
+                        jz_np[ii, jj] = self._aA(
+                            Rs_np[ii],
+                            0.0,
+                            1.0,
+                            0.0,
+                            numpy.sqrt(2.0 * y_np[jj] * Ez_np[ii]),
+                            _justjz=True,
+                            **kwargs,
+                        )[2][0]
+            jz = asarray_on_device(xp, jz_np, dev)
+        jzEzzmax = jz[:, nEz - 1]
+        jz = jz / jzEzzmax[:, None]
+        self._jz = jz
+        # --- JR grid ---
+        self._Lzmin = 0.01
+        vc = potential.vcirc(self._pot, self._Rmax)
+        frac = asarray_on_device(xp, numpy.linspace(0.0, 1.0, nLz), dev)
+        self._Lzs = self._Lzmin + frac * (self._Rmax * vc - self._Lzmin)
+        self._Lzmax = self._Lzs[-1]
+        with use("numpy", force=True):
+            RL_np = numpy.array(
+                [potential.rl(self._pot, as_numpy(l)) for l in self._Lzs]
+            )
+        self._RL = asarray_on_device(xp, RL_np, dev)
+        self._ERRL = (
+            _evaluatePotentials(self._pot, self._RL, xp.zeros(nLz))
+            + self._Lzs**2.0 / 2.0 / self._RL**2.0
+        )
+        self._ERRLmax = xp.max(self._ERRL) + 1.0
+        self._Ramax = 99.0
+        self._ERRa = (
+            _evaluatePotentials(self._pot, self._Ramax, 0.0)
+            + self._Lzs**2.0 / 2.0 / self._Ramax**2.0
+        )
+        self._ERRamax = xp.max(self._ERRa) + 1.0
+        y = asarray_on_device(xp, numpy.linspace(0.0, 1.0, nEr), dev)
+        thisRL = _tileT_flat(xp, self._RL, nEr - 1)
+        thisLzs = _tileT_flat(xp, self._Lzs, nEr - 1)
+        thisERRL = _tileT_flat(xp, self._ERRL, nEr - 1)
+        thisERRa = _tileT_flat(xp, self._ERRa, nEr - 1)
+        this = xp.reshape(xp.tile(y[0:-1], (nLz, 1)), (-1,))
+        if self._c:
+            mjr = self._aA(
+                thisRL,
+                xp.sqrt(
+                    2.0
+                    * (
+                        thisERRa
+                        + this * (thisERRL - thisERRa)
+                        - _evaluatePotentials(
+                            self._pot, thisRL, xp.zeros((nEr - 1) * nLz)
+                        )
+                    )
+                    - thisLzs**2.0 / thisRL**2.0
+                ),
+                thisLzs / thisRL,
+                xp.zeros((nEr - 1) * nLz),
+                xp.zeros((nEr - 1) * nLz),
+                **kwargs,
+            )[0]
+            mjr = xp.reshape(mjr, (nLz, nEr - 1))
+        else:
+            with use("numpy", force=True):
+                RL_np = as_numpy(self._RL)
+                Lzs_np = as_numpy(self._Lzs)
+                ERRL_np = as_numpy(self._ERRL)
+                ERRa_np = as_numpy(self._ERRa)
+                y_np = as_numpy(y)
+                mjr_np = numpy.zeros((nLz, nEr - 1))
+                for ii in range(nLz):
+                    for jj in range(nEr - 1):
+                        mjr_np[ii, jj] = self._aA(
+                            RL_np[ii],
+                            numpy.sqrt(
+                                2.0
+                                * (
+                                    ERRa_np[ii]
+                                    + y_np[jj] * (ERRL_np[ii] - ERRa_np[ii])
+                                    - _evaluatePotentials(self._pot, RL_np[ii], 0.0)
+                                )
+                                - Lzs_np[ii] ** 2.0 / RL_np[ii] ** 2.0
+                            ),
+                            Lzs_np[ii] / RL_np[ii],
+                            0.0,
+                            0.0,
+                            _justjr=True,
+                            **kwargs,
+                        )[0][0]
+            mjr = asarray_on_device(xp, mjr_np, dev)
+        # last Er column is zero by construction
+        jr = xp.concat([mjr, xp.zeros((nLz, 1))], axis=1)
+        jrERRa = jr[:, 0]
+        jr = jr / jrERRa[:, None]
+        self._jr = jr
+        # native fits + backend eval wrappers
+        self._build_backend_interp(jzEzzmax, jrERRa)
         return None
 
     def _evaluate(self, *args, **kwargs):
@@ -313,6 +522,10 @@ class actionAngleAdiabaticGrid(actionAngle):
             vT = self._eval_vT
             z = self._eval_z
             vz = self._eval_vz
+        xp = get_namespace(R, vR, vT, z, vz)
+        if xp is not numpy:  # jax/torch: vectorised, differentiable grid eval
+            R, vR, vT, z, vz = promote_scalars(xp, R, vR, vT, z, vz)
+            return self._evaluate_backend(R, vR, vT, z, vz)
         # First work on the vertical action
         Phi = _evaluatePotentials(self._pot, R, z)
         try:
@@ -456,6 +669,35 @@ class actionAngleAdiabaticGrid(actionAngle):
                 )[0][0]
         return (jr, R * vT, jz)
 
+    def _evaluate_backend(self, R, vR, vT, z, vz):
+        """Vectorised, differentiable on-grid action eval for jax/torch inputs.
+
+        Assumes on-grid inputs (the off-grid fallback to self._aA is numpy-only).
+        """
+        xp = get_namespace(R)
+        zero = xp.zeros_like(R)
+        # Vertical action
+        Phi = _evaluatePotentials(self._pot, R, z)
+        Phio = _evaluatePotentials(self._pot, R, zero)
+        Ez = Phi - Phio + vz**2.0 / 2.0
+        thisEzZmax = xp.exp(self._EzZmaxsInterp_b(R))
+        jz = self._jzInterp_b(R, Ez / thisEzZmax, grid=False) * (
+            xp.exp(self._jzEzmaxInterp_b(R)) - 10.0**-5.0
+        )
+        # Radial action
+        ERLz = xp.abs(R * vT) + self._gamma * jz
+        ER = Phio + vR**2.0 / 2.0 + ERLz**2.0 / 2.0 / R**2.0
+        thisERRL = -xp.exp(self._ERRLInterp_b(ERLz)) + self._ERRLmax
+        thisERRa = -xp.exp(self._ERRaInterp_b(ERLz)) + self._ERRamax
+        frac = (ER - thisERRa) / (thisERRL - thisERRa)
+        # Snap the two near-boundary cases (mirrors the numpy ER[indx]= writes).
+        ER = xp.where((frac > 1.0) & ((frac - 1.0) < 10.0**-2.0), thisERRL, ER)
+        ER = xp.where((frac < 0.0) & (frac > -(10.0**-2.0)), thisERRa, ER)
+        jr = self._jrInterp_b(
+            ERLz, (ER - thisERRa) / (thisERRL - thisERRa), grid=False
+        ) * (xp.exp(self._jrERRaInterp_b(ERLz)) - 10.0**-5.0)
+        return (jr, R * vT, jz)
+
     def Jz(self, *args, **kwargs):
         """
         Evaluate the action jz.
@@ -481,6 +723,19 @@ class actionAngleAdiabaticGrid(actionAngle):
 
         """
         self._parse_eval_args(*args)
+        xp = get_namespace(
+            self._eval_R, self._eval_vR, self._eval_vT, self._eval_z, self._eval_vz
+        )
+        if xp is not numpy:  # jax/torch: on-grid backend eval (no scipy fits built)
+            R, vR, vT, z, vz = promote_scalars(
+                xp,
+                self._eval_R,
+                self._eval_vR,
+                self._eval_vT,
+                self._eval_z,
+                self._eval_vz,
+            )
+            return self._evaluate_backend(R, vR, vT, z, vz)[2]
         Phi = _evaluatePotentials(self._pot, self._eval_R, self._eval_z)
         Phio = _evaluatePotentials(self._pot, self._eval_R, 0.0)
         Ez = Phi - Phio + self._eval_vz**2.0 / 2.0
@@ -508,3 +763,9 @@ class actionAngleAdiabaticGrid(actionAngle):
                 * (numpy.exp(self._jzEzmaxInterp(self._eval_R)) - 10.0**-5.0)
             )[0][0]
         return jz
+
+
+def _tileT_flat(xp, a, reps):
+    """``(tile(a, (reps, 1)).T).flatten()`` -- the numpy grid-tiling idiom, in xp.
+    ``a`` is 1-D (n,); returns (n*reps,) with ``a`` varying slowest."""
+    return xp.reshape(xp.matrix_transpose(xp.tile(a, (reps, 1))), (-1,))

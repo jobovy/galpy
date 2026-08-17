@@ -80,6 +80,12 @@ from functools import wraps
 
 import numpy
 
+from ..backend import (
+    coerce_coords,
+    get_namespace,
+    is_backend_array,
+    promote_scalars,
+)
 from ..util import _rotate_to_arbitrary_vector
 from ..util._optional_deps import _APY_LOADED
 from ..util.config import __config__
@@ -87,6 +93,8 @@ from ..util.config import __config__
 _APY_COORDS = __config__.getboolean("astropy", "astropy-coords")
 _APY_COORDS *= _APY_LOADED
 _DEGTORAD = numpy.pi / 180.0
+
+
 if _APY_LOADED:
     import astropy.coordinates as apycoords
     from astropy import units
@@ -1100,7 +1108,7 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
         return out
 
 
-def rect_to_cyl(X, Y, Z):
+def rect_to_cyl(X, Y, Z, *, xp=None):
     """
     Convert from rectangular to cylindrical coordinates
 
@@ -1112,6 +1120,9 @@ def rect_to_cyl(X, Y, Z):
         Y coordinate.
     Z : float or numpy.ndarray
         Z coordinate.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to get_namespace (e.g.
+        ``numpy`` to pin host-side bookkeeping regardless of the forced default).
 
     Returns
     -------
@@ -1123,10 +1134,12 @@ def rect_to_cyl(X, Y, Z):
     - 2010-09-24 - Written - Bovy (NYU)
     - 2019-06-21 - Changed such that phi in [-pi,pi] - Bovy (UofT)
     """
-    return (numpy.sqrt(X**2.0 + Y**2.0), numpy.arctan2(Y, X), Z)
+    xp = get_namespace(X, Y, Z, xp=xp)
+    X, Y, Z = promote_scalars(xp, X, Y, Z)
+    return (xp.sqrt(X**2.0 + Y**2.0), xp.arctan2(Y, X), Z)
 
 
-def cyl_to_rect(R, phi, Z):
+def cyl_to_rect(R, phi, Z, *, xp=None):
     """
     Convert from cylindrical to rectangular coordinates
 
@@ -1138,6 +1151,9 @@ def cyl_to_rect(R, phi, Z):
         Cylindrical phi coordinate.
     Z : float or numpy.ndarray
         Cylindrical Z coordinate.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to get_namespace (e.g.
+        ``numpy`` to pin host-side bookkeeping regardless of the forced default).
 
     Returns
     -------
@@ -1148,7 +1164,9 @@ def cyl_to_rect(R, phi, Z):
     -----
     - 2011-02-23 - Written - Bovy (NYU)
     """
-    return (R * numpy.cos(phi), R * numpy.sin(phi), Z)
+    xp = get_namespace(R, phi, Z, xp=xp)
+    R, phi, Z = promote_scalars(xp, R, phi, Z)
+    return (R * xp.cos(phi), R * xp.sin(phi), Z)
 
 
 def cyl_to_spher(R, Z, phi):
@@ -1173,7 +1191,9 @@ def cyl_to_spher(R, Z, phi):
     -----
     - 2016-05-16 - Written - Aladdin
     """
-    theta = numpy.arctan2(R, Z)
+    xp = get_namespace(R, Z, phi)
+    R, Z, phi = promote_scalars(xp, R, Z, phi)
+    theta = xp.arctan2(R, Z)
     r = (R**2 + Z**2) ** 0.5
     return (r, theta, phi)
 
@@ -1200,8 +1220,10 @@ def spher_to_cyl(r, theta, phi):
     -----
     - 2016-05-20 - Written - Aladdin
     """
-    R = r * numpy.sin(theta)
-    z = r * numpy.cos(theta)
+    xp = get_namespace(r, theta, phi)
+    r, theta = promote_scalars(xp, r, theta)
+    R = r * xp.sin(theta)
+    z = r * xp.cos(theta)
     return (R, z, phi)
 
 
@@ -1565,7 +1587,7 @@ def spher_to_cyl_vec(vr, vT, vtheta, theta):
     return (vR, vT, vz)
 
 
-def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
+def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False, *, xp=None):
     """
     Transform vectors from rectangular to cylindrical coordinates vectors.
 
@@ -1585,6 +1607,10 @@ def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
         Z-coordinate.
     cyl : bool, optional
         If True, X, Y, Z are already cylindrical (i.e., [X,Y,Z] == [R,phi,Z]), by default False.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to the internal rect_to_cyl
+        call (e.g. ``numpy`` to pin host-side bookkeeping regardless of the
+        forced default).
 
     Returns
     -------
@@ -1597,15 +1623,17 @@ def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
 
     """
     if not cyl:
-        R, phi, Z = rect_to_cyl(X, Y, Z)
+        R, phi, Z = rect_to_cyl(X, Y, Z, xp=xp)
     else:
         phi = Y
-    vr = +vx * numpy.cos(phi) + vy * numpy.sin(phi)
-    vt = -vx * numpy.sin(phi) + vy * numpy.cos(phi)
+    xp = get_namespace(vx, vy, vz, phi, xp=xp)
+    vx, vy, phi = promote_scalars(xp, vx, vy, phi)
+    vr = +vx * xp.cos(phi) + vy * xp.sin(phi)
+    vt = -vx * xp.sin(phi) + vy * xp.cos(phi)
     return (vr, vt, vz)
 
 
-def cyl_to_rect_vec(vr, vt, vz, phi):
+def cyl_to_rect_vec(vr, vt, vz, phi, *, xp=None):
     """
     Transform vectors from cylindrical to rectangular coordinate vectors.
 
@@ -1619,6 +1647,9 @@ def cyl_to_rect_vec(vr, vt, vz, phi):
         Vertical velocity.
     phi : float or numpy.ndarray
         Azimuth.
+    xp : module or str, optional
+        Explicit array-namespace override forwarded to get_namespace (e.g.
+        ``numpy`` to pin host-side bookkeeping regardless of the forced default).
 
     Returns
     -------
@@ -1629,8 +1660,10 @@ def cyl_to_rect_vec(vr, vt, vz, phi):
     -----
     - 2011-02-24 - Written - Bovy (NYU)
     """
-    vx = vr * numpy.cos(phi) - vt * numpy.sin(phi)
-    vy = vr * numpy.sin(phi) + vt * numpy.cos(phi)
+    xp = get_namespace(vr, vt, vz, phi, xp=xp)
+    vr, vt, phi = promote_scalars(xp, vr, vt, phi)
+    vx = vr * xp.cos(phi) - vt * xp.sin(phi)
+    vy = vr * xp.sin(phi) + vt * xp.cos(phi)
     return (vx, vy, vz)
 
 
@@ -1662,6 +1695,8 @@ def cyl_to_rect_jac(*args):
     -----
     - 2013-12-09 - Written - Bovy (IAS)
     """
+    if any(is_backend_array(a) for a in args):
+        return _cyl_to_rect_jac_backend(*args)
     out = numpy.zeros((6, 6))
     if len(args) == 3:
         R, phi, Z = args
@@ -1688,6 +1723,44 @@ def cyl_to_rect_jac(*args):
         out = out[:3, outIndx]
         out[:, [1, 2]] = out[:, [2, 1]]
     return out
+
+
+def _cyl_to_rect_jac_backend(*args):
+    """Backend (jax/torch) twin of :func:`cyl_to_rect_jac`.
+
+    Builds the Jacobian FUNCTIONALLY (rows assembled with ``xp.stack``, no
+    numpy item-assignment) so it is traceable/differentiable w.r.t. the
+    cylindrical coordinates. Reproduces both the 3-arg spatial and 6-arg
+    phase-space branches exactly; the 3-arg column-swap is baked into the
+    stacked column order.
+    """
+    xp = get_namespace(*args)
+    args = coerce_coords(xp, *args)
+    if len(args) == 3:
+        R, phi, Z = args
+        cp, sp = xp.cos(phi), xp.sin(phi)
+        zero, one = xp.zeros_like(R), xp.ones_like(R)
+        # columns already in the post-swap order [d/dR, d/dphi, d/dZ]
+        return xp.stack(
+            [
+                xp.stack([cp, -R * sp, zero]),
+                xp.stack([sp, R * cp, zero]),
+                xp.stack([zero, zero, one]),
+            ]
+        )
+    R, vR, vT, Z, vZ, phi = args
+    cp, sp = xp.cos(phi), xp.sin(phi)
+    zero, one = xp.zeros_like(R), xp.ones_like(R)
+    return xp.stack(
+        [
+            xp.stack([cp, zero, zero, zero, zero, -R * sp]),
+            xp.stack([sp, zero, zero, zero, zero, R * cp]),
+            xp.stack([zero, zero, zero, one, zero, zero]),
+            xp.stack([zero, cp, -sp, zero, zero, -vT * cp - vR * sp]),
+            xp.stack([zero, sp, cp, zero, zero, -vT * sp + vR * cp]),
+            xp.stack([zero, zero, zero, zero, one, zero]),
+        ]
+    )
 
 
 def galcenrect_to_XYZ_jac(*args, **kwargs):
@@ -2370,16 +2443,18 @@ def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     - 2012-11-27 - Written - Bovy (IAS)
     - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
     """
+    xp = get_namespace(R, z, delta)
+    R, z = promote_scalars(xp, R, z)
     if oblate:
         d12 = (R + delta) ** 2.0 + z**2.0
         d22 = (R - delta) ** 2.0 + z**2.0
     else:
         d12 = (z + delta) ** 2.0 + R**2.0
         d22 = (z - delta) ** 2.0 + R**2.0
-    coshu = 0.5 / delta * (numpy.sqrt(d12) + numpy.sqrt(d22))
-    cosv = 0.5 / delta * (numpy.sqrt(d12) - numpy.sqrt(d22))
+    coshu = 0.5 / delta * (xp.sqrt(d12) + xp.sqrt(d22))
+    cosv = 0.5 / delta * (xp.sqrt(d12) - xp.sqrt(d22))
     if oblate:  # cosv is currently really sinv
-        cosv = numpy.sqrt(1.0 - cosv**2.0)
+        cosv = xp.sqrt(1.0 - cosv**2.0)
     return (coshu, cosv)
 
 
@@ -2409,9 +2484,10 @@ def Rz_to_uv(R, z, delta=1.0, oblate=False):
     - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
 
     """
+    xp = get_namespace(R, z, delta)
     coshu, cosv = Rz_to_coshucosv(R, z, delta, oblate=oblate)
-    u = numpy.arccosh(coshu)
-    v = numpy.arccos(cosv)
+    u = xp.arccosh(coshu)
+    v = xp.arccos(cosv)
     return (u, v)
 
 
@@ -2441,12 +2517,14 @@ def uv_to_Rz(u, v, delta=1.0, oblate=False):
     - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
 
     """
+    xp = get_namespace(u, v, delta)
+    u, v, delta = promote_scalars(xp, u, v, delta)
     if oblate:
-        R = delta * numpy.cosh(u) * numpy.sin(v)
-        z = delta * numpy.sinh(u) * numpy.cos(v)
+        R = delta * xp.cosh(u) * xp.sin(v)
+        z = delta * xp.sinh(u) * xp.cos(v)
     else:
-        R = delta * numpy.sinh(u) * numpy.sin(v)
-        z = delta * numpy.cosh(u) * numpy.cos(v)
+        R = delta * xp.sinh(u) * xp.sin(v)
+        z = delta * xp.cosh(u) * xp.cos(v)
     return (R, z)
 
 
@@ -2573,12 +2651,13 @@ def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
     -----
     - 2015-02-13 - Written - Trick (MPIA)
     """
+    xp = get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
     g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
     term = R**2 + z**2 - a - g
     discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
-    l = 0.5 * (term + numpy.sqrt(discr))
-    n = 0.5 * (term - numpy.sqrt(discr))
+    l = 0.5 * (term + xp.sqrt(discr))
+    n = 0.5 * (term - xp.sqrt(discr))
     if isinstance(z, float) and z == 0.0:
         l = R**2 - a
         n = -g
@@ -2612,11 +2691,16 @@ def Rz_to_lambdanu_jac(R, z, Delta=1.0):
     - 2015-02-13 - Written - Trick (MPIA).
     """
 
+    xp = get_namespace(R, z) if is_backend_array(R) or is_backend_array(z) else numpy
     discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
-    dldR = R * (1.0 + (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
-    dndR = R * (1.0 - (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
-    dldz = z * (1.0 + (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
-    dndz = z * (1.0 - (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
+    dldR = R * (1.0 + (R**2 + z**2 + Delta**2) / xp.sqrt(discr))
+    dndR = R * (1.0 - (R**2 + z**2 + Delta**2) / xp.sqrt(discr))
+    dldz = z * (1.0 + (R**2 + z**2 - Delta**2) / xp.sqrt(discr))
+    dndz = z * (1.0 - (R**2 + z**2 - Delta**2) / xp.sqrt(discr))
+    if is_backend_array(R) or is_backend_array(z):
+        return xp.stack(
+            [xp.stack([dldR, dldz], axis=0), xp.stack([dndR, dndz], axis=0)], axis=0
+        )
     dim = numpy.amax([len(numpy.atleast_1d(R)), len(numpy.atleast_1d(z))])
     jac = numpy.zeros((2, 2, dim))
     jac[0, 0, :] = dldR
@@ -2679,6 +2763,27 @@ def Rz_to_lambdanu_hess(R, z, Delta=1.0):
     )
     d2ldRdz = 2.0 * R * z / discr**0.5 * (1.0 - ((R2 + z2) ** 2 - D**4) / discr)
     d2ndRdz = 2.0 * R * z / discr**0.5 * (-1.0 + ((R2 + z2) ** 2 - D**4) / discr)
+    if is_backend_array(R) or is_backend_array(z):
+        xp = get_namespace(R, z)
+        return xp.stack(
+            [
+                xp.stack(
+                    [
+                        xp.stack([d2ldR2, d2ldRdz], axis=0),
+                        xp.stack([d2ldRdz, d2ldz2], axis=0),
+                    ],
+                    axis=0,
+                ),
+                xp.stack(
+                    [
+                        xp.stack([d2ndR2, d2ndRdz], axis=0),
+                        xp.stack([d2ndRdz, d2ndz2], axis=0),
+                    ],
+                    axis=0,
+                ),
+            ],
+            axis=0,
+        )
     dim = numpy.amax([len(numpy.atleast_1d(R)), len(numpy.atleast_1d(z))])
     hess = numpy.zeros((2, 2, 2, dim))
     # Hessian for lambda:

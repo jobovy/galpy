@@ -4,6 +4,7 @@ import pickle
 import numpy
 from scipy import integrate
 
+from ..backend import backend_input, get_namespace
 from ..util import config, conversion, plot
 from ..util.conversion import (
     physical_compatible,
@@ -35,6 +36,7 @@ class planarPotential(planarForce):
         self.isDissipative = False
 
     @potential_physical_input
+    @backend_input("R", "phi", "t")
     @physical_conversion("energy", pop=True)
     def __call__(self, R, phi=0.0, t=0.0, dR=0, dphi=0):
         """
@@ -90,6 +92,7 @@ class planarPotential(planarForce):
             )
 
     @potential_physical_input
+    @backend_input("R", "phi", "t")
     @physical_conversion("force", pop=True)
     def Rforce(self, R, phi=0.0, t=0.0):
         r"""
@@ -117,6 +120,7 @@ class planarPotential(planarForce):
         return self._Rforce_nodecorator(R, phi=phi, t=t)
 
     @potential_physical_input
+    @backend_input("R", "phi", "t")
     @physical_conversion("energy", pop=True)
     def phitorque(self, R, phi=0.0, t=0.0):
         """
@@ -144,6 +148,7 @@ class planarPotential(planarForce):
         return self._phitorque_nodecorator(R, phi=phi, t=t)
 
     @potential_physical_input
+    @backend_input("R", "phi", "t")
     @physical_conversion("forcederivative", pop=True)
     def R2deriv(self, R, phi=0.0, t=0.0):
         """
@@ -175,6 +180,7 @@ class planarPotential(planarForce):
             )
 
     @potential_physical_input
+    @backend_input("R", "phi", "t")
     @physical_conversion("energy", pop=True)
     def phi2deriv(self, R, phi=0.0, t=0.0):
         """
@@ -207,6 +213,7 @@ class planarPotential(planarForce):
             )
 
     @potential_physical_input
+    @backend_input("R", "phi", "t")
     @physical_conversion("force", pop=True)
     def Rphideriv(self, R, phi=0.0, t=0.0):
         """
@@ -239,6 +246,7 @@ class planarPotential(planarForce):
             )
 
     @potential_physical_input
+    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
     def epifreq(self, R, t=0.0):
         """
@@ -261,12 +269,14 @@ class planarPotential(planarForce):
         - 2011-10-09 - Written - Bovy (IAS)
 
         """
-        return numpy.sqrt(
+        xp = get_namespace(R)
+        return xp.sqrt(
             self.R2deriv(R, 0.0, t=t, use_physical=False)
             - 3.0 / R * self.Rforce(R, 0.0, t=t, use_physical=False)
         )
 
     @potential_physical_input
+    @backend_input("R", "phi", "t")
     @physical_conversion("velocity", pop=True)
     def vcirc(self, R, phi=None, t=0.0):
         """
@@ -292,9 +302,11 @@ class planarPotential(planarForce):
         - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
-        return numpy.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
+        xp = get_namespace(R)
+        return xp.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
 
     @potential_physical_input
+    @backend_input("R", "t")
     @physical_conversion("frequency", pop=True)
     def omegac(self, R, t=0.0):
         """
@@ -317,7 +329,8 @@ class planarPotential(planarForce):
         - Written on 2011-10-09 by Bovy (IAS).
 
         """
-        return numpy.sqrt(-self.Rforce(R, t=t, use_physical=False) / R)
+        xp = get_namespace(R)
+        return xp.sqrt(-self.Rforce(R, t=t, use_physical=False) / R)
 
     def plot(self, *args, **kwargs):
         """
@@ -439,6 +452,7 @@ class planarAxiPotential(planarPotential):
         return lindbladR(self, OmegaP, m=m, t=t, use_physical=False, **kwargs)
 
     @potential_physical_input
+    @backend_input("R", "t")
     @physical_conversion("velocity", pop=True)
     def vesc(self, R, t=0.0):
         """
@@ -461,7 +475,8 @@ class planarAxiPotential(planarPotential):
         - Written on 2011-10-09 by Bovy (IAS).
 
         """
-        return numpy.sqrt(
+        xp = get_namespace(R)
+        return xp.sqrt(
             2.0
             * (self(_INF, t=t, use_physical=False) - self(R, t=t, use_physical=False))
         )
@@ -980,6 +995,7 @@ def toPlanarPotential(Pot):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "phi", "t")
 @physical_conversion("energy", pop=True)
 @potential_list_of_potentials_input
 def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
@@ -1033,6 +1049,7 @@ def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "phi", "t", "v")
 @physical_conversion("force", pop=True)
 @potential_list_of_potentials_input
 def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
@@ -1096,6 +1113,7 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "phi", "t", "v")
 @physical_conversion("energy", pop=True)
 @potential_list_of_potentials_input
 def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
@@ -1158,6 +1176,7 @@ def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
 
 @potential_positional_arg
 @potential_physical_input
+@backend_input("R", "phi", "t")
 @physical_conversion("forcederivative", pop=True)
 @potential_list_of_potentials_input
 def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):

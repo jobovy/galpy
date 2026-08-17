@@ -15,7 +15,13 @@ try:
 except ImportError:
     _PYNBODY_LOADED = False
 from galpy import orbit, potential
+from galpy.backend import as_numpy
 from galpy.util import _rotate_to_arbitrary_vector, coords
+
+try:
+    import torch as _torch
+except ImportError:
+    _torch = None
 
 
 # ---- Parametrization support: build per-test potential-name lists at module level ----
@@ -2474,21 +2480,24 @@ def test_potential_array_input(potname):
             [tp(r, z, phi=phi, t=t) for (r, z, phi, t) in zip(rs, zs, phis, ts)]
         )
         assert numpy.all(
-            numpy.fabs(tp(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+            numpy.fabs(numpy.asarray(tp(rs, zs, phi=phis, t=ts)) - tpevals)
+            < 10.0**-10.0
         ), f"{p} evaluation does not work as expected for array inputs"
         # Rforce
         tpevals = numpy.array(
             [tp.Rforce(r, z, phi=phi, t=t) for (r, z, phi, t) in zip(rs, zs, phis, ts)]
         )
         assert numpy.all(
-            numpy.fabs(tp.Rforce(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+            numpy.fabs(numpy.asarray(tp.Rforce(rs, zs, phi=phis, t=ts)) - tpevals)
+            < 10.0**-10.0
         ), f"{p} Rforce evaluation does not work as expected for array inputs"
         # zforce
         tpevals = numpy.array(
             [tp.zforce(r, z, phi=phi, t=t) for (r, z, phi, t) in zip(rs, zs, phis, ts)]
         )
         assert numpy.all(
-            numpy.fabs(tp.zforce(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+            numpy.fabs(numpy.asarray(tp.zforce(rs, zs, phi=phis, t=ts)) - tpevals)
+            < 10.0**-10.0
         ), f"{p} zforce evaluation does not work as expected for array inputs"
         # phitorque
         tpevals = numpy.array(
@@ -2498,7 +2507,8 @@ def test_potential_array_input(potname):
             ]
         )
         assert numpy.all(
-            numpy.fabs(tp.phitorque(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+            numpy.fabs(numpy.asarray(tp.phitorque(rs, zs, phi=phis, t=ts)) - tpevals)
+            < 10.0**-10.0
         ), f"{p} zforce evaluation does not work as expected for array inputs"
         # R2deriv
         if hasattr(tp, "_R2deriv"):
@@ -2509,7 +2519,8 @@ def test_potential_array_input(potname):
                 ]
             )
             assert numpy.all(
-                numpy.fabs(tp.R2deriv(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+                numpy.fabs(numpy.asarray(tp.R2deriv(rs, zs, phi=phis, t=ts)) - tpevals)
+                < 10.0**-10.0
             ), f"{p} R2deriv evaluation does not work as expected for array inputs"
         # z2deriv
         if (
@@ -2522,7 +2533,8 @@ def test_potential_array_input(potname):
                 ]
             )
             assert numpy.all(
-                numpy.fabs(tp.z2deriv(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+                numpy.fabs(numpy.asarray(tp.z2deriv(rs, zs, phi=phis, t=ts)) - tpevals)
+                < 10.0**-10.0
             ), f"{p} z2deriv evaluation does not work as expected for array inputs"
         # phi2deriv
         if hasattr(tp, "_R2deriv"):
@@ -2533,7 +2545,10 @@ def test_potential_array_input(potname):
                 ]
             )
             assert numpy.all(
-                numpy.fabs(tp.phi2deriv(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+                numpy.fabs(
+                    numpy.asarray(tp.phi2deriv(rs, zs, phi=phis, t=ts)) - tpevals
+                )
+                < 10.0**-10.0
             ), f"{p} phi2deriv evaluation does not work as expected for array inputs"
         # Rzderiv
         if hasattr(tp, "_Rzderiv"):
@@ -2544,7 +2559,8 @@ def test_potential_array_input(potname):
                 ]
             )
             assert numpy.all(
-                numpy.fabs(tp.Rzderiv(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+                numpy.fabs(numpy.asarray(tp.Rzderiv(rs, zs, phi=phis, t=ts)) - tpevals)
+                < 10.0**-10.0
             ), f"{p} Rzderiv evaluation does not work as expected for array inputs"
         # Rphideriv
         if hasattr(tp, "_Rphideriv"):
@@ -2555,7 +2571,10 @@ def test_potential_array_input(potname):
                 ]
             )
             assert numpy.all(
-                numpy.fabs(tp.Rphideriv(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+                numpy.fabs(
+                    numpy.asarray(tp.Rphideriv(rs, zs, phi=phis, t=ts)) - tpevals
+                )
+                < 10.0**-10.0
             ), f"{p} Rphideriv evaluation does not work as expected for array inputs"
         # phizderiv
         if hasattr(tp, "_phizderiv"):
@@ -2566,14 +2585,18 @@ def test_potential_array_input(potname):
                 ]
             )
             assert numpy.all(
-                numpy.fabs(tp.phizderiv(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+                numpy.fabs(
+                    numpy.asarray(tp.phizderiv(rs, zs, phi=phis, t=ts)) - tpevals
+                )
+                < 10.0**-10.0
             ), f"{p} phizderiv evaluation does not work as expected for array inputs"
         # dens
         tpevals = numpy.array(
             [tp.dens(r, z, phi=phi, t=t) for (r, z, phi, t) in zip(rs, zs, phis, ts)]
         )
         assert numpy.all(
-            numpy.fabs(tp.dens(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
+            numpy.fabs(numpy.asarray(tp.dens(rs, zs, phi=phis, t=ts)) - tpevals)
+            < 10.0**-10.0
         ), f"{p} dens evaluation does not work as expected for array inputs"
     return None
 
@@ -2599,12 +2622,16 @@ def test_toVertical_array(potname):
         tp = potential.toVerticalPotential(tp, 0.8, phi=0.2)
         # Potential itself
         tpevals = numpy.array([tp(x, t=t) for (x, t) in zip(xs, ts)])
-        assert numpy.all(numpy.fabs(tp(xs, t=ts) - tpevals) < 10.0**-10.0), (
+        assert numpy.all(
+            numpy.fabs(numpy.asarray(tp(xs, t=ts)) - tpevals) < 10.0**-10.0
+        ), (
             f"{p} evaluation does not work as expected for array inputs for toVerticalPotential potentials"
         )
         # force
         tpevals = numpy.array([tp.force(x, t=t) for (x, t) in zip(xs, ts)])
-        assert numpy.all(numpy.fabs(tp.force(xs, t=ts) - tpevals) < 10.0**-10.0), (
+        assert numpy.all(
+            numpy.fabs(numpy.asarray(tp.force(xs, t=ts)) - tpevals) < 10.0**-10.0
+        ), (
             f"{p} force evaluation does not work as expected for array inputs for toVerticalPotential"
         )
     return None
@@ -2622,7 +2649,9 @@ def test_toVertical_array_mwpotential2014():
         [potential.evaluatelinearPotentials(pot, x, t=t) for (x, t) in zip(xs, ts)]
     )
     assert numpy.all(
-        numpy.fabs(potential.evaluatelinearPotentials(pot, xs, t=ts) - tpevals)
+        numpy.fabs(
+            numpy.asarray(potential.evaluatelinearPotentials(pot, xs, t=ts)) - tpevals
+        )
         < 10.0**-10.0
     ), (
         f"{'MWPotential2014'} evaluation does not work as expected for array inputs for toVerticalPotential potentials"
@@ -2632,7 +2661,9 @@ def test_toVertical_array_mwpotential2014():
         [potential.evaluatelinearForces(pot, x, t=t) for (x, t) in zip(xs, ts)]
     )
     assert numpy.all(
-        numpy.fabs(potential.evaluatelinearForces(pot, xs, t=ts) - tpevals)
+        numpy.fabs(
+            numpy.asarray(potential.evaluatelinearForces(pot, xs, t=ts)) - tpevals
+        )
         < 10.0**-10.0
     ), (
         f"{'MWPotential2014'} force evaluation does not work as expected for array inputs for toVerticalPotential"
@@ -2654,7 +2685,7 @@ def test_potential_at_zero(potname):
         if hasattr(tp, "normalize"):
             tp.normalize(1.0)
         assert not numpy.isnan(
-            potential.evaluatePotentials(tp, 0, 0, phi=0.0, t=0.0)
+            numpy.asarray(potential.evaluatePotentials(tp, 0, 0, phi=0.0, t=0.0))
         ), f"Potential {p} evaluated at zero gave NaN"
         # Also for arrays
         if (
@@ -2676,8 +2707,10 @@ def test_potential_at_zero(potname):
             return  # was `continue`: scalar assert above already ran; only skip array assert
         assert not numpy.any(
             numpy.isnan(
-                potential.evaluatePotentials(
-                    tp, numpy.zeros(4), numpy.zeros(4), phi=0.0, t=0.0
+                numpy.asarray(
+                    potential.evaluatePotentials(
+                        tp, numpy.zeros(4), numpy.zeros(4), phi=0.0, t=0.0
+                    )
                 )
             )
         ), f"Potential {p} evaluated at zero gave NaN"
@@ -2702,10 +2735,12 @@ def test_potential_at_infinity(potname):
         if hasattr(tp, "normalize"):
             tp.normalize(1.0)
         assert not numpy.isnan(
-            potential.evaluatePotentials(tp, numpy.inf, 0, phi=0.0, t=0.0)
+            numpy.asarray(
+                potential.evaluatePotentials(tp, numpy.inf, 0, phi=0.0, t=0.0)
+            )
         ), f"Potential {p} evaluated at infinity gave NaN"
         assert not numpy.isnan(
-            potential.evaluatePotentials(tp, _INF, 0, phi=0.0, t=0.0)
+            numpy.asarray(potential.evaluatePotentials(tp, _INF, 0, phi=0.0, t=0.0))
         ), f"Potential {p} evaluated at vesc _INF gave NaN"
         # Also for arrays
         if (
@@ -2723,15 +2758,19 @@ def test_potential_at_infinity(potname):
             return  # was `continue`: scalar asserts above already ran; only skip array asserts
         assert not numpy.any(
             numpy.isnan(
-                potential.evaluatePotentials(
-                    tp, numpy.inf * numpy.ones(4), numpy.zeros(4), phi=0.0, t=0.0
+                numpy.asarray(
+                    potential.evaluatePotentials(
+                        tp, numpy.inf * numpy.ones(4), numpy.zeros(4), phi=0.0, t=0.0
+                    )
                 )
             )
         ), f"Potential {p} evaluated at infinity gave NaN"
         assert not numpy.any(
             numpy.isnan(
-                potential.evaluatePotentials(
-                    tp, _INF * numpy.ones(4), numpy.zeros(4), phi=0.0, t=0.0
+                numpy.asarray(
+                    potential.evaluatePotentials(
+                        tp, _INF * numpy.ones(4), numpy.zeros(4), phi=0.0, t=0.0
+                    )
                 )
             )
         ), f"Potential {p} evaluated at vesc _INF gave NaN"
@@ -3875,7 +3914,7 @@ def test_vcirc_phi_axi():
     # One at a different radius
     R = 0.5
     vcs = numpy.array([kp.vcirc(R, phi) for phi in phis])
-    assert numpy.all(numpy.fabs(vcs - kp.vcirc(R)) < 10.0**-8.0), (
+    assert numpy.all(numpy.fabs(vcs - as_numpy(kp.vcirc(R))) < 10.0**-8.0), (
         "Setting phi= in vcirc for axisymmetric potential gives different answers for different phi"
     )
     return None
@@ -3894,7 +3933,7 @@ def test_vcirc_phi_nonaxi():
     # One at a different radius
     R = 0.5
     vcs = numpy.array([tnp.vcirc(R, phi) for phi in phis])
-    assert numpy.all(numpy.fabs(vcs - tnp.vcirc(R, phi=0.0)) > 0.01), (
+    assert numpy.all(numpy.fabs(vcs - as_numpy(tnp.vcirc(R, phi=0.0))) > 0.01), (
         "Setting phi= in vcirc for axisymmetric potential does not give different answers for different phi"
     )
     return None
@@ -3920,11 +3959,17 @@ def test_vcirc_vesc_special():
             "plotEscapecurve for non-axisymmetric potential should have raised AttributeError, but didn't"
         )
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
-    assert numpy.fabs(potential.calcRotcurve(lp, 0.8) - lp.vcirc(0.8)) < 10.0**-16.0, (
+    assert (
+        numpy.fabs(as_numpy(potential.calcRotcurve(lp, 0.8)) - as_numpy(lp.vcirc(0.8)))
+        < 10.0**-16.0
+    ), (
         "Circular velocity calculated with calcRotcurve not the same as that calculated with vcirc"
     )
     assert (
-        numpy.fabs(potential.calcEscapecurve(lp, 0.8) - lp.vesc(0.8)) < 10.0**-16.0
+        numpy.fabs(
+            as_numpy(potential.calcEscapecurve(lp, 0.8)) - as_numpy(lp.vesc(0.8))
+        )
+        < 10.0**-16.0
     ), (
         "Escape velocity calculated with calcEscapecurve not the same as that calculated with vcirc"
     )
@@ -4017,8 +4062,8 @@ def test_rE_powervc():
     for beta in betas:
         pp = PowerSphericalPotential(alpha=2.0 - 2.0 * beta, normalize=1.0)
         rmin, rmax = 1e-8, 1e5
-        Emin = pp.vcirc(rmin) ** 2.0 / 2.0 + pp(rmin, 0.0)
-        Emax = pp.vcirc(rmax) ** 2.0 / 2.0 + pp(rmax, 0.0)
+        Emin = as_numpy(pp.vcirc(rmin) ** 2.0 / 2.0 + pp(rmin, 0.0))
+        Emax = as_numpy(pp.vcirc(rmax) ** 2.0 / 2.0 + pp(rmax, 0.0))
         Es = numpy.linspace(Emin, Emax, 101)
         # Test both method and function
         if beta < 0.0:
@@ -4084,8 +4129,8 @@ def test_LcE_powervc():
     for beta in betas:
         pp = PowerSphericalPotential(alpha=2.0 - 2.0 * beta, normalize=1.0)
         rmin, rmax = 1e-8, 1e5
-        Emin = pp.vcirc(rmin) ** 2.0 / 2.0 + pp(rmin, 0.0)
-        Emax = pp.vcirc(rmax) ** 2.0 / 2.0 + pp(rmax, 0.0)
+        Emin = as_numpy(pp.vcirc(rmin) ** 2.0 / 2.0 + pp(rmin, 0.0))
+        Emax = as_numpy(pp.vcirc(rmax) ** 2.0 / 2.0 + pp(rmax, 0.0))
         Es = numpy.linspace(Emin, Emax, 101)
         # Test both method and function
         if beta < 0.0:
@@ -4284,7 +4329,7 @@ def test_ExpDisk_special():
     zs = numpy.ones_like(rs) * 0.1
     # Potential itself
     dpevals = numpy.array([dp(r, z) for (r, z) in zip(rs, zs)])
-    assert numpy.all(numpy.fabs(dp(rs, zs) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(numpy.fabs(as_numpy(dp(rs, zs)) - dpevals) < 10.0**-10.0), (
         "DoubleExppnentialDiskPotential evaluation does not work as expected for array inputs"
     )
     # Rforce
@@ -4330,161 +4375,173 @@ def test_DehnenBar_special():
     phis = numpy.ones_like(rs) * 0.1
     # Potential itself
     dpevals = numpy.array([dp(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(numpy.fabs(as_numpy(dp(rs, zs, phis)) - dpevals) < 10.0**-10.0), (
         "DehnenBarPotential evaluation does not work as expected for array inputs"
     )
     # R array, z not an array
     dpevals = numpy.array([dp(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
-    assert numpy.all(numpy.fabs(dp(rs, zs[0], phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential evaluation does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential evaluation does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
-    assert numpy.all(numpy.fabs(dp(rs[0], zs, phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential evaluation does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential evaluation does not work as expected for array inputs"
     # Rforce
     dpevals = numpy.array([dp.Rforce(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.Rforce(rs, zs, phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential Rforce evaluation does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rforce(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential Rforce evaluation does not work as expected for array inputs"
     # R array, z not an array
     dpevals = numpy.array([dp.Rforce(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
-    assert numpy.all(numpy.fabs(dp.Rforce(rs, zs[0], phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential Rforce does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rforce(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential Rforce does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp.Rforce(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
-    assert numpy.all(numpy.fabs(dp.Rforce(rs[0], zs, phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential Rforce does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rforce(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential Rforce does not work as expected for array inputs"
     # zforce
     dpevals = numpy.array([dp.zforce(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.zforce(rs, zs, phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential zforce evaluation does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.zforce(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential zforce evaluation does not work as expected for array inputs"
     # R array, z not an array
     dpevals = numpy.array([dp.zforce(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
-    assert numpy.all(numpy.fabs(dp.zforce(rs, zs[0], phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential zforce does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.zforce(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential zforce does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp.zforce(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
-    assert numpy.all(numpy.fabs(dp.zforce(rs[0], zs, phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential zforce does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.zforce(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential zforce does not work as expected for array inputs"
     # phitorque
     dpevals = numpy.array(
         [dp.phitorque(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)]
     )
-    assert numpy.all(numpy.fabs(dp.phitorque(rs, zs, phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential zforce evaluation does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.phitorque(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential zforce evaluation does not work as expected for array inputs"
     # R array, z not an array
     dpevals = numpy.array([dp.phitorque(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
     assert numpy.all(
-        numpy.fabs(dp.phitorque(rs, zs[0], phis) - dpevals) < 10.0**-10.0
+        numpy.fabs(as_numpy(dp.phitorque(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
     ), "DehnenBarPotential phitorque does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp.phitorque(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
     assert numpy.all(
-        numpy.fabs(dp.phitorque(rs[0], zs, phis) - dpevals) < 10.0**-10.0
+        numpy.fabs(as_numpy(dp.phitorque(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
     ), "DehnenBarPotential phitorque does not work as expected for array inputs"
     # R2deriv
     dpevals = numpy.array([dp.R2deriv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.R2deriv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.R2deriv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "DehnenBarPotential R2deriv evaluation does not work as expected for array inputs"
     )
     # R array, z not an array
     dpevals = numpy.array([dp.R2deriv(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
-    assert numpy.all(numpy.fabs(dp.R2deriv(rs, zs[0], phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential R2deriv does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.R2deriv(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential R2deriv does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp.R2deriv(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
-    assert numpy.all(numpy.fabs(dp.R2deriv(rs[0], zs, phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential R2deriv does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.R2deriv(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential R2deriv does not work as expected for array inputs"
     # z2deriv
     dpevals = numpy.array([dp.z2deriv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.z2deriv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.z2deriv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "DehnenBarPotential z2deriv evaluation does not work as expected for array inputs"
     )
     # R array, z not an array
     dpevals = numpy.array([dp.z2deriv(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
-    assert numpy.all(numpy.fabs(dp.z2deriv(rs, zs[0], phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential z2deriv does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.z2deriv(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential z2deriv does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp.z2deriv(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
-    assert numpy.all(numpy.fabs(dp.z2deriv(rs[0], zs, phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential z2deriv does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.z2deriv(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential z2deriv does not work as expected for array inputs"
     # phi2deriv
     dpevals = numpy.array(
         [dp.phi2deriv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)]
     )
-    assert numpy.all(numpy.fabs(dp.phi2deriv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.phi2deriv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "DehnenBarPotential z2deriv evaluation does not work as expected for array inputs"
     )
     # R array, z not an array
     dpevals = numpy.array([dp.phi2deriv(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
     assert numpy.all(
-        numpy.fabs(dp.phi2deriv(rs, zs[0], phis) - dpevals) < 10.0**-10.0
+        numpy.fabs(as_numpy(dp.phi2deriv(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
     ), "DehnenBarPotential phi2deriv does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp.phi2deriv(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
     assert numpy.all(
-        numpy.fabs(dp.phi2deriv(rs[0], zs, phis) - dpevals) < 10.0**-10.0
+        numpy.fabs(as_numpy(dp.phi2deriv(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
     ), "DehnenBarPotential phi2deriv does not work as expected for array inputs"
     # Rzderiv
     dpevals = numpy.array([dp.Rzderiv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.Rzderiv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rzderiv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "DehnenBarPotential Rzderiv evaluation does not work as expected for array inputs"
     )
     # R array, z not an array
     dpevals = numpy.array([dp.Rzderiv(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
-    assert numpy.all(numpy.fabs(dp.Rzderiv(rs, zs[0], phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential Rzderiv does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rzderiv(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential Rzderiv does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp.Rzderiv(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
-    assert numpy.all(numpy.fabs(dp.Rzderiv(rs[0], zs, phis) - dpevals) < 10.0**-10.0), (
-        "DehnenBarPotential Rzderiv does not work as expected for array inputs"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rzderiv(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
+    ), "DehnenBarPotential Rzderiv does not work as expected for array inputs"
     # Rphideriv
     dpevals = numpy.array(
         [dp.Rphideriv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)]
     )
-    assert numpy.all(numpy.fabs(dp.Rphideriv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rphideriv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "DehnenBarPotential Rphideriv evaluation does not work as expected for array inputs"
     )
     # R array, z not an array
     dpevals = numpy.array([dp.Rphideriv(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
     assert numpy.all(
-        numpy.fabs(dp.Rphideriv(rs, zs[0], phis) - dpevals) < 10.0**-10.0
+        numpy.fabs(as_numpy(dp.Rphideriv(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
     ), "DehnenBarPotential Rphideriv does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp.Rphideriv(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
     assert numpy.all(
-        numpy.fabs(dp.Rphideriv(rs[0], zs, phis) - dpevals) < 10.0**-10.0
+        numpy.fabs(as_numpy(dp.Rphideriv(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
     ), "DehnenBarPotential Rphideriv does not work as expected for array inputs"
     # phizderiv
     dpevals = numpy.array(
         [dp.phizderiv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)]
     )
-    assert numpy.all(numpy.fabs(dp.phizderiv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.phizderiv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "DehnenBarPotential phizderiv evaluation does not work as expected for array inputs"
     )
     # R array, z not an array
     dpevals = numpy.array([dp.phizderiv(r, zs[0], phi) for (r, phi) in zip(rs, phis)])
     assert numpy.all(
-        numpy.fabs(dp.phizderiv(rs, zs[0], phis) - dpevals) < 10.0**-10.0
+        numpy.fabs(as_numpy(dp.phizderiv(rs, zs[0], phis)) - dpevals) < 10.0**-10.0
     ), "DehnenBarPotential phizderiv does not work as expected for array inputs"
     # z array, R not an array
     dpevals = numpy.array([dp.phizderiv(rs[0], z, phi) for (z, phi) in zip(zs, phis)])
     assert numpy.all(
-        numpy.fabs(dp.phizderiv(rs[0], zs, phis) - dpevals) < 10.0**-10.0
+        numpy.fabs(as_numpy(dp.phizderiv(rs[0], zs, phis)) - dpevals) < 10.0**-10.0
     ), "DehnenBarPotential phizderiv does not work as expected for array inputs"
     return None
 
@@ -4498,65 +4555,85 @@ def test_SpiralArm_special():
     phis = numpy.ones_like(rs) * 0.1
     # Potential itself
     dpevals = numpy.array([dp(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(numpy.fabs(as_numpy(dp(rs, zs, phis)) - dpevals) < 10.0**-10.0), (
         "SpiralArmsPotential evaluation does not work as expected for array inputs"
     )
     # Rforce
     dpevals = numpy.array([dp.Rforce(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.Rforce(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rforce(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential Rforce evaluation does not work as expected for array inputs"
     )
     # zforce
     dpevals = numpy.array([dp.zforce(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.zforce(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.zforce(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential zforce evaluation does not work as expected for array inputs"
     )
     # phitorque
     dpevals = numpy.array(
         [dp.phitorque(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)]
     )
-    assert numpy.all(numpy.fabs(dp.phitorque(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.phitorque(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential zforce evaluation does not work as expected for array inputs"
     )
     # R2deriv
     dpevals = numpy.array([dp.R2deriv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.R2deriv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.R2deriv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential R2deriv evaluation does not work as expected for array inputs"
     )
     # z2deriv
     dpevals = numpy.array([dp.z2deriv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.z2deriv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.z2deriv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential z2deriv evaluation does not work as expected for array inputs"
     )
     # phi2deriv
     dpevals = numpy.array(
         [dp.phi2deriv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)]
     )
-    assert numpy.all(numpy.fabs(dp.phi2deriv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.phi2deriv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential z2deriv evaluation does not work as expected for array inputs"
     )
     # Rzderiv
     dpevals = numpy.array([dp.Rzderiv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.Rzderiv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rzderiv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential Rzderiv evaluation does not work as expected for array inputs"
     )
     # Rphideriv
     dpevals = numpy.array(
         [dp.Rphideriv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)]
     )
-    assert numpy.all(numpy.fabs(dp.Rphideriv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.Rphideriv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential Rzderiv evaluation does not work as expected for array inputs"
     )
     # phizderiv
     dpevals = numpy.array(
         [dp.phizderiv(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)]
     )
-    assert numpy.all(numpy.fabs(dp.phizderiv(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.phizderiv(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential Rzderiv evaluation does not work as expected for array inputs"
     )
     # dens
     dpevals = numpy.array([dp.dens(r, z, phi) for (r, z, phi) in zip(rs, zs, phis)])
-    assert numpy.all(numpy.fabs(dp.dens(rs, zs, phis) - dpevals) < 10.0**-10.0), (
+    assert numpy.all(
+        numpy.fabs(as_numpy(dp.dens(rs, zs, phis)) - dpevals) < 10.0**-10.0
+    ), (
         "SpiralArmsPotential Rzderiv evaluation does not work as expected for array inputs"
     )
     return None
@@ -4699,9 +4776,16 @@ def test_TwoPowerSphericalPotentialSpecialSelf():
 def test_DehnenSphericalPotentialSpecialSelf():
     # TODO replace manual additions with an automatic method
     # that checks the signatures all methods in all potentials
+    from galpy.backend import coerce_coords, get_namespace
+
     kw = dict(amp=1.0, a=1.0, normalize=False, ro=None, vo=None)
-    Rs = numpy.array([0.5, 1.0, 2.0])
-    Zs = numpy.array([0.0, 0.125, -0.125])
+    # These call the no-decorator internal _evaluate/_Rforce/... directly, which
+    # bypasses the public coercion boundary; coerce the coord grids onto the
+    # active backend here (no-op/byte-identical on numpy) so a forced backend
+    # does not feed the migrated potential a raw numpy array.
+    Rs, Zs = coerce_coords(
+        get_namespace(), numpy.array([0.5, 1.0, 2.0]), numpy.array([0.0, 0.125, -0.125])
+    )
 
     pot = potential.DehnenSphericalPotential(alpha=0, **kw)
     comp = potential.DehnenCoreSphericalPotential(**kw)
@@ -5222,7 +5306,7 @@ def test_EllipsoidalPotential_evaluate_array_inf():
     R_fin = numpy.array([0.5, 1.0, 2.0])
     z_fin = numpy.array([0.1, 0.2, 0.3])
     val_na = tp2(R_fin, z_fin, phi=0.5, use_physical=False)
-    assert not numpy.any(numpy.isnan(val_na)), (
+    assert not numpy.any(numpy.isnan(as_numpy(val_na))), (
         "Non-aligned array potential evaluation returned NaN"
     )
     return None
@@ -5521,8 +5605,8 @@ def test_ExpTruncNFW_smallr_series():
     thresh = p._small_r_thresh
     # (a) the two branches agree in a neighborhood of the switch
     rr = thresh * numpy.array([0.5, 0.9, 1.0, 1.1, 2.0])
-    fser = p._F_series(rr)
-    fclo = p._F_closed(rr)
+    fser = as_numpy(p._F_series(rr))
+    fclo = as_numpy(p._F_closed(rr))
     assert numpy.all(numpy.fabs(fser - fclo) / numpy.fabs(fclo) < 1e-7), (
         "ExpTruncNFWPotential _F_series and _F_closed disagree near the threshold"
     )
@@ -5577,11 +5661,11 @@ def test_ExpTruncNFW_smallr_series_c():
         "ExpTruncNFW plunging orbit did not reach the small-r series regime"
     )
     # C and pure-Python orbits agree (C series branch == Python series branch)
-    assert numpy.amax(numpy.fabs(oc.r(ts) - op.r(ts))) < 1e-10, (
+    assert numpy.amax(numpy.fabs(as_numpy(oc.r(ts)) - as_numpy(op.r(ts)))) < 1e-10, (
         "ExpTruncNFWPotential C and Python plunging orbits disagree"
     )
     # energy is conserved across the plunge (series branch is accurate)
-    Ec = oc.E(ts)
+    Ec = as_numpy(oc.E(ts))
     assert numpy.amax(numpy.fabs(Ec - Ec[0])) < 1e-10, (
         "ExpTruncNFWPotential energy not conserved through the small-r plunge"
     )
@@ -6472,24 +6556,28 @@ def test_DiskSCFPotential_SigmaDerivs():
     testRs = numpy.linspace(0.3, 1.5, 101)
     dR = 10.0**-8.0
     assert numpy.all(
-        numpy.fabs(
-            (
-                (dscfp._Sigma[0](testRs + dR) - dscfp._Sigma[0](testRs)) / dR
-                - dscfp._dSigmadR[0](testRs)
+        as_numpy(
+            numpy.fabs(
+                (
+                    (dscfp._Sigma[0](testRs + dR) - dscfp._Sigma[0](testRs)) / dR
+                    - dscfp._dSigmadR[0](testRs)
+                )
+                / dscfp._dSigmadR[0](testRs)
             )
-            / dscfp._dSigmadR[0](testRs)
         )
         < 10.0**-7.0
     ), (
         "Derivative dSigmadR does not agree with finite-difference derivative of Sigma for exponential profile in DiskSCFPotential"
     )
     assert numpy.all(
-        numpy.fabs(
-            (
-                (dscfp._dSigmadR[0](testRs + dR) - dscfp._dSigmadR[0](testRs)) / dR
-                - dscfp._d2SigmadR2[0](testRs)
+        as_numpy(
+            numpy.fabs(
+                (
+                    (dscfp._dSigmadR[0](testRs + dR) - dscfp._dSigmadR[0](testRs)) / dR
+                    - dscfp._d2SigmadR2[0](testRs)
+                )
+                / dscfp._d2SigmadR2[0](testRs)
             )
-            / dscfp._d2SigmadR2[0](testRs)
         )
         < 10.0**-7.0
     ), (
@@ -6498,24 +6586,28 @@ def test_DiskSCFPotential_SigmaDerivs():
     # Sigma expwhole
     dR = 10.0**-8.0
     assert numpy.all(
-        numpy.fabs(
-            (
-                (dscfp._Sigma[1](testRs + dR) - dscfp._Sigma[1](testRs)) / dR
-                - dscfp._dSigmadR[1](testRs)
+        as_numpy(
+            numpy.fabs(
+                (
+                    (dscfp._Sigma[1](testRs + dR) - dscfp._Sigma[1](testRs)) / dR
+                    - dscfp._dSigmadR[1](testRs)
+                )
+                / dscfp._dSigmadR[1](testRs)
             )
-            / dscfp._dSigmadR[1](testRs)
         )
         < 10.0**-4.0
     ), (
         "Derivative dSigmadR does not agree with finite-difference derivative of Sigma for exponential-with-hole profile in DiskSCFPotential"
     )
     assert numpy.all(
-        numpy.fabs(
-            (
-                (dscfp._dSigmadR[1](testRs + dR) - dscfp._dSigmadR[1](testRs)) / dR
-                - dscfp._d2SigmadR2[1](testRs)
+        as_numpy(
+            numpy.fabs(
+                (
+                    (dscfp._dSigmadR[1](testRs + dR) - dscfp._dSigmadR[1](testRs)) / dR
+                    - dscfp._d2SigmadR2[1](testRs)
+                )
+                / dscfp._d2SigmadR2[1](testRs)
             )
-            / dscfp._d2SigmadR2[1](testRs)
         )
         < 10.0**-4.0
     ), (
@@ -6542,24 +6634,28 @@ def test_DiskSCFPotential_verticalDerivs():
     testzs = numpy.linspace(0.1 / 27.0, 3.0 / 27, 101)
     dz = 10.0**-8.0
     assert numpy.all(
-        numpy.fabs(
-            (
-                (dscfp._Hz[0](testzs + dz) - dscfp._Hz[0](testzs)) / dz
-                - dscfp._dHzdz[0](testzs)
+        as_numpy(
+            numpy.fabs(
+                (
+                    (dscfp._Hz[0](testzs + dz) - dscfp._Hz[0](testzs)) / dz
+                    - dscfp._dHzdz[0](testzs)
+                )
+                / dscfp._dHzdz[0](testzs)
             )
-            / dscfp._dHzdz[0](testzs)
         )
         < 10.0**-5.5
     ), (
         "Derivative dHzdz does not agree with finite-difference derivative of Hz for exponential profile in DiskSCFPotential"
     )
     assert numpy.all(
-        numpy.fabs(
-            (
-                (dscfp._dHzdz[0](testzs + dz) - dscfp._dHzdz[0](testzs)) / dz
-                - dscfp._hz[0](testzs)
+        as_numpy(
+            numpy.fabs(
+                (
+                    (dscfp._dHzdz[0](testzs + dz) - dscfp._dHzdz[0](testzs)) / dz
+                    - dscfp._hz[0](testzs)
+                )
+                / dscfp._hz[0](testzs)
             )
-            / dscfp._hz[0](testzs)
         )
         < 10.0**-6.0
     ), (
@@ -6568,24 +6664,28 @@ def test_DiskSCFPotential_verticalDerivs():
     # Vertical sech^2
     dz = 10.0**-8.0
     assert numpy.all(
-        numpy.fabs(
-            (
-                (dscfp._Hz[1](testzs + dz) - dscfp._Hz[1](testzs)) / dz
-                - dscfp._dHzdz[1](testzs)
+        as_numpy(
+            numpy.fabs(
+                (
+                    (dscfp._Hz[1](testzs + dz) - dscfp._Hz[1](testzs)) / dz
+                    - dscfp._dHzdz[1](testzs)
+                )
+                / dscfp._dHzdz[1](testzs)
             )
-            / dscfp._dHzdz[1](testzs)
         )
         < 10.0**-5.5
     ), (
         "Derivative dSigmadz does not agree with finite-difference derivative of Sigma for sech2 profile in DiskSCFPotential"
     )
     assert numpy.all(
-        numpy.fabs(
-            (
-                (dscfp._dHzdz[1](testzs + dz) - dscfp._dHzdz[1](testzs)) / dz
-                - dscfp._hz[1](testzs)
+        as_numpy(
+            numpy.fabs(
+                (
+                    (dscfp._dHzdz[1](testzs + dz) - dscfp._dHzdz[1](testzs)) / dz
+                    - dscfp._hz[1](testzs)
+                )
+                / dscfp._hz[1](testzs)
             )
-            / dscfp._hz[1](testzs)
         )
         < 10.0**-6.0
     ), (
@@ -6717,13 +6817,21 @@ def test_DiskSCFPotential_againstDoubleExp():
     testz = 1.5 / 27.0 * numpy.ones_like(testRs)
     # Test potential
     assert numpy.all(
-        numpy.fabs((dp(testRs, testz) - dscfp(testRs, testz)) / dscfp(testRs, testz))
+        as_numpy(
+            numpy.fabs(
+                (dp(testRs, testz) - dscfp(testRs, testz)) / dscfp(testRs, testz)
+            )
+        )
         < 10.0**-2.5
     ), (
         "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
     )
     assert numpy.all(
-        numpy.fabs((dp(testR, testzs) - dscfp(testR, testzs)) / dscfp(testRs, testz))
+        as_numpy(
+            numpy.fabs(
+                (dp(testR, testzs) - dscfp(testR, testzs)) / dscfp(testRs, testz)
+            )
+        )
         < 10.0**-2.5
     ), (
         "DiskSCFPotential for double-exponential disk does not agree with DoubleExponentialDiskPotential"
@@ -6733,9 +6841,9 @@ def test_DiskSCFPotential_againstDoubleExp():
         numpy.fabs(
             (
                 numpy.array([dp.Rforce(r, z) for (r, z) in zip(testRs, testz)])
-                - dscfp.Rforce(testRs, testz)
+                - as_numpy(dscfp.Rforce(testRs, testz))
             )
-            / dscfp.Rforce(testRs, testz)
+            / as_numpy(dscfp.Rforce(testRs, testz))
         )
         < 10.0**-2.0
     ), (
@@ -6745,9 +6853,9 @@ def test_DiskSCFPotential_againstDoubleExp():
         numpy.fabs(
             (
                 numpy.array([dp.Rforce(r, z) for (r, z) in zip(testR, testzs)])
-                - dscfp.Rforce(testR, testzs)
+                - as_numpy(dscfp.Rforce(testR, testzs))
             )
-            / dscfp.Rforce(testRs, testz)
+            / as_numpy(dscfp.Rforce(testRs, testz))
         )
         < 10.0**-2.0
     ), (
@@ -6758,9 +6866,9 @@ def test_DiskSCFPotential_againstDoubleExp():
         numpy.fabs(
             (
                 numpy.array([dp.zforce(r, z) for (r, z) in zip(testRs, testz)])
-                - dscfp.zforce(testRs, testz)
+                - as_numpy(dscfp.zforce(testRs, testz))
             )
-            / dscfp.zforce(testRs, testz)
+            / as_numpy(dscfp.zforce(testRs, testz))
         )
         < 10.0**-1.5
     ), (
@@ -6771,9 +6879,9 @@ def test_DiskSCFPotential_againstDoubleExp():
         numpy.fabs(
             (
                 numpy.array([dp.zforce(r, z) for (r, z) in zip(testR, testzs)])
-                - dscfp.zforce(testR, testzs)
+                - as_numpy(dscfp.zforce(testR, testzs))
             )
-            / dscfp.zforce(testRs, testz)
+            / as_numpy(dscfp.zforce(testRs, testz))
         )
         < 10.0**-1.0
     ), (
@@ -6801,8 +6909,8 @@ def test_DiskSCFPotential_againstDoubleExp_dens():
     # Test density
     assert numpy.all(
         numpy.fabs(
-            (dp.dens(testRs, testz) - dscfp.dens(testRs, testz))
-            / dscfp.dens(testRs, testz)
+            (as_numpy(dp.dens(testRs, testz)) - as_numpy(dscfp.dens(testRs, testz)))
+            / as_numpy(dscfp.dens(testRs, testz))
         )
         < 10.0**-1.25
     ), (
@@ -6811,8 +6919,8 @@ def test_DiskSCFPotential_againstDoubleExp_dens():
     # difficult at high z
     assert numpy.all(
         numpy.fabs(
-            (dp.dens(testR, testzs) - dscfp.dens(testR, testzs))
-            / dscfp.dens(testRs, testz)
+            (as_numpy(dp.dens(testR, testzs)) - as_numpy(dscfp.dens(testR, testzs)))
+            / as_numpy(dscfp.dens(testRs, testz))
         )
         < 10.0**-1.0
     ), (
@@ -7145,12 +7253,20 @@ def test_OblateStaeckelWrapperPotential_againstKuzmin():
     asp = potential.OblateStaeckelWrapperPotential(pot=kzp, delta=delta, u0=1.2)
     us = numpy.linspace(0.0, 3.0, 1001)
     assert (
-        numpy.amax(numpy.fabs(asp._U(us) + kzp._amp / delta * numpy.cosh(us))) < 1e-10
+        numpy.amax(
+            numpy.fabs(
+                as_numpy(asp._U(us)) + as_numpy(kzp._amp) / delta * numpy.cosh(us)
+            )
+        )
+        < 1e-10
     ), "OblateStaeckelWrapped KuzminDisk does not have the expected U(u)"
     vs = numpy.linspace(0.0, numpy.pi, 1001)
     assert (
         numpy.amax(
-            numpy.fabs(asp._V(vs) + kzp._amp / delta * numpy.fabs(numpy.cos(vs)))
+            numpy.fabs(
+                as_numpy(asp._V(vs))
+                + as_numpy(kzp._amp) / delta * numpy.fabs(numpy.cos(vs))
+            )
         )
         < 1e-10
     ), "OblateStaeckelWrapped KuzminDisk does not have the expected V(v)"
@@ -7393,7 +7509,7 @@ def test_DehnenSmoothWrapper_decay():
     assert (
         numpy.amax(
             numpy.fabs(
-                lp(2.0, 0.0, ts)
+                numpy.asarray(lp(2.0, 0.0, ts))
                 - [pot_grow(2.0, 0.0, t=t) + pot_decay(2.0, 0.0, t=t) for t in ts]
             )
         )
@@ -7404,7 +7520,7 @@ def test_DehnenSmoothWrapper_decay():
     assert (
         numpy.amax(
             numpy.fabs(
-                lp.Rforce(2.0, 0.0, ts)
+                numpy.asarray(lp.Rforce(2.0, 0.0, ts))
                 - [
                     pot_grow.Rforce(2.0, 0.0, t=t) + pot_decay.Rforce(2.0, 0.0, t=t)
                     for t in ts
@@ -7826,31 +7942,37 @@ def test_rtide_noMError():
 
 def test_ttensor():
     pmass = potential.KeplerPotential(normalize=1.0)
-    tij = pmass.ttensor(1.0, 0.0, 0.0)
+    tij = as_numpy(pmass.ttensor(1.0, 0.0, 0.0))
     # Full tidal tensor here should be diag(2,-1,-1)
     assert numpy.all(numpy.fabs(tij - numpy.diag([2, -1, -1])) < 1e-10), (
         "Calculation of tidal tensor in point-mass potential fails"
     )
     # Also test eigenvalues
-    tij = pmass.ttensor(1.0, 0.0, 0.0, eigenval=True)
+    tij = as_numpy(pmass.ttensor(1.0, 0.0, 0.0, eigenval=True))
     assert numpy.all(numpy.fabs(tij - numpy.array([2, -1, -1])) < 1e-10), (
         "Calculation of tidal tensor in point-mass potential fails"
     )
     # Also test function interface
-    tij = potential.ttensor(potential.CompositePotential([pmass]), 1.0, 0.0, 0.0)
+    tij = as_numpy(
+        potential.ttensor(potential.CompositePotential([pmass]), 1.0, 0.0, 0.0)
+    )
     # Full tidal tensor here should be diag(2,-1,-1)
     assert numpy.all(numpy.fabs(tij - numpy.diag([2, -1, -1])) < 1e-10), (
         "Calculation of tidal tensor in point-mass potential fails"
     )
     # Also test eigenvalues
-    tij = potential.ttensor(
-        potential.CompositePotential([pmass]), 1.0, 0.0, 0.0, eigenval=True
+    tij = as_numpy(
+        potential.ttensor(
+            potential.CompositePotential([pmass]), 1.0, 0.0, 0.0, eigenval=True
+        )
     )
     assert numpy.all(numpy.fabs(tij - numpy.array([2, -1, -1])) < 1e-10), (
         "Calculation of tidal tensor in point-mass potential fails"
     )
     # Also Test symmetry when y!=0 and z!=0
-    tij = potential.ttensor(potential.CompositePotential([pmass]), 1.0, 1.0, 1.0)
+    tij = as_numpy(
+        potential.ttensor(potential.CompositePotential([pmass]), 1.0, 1.0, 1.0)
+    )
     assert numpy.all(numpy.fabs(tij[0][1] - tij[1][0]) < 1e-10), (
         "Calculation of tidal tensor in point-mass potential fails"
     )
@@ -8008,7 +8130,9 @@ def test_zvc_range_undefined():
     )
     Lzmax = Rc * potential.vcirc(potential.MWPotential2014, Rc)
     assert numpy.all(
-        numpy.isnan(potential.zvc_range(potential.MWPotential2014, E, Lzmax + 1e-4))
+        numpy.isnan(
+            as_numpy(potential.zvc_range(potential.MWPotential2014, E, Lzmax + 1e-4))
+        )
     ), (
         "zvc_range does not return [NaN,NaN] when no orbits exist at this combination of (E,Lz)"
     )
@@ -8569,7 +8693,7 @@ def test_scf_analytic_2ndderiv():
     # pole so the angular derivatives stay finite.
     axi, nonaxi = pots
     N, L, _ = axi._Acos.shape
-    assert numpy.all(axi._d2phiTilde(0.0, N, L) == 0.0), (
+    assert numpy.all(as_numpy(axi._d2phiTilde(0.0, N, L)) == 0.0), (
         "SCF _d2phiTilde should vanish at r=0"
     )
     assert axi._compute_spher_2nd_derivs_at_point(0.0, 0.0, 0.0) == (
@@ -9245,7 +9369,7 @@ def test_CompositePotential_planar_conversion():
     R = 1.0
     phi = 0.1
     val = evaluateplanarPotentials(planar_comp, R, phi=phi)
-    assert isinstance(val, float), "Planar potential evaluation failed"
+    assert numpy.asarray(val).ndim == 0, "Planar potential evaluation failed"
 
     return None
 
@@ -9270,10 +9394,10 @@ def test_CompositePotential_slicing():
     # Test that sliced CompositePotential methods work
     R, z, phi, t = 1.0, 0.1, 0.2, 0.0
     val = sliced(R, z, phi=phi, t=t)
-    assert isinstance(val, float), "Sliced CompositePotential evaluation failed"
+    assert numpy.asarray(val).ndim == 0, "Sliced CompositePotential evaluation failed"
 
     force = sliced.Rforce(R, z, phi=phi, t=t)
-    assert isinstance(force, float), "Sliced CompositePotential Rforce failed"
+    assert numpy.asarray(force).ndim == 0, "Sliced CompositePotential Rforce failed"
 
     # Test multiple item slice
     middle = MWPotential2014[0:2]
@@ -9284,7 +9408,7 @@ def test_CompositePotential_slicing():
 
     # Test that sliced potential can be evaluated correctly
     val_middle = middle(R, z, phi=phi, t=t)
-    assert isinstance(val_middle, float), "Middle slice evaluation failed"
+    assert numpy.asarray(val_middle).ndim == 0, "Middle slice evaluation failed"
 
     return None
 
@@ -10569,22 +10693,22 @@ def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth():
     ott = o()
     ott.integrate(ts, lp + tp)
     tol = 1e-10
-    assert numpy.amax(numpy.fabs(o.x(ts) - ott.x(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.x(ts)) - as_numpy(ott.x(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
-    assert numpy.amax(numpy.fabs(o.y(ts) - ott.y(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.y(ts)) - as_numpy(ott.y(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
-    assert numpy.amax(numpy.fabs(o.z(ts) - ott.z(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.z(ts)) - as_numpy(ott.z(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
-    assert numpy.amax(numpy.fabs(o.vx(ts) - ott.vx(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.vx(ts)) - as_numpy(ott.vx(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
-    assert numpy.amax(numpy.fabs(o.vy(ts) - ott.vy(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.vy(ts)) - as_numpy(ott.vy(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
-    assert numpy.amax(numpy.fabs(o.vz(ts) - ott.vz(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.vz(ts)) - as_numpy(ott.vz(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
     return None
@@ -10607,16 +10731,16 @@ def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d():
     ott = o()
     ott.integrate(ts, lp + tp)
     tol = 1e-10
-    assert numpy.amax(numpy.fabs(o.x(ts) - ott.x(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.x(ts)) - as_numpy(ott.x(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
-    assert numpy.amax(numpy.fabs(o.y(ts) - ott.y(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.y(ts)) - as_numpy(ott.y(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
-    assert numpy.amax(numpy.fabs(o.vx(ts) - ott.vx(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.vx(ts)) - as_numpy(ott.vx(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
-    assert numpy.amax(numpy.fabs(o.vy(ts) - ott.vy(ts))) < tol, (
+    assert numpy.amax(numpy.fabs(as_numpy(o.vy(ts)) - as_numpy(ott.vy(ts)))) < tol, (
         "Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper"
     )
     return None
@@ -11050,7 +11174,7 @@ def test_king_potential_beyond_tidal():
     r = numpy.linspace(2.1, 10.0, 1001)
     # Accuracy is limited because of the numerical solution of the King ODE and
     # the fact that interpSphericalPotential doesn't directly use the solved W potential
-    assert numpy.all(numpy.fabs(kp(r, 0.0) / mass * r + 1.0) < 1e-3), (
+    assert numpy.all(numpy.fabs(as_numpy(kp(r, 0.0)) / mass * r + 1.0) < 1e-3), (
         "King potential does not go as GM/r at r > rt"
     )
     return None
@@ -11072,9 +11196,9 @@ def test_dehnen_bar_python_c_consistency():
     orb_p.integrate(ts, pot=pot, method="dop853")
     orb_c.integrate(ts, pot=pot, method="dop853_c")
     # check equal
-    assert numpy.all(numpy.fabs(orb_p.E(ts) / orb_c.E(ts) - 1.0) < 10.0**-10), (
-        "C orbit integration in a Dehnen bar potential does not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(as_numpy(orb_p.E(ts)) / as_numpy(orb_c.E(ts)) - 1.0) < 10.0**-10
+    ), "C orbit integration in a Dehnen bar potential does not work as expected"
 
 
 # Test the rm2 definition of EinastoPotential
@@ -11138,7 +11262,7 @@ def test_CylindricallySeparablePotentialWrapper_separability():
     # Reconstruct potential from separable components
     phigrid_sep = phiR[:, None] + phiz[None, :]
     # Check that the difference is small
-    assert numpy.amax(numpy.fabs(phigrid - phigrid_sep)) < 1e-10, (
+    assert numpy.amax(numpy.fabs(as_numpy(phigrid) - as_numpy(phigrid_sep))) < 1e-10, (
         "CylindricallySeparablePotentialWrapper does not create a separable potential for MWPotential2014"
     )
     return None
@@ -12533,6 +12657,12 @@ class testMWPotential(Potential):
         )
         Potential.__init__(self, amp=1.0)
         self.isNonAxi = self._potlist.isNonAxi
+        # Mock wraps migrated members but evaluates them through the public API,
+        # so it is backend-compatible iff every component is; derive the gate
+        # flag from the component list so coerce_coords fires at the boundary.
+        from galpy.potential import _check_backend_compatible
+
+        self._backend_compatible = _check_backend_compatible(list(self._potlist))
         return None
 
     def _evaluate(self, R, z, phi=0, t=0, dR=0, dphi=0):
@@ -12595,6 +12725,12 @@ class testplanarMWPotential(planarPotential):
         self._potlist = potential.planarCompositePotential(self._potlist)
         planarPotential.__init__(self, amp=1.0)
         self.isNonAxi = _isNonAxi(self._potlist)
+        # Derive the backend-compat gate from the (migrated) source potentials;
+        # toPlanar() wrappers re-enter the public coercing API, so backend
+        # compatibility is that of the underlying 3D/planar members in potlist.
+        from galpy.potential import _check_backend_compatible
+
+        self._backend_compatible = _check_backend_compatible(list(potlist))
         return None
 
     def _evaluate(self, R, phi=0, t=0, dR=0, dphi=0):
