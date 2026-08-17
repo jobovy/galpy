@@ -40,6 +40,43 @@ except ImportError:
     _APY_LOADED = False
 
 
+def _grid_pad_weights(pad, npts):
+    """Lagrange weights that extrapolate a function sampled at
+    0,1,...,npts-1 to the pad points -pad,...,-1 (the weights for the upper
+    end follow by reversal)"""
+    xs = numpy.arange(npts, dtype="float")
+    ws = numpy.empty((pad, npts))
+    for ii, t in enumerate(range(-pad, 0)):
+        ws[ii] = [
+            numpy.prod(
+                [(t - xs[jj]) / (xs[kk] - xs[jj]) for jj in range(npts) if jj != kk]
+            )
+            for kk in range(npts)
+        ]
+    return ws
+
+
+def _pad_grid_axes(arr, pad, npts=4):
+    """Extend an array of grid quantities beyond both ends of its first two
+    (torus-grid) axes by polynomial extrapolation. This is necessary because
+    the B-spline prefilter used for the interpolation applies a mirroring
+    boundary condition, which assumes that the array continues with zero
+    derivative beyond its edge; the grid quantities instead have a finite
+    slope there (they behave as sqrt[E-E_circular], that is, linearly in the
+    grid coordinate, at the circular-orbit edge), so that the interpolation
+    would otherwise be distorted within a few grid cells of the edges,
+    exactly where the near-circular tori live. Extending the array first
+    pushes that artifact, which decays geometrically away from the edge,
+    below the interpolation error itself."""
+    ws = _grid_pad_weights(pad, npts)
+    for axis in (0, 1):
+        arr = numpy.moveaxis(arr, axis, 0)
+        low = numpy.tensordot(ws, arr[:npts], axes=(1, 0))
+        high = numpy.tensordot(ws[::-1], arr[-npts:], axes=(1, 0))
+        arr = numpy.moveaxis(numpy.concatenate((low, arr, high), axis=0), 0, axis)
+    return arr
+
+
 def _evs(spl, iL, ix, **kwargs):
     # Scalar evaluation of a RectBivariateSpline (.ev returns a size-1 array)
     return spl.ev(iL, ix, **kwargs).item()
@@ -103,6 +140,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         Es=[0.1, 0.3],
         Ls=[1.0, 1.2],
         setup_interp=False,
+        Rmin=None,
         Rmax=5.0,
         Rinf=25.0,
         nL=31,
@@ -142,6 +180,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
               b)
 
                  setup_interp= (False) if True, setup interpolation grids that allow any torus within the grid to be accessed through interpolation
+
+                 Rmin= (Rmax/10) minimum radius to consider when building the L grid: the grid covers the angular momenta of circular orbits between Rmin and Rmax. Note that Rmin should not be set much smaller than the radii of interest, because the frequencies diverge as the angular momentum goes to zero and interpolating over a range that includes near-radial tori degrades the interpolation everywhere
 
                  Rmax= (5.) maximum radius to consider when building the L grid
 
@@ -195,29 +235,24 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._Rinf = Rinf
             self._nE = nE
             self._nL = nL
-            self._Lmin = 0.01
+            # The grid covers the angular momenta of the circular orbits
+            # between Rmin and Rmax
+            self._Rmin = self._Rmax / 10.0 if Rmin is None else Rmin
+            self._Lmin = self._Rmin * vcirc(self._pot, self._Rmin)
             self._Ls = numpy.linspace(
                 self._Lmin, self._Rmax * vcirc(self._pot, self._Rmax), self._nL
             )
             self._Lmax = self._Ls[-1]
             # Calculate ER(vr=0,R=RL)
             self._RL = numpy.array([rl(self._pot, l) for l in self._Ls])
-            # self._RLInterp= interpolate.InterpolatedUnivariateSpline(self._Ls,
-            #                                                     self._RL,k=3)
             self._ERRL = (
                 _evaluatePotentials(self._pot, self._RL, numpy.zeros(self._nL))
                 + self._Ls**2.0 / 2.0 / self._RL**2.0
             )
-            # self._ERRLmax= numpy.amax(self._ERRL)+1.
-            # self._ERRLInterp= interpolate.InterpolatedUnivariateSpline(self._Ls,
-            # numpy.log(-(self._ERRL-self._ERRLmax)),k=3)
             self._ERRa = (
                 _evaluatePotentials(self._pot, self._Rinf, 0.0)
                 + self._Ls**2.0 / 2.0 / self._Rinf**2.0
             )
-            # self._ERRamax= numpy.amax(self._ERRa)+1.
-            # self._ERRaInterp= interpolate.InterpolatedUnivariateSpline(self._Lzs,
-            #                                                           numpy.log(-(self._ERRa-self._ERRamax)),k=3)
             # Space the normalized energies x quadratically, because torus
             # properties like rperi/rap and the Fourier/point-transformation
             # coefficients behave as sqrt(E-E_circular) near the circular-orbit
@@ -230,11 +265,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 numpy.tile(self._ERRa - self._ERRL, (self._nE, 1)).T
             ).flatten() + (numpy.tile(self._ERRL, (self._nE, 1)).T).flatten()
             self._internal_Ls = (numpy.tile(self._Ls, (self._nE, 1)).T).flatten()
-            # self._internal_Es,self._internal_Ls= \
-            #    numpy.meshgrid(numpy.linspace(0.,1.,self._nE),
-            #                   self._Ls,indexing='ij')
-            # self._internal_Es= self._internal_Es.flatten()
-            # self._internal_Ls= self._internal_Ls.flatten()
         self._L2 = self._internal_Ls**2
         # Total number of tori (nE*nL for the interpolation grid)
         self._ntori = len(self._internal_Es)
@@ -333,6 +363,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._ip = IsochronePotential(amp=self._amp, b=self._b)
         self._isoaa = actionAngleIsochrone(ip=self._ip)
         self._isoaainv = actionAngleIsochroneInverse(ip=self._ip)
+        # Angle grid and root-finding parameters (set before the point
+        # transformation, whose setup solves for the auxiliary eccentric
+        # anomaly using maxiter as well)
+        self._nta = nta
+        self._thetaa = numpy.linspace(0.0, 2.0 * numpy.pi * (1.0 - 1.0 / nta), nta)
+        self._maxiter = maxiter
+        self._angle_tol = angle_tol
+        self._bisect = bisect
         if use_pointtransform:
             if (
                 not isinstance(use_pointtransform, bool)
@@ -384,11 +422,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             else dict()
         )
         # Now map all tori
-        self._nta = nta
-        self._thetaa = numpy.linspace(0.0, 2.0 * numpy.pi * (1.0 - 1.0 / nta), nta)
-        self._maxiter = maxiter
-        self._angle_tol = angle_tol
-        self._bisect = bisect
         # Determine the r grid for even-spaced theta_r grid
         self._rgrid = self._create_rgrid()
         # Compute mapping coefficients
@@ -795,8 +828,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
             dth = numpy.pi / (self._pt_nmesh - 1.0)
             thlow = -dth * numpy.arange(self._pt_pad, 0, -1)
             thhigh = numpy.pi + dth * numpy.arange(1, self._pt_pad + 1)
-            # Kepler-equation parameter of the auxiliary torus
+            # Kepler-equation parameter of the auxiliary torus; solve for
+            # the eccentric anomalies of the uniform auxiliary-radial-angle
+            # mesh for all tori at once
             kepk = ea * ca / (ca + b)
+            etath_all = _solve_kepler(
+                numpy.atleast_2d(kepk).T, thetacore, self._maxiter
+            )
             for jj, ii in enumerate(numpy.arange(self._ntori)[gIndx]):
                 yspl_eta = interpolate.InterpolatedUnivariateSpline(
                     etamesh, ys[jj], k=self._exact_pt_spl_deg
@@ -819,19 +857,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 self._pt_coeffs[ii] = tspl(self._pt_yamesh)
                 self._pt_deriv_coeffs[ii] = tspl(self._pt_yamesh, nu=1)
                 self._pt_deriv2_coeffs[ii] = tspl(self._pt_yamesh, nu=2)
-                # Solve the Kepler equation for eta on the uniform mesh in
-                # the auxiliary radial angle; eta - k sin(eta) is strictly
-                # increasing, so bisection always converges (Newton diverges
-                # near eta = 0 for the nearly-radial tori, where k -> 1)
-                etlo = numpy.zeros(self._pt_nmesh)
-                ethi = numpy.pi * numpy.ones(self._pt_nmesh)
-                for _ in range(53):
-                    etath = 0.5 * (etlo + ethi)
-                    fmid = etath - kepk[jj] * numpy.sin(etath) - thetacore
-                    ethi = numpy.where(fmid > 0.0, etath, ethi)
-                    etlo = numpy.where(fmid > 0.0, etlo, etath)
-                etath = 0.5 * (etlo + ethi)
-                dpsith = dpsispl_eta(etath)
+                dpsith = dpsispl_eta(etath_all[jj])
                 dpsith[0] = 0.0
                 dpsi_apo = dpsith[-1]
                 self._pt_dpsi_apo[ii] = dpsi_apo
@@ -1634,8 +1660,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # Interpolate between the tori of the (L,E) grid, using as grid
         # coordinates (iL,ix), the (fractional) indices into the uniform grid
         # in L and into the uniform grid in the normalized energy
-        # x = (E-E[R_L])/(E[Rinf,L]-E[R_L]); tori are looked up by (jr,L),
-        # inverting the interpolated jr(iL,ix) for ix using Newton's method
+        # x = (E-E[R_L])/(E[Rinf,L]-E[R_L]); tori are looked up by (jr,L)
+        # using a directly-interpolated inverse map (see below)
         self._nnSn = self._nSn.shape[1]  # won't be confusing...
         shape2 = (self._nL, self._nE)
         iLs = numpy.arange(self._nL)
@@ -1659,27 +1685,58 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._ptrapInterp = _rbs(self._pt_rap)
         if self._pt_exact:
             self._dpsiapoInterp = _rbs(self._pt_dpsi_apo)
+        # Inverse map for looking up the torus of a given (Jr,L): the grid
+        # coordinate ix as a function of (iL,u), where
+        # u = sqrt(Jr/Jr[iL,-1]) is the normalized radial action rectified
+        # for the sqrt behavior of the grid at the circular-orbit edge
+        # (Jr ~ ix^2 there, so u is linear in ix, while Jr itself has a
+        # square-root branch point as a function of the grid coordinate).
+        # Evaluating this map is a direct spline evaluation, no root finding
+        jr2d = numpy.reshape(self._jr, shape2)
+        self._jrmax = jr2d[:, -1]
+        self._jrmaxInterp = interpolate.InterpolatedUnivariateSpline(
+            iLs, self._jrmax, k=3
+        )
+        us = numpy.sqrt(jr2d / numpy.atleast_2d(self._jrmax).T)
+        # Resample onto a common, finer mesh in u, so that the inverse map
+        # reproduces the per-torus inversion to well within the accuracy of
+        # the grid itself
+        self._nu = 4 * self._nE
+        uu = numpy.linspace(0.0, 1.0, self._nu)
+        ixgrid = numpy.empty((self._nL, self._nu))
+        for ii in range(self._nL):
+            ixgrid[ii] = interpolate.InterpolatedUnivariateSpline(us[ii], ixs, k=3)(uu)
+        ixgrid[:, 0] = 0.0
+        ixgrid[:, -1] = self._nE - 1.0
+        self._ixInterp = interpolate.RectBivariateSpline(
+            iLs, uu, ixgrid, kx=3, ky=3, s=0.0
+        )
         # Interpolation of small, noisy coeffs doesn't work, so set to zero
         self._nSn[numpy.fabs(self._nSn) < 1e-16] = 0.0
         self._dSndJr[numpy.fabs(self._dSndJr) < 1e-15] = 0.0
         self._dSndLish[numpy.fabs(self._dSndLish) < 1e-15] = 0.0
-        self._nSnFiltered = ndimage.spline_filter(
-            numpy.reshape(self._nSn, shape2 + (self._nnSn,)), order=3
-        )
-        self._dSndJrFiltered = ndimage.spline_filter(
-            numpy.reshape(self._dSndJr, shape2 + (self._nnSn,)), order=3
-        )
-        self._dSndLishFiltered = ndimage.spline_filter(
-            numpy.reshape(self._dSndLish, shape2 + (self._nnSn,)), order=3
-        )
+        # The vector-valued grid quantities are interpolated with the
+        # B-spline machinery of ndimage, whose mirroring boundary condition
+        # requires the torus-grid axes to be extended first (see
+        # _pad_grid_axes)
+        self._grid_pad = 8
+
+        def _filt(arr, order):
+            return ndimage.spline_filter(
+                _pad_grid_axes(
+                    numpy.reshape(arr, shape2 + (arr.shape[1],)), self._grid_pad
+                ),
+                order=order,
+            )
+
+        self._nSnFiltered = _filt(self._nSn, 3)
+        self._dSndJrFiltered = _filt(self._dSndJr, 3)
+        self._dSndLishFiltered = _filt(self._dSndLish, 3)
         # Point transformation: reshape to (nL,nE,:) and filter, for direct
         # evaluation at fractional (iL,ix) grid coordinates
         if self._pt_exact:
             self._pt_filtered_interp = tuple(
-                ndimage.spline_filter(
-                    numpy.reshape(arr, shape2 + (arr.shape[1],)),
-                    order=self._exact_pt_spl_deg,
-                )
+                _filt(arr, self._exact_pt_spl_deg)
                 for arr in (
                     self._pt_coeffs,
                     self._pt_deriv_coeffs,
@@ -1688,10 +1745,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 )
             )
         else:
-            self._ptcoeffsFiltered = ndimage.spline_filter(
-                numpy.reshape(self._pt_coeffs, shape2 + (self._pt_coeffs.shape[1],)),
-                order=3,
-            )
+            self._ptcoeffsFiltered = _filt(self._pt_coeffs, 3)
         return None
 
     def _gridcoords(self, jr, L):
@@ -1702,17 +1756,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 "Given angular momentum is outside of the interpolation grid"
             )
         iL = float((L - self._Lmin) / (self._Lmax - self._Lmin) * (self._nL - 1.0))
-        ix = 0.5 * (self._nE - 1.0)
-        for _ in range(100):
-            djrdix = _evs(self._jrInterp, iL, ix, dy=1)
-            dix = -(_evs(self._jrInterp, iL, ix) - jr) / djrdix
-            ix = float(numpy.clip(ix + dix, 0.0, self._nE - 1.0))
-            if numpy.fabs(dix) < 1e-12:
-                break
-        if numpy.fabs(_evs(self._jrInterp, iL, ix) - jr) > 1e-8 * (
-            numpy.fabs(jr) + 1e-10
-        ):
+        u = float(numpy.sqrt(numpy.fabs(jr) / self._jrmaxInterp(iL)))
+        if u > 1.0 + 1e-10:
             raise ValueError("Given radial action is outside of the interpolation grid")
+        ix = float(
+            numpy.clip(self._ixInterp.ev(iL, min(u, 1.0)).item(), 0.0, self._nE - 1.0)
+        )
         return iL, ix
 
     def _coeffs_for_interp(self, filtered, iL, ix, order=3):
@@ -1722,8 +1771,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return ndimage.map_coordinates(
             filtered,
             [
-                iL * numpy.ones(ncoeff),
-                ix * numpy.ones(ncoeff),
+                (iL + self._grid_pad) * numpy.ones(ncoeff),
+                (ix + self._grid_pad) * numpy.ones(ncoeff),
                 numpy.arange(ncoeff, dtype="float"),
             ],
             order=order,
@@ -2035,8 +2084,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     return ndimage.map_coordinates(
                         arr3d,
                         [
-                            iL * numpy.ones_like(coord),
-                            ix * numpy.ones_like(coord),
+                            (iL + self._grid_pad) * numpy.ones_like(coord),
+                            (ix + self._grid_pad) * numpy.ones_like(coord),
                             meshcoord,
                         ],
                         order=self._exact_pt_spl_deg,
