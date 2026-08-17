@@ -1028,6 +1028,54 @@ def test_dxdv_3d_c_vs_python(pot, pot_category):
     return None
 
 
+def test_orbits_E_planar_scalar_only_potential_fallback():
+    # Orbits.E() evaluates the planar potential over the whole (norb, nt) block
+    # in ONE vectorised call; a potential whose evaluator rejects array input
+    # makes that raise, and E() falls back to evaluating element by element.
+    #
+    # Until this PR that fallback was reached by SphericalShellPotential and
+    # HomogeneousSpherePotential -- which is precisely what this PR stops: they
+    # now accept arrays and take the fast path, leaving the fallback with no
+    # caller. Verified by tracing both, before and after: they hit it before and
+    # do not after. AnyAxisymmetricRazorThinDiskPotential still rejects arrays,
+    # so it keeps the branch reachable, and this test keeps it CHECKED rather
+    # than merely executed.
+    from galpy.orbit import Orbit
+    from galpy.potential import (
+        AnyAxisymmetricRazorThinDiskPotential,
+        evaluateplanarPotentials,
+    )
+
+    pot = AnyAxisymmetricRazorThinDiskPotential().toPlanar()
+    ts = numpy.linspace(0.0, 1.0, 5)
+    o = Orbit([[1.0, 0.1, 1.1], [1.1, 0.0, 1.0]])
+    o.integrate(ts, pot)
+    got = numpy.array(o.E(ts))
+    # Independent reference: the per-element energy assembled HERE, so the test
+    # checks the fallback's arithmetic rather than trusting it. The potential is
+    # static, so t plays no role and the time index cannot be got wrong silently.
+    Rs, vRs, vTs = o.R(ts), o.vR(ts), o.vT(ts)
+    ref = numpy.array(
+        [
+            [
+                evaluateplanarPotentials(pot, Rs[ii][jj], use_physical=False)
+                + vRs[ii][jj] ** 2.0 / 2.0
+                + vTs[ii][jj] ** 2.0 / 2.0
+                for jj in range(len(ts))
+            ]
+            for ii in range(2)
+        ]
+    )
+    assert got.shape == ref.shape, (
+        f"E() returned shape {got.shape}, expected {ref.shape}"
+    )
+    assert numpy.all(numpy.fabs(got - ref) < 1e-10), (
+        "Orbits.E()'s per-element fallback disagrees with the directly computed "
+        f"energy; max |diff| = {numpy.nanmax(numpy.fabs(got - ref)):e}"
+    )
+    return None
+
+
 # ---- Closed-form STM ground truth (1/2): exact 3D isotropic harmonic
 # oscillator. Inside its radius R, HomogeneousSpherePotential is
 # Phi(r) = amp (r^2 - 3 R^2), an EXACTLY harmonic potential with
