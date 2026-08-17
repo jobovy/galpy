@@ -13,10 +13,23 @@ on:
         required: false
         default: false
         type: boolean
+      debug_transcript:
+        description: 'If the diff analysis produces nothing, also print the final assistant message (model prose — may quote tool output; opt in deliberately)'
+        required: false
+        default: false
+        type: boolean
   pull_request:
     # Run on PRs that touch this workflow, so changes to the workflow itself can
-    # be exercised end-to-end before merge. pull_request events always behave as
-    # dry runs: notebooks are executed and uploaded as an artifact; no PR opened.
+    # be exercised before merge. pull_request events always behave as dry runs:
+    # notebooks are executed and uploaded as an artifact; no PR opened.
+    #
+    # CAVEAT: this cannot exercise the `Claude diff analysis` step. anthropics/
+    # claude-code-action validates that the workflow file is byte-identical to
+    # the copy on the default branch, so on any branch or PR that edits THIS
+    # file the action skips itself — and it exits with success, not failure.
+    # Everything else (execution, change detection, pre-commit, artifact) is
+    # still covered; to test the analysis step, merge first and then run
+    # workflow_dispatch with dry_run: true from main.
     paths:
       - '.github/workflows/update-doc-notebooks.yml'
 
@@ -229,6 +242,17 @@ jobs:
         # at a glance whether anything substantive changed. Output is
         # written to /tmp/nb_analysis.md. Failure is non-fatal — we fall
         # back to a clear warning in the PR body and on the step summary.
+        #
+        # KNOWN ISSUE, deliberately not fixed here: --max-turns is 40, but a
+        # full pass has been observed to need 55 (the 2026-07-16 run). It used
+        # to be harmless because claude-code-action ignored --max-turns from
+        # claude_args; v1.0.188 (Aug 2026) began enforcing it. Enforcement is a
+        # post-run check — the agent is NOT cut off at the limit; the action
+        # fails the step afterwards if num_turns exceeded it — so a cap below
+        # what a full pass needs discards a completed analysis and reports it
+        # as a step failure. Raise this to ~120 before relying on the analysis
+        # again. It is left at 40 for now so that the runs investigating the
+        # empty-analysis failure change one variable at a time.
         id: claude-analysis
         if: steps.check-changes.outputs.changed == 'true'
         continue-on-error: true
@@ -363,6 +387,140 @@ jobs:
 
             Be concise. Do not narrate steps in the output — the reader wants
             findings, not your process.
+      - name: Diff-analysis debug skeleton
+        # Runs ONLY when the analysis produced nothing, so healthy runs print
+        # nothing. Emits the shape of the agent run — message types, tool names,
+        # the basename of any file written, error flags, and the final assistant
+        # message — so a silent no-output run leaves evidence behind instead of
+        # dying with the runner.
+        #
+        # Deliberately NOT `show_full_output: true`, whose own documentation
+        # warns it "outputs ALL Claude messages including tool execution results
+        # which may contain secrets, API keys, or other sensitive information".
+        # Tool RESULTS are the hazard: this action rewrites the git remote with
+        # an app token and writes a credentials config under RUNNER_TEMP, so a
+        # `git remote -v` or a Read of that path would publish a live credential
+        # to this permanently-public log. Everything below is an allowlist —
+        # never add a filter that emits tool_result content.
+        if: >-
+          steps.check-changes.outputs.changed == 'true' &&
+          steps.claude-analysis.outputs.execution_file != ''
+        env:
+          EXEC_FILE: ${{ steps.claude-analysis.outputs.execution_file }}
+          # Passed in so the audit below can literal-match them. Secrets in env
+          # are not logged, and Actions masks them if they ever are.
+          AUDIT_SECRET_1: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AUDIT_SECRET_2: ${{ steps.claude-analysis.outputs.github_token }}
+          AUDIT_SECRET_3: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +x   # never trace this step; the audit handles secret values
+          # Healthy run — nothing to diagnose. (Written as an explicit `if`
+          # rather than `[ ... ] && exit 0`, whose interaction with `set -e` is
+          # a well-known footgun.)
+          if [ -s /tmp/nb_analysis.md ]; then
+            exit 0
+          fi
+          if [ ! -s "$EXEC_FILE" ]; then
+            echo "No execution file at '$EXEC_FILE' — the action exited before running the agent."
+            exit 0
+          fi
+          # Everything is staged to a file first and audited before ANY of it
+          # reaches the log, so a filter that turns out to be leakier than
+          # intended fails closed instead of publishing.
+          stage="${RUNNER_TEMP}/nb_debug_stage.txt"
+          : > "$stage"
+          {
+          echo "::group::Agent run skeleton"
+          jq -r '
+            (if type == "array" then .[] else . end)
+            | if .type == "assistant" then
+                "assistant | " + ([.message.content[]?
+                  | if .type == "tool_use" then
+                      "tool:" + .name
+                      + (if (.input.file_path // "") != ""
+                         then "(" + (.input.file_path | split("/") | last) + ")" else "" end)
+                    elif .type == "text" then "text[" + (.text | length | tostring) + " chars]"
+                    else .type end] | join(" "))
+              elif .type == "user" then
+                "user      | " + ([.message.content[]? | select(.type == "tool_result")
+                  | "tool_result" + (if .is_error then "(ERROR)" else "" end)] | join(" "))
+              elif .type == "result" then
+                "RESULT    | subtype=" + (.subtype // "?")
+                + " turns=" + ((.num_turns // 0) | tostring)
+                + " cost=" + ((.total_cost_usd // 0) | tostring)
+              else .type end
+          ' "$EXEC_FILE" 2>/dev/null || {
+            echo "Unexpected transcript shape; top-level type and first-element keys:"
+            jq -r 'type, (if type == "array" then .[0] else . end | keys | join(","))' "$EXEC_FILE" || true
+          }
+          echo "::endgroup::"
+          # The skeleton above is an allowlist of structural fields, so no tool
+          # output can reach it. The final assistant message is different: it is
+          # model prose, and a model can quote tool output back at you. That is
+          # far less exposure than show_full_output, but it is not provably
+          # safe, so it is opt-in per run rather than something a scheduled run
+          # publishes on its own. Usually the skeleton alone answers the
+          # question — whether Write was called, with what target, and whether
+          # any tool result errored.
+          if [ "${{ inputs.debug_transcript }}" = "true" ]; then
+            echo "::group::Final assistant message (opt-in; model prose)"
+            jq -r '[(if type == "array" then .[] else . end) | select(.type == "assistant")][-1]
+                   | .message.content[]? | select(.type == "text") | .text' "$EXEC_FILE" 2>/dev/null \
+              || echo "(could not extract)"
+            echo "::endgroup::"
+          else
+            echo "Final assistant message withheld. To include it, re-run via" \
+                 "workflow_dispatch with debug_transcript: true."
+          fi
+          } > "$stage" 2>&1
+          # ---- audit: nothing above has been printed yet ----
+          # 1. Literal match against the credential values this job actually
+          #    holds. Empty values are skipped — an empty needle matches every
+          #    line and would withhold the output on every run.
+          needles="${RUNNER_TEMP}/nb_audit_needles.txt"
+          : > "$needles"
+          for v in "$AUDIT_SECRET_1" "$AUDIT_SECRET_2" "$AUDIT_SECRET_3"; do
+            if [ -n "$v" ] && [ "${#v}" -ge 12 ]; then
+              printf '%s\n' "$v" >> "$needles"
+            fi
+          done
+          findings=""
+          if [ -s "$needles" ] && grep -qFf "$needles" "$stage"; then
+            findings="literal-credential-value"
+          fi
+          rm -f "$needles"
+          # 2. Credential-SHAPED strings, for anything not in this job's env.
+          #    Entries are name|regex; the regex must not contain '|'.
+          audit_rules=(
+            "github-token|gh[pousr]_[A-Za-z0-9]{16,}"
+            "github-pat|github_pat_[A-Za-z0-9_]{20,}"
+            "anthropic-key|sk-ant-[A-Za-z0-9_-]{16,}"
+            "aws-access-key|AKIA[0-9A-Z]{16}"
+            "url-embedded-credentials|https://[^/@[:space:]]+:[^/@[:space:]]+@"
+            "x-access-token|x-access-token:"
+            "private-key-block|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+            "bearer-header|[Aa]uthorization: *[Bb]earer [A-Za-z0-9._-]+"
+          )
+          for entry in "${audit_rules[@]}"; do
+            rule="${entry%%|*}"
+            re="${entry#*|}"
+            # -e is required: a pattern starting with '-' (the PRIVATE KEY rule)
+            # is otherwise parsed as an option and the rule silently never fires.
+            if grep -qE -e "$re" "$stage"; then
+              findings="${findings:+$findings,}$rule"
+            fi
+          done
+          if [ -n "$findings" ]; then
+            # Report the RULE NAME only — never the match itself.
+            echo "::warning::Diff-analysis debug output withheld by audit (matched: $findings)."
+            echo "The debug output matched a credential pattern and was NOT printed."
+            echo "Matched rules: $findings"
+            echo "Inspect it by re-running with a private fork, or tighten the filters."
+            rm -f "$stage"
+            exit 0
+          fi
+          cat "$stage"
+          rm -f "$stage"
       - name: Surface diff analysis to Actions step summary
         # Visible in the GitHub Actions UI for any run (dry-run or scheduled),
         # so dry-runs — which don't open a PR — still expose what Claude
@@ -376,14 +534,38 @@ jobs:
             {
               echo "## :warning: Claude diff analysis failed"
               echo ""
-              echo "Most likely the \`CLAUDE_CODE_OAUTH_TOKEN\` repository secret has expired or been revoked."
-              echo "Regenerate it locally with \`claude setup-token\` and update the secret at"
-              echo "[Settings → Secrets and variables → Actions](${{ github.server_url }}/${{ github.repository }}/settings/secrets/actions)."
+              echo "Check the \`Claude diff analysis\` step log above for the exact error. The two"
+              echo "known causes:"
               echo ""
-              echo "See the \`Claude diff analysis\` step log above for the exact error."
+              echo "1. The \`CLAUDE_CODE_OAUTH_TOKEN\` repository secret has expired or been revoked."
+              echo "   Regenerate it locally with \`claude setup-token\` and update the secret at"
+              echo "   [Settings → Secrets and variables → Actions](${{ github.server_url }}/${{ github.repository }}/settings/secrets/actions)."
+              echo "2. The agent used more turns than \`--max-turns\` allows. The action checks this"
+              echo "   *after* the run and fails the step, logging \"exceeding the configured maximum\"."
+              echo "   Raise \`--max-turns\` in this workflow; nothing is wrong with the token."
             } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "_Diff analysis was skipped (no relevant changes)._" >> "$GITHUB_STEP_SUMMARY"
+            # This step only runs when there ARE notebook changes, so reaching
+            # here means the analysis step exited 0 without leaving anything at
+            # /tmp/nb_analysis.md — Claude ran but produced no deliverable.
+            # Say so explicitly; a silent "skipped" hides a broken analysis.
+            # This is what happened on 2026-08-15 (run 31869287125): the agent
+            # returned success after 24 turns and wrote nothing, and the PR was
+            # opened claiming the analysis had been skipped.
+            echo "::warning::Claude diff analysis produced no /tmp/nb_analysis.md despite notebook changes"
+            {
+              echo "## :warning: Claude diff analysis produced no output"
+              echo ""
+              echo "The analysis step exited successfully but never wrote \`/tmp/nb_analysis.md\`,"
+              echo "so this run has no diff summary. Check the step log for which case this is:"
+              echo ""
+              echo "1. \`Skipping action due to workflow validation\` — this run is on a branch"
+              echo "   whose copy of this workflow file differs from the default branch, so the"
+              echo "   action skipped itself. Expected on workflow-editing branches; not a bug."
+              echo "2. The agent ran and returned success without writing the file. The transcript"
+              echo "   is hidden by default — rerun via \`workflow_dispatch\` with \`dry_run: true\`"
+              echo "   from the default branch and \`show_full_output: true\` on the analysis step."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
       - name: Stage analysis file for dry-run artifact
         # Copy /tmp/nb_analysis.md into the workspace so the next step can
@@ -475,7 +657,12 @@ jobs:
               echo "_Review the rendered notebook diffs manually for this rerun._"
             } >> pr_body.md
           else
-            echo "_Diff analysis was skipped — review the rendered notebook diffs manually._" >> pr_body.md
+            {
+              echo "> [!WARNING]"
+              echo "> **Diff analysis produced no output.** The analysis step exited successfully but never wrote its summary file, so this PR has no re-run diff summary. This is not 'nothing to report' — the notebooks did change. See the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}); to capture the agent transcript, rerun via \`workflow_dispatch\` with \`dry_run: true\` and \`show_full_output: true\` on the analysis step."
+              echo ""
+              echo "_Review the rendered notebook diffs manually for this rerun._"
+            } >> pr_body.md
           fi
 
           gh pr create \

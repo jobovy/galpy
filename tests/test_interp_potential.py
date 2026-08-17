@@ -3,6 +3,61 @@ import numpy
 from galpy import potential
 
 
+class _MisBroadcastPotential(potential.Potential):
+    """A potential that silently returns the wrong thing for array input.
+
+    It neither raises nor returns the wrong shape, so a ``try/except`` around
+    the vectorised call sails straight past it -- which is precisely the failure
+    ``_grid_eval``'s bit-for-bit spot check exists to catch. Synthetic on
+    purpose: this branch used to be covered only incidentally, by a real
+    potential that happened to be buggy, so it silently lost its coverage the
+    moment that potential was fixed.
+    """
+
+    def __init__(self):
+        potential.Potential.__init__(self, amp=1.0)
+        self.hasC = False
+        self.hasC_dxdv = False
+
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
+        base = -1.0 / numpy.sqrt(R**2.0 + z**2.0 + 1.0)
+        # array input gets a different answer than the same point scalar-wise
+        return base + 1.0 if numpy.ndim(R) > 0 else base
+
+
+def test_grid_eval_falls_back_on_silent_misbroadcast():
+    from galpy.potential.interpRZPotential import _grid_eval
+
+    pot = _MisBroadcastPotential()
+    rgrid = numpy.linspace(0.1, 2.0, 9)
+    zgrid = numpy.linspace(0.0, 0.5, 7)
+    got = _grid_eval(potential.evaluatePotentials, pot, rgrid, zgrid)
+    ref = numpy.array(
+        [
+            [
+                potential.evaluatePotentials(pot, r, zz, use_physical=False)
+                for zz in zgrid
+            ]
+            for r in rgrid
+        ]
+    )
+    # the guard must have rejected the vectorised answer and looped instead,
+    # so the +1.0 offset must NOT be present anywhere
+    assert numpy.array_equal(got, ref), (
+        "_grid_eval accepted a silently mis-broadcasting potential"
+    )
+    # and confirm the vectorised answer really was different, i.e. that this
+    # test would fail without the guard rather than passing vacuously
+    Rmesh, zmesh = numpy.meshgrid(rgrid, zgrid, indexing="ij")
+    vec = numpy.asarray(
+        potential.evaluatePotentials(pot, Rmesh, zmesh, use_physical=False)
+    )
+    assert vec.shape == ref.shape and not numpy.any(vec == ref), (
+        "the mis-broadcast fixture did not actually differ from the scalar path"
+    )
+    return None
+
+
 def test_errors():
     # Test that when we set up an interpRZPotential w/ another interpRZPotential, we get an error
     rzpot = potential.interpRZPotential(
