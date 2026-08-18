@@ -1,6 +1,20 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- Added ``galpy.actionAngle.actionAngleSphericalInverse``, which computes
+  the phase-space coordinates corresponding to given actions and angles in
+  spherical potentials, that is, the inverse of what
+  ``actionAngleSpherical`` computes, using the torus mapping of McGill &
+  Binney (1990). The mapping onto the tori of an auxiliary isochrone
+  potential can be preceded by a point transformation, either a fitted
+  polynomial one or (``use_pointtransform="exact"``) the exact one obtained
+  by solving the ordinary differential equation that defines it; the latter
+  makes all mapping coefficients vanish, so that the inverse transformation
+  can be evaluated using the point transformation alone
+  (``pt_only=True``). With ``setup_interp=True``, a grid of tori is set up
+  once and the transformation is interpolated between them, which allows
+  arbitrary tori to be evaluated in microseconds per phase-space point.
+
 - Added an exact, ODE-based point transformation to
   ``actionAngleVerticalInverse`` (``use_pointtransform="exact"``): instead of
   fitting a polynomial approximation, solve the ordinary differential equation
