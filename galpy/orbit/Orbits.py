@@ -2178,7 +2178,14 @@ class Orbit:
 
         _rtol = 1e-12 if rtol is None else rtol
         _atol = 1e-12 if atol is None else atol
-        _ibk = inbackend_kwargs or {}
+        # rtol/atol are in-backend solver options like max_steps/solver/adjoint, so
+        # accept them through inbackend_kwargs too (they are the only route callers
+        # that expose just that dict -- e.g. actionAngleIsochroneApprox's
+        # integrate_kwargs -- have to the tolerance). Pop rather than splat: they
+        # are also passed explicitly below, and duplicating a keyword raises.
+        _ibk = dict(inbackend_kwargs or {})
+        _rtol = _ibk.pop("rtol", _rtol)
+        _atol = _ibk.pop("atol", _atol)
         # ts is either the shared 1-D output grid (nt,) -- all orbits integrated in
         # ONE solve -- or a PER-ORBIT grid of shape self.shape + (nt,): each orbit
         # its own times (same length nt), as the C integrators' indiv_t (used by
@@ -2341,7 +2348,7 @@ class Orbit:
         atol : float, optional
             Absolute tolerance. Default is None.
         inbackend_kwargs : dict, optional
-            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq', or a jax/torch initial condition that falls back to it): 'max_steps', 'solver', and (jax) 'adjoint'. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only. Ignored by all other (C/scipy) methods.
+            Extra options for the in-backend differentiable ODE solver (only used by method='diffrax'/'torchdiffeq', or a jax/torch initial condition that falls back to it): 'rtol', 'atol', 'max_steps', 'solver', and (jax) 'adjoint'. 'rtol'/'atol' here override the rtol/atol arguments. Pass inbackend_kwargs={'adjoint': 'direct', 'max_steps': 4096} to enable jax SECOND derivatives (jax.hessian / nested jacrev) through the integration; the default 'recursive' adjoint is reverse-mode first-order only. Ignored by all other (C/scipy) methods.
 
         Returns
         -------
