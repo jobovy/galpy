@@ -7,12 +7,70 @@
 #             given actions-angle coordinates
 #
 ###############################################################################
+import copy
+import warnings
+
 import numpy
 from scipy import optimize
 
 from ..potential import IsochronePotential
-from ..util import conversion
+from ..util import conversion, galpyWarning
 from .actionAngleInverse import actionAngleInverse
+
+
+def _solve_kepler(k, theta, maxiter, tol=1e-14):
+    """Solve the Kepler-like equation eta - k sin(eta) = theta for eta,
+    for arrays of k and theta (in [0,2pi]) broadcast against each other.
+    Because the left-hand side increases monotonically in eta, the root is
+    always bracketed by theta and pi (eta >= theta before apocenter and
+    eta <= theta after it), so we can safeguard Newton-Raphson with
+    bisection: the Newton-Raphson iteration converges quadratically except
+    near eta = 0 for nearly-radial tori (where k -> 1 and the derivative
+    vanishes), where the bisection fallback takes over. Only the entries
+    that have not converged yet are iterated."""
+    k, theta = numpy.broadcast_arrays(k, theta)
+    shape = theta.shape
+    k = numpy.ascontiguousarray(k, dtype="float").flatten()
+    theta = numpy.ascontiguousarray(theta, dtype="float").flatten()
+    eta = copy.copy(theta)
+    brlo = numpy.minimum(theta, numpy.pi)
+    brhi = numpy.maximum(theta, numpy.pi)
+    # Indices of the points that have not converged yet
+    unconv = numpy.arange(theta.size)
+    cntr = 0
+    while unconv.size:
+        teta, tk = eta[unconv], k[unconv]
+        tbrlo, tbrhi = brlo[unconv], brhi[unconv]
+        f = teta - tk * numpy.sin(teta) - theta[unconv]
+        tbrlo = numpy.where(f <= 0.0, teta, tbrlo)
+        tbrhi = numpy.where(f >= 0.0, teta, tbrhi)
+        # The derivative only vanishes for a radial orbit at pericenter,
+        # where the bisection fallback below takes over anyway
+        deriv = 1.0 - tk * numpy.cos(teta)
+        newteta = teta - f / numpy.where(deriv < 1e-300, 1e-300, deriv)
+        # Fall back onto bisection when Newton-Raphson leaves the bracket
+        bisect = (newteta <= tbrlo) + (newteta >= tbrhi)
+        newteta[bisect] = 0.5 * (tbrlo[bisect] + tbrhi[bisect])
+        conv = numpy.fabs(newteta - teta) < tol
+        eta[unconv] = newteta
+        brlo[unconv] = tbrlo
+        brhi[unconv] = tbrhi
+        unconv = unconv[True ^ conv]
+        cntr += 1
+        if cntr > maxiter:
+            warnings.warn(
+                "Solving the Kepler-like equation for the auxiliary eccentric anomaly did not converge in {} iterations".format(
+                    maxiter
+                ),
+                galpyWarning,
+            )
+            break
+    return eta.reshape(shape)
+
+
+# Maximum number of iterations for the (safeguarded) solve of the
+# Kepler-like equation; bisection alone converges in about 50
+_KEPLER_MAXITER = 100
 
 
 class actionAngleIsochroneInverse(actionAngleInverse):
@@ -147,22 +205,13 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         angler = (numpy.atleast_1d(angler) % (-2.0 * numpy.pi)) % (2.0 * numpy.pi)
         anglephi = numpy.atleast_1d(anglephi)
         anglez = numpy.atleast_1d(anglez)
-        eta = numpy.empty(len(angler))
         aeoverab = a * e / ab
-        for ii, ar in enumerate(angler):
-            taeoverab = aeoverab[ii * (len(jr) > 1)]  # sometimes jr is an array...
-            try:
-                eta[ii] = optimize.newton(
-                    lambda x: x - taeoverab * numpy.sin(x) - ar,
-                    0.0,
-                    lambda x: 1 - taeoverab * numpy.cos(x),
-                )
-            except RuntimeError:
-                # Newton-Raphson did not converge, this has to work,
-                # bc 0 <= ra < 2pi the following start x have different signs
-                eta[ii] = optimize.brentq(
-                    lambda x: x - taeoverab * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
-                )
+        # Solved for all points at once with Newton-Raphson safeguarded by
+        # bisection (sometimes jr is an array, sometimes it is a single
+        # torus evaluated at many angles)
+        eta = _solve_kepler(
+            aeoverab if len(jr) > 1 else aeoverab[0], angler, _KEPLER_MAXITER
+        )
         coseta = numpy.cos(eta)
         r = a * numpy.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * self.b / a))
         vr = numpy.sqrt(self.amp / ab) * a * e * numpy.sin(eta) / r

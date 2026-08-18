@@ -29,8 +29,14 @@ from ..potential.Potential import _evaluatePotentials
 from ..util import galpyWarning
 from ..util import plot as galpy_plot
 from .actionAngleInverse import actionAngleInverse
-from .actionAngleIsochrone import _actionAngleIsochroneHelper, actionAngleIsochrone
-from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
+from .actionAngleIsochrone import (
+    _actionAngleIsochroneHelper,
+    actionAngleIsochrone,
+)
+from .actionAngleIsochroneInverse import (
+    _solve_kepler,
+    actionAngleIsochroneInverse,
+)
 from .actionAngleSpherical import actionAngleSpherical
 
 
@@ -74,55 +80,6 @@ def _pad_grid_axes(arr, pad, npts=4):
 def _evs(spl, iL, ix, **kwargs):
     # Scalar evaluation of a RectBivariateSpline (.ev returns a size-1 array)
     return spl.ev(iL, ix, **kwargs).item()
-
-
-def _solve_kepler(k, theta, maxiter, tol=1e-14):
-    """Solve the Kepler-like equation eta - k sin(eta) = theta for eta,
-    for arrays of k and theta (in [0,2pi]) broadcast against each other.
-    Because the left-hand side increases monotonically in eta, the root is
-    always bracketed by theta and pi (eta >= theta before apocenter and
-    eta <= theta after it), so we can safeguard Newton-Raphson with
-    bisection: the Newton-Raphson iteration converges quadratically except
-    near eta = 0 for nearly-radial tori (where k -> 1 and the derivative
-    vanishes), where the bisection fallback takes over. Only the entries
-    that have not converged yet are iterated."""
-    k, theta = numpy.broadcast_arrays(k, theta)
-    shape = theta.shape
-    k = numpy.ascontiguousarray(k, dtype="float").flatten()
-    theta = numpy.ascontiguousarray(theta, dtype="float").flatten()
-    eta = copy.copy(theta)
-    brlo = numpy.minimum(theta, numpy.pi)
-    brhi = numpy.maximum(theta, numpy.pi)
-    unconv = numpy.ones(theta.shape, dtype="bool")
-    cntr = 0
-    while numpy.any(unconv):
-        teta, tk = eta[unconv], k[unconv]
-        tbrlo, tbrhi = brlo[unconv], brhi[unconv]
-        f = teta - tk * numpy.sin(teta) - theta[unconv]
-        tbrlo = numpy.where(f <= 0.0, teta, tbrlo)
-        tbrhi = numpy.where(f >= 0.0, teta, tbrhi)
-        with numpy.errstate(divide="ignore", invalid="ignore"):
-            newteta = teta - f / (1.0 - tk * numpy.cos(teta))
-        # Fall back onto bisection when Newton-Raphson leaves the bracket
-        bisect = (
-            (newteta <= tbrlo) + (newteta >= tbrhi) + (True ^ numpy.isfinite(newteta))
-        )
-        newteta[bisect] = 0.5 * (tbrlo[bisect] + tbrhi[bisect])
-        conv = numpy.fabs(newteta - teta) < tol
-        eta[unconv] = newteta
-        brlo[unconv] = tbrlo
-        brhi[unconv] = tbrhi
-        unconv[numpy.where(unconv)[0][conv]] = False
-        cntr += 1
-        if cntr > maxiter:
-            warnings.warn(
-                "Solving the Kepler-like equation for the auxiliary eccentric anomaly did not converge in {} iterations".format(
-                    maxiter
-                ),
-                galpyWarning,
-            )
-            break
-    return eta.reshape(shape)
 
 
 class actionAngleSphericalInverse(actionAngleInverse):
@@ -1691,6 +1648,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._ptrapInterp = _rbs(self._pt_rap)
         if self._pt_exact:
             self._dpsiapoInterp = _rbs(self._pt_dpsi_apo)
+        self._isoaainv_interp = actionAngleIsochroneInverse(
+            ip=IsochronePotential(amp=self._amp[0], b=self._b[0])
+        )
         # Inverse map for looking up the torus of a given (Jr,L): the grid
         # coordinate ix as a function of (iL,u), where
         # u = sqrt(Jr/Jr[iL,-1]) is the normalized radial action rectified
@@ -1891,18 +1851,24 @@ class actionAngleSphericalInverse(actionAngleInverse):
             L = jz + numpy.fabs(jphi)
             iL, ix = self._gridcoords(jr, L)
             tE = _evs(self._EInterp, iL, ix)
-            tnSn = self._coeffs_for_interp(self._nSnFiltered, iL, ix)
-            tdSndJr = self._coeffs_for_interp(self._dSndJrFiltered, iL, ix)
-            tdSndLish = self._coeffs_for_interp(self._dSndLishFiltered, iL, ix)
+            if self._pt_exact and self._pt_only:
+                # The generating-function mapping is skipped altogether, so
+                # its coefficients are not needed
+                tnSn = tdSndJr = tdSndLish = None
+            else:
+                tnSn = self._coeffs_for_interp(self._nSnFiltered, iL, ix)
+                tdSndJr = self._coeffs_for_interp(self._dSndJrFiltered, iL, ix)
+                tdSndLish = self._coeffs_for_interp(self._dSndLishFiltered, iL, ix)
             tOmegazoverOmegar = _evs(self._OmegazoverOmegarInterp, iL, ix)
             tOmegar = _evs(self._OmegarInterp, iL, ix)
             tOmegaz = _evs(self._OmegazInterp, iL, ix)
-            isoaainv = actionAngleIsochroneInverse(
-                ip=IsochronePotential(
-                    amp=_evs(self._ampInterp, iL, ix),
-                    b=_evs(self._bInterp, iL, ix),
-                )
-            )
+            # The isochrone inverse only uses its amp and b attributes, so
+            # reuse a single instance rather than building one (and an
+            # IsochronePotential, which parses the configuration file) for
+            # every evaluation
+            isoaainv = self._isoaainv_interp
+            isoaainv.amp = _evs(self._ampInterp, iL, ix)
+            isoaainv.b = _evs(self._bInterp, iL, ix)
             trperi = _evs(self._rperiInterp, iL, ix)
             trap = _evs(self._rapInterp, iL, ix)
             tptrperi = _evs(self._ptrperiInterp, iL, ix)
