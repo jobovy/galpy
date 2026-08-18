@@ -13073,6 +13073,64 @@ def test_actionAngle_method_turnphysicaloff():
     return None
 
 
+def test_actionAngleVerticalInverse_units():
+    # Unit support of actionAngleVerticalInverse: Quantity energies for the
+    # tori of the instance, Quantity actions and angles for its evaluation,
+    # and physical outputs
+    import warnings
+
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+    from galpy.util import conversion
+
+    ro, vo = 9.0, 230.0
+    E = 0.5
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aAVI = actionAngleVerticalInverse(
+            pot=IsothermalDiskPotential(amp=1.0, sigma=0.5, ro=ro, vo=vo),
+            Es=[E * (vo * units.km / units.s) ** 2.0],
+            nta=128,
+            ro=ro,
+            vo=vo,
+        )
+        aAVI_int = actionAngleVerticalInverse(
+            pot=IsothermalDiskPotential(amp=1.0, sigma=0.5), Es=[E], nta=128
+        )
+    assert numpy.fabs(aAVI._Es[0] - E) < 1e-10, (
+        "actionAngleVerticalInverse does not parse an energy given as a Quantity"
+    )
+    assert numpy.fabs(aAVI._js[0] - aAVI_int._js[0]) < 1e-10, (
+        "actionAngleVerticalInverse with a potential with ro and vo set does not give the same torus as one in internal units"
+    )
+
+    def _value(x, unit):
+        x = numpy.atleast_1d(x)[0]
+        return x.to(unit).value if isinstance(x, units.Quantity) else x
+
+    J = aAVI_int._js[0]
+    Jq = ro * vo * units.kpc * units.km / units.s
+    out = aAVI(J * Jq, 1.1 * units.rad)
+    out_int = aAVI_int(J, 1.1)
+    for ii, (fac, unit) in enumerate([(ro, units.kpc), (vo, units.km / units.s)]):
+        assert (
+            numpy.fabs(_value(out[ii], unit) / fac - numpy.atleast_1d(out_int[ii])[0])
+            < 1e-10
+        ), (
+            "actionAngleVerticalInverse method __call__ does not return the physical version of the internal-unit coordinates"
+        )
+    assert (
+        numpy.fabs(
+            _value(aAVI.Freqs(J * Jq), 1.0 / units.Gyr) / conversion.freq_in_Gyr(vo, ro)
+            - numpy.atleast_1d(aAVI_int.Freqs(J))[0]
+        )
+        < 1e-10
+    ), (
+        "actionAngleVerticalInverse method Freqs does not return the physical version of the internal-unit frequency"
+    )
+    return None
+
+
 def test_actionAngleHarmonic_setup_omega_units():
     from galpy.actionAngle import actionAngleHarmonic
     from galpy.util import conversion
