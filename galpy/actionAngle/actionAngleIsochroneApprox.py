@@ -67,8 +67,9 @@ class actionAngleIsochroneApprox(actionAngle):
             which supports GPU and higher-order autodiff of the actions.
         integrate_kwargs : dict, optional
             Extra options forwarded to the in-backend solver when
-            integrate_method='diffrax'/'torchdiffeq' ('max_steps', 'solver', and
-            (jax) 'adjoint'); e.g. {'adjoint': 'direct', 'max_steps': 4096} enables
+            integrate_method='diffrax'/'torchdiffeq' ('rtol', 'atol', 'max_steps',
+            'solver', and (jax) 'adjoint'); 'rtol'/'atol' (default 1e-12 each) are
+            the only way to set the solver tolerance here; e.g. {'adjoint': 'direct', 'max_steps': 4096} enables
             jax SECOND derivatives (jax.hessian / nested jacrev) of the actions w.r.t.
             the input phase-space coordinates. Ignored for the C/numpy path.
         dt : float, optional

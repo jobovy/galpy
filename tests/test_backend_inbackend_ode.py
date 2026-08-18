@@ -595,3 +595,56 @@ def test_inbackend_1d_batch_jax():
     out = numpy.asarray(integrate_orbit(pot, jnp.asarray(ics), jnp.asarray(_TS)))
     assert out.shape == (len(_TS), 3, 2)
     numpy.testing.assert_allclose(out[-1], ref, rtol=1e-6, atol=1e-7)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_orbit_integrate_inbackend_kwargs_tolerance_jax():
+    # rtol/atol are reachable through inbackend_kwargs, not just as integrate()
+    # arguments. They used to collide with the explicitly-forwarded pair and raise
+    # "got multiple values for keyword argument 'rtol'" -- which made the tolerance
+    # UNREACHABLE for callers that expose only the dict (actionAngleIsochroneApprox's
+    # integrate_kwargs is the motivating one: it has no rtol/atol parameters).
+    pot = PlummerPotential(amp=1.0, b=0.6)
+
+    def final_state(**kw):
+        o = Orbit(jnp.asarray(_IC))
+        o.integrate(jnp.asarray(_TS), pot, method="diffrax", **kw)
+        return numpy.asarray(o.getOrbit()).reshape(-1, len(_IC))[-1]
+
+    tight = final_state()  # default rtol=atol=1e-12
+    loose = final_state(inbackend_kwargs={"rtol": 1e-5, "atol": 1e-5})
+    d_loose = numpy.max(numpy.fabs(loose - tight))
+
+    # Two-sided: the knob must actually REACH the solver (a silently-dropped
+    # rtol would give a bit-identical trajectory), and it must behave like a
+    # tolerance rather than garbage.
+    assert d_loose > 1e-9, f"loose tolerance changed nothing: max|d|={d_loose:.3e}"
+    assert d_loose < 1e-2, f"loose tolerance diverged: max|d|={d_loose:.3e}"
+
+    # Passing the SAME loose tolerance the documented way must agree closely with
+    # passing it through the dict -- same knob, two spellings. Both are adaptive
+    # solves with the same controller, so require them to track to 1e-12.
+    via_args = final_state(rtol=1e-5, atol=1e-5)
+    numpy.testing.assert_allclose(loose, via_args, rtol=1e-12, atol=1e-12)
+
+    # Precedence is documented as "inbackend_kwargs overrides": with a tight
+    # explicit pair AND a loose dict, the loose one must win. This is the
+    # discriminating assertion -- if precedence were reversed the result would
+    # equal `tight` instead.
+    override = final_state(
+        rtol=1e-12, atol=1e-12, inbackend_kwargs={"rtol": 1e-5, "atol": 1e-5}
+    )
+    numpy.testing.assert_allclose(override, loose, rtol=1e-12, atol=1e-12)
+    assert numpy.max(numpy.fabs(override - tight)) == pytest.approx(d_loose, rel=1e-9)
+
+    # The dict must be REUSABLE: callers that store it and pass it on every call
+    # (actionAngleIsochroneApprox keeps self._integrate_kwargs) would otherwise get
+    # the tolerance honoured once and silently dropped afterwards. This is why the
+    # implementation pops from a COPY; popping from the caller's dict passes every
+    # assertion above and still breaks here on the second integration.
+    shared = {"rtol": 1e-5, "atol": 1e-5}
+    first = final_state(inbackend_kwargs=shared)
+    second = final_state(inbackend_kwargs=shared)
+    assert shared == {"rtol": 1e-5, "atol": 1e-5}, f"caller dict mutated: {shared}"
+    numpy.testing.assert_allclose(second, first, rtol=1e-12, atol=1e-12)
+    numpy.testing.assert_allclose(second, loose, rtol=1e-12, atol=1e-12)
