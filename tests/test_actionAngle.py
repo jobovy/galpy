@@ -8258,6 +8258,33 @@ def test_actionAngleSphericalInverse_wrtSpherical_bisect():
     return None
 
 
+# Test that the bisection angle solve of actionAngleSphericalInverse warns
+# when it does not converge
+def test_actionAngleSphericalInverse_convergence_warnings():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=logpot, nta=128, Es=[E], Ls=[L], bisect=True, maxiter=1
+        )
+    with pytest.warns(
+        galpyWarning, match="Radial angle mapping with bisection did not converge"
+    ):
+        aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+    return None
+
+
 # Test that the actionAngleSphericalInverse plots run
 def test_actionAngleSphericalInverse_plotting():
     import matplotlib.pyplot as pyplot
@@ -8284,6 +8311,83 @@ def test_actionAngleSphericalInverse_plotting():
     pyplot.close()
     aASInopt.plot_orbit(E, L)
     pyplot.close()
+    return None
+
+
+# Test that evaluating the spherical inverse with the point transformation
+# only agrees with the full machinery and conserves accuracy, and test its
+# diagnostics
+def test_actionAngleSphericalInverse_exactpointtransform_ptonly():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=logpot,
+            nta=8 * 128,
+            Es=[E],
+            Ls=[L],
+            use_pointtransform="exact",
+            pt_only=True,
+        )
+        aASIfull = actionAngleSphericalInverse(
+            pot=logpot, nta=8 * 128, Es=[E], Ls=[L], use_pointtransform="exact"
+        )
+    angs = numpy.linspace(0.0, 2.0 * numpy.pi, 101)
+    xp = numpy.array(aASI(aASI._jr[0], jphi[0], jz[0], angs, 0.0 * angs, angs))
+    xf = numpy.array(aASIfull(aASIfull._jr[0], jphi[0], jz[0], angs, 0.0 * angs, angs))
+    assert numpy.nanmax(numpy.fabs(xp - xf)) < 1e-8, (
+        "pt_only evaluation does not agree with the full generating-function evaluation for the spherical exact point transformation"
+    )
+    # Round trip
+    R, vR, vT, z, vz, phi = numpy.array(
+        aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+    ).flatten()
+    dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(
+                    [R - o.R(), vR - o.vR(), vT - o.vT(), z - o.z(), vz - o.vz(), dphi]
+                )
+            )
+        )
+        < 1e-8
+    ), (
+        "actionAngleSphericalInverse with pt_only evaluation is not the inverse of actionAngleSpherical for an example orbit"
+    )
+    # Loose ODE tolerance --> coefficients not small --> warning
+    from galpy.util import galpyWarning
+
+    with pytest.warns(galpyWarning, match="not accurate enough"):
+        actionAngleSphericalInverse(
+            pot=logpot,
+            nta=128,
+            Es=[E],
+            Ls=[L],
+            use_pointtransform="exact",
+            pt_only=True,
+            exact_pt_tol=1e-4,
+        )
+    # pt_only requires the exact point transformation
+    with pytest.raises(ValueError):
+        actionAngleSphericalInverse(
+            pot=logpot, nta=128, Es=[E], Ls=[L], use_pointtransform=True, pt_only=True
+        )
+    with pytest.raises(ValueError):
+        actionAngleSphericalInverse(
+            pot=logpot, nta=128, Es=[E], Ls=[L], use_pointtransform=False, pt_only=True
+        )
     return None
 
 

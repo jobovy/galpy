@@ -107,6 +107,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         pt_nra=301,
         exact_pt_spl_deg=5,
         exact_pt_tol=1e-12,
+        pt_only=False,
         maxiter=100,
         angle_tol=1e-12,
         bisect=False,
@@ -153,6 +154,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
            bisect= (False) if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
 
            use_pointtransform= (False) if True, setup a point transformation to, e.g., better handle highly radial orbits; use "exact" to solve for the point transformation that makes the torus exactly an isochrone torus, otherwise a simple polynomial point transformation is used
+
+           pt_only= (False) if True, evaluate the inverse transformation using the exact point transformation alone, skipping the generating-function mapping, which is the identity for a perfect point transformation (only allowed when use_pointtransform == "exact"); the mapping coefficients are still computed at setup as a diagnostic and a warning is issued if they are not small
 
         OUTPUT:
 
@@ -295,13 +298,24 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 self._pt_exact = True
                 self._exact_pt_spl_deg = exact_pt_spl_deg
                 self._exact_pt_tol = exact_pt_tol
+                self._pt_only = pt_only
             else:
+                if pt_only:
+                    raise ValueError(
+                        'pt_only=True is only supported for use_pointtransform="exact"'
+                    )
                 self._pt_exact = False
+                self._pt_only = False
                 self._exact_pt_spl_deg = None
             self._setup_pointtransform(pt_deg, pt_nra)
         else:
+            if pt_only:
+                raise ValueError(
+                    'pt_only=True is only supported for use_pointtransform="exact"'
+                )
             # Setup identity point transformation
             self._pt_exact = False
+            self._pt_only = False
             self._exact_pt_spl_deg = None
             self._pt_deg = 1
             self._pt_nra = pt_nra
@@ -424,6 +438,22 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._dSndJr /= numpy.atleast_2d(self._nforSn)[:, 1:]
         self._dSndLish /= numpy.atleast_2d(self._nforSn)[:, 1:]
         self._nforSn = self._nforSn[1:]
+        # When evaluating using the point transformation only, the computed
+        # mapping coefficients serve as a diagnostic of the accuracy of the
+        # point transformation: they should all be close to zero
+        if self._pt_exact and self._pt_only:
+            relnSn = numpy.nanmax(numpy.fabs(self._nSn)) / numpy.nanmax(
+                numpy.fabs(self._jr) + 1e-15
+            )
+            maxdSndJr = numpy.nanmax(numpy.fabs(self._dSndJr))
+            maxdSndLish = numpy.nanmax(numpy.fabs(self._dSndLish))
+            if relnSn > 1e-8 or maxdSndJr > 1e-8 or maxdSndLish > 1e-8:
+                warnings.warn(
+                    "Point transformation is not accurate enough for pt_only=True evaluation: the generating-function mapping that pt_only skips is not negligible (max |nSn|/max Jr = {:.2e}, max |dSndJr| = {:.2e}, max |dSndLish| = {:.2e}); decrease exact_pt_tol and/or increase pt_nra, or use pt_only=False".format(
+                        relnSn, maxdSndJr, maxdSndLish
+                    ),
+                    galpyWarning,
+                )
         # Setup interpolation if requested
         if setup_interp:
             self._interp = True
@@ -1638,105 +1668,118 @@ class actionAngleSphericalInverse(actionAngleInverse):
             tptrap = self._pt_rap[indx]
         else:
             pass
-        # First we need to solve for anglera
-        angler = numpy.atleast_1d(angler)
-        anglera = copy.copy(angler)
-        # Now iterate Newton's method
-        cntr = 0
-        unconv = numpy.ones(len(angler), dtype="bool")
-        tar = anglera + 2.0 * numpy.sum(
-            tdSndJr * numpy.sin(self._nforSn * numpy.atleast_2d(anglera).T), axis=1
-        )
-        dtar = (tar - angler + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-        unconv[unconv] = numpy.fabs(dtar) > self._angle_tol
-        # Don't allow too big steps
-        maxdar = 2.0 * numpy.pi / 101
-        while not self._bisect:
-            danglear = 1.0 + 2.0 * numpy.sum(
-                self._nforSn
-                * tdSndJr
-                * numpy.cos(self._nforSn * numpy.atleast_2d(anglera[unconv]).T),
-                axis=1,
-            )
-            dtar = (tar[unconv] - angler[unconv] + numpy.pi) % (
-                2.0 * numpy.pi
-            ) - numpy.pi
-            dar = -dtar / danglear
-            dar[numpy.fabs(dar) > maxdar] = (numpy.sign(dar) * maxdar)[
-                numpy.fabs(dar) > maxdar
-            ]
-            anglera[unconv] += dar
-            unconv[unconv] = numpy.fabs(dtar) > self._angle_tol
-            newtar = anglera[unconv] + 2.0 * numpy.sum(
-                tdSndJr * numpy.sin(self._nforSn * numpy.atleast_2d(anglera[unconv]).T),
-                axis=1,
-            )
-            tar[unconv] = newtar
-            cntr += 1
-            if numpy.sum(unconv) == 0:
-                break
-            if cntr > self._maxiter:
-                warnings.warn(
-                    "Radial angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)".format(
-                        self._maxiter
-                    ),
-                    galpyWarning,
-                )
-                break
-        # Fallback onto simple bisection in case of non-convergence
-        if self._bisect or cntr > self._maxiter:
-            # Reset cntr
+        if self._pt_exact and self._pt_only:
+            # For the exact point transformation, the generating-function
+            # mapping (J,theta) -> (JA,thetaA) is the identity, so we can
+            # skip solving for the auxiliary angles and action
+            angler = numpy.atleast_1d(angler)
+            anglera = copy.copy(angler)
+            jra = jr * numpy.ones_like(angler)
+            angleza = copy.copy(numpy.atleast_1d(anglez))
+            anglephia = copy.copy(numpy.atleast_1d(anglephi))
+        else:
+            # First we need to solve for anglera
+            angler = numpy.atleast_1d(angler)
+            anglera = copy.copy(angler)
+            # Now iterate Newton's method
             cntr = 0
-            tryar_min = numpy.zeros(numpy.sum(unconv))
-            dar = 2.0 * numpy.pi
-            while True:
-                dar *= 0.5
-                anglera[unconv] = tryar_min + dar
-                newtar = (
-                    anglera[unconv]
-                    + 2.0
-                    * numpy.sum(
-                        tdSndJr
-                        * numpy.sin(self._nforSn * numpy.atleast_2d(anglera[unconv]).T),
-                        axis=1,
-                    )
-                    + 2.0 * numpy.pi
-                ) % (2.0 * numpy.pi)
-                dtar = (newtar - angler[unconv] + numpy.pi) % (
+            unconv = numpy.ones(len(angler), dtype="bool")
+            tar = anglera + 2.0 * numpy.sum(
+                tdSndJr * numpy.sin(self._nforSn * numpy.atleast_2d(anglera).T), axis=1
+            )
+            dtar = (tar - angler + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            unconv[unconv] = numpy.fabs(dtar) > self._angle_tol
+            # Don't allow too big steps
+            maxdar = 2.0 * numpy.pi / 101
+            while not self._bisect:
+                danglear = 1.0 + 2.0 * numpy.sum(
+                    self._nforSn
+                    * tdSndJr
+                    * numpy.cos(self._nforSn * numpy.atleast_2d(anglera[unconv]).T),
+                    axis=1,
+                )
+                dtar = (tar[unconv] - angler[unconv] + numpy.pi) % (
                     2.0 * numpy.pi
                 ) - numpy.pi
-                tryar_min[newtar < angler[unconv]] = anglera[unconv][
-                    newtar < angler[unconv]
+                dar = -dtar / danglear
+                dar[numpy.fabs(dar) > maxdar] = (numpy.sign(dar) * maxdar)[
+                    numpy.fabs(dar) > maxdar
                 ]
+                anglera[unconv] += dar
                 unconv[unconv] = numpy.fabs(dtar) > self._angle_tol
-                tryar_min = tryar_min[numpy.fabs(dtar) > self._angle_tol]
+                newtar = anglera[unconv] + 2.0 * numpy.sum(
+                    tdSndJr
+                    * numpy.sin(self._nforSn * numpy.atleast_2d(anglera[unconv]).T),
+                    axis=1,
+                )
+                tar[unconv] = newtar
                 cntr += 1
                 if numpy.sum(unconv) == 0:
                     break
                 if cntr > self._maxiter:
                     warnings.warn(
-                        "Radial angle mapping with bisection did not converge in {} iterations".format(
+                        "Radial angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)".format(
                             self._maxiter
-                        )
-                        + " for radial angles:"
-                        + "".join(f" {k:g}" for k in sorted(set(angler[unconv]))),
+                        ),
                         galpyWarning,
                     )
                     break
-        # Then compute the auxiliary action
-        jra = jr + 2.0 * numpy.sum(
-            tnSn * numpy.cos(self._nforSn * numpy.atleast_2d(anglera).T), axis=1
-        )
-        angleza = (
-            anglez
-            + tOmegazoverOmegar * (anglera - angler)
-            - 2.0
-            * numpy.sum(
-                tdSndLish * numpy.sin(self._nforSn * numpy.atleast_2d(anglera).T),
-                axis=1,
+            # Fallback onto simple bisection in case of non-convergence
+            if self._bisect or cntr > self._maxiter:
+                # Reset cntr
+                cntr = 0
+                tryar_min = numpy.zeros(numpy.sum(unconv))
+                dar = 2.0 * numpy.pi
+                while True:
+                    dar *= 0.5
+                    anglera[unconv] = tryar_min + dar
+                    newtar = (
+                        anglera[unconv]
+                        + 2.0
+                        * numpy.sum(
+                            tdSndJr
+                            * numpy.sin(
+                                self._nforSn * numpy.atleast_2d(anglera[unconv]).T
+                            ),
+                            axis=1,
+                        )
+                        + 2.0 * numpy.pi
+                    ) % (2.0 * numpy.pi)
+                    dtar = (newtar - angler[unconv] + numpy.pi) % (
+                        2.0 * numpy.pi
+                    ) - numpy.pi
+                    tryar_min[newtar < angler[unconv]] = anglera[unconv][
+                        newtar < angler[unconv]
+                    ]
+                    unconv[unconv] = numpy.fabs(dtar) > self._angle_tol
+                    tryar_min = tryar_min[numpy.fabs(dtar) > self._angle_tol]
+                    cntr += 1
+                    if numpy.sum(unconv) == 0:
+                        break
+                    if cntr > self._maxiter:
+                        warnings.warn(
+                            "Radial angle mapping with bisection did not converge in {} iterations".format(
+                                self._maxiter
+                            )
+                            + " for radial angles:"
+                            + "".join(f" {k:g}" for k in sorted(set(angler[unconv]))),
+                            galpyWarning,
+                        )
+                        break
+            # Then compute the auxiliary action
+            jra = jr + 2.0 * numpy.sum(
+                tnSn * numpy.cos(self._nforSn * numpy.atleast_2d(anglera).T), axis=1
             )
-        )
-        anglephia = anglephi + numpy.sign(jphi) * (angleza - anglez)
+            angleza = (
+                anglez
+                + tOmegazoverOmegar * (anglera - angler)
+                - 2.0
+                * numpy.sum(
+                    tdSndLish * numpy.sin(self._nforSn * numpy.atleast_2d(anglera).T),
+                    axis=1,
+                )
+            )
+            anglephia = anglephi + numpy.sign(jphi) * (angleza - anglez)
         Ra, vRa, vTa, za, vza, phia = isoaainv(
             jra, jphi, jz, anglera, anglephia, angleza
         )
