@@ -13073,6 +13073,121 @@ def test_actionAngle_method_turnphysicaloff():
     return None
 
 
+def test_actionAngleSphericalInverse_units():
+    # Unit support of actionAngleSphericalInverse: Quantity inputs for the
+    # tori of the instance and for the actions and angles at which it is
+    # evaluated, and physical outputs
+    import warnings
+
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    ro, vo = 9.0, 230.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0, ro=ro, vo=vo)
+    E, L = 1.5, 1.0
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=lp,
+            nta=128,
+            Es=[E * (vo * units.km / units.s) ** 2.0],
+            Ls=[L * ro * vo * units.kpc * units.km / units.s],
+            ro=ro,
+            vo=vo,
+        )
+        # The same torus set up in internal units
+        aASI_int = actionAngleSphericalInverse(
+            pot=LogarithmicHaloPotential(normalize=1.0, q=1.0), nta=128, Es=[E], Ls=[L]
+        )
+    assert numpy.fabs(aASI._Es[0] - E) < 1e-10, (
+        "actionAngleSphericalInverse does not parse an energy given as a Quantity"
+    )
+    assert numpy.fabs(aASI._Ls[0] - L) < 1e-10, (
+        "actionAngleSphericalInverse does not parse an angular momentum given as a Quantity"
+    )
+    assert numpy.fabs(aASI._jr[0] - aASI_int._jr[0]) < 1e-10, (
+        "actionAngleSphericalInverse with a potential with ro and vo set does not give the same torus as one in internal units"
+    )
+
+    def _value(x, unit):
+        x = numpy.atleast_1d(x)[0]
+        return x.to(unit).value if isinstance(x, units.Quantity) else x
+
+    # Evaluation with Quantity actions and angles, compared to internal units
+    jr = aASI_int._jr[0]
+    Jq = ro * vo * units.kpc * units.km / units.s
+    out = aASI(jr * Jq, L * Jq, 0.0, 1.1 * units.rad, 0.5 * units.rad, 2.0 * units.rad)
+    out_int = aASI_int(jr, L, 0.0, 1.1, 0.5, 2.0)
+    for ii, (fac, unit) in enumerate(
+        [
+            (ro, units.kpc),
+            (vo, units.km / units.s),
+            (vo, units.km / units.s),
+            (ro, units.kpc),
+            (vo, units.km / units.s),
+            (1.0, units.rad),
+        ]
+    ):
+        assert (
+            numpy.fabs(_value(out[ii], unit) / fac - numpy.atleast_1d(out_int[ii])[0])
+            < 1e-10
+        ), (
+            "actionAngleSphericalInverse method __call__ does not return the physical version of the internal-unit coordinates"
+        )
+    # Frequencies are returned in 1/Gyr
+    freqfac = conversion.freq_in_Gyr(vo, ro)
+    out = aASI.Freqs(jr * Jq, L * Jq, 0.0)
+    out_int = aASI_int.Freqs(jr, L, 0.0)
+    for ii in range(3):
+        assert (
+            numpy.fabs(
+                _value(out[ii], 1.0 / units.Gyr) / freqfac
+                - numpy.atleast_1d(out_int[ii])[0]
+            )
+            < 1e-10
+        ), (
+            "actionAngleSphericalInverse method Freqs does not return the physical version of the internal-unit frequencies"
+        )
+    return None
+
+
+def test_actionAngleSphericalInverse_setup_grid_units():
+    # The radii that anchor the interpolation grid can be given as Quantities
+    import warnings
+
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.potential import LogarithmicHaloPotential
+
+    ro, vo = 8.0, 220.0
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0, ro=ro, vo=vo)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=lp,
+            nta=128,
+            setup_interp=True,
+            nE=11,
+            nL=11,
+            Rmin=2.4 * units.kpc,
+            Rmax=24.0 * units.kpc,
+            Rinf=160.0 * units.kpc,
+            use_pointtransform=False,
+            ro=ro,
+            vo=vo,
+        )
+    assert numpy.fabs(aASI._Rmin - 0.3) < 1e-10, (
+        "actionAngleSphericalInverse does not parse Rmin given as a Quantity"
+    )
+    assert numpy.fabs(aASI._Rmax - 3.0) < 1e-10, (
+        "actionAngleSphericalInverse does not parse Rmax given as a Quantity"
+    )
+    assert numpy.fabs(aASI._Rinf - 20.0) < 1e-10, (
+        "actionAngleSphericalInverse does not parse Rinf given as a Quantity"
+    )
+    return None
+
+
 def test_actionAngleHarmonic_setup_omega_units():
     from galpy.actionAngle import actionAngleHarmonic
     from galpy.util import conversion

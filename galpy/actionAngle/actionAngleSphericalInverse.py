@@ -26,7 +26,10 @@ from ..potential import (
     vcirc,
 )
 from ..potential.Potential import _evaluatePotentials
-from ..util import galpyWarning
+from ..util import conversion, galpyWarning
+
+if conversion._APY_LOADED:
+    from astropy import units
 from ..util import plot as galpy_plot
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleIsochrone import (
@@ -38,6 +41,19 @@ from .actionAngleIsochroneInverse import (
     actionAngleIsochroneInverse,
 )
 from .actionAngleSpherical import actionAngleSpherical
+
+
+def _parse_grid_quantity(x, parser, **kwargs):
+    """Convert a grid input to internal units: x can be a number, a sequence
+    or array of numbers, a Quantity, or a sequence of Quantities"""
+    if (
+        conversion._APY_LOADED
+        and isinstance(x, (list, tuple))
+        and len(x) > 0
+        and isinstance(x[0], units.Quantity)
+    ):
+        x = units.Quantity(list(x))
+    return numpy.atleast_1d(parser(numpy.atleast_1d(x), **kwargs))
 
 
 def _grid_pad_weights(pad, npts):
@@ -106,6 +122,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         maxiter=100,
         angle_tol=1e-12,
         bisect=False,
+        **kwargs,
     ):
         """
         NAME:
@@ -165,15 +182,17 @@ class actionAngleSphericalInverse(actionAngleInverse):
            2018-11-02 - Started efficient implementation for multiple (E,L), like actionAngleVerticalInverse - Bovy (UofT)
 
         """
-        # actionAngleInverse.__init__(self,*args,**kwargs)
+        actionAngleInverse.__init__(self, **kwargs)
         if pot is None:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleSphericalInverse")
         self._pot = pot
         self._aAS = actionAngleSpherical(pot=self._pot)
         # Determine gridding options
         if not setup_interp:
-            self._Es = numpy.atleast_1d(Es)
-            self._Ls = numpy.atleast_1d(Ls)
+            self._Es = _parse_grid_quantity(Es, conversion.parse_energy, vo=self._vo)
+            self._Ls = _parse_grid_quantity(
+                Ls, conversion.parse_angmom, ro=self._ro, vo=self._vo
+            )
             self._nE = len(self._Es)
             self._nL = len(self._Ls)
             if self._nE != self._nL:
@@ -182,20 +201,28 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._internal_Ls = copy.copy(self._Ls)
         else:
             # Make grid, flatten so we can treat it as regular 1D input
-            self._Rmax = Rmax
-            self._Rinf = Rinf
+            self._Rmax = conversion.parse_length(Rmax, ro=self._ro)
+            self._Rinf = conversion.parse_length(Rinf, ro=self._ro)
             self._nE = nE
             self._nL = nL
             # The grid covers the angular momenta of the circular orbits
             # between Rmin and Rmax
-            self._Rmin = self._Rmax / 10.0 if Rmin is None else Rmin
-            self._Lmin = self._Rmin * vcirc(self._pot, self._Rmin)
+            self._Rmin = (
+                self._Rmax / 10.0
+                if Rmin is None
+                else conversion.parse_length(Rmin, ro=self._ro)
+            )
+            self._Lmin = self._Rmin * vcirc(self._pot, self._Rmin, use_physical=False)
             self._Ls = numpy.linspace(
-                self._Lmin, self._Rmax * vcirc(self._pot, self._Rmax), self._nL
+                self._Lmin,
+                self._Rmax * vcirc(self._pot, self._Rmax, use_physical=False),
+                self._nL,
             )
             self._Lmax = self._Ls[-1]
             # Calculate ER(vr=0,R=RL)
-            self._RL = numpy.array([rl(self._pot, l) for l in self._Ls])
+            self._RL = numpy.array(
+                [rl(self._pot, l, use_physical=False) for l in self._Ls]
+            )
             self._ERRL = (
                 _evaluatePotentials(self._pot, self._RL, numpy.zeros(self._nL))
                 + self._Ls**2.0 / 2.0 / self._RL**2.0
@@ -224,9 +251,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
         rls = numpy.array(
             [
                 optimize.newton(
-                    lambda x: x * vcirc(self._pot, x) - L,
+                    lambda x: x * vcirc(self._pot, x, use_physical=False) - L,
                     1.0,
-                    lambda x: dvcircdR(self._pot, x) + x,
+                    lambda x: dvcircdR(self._pot, x, use_physical=False) + x,
                 )
                 for L in self._internal_Ls
             ]
@@ -235,7 +262,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
             2.0
             * (
                 self._internal_Es
-                - evaluatePotentials(self._pot, rls, numpy.zeros_like(rls))
+                - evaluatePotentials(
+                    self._pot, rls, numpy.zeros_like(rls), use_physical=False
+                )
             )
             - self._L2 / rls**2.0
         )
@@ -278,10 +307,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         if numpy.any(self._circIndx):
             self._Omegar[self._circIndx] = numpy.array(
-                [epifreq(self._pot, r) for r in rls[self._circIndx]]
+                [epifreq(self._pot, r, use_physical=False) for r in rls[self._circIndx]]
             )
             self._Omegaz[self._circIndx] = (
-                vcirc(self._pot, rls[self._circIndx]) / rls[self._circIndx]
+                vcirc(self._pot, rls[self._circIndx], use_physical=False)
+                / rls[self._circIndx]
             )
             self._rperi[self._circIndx] = rls[self._circIndx]
             self._rap[self._circIndx] = rls[self._circIndx]
@@ -500,7 +530,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         else:
             self._interp = False
         # Check the units
-        # self._check_consistent_units()
+        self._check_consistent_units()
         return None
 
     def _setup_pointtransform(self, pt_deg, pt_nra):
@@ -574,7 +604,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     2.0
                     * (
                         self._internal_Es[ii]
-                        - evaluatePotentials(self._pot, rmesh, numpy.zeros_like(rmesh))
+                        - evaluatePotentials(
+                            self._pot,
+                            rmesh,
+                            numpy.zeros_like(rmesh),
+                            use_physical=False,
+                        )
                     )
                     - self._L2[ii] / rmesh**2.0
                 )
@@ -699,12 +734,20 @@ class actionAngleSphericalInverse(actionAngleInverse):
             # where W(r) = vr^2(r) along the true torus
             Qperi = (
                 2.0
-                * (evaluateRforces(self._pot, rperi, numpy.zeros(ng)) + L2 / rperi**3.0)
+                * (
+                    evaluateRforces(
+                        self._pot, rperi, numpy.zeros(ng), use_physical=False
+                    )
+                    + L2 / rperi**3.0
+                )
                 * deltar
             )
             Qap = (
                 -2.0
-                * (evaluateRforces(self._pot, rap, numpy.zeros(ng)) + L2 / rap**3.0)
+                * (
+                    evaluateRforces(self._pot, rap, numpy.zeros(ng), use_physical=False)
+                    + L2 / rap**3.0
+                )
                 * deltar
             )
 
@@ -723,7 +766,13 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 # is regular at the turning points
                 G = numpy.sqrt(b**2.0 + ra**2.0) * numpy.sqrt((b + ca) / amp)
                 vr2 = (
-                    2.0 * (Es - evaluatePotentials(self._pot, r, numpy.zeros(ng)))
+                    2.0
+                    * (
+                        Es
+                        - evaluatePotentials(
+                            self._pot, r, numpy.zeros(ng), use_physical=False
+                        )
+                    )
                     - L2 / r**2.0
                 )
                 vr2[vr2 < 0.0] = 0.0
@@ -1602,7 +1651,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         Eorbit = (
             vr**2.0 / 2.0
             + L**2.0 / 2.0 / r**2.0
-            + evaluatePotentials(self._pot, r, numpy.zeros_like(r))
+            + evaluatePotentials(self._pot, r, numpy.zeros_like(r), use_physical=False)
         ) / E - 1.0
         ymin, ymax = numpy.amin(Eorbit), numpy.amax(Eorbit)
         galpy_plot.plot(
@@ -2282,7 +2331,10 @@ def _anglera(
         r = (rap - rperi) * polynomial.polyval(
             yanorm.T, ptcoeffs.T, tensor=False
         ).T + rperi
-    vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
+    vr2 = (
+        2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r), use_physical=False))
+        - L2 / r**2.0
+    )
     vr2[vr2 < 0.0] = 0.0
     if pt_exact:
         piprime = (
@@ -2374,13 +2426,22 @@ def _danglera(
             / (ptrap - ptrperi) ** 2.0
             * polynomial.polyval(yanorm.T, ptderiv2coeffs.T, tensor=False).T
         )
-    vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
+    vr2 = (
+        2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r), use_physical=False))
+        - L2 / r**2.0
+    )
     vr2[vr2 < 0.0] = 0.0
     dEadra = (
         -piprime2 * piprime**-3.0 * vr2
-        + (L2 * r**-3.0 + evaluateRforces(pot, r, numpy.zeros_like(r))) / piprime
+        + (
+            L2 * r**-3.0
+            + evaluateRforces(pot, r, numpy.zeros_like(r), use_physical=False)
+        )
+        / piprime
         - L2 * ra**-3.0
-        - evaluateRforces(isoaa_helper._ip, ra, numpy.zeros_like(ra))
+        - evaluateRforces(
+            isoaa_helper._ip, ra, numpy.zeros_like(ra), use_physical=False
+        )
     )
     return isoaa_helper.danglerdr_constant_L(
         ra, vr2 * piprime**-2.0, L, dEadra, vrneg=vrneg
@@ -2448,7 +2509,10 @@ def _jraora(
             / (ptrap - ptrperi)
             * polynomial.polyval(yanorm.T, ptderivcoeffs.T, tensor=False).T
         )
-    vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
+    vr2 = (
+        2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r), use_physical=False))
+        - L2 / r**2.0
+    )
     vr2[vr2 < 0.0] = 0.0
     Ea = 0.5 * (vr2 * piprime**-2.0 + L2 * ra**-2.0) + isoaa_helper._ip(
         ra, numpy.zeros_like(ra)
@@ -2531,16 +2595,25 @@ def _djradjrLish(
             / (ptrap - ptrperi) ** 2.0
             * polynomial.polyval(yanorm.T, ptderiv2coeffs.T, tensor=False).T
         )
-    vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
+    vr2 = (
+        2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r), use_physical=False))
+        - L2 / r**2.0
+    )
     vr2[vr2 < 0.0] = 0.0
     Ea = 0.5 * (vr2 * piprime**-2.0 + L2 * ra**-2.0) + isoaa_helper._ip(
         ra, numpy.zeros_like(ra)
     )
     dEadra = (
         -piprime2 * piprime**-3.0 * vr2
-        + (L2 * r**-3.0 + evaluateRforces(pot, r, numpy.zeros_like(r))) / piprime
+        + (
+            L2 * r**-3.0
+            + evaluateRforces(pot, r, numpy.zeros_like(r), use_physical=False)
+        )
+        / piprime
         - L2 * ra**-3.0
-        - evaluateRforces(isoaa_helper._ip, ra, numpy.zeros_like(ra))
+        - evaluateRforces(
+            isoaa_helper._ip, ra, numpy.zeros_like(ra), use_physical=False
+        )
     )
     pardEapardL = L * (ra**-2.0 - r**-2.0) * (1 - pt_exact)
     Ora = isoaa_helper.Or(Ea)
