@@ -8258,6 +8258,108 @@ def test_actionAngleSphericalInverse_wrtSpherical_bisect():
     return None
 
 
+# Test the remaining error paths, warning paths, and plotting options of
+# actionAngleSphericalInverse, for full coverage of the module
+def test_actionAngleSphericalInverse_errors_and_plotting_options():
+    from matplotlib import pyplot
+
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    # Es/Ls length mismatch
+    with pytest.raises(ValueError):
+        actionAngleSphericalInverse(pot=logpot, Es=[1.0, 2.0], Ls=[1.0])
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(pot=logpot, nta=128, Es=[E], Ls=[L])
+    # Evaluating and Freqs for a torus that is not in the instance
+    with pytest.raises(ValueError):
+        aASI(2.0 * aASI._jr[0] + 0.1, jphi[0], jz[0], ar[0], ap[0], az[0])
+    with pytest.raises(ValueError):
+        aASI.Freqs(2.0 * aASI._jr[0] + 0.1, jphi[0], jz[0])
+    # Plotting for a torus that is not in the instance
+    with pytest.raises(ValueError):
+        aASI.plot_convergence(E + 1.0, L + 1.0)
+    with pytest.raises(ValueError):
+        aASI.plot_power(E + 1.0, L + 1.0)
+    # Overplotting a second power spectrum (few-tori version)
+    gs = aASI.plot_power(E, L, return_gridspec=True)
+    aASI.plot_power(E, L, overplot=gs, ls="--")
+    pyplot.close("all")
+    with pytest.raises(ValueError):
+        aASI.plot_orbit(E + 1.0, L + 1.0)
+    # Plotting options not exercised elsewhere: explicit ranges, auxiliary
+    # isochrone tori, orbit-only, and the auxiliary-plane (point=False) view
+    aASI.plot_orbit(E, L, xrange=[0.0, 3.0], yrange=[-1.0, 1.0])
+    pyplot.close("all")
+    aASI.plot_orbit(E, L, include_isochrone_tori=True)
+    pyplot.close("all")
+    aASI.plot_orbit(E, L, orbit_only=True)
+    pyplot.close("all")
+    aASI.plot_orbit(E, L, point=False)
+    pyplot.close("all")
+    # Newton-Raphson non-convergence warning of the radial-angle solve (falls
+    # back onto bisection)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASIn = actionAngleSphericalInverse(
+            pot=logpot, nta=128, Es=[E], Ls=[L], maxiter=1
+        )
+    with pytest.warns(galpyWarning, match="Newton-Raphson did not converge"):
+        aASIn(aASIn._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+    return None
+
+
+# Test the multi-torus (colormapped) version of the power plot and its
+# restrictions
+def test_actionAngleSphericalInverse_plotting_manytori():
+    from matplotlib import pyplot
+
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    L = 1.1
+    Es = [0.7, 0.9, 1.1, 1.3]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(pot=logpot, nta=128, Es=Es, Ls=[L, L, L, L])
+    gs = aASI.plot_power(Es, [L, L, L, L], return_gridspec=True)
+    pyplot.close("all")
+    # overplotting with >= 4 energies is not supported
+    with pytest.raises(RuntimeError):
+        aASI.plot_power(Es, [L, L, L, L], overplot=gs)
+    pyplot.close("all")
+    return None
+
+
+# Test that plot_orbit also works for an interpolated instance
+def test_actionAngleSphericalInverse_interpolation_plot_orbit(
+    setup_actionAngleSphericalInverse_interpolated_exactpointtransform,
+):
+    from matplotlib import pyplot
+
+    aASI, logpot = setup_actionAngleSphericalInverse_interpolated_exactpointtransform
+    from galpy.orbit import Orbit
+
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    aASI.plot_orbit(E, L)
+    pyplot.close("all")
+    return None
+
+
 # Test that the bisection angle solve of actionAngleSphericalInverse warns
 # when it does not converge
 def test_actionAngleSphericalInverse_convergence_warnings():
@@ -8631,6 +8733,77 @@ def test_actionAngleSphericalInverse_orbit_interpolation(
     assert numpy.nanmax(numpy.fabs(Ei - E) / numpy.fabs(E)) < 1e-7, (
         "Energy is not conserved along the torus of the interpolated actionAngleSphericalInverse"
     )
+    return None
+
+
+# Test the isochrone helper's radial angle for negative radial velocities and
+# its reuse path, and check its analytic radius derivatives against finite
+# differences (the helper is used by actionAngleSphericalInverse to solve for
+# the radii of a regular grid in the auxiliary angle)
+def test_actionAngleIsochroneHelper_angler_and_derivatives():
+    from galpy.actionAngle.actionAngleIsochrone import _actionAngleIsochroneHelper
+    from galpy.potential import IsochronePotential
+
+    ip = IsochronePotential(amp=2.0, b=0.8)
+    helper = _actionAngleIsochroneHelper(ip=ip)
+    L = 0.9
+    E = -0.4
+    r = numpy.array([0.9, 1.3, 1.8])
+    vr2 = 2.0 * (E - ip(r, 0.0)) - L**2.0 / r**2.0
+    assert numpy.all(vr2 > 0.0), "Test setup does not have a radial velocity"
+    ar = helper.angler(r, vr2, L)
+    arneg = helper.angler(r, vr2, L, vrneg=True)
+    # The angle of the incoming branch is 2 pi minus that of the outgoing one
+    dsum = (ar + arneg + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    assert numpy.amax(numpy.fabs(dsum)) < 1e-10, (
+        "Radial angle of the isochrone helper for vr < 0 is not 2 pi minus that for vr > 0"
+    )
+    # d angler / d r at constant E and L, against finite differences
+    for vrneg in [False, True]:
+        dardr = helper.danglerdr_constant_L(r, vr2, L, numpy.zeros_like(r), vrneg=vrneg)
+        # The reuse path recomputes the angle from the stored quantities
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    helper.angler(r, vr2, L, reuse=True)
+                    - helper.angler(r, vr2, L, vrneg=vrneg)
+                )
+            )
+            < 1e-10
+        ), (
+            "Reuse path of the isochrone helper's angler does not agree with a direct computation"
+        )
+        dr = 1e-6
+        vr2p = 2.0 * (E - ip(r + dr, 0.0)) - L**2.0 / (r + dr) ** 2.0
+        vr2m = 2.0 * (E - ip(r - dr, 0.0)) - L**2.0 / (r - dr) ** 2.0
+        dardr_fd = (
+            helper.angler(r + dr, vr2p, L, vrneg=vrneg)
+            - helper.angler(r - dr, vr2m, L, vrneg=vrneg)
+        ) / (2.0 * dr)
+        assert numpy.amax(numpy.fabs(dardr / dardr_fd - 1.0)) < 1e-6, (
+            "Analytic d angler / d r of the isochrone helper does not agree with finite differences"
+        )
+    # dr/dE at constant angler, against finite differences: moving the energy
+    # and the radius together in this way has to keep the angle fixed
+    for vrneg in [False, True]:
+        drdE, drdL = helper.drdEL_constant_angler(
+            r, vr2, E, L, numpy.zeros_like(r), numpy.zeros_like(r), vrneg=vrneg
+        )
+        dE = 1e-6
+        for sgn in [1.0, -1.0]:
+            rp = r + sgn * dE * drdE
+            vr2p = 2.0 * (E + sgn * dE - ip(rp, 0.0)) - L**2.0 / rp**2.0
+            assert (
+                numpy.amax(
+                    numpy.fabs(
+                        helper.angler(rp, vr2p, L, vrneg=vrneg)
+                        - helper.angler(r, vr2, L, vrneg=vrneg)
+                    )
+                )
+                < 1e-9
+            ), (
+                "Analytic dr/dE at constant radial angle of the isochrone helper does not keep the angle constant"
+            )
     return None
 
 
