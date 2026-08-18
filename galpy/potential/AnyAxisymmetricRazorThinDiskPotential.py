@@ -403,7 +403,47 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             m1, aRz = self._bk_m1_aRz(a, R, z2, xp)
             return a * sdens(a) / xp.sqrt(aRz) * _bspecial.ellipkm1(m1)
 
-        return -4.0 * self._bk_split_quad(potint, R, xp, dev, z)
+        # NOT _bk_split_quad, unlike Rforce and zforce. Phi's peak at a=R is
+        # LOGARITHMIC (ellipkm1 ~ -ln(m1)/2), not the 1/((a-R)^2+z^2) pole those
+        # two carry, and _bk_split_quad switches its panel grading OFF at z == 0
+        # -- which leaves the log sitting on a plain panel edge, where GL
+        # converges only algebraically. Measured against scipy, at z = 0:
+        #
+        #     R        _bk_split_quad   transformed_quad
+        #     0.2      2.966e-05        4.425e-11
+        #     0.5      4.175e-05        6.072e-11
+        #     1.0      3.179e-05        4.541e-11
+        #
+        # (n=100 sharpens those to ~1e-12.) transformed_quad splits at a=R and
+        # clusters nodes into the boundary layer with X = xi^3, which resolves a
+        # log; for z > 0 it agrees with the ladder to the last digit at every z
+        # sampled (1e-8, 1e-4, 1e-2, 0.1, 1.0), so nothing regresses.
+        #
+        # It is NOT a drop-in for the other two: xi^3 clustering only reaches
+        # ~(1/n)^3 R ~ 5e-7 of the peak, so on zforce's pole it degrades to
+        # 1.1e-05 at z=1e-6 and 1.7e-02 at z=1e-8, where the geometric ladder --
+        # which marches panel edges to dmin = 4|z| exactly -- holds 8e-13 and
+        # 3.8e-10. Different singularity, different rule.
+        Rp = xp.where(xp.isfinite(R) & (R > 0), R, xp.ones_like(R))
+        inner = _bquad.transformed_quad(
+            xp,
+            potint,
+            xp.zeros_like(Rp),
+            2.0 * Rp,
+            n=_GLORDER,
+            interior_point=Rp,
+            device=dev,
+        )
+        out = xp.where(R > 0, inner, xp.zeros_like(inner)) + (
+            _bquad.fixed_quad_semiinfinite(
+                xp,
+                potint,
+                2.0 * xp.where(xp.isfinite(R), R, xp.ones_like(R)),
+                n=_GLORDER,
+                device=dev,
+            )
+        )
+        return -4.0 * xp.where(xp.isfinite(R), out, xp.zeros_like(out))
 
     # ------------------------------- Rforce --------------------------------
     @check_potential_inputs_not_arrays
