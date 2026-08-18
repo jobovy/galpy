@@ -341,8 +341,6 @@ jax-jit tests/test_potential.py::test_forceAsDeriv_potential[AnyAxisymmetricRazo
 # torch-jit defects found by the 2026-08-09 torch sweep.
 # AnyAxisym traced GL forces ~1e-6; reproduces on jax too
 torch-jit tests/test_potential.py::test_forceAsDeriv_potential[AnyAxisymmetricRazorThinDiskPotential]
-# same AnyAxisym root cause seen through an orbit (e=5.4e-6 vs 1e-8)
-torch-jit tests/test_orbit.py::test_eccentricity
 # torch-jit: the RotateAndTilt wrapper rejects the quadrature's node array, so
 # these FAIL fast (35.6 s for all four) -- they are defects, not slow tests. The
 # 2026-08-09 sweep measured them at 300-400 s because its worktree carried the
