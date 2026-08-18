@@ -33,12 +33,6 @@ from .actionAngleIsochrone import _actionAngleIsochroneHelper, actionAngleIsochr
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 from .actionAngleSpherical import actionAngleSpherical
 
-_APY_LOADED = True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED = False
-
 
 def _grid_pad_weights(pad, npts):
     """Lagrange weights that extrapolate a function sampled at
@@ -343,6 +337,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
             / (2.0 * self._Omegaz - self._Omegar) ** 2.0
         )
         if numpy.any(ampb < 0.0):
+            # Realistic spherical potentials have Omegar/2 < Omegaz < Omegar
+            # strictly, with equality only in the Kepler and harmonic limits
             raise NotImplementedError(
                 "actionAngleSphericalInverse not implemented for the case where Omegaz > Omegar or Omegaz < Omegar/2"
             )
@@ -1201,7 +1197,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             shift_action = self._pt_deg > 1
         # First find the torus for this energy and angular momentum
         indx = numpy.nanargmin(
-            numpy.fabs(E - self._internal_Es) * numpy.fabs(L - self._internal_Ls)
+            numpy.fabs(E - self._internal_Es) + numpy.fabs(L - self._internal_Ls)
         )
         if (
             numpy.fabs(E - self._Es[indx]) > 1e-10
@@ -1407,7 +1403,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 gs = overplot  # confusingly, we overload the meaning of overplot
         else:
             if not overplot:
-                outer = gridspec.GridSpec(1, 3, width_ratios=[2.0, 0.05], wspace=0.05)
+                outer = gridspec.GridSpec(1, 2, width_ratios=[2.0, 0.05], wspace=0.05)
                 gs = gridspec.GridSpecFromSubplotSpec(
                     1, 3, subplot_spec=outer[0], wspace=0.35
                 )
@@ -1418,7 +1414,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         for ii, (E, L) in enumerate(zip(Es, Ls)):
             # First find the torus for this energy and angular momentum
             indx = numpy.nanargmin(
-                numpy.fabs(E - self._internal_Es) * numpy.fabs(L - self._internal_Ls)
+                numpy.fabs(E - self._internal_Es) + numpy.fabs(L - self._internal_Ls)
             )
             if (
                 numpy.fabs(E - self._Es[indx]) > 1e-10
@@ -1569,7 +1565,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         if not self._interp:
             # First find the torus for this energy and angular momentum
             indx = numpy.nanargmin(
-                numpy.fabs(E - self._internal_Es) * numpy.fabs(L - self._internal_Ls)
+                numpy.fabs(E - self._internal_Es) + numpy.fabs(L - self._internal_Ls)
             )
             if (
                 numpy.fabs(E - self._Es[indx]) > 1e-10
@@ -1580,7 +1576,17 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 )
             tJr = self._jr[indx]
         else:
-            tJr = self.Jr(E)
+            # Look up the torus by (E,L): invert the interpolated E(iL,ix)
+            # for ix at fixed L, like the Jr inversion in _gridcoords
+            iL = float((L - self._Lmin) / (self._Lmax - self._Lmin) * (self._nL - 1.0))
+            ix = 0.5 * (self._nE - 1.0)
+            for _ in range(100):
+                dEdix = _evs(self._EInterp, iL, ix, dy=1)
+                dix = -(_evs(self._EInterp, iL, ix) - E) / dEdix
+                ix = float(numpy.clip(ix + dix, 0.0, self._nE - 1.0))
+                if numpy.fabs(dix) < 1e-12:
+                    break
+            tJr = _evs(self._jrInterp, iL, ix)
         r, vr, _, _, _, _ = self(
             tJr, L, 0.0, tar, numpy.zeros_like(tar), numpy.zeros_like(tar), point=point
         )
