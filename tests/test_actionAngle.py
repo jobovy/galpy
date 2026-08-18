@@ -8088,6 +8088,228 @@ def test_nullpotential_error():
     return None
 
 
+# ----- Tests of actionAngleSphericalInverse -----
+
+
+# Test that actionAngleSphericalInverse is the inverse of actionAngleSpherical
+def test_actionAngleSphericalInverse_wrtSpherical():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    # Check a few orbits: near-circular, eccentric, very eccentric
+    for vxvv in [
+        [1.0, 0.1, 1.1, 0.1, 0.2, 0.0],
+        [1.0, 0.4, 1.0, 0.2, 0.3, 0.0],
+        [1.0, 0.7, 0.7, 0.3, 0.4, 2.0],
+    ]:
+        o = Orbit(vxvv)
+        E = o.E(pot=logpot)
+        L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+        jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+            o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+        )
+        aASI = actionAngleSphericalInverse(pot=logpot, nta=8 * 128, Es=[E], Ls=[L])
+        R, vR, vT, z, vz, phi = numpy.array(
+            aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+        ).flatten()
+        dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        assert (
+            numpy.amax(
+                numpy.fabs(
+                    numpy.array(
+                        [
+                            R - o.R(),
+                            vR - o.vR(),
+                            vT - o.vT(),
+                            z - o.z(),
+                            vz - o.vz(),
+                            dphi,
+                        ]
+                    )
+                )
+            )
+            < 1e-8
+        ), (
+            "actionAngleSphericalInverse is not the inverse of actionAngleSpherical for an example orbit"
+        )
+    return None
+
+
+def test_actionAngleSphericalInverse_freqs_wrtSpherical():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, Or, Op, Oz, _, _, _ = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    aASI = actionAngleSphericalInverse(pot=logpot, nta=8 * 128, Es=[E], Ls=[L])
+    OmR, Omp, Omz = aASI.Freqs(aASI._jr[0], jphi[0], jz[0])
+    assert numpy.fabs((OmR - Or[0]) / Or[0]) < 1e-8, (
+        "Radial frequency computed using actionAngleSphericalInverse does not agree with that computed by actionAngleSpherical"
+    )
+    assert numpy.fabs((Omp - Op[0]) / Op[0]) < 1e-8, (
+        "Azimuthal frequency computed using actionAngleSphericalInverse does not agree with that computed by actionAngleSpherical"
+    )
+    assert numpy.fabs((Omz - Oz[0]) / Oz[0]) < 1e-8, (
+        "Vertical frequency computed using actionAngleSphericalInverse does not agree with that computed by actionAngleSpherical"
+    )
+    return None
+
+
+# Test that the torus mapped by actionAngleSphericalInverse conserves energy
+# and that traversing it at the frequency rate agrees with orbit integration
+def test_actionAngleSphericalInverse_orbit():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, evaluatePotentials
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    aASI = actionAngleSphericalInverse(pot=logpot, nta=8 * 128, Es=[E], Ls=[L])
+    # Energy conservation along the torus
+    na = 101
+    angler = numpy.linspace(0.0, 2.0 * numpy.pi, na)
+    anglephi = numpy.zeros(na)
+    anglez = numpy.linspace(0.0, 2.0 * numpy.pi, na)
+    R, vR, vT, z, vz, phi = aASI(aASI._jr[0], jphi[0], jz[0], angler, anglephi, anglez)
+    Etorus = (vR**2.0 + vT**2.0 + vz**2.0) / 2.0 + evaluatePotentials(logpot, R, z)
+    assert numpy.nanmax(numpy.fabs(Etorus - E) / numpy.fabs(E)) < 1e-12, (
+        "Energy is not conserved along the actionAngleSphericalInverse torus for the LogarithmicHaloPotential"
+    )
+    # Now traverse the orbit at the frequency rate and check against orbit integration
+    OmR, Omp, Omz = aASI.Freqs(aASI._jr[0], jphi[0], jz[0])
+    ts = numpy.linspace(0.0, 2.0 * numpy.pi / OmR, 334)
+    R, vR, vT, z, vz, phi = aASI(
+        aASI._jr[0],
+        jphi[0],
+        jz[0],
+        ar[0] + OmR * ts,
+        ap[0] + Omp * ts,
+        az[0] + Omz * ts,
+    )
+    orb = Orbit([R[0], vR[0], vT[0], z[0], vz[0], phi[0]])
+    orb.integrate(ts, logpot)
+    dphi = (phi - orb.phi(ts) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    for derr, name in zip(
+        [
+            R - orb.R(ts),
+            vR - orb.vR(ts),
+            vT - orb.vT(ts),
+            z - orb.z(ts),
+            vz - orb.vz(ts),
+            dphi,
+        ],
+        ["R", "vR", "vT", "z", "vz", "phi"],
+    ):
+        assert numpy.amax(numpy.fabs(derr)) < 1e-7, (
+            f"{name} does not agree with that of the integrated orbit along the torus of the LogarithmicHaloPotential"
+        )
+    return None
+
+
+# Test that for an isochrone potential, the torus mapping is essentially exact:
+# the auxiliary potential equals the target potential, all mapping coefficients
+# vanish, and the round trip is exact to machine precision
+def test_actionAngleSphericalInverse_wrtIsochrone():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+
+    ip = IsochronePotential(normalize=1.0, b=1.2)
+    aAI = actionAngleIsochrone(ip=ip)
+    o = Orbit([1.0, 0.3, 1.1, 0.2, 0.25, 1.0])
+    E = o.E(pot=ip)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAI.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    aASI = actionAngleSphericalInverse(pot=ip, nta=8 * 128, Es=[E], Ls=[L])
+    assert numpy.nanmax(numpy.fabs(aASI._nSn)) < 1e-10, (
+        "Mapping coefficients are not all zero when mapping the tori of an isochrone potential"
+    )
+    assert numpy.fabs(aASI._jr[0] - jr[0]) < 1e-12, (
+        "Radial action of the mapped torus does not agree with the isochrone radial action"
+    )
+    R, vR, vT, z, vz, phi = numpy.array(
+        aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+    ).flatten()
+    dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(
+                    [R - o.R(), vR - o.vR(), vT - o.vT(), z - o.z(), vz - o.vz(), dphi]
+                )
+            )
+        )
+        < 1e-12
+    ), "actionAngleSphericalInverse round trip is not exact for an isochrone potential"
+    return None
+
+
+# Test the current state of the exact point transformation for the spherical
+# inverse: the mapping coefficients become small, but the accuracy of the
+# mapped torus is currently limited to ~1e-4 by the grid construction and the
+# Delta-psi integration; these loose tolerances document that baseline and
+# will be tightened when the grid construction and point-transformation
+# storage/evaluation are reworked (see the fast-orbits PR plan, PRs 2b/2c)
+def test_actionAngleSphericalInverse_exactpointtransform_baseline():
+    from galpy.actionAngle import actionAngleSpherical, actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    logpot = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    aAS = actionAngleSpherical(pot=logpot)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = o.E(pot=logpot)
+    L = numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0))
+    jr, jphi, jz, _, _, _, ar, ap, az = aAS.actionsFreqsAngles(
+        o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()
+    )
+    with warnings.catch_warnings():
+        # The grid construction currently does not always converge for the
+        # exact point transformation
+        warnings.simplefilter("ignore")
+        aASI = actionAngleSphericalInverse(
+            pot=logpot, nta=8 * 128, Es=[E], Ls=[L], use_pointtransform="exact"
+        )
+    assert numpy.nanmax(numpy.fabs(aASI._nSn)) < 1e-6, (
+        "Mapping coefficients are not small when using the exact point transformation"
+    )
+    R, vR, vT, z, vz, phi = numpy.array(
+        aASI(aASI._jr[0], jphi[0], jz[0], ar[0], ap[0], az[0])
+    ).flatten()
+    dphi = (phi - o.phi() + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+    assert (
+        numpy.amax(
+            numpy.fabs(
+                numpy.array(
+                    [R - o.R(), vR - o.vR(), vT - o.vT(), z - o.z(), vz - o.vz(), dphi]
+                )
+            )
+        )
+        < 1e-3
+    ), (
+        "actionAngleSphericalInverse with the exact point transformation does not roughly recover an example orbit"
+    )
+    return None
+
+
 def check_actionAngleIsochroneInverse_wrtIsochrone(
     pot, aAI, aAII, obs, tol, ntimes=1001
 ):

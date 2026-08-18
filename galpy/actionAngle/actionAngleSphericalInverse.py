@@ -471,16 +471,20 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     self._pt_deriv2_coeffs[ii][1:] = numpy.array(
                         [
                             integrate.quad(
-                                lambda rax: piprime(rax)
-                                * numpy.sqrt(self._L2[ii])
-                                * (1 / pi(rax) ** 2.0 - 1 / rax**2.0)
-                                / numpy.sqrt(
-                                    2.0
-                                    * (
-                                        self._internal_Es[ii]
-                                        - evaluatePotentials(self._pot, pi(rax), 0.0)
+                                lambda rax: (
+                                    piprime(rax)
+                                    * numpy.sqrt(self._L2[ii])
+                                    * (1 / pi(rax) ** 2.0 - 1 / rax**2.0)
+                                    / numpy.sqrt(
+                                        2.0
+                                        * (
+                                            self._internal_Es[ii]
+                                            - evaluatePotentials(
+                                                self._pot, pi(rax), 0.0
+                                            )
+                                        )
+                                        - self._L2[ii] / pi(rax) ** 2.0
                                     )
-                                    - self._L2[ii] / pi(rax) ** 2.0
                                 ),
                                 self._pt_rperi[ii],
                                 sol.t[jj],
@@ -508,31 +512,35 @@ class actionAngleSphericalInverse(actionAngleInverse):
                         initial=0.0,
                     )
                     offset = integrate.quad(
-                        lambda rax: piprime(rax)
-                        * numpy.sqrt(self._L2[ii])
-                        * (1 / pi(rax) ** 2.0 - 1 / rax**2.0)
-                        / numpy.sqrt(
-                            2.0
-                            * (
-                                self._internal_Es[ii]
-                                - evaluatePotentials(self._pot, pi(rax), 0.0)
+                        lambda rax: (
+                            piprime(rax)
+                            * numpy.sqrt(self._L2[ii])
+                            * (1 / pi(rax) ** 2.0 - 1 / rax**2.0)
+                            / numpy.sqrt(
+                                2.0
+                                * (
+                                    self._internal_Es[ii]
+                                    - evaluatePotentials(self._pot, pi(rax), 0.0)
+                                )
+                                - self._L2[ii] / pi(rax) ** 2.0
                             )
-                            - self._L2[ii] / pi(rax) ** 2.0
                         ),
                         self._pt_rperi[ii],
                         sol.t[1],
                     )[0]
                     final = integrate.quad(
-                        lambda rax: piprime(rax)
-                        * numpy.sqrt(self._L2[ii])
-                        * (1 / pi(rax) ** 2.0 - 1 / rax**2.0)
-                        / numpy.sqrt(
-                            2.0
-                            * (
-                                self._internal_Es[ii]
-                                - evaluatePotentials(self._pot, pi(rax), 0.0)
+                        lambda rax: (
+                            piprime(rax)
+                            * numpy.sqrt(self._L2[ii])
+                            * (1 / pi(rax) ** 2.0 - 1 / rax**2.0)
+                            / numpy.sqrt(
+                                2.0
+                                * (
+                                    self._internal_Es[ii]
+                                    - evaluatePotentials(self._pot, pi(rax), 0.0)
+                                )
+                                - self._L2[ii] / pi(rax) ** 2.0
                             )
-                            - self._L2[ii] / pi(rax) ** 2.0
                         ),
                         self._pt_rperi[ii],
                         sol.t[-1],

@@ -9,6 +9,7 @@ from . import (
     actionAngleIsochroneApprox,
     actionAngleIsochroneInverse,
     actionAngleSpherical,
+    actionAngleSphericalInverse,
     actionAngleStaeckel,
     actionAngleStaeckelGrid,
     actionAngleTorus,
@@ -45,4 +46,5 @@ actionAngleIsochroneInverse = actionAngleIsochroneInverse.actionAngleIsochroneIn
 actionAngleHarmonic = actionAngleHarmonic.actionAngleHarmonic
 actionAngleHarmonicInverse = actionAngleHarmonicInverse.actionAngleHarmonicInverse
 actionAngleVertical = actionAngleVertical.actionAngleVertical
+actionAngleSphericalInverse = actionAngleSphericalInverse.actionAngleSphericalInverse
 actionAngleVerticalInverse = actionAngleVerticalInverse.actionAngleVerticalInverse
