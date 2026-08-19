@@ -703,6 +703,26 @@ class basestreamspraydf(df):
         u_samples = grandom.uniform(key, (n,))
         return -self._stripping_inv_cdf(as_numpy(u_samples))
 
+    def _theta_probe_point(self):
+        """Concrete ``((R, z), phi, v)`` at which to probe the potential for a backend
+        parameter.
+
+        The progenitor's own present-day phase-space point, which is guaranteed to be
+        somewhere the potential can be evaluated. A TRACED progenitor IC has no
+        concrete coordinates, so fall back to a fixed unit-circular point; that case
+        routes in-backend anyway (``ic_concrete`` below), so the probe's answer there
+        only has to be well-defined, not particular.
+        """
+        p = self._progenitor
+        try:
+            return (
+                (float(p.R(0.0)), float(p.z(0.0))),
+                float(p.phi(0.0)),
+                numpy.array([float(p.vR(0.0)), float(p.vT(0.0)), float(p.vz(0.0))]),
+            )
+        except Exception:  # noqa: BLE001 -- traced IC has no concrete coordinates
+            return (1.0, 0.0), 0.0, numpy.array([0.0, 1.0, 0.0])
+
     def _integrate_progenitor(self):
         """Integrate the progenitor over ``[0, -tdisrupt]``, choosing the integrator
         by whether the sampling must run on a backend (jax/torch) for differentiable
@@ -719,25 +739,22 @@ class basestreamspraydf(df):
         """
         prog_ic = getattr(self._orig_progenitor, "_ic_backend", None)
         ic_backend = is_backend_array(prog_ic)
-        theta_backend = False
-        xp = None
-        if ic_backend:
-            xp = get_namespace(prog_ic)
-        else:
-            _pp = self._progenitor
-            with use("numpy", force=True):
-                _tf = evaluateRforces(
-                    self._pot,
-                    float(_pp.R(0.0)),
-                    float(_pp.z(0.0)),
-                    phi=float(_pp.phi(0.0)),
-                    v=numpy.array(
-                        [float(_pp.vR(0.0)), float(_pp.vT(0.0)), float(_pp.vz(0.0))]
-                    ),
-                )
-            theta_backend = is_backend_array(_tf)
-            if theta_backend:
-                xp = get_namespace(_tf)
+        xp = get_namespace(prog_ic) if ic_backend else None
+        # Probe for a backend potential PARAMETER (theta) ALWAYS -- not only when the
+        # IC is numpy. The C-STM carries d/d(IC) but NOT d/d(theta), so a
+        # differentiable potential parameter must reach the in-backend ODE. When the
+        # IC was a backend array this probe used to be skipped entirely, leaving
+        # theta_backend False; the dispatch below then chose dop853_c and jax.grad
+        # w.r.t. a potential parameter died in the C parser (as_numpy on the traced
+        # parameter -> TracerArrayConversionError). The probe needs CONCRETE
+        # coordinates; a traced IC has none, but that case already routes in-backend
+        # via ic_concrete below, so a fixed fallback probe point is safe there.
+        _pargs, _pphi, _pv = self._theta_probe_point()
+        with use("numpy", force=True):
+            _tf = evaluateRforces(self._pot, *_pargs, phi=_pphi, v=_pv)
+        theta_backend = is_backend_array(_tf)
+        if theta_backend and xp is None:
+            xp = get_namespace(_tf)
         # A backend progenitor MASS (a differentiable M or M(t)) traces the sampled
         # orbits -- via the tidal radius rtide -- but NOT the mass-independent
         # progenitor curve, so it is its own backend-sampling trigger.
