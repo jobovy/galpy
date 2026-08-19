@@ -7915,6 +7915,206 @@ def test_actionAngleVerticalInverse_notE_errors():
     return None
 
 
+# ---------------- actionAngleStaeckelInverse tests ----------------
+def _kk_torus_labels(kkp, delta, ic):
+    """(E, Lz, I3) of an orbit IC in a Staeckel potential, computed
+    independently of actionAngleStaeckelInverse's internals"""
+    from galpy.orbit import Orbit
+    from galpy.potential import evaluatePotentials
+
+    o = Orbit(ic)
+    E = float(o.E(pot=kkp))
+    Lz = float(o.R() * o.vT())
+    R, z, vR, vz = float(o.R()), float(o.z()), float(o.vR()), float(o.vz())
+    d1 = numpy.sqrt(R**2.0 + (z + delta) ** 2.0)
+    d2 = numpy.sqrt(R**2.0 + (z - delta) ** 2.0)
+    u = numpy.arccosh((d1 + d2) / 2.0 / delta)
+    v = numpy.arccos((d1 - d2) / 2.0 / delta)
+    pu = delta * (vR * numpy.cosh(u) * numpy.sin(v) + vz * numpy.sinh(u) * numpy.cos(v))
+    Uu = evaluatePotentials(kkp, delta * numpy.sinh(u), 0.0) * (
+        numpy.sinh(u) ** 2.0 + 1.0
+    )
+    I3 = (
+        E * numpy.sinh(u) ** 2.0
+        - Uu
+        - (pu**2.0 + Lz**2.0 / numpy.sinh(u) ** 2.0) / 2.0 / delta**2.0
+    )
+    return E, Lz, float(I3)
+
+
+def test_actionAngleStaeckelInverse_actionsFreqs_vs_forward():
+    # Actions and frequencies of the inverse setup agree with the forward
+    # actionAngleStaeckel code run at high quadrature order
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    delta = 1.3
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
+    ic = [1.1, 0.3, 0.9, 0.25, 0.2, 0.0]
+    E, Lz, I3 = _kk_torus_labels(kkp, delta, ic)
+    aASI = actionAngleStaeckelInverse(pot=kkp, delta=delta, Es=[E], Lzs=[Lz], I3s=[I3])
+    aAS = actionAngleStaeckel(pot=kkp, delta=delta, c=True, order=200)
+    jr, _, jz = (float(numpy.asarray(x).ravel()[0]) for x in aAS(*ic))
+    assert numpy.fabs(aASI._jr[0] - jr) < 1e-6, (
+        "actionAngleStaeckelInverse J_R does not agree with the forward actionAngleStaeckel"
+    )
+    assert numpy.fabs(aASI._jz[0] - jz) < 1e-6, (
+        "actionAngleStaeckelInverse J_z does not agree with the forward actionAngleStaeckel"
+    )
+    out = aAS.actionsFreqs(*ic)
+    OmR, Omphi, Omz = (float(numpy.asarray(out[i]).ravel()[0]) for i in (3, 4, 5))
+    OmiR, Omiphi, Omiz = aASI.Freqs(aASI._jr[0], Lz, aASI._jz[0])
+    assert numpy.fabs(OmiR - OmR) < 1e-8, (
+        "actionAngleStaeckelInverse Omega_R does not agree with the forward code"
+    )
+    assert numpy.fabs(Omiz - Omz) < 1e-8, (
+        "actionAngleStaeckelInverse Omega_z does not agree with the forward code"
+    )
+    assert numpy.fabs(Omiphi - Omphi) < 1e-8, (
+        "actionAngleStaeckelInverse Omega_phi does not agree with the forward code"
+    )
+    return None
+
+
+def test_actionAngleStaeckelInverse_orbit():
+    # Evaluating the torus along theta(t) = theta0 + Omega t reproduces the
+    # integrated orbit over many periods and both branches, and the
+    # Hamiltonian is constant along the reconstructed torus at machine
+    # precision
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminKutuzovStaeckelPotential, evaluatePotentials
+
+    delta = 1.3
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
+    for ic, postol in (
+        ([1.1, 0.3, 0.9, 0.25, 0.2, 0.0], 1e-6),  # benign
+        ([1.1, 0.9, 0.35, 0.15, 0.1, 0.0], 1e-6),  # eccentric
+        ([1.1, 0.001, 0.9418239, 0.15, 0.25, 0.0], 1e-6),  # near-shell J_R->0
+        ([1.1, 0.4, 0.9, 0.002, 0.002, 0.0], 1e-5),  # near-planar J_z->0
+    ):
+        E, Lz, I3 = _kk_torus_labels(kkp, delta, ic)
+        aASI = actionAngleStaeckelInverse(
+            pot=kkp, delta=delta, Es=[E], Lzs=[Lz], I3s=[I3]
+        )
+        jr, jz = aASI._jr[0], aASI._jz[0]
+        o = Orbit(ic)
+        ts = numpy.linspace(0.0, 60.0, 501)
+        o.integrate(ts, kkp, method="dop853_c")
+        th0 = aASI._point_to_angles(
+            numpy.array([ic[0]]),
+            numpy.array([ic[1]]),
+            numpy.array([ic[2]]),
+            numpy.array([ic[3]]),
+            numpy.array([ic[4]]),
+            numpy.array([ic[5]]),
+            0,
+        )
+        OmR, Omphi, Omz = aASI.Freqs(jr, Lz, jz)
+        R, vR, vT, z, vz, phi = aASI(
+            jr,
+            Lz,
+            jz,
+            th0[0] + OmR * ts,
+            th0[1] + Omphi * ts,
+            th0[2] + Omz * ts,
+        )
+        assert numpy.amax(numpy.fabs(R - o.R(ts))) < postol, (
+            "actionAngleStaeckelInverse orbit traversal does not agree with "
+            "direct orbit integration in R"
+        )
+        assert numpy.amax(numpy.fabs(z - o.z(ts))) < postol, (
+            "actionAngleStaeckelInverse orbit traversal does not agree with "
+            "direct orbit integration in z"
+        )
+        dphi = numpy.fabs((phi - o.phi(ts) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        assert numpy.amax(dphi) < postol, (
+            "actionAngleStaeckelInverse orbit traversal does not agree with "
+            "direct orbit integration in phi"
+        )
+        # Hamiltonian constancy along the reconstructed torus
+        H = 0.5 * (vR**2.0 + vz**2.0 + vT**2.0) + evaluatePotentials(kkp, R, z)
+        assert numpy.amax(numpy.fabs(H - E)) / numpy.fabs(E) < 1e-13, (
+            "Hamiltonian is not constant at machine precision along the "
+            "reconstructed actionAngleStaeckelInverse torus"
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_xvFreqs_consistency():
+    # xvFreqs returns the same (x,v) as __call__ plus the frequencies
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    delta = 1.3
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
+    ic = [1.1, 0.3, 0.9, 0.25, 0.2, 0.0]
+    E, Lz, I3 = _kk_torus_labels(kkp, delta, ic)
+    aASI = actionAngleStaeckelInverse(pot=kkp, delta=delta, Es=[E], Lzs=[Lz], I3s=[I3])
+    jr, jz = aASI._jr[0], aASI._jz[0]
+    ang = (numpy.array([0.1, 2.0]), numpy.array([0.3, 1.0]), numpy.array([0.2, 4.0]))
+    out1 = aASI(jr, Lz, jz, *ang)
+    out2 = aASI.xvFreqs(jr, Lz, jz, *ang)
+    for o1, o2 in zip(out1, out2[:6]):
+        assert numpy.all(numpy.fabs(numpy.array(o1) - numpy.array(o2)) < 1e-14), (
+            "actionAngleStaeckelInverse xvFreqs phase-space output does not "
+            "agree with __call__"
+        )
+    assert numpy.all(
+        numpy.fabs(numpy.array(out2[6:]) - numpy.array(aASI.Freqs(jr, Lz, jz))) < 1e-14
+    ), "actionAngleStaeckelInverse xvFreqs frequencies do not agree with Freqs"
+    return None
+
+
+def test_actionAngleStaeckelInverse_wrongactions_error():
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    delta = 1.3
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
+    ic = [1.1, 0.3, 0.9, 0.25, 0.2, 0.0]
+    E, Lz, I3 = _kk_torus_labels(kkp, delta, ic)
+    aASI = actionAngleStaeckelInverse(pot=kkp, delta=delta, Es=[E], Lzs=[Lz], I3s=[I3])
+    with pytest.raises(ValueError) as excinfo:
+        aASI(0.2, 0.5, 0.1, 0.0, 0.0, 0.0)
+        pytest.fail(
+            "Evaluating actionAngleStaeckelInverse with actions not set up "
+            "should have raised a ValueError, but did not"
+        )
+    with pytest.raises(ValueError) as excinfo:
+        aASI.Freqs(0.2, 0.5, 0.1)
+        pytest.fail(
+            "Freqs with actions not set up should have raised a ValueError, but did not"
+        )
+    return None
+
+
+def test_actionAngleStaeckelInverse_notorus_errors():
+    # Unbound / invalid torus labels raise errors
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    delta = 1.3
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleStaeckelInverse(
+            pot=kkp, delta=delta, Es=[10.0], Lzs=[0.99], I3s=[1.9]
+        )
+        pytest.fail(
+            "Setting up an unbound actionAngleStaeckelInverse torus should "
+            "have raised a ValueError, but did not"
+        )
+    with pytest.raises(ValueError) as excinfo:
+        actionAngleStaeckelInverse(
+            pot=kkp, delta=delta, Es=[0.78], Lzs=[0.99], I3s=[-50.0]
+        )
+        pytest.fail(
+            "Setting up an actionAngleStaeckelInverse torus that does not "
+            "reach the midplane should have raised a ValueError, but did not"
+        )
+    return None
+
+
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
 def test_nullpotential_error():
     from galpy.actionAngle import actionAngleStaeckel
