@@ -2265,18 +2265,35 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
         Notes
         -----
-        - Only available for instances set up with explicit (Es, Ls) tori;
-          interpolating instances work directly in action space.
+        - For interpolating instances (setup_interp=True), any (E,L) within
+          the interpolation grid works; for instances set up with explicit
+          (Es, Ls) tori, (E,L) must be one of those pairs.
         - 2026-08-19 - Written - Bovy (UofT)
 
         """
-        if self._interp:
-            raise NotImplementedError(
-                "Jr(E,L) is not available for interpolating instances, which "
-                "work directly in action space"
-            )
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
+        if self._interp:
+            if L < self._Lmin or L > self._Lmax:
+                raise ValueError(
+                    "Given angular momentum is outside of the interpolation grid"
+                )
+            iL = float((L - self._Lmin) / (self._Lmax - self._Lmin) * (self._nL - 1.0))
+            if not hasattr(self, "_ERRLInterp"):
+                iLgrid = numpy.arange(self._nL, dtype="float")
+                self._ERRLInterp = interpolate.InterpolatedUnivariateSpline(
+                    iLgrid, self._ERRL, k=3
+                )
+                self._ERRaInterp = interpolate.InterpolatedUnivariateSpline(
+                    iLgrid, self._ERRa, k=3
+                )
+            tERRL = float(self._ERRLInterp(iL))
+            tERRa = float(self._ERRaInterp(iL))
+            x2 = (E - tERRL) / (tERRa - tERRL)
+            if x2 < -1e-10 or x2 > 1.0 + 1e-10:
+                raise ValueError("Given energy is outside of the interpolation grid")
+            ix = (self._nE - 1.0) * numpy.sqrt(numpy.clip(x2, 0.0, 1.0))
+            return float(_evs(self._jrInterp, iL, ix))
         indx = numpy.nanargmin(
             numpy.fabs(E - self._internal_Es) + numpy.fabs(L - self._internal_Ls)
         )
