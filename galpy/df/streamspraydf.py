@@ -703,6 +703,26 @@ class basestreamspraydf(df):
         u_samples = grandom.uniform(key, (n,))
         return -self._stripping_inv_cdf(as_numpy(u_samples))
 
+    def _theta_probe_point(self):
+        """Concrete ``((R, z), phi, v)`` at which to probe the potential for a backend
+        parameter.
+
+        The progenitor's own present-day phase-space point, which is guaranteed to be
+        somewhere the potential can be evaluated. A TRACED progenitor IC has no
+        concrete coordinates, so fall back to a fixed unit-circular point; that case
+        routes in-backend anyway (``ic_concrete`` below), so the probe's answer there
+        only has to be well-defined, not particular.
+        """
+        p = self._progenitor
+        try:
+            return (
+                (float(p.R(0.0)), float(p.z(0.0))),
+                float(p.phi(0.0)),
+                numpy.array([float(p.vR(0.0)), float(p.vT(0.0)), float(p.vz(0.0))]),
+            )
+        except Exception:  # noqa: BLE001 -- traced IC has no concrete coordinates
+            return (1.0, 0.0), 0.0, numpy.array([0.0, 1.0, 0.0])
+
     def _integrate_progenitor(self):
         """Integrate the progenitor over ``[0, -tdisrupt]``, choosing the integrator
         by whether the sampling must run on a backend (jax/torch) for differentiable
@@ -729,15 +749,7 @@ class basestreamspraydf(df):
         # parameter -> TracerArrayConversionError). The probe needs CONCRETE
         # coordinates; a traced IC has none, but that case already routes in-backend
         # via ic_concrete below, so a fixed fallback probe point is safe there.
-        _pp = self._progenitor
-        try:
-            _pargs = (float(_pp.R(0.0)), float(_pp.z(0.0)))
-            _pphi = float(_pp.phi(0.0))
-            _pv = numpy.array(
-                [float(_pp.vR(0.0)), float(_pp.vT(0.0)), float(_pp.vz(0.0))]
-            )
-        except Exception:  # noqa: BLE001 -- traced IC has no concrete coordinates
-            _pargs, _pphi, _pv = (1.0, 0.0), 0.0, numpy.array([0.0, 1.0, 0.0])
+        _pargs, _pphi, _pv = self._theta_probe_point()
         with use("numpy", force=True):
             _tf = evaluateRforces(self._pot, *_pargs, phi=_pphi, v=_pv)
         theta_backend = is_backend_array(_tf)
