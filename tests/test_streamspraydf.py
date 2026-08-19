@@ -1237,3 +1237,48 @@ def test_pericenter_stripping_pdf_rovo_mismatch_raises():
         pericenter_stripping_pdf(obs, lp, tdisrupt, sigma, ro=9.0)
     with pytest.raises(ValueError, match="vo inconsistent"):
         pericenter_stripping_pdf(obs, lp, tdisrupt, sigma, vo=230.0)
+
+
+def test_theta_probe_point_falls_back_when_progenitor_is_not_concrete():
+    """The backend-parameter probe needs a concrete point; a traced progenitor IC has
+    none. Cover the contract directly: normally the probe sits at the progenitor's own
+    phase-space point, and when its coordinates cannot be realised as floats (a tracer
+    under jit) it falls back to a fixed, well-defined unit-circular point."""
+    import numpy
+
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    prog = Orbit([1.2, 0.1, 1.1, 0.3, 0.05, 0.4])
+    prog.turn_physical_off()
+    df = fardal15spraydf(
+        progenitor=prog,
+        pot=lp,
+        tdisrupt=1.0 / conversion.time_in_Gyr(220.0, 8.0),
+        progenitor_mass=2.0e4 / conversion.mass_in_msol(220.0, 8.0),
+    )
+
+    # concrete progenitor -> the probe is the progenitor's own point
+    (R, z), phi, v = df._theta_probe_point()
+    assert numpy.isclose(R, 1.2) and numpy.isclose(z, 0.3), (
+        "probe should sit at the progenitor's present-day position"
+    )
+    assert numpy.isclose(phi, 0.4)
+    assert numpy.allclose(v, [0.1, 1.1, 0.05])
+
+    class _Traced:
+        """Stands in for a progenitor built on a tracer: coordinates exist but cannot
+        be realised as Python floats."""
+
+        def _raise(self, *args, **kwargs):
+            raise TypeError("tracer cannot be converted to a concrete float")
+
+        R = z = phi = vR = vT = vz = _raise
+
+    df._progenitor = _Traced()
+    (R, z), phi, v = df._theta_probe_point()
+    assert (R, z) == (1.0, 0.0) and phi == 0.0
+    assert numpy.allclose(v, [0.0, 1.0, 0.0])
