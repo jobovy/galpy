@@ -125,61 +125,81 @@ class actionAngleSphericalInverse(actionAngleInverse):
         **kwargs,
     ):
         """
-        NAME:
+        Initialize an actionAngleSphericalInverse object.
 
-           __init__
+        Parameters
+        ----------
+        pot : Potential or list thereof
+            A spherical potential.
+        Es : list of float or Quantity, optional
+            Energies of the orbits to map the tori for (used when
+            setup_interp=False).
+        Ls : list of float or Quantity, optional
+            Angular momenta of the orbits to map the tori for (used when
+            setup_interp=False).
+        setup_interp : bool, optional
+            If True, setup interpolation grids that allow any torus within
+            the grid to be accessed through interpolation.
+        Rmin : float or Quantity, optional
+            Minimum radius to consider when building the L grid: the grid
+            covers the angular momenta of circular orbits between Rmin and
+            Rmax (default: Rmax/10). Note that Rmin should not be set much
+            smaller than the radii of interest, because the frequencies
+            diverge as the angular momentum goes to zero and interpolating
+            over a range that includes near-radial tori degrades the
+            interpolation everywhere.
+        Rmax : float or Quantity, optional
+            Maximum radius to consider when building the L grid.
+        Rinf : float or Quantity, optional
+            Maximum radius to consider when building the E grid.
+        nE : int, optional
+            Number of energies to grid.
+        nL : int, optional
+            Number of angular momenta to grid.
+        nta : int, optional
+            Number of auxiliary angles to sample the torus at when mapping
+            the torus.
+        maxiter : int, optional
+            Maximum number of iterations of root-finding algorithms.
+        angle_tol : float, optional
+            Tolerance for angle root-finding (f(x) is within tol of desired
+            value).
+        bisect : bool, optional
+            If True, use simple bisection for root-finding, otherwise first
+            try Newton-Raphson (mainly useful for testing the bisection
+            fallback).
+        use_pointtransform : bool or str, optional
+            If True, setup a point transformation to, e.g., better handle
+            highly radial orbits; use "exact" to solve for the point
+            transformation that makes the torus exactly an isochrone torus,
+            otherwise a simple polynomial point transformation is used.
+        pt_deg : int, optional
+            Degree of the polynomial point transformation.
+        pt_nra : int, optional
+            Number of radii used to fit the polynomial point transformation.
+        exact_pt_spl_deg : int, optional
+            Degree of the spline representation of the exact point
+            transformation.
+        exact_pt_tol : float, optional
+            Tolerance of the exact point-transformation ODE solution.
+        pt_only : bool, optional
+            If True, evaluate the inverse transformation using the exact
+            point transformation alone, skipping the generating-function
+            mapping, which is the identity for a perfect point
+            transformation (only allowed when use_pointtransform ==
+            "exact"); the mapping coefficients are still computed at setup
+            as a diagnostic and a warning is issued if they are not small.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default
+            from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default
+            from configuration file).
 
-        PURPOSE:
-
-           initialize an actionAngleSphericalInverse object
-
-        INPUT:
-
-           pot= a Potential or list thereof, should be a spherical potential
-
-           Either:
-
-              a)
-
-                 Es= energies of the orbits to map the tori for
-
-                 Ls= angular momenta of the orbits to map the tori for
-
-              b)
-
-                 setup_interp= (False) if True, setup interpolation grids that allow any torus within the grid to be accessed through interpolation
-
-                 Rmin= (Rmax/10) minimum radius to consider when building the L grid: the grid covers the angular momenta of circular orbits between Rmin and Rmax. Note that Rmin should not be set much smaller than the radii of interest, because the frequencies diverge as the angular momentum goes to zero and interpolating over a range that includes near-radial tori degrades the interpolation everywhere
-
-                 Rmax= (5.) maximum radius to consider when building the L grid
-
-                 Rinf= (5.) maximum radius to consider when building the E grid
-
-                 nE= (31) number of energies to grid
-
-                 nL= (31) number of angular momenta to grid
-
-           nta= (128) number of auxiliary angles to sample the torus at when mapping the torus
-
-           maxiter= (100) maximum number of iterations of root-finding algorithms
-
-           angle_tol= (1e-12) tolerance for angle root-finding (f(x) is within tol of desired value)
-
-           bisect= (False) if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
-
-           use_pointtransform= (False) if True, setup a point transformation to, e.g., better handle highly radial orbits; use "exact" to solve for the point transformation that makes the torus exactly an isochrone torus, otherwise a simple polynomial point transformation is used
-
-           pt_only= (False) if True, evaluate the inverse transformation using the exact point transformation alone, skipping the generating-function mapping, which is the identity for a perfect point transformation (only allowed when use_pointtransform == "exact"); the mapping coefficients are still computed at setup as a diagnostic and a warning is issued if they are not small
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2017-11-21 - Started initial implementation that works for single (E,L) - Bovy (UofT)
-
-           2018-11-02 - Started efficient implementation for multiple (E,L), like actionAngleVerticalInverse - Bovy (UofT)
+        Notes
+        -----
+        - 2017-11-21 - Started initial implementation that works for single (E,L) - Bovy (UofT)
+        - 2018-11-02 - Started efficient implementation for multiple (E,L), like actionAngleVerticalInverse - Bovy (UofT)
 
         """
         actionAngleInverse.__init__(self, **kwargs)
@@ -1797,76 +1817,66 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
-        NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus.
 
-           __call__
+        Parameters
+        ----------
+        jr : float or Quantity
+            Radial action.
+        jphi : float or Quantity
+            Azimuthal action.
+        jz : float or Quantity
+            Vertical action.
+        angler : numpy.ndarray
+            Radial angle.
+        anglephi : numpy.ndarray
+            Azimuthal angle.
+        anglez : numpy.ndarray
+            Vertical angle.
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            (R, vR, vT, z, vz, phi)
 
-           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
-
-        INPUT:
-
-           jr - radial action (scalar)
-
-           jphi - azimuthal action (scalar)
-
-           jz - vertical action (scalar)
-
-           angler - radial angle (array [N])
-
-           anglephi - azimuthal angle (array [N])
-
-           anglez - vertical angle (array [N])
-
-           tol= (object-wide value) goal for |dJ|/|J| along the torus
-
-        OUTPUT:
-
-           [R,vR,vT,z,vz,phi]
-
-        HISTORY:
-
-           2018-11-17 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-11-17 - Written - Bovy (UofT)
 
         """
         return self._xvFreqs(jr, jphi, jz, angler, anglephi, anglez, **kwargs)[:6]
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, point=True, **kwargs):
         """
-        NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies.
 
-           xvFreqs
+        Parameters
+        ----------
+        jr : float or Quantity
+            Radial action.
+        jphi : float or Quantity
+            Azimuthal action.
+        jz : float or Quantity
+            Vertical action.
+        angler : numpy.ndarray
+            Radial angle.
+        anglephi : numpy.ndarray
+            Azimuthal angle.
+        anglez : numpy.ndarray
+            Vertical angle.
+        point : bool, optional
+            If False, don't apply the point transformation, i.e., return
+            (x^A, v^A).
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            (R, vR, vT, z, vz, phi, OmegaR, Omegaphi, Omegaz)
 
-           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies
-
-        INPUT:
-
-           jr - radial action (scalar)
-
-           jphi - azimuthal action (scalar)
-
-           jz - vertical action (scalar)
-
-           angler - radial angle (array [N])
-
-           anglephi - azimuthal angle (array [N])
-
-           anglez - vertical angle (array [N])
-
-           point= (True) if False, don't apply the point transformation, i.e., return (x^A,v^A)
-
-        OUTPUT:
-
-           ([R,vR,vT,z,vz,phi],OmegaR,Omegaphi,Omegaz)
-
-        HISTORY:
-
-           2018-11-17 - Written - Bovy (UofT)
-
-           2020-05-22 - Started updating for point transformation - Bovy (UofT)
+        Notes
+        -----
+        - 2018-11-17 - Written - Bovy (UofT)
+        - 2020-05-22 - Started updating for point transformation - Bovy (UofT)
 
         """
         # Find torus
@@ -2196,29 +2206,25 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
         """
-        NAME:
+        Return the frequencies corresponding to a torus.
 
-           Freqs
+        Parameters
+        ----------
+        jr : float or Quantity
+            Radial action.
+        jphi : float or Quantity
+            Azimuthal action.
+        jz : float or Quantity
+            Vertical action.
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            (OmegaR, Omegaphi, Omegaz)
 
-           return the frequencies corresponding to a torus
-
-        INPUT:
-
-           jr - radial action (scalar)
-
-           jphi - azimuthal action (scalar)
-
-           jz - vertical action (scalar)
-
-        OUTPUT:
-
-           (OmegaR,Omegaphi,Omegaz)
-
-        HISTORY:
-
-           2018-11-17 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-11-17 - Written - Bovy (UofT)
 
         """
         # Find torus
@@ -2239,6 +2245,50 @@ class actionAngleSphericalInverse(actionAngleInverse):
             tOmegar = _evs(self._OmegarInterp, iL, ix)
             tOmegaz = _evs(self._OmegazInterp, iL, ix)
         return (tOmegar, numpy.sign(jphi) * tOmegaz, tOmegaz)
+
+    @conversion.physical_conversion("action", pop=True)
+    def Jr(self, E, L, **kwargs):
+        """
+        Return the radial action of the torus with energy E and angular momentum L.
+
+        Parameters
+        ----------
+        E : float or Quantity
+            Energy of the torus.
+        L : float or Quantity
+            Total angular momentum of the torus.
+
+        Returns
+        -------
+        float or Quantity
+            Radial action J_r of the torus.
+
+        Notes
+        -----
+        - Only available for instances set up with explicit (Es, Ls) tori;
+          interpolating instances work directly in action space.
+        - 2026-08-19 - Written - Bovy (UofT)
+
+        """
+        if self._interp:
+            raise NotImplementedError(
+                "Jr(E,L) is not available for interpolating instances, which "
+                "work directly in action space"
+            )
+        E = conversion.parse_energy(E, vo=self._vo)
+        L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
+        indx = numpy.nanargmin(
+            numpy.fabs(E - self._internal_Es) + numpy.fabs(L - self._internal_Ls)
+        )
+        if (
+            numpy.fabs(E - self._internal_Es[indx]) > 1e-10
+            or numpy.fabs(L - self._internal_Ls[indx]) > 1e-10
+        ):
+            raise ValueError(
+                "Given (E,L) not found; please specify an (E,L) pair used in "
+                "the initialization of the instance"
+            )
+        return self._jr[indx]
 
 
 def _ptra_eval(yanorm, rowcoord, pt_filtered_arr, pt_nmesh, pt_spl_deg):
