@@ -714,3 +714,21 @@ def test_inbackend_nsteps_makes_the_batched_reverse_pass_exact_jax():
         f"constant-step trajectory differs from adaptive: "
         f"max rel {numpy.max(numpy.fabs(ad - cs)) / numpy.max(numpy.fabs(ad)):.3e}"
     )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_inbackend_nsteps_is_rejected_on_torch():
+    """``nsteps`` is a jax/diffrax option; torchdiffeq picks its own steps.
+
+    Passing it on torch must fail loudly rather than being silently ignored --
+    a silently-dropped nsteps would hand back an adaptively-stepped solve while
+    the caller believes the steps are fixed, which is exactly the confusion this
+    option exists to remove.
+    """
+    import torch
+
+    pot = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    vxvv = torch.tensor([1.0, 0.1, 1.1, 0.1, 0.2, 0.0], dtype=torch.float64)
+    ts = torch.linspace(0.0, 1.0, 5, dtype=torch.float64)
+    with pytest.raises(NotImplementedError, match="jax/diffrax option"):
+        integrate_orbit(pot, vxvv, ts, nsteps=100)
