@@ -37,7 +37,7 @@ from ..potential.Potential import (
 )
 from ..potential.SCFPotential import _RToxi, _xiToR
 from ..util import _optional_deps, conversion, galpyWarning
-from ..util.conversion import physical_conversion
+from ..util.conversion import physical_conversion, potential_physical_input
 from .df import df
 
 # Use _APY_LOADED/_APY_UNITS like this to be able to change them in tests
@@ -276,6 +276,7 @@ class sphericaldf(df):
             numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
         ).reshape(E.shape if isinstance(E, numpy.ndarray) else ())
 
+    @potential_physical_input
     def vmomentdensity(self, r, n, m, **kwargs):
         """
         Calculate an arbitrary moment of the velocity distribution at r times the density.
@@ -298,7 +299,6 @@ class sphericaldf(df):
         -----
         - 2020-09-04 - Written - Bovy (UofT)
         """
-        r = conversion.parse_length(r, ro=self._ro)
         use_physical = kwargs.pop("use_physical", True)
         ro = kwargs.pop("ro", None)
         if ro is None and hasattr(self, "_roSet") and self._roSet:
@@ -345,6 +345,7 @@ class sphericaldf(df):
             )[0]
         )
 
+    @potential_physical_input
     @physical_conversion("velocity", pop=True)
     def sigmar(self, r):
         """
@@ -364,9 +365,9 @@ class sphericaldf(df):
         -----
         - 2020-09-04 - Written - Bovy (UofT)
         """
-        r = conversion.parse_length(r, ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0))
 
+    @potential_physical_input
     @physical_conversion("velocity", pop=True)
     def sigmat(self, r):
         """
@@ -387,10 +388,10 @@ class sphericaldf(df):
         - 2020-09-04 - Written - Bovy (UofT)
 
         """
-        r = conversion.parse_length(r, ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0))
 
-    def beta(self, r):
+    @potential_physical_input
+    def beta(self, r, **kwargs):
         """
         Calculate the anisotropy at radius r.
 
@@ -409,7 +410,6 @@ class sphericaldf(df):
         - 2020-09-04 - Written - Bovy (UofT)
 
         """
-        r = conversion.parse_length(r, ro=self._ro)
         return 1.0 - self._vmomentdensity(r, 0, 2) / 2.0 / self._vmomentdensity(r, 2, 0)
 
     ############################### SAMPLING THE DF################################
