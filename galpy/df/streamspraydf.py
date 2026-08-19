@@ -39,6 +39,7 @@ class basestreamspraydf(df):
         center=None,
         centerpot=None,
         progpot=None,
+        integrate_kwargs=None,
         ro=None,
         vo=None,
     ):
@@ -137,6 +138,11 @@ class basestreamspraydf(df):
         assert conversion.physical_compatible(self, progenitor), (
             "Physical conversion for the progenitor Orbit object is not consistent with that of the basestreamspraydf object being initialized"
         )
+        # Extra options for the in-backend ODE solves (progenitor, center, sampled
+        # orbits, track curve). Only reach jax/torch integrators -- the numpy/C paths
+        # take none. `adjoint="direct"` is what makes forward-mode and higher-order
+        # AD work: the default checkpointed adjoint is a custom_vjp, i.e. reverse-only.
+        self._integrate_kwargs = integrate_kwargs
         self._orig_progenitor = progenitor  # Store so we can use its ro/vo/etc.
         self._progenitor = progenitor()
         self._progenitor.turn_physical_off()
@@ -465,10 +471,10 @@ class basestreamspraydf(df):
             # backend track_prog_cart (torch has no negative-step slice -> xp.flip).
             o_f = Orbit(ic)
             o_f.turn_physical_off()
-            o_f.integrate(t_fwd, _track_pot, method=method)
+            o_f.integrate(t_fwd, _track_pot, method=method, **self._ikw(method))
             o_b = Orbit(ic)
             o_b.turn_physical_off()
-            o_b.integrate(t_back, _track_pot, method=method)
+            o_b.integrate(t_back, _track_pot, method=method, **self._ikw(method))
 
             def _cart(o):
                 # Read the integrated states directly (o.orbit at the integration grid)
@@ -825,7 +831,7 @@ class basestreamspraydf(df):
         bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
         self._progenitor = Orbit(ic)
         self._progenitor.turn_physical_off()
-        self._progenitor.integrate(bgrid, self._pot, method=method)
+        self._progenitor.integrate(bgrid, self._pot, method=method, **self._ikw(method))
         self._bsamp = (xp, self._progenitor, method)
 
     def _integrate_center(self):
@@ -905,7 +911,9 @@ class basestreamspraydf(df):
         bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)  # match the progenitor grid
         self._center = Orbit(ic)
         self._center.turn_physical_off()
-        self._center.integrate(bgrid, self._centerpot, method=method)
+        self._center.integrate(
+            bgrid, self._centerpot, method=method, **self._ikw(method)
+        )
 
     def _promote_progenitor_backend(self, xp, inbackend):
         """Re-integrate a pure-numpy progenitor as a backend orbit (theta/mass-independent
@@ -929,8 +937,20 @@ class basestreamspraydf(df):
         bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
         self._progenitor = Orbit(ic)
         self._progenitor.turn_physical_off()
-        self._progenitor.integrate(bgrid, self._pot, method=inbackend)
+        self._progenitor.integrate(
+            bgrid, self._pot, method=inbackend, **self._ikw(inbackend)
+        )
         self._bsamp = (xp, self._progenitor, inbackend)
+
+    def _ikw(self, method):
+        """``inbackend_kwargs`` for an in-backend ODE ``method``, else ``{}``.
+
+        The C and numpy integrators take no solver options, so the extra kwargs are
+        handed only to the jax/torch paths.
+        """
+        if not self._integrate_kwargs or method not in ("diffrax", "torchdiffeq"):
+            return {}
+        return {"inbackend_kwargs": dict(self._integrate_kwargs)}
 
     def _backend_sampling(self):
         """``(xp, backend_progenitor, sample_method)`` when the sampling runs on a
@@ -1080,7 +1100,8 @@ class basestreamspraydf(df):
                 # per-orbit 2-point grid [-dt_i, 0] (not the 10001-point fixed-step
                 # grid the numpy path needs).
                 ts = xp.stack([-xp.asarray(dt), xp.zeros(n)], axis=-1)
-                o.integrate(ts, self._pot, method=sample_method or "dop853_c")
+                _m = sample_method or "dop853_c"
+                o.integrate(ts, self._pot, method=_m, **self._ikw(_m))
             else:
                 ts = xp.linspace(-as_numpy(dt), xp.zeros(n), 10001, axis=-1)
                 o.integrate(ts, self._pot)  # byte-identical numpy default
@@ -1351,6 +1372,7 @@ class chen24spraydf(basestreamspraydf):
         progpot=None,
         mean=None,
         cov=None,
+        integrate_kwargs=None,
         ro=None,
         vo=None,
     ):
@@ -1407,6 +1429,7 @@ class chen24spraydf(basestreamspraydf):
             center=center,
             centerpot=centerpot,
             progpot=progpot,
+            integrate_kwargs=integrate_kwargs,
             ro=ro,
             vo=vo,
         )
@@ -1510,6 +1533,7 @@ class fardal15spraydf(basestreamspraydf):
         progpot=None,
         meankvec=[2.0, 0.0, 0.3, 0.0, 0.0, 0.0],
         sigkvec=[0.4, 0.0, 0.4, 0.5, 0.5, 0.0],
+        integrate_kwargs=None,
         ro=None,
         vo=None,
     ):
@@ -1567,6 +1591,7 @@ class fardal15spraydf(basestreamspraydf):
             center=center,
             centerpot=centerpot,
             progpot=progpot,
+            integrate_kwargs=integrate_kwargs,
             ro=ro,
             vo=vo,
         )
