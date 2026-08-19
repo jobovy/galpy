@@ -4873,8 +4873,10 @@ def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
     Passing ``nsteps`` (constant stepping) to the in-backend ODE removes the
     step-size dependence and makes the batched Jacobian exact to ~1e-11, so a
     vmap'd chunk loop becomes viable; see
-    ``test_inbackend_nsteps_makes_the_batched_reverse_pass_exact_jax``. torch: a Python stack of per-chunk calls (torch.func.vmap
-    cannot trace the torchdiffeq custom-autograd orbit). 6-tuple of stacked arrays.
+    ``test_inbackend_nsteps_makes_the_batched_reverse_pass_exact_jax``.
+
+    torch: a Python stack of per-chunk calls (torch.func.vmap cannot trace the
+    torchdiffeq custom-autograd orbit). Returns a 6-tuple of stacked arrays.
     """
     if name_of_namespace(xp) == "jax":
         import jax
