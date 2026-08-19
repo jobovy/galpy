@@ -16649,3 +16649,87 @@ def test_orbit_phi1phi2_multi_shape_and_time():
         assert numpy.allclose(multi.phi2(ts)[i], single.phi2(ts))
         assert numpy.allclose(multi.pmphi1(ts)[i], single.pmphi1(ts))
         assert numpy.allclose(multi.pmphi2(ts)[i], single.pmphi2(ts))
+
+
+# Orbits.E(t=array) tries one vectorised potential evaluation over (orbit, time)
+# and falls back to a per-orbit scalar loop when the potential cannot broadcast
+# (e.g. potentials that integrate numerically per point). The phi-less orbit
+# shapes -- phasedim 3 and 5 -- reach their own copies of that fallback, so they
+# need their own coverage; a synthetic scalar-only potential triggers it far more
+# cheaply and deterministically than a quadrature-backed real one.
+class _NoBroadcastPotential(potential.Potential):
+    """Axisymmetric harmonic potential whose _evaluate REJECTS array input.
+
+    Forces at any shape (so integration works normally), but Phi is scalar-only,
+    which is exactly the condition Orbits.E()'s per-orbit fallback exists for.
+    Uses plain arithmetic rather than numpy ufuncs so it behaves under a forced
+    backend too.
+    """
+
+    def __init__(self, amp=1.0, ro=None, vo=None):
+        potential.Potential.__init__(self, amp=amp, ro=ro, vo=vo)
+        self.isNonAxi = False
+
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
+        for x in (R, z, t):
+            if numpy.ndim(x) > 0:
+                raise ValueError("this potential is scalar-only")
+        return 0.5 * (R**2.0 + z**2.0)
+
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
+        return -R
+
+    def _zforce(self, R, z, phi=0.0, t=0.0):
+        return -z
+
+
+def test_orbits_energy_array_times_nonbroadcasting_potential():
+    """E(t=array) must fall back to the per-orbit loop, and get it right.
+
+    Checked against the CLOSED-FORM energy of the harmonic potential rather
+    than against galpy's own per-orbit path, so the assertion is independent of
+    the code under test. Two orbits with different energies and three distinct
+    times, so an (orbit, time) transposition in the fallback cannot pass.
+    """
+    from galpy.orbit import Orbit
+
+    pot = _NoBroadcastPotential(amp=1.0)
+    ts = numpy.linspace(0.0, 0.3, 4)
+
+    # phasedim 3 -- planar, no phi
+    o3 = Orbit([[1.0, 0.1, 1.1], [1.4, -0.2, 0.7]])
+    o3.integrate(ts, pot.toPlanar())
+    E3 = as_numpy(o3.E(ts, use_physical=False)).astype(float)
+    R3 = as_numpy(o3.R(ts, use_physical=False)).astype(float)
+    ref3 = (
+        0.5 * R3**2.0
+        + as_numpy(o3.vR(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+        + as_numpy(o3.vT(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+    )
+    assert E3.shape == ref3.shape, f"phasedim 3: shape {E3.shape} != {ref3.shape}"
+    assert numpy.all(numpy.fabs(E3 - ref3) < 1e-10), (
+        f"phasedim 3 fallback energy wrong: max |dE| = {numpy.max(numpy.fabs(E3 - ref3))}"
+    )
+
+    # phasedim 5 -- 3D, no phi
+    o5 = Orbit([[1.0, 0.1, 1.1, 0.1, 0.1], [1.4, -0.2, 0.7, -0.05, 0.2]])
+    o5.integrate(ts, pot)
+    E5 = as_numpy(o5.E(ts, use_physical=False)).astype(float)
+    ref5 = (
+        0.5
+        * (
+            as_numpy(o5.R(ts, use_physical=False)).astype(float) ** 2.0
+            + as_numpy(o5.z(ts, use_physical=False)).astype(float) ** 2.0
+        )
+        + as_numpy(o5.vR(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+        + as_numpy(o5.vT(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+        + as_numpy(o5.vz(ts, use_physical=False)).astype(float) ** 2.0 / 2.0
+    )
+    assert E5.shape == ref5.shape, f"phasedim 5: shape {E5.shape} != {ref5.shape}"
+    assert numpy.all(numpy.fabs(E5 - ref5) < 1e-10), (
+        f"phasedim 5 fallback energy wrong: max |dE| = {numpy.max(numpy.fabs(E5 - ref5))}"
+    )
+
+    # the orbits must actually differ, or a transposition would go unnoticed
+    assert numpy.fabs(E3[0, 0] - E3[1, 0]) > 0.1, "orbits too similar to be diagnostic"
+    assert numpy.fabs(E5[0, 0] - E5[1, 0]) > 0.1, "orbits too similar to be diagnostic"
