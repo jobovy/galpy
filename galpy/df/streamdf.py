@@ -4855,15 +4855,28 @@ def _vmap_track_chunks(xp, single, xv0_all, thetasTrack):
     """Map the per-chunk backend track assembly over ``(xv0_all, thetasTrack)``.
 
     jax: ``jax.lax.map`` -- fork-free (no ``parallel_map``), jit-compatible, no
-    item-assignment, and CORRECTLY differentiable. NOT ``jax.vmap``: ``single``
-    calls ``calcaAJac`` = ``jax.jacrev`` of the AA map (over a diffrax/C-STM
-    integration with no vmap batching rule), and ``jax.vmap`` batches that inner
-    jacrev in a way that silently DROPS the outer d/d(parameter) gradient (the
-    forward value is correct, but jax.grad through the track leaks ~20%). lax.map
-    runs the chunks sequentially in the compiled graph, so the jacrev is never
-    batched and the gradient is exact (matches a finite-difference of the same
-    track to ~1e-4). torch: a Python stack of per-chunk calls (torch.func.vmap
-    cannot trace the torchdiffeq custom-autograd orbit). 6-tuple of stacked arrays.
+    item-assignment, and CORRECTLY differentiable. NOT ``jax.vmap``, but the
+    reason is NOT that jacrev cannot be batched -- it can (root-caused
+    2026-08-19; the earlier note here blamed jacrev batching and was wrong).
+
+    ``single`` calls ``calcaAJac`` = ``jax.jacrev`` of the AA map over a diffrax
+    integration, and the track's outer d/d(parameter) then differentiates THAT,
+    so the solve runs under diffrax's ``DirectAdjoint``, which differentiates the
+    solver's own operations. The default step-size controller is ADAPTIVE, so
+    under ``jax.vmap`` the batch elements choose different step sequences and the
+    batched reverse pass is wrong by 2-13% (growing with integration time) while
+    the forward value stays right to 1e-10 -- which is exactly why this looked
+    like a silent gradient drop. ``lax.map`` runs the chunks sequentially, so the
+    steps are never batched and the gradient is exact (matches a finite
+    difference of the same track to ~1e-4; measured 0.09% end-to-end).
+
+    Passing ``nsteps`` (constant stepping) to the in-backend ODE removes the
+    step-size dependence and makes the batched Jacobian exact to ~1e-11, so a
+    vmap'd chunk loop becomes viable; see
+    ``test_inbackend_nsteps_makes_the_batched_reverse_pass_exact_jax``.
+
+    torch: a Python stack of per-chunk calls (torch.func.vmap cannot trace the
+    torchdiffeq custom-autograd orbit). Returns a 6-tuple of stacked arrays.
     """
     if name_of_namespace(xp) == "jax":
         import jax
