@@ -193,7 +193,6 @@ class sphericaldf(df):
             )
 
     ############################## EVALUATING THE DF###############################
-    @physical_conversion("massphasespacedensity", pop=True)
     def __call__(self, *args, **kwargs):
         """
         Evaluate the DF
@@ -205,6 +204,15 @@ class sphericaldf(df):
                 a) (E,L,Lz): tuple of E and (optionally) L and (optionally) Lz. Each may be Quantity
                 b) R,vR,vT,z,vz,phi: cylindrical coordinates (can be Quantity)
                 c) Orbit instance: orbit.Orbit instance and if specific time then orbit.Orbit(t)
+        ro : float or Quantity, optional
+            Length scale used to convert Quantity inputs and to return
+            physical-unit output.
+        vo : float or Quantity, optional
+            Velocity scale used to convert Quantity inputs and to return
+            physical-unit output.
+        use_physical : bool, optional
+            If True (default), return the DF in physical units
+            (mass/phase-space volume) when ro and vo are set.
 
         Returns
         -------
@@ -215,7 +223,18 @@ class sphericaldf(df):
         -----
         - 2020-07-22 - Written - Lane (UofT)
         - 2024-10-29 - Fixed to return mass/phase-space volume units for physical-unit output - Bovy (UofT)
+        - 2026-08-20 - Per-call ro=/vo= overrides now also apply to input parsing - Bovy (UofT)
         """
+        # Parse physical-unit overrides
+        use_physical = kwargs.pop("use_physical", True)
+        ro = kwargs.pop("ro", None)
+        if ro is None and hasattr(self, "_roSet") and self._roSet:
+            ro = self._ro
+        ro = conversion.parse_length_kpc(ro)
+        vo = kwargs.pop("vo", None)
+        if vo is None and hasattr(self, "_voSet") and self._voSet:
+            vo = self._vo
+        vo = conversion.parse_velocity_kms(vo)
         # Get E,L,Lz
         if len(args) == 1:
             if not isinstance(args[0], Orbit):  # Assume tuple (E,L,Lz)
@@ -224,23 +243,23 @@ class sphericaldf(df):
                 E = args[0].E(pot=self._pot, use_physical=False)
                 L = numpy.sqrt(numpy.sum(args[0].L(use_physical=False) ** 2.0))
                 Lz = args[0].Lz(use_physical=False)
-            E = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
-            L = numpy.atleast_1d(conversion.parse_angmom(L, ro=self._ro, vo=self._vo))
-            Lz = numpy.atleast_1d(conversion.parse_angmom(Lz, ro=self._vo, vo=self._vo))
+            E = numpy.atleast_1d(conversion.parse_energy(E, vo=vo))
+            L = numpy.atleast_1d(conversion.parse_angmom(L, ro=ro, vo=vo))
+            Lz = numpy.atleast_1d(conversion.parse_angmom(Lz, ro=ro, vo=vo))
         else:  # Assume R,vR,vT,z,vz,(phi)
             R, vR, vT, z, vz, phi = (args + (None,))[:6]
-            R = conversion.parse_length(R, ro=self._ro)
-            vR = conversion.parse_velocity(vR, vo=self._vo)
-            vT = conversion.parse_velocity(vT, vo=self._vo)
-            z = conversion.parse_length(z, ro=self._ro)
-            vz = conversion.parse_velocity(vz, vo=self._vo)
+            R = conversion.parse_length(R, ro=ro)
+            vR = conversion.parse_velocity(vR, vo=vo)
+            vT = conversion.parse_velocity(vT, vo=vo)
+            z = conversion.parse_length(z, ro=ro)
+            vz = conversion.parse_velocity(vz, vo=vo)
             vtotSq = vR**2.0 + vT**2.0 + vz**2.0
             E = numpy.atleast_1d(0.5 * vtotSq + _evaluatePotentials(self._pot, R, z))
             Lz = numpy.atleast_1d(R * vT)
             r = numpy.sqrt(R**2.0 + z**2.0)
             vrad = (R * vR + z * vz) / r
             L = numpy.atleast_1d(numpy.sqrt(vtotSq - vrad**2.0) * r)
-        return self._call_internal(E, L, Lz).reshape(
+        out = self._call_internal(E, L, Lz).reshape(
             args[0].shape
             if len(args) == 1 and hasattr(args[0], "shape")
             else (
@@ -251,9 +270,25 @@ class sphericaldf(df):
                 else (args[0].shape if hasattr(args[0], "shape") else ())
             )
         )
+        # Convert to physical units
+        if use_physical and vo is not None and ro is not None:
+            fac = conversion.mass_in_msol(vo, ro) / vo**3.0 / ro**3.0
+            if _optional_deps._APY_UNITS:
+                u = units.Msun / (units.km / units.s) ** 3 / units.kpc**3
+            out = out * fac
+            if _optional_deps._APY_UNITS:
+                return units.Quantity(out, unit=u)
+            else:
+                return out
+        else:
+            if use_physical and (vo is None or ro is None):
+                warnings.warn(
+                    "Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set",
+                    galpyWarning,
+                )
+            return out
 
-    @physical_conversion("massenergydensity", pop=True)
-    def dMdE(self, E):
+    def dMdE(self, E, ro=None, vo=None, use_physical=True):
         """
         Compute the differential energy distribution dM/dE: the amount of mass per unit energy
 
@@ -261,6 +296,14 @@ class sphericaldf(df):
         ----------
         E : float or numpy.ndarray
             Energy; can be a Quantity
+        ro : float or Quantity, optional
+            Length scale used to return physical-unit output.
+        vo : float or Quantity, optional
+            Velocity scale used to convert Quantity energy inputs and to
+            return physical-unit output.
+        use_physical : bool, optional
+            If True (default), return dM/dE in physical units (mass/energy)
+            when ro and vo are set.
 
         Returns
         -------
@@ -270,11 +313,35 @@ class sphericaldf(df):
         Notes
         -----
         - 2023-05-23 - Written - Bovy (UofT)
+        - 2026-08-20 - Per-call vo= override now also applies to input parsing - Bovy (UofT)
 
         """
-        return self._dMdE(
-            numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
+        if vo is None and hasattr(self, "_voSet") and self._voSet:
+            vo = self._vo
+        vo = conversion.parse_velocity_kms(vo)
+        if ro is None and hasattr(self, "_roSet") and self._roSet:
+            ro = self._ro
+        ro = conversion.parse_length_kpc(ro)
+        out = self._dMdE(
+            numpy.atleast_1d(conversion.parse_energy(E, vo=vo))
         ).reshape(E.shape if isinstance(E, numpy.ndarray) else ())
+        # Convert to physical units
+        if use_physical and vo is not None and ro is not None:
+            fac = conversion.mass_in_msol(vo, ro) / vo**2.0
+            if _optional_deps._APY_UNITS:
+                u = units.Msun / (units.km / units.s) ** 2
+            out = out * fac
+            if _optional_deps._APY_UNITS:
+                return units.Quantity(out, unit=u)
+            else:
+                return out
+        else:
+            if use_physical and (vo is None or ro is None):
+                warnings.warn(
+                    "Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set",
+                    galpyWarning,
+                )
+            return out
 
     @potential_physical_input
     def vmomentdensity(self, r, n, m, **kwargs):
@@ -299,6 +366,9 @@ class sphericaldf(df):
         -----
         - 2020-09-04 - Written - Bovy (UofT)
         """
+        # potential_physical_input does not validate non-Quantity input;
+        # keep the standard clear error message for bad input
+        r = conversion.parse_length_kpc(r)
         use_physical = kwargs.pop("use_physical", True)
         ro = kwargs.pop("ro", None)
         if ro is None and hasattr(self, "_roSet") and self._roSet:
@@ -391,7 +461,8 @@ class sphericaldf(df):
         return numpy.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0))
 
     @potential_physical_input
-    def beta(self, r, **kwargs):
+    @physical_conversion("dimensionless", pop=True)
+    def beta(self, r):
         """
         Calculate the anisotropy at radius r.
 

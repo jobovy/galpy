@@ -4003,3 +4003,110 @@ def test_sphericaldf_percall_ro_override():
         < 1e-12
     )
     return None
+
+
+def test_sphericaldf_percall_vo_dmde():
+    # dMdE: per-call vo= must apply to Quantity energy input parsing,
+    # like sigmar/sigmat/vmomentdensity/beta (regression test for #1198)
+    from galpy.util._optional_deps import _APY_LOADED
+
+    if not _APY_LOADED:
+        return None
+    from astropy import units
+
+    pot = potential.HernquistPotential(amp=2.0, a=1.0)
+    dfh = isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0)
+    # Without vo=, the energy is parsed with self._vo (220 km/s)
+    E_phys = -0.5 * (100.0 * units.km / units.s) ** 2
+    dmde_default = dfh.dMdE(E_phys, use_physical=False)
+    E_int = -0.5 * (100.0 / 220.0) ** 2
+    assert numpy.fabs(dmde_default - dfh.dMdE(E_int, use_physical=False)) < 1e-12
+    # with vo=100., the same energy is parsed with the per-call vo
+    dmde_override = dfh.dMdE(E_phys, use_physical=False, vo=100.0)
+    E_int_override = -0.5 * (100.0 / 100.0) ** 2
+    assert (
+        numpy.fabs(dmde_override - dfh.dMdE(E_int_override, use_physical=False))
+        < 1e-12
+    )
+    assert numpy.fabs(dmde_default - dmde_override) > 1e-6
+    return None
+
+
+def test_sphericaldf_percall_ro_vo_call():
+    # __call__: per-call ro=/vo= must apply to Quantity input parsing
+    # (regression test for #1198)
+    from galpy.util._optional_deps import _APY_LOADED
+
+    if not _APY_LOADED:
+        return None
+    from astropy import units
+
+    pot = potential.HernquistPotential(amp=2.0, a=1.0)
+    dfh = isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0)
+    E_phys = -0.5 * (100.0 * units.km / units.s) ** 2
+    L_phys = 10.0 * units.kpc * units.km / units.s
+    Lz_phys = 5.0 * units.kpc * units.km / units.s
+    f_default = dfh(E_phys, L_phys, Lz_phys, use_physical=False)
+    E_int = -0.5 * (100.0 / 220.0) ** 2
+    L_int = 10.0 / 8.0 * 100.0 / 220.0
+    Lz_int = 5.0 / 8.0 * 100.0 / 220.0
+    assert (
+        numpy.fabs(f_default - dfh(E_int, L_int, Lz_int, use_physical=False))
+        < 1e-12
+    )
+    # with per-call ro=10., vo=100.
+    f_override = dfh(
+        E_phys, L_phys, Lz_phys, use_physical=False, ro=10.0, vo=100.0
+    )
+    E_int_o = -0.5 * (100.0 / 100.0) ** 2
+    L_int_o = 10.0 / 10.0 * 100.0 / 100.0
+    Lz_int_o = 5.0 / 10.0 * 100.0 / 100.0
+    assert (
+        numpy.fabs(
+            f_override - dfh(E_int_o, L_int_o, Lz_int_o, use_physical=False)
+        )
+        < 1e-12
+    )
+    assert numpy.fabs(f_default - f_override) > 1e-6
+    # cylindrical form: R, vR, vT, z, vz (phi)
+    R_phys = 1.0 * units.kpc
+    vR_phys = 10.0 * units.km / units.s
+    vT_phys = 50.0 * units.km / units.s
+    z_phys = 0.1 * units.kpc
+    vz_phys = 5.0 * units.km / units.s
+    f_cyl_default = dfh(
+        R_phys, vR_phys, vT_phys, z_phys, vz_phys, use_physical=False
+    )
+    f_cyl_override = dfh(
+        R_phys,
+        vR_phys,
+        vT_phys,
+        z_phys,
+        vz_phys,
+        use_physical=False,
+        ro=10.0,
+        vo=100.0,
+    )
+    assert numpy.fabs(f_cyl_default - f_cyl_override) > 1e-6
+    return None
+
+
+def test_sphericaldf_bad_input_error():
+    # bad input should raise the standard clear error message
+    from galpy.util._optional_deps import _APY_LOADED
+
+    if not _APY_LOADED:
+        return None
+    from astropy import units
+
+    pot = potential.HernquistPotential(amp=2.0, a=1.0)
+    dfh = isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0)
+    with pytest.raises(RuntimeError, match="not understood"):
+        dfh.sigmar("foo")
+    with pytest.raises(RuntimeError, match="not understood"):
+        dfh.beta("foo")
+    with pytest.raises(RuntimeError, match="not understood"):
+        dfh.dMdE("foo")
+    with pytest.raises(RuntimeError, match="not understood"):
+        dfh("foo", 1.0, 1.0)
+    return None
