@@ -648,3 +648,87 @@ def test_orbit_integrate_inbackend_kwargs_tolerance_jax():
     assert shared == {"rtol": 1e-5, "atol": 1e-5}, f"caller dict mutated: {shared}"
     numpy.testing.assert_allclose(second, first, rtol=1e-12, atol=1e-12)
     numpy.testing.assert_allclose(second, loose, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.skipif(not HAVE_JAX, reason="jax/diffrax not installed")
+def test_inbackend_nsteps_makes_the_batched_reverse_pass_exact_jax():
+    """``nsteps`` (constant stepping) fixes reverse-mode AD under ``jax.vmap``.
+
+    diffrax's ``DirectAdjoint`` -- the one needed for second-order AD, e.g. an
+    outer d/d(parameter) through an inner ``jacrev``, as the stream track does --
+    differentiates the solver's OWN operations. With the default adaptive
+    controller, ``jax.vmap`` batch elements choose different step sequences, so
+    the batched reverse pass disagrees with the unbatched one (measured here at
+    1e-3, and 2-13% through a full action-angle map, growing with integration
+    time) even though the FORWARD values agree to ~1e-10. That asymmetry is what
+    made it look like a jacrev-batching bug for a long time; it is not, and
+    plain ``vmap(jacrev)`` is exact in JAX.
+
+    Constant steps remove the step-size dependence entirely. Asserted two ways:
+    the batched Jacobian must match the unbatched one to near machine precision,
+    AND the constant-step trajectory must still agree with the adaptive one, so
+    the fix cannot be "pass by integrating badly".
+    """
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+
+    from galpy.potential import LogarithmicHaloPotential
+
+    # an ARRAY-valued parameter is the differentiable configuration
+    lp = LogarithmicHaloPotential(normalize=1.0, q=jnp.asarray(0.9))
+    ts = jnp.linspace(0.0, 8.0, 60)
+    V = jnp.asarray(
+        [
+            [1.561, 0.351, -1.155, 0.887, -0.477, 0.120],
+            [1.500, 0.300, -1.100, 0.850, -0.450, 0.200],
+        ]
+    )
+
+    def _final(v, **extra):
+        return integrate_orbit(
+            lp,
+            v,
+            ts,
+            rtol=1e-10,
+            atol=1e-10,
+            max_steps=20000,
+            adjoint="direct",
+            **extra,
+        )[-1]
+
+    J = jax.jacrev(lambda v: _final(v, nsteps=2000))
+    seq = numpy.stack([numpy.asarray(J(V[i]), dtype=float) for i in range(V.shape[0])])
+    vm = numpy.asarray(jax.vmap(J)(V), dtype=float)
+    scale = numpy.max(numpy.fabs(seq))
+    assert numpy.all(numpy.fabs(seq - vm) < 1e-11 * scale), (
+        "constant-step batched Jacobian != unbatched: "
+        f"max rel {numpy.max(numpy.fabs(seq - vm)) / scale:.3e}"
+    )
+
+    # ... and the constant-step solve is still the right trajectory
+    ad = numpy.asarray(_final(V[0]), dtype=float)
+    cs = numpy.asarray(_final(V[0], nsteps=2000), dtype=float)
+    assert numpy.all(numpy.fabs(ad - cs) < 1e-8 * numpy.max(numpy.fabs(ad))), (
+        f"constant-step trajectory differs from adaptive: "
+        f"max rel {numpy.max(numpy.fabs(ad - cs)) / numpy.max(numpy.fabs(ad)):.3e}"
+    )
+
+
+@pytest.mark.skipif(not HAVE_TORCH, reason="torch/torchdiffeq not installed")
+def test_inbackend_nsteps_is_rejected_on_torch():
+    """``nsteps`` is a jax/diffrax option; torchdiffeq picks its own steps.
+
+    Passing it on torch must fail loudly rather than being silently ignored --
+    a silently-dropped nsteps would hand back an adaptively-stepped solve while
+    the caller believes the steps are fixed, which is exactly the confusion this
+    option exists to remove.
+    """
+    import torch
+
+    pot = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    vxvv = torch.tensor([1.0, 0.1, 1.1, 0.1, 0.2, 0.0], dtype=torch.float64)
+    ts = torch.linspace(0.0, 1.0, 5, dtype=torch.float64)
+    with pytest.raises(NotImplementedError, match="jax/diffrax option"):
+        integrate_orbit(pot, vxvv, ts, nsteps=100)

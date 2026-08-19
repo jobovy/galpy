@@ -46,7 +46,9 @@ def _resolve_adjoint(diffrax, adjoint):
     )
 
 
-def integrate(pot, y0, ts, *, dim, rtol, atol, max_steps, solver=None, adjoint=None):
+def integrate(
+    pot, y0, ts, *, dim, rtol, atol, max_steps, solver=None, adjoint=None, nsteps=None
+):
     """Integrate the EOM with diffrax (Dopri8, adaptive). y0/ys in rectangular
     EOM variables [x, vx, y, vy, z, vz], shape (dim,) for one orbit or (N, dim) for
     a batch.
@@ -89,10 +91,14 @@ def integrate(pot, y0, ts, *, dim, rtol, atol, max_steps, solver=None, adjoint=N
             _solver,
             t0=tsi[0],
             t1=tsi[-1],
-            dt0=None,
+            dt0=None if nsteps is None else (tsi[-1] - tsi[0]) / nsteps,
             y0=y0i,
             saveat=diffrax.SaveAt(ts=tsi),
-            stepsize_controller=diffrax.PIDController(rtol=rtol, atol=atol),
+            stepsize_controller=(
+                diffrax.PIDController(rtol=rtol, atol=atol)
+                if nsteps is None
+                else diffrax.ConstantStepSize()
+            ),
             max_steps=max_steps,
             **_extra,
         ).ys
