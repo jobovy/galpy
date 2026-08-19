@@ -1,6 +1,11 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+- ``actionAngleVerticalInverse`` now supports physical units: it accepts
+  ``ro`` and ``vo``, parses the energies of its tori and the actions and
+  angles at which it is evaluated when these are given as Quantities, and
+  returns its outputs in physical units.
+
 - Added an exact, ODE-based point transformation to
   ``actionAngleVerticalInverse`` (``use_pointtransform="exact"``): instead of
   fitting a polynomial approximation, solve the ordinary differential equation
