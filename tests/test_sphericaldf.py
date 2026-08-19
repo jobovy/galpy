@@ -3966,34 +3966,40 @@ def test_sphericaldf_percall_ro_override():
     dfh = isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0)
     # sigmar: without ro=, 1 pc is parsed with self._ro (8 kpc)
     sigmar_default = dfh.sigmar(1.0 * units.pc, use_physical=False)
-    assert numpy.fabs(
-        sigmar_default - dfh.sigmar(0.001 / 8.0, use_physical=False)
-    ) < 1e-12
+    assert (
+        numpy.fabs(sigmar_default - dfh.sigmar(0.001 / 8.0, use_physical=False)) < 1e-12
+    )
     # with ro=10., 1 pc is parsed with the per-call ro
     sigmar_override = dfh.sigmar(1.0 * units.pc, use_physical=False, ro=10.0)
-    assert numpy.fabs(
-        sigmar_override - dfh.sigmar(0.001 / 10.0, use_physical=False)
-    ) < 1e-12
+    assert (
+        numpy.fabs(sigmar_override - dfh.sigmar(0.001 / 10.0, use_physical=False))
+        < 1e-12
+    )
     assert numpy.fabs(sigmar_default - sigmar_override) > 1e-6
     # same for sigmat
-    assert numpy.fabs(
-        dfh.sigmat(1.0 * units.pc, use_physical=False)
-        - dfh.sigmat(1.0 * units.pc, use_physical=False, ro=10.0)
-    ) > 1e-6
-    # same for vmomentdensity
-    assert numpy.fabs(
-        dfh.vmomentdensity(1.0 * units.pc, 0, 0, use_physical=False)
-        - dfh.vmomentdensity(
-            1.0 * units.pc, 0, 0, use_physical=False, ro=10.0
+    assert (
+        numpy.fabs(
+            dfh.sigmat(1.0 * units.pc, use_physical=False)
+            - dfh.sigmat(1.0 * units.pc, use_physical=False, ro=10.0)
         )
-    ) > 1e-6
+        > 1e-6
+    )
+    # same for vmomentdensity
+    assert (
+        numpy.fabs(
+            dfh.vmomentdensity(1.0 * units.pc, 0, 0, use_physical=False)
+            - dfh.vmomentdensity(1.0 * units.pc, 0, 0, use_physical=False, ro=10.0)
+        )
+        > 1e-6
+    )
     # beta: use an anisotropic DF (isotropic beta is identically zero);
     # beta(r) = r^2 / (r^2 + ra^2) for osipkovmerrittdf
     dfa = osipkovmerrittdf(pot=pot, ra=1.0, ro=8.0, vo=220.0)
     r_no = 0.001 / 8.0
     r_ro = 0.001 / 10.0
     assert numpy.fabs(dfa.beta(1.0 * units.pc) - r_no**2.0 / (r_no**2.0 + 1.0)) < 1e-12
-    assert numpy.fabs(
-        dfa.beta(1.0 * units.pc, ro=10.0) - r_ro**2.0 / (r_ro**2.0 + 1.0)
-    ) < 1e-12
+    assert (
+        numpy.fabs(dfa.beta(1.0 * units.pc, ro=10.0) - r_ro**2.0 / (r_ro**2.0 + 1.0))
+        < 1e-12
+    )
     return None
