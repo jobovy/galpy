@@ -322,9 +322,9 @@ class sphericaldf(df):
         if ro is None and hasattr(self, "_roSet") and self._roSet:
             ro = self._ro
         ro = conversion.parse_length_kpc(ro)
-        out = self._dMdE(
-            numpy.atleast_1d(conversion.parse_energy(E, vo=vo))
-        ).reshape(E.shape if isinstance(E, numpy.ndarray) else ())
+        out = self._dMdE(numpy.atleast_1d(conversion.parse_energy(E, vo=vo))).reshape(
+            E.shape if isinstance(E, numpy.ndarray) else ()
+        )
         # Convert to physical units
         if use_physical and vo is not None and ro is not None:
             fac = conversion.mass_in_msol(vo, ro) / vo**2.0
