@@ -253,9 +253,13 @@ jax-jit tests/test_potential.py::test_poisson_surfdens_potential[AnyAxisymmetric
 # node to numpy, so the density is inherently non-differentiable -- and anchors
 # the result back (see its docstring). That routes through as_numpy(), i.e.
 # numpy.asarray(), which a tracer cannot satisfy. Eager jax/torch are fine: a
-# concrete array converts. Un-ledger only if units handling ever becomes
-# backend-native; there is nothing to fix in the test.
-jax-jit tests/test_potential.py::test_pickling_potential_unitful_dens
+# concrete array converts.
+#
+# `test_pickling_potential_unitful_dens` was ALSO ledgered here on that
+# reasoning and is now MEASURED PASSING traced -- the 2026-08-18
+# workflow_dispatch(jit=true, regen=true) run (32141815273) does not list it.
+# So the blanket "there is nothing to fix" claim held for the wrapper case only;
+# only `drops_units_wrapper` still hits the untraceable as_numpy() boundary.
 jax-jit tests/test_potential.py::test_pickling_potential_drops_units_wrapper
 
 # jax-jit: actionAngleStaeckelGrid, MEASURED 2026-08-07 on the first traced run of
