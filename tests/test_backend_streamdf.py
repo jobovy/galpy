@@ -858,21 +858,10 @@ def _track_loss_fn(sdf, prog_vxvv, tintJ, W):
     # `direct` flag selecting the AA adjoint -- 'direct' (twice-diff, for jax.grad)
     # or the default recursive (smooth adaptive forward, for the finite difference).
     def _aA(lp, direct):
-        # nsteps (constant stepping) in BOTH arms. With the default adaptive
-        # controller the AD arm's DirectAdjoint differentiates the solver's own
-        # step-size decisions, so the gradient carries a spurious dependence on
-        # the step sequence -- which is environment-dependent. Measured on
-        # py3.14/jax 0.11.1, where this test fails: adaptive gives
-        # |AD-FD|/|AD| = 0.4191% against a 0.3% bar, constant steps give
-        # 0.0513%. (On py3.13/jax 0.10.1 both pass with an order of magnitude to
-        # spare, which is why this went unnoticed.) Verified NOT caused by any
-        # PR: the develop tree and the AnySpherical branch fail with bit-identical
-        # numbers (R0 AD=3.542997e-01, |AD-FD|=1.48e-03). Constant steps also
-        # make the two arms differ only in the adjoint, as a clean A/B should.
         ikw = (
-            {"adjoint": "direct", "max_steps": 20000, "nsteps": 3000}
+            {"adjoint": "direct", "max_steps": 20000}
             if direct
-            else {"max_steps": 200000, "nsteps": 3000}
+            else {"max_steps": 200000}
         )
         return actionAngleIsochroneApprox(
             pot=lp, b=0.8, tintJ=tintJ, integrate_method="diffrax", integrate_kwargs=ikw
