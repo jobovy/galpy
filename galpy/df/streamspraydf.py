@@ -709,6 +709,22 @@ class basestreamspraydf(df):
         u_samples = grandom.uniform(key, (n,))
         return -self._stripping_inv_cdf(as_numpy(u_samples))
 
+    def _progenitor_now(self):
+        """The progenitor's present-day ``(R, vR, vT, z, vz, phi)`` as concrete floats.
+
+        Raises when they cannot be realised as floats (a traced IC) -- callers that
+        have a defined answer in that case catch it; callers that do not should fail.
+        """
+        p = self._progenitor
+        return (
+            float(p.R(0.0)),
+            float(p.vR(0.0)),
+            float(p.vT(0.0)),
+            float(p.z(0.0)),
+            float(p.vz(0.0)),
+            float(p.phi(0.0)),
+        )
+
     def _theta_probe_point(self):
         """Concrete ``((R, z), phi, v)`` at which to probe the potential for a backend
         parameter.
@@ -719,15 +735,11 @@ class basestreamspraydf(df):
         routes in-backend anyway (``ic_concrete`` below), so the probe's answer there
         only has to be well-defined, not particular.
         """
-        p = self._progenitor
         try:
-            return (
-                (float(p.R(0.0)), float(p.z(0.0))),
-                float(p.phi(0.0)),
-                numpy.array([float(p.vR(0.0)), float(p.vT(0.0)), float(p.vz(0.0))]),
-            )
+            R, vR, vT, z, vz, phi = self._progenitor_now()
         except Exception:  # noqa: BLE001 -- traced IC has no concrete coordinates
             return (1.0, 0.0), 0.0, numpy.array([0.0, 1.0, 0.0])
+        return (R, z), phi, numpy.array([vR, vT, vz])
 
     def _integrate_progenitor(self):
         """Integrate the progenitor over ``[0, -tdisrupt]``, choosing the integrator
@@ -921,19 +933,7 @@ class basestreamspraydf(df):
         a center-only backend trigger (centerpot theta / center IC) drives differentiable
         center= sampling while ``self._pot`` carries no backend parameter. Sets ``_bsamp``.
         """
-        p = self._progenitor
-        ic = xp.asarray(
-            numpy.array(
-                [
-                    float(p.R(0.0)),
-                    float(p.vR(0.0)),
-                    float(p.vT(0.0)),
-                    float(p.z(0.0)),
-                    float(p.vz(0.0)),
-                    float(p.phi(0.0)),
-                ]
-            )
-        )
+        ic = xp.asarray(numpy.array(self._progenitor_now()))
         bgrid = numpy.linspace(0.0, -self._tdisrupt, 2001)
         self._progenitor = Orbit(ic)
         self._progenitor.turn_physical_off()
