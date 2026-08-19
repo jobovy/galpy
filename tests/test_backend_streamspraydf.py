@@ -1154,3 +1154,61 @@ def test_streamtrack_jit_grad_fd_center_ic():
     g, best = _jit_grad_hconv(loss, _CENTER_IC[0])
     assert numpy.isfinite(g) and abs(g) > 0
     assert best < 1e-4, f"jit streamTrack center-IC grad-vs-FD best REL={best:.2e}"
+
+
+# --------------------------------------------------------------------------
+# Differentiable SAMPLING w.r.t. a potential parameter (theta). The tests above
+# differentiate streamTrack with sampling bypassed (particles=); this one runs
+# the actual spray sampler with integrate=True, which is the path a stream fit
+# uses. It regression-guards the dispatch fix: _sample_setup's theta probe used
+# to be skipped whenever the progenitor IC was a backend array, leaving
+# theta_backend False, so the dispatch chose dop853_c and the progenitor
+# integrated through the C-STM -- which carries d/d(IC) but NOT d/d(theta), so
+# jax.grad w.r.t. a potential parameter died in the C parser.
+# --------------------------------------------------------------------------
+@pytest.mark.skipif("jax" not in BACKENDS, reason="needs jax")
+def test_streamspray_sample_theta_grad_fd_jax():
+    """d(sprayed-stream morphology)/d(halo q) by AD vs a common-random-numbers FD.
+
+    The comparison only means anything with the SAME key on both arms: the
+    stripping draws are random, so a different key changes the stream itself and
+    the finite difference would measure sampling noise rather than the
+    derivative. With the key fixed, the FD is a pathwise derivative of exactly
+    the function AD differentiates.
+
+    Uses return_orbit=False: sample() wraps its output via as_numpy(out).T, which
+    severs the gradient at the Orbit boundary (a separate, still-open item), so
+    the raw-array path is what carries the derivative today.
+    """
+    import jax
+
+    jax.config.update("jax_enable_x64", True)
+    import jax.numpy as jnp
+
+    mass = 2 * 10.0**4.0 / conversion.mass_in_msol(_VO, _RO)
+    td = 2.0 / conversion.time_in_Gyr(_VO, _RO)
+    key = grandom.key(_SEED, backend="jax")
+    q0 = 0.9
+
+    def stat(q):
+        pot = LogarithmicHaloPotential(normalize=1.0, q=q)
+        prog = Orbit(jnp.stack([jnp.asarray(float(v)) for v in _PROG_IC]))
+        prog.turn_physical_off()
+        spdf = fardal15spraydf(mass, progenitor=prog, pot=pot, tdisrupt=td)
+        out = spdf.sample(n=60, integrate=True, key=key, return_orbit=False)
+        return jnp.mean(out[0] ** 2)  # <R^2> over the sprayed particles
+
+    ad = float(jax.grad(stat)(jnp.asarray(q0)))
+    assert numpy.isfinite(ad) and abs(ad) > 0, f"degenerate spray gradient: {ad}"
+    best = min(
+        abs(
+            ad
+            - (float(stat(jnp.asarray(q0 + h))) - float(stat(jnp.asarray(q0 - h))))
+            / (2 * h)
+        )
+        for h in (1e-3, 1e-4)
+    )
+    assert best < 5e-3 * abs(ad), (
+        f"spray sample d<R^2>/dq: AD={ad:.6e} best|AD-CRN_FD|={best:.2e} "
+        f"({best / abs(ad):.2%})"
+    )
