@@ -146,7 +146,16 @@ def _from_eom(xp, ys, phasedim):
 
 
 def integrate_orbit(
-    pot, vxvv, ts, *, rtol=1e-12, atol=1e-12, max_steps=None, solver=None, adjoint=None
+    pot,
+    vxvv,
+    ts,
+    *,
+    rtol=1e-12,
+    atol=1e-12,
+    max_steps=None,
+    solver=None,
+    adjoint=None,
+    nsteps=None,
 ):
     """Differentiably integrate an orbit with the backend's ODE solver.
 
@@ -175,6 +184,9 @@ def integrate_orbit(
     adjoint : jax/diffrax adjoint (None -> RecursiveCheckpointAdjoint, reverse-mode
         FIRST order; 'direct' for SECOND derivatives -- jax.hessian / nested jacrev).
         Ignored on torch (torchdiffeq's plain odeint already double-backprops).
+    nsteps : constant-step count (jax only; None -> adaptive stepping). Needed when
+        the solve is differentiated under ``jax.vmap`` -- see the jax integrator's
+        docstring for why adaptive steps break the batched reverse pass.
 
     Returns
     -------
@@ -211,8 +223,14 @@ def integrate_orbit(
             max_steps=max_steps,
             solver=solver,
             adjoint=adjoint,
+            nsteps=nsteps,
         )
     elif "torch" in name:
+        if nsteps is not None:
+            raise NotImplementedError(
+                "nsteps (constant stepping) is a jax/diffrax option; torchdiffeq "
+                "selects its own steps"
+            )
         from .._torch.orbit_ode import integrate as _integrate_torch
 
         ys = _integrate_torch(
