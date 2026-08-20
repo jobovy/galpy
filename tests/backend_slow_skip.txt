@@ -171,6 +171,18 @@ jax tests/test_orbit.py::test_integrate_negative_time  # 389.7s measured 2026-08
 # passes or times out on runner variance. Already deferred for jax-jit; same test, same loop
 # over Python integrators, so it belongs here too rather than re-run until it happens to be green.
 
+# --- jax single-orbit: action-angle accessors -- performance-gated, NOT broken ---
+# These were xfail-ledgered as "actionAngleStaeckel_c is not backend-migrated (Track E) ...
+# numpy .flags on a jax array or NotImplementedError. Un-xfail when Track E lands." Track E
+# HAS landed and the recorded reason no longer holds: measured 2026-08-20 under --runxfail,
+# test_analytic_zmax PASSES (1136.3s) and test_analytic_ecc_rperi_rap does not raise at all,
+# it just never finishes (>1200s). At the measured CI/local ratio for jax shards (0.71) even
+# the passing one is ~807s against the 300s cap, so un-xfailing would only convert it into a
+# timeout FAILED. Deferred on TIME, not capability -- un-defer when the Track A/D orbit
+# vectorization lands, same trigger as the entries above.
+jax tests/test_orbit.py::test_analytic_zmax  # PASSES in 1136.3s (measured 2026-08-20)
+jax tests/test_orbit.py::test_analytic_ecc_rperi_rap  # >1200s, timed out (measured 2026-08-20)
+
 # --- torch orbit: dissipative/variational dxdv battery (slow under torch) ---
 # Chandrasekhar/FDM friction + lyapunov + a dxdv c_vs_python integrate the
 # velocity-dependent EOM via the Python integrator under forced torch; each runs

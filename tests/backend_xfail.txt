@@ -170,13 +170,6 @@ jax tests/test_qdf.py::test_call_diffinoutputs
 torch tests/test_actionAngle.py::test_actionAngleAdiabaticGrid_outsidegrid_c
 torch tests/test_qdf.py::test_call_diffinoutputs
 
-# --- jax single-orbit: action-angle accessors (Track E) ---
-# o.jr()/jz()/e()/zmax()/rperi()/rap() and physical/quantity/plotting paths that call
-# them route through actionAngleStaeckel_c, which is not yet backend-migrated (Track E):
-# it hits numpy .flags on a jax array or NotImplementedError. Un-xfail when Track E lands.
-jax tests/test_orbit.py::test_analytic_ecc_rperi_rap
-jax tests/test_orbit.py::test_analytic_zmax
-
 # --- jax multi-orbit (test_orbits.py): action-angle accessors (Track E) ---
 # Orbits.jr()/actionsFreqsAngles()/EccZmaxRperiRap()/physical-output route through
 # actionAngleStaeckel_c (not yet backend-migrated, Track E) -- same root cause as
