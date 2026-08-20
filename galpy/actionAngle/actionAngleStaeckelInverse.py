@@ -12,10 +12,14 @@ import numpy
 from scipy.interpolate import InterpolatedUnivariateSpline
 from scipy.optimize import brentq
 
-from ..potential import evaluatePotentials
-from ..util import conversion
+from ..potential import OblateStaeckelWrapperPotential
+from ..util import conversion, coords
 from .actionAngleInverse import actionAngleInverse
 
+# Nodes/weights for composite 10-point Gauss-Legendre quadrature: applied per
+# interval of the nchi-point chi mesh, the error per panel is
+# O((pi/nchi)^20), so every stored integral is at machine precision for any
+# reasonable nchi; there is no accuracy knob to tune
 _GLX, _GLW = numpy.polynomial.legendre.leggauss(10)
 
 
@@ -36,13 +40,11 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self,
         pot=None,
         delta=None,
+        u0=None,
         Es=[0.5],
         Lzs=[0.5],
         I3s=[0.1],
         nchi=2001,
-        uref=1.15,
-        umax=10.0,
-        nscan=800,
         maxiter=60,
         angle_tol=1e-13,
         **kwargs,
@@ -54,10 +56,21 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         ----------
         pot : Potential or list thereof
             The potential; must be of exact Staeckel form in prolate
-            spheroidal coordinates with focal distance delta (e.g.,
-            KuzminKutuzovStaeckelPotential).
-        delta : float
-            Focal distance of the prolate spheroidal coordinate system.
+            spheroidal coordinates with focal distance delta. Pass an
+            OblateStaeckelWrapperPotential to work with the Staeckel
+            approximation of a general axisymmetric potential (support for
+            torus-dependent delta in that case is planned).
+        delta : float or Quantity, optional
+            Focal distance of the prolate spheroidal coordinate system;
+            derived from the potential when possible (e.g., from a
+            KuzminKutuzovStaeckelPotential or an
+            OblateStaeckelWrapperPotential), otherwise required.
+        u0 : float, optional
+            Reference u of the Staeckel splitting (as in
+            OblateStaeckelWrapperPotential); irrelevant for an exactly
+            Staeckel potential (any value gives the same U, V up to the
+            fixed gauge), taken from the potential when passing an
+            OblateStaeckelWrapperPotential.
         Es : list of float
             Energies of the tori to set up.
         Lzs : list of float
@@ -69,12 +82,6 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         nchi : int, optional
             Number of grid points in the chi anomaly for the stored
             profiles.
-        uref : float, optional
-            Reference u used in the Staeckel splitting of the potential.
-        umax : float, optional
-            Maximum u scanned for the u turning points.
-        nscan : int, optional
-            Number of points in the turning-point bracketing scans.
         maxiter : int, optional
             Maximum number of Newton iterations in the angle inversion.
         angle_tol : float, optional
@@ -82,31 +89,47 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
         Notes
         -----
-        - Angle conventions: theta_R = 0 at u = u_- moving outward;
-          theta_z = 0 at v = v_- (the northern turning point) moving toward
-          the midplane; theta_phi follows from dW/dL_z.
+        - Angle conventions match those of the forward actionAngleStaeckel.
         - 2026-08-19 - Started - Bovy (UofT)
         """
-        actionAngleInverse.__init__(self, *[], **kwargs)
+        actionAngleInverse.__init__(self, **kwargs)
         if pot is None:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleStaeckelInverse")
-        if delta is None:  # pragma: no cover
-            raise OSError("Must specify delta= for actionAngleStaeckelInverse")
         self._pot = pot
-        self._delta = conversion.parse_length(delta, ro=self._ro)
+        if isinstance(pot, OblateStaeckelWrapperPotential):
+            if delta is not None or u0 is not None:
+                raise ValueError(
+                    "When pot is an OblateStaeckelWrapperPotential, delta and "
+                    "u0 are taken from the potential and cannot be specified"
+                )
+            self._staeckelwrap = pot
+            self._delta = pot._delta
+            self._u0 = pot._u0
+        else:
+            if delta is None:
+                delta = getattr(pot, "_Delta", None)
+            if delta is None:
+                raise OSError(
+                    "Must specify delta= for actionAngleStaeckelInverse when "
+                    "it cannot be derived from the potential"
+                )
+            self._delta = conversion.parse_length(delta, ro=self._ro)
+            self._u0 = 1.15 if u0 is None else u0
+            self._staeckelwrap = OblateStaeckelWrapperPotential(
+                pot=pot, delta=self._delta, u0=self._u0
+            )
         self._Es = numpy.atleast_1d(numpy.array(Es, dtype="float"))
         self._Lzs = numpy.atleast_1d(numpy.array(Lzs, dtype="float"))
         self._I3s = numpy.atleast_1d(numpy.array(I3s, dtype="float"))
         self._ntori = len(self._Es)
         self._nchi = nchi
-        self._uref = uref
-        self._umax = umax
-        self._nscan = nscan
         self._maxiter = maxiter
         self._angle_tol = angle_tol
         self._chi = numpy.linspace(0.0, numpy.pi, nchi)
-        # Staeckel splitting with the gauge V(pi/2) = 0
-        self._Vref = self._Uofu(uref)
+        # theta_z = 0 at the upward midplane crossing, matching the forward
+        # actionAngleStaeckel (the natural profile zero point is the northern
+        # turning point, a quarter v-period earlier)
+        self._anglez0 = numpy.pi / 2.0
         # Per-torus setup
         self._umins = numpy.empty(self._ntori)
         self._umaxs = numpy.empty(self._ntori)
@@ -125,18 +148,13 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             self._setup_torus(ii)
 
     ############################ STAECKEL SPLITTING ###########################
-    def _phi_uv(self, u, v):
-        R = self._delta * numpy.sinh(u) * numpy.sin(v)
-        z = self._delta * numpy.cosh(u) * numpy.cos(v)
-        return evaluatePotentials(self._pot, R, z, use_physical=False)
-
+    # U(u) and V(v) in the gauge V(pi/2) = 0, delegated to
+    # OblateStaeckelWrapperPotential (exact when the potential is Staeckel)
     def _Uofu(self, u):
-        return self._phi_uv(u, numpy.pi / 2.0) * (numpy.sinh(u) ** 2.0 + 1.0)
+        return self._staeckelwrap._U(u)
 
     def _Vofv(self, v):
-        return self._Vref - self._phi_uv(self._uref, v) * (
-            numpy.sinh(self._uref) ** 2.0 + numpy.sin(v) ** 2.0
-        )
+        return self._staeckelwrap._V(v)
 
     def _Wu(self, u, E, Lz, I3):
         return (
@@ -155,23 +173,29 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         E, Lz, I3 = self._Es[ii], self._Lzs[ii], self._I3s[ii]
         Wu = lambda u: self._Wu(u, E, Lz, I3)
         Wv = lambda v: self._Wv(v, E, Lz, I3)
-        # turning points from bracketing scans
-        us = numpy.linspace(1e-3, self._umax, self._nscan)
+        # turning points from a single dense, vectorized bracketing scan
+        # (cheap: one vectorized potential evaluation); the u range covers
+        # any realistic bound torus and near-shell oscillations down to
+        # widths of a few times 1e-3
+        us = numpy.linspace(1e-3, 40.0, 16000)
         pos = numpy.where(Wu(us) > 0.0)[0]
         if len(pos) == 0:
             raise ValueError(
-                f"No bound u oscillation found for torus {ii} "
-                "(E={E}, Lz={Lz}, I3={I3})"
+                f"No bound u oscillation found for torus {ii} (E={E}, Lz={Lz}, I3={I3})"
+            )
+        if pos[-1] == len(us) - 1:
+            raise ValueError(
+                f"u oscillation not enclosed for torus {ii} "
+                f"(E={E}, Lz={Lz}, I3={I3}); the torus is likely unbound"
             )
         ulo = us[pos[0] - 1] if pos[0] > 0 else 1e-8
-        uhi = us[pos[-1] + 1] if pos[-1] < self._nscan - 1 else self._umax
         umin = brentq(Wu, ulo, us[pos[0]], xtol=1e-15, rtol=8.9e-16)
-        umaxx = brentq(Wu, us[pos[-1]], uhi, xtol=1e-15, rtol=8.9e-16)
-        vs = numpy.linspace(1e-3, numpy.pi / 2.0, self._nscan)
+        umaxx = brentq(Wu, us[pos[-1]], us[pos[-1] + 1], xtol=1e-15, rtol=8.9e-16)
+        vs = numpy.linspace(1e-3, numpy.pi / 2.0, 4000)
         if Wv(numpy.pi / 2.0) <= 0.0:
             raise ValueError(
                 f"Midplane not reached for torus {ii}; no valid torus for "
-                "(E={E}, Lz={Lz}, I3={I3})"
+                f"(E={E}, Lz={Lz}, I3={I3})"
             )
         neg = numpy.where(Wv(vs) < 0.0)[0]
         vmin = (
@@ -305,7 +329,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         wu, wv = numpy.copy(thR), numpy.copy(thz)
         for _ in range(self._maxiter):
             f0 = self._fold(A[0], wu) + self._fold(B[0], wv) - thR
-            f1 = self._fold(A[1], wu) + self._fold(B[1], wv) - thz
+            f1 = self._fold(A[1], wu) + self._fold(B[1], wv) + self._anglez0 - thz
             f0 = (f0 + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             f1 = (f1 + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             J00, J01 = self._dfold(dA[0], wu), self._dfold(dB[0], wv)
@@ -336,8 +360,7 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         # (u, v, p_u, p_v) -> (R, z, vR, vz)
         sh, ch = numpy.sinh(u), numpy.cosh(u)
         sn, cs = numpy.sin(v), numpy.cos(v)
-        R = self._delta * sh * sn
-        z = self._delta * ch * cs
+        R, z = coords.uv_to_Rz(u, v, delta=self._delta)
         den = self._delta * (sh**2.0 + sn**2.0)
         vR = (pu * ch * sn + pv * sh * cs) / den
         vz = (pu * sh * cs - pv * ch * sn) / den
@@ -357,31 +380,3 @@ class actionAngleStaeckelInverse(actionAngleInverse):
     def _Freqs(self, jr, jphi, jz, **kwargs):
         ii = self._torus_index(jr, jphi, jz)
         return (self._OmegaR[ii], self._Omegaphi[ii], self._Omegaz[ii])
-
-    ############################ FORWARD (for tests) ##########################
-    def _point_to_angles(self, R, vR, vT, z, vz, phi, indx):
-        """Angles of a phase-space point on torus indx (internal, used to
-        anchor traversal tests); returns (theta_R, theta_phi, theta_z)."""
-        ii = indx
-        d = self._delta
-        d1 = numpy.sqrt(R**2.0 + (z + d) ** 2.0)
-        d2 = numpy.sqrt(R**2.0 + (z - d) ** 2.0)
-        u = numpy.arccosh(numpy.clip((d1 + d2) / (2.0 * d), 1.0, None))
-        v = numpy.arccos(numpy.clip((d1 - d2) / (2.0 * d), -1.0, 1.0))
-        pu = d * (vR * numpy.cosh(u) * numpy.sin(v) + vz * numpy.sinh(u) * numpy.cos(v))
-        pv = d * (vR * numpy.sinh(u) * numpy.cos(v) - vz * numpy.cosh(u) * numpy.sin(v))
-        umin, umaxx, vmin = self._umins[ii], self._umaxs[ii], self._vmins[ii]
-        Du, Dv = umaxx - umin, numpy.pi - 2.0 * vmin
-        chiu = 2.0 * numpy.arcsin(numpy.sqrt(numpy.clip((u - umin) / Du, 0.0, 1.0)))
-        chiv = 2.0 * numpy.arcsin(numpy.sqrt(numpy.clip((v - vmin) / Dv, 0.0, 1.0)))
-        wu = numpy.where(pu >= 0.0, chiu, 2.0 * numpy.pi - chiu)
-        wv = numpy.where(pv >= 0.0, chiv, 2.0 * numpy.pi - chiv)
-        A, B = self._Aprof[ii], self._Bprof[ii]
-        thR = self._fold(A[0], wu) + self._fold(B[0], wv)
-        thz = self._fold(A[1], wu) + self._fold(B[1], wv)
-        thphi = phi + self._fold(A[2], wu) + self._fold(B[2], wv)
-        return (
-            thR % (2.0 * numpy.pi),
-            thphi % (2.0 * numpy.pi),
-            thz % (2.0 * numpy.pi),
-        )
