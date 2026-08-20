@@ -8065,7 +8065,7 @@ def test_actionAngleStaeckelInverse_orbit():
     for ic, postol in (
         ([1.1, 0.3, 0.9, 0.25, 0.2, 0.0], 1e-6),  # benign
         ([1.1, 0.9, 0.35, 0.15, 0.1, 0.0], 1e-6),  # eccentric
-        ([1.1, 0.001, 0.9418239, 0.15, 0.25, 0.0], 1e-6),  # near-shell J_R->0
+        ([1.1, 0.001, 0.8425895627614183, 0.15, 0.25, 0.0], 1e-6),  # near-shell J_R->0
         ([1.1, 0.4, 0.9, 0.002, 0.002, 0.0], 1e-5),  # near-planar J_z->0
     ):
         E, Lz, I3 = _kk_torus_labels(kkp, delta, ic)
