@@ -8073,6 +8073,48 @@ def test_actionAngleVerticalInverse_notE_errors():
     return None
 
 
+def test_actionAngleSphericalInverse_Jr():
+    # Public Jr(E,L) accessor: exact lookup for explicit tori, interpolation
+    # for interpolating instances, errors outside the grid / for unknown (E,L)
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = float(o.E(pot=lp))
+    L = float(numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0)))
+    aASI = actionAngleSphericalInverse(pot=lp, Es=[E], Ls=[L], nta=128)
+    assert numpy.fabs(aASI.Jr(E, L) - aASI._jr[0]) < 1e-14, (
+        "Jr(E,L) does not return the radial action of the set-up torus"
+    )
+    with pytest.raises(ValueError) as excinfo:
+        aASI.Jr(E + 0.1, L)
+        pytest.fail("Jr with an unknown (E,L) should have raised a ValueError")
+    aASI_interp = actionAngleSphericalInverse(
+        pot=lp,
+        setup_interp=True,
+        Rmin=0.3,
+        Rmax=3.0,
+        Rinf=20.0,
+        nE=16,
+        nL=16,
+        nta=128,
+        use_pointtransform="exact",
+        pt_only=True,
+    )
+    assert numpy.fabs(aASI_interp.Jr(E, L) - aASI._jr[0]) / aASI._jr[0] < 1e-3, (
+        "Interpolated Jr(E,L) does not agree with the directly-computed value"
+    )
+    with pytest.raises(ValueError) as excinfo:
+        aASI_interp.Jr(100.0, L)
+        pytest.fail("Jr with E outside the grid should have raised a ValueError")
+    with pytest.raises(ValueError) as excinfo:
+        aASI_interp.Jr(E, 100.0)
+        pytest.fail("Jr with L outside the grid should have raised a ValueError")
+    return None
+
+
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
 def test_nullpotential_error():
     from galpy.actionAngle import actionAngleStaeckel

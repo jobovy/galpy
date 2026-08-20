@@ -13073,6 +13073,48 @@ def test_actionAngle_method_turnphysicaloff():
     return None
 
 
+def test_actionAngleSphericalInverse_quantity_output():
+    # quantity=True forces Quantity output regardless of the config setting
+    import numpy
+    from astropy import units
+
+    from galpy.actionAngle import actionAngleSphericalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    o = Orbit([1.0, 0.4, 1.0, 0.2, 0.3, 0.0])
+    E = float(o.E(pot=lp))
+    L = float(numpy.sqrt(numpy.sum(numpy.array(o.L()) ** 2.0)))
+    aASI = actionAngleSphericalInverse(
+        pot=lp, Es=[E], Ls=[L], nta=128, ro=8.0, vo=220.0
+    )
+    jr = aASI.Jr(E, L, quantity=True)
+    assert isinstance(jr, units.Quantity), (
+        "Jr with quantity=True does not return a Quantity"
+    )
+    lz = float(o.R() * o.vT())
+    jphi_phys = lz * 8.0 * 220.0 * units.kpc * units.km / units.s
+    jz_phys = (L - lz) * 8.0 * 220.0 * units.kpc * units.km / units.s
+    out = aASI(
+        jr,
+        jphi_phys,
+        jz_phys,
+        0.1 * units.rad,
+        0.2 * units.rad,
+        0.3 * units.rad,
+        quantity=True,
+    )
+    assert all(isinstance(x, units.Quantity) for x in out), (
+        "__call__ with quantity=True does not return Quantities"
+    )
+    outf = aASI.Freqs(jr, jphi_phys, jz_phys, quantity=True)
+    assert all(isinstance(x, units.Quantity) for x in outf), (
+        "Freqs with quantity=True does not return Quantities"
+    )
+    return None
+
+
 def test_actionAngleSphericalInverse_units():
     # Unit support of actionAngleSphericalInverse: Quantity inputs for the
     # tori of the instance and for the actions and angles at which it is
