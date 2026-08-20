@@ -37,7 +37,7 @@ from ..potential.Potential import (
 )
 from ..potential.SCFPotential import _RToxi, _xiToR
 from ..util import _optional_deps, conversion, galpyWarning
-from ..util.conversion import physical_conversion
+from ..util.conversion import physical_conversion, potential_physical_input
 from .df import df
 
 # Use _APY_LOADED/_APY_UNITS like this to be able to change them in tests
@@ -276,6 +276,7 @@ class sphericaldf(df):
             numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
         ).reshape(E.shape if isinstance(E, numpy.ndarray) else ())
 
+    @potential_physical_input
     def vmomentdensity(self, r, n, m, **kwargs):
         """
         Calculate an arbitrary moment of the velocity distribution at r times the density.
@@ -298,6 +299,7 @@ class sphericaldf(df):
         -----
         - 2020-09-04 - Written - Bovy (UofT)
         """
+        # No-op once the decorator has converted r, but validates the input
         r = conversion.parse_length(r, ro=self._ro)
         use_physical = kwargs.pop("use_physical", True)
         ro = kwargs.pop("ro", None)
@@ -345,6 +347,7 @@ class sphericaldf(df):
             )[0]
         )
 
+    @potential_physical_input
     @physical_conversion("velocity", pop=True)
     def sigmar(self, r):
         """
@@ -364,9 +367,11 @@ class sphericaldf(df):
         -----
         - 2020-09-04 - Written - Bovy (UofT)
         """
+        # No-op once the decorator has converted r, but validates the input
         r = conversion.parse_length(r, ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0))
 
+    @potential_physical_input
     @physical_conversion("velocity", pop=True)
     def sigmat(self, r):
         """
@@ -387,10 +392,12 @@ class sphericaldf(df):
         - 2020-09-04 - Written - Bovy (UofT)
 
         """
+        # No-op once the decorator has converted r, but validates the input
         r = conversion.parse_length(r, ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0))
 
-    def beta(self, r):
+    @potential_physical_input
+    def beta(self, r, ro=None, vo=None):
         """
         Calculate the anisotropy at radius r.
 
@@ -398,6 +405,12 @@ class sphericaldf(df):
         ----------
         r : float
             Spherical radius at which to calculate the anisotropy.
+        ro : float or Quantity, optional
+            Distance scale used to interpret r when it is a Quantity (default:
+            the DF's own ro).
+        vo : float or Quantity, optional
+            Velocity scale; not used here, accepted so that ro= and vo= can be
+            passed together as for the other methods.
 
         Returns
         -------
@@ -409,6 +422,7 @@ class sphericaldf(df):
         - 2020-09-04 - Written - Bovy (UofT)
 
         """
+        # No-op once the decorator has converted r, but validates the input
         r = conversion.parse_length(r, ro=self._ro)
         return 1.0 - self._vmomentdensity(r, 0, 2) / 2.0 / self._vmomentdensity(r, 2, 0)
 

@@ -30,6 +30,13 @@ v1.12.1 (expected around 2026-11-01)
   the particle sum is accumulated in batches so building from a very large number
   of particles stays memory-bounded.
 
+- Fixed ``vmomentdensity``, ``sigmar``, ``sigmat``, and ``beta`` of the
+  ``sphericaldf`` family to honour a per-call ``ro=`` when parsing ``Quantity``
+  input radii; previously the DF's own ``ro`` was always used, even though the
+  per-call value was already honoured for the output units. This is consistent
+  with potentials and with ``diskdf``/``quasiisothermaldf``. Calls that do not
+  pass ``ro=`` are unaffected.
+
 - Added translation between the ``SCFPotential`` and ``MultipoleExpansionPotential``
   representations: ``SCFPotential.from_multipole`` builds an SCF expansion from a
   multipole expansion, and ``MultipoleExpansionPotential.from_scf`` does the
