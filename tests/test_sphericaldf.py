@@ -4045,18 +4045,25 @@ def test_sphericaldf_percall_ro_vo_call():
     E_phys = -0.5 * (100.0 * units.km / units.s) ** 2
     L_phys = 10.0 * units.kpc * units.km / units.s
     Lz_phys = 5.0 * units.kpc * units.km / units.s
-    f_default = dfh(E_phys, L_phys, Lz_phys, use_physical=False)
+    f_default = dfh((E_phys, L_phys, Lz_phys), use_physical=False)
     E_int = -0.5 * (100.0 / 220.0) ** 2
     L_int = 10.0 / 8.0 * 100.0 / 220.0
     Lz_int = 5.0 / 8.0 * 100.0 / 220.0
-    assert numpy.fabs(f_default - dfh(E_int, L_int, Lz_int, use_physical=False)) < 1e-12
+    assert (
+        numpy.fabs(f_default - dfh((E_int, L_int, Lz_int), use_physical=False))
+        < 1e-12
+    )
     # with per-call ro=10., vo=100.
-    f_override = dfh(E_phys, L_phys, Lz_phys, use_physical=False, ro=10.0, vo=100.0)
+    f_override = dfh(
+        (E_phys, L_phys, Lz_phys), use_physical=False, ro=10.0, vo=100.0
+    )
     E_int_o = -0.5 * (100.0 / 100.0) ** 2
     L_int_o = 10.0 / 10.0 * 100.0 / 100.0
     Lz_int_o = 5.0 / 10.0 * 100.0 / 100.0
     assert (
-        numpy.fabs(f_override - dfh(E_int_o, L_int_o, Lz_int_o, use_physical=False))
+        numpy.fabs(
+            f_override - dfh((E_int_o, L_int_o, Lz_int_o), use_physical=False)
+        )
         < 1e-12
     )
     assert numpy.fabs(f_default - f_override) > 1e-6
