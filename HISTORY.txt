@@ -6,14 +6,14 @@ v1.12.1 (expected around 2026-11-01)
   angles at which it is evaluated when these are given as Quantities, and
   returns its outputs in physical units.
 
-- Added an exact, ODE-based point transformation to
+- Added an exact point transformation to
   ``actionAngleVerticalInverse`` (``use_pointtransform="exact"``): instead of
-  fitting a polynomial approximation, solve the ordinary differential equation
-  that defines the point transformation mapping each torus exactly onto its
-  auxiliary harmonic-oscillator torus. All mapping coefficients then vanish to
-  within the tolerance of the ODE solution (settable with ``exact_pt_tol``)
-  and the point transformation by itself constitutes the complete torus
-  mapping. With ``pt_only=True``, the inverse transformation is evaluated using
+  fitting a polynomial approximation, construct the point transformation that
+  maps each torus exactly onto its auxiliary harmonic-oscillator torus by
+  direct quadrature of the time profile along the orbit and monotone spline
+  inversion; every stored profile is computed at machine precision, so all
+  mapping coefficients vanish and the point transformation by itself
+  constitutes the complete torus mapping. With ``pt_only=True``, the inverse transformation is evaluated using
   the point transformation alone (much faster evaluation); the mapping
   coefficients are still computed at setup as a diagnostic of the accuracy of
   the point transformation and a warning is issued if they are not small.
