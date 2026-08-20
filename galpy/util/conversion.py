@@ -1284,9 +1284,13 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
                 vo = args[0]._vo
             if _APY_LOADED and isinstance(vo, units.Quantity):
                 vo = vo.to(units.km / units.s).value
+            # Determine whether or not to return outputs as quantities
+            _apy_units = kwargs.get("quantity", _APY_UNITS)
             # Remove ro and vo kwargs if necessary
             if pop and "use_physical" in kwargs:
                 kwargs.pop("use_physical")
+            if pop and "quantity" in kwargs:
+                kwargs.pop("quantity")
             if pop and "ro" in kwargs:
                 kwargs.pop("ro")
             if pop and "vo" in kwargs:
@@ -1298,11 +1302,11 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
                 if "call" in quantity or "xv" in quantity:
                     if "xv" in quantity and len(out) < 4:  # 1D system
                         fac.extend([ro, vo])
-                        if _APY_UNITS:
+                        if _apy_units:
                             u.extend([units.kpc, units.km / units.s])
                     else:
                         fac.extend([ro, vo, vo, ro, vo, 1.0])
-                        if _APY_UNITS:
+                        if _apy_units:
                             u.extend(
                                 [
                                     units.kpc,
@@ -1317,15 +1321,15 @@ def physical_conversion_actionAngleInverse(quantity, pop=False):
                     FreqsFac = freq_in_Gyr(vo, ro)
                     if isinstance(out, float):  # 1D system
                         fac.append(FreqsFac)
-                        if _APY_UNITS:
+                        if _apy_units:
                             Freqsu = units.Gyr**-1.0
                             u.append(Freqsu)
                     else:
                         fac.extend([FreqsFac, FreqsFac, FreqsFac])
-                        if _APY_UNITS:
+                        if _apy_units:
                             Freqsu = units.Gyr**-1.0
                             u.extend([Freqsu, Freqsu, Freqsu])
-                if _APY_UNITS:
+                if _apy_units:
                     newOut = ()
                     try:
                         for ii in range(len(out)):
