@@ -123,7 +123,7 @@ void actionAngleAdiabatic_RperiRapZmax(int ndata,
   //Calculate peri and apocenters
   double *jz= (double *) malloc ( ndata * sizeof(double) );
   calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
-  calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,10);
+  calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,20);
   //Adjust planar effective potential for gamma
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
@@ -168,7 +168,7 @@ void actionAngleAdiabatic_actions(int ndata,
   double *rap= (double *) malloc ( ndata * sizeof(double) );
   double *zmax= (double *) malloc ( ndata * sizeof(double) );
   calcZmax(ndata,zmax,z,R,Ez,npot,actionAngleArgs);
-  calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,10);
+  calcJzAdiabatic(ndata,jz,zmax,R,Ez,npot,actionAngleArgs,20);
   //Adjust planar effective potential for gamma
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii)
@@ -178,7 +178,7 @@ void actionAngleAdiabatic_actions(int ndata,
       - 0.5 * *(vT+ii) * *(vT+ii);
   }
   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
-  calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,10);
+  calcJRAdiabatic(ndata,jr,rperi,rap,ER,Lz,npot,actionAngleArgs,20);
   free_potentialArgs(npot,actionAngleArgs);
   free(actionAngleArgs);
   free(ER);

@@ -1821,7 +1821,8 @@ def test_actionAngleAdiabatic_conserved_actions():
 # order-10 default (gh#1354). The C now substitutes z=zmax*sin(phi) / R=cc-rr*cos(theta)
 # to make the integrand analytic at those ends. Guard it against the pure-Python path,
 # which uses adaptive quadrature and is exact to ~1e-14: before the fix this grid gave
-# max rel err 7.9e-4 (jr) and 1.5e-4 (jz); after, 1.4e-6 and 2.4e-6.
+# max rel err 7.9e-4 (jr) and 1.5e-4 (jz); after, 6.8e-10 and 9.3e-10 at order 20
+# (1.9e-6 / 1.5e-6 with the substitution but order still 10, which this bar also catches).
 def test_actionAngleAdiabatic_c_matches_python_quadrature():
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.potential import MWPotential2014
@@ -1840,13 +1841,15 @@ def test_actionAngleAdiabatic_c_matches_python_quadrature():
     jrP, jzP = numpy.asarray(jrP, dtype=float), numpy.asarray(jzP, dtype=float)
     djr = numpy.amax(numpy.fabs(jrC - jrP) / numpy.fabs(jrP))
     djz = numpy.amax(numpy.fabs(jzC - jzP) / numpy.fabs(jzP))
-    assert djr < 1e-5, (
-        f"C jr disagrees with the exact python quadrature by {djr:.3e} (>1e-5): the "
-        "endpoint-regularizing substitution in calcJRAdiabatic may have been lost"
+    assert djr < 1e-8, (
+        f"C jr disagrees with the exact python quadrature by {djr:.3e} (>1e-8): the "
+        "endpoint substitution or the quadrature order in calcJRAdiabatic may have "
+        "been lost"
     )
-    assert djz < 1e-5, (
-        f"C jz disagrees with the exact python quadrature by {djz:.3e} (>1e-5): the "
-        "endpoint-regularizing substitution in calcJzAdiabatic may have been lost"
+    assert djz < 1e-8, (
+        f"C jz disagrees with the exact python quadrature by {djz:.3e} (>1e-8): the "
+        "endpoint substitution or the quadrature order in calcJzAdiabatic may have "
+        "been lost"
     )
     return None
 
