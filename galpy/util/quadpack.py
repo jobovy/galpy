@@ -16,6 +16,37 @@ def _infunc(x, func, gfun, hfun, more_args, epsrel, epsabs):
     return retval[0]
 
 
+def quad_over_limits(func, a, b, **kwargs):
+    """``quad(func, a, b)[0]`` with either limit allowed to be an array.
+
+    scipy's ``quad`` accepts scalar limits only, and silently uses just the
+    first element if handed an array, so integrating over array coordinates has
+    to be done element by element.
+
+    Parameters
+    ----------
+    func : callable
+        Function to integrate, of one variable.
+    a, b : float or array
+        Limits of integration; broadcast against each other.
+    **kwargs
+        Passed through to ``scipy.integrate.quad``.
+
+    Returns
+    -------
+    float or array
+        The integral, of the broadcast shape of ``a`` and ``b``. A scalar in,
+        scalar out, evaluated by exactly the same ``quad`` call as before.
+    """
+    if numpy.ndim(a) == 0 and numpy.ndim(b) == 0:
+        return quad(func, a, b, **kwargs)[0]
+    aa, bb = numpy.broadcast_arrays(a, b)
+    out = numpy.empty(aa.shape)
+    for idx in numpy.ndindex(aa.shape):
+        out[idx] = quad(func, aa[idx], bb[idx], **kwargs)[0]
+    return out
+
+
 def dblquad(func, a, b, gfun, hfun, args=(), epsabs=1.49e-8, epsrel=1.49e-8):
     return quad(
         _infunc,
