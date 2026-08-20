@@ -1282,3 +1282,44 @@ def test_theta_probe_point_falls_back_when_progenitor_is_not_concrete():
     (R, z), phi, v = df._theta_probe_point()
     assert (R, z) == (1.0, 0.0) and phi == 0.0
     assert numpy.allclose(v, [0.0, 1.0, 0.0])
+
+
+def test_integrate_kwargs_reach_only_the_in_backend_integrators():
+    """`integrate_kwargs` are solver options for the jax/torch ODE paths; the C and
+    numpy integrators take none. Cover the contract directly -- the options are
+    handed over for `diffrax`/`torchdiffeq` and withheld from everything else --
+    since the suite that exercises the enabled path uploads no coverage."""
+    import numpy
+
+    from galpy.df import fardal15spraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    prog = Orbit([1.2, 0.1, 1.1, 0.3, 0.05, 0.4])
+    prog.turn_physical_off()
+    kw = {"adjoint": "direct", "max_steps": 4096}
+    common = dict(
+        progenitor=prog,
+        pot=lp,
+        tdisrupt=1.0 / conversion.time_in_Gyr(220.0, 8.0),
+        progenitor_mass=2.0e4 / conversion.mass_in_msol(220.0, 8.0),
+    )
+
+    df = fardal15spraydf(integrate_kwargs=kw, **common)
+    for method in ("diffrax", "torchdiffeq"):
+        assert df._ikw(method) == {"inbackend_kwargs": kw}, (
+            f"{method} is an in-backend ODE and must receive the solver options"
+        )
+    for method in ("dop853_c", "symplec4_c", "odeint"):
+        assert df._ikw(method) == {}, (
+            f"{method} takes no solver options and must receive none"
+        )
+    # a copy, so a caller mutating its dict cannot reach into the df afterwards
+    assert df._ikw("diffrax")["inbackend_kwargs"] is not kw
+
+    # default (None) withholds them everywhere, so nothing changes for existing users
+    df_default = fardal15spraydf(**common)
+    for method in ("diffrax", "torchdiffeq", "dop853_c"):
+        assert df_default._ikw(method) == {}
