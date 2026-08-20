@@ -26,7 +26,7 @@ if conversion._APY_LOADED:
 from ..util import plot as plot
 from .actionAngleHarmonic import actionAngleHarmonic
 from .actionAngleHarmonicInverse import actionAngleHarmonicInverse
-from .actionAngleInverse import _parse_grid_quantity, actionAngleInverse
+from .actionAngleInverse import actionAngleInverse
 from .actionAngleVertical import actionAngleVertical
 
 

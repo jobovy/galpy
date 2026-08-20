@@ -587,7 +587,6 @@ def check_parser_input_type(func):
     return parse_x_wrapper
 
 
-@check_parser_input_type
 def _parse_grid_quantity(x, parser, **kwargs):
     """Convert a grid input to internal units: x can be a number, a sequence
     or array of numbers, a Quantity, or a sequence of Quantities; parser is
@@ -598,6 +597,7 @@ def _parse_grid_quantity(x, parser, **kwargs):
     return numpy.atleast_1d(parser(numpy.atleast_1d(x), **kwargs))
 
 
+@check_parser_input_type
 def parse_length(x, ro=None, vo=None):
     return (
         x.to(units.kpc).value / ro
