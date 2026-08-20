@@ -43,19 +43,6 @@ from .actionAngleIsochroneInverse import (
 from .actionAngleSpherical import actionAngleSpherical
 
 
-def _parse_grid_quantity(x, parser, **kwargs):
-    """Convert a grid input to internal units: x can be a number, a sequence
-    or array of numbers, a Quantity, or a sequence of Quantities"""
-    if (
-        conversion._APY_LOADED
-        and isinstance(x, (list, tuple))
-        and len(x) > 0
-        and isinstance(x[0], units.Quantity)
-    ):
-        x = units.Quantity(list(x))
-    return numpy.atleast_1d(parser(numpy.atleast_1d(x), **kwargs))
-
-
 def _grid_pad_weights(pad, npts):
     """Lagrange weights that extrapolate a function sampled at
     0,1,...,npts-1 to the pad points -pad,...,-1 (the weights for the upper
@@ -209,8 +196,10 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._aAS = actionAngleSpherical(pot=self._pot)
         # Determine gridding options
         if not setup_interp:
-            self._Es = _parse_grid_quantity(Es, conversion.parse_energy, vo=self._vo)
-            self._Ls = _parse_grid_quantity(
+            self._Es = conversion._parse_grid_quantity(
+                Es, conversion.parse_energy, vo=self._vo
+            )
+            self._Ls = conversion._parse_grid_quantity(
                 Ls, conversion.parse_angmom, ro=self._ro, vo=self._vo
             )
             self._nE = len(self._Es)
