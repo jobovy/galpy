@@ -20,6 +20,7 @@ import copy
 import os
 import os.path
 import pickle
+import warnings
 
 import numpy
 import scipy
@@ -30,11 +31,15 @@ from scipy import integrate, interpolate, optimize, stats
 from ..actionAngle import actionAngleAdiabatic
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
-from ..util import conversion, quadpack, save_pickles
+from ..util import conversion, galpyWarning, quadpack, save_pickles
 from ..util.ars import ars
 from ..util.conversion import (
     _APY_LOADED,
     _APY_UNITS,
+    parse_angmom,
+    parse_energy,
+    parse_length_kpc,
+    parse_velocity_kms,
     physical_conversion,
     potential_physical_input,
     surfdens_in_msolpc2,
@@ -138,7 +143,6 @@ class diskdf(df):
         self._aA = actionAngleAdiabatic(pot=self._psp, gamma=0.0)
         return None
 
-    @physical_conversion("phasespacedensity2d", pop=True)
     def __call__(self, *args, **kwargs):
         """
         Evaluate the distribution function
@@ -152,6 +156,15 @@ class diskdf(df):
                     b) Orbit instance + t: call the Orbit instance (for list, each instance is called at t)
                 2) E,L - energy (/vo^2; or can be Quantity) and angular momentun (/ro/vo; or can be Quantity)
                 3) array vxvv [3/4,nt] [must be in natural units /vo,/ro; use Orbit interface for physical-unit input]
+        ro : float or Quantity, optional
+            Length scale used to convert Quantity inputs and to return
+            physical-unit output.
+        vo : float or Quantity, optional
+            Velocity scale used to convert Quantity inputs and to return
+            physical-unit output.
+        use_physical : bool, optional
+            If True (default), return the DF in physical units
+            (1/phase-space volume) when ro and vo are set.
         marginalizeVperp : bool, optional
             marginalize over perpendicular velocity (only supported with 1a) for single orbits above)
         marginalizeVlos : bool, optional
@@ -169,7 +182,38 @@ class diskdf(df):
         Notes
         -----
         - 2010-07-10 - Written - Bovy (NYU)
+        - 2026-08-20 - Per-call ro=/vo= overrides now also apply to input parsing - Bovy (UofT)
         """
+        # Parse physical-unit overrides
+        use_physical = kwargs.pop("use_physical", True)
+        ro = kwargs.pop("ro", None)
+        if ro is None and hasattr(self, "_roSet") and self._roSet:
+            ro = self._ro
+        ro = conversion.parse_length_kpc(ro)
+        vo = kwargs.pop("vo", None)
+        if vo is None and hasattr(self, "_voSet") and self._voSet:
+            vo = self._vo
+        vo = conversion.parse_velocity_kms(vo)
+
+        def _physical_output(out):
+            # Convert to physical units
+            if use_physical and vo is not None and ro is not None:
+                fac = 1.0 / vo**2.0 / ro**2.0
+                if _APY_UNITS:
+                    u = 1 / (units.km / units.s) ** 2 / units.kpc**2
+                out = out * fac
+                if _APY_UNITS:
+                    return units.Quantity(out, unit=u)
+                else:
+                    return out
+            else:
+                if use_physical and (vo is None or ro is None):
+                    warnings.warn(
+                        "Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set",
+                        galpyWarning,
+                    )
+                return out
+
         if isinstance(args[0], Orbit):
             if len(args[0]) > 1:
                 raise RuntimeError(
@@ -177,31 +221,39 @@ class diskdf(df):
                 )  # pragma: no cover
             if len(args) == 1:
                 if kwargs.pop("marginalizeVperp", False):
-                    return self._call_marginalizevperp(args[0], **kwargs)
+                    return _physical_output(
+                        self._call_marginalizevperp(args[0], **kwargs)
+                    )
                 elif kwargs.pop("marginalizeVlos", False):
-                    return self._call_marginalizevlos(args[0], **kwargs)
+                    return _physical_output(
+                        self._call_marginalizevlos(args[0], **kwargs)
+                    )
                 else:
-                    return numpy.real(
-                        self.eval(
-                            *vRvTRToEL(
-                                args[0].vR(use_physical=False),
-                                args[0].vT(use_physical=False),
-                                args[0].R(use_physical=False),
-                                self._beta,
-                                self._dftype,
+                    return _physical_output(
+                        numpy.real(
+                            self.eval(
+                                *vRvTRToEL(
+                                    args[0].vR(use_physical=False),
+                                    args[0].vT(use_physical=False),
+                                    args[0].R(use_physical=False),
+                                    self._beta,
+                                    self._dftype,
+                                )
                             )
                         )
                     )
             else:
                 no = args[0](args[1])
-                return numpy.real(
-                    self.eval(
-                        *vRvTRToEL(
-                            no.vR(use_physical=False),
-                            no.vT(use_physical=False),
-                            no.R(use_physical=False),
-                            self._beta,
-                            self._dftype,
+                return _physical_output(
+                    numpy.real(
+                        self.eval(
+                            *vRvTRToEL(
+                                no.vR(use_physical=False),
+                                no.vT(use_physical=False),
+                                no.R(use_physical=False),
+                                self._beta,
+                                self._dftype,
+                            )
                         )
                     )
                 )
@@ -214,8 +266,8 @@ class diskdf(df):
             vR = numpy.array([o.vR(use_physical=False) for o in args[0]])
             vT = numpy.array([o.vT(use_physical=False) for o in args[0]])
             R = numpy.array([o.R(use_physical=False) for o in args[0]])
-            return numpy.real(
-                self.eval(*vRvTRToEL(vR, vT, R, self._beta, self._dftype))
+            return _physical_output(
+                numpy.real(self.eval(*vRvTRToEL(vR, vT, R, self._beta, self._dftype)))
             )
         elif isinstance(args[0], numpy.ndarray) and not (
             hasattr(args[0], "isscalar") and args[0].isscalar
@@ -224,11 +276,18 @@ class diskdf(df):
             vR = args[0][1]
             vT = args[0][2]
             R = args[0][0]
-            return numpy.real(
-                self.eval(*vRvTRToEL(vR, vT, R, self._beta, self._dftype))
+            return _physical_output(
+                numpy.real(self.eval(*vRvTRToEL(vR, vT, R, self._beta, self._dftype)))
             )
         else:
-            return numpy.real(self.eval(*args))
+            # Parse E, L with the per-call ro/vo when they are Quantities
+            E = conversion.parse_energy(args[0], vo=vo)
+            L = (
+                conversion.parse_angmom(args[1], ro=ro, vo=vo)
+                if len(args) > 1
+                else None
+            )
+            return _physical_output(numpy.real(self.eval(E, L, *args[2:])))
 
     def _call_marginalizevperp(self, o, **kwargs):
         """Call the DF, marginalizing over perpendicular velocity"""

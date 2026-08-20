@@ -161,7 +161,6 @@ class quasiisothermaldf(df):
         )
         return None
 
-    @physical_conversion("phasespacedensity", pop=True)
     def __call__(self, *args, **kwargs):
         """
         Evaluate the DF
@@ -179,6 +178,15 @@ class quasiisothermaldf(df):
                 c) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well
         log: bool, optional
             If True, return the natural log.
+        ro : float or Quantity, optional
+            Length scale used to convert Quantity inputs and to return
+            physical-unit output.
+        vo : float or Quantity, optional
+            Velocity scale used to convert Quantity inputs and to return
+            physical-unit output.
+        use_physical : bool, optional
+            If True (default), return the DF in physical units
+            (1/phase-space volume) when ro and vo are set.
         func: function of (jr,lz,jz), optional
             Function of the actions to multiply the DF with (useful for moments).
         _return_actions: bool, optional
@@ -198,9 +206,20 @@ class quasiisothermaldf(df):
         Notes
         -----
         - 2012-07-25 - Written - Bovy (IAS@MPIA)
+        - 2026-08-20 - Per-call ro=/vo= overrides now also apply to input parsing - Bovy (UofT)
         """
         # First parse log
         log = kwargs.pop("log", False)
+        # Parse physical-unit overrides
+        use_physical = kwargs.pop("use_physical", True) and not log
+        ro = kwargs.pop("ro", None)
+        if ro is None and hasattr(self, "_roSet") and self._roSet:
+            ro = self._ro
+        ro = conversion.parse_length_kpc(ro)
+        vo = kwargs.pop("vo", None)
+        if vo is None and hasattr(self, "_voSet") and self._voSet:
+            vo = self._vo
+        vo = conversion.parse_velocity_kms(vo)
         _return_actions = kwargs.pop("_return_actions", False)
         _return_freqs = kwargs.pop("_return_freqs", False)
         _func = kwargs.pop("func", None)
@@ -217,9 +236,9 @@ class quasiisothermaldf(df):
         # First parse args
         if len(args) == 1 and not isinstance(args[0], Orbit):  # (jr,lz,jz)
             jr, lz, jz = args[0]
-            jr = parse_angmom(jr, ro=self._ro, vo=self._vo)
-            lz = parse_angmom(lz, ro=self._ro, vo=self._vo)
-            jz = parse_angmom(jz, ro=self._ro, vo=self._vo)
+            jr = parse_angmom(jr, ro=ro, vo=vo)
+            lz = parse_angmom(lz, ro=ro, vo=vo)
+            jz = parse_angmom(jz, ro=ro, vo=vo)
         else:
             # Use self._aA to calculate the actions
             if isinstance(args[0], Orbit) and len(args[0].shape) > 1:
@@ -312,7 +331,23 @@ class quasiisothermaldf(df):
         elif _return_freqs:
             return (out, thisrg, kappa, nu, Omega)
         else:
-            return out
+            # Convert to physical units
+            if use_physical and vo is not None and ro is not None:
+                fac = 1.0 / vo**3.0 / ro**3.0
+                if _APY_UNITS:
+                    u = 1 / (units.km / units.s) ** 3 / units.kpc**3
+                out = out * fac
+                if _APY_UNITS:
+                    return units.Quantity(out, unit=u)
+                else:
+                    return out
+            else:
+                if use_physical and (vo is None or ro is None):
+                    warnings.warn(
+                        "Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set",
+                        galpyWarning,
+                    )
+                return out
 
     @potential_physical_input
     @physical_conversion("position", pop=True)

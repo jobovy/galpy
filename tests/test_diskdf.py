@@ -3093,3 +3093,40 @@ def skew_pdist(s, ps):
     m2 = numpy.sum((s - m1) ** 2.0 * ps) / norm
     m3 = numpy.sum((s - m1) ** 3.0 * ps) / norm
     return m3 / m2**1.5
+
+
+def test_diskdf_percall_ro_vo_call():
+    # __call__ with (E,L): per-call ro=/vo= must apply to Quantity input
+    # parsing (regression test for #1198; follows sphericaldf #1345)
+    from galpy.util._optional_deps import _APY_LOADED
+
+    if not _APY_LOADED:
+        return None
+    from astropy import units
+
+    df = dehnendf(
+        profileParams=(0.25, 0.75, 0.1),
+        beta=0.0,
+        correct=False,
+        ro=8.0,
+        vo=220.0,
+    )
+    E_q = 0.4 * (100.0 * units.km / units.s) ** 2
+    L_q = 1.5 * 10.0 * 100.0 * units.kpc * units.km / units.s
+    # default: parsed with the instance ro=8., vo=220.
+    f_default = df(E_q, L_q, use_physical=False)
+    E_int = 0.4 * (100.0 / 220.0) ** 2
+    L_int = 1.5 * 10.0 / 8.0 * 100.0 / 220.0
+    assert (
+        numpy.fabs(f_default - df(E_int, L_int, use_physical=False)) / f_default
+        < 1e-12
+    )
+    # with per-call ro=10., vo=100.: input must be parsed with these
+    f_override = df(E_q, L_q, use_physical=False, ro=10.0, vo=100.0)
+    assert (
+        numpy.fabs(f_override - df(0.4, 1.5, use_physical=False)) / f_override
+        < 1e-12
+    )
+    # and it must actually differ from the instance-scale parsing
+    assert numpy.fabs(f_override - f_default) / f_override > 1e-6
+    return None

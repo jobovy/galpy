@@ -30,6 +30,14 @@ v1.12.1 (expected around 2026-11-01)
   the particle sum is accumulated in batches so building from a very large number
   of particles stays memory-bounded.
 
+- Fixed ``diskdf.__call__`` and ``quasiisothermaldf.__call__`` to honour
+  per-call ``ro=``/``vo=`` overrides when parsing ``Quantity`` inputs
+  (``E,L`` for ``diskdf``, ``(jr,lz,jz)`` for ``quasiisothermaldf``),
+  completing the ``sphericaldf`` fix below; previously these inputs were
+  parsed with the instance's own ``_ro``/``_vo`` even when per-call scales
+  were given. Both ``__call__`` methods now return physical units when
+  ``ro``/``vo`` are set.
+
 - Fixed ``sphericaldf`` methods (``vmomentdensity``, ``sigmar``, ``sigmat``,
   ``beta``, ``dMdE``, and ``__call__``) to honour per-call ``ro=``/``vo=``
   overrides when parsing ``Quantity`` inputs, consistent with potentials and

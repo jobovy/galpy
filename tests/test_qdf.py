@@ -1684,3 +1684,58 @@ def test_meanjz_noaac_issue300():
         "Mean Jz computed using MC with Python actionAngleAdiabatic integration fails"
     )
     return None
+
+
+def test_quasiisothermaldf_percall_ro_vo_call():
+    # __call__ with (jr,lz,jz): per-call ro=/vo= must apply to Quantity
+    # input parsing (regression test for #1198; follows sphericaldf #1345)
+    from galpy.util._optional_deps import _APY_LOADED
+
+    if not _APY_LOADED:
+        return None
+    from astropy import units
+
+    qdf = quasiisothermaldf(
+        1.0 / 4.0,
+        0.2,
+        0.1,
+        1.0,
+        1.0,
+        pot=MWPotential,
+        aA=aAA,
+        cutcounter=True,
+        ro=8.0,
+        vo=220.0,
+    )
+    jr_q = 0.03 * units.kpc * units.km / units.s
+    lz_q = 0.9 * units.kpc * units.km / units.s
+    jz_q = 0.02 * units.kpc * units.km / units.s
+    # default: parsed with the instance ro=8., vo=220.
+    f_default = qdf((jr_q, lz_q, jz_q), use_physical=False)
+    assert (
+        numpy.fabs(
+            f_default
+            - qdf(
+                (0.03 / (8.0 * 220.0), 0.9 / (8.0 * 220.0), 0.02 / (8.0 * 220.0)),
+                use_physical=False,
+            )
+        )
+        / f_default
+        < 1e-12
+    )
+    # with per-call ro=10., vo=100.: input must be parsed with these
+    f_override = qdf((jr_q, lz_q, jz_q), use_physical=False, ro=10.0, vo=100.0)
+    assert (
+        numpy.fabs(
+            f_override
+            - qdf(
+                (0.03 / (10.0 * 100.0), 0.9 / (10.0 * 100.0), 0.02 / (10.0 * 100.0)),
+                use_physical=False,
+            )
+        )
+        / f_override
+        < 1e-12
+    )
+    # and it must actually differ from the instance-scale parsing
+    assert numpy.fabs(f_override - f_default) / f_override > 1e-6
+    return None
