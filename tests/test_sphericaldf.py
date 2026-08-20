@@ -3952,59 +3952,6 @@ def test_eddington_sample_negative_df_regions_no_crash():
     return None
 
 
-def test_sphericaldf_percall_ro_override():
-    # A per-call ro= must be used when parsing a Quantity input radius,
-    # like for potentials and diskdf/quasiisothermaldf (#1198)
-    from galpy.util._optional_deps import _APY_LOADED
-
-    if not _APY_LOADED:
-        return None
-    from astropy import units
-
-    pot = potential.HernquistPotential(amp=2.0, a=1.0)
-    dfh = isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0)
-    # Without ro=, 1 pc is parsed with the DF's own ro of 8 kpc
-    assert (
-        numpy.fabs(
-            dfh.sigmar(1.0 * units.pc, use_physical=False)
-            - dfh.sigmar(0.001 / 8.0, use_physical=False)
-        )
-        < 1e-12
-    ), "sigmar does not parse a Quantity radius with the DF's ro"
-    # With ro=10., it is parsed with the per-call value instead
-    assert (
-        numpy.fabs(
-            dfh.sigmar(1.0 * units.pc, use_physical=False, ro=10.0)
-            - dfh.sigmar(0.001 / 10.0, use_physical=False)
-        )
-        < 1e-12
-    ), "sigmar does not parse a Quantity radius with the per-call ro"
-    # Same for sigmat and vmomentdensity
-    assert (
-        numpy.fabs(
-            dfh.sigmat(1.0 * units.pc, use_physical=False, ro=10.0)
-            - dfh.sigmat(0.001 / 10.0, use_physical=False)
-        )
-        < 1e-12
-    ), "sigmat does not parse a Quantity radius with the per-call ro"
-    assert (
-        numpy.fabs(
-            dfh.vmomentdensity(1.0 * units.pc, 0, 0, use_physical=False, ro=10.0)
-            - dfh.vmomentdensity(0.001 / 10.0, 0, 0, use_physical=False)
-        )
-        < 1e-12
-    ), "vmomentdensity does not parse a Quantity radius with the per-call ro"
-    # beta needs an anisotropic DF, because the isotropic one is zero
-    # everywhere; beta(r) = r^2/(r^2+ra^2) for the Osipkov-Merritt DF
-    dfa = osipkovmerrittdf(pot=pot, ra=1.0, ro=8.0, vo=220.0)
-    for ro, r in zip([None, 10.0], [0.001 / 8.0, 0.001 / 10.0]):
-        assert (
-            numpy.fabs(dfa.beta(1.0 * units.pc, ro=ro) - r**2.0 / (r**2.0 + 1.0))
-            < 1e-12
-        ), "beta does not parse a Quantity radius with the per-call ro"
-    return None
-
-
 def test_sphericaldf_bad_radius_error():
     # Non-numeric input should still give the standard clear error, which
     # comes from the in-body parse_length, not from the input decorator

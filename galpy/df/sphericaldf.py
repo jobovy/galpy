@@ -123,6 +123,17 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
     return 0.0
 
 
+def _input_scales(obj, kwargs):
+    """The ro and vo to use for parsing Quantity *inputs*: a per-call ro=/vo=
+    if one is given, the DF's own otherwise. Same precedence as
+    potential_physical_input, which is why the methods using this are decorated
+    with pop=False: ro= and vo= have to still be in kwargs when the body runs.
+    """
+    ro = conversion.parse_length_kpc(kwargs.get("ro", None))
+    vo = conversion.parse_velocity_kms(kwargs.get("vo", None))
+    return obj._ro if ro is None else ro, obj._vo if vo is None else vo
+
+
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
 
@@ -193,7 +204,7 @@ class sphericaldf(df):
             )
 
     ############################## EVALUATING THE DF###############################
-    @physical_conversion("massphasespacedensity", pop=True)
+    @physical_conversion("massphasespacedensity", pop=False)
     def __call__(self, *args, **kwargs):
         """
         Evaluate the DF
@@ -215,7 +226,9 @@ class sphericaldf(df):
         -----
         - 2020-07-22 - Written - Lane (UofT)
         - 2024-10-29 - Fixed to return mass/phase-space volume units for physical-unit output - Bovy (UofT)
+        - 2026-08-20 - A per-call ro=/vo= is now also used to parse Quantity inputs - Bovy (UofT)
         """
+        ro, vo = _input_scales(self, kwargs)
         # Get E,L,Lz
         if len(args) == 1:
             if not isinstance(args[0], Orbit):  # Assume tuple (E,L,Lz)
@@ -224,16 +237,16 @@ class sphericaldf(df):
                 E = args[0].E(pot=self._pot, use_physical=False)
                 L = numpy.sqrt(numpy.sum(args[0].L(use_physical=False) ** 2.0))
                 Lz = args[0].Lz(use_physical=False)
-            E = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
-            L = numpy.atleast_1d(conversion.parse_angmom(L, ro=self._ro, vo=self._vo))
-            Lz = numpy.atleast_1d(conversion.parse_angmom(Lz, ro=self._vo, vo=self._vo))
+            E = numpy.atleast_1d(conversion.parse_energy(E, vo=vo))
+            L = numpy.atleast_1d(conversion.parse_angmom(L, ro=ro, vo=vo))
+            Lz = numpy.atleast_1d(conversion.parse_angmom(Lz, ro=ro, vo=vo))
         else:  # Assume R,vR,vT,z,vz,(phi)
             R, vR, vT, z, vz, phi = (args + (None,))[:6]
-            R = conversion.parse_length(R, ro=self._ro)
-            vR = conversion.parse_velocity(vR, vo=self._vo)
-            vT = conversion.parse_velocity(vT, vo=self._vo)
-            z = conversion.parse_length(z, ro=self._ro)
-            vz = conversion.parse_velocity(vz, vo=self._vo)
+            R = conversion.parse_length(R, ro=ro)
+            vR = conversion.parse_velocity(vR, vo=vo)
+            vT = conversion.parse_velocity(vT, vo=vo)
+            z = conversion.parse_length(z, ro=ro)
+            vz = conversion.parse_velocity(vz, vo=vo)
             vtotSq = vR**2.0 + vT**2.0 + vz**2.0
             E = numpy.atleast_1d(0.5 * vtotSq + _evaluatePotentials(self._pot, R, z))
             Lz = numpy.atleast_1d(R * vT)
@@ -252,8 +265,8 @@ class sphericaldf(df):
             )
         )
 
-    @physical_conversion("massenergydensity", pop=True)
-    def dMdE(self, E):
+    @physical_conversion("massenergydensity", pop=False)
+    def dMdE(self, E, **kwargs):
         """
         Compute the differential energy distribution dM/dE: the amount of mass per unit energy
 
@@ -270,11 +283,13 @@ class sphericaldf(df):
         Notes
         -----
         - 2023-05-23 - Written - Bovy (UofT)
+        - 2026-08-20 - A per-call vo= is now also used to parse a Quantity input - Bovy (UofT)
 
         """
-        return self._dMdE(
-            numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
-        ).reshape(E.shape if isinstance(E, numpy.ndarray) else ())
+        _, vo = _input_scales(self, kwargs)
+        return self._dMdE(numpy.atleast_1d(conversion.parse_energy(E, vo=vo))).reshape(
+            E.shape if isinstance(E, numpy.ndarray) else ()
+        )
 
     @potential_physical_input
     def vmomentdensity(self, r, n, m, **kwargs):
