@@ -2,25 +2,11 @@
 # actionAngleInverse.py: top-level class with common routines for inverse
 #                        actionAngle methods
 ###############################################################################
-import numpy
-
-from ..util import conversion
 from ..util.conversion import (
     actionAngleInverse_physical_input,
     physical_conversion_actionAngleInverse,
 )
 from .actionAngle import actionAngle
-
-
-def _parse_grid_quantity(x, parser, **kwargs):
-    """Convert a grid input to internal units: x can be a number, a sequence
-    or array of numbers, a Quantity, or a sequence of Quantities"""
-    if conversion._APY_LOADED and isinstance(x, (list, tuple)) and len(x) > 0:
-        from astropy import units
-
-        if isinstance(x[0], units.Quantity):
-            x = units.Quantity(list(x))
-    return numpy.atleast_1d(parser(numpy.atleast_1d(x), **kwargs))
 
 
 class actionAngleInverse(actionAngle):

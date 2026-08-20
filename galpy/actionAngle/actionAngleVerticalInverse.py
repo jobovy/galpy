@@ -93,7 +93,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._aAV = actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
         self._Es = numpy.sort(
-            _parse_grid_quantity(Es, conversion.parse_energy, vo=self._vo)
+            conversion._parse_grid_quantity(Es, conversion.parse_energy, vo=self._vo)
         )
         self._nE = len(self._Es)
         js = numpy.empty(self._nE)
