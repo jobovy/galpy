@@ -22,25 +22,12 @@ from ..util import conversion, galpyWarning
 
 if conversion._APY_LOADED:
     from astropy import units
+
 from ..util import plot as plot
 from .actionAngleHarmonic import actionAngleHarmonic
 from .actionAngleHarmonicInverse import actionAngleHarmonicInverse
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleVertical import actionAngleVertical
-
-
-def _parse_energies(Es, vo):
-    """Convert the energies of the tori to internal units; Es can be a
-    number, a sequence or array of numbers, a Quantity, or a sequence of
-    Quantities (the natural way to give a single torus is Es=[E])"""
-    if (
-        conversion._APY_LOADED
-        and isinstance(Es, (list, tuple))
-        and len(Es) > 0
-        and isinstance(Es[0], units.Quantity)
-    ):
-        Es = units.Quantity(list(Es))
-    return conversion.parse_energy(numpy.atleast_1d(Es), vo=vo)
 
 
 class actionAngleVerticalInverse(actionAngleInverse):
@@ -105,7 +92,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
         self._pot = _check_potential_list_and_deprecate(pot)
         self._aAV = actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
-        self._Es = numpy.sort(_parse_energies(Es, self._vo))
+        self._Es = numpy.sort(
+            conversion._parse_grid_quantity(Es, conversion.parse_energy, vo=self._vo)
+        )
         self._nE = len(self._Es)
         js = numpy.empty(self._nE)
         Omegas = numpy.empty(self._nE)
