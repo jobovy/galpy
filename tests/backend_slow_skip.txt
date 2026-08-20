@@ -166,6 +166,10 @@ jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic  # PASSES in
 # entries that used to sit here were measured fast enough on 2026-08-15 and are
 # now un-deferred.
 jax tests/test_orbit.py::test_integrate_backwards  # >420s (measured 2026-08-15, timed out)
+jax tests/test_orbit.py::test_integrate_negative_time  # 389.7s measured 2026-08-20; at the
+# measured CI/local ratio (0.71) that is ~277s against the 300s cap, i.e. ~8% margin, so it
+# passes or times out on runner variance. Already deferred for jax-jit; same test, same loop
+# over Python integrators, so it belongs here too rather than re-run until it happens to be green.
 
 # --- torch orbit: dissipative/variational dxdv battery (slow under torch) ---
 # Chandrasekhar/FDM friction + lyapunov + a dxdv c_vs_python integrate the
