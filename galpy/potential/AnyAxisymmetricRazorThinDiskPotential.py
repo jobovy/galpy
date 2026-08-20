@@ -375,16 +375,25 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
             return self._pot_zero
         elif numpy.isinf(R**2 + z**2):
             return 0.0
-        potint = lambda a: (
-            a
-            * self._sdens(a)
-            / numpy.sqrt((R + a) ** 2.0 + z**2.0)
-            * special.ellipk(4 * R * a / ((R + a) ** 2.0 + z**2.0))
-        )
-        return -4 * (
-            integrate.quad(potint, 0, 2 * R, points=[R])[0]
-            + integrate.quad(potint, 2 * R, numpy.inf)[0]
-        )
+
+        # Same a=R peak, and the same fix, as zforce and Rzderiv: see
+        # _quad_apeak. Phi's peak is only logarithmic rather than
+        # 1/((a-R)^2+z^2), so it is not wrong by orders of magnitude -- but for
+        # |z| << R quad still steps over the O(|z|)-wide region entirely and
+        # misses the 2*pi*Sigma(R)*|z| that Phi picks up off the midplane. That
+        # term IS the vertical force, so without this Phi and zforce disagree:
+        # at R=0.5, Phi(1e-8)-Phi(0) came back 4.4e-12 where
+        # zforce(0.5,1e-8) = -2.10295 demands 2.10e-8.
+        #
+        # m1 = 1-m is taken from the exact d2 = (a-R)^2+z^2 that _quad_apeak
+        # supplies, never as 1 - 4aR/aRz: that subtraction rounds to 0 for
+        # |z| << R and sends ellipk to inf right at the peak, which is why the
+        # peak cannot simply be panelled with the old integrand.
+        def potint(a, u, d2):
+            aRz = (R + a) ** 2.0 + z**2.0
+            return a * self._sdens(a) / numpy.sqrt(aRz) * special.ellipkm1(d2 / aRz)
+
+        return -4 * _quad_apeak(potint, R, z)
 
     def _evaluate_gl(self, R, z, xp, dev):
         z2 = z**2
