@@ -63,9 +63,7 @@ void calcRapRperi(int,double *,double *,double *,double *,double *,
 void calcZmax(int,double *,double *,double *,double *,int,
 	      struct potentialArg *);
 double JRAdiabaticIntegrandSquared(double,void *);
-double JRAdiabaticIntegrand(double,void *);
 double JzAdiabaticIntegrandSquared(double,void *);
-double JzAdiabaticIntegrand(double,void *);
 double evaluateVerticalPotentials(double, double,int, struct potentialArg *);
 /*
   Actual functions, inlines first
@@ -190,6 +188,11 @@ void actionAngleAdiabatic_actions(int ndata,
   free(rap);
   free(zmax);
 }
+// JR = (sqrt2/pi) int_rperi^rap sqrt(F_R) dR, F_R(R)= ER - Phi(R,0) - Lz^2/(2R^2).
+// F_R has a SQRT zero at BOTH ends, so plain Gauss-Legendre is algebraically
+// convergent (~5e-4 at order 10). R = cc - rr*cos(theta), theta in [0,pi], with
+// cc=(rap+rperi)/2 and rr=(rap-rperi)/2, makes it analytic at both -- the same
+// regularization calcdJRAdiabatic uses below.
 void calcJRAdiabatic(int ndata,
 		     double * jr,
 		     double * rperi,
@@ -199,30 +202,13 @@ void calcJRAdiabatic(int ndata,
 		     int nargs,
 		     struct potentialArg * actionAngleArgs,
 		     int order){
-  int ii, tid, nthreads;
-#ifdef _OPENMP
-  nthreads = omp_get_max_threads();
-#else
-  nthreads = 1;
-#endif
-  gsl_function * JRInt= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
-  struct JRAdiabaticArg * params= (struct JRAdiabaticArg *) malloc ( nthreads * sizeof (struct JRAdiabaticArg) );
-  for (tid=0; tid < nthreads; tid++){
-    (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
-  }
+  int ii, gi;
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
   UNUSED int chunk= CHUNKSIZE;
-#pragma omp parallel for schedule(static,chunk)				\
-  private(tid,ii)							\
-  shared(jr,rperi,rap,JRInt,params,T,ER,Lz)
+#pragma omp parallel for schedule(static,chunk) private(ii,gi) \
+  shared(jr,rperi,rap,T,ER,Lz)
   for (ii=0; ii < ndata; ii++){
-#ifdef _OPENMP
-    tid= omp_get_thread_num();
-#else
-    tid = 0;
-#endif
     if ( *(rperi+ii) == -9999.99 || *(rap+ii) == -9999.99 ){
       *(jr+ii)= 9999.99;
       continue;
@@ -231,19 +217,27 @@ void calcJRAdiabatic(int ndata,
       *(jr+ii) = 0.;
       continue;
     }
-    //Setup function
-    (params+tid)->ER= *(ER+ii);
-    (params+tid)->Lz22= 0.5 * *(Lz+ii) * *(Lz+ii);
-    (JRInt+tid)->function = &JRAdiabaticIntegrand;
-    (JRInt+tid)->params = params+tid;
-    //Integrate
-    *(jr+ii)= gsl_integration_glfixed (JRInt+tid,*(rperi+ii),*(rap+ii),T)
-      * sqrt(2.) / M_PI;
+    double tER= *(ER+ii), Lz22= 0.5 * *(Lz+ii) * *(Lz+ii);
+    double cc= 0.5*( *(rap+ii) + *(rperi+ii) );
+    double rr= 0.5*( *(rap+ii) - *(rperi+ii) );
+    double acc= 0., xi, wi;
+    for (gi=0; gi < order; gi++){
+      gsl_integration_glfixed_point(0.,M_PI,gi,&xi,&wi,T);
+      double r= cc - rr*cos(xi);
+      double FR= tER - evaluatePotentials(r,0.,nargs,actionAngleArgs)
+	- Lz22/(r*r);
+      if ( FR <= 0. ) continue;
+      acc+= wi*sqrt(FR)*rr*sin(xi);
+    }
+    *(jr+ii)= acc * sqrt(2.) / M_PI;
   }
-  free(JRInt);
-  free(params);
   gsl_integration_glfixed_table_free ( T );
 }
+// Jz = (2 sqrt2/pi) int_0^zmax sqrt(F_z) dz, F_z(z)= Ez - [Phi(R,z)-Phi(R,0)].
+// F_z has a SQRT zero at the upper end zmax, on which plain Gauss-Legendre is only
+// algebraically convergent (O(n^-3)) -> ~1e-4 at order 10. z = zmax*sin(phi),
+// phi in [0,pi/2] (dz = zmax cos(phi) dphi) makes the integrand analytic there, the
+// same regularization calcdJzAdiabatic uses below.
 void calcJzAdiabatic(int ndata,
 		     double * jz,
 		     double * zmax,
@@ -252,30 +246,13 @@ void calcJzAdiabatic(int ndata,
 		     int nargs,
 		     struct potentialArg * actionAngleArgs,
 		     int order){
-  int ii, tid, nthreads;
-#ifdef _OPENMP
-  nthreads = omp_get_max_threads();
-#else
-  nthreads = 1;
-#endif
-  gsl_function * JzInt= (gsl_function *) malloc ( nthreads * sizeof(gsl_function) );
-  struct JzAdiabaticArg * params= (struct JzAdiabaticArg *) malloc ( nthreads * sizeof (struct JzAdiabaticArg) );
-  for (tid=0; tid < nthreads; tid++){
-    (params+tid)->nargs= nargs;
-    (params+tid)->actionAngleArgs= actionAngleArgs;
-  }
+  int ii, gi;
   //Setup integrator
   gsl_integration_glfixed_table * T= gsl_integration_glfixed_table_alloc (order);
   UNUSED int chunk= CHUNKSIZE;
-#pragma omp parallel for schedule(static,chunk)				\
-  private(tid,ii)							\
-  shared(jz,zmax,JzInt,params,T,Ez,R)
+#pragma omp parallel for schedule(static,chunk) private(ii,gi) \
+  shared(jz,zmax,T,Ez,R)
   for (ii=0; ii < ndata; ii++){
-#ifdef _OPENMP
-    tid= omp_get_thread_num();
-#else
-    tid = 0;
-#endif
     if ( *(zmax+ii) == -9999.99 ){
       *(jz+ii)= 9999.99;
       continue;
@@ -284,17 +261,17 @@ void calcJzAdiabatic(int ndata,
       *(jz+ii) = 0.;
       continue;
     }
-    //Setup function
-    (params+tid)->Ez= *(Ez+ii);
-    (params+tid)->R= *(R+ii);
-    (JzInt+tid)->function = &JzAdiabaticIntegrand;
-    (JzInt+tid)->params = params+tid;
-    //Integrate
-    *(jz+ii)= gsl_integration_glfixed (JzInt+tid,0.,*(zmax+ii),T)
-      * 2 * sqrt(2.) / M_PI;
+    double tzmax= *(zmax+ii), tEz= *(Ez+ii), tR= *(R+ii);
+    double acc= 0., xi, wi;
+    for (gi=0; gi < order; gi++){
+      gsl_integration_glfixed_point(0.,0.5*M_PI,gi,&xi,&wi,T);
+      double Fz= tEz - evaluateVerticalPotentials(tR,tzmax*sin(xi),
+						  nargs,actionAngleArgs);
+      if ( Fz <= 0. ) continue;
+      acc+= wi*sqrt(Fz)*tzmax*cos(xi);
+    }
+    *(jz+ii)= acc * 2 * sqrt(2.) / M_PI;
   }
-  free(JzInt);
-  free(params);
   gsl_integration_glfixed_table_free ( T );
 }
 void calcRapRperi(int ndata,
@@ -588,18 +565,10 @@ void calcZmax(int ndata,
   free(JzRoot);
   free(params);
 }
-double JRAdiabaticIntegrand(double R,
-			   void * p){
-  return sqrt(JRAdiabaticIntegrandSquared(R,p));
-}
 double JRAdiabaticIntegrandSquared(double R,
 				  void * p){
   struct JRAdiabaticArg * params= (struct JRAdiabaticArg *) p;
   return params->ER - evaluatePotentials(R,0.,params->nargs,params->actionAngleArgs) - params->Lz22 / R / R;
-}
-double JzAdiabaticIntegrand(double z,
-			    void * p){
-  return sqrt(JzAdiabaticIntegrandSquared(z,p));
 }
 double JzAdiabaticIntegrandSquared(double z,
 				   void * p){

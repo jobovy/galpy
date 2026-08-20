@@ -1815,6 +1815,42 @@ def test_actionAngleAdiabatic_conserved_actions():
     return None
 
 
+# The C adiabatic actions integrate sqrt(F) over an interval where F has a sqrt zero
+# at the endpoint(s) -- z=zmax for Jz, BOTH rperi and rap for JR. Plain Gauss-Legendre
+# is only algebraically convergent there (O(n^-3)), which cost ~4 digits at the
+# order-10 default (gh#1354). The C now substitutes z=zmax*sin(phi) / R=cc-rr*cos(theta)
+# to make the integrand analytic at those ends. Guard it against the pure-Python path,
+# which uses adaptive quadrature and is exact to ~1e-14: before the fix this grid gave
+# max rel err 7.9e-4 (jr) and 1.5e-4 (jz); after, 1.4e-6 and 2.4e-6.
+def test_actionAngleAdiabatic_c_matches_python_quadrature():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MWPotential2014
+
+    aAC = actionAngleAdiabatic(pot=MWPotential2014, gamma=1.0, c=True)
+    aAP = actionAngleAdiabatic(pot=MWPotential2014, gamma=1.0, c=False)
+    # a spread of eccentricities and vertical amplitudes, off any symmetry line
+    R = numpy.array([0.6, 0.9, 1.0, 1.3, 1.8, 0.75, 1.15, 2.0])
+    vR = numpy.array([0.05, -0.12, 0.2, -0.05, 0.1, 0.18, -0.2, 0.08])
+    vT = numpy.array([1.0, 0.9, 0.8, 1.05, 0.7, 1.1, 0.85, 0.6])
+    z = numpy.array([0.05, 0.12, -0.2, 0.08, 0.3, -0.1, 0.25, 0.15])
+    vz = numpy.array([0.08, -0.15, 0.1, 0.2, -0.05, 0.12, 0.18, -0.1])
+    jrC, _, jzC = aAC(R, vR, vT, z, vz)
+    jrP, _, jzP = aAP(R, vR, vT, z, vz)
+    jrC, jzC = numpy.asarray(jrC, dtype=float), numpy.asarray(jzC, dtype=float)
+    jrP, jzP = numpy.asarray(jrP, dtype=float), numpy.asarray(jzP, dtype=float)
+    djr = numpy.amax(numpy.fabs(jrC - jrP) / numpy.fabs(jrP))
+    djz = numpy.amax(numpy.fabs(jzC - jzP) / numpy.fabs(jzP))
+    assert djr < 1e-5, (
+        f"C jr disagrees with the exact python quadrature by {djr:.3e} (>1e-5): the "
+        "endpoint-regularizing substitution in calcJRAdiabatic may have been lost"
+    )
+    assert djz < 1e-5, (
+        f"C jz disagrees with the exact python quadrature by {djz:.3e} (>1e-5): the "
+        "endpoint-regularizing substitution in calcJzAdiabatic may have been lost"
+    )
+    return None
+
+
 # Test the actions of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_actions_c():
     from galpy.actionAngle import actionAngleAdiabatic
