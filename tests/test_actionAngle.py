@@ -2459,7 +2459,7 @@ def test_actionAngleStaeckel_actions_order():
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
-    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._Delta, c=False)
+    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._delta, c=False)
     # We'll assume that order=10000 is the truth, so 50 should be better than 5
     jrt, jpt, jzt = aAS(o, order=10000, fixed_quad=True)
     jr1, jp1, jz1 = aAS(o, order=5, fixed_quad=True)
@@ -2480,7 +2480,7 @@ def test_actionAngleStaeckel_actions_order_c():
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
-    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._Delta, c=True)
+    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._delta, c=True)
     # We'll assume that order=10000 is the truth, so 50 should be better than 5
     jrt, jpt, jzt = aAS(o, order=10000)
     jr1, jp1, jz1 = aAS(o, order=5)
@@ -2777,7 +2777,7 @@ def test_actionAngleStaeckel_freqs_order_c():
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
-    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._Delta, c=True)
+    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._delta, c=True)
     # We'll assume that order=10000 is the truth, so 50 should be better than 5
     jrt, jpt, jzt, ort, opt, ozt = aAS.actionsFreqs(o, order=10000)
     jr1, jp1, jz1, or1, op1, oz1 = aAS.actionsFreqs(o, order=5)
@@ -2846,7 +2846,7 @@ def test_actionAngleStaeckel_angles_order_c():
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
-    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._Delta, c=True)
+    aAS = actionAngleStaeckel(pot=kksp, delta=kksp._delta, c=True)
     # We'll assume that order=10000 is the truth, so 50 should be better than 5
     jrt, jpt, jzt, ort, opt, ozt, art, apt, azt = aAS.actionsFreqsAngles(o, order=10000)
     jr1, jp1, jz1, or1, op1, oz1, ar1, ap1, az1 = aAS.actionsFreqsAngles(o, order=5)
@@ -8005,12 +8005,9 @@ def test_actionAngleStaeckelInverse_wrapper():
         "actionAngleStaeckelInverse with a wrapped Staeckel potential does "
         "not agree with the unwrapped potential"
     )
-    with pytest.raises(ValueError) as excinfo:
-        actionAngleStaeckelInverse(pot=swp, delta=delta, Es=[E], Lzs=[Lz], I3s=[I3])
-        pytest.fail(
-            "Specifying delta= together with an OblateStaeckelWrapperPotential "
-            "should have raised a ValueError, but did not"
-        )
+    with pytest.raises(TypeError):
+        # delta and u0 are no longer accepted: the potential supplies them
+        actionAngleStaeckelInverse(pot=swp, delta=1.3, Es=[E], Lzs=[Lz], I3s=[I3])
     return None
 
 
@@ -8163,18 +8160,14 @@ def test_actionAngleStaeckelInverse_notorus_errors():
     kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
     with pytest.raises(ValueError) as excinfo:
         # E > 0: the u oscillation is not enclosed (unbound)
-        actionAngleStaeckelInverse(
-            pot=kkp, delta=delta, Es=[10.0], Lzs=[0.99], I3s=[1.9]
-        )
+        actionAngleStaeckelInverse(pot=kkp, Es=[10.0], Lzs=[0.99], I3s=[1.9])
         pytest.fail(
             "Setting up an unbound actionAngleStaeckelInverse torus should "
             "have raised a ValueError, but did not"
         )
     with pytest.raises(ValueError) as excinfo:
         # deeply negative E with large I3: W_u < 0 everywhere
-        actionAngleStaeckelInverse(
-            pot=kkp, delta=delta, Es=[-3.0], Lzs=[0.99], I3s=[5.0]
-        )
+        actionAngleStaeckelInverse(pot=kkp, Es=[-3.0], Lzs=[0.99], I3s=[5.0])
         pytest.fail(
             "Setting up an actionAngleStaeckelInverse torus with no bound u "
             "oscillation should have raised a ValueError, but did not"
@@ -8183,9 +8176,7 @@ def test_actionAngleStaeckelInverse_notorus_errors():
     ic = [1.1, 0.3, 0.9, 0.25, 0.2, 0.0]
     E, Lz, I3 = _kk_torus_labels(kkp, delta, ic)
     with pytest.raises(ValueError) as excinfo:
-        actionAngleStaeckelInverse(
-            pot=kkp, delta=delta, Es=[E], Lzs=[Lz], I3s=[I3 - 0.3]
-        )
+        actionAngleStaeckelInverse(pot=kkp, Es=[E], Lzs=[Lz], I3s=[I3 - 0.3])
         pytest.fail(
             "Setting up an actionAngleStaeckelInverse torus that does not "
             "reach the midplane should have raised a ValueError, but did not"
