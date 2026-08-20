@@ -55,11 +55,14 @@ class AnySphericalPotential(SphericalPotential):
 
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo)
-        # numpy path: _rawmass closes over scipy.integrate.quad with a SCALAR
-        # upper limit (r[0] of an array), so the force is scalar-only -- an
-        # array input silently collapses to its first element. Tell
-        # Potential.mass to drive the backend GL quadrature node-by-node
-        # (vectorized=False) instead of feeding the whole node array.
+        # Drive Potential.mass's backend GL quadrature node-by-node
+        # (vectorized=False) rather than feeding it the whole node array.
+        #
+        # This is now a PERFORMANCE/driving choice, not a correctness guard:
+        # _rawmass integrates element-wise over an array upper limit (see its
+        # docstring), so feeding it the node array would be correct, just
+        # loop-per-node internally either way. It was originally a workaround
+        # for _rawmass silently collapsing an array r to r[0].
         self._force_accepts_arrays = False
         # A jax/torch coord routes _rawmass / the _revaluate tail to in-backend
         # Gauss-Legendre quadrature (see below); flag as backend-capable.
@@ -176,9 +179,14 @@ class AnySphericalPotential(SphericalPotential):
     def _rawmass(self, r):
         r"""Enclosed mass :math:`4\pi\int_0^r a^2\rho(a)\,da`.
 
-        numpy: scipy.integrate.quad with a SCALAR upper limit (byte-identical to
-        the historical closure -- an array ``r`` collapses to ``r[0]``). A
-        jax/torch ``r`` routes to in-backend fixed-order Gauss-Legendre so the
+        numpy: `quad_over_limits`, i.e. scipy's quad driven element by element
+        over an array upper limit. Scalar in, scalar out, through exactly the
+        same `quad` call as before, so the scalar path stays byte-identical.
+        (It previously integrated to ``numpy.atleast_1d(r).flatten()[0]``, so an
+        array ``r`` silently returned the mass inside ``r[0]`` at every element
+        -- 76 of 77 grid cells wrong, up to 0.94 relative, via `_rforce`.)
+
+        A jax/torch ``r`` routes to in-backend fixed-order Gauss-Legendre so the
         mass (and the force / 2nd derivative built on it) differentiates w.r.t.
         ``r`` and through the density's parameters.
         """
@@ -191,11 +199,7 @@ class AnySphericalPotential(SphericalPotential):
                 * _bk_quad(lambda a: a**2 * self._backend_dens(a), 0.0, r)
             )
         return (
-            4.0
-            * numpy.pi
-            * integrate.quad(
-                lambda a: a**2 * self._rawdens(a), 0, numpy.atleast_1d(r).flatten()[0]
-            )[0]
+            4.0 * numpy.pi * quad_over_limits(lambda a: a**2 * self._rawdens(a), 0, r)
         )
 
     def _revaluate(self, r, t=0.0):
