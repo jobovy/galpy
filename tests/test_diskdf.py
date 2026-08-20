@@ -3118,14 +3118,12 @@ def test_diskdf_percall_ro_vo_call():
     E_int = 0.4 * (100.0 / 220.0) ** 2
     L_int = 1.5 * 10.0 / 8.0 * 100.0 / 220.0
     assert (
-        numpy.fabs(f_default - df(E_int, L_int, use_physical=False)) / f_default
-        < 1e-12
+        numpy.fabs(f_default - df(E_int, L_int, use_physical=False)) / f_default < 1e-12
     )
     # with per-call ro=10., vo=100.: input must be parsed with these
     f_override = df(E_q, L_q, use_physical=False, ro=10.0, vo=100.0)
     assert (
-        numpy.fabs(f_override - df(0.4, 1.5, use_physical=False)) / f_override
-        < 1e-12
+        numpy.fabs(f_override - df(0.4, 1.5, use_physical=False)) / f_override < 1e-12
     )
     # and it must actually differ from the instance-scale parsing
     assert numpy.fabs(f_override - f_default) / f_override > 1e-6
