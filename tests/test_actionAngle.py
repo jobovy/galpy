@@ -8151,6 +8151,61 @@ def test_actionAngleStaeckelInverse_wrongactions_error():
     return None
 
 
+def test_actionAngleStaeckelInverse_thinshell():
+    # A u oscillation narrower than the turning-point scan spacing is
+    # recovered by refining the maximum of W_u, and its profiles are
+    # computed stably through the turning-point limits of Q = W/[y(1-y)]
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential, evaluatePotentials
+
+    delta = 1.3
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
+
+    def Uofu(u):
+        return evaluatePotentials(kkp, delta * numpy.sinh(u), 0.0) * (
+            numpy.sinh(u) ** 2.0 + 1.0
+        )
+
+    # Labels of an exact shell torus (double root of W_u at ustar):
+    # W_u'(ustar) = 0 and W_u(ustar) = 0 solved for (E, I3) at fixed Lz
+    ustar, Lz = 1.0, 0.99
+    du = 1e-6
+    Up = (Uofu(ustar + du) - Uofu(ustar - du)) / (2.0 * du)
+    sh, ch = numpy.sinh(ustar), numpy.cosh(ustar)
+    Estar = (Up - Lz**2.0 * ch / (delta**2.0 * sh**3.0)) / numpy.sinh(2.0 * ustar)
+    I3star = Estar * sh**2.0 - Uofu(ustar) - Lz**2.0 / (2.0 * delta**2.0 * sh**2.0)
+    # Slightly above the shell energy: a genuine, ultra-thin oscillation
+    aASI = actionAngleStaeckelInverse(
+        pot=kkp, Es=[Estar + 1e-9], Lzs=[Lz], I3s=[I3star]
+    )
+    assert aASI._umaxs[0] - aASI._umins[0] < 1e-4, (
+        "Ultra-thin shell torus was not recovered by the turning-point "
+        "refinement (the u oscillation should be narrower than the scan "
+        "spacing)"
+    )
+    assert 0.0 < aASI._jr[0] < 1e-8, (
+        "Ultra-thin shell torus does not have the expected tiny radial action"
+    )
+    # The frequencies must connect continuously to those of a nearby,
+    # normally-resolved torus
+    aASI_ref = actionAngleStaeckelInverse(
+        pot=kkp, Es=[Estar + 1e-4], Lzs=[Lz], I3s=[I3star]
+    )
+    assert numpy.fabs(aASI._OmegaR[0] - aASI_ref._OmegaR[0]) < 1e-3, (
+        "Radial frequency of the ultra-thin shell torus does not connect "
+        "to that of a nearby resolved torus"
+    )
+    assert numpy.fabs(aASI._Omegaz[0] - aASI_ref._Omegaz[0]) < 1e-4, (
+        "Vertical frequency of the ultra-thin shell torus does not connect "
+        "to that of a nearby resolved torus"
+    )
+    assert numpy.fabs(aASI._Omegaphi[0] - aASI_ref._Omegaphi[0]) < 1e-4, (
+        "Azimuthal frequency of the ultra-thin shell torus does not connect "
+        "to that of a nearby resolved torus"
+    )
+    return None
+
+
 def test_actionAngleStaeckelInverse_notorus_errors():
     # Unbound / invalid torus labels raise errors
     from galpy.actionAngle import actionAngleStaeckelInverse

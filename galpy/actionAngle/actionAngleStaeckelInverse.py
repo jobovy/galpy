@@ -10,7 +10,7 @@
 ###############################################################################
 import numpy
 from scipy.interpolate import InterpolatedUnivariateSpline
-from scipy.optimize import brentq
+from scipy.optimize import brentq, minimize_scalar
 
 from ..potential import OblateStaeckelWrapperPotential
 from ..util import coords
@@ -147,9 +147,15 @@ class actionAngleStaeckelInverse(actionAngleInverse):
 
     ############################ SETUP: TURNING POINTS ########################
     def _find_turning_points(self):
-        """Bracket and refine the turning points of all tori: a single
-        vectorized scan over a dense mesh (one potential evaluation for all
-        tori, because U and V are shared), refined per torus with brentq"""
+        """Bracket and refine the turning points of all tori. A single
+        vectorized scan over a shared mesh (one potential evaluation for all
+        tori, because U and V are shared) seeds the brackets; neither the
+        range nor the resolution of the scan is a hard limit, because the
+        brackets are extended by geometric stepping beyond the mesh (like
+        the rperi/rap search in actionAngleSpherical) and an oscillation
+        narrower than the mesh spacing is recovered by refining the maximum
+        of W_u before declaring it absent. Roots are polished with brentq
+        at machine tolerance."""
         d2 = self._delta**2.0
         us = numpy.linspace(1e-3, 40.0, 16000)
         Uu = self._staeckelwrap._U(us)
@@ -170,23 +176,49 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._vmins = numpy.empty(self._ntori)
         for ii in range(self._ntori):
             E, Lz, I3 = self._Es[ii], self._Lzs[ii], self._I3s[ii]
-            pos = numpy.where(Wu_all[ii] > 0.0)[0]
-            if len(pos) == 0:
-                raise ValueError(
-                    f"No bound u oscillation found for torus {ii} "
-                    f"(E={E}, Lz={Lz}, I3={I3})"
-                )
-            if pos[-1] == len(us) - 1:
-                raise ValueError(
-                    f"u oscillation not enclosed for torus {ii} "
-                    f"(E={E}, Lz={Lz}, I3={I3}); the torus is likely unbound"
-                )
             Wu = lambda u: self._Wu(u, E, Lz, I3)
-            ulo = us[pos[0] - 1] if pos[0] > 0 else 1e-8
-            self._umins[ii] = brentq(Wu, ulo, us[pos[0]], xtol=1e-15, rtol=8.9e-16)
-            self._umaxs[ii] = brentq(
-                Wu, us[pos[-1]], us[pos[-1] + 1], xtol=1e-15, rtol=8.9e-16
-            )
+            pos = numpy.where(Wu_all[ii] > 0.0)[0]
+            if len(pos) > 0:
+                ulo = us[pos[0] - 1] if pos[0] > 0 else 1e-8
+                uin, uout = us[pos[0]], us[pos[-1]]
+                uhi = us[pos[-1] + 1] if pos[-1] < len(us) - 1 else None
+            else:
+                # No positive sample: the oscillation may simply be narrower
+                # than the mesh spacing (a near-shell torus); refine the
+                # maximum of W_u around the largest sample before declaring
+                # that there is no bound oscillation (guarding against NaNs
+                # from potential evaluations at extreme coordinates)
+                jmax = numpy.nanargmax(Wu_all[ii])
+                res = minimize_scalar(
+                    lambda u: -self._Wu(u, E, Lz, I3),
+                    bounds=(us[max(jmax - 1, 0)], us[min(jmax + 1, len(us) - 1)]),
+                    method="bounded",
+                    options={"xatol": 1e-14},
+                )
+                if -res.fun <= 0.0:
+                    raise ValueError(
+                        f"No bound u oscillation found for torus {ii} "
+                        f"(E={E}, Lz={Lz}, I3={I3})"
+                    )
+                uin = uout = res.x
+                ulo, uhi = uin / 2.0, 2.0 * uout
+            if uhi is None:
+                # The oscillation extends beyond the scan: step out
+                # geometrically until W_u turns properly negative (the
+                # not-< comparison keeps stepping through NaNs from
+                # potential evaluations at extreme coordinates)
+                uhi = 2.0 * uout
+                while not Wu(uhi) < 0.0:
+                    if uhi > 200.0:
+                        raise ValueError(
+                            f"u oscillation of torus {ii} extends beyond "
+                            f"u=200 (E={E}, Lz={Lz}, I3={I3}); the torus is "
+                            "likely unbound"
+                        )
+                    uout = uhi
+                    uhi *= 2.0
+            self._umins[ii] = brentq(Wu, ulo, uin, xtol=1e-15, rtol=8.9e-16)
+            self._umaxs[ii] = brentq(Wu, uout, uhi, xtol=1e-15, rtol=8.9e-16)
             if Wv_all[ii, -1] <= 0.0:
                 raise ValueError(
                     f"Midplane not reached for torus {ii}; no valid torus "
@@ -207,35 +239,67 @@ class actionAngleStaeckelInverse(actionAngleInverse):
             )
 
     ############################ SETUP: QUADRATURES ###########################
+    def _dWu(self, u, E, Lz):
+        """dW_u/du (independent of I3); u may be an array"""
+        return (
+            2.0
+            * self._delta**2.0
+            * (E * numpy.sinh(2.0 * u) - self._staeckelwrap._dUdu(u))
+            + 2.0 * Lz**2.0 * numpy.cosh(u) / numpy.sinh(u) ** 3.0
+        )
+
+    def _dWv(self, v, E, Lz):
+        """dW_v/dv (independent of I3); v may be an array"""
+        return (
+            2.0
+            * self._delta**2.0
+            * (E * numpy.sin(2.0 * v) + self._staeckelwrap._dVdv(v))
+            + 2.0 * Lz**2.0 * numpy.cos(v) / numpy.sin(v) ** 3.0
+        )
+
     def _compute_actions_frequencies_profiles(self):
         """Actions, the 3x3 period matrices, frequencies, and the cumulative
         angle profiles of all tori, all from two vectorized potential
-        evaluations (one per degree of freedom): the momenta at the
-        composite Gauss-Legendre nodes of the shared chi mesh give both the
-        action integrands sqrt(W) sin(chi) and the 1/p profile integrands
-        f(q) sin(chi)/sqrt(W)"""
+        evaluations (one per degree of freedom). All integrands are written
+        in terms of the regular ratio Q = W/[y(1-y)] (y = sin^2 chi/2), so
+        that the action integrand is (D/4) sqrt(Q) sin^2(chi) and the 1/p
+        profile integrands are f(q) D/sqrt(Q); near the turning points,
+        where the direct evaluation of W is dominated by cancellation
+        error, Q is replaced by its finite limits |W'(q_-+)| D computed
+        from the analytic derivative of the momentum (the same masking as
+        in the 1D and spherical quadratures)"""
         d2 = self._delta**2.0
         mid = 0.5 * (self._chi[:-1] + self._chi[1:])
         half = 0.5 * (self._chi[1:] - self._chi[:-1])
         nodes = (mid[:, None] + half[:, None] * _GLX[None, :]).ravel()
         sin_nodes = numpy.sin(nodes)
         y_nodes = numpy.sin(nodes / 2.0) ** 2.0
+        y1my = y_nodes * (1.0 - y_nodes)
         npan, ngl = len(half), len(_GLX)
 
-        def profiles(qmin, D, W_of_q, fEs, fIs, fLs):
+        def profiles(qmin, qmax, W_of_q, dW_of_q, fEs, fIs, fLs):
+            D = qmax - qmin
             # q(chi) at the nodes for all tori: (ntori, nnodes)
             q = qmin[:, None] + D[:, None] * y_nodes[None, :]
-            W = W_of_q(q)
-            W[W < numpy.finfo(float).tiny] = numpy.finfo(float).tiny
-            sqW = numpy.sqrt(W)
-            # action: (D/2) int sqrt(W) sin(chi) dchi
-            act_vals = sqW * (D[:, None] / 2.0) * sin_nodes[None, :]
+            Q = W_of_q(q) / y1my[None, :]
+            # turning-point limits Q -> |W'| D, switched in where the direct
+            # evaluation is unreliable
+            Qlim = numpy.where(
+                y_nodes[None, :] < 0.5,
+                (dW_of_q(qmin) * D)[:, None],
+                (-dW_of_q(qmax) * D)[:, None],
+            )
+            Q = numpy.where(y1my[None, :] > 1e-6, Q, Qlim)
+            Q[Q < numpy.finfo(float).tiny] = numpy.finfo(float).tiny
+            sqQ = numpy.sqrt(Q)
+            # action: (D/4) int sqrt(Q) sin^2(chi) dchi
+            act_vals = sqQ * (D[:, None] / 4.0) * sin_nodes[None, :] ** 2.0
             action = (
                 (half[None, :, None] * _GLW[None, None, :])
                 * act_vals.reshape(self._ntori, npan, ngl)
             ).sum(axis=(-1, -2))
-            # cumulative 1/p profiles: int f(q) (D/2) sin(chi)/sqrt(W) dchi
-            base = (D[:, None] / 2.0) * sin_nodes[None, :] / sqW
+            # cumulative 1/p profiles: int f(q) D/sqrt(Q) dchi
+            base = D[:, None] / sqQ
             cums = []
             for f in (fEs, fIs, fLs):
                 vals = f(q) * base
@@ -256,16 +320,18 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         Es, Lzs, I3s = self._Es, self._Lzs, self._I3s
         actu, (PEu, PIu, PLu) = profiles(
             self._umins,
-            self._umaxs - self._umins,
+            self._umaxs,
             lambda q: self._Wu(q, Es[:, None], Lzs[:, None], I3s[:, None]),
+            lambda q: self._dWu(q, Es, Lzs),
             lambda q: d2 * numpy.sinh(q) ** 2.0,
             lambda q: d2 * numpy.ones_like(q),
             lambda q: Lzs[:, None] / numpy.sinh(q) ** 2.0,
         )
         actv, (PEv, PIv, PLv) = profiles(
             self._vmins,
-            numpy.pi - 2.0 * self._vmins,
+            numpy.pi - self._vmins,
             lambda q: self._Wv(q, Es[:, None], Lzs[:, None], I3s[:, None]),
+            lambda q: self._dWv(q, Es, Lzs),
             lambda q: d2 * numpy.sin(q) ** 2.0,
             lambda q: d2 * numpy.ones_like(q),
             lambda q: Lzs[:, None] / numpy.sin(q) ** 2.0,
