@@ -8151,6 +8151,55 @@ def test_actionAngleStaeckelInverse_wrongactions_error():
     return None
 
 
+def test_actionAngleStaeckelInverse_periodmatrix_finitediff():
+    # Self-consistency of the six complete profile integrals: the period
+    # matrix d(J_R,J_z)/d(E,I3,Lz), which is what builds the frequencies and
+    # the angle-profile coefficients, must agree with finite differences of
+    # the actions across neighbouring tori. This is a test-suite check only:
+    # computing it at setup would cost ~5x the setup of a torus, and the
+    # construction has no fitted ingredient that could silently drift
+    from galpy.actionAngle import actionAngleStaeckelInverse
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    delta = 1.3
+    kkp = KuzminKutuzovStaeckelPotential(amp=4.0, ac=5.0, Delta=delta)
+    ic = [1.1, 0.3, 0.9, 0.25, 0.2, 0.0]
+    E, Lz, I3 = _kk_torus_labels(kkp, delta, ic)
+    aASI = actionAngleStaeckelInverse(pot=kkp, Es=[E], Lzs=[Lz], I3s=[I3])
+    # Rows of M from the stored complete profiles (see the class docstring)
+    PEu, PIu, PLu = (p[0, -1] for p in aASI._Pu)
+    PEv, PIv, PLv = (p[0, -1] for p in aASI._Pv)
+    M = (
+        numpy.array(
+            [
+                [PEu, -PIu, -PLu],
+                [PEv, PIv, -PLv],
+            ]
+        )
+        / numpy.pi
+    )
+    h = 1e-6
+    for jj, (dE, dI3, dLz) in enumerate(((h, 0.0, 0.0), (0.0, h, 0.0), (0.0, 0.0, h))):
+        up = actionAngleStaeckelInverse(
+            pot=kkp, Es=[E + dE], Lzs=[Lz + dLz], I3s=[I3 + dI3]
+        )
+        dw = actionAngleStaeckelInverse(
+            pot=kkp, Es=[E - dE], Lzs=[Lz - dLz], I3s=[I3 - dI3]
+        )
+        fd = numpy.array(
+            [
+                (up._jr[0] - dw._jr[0]) / 2.0 / h,
+                (up._jz[0] - dw._jz[0]) / 2.0 / h,
+            ]
+        )
+        assert numpy.all(numpy.fabs((fd - M[:, jj]) / M[:, jj]) < 1e-8), (
+            "Period matrix of actionAngleStaeckelInverse does not agree with "
+            "finite differences of the actions across neighbouring tori "
+            "(column %i): %s vs %s" % (jj, M[:, jj], fd)
+        )
+    return None
+
+
 def test_actionAngleStaeckelInverse_thinshell():
     # A u oscillation narrower than the turning-point scan spacing is
     # recovered by refining the maximum of W_u, and its profiles are
