@@ -21,17 +21,17 @@
 #   numpy behaviour changes.
 ###############################################################################
 from contextlib import contextmanager
-from contextvars import ContextVar
 
 from ._namespaces import name_of_namespace
+from ._tracectx import TracedContextVar
 
 # "off" | "jax" | "torch". Process-wide, like the backend selection itself.
-_JIT_CTX = ContextVar("galpy_jit_mode", default="off")
+_JIT_CTX = TracedContextVar("galpy_jit_mode", default="off")
 # Set while a traced call is on the stack. Entry points call each other
 # (Potential.__call__ -> evaluatePotentials -> ...), and re-tracing at every
 # nested boundary multiplies compile time for no benefit -- the outermost trace
 # already inlines the inner calls.
-_TRACING = ContextVar("galpy_jit_tracing", default=False)
+_TRACING = TracedContextVar("galpy_jit_tracing", default=False)
 
 _VALID = ("off", "jax", "torch")
 
