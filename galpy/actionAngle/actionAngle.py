@@ -198,12 +198,15 @@ class actionAngle(metaclass=MetaActionAngle):
         -----
         - 2014-01-03 - Written for top level - Bovy (IAS)
         """
+        # Only a MISSING method means "not implemented"; look the attribute up
+        # separately so an AttributeError raised INSIDE it keeps its own traceback.
         try:
-            return self._evaluate(*args, **kwargs)
-        except AttributeError:  # pragma: no cover
+            method = self._evaluate
+        except AttributeError:
             raise NotImplementedError(
                 "'__call__' method not implemented for this actionAngle module"
             )
+        return method(*args, **kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("actionsFreqs", pop=True)
@@ -232,12 +235,15 @@ class actionAngle(metaclass=MetaActionAngle):
         - 2014-01-03 - Written for top level - Bovy (IAS)
 
         """
+        # Only a MISSING method means "not implemented"; look the attribute up
+        # separately so an AttributeError raised INSIDE it keeps its own traceback.
         try:
-            return self._actionsFreqs(*args, **kwargs)
-        except AttributeError:  # pragma: no cover
+            method = self._actionsFreqs
+        except AttributeError:
             raise NotImplementedError(
                 "'actionsFreqs' method not implemented for this actionAngle module"
             )
+        return method(*args, **kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("actionsFreqsAngles", pop=True)
@@ -265,12 +271,15 @@ class actionAngle(metaclass=MetaActionAngle):
         -----
         - 2014-01-03 - Written for top level - Bovy (IAS)
         """
+        # Only a MISSING method means "not implemented"; look the attribute up
+        # separately so an AttributeError raised INSIDE it keeps its own traceback.
         try:
-            return self._actionsFreqsAngles(*args, **kwargs)
-        except AttributeError:  # pragma: no cover
+            method = self._actionsFreqsAngles
+        except AttributeError:
             raise NotImplementedError(
                 "'actionsFreqsAngles' method not implemented for this actionAngle module"
             )
+        return method(*args, **kwargs)
 
     @actionAngle_physical_input
     @physical_conversion_actionAngle("EccZmaxRperiRap", pop=True)
@@ -298,12 +307,15 @@ class actionAngle(metaclass=MetaActionAngle):
         -----
         - 2017-12-12 - Written - Bovy (UofT)
         """
+        # Only a MISSING method means "not implemented"; look the attribute up
+        # separately so an AttributeError raised INSIDE it keeps its own traceback.
         try:
-            return self._EccZmaxRperiRap(*args, **kwargs)
-        except AttributeError:  # pragma: no cover
+            method = self._EccZmaxRperiRap
+        except AttributeError:
             raise NotImplementedError(
                 "'EccZmaxRperiRap' method not implemented for this actionAngle module"
             )
+        return method(*args, **kwargs)
 
 
 class UnboundError(Exception):  # pragma: no cover

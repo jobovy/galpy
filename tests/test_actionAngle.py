@@ -8311,3 +8311,55 @@ def test_actionAngleStaeckel_python_freqsAngles_branches():
                 for o in out:
                     assert numpy.all(numpy.isfinite(numpy.atleast_1d(o)))
     return None
+
+
+# The four actionAngle entry points map a MISSING implementation method to
+# NotImplementedError. They must not also swallow an AttributeError raised from
+# INSIDE an implementation that does exist: that turned real failures (e.g. handing
+# backend arrays to the C code) into a misleading "method not implemented".
+_AA_ENTRY_POINTS = [
+    ("__call__", "_evaluate"),
+    ("actionsFreqs", "_actionsFreqs"),
+    ("actionsFreqsAngles", "_actionsFreqsAngles"),
+    ("EccZmaxRperiRap", "_EccZmaxRperiRap"),
+]
+
+
+@pytest.mark.parametrize("public,private", _AA_ENTRY_POINTS)
+def test_actionAngle_missing_method_raises_notimplemented(public, private):
+    from galpy.actionAngle import actionAngle
+
+    aA = actionAngle()  # base class implements none of them
+    assert not hasattr(aA, private), (
+        f"test assumes the base class has no {private}; it now does"
+    )
+    with pytest.raises(NotImplementedError) as excinfo:
+        getattr(aA, public)(1.0, 0.1, 1.1, 0.1, 0.1)
+    assert public.strip("_") in str(excinfo.value), (
+        f"NotImplementedError for {public} should name the method, got: {excinfo.value}"
+    )
+    return None
+
+
+@pytest.mark.parametrize("public,private", _AA_ENTRY_POINTS)
+def test_actionAngle_inner_attributeerror_is_not_masked(public, private):
+    """An AttributeError from inside the implementation must propagate unchanged."""
+    from galpy.actionAngle import actionAngle
+
+    sentinel = "inner attribute failure, not a missing method"
+
+    class _Boom(actionAngle):
+        def __init__(self):
+            actionAngle.__init__(self)
+
+    def _raise(*args, **kwargs):
+        raise AttributeError(sentinel)
+
+    setattr(_Boom, private, _raise)
+    aA = _Boom()
+    with pytest.raises(AttributeError) as excinfo:
+        getattr(aA, public)(1.0, 0.1, 1.1, 0.1, 0.1)
+    assert sentinel in str(excinfo.value), (
+        f"{public} masked the inner AttributeError; got: {excinfo.value}"
+    )
+    return None
