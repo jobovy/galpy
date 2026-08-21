@@ -167,17 +167,27 @@ def _jax_shim(method):
 
 def _torch_compiled(method):
     """``torch.compile``-ed method. dynamo derives its own guards, so unlike jax
-    it needs no static/traced split -- the declaration is only used by jax."""
+    it needs no static/traced split -- the declaration is only used by jax.
+
+    ``method`` is what gets compiled; the re-entrancy bookkeeping stays OUTSIDE
+    the compiled region. Wrapping it the other way round put
+    ``_TRACING.set(True)`` inside the very region it exists to guard, which is
+    both backwards and invisible: once the ContextVar stopped breaking the graph,
+    dynamo compiled that frame end-to-end, so those lines never executed as
+    Python and coverage.py could not see them (galpy #1358, 4 lines).
+    """
     import torch
+
+    compiled = torch.compile(method, fullgraph=False, dynamic=False)
 
     def call(*args, **kwargs):
         token = _TRACING.set(True)
         try:
-            return method(*args, **kwargs)
+            return compiled(*args, **kwargs)
         finally:
             _TRACING.reset(token)
 
-    return torch.compile(call, fullgraph=False, dynamic=False)
+    return call
 
 
 def traced_call(method, args, kwargs, slots, nargs, xp=None):
