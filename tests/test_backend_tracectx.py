@@ -150,3 +150,44 @@ def test_jit_mode_contextvars_are_readable_inside_a_trace():
     finally:
         _JIT_CTX.reset(token)
     assert seen == {"mode": "torch", "tracing": False}
+
+
+def test_a_set_while_tracing_touches_the_mirror_only():
+    # `ContextVar.set` is opaque to dynamo exactly as `.get` is, and galpy sets
+    # one INSIDE the compiled region (_jit.py's tracing flag), so `.set` has to
+    # be traceable too. It stays off the ContextVar while tracing: a trace is a
+    # compile-time artifact and its writes must not outlive it. Assert the
+    # ContextVar is genuinely untouched, not merely that the call succeeded.
+    var = TracedContextVar("scoped", default="default")
+    var.set("eager")
+    with mock.patch.object(_tracectx, "_is_compiling", return_value=True):
+        token = var.set("traced")
+        assert var.get() == "traced"  # reads during the trace see it
+        assert var._var.get() == "eager"  # the ContextVar does not
+        var.reset(token)
+        assert var.get() == "eager"
+    assert var.get() == "eager"
+    assert var._var.get() == "eager"
+
+
+@pytest.mark.skipif(torch is None, reason="torch not installed")
+def test_set_and_reset_survive_a_fullgraph_compile():
+    # The regression test for the `.set` half. `_jit.py`'s compiled `call` does
+    # `_TRACING.set(True) ... _TRACING.reset(token)` around the method, so a
+    # non-traceable `.set` would break the graph inside galpy's own jit path.
+    var = TracedContextVar("in_trace", default=False)
+
+    def f(x):
+        token = var.set(True)
+        try:
+            return x * 2.0 if var.get() else x
+        finally:
+            var.reset(token)
+
+    torch._dynamo.reset()
+    with no_torch_compile_deprecations():
+        got = torch.compile(f, fullgraph=True, dynamic=False)(
+            torch.tensor(1.5, dtype=torch.float64)
+        )
+    assert float(got) == 3.0  # the True branch ran, i.e. .get() saw the .set()
+    assert var.get() is False  # and the trace left no residue behind

@@ -6,6 +6,10 @@ import contextvars
 import sys
 import threading
 
+# Marks a token whose ``set`` happened while tracing, so it touched the mirror
+# only and ``reset`` must not hand a foreign token to the ContextVar.
+_TRACE_ONLY = object()
+
 
 def _is_compiling():
     """True while dynamo is tracing (cheap, and never imports torch itself)."""
@@ -50,9 +54,18 @@ class TracedContextVar:
     def set(self, value):
         previous = getattr(self._mirror, "value", self._default)
         self._mirror.value = value
+        if _is_compiling():
+            # Leave the ContextVar alone while dynamo is tracing: `ContextVar.set`
+            # is opaque to it exactly as `.get` is, and galpy sets one INSIDE the
+            # compiled region (_jit.py's tracing flag). A trace is a compile-time
+            # artifact, so its writes must not outlive it -- and reads taken
+            # during the trace hit the mirror anyway, so nothing observes a
+            # difference.
+            return (_TRACE_ONLY, previous)
         return (self._var.set(value), previous)
 
     def reset(self, token):
         var_token, previous = token
-        self._var.reset(var_token)
+        if var_token is not _TRACE_ONLY:
+            self._var.reset(var_token)
         self._mirror.value = previous
