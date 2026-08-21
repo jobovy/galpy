@@ -62,7 +62,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
         pt_deg=7,
         pt_nxa=301,
         exact_pt_spl_deg=5,
-        exact_pt_tol=1e-12,
         pt_only=False,
         maxiter=100,
         angle_tol=1e-12,
@@ -90,9 +89,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
             number of points to use in the point transformation
         exact_pt_spl_deg : int
             degree of the spline used to represent the exact point transformation (only used when use_pointtransform == "exact")
-        exact_pt_tol : float
-            No longer used: the exact point transformation is constructed by
-            machine-precision quadrature; kept for backward compatibility.
         pt_only : bool
             if True, evaluate the inverse transformation using the exact point transformation alone, skipping the generating-function mapping, which is the identity for a perfect point transformation (only allowed when use_pointtransform == "exact"); the mapping coefficients are still computed at setup as a diagnostic of the accuracy of the point transformation and a warning is issued if they are not small
         maxiter : int
@@ -170,7 +166,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
         ):
             self._pt_exact = True
             self._exact_pt_spl_deg = exact_pt_spl_deg
-            self._exact_pt_tol = exact_pt_tol
             self._pt_only = pt_only
             self._setup_pointtransform(pt_deg, pt_nxa)
         elif use_pointtransform and pt_deg > 1:
