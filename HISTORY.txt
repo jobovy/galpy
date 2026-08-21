@@ -1,34 +1,6 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
-
-
-============
-
-<<<<<<< HEAD
-- The C implementation of ``actionAngleAdiabatic`` now evaluates the radial
-  and vertical action integrals in a regularized variable. Both integrands
-  vanish like a square root at the ends of their intervals (at ``zmax`` for
-  ``jz``, at both ``rperi`` and ``rap`` for ``jr``), where fixed-order
-  Gauss-Legendre converges only algebraically; the actions therefore carried
-  ~1e-4 relative error, while the pure-Python (``c=False``) path is accurate to
-  ~1e-14. Substituting ``z = zmax*sin(phi)`` and ``R = cc-rr*cos(theta)`` makes
-  the integrands analytic at those ends at no extra cost. The Gauss-Legendre
-  order for these two integrals was also raised from 10 to 20; because the
-  turning-point root-finding dominates and is order-independent, this costs
-  ~33% rather than 2x. Together these reduce the error to ~1e-9. Note that this
-  changes the values returned for ``c=True``.
-
-- The pure-Python path of ``actionAngleStaeckel`` (``c=False`` with
-  ``fixed_quad=True``, and the frequency/angle calculations) now evaluates
-  all of its quadratures with a composite Gauss-Legendre rule in an anomaly
-  that absorbs the square-root behavior at the turning points, and solves
-  for the turning points at machine tolerance. The fixed-order rule
-  converged only as order^-3 against the turning-point branch points,
-  leaving systematic ~5e-4 relative action errors at the default order;
-  actions, frequencies, and angles at the default order are now converged
-  to ~1e-11 or better (the C path will be upgraded separately).
-=======
 - The action quadratures of ``actionAngleStaeckel`` are regularized at the
   turning points in both the C and the pure-Python path. The fixed-order
   Gauss-Legendre rule was previously applied against the square-root branch
@@ -43,6 +15,19 @@ v1.12.1 (expected around 2026-11-01)
   behavior, and solves for the turning points at machine tolerance;
   actions, frequencies, and angles at the default order are converged to
   ~1e-11 or better.
+
+- The C implementation of ``actionAngleAdiabatic`` now evaluates the radial
+  and vertical action integrals in a regularized variable. Both integrands
+  vanish like a square root at the ends of their intervals (at ``zmax`` for
+  ``jz``, at both ``rperi`` and ``rap`` for ``jr``), where fixed-order
+  Gauss-Legendre converges only algebraically; the actions therefore carried
+  ~1e-4 relative error, while the pure-Python (``c=False``) path is accurate to
+  ~1e-14. Substituting ``z = zmax*sin(phi)`` and ``R = cc-rr*cos(theta)`` makes
+  the integrands analytic at those ends at no extra cost. The Gauss-Legendre
+  order for these two integrals was also raised from 10 to 20; because the
+  turning-point root-finding dominates and is order-independent, this costs
+  ~33% rather than 2x. Together these reduce the error to ~1e-9. Note that this
+  changes the values returned for ``c=True``.
 
 - ``actionAngleVerticalInverse`` now supports physical units: it accepts
   ``ro`` and ``vo``, parses the energies of its tori and the actions and

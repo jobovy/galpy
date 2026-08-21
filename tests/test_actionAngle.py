@@ -2931,6 +2931,45 @@ def test_actionAngleStaeckel_angles_order_c():
 
 # Test that the pure-Python (c=False) actionAngleStaeckel frequencies and angles
 # agree with the C implementation over a grid of ICs hitting every branch.
+def test_actionAngleStaeckel_single_action_cache():
+    # actionAngleStaeckelSingle caches JR/Jz per (fixed_quad, order): a repeat
+    # call with the same settings returns the cached value, while changing the
+    # order recomputes (the cache used to ignore order, which silently
+    # returned the first result for any subsequent order)
+    from galpy.actionAngle.actionAngleStaeckel import actionAngleStaeckelSingle
+    from galpy.potential import MWPotential2014
+
+    aA = actionAngleStaeckelSingle(
+        1.1, 0.05, 0.9, 0.15, 0.12, pot=MWPotential2014, delta=0.45
+    )
+    jr1 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=10))[0]
+    jr2 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=10))[0]  # cache hit
+    assert jr1 == jr2, (
+        "Repeated actionAngleStaeckelSingle.JR call with identical settings "
+        "does not return the cached value"
+    )
+    jz1 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=10))[0]
+    jz2 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=10))[0]  # cache hit
+    assert jz1 == jz2, (
+        "Repeated actionAngleStaeckelSingle.Jz call with identical settings "
+        "does not return the cached value"
+    )
+    # Changing the order must recompute, not return the cached value; both
+    # are converged, so they agree to machine precision without being
+    # bit-identical in general
+    jr3 = numpy.atleast_1d(aA.JR(fixed_quad=True, order=40))[0]
+    jz3 = numpy.atleast_1d(aA.Jz(fixed_quad=True, order=40))[0]
+    assert numpy.fabs(jr3 - jr1) < 1e-12, (
+        "actionAngleStaeckelSingle.JR at a different order does not agree "
+        "with the default order"
+    )
+    assert numpy.fabs(jz3 - jz1) < 1e-12, (
+        "actionAngleStaeckelSingle.Jz at a different order does not agree "
+        "with the default order"
+    )
+    return None
+
+
 def test_actionAngleStaeckel_chi_quadrature_convergence():
     # The chi-anomaly composite quadratures behind the pure-Python path are
     # machine-converged at the default order: frequencies and angles must
