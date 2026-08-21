@@ -28,7 +28,7 @@
 ###############################################################################
 import numpy
 import pytest
-from backend_jit_helpers import assert_jit_matches_eager
+from backend_jit_helpers import assert_jit_matches_eager, no_torch_compile_deprecations
 
 from galpy.backend import get_namespace, is_backend_array
 from galpy.potential import (
@@ -240,27 +240,6 @@ def test_vcirc_no_longer_crashes(backend_name):
     numpy.testing.assert_allclose(got, ref, rtol=1e-10)
 
 
-def _no_torch_compile_deprecations():
-    """Suppress torch's own import-time DeprecationWarnings during a compile.
-
-    ``torch.compile`` lazily imports ``torch._inductor``, whose mkldnn module
-    warns on ``torch.jit.script_method`` at class-definition time. A per-test
-    ``filterwarnings`` mark cannot suppress it (a module-level
-    ``error::DeprecationWarning`` pytestmark is applied last and wins), so
-    filter it here, around the call itself.
-    """
-    import contextlib
-    import warnings
-
-    @contextlib.contextmanager
-    def _ctx():
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
-            yield
-
-    return _ctx()
-
-
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_torch_compile_takes_the_backend_gl_path():
     # Regression: under torch.compile the dispatch must pick the in-backend GL
@@ -279,7 +258,7 @@ def test_torch_compile_takes_the_backend_gl_path():
     z0 = torch.tensor(0.2, dtype=torch.float64)
     ref = float(evaluatePotentials(_POT, R0, z0))  # eager (scipy) value
     torch._dynamo.reset()
-    with _no_torch_compile_deprecations():
+    with no_torch_compile_deprecations():
         got = float(
             torch.compile(
                 lambda R, z: evaluatePotentials(_POT, R, z),

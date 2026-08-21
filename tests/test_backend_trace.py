@@ -20,6 +20,7 @@
 ###############################################################################
 import numpy
 import pytest
+from backend_jit_helpers import no_torch_compile_deprecations
 
 from galpy.backend._namespaces import under_trace, untraceable_setup
 
@@ -59,27 +60,6 @@ def test_under_trace_jax():
     assert seen == [True]
 
 
-def _no_torch_compile_deprecations():
-    """Suppress torch's own import-time DeprecationWarnings during a compile.
-
-    ``torch.compile`` lazily imports ``torch._inductor``, whose mkldnn module
-    warns on ``torch.jit.script_method`` at class-definition time. A per-test
-    ``filterwarnings`` mark cannot suppress it (a module-level
-    ``error::DeprecationWarning`` pytestmark is applied last and wins), so
-    filter it here, around the call itself.
-    """
-    import contextlib
-    import warnings
-
-    @contextlib.contextmanager
-    def _ctx():
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
-            yield
-
-    return _ctx()
-
-
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_under_trace_torch():
     # A concrete tensor -- even one carrying grad -- is not traced; only a
@@ -93,7 +73,7 @@ def test_under_trace_torch():
         return x * 2.0
 
     torch._dynamo.reset()
-    with _no_torch_compile_deprecations():
+    with no_torch_compile_deprecations():
         torch.compile(probe, fullgraph=False, dynamic=False, backend="eager")(
             torch.tensor(1.1, dtype=torch.float64)
         )
@@ -127,7 +107,7 @@ def test_untraceable_setup_runs_scipy_setup_under_compile():
         return x * _decorated_builder()
 
     torch._dynamo.reset()
-    with _no_torch_compile_deprecations():
+    with no_torch_compile_deprecations():
         got = torch.compile(use_builder, fullgraph=False, dynamic=False)(
             torch.tensor(2.0, dtype=torch.float64)
         )
