@@ -166,6 +166,27 @@ jax tests/test_orbit.py::test_lyapunov_spectrum_henonheiles_chaotic  # PASSES in
 # entries that used to sit here were measured fast enough on 2026-08-15 and are
 # now un-deferred.
 jax tests/test_orbit.py::test_integrate_backwards  # >420s (measured 2026-08-15, timed out)
+jax tests/test_orbit.py::test_integrate_negative_time  # 389.7s measured 2026-08-20; at the
+# measured CI/local ratio (0.71) that is ~277s against the 300s cap, i.e. ~8% margin, so it
+# passes or times out on runner variance. Already deferred for jax-jit; same test, same loop
+# over Python integrators, so it belongs here too rather than re-run until it happens to be green.
+
+# --- single-orbit: action-angle accessors -- performance-gated, NOT broken ---
+# These were xfail-ledgered as "actionAngleStaeckel_c is not backend-migrated (Track E) ...
+# numpy .flags on a jax array or NotImplementedError. Un-xfail when Track E lands." Track E
+# HAS landed and the recorded reason no longer holds: measured 2026-08-20 under --runxfail,
+# test_analytic_zmax PASSES (1136.3s) and test_analytic_ecc_rperi_rap does not raise at all,
+# it just never finishes (>1200s). At the measured CI/local ratio for jax shards (0.71) even
+# the passing one is ~807s against the 300s cap, so un-xfailing would only convert it into a
+# timeout FAILED. Deferred on TIME, not capability -- un-defer when the Track A/D orbit
+# vectorization lands, same trigger as the entries above.
+jax tests/test_orbit.py::test_analytic_zmax  # PASSES in 1136.3s (measured 2026-08-20)
+jax tests/test_orbit.py::test_analytic_ecc_rperi_rap  # >1200s, timed out (measured 2026-08-20)
+# The torch sibling was ledgered separately, under the REBASE-PREVIEW Phase-2 block, whose
+# comments are about SCF / sphericaldf / streamspraydf and never described this test at all.
+# Measured the same way: it PASSES in 743.1s. Even at the 0.71 CI/local ratio measured for
+# JAX shards (I have no torch-specific ratio) that is ~530s against the 300s cap.
+torch tests/test_orbit.py::test_analytic_ecc_rperi_rap  # PASSES in 743.1s (measured 2026-08-20)
 
 # --- torch orbit: dissipative/variational dxdv battery (slow under torch) ---
 # Chandrasekhar/FDM friction + lyapunov + a dxdv c_vs_python integrate the
