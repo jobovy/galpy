@@ -437,23 +437,35 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         thR = numpy.atleast_1d(numpy.array(angler, dtype="float"))
         thz = numpy.atleast_1d(numpy.array(anglez, dtype="float"))
         thphi = numpy.atleast_1d(numpy.array(anglephi, dtype="float"))
-        # solve the additively separable 2x2 system for the extended phases
+        # Solve the additively separable 2x2 system for the extended phases,
+        # iterating only on the angles that have not yet converged (as in the
+        # 1D and spherical inverses): the Newton iteration is quadratically
+        # convergent, so most angles are done in a few steps while a few
+        # near-degenerate ones take longer
         wu, wv = numpy.copy(thR), numpy.copy(thz)
+        unconv = numpy.ones(wu.shape, dtype="bool")
         for _ in range(self._maxiter):
-            f0 = self._fold(A[0], wu) + self._fold(B[0], wv) - thR
-            f1 = self._fold(A[1], wu) + self._fold(B[1], wv) + self._anglez0 - thz
+            twu, twv = wu[unconv], wv[unconv]
+            f0 = self._fold(A[0], twu) + self._fold(B[0], twv) - thR[unconv]
+            f1 = (
+                self._fold(A[1], twu)
+                + self._fold(B[1], twv)
+                + self._anglez0
+                - thz[unconv]
+            )
             f0 = (f0 + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             f1 = (f1 + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-            J00, J01 = self._dfold(dA[0], wu), self._dfold(dB[0], wv)
-            J10, J11 = self._dfold(dA[1], wu), self._dfold(dB[1], wv)
+            J00, J01 = self._dfold(dA[0], twu), self._dfold(dB[0], twv)
+            J10, J11 = self._dfold(dA[1], twu), self._dfold(dB[1], twv)
             det = J00 * J11 - J01 * J10
             dwu = (J11 * f0 - J01 * f1) / det
             dwv = (-J10 * f0 + J00 * f1) / det
             step = numpy.maximum(numpy.fabs(dwu), numpy.fabs(dwv))
             lim = numpy.minimum(1.0, 0.5 / numpy.maximum(step, 1e-30))
-            wu -= dwu * lim
-            wv -= dwv * lim
-            if numpy.max(step) < self._angle_tol:
+            wu[unconv] -= dwu * lim
+            wv[unconv] -= dwv * lim
+            unconv[unconv] = step >= self._angle_tol
+            if not numpy.any(unconv):
                 break
         # phases -> (u, v, p_u, p_v)
         E, Lz, I3 = self._Es[ii], self._Lzs[ii], self._I3s[ii]
