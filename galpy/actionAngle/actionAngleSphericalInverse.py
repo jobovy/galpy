@@ -768,12 +768,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
             # t(chi) = int dr/vr = deltar int dchi / sqrt(Q) with
             # Q = vr^2/[y(1-y)] regular at both turning points, is computed
             # to machine precision with a composite Gauss-Legendre rule,
-            # while along the auxiliary torus t^A(eta) is the Kepler
-            # equation in closed form; the map chi(eta) then follows by
-            # spline inversion of the monotone time profile, using times
-            # normalized by the half period so that the turning points map
-            # onto each other exactly, independently of the accuracy of the
-            # frequencies. The Delta-psi shift is the cumulative quadrature
+            # while the time along the auxiliary isochrone orbit is known
+            # in closed form, Omega^A_r t^A = eta - k sin eta with
+            # k = e c/(c+b) (the isochrone's Kepler-like equation, which is
+            # what makes the auxiliary side free); the map chi(eta) then
+            # follows by spline inversion of the monotone time profile,
+            # using times normalized by the half period so that the turning
+            # points map onto each other exactly, independently of the
+            # accuracy of the frequencies. The Delta-psi shift is the cumulative quadrature
             # of its exactly-regular integrand
             # L [1/r^2 - 1/ra^2] G(eta) along the mapped orbit
             nchimesh = numpy.amax([4 * pt_nra, 801])
@@ -871,8 +873,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
             dth = numpy.pi / (self._pt_nmesh - 1.0)
             thlow = -dth * numpy.arange(self._pt_pad, 0, -1)
             thhigh = numpy.pi + dth * numpy.arange(1, self._pt_pad + 1)
-            # Kepler-equation parameter of the auxiliary torus; solve for
-            # the eccentric anomalies of the uniform auxiliary-radial-angle
+            # Eccentricity-like parameter k of the isochrone's Kepler-like
+            # equation eta - k sin eta = theta^A_r; solve it for the
+            # eccentric anomalies of the uniform auxiliary-radial-angle
             # mesh for all tori at once
             kepk = ea * ca / (ca + b)
             etath_all = _solve_kepler(
