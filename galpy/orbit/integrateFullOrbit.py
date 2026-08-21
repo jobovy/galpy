@@ -198,7 +198,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False, t=None):
             )
         elif isinstance(p, potential.KuzminKutuzovStaeckelPotential):
             pot_type.append(16)
-            pot_args.extend([p._amp, p._ac, p._Delta])
+            pot_args.extend([p._amp, p._ac, p._delta])
         elif isinstance(p, potential.PlummerPotential):
             pot_type.append(17)
             pot_args.extend([p._amp, p._b])
