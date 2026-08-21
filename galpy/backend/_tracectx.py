@@ -11,8 +11,15 @@ import threading
 _TRACE_ONLY = object()
 
 
-def _is_compiling():
-    """True while dynamo is tracing (cheap, and never imports torch itself)."""
+def is_compiling():
+    """True while torch dynamo is tracing.
+
+    The shared "am I inside a torch.compile trace?" primitive. Cheap, and it
+    never imports torch itself -- a numpy-only run must not pay that import, so
+    the ``sys.modules`` lookup IS the contract rather than an optimisation.
+    ``_namespaces.under_trace`` composes this with an is-it-a-tensor test; a
+    ContextVar read has no array to test, so it needs the bare predicate.
+    """
     torch = sys.modules.get("torch")
     return torch is not None and torch.compiler.is_compiling()
 
@@ -47,14 +54,14 @@ class TracedContextVar:
         self._default = default
 
     def get(self):
-        if _is_compiling():
+        if is_compiling():
             return getattr(self._mirror, "value", self._default)
         return self._var.get()
 
     def set(self, value):
         previous = getattr(self._mirror, "value", self._default)
         self._mirror.value = value
-        if _is_compiling():
+        if is_compiling():
             # Leave the ContextVar alone while dynamo is tracing: `ContextVar.set`
             # is opaque to it exactly as `.get` is, and galpy sets one INSIDE the
             # compiled region (_jit.py's tracing flag). A trace is a compile-time

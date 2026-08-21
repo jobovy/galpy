@@ -24,7 +24,7 @@ import pytest
 from backend_jit_helpers import no_torch_compile_deprecations
 
 from galpy.backend import _tracectx
-from galpy.backend._tracectx import TracedContextVar, _is_compiling
+from galpy.backend._tracectx import TracedContextVar, is_compiling
 
 pytestmark = pytest.mark.backend_managed
 
@@ -63,7 +63,7 @@ def test_get_reads_the_mirror_only_while_compiling():
     var.set("through-set")
     var._var.set("contextvar-only")
     assert var.get() == "contextvar-only"
-    with mock.patch.object(_tracectx, "_is_compiling", return_value=True):
+    with mock.patch.object(_tracectx, "is_compiling", return_value=True):
         assert var.get() == "through-set"
 
 
@@ -76,10 +76,10 @@ def test_threads_do_not_share_the_mirror():
     seen = {}
 
     def worker():
-        with mock.patch.object(_tracectx, "_is_compiling", return_value=True):
+        with mock.patch.object(_tracectx, "is_compiling", return_value=True):
             seen["before"] = var.get()
         var.set("worker")
-        with mock.patch.object(_tracectx, "_is_compiling", return_value=True):
+        with mock.patch.object(_tracectx, "is_compiling", return_value=True):
             seen["after"] = var.get()
 
     thread = threading.Thread(target=worker)
@@ -87,7 +87,7 @@ def test_threads_do_not_share_the_mirror():
     thread.join()
     assert seen["before"] == "unset"  # the main thread's value is not visible
     assert seen["after"] == "worker"
-    with mock.patch.object(_tracectx, "_is_compiling", return_value=True):
+    with mock.patch.object(_tracectx, "is_compiling", return_value=True):
         assert var.get() == "main"  # and the worker's did not leak back
 
 
@@ -96,12 +96,12 @@ def test_is_compiling_is_false_when_torch_is_not_imported():
     # run never pays the import. That guard IS the contract; the coverage shard
     # always has torch imported, so it is only reachable by hiding it.
     with mock.patch.dict(sys.modules, {"torch": None}):
-        assert _is_compiling() is False
+        assert is_compiling() is False
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_is_compiling_is_false_outside_a_trace():
-    assert _is_compiling() is False
+    assert is_compiling() is False
 
 
 @pytest.mark.skipif(torch is None, reason="torch not installed")
@@ -160,7 +160,7 @@ def test_a_set_while_tracing_touches_the_mirror_only():
     # ContextVar is genuinely untouched, not merely that the call succeeded.
     var = TracedContextVar("scoped", default="default")
     var.set("eager")
-    with mock.patch.object(_tracectx, "_is_compiling", return_value=True):
+    with mock.patch.object(_tracectx, "is_compiling", return_value=True):
         token = var.set("traced")
         assert var.get() == "traced"  # reads during the trace see it
         assert var._var.get() == "eager"  # the ContextVar does not
