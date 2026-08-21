@@ -14,14 +14,15 @@
 #   no array to dispatch on, so production autodiff (data-first) is unaffected.
 ###############################################################################
 import contextlib
-import contextvars
 
 import numpy
 
 from ._namespaces import namespace_for_name, namespace_from_arrays
+from ._tracectx import TracedContextVar
 
-# Thread-/async-safe default backend; stores (name, force) or None.
-_BACKEND_CTX = contextvars.ContextVar("galpy_backend", default=None)
+# Thread-/async-safe default backend; stores (name, force) or None. Traced so a
+# forced backend is still readable inside a torch.compile region.
+_BACKEND_CTX = TracedContextVar("galpy_backend", default=None)
 
 
 def get_namespace(*arrays, xp=None):

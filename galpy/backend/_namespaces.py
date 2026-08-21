@@ -114,9 +114,9 @@ def under_trace(*xs):
         return False
     import torch
 
-    return torch.compiler.is_compiling() and any(
-        isinstance(x, torch.Tensor) for x in xs
-    )
+    from ._tracectx import is_compiling
+
+    return is_compiling() and any(isinstance(x, torch.Tensor) for x in xs)
 
 
 def untraceable_setup(method):
