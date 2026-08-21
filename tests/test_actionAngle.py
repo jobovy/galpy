@@ -2997,10 +2997,14 @@ def test_actionAngleStaeckel_python_c_freqsAngles():
     # Flattened logarithmic halo: genuinely close to Staeckel-separable
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     # The Python path's chi-anomaly quadratures are machine-converged, so the
-    # C-vs-Python difference is dominated by the C path's fixed-order
-    # truncation error (1e-4 at its default order=10 on this grid); run the C
-    # path at high order so that the parity test checks branch/convention
-    # agreement rather than the C truncation floor
+    # C-vs-Python difference is dominated by the C path's errors: its
+    # fixed-order truncation in the frequency/angle integrals (1e-4 at the
+    # default order=10 on this grid), removed by running C at order=200, and
+    # below that its turning-point root-finding tolerance, which enters the
+    # 1/sqrt(S) integrals amplified as sqrt(delta) and is platform-dependent
+    # (~1e-8 on Linux, ~1e-6 on Windows through libm differences in the
+    # roots). The 1e-5 tolerance sits above that floor while still catching
+    # any branch/convention disagreement, which produces O(1) errors.
     aAc = actionAngleStaeckel(pot=lp, delta=0.5, c=True, order=200)
     aAp = actionAngleStaeckel(pot=lp, delta=0.5, c=False)
 
@@ -3048,11 +3052,11 @@ def test_actionAngleStaeckel_python_c_freqsAngles():
                                     maxangdiff, wrapdiff(ac[ii][0], ap[ii][0])
                                 )
     assert n > 100, "Staeckel c vs Python parity grid did not evaluate enough points"
-    assert maxfreqdiff < 1e-6, (
+    assert maxfreqdiff < 1e-5, (
         "Pure-Python actionAngleStaeckel frequencies do not agree with C "
         "implementation; max diff = %g" % maxfreqdiff
     )
-    assert maxangdiff < 1e-6, (
+    assert maxangdiff < 1e-5, (
         "Pure-Python actionAngleStaeckel angles do not agree with C "
         "implementation; max diff = %g" % maxangdiff
     )

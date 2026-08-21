@@ -669,10 +669,14 @@ def test_qdf():
     aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
     # Quasi-iso df w/ hr=1/3, hsr/z=1, sr(1)=0.2, sz(1)=0.1
     df = quasiisothermaldf(1.0 / 3.0, 0.2, 0.1, 1.0, 1.0, aA=aAS, pot=MWPotential2014)
+    # NOTE: The pinned values below were updated in August 2026, because the
+    #      regularized Staeckel action quadratures (gh#1357) changed the
+    #      c=True actions at the ~5e-4 relative level (they are now converged
+    #      to ~1e-12 at the default order; see HISTORY.txt).
     # Evaluate DF w/ R,vR,vT,z,vz
     df(0.9, 0.1, 0.8, 0.05, 0.02)
     assert (
-        numpy.fabs(df(0.9, 0.1, 0.8, 0.05, 0.02) - numpy.array([123.57158928]))
+        numpy.fabs(df(0.9, 0.1, 0.8, 0.05, 0.02) - numpy.array([123.62925632]))
         < 10.0**-4.0
     ), "qdf does not behave as expected"
     # Evaluate DF w/ Orbit instance, return ln
@@ -681,14 +685,14 @@ def test_qdf():
     df(Orbit([0.9, 0.1, 0.8, 0.05, 0.02]), log=True)
     assert (
         numpy.fabs(
-            df(Orbit([0.9, 0.1, 0.8, 0.05, 0.02]), log=True) - numpy.array([4.81682066])
+            df(Orbit([0.9, 0.1, 0.8, 0.05, 0.02]), log=True) - numpy.array([4.81728722])
         )
         < 10.0**-4.0
     ), "qdf does not behave as expected"
     # Evaluate DF marginalized over vz
     df.pvRvT(0.1, 0.9, 0.9, 0.05)
     assert (
-        numpy.fabs(df.pvRvT(0.1, 0.9, 0.9, 0.05) - 2.0 * 23.273310451852243)
+        numpy.fabs(df.pvRvT(0.1, 0.9, 0.9, 0.05) - 2.0 * 23.280529190623593)
         < 10.0**-4.0
     ), "qdf does not behave as expected"
     # NOTE: The pvRvT() function has changed with respect to the version used in Bovy (2015).
@@ -696,27 +700,27 @@ def test_qdf():
     #      to account for the correct Gauss-Legendre integration normalization.
     # Evaluate DF marginalized over vR,vT
     df.pvz(0.02, 0.9, 0.05)
-    assert numpy.fabs(df.pvz(0.02, 0.9, 0.05) - 50.949586235238172) < 10.0**-4.0, (
+    assert numpy.fabs(df.pvz(0.02, 0.9, 0.05) - 50.98111352632182) < 10.0**-4.0, (
         "qdf does not behave as expected"
     )
     # Calculate the density
     df.density(0.9, 0.05)
-    assert numpy.fabs(df.density(0.9, 0.05) - 12.73725936526167) < 10.0**-4.0, (
+    assert numpy.fabs(df.density(0.9, 0.05) - 12.745981120420119) < 10.0**-4.0, (
         "qdf does not behave as expected"
     )
     # Estimate the DF's actual density scale length at z=0
     df.estimate_hr(0.9, 0.0)
-    assert numpy.fabs(df.estimate_hr(0.9, 0.0) - 0.322420336223) < 10.0**-2.0, (
+    assert numpy.fabs(df.estimate_hr(0.9, 0.0) - 0.32242829530683487) < 10.0**-2.0, (
         "qdf does not behave as expected"
     )
     # Estimate the DF's actual surface-density scale length
     df.estimate_hr(0.9, None)
-    assert numpy.fabs(df.estimate_hr(0.9, None) - 0.38059909132766462) < 10.0**-4.0, (
+    assert numpy.fabs(df.estimate_hr(0.9, None) - 0.38061667321160425) < 10.0**-4.0, (
         "qdf does not behave as expected"
     )
     # Estimate the DF's density scale height
     df.estimate_hz(0.9, 0.02)
-    assert numpy.fabs(df.estimate_hz(0.9, 0.02) - 0.064836202345657207) < 10.0**-4.0, (
+    assert numpy.fabs(df.estimate_hz(0.9, 0.02) - 0.06484597930158813) < 10.0**-4.0, (
         "qdf does not behave as expected"
     )
     # Calculate the mean velocities
@@ -725,37 +729,38 @@ def test_qdf():
         df.meanvT(0.9, 0.05),
     )
     df.meanvz(0.9, 0.05)
-    assert numpy.fabs(df.meanvR(0.9, 0.05) - 3.8432265354618213e-18) < 10.0**-4.0, (
+    assert numpy.fabs(df.meanvR(0.9, 0.05) - 8.506227666919439e-20) < 10.0**-4.0, (
         "qdf does not behave as expected"
     )
-    assert numpy.fabs(df.meanvT(0.9, 0.05) - 0.90840425173325279) < 10.0**-4.0, (
+    assert numpy.fabs(df.meanvT(0.9, 0.05) - 0.908363665609828) < 10.0**-4.0, (
         "qdf does not behave as expected"
     )
-    assert numpy.fabs(df.meanvz(0.9, 0.05) + 4.3579787517991084e-19) < 10.0**-4.0, (
+    assert numpy.fabs(df.meanvz(0.9, 0.05) + 2.3445290006946702e-19) < 10.0**-4.0, (
         "qdf does not behave as expected"
     )
     # Calculate the velocity dispersions
     from numpy import sqrt
 
     sqrt(df.sigmaR2(0.9, 0.05)), sqrt(df.sigmaz2(0.9, 0.05))
-    assert numpy.fabs(sqrt(df.sigmaR2(0.9, 0.05)) - 0.22695537077102387) < 10.0**-4.0, (
+    assert numpy.fabs(sqrt(df.sigmaR2(0.9, 0.05)) - 0.22701107926957673) < 10.0**-4.0, (
         "qdf does not behave as expected"
     )
-    assert (
-        numpy.fabs(sqrt(df.sigmaz2(0.9, 0.05)) - 0.094215523962105044) < 10.0**-4.0
-    ), "qdf does not behave as expected"
+    assert numpy.fabs(sqrt(df.sigmaz2(0.9, 0.05)) - 0.09422197865528911) < 10.0**-4.0, (
+        "qdf does not behave as expected"
+    )
     # Calculate the tilt of the velocity ellipsoid
     # 2017/10-28: CHANGED bc tilt now returns angle in rad, no longer in deg
     df.tilt(0.9, 0.05)
     assert (
-        numpy.fabs(df.tilt(0.9, 0.05) - 2.5166061974413765 / 180.0 * numpy.pi)
+        numpy.fabs(df.tilt(0.9, 0.05) - 2.5166216121561256 / 180.0 * numpy.pi)
         < 10.0**-4.0
     ), "qdf does not behave as expected"
     # Calculate a higher-order moment of the velocity DF
     df.vmomentdensity(0.9, 0.05, 6.0, 2.0, 2.0, gl=True)
     assert (
         numpy.fabs(
-            df.vmomentdensity(0.9, 0.05, 6.0, 2.0, 2.0, gl=True) - 0.0001591100892366438
+            df.vmomentdensity(0.9, 0.05, 6.0, 2.0, 2.0, gl=True)
+            - 0.00015944060928560009
         )
         < 10.0**-4.0
     ), "qdf does not behave as expected"
