@@ -7242,7 +7242,7 @@ def test_actionAngleVerticalInverse_ptonly_warnings_errors():
     from galpy.util import galpyWarning
 
     isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
-    # Loose ODE tolerance --> coefficients not small --> warning
+    # Coarse point-transformation mesh --> coefficients not small --> warning
     with pytest.warns(galpyWarning, match="not accurate enough"):
         actionAngleVerticalInverse(
             pot=isopot,
@@ -7250,7 +7250,7 @@ def test_actionAngleVerticalInverse_ptonly_warnings_errors():
             Es=[1.0],
             use_pointtransform="exact",
             pt_only=True,
-            exact_pt_tol=1e-4,
+            pt_nxa=7,
         )
     # pt_only requires the exact point transformation
     with pytest.raises(ValueError):

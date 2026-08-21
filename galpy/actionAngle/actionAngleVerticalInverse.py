@@ -29,6 +29,11 @@ from .actionAngleHarmonicInverse import actionAngleHarmonicInverse
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleVertical import actionAngleVertical
 
+# Nodes/weights for composite 10-point Gauss-Legendre quadrature (used per
+# interval of the chi mesh in the exact-point-transformation construction;
+# the error per panel is O((pi/nchi)^20), i.e., machine precision)
+_GLX, _GLW = numpy.polynomial.legendre.leggauss(10)
+
 
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems"""
@@ -43,7 +48,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
         pt_deg=7,
         pt_nxa=301,
         exact_pt_spl_deg=5,
-        exact_pt_tol=1e-12,
         pt_only=False,
         maxiter=100,
         angle_tol=1e-12,
@@ -71,8 +75,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
             number of points to use in the point transformation
         exact_pt_spl_deg : int
             degree of the spline used to represent the exact point transformation (only used when use_pointtransform == "exact")
-        exact_pt_tol : float
-            absolute and relative tolerance of the ODE solution defining the exact point transformation; sets the floor of the mapping coefficients (only used when use_pointtransform == "exact")
         pt_only : bool
             if True, evaluate the inverse transformation using the exact point transformation alone, skipping the generating-function mapping, which is the identity for a perfect point transformation (only allowed when use_pointtransform == "exact"); the mapping coefficients are still computed at setup as a diagnostic of the accuracy of the point transformation and a warning is issued if they are not small
         maxiter : int
@@ -152,7 +154,6 @@ class actionAngleVerticalInverse(actionAngleInverse):
         ):
             self._pt_exact = True
             self._exact_pt_spl_deg = exact_pt_spl_deg
-            self._exact_pt_tol = exact_pt_tol
             self._pt_only = pt_only
             self._setup_pointtransform(pt_deg, pt_nxa)
         elif use_pointtransform and pt_deg > 1:
@@ -279,7 +280,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             maxdSndJ = numpy.nanmax(numpy.fabs(self._dSndJ))
             if relnSn > 1e-8 or maxdSndJ > 1e-8:
                 warnings.warn(
-                    "Point transformation is not accurate enough for pt_only=True evaluation: the generating-function mapping that pt_only skips is not negligible (max |nSn|/max J = {:.2e}, max |dSndJ| = {:.2e}); decrease exact_pt_tol and/or increase pt_nxa, or use pt_only=False".format(
+                    "Point transformation is not accurate enough for pt_only=True evaluation: the generating-function mapping that pt_only skips is not negligible (max |nSn|/max J = {:.2e}, max |dSndJ| = {:.2e}); increase pt_nxa or use pt_only=False".format(
                         relnSn, maxdSndJ
                     ),
                     galpyWarning,
@@ -368,11 +369,11 @@ class actionAngleVerticalInverse(actionAngleInverse):
         return None
 
     def _setup_pointtransform_exact(self, pt_nxa):
-        # Setup the exact point transformation for each torus by solving the
-        # ordinary differential equation d pi / d xa = v / va that it
-        # satisfies, integrated in the auxiliary harmonic-oscillator angle,
-        # in which form it is regular everywhere (including at the turning
-        # point); the result is stored as the normalized mapping
+        # Setup the exact point transformation for each torus by direct
+        # quadrature of the time-from-midplane profile and monotone spline
+        # inversion (the map equates times along the true and auxiliary
+        # orbits; its profile integrand is regular everywhere, including at
+        # the turning point); the result is stored as the normalized mapping
         # x/xmax(xa/ptxmax) sampled on the fixed mesh self._pt_xamesh and is
         # evaluated using spline interpolation. _pt_deriv_coeffs and
         # _pt_deriv2_coeffs are not used in this case (derivatives come from
@@ -408,67 +409,60 @@ class actionAngleVerticalInverse(actionAngleInverse):
             # Aux. torus = harmonic-oscillator torus with the same action
             # (because omega = Omega, this is also the same-frequency torus)
             Es = self._Es[gIndx]
-            omegas = self._OmegaHO[gIndx]
             xmaxs = self._xmaxs[gIndx]
             ng = numpy.sum(gIndx)
-            # Solve for all tori in a single vectorized ODE solve, using the
-            # auxiliary harmonic-oscillator angle thetaa as the independent
-            # variable and writing the normalized position as y = x/xmax =
-            # sin(chi) [while xa/ptxmax = sin(thetaa)], in which form the
-            # equation dchi/dthetaa = sqrt(Q)/(omega xmax), with
-            # Q = v^2/(1-y^2), is regular over the whole quarter period,
-            # including at the turning point, where Q -> -F(xmax) xmax
+            # Construct the equal-time map by direct quadrature and monotone
+            # inversion instead of integrating its defining ODE: writing the
+            # normalized position as y = x/xmax = sin(chi), the time from the
+            # midplane is t(chi) = xmax int_0^chi dchi' / sqrt(Q), with
+            # Q = v^2/(1-y^2) regular over the whole quarter period
+            # (Q -> -F(xmax) xmax at the turning point), and the map is
+            # chi(thetaa) = t^{-1}(thetaa/omega). Using time normalized by
+            # the quarter period enforces the exact turning-point closure
+            # pi(xa_max) = xmax without relying on the accuracy of omega, and
+            # the composite Gauss-Legendre quadrature has no tolerance knob:
+            # every profile is at machine precision on the chi mesh
             Qmax = -evaluatelinearForces(self._pot, xmaxs, use_physical=False) * xmaxs
-
-            def deriv_thetaa(thetaa, chi):
-                y = numpy.sin(chi)
-                v2 = 2.0 * (
-                    Es
-                    - evaluatelinearPotentials(self._pot, xmaxs * y, use_physical=False)
-                )
-                v2[v2 < 0.0] = 0.0
-                omy2 = 1.0 - y**2.0
-                Q = numpy.empty(ng)
-                reg = omy2 > 1e-6
-                Q[reg] = v2[reg] / omy2[reg]
-                Q[True ^ reg] = Qmax[True ^ reg]
-                Q[Q < 0.0] = 0.0
-                return numpy.sqrt(Q) / omegas / xmaxs
-
-            thetaamesh = numpy.linspace(
-                0.0, numpy.pi / 2.0, numpy.amax([4 * pt_nxa, 801])
+            nchimesh = numpy.amax([4 * pt_nxa, 801])
+            chimesh = numpy.linspace(0.0, numpy.pi / 2.0, nchimesh)
+            midp = 0.5 * (chimesh[:-1] + chimesh[1:])
+            half = 0.5 * (chimesh[1:] - chimesh[:-1])
+            nodes = (midp[:, None] + half[:, None] * _GLX[None, :]).ravel()
+            sinn, cosn2 = numpy.sin(nodes), numpy.cos(nodes) ** 2.0
+            v2 = 2.0 * (
+                Es[:, None]
+                - evaluatelinearPotentials(
+                    self._pot,
+                    (xmaxs[:, None] * sinn[None, :]).ravel(),
+                    use_physical=False,
+                ).reshape(ng, len(nodes))
             )
-            sol = integrate.solve_ivp(
-                deriv_thetaa,
-                [0.0, numpy.pi / 2.0],
-                numpy.zeros(ng),
-                t_eval=thetaamesh,
-                rtol=self._exact_pt_tol,
-                atol=self._exact_pt_tol,
-                method="DOP853",
+            v2[v2 < 0.0] = 0.0
+            Q = numpy.empty_like(v2)
+            reg = cosn2 > 1e-6
+            Q[:, reg] = v2[:, reg] / cosn2[None, reg]
+            Q[:, True ^ reg] = numpy.tile(Qmax[:, None], (1, numpy.sum(True ^ reg)))
+            Q[Q < numpy.finfo(float).tiny] = numpy.finfo(float).tiny
+            panels = (
+                (half[None, :, None] * _GLW[None, None, :])
+                * (1.0 / numpy.sqrt(Q)).reshape(ng, len(half), len(_GLX))
+            ).sum(axis=-1)
+            tmesh = numpy.hstack(
+                (numpy.zeros((ng, 1)), numpy.cumsum(panels, axis=1))
+            )  # time / xmax on the chi mesh; only ratios to t(pi/2) are used
+            xanormmesh = numpy.linspace(0.0, 1.0, pt_nxa)
+            ttargets = (
+                numpy.arcsin(xanormmesh)[None, :]
+                / (numpy.pi / 2.0)
+                * tmesh[:, -1][:, None]
             )
-            if not sol.success:  # pragma: no cover
-                raise RuntimeError(
-                    "Solving the ODE that defines the exact point transformation failed, full message: "
-                    + sol.message
-                )
-            ys = numpy.sin(sol.y)
-            ys[:, 0] = 0.0
-            # The turning point must map exactly onto the turning point
-            ys[:, -1] = 1.0
-            # Resample onto the uniform mesh in ya = xa/ptxmax in two
-            # stages: first represent the solution as a spline in thetaa, on
-            # whose uniform grid the spline is well-conditioned (the
-            # solution's sampling clusters quadratically in ya near the
-            # turning point, where a direct spline would be noisy), then
-            # evaluate it at the closed-form thetaa(ya) = arcsin(ya) of the
-            # uniform ya mesh
-            thetaa_of_ya = numpy.arcsin(xanormmesh)
             ynorm = numpy.empty((ng, pt_nxa))
             for jj in range(ng):
-                ynorm[jj] = interpolate.InterpolatedUnivariateSpline(
-                    thetaamesh, ys[jj], k=self._exact_pt_spl_deg
-                )(thetaa_of_ya)
+                ynorm[jj] = numpy.sin(
+                    interpolate.InterpolatedUnivariateSpline(
+                        tmesh[jj], chimesh, k=self._exact_pt_spl_deg
+                    )(ttargets[jj])
+                )
             ynorm[:, 0] = 0.0
             ynorm[:, -1] = 1.0
             # Odd reflection onto the full [-1,1] mesh (symmetric potential)
