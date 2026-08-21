@@ -3950,3 +3950,16 @@ def test_eddington_sample_negative_df_regions_no_crash():
         "Sampled speeds exceed the escape speed of the truncated DF"
     )
     return None
+
+
+def test_sphericaldf_bad_radius_error():
+    # Non-numeric input should still give the standard clear error, which
+    # comes from the in-body parse_length, not from the input decorator
+    pot = potential.HernquistPotential(amp=2.0, a=1.0)
+    dfh = isotropicHernquistdf(pot=pot, ro=8.0, vo=220.0)
+    for method in [dfh.sigmar, dfh.sigmat, dfh.beta]:
+        with pytest.raises(RuntimeError, match="not understood"):
+            method("foo")
+    with pytest.raises(RuntimeError, match="not understood"):
+        dfh.vmomentdensity("foo", 0, 0)
+    return None

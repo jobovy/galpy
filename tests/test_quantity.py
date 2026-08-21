@@ -17514,6 +17514,143 @@ def test_sphericaldf_method_inputAsQuantity():
     return None
 
 
+def test_sphericaldf_method_inputAsQuantity_percall_ro():
+    # A per-call ro=/vo= has to be used to interpret Quantity inputs,
+    # rather than the DF's own ro/vo (#1198)
+    from galpy import potential
+    from galpy.df import isotropicHernquistdf, osipkovmerrittdf
+    from galpy.orbit import Orbit
+
+    ro, vo = 8.0, 220.0
+    pot = potential.HernquistPotential(amp=2.0, a=1.3)
+    dfh = isotropicHernquistdf(pot=pot, ro=ro, vo=vo)
+    # beta is identically zero for an isotropic DF, so use an anisotropic one
+    dfa = osipkovmerrittdf(pot=pot, ra=1.3, ro=ro, vo=vo)
+    # 1 pc is 0.001/ro in internal units, with ro the per-call one when given
+    for kwargs, r in [
+        ({}, 0.001 / ro),
+        ({"ro": 10.0}, 0.001 / 10.0),
+        ({"ro": 10.0 * units.kpc}, 0.001 / 10.0),
+    ]:
+        assert (
+            numpy.fabs(
+                dfh.sigmar(1.0 * units.pc, use_physical=False, **kwargs)
+                - dfh.sigmar(r, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), (
+            "sphericaldf method sigmar does not parse a Quantity radius with the per-call ro"
+        )
+        assert (
+            numpy.fabs(
+                dfh.sigmat(1.0 * units.pc, use_physical=False, **kwargs)
+                - dfh.sigmat(r, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), (
+            "sphericaldf method sigmat does not parse a Quantity radius with the per-call ro"
+        )
+        assert (
+            numpy.fabs(
+                dfh.vmomentdensity(1.0 * units.pc, 0, 0, use_physical=False, **kwargs)
+                - dfh.vmomentdensity(r, 0, 0, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), (
+            "sphericaldf method vmomentdensity does not parse a Quantity radius with the per-call ro"
+        )
+        assert (
+            numpy.fabs(dfa.beta(1.0 * units.pc, **kwargs) - dfa.beta(r)) < 10.0**-8.0
+        ), (
+            "sphericaldf method beta does not parse a Quantity radius with the per-call ro"
+        )
+    # and the override has to actually make a difference
+    assert (
+        numpy.fabs(
+            dfh.sigmar(1.0 * units.pc, use_physical=False)
+            - dfh.sigmar(1.0 * units.pc, use_physical=False, ro=10.0)
+        )
+        > 10.0**-6.0
+    ), (
+        "sphericaldf method sigmar ignores the per-call ro when parsing a Quantity radius"
+    )
+    # Same for the energy input of dMdE and of __call__ in its (E,L,Lz) form,
+    # which are parsed with vo rather than ro
+    o = Orbit([0.5, 0.05, 0.3, 0.02, 0.05, 0.4], ro=ro, vo=vo)
+    Ei = o.E(pot=pot, use_physical=False)
+    Eq = Ei * vo**2.0 * units.km**2.0 / units.s**2.0
+    for kwargs, E in [({}, Ei), ({"vo": 300.0}, Ei * (vo / 300.0) ** 2.0)]:
+        assert (
+            numpy.fabs(
+                dfh.dMdE(Eq, use_physical=False, **kwargs)
+                - dfh.dMdE(E, use_physical=False)
+            )
+            < 10.0**-8.0
+        ), (
+            "sphericaldf method dMdE does not parse a Quantity energy with the per-call vo"
+        )
+        assert (
+            numpy.fabs(
+                dfh((Eq,), use_physical=False, **kwargs) - dfh((E,), use_physical=False)
+            )
+            < 10.0**-8.0
+        ), (
+            "sphericaldf method __call__ does not parse a Quantity energy with the per-call vo"
+        )
+    assert (
+        numpy.fabs(
+            dfh.dMdE(Eq, use_physical=False)
+            - dfh.dMdE(Eq, use_physical=False, vo=300.0)
+        )
+        > 10.0**-6.0
+    ), "sphericaldf method dMdE ignores the per-call vo when parsing a Quantity energy"
+    # and for __call__ in its R,vR,vT,z,vz form, which uses both ro and vo
+    Ri, vRi, vTi, zi, vzi = (
+        o.R(use_physical=False),
+        o.vR(use_physical=False),
+        o.vT(use_physical=False),
+        o.z(use_physical=False),
+        o.vz(use_physical=False),
+    )
+    quant = (
+        Ri * ro * units.kpc,
+        vRi * vo * units.km / units.s,
+        vTi * vo * units.km / units.s,
+        zi * ro * units.kpc,
+        vzi * vo * units.km / units.s,
+    )
+    for kwargs, (tro, tvo) in [
+        ({}, (ro, vo)),
+        ({"ro": 10.0, "vo": 300.0}, (10.0, 300.0)),
+    ]:
+        assert (
+            numpy.fabs(
+                dfh(*quant, use_physical=False, **kwargs)
+                - dfh(
+                    Ri * ro / tro,
+                    vRi * vo / tvo,
+                    vTi * vo / tvo,
+                    zi * ro / tro,
+                    vzi * vo / tvo,
+                    use_physical=False,
+                )
+            )
+            < 10.0**-8.0
+        ), (
+            "sphericaldf method __call__ does not parse Quantity coordinates with the per-call ro/vo"
+        )
+    assert (
+        numpy.fabs(
+            dfh(*quant, use_physical=False)
+            - dfh(*quant, use_physical=False, ro=10.0, vo=300.0)
+        )
+        > 10.0**-6.0
+    ), (
+        "sphericaldf method __call__ ignores the per-call ro/vo when parsing Quantity coordinates"
+    )
+    return None
+
+
 def test_sphericaldf_sample():
     from galpy import potential
     from galpy.df import isotropicHernquistdf

@@ -35,6 +35,16 @@ v1.12.1 (expected around 2026-11-01)
   the particle sum is accumulated in batches so building from a very large number
   of particles stays memory-bounded.
 
+- Fixed the ``sphericaldf`` family to honour a per-call ``ro=``/``vo=`` when
+  parsing ``Quantity`` inputs: radii for ``vmomentdensity``, ``sigmar``,
+  ``sigmat``, and ``beta``, and energies, angular momenta, and phase-space
+  coordinates for ``__call__`` and ``dMdE``. Previously the DF's own ``ro`` and
+  ``vo`` were always used, even though the per-call values were already honoured
+  for the output units. This is consistent with how potentials treat ``ro=``.
+  Calls that do not pass ``ro=``/``vo=`` are unaffected. Also fixed a typo in
+  ``sphericaldf.__call__`` that parsed a ``Quantity`` ``Lz`` with ``ro=vo``
+  (harmless in practice, because no current DF uses ``Lz``).
+
 - Added translation between the ``SCFPotential`` and ``MultipoleExpansionPotential``
   representations: ``SCFPotential.from_multipole`` builds an SCF expansion from a
   multipole expansion, and ``MultipoleExpansionPotential.from_scf`` does the
