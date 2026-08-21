@@ -8668,7 +8668,7 @@ def test_actionAngleSphericalInverse_exactpointtransform_ptonly():
     ), (
         "actionAngleSphericalInverse with pt_only evaluation is not the inverse of actionAngleSpherical for an example orbit"
     )
-    # Loose ODE tolerance --> coefficients not small --> warning
+    # Coarse point-transformation mesh --> coefficients not small --> warning
     from galpy.util import galpyWarning
 
     with pytest.warns(galpyWarning, match="not accurate enough"):
@@ -8679,7 +8679,7 @@ def test_actionAngleSphericalInverse_exactpointtransform_ptonly():
             Ls=[L],
             use_pointtransform="exact",
             pt_only=True,
-            exact_pt_tol=1e-4,
+            pt_nra=9,
         )
     # pt_only requires the exact point transformation
     with pytest.raises(ValueError):

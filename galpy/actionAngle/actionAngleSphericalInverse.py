@@ -85,6 +85,13 @@ def _evs(spl, iL, ix, **kwargs):
     return spl.ev(iL, ix, **kwargs).item()
 
 
+# Nodes/weights for composite 10-point Gauss-Legendre quadrature (used per
+# interval of the chi/eta meshes in the exact-point-transformation
+# construction; the error per panel is O((pi/nmesh)^20), i.e., machine
+# precision)
+_GLX, _GLW = numpy.polynomial.legendre.leggauss(10)
+
+
 class actionAngleSphericalInverse(actionAngleInverse):
     """Inverse action-angle formalism for spherical potentials"""
 
@@ -104,7 +111,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
         pt_deg=7,
         pt_nra=301,
         exact_pt_spl_deg=5,
-        exact_pt_tol=1e-12,
         pt_only=False,
         maxiter=100,
         angle_tol=1e-12,
@@ -167,8 +173,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
         exact_pt_spl_deg : int, optional
             Degree of the spline representation of the exact point
             transformation.
-        exact_pt_tol : float, optional
-            Tolerance of the exact point-transformation ODE solution.
         pt_only : bool, optional
             If True, evaluate the inverse transformation using the exact
             point transformation alone, skipping the generating-function
@@ -370,7 +374,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             ):
                 self._pt_exact = True
                 self._exact_pt_spl_deg = exact_pt_spl_deg
-                self._exact_pt_tol = exact_pt_tol
                 self._pt_only = pt_only
             else:
                 if pt_only:
@@ -527,7 +530,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             maxdSndLish = numpy.nanmax(numpy.fabs(self._dSndLish))
             if relnSn > 1e-8 or maxdSndJr > 1e-8 or maxdSndLish > 1e-8:
                 warnings.warn(
-                    "Point transformation is not accurate enough for pt_only=True evaluation: the generating-function mapping that pt_only skips is not negligible (max |nSn|/max Jr = {:.2e}, max |dSndJr| = {:.2e}, max |dSndLish| = {:.2e}); decrease exact_pt_tol and/or increase pt_nra, or use pt_only=False".format(
+                    "Point transformation is not accurate enough for pt_only=True evaluation: the generating-function mapping that pt_only skips is not negligible (max |nSn|/max Jr = {:.2e}, max |dSndJr| = {:.2e}, max |dSndLish| = {:.2e}); increase pt_nra or use pt_only=False".format(
                         relnSn, maxdSndJr, maxdSndLish
                     ),
                     galpyWarning,
@@ -685,15 +688,14 @@ class actionAngleSphericalInverse(actionAngleInverse):
         return None
 
     def _setup_pointtransform_exact(self, pt_nra, Etilde):
-        # Setup the exact point transformation for each torus by solving the
-        # ordinary differential equation d pi / d ra = vr / vra that it
-        # satisfies, together with the Delta-psi (zeta') shift of the
-        # in-plane angle. The system is integrated using the auxiliary
-        # torus' eccentric anomaly eta as the independent variable and
-        # y = sin^2(chi/2) as the dependent variable for the normalized
-        # radius, in which form it is regular at both turning points
-        # (in particular, d Delta-psi / d eta = L [1/pi^2 - 1/ra^2] G(eta)
-        # exactly, with no divergence at the turning points). The result is
+        # Setup the exact point transformation for each torus by direct
+        # quadrature of the time-from-pericenter profile and monotone spline
+        # inversion (the map equates times along the true and auxiliary
+        # orbits; its profile integrand is regular at both turning points),
+        # together with the Delta-psi (zeta') shift of the in-plane angle,
+        # computed as the cumulative quadrature of its exactly-regular
+        # integrand d Delta-psi / d eta = L [1/pi^2 - 1/ra^2] G(eta). The
+        # result is
         # stored as the normalized mapping y = (r-rperi)/(rap-rperi) as a
         # function of ya = (ra-ptrperi)/(ptrap-ptrperi) sampled on a fixed
         # mesh (padded beyond [0,1], because the 2D-spline evaluation's
@@ -760,63 +762,95 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 * deltar
             )
 
-            def deriv_eta(eta, state):
-                chi = state[:ng]
-                dpsi_unused = state[ng:]  # noqa: F841
-                y = numpy.sin(chi / 2.0) ** 2.0
-                r = rperi + deltar * y
-                # Radius along the auxiliary torus at this eccentric
-                # anomaly; writing it in terms of u = b (s-1) - b, that is,
-                # r^A = sqrt[u (u+2b)], avoids dividing by the isochrone
-                # scale b and is regular in the Kepler limit b -> 0
-                u = ca * (1.0 - ea * numpy.cos(eta))
-                ra = numpy.sqrt(u * (u + 2.0 * b))
-                # G = (d ra / d eta) / vra = b (s-1) sqrt[(b+c)/GM], which
-                # is regular at the turning points
-                G = numpy.sqrt(b**2.0 + ra**2.0) * numpy.sqrt((b + ca) / amp)
-                vr2 = (
-                    2.0
-                    * (
-                        Es
-                        - evaluatePotentials(
-                            self._pot, r, numpy.zeros(ng), use_physical=False
-                        )
-                    )
-                    - L2 / r**2.0
+            # Construct the equal-time map by direct quadrature and
+            # monotone inversion instead of integrating its defining ODE:
+            # the time from pericenter along the true orbit,
+            # t(chi) = int dr/vr = deltar int dchi / sqrt(Q) with
+            # Q = vr^2/[y(1-y)] regular at both turning points, is computed
+            # to machine precision with a composite Gauss-Legendre rule,
+            # while the time along the auxiliary isochrone orbit is known
+            # in closed form, Omega^A_r t^A = eta - k sin eta with
+            # k = e c/(c+b) (the isochrone's Kepler-like equation, which is
+            # what makes the auxiliary side free); the map chi(eta) then
+            # follows by spline inversion of the monotone time profile,
+            # using times normalized by the half period so that the turning
+            # points map onto each other exactly, independently of the
+            # accuracy of the frequencies. The Delta-psi shift is the cumulative quadrature
+            # of its exactly-regular integrand
+            # L [1/r^2 - 1/ra^2] G(eta) along the mapped orbit
+            nchimesh = numpy.amax([4 * pt_nra, 801])
+            chimesh = numpy.linspace(0.0, numpy.pi, nchimesh)
+            cmid = 0.5 * (chimesh[:-1] + chimesh[1:])
+            chalf = 0.5 * (chimesh[1:] - chimesh[:-1])
+            cnodes = (cmid[:, None] + chalf[:, None] * _GLX[None, :]).ravel()
+            ynod = numpy.sin(cnodes / 2.0) ** 2.0
+            rnod = rperi[:, None] + deltar[:, None] * ynod[None, :]
+            vr2 = (
+                2.0
+                * (
+                    Es[:, None]
+                    - evaluatePotentials(
+                        self._pot,
+                        rnod.ravel(),
+                        numpy.zeros(rnod.size),
+                        use_physical=False,
+                    ).reshape(ng, len(cnodes))
                 )
-                vr2[vr2 < 0.0] = 0.0
-                y1my = y * (1.0 - y)
-                Q = numpy.empty(ng)
-                reg = y1my > 1e-6
-                Q[reg] = vr2[reg] / y1my[reg]
-                lowIndx = (True ^ reg) * (y < 0.5)
-                hiIndx = (True ^ reg) * (y >= 0.5)
-                Q[lowIndx] = Qperi[lowIndx]
-                Q[hiIndx] = Qap[hiIndx]
-                Q[Q < 0.0] = 0.0
-                dchideta = G / deltar * numpy.sqrt(Q)
-                ddpsideta = L * (1.0 / r**2.0 - 1.0 / ra**2.0) * G
-                return numpy.concatenate((dchideta, ddpsideta))
-
-            etamesh = numpy.linspace(0.0, numpy.pi, numpy.amax([pt_nra, 201]))
-            sol = integrate.solve_ivp(
-                deriv_eta,
-                [0.0, numpy.pi],
-                numpy.zeros(2 * ng),
-                t_eval=etamesh,
-                rtol=self._exact_pt_tol,
-                atol=self._exact_pt_tol,
-                method="DOP853",
+                - L2[:, None] / rnod**2.0
             )
-            if not sol.success:  # pragma: no cover
-                raise RuntimeError(
-                    "Solving the ODE that defines the exact point transformation failed, full message: "
-                    + sol.message
+            vr2[vr2 < 0.0] = 0.0
+            y1my = ynod * (1.0 - ynod)
+            Q = numpy.empty_like(vr2)
+            reg = y1my > 1e-6
+            Q[:, reg] = vr2[:, reg] / y1my[None, reg]
+            lowm = (True ^ reg) * (ynod < 0.5)
+            him = (True ^ reg) * (ynod >= 0.5)
+            Q[:, lowm] = numpy.tile(Qperi[:, None], (1, numpy.sum(lowm)))
+            Q[:, him] = numpy.tile(Qap[:, None], (1, numpy.sum(him)))
+            Q[Q < numpy.finfo(float).tiny] = numpy.finfo(float).tiny
+            panels = (
+                (chalf[None, :, None] * _GLW[None, None, :])
+                * (1.0 / numpy.sqrt(Q)).reshape(ng, len(chalf), len(_GLX))
+            ).sum(axis=-1)
+            tmesh = numpy.hstack(
+                (numpy.zeros((ng, 1)), numpy.cumsum(panels, axis=1))
+            )  # time from pericenter / deltar; only ratios to t(pi) are used
+            etamesh = numpy.linspace(0.0, numpy.pi, numpy.amax([pt_nra, 201]))
+            kepk_g = ea * ca / (ca + b)
+            # eta at the Gauss nodes of the eta mesh (for the Delta-psi
+            # quadrature) and the mapped chi at both sets of points
+            emid = 0.5 * (etamesh[:-1] + etamesh[1:])
+            ehalf = 0.5 * (etamesh[1:] - etamesh[:-1])
+            enodes = (emid[:, None] + ehalf[:, None] * _GLX[None, :]).ravel()
+            ys = numpy.empty((ng, len(etamesh)))
+            dpsis = numpy.empty((ng, len(etamesh)))
+            for jj in range(ng):
+                tspl = interpolate.InterpolatedUnivariateSpline(
+                    tmesh[jj], chimesh, k=self._exact_pt_spl_deg
                 )
-            chis = sol.y[:ng]
-            dpsis = sol.y[ng:]
-            # The turning point must map exactly onto the turning point
-            ys = numpy.sin(chis / 2.0) ** 2.0
+                # map on the eta mesh: normalized aux time = theta^A_r/pi
+                chis_jj = tspl(
+                    (etamesh - kepk_g[jj] * numpy.sin(etamesh))
+                    / numpy.pi
+                    * tmesh[jj, -1]
+                )
+                ys[jj] = numpy.sin(chis_jj / 2.0) ** 2.0
+                # Delta-psi by cumulative quadrature at the Gauss nodes
+                chin = tspl(
+                    (enodes - kepk_g[jj] * numpy.sin(enodes)) / numpy.pi * tmesh[jj, -1]
+                )
+                rn = rperi[jj] + deltar[jj] * numpy.sin(chin / 2.0) ** 2.0
+                un = ca[jj] * (1.0 - ea[jj] * numpy.cos(enodes))
+                ran = numpy.sqrt(un * (un + 2.0 * b[jj]))
+                Gn = numpy.sqrt(b[jj] ** 2.0 + ran**2.0) * numpy.sqrt(
+                    (b[jj] + ca[jj]) / amp[jj]
+                )
+                integ = L[jj] * (1.0 / rn**2.0 - 1.0 / ran**2.0) * Gn
+                pans = (
+                    (ehalf[:, None] * _GLW[None, :])
+                    * integ.reshape(len(ehalf), len(_GLX))
+                ).sum(axis=-1)
+                dpsis[jj] = numpy.concatenate(([0.0], numpy.cumsum(pans)))
             ys[:, 0] = 0.0
             ys[:, -1] = 1.0
             # Resample onto the fixed mesh in the normalized auxiliary radius
@@ -839,8 +873,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
             dth = numpy.pi / (self._pt_nmesh - 1.0)
             thlow = -dth * numpy.arange(self._pt_pad, 0, -1)
             thhigh = numpy.pi + dth * numpy.arange(1, self._pt_pad + 1)
-            # Kepler-equation parameter of the auxiliary torus; solve for
-            # the eccentric anomalies of the uniform auxiliary-radial-angle
+            # Eccentricity-like parameter k of the isochrone's Kepler-like
+            # equation eta - k sin eta = theta^A_r; solve it for the
+            # eccentric anomalies of the uniform auxiliary-radial-angle
             # mesh for all tori at once
             kepk = ea * ca / (ca + b)
             etath_all = _solve_kepler(
