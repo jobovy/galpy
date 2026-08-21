@@ -63,7 +63,7 @@ class actionAngleStaeckel(actionAngle):
         c : bool, optional
             If True, always use C for calculations. Default is False.
         order : int, optional
-            Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals. Default is 10.
+            Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals (C path). On the pure-Python path this instead scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)), which is machine-converged at the default, so increasing it there has no practical effect. Default is 10.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -881,7 +881,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         fixed_quad : bool, optional
-            If True, use n=10 fixed_quad. Default is False.
+            If True, use the composite chi-anomaly Gauss-Legendre quadrature (machine-converged; order= scales the mesh as nchi = max(2 x order, 20)) instead of adaptive scipy.integrate.quad. Default is False.
         **kwargs
             scipy.integrate.quad keywords
 
@@ -895,14 +895,16 @@ class actionAngleStaeckelSingle(actionAngle):
         - 2012-11-27 - Written - Bovy (IAS)
 
         """
-        if hasattr(self, "_JR"):  # pragma: no cover
+        order = kwargs.pop("order", 10)
+        fixed_quad = kwargs.pop("fixed_quad", False)
+        if hasattr(self, "_JR") and self._JR_key == (fixed_quad, order):
             return self._JR
         umin, umax = self.calcUminUmax()
         # print self._ux, self._pux, (umax-umin)/umax
         if (umax - umin) / umax < 10.0**-6:
             return numpy.array([0.0])
-        order = kwargs.pop("order", 10)
-        if kwargs.pop("fixed_quad", False):
+        self._JR_key = (fixed_quad, order)
+        if fixed_quad:
             # chi-anomaly composite quadrature: machine-converged, with the
             # sqrt turning-point behavior absorbed by the parametrization
             # factor in next line bc integrand=/2delta^2
@@ -947,7 +949,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         fixed_quad : bool, optional
-            If True, use n=10 fixed_quad. Default is False.
+            If True, use the composite chi-anomaly Gauss-Legendre quadrature (machine-converged; order= scales the mesh as nchi = max(2 x order, 20)) instead of adaptive scipy.integrate.quad. Default is False.
         **kwargs
             scipy.integrate.quad keywords
 
@@ -960,13 +962,15 @@ class actionAngleStaeckelSingle(actionAngle):
         -----
         - 2012-11-27 - Written - Bovy (IAS)
         """
-        if hasattr(self, "_JZ"):  # pragma: no cover
+        order = kwargs.pop("order", 10)
+        fixed_quad = kwargs.pop("fixed_quad", False)
+        if hasattr(self, "_JZ") and self._JZ_key == (fixed_quad, order):
             return self._JZ
         vmin = self.calcVmin()
         if (numpy.pi / 2.0 - vmin) < 10.0**-7:
             return numpy.array([0.0])
-        order = kwargs.pop("order", 10)
-        if kwargs.pop("fixed_quad", False):
+        self._JZ_key = (fixed_quad, order)
+        if fixed_quad:
             # chi-anomaly composite quadrature: machine-converged, with the
             # sqrt turning-point behavior absorbed by the parametrization
             # factor in next line bc integrand=/2delta^2
@@ -1439,7 +1443,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         order : int, optional
-            Number of points to use in the Gauss-Legendre integration. Default is 10.
+            Scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)); machine-converged at the default. Default is 10.
 
         Returns
         -------
@@ -1450,8 +1454,9 @@ class actionAngleStaeckelSingle(actionAngle):
         -----
         - Port of the C calcdJRStaeckel.
         """
-        if hasattr(self, "_djrdE"):  # pragma: no cover
+        if hasattr(self, "_djrdE") and self._djrd_order == order:
             return (self._djrdE, self._djrdLz, self._djrdI3)
+        self._djrd_order = order
         umin, umax = self.calcUminUmax()
         if (umax - umin) / umax < 1e-6:  # circular
             self._djrdE = 0.0
@@ -1474,7 +1479,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         order : int, optional
-            Number of points to use in the Gauss-Legendre integration. Default is 10.
+            Scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)); machine-converged at the default. Default is 10.
 
         Returns
         -------
@@ -1485,8 +1490,9 @@ class actionAngleStaeckelSingle(actionAngle):
         -----
         - Port of the C calcdJzStaeckel.
         """
-        if hasattr(self, "_djzdE"):  # pragma: no cover
+        if hasattr(self, "_djzdE") and self._djzd_order == order:
             return (self._djzdE, self._djzdLz, self._djzdI3)
+        self._djzd_order = order
         vmin = self.calcVmin()
         if (numpy.pi / 2.0 - vmin) / numpy.pi * 2.0 < 1e-6:  # circular
             self._djzdE = 0.0
@@ -1510,7 +1516,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         order : int, optional
-            Number of points to use in the Gauss-Legendre integration. Default is 10.
+            Scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)); machine-converged at the default. Default is 10.
 
         Returns
         -------
@@ -1547,7 +1553,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         order : int, optional
-            Number of points to use in the Gauss-Legendre integration. Default is 10.
+            Scales the number of panels of the composite chi-anomaly quadrature (nchi = max(2 x order, 20)); machine-converged at the default. Default is 10.
 
         Returns
         -------
