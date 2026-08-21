@@ -37,7 +37,7 @@
 ###############################################################################
 import numpy
 import pytest
-from backend_jit_helpers import assert_jit_matches_eager
+from backend_jit_helpers import assert_jit_matches_eager, no_torch_compile_deprecations
 
 from galpy.backend import as_numpy
 from galpy.potential import MiyamotoNagaiPotential, MultipoleExpansionPotential
@@ -624,27 +624,6 @@ def test_from_density_backend_amp_closure(backend_name, symmetry):
     numpy.testing.assert_allclose(got, ref, rtol=1e-11, atol=1e-13)
 
 
-def _no_torch_compile_deprecations():
-    """Suppress torch's own import-time DeprecationWarnings during a compile.
-
-    ``torch.compile`` lazily imports ``torch._inductor``, whose mkldnn module
-    warns on ``torch.jit.script_method`` at class-definition time. A per-test
-    ``filterwarnings`` mark cannot suppress it (a module-level
-    ``error::DeprecationWarning`` pytestmark is applied last and wins), so
-    filter it here, around the call itself.
-    """
-    import contextlib
-    import warnings
-
-    @contextlib.contextmanager
-    def _ctx():
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning)
-            yield
-
-    return _ctx()
-
-
 @pytest.mark.skipif(torch is None, reason="torch not installed")
 def test_torch_compile_cold_lazy_table_build():
     # Regression: the backend constant tables are built lazily and memoized, so
@@ -671,7 +650,7 @@ def test_torch_compile_cold_lazy_table_build():
     ref = float(build().Rforce(R0, z0))  # warm/eager reference
     cold = build()  # never evaluated outside the trace
     torch._dynamo.reset()
-    with _no_torch_compile_deprecations():
+    with no_torch_compile_deprecations():
         got = float(
             torch.compile(
                 lambda R, z: cold.Rforce(R, z), fullgraph=False, dynamic=False
