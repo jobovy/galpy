@@ -2499,15 +2499,27 @@ def test_actionAngleStaeckel_actions_order():
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
     aAS = actionAngleStaeckel(pot=kksp, delta=kksp._Delta, c=False)
-    # We'll assume that order=10000 is the truth, so 50 should be better than 5
+    # The chi-anomaly composite quadrature is machine-converged at any order,
+    # so low and high order must both match a very-high-order reference at
+    # machine precision (the old fixed-order rule converged only slowly here)
     jrt, jpt, jzt = aAS(o, order=10000, fixed_quad=True)
     jr1, jp1, jz1 = aAS(o, order=5, fixed_quad=True)
     jr2, jp2, jz2 = aAS(o, order=50, fixed_quad=True)
-    assert numpy.fabs(jr1 - jrt) > numpy.fabs(jr2 - jrt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(jr1 - jrt) < 1e-14, (
+        "actionAngleStaeckel low-order actions do not match the high-order "
+        "reference at machine precision"
     )
-    assert numpy.fabs(jz1 - jzt) > numpy.fabs(jz2 - jzt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(jr2 - jrt) < 1e-14, (
+        "actionAngleStaeckel medium-order actions do not match the high-order "
+        "reference at machine precision"
+    )
+    assert numpy.fabs(jz1 - jzt) < 1e-14, (
+        "actionAngleStaeckel low-order actions do not match the high-order "
+        "reference at machine precision"
+    )
+    assert numpy.fabs(jz2 - jzt) < 1e-14, (
+        "actionAngleStaeckel medium-order actions do not match the high-order "
+        "reference at machine precision"
     )
     return None
 
@@ -2919,13 +2931,50 @@ def test_actionAngleStaeckel_angles_order_c():
 
 # Test that the pure-Python (c=False) actionAngleStaeckel frequencies and angles
 # agree with the C implementation over a grid of ICs hitting every branch.
+def test_actionAngleStaeckel_chi_quadrature_convergence():
+    # The chi-anomaly composite quadratures behind the pure-Python path are
+    # machine-converged at the default order: frequencies and angles must
+    # match a much finer chi mesh at machine precision, including the
+    # partial-oscillation (angle) integrals on both sides of the turning
+    # points and the midplane
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import KuzminKutuzovStaeckelPotential
+
+    kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
+    aAS = actionAngleStaeckel(pot=kksp, delta=1.4, c=False)
+    # The tolerances are set by the evaluation noise of the fudge-form
+    # momentum function S (a difference of O(1) potential terms), not by the
+    # quadrature rule: a few 1e-12 for generic orbits, and looser for a
+    # nearly planar orbit whose tiny v oscillation has S far below the
+    # cancellation scale (the old fixed-order rule erred at 4.6e-4 here)
+    for ic, tol in (
+        ([1.0, 0.5, 1.1, 0.2, -0.3, 0.4], 3e-11),
+        ([1.0, -0.2, 1.1, -0.2, 0.25, 2.1], 3e-11),  # z<0, vR<0: other branches
+        ([1.1, 0.02, 0.9, 0.002, 0.02, 1.0], 1e-8),  # nearly planar
+    ):
+        lo = aAS.actionsFreqsAngles(*ic, fixed_quad=True, order=10)
+        hi = aAS.actionsFreqsAngles(*ic, fixed_quad=True, order=200)
+        for ii in range(9):
+            assert numpy.fabs(lo[ii][0] - hi[ii][0]) < tol, (
+                "Pure-Python actionAngleStaeckel chi-quadrature output %i at "
+                "the default order does not match a much finer chi mesh "
+                "(diff %g)" % (ii, numpy.fabs(lo[ii][0] - hi[ii][0]))
+            )
+    return None
+
+
 def test_actionAngleStaeckel_python_c_freqsAngles():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.potential import LogarithmicHaloPotential
 
     # Flattened logarithmic halo: genuinely close to Staeckel-separable
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
-    aAc = actionAngleStaeckel(pot=lp, delta=0.5, c=True)
+    # The Python path's chi-anomaly quadratures are machine-converged, so the
+    # C-vs-Python difference is dominated by the C path's fixed-order
+    # truncation error (1e-4 at its default order=10 on this grid); run the C
+    # path at high order so that the parity test checks branch/convention
+    # agreement rather than the C truncation floor
+    aAc = actionAngleStaeckel(pot=lp, delta=0.5, c=True, order=200)
     aAp = actionAngleStaeckel(pot=lp, delta=0.5, c=False)
 
     def wrapdiff(a, b):

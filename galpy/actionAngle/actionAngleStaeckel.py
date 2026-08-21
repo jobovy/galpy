@@ -903,31 +903,15 @@ class actionAngleStaeckelSingle(actionAngle):
             return numpy.array([0.0])
         order = kwargs.pop("order", 10)
         if kwargs.pop("fixed_quad", False):
+            # chi-anomaly composite quadrature: machine-converged, with the
+            # sqrt turning-point behavior absorbed by the parametrization
             # factor in next line bc integrand=/2delta^2
             self._JR = (
                 1.0
                 / numpy.pi
                 * numpy.sqrt(2.0)
                 * self._delta
-                * integrate.fixed_quad(
-                    _JRStaeckelIntegrand,
-                    umin,
-                    umax,
-                    args=(
-                        self._E,
-                        self._Lz,
-                        self._I3U,
-                        self._delta,
-                        self._u0,
-                        self._sinhu0**2.0,
-                        self._v0u,
-                        self._sinv0u**2.0,
-                        self._potu0v0,
-                        self._pot,
-                    ),
-                    n=order,
-                    **kwargs,
-                )[0]
+                * self._chiQuadsU(order=order)[0]
             )
         else:
             self._JR = (
@@ -983,30 +967,15 @@ class actionAngleStaeckelSingle(actionAngle):
             return numpy.array([0.0])
         order = kwargs.pop("order", 10)
         if kwargs.pop("fixed_quad", False):
+            # chi-anomaly composite quadrature: machine-converged, with the
+            # sqrt turning-point behavior absorbed by the parametrization
             # factor in next line bc integrand=/2delta^2
             self._JZ = (
                 2.0
                 / numpy.pi
                 * numpy.sqrt(2.0)
                 * self._delta
-                * integrate.fixed_quad(
-                    _JzStaeckelIntegrand,
-                    vmin,
-                    numpy.pi / 2,
-                    args=(
-                        self._E,
-                        self._Lz,
-                        self._I3V,
-                        self._delta,
-                        self._u0v,
-                        self._coshu0v**2.0,
-                        self._sinhu0v**2.0,
-                        self._potupi2,
-                        self._pot,
-                    ),
-                    n=order,
-                    **kwargs,
-                )[0]
+                * self._chiQuadsV(order=order)[0]
             )
         else:
             # factor in next line bc integrand=/2delta^2
@@ -1153,6 +1122,8 @@ class actionAngleStaeckelSingle(actionAngle):
                                 self._pot,
                             ),
                             maxiter=200,
+                            xtol=1e-15,
+                            rtol=8.9e-16,
                         )
                     except RuntimeError:  # pragma: no cover
                         raise UnboundError("Orbit seems to be unbound")
@@ -1189,6 +1160,8 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._pot,
                     ),
                     maxiter=200,
+                    xtol=1e-15,
+                    rtol=8.9e-16,
                 )
             else:  # circular orbit
                 umin = self._ux
@@ -1232,6 +1205,8 @@ class actionAngleStaeckelSingle(actionAngle):
                             self._pot,
                         ),
                         maxiter=200,
+                        xtol=1e-15,
+                        rtol=8.9e-16,
                     )
                 except RuntimeError:  # pragma: no cover
                     raise UnboundError("Orbit seems to be unbound")
@@ -1266,6 +1241,8 @@ class actionAngleStaeckelSingle(actionAngle):
                     self._pot,
                 ),
                 maxiter=200,
+                xtol=1e-15,
+                rtol=8.9e-16,
             )
         self._uminumax = (umin, umax)
         return self._uminumax
@@ -1354,6 +1331,8 @@ class actionAngleStaeckelSingle(actionAngle):
                             self._pot,
                         ),
                         maxiter=200,
+                        xtol=1e-15,
+                        rtol=8.9e-16,
                     )
                 except RuntimeError:  # pragma: no cover
                     raise UnboundError("Orbit seems to be unbound")
@@ -1387,6 +1366,72 @@ class actionAngleStaeckelSingle(actionAngle):
             self._pot,
         )
 
+    def _chiQuadsU(self, order=10, uupp=None):
+        """All u quadratures (the action integral and the three 1/p_u
+        profile integrals int f/sqrt(S_R) du for f = sinh^2 u, 1,
+        1/sinh^2 u) from umin up to uupp (default: the complete integral
+        to umax), from a single vectorized evaluation of the momentum on
+        the chi mesh; cached"""
+        nchi = max(2 * int(order), 20)
+        umin, umax = self.calcUminUmax()
+        chimax = (
+            numpy.pi
+            if uupp is None
+            else 2.0
+            * numpy.arcsin(
+                numpy.sqrt(numpy.clip((uupp - umin) / (umax - umin), 0.0, 1.0))
+            )
+        )
+        if not hasattr(self, "_chiQuadsUCache"):
+            self._chiQuadsUCache = {}
+        if (nchi, chimax) not in self._chiQuadsUCache:
+            self._chiQuadsUCache[(nchi, chimax)] = _staeckelChiQuadratures(
+                _JRStaeckelIntegrandSquared,
+                _dJRStaeckelIntegrandSquareddu,
+                self._uIntegrandArgs(),
+                umin,
+                umax - umin,
+                _CHIQUAD_UWEIGHTS,
+                nchi=nchi,
+                chimax=chimax,
+            )
+        return self._chiQuadsUCache[(nchi, chimax)]
+
+    def _chiQuadsV(self, order=10, vupp=None):
+        """All v quadratures (the action integral and the three 1/p_v
+        profile integrals int f/sqrt(S_z) dv for f = sin^2 v, 1,
+        1/sin^2 v) from vmin up to vupp (default: to the midplane pi/2),
+        from a single vectorized evaluation of the momentum on the chi
+        mesh; cached. The anomaly always spans the full v loop
+        [vmin, pi - vmin] (the midplane is a symmetry point of S_z, not a
+        turning point), so integrating to the midplane is chimax = pi/2"""
+        nchi = max(2 * int(order), 20)
+        vmin = self.calcVmin()
+        chimax = (
+            numpy.pi / 2.0
+            if vupp is None
+            else 2.0
+            * numpy.arcsin(
+                numpy.sqrt(
+                    numpy.clip((vupp - vmin) / (numpy.pi - 2.0 * vmin), 0.0, 1.0)
+                )
+            )
+        )
+        if not hasattr(self, "_chiQuadsVCache"):
+            self._chiQuadsVCache = {}
+        if (nchi, chimax) not in self._chiQuadsVCache:
+            self._chiQuadsVCache[(nchi, chimax)] = _staeckelChiQuadratures(
+                _JzStaeckelIntegrandSquared,
+                _dJzStaeckelIntegrandSquareddv,
+                self._vIntegrandArgs(),
+                vmin,
+                numpy.pi - 2.0 * vmin,
+                _CHIQUAD_VWEIGHTS,
+                nchi=nchi,
+                chimax=chimax,
+            )
+        return self._chiQuadsVCache[(nchi, chimax)]
+
     def calcdJR(self, order=10):
         """
         Calculate the derivatives djr/dE, djr/dLz, djr/dI3.
@@ -1413,61 +1458,9 @@ class actionAngleStaeckelSingle(actionAngle):
             self._djrdLz = 0.0
             self._djrdI3 = 0.0
             return (self._djrdE, self._djrdLz, self._djrdI3)
-        args = self._uIntegrandArgs()
-        mid = numpy.sqrt(0.5 * (umax - umin))
-        # djrdE
-        djrdE = (
-            integrate.fixed_quad(
-                _uLowStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJRdEStaeckelIntegrand, umin, args),
-                n=order,
-            )[0]
-            + integrate.fixed_quad(
-                _uHighStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJRdEStaeckelIntegrand, umax, args),
-                n=order,
-            )[0]
-        )
+        _, (djrdE, djrdI3, djrdLz) = self._chiQuadsU(order=order)
         djrdE *= self._delta / numpy.pi / numpy.sqrt(2.0)
-        # djrdLz
-        djrdLz = (
-            integrate.fixed_quad(
-                _uLowStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJRdLzStaeckelIntegrand, umin, args),
-                n=order,
-            )[0]
-            + integrate.fixed_quad(
-                _uHighStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJRdLzStaeckelIntegrand, umax, args),
-                n=order,
-            )[0]
-        )
         djrdLz *= -self._Lz / numpy.pi / numpy.sqrt(2.0) / self._delta
-        # djrdI3
-        djrdI3 = (
-            integrate.fixed_quad(
-                _uLowStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJRdI3StaeckelIntegrand, umin, args),
-                n=order,
-            )[0]
-            + integrate.fixed_quad(
-                _uHighStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJRdI3StaeckelIntegrand, umax, args),
-                n=order,
-            )[0]
-        )
         djrdI3 *= -self._delta / numpy.pi / numpy.sqrt(2.0)
         self._djrdE = djrdE
         self._djrdLz = djrdLz
@@ -1500,61 +1493,9 @@ class actionAngleStaeckelSingle(actionAngle):
             self._djzdLz = 0.0
             self._djzdI3 = 0.0
             return (self._djzdE, self._djzdLz, self._djzdI3)
-        args = self._vIntegrandArgs()
-        mid = numpy.sqrt(0.5 * (numpy.pi / 2.0 - vmin))
-        # djzdE
-        djzdE = (
-            integrate.fixed_quad(
-                _vLowStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJzdEStaeckelIntegrand, vmin, args),
-                n=order,
-            )[0]
-            + integrate.fixed_quad(
-                _vHighStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJzdEStaeckelIntegrand, args),
-                n=order,
-            )[0]
-        )
+        _, (djzdE, djzdI3, djzdLz) = self._chiQuadsV(order=order)
         djzdE *= numpy.sqrt(2.0) * self._delta / numpy.pi
-        # djzdLz
-        djzdLz = (
-            integrate.fixed_quad(
-                _vLowStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJzdLzStaeckelIntegrand, vmin, args),
-                n=order,
-            )[0]
-            + integrate.fixed_quad(
-                _vHighStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJzdLzStaeckelIntegrand, args),
-                n=order,
-            )[0]
-        )
         djzdLz *= -self._Lz * numpy.sqrt(2.0) / numpy.pi / self._delta
-        # djzdI3
-        djzdI3 = (
-            integrate.fixed_quad(
-                _vLowStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJzdI3StaeckelIntegrand, vmin, args),
-                n=order,
-            )[0]
-            + integrate.fixed_quad(
-                _vHighStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(_dJzdI3StaeckelIntegrand, args),
-                n=order,
-            )[0]
-        )
         djzdI3 *= numpy.sqrt(2.0) * self._delta / numpy.pi
         self._djzdE = djzdE
         self._djzdLz = djzdLz
@@ -1632,61 +1573,43 @@ class actionAngleStaeckelSingle(actionAngle):
         delta = self._delta
         Lz = self._Lz
         sqrt2 = numpy.sqrt(2.0)
-        uargs = self._uIntegrandArgs()
-        vargs = self._vIntegrandArgs()
         ux = self._ux
         vx = self._vx
         pux = self._pux
         pvx = self._pvx
         vmin = self._vmin
 
-        def uquad(func, panel, bound, mid):
+        # Partial-oscillation integrals via the cumulative chi-anomaly
+        # quadratures; the (panel, mid) encoding of the C port is kept:
+        # "low" integrates [qmin, qmin+mid^2], "high" [qmax-mid^2, qmax]
+        def uquad(key, panel, bound, mid):
+            idx = {"E": 0, "I3": 1, "Lz": 2}[key]
             if panel == "low":
-                return integrate.fixed_quad(
-                    _uLowStaeckelIntegrand,
-                    0.0,
-                    mid,
-                    args=(func, bound, uargs),
-                    n=order,
-                )[0]
-            return integrate.fixed_quad(
-                _uHighStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(func, bound, uargs),
-                n=order,
-            )[0]
+                return self._chiQuadsU(order=order, uupp=umin + mid**2.0)[1][idx]
+            return (
+                self._chiQuadsU(order=order)[1][idx]
+                - self._chiQuadsU(order=order, uupp=umax - mid**2.0)[1][idx]
+            )
 
-        def vquad(func, panel, mid):
+        def vquad(key, panel, mid):
+            idx = {"E": 0, "I3": 1, "Lz": 2}[key]
             if panel == "low":
-                return integrate.fixed_quad(
-                    _vLowStaeckelIntegrand,
-                    0.0,
-                    mid,
-                    args=(func, vmin, vargs),
-                    n=order,
-                )[0]
-            return integrate.fixed_quad(
-                _vHighStaeckelIntegrand,
-                0.0,
-                mid,
-                args=(func, vargs),
-                n=order,
-            )[0]
+                return self._chiQuadsV(order=order, vupp=vmin + mid**2.0)[1][idx]
+            return (
+                self._chiQuadsV(order=order)[1][idx]
+                - self._chiQuadsV(order=order, vupp=numpy.pi / 2.0 - mid**2.0)[1][idx]
+            )
 
         # u-branch (Or1, I3r1, Anglephi-u-term); follows calcAnglesStaeckel @1308
         midpoint_u = umin + 0.5 * (umax - umin)
         if pux > 0.0:
             if ux > midpoint_u:
                 mid = numpy.sqrt(umax - ux)
-                Or1 = uquad(_dJRdEStaeckelIntegrand, "high", umax, mid)
-                I3r1 = -uquad(_dJRdI3StaeckelIntegrand, "high", umax, mid)
+                Or1 = uquad("E", "high", umax, mid)
+                I3r1 = -uquad("I3", "high", umax, mid)
                 anglephi = (
                     numpy.pi * djrdLz
-                    + Lz
-                    * uquad(_dJRdLzStaeckelIntegrand, "high", umax, mid)
-                    / delta
-                    / sqrt2
+                    + Lz * uquad("Lz", "high", umax, mid) / delta / sqrt2
                 )
                 Or1 *= delta / sqrt2
                 I3r1 *= delta / sqrt2
@@ -1694,46 +1617,35 @@ class actionAngleStaeckelSingle(actionAngle):
                 I3r1 = numpy.pi * djrdI3 - I3r1
             else:
                 mid = numpy.sqrt(ux - umin)
-                Or1 = uquad(_dJRdEStaeckelIntegrand, "low", umin, mid)
-                I3r1 = -uquad(_dJRdI3StaeckelIntegrand, "low", umin, mid)
-                anglephi = (
-                    -Lz
-                    * uquad(_dJRdLzStaeckelIntegrand, "low", umin, mid)
-                    / delta
-                    / sqrt2
-                )
+                Or1 = uquad("E", "low", umin, mid)
+                I3r1 = -uquad("I3", "low", umin, mid)
+                anglephi = -Lz * uquad("Lz", "low", umin, mid) / delta / sqrt2
                 Or1 *= delta / sqrt2
                 I3r1 *= delta / sqrt2
         else:
             if ux > midpoint_u:
                 mid = numpy.sqrt(umax - ux)
-                Or1 = uquad(_dJRdEStaeckelIntegrand, "high", umax, mid)
+                Or1 = uquad("E", "high", umax, mid)
                 Or1 *= delta / sqrt2
                 Or1 = numpy.pi * djrdE + Or1
-                I3r1 = -uquad(_dJRdI3StaeckelIntegrand, "high", umax, mid)
+                I3r1 = -uquad("I3", "high", umax, mid)
                 I3r1 *= delta / sqrt2
                 I3r1 = numpy.pi * djrdI3 + I3r1
                 anglephi = (
                     numpy.pi * djrdLz
-                    - Lz
-                    * uquad(_dJRdLzStaeckelIntegrand, "high", umax, mid)
-                    / delta
-                    / sqrt2
+                    - Lz * uquad("Lz", "high", umax, mid) / delta / sqrt2
                 )
             else:
                 mid = numpy.sqrt(ux - umin)
-                Or1 = uquad(_dJRdEStaeckelIntegrand, "low", umin, mid)
+                Or1 = uquad("E", "low", umin, mid)
                 Or1 *= delta / sqrt2
                 Or1 = 2.0 * numpy.pi * djrdE - Or1
-                I3r1 = -uquad(_dJRdI3StaeckelIntegrand, "low", umin, mid)
+                I3r1 = -uquad("I3", "low", umin, mid)
                 I3r1 *= delta / sqrt2
                 I3r1 = 2.0 * numpy.pi * djrdI3 - I3r1
                 anglephi = (
                     2.0 * numpy.pi * djrdLz
-                    + Lz
-                    * uquad(_dJRdLzStaeckelIntegrand, "low", umin, mid)
-                    / delta
-                    / sqrt2
+                    + Lz * uquad("Lz", "low", umin, mid) / delta / sqrt2
                 )
 
         # v-branch (Or2, I3r2, phitmp); follows calcAnglesStaeckel @1374
@@ -1745,22 +1657,18 @@ class actionAngleStaeckelSingle(actionAngle):
                     if vx > 0.5 * numpy.pi
                     else numpy.sqrt(vx - vmin)
                 )
-                Or2 = vquad(_dJzdEStaeckelIntegrand, "low", mid) * delta / sqrt2
-                I3r2 = vquad(_dJzdI3StaeckelIntegrand, "low", mid) * delta / sqrt2
-                phitmp = (
-                    vquad(_dJzdLzStaeckelIntegrand, "low", mid) * -Lz / delta / sqrt2
-                )
+                Or2 = vquad("E", "low", mid) * delta / sqrt2
+                I3r2 = vquad("I3", "low", mid) * delta / sqrt2
+                phitmp = vquad("Lz", "low", mid) * -Lz / delta / sqrt2
                 if vx > 0.5 * numpy.pi:
                     Or2 = numpy.pi * djzdE - Or2
                     I3r2 = numpy.pi * djzdI3 - I3r2
                     phitmp = numpy.pi * djzdLz - phitmp
             else:
                 mid = numpy.sqrt(numpy.fabs(0.5 * numpy.pi - vx))
-                Or2 = vquad(_dJzdEStaeckelIntegrand, "high", mid) * delta / sqrt2
-                I3r2 = vquad(_dJzdI3StaeckelIntegrand, "high", mid) * delta / sqrt2
-                phitmp = (
-                    vquad(_dJzdLzStaeckelIntegrand, "high", mid) * -Lz / delta / sqrt2
-                )
+                Or2 = vquad("E", "high", mid) * delta / sqrt2
+                I3r2 = vquad("I3", "high", mid) * delta / sqrt2
+                phitmp = vquad("Lz", "high", mid) * -Lz / delta / sqrt2
                 if vx > 0.5 * numpy.pi:
                     Or2 = 0.5 * numpy.pi * djzdE + Or2
                     I3r2 = 0.5 * numpy.pi * djzdI3 + I3r2
@@ -1776,11 +1684,9 @@ class actionAngleStaeckelSingle(actionAngle):
                     if vx > 0.5 * numpy.pi
                     else numpy.sqrt(vx - vmin)
                 )
-                Or2 = vquad(_dJzdEStaeckelIntegrand, "low", mid) * delta / sqrt2
-                I3r2 = vquad(_dJzdI3StaeckelIntegrand, "low", mid) * delta / sqrt2
-                phitmp = (
-                    vquad(_dJzdLzStaeckelIntegrand, "low", mid) * -Lz / delta / sqrt2
-                )
+                Or2 = vquad("E", "low", mid) * delta / sqrt2
+                I3r2 = vquad("I3", "low", mid) * delta / sqrt2
+                phitmp = vquad("Lz", "low", mid) * -Lz / delta / sqrt2
                 if vx < 0.5 * numpy.pi:
                     Or2 = 2.0 * numpy.pi * djzdE - Or2
                     I3r2 = 2.0 * numpy.pi * djzdI3 - I3r2
@@ -1791,11 +1697,9 @@ class actionAngleStaeckelSingle(actionAngle):
                     phitmp = numpy.pi * djzdLz + phitmp
             else:
                 mid = numpy.sqrt(numpy.fabs(0.5 * numpy.pi - vx))
-                Or2 = vquad(_dJzdEStaeckelIntegrand, "high", mid) * delta / sqrt2
-                I3r2 = vquad(_dJzdI3StaeckelIntegrand, "high", mid) * delta / sqrt2
-                phitmp = (
-                    vquad(_dJzdLzStaeckelIntegrand, "high", mid) * -Lz / delta / sqrt2
-                )
+                Or2 = vquad("E", "high", mid) * delta / sqrt2
+                I3r2 = vquad("I3", "high", mid) * delta / sqrt2
+                phitmp = vquad("Lz", "high", mid) * -Lz / delta / sqrt2
                 if vx < 0.5 * numpy.pi:
                     Or2 = 1.5 * numpy.pi * djzdE + Or2
                     I3r2 = 1.5 * numpy.pi * djzdI3 + I3r2
@@ -1987,91 +1891,139 @@ def _JzStaeckelIntegrandSquared(
     return E * sin2v + I3V + dV - Lz**2.0 / 2.0 / delta**2.0 / sin2v
 
 
-# Derivative integrands for the Staeckel frequencies and angles. These are ports
-# of the C dJ?d?StaeckelIntegrand functions; the under-radical S_R/S_z reuses the
-# existing _JRStaeckelIntegrandSquared/_JzStaeckelIntegrandSquared helpers. Each
-# returns 0. when S<=0 (mirrors the C 'if(out<=0.) return 0.').
-def _dJRdEStaeckelIntegrand(
+# Derivatives of the under-radical functions S_R/S_z with respect to the
+# integration coordinate (analytic, via the forces); these supply the finite
+# turning-point limits of the chi-anomaly quadratures below
+def _dJRStaeckelIntegrandSquareddu(
     u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
 ):
-    out = _JRStaeckelIntegrandSquared(
-        u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+    R, z = coords.uv_to_Rz(u, v0, delta=delta)
+    dPhidu = -delta * (
+        _evaluateRforces(pot, R, z) * numpy.cosh(u) * numpy.sin(v0)
+        + _evaluatezforces(pot, R, z) * numpy.sinh(u) * numpy.cos(v0)
     )
-    if out <= 0.0:
-        return 0.0
-    return numpy.sinh(u) ** 2.0 / numpy.sqrt(out)
+    return (
+        E * numpy.sinh(2.0 * u)
+        - numpy.sinh(2.0 * u) * potentialStaeckel(u, v0, pot, delta)
+        - (numpy.sinh(u) ** 2.0 + sin2v0) * dPhidu
+        + Lz**2.0 / delta**2.0 * numpy.cosh(u) / numpy.sinh(u) ** 3.0
+    )
 
 
-def _dJRdLzStaeckelIntegrand(
-    u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+def _dJzStaeckelIntegrandSquareddv(
+    v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
 ):
-    out = _JRStaeckelIntegrandSquared(
-        u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+    R, z = coords.uv_to_Rz(u0, v, delta=delta)
+    dPhidv = -delta * (
+        _evaluateRforces(pot, R, z) * numpy.sinh(u0) * numpy.cos(v)
+        - _evaluatezforces(pot, R, z) * numpy.cosh(u0) * numpy.sin(v)
     )
-    if out <= 0.0:
-        return 0.0
-    return 1.0 / numpy.sinh(u) ** 2.0 / numpy.sqrt(out)
+    return (
+        E * numpy.sin(2.0 * v)
+        - numpy.sin(2.0 * v) * potentialStaeckel(u0, v, pot, delta)
+        - (sinh2u0 + numpy.sin(v) ** 2.0) * dPhidv
+        + Lz**2.0 / delta**2.0 * numpy.cos(v) / numpy.sin(v) ** 3.0
+    )
 
 
-def _dJRdI3StaeckelIntegrand(
-    u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
+# Nodes/weights of the composite 10-point Gauss-Legendre rule used by the
+# chi-anomaly quadratures: applied per interval of an nchi-panel mesh, the
+# error is O((chimax/nchi)^20), so the integrals are machine-converged for
+# modest nchi
+_CHIQUAD_GLX, _CHIQUAD_GLW = numpy.polynomial.legendre.leggauss(10)
+# Weight functions of the 1/p_u and 1/p_v profile integrals, in the order
+# (dE, dI3, dLz)
+_CHIQUAD_UWEIGHTS = (
+    lambda q: numpy.sinh(q) ** 2.0,
+    lambda q: numpy.ones_like(q),
+    lambda q: 1.0 / numpy.sinh(q) ** 2.0,
+)
+_CHIQUAD_VWEIGHTS = (
+    lambda q: numpy.sin(q) ** 2.0,
+    lambda q: numpy.ones_like(q),
+    lambda q: 1.0 / numpy.sin(q) ** 2.0,
+)
+
+
+def _staeckelChiQuadratures(
+    Ssq, dSsq, args, qmin, D, weights, nchi=20, chimax=numpy.pi
 ):
-    out = _JRStaeckelIntegrandSquared(
-        u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot
-    )
-    if out <= 0.0:
-        return 0.0
-    return 1.0 / numpy.sqrt(out)
+    """
+    Composite Gauss-Legendre quadratures in the chi anomaly.
 
+    Evaluates int sqrt(S) dq and int f/sqrt(S) dq for all weight functions
+    f at once, from a single vectorized evaluation of S, in the anomaly
+    parametrization q = qmin + D sin^2(chi/2) that renders every integrand
+    regular: with y = sin^2(chi/2) and Q = S/[y(1-y)],
+    int sqrt(S) dq = (D/4) int sqrt(Q) sin^2(chi) dchi and
+    int f/sqrt(S) dq = D int f/sqrt(Q) dchi, where Q has the finite
+    turning-point limits |dS/dq| D that are switched in near the endpoints,
+    where the direct evaluation of S is dominated by cancellation.
 
-def _dJzdEStaeckelIntegrand(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
-    out = _JzStaeckelIntegrandSquared(
-        v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
-    )
-    if out <= 0.0:
-        return 0.0
-    return numpy.sin(v) ** 2.0 / numpy.sqrt(out)
+    Parameters
+    ----------
+    Ssq : callable
+        The under-radical function S(q, *args) = p^2/(2 delta^2); must
+        accept an array q.
+    dSsq : callable
+        dS/dq(q, *args), evaluated only at the turning points.
+    args : tuple
+        Extra arguments of Ssq and dSsq.
+    qmin : float
+        Lower turning point.
+    D : float
+        Full oscillation range: the upper turning point is qmin + D (for
+        the v oscillation this is pi - 2 vmin, even when integrating only
+        to the midplane).
+    weights : tuple of callables
+        Weight functions f(q) of the 1/sqrt(S) integrals; must accept an
+        array q.
+    nchi : int, optional
+        Number of panels of the composite rule.
+    chimax : float, optional
+        Upper integration limit in the anomaly (pi for the complete
+        oscillation, pi/2 for the v integral to the midplane, or
+        2 arcsin(sqrt([q - qmin]/D)) for an incomplete integral).
 
+    Returns
+    -------
+    tuple
+        (int sqrt(S) dq, [int f/sqrt(S) dq for f in weights])
 
-def _dJzdLzStaeckelIntegrand(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
-    out = _JzStaeckelIntegrandSquared(
-        v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
-    )
-    if out <= 0.0:
-        return 0.0
-    return 1.0 / numpy.sin(v) ** 2.0 / numpy.sqrt(out)
-
-
-def _dJzdI3StaeckelIntegrand(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
-    out = _JzStaeckelIntegrandSquared(
-        v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot
-    )
-    if out <= 0.0:
-        return 0.0
-    return 1.0 / numpy.sqrt(out)
-
-
-# t^2-substitution wrappers (integrand *= 2*t). The u integrals use a Low panel
-# u=umin+t^2 and a High panel u=umax-t^2; the v integrals use a Low panel
-# v=vmin+t^2 and a High panel v=pi/2-t^2. These take fixed_quad's vector t.
-def _uLowStaeckelIntegrand(t, func, umin, args):
-    t = numpy.atleast_1d(t)
-    return numpy.array([2.0 * tt * func(umin + tt * tt, *args) for tt in t])
-
-
-def _uHighStaeckelIntegrand(t, func, umax, args):
-    t = numpy.atleast_1d(t)
-    return numpy.array([2.0 * tt * func(umax - tt * tt, *args) for tt in t])
-
-
-def _vLowStaeckelIntegrand(t, func, vmin, args):
-    t = numpy.atleast_1d(t)
-    return numpy.array([2.0 * tt * func(vmin + tt * tt, *args) for tt in t])
-
-
-def _vHighStaeckelIntegrand(t, func, args):
-    t = numpy.atleast_1d(t)
-    return numpy.array([2.0 * tt * func(numpy.pi / 2.0 - tt * tt, *args) for tt in t])
+    Notes
+    -----
+    - 2026-08-21 - Written - Bovy (UofT)
+    """
+    chi = numpy.linspace(0.0, chimax, nchi + 1)
+    mid = 0.5 * (chi[:-1] + chi[1:])
+    half = 0.5 * (chi[1:] - chi[:-1])
+    nodes = (mid[:, None] + half[:, None] * _CHIQUAD_GLX[None, :]).ravel()
+    wts = (half[:, None] * _CHIQUAD_GLW[None, :]).ravel()
+    y = numpy.sin(nodes / 2.0) ** 2.0
+    y1my = y * (1.0 - y)
+    q = qmin + D * y
+    S = Ssq(q, *args)
+    with numpy.errstate(invalid="ignore"):
+        Q = S / y1my
+    # Near the turning points the direct evaluation of S is dominated by
+    # cancellation error; there, reconstruct S from the analytic derivative
+    # by the trapezoid between the turning point and the node,
+    # S ~ (q - q0) [S'(q0) + S'(q)]/2, whose O(y^2) model error is far below
+    # the switch threshold (a constant turning-point limit S' D would leave
+    # O(y) model error at the switch, which dominates coarse meshes)
+    edge = y1my <= 1e-6
+    if numpy.any(edge):
+        qe, ye = q[edge], y[edge]
+        dSe = dSsq(qe, *args)
+        Q[edge] = numpy.where(
+            ye < 0.5,
+            D * (dSsq(qmin, *args) + dSe) / 2.0 / (1.0 - ye),
+            D * (-dSsq(qmin + D, *args) - dSe) / 2.0 / ye,
+        )
+    Q[Q < numpy.finfo(float).tiny] = numpy.finfo(float).tiny
+    sqQ = numpy.sqrt(Q)
+    action = (D / 4.0) * numpy.sum(wts * sqQ * numpy.sin(nodes) ** 2.0)
+    return action, [D * numpy.sum(wts * f(q) / sqQ) for f in weights]
 
 
 def _uminUmaxFindStart(

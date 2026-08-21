@@ -14,6 +14,16 @@ v1.12.1 (expected around 2026-11-01)
   ~33% rather than 2x. Together these reduce the error to ~1e-9. Note that this
   changes the values returned for ``c=True``.
 
+- The pure-Python path of ``actionAngleStaeckel`` (``c=False`` with
+  ``fixed_quad=True``, and the frequency/angle calculations) now evaluates
+  all of its quadratures with a composite Gauss-Legendre rule in an anomaly
+  that absorbs the square-root behavior at the turning points, and solves
+  for the turning points at machine tolerance. The fixed-order rule
+  converged only as order^-3 against the turning-point branch points,
+  leaving systematic ~5e-4 relative action errors at the default order;
+  actions, frequencies, and angles at the default order are now converged
+  to ~1e-11 or better (the C path will be upgraded separately).
+
 - ``actionAngleVerticalInverse`` now supports physical units: it accepts
   ``ro`` and ``vo``, parses the energies of its tori and the actions and
   angles at which it is evaluated when these are given as Quantities, and
