@@ -97,3 +97,24 @@ def count_boundary_crossings(fn, backend):
     finally:
         _bi.coerce_coords = real
     return n[0]
+
+
+def no_torch_compile_deprecations():
+    """Suppress torch's own import-time DeprecationWarnings during a compile.
+
+    ``torch.compile`` lazily imports ``torch._inductor``, whose mkldnn module
+    warns on ``torch.jit.script_method`` at class-definition time. A per-test
+    ``filterwarnings`` mark cannot suppress it (a module-level
+    ``error::DeprecationWarning`` pytestmark is applied last and wins), so
+    filter it here, around the call itself.
+    """
+    import contextlib
+    import warnings
+
+    @contextlib.contextmanager
+    def _ctx():
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            yield
+
+    return _ctx()
