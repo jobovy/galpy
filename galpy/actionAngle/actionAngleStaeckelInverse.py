@@ -340,15 +340,28 @@ class actionAngleStaeckelInverse(actionAngleInverse):
         self._jz = actv / numpy.pi
         # period matrices: pi dJ_R = PEu[-1] dE - PIu[-1] dI3 - PLu[-1] dLz;
         #                  pi dJ_z = PEv[-1] dE + PIv[-1] dI3 - PLv[-1] dLz
-        M = numpy.zeros((self._ntori, 3, 3))
-        M[:, 0, 0] = PEu[:, -1] / numpy.pi
-        M[:, 0, 1] = -PIu[:, -1] / numpy.pi
-        M[:, 0, 2] = -PLu[:, -1] / numpy.pi
-        M[:, 1, 0] = PEv[:, -1] / numpy.pi
-        M[:, 1, 1] = PIv[:, -1] / numpy.pi
-        M[:, 1, 2] = -PLv[:, -1] / numpy.pi
-        M[:, 2, 2] = 1.0
-        self._dEI3Lz_dJ = numpy.linalg.inv(M)  # d(E,I3,Lz)/d(J_R,J_z,J_phi)
+        # Because J_phi = L_z identically, the third row of M is (0,0,1) and
+        # M is block-triangular: its inverse follows in closed form from the
+        # 2x2 (E,I3) block, with no general matrix inversion needed (the same
+        # 2x2 structure the forward actionAngleStaeckel uses for its
+        # frequencies)
+        a11 = PEu[:, -1] / numpy.pi
+        a12 = -PIu[:, -1] / numpy.pi
+        a13 = -PLu[:, -1] / numpy.pi
+        a21 = PEv[:, -1] / numpy.pi
+        a22 = PIv[:, -1] / numpy.pi
+        a23 = -PLv[:, -1] / numpy.pi
+        det = a11 * a22 - a12 * a21
+        self._dEI3Lz_dJ = numpy.zeros((self._ntori, 3, 3))
+        # d(E,I3)/d(J_R,J_z) from the inverse of the 2x2 block
+        self._dEI3Lz_dJ[:, 0, 0] = a22 / det
+        self._dEI3Lz_dJ[:, 0, 1] = -a12 / det
+        self._dEI3Lz_dJ[:, 1, 0] = -a21 / det
+        self._dEI3Lz_dJ[:, 1, 1] = a11 / det
+        # d(E,I3)/dJ_phi = -[2x2 inverse] . (dJ_R/dLz, dJ_z/dLz)
+        self._dEI3Lz_dJ[:, 0, 2] = -(a22 * a13 - a12 * a23) / det
+        self._dEI3Lz_dJ[:, 1, 2] = -(-a21 * a13 + a11 * a23) / det
+        self._dEI3Lz_dJ[:, 2, 2] = 1.0
         self._OmegaR = self._dEI3Lz_dJ[:, 0, 0]
         self._Omegaz = self._dEI3Lz_dJ[:, 0, 1]
         self._Omegaphi = self._dEI3Lz_dJ[:, 0, 2]
