@@ -1,6 +1,11 @@
 v1.12.1 (expected around 2026-11-01)
 ====================
 
+
+
+============
+
+<<<<<<< HEAD
 - The C implementation of ``actionAngleAdiabatic`` now evaluates the radial
   and vertical action integrals in a regularized variable. Both integrands
   vanish like a square root at the ends of their intervals (at ``zmax`` for
@@ -23,6 +28,21 @@ v1.12.1 (expected around 2026-11-01)
   leaving systematic ~5e-4 relative action errors at the default order;
   actions, frequencies, and angles at the default order are now converged
   to ~1e-11 or better (the C path will be upgraded separately).
+=======
+- The action quadratures of ``actionAngleStaeckel`` are regularized at the
+  turning points in both the C and the pure-Python path. The fixed-order
+  Gauss-Legendre rule was previously applied against the square-root branch
+  points at the turning points, converged only as order^-3, and left
+  systematic ~5e-4 relative action errors at the default order. The C path
+  now applies the same t^2 endpoint substitution that its derivative
+  routines already used (actions at the default order are converged to
+  ~1e-12; note that ``c=True`` action values change at the ~5e-4 level).
+  The pure-Python path (``c=False`` with ``fixed_quad=True``, and the
+  frequency/angle calculations) evaluates all of its quadratures with a
+  composite Gauss-Legendre rule in an anomaly that absorbs the square-root
+  behavior, and solves for the turning points at machine tolerance;
+  actions, frequencies, and angles at the default order are converged to
+  ~1e-11 or better.
 
 - ``actionAngleVerticalInverse`` now supports physical units: it accepts
   ``ro`` and ``vo``, parses the energies of its tori and the actions and

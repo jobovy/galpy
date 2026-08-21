@@ -2963,6 +2963,33 @@ def test_actionAngleStaeckel_chi_quadrature_convergence():
     return None
 
 
+def test_actionAngleStaeckel_actions_c_convergence():
+    # C path: the t^2-substituted action integrals are converged at the
+    # default order; the previous plain Gauss-Legendre rule against the
+    # sqrt branch points at the turning points erred systematically at
+    # ~4.6e-4 (J_R) / 1.4e-4 (J_z) and converged only as order^-3
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential2014
+
+    aAc = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)
+    for ic in (
+        (1.1, 0.05, 0.9, 0.15, 0.12, 0.3),
+        (0.7, -0.15, 1.05, 0.05, -0.2, 1.1),
+        (1.6, 0.2, 0.7, 0.3, 0.1, 2.5),
+    ):
+        lo = aAc(*ic, order=10)
+        hi = aAc(*ic, order=1280)
+        assert numpy.fabs(lo[0][0] - hi[0][0]) < 1e-10, (
+            "C actionAngleStaeckel J_R at the default order does not match a "
+            "very-high-order reference (diff %g)" % numpy.fabs(lo[0][0] - hi[0][0])
+        )
+        assert numpy.fabs(lo[2][0] - hi[2][0]) < 1e-10, (
+            "C actionAngleStaeckel J_z at the default order does not match a "
+            "very-high-order reference (diff %g)" % numpy.fabs(lo[2][0] - hi[2][0])
+        )
+    return None
+
+
 def test_actionAngleStaeckel_python_c_freqsAngles():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.potential import LogarithmicHaloPotential

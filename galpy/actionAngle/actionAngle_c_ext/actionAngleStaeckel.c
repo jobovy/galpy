@@ -46,6 +46,8 @@ struct JRStaeckelArg{
   double v0;
   double sin2v0;
   double potu0v0;
+  double umin;
+  double umax;
   int nargs;
   struct potentialArg * actionAngleArgs;
 };
@@ -58,6 +60,7 @@ struct JzStaeckelArg{
   double cosh2u0;
   double sinh2u0;
   double potupi2;
+  double vmin;
   int nargs;
   struct potentialArg * actionAngleArgs;
 };
@@ -152,8 +155,12 @@ void calcVmin(int,double *,double *,double *,double *,double *,double *,int,
 	      struct potentialArg *);
 double JRStaeckelIntegrandSquared(double,void *);
 double JRStaeckelIntegrand(double,void *);
+double JRLowStaeckelIntegrand(double,void *);
+double JRHighStaeckelIntegrand(double,void *);
 double JzStaeckelIntegrandSquared(double,void *);
 double JzStaeckelIntegrand(double,void *);
+double JzLowStaeckelIntegrand(double,void *);
+double JzHighStaeckelIntegrand(double,void *);
 double dJRdEStaeckelIntegrand(double,void *);
 double dJRdELowStaeckelIntegrand(double,void *);
 double dJRdEHighStaeckelIntegrand(double,void *);
@@ -542,6 +549,7 @@ void calcJRStaeckel(int ndata,
 		    struct potentialArg * actionAngleArgs,
 		    int order){
   int ii, tid, nthreads;
+  double mid;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
 #else
@@ -558,7 +566,7 @@ void calcJRStaeckel(int ndata,
   int delta_stride= ndelta == 1 ? 0 : 1;
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
-  private(tid,ii)							\
+  private(tid,ii,mid)							\
   shared(jr,umin,umax,JRInt,params,T,delta,E,Lz,I3U,u0,sinh2u0,v0,sin2v0,potu0v0)
   for (ii=0; ii < ndata; ii++){
 #ifdef _OPENMP
@@ -584,11 +592,16 @@ void calcJRStaeckel(int ndata,
     (params+tid)->v0= *(v0+ii);
     (params+tid)->sin2v0= *(sin2v0+ii);
     (params+tid)->potu0v0= *(potu0v0+ii);
-    (JRInt+tid)->function = &JRStaeckelIntegrand;
+    (params+tid)->umin= *(umin+ii);
+    (params+tid)->umax= *(umax+ii);
+    (JRInt+tid)->function = &JRLowStaeckelIntegrand;
     (JRInt+tid)->params = params+tid;
+    mid= sqrt( 0.5 * ( *(umax+ii) - *(umin+ii) ) );
     //Integrate
-    *(jr+ii)= gsl_integration_glfixed (JRInt+tid,*(umin+ii),*(umax+ii),T)
-      * sqrt(2.) * *(delta+ii*delta_stride) / M_PI;
+    *(jr+ii)= gsl_integration_glfixed (JRInt+tid,0.,mid,T);
+    (JRInt+tid)->function = &JRHighStaeckelIntegrand;
+    *(jr+ii)+= gsl_integration_glfixed (JRInt+tid,0.,mid,T);
+    *(jr+ii)*= sqrt(2.) * *(delta+ii*delta_stride) / M_PI;
   }
   free(JRInt);
   free(params);
@@ -610,6 +623,7 @@ void calcJzStaeckel(int ndata,
 		    struct potentialArg * actionAngleArgs,
 		    int order){
   int ii, tid, nthreads;
+  double mid;
 #ifdef _OPENMP
   nthreads = omp_get_max_threads();
 #else
@@ -626,7 +640,7 @@ void calcJzStaeckel(int ndata,
   int delta_stride= ndelta == 1 ? 0 : 1;
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk)				\
-  private(tid,ii)							\
+  private(tid,ii,mid)							\
   shared(jz,vmin,JzInt,params,T,delta,E,Lz,I3V,u0,cosh2u0,sinh2u0,potupi2)
   for (ii=0; ii < ndata; ii++){
 #ifdef _OPENMP
@@ -651,11 +665,15 @@ void calcJzStaeckel(int ndata,
     (params+tid)->cosh2u0= *(cosh2u0+ii);
     (params+tid)->sinh2u0= *(sinh2u0+ii);
     (params+tid)->potupi2= *(potupi2+ii);
-    (JzInt+tid)->function = &JzStaeckelIntegrand;
+    (params+tid)->vmin= *(vmin+ii);
+    (JzInt+tid)->function = &JzLowStaeckelIntegrand;
     (JzInt+tid)->params = params+tid;
+    mid= sqrt( 0.5 * ( M_PI/2. - *(vmin+ii) ) );
     //Integrate
-    *(jz+ii)= gsl_integration_glfixed (JzInt+tid,*(vmin+ii),M_PI/2.,T)
-      * 2 * sqrt(2.) * *(delta+ii*delta_stride) / M_PI;
+    *(jz+ii)= gsl_integration_glfixed (JzInt+tid,0.,mid,T);
+    (JzInt+tid)->function = &JzHighStaeckelIntegrand;
+    *(jz+ii)+= gsl_integration_glfixed (JzInt+tid,0.,mid,T);
+    *(jz+ii)*= 2 * sqrt(2.) * *(delta+ii*delta_stride) / M_PI;
   }
   free(JzInt);
   free(params);
@@ -1831,6 +1849,21 @@ double JRStaeckelIntegrandSquared(double u,
     - (params->sinh2u0+params->sin2v0)*params->potu0v0;
   return params->E * sinh2u - params->I3U - dU  - params->Lz22delta / sinh2u;
 }
+double JRLowStaeckelIntegrand(double t,
+			      void * p){
+  // t^2 substitution u = umin + t^2: the sqrt branch point of the action
+  // integrand at the turning point becomes an analytic zero (the plain
+  // Gauss-Legendre rule converged only as order^-3 against it)
+  struct JRStaeckelArg * params= (struct JRStaeckelArg *) p;
+  double u= params->umin + t * t;
+  return 2. * t * JRStaeckelIntegrand(u,p);
+}
+double JRHighStaeckelIntegrand(double t,
+			       void * p){
+  struct JRStaeckelArg * params= (struct JRStaeckelArg *) p;
+  double u= params->umax - t * t;
+  return 2. * t * JRStaeckelIntegrand(u,p);
+}
 double JRStaeckelIntegrandSquared4dJR(double u,
 				      void * p){
   struct dJRStaeckelArg * params= (struct dJRStaeckelArg *) p;
@@ -1857,6 +1890,21 @@ double JzStaeckelIntegrandSquared(double v,
     *evaluatePotentialsUV(params->u0,v,params->delta,
 			  params->nargs,params->actionAngleArgs);
   return params->E * sin2v + params->I3V + dV  - params->Lz22delta / sin2v;
+}
+double JzLowStaeckelIntegrand(double t,
+			      void * p){
+  // t^2 substitution v = vmin + t^2: regularizes the sqrt branch point at
+  // the turning point; the integral is split at the midpoint like the
+  // dJzd* routines (the midplane side has no singularity, but the split
+  // keeps the panels short and the rule converged at low order)
+  struct JzStaeckelArg * params= (struct JzStaeckelArg *) p;
+  double v= params->vmin + t * t;
+  return 2. * t * JzStaeckelIntegrand(v,p);
+}
+double JzHighStaeckelIntegrand(double t,
+			       void * p){
+  double v= M_PI/2. - t * t;
+  return 2. * t * JzStaeckelIntegrand(v,p);
 }
 double JzStaeckelIntegrandSquared4dJz(double v,
 				      void * p){
