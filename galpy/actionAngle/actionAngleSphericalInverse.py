@@ -111,7 +111,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
         pt_deg=7,
         pt_nra=301,
         exact_pt_spl_deg=5,
-        exact_pt_tol=1e-12,
         pt_only=False,
         maxiter=100,
         angle_tol=1e-12,
@@ -174,8 +173,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
         exact_pt_spl_deg : int, optional
             Degree of the spline representation of the exact point
             transformation.
-        exact_pt_tol : float, optional
-            Tolerance of the exact point-transformation ODE solution.
         pt_only : bool, optional
             If True, evaluate the inverse transformation using the exact
             point transformation alone, skipping the generating-function
@@ -377,7 +374,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             ):
                 self._pt_exact = True
                 self._exact_pt_spl_deg = exact_pt_spl_deg
-                self._exact_pt_tol = exact_pt_tol
                 self._pt_only = pt_only
             else:
                 if pt_only:
