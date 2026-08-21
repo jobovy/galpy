@@ -50,9 +50,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         Delta = conversion.parse_length(Delta, ro=self._ro)
         self._ac = ac
-        self._Delta = Delta
-        self._gamma = self._Delta**2 / (1.0 - self._ac**2)
-        self._alpha = self._gamma - self._Delta**2
+        self._delta = Delta
+        self._gamma = self._delta**2 / (1.0 - self._ac**2)
+        self._alpha = self._gamma - self._delta**2
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -62,27 +62,27 @@ class KuzminKutuzovStaeckelPotential(Potential):
         self.hasC_dxdv3d = True  # full 3D Hessian (R2deriv/z2deriv/Rzderiv) in C
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._delta)
         return -1.0 / (numpy.sqrt(l) + numpy.sqrt(n))
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
-        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._delta)
         dldR = jac[0, 0]
         dndR = jac[1, 0]
         return -(dldR * self._lderiv(l, n) + dndR * self._nderiv(l, n))
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
-        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._delta)
         dldz = jac[0, 1]
         dndz = jac[1, 1]
         return -(dldz * self._lderiv(l, n) + dndz * self._nderiv(l, n))
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
-        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
-        hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._delta)
+        hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._delta)
         dldR = jac[0, 0]
         dndR = jac[1, 0]
         d2ldR2 = hess[0, 0, 0]
@@ -96,9 +96,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
-        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
-        hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._delta)
+        hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._delta)
         dldz = jac[0, 1]
         dndz = jac[1, 1]
         d2ldz2 = hess[0, 1, 1]
@@ -112,9 +112,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
-        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
-        hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._delta)
+        hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._delta)
         dldR = jac[0, 0]
         dndR = jac[1, 0]
         dldz = jac[0, 1]
