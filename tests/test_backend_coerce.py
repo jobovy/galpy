@@ -13,7 +13,13 @@ import numpy
 import pytest
 
 from galpy import backend
-from galpy.backend import is_backend_array, promote_scalars
+from galpy.backend import (
+    as_backend_constant,
+    as_numpy,
+    is_backend_array,
+    promote_scalars,
+)
+from galpy.backend._namespaces import default_device
 
 # This module manages backends explicitly, so it is exempt from the global force.
 pytestmark = pytest.mark.backend_managed
@@ -86,3 +92,62 @@ def test_coords_transform_all_numpy_under_forced_backend(backend_name):
         for g, r in zip(got, ref):
             assert is_backend_array(g)
             numpy.testing.assert_allclose(float(g), float(r), rtol=1e-12, atol=1e-14)
+
+
+# --- as_backend_constant: do not name the default device (galpy #1300) --------
+# Asking asarray for an explicit device COMMITS the placement instead of letting
+# the backend choose, measured in default_device's docstring at 397.6 us vs
+# 134.6 us on jax CPU. coerce_coords already skips the keyword when the anchor
+# IS the default device; as_backend_constant did not, so every stored constant
+# (144 call sites: streamdf, streamgapdf, sphericaldf, NonInertialFrameForce,
+# RotateAndTilt, ...) paid it on every evaluation.
+
+
+def test_as_backend_constant_numpy_is_object_identical_passthrough():
+    # numpy backend: the stored constant is returned untouched (byte-identical).
+    value = numpy.array([[1.0, 2.0], [3.0, 4.0]])
+    out = as_backend_constant(numpy, value, numpy.array(1.0))
+    assert out is value
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_as_backend_constant_does_not_name_the_default_device(backend_name):
+    # The fix: for a ref sitting on the backend's DEFAULT device, asarray must be
+    # called without a device= keyword. Asserted by spying on the namespace's
+    # asarray, so the test fails if the guard is removed.
+    value = numpy.array([[1.0, 2.0], [3.0, 4.0]])
+    seen = []
+    with backend.use(backend_name, force=True) as xp:
+        ref = xp.asarray(1.0)
+        assert getattr(ref, "device", None) == default_device(xp), (
+            f"{backend_name}: ref is not on the default device, test is vacuous"
+        )
+        real = xp.asarray
+
+        def spy(*args, **kwargs):
+            seen.append(kwargs.get("device", "ABSENT"))
+            return real(*args, **kwargs)
+
+        try:
+            xp.asarray = spy
+            as_backend_constant(xp, value, ref)
+        finally:
+            xp.asarray = real
+    assert seen, f"{backend_name}: as_backend_constant did not call asarray"
+    assert all(d in ("ABSENT", None) for d in seen), (
+        f"{backend_name}: default device was named explicitly: {seen}"
+    )
+
+
+@pytest.mark.parametrize("backend_name", AD_BACKENDS)
+def test_as_backend_constant_preserves_values_dtype_and_device(backend_name):
+    # Skipping the device keyword must not move the array or perturb a bit: the
+    # constant is compared EXACTLY (no tolerance) against the stored numpy value.
+    value = numpy.array([[1.0, -2.5], [3.25, 4.0e-17]])
+    with backend.use(backend_name, force=True) as xp:
+        ref = xp.asarray(numpy.float64(1.0))
+        out = as_backend_constant(xp, value, ref)
+        assert is_backend_array(out)
+        assert out.dtype == ref.dtype
+        assert getattr(out, "device", None) == getattr(ref, "device", None)
+        assert numpy.array_equal(as_numpy(out), value)
