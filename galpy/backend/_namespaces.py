@@ -371,6 +371,21 @@ def _backend_dtype(xp, dtype):
     return getattr(xp, name, dtype)
 
 
+def effective_device(xp, device):
+    """``device``, or None when it is the backend's DEFAULT device.
+
+    Naming the default device COMMITS the placement instead of letting the
+    backend choose, which costs ~3x (see default_device). Every caller that
+    hands a device to ``asarray`` wants this, so the policy lives here once:
+    when it was open-coded per call site, ``as_backend_constant`` was simply
+    missed and paid the cost on all 144 of its call sites (galpy #1300 was the
+    same bug in ``coerce_coords``).
+    """
+    if device is not None and device == default_device(xp):
+        return None
+    return device
+
+
 def asarray_on_device(xp, a, device, dtype=None):
     """``xp.asarray(a, dtype=dtype)`` placed on ``device`` when one is given.
 
