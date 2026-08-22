@@ -219,3 +219,95 @@ def test_param_grad_vs_fd(backend_name, var):
     numpy.testing.assert_allclose(
         ad, fd, rtol=1e-5, err_msg=f"d(rforce)/d{var} ({backend_name})"
     )
+
+
+###############################################################################
+# from_nfw(mass=...): the truncation radius is the root of
+# amp * F(a/rc) = mass, so d(rc)/d(mass) exists and is what a fit of a truncated
+# NFW to an observed total mass needs. The solve now runs through galpy's own
+# backend brentq (implicit function theorem) instead of scipy.optimize.brentq,
+# so that derivative flows on jax/torch; the numpy path still routes to scipy.
+###############################################################################
+
+
+def _rc_from_mass(mass):
+    from galpy.potential import NFWPotential
+
+    nfw = NFWPotential(amp=1.0, a=2.0)
+    return ExpTruncNFWPotential.from_nfw(nfw, mass=mass).rc
+
+
+def test_from_nfw_mass_solve_satisfies_its_own_equation():
+    """numpy path: the returned rc really is the root, to machine precision.
+
+    Pins the SOLVE rather than a hard-coded rc, so the test still means something
+    if the profile is ever reparametrized.
+    """
+    from scipy.special import exp1 as _exp1
+
+    from galpy.potential import NFWPotential
+
+    nfw = NFWPotential(amp=1.0, a=2.0)
+    mass = 3.0
+    rc = _rc_from_mass(mass)
+    assert isinstance(rc, float), "numpy path must stay on scipy and return a float"
+    al = nfw.a / rc
+    resid = nfw._amp * (numpy.exp(al) * (1.0 + al) * _exp1(al) - 1.0) - mass
+    assert abs(resid) < 1e-12 * mass, f"rc is not the root: residual {resid!r}"
+
+
+@pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
+def test_from_nfw_forward_value_matches_numpy(backend_name):
+    """The solved rc is backend-independent to ~machine precision."""
+    ref = _rc_from_mass(3.0)
+    xp_mass = jnp.asarray(3.0) if backend_name == "jax" else torch.tensor(3.0)
+    got = float(as_numpy(_rc_from_mass(xp_mass)))
+    assert abs(got - ref) < 1e-10 * ref, f"{backend_name}: {got!r} vs numpy {ref!r}"
+
+
+@pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
+def test_from_nfw_mass_gradient_vs_finite_difference(backend_name):
+    """d(rc)/d(mass) from the implicit function theorem vs a central difference.
+
+    The FD reference is computed on the NUMPY path, so this compares the backend
+    derivative against an independent evaluation of the same function -- not
+    against itself. Tolerance is 1e-8 relative; the implicit-diff value agrees
+    with the FD to ~8e-12 in practice, and a wrong/absent derivative would be off
+    by order unity, so this is a real check rather than a finite-and-nonzero one.
+    """
+    m0, h = 3.0, 1e-5
+    fd = (_rc_from_mass(m0 + h) - _rc_from_mass(m0 - h)) / (2.0 * h)
+    if backend_name == "jax":
+        got = float(jax.grad(_rc_from_mass)(jnp.asarray(m0)))
+    else:
+        mt = torch.tensor(m0, requires_grad=True)
+        _rc_from_mass(mt).backward()
+        got = float(mt.grad)
+    assert abs(got - fd) < 1e-8 * abs(fd), (
+        f"{backend_name}: d(rc)/d(mass)={got!r} vs finite difference {fd!r} "
+        f"(rel err {abs(got - fd) / abs(fd):.3e})"
+    )
+
+
+@pytest.mark.parametrize("backend_name", [b for b in BACKENDS if b != "numpy"])
+def test_from_nfw_under_forced_backend_with_plain_float_mass(backend_name):
+    """Regression: xp must follow the DATA, not the ambient forced default.
+
+    Under ``use(backend, force=True)`` with a plain-float ``mass``,
+    ``get_namespace`` reports the forced backend while ``brentq`` -- which
+    dispatches on the data -- correctly routes to scipy and hands the residual
+    Python floats. Deriving ``xp`` from the ambient namespace therefore produced
+    ``torch.exp(float) -> TypeError`` (caught by CI on the force-managed
+    test_potential / test_quantity shards, which this module's
+    ``backend_managed`` mark exempts it from).
+    """
+    from galpy import backend as _backend
+    from galpy.potential import NFWPotential
+
+    nfw = NFWPotential(amp=1.0, a=2.0)
+    ref = ExpTruncNFWPotential.from_nfw(nfw, mass=3.0).rc
+    with _backend.use(backend_name, force=True):
+        rc = ExpTruncNFWPotential.from_nfw(nfw, mass=3.0).rc
+    assert abs(float(as_numpy(rc)) - ref) < 1e-10 * ref, (
+        f"{backend_name} forced: rc={rc!r} vs unforced numpy {ref!r}"
+    )
