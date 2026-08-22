@@ -236,7 +236,7 @@ jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc
 # yet vectorized for jax (Track F), so defer the whole file under jax until then.
 # (The 17 jax test_streamdf entries still in backend_xfail.txt are now redundant
 # -- skip wins -- and drop at the next ledger regen, which skips these.)
-jax tests/test_streamdf.py
+jax tests/test_streamdf.py  # 2026-08-21: DEADLOCKS, does not merely run slow -- see note below
 # Backend-aware StreamTrack class (PR #1100): under forced jax a fresh
 # spdf.streamTrack() now integrates + fits the whole stream on jax (real XLA)
 # instead of the pre-#1100 numpy-coerced track -- the per-track eager dispatch
@@ -244,7 +244,8 @@ jax tests/test_streamdf.py
 # timed out next run). Defer the whole file under jax (the numpy StreamTrack path
 # is covered by the numpy suite, the backend track/class by
 # test_backend_streamTrack.py). Un-skip when the pipeline is jit-vectorized.
-jax tests/test_streamTrack.py
+jax tests/test_streamTrack.py::test_streamTrack_plot_spread_non_cartesian  # measured 2026-08-21: 408.0s (CI~290s)
+jax tests/test_streamTrack.py::test_streamTrack_with_progpot  # measured 2026-08-21: 331.7s (CI~236s)
 # jax-eager Staeckel Python-path freqs+angles is borderline >300s in the shard
 # (it passes in isolation and ran <300s in the regen, so it's a DROP from the
 # xfail-ledger, not a failure); skip it under jax to dodge the flaky pytest-timeout
@@ -396,4 +397,32 @@ torch-jit tests/test_orbit.py::test_liouville_planar
 # them stale. Two entries pass under the 300 s cap but by only 12% and 32%; they
 # stay deferred deliberately, because an un-deferred test that flakes in CI costs
 # far more than the ledger line it saves.
+#
+#
+# SPLIT A WHOLE-FILE DEFER (2026-08-21). `jax tests/test_streamTrack.py` deferred
+# all 45 tests because 2 are slow. Measured serially (whole file, C extension
+# active, junitxml durations): **45 passed in 1196 s**, and only two exceed the
+# 300 s per-test cap:
+#
+#     test_streamTrack_plot_spread_non_cartesian   408.0s  CI~290s
+#     test_streamTrack_with_progpot                331.7s  CI~236s
+#     the other 43                                <=38.8s  CI<=27.6s
+#
+# Those two are exactly the pair already ledgered under jax-jit (452 s and 314 s
+# traced), which is independent confirmation rather than a coincidence. They stay
+# deferred: 290 s and 236 s are under the cap but not by enough to be safe.
+#
+# NOTE THE COUNT GOES UP: one file entry becomes two test entries, 68 -> 69. The
+# entry count is the wrong metric here -- this puts **43 previously-skipped tests
+# back into the jax CI matrix**. Trading a worse headline number for real coverage
+# is the right way round.
+#
+# AND `jax tests/test_streamdf.py` IS MISCLASSIFIED. It does not run slow, it
+# DEADLOCKS: streamdf uses parallel_map, which forks, and jax's fork deadlock is a
+# known, deliberately-unfixed issue. Two independent runs hung -- one with xdist
+# -n 8 (7186 s) and one strictly serial (>4 h) -- both at load ~0.05, i.e. blocked
+# with idle CPU rather than computing. It is kept deferred here (correct outcome)
+# but the reason is a HANG, not performance, so no amount of vectorisation will
+# retire it; fixing the jax fork path would. Left as a whole-file entry precisely
+# because a deadlock cannot be attributed to individual tests.
 #
