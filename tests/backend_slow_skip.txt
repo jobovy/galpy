@@ -207,11 +207,8 @@ jax tests/test_orbit.py::test_integrate_indiv_t_python_paths  # >420s (measured 
 # funcomega); all func/vec-omega tests that are torch-xfail-ledgered but had no jax
 # entry are slow-skipped together here to stop the recurring per-PR flake.
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz
-jax tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz
 jax tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz
-jax tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega
 jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot
-jax tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential
 # Re-homed from backend_xfail.txt 2026-08-05: same class as the block above, and
 # the two slowest members of it. Timed under `--backend jax --runxfail` (nothing
 # masked), whole -k arbitraryaxisrotation family:
@@ -296,15 +293,33 @@ torch tests/test_dynamfric.py::test_dynamfric_c  # measured 2026-08-21: >700s TI
 # was never eager-ledgered at all -- tracing made it SLOWER -- which inheritance
 # could not have surfaced.
 jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation  # 616s traced
+#
+# RE-MEASURED 2026-08-22 as CONTROLLED A/Bs, after the as_backend_constant
+# default-device guard (gh#1364). Whole file, serial, C extension active; the
+# BASE arm is develop without the guard, everything else identical. BASE
+# reproduces this ledger's own historical numbers to 0.85-1.02, so the arms are
+# comparable. CI estimated at the measured CI/local factor 0.71; entries are
+# kept unless they clear the 240 s CI margin.
+#
+#   jax --jit          BASE   FIXED     x     CI~
+#     test_arbitraryaxisrotation          525.6  490.7  1.07  348.4   stays
+#     ..._omegafunc                       523.9  400.5  1.31  284.4   stays
+#     ..._accellsrframe_funcomegaz        502.6  351.9  1.43  249.9   stays
+#     ..._omegadot                        387.3  352.3  1.10  250.1   stays
+#     test_python_vs_c_..._vecomegaz      486.7  297.5  1.64  211.2   un-deferred
+#     ..._accellsrframe_scalarfuncomegaz  399.1  307.1  1.30  218.0   un-deferred
+#     ..._omegafunc_nullpotential         372.8  247.2  1.51  175.5   un-deferred
+#     test_python_vs_c_...funcomega       383.1  243.3  1.57  172.8   un-deferred
+#     test_python_vs_c_..._scalarfunc     340.1  235.3  1.45  167.0   un-deferred
+#
+# The speedup is HETEROGENEOUS (1.07x-1.64x): the two slowest tests barely move,
+# so they stay deferred on their own merits, not on an averaged figure.
+# jax eager (same treatment): 8 -> 5, un-deferring the three at CI~213.7 /
+# 199.1 / 176.7 s.
 jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc  # 573s
 jax-jit tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_funcomegaz  # 529s
-jax-jit tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz  # 477s
 jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegadot  # 454s
-jax-jit tests/test_noninertial.py::test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz  # 437s
-jax-jit tests/test_noninertial.py::test_arbitraryaxisrotation_omegafunc_nullpotential  # 386s
-jax-jit tests/test_noninertial.py::test_python_vs_c_arbitraryaxisrotation_funcomega  # 381s
 # NOT in the eager jax list: fast eager, 354 s traced. Tracing made it slower.
-jax-jit tests/test_noninertial.py::test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz  # 354s
 # tests/test_streamTrack.py, whole file, serial: 45 cases -> 45 PASSED,
 # total 1215 s, median 8.7 s, 2 over the 240 s margin. The eager `jax` entry is
 # the WHOLE FILE (per-track eager XLA dispatch blows the shard); traced, 43 of
